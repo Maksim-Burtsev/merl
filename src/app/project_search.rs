@@ -135,7 +135,6 @@ impl App {
         self.jump_to_item(&item);
     }
 
-    /// Returns whether the screen changed.
     pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
         let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
             return false;

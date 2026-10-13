@@ -155,7 +155,7 @@ impl Buffer {
     pub(crate) fn start_tree_sitter(&mut self) {
         self.ts = self
             .syntax
-            .and_then(|s| treesitter::for_syntax(&s.name, self.path.as_deref()))
+            .and_then(|s| treesitter::for_syntax(&s.name, self.path.as_deref(), &self.lines))
             .and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
         self.clear_hl();
     }
@@ -542,7 +542,6 @@ mod tests {
         for name in crate::theme::names() {
             let theme = crate::theme::load(name).unwrap();
             let mut b = Buffer::from_bytes(PathBuf::from("init.lua"), src.as_bytes());
-            // bat's set owns `.lua` by name; no mapping of our own.
             assert_eq!(b.syntax.map(|s| s.name.as_str()), Some("Lua"), "{name}");
             b.highlight_to(3, &theme);
             let colours: std::collections::HashSet<_> =
@@ -582,7 +581,6 @@ mod tests {
             for name in crate::theme::names() {
                 let theme = crate::theme::load(name).unwrap();
                 let mut b = Buffer::from_bytes(PathBuf::from(file), src.as_bytes());
-                // bat's set owns `.ex` and `.exs` by name; no mapping of our own.
                 assert_eq!(
                     b.syntax.map(|s| s.name.as_str()),
                     Some("Elixir"),
@@ -620,8 +618,6 @@ mod tests {
     fn zig_highlights_with_every_shipped_theme() {
         let src =
             "// doc\nconst std = @import(\"std\");\n\npub fn main() !void {\n    _ = std;\n}\n";
-        // bat's Zig grammar owns `.zon` as well, so a build manifest is painted even though it
-        // is no kind of its own.
         for file in ["ledger.zig", "build.zig.zon"] {
             for name in crate::theme::names() {
                 let theme = crate::theme::load(name).unwrap();
@@ -650,9 +646,7 @@ mod tests {
             ("ledger.hpp", "C++"),
             ("ledger.hh", "C++"),
             ("ledger.hxx", "C++"),
-            // Mapped by name above: bat's set gives `.h` to Objective-C.
             ("invoice.h", "C++"),
-            // bat's own grammars (#417).
             ("Invoice.m", "Objective-C"),
             ("Invoice.mm", "Objective-C++"),
         ] {
@@ -919,7 +913,6 @@ mod tests {
 
     #[test]
     fn components_highlight_with_every_shipped_theme() {
-        // bat's own grammars for Vue and Svelte; Astro maps to TSX (#413).
         for (file, lang, src) in [
             (
                 "A.vue",
@@ -1019,7 +1012,6 @@ mod tests {
 
     #[test]
     fn csharp_highlights_with_every_shipped_theme() {
-        // bat's set owns both extensions by name; neither needs a mapping.
         let src = "// doc\npublic sealed class Invoice\n{\n    private const int Limit = 10;\n}\n";
         for file in ["Invoice.cs", "build.csx"] {
             for name in crate::theme::names() {
@@ -1083,7 +1075,6 @@ mod tests {
             "merl.gemspec",
             "tasks.rake",
             "Vagrantfile",
-            // Mapped by name above: bat's set does not know these two.
             "invoice.rbi",
             "Dangerfile",
         ] {
@@ -1106,7 +1097,6 @@ mod tests {
     #[test]
     fn shell_highlights_with_every_shipped_theme() {
         let src = "#!/usr/bin/env bash\n# doc\nbuild() { echo \"$ROOT\"; }\n";
-        // bat's own name and shebang patterns cover all of these; none needs a mapping.
         for file in [
             "a.sh", "b.bash", "c.zsh", "d.ksh", ".bashrc", ".zshrc", ".profile", "install",
         ] {
@@ -1143,7 +1133,6 @@ mod tests {
     #[test]
     fn powershell_highlights_with_every_shipped_theme() {
         let src = "# doc\nfunction Get-ShopUser {\n    param([string]$Id)\n    \"user $Id\"\n}\n";
-        // bat's PowerShell syntax covers each of these extensions (#420).
         for file in ["a.ps1", "b.psm1", "c.psd1"] {
             for name in crate::theme::names() {
                 let theme = crate::theme::load(name).unwrap();
@@ -1426,8 +1415,6 @@ mod tests {
     #[test]
     fn a_line_longer_than_shown_is_not_parsed_and_the_lines_below_keep_their_colours() {
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-        // A minified bundle: one line of `a(b);` past what `shown` draws, between two lines
-        // whose colours the parse state decides.
         let long = "a(b);".repeat(MAX_SHOWN_BYTES);
         let mut b = Buffer::from_bytes(
             PathBuf::from("app.min.js"),
@@ -1492,7 +1479,6 @@ mod tests {
             ("BUILD", "Python"),
             ("BUCK", "Python"),
             ("rules.star", "Python"),
-            // Already in bat's set; listed so a two-face upgrade cannot drop them silently.
             ("docker-compose.yml", "YAML"),
             ("Makefile", "Makefile"),
             ("common.mk", "Makefile"),

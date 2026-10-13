@@ -247,8 +247,7 @@ impl Inline {
         }
     }
 
-    /// The source byte text byte `i` came from, as near as the piece holding it says.
-    fn src_at(&self, i: usize) -> usize {
+    fn src_byte_of_text_byte(&self, i: usize) -> usize {
         let k = (self.pieces.partition_point(|p| p.text_at <= i)).saturating_sub(1);
         self.pieces
             .get(k)
@@ -862,9 +861,11 @@ impl Lay<'_> {
                     continue;
                 }
                 let (text, looks) = cut(&inline.text, &inline.looks, r.clone());
-                let at = self.line_and_byte_col(inline.src_at(r.start));
+                let at = self.line_and_byte_col(inline.src_byte_of_text_byte(r.start));
                 let last = self
-                    .line_and_byte_col(inline.src_at(r.end.saturating_sub(1).max(r.start)))
+                    .line_and_byte_col(
+                        inline.src_byte_of_text_byte(r.end.saturating_sub(1).max(r.start)),
+                    )
                     .0;
                 self.push(text, looks, at, Kind::Text);
                 if let Some(row) = self.rows.last_mut() {

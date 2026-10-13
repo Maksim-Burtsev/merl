@@ -21,7 +21,6 @@ fn tree_focus_keys_do_not_move_the_code_cursor() {
     assert_eq!(a.focus, Focus::Code);
 }
 
-/// A project on disk, `src/a.py` and `README.md`, walked as `main` walks it; `src/a.py` open.
 fn new_file_project(name: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-new-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -206,7 +205,6 @@ fn ctrl_n_in_a_folder_merl_may_not_write_says_why_in_a_few_words() {
     press(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
     typed(&mut a, "locked/new.txt");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    // As root every folder is writable, and there is nothing to assert.
     if !locked.join("new.txt").exists() {
         assert_eq!(
             a.message, "locked/new.txt: permission denied",

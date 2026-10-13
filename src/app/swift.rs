@@ -20,7 +20,6 @@ impl App {
         if constrained {
             return None;
         }
-        // A cut in a grep whose result is dropped says nothing about the list shown in the end.
         let cut = self.truncated.get();
         let hits = self.project_definitions(Kind::Swift, here, word, pattern);
         let mut ty = own.clone();

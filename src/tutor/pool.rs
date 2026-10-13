@@ -1,27 +1,16 @@
-//! The task pool the tutor and the drill share: one task per action of `KEYS`.
-
 use super::{Task, at, edited_since_unpacked, selected_on_one_line};
 use crate::app::{App, Focus, Mode, PickerKind};
 
-/// 1-based lines of the sample project the tasks start on or land on.
-/// `store.py`: `self.config = config or load_config()`, inside `NoteStore.__init__`.
 const CALL_LINE: usize = 13;
-/// `store.py`: `class NoteStore`.
 const CLASS_LINE: usize = 9;
-/// `store.py`: the import of `load_config`, the first match of a find for it.
 const IMPORT_LINE: usize = 5;
-/// `store.py`: `def remove`, the blank lines around it, and its last line.
 const REMOVE_LINE: usize = 39;
 const REMOVE_END: usize = 46;
 const PARA_UP_LINE: usize = 38;
 const PARA_DOWN_LINE: usize = 47;
-/// `config.py`: `def load_config`.
 const LOAD_CONFIG_DEF: usize = 18;
-/// `models.py`: the only TODO of the project.
 const TODO_LINE: usize = 30;
-/// `cli.py`: its import of `load_config`, the first use the usages list after the declaration.
 const CLI_IMPORT_LINE: usize = 6;
-/// `notes.json`: its last line; the file is long enough for a page on a tall terminal.
 const NOTES_END: usize = 297;
 
 const TEST_FILE: &str = "tests/test_store.py";
@@ -775,11 +764,11 @@ pub const POOL: &[Task] = &[
         keys: "D",
         answer: "<PgDn>",
         done: |a| {
-            // A page is the list's own height on screen, or its last row when it is shorter.
             a.picker.as_ref().is_some_and(|p| {
                 let last = (p.counts().0 as usize).saturating_sub(1);
+                let a_page_or_the_last_row = p.page().min(last);
                 picker_row(a, PickerKind::Symbols)
-                    .is_some_and(|row| row > 0 && row >= p.page().min(last))
+                    .is_some_and(|row| row > 0 && row >= a_page_or_the_last_row)
             })
         },
     },
@@ -804,3 +793,50 @@ pub const POOL: &[Task] = &[
         done: |a| a.mode == Mode::Help && a.help_top > 0,
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tutor::SAMPLE_FILES;
+
+    fn line(file: &str, n: usize) -> &'static str {
+        let (_, text) = SAMPLE_FILES.iter().find(|(f, _)| *f == file).unwrap();
+        text.lines().nth(n - 1).unwrap_or_default()
+    }
+
+    #[test]
+    fn the_sample_lines_the_tasks_name_hold_what_they_are_named_after() {
+        for (file, n, want) in [
+            (
+                "store.py",
+                CALL_LINE,
+                "self.config = config or load_config()",
+            ),
+            ("store.py", CLASS_LINE, "class NoteStore:"),
+            (
+                "store.py",
+                IMPORT_LINE,
+                "from config import Config, load_config",
+            ),
+            ("store.py", REMOVE_LINE, "def remove("),
+            ("store.py", REMOVE_END, "return True"),
+            ("config.py", LOAD_CONFIG_DEF, "def load_config("),
+            ("models.py", TODO_LINE, "# TODO:"),
+            ("cli.py", CLI_IMPORT_LINE, "from config import load_config"),
+        ] {
+            assert!(
+                line(file, n).contains(want),
+                "{file}:{n} is {:?}",
+                line(file, n)
+            );
+        }
+        for (n, want) in [(PARA_UP_LINE, ""), (PARA_DOWN_LINE, "")] {
+            assert_eq!(line("store.py", n).trim(), want, "store.py:{n}");
+        }
+        let (_, notes) = SAMPLE_FILES
+            .iter()
+            .find(|(f, _)| *f == "notes.json")
+            .unwrap();
+        assert_eq!(notes.lines().count(), NOTES_END);
+    }
+}

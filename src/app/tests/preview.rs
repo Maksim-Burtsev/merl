@@ -3,9 +3,6 @@ use ratatui::backend::TestBackend;
 
 use super::*;
 
-/// Rows at 40 columns, by index: 0 `Plan`, 1 its rule, 2 `Intro line.`, 3 blank, 4 `Steps`, 5
-/// its rule, 6 `1. one`, 7 `2. two`, 8 blank, 9–13 the table (12 its one row), 14 blank, 15 the
-/// code, 16 blank, 17 `End.`.
 const PLAN: &str = "# Plan\n\nIntro line.\n\n## Steps\n\n1. one\n2. two\n\n| a | b |\n|---|---|\n\
                     | 1 | 2 |\n\n```py\nx = 1\n```\n\nEnd.\n";
 
@@ -33,6 +30,39 @@ fn key(a: &mut App, code: KeyCode) {
 fn at_row(a: &App) -> (usize, usize, String) {
     let p = a.preview.as_ref().expect("a preview");
     (p.row, p.top, p.doc.rows[p.row].text.clone())
+}
+
+#[test]
+fn plan_lays_out_at_40_columns_in_the_rows_its_tests_count() {
+    let (dir, mut a) = md_app("plan-rows", PLAN);
+    key(&mut a, KeyCode::Char('p'));
+    let p = a.preview.as_ref().expect("a preview");
+    let rows: Vec<&str> = p.doc.rows.iter().map(|r| r.text.as_str()).collect();
+    let (h1, h2) = ("\u{2501}".repeat(40), "\u{2500}".repeat(40));
+    assert_eq!(
+        rows,
+        [
+            "Plan",
+            &h1,
+            "Intro line.",
+            "",
+            "Steps",
+            &h2,
+            "1. one",
+            "2. two",
+            "",
+            "\u{250c}\u{2500}\u{2500}\u{2500}\u{252c}\u{2500}\u{2500}\u{2500}\u{2510}",
+            "\u{2502} a \u{2502} b \u{2502}",
+            "\u{251c}\u{2500}\u{2500}\u{2500}\u{253c}\u{2500}\u{2500}\u{2500}\u{2524}",
+            "\u{2502} 1 \u{2502} 2 \u{2502}",
+            "\u{2514}\u{2500}\u{2500}\u{2500}\u{2534}\u{2500}\u{2500}\u{2500}\u{2518}",
+            "",
+            " x = 1",
+            "",
+            "End.",
+        ]
+    );
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -209,8 +239,6 @@ fn the_preview_belongs_to_the_file_p_was_pressed_on() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A branch that changes `doc.md` from `base` to `branch` and leaves `notes.md` as it was, under
-/// review with `doc.md` open. `notes.md` is `NOTES` and sixty more lines.
 fn md_review(tag: &str, base: &str, branch: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-md-review-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -553,8 +581,9 @@ fn only_the_keys_the_preview_names_act_in_it() {
         ]);
     for code in codes {
         for m in [KeyModifiers::NONE, KeyModifiers::CONTROL] {
-            // What leaves merl or the preview, and what says so, is not this test's.
-            if matches!(code, KeyCode::Char('q' | 'p')) && m.is_empty() {
+            let leaves_merl_or_the_preview =
+                matches!(code, KeyCode::Char('q' | 'p')) && m.is_empty();
+            if leaves_merl_or_the_preview {
                 continue;
             }
             (a.mode, a.picker) = (Mode::Normal, None);
@@ -858,7 +887,6 @@ fn a_file_of_the_review_opens_on_its_source() {
 
 #[test]
 fn p_past_the_last_line_of_a_file_the_list_lags_returns() {
-    // A merl that hangs cannot be stopped from here: the App lives on a thread of its own.
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let (dir, mut a) = md_review("lags", "# Doc\n\nOld.\n", "# Doc\n\nNew.\n");

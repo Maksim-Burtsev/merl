@@ -1,0 +1,4 @@
+# tokyonight-moon: folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6 `colorscheme tokyonight-moon`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=65bcff b=c8d3f5 c=4fd6be d=828bb8 e=c3e88d f=89ddff g=82aaff h=86e1fci i=ff966c j=fca7eai k=c099ff l=b4f9f8 m=ff757f
+queries/highlights.scm	1:h18 2:h8 4:db10dfa8 6:d2b10dfa8 7:dfg5f2a8efdifid2ifi3fidf2ed2 9:d2b10dfa16 10:dfg6f2a16e19d2 12:d2b7dfa21 13:dfg9f2a21efldid2id2fidmfdidlfed2 15:db15 16:c8fdb17 17:c6fdb10dfa4 18:c8fdb19dfa16d 19:dfg2f2a4e9d 20:dfg3fc8i3d2 22:db20 23:c4fdb10dfa8 24:fc15 25:c4fdadfa5d 27:d 28:e4 29:e6 30:e8 31:dfa7 33:db9 34:f 35:db6dfa14 36:fd 38:db4 39:c3fdadf2a8 40:c5fdb6df2a6 41:db7df2a7d 43:db5dfa5 44:dj7b10dfa5 46:d2b15dfa17 47:dfg6f2a17i5d 48:dfg4f2a17ek2le3d2 50:ek2efa21
+queries/injections.scm	1:h14 3:d2b7dfa17 4:dfg3fc18e9d2 6:d2b15dfa17 7:dfg3fc18e6d 8:dfg3fc26d2 10:db15 11:c8fdb10dfa5 12:dfg2f2a5e5d 13:c9fdb15dfa17 14:dfg3fc18e5d2
