@@ -711,30 +711,91 @@ fn found(
     bytes: &[u8],
     clip: usize,
 ) -> Found {
-    let mut cursor = QueryCursor::new();
-    cursor.set_byte_range(range);
+    let rootless =
+        (0..patterns.query.pattern_count()).any(|p| !patterns.query.is_pattern_rooted(p));
+    let roots = cursor_roots(tree.root_node(), &range, rootless);
+    found_in(patterns, roots, range, bytes, clip)
+}
+
+fn found_in(
+    patterns: &Patterns,
+    roots: Vec<(tree_sitter::Node, Option<u32>)>,
+    range: std::ops::Range<usize>,
+    bytes: &[u8],
+    clip: usize,
+) -> Found {
     let mut out = Found::new();
-    let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
-    while let Some(m) = matches.next() {
-        if !patterns.matches(m, bytes) {
+    for (root, depth) in roots {
+        let mut cursor = QueryCursor::new();
+        cursor.set_byte_range(range.clone());
+        cursor.set_max_start_depth(depth);
+        let mut matches = cursor.matches(&patterns.query, root, bytes);
+        while let Some(m) = matches.next() {
+            if !patterns.matches(m, bytes) {
+                continue;
+            }
+            let captures: Vec<_> = m
+                .captures()
+                .iter()
+                .filter(|c| c.node.start_byte() < clip)
+                .map(|c| {
+                    let r = c.node.byte_range();
+                    (
+                        c.index,
+                        r.start,
+                        r.end.min(clip),
+                        c.node.start_position().row,
+                    )
+                })
+                .collect();
+            if !captures.is_empty() {
+                out.insert((m.pattern_index, captures));
+            }
+        }
+    }
+    out
+}
+
+const WIDE: u32 = 256;
+
+fn cursor_roots<'t>(
+    root: tree_sitter::Node<'t>,
+    range: &std::ops::Range<usize>,
+    rootless: bool,
+) -> Vec<(tree_sitter::Node<'t>, Option<u32>)> {
+    let Some(inner) = root.descendant_for_byte_range(range.start, range.end) else {
+        return vec![(root, None)];
+    };
+    let mut path = vec![inner];
+    while let Some(parent) = path.last().and_then(|n| n.parent()) {
+        path.push(parent);
+        if parent.id() == root.id() {
+            break;
+        }
+    }
+    path.reverse();
+    let mut out = Vec::new();
+    let mut top = 0;
+    for (depth, node) in path.iter().enumerate() {
+        if node.child_count() <= WIDE {
             continue;
         }
-        let captures: Vec<_> = m
-            .captures()
-            .iter()
-            .filter(|c| c.node.start_byte() < clip)
-            .map(|c| {
-                let r = c.node.byte_range();
-                (
-                    c.index,
-                    r.start,
-                    r.end.min(clip),
-                    c.node.start_position().row,
-                )
-            })
-            .collect();
-        if !captures.is_empty() {
-            out.insert((m.pattern_index, captures));
+        let start = (depth - top + usize::from(rootless)) as u32;
+        out.push((path[top], Some(start)));
+        top = depth + 1;
+    }
+    match path.get(top) {
+        Some(node) => out.push((*node, None)),
+        None => {
+            let mut cursor = inner.walk();
+            if cursor.goto_first_child_for_byte(range.start).is_some() {
+                while cursor.node().start_byte() < range.end {
+                    out.push((cursor.node(), None));
+                    if !cursor.goto_next_sibling() {
+                        break;
+                    }
+                }
+            }
         }
     }
     out

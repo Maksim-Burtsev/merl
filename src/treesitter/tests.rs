@@ -1007,3 +1007,34 @@ fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_li
         assert_eq!(b.hl, fresh.hl, "{value}");
     }
 }
+
+#[test]
+fn the_repaint_queries_split_at_a_wide_node_find_what_one_query_from_the_root_finds() {
+    let lang = super::lang("html").unwrap();
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&lang.language).unwrap();
+    let text = format!("<b>\n{}</b>\n", "x <i>y</i>\n".repeat(300));
+    let tree = parser.parse(&text, None).unwrap();
+    let bytes = text.as_bytes();
+    let rows_of = |found: &super::Found| -> Vec<usize> {
+        found
+            .iter()
+            .flat_map(|(_, c)| c.iter().map(|c| c.3))
+            .collect()
+    };
+    for at in [text.len() / 2, text.len() / 2 + 3, text.len() - 20] {
+        for range in [at..at + 2, at - 4..at + 9] {
+            let whole = super::found_in(
+                &lang.highlights,
+                vec![(tree.root_node(), None)],
+                range.clone(),
+                bytes,
+                usize::MAX,
+            );
+            assert!(rows_of(&whole).contains(&0), "{range:?}");
+            let split = super::found(&lang.highlights, &tree, range.clone(), bytes, usize::MAX);
+            assert_eq!(split, whole, "{range:?}");
+            assert!(super::cursor_roots(tree.root_node(), &range, false).len() > 1);
+        }
+    }
+}
