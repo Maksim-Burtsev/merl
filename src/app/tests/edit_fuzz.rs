@@ -1248,11 +1248,11 @@ fn replay_tree_sitter(
             a.buf.parse_more(None);
             a.buf.paint_to(usize::MAX, &theme);
             let text = a.buf.lines.join("\n") + "\n";
-            let mut next_edit_starts_a_step = Buffer::from_bytes(path.clone(), text.as_bytes());
-            next_edit_starts_a_step.start_tree_sitter();
-            next_edit_starts_a_step.parse_more(None);
-            next_edit_starts_a_step.paint_to(usize::MAX, &theme);
-            let (shape, fresh_shape) = (a.buf.shape(), next_edit_starts_a_step.shape());
+            let mut fresh = Buffer::from_bytes(path.clone(), text.as_bytes());
+            fresh.start_tree_sitter();
+            fresh.parse_more(None);
+            fresh.paint_to(usize::MAX, &theme);
+            let (shape, fresh_shape) = (a.buf.shape(), fresh.shape());
             let recovered = |s: &crate::treesitter::Shape| {
                 s.iter()
                     .any(|(kind, _, missing, _)| *missing || *kind == u16::MAX)
@@ -1264,20 +1264,20 @@ fn replay_tree_sitter(
                     .collect::<Vec<_>>()
             };
             let want = match shape == fresh_shape {
-                true => next_edit_starts_a_step.hl,
+                true => fresh.hl,
                 false => {
                     assert!(
                         recovered(&shape)
                             || recovered(&fresh_shape)
                             || tokens(&shape) == tokens(&fresh_shape),
-                        "seed {seed}, after [{}]: the tree differs from a next_edit_starts_a_step parse without an error in either\nincremental {}\nfresh {}",
+                        "seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
                         done.join(", "),
                         a.buf.sexp(),
-                        next_edit_starts_a_step.sexp()
+                        fresh.sexp()
                     );
                     assert_eq!(
                         a.buf.root_bytes(),
-                        next_edit_starts_a_step.root_bytes(),
+                        fresh.root_bytes(),
                         "seed {seed}, after [{}]: the tree does not span the text",
                         done.join(", ")
                     );

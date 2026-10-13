@@ -35,3 +35,27 @@ func Unload(r Ramp) {
 	r.Stow()
 	//^ d: picker shop/promoted.go:5, shop/promoted.go:13, shop/promoted.go:27
 }
+
+type Closer interface {
+	Close()
+}
+
+type ReadCloser interface {
+	Closer
+	Read()
+}
+
+type WriteCloser interface {
+	Closer
+	Write()
+}
+
+type Pipe interface {
+	ReadCloser
+	WriteCloser
+}
+
+func Shut(p Pipe) {
+	p.Close()
+	//^ d: shop/promoted.go:40
+}
