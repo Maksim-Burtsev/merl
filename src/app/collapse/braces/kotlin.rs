@@ -1,4 +1,3 @@
-#![expect(clippy::branches_sharing_code, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
 use super::{K, Lexer, Model};
 
@@ -96,11 +95,10 @@ impl Lexer<'_> {
     fn kt_inner(&mut self, q: u8) {
         if q == b'"' {
             self.kt_string();
-            self.out.pop();
         } else {
             self.string(q);
-            self.out.pop();
         }
+        self.out.pop();
     }
 }
 

@@ -1,7 +1,5 @@
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::trivial_regex, reason = "#858")]
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -900,7 +898,7 @@ fn review_paints_the_word_that_changed_on_both_rows() {
         "a selection wins over a changed word"
     );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-    app.find_re = Some(regex::Regex::new(">").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape(">")).unwrap());
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
         cell(&terminal, gt, 2).1,
@@ -979,7 +977,7 @@ fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
 fn the_enclosing_function_stays_pinned_above_the_code() {
     let mut text = String::from("fn long() {\n");
     for i in 0..40 {
-        text += &format!("    let a{i} = {i};\n");
+        _ = writeln!(text, "    let a{i} = {i};");
     }
     text += "}\n";
     let mut app = App::new(
@@ -1046,7 +1044,7 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
         let mut t = String::from("def long():\n");
         for i in 0..30 {
             let v = if changed.contains(&i) { i * 10 } else { i };
-            t += &format!("    a{i} = {v}\n");
+            _ = writeln!(t, "    a{i} = {v}");
         }
         t
     };
@@ -1120,7 +1118,7 @@ fn line_no(row: &str) -> usize {
 fn a_page_under_a_pinned_header_skips_no_line() {
     let mut text = String::from("fn long() {\n");
     for i in 0..60 {
-        text += &format!("    let a{i} = {i};\n");
+        _ = writeln!(text, "    let a{i} = {i};");
     }
     text += "}\n";
     let (mut app, mut terminal) = pinned_app(&text, 30, 12);
@@ -1147,11 +1145,11 @@ fn a_page_under_a_pinned_header_skips_no_line() {
 fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
     let mut text = String::from("impl S {\n    fn m() {\n");
     for i in 0..30 {
-        text += &format!("        let a{i} = {i};\n");
+        _ = writeln!(text, "        let a{i} = {i};");
     }
     text += "    }\n    fn n() {\n";
     for i in 0..30 {
-        text += &format!("        let b{i} = {i};\n");
+        _ = writeln!(text, "        let b{i} = {i};");
     }
     text += "    }\n}\n";
     let (mut app, mut terminal) = pinned_app(&text, 40, 18);
@@ -1170,7 +1168,7 @@ fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
 fn a_centred_jump_puts_the_cursor_in_the_middle_of_the_rows_under_its_pins() {
     let mut text = String::from("impl S {\n    fn m() {\n");
     for i in 0..60 {
-        text += &format!("        let a{i} = {i};\n");
+        _ = writeln!(text, "        let a{i} = {i};");
     }
     text += "    }\n}\n";
     let (mut app, mut terminal) = pinned_app(&text, 40, 18);
@@ -1213,7 +1211,7 @@ fn not_wrapped_the_view_scrolls_before_the_cursor_reaches_the_edge() {
 fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
     let mut text = String::from("mod m {\n    impl S {\n        fn f() {\n");
     for i in 0..40 {
-        text += &format!("            let a{i} = {i};\n");
+        _ = writeln!(text, "            let a{i} = {i};");
     }
     text += "        }\n    }\n}\n";
     let (mut app, mut terminal) = pinned_app(&text, 40, 7);
@@ -1240,7 +1238,7 @@ fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
 fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
     let mut text = String::from("fn long(first: usize, second: usize) {\n");
     for i in 0..30 {
-        text += &format!("    let a{i} = first + second + {i};\n");
+        _ = writeln!(text, "    let a{i} = first + second + {i};");
     }
     text += "}\n";
     let (mut app, mut terminal) = pinned_app(&text, 24, 12);
@@ -1392,7 +1390,7 @@ fn a_cut_pinned_header_ends_in_a_dim_ellipsis() {
     for _ in 0..20 {
         text += "    let a = 1;\n";
     }
-    text += &format!("    // {}\n}}\n", "b".repeat(20_005));
+    _ = write!(text, "    // {}\n}}\n", "b".repeat(20_005));
     let (mut app, mut terminal) = cut_app(&text, 12, 10, 21);
     press(&mut app, &mut terminal, KeyCode::Char('w'));
     app.col = app.buf.shown(21).len();
@@ -1543,7 +1541,7 @@ fn a_wider_pane_draws_the_cursor_on_its_own_line() {
     let words: Vec<String> = (0..60).map(|i| format!("word{i:03}")).collect();
     let mut text = format!("LONG {}\n", words.join(" "));
     for i in 2..40 {
-        text += &format!("line {i}\n");
+        _ = writeln!(text, "line {i}");
     }
     let mut app = App::new(
         PathBuf::from("/demo"),
@@ -1717,7 +1715,7 @@ fn selected_code_takes_the_themes_selected_text_colour_and_keeps_find_matches() 
         cell(&terminal, 6),
         ("1".into(), selected_fg, theme.selection)
     );
-    app.find_re = Some(regex::Regex::new("=").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape("=")).unwrap());
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(cell(&terminal, 4).2, theme.find_bg);
     assert_eq!(
@@ -1737,7 +1735,7 @@ fn a_find_match_carries_the_search_groups_underline_as_neovim_draws_it() {
         None,
     );
     app.show_tree = false;
-    app.find_re = Some(regex::Regex::new("=").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape("=")).unwrap());
     let theme = crate::theme::load("srcery").unwrap();
     let mut terminal = Terminal::new(TestBackend::new(12, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();

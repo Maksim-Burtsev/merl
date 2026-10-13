@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 use super::links::in_project;
 use super::resolution::resolution;
 use super::{App, Path, search};
@@ -46,7 +45,7 @@ impl App {
                 })
                 .cloned(),
             path => in_project(
-                here.parent().unwrap_or(Path::new("")),
+                here.parent().unwrap_or_else(|| Path::new("")),
                 &search::percent_decoded(path),
             ),
         };

@@ -1,4 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{Kind, file_literal_lines, literal_lines, word_at};
@@ -11,10 +10,6 @@ pub fn component(path: &Path) -> bool {
         .is_some_and(|e| e == "vue" || e == "svelte" || e == "astro")
 }
 pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
-    if !component(path) {
-        return None;
-    }
-    let astro = path.extension().is_some_and(|e| e == "astro");
     #[derive(PartialEq)]
     enum At {
         Outside,
@@ -22,6 +17,17 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
         InScript,
         InFrontmatter,
     }
+    fn script_open(t: &str) -> At {
+        match (t.contains("</script"), t.contains('>')) {
+            (true, _) => At::Outside,
+            (false, true) => At::InScript,
+            (false, false) => At::InWrappedScriptTag,
+        }
+    }
+    if !component(path) {
+        return None;
+    }
+    let astro = path.extension().is_some_and(|e| e == "astro");
     let mut at = At::Outside;
     let mut out = Vec::new();
     for (i, line) in text.lines().enumerate() {
@@ -58,15 +64,7 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
         };
         out.push(code);
     }
-    return Some(out);
-
-    fn script_open(t: &str) -> At {
-        match (t.contains("</script"), t.contains('>')) {
-            (true, _) => At::Outside,
-            (false, true) => At::InScript,
-            (false, false) => At::InWrappedScriptTag,
-        }
-    }
+    Some(out)
 }
 pub fn script_text<'a>(path: &Path, text: &'a str, cursor: Option<usize>) -> Cow<'a, str> {
     let Some(code) = script_lines(path, text) else {

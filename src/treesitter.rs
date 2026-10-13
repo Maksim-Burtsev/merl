@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::ops::ControlFlow;
 use std::path::Path;
 use std::sync::OnceLock;
@@ -289,7 +290,10 @@ struct Patterns {
 }
 
 impl Patterns {
-    #[expect(clippy::option_option, reason = "#858")]
+    #[expect(
+        clippy::option_option,
+        reason = "a key absent, a key set bare and a key with a value are three answers, as `#set!` has them"
+    )]
     fn setting(&self, pattern: usize, key: &str) -> Option<Option<&str>> {
         self.settings[pattern]
             .iter()
@@ -671,7 +675,6 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     })
 }
 
-#[expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
 fn patterns(
     name: &str,
     language: &Language,
@@ -744,7 +747,7 @@ fn patterns(
                     rest.iter()
                         .map(|a| match a {
                             Text(s) => Ok(s.to_string()),
-                            _ => Err(format!("{name}: #{} takes strings", pred.operator)),
+                            Capture(_) => Err(format!("{name}: #{} takes strings", pred.operator)),
                         })
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
@@ -815,8 +818,7 @@ fn found(
     out
 }
 
-#[expect(clippy::needless_pass_by_value, reason = "#858")]
-fn first_row(old: Found, new: &Found) -> usize {
+fn first_row(old: &Found, new: &Found) -> usize {
     old.symmetric_difference(new)
         .flat_map(|(_, captures)| captures.iter().map(|c| c.3))
         .min()
@@ -831,7 +833,7 @@ fn changed_match_row(
     bytes: &[u8],
 ) -> usize {
     let found = |tree| found(patterns, tree, range.clone(), bytes, usize::MAX);
-    first_row(found(old), &found(new))
+    first_row(&found(old), &found(new))
 }
 
 fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, text: &str) -> usize {
@@ -839,7 +841,7 @@ fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, te
     let (prefix, suffix) = common_ends(old, new_bytes);
     let around = |len: usize| prefix.saturating_sub(1)..(len - suffix + 1).min(len);
     first_row(
-        found(patterns, &before.0, around(old.len()), old, prefix),
+        &found(patterns, &before.0, around(old.len()), old, prefix),
         &found(patterns, new, around(new_bytes.len()), new_bytes, prefix),
     )
 }
@@ -883,8 +885,11 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
     }
 }
 
-#[expect(clippy::match_same_arms, reason = "#858")]
 #[expect(clippy::string_slice, reason = "#858")]
+#[expect(
+    clippy::match_same_arms,
+    reason = "the rows group Vim's specials by what they mean"
+)]
 fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let bad = || Err(format!("vim pattern {p:?} is not supported"));
     let body = match p.get(..2) {
@@ -940,8 +945,6 @@ fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-#[expect(clippy::format_push_string, reason = "#858")]
-#[expect(clippy::match_same_arms, reason = "#858")]
 fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let class = |c: char| -> Option<&'static str> {
         Some(match c {
@@ -968,15 +971,14 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
             '^' if i == 0 => out.push('^'),
             '$' if i == chars.len() - 1 => out.push('$'),
             '.' => out.push('.'),
-            '*' | '+' | '?' => out.push(c),
+            '*' | '+' | '?' | '(' | ')' => out.push(c),
             '-' => out.push_str("*?"),
-            '(' | ')' => out.push(c),
             '%' => {
                 i += 1;
                 let Some(&n) = chars.get(i) else { return bad() };
                 if let Some(set) = class(n.to_ascii_lowercase()) {
                     let neg = if n.is_ascii_uppercase() { "^" } else { "" };
-                    out.push_str(&format!("[{neg}{set}]"));
+                    _ = write!(out, "[{neg}{set}]");
                 } else if n.is_ascii_alphanumeric() {
                     return bad();
                 } else {
@@ -1003,14 +1005,14 @@ fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
                         match class(n) {
                             Some(set) => out.push_str(set),
                             None if n.is_ascii_alphanumeric() => return bad(),
-                            None => out.push_str(&format!("\\x{:02x}", n as u32)),
+                            None => _ = write!(out, "\\x{:02x}", n as u32),
                         }
                     } else if m == '-' {
                         out.push('-');
                     } else if m.is_ascii_alphanumeric() {
                         out.push(m);
                     } else {
-                        out.push_str(&format!("\\x{:02x}", m as u32));
+                        _ = write!(out, "\\x{:02x}", m as u32);
                     }
                     i += 1;
                 }

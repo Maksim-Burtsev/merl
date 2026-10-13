@@ -1,5 +1,3 @@
-#![expect(clippy::needless_for_each, reason = "#858")]
-#![expect(clippy::ref_option, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -62,7 +60,7 @@ enum Ref {
 
 fn nth<'a>(
     snap: &'a Snapshot<PickItem>,
-    order: &Option<Vec<Ref>>,
+    order: Option<&[Ref]>,
     n: u32,
 ) -> Option<(Item<'a, PickItem>, bool)> {
     match order {
@@ -254,7 +252,7 @@ impl Picker {
         let end = start.saturating_add(count).min(total);
         let pattern = snap.pattern().column_pattern(0);
         (start..end)
-            .filter_map(|n| nth(snap, order, u32::try_from(n).ok()?))
+            .filter_map(|n| nth(snap, order.as_deref(), u32::try_from(n).ok()?))
             .map(|(item, named)| {
                 let mut matched = Vec::new();
                 if named {
@@ -263,7 +261,9 @@ impl Picker {
                     pattern.indices(Utf32Str::new(name, &mut buf), matcher, &mut matched);
                     let skip = u32::try_from(label[..label.len() - name.len()].chars().count())
                         .unwrap_or(u32::MAX);
-                    matched.iter_mut().for_each(|m| *m += skip);
+                    for m in &mut matched {
+                        *m += skip;
+                    }
                 } else {
                     pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
                 }
@@ -279,7 +279,12 @@ impl Picker {
 
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        nth(snap, &self.order, u32::try_from(self.selected).ok()?).map(|(item, _)| item.data)
+        nth(
+            snap,
+            self.order.as_deref(),
+            u32::try_from(self.selected).ok()?,
+        )
+        .map(|(item, _)| item.data)
     }
 
     fn accept(&self) -> Pick {

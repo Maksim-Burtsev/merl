@@ -1,6 +1,3 @@
-#![expect(clippy::assigning_clones, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -69,6 +66,8 @@ const COMPILER_ATTRIBUTES: &[&str] = &[
 ];
 
 pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -> Option<RustAttr> {
+    static ONLY_A_PATH: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
     let cur = lines.get(line)?;
     let Frames { text, stack, .. } = frames(lines, line, start)?;
     let pathed = cur[end..].trim_start().starts_with("::");
@@ -95,8 +94,6 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
         let key = after.starts_with('=') && !after[1..].starts_with(['=', '>']);
         return (key || compiler(&text, &stack[a..])).then_some(RustAttr::Nothing);
     }
-    static ONLY_A_PATH: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
     let head = &text[stack[a].content_start..];
     let word = &cur[start..end];
     let attributes_own_name = ONLY_A_PATH.is_match(head) && !pathed;
@@ -692,6 +689,10 @@ fn past_generics(line: &str, at: usize) -> Option<usize> {
     })?;
     Some(at + end + 1)
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     const KEYWORDS: &[&str] = &[
         "self", "mut", "ref", "box", "crate", "super", "true", "false",
@@ -892,9 +893,9 @@ pub fn cargo_reach(lock: &str, from: &str) -> Option<CargoReach> {
             continue;
         };
         if let Some(v) = t.strip_prefix("name = ") {
-            p.0 = v.trim_matches('"').to_owned();
+            v.trim_matches('"').clone_into(&mut p.0);
         } else if let Some(v) = t.strip_prefix("version = ") {
-            p.1 = v.trim_matches('"').to_owned();
+            v.trim_matches('"').clone_into(&mut p.1);
         } else if let Some(v) = t.strip_prefix("dependencies = [") {
             in_deps = !v.contains(']');
             p.2.extend(quoted_names(v));

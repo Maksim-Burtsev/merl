@@ -1,8 +1,3 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::iter_on_single_items, reason = "#858")]
-#![expect(clippy::match_bool, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
@@ -499,9 +494,10 @@ pub(super) fn julia_literal_lines(text: &str) -> Vec<bool> {
 
 pub fn julia_name(line: &str, r: std::ops::Range<usize>) -> std::ops::Range<usize> {
     let rest = &line.as_bytes()[r.end..];
-    match rest.first() == Some(&b'!') && rest.get(1) != Some(&b'=') {
-        true => r.start..r.end + 1,
-        false => r,
+    if rest.first() == Some(&b'!') && rest.get(1) != Some(&b'=') {
+        r.start..r.end + 1
+    } else {
+        r
     }
 }
 
@@ -517,13 +513,13 @@ pub fn julia_col(line: &str, word: &str) -> Option<usize> {
     };
     line.match_indices(word).map(|(i, _)| i).find(|&i| {
         let end = i + word.len();
-        !(i > 0 && part(i - 1))
-            && !part(end)
+        !(part(end) || i > 0 && part(i - 1))
             && (word.ends_with('!') || b.get(end) != Some(&b'!') || b.get(end + 1) == Some(&b'='))
     })
 }
 
 pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let uuid = u128::from_str_radix(&uuid.replace('-', ""), 16).ok()?;
     let mut bytes = uuid.to_le_bytes().to_vec();
     if tree.len() != 40 {
@@ -540,7 +536,6 @@ pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
         }
     }
     let mut crc = !crc;
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     Some(
         (0..5)
             .map(|_| {
@@ -552,6 +547,10 @@ pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
     )
 }
 
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+)]
 pub fn julia_roots(root: &Path, share: Option<PathBuf>, depot: &Path) -> Vec<PathBuf> {
     let dirs_in = |d: &Path| -> Vec<PathBuf> {
         let mut found: Vec<PathBuf> = std::fs::read_dir(d)
@@ -585,8 +584,7 @@ pub fn julia_roots(root: &Path, share: Option<PathBuf>, depot: &Path) -> Vec<Pat
         .filter(|n| n.starts_with("Manifest-v") && n.ends_with(".toml"))
         .collect();
     versioned.sort();
-    let manifests: Vec<String> = ["JuliaManifest.toml".to_owned()]
-        .into_iter()
+    let manifests: Vec<String> = std::iter::once("JuliaManifest.toml".to_owned())
         .chain(versioned.into_iter().rev())
         .chain(["Manifest.toml".to_owned()])
         .collect();

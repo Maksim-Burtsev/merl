@@ -1,7 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -45,6 +42,10 @@ pub struct Binding {
     pub line1: usize,
     pub value: Value,
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:await\s+)?(new\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*(?:<[^()]*>)?\s*\(").unwrap()
@@ -287,17 +288,17 @@ fn elixir_binds(p: &str, name: &str) -> bool {
         let after = p[i + name.len()..].trim_start();
         !before.is_some_and(|c| word(c) || ".@:^&%".contains(c))
             && !p[i + name.len()..].starts_with(|c: char| word(c) || c == '?' || c == '!')
-            && !(after.starts_with(':') && !after.starts_with("::"))
+            && (!after.starts_with(':') || after.starts_with("::"))
             && !after.starts_with(['(', '.'])
     })
 }
 pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usize> {
+    static MODULE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*def(?:module|impl|protocol)\s").unwrap());
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
     };
-    static MODULE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*def(?:module|impl|protocol)\s").unwrap());
     let literal = literal_lines(Kind::Elixir, text);
     let code = |i: usize| !literal[i] && !lines[i].trim().is_empty();
     let mut depth = indent(lines[at]);

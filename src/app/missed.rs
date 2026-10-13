@@ -1,4 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::cursor::{word_end, word_start};
 use super::keys::named;
@@ -130,7 +129,7 @@ impl App {
             }
         }
         if let Some(run) = self.watch.run.take() {
-            self.judge_run(run);
+            self.judge_run(&run);
         }
         self.watch.run = self.start_run(key);
     }
@@ -145,13 +144,13 @@ impl App {
         if let Some(trip) = self.watch.trip.take()
             && key.code == KeyCode::Enter
         {
-            self.judge_trip(trip);
+            self.judge_trip(&trip);
         }
     }
 
     pub(super) fn watch_jumped(&mut self) {
         if let Some(trip) = self.watch.trip.take() {
-            self.judge_trip(trip);
+            self.judge_trip(&trip);
         }
     }
 
@@ -197,7 +196,7 @@ impl App {
         })
     }
 
-    fn judge_run(&mut self, run: Run) {
+    fn judge_run(&mut self, run: &Run) {
         let from = (run.before_first_press.at(), run.before_first_press.col);
         let deleting = !run.deleting_line_before_first_press.is_empty();
         if run.mode != self.mode
@@ -208,14 +207,14 @@ impl App {
             return;
         }
         let found = if deleting {
-            self.word_chord(&run)
+            self.word_chord(run)
         } else {
             let budget = max_missed_presses(run.presses_that_moved);
             if budget == 0 {
                 return;
             }
-            self.hunk_reached(&run)
-                .or_else(|| self.shortcut(&run, budget))
+            self.hunk_reached(run)
+                .or_else(|| self.shortcut(run, budget))
         };
         if let Some((_, action)) = found {
             *self.missed.entry(action).or_default() += 1;
@@ -422,7 +421,7 @@ impl App {
         })
     }
 
-    fn judge_trip(&mut self, trip: Trip) {
+    fn judge_trip(&mut self, trip: &Trip) {
         let budget = max_missed_presses(trip.n);
         let Some(path) = self.buf.path.clone() else {
             return;
@@ -431,8 +430,8 @@ impl App {
             return;
         }
         let found = match trip.kind {
-            PickerKind::Files => self.to_file(&trip, &path),
-            _ => self.to_word(&trip),
+            PickerKind::Files => self.to_file(trip, &path),
+            _ => self.to_word(trip),
         };
         if let Some((cost, key)) = found
             && cost <= budget

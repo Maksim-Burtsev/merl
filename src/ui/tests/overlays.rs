@@ -1,8 +1,10 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![expect(clippy::default_trait_access, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
+#![expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "the rows and fixture names are text these tests wrote in lower case"
+)]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -466,8 +468,8 @@ fn review_panel_counts_end_at_the_border() {
             generated: false,
             same_bytes: false,
         }],
-        deleted: Default::default(),
-        added: Default::default(),
+        deleted: Arc::default(),
+        added: Arc::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -520,8 +522,8 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             generated: false,
             same_bytes: false,
         }],
-        deleted: Default::default(),
-        added: Default::default(),
+        deleted: Arc::default(),
+        added: Arc::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -559,8 +561,8 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
                 same_bytes: false,
             })
             .collect(),
-        deleted: Default::default(),
-        added: Default::default(),
+        deleted: Arc::default(),
+        added: Arc::default(),
         note: None,
     });
     app

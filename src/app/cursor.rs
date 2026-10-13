@@ -1,5 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};
@@ -121,11 +119,14 @@ impl App {
     }
 
     pub(super) fn extend(&mut self, mv: fn(&mut Self)) {
-        self.anchor.get_or_insert((self.at(), self.col));
+        if self.anchor.is_none() {
+            self.anchor = Some((self.at(), self.col));
+        }
         mv(self);
     }
 
     pub(super) fn grow_selection(&mut self) {
+        type Span = ((TextLine, usize), (TextLine, usize));
         let blank = |t: TextLine| self.text(t).trim().is_empty();
         let l = self.at();
         let (mut top, mut bottom) = (l, l);
@@ -155,7 +156,6 @@ impl App {
             )),
         ];
         let cur = self.selection().unwrap_or(((l, self.col), (l, self.col)));
-        type Span = ((TextLine, usize), (TextLine, usize));
         let wider =
             |&(from, to): &Span| !blank(l) && from <= cur.0 && cur.1 <= to && (from, to) != cur;
         if let Some((from, to)) = steps.into_iter().flatten().find(wider) {

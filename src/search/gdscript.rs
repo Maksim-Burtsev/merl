@@ -1,5 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
@@ -152,7 +150,7 @@ pub fn gdscript_path(line: &str, col: usize) -> Option<String> {
     let m = RES
         .captures_iter(line)
         .find(|c| c.get(0).is_some_and(|m| m.start() <= col && col < m.end()))?;
-    m.get(1).or(m.get(2)).map(|p| p.as_str().to_owned())
+    m.get(1).or_else(|| m.get(2)).map(|p| p.as_str().to_owned())
 }
 
 pub fn gdscript_root(here: &Path, files: &[PathBuf]) -> Option<PathBuf> {
@@ -189,6 +187,10 @@ pub fn gdscript_autoloads(project: &str) -> Vec<(String, String)> {
     out
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 pub fn gdscript_names_nothing(line: &str, start: usize) -> bool {
     let lead = &line[..start];
     let path = lead.trim_end_matches(|c: char| c == '_' || c == '/' || c.is_alphanumeric());

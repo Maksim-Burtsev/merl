@@ -1,8 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::fn_params_excessive_bools, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -63,6 +60,10 @@ impl<'a> Build<'a> {
         }
     }
 
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "the three flags are independent facts about the opener, stored as they come"
+    )]
     fn open(&mut self, line: usize, word: &'static str, fold: bool, func: bool, armed: bool) {
         self.stack.push(Open {
             line,
@@ -200,6 +201,10 @@ impl Quote {
     }
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "keywords that open a block and those that continue one are listed apart"
+)]
 pub(crate) fn ruby(lines: &[String]) -> Blocks {
     let mut b = Build::new(lines);
     let mut quote: Option<Quote> = None;
@@ -823,7 +828,7 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                         pattern = true;
                         continue;
                     }
-                    if !was && !(w == "{" && func.is_some()) {
+                    if !(was || w == "{" && func.is_some()) {
                         continue;
                     }
                     match w {

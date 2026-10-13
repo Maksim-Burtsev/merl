@@ -1,5 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -313,7 +311,6 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"(^|\s)&{w}(\s|$)"),
             format!(r"^\s*\.?{w}:\s*(#.*)?$"),
         ],
-        Kind::Markdown => Vec::new(),
         Kind::Graphql => vec![
             format!(
                 r"^(?:type|interface|input|enum|union|scalar|fragment|query|mutation|subscription)\s+{w}\b"
@@ -322,7 +319,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s+{w}\s*(?:[:(@#,]|$)"),
         ],
         Kind::Css => css_patterns(word),
-        Kind::Html => Vec::new(),
+        Kind::Markdown | Kind::Html => Vec::new(),
     }
 }
 pub fn narrow_patterns(
@@ -472,7 +469,7 @@ pub fn c_file_local(
             .is_some_and(|e| matches!(e, "c" | "cc" | "cpp" | "cxx" | "m" | "mm"))
     };
     let includes_here = |file: &Path, t: &str| {
-        let dir = file.parent().unwrap_or(Path::new(""));
+        let dir = file.parent().unwrap_or_else(|| Path::new(""));
         t.lines()
             .filter_map(|l| INCLUDE.captures(l).and_then(|c| c.get(1)))
             .any(|m| {
@@ -845,10 +842,9 @@ fn terraform_patterns(address: &str) -> Vec<String> {
         ["module", x, ..] => format!(r#"^module\s+"{x}""#),
         ["local", x, ..] => format!(r"^\s+{x}\s*="),
         ["data", t, n, ..] => format!(r#"^data\s+"{t}"\s+"{n}""#),
-        ["each" | "count" | "self" | "path" | "terraform", ..] => return Vec::new(),
+        ["each" | "count" | "self" | "path" | "terraform", ..] | [] => return Vec::new(),
         [t, n, ..] => format!(r#"^resource\s+"{t}"\s+"{n}""#),
         [x] => format!(r#"^(variable|module|output)\s+"{x}"|^(resource|data)\s+"[^"]+"\s+"{x}""#),
-        [] => return Vec::new(),
     };
     vec![pattern]
 }

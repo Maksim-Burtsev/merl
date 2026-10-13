@@ -1,6 +1,3 @@
-#![cfg_attr(test, expect(clippy::needless_collect, reason = "#858"))]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use anyhow::Context as _;
 
@@ -97,19 +94,19 @@ impl App {
     pub(super) fn review_count(
         &mut self,
         at: Option<Instant>,
-        from: Spot,
+        from: &Spot,
         action: Option<&str>,
         quit: bool,
     ) {
         let to = self.review_spot();
-        let walked = from != to && matches!(action, Some("c" | "C" | "Tree: Enter"));
+        let walked = *from != to && matches!(action, Some("c" | "C" | "Tree: Enter"));
         let stop = walked.then(|| self.review_stop()).flatten();
         let end = action == Some("c") && self.message == "last hunk of the review";
         if let Some(s) = &mut self.session {
             if let Some(at) = at {
-                s.pressed(at, &from, quit);
+                s.pressed(at, from, quit);
             }
-            s.moved(action, &from, &to, stop, end);
+            s.moved(action, from, &to, stop, end);
         }
     }
 
@@ -239,7 +236,7 @@ impl App {
             .file(&rel)
             .filter(|f| f.is_stop(&self.root, self.diagrams.on()))?;
         let hunks = review_hunks(&self.root, r, f);
-        let h = hunks.get(i).or(hunks.last()).copied();
+        let h = hunks.get(i).or_else(|| hunks.last()).copied();
         Some((rel, h.unwrap_or(TextLine::File(0))))
     }
 
@@ -681,8 +678,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let store = dir.join("viewed");
         let paths = [PathBuf::from("a\tb.rs"), PathBuf::from("Icon\r")];
-        let marks: Vec<(&PathBuf, &u64)> = paths.iter().map(|p| (p, &7)).collect();
-        write_viewed(&store, "feature", "main", marks.into_iter(), 20_000).unwrap();
+        write_viewed(
+            &store,
+            "feature",
+            "main",
+            paths.iter().map(|p| (p, &7)),
+            20_000,
+        )
+        .unwrap();
         let read = read_viewed(&store, "feature", "main", 20_000).unwrap();
         assert_eq!(read.len(), 2);
         assert!(paths.iter().all(|p| read.get(p) == Some(&7)), "{read:?}");

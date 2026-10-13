@@ -1,4 +1,3 @@
-#![expect(clippy::float_cmp, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 
@@ -43,6 +42,10 @@ pub fn similarity(old: &str, new: &str) -> f64 {
     2.0 * kept as f64 / total as f64
 }
 
+#[expect(
+    clippy::float_cmp,
+    reason = "the walk back finds the cell a sum was copied from, and a copy is bit-equal"
+)]
 pub fn pair(deleted: &[String], added: &[String]) -> Vec<(usize, usize)> {
     if deleted.len() == added.len() {
         return (0..deleted.len()).map(|i| (i, i)).collect();
@@ -282,6 +285,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "similarity is exactly 1.0 or 0.0 at its ends"
+    )]
     fn similarity_is_the_share_of_kept_text() {
         assert_eq!(similarity("same line", "same line"), 1.0);
         assert_eq!(similarity("  ", "    "), 1.0, "no non-whitespace at all");
@@ -341,6 +348,10 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        clippy::float_cmp,
+        reason = "similarity is exactly 0.0 when nothing is kept"
+    )]
     fn the_middles_are_matched_up_to_250_000_pairs_of_tokens() {
         let (old, new) = (words_between("A", 248, "C"), words_between("B", 248, "D"));
         assert_eq!(changes(&old, &new).0, [0..1, old.len() - 1..old.len()]);

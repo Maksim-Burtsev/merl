@@ -1,6 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::needless_for_each, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -283,6 +281,10 @@ pub(super) fn xml(lines: &[String]) -> Vec<(usize, usize)> {
     markup(lines, true)
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
     let text = lines.join("\n");
     let b = text.as_bytes();
@@ -529,7 +531,9 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
                 folds.push((start, n));
                 fence = None;
             }
-            stack.iter_mut().for_each(|f| f.reach(n));
+            for f in &mut stack {
+                f.reach(n);
+            }
             continue;
         }
         if t.is_empty() {
@@ -546,7 +550,9 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         if let Some((start, last, base)) = code {
             if ind >= base + 4 {
                 code = Some((start, n, base));
-                stack.iter_mut().for_each(|f| f.reach(n));
+                for f in &mut stack {
+                    f.reach(n);
+                }
                 continue;
             }
             if last > start {
@@ -578,7 +584,9 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
         };
         if let Some(base) = base.filter(|b| ind >= b + 4 && blank && paragraph.is_none()) {
             code = Some((n, n, base));
-            stack.iter_mut().for_each(|f| f.reach(n));
+            for f in &mut stack {
+                f.reach(n);
+            }
             blank = false;
             continue;
         }
@@ -605,7 +613,9 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
                 last: n,
             });
         }
-        stack.iter_mut().for_each(|f| f.reach(n));
+        for f in &mut stack {
+            f.reach(n);
+        }
         if fenced {
             let open = t[..ticks.max(tildes)].to_owned();
             fence = Some((n, open, ind));

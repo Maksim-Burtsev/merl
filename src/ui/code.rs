@@ -1,6 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::ref_option, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -248,7 +247,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                     text,
                     (&spans, &plain),
                     &r,
-                    &selected,
+                    selected.as_ref(),
                     (bg, sel),
                     tag,
                 ));
@@ -401,7 +400,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 clipped,
                 (&spans, &plain),
                 &r,
-                &selected,
+                selected.as_ref(),
                 (t, sel),
                 tag,
             ));
@@ -686,7 +685,7 @@ fn selected_row<'a>(
     text: &'a str,
     (spans, plain): (&Spans, &Spans),
     r: &Range<usize>,
-    selected: &Option<Range<usize>>,
+    selected: Option<&Range<usize>>,
     (bg, sel): (Style, Style),
     tag: Style,
 ) -> Vec<Span<'a>> {

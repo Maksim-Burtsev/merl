@@ -1,5 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -34,7 +32,12 @@ pub(super) fn draw_prompt(
     frame.render_widget(Paragraph::new(line).style(style), area);
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
+    const HINT: &str = "? help ";
     let style = Style::new()
         .bg(theme.status_bg)
         .fg(theme.status_fg)
@@ -134,7 +137,6 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
-    const HINT: &str = "? help ";
     let hint = app.message.is_empty() && area.width as usize > HINT.len();
     let rest = spans[1..]
         .iter()

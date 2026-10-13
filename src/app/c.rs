@@ -1,9 +1,3 @@
-#![expect(clippy::assigning_clones, reason = "#858")]
-#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::needless_collect, reason = "#858")]
-#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
@@ -99,7 +93,7 @@ impl App {
             return broke(&head);
         };
         let mut links = Vec::new();
-        let mut prev = head.clone();
+        let mut prev = head;
         for (i, name) in fields.iter().chain([&word.to_owned()]).enumerate() {
             let Some(body) = self.c_body(here, &ty) else {
                 return broke(&prev);
@@ -147,7 +141,7 @@ impl App {
                 file: body.path,
                 ty: next,
             };
-            prev = name.clone();
+            prev.clone_from(name);
         }
         Ok(None)
     }
@@ -365,7 +359,7 @@ impl App {
     }
 
     pub(super) fn c_class_fields(
-        &mut self,
+        &self,
         here: &Path,
         word: &str,
         class: &str,
@@ -466,7 +460,7 @@ impl App {
         let mut queue = vec![here.to_path_buf()];
         while let Some(file) = queue.pop() {
             let next = match self.c_includes.get(&(file.clone(), mode)) {
-                Some(next) if file.is_absolute() => next.clone(),
+                Some(next) if file.is_absolute() => Arc::clone(next),
                 _ => {
                     let text = if file.is_absolute() {
                         std::fs::read_to_string(&file).ok()
@@ -475,7 +469,7 @@ impl App {
                     };
                     let next = Arc::new(edges(&text.unwrap_or_default(), &file));
                     if file.is_absolute() {
-                        self.c_includes.insert((file, mode), next.clone());
+                        self.c_includes.insert((file, mode), Arc::clone(&next));
                     }
                     next
                 }
@@ -551,6 +545,8 @@ impl App {
     }
 
     pub(super) fn c_rows(&self, word: &str, here: &Path, found: &mut Vec<Candidate>) {
+        static OBJC: std::sync::LazyLock<Regex> =
+            std::sync::LazyLock::new(|| Regex::new(r"^\s*@(interface|protocol)\b").unwrap());
         if found.len() > 1 {
             let classes: Vec<Option<Vec<String>>> = found
                 .iter()
@@ -565,6 +561,10 @@ impl App {
                         && search::c_defines_member(&c.hit.text, scopes, word)
                 })
             };
+            #[expect(
+                clippy::needless_collect,
+                reason = "the Vec ends the borrow of `found` before `retain` takes it mutably"
+            )]
             let keep: Vec<bool> = classes
                 .iter()
                 .map(|class| class.as_deref().is_none_or(|c| !defined(c)))
@@ -572,8 +572,6 @@ impl App {
             let mut keep = keep.into_iter();
             found.retain(|_| keep.next().unwrap_or(true));
         }
-        static OBJC: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^\s*@(interface|protocol)\b").unwrap());
         let objc = |c: &Candidate| OBJC.captures(&c.hit.text).map(|m| &m[1] == "protocol");
         if !found.iter().any(|c| objc(c).is_some()) {
             return;

@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
@@ -217,7 +216,7 @@ pub fn erlang_include_files(
             .cloned()
             .collect();
     }
-    let dir = here.parent().unwrap_or(Path::new(""));
+    let dir = here.parent().unwrap_or_else(|| Path::new(""));
     if let Some(beside) = lexical(&dir.join(spelled)).filter(|f| files.contains(f)) {
         return vec![beside];
     }

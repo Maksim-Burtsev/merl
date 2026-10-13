@@ -1,8 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::naive_bytecount, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::struct_excessive_bools, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
@@ -50,7 +47,10 @@ pub fn lisp_patterns(kind: Kind, word: &str) -> Vec<String> {
     match kind {
         Kind::Clojure => {
             out.push(format!(r"^\s+\({w}\s+\["));
-            if let Some(record) = word.strip_prefix("->").or(word.strip_prefix("map->")) {
+            if let Some(record) = word
+                .strip_prefix("->")
+                .or_else(|| word.strip_prefix("map->"))
+            {
                 let r = regex::escape(record);
                 out.push(format!(r"^\s*\((?:defrecord|deftype)\s+{meta}{r}{END}"));
             }
@@ -291,6 +291,10 @@ enum Role {
     Arity,
 }
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent fact about the form"
+)]
 struct Frame<'a> {
     head: Option<&'a str>,
     idx: usize,
@@ -589,6 +593,10 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
     }
 }
 
+#[expect(
+    clippy::naive_bytecount,
+    reason = "the bytecount crate would be a dependency for one count of newlines"
+)]
 fn line_of(text: &str, pos: usize) -> usize {
     text.as_bytes()[..pos]
         .iter()

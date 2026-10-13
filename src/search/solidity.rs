@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
@@ -110,7 +109,9 @@ pub fn solidity_import_path(line: &str, col: usize) -> Option<String> {
 pub fn solidity_file(root: &Path, files: &[PathBuf], here: &Path, path: &str) -> Option<PathBuf> {
     let found = |p: PathBuf| -> Option<PathBuf> {
         let p = lexical(&p)?;
-        let p = p.strip_prefix(root).map_or(p.clone(), Path::to_path_buf);
+        let p = p
+            .strip_prefix(root)
+            .map_or_else(|_| p.clone(), Path::to_path_buf);
         (files.contains(&p) || root.join(&p).is_file()).then_some(p)
     };
     if path.starts_with("./") || path.starts_with("../") {
@@ -121,7 +122,7 @@ pub fn solidity_file(root: &Path, files: &[PathBuf], here: &Path, path: &str) ->
         .filter(|(from, _)| path.starts_with(from.as_str()))
         .max_by_key(|(from, _)| from.len())
         .map(|(from, to)| PathBuf::from(format!("{to}{}", &path[from.len()..])));
-    let dir = root.join(here.parent().unwrap_or(Path::new("")));
+    let dir = root.join(here.parent().unwrap_or_else(|| Path::new("")));
     remapped
         .into_iter()
         .chain(node_modules(root, &dir).into_iter().map(|d| d.join(path)))

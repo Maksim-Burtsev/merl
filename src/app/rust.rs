@@ -1,5 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::{
@@ -256,6 +254,10 @@ impl App {
             .collect()
     }
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "the visibility table reads row by row, in order of precedence"
+    )]
     pub(super) fn rust_methods(&mut self, here: &Path, word: &str) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let pattern = search::rust_method_pattern(word);
@@ -315,7 +317,7 @@ impl App {
             name.is_none_or(|n| reached.contains(&n) || !every_locked.iter().any(|p| p.name == n))
         };
         let below = |p: &Path| {
-            let parent = p.parent().unwrap_or(Path::new(""));
+            let parent = p.parent().unwrap_or_else(|| Path::new(""));
             let root_file = p
                 .file_stem()
                 .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")

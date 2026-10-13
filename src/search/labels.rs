@@ -1,6 +1,4 @@
 #![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -35,6 +33,10 @@ static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 
 const LINES_BACK_TO_THE_BRACKET: usize = 80;
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub fn label_at(
     kind: Kind,
     java: bool,
@@ -135,6 +137,10 @@ pub fn label_at(
             }
         }
         (Kind::Rust, b'{') => {
+            static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
+                    .unwrap()
+            });
             static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                 Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$").unwrap()
             });
@@ -164,10 +170,6 @@ pub fn label_at(
                     how: Owner::Typed,
                 }));
             }
-            static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
-                    .unwrap()
-            });
             while let Some(OpenBracket {
                 line0: el,
                 byte: ei,
@@ -201,12 +203,12 @@ pub fn label_at(
             })
         }
         (Kind::Python | Kind::Jvm | Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby, b'(') => {
+            static ANNOTATION: std::sync::LazyLock<Regex> =
+                std::sync::LazyLock::new(|| Regex::new(r"@[\w.]+\s*$").unwrap());
             let before = &lines[at][..open];
             if declares(before) {
                 return None;
             }
-            static ANNOTATION: std::sync::LazyLock<Regex> =
-                std::sync::LazyLock::new(|| Regex::new(r"@[\w.]+\s*$").unwrap());
             if java && !ANNOTATION.is_match(before) {
                 return None;
             }
@@ -250,19 +252,6 @@ fn declares(before: &str) -> bool {
 }
 
 fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
-    let mut s = line[..open].trim_end();
-    if s.ends_with('>') && matches!(kind, Kind::TsJs | Kind::Swift | Kind::CSharp | Kind::Jvm) {
-        let mut depth = 0i32;
-        let lt = s.char_indices().rev().find(|&(_, c)| {
-            depth += match c {
-                '>' => 1,
-                '<' => -1,
-                _ => 0,
-            };
-            depth == 0
-        })?;
-        s = s[..lt.0].trim_end();
-    }
     const STATEMENT_KEYWORDS: &[&str] = &[
         "if",
         "elif",
@@ -287,6 +276,19 @@ fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
         "or",
         "in",
     ];
+    let mut s = line[..open].trim_end();
+    if s.ends_with('>') && matches!(kind, Kind::TsJs | Kind::Swift | Kind::CSharp | Kind::Jvm) {
+        let mut depth = 0i32;
+        let lt = s.char_indices().rev().find(|&(_, c)| {
+            depth += match c {
+                '>' => 1,
+                '<' => -1,
+                _ => 0,
+            };
+            depth == 0
+        })?;
+        s = s[..lt.0].trim_end();
+    }
     if let Some(w) = s
         .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
         .next()

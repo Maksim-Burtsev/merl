@@ -1,7 +1,3 @@
-#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
@@ -30,7 +26,7 @@ impl App {
             return;
         }
         let target = if search::perl_used_module(&line) == Some(range.clone()) {
-            Target::Package(name.clone())
+            Target::Package(name)
         } else {
             perl_target(&line, range, &name, self.col)
         };
@@ -52,7 +48,7 @@ impl App {
                     &package,
                     &word,
                     &patterns,
-                    Reason::Path(package.clone()),
+                    &Reason::Path(package.clone()),
                 );
                 let found = if found.is_empty() {
                     self.perl_by_name(here, &word, &patterns)
@@ -72,7 +68,7 @@ impl App {
                     &package,
                     &word,
                     &patterns,
-                    Reason::Path(package.clone()),
+                    &Reason::Path(package.clone()),
                 );
                 let found = if found.is_empty() {
                     self.offer_only = !self.perl_files(here, &package).is_empty();
@@ -92,7 +88,7 @@ impl App {
                     .filter(|(n, _)| *n == word)
                     .flat_map(|(_, module)| {
                         let reason = Reason::Import(module.clone());
-                        self.perl_in_package(here, &module, &word, &patterns, reason)
+                        self.perl_in_package(here, &module, &word, &patterns, &reason)
                     })
                     .collect::<Vec<_>>();
                 let found = if imported.is_empty() {
@@ -118,7 +114,7 @@ impl App {
         }
     }
 
-    fn perl_by_name(&mut self, here: &Path, word: &str, patterns: &[String]) -> Vec<Candidate> {
+    fn perl_by_name(&self, here: &Path, word: &str, patterns: &[String]) -> Vec<Candidate> {
         (self.project_definitions(Kind::Perl, here, word, &patterns.join("|")))
             .into_iter()
             .map(|hit| Candidate {
@@ -161,7 +157,7 @@ impl App {
         package: &str,
         word: &str,
         patterns: &[String],
-        reason: Reason,
+        reason: &Reason,
     ) -> Vec<Candidate> {
         let re = Regex::new(&patterns.join("|")).expect("an escaped name keeps it valid");
         let mut found = Vec::new();
@@ -216,7 +212,7 @@ impl App {
             .find(|f| f.is_file())
             .map(|f| {
                 f.strip_prefix(&self.root)
-                    .map_or(f.clone(), Path::to_path_buf)
+                    .map_or_else(|_| f.clone(), Path::to_path_buf)
             })
             .into_iter()
             .collect()

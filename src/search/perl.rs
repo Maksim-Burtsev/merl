@@ -1,6 +1,3 @@
-#![expect(clippy::default_trait_access, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -166,14 +163,14 @@ pub fn perl_imports(text: &str) -> Vec<(String, String)> {
 }
 
 pub fn perl_lexical(text: &str, line: usize, col: usize, name: &str) -> Option<usize> {
+    static HEADER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").unwrap());
     let (literal, code) = perl_lex(text);
     let n = regex::escape(name);
     let decl = Regex::new(&format!(
         r"\b(?:my|state)\s+(?:[A-Z][\w:]*\s+)?[$@%]{n}\b|\b(?:my|state)\s*\([^)]*[$@%]{n}\b|^\s*(?:sub|method)\s+[\w:]*\s*\([^)]*[$@%]{n}\b"
     ))
     .ok()?;
-    static HEADER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").unwrap());
     let mut depth = 0usize;
     for i in (0..=line.min(code.len().saturating_sub(1))).rev() {
         if literal[i] && i != line {
@@ -227,7 +224,7 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
     let mut literal = Vec::new();
     let mut code = Vec::new();
     let mut state = State::Code;
-    let mut pending: std::collections::VecDeque<(String, bool)> = Default::default();
+    let mut pending: std::collections::VecDeque<(String, bool)> = std::collections::VecDeque::new();
     for line in text.split('\n') {
         match &state {
             State::Data => {
@@ -277,7 +274,7 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
             }
             State::Quote(..) => literal.push(true),
         }
-        let (blanked, next, heredocs) = scan_line(line, std::mem::replace(&mut state, State::Code));
+        let (blanked, next, heredocs) = scan_line(line, &state);
         code.push(blanked);
         pending.extend(heredocs);
         state = match (next, pending.pop_front()) {
@@ -292,12 +289,12 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
     (literal, code)
 }
 
-fn scan_line(line: &str, state: State) -> (String, State, Vec<(String, bool)>) {
+fn scan_line(line: &str, state: &State) -> (String, State, Vec<(String, bool)>) {
     let b = line.as_bytes();
     let mut out = b.to_vec();
     let mut heredocs = Vec::new();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-    let mut quote = match state {
+    let mut quote = match *state {
         State::Quote(open, close, depth) => Some((open, close, depth)),
         _ => None,
     };

@@ -1,4 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
@@ -309,7 +308,7 @@ impl App {
                     && edit.line <= last.line + last.new.len()
                     && last.line <= edit.line + edit.old.len() =>
             {
-                last.merge(edit);
+                last.merge(&edit);
             }
             _ => self.undo.push(edit),
         }
@@ -445,7 +444,7 @@ impl App {
 }
 
 impl Edit {
-    fn merge(&mut self, next: Self) {
+    fn merge(&mut self, next: &Self) {
         let (a1, b1) = (self.line, self.line + self.new.len());
         let (a2, b2) = (next.line, next.line + next.old.len());
         let lo = a1.min(a2);

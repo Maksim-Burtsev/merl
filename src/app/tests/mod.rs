@@ -1,3 +1,7 @@
+#![expect(
+    clippy::format_collect,
+    reason = "a fixture is built one format! per line; the allocations cost a test nothing"
+)]
 use super::open::carried;
 use super::resolution::resolution;
 use super::*;
@@ -263,9 +267,8 @@ enum Shown {
     Jump(String, String),
     Picker(String, Vec<(String, String, String)>),
 }
-#[expect(clippy::redundant_pattern_matching, reason = "#858")]
 fn shown(a: &mut App) -> Shown {
-    if let Some(_) = a.picker {
+    if a.picker.is_some() {
         let rows = definition_rows(a);
         press(a, KeyCode::Esc, KeyModifiers::NONE);
         Shown::Picker(a.message.clone(), rows)

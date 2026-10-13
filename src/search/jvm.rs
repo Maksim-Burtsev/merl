@@ -1,5 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
@@ -519,12 +517,12 @@ fn members_of(lines: &[&str], literal: &[bool], k: usize, name: &str, re: &Regex
 }
 
 pub fn jvm_bases(text: &str, decl_line1: usize, scala: bool) -> Vec<String> {
-    if scala {
-        return scala_bases(text, decl_line1);
-    }
     static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bextends\s+(.+?)\s*(?:\bimplements\b|\{|$)").unwrap()
     });
+    if scala {
+        return scala_bases(text, decl_line1);
+    }
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
@@ -720,6 +718,8 @@ pub struct JvmAccessor {
 }
 
 pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize> {
+    static ANNOTATIONS: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s*)*").unwrap());
     let Some(JvmAccessor {
         fields_it_may_read: names,
         setter,
@@ -754,8 +754,6 @@ pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize
     let class_re = Regex::new(&format!(r"@(?:lombok\.)?(?:{class})\b")).expect("a fixed pattern");
     let none_re =
         Regex::new(&format!(r"@(?:lombok\.)?{own}\s*\([^)]*\bNONE\b")).expect("a fixed pattern");
-    static ANNOTATIONS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s*)*").unwrap());
     let type_annotated = decl_line1
         .checked_sub(1)
         .is_some_and(|k| k < lines.len() && class_re.is_match(&with_annotations_above(k)));
@@ -892,7 +890,7 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
         if let Some(c) = test.captures(&code) {
             let rest = &code[c.get(0)?.end()..];
             return (!rest.contains("else") && !rest.contains(';') && !rest.contains("||"))
-                .then(|| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+                .then(|| c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned()))
                 .flatten();
         }
         let c = branch.captures(&code)?;

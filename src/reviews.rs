@@ -1,5 +1,3 @@
-#![cfg_attr(test, expect(clippy::default_trait_access, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::iter_on_single_items, reason = "#858"))]
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -281,6 +279,7 @@ fn median(mut times: Vec<u64>) -> Option<u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
     fn scratch(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("merl-reviews-{tag}-{}", std::process::id()));
@@ -302,8 +301,8 @@ mod tests {
             base: "main".into(),
             merge_base: String::new(),
             files: Vec::new(),
-            deleted: Default::default(),
-            added: Default::default(),
+            deleted: Arc::default(),
+            added: Arc::default(),
             note: None,
         };
         let stops_in: HashMap<PathBuf, usize> = stops_in
@@ -432,8 +431,8 @@ mod tests {
             base: "main".into(),
             merge_base: String::new(),
             files: vec![row("a.rs", 3, 1), row("b.rs", 2, 0)],
-            deleted: Default::default(),
-            added: Default::default(),
+            deleted: Arc::default(),
+            added: Arc::default(),
             note: None,
         };
         let stops_in = HashMap::from([(PathBuf::from("a.rs"), 2), (PathBuf::from("b.rs"), 1)]);
@@ -451,7 +450,7 @@ mod tests {
         s.moved(Some("["), &util, &a, None, false);
         s.pressed(at(160), &a, false);
         s.moved(Some("c"), &a, &b, Some((PathBuf::from("b.rs"), 1)), true);
-        let columns = s.columns([PathBuf::from("a.rs")].iter()).unwrap();
+        let columns = s.columns(std::iter::once(&PathBuf::from("a.rs"))).unwrap();
         let today = stats::day("2026-09-26").unwrap();
         add(&file, today, "merl", "feat/x", &columns).unwrap();
         let text = std::fs::read_to_string(&file).unwrap();

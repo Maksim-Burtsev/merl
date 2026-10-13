@@ -1,5 +1,5 @@
-#![expect(clippy::format_push_string, reason = "#858")]
 use super::*;
+use std::fmt::Write as _;
 
 #[test]
 fn a_reload_carries_lines_past_one_rewritten_region_only() {
@@ -104,7 +104,7 @@ fn two_typescript_modules_handing_a_name_to_each_other_end() {
 fn python_bases(levels: usize, top: &str) -> Vec<(String, String)> {
     let mut text = format!("from outside import Base\n\n\nclass C{levels}({top}):\n    pass\n");
     for i in (0..levels).rev() {
-        text += &format!("\n\nclass C{i}(C{}):\n    pass\n", i + 1);
+        _ = write!(text, "\n\nclass C{i}(C{}):\n    pass\n", i + 1);
     }
     text +=
         "\n\nclass Other:\n    def save(self):\n        pass\n\n\ndef f(x: C0):\n    x.save()\n";
@@ -230,9 +230,9 @@ fn ladder(lang: &str, n: usize) -> (String, String, String) {
     let mut t = String::new();
     match lang {
         "py" | "pysuper" => {
-            t += &format!("class C{n}:\n    def root(self):\n        pass\n");
+            _ = write!(t, "class C{n}:\n    def root(self):\n        pass\n");
             for i in (0..n).rev() {
-                t += &format!("\n\nclass C{i}(C{}):\n    pass\n", i + 1);
+                _ = write!(t, "\n\nclass C{i}(C{}):\n    pass\n", i + 1);
             }
             t += "\n\nclass Other:\n    def root(self):\n        pass\n";
             if lang == "py" {
@@ -251,35 +251,42 @@ fn ladder(lang: &str, n: usize) -> (String, String, String) {
             )
         }
         "ts" => {
-            t += &format!("export class C{n} {{\n  root(): void {{}}\n}}\n");
+            _ = write!(t, "export class C{n} {{\n  root(): void {{}}\n}}\n");
             for i in (0..n).rev() {
-                t += &format!("\nexport class C{i} extends C{} {{}}\n", i + 1);
+                _ = write!(t, "\nexport class C{i} extends C{} {{}}\n", i + 1);
             }
             t += "\nexport class Other {\n  root(): void {}\n}\n\nexport function f(x: C0): void {\n  x.root();\n}\n";
             ("app.ts".into(), t, "x.root".into())
         }
         "cs" => {
-            t += &format!("public class C{n}\n{{\n    public void Root() {{ }}\n}}\n");
+            _ = write!(
+                t,
+                "public class C{n}\n{{\n    public void Root() {{ }}\n}}\n"
+            );
             for i in (0..n).rev() {
-                t += &format!("\npublic class C{i} : C{}\n{{\n}}\n", i + 1);
+                _ = write!(t, "\npublic class C{i} : C{}\n{{\n}}\n", i + 1);
             }
             t += "\npublic class Other\n{\n    public void Root() { }\n}\n\npublic class W\n{\n    public void F(C0 x)\n    {\n        x.Root();\n    }\n}\n";
             ("Shop.cs".into(), t, "x.Root".into())
         }
         "php" => {
-            t += &format!(
+            _ = write!(
+                t,
                 "<?php\n\nclass C{n}\n{{\n    public function root(): void\n    {{\n    }}\n}}\n"
             );
             for i in (0..n).rev() {
-                t += &format!("\nclass C{i} extends C{}\n{{\n}}\n", i + 1);
+                _ = write!(t, "\nclass C{i} extends C{}\n{{\n}}\n", i + 1);
             }
             t += "\nclass Other\n{\n    public function root(): void\n    {\n    }\n}\n\nfunction f(C0 $x): void\n{\n    $x->root();\n}\n";
             ("shop.php".into(), t, "$x->root".into())
         }
         _ => {
-            t += &format!("package shop\n\ntype C{n} struct{{}}\n\nfunc (c C{n}) Root() {{}}\n");
+            _ = write!(
+                t,
+                "package shop\n\ntype C{n} struct{{}}\n\nfunc (c C{n}) Root() {{}}\n"
+            );
             for i in (0..n).rev() {
-                t += &format!("\ntype C{i} struct {{\n\tC{}\n}}\n", i + 1);
+                _ = write!(t, "\ntype C{i} struct {{\n\tC{}\n}}\n", i + 1);
             }
             t += "\ntype Other struct{}\n\nfunc (o Other) Root() {}\n\nfunc F(x C0) {\n\tx.Root()\n}\n";
             ("shop.go".into(), t, "x.Root".into())
@@ -320,9 +327,9 @@ fn go_types(n: usize, sep: &str) -> Vec<(String, String)> {
     let mut t = String::from(
         "package shop\n\ntype Real struct {\n\tName string\n}\n\nfunc (r Real) Root() {}\n",
     );
-    t += &format!("\ntype A{n}{sep}Real\n");
+    _ = write!(t, "\ntype A{n}{sep}Real\n");
     for i in (0..n).rev() {
-        t += &format!("\ntype A{i}{sep}A{}\n", i + 1);
+        _ = write!(t, "\ntype A{i}{sep}A{}\n", i + 1);
     }
     t += "\ntype Other struct {\n\tName string\n}\n\nfunc (o Other) Root() {}\n\nfunc F(x A0) {\n\tx.Root()\n\t_ = x.Name\n\t_ = A0{Name: \"\"}\n}\n";
     vec![
@@ -362,7 +369,8 @@ fn py_subtypes(n: usize) -> Vec<(String, String)> {
         "class Job:\n    def run(self):\n        pass\n\n\nclass S1(Job):\n    def run(self):\n        pass\n",
     );
     for i in 2..=n {
-        t += &format!(
+        _ = write!(
+            t,
             "\n\nclass S{i}(S{}):\n    def run(self):\n        pass\n",
             i - 1
         );

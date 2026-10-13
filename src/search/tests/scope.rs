@@ -386,7 +386,7 @@ fn c_roots_are_the_system_headers_the_sdk_frameworks_and_pods() {
     );
     let frameworks = sdk.join("System/Library/Frameworks");
     assert_eq!(
-        c_roots(Some(sdk.clone()), root),
+        c_roots(Some(&sdk.clone()), root),
         [
             system[0].clone(),
             sdk.join("usr/include"),

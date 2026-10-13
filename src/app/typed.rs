@@ -1,6 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
@@ -898,8 +895,8 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
     .expect("an escaped name keeps the pattern valid");
     search::bindings(kind, text, line1, name).iter().any(|b| {
         lines.get(b.line1 - 1).is_some_and(|l| {
-            !names_itself(kind, l, name)
-                && !(search::reads_jsdoc(kind, file) && required.is_match(l))
+            !(names_itself(kind, l, name)
+                || search::reads_jsdoc(kind, file) && required.is_match(l))
         })
     })
 }
@@ -1156,6 +1153,10 @@ impl App {
         self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "a guarded arm sits between the two; merging them would move one past it"
+    )]
     fn swift_type(&self, here: &Path, written: &str) -> Option<SwiftType> {
         let name = search::swift_type_name(written)?;
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
@@ -1189,7 +1190,7 @@ impl App {
                 let text = self.text_of(&h.path)?;
                 Some(SwiftType {
                     owner: search::qualified(Kind::Swift, &text, h.line1, &name)
-                        .unwrap_or(name.clone()),
+                        .unwrap_or_else(|| name.clone()),
                     name,
                     keyword: Some(k.clone()),
                     base: b.clone(),

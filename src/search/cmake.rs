@@ -1,4 +1,3 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
@@ -54,6 +53,10 @@ pub fn cmake_import(line: &str, col: usize) -> Option<(String, String)> {
         .then(|| (c[1].to_ascii_lowercase(), arg.as_str().to_owned()))
 }
 
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+)]
 pub fn cmake_files(command: &str, arg: &str, dir: &Path, files: &[PathBuf]) -> Vec<PathBuf> {
     let named = |names: &[String]| -> Vec<PathBuf> {
         let named = |f: &&PathBuf| {

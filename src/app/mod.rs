@@ -304,8 +304,10 @@ const HIST_MAX: usize = 50;
 type Paths = Arc<Vec<PathBuf>>;
 type CMode = (bool, bool);
 
-#[expect(clippy::struct_excessive_bools, reason = "#858")]
-#[expect(clippy::struct_field_names, reason = "#858")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the app's flags are independent switches of the screen"
+)]
 pub struct App {
     pub root: PathBuf,
     pub shallow: bool,
@@ -327,7 +329,7 @@ pub struct App {
     go_build: search::GoBuild,
     offer_only: bool,
     probe: Option<Vec<Candidate>>,
-    base_app: Option<(String, Box<Self>)>,
+    at_base: Option<(String, Box<Self>)>,
     truncated: std::cell::Cell<bool>,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
@@ -439,7 +441,6 @@ fn lock_no_write(buf: &mut Buffer) {
 }
 
 impl App {
-    #[expect(clippy::default_trait_access, reason = "#858")]
     #[expect(clippy::too_many_lines, reason = "#858")]
     pub fn new(
         root: PathBuf,
@@ -466,7 +467,7 @@ impl App {
             ignored,
             external: HashMap::new(),
             walked_roots: HashMap::new(),
-            shaped: Default::default(),
+            shaped: search::ShapedFiles::default(),
             warming: HashMap::new(),
             node_modules_of: None,
             otp: None,
@@ -478,9 +479,9 @@ impl App {
             ),
             offer_only: false,
             probe: None,
-            base_app: None,
-            truncated: Default::default(),
-            reading: Default::default(),
+            at_base: None,
+            truncated: std::cell::Cell::default(),
+            reading: std::cell::RefCell::default(),
             focus,
             show_tree: true,
             tree_width: None,
@@ -506,9 +507,9 @@ impl App {
             wrap_opposite_of_kind: HashSet::new(),
             previewed: HashSet::new(),
             diagrams: crate::mermaid::Diagrams::default(),
-            old_picture: Default::default(),
+            old_picture: std::cell::RefCell::default(),
             preview: None,
-            parse: Default::default(),
+            parse: preview_data::Parse::default(),
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,
@@ -558,7 +559,7 @@ impl App {
             keys_action_of_key_in_hand: None,
             pressed: HashMap::new(),
             missed: HashMap::new(),
-            watch: Default::default(),
+            watch: missed::Watch::default(),
         };
         lock_no_write(&mut buf);
         app.buf = buf;

@@ -1,4 +1,3 @@
-#![expect(clippy::redundant_clone, reason = "#858")]
 use super::*;
 
 fn at(root: &Path, file: &str, line: usize) -> String {
@@ -135,7 +134,7 @@ fn c_reads_no_cpp_header_and_only_objective_c_reads_the_pods() {
         "outside-c",
         &[("main.c", call), ("main.m", call), ("main.mm", call)],
     );
-    use_roots(&mut a, Kind::C, &[inc.clone(), pods_root.clone()]);
+    use_roots(&mut a, Kind::C, &[inc.clone(), pods_root]);
     let rows = |a: &mut App, file: &str| {
         d_on(a, file, "puts");
         match shown(a) {
@@ -213,7 +212,7 @@ fn a_path_outside_is_shown_from_its_root() {
     );
     let deps = dir.join("deps");
     a.external
-        .insert(Kind::Elixir, (vec![deps.clone()], Arc::new(Vec::new())));
+        .insert(Kind::Elixir, (vec![deps], Arc::new(Vec::new())));
     let jason = dir.join("deps/jason/lib/jason.ex");
     assert_eq!(
         a.rel_to_its_root(Kind::Elixir, &jason),

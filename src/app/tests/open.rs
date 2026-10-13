@@ -1,4 +1,3 @@
-#![expect(clippy::format_collect, reason = "#858")]
 use super::*;
 
 #[test]

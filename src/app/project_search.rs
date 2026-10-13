@@ -1,5 +1,3 @@
-#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 use super::{
     App, Arc, Hit, Instant, Kind, LineEdit, MAX_LABEL_TEXT, Mode, Path, PathBuf, PickItem, Picker,
     PickerKind, SearchJob, clip, git, search, tutor,
@@ -51,7 +49,7 @@ impl App {
     pub(super) fn deleted_lines(&self) -> Arc<Vec<git::DeletedLine>> {
         self.review
             .as_ref()
-            .map_or_else(Default::default, |r| r.deleted.clone())
+            .map_or_else(Default::default, |r| Arc::clone(&r.deleted))
     }
 
     pub(super) fn word_under(&self, word_chars: &str) -> Option<String> {
@@ -134,10 +132,10 @@ impl App {
         }
     }
 
-    pub(super) fn search_jump(&mut self, item: PickItem) {
+    pub(super) fn search_jump(&mut self, item: &PickItem) {
         self.picker = None;
         self.mode = Mode::Normal;
-        self.jump_to_item(&item);
+        self.jump_to_item(item);
     }
 
     pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
@@ -170,9 +168,9 @@ impl App {
             && let Some(item) = new.current().cloned()
         {
             let from = self.review_spot();
-            self.search_jump(item);
+            self.search_jump(&item);
             self.watch_jumped();
-            self.review_count(None, from, Some("Picker: Enter"), false);
+            self.review_count(None, &from, Some("Picker: Enter"), false);
             tutor::check(self, None);
             return true;
         }

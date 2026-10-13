@@ -1,5 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
@@ -102,7 +100,7 @@ fn ts_returned_local(
     text: &str,
     lines: &[&str],
     returned: &[(usize, Value)],
-    body: std::ops::Range<usize>,
+    mut body: std::ops::Range<usize>,
     local: &str,
 ) -> Option<Value> {
     let assigned = Regex::new(&format!(
@@ -130,7 +128,7 @@ fn ts_returned_local(
         let t = l.trim_start();
         ["const ", "let ", "var "].iter().any(|k| t.starts_with(k))
     };
-    let reassigned = body.clone().any(|i| {
+    let reassigned = body.any(|i| {
         let l = uncommented(Kind::TsJs, lines[i]);
         !declared(&l) && assigned.is_match(&l)
     });
@@ -334,6 +332,9 @@ pub struct GoSignature {
     pub result: String,
 }
 pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
+    fn typed(p: &str) -> Option<&str> {
+        p.split_once(char::is_whitespace).map(|(_, t)| t.trim())
+    }
     static PKG: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
     let kind = Kind::Go;
@@ -359,9 +360,6 @@ pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
         .map(str::trim)
         .filter(|p| !p.is_empty())
         .collect();
-    fn typed(p: &str) -> Option<&str> {
-        p.split_once(char::is_whitespace).map(|(_, t)| t.trim())
-    }
     let named = parts.iter().any(|p| typed(p).is_some());
     let mut types: Vec<String> = Vec::new();
     for p in parts.iter().rev() {

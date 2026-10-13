@@ -1,7 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::suspicious_operation_groupings, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
@@ -14,6 +10,10 @@ use super::{
     perl_roots, powershell_roots, ruby_roots, ts_alias,
 };
 
+#[expect(
+    clippy::suspicious_operation_groupings,
+    reason = "the kind is checked on `path` alone; `here` is compared by its folder or its dialect"
+)]
 pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
     match kind {
         Kind::Docker | Kind::Yaml | Kind::Markdown | Kind::Html => path == here,
@@ -135,7 +135,9 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         Kind::TsJs => node_modules(root, root),
         Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
         Kind::C => c_roots(
-            run("xcrun", &["--show-sdk-path"]).map(|s| PathBuf::from(s.trim())),
+            run("xcrun", &["--show-sdk-path"])
+                .map(|s| PathBuf::from(s.trim()))
+                .as_deref(),
             root,
         ),
         Kind::Proto => [
@@ -292,7 +294,7 @@ pub(super) fn required_modules(cache: &Path, gomod: &str) -> Vec<PathBuf> {
     }
     dirs
 }
-pub(super) fn c_roots(sdk: Option<PathBuf>, root: &Path) -> Vec<PathBuf> {
+pub(super) fn c_roots(sdk: Option<&Path>, root: &Path) -> Vec<PathBuf> {
     let mut dirs = vec![PathBuf::from("/usr/include")];
     dirs.extend(sdk.iter().map(|sdk| sdk.join("usr/include")));
     dirs.push(PathBuf::from("/usr/local/include"));
@@ -860,9 +862,9 @@ pub fn rank(path: &Path, here: Option<&Path>, declaration: bool) -> Rank {
     let steps = here.map_or(0, |h| {
         let shared = path
             .parent()
-            .unwrap_or(Path::new(""))
+            .unwrap_or_else(|| Path::new(""))
             .components()
-            .zip(h.parent().unwrap_or(Path::new("")).components())
+            .zip(h.parent().unwrap_or_else(|| Path::new("")).components())
             .take_while(|(a, b)| a == b)
             .count();
         dirs(path) + dirs(h) - 2 * shared
@@ -957,6 +959,39 @@ pub(super) const GO_ARCH: &[&str] = &[
     "wasm",
 ];
 pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
+    static TOKEN: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
+    type Tag<'a> = &'a dyn Fn(&str) -> bool;
+    fn or_of_ands(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = and_of_unaries(t, i, tag)?;
+        while t.get(*i) == Some(&"||") {
+            *i += 1;
+            value |= and_of_unaries(t, i, tag)?;
+        }
+        Some(value)
+    }
+    fn and_of_unaries(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let mut value = unary(t, i, tag)?;
+        while t.get(*i) == Some(&"&&") {
+            *i += 1;
+            value &= unary(t, i, tag)?;
+        }
+        Some(value)
+    }
+    fn unary(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
+        let token = *t.get(*i)?;
+        *i += 1;
+        match token {
+            "!" => unary(t, i, tag).map(|v| !v),
+            "(" => {
+                let value = or_of_ands(t, i, tag);
+                *i += 1;
+                value
+            }
+            "&&" | "||" | ")" => None,
+            name => Some(tag(name)),
+        }
+    }
     let is_os = |t: &str| GO_UNIX.contains(&t) || GO_OS.contains(&t);
     let tag = |t: &str| -> bool {
         match t {
@@ -997,40 +1032,7 @@ pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
             GoBuilt::Compiled
         };
     };
-    static TOKEN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
     let tokens: Vec<&str> = TOKEN.find_iter(expr).map(|m| m.as_str()).collect();
-    type Tag<'a> = &'a dyn Fn(&str) -> bool;
-    fn or_of_ands(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let mut value = and_of_unaries(t, i, tag)?;
-        while t.get(*i) == Some(&"||") {
-            *i += 1;
-            value |= and_of_unaries(t, i, tag)?;
-        }
-        Some(value)
-    }
-    fn and_of_unaries(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let mut value = unary(t, i, tag)?;
-        while t.get(*i) == Some(&"&&") {
-            *i += 1;
-            value &= unary(t, i, tag)?;
-        }
-        Some(value)
-    }
-    fn unary(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
-        let token = *t.get(*i)?;
-        *i += 1;
-        match token {
-            "!" => unary(t, i, tag).map(|v| !v),
-            "(" => {
-                let value = or_of_ands(t, i, tag);
-                *i += 1;
-                value
-            }
-            "&&" | "||" | ")" => None,
-            name => Some(tag(name)),
-        }
-    }
     match or_of_ands(&tokens, &mut 0, &tag) {
         Some(true) => GoBuilt::Compiled,
         Some(false) => GoBuilt::Excluded,

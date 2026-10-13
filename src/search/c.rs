@@ -1,5 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
@@ -281,6 +279,10 @@ pub fn c_initialized_member(text: &str, line1: usize, byte_col: usize) -> Option
         _ => Some(ctor.to_owned()),
     }
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 fn ctor_head_with_brackets_emptied(code: &str, at: usize) -> Option<String> {
     let b = code.as_bytes();
     let item_of_list = |close: usize| code[close + 1..].trim_start().starts_with(',');
@@ -320,6 +322,10 @@ fn line_starts(code: &str) -> Vec<usize> {
         .chain(code.match_indices('\n').map(|(i, _)| i + 1))
         .collect()
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 fn c_head_start(code: &str, open: usize) -> usize {
     let b = code.as_bytes();
     let item_of_init_list = |close: usize| code[close + 1..].trim_start().starts_with([',', '{']);
@@ -543,6 +549,10 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
     }
     None
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<usize> {
     let b = code.as_bytes();
     let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
@@ -995,6 +1005,10 @@ const C_TYPE_KEYWORDS: &[&str] = &[
     "typedef",
     "__inline",
 ];
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
     let b = code.as_bytes();
     let (mut depth, mut i) = (0usize, at);
@@ -1182,6 +1196,10 @@ pub fn c_place(code: &str, at: usize) -> CPlace {
 pub fn c_body_name(code: &str, open: usize) -> String {
     c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
     static AUTO: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
@@ -1222,6 +1240,21 @@ pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
     .then_some(path)
 }
 fn cpp_class_path(written: &str) -> Option<Vec<String>> {
+    const ARROW: &[&str] = &[
+        "optional",
+        "expected",
+        "auto_ptr",
+        "weak_ptr",
+        "reverse_iterator",
+        "move_iterator",
+        "counted_iterator",
+        "common_iterator",
+        "basic_const_iterator",
+        "istream_iterator",
+        "istreambuf_iterator",
+        "indirect",
+        "polymorphic",
+    ];
     static DROPPED: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\b(?:const|volatile|static|mutable|constexpr|inline|struct|class|typename|extern|thread_local|register|virtual|explicit)\b|\[\[[^\]]*\]\]").unwrap()
     });
@@ -1252,21 +1285,6 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
             && !p.starts_with(|c: char| c.is_ascii_digit())
             && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     };
-    const ARROW: &[&str] = &[
-        "optional",
-        "expected",
-        "auto_ptr",
-        "weak_ptr",
-        "reverse_iterator",
-        "move_iterator",
-        "counted_iterator",
-        "common_iterator",
-        "basic_const_iterator",
-        "istream_iterator",
-        "istreambuf_iterator",
-        "indirect",
-        "polymorphic",
-    ];
     let std_only = || {
         let args = STD_NAME.replace_all(s, "");
         WORD.find_iter(&args).all(|w| BUILTIN.contains(&w.as_str()))

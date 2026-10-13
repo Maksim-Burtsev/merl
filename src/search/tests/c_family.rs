@@ -1,6 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::*;
 
@@ -1202,6 +1200,7 @@ fn c_receiver_cuts_at_a_character() {
 
 #[test]
 fn swift_type_places_and_who_sees_a_nested_type() {
+    use SwiftTypePlace::*;
     let text = "final class Hatch {
     enum Latch {}
 }
@@ -1235,7 +1234,6 @@ struct Rack {
     }
 }
 ";
-    use SwiftTypePlace::*;
     let place = |line| swift_type_place(text, line);
     assert_eq!(place(2), Some(Nested("Hatch".into())));
     assert_eq!(
@@ -1348,6 +1346,15 @@ fn swift_test_targets_come_from_the_manifest() {
 
 #[test]
 fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
+    fn read<'a>(manifests: &'a [(&'a str, &'a str)]) -> impl Fn(&Path) -> Option<String> + 'a {
+        move |p: &Path| {
+            manifests
+                .iter()
+                .find(|(f, _)| Path::new(f) == p)
+                .map(|(_, t)| (*t).to_owned())
+        }
+    }
+    const PLAIN: &str = r#"<Project Sdk="Microsoft.NET.Sdk"></Project>"#;
     let files: Vec<PathBuf> = [
         "Shop.Api/Shop.Api.csproj",
         "Shop.App/Shop.App.csproj",
@@ -1361,15 +1368,6 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
     .iter()
     .map(PathBuf::from)
     .collect();
-    fn read<'a>(manifests: &'a [(&'a str, &'a str)]) -> impl Fn(&Path) -> Option<String> + 'a {
-        move |p: &Path| {
-            manifests
-                .iter()
-                .find(|(f, _)| Path::new(f) == p)
-                .map(|(_, t)| (*t).to_owned())
-        }
-    }
-    const PLAIN: &str = r#"<Project Sdk="Microsoft.NET.Sdk"></Project>"#;
     let alone: &[(&str, &str)] = &[
         ("Shop.Api/Shop.Api.csproj", PLAIN),
         ("Shop.App/Shop.App.csproj", PLAIN),
@@ -1487,7 +1485,7 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         !seen.sees(Path::new("Shop.App/Tests/PageTests.cs")),
         "a project inside another's directory is a project of its own"
     );
-    let mut two = files.clone();
+    let mut two = files;
     two.push(PathBuf::from("Shop.App/Shop.App.Tests.csproj"));
     assert!(
         cs_projects(&two, here, read(alone)).is_none(),

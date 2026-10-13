@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
@@ -193,7 +192,7 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
         let abs = root.join(&p);
         abs.is_file().then(|| {
             abs.strip_prefix(root)
-                .map_or(abs.clone(), Path::to_path_buf)
+                .map_or_else(|_| abs.clone(), Path::to_path_buf)
         })
     };
     let package_dir = here
@@ -244,7 +243,7 @@ pub(super) fn dart_packages(config: &Path) -> Vec<DartPackage> {
     let Ok(text) = std::fs::read_to_string(config) else {
         return Vec::new();
     };
-    let base = config.parent().unwrap_or(Path::new(""));
+    let base = config.parent().unwrap_or_else(|| Path::new(""));
     ENTRY
         .find_iter(&text)
         .filter_map(|e| {

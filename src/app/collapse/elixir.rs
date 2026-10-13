@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::needless_collect, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 #![expect(clippy::unwrap_used, reason = "#858")]
@@ -392,7 +391,7 @@ fn pop_to(
     last: usize,
     nodes: &mut Vec<(usize, usize)>,
 ) -> Frame {
-    for f in stack.drain(at + 1..).collect::<Vec<_>>() {
+    for f in stack.drain(at + 1..) {
         if f.kind == Fk::Args {
             nodes.push((f.line, last));
         }

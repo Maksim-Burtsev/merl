@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::needless_collect, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
@@ -203,6 +202,10 @@ fn d_answers_every_annotation_in_the_fixtures() {
     let threads = test_threads();
     let chunk = cases.len().div_ceil(threads);
     let failures: Vec<String> = std::thread::scope(|s| {
+        #[expect(
+            clippy::needless_collect,
+            reason = "every thread is spawned before the first join"
+        )]
         let runs: Vec<_> = cases
             .chunks(chunk)
             .map(|part| s.spawn(move || part.iter().filter_map(check).collect::<Vec<_>>()))
