@@ -15,11 +15,15 @@ impl App {
                     let path = self
                         .in_project(&path)
                         .map_or(path, |rel| self.root.join(rel));
-                    match self.review.as_ref().and_then(|r| r.file(&n.path)).cloned() {
+                    let f = self.review.as_ref().and_then(|r| r.file(&n.path)).cloned();
+                    match &f {
                         Some(f) if self.buf.path.as_deref() != Some(&*path) => {
-                            self.open_review_file(&f, false);
+                            self.open_review_file(f, false);
                         }
                         _ => self.jump_to(&path, 0),
+                    }
+                    if f.is_some() && self.buf.path.as_deref() == Some(&*path) {
+                        self.remember_hunk();
                     }
                 }
                 None => {}

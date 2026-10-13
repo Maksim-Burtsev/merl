@@ -129,15 +129,15 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
+        if let Some((rel, h)) = self.hunk_left(&r) {
+            self.jump_to_hunk(&self.root.join(rel), h);
+            self.walked_here = true;
+            return;
+        }
         if let Some(h) = self.hunk_ahead(dir) {
             let path = self.buf.path.clone().unwrap();
             self.jump_to_hunk(&path, h);
             self.remember_hunk();
-            return;
-        }
-        if let Some((rel, h)) = self.hunk_left(&r) {
-            self.jump_to_hunk(&self.root.join(rel), h);
-            self.walked_here = true;
             return;
         }
         let mut read = self
@@ -201,16 +201,16 @@ impl App {
         }
     }
 
-    fn remember_hunk(&mut self) {
+    pub(super) fn remember_hunk(&mut self) {
         let i = self.diff.hunks.iter().filter(|&&h| h < self.at()).count();
         self.last_hunk = self.rel_current().map(|rel| (rel, i));
     }
 
     pub(super) fn hunk_left(&self, r: &git::Review) -> Option<(PathBuf, TextLine)> {
-        if self.rel_current().is_some_and(|rel| r.file(&rel).is_some()) {
+        let (rel, i) = self.last_hunk.clone()?;
+        if self.rel_current().as_ref() == Some(&rel) {
             return None;
         }
-        let (rel, i) = self.last_hunk.clone()?;
         let f = r
             .file(&rel)
             .filter(|f| f.is_stop(&self.root, self.diagrams.on()))?;
