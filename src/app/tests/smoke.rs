@@ -39,6 +39,10 @@ const UNSMOKED: &[(u32, &str)] = &[
         796,
         "chrome colours only, which the smoke screens (text) cannot see; the theme bench's chrome and the_chrome_is_what_lazyvim_draws_in_every_ported_theme compare them with LazyVim's",
     ),
+    (
+        813,
+        "the status path's colour only, which the smoke screens (text) cannot see; tests/snapshots hold it in tokyonight-moon and github-light",
+    ),
 ];
 
 fn root() -> PathBuf {
