@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::format_collect, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::*;
@@ -348,7 +347,7 @@ fn a_deleted_row_carries_a_red_mark() {
         .find_map(|y| {
             let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
             let at = text.find(label)?;
-            Some((text[..at].chars().count() as u16, y))
+            Some((u16::try_from(text[..at].chars().count()).unwrap(), y))
         })
         .expect("the deleted row");
     assert_eq!(
@@ -919,7 +918,7 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
             .find_map(|y| {
                 let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
                 let at = text.find(label)?;
-                Some((text[..at].chars().count() as u16, y))
+                Some((u16::try_from(text[..at].chars().count()).unwrap(), y))
             })
             .unwrap_or_else(|| panic!("no row {label}"))
     };
@@ -933,7 +932,7 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
     assert_eq!(buf[(xb - 1, yb)].symbol(), " ");
     let def = |x: u16, y: u16| {
         let row: String = (x..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
-        buf[(x + row.find("def").unwrap() as u16, y)].fg
+        buf[(x + u16::try_from(row.find("def").unwrap()).unwrap(), y)].fg
     };
     assert_eq!(
         def(xa, ya),

@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -239,7 +238,7 @@ impl App {
     pub(super) fn half_page(&mut self, dir: isize) {
         let half = (self.page_rows(dir > 0) / 2).max(1);
         let before = self.cursor_at();
-        self.move_rows(dir * half as isize);
+        self.move_rows(dir * isize::try_from(half).unwrap_or(isize::MAX));
         let moved = self.rows_between(before, self.cursor_at());
         let top = (self.top_line, self.top_row);
         (self.top_line, self.top_row) = if dir < 0 {

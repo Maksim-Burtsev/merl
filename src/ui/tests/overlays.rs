@@ -1,5 +1,4 @@
 #![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::default_trait_access, reason = "#858")]
 #![expect(clippy::format_collect, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -24,7 +23,7 @@ fn at(terminal: &Terminal<TestBackend>, needle: &str) -> Color {
 
 fn cell_at(terminal: &Terminal<TestBackend>, needle: &str) -> (u16, u16) {
     let buf = terminal.backend().buffer();
-    let n = needle.chars().count() as u16;
+    let n = u16::try_from(needle.chars().count()).unwrap();
     (0..buf.area.height)
         .find_map(|y| {
             (0..=buf.area.width.saturating_sub(n))
@@ -36,7 +35,7 @@ fn cell_at(terminal: &Terminal<TestBackend>, needle: &str) -> (u16, u16) {
 
 fn cell(terminal: &Terminal<TestBackend>, needle: &str) -> Cell {
     let buf = terminal.backend().buffer();
-    let n = needle.chars().count() as u16;
+    let n = u16::try_from(needle.chars().count()).unwrap();
     for y in 0..buf.area.height {
         for x in 0..=buf.area.width.saturating_sub(n) {
             let got: String = (0..n).map(|i| buf[(x + i, y)].symbol()).collect();
@@ -391,7 +390,7 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
     let buf = terminal.backend().buffer();
     let (hash, row) = cell_at(&terminal, "#define");
     let tab_w = 4;
-    let ten = hash + "#define MAX".len() as u16 + tab_w;
+    let ten = hash + u16::try_from("#define MAX".len()).unwrap() + tab_w;
     assert_eq!(buf[(ten, row)].symbol(), "1");
     assert_ne!(buf[(ten, row)].fg, theme.fg);
 }

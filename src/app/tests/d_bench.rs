@@ -1,4 +1,3 @@
-#![expect(clippy::cast_precision_loss, reason = "#858")]
 #![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::ignore_without_reason, reason = "#858")]
 use super::*;
@@ -28,7 +27,7 @@ fn d_bench() {
         let before = (a.buf.path.clone(), a.line);
         let t = Instant::now();
         press(a, KeyCode::Char('d'), KeyModifiers::NONE);
-        let ms = t.elapsed().as_micros() as f64 / 1000.0;
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
         let root = a.root.clone();
         let abs = |p: &Path| root.join(p).display().to_string();
         let (outcome, targets) = if let Some(p) = a.picker.as_mut() {

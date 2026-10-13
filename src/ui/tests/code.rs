@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::format_collect, reason = "#858")]
 #![expect(clippy::format_push_string, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -1593,14 +1592,14 @@ fn hidden_chars_are_drawn_as_their_tags() {
     app.show_tree = false;
     app.diff.ghosts.insert(0, vec!["old\u{202e}".into()]);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    let h = all.len() as u16 + 3;
+    let h = u16::try_from(all.len()).unwrap() + 3;
     let mut terminal = Terminal::new(TestBackend::new(20, h)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let r = rows(&terminal);
     assert_eq!(r[0], "\u{258e}old<202e>");
     let buf = terminal.backend().buffer();
     for (i, c) in all.iter().enumerate() {
-        let y = i as u16 + 1;
+        let y = u16::try_from(i).unwrap() + 1;
         assert_eq!(r[y as usize], format!("{} x<{:04x}>", i + 1, *c as u32));
         for x in 4..10 {
             assert_eq!(
@@ -1612,7 +1611,7 @@ fn hidden_chars_are_drawn_as_their_tags() {
     }
     let y = all.len() + 1;
     assert_eq!(r[y], "16 \u{1f468}\u{200d}\u{1f4bb} !");
-    assert_eq!(buf[(5, y as u16)].symbol(), "!");
+    assert_eq!(buf[(5, u16::try_from(y).unwrap())].symbol(), "!");
 }
 
 #[test]
@@ -1661,7 +1660,7 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     assert!(rows[10].contains("read-only"), "{}", rows[10]);
     let buf = terminal.backend().buffer();
     let x = (0..60).find(|&x| buf[(x, 3)].symbol() == "b").unwrap();
-    assert_eq!(x, (60 - note.len() as u16) / 2);
+    assert_eq!(x, (60 - u16::try_from(note.len()).unwrap()) / 2);
     assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
 }
 
@@ -1896,8 +1895,10 @@ fn a_changed_word_drops_the_bold_and_italic_of_its_syntax() {
     let r = rows(&terminal);
     let buf = terminal.backend().buffer();
     let cell = |y: usize, c: &str| {
-        let x = (0..24).find(|&x| buf[(x, y as u16)].symbol() == c).unwrap();
-        buf[(x, y as u16)].clone()
+        let x = (0..24)
+            .find(|&x| buf[(x, u16::try_from(y).unwrap())].symbol() == c)
+            .unwrap();
+        buf[(x, u16::try_from(y).unwrap())].clone()
     };
     let y_new = r.iter().position(|l| l.ends_with("yield 1")).unwrap();
     let kept = cell(0, "d").modifier;

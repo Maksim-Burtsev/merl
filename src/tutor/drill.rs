@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![cfg_attr(test, expect(clippy::format_push_string, reason = "#858"))]
 #![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::HashMap;
@@ -63,7 +62,7 @@ impl Drill {
         };
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_nanos() as u64);
+            .map_or(0, |d| u64::try_from(d.as_nanos()).unwrap_or(u64::MAX));
         Ok(Self {
             n,
             answers: Vec::new(),
@@ -256,7 +255,7 @@ fn median(mut v: Vec<u32>) -> Option<u32> {
     match v.len() {
         0 => None,
         n if n % 2 == 1 => Some(v[mid]),
-        _ => Some(u64::midpoint(u64::from(v[mid - 1]), u64::from(v[mid])) as u32),
+        _ => Some(u32::midpoint(v[mid - 1], v[mid])),
     }
 }
 
@@ -275,7 +274,7 @@ pub fn check(app: &mut App, action: Option<&str>) {
     if !(POOL[task].done)(app) {
         return;
     }
-    let ms = since.elapsed().as_millis() as u32;
+    let ms = u32::try_from(since.elapsed().as_millis()).unwrap_or(u32::MAX);
     let Some(d) = drill(app) else {
         return;
     };

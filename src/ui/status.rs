@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -31,7 +30,7 @@ pub(super) fn draw_prompt(
         Span::raw(&edit[sel.end..]),
     ]);
     let x = wrap::width(prefix) + wrap::width(&edit[..edit.cursor()]);
-    frame.set_cursor_position((area.x + x as u16, area.y));
+    frame.set_cursor_position((area.x + u16::try_from(x).unwrap_or(u16::MAX), area.y));
     frame.render_widget(Paragraph::new(line).style(style), area);
 }
 
@@ -48,7 +47,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     };
     if !prefix.is_empty() {
         draw_prompt(frame, prefix, &app.prompt, style, area);
-        let found_w = wrap::width(&app.message) as u16 + 1;
+        let found_w = u16::try_from(wrap::width(&app.message)).unwrap_or(u16::MAX) + 1;
         let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
         if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
             let found_at_right_edge = Rect {
@@ -160,8 +159,8 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     if hint {
         let hint = Rect {
-            x: area.right() - HINT.len() as u16,
-            width: HINT.len() as u16,
+            x: area.right() - u16::try_from(HINT.len()).unwrap_or(u16::MAX),
+            width: u16::try_from(HINT.len()).unwrap_or(u16::MAX),
             ..area
         };
         frame.render_widget(Paragraph::new(HINT).style(style), hint);

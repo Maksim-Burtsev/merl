@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use std::path::Path;
 
 use ratatui::Frame;
@@ -65,7 +64,9 @@ pub(super) fn draw_review(
         return;
     }
     let buf = frame.buffer_mut();
-    for (i, (side, half)) in sides.iter().zip(halves(area, sides.len())).enumerate() {
+    for ((side, half), placement) in
+        (sides.iter().zip(halves(area, sides.len()))).zip(FILE_PLACEMENT..)
+    {
         let border = Style::new().fg(if side.old { Color::Red } else { Color::Green });
         let note = Style::new().fg(note_fg);
         let path = side.path.as_deref().ok();
@@ -78,7 +79,13 @@ pub(super) fn draw_review(
                 height: half.height.saturating_sub(1),
                 ..half
             };
-            let at = centred(room, (text.chars().count() as u16 + 4, 3));
+            let at = centred(
+                room,
+                (
+                    u16::try_from(text.chars().count()).unwrap_or(u16::MAX) + 4,
+                    3,
+                ),
+            );
             Block::bordered().border_style(border).render(at, buf);
             let row = Rect {
                 y: at.y + 1,
@@ -100,7 +107,6 @@ pub(super) fn draw_review(
         if inner.is_empty() || inner.width < 3 {
             continue;
         }
-        let placement = FILE_PLACEMENT + i as u32;
         if let Some((at, (w, h))) = draw_picture(buf, &mut app.diagrams, path, inner, placement) {
             let framed = framed(at);
             Block::bordered().border_style(border).render(framed, buf);

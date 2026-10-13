@@ -1,6 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
-#![expect(clippy::cast_sign_loss, reason = "#858")]
 use ratatui::style::Style;
 use syntect::highlighting::{HighlightIterator, HighlightState};
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference};
@@ -85,8 +82,10 @@ impl<'a> Doc<'a> {
         };
         let at = |p: Point, dr: i64, dc: i64| {
             Point::new(
-                (p.row as i64 + dr).max(0) as usize,
-                (p.column as i64 + dc).max(0) as usize,
+                p.row
+                    .saturating_add_signed(isize::try_from(dr).unwrap_or(isize::MAX)),
+                p.column
+                    .saturating_add_signed(isize::try_from(dc).unwrap_or(isize::MAX)),
             )
         };
         let (s, e) = (at(r.start_point, sr, sc), at(r.end_point, er, ec));

@@ -1,5 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
 #![expect(clippy::items_after_statements, reason = "#858")]
 #![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
@@ -845,7 +843,7 @@ pub fn jvm_parameters(text: &str, line: usize, word: &str, groovy: bool) -> Opti
     };
     for (i, c) in code(Kind::Jvm, &inner) {
         match c {
-            b'<' if depth == angles.len() as i32 && generic_opens(i, &top) => {
+            b'<' if usize::try_from(depth) == Ok(angles.len()) && generic_opens(i, &top) => {
                 depth += 1;
                 angles.push(depth);
             }

@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
 #![expect(clippy::needless_pass_by_value, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 use super::cursor::{word_end, word_start};
@@ -12,7 +11,7 @@ use super::{
 const RUN_GAP: Duration = Duration::from_millis(200);
 const SPENT_PER_MISSED_PRESS: usize = 2;
 const MIN_PRESSES_SAVED: usize = 3;
-const HISTORY_STEPS_OFFERED_EITHER_WAY: usize = 3;
+const HISTORY_STEPS_OFFERED_EITHER_WAY: isize = 3;
 
 const SHORTCUTS: [(KeyCode, KeyModifiers); 21] = [
     (KeyCode::Char('d'), KeyModifiers::CONTROL),
@@ -391,7 +390,7 @@ impl App {
         else {
             return None;
         };
-        let reach = HISTORY_STEPS_OFFERED_EITHER_WAY as isize;
+        let reach = HISTORY_STEPS_OFFERED_EITHER_WAY;
         let stops = (1..=reach)
             .flat_map(|k| [-k, k])
             .filter_map(|k| {
