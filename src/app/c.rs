@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Arc, Candidate, Component, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, cpp,
     search,
@@ -18,7 +17,8 @@ impl App {
         range: std::ops::Range<usize>,
     ) -> Option<(Vec<Candidate>, Option<String>)> {
         static TRAILING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"(?:\)|\b(?:const|noexcept|mutable|override))\s+->\s*$").unwrap()
+            Regex::new(r"(?:\)|\b(?:const|noexcept|mutable|override))\s+->\s*$")
+                .expect("the regex is a literal")
         });
         let line = self.line_str();
         let (before, after) = (
@@ -544,8 +544,9 @@ impl App {
     }
 
     pub(super) fn c_rows(&self, word: &str, here: &Path, found: &mut Vec<Candidate>) {
-        static OBJC: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^\s*@(interface|protocol)\b").unwrap());
+        static OBJC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*@(interface|protocol)\b").expect("the regex is a literal")
+        });
         if found.len() > 1 {
             let classes: Vec<Option<Vec<String>>> = found
                 .iter()

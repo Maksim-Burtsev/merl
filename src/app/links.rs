@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, Component, Hit, Kind, Path, PathBuf, PickerKind, Reason, Regex, search,
 };
@@ -24,10 +23,12 @@ impl App {
     }
 
     fn follow_link(&mut self, here: &Path, target: &str) {
-        static URL: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").unwrap());
-        static LINES: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^L(\d+)(?:-L\d+)?$").unwrap());
+        static URL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").expect("the regex is a literal")
+        });
+        static LINES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^L(\d+)(?:-L\d+)?$").expect("the regex is a literal")
+        });
         if URL.is_match(target) {
             self.message = "link outside the project".into();
             return;
@@ -77,8 +78,9 @@ impl App {
     }
 
     fn follow_code_path(&mut self, here: &Path, span: &str) {
-        static AT: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^(.+?)(?::(\d+))?(?::\d+)?$").unwrap());
+        static AT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^(.+?)(?::(\d+))?(?::\d+)?$").expect("the regex is a literal")
+        });
         let Some(c) = AT.captures(span.trim()) else {
             self.message = "no link here".into();
             return;

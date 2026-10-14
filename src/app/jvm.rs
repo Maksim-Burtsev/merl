@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search,
     whole_at,
@@ -74,8 +73,9 @@ impl App {
     }
 
     pub(super) fn jenkins_step(&self, here: &Path, word: &str) -> Vec<Candidate> {
-        static CALL: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:def|void)\s+call\s*\(").unwrap());
+        static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*(?:def|void)\s+call\s*\(").expect("the regex is a literal")
+        });
         if !search::groovy(here) {
             return Vec::new();
         }
@@ -499,7 +499,7 @@ fn arguments(lines: &[String], at: usize, open_byte: usize) -> Option<(usize, bo
 }
 
 static MAP_ARGUMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^\(\s*(?:\[\s*(?:\w+\s*:|:\s*\])|\w+\s*:[^:])").unwrap()
+    Regex::new(r"^\(\s*(?:\[\s*(?:\w+\s*:|:\s*\])|\w+\s*:[^:])").expect("the regex is a literal")
 });
 
 impl App {
