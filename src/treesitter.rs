@@ -236,6 +236,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/r/highlights.scm"),
         include_str!("../queries/r/injections.scm"),
     ),
+    (
+        "erlang",
+        include_str!("../queries/erlang/highlights.scm"),
+        include_str!("../queries/erlang/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -415,6 +420,7 @@ pub fn for_syntax(
         "Lisp" if path.is_some_and(scheme) => lang("scheme"),
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
+        "Erlang" if path.is_none_or(|p| erlang(p, lines)) => lang("erlang"),
         "Go" => lang("go"),
         "INI" if path.is_some_and(ini) => lang("ini"),
         "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
@@ -531,6 +537,14 @@ fn r(path: Option<&Path>, lines: &[String]) -> bool {
             .map(|l| l.trim_start())
             .find(|l| l.starts_with('#') || l.starts_with("/*"))
             .is_none_or(|l| l.starts_with('#'))
+}
+
+fn erlang(path: &Path, lines: &[String]) -> bool {
+    path.extension().is_some_and(|e| e == "erl" || e == "hrl")
+        || lines
+            .first()
+            .and_then(|l| hashbang(l))
+            .is_some_and(|p| p == "escript")
 }
 
 fn cmake(path: &Path) -> bool {
@@ -740,6 +754,7 @@ fn grammar(name: &str) -> Option<Language> {
         "nix" => tree_sitter_nix::LANGUAGE.into(),
         "scheme" => tree_sitter_scheme::LANGUAGE.into(),
         "r" => tree_sitter_r::LANGUAGE.into(),
+        "erlang" => tree_sitter_erlang::LANGUAGE.into(),
         _ => return None,
     })
 }

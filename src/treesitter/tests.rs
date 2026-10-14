@@ -330,6 +330,11 @@ fn r_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn erlang_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("erlang");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -482,6 +487,12 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
+    for f in ["a.erl", "a.hrl"] {
+        assert!(sexp(f, b"-module(a).\n").contains("(source_file "), "{f}");
+    }
+    let escript = b"#!/usr/bin/env escript\nmain(_) -> ok.\n";
+    assert!(sexp("a.escript", escript).contains("(source_file "));
+    assert_eq!(sexp("a.escript", b"main(_) -> ok.\n"), "");
     for f in ["a.R", "a.r", ".Rprofile"] {
         assert!(sexp(f, b"# a\nx <- 1\n").contains("(program "), "{f}");
     }
@@ -829,6 +840,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("scheme"), Some("scheme"));
     assert_eq!(name("scm"), Some("scheme"));
     assert_eq!(name("r"), Some("r"));
+    assert_eq!(name("erlang"), Some("erlang"));
+    assert_eq!(name("erl"), Some("erlang"));
 }
 
 #[test]

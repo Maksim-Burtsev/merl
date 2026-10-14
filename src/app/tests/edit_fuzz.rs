@@ -1117,6 +1117,23 @@ const R: &[&str] = &[
     "\n\n",
 ];
 
+const ERLANG: &[&str] = &[
+    "%% c\n",
+    "-define(X, 1).\n",
+    "?X",
+    "#{a => 1}",
+    "<<\"b\">>",
+    "fun(X) -> X end",
+    "case X of\n",
+    "end.\n",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1317,6 +1334,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.R",
         include_bytes!("../../../tests/colors/r/ledger.R").as_slice(),
         R,
+    ),
+    (
+        "f.erl",
+        include_bytes!("../../../tests/colors/erlang/ledger.erl").as_slice(),
+        ERLANG,
     ),
     (
         "f.rb",

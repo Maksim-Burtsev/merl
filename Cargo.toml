@@ -44,6 +44,7 @@ tree-sitter-hcl = { version = "=1.2.0", git = "https://github.com/tree-sitter-gr
 tree-sitter-html = "=0.23.2"
 tree-sitter-xml = { version = "=0.7.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-xml", rev = "5000ae8f22d11fbe93939b05c1e37cf21117162d" }
 tree-sitter-elixir = "=0.3.5"
+tree-sitter-erlang = "=0.21.0"
 tree-sitter-go = "=0.25.0"
 tree-sitter-json = { version = "=0.24.8", git = "https://github.com/tree-sitter/tree-sitter-json", rev = "254c42a6476413b776221e03982ac8ae159eeb72" }
 tree-sitter-ini = "=1.4.0"

@@ -290,6 +290,16 @@ files come from dplyr, pinned in `THEME_ONLY` as `tools/d-bench/projects.tsv` ha
 |---|---|---|---|---|
 | R | 13,936 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Erlang (#808), `.erl` and `.hrl`, and an `.escript` whose first line runs `escript` (Neovim reads
+its filetype from that line alone); `comment` stays plain, as LazyVim installs no parser for it.
+crates.io's tree-sitter-erlang 0.21.0 is the pin (0386a11), `parser.c` and scanner alike. The
+bench's files come from cowboy, pinned in `THEME_ONLY` as `tools/d-bench/projects.tsv` has no Erlang
+project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Erlang | 23,025 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
