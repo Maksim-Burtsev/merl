@@ -181,7 +181,7 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
             ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
-                "pub struct Vec<T>;\n\nimpl<T> IntoIterator for Vec<T> {\n    fn into_iter(self) -> IntoIter<T> {\n        loop {}\n    }\n}\n",
+                "pub struct Vec<T>;\n\nmacro_rules! into_iter_impls {\n    () => {\n        const impl<T> IntoIterator for Vec<T> {\n            fn into_iter(self) -> IntoIter<T> {\n                loop {}\n            }\n        }\n    };\n}\n",
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/spec.rs",
@@ -285,11 +285,8 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
                         "IntoIterator::into_iter",
                         "core/src/iter/traits/collect.rs:4",
                     ),
-                    row("Vec::into_iter", "alloc/src/vec/mod.rs:4"),
-                    row(
-                        "IntoIterator::into_iter",
-                        "core/src/iter/traits/collect.rs:8",
-                    ),
+                    row("Vec::into_iter", "alloc/src/vec/mod.rs:6"),
+                    row("I::into_iter", "core/src/iter/traits/collect.rs:8"),
                 ],
             ),
         ),

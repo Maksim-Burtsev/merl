@@ -6,8 +6,9 @@ use super::{
     HASKELL_RESERVED, Kind, SYMBOLS, Value, close_of, cmake_name, code, cs_parameter_of,
     enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
     julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp, lisp_name,
-    literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_let_declares, separator,
-    shared_symbols, symbol_name, ts_declarators, type_name, uncommented, value_of, word_chars,
+    literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_impl_type,
+    rust_let_declares, separator, shared_symbols, symbol_name, ts_declarators, type_name,
+    uncommented, value_of, word_chars,
 };
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
@@ -155,9 +156,6 @@ fn qualified_by_nesting(
         std::sync::LazyLock::new(|| {
             Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").expect("the regex is a literal")
         });
-    static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
-    });
     static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)")
             .expect("the regex is a literal")
@@ -204,10 +202,8 @@ fn qualified_by_nesting(
         if ruby && l.trim_start().starts_with("class << self") {
             continue;
         }
-        let named = IMPL
-            .captures(l)
+        let named = rust_impl_type(l)
             .filter(|_| kind == Kind::Rust)
-            .map(|c| c[1].to_owned())
             .or_else(|| {
                 EX_MODULE
                     .captures(l)

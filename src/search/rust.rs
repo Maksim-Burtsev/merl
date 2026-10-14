@@ -1090,13 +1090,13 @@ pub fn rust_type_name(written: &str) -> Option<RustTypeName> {
 }
 pub fn rust_impl_type(line: &str) -> Option<String> {
     static IMPL: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
+        Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
     });
     IMPL.captures(line).map(|c| c[1].to_owned())
 }
 pub fn rust_impl_trait(line: &str) -> Option<String> {
     static FOR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
+        Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
     });
     FOR.captures(line).map(|c| c[1].to_owned())
 }
@@ -1106,7 +1106,7 @@ pub struct RustSelfType {
 }
 pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s")
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto|const)\s+)*trait\s")
             .expect("the regex is a literal")
     });
     let mut depth = indent(lines.get(line0)?);
