@@ -313,6 +313,36 @@ fn zig_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn nix_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("nix");
+}
+
+#[test]
+fn scheme_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("scheme");
+}
+
+#[test]
+fn r_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("r");
+}
+
+#[test]
+fn erlang_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("erlang");
+}
+
+#[test]
+fn racket_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("racket");
+}
+
+#[test]
+fn common_lisp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("commonlisp");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -473,6 +503,30 @@ fn build_and_config_files_get_their_grammar() {
 }
 
 #[test]
+fn nix_lisp_erlang_and_r_files_get_their_grammar() {
+    assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
+    for f in ["a.lisp", "a.asd", "init.el", ".emacs"] {
+        assert!(sexp(f, b"(defun a () 1)\n").contains("(source "), "{f}");
+    }
+    assert!(sexp("a.rkt", b"#lang racket\n(define a 1)\n").contains("(program "));
+    for f in ["a.erl", "a.hrl"] {
+        assert!(sexp(f, b"-module(a).\n").contains("(source_file "), "{f}");
+    }
+    let escript = b"#!/usr/bin/env escript\nmain(_) -> ok.\n";
+    assert!(sexp("a.escript", escript).contains("(source_file "));
+    assert_eq!(sexp("a.escript", b"main(_) -> ok.\n"), "");
+    for f in ["a.R", "a.r", ".Rprofile"] {
+        assert!(sexp(f, b"# a\nx <- 1\n").contains("(program "), "{f}");
+    }
+    assert!(sexp("a.r", b"x <- 1\n").contains("(program "));
+    assert_eq!(sexp("a.r", b"/* rexx */\nsay 1\n"), "");
+    assert_eq!(sexp("a.r", b"# a\nREBOL [Title: \"a\"]\n"), "");
+    for f in ["a.scm", "a.ss", "a.sld"] {
+        assert!(sexp(f, b"(define a 1)\n").contains("(program "), "{f}");
+    }
+}
+
+#[test]
 fn kotlin_swift_zig_ruby_and_php_files_get_their_grammar() {
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
@@ -604,7 +658,7 @@ fn diff_and_query_files_get_their_grammar() {
     ] {
         assert!(sexp(f, capture).contains("(named_node "), "{f}");
     }
-    assert_eq!(sexp("/a/scheme/x.scm", capture), "");
+    assert!(sexp("/a/scheme/x.scm", capture).contains("(program (list "));
     let dep3 = format!("Description: fix\n{hunk}");
     assert_eq!(sexp("/src/debian/patches/fix.patch", dep3.as_bytes()), "");
     assert!(sexp("/src/fix.patch", dep3.as_bytes()).contains("(addition)"));
@@ -721,6 +775,10 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         ("^a\\cb$", "AB", "ac"),
         ("^ab\\C$", "ab", "AB"),
         ("\\C^a\\c$", "A", "b"),
+        ("^ab=c$", "ac", "abbc"),
+        ("^([+*-+=<>]|<=|>=|/=)$", "<", "-"),
+        ("^([+*-+=<>]|<=|>=|/=)$", "/", "<="),
+        ("^([+*-+=<>]|<=|>=|/=)$", "", "/="),
     ] {
         let re = super::vim_pattern(pattern).unwrap();
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
@@ -831,6 +889,16 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("elixir", Some("elixir")),
         ("ex", Some("elixir")),
         ("zig", Some("zig")),
+        ("nix", Some("nix")),
+        ("scheme", Some("scheme")),
+        ("scm", Some("scheme")),
+        ("r", Some("r")),
+        ("erlang", Some("erlang")),
+        ("erl", Some("erlang")),
+        ("racket", Some("racket")),
+        ("rkt", Some("racket")),
+        ("lisp", Some("commonlisp")),
+        ("commonlisp", Some("commonlisp")),
     ] {
         assert_eq!(resolve(alias).map(|l| l.name), want, "{alias}");
     }

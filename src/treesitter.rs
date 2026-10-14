@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+pub use filetype::for_syntax;
 use pattern::{lua_pattern, lua_replacement, vim_pattern};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
@@ -221,6 +222,36 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/zig/highlights.scm"),
         include_str!("../queries/zig/injections.scm"),
     ),
+    (
+        "nix",
+        include_str!("../queries/nix/highlights.scm"),
+        include_str!("../queries/nix/injections.scm"),
+    ),
+    (
+        "scheme",
+        include_str!("../queries/scheme/highlights.scm"),
+        include_str!("../queries/scheme/injections.scm"),
+    ),
+    (
+        "r",
+        include_str!("../queries/r/highlights.scm"),
+        include_str!("../queries/r/injections.scm"),
+    ),
+    (
+        "erlang",
+        include_str!("../queries/erlang/highlights.scm"),
+        include_str!("../queries/erlang/injections.scm"),
+    ),
+    (
+        "racket",
+        include_str!("../queries/racket/highlights.scm"),
+        include_str!("../queries/racket/injections.scm"),
+    ),
+    (
+        "commonlisp",
+        include_str!("../queries/commonlisp/highlights.scm"),
+        include_str!("../queries/commonlisp/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -371,291 +402,6 @@ pub struct Lang {
     injections: Option<Patterns>,
 }
 
-pub fn for_syntax(
-    syntect_name: &str,
-    path: Option<&Path>,
-    lines: &[String],
-) -> Option<&'static Lang> {
-    let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
-    if path.is_some_and(|p| p.extension().is_none()) {
-        let by_hashbang = lines.first().and_then(|l| hashbang(l)).and_then(|name| {
-            ["ruby", "php"]
-                .into_iter()
-                .find(|interpreter| name.contains(interpreter))
-        });
-        if let Some(name) = by_hashbang {
-            return lang(name);
-        }
-    }
-    match syntect_name {
-        "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
-        "C" => lang("c"),
-        "C#" => lang("c_sharp"),
-        "C++" if cpp(path, lines) => lang("cpp"),
-        "CMake" if path.is_none_or(cmake) => lang("cmake"),
-        "CSS" => lang("css"),
-        "Diff" if diff(path, lines) => lang("diff"),
-        "Dockerfile" | "Dockerfile (with bash)" => lang("dockerfile"),
-        "Lisp" if path.is_some_and(query) => lang("query"),
-        "HTML" | "XML" => html_or_xml(path?, lines),
-        "Elixir" if !euphoria(path, lines) => lang("elixir"),
-        "Go" => lang("go"),
-        "INI" if path.is_some_and(ini) => lang("ini"),
-        "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
-        "JSON" => lang("json"),
-        "Kotlin" => lang("kotlin"),
-        "TOML" => lang("toml"),
-        "YAML" => lang("yaml"),
-        "JavaScript (Babel)" => lang("javascript"),
-        "Python" => lang("python"),
-        "PHP" if path.is_none_or(php) => lang("php"),
-        "Protocol Buffer" if path.is_none_or(|p| p.extension().is_some_and(|e| e == "proto")) => {
-            lang("proto")
-        }
-        "Ruby" if path.is_none_or(ruby) => lang("ruby"),
-        "Rust" => lang("rust"),
-        "Swift" => lang("swift"),
-        "Terraform" => terraform(path, lines),
-        "Markdown" => lang("markdown"),
-        "TypeScript" => lang("typescript"),
-        "TypeScriptReact" if !astro => lang("tsx"),
-        "Lua" => lang("lua"),
-        "Zig" => lang("zig"),
-        _ => None,
-    }
-}
-
-fn terraform(path: Option<&Path>, lines: &[String]) -> Option<&'static Lang> {
-    match path?.extension()?.to_str()? {
-        "hcl" => lang("hcl"),
-        "tfvars" => lang("terraform"),
-        "tf" if lines.iter().any(|l| {
-            let l = l.trim_start();
-            !l.is_empty() && !l.starts_with([';', '/'])
-        }) =>
-        {
-            lang("terraform")
-        }
-        _ => None,
-    }
-}
-
-fn ini(path: &Path) -> bool {
-    path.extension().is_some_and(|e| e == "ini" || e == "INI")
-        || path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
-            [
-                ".coveragerc",
-                ".npmrc",
-                ".pylintrc",
-                ".gitlint",
-                "setup.cfg",
-                "pudb.cfg",
-                ".oelint.cfg",
-                ".wakatime.cfg",
-            ]
-            .contains(&n)
-        })
-}
-
-fn hashbang(first: &str) -> Option<&str> {
-    let mut words = first.strip_prefix("#!")?.split_whitespace();
-    let program = words.next()?.rsplit(['/', '\\']).next()?;
-    if program != "env" {
-        return Some(program);
-    }
-    words
-        .find(|w| !w.starts_with('-') && !w.contains('='))?
-        .split(|c: char| !c.is_alphanumeric() && c != '_')
-        .next()
-}
-
-fn html_variant(lines: &[String]) -> bool {
-    static VARIANT: OnceLock<regex::Regex> = OnceLock::new();
-    let re = VARIANT.get_or_init(|| {
-        regex::Regex::new(concat!(
-            r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)",
-            r"|\bDTD[ \t]+XHTML[ \t]",
-            r"|(?i:\{%[ \t]*(autoescape|block|comment|csrf_token|cycle|debug|extends|filter|firstof|for|if",
-            r"|ifchanged|include|load|lorem|now|query_string|regroup|resetcycle|spaceless|templatetag|url",
-            r"|verbatim|widthratio|with)\b)|\{#[ \t]+|<extend|<super>",
-        ))
-        .expect("a valid regex")
-    });
-    lines.iter().take(40).any(|l| re.is_match(l))
-}
-
-fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
-    path.is_some_and(|p| p.extension().is_some_and(|e| e == "ex"))
-        && lines.iter().take(100).any(|l| {
-            let lower = l.to_lowercase();
-            lower.starts_with("--")
-                || ["ifdef", "include"].iter().any(|w| {
-                    lower.strip_prefix(w).is_some_and(|rest| {
-                        !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_')
-                    })
-                })
-        })
-}
-
-fn cmake(path: &Path) -> bool {
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    name == "CMakeLists.txt" || path.extension().is_some_and(|e| e == "cmake")
-}
-
-fn php(path: &Path) -> bool {
-    const EXTENSIONS: &[&str] = &["php", "phtml", "phpt", "php3", "php4", "php5", "php7"];
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    !name.ends_with(".blade.php")
-        && path
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| EXTENSIONS.contains(&e))
-}
-
-fn ruby(path: &Path) -> bool {
-    const EXTENSIONS: &[&str] = &["rb", "rbi", "rjs", "ru", "gemspec", "rake"];
-    const NAMES: &[&str] = &[
-        "Brewfile",
-        "Gemfile",
-        "irbrc",
-        "rakefile",
-        "Rakefile",
-        "rantfile",
-        "Rantfile",
-        "Vagrantfile",
-    ];
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| EXTENSIONS.contains(&e))
-        || NAMES.contains(&name)
-}
-
-fn cpp(path: Option<&Path>, lines: &[String]) -> bool {
-    match path.and_then(|p| p.extension()).and_then(|e| e.to_str()) {
-        Some("cp") => false,
-        Some("h") => !lines.iter().take(200).any(|l| {
-            let lower = l.to_lowercase();
-            ["@interface", "@end", "@class"]
-                .iter()
-                .any(|m| lower.starts_with(m))
-        }),
-        _ => true,
-    }
-}
-
-const XML_EXTENSIONS: &[&str] = &[
-    "svg", "xsd", "xsl", "xslt", "psc1", "tpm", "xliff", "atom", "xul", "cdxml", "mpd", "rss",
-    "fsproj", "ui", "vbproj", "xlf", "wsdl", "csproj", "wpl", "xmi", "xpr", "xpfm", "spfm", "bxml",
-    "mmi", "xcu", "xlb", "xlc", "xba", "slnx",
-];
-const XML_NAMES: &[&str] = &[
-    "fglrxrc",
-    "fonts.conf",
-    "Directory.Packages.props",
-    "Directory.Build.props",
-    "Directory.Build.targets",
-];
-const XML_PATH_ENDS: &[&str] = &[
-    "/etc/blkid.tab",
-    "/etc/blkid.tab.old",
-    ".csproj.user",
-    ".fsproj.user",
-    ".vbproj.user",
-];
-
-fn html_or_xml(path: &Path, lines: &[String]) -> Option<&'static Lang> {
-    static SMIL: OnceLock<regex::Regex> = OnceLock::new();
-    let smil = SMIL.get_or_init(|| regex::Regex::new(r"<\?\s*xml.*\?>").expect("a valid regex"));
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    let full = path.to_string_lossy();
-    let first = lines.first().map_or("", String::as_str);
-    let xml = match ext {
-        "cpt" | "dtml" | "htm" | "html" | "pt" | "shtml" | "stm" => {
-            return if html_variant(lines) {
-                None
-            } else {
-                lang("html")
-            };
-        }
-        "xml" => !docbook_or_xbl(lines),
-        "lpr" | "grc" | "ts" => first.contains("<?xml"),
-        "smil" => smil.is_match(first),
-        _ => {
-            XML_EXTENSIONS.contains(&ext)
-                || XML_NAMES.contains(&name)
-                || XML_PATH_ENDS.iter().any(|end| full.ends_with(end))
-                || (full.contains("/etc/xdg/menus/") && ext == "menu")
-        }
-    };
-    if xml { lang("xml") } else { None }
-}
-
-fn docbook_or_xbl(lines: &[String]) -> bool {
-    lines.iter().take(100).any(|l| {
-        let lower = l.to_lowercase();
-        l.split_once("<!DOCTYPE")
-            .is_some_and(|(_, doctype)| doctype.contains("DocBook"))
-            || lower.contains(r#" xmlns="http://docbook.org/ns/docbook""#)
-            || lower.contains(r#"xmlns:xbl="http://www.mozilla.org/xbl""#)
-    })
-}
-
-fn query(path: &Path) -> bool {
-    path.extension().is_some_and(|e| e == "scm")
-        && path
-            .parent()
-            .is_some_and(|d| d.components().any(|c| c.as_os_str() == "queries"))
-}
-
-fn diff(path: Option<&Path>, lines: &[String]) -> bool {
-    static SEND_EMAIL: OnceLock<regex::Regex> = OnceLock::new();
-    let send_email = SEND_EMAIL.get_or_init(|| {
-        regex::Regex::new(r"^From [0-9a-fA-F]{40,} Mon Sep 17 00:00:00 2001$")
-            .expect("a valid regex")
-    });
-    let Some(path) = path else { return true };
-    let patch = path.extension().is_some_and(|e| e == "patch");
-    if patch && lines.first().is_some_and(|l| send_email.is_match(l)) {
-        return false;
-    }
-    let dep3 = path.to_string_lossy().contains("/debian/patches/")
-        && path.file_name().is_some_and(|n| n != "series")
-        && lines
-            .iter()
-            .take(100)
-            .take_while(|l| !l.starts_with("---"))
-            .any(|l| DEP3_HEADERS.iter().any(|h| l.starts_with(h)));
-    !dep3
-}
-
-const DEP3_HEADERS: &[&str] = &[
-    "Description:",
-    "Subject:",
-    "Origin:",
-    "Bug:",
-    "Forwarded:",
-    "Author:",
-    "From:",
-    "Reviewed-by:",
-    "Acked-by:",
-    "Last-Updated:",
-    "Applied-Upstream:",
-];
-
-fn zsh(path: &Path) -> bool {
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    let bare = name.strip_prefix('.').unwrap_or(name);
-    let ext = name.rsplit_once('.').map_or("", |(_, e)| e);
-    matches!(ext, "zsh" | "zunit" | "zsh-theme")
-        || bare.starts_with("zsh")
-        || bare.starts_with("zlog")
-        || name.starts_with(".zcompdump")
-        || matches!(name, ".zprofile" | ".zfbfmarks")
-        || path == Path::new("/etc/zprofile")
-}
-
 fn grammar(name: &str) -> Option<Language> {
     Some(match name {
         "bash" => tree_sitter_bash::LANGUAGE.into(),
@@ -696,6 +442,12 @@ fn grammar(name: &str) -> Option<Language> {
         "lua" => tree_sitter_lua::LANGUAGE.into(),
         "luadoc" => tree_sitter_luadoc::LANGUAGE.into(),
         "zig" => tree_sitter_zig::LANGUAGE.into(),
+        "nix" => tree_sitter_nix::LANGUAGE.into(),
+        "scheme" => tree_sitter_scheme::LANGUAGE.into(),
+        "r" => tree_sitter_r::LANGUAGE.into(),
+        "erlang" => tree_sitter_erlang::LANGUAGE.into(),
+        "racket" => tree_sitter_racket::LANGUAGE.into(),
+        "commonlisp" => tree_sitter_commonlisp::LANGUAGE_COMMONLISP.into(),
         _ => return None,
     })
 }
@@ -792,8 +544,10 @@ fn patterns(
     keys: &[&str],
 ) -> Result<Patterns, String> {
     let used = regex::Regex::new(r"\(#([a-z-]+[?!])").expect("a valid regex");
-    if let Some(op) = used
-        .captures_iter(text)
+    if let Some(op) = text
+        .lines()
+        .filter(|l| !l.trim_start().starts_with(';'))
+        .flat_map(|l| used.captures_iter(l))
         .map(|c| c[1].to_string())
         .find(|op| !PREDICATES.contains(&op.as_str()))
     {
@@ -1382,6 +1136,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
     Some(crate::theme::style(highlighter.style_for_stack(&[scope])))
 }
 
+mod filetype;
 mod layers;
 mod pattern;
 

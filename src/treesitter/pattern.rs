@@ -16,7 +16,15 @@ pub(super) fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let mut case = "";
     while let Some(c) = chars.next() {
         match (c, class) {
-            ('<' | '>' | '=' | '@' | '%' | '~' | '{' | '&', _) => return bad(),
+            ('<' | '>', None) if chars.peek() == Some(&'=') => {
+                chars.next();
+                continue;
+            }
+            ('=', None) => {
+                out.push('?');
+                continue;
+            }
+            ('<' | '>', None) | ('@' | '%' | '~' | '{' | '&', _) => return bad(),
             ('\\' | '[', Some(_)) => return bad(),
             ('-', Some(_)) if chars.peek() == Some(&'-') => return bad(),
             (']', Some(false)) => class = None,
