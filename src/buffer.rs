@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -344,7 +343,8 @@ pub fn hash(bytes: &[u8]) -> u64 {
 }
 
 pub(crate) fn shown_str(s: &str) -> &str {
-    &s[..floor_char_boundary(s, MAX_SHOWN_BYTES)]
+    s.get(..floor_char_boundary(s, MAX_SHOWN_BYTES))
+        .unwrap_or_default()
 }
 
 fn floor_char_boundary(s: &str, max: usize) -> usize {

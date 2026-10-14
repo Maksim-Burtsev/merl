@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -222,7 +221,7 @@ impl Theme {
             if let Some(style) = self.groups.get(name) {
                 return Some(*style);
             }
-            name = &name[..name.rfind('.')?];
+            name = name.rsplit_once('.')?.0;
         }
     }
 

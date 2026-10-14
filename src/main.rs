@@ -706,14 +706,13 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
     })
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn split_line(target: &str) -> (&str, Option<LineCol1>) {
     if Path::new(target).exists() {
         return (target, None);
     }
     let found = target
         .rmatch_indices(':')
-        .map(|(i, _)| (&target[..i], &target[i + 1..]))
+        .filter_map(|(i, _)| Some((target.get(..i)?, target.get(i + 1..)?)))
         .find(|(path, _)| Path::new(path).exists());
     let Some((path, rest)) = found else {
         return (target, None);
@@ -1106,7 +1105,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const EXPECTS: usize = 212;
+    const EXPECTS: usize = 203;
 
     fn expected_lints(text: &str) -> usize {
         let b = text.as_bytes();
@@ -1157,7 +1156,6 @@ mod tests {
         clippy::naive_bytecount,
         reason = "the bytecount crate would be a dependency for one count of newlines"
     )]
-    #[expect(clippy::string_slice, reason = "#858")]
     fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
         let (mut i, mut line, mut lines) = (0, 0, Vec::new());
@@ -1213,9 +1211,8 @@ mod tests {
                             .and_then(|r| r.iter().position(|&c| c == b'\''))
                             .map(|n| i + 3 + n)
                     } else {
-                        text[i + 1..]
-                            .chars()
-                            .next()
+                        text.get(i + 1..)
+                            .and_then(|r| r.chars().next())
                             .map(|c| i + 1 + c.len_utf8())
                             .filter(|&e| b.get(e) == Some(&b'\''))
                     };
@@ -1387,7 +1384,6 @@ b";
         }
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
     fn script_comment_lines(name: &str, text: &str) -> Result<Vec<usize>, String> {
         let shebang = text.lines().next().filter(|l| l.starts_with("#!"));
         let ext = Path::new(name).extension().and_then(|e| e.to_str());
@@ -1414,21 +1410,25 @@ b";
             let mut rest = line;
             loop {
                 if let Some((q, _)) = quote {
-                    let Some(at) = rest.find(q) else { break };
+                    let Some((_, after)) = rest.split_once(q) else {
+                        break;
+                    };
                     quote = None;
-                    rest = &rest[at + 3..];
+                    rest = after;
                     continue;
                 }
-                let Some(at) = rest.find(['#', '"', '\'']) else {
+                let Some(tail) = rest.find(['#', '"', '\'']).and_then(|at| rest.get(at..)) else {
                     break;
                 };
-                let tail = &rest[at..];
                 if tail.starts_with('#') {
                     break;
                 }
-                if tail.starts_with("\"\"\"") || tail.starts_with("'''") {
-                    quote = Some((&tail[..3], i + 1));
-                    rest = &tail[3..];
+                if let Some((q, after)) = ["\"\"\"", "'''"]
+                    .into_iter()
+                    .find_map(|q| Some((q, tail.strip_prefix(q)?)))
+                {
+                    quote = Some((q, i + 1));
+                    rest = after;
                     continue;
                 }
                 let q = tail.as_bytes()[0];
@@ -1448,7 +1448,7 @@ b";
                 let Some(end) = end else {
                     return Err(format!("line {}: a string the check cannot close", i + 1));
                 };
-                rest = &tail[end + 1..];
+                rest = tail.get(end + 1..).unwrap();
             }
         }
         match quote {
