@@ -1150,6 +1150,21 @@ const RACKET: &[&str] = &[
     "\n\n",
 ];
 
+const COMMON_LISP: &[&str] = &[
+    "#| c |#",
+    "#+sbcl ",
+    "; c\n",
+    "'(a b)",
+    "`(a ,b)",
+    "#'f",
+    "(defun f (x)\n",
+    "(loop for x in y collect x)",
+    "(",
+    ")",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1360,6 +1375,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.rkt",
         include_bytes!("../../../tests/colors/racket/ledger.rkt").as_slice(),
         RACKET,
+    ),
+    (
+        "f.lisp",
+        include_bytes!("../../../tests/colors/commonlisp/ledger.lisp").as_slice(),
+        COMMON_LISP,
     ),
     (
         "f.rb",

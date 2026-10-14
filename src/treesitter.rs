@@ -246,6 +246,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/racket/highlights.scm"),
         include_str!("../queries/racket/injections.scm"),
     ),
+    (
+        "commonlisp",
+        include_str!("../queries/commonlisp/highlights.scm"),
+        include_str!("../queries/commonlisp/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -423,6 +428,7 @@ pub fn for_syntax(
         "Dockerfile" | "Dockerfile (with bash)" => lang("dockerfile"),
         "Lisp" if path.is_some_and(query) => lang("query"),
         "Lisp" if path.is_some_and(scheme) => lang("scheme"),
+        "Lisp" if path.is_some_and(lisp) => lang("commonlisp"),
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Erlang" if path.is_none_or(|p| erlang(p, lines)) => lang("erlang"),
@@ -670,6 +676,18 @@ fn scheme(path: &Path) -> bool {
         .is_some_and(|e| e == "scm" || e == "ss" || e == "sld")
 }
 
+fn lisp(path: &Path) -> bool {
+    const EXTENSIONS: &[&str] = &["lisp", "el", "lsp", "asd", "L"];
+    const NAMES: &[&str] = &[".emacs", "sbclrc", ".sbclrc", ".sawfishrc"];
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| EXTENSIONS.contains(&e))
+        || path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| NAMES.contains(&n))
+}
+
 fn query(path: &Path) -> bool {
     path.extension().is_some_and(|e| e == "scm")
         && path
@@ -769,6 +787,7 @@ fn grammar(name: &str) -> Option<Language> {
         "r" => tree_sitter_r::LANGUAGE.into(),
         "erlang" => tree_sitter_erlang::LANGUAGE.into(),
         "racket" => tree_sitter_racket::LANGUAGE.into(),
+        "commonlisp" => tree_sitter_commonlisp::LANGUAGE_COMMONLISP.into(),
         _ => return None,
     })
 }
@@ -865,8 +884,10 @@ fn patterns(
     keys: &[&str],
 ) -> Result<Patterns, String> {
     let used = regex::Regex::new(r"\(#([a-z-]+[?!])").expect("a valid regex");
-    if let Some(op) = used
-        .captures_iter(text)
+    if let Some(op) = text
+        .lines()
+        .filter(|l| !l.trim_start().starts_with(';'))
+        .flat_map(|l| used.captures_iter(l))
         .map(|c| c[1].to_string())
         .find(|op| !PREDICATES.contains(&op.as_str()))
     {

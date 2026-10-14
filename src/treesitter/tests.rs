@@ -340,6 +340,11 @@ fn racket_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn common_lisp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("commonlisp");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -492,6 +497,9 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
+    for f in ["a.lisp", "a.asd", "init.el", ".emacs"] {
+        assert!(sexp(f, b"(defun a () 1)\n").contains("(source "), "{f}");
+    }
     assert!(sexp("a.rkt", b"#lang racket\n(define a 1)\n").contains("(program "));
     for f in ["a.erl", "a.hrl"] {
         assert!(sexp(f, b"-module(a).\n").contains("(source_file "), "{f}");
@@ -732,6 +740,10 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         ("^a\\cb$", "AB", "ac"),
         ("^ab\\C$", "ab", "AB"),
         ("\\C^a\\c$", "A", "b"),
+        ("^ab=c$", "ac", "abbc"),
+        ("^([+*-+=<>]|<=|>=|/=)$", "<", "-"),
+        ("^([+*-+=<>]|<=|>=|/=)$", "/", "<="),
+        ("^([+*-+=<>]|<=|>=|/=)$", "", "/="),
     ] {
         let re = super::vim_pattern(pattern).unwrap();
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
@@ -850,6 +862,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("erl"), Some("erlang"));
     assert_eq!(name("racket"), Some("racket"));
     assert_eq!(name("rkt"), Some("racket"));
+    assert_eq!(name("lisp"), Some("commonlisp"));
+    assert_eq!(name("commonlisp"), Some("commonlisp"));
 }
 
 #[test]

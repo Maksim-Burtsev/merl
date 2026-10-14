@@ -308,6 +308,17 @@ is the pin (b3cbbde), `parser.c` and scanner alike. Files from drracket:
 |---|---|---|---|---|
 | Racket | 16,048 | 100.0 adwaita | 100.0 | 100.0 alabaster-light |
 
+Common Lisp (#808), every file Neovim calls `lisp` where syntect calls it Lisp: `.lisp`, `.lsp`,
+`.asd`, `.L`, `.sbclrc`, `.sawfishrc`, and Emacs Lisp's `.el` and `.emacs`, which Neovim 0.12 also
+calls `lisp` and nvim-treesitter parses with `commonlisp`; `comment` stays plain, as LazyVim installs
+no parser for it. crates.io's tree-sitter-commonlisp 0.4.1 is the pin (3232350). Its `#match?` on
+`^([+*-+=<>]|<=|>=|/=)$` reads as Neovim reads it, very magic: `<=` and `>=` are an optional word
+boundary, so only `+`, `*`, `=`, `<`, `>`, `/` and the empty string match. Files from lem:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Common Lisp | 15,397 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
