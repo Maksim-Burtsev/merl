@@ -19,6 +19,20 @@ const BINARY: &str = "binary file";
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SHOWN_BYTES: usize = 20_000;
+static SHOWN_BYTES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(MAX_SHOWN_BYTES);
+
+pub fn p888() -> char {
+    std::env::var("MERL_P888").ok().and_then(|v| v.chars().next()).unwrap_or('-')
+}
+
+pub fn reach(col: usize) -> bool {
+    let want = col + MAX_SHOWN_BYTES;
+    p888() == 'b' && SHOWN_BYTES.fetch_max(want, std::sync::atomic::Ordering::Relaxed) < want
+}
+
+fn shown_bytes() -> usize {
+    SHOWN_BYTES.load(std::sync::atomic::Ordering::Relaxed)
+}
 pub const PARSE_STEP: Duration = Duration::from_micros(500);
 pub const PARSE_IDLE_STEP: Duration = Duration::from_millis(3);
 
@@ -245,7 +259,7 @@ impl Buffer {
     }
 
     pub fn clips(line: &str) -> bool {
-        line.len() > MAX_SHOWN_BYTES
+        line.len() > shown_bytes()
     }
 
     pub fn clear_hl(&mut self) {
@@ -343,7 +357,7 @@ pub fn hash(bytes: &[u8]) -> u64 {
 }
 
 pub(crate) fn shown_str(s: &str) -> &str {
-    s.get(..floor_char_boundary(s, MAX_SHOWN_BYTES))
+    s.get(..floor_char_boundary(s, shown_bytes()))
         .unwrap_or_default()
 }
 

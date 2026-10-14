@@ -4,6 +4,10 @@ use super::{
 
 const FIND_CAP: usize = 1_000;
 
+fn drawn(text: &str, start: usize) -> bool {
+    !matches!(crate::buffer::p888(), 'a' | 'c') || start < shown_str(text).len()
+}
+
 impl App {
     pub(super) fn close_overlay(&mut self) {
         self.mode = Mode::Normal;
@@ -78,7 +82,7 @@ impl App {
                 self.go_to_match(at);
                 self.message = self.match_count(&re);
             }
-            None => self.message = "no match".into(),
+            None => self.message = self.match_count(&re),
         }
         self.find_re = Some(re);
         self.find_query = self.prompt.to_string();
@@ -89,20 +93,29 @@ impl App {
     }
 
     fn match_count(&self, re: &Regex) -> String {
-        let (mut at, mut total) = (0, 0);
+        let (mut at, mut total, mut cut) = (0, 0, 0);
         let here = (self.at(), self.col);
         for (t, text) in self.lines_from(self.first_line()) {
             for m in re.find_iter(text) {
+                if !drawn(text, m.start()) {
+                    cut += 1;
+                    continue;
+                }
                 total += 1;
                 if (t, m.start()) <= here {
                     at = total;
                 }
             }
         }
+        let tail = if cut > 0 && crate::buffer::p888() == 'c' {
+            format!(", {cut} cut off")
+        } else {
+            String::new()
+        };
         if total == 0 {
-            return "no match".into();
+            return format!("no match{tail}");
         }
-        format!("{at}/{total}")
+        format!("{at}/{total}{tail}")
     }
 
     pub(super) fn step_find(&mut self, forward: bool) {
@@ -122,7 +135,7 @@ impl App {
                 self.go_to_match(at);
                 self.message = self.match_count(&re);
             }
-            None => self.message = "no match".into(),
+            None => self.message = self.match_count(&re),
         }
     }
 
@@ -133,7 +146,7 @@ impl App {
     ) -> Option<(TextLine, usize)> {
         for (t, text) in self.lines_from(line) {
             let from = if t == line { col.min(text.len()) } else { 0 };
-            if let Some(m) = re.find_at(text, from) {
+            if let Some(m) = re.find_at(text, from).filter(|m| drawn(text, m.start())) {
                 return Some((t, m.start()));
             }
         }
@@ -148,7 +161,11 @@ impl App {
         for t in std::iter::successors(Some(line), |&t| self.prev_line(t)) {
             let limit = if t == line { col } else { usize::MAX };
             let text = self.text(t);
-            if let Some(m) = re.find_iter(text).take_while(|m| m.start() < limit).last() {
+            if let Some(m) = re
+                .find_iter(text)
+                .take_while(|m| m.start() < limit && drawn(text, m.start()))
+                .last()
+            {
                 return Some((t, m.start()));
             }
         }
@@ -165,6 +182,9 @@ impl App {
     }
 
     fn go_to_match(&mut self, at: (TextLine, usize)) {
+        if crate::buffer::reach(at.1) {
+            self.buf.clear_hl();
+        }
         let (t, col) = self.clamp_place(at);
         self.set_at(t);
         self.col = col;

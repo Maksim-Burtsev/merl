@@ -324,6 +324,9 @@ impl App {
         if self.open(path, line) {
             self.focus = Focus::Code;
             if col > 0 {
+                if crate::buffer::reach(col) {
+                    self.buf.clear_hl();
+                }
                 self.go(self.clamp_pos((self.line, col)));
                 self.sync_want_x();
             }
