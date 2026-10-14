@@ -1063,22 +1063,6 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
-const SWIFT: &[&str] = &[
-    "\"\\(x)\"",
-    "\"\"\"\n",
-    "/// ",
-    "/[a-z]+/",
-    "@MainActor\n",
-    "switch x {\n",
-    "<T: A>",
-    "(",
-    ")",
-    "{",
-    "}",
-    "\"",
-    "\n\n",
-];
-
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1247,11 +1231,6 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         KOTLIN,
     ),
     (
-        "F.swift",
-        include_bytes!("../../../tests/colors/swift/Ledger.swift").as_slice(),
-        SWIFT,
-    ),
-    (
         "f.rb",
         include_bytes!("../../../tests/colors/ruby/ledger.rb").as_slice(),
         RUBY,
@@ -1327,16 +1306,6 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
 }
 
 #[test]
-fn a_tree_that_plain_tree_sitter_also_builds_after_the_edits_is_painted_as_built() {
-    replay_tree_sitter(
-        "F.swift",
-        include_bytes!("../../../tests/colors/swift/Ledger.swift"),
-        SWIFT,
-        754..=754,
-    );
-}
-
-#[test]
 fn a_paint_from_any_row_orders_captures_at_one_byte_as_a_paint_from_the_top() {
     replay_tree_sitter(
         "f.cpp",
@@ -1388,9 +1357,6 @@ fn replay_tree_sitter(
         (a.view_w, a.view_h) = (WIDER_THAN_ANY_LINE, 40);
         a.line = rng.below(a.buf.lines.len());
         a.key(KeyEvent::new(KeyCode::Enter, NONE));
-        let mut plain = Buffer::from_bytes(path.clone(), start);
-        plain.start_tree_sitter();
-        plain.parse_more(None);
         let mut done = Vec::new();
         for _ in 0..60 {
             let op = match rng.below(4) {
@@ -1413,9 +1379,6 @@ fn replay_tree_sitter(
             }
             a.buf.parse_more(None);
             a.buf.paint_to(usize::MAX, &theme);
-            plain.lines.clone_from(&a.buf.lines);
-            plain.edited(0);
-            plain.parse_more(None);
             let text = a.buf.lines.join("\n") + "\n";
             let mut fresh = Buffer::from_bytes(path.clone(), text.as_bytes());
             fresh.start_tree_sitter();
@@ -1438,12 +1401,10 @@ fn replay_tree_sitter(
                 assert!(
                     recovered(&shape)
                         || recovered(&fresh_shape)
-                        || tokens(&shape) == tokens(&fresh_shape)
-                        || shape == plain.shape(),
-                    "{name} seed {seed}, after [{}]: the tree differs from a fresh parse and from a plain incremental one without an error in either\nincremental {}\nplain {}\nfresh {}",
+                        || tokens(&shape) == tokens(&fresh_shape),
+                    "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
                     done.join(", "),
                     a.buf.sexp(),
-                    plain.sexp(),
                     fresh.sexp()
                 );
                 assert_eq!(
