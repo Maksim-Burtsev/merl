@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       part:
-        description: "Part of src/ to mutate, 1 to 12 (empty: this week's)"
+        description: "Part of src/ to mutate, 1 to 18 (empty: this week's)"
         required: false
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PARTS: 12
+  PARTS: 18
   SHARDS: 12
 
 jobs:
@@ -38,6 +38,8 @@ jobs:
         shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
