@@ -43,6 +43,18 @@ pub fn for_syntax(
         "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
+        "PowerShell"
+            if path.is_none_or(|p| {
+                p.extension().is_some_and(|e| {
+                    e.eq_ignore_ascii_case("ps1")
+                        || e.eq_ignore_ascii_case("psm1")
+                        || e.eq_ignore_ascii_case("psd1")
+                        || e.eq_ignore_ascii_case("pssc")
+                })
+            }) =>
+        {
+            lang("powershell")
+        }
         "PHP" if path.is_none_or(php) => lang("php"),
         "R" if r(path, lines) => lang("r"),
         "Racket"

@@ -319,6 +319,21 @@ boundary, so only `+`, `*`, `=`, `<`, `>`, `/` and the empty string match. Files
 |---|---|---|---|---|
 | Common Lisp | 15,397 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
 
+PowerShell (#808), `.ps1`, `.psm1`, `.psd1` and `.pssc`, as Neovim calls them `ps1`; strings after `&`
+hold PowerShell and `switch -regex` conditions regex, as nvim-treesitter's injections put them, and
+`comment` stays plain, as LazyVim installs no parser for it. crates.io's tree-sitter-powershell
+0.26.4 is the pin (e7bd348). The bench's files come from posh-git, pinned in `THEME_ONLY` as
+`tools/d-bench/projects.tsv` has no PowerShell project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| PowerShell | 17,032 | 99.9 adwaita | 99.9 | 100.0 srcery |
+
+The 15 characters short of 100 are one constructor's name in posh-git's `PoshGitTypes.ps1`: Neovim
+and merl both capture it as `@function.method` and `@constructor` at the same priority, from
+patterns whose matches start at different nodes, and Neovim paints `@function.method` there where
+merl paints `@constructor`.
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are

@@ -56,6 +56,7 @@ tree-sitter-jsdoc = "=0.25.0"
 tree-sitter-md = "=0.5.3"
 tree-sitter-nix = { version = "=0.3.0", git = "https://github.com/nix-community/tree-sitter-nix", rev = "f9765b709987418e7526cca8b9dcf73429ddf169" }
 tree-sitter-php = "=0.25.1"
+tree-sitter-powershell = "=0.26.4"
 tree-sitter-printf = "=0.5.1"
 tree-sitter-proto = { version = "=0.6.0", git = "https://github.com/coder3101/tree-sitter-proto", rev = "d7d15427321da271cb1c25c12735e180ef981473" }
 tree-sitter-python = "=0.25.0"

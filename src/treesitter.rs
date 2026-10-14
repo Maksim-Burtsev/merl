@@ -252,6 +252,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/commonlisp/highlights.scm"),
         include_str!("../queries/commonlisp/injections.scm"),
     ),
+    (
+        "powershell",
+        include_str!("../queries/powershell/highlights.scm"),
+        include_str!("../queries/powershell/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -448,6 +453,7 @@ fn grammar(name: &str) -> Option<Language> {
         "erlang" => tree_sitter_erlang::LANGUAGE.into(),
         "racket" => tree_sitter_racket::LANGUAGE.into(),
         "commonlisp" => tree_sitter_commonlisp::LANGUAGE_COMMONLISP.into(),
+        "powershell" => tree_sitter_powershell::LANGUAGE.into(),
         _ => return None,
     })
 }
