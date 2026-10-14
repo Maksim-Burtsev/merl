@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::{
     App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, names_itself,
     search, signature,
@@ -566,73 +565,7 @@ impl App {
                 self.value_type(kind, file, text, b.line1, n, hops - 1)
             }
             search::Value::Element(n) if hops > 0 => {
-                let (file, text, bindings) = match n.rsplit_once('.') {
-                    None => (
-                        file.to_path_buf(),
-                        text.to_owned(),
-                        self.bindings_of(kind, file, text, b.line1, n),
-                    ),
-                    Some((chain, last)) => {
-                        let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
-                        let ProvenType { ty, .. } = self
-                            .chain_type(kind, file, text, b.line1, &chain, hops - 1)
-                            .ok()?;
-                        self.hierarchy(kind, &ty, 0, &mut |t| {
-                            let text = self.text_of(&t.path)?;
-                            let bindings = search::field_bindings(kind, &text, t.line, last);
-                            (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
-                        })?
-                    }
-                };
-                let (file, text) = (file.as_path(), text.as_str());
-                let mut found: Option<TypeVia> = None;
-                for c in bindings {
-                    let (written, at, link) = match &c.value {
-                        search::Value::Type(t) => {
-                            (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
-                        }
-                        search::Value::Call(callee) => {
-                            let first = callee.split('.').next().unwrap_or(callee);
-                            if hidden(kind, file, text, c.line1, first) {
-                                return None;
-                            }
-                            let (t, at) = self.declared_return(kind, file, callee)?;
-                            let link = signature(kind, callee, &t);
-                            (t, at, link)
-                        }
-                        _ => return None,
-                    };
-                    let named = |written: &str| {
-                        let list = self
-                            .type_decl(kind, &at, written)
-                            .filter(|_| kind == Kind::Go)?;
-                        let text = self.text_of(&list.path)?;
-                        let decl = text
-                            .lines()
-                            .nth(list.line - 1)?
-                            .trim()
-                            .strip_prefix("type ")?;
-                        let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
-                        Some((search::element_type(kind, holds)?, list.path))
-                    };
-                    let (element, at) = match search::element_type(kind, &written) {
-                        Some(element) => (element, at.clone()),
-                        None => named(&written)?,
-                    };
-                    let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
-                        (anonymous(&at, c.line1), None)
-                    } else {
-                        (self.type_decl(kind, &at, &element)?, Some(link))
-                    };
-                    match &found {
-                        Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => {
-                            return None;
-                        }
-                        Some(_) => {}
-                        None => found = Some(TypeVia { ty, call_signature }),
-                    }
-                }
-                found
+                self.element_binding_type(kind, file, text, b.line1, n, hops)
             }
             search::Value::Field { chain: from, field } if hops > 0 => {
                 let ProvenType { ty, .. } = self
@@ -665,6 +598,84 @@ impl App {
             | search::Value::Field { .. }
             | search::Value::Unknown => None,
         }
+    }
+
+    fn element_binding_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        n: &str,
+        hops: usize,
+    ) -> Option<TypeVia> {
+        let (file, text, bindings) = match n.rsplit_once('.') {
+            None => (
+                file.to_path_buf(),
+                text.to_owned(),
+                self.bindings_of(kind, file, text, line1, n),
+            ),
+            Some((chain, last)) => {
+                let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
+                let ProvenType { ty, .. } = self
+                    .chain_type(kind, file, text, line1, &chain, hops - 1)
+                    .ok()?;
+                self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let text = self.text_of(&t.path)?;
+                    let bindings = search::field_bindings(kind, &text, t.line, last);
+                    (!bindings.is_empty()).then(|| (t.path.clone(), text, bindings))
+                })?
+            }
+        };
+        let (file, text) = (file.as_path(), text.as_str());
+        let mut found: Option<TypeVia> = None;
+        for c in bindings {
+            let (written, at, link) = match &c.value {
+                search::Value::Type(t) => {
+                    (t.clone(), file.to_path_buf(), format!("{n}: {}", t.trim()))
+                }
+                search::Value::Call(callee) => {
+                    let first = callee.split('.').next().unwrap_or(callee);
+                    if hidden(kind, file, text, c.line1, first) {
+                        return None;
+                    }
+                    let (t, at) = self.declared_return(kind, file, callee)?;
+                    let link = signature(kind, callee, &t);
+                    (t, at, link)
+                }
+                _ => return None,
+            };
+            let named = |written: &str| {
+                let list = self
+                    .type_decl(kind, &at, written)
+                    .filter(|_| kind == Kind::Go)?;
+                let text = self.text_of(&list.path)?;
+                let decl = text
+                    .lines()
+                    .nth(list.line - 1)?
+                    .trim()
+                    .strip_prefix("type ")?;
+                let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
+                Some((search::element_type(kind, holds)?, list.path))
+            };
+            let (element, at) = match search::element_type(kind, &written) {
+                Some(element) => (element, at.clone()),
+                None => named(&written)?,
+            };
+            let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
+                (anonymous(&at, c.line1), None)
+            } else {
+                (self.type_decl(kind, &at, &element)?, Some(link))
+            };
+            match &found {
+                Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => {
+                    return None;
+                }
+                Some(_) => {}
+                None => found = Some(TypeVia { ty, call_signature }),
+            }
+        }
+        found
     }
 
     fn call_type(
