@@ -1,6 +1,4 @@
-#![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::struct_excessive_bools, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -32,6 +30,10 @@ pub(crate) fn syntaxes() -> &'static SyntaxSet {
 
 pub type Spans = Vec<(Style, Range<usize>)>;
 
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent fact about the file or its highlight"
+)]
 pub struct Buffer {
     pub path: Option<PathBuf>,
     pub lines: Vec<String>,
@@ -50,6 +52,10 @@ pub struct Buffer {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent fact about the file's bytes"
+)]
 pub struct Format {
     bom: bool,
     crlf: bool,
@@ -498,14 +504,14 @@ mod tests {
 
     #[test]
     fn a_code_block_grammar_is_never_read_from_a_file() {
-        let token = format!("zz{}", std::process::id());
-        let stray = PathBuf::from(format!("block.{token}"));
         struct Gone(PathBuf);
         impl Drop for Gone {
             fn drop(&mut self) {
                 drop(std::fs::remove_file(&self.0));
             }
         }
+        let token = format!("zz{}", std::process::id());
+        let stray = PathBuf::from(format!("block.{token}"));
         std::fs::write(&stray, "#!/bin/bash\n").unwrap();
         let _gone = Gone(stray);
         assert!(

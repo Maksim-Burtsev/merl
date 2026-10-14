@@ -1,5 +1,4 @@
 #![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::ignore_without_reason, reason = "#858"))]
 #![cfg_attr(test, expect(clippy::string_slice, reason = "#858"))]
 #![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::HashMap;
@@ -966,7 +965,7 @@ fn the_speed_rows_finish_on_a_file_with_few_or_no_indented_lines() {
 }
 
 #[test]
-#[ignore]
+#[ignore = "times parsing against syntect in release; MERL_TS_SPEED=FILES runs it"]
 fn speed() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let files = std::env::var("MERL_TS_SPEED").unwrap_or_default();

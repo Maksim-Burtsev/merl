@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::struct_excessive_bools, reason = "#858")]
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -172,6 +171,10 @@ fn gen_session(seed: u64) -> (Vec<u8>, Vec<Op>) {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent fact about the file's bytes"
+)]
 struct Format {
     bom: bool,
     crlf: bool,
