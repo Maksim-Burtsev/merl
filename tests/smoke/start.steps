@@ -36,3 +36,7 @@ type 10
 wait :10
 key Enter
 wait 14:32
+# #761: `clock` in config.toml sets the format, 12 hours here.
+run mkdir -p "$HOME/.config/merl" && printf 'clock = "%%I:%%M %%p"\n' >> "$HOME/.config/merl/config.toml"
+merl app/config.py
+wait 02:32 PM

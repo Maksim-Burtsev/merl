@@ -479,11 +479,7 @@ fn event_loop(
             }
             dirty = true;
         }
-        let time = app.clock_format.now();
-        if time != app.clock {
-            app.clock = time;
-            dirty = true;
-        }
+        dirty |= app.tick_clock();
         if dirty {
             terminal.draw(|f| ui::draw(f, app, &theme))?;
             app.diagrams.flush(&mut stdout())?;

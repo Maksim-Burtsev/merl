@@ -183,6 +183,18 @@ fn the_clock_takes_the_right_edge_while_the_path_fits_beside_it() {
         message.contains("  1/70") && message.ends_with("  14:32"),
         "{message:?}"
     );
+    let long = "dumps: via import json from the standard library";
+    assert_eq!(
+        clocked("/work/lib/json.py", long, 80),
+        status("/work/lib/json.py", long, 80),
+        "a message the clock would cut keeps the bar, and the clock goes"
+    );
+    assert_eq!(
+        status_with("/work/lib/json.py", 80, |app| app.clock =
+            Some(String::new())),
+        status("/work/lib/json.py", "", 80),
+        "a format that prints nothing leaves no box"
+    );
 }
 
 #[test]

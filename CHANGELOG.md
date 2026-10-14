@@ -17,8 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The status bar no longer ends with `? help`: the start screen lists `?` among its keys, and the
-  path gets the room back. (#857)
+- The status bar no longer ends with `? help`: the start screen lists `?` among its keys. (#857)
 
 - Code is coloured as LazyVim colours it, from tree-sitter's syntax tree and the theme's Neovim
   colours, in Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash, JSON, YAML,

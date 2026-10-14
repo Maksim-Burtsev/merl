@@ -586,6 +586,15 @@ impl App {
         app
     }
 
+    pub fn tick_clock(&mut self) -> bool {
+        let time = self.clock_format.now();
+        if time == self.clock {
+            return false;
+        }
+        self.clock = time;
+        true
+    }
+
     pub fn rel_path(&self) -> String {
         match &self.buf.path {
             Some(path) => self.rel_path_of(path),

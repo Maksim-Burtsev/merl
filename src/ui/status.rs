@@ -113,10 +113,9 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         .filter(|t| !t.is_empty())
         .map(|t| (t, wrap::width(t) + 2))
         .filter(|(_, w)| wrap::width(&spans[0].content) + rest + 1 + w <= area.width as usize);
-    let clock_w = clock.map_or(0, |(_, w)| w + 1);
     spans[0].content = fit_path(
         &spans[0].content,
-        (area.width as usize).saturating_sub(rest + clock_w),
+        (area.width as usize).saturating_sub(rest),
     )
     .into();
     if let Some((_, len)) = app.message_path.as_ref().filter(|(m, _)| *m == app.message) {
@@ -124,7 +123,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             .iter()
             .map(|s| wrap::width(&s.content))
             .sum::<usize>();
-        let room = (area.width as usize).saturating_sub(before + 2 + clock_w);
+        let room = (area.width as usize).saturating_sub(before + 2);
         let (name, why) = app.message.split_at(*len);
         let name = fit_path(name, room.saturating_sub(wrap::width(why)));
         spans.last_mut().expect("the bar has spans").content = format!("  {name}{why}").into();

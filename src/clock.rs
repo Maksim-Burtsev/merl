@@ -34,6 +34,9 @@ impl<'de> Deserialize<'de> for Clock {
 }
 
 fn check(format: &str) -> Result<(), String> {
+    if format.chars().any(char::is_control) {
+        return Err("clock: one line, no tabs or newlines".into());
+    }
     let mut chars = format.chars();
     while let Some(c) = chars.next() {
         if c != '%' {
@@ -102,6 +105,11 @@ mod tests {
                 .contains("%Q is not a time field")
         );
         assert!(parse("clock = \"%H:%\"").unwrap_err().contains("lone %"));
+        assert!(
+            parse("clock = \"%H\\n%M\"")
+                .unwrap_err()
+                .contains("one line")
+        );
         assert!(parse("clock = 5").unwrap_err().contains("false, true"));
     }
 
@@ -117,6 +125,24 @@ mod tests {
             assert!(check(&f).is_ok());
             assert!(!show(&f).contains('%') || k == '%', "{f} -> {}", show(&f));
         }
+    }
+
+    #[test]
+    fn a_new_time_asks_for_a_redraw_and_the_same_time_does_not() {
+        let mut app = crate::app::App::new(
+            std::path::PathBuf::from("/work"),
+            crate::tree::Tree::default(),
+            Vec::new(),
+            crate::buffer::Buffer::from_bytes(std::path::PathBuf::from("/work/a.py"), b""),
+            None,
+        );
+        app.clock_format = Clock(Some("%Y".into()));
+        assert!(app.tick_clock());
+        assert!(!app.tick_clock());
+        app.clock = Some("1999".into());
+        assert!(app.tick_clock());
+        app.clock_format = Clock(None);
+        assert!(app.tick_clock() && app.clock.is_none());
     }
 
     #[test]
