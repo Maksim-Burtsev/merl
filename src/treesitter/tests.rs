@@ -452,6 +452,20 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
     }
     assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
+    for (f, src) in [
+        ("bin/rails", &b"#!/usr/bin/env ruby\nx = 1\n"[..]),
+        ("exe/tool", b"#!/usr/bin/env -S ruby -w\nx = 1\n"),
+        ("script", b"#!/usr/local/bin/ruby3.3\nx = 1\n"),
+    ] {
+        assert!(sexp(f, src).contains("(assignment "), "{f}");
+    }
+    for (f, src) in [
+        ("artisan", &b"#!/usr/bin/env php\n<?php echo 1;\n"[..]),
+        ("bin/console", b"#!/usr/bin/env php8.2\n<?php echo 1;\n"),
+    ] {
+        assert!(sexp(f, src).contains("(php_tag"), "{f}");
+    }
+    assert!(sexp("artisan", b"#!/bin/sh\necho hi\n").contains("(command "));
     for f in ["a.ex", "a.exs"] {
         assert!(sexp(f, b"x = 1\n").contains("(source "), "{f}");
     }
