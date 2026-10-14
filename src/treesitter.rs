@@ -85,6 +85,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/cmake/injections.scm"),
     ),
     (
+        "graphql",
+        include_str!("../queries/graphql/highlights.scm"),
+        include_str!("../queries/graphql/injections.scm"),
+    ),
+    (
         "proto",
         include_str!("../queries/proto/highlights.scm"),
         include_str!("../queries/proto/injections.scm"),
@@ -377,6 +382,7 @@ pub fn for_syntax(
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Go" => lang("go"),
+        "GraphQL" => lang("graphql"),
         "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "Kotlin" => lang("kotlin"),
@@ -625,6 +631,7 @@ fn grammar(name: &str) -> Option<Language> {
         "dockerfile" => tree_sitter_dockerfile_updated::language(),
         "cmake" => tree_sitter_cmake::LANGUAGE.into(),
         "proto" => tree_sitter_proto::LANGUAGE.into(),
+        "graphql" => arborium_graphql::language().into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),
