@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::Path;
 
@@ -25,7 +24,7 @@ pub(super) fn behind_doc(kind: Kind, line: &str) -> &str {
 
 pub fn jsdoc_type(braced: &str) -> Option<String> {
     static ONE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:\[\])?|Array<\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*>)$").unwrap()
+        Regex::new(r"^(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:\[\])?|Array<\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*>)$").expect("the regex is a literal")
     });
     let t = braced
         .trim()

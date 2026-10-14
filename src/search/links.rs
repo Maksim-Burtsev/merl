@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -29,7 +28,8 @@ fn fenced_code_html_comment_or_front_matter(text: &str, ev: &Event, r: &Range<us
 
 pub fn markdown_at(text: &str, at: usize) -> MdAt {
     static HREF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#).unwrap()
+        Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#)
+            .expect("the regex is a literal")
     });
     let parser = Parser::new_ext(text, options());
     #[expect(
@@ -101,7 +101,8 @@ pub fn github_anchor(heading: &str) -> String {
 
 pub fn anchor_line1(text: &str, anchor: &str) -> Option<usize> {
     static ID: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?i)<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']"#).unwrap()
+        Regex::new(r#"(?i)<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']"#)
+            .expect("the regex is a literal")
     });
     let anchor = anchor.to_lowercase();
     let line = |at: usize| text[..at].matches('\n').count() + 1;
@@ -141,7 +142,7 @@ pub fn anchor_line1(text: &str, anchor: &str) -> Option<usize> {
     }
     ID.captures_iter(text)
         .find(|c| c[1].to_lowercase() == anchor)
-        .map(|c| line(c.get(0).unwrap().start()))
+        .map(|c| line(c.get_match().start()))
 }
 
 pub fn percent_decoded(s: &str) -> String {

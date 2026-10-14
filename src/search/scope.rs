@@ -1,5 +1,4 @@
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -505,8 +504,9 @@ pub fn package_copy(
     Some(copy)
 }
 pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[String]) -> bool {
-    static NAME: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#""name"\s*:\s*"([^"]*)""#).unwrap());
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#""name"\s*:\s*"([^"]*)""#).expect("the regex is a literal")
+    });
     let name = match module {
         [scope, pkg, ..] if scope.len() > 1 && scope.starts_with('@') => format!("{scope}/{pkg}"),
         [pkg, ..]
@@ -536,7 +536,7 @@ pub fn package_missing(root: &Path, files: &[PathBuf], dir: &Path, module: &[Str
     };
     let declared = || {
         static DECLARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#"declare\s+module\s+['"]([^'"]+)['"]"#).unwrap()
+            Regex::new(r#"declare\s+module\s+['"]([^'"]+)['"]"#).expect("the regex is a literal")
         });
         let spec = module.join("/");
         files
@@ -595,7 +595,8 @@ pub struct PackageCopy {
 impl PackageCopy {
     pub fn entries(&self) -> Vec<PathBuf> {
         static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#""(types|typings|main|module)"\s*:\s*"([^"]*)""#).unwrap()
+            Regex::new(r#""(types|typings|main|module)"\s*:\s*"([^"]*)""#)
+                .expect("the regex is a literal")
         });
         let mut entries = Vec::new();
         for dir in &self.dirs {
@@ -959,8 +960,9 @@ pub(super) const GO_ARCH: &[&str] = &[
     "wasm",
 ];
 pub fn go_built(path: &Path, text: &str, build: &GoBuild) -> GoBuilt {
-    static TOKEN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"&&|\|\||[!()]|[\w.]+").unwrap());
+    static TOKEN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"&&|\|\||[!()]|[\w.]+").expect("the regex is a literal")
+    });
     type Tag<'a> = &'a dyn Fn(&str) -> bool;
     fn or_of_ands(t: &[&str], i: &mut usize, tag: Tag) -> Option<bool> {
         let mut value = and_of_unaries(t, i, tag)?;

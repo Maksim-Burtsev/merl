@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -80,7 +79,8 @@ pub const OBJC_METHOD_SYMBOL: &str =
 
 pub fn objc_file(path: &Path, text: impl FnOnce() -> String) -> bool {
     static MARK: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?m)^[ \t]*(?:@(?:interface|protocol|class)\b|#[ \t]*import\b)").unwrap()
+        Regex::new(r"(?m)^[ \t]*(?:@(?:interface|protocol|class)\b|#[ \t]*import\b)")
+            .expect("the regex is a literal")
     });
     match path.extension().and_then(|e| e.to_str()) {
         Some("m" | "mm") => true,
@@ -101,7 +101,8 @@ pub fn objc_frameworks(root: &Path) -> bool {
 }
 
 pub fn objc_parameter(head: &str, name: &str) -> Option<usize> {
-    static HEAD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^[-+]\s*\(").unwrap());
+    static HEAD: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?m)^[-+]\s*\(").expect("the regex is a literal"));
     let at = HEAD.find(head)?.start();
     let w = regex::escape(name);
     let re = Regex::new(&format!(r":\s*\((?:[^()]|\([^()]*\))*\)\s*({w})\b")).ok()?;

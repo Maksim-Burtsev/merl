@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -59,11 +58,13 @@ pub(super) const PERL_PACKAGE_SYMBOL: &str =
     r"^\s*(?:package|class)\s+(?P<name>[A-Za-z_]\w*(?:::\w+)*)(?:\s*[;{]|\s+v?\d|\s+:|\s*$)";
 
 pub fn perl_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str, text: &str) -> bool {
-    static KEY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\w+\s*=>").unwrap());
-    static ENTRY: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:\w+\s*=>.*)?(?:#.*)?$").unwrap());
+    static KEY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*\w+\s*=>").expect("the regex is a literal"));
+    static ENTRY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:\w+\s*=>.*)?(?:#.*)?$").expect("the regex is a literal")
+    });
     static OPENER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*use\s+constant\s*\{").unwrap());
+        LazyLock::new(|| Regex::new(r"^\s*use\s+constant\s*\{").expect("the regex is a literal"));
     let entry = perl_constant_entry(word);
     let others = (perl_patterns(word).into_iter())
         .filter(|p| *p != entry)
@@ -118,8 +119,10 @@ pub fn perl_name(line: &str, col: usize) -> Option<Range<usize>> {
 }
 
 pub fn perl_used_module(line: &str) -> Option<Range<usize>> {
-    static USE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(&format!(r"^\s*(?:use|no|require)\s+({PACKAGE})\b")).unwrap());
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(&format!(r"^\s*(?:use|no|require)\s+({PACKAGE})\b"))
+            .expect("the regex is a literal")
+    });
     let m = USE.captures(line)?.get(1)?;
     (!m.as_str().starts_with(|c: char| c.is_ascii_digit())).then(|| m.range())
 }
@@ -130,10 +133,12 @@ pub fn perl_module_file(package: &str) -> String {
 
 pub fn perl_imports(text: &str) -> Vec<(String, String)> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?m)^\s*use\s+([A-Z]\w*(?:::\w+)*)(?:\s+v?[\d._]+)?\s+([^;]*);").unwrap()
+        Regex::new(r"(?m)^\s*use\s+([A-Z]\w*(?:::\w+)*)(?:\s+v?[\d._]+)?\s+([^;]*);")
+            .expect("the regex is a literal")
     });
     static ITEM: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\bqw\s*[(\[{</|]([^)\]}>/|]*)|'([^']*)'|"([^"]*)""#).unwrap()
+        Regex::new(r#"\bqw\s*[(\[{</|]([^)\]}>/|]*)|'([^']*)'|"([^"]*)""#)
+            .expect("the regex is a literal")
     });
     let literal = perl_literal_lines(text);
     let starts: Vec<usize> = std::iter::once(0)
@@ -164,7 +169,7 @@ pub fn perl_imports(text: &str) -> Vec<(String, String)> {
 
 pub fn perl_lexical(text: &str, line: usize, col: usize, name: &str) -> Option<usize> {
     static HEADER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").unwrap());
+        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").expect("the regex is a literal"));
     let (literal, code) = perl_lex(text);
     let n = regex::escape(name);
     let decl = Regex::new(&format!(

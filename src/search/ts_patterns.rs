@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -8,7 +7,8 @@ use super::{
 
 pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     static MODS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:public|private|protected|readonly|override)\s+)*(?:\.\.\.)?").unwrap()
+        Regex::new(r"^(?:(?:public|private|protected|readonly|override)\s+)*(?:\.\.\.)?")
+            .expect("the regex is a literal")
     });
     for p in split_top(Kind::TsJs, params, b',') {
         let p = MODS.replace(p.trim(), "");
@@ -56,10 +56,11 @@ fn typed_pattern(p: &str, name: &str) -> Option<Value> {
 pub(super) fn ts_destructured(t: &str, name: &str) -> Option<Value> {
     static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*\{([^{}\[\]]*)\}\s*=\s*(.+?)\s*;?$")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     static CHAIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:this|[A-Za-z_$][\w$]*)(?:\.#?[A-Za-z_$][\w$]*)*$").unwrap()
+        Regex::new(r"^(?:this|[A-Za-z_$][\w$]*)(?:\.#?[A-Za-z_$][\w$]*)*$")
+            .expect("the regex is a literal")
     });
     let c = SHAPE.captures(t)?;
     let field = c[1].split(',').find_map(|item| {
@@ -131,7 +132,8 @@ pub(super) struct TsDeclarator {
 }
 pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarator>> {
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+").unwrap()
+        Regex::new(r"^(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+")
+            .expect("the regex is a literal")
     });
     let first = uncommented(Kind::TsJs, lines.get(k)?);
     if !first.trim_end().ends_with(',') {

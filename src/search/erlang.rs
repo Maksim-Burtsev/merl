@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -54,7 +53,7 @@ pub fn erlang_clause_pattern(w: &str) -> String {
 
 pub(super) fn erlang_head(line: &str) -> bool {
     static HEAD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^[a-z]\w*\s*\(").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^[a-z]\w*\s*\(").expect("the regex is a literal"));
     HEAD.is_match(line)
 }
 
@@ -168,7 +167,8 @@ fn erlang_literal_lines(text: &str) -> Vec<bool> {
 
 pub fn erlang_imported(text: &str, word: &str) -> Option<String> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^-\s*import\s*\(\s*([a-z]\w*)\s*,\s*\[([^\]]*)\]").unwrap()
+        Regex::new(r"(?m)^-\s*import\s*\(\s*([a-z]\w*)\s*,\s*\[([^\]]*)\]")
+            .expect("the regex is a literal")
     });
     let listed = Regex::new(&format!(r"(?:^|[\s,]){}\s*/", regex::escape(word))).ok()?;
     IMPORT
@@ -178,8 +178,9 @@ pub fn erlang_imported(text: &str, word: &str) -> Option<String> {
 }
 
 pub fn erlang_include(line: &str, col: usize) -> Option<(bool, String)> {
-    static INCLUDE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#"^-\s*include(_lib)?\s*\(\s*"([^"]+)""#).unwrap());
+    static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^-\s*include(_lib)?\s*\(\s*"([^"]+)""#).expect("the regex is a literal")
+    });
     let c = INCLUDE.captures(line)?;
     let path = c.get(2)?;
     (path.start() <= col && col <= path.end())

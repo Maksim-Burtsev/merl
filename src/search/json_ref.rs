@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{indent, percent_decoded};
 use regex::Regex;
 use std::path::Path;
@@ -21,7 +20,8 @@ fn is_json(path: &Path) -> bool {
 
 pub fn ref_at(path: &Path, lines: &[&str], line: usize, col: usize) -> Option<RefAt> {
     static REF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?:^|[\s{,])(?:"\$ref"|'\$ref'|\$ref)\s*:[ \t]*"#).unwrap()
+        Regex::new(r#"(?:^|[\s{,])(?:"\$ref"|'\$ref'|\$ref)\s*:[ \t]*"#)
+            .expect("the regex is a literal")
     });
     let json = is_json(path);
     let l = *lines.get(line)?;
@@ -75,8 +75,9 @@ fn parent(lines: &[&str], line: usize, json: bool) -> Option<usize> {
 }
 
 fn in_block_scalar(lines: &[&str], line: usize) -> bool {
-    static HEADER: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?:^-|:)\s+[|>][-+0-9]*\s*(?:#.*)?$").unwrap());
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^-|:)\s+[|>][-+0-9]*\s*(?:#.*)?$").expect("the regex is a literal")
+    });
     let mut at = line;
     while let Some(up) = parent(lines, at, false) {
         let t = lines[up].trim();
@@ -229,7 +230,7 @@ pub fn keyword_line(text: &str, keyword: &str, value: &str) -> Option<usize> {
         r#"(?:^|[\s{{,])(?:"{k}"|'{k}'|{k})\s*:[ \t]*"#,
         k = regex::escape(keyword)
     ))
-    .unwrap();
+    .expect("an escaped keyword keeps the pattern valid");
     text.lines()
         .position(|l| {
             re.find_iter(l).any(|m| {

@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -45,7 +44,7 @@ pub fn cmake_name(line: &str, r: std::ops::Range<usize>) -> std::ops::Range<usiz
 pub fn cmake_import(line: &str, col: usize) -> Option<(String, String)> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\s*(?i)(include|add_subdirectory|find_package)\s*\(\s*"?([^\s"()$]+)"#)
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let c = IMPORT.captures(line)?;
     let arg = c.get(2)?;

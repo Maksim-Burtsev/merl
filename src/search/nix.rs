@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -36,7 +35,8 @@ pub fn nix_name(line: &str, r: Range<usize>) -> Range<usize> {
 
 pub fn nix_path(line: &str, col: usize) -> Option<String> {
     static PATH: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[\s(\[{=;])((?:\.{1,2}|[\w.+-]*)(?:/[\w.+-]+)+/?)").unwrap()
+        Regex::new(r"(?:^|[\s(\[{=;])((?:\.{1,2}|[\w.+-]*)(?:/[\w.+-]+)+/?)")
+            .expect("the regex is a literal")
     });
     let m = PATH
         .captures_iter(line)

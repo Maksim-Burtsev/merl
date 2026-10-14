@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -191,12 +190,14 @@ fn closes_a_wrapped_header(t: &str) -> bool {
     t.starts_with([')', ']'])
 }
 
-static DEF: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*\(").unwrap());
+static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*\(").expect("the regex is a literal")
+});
 
 pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static SCOPE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:(?:async\s+)?def|class)\s+(\w+)").unwrap());
+    static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:(?:async\s+)?def|class)\s+(\w+)").expect("the regex is a literal")
+    });
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let annotated = rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
@@ -209,7 +210,8 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
     ));
     let plain_loop_over_a_name = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
     let chained_assignment = rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]"));
-    let tuple_target = Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").unwrap();
+    let tuple_target =
+        Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").expect("the regex is a literal");
 
     let mut scopes_innermost_first = Vec::new();
     let mut depth = indent(lines[at]);
@@ -332,7 +334,7 @@ pub(super) fn python_statements(t: &str, continues: bool) -> Vec<&str> {
         Regex::new(
             r"^(?:(?:if|elif|else|try|except|finally|while|with|for|async\s+with|async\s+for)\b|case\s)",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let (mut depth, header, mut end_of_unopened_closer) = (0i32, HEADER.is_match(t), None);
     let colon = code(Kind::Python, t).find(|&(i, c)| {

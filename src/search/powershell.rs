@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -47,7 +46,8 @@ const SHAPES: usize = Shape::EnvironmentVariable as usize + 1;
 
 pub fn powershell_sigil(patterns: &mut Vec<String>, before: &str, after: &str) {
     static SIGIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|using):)$").unwrap()
+        Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|using):)$")
+            .expect("the regex is a literal")
     });
     use Shape::{
         Alias, AssignmentOrProperty, ClassOrEnum, EnumMember, EnvironmentVariable,
@@ -103,7 +103,7 @@ pub fn powershell_argument(before: &str) -> bool {
 
 pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) -> bool {
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)^\s*(?:(?:function|filter)\s|(?:\[[^\]]*\]\s*)*(?:class|enum)\s|(?:Set|New)-Alias\s)").unwrap()
+        Regex::new(r"(?i)^\s*(?:(?:function|filter)\s|(?:\[[^\]]*\]\s*)*(?:class|enum)\s|(?:Set|New)-Alias\s)").expect("the regex is a literal")
     });
     if KEYWORD.is_match(line_text) {
         return true;
@@ -118,15 +118,17 @@ pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: 
 }
 
 static VARIABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*\$").unwrap()
+    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*\$")
+        .expect("the regex is a literal")
 });
 static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*[A-Za-z_][\w-]*\s*\(").unwrap()
+    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*[A-Za-z_][\w-]*\s*\(")
+        .expect("the regex is a literal")
 });
 
 fn opens(l: &str, keyword: &str) -> bool {
     static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)^\s*(?:\[[^\]]*\]\s*)*(class|enum)\s").unwrap()
+        Regex::new(r"(?i)^\s*(?:\[[^\]]*\]\s*)*(class|enum)\s").expect("the regex is a literal")
     });
     OPENER
         .captures(l)
@@ -185,7 +187,8 @@ fn in_param_block<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
 }
 
 static PARAM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"(?i)\bparam\s*\(|^\s*(?:function|filter)\s+[\w:-]+\s*\(").unwrap()
+    Regex::new(r"(?i)\bparam\s*\(|^\s*(?:function|filter)\s+[\w:-]+\s*\(")
+        .expect("the regex is a literal")
 });
 
 #[expect(
@@ -243,15 +246,16 @@ pub fn powershell_params(lines: &[&str], cursor_line0: usize, name: &str) -> Vec
     Vec::new()
 }
 
-static HEADER: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"(?i)^\s*(?:function|filter)\s").unwrap());
+static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?i)^\s*(?:function|filter)\s").expect("the regex is a literal")
+});
 
 pub fn powershell_import(line: &str, byte_col: usize) -> Option<String> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r#"(?i)^\s*(?:\.|Import-Module|using\s+module)\s+(?:-Name\s+)?(["']?)([^"'\s;|]+\.ps[dm]?1)["']?"#,
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let c = IMPORT.captures(line)?;
     let path = c.get(2)?;

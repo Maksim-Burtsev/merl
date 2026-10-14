@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::sync::LazyLock;
 
@@ -67,7 +66,7 @@ const COMPILER_ATTRIBUTES: &[&str] = &[
 
 pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -> Option<RustAttr> {
     static ONLY_A_PATH: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
+        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").expect("the regex is a literal"));
     let cur = lines.get(line)?;
     let Frames { text, stack, .. } = frames(lines, line, start)?;
     let pathed = cur[end..].trim_start().starts_with("::");
@@ -105,7 +104,8 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
     })
 }
 pub fn rust_attribute_path(lines: &[String], line: usize, start: usize) -> bool {
-    static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\w+(?:::\w+)*$").unwrap());
+    static PATH: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\w+(?:::\w+)*$").expect("the regex is a literal"));
     let Some(Frames {
         text,
         stack,
@@ -275,12 +275,15 @@ pub fn rust_proc_macro(text: &str, line1: usize) -> bool {
 }
 
 static STRUCT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|union)\s+[A-Za-z_]\w*").unwrap()
+    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|union)\s+[A-Za-z_]\w*")
+        .expect("the regex is a literal")
 });
-static ENUM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?enum\s+[A-Za-z_]\w*").unwrap());
-static STRUCT_LIKE_VARIANT_LINE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s+(?:#\[[^\]]*\]\s*)*[A-Za-z_]\w*\s*\{\s*$").unwrap());
+static ENUM: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?enum\s+[A-Za-z_]\w*").expect("the regex is a literal")
+});
+static STRUCT_LIKE_VARIANT_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s+(?:#\[[^\]]*\]\s*)*[A-Za-z_]\w*\s*\{\s*$").expect("the regex is a literal")
+});
 
 fn rust_parent(lines: &[&str], k: usize) -> Option<usize> {
     let depth = indent(lines[k]);
@@ -327,10 +330,12 @@ static FN_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s"#,
     )
-    .unwrap()
+    .expect("the regex is a literal")
 });
-static MOD_LINE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{").unwrap());
+static MOD_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{")
+        .expect("the regex is a literal")
+});
 fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
     let mut around = Vec::new();
     let mut depth = indent(lines[k]);
@@ -381,7 +386,8 @@ fn rust_block_end(lines: &[&str], h: usize) -> usize {
 }
 pub fn rust_glob_uses(text: &str, line1: usize) -> RustGlobUses {
     static GLOB: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;").unwrap()
+        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -608,7 +614,8 @@ fn binds(pat: &str, name: &str) -> bool {
     })
 }
 fn let_pattern(line: &str) -> Option<Range<usize>> {
-    static LET: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*let\s+").unwrap());
+    static LET: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*let\s+").expect("the regex is a literal"));
     let from = LET.find(line)?.end();
     top_stop(&line[from..], b":=;").map(|end| from..from + end)
 }
@@ -621,13 +628,15 @@ enum CodeShape {
     BlockHeader,
 }
 fn line_binds(t: &str, name: &str, shape: CodeShape) -> bool {
-    static LET: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:\bif|\bwhile|&&)\s+let\s+").unwrap());
-    static FOR: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:^|[\s:])for\s+(.+?)\s+in\s").unwrap());
+    static LET: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:\bif|\bwhile|&&)\s+let\s+").expect("the regex is a literal")
+    });
+    static FOR: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[\s:])for\s+(.+?)\s+in\s").expect("the regex is a literal")
+    });
     static CLOSURE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:^|[(,={]|\bmove|\breturn|=>)\s*\|([^|]*)\|(\s*(?:->[^{]*)?\{?\s*$)?")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let lets = LET.find_iter(t).any(|m| {
         let rest = &t[m.end()..];
@@ -651,7 +660,8 @@ fn line_binds(t: &str, name: &str, shape: CodeShape) -> bool {
     lets || each || closure || arm
 }
 fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
-    static FN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bfn\s+\w+\s*").unwrap());
+    static FN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bfn\s+\w+\s*").expect("the regex is a literal"));
     let line = uncommented(Kind::Rust, lines[f]);
     let open = past_generics(&line, FN.find(&line)?.end())?;
     if !line[open..].starts_with('(') {
@@ -812,20 +822,25 @@ pub enum RustVis {
 }
 pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)")
+            .expect("the regex is a literal")
     });
     static IMPL: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|const|default)\s+)*impl\b").unwrap()
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|const|default)\s+)*impl\b")
+            .expect("the regex is a literal")
     });
     static IMPL_FOR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
     });
     static INHERENT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*")
+            .expect("the regex is a literal")
     });
-    static VIS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*pub\s*(\()?").unwrap());
+    static VIS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*pub\s*(\()?").expect("the regex is a literal"));
     static MACRO: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?macro(?:_rules!|\s)").unwrap()
+        Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?macro(?:_rules!|\s)")
+            .expect("the regex is a literal")
     });
     let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let at = rust_parent(lines, k)?;
@@ -1008,9 +1023,11 @@ pub fn rust_type_name(written: &str) -> Option<RustTypeName> {
         "Instant",
     ];
     static PATH: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^((?:[A-Za-z_]\w*::)*)([A-Za-z_]\w*)\s*(?:<(.*)>)?$").unwrap()
+        Regex::new(r"^((?:[A-Za-z_]\w*::)*)([A-Za-z_]\w*)\s*(?:<(.*)>)?$")
+            .expect("the regex is a literal")
     });
-    static LIFETIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^'\w+\s+").unwrap());
+    static LIFETIME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^'\w+\s+").expect("the regex is a literal"));
     let mut t = written.trim();
     loop {
         let before = t;
@@ -1042,13 +1059,13 @@ pub fn rust_type_name(written: &str) -> Option<RustTypeName> {
 }
 pub fn rust_impl_type(line: &str) -> Option<String> {
     static IMPL: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
     });
     IMPL.captures(line).map(|c| c[1].to_owned())
 }
 pub fn rust_impl_trait(line: &str) -> Option<String> {
     static FOR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
     });
     FOR.captures(line).map(|c| c[1].to_owned())
 }
@@ -1058,7 +1075,8 @@ pub struct RustSelfType {
 }
 pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s").unwrap()
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s")
+            .expect("the regex is a literal")
     });
     let mut depth = indent(lines.get(line0)?);
     for i in (0..line0).rev() {
@@ -1088,8 +1106,9 @@ pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     None
 }
 pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
-    static MOD: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{").unwrap());
+    static MOD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{").expect("the regex is a literal")
+    });
     let mut depth = lines.get(line0).map_or(0, |l| indent(l));
     for (i, l) in lines[..line0.min(lines.len())].iter().enumerate().rev() {
         if depth == 0 {
@@ -1124,13 +1143,16 @@ pub enum RustHolds {
     Call(Vec<String>),
 }
 pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
-    static LITERAL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(?:[A-Za-z_]\w*::)*([A-Z]\w*)\s*\{").unwrap());
-    static ASSOC: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^((?:[A-Za-z_]\w*::)*[A-Z]\w*)(?:::<[^()]*>)?::([a-z_]\w*)\s*\(").unwrap()
+    static LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[A-Za-z_]\w*::)*([A-Z]\w*)\s*\{").expect("the regex is a literal")
     });
-    static CALL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^((?:[a-z_]\w*::)*[a-z_]\w*)\s*\(").unwrap());
+    static ASSOC: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[A-Za-z_]\w*::)*[A-Z]\w*)(?:::<[^()]*>)?::([a-z_]\w*)\s*\(")
+            .expect("the regex is a literal")
+    });
+    static CALL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[a-z_]\w*::)*[a-z_]\w*)\s*\(").expect("the regex is a literal")
+    });
     let n = regex::escape(name);
     let line = uncommented(Kind::Rust, lines.get(at)?);
     let t = line.trim();

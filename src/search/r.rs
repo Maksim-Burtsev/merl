@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -73,7 +72,8 @@ fn comment_at(line: &str) -> usize {
 }
 
 pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
-    static OPERATOR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%[^%\s`]+%").unwrap());
+    static OPERATOR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"%[^%\s`]+%").expect("the regex is a literal"));
     let code = &line[..comment_at(line)];
     if col >= code.len() {
         return None;
@@ -113,7 +113,8 @@ pub fn r_foreign_package(line: &str, start: usize, root: &Path) -> bool {
 
 pub fn r_source(line: &str, col: usize) -> Option<String> {
     static SOURCE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\b(?:sys\.)?source\s*\(\s*(?:file\s*=\s*)?["']([^"']+)["']"#).unwrap()
+        Regex::new(r#"\b(?:sys\.)?source\s*\(\s*(?:file\s*=\s*)?["']([^"']+)["']"#)
+            .expect("the regex is a literal")
     });
     SOURCE
         .captures_iter(line)

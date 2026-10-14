@@ -1,7 +1,6 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -718,12 +717,14 @@ pub fn clojure_ns_files(ns: &str, files: &[PathBuf]) -> Vec<PathBuf> {
 
 pub fn lisp_require(kind: Kind, line: &str, col: usize) -> Option<String> {
     static ELISP: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\(require\s+'([^\s()]+)").unwrap());
+        LazyLock::new(|| Regex::new(r"\(require\s+'([^\s()]+)").expect("the regex is a literal"));
     static RACKET: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"(?:\(require|^)\s+(?:[^"]*?\s)?("[^"]+"|[\w\-]+(?:/[\w\-]+)+)"#).unwrap()
+        Regex::new(r#"(?:\(require|^)\s+(?:[^"]*?\s)?("[^"]+"|[\w\-]+(?:/[\w\-]+)+)"#)
+            .expect("the regex is a literal")
     });
-    static CLOJURE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"'?\[([\w\-]+(?:\.[\w\-]+)+)(?:\s|\])").unwrap());
+    static CLOJURE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"'?\[([\w\-]+(?:\.[\w\-]+)+)(?:\s|\])").expect("the regex is a literal")
+    });
     let (re, required) = match kind {
         Kind::EmacsLisp => (&*ELISP, true),
         Kind::Scheme => (&*RACKET, line.contains("(require")),

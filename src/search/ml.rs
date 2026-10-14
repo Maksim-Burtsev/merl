@@ -1,7 +1,6 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -124,20 +123,23 @@ pub fn ml_name(line: &str, r: Range<usize>, col: usize) -> Range<usize> {
 
 fn keyword_line(t: &str) -> bool {
     static KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:\[<|\||(?:let|and|type|module|namespace|val|exception|external|class|method|member|override|default|abstract|static|inline|private|internal|public|open|include|inherit)\b)").unwrap()
+        Regex::new(r"^(?:\[<|\||(?:let|and|type|module|namespace|val|exception|external|class|method|member|override|default|abstract|static|inline|private|internal|public|open|include|inherit)\b)").expect("the regex is a literal")
     });
     KEYWORD.is_match(t)
 }
 
 fn binding_line(t: &str) -> bool {
-    static BINDING: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(?:\[<[^\]]*>\]\s*)?(?:let|and)(?:[\s%!*+]|$)").unwrap());
+    static BINDING: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:\[<[^\]]*>\]\s*)?(?:let|and)(?:[\s%!*+]|$)")
+            .expect("the regex is a literal")
+    });
     BINDING.is_match(t)
 }
 
 fn module_level<S: AsRef<str>>(kind: Kind, lines: &[S], line: usize) -> bool {
-    static FS_MODULE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*module\s+[\w.']+\s*=\s*$").unwrap());
+    static FS_MODULE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*module\s+[\w.']+\s*=\s*$").expect("the regex is a literal")
+    });
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
@@ -221,7 +223,7 @@ pub fn ml_local<S: AsRef<str>>(kind: Kind, lines: &[S], line: usize, word: &str)
 pub fn ml_modules<S: AsRef<str>>(path: &Path, lines: &[S], line: usize) -> Vec<String> {
     static OPENER: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:\[<[^\]]*>\]\s*)?(?:module|type|and)\s+(?:(?:rec|nonrec|private|internal|public)\s+)*(?:[\w']+\.)*([A-Z][\w']*)")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let mut names: Vec<String> = path
         .file_stem()

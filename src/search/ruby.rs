@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -24,17 +23,21 @@ struct Around {
 }
 
 fn around(lines: &[&str], literal: &[bool], line0: usize) -> Around {
-    static GATE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(?:[a-z_]+\s+)?def\s|^(?:class|module)\b").unwrap());
+    static GATE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[a-z_]+\s+)?def\s|^(?:class|module)\b").expect("the regex is a literal")
+    });
     static HOLDS_NO_LINE_BELOW: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:[a-z_]+\s+)?def\s+[^\s(]+(?:\([^)]*\))?\s*=(?:[^=~>]|$)|\bend\s*(?:#.*)?$")
-            .unwrap()
+            .expect("the regex is a literal")
     });
-    static BLOCK: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:\bdo|\{)\s*(?:\|[^|]*\|)?\s*(?:#.*)?$").unwrap());
-    static GOES_ON_THE_CONSTRUCT_ABOVE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(?:rescue|else|elsif|ensure|when|in|then)\b").unwrap());
-    static CLOSER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(?:end\b|[}\])])").unwrap());
+    static BLOCK: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:\bdo|\{)\s*(?:\|[^|]*\|)?\s*(?:#.*)?$").expect("the regex is a literal")
+    });
+    static GOES_ON_THE_CONSTRUCT_ABOVE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:rescue|else|elsif|ensure|when|in|then)\b").expect("the regex is a literal")
+    });
+    static CLOSER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:end\b|[}\])])").expect("the regex is a literal"));
     let mut depth = indent(lines[line0])
         + usize::from(GOES_ON_THE_CONSTRUCT_ABOVE.is_match(lines[line0].trim()));
     let (mut out, mut sure) = (Vec::new(), true);
@@ -99,8 +102,9 @@ pub fn ruby_locals(text: &str, line1: usize, name: &str) -> Vec<usize> {
 }
 
 pub fn ruby_class_path(text: &str, line1: usize) -> String {
-    static NAME: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:class|module)\s+((?:::)?[A-Z][\w:]*)").unwrap());
+    static NAME: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:class|module)\s+((?:::)?[A-Z][\w:]*)").expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return String::new();
@@ -138,7 +142,7 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
         Regex::new(
             r"^\s*(?:[a-z_]+\s+)?def\s+(?:(?:self|[A-Z]\w*)\.)?(?:[A-Za-z_]\w*[?!=]?|[^\w\s(]+)",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let Some(head) = HEAD.find(lines[def_line0]) else {
         return false;
@@ -160,8 +164,9 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
 }
 
 fn block_binds(line: &str, name: &str) -> bool {
-    static PARAMS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:\bdo|\{)\s*\|([^|]*)\|\s*(?:#.*)?$").unwrap());
+    static PARAMS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:\bdo|\{)\s*\|([^|]*)\|\s*(?:#.*)?$").expect("the regex is a literal")
+    });
     PARAMS
         .captures(line)
         .is_some_and(|c| param_names(&c[1]).iter().any(|p| p == name))
@@ -225,8 +230,9 @@ pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
 }
 
 pub fn ruby_declared_path(text: &str, line1: usize) -> Option<String> {
-    static NAME: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:class|module)\s+(?:::)?([A-Z][\w:]*)").unwrap());
+    static NAME: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:class|module)\s+(?:::)?([A-Z][\w:]*)").expect("the regex is a literal")
+    });
     let own = NAME.captures(text.lines().nth(line1.checked_sub(1)?)?)?[1].to_owned();
     let outer = ruby_class_path(text, line1);
     Some(if outer.is_empty() {
@@ -237,11 +243,13 @@ pub fn ruby_declared_path(text: &str, line1: usize) -> Option<String> {
 }
 
 pub fn ruby_class_parents(text: &str, line1: usize) -> RubyParents {
-    static SUPER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*class\s+[\w:]+\s*<\s*((?:::)?[A-Z][\w:]*)").unwrap());
+    static SUPER: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*class\s+[\w:]+\s*<\s*((?:::)?[A-Z][\w:]*)")
+            .expect("the regex is a literal")
+    });
     static MIX: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(include|prepend|extend)\s+((?:::)?[A-Z][\w:]*(?:\s*,\s*(?:::)?[A-Z][\w:]*)*)(?:\s+(?:if|unless)\s.*)?\s*(?:#.*)?$")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(head) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
@@ -292,7 +300,8 @@ pub struct RubyParents {
 
 pub fn ruby_on_class(text: &str, line1: usize) -> bool {
     static ON: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:[a-z_]+\s+)?def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)").unwrap()
+        Regex::new(r"^\s*(?:(?:[a-z_]+\s+)?def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {

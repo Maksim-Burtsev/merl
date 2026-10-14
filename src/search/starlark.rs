@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -141,10 +140,10 @@ pub fn starlark_repo_line(text: &str, name: &str) -> Option<usize> {
 
 pub fn starlark_project_names(text: &str) -> Vec<String> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^(?:module|workspace)\s*\(([^)]*)\)").unwrap()
+        Regex::new(r"(?m)^(?:module|workspace)\s*\(([^)]*)\)").expect("the regex is a literal")
     });
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"\b(?:repo_)?name\s*=\s*["']([^"']+)["']"#).unwrap()
+        Regex::new(r#"\b(?:repo_)?name\s*=\s*["']([^"']+)["']"#).expect("the regex is a literal")
     });
     CALL.captures_iter(text)
         .flat_map(|c| {
@@ -213,7 +212,7 @@ fn load_tokens(text: &str, mut i: usize) -> Vec<Tok> {
 
 pub fn starlark_loads(text: &str) -> Vec<StarlarkLoad> {
     static LOAD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^load\s*\(").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^load\s*\(").expect("the regex is a literal"));
     let literal = literal_lines(Kind::Starlark, text);
     let mut starts = Vec::new();
     let mut at = 0;

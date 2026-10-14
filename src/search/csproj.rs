@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Component, Path, PathBuf};
 
 use regex::Regex;
@@ -21,11 +20,13 @@ pub fn cs_projects(
     read: impl Fn(&Path) -> Option<String>,
 ) -> Option<CsProjects> {
     static REFERENCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"<ProjectReference\b[^>]*?\bInclude\s*=\s*"([^"]*)""#).unwrap()
+        Regex::new(r#"<ProjectReference\b[^>]*?\bInclude\s*=\s*"([^"]*)""#)
+            .expect("the regex is a literal")
     });
     static SOURCE_FROM_OUTSIDE_OR_SHARED: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| {
-            Regex::new(r"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems").unwrap()
+            Regex::new(r"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems")
+                .expect("the regex is a literal")
         });
     let manifests: Vec<&PathBuf> = files
         .iter()

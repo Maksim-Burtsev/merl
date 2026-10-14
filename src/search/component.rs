@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{Kind, file_literal_lines, literal_lines, word_at};
 use std::borrow::Cow;
 use std::ops::Range;
@@ -106,7 +105,7 @@ pub fn template_binds<S: AsRef<str>>(lines: &[S], code: &[bool], word: &str) -> 
             r"\{#snippet\s+[\w$]+\s*\(([^)]*)\)",
         ]
         .iter()
-        .map(|f| regex::Regex::new(f).unwrap())
+        .map(|f| regex::Regex::new(f).expect("the regex is a literal"))
         .collect()
     });
     let binds = |pattern: &str| pattern_names(pattern).contains(&word);
@@ -155,7 +154,8 @@ pub fn template_reaches<S: AsRef<str>>(
 }
 fn pattern_names(pattern: &str) -> Vec<&str> {
     static TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r#"[A-Za-z_$][\w$]*|"[^"]*"|'[^']*'|[{}\[\]()=:,]"#).unwrap()
+        regex::Regex::new(r#"[A-Za-z_$][\w$]*|"[^"]*"|'[^']*'|[{}\[\]()=:,]"#)
+            .expect("the regex is a literal")
     });
     let tokens: Vec<&str> = TOKEN.find_iter(pattern).map(|m| m.as_str()).collect();
     let (mut names, mut depth, mut value) = (Vec::new(), 0usize, false);

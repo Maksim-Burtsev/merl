@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -21,7 +20,7 @@ pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
             r"|ref|unsafe|new)\s+)*",
             r"(class|struct|interface|enum|record)\b(?:\s+(?:class|struct)\b)?\s+@?(\w+)"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let c = TYPE.captures(line)?;
     Some(CsTypeDecl {
@@ -85,7 +84,7 @@ fn cs_private(line: &str, word: &str) -> bool {
             r"|override|partial|async|extern|unsafe|new|volatile|event|required|fixed|ref)\s+)*",
             r"(?:public|protected|internal|file)\b"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let explicit =
         Regex::new(&format!(r"\w\.{}\b", regex::escape(word))).is_ok_and(|re| re.is_match(line));
@@ -126,7 +125,8 @@ pub(super) struct CsOpener {
 
 pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
     static AFTER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:where\b[^{=;]*)?(?::[^{;=]*)?(?:\{.*|=>.*|;)?\s*$").unwrap()
+        Regex::new(r"^\s*(?:where\b[^{=;]*)?(?::[^{;=]*)?(?:\{.*|=>.*|;)?\s*$")
+            .expect("the regex is a literal")
     });
     let h = header.replace('\n', " ");
     let n = regex::escape(name);
@@ -197,7 +197,7 @@ fn cs_signature(before: &str) -> Option<CsSignature> {
             cs_generics!(),
             r"$"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let sig = SIG.captures(before)?;
     let declares = sig.name("kw").is_some()
@@ -228,7 +228,7 @@ pub fn cs_parameter_of(line: &str, name: &str) -> Option<String> {
 
 fn cs_params(params: &str, name: &str, bare: bool) -> bool {
     static LAST: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"@?(\w+)\s*$").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"@?(\w+)\s*$").expect("the regex is a literal"));
     split_top(Kind::CSharp, params, b',').into_iter().any(|p| {
         let mut p = split_top(Kind::CSharp, p, b'=')[0].trim();
         while p.starts_with('[')
@@ -257,12 +257,13 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
 }
 
 fn cs_deconstructs(t: &str, name: &str) -> bool {
-    static START: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?:^|\bforeach\s*\(\s*)(var\s*)?\(").unwrap());
+    static START: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\bforeach\s*\(\s*)(var\s*)?\(").expect("the regex is a literal")
+    });
     static IN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^in\b").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^in\b").expect("the regex is a literal"));
     START.captures_iter(t).any(|c| {
-        let open = c.get(0).unwrap().end() - 1;
+        let open = c.get_match().end() - 1;
         let Some(close) = close_of(Kind::CSharp, t, open) else {
             return false;
         };
@@ -431,22 +432,25 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
 }
 
 pub fn cs_expr(expr: &str) -> CsValue {
-    static NEW: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"^new\s+({CS_TYPE})\s*")).unwrap());
-    static CAST: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"^\(({CS_TYPE})\)\s*[\w@(]")).unwrap());
-    static AS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"^[\w@.]+\s+as\s+({CS_TYPE})$")).unwrap());
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^new\s+({CS_TYPE})\s*")).expect("the regex is a literal")
+    });
+    static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^\(({CS_TYPE})\)\s*[\w@(]")).expect("the regex is a literal")
+    });
+    static AS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^[\w@.]+\s+as\s+({CS_TYPE})$")).expect("the regex is a literal")
+    });
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(await\s+)?(@?[A-Za-z_]\w*(?:\.@?[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*\(")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let e = uncommented(Kind::CSharp, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
     let after_bracket =
         |open: usize| close_of(Kind::CSharp, e, open).map_or("", |end| e[end..].trim());
     if let Some(c) = NEW.captures(e) {
-        let end = c.get(0).unwrap().end();
+        let end = c.get_match().end();
         let after = if e[end..].starts_with('(') {
             after_bracket(end)
         } else {
@@ -463,7 +467,7 @@ pub fn cs_expr(expr: &str) -> CsValue {
     }
     if let Some(c) = CALL.captures(e) {
         let awaited = c.get(1).is_some();
-        let after = after_bracket(c.get(0).unwrap().end() - 1);
+        let after = after_bracket(c.get_match().end() - 1);
         let configured = awaited && after.starts_with(".ConfigureAwait(") && after.ends_with(')');
         if after.is_empty() || configured {
             return CsValue::Call {
@@ -593,7 +597,7 @@ pub fn cs_owner(text: &str, line: usize) -> Option<usize> {
 
 pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\w\s*<([^()<>]*)>\s*(?:\(|:|\{|\bwhere\b|$)").unwrap()
+        Regex::new(r"\w\s*<([^()<>]*)>\s*(?:\(|:|\{|\bwhere\b|$)").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(mut k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -623,13 +627,14 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
 }
 
 pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> Option<String> {
-    static NEW: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"\bnew\s+({CS_TYPE})$")).unwrap());
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"\bnew\s+({CS_TYPE})$")).expect("the regex is a literal")
+    });
     static DECLARED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
             r"(?:^|[\s(,])({CS_TYPE})\s+@?\w+(?:\s*\{{[^{{}}]*\}})?$"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let line = lines.get(at)?;
     let after = line.get(end..)?.trim_start();
@@ -749,7 +754,7 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
 
 pub fn cs_extended(line: &str) -> Option<String> {
     static THIS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(r"\(\s*this\s+({CS_TYPE})\s+@?\w+")).unwrap()
+        Regex::new(&format!(r"\(\s*this\s+({CS_TYPE})\s+@?\w+")).expect("the regex is a literal")
     });
     Some(THIS.captures(line)?[1].to_owned())
 }
@@ -797,7 +802,7 @@ fn cs_named_after(after: &str) -> bool {
             cs_generics!(),
             r"\??(?:\[[,\s]*\])*\??\s+@?([A-Za-z_]\w*)"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     const CONTEXTUAL: &[&str] = &[
         "is",
@@ -901,7 +906,8 @@ pub struct CsNamespacePrefix {
 
 pub fn cs_namespace_prefix(line: &str, start: usize, end: usize) -> Option<CsNamespacePrefix> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\u{feff}?\s*(?:(?:global\s+)?using|namespace)\s+([\w.\s]*)$").unwrap()
+        Regex::new(r"^\u{feff}?\s*(?:(?:global\s+)?using|namespace)\s+([\w.\s]*)$")
+            .expect("the regex is a literal")
     });
     let dotted = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
     let rest = line[end..].trim_start();

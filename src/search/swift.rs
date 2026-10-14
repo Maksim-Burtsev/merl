@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -15,24 +14,24 @@ static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         r"{}(?:func\s|(?:init|subscript)\s*[?!(<]|deinit\b|(?:get|set|willSet|didSet|_read|_modify)\b|(?:var|let)\s+`?\w+`?\s*:[^=]*\{{\s*$)",
         swift_mods!()
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
         r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w]",
         swift_mods!()
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 static SWIFT_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(&format!(r"{}(?:let|var)\s+(.*)$", swift_mods!())).unwrap()
+    Regex::new(&format!(r"{}(?:let|var)\s+(.*)$", swift_mods!())).expect("the regex is a literal")
 });
 static SWIFT_LOCAL_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
         r"{}(?:func|class|struct|enum|actor|typealias)\s+`?(\w+)",
         swift_mods!()
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 fn swift_code<S: AsRef<str>>(lines: &[S], literal: &[bool], i: usize) -> bool {
     let t = lines[i].as_ref().trim();
@@ -112,7 +111,7 @@ pub fn swift_type_header(line: &str) -> Option<SwiftTypeHeader> {
             r"{}(class|struct|enum|protocol|actor|extension)\s+`?([\w.]+)`?(?:<[^>]*>)?\s*(?::\s*([\w.]+))?",
             swift_mods!()
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let t = uncommented(Kind::Swift, line);
     if SWIFT_FUNC.is_match(&t) {
@@ -158,7 +157,8 @@ pub enum SwiftMember {
 }
 pub fn swift_member_kind(line: &str) -> Option<SwiftMember> {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(r"({})(?:func|let|var)\s", swift_mods!())).unwrap()
+        Regex::new(&format!(r"({})(?:func|let|var)\s", swift_mods!()))
+            .expect("the regex is a literal")
     });
     let c = DECL.captures(line)?;
     let shared = c[1]
@@ -175,8 +175,9 @@ pub fn swift_case(line: &str) -> bool {
     t.starts_with("case ") || t.starts_with("indirect case ")
 }
 pub fn swift_extension(line: &str) -> bool {
-    static EXTENSION: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"{}extension\s", swift_mods!())).unwrap());
+    static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"{}extension\s", swift_mods!())).expect("the regex is a literal")
+    });
     EXTENSION.is_match(line)
 }
 pub fn swift_local<S: AsRef<str>>(lines: &[S], literal: &[bool], line1: usize) -> Option<usize> {
@@ -242,8 +243,9 @@ fn swift_pattern_binds(pattern: &str, bind_all: bool, name: &str) -> Binds {
     }))
 }
 fn swift_condition_binds(from_keyword: &str, name: &str) -> Binds {
-    static KEYWORD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\b(?:if|while|guard)\s").unwrap());
+    static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:if|while|guard)\s").expect("the regex is a literal")
+    });
     let Some(m) = KEYWORD.find(from_keyword) else {
         return Binds::Nothing;
     };
@@ -422,7 +424,8 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
 }
 fn swift_params_bind(text: &str, name: &str) -> bool {
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!())).unwrap()
+        Regex::new(&format!(r"{}(?:func|init|subscript|set)\b", swift_mods!()))
+            .expect("the regex is a literal")
     });
     let mods = PARAMS.find(text).map_or(text.len(), |m| m.end());
     let params = text[mods..].find('(').and_then(|open| {
@@ -440,18 +443,21 @@ fn swift_params_bind(text: &str, name: &str) -> bool {
     })
 }
 fn swift_header_binds(first_line: &str, joined: &str, opening_line: &str, name: &str) -> Binds {
-    static CATCH: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").unwrap());
-    static CONDITION: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").unwrap());
+    static CATCH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\}\s*)?catch\b\s*(.*?)\s*\{$").expect("the regex is a literal")
+    });
+    static CONDITION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while)\s").expect("the regex is a literal")
+    });
     static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s").unwrap()
+        Regex::new(r"^for\s+(?:try\s+)?(?:await\s+)?(?:case\s+)?(.+?)\s+in\s")
+            .expect("the regex is a literal")
     });
     static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     if let Some(c) = CATCH.captures(first_line) {
         let n = regex::escape(name);
@@ -501,7 +507,7 @@ static SWIFT_TYPE_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(||
         r"{}(?:class|struct|enum|actor|protocol|typealias)\s+`?\w",
         swift_mods!()
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 pub fn swift_file_private(line: &str) -> bool {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -509,7 +515,7 @@ pub fn swift_file_private(line: &str) -> bool {
             r"({})(?:func|let|var|class|struct|enum|actor|protocol|typealias|init|subscript)\b",
             swift_mods!()
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     DECL.captures(&uncommented(Kind::Swift, line))
         .is_some_and(|c| {
@@ -518,8 +524,9 @@ pub fn swift_file_private(line: &str) -> bool {
         })
 }
 pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
-    static FIELD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).unwrap());
+    static FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\b(name|path)\s*:\s*"([^"]*)""#).expect("the regex is a literal")
+    });
     let Ok(manifest) = std::fs::read_to_string(root.join("Package.swift")) else {
         return vec![PathBuf::from("Tests")];
     };
@@ -641,8 +648,8 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
     let c = at
         .captures_iter(t)
-        .find(|c| !t[c.get(0).unwrap().end()..].starts_with([':', '=']))?;
-    let rest = &t[c.get(0).unwrap().end()..];
+        .find(|c| !t[c.get_match().end()..].starts_with([':', '=']))?;
+    let rest = &t[c.get_match().end()..];
     if &c[1] == ":" {
         let ty = rest[..annotation_end(rest)].trim();
         return (!ty.is_empty()).then(|| SwiftGiven::Type(ty.to_owned()));
@@ -707,7 +714,7 @@ pub fn swift_generics(line: &str) -> Vec<String> {
         Regex::new(
             r"(?:\bfunc\s+`?[^\s(<]+`?|\binit[?!]?|\bsubscript|\b(?:class|struct|enum|actor|typealias)\s+`?\w+`?)\s*<([^>]*)>",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     GENERICS
         .captures(line)
@@ -756,10 +763,12 @@ pub enum SwiftExpr {
 }
 pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*([({])?").unwrap()
+        Regex::new(r"^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*([({])?")
+            .expect("the regex is a literal")
     });
-    static CAST: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\sas[!?]?\s+([\w<>\[\]?]+)$").unwrap());
+    static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\sas[!?]?\s+([\w<>\[\]?]+)$").expect("the regex is a literal")
+    });
     let mut e = e.trim();
     loop {
         let rest = ["try? ", "try! ", "try ", "await "]
@@ -776,7 +785,7 @@ pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
     let c = CALL.captures(e)?;
     let callee = c[1].to_owned();
     let Some(open) = c.get(2) else {
-        return (c.get(0).unwrap().end() == e.len()).then_some(SwiftExpr::Chain(callee));
+        return (c.get_match().end() == e.len()).then_some(SwiftExpr::Chain(callee));
     };
     let mut at = open.start();
     while let Some(end) = close_of(Kind::Swift, e, at) {

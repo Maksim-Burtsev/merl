@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -93,19 +92,20 @@ pub(super) const JULIA_TYPE_SYMBOL: &str = concat!(
     r"\s+(?P<name>[A-Za-z_][\w!]*)"
 );
 
-static STRUCT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!(r"^\s*{MACROS}(?:mutable\s+)?struct\s")).unwrap());
+static STRUCT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^\s*{MACROS}(?:mutable\s+)?struct\s")).expect("the regex is a literal")
+});
 static KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*(?:{MACROS}(?:function|(?:mutable\s+)?struct)|abstract\s+type|primitive\s+type|macro|(?:bare)?module|(?:global\s+)?const|@enum)\s"
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 static HEAD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*{MACROS}{QUALIFIER}([A-Za-z_][\w!]*)\s*{TYPE_PARAMS}\("
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 
 pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bool {
@@ -144,8 +144,9 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
 }
 
 fn defines(from_paren: &str) -> bool {
-    static REST: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(concat!("^", julia_method_tail!())).unwrap());
+    static REST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(concat!("^", julia_method_tail!())).expect("the regex is a literal")
+    });
     closing(from_paren).is_some_and(|close| REST.is_match(&from_paren[close + 1..]))
 }
 
@@ -167,8 +168,9 @@ fn closing(s: &str) -> Option<usize> {
 }
 
 pub fn julia_include(line: &str, col: usize) -> Option<String> {
-    static INCLUDE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).unwrap());
+    static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).expect("the regex is a literal")
+    });
     INCLUDE
         .captures_iter(line)
         .find(|c| c.get(0).is_some_and(|m| m.start() <= col && col < m.end()))
@@ -176,8 +178,9 @@ pub fn julia_include(line: &str, col: usize) -> Option<String> {
 }
 
 pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
-    static IMPORT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?m)^\s*(?:using|import)\s+([^\n#]+)").unwrap());
+    static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*(?:using|import)\s+([^\n#]+)").expect("the regex is a literal")
+    });
     let path = |m: &str| -> Vec<String> {
         let m = m.trim();
         let dots = m.len() - m.trim_start_matches('.').len();
@@ -336,7 +339,7 @@ static HEADER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*{MACROS}(?:function|macro)\s|\bdo(?:\s+[^#]*)?$"
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 
 fn method_def(lines: &[&str], k: usize) -> bool {
@@ -345,9 +348,11 @@ fn method_def(lines: &[&str], k: usize) -> bool {
 }
 
 fn params(head: &str) -> Vec<String> {
-    static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[A-Za-z_][\w!]*").unwrap());
-    static DO: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\bdo(?:\s+([^#]*))?\s*(?:#.*)?$").unwrap());
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Za-z_][\w!]*").expect("the regex is a literal"));
+    static DO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bdo(?:\s+([^#]*))?\s*(?:#.*)?$").expect("the regex is a literal")
+    });
     let first = head.lines().next().unwrap_or_default();
     if let Some(c) = DO.captures(first) {
         return c

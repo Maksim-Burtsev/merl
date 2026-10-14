@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -23,9 +22,10 @@ pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, 
         Regex::new(
             r#"(?:^|[\s<{(])(class|className|id|href|src)\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`$]*)`)"#,
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
-    static SVELTE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bclass:([\w-]+)").unwrap());
+    static SVELTE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bclass:([\w-]+)").expect("the regex is a literal"));
     let jsx = read_as == AttrLine::Jsx;
     for c in ATTR.captures_iter(line) {
         let v = c.get(2).or_else(|| c.get(3)).or_else(|| c.get(4))?;
@@ -312,8 +312,10 @@ struct CompoundNames {
 }
 
 fn names(compound: &str, parents: &[String]) -> CompoundNames {
-    static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([.#])([\w-]+)").unwrap());
-    static SUFFIX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^&([\w-]+)").unwrap());
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([.#])([\w-]+)").expect("the regex is a literal"));
+    static SUFFIX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^&([\w-]+)").expect("the regex is a literal"));
     let mut outside_brackets = String::new();
     let mut depth = 0;
     for c in compound.chars() {
@@ -337,7 +339,7 @@ fn names(compound: &str, parents: &[String]) -> CompoundNames {
         }
     }
     for m in NAME.captures_iter(&outside_brackets) {
-        let whole = m.get(0).unwrap();
+        let whole = m.get_match();
         let finished_by_interpolation =
             outside_brackets[whole.end()..].starts_with(['#', '@', '$']);
         if finished_by_interpolation || m[2].starts_with(|c: char| c.is_ascii_digit()) {
@@ -359,14 +361,14 @@ fn names(compound: &str, parents: &[String]) -> CompoundNames {
 }
 
 pub fn style_blocks(text: &str) -> String {
-    static STYLE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?is)<style\b[^>]*>(.*?)</style\s*>").unwrap());
+    static STYLE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?is)<style\b[^>]*>(.*?)</style\s*>").expect("the regex is a literal")
+    });
     let mut out: Vec<u8> = text
         .bytes()
         .map(|c| if c == b'\n' { c } else { b' ' })
         .collect();
-    for c in STYLE.captures_iter(text) {
-        let m = c.get(1).unwrap();
+    for m in STYLE.captures_iter(text).filter_map(|c| c.get(1)) {
         out[m.range()].copy_from_slice(m.as_str().as_bytes());
     }
     String::from_utf8(out).unwrap_or_default()
@@ -435,15 +437,21 @@ impl SheetSyntax {
     }
 }
 pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Sheet> {
-    static IMPORT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*@(?:import|use|forward|require)\b").unwrap());
-    static QUOTED: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#""([^"]*)"|'([^']*)'|url\(\s*([^)"'\s]+)\s*\)"#).unwrap());
-    static ANIMATION: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:-[a-z]+-)?animation(?:-name)?\s*:").unwrap());
-    static NS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([\w-]+)\.$").unwrap());
+    static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*@(?:import|use|forward|require)\b").expect("the regex is a literal")
+    });
+    static QUOTED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#""([^"]*)"|'([^']*)'|url\(\s*([^)"'\s]+)\s*\)"#)
+            .expect("the regex is a literal")
+    });
+    static ANIMATION: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:-[a-z]+-)?animation(?:-name)?\s*:").expect("the regex is a literal")
+    });
+    static NS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([\w-]+)\.$").expect("the regex is a literal"));
     static AT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"@(include|mixin|function|extend)\s+(?:([\w-]+)\.)?(\.)?$").unwrap()
+        Regex::new(r"@(include|mixin|function|extend)\s+(?:([\w-]+)\.)?(\.)?$")
+            .expect("the regex is a literal")
     });
     let less = syntax == SheetSyntax::Less;
     if IMPORT.is_match(line) {
@@ -539,7 +547,8 @@ pub struct SassUse {
 }
 pub fn sass_uses(text: &str) -> Vec<SassUse> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"^\s*@use\s+["']([^"']+)["'](?:\s+as\s+([\w-]+|\*))?"#).unwrap()
+        Regex::new(r#"^\s*@use\s+["']([^"']+)["'](?:\s+as\s+([\w-]+|\*))?"#)
+            .expect("the regex is a literal")
     });
     text.lines()
         .filter_map(|l| USE.captures(l))
@@ -594,8 +603,9 @@ pub fn import_candidates(module: &str, syntax: SheetSyntax) -> Vec<PathBuf> {
 }
 
 pub fn is_url(target: &str) -> bool {
-    static URL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").unwrap());
+    static URL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").expect("the regex is a literal")
+    });
     URL.is_match(target)
 }
 

@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -25,23 +24,28 @@ pub(super) const GDSCRIPT_SYMBOL: &str = concat!(
     r"(?:func|class_name|class|signal|enum)\s+(?P<name>[A-Za-z_]\w*)"
 );
 
-static MEMBER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!(r"{LEAD}(?:static\s+)?(?:var|const|signal)\s")).unwrap());
+static MEMBER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"{LEAD}(?:static\s+)?(?:var|const|signal)\s"))
+        .expect("the regex is a literal")
+});
 static KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"{LEAD}(?:static\s+)?(?:func|class_name|class|enum)\b"
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 static FUNC: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(r"{LEAD}(?:static\s+)?func\b\s*[A-Za-z_]?\w*\s*\(")).unwrap()
+    Regex::new(&format!(r"{LEAD}(?:static\s+)?func\b\s*[A-Za-z_]?\w*\s*\("))
+        .expect("the regex is a literal")
 });
 static LAMBDA: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\bfunc\b\s*[A-Za-z_]?\w*\s*\(").unwrap());
-static LOCAL: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:var|const)\s+([A-Za-z_]\w*)").unwrap());
-static FOR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*for\s+([A-Za-z_]\w*)\s*(?::[^:]*)?\s+in\b").unwrap());
+    LazyLock::new(|| Regex::new(r"\bfunc\b\s*[A-Za-z_]?\w*\s*\(").expect("the regex is a literal"));
+static LOCAL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:var|const)\s+([A-Za-z_]\w*)").expect("the regex is a literal")
+});
+static FOR: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*for\s+([A-Za-z_]\w*)\s*(?::[^:]*)?\s+in\b").expect("the regex is a literal")
+});
 
 fn opener<S: AsRef<str>>(lines: &[S], line: usize) -> Option<&str> {
     let depth = indent(lines.get(line - 1)?.as_ref());
@@ -63,7 +67,8 @@ pub fn gdscript_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &st
 }
 
 fn params(text: &str, open: usize) -> Vec<(usize, String)> {
-    static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*([A-Za-z_]\w*)").unwrap());
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*([A-Za-z_]\w*)").expect("the regex is a literal"));
     let mut out = Vec::new();
     let (mut depth, mut start) = (0usize, open + 1);
     for (i, c) in text.char_indices().skip_while(|&(i, _)| i <= open) {
@@ -145,8 +150,9 @@ pub(super) fn gdscript_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
 }
 
 pub fn gdscript_path(line: &str, col: usize) -> Option<String> {
-    static RES: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#""(res://[^"]+)"|'(res://[^']+)'"#).unwrap());
+    static RES: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#""(res://[^"]+)"|'(res://[^']+)'"#).expect("the regex is a literal")
+    });
     let m = RES
         .captures_iter(line)
         .find(|c| c.get(0).is_some_and(|m| m.start() <= col && col < m.end()))?;

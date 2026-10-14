@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -56,11 +55,13 @@ pub(super) fn php_namespace_line(w: &str) -> String {
 }
 
 pub fn php_tag_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
-    static TAG: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*\*\s*@(?:property(?:-read|-write)?|method)\s").unwrap());
+    static TAG: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*\*\s*@(?:property(?:-read|-write)?|method)\s")
+            .expect("the regex is a literal")
+    });
     static CLASS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:abstract|final|readonly)\s+)*(?:class|trait|interface|enum)\s+\w")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let line = |i: usize| lines[i].as_ref().trim_start();
     if !TAG.is_match(lines.get(at)?.as_ref()) {
@@ -89,8 +90,9 @@ pub fn php_namespace_patterns(
     line: &str,
     range: Range<usize>,
 ) {
-    static ON_NAMESPACE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(&format!(r"{NAMESPACE_HEAD}[\w\\]*$")).unwrap());
+    static ON_NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(&format!(r"{NAMESPACE_HEAD}[\w\\]*$")).expect("the regex is a literal")
+    });
     let generic = php_namespace_line(&regex::escape(&line[range.clone()]));
     let Some(at) = patterns.iter().position(|p| *p == generic) else {
         return;
@@ -146,7 +148,7 @@ pub struct PhpClassHeader<'a> {
 
 pub fn php_class_header(line: &str) -> Option<PhpClassHeader<'_>> {
     static HEADER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:abstract|final|readonly)\s+)*(class|trait|interface|enum)\s+(\w+)(?:\s*:\s*\w+)?(?:\s+extends\s+([\w\\]+))?").unwrap()
+        Regex::new(r"^\s*(?:(?:abstract|final|readonly)\s+)*(class|trait|interface|enum)\s+(\w+)(?:\s*:\s*\w+)?(?:\s+extends\s+([\w\\]+))?").expect("the regex is a literal")
     });
     let c = HEADER.captures(line)?;
     Some(PhpClassHeader {
@@ -165,7 +167,8 @@ fn php_outer_line<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
 }
 
 pub fn php_enclosing_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
-    static ANONYMOUS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bnew\s+class\b").unwrap());
+    static ANONYMOUS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bnew\s+class\b").expect("the regex is a literal"));
     let mut at = at;
     loop {
         at = php_outer_line(lines, at)?;
@@ -180,8 +183,9 @@ pub fn php_enclosing_class<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usiz
 }
 
 pub fn php_class_members<S: AsRef<str>>(lines: &[S], class: usize, re: &Regex) -> Vec<usize> {
-    static CONSTRUCTOR: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\bfunction\s+__construct\s*\(").unwrap());
+    static CONSTRUCTOR: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bfunction\s+__construct\s*\(").expect("the regex is a literal")
+    });
     (0..lines.len())
         .filter(|&i| re.is_match(lines[i].as_ref()))
         .filter(|&i| match php_outer_line(lines, i) {
@@ -195,8 +199,10 @@ pub fn php_class_members<S: AsRef<str>>(lines: &[S], class: usize, re: &Regex) -
 }
 
 pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String> {
-    static USE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s+use\s+([\w\\]+(?:\s*,\s*[\w\\]+)*)\s*[;{]").unwrap());
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s+use\s+([\w\\]+(?:\s*,\s*[\w\\]+)*)\s*[;{]")
+            .expect("the regex is a literal")
+    });
     (class + 1..lines.len())
         .filter(|&i| php_outer_line(lines, i) == Some(class))
         .filter_map(|i| USE.captures(lines[i].as_ref()))
@@ -208,8 +214,9 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
         .collect()
 }
 
-static NAMESPACE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!(r"(?m){NAMESPACE_HEAD}([\w\\]+)\s*[;{{]")).unwrap());
+static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"(?m){NAMESPACE_HEAD}([\w\\]+)\s*[;{{]")).expect("the regex is a literal")
+});
 
 pub fn php_namespace(text: &str) -> Option<&str> {
     NAMESPACE
@@ -249,10 +256,10 @@ pub struct PhpClassAt {
 
 pub fn php_class_at(line: &str, range: Range<usize>) -> Option<PhpClassAt> {
     static AFTER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:\b(?:new|extends|implements|instanceof|insteadof)|\bcatch\s*\(|\)\s*:\s*\??|\bimplements\s.*,)\s*$").unwrap()
+        Regex::new(r"(?:\b(?:new|extends|implements|instanceof|insteadof)|\bcatch\s*\(|\)\s*:\s*\??|\bimplements\s.*,)\s*$").expect("the regex is a literal")
     });
     static TYPED: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:&|\.\.\.)?\s*\$\w").unwrap());
+        LazyLock::new(|| Regex::new(r"^\s*(?:&|\.\.\.)?\s*\$\w").expect("the regex is a literal"));
     let name_back = |s: &str| {
         let n = s.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\');
         (n.len(), s[n.len()..].to_owned())
@@ -318,10 +325,12 @@ pub struct PhpResolved {
 }
 
 pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
-    static USE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").unwrap());
-    static GROUP: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").unwrap());
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").expect("the regex is a literal")
+    });
+    static GROUP: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").expect("the regex is a literal")
+    });
     if let Some(full) = written.strip_prefix('\\') {
         return Some(PhpResolved {
             full: full.to_owned(),
@@ -369,13 +378,15 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
 }
 
 pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
-    static MAP: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).unwrap());
+    static MAP: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).expect("the regex is a literal")
+    });
     static ENTRY: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#""((?:[^"\\]|\\.)*)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|\[([^\]]*)\])"#).unwrap()
+        Regex::new(r#""((?:[^"\\]|\\.)*)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|\[([^\]]*)\])"#)
+            .expect("the regex is a literal")
     });
     static STRING: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#""((?:[^"\\]|\\.)*)""#).unwrap());
+        LazyLock::new(|| Regex::new(r#""((?:[^"\\]|\\.)*)""#).expect("the regex is a literal"));
     let unescape = |s: &str| s.replace("\\\\", "\\").replace("\\/", "/");
     let mut map = Vec::new();
     for at in dir.ancestors() {
@@ -515,11 +526,14 @@ pub fn php_written_type(line: &str, name: &str) -> Option<String> {
 }
 
 pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
-    static NEW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^new\s+([\w\\]+)\s*").unwrap());
+    static NEW: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^new\s+([\w\\]+)\s*").expect("the regex is a literal"));
     static STATIC: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^([\w\\]+)::(\w+)\s*\(").unwrap());
-    static THIS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*\(").unwrap());
-    static FUNCTION: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([\w\\]+)\s*\(").unwrap());
+        LazyLock::new(|| Regex::new(r"^([\w\\]+)::(\w+)\s*\(").expect("the regex is a literal"));
+    static THIS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*\(").expect("the regex is a literal"));
+    static FUNCTION: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^([\w\\]+)\s*\(").expect("the regex is a literal"));
     let first = statement.lines().next().unwrap_or_default();
     let n = regex::escape(name);
     let assign = Regex::new(&format!(r"(?:^|[^\w$:>])\${n}\s*=([^=>]|$)")).ok()?;
@@ -566,8 +580,9 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
 }
 
 pub fn php_return_type(header: &str) -> Option<String> {
-    static RETURNS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*:\s*\??([\w\\]+)\s*(?:\{|;|$)").unwrap());
+    static RETURNS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*:\s*\??([\w\\]+)\s*(?:\{|;|$)").expect("the regex is a literal")
+    });
     let open = header.find("function")? + header[header.find("function")?..].find('(')?;
     let close = close_of(Kind::Php, header, open)?;
     let written = RETURNS.captures(&header[close..])?.get(1)?.as_str();
@@ -639,7 +654,8 @@ fn php_parameter_of_statement_ending_at(
     var: &Regex,
 ) -> Option<usize> {
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)").unwrap()
+        Regex::new(r"(?:^|[^\w$:>])(?:function|fn)\b([^{]*?)(?:\{|=>|$)")
+            .expect("the regex is a literal")
     });
     let mut top = at;
     while top > 0 && at - top < 50 && !literal[top - 1] && {
@@ -651,7 +667,8 @@ fn php_parameter_of_statement_ending_at(
     let statement = code_lines[top..=at].join("\n");
     let at_var = HEAD
         .captures_iter(&statement)
-        .filter_map(|c| var.find(&c[1]).map(|m| c.get(1).unwrap().start() + m.end()))
+        .filter_map(|c| c.get(1))
+        .filter_map(|g| var.find(g.as_str()).map(|m| g.start() + m.end()))
         .last()?;
     Some(top + statement[..at_var].matches('\n').count())
 }
@@ -675,7 +692,7 @@ fn php_parameter_lines(header: &[String], brace_byte: usize, var: &Regex) -> Vec
     out
 }
 static FUNCTION: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").unwrap());
+    LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])function\b").expect("the regex is a literal"));
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PhpScope {
     TopOrNamespace,
@@ -687,8 +704,10 @@ enum PhpScope {
     },
 }
 fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
-    static CLASS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b").unwrap());
+    static CLASS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b")
+            .expect("the regex is a literal")
+    });
     let mut depth = 0usize;
     for i in (0..at).rev().filter(|&i| !literal[i]) {
         for (pos, c) in lines[i]

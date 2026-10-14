@@ -1,6 +1,5 @@
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 
 use regex::Regex;
@@ -181,7 +180,8 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
 }
 fn go_field(t: &str, name: &str) -> Option<Value> {
     static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$").unwrap()
+        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$")
+            .expect("the regex is a literal")
     });
     let t = t.split("//").next().unwrap_or("");
     let t = t.split('`').next().unwrap_or("").trim();
@@ -204,9 +204,10 @@ pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
 }
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
     static EMBEDDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\*?((?:[A-Za-z_]\w*\.)?[A-Za-z_]\w*)(?:\[.*\])?$").unwrap()
+        Regex::new(r"^\*?((?:[A-Za-z_]\w*\.)?[A-Za-z_]\w*)(?:\[.*\])?$")
+            .expect("the regex is a literal")
     });
-    EMBEDDED.captures(t).map(|c| c.get(1).unwrap().as_str())
+    Some(EMBEDDED.captures(t)?.get(1)?.as_str())
 }
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     enclosing_at(kind, lines, &levels(kind, lines), k)
@@ -308,8 +309,9 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
     first == Some(start) && !embedded && field_rows(kind, text, &[line], name, false) == [line]
 }
 pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(usize, usize)> {
-    static ENUM: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^[^(=]*\benum\s+\w").unwrap());
+    static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[^(=]*\benum\s+\w").expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
     if !ENUM.is_match(lines[k]) {
@@ -332,8 +334,9 @@ pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(u
     })
 }
 pub fn cs_namespace(text: &str, line: usize) -> String {
-    static NS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)").unwrap());
+    static NS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)").expect("the regex is a literal")
+    });
     text.lines()
         .take(line)
         .filter_map(|l| NS.captures(l))
@@ -343,7 +346,7 @@ pub fn cs_namespace(text: &str, line: usize) -> String {
 pub fn cs_usings(text: &str) -> Vec<String> {
     static USING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\u{feff}?\s*(?:global\s+)?using\s+([\w.]+)\s*;|<Using\s+Include="([\w.]+)""#)
-            .unwrap()
+            .expect("the regex is a literal")
     });
     text.lines()
         .filter_map(|l| USING.captures(l))
@@ -425,10 +428,11 @@ fn go_literal_type(
         Regex::new(
             r"(?:map\[[^\]]*\]|\[[^\]]*\]|\*)*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?(?:\[[^\]]*\])?$",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
-    static STRUCTS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?:\[[^\]]*\]|map\[[^\]]*\])+$").unwrap());
+    static STRUCTS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\[[^\]]*\]|map\[[^\]]*\])+$").expect("the regex is a literal")
+    });
     const KEYWORDS: [&str; 12] = [
         "else",
         "for",

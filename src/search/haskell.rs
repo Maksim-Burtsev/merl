@@ -1,5 +1,4 @@
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -112,8 +111,9 @@ pub fn haskell_patterns(word: &str) -> Vec<String> {
 }
 
 fn signed_names(lines: &[String], j: usize) -> Vec<&str> {
-    static SIGNATURE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^((?:[a-z_][\w']*\s*,\s*)*[a-z_][\w']*)\s*::").unwrap());
+    static SIGNATURE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[a-z_][\w']*\s*,\s*)*[a-z_][\w']*)\s*::").expect("the regex is a literal")
+    });
     let l = &lines[j];
     if let Some(c) = SIGNATURE.captures(l) {
         let names = c.get(1).map_or("", |m| m.as_str());
@@ -270,7 +270,7 @@ fn equation(t: &str) -> Option<(&str, &str, bool)> {
         Regex::new(&format!(
             r"^(?P<name>[a-z_][\w']*)(?P<args>{ARGS}){EQUATION_END}"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let c = EQ.captures(t)?;
     let args = c.name("args")?;
@@ -484,7 +484,7 @@ fn parse_import(l: &str) -> Option<HaskellImport> {
 
 pub fn haskell_import_module(line: &str, col: usize) -> Option<String> {
     static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"^import\s+(?:safe\s+)?(?:\{-#\s*SOURCE\s*#-\}\s+)?(?:qualified\s+)?(?:"[^"]*"\s+)?([A-Z][\w'.]*)"#).unwrap()
+        Regex::new(r#"^import\s+(?:safe\s+)?(?:\{-#\s*SOURCE\s*#-\}\s+)?(?:qualified\s+)?(?:"[^"]*"\s+)?([A-Z][\w'.]*)"#).expect("the regex is a literal")
     });
     let m = IMPORT.captures(line)?.get(1)?;
     (m.start() <= col && col < m.end()).then(|| m.as_str().to_owned())
