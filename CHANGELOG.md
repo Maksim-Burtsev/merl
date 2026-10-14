@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The status bar shows the time of day on its right edge, as LazyVim does, so a full-screen
+  terminal keeps a clock in sight. It goes before the path would be shortened and while a `:`,
+  `/` or `new:` prompt is open. `clock` in `~/.config/merl/config.toml` sets its format
+  (`"%H:%M"` by default, `"%I:%M %p"` for 12 hours, `"%H:%M:%S"` with seconds) or turns it off
+  (`clock = false`); a format merl cannot read stops it at start. (#761)
+
 ### Changed
+
+- The status bar no longer ends with `? help`: the start screen lists `?` among its keys, and the
+  path gets the room back. (#857)
 
 - Code is coloured as LazyVim colours it, from tree-sitter's syntax tree and the theme's Neovim
   colours, in Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash, JSON, YAML,

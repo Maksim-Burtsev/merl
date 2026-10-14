@@ -53,5 +53,5 @@ wait tests/test_service.py  38:
 61     def test_nothing_saved(self):
 62         self.assertEqual(1 + 1, 2)
 
-tests/test_service.py  38:12  [code]                                                                                                                                              ? help
+tests/test_service.py  38:12  [code]                                                                                                                                               14:32
 cursor (x,y,shown) 14,28,1

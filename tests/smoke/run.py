@@ -66,7 +66,7 @@ A scenario that is not about the tree hides it (`t`) after its first wait, so th
 tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
 feature's steps go: AGENTS.md, its bullets on tests/smoke.
 """
-import argparse, contextlib, difflib, fcntl, hashlib, io, json, os, platform, re, shlex, shutil, signal, subprocess, sys
+import argparse, contextlib, datetime, difflib, fcntl, hashlib, io, json, os, platform, re, shlex, shutil, signal, subprocess, sys
 import tempfile, threading, time, traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -112,6 +112,7 @@ LEGEND = [("PASS", "every checkpoint the same on both builds"),
           ("ERROR", "the runner failed, not merl: rerun, fix run.py if it comes back")]
 THEMES = ((None, None), ("github-light", "GitHub Light Default"))
 NEVER_SHOWN = "(never shown)"
+CLOCK_AT = int(datetime.datetime(2026, 10, 12, 14, 32, tzinfo=datetime.timezone.utc).timestamp())
 DEFAULT_ONLY = {"theme": "its first wait is a theme the picker lists around the default one"}
 
 
@@ -139,8 +140,8 @@ class Merl(cast.Pane):
 
     def command(self, args):
         unset = " ".join("-u " + v for v in os.environ if v.startswith("XDG_"))
-        return "exec env %s HOME=%s COLORTERM=truecolor GOTOOLCHAIN=local %s 2>>%s" % (
-            unset, shlex.quote(self.home), shlex.join([os.path.abspath(self.binary)] + args),
+        return "exec env %s HOME=%s COLORTERM=truecolor GOTOOLCHAIN=local TZ=UTC MERL_CLOCK_AT=%d %s 2>>%s" % (
+            unset, shlex.quote(self.home), CLOCK_AT, shlex.join([os.path.abspath(self.binary)] + args),
             shlex.quote(self.err))
 
     def restart(self, args):
@@ -831,7 +832,7 @@ def mask(capture):
 
 
 def selftest():
-    bar = lambda pid, pad: f"merl-tutor-{pid}/\n\x1b[1mmerl-tutor-{pid}/  [code]\x1b[0m{' ' * pad}? help"
+    bar = lambda pid, pad: f"merl-tutor-{pid}/\n\x1b[1mmerl-tutor-{pid}/  [code]\x1b[0m{' ' * pad}14:32"
     want = bar("NNNNN", 20)
     for pid, pad in (("1234", 21), ("12345", 20), ("1234567", 18)):
         assert mask(bar(pid, pad)) == want, f"a pid of {len(pid)} digits: {mask(bar(pid, pad))!r}"

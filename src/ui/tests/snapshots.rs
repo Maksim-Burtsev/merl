@@ -24,6 +24,7 @@ const STATES: &[State] = &[
     ("code", |a| {
         on_call(a);
         a.focus = Focus::Code;
+        a.clock = Some("14:32".into());
     }),
     ("tree", |a| {
         on_call(a);

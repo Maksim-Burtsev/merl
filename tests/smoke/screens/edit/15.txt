@@ -53,5 +53,5 @@ wait app/money.py  1:28  [code]
 
 
 
-app/money.py  1:28  [code]                                                                                                                                                        ? help
+app/money.py  1:28  [code]                                                                                                                                                         14:32
 cursor (x,y,shown) 29,0,1

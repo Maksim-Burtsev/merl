@@ -53,5 +53,5 @@ wait then  ⋯ fi
 │                            │
 │                            │
 └────────────────────────────┘
-scripts/deploy.sh  2:1  [code]                                                                                                                                                    ? help
+scripts/deploy.sh  2:1  [code]                                                                                                                                                     14:32
 cursor (x,y,shown) 32,1,1

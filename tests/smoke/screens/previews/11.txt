@@ -53,5 +53,5 @@ wait [preview]
 │                            │
 │                            │
 └────────────────────────────┘
-docs/notes.md  1:1  [preview]                                                                                                                                                     ? help
+docs/notes.md  1:1  [preview]                                                                                                                                                      14:32
 cursor (x,y,shown) 29,54,0

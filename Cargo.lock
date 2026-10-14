@@ -1855,6 +1855,7 @@ name = "merl"
 version = "0.8.5"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "dirs",
  "grep-matcher",

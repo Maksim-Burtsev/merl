@@ -53,5 +53,5 @@ wait pub fn report(
 │                            │
 │                            │
 └────────────────────────────┘
-scripts/payouts/src/summary.rs  1:1  [code]                                                                                                                                       ? help
+scripts/payouts/src/summary.rs  1:1  [code]                                                                                                                                        14:32
 cursor (x,y,shown) 33,0,1

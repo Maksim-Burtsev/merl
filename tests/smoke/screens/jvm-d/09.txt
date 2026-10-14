@@ -53,5 +53,5 @@ wait web/android/src/main/java/courier/app/Scale.java
 
 
 
-web/android/src/main/java/courier/app/Scale.java  7:15  [code]                                                                                                                    ? help
+web/android/src/main/java/courier/app/Scale.java  7:15  [code]                                                                                                                     14:32
 cursor (x,y,shown) 17,6,1

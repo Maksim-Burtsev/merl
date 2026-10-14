@@ -24,7 +24,7 @@ merl snapshot: preview-csv
 │                            │   │   │   │   │   │   │   │   │   │   │   │ t │
 │                            │   │   │   │   │   │   │   │   │   │   │   │ w │
 └────────────────────────────┘   │   │   │   │   │   │   │   │   │   │   │ o │
-export.csv  1:1  [preview]                                               ? help
+export.csv  1:1  [preview]
 
 ==== 80x24 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -133,7 +133,7 @@ k fg #f6f8fa bg #5094e4
 │                            │   │    │      │      │      │      │      │      │      │      │      │ a   │     │     │
 │                            │   │    │      │      │      │      │      │      │      │      │      │ one │     │     │
 └────────────────────────────┘   │    │      │      │      │      │      │      │      │      │      │ aga │     │     │
-export.csv  1:1  [preview]                                                                                       ? help
+export.csv  1:1  [preview]
 
 ==== 120x33 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -282,7 +282,7 @@ k fg #f6f8fa bg #5094e4
 │                            │   │    │            │            │            │      │        │          │          │                 │                │ within the     │        │       │
 │                            │   │    │            │            │            │      │        │          │          │                 │                │ hour.          │        │       │
 └────────────────────────────┘   │ 8  │ 2026-02-12 │ 2026-02-20 │ 2026-02-28 │ no   │ no     │ no       │ medium   │ work money      │ send the       │ Hours from the │ import │ 38    │
-export.csv  1:1  [preview]                                                                                                                                                        ? help
+export.csv  1:1  [preview]
 
 ==== 185x55 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

@@ -62,12 +62,10 @@ fn a_long_path_gives_way_to_the_column_read_only_and_the_reason() {
         "\u{2026}/webhooks/handlers/paid.py  185:5  [code]  read-only  dumps: via import json",
         "a deep path in the project gives way the same"
     );
-    let bare = status(STDLIB, "", 80);
-    assert!(
-        bare.starts_with(
-            "\u{2026}/3.13/lib/python3.13/json/__init__.py  185:5  [code]  read-only  "
-        ) && bare.ends_with("  ? help"),
-        "with nothing to report, the `? help` at the right edge is kept clear: {bare:?}"
+    assert_eq!(
+        status(STDLIB, "", 80),
+        "\u{2026}/Versions/3.13/lib/python3.13/json/__init__.py  185:5  [code]  read-only",
+        "with nothing to report, the path takes the whole bar: no hint at its right edge"
     );
     assert_eq!(
         status(STDLIB, why, 50),
@@ -158,4 +156,62 @@ fn a_session_with_no_file_watcher_says_auto_reload_is_off() {
 fn a_read_only_message_is_not_repeated_by_the_read_only_mark() {
     let line = status("/work/app/paid.py", "read-only: not UTF-8", 80);
     assert_eq!(line.matches("read-only").count(), 1, "{line:?}");
+}
+
+fn clocked(path: &str, message: &str, width: u16) -> String {
+    status_with(path, width, |app| {
+        app.message = message.into();
+        app.clock = Some("14:32".into());
+    })
+}
+
+#[test]
+fn the_clock_takes_the_right_edge_while_the_path_fits_beside_it() {
+    let wide = clocked("/work/lib/json.py", "", 120);
+    assert!(
+        wide.starts_with("/work/lib/json.py  185:5  [code]  read-only  ")
+            && wide.ends_with("  14:32"),
+        "{wide:?}"
+    );
+    assert_eq!(
+        clocked("/work/lib/json.py", "", 120).len(),
+        119,
+        "one blank cell after the time, as after `? help` before it"
+    );
+    let message = clocked("/work/lib/json.py", "1/70", 80);
+    assert!(
+        message.contains("  1/70") && message.ends_with("  14:32"),
+        "{message:?}"
+    );
+}
+
+#[test]
+fn the_clock_goes_before_the_path_is_shortened() {
+    let path = "/srv/app/services/billing/providers/webhooks/handlers/paid.py";
+    let bar = "  185:5  [code]  read-only";
+    let fits_bare = u16::try_from(path.len() + bar.len()).unwrap();
+    assert_eq!(clocked(path, "", fits_bare), format!("{path}{bar}"));
+    assert_eq!(
+        clocked(path, "", fits_bare + 8),
+        format!("{path}{bar}  14:32"),
+        "two cells before the time, one after it"
+    );
+    assert_eq!(clocked(path, "", fits_bare + 7), format!("{path}{bar}"));
+    assert!(
+        clocked(STDLIB, "", 80).starts_with('\u{2026}'),
+        "a path too long anyway is shortened as before"
+    );
+}
+
+#[test]
+fn a_prompt_keeps_the_right_edge_for_its_count() {
+    let line = status_with("/work/lib/json.py", 80, |app| {
+        app.clock = Some("14:32".into());
+        app.mode = crate::app::Mode::Find;
+        app.message = "1/70".into();
+    });
+    assert!(
+        line.starts_with('/') && line.ends_with("1/70") && !line.contains("14:32"),
+        "{line:?}"
+    );
 }

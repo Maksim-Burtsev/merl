@@ -24,7 +24,7 @@ merl snapshot: preview-jsonl
 │                            │     null,
 │                            │     {
 └────────────────────────────┘       "four": 4
-events.jsonl  1:1  [preview]                                             ? help
+events.jsonl  1:1  [preview]
 
 ==== 80x24 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccdedddddddddddddddddddddddddddddddddddddddddddddd
@@ -142,7 +142,7 @@ n fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-events.jsonl  1:1  [preview]                                                                                     ? help
+events.jsonl  1:1  [preview]
 
 ==== 120x33 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccdedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
@@ -300,7 +300,7 @@ n fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-events.jsonl  1:1  [preview]                                                                                                                                                      ? help
+events.jsonl  1:1  [preview]
 
 ==== 185x55 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccdeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd

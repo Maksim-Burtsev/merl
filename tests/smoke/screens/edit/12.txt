@@ -53,5 +53,5 @@ wait copied
 
 
 
-app/config.py  17:21  [edit]  Spaces: 4  copied
+app/config.py  17:21  [edit]  Spaces: 4  copied                                                                                                                                    14:32
 cursor (x,y,shown) 23,16,1
