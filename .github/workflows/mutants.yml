@@ -49,11 +49,13 @@ jobs:
         run: |
           timeout -s INT 320m cargo mutants --in-place --no-shuffle --timeout 300 \
             --sharding slice --shard $(( (PART - 1) * SHARDS + K ))/$(( PARTS * SHARDS )) \
-            -- -- --skip edit_fuzz || true
+            -- -- --skip edit_fuzz && code=0 || code=$?
+          case $code in 0|2|3|124) ;; *) echo "cargo mutants exited $code" && exit $code ;; esac
       - if: always()
         uses: actions/upload-artifact@v7
         with:
           name: shard-${{ matrix.shard }}
+          if-no-files-found: error
           path: |
             mutants.out/*.txt
             mutants.out/mutants.json
