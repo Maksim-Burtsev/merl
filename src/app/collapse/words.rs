@@ -1,5 +1,3 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -201,17 +199,26 @@ impl Quote {
     }
 }
 
-#[expect(
-    clippy::match_same_arms,
-    reason = "keywords that open a block and those that continue one are listed apart"
-)]
+struct Ruby<'a> {
+    b: Build<'a>,
+    quote: Option<Quote>,
+    heredocs: Vec<(String, bool)>,
+    start: bool,
+    lambda: bool,
+    value_word: bool,
+}
+
 pub(crate) fn ruby(lines: &[String]) -> Blocks {
-    let mut b = Build::new(lines);
-    let mut quote: Option<Quote> = None;
-    let mut heredocs: Vec<(String, bool)> = Vec::new();
+    let mut r = Ruby {
+        b: Build::new(lines),
+        quote: None,
+        heredocs: Vec::new(),
+        start: true,
+        lambda: false,
+        value_word: false,
+    };
     let mut heredoc: Option<(String, bool)> = None;
     let mut comment = false;
-    let mut start = true;
     for (n, line) in lines.iter().enumerate() {
         if let Some((id, indented)) = &heredoc {
             let t = if *indented {
@@ -220,7 +227,7 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                 line.trim_end()
             };
             if t == id {
-                heredoc = (!heredocs.is_empty()).then(|| heredocs.remove(0));
+                heredoc = (!r.heredocs.is_empty()).then(|| r.heredocs.remove(0));
             }
             continue;
         }
@@ -235,24 +242,33 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
         if line.trim_end() == "__END__" {
             break;
         }
+        r.line(n, line);
+        if r.quote.is_none() && heredoc.is_none() && !r.heredocs.is_empty() {
+            heredoc = Some(r.heredocs.remove(0));
+        }
+    }
+    r.b.blocks
+}
+
+impl Ruby<'_> {
+    fn line(&mut self, n: usize, line: &str) {
         let s = line.as_bytes();
         let mut i = 0;
-        if let Some(q) = quote.as_mut() {
+        if let Some(q) = self.quote.as_mut() {
             match q.scan(s, 0) {
                 Some(j) => {
-                    quote = None;
-                    start = false;
+                    self.quote = None;
+                    self.start = false;
                     i = j;
                 }
-                None => continue,
+                None => return,
             }
         }
-        let mut lambda = false;
-        let mut value_word = false;
+        self.lambda = false;
+        self.value_word = false;
         let mut last = 0;
         while i < s.len() {
             let c = s[i];
-            let next = s.get(i + 1).copied().unwrap_or(0);
             if c == b' ' || c == b'\t' {
                 i += 1;
                 continue;
@@ -260,203 +276,212 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
             if c != b'#' {
                 last = c;
             }
-            let was_word = std::mem::take(&mut value_word);
-            let spaced = i > 0 && matches!(s[i - 1], b' ' | b'\t');
-            let mut open_quote = |mut q: Quote, from: usize, i: &mut usize| {
-                if let Some(j) = q.scan(s, from) {
-                    *i = j;
-                } else {
-                    quote = Some(q);
-                    *i = s.len();
-                }
-            };
-            match c {
-                b'#' => break,
-                b'"' | b'`' | b'\'' => {
-                    open_quote(Quote::new(c, c != b'\''), i + 1, &mut i);
-                    start = false;
-                }
-                b'%' if (start || spaced)
-                    && ((b"qQwWiIrsx".contains(&next)
-                        && s.get(i + 2).is_some_and(u8::is_ascii_punctuation))
-                        || b"([{<|!/".contains(&next)) =>
-                {
-                    let (d, from) = if next.is_ascii_alphabetic() {
-                        (s[i + 2], i + 3)
-                    } else {
-                        (next, i + 2)
-                    };
-                    open_quote(Quote::new(d, !b"qwis".contains(&next)), from, &mut i);
-                    start = false;
-                }
-                b'/' if start || (was_word && spaced && !matches!(next, b' ' | b'=')) => {
-                    open_quote(Quote::new(b'/', true), i + 1, &mut i);
-                    start = false;
-                }
-                b'?' if start
-                    && next != 0
-                    && next != b' '
-                    && !word_byte(*s.get(i + 2).unwrap_or(&0)) =>
-                {
-                    i += 2;
-                    start = false;
-                }
-                b':' if next == b':' => {
-                    i += 2;
-                    start = true;
-                }
-                b':' if next == b'"' => {
-                    open_quote(Quote::new(b'"', true), i + 2, &mut i);
-                    start = false;
-                }
-                b':' if word_byte(next) && (start || spaced) => {
-                    i = word_at(s, i + 1);
-                    while i < s.len() && matches!(s[i], b'?' | b'!' | b'=') {
-                        i += 1;
-                    }
-                    start = false;
-                }
-                b'<' if next == b'<' && heredoc_id(s, i + 2).is_some() => {
-                    let (id, indented, j) = heredoc_id(s, i + 2).expect("the guard saw a heredoc");
-                    heredocs.push((id, indented));
-                    i = j;
-                    start = false;
-                }
-                b':' if b"/+-*%<>=!&|^~[`".contains(&next) && (start || spaced) => {
-                    i += 1;
-                    while i < s.len() && b"/+-*%<>=!&|^~[]@`".contains(&s[i]) {
-                        i += 1;
-                    }
-                    start = false;
-                }
-                b'\\' => i += 1,
-                b'-' if next == b'>' => {
-                    lambda = true;
-                    i += 2;
-                    start = true;
-                }
-                b'{' => {
-                    b.open(n, "{", std::mem::take(&mut lambda), false, false);
-                    i += 1;
-                    start = true;
-                }
-                b'}' => {
-                    b.close(n, &["{"]);
-                    i += 1;
-                    start = false;
-                }
-                b')' | b']' => {
-                    i += 1;
-                    start = false;
-                }
-                b'$' | b'@' => {
-                    i += 1;
-                    while i < s.len() && s[i] == b'@' {
-                        i += 1;
-                    }
-                    i = word_at(s, i).max(i + 1);
-                    start = false;
-                }
-                b'0'..=b'9' => {
-                    i = word_at(s, i);
-                    start = false;
-                }
-                c if word_byte(c) => {
-                    let mut j = word_at(s, i);
-                    if j < s.len() && matches!(s[j], b'?' | b'!') && s.get(j + 1) != Some(&b'=') {
-                        j += 1;
-                    }
-                    let w = text(s, i, j);
-                    let dot =
-                        s[..i].iter().rev().find(|c| !matches!(c, b' ' | b'\t')) == Some(&b'.');
-                    let key = s.get(j) == Some(&b':') && s.get(j + 1) != Some(&b':');
-                    let at = start;
-                    i = j;
-                    start = false;
-                    value_word = true;
-                    if dot || key {
-                        start = key;
-                        continue;
-                    }
-                    match w {
-                        "def" => {
-                            let rest = text(s, i, s.len());
-                            let name = rest.trim_start();
-                            let skip = rest.len() - name.len()
-                                + name
-                                    .find(|c: char| c.is_whitespace() || c == '(' || c == ';')
-                                    .unwrap_or(name.len());
-                            if !endless(text(s, i + skip, s.len())) {
-                                b.open(n, "def", true, true, false);
-                            }
-                            i += skip;
-                            value_word = false;
-                        }
-                        "class" => {
-                            b.open(n, "class", true, true, false);
-                            let rest = text(s, i, s.len()).trim_start();
-                            if rest.starts_with("<<") {
-                                i = s.len() - rest.len() + 2;
-                            }
-                            start = true;
-                        }
-                        "module" => b.open(n, "module", true, true, false),
-                        "if" | "unless" | "while" | "until" if at => {
-                            let w = if w == "if" || w == "unless" {
-                                "if"
-                            } else {
-                                "while"
-                            };
-                            b.open(n, w, true, false, w == "while");
-                            start = true;
-                        }
-                        "if" | "unless" | "while" | "until" => start = true,
-                        "case" | "begin" | "for" => {
-                            let w = if w == "for" { "while" } else { "case" };
-                            b.open(n, w, true, false, w == "while");
-                            start = true;
-                        }
-                        "do" => {
-                            match b.stack.last_mut() {
-                                Some(o) if o.armed => o.armed = false,
-                                _ => b.open(n, "do", true, false, false),
-                            }
-                            lambda = false;
-                            start = true;
-                        }
-                        "end" => {
-                            b.close(n, &["def", "class", "module", "if", "while", "case", "do"]);
-                        }
-                        "else" | "elsif" | "when" | "ensure" | "rescue" | "in" if at => {
-                            if w != "in" || b.top() == Some("case") {
-                                b.clause(n);
-                            }
-                            start = true;
-                        }
-                        "then" | "and" | "or" | "not" | "else" | "elsif" | "when" | "in"
-                        | "rescue" => start = true,
-                        _ => {}
-                    }
-                }
-                _ => {
-                    i += 1;
-                    start = !matches!(c, b'.');
-                }
-            }
+            i = self.token(n, s, i);
         }
-        if quote.is_none() && heredoc.is_none() && !heredocs.is_empty() {
-            heredoc = Some(heredocs.remove(0));
-        }
-        if let Some(o) = b
-            .stack
-            .last_mut()
-            .filter(|_| !b"|&\\,(+-*/<>=.".contains(&last))
-        {
+        if let Some(o) = (self.b.stack.last_mut()).filter(|_| !b"|&\\,(+-*/<>=.".contains(&last)) {
             o.armed = false;
         }
-        start = quote.is_none() && !line.trim_end().ends_with('\\') || start;
+        self.start = self.quote.is_none() && !line.trim_end().ends_with('\\') || self.start;
     }
-    b.blocks
+
+    fn open_quote(&mut self, s: &[u8], mut q: Quote, from: usize) -> usize {
+        self.start = false;
+        q.scan(s, from).unwrap_or_else(|| {
+            self.quote = Some(q);
+            s.len()
+        })
+    }
+
+    fn token(&mut self, n: usize, s: &[u8], mut i: usize) -> usize {
+        let c = s[i];
+        let next = s.get(i + 1).copied().unwrap_or(0);
+        let was_word = std::mem::take(&mut self.value_word);
+        let spaced = i > 0 && matches!(s[i - 1], b' ' | b'\t');
+        let free = self.start || spaced;
+        match c {
+            b'#' => i = s.len(),
+            b'"' | b'`' | b'\'' => i = self.open_quote(s, Quote::new(c, c != b'\''), i + 1),
+            b'%' if free
+                && ((b"qQwWiIrsx".contains(&next)
+                    && s.get(i + 2).is_some_and(u8::is_ascii_punctuation))
+                    || b"([{<|!/".contains(&next)) =>
+            {
+                let (d, from) = if next.is_ascii_alphabetic() {
+                    (s[i + 2], i + 3)
+                } else {
+                    (next, i + 2)
+                };
+                i = self.open_quote(s, Quote::new(d, !b"qwis".contains(&next)), from);
+            }
+            b'/' if self.start || (was_word && spaced && !matches!(next, b' ' | b'=')) => {
+                i = self.open_quote(s, Quote::new(b'/', true), i + 1);
+            }
+            b'?' if self.start
+                && next != 0
+                && next != b' '
+                && !word_byte(*s.get(i + 2).unwrap_or(&0)) =>
+            {
+                i += 2;
+                self.start = false;
+            }
+            b':' => i = self.colon(s, i, free),
+            b'<' if next == b'<' && heredoc_id(s, i + 2).is_some() => {
+                let (id, indented, j) = heredoc_id(s, i + 2).expect("the guard saw a heredoc");
+                self.heredocs.push((id, indented));
+                i = j;
+                self.start = false;
+            }
+            b'\\' => i += 1,
+            b'-' if next == b'>' => {
+                self.lambda = true;
+                i += 2;
+                self.start = true;
+            }
+            b'{' => {
+                self.b
+                    .open(n, "{", std::mem::take(&mut self.lambda), false, false);
+                i += 1;
+                self.start = true;
+            }
+            b'}' => {
+                self.b.close(n, &["{"]);
+                i += 1;
+                self.start = false;
+            }
+            b')' | b']' => {
+                i += 1;
+                self.start = false;
+            }
+            b'$' | b'@' => {
+                i += 1;
+                while i < s.len() && s[i] == b'@' {
+                    i += 1;
+                }
+                i = word_at(s, i).max(i + 1);
+                self.start = false;
+            }
+            b'0'..=b'9' => {
+                i = word_at(s, i);
+                self.start = false;
+            }
+            c if word_byte(c) => i = self.word(n, s, i),
+            _ => {
+                i += 1;
+                self.start = !matches!(c, b'.');
+            }
+        }
+        i
+    }
+
+    fn colon(&mut self, s: &[u8], mut i: usize, free: bool) -> usize {
+        let next = s.get(i + 1).copied().unwrap_or(0);
+        if next == b':' {
+            self.start = true;
+            return i + 2;
+        }
+        if next == b'"' {
+            return self.open_quote(s, Quote::new(b'"', true), i + 2);
+        }
+        if word_byte(next) && free {
+            i = word_at(s, i + 1);
+            while i < s.len() && matches!(s[i], b'?' | b'!' | b'=') {
+                i += 1;
+            }
+        } else if b"/+-*%<>=!&|^~[`".contains(&next) && free {
+            i += 1;
+            while i < s.len() && b"/+-*%<>=!&|^~[]@`".contains(&s[i]) {
+                i += 1;
+            }
+        } else {
+            self.start = true;
+            return i + 1;
+        }
+        self.start = false;
+        i
+    }
+
+    fn word(&mut self, n: usize, s: &[u8], i: usize) -> usize {
+        let mut j = word_at(s, i);
+        if j < s.len() && matches!(s[j], b'?' | b'!') && s.get(j + 1) != Some(&b'=') {
+            j += 1;
+        }
+        let w = text(s, i, j);
+        let dot = s[..i].iter().rev().find(|c| !matches!(c, b' ' | b'\t')) == Some(&b'.');
+        let key = s.get(j) == Some(&b':') && s.get(j + 1) != Some(&b':');
+        let at = self.start;
+        self.start = false;
+        self.value_word = true;
+        if dot || key {
+            self.start = key;
+            return j;
+        }
+        self.keyword(n, s, w, at, j)
+    }
+
+    fn keyword(&mut self, n: usize, s: &[u8], w: &str, at: bool, mut i: usize) -> usize {
+        match w {
+            "def" => {
+                let rest = text(s, i, s.len());
+                let name = rest.trim_start();
+                let skip = rest.len() - name.len()
+                    + name
+                        .find(|c: char| c.is_whitespace() || c == '(' || c == ';')
+                        .unwrap_or(name.len());
+                if !endless(text(s, i + skip, s.len())) {
+                    self.b.open(n, "def", true, true, false);
+                }
+                i += skip;
+                self.value_word = false;
+            }
+            "class" => {
+                self.b.open(n, "class", true, true, false);
+                let rest = text(s, i, s.len()).trim_start();
+                if rest.starts_with("<<") {
+                    i = s.len() - rest.len() + 2;
+                }
+                self.start = true;
+            }
+            "module" => self.b.open(n, "module", true, true, false),
+            "if" | "unless" | "while" | "until" if at => {
+                let w = if w == "if" || w == "unless" {
+                    "if"
+                } else {
+                    "while"
+                };
+                self.b.open(n, w, true, false, w == "while");
+                self.start = true;
+            }
+            "if" | "unless" | "while" | "until" => self.start = true,
+            "case" | "begin" | "for" => {
+                let w = if w == "for" { "while" } else { "case" };
+                self.b.open(n, w, true, false, w == "while");
+                self.start = true;
+            }
+            "do" => {
+                match self.b.stack.last_mut() {
+                    Some(o) if o.armed => o.armed = false,
+                    _ => self.b.open(n, "do", true, false, false),
+                }
+                self.lambda = false;
+                self.start = true;
+            }
+            "end" => {
+                self.b
+                    .close(n, &["def", "class", "module", "if", "while", "case", "do"]);
+            }
+            "else" | "elsif" | "when" | "ensure" | "rescue" | "in" if at => {
+                if w != "in" || self.b.top() == Some("case") {
+                    self.b.clause(n);
+                }
+                self.start = true;
+            }
+            "then" | "and" | "or" | "not" | "else" | "elsif" | "when" | "in" | "rescue" => {
+                self.start = true;
+            }
+            _ => {}
+        }
+        i
+    }
 }
 
 fn heredoc_id(s: &[u8], mut i: usize) -> Option<(String, bool, usize)> {
@@ -688,15 +713,27 @@ fn long_end(line: &str, from: usize, level: usize) -> Option<usize> {
         .map(|j| from + j + close.len())
 }
 
+struct Shell<'a> {
+    b: Build<'a>,
+    closed: bool,
+    quote: Option<(u8, bool)>,
+    heredocs: Vec<(String, bool, usize)>,
+    cmd: bool,
+    pattern: bool,
+    func: Option<usize>,
+}
+
 pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
-    let mut b = Build::new(lines);
-    let mut closed = false;
-    let mut quote: Option<(u8, bool)> = None;
-    let mut heredocs: Vec<(String, bool, usize)> = Vec::new();
+    let mut sh = Shell {
+        b: Build::new(lines),
+        closed: false,
+        quote: None,
+        heredocs: Vec::new(),
+        cmd: true,
+        pattern: false,
+        func: None,
+    };
     let mut heredoc: Option<(String, bool, usize)> = None;
-    let mut cmd = true;
-    let mut pattern = false;
-    let mut func: Option<usize> = None;
     for (n, line) in lines.iter().enumerate() {
         if let Some((id, tabs, head)) = &heredoc {
             let t = if *tabs {
@@ -705,176 +742,194 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                 line.as_str()
             };
             if t == id {
-                b.span(*head, n);
-                heredoc = (!heredocs.is_empty()).then(|| heredocs.remove(0));
+                sh.b.span(*head, n);
+                heredoc = (!sh.heredocs.is_empty()).then(|| sh.heredocs.remove(0));
             }
             continue;
         }
+        sh.line(n, line, zsh);
+        if sh.quote.is_none() && heredoc.is_none() && !sh.heredocs.is_empty() {
+            heredoc = Some(sh.heredocs.remove(0));
+        }
+    }
+    sh.b.blocks
+}
+
+impl Shell<'_> {
+    fn line(&mut self, n: usize, line: &str, zsh: bool) {
         let s = line.as_bytes();
         let mut i = 0;
-        if let Some((q, escapes)) = quote {
+        if let Some((q, escapes)) = self.quote {
             match shell_quote(s, 0, q, escapes) {
                 Some(j) => {
-                    quote = None;
+                    self.quote = None;
                     i = j;
                 }
-                None => continue,
+                None => return,
             }
         }
         while i < s.len() {
-            let c = s[i];
-            let next = s.get(i + 1).copied().unwrap_or(0);
-            let boundary = i == 0 || matches!(s[i - 1], b' ' | b'\t' | b';' | b'(' | b'&' | b'|');
-            match c {
-                b' ' | b'\t' => i += 1,
-                b'#' if boundary => break,
-                b'\'' | b'"' | b'`' => {
-                    let escapes = c != b'\'' || (i > 0 && s[i - 1] == b'$');
-                    if let Some(j) = shell_quote(s, i + 1, c, escapes) {
-                        i = j;
-                    } else {
-                        quote = Some((c, escapes));
-                        i = s.len();
-                    }
-                    cmd = false;
-                }
-                b'\\' => i += 2,
-                b')' if pattern => {
-                    pattern = false;
-                    cmd = true;
-                    i += 1;
-                }
-                _ if pattern => {
-                    let j = shell_word(s, i).max(i + 1);
-                    if text(s, i, j) == "esac" {
-                        pattern = false;
-                        b.close(n, &["case"]);
-                    }
+            i = self.token(n, s, i, zsh);
+        }
+        if !line.ends_with('\\') {
+            self.cmd = true;
+        }
+    }
+
+    fn token(&mut self, n: usize, s: &[u8], mut i: usize, zsh: bool) -> usize {
+        let c = s[i];
+        let next = s.get(i + 1).copied().unwrap_or(0);
+        let boundary = i == 0 || matches!(s[i - 1], b' ' | b'\t' | b';' | b'(' | b'&' | b'|');
+        match c {
+            b' ' | b'\t' => i += 1,
+            b'#' if boundary => i = s.len(),
+            b'\'' | b'"' | b'`' => {
+                let escapes = c != b'\'' || (i > 0 && s[i - 1] == b'$');
+                if let Some(j) = shell_quote(s, i + 1, c, escapes) {
                     i = j;
+                } else {
+                    self.quote = Some((c, escapes));
+                    i = s.len();
                 }
-                b';' => {
-                    if next == b';' || next == b'&' {
-                        pattern = b.top() == Some("case");
-                        i += 1;
-                    }
-                    cmd = true;
+                self.cmd = false;
+            }
+            b'\\' => i += 2,
+            b')' if self.pattern => {
+                self.pattern = false;
+                self.cmd = true;
+                i += 1;
+            }
+            _ if self.pattern => {
+                let j = shell_word(s, i).max(i + 1);
+                if text(s, i, j) == "esac" {
+                    self.pattern = false;
+                    self.b.close(n, &["case"]);
+                }
+                i = j;
+            }
+            b';' => {
+                if next == b';' || next == b'&' {
+                    self.pattern = self.b.top() == Some("case");
                     i += 1;
                 }
-                b'&' | b'|' => {
-                    cmd = !(next == b'>' || (i > 0 && matches!(s[i - 1], b'>' | b'<')));
-                    i += 1;
-                }
-                b'(' if zsh && cmd && next == b')' => {
-                    func = Some(n);
-                    i += 2;
-                }
-                b'(' => {
-                    cmd = true;
-                    i += 1;
-                }
-                b')' => {
-                    cmd = false;
-                    i += 1;
-                }
-                b'<' if next == b'<' && s.get(i + 2) == Some(&b'<') => i += 3,
-                b'<' if next == b'<' => {
-                    let tabs = s.get(i + 2) == Some(&b'-');
-                    let mut j = i + 2 + usize::from(tabs);
-                    while j < s.len() && s[j] == b' ' {
-                        j += 1;
+                self.cmd = true;
+                i += 1;
+            }
+            b'&' | b'|' => {
+                self.cmd = !(next == b'>' || (i > 0 && matches!(s[i - 1], b'>' | b'<')));
+                i += 1;
+            }
+            b'(' if zsh && self.cmd && next == b')' => {
+                self.func = Some(n);
+                i += 2;
+            }
+            b'(' => {
+                self.cmd = true;
+                i += 1;
+            }
+            b')' => {
+                self.cmd = false;
+                i += 1;
+            }
+            b'<' if next == b'<' && s.get(i + 2) == Some(&b'<') => i += 3,
+            b'<' if next == b'<' => i = self.heredoc(n, s, i),
+            b'$' if next == b'{' => {
+                i = brace_end(s, i) + 1;
+                self.cmd = false;
+            }
+            b'$' if next == b'(' => {
+                self.cmd = true;
+                i += 2;
+            }
+            _ => i = self.word(n, s, i, zsh),
+        }
+        i
+    }
+
+    fn heredoc(&mut self, n: usize, s: &[u8], i: usize) -> usize {
+        let tabs = s.get(i + 2) == Some(&b'-');
+        let mut j = i + 2 + usize::from(tabs);
+        while j < s.len() && s[j] == b' ' {
+            j += 1;
+        }
+        let k = match s.get(j) {
+            Some(&q @ (b'\'' | b'"')) => shell_quote(s, j + 1, q, false).unwrap_or(s.len()),
+            _ => shell_word(s, j),
+        };
+        let id: String = text(s, j, k)
+            .chars()
+            .filter(|c| !matches!(c, '\'' | '"' | '\\'))
+            .collect();
+        if !id.is_empty() {
+            self.heredocs.push((id, tabs, n));
+        }
+        k.max(j)
+    }
+
+    fn word(&mut self, n: usize, s: &[u8], i: usize, zsh: bool) -> usize {
+        let j = shell_word(s, i).max(i + 1);
+        let w = text(s, i, j);
+        let was = self.cmd;
+        self.cmd = false;
+        let after_brace = std::mem::replace(&mut self.closed, w == "}");
+        if zsh && w == "always" && after_brace {
+            self.cmd = true;
+            return j;
+        }
+        if w == "in"
+            && let Some(o) = (self.b.stack.last_mut()).filter(|o| o.word == "case" && o.armed)
+        {
+            o.armed = false;
+            self.pattern = true;
+            return j;
+        }
+        if !(was || w == "{" && self.func.is_some()) {
+            return j;
+        }
+        self.keyword(n, s, w, j)
+    }
+
+    fn keyword(&mut self, n: usize, s: &[u8], w: &str, mut i: usize) -> usize {
+        match w {
+            "if" | "while" | "until" => {
+                self.b
+                    .open(n, if w == "if" { "if" } else { "loop" }, true, false, false);
+                self.cmd = true;
+            }
+            "for" | "select" => self.b.open(n, "loop", true, false, false),
+            "case" => self.b.open(n, "case", true, false, true),
+            "then" | "do" | "!" | "time" => self.cmd = true,
+            "elif" | "else" => {
+                self.b.clause(n);
+                self.cmd = true;
+            }
+            "fi" => self.b.close(n, &["if"]),
+            "done" => self.b.close(n, &["loop"]),
+            "esac" => self.b.close(n, &["case"]),
+            "function" => self.func = Some(n),
+            "{" => {
+                match self.func.take() {
+                    Some(h) => {
+                        self.b.open(h, "{", true, true, false);
                     }
-                    let k = match s.get(j) {
-                        Some(&q @ (b'\'' | b'"')) => {
-                            shell_quote(s, j + 1, q, false).unwrap_or(s.len())
-                        }
-                        _ => shell_word(s, j),
-                    };
-                    let id: String = text(s, j, k)
-                        .chars()
-                        .filter(|c| !matches!(c, '\'' | '"' | '\\'))
-                        .collect();
-                    if !id.is_empty() {
-                        heredocs.push((id, tabs, n));
-                    }
-                    i = k.max(j);
+                    None => self.b.open(n, "{", false, false, false),
                 }
-                b'$' if next == b'{' => {
-                    i = brace_end(s, i) + 1;
-                    cmd = false;
-                }
-                b'$' if next == b'(' => {
-                    cmd = true;
-                    i += 2;
-                }
-                _ => {
-                    let j = shell_word(s, i).max(i + 1);
-                    let w = text(s, i, j);
-                    i = j;
-                    let was = cmd;
-                    cmd = false;
-                    let after_brace = std::mem::replace(&mut closed, w == "}");
-                    if zsh && w == "always" && after_brace {
-                        cmd = true;
-                        continue;
-                    }
-                    if w == "in"
-                        && let Some(o) = b.stack.last_mut().filter(|o| o.word == "case" && o.armed)
-                    {
-                        o.armed = false;
-                        pattern = true;
-                        continue;
-                    }
-                    if !(was || w == "{" && func.is_some()) {
-                        continue;
-                    }
-                    match w {
-                        "if" | "while" | "until" => {
-                            b.open(n, if w == "if" { "if" } else { "loop" }, true, false, false);
-                            cmd = true;
-                        }
-                        "for" | "select" => b.open(n, "loop", true, false, false),
-                        "case" => b.open(n, "case", true, false, true),
-                        "then" | "do" | "!" | "time" => cmd = true,
-                        "elif" | "else" => {
-                            b.clause(n);
-                            cmd = true;
-                        }
-                        "fi" => b.close(n, &["if"]),
-                        "done" => b.close(n, &["loop"]),
-                        "esac" => b.close(n, &["case"]),
-                        "function" => func = Some(n),
-                        "{" => {
-                            match func.take() {
-                                Some(h) => {
-                                    b.open(h, "{", true, true, false);
-                                }
-                                None => b.open(n, "{", false, false, false),
-                            }
-                            cmd = true;
-                        }
-                        "}" => b.close(n, &["{"]),
-                        _ => {
-                            let rest = text(s, i, s.len()).trim_start();
-                            if rest.starts_with("()") {
-                                func = Some(n);
-                                i = s.len() - rest.len() + 2;
-                                cmd = true;
-                            } else if func.is_some() {
-                                cmd = true;
-                            }
-                        }
-                    }
+                self.cmd = true;
+            }
+            "}" => self.b.close(n, &["{"]),
+            _ => {
+                let rest = text(s, i, s.len()).trim_start();
+                if rest.starts_with("()") {
+                    self.func = Some(n);
+                    i = s.len() - rest.len() + 2;
+                    self.cmd = true;
+                } else if self.func.is_some() {
+                    self.cmd = true;
                 }
             }
         }
-        if quote.is_none() && heredoc.is_none() && !heredocs.is_empty() {
-            heredoc = Some(heredocs.remove(0));
-        }
-        if !line.ends_with('\\') {
-            cmd = true;
-        }
+        i
     }
-    b.blocks
 }
 
 fn shell_word(s: &[u8], mut i: usize) -> usize {

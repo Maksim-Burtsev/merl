@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::{
     App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, search,
 };
@@ -266,17 +265,8 @@ impl App {
         let files = self.external_files(kind);
         hits.extend(self.external_grep(kind, &files, &pattern));
         hits.retain(|h| h.path != here || h.line1 != self.line + 1);
-        let crate_of = |p: &Path| {
-            p.ancestors()
-                .skip(1)
-                .find(|d| self.files.contains(&d.join("Cargo.toml")))
-                .map(Path::to_path_buf)
-        };
-        let package = |dir: &Path| {
-            self.text_of(&dir.join("Cargo.toml"))
-                .and_then(|t| search::cargo_package_name(&t))
-        };
-        let own = crate_of(here);
+        let package = |dir: &Path| self.rust_package(dir);
+        let own = self.rust_crate_of(here);
         let lock = std::fs::read_to_string(self.root.join("Cargo.lock")).unwrap_or_default();
         let reach = own
             .as_deref()
@@ -288,51 +278,6 @@ impl App {
             .filter(|f| f.file_name().is_some_and(|n| n == "Cargo.toml"))
             .filter_map(|f| f.parent().and_then(package))
             .collect();
-        let reached = |h: &Hit| {
-            let name = if h.path.is_absolute() {
-                let listed = h.path.ancestors().find_map(|a| {
-                    let dir = a.file_name()?.to_str()?;
-                    let locked = reach
-                        .as_ref()
-                        .map(|r| r.every_locked.as_slice())
-                        .unwrap_or_default();
-                    locked
-                        .iter()
-                        .find(|p| p.registry_dir == dir)
-                        .map(|p| p.name.clone())
-                });
-                if listed.as_ref().is_some_and(|n| workspace.contains(n)) {
-                    return false;
-                }
-                listed
-            } else {
-                crate_of(&h.path).as_deref().and_then(package)
-            };
-            let Some(search::CargoReach {
-                reached,
-                every_locked,
-            }) = &reach
-            else {
-                return true;
-            };
-            name.is_none_or(|n| reached.contains(&n) || !every_locked.iter().any(|p| p.name == n))
-        };
-        let below = |p: &Path| {
-            let parent = p.parent().unwrap_or_else(|| Path::new(""));
-            let root_file = p
-                .file_stem()
-                .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
-                || ["tests", "benches", "examples"]
-                    .iter()
-                    .any(|d| parent.file_name().is_some_and(|n| n == *d))
-                || parent.ends_with("src/bin");
-            let dir = if root_file {
-                parent.to_path_buf()
-            } else {
-                p.with_extension("")
-            };
-            here == p || here.starts_with(dir)
-        };
         let roots = self
             .external
             .get(&kind)
@@ -384,71 +329,28 @@ impl App {
                     (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
                     (search::RustOwner::Trait(_), _) => inside,
                     (_, search::RustVis::Pub) => true,
-                    (_, search::RustVis::Crate) => inside && crate_of(&h.path) == own,
+                    (_, search::RustVis::Crate) => inside && self.rust_crate_of(&h.path) == own,
                     (search::RustOwner::Inherent, search::RustVis::Private) => {
-                        inside && below(&h.path)
+                        inside && rust_below(here, &h.path)
                     }
                     (_, search::RustVis::Private) => true,
                 };
             if let (search::RustOwner::Trait(t), false) = (&owner, visible) {
                 hidden.push(t.clone());
             }
-            if visible && reached(&h) {
+            if visible && self.rust_reached(&h, reach.as_ref(), &workspace) {
                 rows.push((h, owner));
             }
         }
-        let kept: Vec<String> = rows
-            .iter()
-            .filter_map(|(_, o)| match o {
-                search::RustOwner::Trait(t) => Some(t.clone()),
-                _ => None,
-            })
-            .collect();
-        rows.retain(|(h, o)| {
-            !matches!(o, search::RustOwner::ImplOf(t)
-                if h.path.is_absolute() && hidden.contains(t) && !kept.contains(t))
-        });
-        rows.sort_by_key(|(_, o)| !matches!(o, search::RustOwner::Trait(_)));
-        let traits: Vec<&String> = rows
-            .iter()
-            .filter_map(|(_, o)| match o {
-                search::RustOwner::Trait(t) => Some(t),
-                _ => None,
-            })
-            .collect();
-        if let [tr] = traits.as_slice()
-            && rows.iter().all(|(_, o)| {
-                matches!(o, search::RustOwner::Trait(t) | search::RustOwner::ImplOf(t) if t == *tr)
-            })
-        {
-            let reason = Reason::Trait((*tr).clone());
-            return vec![Candidate {
-                hit: rows.swap_remove(0).0,
-                reason,
-            }];
-        }
-        rows.into_iter()
-            .map(|(hit, _)| Candidate {
-                hit,
-                reason: Reason::ByName,
-            })
-            .collect()
+        rust_ranked(rows, &hidden)
     }
 
-    pub(super) fn rust_crate_path(
-        &mut self,
-        here: &Path,
+    fn rust_bound(
+        &self,
         text: &str,
-        word: &str,
+        first: &str,
         chain: &[String],
-        macro_call: MacroUse,
-    ) -> Option<Vec<Candidate>> {
-        const PRIMITIVES: &[&str] = &[
-            "bool", "char", "str", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32",
-            "i64", "i128", "isize", "f32", "f64",
-        ];
-        const SYSROOT: &[&str] = &["std", "core", "alloc", "proc_macro"];
-        let first = chain.first().map_or(word, String::as_str);
+    ) -> Option<Vec<(Vec<String>, usize)>> {
         let lines: Vec<&str> = text.lines().collect();
         let indent = |l: &str| l.len() - l.trim_start().len();
         let use_reaches_cursor = |at: usize| {
@@ -477,6 +379,70 @@ impl App {
         {
             return None;
         }
+        Some(bound)
+    }
+
+    fn rust_crate_of(&self, p: &Path) -> Option<PathBuf> {
+        p.ancestors()
+            .skip(1)
+            .find(|d| self.files.contains(&d.join("Cargo.toml")))
+            .map(Path::to_path_buf)
+    }
+
+    fn rust_package(&self, dir: &Path) -> Option<String> {
+        self.text_of(&dir.join("Cargo.toml"))
+            .and_then(|t| search::cargo_package_name(&t))
+    }
+
+    fn rust_reached(
+        &self,
+        h: &Hit,
+        reach: Option<&search::CargoReach>,
+        workspace: &[String],
+    ) -> bool {
+        let name = if h.path.is_absolute() {
+            let listed = h.path.ancestors().find_map(|a| {
+                let dir = a.file_name()?.to_str()?;
+                let locked = reach.map(|r| r.every_locked.as_slice()).unwrap_or_default();
+                locked
+                    .iter()
+                    .find(|p| p.registry_dir == dir)
+                    .map(|p| p.name.clone())
+            });
+            if listed.as_ref().is_some_and(|n| workspace.contains(n)) {
+                return false;
+            }
+            listed
+        } else {
+            self.rust_crate_of(&h.path)
+                .as_deref()
+                .and_then(|d| self.rust_package(d))
+        };
+        let Some(search::CargoReach {
+            reached,
+            every_locked,
+        }) = reach
+        else {
+            return true;
+        };
+        name.is_none_or(|n| reached.contains(&n) || !every_locked.iter().any(|p| p.name == n))
+    }
+
+    pub(super) fn rust_crate_path(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        chain: &[String],
+        macro_call: MacroUse,
+    ) -> Option<Vec<Candidate>> {
+        const PRIMITIVES: &[&str] = &[
+            "bool", "char", "str", "u8", "u16", "u32", "u64", "u128", "usize", "i8", "i16", "i32",
+            "i64", "i128", "isize", "f32", "f64",
+        ];
+        const SYSROOT: &[&str] = &["std", "core", "alloc", "proc_macro"];
+        let first = chain.first().map_or(word, String::as_str);
+        let bound = self.rust_bound(text, first, chain)?;
         let (mut full, imported) = match bound.as_slice() {
             [(p, depth)] if *depth == 0 || !matches!(p[0].as_str(), "self" | "super") => {
                 (p.clone(), true)
@@ -1103,4 +1069,60 @@ impl App {
         .filter(|h| !h.text.trim_end().ends_with(';'))
         .collect()
     }
+}
+
+fn rust_below(here: &Path, p: &Path) -> bool {
+    let parent = p.parent().unwrap_or_else(|| Path::new(""));
+    let root_file = p
+        .file_stem()
+        .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
+        || ["tests", "benches", "examples"]
+            .iter()
+            .any(|d| parent.file_name().is_some_and(|n| n == *d))
+        || parent.ends_with("src/bin");
+    let dir = if root_file {
+        parent.to_path_buf()
+    } else {
+        p.with_extension("")
+    };
+    here == p || here.starts_with(dir)
+}
+
+fn rust_ranked(mut rows: Vec<(Hit, search::RustOwner)>, hidden: &[String]) -> Vec<Candidate> {
+    let kept: Vec<String> = rows
+        .iter()
+        .filter_map(|(_, o)| match o {
+            search::RustOwner::Trait(t) => Some(t.clone()),
+            _ => None,
+        })
+        .collect();
+    rows.retain(|(h, o)| {
+        !matches!(o, search::RustOwner::ImplOf(t)
+            if h.path.is_absolute() && hidden.contains(t) && !kept.contains(t))
+    });
+    rows.sort_by_key(|(_, o)| !matches!(o, search::RustOwner::Trait(_)));
+    let traits: Vec<&String> = rows
+        .iter()
+        .filter_map(|(_, o)| match o {
+            search::RustOwner::Trait(t) => Some(t),
+            _ => None,
+        })
+        .collect();
+    if let [tr] = traits.as_slice()
+        && rows.iter().all(|(_, o)| {
+            matches!(o, search::RustOwner::Trait(t) | search::RustOwner::ImplOf(t) if t == *tr)
+        })
+    {
+        let reason = Reason::Trait((*tr).clone());
+        return vec![Candidate {
+            hit: rows.swap_remove(0).0,
+            reason,
+        }];
+    }
+    rows.into_iter()
+        .map(|(hit, _)| Candidate {
+            hit,
+            reason: Reason::ByName,
+        })
+        .collect()
 }
