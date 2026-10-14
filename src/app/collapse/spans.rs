@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 struct Syntax {
     line_comment: &'static str,
     block_comment: Option<(&'static str, &'static str)>,
@@ -636,7 +635,7 @@ pub(super) fn markdown(lines: &[String]) -> Vec<(usize, usize)> {
                 {
                     break;
                 }
-                Some(_) => fold_frame(&stack.pop().unwrap(), &mut folds),
+                Some(_) => fold_frame(&stack.pop().expect("last() was Some"), &mut folds),
                 None => break,
             }
         }
