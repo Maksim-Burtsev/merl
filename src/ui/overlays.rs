@@ -312,7 +312,11 @@ pub(super) fn draw_picker(
     let mut lines: Vec<Line> = Vec::new();
     let mut headers = Vec::new();
     for (i, (row, place)) in rows.iter().zip(&places).enumerate() {
-        let base = if files && app.ignored.contains(&row.item.path) {
+        let gone = std::env::var("MERL_P886").is_ok_and(|v| v == "b")
+            && review
+                .and_then(|r| r.file(&row.item.path))
+                .is_some_and(|f| f.status == 'D');
+        let base = if files && (gone || app.ignored.contains(&row.item.path)) {
             base.fg(theme.ghost_fg)
         } else {
             base

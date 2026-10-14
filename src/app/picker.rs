@@ -19,9 +19,20 @@ impl App {
                 .collect(),
             _ => HashMap::new(),
         };
-        let (mut review, rest): (Vec<_>, Vec<_>) = self
-            .files
-            .iter()
+        let deleted: Vec<&PathBuf> = match &self.review {
+            Some(r) if std::env::var_os("MERL_P886").is_some() => (r.files.iter())
+                .filter(|f| f.status == 'D' && !self.files.contains(&f.path))
+                .map(|f| &f.path)
+                .collect(),
+            _ => Vec::new(),
+        };
+        let mut walk: Vec<&PathBuf> = self.files.iter().collect();
+        for d in deleted {
+            let at = walk.partition_point(|p| *p < d);
+            walk.insert(at, d);
+        }
+        let (mut review, rest): (Vec<_>, Vec<_>) = walk
+            .into_iter()
             .chain(&self.ignored)
             .partition(|p| order.contains_key(p));
         review.sort_by_key(|p| order[p]);
