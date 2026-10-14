@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
@@ -40,14 +39,18 @@ pub fn c_code(text: &str) -> String {
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
-            directive &= text[..i].trim_end_matches('\r').ends_with('\\');
+            directive &= text
+                .get(..i)
+                .is_some_and(|h| h.trim_end_matches('\r').ends_with('\\'));
             line_start = true;
             i += 1;
             continue;
         }
         if directive {
             let end = if b[i..].starts_with(b"/*") {
-                text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4)
+                text.get(i + 2..)
+                    .and_then(|r| r.find("*/"))
+                    .map_or(b.len(), |n| i + n + 4)
             } else {
                 i + 1
             };
@@ -71,24 +74,26 @@ pub fn c_code(text: &str) -> String {
                 }
                 j
             }
-            b'/' if b.get(i + 1) == Some(&b'*') => {
-                text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4)
-            }
+            b'/' if b.get(i + 1) == Some(&b'*') => text
+                .get(i + 2..)
+                .and_then(|r| r.find("*/"))
+                .map_or(b.len(), |n| i + n + 4),
             b'"' => {
-                let raw = text[..i].strip_suffix('R').is_some_and(|t| {
-                    let t = ["u8", "u", "U", "L"]
-                        .iter()
-                        .find_map(|p| t.strip_suffix(p))
-                        .unwrap_or(t);
-                    !t.ends_with(|c: char| c.is_alphanumeric() || c == '_')
-                });
-                match raw.then(|| text[i + 1..].find('(')).flatten() {
-                    Some(open) => {
-                        let delim = &text[i + 1..i + 1 + open];
+                let raw = text
+                    .get(..i)
+                    .and_then(|h| h.strip_suffix('R'))
+                    .is_some_and(|t| {
+                        let t = ["u8", "u", "U", "L"]
+                            .iter()
+                            .find_map(|p| t.strip_suffix(p))
+                            .unwrap_or(t);
+                        !t.ends_with(|c: char| c.is_alphanumeric() || c == '_')
+                    });
+                match raw.then(|| text.get(i + 1..)?.split_once('(')).flatten() {
+                    Some((delim, body)) => {
                         let close = format!("){delim}\"");
-                        text[i + 1 + open..]
-                            .find(&close)
-                            .map_or(b.len(), |n| i + 1 + open + n + close.len())
+                        body.find(&close)
+                            .map_or(b.len(), |n| i + 2 + delim.len() + n + close.len())
                     }
                     None => literal_end(b, i, b'"'),
                 }
@@ -129,14 +134,15 @@ fn c_innermost_open_brace(code: &[u8], at: usize) -> Option<usize> {
     }
     None
 }
-fn c_back_to_stop(code: &str, at: usize) -> (&str, Option<u8>) {
+fn c_back_to_stop(code: &str, at: usize) -> Option<(&str, Option<u8>)> {
     let b = code.as_bytes();
-    match b[..at]
+    match b
+        .get(..at)?
         .iter()
         .rposition(|c| matches!(c, b';' | b'{' | b'}'))
     {
-        Some(s) => (&code[s + 1..at], Some(b[s])),
-        None => (&code[..at], None),
+        Some(s) => Some((code.get(s + 1..at)?, Some(b[s]))),
+        None => Some((code.get(..at)?, None)),
     }
 }
 fn untemplated(s: &str) -> String {
@@ -166,12 +172,12 @@ fn c_struct_head(head: &str) -> Option<String> {
 }
 fn c_struct_around(code: &str, at: usize) -> Option<String> {
     let mut open = c_innermost_open_brace(code.as_bytes(), at)?;
-    let mut name = c_struct_head(c_back_to_stop(code, open).0)?;
+    let mut name = c_struct_head(c_back_to_stop(code, open)?.0)?;
     while name.is_empty() {
         let Some(outer) = c_innermost_open_brace(code.as_bytes(), open) else {
             break;
         };
-        match c_struct_head(c_back_to_stop(code, outer).0) {
+        match c_back_to_stop(code, outer).and_then(|(head, _)| c_struct_head(head)) {
             Some(n) => (open, name) = (outer, n),
             None => break,
         }
@@ -194,15 +200,15 @@ fn c_field_owner(code: &str, at: usize, word: &str) -> Option<String> {
         LazyLock::new(|| Regex::new(r"\(\s*\*+$").expect("the regex is a literal"));
     static CALLED: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\s*\)\s*\(").expect("the regex is a literal"));
-    let (before, stop) = c_back_to_stop(code, at);
-    let after = &code[at + word.len()..];
+    let (before, stop) = c_back_to_stop(code, at)?;
+    let after = code.get(at + word.len()..)?;
     let pre = ACCESS.replace(before, "");
     let pre = pre.trim();
     let shaped = if pre.is_empty() {
         let closes_nested_body = stop == Some(b'}');
         closes_nested_body && AFTER.is_match(after) && !after.trim_start().starts_with(['{', '='])
     } else if let Some(m) = FN_POINTER.find(pre) {
-        let ty = pre[..m.start()].trim();
+        let ty = pre.get(..m.start())?.trim();
         !ty.is_empty()
             && !untemplated(ty).contains(['(', ')', '='])
             && !REFUSED.is_match(ty)
@@ -239,10 +245,17 @@ pub fn c_field_rows(text: &str, hit_lines1: &[usize], word: &str) -> Vec<CFieldR
             continue;
         };
         let to = starts.get(line).map_or(code.len(), |&s| s - 1);
-        let found = code[from..to].match_indices(word).find_map(|(i, _)| {
+        let Some(row) = code.get(from..to) else {
+            continue;
+        };
+        let found = row.match_indices(word).find_map(|(i, _)| {
             let at = from + i;
-            let whole = !code[..at].ends_with(|c: char| c.is_alphanumeric() || c == '_')
-                && !code[at + word.len()..].starts_with(|c: char| c.is_alphanumeric() || c == '_');
+            let whole = !code
+                .get(..at)?
+                .ends_with(|c: char| c.is_alphanumeric() || c == '_')
+                && !code
+                    .get(at + word.len()..)?
+                    .starts_with(|c: char| c.is_alphanumeric() || c == '_');
             whole.then(|| c_field_owner(&code, at, word)).flatten()
         });
         if let Some(owner) = found {
@@ -269,7 +282,8 @@ pub fn c_initialized_member(text: &str, line1: usize, byte_col: usize) -> Option
         .sum::<usize>()
         + byte_col;
     let s = ctor_head_with_brackets_emptied(&code, at)?;
-    if !code[at..]
+    if !code
+        .get(at..)?
         .trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
         .trim_start()
         .starts_with(['(', '{'])
@@ -290,7 +304,10 @@ pub fn c_initialized_member(text: &str, line1: usize, byte_col: usize) -> Option
 )]
 fn ctor_head_with_brackets_emptied(code: &str, at: usize) -> Option<String> {
     let b = code.as_bytes();
-    let item_of_list = |close: usize| code[close + 1..].trim_start().starts_with(',');
+    let item_of_list = |close: usize| {
+        code.get(close + 1..)
+            .is_some_and(|r| r.trim_start().starts_with(','))
+    };
     let mut s = String::new();
     let (mut depth, mut i) = (0usize, at);
     while i > 0 {
@@ -333,7 +350,10 @@ fn line_starts(code: &str) -> Vec<usize> {
 )]
 fn c_head_start(code: &str, open: usize) -> usize {
     let b = code.as_bytes();
-    let item_of_init_list = |close: usize| code[close + 1..].trim_start().starts_with([',', '{']);
+    let item_of_init_list = |close: usize| {
+        code.get(close + 1..)
+            .is_some_and(|r| r.trim_start().starts_with([',', '{']))
+    };
     let mut depth = 0usize;
     for i in (0..open).rev() {
         match b[i] {
@@ -411,11 +431,13 @@ fn c_head(head: &str) -> Head {
     let f = bracket_contents_blanked(head);
     let Some(group) = top_level_paren_groups(head)
         .into_iter()
-        .find(|g| QUALS.is_match(&f[g.end..]))
+        .find(|g| f.get(g.end..).is_some_and(|r| QUALS.is_match(r)))
     else {
         return Head::Block;
     };
-    let before = head[..group.start].trim_end();
+    let Some(before) = head.get(..group.start).map(str::trim_end) else {
+        return Head::Block;
+    };
     if before.ends_with(']') {
         return Head::Lambda { params: group };
     }
@@ -487,8 +509,9 @@ fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
     let f = bracket_contents_blanked(stmt);
     let is_name = |c: char| c.is_alphanumeric() || c == '_';
     f.match_indices(name).find_map(|(j, _)| {
-        let whole = !f[..j].ends_with(is_name) && !f[j + name.len()..].starts_with(is_name);
-        let (pre, after) = (f[..j].trim(), f[j + name.len()..].trim_start());
+        let (head, rest) = (f.get(..j)?, f.get(j + name.len()..)?);
+        let whole = !head.ends_with(is_name) && !rest.starts_with(is_name);
+        let (pre, after) = (head.trim(), rest.trim_start());
         let first = TOKEN.find(pre)?;
         let followed = match after.as_bytes() {
             [b'=', b'=', ..] | [b':', b':', ..] => false,
@@ -545,7 +568,7 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
     for entry in f.split(',') {
         let at = from;
         from += entry.len() + 1;
-        let raw = &params[at..at + entry.len()];
+        let raw = params.get(at..at + entry.len())?;
         let lead = entry.len() - entry.trim_start().len();
         let found = match POINTER.captures(raw) {
             Some(c) => c.get(1).map(|m| (m.start(), m.as_str())),
@@ -568,7 +591,10 @@ fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<us
     let b = code.as_bytes();
     let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
     let take = |from: usize, to: usize, out: &mut Vec<usize>| {
-        if let Some(j) = declared_at(&code[from..to], name, DeclaredIn::Statement) {
+        if let Some(j) = code
+            .get(from..to)
+            .and_then(|s| declared_at(s, name, DeclaredIn::Statement))
+        {
             out.push(from + j);
         }
     };
@@ -608,10 +634,11 @@ fn control_init(code: &str, from: usize, pos: usize, name: &str) -> Option<usize
     });
     let mut at = from;
     let mut found = None;
-    while let Some(m) = CONTROL.find(&code[at..pos]) {
+    while let Some(m) = code.get(at..pos).and_then(|s| CONTROL.find(s)) {
         let open = at + m.end() - 1;
         let close = close_or_end(code, open, pos);
-        for (j, part) in split_top_level_semicolons(&code[open + 1..close]) {
+        let parts = code.get(open + 1..close).map(split_top_level_semicolons);
+        for (j, part) in parts.unwrap_or_default() {
             if let Some(k) = declared_at(part, name, DeclaredIn::ControlHead) {
                 found = Some(open + 1 + j + k);
             }
@@ -649,7 +676,9 @@ fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> 
     let mut at = pos;
     while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
         let head_start = c_head_start(code, open);
-        let head = c_head(&code[head_start..open]);
+        let Some(head) = code.get(head_start..open).map(c_head) else {
+            break;
+        };
         if matches!(head, Head::TypeOrNamespace) {
             break;
         }
@@ -667,11 +696,11 @@ fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<u
     let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
     let is_name = |c: char| c.is_alphanumeric() || c == '_';
     Some(
-        code[from..to]
+        code.get(from..to)?
             .match_indices(name)
             .filter(|(i, _)| {
-                !code[..from + i].ends_with(is_name)
-                    && !code[from + i + name.len()..].starts_with(is_name)
+                code.get(..from + i).is_some_and(|h| !h.ends_with(is_name))
+                    && (code.get(from + i + name.len()..)).is_some_and(|r| !r.starts_with(is_name))
             })
             .last()
             .map_or(to, |(i, _)| from + i),
@@ -709,22 +738,29 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
-        if let Some(j) = super::objc_parameter(&code[start..open], name) {
+        if let Some(j) = code
+            .get(start..open)
+            .and_then(|h| super::objc_parameter(h, name))
+        {
             return vec![place(start + j)];
         }
         let found = match head {
             Head::Function { params, .. } | Head::Lambda { params } | Head::Catch { params } => {
                 let inner = start + params.start + 1..start + params.end - 1;
-                parameter_at(&code[inner.clone()], name).map(|j| inner.start + j)
+                code.get(inner.clone())
+                    .and_then(|p| parameter_at(p, name))
+                    .map(|j| inner.start + j)
             }
             Head::Control { parens } => {
                 let inner = start + parens.start + 1..start + parens.end - 1;
-                let init = split_top_level_semicolons(&code[inner.clone()]);
-                (init.into_iter())
-                    .find_map(|(at, stmt)| {
-                        declared_at(stmt, name, DeclaredIn::ControlHead).map(|j| at + j)
+                code.get(inner.clone())
+                    .and_then(|parens| {
+                        (split_top_level_semicolons(parens).into_iter())
+                            .find_map(|(at, stmt)| {
+                                declared_at(stmt, name, DeclaredIn::ControlHead).map(|j| at + j)
+                            })
+                            .or_else(|| super::objc_for_in(parens, name))
                     })
-                    .or_else(|| super::objc_for_in(&code[inner.clone()], name))
                     .map(|j| inner.start + j)
             }
             Head::Block | Head::TypeOrNamespace => None,
@@ -739,10 +775,10 @@ fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
     let f = bracket_contents_blanked(s);
     let mut from = 0;
     f.split(';')
-        .map(|part| {
+        .filter_map(|part| {
             let at = from;
             from += part.len() + 1;
-            (at, &s[at..at + part.len()])
+            Some((at, s.get(at..at + part.len())?))
         })
         .collect()
 }
@@ -763,7 +799,7 @@ pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
         return Some(owner);
     }
     let outer = c_innermost_open_brace(code.as_bytes(), c_head_start(&code, open))?;
-    c_struct_head(c_back_to_stop(&code, outer).0).filter(|n| !n.is_empty())
+    c_struct_head(c_back_to_stop(&code, outer)?.0).filter(|n| !n.is_empty())
 }
 
 const C_ENUMERATOR: &str = r"[A-Za-z_]\w*\s*(?:=[^,;{}]*)?";
@@ -810,7 +846,7 @@ fn c_body_opener<S: AsRef<str>>(lines: &[S], line1: usize) -> Option<BodyOpener>
         }
     }
     let (k, i) = open?;
-    let head = c_code(lines[k].as_ref())[..i].to_owned();
+    let head = c_code(lines[k].as_ref()).get(..i)?.to_owned();
     Some(BodyOpener {
         brace_line1: k + 1,
         head: head_up_past_comments_to_a_blank_line(lines, k, head),
@@ -833,8 +869,8 @@ fn head_up_past_comments_to_a_blank_line<S: AsRef<str>>(
             }
             head = format!("{} {head}", c_code(lines[j].as_ref()));
         }
-        if let Some(s) = head.rfind([';', '{', '}']) {
-            head = head[s + 1..].to_owned();
+        if let Some((_, rest)) = head.rsplit_once([';', '{', '}']) {
+            head = rest.to_owned();
             break;
         }
     }
@@ -914,8 +950,9 @@ pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
             .filter(|p| !p.is_empty())
             .collect();
         let at = c.get(1).map_or(0, |m| m.start());
-        let qualifier_starts_a_name =
-            !text[..at].ends_with(|ch: char| ch == ':' || ch.is_alphanumeric() || ch == '_');
+        let qualifier_starts_a_name = text.get(..at).is_some_and(|h| {
+            !h.ends_with(|ch: char| ch == ':' || ch.is_alphanumeric() || ch == '_')
+        });
         qualifier_starts_a_name
             && written.len() <= scopes.len()
             && scopes[scopes.len() - written.len()..]
@@ -957,22 +994,22 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
             if cpp {
                 return None;
             }
-            rest = rest[..opening_of_last_bracket(rest)?].trim_end();
+            rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let called = rest.ends_with(')');
         if called {
-            rest = rest[..opening_of_last_bracket(rest)?].trim_end();
+            rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let start = rest.trim_end_matches(is_name).len();
-        let name = &rest[start..];
+        let (before, name) = (rest.get(..start)?, rest.get(start..)?);
         if name.is_empty()
             || name.starts_with(|c: char| c.is_ascii_digit())
             || (name == "this" && !cpp)
-            || rest[..start].ends_with(|c: char| !c.is_ascii())
+            || before.ends_with(|c: char| !c.is_ascii())
         {
             return None;
         }
-        rest = rest[..start].trim_end();
+        rest = before.trim_end();
         let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
         match (member, called) {
             (true, false) => fields.insert(0, name.to_owned()),
@@ -1053,9 +1090,9 @@ pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
     };
     let from = stop.map_or(0, |s| s + 1);
     let (segment, named) = match (param, first_comma) {
-        (true, _) => (&code[last_comma.map_or(from, |c| c + 1)..at], false),
-        (false, Some(c)) => (&code[from..c], true),
-        (false, None) => (&code[from..at], false),
+        (true, _) => (code.get(last_comma.map_or(from, |c| c + 1)..at)?, false),
+        (false, Some(c)) => (code.get(from..c)?, true),
+        (false, None) => (code.get(from..at)?, false),
     };
     if let Some(s) = stop.filter(|&s| b[s] == b'}' && !param && first_comma.is_none())
         && segment
@@ -1063,7 +1100,7 @@ pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
             .is_empty()
     {
         let open = c_innermost_open_brace(b, s)?;
-        let head = c_back_to_stop(code, open).0.trim();
+        let head = c_back_to_stop(code, open)?.0.trim();
         return (!head.starts_with("typedef") && c_struct_head(head).is_some())
             .then_some(CType::Body(open));
     }
@@ -1085,13 +1122,16 @@ pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
         .map(|w| CType::Name((*w).to_owned()))
 }
 pub fn c_type_def(code: &str, at: usize) -> Option<CType> {
-    let tagged = ends_with_word(&code[..at], &["struct", "union"]);
-    let after = at + code[at..].find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))?;
+    let tagged = ends_with_word(code.get(..at)?, &["struct", "union"]);
+    let after = at
+        + code
+            .get(at..)?
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))?;
     if tagged {
-        let open = after + code[after..].find(|c: char| !c.is_whitespace())?;
+        let open = after + code.get(after..)?.find(|c: char| !c.is_whitespace())?;
         return (code.as_bytes()[open] == b'{').then_some(CType::Body(open));
     }
-    let (stmt, stop) = c_back_to_stop(code, at);
+    let (stmt, stop) = c_back_to_stop(code, at)?;
     let s = at - stmt.len();
     if stop == Some(b'}')
         && stmt
@@ -1099,14 +1139,15 @@ pub fn c_type_def(code: &str, at: usize) -> Option<CType> {
             .is_empty()
     {
         let open = c_innermost_open_brace(code.as_bytes(), s - 1)?;
-        let head = c_back_to_stop(code, open).0.trim();
+        let head = c_back_to_stop(code, open)?.0.trim();
         return (head.starts_with("typedef") && c_struct_head(head).is_some())
             .then_some(CType::Body(open));
     }
     if !stmt.trim_start().starts_with("typedef") {
         return None;
     }
-    c_decl_type(code, at).filter(|t| *t != CType::Name(code[at..after].to_owned()))
+    let written = code.get(at..after)?;
+    c_decl_type(code, at).filter(|t| *t != CType::Name(written.to_owned()))
 }
 fn ends_with_word(s: &str, words: &[&str]) -> bool {
     let s = s.trim_end();
@@ -1119,21 +1160,23 @@ pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
     let close = close_or_end(code, open, code.len());
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let b = code.as_bytes();
-    code[open + 1..close]
+    code.get(open + 1..close)?
         .match_indices(word)
         .find_map(|(i, _)| {
             let at = open + 1 + i;
-            let whole =
-                !code[..at].ends_with(is_name) && !code[at + word.len()..].starts_with(is_name);
+            let whole = !code.get(..at)?.ends_with(is_name)
+                && !code.get(at + word.len()..)?.starts_with(is_name);
             if !whole || c_field_owner(code, at, word).is_none() {
                 return None;
             }
             let mut o = c_innermost_open_brace(b, at)?;
             while o != open {
                 let end = close_or_end(code, o, close);
-                let anonymous = c_struct_head(c_back_to_stop(code, o).0)
+                let anonymous = c_struct_head(c_back_to_stop(code, o)?.0)
                     .is_some_and(|n| n.is_empty())
-                    && code[end + 1..].trim_start().starts_with(';');
+                    && code
+                        .get(end + 1..)
+                        .is_some_and(|r| r.trim_start().starts_with(';'));
                 if !anonymous {
                     return None;
                 }
@@ -1153,9 +1196,12 @@ pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType
         at = block_declarations(&code, 0, code.len(), name);
         let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
         at.extend(code.match_indices(name).map(|(i, _)| i).filter(|&i| {
-            !code[..i].ends_with(is_name)
-                && !code[i + name.len()..].starts_with(is_name)
-                && code[..i]
+            let (Some(head), Some(rest)) = (code.get(..i), code.get(i + name.len()..)) else {
+                return false;
+            };
+            !head.ends_with(is_name)
+                && !rest.starts_with(is_name)
+                && head
                     .trim_end_matches(|c: char| c.is_whitespace() || c == '*')
                     .ends_with('}')
                 && c_innermost_open_brace(code.as_bytes(), i).is_none()
@@ -1164,7 +1210,10 @@ pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType
     }
     let mut types = at
         .into_iter()
-        .filter(|&a| !ends_with_word(&code[..a], &["struct", "union", "enum"]))
+        .filter(|&a| {
+            code.get(..a)
+                .is_some_and(|h| !ends_with_word(h, &["struct", "union", "enum"]))
+        })
         .map(|a| c_decl_type(&code, a));
     let Some(first) = types.next() else {
         return Ok(None);
@@ -1186,14 +1235,18 @@ pub fn c_words_on_line(
     };
     let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
-    code[from..to]
-        .match_indices(name)
+    let Some(row) = code.get(from..to) else {
+        return Vec::new();
+    };
+    row.match_indices(name)
         .map(|(i, _)| from + i)
         .filter(|&i| {
-            let after = code[i + name.len()..].trim_start();
-            !code[..i].ends_with(is_name)
-                && !code[i + name.len()..].starts_with(is_name)
-                && followed_by.is_none_or(|c| after.starts_with(c))
+            let (Some(head), Some(rest)) = (code.get(..i), code.get(i + name.len()..)) else {
+                return false;
+            };
+            !head.ends_with(is_name)
+                && !rest.starts_with(is_name)
+                && followed_by.is_none_or(|c| rest.trim_start().starts_with(c))
         })
         .collect()
 }
@@ -1203,14 +1256,17 @@ pub struct CPlace {
     pub byte_col: usize,
 }
 pub fn c_place(code: &str, at: usize) -> CPlace {
-    let line_start = code[..at].rfind('\n').map_or(0, |i| i + 1);
+    let starts = line_starts(code);
+    let line1 = starts.partition_point(|&s| s <= at);
     CPlace {
-        line1: code[..at].matches('\n').count() + 1,
-        byte_col: at - line_start,
+        line1,
+        byte_col: at - starts[line1 - 1],
     }
 }
 pub fn c_body_name(code: &str, open: usize) -> String {
-    c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
+    c_back_to_stop(code, open)
+        .and_then(|(head, _)| c_struct_head(head))
+        .unwrap_or_default()
 }
 #[expect(
     clippy::match_same_arms,
@@ -1239,19 +1295,21 @@ pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
             _ => {}
         }
     };
-    let segment = ACCESS_LABELS.replace(&code[from..at], "");
+    let segment = ACCESS_LABELS.replace(code.get(from..at)?, "");
     let path = cpp_class_path(&segment)?;
     if path != ["auto"] {
         return Some(path);
     }
-    let init = AUTO.captures(&code[at + len..])?;
+    let init = AUTO.captures(code.get(at + len..)?)?;
     let m = init.get(0)?;
     let open = at + len + m.end() - 1;
     let close = close_or_end(code, open, code.len());
     let path = cpp_class_path(&init[1])?;
     let last = path.last()?;
     (close < code.len()
-        && code[close + 1..].trim_start().starts_with([';', ','])
+        && code
+            .get(close + 1..)
+            .is_some_and(|r| r.trim_start().starts_with([';', ',']))
         && (m.as_str().contains("new") || last.starts_with(|c: char| c.is_ascii_uppercase())))
     .then_some(path)
 }
@@ -1341,9 +1399,9 @@ pub fn cpp_class_body(code: &str, line1: usize, name: &str) -> Option<usize> {
     c_words_on_line(code, line1, name, None)
         .into_iter()
         .find_map(|at| {
-            let open = at + code[at..].find([';', '{', '(', '='])?;
+            let open = at + code.get(at..)?.find([';', '{', '(', '='])?;
             (code.as_bytes()[open] == b'{'
-                && c_struct_head(c_back_to_stop(code, open).0).as_deref() == Some(name))
+                && c_struct_head(c_back_to_stop(code, open)?.0).as_deref() == Some(name))
             .then_some(open)
         })
 }
@@ -1351,11 +1409,18 @@ pub fn cpp_bases(code: &str, open: usize) -> Vec<Vec<String>> {
     static ACCESS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\b(?:public|private|protected|virtual)\b").expect("the regex is a literal")
     });
-    let head = untemplated(c_back_to_stop(code, open).0);
+    let Some((head, _)) = c_back_to_stop(code, open) else {
+        return Vec::new();
+    };
+    let head = untemplated(head);
     let list = head
         .match_indices(':')
-        .find(|&(i, _)| !head[i + 1..].starts_with(':') && !head[..i].ends_with(':'))
-        .map_or("", |(i, _)| &head[i + 1..]);
+        .find(|&(i, _)| {
+            head.get(i + 1..).is_some_and(|r| !r.starts_with(':'))
+                && head.get(..i).is_some_and(|h| !h.ends_with(':'))
+        })
+        .and_then(|(i, _)| head.get(i + 1..))
+        .unwrap_or("");
     list.split(',')
         .filter(|b| !b.trim().is_empty())
         .filter_map(|b| cpp_class_path(&ACCESS.replace_all(b, "")))
@@ -1368,12 +1433,17 @@ pub fn cpp_body_members(code: &str, open: usize, word: &str) -> Vec<usize> {
     let close = close_or_end(code, open, code.len());
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let b = code.as_bytes();
-    code[open + 1..close]
-        .match_indices(word)
+    let Some(body) = code.get(open + 1..close) else {
+        return Vec::new();
+    };
+    body.match_indices(word)
         .map(|(i, _)| open + 1 + i)
         .filter(|&at| {
-            if code[..at].ends_with(is_name)
-                || code[at + word.len()..].starts_with(is_name)
+            let (Some(head), Some(rest)) = (code.get(..at), code.get(at + word.len()..)) else {
+                return false;
+            };
+            if head.ends_with(is_name)
+                || rest.starts_with(is_name)
                 || c_innermost_open_brace(b, at) != Some(open)
             {
                 return false;
@@ -1381,14 +1451,17 @@ pub fn cpp_body_members(code: &str, open: usize, word: &str) -> Vec<usize> {
             if c_field_owner(code, at, word).is_some() {
                 return true;
             }
-            let pre = ACCESS_LABELS.replace(c_back_to_stop(code, at).0, "");
+            let Some((pre, _)) = c_back_to_stop(code, at) else {
+                return false;
+            };
+            let pre = ACCESS_LABELS.replace(pre, "");
             let pre = untemplated(pre.trim());
             !pre.is_empty()
                 && !pre.contains(['(', ')', '=', '.', '~'])
                 && !pre.ends_with(':')
                 && !pre.ends_with("->")
                 && !REFUSED.is_match(&pre)
-                && code[at + word.len()..].trim_start().starts_with('(')
+                && rest.trim_start().starts_with('(')
         })
         .collect()
 }
