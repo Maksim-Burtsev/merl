@@ -1085,6 +1085,22 @@ const ZIG: &[&str] = &[
     "\n\n",
 ];
 
+const SCHEME: &[&str] = &[
+    "#| c |#",
+    "#;",
+    "; c\n",
+    "'(a b)",
+    "`(a ,b)",
+    "#\\x",
+    "(define (f x)\n",
+    "(",
+    ")",
+    "[",
+    "]",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1275,6 +1291,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.zig",
         include_bytes!("../../../tests/colors/zig/ledger.zig").as_slice(),
         ZIG,
+    ),
+    (
+        "f.scm",
+        include_bytes!("../../../tests/colors/scheme/ledger.scm").as_slice(),
+        SCHEME,
     ),
     (
         "f.rb",

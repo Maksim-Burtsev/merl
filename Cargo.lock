@@ -1904,6 +1904,7 @@ dependencies = [
  "tree-sitter-regex",
  "tree-sitter-ruby",
  "tree-sitter-rust",
+ "tree-sitter-scheme",
  "tree-sitter-swift",
  "tree-sitter-toml-ng",
  "tree-sitter-tsquery",
@@ -4196,6 +4197,15 @@ name = "tree-sitter-rust"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "439e577dbe07423ec2582ac62c7531120dbfccfa6e5f92406f93dd271a120e45"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-scheme"
+version = "0.24.7-1"
+source = "git+https://github.com/6cdh/tree-sitter-scheme?rev=1b112d9571e4f62fb3d095d52a51f1da7756fb94#1b112d9571e4f62fb3d095d52a51f1da7756fb94"
 dependencies = [
  "cc",
  "tree-sitter-language",

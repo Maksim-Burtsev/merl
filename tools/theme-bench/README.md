@@ -270,6 +270,16 @@ from nix-darwin:
 |---|---|---|---|---|
 | Nix | 15,630 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
 
+Scheme (#808), `.scm`, `.ss` and `.sld`, as Neovim calls them, but for a `.scm` under a `queries/`
+directory, which stays a tree-sitter query; `comment` stays plain, as LazyVim installs no parser for
+it. The commit nvim-treesitter pins (1b112d9) differs from crates.io's tree-sitter-scheme 0.24.7-1
+(another `parser.c` under the same version), so merl takes it as a git dependency. Files from
+chibi-scheme:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Scheme | 19,794 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are

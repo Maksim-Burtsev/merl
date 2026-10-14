@@ -226,6 +226,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/nix/highlights.scm"),
         include_str!("../queries/nix/injections.scm"),
     ),
+    (
+        "scheme",
+        include_str!("../queries/scheme/highlights.scm"),
+        include_str!("../queries/scheme/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -402,6 +407,7 @@ pub fn for_syntax(
         "Diff" if diff(path, lines) => lang("diff"),
         "Dockerfile" | "Dockerfile (with bash)" => lang("dockerfile"),
         "Lisp" if path.is_some_and(query) => lang("query"),
+        "Lisp" if path.is_some_and(scheme) => lang("scheme"),
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Go" => lang("go"),
@@ -608,6 +614,11 @@ fn docbook_or_xbl(lines: &[String]) -> bool {
     })
 }
 
+fn scheme(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e == "scm" || e == "ss" || e == "sld")
+}
+
 fn query(path: &Path) -> bool {
     path.extension().is_some_and(|e| e == "scm")
         && path
@@ -703,6 +714,7 @@ fn grammar(name: &str) -> Option<Language> {
         "luadoc" => tree_sitter_luadoc::LANGUAGE.into(),
         "zig" => tree_sitter_zig::LANGUAGE.into(),
         "nix" => tree_sitter_nix::LANGUAGE.into(),
+        "scheme" => tree_sitter_scheme::LANGUAGE.into(),
         _ => return None,
     })
 }
