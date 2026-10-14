@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};
 
 impl App {
@@ -118,7 +117,7 @@ impl App {
                 let line = self.text(t);
                 let cut = shown_str(line).len();
                 let end_of = |col: usize| if col == cut { line.len() } else { col };
-                let r = self.selected_bytes(t).unwrap();
+                let r = self.selected_bytes(t).expect("t lies in the selection");
                 &line[end_of(r.start)..end_of(r.end)]
             })
             .collect();
