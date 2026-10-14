@@ -1,6 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::struct_excessive_bools, reason = "#858")]
 use std::fmt;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -25,7 +22,7 @@ impl Xorshift64 {
         self.0
     }
     fn below(&mut self, n: usize) -> usize {
-        (self.next() % n as u64) as usize
+        usize::try_from(self.next() % n as u64).unwrap()
     }
     fn pick<'a, T>(&mut self, of: &'a [T]) -> &'a T {
         &of[self.below(of.len())]
@@ -173,6 +170,10 @@ fn gen_session(seed: u64) -> (Vec<u8>, Vec<Op>) {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent fact about the file's bytes"
+)]
 struct Format {
     bom: bool,
     crlf: bool,
@@ -237,16 +238,21 @@ struct Model {
 }
 
 fn next(s: &str, i: usize) -> usize {
-    s[i..].graphemes(true).next().map_or(i, |g| i + g.len())
+    s.get(i..)
+        .unwrap()
+        .graphemes(true)
+        .next()
+        .map_or(i, |g| i + g.len())
 }
 fn prev(s: &str, i: usize) -> usize {
-    s[..i]
+    s.get(..i)
+        .unwrap()
         .graphemes(true)
         .next_back()
         .map_or(0, |g| i - g.len())
 }
 fn wordy(s: &str, i: usize) -> bool {
-    s[i..].chars().next().is_some_and(is_word)
+    s.get(i..).unwrap().chars().next().is_some_and(is_word)
 }
 fn width(s: &str) -> usize {
     s.graphemes(true).map(wrap::cluster_width).sum()
@@ -293,16 +299,16 @@ impl Model {
 
     fn text(&self, (from, to): (Pos, Pos)) -> String {
         if from.0 == to.0 {
-            return self.lines[from.0][from.1..to.1].to_string();
+            return self.lines[from.0].get(from.1..to.1).unwrap().to_owned();
         }
-        let mut parts = vec![&self.lines[from.0][from.1..]];
+        let mut parts = vec![self.lines[from.0].get(from.1..).unwrap()];
         parts.extend(self.lines[from.0 + 1..to.0].iter().map(String::as_str));
-        parts.push(&self.lines[to.0][..to.1]);
+        parts.push(self.lines[to.0].get(..to.1).unwrap());
         parts.join("\n")
     }
 
     fn sync_x(&mut self) {
-        self.want_x = width(&self.line()[..self.cur.1]);
+        self.want_x = width(self.line().get(..self.cur.1).unwrap());
     }
 
     fn aim(&mut self, l: usize) {
@@ -414,8 +420,8 @@ impl Model {
         let old = self.lines.clone();
         let joined = format!(
             "{}{text}{}",
-            &self.lines[from.0][..from.1],
-            &self.lines[to.0][to.1..]
+            self.lines[from.0].get(..from.1).unwrap(),
+            self.lines[to.0].get(to.1..).unwrap()
         );
         let new: Vec<String> = joined.split('\n').map(String::from).collect();
         let n = new.len();
@@ -678,8 +684,8 @@ impl Model {
             }
             KeyCode::Char(ch) if !ctrl => self.insert(&ch.to_string(), "type"),
             KeyCode::Enter => {
-                let head = &self.line()[..c];
-                let indent = &head[..head.len() - head.trim_start().len()];
+                let head = self.line().get(..c).unwrap();
+                let indent = head.strip_suffix(head.trim_start()).unwrap();
                 self.insert(&format!("\n{indent}"), "type");
             }
             KeyCode::Tab => {
@@ -1063,6 +1069,22 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
+const ZIG: &[&str] = &[
+    "\\\\ text\n",
+    "\"{s}\\n\"",
+    "/// ",
+    "//! ",
+    "label: {\n",
+    "|x| ",
+    "switch (x) {\n",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1083,6 +1105,25 @@ const PROTO: &[&str] = &[
     "}",
     "\n\n",
 ];
+
+const HCL: &[&str] = &[
+    "resource \"a\" \"b\" {\n",
+    "}\n",
+    "a = var.b[0]\n",
+    "\"${x}\"",
+    "%{ if x }",
+    "<<EOT\n",
+    "EOT\n",
+    "[for s in x : s]",
+    "/*",
+    "*/",
+    "# ",
+    "\"",
+    "{",
+    "}",
+];
+
+const INI: &[&str] = &["[a]\n", "b = c\n", "; ", "# ", "[", "]", "=", ":", "\n"];
 
 const CMAKE: &[&str] = &[
     "set(",
@@ -1231,6 +1272,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         KOTLIN,
     ),
     (
+        "f.zig",
+        include_bytes!("../../../tests/colors/zig/ledger.zig").as_slice(),
+        ZIG,
+    ),
+    (
         "f.rb",
         include_bytes!("../../../tests/colors/ruby/ledger.rb").as_slice(),
         RUBY,
@@ -1264,6 +1310,21 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.proto",
         include_bytes!("../../../tests/colors/proto/ledger.proto").as_slice(),
         PROTO,
+    ),
+    (
+        "f.hcl",
+        include_bytes!("../../../tests/colors/hcl/config.hcl").as_slice(),
+        HCL,
+    ),
+    (
+        "f.tfvars",
+        include_bytes!("../../../tests/colors/terraform/main.tf").as_slice(),
+        HCL,
+    ),
+    (
+        "f.ini",
+        include_bytes!("../../../tests/colors/ini/settings.ini").as_slice(),
+        INI,
     ),
     (
         "CMakeLists.txt",

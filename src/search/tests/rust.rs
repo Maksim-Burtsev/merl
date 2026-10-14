@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn attr(code: &str, word: &str) -> Option<RustAttr> {
@@ -11,7 +10,11 @@ fn attr(code: &str, word: &str) -> Option<RustAttr> {
             l.match_indices(word)
                 .find(|&(at, _)| {
                     let ident = |c: char| c.is_alphanumeric() || c == '_';
-                    !l[..at].ends_with(ident) && !l[at + word.len()..].starts_with(ident)
+                    let (before, rest) = l.split_at(at);
+                    !before.ends_with(ident)
+                        && !rest
+                            .strip_prefix(word)
+                            .is_some_and(|after| after.starts_with(ident))
                 })
                 .map(|(at, _)| (i, at))
         })

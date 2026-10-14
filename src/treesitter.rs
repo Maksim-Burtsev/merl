@@ -85,6 +85,21 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/cmake/injections.scm"),
     ),
     (
+        "hcl",
+        include_str!("../queries/hcl/highlights.scm"),
+        include_str!("../queries/hcl/injections.scm"),
+    ),
+    (
+        "terraform",
+        include_str!("../queries/terraform/highlights.scm"),
+        include_str!("../queries/terraform/injections.scm"),
+    ),
+    (
+        "ini",
+        include_str!("../queries/ini/highlights.scm"),
+        include_str!("../queries/ini/injections.scm"),
+    ),
+    (
         "proto",
         include_str!("../queries/proto/highlights.scm"),
         include_str!("../queries/proto/injections.scm"),
@@ -201,6 +216,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/luadoc/highlights.scm"),
         "",
     ),
+    (
+        "zig",
+        include_str!("../queries/zig/highlights.scm"),
+        include_str!("../queries/zig/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -220,6 +240,9 @@ const ALIASES: &[(&str, &str)] = &[
     ("xsd", "xml"),
     ("xslt", "xml"),
     ("svg", "xml"),
+    ("terraform_vars", "terraform"),
+    ("confini", "ini"),
+    ("dosini", "ini"),
 ];
 
 const PREDICATES: &[&str] = &[
@@ -377,6 +400,7 @@ pub fn for_syntax(
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Go" => lang("go"),
+        "INI" if path.is_some_and(ini) => lang("ini"),
         "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "Kotlin" => lang("kotlin"),
@@ -391,12 +415,46 @@ pub fn for_syntax(
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
         "Swift" => lang("swift"),
+        "Terraform" => terraform(path, lines),
         "Markdown" => lang("markdown"),
         "TypeScript" => lang("typescript"),
         "TypeScriptReact" if !astro => lang("tsx"),
         "Lua" => lang("lua"),
+        "Zig" => lang("zig"),
         _ => None,
     }
+}
+
+fn terraform(path: Option<&Path>, lines: &[String]) -> Option<&'static Lang> {
+    match path?.extension()?.to_str()? {
+        "hcl" => lang("hcl"),
+        "tfvars" => lang("terraform"),
+        "tf" if lines.iter().any(|l| {
+            let l = l.trim_start();
+            !l.is_empty() && !l.starts_with([';', '/'])
+        }) =>
+        {
+            lang("terraform")
+        }
+        _ => None,
+    }
+}
+
+fn ini(path: &Path) -> bool {
+    path.extension().is_some_and(|e| e == "ini" || e == "INI")
+        || path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+            [
+                ".coveragerc",
+                ".npmrc",
+                ".pylintrc",
+                ".gitlint",
+                "setup.cfg",
+                "pudb.cfg",
+                ".oelint.cfg",
+                ".wakatime.cfg",
+            ]
+            .contains(&n)
+        })
 }
 
 fn hashbang(first: &str) -> Option<&str> {
@@ -534,12 +592,11 @@ fn html_or_xml(path: &Path, lines: &[String]) -> Option<&'static Lang> {
     if xml { lang("xml") } else { None }
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn docbook_or_xbl(lines: &[String]) -> bool {
     lines.iter().take(100).any(|l| {
         let lower = l.to_lowercase();
-        l.find("<!DOCTYPE")
-            .is_some_and(|i| l[i..].contains("DocBook"))
+        l.split_once("<!DOCTYPE")
+            .is_some_and(|(_, doctype)| doctype.contains("DocBook"))
             || lower.contains(r#" xmlns="http://docbook.org/ns/docbook""#)
             || lower.contains(r#"xmlns:xbl="http://www.mozilla.org/xbl""#)
     })
@@ -626,6 +683,8 @@ fn grammar(name: &str) -> Option<Language> {
         "dockerfile" => tree_sitter_dockerfile_updated::language(),
         "cmake" => tree_sitter_cmake::LANGUAGE.into(),
         "proto" => tree_sitter_proto::LANGUAGE.into(),
+        "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
+        "ini" => tree_sitter_ini::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),
@@ -636,6 +695,7 @@ fn grammar(name: &str) -> Option<Language> {
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
         "lua" => tree_sitter_lua::LANGUAGE.into(),
         "luadoc" => tree_sitter_luadoc::LANGUAGE.into(),
+        "zig" => tree_sitter_zig::LANGUAGE.into(),
         _ => return None,
     })
 }
@@ -1304,7 +1364,6 @@ const TEXTMATE: &[(&str, &str)] = &[
     ("variable.parameter", "variable.parameter"),
 ];
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
     static SCOPES: OnceLock<HashMap<&str, Scope>> = OnceLock::new();
     let scopes = SCOPES.get_or_init(|| {
@@ -1318,7 +1377,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
         if let Some(s) = scopes.get(name) {
             break *s;
         }
-        name = &name[..name.rfind('.')?];
+        name = name.rsplit_once('.')?.0;
     };
     Some(crate::theme::style(highlighter.style_for_stack(&[scope])))
 }

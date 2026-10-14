@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -332,12 +331,7 @@ pub fn ruby_self_is_class(text: &str, line1: usize) -> bool {
     }
 }
 
-pub fn ruby_roots(
-    root: &Path,
-    home: &Path,
-    gem_env: &[PathBuf],
-    ask: impl FnOnce() -> Option<String>,
-) -> Vec<PathBuf> {
+fn locked_gems(root: &Path) -> Vec<PathBuf> {
     let lock = std::fs::read_to_string(root.join("Gemfile.lock")).unwrap_or_default();
     let mut gems: Vec<PathBuf> = Vec::new();
     let (mut section, mut remote, mut revision) = ("", "", "");
@@ -373,6 +367,16 @@ pub fn ruby_roots(
             }
         }
     }
+    gems
+}
+
+pub fn ruby_roots(
+    root: &Path,
+    home: &Path,
+    gem_env: &[PathBuf],
+    ask: impl FnOnce() -> Option<String>,
+) -> Vec<PathBuf> {
+    let gems = locked_gems(root);
     if gems.is_empty() {
         return Vec::new();
     }

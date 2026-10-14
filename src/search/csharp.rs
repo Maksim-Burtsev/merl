@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -661,6 +660,57 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
     }
 }
 
+fn cs_returned(lines: &[String], k: usize) -> Option<String> {
+    let ls: Vec<&str> = lines.iter().map(String::as_str).collect();
+    let mut e = cs_enclosing(&ls, k)?;
+    loop {
+        let header = ls[e].trim_start();
+        if header.contains("=>") || header.contains("delegate") {
+            return None;
+        }
+        let control = [
+            "if",
+            "else",
+            "for",
+            "foreach",
+            "while",
+            "do",
+            "switch",
+            "try",
+            "catch",
+            "finally",
+            "using",
+            "lock",
+            "case",
+            "default",
+            "checked",
+            "unchecked",
+            "fixed",
+        ]
+        .iter()
+        .any(|kw| {
+            header
+                .strip_prefix(kw)
+                .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        });
+        if !control {
+            break;
+        }
+        e = cs_enclosing(&ls, e)?;
+    }
+    if cs_enclosing(&ls, e).is_none_or(|t| cs_type_decl(ls[t]).is_none()) {
+        return None;
+    }
+    let name = cs_signature(uncommented(Kind::CSharp, ls[e]).split('(').next()?.trim())?.name;
+    let written = cs_returns(ls[e], &name)?;
+    let async_ = Regex::new(r"\basync\b").is_ok_and(|re| re.is_match(ls[e]));
+    if async_ {
+        cs_awaited(&written).map(str::to_owned)
+    } else {
+        Some(written)
+    }
+}
+
 pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> Option<String> {
     static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"\bnew\s+({CS_TYPE})$")).expect("the regex is a literal")
@@ -736,55 +786,7 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
         .strip_suffix("return")
         .is_some_and(|h| !h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
     {
-        let k = from + target.matches('\n').count();
-        let ls: Vec<&str> = lines.iter().map(String::as_str).collect();
-        let mut e = cs_enclosing(&ls, k)?;
-        loop {
-            let header = ls[e].trim_start();
-            if header.contains("=>") || header.contains("delegate") {
-                return None;
-            }
-            let control = [
-                "if",
-                "else",
-                "for",
-                "foreach",
-                "while",
-                "do",
-                "switch",
-                "try",
-                "catch",
-                "finally",
-                "using",
-                "lock",
-                "case",
-                "default",
-                "checked",
-                "unchecked",
-                "fixed",
-            ]
-            .iter()
-            .any(|kw| {
-                header
-                    .strip_prefix(kw)
-                    .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
-            });
-            if !control {
-                break;
-            }
-            e = cs_enclosing(&ls, e)?;
-        }
-        if cs_enclosing(&ls, e).is_none_or(|t| cs_type_decl(ls[t]).is_none()) {
-            return None;
-        }
-        let name = cs_signature(uncommented(Kind::CSharp, ls[e]).split('(').next()?.trim())?.name;
-        let written = cs_returns(ls[e], &name)?;
-        let async_ = Regex::new(r"\basync\b").is_ok_and(|re| re.is_match(ls[e]));
-        return if async_ {
-            cs_awaited(&written).map(str::to_owned)
-        } else {
-            Some(written)
-        };
+        return cs_returned(lines, from + target.matches('\n').count());
     }
     None
 }

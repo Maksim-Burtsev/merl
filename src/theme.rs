@@ -1,8 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::struct_excessive_bools, reason = "#858")]
-#![expect(clippy::suboptimal_flops, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -226,7 +221,7 @@ impl Theme {
             if let Some(style) = self.groups.get(name) {
                 return Some(*style);
             }
-            name = &name[..name.rfind('.')?];
+            name = name.rsplit_once('.')?.0;
         }
     }
 
@@ -280,8 +275,10 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let bg = s.background.unwrap_or(SynColor::BLACK);
     let fg = s.foreground.unwrap_or(SynColor::WHITE);
     let over_bg = |c: SynColor| rgb(over_at_own_alpha(c, bg));
-    let normal = drawn(&groups, "Normal", (rgb(fg), rgb(bg)))
-        .map_or((rgb(fg), rgb(bg)), |(f, b)| (f.unwrap_or(rgb(fg)), b));
+    let normal = drawn(&groups, "Normal", (rgb(fg), rgb(bg))).map_or_else(
+        || (rgb(fg), rgb(bg)),
+        |(f, b)| (f.unwrap_or_else(|| rgb(fg)), b),
+    );
     let line_hl_syn = match drawn(&groups, "CursorLine", normal) {
         Some((_, c)) => syn(c),
         None => s
@@ -334,7 +331,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
                 .iter()
                 .all(|&w| wcag_contrast(c, w) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
         })
-        .unwrap_or(rgb(toward));
+        .unwrap_or_else(|| rgb(toward));
     let own_gutter = s
         .gutter_foreground
         .map_or_else(|| mix(fg, bg, 45), |c| over_at_own_alpha(c, bg));
@@ -347,7 +344,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .step_by(10)
         .map(|percent| blend(toward, fg, percent))
         .find(|&c| wcag_contrast(c, tag_bg) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
-        .unwrap_or(rgb(toward));
+        .unwrap_or_else(|| rgb(toward));
     let selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
     let find_fg = match (s.find_highlight, s.find_highlight_foreground) {
         (_, Some(c)) => Some(over_bg(c)),
@@ -433,6 +430,10 @@ fn drawn(
 }
 
 #[derive(Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an attribute of a highlight group in the theme file"
+)]
 struct Group {
     fg: Option<String>,
     bg: Option<String>,
@@ -566,6 +567,10 @@ const WORD_ON_TINT_CONTRAST_WCAG_AA: f64 = 4.5;
 
 const GUTTER_CONTRAST: f64 = 3.0;
 
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "the WCAG formula term by term: mul_add rounds otherwise and could move a contrast check the theme colours are picked by"
+)]
 fn wcag_luminance(c: Color) -> f64 {
     let Color::Rgb(r, g, b) = c else { return 0.0 };
     let lin = |v: u8| {
@@ -585,7 +590,10 @@ fn wcag_contrast(a: Color, b: Color) -> f64 {
 }
 
 fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
-    let m = |f: u8, b: u8| ((u32::from(f) * percent + u32::from(b) * (100 - percent)) / 100) as u8;
+    let m = |f: u8, b: u8| {
+        u8::try_from((u32::from(f) * percent + u32::from(b) * (100 - percent)) / 100)
+            .unwrap_or(u8::MAX)
+    };
     SynColor {
         r: m(fg.r, bg.r),
         g: m(fg.g, bg.g),
@@ -596,6 +604,10 @@ fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a setting of its own in the config file"
+)]
 pub struct Config {
     #[serde(default = "default_theme")]
     pub theme: String,

@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -70,6 +70,9 @@ LANGS = {
     "ruby": (["mastodon"], ["rb"]),
     "php": (["koel"], ["php"]),
     "elixir": (["phoenix"], ["ex", "exs"]),
+    "hcl": (["immich", "pipeline-library"], ["hcl"], 15),
+    "terraform": (["lem", "immich"], ["tf", "tfvars"], 10),
+    "ini": (["gitea"], ["ini"], 40),
     "proto": (["rules_go", "nowinandroid", "eShop", "gitea"], ["proto"], 25),
     "cmake": (["chibi-scheme", "leveldb", "redis"], ["CMakeLists.txt", "cmake"], 40),
     "dockerfile": (["mastodon", "paperless-ngx", "immich", "gitea"], ["Dockerfile", "dockerfile"]),
@@ -78,6 +81,7 @@ LANGS = {
     "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
     "diff": (["rules_go", "openzeppelin-contracts", "outline", "halo"], ["diff", "patch"]),
     "query": (["nvim-treesitter"], ["scm"]),
+    "zig": (["zls"], ["zig", "zon"]),
 }
 NOT_HTML = re.compile(
     r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
@@ -88,6 +92,7 @@ THEME_ONLY = {
     "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
     "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
                 "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
+    "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200

@@ -1,0 +1,4 @@
+# github-light: projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d `colorscheme github_light_default`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=0550ae b=1f2328 c=0a3069 d=57606a e=cf222e f=6639ba g=953800
+broken.hcl	1:e5c3b 2:ab2aba 3:abc13 4:c 5:c2
+config.hcl	1:d54 2:d13 3:d7 4:d9 5:e3c5b 6:a11b2c5bc5b 7:a4bc9 8:a8ba2 9:a5ba4 10:a3ba3 11:b8a4 12:a8ba5 13:a7ba4 15:g5c5b 16:a5b13a2ba3ba8ba 18:g4c8b 19:a6bc8 20:a3b2 21:a4bc5b2a5ba6bc 22:a4ba4 23:c8bf5bc3b 24:b 25:a4b2e3be2a5ba4bf9b3e2ba2c2b 26:a3b2e3b3e2a5ba3b4aba2b4 27:a3ba5ba5b8 28:a3ba5ba5b7 29:a5ba5ba5bab 30:a3ba10 31:a4ba18 32:a3ba32 33:a4bcb2e2a5ba2bc2b2e4bc3b2e5bc 34:a4bcb2e3be2a5ba2b6cb2e6b2c 35:a3bc37 36:a6b6 37:c9 38:c5b2a5ba4bc 39:b3 40:a8b7 41:c5b2a3ba3b 42:b3 43:a6bf10b2ab2abab2ab2abc3b3 44:a4bf24bc5b 45:b 46:b 47:b 49:e6c6babab 50:e5b2

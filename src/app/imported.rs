@@ -1,6 +1,3 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, bound, search};
 
 impl App {
@@ -101,110 +98,33 @@ impl App {
         path: &[String],
         depth: usize,
     ) -> Option<Vec<Candidate>> {
-        let module_files =
-            |module: &[String]| search::module_files(kind, &self.root, &self.files, here, module);
         let mut exports = None;
         let mut instance = None;
-        let names_down_to_word = |mut taken: Vec<String>| {
-            if let Some((_, after)) = chain.split_first() {
-                taken.extend(after.iter().cloned());
-                taken.push(word.to_owned());
-            }
-            taken
-        };
-        let whole_module = || {
-            let found = self
-                .module_candidates(self.project_module(here, &names_down_to_word(path.to_vec())));
-            (!found.is_empty()).then_some(found)
-        };
         let (files, inside) = match kind {
-            Kind::Python => {
-                let target = names_down_to_word(path.to_vec());
-                let floor = path.len().saturating_sub(1).max(1);
-                let declares = |name: &String| {
-                    let pattern = search::def_patterns(kind, name).join("|");
-                    self.grep(&pattern, false, false, |p| p == here)
-                        .unwrap_or_default()
-                        .iter()
-                        .any(|h| {
-                            self.text_of(&h.path).is_some_and(|text| {
-                                search::qualified(kind, &text, h.line1, name).is_none()
-                            })
-                        })
-                };
-                let found = (floor..target.len()).rev().find_map(|n| {
-                    let files = module_files(&target[..n]);
-                    let own = files == [here] && !target[n..].first().is_some_and(declares);
-                    (!files.is_empty() && !own).then(|| (files, target[n..].to_vec()))
-                });
-                match found {
-                    Some(found) => found,
-                    None => return whole_module(),
-                }
-            }
+            Kind::Python => match self.python_target(here, word, chain, path) {
+                Some(found) => found,
+                None => return self.whole_module(here, word, chain, path),
+            },
             Kind::TsJs => {
                 let (taken, module) = path.split_last()?;
-                let files = module_files(module);
+                let files = search::module_files(kind, &self.root, &self.files, here, module);
                 if files.is_empty() {
                     return None;
                 }
                 if taken == "*" {
-                    exports = files.iter().find_map(|f| {
-                        Some((f.clone(), search::module_exports(&self.text_of(f)?)?))
-                    });
+                    exports = self.star_exports(&files);
                 }
-                let class = |n: &String| {
-                    let pattern = search::def_patterns(kind, n).join("|");
-                    self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
-                        .unwrap_or_default()
-                        .iter()
-                        .any(|h| {
-                            self.text_of(&h.path).is_some_and(|t| {
-                                search::qualified(kind, &t, h.line1, n).is_none()
-                                    && search::declares_type(kind, &h.text)
-                            })
-                        })
-                };
-                let inside = match taken.as_str() {
-                    "*" => match (exports.as_ref().map(|(_, e)| e), chain.is_empty()) {
-                        (Some(search::ModuleExports::OneAssignment { name, .. }), true) => {
-                            vec![name.clone().unwrap_or_else(|| word.to_owned())]
-                        }
-                        (Some(search::ModuleExports::Piecemeal), true) => {
-                            vec![word.to_owned()]
-                        }
-                        (
-                            Some(search::ModuleExports::OneAssignment {
-                                name: Some(name), ..
-                            }),
-                            false,
-                        ) if class(name) => {
-                            let mut names = vec![name.clone()];
-                            names.extend(chain[1..].iter().cloned());
-                            names.push(word.to_owned());
-                            names
-                        }
-                        _ => names_down_to_word(Vec::new()),
-                    },
-                    "default" if chain.len() == 1 => {
-                        match files
-                            .iter()
-                            .find_map(|f| search::default_class(&self.text_of(f)?))
-                        {
-                            Some(class) => {
-                                instance = Some(format!("{}: {class}", chain[0]));
-                                vec![class, word.to_owned()]
-                            }
-                            None => return Some(Vec::new()),
-                        }
-                    }
-                    "default" if !chain.is_empty() => return Some(Vec::new()),
-                    "default" => vec![word.to_owned()],
-                    name => names_down_to_word(vec![name.to_owned()]),
+                let Some(inside) =
+                    self.ts_inside(word, chain, taken, &files, exports.as_ref(), &mut instance)
+                else {
+                    return Some(Vec::new());
                 };
                 (files, inside)
             }
-            Kind::Go => (module_files(path), names_down_to_word(Vec::new())),
+            Kind::Go => (
+                search::module_files(kind, &self.root, &self.files, here, path),
+                names_down_to_word(word, chain, Vec::new()),
+            ),
             Kind::Julia if path.first().is_some_and(|p| !p.starts_with('.')) => return None,
             _ => return Some(Vec::new()),
         };
@@ -214,6 +134,174 @@ impl App {
         let Some(name) = inside.last() else {
             return Some(Vec::new());
         };
+        let wanted = |p: &Path| files.iter().any(|f| f == p);
+        let mut hits = self.declared_inside(kind, &files, &inside, name);
+        let named = path.last().is_some_and(|t| t != "default");
+        if hits.is_empty() && kind == Kind::TsJs && inside.len() <= 1 && named {
+            hits = self.renamed_export(name, |p| {
+                self.grep(p, false, false, wanted).unwrap_or_default()
+            });
+        }
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, search::ModuleExports::OneAssignment { line1, .. })) = &exports
+        {
+            hits = vec![self.export_hit(file, *line1)];
+        }
+        if hits.is_empty()
+            && chain.is_empty()
+            && let Some((file, search::ModuleExports::Piecemeal)) = &exports
+        {
+            return Some(self.module_candidates(vec![file.clone()]));
+        }
+        if hits.is_empty()
+            && kind == Kind::TsJs
+            && instance.is_none()
+            && path.last().is_some_and(|t| t == "default")
+        {
+            hits = self
+                .grep(r"^export\s+default\b", false, false, wanted)
+                .unwrap_or_default();
+            if let Some(found) = self.default_reexported(kind, &hits, depth) {
+                return Some(found);
+            }
+        }
+        if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
+            return Some(self.module_candidates(files));
+        }
+        if hits.is_empty()
+            && kind == Kind::TsJs
+            && depth < 4
+            && !inside.is_empty()
+            && instance.is_none()
+        {
+            let found = self.ts_reexported(kind, &files, &inside, depth);
+            if !found.is_empty() {
+                return Some(found);
+            }
+        }
+        if hits.is_empty() && kind == Kind::Python && depth < 4 {
+            let found = self.python_handed_on(kind, &files, &inside, depth);
+            if !found.is_empty() {
+                return Some(found);
+            }
+        }
+        if hits.is_empty()
+            && kind == Kind::Python
+            && inside
+                .first()
+                .is_some_and(|name| self.unbound(kind, &files, name))
+            && let Some(found) = self.whole_module(here, word, chain, path)
+        {
+            return Some(found);
+        }
+        let hits = self.host_built(kind, hits);
+        Some(import_candidates(kind, hits, instance.as_ref()))
+    }
+
+    fn whole_module(
+        &self,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        path: &[String],
+    ) -> Option<Vec<Candidate>> {
+        let found = self.module_candidates(
+            self.project_module(here, &names_down_to_word(word, chain, path.to_vec())),
+        );
+        (!found.is_empty()).then_some(found)
+    }
+
+    fn python_target(
+        &self,
+        here: &Path,
+        word: &str,
+        chain: &[String],
+        path: &[String],
+    ) -> Option<(Vec<PathBuf>, Vec<String>)> {
+        let kind = Kind::Python;
+        let target = names_down_to_word(word, chain, path.to_vec());
+        let floor = path.len().saturating_sub(1).max(1);
+        let declares = |name: &String| {
+            let pattern = search::def_patterns(kind, name).join("|");
+            self.grep(&pattern, false, false, |p| p == here)
+                .unwrap_or_default()
+                .iter()
+                .any(|h| {
+                    self.text_of(&h.path)
+                        .is_some_and(|text| search::qualified(kind, &text, h.line1, name).is_none())
+                })
+        };
+        (floor..target.len()).rev().find_map(|n| {
+            let files = search::module_files(kind, &self.root, &self.files, here, &target[..n]);
+            let own = files == [here] && !target[n..].first().is_some_and(declares);
+            (!files.is_empty() && !own).then(|| (files, target[n..].to_vec()))
+        })
+    }
+
+    fn ts_inside(
+        &self,
+        word: &str,
+        chain: &[String],
+        taken: &str,
+        files: &[PathBuf],
+        exports: Option<&(PathBuf, search::ModuleExports)>,
+        instance: &mut Option<String>,
+    ) -> Option<Vec<String>> {
+        let kind = Kind::TsJs;
+        let class = |n: &String| {
+            let pattern = search::def_patterns(kind, n).join("|");
+            self.grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
+                .unwrap_or_default()
+                .iter()
+                .any(|h| {
+                    self.text_of(&h.path).is_some_and(|t| {
+                        search::qualified(kind, &t, h.line1, n).is_none()
+                            && search::declares_type(kind, &h.text)
+                    })
+                })
+        };
+        Some(match taken {
+            "*" => match (exports.map(|(_, e)| e), chain.is_empty()) {
+                (Some(search::ModuleExports::OneAssignment { name, .. }), true) => {
+                    vec![name.clone().unwrap_or_else(|| word.to_owned())]
+                }
+                (Some(search::ModuleExports::Piecemeal), true) => {
+                    vec![word.to_owned()]
+                }
+                (
+                    Some(search::ModuleExports::OneAssignment {
+                        name: Some(name), ..
+                    }),
+                    false,
+                ) if class(name) => {
+                    let mut names = vec![name.clone()];
+                    names.extend(chain[1..].iter().cloned());
+                    names.push(word.to_owned());
+                    names
+                }
+                _ => names_down_to_word(word, chain, Vec::new()),
+            },
+            "default" if chain.len() == 1 => {
+                let class = files
+                    .iter()
+                    .find_map(|f| search::default_class(&self.text_of(f)?))?;
+                *instance = Some(format!("{}: {class}", chain[0]));
+                vec![class, word.to_owned()]
+            }
+            "default" if !chain.is_empty() => return None,
+            "default" => vec![word.to_owned()],
+            name => names_down_to_word(word, chain, vec![name.to_owned()]),
+        })
+    }
+
+    fn declared_inside(
+        &self,
+        kind: Kind,
+        files: &[PathBuf],
+        inside: &[String],
+        name: &str,
+    ) -> Vec<Hit> {
         let wanted = |p: &Path| files.iter().any(|f| f == p);
         let mut patterns = search::def_patterns(kind, name);
         let member = kind == Kind::TsJs && inside.len() > 1;
@@ -243,148 +331,103 @@ impl App {
                     && (!added || !bare.is_match(&h.text) || enumed || literal)
             })
         });
-        let named = path.last().is_some_and(|t| t != "default");
-        if hits.is_empty() && kind == Kind::TsJs && within.is_none() && named {
-            hits = self.renamed_export(name, |p| {
-                self.grep(p, false, false, wanted).unwrap_or_default()
-            });
+        hits
+    }
+
+    fn default_reexported(&self, kind: Kind, hits: &[Hit], depth: usize) -> Option<Vec<Candidate>> {
+        let [hit] = hits else {
+            return None;
+        };
+        if depth >= 4 {
+            return None;
         }
-        if hits.is_empty()
-            && chain.is_empty()
-            && let Some((file, search::ModuleExports::OneAssignment { line1, .. })) = &exports
-        {
-            let line = *line1;
-            hits = vec![Hit {
-                deleted: None,
-                text: self
-                    .text_of(file)
-                    .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
-                    .unwrap_or_default(),
-                path: file.clone(),
-                line1: line,
-                byte_col: None,
-            }];
+        let name = search::default_name(&hit.text)?;
+        let source = self.text_of(&hit.path).and_then(|t| {
+            let imports = search::imports(kind, &t);
+            bound(&imports, &name)
+        })?;
+        self.imported_at(kind, &hit.path, &name, &[], &source, depth + 1)
+            .filter(|f| !f.is_empty())
+    }
+
+    fn star_exports(&self, files: &[PathBuf]) -> Option<(PathBuf, search::ModuleExports)> {
+        files
+            .iter()
+            .find_map(|f| Some((f.clone(), search::module_exports(&self.text_of(f)?)?)))
+    }
+
+    fn export_hit(&self, file: &Path, line: usize) -> Hit {
+        Hit {
+            deleted: None,
+            text: self
+                .text_of(file)
+                .and_then(|t| t.lines().nth(line - 1).map(str::to_owned))
+                .unwrap_or_default(),
+            path: file.to_path_buf(),
+            line1: line,
+            byte_col: None,
         }
-        if hits.is_empty()
-            && chain.is_empty()
-            && let Some((file, search::ModuleExports::Piecemeal)) = &exports
-        {
-            return Some(self.module_candidates(vec![file.clone()]));
-        }
-        if hits.is_empty()
-            && kind == Kind::TsJs
-            && instance.is_none()
-            && path.last().is_some_and(|t| t == "default")
-        {
-            hits = self
-                .grep(r"^export\s+default\b", false, false, wanted)
-                .unwrap_or_default();
-            if let [hit] = hits.as_slice()
-                && depth < 4
-                && let Some(name) = search::default_name(&hit.text)
-                && let Some(source) = self.text_of(&hit.path).and_then(|t| {
-                    let imports = search::imports(kind, &t);
-                    bound(&imports, &name)
-                })
-                && let Some(found) = self
-                    .imported_at(kind, &hit.path, &name, &[], &source, depth + 1)
-                    .filter(|f| !f.is_empty())
-            {
-                return Some(found);
+    }
+
+    fn python_handed_on(
+        &self,
+        kind: Kind,
+        files: &[PathBuf],
+        inside: &[String],
+        depth: usize,
+    ) -> Vec<Candidate> {
+        let mut found: Vec<Candidate> = Vec::new();
+        for f in files {
+            for c in self.handed_on(kind, f, inside, depth) {
+                push_new(&mut found, c);
             }
         }
-        if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
-            return Some(self.module_candidates(files));
-        }
-        if hits.is_empty()
-            && kind == Kind::TsJs
-            && depth < 4
-            && !inside.is_empty()
-            && instance.is_none()
-        {
-            let (first, rest) = inside.split_first().expect("not empty");
-            let (chain, word) = match rest.split_last() {
-                Some((word, between)) => {
-                    let mut chain = vec![first.clone()];
-                    chain.extend(between.iter().cloned());
-                    (chain, word.clone())
-                }
-                None => (Vec::new(), first.clone()),
+        found
+    }
+
+    fn unbound(&self, kind: Kind, files: &[PathBuf], name: &str) -> bool {
+        files.iter().all(|f| {
+            self.text_of(f)
+                .is_none_or(|t| search::bindings(kind, &t, 1, name).is_empty())
+        })
+    }
+
+    fn ts_reexported(
+        &self,
+        kind: Kind,
+        files: &[PathBuf],
+        inside: &[String],
+        depth: usize,
+    ) -> Vec<Candidate> {
+        let (first, rest) = inside.split_first().expect("not empty");
+        let (chain, word) = match rest.split_last() {
+            Some((word, between)) => {
+                let mut chain = vec![first.clone()];
+                chain.extend(between.iter().cloned());
+                (chain, word.clone())
+            }
+            None => (Vec::new(), first.clone()),
+        };
+        let mut found: Vec<Candidate> = Vec::new();
+        for f in files {
+            let Some(text) = self.text_of(f) else {
+                continue;
             };
-            let mut found: Vec<Candidate> = Vec::new();
-            for f in &files {
-                let Some(text) = self.text_of(f) else {
-                    continue;
-                };
-                for search::Reexport {
-                    mut module,
-                    name_in_module,
-                } in search::reexported(&text, first)
-                {
-                    module.push(name_in_module);
-                    let more = self
-                        .imported_at(kind, f, &word, &chain, &module, depth + 1)
-                        .unwrap_or_default();
-                    for c in more {
-                        if !found
-                            .iter()
-                            .any(|o| (&o.hit.path, o.hit.line1) == (&c.hit.path, c.hit.line1))
-                        {
-                            found.push(c);
-                        }
-                    }
+            for search::Reexport {
+                mut module,
+                name_in_module,
+            } in search::reexported(&text, first)
+            {
+                module.push(name_in_module);
+                let more = self
+                    .imported_at(kind, f, &word, &chain, &module, depth + 1)
+                    .unwrap_or_default();
+                for c in more {
+                    push_new(&mut found, c);
                 }
             }
-            if !found.is_empty() {
-                return Some(found);
-            }
         }
-        if hits.is_empty() && kind == Kind::Python && depth < 4 {
-            let mut found: Vec<Candidate> = Vec::new();
-            for f in &files {
-                for c in self.handed_on(kind, f, &inside, depth) {
-                    if !found
-                        .iter()
-                        .any(|o| (&o.hit.path, o.hit.line1) == (&c.hit.path, c.hit.line1))
-                    {
-                        found.push(c);
-                    }
-                }
-            }
-            if !found.is_empty() {
-                return Some(found);
-            }
-        }
-        let unbound = |name: &String| {
-            files.iter().all(|f| {
-                self.text_of(f)
-                    .is_none_or(|t| search::bindings(kind, &t, 1, name).is_empty())
-            })
-        };
-        if hits.is_empty()
-            && kind == Kind::Python
-            && inside.first().is_some_and(unbound)
-            && let Some(found) = whole_module()
-        {
-            return Some(found);
-        }
-        let hits = self.host_built(kind, hits);
-        let label = |hit: &Hit| match (kind, hit.path.parent()) {
-            (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
-            (Kind::Go, _) => "./".to_owned(),
-            _ => hit.path.display().to_string(),
-        };
-        Some(
-            hits.into_iter()
-                .map(|hit| Candidate {
-                    reason: match &instance {
-                        Some(typed) => Reason::Receiver(typed.clone()),
-                        None => Reason::Import(label(&hit)),
-                    },
-                    hit,
-                })
-                .collect(),
-        )
+        found
     }
 
     fn handed_on(&self, kind: Kind, file: &Path, names: &[String], depth: usize) -> Vec<Candidate> {
@@ -468,6 +511,40 @@ impl App {
             })
             .collect()
     }
+}
+
+fn names_down_to_word(word: &str, chain: &[String], mut taken: Vec<String>) -> Vec<String> {
+    if let Some((_, after)) = chain.split_first() {
+        taken.extend(after.iter().cloned());
+        taken.push(word.to_owned());
+    }
+    taken
+}
+
+fn push_new(found: &mut Vec<Candidate>, c: Candidate) {
+    if !found
+        .iter()
+        .any(|o| (&o.hit.path, o.hit.line1) == (&c.hit.path, c.hit.line1))
+    {
+        found.push(c);
+    }
+}
+
+fn import_candidates(kind: Kind, hits: Vec<Hit>, instance: Option<&String>) -> Vec<Candidate> {
+    let label = |hit: &Hit| match (kind, hit.path.parent()) {
+        (Kind::Go, Some(dir)) if dir != Path::new("") => format!("{}/", dir.display()),
+        (Kind::Go, _) => "./".to_owned(),
+        _ => hit.path.display().to_string(),
+    };
+    hits.into_iter()
+        .map(|hit| Candidate {
+            reason: match instance {
+                Some(typed) => Reason::Receiver(typed.clone()),
+                None => Reason::Import(label(&hit)),
+            },
+            hit,
+        })
+        .collect()
 }
 
 static OWNER_ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

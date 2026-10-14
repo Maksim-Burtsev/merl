@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn styled(text: &str, class: &str) -> Vec<usize> {
@@ -35,7 +34,7 @@ fn an_ampersand_composes_with_the_rule_it_sits_in() {
 fn a_class_attribute_is_read_in_markup_and_jsx_only() {
     fn at<'a>(line: &'a str, word: &str, jsx: bool) -> Option<(Attr, &'a str)> {
         let read_as = if jsx { AttrLine::Jsx } else { AttrLine::Markup };
-        attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, &line[r]))
+        attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, line.get(r).unwrap()))
     }
     let tsx = r#"<b className="btn btn-primary" id="main">"#;
     assert_eq!(at(tsx, "primary", true), Some((Attr::Class, "btn-primary")));
@@ -221,7 +220,8 @@ fn a_style_block_is_lexed_alone_in_its_markup() {
 #[test]
 fn an_attribute_is_told_from_what_merely_looks_like_one() {
     let at = |line: &str, word: &str, read_as| {
-        attr_at(line, line.find(word).unwrap(), read_as).map(|(a, r)| (a, line[r].to_owned()))
+        attr_at(line, line.find(word).unwrap(), read_as)
+            .map(|(a, r)| (a, line.get(r).unwrap().to_owned()))
     };
     assert_eq!(
         at(r#"<p :class="active">"#, "active", AttrLine::Markup),

@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -55,86 +54,115 @@ pub fn in_def_scope(kind: Kind, here: &Path, path: &Path) -> bool {
         Kind::Elixir => kind_of(path) == Some(kind) && erlang(path) == erlang(here),
     }
 }
+fn toolchain_output(cmd: &str, args: &[&str]) -> Option<String> {
+    let out = toolchain(cmd, args).output().ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+fn python_roots(root: &Path) -> Vec<PathBuf> {
+    let venv = root.join(".venv");
+    let lib = std::fs::read_dir(venv.join("lib"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.file_name())
+        .find(|n| n.to_string_lossy().starts_with("python"));
+    match lib {
+        Some(lib) => {
+            let cfg = std::fs::read_to_string(venv.join("pyvenv.cfg")).unwrap_or_default();
+            let home = cfg.lines().find_map(|l| {
+                let (key, value) = l.split_once('=')?;
+                (key.trim() == "home").then(|| PathBuf::from(value.trim()))
+            });
+            let stdlib = home
+                .and_then(|h| h.join(&lib).canonicalize().ok())
+                .and_then(|exe| Some(exe.parent()?.parent()?.join("lib").join(&lib)));
+            let site = venv.join("lib").join(&lib).join("site-packages");
+            let system = cfg.lines().any(|l| {
+                l.split_once('=').is_some_and(|(k, v)| {
+                    k.trim() == "include-system-site-packages"
+                        && v.trim().eq_ignore_ascii_case("true")
+                })
+            });
+            let base = stdlib
+                .as_ref()
+                .filter(|_| system)
+                .map(|s| s.join("site-packages"));
+            stdlib.into_iter().chain([site]).chain(base).collect()
+        }
+        None => toolchain_output(
+            "python3",
+            &["-c", "import sys; print('\\n'.join(sys.path))"],
+        )
+        .unwrap_or_default()
+        .lines()
+        .map(PathBuf::from)
+        .collect(),
+    }
+}
+fn rust_roots(root: &Path, home: &Path) -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = toolchain_output("rustc", &["--print", "sysroot"])
+        .map(|s| PathBuf::from(s.trim()).join("lib/rustlib/src/rust/library"))
+        .into_iter()
+        .collect();
+    let cargo = std::env::var_os("CARGO_HOME")
+        .map_or_else(|| home.join(".cargo"), PathBuf::from)
+        .join("registry/src");
+    let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap_or_default();
+    dirs.extend(locked_crates(&cargo, &lock));
+    dirs
+}
+fn go_roots(root: &Path) -> Vec<PathBuf> {
+    let env = toolchain_output("go", &["env", "GOROOT", "GOMODCACHE"]).unwrap_or_default();
+    let mut env = env.lines();
+    let mut dirs = Vec::new();
+    if let Some(goroot) = env.next() {
+        dirs.push(PathBuf::from(goroot).join("src"));
+    }
+    let cache = env.next().map(PathBuf::from).unwrap_or_default();
+    let gomod = std::fs::read_to_string(root.join("go.mod")).unwrap_or_default();
+    dirs.extend(required_modules(&cache, &gomod));
+    dirs
+}
+fn ruby_env_roots(root: &Path, home: &Path) -> Vec<PathBuf> {
+    static RUBY_ANSWER_THIS_SESSION: std::sync::OnceLock<Option<String>> =
+        std::sync::OnceLock::new();
+    let env: Vec<PathBuf> = ["GEM_HOME", "GEM_PATH"]
+        .into_iter()
+        .filter_map(std::env::var_os)
+        .flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>())
+        .collect();
+    let script = "puts RbConfig::CONFIG['rubylibdir'], Gem.path";
+    ruby_roots(root, home, &env, || {
+        RUBY_ANSWER_THIS_SESSION
+            .get_or_init(|| toolchain_output("ruby", &["-e", script]))
+            .clone()
+    })
+}
+fn julia_env_roots(root: &Path, home: &Path) -> Vec<PathBuf> {
+    static SHARE: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    let share = SHARE.get_or_init(|| {
+        julia_share(&toolchain_output(
+            "julia",
+            &["--startup-file=no", "-e", "print(Sys.BINDIR)"],
+        )?)
+    });
+    let depot = julia_depot(std::env::var_os("JULIA_DEPOT_PATH"), home);
+    julia_roots(root, share.clone(), &depot)
+}
 pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
-    let run = |cmd: &str, args: &[&str]| -> Option<String> {
-        let out = toolchain(cmd, args).output().ok()?;
-        out.status
-            .success()
-            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
-    };
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
         .unwrap_or_default();
     let dirs: Vec<PathBuf> = match kind {
-        Kind::Python => {
-            let venv = root.join(".venv");
-            let lib = std::fs::read_dir(venv.join("lib"))
-                .into_iter()
-                .flatten()
-                .flatten()
-                .map(|e| e.file_name())
-                .find(|n| n.to_string_lossy().starts_with("python"));
-            match lib {
-                Some(lib) => {
-                    let cfg = std::fs::read_to_string(venv.join("pyvenv.cfg")).unwrap_or_default();
-                    let home = cfg.lines().find_map(|l| {
-                        let (key, value) = l.split_once('=')?;
-                        (key.trim() == "home").then(|| PathBuf::from(value.trim()))
-                    });
-                    let stdlib = home
-                        .and_then(|h| h.join(&lib).canonicalize().ok())
-                        .and_then(|exe| Some(exe.parent()?.parent()?.join("lib").join(&lib)));
-                    let site = venv.join("lib").join(&lib).join("site-packages");
-                    let system = cfg.lines().any(|l| {
-                        l.split_once('=').is_some_and(|(k, v)| {
-                            k.trim() == "include-system-site-packages"
-                                && v.trim().eq_ignore_ascii_case("true")
-                        })
-                    });
-                    let base = stdlib
-                        .as_ref()
-                        .filter(|_| system)
-                        .map(|s| s.join("site-packages"));
-                    stdlib.into_iter().chain([site]).chain(base).collect()
-                }
-                None => run(
-                    "python3",
-                    &["-c", "import sys; print('\\n'.join(sys.path))"],
-                )
-                .unwrap_or_default()
-                .lines()
-                .map(PathBuf::from)
-                .collect(),
-            }
-        }
-        Kind::Rust => {
-            let mut dirs: Vec<PathBuf> = run("rustc", &["--print", "sysroot"])
-                .map(|s| PathBuf::from(s.trim()).join("lib/rustlib/src/rust/library"))
-                .into_iter()
-                .collect();
-            let cargo = std::env::var_os("CARGO_HOME")
-                .map_or_else(|| home.join(".cargo"), PathBuf::from)
-                .join("registry/src");
-            let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap_or_default();
-            dirs.extend(locked_crates(&cargo, &lock));
-            dirs
-        }
-        Kind::Go => {
-            let env = run("go", &["env", "GOROOT", "GOMODCACHE"]).unwrap_or_default();
-            let mut env = env.lines();
-            let mut dirs = Vec::new();
-            if let Some(goroot) = env.next() {
-                dirs.push(PathBuf::from(goroot).join("src"));
-            }
-            let cache = env.next().map(PathBuf::from).unwrap_or_default();
-            let gomod = std::fs::read_to_string(root.join("go.mod")).unwrap_or_default();
-            dirs.extend(required_modules(&cache, &gomod));
-            dirs
-        }
+        Kind::Python => python_roots(root),
+        Kind::Rust => rust_roots(root, &home),
+        Kind::Go => go_roots(root),
         Kind::TsJs => node_modules(root, root),
-        Kind::Zig => zig_roots(&run("zig", &["env"]).unwrap_or_default()),
+        Kind::Zig => zig_roots(&toolchain_output("zig", &["env"]).unwrap_or_default()),
         Kind::C => c_roots(
-            run("xcrun", &["--show-sdk-path"])
+            toolchain_output("xcrun", &["--show-sdk-path"])
                 .map(|s| PathBuf::from(s.trim()))
                 .as_deref(),
             root,
@@ -148,21 +176,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         .to_vec(),
         Kind::Php => vec![root.join("vendor")],
         Kind::Swift => vec![root.join(".build/checkouts")],
-        Kind::Ruby => {
-            static RUBY_ANSWER_THIS_SESSION: std::sync::OnceLock<Option<String>> =
-                std::sync::OnceLock::new();
-            let env: Vec<PathBuf> = ["GEM_HOME", "GEM_PATH"]
-                .into_iter()
-                .filter_map(std::env::var_os)
-                .flat_map(|v| std::env::split_paths(&v).collect::<Vec<_>>())
-                .collect();
-            let script = "puts RbConfig::CONFIG['rubylibdir'], Gem.path";
-            ruby_roots(root, &home, &env, || {
-                RUBY_ANSWER_THIS_SESSION
-                    .get_or_init(|| run("ruby", &["-e", script]))
-                    .clone()
-            })
-        }
+        Kind::Ruby => ruby_env_roots(root, &home),
         Kind::PowerShell => {
             let pwsh = std::env::var_os("PATH").and_then(|p| {
                 std::env::split_paths(&p)
@@ -172,7 +186,7 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
             powershell_roots(std::env::var_os("PSModulePath"), &home, pwsh)
         }
         Kind::Dart => dart_roots(root, dart_sdk()),
-        Kind::Elixir => otp_roots(run(
+        Kind::Elixir => otp_roots(toolchain_output(
             "erl",
             &[
                 "-noshell",
@@ -180,25 +194,16 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
                 r#"io:format("~s", [code:root_dir()]), halt()."#,
             ],
         )),
-        Kind::Ocaml => ocaml_roots(run("ocamlc", &["-where"])),
+        Kind::Ocaml => ocaml_roots(toolchain_output("ocamlc", &["-where"])),
         Kind::Cmake => cmake_roots(std::env::var_os("PATH").and_then(|p| {
             std::env::split_paths(&p)
                 .map(|d| d.join("cmake"))
                 .find(|p| p.is_file())
         })),
-        Kind::Julia => {
-            static SHARE: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-            let share = SHARE.get_or_init(|| {
-                julia_share(&run(
-                    "julia",
-                    &["--startup-file=no", "-e", "print(Sys.BINDIR)"],
-                )?)
-            });
-            let depot = julia_depot(std::env::var_os("JULIA_DEPOT_PATH"), &home);
-            julia_roots(root, share.clone(), &depot)
-        }
+        Kind::Julia => julia_env_roots(root, &home),
         Kind::Perl => {
-            let inc = run("perl", &["-e", "print join qq{\\n}, @INC"]).unwrap_or_default();
+            let inc =
+                toolchain_output("perl", &["-e", "print join qq{\\n}, @INC"]).unwrap_or_default();
             perl_roots(root, &inc)
         }
         Kind::EmacsLisp => vec![home.join(".emacs.d/elpa"), home.join(".config/emacs/elpa")],
@@ -208,9 +213,11 @@ pub fn external_roots(kind: Kind, root: &Path) -> Vec<PathBuf> {
         ],
         Kind::Scheme => {
             let script = "(for-each displayln (current-library-collection-paths))";
-            (run("racket", &["-e", script]).unwrap_or_default().lines())
-                .map(PathBuf::from)
-                .collect()
+            (toolchain_output("racket", &["-e", script])
+                .unwrap_or_default()
+                .lines())
+            .map(PathBuf::from)
+            .collect()
         }
         Kind::Jvm
         | Kind::CSharp

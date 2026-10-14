@@ -1,0 +1,4 @@
+# gruvbox-dark: ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796 `set background=dark | colorscheme gruvbox`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=b8bb26i b=83a598 c=ebdbb2 d=928374i e=b8bb26b f=fe8019
+.coveragerc	1:d20 2:fe3f 3:b6fa4 4:b6fa3 6:fe6f 7:b13f 8:c14 9:c24
+settings.ini	1:d18 2:d13 3:b6fa16 5:fe6f 6:b4fa11 7:b4fa4 8:b4fa37 9:b5f 10:b6fa18 11:b3fa28 13:fe16f 14:b10 15:c15 16:c8fa3 18:fe17f 19:b13fa15 20:b10fa4 22:f2 23:c23

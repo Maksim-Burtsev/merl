@@ -1,6 +1,4 @@
 #![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::ignore_without_reason, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::string_slice, reason = "#858"))]
 #![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -79,14 +77,13 @@ fn drawn(b: &Buffer, line: usize) -> Vec<(usize, String)> {
 
 fn token(line: &str, col: usize) -> &str {
     let word = |c: char| c.is_alphanumeric() || c == '_';
-    let start = line[..col].rfind(|c| !word(c)).map_or(0, |i| i + 1);
-    let end = line[col..]
-        .find(|c| !word(c))
-        .map_or(line.len(), |i| col + i);
+    let (before, after) = (line.get(..col).unwrap(), line.get(col..).unwrap());
+    let start = before.rfind(|c| !word(c)).map_or(0, |i| i + 1);
+    let end = after.find(|c| !word(c)).map_or(line.len(), |i| col + i);
     if start < end {
-        &line[start..end]
+        line.get(start..end).unwrap()
     } else {
-        &line[col..=col]
+        line.get(col..=col).unwrap()
     }
 }
 
@@ -278,6 +275,21 @@ fn cmake_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn hcl_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("hcl");
+}
+
+#[test]
+fn terraform_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("terraform");
+}
+
+#[test]
+fn ini_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("ini");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -295,6 +307,11 @@ fn kotlin_is_coloured_as_lazyvim() {
 #[test]
 fn swift_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("swift");
+}
+
+#[test]
+fn zig_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("zig");
 }
 
 #[test]
@@ -425,10 +442,30 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     assert_eq!(sexp("CMakeCache.txt", b"A:BOOL=ON\n"), "");
     assert!(sexp("a.proto", b"message A {}\n").contains("(message "));
     assert_eq!(sexp("a.protodevel", b"message A {}\n"), "");
+    for f in ["a.hcl", "a.tf", "a.tfvars"] {
+        assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
+    }
+    assert_eq!(sexp("a.tf", b"; tinyfugue\n/def x\n"), "");
+    assert_eq!(sexp("a.tf", b"; tinyfugue\n\n  ; x\n\t/def y\n"), "");
+    for f in [
+        "a.ini",
+        "A.INI",
+        "setup.cfg",
+        ".coveragerc",
+        ".pylintrc",
+        ".npmrc",
+    ] {
+        assert!(sexp(f, b"[a]\nb = 1\n").contains("(document "), "{f}");
+    }
+    assert_eq!(sexp("a.cfg", b"[a]\nb = 1\n"), "");
+    assert_eq!(sexp(".editorconfig", b"[a]\nb = 1\n"), "");
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("A.swift", b"class A {}\n").contains("(source_file "));
+    for f in ["a.zig", "build.zig.zon"] {
+        assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
+    }
     for f in [
         "a.rb",
         "a.rbi",
@@ -749,12 +786,20 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("dockerfile"), Some("dockerfile"));
     assert_eq!(name("cmake"), Some("cmake"));
     assert_eq!(name("proto"), Some("proto"));
+    assert_eq!(name("hcl"), Some("hcl"));
+    assert_eq!(name("terraform"), Some("terraform"));
+    assert_eq!(name("tfvars"), Some("terraform"));
+    assert_eq!(name("terraform-vars"), Some("terraform"));
+    assert_eq!(name("tf"), None);
+    assert_eq!(name("ini"), Some("ini"));
+    assert_eq!(name("dosini"), Some("ini"));
     assert_eq!(name("swift"), Some("swift"));
     assert_eq!(name("ruby"), Some("ruby"));
     assert_eq!(name("rb"), Some("ruby"));
     assert_eq!(name("php"), Some("php"));
     assert_eq!(name("elixir"), Some("elixir"));
     assert_eq!(name("ex"), Some("elixir"));
+    assert_eq!(name("zig"), Some("zig"));
 }
 
 #[test]
@@ -966,7 +1011,7 @@ fn the_speed_rows_finish_on_a_file_with_few_or_no_indented_lines() {
 }
 
 #[test]
-#[ignore]
+#[ignore = "times parsing against syntect in release; MERL_TS_SPEED=FILES runs it"]
 fn speed() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let files = std::env::var("MERL_TS_SPEED").unwrap_or_default();

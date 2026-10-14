@@ -173,8 +173,8 @@ Neovim's cursor, PHP's ftplugin adds `<:>` to `matchpairs`, and matchparen draws
 
 Elixir (#808), `.ex` and `.exs` (a `.ex` that Neovim's `detect.ex` takes for Euphoria from its first
 100 lines stays on syntect), with its injections (`markdown` in `@moduledoc` and `@doc` strings,
-`regex` in `~r` sigils, `json` in `~j`; `comment`, `heex`, `eex`, `surface` and `zig` stay plain, as
-LazyVim installs no parser for them). The bench's files come from phoenix, pinned in `THEME_ONLY`
+`regex` in `~r` sigils, `json` in `~j`, `zig` in `~z` and `~Z` since Zig's step; `comment`, `heex`,
+`eex` and `surface` stay plain, as LazyVim installs no parser for them). The bench's files come from phoenix, pinned in `THEME_ONLY`
 as `tools/d-bench/projects.tsv` has no Elixir project:
 
 | language | chars | lowest | median | highest |
@@ -214,6 +214,31 @@ Make (#809) stays on syntect: the commit nvim-treesitter pins (70613f3) has no `
 cannot be a git dependency, and crates.io's only release, tree-sitter-make 1.1.1, is built from an
 older grammar (another `grammar.json` and `parser.c`).
 
+HCL and Terraform (#809): `.hcl` is `hcl`; `.tfvars`, and a `.tf` with a line that is neither blank
+nor starts with `;` or `/` (Neovim's `detect.tf`), are `terraform`, the same grammar (nvim-treesitter's
+terraform dialect differs from hcl only in its name) with terraform's queries, which inherit hcl's;
+`comment` stays plain. tree-sitter-hcl is a git dependency at the pin (64ad627): crates.io's 1.1.0
+has another `parser.c`. Files from immich, pipeline-library and lem:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| HCL | 3,592 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+| Terraform | 4,842 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+INI (#809): `.ini`, and the names Neovim calls `dosini` that syntect also reads as INI (`setup.cfg`,
+`.coveragerc`, `.pylintrc` and their kin); a plain `.cfg`, `.editorconfig` and `.desktop` are other
+filetypes in Neovim and stay on syntect. crates.io's tree-sitter-ini 1.4.0, whose `parser.c` is the
+pin's (e4018b5) but for its generator header. Files from gitea:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| INI | 9,762 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+gitignore (#809) stays on syntect: the commit nvim-treesitter pins (shunsambongi's f4685bf) binds
+tree-sitter 0.20 in its `Cargo.toml`, which cannot link beside merl's 0.27 (both declare `links =
+"tree-sitter"`), and crates.io has no release of it: konomanoasa-tree-sitter-gitignore 0.3.1 is
+another grammar (an external scanner, 69 symbols against the pin's 51).
+
 Protobuf (#809), `.proto` files, which Neovim calls `proto` (`.protobuf` and `.protodevel`, Protocol
 Buffer in syntect and nothing in Neovim, stay on syntect); `comment` stays plain, as LazyVim
 installs no parser for it. The commit nvim-treesitter pins (d7d1542) is newer than crates.io's
@@ -224,6 +249,16 @@ d-bench projects hold no `.proto` of 80:
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
 | Protobuf | 4,229 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Zig (#807), `.zig` and `.zon`, as both syntect and Neovim call them; `comment` stays plain, as
+LazyVim installs no parser for it. The commit nvim-treesitter pins (6479aa1) is newer than
+crates.io's tree-sitter-zig 1.1.2 (another `grammar.json` and `parser.c` under the same version),
+so merl takes it as a git dependency. The bench's files come from zls, pinned in `THEME_ONLY` as
+`tools/d-bench/projects.tsv` has no Zig project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Zig | 14,602 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
@@ -295,7 +330,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, HCL from immich and pipeline-library, Terraform from lem and immich, INI from gitea, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,

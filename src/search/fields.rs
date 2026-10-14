@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 
 use regex::Regex;
@@ -54,10 +53,33 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     else {
         return Vec::new();
     };
-    let n = regex::escape(name);
-    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let literal = literal_lines(kind, text);
     let body = body.filter(|&i| !literal.get(i).copied().unwrap_or(false));
+    match kind {
+        Kind::Python => python_fields(text, &lines, body, base, name),
+        Kind::TsJs => ts_fields(text, &lines, body, base, name, decl),
+        Kind::Go if lines[k].contains("struct") => body
+            .filter(|&i| indent(lines[i]) == base)
+            .filter_map(|i| {
+                go_field(lines[i]).map(|value| Binding {
+                    line1: i + 1,
+                    value,
+                })
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+fn python_fields(
+    text: &str,
+    lines: &[&str],
+    body: impl Iterator<Item = usize>,
+    base: usize,
+    name: &str,
+) -> Vec<Binding> {
+    let kind = Kind::Python;
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let mut out = Vec::new();
     let mut push = |i: usize, value: Value| {
         out.push(Binding {
@@ -65,115 +87,121 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
             value,
         });
     };
-    match kind {
-        Kind::Python => {
-            let annotated = rule(format!(r"^(self\.)?{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
-            let assigned = rule(format!(r"^(self\.)?{n}\s*=\s*([^=].*)$"));
-            let unknown = rule(format!(
-                r"^\(?[\w\s,.*\[\]]*,[\w\s,.*\[\]]*\bself\.{n}\b[\w\s,.*\[\]]*\)?\s*=[^=]|^\(?[\w\s.*\[\]]*\bself\.{n}\s*,[\w\s,.*\[\]]*\)?\s*=[^=]|\bas\s+self\.{n}\b|^for\s+.*\bself\.{n}\b.*\sin\s"
-            ));
-            let def = rule(format!(r"^def\s+{n}\s*\("));
-            let property = |i: usize, ind: usize| {
-                lines[..i]
-                    .iter()
-                    .rev()
-                    .map(|l| uncommented(kind, l))
-                    .filter(|l| !l.trim().is_empty())
-                    .take_while(|l| indent(l) == ind && l.trim_start().starts_with('@'))
-                    .any(|l| {
-                        matches!(
-                            l.trim(),
-                            "@property" | "@cached_property" | "@functools.cached_property"
-                        )
-                    })
-            };
-            let mut skip: Option<usize> = None;
-            for i in body {
-                let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
-                let t = code.trim();
-                if t.is_empty() || skip.is_some_and(|k| ind > k) {
-                    continue;
-                }
-                skip = t.starts_with("class ").then_some(ind);
-                if skip.is_some() || continued(kind, &lines, i) {
-                    continue;
-                }
-                let right = |c: &regex::Captures| c.get(1).is_some() == (ind > base);
-                if ind == base && def.is_match(t) && property(i, ind) {
-                    push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
-                    continue;
-                }
-                if unknown.is_match(t) {
-                    push(i, Value::Unknown);
-                    continue;
-                }
-                for s in python_statements(t, false) {
-                    if let Some(c) = annotated.captures(s).filter(right) {
-                        push(i, Value::Type(c[2].to_owned()));
-                    } else if let Some(c) = assigned.captures(s).filter(right) {
-                        push(i, value_of(kind, &c[2]));
-                    }
-                }
+    let annotated = rule(format!(r"^(self\.)?{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
+    let assigned = rule(format!(r"^(self\.)?{n}\s*=\s*([^=].*)$"));
+    let unknown = rule(format!(
+        r"^\(?[\w\s,.*\[\]]*,[\w\s,.*\[\]]*\bself\.{n}\b[\w\s,.*\[\]]*\)?\s*=[^=]|^\(?[\w\s.*\[\]]*\bself\.{n}\s*,[\w\s,.*\[\]]*\)?\s*=[^=]|\bas\s+self\.{n}\b|^for\s+.*\bself\.{n}\b.*\sin\s"
+    ));
+    let def = rule(format!(r"^def\s+{n}\s*\("));
+    let property = |i: usize, ind: usize| {
+        lines[..i]
+            .iter()
+            .rev()
+            .map(|l| uncommented(kind, l))
+            .filter(|l| !l.trim().is_empty())
+            .take_while(|l| indent(l) == ind && l.trim_start().starts_with('@'))
+            .any(|l| {
+                matches!(
+                    l.trim(),
+                    "@property" | "@cached_property" | "@functools.cached_property"
+                )
+            })
+    };
+    let mut skip: Option<usize> = None;
+    for i in body {
+        let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
+        let t = code.trim();
+        if t.is_empty() || skip.is_some_and(|k| ind > k) {
+            continue;
+        }
+        skip = t.starts_with("class ").then_some(ind);
+        if skip.is_some() || continued(kind, lines, i) {
+            continue;
+        }
+        let right = |c: &regex::Captures| c.get(1).is_some() == (ind > base);
+        if ind == base && def.is_match(t) && property(i, ind) {
+            push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
+            continue;
+        }
+        if unknown.is_match(t) {
+            push(i, Value::Unknown);
+            continue;
+        }
+        for s in python_statements(t, false) {
+            if let Some(c) = annotated.captures(s).filter(right) {
+                push(i, Value::Type(c[2].to_owned()));
+            } else if let Some(c) = assigned.captures(s).filter(right) {
+                push(i, value_of(kind, &c[2]));
             }
         }
-        Kind::TsJs => {
-            let member = rule(format!(
-                r"^(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{n}\s*[?!]?\s*(?::\s*([^=;]+?))?\s*(?:=\s*(.+?))?\s*;?$"
-            ));
-            let param = rule(format!(
-                r"(?:^|[(,])\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+{n}\s*\??\s*:\s*([^,)=]+)"
-            ));
-            let assigned = rule(format!(r"^this\.{n}\s*=\s*([^=].*?)\s*;?$"));
-            let getter = rule(format!(
-                r"^(?:(?:public|private|protected|static|override|abstract|declare)\s+)*get\s+{n}\s*\(\s*\)\s*(?::\s*(.+?))?\s*(?:\{{.*)?;?$"
-            ));
-            let in_constructor = |i: usize| {
-                let ind = indent(lines[i]);
-                lines[i].trim_start().starts_with("constructor")
-                    || lines[..i]
-                        .iter()
-                        .rev()
-                        .find(|l| !l.trim().is_empty() && indent(l) < ind)
-                        .is_some_and(|l| l.trim_start().starts_with("constructor"))
-            };
-            let foreign = |i: usize| {
-                bindings(kind, text, i + 1, "this")
-                    .iter()
-                    .any(|b| b.value != Value::Class { decl_line1: decl })
-            };
-            for i in body {
-                let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
-                let t = code.trim();
-                if let Some(c) = getter.captures(t).filter(|_| ind == base) {
-                    push(
-                        i,
-                        c.get(1)
-                            .map_or(Value::Unknown, |ty| Value::Type(ty.as_str().to_owned())),
-                    );
-                } else if let Some(c) = member.captures(t).filter(|_| ind == base) {
-                    push(
-                        i,
-                        match (c.get(1), c.get(2)) {
-                            (Some(ty), _) => Value::Type(ty.as_str().trim().to_owned()),
-                            (None, Some(v)) => value_of(kind, v.as_str()),
-                            (None, None) => Value::Unknown,
-                        },
-                    );
-                } else if let Some(c) = param.captures(t).filter(|_| in_constructor(i)) {
-                    push(i, Value::Type(c[1].trim().to_owned()));
-                } else if let Some(c) = assigned.captures(t).filter(|_| ind > base && !foreign(i)) {
-                    push(i, value_of(kind, &c[1]));
-                }
-            }
+    }
+    out
+}
+fn ts_fields(
+    text: &str,
+    lines: &[&str],
+    body: impl Iterator<Item = usize>,
+    base: usize,
+    name: &str,
+    decl: usize,
+) -> Vec<Binding> {
+    let kind = Kind::TsJs;
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let mut out = Vec::new();
+    let mut push = |i: usize, value: Value| {
+        out.push(Binding {
+            line1: i + 1,
+            value,
+        });
+    };
+    let member = rule(format!(
+        r"^(?:(?:public|private|protected|readonly|static|declare|override|abstract|accessor)\s+)*{n}\s*[?!]?\s*(?::\s*([^=;]+?))?\s*(?:=\s*(.+?))?\s*;?$"
+    ));
+    let param = rule(format!(
+        r"(?:^|[(,])\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+{n}\s*\??\s*:\s*([^,)=]+)"
+    ));
+    let assigned = rule(format!(r"^this\.{n}\s*=\s*([^=].*?)\s*;?$"));
+    let getter = rule(format!(
+        r"^(?:(?:public|private|protected|static|override|abstract|declare)\s+)*get\s+{n}\s*\(\s*\)\s*(?::\s*(.+?))?\s*(?:\{{.*)?;?$"
+    ));
+    let in_constructor = |i: usize| {
+        let ind = indent(lines[i]);
+        lines[i].trim_start().starts_with("constructor")
+            || lines[..i]
+                .iter()
+                .rev()
+                .find(|l| !l.trim().is_empty() && indent(l) < ind)
+                .is_some_and(|l| l.trim_start().starts_with("constructor"))
+    };
+    let foreign = |i: usize| {
+        bindings(kind, text, i + 1, "this")
+            .iter()
+            .any(|b| b.value != Value::Class { decl_line1: decl })
+    };
+    for i in body {
+        let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
+        let t = code.trim();
+        if let Some(c) = getter.captures(t).filter(|_| ind == base) {
+            push(
+                i,
+                c.get(1)
+                    .map_or(Value::Unknown, |ty| Value::Type(ty.as_str().to_owned())),
+            );
+        } else if let Some(c) = member.captures(t).filter(|_| ind == base) {
+            push(
+                i,
+                match (c.get(1), c.get(2)) {
+                    (Some(ty), _) => Value::Type(ty.as_str().trim().to_owned()),
+                    (None, Some(v)) => value_of(kind, v.as_str()),
+                    (None, None) => Value::Unknown,
+                },
+            );
+        } else if let Some(c) = param.captures(t).filter(|_| in_constructor(i)) {
+            push(i, Value::Type(c[1].trim().to_owned()));
+        } else if let Some(c) = assigned.captures(t).filter(|_| ind > base && !foreign(i)) {
+            push(i, value_of(kind, &c[1]));
         }
-        Kind::Go if lines[k].contains("struct") => {
-            for i in body.filter(|&i| indent(lines[i]) == base) {
-                if let Some(value) = go_field(lines[i]) {
-                    push(i, value);
-                }
-            }
-        }
-        _ => {}
     }
     out
 }

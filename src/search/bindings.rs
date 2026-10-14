@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 
@@ -66,7 +65,9 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     });
     let e = uncommented(kind, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
-    let ends = |open: usize| close_of(kind, e, open).is_none_or(|end| e[end..].trim().is_empty());
+    let ends = |open: usize| {
+        close_of(kind, e, open).is_none_or(|end| e.get(end..).is_some_and(|r| r.trim().is_empty()))
+    };
     if kind == Kind::TsJs {
         let mut depth = 0i32;
         let mut cast: Option<(usize, usize)> = None;
@@ -74,7 +75,7 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
             match c {
                 b'(' | b'[' | b'{' => depth += 1,
                 b')' | b']' | b'}' => depth -= 1,
-                b' ' if depth == 0 && e[i..].starts_with(" as ") => {
+                b' ' if depth == 0 && e.as_bytes()[i..].starts_with(b" as ") => {
                     cast = Some((cast.map_or(i, |(first, _)| first), i + 4));
                 }
                 _ => {}
@@ -93,10 +94,9 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
             })
         };
         if let Some((first, i)) = cast {
-            return if operand(&e[..first]) {
-                Value::Type(e[i..].trim().to_owned())
-            } else {
-                Value::Unknown
+            return match (e.get(..first), e.get(i..)) {
+                (Some(head), Some(ty)) if operand(head) => Value::Type(ty.trim().to_owned()),
+                _ => Value::Unknown,
             };
         }
     }
@@ -108,7 +108,9 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     if let Some(c) = CALL.captures(e) {
         let open = c.get_match().end() - 1;
         let name = c[2].to_owned();
-        let args = close_of(kind, e, open).map(|end| e[open + 1..end - 1].trim());
+        let args = close_of(kind, e, open)
+            .and_then(|end| e.get(open + 1..end - 1))
+            .map(str::trim);
         return match (ends(open), c.get(1).is_some()) {
             (false, _) => Value::Unknown,
             (true, true) if kind == Kind::TsJs => Value::New(name),
@@ -147,10 +149,11 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     if kind == Kind::Go
         && (e.starts_with('[') || e.starts_with("map["))
         && let Some(end) = e.find('[').and_then(|i| close_of(kind, e, i))
-        && let Some(open) = e[end..].find('{').map(|i| end + i)
+        && let Some(open) = e.get(end..).and_then(|r| r.find('{')).map(|i| end + i)
         && ends(open)
+        && let Some(ty) = e.get(..open)
     {
-        return Value::Type(e[..open].trim().to_owned());
+        return Value::Type(ty.trim().to_owned());
     }
     if NAME.is_match(e) && !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self") {
         return Value::Name(e.to_owned());
@@ -245,7 +248,7 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             return (i..=end)
                 .find(|&j| {
                     if j == i {
-                        elixir_binds(&head[m.end()..], name)
+                        head.get(m.end()..).is_some_and(|h| elixir_binds(h, name))
                     } else {
                         elixir_binds(&code(j), name)
                     }
@@ -288,10 +291,13 @@ fn elixir_binds(p: &str, name: &str) -> bool {
     let p = DEFAULT.replace_all(p, "");
     let word = |c: char| c.is_alphanumeric() || c == '_';
     p.match_indices(name).any(|(i, _)| {
-        let before = p[..i].chars().next_back();
-        let after = p[i + name.len()..].trim_start();
+        let (Some(head), Some(rest)) = (p.get(..i), p.get(i + name.len()..)) else {
+            return false;
+        };
+        let before = head.chars().next_back();
+        let after = rest.trim_start();
         !before.is_some_and(|c| word(c) || ".@:^&%".contains(c))
-            && !p[i + name.len()..].starts_with(|c: char| word(c) || c == '?' || c == '!')
+            && !rest.starts_with(|c: char| word(c) || c == '?' || c == '!')
             && (!after.starts_with(':') || after.starts_with("::"))
             && !after.starts_with(['(', '.'])
     })
@@ -450,8 +456,10 @@ pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
     let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
-    let after = l[range.end..].trim_start();
-    let before = l[..range.start].trim_end();
+    let (Some(after), Some(before)) = (l.get(range.end..), l.get(..range.start)) else {
+        return false;
+    };
+    let (after, before) = (after.trim_start(), before.trim_end());
     after.starts_with('=')
         && !after.starts_with("==")
         && (before.ends_with(['{', ','])
@@ -474,7 +482,7 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
         if Regex::new(r"\b(?:for|function)\b")
             .expect("a fixed pattern compiles")
             .find(&own)
-            .is_some_and(|m| word.is_match(&own[m.end()..]))
+            .is_some_and(|m| own.get(m.end()..).is_some_and(|r| word.is_match(r)))
         {
             return None;
         }
@@ -756,8 +764,10 @@ pub fn ts_arrow_binds(line: &str, name: &str, at: usize) -> bool {
         .any(|a| a.param_at < at && at > a.body_start && at < a.body_end)
 }
 pub fn ts_arrow_param(line: &str, name: &str, at: usize) -> bool {
-    let before = line[..at].trim_end();
-    let after = line[at + name.len()..].trim_start();
+    let (Some(before), Some(after)) = (line.get(..at), line.get(at + name.len()..)) else {
+        return false;
+    };
+    let (before, after) = (before.trim_end(), after.trim_start());
     let returned = before
         .strip_suffix(':')
         .is_some_and(|b| b.trim_end().ends_with(')'));
@@ -796,12 +806,15 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
         stack.last().copied()
     };
     let arrow_after_params = |params_end: usize, behind_return_type: bool| {
-        let t = line[params_end..].trim_start();
+        let t = line.get(params_end..)?.trim_start();
         let t = match t.strip_prefix(':').filter(|_| behind_return_type) {
             Some(ty) => ty
                 .find("=>")
-                .filter(|&e| !ty[..e].contains([';', '{', '}', '(', ')']))
-                .map(|e| &ty[e..])?,
+                .filter(|&e| {
+                    ty.get(..e)
+                        .is_some_and(|h| !h.contains([';', '{', '}', '(', ')']))
+                })
+                .and_then(|e| ty.get(e..))?,
             None => t,
         };
         t.starts_with("=>").then(|| line.len() - t.len())
@@ -811,7 +824,7 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
         .filter_map(|decl| {
             let start = arrow_after_params(decl + name.len(), false).or_else(|| {
                 let open = last_open_bracket_before(decl).filter(|&p| b[p] == b'(')?;
-                let before = line[..open].trim_end();
+                let before = line.get(..open)?.trim_end();
                 if return_type(before) || before.ends_with('<') {
                     return None;
                 }
@@ -925,7 +938,10 @@ fn opener_bindings(
                 let Some(close) = close_of(kind, header, open) else {
                     continue;
                 };
-                let (before, after) = (header[..open].trim_end(), header[close..].trim_start());
+                let (Some(before), Some(after)) = (header.get(..open), header.get(close..)) else {
+                    continue;
+                };
+                let (before, after) = (before.trim_end(), after.trim_start());
                 let method = TS_METHOD.captures(before).is_some_and(|c| {
                     !c.get(1).is_some_and(|m| {
                         matches!(
@@ -942,7 +958,9 @@ fn opener_bindings(
                 });
                 if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
                     let count = out.len();
-                    ts_params(&header[open + 1..close - 1], line, name, out);
+                    if let Some(params) = header.get(open + 1..close - 1) {
+                        ts_params(params, line, name, out);
+                    }
                     binds_for_body |=
                         out.len() > count && TS_RETURN_TYPE_ARROW_BRACE.is_match(after);
                 }
@@ -952,11 +970,11 @@ fn opener_bindings(
                 regex::escape(name)
             ))
             .expect("an escaped name keeps the pattern valid");
-            if let Some(c) = arrow
-                .captures_iter(header)
-                .last()
-                .filter(|c| !return_type(&header[..c.get(0).map_or(0, |m| m.start())]))
-            {
+            if let Some(c) = arrow.captures_iter(header).last().filter(|c| {
+                header
+                    .get(..c.get(0).map_or(0, |m| m.start()))
+                    .is_some_and(|h| !return_type(h))
+            }) {
                 unknown(out);
                 binds_for_body |= c.get(1).is_some();
             }
@@ -993,13 +1011,17 @@ fn opener_bindings(
                     go_params(receiver.as_str(), line, name, out);
                 }
                 let open = c.get_match().end() - 1;
-                if let Some(close) = close_of(kind, header, open) {
-                    go_params(&header[open + 1..close - 1], line, name, out);
-                    let results = header[close..].trim_start();
+                if let Some(close) = close_of(kind, header, open)
+                    && let Some(params) = header.get(open + 1..close - 1)
+                    && let Some(results) = header.get(close..)
+                {
+                    go_params(params, line, name, out);
+                    let results = results.trim_start();
                     if results.starts_with('(')
                         && let Some(end) = close_of(kind, results, 0)
+                        && let Some(inner) = results.get(1..end - 1)
                     {
-                        go_params(&results[1..end - 1], line, name, out);
+                        go_params(inner, line, name, out);
                     }
                     let body = results.trim_end().strip_suffix('{');
                     binds_for_body |=
@@ -1015,13 +1037,16 @@ pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
     let (mut open, mut types) = (Vec::new(), Vec::new());
     let ident = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
     let mut last = b' ';
-    for (i, c) in code(Kind::Go, &line[..at]) {
+    let Some(head) = line.get(..at) else {
+        return false;
+    };
+    for (i, c) in code(Kind::Go, head) {
         match c {
             b'(' | b'[' | b'{' => open.push(i),
             b')' | b']' | b'}' => {
                 open.pop();
             }
-            b'f' if line[i..].starts_with("func")
+            b'f' if line.as_bytes()[i..].starts_with(b"func")
                 && !(i > 0 && ident(&line.as_bytes()[i - 1]))
                 && !line.as_bytes().get(i + 4).is_some_and(ident) =>
             {
@@ -1036,7 +1061,10 @@ pub fn go_binds_here(line: &str, name: &str, at: usize) -> bool {
     open.iter()
         .filter(|&&b| line.as_bytes()[b] == b'{')
         .any(|&b| {
-            let mut header = line[..=b].to_owned();
+            let Some(head) = line.get(..=b) else {
+                return false;
+            };
+            let mut header = head.to_owned();
             for &(f, inside, result) in types.iter().filter(|t| t.0 < b) {
                 if result || inside.is_some_and(|p| !open.contains(&p)) {
                     header.replace_range(f..f + 4, "type");
@@ -1061,7 +1089,10 @@ pub fn go_param_type(line: &str, name: &str, at: usize) -> bool {
         return false;
     }
     let (mut depth, mut item_start, mut list_close) = (0usize, open, None);
-    for (i, c) in code(Kind::Go, &line[open..]) {
+    let Some(list) = line.get(open..) else {
+        return false;
+    };
+    for (i, c) in code(Kind::Go, list) {
         match c {
             b'(' | b'[' | b'{' => depth += 1,
             b')' if depth == 0 => {
@@ -1076,10 +1107,13 @@ pub fn go_param_type(line: &str, name: &str, at: usize) -> bool {
     let Some(close) = list_close.filter(|&c| at < c) else {
         return false;
     };
-    let named = split_top(Kind::Go, &line[open..close], b',')
+    let (Some(params), Some(item)) = (line.get(open..close), line.get(item_start..at)) else {
+        return false;
+    };
+    let named = split_top(Kind::Go, params, b',')
         .iter()
         .any(|i| i.trim().contains(char::is_whitespace));
-    !named || !line[item_start..at].trim().is_empty()
+    !named || !item.trim().is_empty()
 }
 fn return_type(before: &str) -> bool {
     let b = before.as_bytes();
@@ -1094,7 +1128,9 @@ fn return_type(before: &str) -> bool {
                     return false;
                 }
             }
-            b':' if depth == 0 => return before[..i].trim_end().ends_with(')'),
+            b':' if depth == 0 => {
+                return before.get(..i).is_some_and(|h| h.trim_end().ends_with(')'));
+            }
             b',' | b';' | b'=' if depth == 0 => return false,
             _ => {}
         }
@@ -1226,7 +1262,10 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
                 break;
             }
             b'\n' if depth == 0 && angle == 0 => {
-                let next = text[i + 1..].lines().next().unwrap_or("");
+                let next = text
+                    .get(i + 1..)
+                    .and_then(|r| r.lines().next())
+                    .unwrap_or("");
                 if indent(next) <= indent(lines[k]) && !next.trim_start().starts_with('{') {
                     break;
                 }
@@ -1234,7 +1273,10 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth -= 1,
             b'<' if depth == 0 => {
-                if angle == 0 && type_params_from.is_none() && !names(&text[..i], "extends") {
+                if angle == 0
+                    && type_params_from.is_none()
+                    && text.get(..i).is_some_and(|h| !names(h, "extends"))
+                {
                     type_params_from = Some(i);
                 }
                 angle += 1;
@@ -1248,14 +1290,14 @@ pub(super) fn ts_header(lines: &[&str], k: usize) -> TsHeader {
             _ => {}
         }
     }
-    let Some(open) = open else {
+    let Some(head) = open.and_then(|o| text.get(..=o)) else {
         return TsHeader {
             one_line_without_type_params: lines[k].to_owned(),
             last_line0: k,
         };
     };
-    let last = k + text[..open].matches('\n').count();
-    let mut header = text[..=open].to_owned();
+    let last = k + head.matches('\n').count();
+    let mut header = head.to_owned();
     if let (Some(from), Some(to)) = (type_params_from, type_params_to) {
         header.replace_range(from..to, "");
     }
@@ -1278,9 +1320,12 @@ pub fn go_may_declare(text: &str, line: usize, name: &str) -> bool {
         };
         code.match_indices(name).any(|(i, m)| {
             let ident = |c: char| c.is_alphanumeric() || c == '_';
-            !code[..i].ends_with(ident)
-                && !code[i + m.len()..].starts_with(ident)
-                && !code[i + m.len()..].trim_start().starts_with(['.', ')'])
+            let (Some(head), Some(rest)) = (code.get(..i), code.get(i + m.len()..)) else {
+                return false;
+            };
+            !head.ends_with(ident)
+                && !rest.starts_with(ident)
+                && !rest.trim_start().starts_with(['.', ')'])
         })
     };
     for i in (0..=at.min(lines.len().saturating_sub(1))).rev() {

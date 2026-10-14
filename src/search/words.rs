@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
@@ -20,42 +19,6 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     });
     static GO_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^type\s+([A-Za-z_]\w*)").expect("the regex is a literal")
-    });
-    static GO_STRUCT_WRITTEN_IN_PLACE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| {
-            Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").expect("the regex is a literal")
-        });
-    static RUST_FN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+([A-Za-z_]\w*)"#).expect("the regex is a literal")
-    });
-    static PY_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)").expect("the regex is a literal")
-    });
-    static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
-    });
-    static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)")
-            .expect("the regex is a literal")
-    });
-    static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)")
-            .expect("the regex is a literal")
-    });
-    static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)")
-            .expect("the regex is a literal")
-    });
-    static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)"))
-            .expect("the regex is a literal")
-    });
-    static COLUMN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^\s*t\.\w+\s*\(?\s*(?:"(\w+)"|:(\w+))"#).expect("the regex is a literal")
-    });
-    static TABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^\s*create_table\s*\(?\s*(?:"(\w+)"|:(\w+))"#)
-            .expect("the regex is a literal")
     });
     if !nests(Some(kind)) {
         return None;
@@ -93,8 +56,41 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
             .map_or_else(|| "struct{\u{2026}}".to_owned(), |c| c[1].to_owned());
         return (owner != name).then(|| format!("{owner}{sep}{name}"));
     }
+    qualified_by_owner(kind, text, &lines, line1, name)
+        .or_else(|| qualified_by_nesting(kind, text, &lines, line1, name))
+}
+fn qualified_by_owner(
+    kind: Kind,
+    text: &str,
+    lines: &[&str],
+    line1: usize,
+    name: &str,
+) -> Option<String> {
+    static RUST_FN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+([A-Za-z_]\w*)"#).expect("the regex is a literal")
+    });
+    static PY_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)").expect("the regex is a literal")
+    });
+    static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)")
+            .expect("the regex is a literal")
+    });
+    static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)")
+            .expect("the regex is a literal")
+    });
+    static COLUMN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*t\.\w+\s*\(?\s*(?:"(\w+)"|:(\w+))"#).expect("the regex is a literal")
+    });
+    static TABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*create_table\s*\(?\s*(?:"(\w+)"|:(\w+))"#)
+            .expect("the regex is a literal")
+    });
+    let sep = separator(kind);
+    let target = lines[line1 - 1];
     if field_like(kind, target.trim_start(), name)
-        && let Some(decl) = enclosing_type(kind, &lines, line1 - 1)
+        && let Some(decl) = enclosing_type(kind, lines, line1 - 1)
         && field_bindings(kind, text, decl, name)
             .iter()
             .any(|b| b.line1 == line1)
@@ -104,7 +100,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         return Some(format!("{owner}{sep}{name}"));
     }
     if kind == Kind::Php
-        && let Some(class) = php_tag_class(&lines, line1 - 1)
+        && let Some(class) = php_tag_class(lines, line1 - 1)
         && let Some(owner) = declared_name(Some(kind), lines[class])
     {
         let owner = qualified(kind, text, class + 1, &owner).unwrap_or(owner);
@@ -128,7 +124,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
                 .or_else(|| c.get(2))
                 .is_some_and(|m| m.as_str() == name)
         })
-        && let Some(table) = owner_line(&lines, line1 - 1).and_then(|o| TABLE.captures(lines[o]))
+        && let Some(table) = owner_line(lines, line1 - 1).and_then(|o| TABLE.captures(lines[o]))
     {
         let table = table
             .get(1)
@@ -146,6 +142,32 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         let owner = qualified(kind, text, line1, &c[1]).unwrap_or_else(|| c[1].to_owned());
         return Some(format!("{owner}{sep}{name}"));
     }
+    None
+}
+fn qualified_by_nesting(
+    kind: Kind,
+    text: &str,
+    lines: &[&str],
+    line1: usize,
+    name: &str,
+) -> Option<String> {
+    static GO_STRUCT_WRITTEN_IN_PLACE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| {
+            Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").expect("the regex is a literal")
+        });
+    static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
+    });
+    static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)")
+            .expect("the regex is a literal")
+    });
+    static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)"))
+            .expect("the regex is a literal")
+    });
+    let sep = separator(kind);
+    let target = lines[line1 - 1];
     let indent = |s: &str| s.len() - s.trim_start().len();
     let mut depth = indent(target);
     let mut names = vec![name.to_owned()];
@@ -175,7 +197,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
             continue;
         }
         if kind == Kind::TsJs
-            && ts_declarators(&lines, j).is_some_and(|d| d.iter().any(|d| d.line0 == line1 - 1))
+            && ts_declarators(lines, j).is_some_and(|d| d.iter().any(|d| d.line0 == line1 - 1))
         {
             return qualified(kind, text, j + 1, name);
         }

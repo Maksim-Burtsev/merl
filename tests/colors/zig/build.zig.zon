@@ -1,0 +1,14 @@
+.{
+    .name = .ledger,
+    .version = "0.1.0",
+    .fingerprint = 0x9f3a2b1c4d5e6f70,
+    .minimum_zig_version = "0.14.0",
+    .dependencies = .{
+        .clap = .{
+            .url = "https://github.com/Hejsil/zig-clap/archive/refs/tags/0.10.0.tar.gz",
+            .hash = "clap-0.10.0-oBajB434AQBDh-Ei3YtoKIRxZacVPF1iSwp3IX_ZB8f0",
+        },
+        .local = .{ .path = "../local", .lazy = true },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "LICENSE" },
+}
