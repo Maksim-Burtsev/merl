@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -193,25 +192,7 @@ static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^(?:async\s+)?def\s+(\w+)\s*\(").expect("the regex is a literal")
 });
 
-pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:async\s+)?def|class)\s+(\w+)").expect("the regex is a literal")
-    });
-    let n = regex::escape(name);
-    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
-    let annotated = rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
-    let assigned = rule(format!(r"^{n}\s*=\s*([^=].*)$"));
-    let unknown = rule(format!(
-        r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^(?:global|nonlocal)\s.*\b{n}\b|^from\s+\S+\s+import\s.*\b{n}\b|^import\s(?:.*[\s,])?{n}\b"
-    ));
-    let inline = rule(format!(
-        r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
-    ));
-    let plain_loop_over_a_name = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
-    let chained_assignment = rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]"));
-    let tuple_target =
-        Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").expect("the regex is a literal");
-
+fn python_scopes_innermost_first(lines: &[&str], at: usize) -> Vec<Scope> {
     let mut scopes_innermost_first = Vec::new();
     let mut depth = indent(lines[at]);
     for i in (0..at).rev() {
@@ -232,32 +213,64 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     scopes_innermost_first.push(Scope::Module);
+    scopes_innermost_first
+}
+
+fn python_def_body(lines: &[&str], d: usize, name: &str, out: &mut Vec<Binding>) -> Option<usize> {
+    let open = lines[d].find('(').expect("a def has a parameter list");
+    let Group {
+        inner_uncommented: params,
+        close_line: end,
+        ..
+    } = group(Kind::Python, lines, d, open)?;
+    python_params(lines, d, &params, name, out);
+    Some(end + 1)
+}
+
+fn python_super(lines: &[&str], scope: &Scope) -> Vec<Binding> {
+    let mut out = Vec::new();
+    if let Scope::Def(d) = *scope
+        && let Some(line) = python_class_of(lines, d)
+    {
+        let value = Value::Class { decl_line1: line };
+        out.push(Binding { line1: line, value });
+    }
+    out
+}
+
+pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:(?:async\s+)?def|class)\s+(\w+)").expect("the regex is a literal")
+    });
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let annotated = rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
+    let assigned = rule(format!(r"^{n}\s*=\s*([^=].*)$"));
+    let unknown = rule(format!(
+        r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^(?:global|nonlocal)\s.*\b{n}\b|^from\s+\S+\s+import\s.*\b{n}\b|^import\s(?:.*[\s,])?{n}\b"
+    ));
+    let inline = rule(format!(
+        r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
+    ));
+    let plain_loop_over_a_name = rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:"));
+    let chained_assignment = rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]"));
+    let tuple_target =
+        Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").expect("the regex is a literal");
+
+    let scopes_innermost_first = python_scopes_innermost_first(lines, at);
 
     let literal = literal_lines(Kind::Python, &lines.join("\n"));
-    let mut out = Vec::new();
     if name == "super" {
-        if let Scope::Def(d) = scopes_innermost_first[0]
-            && let Some(line) = python_class_of(lines, d)
-        {
-            let value = Value::Class { decl_line1: line };
-            out.push(Binding { line1: line, value });
-        }
-        return out;
+        return python_super(lines, &scopes_innermost_first[0]);
     }
+    let mut out = Vec::new();
     for scope in scopes_innermost_first {
         let (start, base) = match scope {
             Scope::Def(d) => {
-                let open = lines[d].find('(').expect("a def has a parameter list");
-                let Some(Group {
-                    inner_uncommented: params,
-                    close_line: end,
-                    ..
-                }) = group(Kind::Python, lines, d, open)
-                else {
+                let Some(start) = python_def_body(lines, d, name, &mut out) else {
                     continue;
                 };
-                python_params(lines, d, &params, name, &mut out);
-                (end + 1, Some(indent(lines[d])))
+                (start, Some(indent(lines[d])))
             }
             Scope::Module => (0, None),
         };

@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
@@ -73,126 +72,9 @@ pub fn label_at(
     if first_met != Some(bracket) && first_met != Some(b',') {
         return None;
     }
-    let key = |owner| Some(Label { what: "key", owner });
     match (kind, bracket) {
-        (Kind::TsJs, b'{') => {
-            let CodeByte {
-                line0: bl,
-                index: bi,
-                byte: b,
-            } = back(kind, &lines, &literal, at, open).next()?;
-            let before = lines[bl].get(..bi)?;
-            match b {
-                b'(' | b',' => {
-                    let call = open_bracket(kind, &lines, &literal, at, open)?;
-                    let (cl, ci) = (call.line0, call.byte);
-                    let owner = (call.bracket == b'('
-                        && lines[cl].get(..ci).is_some_and(|h| !declares(h)))
-                    .then(|| callee(kind, lines[cl], ci))
-                    .flatten()
-                    .map(|col| LabelOwner {
-                        line0: cl,
-                        byte_col: col,
-                        how: Owner::Object(call.commas),
-                    });
-                    key(owner)
-                }
-                b'=' if !before.ends_with([
-                    '=', '!', '<', '>', '+', '-', '*', '/', '%', '&', '|', '^', '?',
-                ]) =>
-                {
-                    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?type\s")
-                            .expect("the regex is a literal")
-                    });
-                    static TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                        Regex::new(r"[\w$]\s*[?!]?\s*:\s*([A-Za-z_$][\w$.]*)\s*(?:<[^=]*>)?\s*$")
-                            .expect("the regex is a literal")
-                    });
-                    if ALIAS.is_match(before) {
-                        return None;
-                    }
-                    let owner = TYPED
-                        .captures(before)
-                        .and_then(|c| c.get(1))
-                        .map(|m| LabelOwner {
-                            line0: bl,
-                            byte_col: m.end() - 1,
-                            how: Owner::Typed,
-                        });
-                    key(owner)
-                }
-                b'[' | b'?' => key(None),
-                b'&' | b'|' if before.ends_with(b as char) => key(None),
-                _ if ["return", "yield"].iter().any(|k| {
-                    lines[bl]
-                        .get(..=bi)
-                        .and_then(|h| h.strip_suffix(k))
-                        .is_some_and(|s| !s.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
-                }) =>
-                {
-                    key(None)
-                }
-                _ => None,
-            }
-        }
-        (Kind::Rust, b'{') => {
-            static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
-                    .expect("the regex is a literal")
-            });
-            static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$")
-                    .expect("the regex is a literal")
-            });
-            static DECLARES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"\b(?:struct|enum|union|impl|trait)\b").expect("the regex is a literal")
-            });
-            let before = lines[at].get(..open)?;
-            let ty = LITERAL.captures(before)?.get(1)?;
-            if DECLARES.is_match(before.get(..ty.start())?) {
-                return None;
-            }
-            let mut up = open_bracket(kind, &lines, &literal, at, ty.start());
-            if let Some(OpenBracket {
-                line0: el,
-                byte: ei,
-                bracket: b'{',
-                ..
-            }) = up
-                && lines[el].get(..ei).is_none_or(|h| h.contains("enum "))
-            {
-                return None;
-            }
-            if ty.as_str() != "Self" {
-                return key(Some(LabelOwner {
-                    line0: at,
-                    byte_col: ty.end() - 1,
-                    how: Owner::Typed,
-                }));
-            }
-            while let Some(OpenBracket {
-                line0: el,
-                byte: ei,
-                bracket,
-                ..
-            }) = up
-            {
-                if bracket == b'{'
-                    && let Some(m) = (lines[el].get(..ei))
-                        .and_then(|h| IMPL.captures(h))
-                        .and_then(|c| c.get(1))
-                {
-                    return key(Some(LabelOwner {
-                        line0: el,
-                        byte_col: m.end() - 1,
-                        how: Owner::Typed,
-                    }));
-                }
-                up = open_bracket(kind, &lines, &literal, el, ei);
-            }
-            key(None)
-        }
+        (Kind::TsJs, b'{') => ts_object_key(kind, &lines, &literal, at, open),
+        (Kind::Rust, b'{') => rust_struct_key(kind, &lines, &literal, at, open),
         (Kind::Ruby, b'{') => {
             let block = back(kind, &lines, &literal, at, open)
                 .next()
@@ -246,6 +128,138 @@ pub fn label_at(
         }
         _ => None,
     }
+}
+
+fn ts_object_key(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    open: usize,
+) -> Option<Label> {
+    let key = |owner| Some(Label { what: "key", owner });
+    let CodeByte {
+        line0: bl,
+        index: bi,
+        byte: b,
+    } = back(kind, lines, literal, at, open).next()?;
+    let before = lines[bl].get(..bi)?;
+    match b {
+        b'(' | b',' => {
+            let call = open_bracket(kind, lines, literal, at, open)?;
+            let (cl, ci) = (call.line0, call.byte);
+            let owner = (call.bracket == b'(' && lines[cl].get(..ci).is_some_and(|h| !declares(h)))
+                .then(|| callee(kind, lines[cl], ci))
+                .flatten()
+                .map(|col| LabelOwner {
+                    line0: cl,
+                    byte_col: col,
+                    how: Owner::Object(call.commas),
+                });
+            key(owner)
+        }
+        b'=' if !before.ends_with([
+            '=', '!', '<', '>', '+', '-', '*', '/', '%', '&', '|', '^', '?',
+        ]) =>
+        {
+            static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?type\s")
+                    .expect("the regex is a literal")
+            });
+            static TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"[\w$]\s*[?!]?\s*:\s*([A-Za-z_$][\w$.]*)\s*(?:<[^=]*>)?\s*$")
+                    .expect("the regex is a literal")
+            });
+            if ALIAS.is_match(before) {
+                return None;
+            }
+            let owner = TYPED
+                .captures(before)
+                .and_then(|c| c.get(1))
+                .map(|m| LabelOwner {
+                    line0: bl,
+                    byte_col: m.end() - 1,
+                    how: Owner::Typed,
+                });
+            key(owner)
+        }
+        b'[' | b'?' => key(None),
+        b'&' | b'|' if before.ends_with(b as char) => key(None),
+        _ if ["return", "yield"].iter().any(|k| {
+            lines[bl]
+                .get(..=bi)
+                .and_then(|h| h.strip_suffix(k))
+                .is_some_and(|s| !s.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+        }) =>
+        {
+            key(None)
+        }
+        _ => None,
+    }
+}
+
+fn rust_struct_key(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    open: usize,
+) -> Option<Label> {
+    static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
+            .expect("the regex is a literal")
+    });
+    static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$").expect("the regex is a literal")
+    });
+    static DECLARES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:struct|enum|union|impl|trait)\b").expect("the regex is a literal")
+    });
+    let key = |owner| Some(Label { what: "key", owner });
+    let before = lines[at].get(..open)?;
+    let ty = LITERAL.captures(before)?.get(1)?;
+    if DECLARES.is_match(before.get(..ty.start())?) {
+        return None;
+    }
+    let mut up = open_bracket(kind, lines, literal, at, ty.start());
+    if let Some(OpenBracket {
+        line0: el,
+        byte: ei,
+        bracket: b'{',
+        ..
+    }) = up
+        && lines[el].get(..ei).is_none_or(|h| h.contains("enum "))
+    {
+        return None;
+    }
+    if ty.as_str() != "Self" {
+        return key(Some(LabelOwner {
+            line0: at,
+            byte_col: ty.end() - 1,
+            how: Owner::Typed,
+        }));
+    }
+    while let Some(OpenBracket {
+        line0: el,
+        byte: ei,
+        bracket,
+        ..
+    }) = up
+    {
+        if bracket == b'{'
+            && let Some(m) = (lines[el].get(..ei))
+                .and_then(|h| IMPL.captures(h))
+                .and_then(|c| c.get(1))
+        {
+            return key(Some(LabelOwner {
+                line0: el,
+                byte_col: m.end() - 1,
+                how: Owner::Typed,
+            }));
+        }
+        up = open_bracket(kind, lines, literal, el, ei);
+    }
+    key(None)
 }
 
 fn declares(before: &str) -> bool {

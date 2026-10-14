@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 use std::sync::LazyLock;
 
@@ -443,6 +442,34 @@ pub enum RustNamespace {
     Path,
     Other,
 }
+fn rust_use_in_a_block_around(lines: &[&str], literal: &[bool], around: &[usize], w: &str) -> bool {
+    let uses = Regex::new(&format!(
+        r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s[^;]*\b{w}\b[^;]*;"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let code: Vec<String> = lines
+        .iter()
+        .enumerate()
+        .map(|(i, l)| {
+            if literal.get(i).copied().unwrap_or(false) {
+                String::new()
+            } else {
+                uncommented(Kind::Rust, l)
+            }
+        })
+        .collect();
+    let code = code.join("\n");
+    uses.find_iter(&code).any(|m| {
+        let at = m.start() + m.as_str().find("use").unwrap_or(0);
+        let Some(above) = code.get(..at) else {
+            return false;
+        };
+        let u = above.matches('\n').count();
+        rust_around(lines, u, literal)
+            .first()
+            .is_none_or(|b| around.contains(b))
+    })
+}
 pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -461,37 +488,12 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
     };
     let any_item = rule(&def_patterns(Kind::Rust, word)[..2].join("|"));
     let outline = rule(&format!(r"\bmod\s+{w}\s*;"));
-    let uses = rule(&format!(
-        r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s[^;]*\b{w}\b[^;]*;"
-    ));
     let generic = rule(&format!(
         r"(?:\bfn\s+\w+|\bimpl|\b(?:struct|enum|union|trait|type)\s+\w+)\s*<[^{{]*\b{w}\b"
     ));
     let literal = literal_lines(Kind::Rust, text);
-    let code: Vec<String> = lines
-        .iter()
-        .enumerate()
-        .map(|(i, l)| {
-            if literal.get(i).copied().unwrap_or(false) {
-                String::new()
-            } else {
-                uncommented(Kind::Rust, l)
-            }
-        })
-        .collect();
     let around = rust_around(&lines, k, &literal);
-    let code = code.join("\n");
-    let use_in_a_block_around = uses.find_iter(&code).any(|m| {
-        let at = m.start() + m.as_str().find("use").unwrap_or(0);
-        let Some(above) = code.get(..at) else {
-            return false;
-        };
-        let u = above.matches('\n').count();
-        rust_around(&lines, u, &literal)
-            .first()
-            .is_none_or(|b| around.contains(b))
-    });
-    if use_in_a_block_around {
+    if rust_use_in_a_block_around(&lines, &literal, &around, &w) {
         return Vec::new();
     }
     let functions: Vec<usize> = around

@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -294,20 +293,72 @@ pub fn swift_no_local(text: &str, line: usize, name: &str) -> bool {
         .filter(|&at| at < lines.len())
         .is_some_and(|at| swift_walk(&lines, at, name).is_some_and(|b| b.is_empty()))
 }
+fn swift_text(lines: &[&str], i: usize) -> String {
+    uncommented(Kind::Swift, lines[i]).trim().to_owned()
+}
+fn swift_line1_writing(lines: &[&str], start: usize, end: usize, re: &Regex) -> usize {
+    (start..=end)
+        .find(|&j| re.is_match(&swift_text(lines, j)))
+        .unwrap_or(start)
+        + 1
+}
+fn swift_local_decls(
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    name: &str,
+    open: usize,
+    depth: usize,
+) -> Option<Vec<Binding>> {
+    let found: Vec<usize> = (open + 1..lines.len())
+        .filter(|&j| swift_code(lines, literal, j))
+        .take_while(|&j| indent(lines[j]) >= depth)
+        .filter(|&j| indent(lines[j]) == depth && swift_local_decl(lines[j], name))
+        .collect();
+    let bindings = found.iter().map(|&j| Binding {
+        line1: j + 1,
+        value: Value::Unknown,
+    });
+    Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !found.contains(&at))
+}
+fn swift_statement_binds(
+    lines: &[&str],
+    at: usize,
+    i: usize,
+    name: &str,
+    word: &Regex,
+) -> (Binds, usize) {
+    let t = swift_text(lines, i);
+    if let Some(c) = SWIFT_DECL.captures(&t) {
+        (swift_decl_binds(&c[1], name), i + 1)
+    } else if t.starts_with("guard ") {
+        let guard_end = (i..at)
+            .find(|&j| swift_text(lines, j).contains("else"))
+            .unwrap_or(i);
+        let text: Vec<String> = (i..=guard_end).map(|j| swift_text(lines, j)).collect();
+        (
+            swift_condition_binds(&text.join(" "), name),
+            swift_line1_writing(lines, i, guard_end, word),
+        )
+    } else {
+        (Binds::Nothing, 0)
+    }
+}
+fn swift_in_a_type_body(lines: &[&str], literal: &[bool], i: usize) -> bool {
+    (0..i)
+        .rev()
+        .find(|&j| swift_code(lines, literal, j) && indent(lines[j]) < indent(lines[i]))
+        .map(|j| swift_text(lines, swift_header_start(lines, literal, j)))
+        .is_some_and(|h| !SWIFT_FUNC.is_match(&h) && SWIFT_TYPE.is_match(&h))
+}
 fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
     let literal = literal_lines(Kind::Swift, &lines.join("\n"));
-    let code = |i: usize| uncommented(Kind::Swift, lines[i]).trim().to_owned();
+    let code = |i: usize| swift_text(lines, i);
     let found = |line: usize| {
         Some(vec![Binding {
             line1: line,
             value: Value::Unknown,
         }])
-    };
-    let line1_writing_name_or_start = |start: usize, end: usize, re: &Regex| {
-        (start..=end)
-            .find(|&j| re.is_match(&code(j)))
-            .unwrap_or(start)
-            + 1
     };
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
@@ -316,18 +367,6 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         rule(format!(r"\b{n}\s*:")),
     );
     let generic = |text: &str| swift_generics(text).iter().any(|g| g == name);
-    let decls = |open: usize, depth: usize| {
-        let lines: Vec<usize> = (open + 1..lines.len())
-            .filter(|&j| swift_code(lines, &literal, j))
-            .take_while(|&j| indent(lines[j]) >= depth)
-            .filter(|&j| indent(lines[j]) == depth && swift_local_decl(lines[j], name))
-            .collect();
-        let bindings = lines.iter().map(|&j| Binding {
-            line1: j + 1,
-            value: Value::Unknown,
-        });
-        Some(bindings.collect::<Vec<_>>()).filter(|b| !b.is_empty() && !lines.contains(&at))
-    };
     if generic(&code(at)) {
         return found(at + 1);
     }
@@ -341,23 +380,11 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         if !swift_code(lines, &literal, i) || indent(lines[i]) > depth {
             continue;
         }
-        let t = code(i);
         if indent(lines[i]) == depth {
             if bound_in_block_unless_type_body.is_some() || only_type_header_left {
                 continue;
             }
-            let (binds, line) = if let Some(c) = SWIFT_DECL.captures(&t) {
-                (swift_decl_binds(&c[1], name), i + 1)
-            } else if t.starts_with("guard ") {
-                let guard_end = (i..at).find(|&j| code(j).contains("else")).unwrap_or(i);
-                let text: Vec<String> = (i..=guard_end).map(code).collect();
-                (
-                    swift_condition_binds(&text.join(" "), name),
-                    line1_writing_name_or_start(i, guard_end, &word),
-                )
-            } else {
-                (Binds::Nothing, 0)
-            };
+            let (binds, line) = swift_statement_binds(lines, at, i, name, &word);
             match binds {
                 Binds::UnreadablePatternMentionsName => return None,
                 Binds::Name => bound_in_block_unless_type_body = Some(line),
@@ -368,7 +395,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         let body = depth;
         depth = indent(lines[i]);
         let end = i;
-        let local = decls(end, body);
+        let local = swift_local_decls(lines, &literal, at, name, end, body);
         i = swift_header_start(lines, &literal, i);
         let head = code(i);
         let text = (i..=end).map(code).collect::<Vec<_>>().join(" ");
@@ -389,16 +416,12 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
             let params_end = (end..at).find(|&j| code(j).ends_with('{')).unwrap_or(end);
             let text = (i..=params_end).map(code).collect::<Vec<_>>().join(" ");
             if swift_params_bind(&text, name) {
-                return found(line1_writing_name_or_start(i, params_end, &param));
+                return found(swift_line1_writing(lines, i, params_end, &param));
             }
             if generic(&text) {
                 return found(i + 1);
             }
-            only_type_header_left = (0..i)
-                .rev()
-                .find(|&j| swift_code(lines, &literal, j) && indent(lines[j]) < indent(lines[i]))
-                .map(|j| code(swift_header_start(lines, &literal, j)))
-                .is_some_and(|h| !SWIFT_FUNC.is_match(&h) && SWIFT_TYPE.is_match(&h));
+            only_type_header_left = swift_in_a_type_body(lines, &literal, i);
             unproven |= !only_type_header_left;
             continue;
         }
@@ -418,7 +441,7 @@ fn swift_walk(lines: &[&str], at: usize, name: &str) -> Option<Vec<Binding>> {
         match swift_header_binds(&head, &text, &code(end), name) {
             Binds::UnreadablePatternMentionsName => return None,
             Binds::Name if head.starts_with("case ") => return found(i + 1),
-            Binds::Name => return found(line1_writing_name_or_start(i, end, &word)),
+            Binds::Name => return found(swift_line1_writing(lines, i, end, &word)),
             Binds::Nothing => {}
         }
     }
