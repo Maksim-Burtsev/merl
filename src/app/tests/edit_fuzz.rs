@@ -1063,6 +1063,39 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
+const SWIFT: &[&str] = &[
+    "\"\\(x)\"",
+    "\"\"\"\n",
+    "/// ",
+    "/[a-z]+/",
+    "@MainActor\n",
+    "switch x {\n",
+    "<T: A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const PHP: &[&str] = &[
+    "\"{$x}\"",
+    "<<<TEXT\n",
+    "TEXT;\n",
+    "/** ",
+    " */",
+    "?>\n<p>",
+    "<?php ",
+    "#[Attr]\n",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1153,113 +1186,127 @@ const LUA: &[&str] = &[
     "  ",
 ];
 
-const TREE_SITTER_SESSIONS: &[(&str, &[u8], &[&str])] = &[
+const SESSIONS: &[(&str, &[u8], &[&str])] = &[
     (
         "f.py",
-        include_bytes!("../../../tests/colors/python/classes.py"),
+        include_bytes!("../../../tests/colors/python/classes.py").as_slice(),
         PYTHON,
     ),
     (
         "f.md",
-        include_bytes!("../../../tests/colors/markdown/code.md"),
+        include_bytes!("../../../tests/colors/markdown/code.md").as_slice(),
         MARKDOWN,
     ),
     (
         "f.rs",
-        include_bytes!("../../../tests/colors/rust/exprs.rs"),
+        include_bytes!("../../../tests/colors/rust/exprs.rs").as_slice(),
         RUST,
     ),
     (
         "f.sh",
-        include_bytes!("../../../tests/colors/bash/script.sh"),
+        include_bytes!("../../../tests/colors/bash/script.sh").as_slice(),
         SHELL,
     ),
     (
         "f.yml",
-        include_bytes!("../../../tests/colors/yaml/workflow.yml"),
+        include_bytes!("../../../tests/colors/yaml/workflow.yml").as_slice(),
         DATA,
     ),
     (
         "f.json",
-        include_bytes!("../../../tests/colors/json/package.json"),
+        include_bytes!("../../../tests/colors/json/package.json").as_slice(),
         DATA,
     ),
     (
         "f.toml",
-        include_bytes!("../../../tests/colors/toml/Cargo.toml"),
+        include_bytes!("../../../tests/colors/toml/Cargo.toml").as_slice(),
         DATA,
     ),
     (
         "f.lua",
-        include_bytes!("../../../tests/colors/lua/decls.lua"),
+        include_bytes!("../../../tests/colors/lua/decls.lua").as_slice(),
         LUA,
     ),
-    ("f.c", include_bytes!("../../../tests/colors/c/ledger.c"), C),
+    (
+        "f.c",
+        include_bytes!("../../../tests/colors/c/ledger.c").as_slice(),
+        C,
+    ),
     (
         "f.cpp",
-        include_bytes!("../../../tests/colors/cpp/report.cpp"),
+        include_bytes!("../../../tests/colors/cpp/report.cpp").as_slice(),
         CPP,
     ),
     (
         "F.java",
-        include_bytes!("../../../tests/colors/java/Ledger.java"),
+        include_bytes!("../../../tests/colors/java/Ledger.java").as_slice(),
         JAVA,
     ),
     (
         "F.kt",
-        include_bytes!("../../../tests/colors/kotlin/Ledger.kt"),
+        include_bytes!("../../../tests/colors/kotlin/Ledger.kt").as_slice(),
         KOTLIN,
     ),
     (
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift").as_slice(),
+        SWIFT,
+    ),
+    (
+        "f.php",
+        include_bytes!("../../../tests/colors/php/Ledger.php").as_slice(),
+        PHP,
+    ),
+    (
         "f.rb",
-        include_bytes!("../../../tests/colors/ruby/ledger.rb"),
+        include_bytes!("../../../tests/colors/ruby/ledger.rb").as_slice(),
         RUBY,
     ),
     (
         "f.ex",
-        include_bytes!("../../../tests/colors/elixir/ledger.ex"),
+        include_bytes!("../../../tests/colors/elixir/ledger.ex").as_slice(),
         ELIXIR,
     ),
     (
         "F.cs",
-        include_bytes!("../../../tests/colors/c_sharp/Ledger.cs"),
+        include_bytes!("../../../tests/colors/c_sharp/Ledger.cs").as_slice(),
         CSHARP,
     ),
     (
         "f.html",
-        include_bytes!("../../../tests/colors/html/page.html"),
+        include_bytes!("../../../tests/colors/html/page.html").as_slice(),
         MARKUP,
     ),
     (
         "f.css",
-        include_bytes!("../../../tests/colors/css/site.css"),
+        include_bytes!("../../../tests/colors/css/site.css").as_slice(),
         MARKUP,
     ),
     (
         "f.xml",
-        include_bytes!("../../../tests/colors/xml/project.xml"),
+        include_bytes!("../../../tests/colors/xml/project.xml").as_slice(),
         MARKUP,
     ),
     (
         "CMakeLists.txt",
-        include_bytes!("../../../tests/colors/cmake/CMakeLists.txt"),
+        include_bytes!("../../../tests/colors/cmake/CMakeLists.txt").as_slice(),
         CMAKE,
     ),
     (
         "f.diff",
-        include_bytes!("../../../tests/colors/diff/change.diff"),
+        include_bytes!("../../../tests/colors/diff/change.diff").as_slice(),
         DIFF,
     ),
     (
         "queries/f.scm",
-        include_bytes!("../../../tests/colors/query/queries/highlights.scm"),
+        include_bytes!("../../../tests/colors/query/queries/highlights.scm").as_slice(),
         QUERY,
     ),
 ];
 
 #[test]
 fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
-    for (name, start, snippets) in TREE_SITTER_SESSIONS {
+    for (name, start, snippets) in SESSIONS {
         fuzz_tree_sitter(name, start, snippets);
     }
 }
@@ -1277,6 +1324,32 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
         include_bytes!("../../../tests/colors/java/Ledger.java"),
         JAVA,
         2445..=2445,
+    );
+}
+
+#[test]
+fn a_tree_that_plain_tree_sitter_also_builds_after_the_edits_is_painted_as_built() {
+    replay_tree_sitter(
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift"),
+        SWIFT,
+        754..=754,
+    );
+}
+
+#[test]
+fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
+    replay_tree_sitter(
+        "f.php",
+        include_bytes!("../../../tests/colors/php/Ledger.php"),
+        PHP,
+        5..=5,
+    );
+    replay_tree_sitter(
+        "f.xml",
+        include_bytes!("../../../tests/colors/xml/project.xml"),
+        MARKUP,
+        385..=385,
     );
 }
 
@@ -1332,6 +1405,9 @@ fn replay_tree_sitter(
         (a.view_w, a.view_h) = (WIDER_THAN_ANY_LINE, 40);
         a.line = rng.below(a.buf.lines.len());
         a.key(KeyEvent::new(KeyCode::Enter, NONE));
+        let mut plain = Buffer::from_bytes(path.clone(), start);
+        plain.start_tree_sitter();
+        plain.parse_more(None);
         let mut done = Vec::new();
         for _ in 0..60 {
             let op = match rng.below(4) {
@@ -1354,6 +1430,9 @@ fn replay_tree_sitter(
             }
             a.buf.parse_more(None);
             a.buf.paint_to(usize::MAX, &theme);
+            plain.lines.clone_from(&a.buf.lines);
+            plain.edited(0);
+            plain.parse_more(None);
             let text = a.buf.lines.join("\n") + "\n";
             let mut fresh = Buffer::from_bytes(path.clone(), text.as_bytes());
             fresh.start_tree_sitter();
@@ -1376,10 +1455,12 @@ fn replay_tree_sitter(
                 assert!(
                     recovered(&shape)
                         || recovered(&fresh_shape)
-                        || tokens(&shape) == tokens(&fresh_shape),
-                    "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                        || tokens(&shape) == tokens(&fresh_shape)
+                        || shape == plain.shape(),
+                    "{name} seed {seed}, after [{}]: the tree differs from a fresh parse and from a plain incremental one without an error in either\nincremental {}\nplain {}\nfresh {}",
                     done.join(", "),
                     a.buf.sexp(),
+                    plain.sexp(),
                     fresh.sexp()
                 );
                 assert_eq!(
