@@ -624,7 +624,7 @@ impl App {
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && word != "await"
         {
-            let found = self.rust_methods(&here, &word);
+            let found = self.rust_methods(&here, &word, &text, &chain);
             self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
             return;
         }
