@@ -172,6 +172,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/ruby/injections.scm"),
     ),
     (
+        "scala",
+        include_str!("../queries/scala/highlights.scm"),
+        include_str!("../queries/scala/injections.scm"),
+    ),
+    (
         "swift",
         include_str!("../queries/swift/highlights.scm"),
         include_str!("../queries/swift/injections.scm"),
@@ -395,6 +400,7 @@ pub fn for_syntax(
         }
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
+        "Scala" if !supercollider(path, lines) => lang("scala"),
         "Swift" => lang("swift"),
         "Markdown" => lang("markdown"),
         "TypeScript" => lang("typescript"),
@@ -443,6 +449,28 @@ fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
                     })
                 })
         })
+}
+
+fn supercollider(path: Option<&Path>, lines: &[String]) -> bool {
+    static PATTERNS: OnceLock<Vec<regex::bytes::Regex>> = OnceLock::new();
+    let patterns = PATTERNS.get_or_init(|| {
+        [
+            "var%s<",
+            "classvar%s<",
+            "%^this.*",
+            "|%w+|",
+            "%+%s%w*%s{",
+            "%*ar%s",
+        ]
+        .into_iter()
+        .map(|p| lua_pattern(p).expect("Neovim's detect.sc patterns are Lua patterns"))
+        .collect()
+    });
+    path.is_some_and(|p| p.extension().is_some_and(|e| e == "sc"))
+        && lines
+            .iter()
+            .take(25)
+            .any(|l| patterns.iter().any(|re| re.is_match(l.as_bytes())))
 }
 
 fn cmake(path: &Path) -> bool {
@@ -632,6 +660,7 @@ fn grammar(name: &str) -> Option<Language> {
         "dockerfile" => tree_sitter_dockerfile_updated::language(),
         "cmake" => tree_sitter_cmake::LANGUAGE.into(),
         "proto" => tree_sitter_proto::LANGUAGE.into(),
+        "scala" => tree_sitter_scala::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),

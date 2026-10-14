@@ -10,12 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Code is coloured as LazyVim colours it, from tree-sitter's syntax tree and the theme's Neovim
-  colours, in Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash, JSON, YAML,
-  TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Dockerfiles,
-  CMake, Protobuf, diffs and tree-sitter queries, with the code embedded in them (a fenced block,
-  a regex, a `run:` script). Other files keep the colours they had. The hidden `tree_sitter =
-  true` that turned this on early is gone: delete it from `~/.config/merl/config.toml`, where merl
-  now stops on it. (#810)
+  colours, in Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash, JSON, YAML, TOML,
+  Lua, C, C++, Java, C#, Kotlin, Scala, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Dockerfiles,
+  CMake, Protobuf, diffs and tree-sitter queries, with the code embedded in them (a fenced block, a
+  regex, a `run:` script). Other files keep the colours they had. The hidden `tree_sitter = true`
+  that turned this on early is gone: delete it from `~/.config/merl/config.toml`, where merl now
+  stops on it. (#810)
 - The default theme, `tokyonight-moon`, is tokyonight.nvim's Moon as Neovim paints it, where it
   shipped folke's Sublime file: the files merl does not colour with tree-sitter come closer to
   LazyVim too. (#812)

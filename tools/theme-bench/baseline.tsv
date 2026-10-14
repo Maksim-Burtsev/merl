@@ -23,6 +23,7 @@ adwaita	python	19185	19185
 adwaita	query	7948	7947
 adwaita	ruby	13458	13458
 adwaita	rust	17576	17576
+adwaita	scala	26619	26619
 adwaita	swift	22782	22782
 adwaita	toml	10487	10487
 adwaita	tsx	9700	9700
@@ -54,6 +55,7 @@ adwaita-light	python	19185	19185
 adwaita-light	query	7948	7947
 adwaita-light	ruby	13458	13458
 adwaita-light	rust	17576	17576
+adwaita-light	scala	26619	26619
 adwaita-light	swift	22782	22782
 adwaita-light	toml	10487	10487
 adwaita-light	tsx	9700	9700
@@ -85,6 +87,7 @@ alabaster	python	19185	19185
 alabaster	query	7948	7947
 alabaster	ruby	13458	13458
 alabaster	rust	17576	17576
+alabaster	scala	26619	26619
 alabaster	swift	22782	22782
 alabaster	toml	10487	10487
 alabaster	tsx	9700	9700
@@ -116,6 +119,7 @@ alabaster-light	python	19185	19185
 alabaster-light	query	7948	7945
 alabaster-light	ruby	13458	13458
 alabaster-light	rust	17576	17576
+alabaster-light	scala	26619	26619
 alabaster-light	swift	22782	22782
 alabaster-light	toml	10487	10481
 alabaster-light	tsx	9700	9700
@@ -147,6 +151,7 @@ alucard	python	19185	19185
 alucard	query	7948	7945
 alucard	ruby	13458	13458
 alucard	rust	17576	17576
+alucard	scala	26619	26619
 alucard	swift	22782	22782
 alucard	toml	10487	10481
 alucard	tsx	9700	9700
@@ -178,6 +183,7 @@ ayu	python	19185	19185
 ayu	query	7948	7945
 ayu	ruby	13458	13458
 ayu	rust	17576	17576
+ayu	scala	26619	26619
 ayu	swift	22782	22782
 ayu	toml	10487	10481
 ayu	tsx	9700	9700
@@ -209,6 +215,7 @@ ayu-light	python	19185	19185
 ayu-light	query	7948	7945
 ayu-light	ruby	13458	13458
 ayu-light	rust	17576	17576
+ayu-light	scala	26619	26619
 ayu-light	swift	22782	22782
 ayu-light	toml	10487	10481
 ayu-light	tsx	9700	9700
@@ -240,6 +247,7 @@ ayu-mirage	python	19185	19185
 ayu-mirage	query	7948	7945
 ayu-mirage	ruby	13458	13458
 ayu-mirage	rust	17576	17576
+ayu-mirage	scala	26619	26619
 ayu-mirage	swift	22782	22782
 ayu-mirage	toml	10487	10481
 ayu-mirage	tsx	9700	9700
@@ -271,6 +279,7 @@ bamboo	python	19185	19185
 bamboo	query	7948	7945
 bamboo	ruby	13458	13458
 bamboo	rust	17576	17576
+bamboo	scala	26619	26619
 bamboo	swift	22782	22782
 bamboo	toml	10487	10481
 bamboo	tsx	9700	9700
@@ -302,6 +311,7 @@ bamboo-light	python	19185	19185
 bamboo-light	query	7948	7945
 bamboo-light	ruby	13458	13458
 bamboo-light	rust	17576	17576
+bamboo-light	scala	26619	26619
 bamboo-light	swift	22782	22782
 bamboo-light	toml	10487	10481
 bamboo-light	tsx	9700	9700
@@ -333,6 +343,7 @@ bluloco-light	python	19185	19185
 bluloco-light	query	7948	7945
 bluloco-light	ruby	13458	13458
 bluloco-light	rust	17576	17576
+bluloco-light	scala	26619	26619
 bluloco-light	swift	22782	22782
 bluloco-light	toml	10487	10481
 bluloco-light	tsx	9700	9700
@@ -364,6 +375,7 @@ catppuccin-frappe	python	19185	19185
 catppuccin-frappe	query	7948	7945
 catppuccin-frappe	ruby	13458	13458
 catppuccin-frappe	rust	17576	17576
+catppuccin-frappe	scala	26619	26619
 catppuccin-frappe	swift	22782	22782
 catppuccin-frappe	toml	10487	10481
 catppuccin-frappe	tsx	9700	9700
@@ -395,6 +407,7 @@ catppuccin-latte	python	19185	19185
 catppuccin-latte	query	7948	7945
 catppuccin-latte	ruby	13458	13458
 catppuccin-latte	rust	17576	17576
+catppuccin-latte	scala	26619	26619
 catppuccin-latte	swift	22782	22782
 catppuccin-latte	toml	10487	10481
 catppuccin-latte	tsx	9700	9700
@@ -426,6 +439,7 @@ catppuccin-macchiato	python	19185	19185
 catppuccin-macchiato	query	7948	7945
 catppuccin-macchiato	ruby	13458	13458
 catppuccin-macchiato	rust	17576	17576
+catppuccin-macchiato	scala	26619	26619
 catppuccin-macchiato	swift	22782	22782
 catppuccin-macchiato	toml	10487	10481
 catppuccin-macchiato	tsx	9700	9700
@@ -457,6 +471,7 @@ catppuccin-mocha	python	19185	19185
 catppuccin-mocha	query	7948	7945
 catppuccin-mocha	ruby	13458	13458
 catppuccin-mocha	rust	17576	17576
+catppuccin-mocha	scala	26619	26619
 catppuccin-mocha	swift	22782	22782
 catppuccin-mocha	toml	10487	10481
 catppuccin-mocha	tsx	9700	9700
@@ -488,6 +503,7 @@ cendre	python	19185	19185
 cendre	query	7948	7945
 cendre	ruby	13458	13458
 cendre	rust	17576	17576
+cendre	scala	26619	26619
 cendre	swift	22782	22782
 cendre	toml	10487	10481
 cendre	tsx	9700	9700
@@ -519,6 +535,7 @@ darkearth	python	19185	19185
 darkearth	query	7948	7947
 darkearth	ruby	13458	13458
 darkearth	rust	17576	17576
+darkearth	scala	26619	26619
 darkearth	swift	22782	22782
 darkearth	toml	10487	10487
 darkearth	tsx	9700	9700
@@ -550,6 +567,7 @@ dawnfox	python	19185	19185
 dawnfox	query	7948	7945
 dawnfox	ruby	13458	13458
 dawnfox	rust	17576	17576
+dawnfox	scala	26619	26619
 dawnfox	swift	22782	22782
 dawnfox	toml	10487	10481
 dawnfox	tsx	9700	9700
@@ -581,6 +599,7 @@ dayfox	python	19185	19185
 dayfox	query	7948	7945
 dayfox	ruby	13458	13458
 dayfox	rust	17576	17576
+dayfox	scala	26619	26619
 dayfox	swift	22782	22782
 dayfox	toml	10487	10481
 dayfox	tsx	9700	9700
@@ -612,6 +631,7 @@ dracula	python	19185	19185
 dracula	query	7948	7945
 dracula	ruby	13458	13458
 dracula	rust	17576	17576
+dracula	scala	26619	26619
 dracula	swift	22782	22782
 dracula	toml	10487	10481
 dracula	tsx	9700	9700
@@ -643,6 +663,7 @@ e-ink	python	19185	19185
 e-ink	query	7948	7947
 e-ink	ruby	13458	13458
 e-ink	rust	17576	17576
+e-ink	scala	26619	26619
 e-ink	swift	22782	22782
 e-ink	toml	10487	10487
 e-ink	tsx	9700	9700
@@ -674,6 +695,7 @@ e-ink-light	python	19185	19185
 e-ink-light	query	7948	7947
 e-ink-light	ruby	13458	13458
 e-ink-light	rust	17576	17576
+e-ink-light	scala	26619	26619
 e-ink-light	swift	22782	22782
 e-ink-light	toml	10487	10487
 e-ink-light	tsx	9700	9700
@@ -705,6 +727,7 @@ edge	python	19185	19185
 edge	query	7948	7947
 edge	ruby	13458	13458
 edge	rust	17576	17576
+edge	scala	26619	26619
 edge	swift	22782	22782
 edge	toml	10487	10487
 edge	tsx	9700	9700
@@ -736,6 +759,7 @@ edge-light	python	19185	19185
 edge-light	query	7948	7947
 edge-light	ruby	13458	13458
 edge-light	rust	17576	17576
+edge-light	scala	26619	26619
 edge-light	swift	22782	22782
 edge-light	toml	10487	10487
 edge-light	tsx	9700	9700
@@ -767,6 +791,7 @@ everforest-dark	python	19185	19185
 everforest-dark	query	7948	7947
 everforest-dark	ruby	13458	13458
 everforest-dark	rust	17576	17576
+everforest-dark	scala	26619	26619
 everforest-dark	swift	22782	22782
 everforest-dark	toml	10487	10487
 everforest-dark	tsx	9700	9700
@@ -798,6 +823,7 @@ everforest-light	python	19185	19185
 everforest-light	query	7948	7947
 everforest-light	ruby	13458	13458
 everforest-light	rust	17576	17576
+everforest-light	scala	26619	26619
 everforest-light	swift	22782	22782
 everforest-light	toml	10487	10487
 everforest-light	tsx	9700	9700
@@ -829,6 +855,7 @@ flexoki-dark	python	19185	19185
 flexoki-dark	query	7948	7947
 flexoki-dark	ruby	13458	13458
 flexoki-dark	rust	17576	17576
+flexoki-dark	scala	26619	26619
 flexoki-dark	swift	22782	22782
 flexoki-dark	toml	10487	10487
 flexoki-dark	tsx	9700	9700
@@ -860,6 +887,7 @@ flexoki-light	python	19185	19185
 flexoki-light	query	7948	7947
 flexoki-light	ruby	13458	13458
 flexoki-light	rust	17576	17576
+flexoki-light	scala	26619	26619
 flexoki-light	swift	22782	22782
 flexoki-light	toml	10487	10487
 flexoki-light	tsx	9700	9700
@@ -891,6 +919,7 @@ github-dark	python	19185	19185
 github-dark	query	7948	7947
 github-dark	ruby	13458	13458
 github-dark	rust	17576	16926
+github-dark	scala	26619	26619
 github-dark	swift	22782	22782
 github-dark	toml	10487	10487
 github-dark	tsx	9700	9674
@@ -922,6 +951,7 @@ github-light	python	19185	19185
 github-light	query	7948	7947
 github-light	ruby	13458	13458
 github-light	rust	17576	16926
+github-light	scala	26619	26619
 github-light	swift	22782	22782
 github-light	toml	10487	10487
 github-light	tsx	9700	9674
@@ -953,6 +983,7 @@ gotham	python	19185	19185
 gotham	query	7948	7945
 gotham	ruby	13458	13458
 gotham	rust	17576	17576
+gotham	scala	26619	26619
 gotham	swift	22782	22782
 gotham	toml	10487	10481
 gotham	tsx	9700	9700
@@ -984,6 +1015,7 @@ gruvbox-dark	python	19185	19185
 gruvbox-dark	query	7948	7947
 gruvbox-dark	ruby	13458	13458
 gruvbox-dark	rust	17576	17576
+gruvbox-dark	scala	26619	26619
 gruvbox-dark	swift	22782	22782
 gruvbox-dark	toml	10487	10487
 gruvbox-dark	tsx	9700	9700
@@ -1015,6 +1047,7 @@ gruvbox-light	python	19185	19185
 gruvbox-light	query	7948	7947
 gruvbox-light	ruby	13458	13458
 gruvbox-light	rust	17576	17576
+gruvbox-light	scala	26619	26619
 gruvbox-light	swift	22782	22782
 gruvbox-light	toml	10487	10487
 gruvbox-light	tsx	9700	9700
@@ -1046,6 +1079,7 @@ gruvbox-material-dark	python	19185	19185
 gruvbox-material-dark	query	7948	7947
 gruvbox-material-dark	ruby	13458	13458
 gruvbox-material-dark	rust	17576	17576
+gruvbox-material-dark	scala	26619	26619
 gruvbox-material-dark	swift	22782	22782
 gruvbox-material-dark	toml	10487	10487
 gruvbox-material-dark	tsx	9700	9700
@@ -1077,6 +1111,7 @@ gruvbox-material-light	python	19185	19185
 gruvbox-material-light	query	7948	7947
 gruvbox-material-light	ruby	13458	13458
 gruvbox-material-light	rust	17576	17576
+gruvbox-material-light	scala	26619	26619
 gruvbox-material-light	swift	22782	22782
 gruvbox-material-light	toml	10487	10487
 gruvbox-material-light	tsx	9700	9700
@@ -1108,6 +1143,7 @@ hojicha	python	19185	19185
 hojicha	query	7948	7945
 hojicha	ruby	13458	13458
 hojicha	rust	17576	17576
+hojicha	scala	26619	26619
 hojicha	swift	22782	22782
 hojicha	toml	10487	10481
 hojicha	tsx	9700	9700
@@ -1139,6 +1175,7 @@ iceberg	python	19185	19185
 iceberg	query	7948	7945
 iceberg	ruby	13458	13458
 iceberg	rust	17576	17576
+iceberg	scala	26619	26619
 iceberg	swift	22782	22782
 iceberg	toml	10487	10481
 iceberg	tsx	9700	9700
@@ -1170,6 +1207,7 @@ iceberg-light	python	19185	19185
 iceberg-light	query	7948	7947
 iceberg-light	ruby	13458	13458
 iceberg-light	rust	17576	17576
+iceberg-light	scala	26619	26619
 iceberg-light	swift	22782	22782
 iceberg-light	toml	10487	10487
 iceberg-light	tsx	9700	9700
@@ -1201,6 +1239,7 @@ jellybeans	python	19185	19185
 jellybeans	query	7948	7946
 jellybeans	ruby	13458	13458
 jellybeans	rust	17576	17576
+jellybeans	scala	26619	26619
 jellybeans	swift	22782	22782
 jellybeans	toml	10487	10481
 jellybeans	tsx	9700	9700
@@ -1232,6 +1271,7 @@ jellybeans-light	python	19185	19185
 jellybeans-light	query	7948	7946
 jellybeans-light	ruby	13458	13458
 jellybeans-light	rust	17576	17576
+jellybeans-light	scala	26619	26619
 jellybeans-light	swift	22782	22782
 jellybeans-light	toml	10487	10481
 jellybeans-light	tsx	9700	9700
@@ -1263,6 +1303,7 @@ kanagawa-dragon	python	19185	19185
 kanagawa-dragon	query	7948	7945
 kanagawa-dragon	ruby	13458	13458
 kanagawa-dragon	rust	17576	17576
+kanagawa-dragon	scala	26619	26619
 kanagawa-dragon	swift	22782	22782
 kanagawa-dragon	toml	10487	10481
 kanagawa-dragon	tsx	9700	9700
@@ -1294,6 +1335,7 @@ kanagawa-lotus	python	19185	19185
 kanagawa-lotus	query	7948	7945
 kanagawa-lotus	ruby	13458	13458
 kanagawa-lotus	rust	17576	17576
+kanagawa-lotus	scala	26619	26619
 kanagawa-lotus	swift	22782	22782
 kanagawa-lotus	toml	10487	10481
 kanagawa-lotus	tsx	9700	9700
@@ -1325,6 +1367,7 @@ kanagawa-wave	python	19185	19185
 kanagawa-wave	query	7948	7945
 kanagawa-wave	ruby	13458	13458
 kanagawa-wave	rust	17576	17576
+kanagawa-wave	scala	26619	26619
 kanagawa-wave	swift	22782	22782
 kanagawa-wave	toml	10487	10481
 kanagawa-wave	tsx	9700	9700
@@ -1356,6 +1399,7 @@ koda-dark	python	19185	19185
 koda-dark	query	7948	7945
 koda-dark	ruby	13458	13458
 koda-dark	rust	17576	17576
+koda-dark	scala	26619	26619
 koda-dark	swift	22782	22782
 koda-dark	toml	10487	10481
 koda-dark	tsx	9700	9700
@@ -1387,6 +1431,7 @@ koda-light	python	19185	19185
 koda-light	query	7948	7945
 koda-light	ruby	13458	13458
 koda-light	rust	17576	17576
+koda-light	scala	26619	26619
 koda-light	swift	22782	22782
 koda-light	toml	10487	10481
 koda-light	tsx	9700	9700
@@ -1418,6 +1463,7 @@ lackluster	python	19185	19185
 lackluster	query	7948	7945
 lackluster	ruby	13458	13458
 lackluster	rust	17576	17576
+lackluster	scala	26619	26619
 lackluster	swift	22782	22782
 lackluster	toml	10487	10481
 lackluster	tsx	9700	9700
@@ -1449,6 +1495,7 @@ lightearth	python	19185	19185
 lightearth	query	7948	7947
 lightearth	ruby	13458	13458
 lightearth	rust	17576	17576
+lightearth	scala	26619	26619
 lightearth	swift	22782	22782
 lightearth	toml	10487	10487
 lightearth	tsx	9700	9700
@@ -1480,6 +1527,7 @@ material-dark	python	19185	19185
 material-dark	query	7948	7945
 material-dark	ruby	13458	13458
 material-dark	rust	17576	17576
+material-dark	scala	26619	26619
 material-dark	swift	22782	22782
 material-dark	toml	10487	10481
 material-dark	tsx	9700	9700
@@ -1511,6 +1559,7 @@ material-light	python	19185	19185
 material-light	query	7948	7945
 material-light	ruby	13458	13458
 material-light	rust	17576	17576
+material-light	scala	26619	26619
 material-light	swift	22782	22782
 material-light	toml	10487	10481
 material-light	tsx	9700	9700
@@ -1542,6 +1591,7 @@ melange-dark	python	19185	19185
 melange-dark	query	7948	7947
 melange-dark	ruby	13458	13458
 melange-dark	rust	17576	17576
+melange-dark	scala	26619	26619
 melange-dark	swift	22782	22782
 melange-dark	toml	10487	10487
 melange-dark	tsx	9700	9700
@@ -1573,6 +1623,7 @@ melange-light	python	19185	19185
 melange-light	query	7948	7947
 melange-light	ruby	13458	13458
 melange-light	rust	17576	17576
+melange-light	scala	26619	26619
 melange-light	swift	22782	22782
 melange-light	toml	10487	10487
 melange-light	tsx	9700	9700
@@ -1604,6 +1655,7 @@ mellifluous	python	19185	19185
 mellifluous	query	7948	7945
 mellifluous	ruby	13458	13458
 mellifluous	rust	17576	17576
+mellifluous	scala	26619	26619
 mellifluous	swift	22782	22782
 mellifluous	toml	10487	10481
 mellifluous	tsx	9700	9700
@@ -1635,6 +1687,7 @@ mellifluous-light	python	19185	19185
 mellifluous-light	query	7948	7945
 mellifluous-light	ruby	13458	13458
 mellifluous-light	rust	17576	17576
+mellifluous-light	scala	26619	26619
 mellifluous-light	swift	22782	22782
 mellifluous-light	toml	10487	10481
 mellifluous-light	tsx	9700	9700
@@ -1666,6 +1719,7 @@ mellow	python	19185	19185
 mellow	query	7948	7945
 mellow	ruby	13458	13458
 mellow	rust	17576	17576
+mellow	scala	26619	26619
 mellow	swift	22782	22782
 mellow	toml	10487	10481
 mellow	tsx	9700	9700
@@ -1697,6 +1751,7 @@ miasma	python	19185	19185
 miasma	query	7948	7947
 miasma	ruby	13458	13458
 miasma	rust	17576	17576
+miasma	scala	26619	26619
 miasma	swift	22782	22782
 miasma	toml	10487	10487
 miasma	tsx	9700	9700
@@ -1728,6 +1783,7 @@ minischeme	python	19185	19185
 minischeme	query	7948	7948
 minischeme	ruby	13458	13458
 minischeme	rust	17576	17576
+minischeme	scala	26619	26619
 minischeme	swift	22782	22782
 minischeme	toml	10487	10487
 minischeme	tsx	9700	9700
@@ -1759,6 +1815,7 @@ minischeme-light	python	19185	19185
 minischeme-light	query	7948	7948
 minischeme-light	ruby	13458	13458
 minischeme-light	rust	17576	17576
+minischeme-light	scala	26619	26619
 minischeme-light	swift	22782	22782
 minischeme-light	toml	10487	10487
 minischeme-light	tsx	9700	9700
@@ -1790,6 +1847,7 @@ moonfly	python	19185	19185
 moonfly	query	7948	7947
 moonfly	ruby	13458	13458
 moonfly	rust	17576	17576
+moonfly	scala	26619	26619
 moonfly	swift	22782	22782
 moonfly	toml	10487	10487
 moonfly	tsx	9700	9700
@@ -1821,6 +1879,7 @@ neomodern-light	python	19185	19185
 neomodern-light	query	7948	7945
 neomodern-light	ruby	13458	13458
 neomodern-light	rust	17576	17576
+neomodern-light	scala	26619	26619
 neomodern-light	swift	22782	22782
 neomodern-light	toml	10487	10481
 neomodern-light	tsx	9700	9700
@@ -1852,6 +1911,7 @@ nightfly	python	19185	19185
 nightfly	query	7948	7947
 nightfly	ruby	13458	13458
 nightfly	rust	17576	17576
+nightfly	scala	26619	26619
 nightfly	swift	22782	22782
 nightfly	toml	10487	10487
 nightfly	tsx	9700	9700
@@ -1883,6 +1943,7 @@ nightfox	python	19185	19185
 nightfox	query	7948	7945
 nightfox	ruby	13458	13458
 nightfox	rust	17576	17576
+nightfox	scala	26619	26619
 nightfox	swift	22782	22782
 nightfox	toml	10487	10481
 nightfox	tsx	9700	9700
@@ -1914,6 +1975,7 @@ nord	python	19185	19185
 nord	query	7948	7947
 nord	ruby	13458	13458
 nord	rust	17576	17576
+nord	scala	26619	26619
 nord	swift	22782	22782
 nord	toml	10487	10487
 nord	tsx	9700	9700
@@ -1945,6 +2007,7 @@ nordfox	python	19185	19185
 nordfox	query	7948	7945
 nordfox	ruby	13458	13458
 nordfox	rust	17576	17576
+nordfox	scala	26619	26619
 nordfox	swift	22782	22782
 nordfox	toml	10487	10481
 nordfox	tsx	9700	9700
@@ -1976,6 +2039,7 @@ onedark	python	19185	19185
 onedark	query	7948	7947
 onedark	ruby	13458	13458
 onedark	rust	17576	17576
+onedark	scala	26619	26619
 onedark	swift	22782	22782
 onedark	toml	10487	10487
 onedark	tsx	9700	9700
@@ -2007,6 +2071,7 @@ onedark-light	python	19185	19185
 onedark-light	query	7948	7947
 onedark-light	ruby	13458	13458
 onedark-light	rust	17576	17576
+onedark-light	scala	26619	26619
 onedark-light	swift	22782	22782
 onedark-light	toml	10487	10487
 onedark-light	tsx	9700	9700
@@ -2038,6 +2103,7 @@ oxocarbon-dark	python	19185	19185
 oxocarbon-dark	query	7948	7947
 oxocarbon-dark	ruby	13458	13458
 oxocarbon-dark	rust	17576	17576
+oxocarbon-dark	scala	26619	26619
 oxocarbon-dark	swift	22782	22782
 oxocarbon-dark	toml	10487	10487
 oxocarbon-dark	tsx	9700	9700
@@ -2069,6 +2135,7 @@ oxocarbon-light	python	19185	19185
 oxocarbon-light	query	7948	7947
 oxocarbon-light	ruby	13458	13458
 oxocarbon-light	rust	17576	17576
+oxocarbon-light	scala	26619	26619
 oxocarbon-light	swift	22782	22782
 oxocarbon-light	toml	10487	10487
 oxocarbon-light	tsx	9700	9700
@@ -2100,6 +2167,7 @@ papercolor	python	19185	19185
 papercolor	query	7948	7945
 papercolor	ruby	13458	13458
 papercolor	rust	17576	17576
+papercolor	scala	26619	26619
 papercolor	swift	22782	22782
 papercolor	toml	10487	10481
 papercolor	tsx	9700	9700
@@ -2131,6 +2199,7 @@ papercolor-light	python	19185	19185
 papercolor-light	query	7948	7945
 papercolor-light	ruby	13458	13458
 papercolor-light	rust	17576	17576
+papercolor-light	scala	26619	26619
 papercolor-light	swift	22782	22782
 papercolor-light	toml	10487	10481
 papercolor-light	tsx	9700	9700
@@ -2162,6 +2231,7 @@ pencil	python	19185	19185
 pencil	query	7948	7946
 pencil	ruby	13458	13458
 pencil	rust	17576	17576
+pencil	scala	26619	26619
 pencil	swift	22782	22782
 pencil	toml	10487	10481
 pencil	tsx	9700	9700
@@ -2193,6 +2263,7 @@ pencil-light	python	19185	19185
 pencil-light	query	7948	7946
 pencil-light	ruby	13458	13458
 pencil-light	rust	17576	17576
+pencil-light	scala	26619	26619
 pencil-light	swift	22782	22782
 pencil-light	toml	10487	10481
 pencil-light	tsx	9700	9700
@@ -2224,6 +2295,7 @@ rose-pine	python	19185	19185
 rose-pine	query	7948	7945
 rose-pine	ruby	13458	13458
 rose-pine	rust	17576	17576
+rose-pine	scala	26619	26619
 rose-pine	swift	22782	22782
 rose-pine	toml	10487	10481
 rose-pine	tsx	9700	9700
@@ -2255,6 +2327,7 @@ rose-pine-dawn	python	19185	19185
 rose-pine-dawn	query	7948	7945
 rose-pine-dawn	ruby	13458	13458
 rose-pine-dawn	rust	17576	17576
+rose-pine-dawn	scala	26619	26619
 rose-pine-dawn	swift	22782	22782
 rose-pine-dawn	toml	10487	10481
 rose-pine-dawn	tsx	9700	9700
@@ -2286,6 +2359,7 @@ rose-pine-moon	python	19185	19185
 rose-pine-moon	query	7948	7945
 rose-pine-moon	ruby	13458	13458
 rose-pine-moon	rust	17576	17576
+rose-pine-moon	scala	26619	26619
 rose-pine-moon	swift	22782	22782
 rose-pine-moon	toml	10487	10481
 rose-pine-moon	tsx	9700	9700
@@ -2317,6 +2391,7 @@ selenized	python	19185	19185
 selenized	query	7948	7945
 selenized	ruby	13458	13458
 selenized	rust	17576	17576
+selenized	scala	26619	26619
 selenized	swift	22782	22782
 selenized	toml	10487	10481
 selenized	tsx	9700	9700
@@ -2348,6 +2423,7 @@ selenized-light	python	19185	19185
 selenized-light	query	7948	7945
 selenized-light	ruby	13458	13458
 selenized-light	rust	17576	17576
+selenized-light	scala	26619	26619
 selenized-light	swift	22782	22782
 selenized-light	toml	10487	10481
 selenized-light	tsx	9700	9700
@@ -2379,6 +2455,7 @@ solarized-dark	python	19185	19185
 solarized-dark	query	7948	7945
 solarized-dark	ruby	13458	13458
 solarized-dark	rust	17576	17576
+solarized-dark	scala	26619	26619
 solarized-dark	swift	22782	22782
 solarized-dark	toml	10487	10481
 solarized-dark	tsx	9700	9700
@@ -2410,6 +2487,7 @@ solarized-light	python	19185	19185
 solarized-light	query	7948	7945
 solarized-light	ruby	13458	13458
 solarized-light	rust	17576	17576
+solarized-light	scala	26619	26619
 solarized-light	swift	22782	22782
 solarized-light	toml	10487	10481
 solarized-light	tsx	9700	9700
@@ -2441,6 +2519,7 @@ sonokai	python	19185	19185
 sonokai	query	7948	7947
 sonokai	ruby	13458	13458
 sonokai	rust	17576	17576
+sonokai	scala	26619	26619
 sonokai	swift	22782	22782
 sonokai	toml	10487	10487
 sonokai	tsx	9700	9700
@@ -2472,6 +2551,7 @@ soviet-dark	python	19185	19185
 soviet-dark	query	7948	7945
 soviet-dark	ruby	13458	13458
 soviet-dark	rust	17576	17576
+soviet-dark	scala	26619	26619
 soviet-dark	swift	22782	22782
 soviet-dark	toml	10487	10481
 soviet-dark	tsx	9700	9700
@@ -2503,6 +2583,7 @@ soviet-light	python	19185	19185
 soviet-light	query	7948	7945
 soviet-light	ruby	13458	13458
 soviet-light	rust	17576	17576
+soviet-light	scala	26619	26619
 soviet-light	swift	22782	22782
 soviet-light	toml	10487	10481
 soviet-light	tsx	9700	9700
@@ -2534,6 +2615,7 @@ srcery	python	19185	19185
 srcery	query	7948	7945
 srcery	ruby	13458	13458
 srcery	rust	17576	17576
+srcery	scala	26619	26619
 srcery	swift	22782	22782
 srcery	toml	10487	10481
 srcery	tsx	9700	9700
@@ -2565,6 +2647,7 @@ token	python	19185	19185
 token	query	7948	7945
 token	ruby	13458	13458
 token	rust	17576	17576
+token	scala	26619	26619
 token	swift	22782	22782
 token	toml	10487	10481
 token	tsx	9700	9700
@@ -2596,6 +2679,7 @@ token-light	python	19185	19185
 token-light	query	7948	7945
 token-light	ruby	13458	13458
 token-light	rust	17576	17576
+token-light	scala	26619	26619
 token-light	swift	22782	22782
 token-light	toml	10487	10481
 token-light	tsx	9700	9700
@@ -2627,6 +2711,7 @@ tokyonight-day	python	19185	19185
 tokyonight-day	query	7948	7945
 tokyonight-day	ruby	13458	13458
 tokyonight-day	rust	17576	17576
+tokyonight-day	scala	26619	26619
 tokyonight-day	swift	22782	22782
 tokyonight-day	toml	10487	10481
 tokyonight-day	tsx	9700	9700
@@ -2658,6 +2743,7 @@ tokyonight-moon	python	19185	19185
 tokyonight-moon	query	7948	7945
 tokyonight-moon	ruby	13458	13458
 tokyonight-moon	rust	17576	17576
+tokyonight-moon	scala	26619	26619
 tokyonight-moon	swift	22782	22782
 tokyonight-moon	toml	10487	10481
 tokyonight-moon	tsx	9700	9700
@@ -2689,6 +2775,7 @@ tokyonight-night	python	19185	19185
 tokyonight-night	query	7948	7945
 tokyonight-night	ruby	13458	13458
 tokyonight-night	rust	17576	17576
+tokyonight-night	scala	26619	26619
 tokyonight-night	swift	22782	22782
 tokyonight-night	toml	10487	10481
 tokyonight-night	tsx	9700	9700
@@ -2720,6 +2807,7 @@ tokyonight-storm	python	19185	19185
 tokyonight-storm	query	7948	7945
 tokyonight-storm	ruby	13458	13458
 tokyonight-storm	rust	17576	17576
+tokyonight-storm	scala	26619	26619
 tokyonight-storm	swift	22782	22782
 tokyonight-storm	toml	10487	10481
 tokyonight-storm	tsx	9700	9700
@@ -2751,6 +2839,7 @@ vague	python	19185	19185
 vague	query	7948	7947
 vague	ruby	13458	13458
 vague	rust	17576	17576
+vague	scala	26619	26619
 vague	swift	22782	22782
 vague	toml	10487	10487
 vague	tsx	9700	9700
@@ -2782,6 +2871,7 @@ vesper	python	19185	19185
 vesper	query	7948	7947
 vesper	ruby	13458	13458
 vesper	rust	17576	17576
+vesper	scala	26619	26619
 vesper	swift	22782	22782
 vesper	toml	10487	10487
 vesper	tsx	9700	9700
@@ -2813,6 +2903,7 @@ vscode-dark	python	19185	19185
 vscode-dark	query	7948	7947
 vscode-dark	ruby	13458	13458
 vscode-dark	rust	17576	17576
+vscode-dark	scala	26619	26619
 vscode-dark	swift	22782	22782
 vscode-dark	toml	10487	10487
 vscode-dark	tsx	9700	9700
@@ -2844,6 +2935,7 @@ vscode-light	python	19185	19185
 vscode-light	query	7948	7947
 vscode-light	ruby	13458	13458
 vscode-light	rust	17576	17576
+vscode-light	scala	26619	26619
 vscode-light	swift	22782	22782
 vscode-light	toml	10487	10487
 vscode-light	tsx	9700	9700

@@ -1063,6 +1063,23 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
+const SCALA: &[&str] = &[
+    "s\"${x}\"",
+    "\"\"\"\n",
+    "/** ",
+    " */",
+    "@main ",
+    "x match {\n",
+    "case _ => ",
+    "[A]",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const ZIG: &[&str] = &[
     "\\\\ text\n",
     "\"{s}\\n\"",
@@ -1245,6 +1262,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "F.kt",
         include_bytes!("../../../tests/colors/kotlin/Ledger.kt").as_slice(),
         KOTLIN,
+    ),
+    (
+        "F.scala",
+        include_bytes!("../../../tests/colors/scala/Ledger.scala").as_slice(),
+        SCALA,
     ),
     (
         "f.zig",

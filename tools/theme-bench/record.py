@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "zig"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "zig", "scala"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -79,6 +79,7 @@ LANGS = {
     "diff": (["rules_go", "openzeppelin-contracts", "outline", "halo"], ["diff", "patch"]),
     "query": (["nvim-treesitter"], ["scm"]),
     "zig": (["zls"], ["zig", "zon"]),
+    "scala": (["cats"], ["scala", "sbt", "sc", "mill"]),
 }
 NOT_HTML = re.compile(
     r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
@@ -89,6 +90,7 @@ THEME_ONLY = {
     "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
     "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
                 "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
+    "cats": ["cats", "scala", "https://github.com/typelevel/cats.git", "4a2ea736632c64aaf2e4915e6922e3585379382f", "-"],
     "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
