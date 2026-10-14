@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -296,6 +295,55 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
     (literal, code)
 }
 
+fn quoted(b: &[u8], out: &mut [u8], i: usize, quote: &mut Option<(u8, u8, usize)>) -> usize {
+    let Some((open, close, depth)) = quote.as_mut() else {
+        return i;
+    };
+    let c = b[i];
+    out[i] = b' ';
+    if c == b'\\' {
+        if i + 1 < b.len() {
+            out[i + 1] = b' ';
+        }
+        return i + 2;
+    }
+    if c == *close {
+        if *depth == 0 {
+            *quote = None;
+        } else {
+            *depth -= 1;
+        }
+    } else if c == *open && open != close {
+        *depth += 1;
+    }
+    i + 1
+}
+
+fn heredoc_at(line: &str, i: usize) -> Option<(String, bool, usize)> {
+    let b = line.as_bytes();
+    let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+    let mut j = i + 2;
+    let indented = b.get(j) == Some(&b'~');
+    if indented {
+        j += 1;
+    }
+    let (label, end) = match b.get(j) {
+        Some(&q @ (b'"' | b'\'')) => {
+            let close = b[j + 1..].iter().position(|&x| x == q);
+            match close {
+                Some(n) => (line.get(j + 1..j + 1 + n), j + n + 2),
+                None => (None, j),
+            }
+        }
+        Some(&x) if x.is_ascii_alphabetic() || x == b'_' => {
+            let n = b[j..].iter().take_while(|&&x| ident(x)).count();
+            (line.get(j..j + n), j + n)
+        }
+        _ => (None, j),
+    };
+    Some((label?.to_owned(), indented, end))
+}
+
 fn scan_line(line: &str, state: &State) -> (String, State, Vec<(String, bool)>) {
     let b = line.as_bytes();
     let mut out = b.to_vec();
@@ -307,26 +355,8 @@ fn scan_line(line: &str, state: &State) -> (String, State, Vec<(String, bool)>) 
     };
     let mut i = 0;
     while i < b.len() {
-        if let Some((open, close, depth)) = quote.as_mut() {
-            let c = b[i];
-            out[i] = b' ';
-            if c == b'\\' {
-                if i + 1 < b.len() {
-                    out[i + 1] = b' ';
-                }
-                i += 2;
-                continue;
-            }
-            if c == *close {
-                if *depth == 0 {
-                    quote = None;
-                } else {
-                    *depth -= 1;
-                }
-            } else if c == *open && open != close {
-                *depth += 1;
-            }
-            i += 1;
+        if quote.is_some() {
+            i = quoted(b, &mut out, i, &mut quote);
             continue;
         }
         let c = b[i];
@@ -350,27 +380,8 @@ fn scan_line(line: &str, state: &State) -> (String, State, Vec<(String, bool)>) 
                 continue;
             }
             b'<' if b[i..].starts_with(b"<<") && prev != Some(b'<') => {
-                let mut j = i + 2;
-                let indented = b.get(j) == Some(&b'~');
-                if indented {
-                    j += 1;
-                }
-                let (label, end) = match b.get(j) {
-                    Some(&q @ (b'"' | b'\'')) => {
-                        let close = b[j + 1..].iter().position(|&x| x == q);
-                        match close {
-                            Some(n) => (line.get(j + 1..j + 1 + n), j + n + 2),
-                            None => (None, j),
-                        }
-                    }
-                    Some(&x) if x.is_ascii_alphabetic() || x == b'_' => {
-                        let n = b[j..].iter().take_while(|&&x| ident(x)).count();
-                        (line.get(j..j + n), j + n)
-                    }
-                    _ => (None, j),
-                };
-                if let Some(label) = label {
-                    heredocs.push((label.to_owned(), indented));
+                if let Some((label, indented, end)) = heredoc_at(line, i) {
+                    heredocs.push((label, indented));
                     i = end;
                     continue;
                 }
