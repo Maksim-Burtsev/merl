@@ -1245,3 +1245,22 @@ fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_li
         assert_eq!(b.hl, fresh.hl, "{value}");
     }
 }
+
+#[test]
+fn an_edit_on_a_later_line_repaints_a_string_its_injection_moves_on_an_earlier_line() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(PathBuf::from("a.py"), b"x = (\"%d items\"\n     % n)\n");
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    for value in ["     + n)", "     % n)"] {
+        b.lines[1] = value.to_owned();
+        b.edited(1);
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        let text = b.lines.join("\n") + "\n";
+        let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
+        fresh.parse_more(None);
+        fresh.paint_to(usize::MAX, &theme);
+        assert_eq!(b.hl, fresh.hl, "{value}");
+    }
+}
