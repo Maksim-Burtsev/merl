@@ -287,6 +287,7 @@ impl App {
                 }
             }
             KeyCode::Char('T') => self.open_themes_picker(),
+            KeyCode::Char('b') if !ctrl => self.blame_line(),
             KeyCode::Char('w') => self.toggle_wrap(),
             KeyCode::Char('f') if !ctrl && self.focus == Focus::Code => self.toggle_collapse(),
             KeyCode::Char('p') => self.toggle_preview(),

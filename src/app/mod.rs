@@ -18,6 +18,7 @@ use crate::wrap;
 
 mod android;
 mod at_base;
+mod blame;
 mod c;
 mod collapse;
 mod component;
