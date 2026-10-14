@@ -26,12 +26,15 @@ blocks and the keystrokes are lost:
 
     cp -R tutor/notes /tmp/notes && tools/cast.py --project /tmp/notes ...
 
-macOS only: the renderer reads Menlo out of /System/Library/Fonts/Menlo.ttc.
+macOS only: the renderer reads Menlo out of /System/Library/Fonts/Menlo.ttc, or with `--font
+sf-mono` the SF Mono that Terminal.app ships. Pictures for the decision desk take `--font sf-mono
+--font-size 36`: twice the pixels of a screen point, so they stay sharp on a Retina display.
 """
 import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, threading, time
 from PIL import Image, ImageDraw, ImageFont
 
 FONT = "/System/Library/Fonts/Menlo.ttc"
+SF_MONO = "/System/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SF-Mono-{}.otf"
 FONT_SIZE = 18
 DEFAULT_FG, DEFAULT_BG = (0xc8, 0xd3, 0xf5), (0x22, 0x24, 0x36)
 ANSI = [tuple(bytes.fromhex(h)) for h in ("1b1d2b ff757f c3e88d ffc777 82aaff c099ff 86e1fc 828bb8 "
@@ -301,6 +304,7 @@ def main():
     p.add_argument("--project", default=".", help="directory merl runs in (default: .)")
     p.add_argument("--size", default="90x20", help="pane in cells (default: 90x20)")
     p.add_argument("--font-size", type=int, default=FONT_SIZE)
+    p.add_argument("--font", choices=("menlo", "sf-mono"), default="menlo")
     p.add_argument("--fps", type=float, default=10)
     p.add_argument("--key-delay", type=float, default=0.35,
                    help="pause after each `key` keystroke: a person's pace, the eye follows it")
@@ -336,7 +340,11 @@ def main():
     finally:
         pane.close()
 
-    fonts = [ImageFont.truetype(FONT, args.font_size, index=i) for i in range(4)]
+    if args.font == "sf-mono":
+        fonts = [ImageFont.truetype(SF_MONO.format(face), args.font_size)
+                 for face in ("Regular", "Bold", "RegularItalic", "BoldItalic")]
+    else:
+        fonts = [ImageFont.truetype(FONT, args.font_size, index=i) for i in range(4)]
     ascent, descent = fonts[0].getmetrics()
     cell = (round(fonts[0].getlength("M")), ascent + descent)
     images, durations = [], []
