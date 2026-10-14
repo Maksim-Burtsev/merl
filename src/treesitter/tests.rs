@@ -335,6 +335,11 @@ fn erlang_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn racket_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("racket");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -487,6 +492,7 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
+    assert!(sexp("a.rkt", b"#lang racket\n(define a 1)\n").contains("(program "));
     for f in ["a.erl", "a.hrl"] {
         assert!(sexp(f, b"-module(a).\n").contains("(source_file "), "{f}");
     }
@@ -842,6 +848,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("r"), Some("r"));
     assert_eq!(name("erlang"), Some("erlang"));
     assert_eq!(name("erl"), Some("erlang"));
+    assert_eq!(name("racket"), Some("racket"));
+    assert_eq!(name("rkt"), Some("racket"));
 }
 
 #[test]

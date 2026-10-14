@@ -241,6 +241,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/erlang/highlights.scm"),
         include_str!("../queries/erlang/injections.scm"),
     ),
+    (
+        "racket",
+        include_str!("../queries/racket/highlights.scm"),
+        include_str!("../queries/racket/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -432,6 +437,14 @@ pub fn for_syntax(
         "Python" => lang("python"),
         "PHP" if path.is_none_or(php) => lang("php"),
         "R" if r(path, lines) => lang("r"),
+        "Racket"
+            if path.is_none_or(|p| {
+                p.extension()
+                    .is_some_and(|e| e == "rkt" || e == "rktd" || e == "rktl")
+            }) =>
+        {
+            lang("racket")
+        }
         "Protocol Buffer" if path.is_none_or(|p| p.extension().is_some_and(|e| e == "proto")) => {
             lang("proto")
         }
@@ -755,6 +768,7 @@ fn grammar(name: &str) -> Option<Language> {
         "scheme" => tree_sitter_scheme::LANGUAGE.into(),
         "r" => tree_sitter_r::LANGUAGE.into(),
         "erlang" => tree_sitter_erlang::LANGUAGE.into(),
+        "racket" => tree_sitter_racket::LANGUAGE.into(),
         _ => return None,
     })
 }

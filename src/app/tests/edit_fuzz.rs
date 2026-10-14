@@ -1134,6 +1134,22 @@ const ERLANG: &[&str] = &[
     "\n\n",
 ];
 
+const RACKET: &[&str] = &[
+    "#| c |#",
+    "#;",
+    "; c\n",
+    "'(a b)",
+    "#rx\"a\"",
+    "#:key ",
+    "(define (f x)\n",
+    "(",
+    ")",
+    "[",
+    "]",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1339,6 +1355,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.erl",
         include_bytes!("../../../tests/colors/erlang/ledger.erl").as_slice(),
         ERLANG,
+    ),
+    (
+        "f.rkt",
+        include_bytes!("../../../tests/colors/racket/ledger.rkt").as_slice(),
+        RACKET,
     ),
     (
         "f.rb",

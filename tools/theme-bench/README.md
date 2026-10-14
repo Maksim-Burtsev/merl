@@ -300,6 +300,14 @@ project:
 |---|---|---|---|---|
 | Erlang | 23,025 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Racket (#808), `.rkt`, where syntect calls it Racket, as Neovim does with `.rktd` and `.rktl` too;
+`comment` stays plain, as LazyVim installs no parser for it. crates.io's tree-sitter-racket 0.25.0
+is the pin (b3cbbde), `parser.c` and scanner alike. Files from drracket:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Racket | 16,048 | 100.0 adwaita | 100.0 | 100.0 alabaster-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
