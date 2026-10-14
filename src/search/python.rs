@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use regex::Regex;
 
@@ -344,13 +343,16 @@ pub(super) fn python_statements(t: &str, continues: bool) -> Vec<&str> {
             b')' | b']' | b'}' => depth -= 1,
             _ => {}
         }
-        let right_behind_unopened_closer =
-            end_of_unopened_closer.is_some_and(|k| k <= i && t[k..i].trim().is_empty());
+        let right_behind_unopened_closer = end_of_unopened_closer
+            .is_some_and(|k| t.get(k..i).is_some_and(|s| s.trim().is_empty()));
         let ends = header || right_behind_unopened_closer;
-        c == b':' && ends && depth == 0 && !t[i + 1..].starts_with('=')
+        c == b':' && ends && depth == 0 && t.get(i + 1..).is_some_and(|r| !r.starts_with('='))
     });
     let rest = match colon {
-        Some((i, _)) => &t[i + 1..],
+        Some((i, _)) => match t.get(i + 1..) {
+            Some(rest) => rest,
+            None => return Vec::new(),
+        },
         None if continues => return Vec::new(),
         None => t,
     };
@@ -399,7 +401,10 @@ fn python_params(
         .enumerate()
     {
         let at = p.as_ptr() as usize - params.as_ptr() as usize + p.len() - p.trim_start().len();
-        let line_written_on = def_line0 + 1 + params[..at].matches('\n').count();
+        let Some(above) = params.get(..at) else {
+            continue;
+        };
+        let line_written_on = def_line0 + 1 + above.matches('\n').count();
         let head = split_top(Kind::Python, p, b'=')[0]
             .trim()
             .trim_start_matches('*');
@@ -545,9 +550,15 @@ fn def_parameter(text: &str, line1: usize, range: &std::ops::Range<usize>) -> bo
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;
     };
-    let (l, name) = (lines[at], &lines[at][range.clone()]);
-    let before = l[..range.start].trim_end();
-    let after = l[range.end..].trim_start();
+    let l = lines[at];
+    let (Some(name), Some(before), Some(after)) = (
+        l.get(range.clone()),
+        l.get(..range.start),
+        l.get(range.end..),
+    ) else {
+        return false;
+    };
+    let (before, after) = (before.trim_end(), after.trim_start());
     if !(before.is_empty() || before.ends_with(['(', ',', '*']))
         || !(after.is_empty() || after.starts_with([',', ')', ':', '=']))
         || after.starts_with("==")
@@ -579,8 +590,10 @@ pub fn keyword_argument(text: &str, line1: usize, range: &std::ops::Range<usize>
     let Some(l) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
     };
-    let after = l[range.end..].trim_start();
-    let before = l[..range.start].trim_end();
+    let (Some(before), Some(after)) = (l.get(..range.start), l.get(range.end..)) else {
+        return false;
+    };
+    let (before, after) = (before.trim_end(), after.trim_start());
     after.starts_with('=')
         && !after.starts_with("==")
         && (before.ends_with(['(', ','])

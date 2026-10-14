@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -105,8 +104,11 @@ pub fn ml_symbol_kept(kind: Kind, path: &Path, lines: &[&str], line: usize) -> b
 
 pub fn ml_name(line: &str, r: Range<usize>, col: usize) -> Range<usize> {
     let mut at = 0;
-    while let Some(open) = line[at..].find("``").map(|n| at + n) {
-        let Some(close) = line[open + 2..].find("``").map(|n| open + 2 + n) else {
+    while let Some(open) = line.get(at..).and_then(|t| t.find("``")).map(|n| at + n) {
+        let Some(close) = (line.get(open + 2..))
+            .and_then(|t| t.find("``"))
+            .map(|n| open + 2 + n)
+        else {
             break;
         };
         if (open..close + 2).contains(&col) && close > open + 2 {
@@ -315,8 +317,9 @@ pub fn ml_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                         .iter()
                         .position(|&c| c == b'\n')
                         .map_or(b.len(), |n| i + n);
-                    i = text[i + 2..line_end]
-                        .find("``")
+                    i = b[i + 2..line_end]
+                        .windows(2)
+                        .position(|w| w == b"``")
                         .map_or(i + 2, |n| i + 2 + n + 2);
                 } else if fsharp && (at(b"\"\"\"") || at(b"$\"\"\"")) {
                     state = State::Triple;
@@ -336,9 +339,10 @@ pub fn ml_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
                     };
                     i += quote + 1;
                 } else if !fsharp && c == b'{' {
-                    let id: String = text[i + 1..]
-                        .chars()
-                        .take_while(|c| c.is_ascii_lowercase() || *c == '_')
+                    let id: String = b[i + 1..]
+                        .iter()
+                        .take_while(|c| c.is_ascii_lowercase() || **c == b'_')
+                        .map(|&c| char::from(c))
                         .collect();
                     if b.get(i + 1 + id.len()) == Some(&b'|') {
                         i += id.len() + 2;

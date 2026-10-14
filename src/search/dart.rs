@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -147,7 +146,11 @@ pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range
     static CALLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:<[^()]*>)?\s*\(").expect("the regex is a literal")
     });
-    if patterns.len() == DART_PATTERN_COUNT && !CALLED.is_match(&line[word.end..]) {
+    if patterns.len() == DART_PATTERN_COUNT
+        && line
+            .get(word.end..)
+            .is_some_and(|rest| !CALLED.is_match(rest))
+    {
         patterns.remove(DART_CONSTRUCTOR_PATTERN);
     }
 }

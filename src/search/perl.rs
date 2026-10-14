@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -188,11 +187,12 @@ pub fn perl_lexical(text: &str, line: usize, col: usize, name: &str) -> Option<u
             .map(|m| {
                 let head = m.as_str().trim_start();
                 let signature = head.starts_with("sub") || head.starts_with("method");
-                (m.start(), signature || HEADER.is_match(&l[..m.start()]))
+                let after_loop = l.get(..m.start()).is_some_and(|h| HEADER.is_match(h));
+                (m.start(), signature || after_loop)
             })
             .collect();
         let mut closed = false;
-        for (p, c) in l[..limit].char_indices().rev() {
+        for (p, c) in l.get(..limit)?.char_indices().rev() {
             match c {
                 '}' => depth += 1,
                 '{' if depth > 0 => {
@@ -261,7 +261,9 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
                 continue;
             }
             State::Code => {
-                if line.starts_with('=') && line[1..].starts_with(|c: char| c.is_ascii_alphabetic())
+                if line
+                    .strip_prefix('=')
+                    .is_some_and(|r| r.starts_with(|c: char| c.is_ascii_alphabetic()))
                 {
                     literal.push(true);
                     code.push(String::new());
@@ -357,13 +359,13 @@ fn scan_line(line: &str, state: &State) -> (String, State, Vec<(String, bool)>) 
                     Some(&q @ (b'"' | b'\'')) => {
                         let close = b[j + 1..].iter().position(|&x| x == q);
                         match close {
-                            Some(n) => (Some(&line[j + 1..j + 1 + n]), j + n + 2),
+                            Some(n) => (line.get(j + 1..j + 1 + n), j + n + 2),
                             None => (None, j),
                         }
                     }
                     Some(&x) if x.is_ascii_alphabetic() || x == b'_' => {
                         let n = b[j..].iter().take_while(|&&x| ident(x)).count();
-                        (Some(&line[j..j + n]), j + n)
+                        (line.get(j..j + n), j + n)
                     }
                     _ => (None, j),
                 };

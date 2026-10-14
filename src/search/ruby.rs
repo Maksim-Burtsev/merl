@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -132,7 +131,7 @@ fn param_names(list: &str) -> Vec<String> {
         let end = p
             .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
             .unwrap_or(p.len());
-        out.push(p[..end].to_owned());
+        out.extend(p.get(..end).map(str::to_owned));
     }
     out
 }
@@ -147,7 +146,9 @@ fn def_binds(lines: &[&str], def_line0: usize, name: &str) -> bool {
     let Some(head) = HEAD.find(lines[def_line0]) else {
         return false;
     };
-    let rest = &lines[def_line0][head.end()..];
+    let Some(rest) = lines[def_line0].get(head.end()..) else {
+        return false;
+    };
     let list = match rest.strip_prefix('(') {
         Some(_) => match group(Kind::Ruby, lines, def_line0, head.end()) {
             Some(g) => g.inner_uncommented,

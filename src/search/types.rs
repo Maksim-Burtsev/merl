@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -437,8 +436,11 @@ pub fn type_path(kind: Kind, written: &str) -> Option<Vec<String>> {
     } else {
         ('[', ']')
     };
-    if let Some(i) = t.find(open).filter(|_| t.ends_with(close)) {
-        t = t[..i].trim_end();
+    if let Some(head) = (t.find(open))
+        .filter(|_| t.ends_with(close))
+        .and_then(|i| t.get(..i))
+    {
+        t = head.trim_end();
     }
     NAME.is_match(t)
         .then(|| t.split('.').map(str::to_owned).collect())
@@ -451,8 +453,8 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
         close: char,
     ) -> Option<(&str, Vec<&str>)> {
         let i = t.find(open).filter(|_| t.ends_with(close))?;
-        let head = t[..i].trim_end();
-        let args = split_top(kind, &t[i + 1..t.len() - 1], b',');
+        let head = t.get(..i)?.trim_end();
+        let args = split_top(kind, t.get(i + 1..t.len() - 1)?, b',');
         Some((head.rsplit('.').next().unwrap_or(head), args))
     }
     let t = written.trim().trim_end_matches([';', ',']).trim();
@@ -489,7 +491,7 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
         Kind::Go => {
             let rest = t.strip_prefix("map").unwrap_or(t);
             let close = close_of(kind, rest, 0).filter(|_| rest.starts_with('['))?;
-            &rest[close..]
+            rest.get(close..)?
         }
         _ => return None,
     };
