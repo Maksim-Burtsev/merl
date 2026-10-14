@@ -1,0 +1,4 @@
+# gruvbox-dark: ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796 `set background=dark | colorscheme gruvbox`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=83a598 b=b8bb26i c=fe8019 d=fabd2f e=fb4934 f=ebdbb2 g=d3869b h=fabd2fb i=b8bb26b
+main.tf	1:e9c 2:a16fb7 3:d18c 4:a3fc 5:a6fb15 6:a7fb7 7:c 8:c 9:c 11:e8b8c 12:a4fd6 13:a7fb11 14:a11fb11 15:c 17:e8b6c 18:a4fh3cd6c 19:c 21:e8b6c 22:a4fh6c2a4fd6ca5fh4cd6c2a2fd4cd3fd3c2 23:c 25:e6c 26:a4fb5c2d9c11b 27:a4fd4c5 28:a6fd4c7 29:a3fd4c4 30:a3fce3fe2c5a11ca3ca3f2c 31:c 33:e4b18c 34:d6c 35:a4fb8 36:a6fc5a6c 37:c 38:c 40:e8b19c 41:a5fc4a7cgfg 42:a3fc5a7ca6ca2 43:a13fb10 44:a9fi7c7a3c7a5c 45:a4fi5c5a4c2a4fbc8a4cbc8a5cbc2 47:d7b18c 48:a8fc4a5 49:d7c 50:a11fc17a5ca4 51:c 52:c 54:d9c 55:a21fg4 56:a14fcf4c 57:c 58:c 60:e6b5c 61:a6fb15 62:a4fb13 63:c 65:e6b4c 66:a5fc13a3c4f9 67:a9fg5 68:c 70:e6b13c 71:a5fc7a3ca2 72:c
+prod.tfvars	1:a6fb11 2:a7fg4 3:a4fc 4:a4fb6 5:a3fb6 6:c 7:a5fc 8:ca4fb10ca4fg3c2 9:c

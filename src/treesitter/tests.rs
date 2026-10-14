@@ -283,6 +283,16 @@ fn graphql_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn hcl_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("hcl");
+}
+
+#[test]
+fn terraform_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("terraform");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -436,6 +446,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
             "{f}"
         );
     }
+    for f in ["a.hcl", "a.tf", "a.tfvars"] {
+        assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
+    }
+    assert_eq!(sexp("a.tf", b"; tinyfugue\n/def x\n"), "");
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
@@ -762,6 +776,11 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("proto"), Some("proto"));
     assert_eq!(name("graphql"), Some("graphql"));
     assert_eq!(name("gql"), Some("graphql"));
+    assert_eq!(name("hcl"), Some("hcl"));
+    assert_eq!(name("terraform"), Some("terraform"));
+    assert_eq!(name("tfvars"), Some("terraform"));
+    assert_eq!(name("terraform-vars"), Some("terraform"));
+    assert_eq!(name("tf"), None);
     assert_eq!(name("swift"), Some("swift"));
     assert_eq!(name("ruby"), Some("ruby"));
     assert_eq!(name("rb"), Some("ruby"));

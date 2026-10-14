@@ -1,0 +1,4 @@
+# github-light: projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d `colorscheme github_light_default`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=0550ae b=0a3069 c=1f2328 d=cf222e e=953800 f=6639ba
+main.tf	1:d9c 2:a16cb7 3:e18c 4:a3c2 5:a6cb15 6:a7cb7 7:c 8:c 9:c 11:d8b8c 12:a4cd6 13:a7cb11 14:a11cb11 15:c 17:d8b6c 18:a4cd3cd6c 19:c 21:d8b6c 22:a4cd6c2a4cd6ca5cd4cd6c2a2cd4cd3cd3c2 23:c 25:d6c 26:a4cb5c2d9ca9cb 27:a4cd4ca4 28:a6cd4ca6 29:a3cd4ca3 30:a3c2d3cd2a4ca11ca3ca3c3 31:c 33:d4b18c 34:e6c 35:a4cb8 36:a6c2a3ca6c 37:c 38:c 40:d8b19c 41:a5ca3ca7caca 42:a3ca4ca7ca6ca2 43:a13cb10 44:a9cf7ca5ca3ca5ca5c 45:a4cf5ca3ca4c2a4cbc2a5ca4cbc2a5ca5cbc2 47:e7b18c 48:a8ca3ca5 49:e7c 50:a11ca16ca5ca4 51:c 52:c 54:e9c 55:a21ca4 56:a14c7 57:c 58:c 60:d6b5c 61:a6cb15 62:a4cb13 63:c 65:d6b4c 66:a5ca12ca3c13 67:a9ca5 68:c 70:d6b13c 71:a5ca6ca3ca2 72:c
+prod.tfvars	1:a6cb11 2:a7ca4 3:a4c2 4:a4cb6 5:a3cb6 6:c 7:a5c2 8:ca4cb10ca4ca3c2 9:c

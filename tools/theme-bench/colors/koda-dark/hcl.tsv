@@ -1,0 +1,7 @@
+# koda-dark: oskarnurm/koda.nvim@25a5c98ca2f6bb0b69f5e2654a78f0d7c7e0721d `colorscheme koda-dark`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# projects immich@c5e06dcfd1b35f8625863108a60d370e5b61c58e pipeline-library@b022f4c30ab0b357e8d78b2f91c4be0067351a4c
+# palette a=ffffff b=b0b0b0 c=777777 d=50585d e=d9ba73
+immich/deployment/modules/cloudflare/docs-release/.terraform.lock.hcl	1:d47 2:d37 4:c8a45b 5:b8a8 6:b12a8 7:b8 8:a49c 9:a49c 10:a49c 11:a49c 12:a49c 13:a49c 14:a49c 15:a49c 16:a49c 17:a49c 18:a49c 19:a49c 20:a49c 21:a69c 22:a69c 23:a69c 24:a69c 25:a69c 26:a69c 27:a69c 28:a69c 29:a69c 30:a69c 31:a69c 32:a69c 33:a69c 34:b 35:b
+immich/deployment/state.hcl	1:c6b 2:b22a7ba23b 3:b21a7ba22b 5:b27a7ba28b 6:b 8:c12b 9:b8a4 11:b8 12:b9e5cb26 13:b 14:b 16:b8 17:b22e5cb21 18:b21e5cb20 19:b27e5cb26 20:b
+immich/deployment/modules/cloudflare/docs-release/terragrunt.hcl	1:c9b 2:b7a3 4:c26b 5:b9a37b2 6:b 7:b 9:c7b 10:b5a22ba11b 11:b 13:c12b 14:b8a4 16:b8 17:b9a7ba28b 18:b12a41 19:b 20:b
+pipeline-library/resources/io/jenkins/infra/docker/jenkinsinfrabakefile.hcl	1:c8a19b2 3:c8a10b 4:b8a11 5:b 7:c8a12b 8:b8a2 9:b 11:c8a22b 12:b8a13 13:b 15:c8a18b 16:b8a12 17:b 19:c8a11b 20:b8a3 21:b 23:c8a16b 24:b8a2 25:b 26:c8a13b 27:b8a2 28:b 29:c8a12b 30:b8a2 31:b 32:c8a9b 33:b8a2 34:b 36:c8a10b 37:b23cb5 38:b7a8ba2cb6a10bab18a4ca7ba5ba3cb25 39:b 41:c6a9b 42:b27 43:b17 44:b5a8bab11ab20acb11 45:b32 46:b6 47:b15ab17ac 48:b12ab14ac 49:b11ab13ac 50:b 51:b8 52:a33bab14ac 53:a26bab14ac 54:a30bab10ac 55:a22bab10ac 56:a35bab17ac 57:a26bab17ac 58:a34bab13ac 59:a29bab13ac 60:b 61:b

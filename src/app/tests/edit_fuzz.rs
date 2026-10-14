@@ -1098,6 +1098,23 @@ const GRAPHQL: &[&str] = &[
     "}",
 ];
 
+const HCL: &[&str] = &[
+    "resource \"a\" \"b\" {\n",
+    "}\n",
+    "a = var.b[0]\n",
+    "\"${x}\"",
+    "%{ if x }",
+    "<<EOT\n",
+    "EOT\n",
+    "[for s in x : s]",
+    "/*",
+    "*/",
+    "# ",
+    "\"",
+    "{",
+    "}",
+];
+
 const CMAKE: &[&str] = &[
     "set(",
     "${X}",
@@ -1283,6 +1300,16 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.graphql",
         include_bytes!("../../../tests/colors/graphql/schema.graphql").as_slice(),
         GRAPHQL,
+    ),
+    (
+        "f.hcl",
+        include_bytes!("../../../tests/colors/hcl/config.hcl").as_slice(),
+        HCL,
+    ),
+    (
+        "f.tfvars",
+        include_bytes!("../../../tests/colors/terraform/main.tf").as_slice(),
+        HCL,
     ),
     (
         "CMakeLists.txt",

@@ -214,6 +214,11 @@ Make (#809) stays on syntect: the commit nvim-treesitter pins (70613f3) has no `
 cannot be a git dependency, and crates.io's only release, tree-sitter-make 1.1.1, is built from an
 older grammar (another `grammar.json` and `parser.c`).
 
+gitignore (#809) stays on syntect: the commit nvim-treesitter pins (shunsambongi's f4685bf) binds
+tree-sitter 0.20 in its `Cargo.toml`, which cannot link beside merl's 0.27 (both declare `links =
+"tree-sitter"`), and crates.io has no release of it: konomanoasa-tree-sitter-gitignore 0.3.1 is
+another grammar (an external scanner, 69 symbols against the pin's 51).
+
 Protobuf (#809), `.proto` files, which Neovim calls `proto` (`.protobuf` and `.protodevel`, Protocol
 Buffer in syntect and nothing in Neovim, stay on syntect); `comment` stays plain, as LazyVim
 installs no parser for it. The commit nvim-treesitter pins (d7d1542) is newer than crates.io's
