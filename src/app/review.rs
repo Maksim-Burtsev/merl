@@ -28,25 +28,21 @@ impl App {
             r.files
                 .iter()
                 .filter(stop)
-                .find(|f| !self.viewed.contains_key(&f.path))
+                .find(|f| !self.ticked(&f.path))
                 .cloned()
         });
         let all_viewed = unread.is_none();
-        let any_first = (self.review.as_ref()).and_then(|r| r.files.iter().find(stop).cloned());
-        let opened_ticked_first = any_first.as_ref().is_some_and(|f| {
-            self.viewed.contains_key(&f.path)
-                && self.buf.path.as_deref() == Some(self.root.join(&f.path).as_path())
-        });
-        let first = unread.or(any_first);
+        let first = unread.or_else(|| (self.review.as_ref())?.files.iter().find(stop).cloned());
         let first_stop = first.as_ref().map(|f| f.path.clone());
-        if (self.buf.path.is_none() || opened_ticked_first && !all_viewed)
-            && let Some(f) = first
-        {
-            if opened_ticked_first {
-                self.history.clear();
+        if self.buf.path.is_none() {
+            if let Some(f) = &first {
+                self.open_review_file(f, false);
+                self.remember_hunk();
+            } else if let Some(p) =
+                (self.review.as_ref()).and_then(|r| r.first_file(&self.root, self.diagrams.on()))
+            {
+                self.jump_to(&p, 1);
             }
-            self.open_review_file(&f, false);
-            self.remember_hunk();
         }
         self.walked_here = first_stop.is_some() && self.rel_current() == first_stop;
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
@@ -59,7 +55,7 @@ impl App {
                 self.say_skipped(skipped);
             }
         }
-        if all_viewed && first_stop.is_some() && !self.viewed.is_empty() {
+        if all_viewed && first_stop.is_some() {
             self.message = "all files viewed".into();
         }
         if let Some(note) = note {
@@ -177,9 +173,7 @@ impl App {
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed) = (0, None);
         let ticked = |f: &&git::ReviewFile| {
-            dir > 0
-                && self.viewed.contains_key(&f.path)
-                && f.is_stop(&self.root, self.diagrams.on())
+            dir > 0 && self.ticked(&f.path) && f.is_stop(&self.root, self.diagrams.on())
         };
         let ahead: Vec<_> = self
             .ahead(&r, dir)
@@ -383,6 +377,10 @@ impl App {
         if any {
             self.save_viewed();
         }
+    }
+
+    fn ticked(&self, rel: &Path) -> bool {
+        self.viewed.get(rel) == Some(&self.disk_hash(rel))
     }
 
     fn disk_hash(&self, rel: &Path) -> u64 {

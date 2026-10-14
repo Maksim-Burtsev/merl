@@ -269,9 +269,8 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
         let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
         assert!(out.status.success(), "git {args:?}");
     };
-    let open = || {
+    let open_on = |buf: Buffer| {
         let review = git::Review::open(&dir, None, None).unwrap();
-        let first = review.first_file(&dir, false).unwrap();
         let tree = crate::tree::from_listing(
             &review
                 .files
@@ -280,19 +279,17 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
                 .collect::<Vec<_>>(),
         );
         let (_, files) = crate::tree::build(&dir, false);
-        let mut a = App::new(
-            dir.clone(),
-            tree,
-            files,
-            Buffer::load(&first).unwrap(),
-            None,
-        );
+        let mut a = App::new(dir.clone(), tree, files, buf, None);
         a.start_review(review);
         a
     };
+    let open = || open_on(Buffer::empty());
     let key = |a: &mut App, ch| press(a, KeyCode::Char(ch), KeyModifiers::NONE);
     let mut a = open();
-    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    assert_eq!(
+        (at(&a), a.message.as_str()),
+        ((dir.join("src/a.rs"), 1), "")
+    );
     while at(&a).0 != dir.join("gone") {
         key(&mut a, 'c');
     }
@@ -302,6 +299,12 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
     std::fs::write(dir.join("crlf.txt"), "one\r\nTWO\nthree\n").unwrap();
     git(&["commit", "-qam", "fix"]);
 
+    let named = open_on(Buffer::load(&dir.join("src/a.rs")).unwrap());
+    assert_eq!(
+        at(&named).0,
+        dir.join("src/a.rs"),
+        "a file named on the command line is kept"
+    );
     let mut a = open();
     assert_eq!(
         at(&a),
@@ -333,12 +336,44 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
     walk_into(&mut a, "tail");
     key(&mut a, 'C');
     assert_eq!(at(&a).0, dir.join("new"), "`C` stops on ticked files too");
+    key(&mut a, 'C');
+    std::fs::write(dir.join("new"), "n\nchanged\n").unwrap();
+    key(&mut a, 'c');
+    assert_eq!(
+        at(&a).0,
+        dir.join("new"),
+        "changed on disk since its tick, before any re-list: a stop again"
+    );
+    std::fs::write(dir.join("new"), "n\n").unwrap();
 
     let a = open();
     assert_eq!(
         (at(&a), a.message.as_str()),
         ((dir.join("src/a.rs"), 1), "all files viewed")
     );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn a_review_started_without_a_file_opens_on_the_first_unread() {
+    let (dir, mut a) = review_app("viewedgone");
+    for f in ["src/a.rs", "crlf.txt", "gone"] {
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new(f));
+        press(&mut a, KeyCode::Char('m'), KeyModifiers::NONE);
+    }
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let tree = crate::tree::from_listing(
+        &review
+            .files
+            .iter()
+            .map(|f| f.path.clone())
+            .collect::<Vec<_>>(),
+    );
+    let (_, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    a.start_review(review);
+    assert_eq!(at(&a), (dir.join("new"), 0));
     drop(std::fs::remove_dir_all(dir));
 }
 
@@ -1101,12 +1136,12 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     assert!(a.viewed.contains_key(Path::new("new")) && !a.viewed.contains_key(Path::new("sub")));
     std::fs::remove_file(dir.join("new")).unwrap();
     std::fs::create_dir(dir.join("new")).unwrap();
-    walk_into(&mut a, "tail");
-    press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    walk_into(&mut a, "gone");
+    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(
         at(&a),
-        (dir.join("gone"), 0),
-        "`C`: `c` passes over `new`, ticked when `c` left it (#824)"
+        (dir.join("tail"), 0),
+        "`new` changed since its tick: a stop again (#824)"
     );
     assert!(
         a.message.contains("new: "),

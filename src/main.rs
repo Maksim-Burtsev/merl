@@ -175,11 +175,7 @@ fn run() -> Result<()> {
                 file = file.and_then(rel).filter(|f| f.is_file());
                 (root, branch) = (wt, None);
             }
-            let r = git::Review::open(&root, branch, cli.base.as_deref())?;
-            if file.is_none() {
-                file = r.first_file(&root, diagrams.on());
-            }
-            Some(r)
+            Some(git::Review::open(&root, branch, cli.base.as_deref())?)
         }
         None => None,
     };
