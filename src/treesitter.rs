@@ -362,6 +362,16 @@ pub fn for_syntax(
     lines: &[String],
 ) -> Option<&'static Lang> {
     let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
+    if path.is_some_and(|p| p.extension().is_none()) {
+        let by_hashbang = lines.first().and_then(|l| hashbang(l)).and_then(|name| {
+            ["ruby", "php"]
+                .into_iter()
+                .find(|interpreter| name.contains(interpreter))
+        });
+        if let Some(name) = by_hashbang {
+            return lang(name);
+        }
+    }
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "C" => lang("c"),
@@ -395,6 +405,18 @@ pub fn for_syntax(
         "Lua" => lang("lua"),
         _ => None,
     }
+}
+
+fn hashbang(first: &str) -> Option<&str> {
+    let mut words = first.strip_prefix("#!")?.split_whitespace();
+    let program = words.next()?.rsplit(['/', '\\']).next()?;
+    if program != "env" {
+        return Some(program);
+    }
+    words
+        .find(|w| !w.starts_with('-') && !w.contains('='))?
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
+        .next()
 }
 
 fn html_variant(lines: &[String]) -> bool {
@@ -656,7 +678,7 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
         .find(|(a, _)| *a == alias)
         .map_or(alias.as_str(), |(_, n)| n);
     lang(name).or_else(|| {
-        let syntax = crate::buffer::syntax_for_info(&alias)?;
+        let syntax = crate::buffer::syntax_for_info(&alias, false)?;
         for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
     })
 }
