@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn declares(line: &str, word: &str) -> bool {
@@ -140,7 +139,7 @@ fn a_starlark_label_reads_its_repository_package_and_name() {
 #[test]
 fn a_starlark_string_is_read_from_quote_to_quote() {
     let line = r#"    srcs = [":api", 'b.go'], cmd = "a \" b",  # "c""#;
-    let at = |col| starlark_string_at(line, col).map(|(r, plain)| (&line[r], plain));
+    let at = |col| starlark_string_at(line, col).map(|(r, plain)| (line.get(r).unwrap(), plain));
     assert_eq!(at(12), Some((":api", true)));
     assert_eq!(at(13), Some((":api", true)));
     assert_eq!(at(17), Some((":api", true)));
@@ -150,7 +149,7 @@ fn a_starlark_string_is_read_from_quote_to_quote() {
     assert_eq!(at(4), None);
     assert_eq!(at(48), None);
     let doc = r#"x = """//api:api""" + 'y"#;
-    let at = |col| starlark_string_at(doc, col).map(|(r, plain)| (&doc[r], plain));
+    let at = |col| starlark_string_at(doc, col).map(|(r, plain)| (doc.get(r).unwrap(), plain));
     assert_eq!(at(9), Some(("//api:api", false)));
     assert_eq!(at(22), Some(("y", false)));
 }

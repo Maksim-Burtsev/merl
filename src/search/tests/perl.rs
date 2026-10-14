@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn declares(line: &str, word: &str) -> bool {
@@ -129,7 +128,7 @@ fn perl_literal_lines_cover_pod_heredocs_quotes_and_data() {
 #[test]
 fn perl_name_reads_a_package_whole() {
     let line = "my $o = Shop::Order->new; Shop::Order::total($o);";
-    let at = |s: &str| perl_name(line, line.find(s).unwrap()).map(|r| &line[r]);
+    let at = |s: &str| perl_name(line, line.find(s).unwrap()).map(|r| line.get(r).unwrap());
     assert_eq!(at("Shop::Order->"), Some("Shop::Order"));
     assert_eq!(at("Order->"), Some("Shop::Order"));
     assert_eq!(at("new"), Some("new"));
