@@ -30,6 +30,11 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         height: area.height as usize,
         input_at: None,
     };
+    if (app.top_line, app.top_row) == (0, 0)
+        && let Some((old, _)) = app.renamed_edited('C')
+    {
+        out.lines.push(rename_ghost(theme, base, old, gutter_w));
+    }
     let pinned = out.lines.len();
     let mut l = app.top_line;
     let mut skip = app.top_row;
@@ -695,6 +700,38 @@ pub(super) fn draw_renamed(
         next_file(base, dim),
     ]);
     draw_note(frame, area, base, lines);
+}
+
+pub(super) fn rename_line(
+    theme: &Theme,
+    base: Style,
+    old: &Path,
+    new: &Path,
+    width: usize,
+) -> Line<'static> {
+    let (old, new) = (old.display().to_string(), new.display().to_string());
+    let dim = base.fg(theme.ghost_fg);
+    let changed = renamed_part(&old, &new);
+    let del = base.bg(theme.del_word_bg).fg(theme.word_fg);
+    let add = base.bg(theme.add_word_bg).fg(theme.word_fg);
+    let room = width.saturating_sub(7);
+    let fits = wrap::width(&old) + wrap::width(&new) <= room;
+    let half = if fits { room } else { room / 2 };
+    let mut row = vec![Span::styled(" ", base)];
+    row.extend(tinted(&old, changed, base, del, half));
+    row.push(Span::styled("  \u{2192}  ", dim));
+    row.extend(tinted(&new, changed, base, add, half));
+    Line::from(row)
+}
+
+pub(super) fn rename_ghost(theme: &Theme, base: Style, old: &Path, gutter_w: usize) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(" ".repeat(gutter_w), base),
+        Span::styled(
+            format!("renamed from {}", old.display()),
+            base.fg(theme.ghost_fg),
+        ),
+    ])
 }
 
 fn next_file(base: Style, dim: Style) -> Line<'static> {

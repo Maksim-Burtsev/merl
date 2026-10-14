@@ -63,7 +63,8 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     };
     let mut spans = vec![
         Span::styled(
-            app.rel_path(),
+            app.renamed_edited('B')
+                .map_or_else(|| app.rel_path(), |(o, n)| git_short(o, n)),
             if theme.groups.is_empty() {
                 style.fg(theme.accent)
             } else {
@@ -175,6 +176,23 @@ fn why_note(app: &App, picture: Option<&Status>) -> String {
         }
         _ => String::new(),
     }
+}
+
+fn git_short(old: &std::path::Path, new: &std::path::Path) -> String {
+    let (o, n) = (old.display().to_string(), new.display().to_string());
+    let common = o.chars().zip(n.chars()).take_while(|(a, b)| a == b).count();
+    let pre = o.chars().take(common).collect::<String>().rfind('/').map_or(0, |i| i + 1);
+    let room = o.len().min(n.len()) + 1 - pre;
+    let tail = o.chars().rev().zip(n.chars().rev()).take_while(|(a, b)| a == b).count().min(room);
+    let suf = o[o.len() - tail..].find('/').map_or(0, |i| tail - i);
+    let mid = |s: &str| s.get(pre..s.len().saturating_sub(suf).max(pre)).unwrap_or("").to_owned();
+    format!(
+        "{}{{{} \u{2192} {}}}{}",
+        &o[..pre],
+        mid(&o),
+        mid(&n),
+        &o[o.len() - suf..]
+    )
 }
 
 pub(super) fn fit_path(path: &str, room: usize) -> String {

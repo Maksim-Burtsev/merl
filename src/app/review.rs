@@ -270,6 +270,15 @@ impl App {
             .then_some((f.old.as_deref()?, f.path.as_path()))
     }
 
+    pub fn renamed_edited(&self, variant: char) -> Option<(&Path, &Path)> {
+        if std::env::var("MERL_P885").ok()?.chars().next()? != variant {
+            return None;
+        }
+        let rel = self.rel_current()?;
+        let f = self.review.as_ref()?.file(&rel)?;
+        (f.status == 'R' && f.has_hunks()).then_some((f.old.as_deref()?, f.path.as_path()))
+    }
+
     pub fn picture_sides(&self) -> Option<Vec<Side>> {
         if !self.diagrams.on() {
             return None;

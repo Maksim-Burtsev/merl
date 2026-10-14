@@ -111,6 +111,16 @@ fn draw_pane(frame: &mut Frame, app: &mut App, theme: &Theme, code: Rect, base: 
             .as_deref()
             .and_then(crate::picture::not_shown_note);
         draw_binary(frame, theme, code, base, note);
+    } else if let Some((old, new)) = app.renamed_edited('A') {
+        let band = Rect { height: 1, ..code };
+        let rest = Rect {
+            y: code.y + 1,
+            height: code.height.saturating_sub(1),
+            ..code
+        };
+        let line = code::rename_line(theme, base.bg(theme.line_hl), old, new, code.width as usize);
+        frame.render_widget(ratatui::widgets::Paragraph::new(line).style(base.bg(theme.line_hl)), band);
+        draw_code(frame, app, theme, rest, base);
     } else if app.buf.path.is_some() {
         draw_code(frame, app, theme, code, base);
     } else {
