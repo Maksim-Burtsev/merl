@@ -60,9 +60,9 @@ Every picture is merl itself: a real build, run in tmux on a real project, recor
 - **One size and font for the whole proposal**: `--size 160x50`, a laptop's full screen, unless
   the issue is about a width; cast.py's default font and the Ghostty TokyoNight Moon colours.
 - **The issue shows the GIF itself**, inline, never a still with a link to it: the owner watches
-  the option, not a frame of it (#720). A still, a frame taken out of that screencast
-  (`Image.open(gif).seek(n)`), is for the decision desk only. One screen per picture: two screens
-  side by side are two pictures.
+  the option, not a frame of it (#720). The decision desk takes its stills and MP4s from
+  one more run of the same steps, recorded as `groom/desk.md` says. One screen per picture: two
+  screens side by side are two pictures.
 - **The ordinary flow**: a screencast of an everyday project where the change must not kick in,
   for the recommended option, beside the same steps on master.
 - **A light theme**: the recommended option once more in `tokyonight-day` (`merl -t
