@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -122,7 +121,10 @@ pub fn solidity_file(root: &Path, files: &[PathBuf], here: &Path, path: &str) ->
         .into_iter()
         .filter(|(from, _)| path.starts_with(from.as_str()))
         .max_by_key(|(from, _)| from.len())
-        .map(|(from, to)| PathBuf::from(format!("{to}{}", &path[from.len()..])));
+        .and_then(|(from, to)| {
+            path.strip_prefix(from.as_str())
+                .map(|rest| PathBuf::from(format!("{to}{rest}")))
+        });
     let dir = root.join(here.parent().unwrap_or_else(|| Path::new("")));
     remapped
         .into_iter()
@@ -181,7 +183,9 @@ fn solidity_params(head: &str) -> Vec<std::ops::Range<usize>> {
             }
             ')' if depth > 0 => {
                 depth -= 1;
-                let returns = head[..open - 1].trim_end().ends_with("returns");
+                let returns = head
+                    .get(..open - 1)
+                    .is_some_and(|h| h.trim_end().ends_with("returns"));
                 if depth == 0 && (lists.is_empty() || returns) {
                     lists.push(open..i);
                 }
@@ -213,7 +217,7 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
         let head = span.join("\n");
         let at = solidity_params(&head).into_iter().find_map(|list| {
             let mut from = list.start;
-            head[list].split(',').find_map(|item| {
+            head.get(list)?.split(',').find_map(|item| {
                 let start = from;
                 from += item.len() + 1;
                 let last = item.trim_end().rsplit(char::is_whitespace).next()?;
@@ -221,7 +225,7 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
                     .then(|| start + item.trim_end().len() - last.len())
             })
         })?;
-        Some(i + head[..at].matches('\n').count())
+        Some(i + head.get(..at)?.matches('\n').count())
     };
     let own = lines[at].trim();
     if solidity_head(own) {

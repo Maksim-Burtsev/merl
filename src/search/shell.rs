@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 
 use super::{Binding, Value, indent};
@@ -77,7 +76,7 @@ fn shell_words(s: &str) -> Vec<&str> {
             }
             i += 1;
         }
-        out.push(&s[start..i.min(b.len())]);
+        out.extend(s.get(start..i.min(b.len())));
     }
     out
 }

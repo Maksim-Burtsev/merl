@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -38,9 +37,9 @@ pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Bin
 
 fn typed_pattern(p: &str, name: &str) -> Option<Value> {
     let close = close_of(Kind::TsJs, p, 0).filter(|_| p.starts_with('{'))?;
-    let written = p[close..].trim_start().strip_prefix(':')?;
+    let written = p.get(close..)?.trim_start().strip_prefix(':')?;
     let written = split_top(Kind::TsJs, written, b'=')[0].trim();
-    let field = split_top(Kind::TsJs, &p[1..close - 1], b',')
+    let field = split_top(Kind::TsJs, p.get(1..close - 1)?, b',')
         .into_iter()
         .find_map(|item| {
             let item = item.trim();
@@ -100,7 +99,7 @@ pub fn ts_literal_member(
         .map(|o| o.trim())
         .filter(|o| o.starts_with('{') && close_of(Kind::TsJs, o, 0) == Some(o.len()))
         .filter_map(|o| {
-            let inner = &o[1..o.len() - 1];
+            let inner = o.strip_prefix('{')?.strip_suffix('}')?;
             let at = split_top(Kind::TsJs, inner, b';')
                 .into_iter()
                 .flat_map(|s| split_top(Kind::TsJs, s, b','))
@@ -120,7 +119,7 @@ pub fn ts_literal_member(
         .collect();
     let header = uncommented(Kind::TsJs, &header.join("\n"));
     let start = header.find(literal)?;
-    let found = from + header[..start + offset].matches('\n').count() + 1;
+    let found = from + header.get(..start + offset)?.matches('\n').count() + 1;
     Some((
         found,
         literal.split_whitespace().collect::<Vec<_>>().join(" "),
@@ -154,7 +153,9 @@ pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarato
                 break;
             }
             b'\n' if depth == 0 => {
-                let next = text[i + 1..].lines().find(|l| !l.trim().is_empty());
+                let next = text
+                    .get(i + 1..)
+                    .and_then(|t| t.lines().find(|l| !l.trim().is_empty()));
                 if next.is_none_or(|l| indent(l) <= ind) {
                     end = i;
                     break;
@@ -170,7 +171,10 @@ pub(super) fn ts_declarators(lines: &[&str], k: usize) -> Option<Vec<TsDeclarato
             continue;
         };
         let lead = piece.len() - piece.trim_start().len();
-        let line = k + text[..from + lead].matches('\n').count();
+        let Some(above) = text.get(..from + lead) else {
+            continue;
+        };
+        let line = k + above.matches('\n').count();
         let piece = piece.split_whitespace().collect::<Vec<_>>().join(" ");
         if piece.is_empty() {
             continue;
@@ -207,7 +211,10 @@ fn blank_comments(s: &str) -> String {
                 continue;
             }
             (None, b'/') if b.get(i + 1) == Some(&b'*') => {
-                let end = s[i + 2..].find("*/").map_or(b.len(), |e| i + 2 + e + 2);
+                let end = s
+                    .get(i + 2..)
+                    .and_then(|t| t.find("*/"))
+                    .map_or(b.len(), |e| i + 2 + e + 2);
                 for o in &mut out[i..end] {
                     if *o != b'\n' {
                         *o = b' ';

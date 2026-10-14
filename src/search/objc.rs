@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -106,7 +105,7 @@ pub fn objc_parameter(head: &str, name: &str) -> Option<usize> {
     let at = HEAD.find(head)?.start();
     let w = regex::escape(name);
     let re = Regex::new(&format!(r":\s*\((?:[^()]|\([^()]*\))*\)\s*({w})\b")).ok()?;
-    let m = re.captures(&head[at..])?.get(1)?;
+    let m = re.captures(head.get(at..)?)?.get(1)?;
     Some(at + m.start())
 }
 

@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -83,15 +82,15 @@ pub fn powershell_sigil(patterns: &mut Vec<String>, before: &str, after: &str) {
 
 pub fn powershell_declares_here(line: &str, word: &str) -> bool {
     let part = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
-    let Some(at) = line
-        .match_indices(word)
-        .map(|(i, _)| i)
-        .find(|&i| !line[..i].ends_with(part) && !line[i + word.len()..].starts_with(part))
-    else {
+    let Some((before, after)) = line.match_indices(word).find_map(|(i, _)| {
+        let (before, rest) = line.split_at_checked(i)?;
+        let after = rest.strip_prefix(word)?;
+        (!before.ends_with(part) && !after.starts_with(part)).then_some((before, after))
+    }) else {
         return false;
     };
     let mut patterns = powershell_patterns(word);
-    powershell_sigil(&mut patterns, &line[..at], &line[at + word.len()..]);
+    powershell_sigil(&mut patterns, before, after);
     Regex::new(&patterns.join("|")).is_ok_and(|re| re.is_match(line))
 }
 
@@ -181,7 +180,10 @@ fn in_param_block<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
             Some(m) => m.end() - 1,
             None => 0,
         };
-        depth += brackets(&l[from..]);
+        let Some(rest) = l.get(from..) else {
+            return false;
+        };
+        depth += brackets(rest);
     }
     depth > 0
 }
@@ -231,13 +233,16 @@ pub fn powershell_params(lines: &[&str], cursor_line0: usize, name: &str) -> Vec
         let mut open = 0;
         for (n, b) in lines.iter().enumerate().skip(i).take(80) {
             let from = if n == i { from } else { 0 };
-            if var.is_match(&b[from..]) {
+            let Some(b) = b.get(from..) else {
+                break;
+            };
+            if var.is_match(b) {
                 return vec![Binding {
                     line1: n + 1,
                     value: Value::Unknown,
                 }];
             }
-            open += brackets(&b[from..]);
+            open += brackets(b);
             if open <= 0 {
                 break;
             }
@@ -266,7 +271,8 @@ pub fn powershell_import(line: &str, byte_col: usize) -> Option<String> {
     let p = ["$PSScriptRoot/", "${PSScriptRoot}/"]
         .iter()
         .find_map(|r| {
-            (p.len() >= r.len() && p[..r.len()].eq_ignore_ascii_case(r)).then(|| &p[r.len()..])
+            let (head, rest) = p.split_at_checked(r.len())?;
+            head.eq_ignore_ascii_case(r).then_some(rest)
         })
         .unwrap_or(&p);
     Some(p.trim_start_matches("./").to_owned())

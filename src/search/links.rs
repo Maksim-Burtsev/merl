@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -19,9 +18,9 @@ fn options() -> Options {
 fn fenced_code_html_comment_or_front_matter(text: &str, ev: &Event, r: &Range<usize>) -> bool {
     match ev {
         Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_)) | Tag::MetadataBlock(_)) => true,
-        Event::Start(Tag::HtmlBlock) | Event::InlineHtml(_) | Event::Html(_) => {
-            text[r.clone()].trim_start().starts_with("<!--")
-        }
+        Event::Start(Tag::HtmlBlock) | Event::InlineHtml(_) | Event::Html(_) => text
+            .get(r.clone())
+            .is_some_and(|t| t.trim_start().starts_with("<!--")),
         _ => false,
     }
 }
@@ -81,6 +80,10 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
 
 pub(super) fn markdown_literal_lines(text: &str) -> Vec<bool> {
     let mut out = vec![false; text.split('\n').count()];
+    #[expect(
+        clippy::string_slice,
+        reason = "pulldown-cmark's offsets fall on character boundaries"
+    )]
     let line = |at: usize| text[..at].matches('\n').count();
     for (ev, r) in Parser::new_ext(text, options()).into_offset_iter() {
         if !r.is_empty() && fenced_code_html_comment_or_front_matter(text, &ev, &r) {
@@ -105,6 +108,10 @@ pub fn anchor_line1(text: &str, anchor: &str) -> Option<usize> {
             .expect("the regex is a literal")
     });
     let anchor = anchor.to_lowercase();
+    #[expect(
+        clippy::string_slice,
+        reason = "pulldown-cmark's offsets fall on character boundaries"
+    )]
     let line = |at: usize| text[..at].matches('\n').count() + 1;
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut heading: Option<(usize, String)> = None;

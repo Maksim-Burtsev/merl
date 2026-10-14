@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -76,7 +75,11 @@ fn params(text: &str, open: usize) -> Vec<(usize, String)> {
             '(' | '[' | '{' => depth += 1,
             ')' | ']' | '}' if depth > 0 => depth -= 1,
             ',' | ')' if depth == 0 => {
-                if let Some(m) = NAME.captures(&text[start..i]).and_then(|c| c.get(1)) {
+                if let Some(m) = text
+                    .get(start..i)
+                    .and_then(|s| NAME.captures(s))
+                    .and_then(|c| c.get(1))
+                {
                     out.push((start + m.start(), m.as_str().to_owned()));
                 }
                 start = i + 1;
@@ -93,7 +96,7 @@ fn params(text: &str, open: usize) -> Vec<(usize, String)> {
 fn bound_by_params(lines: &[&str], i: usize, open: usize, name: &str) -> Option<usize> {
     let text = lines[i..lines.len().min(i + 12)].join("\n");
     let (at, _) = params(&text, open).into_iter().find(|(_, n)| n == name)?;
-    Some(i + 1 + text[..at].matches('\n').count())
+    Some(i + 1 + text.get(..at)?.matches('\n').count())
 }
 
 fn lambda_binds(lines: &[&str], i: usize, code: &str, name: &str) -> Option<usize> {
@@ -198,7 +201,9 @@ pub fn gdscript_autoloads(project: &str) -> Vec<(String, String)> {
     reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
 )]
 pub fn gdscript_names_nothing(line: &str, start: usize) -> bool {
-    let lead = &line[..start];
+    let Some(lead) = line.get(..start) else {
+        return false;
+    };
     let path = lead.trim_end_matches(|c: char| c == '_' || c == '/' || c.is_alphanumeric());
     let mut quote = None;
     let mut escaped = false;
