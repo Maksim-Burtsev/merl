@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -93,11 +92,17 @@ pub fn php_namespace_patterns(
     static ON_NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(&format!(r"{NAMESPACE_HEAD}[\w\\]*$")).expect("the regex is a literal")
     });
-    let generic = php_namespace_line(&regex::escape(&line[range.clone()]));
+    let (Some(word), Some(before), Some(after)) = (
+        line.get(range.clone()),
+        line.get(..range.start),
+        line.get(range.end..),
+    ) else {
+        return;
+    };
+    let generic = php_namespace_line(&regex::escape(word));
     let Some(at) = patterns.iter().position(|p| *p == generic) else {
         return;
     };
-    let (before, after) = (&line[..range.start], &line[range.end..]);
     if !after.starts_with('\\') {
         if !(ON_NAMESPACE.is_match(before) && after.trim_start().starts_with([';', '{'])) {
             patterns.remove(at);
@@ -107,7 +112,9 @@ pub fn php_namespace_patterns(
     let start = before
         .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\')
         .len();
-    let spelled = &line[start..range.end];
+    let Some(spelled) = line.get(start..range.end) else {
+        return;
+    };
     let head = before.trim_start();
     let absolute = spelled.starts_with('\\')
         || head.starts_with("use ")
@@ -245,7 +252,7 @@ pub fn php_block(text: &str, line: usize) -> &str {
     }
     let i = declared.iter().rposition(|&l| l <= line).unwrap_or(0);
     let end = declared.get(i + 1).map_or(text.len(), |&l| lines[l]);
-    &text[lines[declared[i]]..end]
+    text.get(lines[declared[i]]..end).unwrap_or(text)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -262,19 +269,20 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<PhpClassAt> {
         LazyLock::new(|| Regex::new(r"^\s*(?:&|\.\.\.)?\s*\$\w").expect("the regex is a literal"));
     let name_back = |s: &str| {
         let n = s.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\');
-        (n.len(), s[n.len()..].to_owned())
+        (n.len(), s.get(n.len()..).unwrap_or_default().to_owned())
     };
     let (before, word, after) = (
-        &line[..range.start],
-        &line[range.clone()],
-        &line[range.end..],
+        line.get(..range.start)?,
+        line.get(range.clone())?,
+        line.get(range.end..)?,
     );
     let is_class = |at: usize, written: &str| {
         !written.trim_start_matches('\\').is_empty()
             && !written.starts_with(|c: char| c.is_ascii_digit())
             && !matches!(written, "self" | "static" | "parent")
-            && !line[..at].ends_with(['$', '>'])
-            && !line[..at].ends_with("::")
+            && line
+                .get(..at)
+                .is_some_and(|h| !h.ends_with(['$', '>']) && !h.ends_with("::"))
     };
     if let Some(b) = before
         .strip_suffix("::$")
@@ -291,7 +299,7 @@ pub fn php_class_at(line: &str, range: Range<usize>) -> Option<PhpClassAt> {
     }
     let (at, head) = name_back(before);
     let written = format!("{head}{word}");
-    let pre = line[..at].trim_end();
+    let pre = line.get(..at)?.trim_end();
     let used = line.starts_with("use ")
         && !line.contains('{')
         && !["use function ", "use const "]
@@ -515,7 +523,7 @@ pub fn php_written_type(line: &str, name: &str) -> Option<String> {
     let re = Regex::new(&format!(r"(\??[\w\\]+)\s+&?\${}\b", regex::escape(name))).ok()?;
     let c = re.captures(line)?;
     let m = c.get(1)?;
-    let before = line[..m.start()].trim_end();
+    let before = line.get(..m.start())?.trim_end();
     if before.ends_with(['|', '&', '.', '$', ':', '>', '-', '=']) {
         return None;
     }
@@ -541,18 +549,23 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         return Some(PhpBinding::Type(t));
     }
     let at = assign.captures(first)?.get(1)?.start();
-    let value = statement[at..].trim_start();
+    let value = statement.get(at..)?.trim_start();
     let call_ends_statement = |open: usize| {
         let close = close_of(Kind::Php, value, open)?;
-        value[close..].trim_start().starts_with(';').then_some(())
+        value
+            .get(close..)?
+            .trim_start()
+            .starts_with(';')
+            .then_some(())
     };
     if let Some(c) = NEW.captures(value) {
         let class = c[1].to_owned();
-        let rest = c.get(0)?.end();
-        if value[rest..].starts_with('(') {
-            call_ends_statement(rest)?;
+        let end = c.get_match().end();
+        let rest = value.get(end..)?;
+        if rest.starts_with('(') {
+            call_ends_statement(end)?;
         } else {
-            value[rest..].starts_with(';').then_some(())?;
+            rest.starts_with(';').then_some(())?;
         }
         let lower = class.to_ascii_lowercase();
         return (lower != "static" && lower != "class" && lower != "parent")
@@ -583,9 +596,10 @@ pub fn php_return_type(header: &str) -> Option<String> {
     static RETURNS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*:\s*\??([\w\\]+)\s*(?:\{|;|$)").expect("the regex is a literal")
     });
-    let open = header.find("function")? + header[header.find("function")?..].find('(')?;
+    let function = header.find("function")?;
+    let open = function + header.get(function..)?.find('(')?;
     let close = close_of(Kind::Php, header, open)?;
-    let written = RETURNS.captures(&header[close..])?.get(1)?.as_str();
+    let written = RETURNS.captures(header.get(close..)?)?.get(1)?.as_str();
     let short = written.rsplit('\\').next().unwrap_or(written);
     (!NO_CLASS.contains(&short.to_ascii_lowercase().as_str())).then(|| written.to_owned())
 }
@@ -670,18 +684,25 @@ fn php_parameter_of_statement_ending_at(
         .filter_map(|c| c.get(1))
         .filter_map(|g| var.find(g.as_str()).map(|m| g.start() + m.end()))
         .last()?;
-    Some(top + statement[..at_var].matches('\n').count())
+    Some(top + statement.get(..at_var)?.matches('\n').count())
 }
 fn php_parameter_lines(header: &[String], brace_byte: usize, var: &Regex) -> Vec<usize> {
     let last = header.len() - 1;
     let mut after_function = false;
     let mut out = Vec::new();
     for (i, l) in header.iter().enumerate() {
-        let l = if i == last { &l[..brace_byte] } else { &l[..] };
+        let l = if i == last {
+            let Some(head) = l.get(..brace_byte) else {
+                break;
+            };
+            head
+        } else {
+            l.as_str()
+        };
         let l = match FUNCTION.find_iter(l).last() {
             Some(m) => {
                 after_function = true;
-                &l[m.end()..]
+                l.get(m.end()..).unwrap_or_default()
             }
             None => l,
         };
@@ -703,6 +724,10 @@ enum PhpScope {
         brace_byte: usize,
     },
 }
+#[expect(
+    clippy::string_slice,
+    reason = "pos is the byte of an ASCII brace, and cut the byte of an ASCII ; { or }"
+)]
 fn php_scope(lines: &[String], literal: &[bool], at: usize) -> PhpScope {
     static CLASS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w$:>])(?:class|interface|trait|enum)\b")

@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::path::{Path, PathBuf};
 
@@ -219,10 +218,10 @@ fn swift_pattern_binds(pattern: &str, bind_all: bool, name: &str) -> Binds {
     };
     let p = p.split(" as ").next().unwrap_or(p).trim();
     let bare = |n: &str| n.trim().trim_matches('`') == name;
-    let Some(open) = p.find('(') else {
+    let Some((_, inner)) = p.split_once('(') else {
         return Binds::name_if(bind_all && bare(p));
     };
-    let inner = p[open + 1..].trim_end();
+    let inner = inner.trim_end();
     let inner = inner.strip_suffix(')').unwrap_or(inner);
     if inner.contains(['(', '[']) {
         return if names(inner, name) {
@@ -249,7 +248,10 @@ fn swift_condition_binds(from_keyword: &str, name: &str) -> Binds {
     let Some(m) = KEYWORD.find(from_keyword) else {
         return Binds::Nothing;
     };
-    let rest = from_keyword[m.end()..].trim_end().trim_end_matches('{');
+    let Some(rest) = from_keyword.get(m.end()..) else {
+        return Binds::Nothing;
+    };
+    let rest = rest.trim_end().trim_end_matches('{');
     let rest = if m.as_str().starts_with("guard") {
         rest.rsplit_once(" else").map_or(rest, |(c, _)| c)
     } else {
@@ -428,9 +430,9 @@ fn swift_params_bind(text: &str, name: &str) -> bool {
             .expect("the regex is a literal")
     });
     let mods = PARAMS.find(text).map_or(text.len(), |m| m.end());
-    let params = text[mods..].find('(').and_then(|open| {
+    let params = text.get(mods..).and_then(|t| t.find('(')).and_then(|open| {
         let open = mods + open;
-        close_of(Kind::Swift, text, open).map(|close| &text[open + 1..close - 1])
+        close_of(Kind::Swift, text, open).and_then(|close| text.get(open + 1..close - 1))
     });
     params.is_some_and(|p| {
         split_top(Kind::Swift, p, b',').iter().any(|p| {
@@ -534,7 +536,7 @@ pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
         .match_indices(".testTarget(")
         .filter_map(|(at, m)| {
             let open = at + m.len() - 1;
-            let args = &manifest[open..close_of(Kind::Swift, &manifest, open)?];
+            let args = manifest.get(open..close_of(Kind::Swift, &manifest, open)?)?;
             let field = |key: &str| {
                 FIELD
                     .captures_iter(args)
@@ -646,12 +648,13 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
         return Some(SwiftGiven::Element(c[1].trim().to_owned()));
     }
     let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
-    let c = at
-        .captures_iter(t)
-        .find(|c| !t[c.get_match().end()..].starts_with([':', '=']))?;
-    let rest = &t[c.get_match().end()..];
+    let c = at.captures_iter(t).find(|c| {
+        t.get(c.get_match().end()..)
+            .is_some_and(|r| !r.starts_with([':', '=']))
+    })?;
+    let rest = t.get(c.get_match().end()..)?;
     if &c[1] == ":" {
-        let ty = rest[..annotation_end(rest)].trim();
+        let ty = rest.get(..annotation_end(rest))?.trim();
         return (!ty.is_empty()).then(|| SwiftGiven::Type(ty.to_owned()));
     }
     let rest = rest.trim();
@@ -689,7 +692,7 @@ pub fn swift_type_name(written: &str) -> Option<String> {
     }
     let t = t.trim_end_matches(['?', '!']);
     let t = match t.find('<') {
-        Some(open) if t.ends_with('>') => &t[..open],
+        Some(open) if t.ends_with('>') => t.get(..open)?,
         Some(_) => return None,
         None => t,
     };
@@ -731,9 +734,9 @@ pub fn swift_returns(text: &str, line1: usize) -> Option<String> {
     let mut header = String::new();
     for l in text.lines().skip(line1.checked_sub(1)?).take(8) {
         let l = uncommented(Kind::Swift, l);
-        match l.find('{') {
-            Some(open) => {
-                header.push_str(&l[..open]);
+        match l.split_once('{') {
+            Some((head, _)) => {
+                header.push_str(head);
                 break;
             }
             None => header.push_str(&l),
@@ -745,13 +748,15 @@ pub fn swift_returns(text: &str, line1: usize) -> Option<String> {
         match c {
             '(' | '[' | '<' => depth += 1,
             ')' | ']' => depth -= 1,
-            '>' if depth > 0 && !header[..i].ends_with('-') => depth -= 1,
-            '-' if depth == 0 && header[i..].starts_with("->") => return Some(i),
+            '>' if depth > 0 && header.get(..i).is_some_and(|h| !h.ends_with('-')) => depth -= 1,
+            '-' if depth == 0 && header.get(i..).is_some_and(|r| r.starts_with("->")) => {
+                return Some(i);
+            }
             _ => {}
         }
         None
     })?;
-    let ret = header[arrow_outside_params + 2..].trim();
+    let ret = header.get(arrow_outside_params + 2..)?.trim();
     let ret = ret.split(" where ").next().unwrap_or(ret).trim();
     (!ret.is_empty()).then(|| ret.to_owned())
 }
@@ -789,7 +794,7 @@ pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
     };
     let mut at = open.start();
     while let Some(end) = close_of(Kind::Swift, e, at) {
-        let rest = e[end..].trim_start();
+        let rest = e.get(end..)?.trim_start();
         if rest.is_empty() {
             break;
         }

@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -268,11 +267,9 @@ fn params_open_byte(line: &str) -> Option<usize> {
 }
 
 pub fn jvm_function(line: &str) -> Option<String> {
-    let head = line[..params_open_byte(line)?].trim_end();
-    let start = head
-        .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_')
-        .len();
-    Some(head[start..].to_owned())
+    let head = line.get(..params_open_byte(line)?)?.trim_end();
+    let unnamed = head.trim_end_matches(|c: char| c.is_alphanumeric() || c == '_');
+    Some(head.get(unnamed.len()..)?.to_owned())
 }
 
 fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<usize> {
@@ -674,7 +671,7 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
         let re = Regex::new(r).ok()?;
         let c = re.captures(&code)?;
         let at = c.get(1)?.start();
-        (!code[..at].ends_with('.')).then(|| c[1].to_owned())
+        (!code.get(..at)?.ends_with('.')).then(|| c[1].to_owned())
     })
 }
 
@@ -685,10 +682,9 @@ pub fn scala_type_parameter(text: &str, name: &str) -> bool {
     LIST.captures_iter(text).any(|c| {
         split_top(Kind::Jvm, &c[1], b',').iter().any(|e| {
             let e = e.trim().trim_start_matches(['+', '-']);
-            let end = e
-                .find(|c: char| !(c.is_alphanumeric() || c == '_'))
-                .unwrap_or(e.len());
-            &e[..end] == name
+            e.split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .next()
+                .is_some_and(|word| word == name)
         })
     })
 }
@@ -901,7 +897,7 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     let narrowed = |head: &str, at: usize| -> Option<String> {
         let code = uncommented(Kind::Jvm, head);
         if let Some(c) = test.captures(&code) {
-            let rest = &code[c.get(0)?.end()..];
+            let rest = code.get(c.get_match().end()..)?;
             return (!rest.contains("else") && !rest.contains(';') && !rest.contains("||"))
                 .then(|| c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned()))
                 .flatten();
