@@ -27,8 +27,8 @@ blocks and the keystrokes are lost:
     cp -R tutor/notes /tmp/notes && tools/cast.py --project /tmp/notes ...
 
 macOS only: the renderer reads Menlo out of /System/Library/Fonts/Menlo.ttc, or with `--font
-sf-mono` the SF Mono that Terminal.app ships. Pictures for the decision desk take `--font sf-mono
---font-size 36`: twice the pixels of a screen point, so they stay sharp on a Retina display.
+sf-mono` the SF Mono that Terminal.app ships. The decision desk's settings are in
+.claude/skills/groom/desk.md.
 """
 import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, threading, time
 from PIL import Image, ImageDraw, ImageFont
@@ -56,6 +56,16 @@ CAPS = {"M-Right": "⌥→", "M-Left": "⌥←", "Right": "→", "Left": "←", 
         "C-u": "Ctrl+U", "C-End": "Ctrl+End", "C-Home": "Ctrl+Home", "PageDown": "PgDn",
         "PageUp": "PgUp", "S-Up": "⇧↑", "S-Down": "⇧↓"}
 SANS = "/System/Library/Fonts/SFNS.ttf"
+
+
+def load_fonts(name, size):
+    if name == "sf-mono":
+        fonts = [ImageFont.truetype(SF_MONO.format(face), size)
+                 for face in ("Regular", "Bold", "RegularItalic", "BoldItalic")]
+    else:
+        fonts = [ImageFont.truetype(FONT, size, index=i) for i in range(4)]
+    ascent, descent = fonts[0].getmetrics()
+    return fonts, (round(fonts[0].getlength("M")), ascent + descent)
 
 
 def use_ghostty(theme):
@@ -340,13 +350,7 @@ def main():
     finally:
         pane.close()
 
-    if args.font == "sf-mono":
-        fonts = [ImageFont.truetype(SF_MONO.format(face), args.font_size)
-                 for face in ("Regular", "Bold", "RegularItalic", "BoldItalic")]
-    else:
-        fonts = [ImageFont.truetype(FONT, args.font_size, index=i) for i in range(4)]
-    ascent, descent = fonts[0].getmetrics()
-    cell = (round(fonts[0].getlength("M")), ascent + descent)
+    fonts, cell = load_fonts(args.font, args.font_size)
     images, durations = [], []
     for (capture, cursor), key, seconds in frames:
         x, y, shown = (int(n) for n in cursor.split(","))
@@ -364,8 +368,9 @@ def main():
         colours = len(written.convert("RGB").getcolors(1 << 20))
         assert colours > 16, "last frame has %d colours: the palette collapsed" % colours
         red = (255, 0, 0)
-        bar = render([[("\u258e", red, DEFAULT_BG, False, False)]] * 2, None, fonts, cell)
-        assert all(bar.getpixel((0, y)) == red for y in range(bar.height)), "the ▎ bar has gaps"
+        for face, size in (("menlo", FONT_SIZE), ("sf-mono", 2 * FONT_SIZE)):
+            bar = render([[("\u258e", red, DEFAULT_BG, False, False)]] * 2, None, *load_fonts(face, size))
+            assert all(bar.getpixel((0, y)) == red for y in range(bar.height)), "the ▎ bar has gaps in " + face
         g = parse("\x1b[48;2;1;2;3mx\ny\n\x1b[34mM", 1, 3)
         assert g[1][0][2] == (1, 2, 3), "the second line lost the background it carries on"
         assert g[0][0][1] == (0xc8, 0xd3, 0xf5), "the default text is not Moon's"
