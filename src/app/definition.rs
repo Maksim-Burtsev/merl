@@ -160,33 +160,9 @@ impl App {
             {
                 continue;
             }
-            let Some(text) = self.text_of(&c.hit.path) else {
+            let Some(at) = self.owner_label_lines(kind, here, word, owner, &name, &c.hit) else {
                 continue;
             };
-            let of =
-                search::qualified(kind, &text, c.hit.line1, &name).unwrap_or_else(|| name.clone());
-            let mut at: Vec<(PathBuf, usize, String)> =
-                search::label_lines(kind, &text, c.hit.line1, &name, word, owner)
-                    .into_iter()
-                    .map(|l| (c.hit.path.clone(), l, of.clone()))
-                    .collect();
-            if at.is_empty()
-                && let search::Owner::Object(n) = owner
-                && let Some(ty) = search::object_type(kind, &text, c.hit.line1, &name, *n)
-            {
-                let cut = self.truncated.get();
-                let pattern = search::def_patterns(kind, &ty).join("|");
-                let decls = self.project_definitions(kind, here, &ty, &pattern);
-                self.truncated.set(cut);
-                if let [d] = decls.as_slice()
-                    && let Some(t) = self.text_of(&d.path)
-                {
-                    at = search::label_lines(kind, &t, d.line1, &ty, word, &search::Owner::Typed)
-                        .into_iter()
-                        .map(|l| (d.path.clone(), l, ty.clone()))
-                        .collect();
-                }
-            }
             let by_name = if c.reason.proven() {
                 ""
             } else {
@@ -217,6 +193,42 @@ impl App {
         }
         self.offer_only = offer && !out.is_empty();
         out
+    }
+
+    fn owner_label_lines(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        owner: &search::Owner,
+        name: &str,
+        c: &Hit,
+    ) -> Option<Vec<(PathBuf, usize, String)>> {
+        let text = self.text_of(&c.path)?;
+        let of = search::qualified(kind, &text, c.line1, name).unwrap_or_else(|| name.to_owned());
+        let mut at: Vec<(PathBuf, usize, String)> =
+            search::label_lines(kind, &text, c.line1, name, word, owner)
+                .into_iter()
+                .map(|l| (c.path.clone(), l, of.clone()))
+                .collect();
+        if at.is_empty()
+            && let search::Owner::Object(n) = owner
+            && let Some(ty) = search::object_type(kind, &text, c.line1, name, *n)
+        {
+            let cut = self.truncated.get();
+            let pattern = search::def_patterns(kind, &ty).join("|");
+            let decls = self.project_definitions(kind, here, &ty, &pattern);
+            self.truncated.set(cut);
+            if let [d] = decls.as_slice()
+                && let Some(t) = self.text_of(&d.path)
+            {
+                at = search::label_lines(kind, &t, d.line1, &ty, word, &search::Owner::Typed)
+                    .into_iter()
+                    .map(|l| (d.path.clone(), l, ty.clone()))
+                    .collect();
+            }
+        }
+        Some(at)
     }
 
     fn receiver_outside(
@@ -380,33 +392,7 @@ impl App {
         mut found: Vec<Candidate>,
         broke: Option<&str>,
     ) {
-        if kind == Kind::TsJs {
-            let head = search::ts_method_head(word);
-            found.retain(|c| {
-                !search::ts_call_statement(&head, &c.hit.text, c.hit.line1, || {
-                    self.text_of(&c.hit.path)
-                })
-            });
-        }
-        if found.len() <= 500 {
-            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
-            found.retain(|c| {
-                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
-                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
-                let call = kind == Kind::TsJs
-                    && c.hit.text.trim_end().ends_with('<')
-                    && !search::declares_type(kind, &c.hit.text)
-                    && !Regex::new(r"\b(?:extends|implements)\b")
-                        .is_ok_and(|re| re.is_match(&c.hit.text))
-                    && self
-                        .text_of(&c.hit.path)
-                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
-                let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
-                    && !self.doc_tag(kind, &c.hit)
-                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
-                !call && !literal
-            });
-        }
+        self.keep_shown(kind, word, &mut found);
         let superclass = kind == Kind::Ruby
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {
@@ -488,40 +474,86 @@ impl App {
         }
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
-            [one] if !namesakes && !offer_only && !truncated && !copy => {
-                let path = self.root.join(&one.hit.path);
-                let name = jvm::declared_as(kind, word, &one.hit.text);
-                let target = self
-                    .hit_text(&one.hit)
-                    .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
-                    .and_then(|text| search::qualified(kind, &text, one.hit.line1, &name));
-                let status = resolution(word, target.as_deref(), &found, broke, false);
-                let col = word_col(&one.hit.text, &name, word_chars);
-                match one.hit.deleted {
-                    Some(_) => self.jump_to_deleted(&path, one.hit.line1, col),
-                    None => self.jump_to_col(&path, one.hit.line1, col),
-                }
-                if self.buf.path.as_deref() == Some(path.as_path()) {
-                    self.message = status;
-                }
+            [_] if !namesakes && !offer_only && !truncated && !copy => {
+                self.jump_to_only(kind, word, &found, broke);
             }
-            _ => {
-                let status = if namesakes {
-                    let others = if found.len() == 1 { "other" } else { "others" };
-                    format!("{word}: at a declaration, {} {others} by name", found.len())
-                } else {
-                    resolution(word, None, &found, broke, truncated)
-                };
-                let items = self.definition_items(kind, word, found);
-                self.show_picker(PickerKind::Definitions, items);
-                if let Some(p) = &mut self.picker {
-                    p.title = p
-                        .title
-                        .replacen(PickerKind::Definitions.title(), &status, 1);
-                }
-                self.message = status;
-            }
+            _ => self.pick_definitions(kind, word, found, broke, namesakes, truncated),
         }
+    }
+
+    fn keep_shown(&self, kind: Kind, word: &str, found: &mut Vec<Candidate>) {
+        if kind == Kind::TsJs {
+            let head = search::ts_method_head(word);
+            found.retain(|c| {
+                !search::ts_call_statement(&head, &c.hit.text, c.hit.line1, || {
+                    self.text_of(&c.hit.path)
+                })
+            });
+        }
+        if found.len() <= 500 {
+            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
+            found.retain(|c| {
+                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
+                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
+                let call = kind == Kind::TsJs
+                    && c.hit.text.trim_end().ends_with('<')
+                    && !search::declares_type(kind, &c.hit.text)
+                    && !Regex::new(r"\b(?:extends|implements)\b")
+                        .is_ok_and(|re| re.is_match(&c.hit.text))
+                    && self
+                        .text_of(&c.hit.path)
+                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
+                let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
+                    && !self.doc_tag(kind, &c.hit)
+                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
+                !call && !literal
+            });
+        }
+    }
+
+    fn jump_to_only(&mut self, kind: Kind, word: &str, found: &[Candidate], broke: Option<&str>) {
+        let one = &found[0];
+        let word_chars = search::word_chars(Some(kind), true);
+        let path = self.root.join(&one.hit.path);
+        let name = jvm::declared_as(kind, word, &one.hit.text);
+        let target = self
+            .hit_text(&one.hit)
+            .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
+            .and_then(|text| search::qualified(kind, &text, one.hit.line1, &name));
+        let status = resolution(word, target.as_deref(), found, broke, false);
+        let col = word_col(&one.hit.text, &name, word_chars);
+        match one.hit.deleted {
+            Some(_) => self.jump_to_deleted(&path, one.hit.line1, col),
+            None => self.jump_to_col(&path, one.hit.line1, col),
+        }
+        if self.buf.path.as_deref() == Some(path.as_path()) {
+            self.message = status;
+        }
+    }
+
+    fn pick_definitions(
+        &mut self,
+        kind: Kind,
+        word: &str,
+        found: Vec<Candidate>,
+        broke: Option<&str>,
+        namesakes: bool,
+        truncated: bool,
+    ) {
+        let status = if namesakes {
+            let others = if found.len() == 1 { "other" } else { "others" };
+            format!("{word}: at a declaration, {} {others} by name", found.len())
+        } else {
+            resolution(word, None, &found, broke, truncated)
+        };
+        let items = self.definition_items(kind, word, found);
+        self.show_picker(PickerKind::Definitions, items);
+        if let Some(p) = &mut self.picker {
+            p.title = p
+                .title
+                .replacen(PickerKind::Definitions.title(), &status, 1);
+        }
+        self.message = status;
     }
 
     pub(super) fn project_definitions(
