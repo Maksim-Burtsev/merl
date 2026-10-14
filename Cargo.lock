@@ -1918,7 +1918,9 @@ dependencies = [
  "tree-sitter-dockerfile-updated",
  "tree-sitter-elixir",
  "tree-sitter-go",
+ "tree-sitter-hcl",
  "tree-sitter-html",
+ "tree-sitter-ini",
  "tree-sitter-java",
  "tree-sitter-javascript",
  "tree-sitter-jsdoc",
@@ -4043,10 +4045,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-hcl"
+version = "1.2.0"
+source = "git+https://github.com/tree-sitter-grammars/tree-sitter-hcl?rev=64ad62785d442eb4d45df3a1764962dafd5bc98b#64ad62785d442eb4d45df3a1764962dafd5bc98b"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "tree-sitter-html"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "261b708e5d92061ede329babaaa427b819329a9d427a1d710abb0f67bbef63ee"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-ini"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "387f79682cd53b7c0a5777c96e601a02b9965a787984ef86dbb8952bdab2d62f"
 dependencies = [
  "cc",
  "tree-sitter-language",

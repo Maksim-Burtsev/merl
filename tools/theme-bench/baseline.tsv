@@ -10,7 +10,9 @@ adwaita	dockerfile	20413	20413
 adwaita	elixir	18319	18138
 adwaita	go	14810	14810
 adwaita	graphql	3933	3933
+adwaita	hcl	3592	3592
 adwaita	html	22445	22445
+adwaita	ini	9762	9762
 adwaita	java	15213	15213
 adwaita	javascript	13199	13199
 adwaita	json	7070	7070
@@ -25,6 +27,7 @@ adwaita	query	7948	7947
 adwaita	ruby	13458	13458
 adwaita	rust	17576	17576
 adwaita	swift	22782	22782
+adwaita	terraform	4842	4842
 adwaita	toml	10487	10487
 adwaita	tsx	9700	9700
 adwaita	typescript	13701	13701
@@ -42,7 +45,9 @@ adwaita-light	dockerfile	20413	20413
 adwaita-light	elixir	18319	18138
 adwaita-light	go	14810	14810
 adwaita-light	graphql	3933	3933
+adwaita-light	hcl	3592	3592
 adwaita-light	html	22445	22445
+adwaita-light	ini	9762	9762
 adwaita-light	java	15213	15213
 adwaita-light	javascript	13199	13199
 adwaita-light	json	7070	7070
@@ -57,6 +62,7 @@ adwaita-light	query	7948	7947
 adwaita-light	ruby	13458	13458
 adwaita-light	rust	17576	17576
 adwaita-light	swift	22782	22782
+adwaita-light	terraform	4842	4842
 adwaita-light	toml	10487	10487
 adwaita-light	tsx	9700	9700
 adwaita-light	typescript	13701	13701
@@ -74,7 +80,9 @@ alabaster	dockerfile	20413	20413
 alabaster	elixir	18319	18138
 alabaster	go	14810	14810
 alabaster	graphql	3933	3933
+alabaster	hcl	3592	3592
 alabaster	html	22445	22445
+alabaster	ini	9762	9762
 alabaster	java	15213	15213
 alabaster	javascript	13199	13199
 alabaster	json	7070	7070
@@ -89,6 +97,7 @@ alabaster	query	7948	7947
 alabaster	ruby	13458	13458
 alabaster	rust	17576	17576
 alabaster	swift	22782	22782
+alabaster	terraform	4842	4842
 alabaster	toml	10487	10487
 alabaster	tsx	9700	9700
 alabaster	typescript	13701	13701
@@ -106,7 +115,9 @@ alabaster-light	dockerfile	20413	20413
 alabaster-light	elixir	18319	18138
 alabaster-light	go	14810	14810
 alabaster-light	graphql	3933	3933
+alabaster-light	hcl	3592	3592
 alabaster-light	html	22445	22437
+alabaster-light	ini	9762	9762
 alabaster-light	java	15213	15213
 alabaster-light	javascript	13199	13199
 alabaster-light	json	7070	7064
@@ -121,6 +132,7 @@ alabaster-light	query	7948	7945
 alabaster-light	ruby	13458	13458
 alabaster-light	rust	17576	17576
 alabaster-light	swift	22782	22782
+alabaster-light	terraform	4842	4842
 alabaster-light	toml	10487	10481
 alabaster-light	tsx	9700	9700
 alabaster-light	typescript	13701	13701
@@ -138,7 +150,9 @@ alucard	dockerfile	20413	20413
 alucard	elixir	18319	18138
 alucard	go	14810	14810
 alucard	graphql	3933	3933
+alucard	hcl	3592	3592
 alucard	html	22445	22437
+alucard	ini	9762	9762
 alucard	java	15213	15213
 alucard	javascript	13199	13199
 alucard	json	7070	7064
@@ -153,6 +167,7 @@ alucard	query	7948	7945
 alucard	ruby	13458	13458
 alucard	rust	17576	17576
 alucard	swift	22782	22782
+alucard	terraform	4842	4842
 alucard	toml	10487	10481
 alucard	tsx	9700	9700
 alucard	typescript	13701	13701
@@ -170,7 +185,9 @@ ayu	dockerfile	20413	20413
 ayu	elixir	18319	18138
 ayu	go	14810	14810
 ayu	graphql	3933	3933
+ayu	hcl	3592	3592
 ayu	html	22445	22439
+ayu	ini	9762	9762
 ayu	java	15213	15213
 ayu	javascript	13199	13199
 ayu	json	7070	7064
@@ -185,6 +202,7 @@ ayu	query	7948	7945
 ayu	ruby	13458	13458
 ayu	rust	17576	17576
 ayu	swift	22782	22782
+ayu	terraform	4842	4842
 ayu	toml	10487	10481
 ayu	tsx	9700	9700
 ayu	typescript	13701	13701
@@ -202,7 +220,9 @@ ayu-light	dockerfile	20413	20413
 ayu-light	elixir	18319	18138
 ayu-light	go	14810	14810
 ayu-light	graphql	3933	3933
+ayu-light	hcl	3592	3592
 ayu-light	html	22445	22439
+ayu-light	ini	9762	9762
 ayu-light	java	15213	15213
 ayu-light	javascript	13199	13199
 ayu-light	json	7070	7064
@@ -217,6 +237,7 @@ ayu-light	query	7948	7945
 ayu-light	ruby	13458	13458
 ayu-light	rust	17576	17576
 ayu-light	swift	22782	22782
+ayu-light	terraform	4842	4842
 ayu-light	toml	10487	10481
 ayu-light	tsx	9700	9700
 ayu-light	typescript	13701	13701
@@ -234,7 +255,9 @@ ayu-mirage	dockerfile	20413	20413
 ayu-mirage	elixir	18319	18138
 ayu-mirage	go	14810	14810
 ayu-mirage	graphql	3933	3933
+ayu-mirage	hcl	3592	3592
 ayu-mirage	html	22445	22439
+ayu-mirage	ini	9762	9762
 ayu-mirage	java	15213	15213
 ayu-mirage	javascript	13199	13199
 ayu-mirage	json	7070	7064
@@ -249,6 +272,7 @@ ayu-mirage	query	7948	7945
 ayu-mirage	ruby	13458	13458
 ayu-mirage	rust	17576	17576
 ayu-mirage	swift	22782	22782
+ayu-mirage	terraform	4842	4842
 ayu-mirage	toml	10487	10481
 ayu-mirage	tsx	9700	9700
 ayu-mirage	typescript	13701	13701
@@ -266,7 +290,9 @@ bamboo	dockerfile	20413	20413
 bamboo	elixir	18319	18138
 bamboo	go	14810	14810
 bamboo	graphql	3933	3933
+bamboo	hcl	3592	3592
 bamboo	html	22445	22437
+bamboo	ini	9762	9762
 bamboo	java	15213	15213
 bamboo	javascript	13199	13199
 bamboo	json	7070	7064
@@ -281,6 +307,7 @@ bamboo	query	7948	7945
 bamboo	ruby	13458	13458
 bamboo	rust	17576	17576
 bamboo	swift	22782	22782
+bamboo	terraform	4842	4842
 bamboo	toml	10487	10481
 bamboo	tsx	9700	9700
 bamboo	typescript	13701	13701
@@ -298,7 +325,9 @@ bamboo-light	dockerfile	20413	20413
 bamboo-light	elixir	18319	18138
 bamboo-light	go	14810	14810
 bamboo-light	graphql	3933	3933
+bamboo-light	hcl	3592	3592
 bamboo-light	html	22445	22437
+bamboo-light	ini	9762	9762
 bamboo-light	java	15213	15213
 bamboo-light	javascript	13199	13199
 bamboo-light	json	7070	7064
@@ -313,6 +342,7 @@ bamboo-light	query	7948	7945
 bamboo-light	ruby	13458	13458
 bamboo-light	rust	17576	17576
 bamboo-light	swift	22782	22782
+bamboo-light	terraform	4842	4842
 bamboo-light	toml	10487	10481
 bamboo-light	tsx	9700	9700
 bamboo-light	typescript	13701	13701
@@ -330,7 +360,9 @@ bluloco-light	dockerfile	20413	20413
 bluloco-light	elixir	18319	18138
 bluloco-light	go	14810	14810
 bluloco-light	graphql	3933	3933
+bluloco-light	hcl	3592	3592
 bluloco-light	html	22445	22437
+bluloco-light	ini	9762	9762
 bluloco-light	java	15213	15213
 bluloco-light	javascript	13199	13199
 bluloco-light	json	7070	7064
@@ -345,6 +377,7 @@ bluloco-light	query	7948	7945
 bluloco-light	ruby	13458	13458
 bluloco-light	rust	17576	17576
 bluloco-light	swift	22782	22782
+bluloco-light	terraform	4842	4842
 bluloco-light	toml	10487	10481
 bluloco-light	tsx	9700	9700
 bluloco-light	typescript	13701	13701
@@ -362,7 +395,9 @@ catppuccin-frappe	dockerfile	20413	20413
 catppuccin-frappe	elixir	18319	18138
 catppuccin-frappe	go	14810	14810
 catppuccin-frappe	graphql	3933	3933
+catppuccin-frappe	hcl	3592	3592
 catppuccin-frappe	html	22445	22437
+catppuccin-frappe	ini	9762	9762
 catppuccin-frappe	java	15213	15213
 catppuccin-frappe	javascript	13199	13199
 catppuccin-frappe	json	7070	7064
@@ -377,6 +412,7 @@ catppuccin-frappe	query	7948	7945
 catppuccin-frappe	ruby	13458	13458
 catppuccin-frappe	rust	17576	17576
 catppuccin-frappe	swift	22782	22782
+catppuccin-frappe	terraform	4842	4842
 catppuccin-frappe	toml	10487	10481
 catppuccin-frappe	tsx	9700	9700
 catppuccin-frappe	typescript	13701	13701
@@ -394,7 +430,9 @@ catppuccin-latte	dockerfile	20413	20413
 catppuccin-latte	elixir	18319	18138
 catppuccin-latte	go	14810	14810
 catppuccin-latte	graphql	3933	3933
+catppuccin-latte	hcl	3592	3592
 catppuccin-latte	html	22445	22437
+catppuccin-latte	ini	9762	9762
 catppuccin-latte	java	15213	15213
 catppuccin-latte	javascript	13199	13199
 catppuccin-latte	json	7070	7064
@@ -409,6 +447,7 @@ catppuccin-latte	query	7948	7945
 catppuccin-latte	ruby	13458	13458
 catppuccin-latte	rust	17576	17576
 catppuccin-latte	swift	22782	22782
+catppuccin-latte	terraform	4842	4842
 catppuccin-latte	toml	10487	10481
 catppuccin-latte	tsx	9700	9700
 catppuccin-latte	typescript	13701	13701
@@ -426,7 +465,9 @@ catppuccin-macchiato	dockerfile	20413	20413
 catppuccin-macchiato	elixir	18319	18138
 catppuccin-macchiato	go	14810	14810
 catppuccin-macchiato	graphql	3933	3933
+catppuccin-macchiato	hcl	3592	3592
 catppuccin-macchiato	html	22445	22437
+catppuccin-macchiato	ini	9762	9762
 catppuccin-macchiato	java	15213	15213
 catppuccin-macchiato	javascript	13199	13199
 catppuccin-macchiato	json	7070	7064
@@ -441,6 +482,7 @@ catppuccin-macchiato	query	7948	7945
 catppuccin-macchiato	ruby	13458	13458
 catppuccin-macchiato	rust	17576	17576
 catppuccin-macchiato	swift	22782	22782
+catppuccin-macchiato	terraform	4842	4842
 catppuccin-macchiato	toml	10487	10481
 catppuccin-macchiato	tsx	9700	9700
 catppuccin-macchiato	typescript	13701	13701
@@ -458,7 +500,9 @@ catppuccin-mocha	dockerfile	20413	20413
 catppuccin-mocha	elixir	18319	18138
 catppuccin-mocha	go	14810	14810
 catppuccin-mocha	graphql	3933	3933
+catppuccin-mocha	hcl	3592	3592
 catppuccin-mocha	html	22445	22437
+catppuccin-mocha	ini	9762	9762
 catppuccin-mocha	java	15213	15213
 catppuccin-mocha	javascript	13199	13199
 catppuccin-mocha	json	7070	7064
@@ -473,6 +517,7 @@ catppuccin-mocha	query	7948	7945
 catppuccin-mocha	ruby	13458	13458
 catppuccin-mocha	rust	17576	17576
 catppuccin-mocha	swift	22782	22782
+catppuccin-mocha	terraform	4842	4842
 catppuccin-mocha	toml	10487	10481
 catppuccin-mocha	tsx	9700	9700
 catppuccin-mocha	typescript	13701	13701
@@ -490,7 +535,9 @@ cendre	dockerfile	20413	20413
 cendre	elixir	18319	18138
 cendre	go	14810	14810
 cendre	graphql	3933	3933
+cendre	hcl	3592	3592
 cendre	html	22445	22437
+cendre	ini	9762	9762
 cendre	java	15213	15213
 cendre	javascript	13199	13199
 cendre	json	7070	7064
@@ -505,6 +552,7 @@ cendre	query	7948	7945
 cendre	ruby	13458	13458
 cendre	rust	17576	17576
 cendre	swift	22782	22782
+cendre	terraform	4842	4842
 cendre	toml	10487	10481
 cendre	tsx	9700	9700
 cendre	typescript	13701	13701
@@ -522,7 +570,9 @@ darkearth	dockerfile	20413	20413
 darkearth	elixir	18319	18138
 darkearth	go	14810	14810
 darkearth	graphql	3933	3933
+darkearth	hcl	3592	3592
 darkearth	html	22445	22439
+darkearth	ini	9762	9762
 darkearth	java	15213	15213
 darkearth	javascript	13199	13199
 darkearth	json	7070	7070
@@ -537,6 +587,7 @@ darkearth	query	7948	7947
 darkearth	ruby	13458	13458
 darkearth	rust	17576	17576
 darkearth	swift	22782	22782
+darkearth	terraform	4842	4842
 darkearth	toml	10487	10487
 darkearth	tsx	9700	9700
 darkearth	typescript	13701	13701
@@ -554,7 +605,9 @@ dawnfox	dockerfile	20413	20413
 dawnfox	elixir	18319	18138
 dawnfox	go	14810	14810
 dawnfox	graphql	3933	3933
+dawnfox	hcl	3592	3592
 dawnfox	html	22445	22437
+dawnfox	ini	9762	9762
 dawnfox	java	15213	15213
 dawnfox	javascript	13199	13199
 dawnfox	json	7070	7064
@@ -569,6 +622,7 @@ dawnfox	query	7948	7945
 dawnfox	ruby	13458	13458
 dawnfox	rust	17576	17576
 dawnfox	swift	22782	22782
+dawnfox	terraform	4842	4842
 dawnfox	toml	10487	10481
 dawnfox	tsx	9700	9700
 dawnfox	typescript	13701	13701
@@ -586,7 +640,9 @@ dayfox	dockerfile	20413	20413
 dayfox	elixir	18319	18138
 dayfox	go	14810	14810
 dayfox	graphql	3933	3933
+dayfox	hcl	3592	3592
 dayfox	html	22445	22437
+dayfox	ini	9762	9762
 dayfox	java	15213	15213
 dayfox	javascript	13199	13199
 dayfox	json	7070	7064
@@ -601,6 +657,7 @@ dayfox	query	7948	7945
 dayfox	ruby	13458	13458
 dayfox	rust	17576	17576
 dayfox	swift	22782	22782
+dayfox	terraform	4842	4842
 dayfox	toml	10487	10481
 dayfox	tsx	9700	9700
 dayfox	typescript	13701	13701
@@ -618,7 +675,9 @@ dracula	dockerfile	20413	20413
 dracula	elixir	18319	18138
 dracula	go	14810	14810
 dracula	graphql	3933	3933
+dracula	hcl	3592	3592
 dracula	html	22445	22437
+dracula	ini	9762	9762
 dracula	java	15213	15213
 dracula	javascript	13199	13199
 dracula	json	7070	7064
@@ -633,6 +692,7 @@ dracula	query	7948	7945
 dracula	ruby	13458	13458
 dracula	rust	17576	17576
 dracula	swift	22782	22782
+dracula	terraform	4842	4842
 dracula	toml	10487	10481
 dracula	tsx	9700	9700
 dracula	typescript	13701	13701
@@ -650,7 +710,9 @@ e-ink	dockerfile	20413	20413
 e-ink	elixir	18319	18138
 e-ink	go	14810	14810
 e-ink	graphql	3933	3933
+e-ink	hcl	3592	3592
 e-ink	html	22445	22445
+e-ink	ini	9762	9762
 e-ink	java	15213	15213
 e-ink	javascript	13199	13199
 e-ink	json	7070	7070
@@ -665,6 +727,7 @@ e-ink	query	7948	7947
 e-ink	ruby	13458	13458
 e-ink	rust	17576	17576
 e-ink	swift	22782	22782
+e-ink	terraform	4842	4842
 e-ink	toml	10487	10487
 e-ink	tsx	9700	9700
 e-ink	typescript	13701	13701
@@ -682,7 +745,9 @@ e-ink-light	dockerfile	20413	20413
 e-ink-light	elixir	18319	18138
 e-ink-light	go	14810	14810
 e-ink-light	graphql	3933	3933
+e-ink-light	hcl	3592	3592
 e-ink-light	html	22445	22445
+e-ink-light	ini	9762	9762
 e-ink-light	java	15213	15213
 e-ink-light	javascript	13199	13199
 e-ink-light	json	7070	7070
@@ -697,6 +762,7 @@ e-ink-light	query	7948	7947
 e-ink-light	ruby	13458	13458
 e-ink-light	rust	17576	17576
 e-ink-light	swift	22782	22782
+e-ink-light	terraform	4842	4842
 e-ink-light	toml	10487	10487
 e-ink-light	tsx	9700	9700
 e-ink-light	typescript	13701	13701
@@ -714,7 +780,9 @@ edge	dockerfile	20413	20413
 edge	elixir	18319	18138
 edge	go	14810	14810
 edge	graphql	3933	3933
+edge	hcl	3592	3592
 edge	html	22445	22445
+edge	ini	9762	9762
 edge	java	15213	15213
 edge	javascript	13199	13199
 edge	json	7070	7070
@@ -729,6 +797,7 @@ edge	query	7948	7947
 edge	ruby	13458	13458
 edge	rust	17576	17576
 edge	swift	22782	22782
+edge	terraform	4842	4842
 edge	toml	10487	10487
 edge	tsx	9700	9700
 edge	typescript	13701	13701
@@ -746,7 +815,9 @@ edge-light	dockerfile	20413	20413
 edge-light	elixir	18319	18138
 edge-light	go	14810	14810
 edge-light	graphql	3933	3933
+edge-light	hcl	3592	3592
 edge-light	html	22445	22445
+edge-light	ini	9762	9762
 edge-light	java	15213	15213
 edge-light	javascript	13199	13199
 edge-light	json	7070	7070
@@ -761,6 +832,7 @@ edge-light	query	7948	7947
 edge-light	ruby	13458	13458
 edge-light	rust	17576	17576
 edge-light	swift	22782	22782
+edge-light	terraform	4842	4842
 edge-light	toml	10487	10487
 edge-light	tsx	9700	9700
 edge-light	typescript	13701	13701
@@ -778,7 +850,9 @@ everforest-dark	dockerfile	20413	20413
 everforest-dark	elixir	18319	18138
 everforest-dark	go	14810	14810
 everforest-dark	graphql	3933	3933
+everforest-dark	hcl	3592	3592
 everforest-dark	html	22445	22445
+everforest-dark	ini	9762	9762
 everforest-dark	java	15213	15213
 everforest-dark	javascript	13199	13199
 everforest-dark	json	7070	7070
@@ -793,6 +867,7 @@ everforest-dark	query	7948	7947
 everforest-dark	ruby	13458	13458
 everforest-dark	rust	17576	17576
 everforest-dark	swift	22782	22782
+everforest-dark	terraform	4842	4842
 everforest-dark	toml	10487	10487
 everforest-dark	tsx	9700	9700
 everforest-dark	typescript	13701	13701
@@ -810,7 +885,9 @@ everforest-light	dockerfile	20413	20413
 everforest-light	elixir	18319	18138
 everforest-light	go	14810	14810
 everforest-light	graphql	3933	3933
+everforest-light	hcl	3592	3592
 everforest-light	html	22445	22445
+everforest-light	ini	9762	9762
 everforest-light	java	15213	15213
 everforest-light	javascript	13199	13199
 everforest-light	json	7070	7070
@@ -825,6 +902,7 @@ everforest-light	query	7948	7947
 everforest-light	ruby	13458	13458
 everforest-light	rust	17576	17576
 everforest-light	swift	22782	22782
+everforest-light	terraform	4842	4842
 everforest-light	toml	10487	10487
 everforest-light	tsx	9700	9700
 everforest-light	typescript	13701	13701
@@ -842,7 +920,9 @@ flexoki-dark	dockerfile	20413	20413
 flexoki-dark	elixir	18319	18138
 flexoki-dark	go	14810	14810
 flexoki-dark	graphql	3933	3933
+flexoki-dark	hcl	3592	3592
 flexoki-dark	html	22445	22445
+flexoki-dark	ini	9762	9762
 flexoki-dark	java	15213	15213
 flexoki-dark	javascript	13199	13199
 flexoki-dark	json	7070	7070
@@ -857,6 +937,7 @@ flexoki-dark	query	7948	7947
 flexoki-dark	ruby	13458	13458
 flexoki-dark	rust	17576	17576
 flexoki-dark	swift	22782	22782
+flexoki-dark	terraform	4842	4842
 flexoki-dark	toml	10487	10487
 flexoki-dark	tsx	9700	9700
 flexoki-dark	typescript	13701	13701
@@ -874,7 +955,9 @@ flexoki-light	dockerfile	20413	20413
 flexoki-light	elixir	18319	18138
 flexoki-light	go	14810	14810
 flexoki-light	graphql	3933	3933
+flexoki-light	hcl	3592	3592
 flexoki-light	html	22445	22445
+flexoki-light	ini	9762	9762
 flexoki-light	java	15213	15213
 flexoki-light	javascript	13199	13199
 flexoki-light	json	7070	7070
@@ -889,6 +972,7 @@ flexoki-light	query	7948	7947
 flexoki-light	ruby	13458	13458
 flexoki-light	rust	17576	17576
 flexoki-light	swift	22782	22782
+flexoki-light	terraform	4842	4842
 flexoki-light	toml	10487	10487
 flexoki-light	tsx	9700	9700
 flexoki-light	typescript	13701	13701
@@ -906,7 +990,9 @@ github-dark	dockerfile	20413	20410
 github-dark	elixir	18319	18138
 github-dark	go	14810	14810
 github-dark	graphql	3933	3933
+github-dark	hcl	3592	3592
 github-dark	html	22445	22439
+github-dark	ini	9762	9762
 github-dark	java	15213	15213
 github-dark	javascript	13199	13199
 github-dark	json	7070	7070
@@ -921,6 +1007,7 @@ github-dark	query	7948	7947
 github-dark	ruby	13458	13458
 github-dark	rust	17576	16926
 github-dark	swift	22782	22782
+github-dark	terraform	4842	4842
 github-dark	toml	10487	10487
 github-dark	tsx	9700	9674
 github-dark	typescript	13701	13701
@@ -938,7 +1025,9 @@ github-light	dockerfile	20413	20410
 github-light	elixir	18319	18138
 github-light	go	14810	14810
 github-light	graphql	3933	3933
+github-light	hcl	3592	3592
 github-light	html	22445	22439
+github-light	ini	9762	9762
 github-light	java	15213	15213
 github-light	javascript	13199	13199
 github-light	json	7070	7070
@@ -953,6 +1042,7 @@ github-light	query	7948	7947
 github-light	ruby	13458	13458
 github-light	rust	17576	16926
 github-light	swift	22782	22782
+github-light	terraform	4842	4842
 github-light	toml	10487	10487
 github-light	tsx	9700	9674
 github-light	typescript	13701	13701
@@ -970,7 +1060,9 @@ gotham	dockerfile	20413	20413
 gotham	elixir	18319	18138
 gotham	go	14810	14810
 gotham	graphql	3933	3933
+gotham	hcl	3592	3592
 gotham	html	22445	22439
+gotham	ini	9762	9762
 gotham	java	15213	15213
 gotham	javascript	13199	13199
 gotham	json	7070	7064
@@ -985,6 +1077,7 @@ gotham	query	7948	7945
 gotham	ruby	13458	13458
 gotham	rust	17576	17576
 gotham	swift	22782	22782
+gotham	terraform	4842	4842
 gotham	toml	10487	10481
 gotham	tsx	9700	9700
 gotham	typescript	13701	13701
@@ -1002,7 +1095,9 @@ gruvbox-dark	dockerfile	20413	20413
 gruvbox-dark	elixir	18319	18138
 gruvbox-dark	go	14810	14810
 gruvbox-dark	graphql	3933	3933
+gruvbox-dark	hcl	3592	3592
 gruvbox-dark	html	22445	22445
+gruvbox-dark	ini	9762	9762
 gruvbox-dark	java	15213	15213
 gruvbox-dark	javascript	13199	13199
 gruvbox-dark	json	7070	7070
@@ -1017,6 +1112,7 @@ gruvbox-dark	query	7948	7947
 gruvbox-dark	ruby	13458	13458
 gruvbox-dark	rust	17576	17576
 gruvbox-dark	swift	22782	22782
+gruvbox-dark	terraform	4842	4842
 gruvbox-dark	toml	10487	10487
 gruvbox-dark	tsx	9700	9700
 gruvbox-dark	typescript	13701	13701
@@ -1034,7 +1130,9 @@ gruvbox-light	dockerfile	20413	20413
 gruvbox-light	elixir	18319	18138
 gruvbox-light	go	14810	14810
 gruvbox-light	graphql	3933	3933
+gruvbox-light	hcl	3592	3592
 gruvbox-light	html	22445	22445
+gruvbox-light	ini	9762	9762
 gruvbox-light	java	15213	15213
 gruvbox-light	javascript	13199	13199
 gruvbox-light	json	7070	7070
@@ -1049,6 +1147,7 @@ gruvbox-light	query	7948	7947
 gruvbox-light	ruby	13458	13458
 gruvbox-light	rust	17576	17576
 gruvbox-light	swift	22782	22782
+gruvbox-light	terraform	4842	4842
 gruvbox-light	toml	10487	10487
 gruvbox-light	tsx	9700	9700
 gruvbox-light	typescript	13701	13701
@@ -1066,7 +1165,9 @@ gruvbox-material-dark	dockerfile	20413	20413
 gruvbox-material-dark	elixir	18319	18138
 gruvbox-material-dark	go	14810	14810
 gruvbox-material-dark	graphql	3933	3933
+gruvbox-material-dark	hcl	3592	3592
 gruvbox-material-dark	html	22445	22445
+gruvbox-material-dark	ini	9762	9762
 gruvbox-material-dark	java	15213	15213
 gruvbox-material-dark	javascript	13199	13199
 gruvbox-material-dark	json	7070	7070
@@ -1081,6 +1182,7 @@ gruvbox-material-dark	query	7948	7947
 gruvbox-material-dark	ruby	13458	13458
 gruvbox-material-dark	rust	17576	17576
 gruvbox-material-dark	swift	22782	22782
+gruvbox-material-dark	terraform	4842	4842
 gruvbox-material-dark	toml	10487	10487
 gruvbox-material-dark	tsx	9700	9700
 gruvbox-material-dark	typescript	13701	13701
@@ -1098,7 +1200,9 @@ gruvbox-material-light	dockerfile	20413	20413
 gruvbox-material-light	elixir	18319	18138
 gruvbox-material-light	go	14810	14810
 gruvbox-material-light	graphql	3933	3933
+gruvbox-material-light	hcl	3592	3592
 gruvbox-material-light	html	22445	22445
+gruvbox-material-light	ini	9762	9762
 gruvbox-material-light	java	15213	15213
 gruvbox-material-light	javascript	13199	13199
 gruvbox-material-light	json	7070	7070
@@ -1113,6 +1217,7 @@ gruvbox-material-light	query	7948	7947
 gruvbox-material-light	ruby	13458	13458
 gruvbox-material-light	rust	17576	17576
 gruvbox-material-light	swift	22782	22782
+gruvbox-material-light	terraform	4842	4842
 gruvbox-material-light	toml	10487	10487
 gruvbox-material-light	tsx	9700	9700
 gruvbox-material-light	typescript	13701	13701
@@ -1130,7 +1235,9 @@ hojicha	dockerfile	20413	20413
 hojicha	elixir	18319	18138
 hojicha	go	14810	14810
 hojicha	graphql	3933	3933
+hojicha	hcl	3592	3592
 hojicha	html	22445	22445
+hojicha	ini	9762	9762
 hojicha	java	15213	15213
 hojicha	javascript	13199	13199
 hojicha	json	7070	7064
@@ -1145,6 +1252,7 @@ hojicha	query	7948	7945
 hojicha	ruby	13458	13458
 hojicha	rust	17576	17576
 hojicha	swift	22782	22782
+hojicha	terraform	4842	4842
 hojicha	toml	10487	10481
 hojicha	tsx	9700	9700
 hojicha	typescript	13701	13701
@@ -1162,7 +1270,9 @@ iceberg	dockerfile	20413	20413
 iceberg	elixir	18319	18138
 iceberg	go	14810	14810
 iceberg	graphql	3933	3933
+iceberg	hcl	3592	3592
 iceberg	html	22445	22437
+iceberg	ini	9762	9762
 iceberg	java	15213	15213
 iceberg	javascript	13199	13199
 iceberg	json	7070	7064
@@ -1177,6 +1287,7 @@ iceberg	query	7948	7945
 iceberg	ruby	13458	13458
 iceberg	rust	17576	17576
 iceberg	swift	22782	22782
+iceberg	terraform	4842	4842
 iceberg	toml	10487	10481
 iceberg	tsx	9700	9700
 iceberg	typescript	13701	13701
@@ -1194,7 +1305,9 @@ iceberg-light	dockerfile	20413	20413
 iceberg-light	elixir	18319	18138
 iceberg-light	go	14810	14810
 iceberg-light	graphql	3933	3933
+iceberg-light	hcl	3592	3592
 iceberg-light	html	22445	22439
+iceberg-light	ini	9762	9762
 iceberg-light	java	15213	15213
 iceberg-light	javascript	13199	13199
 iceberg-light	json	7070	7070
@@ -1209,6 +1322,7 @@ iceberg-light	query	7948	7947
 iceberg-light	ruby	13458	13458
 iceberg-light	rust	17576	17576
 iceberg-light	swift	22782	22782
+iceberg-light	terraform	4842	4842
 iceberg-light	toml	10487	10487
 iceberg-light	tsx	9700	9700
 iceberg-light	typescript	13701	13701
@@ -1226,7 +1340,9 @@ jellybeans	dockerfile	20413	20413
 jellybeans	elixir	18319	18138
 jellybeans	go	14810	14810
 jellybeans	graphql	3933	3933
+jellybeans	hcl	3592	3592
 jellybeans	html	22445	22437
+jellybeans	ini	9762	9762
 jellybeans	java	15213	15213
 jellybeans	javascript	13199	13199
 jellybeans	json	7070	7064
@@ -1241,6 +1357,7 @@ jellybeans	query	7948	7946
 jellybeans	ruby	13458	13458
 jellybeans	rust	17576	17576
 jellybeans	swift	22782	22782
+jellybeans	terraform	4842	4842
 jellybeans	toml	10487	10481
 jellybeans	tsx	9700	9700
 jellybeans	typescript	13701	13701
@@ -1258,7 +1375,9 @@ jellybeans-light	dockerfile	20413	20413
 jellybeans-light	elixir	18319	18138
 jellybeans-light	go	14810	14810
 jellybeans-light	graphql	3933	3933
+jellybeans-light	hcl	3592	3592
 jellybeans-light	html	22445	22437
+jellybeans-light	ini	9762	9762
 jellybeans-light	java	15213	15213
 jellybeans-light	javascript	13199	13199
 jellybeans-light	json	7070	7064
@@ -1273,6 +1392,7 @@ jellybeans-light	query	7948	7946
 jellybeans-light	ruby	13458	13458
 jellybeans-light	rust	17576	17576
 jellybeans-light	swift	22782	22782
+jellybeans-light	terraform	4842	4842
 jellybeans-light	toml	10487	10481
 jellybeans-light	tsx	9700	9700
 jellybeans-light	typescript	13701	13701
@@ -1290,7 +1410,9 @@ kanagawa-dragon	dockerfile	20413	20413
 kanagawa-dragon	elixir	18319	18138
 kanagawa-dragon	go	14810	14810
 kanagawa-dragon	graphql	3933	3933
+kanagawa-dragon	hcl	3592	3592
 kanagawa-dragon	html	22445	22437
+kanagawa-dragon	ini	9762	9762
 kanagawa-dragon	java	15213	15213
 kanagawa-dragon	javascript	13199	13199
 kanagawa-dragon	json	7070	7064
@@ -1305,6 +1427,7 @@ kanagawa-dragon	query	7948	7945
 kanagawa-dragon	ruby	13458	13458
 kanagawa-dragon	rust	17576	17576
 kanagawa-dragon	swift	22782	22782
+kanagawa-dragon	terraform	4842	4842
 kanagawa-dragon	toml	10487	10481
 kanagawa-dragon	tsx	9700	9700
 kanagawa-dragon	typescript	13701	13701
@@ -1322,7 +1445,9 @@ kanagawa-lotus	dockerfile	20413	20413
 kanagawa-lotus	elixir	18319	18138
 kanagawa-lotus	go	14810	14810
 kanagawa-lotus	graphql	3933	3933
+kanagawa-lotus	hcl	3592	3592
 kanagawa-lotus	html	22445	22437
+kanagawa-lotus	ini	9762	9762
 kanagawa-lotus	java	15213	15213
 kanagawa-lotus	javascript	13199	13199
 kanagawa-lotus	json	7070	7064
@@ -1337,6 +1462,7 @@ kanagawa-lotus	query	7948	7945
 kanagawa-lotus	ruby	13458	13458
 kanagawa-lotus	rust	17576	17576
 kanagawa-lotus	swift	22782	22782
+kanagawa-lotus	terraform	4842	4842
 kanagawa-lotus	toml	10487	10481
 kanagawa-lotus	tsx	9700	9700
 kanagawa-lotus	typescript	13701	13701
@@ -1354,7 +1480,9 @@ kanagawa-wave	dockerfile	20413	20413
 kanagawa-wave	elixir	18319	18138
 kanagawa-wave	go	14810	14810
 kanagawa-wave	graphql	3933	3933
+kanagawa-wave	hcl	3592	3592
 kanagawa-wave	html	22445	22437
+kanagawa-wave	ini	9762	9762
 kanagawa-wave	java	15213	15213
 kanagawa-wave	javascript	13199	13199
 kanagawa-wave	json	7070	7064
@@ -1369,6 +1497,7 @@ kanagawa-wave	query	7948	7945
 kanagawa-wave	ruby	13458	13458
 kanagawa-wave	rust	17576	17576
 kanagawa-wave	swift	22782	22782
+kanagawa-wave	terraform	4842	4842
 kanagawa-wave	toml	10487	10481
 kanagawa-wave	tsx	9700	9700
 kanagawa-wave	typescript	13701	13701
@@ -1386,7 +1515,9 @@ koda-dark	dockerfile	20413	20413
 koda-dark	elixir	18319	18138
 koda-dark	go	14810	14810
 koda-dark	graphql	3933	3933
+koda-dark	hcl	3592	3592
 koda-dark	html	22445	22437
+koda-dark	ini	9762	9762
 koda-dark	java	15213	15213
 koda-dark	javascript	13199	13199
 koda-dark	json	7070	7064
@@ -1401,6 +1532,7 @@ koda-dark	query	7948	7945
 koda-dark	ruby	13458	13458
 koda-dark	rust	17576	17576
 koda-dark	swift	22782	22782
+koda-dark	terraform	4842	4842
 koda-dark	toml	10487	10481
 koda-dark	tsx	9700	9700
 koda-dark	typescript	13701	13701
@@ -1418,7 +1550,9 @@ koda-light	dockerfile	20413	20413
 koda-light	elixir	18319	18138
 koda-light	go	14810	14810
 koda-light	graphql	3933	3933
+koda-light	hcl	3592	3592
 koda-light	html	22445	22437
+koda-light	ini	9762	9762
 koda-light	java	15213	15213
 koda-light	javascript	13199	13199
 koda-light	json	7070	7064
@@ -1433,6 +1567,7 @@ koda-light	query	7948	7945
 koda-light	ruby	13458	13458
 koda-light	rust	17576	17576
 koda-light	swift	22782	22782
+koda-light	terraform	4842	4842
 koda-light	toml	10487	10481
 koda-light	tsx	9700	9700
 koda-light	typescript	13701	13701
@@ -1450,7 +1585,9 @@ lackluster	dockerfile	20413	20413
 lackluster	elixir	18319	18138
 lackluster	go	14810	14810
 lackluster	graphql	3933	3933
+lackluster	hcl	3592	3592
 lackluster	html	22445	22439
+lackluster	ini	9762	9762
 lackluster	java	15213	15213
 lackluster	javascript	13199	13199
 lackluster	json	7070	7064
@@ -1465,6 +1602,7 @@ lackluster	query	7948	7945
 lackluster	ruby	13458	13458
 lackluster	rust	17576	17576
 lackluster	swift	22782	22782
+lackluster	terraform	4842	4842
 lackluster	toml	10487	10481
 lackluster	tsx	9700	9700
 lackluster	typescript	13701	13701
@@ -1482,7 +1620,9 @@ lightearth	dockerfile	20413	20413
 lightearth	elixir	18319	18138
 lightearth	go	14810	14810
 lightearth	graphql	3933	3933
+lightearth	hcl	3592	3592
 lightearth	html	22445	22439
+lightearth	ini	9762	9762
 lightearth	java	15213	15213
 lightearth	javascript	13199	13199
 lightearth	json	7070	7070
@@ -1497,6 +1637,7 @@ lightearth	query	7948	7947
 lightearth	ruby	13458	13458
 lightearth	rust	17576	17576
 lightearth	swift	22782	22782
+lightearth	terraform	4842	4842
 lightearth	toml	10487	10487
 lightearth	tsx	9700	9700
 lightearth	typescript	13701	13701
@@ -1514,7 +1655,9 @@ material-dark	dockerfile	20413	20413
 material-dark	elixir	18319	18138
 material-dark	go	14810	14810
 material-dark	graphql	3933	3933
+material-dark	hcl	3592	3592
 material-dark	html	22445	22437
+material-dark	ini	9762	9762
 material-dark	java	15213	15213
 material-dark	javascript	13199	13199
 material-dark	json	7070	7064
@@ -1529,6 +1672,7 @@ material-dark	query	7948	7945
 material-dark	ruby	13458	13458
 material-dark	rust	17576	17576
 material-dark	swift	22782	22782
+material-dark	terraform	4842	4842
 material-dark	toml	10487	10481
 material-dark	tsx	9700	9700
 material-dark	typescript	13701	13701
@@ -1546,7 +1690,9 @@ material-light	dockerfile	20413	20413
 material-light	elixir	18319	18315
 material-light	go	14810	14810
 material-light	graphql	3933	3933
+material-light	hcl	3592	3592
 material-light	html	22445	22437
+material-light	ini	9762	9762
 material-light	java	15213	15213
 material-light	javascript	13199	13199
 material-light	json	7070	7064
@@ -1561,6 +1707,7 @@ material-light	query	7948	7945
 material-light	ruby	13458	13458
 material-light	rust	17576	17576
 material-light	swift	22782	22782
+material-light	terraform	4842	4842
 material-light	toml	10487	10481
 material-light	tsx	9700	9700
 material-light	typescript	13701	13701
@@ -1578,7 +1725,9 @@ melange-dark	dockerfile	20413	20413
 melange-dark	elixir	18319	18138
 melange-dark	go	14810	14810
 melange-dark	graphql	3933	3933
+melange-dark	hcl	3592	3592
 melange-dark	html	22445	22445
+melange-dark	ini	9762	9762
 melange-dark	java	15213	15213
 melange-dark	javascript	13199	13199
 melange-dark	json	7070	7070
@@ -1593,6 +1742,7 @@ melange-dark	query	7948	7947
 melange-dark	ruby	13458	13458
 melange-dark	rust	17576	17576
 melange-dark	swift	22782	22782
+melange-dark	terraform	4842	4842
 melange-dark	toml	10487	10487
 melange-dark	tsx	9700	9700
 melange-dark	typescript	13701	13701
@@ -1610,7 +1760,9 @@ melange-light	dockerfile	20413	20413
 melange-light	elixir	18319	18138
 melange-light	go	14810	14810
 melange-light	graphql	3933	3933
+melange-light	hcl	3592	3592
 melange-light	html	22445	22445
+melange-light	ini	9762	9762
 melange-light	java	15213	15213
 melange-light	javascript	13199	13199
 melange-light	json	7070	7070
@@ -1625,6 +1777,7 @@ melange-light	query	7948	7947
 melange-light	ruby	13458	13458
 melange-light	rust	17576	17576
 melange-light	swift	22782	22782
+melange-light	terraform	4842	4842
 melange-light	toml	10487	10487
 melange-light	tsx	9700	9700
 melange-light	typescript	13701	13701
@@ -1642,7 +1795,9 @@ mellifluous	dockerfile	20413	20413
 mellifluous	elixir	18319	18138
 mellifluous	go	14810	14810
 mellifluous	graphql	3933	3933
+mellifluous	hcl	3592	3592
 mellifluous	html	22445	22437
+mellifluous	ini	9762	9762
 mellifluous	java	15213	15213
 mellifluous	javascript	13199	13199
 mellifluous	json	7070	7064
@@ -1657,6 +1812,7 @@ mellifluous	query	7948	7945
 mellifluous	ruby	13458	13458
 mellifluous	rust	17576	17576
 mellifluous	swift	22782	22782
+mellifluous	terraform	4842	4842
 mellifluous	toml	10487	10481
 mellifluous	tsx	9700	9700
 mellifluous	typescript	13701	13701
@@ -1674,7 +1830,9 @@ mellifluous-light	dockerfile	20413	20413
 mellifluous-light	elixir	18319	18138
 mellifluous-light	go	14810	14810
 mellifluous-light	graphql	3933	3933
+mellifluous-light	hcl	3592	3592
 mellifluous-light	html	22445	22437
+mellifluous-light	ini	9762	9762
 mellifluous-light	java	15213	15213
 mellifluous-light	javascript	13199	13199
 mellifluous-light	json	7070	7064
@@ -1689,6 +1847,7 @@ mellifluous-light	query	7948	7945
 mellifluous-light	ruby	13458	13458
 mellifluous-light	rust	17576	17576
 mellifluous-light	swift	22782	22782
+mellifluous-light	terraform	4842	4842
 mellifluous-light	toml	10487	10481
 mellifluous-light	tsx	9700	9700
 mellifluous-light	typescript	13701	13701
@@ -1706,7 +1865,9 @@ mellow	dockerfile	20413	20413
 mellow	elixir	18319	18138
 mellow	go	14810	14810
 mellow	graphql	3933	3933
+mellow	hcl	3592	3592
 mellow	html	22445	22437
+mellow	ini	9762	9762
 mellow	java	15213	15213
 mellow	javascript	13199	13199
 mellow	json	7070	7064
@@ -1721,6 +1882,7 @@ mellow	query	7948	7945
 mellow	ruby	13458	13458
 mellow	rust	17576	17576
 mellow	swift	22782	22782
+mellow	terraform	4842	4842
 mellow	toml	10487	10481
 mellow	tsx	9700	9700
 mellow	typescript	13701	13701
@@ -1738,7 +1900,9 @@ miasma	dockerfile	20413	20413
 miasma	elixir	18319	18138
 miasma	go	14810	14810
 miasma	graphql	3933	3933
+miasma	hcl	3592	3592
 miasma	html	22445	22439
+miasma	ini	9762	9762
 miasma	java	15213	15213
 miasma	javascript	13199	13199
 miasma	json	7070	7070
@@ -1753,6 +1917,7 @@ miasma	query	7948	7947
 miasma	ruby	13458	13458
 miasma	rust	17576	17576
 miasma	swift	22782	22782
+miasma	terraform	4842	4842
 miasma	toml	10487	10487
 miasma	tsx	9700	9700
 miasma	typescript	13701	13701
@@ -1770,7 +1935,9 @@ minischeme	dockerfile	20413	20413
 minischeme	elixir	18319	18138
 minischeme	go	14810	14810
 minischeme	graphql	3933	3933
+minischeme	hcl	3592	3592
 minischeme	html	22445	22445
+minischeme	ini	9762	9762
 minischeme	java	15213	15213
 minischeme	javascript	13199	13199
 minischeme	json	7070	7070
@@ -1785,6 +1952,7 @@ minischeme	query	7948	7948
 minischeme	ruby	13458	13458
 minischeme	rust	17576	17576
 minischeme	swift	22782	22782
+minischeme	terraform	4842	4842
 minischeme	toml	10487	10487
 minischeme	tsx	9700	9700
 minischeme	typescript	13701	13701
@@ -1802,7 +1970,9 @@ minischeme-light	dockerfile	20413	20413
 minischeme-light	elixir	18319	18138
 minischeme-light	go	14810	14810
 minischeme-light	graphql	3933	3933
+minischeme-light	hcl	3592	3592
 minischeme-light	html	22445	22445
+minischeme-light	ini	9762	9762
 minischeme-light	java	15213	15213
 minischeme-light	javascript	13199	13199
 minischeme-light	json	7070	7070
@@ -1817,6 +1987,7 @@ minischeme-light	query	7948	7948
 minischeme-light	ruby	13458	13458
 minischeme-light	rust	17576	17576
 minischeme-light	swift	22782	22782
+minischeme-light	terraform	4842	4842
 minischeme-light	toml	10487	10487
 minischeme-light	tsx	9700	9700
 minischeme-light	typescript	13701	13701
@@ -1834,7 +2005,9 @@ moonfly	dockerfile	20413	20413
 moonfly	elixir	18319	18138
 moonfly	go	14810	14810
 moonfly	graphql	3933	3933
+moonfly	hcl	3592	3592
 moonfly	html	22445	22445
+moonfly	ini	9762	9762
 moonfly	java	15213	15213
 moonfly	javascript	13199	13199
 moonfly	json	7070	7070
@@ -1849,6 +2022,7 @@ moonfly	query	7948	7947
 moonfly	ruby	13458	13458
 moonfly	rust	17576	17576
 moonfly	swift	22782	22782
+moonfly	terraform	4842	4842
 moonfly	toml	10487	10487
 moonfly	tsx	9700	9700
 moonfly	typescript	13701	13701
@@ -1866,7 +2040,9 @@ neomodern-light	dockerfile	20413	20413
 neomodern-light	elixir	18319	18138
 neomodern-light	go	14810	14810
 neomodern-light	graphql	3933	3933
+neomodern-light	hcl	3592	3592
 neomodern-light	html	22445	22445
+neomodern-light	ini	9762	9762
 neomodern-light	java	15213	15213
 neomodern-light	javascript	13199	13199
 neomodern-light	json	7070	7064
@@ -1881,6 +2057,7 @@ neomodern-light	query	7948	7945
 neomodern-light	ruby	13458	13458
 neomodern-light	rust	17576	17576
 neomodern-light	swift	22782	22782
+neomodern-light	terraform	4842	4842
 neomodern-light	toml	10487	10481
 neomodern-light	tsx	9700	9700
 neomodern-light	typescript	13701	13701
@@ -1898,7 +2075,9 @@ nightfly	dockerfile	20413	20413
 nightfly	elixir	18319	18138
 nightfly	go	14810	14810
 nightfly	graphql	3933	3933
+nightfly	hcl	3592	3592
 nightfly	html	22445	22445
+nightfly	ini	9762	9762
 nightfly	java	15213	15213
 nightfly	javascript	13199	13199
 nightfly	json	7070	7070
@@ -1913,6 +2092,7 @@ nightfly	query	7948	7947
 nightfly	ruby	13458	13458
 nightfly	rust	17576	17576
 nightfly	swift	22782	22782
+nightfly	terraform	4842	4842
 nightfly	toml	10487	10487
 nightfly	tsx	9700	9700
 nightfly	typescript	13701	13701
@@ -1930,7 +2110,9 @@ nightfox	dockerfile	20413	20413
 nightfox	elixir	18319	18138
 nightfox	go	14810	14810
 nightfox	graphql	3933	3933
+nightfox	hcl	3592	3592
 nightfox	html	22445	22437
+nightfox	ini	9762	9762
 nightfox	java	15213	15213
 nightfox	javascript	13199	13199
 nightfox	json	7070	7064
@@ -1945,6 +2127,7 @@ nightfox	query	7948	7945
 nightfox	ruby	13458	13458
 nightfox	rust	17576	17576
 nightfox	swift	22782	22782
+nightfox	terraform	4842	4842
 nightfox	toml	10487	10481
 nightfox	tsx	9700	9700
 nightfox	typescript	13701	13701
@@ -1962,7 +2145,9 @@ nord	dockerfile	20413	20413
 nord	elixir	18319	18138
 nord	go	14810	14810
 nord	graphql	3933	3933
+nord	hcl	3592	3592
 nord	html	22445	22445
+nord	ini	9762	9762
 nord	java	15213	15213
 nord	javascript	13199	13199
 nord	json	7070	7070
@@ -1977,6 +2162,7 @@ nord	query	7948	7947
 nord	ruby	13458	13458
 nord	rust	17576	17576
 nord	swift	22782	22782
+nord	terraform	4842	4842
 nord	toml	10487	10487
 nord	tsx	9700	9700
 nord	typescript	13701	13701
@@ -1994,7 +2180,9 @@ nordfox	dockerfile	20413	20413
 nordfox	elixir	18319	18138
 nordfox	go	14810	14810
 nordfox	graphql	3933	3933
+nordfox	hcl	3592	3592
 nordfox	html	22445	22437
+nordfox	ini	9762	9762
 nordfox	java	15213	15213
 nordfox	javascript	13199	13199
 nordfox	json	7070	7064
@@ -2009,6 +2197,7 @@ nordfox	query	7948	7945
 nordfox	ruby	13458	13458
 nordfox	rust	17576	17576
 nordfox	swift	22782	22782
+nordfox	terraform	4842	4842
 nordfox	toml	10487	10481
 nordfox	tsx	9700	9700
 nordfox	typescript	13701	13701
@@ -2026,7 +2215,9 @@ onedark	dockerfile	20413	20413
 onedark	elixir	18319	18138
 onedark	go	14810	14810
 onedark	graphql	3933	3933
+onedark	hcl	3592	3592
 onedark	html	22445	22445
+onedark	ini	9762	9762
 onedark	java	15213	15213
 onedark	javascript	13199	13199
 onedark	json	7070	7070
@@ -2041,6 +2232,7 @@ onedark	query	7948	7947
 onedark	ruby	13458	13458
 onedark	rust	17576	17576
 onedark	swift	22782	22782
+onedark	terraform	4842	4842
 onedark	toml	10487	10487
 onedark	tsx	9700	9700
 onedark	typescript	13701	13701
@@ -2058,7 +2250,9 @@ onedark-light	dockerfile	20413	20413
 onedark-light	elixir	18319	18138
 onedark-light	go	14810	14810
 onedark-light	graphql	3933	3933
+onedark-light	hcl	3592	3592
 onedark-light	html	22445	22445
+onedark-light	ini	9762	9762
 onedark-light	java	15213	15213
 onedark-light	javascript	13199	13199
 onedark-light	json	7070	7070
@@ -2073,6 +2267,7 @@ onedark-light	query	7948	7947
 onedark-light	ruby	13458	13458
 onedark-light	rust	17576	17576
 onedark-light	swift	22782	22782
+onedark-light	terraform	4842	4842
 onedark-light	toml	10487	10487
 onedark-light	tsx	9700	9700
 onedark-light	typescript	13701	13701
@@ -2090,7 +2285,9 @@ oxocarbon-dark	dockerfile	20413	20413
 oxocarbon-dark	elixir	18319	18138
 oxocarbon-dark	go	14810	14810
 oxocarbon-dark	graphql	3933	3933
+oxocarbon-dark	hcl	3592	3592
 oxocarbon-dark	html	22445	22445
+oxocarbon-dark	ini	9762	9762
 oxocarbon-dark	java	15213	15213
 oxocarbon-dark	javascript	13199	13199
 oxocarbon-dark	json	7070	7070
@@ -2105,6 +2302,7 @@ oxocarbon-dark	query	7948	7947
 oxocarbon-dark	ruby	13458	13458
 oxocarbon-dark	rust	17576	17576
 oxocarbon-dark	swift	22782	22782
+oxocarbon-dark	terraform	4842	4842
 oxocarbon-dark	toml	10487	10487
 oxocarbon-dark	tsx	9700	9700
 oxocarbon-dark	typescript	13701	13701
@@ -2122,7 +2320,9 @@ oxocarbon-light	dockerfile	20413	20413
 oxocarbon-light	elixir	18319	18138
 oxocarbon-light	go	14810	14810
 oxocarbon-light	graphql	3933	3933
+oxocarbon-light	hcl	3592	3592
 oxocarbon-light	html	22445	22445
+oxocarbon-light	ini	9762	9762
 oxocarbon-light	java	15213	15213
 oxocarbon-light	javascript	13199	13199
 oxocarbon-light	json	7070	7070
@@ -2137,6 +2337,7 @@ oxocarbon-light	query	7948	7947
 oxocarbon-light	ruby	13458	13458
 oxocarbon-light	rust	17576	17576
 oxocarbon-light	swift	22782	22782
+oxocarbon-light	terraform	4842	4842
 oxocarbon-light	toml	10487	10487
 oxocarbon-light	tsx	9700	9700
 oxocarbon-light	typescript	13701	13701
@@ -2154,7 +2355,9 @@ papercolor	dockerfile	20413	20413
 papercolor	elixir	18319	18138
 papercolor	go	14810	14810
 papercolor	graphql	3933	3933
+papercolor	hcl	3592	3592
 papercolor	html	22445	22437
+papercolor	ini	9762	9762
 papercolor	java	15213	15213
 papercolor	javascript	13199	13199
 papercolor	json	7070	7064
@@ -2169,6 +2372,7 @@ papercolor	query	7948	7945
 papercolor	ruby	13458	13458
 papercolor	rust	17576	17576
 papercolor	swift	22782	22782
+papercolor	terraform	4842	4842
 papercolor	toml	10487	10481
 papercolor	tsx	9700	9700
 papercolor	typescript	13701	13701
@@ -2186,7 +2390,9 @@ papercolor-light	dockerfile	20413	20413
 papercolor-light	elixir	18319	18138
 papercolor-light	go	14810	14810
 papercolor-light	graphql	3933	3933
+papercolor-light	hcl	3592	3592
 papercolor-light	html	22445	22437
+papercolor-light	ini	9762	9762
 papercolor-light	java	15213	15213
 papercolor-light	javascript	13199	13199
 papercolor-light	json	7070	7064
@@ -2201,6 +2407,7 @@ papercolor-light	query	7948	7945
 papercolor-light	ruby	13458	13458
 papercolor-light	rust	17576	17576
 papercolor-light	swift	22782	22782
+papercolor-light	terraform	4842	4842
 papercolor-light	toml	10487	10481
 papercolor-light	tsx	9700	9700
 papercolor-light	typescript	13701	13701
@@ -2218,7 +2425,9 @@ pencil	dockerfile	20413	20413
 pencil	elixir	18319	18138
 pencil	go	14810	14810
 pencil	graphql	3933	3933
+pencil	hcl	3592	3592
 pencil	html	22445	22439
+pencil	ini	9762	9762
 pencil	java	15213	15213
 pencil	javascript	13199	13199
 pencil	json	7070	7064
@@ -2233,6 +2442,7 @@ pencil	query	7948	7946
 pencil	ruby	13458	13458
 pencil	rust	17576	17576
 pencil	swift	22782	22782
+pencil	terraform	4842	4842
 pencil	toml	10487	10481
 pencil	tsx	9700	9700
 pencil	typescript	13701	13701
@@ -2250,7 +2460,9 @@ pencil-light	dockerfile	20413	20413
 pencil-light	elixir	18319	18138
 pencil-light	go	14810	14810
 pencil-light	graphql	3933	3933
+pencil-light	hcl	3592	3592
 pencil-light	html	22445	22439
+pencil-light	ini	9762	9762
 pencil-light	java	15213	15213
 pencil-light	javascript	13199	13199
 pencil-light	json	7070	7064
@@ -2265,6 +2477,7 @@ pencil-light	query	7948	7946
 pencil-light	ruby	13458	13458
 pencil-light	rust	17576	17576
 pencil-light	swift	22782	22782
+pencil-light	terraform	4842	4842
 pencil-light	toml	10487	10481
 pencil-light	tsx	9700	9700
 pencil-light	typescript	13701	13701
@@ -2282,7 +2495,9 @@ rose-pine	dockerfile	20413	20413
 rose-pine	elixir	18319	18142
 rose-pine	go	14810	14810
 rose-pine	graphql	3933	3933
+rose-pine	hcl	3592	3592
 rose-pine	html	22445	22437
+rose-pine	ini	9762	9762
 rose-pine	java	15213	15213
 rose-pine	javascript	13199	13199
 rose-pine	json	7070	7064
@@ -2297,6 +2512,7 @@ rose-pine	query	7948	7945
 rose-pine	ruby	13458	13458
 rose-pine	rust	17576	17576
 rose-pine	swift	22782	22782
+rose-pine	terraform	4842	4842
 rose-pine	toml	10487	10481
 rose-pine	tsx	9700	9700
 rose-pine	typescript	13701	13701
@@ -2314,7 +2530,9 @@ rose-pine-dawn	dockerfile	20413	20413
 rose-pine-dawn	elixir	18319	18142
 rose-pine-dawn	go	14810	14810
 rose-pine-dawn	graphql	3933	3933
+rose-pine-dawn	hcl	3592	3592
 rose-pine-dawn	html	22445	22437
+rose-pine-dawn	ini	9762	9762
 rose-pine-dawn	java	15213	15213
 rose-pine-dawn	javascript	13199	13199
 rose-pine-dawn	json	7070	7064
@@ -2329,6 +2547,7 @@ rose-pine-dawn	query	7948	7945
 rose-pine-dawn	ruby	13458	13458
 rose-pine-dawn	rust	17576	17576
 rose-pine-dawn	swift	22782	22782
+rose-pine-dawn	terraform	4842	4842
 rose-pine-dawn	toml	10487	10481
 rose-pine-dawn	tsx	9700	9700
 rose-pine-dawn	typescript	13701	13701
@@ -2346,7 +2565,9 @@ rose-pine-moon	dockerfile	20413	20413
 rose-pine-moon	elixir	18319	18142
 rose-pine-moon	go	14810	14810
 rose-pine-moon	graphql	3933	3933
+rose-pine-moon	hcl	3592	3592
 rose-pine-moon	html	22445	22437
+rose-pine-moon	ini	9762	9762
 rose-pine-moon	java	15213	15213
 rose-pine-moon	javascript	13199	13199
 rose-pine-moon	json	7070	7064
@@ -2361,6 +2582,7 @@ rose-pine-moon	query	7948	7945
 rose-pine-moon	ruby	13458	13458
 rose-pine-moon	rust	17576	17576
 rose-pine-moon	swift	22782	22782
+rose-pine-moon	terraform	4842	4842
 rose-pine-moon	toml	10487	10481
 rose-pine-moon	tsx	9700	9700
 rose-pine-moon	typescript	13701	13701
@@ -2378,7 +2600,9 @@ selenized	dockerfile	20413	20413
 selenized	elixir	18319	18138
 selenized	go	14810	14810
 selenized	graphql	3933	3933
+selenized	hcl	3592	3592
 selenized	html	22445	22437
+selenized	ini	9762	9762
 selenized	java	15213	15213
 selenized	javascript	13199	13199
 selenized	json	7070	7064
@@ -2393,6 +2617,7 @@ selenized	query	7948	7945
 selenized	ruby	13458	13458
 selenized	rust	17576	17576
 selenized	swift	22782	22782
+selenized	terraform	4842	4842
 selenized	toml	10487	10481
 selenized	tsx	9700	9700
 selenized	typescript	13701	13701
@@ -2410,7 +2635,9 @@ selenized-light	dockerfile	20413	20413
 selenized-light	elixir	18319	18138
 selenized-light	go	14810	14810
 selenized-light	graphql	3933	3933
+selenized-light	hcl	3592	3592
 selenized-light	html	22445	22437
+selenized-light	ini	9762	9762
 selenized-light	java	15213	15213
 selenized-light	javascript	13199	13199
 selenized-light	json	7070	7064
@@ -2425,6 +2652,7 @@ selenized-light	query	7948	7945
 selenized-light	ruby	13458	13458
 selenized-light	rust	17576	17576
 selenized-light	swift	22782	22782
+selenized-light	terraform	4842	4842
 selenized-light	toml	10487	10481
 selenized-light	tsx	9700	9700
 selenized-light	typescript	13701	13701
@@ -2442,7 +2670,9 @@ solarized-dark	dockerfile	20413	20413
 solarized-dark	elixir	18319	18138
 solarized-dark	go	14810	14810
 solarized-dark	graphql	3933	3933
+solarized-dark	hcl	3592	3592
 solarized-dark	html	22445	22437
+solarized-dark	ini	9762	9762
 solarized-dark	java	15213	15213
 solarized-dark	javascript	13199	13199
 solarized-dark	json	7070	7064
@@ -2457,6 +2687,7 @@ solarized-dark	query	7948	7945
 solarized-dark	ruby	13458	13458
 solarized-dark	rust	17576	17576
 solarized-dark	swift	22782	22782
+solarized-dark	terraform	4842	4842
 solarized-dark	toml	10487	10481
 solarized-dark	tsx	9700	9700
 solarized-dark	typescript	13701	13701
@@ -2474,7 +2705,9 @@ solarized-light	dockerfile	20413	20413
 solarized-light	elixir	18319	18138
 solarized-light	go	14810	14810
 solarized-light	graphql	3933	3933
+solarized-light	hcl	3592	3592
 solarized-light	html	22445	22437
+solarized-light	ini	9762	9762
 solarized-light	java	15213	15213
 solarized-light	javascript	13199	13199
 solarized-light	json	7070	7064
@@ -2489,6 +2722,7 @@ solarized-light	query	7948	7945
 solarized-light	ruby	13458	13458
 solarized-light	rust	17576	17576
 solarized-light	swift	22782	22782
+solarized-light	terraform	4842	4842
 solarized-light	toml	10487	10481
 solarized-light	tsx	9700	9700
 solarized-light	typescript	13701	13701
@@ -2506,7 +2740,9 @@ sonokai	dockerfile	20413	20413
 sonokai	elixir	18319	18138
 sonokai	go	14810	14810
 sonokai	graphql	3933	3933
+sonokai	hcl	3592	3592
 sonokai	html	22445	22445
+sonokai	ini	9762	9762
 sonokai	java	15213	15213
 sonokai	javascript	13199	13199
 sonokai	json	7070	7070
@@ -2521,6 +2757,7 @@ sonokai	query	7948	7947
 sonokai	ruby	13458	13458
 sonokai	rust	17576	17576
 sonokai	swift	22782	22782
+sonokai	terraform	4842	4842
 sonokai	toml	10487	10487
 sonokai	tsx	9700	9700
 sonokai	typescript	13701	13701
@@ -2538,7 +2775,9 @@ soviet-dark	dockerfile	20413	20413
 soviet-dark	elixir	18319	18138
 soviet-dark	go	14810	14810
 soviet-dark	graphql	3933	3933
+soviet-dark	hcl	3592	3592
 soviet-dark	html	22445	22437
+soviet-dark	ini	9762	9762
 soviet-dark	java	15213	15213
 soviet-dark	javascript	13199	13199
 soviet-dark	json	7070	7064
@@ -2553,6 +2792,7 @@ soviet-dark	query	7948	7945
 soviet-dark	ruby	13458	13458
 soviet-dark	rust	17576	17576
 soviet-dark	swift	22782	22782
+soviet-dark	terraform	4842	4842
 soviet-dark	toml	10487	10481
 soviet-dark	tsx	9700	9700
 soviet-dark	typescript	13701	13701
@@ -2570,7 +2810,9 @@ soviet-light	dockerfile	20413	20413
 soviet-light	elixir	18319	18138
 soviet-light	go	14810	14810
 soviet-light	graphql	3933	3933
+soviet-light	hcl	3592	3592
 soviet-light	html	22445	22437
+soviet-light	ini	9762	9762
 soviet-light	java	15213	15213
 soviet-light	javascript	13199	13199
 soviet-light	json	7070	7064
@@ -2585,6 +2827,7 @@ soviet-light	query	7948	7945
 soviet-light	ruby	13458	13458
 soviet-light	rust	17576	17576
 soviet-light	swift	22782	22782
+soviet-light	terraform	4842	4842
 soviet-light	toml	10487	10481
 soviet-light	tsx	9700	9700
 soviet-light	typescript	13701	13701
@@ -2602,7 +2845,9 @@ srcery	dockerfile	20413	20413
 srcery	elixir	18319	18138
 srcery	go	14810	14810
 srcery	graphql	3933	3933
+srcery	hcl	3592	3592
 srcery	html	22445	22437
+srcery	ini	9762	9762
 srcery	java	15213	15213
 srcery	javascript	13199	13199
 srcery	json	7070	7064
@@ -2617,6 +2862,7 @@ srcery	query	7948	7945
 srcery	ruby	13458	13458
 srcery	rust	17576	17576
 srcery	swift	22782	22782
+srcery	terraform	4842	4842
 srcery	toml	10487	10481
 srcery	tsx	9700	9700
 srcery	typescript	13701	13701
@@ -2634,7 +2880,9 @@ token	dockerfile	20413	20413
 token	elixir	18319	18138
 token	go	14810	14810
 token	graphql	3933	3933
+token	hcl	3592	3592
 token	html	22445	22437
+token	ini	9762	9762
 token	java	15213	15213
 token	javascript	13199	13199
 token	json	7070	7064
@@ -2649,6 +2897,7 @@ token	query	7948	7945
 token	ruby	13458	13458
 token	rust	17576	17576
 token	swift	22782	22782
+token	terraform	4842	4842
 token	toml	10487	10481
 token	tsx	9700	9700
 token	typescript	13701	13701
@@ -2666,7 +2915,9 @@ token-light	dockerfile	20413	20413
 token-light	elixir	18319	18138
 token-light	go	14810	14810
 token-light	graphql	3933	3933
+token-light	hcl	3592	3592
 token-light	html	22445	22437
+token-light	ini	9762	9762
 token-light	java	15213	15213
 token-light	javascript	13199	13199
 token-light	json	7070	7064
@@ -2681,6 +2932,7 @@ token-light	query	7948	7945
 token-light	ruby	13458	13458
 token-light	rust	17576	17576
 token-light	swift	22782	22782
+token-light	terraform	4842	4842
 token-light	toml	10487	10481
 token-light	tsx	9700	9700
 token-light	typescript	13701	13701
@@ -2698,7 +2950,9 @@ tokyonight-day	dockerfile	20413	20413
 tokyonight-day	elixir	18319	18138
 tokyonight-day	go	14810	14810
 tokyonight-day	graphql	3933	3933
+tokyonight-day	hcl	3592	3592
 tokyonight-day	html	22445	22437
+tokyonight-day	ini	9762	9762
 tokyonight-day	java	15213	15213
 tokyonight-day	javascript	13199	13199
 tokyonight-day	json	7070	7064
@@ -2713,6 +2967,7 @@ tokyonight-day	query	7948	7945
 tokyonight-day	ruby	13458	13458
 tokyonight-day	rust	17576	17576
 tokyonight-day	swift	22782	22782
+tokyonight-day	terraform	4842	4842
 tokyonight-day	toml	10487	10481
 tokyonight-day	tsx	9700	9700
 tokyonight-day	typescript	13701	13701
@@ -2730,7 +2985,9 @@ tokyonight-moon	dockerfile	20413	20413
 tokyonight-moon	elixir	18319	18138
 tokyonight-moon	go	14810	14810
 tokyonight-moon	graphql	3933	3933
+tokyonight-moon	hcl	3592	3592
 tokyonight-moon	html	22445	22437
+tokyonight-moon	ini	9762	9762
 tokyonight-moon	java	15213	15213
 tokyonight-moon	javascript	13199	13199
 tokyonight-moon	json	7070	7064
@@ -2745,6 +3002,7 @@ tokyonight-moon	query	7948	7945
 tokyonight-moon	ruby	13458	13458
 tokyonight-moon	rust	17576	17576
 tokyonight-moon	swift	22782	22782
+tokyonight-moon	terraform	4842	4842
 tokyonight-moon	toml	10487	10481
 tokyonight-moon	tsx	9700	9700
 tokyonight-moon	typescript	13701	13701
@@ -2762,7 +3020,9 @@ tokyonight-night	dockerfile	20413	20413
 tokyonight-night	elixir	18319	18138
 tokyonight-night	go	14810	14810
 tokyonight-night	graphql	3933	3933
+tokyonight-night	hcl	3592	3592
 tokyonight-night	html	22445	22437
+tokyonight-night	ini	9762	9762
 tokyonight-night	java	15213	15213
 tokyonight-night	javascript	13199	13199
 tokyonight-night	json	7070	7064
@@ -2777,6 +3037,7 @@ tokyonight-night	query	7948	7945
 tokyonight-night	ruby	13458	13458
 tokyonight-night	rust	17576	17576
 tokyonight-night	swift	22782	22782
+tokyonight-night	terraform	4842	4842
 tokyonight-night	toml	10487	10481
 tokyonight-night	tsx	9700	9700
 tokyonight-night	typescript	13701	13701
@@ -2794,7 +3055,9 @@ tokyonight-storm	dockerfile	20413	20413
 tokyonight-storm	elixir	18319	18138
 tokyonight-storm	go	14810	14810
 tokyonight-storm	graphql	3933	3933
+tokyonight-storm	hcl	3592	3592
 tokyonight-storm	html	22445	22437
+tokyonight-storm	ini	9762	9762
 tokyonight-storm	java	15213	15213
 tokyonight-storm	javascript	13199	13199
 tokyonight-storm	json	7070	7064
@@ -2809,6 +3072,7 @@ tokyonight-storm	query	7948	7945
 tokyonight-storm	ruby	13458	13458
 tokyonight-storm	rust	17576	17576
 tokyonight-storm	swift	22782	22782
+tokyonight-storm	terraform	4842	4842
 tokyonight-storm	toml	10487	10481
 tokyonight-storm	tsx	9700	9700
 tokyonight-storm	typescript	13701	13701
@@ -2826,7 +3090,9 @@ vague	dockerfile	20413	20413
 vague	elixir	18319	18138
 vague	go	14810	14810
 vague	graphql	3933	3933
+vague	hcl	3592	3592
 vague	html	22445	22445
+vague	ini	9762	9762
 vague	java	15213	15213
 vague	javascript	13199	13199
 vague	json	7070	7070
@@ -2841,6 +3107,7 @@ vague	query	7948	7947
 vague	ruby	13458	13458
 vague	rust	17576	17576
 vague	swift	22782	22782
+vague	terraform	4842	4842
 vague	toml	10487	10487
 vague	tsx	9700	9700
 vague	typescript	13701	13701
@@ -2858,7 +3125,9 @@ vesper	dockerfile	20413	20413
 vesper	elixir	18319	18138
 vesper	go	14810	14810
 vesper	graphql	3933	3933
+vesper	hcl	3592	3592
 vesper	html	22445	22443
+vesper	ini	9762	9762
 vesper	java	15213	15213
 vesper	javascript	13199	13199
 vesper	json	7070	7070
@@ -2873,6 +3142,7 @@ vesper	query	7948	7947
 vesper	ruby	13458	13458
 vesper	rust	17576	17576
 vesper	swift	22782	22782
+vesper	terraform	4842	4842
 vesper	toml	10487	10487
 vesper	tsx	9700	9700
 vesper	typescript	13701	13701
@@ -2890,7 +3160,9 @@ vscode-dark	dockerfile	20413	20413
 vscode-dark	elixir	18319	18138
 vscode-dark	go	14810	14810
 vscode-dark	graphql	3933	3933
+vscode-dark	hcl	3592	3592
 vscode-dark	html	22445	22445
+vscode-dark	ini	9762	9762
 vscode-dark	java	15213	15213
 vscode-dark	javascript	13199	13199
 vscode-dark	json	7070	7070
@@ -2905,6 +3177,7 @@ vscode-dark	query	7948	7947
 vscode-dark	ruby	13458	13458
 vscode-dark	rust	17576	17576
 vscode-dark	swift	22782	22782
+vscode-dark	terraform	4842	4842
 vscode-dark	toml	10487	10487
 vscode-dark	tsx	9700	9700
 vscode-dark	typescript	13701	13701
@@ -2922,7 +3195,9 @@ vscode-light	dockerfile	20413	20413
 vscode-light	elixir	18319	18138
 vscode-light	go	14810	14810
 vscode-light	graphql	3933	3933
+vscode-light	hcl	3592	3592
 vscode-light	html	22445	22445
+vscode-light	ini	9762	9762
 vscode-light	java	15213	15213
 vscode-light	javascript	13199	13199
 vscode-light	json	7070	7070
@@ -2937,6 +3212,7 @@ vscode-light	query	7948	7947
 vscode-light	ruby	13458	13458
 vscode-light	rust	17576	17576
 vscode-light	swift	22782	22782
+vscode-light	terraform	4842	4842
 vscode-light	toml	10487	10487
 vscode-light	tsx	9700	9700
 vscode-light	typescript	13701	13701
