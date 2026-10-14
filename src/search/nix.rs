@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -78,18 +77,67 @@ fn name_byte(c: u8) -> bool {
     c.is_ascii_alphanumeric() || b"_'-".contains(&c)
 }
 
+fn blank(code: &mut [u8], r: Range<usize>) {
+    for c in &mut code[r] {
+        if *c != b'\n' {
+            *c = b' ';
+        }
+    }
+}
+
+fn quoted(b: &[u8], code: &mut [u8], stack: &mut Vec<Ctx>, mut i: usize, from: usize) -> usize {
+    let c = b[i];
+    let at = |s: &[u8]| b[i..].starts_with(s);
+    if c == b'\\' {
+        let end = (i + 2).min(b.len()) - usize::from(b.get(i + 1) == Some(&b'\n'));
+        blank(code, i..end);
+        i = end;
+    } else if at(b"${") {
+        stack.push(Ctx::Code(0));
+        i += 2;
+    } else if c == b'"' {
+        stack.pop();
+        let inner = &b[from..i];
+        let named =
+            inner.first().is_some_and(|&c| name_start(c)) && inner.iter().all(|&c| name_byte(c));
+        if named {
+            code[from..i].copy_from_slice(inner);
+        }
+        i += 1;
+    } else {
+        blank(code, i..i + 1);
+        i += 1;
+    }
+    i
+}
+
+fn indented(b: &[u8], code: &mut [u8], stack: &mut Vec<Ctx>, mut i: usize) -> usize {
+    let at = |s: &[u8]| b[i..].starts_with(s);
+    if at(b"'''") || at(b"''$") {
+        blank(code, i..i + 3);
+        i += 3;
+    } else if at(b"''\\") {
+        let end = (i + 4).min(b.len()) - usize::from(b.get(i + 3) == Some(&b'\n'));
+        blank(code, i..end);
+        i = end;
+    } else if at(b"''") {
+        stack.pop();
+        i += 2;
+    } else if at(b"${") {
+        stack.push(Ctx::Code(0));
+        i += 2;
+    } else {
+        blank(code, i..i + 1);
+        i += 1;
+    }
+    i
+}
+
 fn lex(text: &str) -> Lexed {
     let b = text.as_bytes();
     let mut code = b.to_vec();
     let mut literal = vec![false];
     let mut stack = vec![Ctx::Code(0)];
-    let blank = |code: &mut Vec<u8>, r: Range<usize>| {
-        for c in &mut code[r] {
-            if *c != b'\n' {
-                *c = b' ';
-            }
-        }
-    };
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -142,46 +190,9 @@ fn lex(text: &str) -> Lexed {
             }
             Some(Ctx::Quoted(from)) => {
                 let from = *from;
-                if c == b'\\' {
-                    let end = (i + 2).min(b.len()) - usize::from(b.get(i + 1) == Some(&b'\n'));
-                    blank(&mut code, i..end);
-                    i = end;
-                } else if at(b"${") {
-                    stack.push(Ctx::Code(0));
-                    i += 2;
-                } else if c == b'"' {
-                    stack.pop();
-                    let inner = &b[from..i];
-                    let named = inner.first().is_some_and(|&c| name_start(c))
-                        && inner.iter().all(|&c| name_byte(c));
-                    if named {
-                        code[from..i].copy_from_slice(inner);
-                    }
-                    i += 1;
-                } else {
-                    blank(&mut code, i..i + 1);
-                    i += 1;
-                }
+                i = quoted(b, &mut code, &mut stack, i, from);
             }
-            Some(Ctx::Indented) => {
-                if at(b"'''") || at(b"''$") {
-                    blank(&mut code, i..i + 3);
-                    i += 3;
-                } else if at(b"''\\") {
-                    let end = (i + 4).min(b.len()) - usize::from(b.get(i + 3) == Some(&b'\n'));
-                    blank(&mut code, i..end);
-                    i = end;
-                } else if at(b"''") {
-                    stack.pop();
-                    i += 2;
-                } else if at(b"${") {
-                    stack.push(Ctx::Code(0));
-                    i += 2;
-                } else {
-                    blank(&mut code, i..i + 1);
-                    i += 1;
-                }
-            }
+            Some(Ctx::Indented) => i = indented(b, &mut code, &mut stack, i),
             None => break,
         }
     }
