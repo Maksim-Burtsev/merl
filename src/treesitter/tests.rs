@@ -315,6 +315,11 @@ fn zig_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn nix_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("nix");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -466,6 +471,7 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["a.zig", "build.zig.zon"] {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
+    assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
     for f in [
         "a.rb",
         "a.rbi",
@@ -800,6 +806,7 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("elixir"), Some("elixir"));
     assert_eq!(name("ex"), Some("elixir"));
     assert_eq!(name("zig"), Some("zig"));
+    assert_eq!(name("nix"), Some("nix"));
 }
 
 #[test]

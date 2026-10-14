@@ -260,6 +260,16 @@ so merl takes it as a git dependency. The bench's files come from zls, pinned in
 |---|---|---|---|---|
 | Zig | 14,602 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Nix (#808), `.nix`; its strings hold Bash, Python, Lua, JavaScript, Rust and regex where
+nvim-treesitter's injections put them, while `comment`, `fish`, `haskell` and `perl` stay plain, as
+LazyVim installs no parser for them. The commit nvim-treesitter pins (f9765b7) is newer than
+crates.io's tree-sitter-nix 0.3.0 (another `parser.c`), so merl takes it as a git dependency. Files
+from nix-darwin:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Nix | 15,630 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
