@@ -1,0 +1,4 @@
+# tokyonight-moon: folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6 `colorscheme tokyonight-moon`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=c3e88d b=4fd6be c=c8d3f5 d=636da6i e=82aaffb f=89ddff g=828bb8
+.coveragerc	1:d20 2:ge3g 3:b6fa4 4:b6fa3 6:ge6g 7:b13f 8:c14 9:c24
+settings.ini	1:d18 2:d13 3:b6fa16 5:ge6g 6:b4fa11 7:b4fa4 8:b4fa37 9:b5f 10:b6fa18 11:b3fa28 13:ge16g 14:b10 15:c15 16:c8fa3 18:ge17g 19:b13fa15 20:b10fa4 22:g2 23:c23

@@ -12,6 +12,7 @@ adwaita	go	14810	14810
 adwaita	graphql	3933	3933
 adwaita	hcl	3592	3592
 adwaita	html	22445	22445
+adwaita	ini	9762	9762
 adwaita	java	15213	15213
 adwaita	javascript	13199	13199
 adwaita	json	7070	7070
@@ -45,6 +46,7 @@ adwaita-light	go	14810	14810
 adwaita-light	graphql	3933	3933
 adwaita-light	hcl	3592	3592
 adwaita-light	html	22445	22445
+adwaita-light	ini	9762	9762
 adwaita-light	java	15213	15213
 adwaita-light	javascript	13199	13199
 adwaita-light	json	7070	7070
@@ -78,6 +80,7 @@ alabaster	go	14810	14810
 alabaster	graphql	3933	3933
 alabaster	hcl	3592	3592
 alabaster	html	22445	22445
+alabaster	ini	9762	9762
 alabaster	java	15213	15213
 alabaster	javascript	13199	13199
 alabaster	json	7070	7070
@@ -111,6 +114,7 @@ alabaster-light	go	14810	14810
 alabaster-light	graphql	3933	3933
 alabaster-light	hcl	3592	3592
 alabaster-light	html	22445	22437
+alabaster-light	ini	9762	9762
 alabaster-light	java	15213	15213
 alabaster-light	javascript	13199	13199
 alabaster-light	json	7070	7064
@@ -144,6 +148,7 @@ alucard	go	14810	14810
 alucard	graphql	3933	3933
 alucard	hcl	3592	3592
 alucard	html	22445	22437
+alucard	ini	9762	9762
 alucard	java	15213	15213
 alucard	javascript	13199	13199
 alucard	json	7070	7064
@@ -177,6 +182,7 @@ ayu	go	14810	14810
 ayu	graphql	3933	3933
 ayu	hcl	3592	3592
 ayu	html	22445	22439
+ayu	ini	9762	9762
 ayu	java	15213	15213
 ayu	javascript	13199	13199
 ayu	json	7070	7064
@@ -210,6 +216,7 @@ ayu-light	go	14810	14810
 ayu-light	graphql	3933	3933
 ayu-light	hcl	3592	3592
 ayu-light	html	22445	22439
+ayu-light	ini	9762	9762
 ayu-light	java	15213	15213
 ayu-light	javascript	13199	13199
 ayu-light	json	7070	7064
@@ -243,6 +250,7 @@ ayu-mirage	go	14810	14810
 ayu-mirage	graphql	3933	3933
 ayu-mirage	hcl	3592	3592
 ayu-mirage	html	22445	22439
+ayu-mirage	ini	9762	9762
 ayu-mirage	java	15213	15213
 ayu-mirage	javascript	13199	13199
 ayu-mirage	json	7070	7064
@@ -276,6 +284,7 @@ bamboo	go	14810	14810
 bamboo	graphql	3933	3933
 bamboo	hcl	3592	3592
 bamboo	html	22445	22437
+bamboo	ini	9762	9762
 bamboo	java	15213	15213
 bamboo	javascript	13199	13199
 bamboo	json	7070	7064
@@ -309,6 +318,7 @@ bamboo-light	go	14810	14810
 bamboo-light	graphql	3933	3933
 bamboo-light	hcl	3592	3592
 bamboo-light	html	22445	22437
+bamboo-light	ini	9762	9762
 bamboo-light	java	15213	15213
 bamboo-light	javascript	13199	13199
 bamboo-light	json	7070	7064
@@ -342,6 +352,7 @@ bluloco-light	go	14810	14810
 bluloco-light	graphql	3933	3933
 bluloco-light	hcl	3592	3592
 bluloco-light	html	22445	22437
+bluloco-light	ini	9762	9762
 bluloco-light	java	15213	15213
 bluloco-light	javascript	13199	13199
 bluloco-light	json	7070	7064
@@ -375,6 +386,7 @@ catppuccin-frappe	go	14810	14810
 catppuccin-frappe	graphql	3933	3933
 catppuccin-frappe	hcl	3592	3592
 catppuccin-frappe	html	22445	22437
+catppuccin-frappe	ini	9762	9762
 catppuccin-frappe	java	15213	15213
 catppuccin-frappe	javascript	13199	13199
 catppuccin-frappe	json	7070	7064
@@ -408,6 +420,7 @@ catppuccin-latte	go	14810	14810
 catppuccin-latte	graphql	3933	3933
 catppuccin-latte	hcl	3592	3592
 catppuccin-latte	html	22445	22437
+catppuccin-latte	ini	9762	9762
 catppuccin-latte	java	15213	15213
 catppuccin-latte	javascript	13199	13199
 catppuccin-latte	json	7070	7064
@@ -441,6 +454,7 @@ catppuccin-macchiato	go	14810	14810
 catppuccin-macchiato	graphql	3933	3933
 catppuccin-macchiato	hcl	3592	3592
 catppuccin-macchiato	html	22445	22437
+catppuccin-macchiato	ini	9762	9762
 catppuccin-macchiato	java	15213	15213
 catppuccin-macchiato	javascript	13199	13199
 catppuccin-macchiato	json	7070	7064
@@ -474,6 +488,7 @@ catppuccin-mocha	go	14810	14810
 catppuccin-mocha	graphql	3933	3933
 catppuccin-mocha	hcl	3592	3592
 catppuccin-mocha	html	22445	22437
+catppuccin-mocha	ini	9762	9762
 catppuccin-mocha	java	15213	15213
 catppuccin-mocha	javascript	13199	13199
 catppuccin-mocha	json	7070	7064
@@ -507,6 +522,7 @@ cendre	go	14810	14810
 cendre	graphql	3933	3933
 cendre	hcl	3592	3592
 cendre	html	22445	22437
+cendre	ini	9762	9762
 cendre	java	15213	15213
 cendre	javascript	13199	13199
 cendre	json	7070	7064
@@ -540,6 +556,7 @@ darkearth	go	14810	14810
 darkearth	graphql	3933	3933
 darkearth	hcl	3592	3592
 darkearth	html	22445	22439
+darkearth	ini	9762	9762
 darkearth	java	15213	15213
 darkearth	javascript	13199	13199
 darkearth	json	7070	7070
@@ -573,6 +590,7 @@ dawnfox	go	14810	14810
 dawnfox	graphql	3933	3933
 dawnfox	hcl	3592	3592
 dawnfox	html	22445	22437
+dawnfox	ini	9762	9762
 dawnfox	java	15213	15213
 dawnfox	javascript	13199	13199
 dawnfox	json	7070	7064
@@ -606,6 +624,7 @@ dayfox	go	14810	14810
 dayfox	graphql	3933	3933
 dayfox	hcl	3592	3592
 dayfox	html	22445	22437
+dayfox	ini	9762	9762
 dayfox	java	15213	15213
 dayfox	javascript	13199	13199
 dayfox	json	7070	7064
@@ -639,6 +658,7 @@ dracula	go	14810	14810
 dracula	graphql	3933	3933
 dracula	hcl	3592	3592
 dracula	html	22445	22437
+dracula	ini	9762	9762
 dracula	java	15213	15213
 dracula	javascript	13199	13199
 dracula	json	7070	7064
@@ -672,6 +692,7 @@ e-ink	go	14810	14810
 e-ink	graphql	3933	3933
 e-ink	hcl	3592	3592
 e-ink	html	22445	22445
+e-ink	ini	9762	9762
 e-ink	java	15213	15213
 e-ink	javascript	13199	13199
 e-ink	json	7070	7070
@@ -705,6 +726,7 @@ e-ink-light	go	14810	14810
 e-ink-light	graphql	3933	3933
 e-ink-light	hcl	3592	3592
 e-ink-light	html	22445	22445
+e-ink-light	ini	9762	9762
 e-ink-light	java	15213	15213
 e-ink-light	javascript	13199	13199
 e-ink-light	json	7070	7070
@@ -738,6 +760,7 @@ edge	go	14810	14810
 edge	graphql	3933	3933
 edge	hcl	3592	3592
 edge	html	22445	22445
+edge	ini	9762	9762
 edge	java	15213	15213
 edge	javascript	13199	13199
 edge	json	7070	7070
@@ -771,6 +794,7 @@ edge-light	go	14810	14810
 edge-light	graphql	3933	3933
 edge-light	hcl	3592	3592
 edge-light	html	22445	22445
+edge-light	ini	9762	9762
 edge-light	java	15213	15213
 edge-light	javascript	13199	13199
 edge-light	json	7070	7070
@@ -804,6 +828,7 @@ everforest-dark	go	14810	14810
 everforest-dark	graphql	3933	3933
 everforest-dark	hcl	3592	3592
 everforest-dark	html	22445	22445
+everforest-dark	ini	9762	9762
 everforest-dark	java	15213	15213
 everforest-dark	javascript	13199	13199
 everforest-dark	json	7070	7070
@@ -837,6 +862,7 @@ everforest-light	go	14810	14810
 everforest-light	graphql	3933	3933
 everforest-light	hcl	3592	3592
 everforest-light	html	22445	22445
+everforest-light	ini	9762	9762
 everforest-light	java	15213	15213
 everforest-light	javascript	13199	13199
 everforest-light	json	7070	7070
@@ -870,6 +896,7 @@ flexoki-dark	go	14810	14810
 flexoki-dark	graphql	3933	3933
 flexoki-dark	hcl	3592	3592
 flexoki-dark	html	22445	22445
+flexoki-dark	ini	9762	9762
 flexoki-dark	java	15213	15213
 flexoki-dark	javascript	13199	13199
 flexoki-dark	json	7070	7070
@@ -903,6 +930,7 @@ flexoki-light	go	14810	14810
 flexoki-light	graphql	3933	3933
 flexoki-light	hcl	3592	3592
 flexoki-light	html	22445	22445
+flexoki-light	ini	9762	9762
 flexoki-light	java	15213	15213
 flexoki-light	javascript	13199	13199
 flexoki-light	json	7070	7070
@@ -936,6 +964,7 @@ github-dark	go	14810	14810
 github-dark	graphql	3933	3933
 github-dark	hcl	3592	3592
 github-dark	html	22445	22439
+github-dark	ini	9762	9762
 github-dark	java	15213	15213
 github-dark	javascript	13199	13199
 github-dark	json	7070	7070
@@ -969,6 +998,7 @@ github-light	go	14810	14810
 github-light	graphql	3933	3933
 github-light	hcl	3592	3592
 github-light	html	22445	22439
+github-light	ini	9762	9762
 github-light	java	15213	15213
 github-light	javascript	13199	13199
 github-light	json	7070	7070
@@ -1002,6 +1032,7 @@ gotham	go	14810	14810
 gotham	graphql	3933	3933
 gotham	hcl	3592	3592
 gotham	html	22445	22439
+gotham	ini	9762	9762
 gotham	java	15213	15213
 gotham	javascript	13199	13199
 gotham	json	7070	7064
@@ -1035,6 +1066,7 @@ gruvbox-dark	go	14810	14810
 gruvbox-dark	graphql	3933	3933
 gruvbox-dark	hcl	3592	3592
 gruvbox-dark	html	22445	22445
+gruvbox-dark	ini	9762	9762
 gruvbox-dark	java	15213	15213
 gruvbox-dark	javascript	13199	13199
 gruvbox-dark	json	7070	7070
@@ -1068,6 +1100,7 @@ gruvbox-light	go	14810	14810
 gruvbox-light	graphql	3933	3933
 gruvbox-light	hcl	3592	3592
 gruvbox-light	html	22445	22445
+gruvbox-light	ini	9762	9762
 gruvbox-light	java	15213	15213
 gruvbox-light	javascript	13199	13199
 gruvbox-light	json	7070	7070
@@ -1101,6 +1134,7 @@ gruvbox-material-dark	go	14810	14810
 gruvbox-material-dark	graphql	3933	3933
 gruvbox-material-dark	hcl	3592	3592
 gruvbox-material-dark	html	22445	22445
+gruvbox-material-dark	ini	9762	9762
 gruvbox-material-dark	java	15213	15213
 gruvbox-material-dark	javascript	13199	13199
 gruvbox-material-dark	json	7070	7070
@@ -1134,6 +1168,7 @@ gruvbox-material-light	go	14810	14810
 gruvbox-material-light	graphql	3933	3933
 gruvbox-material-light	hcl	3592	3592
 gruvbox-material-light	html	22445	22445
+gruvbox-material-light	ini	9762	9762
 gruvbox-material-light	java	15213	15213
 gruvbox-material-light	javascript	13199	13199
 gruvbox-material-light	json	7070	7070
@@ -1167,6 +1202,7 @@ hojicha	go	14810	14810
 hojicha	graphql	3933	3933
 hojicha	hcl	3592	3592
 hojicha	html	22445	22445
+hojicha	ini	9762	9762
 hojicha	java	15213	15213
 hojicha	javascript	13199	13199
 hojicha	json	7070	7064
@@ -1200,6 +1236,7 @@ iceberg	go	14810	14810
 iceberg	graphql	3933	3933
 iceberg	hcl	3592	3592
 iceberg	html	22445	22437
+iceberg	ini	9762	9762
 iceberg	java	15213	15213
 iceberg	javascript	13199	13199
 iceberg	json	7070	7064
@@ -1233,6 +1270,7 @@ iceberg-light	go	14810	14810
 iceberg-light	graphql	3933	3933
 iceberg-light	hcl	3592	3592
 iceberg-light	html	22445	22439
+iceberg-light	ini	9762	9762
 iceberg-light	java	15213	15213
 iceberg-light	javascript	13199	13199
 iceberg-light	json	7070	7070
@@ -1266,6 +1304,7 @@ jellybeans	go	14810	14810
 jellybeans	graphql	3933	3933
 jellybeans	hcl	3592	3592
 jellybeans	html	22445	22437
+jellybeans	ini	9762	9762
 jellybeans	java	15213	15213
 jellybeans	javascript	13199	13199
 jellybeans	json	7070	7064
@@ -1299,6 +1338,7 @@ jellybeans-light	go	14810	14810
 jellybeans-light	graphql	3933	3933
 jellybeans-light	hcl	3592	3592
 jellybeans-light	html	22445	22437
+jellybeans-light	ini	9762	9762
 jellybeans-light	java	15213	15213
 jellybeans-light	javascript	13199	13199
 jellybeans-light	json	7070	7064
@@ -1332,6 +1372,7 @@ kanagawa-dragon	go	14810	14810
 kanagawa-dragon	graphql	3933	3933
 kanagawa-dragon	hcl	3592	3592
 kanagawa-dragon	html	22445	22437
+kanagawa-dragon	ini	9762	9762
 kanagawa-dragon	java	15213	15213
 kanagawa-dragon	javascript	13199	13199
 kanagawa-dragon	json	7070	7064
@@ -1365,6 +1406,7 @@ kanagawa-lotus	go	14810	14810
 kanagawa-lotus	graphql	3933	3933
 kanagawa-lotus	hcl	3592	3592
 kanagawa-lotus	html	22445	22437
+kanagawa-lotus	ini	9762	9762
 kanagawa-lotus	java	15213	15213
 kanagawa-lotus	javascript	13199	13199
 kanagawa-lotus	json	7070	7064
@@ -1398,6 +1440,7 @@ kanagawa-wave	go	14810	14810
 kanagawa-wave	graphql	3933	3933
 kanagawa-wave	hcl	3592	3592
 kanagawa-wave	html	22445	22437
+kanagawa-wave	ini	9762	9762
 kanagawa-wave	java	15213	15213
 kanagawa-wave	javascript	13199	13199
 kanagawa-wave	json	7070	7064
@@ -1431,6 +1474,7 @@ koda-dark	go	14810	14810
 koda-dark	graphql	3933	3933
 koda-dark	hcl	3592	3592
 koda-dark	html	22445	22437
+koda-dark	ini	9762	9762
 koda-dark	java	15213	15213
 koda-dark	javascript	13199	13199
 koda-dark	json	7070	7064
@@ -1464,6 +1508,7 @@ koda-light	go	14810	14810
 koda-light	graphql	3933	3933
 koda-light	hcl	3592	3592
 koda-light	html	22445	22437
+koda-light	ini	9762	9762
 koda-light	java	15213	15213
 koda-light	javascript	13199	13199
 koda-light	json	7070	7064
@@ -1497,6 +1542,7 @@ lackluster	go	14810	14810
 lackluster	graphql	3933	3933
 lackluster	hcl	3592	3592
 lackluster	html	22445	22439
+lackluster	ini	9762	9762
 lackluster	java	15213	15213
 lackluster	javascript	13199	13199
 lackluster	json	7070	7064
@@ -1530,6 +1576,7 @@ lightearth	go	14810	14810
 lightearth	graphql	3933	3933
 lightearth	hcl	3592	3592
 lightearth	html	22445	22439
+lightearth	ini	9762	9762
 lightearth	java	15213	15213
 lightearth	javascript	13199	13199
 lightearth	json	7070	7070
@@ -1563,6 +1610,7 @@ material-dark	go	14810	14810
 material-dark	graphql	3933	3933
 material-dark	hcl	3592	3592
 material-dark	html	22445	22437
+material-dark	ini	9762	9762
 material-dark	java	15213	15213
 material-dark	javascript	13199	13199
 material-dark	json	7070	7064
@@ -1596,6 +1644,7 @@ material-light	go	14810	14810
 material-light	graphql	3933	3933
 material-light	hcl	3592	3592
 material-light	html	22445	22437
+material-light	ini	9762	9762
 material-light	java	15213	15213
 material-light	javascript	13199	13199
 material-light	json	7070	7064
@@ -1629,6 +1678,7 @@ melange-dark	go	14810	14810
 melange-dark	graphql	3933	3933
 melange-dark	hcl	3592	3592
 melange-dark	html	22445	22445
+melange-dark	ini	9762	9762
 melange-dark	java	15213	15213
 melange-dark	javascript	13199	13199
 melange-dark	json	7070	7070
@@ -1662,6 +1712,7 @@ melange-light	go	14810	14810
 melange-light	graphql	3933	3933
 melange-light	hcl	3592	3592
 melange-light	html	22445	22445
+melange-light	ini	9762	9762
 melange-light	java	15213	15213
 melange-light	javascript	13199	13199
 melange-light	json	7070	7070
@@ -1695,6 +1746,7 @@ mellifluous	go	14810	14810
 mellifluous	graphql	3933	3933
 mellifluous	hcl	3592	3592
 mellifluous	html	22445	22437
+mellifluous	ini	9762	9762
 mellifluous	java	15213	15213
 mellifluous	javascript	13199	13199
 mellifluous	json	7070	7064
@@ -1728,6 +1780,7 @@ mellifluous-light	go	14810	14810
 mellifluous-light	graphql	3933	3933
 mellifluous-light	hcl	3592	3592
 mellifluous-light	html	22445	22437
+mellifluous-light	ini	9762	9762
 mellifluous-light	java	15213	15213
 mellifluous-light	javascript	13199	13199
 mellifluous-light	json	7070	7064
@@ -1761,6 +1814,7 @@ mellow	go	14810	14810
 mellow	graphql	3933	3933
 mellow	hcl	3592	3592
 mellow	html	22445	22437
+mellow	ini	9762	9762
 mellow	java	15213	15213
 mellow	javascript	13199	13199
 mellow	json	7070	7064
@@ -1794,6 +1848,7 @@ miasma	go	14810	14810
 miasma	graphql	3933	3933
 miasma	hcl	3592	3592
 miasma	html	22445	22439
+miasma	ini	9762	9762
 miasma	java	15213	15213
 miasma	javascript	13199	13199
 miasma	json	7070	7070
@@ -1827,6 +1882,7 @@ minischeme	go	14810	14810
 minischeme	graphql	3933	3933
 minischeme	hcl	3592	3592
 minischeme	html	22445	22445
+minischeme	ini	9762	9762
 minischeme	java	15213	15213
 minischeme	javascript	13199	13199
 minischeme	json	7070	7070
@@ -1860,6 +1916,7 @@ minischeme-light	go	14810	14810
 minischeme-light	graphql	3933	3933
 minischeme-light	hcl	3592	3592
 minischeme-light	html	22445	22445
+minischeme-light	ini	9762	9762
 minischeme-light	java	15213	15213
 minischeme-light	javascript	13199	13199
 minischeme-light	json	7070	7070
@@ -1893,6 +1950,7 @@ moonfly	go	14810	14810
 moonfly	graphql	3933	3933
 moonfly	hcl	3592	3592
 moonfly	html	22445	22445
+moonfly	ini	9762	9762
 moonfly	java	15213	15213
 moonfly	javascript	13199	13199
 moonfly	json	7070	7070
@@ -1926,6 +1984,7 @@ neomodern-light	go	14810	14810
 neomodern-light	graphql	3933	3933
 neomodern-light	hcl	3592	3592
 neomodern-light	html	22445	22445
+neomodern-light	ini	9762	9762
 neomodern-light	java	15213	15213
 neomodern-light	javascript	13199	13199
 neomodern-light	json	7070	7064
@@ -1959,6 +2018,7 @@ nightfly	go	14810	14810
 nightfly	graphql	3933	3933
 nightfly	hcl	3592	3592
 nightfly	html	22445	22445
+nightfly	ini	9762	9762
 nightfly	java	15213	15213
 nightfly	javascript	13199	13199
 nightfly	json	7070	7070
@@ -1992,6 +2052,7 @@ nightfox	go	14810	14810
 nightfox	graphql	3933	3933
 nightfox	hcl	3592	3592
 nightfox	html	22445	22437
+nightfox	ini	9762	9762
 nightfox	java	15213	15213
 nightfox	javascript	13199	13199
 nightfox	json	7070	7064
@@ -2025,6 +2086,7 @@ nord	go	14810	14810
 nord	graphql	3933	3933
 nord	hcl	3592	3592
 nord	html	22445	22445
+nord	ini	9762	9762
 nord	java	15213	15213
 nord	javascript	13199	13199
 nord	json	7070	7070
@@ -2058,6 +2120,7 @@ nordfox	go	14810	14810
 nordfox	graphql	3933	3933
 nordfox	hcl	3592	3592
 nordfox	html	22445	22437
+nordfox	ini	9762	9762
 nordfox	java	15213	15213
 nordfox	javascript	13199	13199
 nordfox	json	7070	7064
@@ -2091,6 +2154,7 @@ onedark	go	14810	14810
 onedark	graphql	3933	3933
 onedark	hcl	3592	3592
 onedark	html	22445	22445
+onedark	ini	9762	9762
 onedark	java	15213	15213
 onedark	javascript	13199	13199
 onedark	json	7070	7070
@@ -2124,6 +2188,7 @@ onedark-light	go	14810	14810
 onedark-light	graphql	3933	3933
 onedark-light	hcl	3592	3592
 onedark-light	html	22445	22445
+onedark-light	ini	9762	9762
 onedark-light	java	15213	15213
 onedark-light	javascript	13199	13199
 onedark-light	json	7070	7070
@@ -2157,6 +2222,7 @@ oxocarbon-dark	go	14810	14810
 oxocarbon-dark	graphql	3933	3933
 oxocarbon-dark	hcl	3592	3592
 oxocarbon-dark	html	22445	22445
+oxocarbon-dark	ini	9762	9762
 oxocarbon-dark	java	15213	15213
 oxocarbon-dark	javascript	13199	13199
 oxocarbon-dark	json	7070	7070
@@ -2190,6 +2256,7 @@ oxocarbon-light	go	14810	14810
 oxocarbon-light	graphql	3933	3933
 oxocarbon-light	hcl	3592	3592
 oxocarbon-light	html	22445	22445
+oxocarbon-light	ini	9762	9762
 oxocarbon-light	java	15213	15213
 oxocarbon-light	javascript	13199	13199
 oxocarbon-light	json	7070	7070
@@ -2223,6 +2290,7 @@ papercolor	go	14810	14810
 papercolor	graphql	3933	3933
 papercolor	hcl	3592	3592
 papercolor	html	22445	22437
+papercolor	ini	9762	9762
 papercolor	java	15213	15213
 papercolor	javascript	13199	13199
 papercolor	json	7070	7064
@@ -2256,6 +2324,7 @@ papercolor-light	go	14810	14810
 papercolor-light	graphql	3933	3933
 papercolor-light	hcl	3592	3592
 papercolor-light	html	22445	22437
+papercolor-light	ini	9762	9762
 papercolor-light	java	15213	15213
 papercolor-light	javascript	13199	13199
 papercolor-light	json	7070	7064
@@ -2289,6 +2358,7 @@ pencil	go	14810	14810
 pencil	graphql	3933	3933
 pencil	hcl	3592	3592
 pencil	html	22445	22439
+pencil	ini	9762	9762
 pencil	java	15213	15213
 pencil	javascript	13199	13199
 pencil	json	7070	7064
@@ -2322,6 +2392,7 @@ pencil-light	go	14810	14810
 pencil-light	graphql	3933	3933
 pencil-light	hcl	3592	3592
 pencil-light	html	22445	22439
+pencil-light	ini	9762	9762
 pencil-light	java	15213	15213
 pencil-light	javascript	13199	13199
 pencil-light	json	7070	7064
@@ -2355,6 +2426,7 @@ rose-pine	go	14810	14810
 rose-pine	graphql	3933	3933
 rose-pine	hcl	3592	3592
 rose-pine	html	22445	22437
+rose-pine	ini	9762	9762
 rose-pine	java	15213	15213
 rose-pine	javascript	13199	13199
 rose-pine	json	7070	7064
@@ -2388,6 +2460,7 @@ rose-pine-dawn	go	14810	14810
 rose-pine-dawn	graphql	3933	3933
 rose-pine-dawn	hcl	3592	3592
 rose-pine-dawn	html	22445	22437
+rose-pine-dawn	ini	9762	9762
 rose-pine-dawn	java	15213	15213
 rose-pine-dawn	javascript	13199	13199
 rose-pine-dawn	json	7070	7064
@@ -2421,6 +2494,7 @@ rose-pine-moon	go	14810	14810
 rose-pine-moon	graphql	3933	3933
 rose-pine-moon	hcl	3592	3592
 rose-pine-moon	html	22445	22437
+rose-pine-moon	ini	9762	9762
 rose-pine-moon	java	15213	15213
 rose-pine-moon	javascript	13199	13199
 rose-pine-moon	json	7070	7064
@@ -2454,6 +2528,7 @@ selenized	go	14810	14810
 selenized	graphql	3933	3933
 selenized	hcl	3592	3592
 selenized	html	22445	22437
+selenized	ini	9762	9762
 selenized	java	15213	15213
 selenized	javascript	13199	13199
 selenized	json	7070	7064
@@ -2487,6 +2562,7 @@ selenized-light	go	14810	14810
 selenized-light	graphql	3933	3933
 selenized-light	hcl	3592	3592
 selenized-light	html	22445	22437
+selenized-light	ini	9762	9762
 selenized-light	java	15213	15213
 selenized-light	javascript	13199	13199
 selenized-light	json	7070	7064
@@ -2520,6 +2596,7 @@ solarized-dark	go	14810	14810
 solarized-dark	graphql	3933	3933
 solarized-dark	hcl	3592	3592
 solarized-dark	html	22445	22437
+solarized-dark	ini	9762	9762
 solarized-dark	java	15213	15213
 solarized-dark	javascript	13199	13199
 solarized-dark	json	7070	7064
@@ -2553,6 +2630,7 @@ solarized-light	go	14810	14810
 solarized-light	graphql	3933	3933
 solarized-light	hcl	3592	3592
 solarized-light	html	22445	22437
+solarized-light	ini	9762	9762
 solarized-light	java	15213	15213
 solarized-light	javascript	13199	13199
 solarized-light	json	7070	7064
@@ -2586,6 +2664,7 @@ sonokai	go	14810	14810
 sonokai	graphql	3933	3933
 sonokai	hcl	3592	3592
 sonokai	html	22445	22445
+sonokai	ini	9762	9762
 sonokai	java	15213	15213
 sonokai	javascript	13199	13199
 sonokai	json	7070	7070
@@ -2619,6 +2698,7 @@ soviet-dark	go	14810	14810
 soviet-dark	graphql	3933	3933
 soviet-dark	hcl	3592	3592
 soviet-dark	html	22445	22437
+soviet-dark	ini	9762	9762
 soviet-dark	java	15213	15213
 soviet-dark	javascript	13199	13199
 soviet-dark	json	7070	7064
@@ -2652,6 +2732,7 @@ soviet-light	go	14810	14810
 soviet-light	graphql	3933	3933
 soviet-light	hcl	3592	3592
 soviet-light	html	22445	22437
+soviet-light	ini	9762	9762
 soviet-light	java	15213	15213
 soviet-light	javascript	13199	13199
 soviet-light	json	7070	7064
@@ -2685,6 +2766,7 @@ srcery	go	14810	14810
 srcery	graphql	3933	3933
 srcery	hcl	3592	3592
 srcery	html	22445	22437
+srcery	ini	9762	9762
 srcery	java	15213	15213
 srcery	javascript	13199	13199
 srcery	json	7070	7064
@@ -2718,6 +2800,7 @@ token	go	14810	14810
 token	graphql	3933	3933
 token	hcl	3592	3592
 token	html	22445	22437
+token	ini	9762	9762
 token	java	15213	15213
 token	javascript	13199	13199
 token	json	7070	7064
@@ -2751,6 +2834,7 @@ token-light	go	14810	14810
 token-light	graphql	3933	3933
 token-light	hcl	3592	3592
 token-light	html	22445	22437
+token-light	ini	9762	9762
 token-light	java	15213	15213
 token-light	javascript	13199	13199
 token-light	json	7070	7064
@@ -2784,6 +2868,7 @@ tokyonight-day	go	14810	14810
 tokyonight-day	graphql	3933	3933
 tokyonight-day	hcl	3592	3592
 tokyonight-day	html	22445	22437
+tokyonight-day	ini	9762	9762
 tokyonight-day	java	15213	15213
 tokyonight-day	javascript	13199	13199
 tokyonight-day	json	7070	7064
@@ -2817,6 +2902,7 @@ tokyonight-moon	go	14810	14810
 tokyonight-moon	graphql	3933	3933
 tokyonight-moon	hcl	3592	3592
 tokyonight-moon	html	22445	22437
+tokyonight-moon	ini	9762	9762
 tokyonight-moon	java	15213	15213
 tokyonight-moon	javascript	13199	13199
 tokyonight-moon	json	7070	7064
@@ -2850,6 +2936,7 @@ tokyonight-night	go	14810	14810
 tokyonight-night	graphql	3933	3933
 tokyonight-night	hcl	3592	3592
 tokyonight-night	html	22445	22437
+tokyonight-night	ini	9762	9762
 tokyonight-night	java	15213	15213
 tokyonight-night	javascript	13199	13199
 tokyonight-night	json	7070	7064
@@ -2883,6 +2970,7 @@ tokyonight-storm	go	14810	14810
 tokyonight-storm	graphql	3933	3933
 tokyonight-storm	hcl	3592	3592
 tokyonight-storm	html	22445	22437
+tokyonight-storm	ini	9762	9762
 tokyonight-storm	java	15213	15213
 tokyonight-storm	javascript	13199	13199
 tokyonight-storm	json	7070	7064
@@ -2916,6 +3004,7 @@ vague	go	14810	14810
 vague	graphql	3933	3933
 vague	hcl	3592	3592
 vague	html	22445	22445
+vague	ini	9762	9762
 vague	java	15213	15213
 vague	javascript	13199	13199
 vague	json	7070	7070
@@ -2949,6 +3038,7 @@ vesper	go	14810	14810
 vesper	graphql	3933	3933
 vesper	hcl	3592	3592
 vesper	html	22445	22443
+vesper	ini	9762	9762
 vesper	java	15213	15213
 vesper	javascript	13199	13199
 vesper	json	7070	7070
@@ -2982,6 +3072,7 @@ vscode-dark	go	14810	14810
 vscode-dark	graphql	3933	3933
 vscode-dark	hcl	3592	3592
 vscode-dark	html	22445	22445
+vscode-dark	ini	9762	9762
 vscode-dark	java	15213	15213
 vscode-dark	javascript	13199	13199
 vscode-dark	json	7070	7070
@@ -3015,6 +3106,7 @@ vscode-light	go	14810	14810
 vscode-light	graphql	3933	3933
 vscode-light	hcl	3592	3592
 vscode-light	html	22445	22445
+vscode-light	ini	9762	9762
 vscode-light	java	15213	15213
 vscode-light	javascript	13199	13199
 vscode-light	json	7070	7070
