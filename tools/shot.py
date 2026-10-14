@@ -11,8 +11,6 @@ one line to the next as tmux emits it, and the 16 basic colours are the terminal
 import os
 import sys
 
-from PIL import ImageFont
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.dont_write_bytecode = True
 import cast
@@ -21,8 +19,7 @@ import cast
 def shot(text):
     width = max(len(cast.SGR.sub("", line)) for line in text.split("\n"))
     grid = cast.parse(text, width, text.count("\n") + 1)
-    fonts = [ImageFont.truetype(cast.FONT, cast.FONT_SIZE, index=i) for i in range(4)]
-    cell = (round(fonts[0].getlength("M")), sum(fonts[0].getmetrics()))
+    fonts, cell = cast.load_fonts("menlo", cast.FONT_SIZE)
     return cast.render(grid, None, fonts, cell), cell
 
 
