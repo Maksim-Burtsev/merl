@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -102,6 +101,45 @@ fn delimiter(c: u8) -> bool {
     c.is_ascii_whitespace() || b"()[]{}\";,".contains(&c)
 }
 
+fn blank(code: &mut [u8], r: Range<usize>) {
+    for c in &mut code[r] {
+        if *c != b'\n' {
+            *c = b' ';
+        }
+    }
+}
+
+fn string_step(b: &[u8], i: usize) -> (usize, bool) {
+    match b[i] {
+        b'\\' if b.get(i + 1) != Some(&b'\n') => ((i + 2).min(b.len()), true),
+        b'"' => (i + 1, false),
+        _ => (i + 1, true),
+    }
+}
+
+fn block_step(b: &[u8], i: usize, block: usize) -> (usize, usize) {
+    if b[i..].starts_with(b"|#") {
+        (i + 2, block - 1)
+    } else if b[i..].starts_with(b"#|") {
+        (i + 2, block + 1)
+    } else {
+        (i + 1, block)
+    }
+}
+
+fn char_end(b: &[u8], i: usize) -> usize {
+    let lead = match b[i] {
+        b'\\' => 1,
+        b'#' => 2,
+        _ => 1 + usize::from(b.get(i + 1) == Some(&b'\\')),
+    };
+    let mut i = (i + lead + usize::from(b.get(i + lead) != Some(&b'\n'))).min(b.len());
+    while i < b.len() && b[i].is_ascii_alphabetic() && b[i - 1].is_ascii_alphabetic() {
+        i += 1;
+    }
+    i
+}
+
 fn lex(kind: Kind, text: &str) -> Lexed {
     let b = text.as_bytes();
     let clojure = kind == Kind::Clojure;
@@ -112,13 +150,6 @@ fn lex(kind: Kind, text: &str) -> Lexed {
     let (mut string, mut block) = (false, 0usize);
     let mut ignored: Option<(usize, usize)> = None;
     let mut datum = false;
-    let blank = |code: &mut Vec<u8>, r: Range<usize>| {
-        for c in &mut code[r] {
-            if *c != b'\n' {
-                *c = b' ';
-            }
-        }
-    };
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
@@ -129,27 +160,12 @@ fn lex(kind: Kind, text: &str) -> Lexed {
         let at = |s: &[u8]| b[i..].starts_with(s);
         let start = i;
         if string {
-            match c {
-                b'\\' if b.get(i + 1) != Some(&b'\n') => i = (i + 2).min(b.len()),
-                b'"' => string = false,
-                _ => {}
-            }
+            (i, string) = string_step(b, i);
             if string {
-                i += usize::from(i == start);
                 blank(&mut code, start..i);
-            } else {
-                i += 1;
             }
         } else if block > 0 {
-            if at(b"|#") {
-                block -= 1;
-                i += 2;
-            } else if at(b"#|") {
-                block += 1;
-                i += 2;
-            } else {
-                i += 1;
-            }
+            (i, block) = block_step(b, i, block);
             blank(&mut code, start..i);
         } else if c == b';' {
             i += b[i..]
@@ -173,15 +189,7 @@ fn lex(kind: Kind, text: &str) -> Lexed {
             || (hashed && at(b"#\\"))
             || (kind == Kind::EmacsLisp && c == b'?' && (i == 0 || delimiter(b[i - 1])))
         {
-            let lead = match c {
-                b'\\' => 1,
-                b'#' => 2,
-                _ => 1 + usize::from(b.get(i + 1) == Some(&b'\\')),
-            };
-            i = (i + lead + usize::from(b.get(i + lead) != Some(&b'\n'))).min(b.len());
-            while i < b.len() && b[i].is_ascii_alphabetic() && b[i - 1].is_ascii_alphabetic() {
-                i += 1;
-            }
+            i = char_end(b, i);
             blank(&mut code, start..i);
             datum = false;
         } else {
@@ -378,6 +386,121 @@ pub fn lisp_bindings_at(
     }
 }
 
+fn open_frame<'a>(
+    clojure: bool,
+    stack: &mut [Frame<'a>],
+    c: u8,
+    scopes: &mut Vec<(usize, Option<usize>)>,
+    pos: usize,
+    found: usize,
+) -> Frame<'a> {
+    let role = stack
+        .last_mut()
+        .map_or(Role::Plain, |p| child_role(clojure, p, c));
+    let (sequential, entry) = match stack.last() {
+        Some(p) if role == Role::Entries => (
+            SEQUENTIAL.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str()),
+            None,
+        ),
+        Some(p) if p.role == Role::Entries && p.sequential => (false, Some(found)),
+        _ => (false, None),
+    };
+    let recursive = match stack.last() {
+        Some(p) if role == Role::Entries => {
+            RECURSIVE.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
+        }
+        Some(p) => p.role == Role::Letfn || (p.role == Role::Entries && p.recursive),
+        None => false,
+    };
+    let tests = match stack.last() {
+        Some(p) if role == Role::Entries => {
+            TESTS.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
+        }
+        Some(p) => p.role == Role::Entries && p.tests,
+        None => false,
+    };
+    let scope = match (role, stack.last()) {
+        (Role::Plain | Role::Arity, _) | (_, None) => {
+            scopes.push((pos, None));
+            scopes.len() - 1
+        }
+        (_, Some(p)) => p.scope,
+    };
+    Frame {
+        head: None,
+        idx: 0,
+        role,
+        scope,
+        params: false,
+        named: false,
+        loop_var: false,
+        sequential,
+        recursive,
+        tests,
+        entry,
+    }
+}
+
+fn atom<'a>(
+    kind: Kind,
+    stack: &mut [Frame<'a>],
+    a: &'a str,
+    pos: usize,
+    name: &str,
+    found: &mut Vec<(usize, usize, usize)>,
+) -> bool {
+    let class = match stack.len() {
+        n if n >= 2 && kind == Kind::Scheme => (stack[n - 2].head)
+            .filter(|h| CLASSES.contains(h))
+            .map(|_| stack[n - 2].scope),
+        _ => None,
+    };
+    let pending = stack.last().is_some_and(|f| f.entry.is_some());
+    let Some(f) = stack.last_mut() else {
+        return false;
+    };
+    if f.idx == 0 {
+        f.head = Some(a);
+    }
+    let head = f.head.unwrap_or("");
+    let looping = kind == Kind::CommonLisp
+        && f.role == Role::Plain
+        && f.idx > 0
+        && head.eq_ignore_ascii_case("loop");
+    let named = kind == Kind::Scheme && f.role == Role::Plain && f.idx == 1 && head == "let";
+    let bound = match f.role {
+        Role::Pairs => f.idx.is_multiple_of(2),
+        Role::Entries => !f.tests,
+        Role::Params | Role::Destructure => true,
+        Role::Define => f.idx >= 1,
+        Role::First => f.idx == 0,
+        Role::Plain => (looping && f.loop_var) || named,
+        _ => false,
+    };
+    let same = match kind {
+        Kind::CommonLisp => a.eq_ignore_ascii_case(name),
+        _ => a == name,
+    };
+    if bound && binds(a) && same {
+        let visible = match (f.recursive, pending) {
+            (true, _) => 0,
+            (false, true) => usize::MAX,
+            (false, false) => pos,
+        };
+        found.push((f.scope, pos, visible));
+    }
+    if looping {
+        f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
+    }
+    f.named |= named;
+    if let Some(scope) = class.filter(|_| f.idx == 0 && CLAUSES.contains(&a)) {
+        f.role = Role::Entries;
+        f.scope = scope;
+    }
+    f.idx += 1;
+    true
+}
+
 pub(super) fn lisp_bindings(
     kind: Kind,
     lines: &[&str],
@@ -398,10 +521,6 @@ pub(super) fn lisp_bindings(
     };
     let here = starts[at];
     let line_end = starts.get(at + 1).map_or(text.len(), |&s| s - 1);
-    let same = |a: &str| match kind {
-        Kind::CommonLisp => a.eq_ignore_ascii_case(name),
-        _ => a == name,
-    };
     let clojure = kind == Kind::Clojure;
     let mut scopes: Vec<(usize, Option<usize>)> = Vec::new();
     let mut found: Vec<(usize, usize, usize)> = Vec::new();
@@ -416,53 +535,8 @@ pub(super) fn lisp_bindings(
         }
         match tok {
             Tok::Open(c) => {
-                let role = stack
-                    .last_mut()
-                    .map_or(Role::Plain, |p| child_role(clojure, p, c));
-                let (sequential, entry) = match stack.last() {
-                    Some(p) if role == Role::Entries => (
-                        SEQUENTIAL.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str()),
-                        None,
-                    ),
-                    Some(p) if p.role == Role::Entries && p.sequential => {
-                        (false, Some(found.len()))
-                    }
-                    _ => (false, None),
-                };
-                let recursive = match stack.last() {
-                    Some(p) if role == Role::Entries => {
-                        RECURSIVE.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
-                    }
-                    Some(p) => p.role == Role::Letfn || (p.role == Role::Entries && p.recursive),
-                    None => false,
-                };
-                let tests = match stack.last() {
-                    Some(p) if role == Role::Entries => {
-                        TESTS.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
-                    }
-                    Some(p) => p.role == Role::Entries && p.tests,
-                    None => false,
-                };
-                let scope = match (role, stack.last()) {
-                    (Role::Plain | Role::Arity, _) | (_, None) => {
-                        scopes.push((pos, None));
-                        scopes.len() - 1
-                    }
-                    (_, Some(p)) => p.scope,
-                };
-                stack.push(Frame {
-                    head: None,
-                    idx: 0,
-                    role,
-                    scope,
-                    params: false,
-                    named: false,
-                    loop_var: false,
-                    sequential,
-                    recursive,
-                    tests,
-                    entry,
-                });
+                let frame = open_frame(clojure, &mut stack, c, &mut scopes, pos, found.len());
+                stack.push(frame);
             }
             Tok::Close => {
                 let Some(f) = stack.pop() else { break };
@@ -483,50 +557,9 @@ pub(super) fn lisp_bindings(
                 }
             }
             Tok::Atom(a) => {
-                let class = match stack.len() {
-                    n if n >= 2 && kind == Kind::Scheme => (stack[n - 2].head)
-                        .filter(|h| CLASSES.contains(h))
-                        .map(|_| stack[n - 2].scope),
-                    _ => None,
-                };
-                let pending = stack.last().is_some_and(|f| f.entry.is_some());
-                let Some(f) = stack.last_mut() else { break };
-                if f.idx == 0 {
-                    f.head = Some(a);
+                if !atom(kind, &mut stack, a, pos, name, &mut found) {
+                    break;
                 }
-                let head = f.head.unwrap_or("");
-                let looping = kind == Kind::CommonLisp
-                    && f.role == Role::Plain
-                    && f.idx > 0
-                    && head.eq_ignore_ascii_case("loop");
-                let named =
-                    kind == Kind::Scheme && f.role == Role::Plain && f.idx == 1 && head == "let";
-                let bound = match f.role {
-                    Role::Pairs => f.idx.is_multiple_of(2),
-                    Role::Entries => !f.tests,
-                    Role::Params | Role::Destructure => true,
-                    Role::Define => f.idx >= 1,
-                    Role::First => f.idx == 0,
-                    Role::Plain => (looping && f.loop_var) || named,
-                    _ => false,
-                };
-                if bound && binds(a) && same(a) {
-                    let visible = match (f.recursive, pending) {
-                        (true, _) => 0,
-                        (false, true) => usize::MAX,
-                        (false, false) => pos,
-                    };
-                    found.push((f.scope, pos, visible));
-                }
-                if looping {
-                    f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
-                }
-                f.named |= named;
-                if let Some(scope) = class.filter(|_| f.idx == 0 && CLAUSES.contains(&a)) {
-                    f.role = Role::Entries;
-                    f.scope = scope;
-                }
-                f.idx += 1;
             }
         }
     }
