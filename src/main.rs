@@ -22,6 +22,7 @@ mod wrap;
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::{Write, stdout};
+use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
@@ -127,27 +128,88 @@ fn main() {
     }
 }
 
-#[expect(clippy::too_many_lines, reason = "#858")]
-fn run() -> Result<()> {
-    let cli = Cli::parse();
+fn report(cli: &Cli) -> Result<Option<String>> {
     if cli.keys {
         let path = stats::path().context("no home directory")?;
-        print_even_to_a_closed_pipe(&stats::report(&path, stats::utc_today())?);
-        return Ok(());
+        return Ok(Some(stats::report(&path, stats::utc_today())?));
     }
     if cli.for_agents {
-        print_even_to_a_closed_pipe(&for_agents::guide());
-        return Ok(());
+        return Ok(Some(for_agents::guide()));
     }
     if cli.reviews {
         let path = reviews::path().context("no home directory")?;
-        print_even_to_a_closed_pipe(&reviews::report(&path, stats::utc_today())?);
+        return Ok(Some(reviews::report(&path, stats::utc_today())?));
+    }
+    Ok(None)
+}
+
+fn open_review(
+    cli: &Cli,
+    root: &mut PathBuf,
+    file: &mut Option<PathBuf>,
+    diagrams: &mermaid::Diagrams,
+) -> Result<Option<git::Review>> {
+    let Some(branch) = &cli.review else {
+        return Ok(None);
+    };
+    *root = git_toplevel(root).context("--review needs a git repository")?;
+    let mut branch = Some(branch.as_str()).filter(|b| !b.is_empty());
+    if let Some(wt) = branch.and_then(|b| git::worktree_of(root, b)) {
+        let rel = |f: PathBuf| Some(wt.join(f.strip_prefix(&*root).ok()?));
+        *file = file.take().and_then(rel).filter(|f| f.is_file());
+        (*root, branch) = (wt, None);
+    }
+    let r = git::Review::open(root, branch, cli.base.as_deref())?;
+    if file.is_none() {
+        *file = r.first_file(root, diagrams.on());
+    }
+    Ok(Some(r))
+}
+
+fn configure(app: &mut App, config: &theme::Config, name: String) {
+    app.autosave = Duration::from_millis(config.autosave_delay_ms);
+    app.review_panel_colours = config.review_panel_colours;
+    app.review_list_marks = config.review_list_marks;
+    app.review_open_files_first = config.review_open_files_first;
+    app.notes.on = config.review_notes;
+    app.theme = name;
+    app.config = theme::config_path();
+}
+
+fn start_tutor(app: &mut App, drill: Option<u16>, dir: PathBuf) -> Result<()> {
+    app.show_tree = false;
+    app.focus = Focus::Code;
+    let drill = match drill {
+        Some(n) => {
+            let keys = stats::path();
+            let log = keys.as_ref().map(|k| k.with_file_name("drill.tsv"));
+            Some(Drill::new(
+                n.into(),
+                keys.as_deref(),
+                log,
+                stats::utc_today(),
+            )?)
+        }
+        None => None,
+    };
+    app.tutor = Some(Tutor {
+        step: 0,
+        dir,
+        drill,
+    });
+    tutor::begin(app)
+}
+
+fn run() -> Result<()> {
+    let cli = Cli::parse();
+    if let Some(text) = report(&cli)? {
+        print_even_to_a_closed_pipe(&text);
         return Ok(());
     }
     let config = theme::config()?;
     let (theme, name) = match cli.theme.clone() {
         Some(name) => (theme::load(&name)?, name),
-        None => (theme::load_configured(&config.theme)?, config.theme),
+        None => (theme::load_configured(&config.theme)?, config.theme.clone()),
     };
 
     let Opened {
@@ -166,23 +228,7 @@ fn run() -> Result<()> {
         resolve(cli.target.as_deref())?
     };
     let diagrams = mermaid::Diagrams::detect();
-    let review = match &cli.review {
-        Some(branch) => {
-            root = git_toplevel(&root).context("--review needs a git repository")?;
-            let mut branch = Some(branch.as_str()).filter(|b| !b.is_empty());
-            if let Some(wt) = branch.and_then(|b| git::worktree_of(&root, b)) {
-                let rel = |f: PathBuf| Some(wt.join(f.strip_prefix(&root).ok()?));
-                file = file.and_then(rel).filter(|f| f.is_file());
-                (root, branch) = (wt, None);
-            }
-            let r = git::Review::open(&root, branch, cli.base.as_deref())?;
-            if file.is_none() {
-                file = r.first_file(&root, diagrams.on());
-            }
-            Some(r)
-        }
-        None => None,
-    };
+    let review = open_review(&cli, &mut root, &mut file, &diagrams)?;
     let git_dirs = git::dirs(&root);
     let tree_order = (git_toplevel(&root))
         .zip(git_dirs.clone())
@@ -222,35 +268,9 @@ fn run() -> Result<()> {
     if let Some(r) = review {
         app.start_review(r);
     }
-    app.autosave = Duration::from_millis(config.autosave_delay_ms);
-    app.review_panel_colours = config.review_panel_colours;
-    app.review_list_marks = config.review_list_marks;
-    app.review_open_files_first = config.review_open_files_first;
-    app.notes.on = config.review_notes;
-    app.theme = name;
-    app.config = theme::config_path();
+    configure(&mut app, &config, name);
     if cli.tutor || cli.drill.is_some() {
-        app.show_tree = false;
-        app.focus = Focus::Code;
-        let drill = match cli.drill {
-            Some(n) => {
-                let keys = stats::path();
-                let log = keys.as_ref().map(|k| k.with_file_name("drill.tsv"));
-                Some(Drill::new(
-                    n.into(),
-                    keys.as_deref(),
-                    log,
-                    stats::utc_today(),
-                )?)
-            }
-            None => None,
-        };
-        app.tutor = Some(Tutor {
-            step: 0,
-            dir,
-            drill,
-        });
-        tutor::begin(&mut app)?;
+        start_tutor(&mut app, cli.drill, dir)?;
     }
 
     let (mut terminal, keyboard) = enter_terminal()?;
@@ -370,50 +390,39 @@ fn record_presses_and_reviews(app: &mut App) {
     }
 }
 
-#[expect(clippy::cognitive_complexity, reason = "#858")]
-#[expect(clippy::too_many_lines, reason = "#858")]
-fn event_loop(
-    terminal: &mut ratatui::DefaultTerminal,
-    app: &mut App,
-    mut theme: theme::Theme,
-    rx: &mpsc::Receiver<Msg>,
-    fs: Sender<Msg>,
-    mut project: live::Project,
-) -> Result<()> {
-    let diff_tx = fs.clone();
-    let project_fs = fs.clone();
-    let mut drawn_theme = app.theme.clone();
-    let mut open_file_dir_watcher = watcher(fs);
-    app.no_watch = open_file_dir_watcher.is_none();
-    let mut watched: Option<PathBuf> = None;
-    let mut project_watcher = watcher(project_fs);
-    let mut project_watched = HashSet::new();
-    if let Some(w) = &mut project_watcher {
-        project.watch(w, &mut project_watched);
-    }
-    let mut repo = git::dirs(&app.root).map(|dirs| live::Repo::new(&dirs));
-    if let (Some(r), Some(w)) = (&repo, &mut project_watcher) {
-        r.watch(w);
-    }
-    if let Some(r) = repo.as_mut().filter(|_| app.review.is_none()) {
-        r.listing();
-        list_marks(diff_tx.clone(), app.root.clone());
+struct Watching {
+    project: live::Project,
+    project_watcher: Option<RecommendedWatcher>,
+    project_watched: HashSet<PathBuf>,
+    repo: Option<live::Repo>,
+    tmux: Option<Sender<String>>,
+}
+
+impl Watching {
+    fn start(app: &App, project: live::Project, fs: &Sender<Msg>) -> Self {
+        let mut project_watcher = watcher(fs.clone());
+        let mut project_watched = HashSet::new();
+        if let Some(w) = &mut project_watcher {
+            project.watch(w, &mut project_watched);
+        }
+        let mut repo = git::dirs(&app.root).map(|dirs| live::Repo::new(&dirs));
+        if let (Some(r), Some(w)) = (&repo, &mut project_watcher) {
+            r.watch(w);
+        }
+        if let Some(r) = repo.as_mut().filter(|_| app.review.is_none()) {
+            r.listing();
+            list_marks(fs.clone(), app.root.clone());
+        }
+        Self {
+            project,
+            project_watcher,
+            project_watched,
+            repo,
+            tmux: spawn_tmux_copier(),
+        }
     }
 
-    let tmux = spawn_tmux_copier();
-
-    let mut dirty = true;
-    let mut typing: Option<bool> = None;
-    loop {
-        if drill_answered(app) {
-            return Ok(());
-        }
-        if let Some(p) = &mut app.picker {
-            dirty |= p.tick();
-        }
-        dirty |= app.tick();
-        app.warm_up();
-        rewatch(open_file_dir_watcher.as_mut(), &mut watched, app);
+    fn spawn_jobs(&mut self, app: &mut App, diff_tx: &Sender<Msg>) {
         if std::mem::take(&mut app.want_diff)
             && let Some(path) = app.buf.path.clone()
         {
@@ -423,7 +432,7 @@ fn event_loop(
                 drop(tx.send(Msg::DiffDone(path, diff)));
             });
         }
-        if project.walk_due(Instant::now()) {
+        if self.project.walk_due(Instant::now()) {
             let (tx, root, shallow) = (diff_tx.clone(), app.root.clone(), app.shallow);
             let order = app.tree_order.clone();
             std::thread::spawn(move || {
@@ -435,7 +444,7 @@ fn event_loop(
                 drop(tx.send(Msg::ProjectWalked(tree, files)));
             });
         }
-        if let Some(live) = &mut repo
+        if let Some(live) = &mut self.repo
             && live.list_due(Instant::now())
         {
             let (tx, root) = (diff_tx.clone(), app.root.clone());
@@ -458,25 +467,159 @@ fn event_loop(
                 }));
             });
         }
+    }
+
+    fn key(
+        &mut self,
+        app: &mut App,
+        k: ratatui::crossterm::event::KeyEvent,
+    ) -> ControlFlow<(), bool> {
+        if app.key(k) {
+            return ControlFlow::Break(());
+        }
+        let open_ignored_dirs_moved = self.project.shown(&app.tree);
+        if open_ignored_dirs_moved && let Some(w) = &mut self.project_watcher {
+            self.project.watch(w, &mut self.project_watched);
+        }
+        if let Some(text) = app.clipboard.take() {
+            osc52_copy(&text);
+            if let Some(tmux) = &self.tmux {
+                drop(tmux.send(text));
+            }
+        }
+        ControlFlow::Continue(true)
+    }
+
+    fn on_msg(
+        &mut self,
+        app: &mut App,
+        msg: Result<Msg, mpsc::RecvTimeoutError>,
+    ) -> ControlFlow<(), bool> {
+        let dirty = match msg {
+            Ok(Msg::Key(k)) => return self.key(app, k),
+            Ok(Msg::Paste(text)) => {
+                app.paste(&text);
+                true
+            }
+            Ok(Msg::DiffDone(path, diff)) => {
+                let shown = app.buf.path == Some(path) && app.review.is_none();
+                if shown {
+                    app.diff = diff;
+                }
+                shown
+            }
+            Ok(Msg::Quit) => {
+                app.flush();
+                return ControlFlow::Break(());
+            }
+            Ok(Msg::SearchDone { seq, rows }) => app.search_done(seq, rows),
+            Ok(Msg::Resize) => {
+                app.diagrams.resized();
+                true
+            }
+            Ok(Msg::Diagram(done)) => {
+                app.diagrams.done(done);
+                true
+            }
+            Ok(Msg::Fs(ev)) => {
+                let dirty = concerns_open_file(app, &ev) && app.reload(false);
+                self.project.event(&ev, Instant::now());
+                if let Some(r) = &mut self.repo {
+                    r.event(&ev, self.project.touched(&ev), Instant::now());
+                }
+                dirty
+            }
+            Ok(Msg::ProjectWalked(tree, files)) => {
+                self.project.walked(&tree, Instant::now());
+                app.project_walked(tree, files);
+                self.project.shown(&app.tree);
+                if let Some(w) = &mut self.project_watcher {
+                    self.project.watch(w, &mut self.project_watched);
+                }
+                if let Some(r) = &mut self.repo {
+                    r.touch(Instant::now());
+                }
+                true
+            }
+            Ok(Msg::Marks(marks)) => {
+                if let Some(r) = &mut self.repo {
+                    r.listed();
+                }
+                let changed = app.marks != marks;
+                app.marks = marks;
+                changed
+            }
+            Ok(Msg::ReviewListed(fresh)) => {
+                if let Some(r) = &mut self.repo {
+                    r.listed();
+                }
+                match fresh {
+                    Ok(fresh) => app.review_refreshed(fresh),
+                    Err(e) => {
+                        app.message = format!("review not refreshed: {e}");
+                        true
+                    }
+                }
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => app.diagrams.wake.is_some() | app.parse_more(),
+            Err(mpsc::RecvTimeoutError::Disconnected) => return ControlFlow::Break(()),
+        };
+        ControlFlow::Continue(dirty)
+    }
+}
+
+fn restyle(app: &mut App, theme: &mut theme::Theme, drawn_theme: &mut String) -> bool {
+    if app.shown_theme() == drawn_theme.as_str() {
+        return false;
+    }
+    app.shown_theme().clone_into(drawn_theme);
+    match theme::load(drawn_theme) {
+        Ok(t) => {
+            *theme = t;
+            app.buf.clear_hl();
+            if let Some((_, base)) = &mut app.base {
+                base.clear_hl();
+            }
+        }
+        Err(e) => app.message = app::error_text(&e),
+    }
+    true
+}
+
+fn event_loop(
+    terminal: &mut ratatui::DefaultTerminal,
+    app: &mut App,
+    mut theme: theme::Theme,
+    rx: &mpsc::Receiver<Msg>,
+    fs: Sender<Msg>,
+    project: live::Project,
+) -> Result<()> {
+    let diff_tx = fs.clone();
+    let mut drawn_theme = app.theme.clone();
+    let mut open_file_dir_watcher = watcher(fs);
+    app.no_watch = open_file_dir_watcher.is_none();
+    let mut watched: Option<PathBuf> = None;
+    let mut live = Watching::start(app, project, &diff_tx);
+
+    let mut dirty = true;
+    let mut typing: Option<bool> = None;
+    loop {
+        if drill_answered(app) {
+            return Ok(());
+        }
+        if let Some(p) = &mut app.picker {
+            dirty |= p.tick();
+        }
+        dirty |= app.tick();
+        app.warm_up();
+        rewatch(open_file_dir_watcher.as_mut(), &mut watched, app);
+        live.spawn_jobs(app, &diff_tx);
         let typing_now = !matches!(app.mode, Mode::Normal | Mode::Help);
         if typing != Some(typing_now) {
             typing = Some(typing_now);
             drop(execute!(stdout(), vim_cursor(typing_now)));
         }
-        if app.shown_theme() != drawn_theme {
-            app.shown_theme().clone_into(&mut drawn_theme);
-            match theme::load(&drawn_theme) {
-                Ok(t) => {
-                    theme = t;
-                    app.buf.clear_hl();
-                    if let Some((_, base)) = &mut app.base {
-                        base.clear_hl();
-                    }
-                }
-                Err(e) => app.message = app::error_text(&e),
-            }
-            dirty = true;
-        }
+        dirty |= restyle(app, &mut theme, &mut drawn_theme);
         if dirty {
             terminal.draw(|f| ui::draw(f, app, &theme))?;
             app.diagrams.flush(&mut stdout())?;
@@ -495,88 +638,9 @@ fn event_loop(
         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
         let idle = if app.parsing() { Duration::ZERO } else { idle };
-        match rx.recv_timeout(idle) {
-            Ok(Msg::Key(k)) => {
-                if app.key(k) {
-                    return Ok(());
-                }
-                let open_ignored_dirs_moved = project.shown(&app.tree);
-                if open_ignored_dirs_moved && let Some(w) = &mut project_watcher {
-                    project.watch(w, &mut project_watched);
-                }
-                if let Some(text) = app.clipboard.take() {
-                    osc52_copy(&text);
-                    if let Some(tmux) = &tmux {
-                        drop(tmux.send(text));
-                    }
-                }
-                dirty = true;
-            }
-            Ok(Msg::Paste(text)) => {
-                app.paste(&text);
-                dirty = true;
-            }
-            Ok(Msg::DiffDone(path, diff)) => {
-                if app.buf.path == Some(path) && app.review.is_none() {
-                    app.diff = diff;
-                    dirty = true;
-                }
-            }
-            Ok(Msg::Quit) => {
-                app.flush();
-                return Ok(());
-            }
-            Ok(Msg::SearchDone { seq, rows }) => dirty |= app.search_done(seq, rows),
-            Ok(Msg::Resize) => {
-                app.diagrams.resized();
-                dirty = true;
-            }
-            Ok(Msg::Diagram(done)) => {
-                app.diagrams.done(done);
-                dirty = true;
-            }
-            Ok(Msg::Fs(ev)) => {
-                dirty |= concerns_open_file(app, &ev) && app.reload(false);
-                project.event(&ev, Instant::now());
-                if let Some(r) = &mut repo {
-                    r.event(&ev, project.touched(&ev), Instant::now());
-                }
-            }
-            Ok(Msg::ProjectWalked(tree, files)) => {
-                project.walked(&tree, Instant::now());
-                app.project_walked(tree, files);
-                project.shown(&app.tree);
-                if let Some(w) = &mut project_watcher {
-                    project.watch(w, &mut project_watched);
-                }
-                if let Some(r) = &mut repo {
-                    r.touch(Instant::now());
-                }
-                dirty = true;
-            }
-            Ok(Msg::Marks(marks)) => {
-                if let Some(r) = &mut repo {
-                    r.listed();
-                }
-                dirty |= app.marks != marks;
-                app.marks = marks;
-            }
-            Ok(Msg::ReviewListed(fresh)) => {
-                if let Some(r) = &mut repo {
-                    r.listed();
-                }
-                dirty |= match fresh {
-                    Ok(fresh) => app.review_refreshed(fresh),
-                    Err(e) => {
-                        app.message = format!("review not refreshed: {e}");
-                        true
-                    }
-                };
-            }
-            Err(mpsc::RecvTimeoutError::Timeout) => {
-                dirty |= app.diagrams.wake.is_some() | app.parse_more();
-            }
-            Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(()),
+        match live.on_msg(app, rx.recv_timeout(idle)) {
+            ControlFlow::Continue(changed) => dirty |= changed,
+            ControlFlow::Break(()) => return Ok(()),
         }
     }
 }
@@ -1105,7 +1169,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const EXPECTS: usize = 174;
+    const EXPECTS: usize = 161;
 
     fn expected_lints(text: &str) -> usize {
         let b = text.as_bytes();
@@ -1151,7 +1215,29 @@ mod tests {
         assert_eq!(expected_lints(text), 4);
     }
 
-    #[expect(clippy::excessive_nesting, reason = "#858")]
+    fn skip_block_comment(b: &[u8], i: &mut usize, line: &mut usize, mark: &mut impl FnMut(usize)) {
+        let mut depth = 0;
+        loop {
+            mark(*line);
+            if b[*i..].starts_with(b"/*") {
+                depth += 1;
+                *i += 1;
+            } else if b[*i..].starts_with(b"*/") {
+                depth -= 1;
+                *i += 1;
+                if depth == 0 {
+                    break;
+                }
+            } else if b[*i] == b'\n' {
+                *line += 1;
+            }
+            *i += 1;
+            if *i >= b.len() {
+                break;
+            }
+        }
+    }
+
     #[expect(
         clippy::naive_bytecount,
         reason = "the bytecount crate would be a dependency for one count of newlines"
@@ -1174,26 +1260,7 @@ mod tests {
                     }
                 }
                 b'/' if b.get(i + 1) == Some(&b'*') => {
-                    let mut depth = 0;
-                    loop {
-                        mark(line);
-                        if b[i..].starts_with(b"/*") {
-                            depth += 1;
-                            i += 1;
-                        } else if b[i..].starts_with(b"*/") {
-                            depth -= 1;
-                            i += 1;
-                            if depth == 0 {
-                                break;
-                            }
-                        } else if b[i] == b'\n' {
-                            line += 1;
-                        }
-                        i += 1;
-                        if i >= b.len() {
-                            break;
-                        }
-                    }
+                    skip_block_comment(b, &mut i, &mut line, &mut mark);
                 }
                 b'"' => {
                     i += 1;

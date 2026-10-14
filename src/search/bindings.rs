@@ -1,5 +1,3 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
@@ -68,37 +66,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     let ends = |open: usize| {
         close_of(kind, e, open).is_none_or(|end| e.get(end..).is_some_and(|r| r.trim().is_empty()))
     };
-    if kind == Kind::TsJs {
-        let mut depth = 0i32;
-        let mut cast: Option<(usize, usize)> = None;
-        for (i, c) in code(kind, e) {
-            match c {
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth -= 1,
-                b' ' if depth == 0 && e.as_bytes()[i..].starts_with(b" as ") => {
-                    cast = Some((cast.map_or(i, |(first, _)| first), i + 4));
-                }
-                _ => {}
-            }
-        }
-        let operand = |head: &str| {
-            let head = head.trim_start_matches("await ").trim_start_matches("new ");
-            let mut depth = 0i32;
-            code(kind, head).all(|(_, c)| {
-                match c {
-                    b'(' | b'[' | b'{' => depth += 1,
-                    b')' | b']' | b'}' => depth -= 1,
-                    _ => {}
-                }
-                c != b' ' || depth > 0
-            })
-        };
-        if let Some((first, i)) = cast {
-            return match (e.get(..first), e.get(i..)) {
-                (Some(head), Some(ty)) if operand(head) => Value::Type(ty.trim().to_owned()),
-                _ => Value::Unknown,
-            };
-        }
+    if kind == Kind::TsJs
+        && let Some(value) = ts_cast(e)
+    {
+        return value;
     }
     if kind == Kind::Go
         && let Some(c) = ASSERTION.captures(e)
@@ -159,6 +130,38 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
         return Value::Name(e.to_owned());
     }
     Value::Unknown
+}
+fn ts_cast(e: &str) -> Option<Value> {
+    let kind = Kind::TsJs;
+    let mut depth = 0i32;
+    let mut cast: Option<(usize, usize)> = None;
+    for (i, c) in code(kind, e) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b' ' if depth == 0 && e.as_bytes()[i..].starts_with(b" as ") => {
+                cast = Some((cast.map_or(i, |(first, _)| first), i + 4));
+            }
+            _ => {}
+        }
+    }
+    let operand = |head: &str| {
+        let head = head.trim_start_matches("await ").trim_start_matches("new ");
+        let mut depth = 0i32;
+        code(kind, head).all(|(_, c)| {
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                _ => {}
+            }
+            c != b' ' || depth > 0
+        })
+    };
+    let (first, i) = cast?;
+    Some(match (e.get(..first), e.get(i..)) {
+        (Some(head), Some(ty)) if operand(head) => Value::Type(ty.trim().to_owned()),
+        _ => Value::Unknown,
+    })
 }
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
@@ -573,6 +576,96 @@ pub fn written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> usiz
     }
     line
 }
+fn read_statement(
+    kind: Kind,
+    lines: &[&str],
+    i: usize,
+    t: &str,
+    name: &str,
+    first_line_read_whole: &mut Option<usize>,
+    out: &mut Vec<Binding>,
+) {
+    let ind = indent(lines[i]);
+    let opener = (kind == Kind::TsJs && t.starts_with(['}', ']']))
+        .then(|| {
+            (0..i).rev().find(|&j| {
+                let l = lines[j].trim();
+                indent(lines[j]) <= ind && !l.is_empty() && !comment(kind, l)
+            })
+        })
+        .flatten();
+    match opener {
+        Some(j) => {
+            let whole: Vec<&str> = lines[j..=i].iter().map(|l| l.trim()).collect();
+            let whole = uncommented(kind, &whole.join("\n")).replace('\n', " ");
+            statement_bindings(kind, &whole, j + 1, name, out);
+            *first_line_read_whole = Some(j);
+        }
+        None if *first_line_read_whole == Some(i) => {}
+        None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
+            Some(each) => {
+                for d in each {
+                    statement_bindings(kind, &d.as_own_statement, d.line0 + 1, name, out);
+                }
+            }
+            None => statement_bindings(kind, t, i + 1, name, out),
+        },
+    }
+}
+fn header_start(kind: Kind, lines: &[&str], mut i: usize, ind: usize) -> usize {
+    while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
+        i -= 1;
+    }
+    i = i.saturating_sub(1);
+    while kind == Kind::Go && lines[i].trim_start().starts_with('}') {
+        let Some(j) = (0..i)
+            .rev()
+            .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)
+        else {
+            break;
+        };
+        if !uncommented(kind, lines[j]).trim_end().ends_with("struct {") {
+            break;
+        }
+        i = j;
+    }
+    i
+}
+fn header_of(kind: Kind, lines: &[&str], end: usize, t: &str) -> (usize, String) {
+    let ind = indent(lines[end]);
+    let mut i = end;
+    let line_back_at_indent = (0..i)
+        .rev()
+        .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind);
+    let body = t == "{" && line_back_at_indent.is_some_and(|j| declares_type(kind, lines[j]));
+    let closes_type_params = kind == Kind::TsJs
+        && t.starts_with('>')
+        && line_back_at_indent.is_some_and(|j| lines[j].trim_end().ends_with('<'));
+    let header_above =
+        closes_type_params || (kind == Kind::TsJs && body) || (kind == Kind::CSharp && t == "{");
+    if t.starts_with([')', '}', ']']) || header_above {
+        i = header_start(kind, lines, i, ind);
+    }
+    let sibling = ["else", "catch", "finally"]
+        .iter()
+        .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
+    let header: Vec<&str> = if (sibling || closes_type_params) && end > i {
+        vec![lines[i].trim(), t]
+    } else {
+        lines[i..=end].iter().map(|l| l.trim()).collect()
+    };
+    (i, uncommented(kind, &header.join("\n")))
+}
+fn go_arm(header: &str, arm: Option<Vec<String>>) -> Option<Vec<String>> {
+    let types = header
+        .strip_prefix("case ")
+        .and_then(|h| h.strip_suffix(':'));
+    match (types, header.starts_with("default")) {
+        (Some(types), _) => Some(type_list(Kind::Go, types)),
+        (None, true) => Some(Vec::new()),
+        (None, false) => arm,
+    }
+}
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
@@ -614,37 +707,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         if ind == depth {
             if !this && !among_cs_members {
                 let before = out.len();
-                let opener = (kind == Kind::TsJs && t.starts_with(['}', ']']))
-                    .then(|| {
-                        (0..i).rev().find(|&j| {
-                            let l = lines[j].trim();
-                            indent(lines[j]) <= ind && !l.is_empty() && !comment(kind, l)
-                        })
-                    })
-                    .flatten();
-                match opener {
-                    Some(j) => {
-                        let whole: Vec<&str> = lines[j..=i].iter().map(|l| l.trim()).collect();
-                        let whole = uncommented(kind, &whole.join("\n")).replace('\n', " ");
-                        statement_bindings(kind, &whole, j + 1, name, &mut out);
-                        first_line_read_whole = Some(j);
-                    }
-                    None if first_line_read_whole == Some(i) => {}
-                    None => match ts_declarators(lines, i).filter(|_| kind == Kind::TsJs) {
-                        Some(each) => {
-                            for d in each {
-                                statement_bindings(
-                                    kind,
-                                    &d.as_own_statement,
-                                    d.line0 + 1,
-                                    name,
-                                    &mut out,
-                                );
-                            }
-                        }
-                        None => statement_bindings(kind, t, i + 1, name, &mut out),
-                    },
-                }
+                read_statement(
+                    kind,
+                    lines,
+                    i,
+                    t,
+                    name,
+                    &mut first_line_read_whole,
+                    &mut out,
+                );
                 if kind == Kind::Go && out.len() > before {
                     if let Some(k) = go_block_statement_at.filter(|&k| k < before) {
                         out.remove(k);
@@ -668,56 +739,13 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
             }
             continue;
         }
-        let end = i;
-        let line_back_at_indent = (0..i)
-            .rev()
-            .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind);
-        let body = t == "{" && line_back_at_indent.is_some_and(|j| declares_type(kind, lines[j]));
-        let closes_type_params = kind == Kind::TsJs
-            && t.starts_with('>')
-            && line_back_at_indent.is_some_and(|j| lines[j].trim_end().ends_with('<'));
-        let header_above = closes_type_params
-            || (kind == Kind::TsJs && body)
-            || (kind == Kind::CSharp && t == "{");
-        if t.starts_with([')', '}', ']']) || header_above {
-            while i > 0 && (lines[i - 1].trim().is_empty() || indent(lines[i - 1]) > ind) {
-                i -= 1;
-            }
-            i = i.saturating_sub(1);
-            while kind == Kind::Go && lines[i].trim_start().starts_with('}') {
-                let Some(j) = (0..i)
-                    .rev()
-                    .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)
-                else {
-                    break;
-                };
-                if !uncommented(kind, lines[j]).trim_end().ends_with("struct {") {
-                    break;
-                }
-                i = j;
-            }
-        }
-        let sibling = ["else", "catch", "finally"]
-            .iter()
-            .any(|k| t.trim_start_matches('}').trim_start().starts_with(k));
-        let header: Vec<&str> = if (sibling || closes_type_params) && end > i {
-            vec![lines[i].trim(), t]
-        } else {
-            lines[i..=end].iter().map(|l| l.trim()).collect()
-        };
-        let header = uncommented(kind, &header.join("\n"));
+        let header;
+        (i, header) = header_of(kind, lines, i, t);
         depth = ind.min(indent(lines[i]));
         go_block_statement_at = None;
         if !this {
             if kind == Kind::Go {
-                let types = header
-                    .strip_prefix("case ")
-                    .and_then(|h| h.strip_suffix(':'));
-                arm = match (types, header.starts_with("default")) {
-                    (Some(types), _) => Some(type_list(kind, types)),
-                    (None, true) => Some(Vec::new()),
-                    (None, false) => arm,
-                };
+                arm = go_arm(&header, arm);
             }
             if opener_bindings(kind, &header, i + 1, name, &mut out) || declared_in_block {
                 break;
@@ -869,6 +897,17 @@ fn ts_arrows(line: &str, name: &str) -> Vec<TsArrow> {
         })
         .collect()
 }
+fn unknown(line: usize) -> Binding {
+    Binding {
+        line1: line,
+        value: Value::Unknown,
+    }
+}
+fn element(header: &str, line: usize, p: &str) -> Option<Binding> {
+    let rule = Regex::new(p).expect("an escaped name keeps the pattern valid");
+    let value = Value::Element(rule.captures(header)?[1].to_owned());
+    Some(Binding { line1: line, value })
+}
 fn opener_bindings(
     kind: Kind,
     header: &str,
@@ -876,6 +915,20 @@ fn opener_bindings(
     name: &str,
     out: &mut Vec<Binding>,
 ) -> bool {
+    match kind {
+        Kind::TsJs => ts_opener_bindings(header, line, name, out),
+        Kind::CSharp => {
+            let opener = cs_opener(header, name);
+            if opener.binds {
+                out.push(unknown(line));
+            }
+            opener.hides_outer_scopes
+        }
+        Kind::Go => go_opener_bindings(header, line, name, out),
+        _ => false,
+    }
+}
+fn ts_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Binding>) -> bool {
     static TS_LOOP: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bfor\s*\(\s*(?:const|let|var)\s+([^;]+?)\s+(?:of|in)\s|\bfor\s*\(\s*(?:const|let|var)\s+([^;]*);|\bcatch\s*\(([^)]*)\)").expect("the regex is a literal")
     });
@@ -894,6 +947,69 @@ fn opener_bindings(
         std::sync::LazyLock::new(|| {
             Regex::new(r"^(?::[^(){}]+?)?\s*(?:=>)?\s*\{?\s*$").expect("the regex is a literal")
         });
+    let n = regex::escape(name);
+    let mut binds_for_body = false;
+    let starts = |l: &str| {
+        let l = l.trim_start_matches('}').trim_start();
+        l.starts_with("for") || l.starts_with("catch")
+    };
+    let is_loop = starts(header) || header.rsplit('\n').next().is_some_and(starts);
+    let count = out.len();
+    if let Some(b) = element(
+        header,
+        line,
+        &format!(
+            r"\bfor\s*\(\s*(?:const|let|var)\s+{n}\s+of\s+((?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*)\s*\)"
+        ),
+    ) {
+        out.push(b);
+    } else if TS_LOOP
+        .captures_iter(header)
+        .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))
+    {
+        out.push(unknown(line));
+    }
+    binds_for_body |= is_loop && out.len() > count;
+    for (open, _) in header.match_indices('(') {
+        let Some(close) = close_of(Kind::TsJs, header, open) else {
+            continue;
+        };
+        let (Some(before), Some(after)) = (header.get(..open), header.get(close..)) else {
+            continue;
+        };
+        let (before, after) = (before.trim_end(), after.trim_start());
+        let method = TS_METHOD.captures(before).is_some_and(|c| {
+            !c.get(1).is_some_and(|m| {
+                matches!(
+                    m.as_str(),
+                    "if" | "for" | "while" | "switch" | "catch" | "with" | "return" | "super"
+                )
+            }) && TS_BODY.is_match(after)
+        });
+        if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
+            let count = out.len();
+            if let Some(params) = header.get(open + 1..close - 1) {
+                ts_params(params, line, name, out);
+            }
+            binds_for_body |= out.len() > count && TS_RETURN_TYPE_ARROW_BRACE.is_match(after);
+        }
+    }
+    let arrow = Regex::new(&format!(
+        r"(?:^|[^\w$.]){}\s*=>(\s*\{{?\s*$)?",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    if let Some(c) = arrow.captures_iter(header).last().filter(|c| {
+        header
+            .get(..c.get(0).map_or(0, |m| m.start()))
+            .is_some_and(|h| !return_type(h))
+    }) {
+        out.push(unknown(line));
+        binds_for_body |= c.get(1).is_some();
+    }
+    binds_for_body
+}
+fn go_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Binding>) -> bool {
     static GO_ASSIGN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|\belse\s+)(?:if|for|switch|case)\s+([^;{]*?)\s*:=")
             .expect("the regex is a literal")
@@ -902,134 +1018,49 @@ fn opener_bindings(
         Regex::new(r"\bfunc\b\s*(?:\(([^)]*)\)\s*)?(?:[A-Za-z_]\w*\s*)?(?:\[[^\]]*\]\s*)?\(")
             .expect("the regex is a literal")
     });
-    let unknown = |out: &mut Vec<Binding>| {
+    let n = regex::escape(name);
+    let mut binds_for_body = false;
+    let count = out.len();
+    let structs = Regex::new(&format!(
+        r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+(?:\[[^\]]*\]|map\[[^\]]*\])+\s*struct\s*\{{"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    if structs.is_match(header) {
         out.push(Binding {
             line1: line,
-            value: Value::Unknown,
+            value: Value::Struct(line),
         });
-    };
-    let n = regex::escape(name);
-    let element = |p: String| {
-        let rule = Regex::new(&p).expect("an escaped name keeps the pattern valid");
-        let value = Value::Element(rule.captures(header)?[1].to_owned());
-        Some(Binding { line1: line, value })
-    };
-    let mut binds_for_body = false;
-    match kind {
-        Kind::TsJs => {
-            let starts = |l: &str| {
-                let l = l.trim_start_matches('}').trim_start();
-                l.starts_with("for") || l.starts_with("catch")
-            };
-            let is_loop = starts(header) || header.rsplit('\n').next().is_some_and(starts);
-            let count = out.len();
-            if let Some(b) = element(format!(
-                r"\bfor\s*\(\s*(?:const|let|var)\s+{n}\s+of\s+((?:this|[A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*)*)\s*\)"
-            )) {
-                out.push(b);
-            } else if TS_LOOP
-                .captures_iter(header)
-                .any(|c| c.iter().skip(1).flatten().any(|m| names(m.as_str(), name)))
+    } else if let Some(b) = element(
+        header,
+        line,
+        &format!(r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"),
+    ) {
+        out.push(b);
+    } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
+        out.push(unknown(line));
+    }
+    binds_for_body |= out.len() > count;
+    if let Some(c) = GO_FUNC.captures_iter(header).last() {
+        let count = out.len();
+        if let Some(receiver) = c.get(1) {
+            go_params(receiver.as_str(), line, name, out);
+        }
+        let open = c.get_match().end() - 1;
+        if let Some(close) = close_of(Kind::Go, header, open)
+            && let Some(params) = header.get(open + 1..close - 1)
+            && let Some(results) = header.get(close..)
+        {
+            go_params(params, line, name, out);
+            let results = results.trim_start();
+            if results.starts_with('(')
+                && let Some(end) = close_of(Kind::Go, results, 0)
+                && let Some(inner) = results.get(1..end - 1)
             {
-                unknown(out);
+                go_params(inner, line, name, out);
             }
-            binds_for_body |= is_loop && out.len() > count;
-            for (open, _) in header.match_indices('(') {
-                let Some(close) = close_of(kind, header, open) else {
-                    continue;
-                };
-                let (Some(before), Some(after)) = (header.get(..open), header.get(close..)) else {
-                    continue;
-                };
-                let (before, after) = (before.trim_end(), after.trim_start());
-                let method = TS_METHOD.captures(before).is_some_and(|c| {
-                    !c.get(1).is_some_and(|m| {
-                        matches!(
-                            m.as_str(),
-                            "if" | "for"
-                                | "while"
-                                | "switch"
-                                | "catch"
-                                | "with"
-                                | "return"
-                                | "super"
-                        )
-                    }) && TS_BODY.is_match(after)
-                });
-                if TS_ARROW.is_match(after) || TS_FUNCTION.is_match(before) || method {
-                    let count = out.len();
-                    if let Some(params) = header.get(open + 1..close - 1) {
-                        ts_params(params, line, name, out);
-                    }
-                    binds_for_body |=
-                        out.len() > count && TS_RETURN_TYPE_ARROW_BRACE.is_match(after);
-                }
-            }
-            let arrow = Regex::new(&format!(
-                r"(?:^|[^\w$.]){}\s*=>(\s*\{{?\s*$)?",
-                regex::escape(name)
-            ))
-            .expect("an escaped name keeps the pattern valid");
-            if let Some(c) = arrow.captures_iter(header).last().filter(|c| {
-                header
-                    .get(..c.get(0).map_or(0, |m| m.start()))
-                    .is_some_and(|h| !return_type(h))
-            }) {
-                unknown(out);
-                binds_for_body |= c.get(1).is_some();
-            }
+            let body = results.trim_end().strip_suffix('{');
+            binds_for_body |= out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
         }
-        Kind::CSharp => {
-            let opener = cs_opener(header, name);
-            if opener.binds {
-                unknown(out);
-            }
-            binds_for_body = opener.hides_outer_scopes;
-        }
-        Kind::Go => {
-            let count = out.len();
-            let structs = Regex::new(&format!(
-                r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+(?:\[[^\]]*\]|map\[[^\]]*\])+\s*struct\s*\{{"
-            ))
-            .expect("an escaped name keeps the pattern valid");
-            if structs.is_match(header) {
-                out.push(Binding {
-                    line1: line,
-                    value: Value::Struct(line),
-                });
-            } else if let Some(b) = element(format!(
-                r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"
-            )) {
-                out.push(b);
-            } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
-                unknown(out);
-            }
-            binds_for_body |= out.len() > count;
-            if let Some(c) = GO_FUNC.captures_iter(header).last() {
-                let count = out.len();
-                if let Some(receiver) = c.get(1) {
-                    go_params(receiver.as_str(), line, name, out);
-                }
-                let open = c.get_match().end() - 1;
-                if let Some(close) = close_of(kind, header, open)
-                    && let Some(params) = header.get(open + 1..close - 1)
-                    && let Some(results) = header.get(close..)
-                {
-                    go_params(params, line, name, out);
-                    let results = results.trim_start();
-                    if results.starts_with('(')
-                        && let Some(end) = close_of(kind, results, 0)
-                        && let Some(inner) = results.get(1..end - 1)
-                    {
-                        go_params(inner, line, name, out);
-                    }
-                    let body = results.trim_end().strip_suffix('{');
-                    binds_for_body |=
-                        out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
-                }
-            }
-        }
-        _ => {}
     }
     binds_for_body
 }
