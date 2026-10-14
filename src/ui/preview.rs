@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::Path;
 
@@ -36,7 +35,7 @@ pub(super) fn draw_preview(
     let end = (p.top + area.height as usize).min(p.doc.rows.len());
     highlight_code_on_screen(p, shown, theme, end);
 
-    let p = app.preview.as_ref().unwrap();
+    let p = &*p;
     let pal = Palette::new(theme);
     let gutter = base.fg(theme.gutter_fg);
     let mut lines: Vec<Line> = Vec::with_capacity(end - p.top);

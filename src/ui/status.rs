@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -124,7 +123,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         let room = (area.width as usize).saturating_sub(before + 2);
         let (name, why) = app.message.split_at(*len);
         let name = fit_path(name, room.saturating_sub(wrap::width(why)));
-        spans.last_mut().unwrap().content = format!("  {name}{why}").into();
+        spans.last_mut().expect("the bar has spans").content = format!("  {name}{why}").into();
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     if hint {

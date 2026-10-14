@@ -178,7 +178,6 @@ pub fn press(a: &mut App, notation: &str) {
     }
 }
 
-#[expect(clippy::unwrap_used, reason = "#858")]
 fn chord(name: &str) -> (KeyCode, KeyModifiers) {
     let mut mods = KeyModifiers::NONE;
     let mut name = name;
@@ -205,7 +204,7 @@ fn chord(name: &str) -> (KeyCode, KeyModifiers) {
         "End" => KeyCode::End,
         "PgUp" => KeyCode::PageUp,
         "PgDn" => KeyCode::PageDown,
-        c if c.chars().count() == 1 => KeyCode::Char(c.chars().next().unwrap()),
+        c if c.chars().count() == 1 => KeyCode::Char(c.chars().next().expect("one char")),
         _ => panic!("key <{name}>"),
     };
     (code, mods)
