@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "graphql"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -70,6 +70,7 @@ LANGS = {
     "ruby": (["mastodon"], ["rb"]),
     "php": (["koel"], ["php"]),
     "elixir": (["phoenix"], ["ex", "exs"]),
+    "graphql": (["graphql-schema", "swapi-graphql"], ["graphql", "graphqls", "gql"], 25),
     "proto": (["rules_go", "nowinandroid", "eShop", "gitea"], ["proto"], 25),
     "cmake": (["chibi-scheme", "leveldb", "redis"], ["CMakeLists.txt", "cmake"], 40),
     "dockerfile": (["mastodon", "paperless-ngx", "immich", "gitea"], ["Dockerfile", "dockerfile"]),
@@ -86,6 +87,10 @@ NOT_HTML = re.compile(
     r"|\{#[ \t]+|<extend|<super>")
 THEME_ONLY = {
     "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
+    "graphql-schema": ["graphql-schema", "graphql", "https://github.com/octokit/graphql-schema.git",
+                       "82ff2d4780080e6929ebb95608cefa22dfa05ac7", "-"],
+    "swapi-graphql": ["swapi-graphql", "graphql", "https://github.com/graphql/swapi-graphql.git",
+                      "8c0bf5868f11fe84942548180751fceeb36bd606", "-"],
     "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
                 "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
 }
