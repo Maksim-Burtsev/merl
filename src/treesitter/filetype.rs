@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
+use super::pattern::lua_pattern;
 use super::{Lang, lang};
 
 pub fn for_syntax(
@@ -58,6 +59,7 @@ pub fn for_syntax(
         }
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
+        "Scala" if !supercollider(path, lines) => lang("scala"),
         "Swift" => lang("swift"),
         "Terraform" => terraform(path, lines),
         "Markdown" => lang("markdown"),
@@ -127,6 +129,28 @@ fn html_variant(lines: &[String]) -> bool {
         .expect("a valid regex")
     });
     lines.iter().take(40).any(|l| re.is_match(l))
+}
+
+fn supercollider(path: Option<&Path>, lines: &[String]) -> bool {
+    static PATTERNS: OnceLock<Vec<regex::bytes::Regex>> = OnceLock::new();
+    let patterns = PATTERNS.get_or_init(|| {
+        [
+            "var%s<",
+            "classvar%s<",
+            "%^this.*",
+            "|%w+|",
+            "%+%s%w*%s{",
+            "%*ar%s",
+        ]
+        .into_iter()
+        .map(|p| lua_pattern(p).expect("Neovim's detect.sc patterns are Lua patterns"))
+        .collect()
+    });
+    path.is_some_and(|p| p.extension().is_some_and(|e| e == "sc"))
+        && lines
+            .iter()
+            .take(25)
+            .any(|l| patterns.iter().any(|re| re.is_match(l.as_bytes())))
 }
 
 fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {

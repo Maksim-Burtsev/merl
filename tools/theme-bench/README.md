@@ -135,6 +135,18 @@ plain, as LazyVim installs no parser for them):
 |---|---|---|---|---|
 | Kotlin | 18,781 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Scala (#807), `.scala`, `.sc`, `.mill` and `.sbt`, the files syntect calls Scala (Neovim calls `.sbt`
+`sbt` and nvim-treesitter parses it as `scala`; a `.sc` that Neovim's `detect.sc` takes for
+SuperCollider from its first 25 lines stays on syntect); `comment` stays plain, as LazyVim installs no parser for it.
+The commit nvim-treesitter pins (db390f3) carries version 0.26.2 but differs from crates.io's
+0.26.2 (`grammar.json`, `parser.c`, `scanner.c`), so merl takes it as a git dependency. The
+bench's files come from cats, pinned in `THEME_ONLY` as `tools/d-bench/projects.tsv` has no Scala
+project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Scala | 26,619 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 Swift (#807), `.swift`, with its injections (`regex` in a regex literal; `comment` comments stay
 plain, as LazyVim installs no parser for them). nvim-treesitter generates its `parser.c` from the
 pinned `grammar.json` (`generate = true`), so `record.py` runs `tree-sitter generate` for it; merl
