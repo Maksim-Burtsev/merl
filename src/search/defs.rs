@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::{
@@ -331,7 +330,11 @@ pub fn narrow_patterns(
 ) {
     match kind {
         Kind::Php => php_namespace_patterns(p, php_block(text, row), line, r),
-        Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
+        Kind::PowerShell => {
+            if let (Some(before), Some(after)) = (line.get(..r.start), line.get(r.end..)) {
+                powershell_sigil(p, before, after);
+            }
+        }
         Kind::Dart => dart_narrow(p, line, r),
         Kind::Julia => julia_narrow(p, line, r),
         _ => {}
@@ -551,14 +554,17 @@ fn c_param_type(p: &str) -> String {
         Regex::new(r"[\w*&\s]\b([A-Za-z_]\w*)\s*$").expect("the regex is a literal")
     });
     let mut p = p.split('=').next().unwrap_or(p).trim();
-    while let Some(open) = p.strip_suffix(']').and_then(|q| q.rfind('[')) {
-        p = p[..open].trim_end();
+    while let Some(head) = (p.strip_suffix(']'))
+        .and_then(|q| q.rfind('['))
+        .and_then(|open| p.get(..open))
+    {
+        p = head.trim_end();
     }
     let builtin = [
         "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
     ];
     let p = match NAME.captures(p).and_then(|c| c.get(1)) {
-        Some(name) if !builtin.contains(&name.as_str()) => &p[..name.start()],
+        Some(name) if !builtin.contains(&name.as_str()) => p.get(..name.start()).unwrap_or(p),
         _ => p,
     };
     p.split_whitespace().collect()
@@ -607,7 +613,7 @@ pub fn c_one_definition(
                     .join("\n");
                 let open = m.end() - 1;
                 let close = close_of(Kind::C, &s, open)?;
-                let inner = &s[open + 1..close - 1];
+                let inner = s.get(open + 1..close - 1)?;
                 let params: Vec<String> = match inner.trim() {
                     "" | "void" => Vec::new(),
                     _ => split_top(Kind::C, inner, b',')
@@ -615,7 +621,7 @@ pub fn c_one_definition(
                         .map(c_param_type)
                         .collect(),
                 };
-                let body = code(Kind::C, &s[close..])
+                let body = code(Kind::C, s.get(close..)?)
                     .find(|(_, c)| matches!(c, b'{' | b';'))
                     .is_some_and(|(_, c)| c == b'{');
                 CShape {
@@ -674,9 +680,11 @@ pub fn c_declaration_only(word: &str, text: &str, line1: usize) -> bool {
     let Some(close) = close_of(Kind::C, &s, m.end() - 1) else {
         return false;
     };
-    code(Kind::C, &s[close..])
-        .find(|(_, c)| matches!(c, b'{' | b';'))
-        .is_some_and(|(_, c)| c == b';')
+    s.get(close..).is_some_and(|tail| {
+        code(Kind::C, tail)
+            .find(|(_, c)| matches!(c, b'{' | b';'))
+            .is_some_and(|(_, c)| c == b';')
+    })
 }
 pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
@@ -1014,7 +1022,7 @@ pub fn ts_literal_key<S: AsRef<str>>(
         r"^(?:(?:async|get|set|static)\s+)*\*?(?:{k}|'{k}'|\x22{k}\x22)\s*(?:[:(,}}]|$)"
     ))
     .ok()?;
-    let literal_on_head = &head[open..];
+    let literal_on_head = head.get(open..)?;
     let mut depth = 0i32;
     let mut part = 0;
     for (i, c) in literal_on_head
@@ -1025,7 +1033,7 @@ pub fn ts_literal_key<S: AsRef<str>>(
             '{' | '[' | '(' => depth += 1,
             '}' | ']' | ')' if depth > 0 => depth -= 1,
             ',' | '}' if depth == 0 => {
-                if form.is_match(literal_on_head[part..i].trim()) {
+                if (literal_on_head.get(part..i)).is_some_and(|t| form.is_match(t.trim())) {
                     return Some(line);
                 }
                 if c == '}' {

@@ -1,6 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use std::path::{Path, PathBuf};
 
@@ -58,10 +57,10 @@ pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
     let (start, path) = starts_and_paths
         .into_iter()
         .find(|&(s, p)| (s..s + p.len()).contains(&at))?;
-    let end = path[at - start..]
+    let end = (path.get(at - start..)?)
         .find(|c: char| !(c.is_alphanumeric() || c == '_'))
         .map_or(path.len(), |i| at - start + i);
-    let spelled = &path[..end];
+    let spelled = path.get(..end)?;
     let relative = spelled.trim_start_matches('.');
     let mut parts: Vec<String> = relative
         .split('.')
@@ -123,10 +122,15 @@ pub fn ts_import_lines1(text: &str, name: &str) -> Vec<usize> {
             let clause = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
             let s = clause.as_str();
             let at = s.match_indices(name).map(|(i, _)| i).find(|&i| {
-                !ident(s[..i].chars().next_back()) && !ident(s[i + name.len()..].chars().next())
+                s.split_at_checked(i).is_some_and(|(before, rest)| {
+                    !ident(before.chars().next_back())
+                        && rest
+                            .strip_prefix(name)
+                            .is_some_and(|after| !ident(after.chars().next()))
+                })
             });
             let at = at.filter(|_| binds)?;
-            Some(text[..clause.start() + at].matches('\n').count() + 1)
+            Some(text.get(..clause.start() + at)?.matches('\n').count() + 1)
         })
         .collect()
 }
@@ -221,8 +225,10 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                 Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#)
                     .expect("the regex is a literal")
             });
-            let version =
-                |p: &str| p.starts_with('v') && p[1..].chars().all(|c| c.is_ascii_digit());
+            let version = |p: &str| {
+                p.strip_prefix('v')
+                    .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
+            };
             for c in IMPORT.captures_iter(text) {
                 let path = parts(&c[2], "/");
                 if let Some(alias) = c.get(1) {
@@ -444,7 +450,7 @@ pub fn module_exports(text: &str) -> Option<ModuleExports> {
     }
     Some(match (whole.as_slice(), part) {
         ([one], false) => {
-            let line1 = text[..one.get_match().start()].matches('\n').count() + 1;
+            let line1 = text.get(..one.get_match().start())?.matches('\n').count() + 1;
             let name = NAME.captures(one[1].trim()).map(|c| c[1].to_owned());
             ModuleExports::OneAssignment { line1, name }
         }
@@ -467,7 +473,9 @@ pub fn ts_call_statement(
     let Some(m) = method_head.find(line_text) else {
         return false;
     };
-    let rest = line_text[m.end()..].trim_start();
+    let Some(rest) = line_text.get(m.end()..).map(str::trim_start) else {
+        return false;
+    };
     if rest.is_empty() {
         let Some(text) = read_file() else {
             return false;
@@ -491,13 +499,16 @@ pub fn ts_call_statement(
         if item.is_empty() || item.starts_with([')', '{', '[', '@']) || item.starts_with("...") {
             return true;
         }
-        let name = item
+        let named = item
             .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
-            .map_or(item, |n| &item[..n]);
+            .unwrap_or(item.len());
+        let Some((name, after)) = item.split_at_checked(named) else {
+            return false;
+        };
         if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) {
             return false;
         }
-        let after = item[name.len()..].trim_start();
+        let after = after.trim_start();
         if after.starts_with([':', '?'])
             || matches!(
                 name,
@@ -615,7 +626,8 @@ pub fn rust_uses(text: &str) -> Vec<RustUse> {
         let start_byte = c
             .get(0)
             .map_or(0, |m| m.end() - m.as_str().trim_start().len());
-        let in_column_zero = start_byte == 0 || text[..start_byte].ends_with('\n');
+        let in_column_zero =
+            start_byte == 0 || text.get(..start_byte).is_some_and(|t| t.ends_with('\n'));
         let mut bound = Vec::new();
         use_tree(&c[1], &[], &mut bound);
         out.extend(bound.into_iter().map(|Import { name, path }| RustUse {
@@ -726,13 +738,17 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<Import>) {
                 '{' => depth += 1,
                 '}' => depth -= 1,
                 ',' if depth == 0 => {
-                    use_tree(&rest[start..i], &path, out);
+                    if let Some(part) = rest.get(start..i) {
+                        use_tree(part, &path, out);
+                    }
                     start = i + 1;
                 }
                 _ => {}
             }
         }
-        use_tree(&rest[start..], &path, out);
+        if let Some(part) = rest.get(start..) {
+            use_tree(part, &path, out);
+        }
         return;
     }
     let mut path = prefix.to_vec();
@@ -1098,8 +1114,12 @@ fn normalized_module_part(s: &str) -> String {
     let s = s.split('.').next().unwrap_or(s);
     let s = s
         .match_indices('-')
-        .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
-        .map_or(s, |(i, _)| &s[..i]);
+        .find(|(i, _)| {
+            s.get(i + 1..)
+                .is_some_and(|r| r.starts_with(|c: char| c.is_ascii_digit()))
+        })
+        .and_then(|(i, _)| s.get(..i))
+        .unwrap_or(s);
     s.replace('!', "").replace('-', "_").to_ascii_lowercase()
 }
 pub struct ModuleFiles<P> {
