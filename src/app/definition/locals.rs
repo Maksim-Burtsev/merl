@@ -1,0 +1,176 @@
+use super::{App, Asked, Kind, Reason, import_line, names_itself, search, whole_at};
+
+pub(super) struct Near {
+    pub(super) imports: Vec<search::Import>,
+    pub(super) locals: Vec<usize>,
+    pub(super) swift_binds_here: bool,
+    pub(super) arrow_param: bool,
+    pub(super) unbound: bool,
+}
+
+impl App {
+    pub(super) fn scope_near(&mut self, a: &Asked) -> Option<Near> {
+        let (kind, word, range) = (a.kind, &a.word, &a.range);
+        let in_literal = search::literal_lines(kind, &a.text).get(self.line) == Some(&true);
+        let mut imports = if in_literal {
+            search::imports_as_written(kind, &a.text)
+        } else {
+            search::imports(kind, &a.text)
+        };
+        let line = self.line_str();
+        let swift_binds_here = kind == Kind::Swift
+            && !a.dotted
+            && line.get(range.clone()) == Some(word.as_str())
+            && search::swift_binds_on(line, word)
+            && !search::swift_binds_on(&format!("{}_{}", a.lead, a.tail), word);
+        let declared = swift_binds_here
+            || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
+        let mut locals = self.locals_of(a, declared);
+        let go_own = kind == Kind::Go
+            && locals.contains(&(self.line + 1))
+            && search::go_binds_here(self.line_str(), word, range.start);
+        if go_own {
+            locals = vec![self.line + 1];
+        }
+        let own_arrow = kind == Kind::TsJs
+            && !a.dotted
+            && locals.contains(&(self.line + 1))
+            && search::ts_arrow_binds(self.line_str(), word, range.start);
+        let arrow_param = kind == Kind::TsJs
+            && !a.dotted
+            && search::ts_arrow_param(self.line_str(), word, range.start);
+        if own_arrow || arrow_param {
+            locals = vec![self.line + 1];
+        }
+        if !locals.is_empty() {
+            imports.retain(|i| i.name != a.first());
+        }
+        let star = kind == Kind::Python && imports.iter().any(|i| i.name == "*");
+        let unbound = kind == Kind::Python
+            && !a.dotted
+            && a.chain.is_empty()
+            && search::bindings(kind, &a.text, self.line + 1, word).is_empty()
+            && !search::python_class_binds(&a.text, self.line + 1, word)
+            && !names_itself(kind, self.line_str(), word)
+            && !self.offer_only;
+        if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
+            self.offer_only = false;
+            self.message = format!("{word}: builtin, no source");
+            return None;
+        }
+        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
+            || (kind == Kind::Swift && !declared))
+            && locals == [self.line + 1]
+            && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
+        let own_line = go_own
+            || (kind == Kind::CSharp
+                && locals == [self.line + 1]
+                && search::cs_binds_here(self.line_str(), word, range.start));
+        if self.answered_by_locals(a, &locals, same_line || own_line || own_arrow) {
+            return None;
+        }
+        Some(Near {
+            imports,
+            locals,
+            swift_binds_here,
+            arrow_param,
+            unbound,
+        })
+    }
+
+    fn locals_of(&self, a: &Asked, declared: bool) -> Vec<usize> {
+        let (kind, word, range, chain) = (a.kind, &a.word, &a.range, &a.chain);
+        let (before, dotted, first) = (a.before.as_str(), a.dotted, a.first());
+        let key = kind == Kind::Lua
+            && (search::table_key(&a.text, self.line + 1, range)
+                || (before.ends_with(':') && !before.ends_with("::")));
+        let after = a.tail.as_str();
+        let key = key
+            || a.elixir_call()
+            || search::erlang(&a.here)
+            || (kind == Kind::Elixir
+                && !dotted
+                && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
+        let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
+        let after = a.tail.trim_start();
+        let rust_path = kind == Kind::Rust
+            && (before.ends_with("::")
+                || after.starts_with("::")
+                || (after.starts_with('!') && !after.starts_with("!=")));
+        let rust_field =
+            kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !a.captured;
+        let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
+        let required = match kind {
+            Kind::TsJs => search::ts_import_lines1(&a.text, first),
+            _ => Vec::new(),
+        };
+        let closure = |n: usize| {
+            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&a.text, n))
+                && !dotted
+                && chain.is_empty()
+                && n != self.line + 1
+        };
+        let locals_at = |text: &str, line: usize| -> Vec<usize> {
+            let binding: Vec<usize> = if declared {
+                vec![self.line + 1]
+            } else {
+                self.binding_lines(kind, text, line, range.start, chain.is_empty(), first)
+            };
+            binding
+                .into_iter()
+                .filter(|&n| {
+                    let l = &self.buf.lines[n - 1];
+                    !key && !super_keyword
+                        && (closure(n) || !names_itself(kind, l, first) || bare)
+                        && !import_line(kind, l)
+                        && !rust_path
+                        && (!rust_field || n == self.line + 1)
+                })
+                .map(|n| match kind {
+                    Kind::TsJs => search::written_line(&self.buf.lines, n, first),
+                    Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
+                    _ => n,
+                })
+                .filter(|n| !required.contains(n) && !self.template_shadows(&a.here, first))
+                .collect()
+        };
+        let locals = locals_at(&a.text, self.line + 1);
+        if (bare || self.script_scope(&a.here, Some(first)).is_some()) && locals.is_empty() {
+            let module = locals_at(&format!("{}\n0", a.text), self.buf.lines.len() + 1);
+            if !module.contains(&(self.line + 1)) {
+                return module;
+            }
+        }
+        locals
+    }
+
+    fn answered_by_locals(&mut self, a: &Asked, locals: &[usize], ours: bool) -> bool {
+        let kind = a.kind;
+        let on_itself = match kind {
+            Kind::C => search::c_bindings_at(&a.text, self.line + 1, a.first())
+                .iter()
+                .all(|p| p.line1 == self.line + 1 && p.byte_col == a.range.start),
+            _ => *locals == [self.line + 1],
+        };
+        if !a.dotted
+            && !a.before.ends_with("::")
+            && !locals.is_empty()
+            && (!on_itself
+                || ours
+                || matches!(
+                    kind,
+                    Kind::Rust
+                        | Kind::Nix
+                        | Kind::Haskell
+                        | Kind::Julia
+                        | Kind::Gdscript
+                        | Kind::Solidity
+                )
+                || search::lisp(kind))
+        {
+            let found = self.lines_here(a, locals.iter().copied(), &Reason::Local);
+            return self.show_found(a, found);
+        }
+        false
+    }
+}
