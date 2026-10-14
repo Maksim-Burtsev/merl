@@ -558,6 +558,7 @@ mod tests {
                     Some("Markdown"),
                     "{file} {name}"
                 );
+                b.parse_more(None);
                 b.highlight_to(3, &theme);
                 let colours: std::collections::HashSet<_> =
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
@@ -1156,6 +1157,7 @@ mod tests {
                     Some("CMake"),
                     "{file} {name}"
                 );
+                b.parse_more(None);
                 b.highlight_to(4, &theme);
                 let colours: std::collections::HashSet<_> =
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
