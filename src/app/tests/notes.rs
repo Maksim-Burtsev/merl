@@ -135,8 +135,8 @@ fn a_note_is_typed_edited_deleted_and_undone_like_a_line() {
     );
     assert_eq!(
         a.mode,
-        Mode::Edit,
-        "cutting the last line leaves for the code"
+        Mode::Normal,
+        "cutting the last line leaves for the code, read as before"
     );
 
     keys(&mut a, &[(KeyCode::Esc, NONE), (KeyCode::Char('z'), CTRL)]);
@@ -340,8 +340,7 @@ fn the_agent_dropping_the_file_under_an_open_note_neither_crashes_nor_brings_it_
     keys(&mut a, &[(KeyCode::Up, NONE), (KeyCode::Char('a'), NONE)]);
     std::fs::remove_file(notes_file(&dir, "feature")).unwrap();
     keys(&mut a, &[(KeyCode::Down, NONE)]);
-    assert_eq!(a.mode, Mode::Edit);
-    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    assert_eq!(a.mode, Mode::Normal);
     note(&mut a, "two");
     keys(&mut a, &[(KeyCode::Enter, NONE)]);
     std::fs::remove_file(notes_file(&dir, "feature")).unwrap();
@@ -382,6 +381,61 @@ fn edit_mode_walks_through_a_note_and_home_keeps_to_its_line() {
     assert_eq!(parse(&read(&dir))[0].text, "abc\n> x\nydef");
     keys(&mut a, &[(KeyCode::Up, NONE)]);
     assert_eq!(a.mode, Mode::Note, "Up from line 4 back into the note");
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn every_way_out_of_a_note_returns_to_the_mode_it_was_opened_from() {
+    let esc = (KeyCode::Esc, NONE);
+    let enter = (KeyCode::Enter, NONE);
+    let up = (KeyCode::Up, NONE);
+    let down = (KeyCode::Down, NONE);
+    let back = (KeyCode::Backspace, NONE);
+    let cut = (KeyCode::Char('x'), CTRL);
+    let undo = (KeyCode::Char('z'), CTRL);
+    let redo = (KeyCode::Char('y'), CTRL);
+    let reading: &[(&str, &[(KeyCode, KeyModifiers)], &str, usize)] = &[
+        ("esc", &[esc], "hi", 2),
+        ("enter-esc", &[enter, esc], "hi", 2),
+        ("down", &[down], "hi", 3),
+        ("up", &[up], "hi", 2),
+        ("back", &[back], "", 2),
+        ("cut", &[cut], "hi", 3),
+        ("undo", &[undo], "hi", 2),
+        ("redo", &[redo], "hi", 2),
+    ];
+    for &(tag, exit, text, line) in reading {
+        let (dir, mut a) = on_a_rs(&format!("notes-out-read-{tag}"), 3);
+        keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
+        typed(&mut a, text);
+        keys(&mut a, exit);
+        assert_eq!((a.mode, a.line), (Mode::Normal, line), "a {text} {tag}");
+        drop(std::fs::remove_dir_all(dir));
+    }
+    let editing: &[(&str, &[(KeyCode, KeyModifiers)], usize)] = &[
+        ("esc", &[esc], 2),
+        ("down", &[down], 3),
+        ("up", &[up], 2),
+        ("back", &[(KeyCode::Char('u'), CTRL), back], 2),
+        ("cut", &[cut], 3),
+        ("undo", &[undo], 2),
+    ];
+    for &(tag, exit, line) in editing {
+        let (dir, mut a) = on_a_rs(&format!("notes-out-edit-{tag}"), 3);
+        note(&mut a, "hi");
+        keys(&mut a, &[up, enter, down]);
+        assert_eq!(a.mode, Mode::Note, "{tag}");
+        keys(&mut a, exit);
+        assert_eq!((a.mode, a.line), (Mode::Edit, line), "edit {tag}");
+        assert_eq!(a.notes.focus, None, "edit {tag}");
+        drop(std::fs::remove_dir_all(dir));
+    }
+    let (dir, mut a) = on_a_rs("notes-out-edit-redo", 3);
+    note(&mut a, "hi");
+    keys(&mut a, &[up, enter, down, redo]);
+    assert_eq!(a.mode, Mode::Note, "nothing to redo keeps the note open");
+    keys(&mut a, &[esc]);
+    assert_eq!((a.mode, a.line, a.notes.focus), (Mode::Edit, 2, None));
     drop(std::fs::remove_dir_all(dir));
 }
 
