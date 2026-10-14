@@ -1,0 +1,5 @@
+type Half {
+  name: String
+query ($id: ) {
+  book(id: {
+fragment on {

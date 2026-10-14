@@ -278,6 +278,11 @@ fn cmake_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn graphql_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("graphql");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -425,6 +430,12 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     assert_eq!(sexp("CMakeCache.txt", b"A:BOOL=ON\n"), "");
     assert!(sexp("a.proto", b"message A {}\n").contains("(message "));
     assert_eq!(sexp("a.protodevel", b"message A {}\n"), "");
+    for f in ["a.graphql", "a.graphqls", "a.gql"] {
+        assert!(
+            sexp(f, b"type A { b: Int }\n").contains("(object_type_definition "),
+            "{f}"
+        );
+    }
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
@@ -749,6 +760,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("dockerfile"), Some("dockerfile"));
     assert_eq!(name("cmake"), Some("cmake"));
     assert_eq!(name("proto"), Some("proto"));
+    assert_eq!(name("graphql"), Some("graphql"));
+    assert_eq!(name("gql"), Some("graphql"));
     assert_eq!(name("swift"), Some("swift"));
     assert_eq!(name("ruby"), Some("ruby"));
     assert_eq!(name("rb"), Some("ruby"));

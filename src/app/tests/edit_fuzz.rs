@@ -1084,6 +1084,20 @@ const PROTO: &[&str] = &[
     "\n\n",
 ];
 
+const GRAPHQL: &[&str] = &[
+    "type A {\n",
+    "}\n",
+    "a(b: Int = 1): [B!]!\n",
+    "\"\"\"",
+    "query Q($a: ID) {\n",
+    "...F\n",
+    "@include(if: $a)",
+    "# ",
+    "\"",
+    "{",
+    "}",
+];
+
 const CMAKE: &[&str] = &[
     "set(",
     "${X}",
@@ -1264,6 +1278,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.proto",
         include_bytes!("../../../tests/colors/proto/ledger.proto").as_slice(),
         PROTO,
+    ),
+    (
+        "f.graphql",
+        include_bytes!("../../../tests/colors/graphql/schema.graphql").as_slice(),
+        GRAPHQL,
     ),
     (
         "CMakeLists.txt",
