@@ -1877,6 +1877,12 @@ mod tests {
     }
 
     #[test]
+    fn a_body_cut_off_inside_a_nested_anonymous_one_finds_no_field() {
+        let code = c_code("struct S { struct { int x;");
+        assert_eq!(c_body_field(&code, code.find('{').unwrap(), "x"), None);
+    }
+
+    #[test]
     fn a_value_type_is_its_one_declaration_in_the_file() {
         let text = "static struct name { int a; } name;\nint f() { return name.a; }\n";
         let open = text.find('{').unwrap();
