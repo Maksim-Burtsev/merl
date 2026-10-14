@@ -262,6 +262,87 @@ fn viewed_marks_outlive_the_session_and_a_changed_file_loses_its_tick() {
 }
 
 #[test]
+fn a_second_round_walks_past_the_files_ticked_in_the_first() {
+    let (dir, _) = review_app("viewedround");
+    let git = |args: &[&str]| {
+        let mut cmd = std::process::Command::new("git");
+        let out = cmd.arg("-C").arg(&dir).args(args).output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let open = || {
+        let review = git::Review::open(&dir, None, None).unwrap();
+        let first = review.first_file(&dir, false).unwrap();
+        let tree = crate::tree::from_listing(
+            &review
+                .files
+                .iter()
+                .map(|f| f.path.clone())
+                .collect::<Vec<_>>(),
+        );
+        let (_, files) = crate::tree::build(&dir, false);
+        let mut a = App::new(
+            dir.clone(),
+            tree,
+            files,
+            Buffer::load(&first).unwrap(),
+            None,
+        );
+        a.start_review(review);
+        a
+    };
+    let key = |a: &mut App, ch| press(a, KeyCode::Char(ch), KeyModifiers::NONE);
+    let mut a = open();
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 1));
+    while at(&a).0 != dir.join("gone") {
+        key(&mut a, 'c');
+    }
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("tail"));
+    key(&mut a, 'm');
+    std::fs::write(dir.join("crlf.txt"), "one\r\nTWO\nthree\n").unwrap();
+    git(&["commit", "-qam", "fix"]);
+
+    let mut a = open();
+    assert_eq!(
+        at(&a),
+        (dir.join("crlf.txt"), 1),
+        "opens on the first unticked file: `crlf.txt` lost its tick to the fix"
+    );
+    key(&mut a, '[');
+    assert_eq!(
+        at(&a).0,
+        dir.join("crlf.txt"),
+        "the ticked first file was never shown"
+    );
+    key(&mut a, 'c');
+    assert_eq!(
+        at(&a),
+        (dir.join("gone"), 0),
+        "`gone` was left by `C`, never ticked"
+    );
+    key(&mut a, 'c');
+    assert_eq!(at(&a).0, dir.join("new"));
+    key(&mut a, 'c');
+    assert_eq!(
+        (at(&a).0, a.message.as_str()),
+        (dir.join("new"), "last hunk of the review"),
+        "`tail`, ticked by `m`, is no stop for `c`"
+    );
+    key(&mut a, 'C');
+    assert_eq!(at(&a).0, dir.join("gone"), "`C` stops on every file");
+    walk_into(&mut a, "tail");
+    key(&mut a, 'C');
+    assert_eq!(at(&a).0, dir.join("new"), "`C` stops on ticked files too");
+
+    let a = open();
+    assert_eq!(
+        (at(&a), a.message.as_str()),
+        ((dir.join("src/a.rs"), 1), "all files viewed")
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
     let (dir, mut a) = review_app("ordermarks");
     let git = |args: &[&str]| {
@@ -1020,9 +1101,13 @@ fn review_walks_past_a_submodule_and_a_file_that_does_not_open() {
     assert!(a.viewed.contains_key(Path::new("new")) && !a.viewed.contains_key(Path::new("sub")));
     std::fs::remove_file(dir.join("new")).unwrap();
     std::fs::create_dir(dir.join("new")).unwrap();
-    walk_into(&mut a, "gone");
-    press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    assert_eq!(at(&a), (dir.join("tail"), 0));
+    walk_into(&mut a, "tail");
+    press(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    assert_eq!(
+        at(&a),
+        (dir.join("gone"), 0),
+        "`C`: `c` passes over `new`, ticked when `c` left it (#824)"
+    );
     assert!(
         a.message.contains("new: "),
         "the status says why `new` does not open: {}",
@@ -1346,12 +1431,16 @@ fn c_and_big_c_from_another_file_go_back_to_the_hunk_left() {
     );
     c(&mut a);
     c(&mut a);
-    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    assert_eq!(
+        at(&a),
+        (dir.join("gone"), 0),
+        "`c` passes over `crlf.txt`, ticked when `c` left it (#824)"
+    );
     a.jump_to(&dir.join("src/a.rs"), 1);
     c(&mut a);
     assert_eq!(
         at(&a),
-        (dir.join("crlf.txt"), 1),
+        (dir.join("gone"), 0),
         "the hunks below the cursor in the file of the excursion are not the walk's"
     );
     a.focus = Focus::Tree;
@@ -1914,6 +2003,12 @@ fn a_generated_file_is_one_stop_until_enter_loads_its_diff() {
     key(&mut a, KeyCode::Char('C'));
     assert_eq!(at(&a).0, dir.join("new"), "`C` goes on from the fold too");
     key(&mut a, KeyCode::Char('c'));
+    assert_eq!(
+        at(&a).0,
+        dir.join("tail"),
+        "`c` passes over the fold ticked when `c` left it (#824)"
+    );
+    key(&mut a, KeyCode::Char('C'));
     let folded_at = at(&a);
     assert_eq!(folded_at.0, lock);
     for code in [

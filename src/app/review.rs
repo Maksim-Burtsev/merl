@@ -12,8 +12,8 @@ impl App {
         self.review = Some(review);
         self.refresh_diff();
         self.load_viewed();
-        let marks_failed = (self.message.starts_with("viewed marks not read"))
-            .then(|| self.message.clone());
+        let marks_failed =
+            (self.message.starts_with("viewed marks not read")).then(|| self.message.clone());
         if let Some(path) = self.buf.path.clone() {
             self.reveal(&path);
             if self.line == 0
@@ -24,8 +24,13 @@ impl App {
             }
         }
         let stop = |f: &&git::ReviewFile| f.is_stop(&self.root, self.diagrams.on());
-        let unread = (self.review.as_ref())
-            .and_then(|r| r.files.iter().filter(stop).find(|f| !self.viewed.contains_key(&f.path)).cloned());
+        let unread = (self.review.as_ref()).and_then(|r| {
+            r.files
+                .iter()
+                .filter(stop)
+                .find(|f| !self.viewed.contains_key(&f.path))
+                .cloned()
+        });
         let all_viewed = unread.is_none();
         let any_first = (self.review.as_ref()).and_then(|r| r.files.iter().find(stop).cloned());
         let opened_ticked_first = any_first.as_ref().is_some_and(|f| {
@@ -37,6 +42,9 @@ impl App {
         if (self.buf.path.is_none() || opened_ticked_first && !all_viewed)
             && let Some(f) = first
         {
+            if opened_ticked_first {
+                self.history.clear();
+            }
             self.open_review_file(&f, false);
             self.remember_hunk();
         }

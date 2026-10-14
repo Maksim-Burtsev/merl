@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The default theme, `tokyonight-moon`, is tokyonight.nvim's Moon as Neovim paints it, where it
   shipped folke's Sublime file: the files merl does not colour with tree-sitter come closer to
   LazyVim too. (#812)
+- In `--review`, `c` passes over the files ticked viewed in an earlier round, by `c` or `m`, and
+  goes to the changed and the unread; a file changed since its tick is a stop again, and `C`
+  still stops on every file. A reopened review opens on the first unticked file, or says `all
+  files viewed`. (#824)
 
 ### Fixed
 
