@@ -1,22 +1,7 @@
 use super::*;
 use ratatui::{Terminal, backend::TestBackend};
 
-use crate::buffer::{Spans, use_tree_sitter};
-
-struct Switch;
-
-impl Switch {
-    fn on() -> Self {
-        use_tree_sitter(true);
-        Self
-    }
-}
-
-impl Drop for Switch {
-    fn drop(&mut self) {
-        use_tree_sitter(false);
-    }
-}
+use crate::buffer::Spans;
 
 fn settle(a: &mut App) {
     let mut steps = 0;
@@ -40,8 +25,7 @@ fn fresh(path: &Path, bytes: &[u8], theme: &crate::theme::Theme) -> Vec<Spans> {
 }
 
 #[test]
-fn the_setting_reaches_every_buffer_the_app_opens() {
-    let _on = Switch::on();
+fn tree_sitter_reaches_every_buffer_the_app_opens() {
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let base = "def f():\n    return 1\n\n\nx = f()\n";
     let work = "def f():\n    return 2\n\n\nx = f()\n";
@@ -105,8 +89,7 @@ fn the_setting_reaches_every_buffer_the_app_opens() {
 }
 
 #[test]
-fn the_setting_reaches_the_code_blocks_of_the_preview() {
-    let _on = Switch::on();
+fn tree_sitter_reaches_the_code_blocks_of_the_preview() {
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let dir = std::env::temp_dir().join(format!("merl-ts-on-md-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));

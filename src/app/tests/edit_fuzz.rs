@@ -1351,8 +1351,7 @@ fn replay_tree_sitter(
     for seed in seeds {
         let mut rng = Xorshift64::new(seed);
         std::fs::write(&path, start).unwrap();
-        let mut buf = Buffer::from_bytes(path.clone(), start);
-        buf.start_tree_sitter();
+        let buf = Buffer::from_bytes(path.clone(), start);
         let mut a = App::new(dir.clone(), Tree::default(), Vec::new(), buf, None);
         (a.view_w, a.view_h) = (WIDER_THAN_ANY_LINE, 40);
         a.line = rng.below(a.buf.lines.len());
@@ -1381,7 +1380,6 @@ fn replay_tree_sitter(
             a.buf.paint_to(usize::MAX, &theme);
             let text = a.buf.lines.join("\n") + "\n";
             let mut fresh = Buffer::from_bytes(path.clone(), text.as_bytes());
-            fresh.start_tree_sitter();
             fresh.parse_more(None);
             fresh.paint_to(usize::MAX, &theme);
             let (shape, fresh_shape) = (a.buf.shape(), fresh.shape());

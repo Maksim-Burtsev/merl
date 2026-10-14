@@ -608,8 +608,6 @@ pub struct Config {
     #[serde(default = "default_true")]
     pub review_open_files_first: bool,
     #[serde(default)]
-    pub tree_sitter: bool,
-    #[serde(default)]
     pub review_notes: bool,
 }
 
@@ -633,7 +631,6 @@ impl Default for Config {
             review_panel_colours: true,
             review_list_marks: true,
             review_open_files_first: true,
-            tree_sitter: false,
             review_notes: false,
         }
     }
@@ -997,9 +994,7 @@ mod tests {
         std::fs::write(&path, "theme = ").unwrap();
         let e = format!("{:#}", config_from(Some(&path)).unwrap_err());
         assert!(e.contains("config.toml"), "{e}");
-        assert!(!config_from(None).unwrap().tree_sitter);
-        std::fs::write(&path, "tree_sitter = true\n").unwrap();
-        assert!(config_from(Some(&path)).unwrap().tree_sitter);
+        std::fs::write(&path, "theme = \"tokyonight-moon\"\n").unwrap();
         assert!(!config_from(Some(&path)).unwrap().review_notes);
         std::fs::write(&path, "review_notes = true\n").unwrap();
         assert!(config_from(Some(&path)).unwrap().review_notes);

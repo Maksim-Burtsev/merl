@@ -1679,6 +1679,9 @@ fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
     app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(30, 6)).unwrap();
+    while app.parsing() {
+        app.parse_more();
+    }
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
         rows(&terminal)[..2],
@@ -1860,6 +1863,9 @@ fn a_ghost_takes_the_colours_of_its_base_line_down_to_the_last_ghost_on_screen()
     app.diff.ghost_from.extend([(1, 1), (2, 50)]);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(20, 8)).unwrap();
+    while app.parsing() {
+        app.parse_more();
+    }
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let r = rows(&terminal);
     let buf = terminal.backend().buffer();

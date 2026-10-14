@@ -143,7 +143,6 @@ fn run() -> Result<()> {
         return Ok(());
     }
     let config = theme::config()?;
-    buffer::use_tree_sitter(config.tree_sitter);
     let (theme, name) = match cli.theme.clone() {
         Some(name) => (theme::load(&name)?, name),
         None => (theme::load_configured(&config.theme)?, config.theme),

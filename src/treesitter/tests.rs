@@ -146,7 +146,6 @@ fn mismatches(lang: &str) -> Vec<String> {
         for (file, lines) in recorded(&table) {
             let path = dir.join(&file);
             let mut b = Buffer::from_bytes(path.clone(), &std::fs::read(&path).unwrap());
-            b.start_tree_sitter();
             b.parse_more(None);
             b.highlight_to(usize::MAX, &theme);
             for (n, want) in lines {
@@ -344,7 +343,6 @@ fn a_capture_keeps_its_background_only_when_reversed() {
         let theme = theme::load(name).unwrap();
         let text = b"--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n";
         let mut b = Buffer::from_bytes(PathBuf::from("a.diff"), text);
-        b.start_tree_sitter();
         b.parse_more(None);
         b.highlight_to(usize::MAX, &theme);
         let (style, _) = b.hl[4].iter().find(|(_, r)| r.contains(&1)).unwrap();
@@ -358,7 +356,6 @@ fn a_capture_keeps_its_background_only_when_reversed() {
 fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     let sexp = |f: &str, src: &[u8]| {
         let mut b = Buffer::from_bytes(PathBuf::from(f), src);
-        b.start_tree_sitter();
         b.parse_more(None);
         b.sexp()
     };
@@ -692,7 +689,6 @@ fn a_theme_without_groups_still_colours_every_kind_of_capture() {
     assert!(theme.groups.is_empty());
     let src = "# c\ndef f(x):\n    return \"s\"\n";
     let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
-    b.start_tree_sitter();
     b.parse_more(None);
     b.highlight_to(usize::MAX, &theme);
     let fg = |l: usize, col: usize| b.hl[l].iter().find(|(_, r)| r.contains(&col)).unwrap().0.fg;
@@ -716,7 +712,6 @@ fn a_theme_without_groups_colours_markdown_by_its_markup_scopes() {
         assert!(theme.groups.is_empty());
         let src = "# Title\n\n**bold** `code` [l](u)\n";
         let mut b = Buffer::from_bytes(PathBuf::from("a.md"), src.as_bytes());
-        b.start_tree_sitter();
         b.parse_more(None);
         b.highlight_to(usize::MAX, &theme);
         let normal = theme
@@ -763,34 +758,19 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
 }
 
 #[test]
-fn without_the_setting_python_goes_through_syntect() {
-    let theme = theme::load("tokyonight-moon").unwrap();
-    let src = b"import os\n";
-    let mut plain = Buffer::from_bytes(PathBuf::from("a.py"), src);
-    plain.highlight_to(0, &theme);
-    let mut ts = Buffer::from_bytes(PathBuf::from("a.py"), src);
-    ts.start_tree_sitter();
-    ts.parse_more(None);
-    ts.highlight_to(0, &theme);
-    assert_ne!(plain.hl, ts.hl);
-}
-
-#[test]
 fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let src = "import re\nWORD = re.compile(r\"[a-z]+\\d\")\n";
     let lines: Vec<String> = src.lines().map(str::to_owned).collect();
     let mut file = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
-    file.start_tree_sitter();
     file.parse_more(None);
     file.paint_to(usize::MAX, &theme);
     for token in ["python", "py", " Python "] {
+        let mut plain = Buffer::block(token, lines.clone());
+        plain.without_tree_sitter();
+        plain.highlight_to(usize::MAX, &theme);
+        let syntect = plain.hl;
         let mut block = Buffer::block(token, lines.clone());
-        let syntect = {
-            block.highlight_to(usize::MAX, &theme);
-            block.hl.clone()
-        };
-        block.start_block_tree_sitter(token);
         block.parse_more(None);
         block.paint_to(usize::MAX, &theme);
         assert_eq!(block.hl, file.hl, "{token}");
@@ -801,10 +781,11 @@ fn a_preview_code_block_is_coloured_as_the_same_code_in_a_file() {
         "  print('x');".to_owned(),
         "}".to_owned(),
     ];
+    let mut plain = Buffer::block("dart", dart.clone());
+    plain.without_tree_sitter();
+    plain.highlight_to(usize::MAX, &theme);
+    let syntect = plain.hl;
     let mut block = Buffer::block("dart", dart);
-    block.highlight_to(usize::MAX, &theme);
-    let syntect = block.hl.clone();
-    block.start_block_tree_sitter("dart");
     block.parse_more(None);
     block.paint_to(usize::MAX, &theme);
     assert_eq!(block.hl, syntect);
@@ -875,7 +856,6 @@ fn a_parse_cut_short_resumes_and_an_edit_in_between_restarts_it() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let src = include_str!("../../tests/colors/python/classes.py").repeat(20);
     let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
-    b.start_tree_sitter();
     assert!(!b.parse_more(Some(std::time::Duration::ZERO)));
     b.paint_to(10, &theme);
     assert!(b.hl.is_empty(), "no colours before the first tree");
@@ -895,7 +875,6 @@ fn a_parse_cut_short_resumes_and_an_edit_in_between_restarts_it() {
     b.paint_to(usize::MAX, &theme);
     let text = b.lines.join("\n") + "\n";
     let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
-    fresh.start_tree_sitter();
     fresh.parse_more(None);
     fresh.paint_to(usize::MAX, &theme);
     assert_eq!(b.sexp(), fresh.sexp());
@@ -924,8 +903,8 @@ fn speed_rows(
     let open = |at: usize| {
         let t = std::time::Instant::now();
         let mut b = Buffer::from_bytes(PathBuf::from(file), bytes);
-        if ts {
-            b.start_tree_sitter();
+        if !ts {
+            b.without_tree_sitter();
         }
         b.highlight_to(at + 54, theme);
         let frame = ms(t);
@@ -1031,7 +1010,6 @@ fn speed() {
     ];
     for (what, src) in containers {
         let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
-        b.start_tree_sitter();
         let l = b.lines.len() - 50;
         let keys: Vec<_> = (0..20)
             .map(|_| {
@@ -1133,7 +1111,6 @@ fn a_doc_comment_is_parsed_as_jsdoc_in_javascript_and_typescript() {
 fn an_edit_repaints_a_name_whose_pattern_spans_the_changed_lines() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let mut b = Buffer::from_bytes(PathBuf::from("a.lua"), b"local x\nf =\n  1\nlocal y\n");
-    b.start_tree_sitter();
     b.parse_more(None);
     b.paint_to(usize::MAX, &theme);
     for value in ["  function() end", "  1"] {
@@ -1143,7 +1120,6 @@ fn an_edit_repaints_a_name_whose_pattern_spans_the_changed_lines() {
         b.paint_to(usize::MAX, &theme);
         let text = b.lines.join("\n") + "\n";
         let mut fresh = Buffer::from_bytes(PathBuf::from("a.lua"), text.as_bytes());
-        fresh.start_tree_sitter();
         fresh.parse_more(None);
         fresh.paint_to(usize::MAX, &theme);
         assert_eq!(b.hl, fresh.hl, "{value}");
@@ -1158,7 +1134,6 @@ fn an_edit_inside_a_large_container_repaints_from_its_own_row() {
     let function = format!("def f():\n{}", body(&|i| format!("    x{i} = 1\n")));
     for src in [dict, function] {
         let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
-        b.start_tree_sitter();
         b.parse_more(None);
         b.paint_to(usize::MAX, &theme);
         b.lines[25] = b.lines[25].replace(" 1", " [1]");
@@ -1172,7 +1147,6 @@ fn an_edit_inside_a_large_container_repaints_from_its_own_row() {
 fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_line() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let mut b = Buffer::from_bytes(PathBuf::from("a.py"), b"T = \\\n    TypeVa(\"T\")\n");
-    b.start_tree_sitter();
     b.parse_more(None);
     b.paint_to(usize::MAX, &theme);
     for value in [
@@ -1187,7 +1161,6 @@ fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_li
         b.paint_to(usize::MAX, &theme);
         let text = b.lines.join("\n") + "\n";
         let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
-        fresh.start_tree_sitter();
         fresh.parse_more(None);
         fresh.paint_to(usize::MAX, &theme);
         assert_eq!(b.hl, fresh.hl, "{value}");

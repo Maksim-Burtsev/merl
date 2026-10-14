@@ -2,7 +2,6 @@
 """The theme bench: merl's colours against LazyVim's, character by character.
 
     tools/theme-bench/run [--theme a,b] [--lang python,go] [--merl BIN] [--jobs 4] [--update-baseline]
-    tools/theme-bench/run --tree-sitter ...   merl with `tree_sitter = true` in its config (#802)
     tools/theme-bench/run --selftest     the reading, the scoring and the gate on made-up screens (CI runs it)
 
 The reference is colors/THEME/LANG.tsv, what LazyVim (Neovim with the theme's own colorscheme,
@@ -179,7 +178,6 @@ def main():
     ap.add_argument("--show", type=int, default=10)
     ap.add_argument("--update-baseline", action="store_true")
     ap.add_argument("--selftest", action="store_true")
-    ap.add_argument("--tree-sitter", action="store_true")
     a = ap.parse_args()
     if a.selftest:
         return selftest()
@@ -193,9 +191,6 @@ def main():
         subprocess.run(["cargo", "build", "--release", "--quiet"], cwd=ROOT, check=True)
     merl = os.path.realpath(a.merl or os.path.join(ROOT, "target", "release", "merl"))
     home = tempfile.mkdtemp(prefix="theme-bench-")
-    if a.tree_sitter:
-        os.makedirs(os.path.join(home, ".config", "merl"))
-        open(os.path.join(home, ".config", "merl", "config.toml"), "w").write("tree_sitter = true\n")
     want = {(t, l): read_colors(os.path.join(HERE, "colors", t, f"{l}.tsv")) for t in themes for l in langs}
     text = {}
     for (t, l), files in want.items():

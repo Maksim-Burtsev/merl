@@ -181,8 +181,7 @@ in epic #623, each saying `no fold rules for .EXT` until then.
 
 merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
-`src/treesitter.rs`. Until #810 turns it on it runs behind the hidden setting `tree_sitter = true`
-in `config.toml`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
+`src/treesitter.rs`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
 stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, HTML, CSS, XML, Diff, Query, Dockerfile, CMake and Protobuf today and for the languages of
 #806–#809 as they land; every other file goes through syntect as before. Dart stays on syntect:
 the tree-sitter-dart nvim-treesitter pins (UserNobody14's) binds tree-sitter 0.22 in its
@@ -224,7 +223,7 @@ crates.io's tree-sitter-dart is another grammar.
   edits and compares the spans with a fresh parse after each; run it with
   `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a change to
   `src/treesitter.rs` or to `Buffer::edited`.
-- **The bench**: `tools/theme-bench/run --tree-sitter --lang LANG` draws with the setting on. No
+- **The bench**: `tools/theme-bench/run --lang LANG`. No
   theme × language may match fewer characters than `baseline.tsv`; a language joins `for_syntax`
   at ≥ 99 % median over the themes, its remaining misses listed by cause in
   `tools/theme-bench/README.md`, and its table goes into the commit message.

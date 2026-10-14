@@ -4,7 +4,6 @@
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -25,26 +24,6 @@ const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SHOWN_BYTES: usize = 20_000;
 pub const PARSE_STEP: Duration = Duration::from_micros(500);
 pub const PARSE_IDLE_STEP: Duration = Duration::from_millis(3);
-
-pub fn use_tree_sitter(on: bool) {
-    tree_sitter_switch(|s| s.store(on, Ordering::Relaxed));
-}
-
-fn tree_sitter_on() -> bool {
-    tree_sitter_switch(|s| s.load(Ordering::Relaxed))
-}
-
-#[cfg(not(test))]
-fn tree_sitter_switch<T>(f: impl FnOnce(&AtomicBool) -> T) -> T {
-    static ON: AtomicBool = AtomicBool::new(false);
-    f(&ON)
-}
-
-#[cfg(test)]
-fn tree_sitter_switch<T>(f: impl FnOnce(&AtomicBool) -> T) -> T {
-    thread_local!(static ON: AtomicBool = const { AtomicBool::new(false) });
-    ON.with(f)
-}
 
 pub(crate) fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
@@ -134,9 +113,7 @@ impl Buffer {
         };
         b.tabs = b.lines.iter().any(|l| l.starts_with('\t'));
         b.disk_hash = hash(bytes);
-        if tree_sitter_on() {
-            b.start_tree_sitter();
-        }
+        b.start_tree_sitter();
         b
     }
 
@@ -161,7 +138,13 @@ impl Buffer {
         self.ts.as_ref().and_then(treesitter::Parsed::root_bytes)
     }
 
-    pub(crate) fn start_tree_sitter(&mut self) {
+    #[cfg(test)]
+    pub(crate) fn without_tree_sitter(&mut self) {
+        self.ts = None;
+        self.clear_hl();
+    }
+
+    fn start_tree_sitter(&mut self) {
         self.ts = self
             .syntax
             .and_then(|s| treesitter::for_syntax(&s.name, self.path.as_deref(), &self.lines))
@@ -240,13 +223,13 @@ impl Buffer {
             lines.push(String::new());
         }
         let mut b = Self::new(None, lines, syntax);
-        if fits && tree_sitter_on() {
+        if fits {
             b.start_block_tree_sitter(token);
         }
         b
     }
 
-    pub(crate) fn start_block_tree_sitter(&mut self, token: &str) {
+    fn start_block_tree_sitter(&mut self, token: &str) {
         self.ts =
             treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
         self.clear_hl();
@@ -575,6 +558,7 @@ mod tests {
                     Some("Markdown"),
                     "{file} {name}"
                 );
+                b.parse_more(None);
                 b.highlight_to(3, &theme);
                 let colours: std::collections::HashSet<_> =
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
@@ -707,6 +691,7 @@ mod tests {
         let theme = crate::theme::load("tokyonight-moon").unwrap();
         let src = "x = 1\n".repeat(200);
         let mut b = Buffer::from_bytes(PathBuf::from("a.py"), src.as_bytes());
+        b.without_tree_sitter();
         b.highlight_to(199, &theme);
         assert_eq!(b.state_before_every_checkpoint.len(), 4);
         b.lines[150] = "# comment".into();
@@ -1172,6 +1157,7 @@ mod tests {
                     Some("CMake"),
                     "{file} {name}"
                 );
+                b.parse_more(None);
                 b.highlight_to(4, &theme);
                 let colours: std::collections::HashSet<_> =
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
@@ -1430,6 +1416,7 @@ mod tests {
             PathBuf::from("app.min.js"),
             format!("const one = \"x\";\n{long}\nconst two = \"y\";\n").as_bytes(),
         );
+        b.without_tree_sitter();
         b.highlight_to(2, &theme);
         assert_eq!(b.hl[1], Vec::new(), "the long line went to syntect");
 
@@ -1437,6 +1424,7 @@ mod tests {
             PathBuf::from("app.min.js"),
             b"const one = \"x\";\nconst two = \"y\";\n",
         );
+        short.without_tree_sitter();
         short.highlight_to(1, &theme);
         assert_eq!(
             b.hl[2], short.hl[1],
