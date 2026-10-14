@@ -452,7 +452,15 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
     }
     assert_eq!(sexp("a.tf", b"; tinyfugue\n/def x\n"), "");
-    for f in ["a.ini", "A.INI", "setup.cfg", ".coveragerc", ".pylintrc"] {
+    assert_eq!(sexp("a.tf", b"; tinyfugue\n\n  ; x\n\t/def y\n"), "");
+    for f in [
+        "a.ini",
+        "A.INI",
+        "setup.cfg",
+        ".coveragerc",
+        ".pylintrc",
+        ".npmrc",
+    ] {
         assert!(sexp(f, b"[a]\nb = 1\n").contains("(document "), "{f}");
     }
     assert_eq!(sexp("a.cfg", b"[a]\nb = 1\n"), "");

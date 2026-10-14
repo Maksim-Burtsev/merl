@@ -445,6 +445,7 @@ fn ini(path: &Path) -> bool {
         || path.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
             [
                 ".coveragerc",
+                ".npmrc",
                 ".pylintrc",
                 ".gitlint",
                 "setup.cfg",
