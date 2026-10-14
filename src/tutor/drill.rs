@@ -1,6 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![cfg_attr(test, expect(clippy::format_push_string, reason = "#858"))]
-#![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Write as _;
@@ -63,7 +60,7 @@ impl Drill {
         };
         let seed = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_or(0, |d| d.as_nanos() as u64);
+            .map_or(0, |d| u64::try_from(d.as_nanos()).unwrap_or(u64::MAX));
         Ok(Self {
             n,
             answers: Vec::new(),
@@ -171,7 +168,7 @@ impl Drill {
         if let Some(dir) = log.parent() {
             std::fs::create_dir_all(dir).with_context(ctx)?;
         }
-        let ms = ms.map_or("miss".to_owned(), |ms| ms.to_string());
+        let ms = ms.map_or_else(|| "miss".to_owned(), |ms| ms.to_string());
         let line = format!("{}\t{key}\t{ms}\n", stats::date(stats::utc_today()));
         let mut file = (std::fs::OpenOptions::new().create(true).append(true))
             .open(log)
@@ -256,7 +253,7 @@ fn median(mut v: Vec<u32>) -> Option<u32> {
     match v.len() {
         0 => None,
         n if n % 2 == 1 => Some(v[mid]),
-        _ => Some(u64::midpoint(u64::from(v[mid - 1]), u64::from(v[mid])) as u32),
+        _ => Some(u32::midpoint(v[mid - 1], v[mid])),
     }
 }
 
@@ -275,7 +272,7 @@ pub fn check(app: &mut App, action: Option<&str>) {
     if !(POOL[task].done)(app) {
         return;
     }
-    let ms = since.elapsed().as_millis() as u32;
+    let ms = u32::try_from(since.elapsed().as_millis()).unwrap_or(u32::MAX);
     let Some(d) = drill(app) else {
         return;
     };
@@ -375,12 +372,12 @@ mod tests {
             ago(30)
         );
         for k in ["o", "[", "]", "}", "{"] {
-            keys += &format!("{}\t{k}\t3\t1\n", ago(29));
+            _ = writeln!(keys, "{}\t{k}\t3\t1", ago(29));
         }
         std::fs::write(dir.join("keys.tsv"), keys).unwrap();
         let mut log = String::new();
         for ms in [5000; 200].into_iter().chain([1000; 100]) {
-            log += &format!("{}\tn\t{ms}\n", ago(9));
+            _ = writeln!(log, "{}\tn\t{ms}", ago(9));
         }
         for (key, times) in [
             ("d", "900 900 900"),
@@ -393,7 +390,7 @@ mod tests {
             ("v", "1600 1600 1600"),
         ] {
             for ms in times.split(' ') {
-                log += &format!("{}\t{key}\t{ms}\n", ago(2));
+                _ = writeln!(log, "{}\t{key}\t{ms}", ago(2));
             }
         }
         std::fs::write(dir.join("drill.tsv"), log).unwrap();

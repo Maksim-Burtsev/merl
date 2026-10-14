@@ -325,7 +325,7 @@ fn a_backslash_at_the_end_of_a_line_keeps_the_line_count() {
 
 #[test]
 fn a_python_line_is_cut_into_its_simple_statements() {
-    let cases: [(&str, &[&str]); 10] = [
+    let cases: [(&str, &[&str]); 11] = [
         ("ledger = A()", &["ledger = A()"]),
         ("if x: ledger = A()", &["ledger = A()"]),
         ("else: a = 1; b = 2", &["a = 1", "b = 2"]),
@@ -336,6 +336,7 @@ fn a_python_line_is_cut_into_its_simple_statements() {
         ("case Repo(): x = 1", &["x = 1"]),
         ("iffy: int = 1", &["iffy: int = 1"]),
         ("x = \"a;b\"", &["x = \"a;b\""]),
+        ("flag) é: x = 1", &["flag) é: x = 1"]),
     ];
     for (line, want) in cases {
         assert_eq!(python_statements(line, false), want, "{line}");

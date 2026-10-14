@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::suspicious_operation_groupings, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
 #[derive(Debug, Clone)]
@@ -503,7 +501,10 @@ impl App {
     ) -> Result<Vec<Candidate>, Option<Vec<String>>> {
         let line = self.line_str();
         let (r, _) = self.definition_word(Some(Kind::CSharp)).ok_or(None)?;
-        let (before, after) = (line[..r.start].trim_end(), line[r.end..].trim_start());
+        let (before, after) = (
+            line.get(..r.start).ok_or(None)?.trim_end(),
+            line.get(r.end..).ok_or(None)?.trim_start(),
+        );
         if after.starts_with('=')
             && !after.starts_with("==")
             && !after.starts_with("=>")
@@ -568,6 +569,10 @@ impl App {
         Err((!unknown).then_some(walked))
     }
 
+    #[expect(
+        clippy::suspicious_operation_groupings,
+        reason = "a hit's `line1` and a type's `line` are the same row, named apart"
+    )]
     fn cs_walk(
         &self,
         ty: &Typed,

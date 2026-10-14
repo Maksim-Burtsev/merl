@@ -104,7 +104,7 @@ impl Model<'_, '_> {
             if self.using(k, parent) {
                 let end = (k..n).find(|&j| self.punct(j, ";")).unwrap_or(n - 1);
                 let span = (self.toks[k].line, self.toks[end].end);
-                usings = self.join_run(usings, span, lines);
+                usings = Some(self.join_run(usings, span, lines));
                 k = end + 1;
                 continue;
             }

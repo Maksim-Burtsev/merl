@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::resolution::resolution;
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, search};
 
@@ -13,7 +12,9 @@ impl App {
         let loads = search::starlark_loads(&text);
         let line = self.line_str().to_owned();
         if let Some((range, plain)) = search::starlark_string_at(&line, self.col) {
-            let label = &line[range.clone()];
+            let Some(label) = line.get(range.clone()) else {
+                return false;
+            };
             let key = line
                 .get(range.end + 1..)
                 .is_some_and(|rest| rest.trim_start().starts_with(':'));
@@ -34,7 +35,7 @@ impl App {
         let Some((range, word)) = self.definition_word(Some(Kind::Starlark)) else {
             return false;
         };
-        if line[..range.start].ends_with('.') {
+        if line.get(..range.start).is_none_or(|b| b.ends_with('.')) {
             return false;
         }
         let in_load = loads.iter().any(|l| l.lines.contains(&self.line));

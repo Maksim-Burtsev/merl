@@ -1,5 +1,3 @@
-#![cfg_attr(test, expect(clippy::string_slice, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::unreadable_literal, reason = "#858"))]
 use super::*;
 
 fn doc(text: &str, width: usize) -> Doc {
@@ -180,7 +178,10 @@ fn code_blocks_lose_their_fences_and_wrap_under_their_indent() {
         ((2, 9), (2, 24)),
         "a row of a tab-indented line starts where its text is written"
     );
-    assert!(raw[9..].starts_with("compute") && raw[24..].starts_with("beta"));
+    assert!(
+        raw.get(9..).is_some_and(|s| s.starts_with("compute"))
+            && raw.get(24..).is_some_and(|s| s.starts_with("beta"))
+    );
     let mut tabs = Tabs::new("ab\t\tcd");
     assert_eq!(tabs.raw(1), 1);
     assert_eq!(tabs.raw(3), 2, "inside the first tab's spaces");
@@ -605,7 +606,8 @@ fn the_spaces_the_parser_adds_are_no_source_columns() {
         .find(|r| r.text.trim_start().starts_with("compute"))
         .unwrap();
     assert!(
-        raw[row.src.1..].starts_with("compute"),
+        raw.get(row.src.1..)
+            .is_some_and(|s| s.starts_with("compute")),
         "a wrapped row goes back to where its text is written, not {:?}",
         row.src
     );
@@ -621,8 +623,8 @@ fn alerts_take_githubs_light_or_dark_colours_as_the_theme_is() {
         };
         Palette::new(&theme).style(look, false).fg
     };
-    assert_eq!(note("github-light"), Some(Color::from_u32(0x0969da)));
-    assert_eq!(note("tokyonight-moon"), Some(Color::from_u32(0x4493f8)));
+    assert_eq!(note("github-light"), Some(Color::from_u32(0x0009_69da)));
+    assert_eq!(note("tokyonight-moon"), Some(Color::from_u32(0x0044_93f8)));
 }
 
 fn with_pictures(text: &str, width: usize, size: (u16, u16)) -> (Doc, Vec<(String, usize)>) {

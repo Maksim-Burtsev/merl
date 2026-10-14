@@ -1,6 +1,4 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::needless_collect, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
+#![expect(clippy::cognitive_complexity, reason = "test tables")]
 use super::*;
 
 const MARKERS: [&str; 6] = ["//", "#", "--", ";", "%", "(*"];
@@ -32,14 +30,11 @@ struct Case {
 }
 
 fn annotation(line: &str) -> Option<(usize, &str)> {
-    let caret = line.find('^')?;
-    if !MARKERS.contains(&line[..caret].trim()) {
+    let (head, tail) = line.split_once('^')?;
+    if !MARKERS.contains(&head.trim()) {
         return None;
     }
-    Some((
-        caret,
-        line[caret + 1..].trim().trim_end_matches("*)").trim(),
-    ))
+    Some((head.len(), tail.trim().trim_end_matches("*)").trim()))
 }
 
 fn status_line(line: &str) -> Option<&str> {
@@ -203,6 +198,10 @@ fn d_answers_every_annotation_in_the_fixtures() {
     let threads = test_threads();
     let chunk = cases.len().div_ceil(threads);
     let failures: Vec<String> = std::thread::scope(|s| {
+        #[expect(
+            clippy::needless_collect,
+            reason = "every thread is spawned before the first join"
+        )]
         let runs: Vec<_> = cases
             .chunks(chunk)
             .map(|part| s.spawn(move || part.iter().filter_map(check).collect::<Vec<_>>()))

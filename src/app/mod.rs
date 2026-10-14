@@ -304,8 +304,10 @@ const HIST_MAX: usize = 50;
 type Paths = Arc<Vec<PathBuf>>;
 type CMode = (bool, bool);
 
-#[expect(clippy::struct_excessive_bools, reason = "#858")]
-#[expect(clippy::struct_field_names, reason = "#858")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "the app's flags are independent switches of the screen"
+)]
 pub struct App {
     pub root: PathBuf,
     pub shallow: bool,
@@ -327,7 +329,7 @@ pub struct App {
     go_build: search::GoBuild,
     offer_only: bool,
     probe: Option<Vec<Candidate>>,
-    base_app: Option<(String, Box<Self>)>,
+    at_base: Option<(String, Box<Self>)>,
     truncated: std::cell::Cell<bool>,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     pub focus: Focus,
@@ -439,8 +441,10 @@ fn lock_no_write(buf: &mut Buffer) {
 }
 
 impl App {
-    #[expect(clippy::default_trait_access, reason = "#858")]
-    #[expect(clippy::too_many_lines, reason = "#858")]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the literal holds every field of App"
+    )]
     pub fn new(
         root: PathBuf,
         tree: Tree,
@@ -466,7 +470,7 @@ impl App {
             ignored,
             external: HashMap::new(),
             walked_roots: HashMap::new(),
-            shaped: Default::default(),
+            shaped: search::ShapedFiles::default(),
             warming: HashMap::new(),
             node_modules_of: None,
             otp: None,
@@ -478,9 +482,9 @@ impl App {
             ),
             offer_only: false,
             probe: None,
-            base_app: None,
-            truncated: Default::default(),
-            reading: Default::default(),
+            at_base: None,
+            truncated: std::cell::Cell::default(),
+            reading: std::cell::RefCell::default(),
             focus,
             show_tree: true,
             tree_width: None,
@@ -506,9 +510,9 @@ impl App {
             wrap_opposite_of_kind: HashSet::new(),
             previewed: HashSet::new(),
             diagrams: crate::mermaid::Diagrams::default(),
-            old_picture: Default::default(),
+            old_picture: std::cell::RefCell::default(),
             preview: None,
-            parse: Default::default(),
+            parse: preview_data::Parse::default(),
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,
@@ -558,7 +562,7 @@ impl App {
             keys_action_of_key_in_hand: None,
             pressed: HashMap::new(),
             missed: HashMap::new(),
-            watch: Default::default(),
+            watch: missed::Watch::default(),
         };
         lock_no_write(&mut buf);
         app.buf = buf;
@@ -801,7 +805,10 @@ impl App {
         (TextLine::File(l), row.min(self.rows(l).len() - 1))
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "App keeps col on a char boundary, and the rows of text_rows are clusters"
+    )]
     pub fn cursor_x(&self) -> usize {
         let rows = self.text_rows(self.line_str());
         let row = wrap::col_to_row(&rows, self.col);
@@ -812,7 +819,7 @@ impl App {
         indent + wrap::width(&self.line_str()[wrap::row_to_col(&rows, row)..self.col])
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "App keeps col on a char boundary")]
     pub fn display_col(&self) -> usize {
         wrap::width(&self.line_str()[..self.col]) + 1
     }
@@ -833,7 +840,7 @@ fn bound(imports: &[search::Import], name: &str) -> Option<Vec<String>> {
         .map(|i| i.path.clone())
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(clippy::string_slice, reason = "i is where a grapheme starts")]
 pub(crate) fn clip(s: &str, max: usize) -> String {
     match s.grapheme_indices(true).nth(max) {
         Some((i, _)) => format!("{}\u{2026}", &s[..i]),
@@ -858,25 +865,26 @@ pub(super) fn word_col(line: &str, word: &str, word_chars_past_alnum: &str) -> u
         .unwrap_or(0)
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub(super) fn whole_at(line: &str, word: &str, word_chars_past_alnum: &str) -> Option<usize> {
     let part = |c: char| is_word(c) || word_chars_past_alnum.contains(c);
     let whole = |(i, _): &(usize, &str)| {
-        !line[..*i].ends_with(part) && !line[i + word.len()..].starts_with(part)
+        line.get(..*i).is_some_and(|head| !head.ends_with(part))
+            && line
+                .get(i + word.len()..)
+                .is_some_and(|tail| !tail.starts_with(part))
     };
     line.match_indices(word).find(whole).map(|(i, _)| i)
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub(crate) fn next_char(s: &str, i: usize) -> usize {
-    s[i..].graphemes(true).next().map_or(i, |g| i + g.len())
+    s.get(i..)
+        .and_then(|tail| tail.graphemes(true).next())
+        .map_or(i, |g| i + g.len())
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 pub(crate) fn prev_char(s: &str, i: usize) -> usize {
-    s[..i]
-        .graphemes(true)
-        .next_back()
+    s.get(..i)
+        .and_then(|head| head.graphemes(true).next_back())
         .map_or(0, |g| i - g.len())
 }
 

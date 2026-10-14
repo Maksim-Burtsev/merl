@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 
 pub fn sql_cte(word: &str) -> String {
@@ -42,11 +41,14 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
         };
         i += match skip {
             "" => 1,
-            s => text[i + 1..].find(s).map_or(b.len(), |n| n + 1 + s.len()),
+            s => text
+                .get(i + 1..)
+                .and_then(|t| t.find(s))
+                .map_or(b.len(), |n| n + 1 + s.len()),
         };
     }
     let recursive = Regex::new(r"(?i)\bWITH\s+RECURSIVE\b").expect("a valid pattern");
-    let from = if recursive.is_match(&text[first..open]) {
+    let from = if text.get(first..open).is_some_and(|t| recursive.is_match(t)) {
         open
     } else {
         close.unwrap_or(i)

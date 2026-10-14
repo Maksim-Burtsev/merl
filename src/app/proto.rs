@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 impl App {
@@ -10,10 +8,12 @@ impl App {
         word: &str,
     ) -> Option<Vec<Candidate>> {
         static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#"^\s*import\s+(?:(?:public|weak)\s+)?"([^"]*)""#).unwrap()
+            Regex::new(r#"^\s*import\s+(?:(?:public|weak)\s+)?"([^"]*)""#)
+                .expect("the regex is a literal")
         });
-        static PACKAGE: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"(?m)^\s*package\s+([\w.]+)\s*;").unwrap());
+        static PACKAGE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"(?m)^\s*package\s+([\w.]+)\s*;").expect("the regex is a literal")
+        });
         if let Some(path) = IMPORT
             .captures(self.line_str())
             .and_then(|c| c.get(1))
@@ -22,9 +22,9 @@ impl App {
             let path = path.as_str().to_owned();
             return Some(self.proto_import(&path));
         }
-        let qualifier = &before[before
-            .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-            .len()..];
+        let lead =
+            before.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '.');
+        let qualifier = before.split_at(lead.len()).1;
         let parts: Vec<&str> = qualifier.split('.').filter(|p| !p.is_empty()).collect();
         if !qualifier.ends_with('.') || parts.is_empty() {
             return None;

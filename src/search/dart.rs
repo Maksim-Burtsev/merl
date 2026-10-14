@@ -1,6 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -77,12 +74,14 @@ pub fn dart_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) 
         Regex::new(&format!(
             r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension\s+type)\s"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
-    static ANNOTATION_LINE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)+$").unwrap());
-    static ENUM: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"^\s*{ANNOTATIONS}enum\s")).unwrap());
+    static ANNOTATION_LINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:@[\w$.]+(?:\([^)]*\))?\s*)+$").expect("the regex is a literal")
+    });
+    static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^\s*{ANNOTATIONS}enum\s")).expect("the regex is a literal")
+    });
     let nearest_outer_line = || {
         let depth = indent(line_text);
         lines[..line1.saturating_sub(1).min(lines.len())]
@@ -139,26 +138,34 @@ static SHAPES: std::sync::LazyLock<Vec<Regex>> = std::sync::LazyLock::new(|| {
         .into_iter()
         .chain([&format!("{}|{}", p[4], p[5])])
         .chain([&p[6], &p[7]])
-        .map(|s| Regex::new(&any(s)).unwrap())
+        .map(|s| Regex::new(&any(s)).expect("the regex is a literal"))
         .collect()
 });
 
 pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
-    static CALLED: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:<[^()]*>)?\s*\(").unwrap());
-    if patterns.len() == DART_PATTERN_COUNT && !CALLED.is_match(&line[word.end..]) {
+    static CALLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:<[^()]*>)?\s*\(").expect("the regex is a literal")
+    });
+    if patterns.len() == DART_PATTERN_COUNT
+        && line
+            .get(word.end..)
+            .is_some_and(|rest| !CALLED.is_match(rest))
+    {
         patterns.remove(DART_CONSTRUCTOR_PATTERN);
     }
 }
 
 pub fn dart_imports(text: &str) -> Vec<DartImport> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?m)^\s*import\s+(?:'([^']*)'|"([^"]*)")([^;]*);"#).unwrap()
+        Regex::new(r#"(?m)^\s*import\s+(?:'([^']*)'|"([^"]*)")([^;]*);"#)
+            .expect("the regex is a literal")
     });
-    static PREFIX: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bas\s+([A-Za-z_$][\w$]*)").unwrap());
-    static SHOW: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bshow\s+([\w$,\s]+)").unwrap());
+    static PREFIX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bas\s+([A-Za-z_$][\w$]*)").expect("the regex is a literal")
+    });
+    static SHOW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bshow\s+([\w$,\s]+)").expect("the regex is a literal")
+    });
     let mut out = Vec::new();
     for c in IMPORT.captures_iter(text) {
         let uri = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
@@ -193,7 +200,7 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
         let abs = root.join(&p);
         abs.is_file().then(|| {
             abs.strip_prefix(root)
-                .map_or(abs.clone(), Path::to_path_buf)
+                .map_or_else(|_| abs.clone(), Path::to_path_buf)
         })
     };
     let package_dir = here
@@ -237,14 +244,15 @@ pub(super) struct DartPackage {
 
 pub(super) fn dart_packages(config: &Path) -> Vec<DartPackage> {
     static ENTRY: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\{[^{}]*\}").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"\{[^{}]*\}").expect("the regex is a literal"));
     static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#""(name|rootUri|packageUri)"\s*:\s*"([^"]*)""#).unwrap()
+        Regex::new(r#""(name|rootUri|packageUri)"\s*:\s*"([^"]*)""#)
+            .expect("the regex is a literal")
     });
     let Ok(text) = std::fs::read_to_string(config) else {
         return Vec::new();
     };
-    let base = config.parent().unwrap_or(Path::new(""));
+    let base = config.parent().unwrap_or_else(|| Path::new(""));
     ENTRY
         .find_iter(&text)
         .filter_map(|e| {

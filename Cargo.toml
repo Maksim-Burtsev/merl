@@ -35,8 +35,10 @@ tree-sitter = "0.27"
 tree-sitter-bash = "=0.25.1"
 tree-sitter-c = "=0.24.2"
 tree-sitter-c-sharp = "=0.23.5"
+tree-sitter-cmake = "=0.7.5"
 tree-sitter-cpp = { version = "=0.23.4", git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "c009222808634c1014f82438d4883753516a2c24" }
 tree-sitter-css = "=0.25.0"
+tree-sitter-dockerfile-updated = "=0.2.0"
 tree-sitter-diff = { version = "=0.2.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-diff", rev = "ada384ac7bfc1307f32de474620120add29998fb" }
 tree-sitter-html = "=0.23.2"
 tree-sitter-xml = { version = "=0.7.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-xml", rev = "5000ae8f22d11fbe93939b05c1e37cf21117162d" }
@@ -50,6 +52,7 @@ tree-sitter-jsdoc = "=0.25.0"
 tree-sitter-md = "=0.5.3"
 tree-sitter-php = "=0.25.1"
 tree-sitter-printf = "=0.5.1"
+tree-sitter-proto = { version = "=0.6.0", git = "https://github.com/coder3101/tree-sitter-proto", rev = "d7d15427321da271cb1c25c12735e180ef981473" }
 tree-sitter-python = "=0.25.0"
 tree-sitter-tsquery = { version = "=0.8.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-query", rev = "8e9e223812ff30854fbc912adbec696ba5f0e023" }
 tree-sitter-regex = "=0.25.0"

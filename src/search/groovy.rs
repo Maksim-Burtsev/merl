@@ -1,20 +1,23 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::path::Path;
 use std::sync::LazyLock;
 
 use super::{directly_inside, groovy, jvm_enclosing_types, jvm_type_name};
 
-static EXT_PROPERTY: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:project\.)?ext\.([A-Za-z_]\w*)\s*=[^=]").unwrap());
+static EXT_PROPERTY: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:project\.)?ext\.([A-Za-z_]\w*)\s*=[^=]").expect("the regex is a literal")
+});
 static EXT_MEMBER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s+([A-Za-z_]\w*)\s*=[^=]").unwrap());
-static TASK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*task\s+([A-Za-z_]\w*)(?:[^\w.=]|$)").unwrap());
-static CONSTRUCTOR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*([A-Za-z_]\w*)\s*\([^;]*\)\s*\{").unwrap());
+    LazyLock::new(|| Regex::new(r"^\s+([A-Za-z_]\w*)\s*=[^=]").expect("the regex is a literal"));
+static TASK: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*task\s+([A-Za-z_]\w*)(?:[^\w.=]|$)").expect("the regex is a literal")
+});
+static CONSTRUCTOR: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*([A-Za-z_]\w*)\s*\([^;]*\)\s*\{").expect("the regex is a literal")
+});
 static REGISTERED: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"\btasks\.(?:register|create)\s*\(?\s*['"]([A-Za-z_]\w*)['"]"#).unwrap()
+    Regex::new(r#"\btasks\.(?:register|create)\s*\(?\s*['"]([A-Za-z_]\w*)['"]"#)
+        .expect("the regex is a literal")
 });
 
 pub(super) fn groovy_patterns(word: &str) -> Vec<String> {

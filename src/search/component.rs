@@ -1,6 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{Kind, file_literal_lines, literal_lines, word_at};
 use std::borrow::Cow;
 use std::ops::Range;
@@ -11,10 +8,6 @@ pub fn component(path: &Path) -> bool {
         .is_some_and(|e| e == "vue" || e == "svelte" || e == "astro")
 }
 pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
-    if !component(path) {
-        return None;
-    }
-    let astro = path.extension().is_some_and(|e| e == "astro");
     #[derive(PartialEq)]
     enum At {
         Outside,
@@ -22,6 +15,17 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
         InScript,
         InFrontmatter,
     }
+    fn script_open(t: &str) -> At {
+        match (t.contains("</script"), t.contains('>')) {
+            (true, _) => At::Outside,
+            (false, true) => At::InScript,
+            (false, false) => At::InWrappedScriptTag,
+        }
+    }
+    if !component(path) {
+        return None;
+    }
+    let astro = path.extension().is_some_and(|e| e == "astro");
     let mut at = At::Outside;
     let mut out = Vec::new();
     for (i, line) in text.lines().enumerate() {
@@ -31,7 +35,10 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
                 at = At::InFrontmatter;
                 false
             }
-            At::Outside if t.starts_with("<script") && t[7..].starts_with([' ', '>', '\t']) => {
+            At::Outside
+                if t.strip_prefix("<script")
+                    .is_some_and(|r| r.starts_with([' ', '>', '\t'])) =>
+            {
                 at = script_open(t);
                 false
             }
@@ -41,8 +48,8 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
             }
             At::Outside => false,
             At::InWrappedScriptTag => {
-                if let Some(close) = t.find('>') {
-                    at = script_open(&t[close..]);
+                if let Some(rest) = t.find('>').and_then(|close| t.get(close..)) {
+                    at = script_open(rest);
                 }
                 false
             }
@@ -58,15 +65,7 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
         };
         out.push(code);
     }
-    return Some(out);
-
-    fn script_open(t: &str) -> At {
-        match (t.contains("</script"), t.contains('>')) {
-            (true, _) => At::Outside,
-            (false, true) => At::InScript,
-            (false, false) => At::InWrappedScriptTag,
-        }
-    }
+    Some(out)
 }
 pub fn script_text<'a>(path: &Path, text: &'a str, cursor: Option<usize>) -> Cow<'a, str> {
     let Some(code) = script_lines(path, text) else {
@@ -108,7 +107,7 @@ pub fn template_binds<S: AsRef<str>>(lines: &[S], code: &[bool], word: &str) -> 
             r"\{#snippet\s+[\w$]+\s*\(([^)]*)\)",
         ]
         .iter()
-        .map(|f| regex::Regex::new(f).unwrap())
+        .map(|f| regex::Regex::new(f).expect("the regex is a literal"))
         .collect()
     });
     let binds = |pattern: &str| pattern_names(pattern).contains(&word);
@@ -157,7 +156,8 @@ pub fn template_reaches<S: AsRef<str>>(
 }
 fn pattern_names(pattern: &str) -> Vec<&str> {
     static TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
-        regex::Regex::new(r#"[A-Za-z_$][\w$]*|"[^"]*"|'[^']*'|[{}\[\]()=:,]"#).unwrap()
+        regex::Regex::new(r#"[A-Za-z_$][\w$]*|"[^"]*"|'[^']*'|[{}\[\]()=:,]"#)
+            .expect("the regex is a literal")
     });
     let tokens: Vec<&str> = TOKEN.find_iter(pattern).map(|m| m.as_str()).collect();
     let (mut names, mut depth, mut value) = (Vec::new(), 0usize, false);
@@ -191,13 +191,18 @@ pub fn in_style<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
 }
 pub fn tag_at(line: &str, col: usize) -> Option<Range<usize>> {
     let (range, _) = word_at(line, col, "-")?;
-    let before = &line[..range.start];
+    let before = line.get(..range.start)?;
     (before.ends_with('<') || before.ends_with("</")).then_some(range)
 }
 pub fn component_name(tag: &str) -> String {
     if tag.contains('-') {
         (tag.split('-'))
-            .map(|p| p[..p.len().min(1)].to_uppercase() + &p[p.len().min(1)..])
+            .map(|p| {
+                let mut chars = p.chars();
+                chars
+                    .next()
+                    .map_or_else(String::new, |c| c.to_uppercase().chain(chars).collect())
+            })
             .collect()
     } else {
         tag.to_owned()

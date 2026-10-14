@@ -10,6 +10,14 @@ deny() {
   command -v cargo-deny >/dev/null || { echo "ci-local: cargo-deny is not installed" >&2; return 1; }
   cargo deny --all-features check
 }
+shear() {
+  command -v cargo-shear >/dev/null || { echo "ci-local: cargo-shear is not installed" >&2; return 1; }
+  cargo shear
+}
+typos() {
+  type -P typos >/dev/null || { echo "ci-local: typos is not installed" >&2; return 1; }
+  command typos
+}
 panic() { cargo test --release --locked no_panic -- --ignored; }
 dbench() { tools/d-bench/run --selftest && tools/theme-bench/run --selftest; }
 smoke() { tests/smoke/run.py --golden --new target/release/merl; }
@@ -26,9 +34,9 @@ msrv() (
   cargo "+$v" build --locked
 )
 
-all=(fmt deny clippy tests release panic dbench smoke msrv)
+all=(fmt deny shear typos clippy tests release panic dbench smoke msrv)
 if [ $# -eq 0 ]; then
-  steps=(fmt deny clippy tests release)
+  steps=(fmt deny shear typos clippy tests release)
   case $(git rev-parse --abbrev-ref HEAD) in release/*) steps+=(panic) ;; esac
   steps+=(dbench smoke msrv)
 else

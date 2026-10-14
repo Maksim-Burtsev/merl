@@ -1,6 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::{
     App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, search,
@@ -59,7 +56,7 @@ impl App {
         dotted: bool,
     ) -> Option<Vec<Candidate>> {
         let kind = Kind::Rust;
-        let after = &self.line_str()[range.end..];
+        let after = self.line_str().get(range.end..)?;
         if let Some(attr) =
             search::rust_attribute(&self.buf.lines, self.line, range.start, range.end)
         {
@@ -73,7 +70,7 @@ impl App {
         {
             return Some(self.rust_fields(here, word));
         }
-        let before = self.line_str()[..range.start].trim();
+        let before = self.line_str().get(..range.start)?.trim();
         let variant = (before.is_empty() || (before.starts_with("#[") && before.ends_with(']')))
             && Regex::new(&search::rust_variant_pattern(word))
                 .is_ok_and(|re| re.is_match(self.line_str()))
@@ -230,7 +227,9 @@ impl App {
         word: &str,
         range: std::ops::Range<usize>,
     ) -> Vec<Candidate> {
-        let after = self.line_str()[range.end..].trim_start();
+        let Some(after) = self.line_str().get(range.end..).map(str::trim_start) else {
+            return Vec::new();
+        };
         if after.starts_with(':') && !after.starts_with("::") {
             return Vec::new();
         }
@@ -256,6 +255,10 @@ impl App {
             .collect()
     }
 
+    #[expect(
+        clippy::match_same_arms,
+        reason = "the visibility table reads row by row, in order of precedence"
+    )]
     pub(super) fn rust_methods(&mut self, here: &Path, word: &str) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let pattern = search::rust_method_pattern(word);
@@ -315,7 +318,7 @@ impl App {
             name.is_none_or(|n| reached.contains(&n) || !every_locked.iter().any(|p| p.name == n))
         };
         let below = |p: &Path| {
-            let parent = p.parent().unwrap_or(Path::new(""));
+            let parent = p.parent().unwrap_or_else(|| Path::new(""));
             let root_file = p
                 .file_stem()
                 .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
@@ -449,7 +452,7 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let indent = |l: &str| l.len() - l.trim_start().len();
         let use_reaches_cursor = |at: usize| {
-            let from = text[..at].matches('\n').count();
+            let from = text.bytes().take(at).filter(|&b| b == b'\n').count();
             let depth = indent(lines[from]);
             depth == 0
                 || (from < self.line
@@ -457,7 +460,8 @@ impl App {
                         .iter()
                         .all(|l| l.trim().is_empty() || indent(l) >= depth))
         };
-        let depth_at = |at: usize| indent(lines[text[..at].matches('\n').count()]);
+        let depth_at =
+            |at: usize| indent(lines[text.bytes().take(at).filter(|&b| b == b'\n').count()]);
         let mut bound: Vec<(Vec<String>, usize)> = search::rust_uses(text)
             .into_iter()
             .filter(|u| u.name == first && use_reaches_cursor(u.start_byte))
@@ -725,10 +729,11 @@ impl App {
         let roots = self.external.get(&Kind::Rust)?.0.clone();
         roots.iter().find_map(|r| {
             let dir = r.file_name()?.to_string_lossy().into_owned();
-            let (i, _) = dir
-                .rmatch_indices('-')
-                .find(|(i, _)| dir[i + 1..].starts_with(|c: char| c.is_ascii_digit()))?;
-            if dir[..i].replace('-', "_") != name {
+            let (i, _) = dir.rmatch_indices('-').find(|(i, _)| {
+                dir.get(i + 1..)
+                    .is_some_and(|v| v.starts_with(|c: char| c.is_ascii_digit()))
+            })?;
+            if dir.get(..i)?.replace('-', "_") != name {
                 return None;
             }
             let src = r.join("src");

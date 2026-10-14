@@ -1,4 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, Reason, Regex, search};
 
 struct WrittenType {
@@ -29,7 +28,7 @@ impl App {
         let kotlin = here.extension().is_none_or(|e| e != "java");
         if let ([], Some(cast)) = (chain, search::jvm_cast_receiver(before, kotlin)) {
             let ty = self.jvm_type_at(here, text, &cast);
-            return self.jvm_typed_member(here, ty, cast, word);
+            return self.jvm_typed_member(here, ty, &cast, word);
         }
         let safe: Vec<String>;
         let chain = match chain {
@@ -92,14 +91,14 @@ impl App {
                 _ => format!("{field}: {written}"),
             });
         }
-        self.jvm_typed_member(here, ty, links.join(" \u{2192} "), word)
+        self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
     }
 
     fn jvm_typed_member(
         &self,
         here: &Path,
         ty: JvmType,
-        label: String,
+        label: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let found = match ty {
@@ -126,7 +125,7 @@ impl App {
                 .into_iter()
                 .map(|hit| Candidate {
                     hit,
-                    reason: Reason::Receiver(label.clone()),
+                    reason: Reason::Receiver(label.to_owned()),
                 })
                 .collect(),
         )

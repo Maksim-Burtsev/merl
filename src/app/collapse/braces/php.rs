@@ -127,7 +127,7 @@ impl Model<'_, '_> {
                         && stack.last().copied().unwrap_or(true) =>
                 {
                     let end = self.php_semicolon(k);
-                    uses = self.join_run(uses, (t.line, self.end_of(end)), lines);
+                    uses = Some(self.join_run(uses, (t.line, self.end_of(end)), lines));
                     continue;
                 }
                 "while" if self.loop_tail(k, "do") => {}

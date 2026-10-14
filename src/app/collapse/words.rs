@@ -1,11 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::fn_params_excessive_bools, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -63,6 +57,10 @@ impl<'a> Build<'a> {
         }
     }
 
+    #[expect(
+        clippy::fn_params_excessive_bools,
+        reason = "the three flags are independent facts about the opener, stored as they come"
+    )]
     fn open(&mut self, line: usize, word: &'static str, fold: bool, func: bool, armed: bool) {
         self.stack.push(Open {
             line,
@@ -102,7 +100,7 @@ impl<'a> Build<'a> {
         };
         self.stack.truncate(at + 1);
         self.end_clause(line);
-        let o = self.stack.pop().unwrap();
+        let o = self.stack.pop().expect("truncated to at + 1");
         if o.fold {
             self.span(o.line, line);
         }
@@ -130,6 +128,24 @@ fn word_at(b: &[u8], i: usize) -> usize {
 
 fn text(s: &[u8], i: usize, j: usize) -> &str {
     std::str::from_utf8(&s[i..j]).unwrap_or("")
+}
+
+fn brace_end(b: &[u8], mut i: usize) -> usize {
+    let mut depth = 0;
+    while i < b.len() {
+        match b[i] {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    i
 }
 
 fn closing(open: u8) -> u8 {
@@ -168,22 +184,7 @@ impl Quote {
                 continue;
             }
             if self.interp && c == b'#' && b.get(i + 1) == Some(&b'{') {
-                let mut depth = 0;
-                i += 1;
-                while i < b.len() {
-                    match b[i] {
-                        b'{' => depth += 1,
-                        b'}' => {
-                            depth -= 1;
-                            if depth == 0 {
-                                break;
-                            }
-                        }
-                        _ => {}
-                    }
-                    i += 1;
-                }
-                i += 1;
+                i = brace_end(b, i + 1) + 1;
                 continue;
             }
             if c == self.close {
@@ -200,6 +201,10 @@ impl Quote {
     }
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "keywords that open a block and those that continue one are listed apart"
+)]
 pub(crate) fn ruby(lines: &[String]) -> Blocks {
     let mut b = Build::new(lines);
     let mut quote: Option<Quote> = None;
@@ -312,7 +317,7 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                     start = false;
                 }
                 b'<' if next == b'<' && heredoc_id(s, i + 2).is_some() => {
-                    let (id, indented, j) = heredoc_id(s, i + 2).unwrap();
+                    let (id, indented, j) = heredoc_id(s, i + 2).expect("the guard saw a heredoc");
                     heredocs.push((id, indented));
                     i = j;
                     start = false;
@@ -375,13 +380,13 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                     }
                     match w {
                         "def" => {
-                            let rest = &line[i..];
+                            let rest = text(s, i, s.len());
                             let name = rest.trim_start();
                             let skip = rest.len() - name.len()
                                 + name
                                     .find(|c: char| c.is_whitespace() || c == '(' || c == ';')
                                     .unwrap_or(name.len());
-                            if !endless(&rest[skip..]) {
+                            if !endless(text(s, i + skip, s.len())) {
                                 b.open(n, "def", true, true, false);
                             }
                             i += skip;
@@ -389,7 +394,7 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                         }
                         "class" => {
                             b.open(n, "class", true, true, false);
-                            let rest = line[i..].trim_start();
+                            let rest = text(s, i, s.len()).trim_start();
                             if rest.starts_with("<<") {
                                 i = s.len() - rest.len() + 2;
                             }
@@ -490,7 +495,10 @@ fn endless(rest: &str) -> bool {
         }) else {
             return false;
         };
-        r = &r[close + 1..];
+        let Some(after) = r.get(close + 1..) else {
+            return false;
+        };
+        r = after;
     }
     let r = r.trim_start();
     r.starts_with('=') && !r.starts_with("==") && !r.starts_with("=~") && !r.starts_with("=>")
@@ -505,13 +513,14 @@ pub(crate) fn rbs(lines: &[String]) -> Blocks {
                 break;
             };
             let close = closing(open) as char;
-            let Some(e) = rest[1..].find(close) else {
+            let Some((_, after)) = rest.get(1..).and_then(|r| r.split_once(close)) else {
                 break;
             };
-            t = rest[e + 2..].trim_start();
+            t = after.trim_start();
         }
-        let w = &t[..word_at(t.as_bytes(), 0)];
-        let rest = &t[w.len()..];
+        let Some((w, rest)) = t.split_at_checked(word_at(t.as_bytes(), 0)) else {
+            continue;
+        };
         if rest.starts_with(':') {
             continue;
         }
@@ -529,6 +538,47 @@ pub(crate) fn rbs(lines: &[String]) -> Blocks {
         }
     }
     b.blocks
+}
+
+fn lua_operand(w: &str) -> bool {
+    matches!(
+        w,
+        "and"
+            | "or"
+            | "not"
+            | "return"
+            | "local"
+            | "in"
+            | "if"
+            | "then"
+            | "else"
+            | "elseif"
+            | "while"
+            | "do"
+            | "until"
+            | "repeat"
+            | "function"
+    )
+}
+
+fn lua_word(b: &mut Build, n: usize, w: &str, params: &mut bool) {
+    match w {
+        "function" => {
+            b.open(n, "function", true, true, false);
+            *params = true;
+        }
+        "if" => b.open(n, "if", true, false, false),
+        "elseif" | "else" => b.clause(n),
+        "while" | "for" => b.open(n, "while", true, false, true),
+        "do" => match b.stack.last_mut() {
+            Some(o) if o.armed => o.armed = false,
+            _ => b.open(n, "do", true, false, false),
+        },
+        "repeat" => b.open(n, "repeat", true, false, false),
+        "until" => b.close(n, &["repeat"]),
+        "end" => b.close(n, &["function", "if", "while", "do"]),
+        _ => {}
+    }
 }
 
 pub(crate) fn lua(lines: &[String]) -> Blocks {
@@ -577,11 +627,7 @@ pub(crate) fn lua(lines: &[String]) -> Blocks {
             }
             match c {
                 b'\'' | b'"' => {
-                    i += 1;
-                    while i < s.len() && s[i] != c {
-                        i += if s[i] == b'\\' { 2 } else { 1 };
-                    }
-                    i += 1;
+                    i = super::skip_quoted(s, i + 1, c);
                     value = true;
                 }
                 b'(' => {
@@ -614,41 +660,8 @@ pub(crate) fn lua(lines: &[String]) -> Blocks {
                     let j = word_at(s, i);
                     let w = text(s, i, j);
                     i = j;
-                    value = !matches!(
-                        w,
-                        "and"
-                            | "or"
-                            | "not"
-                            | "return"
-                            | "local"
-                            | "in"
-                            | "if"
-                            | "then"
-                            | "else"
-                            | "elseif"
-                            | "while"
-                            | "do"
-                            | "until"
-                            | "repeat"
-                            | "function"
-                    );
-                    match w {
-                        "function" => {
-                            b.open(n, "function", true, true, false);
-                            params = true;
-                        }
-                        "if" => b.open(n, "if", true, false, false),
-                        "elseif" | "else" => b.clause(n),
-                        "while" | "for" => b.open(n, "while", true, false, true),
-                        "do" => match b.stack.last_mut() {
-                            Some(o) if o.armed => o.armed = false,
-                            _ => b.open(n, "do", true, false, false),
-                        },
-                        "repeat" => b.open(n, "repeat", true, false, false),
-                        "until" => b.close(n, &["repeat"]),
-                        "end" => b.close(n, &["function", "if", "while", "do"]),
-                        _ => {}
-                    }
+                    value = !lua_operand(w);
+                    lua_word(&mut b, n, w, &mut params);
                 }
                 _ => {
                     value = false;
@@ -776,7 +789,7 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                         }
                         _ => shell_word(s, j),
                     };
-                    let id: String = line[j..k]
+                    let id: String = text(s, j, k)
                         .chars()
                         .filter(|c| !matches!(c, '\'' | '"' | '\\'))
                         .collect();
@@ -786,21 +799,7 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                     i = k.max(j);
                 }
                 b'$' if next == b'{' => {
-                    let mut depth = 0;
-                    while i < s.len() {
-                        match s[i] {
-                            b'{' => depth += 1,
-                            b'}' => {
-                                depth -= 1;
-                                if depth == 0 {
-                                    break;
-                                }
-                            }
-                            _ => {}
-                        }
-                        i += 1;
-                    }
-                    i += 1;
+                    i = brace_end(s, i) + 1;
                     cmd = false;
                 }
                 b'$' if next == b'(' => {
@@ -818,12 +817,14 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                         cmd = true;
                         continue;
                     }
-                    if w == "in" && b.stack.last().is_some_and(|o| o.word == "case" && o.armed) {
-                        b.stack.last_mut().unwrap().armed = false;
+                    if w == "in"
+                        && let Some(o) = b.stack.last_mut().filter(|o| o.word == "case" && o.armed)
+                    {
+                        o.armed = false;
                         pattern = true;
                         continue;
                     }
-                    if !was && !(w == "{" && func.is_some()) {
+                    if !(was || w == "{" && func.is_some()) {
                         continue;
                     }
                     match w {
@@ -853,7 +854,7 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                         }
                         "}" => b.close(n, &["{"]),
                         _ => {
-                            let rest = line[i..].trim_start();
+                            let rest = text(s, i, s.len()).trim_start();
                             if rest.starts_with("()") {
                                 func = Some(n);
                                 i = s.len() - rest.len() + 2;

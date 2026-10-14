@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 use super::{App, Buffer, Focus, KeyCode, KeyEvent, KeyModifiers, Path, PathBuf};
 use crate::markdown::{self, Ask, Doc, Kind, data::data};
 
@@ -123,7 +122,7 @@ impl App {
                 let diagrams = &mut self.diagrams;
                 let file = self
                     .root
-                    .join(self.buf.path.as_deref().unwrap_or(Path::new("")));
+                    .join(self.buf.path.as_deref().unwrap_or_else(|| Path::new("")));
                 let root = &self.root;
                 let kind = data(&file);
                 let parsed = self.parse.done.as_ref().map(|d| &d.2);

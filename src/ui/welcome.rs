@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -89,11 +88,11 @@ pub(super) fn draw_welcome(frame: &mut Frame, theme: &Theme, area: Rect, base: S
 
     let top = (area.height as usize - rows) * 2 / 5;
     let [_, block] = Layout::vertical([
-        Constraint::Length(top as u16),
-        Constraint::Length(rows as u16),
+        Constraint::Length(u16::try_from(top).unwrap_or(u16::MAX)),
+        Constraint::Length(u16::try_from(rows).unwrap_or(u16::MAX)),
     ])
     .areas(area);
-    let [block] = Layout::horizontal([Constraint::Length(w as u16)])
+    let [block] = Layout::horizontal([Constraint::Length(u16::try_from(w).unwrap_or(u16::MAX))])
         .flex(Flex::Center)
         .areas(block);
     frame.render_widget(Paragraph::new(lines).style(base), block);

@@ -1,8 +1,6 @@
-#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 use super::{
     App, Candidate, FileLine, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound,
-    search,
+    is_word, search,
 };
 
 impl App {
@@ -170,7 +168,8 @@ impl App {
         let Some(text) = self.text_of(&ty.path) else {
             return Vec::new();
         };
-        let owner = search::qualified(kind, &text, ty.line, &ty.name).unwrap_or(ty.name.clone());
+        let owner =
+            search::qualified(kind, &text, ty.line, &ty.name).unwrap_or_else(|| ty.name.clone());
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
@@ -234,7 +233,7 @@ impl App {
     }
 
     pub(super) fn members_by_name(
-        &mut self,
+        &self,
         kind: Kind,
         here: &Path,
         word: &str,
@@ -285,12 +284,7 @@ impl App {
                 .is_some_and(|text| search::python_in_function(&text, h.line1))
     }
 
-    pub(super) fn field_namesakes(
-        &mut self,
-        kind: Kind,
-        here: &Path,
-        word: &str,
-    ) -> Vec<Candidate> {
+    pub(super) fn field_namesakes(&self, kind: Kind, here: &Path, word: &str) -> Vec<Candidate> {
         let members = search::member_patterns(kind, word)
             .unwrap_or_default()
             .join("|");
@@ -369,7 +363,7 @@ impl App {
     }
 
     pub(super) fn subclass_members(
-        &mut self,
+        &self,
         kind: Kind,
         here: &Path,
         word: &str,
@@ -666,6 +660,63 @@ impl App {
             level.retain(|t| seen.insert((t.path.clone(), t.line)));
         }
         None
+    }
+
+    pub(super) fn on_declared_name(&self, kind: Kind, word: &str, exact: bool) -> bool {
+        let line = self.line_str();
+        let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
+            return true;
+        };
+        let part = |c: char| is_word(c) || search::word_chars(Some(kind), true).contains(c);
+        let around = |i: usize| Some((line.get(..i)?, line.get(i + word.len()..)?));
+        let at: Vec<usize> = line
+            .match_indices(word)
+            .map(|(i, _)| i)
+            .filter(|&i| around(i).is_some_and(|(h, t)| !h.ends_with(part) && !t.starts_with(part)))
+            .collect();
+        if !at.contains(&r.start) {
+            return true;
+        }
+        let mut patterns = search::def_patterns(kind, word);
+        patterns.extend(search::member_or_signature(kind, word).unwrap_or_default());
+        let re = Regex::new(&patterns.join("|"))
+            .ok()
+            .filter(|re| re.is_match(line));
+        let same_shape_word: String = word
+            .chars()
+            .map(|c| match c {
+                'q' => 'z',
+                'Q' => 'Z',
+                '0' => '1',
+                c if c.is_lowercase() => 'q',
+                c if c.is_uppercase() => 'Q',
+                c if c.is_numeric() => '0',
+                c => c,
+            })
+            .collect();
+        let declared: Vec<usize> = at
+            .iter()
+            .copied()
+            .filter(|&i| {
+                re.as_ref()
+                    .zip(around(i))
+                    .is_some_and(|(re, (h, t))| !re.is_match(&format!("{h}{same_shape_word}{t}")))
+            })
+            .collect();
+        let first = declared.first().copied().unwrap_or(at[0]);
+        if declared.contains(&r.start) || (declared.is_empty() && first == r.start) {
+            return true;
+        }
+        if exact {
+            return false;
+        }
+        let called = |i: usize| around(i).is_some_and(|(_, t)| t.trim_start().starts_with('('));
+        let Some((before, _)) = around(r.start) else {
+            return true;
+        };
+        let before = before.trim_end();
+        let member = before.ends_with(['.', '>']) || before.ends_with("::");
+        !(r.start < first || member || (called(r.start) && !called(first)))
     }
 }
 

@@ -182,7 +182,7 @@ impl Model<'_, '_> {
                     }
                     last_use = Some(end);
                     let span = (self.toks[s].line, self.toks[end].end);
-                    uses = self.join_run(uses, span, lines);
+                    uses = Some(self.join_run(uses, span, lines));
                 }
                 self.rust_word(k, &mut body, &mut owner);
                 continue;

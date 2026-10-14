@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -70,6 +70,9 @@ LANGS = {
     "ruby": (["mastodon"], ["rb"]),
     "php": (["koel"], ["php"]),
     "elixir": (["phoenix"], ["ex", "exs"]),
+    "proto": (["rules_go", "nowinandroid", "eShop", "gitea"], ["proto"], 25),
+    "cmake": (["chibi-scheme", "leveldb", "redis"], ["CMakeLists.txt", "cmake"], 40),
+    "dockerfile": (["mastodon", "paperless-ngx", "immich", "gitea"], ["Dockerfile", "dockerfile"]),
     "html": (["bootstrap", "caddy", "eslint", "outline", "redis"], ["html", "htm"]),
     "css": (["gitea", "paperless-ngx", "caddy", "redis"], ["css"]),
     "xml": (["koel", "paperless-ngx", "nowinandroid"], ["xml", "svg", "xsd", "xslt"]),
@@ -146,7 +149,7 @@ def pick(lang):
     for name in names:
         d = project(name)
         for f in git("ls-files", cwd=d).splitlines():
-            if f.rsplit(".", 1)[-1] in exts and not any(s in f for s in SKIP_DIRS):
+            if (f.rsplit(".", 1)[-1] in exts or os.path.basename(f) in exts) and not any(s in f for s in SKIP_DIRS):
                 every.append((f"{name}/{f}", os.path.join(d, f)))
     every.sort(key=lambda p: hashlib.sha1(p[0].encode()).hexdigest())
     out = []

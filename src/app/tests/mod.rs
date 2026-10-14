@@ -1,3 +1,7 @@
+#![expect(
+    clippy::format_collect,
+    reason = "a fixture is built one format! per line; the allocations cost a test nothing"
+)]
 use super::open::carried;
 use super::resolution::resolution;
 use super::*;
@@ -235,7 +239,6 @@ fn d_on(a: &mut App, file: &str, code: &str) {
         + code.rfind(|c: char| !is_word(c)).map_or(0, |i| i + 1);
     press(a, KeyCode::Char('d'), KeyModifiers::NONE);
 }
-#[expect(clippy::string_slice, reason = "#858")]
 fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
@@ -245,7 +248,7 @@ fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
         .into_iter()
         .map(|r| {
             let at = r.item.code_at.unwrap();
-            let head = &r.item.label[..at];
+            let head = r.item.label.get(..at).unwrap();
             let cols: Vec<&str> = head
                 .split("  ")
                 .map(str::trim)
@@ -263,9 +266,8 @@ enum Shown {
     Jump(String, String),
     Picker(String, Vec<(String, String, String)>),
 }
-#[expect(clippy::redundant_pattern_matching, reason = "#858")]
 fn shown(a: &mut App) -> Shown {
-    if let Some(_) = a.picker {
+    if a.picker.is_some() {
         let rows = definition_rows(a);
         press(a, KeyCode::Esc, KeyModifiers::NONE);
         Shown::Picker(a.message.clone(), rows)

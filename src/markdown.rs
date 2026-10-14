@@ -104,14 +104,13 @@ impl Doc {
             .unwrap_or(self.rows.len() - 1)
     }
 
-    #[expect(clippy::or_fun_call, reason = "#858")]
     pub fn same_row(&self, old: &Self, row: usize, pos: (usize, usize)) -> usize {
         let src = old.rows[row].src;
         let rank = old.rows[..row].iter().filter(|r| r.src == src).count();
         let same: Vec<usize> = (0..self.rows.len())
             .filter(|&i| self.rows[i].src == src)
             .collect();
-        match same.get(rank).or(same.last()) {
+        match same.get(rank).or_else(|| same.last()) {
             Some(&i) => i,
             None => self.row_at(pos),
         }
@@ -280,8 +279,11 @@ struct TableRow {
     cells: Vec<Inline>,
 }
 
-#[expect(clippy::struct_excessive_bools, reason = "#858")]
 #[derive(Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent state of the layout"
+)]
 struct Lay<'a> {
     src: &'a str,
     fit: Option<Fit<'a>>,
@@ -407,7 +409,6 @@ impl Lay<'_> {
         }
     }
 
-    #[expect(clippy::too_many_lines, reason = "#858")]
     fn start(&mut self, tag: Tag, r: Range<usize>) {
         match tag {
             Tag::Paragraph => {
@@ -432,44 +433,8 @@ impl Lay<'_> {
                 );
                 self.inline = Some(inline);
             }
-            Tag::BlockQuote(kind) => {
-                self.block_start(r.start);
-                self.stack.push(Frame::Quote(kind));
-                if let Some(kind) = kind {
-                    let title = match kind {
-                        BlockQuoteKind::Note => "Note",
-                        BlockQuoteKind::Tip => "Tip",
-                        BlockQuoteKind::Important => "Important",
-                        BlockQuoteKind::Warning => "Warning",
-                        BlockQuoteKind::Caution => "Caution",
-                    };
-                    let look = Look {
-                        ink: Ink::Alert(kind),
-                        mods: Modifier::BOLD,
-                    };
-                    let at = self.line_and_byte_col(r.start);
-                    self.push(title.into(), vec![(look, 0..title.len())], at, Kind::Text);
-                }
-            }
-            Tag::CodeBlock(kind) => {
-                self.block_start(r.start);
-                let info_first_word = match kind {
-                    CodeBlockKind::Fenced(info) => info
-                        .split(|c: char| c == ',' || c.is_whitespace())
-                        .next()
-                        .unwrap_or("")
-                        .into(),
-                    CodeBlockKind::Indented => String::new(),
-                };
-                let span = self.line_and_byte_col(r.start).0
-                    ..self.line_and_byte_col(r.end.saturating_sub(1)).0 + 1;
-                self.block = Some(Block {
-                    info_first_word,
-                    lines: Vec::new(),
-                    last_line_unended: false,
-                    span,
-                });
-            }
+            Tag::BlockQuote(kind) => self.start_quote(kind, &r),
+            Tag::CodeBlock(kind) => self.start_code_block(kind, &r),
             Tag::HtmlBlock => {
                 self.block_start(r.start);
                 self.html = Some(Vec::new());
@@ -481,36 +446,7 @@ impl Lay<'_> {
                     loose: false,
                 });
             }
-            Tag::Item => {
-                self.flush_implicit();
-                let loose = matches!(self.stack.last(), Some(Frame::List { loose: true, .. }));
-                self.gap_before_next_block &= loose;
-                self.block_start(r.start);
-                let depth = self
-                    .stack
-                    .iter()
-                    .filter(|f| matches!(f, Frame::List { .. }))
-                    .count();
-                let marker = match self.stack.last_mut() {
-                    Some(Frame::List {
-                        next_number: Some(n),
-                        ..
-                    }) => {
-                        *n += 1;
-                        format!("{}. ", *n - 1)
-                    }
-                    _ => match depth {
-                        1 => "\u{2022} ",
-                        2 => "\u{25e6} ",
-                        _ => "\u{25aa} ",
-                    }
-                    .into(),
-                };
-                self.stack.push(Frame::Item {
-                    marker_width: wrap::width(&marker),
-                    first_row_marker: Some((marker, Ink::Bullet.plain())),
-                });
-            }
+            Tag::Item => self.start_item(r.start),
             Tag::FootnoteDefinition(label) => {
                 self.block_start(r.start);
                 let n = self.number(&label);
@@ -568,6 +504,77 @@ impl Lay<'_> {
         }
     }
 
+    fn start_quote(&mut self, kind: Option<BlockQuoteKind>, r: &Range<usize>) {
+        self.block_start(r.start);
+        self.stack.push(Frame::Quote(kind));
+        if let Some(kind) = kind {
+            let title = match kind {
+                BlockQuoteKind::Note => "Note",
+                BlockQuoteKind::Tip => "Tip",
+                BlockQuoteKind::Important => "Important",
+                BlockQuoteKind::Warning => "Warning",
+                BlockQuoteKind::Caution => "Caution",
+            };
+            let look = Look {
+                ink: Ink::Alert(kind),
+                mods: Modifier::BOLD,
+            };
+            let at = self.line_and_byte_col(r.start);
+            self.push(title, vec![(look, 0..title.len())], at, Kind::Text);
+        }
+    }
+
+    fn start_code_block(&mut self, kind: CodeBlockKind, r: &Range<usize>) {
+        self.block_start(r.start);
+        let info_first_word = match kind {
+            CodeBlockKind::Fenced(info) => info
+                .split(|c: char| c == ',' || c.is_whitespace())
+                .next()
+                .unwrap_or("")
+                .into(),
+            CodeBlockKind::Indented => String::new(),
+        };
+        let span = self.line_and_byte_col(r.start).0
+            ..self.line_and_byte_col(r.end.saturating_sub(1)).0 + 1;
+        self.block = Some(Block {
+            info_first_word,
+            lines: Vec::new(),
+            last_line_unended: false,
+            span,
+        });
+    }
+
+    fn start_item(&mut self, start: usize) {
+        self.flush_implicit();
+        let loose = matches!(self.stack.last(), Some(Frame::List { loose: true, .. }));
+        self.gap_before_next_block &= loose;
+        self.block_start(start);
+        let depth = self
+            .stack
+            .iter()
+            .filter(|f| matches!(f, Frame::List { .. }))
+            .count();
+        let marker = match self.stack.last_mut() {
+            Some(Frame::List {
+                next_number: Some(n),
+                ..
+            }) => {
+                *n += 1;
+                format!("{}. ", *n - 1)
+            }
+            _ => match depth {
+                1 => "\u{2022} ",
+                2 => "\u{25e6} ",
+                _ => "\u{25aa} ",
+            }
+            .into(),
+        };
+        self.stack.push(Frame::Item {
+            marker_width: wrap::width(&marker),
+            first_row_marker: Some((marker, Ink::Bullet.plain())),
+        });
+    }
+
     fn end(&mut self, tag: TagEnd, r: Range<usize>) {
         match tag {
             TagEnd::Paragraph => {
@@ -588,7 +595,7 @@ impl Lay<'_> {
                     let at = self.rows.last().map_or((0, 0), |r| r.src);
                     let text = rule.repeat(self.avail());
                     let n = text.len();
-                    self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
+                    self.push(&text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
                     self.shows_nothing();
                 }
                 self.gap_before_next_block = false;
@@ -610,7 +617,7 @@ impl Lay<'_> {
                 }) = self.stack.last()
                 {
                     let at = self.line_and_byte_col(r.start);
-                    self.push(String::new(), Vec::new(), at, Kind::Text);
+                    self.push("", Vec::new(), at, Kind::Text);
                 }
                 self.stack.pop();
                 self.gap_before_next_block = true;
@@ -632,7 +639,7 @@ impl Lay<'_> {
             }
             TagEnd::Table => {
                 if let Some(t) = self.table.take() {
-                    self.table(t);
+                    self.table(&t);
                 }
                 self.gap_before_next_block = true;
             }
@@ -694,7 +701,10 @@ impl Lay<'_> {
         Look { ink, mods }
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a source range pulldown-cmark reports, on char boundaries"
+    )]
     fn text(&mut self, s: &str, look: Look, r: Range<usize>) {
         let raw = &self.src[r.clone()];
         let inline = self.inline.get_or_insert_with(|| {
@@ -712,7 +722,10 @@ impl Lay<'_> {
         (l, i - self.line_starts[l])
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "line_starts sit after newlines and end before one"
+    )]
     fn line(&self, l: usize) -> &str {
         let end = self
             .line_starts
@@ -760,8 +773,7 @@ impl Lay<'_> {
         (s, looks)
     }
 
-    #[expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-    fn avail(&mut self) -> usize {
+    fn avail(&self) -> usize {
         let w = self
             .stack
             .iter()
@@ -774,17 +786,16 @@ impl Lay<'_> {
         self.width.saturating_sub(w).max(1)
     }
 
-    #[expect(clippy::needless_pass_by_value, reason = "#858")]
     fn push(
         &mut self,
-        text: String,
+        text: &str,
         looks: Vec<(Look, Range<usize>)>,
         src: (usize, usize),
         kind: Kind,
     ) {
         let (mut full, mut all) = self.prefix(kind != Kind::Gap);
         let at = full.len();
-        full.push_str(&text);
+        full.push_str(text);
         all.extend(
             looks
                 .into_iter()
@@ -829,10 +840,10 @@ impl Lay<'_> {
             let above = self.after();
             match l.checked_sub(1) {
                 Some(b) if b > above.0 && self.line(b).trim().is_empty() => {
-                    self.push(String::new(), Vec::new(), (b, 0), Kind::Gap);
+                    self.push("", Vec::new(), (b, 0), Kind::Gap);
                 }
                 _ => {
-                    self.push(String::new(), Vec::new(), (l, 0), Kind::Gap);
+                    self.push("", Vec::new(), (l, 0), Kind::Gap);
                     self.shows_nothing();
                 }
             }
@@ -851,7 +862,7 @@ impl Lay<'_> {
         }
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "r is a row of wrap_line over seg")]
     fn flush(&mut self) -> bool {
         self.inline_is_tight_item_text = false;
         let Some(inline) = self.inline.take() else {
@@ -875,7 +886,7 @@ impl Lay<'_> {
                         inline.src_byte_of_text_byte(r.end.saturating_sub(1).max(r.start)),
                     )
                     .0;
-                self.push(text, looks, at, Kind::Text);
+                self.push(&text, looks, at, Kind::Text);
                 if let Some(row) = self.rows.last_mut() {
                     row.lines.end = row.lines.end.max(last + 1);
                 }
@@ -885,7 +896,7 @@ impl Lay<'_> {
         true
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "r is a row of wrap_line over line")]
     fn lines(&mut self, raw: &str, look: Look, (l, c): (usize, usize)) {
         let line = raw.replace('\t', crate::buffer::TAB);
         let mut tabs = Tabs::new(raw);
@@ -894,17 +905,17 @@ impl Lay<'_> {
             let text = line[r.clone()].to_string();
             let n = text.len();
             let at = (l, c.saturating_add(tabs.raw(r.start)));
-            self.push(text, vec![(look, 0..n)], at, Kind::Text);
+            self.push(&text, vec![(look, 0..n)], at, Kind::Text);
         }
     }
 
     fn rule(&mut self, at: (usize, usize)) {
         let text = "\u{2500}".repeat(self.avail());
         let n = text.len();
-        self.push(text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
+        self.push(&text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "r is a row of wrap_line over line")]
     fn code_block(&mut self, mut b: Block) {
         if b.lines.is_empty() {
             b.lines.push(BlockLine {
@@ -928,7 +939,7 @@ impl Lay<'_> {
                     from: 0,
                     at: 0,
                 };
-                self.push(String::new(), Vec::new(), at, kind);
+                self.push("", Vec::new(), at, kind);
             }
             self.span_fences(first, &b.span);
             self.code.push(Code {
@@ -958,7 +969,7 @@ impl Lay<'_> {
                 let col = tabs
                     .raw(r.start)
                     .saturating_sub(block_line.tab_spaces_parser_added);
-                self.push(text, vec![(Ink::Code.plain(), 0..n)], (l, c + col), kind);
+                self.push(&text, vec![(Ink::Code.plain(), 0..n)], (l, c + col), kind);
             }
             drawn.push(line);
         }
@@ -1003,7 +1014,7 @@ impl Lay<'_> {
                 from: 0,
                 at: 0,
             };
-            self.push(" ".repeat(lead), Vec::new(), at, kind);
+            self.push(&" ".repeat(lead), Vec::new(), at, kind);
         }
         self.code.push(Code {
             lang: String::new(),
@@ -1099,9 +1110,7 @@ impl Lay<'_> {
         }
     }
 
-    #[expect(clippy::excessive_nesting, reason = "#858")]
-    #[expect(clippy::needless_pass_by_value, reason = "#858")]
-    fn table(&mut self, t: Table) {
+    fn table(&mut self, t: &Table) {
         let n = t
             .rows
             .iter()
@@ -1136,7 +1145,7 @@ impl Lay<'_> {
         let first = t.rows.first().map_or(0, |row| row.src_line);
         let top = border("\u{250c}", "\u{252c}", "\u{2510}");
         let len = top.len();
-        self.push(top, vec![(line, 0..len)], (first, 0), Kind::Text);
+        self.push(&top, vec![(line, 0..len)], (first, 0), Kind::Text);
         self.shows_nothing();
         let empty = Inline::default();
         for (i, TableRow { src_line: l, cells }) in t.rows.iter().enumerate() {
@@ -1158,9 +1167,7 @@ impl Lay<'_> {
                     let r = wrapped[j].get(k).cloned().unwrap_or(0..0);
                     let (piece, mut piece_looks) = cut(&c.text, &c.looks, r);
                     if i == 0 {
-                        for (look, _) in &mut piece_looks {
-                            look.mods |= Modifier::BOLD;
-                        }
+                        embolden(&mut piece_looks);
                     }
                     let pad = widths[j].saturating_sub(wrap::width(&piece));
                     let before = match t.aligns.get(j) {
@@ -1181,12 +1188,12 @@ impl Lay<'_> {
                 let at = text.len();
                 text.push_str(" \u{2502}");
                 looks.push((line, at + 1..text.len()));
-                self.push(text, looks, (*l, 0), Kind::Text);
+                self.push(&text, looks, (*l, 0), Kind::Text);
             }
             if i == 0 {
                 let mid = border("\u{251c}", "\u{253c}", "\u{2524}");
                 let len = mid.len();
-                self.push(mid, vec![(line, 0..len)], (l + 1, 0), Kind::Text);
+                self.push(&mid, vec![(line, 0..len)], (l + 1, 0), Kind::Text);
                 if !t.delimiter_row {
                     self.shows_nothing();
                 }
@@ -1195,11 +1202,16 @@ impl Lay<'_> {
         let bottom = border("\u{2514}", "\u{2534}", "\u{2518}");
         let len = bottom.len();
         let last = t.rows.last().map_or(0, |row| row.src_line);
-        self.push(bottom, vec![(line, 0..len)], (last, usize::MAX), Kind::Text);
+        self.push(
+            &bottom,
+            vec![(line, 0..len)],
+            (last, usize::MAX),
+            Kind::Text,
+        );
     }
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(clippy::string_slice, reason = "r is a row of wrap_line over seg")]
 fn wrap_cell(text: &str, width: usize) -> Vec<Range<usize>> {
     let mut from = 0;
     let mut out = Vec::new();
@@ -1278,7 +1290,7 @@ impl Tabs {
     }
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(clippy::string_slice, reason = "r is a row of wrap_line over text")]
 fn cut(
     text: &str,
     looks: &[(Look, Range<usize>)],
@@ -1310,7 +1322,6 @@ pub struct Palette {
 }
 
 impl Palette {
-    #[expect(clippy::unreadable_literal, reason = "#858")]
     pub fn new(theme: &Theme) -> Self {
         let h = Highlighter::new(&theme.syntect);
         let scoped = |scopes: &str, or: Color| {
@@ -1325,9 +1336,21 @@ impl Palette {
             crate::theme::style(style).fg.unwrap_or(or)
         };
         let alerts = if theme.light {
-            [0x0969da, 0x1a7f37, 0x8250df, 0x9a6700, 0xd1242f]
+            [
+                0x0009_69da,
+                0x001a_7f37,
+                0x0082_50df,
+                0x009a_6700,
+                0x00d1_242f,
+            ]
         } else {
-            [0x4493f8, 0x3fb950, 0xab7df8, 0xd29922, 0xf85149]
+            [
+                0x0044_93f8,
+                0x003f_b950,
+                0x00ab_7df8,
+                0x00d2_9922,
+                0x00f8_5149,
+            ]
         }
         .map(Color::from_u32);
         Self {
@@ -1366,6 +1389,12 @@ impl Palette {
         } else {
             style
         }
+    }
+}
+
+fn embolden(looks: &mut [(Look, Range<usize>)]) {
+    for (look, _) in looks {
+        look.mods |= Modifier::BOLD;
     }
 }
 

@@ -1,10 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::ref_option, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
@@ -29,6 +22,38 @@ use super::tagged;
 const FOLDED: &str = " \u{22ef} ";
 
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+    let gutter_w = prepare_view(app, theme, area);
+    let app: &App = app;
+    let p = Painter::new(app, theme, base, gutter_w);
+    let mut out = Rows {
+        lines: pinned_lines(app, theme, base, gutter_w),
+        height: area.height as usize,
+        input_at: None,
+    };
+    let pinned = out.lines.len();
+    let mut l = app.top_line;
+    let mut skip = app.top_row;
+    while out.lines.len() < out.height && l <= app.buf.lines.len() {
+        if app.hidden(l) {
+            l += 1;
+            continue;
+        }
+        for (i, raw) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
+            p.ghost(&mut out, &mut skip, l, i, raw);
+        }
+        if l == app.buf.lines.len() {
+            break;
+        }
+        p.file_line(&mut out, skip, l);
+        skip = 0;
+        l += 1;
+    }
+    let input_at = out.input_at;
+    frame.render_widget(Paragraph::new(out.lines).style(base), area);
+    place_cursor(frame, app, area, (gutter_w, pinned), input_at);
+}
+
+fn prepare_view(app: &mut App, theme: &Theme, area: Rect) -> usize {
     app.notes_sync();
     let gutter_w = digits(app.buf.lines.len()) + 1;
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
@@ -42,48 +67,156 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     {
         b.highlight_to(from + app.diff.ghosts.get(k).map_or(0, Vec::len), theme);
     }
+    gutter_w
+}
 
-    let gutter_style = base.fg(theme.gutter_fg);
-    let find_style = |fg: Option<Color>, bg, groups: &[&str]| {
-        fg.map_or(Style::new(), |fg| Style::new().fg(fg))
-            .bg(bg)
-            .add_modifier(theme.modifiers(groups))
-    };
-    let find_styles = (
-        find_style(theme.find_fg, theme.find_bg, &["Search"]),
-        find_style(
-            theme.current_find_fg,
-            theme.current_find_bg,
-            &["CurSearch", "IncSearch", "Search"],
-        ),
-    );
-    let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
-    let hl = base.bg(theme.line_hl);
-    let hl_gutter = base
-        .fg(theme.cursor_gutter_fg)
-        .bg(theme.line_hl)
-        .add_modifier(theme.modifiers(&["CursorLineNr"]));
-    let sel = theme
-        .selected(base)
-        .add_modifier(theme.modifiers(&["Visual"]));
-    let ellipsis = |bg: Style| Span::styled("\u{2026}", bg.fg(theme.gutter_fg));
-    let sel_lines = app.selection().map(|(start, end)| (start.0, end.0));
-    let text_hl = app.selected_bytes(app.at()).is_none_or(|r| !r.is_empty());
+fn place_cursor(
+    frame: &mut Frame,
+    app: &App,
+    area: Rect,
+    (gutter_w, pinned): (usize, usize),
+    input_at: Option<(usize, usize)>,
+) {
+    let screen_row =
+        rows_between(app, (app.top_line, app.top_row), app.cursor_at()).map(|y| y + pinned);
+    if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
+        && matches!(app.mode, Mode::Normal | Mode::Edit)
+    {
+        let x = match app.notes.focus {
+            Some(_) => area.x + u16::try_from(gutter_w).unwrap_or(u16::MAX) - 1,
+            None => {
+                area.x
+                    + u16::try_from(gutter_w + app.cursor_x().saturating_sub(app.left))
+                        .unwrap_or(u16::MAX)
+            }
+        };
+        frame.set_cursor_position((
+            x.min(area.right().saturating_sub(1)),
+            area.y + u16::try_from(y).unwrap_or(u16::MAX),
+        ));
+    }
+    if app.mode == Mode::Note
+        && let Some((y, x)) = input_at
+    {
+        let x = area.x + u16::try_from(gutter_w + 1 + x).unwrap_or(u16::MAX);
+        frame.set_cursor_position((
+            x.min(area.right().saturating_sub(1)),
+            area.y + u16::try_from(y).unwrap_or(u16::MAX),
+        ));
+    }
+}
 
-    let nowrap = app.nowrap();
-    let review = app.review.is_some();
-    let ghost = base.bg(theme.del_bg);
-    let word = |bg| {
+struct Rows<'a> {
+    lines: Vec<Line<'a>>,
+    height: usize,
+    input_at: Option<(usize, usize)>,
+}
+
+impl<'a> Rows<'a> {
+    fn full(&self) -> bool {
+        self.lines.len() == self.height
+    }
+
+    fn push_slot(&mut self, at: Option<(usize, usize)>, j: usize, nl: Line<'a>) {
+        if self.lines.len() < self.height {
+            if let Some((_, c)) = at.filter(|&(r, _)| r == j) {
+                self.input_at = Some((self.lines.len(), c));
+            }
+            self.lines.push(nl);
+        }
+    }
+}
+
+struct Painter<'a> {
+    app: &'a App,
+    theme: &'a Theme,
+    base: Style,
+    gutter_w: usize,
+    gutter_style: Style,
+    find_styles: (Style, Style),
+    tag: Style,
+    hl: Style,
+    hl_gutter: Style,
+    sel: Style,
+    sel_lines: Option<(TextLine, TextLine)>,
+    text_hl: bool,
+    nowrap: bool,
+    review: bool,
+    partner: HashMap<(usize, usize), usize>,
+    span: Option<(TextLine, TextLine)>,
+}
+
+impl<'a> Painter<'a> {
+    fn new(app: &'a App, theme: &'a Theme, base: Style, gutter_w: usize) -> Self {
+        let find_style = |fg: Option<Color>, bg, groups: &[&str]| {
+            fg.map_or(Style::new(), |fg| Style::new().fg(fg))
+                .bg(bg)
+                .add_modifier(theme.modifiers(groups))
+        };
+        Self {
+            app,
+            theme,
+            base,
+            gutter_w,
+            gutter_style: base.fg(theme.gutter_fg),
+            find_styles: (
+                find_style(theme.find_fg, theme.find_bg, &["Search"]),
+                find_style(
+                    theme.current_find_fg,
+                    theme.current_find_bg,
+                    &["CurSearch", "IncSearch", "Search"],
+                ),
+            ),
+            tag: Style::new().bg(theme.tag_bg).fg(theme.tag_fg),
+            hl: base.bg(theme.line_hl),
+            hl_gutter: base
+                .fg(theme.cursor_gutter_fg)
+                .bg(theme.line_hl)
+                .add_modifier(theme.modifiers(&["CursorLineNr"])),
+            sel: theme
+                .selected(base)
+                .add_modifier(theme.modifiers(&["Visual"])),
+            sel_lines: app.selection().map(|(start, end)| (start.0, end.0)),
+            text_hl: app.selected_bytes(app.at()).is_none_or(|r| !r.is_empty()),
+            nowrap: app.nowrap(),
+            review: app.review.is_some(),
+            partner: app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect(),
+            span: app.note_span(),
+        }
+    }
+
+    fn ellipsis(&self, bg: Style) -> Span<'static> {
+        Span::styled("\u{2026}", bg.fg(self.theme.gutter_fg))
+    }
+
+    fn word(&self, bg: Color) -> Style {
         Style::new()
             .bg(bg)
-            .fg(theme.word_fg)
+            .fg(self.theme.word_fg)
             .remove_modifier(Modifier::BOLD | Modifier::ITALIC | Modifier::UNDERLINED)
-    };
-    let partner: HashMap<(usize, usize), usize> =
-        app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect();
-    let ghost_wrap = |raw: &str| -> Vec<(Range<usize>, usize)> {
+    }
+
+    fn in_span(&self, t: TextLine) -> bool {
+        self.span.is_some_and(|(a, b)| a <= t && t <= b)
+    }
+
+    fn selected_pad(&self, line: TextLine) -> bool {
+        self.sel_lines
+            .is_some_and(|(first, last)| first <= line && line < last)
+    }
+
+    fn plain_syntax<'s>(&self, syntax: &'s Spans) -> &'s Spans {
+        if self.theme.selection_fg.is_some() {
+            &[]
+        } else {
+            syntax
+        }
+    }
+
+    fn ghost_wrap(&self, raw: &str) -> Vec<(Range<usize>, usize)> {
+        let app = self.app;
         let text = shown_str(raw);
-        if nowrap {
+        if self.nowrap {
             let (r, lead) = wrap::cut(text, app.left, app.left + app.view_w);
             return vec![(r, lead)];
         }
@@ -93,17 +226,17 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .enumerate()
             .map(|(i, r)| (r, if i == 0 { 0 } else { indent }))
             .collect()
-    };
-    let accent = base.fg(theme.accent);
-    let input_bg = Style::new().bg(theme.status_bg).fg(theme.status_fg);
-    let slot_lines = |s: &crate::app::Slot| -> (Vec<Line<'static>>, Option<(usize, usize)>) {
+    }
+
+    fn slot_styles(&self, s: &crate::app::Slot) -> (bool, bool, Style, Style) {
+        let (app, theme, base) = (self.app, self.theme, self.base);
         let input = matches!(s, crate::app::Slot::Input);
         let (_, _, stale) = app.slot_text(s);
-        let (rows, at) = app.slot_layout(s);
         let focused = matches!(s, crate::app::Slot::Note(i) if Some(app.notes.here[*i].idx) == app.notes.focus)
             && app.mode == Mode::Normal;
         let picked = focused && app.notes.selected;
         let hl_bg = base.bg(theme.line_hl);
+        let input_bg = Style::new().bg(theme.status_bg).fg(theme.status_fg);
         let (bg, style) = match (input, stale) {
             (true, _) => (input_bg, input_bg),
             (false, _) if picked => (
@@ -119,8 +252,19 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
                 },
             ),
             (false, true) => (base, base.fg(theme.ghost_fg)),
-            (false, false) => (base, accent),
+            (false, false) => (base, base.fg(theme.accent)),
         };
+        (input, focused, bg, style)
+    }
+
+    #[expect(
+        clippy::string_slice,
+        reason = "slot_layout cuts the rows at wrap_shown's clusters and the prompt's char boundaries"
+    )]
+    fn slot_lines(&self, s: &crate::app::Slot) -> (Vec<Line<'static>>, Option<(usize, usize)>) {
+        let (app, theme, base) = (self.app, self.theme, self.base);
+        let (input, focused, bg, style) = self.slot_styles(s);
+        let (rows, at) = app.slot_layout(s);
         let label_style = bg.fg(theme.gutter_fg);
         let mark_style = bg.fg(theme.accent);
         let lines = rows
@@ -128,7 +272,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             .enumerate()
             .map(|(i, (r, lab, mark))| {
                 let mut row = vec![
-                    Span::styled(" ".repeat(gutter_w - 1), gutter_style),
+                    Span::styled(" ".repeat(self.gutter_w - 1), self.gutter_style),
                     Span::styled(if i == 0 { "\u{270e}" } else { " " }, mark_style),
                     Span::styled(" ", bg),
                 ];
@@ -159,142 +303,132 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             })
             .collect();
         (lines, at)
-    };
-    let mut input_at: Option<(usize, usize)> = None;
-    let span = app.note_span();
-    let in_span = |t: TextLine| span.is_some_and(|(a, b)| a <= t && t <= b);
-    let mut lines = pinned_lines(app, theme, base, gutter_w);
-    let pinned = lines.len();
-    let mut l = app.top_line;
-    let mut skip = app.top_row;
-    while lines.len() < area.height as usize && l <= app.buf.lines.len() {
-        if app.hidden(l) {
-            l += 1;
-            continue;
+    }
+
+    fn ghost_spans(
+        &self,
+        l: usize,
+        i: usize,
+        raw: &str,
+        here: Option<usize>,
+    ) -> (Painted, Painted) {
+        let app = self.app;
+        let text = shown_str(raw);
+        let at = app.diff.ghost_from.get(&l).map(|from| from + i);
+        let syntax = match (&app.base, at) {
+            (Some((_, b)), Some(at)) if b.lines.get(at).map(String::as_str) == Some(raw) => {
+                b.hl.get(at).map_or(&[][..], Vec::as_slice)
+            }
+            _ => &[],
+        };
+        let words = self
+            .partner
+            .get(&(l, i))
+            .and_then(|&n| app.buf.lines.get(n))
+            .map(|line| intraline::changes(text, shown_str(line)).0)
+            .unwrap_or_default();
+        let finds = app
+            .find_re
+            .as_ref()
+            .map_or_else(Vec::new, |re| matches(re, text));
+        let spans = paint_finds(
+            &with_find(syntax, &words, self.word(self.theme.del_word_bg)),
+            &finds,
+            here,
+            self.find_styles,
+        );
+        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        (spans, plain)
+    }
+
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of wrap_line, on cluster boundaries"
+    )]
+    fn ghost(&self, out: &mut Rows<'a>, skip: &mut usize, l: usize, i: usize, raw: &'a str) {
+        let (app, theme, base) = (self.app, self.theme, self.base);
+        let line = TextLine::Deleted(l, i);
+        let cursor_line = app.at() == line && app.notes.focus.is_none() && app.mode != Mode::Note;
+        let bg = if (cursor_line && self.text_hl) || self.in_span(line) {
+            base.bg(theme.del_bg_hl)
+        } else {
+            base.bg(theme.del_bg)
+        };
+        let g = if cursor_line {
+            self.hl_gutter
+        } else {
+            self.gutter_style
+        };
+        let text = shown_str(raw);
+        let (spans, plain) = self.ghost_spans(l, i, raw, cursor_line.then_some(app.col));
+        let selected = app
+            .selected_bytes(line)
+            .map(|r| r.start..r.end.min(text.len()));
+        let pad_style = if self.selected_pad(line) {
+            self.sel
+        } else {
+            bg
+        };
+        let rows = self.ghost_wrap(raw);
+        let last = rows.len() - 1;
+        for (i, (r, lead)) in rows.into_iter().enumerate() {
+            let ell = Buffer::clips(raw)
+                && i == last
+                && (!self.nowrap || ellipsis_in_view(app, text, false, false));
+            if *skip > 0 {
+                *skip -= 1;
+                continue;
+            }
+            if out.full() {
+                break;
+            }
+            let pad = app
+                .view_w
+                .saturating_sub(lead + wrap::width(&text[r.clone()]) + usize::from(ell));
+            let mut row = vec![
+                Span::styled(" ".repeat(self.gutter_w - 1), g),
+                Span::styled("\u{258e}", g.fg(Color::Red)),
+                Span::styled(" ".repeat(lead), bg),
+            ];
+            row.extend(selected_row(
+                text,
+                (&spans, &plain),
+                &r,
+                selected.as_ref(),
+                (bg, self.sel),
+                self.tag,
+            ));
+            if ell {
+                row.push(self.ellipsis(pad_style));
+            }
+            row.push(Span::styled(" ".repeat(pad), pad_style));
+            out.lines.push(Line::from(row));
         }
-        for (i, raw) in app.diff.ghosts.get(&l).into_iter().flatten().enumerate() {
-            let line = TextLine::Deleted(l, i);
-            let cursor_line =
-                app.at() == line && app.notes.focus.is_none() && app.mode != Mode::Note;
-            let bg = if (cursor_line && text_hl) || in_span(line) {
-                base.bg(theme.del_bg_hl)
-            } else {
-                ghost
-            };
-            let g = if cursor_line { hl_gutter } else { gutter_style };
-            let text = shown_str(raw);
-            let at = app.diff.ghost_from.get(&l).map(|from| from + i);
-            let syntax = match (&app.base, at) {
-                (Some((_, b)), Some(at)) if b.lines.get(at) == Some(raw) => {
-                    b.hl.get(at).map_or(&[][..], Vec::as_slice)
-                }
-                _ => &[],
-            };
-            let words = partner
-                .get(&(l, i))
-                .and_then(|&n| app.buf.lines.get(n))
-                .map(|line| intraline::changes(text, shown_str(line)).0)
-                .unwrap_or_default();
-            let finds = app
-                .find_re
-                .as_ref()
-                .map_or_else(Vec::new, |re| matches(re, text));
-            let here = cursor_line.then_some(app.col);
-            let spans = paint_finds(
-                &with_find(syntax, &words, word(theme.del_word_bg)),
-                &finds,
-                here,
-                find_styles,
-            );
-            let plain = paint_finds(
-                if theme.selection_fg.is_some() {
-                    &[]
-                } else {
-                    syntax
-                },
-                &finds,
-                here,
-                find_styles,
-            );
-            let selected = app
-                .selected_bytes(line)
-                .map(|r| r.start..r.end.min(text.len()));
-            let pad_style = if sel_lines.is_some_and(|(first, last)| first <= line && line < last) {
-                sel
-            } else {
-                bg
-            };
-            let rows = ghost_wrap(raw);
-            let last = rows.len() - 1;
-            for (i, (r, lead)) in rows.into_iter().enumerate() {
-                let ell = Buffer::clips(raw)
-                    && i == last
-                    && (!nowrap || ellipsis_in_view(app, text, false, false));
-                if skip > 0 {
-                    skip -= 1;
+        for slot in app.slots_after(line) {
+            let (nls, at) = self.slot_lines(&slot);
+            for (j, nl) in nls.into_iter().enumerate() {
+                if *skip > 0 {
+                    *skip -= 1;
                     continue;
                 }
-                if lines.len() == area.height as usize {
-                    break;
-                }
-                let pad = app
-                    .view_w
-                    .saturating_sub(lead + wrap::width(&text[r.clone()]) + usize::from(ell));
-                let mut row = vec![
-                    Span::styled(" ".repeat(gutter_w - 1), g),
-                    Span::styled("\u{258e}", g.fg(Color::Red)),
-                    Span::styled(" ".repeat(lead), bg),
-                ];
-                row.extend(selected_row(
-                    text,
-                    (&spans, &plain),
-                    &r,
-                    &selected,
-                    (bg, sel),
-                    tag,
-                ));
-                if ell {
-                    row.push(ellipsis(pad_style));
-                }
-                row.push(Span::styled(" ".repeat(pad), pad_style));
-                lines.push(Line::from(row));
-            }
-            {
-                for slot in app.slots_after(line) {
-                    let (nls, at) = slot_lines(&slot);
-                    for (j, nl) in nls.into_iter().enumerate() {
-                        if skip > 0 {
-                            skip -= 1;
-                            continue;
-                        }
-                        if lines.len() < area.height as usize {
-                            if at.is_some_and(|(r, _)| r == j) {
-                                input_at = Some((lines.len(), at.unwrap().1));
-                            }
-                            lines.push(nl);
-                        }
-                    }
-                }
+                out.push_slot(at, j, nl);
             }
         }
-        if l == app.buf.lines.len() {
-            break;
-        }
-        let clipped = app.buf.shown(l);
-        let cut = Buffer::clips(&app.buf.lines[l]);
-        let cursor_line =
-            app.at() == TextLine::File(l) && app.notes.focus.is_none() && app.mode != Mode::Note;
-        let lit = cursor_line && text_hl;
-        let tint = match (review, app.diff.marks.get(&l)) {
-            (true, Some(Mark::Added)) => Some((theme.add_bg, theme.add_bg_hl)),
-            (true, Some(Mark::Deleted)) => Some((theme.del_bg, theme.del_bg_hl)),
-            _ => None,
-        };
+    }
+
+    fn file_spans(
+        &self,
+        l: usize,
+        clipped: &str,
+        lit: bool,
+        here: Option<usize>,
+    ) -> (Painted, Painted) {
+        let (app, theme) = (self.app, self.theme);
         let words = app
             .diff
             .pairs
             .get(&l)
-            .filter(|_| review)
+            .filter(|_| self.review)
             .and_then(|&(k, i)| app.diff.ghosts.get(&k)?.get(i))
             .map(|old| intraline::changes(shown_str(old), clipped).1)
             .unwrap_or_default();
@@ -308,45 +442,54 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
         } else {
             theme.add_word_bg
         };
-        let here = cursor_line.then_some(app.col);
         let spans = paint_finds(
-            &with_find(syntax, &words, word(word_bg)),
+            &with_find(syntax, &words, self.word(word_bg)),
             &finds,
             here,
-            find_styles,
+            self.find_styles,
         );
-        let plain = paint_finds(
-            if theme.selection_fg.is_some() {
-                &[]
-            } else {
-                syntax
-            },
-            &finds,
-            here,
-            find_styles,
-        );
-        let g = if cursor_line { hl_gutter } else { gutter_style };
-        let lit = lit || in_span(TextLine::File(l));
+        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        (spans, plain)
+    }
+
+    fn file_line_parts(&self, l: usize) -> (FileLine<'a>, Vec<Range<usize>>) {
+        let (app, theme, base) = (self.app, self.theme, self.base);
+        let clipped = app.buf.shown(l);
+        let cursor_line =
+            app.at() == TextLine::File(l) && app.notes.focus.is_none() && app.mode != Mode::Note;
+        let lit = cursor_line && self.text_hl;
+        let tint = match (self.review, app.diff.marks.get(&l)) {
+            (true, Some(Mark::Added)) => Some((theme.add_bg, theme.add_bg_hl)),
+            (true, Some(Mark::Deleted)) => Some((theme.del_bg, theme.del_bg_hl)),
+            _ => None,
+        };
+        let (spans, plain) = self.file_spans(l, clipped, lit, cursor_line.then_some(app.col));
+        let g = if cursor_line {
+            self.hl_gutter
+        } else {
+            self.gutter_style
+        };
+        let lit = lit || self.in_span(TextLine::File(l));
         let t = match (tint, lit) {
             (Some((_, row)), true) | (Some((row, _)), false) => base.bg(row),
-            (None, true) => hl,
+            (None, true) => self.hl,
             (None, false) => base,
         };
         let selected = app
             .selected_bytes(TextLine::File(l))
             .map(|r| r.start..r.end.min(clipped.len()));
-        let pad_selected = sel_lines
-            .is_some_and(|(first, last)| first <= TextLine::File(l) && TextLine::File(l) < last);
-        let indent = wrap::indent(clipped, app.view_w);
+        let pad_selected = self.selected_pad(TextLine::File(l));
         let UnwrappedRow {
             left_mark: before,
             bytes: shown,
             lead: cut_lead,
             right_mark: after,
         } = cut_unwrapped(app, &app.buf.lines[l]);
-        let (before, after) = (nowrap && before, nowrap && after);
-        let rows = if nowrap { vec![shown] } else { app.rows(l) };
-        let last = rows.len() - 1;
+        let rows = if self.nowrap {
+            vec![shown]
+        } else {
+            app.rows(l)
+        };
         let folded = app.collapsed_tail(l).map(|tail| {
             let gap = if clipped.ends_with(['{', '(', '[']) {
                 ""
@@ -355,120 +498,146 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
             };
             (gap, tail)
         });
+        let line = FileLine {
+            l,
+            clipped,
+            cut: Buffer::clips(&app.buf.lines[l]),
+            cursor_line,
+            padded: cursor_line || lit || pad_selected || tint.is_some(),
+            spans,
+            plain,
+            g,
+            t,
+            selected,
+            pad_style: if pad_selected { self.sel } else { t },
+            edges: (self.nowrap && before, self.nowrap && after),
+            leads: (cut_lead, wrap::indent(clipped, app.view_w)),
+            last: rows.len() - 1,
+            folded,
+        };
+        (line, rows)
+    }
+
+    fn file_line(&self, out: &mut Rows<'a>, skip: usize, l: usize) {
+        let (line, rows) = self.file_line_parts(l);
         for (i, r) in rows.into_iter().enumerate() {
-            let ell =
-                cut && i == last && (!nowrap || ellipsis_in_view(app, clipped, before, after));
             if i < skip {
                 continue;
             }
-            if lines.len() == area.height as usize {
+            if out.full() {
                 break;
             }
-            let num = if i == 0 {
-                format!("{:>w$}", l + 1, w = gutter_w - 1)
-            } else {
-                " ".repeat(gutter_w - 1)
-            };
-            let mark = match app.diff.marks.get(&l) {
-                Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
-                Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
-                Some(Mark::Deleted) => Span::styled("\u{258e}", g.fg(Color::Red)),
-                Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
-                None => Span::styled(" ", g),
-            };
-            let mut row = vec![Span::styled(num, g), mark];
-            if before {
-                row.push(Span::styled("\u{2039}", g));
-            }
-            let lead = match (nowrap, i) {
-                (true, _) => cut_lead,
-                (false, 0) => 0,
-                _ => indent,
-            };
-            if lead > 0 {
-                row.push(Span::styled(" ".repeat(lead), t));
-            }
-            let fold = folded.as_ref().filter(|_| i == last);
-            let pad = app.view_w.saturating_sub(
-                lead + wrap::width(&clipped[r.clone()])
-                    + usize::from(before)
-                    + usize::from(after)
-                    + usize::from(ell)
-                    + fold.map_or(0, |(gap, tail)| {
-                        gap.len() + wrap::width(FOLDED) + wrap::width(tail)
-                    }),
-            );
-            row.extend(selected_row(
-                clipped,
-                (&spans, &plain),
-                &r,
-                &selected,
-                (t, sel),
-                tag,
-            ));
-            let pad_style = if pad_selected { sel } else { t };
-            if ell {
-                row.push(ellipsis(pad_style));
-            }
-            if let Some((gap, tail)) = fold {
-                let chip = if cursor_line {
-                    theme.selected(t.fg(theme.fg))
-                } else {
-                    t.bg(theme.line_hl).fg(theme.fg)
-                };
-                row.push(Span::styled(*gap, t));
-                row.push(Span::styled(FOLDED, chip));
-                row.push(Span::styled(*tail, t));
-            }
-            if cursor_line || lit || pad_selected || after || tint.is_some() {
-                row.push(Span::styled(" ".repeat(pad), pad_style));
-            }
-            if after {
-                row.push(Span::styled("\u{203a}", g));
-            }
-            lines.push(Line::from(row));
+            out.lines.push(self.file_row(&line, i, &r));
         }
-        {
-            let mut k = last + 1;
-            for slot in app.slots_after(TextLine::File(l)) {
-                let (nls, at) = slot_lines(&slot);
-                for (j, nl) in nls.into_iter().enumerate() {
-                    if k < skip {
-                        k += 1;
-                        continue;
-                    }
+        let mut k = line.last + 1;
+        for slot in self.app.slots_after(TextLine::File(l)) {
+            let (nls, at) = self.slot_lines(&slot);
+            for (j, nl) in nls.into_iter().enumerate() {
+                if k < skip {
                     k += 1;
-                    if lines.len() < area.height as usize {
-                        if at.is_some_and(|(r, _)| r == j) {
-                            input_at = Some((lines.len(), at.unwrap().1));
-                        }
-                        lines.push(nl);
-                    }
+                    continue;
                 }
+                k += 1;
+                out.push_slot(at, j, nl);
             }
         }
-        skip = 0;
-        l += 1;
     }
-    frame.render_widget(Paragraph::new(lines).style(base), area);
 
-    let screen_row =
-        rows_between(app, (app.top_line, app.top_row), app.cursor_at()).map(|y| y + pinned);
-    if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
-        && matches!(app.mode, Mode::Normal | Mode::Edit)
-    {
-        let x = match app.notes.focus {
-            Some(_) => area.x + gutter_w as u16 - 1,
-            None => area.x + (gutter_w + app.cursor_x().saturating_sub(app.left)) as u16,
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of wrap_line over clipped, on cluster boundaries"
+    )]
+    fn file_row(&self, f: &FileLine<'a>, i: usize, r: &Range<usize>) -> Line<'a> {
+        let (app, theme) = (self.app, self.theme);
+        let (before, after) = f.edges;
+        let (g, t) = (f.g, f.t);
+        let ell = f.cut
+            && i == f.last
+            && (!self.nowrap || ellipsis_in_view(app, f.clipped, before, after));
+        let num = if i == 0 {
+            format!("{:>w$}", f.l + 1, w = self.gutter_w - 1)
+        } else {
+            " ".repeat(self.gutter_w - 1)
         };
-        frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
+        let mark = match app.diff.marks.get(&f.l) {
+            Some(Mark::Added) => Span::styled("\u{258e}", g.fg(Color::Green)),
+            Some(Mark::Changed) => Span::styled("\u{258e}", g.fg(Color::Blue)),
+            Some(Mark::Deleted) => Span::styled("\u{258e}", g.fg(Color::Red)),
+            Some(Mark::DeletedBelow) => Span::styled("\u{2581}", g.fg(Color::Red)),
+            None => Span::styled(" ", g),
+        };
+        let mut row = vec![Span::styled(num, g), mark];
+        if before {
+            row.push(Span::styled("\u{2039}", g));
+        }
+        let lead = match (self.nowrap, i) {
+            (true, _) => f.leads.0,
+            (false, 0) => 0,
+            _ => f.leads.1,
+        };
+        if lead > 0 {
+            row.push(Span::styled(" ".repeat(lead), t));
+        }
+        let fold = f.folded.as_ref().filter(|_| i == f.last);
+        let pad = app.view_w.saturating_sub(
+            lead + wrap::width(&f.clipped[r.clone()])
+                + usize::from(before)
+                + usize::from(after)
+                + usize::from(ell)
+                + fold.map_or(0, |(gap, tail)| {
+                    gap.len() + wrap::width(FOLDED) + wrap::width(tail)
+                }),
+        );
+        row.extend(selected_row(
+            f.clipped,
+            (&f.spans, &f.plain),
+            r,
+            f.selected.as_ref(),
+            (t, self.sel),
+            self.tag,
+        ));
+        let pad_style = f.pad_style;
+        if ell {
+            row.push(self.ellipsis(pad_style));
+        }
+        if let Some((gap, tail)) = fold {
+            let chip = if f.cursor_line {
+                theme.selected(t.fg(theme.fg))
+            } else {
+                t.bg(theme.line_hl).fg(theme.fg)
+            };
+            row.push(Span::styled(*gap, t));
+            row.push(Span::styled(FOLDED, chip));
+            row.push(Span::styled(*tail, t));
+        }
+        if f.padded || after {
+            row.push(Span::styled(" ".repeat(pad), pad_style));
+        }
+        if after {
+            row.push(Span::styled("\u{203a}", g));
+        }
+        Line::from(row)
     }
-    if app.mode == Mode::Note
-        && let Some((y, x)) = input_at
-    {
-        let x = area.x + (gutter_w + 1 + x) as u16;
-        frame.set_cursor_position((x.min(area.right().saturating_sub(1)), area.y + y as u16));
-    }
+}
+
+type Painted = Vec<(Style, Range<usize>)>;
+
+struct FileLine<'a> {
+    l: usize,
+    clipped: &'a str,
+    cut: bool,
+    cursor_line: bool,
+    padded: bool,
+    spans: Painted,
+    plain: Painted,
+    g: Style,
+    t: Style,
+    selected: Option<Range<usize>>,
+    pad_style: Style,
+    edges: (bool, bool),
+    leads: (usize, usize),
+    last: usize,
+    folded: Option<(&'static str, &'a str)>,
 }
 
 pub(super) fn draw_binary(
@@ -583,12 +752,16 @@ fn tinted(
 fn draw_note(frame: &mut Frame, area: Rect, base: Style, lines: Vec<Line>) {
     let [_, rows] = Layout::vertical([
         Constraint::Length(area.height.saturating_sub(1) * 2 / 5),
-        Constraint::Length(lines.len() as u16),
+        Constraint::Length(u16::try_from(lines.len()).unwrap_or(u16::MAX)),
     ])
     .areas(area);
     frame.render_widget(Paragraph::new(lines).style(base).centered(), rows);
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "r is a row of wrap_line, on cluster boundaries"
+)]
 fn pinned_lines<'a>(app: &'a App, theme: &Theme, base: Style, gutter_w: usize) -> Vec<Line<'a>> {
     let band = base.bg(theme.line_hl);
     let tag = Style::new().bg(theme.tag_bg).fg(theme.tag_fg);
@@ -677,7 +850,7 @@ fn selected_row<'a>(
     text: &'a str,
     (spans, plain): (&Spans, &Spans),
     r: &Range<usize>,
-    selected: &Option<Range<usize>>,
+    selected: Option<&Range<usize>>,
     (bg, sel): (Style, Style),
     tag: Style,
 ) -> Vec<Span<'a>> {
@@ -698,6 +871,10 @@ fn selected_row<'a>(
     out
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "r is a row of wrap_line and the spans come from the highlighter's tokens, all on char boundaries"
+)]
 fn row_spans<'a>(
     text: &'a str,
     hl: &[(Style, Range<usize>)],

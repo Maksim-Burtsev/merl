@@ -1,6 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -55,7 +52,7 @@ pub fn erlang_clause_pattern(w: &str) -> String {
 
 pub(super) fn erlang_head(line: &str) -> bool {
     static HEAD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^[a-z]\w*\s*\(").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^[a-z]\w*\s*\(").expect("the regex is a literal"));
     HEAD.is_match(line)
 }
 
@@ -63,10 +60,10 @@ pub(super) fn erlang_clause<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
     let Some(first) = lines.get(line.wrapping_sub(1)).map(AsRef::as_ref) else {
         return false;
     };
-    let Some(open) = first.find('(') else {
+    let Some(from_paren) = first.find('(').and_then(|open| first.get(open..)) else {
         return false;
     };
-    let mut text = first[open..].to_owned();
+    let mut text = from_paren.to_owned();
     for l in lines.iter().skip(line).take(30) {
         text.push('\n');
         text.push_str(l.as_ref());
@@ -79,7 +76,9 @@ pub(super) fn erlang_clause<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
             b')' | b']' | b'}' => {
                 depth = depth.saturating_sub(1);
                 if depth == 0 {
-                    let rest = skip_blank(&text[i + 1..]);
+                    let Some(rest) = text.get(i + 1..).map(skip_blank) else {
+                        return false;
+                    };
                     return rest.starts_with("->")
                         || rest.strip_prefix("when").is_some_and(|r| {
                             r.starts_with(|c: char| c.is_whitespace() || c == '(')
@@ -87,7 +86,12 @@ pub(super) fn erlang_clause<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
                 }
             }
             b'$' => i += if b.get(i + 1) == Some(&b'\\') { 2 } else { 1 },
-            b'%' => i += text[i..].find('\n').unwrap_or(text.len() - i),
+            b'%' => {
+                i += b[i..]
+                    .iter()
+                    .position(|&c| c == b'\n')
+                    .unwrap_or(b.len() - i);
+            }
             q @ (b'"' | b'\'') => i += quoted(&b[i..], q),
             b'.' if b.get(i + 1).is_none_or(u8::is_ascii_whitespace) => return false,
             _ => {}
@@ -137,7 +141,7 @@ fn erlang_literal_lines(text: &str) -> Vec<bool> {
         let mut i = 0;
         while i < b.len() {
             if let Some(close) = inside {
-                match line[i..].starts_with(close) {
+                match b[i..].starts_with(close.as_bytes()) {
                     true if close == "\"\"\"" => {
                         inside = None;
                         i += 3;
@@ -154,7 +158,9 @@ fn erlang_literal_lines(text: &str) -> Vec<bool> {
                 b'%' => break,
                 b'$' => i += if b.get(i + 1) == Some(&b'\\') { 2 } else { 1 },
                 b'\'' => i += quoted(&b[i..], b'\''),
-                b'"' if line[i..].starts_with("\"\"\"") && line[i + 3..].trim().is_empty() => {
+                b'"' if b[i..].starts_with(b"\"\"\"")
+                    && line.get(i + 3..).is_some_and(|r| r.trim().is_empty()) =>
+                {
                     inside = Some("\"\"\"");
                     i += 2;
                 }
@@ -169,7 +175,8 @@ fn erlang_literal_lines(text: &str) -> Vec<bool> {
 
 pub fn erlang_imported(text: &str, word: &str) -> Option<String> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^-\s*import\s*\(\s*([a-z]\w*)\s*,\s*\[([^\]]*)\]").unwrap()
+        Regex::new(r"(?m)^-\s*import\s*\(\s*([a-z]\w*)\s*,\s*\[([^\]]*)\]")
+            .expect("the regex is a literal")
     });
     let listed = Regex::new(&format!(r"(?:^|[\s,]){}\s*/", regex::escape(word))).ok()?;
     IMPORT
@@ -179,8 +186,9 @@ pub fn erlang_imported(text: &str, word: &str) -> Option<String> {
 }
 
 pub fn erlang_include(line: &str, col: usize) -> Option<(bool, String)> {
-    static INCLUDE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#"^-\s*include(_lib)?\s*\(\s*"([^"]+)""#).unwrap());
+    static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^-\s*include(_lib)?\s*\(\s*"([^"]+)""#).expect("the regex is a literal")
+    });
     let c = INCLUDE.captures(line)?;
     let path = c.get(2)?;
     (path.start() <= col && col <= path.end())
@@ -217,7 +225,7 @@ pub fn erlang_include_files(
             .cloned()
             .collect();
     }
-    let dir = here.parent().unwrap_or(Path::new(""));
+    let dir = here.parent().unwrap_or_else(|| Path::new(""));
     if let Some(beside) = lexical(&dir.join(spelled)).filter(|f| files.contains(f)) {
         return vec![beside];
     }
@@ -249,7 +257,7 @@ pub fn erlang_record_field<S: AsRef<str>>(
     let open = first.find('{').unwrap_or(first.len());
     for (i, l) in lines.iter().enumerate().skip(record - 1) {
         let l = l.as_ref();
-        let l = if i + 1 == record { &l[open..] } else { l };
+        let l = if i + 1 == record { l.get(open..)? } else { l };
         let code = l.split('%').next().unwrap_or("");
         if re.is_match(code) {
             return Some(i + 1);

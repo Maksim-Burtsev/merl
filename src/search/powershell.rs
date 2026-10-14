@@ -1,6 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -48,7 +45,8 @@ const SHAPES: usize = Shape::EnvironmentVariable as usize + 1;
 
 pub fn powershell_sigil(patterns: &mut Vec<String>, before: &str, after: &str) {
     static SIGIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|using):)$").unwrap()
+        Regex::new(r"(?i)(?:[$@]|\$(?:global|script|local|private|using):)$")
+            .expect("the regex is a literal")
     });
     use Shape::{
         Alias, AssignmentOrProperty, ClassOrEnum, EnumMember, EnvironmentVariable,
@@ -84,15 +82,15 @@ pub fn powershell_sigil(patterns: &mut Vec<String>, before: &str, after: &str) {
 
 pub fn powershell_declares_here(line: &str, word: &str) -> bool {
     let part = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
-    let Some(at) = line
-        .match_indices(word)
-        .map(|(i, _)| i)
-        .find(|&i| !line[..i].ends_with(part) && !line[i + word.len()..].starts_with(part))
-    else {
+    let Some((before, after)) = line.match_indices(word).find_map(|(i, _)| {
+        let (before, rest) = line.split_at_checked(i)?;
+        let after = rest.strip_prefix(word)?;
+        (!before.ends_with(part) && !after.starts_with(part)).then_some((before, after))
+    }) else {
         return false;
     };
     let mut patterns = powershell_patterns(word);
-    powershell_sigil(&mut patterns, &line[..at], &line[at + word.len()..]);
+    powershell_sigil(&mut patterns, before, after);
     Regex::new(&patterns.join("|")).is_ok_and(|re| re.is_match(line))
 }
 
@@ -104,7 +102,7 @@ pub fn powershell_argument(before: &str) -> bool {
 
 pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) -> bool {
     static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)^\s*(?:(?:function|filter)\s|(?:\[[^\]]*\]\s*)*(?:class|enum)\s|(?:Set|New)-Alias\s)").unwrap()
+        Regex::new(r"(?i)^\s*(?:(?:function|filter)\s|(?:\[[^\]]*\]\s*)*(?:class|enum)\s|(?:Set|New)-Alias\s)").expect("the regex is a literal")
     });
     if KEYWORD.is_match(line_text) {
         return true;
@@ -119,15 +117,17 @@ pub fn powershell_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: 
 }
 
 static VARIABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*\$").unwrap()
+    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*\$")
+        .expect("the regex is a literal")
 });
 static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*[A-Za-z_][\w-]*\s*\(").unwrap()
+    Regex::new(r"(?i)^\s*(?:(?:hidden|static)\s+)*(?:\[[^\]]*\]\s*)*[A-Za-z_][\w-]*\s*\(")
+        .expect("the regex is a literal")
 });
 
 fn opens(l: &str, keyword: &str) -> bool {
     static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)^\s*(?:\[[^\]]*\]\s*)*(class|enum)\s").unwrap()
+        Regex::new(r"(?i)^\s*(?:\[[^\]]*\]\s*)*(class|enum)\s").expect("the regex is a literal")
     });
     OPENER
         .captures(l)
@@ -180,15 +180,23 @@ fn in_param_block<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
             Some(m) => m.end() - 1,
             None => 0,
         };
-        depth += brackets(&l[from..]);
+        let Some(rest) = l.get(from..) else {
+            return false;
+        };
+        depth += brackets(rest);
     }
     depth > 0
 }
 
 static PARAM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"(?i)\bparam\s*\(|^\s*(?:function|filter)\s+[\w:-]+\s*\(").unwrap()
+    Regex::new(r"(?i)\bparam\s*\(|^\s*(?:function|filter)\s+[\w:-]+\s*\(")
+        .expect("the regex is a literal")
 });
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 fn brackets(s: &str) -> i32 {
     let (mut depth, mut quote) = (0, None);
     for c in s.bytes() {
@@ -225,13 +233,16 @@ pub fn powershell_params(lines: &[&str], cursor_line0: usize, name: &str) -> Vec
         let mut open = 0;
         for (n, b) in lines.iter().enumerate().skip(i).take(80) {
             let from = if n == i { from } else { 0 };
-            if var.is_match(&b[from..]) {
+            let Some(b) = b.get(from..) else {
+                break;
+            };
+            if var.is_match(b) {
                 return vec![Binding {
                     line1: n + 1,
                     value: Value::Unknown,
                 }];
             }
-            open += brackets(&b[from..]);
+            open += brackets(b);
             if open <= 0 {
                 break;
             }
@@ -240,15 +251,16 @@ pub fn powershell_params(lines: &[&str], cursor_line0: usize, name: &str) -> Vec
     Vec::new()
 }
 
-static HEADER: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"(?i)^\s*(?:function|filter)\s").unwrap());
+static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?i)^\s*(?:function|filter)\s").expect("the regex is a literal")
+});
 
 pub fn powershell_import(line: &str, byte_col: usize) -> Option<String> {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r#"(?i)^\s*(?:\.|Import-Module|using\s+module)\s+(?:-Name\s+)?(["']?)([^"'\s;|]+\.ps[dm]?1)["']?"#,
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let c = IMPORT.captures(line)?;
     let path = c.get(2)?;
@@ -259,7 +271,8 @@ pub fn powershell_import(line: &str, byte_col: usize) -> Option<String> {
     let p = ["$PSScriptRoot/", "${PSScriptRoot}/"]
         .iter()
         .find_map(|r| {
-            (p.len() >= r.len() && p[..r.len()].eq_ignore_ascii_case(r)).then(|| &p[r.len()..])
+            let (head, rest) = p.split_at_checked(r.len())?;
+            head.eq_ignore_ascii_case(r).then_some(rest)
         })
         .unwrap_or(&p);
     Some(p.trim_start_matches("./").to_owned())

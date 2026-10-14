@@ -1,8 +1,6 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, bound, search};
 
 impl App {
@@ -441,10 +439,10 @@ impl App {
                 return found;
             }
             let outside = self.external_files(kind);
-            let dir = here.parent().unwrap_or(Path::new(""));
+            let dir = here.parent().unwrap_or_else(|| Path::new(""));
             return search::lisp_files(kind, dir, &module.join("/"), &outside);
         };
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let found = search::cmake_files(&command, &arg, dir, &self.files);
         if !found.is_empty() || command == "add_subdirectory" || arg.contains('/') {
             return found;
@@ -473,13 +471,16 @@ impl App {
 }
 
 static OWNER_ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const\s+)?enum\s").unwrap()
+    Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const\s+)?enum\s")
+        .expect("the regex is a literal")
 });
 static OWNER_VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s").unwrap()
+    Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:const|let|var)\s")
+        .expect("the regex is a literal")
 });
 static OWNER_LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^\s*(?:export\s+)?const\s+[\w$]+\s*(?::[^=]+)?=\s*\{\s*$").unwrap()
+    Regex::new(r"^\s*(?:export\s+)?const\s+[\w$]+\s*(?::[^=]+)?=\s*\{\s*$")
+        .expect("the regex is a literal")
 });
 
 pub(super) const JS_GLOBALS: &[&str] = &[

@@ -1,4 +1,3 @@
-#![expect(clippy::redundant_clone, reason = "#858")]
 use super::*;
 
 fn d_at(a: &mut App, dir: &Path, file: &str, line: usize, at: &str) {
@@ -30,7 +29,7 @@ fn d_offers_the_plain_values_folder_before_a_translation_of_any_module() {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
     let rows: Vec<String> = (picker.window(50).0.into_iter())
-        .map(|r| r.item.label.clone())
+        .map(|r| r.item.label)
         .collect();
     assert_eq!(rows.len(), 2, "{rows:?}");
     assert!(

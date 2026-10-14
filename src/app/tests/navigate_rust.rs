@@ -1,8 +1,4 @@
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::redundant_clone, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "test tables")]
 use super::*;
 
 #[test]
@@ -120,7 +116,7 @@ fn attributes_name_macros_and_fields_reach_outside() {
             Shown::Jump(status, place) => {
                 Shown::Jump(status, place.replace(&format!("{}/", std.display()), ""))
             }
-            other => other,
+            other @ Shown::Picker(..) => other,
         };
         assert_eq!(got, want, "{code}");
     }
@@ -849,7 +845,7 @@ fn a_path_follows_the_modules_and_uses_of_its_crate() {
         &mut a,
         Kind::Rust,
         &[
-            library.clone(),
+            library,
             std.join("registry/tally-1.0.0"),
             std.join("registry/rope-knots-1.0.0"),
         ],
@@ -892,7 +888,7 @@ fn a_path_follows_the_modules_and_uses_of_its_crate() {
         let (path, line) = at(&a);
         let path = path
             .strip_prefix(&dir)
-            .or(path.strip_prefix(&std))
+            .or_else(|_| path.strip_prefix(&std))
             .unwrap_or(&path)
             .to_owned();
         assert_eq!(

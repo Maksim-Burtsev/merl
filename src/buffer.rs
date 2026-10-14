@@ -218,7 +218,7 @@ impl Buffer {
     pub(crate) fn block(token: &str, mut lines: Vec<String>) -> Self {
         let bytes: usize = lines.iter().map(String::len).sum();
         let fits = lines.len() <= MAX_HL_LINES && bytes <= MAX_HL_BYTES;
-        let syntax = fits.then(|| syntax_for_info(token)).flatten();
+        let syntax = fits.then(|| syntax_for_info(token, true)).flatten();
         if lines.is_empty() {
             lines.push(String::new());
         }
@@ -366,7 +366,7 @@ const BLOCK_NAMES: &[(&str, &str)] = &[
     ("objc", "Objective-C"),
 ];
 
-pub(crate) fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
+pub(crate) fn syntax_for_info(word: &str, block_names: bool) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
     let mut word = word;
     for _ in 0..2 {
@@ -384,6 +384,7 @@ pub(crate) fn syntax_for_info(word: &str) -> Option<&'static SyntaxReference> {
     }
     let found = BLOCK_NAMES
         .iter()
+        .filter(|_| block_names)
         .find(|(name, _)| name.eq_ignore_ascii_case(key))
         .map(|(_, grammar)| *grammar)
         .or_else(|| known_file(file))

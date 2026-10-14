@@ -1,6 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 use TextLine::{Deleted, File};
 
@@ -141,7 +138,7 @@ fn d_on_a_deleted_call_lands_on_the_deleted_definition() {
         a.line_str(),
         "    def get_order_with_items(self, order_id):"
     );
-    assert_eq!(&a.line_str()[a.col..a.col + 3], "get");
+    assert_eq!(a.line_str().get(a.col..a.col + 3).unwrap(), "get");
     assert_eq!(
         a.message,
         "get_order_with_items \u{2192} OrderRepository.get_order_with_items (via self.repo: \
@@ -348,7 +345,10 @@ fn a_deleted_row_carries_a_red_mark() {
         .find_map(|y| {
             let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
             let at = text.find(label)?;
-            Some((text[..at].chars().count() as u16, y))
+            Some((
+                u16::try_from(text.get(..at).unwrap().chars().count()).unwrap(),
+                y,
+            ))
         })
         .expect("the deleted row");
     assert_eq!(
@@ -919,7 +919,10 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
             .find_map(|y| {
                 let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
                 let at = text.find(label)?;
-                Some((text[..at].chars().count() as u16, y))
+                Some((
+                    u16::try_from(text.get(..at).unwrap().chars().count()).unwrap(),
+                    y,
+                ))
             })
             .unwrap_or_else(|| panic!("no row {label}"))
     };
@@ -933,7 +936,7 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
     assert_eq!(buf[(xb - 1, yb)].symbol(), " ");
     let def = |x: u16, y: u16| {
         let row: String = (x..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
-        buf[(x + row.find("def").unwrap() as u16, y)].fg
+        buf[(x + u16::try_from(row.find("def").unwrap()).unwrap(), y)].fg
     };
     assert_eq!(
         def(xa, ya),
@@ -1062,7 +1065,13 @@ fn a_base_picker_row_of_a_renamed_file_names_the_file_it_has_now() {
     let p = a.picker.as_mut().expect("a picker");
     p.settle();
     let paths: Vec<String> = (p.window(9).0.iter())
-        .map(|r| r.item.label[r.item.path_at.clone().unwrap()].to_string())
+        .map(|r| {
+            r.item
+                .label
+                .get(r.item.path_at.clone().unwrap())
+                .unwrap()
+                .to_owned()
+        })
         .collect();
     assert_eq!(paths, ["a.py", "lib/beta.py"]);
     drop(std::fs::remove_dir_all(dir));
@@ -1180,7 +1189,13 @@ fn a_deleted_row_of_a_renamed_file_is_named_from_its_old_text() {
     let p = a.picker.as_mut().expect("a picker");
     p.settle();
     let labels: Vec<String> = (p.window(9).0.iter())
-        .map(|r| r.item.label[..r.item.code_at.unwrap()].to_string())
+        .map(|r| {
+            r.item
+                .label
+                .get(..r.item.code_at.unwrap())
+                .unwrap()
+                .to_owned()
+        })
         .collect();
     assert_eq!(
         labels,

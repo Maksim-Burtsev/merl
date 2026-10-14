@@ -1,5 +1,5 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
+use std::fmt::Write as _;
+
 use super::{
     App, HashMap, Instant, KeyCode, KeyEvent, Mode, PathBuf, Pick, PickItem, Picker, PickerKind,
     SEARCH_PAUSE, error_text, search,
@@ -50,7 +50,7 @@ impl App {
 
     fn history_rows(&self, listed: &[&PathBuf]) -> (Vec<u32>, bool) {
         let row: HashMap<PathBuf, u32> = (listed.iter().enumerate())
-            .map(|(i, p)| (self.root.join(p), i as u32))
+            .map(|(i, p)| (self.root.join(p), u32::try_from(i).unwrap_or(u32::MAX)))
             .collect();
         let current = self.buf.path.as_ref().and_then(|p| row.get(p)).copied();
         let rest = (self.recent.iter())
@@ -78,11 +78,10 @@ impl App {
         let Some(file) = &self.recent_file else {
             return;
         };
-        let text: String = self
-            .recent
-            .iter()
-            .map(|p| format!("{}\n", p.display()))
-            .collect();
+        let mut text = String::new();
+        for p in &self.recent {
+            _ = writeln!(text, "{}", p.display());
+        }
         let tmp = file.with_file_name(format!(".recent-{}", std::process::id()));
         let written = (file.parent().map_or(Ok(()), std::fs::create_dir_all))
             .and_then(|()| std::fs::write(&tmp, text))
@@ -146,7 +145,7 @@ impl App {
                 self.search_enter = true;
                 self.search_due = self.search_due.map(|_| Instant::now());
             } else if let Some(item) = picker.current().cloned() {
-                self.search_jump(item);
+                self.search_jump(&item);
             }
             return;
         }

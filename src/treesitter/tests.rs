@@ -273,6 +273,21 @@ fn c_sharp_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn cmake_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("cmake");
+}
+
+#[test]
+fn proto_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("proto");
+}
+
+#[test]
+fn dockerfile_and_the_shell_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("dockerfile");
+}
+
+#[test]
 fn kotlin_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("kotlin");
 }
@@ -393,6 +408,23 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
             "{f}"
         );
     }
+    for f in [
+        "Dockerfile",
+        "dockerfile",
+        "Containerfile",
+        "Dockerfile.prod",
+        "Containerfile.dev",
+        "api.Dockerfile",
+        "api.dockerfile",
+    ] {
+        assert!(sexp(f, b"FROM a\n").contains("(from_instruction "), "{f}");
+    }
+    for f in ["CMakeLists.txt", "a.cmake"] {
+        assert!(sexp(f, b"set(A 1)\n").contains("(normal_command "), "{f}");
+    }
+    assert_eq!(sexp("CMakeCache.txt", b"A:BOOL=ON\n"), "");
+    assert!(sexp("a.proto", b"message A {}\n").contains("(message "));
+    assert_eq!(sexp("a.protodevel", b"message A {}\n"), "");
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
@@ -424,6 +456,20 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
     }
     assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
+    for (f, src) in [
+        ("bin/rails", &b"#!/usr/bin/env ruby\nx = 1\n"[..]),
+        ("exe/tool", b"#!/usr/bin/env -S ruby -w\nx = 1\n"),
+        ("script", b"#!/usr/local/bin/ruby3.3\nx = 1\n"),
+    ] {
+        assert!(sexp(f, src).contains("(assignment "), "{f}");
+    }
+    for (f, src) in [
+        ("artisan", &b"#!/usr/bin/env php\n<?php echo 1;\n"[..]),
+        ("bin/console", b"#!/usr/bin/env php8.2\n<?php echo 1;\n"),
+    ] {
+        assert!(sexp(f, src).contains("(php_tag"), "{f}");
+    }
+    assert!(sexp("artisan", b"#!/bin/sh\necho hi\n").contains("(command "));
     for f in ["a.ex", "a.exs"] {
         assert!(sexp(f, b"x = 1\n").contains("(source "), "{f}");
     }
@@ -603,6 +649,10 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         ("[]a]+$", "x]a", "x]b"),
         ("^[^]a]$", "b", "]"),
         ("[a-c]x", "bx", "dx"),
+        ("\\c^(break|continue)$", "BREAK", "breaks"),
+        ("^a\\cb$", "AB", "ac"),
+        ("^ab\\C$", "ab", "AB"),
+        ("\\C^a\\c$", "A", "b"),
     ] {
         let re = super::vim_pattern(pattern).unwrap();
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
@@ -696,6 +746,9 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("csharp"), Some("c_sharp"));
     assert_eq!(name("kotlin"), Some("kotlin"));
     assert_eq!(name("kt"), Some("kotlin"));
+    assert_eq!(name("dockerfile"), Some("dockerfile"));
+    assert_eq!(name("cmake"), Some("cmake"));
+    assert_eq!(name("proto"), Some("proto"));
     assert_eq!(name("swift"), Some("swift"));
     assert_eq!(name("ruby"), Some("ruby"));
     assert_eq!(name("rb"), Some("ruby"));
@@ -982,6 +1035,25 @@ fn speed() {
             pct(&keys, true, 50),
             pct(&keys, true, 90),
         );
+    }
+}
+
+#[test]
+fn a_block_neovim_finds_no_parser_for_stays_plain() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let fg_at = |info: &str| {
+        let lines: Vec<String> = [format!("```{info}"), "$ mix phx".into(), "```".into()].into();
+        let mut parsed = super::Parsed::new(super::lang("markdown").unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        parsed.spans(&lines, 0, 2, &mut styles)[1]
+            .iter()
+            .find(|(_, r)| r.contains(&2))
+            .map(|(s, _)| s.fg)
+    };
+    assert_ne!(fg_at("bash"), fg_at("nothing"));
+    for info in ["console", "shell", "objc"] {
+        assert_eq!(fg_at(info), fg_at("nothing"), "{info}");
     }
 }
 

@@ -1,0 +1,6 @@
+syntax = "proto3"
+message Half {
+  string name = ;
+  map<string> bad = 2;
+  rpc Nope(
+enum {

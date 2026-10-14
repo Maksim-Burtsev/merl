@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -231,7 +230,7 @@ impl Repo {
                 RecursiveMode::NonRecursive,
             ),
         ] {
-            drop(watcher.watch(path.unwrap_or(Path::new("")), mode));
+            drop(watcher.watch(path.unwrap_or_else(|| Path::new("")), mode));
         }
     }
 }

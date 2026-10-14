@@ -1,5 +1,3 @@
-#![cfg_attr(test, expect(clippy::cast_possible_truncation, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::cast_sign_loss, reason = "#858"))]
 use super::*;
 
 fn dir(tag: &str) -> PathBuf {
@@ -20,8 +18,14 @@ fn a_picture_smaller_than_the_room_is_never_enlarged() {
     let cell = (10, 20);
     let px = 20.0 * TEXT_IN_CELL / FONT_PX;
     let (cols, rows) = cells((100, 40), None, cell, 200, Some(100));
-    assert_eq!(cols, (100.0 * px / 10.0_f32).round() as u16);
-    assert_eq!(rows, (40.0 * px / 20.0_f32).round() as u16);
+    assert!(
+        (f32::from(cols) - (100.0 * px / 10.0_f32).round()).abs() < 0.5,
+        "{cols}"
+    );
+    assert!(
+        (f32::from(rows) - (40.0 * px / 20.0_f32).round()).abs() < 0.5,
+        "{rows}"
+    );
 }
 
 #[test]
@@ -43,8 +47,14 @@ fn a_width_attribute_sets_the_size_and_a_percent_takes_the_room() {
     let cell = (10, 20);
     let px = 20.0 * TEXT_IN_CELL / FONT_PX;
     let (cols, rows) = cells((400, 200), Some(Width::Px(100.0)), cell, 200, None);
-    assert_eq!(cols, (100.0 * px / 10.0_f32).round() as u16);
-    assert_eq!(rows, (50.0 * px / 20.0_f32).round() as u16);
+    assert!(
+        (f32::from(cols) - (100.0 * px / 10.0_f32).round()).abs() < 0.5,
+        "{cols}"
+    );
+    assert!(
+        (f32::from(rows) - (50.0 * px / 20.0_f32).round()).abs() < 0.5,
+        "{rows}"
+    );
     assert_eq!(
         cells((400, 200), Some(Width::Percent(50.0)), cell, 40, None).0,
         20
@@ -187,7 +197,7 @@ fn a_photo_turns_as_its_exif_says() {
     app1.extend(tiff);
     let mut out = jpeg[..2].to_vec();
     out.extend([0xff, 0xe1]);
-    out.extend(((app1.len() + 2) as u16).to_be_bytes());
+    out.extend(u16::try_from(app1.len() + 2).unwrap().to_be_bytes());
     out.extend(app1);
     out.extend(&jpeg[2..]);
     std::fs::write(&path, out).unwrap();

@@ -1,9 +1,5 @@
-#![expect(clippy::format_push_string, reason = "#858")]
-#![expect(clippy::match_bool, reason = "#858")]
-#![expect(clippy::option_option, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -52,6 +48,10 @@ pub struct NoteEdit {
 }
 
 #[derive(Default)]
+#[expect(
+    clippy::option_option,
+    reason = "`dirs` is None until looked up, then the lookup's own Option"
+)]
 pub struct Notes {
     pub on: bool,
     pub list: Vec<Note>,
@@ -127,7 +127,7 @@ pub fn format(notes: &[Note], head: &str) -> String {
         } else {
             format!("{}-{}", n.first, n.last)
         };
-        s += &format!("\n{}:{range}\n", n.path.display());
+        _ = write!(s, "\n{}:{range}\n", n.path.display());
         for q in &n.quote {
             s += q;
             s += "\n";
@@ -234,7 +234,7 @@ impl App {
                     self.diff.ghosts.get(&key).is_some_and(|g| i < g.len())
                 }
             });
-            let k = seen.map_or(n.last.saturating_sub(1), TextLine::key);
+            let k = seen.map_or_else(|| n.last.saturating_sub(1), TextLine::key);
             let found = if let Some(text) = last_q.strip_prefix("- ") {
                 (self.diff.ghosts.iter())
                     .flat_map(|(&key, g)| {
@@ -254,7 +254,7 @@ impl App {
             let (at, stale) = match found {
                 Some(at) => (at, false),
                 None => (
-                    seen.unwrap_or(TextLine::File(k.min(len.saturating_sub(1)))),
+                    seen.unwrap_or_else(|| TextLine::File(k.min(len.saturating_sub(1)))),
                     true,
                 ),
             };
@@ -357,13 +357,17 @@ impl App {
                     });
                 (
                     self.note_label(first, last),
-                    format!("{} ", &self.prompt[..]),
+                    format!("{} ", &*self.prompt),
                     false,
                 )
             }
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of wrap_shown and p is the prompt's cursor, char boundaries of full"
+    )]
     pub fn slot_layout(&self, s: &Slot) -> (Vec<SlotRow>, Option<(usize, usize)>) {
         let (label, text, _) = self.slot_text(s);
         let head = if label.is_empty() {
@@ -664,6 +668,10 @@ impl App {
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "LineEdit keeps its cursor on a char boundary"
+    )]
     fn note_line(&self) -> (usize, usize, usize) {
         let c = self.prompt.cursor();
         let start = self.prompt[..c].rfind('\n').map_or(0, |i| i + 1);
@@ -691,6 +699,10 @@ impl App {
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "every cut is the prompt's cursor or selection, or next to a newline"
+    )]
     pub(super) fn note_key(&mut self, key: KeyEvent) {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
@@ -698,11 +710,8 @@ impl App {
             KeyCode::Esc => {
                 self.notes.focus = self.note_commit();
                 self.anchor = None;
-                if let Some(at) = (self.notes.focus)
-                    .and_then(|i| self.here_of(i))
-                    .map(|h| h.at)
-                {
-                    self.set_at(at);
+                if let Some(h) = self.notes.focus.and_then(|i| self.here_of(i)) {
+                    self.set_at(h.at);
                 }
                 self.mode = Mode::Normal;
             }
@@ -769,9 +778,10 @@ impl App {
                     return;
                 }
                 let mut t = self.prompt.to_string();
-                let gone = match end < t.len() {
-                    true => start..end + 1,
-                    false => start.saturating_sub(1)..end,
+                let gone = if end < t.len() {
+                    start..end + 1
+                } else {
+                    start.saturating_sub(1)..end
                 };
                 t.replace_range(gone.clone(), "");
                 self.prompt = LineEdit::typed(&t);
@@ -825,11 +835,13 @@ impl App {
         let n = std::fs::read_to_string(&path)
             .map(|t| parse(&t).len())
             .ok()?;
-        let root = self.root.canonicalize().unwrap_or(self.root.clone());
+        let root = self
+            .root
+            .canonicalize()
+            .unwrap_or_else(|_| self.root.clone());
         let shown = (path.strip_prefix(&self.root))
             .or_else(|_| path.strip_prefix(&root))
-            .map(Path::to_path_buf)
-            .unwrap_or(path.clone());
+            .map_or_else(|_| path.clone(), Path::to_path_buf);
         Some(format!(
             "merl: {n} note{} for your agent in {}",
             super::plural(n),

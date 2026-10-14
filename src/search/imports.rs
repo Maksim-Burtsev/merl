@@ -1,11 +1,6 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -35,10 +30,12 @@ pub fn imports(kind: Kind, text: &str) -> Vec<Import> {
     imports_as_written(kind, text)
 }
 pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
-    static FROM: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*from\s+([\w.]+)\s+import\b").unwrap());
-    static IMPORT: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*import\s+([^#;]+)").unwrap());
+    static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*from\s+([\w.]+)\s+import\b").expect("the regex is a literal")
+    });
+    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*import\s+([^#;]+)").expect("the regex is a literal")
+    });
     let starts_and_paths: Vec<(usize, &str)> = if let Some(c) = FROM.captures(line) {
         c.get(1)
             .map(|m| (m.start(), m.as_str()))
@@ -60,10 +57,10 @@ pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
     let (start, path) = starts_and_paths
         .into_iter()
         .find(|&(s, p)| (s..s + p.len()).contains(&at))?;
-    let end = path[at - start..]
+    let end = (path.get(at - start..)?)
         .find(|c: char| !(c.is_alphanumeric() || c == '_'))
         .map_or(path.len(), |i| at - start + i);
-    let spelled = &path[..end];
+    let spelled = path.get(..end)?;
     let relative = spelled.trim_start_matches('.');
     let mut parts: Vec<String> = relative
         .split('.')
@@ -82,7 +79,7 @@ static TS_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(
         r#"(?ms)^\s*(?:import\s+(?:type\s+)?([^'"]*?)\s*from\s*|(?:const|let|var)\s+([^=]+?)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*|import\s+([\w$]+)\s*=\s*require\s*\(\s*)['"]([^'"]+)['"](\s*\)(?:\s*\.\s*[\w$]+)?\s*[(\[.]?)?"#,
     )
-    .unwrap()
+    .expect("the regex is a literal")
 });
 fn ts_continued(text: &str) -> std::borrow::Cow<'_, str> {
     if !text.contains("require") {
@@ -125,10 +122,15 @@ pub fn ts_import_lines1(text: &str, name: &str) -> Vec<usize> {
             let clause = c.get(1).or_else(|| c.get(2)).or_else(|| c.get(3))?;
             let s = clause.as_str();
             let at = s.match_indices(name).map(|(i, _)| i).find(|&i| {
-                !ident(s[..i].chars().next_back()) && !ident(s[i + name.len()..].chars().next())
+                s.split_at_checked(i).is_some_and(|(before, rest)| {
+                    !ident(before.chars().next_back())
+                        && rest
+                            .strip_prefix(name)
+                            .is_some_and(|after| !ident(after.chars().next()))
+                })
             });
             let at = at.filter(|_| binds)?;
-            Some(text[..clause.start() + at].matches('\n').count() + 1)
+            Some(text.get(..clause.start() + at)?.matches('\n').count() + 1)
         })
         .collect()
 }
@@ -159,7 +161,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                 Regex::new(
                     r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
                 )
-                .unwrap()
+                .expect("the regex is a literal")
             });
             for c in IMPORT.captures_iter(text) {
                 if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
@@ -220,10 +222,13 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
         }
         Kind::Go => {
             static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#).unwrap()
+                Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#)
+                    .expect("the regex is a literal")
             });
-            let version =
-                |p: &str| p.starts_with('v') && p[1..].chars().all(|c| c.is_ascii_digit());
+            let version = |p: &str| {
+                p.strip_prefix('v')
+                    .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
+            };
             for c in IMPORT.captures_iter(text) {
                 let path = parts(&c[2], "/");
                 if let Some(alias) = c.get(1) {
@@ -320,7 +325,8 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
         }
         Kind::Php => {
             static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);").unwrap()
+                Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);")
+                    .expect("the regex is a literal")
             });
             for c in USE.captures_iter(text) {
                 for item in c[1].split(',') {
@@ -398,14 +404,16 @@ pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
 }
 pub fn default_name(line: &str) -> Option<String> {
     static DEFAULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$").unwrap()
+        Regex::new(r"^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$")
+            .expect("the regex is a literal")
     });
     let name = DEFAULT.captures(line)?[1].to_owned();
     (!matches!(name.as_str(), "class" | "function" | "async" | "abstract")).then_some(name)
 }
 pub fn default_class(text: &str) -> Option<String> {
     static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^\s*export\s+default\s+new\s+([A-Za-z_$][\w$]*)\s*\(").unwrap()
+        Regex::new(r"(?m)^\s*export\s+default\s+new\s+([A-Za-z_$][\w$]*)\s*\(")
+            .expect("the regex is a literal")
     });
     if let Some(c) = NEW.captures(text) {
         return Some(c[1].to_owned());
@@ -425,13 +433,16 @@ pub enum ModuleExports {
 }
 pub fn module_exports(text: &str) -> Option<ModuleExports> {
     static WHOLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^[ \t]*module\.exports\s*=\s*([^=\n][^\n]*)$").unwrap()
+        Regex::new(r"(?m)^[ \t]*module\.exports\s*=\s*([^=\n][^\n]*)$")
+            .expect("the regex is a literal")
     });
     static PART: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^[ \t]*(?:module\.)?exports\.[\w$]+\s*=[^=]").unwrap()
+        Regex::new(r"(?m)^[ \t]*(?:module\.)?exports\.[\w$]+\s*=[^=]")
+            .expect("the regex is a literal")
     });
-    static NAME: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^([A-Za-z_$][\w$]*)\s*;?\s*$").unwrap());
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_$][\w$]*)\s*;?\s*$").expect("the regex is a literal")
+    });
     let whole: Vec<regex::Captures> = WHOLE.captures_iter(text).collect();
     let part = PART.is_match(text);
     if whole.is_empty() && !part {
@@ -439,7 +450,7 @@ pub fn module_exports(text: &str) -> Option<ModuleExports> {
     }
     Some(match (whole.as_slice(), part) {
         ([one], false) => {
-            let line1 = text[..one.get(0).unwrap().start()].matches('\n').count() + 1;
+            let line1 = text.get(..one.get_match().start())?.matches('\n').count() + 1;
             let name = NAME.captures(one[1].trim()).map(|c| c[1].to_owned());
             ModuleExports::OneAssignment { line1, name }
         }
@@ -462,7 +473,9 @@ pub fn ts_call_statement(
     let Some(m) = method_head.find(line_text) else {
         return false;
     };
-    let rest = line_text[m.end()..].trim_start();
+    let Some(rest) = line_text.get(m.end()..).map(str::trim_start) else {
+        return false;
+    };
     if rest.is_empty() {
         let Some(text) = read_file() else {
             return false;
@@ -486,13 +499,16 @@ pub fn ts_call_statement(
         if item.is_empty() || item.starts_with([')', '{', '[', '@']) || item.starts_with("...") {
             return true;
         }
-        let name = item
+        let named = item
             .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
-            .map_or(item, |n| &item[..n]);
+            .unwrap_or(item.len());
+        let Some((name, after)) = item.split_at_checked(named) else {
+            return false;
+        };
         if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) {
             return false;
         }
-        let after = item[name.len()..].trim_start();
+        let after = after.trim_start();
         if after.starts_with([':', '?'])
             || matches!(
                 name,
@@ -526,7 +542,8 @@ pub fn ts_call_statement(
 }
 pub fn exported_as(text: &str, name: &str) -> Option<String> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^\s*export\s+(?:type\s+)?\{([^}]*)\}\s*(from\b)?").unwrap()
+        Regex::new(r"(?m)^\s*export\s+(?:type\s+)?\{([^}]*)\}\s*(from\b)?")
+            .expect("the regex is a literal")
     });
     EXPORT
         .captures_iter(text)
@@ -556,7 +573,7 @@ pub struct Reexport {
 pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
-            .unwrap()
+            .expect("the regex is a literal")
     });
     EXPORT
         .captures_iter(text)
@@ -601,14 +618,16 @@ pub struct RustUse {
 }
 pub fn rust_uses(text: &str) -> Vec<RustUse> {
     static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);").unwrap()
+        Regex::new(r"(?ms)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]+);")
+            .expect("the regex is a literal")
     });
     let mut out = Vec::new();
     for c in USE.captures_iter(text) {
         let start_byte = c
             .get(0)
             .map_or(0, |m| m.end() - m.as_str().trim_start().len());
-        let in_column_zero = start_byte == 0 || text[..start_byte].ends_with('\n');
+        let in_column_zero =
+            start_byte == 0 || text.get(..start_byte).is_some_and(|t| t.ends_with('\n'));
         let mut bound = Vec::new();
         use_tree(&c[1], &[], &mut bound);
         out.extend(bound.into_iter().map(|Import { name, path }| RustUse {
@@ -674,7 +693,11 @@ pub struct RustModule {
 pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
     let src = here.ancestors().skip(1).find(|d| {
         d.file_name().is_some_and(|n| n == "src")
-            && files.contains(&d.parent().unwrap_or(Path::new("")).join("Cargo.toml"))
+            && files.contains(
+                &d.parent()
+                    .unwrap_or_else(|| Path::new(""))
+                    .join("Cargo.toml"),
+            )
     })?;
     let inside = here.strip_prefix(src).ok()?;
     let mut module: Vec<String> = inside
@@ -715,13 +738,17 @@ fn use_tree(tree: &str, prefix: &[String], out: &mut Vec<Import>) {
                 '{' => depth += 1,
                 '}' => depth -= 1,
                 ',' if depth == 0 => {
-                    use_tree(&rest[start..i], &path, out);
+                    if let Some(part) = rest.get(start..i) {
+                        use_tree(part, &path, out);
+                    }
                     start = i + 1;
                 }
                 _ => {}
             }
         }
-        use_tree(&rest[start..], &path, out);
+        if let Some(part) = rest.get(start..) {
+            use_tree(part, &path, out);
+        }
         return;
     }
     let mut path = prefix.to_vec();
@@ -749,7 +776,7 @@ pub fn module_files(
     here: &Path,
     module: &[String],
 ) -> Vec<PathBuf> {
-    let dir = here.parent().unwrap_or(Path::new(""));
+    let dir = here.parent().unwrap_or_else(|| Path::new(""));
     match kind {
         Kind::Python => {
             let (base, parts) = match module.split_first() {
@@ -785,6 +812,8 @@ pub fn module_files(
                 .collect()
         }
         Kind::TsJs => {
+            const EXTENSIONS: [&str; 9] =
+                ["ts", "tsx", "d.ts", "js", "jsx", "mts", "cts", "mjs", "cjs"];
             let listed: std::collections::HashSet<&Path> =
                 files.iter().map(PathBuf::as_path).collect();
             let spec = module.join("/");
@@ -793,8 +822,6 @@ pub fn module_files(
             } else {
                 ts_aliases(root, dir, &spec)
             };
-            const EXTENSIONS: [&str; 9] =
-                ["ts", "tsx", "d.ts", "js", "jsx", "mts", "cts", "mjs", "cjs"];
             bases
                 .iter()
                 .filter_map(|b| lexical(b))
@@ -906,8 +933,9 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
     }
 }
 pub fn graphql_import(line: &str, col: usize) -> Option<&str> {
-    static IMPORT: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#"^#\s*import\s+(["'])([^"']+)["']"#).unwrap());
+    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^#\s*import\s+(["'])([^"']+)["']"#).expect("the regex is a literal")
+    });
     let c = IMPORT.captures(line)?;
     let path = c.get(2)?;
     (c.get(1)?.start() <= col && col <= path.end()).then_some(path.as_str())
@@ -925,7 +953,7 @@ pub fn css_module_file(
     if !stem.ends_with(".module") || !matches!(ext, "css" | "scss" | "sass" | "less") {
         return None;
     }
-    let dir = here.parent().unwrap_or(Path::new(""));
+    let dir = here.parent().unwrap_or_else(|| Path::new(""));
     let bases = if module.first().is_some_and(|p| p.starts_with('.')) {
         vec![dir.join(&spec)]
     } else {
@@ -965,9 +993,13 @@ struct TsConfig {
     path_targets: Vec<PathBuf>,
     base_url: Option<PathBuf>,
 }
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+)]
 fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
     static COMMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#""(?:[^"\\]|\\.)*"|//[^\n]*|/\*(?s:.*?)\*/"#).unwrap()
+        Regex::new(r#""(?:[^"\\]|\\.)*"|//[^\n]*|/\*(?s:.*?)\*/"#).expect("the regex is a literal")
     });
     let key = |name: &str, value: &str| {
         Regex::new(&format!(r#""{name}"\s*:\s*{value}"#)).expect("a fixed key pattern")
@@ -997,7 +1029,7 @@ fn ts_config(root: &Path, dir: &Path, spec: &str) -> TsConfig {
                 String::new()
             }
         });
-        let at = file.parent().unwrap_or(Path::new("")).to_path_buf();
+        let at = file.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
         if url.is_none() {
             url = base_url.captures(&text).map(|c| at.join(&c[1]));
         }
@@ -1082,8 +1114,12 @@ fn normalized_module_part(s: &str) -> String {
     let s = s.split('.').next().unwrap_or(s);
     let s = s
         .match_indices('-')
-        .find(|(i, _)| s[i + 1..].starts_with(|c: char| c.is_ascii_digit()))
-        .map_or(s, |(i, _)| &s[..i]);
+        .find(|(i, _)| {
+            s.get(i + 1..)
+                .is_some_and(|r| r.starts_with(|c: char| c.is_ascii_digit()))
+        })
+        .and_then(|(i, _)| s.get(..i))
+        .unwrap_or(s);
     s.replace('!', "").replace('-', "_").to_ascii_lowercase()
 }
 pub struct ModuleFiles<P> {

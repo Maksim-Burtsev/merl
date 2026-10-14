@@ -1,9 +1,9 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::default_trait_access, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
+#![expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "the rows and fixture names are text these tests wrote in lower case"
+)]
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -24,7 +24,7 @@ fn at(terminal: &Terminal<TestBackend>, needle: &str) -> Color {
 
 fn cell_at(terminal: &Terminal<TestBackend>, needle: &str) -> (u16, u16) {
     let buf = terminal.backend().buffer();
-    let n = needle.chars().count() as u16;
+    let n = u16::try_from(needle.chars().count()).unwrap();
     (0..buf.area.height)
         .find_map(|y| {
             (0..=buf.area.width.saturating_sub(n))
@@ -36,7 +36,7 @@ fn cell_at(terminal: &Terminal<TestBackend>, needle: &str) -> (u16, u16) {
 
 fn cell(terminal: &Terminal<TestBackend>, needle: &str) -> Cell {
     let buf = terminal.backend().buffer();
-    let n = needle.chars().count() as u16;
+    let n = u16::try_from(needle.chars().count()).unwrap();
     for y in 0..buf.area.height {
         for x in 0..=buf.area.width.saturating_sub(n) {
             let got: String = (0..n).map(|i| buf[(x + i, y)].symbol()).collect();
@@ -157,8 +157,8 @@ fn search_title_hides_the_count_until_the_grep_answers() {
     let mut title = |app: &mut App| {
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let text = rows(&terminal).join("\n");
-        let at = text.find("Search (").expect("the title");
-        text[at..].split_inclusive(')').next().unwrap().to_owned()
+        let (_, rest) = text.split_once("Search (").expect("the title");
+        format!("Search ({}", rest.split_inclusive(')').next().unwrap())
     };
 
     for c in "sqqzz".chars() {
@@ -197,8 +197,8 @@ fn symbol_title_says_the_list_is_cut_until_the_query_answers() {
     let mut title = |app: &mut App| {
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let text = rows(&terminal).join("\n");
-        let at = text.find("Symbols (").expect("the title");
-        text[at..].split_inclusive(')').next().unwrap().to_owned()
+        let (_, rest) = text.split_once("Symbols (").expect("the title");
+        format!("Symbols ({}", rest.split_inclusive(')').next().unwrap())
     };
 
     app.key(KeyEvent::new(KeyCode::Char('D'), KeyModifiers::NONE));
@@ -391,7 +391,7 @@ fn hit_picker_rows_keep_their_colours_past_a_tab() {
     let buf = terminal.backend().buffer();
     let (hash, row) = cell_at(&terminal, "#define");
     let tab_w = 4;
-    let ten = hash + "#define MAX".len() as u16 + tab_w;
+    let ten = hash + u16::try_from("#define MAX".len()).unwrap() + tab_w;
     assert_eq!(buf[(ten, row)].symbol(), "1");
     assert_ne!(buf[(ten, row)].fg, theme.fg);
 }
@@ -467,8 +467,8 @@ fn review_panel_counts_end_at_the_border() {
             generated: false,
             same_bytes: false,
         }],
-        deleted: Default::default(),
-        added: Default::default(),
+        deleted: Arc::default(),
+        added: Arc::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -521,8 +521,8 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             generated: false,
             same_bytes: false,
         }],
-        deleted: Default::default(),
-        added: Default::default(),
+        deleted: Arc::default(),
+        added: Arc::default(),
         note: None,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
@@ -560,8 +560,8 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
                 same_bytes: false,
             })
             .collect(),
-        deleted: Default::default(),
-        added: Default::default(),
+        deleted: Arc::default(),
+        added: Arc::default(),
         note: None,
     });
     app

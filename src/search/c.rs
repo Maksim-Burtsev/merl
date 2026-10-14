@@ -1,20 +1,18 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
 
 use super::{Binding, Value};
 
-static ACCESS_LABELS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").unwrap());
+static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").expect("the regex is a literal")
+});
 
 pub fn c_includes(text: &str) -> Vec<CInclude> {
     static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"(?m)^[ \t]*#[ \t]*(?:include|include_next|import)[ \t]*([<"])([^>"\n]+)[>"]"#)
-            .unwrap()
+            .expect("the regex is a literal")
     });
     (INCLUDE.captures_iter(text))
         .map(|c| CInclude {
@@ -142,7 +140,8 @@ fn c_back_to_stop(code: &str, at: usize) -> (&str, Option<u8>) {
     }
 }
 fn untemplated(s: &str) -> String {
-    static ANGLE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^<>]*>").unwrap());
+    static ANGLE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"<[^<>]*>").expect("the regex is a literal"));
     let mut s = s.to_owned();
     while ANGLE.is_match(&s) {
         s = ANGLE.replace_all(&s, "").into_owned();
@@ -151,13 +150,13 @@ fn untemplated(s: &str) -> String {
 }
 fn c_struct_head(head: &str) -> Option<String> {
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)|\b(?:alignas|__declspec)\s*\([^()]*\)|\[\[[^\]]*\]\]").unwrap()
+        Regex::new(r"__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)|\b(?:alignas|__declspec)\s*\([^()]*\)|\[\[[^\]]*\]\]").expect("the regex is a literal")
     });
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"^(?:template\s*(?:<.*>)?\s*)?(?:(?:typedef|static|extern|const|volatile)\s+)*(?:struct|union|class)\b(?:\s+(?:[A-Z][A-Z0-9_]*\s+)*(?:\w+::)*(\w+))?(?:\s+final)?\s*(?::(?:[^:]|$)[^;{}()=]*)?$",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let head = ACCESS_LABELS.replace(head, "");
     let head = ATTR.replace_all(head.trim(), "");
@@ -181,16 +180,20 @@ fn c_struct_around(code: &str, at: usize) -> Option<String> {
 }
 fn c_field_owner(code: &str, at: usize, word: &str) -> Option<String> {
     static ACCESS: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:public|private|protected|signals|slots)\s*:\s*)+").unwrap()
+        Regex::new(r"^\s*(?:(?:public|private|protected|signals|slots)\s*:\s*)+")
+            .expect("the regex is a literal")
     });
     static REFUSED: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:typedef|using|friend|static_assert|return|case|goto|else|delete|new|throw|sizeof|template|operator)\b|^(?:struct|union|class|enum)(?:\s+(?:struct|class))?\s*$").unwrap()
+        Regex::new(r"^(?:typedef|using|friend|static_assert|return|case|goto|else|delete|new|throw|sizeof|template|operator)\b|^(?:struct|union|class|enum)(?:\s+(?:struct|class))?\s*$").expect("the regex is a literal")
     });
     static AFTER: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:\[[^\]]*\]\s*)*(?:[;,{\[]|=[^=]|:[^:]|[A-Z_][A-Z0-9_]*\s*\()").unwrap()
+        Regex::new(r"^\s*(?:\[[^\]]*\]\s*)*(?:[;,{\[]|=[^=]|:[^:]|[A-Z_][A-Z0-9_]*\s*\()")
+            .expect("the regex is a literal")
     });
-    static FN_POINTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\(\s*\*+$").unwrap());
-    static CALLED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\)\s*\(").unwrap());
+    static FN_POINTER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\(\s*\*+$").expect("the regex is a literal"));
+    static CALLED: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*\)\s*\(").expect("the regex is a literal"));
     let (before, stop) = c_back_to_stop(code, at);
     let after = &code[at + word.len()..];
     let pre = ACCESS.replace(before, "");
@@ -256,7 +259,7 @@ pub fn c_initialized_member(text: &str, line1: usize, byte_col: usize) -> Option
         Regex::new(
             r"^\s*(?:(?:public|private|protected)\s*:\s*)*(?:[\w~]+\s+)*(?:\w+::)*?(?:(?P<class>\w+)::)?(?P<ctor>\w+)\s*\(\)\s*(?:(?:const|noexcept|override)\b\s*(?:\(\))?\s*)*:\s*(?:(?:\w+::)*\w+\s*(?:\(\)|\{\})\s*,\s*)*$",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let code = c_code(text);
     let at = code
@@ -281,6 +284,10 @@ pub fn c_initialized_member(text: &str, line1: usize, byte_col: usize) -> Option
         _ => Some(ctor.to_owned()),
     }
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 fn ctor_head_with_brackets_emptied(code: &str, at: usize) -> Option<String> {
     let b = code.as_bytes();
     let item_of_list = |close: usize| code[close + 1..].trim_start().starts_with(',');
@@ -320,6 +327,10 @@ fn line_starts(code: &str) -> Vec<usize> {
         .chain(code.match_indices('\n').map(|(i, _)| i + 1))
         .collect()
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 fn c_head_start(code: &str, open: usize) -> usize {
     let b = code.as_bytes();
     let item_of_init_list = |close: usize| code[close + 1..].trim_start().starts_with([',', '{']);
@@ -386,13 +397,14 @@ enum Head {
 fn c_head(head: &str) -> Head {
     static NAMESPACE_EXTERN_OR_ENUM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:inline\s+)?namespace\b|^\s*extern\s*$|^\s*(?:typedef\s+)?enum\b[^(]*$")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     static QUALS: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?s)^\s*(?:(?:const|volatile|noexcept|override|final|mutable|throw|&&?|[A-Z_][A-Z0-9_]*)\s*(?:\(\s*\))?\s*)*(?:->.*|:[^:].*)?$").unwrap()
+        Regex::new(r"(?s)^\s*(?:(?:const|volatile|noexcept|override|final|mutable|throw|&&?|[A-Z_][A-Z0-9_]*)\s*(?:\(\s*\))?\s*)*(?:->.*|:[^:].*)?$").expect("the regex is a literal")
     });
-    static NAME: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"((?:\w+\s*::\s*)*~?\w+)\s*$").unwrap());
+    static NAME: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"((?:\w+\s*::\s*)*~?\w+)\s*$").expect("the regex is a literal")
+    });
     if c_struct_head(head).is_some() || NAMESPACE_EXTERN_OR_ENUM.is_match(head) {
         return Head::TypeOrNamespace;
     }
@@ -461,9 +473,11 @@ enum DeclaredIn {
 }
 fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
     static BOUND: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:const\s+)?auto\s*&{0,2}\s*\[([^\]]*)\]\s*[=:{(]").unwrap()
+        Regex::new(r"^\s*(?:const\s+)?auto\s*&{0,2}\s*\[([^\]]*)\]\s*[=:{(]")
+            .expect("the regex is a literal")
     });
-    static TOKEN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[A-Za-z_]\w*").unwrap());
+    static TOKEN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"[A-Za-z_]\w*").expect("the regex is a literal"));
     if let Some(m) = BOUND.captures(stmt).and_then(|c| c.get(1)) {
         return TOKEN
             .find_iter(m.as_str())
@@ -514,10 +528,13 @@ fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
     })
 }
 fn parameter_at(params: &str, name: &str) -> Option<usize> {
-    static POINTER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^[^(]*\(\s*[*&^]+\s*(\w+)\s*(?:\[[^\]]*\]\s*)?\)").unwrap());
+    static POINTER: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^[^(]*\(\s*[*&^]+\s*(\w+)\s*(?:\[[^\]]*\]\s*)?\)")
+            .expect("the regex is a literal")
+    });
     static LAST: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"[\w\s*&:>]*?[\s*&>]([A-Za-z_]\w*)\s*(?:\[[^\]]*\]\s*)*(?:=.*)?$").unwrap()
+        Regex::new(r"[\w\s*&:>]*?[\s*&>]([A-Za-z_]\w*)\s*(?:\[[^\]]*\]\s*)*(?:=.*)?$")
+            .expect("the regex is a literal")
     });
     const BUILTIN: &[&str] = &[
         "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
@@ -543,6 +560,10 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
     }
     None
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<usize> {
     let b = code.as_bytes();
     let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
@@ -582,8 +603,9 @@ fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<us
     out
 }
 fn control_init(code: &str, from: usize, pos: usize, name: &str) -> Option<usize> {
-    static CONTROL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:else\s+)?(?:for|if|while|switch)\s*\(").unwrap());
+    static CONTROL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:else\s+)?(?:for|if|while|switch)\s*\(").expect("the regex is a literal")
+    });
     let mut at = from;
     let mut found = None;
     while let Some(m) = CONTROL.find(&code[at..pos]) {
@@ -820,7 +842,8 @@ fn head_up_past_comments_to_a_blank_line<S: AsRef<str>>(
 }
 fn c_scopes<S: AsRef<str>>(lines: &[S], line1: usize) -> Vec<String> {
     static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:inline\s+)?namespace\s*((?:\w+\s*::\s*)*\w+)?\s*$").unwrap()
+        Regex::new(r"^(?:inline\s+)?namespace\s*((?:\w+\s*::\s*)*\w+)?\s*$")
+            .expect("the regex is a literal")
     });
     let mut chain = Vec::new();
     let mut at = line1;
@@ -840,7 +863,8 @@ fn c_scopes<S: AsRef<str>>(lines: &[S], line1: usize) -> Vec<String> {
 }
 pub fn c_enum_head(head: &str) -> bool {
     static ENUM: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:typedef\s+)?enum\b(?:\s+(?:class|struct)\b)?[^(){}=;]*$").unwrap()
+        Regex::new(r"^(?:typedef\s+)?enum\b(?:\s+(?:class|struct)\b)?[^(){}=;]*$")
+            .expect("the regex is a literal")
     });
     ENUM.is_match(head)
 }
@@ -853,8 +877,9 @@ pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
     lines: impl FnOnce() -> &'a [S],
 ) -> bool {
     static ENUMERATORS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(&c_enumerators(None)).unwrap());
-    static MEMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(&c_member_decl(None)).unwrap());
+        LazyLock::new(|| Regex::new(&c_enumerators(None)).expect("the regex is a literal"));
+    static MEMBER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&c_member_decl(None)).expect("the regex is a literal"));
     if ENUMERATORS.is_match(text) {
         return c_body_head(lines(), line1).is_some_and(|h| c_enum_head(&h));
     }
@@ -873,7 +898,8 @@ pub fn c_member_class(text: &str, line1: usize, word: &str) -> Option<Vec<String
     Some(c_scopes(&lines, line1)).filter(|s| s.last().is_some_and(|c| !c.is_empty()))
 }
 pub fn c_defines_member(text: &str, scopes: &[String], word: &str) -> bool {
-    static TEMPLATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^;()]*>").unwrap());
+    static TEMPLATE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"<[^;()]*>").expect("the regex is a literal"));
     let Ok(re) = Regex::new(&format!(
         r"((?:\w+\s*(?:<[^;()]*>)?\s*::\s*)+)~?{}\s*\(",
         regex::escape(word)
@@ -995,6 +1021,10 @@ const C_TYPE_KEYWORDS: &[&str] = &[
     "typedef",
     "__inline",
 ];
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
     let b = code.as_bytes();
     let (mut depth, mut i) = (0usize, at);
@@ -1182,10 +1212,14 @@ pub fn c_place(code: &str, at: usize) -> CPlace {
 pub fn c_body_name(code: &str, open: usize) -> String {
     c_struct_head(c_back_to_stop(code, open).0).unwrap_or_default()
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "each arm is one kind of byte the scan stops at"
+)]
 pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
     static AUTO: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let b = code.as_bytes();
     let (mut depth, mut i) = (0usize, at);
@@ -1222,14 +1256,31 @@ pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
     .then_some(path)
 }
 fn cpp_class_path(written: &str) -> Option<Vec<String>> {
+    const ARROW: &[&str] = &[
+        "optional",
+        "expected",
+        "auto_ptr",
+        "weak_ptr",
+        "reverse_iterator",
+        "move_iterator",
+        "counted_iterator",
+        "common_iterator",
+        "basic_const_iterator",
+        "istream_iterator",
+        "istreambuf_iterator",
+        "indirect",
+        "polymorphic",
+    ];
     static DROPPED: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\b(?:const|volatile|static|mutable|constexpr|inline|struct|class|typename|extern|thread_local|register|virtual|explicit)\b|\[\[[^\]]*\]\]").unwrap()
+        Regex::new(r"\b(?:const|volatile|static|mutable|constexpr|inline|struct|class|typename|extern|thread_local|register|virtual|explicit)\b|\[\[[^\]]*\]\]").expect("the regex is a literal")
     });
     static STD_NAME: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\bstd(?:\s*::\s*\w+)+").unwrap());
-    static WORD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[A-Za-z_]\w*").unwrap());
+        LazyLock::new(|| Regex::new(r"\bstd(?:\s*::\s*\w+)+").expect("the regex is a literal"));
+    static WORD: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"[A-Za-z_]\w*").expect("the regex is a literal"));
     static SMART: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:::\s*)?(?:std\s*::\s*)?(?:unique_ptr|shared_ptr)\s*<(.*)>$").unwrap()
+        Regex::new(r"^(?:::\s*)?(?:std\s*::\s*)?(?:unique_ptr|shared_ptr)\s*<(.*)>$")
+            .expect("the regex is a literal")
     });
     const BUILTIN: &[&str] = &[
         "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
@@ -1252,21 +1303,6 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
             && !p.starts_with(|c: char| c.is_ascii_digit())
             && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
     };
-    const ARROW: &[&str] = &[
-        "optional",
-        "expected",
-        "auto_ptr",
-        "weak_ptr",
-        "reverse_iterator",
-        "move_iterator",
-        "counted_iterator",
-        "common_iterator",
-        "basic_const_iterator",
-        "istream_iterator",
-        "istreambuf_iterator",
-        "indirect",
-        "polymorphic",
-    ];
     let std_only = || {
         let args = STD_NAME.replace_all(s, "");
         WORD.find_iter(&args).all(|w| BUILTIN.contains(&w.as_str()))
@@ -1312,8 +1348,9 @@ pub fn cpp_class_body(code: &str, line1: usize, name: &str) -> Option<usize> {
         })
 }
 pub fn cpp_bases(code: &str, open: usize) -> Vec<Vec<String>> {
-    static ACCESS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\b(?:public|private|protected|virtual)\b").unwrap());
+    static ACCESS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:public|private|protected|virtual)\b").expect("the regex is a literal")
+    });
     let head = untemplated(c_back_to_stop(code, open).0);
     let list = head
         .match_indices(':')
@@ -1326,7 +1363,7 @@ pub fn cpp_bases(code: &str, open: usize) -> Vec<Vec<String>> {
 }
 pub fn cpp_body_members(code: &str, open: usize, word: &str) -> Vec<usize> {
     static REFUSED: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:typedef|using|friend|static_assert|return|operator|template\s*<[^>]*>\s*friend)\b").unwrap()
+        Regex::new(r"^(?:typedef|using|friend|static_assert|return|operator|template\s*<[^>]*>\s*friend)\b").expect("the regex is a literal")
     });
     let close = close_or_end(code, open, code.len());
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';

@@ -1,0 +1,35 @@
+[files]
+ignore-hidden = false
+extend-exclude = [
+  ".git",
+  "*.patch",
+  "tests/fixtures/",
+  "tests/colors/",
+  "tests/folds/",
+  "tests/snapshots/",
+  "tests/smoke/screens/",
+  "tutor/notes/",
+  "queries/",
+  "themes/",
+  "tools/themes-src/",
+  "tools/theme-bench/colors/",
+  "tools/d-bench/answers/",
+  "tools/d-bench/cursors/",
+  "tools/fold-bench/folds/",
+]
+
+[default.extend-identifiers]
+PNGs = "PNGs"
+from_numer_denom_ms = "from_numer_denom_ms"
+numer_denom_ms = "numer_denom_ms"
+or_of_ands = "or_of_ands"
+
+[default.extend-words]
+ratatui = "ratatui"
+edn = "edn"
+fo = "fo"
+ba = "ba"
+caf = "caf"
+nam = "nam"
+foor = "foor"
+thre = "thre"

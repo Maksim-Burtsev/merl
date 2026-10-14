@@ -1,7 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::iter_on_single_items, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
 use super::{
     Kind, haskell_literal_lines, html_literal_lines, julia_literal_lines, lisp, lisp_literal_lines,
@@ -115,6 +112,10 @@ enum HeredocEnd {
     LabelLeadsLine,
     LabelAloneOnLine { may_indent: bool },
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "one row per language family of comment rules"
+)]
 fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     let (triple_quotes, long_bracket, template, block_comment, line_comments): (
         _,
@@ -154,7 +155,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     let b = text.as_bytes();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
     let token_at = |at: usize, prefixes: &[&[u8]]| {
-        [&b""[..]].iter().chain(prefixes).any(|p| {
+        std::iter::once(&&b""[..]).chain(prefixes).any(|p| {
             at >= p.len()
                 && b[at - p.len()..at] == **p
                 && (at == p.len() || !ident(b[at - p.len() - 1]))
@@ -558,6 +559,10 @@ fn ruby_literal_may_start(before: &[u8]) -> bool {
         .rfind(|c| **c != b' ' && **c != b'\t')
         .is_none_or(|p| b"\n(,=~!|&;{[".contains(p))
 }
+#[expect(
+    clippy::string_slice,
+    reason = "code() marks a comment at its first byte, an ASCII one, and a cut resumes at a newline"
+)]
 pub(super) fn uncommented(kind: Kind, s: &str) -> String {
     let (mut out, mut from) = (String::with_capacity(s.len()), 0);
     for (i, _) in code(kind, s).filter(|(_, c)| *c == 0) {
@@ -583,6 +588,10 @@ pub(super) fn close_of(kind: Kind, s: &str, open: usize) -> Option<usize> {
     }
     None
 }
+#[expect(
+    clippy::string_slice,
+    reason = "every cut is at or right after an ASCII separator code() yielded"
+)]
 pub(super) fn split_top(kind: Kind, s: &str, sep: u8) -> Vec<&str> {
     let b = s.as_bytes();
     let (mut depth, mut start, mut out) = (0i32, 0, Vec::new());
@@ -619,18 +628,24 @@ pub(super) fn group<'a>(
 ) -> Option<Group<'a>> {
     let text = lines[at..lines.len().min(at + 2000)].join("\n");
     let end = close_of(kind, &text, open)?;
-    let line_start = text[..end].rfind('\n').map_or(0, |n| n + 1);
-    let last = at + text[..end].matches('\n').count();
-    let inner = uncommented(kind, &text[open + 1..end - 1]);
+    let through_close = text.get(..end)?;
+    let line_start = through_close.rfind('\n').map_or(0, |n| n + 1);
+    let last = at + through_close.matches('\n').count();
+    let inner = uncommented(kind, text.get(open + 1..end - 1)?);
     Some(Group {
         inner_uncommented: inner,
         close_line: last,
-        after_close: &lines[last][end - line_start..],
+        after_close: lines[last].get(end - line_start..)?,
     })
 }
 pub(super) fn names(s: &str, word: &str) -> bool {
     s.match_indices(word).any(|(i, _)| {
         let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$' || c == '.';
-        !s[..i].ends_with(is_name) && !s[i + word.len()..].starts_with(is_name)
+        s.split_at_checked(i).is_some_and(|(before, rest)| {
+            !before.ends_with(is_name)
+                && rest
+                    .strip_prefix(word)
+                    .is_some_and(|after| !after.starts_with(is_name))
+        })
     })
 }
