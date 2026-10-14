@@ -1,5 +1,3 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -285,12 +283,77 @@ enum State {
     Quoted(String),
 }
 
+fn ml_code(b: &[u8], mut i: usize, fsharp: bool) -> (usize, State) {
+    let c = b[i];
+    let at = |s: &[u8]| b[i..].starts_with(s);
+    let name = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'\'';
+    let mut next = State::Code;
+    if fsharp && at(b"(*)") {
+        i += 3;
+    } else if at(b"(*") {
+        next = State::Comment(1);
+        i += 2;
+    } else if fsharp && at(b"//") {
+        i = b[i..]
+            .iter()
+            .position(|&c| c == b'\n')
+            .map_or(b.len(), |n| i + n);
+    } else if fsharp && at(b"``") {
+        let line_end = b[i..]
+            .iter()
+            .position(|&c| c == b'\n')
+            .map_or(b.len(), |n| i + n);
+        i = b[i + 2..line_end]
+            .windows(2)
+            .position(|w| w == b"``")
+            .map_or(i + 2, |n| i + 2 + n + 2);
+    } else if fsharp && (at(b"\"\"\"") || at(b"$\"\"\"")) {
+        next = State::Triple;
+        i += if c == b'$' { 4 } else { 3 };
+    } else if c == b'"' || (fsharp && (at(b"@\"") || at(b"$\"") || at(b"$@\"") || at(b"@$\""))) {
+        let verbatim = fsharp
+            && b[i..]
+                .iter()
+                .take_while(|&&c| c != b'"')
+                .any(|&c| c == b'@');
+        let quote = b[i..].iter().position(|&c| c == b'"').unwrap_or(0);
+        next = State::Str {
+            comment: 0,
+            verbatim,
+        };
+        i += quote + 1;
+    } else if !fsharp && c == b'{' {
+        let id: String = b[i + 1..]
+            .iter()
+            .take_while(|c| c.is_ascii_lowercase() || **c == b'_')
+            .map(|&c| char::from(c))
+            .collect();
+        if b.get(i + 1 + id.len()) == Some(&b'|') {
+            i += id.len() + 2;
+            next = State::Quoted(id);
+        } else {
+            i += 1;
+        }
+    } else if c == b'\'' && !(i > 0 && name(b[i - 1])) {
+        i += match (b.get(i + 1), b.get(i + 2)) {
+            (Some(b'\\'), _) => b[i + 2..]
+                .iter()
+                .position(|&c| c == b'\'' || c == b'\n')
+                .map_or(1, |n| n + 3),
+            (Some(&n), Some(b'\'')) if n != b'\n' => 3,
+            _ => 1,
+        };
+    } else {
+        i += 1;
+    }
+    (i, next)
+}
+
 pub fn ml_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     let fsharp = kind == Kind::Fsharp;
     let b = text.as_bytes();
     let mut literal = vec![false];
     let mut state = State::Code;
-    let name = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'\'';
     let mut i = 0;
     while i < b.len() {
         let c = b[i];
@@ -301,68 +364,7 @@ pub fn ml_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
             continue;
         }
         match &mut state {
-            State::Code => {
-                if fsharp && at(b"(*)") {
-                    i += 3;
-                } else if at(b"(*") {
-                    state = State::Comment(1);
-                    i += 2;
-                } else if fsharp && at(b"//") {
-                    i = b[i..]
-                        .iter()
-                        .position(|&c| c == b'\n')
-                        .map_or(b.len(), |n| i + n);
-                } else if fsharp && at(b"``") {
-                    let line_end = b[i..]
-                        .iter()
-                        .position(|&c| c == b'\n')
-                        .map_or(b.len(), |n| i + n);
-                    i = b[i + 2..line_end]
-                        .windows(2)
-                        .position(|w| w == b"``")
-                        .map_or(i + 2, |n| i + 2 + n + 2);
-                } else if fsharp && (at(b"\"\"\"") || at(b"$\"\"\"")) {
-                    state = State::Triple;
-                    i += if c == b'$' { 4 } else { 3 };
-                } else if c == b'"'
-                    || (fsharp && (at(b"@\"") || at(b"$\"") || at(b"$@\"") || at(b"@$\"")))
-                {
-                    let verbatim = fsharp
-                        && b[i..]
-                            .iter()
-                            .take_while(|&&c| c != b'"')
-                            .any(|&c| c == b'@');
-                    let quote = b[i..].iter().position(|&c| c == b'"').unwrap_or(0);
-                    state = State::Str {
-                        comment: 0,
-                        verbatim,
-                    };
-                    i += quote + 1;
-                } else if !fsharp && c == b'{' {
-                    let id: String = b[i + 1..]
-                        .iter()
-                        .take_while(|c| c.is_ascii_lowercase() || **c == b'_')
-                        .map(|&c| char::from(c))
-                        .collect();
-                    if b.get(i + 1 + id.len()) == Some(&b'|') {
-                        i += id.len() + 2;
-                        state = State::Quoted(id);
-                    } else {
-                        i += 1;
-                    }
-                } else if c == b'\'' && !(i > 0 && name(b[i - 1])) {
-                    i += match (b.get(i + 1), b.get(i + 2)) {
-                        (Some(b'\\'), _) => b[i + 2..]
-                            .iter()
-                            .position(|&c| c == b'\'' || c == b'\n')
-                            .map_or(1, |n| n + 3),
-                        (Some(&n), Some(b'\'')) if n != b'\n' => 3,
-                        _ => 1,
-                    };
-                } else {
-                    i += 1;
-                }
-            }
+            State::Code => (i, state) = ml_code(b, i, fsharp),
             State::Comment(depth) => {
                 if at(b"(*") {
                     *depth += 1;
