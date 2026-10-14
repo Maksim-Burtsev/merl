@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "graphql"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "graphql", "hcl", "terraform"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -71,6 +71,8 @@ LANGS = {
     "php": (["koel"], ["php"]),
     "elixir": (["phoenix"], ["ex", "exs"]),
     "graphql": (["graphql-code-generator", "swapi-graphql"], ["graphql", "graphqls", "gql"], 25),
+    "hcl": (["immich", "pipeline-library"], ["hcl"], 15),
+    "terraform": (["lem", "immich"], ["tf", "tfvars"], 10),
     "proto": (["rules_go", "nowinandroid", "eShop", "gitea"], ["proto"], 25),
     "cmake": (["chibi-scheme", "leveldb", "redis"], ["CMakeLists.txt", "cmake"], 40),
     "dockerfile": (["mastodon", "paperless-ngx", "immich", "gitea"], ["Dockerfile", "dockerfile"]),

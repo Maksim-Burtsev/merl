@@ -90,6 +90,16 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/graphql/injections.scm"),
     ),
     (
+        "hcl",
+        include_str!("../queries/hcl/highlights.scm"),
+        include_str!("../queries/hcl/injections.scm"),
+    ),
+    (
+        "terraform",
+        include_str!("../queries/terraform/highlights.scm"),
+        include_str!("../queries/terraform/injections.scm"),
+    ),
+    (
         "proto",
         include_str!("../queries/proto/highlights.scm"),
         include_str!("../queries/proto/injections.scm"),
@@ -225,6 +235,7 @@ const ALIASES: &[(&str, &str)] = &[
     ("xsd", "xml"),
     ("xslt", "xml"),
     ("svg", "xml"),
+    ("terraform_vars", "terraform"),
 ];
 
 const PREDICATES: &[&str] = &[
@@ -397,10 +408,26 @@ pub fn for_syntax(
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
         "Swift" => lang("swift"),
+        "Terraform" => terraform(path, lines),
         "Markdown" => lang("markdown"),
         "TypeScript" => lang("typescript"),
         "TypeScriptReact" if !astro => lang("tsx"),
         "Lua" => lang("lua"),
+        _ => None,
+    }
+}
+
+fn terraform(path: Option<&Path>, lines: &[String]) -> Option<&'static Lang> {
+    match path?.extension()?.to_str()? {
+        "hcl" => lang("hcl"),
+        "tfvars" => lang("terraform"),
+        "tf" if lines.iter().any(|l| {
+            let l = l.trim_start();
+            !l.is_empty() && !l.starts_with([';', '/'])
+        }) =>
+        {
+            lang("terraform")
+        }
         _ => None,
     }
 }
@@ -632,6 +659,7 @@ fn grammar(name: &str) -> Option<Language> {
         "cmake" => tree_sitter_cmake::LANGUAGE.into(),
         "proto" => tree_sitter_proto::LANGUAGE.into(),
         "graphql" => arborium_graphql::language().into(),
+        "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),
