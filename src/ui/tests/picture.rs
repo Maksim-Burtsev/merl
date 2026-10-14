@@ -1,6 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::cast_sign_loss, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use ratatui::Terminal;
@@ -102,8 +99,16 @@ fn an_image_file_is_its_picture_centred_with_its_size_in_the_status_bar() {
         .cloned()
         .expect("the picture is placed");
     let px = 20.0 * crate::mermaid::TEXT_IN_CELL / crate::mermaid::FONT_PX;
-    assert_eq!(place.cols, (300.0 * px / 10.0_f32).round() as u16);
-    assert_eq!(place.rows, (120.0 * px / 20.0_f32).round() as u16);
+    assert!(
+        (f32::from(place.cols) - (300.0 * px / 10.0_f32).round()).abs() < 0.5,
+        "{}",
+        place.cols
+    );
+    assert!(
+        (f32::from(place.rows) - (120.0 * px / 20.0_f32).round()).abs() < 0.5,
+        "{}",
+        place.rows
+    );
     assert_eq!(place.x, (80 - place.cols) / 2);
     assert_eq!(place.y, (23 - place.rows) / 2);
     let buf = terminal.backend().buffer();
@@ -472,9 +477,9 @@ fn a_side_that_cannot_be_read_shows_the_note_in_its_frame_and_the_other_is_drawn
     let note = note.unwrap_or_else(|| panic!("{rows:#?}"));
     let buf = terminal.backend().buffer();
     let x = (50..100)
-        .find(|&x| buf[(x, note as u16)].symbol() == "\u{2502}")
+        .find(|&x| buf[(x, u16::try_from(note).unwrap())].symbol() == "\u{2502}")
         .unwrap();
-    assert_eq!(buf[(x, note as u16)].fg, Color::Green);
+    assert_eq!(buf[(x, u16::try_from(note).unwrap())].fg, Color::Green);
     assert!(
         rows[29].contains("PNG not drawn: broken file"),
         "{}",

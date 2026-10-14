@@ -1,12 +1,3 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![cfg_attr(test, expect(clippy::items_after_statements, reason = "#858"))]
-#![expect(clippy::naive_bytecount, reason = "#858")]
-#![expect(clippy::needless_continue, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![cfg_attr(test, expect(clippy::redundant_clone, reason = "#858"))]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::struct_excessive_bools, reason = "#858")]
-#![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -103,10 +94,10 @@ fn parse(diff: &str, review: bool) -> Diff {
     let mut lines = diff.lines().peekable();
     let mut key_after_last_hunk = None;
     while let Some(line) = lines.next() {
-        if !line.starts_with("@@ ") {
+        let Some(hunk) = line.strip_prefix("@@ ") else {
             continue;
-        }
-        let Some((old, new)) = line[3..].split_once(" +") else {
+        };
+        let Some((old, new)) = hunk.split_once(" +") else {
             continue;
         };
         let (Some((old_start1, old_n)), Some((new_start1, new_n))) = (
@@ -182,6 +173,10 @@ fn start_and_count(s: &str) -> Option<(usize, usize)> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is an independent fact about the file"
+)]
 pub struct ReviewFile {
     pub path: PathBuf,
     pub status: char,
@@ -354,7 +349,9 @@ impl Review {
 
     pub fn branch_or_commit(&self, root: &Path) -> String {
         match self.branch.as_str() {
-            "HEAD" => git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or(self.branch.clone()),
+            "HEAD" => {
+                git(root, &["rev-parse", "--short", "HEAD"]).unwrap_or_else(|_| self.branch.clone())
+            }
             branch => branch.to_owned(),
         }
     }
@@ -433,7 +430,7 @@ impl Review {
                 std::fs::create_dir_all(d)?;
             }
             match mode {
-                "160000" => continue,
+                "160000" => {}
                 "120000" => from_git.push((path.to_path_buf(), true)),
                 _ if changed.contains(path) => from_git.push((path.to_path_buf(), false)),
                 _ => {
@@ -753,6 +750,10 @@ const GENERATED_ENDS: &[&str] = &[".min.js", ".min.css", ".js.map", ".css.map"];
 
 const GENERATED_DIRS: &[&str] = &["node_modules", "Godeps"];
 
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+)]
 fn generated(root: &Path, f: &ReviewFile) -> bool {
     use std::io::{BufRead, BufReader};
     let name = f.path.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -816,6 +817,10 @@ fn generated_attrs(root: &Path, files: &[ReviewFile]) -> Result<HashMap<PathBuf,
     Ok(said)
 }
 
+#[expect(
+    clippy::naive_bytecount,
+    reason = "the bytecount crate would be a dependency for one count of newlines"
+)]
 fn count_lines(path: &Path) -> std::io::Result<(bool, usize)> {
     use std::io::Read;
     if !std::fs::metadata(path)?.is_file() {
@@ -959,6 +964,7 @@ fn detect_base(git: &dyn Fn(&[&str]) -> Result<String>) -> Result<String> {
     bail!("no base branch found: pass --base")
 }
 
+#[expect(clippy::too_many_lines, reason = "test tables")]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -999,11 +1005,11 @@ mod tests {
 
     #[test]
     fn review_keeps_deleted_lines_as_ghosts_and_hunk_starts() {
+        use TextLine::{Deleted, File};
         let diff = "@@ -1 +1 @@\n-x\n+y\n\
                     @@ -3,0 +4,2 @@\n+a\n+b\n\
                     @@ -8,2 +9,0 @@\n-c\n-d\n\\ No newline at end of file\n";
         let d = parse(diff, true);
-        use TextLine::{Deleted, File};
         assert_eq!(d.hunks, vec![File(0), File(3), Deleted(9, 0)]);
         assert_eq!(d.ghosts[&0], vec!["x"]);
         assert_eq!(d.ghosts[&9], vec!["c", "d"]);
@@ -1198,7 +1204,7 @@ mod tests {
         );
         let older = Review {
             merge_base: first,
-            ..r.clone()
+            ..r
         };
         let other = older.base_tree(&dir).unwrap();
         assert!(other.exists() && !base.exists(), "one base at a time");
@@ -1217,6 +1223,7 @@ mod tests {
 
     #[test]
     fn a_review_lists_the_branch_files_against_the_merge_base() {
+        use TextLine::File;
         let dir = std::env::temp_dir().join(format!("merl-review-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(dir.join("src")).unwrap();
@@ -1306,7 +1313,6 @@ mod tests {
             Some(&r.merge_base),
             moved.old.as_deref(),
         );
-        use TextLine::File;
         assert_eq!(d.hunks, vec![File(9)]);
         assert_eq!(d.ghosts[&9], vec!["m10"]);
         let d = diff(&dir, &dir.join("src/a.rs"), Some(&r.merge_base), None);

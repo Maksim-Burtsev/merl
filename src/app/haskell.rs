@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, HashMap, Kind, Path, PathBuf, Reason, search};
 
 impl App {
@@ -35,7 +34,9 @@ impl App {
                 .map(|i| i.module.clone())
                 .collect()
         };
-        let qualifier = self.line_str()[before.len()..]
+        let qualifier = self
+            .line_str()
+            .get(before.len()..)?
             .strip_prefix(word)
             .is_some_and(|after| after.starts_with('.'));
         if qualifier {

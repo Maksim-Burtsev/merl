@@ -76,6 +76,7 @@ fn a_tag_is_the_component_of_its_name() {
     assert_eq!(component_name("user-card"), "UserCard");
     assert_eq!(component_name("UserCard"), "UserCard");
     assert_eq!(component_name("div"), "div");
+    assert_eq!(component_name("user-éclair"), "UserÉclair");
 }
 
 #[test]

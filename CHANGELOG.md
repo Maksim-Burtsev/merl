@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `d` no longer crashes on non-ASCII text next to the word in an Erlang string, an R `pkg::name`,
+  a Python statement or a component name (#863).
+
 ## [0.8.5] - 2026-10-13
 
 ### Added

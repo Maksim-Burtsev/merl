@@ -1,7 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::Path;
 
@@ -39,7 +35,7 @@ pub(super) fn draw_preview(
     let end = (p.top + area.height as usize).min(p.doc.rows.len());
     highlight_code_on_screen(p, shown, theme, end);
 
-    let p = app.preview.as_ref().unwrap();
+    let p = &*p;
     let pal = Palette::new(theme);
     let gutter = base.fg(theme.gutter_fg);
     let mut lines: Vec<Line> = Vec::with_capacity(end - p.top);
@@ -150,7 +146,7 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
     let top = p.top;
     let file = app
         .root
-        .join(app.buf.path.as_deref().unwrap_or(Path::new("")));
+        .join(app.buf.path.as_deref().unwrap_or_else(|| Path::new("")));
     for (b, src, first, from, to, cols, rows, lead) in wanted {
         let pic = match src {
             Ok(src) => app.diagrams.pic(&src),
@@ -163,17 +159,21 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
         let (h, rows) = (pic.height(), u32::from(rows));
         app.diagrams.want.push(crate::mermaid::Place {
             id: pic.id(),
-            placement: b as u32 + 1,
-            x: area.x + (gutter_w + lead) as u16,
-            y: area.y + (from - top) as u16,
+            placement: u32::try_from(b + 1).unwrap_or(u32::MAX),
+            x: area.x + u16::try_from(gutter_w + lead).unwrap_or(u16::MAX),
+            y: area.y + u16::try_from(from - top).unwrap_or(u16::MAX),
             cols,
-            rows: (to - from) as u16,
-            crop_y: (from - first) as u32 * h / rows,
-            crop_h: (to - from) as u32 * h / rows,
+            rows: u16::try_from(to - from).unwrap_or(u16::MAX),
+            crop_y: u32::try_from(from - first).unwrap_or(u32::MAX) * h / rows,
+            crop_h: u32::try_from(to - from).unwrap_or(u32::MAX) * h / rows,
         });
     }
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the cuts are the ends of the layers' spans, all on char boundaries of text"
+)]
 fn layered<'a>(
     text: &'a str,
     layers: &[&[(Style, Range<usize>)]],

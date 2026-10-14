@@ -1,6 +1,6 @@
-#![expect(clippy::format_push_string, reason = "#858")]
 use crate::app::KEYS;
 use crate::git::BASES;
+use std::fmt::Write as _;
 
 pub fn guide() -> String {
     let bases: Vec<String> = BASES.iter().map(|b| format!("`{b}`")).collect();
@@ -9,9 +9,9 @@ pub fn guide() -> String {
     for (key, action, g) in KEYS {
         if *g != group {
             group = g;
-            out += &format!("\n{g}:\n");
+            _ = write!(out, "\n{g}:\n");
         }
-        out += &format!("  {key:<16} {action}\n");
+        _ = writeln!(out, "  {key:<16} {action}");
     }
     out
 }

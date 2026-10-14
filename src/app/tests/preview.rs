@@ -1,4 +1,3 @@
-#![expect(clippy::format_collect, reason = "#858")]
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 

@@ -79,6 +79,7 @@ fn erlang_literals() {
     assert!(shown("x() -> '\"'.\ny() -> ok."));
     assert!(shown("x() -> \"a\\\"b\".\ny() -> ok."));
     assert!(shown("x() -> $\\\".\ny() -> ok."));
+    assert!(shown("x() -> \"é\".\ny() -> ok."));
 }
 
 #[test]

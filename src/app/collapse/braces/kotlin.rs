@@ -1,5 +1,3 @@
-#![expect(clippy::branches_sharing_code, reason = "#858")]
-#![expect(clippy::excessive_nesting, reason = "#858")]
 use super::{K, Lexer, Model};
 
 const MODIFIERS: &[&str] = &[
@@ -96,15 +94,27 @@ impl Lexer<'_> {
     fn kt_inner(&mut self, q: u8) {
         if q == b'"' {
             self.kt_string();
-            self.out.pop();
         } else {
             self.string(q);
-            self.out.pop();
         }
+        self.out.pop();
     }
 }
 
 impl Model<'_, '_> {
+    fn kt_when_arrows(&self, o: usize, arrows: &mut Vec<usize>) {
+        let mut j = o + 1;
+        while let Some(c) = self.pair[o].filter(|&c| j < c) {
+            if self.opener(j) {
+                j = self.pair[j].unwrap_or(j);
+            } else if self.punct(j, "-") && self.punct(j + 1, ">") {
+                arrows.push(j);
+            }
+            j += 1;
+            let _ = c;
+        }
+    }
+
     pub(super) fn kotlin(&mut self) {
         let n = self.toks.len();
         let mut quiet = vec![false; n];
@@ -123,16 +133,7 @@ impl Model<'_, '_> {
                     if let Some(o) = open.filter(|&o| self.punct(o, "{")) {
                         quiet[o] = true;
                         self.add(t.line, self.closing(o), false);
-                        let mut j = o + 1;
-                        while let Some(c) = self.pair[o].filter(|&c| j < c) {
-                            if self.opener(j) {
-                                j = self.pair[j].unwrap_or(j);
-                            } else if self.punct(j, "-") && self.punct(j + 1, ">") {
-                                arrows.push(j);
-                            }
-                            j += 1;
-                            let _ = c;
-                        }
+                        self.kt_when_arrows(o, &mut arrows);
                     }
                 }
                 "init" if t.kind == K::Word && self.punct(k + 1, "{") => {

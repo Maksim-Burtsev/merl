@@ -1,9 +1,4 @@
-#![expect(clippy::assigning_clones, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::sync::LazyLock;
 
@@ -69,9 +64,11 @@ const COMPILER_ATTRIBUTES: &[&str] = &[
 ];
 
 pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -> Option<RustAttr> {
+    static ONLY_A_PATH: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").expect("the regex is a literal"));
     let cur = lines.get(line)?;
     let Frames { text, stack, .. } = frames(lines, line, start)?;
-    let pathed = cur[end..].trim_start().starts_with("::");
+    let pathed = cur.get(end..)?.trim_start().starts_with("::");
     if stack.iter().any(|f| f.callee == "cfg!") {
         return Some(RustAttr::Nothing);
     }
@@ -91,14 +88,14 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
         });
     }
     if !inner.is_empty() {
-        let after = cur[end..].trim_start();
-        let key = after.starts_with('=') && !after[1..].starts_with(['=', '>']);
+        let after = cur.get(end..)?.trim_start();
+        let key = after
+            .strip_prefix('=')
+            .is_some_and(|r| !r.starts_with(['=', '>']));
         return (key || compiler(&text, &stack[a..])).then_some(RustAttr::Nothing);
     }
-    static ONLY_A_PATH: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(\w+\s*::\s*)*$").unwrap());
-    let head = &text[stack[a].content_start..];
-    let word = &cur[start..end];
+    let head = text.get(stack[a].content_start..)?;
+    let word = cur.get(start..end)?;
     let attributes_own_name = ONLY_A_PATH.is_match(head) && !pathed;
     let compiler = head.trim().is_empty() && COMPILER_ATTRIBUTES.contains(&word);
     Some(if attributes_own_name && !compiler {
@@ -108,7 +105,8 @@ pub fn rust_attribute(lines: &[String], line: usize, start: usize, end: usize) -
     })
 }
 pub fn rust_attribute_path(lines: &[String], line: usize, start: usize) -> bool {
-    static PATH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\w+(?:::\w+)*$").unwrap());
+    static PATH: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\w+(?:::\w+)*$").expect("the regex is a literal"));
     let Some(Frames {
         text,
         stack,
@@ -121,20 +119,25 @@ pub fn rust_attribute_path(lines: &[String], line: usize, start: usize) -> bool 
         return false;
     };
     let cur = &lines[line];
-    let content = cur[..start].rfind('"').and_then(|open| {
-        let close = cur[start..].find('"')?;
-        Some(&cur[open + 1..start + close])
-    });
+    let content = (cur.get(..start))
+        .and_then(|h| h.rfind('"'))
+        .and_then(|open| {
+            let close = cur.get(start..)?.find('"')?;
+            cur.get(open + 1..start + close)
+        });
     in_string
         && stack.last().is_some_and(|f| f.in_value)
         && !compiler(&text, &stack[a..])
         && content.is_some_and(|c| PATH.is_match(c))
 }
 fn compiler(text: &str, stack: &[Frame]) -> bool {
-    let head = text[stack[0].content_start..].trim_start();
-    let name = &head[..head
-        .find(|c: char| !(c.is_alphanumeric() || c == '_'))
-        .unwrap_or(head.len())];
+    let Some(head) = text.get(stack[0].content_start..).map(str::trim_start) else {
+        return false;
+    };
+    let name = head
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .next()
+        .unwrap_or(head);
     COMPILER_ATTRIBUTES.contains(&name)
         || stack[1..]
             .iter()
@@ -169,7 +172,7 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<Frames> {
     let from = wrapped_attribute_start(lines, line);
     let mut text = lines[from..line].join("\n");
     text.push('\n');
-    text.push_str(&cur[..start]);
+    text.push_str(cur.get(..start)?);
     let b = text.as_bytes();
     let mut stack: Vec<Frame> = Vec::new();
     let mut in_string = false;
@@ -197,7 +200,7 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<Frames> {
                 }
                 continue;
             }
-            b'#' if b.get(i + 1) == Some(&b'[') || text[i..].starts_with("#![") => {
+            b'#' if b.get(i + 1) == Some(&b'[') || b[i..].starts_with(b"#![") => {
                 i += if b[i + 1] == b'[' { 1 } else { 2 };
                 stack.push(Frame {
                     open: b'[',
@@ -208,7 +211,7 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<Frames> {
                 });
             }
             b'[' | b'(' | b'{' => {
-                let before = text[..i].trim_end();
+                let before = text.get(..i)?.trim_end();
                 let name_at = before
                     .trim_end_matches(|c: char| c.is_alphanumeric() || c == '_' || c == '!')
                     .len();
@@ -216,7 +219,7 @@ fn frames(lines: &[String], line: usize, start: usize) -> Option<Frames> {
                     open: c,
                     attr: false,
                     callee: if c == b'(' {
-                        before[name_at..].to_owned()
+                        before.get(name_at..)?.to_owned()
                     } else {
                         String::new()
                     },
@@ -278,12 +281,15 @@ pub fn rust_proc_macro(text: &str, line1: usize) -> bool {
 }
 
 static STRUCT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|union)\s+[A-Za-z_]\w*").unwrap()
+    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|union)\s+[A-Za-z_]\w*")
+        .expect("the regex is a literal")
 });
-static ENUM: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?enum\s+[A-Za-z_]\w*").unwrap());
-static STRUCT_LIKE_VARIANT_LINE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s+(?:#\[[^\]]*\]\s*)*[A-Za-z_]\w*\s*\{\s*$").unwrap());
+static ENUM: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?enum\s+[A-Za-z_]\w*").expect("the regex is a literal")
+});
+static STRUCT_LIKE_VARIANT_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s+(?:#\[[^\]]*\]\s*)*[A-Za-z_]\w*\s*\{\s*$").expect("the regex is a literal")
+});
 
 fn rust_parent(lines: &[&str], k: usize) -> Option<usize> {
     let depth = indent(lines[k]);
@@ -330,10 +336,12 @@ static FN_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s"#,
     )
-    .unwrap()
+    .expect("the regex is a literal")
 });
-static MOD_LINE: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{").unwrap());
+static MOD_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{")
+        .expect("the regex is a literal")
+});
 fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
     let mut around = Vec::new();
     let mut depth = indent(lines[k]);
@@ -384,7 +392,8 @@ fn rust_block_end(lines: &[&str], h: usize) -> usize {
 }
 pub fn rust_glob_uses(text: &str, line1: usize) -> RustGlobUses {
     static GLOB: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;").unwrap()
+        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+((?:\w+\s*::\s*)+)\*\s*;")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -474,7 +483,10 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
     let code = code.join("\n");
     let use_in_a_block_around = uses.find_iter(&code).any(|m| {
         let at = m.start() + m.as_str().find("use").unwrap_or(0);
-        let u = code[..at].matches('\n').count();
+        let Some(above) = code.get(..at) else {
+            return false;
+        };
+        let u = above.matches('\n').count();
         rust_around(&lines, u, &literal)
             .first()
             .is_none_or(|b| around.contains(b))
@@ -583,15 +595,17 @@ fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
 }
 fn top_split(mut s: &str) -> Vec<&str> {
     let mut out = Vec::new();
-    while let Some(i) = top_stop(s, b",") {
-        out.push(&s[..i]);
-        s = &s[i + 1..];
+    while let Some((head, rest)) = top_stop(s, b",").and_then(|i| s.split_at_checked(i)) {
+        out.push(head);
+        s = rest.get(1..).unwrap_or_default();
     }
     out.push(s);
     out
 }
 fn without_type(param: &str) -> &str {
-    top_stop(param, b":").map_or(param, |i| &param[..i])
+    top_stop(param, b":")
+        .and_then(|i| param.get(..i))
+        .unwrap_or(param)
 }
 fn binds(pat: &str, name: &str) -> bool {
     let mut bytes = vec![b' '; pat.len()];
@@ -601,7 +615,9 @@ fn binds(pat: &str, name: &str) -> bool {
     let code = String::from_utf8_lossy(&bytes);
     let ident = |c: char| c.is_alphanumeric() || c == '_';
     code.match_indices(name).any(|(i, _)| {
-        let (head, tail) = (&code[..i], &code[i + name.len()..]);
+        let (Some(head), Some(tail)) = (code.get(..i), code.get(i + name.len()..)) else {
+            return false;
+        };
         !head.ends_with(|c: char| ident(c) || matches!(c, '.' | '$' | '\'' | ':'))
             && !head.trim_end().ends_with("::")
             && !tail.starts_with(ident)
@@ -611,12 +627,14 @@ fn binds(pat: &str, name: &str) -> bool {
     })
 }
 fn let_pattern(line: &str) -> Option<Range<usize>> {
-    static LET: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*let\s+").unwrap());
+    static LET: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*let\s+").expect("the regex is a literal"));
     let from = LET.find(line)?.end();
-    top_stop(&line[from..], b":=;").map(|end| from..from + end)
+    top_stop(line.get(from..)?, b":=;").map(|end| from..from + end)
 }
 pub fn rust_let_declares(line: &str, start: usize, name: &str) -> bool {
-    let_pattern(line).is_some_and(|p| p.contains(&start) && binds(&line[p], name))
+    let_pattern(line)
+        .is_some_and(|p| p.contains(&start) && line.get(p).is_some_and(|pat| binds(pat, name)))
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CodeShape {
@@ -624,17 +642,26 @@ enum CodeShape {
     BlockHeader,
 }
 fn line_binds(t: &str, name: &str, shape: CodeShape) -> bool {
-    static LET: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:\bif|\bwhile|&&)\s+let\s+").unwrap());
-    static FOR: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:^|[\s:])for\s+(.+?)\s+in\s").unwrap());
+    static LET: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:\bif|\bwhile|&&)\s+let\s+").expect("the regex is a literal")
+    });
+    static FOR: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[\s:])for\s+(.+?)\s+in\s").expect("the regex is a literal")
+    });
     static CLOSURE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:^|[(,={]|\bmove|\breturn|=>)\s*\|([^|]*)\|(\s*(?:->[^{]*)?\{?\s*$)?")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let lets = LET.find_iter(t).any(|m| {
-        let rest = &t[m.end()..];
-        binds(top_stop(rest, b"=").map_or(rest, |i| &rest[..i]), name)
+        let Some(rest) = t.get(m.end()..) else {
+            return false;
+        };
+        binds(
+            top_stop(rest, b"=")
+                .and_then(|i| rest.get(..i))
+                .unwrap_or(rest),
+            name,
+        )
     });
     let each = FOR.captures(t).is_some_and(|c| binds(&c[1], name));
     let closure = CLOSURE.captures_iter(t).any(|c| {
@@ -644,7 +671,10 @@ fn line_binds(t: &str, name: &str, shape: CodeShape) -> bool {
                 .any(|p| binds(without_type(p), name))
     });
     let arm = t.find("=>").is_some_and(|end| {
-        let pat = t[..end].trim().trim_start_matches('|');
+        let Some(pat) = t.get(..end) else {
+            return false;
+        };
+        let pat = pat.trim().trim_start_matches('|');
         let pat = pat.split(" if ").next().unwrap_or(pat);
         let statement = ["let ", "if ", "while ", "for ", "return", "."]
             .iter()
@@ -654,10 +684,11 @@ fn line_binds(t: &str, name: &str, shape: CodeShape) -> bool {
     lets || each || closure || arm
 }
 fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
-    static FN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bfn\s+\w+\s*").unwrap());
+    static FN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bfn\s+\w+\s*").expect("the regex is a literal"));
     let line = uncommented(Kind::Rust, lines[f]);
     let open = past_generics(&line, FN.find(&line)?.end())?;
-    if !line[open..].starts_with('(') {
+    if !line.get(open..)?.starts_with('(') {
         return None;
     }
     let Group {
@@ -678,20 +709,25 @@ fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
         .or_else(|| (f..=last).find(|&i| names(lines[i], name)))
 }
 fn past_generics(line: &str, at: usize) -> Option<usize> {
-    if !line[at..].starts_with('<') {
+    let from = line.get(at..)?;
+    if !from.starts_with('<') {
         return Some(at);
     }
     let mut depth = 0i32;
-    let (end, _) = line[at..].char_indices().find(|&(i, c)| {
+    let (end, _) = from.char_indices().find(|&(i, c)| {
         match c {
             '<' => depth += 1,
-            '>' if !line[..at + i].ends_with('-') => depth -= 1,
+            '>' if line.get(..at + i).is_some_and(|h| !h.ends_with('-')) => depth -= 1,
             _ => {}
         }
         depth == 0
     })?;
     Some(at + end + 1)
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     const KEYWORDS: &[&str] = &[
         "self", "mut", "ref", "box", "crate", "super", "true", "false",
@@ -729,7 +765,7 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
         }
         if ind == depth {
             match let_pattern(lines[i]) {
-                Some(p) if binds(&lines[i][p.clone()], name) => {
+                Some(p) if lines[i].get(p.clone()).is_some_and(|pat| binds(pat, name)) => {
                     out.push(found(i));
                     return out;
                 }
@@ -811,20 +847,25 @@ pub enum RustVis {
 }
 pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)")
+            .expect("the regex is a literal")
     });
     static IMPL: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|const|default)\s+)*impl\b").unwrap()
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|const|default)\s+)*impl\b")
+            .expect("the regex is a literal")
     });
     static IMPL_FOR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
     });
     static INHERENT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*")
+            .expect("the regex is a literal")
     });
-    static VIS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*pub\s*(\()?").unwrap());
+    static VIS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*pub\s*(\()?").expect("the regex is a literal"));
     static MACRO: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?macro(?:_rules!|\s)").unwrap()
+        Regex::new(r"^\s*(?:#\[[^\]]*\]\s*)*(?:pub(?:\([^)]*\))?\s+)?macro(?:_rules!|\s)")
+            .expect("the regex is a literal")
     });
     let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let at = rust_parent(lines, k)?;
@@ -892,9 +933,9 @@ pub fn cargo_reach(lock: &str, from: &str) -> Option<CargoReach> {
             continue;
         };
         if let Some(v) = t.strip_prefix("name = ") {
-            p.0 = v.trim_matches('"').to_owned();
+            v.trim_matches('"').clone_into(&mut p.0);
         } else if let Some(v) = t.strip_prefix("version = ") {
-            p.1 = v.trim_matches('"').to_owned();
+            v.trim_matches('"').clone_into(&mut p.1);
         } else if let Some(v) = t.strip_prefix("dependencies = [") {
             in_deps = !v.contains(']');
             p.2.extend(quoted_names(v));
@@ -958,6 +999,10 @@ pub fn rust_stability(lines: &[&str], line1: usize) -> bool {
         .take_while(|t| t.starts_with("//") || !(t.is_empty() || t.ends_with(['{', '}', ';'])))
         .any(|t| t.starts_with("#[stable(") || t.starts_with("#[unstable("))
 }
+#[expect(
+    clippy::string_slice,
+    reason = "every cut is before an ASCII byte: a stop or the space of \" where\""
+)]
 fn type_at(s: &str) -> &str {
     let b = s.as_bytes();
     let mut depth = 0i32;
@@ -969,7 +1014,7 @@ fn type_at(s: &str) -> &str {
             b',' | b')' | b'|' | b'=' | b'{' | b';' | b']' | b'}' if depth == 0 => {
                 return s[..i].trim();
             }
-            _ if depth == 0 && s[i..].starts_with(" where") => return s[..i].trim(),
+            _ if depth == 0 && b[i..].starts_with(b" where") => return s[..i].trim(),
             _ => {}
         }
     }
@@ -1007,14 +1052,16 @@ pub fn rust_type_name(written: &str) -> Option<RustTypeName> {
         "Instant",
     ];
     static PATH: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^((?:[A-Za-z_]\w*::)*)([A-Za-z_]\w*)\s*(?:<(.*)>)?$").unwrap()
+        Regex::new(r"^((?:[A-Za-z_]\w*::)*)([A-Za-z_]\w*)\s*(?:<(.*)>)?$")
+            .expect("the regex is a literal")
     });
-    static LIFETIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^'\w+\s+").unwrap());
+    static LIFETIME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^'\w+\s+").expect("the regex is a literal"));
     let mut t = written.trim();
     loop {
         let before = t;
         t = t.trim_start_matches('&').trim_start();
-        t = LIFETIME.find(t).map_or(t, |m| &t[m.end()..]);
+        t = LIFETIME.find(t).and_then(|m| t.get(m.end()..)).unwrap_or(t);
         t = t.strip_prefix("mut ").unwrap_or(t).trim_start();
         let c = PATH.captures(t)?;
         let name = c.get(2)?.as_str();
@@ -1041,13 +1088,13 @@ pub fn rust_type_name(written: &str) -> Option<RustTypeName> {
 }
 pub fn rust_impl_type(line: &str) -> Option<String> {
     static IMPL: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
     });
     IMPL.captures(line).map(|c| c[1].to_owned())
 }
 pub fn rust_impl_trait(line: &str) -> Option<String> {
     static FOR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
     });
     FOR.captures(line).map(|c| c[1].to_owned())
 }
@@ -1057,7 +1104,8 @@ pub struct RustSelfType {
 }
 pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s").unwrap()
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s")
+            .expect("the regex is a literal")
     });
     let mut depth = indent(lines.get(line0)?);
     for i in (0..line0).rev() {
@@ -1087,8 +1135,9 @@ pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
     None
 }
 pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
-    static MOD: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{").unwrap());
+    static MOD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{").expect("the regex is a literal")
+    });
     let mut depth = lines.get(line0).map_or(0, |l| indent(l));
     for (i, l) in lines[..line0.min(lines.len())].iter().enumerate().rev() {
         if depth == 0 {
@@ -1123,13 +1172,16 @@ pub enum RustHolds {
     Call(Vec<String>),
 }
 pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
-    static LITERAL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(?:[A-Za-z_]\w*::)*([A-Z]\w*)\s*\{").unwrap());
-    static ASSOC: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^((?:[A-Za-z_]\w*::)*[A-Z]\w*)(?:::<[^()]*>)?::([a-z_]\w*)\s*\(").unwrap()
+    static LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[A-Za-z_]\w*::)*([A-Z]\w*)\s*\{").expect("the regex is a literal")
     });
-    static CALL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^((?:[a-z_]\w*::)*[a-z_]\w*)\s*\(").unwrap());
+    static ASSOC: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[A-Za-z_]\w*::)*[A-Z]\w*)(?:::<[^()]*>)?::([a-z_]\w*)\s*\(")
+            .expect("the regex is a literal")
+    });
+    static CALL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[a-z_]\w*::)*[a-z_]\w*)\s*\(").expect("the regex is a literal")
+    });
     let n = regex::escape(name);
     let line = uncommented(Kind::Rust, lines.get(at)?);
     let t = line.trim();
@@ -1137,7 +1189,7 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         let head = Regex::new(&format!(r"^let\s+(?:mut\s+)?{n}\s*(:[^:]|=[^=])"))
             .expect("an escaped name keeps the pattern valid");
         let c = head.captures(t)?;
-        let rest = &t[c.get(1)?.start() + 1..];
+        let rest = t.get(c.get(1)?.start() + 1..)?;
         if c[1].starts_with(':') {
             return Some(RustHolds::Type(type_at(rest).to_owned()));
         }
@@ -1171,7 +1223,9 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         if let Some(c) = LITERAL.captures(e) {
             let open = c.get(0)?.end() - 1;
             return closes_at_the_end(open)
-                .then(|| RustHolds::Literal(e[..open].trim().to_owned()));
+                .then(|| e.get(..open))
+                .flatten()
+                .map(|head| RustHolds::Literal(head.trim().to_owned()));
         }
         if let Some(c) = ASSOC.captures(e) {
             let open = c.get(0)?.end() - 1;
@@ -1226,9 +1280,11 @@ pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
             b')' | b']' => depth -= 1,
             b'{' | b';' if depth == 0 => break,
             b'w' if depth == 0
-                && signature[i..].starts_with("where")
-                && !signature[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_')
-                && !signature[i + 5..].starts_with(|c: char| c.is_alphanumeric() || c == '_') =>
+                && b[i..].starts_with(b"where")
+                && (signature.get(..i))
+                    .is_some_and(|h| !h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+                && (signature.get(i + 5..))
+                    .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_')) =>
             {
                 break;
             }
@@ -1238,7 +1294,7 @@ pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
             _ => {}
         }
     }
-    let t = type_at(&signature[after_last_top_level_arrow?..]);
+    let t = type_at(signature.get(after_last_top_level_arrow?..)?);
     (!t.is_empty()).then(|| t.to_owned())
 }
 pub struct RustStructField {

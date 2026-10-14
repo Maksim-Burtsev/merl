@@ -1,7 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -27,23 +23,28 @@ pub(super) const GDSCRIPT_SYMBOL: &str = concat!(
     r"(?:func|class_name|class|signal|enum)\s+(?P<name>[A-Za-z_]\w*)"
 );
 
-static MEMBER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!(r"{LEAD}(?:static\s+)?(?:var|const|signal)\s")).unwrap());
+static MEMBER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"{LEAD}(?:static\s+)?(?:var|const|signal)\s"))
+        .expect("the regex is a literal")
+});
 static KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"{LEAD}(?:static\s+)?(?:func|class_name|class|enum)\b"
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 static FUNC: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(r"{LEAD}(?:static\s+)?func\b\s*[A-Za-z_]?\w*\s*\(")).unwrap()
+    Regex::new(&format!(r"{LEAD}(?:static\s+)?func\b\s*[A-Za-z_]?\w*\s*\("))
+        .expect("the regex is a literal")
 });
 static LAMBDA: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\bfunc\b\s*[A-Za-z_]?\w*\s*\(").unwrap());
-static LOCAL: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*(?:var|const)\s+([A-Za-z_]\w*)").unwrap());
-static FOR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^\s*for\s+([A-Za-z_]\w*)\s*(?::[^:]*)?\s+in\b").unwrap());
+    LazyLock::new(|| Regex::new(r"\bfunc\b\s*[A-Za-z_]?\w*\s*\(").expect("the regex is a literal"));
+static LOCAL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:var|const)\s+([A-Za-z_]\w*)").expect("the regex is a literal")
+});
+static FOR: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*for\s+([A-Za-z_]\w*)\s*(?::[^:]*)?\s+in\b").expect("the regex is a literal")
+});
 
 fn opener<S: AsRef<str>>(lines: &[S], line: usize) -> Option<&str> {
     let depth = indent(lines.get(line - 1)?.as_ref());
@@ -65,7 +66,8 @@ pub fn gdscript_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &st
 }
 
 fn params(text: &str, open: usize) -> Vec<(usize, String)> {
-    static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*([A-Za-z_]\w*)").unwrap());
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*([A-Za-z_]\w*)").expect("the regex is a literal"));
     let mut out = Vec::new();
     let (mut depth, mut start) = (0usize, open + 1);
     for (i, c) in text.char_indices().skip_while(|&(i, _)| i <= open) {
@@ -73,7 +75,11 @@ fn params(text: &str, open: usize) -> Vec<(usize, String)> {
             '(' | '[' | '{' => depth += 1,
             ')' | ']' | '}' if depth > 0 => depth -= 1,
             ',' | ')' if depth == 0 => {
-                if let Some(m) = NAME.captures(&text[start..i]).and_then(|c| c.get(1)) {
+                if let Some(m) = text
+                    .get(start..i)
+                    .and_then(|s| NAME.captures(s))
+                    .and_then(|c| c.get(1))
+                {
                     out.push((start + m.start(), m.as_str().to_owned()));
                 }
                 start = i + 1;
@@ -90,7 +96,7 @@ fn params(text: &str, open: usize) -> Vec<(usize, String)> {
 fn bound_by_params(lines: &[&str], i: usize, open: usize, name: &str) -> Option<usize> {
     let text = lines[i..lines.len().min(i + 12)].join("\n");
     let (at, _) = params(&text, open).into_iter().find(|(_, n)| n == name)?;
-    Some(i + 1 + text[..at].matches('\n').count())
+    Some(i + 1 + text.get(..at)?.matches('\n').count())
 }
 
 fn lambda_binds(lines: &[&str], i: usize, code: &str, name: &str) -> Option<usize> {
@@ -147,12 +153,13 @@ pub(super) fn gdscript_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
 }
 
 pub fn gdscript_path(line: &str, col: usize) -> Option<String> {
-    static RES: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#""(res://[^"]+)"|'(res://[^']+)'"#).unwrap());
+    static RES: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#""(res://[^"]+)"|'(res://[^']+)'"#).expect("the regex is a literal")
+    });
     let m = RES
         .captures_iter(line)
         .find(|c| c.get(0).is_some_and(|m| m.start() <= col && col < m.end()))?;
-    m.get(1).or(m.get(2)).map(|p| p.as_str().to_owned())
+    m.get(1).or_else(|| m.get(2)).map(|p| p.as_str().to_owned())
 }
 
 pub fn gdscript_root(here: &Path, files: &[PathBuf]) -> Option<PathBuf> {
@@ -189,8 +196,14 @@ pub fn gdscript_autoloads(project: &str) -> Vec<(String, String)> {
     out
 }
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 pub fn gdscript_names_nothing(line: &str, start: usize) -> bool {
-    let lead = &line[..start];
+    let Some(lead) = line.get(..start) else {
+        return false;
+    };
     let path = lead.trim_end_matches(|c: char| c == '_' || c == '/' || c.is_alphanumeric());
     let mut quote = None;
     let mut escaped = false;

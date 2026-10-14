@@ -1,5 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::{Deref, Range};
 
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -70,28 +68,32 @@ impl LineEdit {
             KeyCode::Char('w') if ctrl => {
                 let range = self
                     .selection()
-                    .unwrap_or(self.word_left()..self.cursor_byte);
+                    .unwrap_or_else(|| self.word_left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Backspace if alt => {
                 let range = self
                     .selection()
-                    .unwrap_or(self.word_left()..self.cursor_byte);
+                    .unwrap_or_else(|| self.word_left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Char(c) if !ctrl => return self.insert(c.encode_utf8(&mut [0; 4])),
             KeyCode::Backspace => {
-                let range = self.selection().unwrap_or(self.left()..self.cursor_byte);
+                let range = self
+                    .selection()
+                    .unwrap_or_else(|| self.left()..self.cursor_byte);
                 return self.cut(range);
             }
             KeyCode::Delete if alt => {
                 let range = self
                     .selection()
-                    .unwrap_or(self.cursor_byte..self.word_right());
+                    .unwrap_or_else(|| self.cursor_byte..self.word_right());
                 return self.cut(range);
             }
             KeyCode::Delete => {
-                let range = self.selection().unwrap_or(self.cursor_byte..self.right());
+                let range = self
+                    .selection()
+                    .unwrap_or_else(|| self.cursor_byte..self.right());
                 return self.cut(range);
             }
             KeyCode::Home => self.go(0, shift),
@@ -102,8 +104,14 @@ impl LineEdit {
             KeyCode::Right if alt => self.go(self.word_right(), shift),
             KeyCode::Left if shift => self.go(self.left(), true),
             KeyCode::Right if shift => self.go(self.right(), true),
-            KeyCode::Left => self.go(self.selection().map_or(self.left(), |r| r.start), false),
-            KeyCode::Right => self.go(self.selection().map_or(self.right(), |r| r.end), false),
+            KeyCode::Left => self.go(
+                self.selection().map_or_else(|| self.left(), |r| r.start),
+                false,
+            ),
+            KeyCode::Right => self.go(
+                self.selection().map_or_else(|| self.right(), |r| r.end),
+                false,
+            ),
             _ => {}
         }
         false
@@ -118,10 +126,10 @@ impl LineEdit {
         let room = self.max_chars.map_or(usize::MAX, |cap| {
             cap.saturating_sub(self.text.chars().count())
         });
-        let fits = text.char_indices().nth(room).map_or(text.len(), |(i, _)| i);
-        self.text.insert_str(self.cursor_byte, &text[..fits]);
-        self.cursor_byte += fits;
-        cut || fits > 0
+        let fits: String = text.chars().take(room).collect();
+        self.text.insert_str(self.cursor_byte, &fits);
+        self.cursor_byte += fits.len();
+        cut || !fits.is_empty()
     }
 
     pub fn put(&mut self, to: usize) {
@@ -153,11 +161,19 @@ impl LineEdit {
         next_char(&self.text, self.cursor_byte)
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "LineEdit keeps cursor_byte on a char boundary"
+    )]
     fn word_left(&self) -> usize {
         let head = self.text[..self.cursor_byte].trim_end_matches(|c| !is_word(c));
         head.trim_end_matches(is_word).len()
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "LineEdit keeps cursor_byte on a char boundary"
+    )]
     fn word_right(&self) -> usize {
         let tail = &self.text[self.cursor_byte..];
         let tail = tail.trim_start_matches(|c| !is_word(c));
@@ -203,13 +219,13 @@ mod tests {
     fn moves_and_kills_by_word_in_any_script() {
         let mut e = typed("найти func_now(");
         press(&mut e, KeyCode::Left, KeyModifiers::ALT);
-        assert_eq!(&e[e.cursor()..], "func_now(");
+        assert_eq!(e.get(e.cursor()..), Some("func_now("));
         press(&mut e, KeyCode::Left, KeyModifiers::ALT);
         assert_eq!(e.cursor(), 0);
         press(&mut e, KeyCode::Right, KeyModifiers::ALT);
-        assert_eq!(&e[..e.cursor()], "найти");
+        assert_eq!(e.get(..e.cursor()), Some("найти"));
         press(&mut e, KeyCode::Left, KeyModifiers::NONE);
-        assert_eq!(&e[..e.cursor()], "найт");
+        assert_eq!(e.get(..e.cursor()), Some("найт"));
         press(&mut e, KeyCode::End, KeyModifiers::NONE);
         assert!(press(&mut e, KeyCode::Char('w'), KeyModifiers::CONTROL));
         assert_eq!(&*e, "найти ");

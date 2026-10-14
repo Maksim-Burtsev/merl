@@ -198,6 +198,7 @@ fn a_package_qualifier_outside_the_project_is_foreign() {
     assert!(r_foreign_package(line, at("filter(a)"), &dir));
     assert!(!r_foreign_package(line, at("helper"), &dir));
     assert!(!r_foreign_package(line, at("filter(c)"), &dir));
+    assert!(!r_foreign_package("x <- é::f(a)", "x <- é::".len(), &dir));
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::style::{Modifier, Style};
@@ -41,9 +40,10 @@ pub(super) fn draw_fold(frame: &mut Frame, app: &App, theme: &Theme, area: Rect,
         ]),
     ];
     let (side_room, blank_rows, border) = (6, 1, 1);
-    let widest = lines.iter().map(Line::width).max().unwrap_or(0) as u16;
+    let widest =
+        u16::try_from(lines.iter().map(Line::width).max().unwrap_or(0)).unwrap_or(u16::MAX);
     let w = widest + 2 * (side_room + border);
-    let h = lines.len() as u16 + 2 * (blank_rows + border);
+    let h = u16::try_from(lines.len()).unwrap_or(u16::MAX) + 2 * (blank_rows + border);
     let [_, b] = Layout::vertical([
         Constraint::Length(area.height.saturating_sub(h) * 2 / 5),
         Constraint::Length(h.min(area.height)),

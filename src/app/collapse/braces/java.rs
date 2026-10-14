@@ -1,4 +1,3 @@
-#![expect(clippy::nonminimal_bool, reason = "#858")]
 use super::{K, Model};
 
 const CONTROL: &[&str] = &[
@@ -56,7 +55,7 @@ impl Model<'_, '_> {
             if self.tx(k) == "import" && self.first[k] && stack.is_empty() {
                 let end = (k..n).find(|&j| self.punct(j, ";")).unwrap_or(n - 1);
                 let span = (self.toks[k].line, self.toks[end].end);
-                imports = self.join_run(imports, span, lines);
+                imports = Some(self.join_run(imports, span, lines));
                 k = end + 1;
                 continue;
             }
@@ -222,10 +221,10 @@ impl Model<'_, '_> {
         }
         let after = self.pair[k].map_or("", |c| self.tx(c + 1));
         let declares = matches!(after, "{" | "throws" | ";" | "default");
-        !(declares
-            && !matches!(
+        !declares
+            || matches!(
                 q,
                 "." | "new" | "=" | "(" | "," | "->" | "?" | ":" | "return"
-            ))
+            )
     }
 }

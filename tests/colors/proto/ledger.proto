@@ -1,0 +1,87 @@
+// A ledger service, written to cover the grammar.
+syntax = "proto3";
+
+package acme.ledger.v1;
+
+import "google/protobuf/timestamp.proto";
+import public "acme/common/money.proto";
+import weak "acme/legacy/old.proto";
+
+option go_package = "github.com/acme/ledger/v1;ledgerv1";
+option java_multiple_files = true;
+option optimize_for = SPEED;
+option (acme.custom_option) = { name: "ledger" count: 3 };
+
+/** The kind of an entry. */
+enum EntryKind {
+  option allow_alias = true;
+  ENTRY_KIND_UNSPECIFIED = 0;
+  ENTRY_KIND_DEBIT = 1;
+  ENTRY_KIND_CREDIT = 2 [deprecated = true];
+  ENTRY_KIND_REFUND = -3;
+  reserved 10 to 20, 30 to max;
+  reserved "OLD", "GONE";
+}
+
+/* A plain block comment. */
+message Entry {
+  string id = 1;
+  int64 amount_cents = 2 [json_name = "amountCents", (acme.field_note) = "cents"];
+  double rate = 3;
+  float ratio = 4 [default = 1.5e-3];
+  bool settled = 5;
+  bytes memo = 6;
+  EntryKind kind = 7;
+  google.protobuf.Timestamp created_at = 8;
+  repeated string tags = 9;
+  optional uint32 version = 10;
+  map<string, int64> totals = 11;
+  .acme.common.Money price = 12;
+  string note = 13 [default = "tab\there \"quoted\" \x41\101\u00e9"];
+  sfixed32 hex = 14 [default = 0x1F];
+  sint64 octal = 15 [default = 017];
+  double big = 16 [default = inf];
+  double none = 17 [default = nan];
+  bool off = 18 [default = false];
+
+  oneof source {
+    string account = 20;
+    Transfer transfer = 21;
+  }
+
+  message Transfer {
+    string from = 1;
+    string to = 2;
+  }
+
+  reserved 30, 31, 40 to 45;
+  reserved "legacy_field";
+  extensions 100 to 199;
+}
+
+extend Entry {
+  string audit = 150;
+}
+
+service Ledger {
+  option (acme.service_owner) = "payments";
+
+  rpc GetEntry(GetEntryRequest) returns (Entry);
+  rpc ListEntries(ListEntriesRequest) returns (stream Entry) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc Upload(stream Entry) returns (stream UploadAck) {}
+}
+
+message GetEntryRequest {
+  string id = 1;
+}
+
+message ListEntriesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message UploadAck {
+  uint64 count = 1;
+}

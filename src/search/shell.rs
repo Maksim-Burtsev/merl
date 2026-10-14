@@ -1,6 +1,3 @@
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
 use super::{Binding, Value, indent};
@@ -18,10 +15,12 @@ pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
 }
 pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))").unwrap()
+        Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))")
+            .expect("the regex is a literal")
     });
-    static ONE_LINE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").unwrap());
+    static ONE_LINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").expect("the regex is a literal")
+    });
     (0..at.min(lines.len())).rev().find(|&k| {
         let l = lines[k];
         HEADER.is_match(l)
@@ -33,7 +32,8 @@ pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
 }
 pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:local|declare|typeset)((?:\s+-\w+)*)\s+(.*)").unwrap()
+        Regex::new(r"^\s*(?:local|declare|typeset)((?:\s+-\w+)*)\s+(.*)")
+            .expect("the regex is a literal")
     });
     let c = LOCAL.captures(line)?;
     if c[1].contains(['g', 'p', 'f', 'F']) {
@@ -52,6 +52,10 @@ pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
         .collect();
     Some(names)
 }
+#[expect(
+    clippy::match_same_arms,
+    reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
+)]
 fn shell_words(s: &str) -> Vec<&str> {
     let (b, mut out, mut i) = (s.as_bytes(), Vec::new(), 0);
     while i < b.len() {
@@ -72,7 +76,7 @@ fn shell_words(s: &str) -> Vec<&str> {
             }
             i += 1;
         }
-        out.push(&s[start..i.min(b.len())]);
+        out.extend(s.get(start..i.min(b.len())));
     }
     out
 }

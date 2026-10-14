@@ -1,10 +1,3 @@
-#![expect(clippy::clone_on_ref_ptr, reason = "#858")]
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::iter_on_single_items, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use super::{
     App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, MAX_NAME_PAD, Path, PathBuf,
     PickItem, Reason, Regex, at_label, bound, clip, git, jvm, search, word_col, wrap,
@@ -23,6 +16,68 @@ impl OutsideMembers {
     }
 }
 
+struct ModuleLookup<'a> {
+    kind: Kind,
+    word: &'a str,
+    chain: &'a [String],
+    pattern: &'a str,
+    all: &'a [PathBuf],
+    files: Vec<PathBuf>,
+    copy: &'a search::PackageCopy,
+    word_is_export_name: bool,
+    imported: bool,
+    named: Option<Vec<String>>,
+    package: Option<usize>,
+    floor: usize,
+    reason: Reason,
+    narrow: bool,
+}
+
+fn by_name(hits: Vec<Hit>) -> Vec<Candidate> {
+    hits.into_iter()
+        .map(|hit| Candidate {
+            hit,
+            reason: Reason::ByName,
+        })
+        .collect()
+}
+
+fn handed_on_name(
+    named: &[String],
+    module_len: usize,
+    chain: &[String],
+    word: &str,
+) -> Option<String> {
+    let mut inside = named[module_len..].to_vec();
+    if !chain.is_empty() {
+        inside.push(word.to_owned());
+    }
+    match inside.as_slice() {
+        [name] => Some(name.clone()),
+        _ => None,
+    }
+}
+
+fn module_reason(
+    kind: Kind,
+    module: &[String],
+    floor: usize,
+    (imported, dotted): (bool, bool),
+) -> Reason {
+    let sep = match kind {
+        Kind::Python => ".",
+        Kind::Rust => "::",
+        _ => "/",
+    };
+    if module.len() < floor || (!imported && dotted) {
+        Reason::ByName
+    } else if imported {
+        Reason::Import(module.join(sep))
+    } else {
+        Reason::Path(module.join(sep))
+    }
+}
+
 impl App {
     pub(super) fn external_definitions(
         &mut self,
@@ -33,13 +88,7 @@ impl App {
         imports: &[search::Import],
         narrow: bool,
     ) -> Option<Vec<Candidate>> {
-        let mut patterns = search::def_patterns(kind, word);
-        self.spelling_cut(kind, word, &mut patterns);
-        if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
-            let assignment = search::ruby_assignment(word);
-            patterns.retain(|p| *p != assignment);
-        }
-        let pattern = &patterns.join("|");
+        let pattern = &self.external_pattern(kind, word);
         let mut bound_path = bound(imports, chain.first().map_or(word, String::as_str));
         let ts_import_item = match kind {
             Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
@@ -84,7 +133,6 @@ impl App {
             _ => Some(search::PackageCopy::default()),
         };
         let copy = copy?;
-        let narrowed_to_copy = !copy.files.is_empty();
         if let Some(first) = bound_path.as_mut().and_then(|p| p.first_mut())
             && let Some(bare) = first.strip_prefix("node:")
         {
@@ -100,49 +148,96 @@ impl App {
             None => bound_path,
         };
         let named = module.clone();
-        let mut files: Vec<PathBuf> = Vec::new();
-        if let Some(m) = module.as_mut().filter(|_| !alias) {
-            let found = match kind {
-                Kind::Elixir => self.elixir_module(&all, m, pattern),
-                Kind::Python => self.python_module_among(&all, m),
-                _ => copy
-                    .module(m)
-                    .or_else(|| search::module_among(&all, m, package)),
-            };
-            let Some(found) = found.filter(|f| package.is_none_or(|k| f.matched_parts >= k)) else {
-                return Some(Vec::new());
-            };
-            m.truncate(found.matched_parts);
-            files = found.files;
-        }
-        let by_name = |hits: Vec<Hit>| -> Vec<Candidate> {
-            hits.into_iter()
-                .map(|hit| Candidate {
-                    hit,
-                    reason: Reason::ByName,
-                })
-                .collect()
-        };
-        let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
-        let declarations_in = |this: &Self, files: &[PathBuf]| {
-            let mut hits = this.declaring(
-                kind,
-                word,
-                this.outside_grep(kind, files, pattern, Some(word)),
-            );
-            hits.retain(|h| kind != Kind::Elixir || search::erlang(&h.path) == erlang);
-            hits
+        let files = match module.as_mut().filter(|_| !alias) {
+            Some(m) => match self.module_files(kind, m, (&all, &copy), pattern, package) {
+                Some(files) => files,
+                None => return Some(Vec::new()),
+            },
+            None => Vec::new(),
         };
         let Some(module) = module else {
             return Some(by_name(
                 match self.rel_current().filter(|_| kind == Kind::C) {
-                    Some(here) => self.c_outside(&here, &all, |h| h, declarations_in),
-                    None => declarations_in(self, &all),
+                    Some(here) => self.c_outside(
+                        &here,
+                        &all,
+                        |h| h,
+                        |this, files| this.declarations_among(kind, word, pattern, files),
+                    ),
+                    None => self.declarations_among(kind, word, pattern, &all),
                 },
             ));
         };
+        let lookup = ModuleLookup {
+            kind,
+            word,
+            chain,
+            pattern,
+            all: &all,
+            files,
+            copy: &copy,
+            word_is_export_name,
+            imported,
+            named,
+            package,
+            floor,
+            reason: module_reason(kind, &module, floor, (imported, dotted)),
+            narrow,
+        };
+        Some(self.module_definitions(&lookup, &module))
+    }
+
+    fn module_files(
+        &self,
+        kind: Kind,
+        m: &mut Vec<String>,
+        (all, copy): (&[PathBuf], &search::PackageCopy),
+        pattern: &str,
+        package: Option<usize>,
+    ) -> Option<Vec<PathBuf>> {
+        let found = match kind {
+            Kind::Elixir => self.elixir_module(all, m, pattern),
+            Kind::Python => self.python_module_among(all, m),
+            _ => copy
+                .module(m)
+                .or_else(|| search::module_among(all, m, package)),
+        };
+        let found = found.filter(|f| package.is_none_or(|k| f.matched_parts >= k))?;
+        m.truncate(found.matched_parts);
+        Some(found.files)
+    }
+
+    fn external_pattern(&self, kind: Kind, word: &str) -> String {
+        let mut patterns = search::def_patterns(kind, word);
+        self.spelling_cut(kind, word, &mut patterns);
+        if kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_') {
+            let assignment = search::ruby_assignment(word);
+            patterns.retain(|p| *p != assignment);
+        }
+        patterns.join("|")
+    }
+
+    fn declarations_among(
+        &self,
+        kind: Kind,
+        word: &str,
+        pattern: &str,
+        files: &[PathBuf],
+    ) -> Vec<Hit> {
+        let erlang = self.buf.path.as_deref().is_some_and(search::erlang);
+        let mut hits = self.declaring(
+            kind,
+            word,
+            self.outside_grep(kind, files, pattern, Some(word)),
+        );
+        hits.retain(|h| kind != Kind::Elixir || search::erlang(&h.path) == erlang);
+        hits
+    }
+
+    fn module_definitions(&mut self, q: &ModuleLookup, module: &[String]) -> Vec<Candidate> {
+        let (kind, word, imported) = (q.kind, q.word, q.imported);
         let top_level =
-            imported && chain.len() <= 1 && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
+            imported && q.chain.len() <= 1 && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go);
         let at_top = |this: &Self, mut hits: Vec<Hit>| {
             if top_level {
                 hits.retain(|h| {
@@ -152,82 +247,76 @@ impl App {
             }
             hits
         };
-        let mut hits = at_top(self, declarations_in(self, &files));
-        if hits.is_empty() && narrowed_to_copy && word_is_export_name {
-            let within = if module.len() <= copy.name_parts {
-                copy.entries()
+        let narrowed_to_copy = !q.copy.files.is_empty();
+        let mut hits = at_top(
+            self,
+            self.declarations_among(kind, word, q.pattern, &q.files),
+        );
+        if hits.is_empty() && narrowed_to_copy && q.word_is_export_name {
+            let within = if module.len() <= q.copy.name_parts {
+                q.copy.entries()
             } else {
-                files
+                q.files.clone()
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
-        let mut walked = false;
-        if hits.is_empty()
+        let walked = if hits.is_empty()
             && imported
             && kind == Kind::Python
-            && module.len() >= floor
-            && let Some(named) = &named
+            && module.len() >= q.floor
+            && let Some(name) = q
+                .named
+                .as_deref()
+                .and_then(|named| handed_on_name(named, module.len(), q.chain, word))
         {
-            let mut inside = named[module.len()..].to_vec();
-            if !chain.is_empty() {
-                inside.push(word.to_owned());
+            let found = self.outside_handed_on(module, &name, 0);
+            if !found.is_empty() {
+                return found;
             }
-            if let [name] = inside.as_slice() {
-                let found = self.outside_handed_on(&module, name, 0);
-                if !found.is_empty() {
-                    return Some(found);
-                }
-                walked = true;
-            }
-        }
+            true
+        } else {
+            false
+        };
         if hits.is_empty() && imported && kind == Kind::Go {
-            return Some(Vec::new());
+            return Vec::new();
         }
         if hits.is_empty() && imported {
             if narrowed_to_copy {
-                let others = search::module_among(&all, &named.unwrap_or_default(), package);
+                let named = q.named.clone().unwrap_or_default();
+                let others = search::module_among(q.all, &named, q.package);
                 let others = others.map(|m| m.files).unwrap_or_default();
-                hits = at_top(self, declarations_in(self, &others));
+                hits = at_top(
+                    self,
+                    self.declarations_among(kind, word, q.pattern, &others),
+                );
             }
             if hits.is_empty() {
-                hits = at_top(self, declarations_in(self, &all));
+                hits = at_top(self, self.declarations_among(kind, word, q.pattern, q.all));
             }
             self.offer_only |= walked && !hits.is_empty();
-            return Some(by_name(hits));
+            return by_name(hits);
         }
-        let sep = match kind {
-            Kind::Python => ".",
-            Kind::Rust => "::",
-            _ => "/",
-        };
-        let reason = if module.len() < floor || (!imported && dotted) {
-            Reason::ByName
-        } else if imported {
-            Reason::Import(module.join(sep))
-        } else {
-            Reason::Path(module.join(sep))
-        };
         let mut found: Vec<Candidate> = hits
             .into_iter()
             .map(|hit| Candidate {
                 hit,
-                reason: reason.clone(),
+                reason: q.reason.clone(),
             })
             .collect();
         if kind == Kind::Julia
             && imported
-            && narrow
-            && chain.is_empty()
+            && q.narrow
+            && q.chain.is_empty()
             && !found.is_empty()
             && let Some(here) = self.rel_current()
         {
-            let own = self.project_definitions(kind, &here, word, pattern);
+            let own = self.project_definitions(kind, &here, word, q.pattern);
             found.extend(own.into_iter().map(|hit| Candidate {
                 hit,
                 reason: Reason::ByName,
             }));
         }
-        Some(found)
+        found
     }
 
     fn elixir_module(
@@ -719,24 +808,7 @@ impl App {
             here.filter(|_| matches!(kind, Kind::Elixir | Kind::Solidity | Kind::Css))
         {
             let roots = match kind {
-                Kind::Elixir => {
-                    let otp = match &self.otp {
-                        Some(otp) => otp.clone(),
-                        None => search::external_roots(kind, &self.root),
-                    };
-                    if !otp.is_empty() {
-                        self.otp = Some(otp.clone());
-                    }
-                    let mut roots = [
-                        search::mix_deps(&self.root, here),
-                        search::rebar_deps(&self.root, here),
-                        otp,
-                    ]
-                    .concat();
-                    let mut seen = HashSet::new();
-                    roots.retain(|r| seen.insert(r.clone()));
-                    roots
-                }
+                Kind::Elixir => elixir_roots(&mut self.otp, &self.root, here),
                 _ => search::node_modules(&self.root, here),
             };
             if self.external.get(&kind).is_none_or(|(r, _)| *r != roots) {
@@ -751,7 +823,7 @@ impl App {
             }
         }
         let files = if let Some((_, files)) = self.external.get(&kind) {
-            files.clone()
+            Arc::clone(files)
         } else {
             let roots = search::external_roots(kind, &self.root);
             let warm = self.warming.insert(kind, None).flatten();
@@ -761,18 +833,23 @@ impl App {
             };
             let files = Arc::new(files);
             if !roots.is_empty() {
-                self.external.insert(kind, (roots, files.clone()));
+                self.external.insert(kind, (roots, Arc::clone(&files)));
             }
             files
         };
         if kind != Kind::C {
             return files;
         }
+        self.c_kept(files)
+    }
+
+    fn c_kept(&mut self, files: Arc<Vec<PathBuf>>) -> Arc<Vec<PathBuf>> {
+        let kind = Kind::C;
         let key = (self.c_source(), self.objc_file());
         if let Some((from, kept)) = self.c_files.get(&key)
             && Arc::ptr_eq(from, &files)
         {
-            return kept.clone();
+            return Arc::clone(kept);
         }
         let away: Vec<&PathBuf> = match self.external.get(&kind) {
             Some((roots, _)) if !key.1 => roots.iter().filter(|r| search::objc_root(r)).collect(),
@@ -785,7 +862,7 @@ impl App {
                 .cloned()
                 .collect(),
         );
-        self.c_files.insert(key, (files, kept.clone()));
+        self.c_files.insert(key, (files, Arc::clone(&kept)));
         kept
     }
 
@@ -822,7 +899,7 @@ impl App {
             && let Some(here) = self.rel_current()
         {
             hits.retain(|h| {
-                let dir = h.path.parent().unwrap_or(Path::new(""));
+                let dir = h.path.parent().unwrap_or_else(|| Path::new(""));
                 !self.text_of(&h.path).is_some_and(|text| {
                     search::scheme_foreign_branch(&text, h.line1, |f| dir.join(f) == here)
                 })
@@ -903,8 +980,7 @@ impl App {
             .unwrap_or_default();
         let mut roots = match kind {
             Kind::TsJs => roots.last().into_iter().chain([&self.root]).collect(),
-            Kind::Elixir => [&self.root]
-                .into_iter()
+            Kind::Elixir => std::iter::once(&self.root)
                 .chain(roots.iter().filter(|r| !r.starts_with(&self.root)))
                 .collect(),
             _ => roots.iter().collect::<Vec<_>>(),
@@ -1010,7 +1086,9 @@ fn package_dirs(root: &Path) -> usize {
     let name = root.file_name().unwrap_or_default().to_string_lossy();
     let versioned = |sep: &str| {
         name.match_indices(sep).any(|(i, _)| {
-            let v = &name[i + sep.len()..];
+            let Some(v) = name.get(i + sep.len()..) else {
+                return false;
+            };
             let rest = v.trim_start_matches(|c: char| c.is_ascii_digit());
             rest.len() < v.len() && rest.starts_with('.')
         })
@@ -1029,4 +1107,23 @@ fn package_dirs(root: &Path) -> usize {
         .and_then(|v| v.split_once('@'))
         .is_some_and(|(n, _)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
     1 + usize::from(major)
+}
+
+fn elixir_roots(otp_cache: &mut Option<Vec<PathBuf>>, root: &Path, here: &Path) -> Vec<PathBuf> {
+    let otp = match otp_cache {
+        Some(otp) => otp.clone(),
+        None => search::external_roots(Kind::Elixir, root),
+    };
+    if !otp.is_empty() {
+        *otp_cache = Some(otp.clone());
+    }
+    let mut roots = [
+        search::mix_deps(root, here),
+        search::rebar_deps(root, here),
+        otp,
+    ]
+    .concat();
+    let mut seen = HashSet::new();
+    roots.retain(|r| seen.insert(r.clone()));
+    roots
 }

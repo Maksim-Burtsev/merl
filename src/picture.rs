@@ -115,9 +115,18 @@ pub fn resolve(root: &Path, file: &Path, dest: &str) -> Option<PathBuf> {
     (is_picture(&path) && path.is_file()).then_some(path)
 }
 
-#[expect(clippy::cast_possible_truncation, reason = "#858")]
-#[expect(clippy::cast_precision_loss, reason = "#858")]
-#[expect(clippy::cast_sign_loss, reason = "#858")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "pixel and cell counts sit far below 2^24; the cell counts are clamped to 1..=u16::MAX before `as`"
+)]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "pixel and cell counts sit far below 2^24; the cell counts are clamped to 1..=u16::MAX before `as`"
+)]
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "pixel and cell counts sit far below 2^24; the cell counts are clamped to 1..=u16::MAX before `as`"
+)]
 pub fn cells(
     natural: (u32, u32),
     width: Option<Width>,
@@ -250,9 +259,18 @@ fn animation<'a>(
     Ok(out)
 }
 
-#[expect(clippy::cast_possible_truncation, reason = "#858")]
-#[expect(clippy::cast_precision_loss, reason = "#858")]
-#[expect(clippy::cast_sign_loss, reason = "#858")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the pixel count only steers a scale factor; the scaled sides are below the u32 sides they came from"
+)]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "the pixel count only steers a scale factor; the scaled sides are below the u32 sides they came from"
+)]
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "the pixel count only steers a scale factor; the scaled sides are below the u32 sides they came from"
+)]
 fn shrunk(img: DynamicImage) -> DynamicImage {
     let (w, h) = (img.width(), img.height());
     let pixels = u64::from(w) * u64::from(h);
@@ -282,19 +300,19 @@ fn encode(img: &image::RgbaImage) -> Option<Vec<u8>> {
     Some(out)
 }
 
-#[expect(clippy::clone_on_ref_ptr, reason = "#858")]
 fn fonts() -> Arc<usvg::fontdb::Database> {
     static FONTS: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
-    FONTS
-        .get_or_init(|| {
-            let mut db = usvg::fontdb::Database::new();
-            db.load_system_fonts();
-            Arc::new(db)
-        })
-        .clone()
+    Arc::clone(FONTS.get_or_init(|| {
+        let mut db = usvg::fontdb::Database::new();
+        db.load_system_fonts();
+        Arc::new(db)
+    }))
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(
+    clippy::string_slice,
+    reason = "at and end are found in the ASCII-lowercased copy, which keeps the byte layout of svg"
+)]
 pub fn links_missing_file(svg: &str, dir: &Path) -> bool {
     let lower = svg.to_ascii_lowercase();
     let mut from = 0;
@@ -314,14 +332,22 @@ pub fn links_missing_file(svg: &str, dir: &Path) -> bool {
     false
 }
 
-#[expect(clippy::cast_possible_truncation, reason = "#858")]
-#[expect(clippy::cast_precision_loss, reason = "#858")]
-#[expect(clippy::cast_sign_loss, reason = "#858")]
-#[expect(clippy::or_fun_call, reason = "#858")]
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "MAX_SIDE is exact in f32; the scaled sides are at most MAX_SIDE, so they fit u32"
+)]
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "MAX_SIDE is exact in f32; the scaled sides are at most MAX_SIDE, so they fit u32"
+)]
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "MAX_SIDE is exact in f32; the scaled sides are at most MAX_SIDE, so they fit u32"
+)]
 fn svg(path: &Path) -> Result<Drawn, String> {
     let broken = || "SVG not drawn: broken file".to_owned();
     let data = std::fs::read(path).map_err(|_| "SVG not drawn: unreadable".to_owned())?;
-    let dir = path.parent().unwrap_or(Path::new(""));
+    let dir = path.parent().unwrap_or_else(|| Path::new(""));
     if links_missing_file(&String::from_utf8_lossy(&data), dir) {
         return Err("SVG not drawn: a linked file is missing".into());
     }

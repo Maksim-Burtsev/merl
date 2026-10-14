@@ -1,5 +1,4 @@
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(clippy::too_many_lines, reason = "test tables")]
 use super::*;
 
 #[test]

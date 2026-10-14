@@ -1,5 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Component, Path, PathBuf};
 
 use regex::Regex;
@@ -22,11 +20,13 @@ pub fn cs_projects(
     read: impl Fn(&Path) -> Option<String>,
 ) -> Option<CsProjects> {
     static REFERENCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"<ProjectReference\b[^>]*?\bInclude\s*=\s*"([^"]*)""#).unwrap()
+        Regex::new(r#"<ProjectReference\b[^>]*?\bInclude\s*=\s*"([^"]*)""#)
+            .expect("the regex is a literal")
     });
     static SOURCE_FROM_OUTSIDE_OR_SHARED: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| {
-            Regex::new(r"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems").unwrap()
+            Regex::new(r"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems")
+                .expect("the regex is a literal")
         });
     let manifests: Vec<&PathBuf> = files
         .iter()
@@ -34,7 +34,7 @@ pub fn cs_projects(
         .collect();
     let mut csproj_dirs: Vec<PathBuf> = manifests
         .iter()
-        .map(|f| f.parent().unwrap_or(Path::new("")).to_path_buf())
+        .map(|f| f.parent().unwrap_or_else(|| Path::new("")).to_path_buf())
         .collect();
     csproj_dirs.sort();
     csproj_dirs.dedup();
@@ -70,7 +70,10 @@ pub fn cs_projects(
                 if !manifests.contains(&&target) {
                     return None;
                 }
-                let at = target.parent().unwrap_or(Path::new("")).to_path_buf();
+                let at = target
+                    .parent()
+                    .unwrap_or_else(|| Path::new(""))
+                    .to_path_buf();
                 if !compiled_against.contains(&at) {
                     compiled_against.push(at);
                 }
@@ -87,7 +90,7 @@ pub fn cs_own_project(files: &[PathBuf], here: &Path) -> Option<PathBuf> {
     let dirs: Vec<PathBuf> = files
         .iter()
         .filter(|f| f.extension().is_some_and(|e| e == "csproj"))
-        .map(|f| f.parent().unwrap_or(Path::new("")).to_path_buf())
+        .map(|f| f.parent().unwrap_or_else(|| Path::new("")).to_path_buf())
         .collect();
     deepest_holding(&dirs, here).cloned()
 }

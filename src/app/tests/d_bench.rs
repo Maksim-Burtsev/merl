@@ -1,10 +1,8 @@
-#![expect(clippy::cast_precision_loss, reason = "#858")]
-#![expect(clippy::format_push_string, reason = "#858")]
-#![expect(clippy::ignore_without_reason, reason = "#858")]
 use super::*;
+use std::fmt::Write as _;
 
 #[test]
-#[ignore]
+#[ignore = "plays the recorded cursors of real projects; tools/d-bench/run runs it"]
 fn d_bench() {
     let Ok(input) = std::env::var("BENCH_IN") else {
         return;
@@ -28,7 +26,7 @@ fn d_bench() {
         let before = (a.buf.path.clone(), a.line);
         let t = Instant::now();
         press(a, KeyCode::Char('d'), KeyModifiers::NONE);
-        let ms = t.elapsed().as_micros() as f64 / 1000.0;
+        let ms = t.elapsed().as_secs_f64() * 1000.0;
         let root = a.root.clone();
         let abs = |p: &Path| root.join(p).display().to_string();
         let (outcome, targets) = if let Some(p) = a.picker.as_mut() {
@@ -50,7 +48,7 @@ fn d_bench() {
         };
         let status = a.message.replace(['\t', '\n'], " ");
         a.picker = None;
-        out.push_str(&format!("{id}\t{outcome}\t{ms:.2}\t{status}\t{targets}\n"));
+        _ = writeln!(out, "{id}\t{outcome}\t{ms:.2}\t{status}\t{targets}");
     }
     std::fs::write(std::env::var("BENCH_OUT").unwrap(), out).unwrap();
 }

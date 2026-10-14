@@ -1,4 +1,3 @@
-#![expect(clippy::manual_let_else, reason = "#858")]
 use super::{K, Lexer, Model};
 
 const NOT_CALLEE: &[&str] = &[
@@ -24,9 +23,8 @@ impl Lexer<'_> {
         let s = self.bytes();
         let (l, at) = (self.l, self.i);
         let raw = s[at] == b'r';
-        let q = match s.get(at + usize::from(raw)) {
-            Some(&q @ (b'"' | b'\'')) => q,
-            _ => return false,
+        let Some(&q @ (b'"' | b'\'')) = s.get(at + usize::from(raw)) else {
+            return false;
         };
         if raw && at > 0 && super::word(s[at - 1]) {
             return false;
@@ -189,7 +187,7 @@ impl Model<'_, '_> {
             }
             let end = (k..n).find(|&j| self.punct(j, ";")).unwrap_or(n - 1);
             let last = self.toks[end].end;
-            run = self.join_run(run, (self.toks[k].line, last), lines);
+            run = Some(self.join_run(run, (self.toks[k].line, last), lines));
             if !lines[last].trim_end().ends_with(';') {
                 self.end_run(run.take());
             }

@@ -1,7 +1,8 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
+#![expect(
+    clippy::too_many_lines,
+    clippy::cognitive_complexity,
+    reason = "test tables"
+)]
 use super::*;
 
 #[test]
@@ -1601,7 +1602,7 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
         rows.iter()
             .find_map(|(t, c)| {
                 let at = t.find(needle)?;
-                Some(c[t[..at].chars().count() + 1])
+                Some(c[t.get(..at).unwrap().chars().count() + 1])
             })
             .unwrap_or_else(|| panic!("{needle:?} not in {rows:#?}"))
     };
@@ -1653,7 +1654,13 @@ fn review_marks_changed_rows_in_u_and_s_and_lists_its_files_first_in_o() {
         .iter()
         .find(|(t, _)| t.contains("\u{2502}M src/a.rs"))
         .unwrap();
-    let at = t[..t.find("\u{2502}M src/a.rs").unwrap()].chars().count() + 1;
+    let at = t
+        .split_once("\u{2502}M src/a.rs")
+        .unwrap()
+        .0
+        .chars()
+        .count()
+        + 1;
     assert_eq!(c[at], c[at + 2], "the letter takes the name's colour");
     esc(&mut a);
 

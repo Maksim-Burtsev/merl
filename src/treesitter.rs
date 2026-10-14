@@ -4,6 +4,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use pattern::{lua_pattern, lua_replacement, vim_pattern};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
@@ -77,6 +78,21 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "java",
         include_str!("../queries/java/highlights.scm"),
         include_str!("../queries/java/injections.scm"),
+    ),
+    (
+        "cmake",
+        include_str!("../queries/cmake/highlights.scm"),
+        include_str!("../queries/cmake/injections.scm"),
+    ),
+    (
+        "proto",
+        include_str!("../queries/proto/highlights.scm"),
+        include_str!("../queries/proto/injections.scm"),
+    ),
+    (
+        "dockerfile",
+        include_str!("../queries/dockerfile/highlights.scm"),
+        include_str!("../queries/dockerfile/injections.scm"),
     ),
     (
         "kotlin",
@@ -289,7 +305,10 @@ struct Patterns {
 }
 
 impl Patterns {
-    #[expect(clippy::option_option, reason = "#858")]
+    #[expect(
+        clippy::option_option,
+        reason = "a key absent, a key set bare and a key with a value are three answers, as `#set!` has them"
+    )]
     fn setting(&self, pattern: usize, key: &str) -> Option<Option<&str>> {
         self.settings[pattern]
             .iter()
@@ -335,13 +354,25 @@ pub fn for_syntax(
     lines: &[String],
 ) -> Option<&'static Lang> {
     let astro = path.is_some_and(|p| p.extension().is_some_and(|e| e == "astro"));
+    if path.is_some_and(|p| p.extension().is_none()) {
+        let by_hashbang = lines.first().and_then(|l| hashbang(l)).and_then(|name| {
+            ["ruby", "php"]
+                .into_iter()
+                .find(|interpreter| name.contains(interpreter))
+        });
+        if let Some(name) = by_hashbang {
+            return lang(name);
+        }
+    }
     match syntect_name {
         "Bourne Again Shell (bash)" if !path.is_some_and(zsh) => lang("bash"),
         "C" => lang("c"),
         "C#" => lang("c_sharp"),
         "C++" if cpp(path, lines) => lang("cpp"),
+        "CMake" if path.is_none_or(cmake) => lang("cmake"),
         "CSS" => lang("css"),
         "Diff" if diff(path, lines) => lang("diff"),
+        "Dockerfile" | "Dockerfile (with bash)" => lang("dockerfile"),
         "Lisp" if path.is_some_and(query) => lang("query"),
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
@@ -354,6 +385,9 @@ pub fn for_syntax(
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
         "PHP" if path.is_none_or(php) => lang("php"),
+        "Protocol Buffer" if path.is_none_or(|p| p.extension().is_some_and(|e| e == "proto")) => {
+            lang("proto")
+        }
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
         "Swift" => lang("swift"),
@@ -363,6 +397,18 @@ pub fn for_syntax(
         "Lua" => lang("lua"),
         _ => None,
     }
+}
+
+fn hashbang(first: &str) -> Option<&str> {
+    let mut words = first.strip_prefix("#!")?.split_whitespace();
+    let program = words.next()?.rsplit(['/', '\\']).next()?;
+    if program != "env" {
+        return Some(program);
+    }
+    words
+        .find(|w| !w.starts_with('-') && !w.contains('='))?
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
+        .next()
 }
 
 fn html_variant(lines: &[String]) -> bool {
@@ -391,6 +437,11 @@ fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
                     })
                 })
         })
+}
+
+fn cmake(path: &Path) -> bool {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    name == "CMakeLists.txt" || path.extension().is_some_and(|e| e == "cmake")
 }
 
 fn php(path: &Path) -> bool {
@@ -572,6 +623,9 @@ fn grammar(name: &str) -> Option<Language> {
         "java" => tree_sitter_java::LANGUAGE.into(),
         "javascript" => tree_sitter_javascript::LANGUAGE.into(),
         "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
+        "dockerfile" => tree_sitter_dockerfile_updated::language(),
+        "cmake" => tree_sitter_cmake::LANGUAGE.into(),
+        "proto" => tree_sitter_proto::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),
@@ -616,7 +670,7 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
         .find(|(a, _)| *a == alias)
         .map_or(alias.as_str(), |(_, n)| n);
     lang(name).or_else(|| {
-        let syntax = crate::buffer::syntax_for_info(&alias)?;
+        let syntax = crate::buffer::syntax_for_info(&alias, false)?;
         for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
     })
 }
@@ -671,7 +725,6 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     })
 }
 
-#[expect(clippy::match_wildcard_for_single_variants, reason = "#858")]
 fn patterns(
     name: &str,
     language: &Language,
@@ -744,7 +797,7 @@ fn patterns(
                     rest.iter()
                         .map(|a| match a {
                             Text(s) => Ok(s.to_string()),
-                            _ => Err(format!("{name}: #{} takes strings", pred.operator)),
+                            Capture(_) => Err(format!("{name}: #{} takes strings", pred.operator)),
                         })
                         .collect::<Result<Vec<_>, _>>()?,
                 ),
@@ -815,8 +868,7 @@ fn found(
     out
 }
 
-#[expect(clippy::needless_pass_by_value, reason = "#858")]
-fn first_row(old: Found, new: &Found) -> usize {
+fn first_row(old: &Found, new: &Found) -> usize {
     old.symmetric_difference(new)
         .flat_map(|(_, captures)| captures.iter().map(|c| c.3))
         .min()
@@ -831,7 +883,7 @@ fn changed_match_row(
     bytes: &[u8],
 ) -> usize {
     let found = |tree| found(patterns, tree, range.clone(), bytes, usize::MAX);
-    first_row(found(old), &found(new))
+    first_row(&found(old), &found(new))
 }
 
 fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, text: &str) -> usize {
@@ -839,7 +891,7 @@ fn changed_text_row(patterns: &Patterns, before: &(Tree, String), new: &Tree, te
     let (prefix, suffix) = common_ends(old, new_bytes);
     let around = |len: usize| prefix.saturating_sub(1)..(len - suffix + 1).min(len);
     first_row(
-        found(patterns, &before.0, around(old.len()), old, prefix),
+        &found(patterns, &before.0, around(old.len()), old, prefix),
         &found(patterns, new, around(new_bytes.len()), new_bytes, prefix),
     )
 }
@@ -881,146 +933,6 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
             }
         }
     }
-}
-
-#[expect(clippy::match_same_arms, reason = "#858")]
-#[expect(clippy::string_slice, reason = "#858")]
-fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
-    let bad = || Err(format!("vim pattern {p:?} is not supported"));
-    let body = match p.get(..2) {
-        Some("\\v") => &p[2..],
-        Some("\\m" | "\\M" | "\\V") => return bad(),
-        _ => p,
-    };
-    let mut out = String::from("(?s-u)");
-    let mut chars = body.chars().peekable();
-    let mut class = None;
-    while let Some(c) = chars.next() {
-        match (c, class) {
-            ('<' | '>' | '=' | '@' | '%' | '~' | '{' | '&', _) => return bad(),
-            ('\\' | '[', Some(_)) => return bad(),
-            ('-', Some(_)) if chars.peek() == Some(&'-') => return bad(),
-            (']', Some(false)) => class = None,
-            ('^', Some(true)) => {}
-            (_, Some(_)) => class = Some(false),
-            ('[', None) => class = Some(true),
-            ('\\', None) => match chars.next() {
-                Some(n @ ('d' | 'w' | 'D' | 'W')) => {
-                    out.push('\\');
-                    out.push(n);
-                    continue;
-                }
-                Some(n) if !n.is_ascii_alphanumeric() && n != '_' => {
-                    out.push_str(&regex::escape(&n.to_string()));
-                    continue;
-                }
-                _ => return bad(),
-            },
-            _ => {}
-        }
-        out.push(c);
-    }
-    regex::bytes::Regex::new(&out).map_err(|e| format!("vim pattern {p:?}: {e}"))
-}
-
-fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
-    let mut out = Vec::new();
-    let mut chars = with.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '%' => match chars.next() {
-                Some(d @ '0'..='9') => out.extend(format!("${{{d}}}").bytes()),
-                Some('%') => out.push(b'%'),
-                _ => return Err(format!("lua replacement {with:?}: invalid use of '%'")),
-            },
-            '$' => out.extend(b"$$"),
-            c => out.extend(c.to_string().bytes()),
-        }
-    }
-    Ok(out)
-}
-
-#[expect(clippy::format_push_string, reason = "#858")]
-#[expect(clippy::match_same_arms, reason = "#858")]
-fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
-    let class = |c: char| -> Option<&'static str> {
-        Some(match c {
-            'a' => "A-Za-z",
-            'c' => "\\x00-\\x1f\\x7f",
-            'd' => "0-9",
-            'g' => "!-~",
-            'l' => "a-z",
-            'p' => "!-/:-@\\[-`{-~",
-            's' => "\\t\\n\\x0b\\x0c\\r ",
-            'u' => "A-Z",
-            'w' => "A-Za-z0-9",
-            'x' => "0-9A-Fa-f",
-            _ => return None,
-        })
-    };
-    let bad = || Err(format!("lua pattern {p:?} is not supported"));
-    let chars: Vec<char> = p.chars().collect();
-    let mut out = String::from("(?s-u)");
-    let mut i = 0;
-    while i < chars.len() {
-        let c = chars[i];
-        match c {
-            '^' if i == 0 => out.push('^'),
-            '$' if i == chars.len() - 1 => out.push('$'),
-            '.' => out.push('.'),
-            '*' | '+' | '?' => out.push(c),
-            '-' => out.push_str("*?"),
-            '(' | ')' => out.push(c),
-            '%' => {
-                i += 1;
-                let Some(&n) = chars.get(i) else { return bad() };
-                if let Some(set) = class(n.to_ascii_lowercase()) {
-                    let neg = if n.is_ascii_uppercase() { "^" } else { "" };
-                    out.push_str(&format!("[{neg}{set}]"));
-                } else if n.is_ascii_alphanumeric() {
-                    return bad();
-                } else {
-                    out.push_str(&regex::escape(&n.to_string()));
-                }
-            }
-            '[' => {
-                out.push('[');
-                i += 1;
-                if chars.get(i) == Some(&'^') {
-                    out.push('^');
-                    i += 1;
-                }
-                let mut first = true;
-                loop {
-                    let Some(&m) = chars.get(i) else { return bad() };
-                    if m == ']' && !first {
-                        break;
-                    }
-                    first = false;
-                    if m == '%' {
-                        i += 1;
-                        let Some(&n) = chars.get(i) else { return bad() };
-                        match class(n) {
-                            Some(set) => out.push_str(set),
-                            None if n.is_ascii_alphanumeric() => return bad(),
-                            None => out.push_str(&format!("\\x{:02x}", n as u32)),
-                        }
-                    } else if m == '-' {
-                        out.push('-');
-                    } else if m.is_ascii_alphanumeric() {
-                        out.push(m);
-                    } else {
-                        out.push_str(&format!("\\x{:02x}", m as u32));
-                    }
-                    i += 1;
-                }
-                out.push(']');
-            }
-            _ => out.push_str(&regex::escape(&c.to_string())),
-        }
-        i += 1;
-    }
-    regex::bytes::Regex::new(&out).map_err(|e| format!("lua pattern {p:?}: {e}"))
 }
 
 #[cfg(test)]
@@ -1412,6 +1324,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
 }
 
 mod layers;
+mod pattern;
 
 #[cfg(test)]
 mod tests;

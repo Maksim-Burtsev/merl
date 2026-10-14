@@ -1,6 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -74,7 +71,9 @@ fn comment_at(line: &str) -> usize {
 }
 
 pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
-    let code = &line[..comment_at(line)];
+    static OPERATOR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"%[^%\s`]+%").expect("the regex is a literal"));
+    let code = line.get(..comment_at(line))?;
     if col >= code.len() {
         return None;
     }
@@ -85,7 +84,6 @@ pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
     {
         return (b > a + 1).then_some(a + 1..b);
     }
-    static OPERATOR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"%[^%\s`]+%").unwrap());
     OPERATOR
         .find_iter(code)
         .find(|m| m.start() <= col && col < m.end())
@@ -93,28 +91,34 @@ pub fn r_quoted_name(line: &str, col: usize) -> Option<Range<usize>> {
 }
 
 pub fn r_foreign_package(line: &str, start: usize, root: &Path) -> bool {
-    let before = &line[..start];
+    let Some(before) = line.get(..start) else {
+        return false;
+    };
     let Some(q) = before
         .strip_suffix(":::")
         .or_else(|| before.strip_suffix("::"))
     else {
         return false;
     };
-    let from = q
-        .rfind(|c: char| !(c.is_ascii() && name_byte(c as u8)))
-        .map_or(0, |i| i + 1);
+    let Some(name) = q
+        .rsplit(|c: char| !(c.is_ascii() && name_byte(c as u8)))
+        .next()
+    else {
+        return false;
+    };
     let package = std::fs::read_to_string(root.join("DESCRIPTION")).ok();
     let own = package.as_deref().and_then(|d| {
         d.lines()
             .find_map(|l| l.strip_prefix("Package:"))
             .map(str::trim)
     });
-    from < q.len() && own != Some(&q[from..])
+    !name.is_empty() && own != Some(name)
 }
 
 pub fn r_source(line: &str, col: usize) -> Option<String> {
     static SOURCE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\b(?:sys\.)?source\s*\(\s*(?:file\s*=\s*)?["']([^"']+)["']"#).unwrap()
+        Regex::new(r#"\b(?:sys\.)?source\s*\(\s*(?:file\s*=\s*)?["']([^"']+)["']"#)
+            .expect("the regex is a literal")
     });
     SOURCE
         .captures_iter(line)

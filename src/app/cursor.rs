@@ -1,8 +1,3 @@
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Kind, Mode, TextLine, is_word, next_char, prev_char, search, shown_str, wrap};
 
 impl App {
@@ -10,6 +5,10 @@ impl App {
         self.want_x = self.cursor_x();
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of text_rows, on cluster boundaries"
+    )]
     pub(super) fn apply_want_x(&mut self, row: usize) {
         let rows = self.text_rows(self.line_str());
         let row = row.min(rows.len() - 1);
@@ -106,6 +105,10 @@ impl App {
         Some(from..to)
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "selected_bytes and the shown cut are char boundaries of the line"
+    )]
     pub(super) fn selected_text(&self) -> Option<String> {
         let (start, end) = self.selection()?;
         let lines: Vec<&str> = std::iter::successors(Some(start.0), |&t| self.next_line(t))
@@ -114,7 +117,7 @@ impl App {
                 let line = self.text(t);
                 let cut = shown_str(line).len();
                 let end_of = |col: usize| if col == cut { line.len() } else { col };
-                let r = self.selected_bytes(t).unwrap();
+                let r = self.selected_bytes(t).expect("t lies in the selection");
                 &line[end_of(r.start)..end_of(r.end)]
             })
             .collect();
@@ -122,11 +125,14 @@ impl App {
     }
 
     pub(super) fn extend(&mut self, mv: fn(&mut Self)) {
-        self.anchor.get_or_insert((self.at(), self.col));
+        if self.anchor.is_none() {
+            self.anchor = Some((self.at(), self.col));
+        }
         mv(self);
     }
 
     pub(super) fn grow_selection(&mut self) {
+        type Span = ((TextLine, usize), (TextLine, usize));
         let blank = |t: TextLine| self.text(t).trim().is_empty();
         let l = self.at();
         let (mut top, mut bottom) = (l, l);
@@ -156,7 +162,6 @@ impl App {
             )),
         ];
         let cur = self.selection().unwrap_or(((l, self.col), (l, self.col)));
-        type Span = ((TextLine, usize), (TextLine, usize));
         let wider =
             |&(from, to): &Span| !blank(l) && from <= cur.0 && cur.1 <= to && (from, to) != cur;
         if let Some((from, to)) = steps.into_iter().flatten().find(wider) {
@@ -239,7 +244,7 @@ impl App {
     pub(super) fn half_page(&mut self, dir: isize) {
         let half = (self.page_rows(dir > 0) / 2).max(1);
         let before = self.cursor_at();
-        self.move_rows(dir * half as isize);
+        self.move_rows(dir * isize::try_from(half).unwrap_or(isize::MAX));
         let moved = self.rows_between(before, self.cursor_at());
         let top = (self.top_line, self.top_row);
         (self.top_line, self.top_row) = if dir < 0 {
@@ -387,6 +392,10 @@ pub(super) fn word_start(s: &str, i: usize) -> usize {
     i
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "callers pass a cursor column, on a char boundary"
+)]
 fn char_at(s: &str, i: usize) -> char {
     s[i..].chars().next().unwrap_or(' ')
 }

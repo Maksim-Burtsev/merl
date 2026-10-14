@@ -1,5 +1,3 @@
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 use crate::stats;
 
@@ -30,7 +28,7 @@ fn read(name: &str) -> KeyEvent {
         "PgUp" => KeyCode::PageUp,
         "PgDn" => KeyCode::PageDown,
         _ if key.len() > 1 && key.starts_with('F') => {
-            KeyCode::F(key[1..].parse().unwrap_or_else(|_| cannot()))
+            KeyCode::F(key.get(1..).unwrap().parse().unwrap_or_else(|_| cannot()))
         }
         _ if key.chars().count() == 1 && m.contains(KeyModifiers::CONTROL) => {
             KeyCode::Char(key.to_ascii_lowercase().chars().next().unwrap())
@@ -381,6 +379,7 @@ fn alt_q_alone_has_no_line() {
 
 #[test]
 fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
+    use TextLine::File;
     let (dir, mut a) = review_app("reviewstats-numbered");
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     typed(&mut a, "a.rs");
@@ -394,7 +393,6 @@ fn a_stop_past_the_hunks_the_review_opened_with_does_not_count() {
     );
     std::fs::write(dir.join("src/a.rs"), "a\nB\nc\nD\ne\nF\n").unwrap();
     a.reload(false);
-    use TextLine::File;
     assert_eq!(a.diff.hunks, [File(1), File(3), File(5)]);
     for _ in 0..3 {
         press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);

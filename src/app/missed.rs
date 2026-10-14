@@ -1,6 +1,3 @@
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use super::cursor::{word_end, word_start};
 use super::keys::named;
 use super::review::Next;
@@ -12,7 +9,7 @@ use super::{
 const RUN_GAP: Duration = Duration::from_millis(200);
 const SPENT_PER_MISSED_PRESS: usize = 2;
 const MIN_PRESSES_SAVED: usize = 3;
-const HISTORY_STEPS_OFFERED_EITHER_WAY: usize = 3;
+const HISTORY_STEPS_OFFERED_EITHER_WAY: isize = 3;
 
 const SHORTCUTS: [(KeyCode, KeyModifiers); 21] = [
     (KeyCode::Char('d'), KeyModifiers::CONTROL),
@@ -131,7 +128,7 @@ impl App {
             }
         }
         if let Some(run) = self.watch.run.take() {
-            self.judge_run(run);
+            self.judge_run(&run);
         }
         self.watch.run = self.start_run(key);
     }
@@ -146,13 +143,13 @@ impl App {
         if let Some(trip) = self.watch.trip.take()
             && key.code == KeyCode::Enter
         {
-            self.judge_trip(trip);
+            self.judge_trip(&trip);
         }
     }
 
     pub(super) fn watch_jumped(&mut self) {
         if let Some(trip) = self.watch.trip.take() {
-            self.judge_trip(trip);
+            self.judge_trip(&trip);
         }
     }
 
@@ -198,7 +195,7 @@ impl App {
         })
     }
 
-    fn judge_run(&mut self, run: Run) {
+    fn judge_run(&mut self, run: &Run) {
         let from = (run.before_first_press.at(), run.before_first_press.col);
         let deleting = !run.deleting_line_before_first_press.is_empty();
         if run.mode != self.mode
@@ -209,14 +206,14 @@ impl App {
             return;
         }
         let found = if deleting {
-            self.word_chord(&run)
+            self.word_chord(run)
         } else {
             let budget = max_missed_presses(run.presses_that_moved);
             if budget == 0 {
                 return;
             }
-            self.hunk_reached(&run)
-                .or_else(|| self.shortcut(&run, budget))
+            self.hunk_reached(run)
+                .or_else(|| self.shortcut(run, budget))
         };
         if let Some((_, action)) = found {
             *self.missed.entry(action).or_default() += 1;
@@ -375,7 +372,7 @@ impl App {
             return None;
         }
         let mut at = from;
-        for m in 1..=max_missed_presses(s[lo..hi].graphemes(true).count()) {
+        for m in 1..=max_missed_presses(s.get(lo..hi)?.graphemes(true).count()) {
             at = step(s, at);
             if at == to {
                 let key = KeyEvent::new(run.key.0, KeyModifiers::ALT);
@@ -391,7 +388,7 @@ impl App {
         else {
             return None;
         };
-        let reach = HISTORY_STEPS_OFFERED_EITHER_WAY as isize;
+        let reach = HISTORY_STEPS_OFFERED_EITHER_WAY;
         let stops = (1..=reach)
             .flat_map(|k| [-k, k])
             .filter_map(|k| {
@@ -423,7 +420,7 @@ impl App {
         })
     }
 
-    fn judge_trip(&mut self, trip: Trip) {
+    fn judge_trip(&mut self, trip: &Trip) {
         let budget = max_missed_presses(trip.n);
         let Some(path) = self.buf.path.clone() else {
             return;
@@ -432,8 +429,8 @@ impl App {
             return;
         }
         let found = match trip.kind {
-            PickerKind::Files => self.to_file(&trip, &path),
-            _ => self.to_word(&trip),
+            PickerKind::Files => self.to_file(trip, &path),
+            _ => self.to_word(trip),
         };
         if let Some((cost, key)) = found
             && cost <= budget

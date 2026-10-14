@@ -1,5 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, Component, Hit, Kind, Path, PathBuf, PickerKind, Reason, Regex, search,
 };
@@ -25,10 +23,12 @@ impl App {
     }
 
     fn follow_link(&mut self, here: &Path, target: &str) {
-        static URL: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").unwrap());
-        static LINES: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^L(\d+)(?:-L\d+)?$").unwrap());
+        static URL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").expect("the regex is a literal")
+        });
+        static LINES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^L(\d+)(?:-L\d+)?$").expect("the regex is a literal")
+        });
         if URL.is_match(target) {
             self.message = "link outside the project".into();
             return;
@@ -37,7 +37,7 @@ impl App {
             Some((p, a)) => (search::percent_decoded(p), Some(search::percent_decoded(a))),
             None => (search::percent_decoded(target), None),
         };
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let Some(rel) = (match path.as_str() {
             "" => Some(here.to_path_buf()),
             p => in_project(dir, p),
@@ -78,14 +78,15 @@ impl App {
     }
 
     fn follow_code_path(&mut self, here: &Path, span: &str) {
-        static AT: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^(.+?)(?::(\d+))?(?::\d+)?$").unwrap());
+        static AT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^(.+?)(?::(\d+))?(?::\d+)?$").expect("the regex is a literal")
+        });
         let Some(c) = AT.captures(span.trim()) else {
             self.message = "no link here".into();
             return;
         };
         let (name, line) = (&c[1], c.get(2).and_then(|n| n.as_str().parse().ok()));
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let file = [Path::new(""), dir]
             .into_iter()
             .filter_map(|d| in_project(d, name))

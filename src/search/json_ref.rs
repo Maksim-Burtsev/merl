@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{indent, percent_decoded};
 use regex::Regex;
 use std::path::Path;
@@ -21,7 +19,8 @@ fn is_json(path: &Path) -> bool {
 
 pub fn ref_at(path: &Path, lines: &[&str], line: usize, col: usize) -> Option<RefAt> {
     static REF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?:^|[\s{,])(?:"\$ref"|'\$ref'|\$ref)\s*:[ \t]*"#).unwrap()
+        Regex::new(r#"(?:^|[\s{,])(?:"\$ref"|'\$ref'|\$ref)\s*:[ \t]*"#)
+            .expect("the regex is a literal")
     });
     let json = is_json(path);
     let l = *lines.get(line)?;
@@ -75,8 +74,9 @@ fn parent(lines: &[&str], line: usize, json: bool) -> Option<usize> {
 }
 
 fn in_block_scalar(lines: &[&str], line: usize) -> bool {
-    static HEADER: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?:^-|:)\s+[|>][-+0-9]*\s*(?:#.*)?$").unwrap());
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^-|:)\s+[|>][-+0-9]*\s*(?:#.*)?$").expect("the regex is a literal")
+    });
     let mut at = line;
     while let Some(up) = parent(lines, at, false) {
         let t = lines[up].trim();
@@ -108,33 +108,33 @@ fn comment_start(l: &str) -> Option<usize> {
 }
 
 fn value_at(l: &str, from: usize) -> Option<(std::ops::Range<usize>, String)> {
-    let rest = &l[from..];
+    let rest = l.get(from..)?;
     if let q @ (b'"' | b'\'') = rest.as_bytes().first()? {
-        let close = rest[1..].find(*q as char)? + 1;
-        Some((from..from + close + 1, rest[1..close].to_owned()))
+        let (quoted, _) = rest.get(1..)?.split_once(*q as char)?;
+        Some((from..from + quoted.len() + 2, quoted.to_owned()))
     } else {
         let end = [" #", ",", "}"]
             .iter()
             .filter_map(|s| rest.find(s))
             .min()
             .unwrap_or(rest.len());
-        let value = rest[..end].trim_end();
+        let value = rest.get(..end)?.trim_end();
         (!value.is_empty()).then(|| (from..from + value.len(), value.to_owned()))
     }
 }
 
 fn key_of(body: &str) -> Option<(String, usize)> {
     let (key, after) = if let q @ (b'"' | b'\'') = body.as_bytes().first()? {
-        let close = body[1..].find(*q as char)? + 1;
-        (body[1..close].to_owned(), close + 1)
+        let (quoted, _) = body.get(1..)?.split_once(*q as char)?;
+        (quoted.to_owned(), quoted.len() + 2)
     } else {
-        let colon = body
-            .match_indices(':')
-            .map(|(i, _)| i)
-            .find(|&i| body[i + 1..].is_empty() || body[i + 1..].starts_with([' ', '\t']))?;
-        (body[..colon].trim_end().to_owned(), colon)
+        let colon = body.match_indices(':').map(|(i, _)| i).find(|&i| {
+            body.get(i + 1..)
+                .is_some_and(|r| r.is_empty() || r.starts_with([' ', '\t']))
+        })?;
+        (body.get(..colon)?.trim_end().to_owned(), colon)
     };
-    let rest = body[after..].trim_start().strip_prefix(':')?;
+    let rest = body.get(after..)?.trim_start().strip_prefix(':')?;
     let value = rest.trim_start();
     Some((key, body.len() - value.len()))
 }
@@ -174,7 +174,10 @@ pub fn pointer_line(path: &Path, text: &str, pointer: &str) -> Option<usize> {
     for seg in segments {
         let body = |r: usize| {
             if Some(r) == item {
-                rows[r].2[1..].trim_start()
+                rows[r]
+                    .2
+                    .strip_prefix('-')
+                    .map_or(rows[r].2, str::trim_start)
             } else {
                 rows[r].2
             }
@@ -200,7 +203,7 @@ pub fn pointer_line(path: &Path, text: &str, pointer: &str) -> Option<usize> {
             true => body(hit).strip_prefix('-').unwrap_or("").trim_start(),
             false => {
                 let (_, v) = key_of(body(hit))?;
-                &body(hit)[v..]
+                body(hit).get(v..)?
             }
         };
         let value = if json {
@@ -229,7 +232,7 @@ pub fn keyword_line(text: &str, keyword: &str, value: &str) -> Option<usize> {
         r#"(?:^|[\s{{,])(?:"{k}"|'{k}'|{k})\s*:[ \t]*"#,
         k = regex::escape(keyword)
     ))
-    .unwrap();
+    .expect("an escaped keyword keeps the pattern valid");
     text.lines()
         .position(|l| {
             re.find_iter(l).any(|m| {

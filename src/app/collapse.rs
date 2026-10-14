@@ -6,7 +6,10 @@ mod spans;
 mod words;
 
 impl App {
-    #[expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
+    #[expect(
+        clippy::case_sensitive_file_extension_comparisons,
+        reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+    )]
     fn shape(&self) -> Option<Folds<'_>> {
         let lines = &self.buf.lines;
         if self.kind() == Some(Kind::Python) {
@@ -272,7 +275,6 @@ impl<'a> Shape<'a> {
         shape
     }
 
-    #[expect(clippy::excessive_nesting, reason = "#858")]
     pub(crate) fn python(lines: &'a [String]) -> Self {
         let mut shape = Shape::plain(lines);
         shape.python = true;
@@ -285,17 +287,14 @@ impl<'a> Shape<'a> {
             let mut i = 0;
             while i < b.len() {
                 if let Some((start, delim)) = open {
-                    if b[i] == b'\\' {
-                        i += 2;
-                    } else if b[i..].starts_with(delim) {
-                        if n > start {
-                            shape.strings.insert(start, n);
-                        }
-                        open = None;
-                        i += 3;
-                    } else {
-                        i += 1;
+                    let (step, closed) = string_step(&b[i..], delim);
+                    if closed && n > start {
+                        shape.strings.insert(start, n);
                     }
+                    if closed {
+                        open = None;
+                    }
+                    i += step;
                     continue;
                 }
                 match b[i] {
@@ -310,11 +309,7 @@ impl<'a> Shape<'a> {
                             i += 3;
                             continue;
                         }
-                        i += 1;
-                        while i < b.len() && b[i] != q {
-                            i += if b[i] == b'\\' { 2 } else { 1 };
-                        }
-                        i += 1;
+                        i = skip_quoted(b, i + 1, q);
                     }
                     b'(' | b'[' | b'{' => {
                         depth += 1;
@@ -332,7 +327,10 @@ impl<'a> Shape<'a> {
         shape
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "code[l] is the line's length or the offset of its comment's #"
+    )]
     fn code(&self, l: usize) -> &str {
         let line = &self.lines[l];
         line[..self.code[l].min(line.len())].trim()
@@ -393,7 +391,6 @@ impl<'a> Shape<'a> {
         self.block(h).or_else(|| self.strings.get(&h).copied())
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
     fn compound(&self, l: usize) -> bool {
         if self.nested[l] {
             return false;
@@ -401,10 +398,9 @@ impl<'a> Shape<'a> {
         let t = self.code(l);
         let word = t.split(|c: char| !c.is_alphanumeric() && c != '_').next();
         match word {
-            Some(w @ ("match" | "case")) => {
-                let rest = t[w.len()..].trim_start();
-                t[w.len()..].starts_with(' ') && !rest.starts_with(['=', '.', ')', ',', ':'])
-            }
+            Some(w @ ("match" | "case")) => t.strip_prefix(w).is_some_and(|after| {
+                after.starts_with(' ') && !after.trim_start().starts_with(['=', '.', ')', ',', ':'])
+            }),
             Some(w) => COMPOUND.contains(&w),
             None => false,
         }
@@ -585,4 +581,21 @@ fn vim_folds(len: usize, ranges: impl Iterator<Item = (usize, usize)>) -> HashMa
         }
     }
     spans
+}
+
+fn string_step(rest: &[u8], delim: &[u8]) -> (usize, bool) {
+    if rest[0] == b'\\' {
+        (2, false)
+    } else if rest.starts_with(delim) {
+        (3, true)
+    } else {
+        (1, false)
+    }
+}
+
+fn skip_quoted(b: &[u8], mut i: usize, q: u8) -> usize {
+    while i < b.len() && b[i] != q {
+        i += if b[i] == b'\\' { 2 } else { 1 };
+    }
+    i + 1
 }

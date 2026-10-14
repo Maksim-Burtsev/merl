@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use regex::Regex;
 use std::path::Path;
 
@@ -14,11 +13,11 @@ pub fn dotted_at(line: &str, col: usize) -> Option<(Vec<&str>, usize)> {
         .iter()
         .position(|b| !name(b))
         .map_or(bytes.len(), |i| col + i);
-    let mut segments: Vec<&str> = line[start..end].split('.').collect();
-    if line[end..].starts_with('(') {
+    let mut segments: Vec<&str> = line.get(start..end)?.split('.').collect();
+    if line.get(end..)?.starts_with('(') {
         segments.pop();
     }
-    let at = line[start..col].matches('.').count();
+    let at = line.get(start..col)?.matches('.').count();
     (at < segments.len() && segments.iter().all(|s| !s.is_empty())).then_some((segments, at))
 }
 

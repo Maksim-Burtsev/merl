@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -103,7 +102,7 @@ fn shaped_lines(
             if !line.ends_with(b"\n") {
                 kept.text.push(b'\n');
             }
-            kept.lines.push(n as usize);
+            kept.lines.push(usize::try_from(n).unwrap_or(usize::MAX));
             Ok(kept.text.len() <= SHAPED_BYTES)
         });
         searcher.search_slice(shape, &bytes, sink).ok()?;
@@ -209,7 +208,7 @@ impl Sink for Collect<'_> {
                 Hit {
                     path: self.path.to_path_buf(),
                     line1: {
-                        let n = m.line_number().unwrap_or(0) as usize;
+                        let n = usize::try_from(m.line_number().unwrap_or(0)).unwrap_or(usize::MAX);
                         self.lines
                             .map_or(n, |l| l.get(n.wrapping_sub(1)).copied().unwrap_or(0))
                     },

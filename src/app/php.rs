@@ -1,8 +1,3 @@
-#![expect(clippy::needless_pass_by_ref_mut, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unused_self, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search};
 use std::ops::Range;
 
@@ -52,7 +47,12 @@ impl App {
             }
             _ => None,
         };
-        let access = match self.line_str()[range.end..].trim_start().starts_with('(') {
+        let access = match self
+            .line_str()
+            .get(range.end..)?
+            .trim_start()
+            .starts_with('(')
+        {
             true => search::PhpAccess::Call,
             false if dotted || property.is_some() => search::PhpAccess::Property,
             false => search::PhpAccess::Constant,
@@ -81,9 +81,9 @@ impl App {
         access: search::PhpAccess,
     ) -> Option<Vec<Candidate>> {
         let line = self.line_str();
-        let word = line[range.clone()].to_owned();
+        let word = line.get(range.clone())?.to_owned();
         let search::PhpClassAt { written, member } = search::php_class_at(line, range)?;
-        let map = search::php_psr4(&self.root, here.parent().unwrap_or(Path::new("")));
+        let map = search::php_psr4(&self.root, here.parent().unwrap_or_else(|| Path::new("")));
         if map.is_empty() {
             return None;
         }
@@ -276,12 +276,7 @@ impl App {
         }
     }
 
-    fn php_class(
-        &mut self,
-        from: &Path,
-        text: &str,
-        name: &str,
-    ) -> (Option<String>, Vec<PhpClass>) {
+    fn php_class(&self, from: &Path, text: &str, name: &str) -> (Option<String>, Vec<PhpClass>) {
         let kind = Kind::Php;
         let full = search::php_resolve(text, name).map(|r| r.full);
         let short = full.as_deref().unwrap_or(name);
@@ -329,9 +324,9 @@ impl App {
         let (head, fields) = chain.split_first().filter(|_| chain.len() <= 6)?;
         let (mut class, mut links, rest) = if head.as_str() == "this" {
             let (field, rest) = fields.split_first()?;
-            let own = self.php_self(here, text, self.line)?;
+            let own = Self::php_self(here, text, self.line)?;
             let class = self.php_property_type(&own, field)?;
-            let link = format!("$this->{field}: {}", self.php_class_name(&class)?);
+            let link = format!("$this->{field}: {}", Self::php_class_name(&class)?);
             (class, vec![link], rest)
         } else {
             let ProvenClass { class, link } = self.php_variable_type(here, text, head)?;
@@ -339,7 +334,7 @@ impl App {
         };
         for field in rest {
             class = self.php_property_type(&class, field)?;
-            links.push(format!("{field}: {}", self.php_class_name(&class)?));
+            links.push(format!("{field}: {}", Self::php_class_name(&class)?));
         }
         let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
         let Walk::Found(hits) = self.php_walk(
@@ -363,12 +358,12 @@ impl App {
         )
     }
 
-    fn php_class_name(&self, class: &PhpClass) -> Option<String> {
+    fn php_class_name(class: &PhpClass) -> Option<String> {
         let l = class.text.lines().nth(class.header0)?;
         search::php_class_header(l).map(|h| h.name.to_owned())
     }
 
-    fn php_self(&self, path: &Path, text: &str, line0: usize) -> Option<PhpClass> {
+    fn php_self(path: &Path, text: &str, line0: usize) -> Option<PhpClass> {
         let lines: Vec<&str> = text.lines().collect();
         let class = search::php_enclosing_class(&lines, line0)?;
         let header = search::php_class_header(lines[class])?;
@@ -379,15 +374,9 @@ impl App {
         })
     }
 
-    fn php_type(
-        &mut self,
-        path: &Path,
-        text: &str,
-        line0: usize,
-        written: &str,
-    ) -> Option<PhpClass> {
+    fn php_type(&self, path: &Path, text: &str, line0: usize, written: &str) -> Option<PhpClass> {
         if written.eq_ignore_ascii_case("self") {
-            return self.php_self(path, text, line0);
+            return Self::php_self(path, text, line0);
         }
         let (_, mut matching) = self.php_class(path, search::php_block(text, line0), written);
         (matching.len() == 1).then(|| matching.remove(0))
@@ -409,12 +398,12 @@ impl App {
                 }
                 search::PhpBinding::StaticCall { class: on, method } => {
                     let class = self.php_type(here, text, at, &on)?;
-                    let Returned { class, written } = self.php_returns(class, &method)?;
+                    let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("{on}::{method}(): {written}")))
                 }
                 search::PhpBinding::ThisCall(method) => {
-                    let class = self.php_self(here, text, at)?;
-                    let Returned { class, written } = self.php_returns(class, &method)?;
+                    let class = Self::php_self(here, text, at)?;
+                    let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("$this->{method}(): {written}")))
                 }
                 search::PhpBinding::FunctionCall(f) => {
@@ -432,7 +421,7 @@ impl App {
                 None => {
                     let link = match call {
                         Some(call) => call,
-                        None => format!("${name}: {}", self.php_class_name(&class)?),
+                        None => format!("${name}: {}", Self::php_class_name(&class)?),
                     };
                     found = Some(ProvenClass { class, link });
                 }
@@ -441,7 +430,7 @@ impl App {
         found
     }
 
-    fn php_returns(&mut self, class: PhpClass, method: &str) -> Option<Returned> {
+    fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
         let re =
             Regex::new(&search::php_access_patterns(method, search::PhpAccess::Call).join("|"))
                 .ok()?;
@@ -461,7 +450,7 @@ impl App {
         self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
-    fn php_function_returns(&mut self, here: &Path, name: &str) -> Option<Returned> {
+    fn php_function_returns(&self, here: &Path, name: &str) -> Option<Returned> {
         let short = name.rsplit('\\').next().unwrap_or(name);
         let pattern = format!(r"^function\s+&?\s*{}\s*\(", regex::escape(short));
         let cut = self.truncated.get();
@@ -473,7 +462,7 @@ impl App {
         self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
-    fn php_declared_return(&mut self, path: &Path, line0: usize) -> Option<Returned> {
+    fn php_declared_return(&self, path: &Path, line0: usize) -> Option<Returned> {
         let text = self.text_of(path)?;
         let lines: Vec<&str> = text.lines().collect();
         if lines.get(line0)?.trim_start().starts_with('*') {

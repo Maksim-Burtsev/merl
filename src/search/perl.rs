@@ -1,9 +1,4 @@
-#![expect(clippy::default_trait_access, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -62,11 +57,13 @@ pub(super) const PERL_PACKAGE_SYMBOL: &str =
     r"^\s*(?:package|class)\s+(?P<name>[A-Za-z_]\w*(?:::\w+)*)(?:\s*[;{]|\s+v?\d|\s+:|\s*$)";
 
 pub fn perl_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str, text: &str) -> bool {
-    static KEY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*\w+\s*=>").unwrap());
-    static ENTRY: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:\w+\s*=>.*)?(?:#.*)?$").unwrap());
+    static KEY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*\w+\s*=>").expect("the regex is a literal"));
+    static ENTRY: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:\w+\s*=>.*)?(?:#.*)?$").expect("the regex is a literal")
+    });
     static OPENER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*use\s+constant\s*\{").unwrap());
+        LazyLock::new(|| Regex::new(r"^\s*use\s+constant\s*\{").expect("the regex is a literal"));
     let entry = perl_constant_entry(word);
     let others = (perl_patterns(word).into_iter())
         .filter(|p| *p != entry)
@@ -121,8 +118,10 @@ pub fn perl_name(line: &str, col: usize) -> Option<Range<usize>> {
 }
 
 pub fn perl_used_module(line: &str) -> Option<Range<usize>> {
-    static USE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(&format!(r"^\s*(?:use|no|require)\s+({PACKAGE})\b")).unwrap());
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(&format!(r"^\s*(?:use|no|require)\s+({PACKAGE})\b"))
+            .expect("the regex is a literal")
+    });
     let m = USE.captures(line)?.get(1)?;
     (!m.as_str().starts_with(|c: char| c.is_ascii_digit())).then(|| m.range())
 }
@@ -133,10 +132,12 @@ pub fn perl_module_file(package: &str) -> String {
 
 pub fn perl_imports(text: &str) -> Vec<(String, String)> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?m)^\s*use\s+([A-Z]\w*(?:::\w+)*)(?:\s+v?[\d._]+)?\s+([^;]*);").unwrap()
+        Regex::new(r"(?m)^\s*use\s+([A-Z]\w*(?:::\w+)*)(?:\s+v?[\d._]+)?\s+([^;]*);")
+            .expect("the regex is a literal")
     });
     static ITEM: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\bqw\s*[(\[{</|]([^)\]}>/|]*)|'([^']*)'|"([^"]*)""#).unwrap()
+        Regex::new(r#"\bqw\s*[(\[{</|]([^)\]}>/|]*)|'([^']*)'|"([^"]*)""#)
+            .expect("the regex is a literal")
     });
     let literal = perl_literal_lines(text);
     let starts: Vec<usize> = std::iter::once(0)
@@ -166,14 +167,14 @@ pub fn perl_imports(text: &str) -> Vec<(String, String)> {
 }
 
 pub fn perl_lexical(text: &str, line: usize, col: usize, name: &str) -> Option<usize> {
+    static HEADER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").expect("the regex is a literal"));
     let (literal, code) = perl_lex(text);
     let n = regex::escape(name);
     let decl = Regex::new(&format!(
         r"\b(?:my|state)\s+(?:[A-Z][\w:]*\s+)?[$@%]{n}\b|\b(?:my|state)\s*\([^)]*[$@%]{n}\b|^\s*(?:sub|method)\s+[\w:]*\s*\([^)]*[$@%]{n}\b"
     ))
     .ok()?;
-    static HEADER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\b(?:for|foreach)\s+$").unwrap());
     let mut depth = 0usize;
     for i in (0..=line.min(code.len().saturating_sub(1))).rev() {
         if literal[i] && i != line {
@@ -186,11 +187,12 @@ pub fn perl_lexical(text: &str, line: usize, col: usize, name: &str) -> Option<u
             .map(|m| {
                 let head = m.as_str().trim_start();
                 let signature = head.starts_with("sub") || head.starts_with("method");
-                (m.start(), signature || HEADER.is_match(&l[..m.start()]))
+                let after_loop = l.get(..m.start()).is_some_and(|h| HEADER.is_match(h));
+                (m.start(), signature || after_loop)
             })
             .collect();
         let mut closed = false;
-        for (p, c) in l[..limit].char_indices().rev() {
+        for (p, c) in l.get(..limit)?.char_indices().rev() {
             match c {
                 '}' => depth += 1,
                 '{' if depth > 0 => {
@@ -227,7 +229,7 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
     let mut literal = Vec::new();
     let mut code = Vec::new();
     let mut state = State::Code;
-    let mut pending: std::collections::VecDeque<(String, bool)> = Default::default();
+    let mut pending: std::collections::VecDeque<(String, bool)> = std::collections::VecDeque::new();
     for line in text.split('\n') {
         match &state {
             State::Data => {
@@ -259,7 +261,9 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
                 continue;
             }
             State::Code => {
-                if line.starts_with('=') && line[1..].starts_with(|c: char| c.is_ascii_alphabetic())
+                if line
+                    .strip_prefix('=')
+                    .is_some_and(|r| r.starts_with(|c: char| c.is_ascii_alphabetic()))
                 {
                     literal.push(true);
                     code.push(String::new());
@@ -277,7 +281,7 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
             }
             State::Quote(..) => literal.push(true),
         }
-        let (blanked, next, heredocs) = scan_line(line, std::mem::replace(&mut state, State::Code));
+        let (blanked, next, heredocs) = scan_line(line, &state);
         code.push(blanked);
         pending.extend(heredocs);
         state = match (next, pending.pop_front()) {
@@ -292,12 +296,12 @@ fn perl_lex(text: &str) -> (Vec<bool>, Vec<String>) {
     (literal, code)
 }
 
-fn scan_line(line: &str, state: State) -> (String, State, Vec<(String, bool)>) {
+fn scan_line(line: &str, state: &State) -> (String, State, Vec<(String, bool)>) {
     let b = line.as_bytes();
     let mut out = b.to_vec();
     let mut heredocs = Vec::new();
     let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-    let mut quote = match state {
+    let mut quote = match *state {
         State::Quote(open, close, depth) => Some((open, close, depth)),
         _ => None,
     };
@@ -355,13 +359,13 @@ fn scan_line(line: &str, state: State) -> (String, State, Vec<(String, bool)>) {
                     Some(&q @ (b'"' | b'\'')) => {
                         let close = b[j + 1..].iter().position(|&x| x == q);
                         match close {
-                            Some(n) => (Some(&line[j + 1..j + 1 + n]), j + n + 2),
+                            Some(n) => (line.get(j + 1..j + 1 + n), j + n + 2),
                             None => (None, j),
                         }
                     }
                     Some(&x) if x.is_ascii_alphabetic() || x == b'_' => {
                         let n = b[j..].iter().take_while(|&&x| ident(x)).count();
-                        (Some(&line[j..j + n]), j + n)
+                        (line.get(j..j + n), j + n)
                     }
                     _ => (None, j),
                 };

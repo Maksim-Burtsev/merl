@@ -10,6 +10,15 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  shear-typos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-shear@1.14.0,typos@1.51.1
+      - run: tools/ci-local shear typos
+
   no-panic:
     if: startsWith(github.head_ref, 'release/')
     runs-on: ubuntu-latest

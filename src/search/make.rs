@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 pub fn make_fallback_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     let target = r"(?:[^\s:=#$(){}]+|\$[({][^)}]*[)}])+";
@@ -49,8 +48,9 @@ fn starts_rule(line: &str) -> bool {
             ')' | '}' if depth > 0 => depth -= 1,
             '=' if depth == 0 => return false,
             ':' if depth == 0 => {
-                let rest = line[i..].trim_start_matches(':');
-                return !rest.starts_with('=');
+                return line
+                    .get(i..)
+                    .is_some_and(|rest| !rest.trim_start_matches(':').starts_with('='));
             }
             _ => {}
         }

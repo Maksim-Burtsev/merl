@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::Path;
 
@@ -25,7 +23,7 @@ pub(super) fn behind_doc(kind: Kind, line: &str) -> &str {
 
 pub fn jsdoc_type(braced: &str) -> Option<String> {
     static ONE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:\[\])?|Array<\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*>)$").unwrap()
+        Regex::new(r"^(?:[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*(?:\[\])?|Array<\s*[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*>)$").expect("the regex is a literal")
     });
     let t = braced
         .trim()
@@ -49,7 +47,7 @@ fn braced(s: &str) -> Option<(&str, &str)> {
             '}' => {
                 depth -= 1;
                 if depth == 0 {
-                    return Some((&s[..i], &s[i + 1..]));
+                    return Some((s.get(..i)?, s.get(i + 1..)?));
                 }
             }
             _ => {}
@@ -73,7 +71,7 @@ fn tags(doc: &[&str]) -> Vec<Tag> {
             continue;
         };
         let tag: String = at.chars().take_while(|c| c.is_alphanumeric()).collect();
-        let Some((ty, rest)) = braced(&at[tag.len()..]) else {
+        let Some((ty, rest)) = at.get(tag.len()..).and_then(braced) else {
             continue;
         };
         out.push(Tag {
@@ -90,7 +88,8 @@ fn tag_name(rest: &str) -> Option<&str> {
     let end = rest
         .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
         .unwrap_or(rest.len());
-    (end > 0 && !rest[end..].starts_with('.')).then(|| &rest[..end])
+    let (name, after) = rest.split_at_checked(end)?;
+    (end > 0 && !after.starts_with('.')).then_some(name)
 }
 
 fn block_above(lines: &[&str], line0: usize) -> Option<Range<usize>> {

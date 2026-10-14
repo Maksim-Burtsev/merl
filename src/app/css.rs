@@ -1,6 +1,3 @@
-#![expect(clippy::needless_pass_by_value, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use super::links::in_project;
 use super::resolution::resolution;
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
@@ -29,17 +26,22 @@ impl App {
     pub(super) fn css_word(&self) -> Option<String> {
         let kind = self.kind();
         if let Some((Attr::Class | Attr::Id, range)) = self.attr_here(kind) {
-            return Some(self.line_str()[range].to_owned());
+            return Some(self.line_str().get(range)?.to_owned());
         }
         if !matches!(kind, Some(Kind::Css | Kind::Html)) {
             return None;
         }
         let (range, word) = search::word_at(self.line_str(), self.col, "-")?;
-        self.line_str()[..range.start]
+        self.line_str()
+            .get(..range.start)?
             .ends_with("--")
             .then(|| format!("--{word}"))
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "attr_here returns the range of an attribute's value on this line"
+    )]
     pub(super) fn css_definition(&mut self, kind: Option<Kind>, here: &Path) -> bool {
         let line = self.line_str().to_owned();
         match self.attr_here(kind) {
@@ -100,7 +102,7 @@ impl App {
             .filter(|p| search::styles_in(p).is_some())
             .cloned()
             .collect();
-        self.styled_in(here, name, id, files, Reason::ByName);
+        self.styled_in(here, name, id, files, &Reason::ByName);
     }
 
     fn css_module(&mut self, here: &Path) -> bool {
@@ -109,7 +111,10 @@ impl App {
             return false;
         };
         let chain = search::qualifier(line, range.start);
-        let object = match (chain.as_slice(), line[..range.start].ends_with('.')) {
+        let object = match (
+            chain.as_slice(),
+            line.get(..range.start).is_some_and(|b| b.ends_with('.')),
+        ) {
             ([head], true) => Some(head.as_str()),
             ([], false) => None,
             _ => return false,
@@ -135,7 +140,7 @@ impl App {
             return false;
         };
         let reason = Reason::Import(file.display().to_string());
-        self.styled_in(here, &class, false, vec![file], reason);
+        self.styled_in(here, &class, false, vec![file], &reason);
         true
     }
 
@@ -145,7 +150,7 @@ impl App {
         name: &str,
         id: bool,
         files: Vec<PathBuf>,
-        reason: Reason,
+        reason: &Reason,
     ) {
         let piece = name
             .rsplit(['-', '_'])
@@ -319,7 +324,7 @@ impl App {
             "scss" | "sass" => search::sass_candidates(module),
             _ => search::import_candidates(module, search::SheetSyntax::of_extension(ext)),
         };
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let local = !module.starts_with('~');
         let beside = candidates
             .iter()
@@ -365,7 +370,7 @@ impl App {
             None => (value, None),
         };
         let path = path.split(['?']).next().unwrap_or(path);
-        let dir = here.parent().unwrap_or(Path::new(""));
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let files: Vec<PathBuf> = match path {
             "" => vec![here.to_path_buf()],
             p if p.starts_with('/') => {

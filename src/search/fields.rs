@@ -1,7 +1,4 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 
 use regex::Regex;
@@ -182,7 +179,8 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
 }
 fn go_field(t: &str, name: &str) -> Option<Value> {
     static GO_FIELD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$").unwrap()
+        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s+(\S.*)$")
+            .expect("the regex is a literal")
     });
     let t = t.split("//").next().unwrap_or("");
     let t = t.split('`').next().unwrap_or("").trim();
@@ -196,18 +194,19 @@ fn go_field(t: &str, name: &str) -> Option<Value> {
 }
 fn go_one_line(line: &str) -> Option<&str> {
     let at = line.find("struct")?;
-    let open = at + line[at..].find('{')?;
+    let open = at + line.get(at..)?.find('{')?;
     let close = close_of(Kind::Go, line, open)?;
-    Some(&line[open + 1..close - 1])
+    line.get(open + 1..close - 1)
 }
 pub(super) fn go_one_line_field(line: &str, name: &str) -> bool {
     go_one_line(line).is_some_and(|body| body.split(';').any(|f| go_field(f, name).is_some()))
 }
 pub(super) fn go_embedded(t: &str) -> Option<&str> {
     static EMBEDDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\*?((?:[A-Za-z_]\w*\.)?[A-Za-z_]\w*)(?:\[.*\])?$").unwrap()
+        Regex::new(r"^\*?((?:[A-Za-z_]\w*\.)?[A-Za-z_]\w*)(?:\[.*\])?$")
+            .expect("the regex is a literal")
     });
-    EMBEDDED.captures(t).map(|c| c.get(1).unwrap().as_str())
+    Some(EMBEDDED.captures(t)?.get(1)?.as_str())
 }
 pub fn enclosing_type(kind: Kind, lines: &[&str], k: usize) -> Option<usize> {
     enclosing_at(kind, lines, &levels(kind, lines), k)
@@ -299,18 +298,23 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
         return false;
     };
     let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
-    let first = l
-        .match_indices(name)
-        .map(|(i, _)| i)
-        .find(|&i| !l[..i].ends_with(ident) && !l[i + name.len()..].starts_with(ident));
+    let first = l.match_indices(name).map(|(i, _)| i).find(|&i| {
+        l.split_at_checked(i).is_some_and(|(before, rest)| {
+            !before.ends_with(ident)
+                && rest
+                    .strip_prefix(name)
+                    .is_some_and(|after| !after.starts_with(ident))
+        })
+    });
     let bare = l.split("//").next().unwrap_or("");
     let embedded =
         kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
     first == Some(start) && !embedded && field_rows(kind, text, &[line], name, false) == [line]
 }
 pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(usize, usize)> {
-    static ENUM: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^[^(=]*\benum\s+\w").unwrap());
+    static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[^(=]*\benum\s+\w").expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl.checked_sub(1).filter(|&k| k < lines.len())?;
     if !ENUM.is_match(lines[k]) {
@@ -318,7 +322,7 @@ pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(u
     }
     let rest = lines[k..lines.len().min(k + 2000)].join("\n");
     let open = code(kind, &rest).find(|&(_, c)| c == b'{')?.0;
-    let body = &rest[open + 1..close_of(kind, &rest, open)? - 1];
+    let body = rest.get(open + 1..close_of(kind, &rest, open)? - 1)?;
     let gap = r"(?:\s+|//[^\n]*|/\*.*?\*/)*";
     let member = Regex::new(&format!(
         r"(?s)^(?:{gap}\[[^\]]*\])*{gap}({}){gap}(?:=.*)?$",
@@ -328,13 +332,15 @@ pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(u
     split_top(kind, body, b',').into_iter().find_map(|part| {
         let at = member.captures(part)?.get(1)?.start();
         let pos = open + 1 + (part.as_ptr() as usize - body.as_ptr() as usize) + at;
-        let line_start = rest[..pos].rfind('\n').map_or(0, |n| n + 1);
-        Some((decl + rest[..pos].matches('\n').count(), pos - line_start))
+        let before = rest.get(..pos)?;
+        let line_start = before.rfind('\n').map_or(0, |n| n + 1);
+        Some((decl + before.matches('\n').count(), pos - line_start))
     })
 }
 pub fn cs_namespace(text: &str, line: usize) -> String {
-    static NS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)").unwrap());
+    static NS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\u{feff}?\s*namespace\s+([\w.]+)").expect("the regex is a literal")
+    });
     text.lines()
         .take(line)
         .filter_map(|l| NS.captures(l))
@@ -344,11 +350,11 @@ pub fn cs_namespace(text: &str, line: usize) -> String {
 pub fn cs_usings(text: &str) -> Vec<String> {
     static USING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"^\u{feff}?\s*(?:global\s+)?using\s+([\w.]+)\s*;|<Using\s+Include="([\w.]+)""#)
-            .unwrap()
+            .expect("the regex is a literal")
     });
     text.lines()
         .filter_map(|l| USING.captures(l))
-        .filter_map(|c| c.get(1).or(c.get(2)).map(|m| m.as_str().to_owned()))
+        .filter_map(|c| c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned()))
         .collect()
 }
 
@@ -365,11 +371,14 @@ pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
     let Some(&l) = line.checked_sub(1).and_then(|k| lines.get(k)) else {
         return GoKey::No;
     };
-    let (word, t) = (&l[start..end], l.trim_start());
-    let after = l[end..].trim_start();
+    let (Some(word), Some(after), Some(lead)) = (l.get(start..end), l.get(end..), l.get(..start))
+    else {
+        return GoKey::No;
+    };
+    let (t, after) = (l.trim_start(), after.trim_start());
     let key = after.starts_with(':')
         && !after.starts_with(":=")
-        && !l[..start].trim_end().ends_with('.')
+        && !lead.trim_end().ends_with('.')
         && !t.starts_with("case ")
         && !t.starts_with("default")
         && uncommented(Kind::Go, l).trim() != format!("{word}:")
@@ -383,8 +392,9 @@ pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
     };
     match go_literal_type(&lines, &literal, j, i, 0) {
         Some(Ok(t)) if t.starts_with('[') || t.starts_with("map[") => GoKey::Value,
-        Some(Ok(t)) if t.starts_with("struct@") => t["struct@".len()..]
-            .parse()
+        Some(Ok(t)) if t.starts_with("struct@") => t
+            .strip_prefix("struct@")
+            .and_then(|n| n.parse().ok())
             .map_or(GoKey::Unknown, GoKey::Struct),
         Some(Ok(t)) => GoKey::Of(t.trim_start_matches('*').to_owned()),
         Some(Err(())) => GoKey::Unknown,
@@ -402,7 +412,11 @@ fn go_open_before(
         if j != k && literal.get(j) == Some(&true) {
             continue;
         }
-        let l = if j == k { &lines[j][..col] } else { lines[j] };
+        let l = if j == k {
+            lines[j].get(..col)?
+        } else {
+            lines[j]
+        };
         let bytes: Vec<(usize, u8)> = code(Kind::Go, l).collect();
         for &(i, c) in bytes.iter().rev() {
             match c {
@@ -426,10 +440,11 @@ fn go_literal_type(
         Regex::new(
             r"(?:map\[[^\]]*\]|\[[^\]]*\]|\*)*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?(?:\[[^\]]*\])?$",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
-    static STRUCTS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?:\[[^\]]*\]|map\[[^\]]*\])+$").unwrap());
+    static STRUCTS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\[[^\]]*\]|map\[[^\]]*\])+$").expect("the regex is a literal")
+    });
     const KEYWORDS: [&str; 12] = [
         "else",
         "for",
@@ -444,7 +459,7 @@ fn go_literal_type(
         "if",
         "return",
     ];
-    let pre = uncommented(Kind::Go, &lines[j][..i]);
+    let pre = uncommented(Kind::Go, lines[j].get(..i)?);
     let pre = pre.trim_end();
     let above = || {
         lines[..j]
@@ -472,11 +487,13 @@ fn go_literal_type(
         );
     }
     if pre.ends_with('}') {
-        let close = lines[j][..i].rfind('}')?;
+        let close = lines[j].get(..i)?.rfind('}')?;
         let Some((sj, si, b'{')) = go_open_before(lines, literal, j, close) else {
             return Some(Err(()));
         };
-        let head = uncommented(Kind::Go, &lines[sj][..si]);
+        let Some(head) = lines[sj].get(..si).map(|h| uncommented(Kind::Go, h)) else {
+            return Some(Err(()));
+        };
         let Some(head) = head.trim_end().strip_suffix("struct") else {
             return Some(Err(()));
         };
@@ -489,7 +506,7 @@ fn go_literal_type(
     if KEYWORDS.contains(&last) || matches!(last, "nil" | "true" | "false") {
         return None;
     }
-    let before = pre[..pre.len() - written.len()].trim_end();
+    let before = pre.strip_suffix(written)?.trim_end();
     let comparison = ["==", "!=", "<=", ">=", "&&"]
         .iter()
         .any(|op| before.ends_with(op));

@@ -1,7 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unused_self, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, HashMap, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search,
     whole_at,
@@ -77,8 +73,9 @@ impl App {
     }
 
     pub(super) fn jenkins_step(&self, here: &Path, word: &str) -> Vec<Candidate> {
-        static CALL: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:def|void)\s+call\s*\(").unwrap());
+        static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*(?:def|void)\s+call\s*\(").expect("the regex is a literal")
+        });
         if !search::groovy(here) {
             return Vec::new();
         }
@@ -92,7 +89,7 @@ impl App {
                     .lines()
                     .enumerate()
                     .find(|(_, l)| CALL.is_match(l))
-                    .or(text.lines().enumerate().next())
+                    .or_else(|| text.lines().enumerate().next())
                     .map_or((1, String::new()), |(i, l)| (i + 1, l.to_owned()));
                 Candidate {
                     hit: Hit {
@@ -502,7 +499,7 @@ fn arguments(lines: &[String], at: usize, open_byte: usize) -> Option<(usize, bo
 }
 
 static MAP_ARGUMENT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^\(\s*(?:\[\s*(?:\w+\s*:|:\s*\])|\w+\s*:[^:])").unwrap()
+    Regex::new(r"^\(\s*(?:\[\s*(?:\w+\s*:|:\s*\])|\w+\s*:[^:])").expect("the regex is a literal")
 });
 
 impl App {
@@ -515,11 +512,13 @@ impl App {
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
         let line = self.line_str();
-        let (before, after) = (&line[..range.start], &line[range.end..]);
+        let (Some(before), Some(after)) = (line.get(..range.start), line.get(range.end..)) else {
+            return hits;
+        };
         let java = here.extension().is_some_and(|e| e == "java");
         let groovy = search::groovy(here);
         if !java && !groovy {
-            return if self.kotlin_infix(before, after, word) {
+            return if Self::kotlin_infix(before, after, word) {
                 hits.into_iter()
                     .filter(|h| Regex::new(r"\binfix\b").is_ok_and(|re| re.is_match(&h.text)))
                     .collect()
@@ -631,7 +630,7 @@ impl App {
         }
     }
 
-    fn kotlin_infix(&self, before: &str, after: &str, word: &str) -> bool {
+    fn kotlin_infix(before: &str, after: &str, word: &str) -> bool {
         if KOTLIN_KEYWORDS.contains(&word) || after.starts_with('(') || before.ends_with('.') {
             return false;
         }
@@ -664,7 +663,7 @@ impl App {
                 })
                 .map_or(0, |(i, _)| i);
             let head: String = {
-                let t = b[..open].trim_end();
+                let t = b.split_at(open).0.trim_end();
                 let rev: String = t.chars().rev().take_while(|c| is_word(*c)).collect();
                 rev.chars().rev().collect()
             };

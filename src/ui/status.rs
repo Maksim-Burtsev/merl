@@ -1,9 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -17,6 +11,10 @@ use crate::wrap;
 
 use super::picture::Status;
 
+#[expect(
+    clippy::string_slice,
+    reason = "LineEdit keeps its cursor and selection on char boundaries"
+)]
 pub(super) fn draw_prompt(
     frame: &mut Frame,
     prefix: &str,
@@ -31,11 +29,12 @@ pub(super) fn draw_prompt(
         Span::raw(&edit[sel.end..]),
     ]);
     let x = wrap::width(prefix) + wrap::width(&edit[..edit.cursor()]);
-    frame.set_cursor_position((area.x + x as u16, area.y));
+    frame.set_cursor_position((area.x + u16::try_from(x).unwrap_or(u16::MAX), area.y));
     frame.render_widget(Paragraph::new(line).style(style), area);
 }
 
 pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
+    const HINT: &str = "? help ";
     let style = Style::new()
         .bg(theme.status_bg)
         .fg(theme.status_fg)
@@ -47,20 +46,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         _ => "",
     };
     if !prefix.is_empty() {
-        draw_prompt(frame, prefix, &app.prompt, style, area);
-        let found_w = wrap::width(&app.message) as u16 + 1;
-        let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
-        if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
-            let found_at_right_edge = Rect {
-                x: area.right() - found_w,
-                width: found_w,
-                ..area
-            };
-            frame.render_widget(
-                Paragraph::new(app.message.as_str()).style(style),
-                found_at_right_edge,
-            );
-        }
+        draw_typed(frame, app, prefix, style, area);
         return;
     }
     let pane = match (app.mode, app.focus) {
@@ -89,30 +75,13 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             format!(
                 "{}  {}[{pane}]{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
-                match app.deleted {
-                    _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
-                    _ if size.is_some() => size
-                        .filter(|s| !s.is_empty())
-                        .map_or(String::new(), |s| format!("{s}  ")),
-                    Some((k, i)) => {
-                        let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
-                        format!("-{}:{}  ", from + i + 1, app.display_col())
-                    }
-                    None => format!("{}:{}  ", app.line + 1, app.display_col()),
-                },
+                position(app, size),
                 if app.mode == Mode::Edit {
                     if app.buf.tabs { "  Tab" } else { "  Spaces: 4" }
                 } else {
                     ""
                 },
-                match &picture {
-                    Some(Status::Size(_)) => String::new(),
-                    Some(Status::Why(why)) => format!("  {why}"),
-                    None if app.buf.readonly.is_some() && !app.message.starts_with("read-only") => {
-                        "  read-only".into()
-                    }
-                    None => String::new(),
-                },
+                why_note(app, picture.as_ref()),
                 if app.no_watch { "  no auto-reload" } else { "" },
                 if app.nowrap() && !app.previewing() {
                     "  nowrap"
@@ -135,7 +104,6 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
-    const HINT: &str = "? help ";
     let hint = app.message.is_empty() && area.width as usize > HINT.len();
     let rest = spans[1..]
         .iter()
@@ -155,16 +123,57 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         let room = (area.width as usize).saturating_sub(before + 2);
         let (name, why) = app.message.split_at(*len);
         let name = fit_path(name, room.saturating_sub(wrap::width(why)));
-        spans.last_mut().unwrap().content = format!("  {name}{why}").into();
+        spans.last_mut().expect("the bar has spans").content = format!("  {name}{why}").into();
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     if hint {
         let hint = Rect {
-            x: area.right() - HINT.len() as u16,
-            width: HINT.len() as u16,
+            x: area.right() - u16::try_from(HINT.len()).unwrap_or(u16::MAX),
+            width: u16::try_from(HINT.len()).unwrap_or(u16::MAX),
             ..area
         };
         frame.render_widget(Paragraph::new(HINT).style(style), hint);
+    }
+}
+
+fn draw_typed(frame: &mut Frame, app: &App, prefix: &str, style: Style, area: Rect) {
+    draw_prompt(frame, prefix, &app.prompt, style, area);
+    let found_w = u16::try_from(wrap::width(&app.message)).unwrap_or(u16::MAX) + 1;
+    let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
+    if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
+        let found_at_right_edge = Rect {
+            x: area.right() - found_w,
+            width: found_w,
+            ..area
+        };
+        frame.render_widget(
+            Paragraph::new(app.message.as_str()).style(style),
+            found_at_right_edge,
+        );
+    }
+}
+
+fn position(app: &App, size: Option<&String>) -> String {
+    match app.deleted {
+        _ if app.buf.path.is_none() || app.folded_here().is_some() => String::new(),
+        _ if size.is_some() => size
+            .filter(|s| !s.is_empty())
+            .map_or(String::new(), |s| format!("{s}  ")),
+        Some((k, i)) => {
+            let from = app.diff.ghost_from.get(&k).copied().unwrap_or(0);
+            format!("-{}:{}  ", from + i + 1, app.display_col())
+        }
+        None => format!("{}:{}  ", app.line + 1, app.display_col()),
+    }
+}
+
+fn why_note(app: &App, picture: Option<&Status>) -> String {
+    match picture {
+        Some(Status::Why(why)) => format!("  {why}"),
+        None if app.buf.readonly.is_some() && !app.message.starts_with("read-only") => {
+            "  read-only".into()
+        }
+        _ => String::new(),
     }
 }
 
@@ -175,7 +184,8 @@ pub(super) fn fit_path(path: &str, room: usize) -> String {
     let mut tails = path
         .trim_end_matches('/')
         .match_indices('/')
-        .map(|(i, _)| format!("\u{2026}{}", &path[i..]));
+        .filter_map(|(i, _)| path.get(i..))
+        .map(|tail| format!("\u{2026}{tail}"));
     let last = tails.next_back();
     tails
         .find(|t| wrap::width(t) <= room)

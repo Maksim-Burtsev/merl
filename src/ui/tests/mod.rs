@@ -1,3 +1,7 @@
+#![expect(
+    clippy::format_collect,
+    reason = "a fixture is built one format! per line; the allocations cost a test nothing"
+)]
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 

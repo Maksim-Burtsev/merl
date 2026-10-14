@@ -1,17 +1,18 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
-static ELIXIR_QUALIFIER: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w:]):([a-z]\w*)\.$").unwrap());
-static ERLANG_QUALIFIER: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"(?:^|[^\w:'])(\??[a-zA-Z_]\w*):$").unwrap());
-static TYPED: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"^-\s*(?:spec|type|opaque|callback)\b|::").unwrap());
+static ELIXIR_QUALIFIER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?:^|[^\w:]):([a-z]\w*)\.$").expect("the regex is a literal")
+});
+static ERLANG_QUALIFIER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"(?:^|[^\w:'])(\??[a-zA-Z_]\w*):$").expect("the regex is a literal")
+});
+static TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^-\s*(?:spec|type|opaque|callback)\b|::").expect("the regex is a literal")
+});
 static RECORD_DOT: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"#([a-z]\w*)\.$").unwrap());
+    std::sync::LazyLock::new(|| Regex::new(r"#([a-z]\w*)\.$").expect("the regex is a literal"));
 static RECORD_OPEN: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"#([a-z]\w*)\{").unwrap());
+    std::sync::LazyLock::new(|| Regex::new(r"#([a-z]\w*)\{").expect("the regex is a literal"));
 
 impl App {
     pub(super) fn erlang_definitions(
@@ -21,7 +22,7 @@ impl App {
         range: std::ops::Range<usize>,
     ) -> Option<Vec<Candidate>> {
         let line = self.line_str().to_owned();
-        let (before, after) = (&line[..range.start], &line[range.end..]);
+        let (before, after) = (line.get(..range.start)?, line.get(range.end..)?);
         let w = regex::escape(word);
         if !search::erlang(here) {
             if before.ends_with(':') && !before.ends_with("::") && after.starts_with('.') {
@@ -221,7 +222,7 @@ fn record_of_field(before: &str, after: &str) -> Option<String> {
         return None;
     }
     let open = RECORD_OPEN.captures_iter(before).last()?;
-    let inside = &before[open.get(0)?.end()..];
+    let inside = before.get(open.get(0)?.end()..)?;
     let depth = inside.chars().fold(0i32, |d, c| match c {
         '{' | '(' | '[' => d + 1,
         '}' | ')' | ']' => d - 1,

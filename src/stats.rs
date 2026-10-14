@@ -1,8 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
-#![expect(clippy::cast_sign_loss, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -36,6 +31,10 @@ pub static ACTIONS: LazyLock<Vec<Action>> = LazyLock::new(|| {
     actions
 });
 
+#[expect(
+    clippy::string_slice,
+    reason = "each cut is a found ASCII pattern plus its own length"
+)]
 fn sides(keys: &str) -> Vec<String> {
     let Some((first, second)) = keys.split_once(" / ") else {
         return vec![keys.to_owned()];
@@ -95,7 +94,7 @@ pub fn utc_today() -> i64 {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
-    (secs / 86_400) as i64
+    i64::try_from(secs / 86_400).unwrap_or(i64::MAX)
 }
 
 pub fn date(day: i64) -> String {
@@ -243,7 +242,10 @@ fn table(rows: &Rows, today: i64) -> String {
     let last = |day: Option<i64>| match day.map(|d| today - d) {
         None => "never".to_owned(),
         Some(..=0) => "today".to_owned(),
-        Some(n) => format!("{n} day{} ago", plural(n as usize)),
+        Some(n) => format!(
+            "{n} day{} ago",
+            plural(usize::try_from(n).unwrap_or(usize::MAX))
+        ),
     };
     let head = ["key", "30d", "missed", "all", "last", "what"].map(String::from);
     let cells: Vec<[String; 6]> = std::iter::once(head)
@@ -260,12 +262,14 @@ fn table(rows: &Rows, today: i64) -> String {
         .collect();
     let w = |i: usize| cells.iter().map(|c| c[i].len()).max().unwrap_or(0);
     let (w0, w1, w2, w3, w4) = (w(0), w(1), w(2), w(3), w(4));
-    cells
-        .iter()
-        .map(|[key, month, missed, all, last, what]| {
-            format!("{key:<w0$}  {month:>w1$}  {missed:>w2$}  {all:>w3$}  {last:<w4$}  {what}\n")
-        })
-        .collect()
+    let mut table = String::new();
+    for [key, month, missed, all, last, what] in &cells {
+        _ = writeln!(
+            table,
+            "{key:<w0$}  {month:>w1$}  {missed:>w2$}  {all:>w3$}  {last:<w4$}  {what}"
+        );
+    }
+    table
 }
 
 #[cfg(test)]

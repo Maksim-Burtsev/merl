@@ -1039,7 +1039,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2153)];
+    const LONG_FILES: &[(&str, usize)] = &[("src/app/definition.rs", 2111)];
     const MAX_LINES: usize = 1500;
 
     fn rust_files(dir: &Path, with_tests: bool, out: &mut Vec<std::path::PathBuf>) {
@@ -1101,7 +1101,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const EXPECTS: usize = 588;
+    const EXPECTS: usize = 222;
 
     fn expected_lints(text: &str) -> usize {
         let b = text.as_bytes();

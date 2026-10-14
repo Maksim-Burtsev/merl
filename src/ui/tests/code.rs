@@ -1,8 +1,4 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::format_collect, reason = "#858")]
-#![expect(clippy::format_push_string, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::trivial_regex, reason = "#858")]
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use ratatui::Terminal;
@@ -901,7 +897,7 @@ fn review_paints_the_word_that_changed_on_both_rows() {
         "a selection wins over a changed word"
     );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-    app.find_re = Some(regex::Regex::new(">").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape(">")).unwrap());
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
         cell(&terminal, gt, 2).1,
@@ -980,7 +976,7 @@ fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
 fn the_enclosing_function_stays_pinned_above_the_code() {
     let mut text = String::from("fn long() {\n");
     for i in 0..40 {
-        text += &format!("    let a{i} = {i};\n");
+        _ = writeln!(text, "    let a{i} = {i};");
     }
     text += "}\n";
     let mut app = App::new(
@@ -1047,7 +1043,7 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
         let mut t = String::from("def long():\n");
         for i in 0..30 {
             let v = if changed.contains(&i) { i * 10 } else { i };
-            t += &format!("    a{i} = {v}\n");
+            _ = writeln!(t, "    a{i} = {v}");
         }
         t
     };
@@ -1121,7 +1117,7 @@ fn line_no(row: &str) -> usize {
 fn a_page_under_a_pinned_header_skips_no_line() {
     let mut text = String::from("fn long() {\n");
     for i in 0..60 {
-        text += &format!("    let a{i} = {i};\n");
+        _ = writeln!(text, "    let a{i} = {i};");
     }
     text += "}\n";
     let (mut app, mut terminal) = pinned_app(&text, 30, 12);
@@ -1148,11 +1144,11 @@ fn a_page_under_a_pinned_header_skips_no_line() {
 fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
     let mut text = String::from("impl S {\n    fn m() {\n");
     for i in 0..30 {
-        text += &format!("        let a{i} = {i};\n");
+        _ = writeln!(text, "        let a{i} = {i};");
     }
     text += "    }\n    fn n() {\n";
     for i in 0..30 {
-        text += &format!("        let b{i} = {i};\n");
+        _ = writeln!(text, "        let b{i} = {i};");
     }
     text += "    }\n}\n";
     let (mut app, mut terminal) = pinned_app(&text, 40, 18);
@@ -1171,7 +1167,7 @@ fn a_jump_scrolls_to_the_first_top_that_fits_under_its_pins() {
 fn a_centred_jump_puts_the_cursor_in_the_middle_of_the_rows_under_its_pins() {
     let mut text = String::from("impl S {\n    fn m() {\n");
     for i in 0..60 {
-        text += &format!("        let a{i} = {i};\n");
+        _ = writeln!(text, "        let a{i} = {i};");
     }
     text += "    }\n}\n";
     let (mut app, mut terminal) = pinned_app(&text, 40, 18);
@@ -1214,7 +1210,7 @@ fn not_wrapped_the_view_scrolls_before_the_cursor_reaches_the_edge() {
 fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
     let mut text = String::from("mod m {\n    impl S {\n        fn f() {\n");
     for i in 0..40 {
-        text += &format!("            let a{i} = {i};\n");
+        _ = writeln!(text, "            let a{i} = {i};");
     }
     text += "        }\n    }\n}\n";
     let (mut app, mut terminal) = pinned_app(&text, 40, 7);
@@ -1241,7 +1237,7 @@ fn a_short_pane_pins_nothing_and_a_tall_one_the_two_innermost() {
 fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
     let mut text = String::from("fn long(first: usize, second: usize) {\n");
     for i in 0..30 {
-        text += &format!("    let a{i} = first + second + {i};\n");
+        _ = writeln!(text, "    let a{i} = first + second + {i};");
     }
     text += "}\n";
     let (mut app, mut terminal) = pinned_app(&text, 24, 12);
@@ -1255,7 +1251,10 @@ fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
     assert!(left > 0 && header.len() > left + w);
     assert_eq!(
         screen[0],
-        format!("1 \u{2039}{}\u{203a}", &header[left + 1..left + w - 1])
+        format!(
+            "1 \u{2039}{}\u{203a}",
+            header.get(left + 1..left + w - 1).unwrap()
+        )
     );
 }
 
@@ -1393,7 +1392,7 @@ fn a_cut_pinned_header_ends_in_a_dim_ellipsis() {
     for _ in 0..20 {
         text += "    let a = 1;\n";
     }
-    text += &format!("    // {}\n}}\n", "b".repeat(20_005));
+    _ = write!(text, "    // {}\n}}\n", "b".repeat(20_005));
     let (mut app, mut terminal) = cut_app(&text, 12, 10, 21);
     press(&mut app, &mut terminal, KeyCode::Char('w'));
     app.col = app.buf.shown(21).len();
@@ -1544,7 +1543,7 @@ fn a_wider_pane_draws_the_cursor_on_its_own_line() {
     let words: Vec<String> = (0..60).map(|i| format!("word{i:03}")).collect();
     let mut text = format!("LONG {}\n", words.join(" "));
     for i in 2..40 {
-        text += &format!("line {i}\n");
+        _ = writeln!(text, "line {i}");
     }
     let mut app = App::new(
         PathBuf::from("/demo"),
@@ -1593,14 +1592,14 @@ fn hidden_chars_are_drawn_as_their_tags() {
     app.show_tree = false;
     app.diff.ghosts.insert(0, vec!["old\u{202e}".into()]);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    let h = all.len() as u16 + 3;
+    let h = u16::try_from(all.len()).unwrap() + 3;
     let mut terminal = Terminal::new(TestBackend::new(20, h)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let r = rows(&terminal);
     assert_eq!(r[0], "\u{258e}old<202e>");
     let buf = terminal.backend().buffer();
     for (i, c) in all.iter().enumerate() {
-        let y = i as u16 + 1;
+        let y = u16::try_from(i).unwrap() + 1;
         assert_eq!(r[y as usize], format!("{} x<{:04x}>", i + 1, *c as u32));
         for x in 4..10 {
             assert_eq!(
@@ -1612,7 +1611,7 @@ fn hidden_chars_are_drawn_as_their_tags() {
     }
     let y = all.len() + 1;
     assert_eq!(r[y], "16 \u{1f468}\u{200d}\u{1f4bb} !");
-    assert_eq!(buf[(5, y as u16)].symbol(), "!");
+    assert_eq!(buf[(5, u16::try_from(y).unwrap())].symbol(), "!");
 }
 
 #[test]
@@ -1661,7 +1660,7 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     assert!(rows[10].contains("read-only"), "{}", rows[10]);
     let buf = terminal.backend().buffer();
     let x = (0..60).find(|&x| buf[(x, 3)].symbol() == "b").unwrap();
-    assert_eq!(x, (60 - note.len() as u16) / 2);
+    assert_eq!(x, (60 - u16::try_from(note.len()).unwrap()) / 2);
     assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
 }
 
@@ -1718,7 +1717,7 @@ fn selected_code_takes_the_themes_selected_text_colour_and_keeps_find_matches() 
         cell(&terminal, 6),
         ("1".into(), selected_fg, theme.selection)
     );
-    app.find_re = Some(regex::Regex::new("=").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape("=")).unwrap());
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(cell(&terminal, 4).2, theme.find_bg);
     assert_eq!(
@@ -1738,7 +1737,7 @@ fn a_find_match_carries_the_search_groups_underline_as_neovim_draws_it() {
         None,
     );
     app.show_tree = false;
-    app.find_re = Some(regex::Regex::new("=").unwrap());
+    app.find_re = Some(regex::Regex::new(&regex::escape("=")).unwrap());
     let theme = crate::theme::load("srcery").unwrap();
     let mut terminal = Terminal::new(TestBackend::new(12, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
@@ -1896,8 +1895,10 @@ fn a_changed_word_drops_the_bold_and_italic_of_its_syntax() {
     let r = rows(&terminal);
     let buf = terminal.backend().buffer();
     let cell = |y: usize, c: &str| {
-        let x = (0..24).find(|&x| buf[(x, y as u16)].symbol() == c).unwrap();
-        buf[(x, y as u16)].clone()
+        let x = (0..24)
+            .find(|&x| buf[(x, u16::try_from(y).unwrap())].symbol() == c)
+            .unwrap();
+        buf[(x, u16::try_from(y).unwrap())].clone()
     };
     let y_new = r.iter().position(|l| l.ends_with("yield 1")).unwrap();
     let kept = cell(0, "d").modifier;

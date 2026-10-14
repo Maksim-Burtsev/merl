@@ -1,7 +1,4 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
-#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -22,7 +19,7 @@ pub fn cs_type_decl(line: &str) -> Option<CsTypeDecl> {
             r"|ref|unsafe|new)\s+)*",
             r"(class|struct|interface|enum|record)\b(?:\s+(?:class|struct)\b)?\s+@?(\w+)"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let c = TYPE.captures(line)?;
     Some(CsTypeDecl {
@@ -86,7 +83,7 @@ fn cs_private(line: &str, word: &str) -> bool {
             r"|override|partial|async|extern|unsafe|new|volatile|event|required|fixed|ref)\s+)*",
             r"(?:public|protected|internal|file)\b"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let explicit =
         Regex::new(&format!(r"\w\.{}\b", regex::escape(word))).is_ok_and(|re| re.is_match(line));
@@ -127,7 +124,8 @@ pub(super) struct CsOpener {
 
 pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
     static AFTER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:where\b[^{=;]*)?(?::[^{;=]*)?(?:\{.*|=>.*|;)?\s*$").unwrap()
+        Regex::new(r"^\s*(?:where\b[^{=;]*)?(?::[^{;=]*)?(?:\{.*|=>.*|;)?\s*$")
+            .expect("the regex is a literal")
     });
     let h = header.replace('\n', " ");
     let n = regex::escape(name);
@@ -157,8 +155,12 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
         let Some(close) = close_of(Kind::CSharp, &h, open) else {
             continue;
         };
-        let (before, after) = (h[..open].trim_end(), &h[close..]);
-        let params = &h[open + 1..close - 1];
+        let (Some(before), Some(after), Some(params)) =
+            (h.get(..open), h.get(close..), h.get(open + 1..close - 1))
+        else {
+            continue;
+        };
+        let before = before.trim_end();
         if let Some(signature) = cs_signature(before)
             && (c == b'(' || signature.name == "this")
             && AFTER.is_match(after)
@@ -169,9 +171,12 @@ pub(super) fn cs_opener(header: &str, name: &str) -> CsOpener {
             }
             continue;
         }
-        if c == b'(' && after.trim_start().starts_with("=>") && cs_params(params, name, true) {
+        if c == b'('
+            && let Some(body) = after.trim_start().strip_prefix("=>")
+            && cs_params(params, name, true)
+        {
             binds = true;
-            let body = after.trim_start()[2..].trim();
+            let body = body.trim();
             own |= body.is_empty() || body == "{";
         }
     }
@@ -198,7 +203,7 @@ fn cs_signature(before: &str) -> Option<CsSignature> {
             cs_generics!(),
             r"$"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let sig = SIG.captures(before)?;
     let declares = sig.name("kw").is_some()
@@ -221,21 +226,25 @@ pub fn cs_parameter_of(line: &str, name: &str) -> Option<String> {
         .filter(|&(_, c)| c == b'(')
         .find_map(|(open, _)| {
             let close = close_of(Kind::CSharp, line, open)?;
-            let signature = cs_signature(line[..open].trim())?;
-            (!signature.primary_constructor && cs_params(&line[open + 1..close - 1], name, false))
+            let signature = cs_signature(line.get(..open)?.trim())?;
+            let params = line.get(open + 1..close - 1)?;
+            (!signature.primary_constructor && cs_params(params, name, false))
                 .then_some(signature.name)
         })
 }
 
 fn cs_params(params: &str, name: &str, bare: bool) -> bool {
     static LAST: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"@?(\w+)\s*$").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"@?(\w+)\s*$").expect("the regex is a literal"));
     split_top(Kind::CSharp, params, b',').into_iter().any(|p| {
         let mut p = split_top(Kind::CSharp, p, b'=')[0].trim();
         while p.starts_with('[')
             && let Some(end) = close_of(Kind::CSharp, p, 0)
         {
-            p = p[end..].trim_start();
+            let Some(rest) = p.get(end..) else {
+                return false;
+            };
+            p = rest.trim_start();
         }
         (bare || p.contains(char::is_whitespace)) && LAST.captures(p).is_some_and(|c| &c[1] == name)
     })
@@ -258,21 +267,26 @@ pub(super) fn cs_statement(t: &str, name: &str) -> bool {
 }
 
 fn cs_deconstructs(t: &str, name: &str) -> bool {
-    static START: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?:^|\bforeach\s*\(\s*)(var\s*)?\(").unwrap());
+    static START: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\bforeach\s*\(\s*)(var\s*)?\(").expect("the regex is a literal")
+    });
     static IN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^in\b").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^in\b").expect("the regex is a literal"));
     START.captures_iter(t).any(|c| {
-        let open = c.get(0).unwrap().end() - 1;
+        let open = c.get_match().end() - 1;
         let Some(close) = close_of(Kind::CSharp, t, open) else {
             return false;
         };
-        let after = t[close..].trim_start();
+        let Some(after) = t.get(close..).map(str::trim_start) else {
+            return false;
+        };
         let assigned = after
             .strip_prefix('=')
             .is_some_and(|r| !r.starts_with(['=', '>']))
             || IN.is_match(after);
-        assigned && cs_tuple_names(&t[open + 1..close - 1], c.get(1).is_some(), name)
+        assigned
+            && t.get(open + 1..close - 1)
+                .is_some_and(|inner| cs_tuple_names(inner, c.get(1).is_some(), name))
     })
 }
 
@@ -309,7 +323,7 @@ pub fn cs_binds_here(line: &str, name: &str, at: usize) -> bool {
     };
     let innermost_open_before = |upto: usize| {
         let mut stack = Vec::new();
-        for (i, c) in code(Kind::CSharp, &line[..upto]) {
+        for (i, c) in code(Kind::CSharp, line.get(..upto)?) {
             match c {
                 b'(' | b'[' | b'{' => stack.push(i),
                 b')' | b']' | b'}' => {
@@ -326,13 +340,16 @@ pub fn cs_binds_here(line: &str, name: &str, at: usize) -> bool {
         .filter(|&d| d <= at)
         .collect();
     for (k, &decl) in places.iter().enumerate() {
-        let rest = &line[decl + name.len()..];
+        let Some(rest) = line.get(decl + name.len()..) else {
+            return false;
+        };
         let start = if rest.trim_start().starts_with("=>") {
             Some(decl)
         } else {
             innermost_open_before(decl).filter(|&p| {
                 close_of(Kind::CSharp, line, p)
-                    .is_some_and(|close| line[close..].trim_start().starts_with("=>"))
+                    .and_then(|close| line.get(close..))
+                    .is_some_and(|r| r.trim_start().starts_with("=>"))
             })
         };
         if decl == at {
@@ -340,7 +357,9 @@ pub fn cs_binds_here(line: &str, name: &str, at: usize) -> bool {
         }
         match start {
             Some(start) => {
-                let arrow = line[start..].find("=>").map_or(start, |i| start + i);
+                let arrow = (line.get(start..))
+                    .and_then(|r| r.find("=>"))
+                    .map_or(start, |i| start + i);
                 let end = innermost_open_before(start)
                     .and_then(|p| close_of(Kind::CSharp, line, p))
                     .unwrap_or(line.len());
@@ -432,26 +451,35 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
 }
 
 pub fn cs_expr(expr: &str) -> CsValue {
-    static NEW: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"^new\s+({CS_TYPE})\s*")).unwrap());
-    static CAST: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"^\(({CS_TYPE})\)\s*[\w@(]")).unwrap());
-    static AS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"^[\w@.]+\s+as\s+({CS_TYPE})$")).unwrap());
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^new\s+({CS_TYPE})\s*")).expect("the regex is a literal")
+    });
+    static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^\(({CS_TYPE})\)\s*[\w@(]")).expect("the regex is a literal")
+    });
+    static AS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^[\w@.]+\s+as\s+({CS_TYPE})$")).expect("the regex is a literal")
+    });
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(await\s+)?(@?[A-Za-z_]\w*(?:\.@?[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*\(")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let e = uncommented(Kind::CSharp, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
-    let after_bracket =
-        |open: usize| close_of(Kind::CSharp, e, open).map_or("", |end| e[end..].trim());
+    let after_bracket = |open: usize| {
+        (close_of(Kind::CSharp, e, open))
+            .and_then(|end| e.get(end..))
+            .map_or("", str::trim)
+    };
     if let Some(c) = NEW.captures(e) {
-        let end = c.get(0).unwrap().end();
-        let after = if e[end..].starts_with('(') {
+        let end = c.get_match().end();
+        let Some(rest) = e.get(end..) else {
+            return CsValue::Unknown;
+        };
+        let after = if rest.starts_with('(') {
             after_bracket(end)
         } else {
-            &e[end..]
+            rest
         };
         return if after.is_empty() || after.starts_with('{') {
             CsValue::Type(c[1].to_owned())
@@ -464,7 +492,7 @@ pub fn cs_expr(expr: &str) -> CsValue {
     }
     if let Some(c) = CALL.captures(e) {
         let awaited = c.get(1).is_some();
-        let after = after_bracket(c.get(0).unwrap().end() - 1);
+        let after = after_bracket(c.get_match().end() - 1);
         let configured = awaited && after.starts_with(".ConfigureAwait(") && after.ends_with(')');
         if after.is_empty() || configured {
             return CsValue::Call {
@@ -493,7 +521,7 @@ pub fn cs_type_name(written: &str) -> Option<String> {
         return None;
     }
     let t = match t.find('<') {
-        Some(i) if t.ends_with('>') => &t[..i],
+        Some(i) if t.ends_with('>') => t.get(..i)?,
         Some(_) => return None,
         None => t,
     };
@@ -512,6 +540,10 @@ pub fn cs_awaited(written: &str) -> Option<&str> {
     Some(inner.strip_suffix('>')?.trim())
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "every cut is at or right after an ASCII comma code() yielded"
+)]
 fn cs_split(s: &str) -> Vec<&str> {
     let (mut depth, mut start, mut out) = (0i32, 0, Vec::new());
     for (i, c) in code(Kind::CSharp, s) {
@@ -536,7 +568,7 @@ fn cs_header(text: &str, decl: usize) -> Option<String> {
     for l in &lines[k..lines.len().min(k + 8)] {
         let l = uncommented(Kind::CSharp, l);
         let end = l.find(['{', ';']);
-        header.push_str(&l[..end.unwrap_or(l.len())]);
+        header.push_str(l.get(..end.unwrap_or(l.len()))?);
         header.push(' ');
         if end.is_some() {
             break;
@@ -553,7 +585,10 @@ pub fn cs_bases(text: &str, decl: usize) -> Vec<String> {
         return Vec::new();
     };
     let at = header.find(name.as_str()).map_or(0, |i| i + name.len());
-    let mut rest = header[at..].trim_start();
+    let Some(rest) = header.get(at..) else {
+        return Vec::new();
+    };
+    let mut rest = rest.trim_start();
     for (open, close) in [('<', '>'), ('(', ')')] {
         if rest.starts_with(open) {
             let mut depth = 0;
@@ -563,7 +598,10 @@ pub fn cs_bases(text: &str, decl: usize) -> Vec<String> {
             }) else {
                 return Vec::new();
             };
-            rest = rest[end..].trim_start();
+            let Some(after) = rest.get(end..) else {
+                return Vec::new();
+            };
+            rest = after.trim_start();
         }
     }
     let Some(list) = rest.strip_prefix(':') else {
@@ -594,7 +632,7 @@ pub fn cs_owner(text: &str, line: usize) -> Option<usize> {
 
 pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
     static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\w\s*<([^()<>]*)>\s*(?:\(|:|\{|\bwhere\b|$)").unwrap()
+        Regex::new(r"\w\s*<([^()<>]*)>\s*(?:\(|:|\{|\bwhere\b|$)").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(mut k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
@@ -624,20 +662,21 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
 }
 
 pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> Option<String> {
-    static NEW: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(&format!(r"\bnew\s+({CS_TYPE})$")).unwrap());
+    static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"\bnew\s+({CS_TYPE})$")).expect("the regex is a literal")
+    });
     static DECLARED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
             r"(?:^|[\s(,])({CS_TYPE})\s+@?\w+(?:\s*\{{[^{{}}]*\}})?$"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let line = lines.get(at)?;
     let after = line.get(end..)?.trim_start();
     if !after.starts_with('=') || after.starts_with("==") || after.starts_with("=>") {
         return None;
     }
-    let before = line[..start].trim_end();
+    let before = line.get(..start)?.trim_end();
     if !(before.is_empty() || before.ends_with(['{', ','])) {
         return None;
     }
@@ -646,7 +685,7 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     if at > from {
         prefix.push('\n');
     }
-    prefix.push_str(&line[..start]);
+    prefix.push_str(line.get(..start)?);
     let mut stack = Vec::new();
     for (i, c) in code(Kind::CSharp, &prefix) {
         match c {
@@ -660,10 +699,9 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     let &(open, b'{') = stack.last()? else {
         return None;
     };
-    let head = uncommented(Kind::CSharp, &prefix[..open]);
+    let head = uncommented(Kind::CSharp, prefix.get(..open)?);
     let mut head = head.trim_end();
-    let mut args = false;
-    if head.ends_with(')') {
+    let args = if head.ends_with(')') {
         let mut depth = 0i32;
         let close = head.len() - 1;
         let open = (0..=close).rev().find(|&i| {
@@ -674,9 +712,11 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
             };
             depth == 0
         })?;
-        head = head[..open].trim_end();
-        args = true;
-    }
+        head = head.get(..open)?.trim_end();
+        true
+    } else {
+        false
+    };
     if let Some(c) = NEW.captures(head) {
         return Some(c[1].to_owned());
     }
@@ -692,8 +732,9 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
         let c = DECLARED.captures(left.lines().last()?.trim())?;
         return Some(c[1].to_owned()).filter(|t| !cs_names_no_type(t));
     }
-    if target.ends_with("return")
-        && !target[..target.len() - 6].ends_with(|c: char| c.is_alphanumeric() || c == '_')
+    if target
+        .strip_suffix("return")
+        .is_some_and(|h| !h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
     {
         let k = from + target.matches('\n').count();
         let ls: Vec<&str> = lines.iter().map(String::as_str).collect();
@@ -724,8 +765,9 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
             ]
             .iter()
             .any(|kw| {
-                header.starts_with(kw)
-                    && !header[kw.len()..].starts_with(|c: char| c.is_alphanumeric() || c == '_')
+                header
+                    .strip_prefix(kw)
+                    .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
             });
             if !control {
                 break;
@@ -749,13 +791,15 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
 
 pub fn cs_extended(line: &str) -> Option<String> {
     static THIS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(r"\(\s*this\s+({CS_TYPE})\s+@?\w+")).unwrap()
+        Regex::new(&format!(r"\(\s*this\s+({CS_TYPE})\s+@?\w+")).expect("the regex is a literal")
     });
     Some(THIS.captures(line)?[1].to_owned())
 }
 
 pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
-    let (before, after) = (&line[..start], &line[end..]);
+    let (Some(before), Some(after)) = (line.get(..start), line.get(end..)) else {
+        return false;
+    };
     if before.ends_with('.') || after.trim_start().starts_with('.') {
         return false;
     }
@@ -797,7 +841,7 @@ fn cs_named_after(after: &str) -> bool {
             cs_generics!(),
             r"\??(?:\[[,\s]*\])*\??\s+@?([A-Za-z_]\w*)"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     const CONTEXTUAL: &[&str] = &[
         "is",
@@ -834,8 +878,10 @@ pub fn cs_type_patterns(word: &str) -> Vec<String> {
 }
 
 pub fn cs_constant_may_stand(line: &str, start: usize, end: usize) -> bool {
-    let after = &line[end..];
-    let is = line[..start].trim_end().strip_suffix("is");
+    let (Some(after), Some(before)) = (line.get(end..), line.get(..start)) else {
+        return false;
+    };
+    let is = before.trim_end().strip_suffix("is");
     is.is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
         && !after.starts_with(['<', '['])
         && !cs_named_after(after)
@@ -860,7 +906,8 @@ fn cs_generic_argument(before: &str, after: &str) -> bool {
     let Some(open) = open else {
         return false;
     };
-    if !before[..open].ends_with(|c: char| c.is_alphanumeric() || c == '_') {
+    if (before.get(..open)).is_none_or(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+    {
         return false;
     }
     let mut depth = 0;
@@ -901,32 +948,34 @@ pub struct CsNamespacePrefix {
 
 pub fn cs_namespace_prefix(line: &str, start: usize, end: usize) -> Option<CsNamespacePrefix> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\u{feff}?\s*(?:(?:global\s+)?using|namespace)\s+([\w.\s]*)$").unwrap()
+        Regex::new(r"^\u{feff}?\s*(?:(?:global\s+)?using|namespace)\s+([\w.\s]*)$")
+            .expect("the regex is a literal")
     });
     let dotted = |s: &str| -> String { s.chars().filter(|c| !c.is_whitespace()).collect() };
-    let rest = line[end..].trim_start();
-    if let Some(c) = HEAD.captures(&line[..start])
+    let (head, word) = (line.get(..start)?, line.get(start..end)?);
+    let rest = line.get(end..)?.trim_start();
+    if let Some(c) = HEAD.captures(head)
         && !c[0].contains("static ")
         && (rest.starts_with(['.', ';', '{']) || rest.is_empty())
     {
         return Some(CsNamespacePrefix {
-            prefix: dotted(&format!("{}{}", &c[1], &line[start..end])),
+            prefix: dotted(&format!("{}{word}", &c[1])),
             certain: true,
         });
     }
-    let at = line[..start].rfind("global::")?;
-    let path = &line[at + "global::".len()..start];
+    let at = head.rfind("global::")?;
+    let path = head.get(at + "global::".len()..)?;
     path.chars()
         .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
         .then(|| CsNamespacePrefix {
-            prefix: format!("{path}{}", &line[start..end]),
+            prefix: format!("{path}{word}"),
             certain: false,
         })
 }
 
 pub fn cs_arguments<S: AsRef<str>>(lines: &[S], line: usize, end: usize) -> Option<usize> {
     let text = lines.get(line)?.as_ref();
-    let after = &text[end..];
+    let after = text.get(end..)?;
     let generics = Regex::new(concat!("^", cs_generics!(), r"\s*\(")).ok()?;
     let open = end + generics.find(after)?.end() - 1;
     let rows: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();

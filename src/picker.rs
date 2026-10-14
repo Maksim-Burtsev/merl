@@ -1,8 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
-#![expect(clippy::cast_possible_wrap, reason = "#858")]
-#![expect(clippy::needless_for_each, reason = "#858")]
-#![expect(clippy::ref_option, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -64,7 +59,7 @@ enum Ref {
 
 fn nth<'a>(
     snap: &'a Snapshot<PickItem>,
-    order: &Option<Vec<Ref>>,
+    order: Option<&[Ref]>,
     n: u32,
 ) -> Option<(Item<'a, PickItem>, bool)> {
     match order {
@@ -210,7 +205,10 @@ impl Picker {
     pub fn counts(&self) -> (u32, u32) {
         let snap = self.nucleo.snapshot();
         match &self.order {
-            Some(order) => (order.len() as u32, snap.item_count()),
+            Some(order) => (
+                u32::try_from(order.len()).unwrap_or(u32::MAX),
+                snap.item_count(),
+            ),
             None => (snap.matched_item_count(), snap.item_count()),
         }
     }
@@ -252,16 +250,19 @@ impl Picker {
         let start = start.min(total);
         let end = start.saturating_add(count).min(total);
         let pattern = snap.pattern().column_pattern(0);
-        (start as u32..end as u32)
-            .filter_map(|n| nth(snap, order, n))
+        (start..end)
+            .filter_map(|n| nth(snap, order.as_deref(), u32::try_from(n).ok()?))
             .map(|(item, named)| {
                 let mut matched = Vec::new();
                 if named {
                     let (label, mut buf) = (&item.data.label, Vec::new());
                     let name = file_name(label);
                     pattern.indices(Utf32Str::new(name, &mut buf), matcher, &mut matched);
-                    let skip = label[..label.len() - name.len()].chars().count() as u32;
-                    matched.iter_mut().for_each(|m| *m += skip);
+                    let skip = u32::try_from(label.chars().count() - name.chars().count())
+                        .unwrap_or(u32::MAX);
+                    for m in &mut matched {
+                        *m += skip;
+                    }
                 } else {
                     pattern.indices(item.matcher_columns[0].slice(..), matcher, &mut matched);
                 }
@@ -277,7 +278,12 @@ impl Picker {
 
     pub fn current(&self) -> Option<&PickItem> {
         let snap = self.nucleo.snapshot();
-        nth(snap, &self.order, self.selected as u32).map(|(item, _)| item.data)
+        nth(
+            snap,
+            self.order.as_deref(),
+            u32::try_from(self.selected).ok()?,
+        )
+        .map(|(item, _)| item.data)
     }
 
     fn accept(&self) -> Pick {
@@ -314,8 +320,14 @@ impl Picker {
             KeyCode::Enter => return self.accept(),
             KeyCode::Up => move_by(&mut self.selected, -1),
             KeyCode::Down => move_by(&mut self.selected, 1),
-            KeyCode::PageUp => move_by(&mut self.selected, -(self.page as isize)),
-            KeyCode::PageDown => move_by(&mut self.selected, self.page as isize),
+            KeyCode::PageUp => move_by(
+                &mut self.selected,
+                -isize::try_from(self.page).unwrap_or(isize::MAX),
+            ),
+            KeyCode::PageDown => move_by(
+                &mut self.selected,
+                isize::try_from(self.page).unwrap_or(isize::MAX),
+            ),
             _ => {
                 let old = self.query.to_string();
                 if self.query.key(key) {

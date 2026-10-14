@@ -1,9 +1,4 @@
-#![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::match_same_arms, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
@@ -30,11 +25,15 @@ pub struct LabelOwner {
 
 static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\s*(?:[\w@]+\s+)*?(?:class|struct|record|enum|actor|object|interface)\s+([A-Za-z_$][\w$]*)")
-        .unwrap()
+        .expect("the regex is a literal")
 });
 
 const LINES_BACK_TO_THE_BRACKET: usize = 80;
 
+#[expect(
+    clippy::match_same_arms,
+    reason = "a guarded arm sits between the two; merging them would move one past it"
+)]
 pub fn label_at(
     kind: Kind,
     java: bool,
@@ -44,7 +43,7 @@ pub fn label_at(
 ) -> Option<Label> {
     let lines: Vec<&str> = text.lines().collect();
     let l = *lines.get(line0)?;
-    let tight = &l[range.end..];
+    let tight = l.get(range.end..)?;
     let after = match kind {
         Kind::Ruby => tight,
         _ => tight.trim_start(),
@@ -82,19 +81,20 @@ pub fn label_at(
                 index: bi,
                 byte: b,
             } = back(kind, &lines, &literal, at, open).next()?;
-            let before = &lines[bl][..bi];
+            let before = lines[bl].get(..bi)?;
             match b {
                 b'(' | b',' => {
                     let call = open_bracket(kind, &lines, &literal, at, open)?;
                     let (cl, ci) = (call.line0, call.byte);
-                    let owner = (call.bracket == b'(' && !declares(&lines[cl][..ci]))
-                        .then(|| callee(kind, lines[cl], ci))
-                        .flatten()
-                        .map(|col| LabelOwner {
-                            line0: cl,
-                            byte_col: col,
-                            how: Owner::Object(call.commas),
-                        });
+                    let owner = (call.bracket == b'('
+                        && lines[cl].get(..ci).is_some_and(|h| !declares(h)))
+                    .then(|| callee(kind, lines[cl], ci))
+                    .flatten()
+                    .map(|col| LabelOwner {
+                        line0: cl,
+                        byte_col: col,
+                        how: Owner::Object(call.commas),
+                    });
                     key(owner)
                 }
                 b'=' if !before.ends_with([
@@ -102,11 +102,12 @@ pub fn label_at(
                 ]) =>
                 {
                     static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?type\s").unwrap()
+                        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?type\s")
+                            .expect("the regex is a literal")
                     });
                     static TYPED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
                         Regex::new(r"[\w$]\s*[?!]?\s*:\s*([A-Za-z_$][\w$.]*)\s*(?:<[^=]*>)?\s*$")
-                            .unwrap()
+                            .expect("the regex is a literal")
                     });
                     if ALIAS.is_match(before) {
                         return None;
@@ -124,8 +125,9 @@ pub fn label_at(
                 b'[' | b'?' => key(None),
                 b'&' | b'|' if before.ends_with(b as char) => key(None),
                 _ if ["return", "yield"].iter().any(|k| {
-                    lines[bl][..=bi]
-                        .strip_suffix(k)
+                    lines[bl]
+                        .get(..=bi)
+                        .and_then(|h| h.strip_suffix(k))
                         .is_some_and(|s| !s.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
                 }) =>
                 {
@@ -135,15 +137,20 @@ pub fn label_at(
             }
         }
         (Kind::Rust, b'{') => {
+            static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
+                    .expect("the regex is a literal")
+            });
             static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$").unwrap()
+                Regex::new(r"(?:^|[^\w:])(?:\w+::)*([A-Z]\w*|Self)\s*$")
+                    .expect("the regex is a literal")
             });
             static DECLARES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"\b(?:struct|enum|union|impl|trait)\b").unwrap()
+                Regex::new(r"\b(?:struct|enum|union|impl|trait)\b").expect("the regex is a literal")
             });
-            let before = &lines[at][..open];
+            let before = lines[at].get(..open)?;
             let ty = LITERAL.captures(before)?.get(1)?;
-            if DECLARES.is_match(&before[..ty.start()]) {
+            if DECLARES.is_match(before.get(..ty.start())?) {
                 return None;
             }
             let mut up = open_bracket(kind, &lines, &literal, at, ty.start());
@@ -153,7 +160,7 @@ pub fn label_at(
                 bracket: b'{',
                 ..
             }) = up
-                && lines[el][..ei].contains("enum ")
+                && lines[el].get(..ei).is_none_or(|h| h.contains("enum "))
             {
                 return None;
             }
@@ -164,10 +171,6 @@ pub fn label_at(
                     how: Owner::Typed,
                 }));
             }
-            static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
-                    .unwrap()
-            });
             while let Some(OpenBracket {
                 line0: el,
                 byte: ei,
@@ -176,7 +179,9 @@ pub fn label_at(
             }) = up
             {
                 if bracket == b'{'
-                    && let Some(m) = IMPL.captures(&lines[el][..ei]).and_then(|c| c.get(1))
+                    && let Some(m) = (lines[el].get(..ei))
+                        .and_then(|h| IMPL.captures(h))
+                        .and_then(|c| c.get(1))
                 {
                     return key(Some(LabelOwner {
                         line0: el,
@@ -201,12 +206,13 @@ pub fn label_at(
             })
         }
         (Kind::Python | Kind::Jvm | Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby, b'(') => {
-            let before = &lines[at][..open];
+            static ANNOTATION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                Regex::new(r"@[\w.]+\s*$").expect("the regex is a literal")
+            });
+            let before = lines[at].get(..open)?;
             if declares(before) {
                 return None;
             }
-            static ANNOTATION: std::sync::LazyLock<Regex> =
-                std::sync::LazyLock::new(|| Regex::new(r"@[\w.]+\s*$").unwrap());
             if java && !ANNOTATION.is_match(before) {
                 return None;
             }
@@ -214,7 +220,8 @@ pub fn label_at(
             let owner = if kind == Kind::Swift
                 && word_at(lines[at], col, "").map(|w| w.1) == Some("init")
             {
-                let head = lines[at][..col + 1 - "init".len()].strip_suffix('.');
+                let head =
+                    (lines[at].get(..col + 1 - "init".len())).and_then(|h| h.strip_suffix('.'));
                 head.and_then(|h| {
                     let name = h
                         .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
@@ -244,25 +251,12 @@ pub fn label_at(
 fn declares(before: &str) -> bool {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w.$])(?:(?:def|fun|func|function|fn|class|case|subscript|constructor|init)\b[^=(]*|lambda\b[^=(:]*)$")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     DECL.is_match(before)
 }
 
 fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
-    let mut s = line[..open].trim_end();
-    if s.ends_with('>') && matches!(kind, Kind::TsJs | Kind::Swift | Kind::CSharp | Kind::Jvm) {
-        let mut depth = 0i32;
-        let lt = s.char_indices().rev().find(|&(_, c)| {
-            depth += match c {
-                '>' => 1,
-                '<' => -1,
-                _ => 0,
-            };
-            depth == 0
-        })?;
-        s = s[..lt.0].trim_end();
-    }
     const STATEMENT_KEYWORDS: &[&str] = &[
         "if",
         "elif",
@@ -287,11 +281,24 @@ fn callee(kind: Kind, line: &str, open: usize) -> Option<usize> {
         "or",
         "in",
     ];
+    let mut s = line.get(..open)?.trim_end();
+    if s.ends_with('>') && matches!(kind, Kind::TsJs | Kind::Swift | Kind::CSharp | Kind::Jvm) {
+        let mut depth = 0i32;
+        let lt = s.char_indices().rev().find(|&(_, c)| {
+            depth += match c {
+                '>' => 1,
+                '<' => -1,
+                _ => 0,
+            };
+            depth == 0
+        })?;
+        s = s.get(..lt.0)?.trim_end();
+    }
     if let Some(w) = s
         .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
         .next()
         && STATEMENT_KEYWORDS.contains(&w)
-        && !s[..s.len() - w.len()].ends_with('.')
+        && s.strip_suffix(w).is_some_and(|h| !h.ends_with('.'))
     {
         return None;
     }
@@ -395,7 +402,8 @@ fn open_bracket(
 }
 
 fn jsx(kind: Kind, lines: &[&str], literal: &[bool], line0: usize, start: usize) -> Option<Label> {
-    if !lines[line0][..start].is_empty() && !lines[line0][..start].ends_with(char::is_whitespace) {
+    let lead = lines[line0].get(..start)?;
+    if !lead.is_empty() && !lead.ends_with(char::is_whitespace) {
         return None;
     }
     let mut depth = 0usize;
@@ -410,12 +418,12 @@ fn jsx(kind: Kind, lines: &[&str], literal: &[bool], line0: usize, start: usize)
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
             _ if depth > 0 => {}
             b'<' => {
-                let l = lines[li];
-                let name: String = l[i + 1..]
+                let (head, tail) = (lines[li].get(..i)?, lines[li].get(i + 1..)?);
+                let name: String = tail
                     .chars()
                     .take_while(|c| c.is_alphanumeric() || matches!(c, '_' | '$' | '.'))
                     .collect();
-                let glued = l[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_');
+                let glued = head.ends_with(|c: char| c.is_alphanumeric() || c == '_');
                 if name.is_empty() || glued || !name.starts_with(|c: char| c.is_alphabetic()) {
                     return None;
                 }
@@ -569,7 +577,8 @@ pub fn object_type(
     n: usize,
 ) -> Option<String> {
     static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r":\s*([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*(?:=.*)?$").unwrap()
+        Regex::new(r":\s*([A-Za-z_$][\w$]*)\s*(?:<[^>]*>)?\s*(?:=.*)?$")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl_line1.checked_sub(1).filter(|&k| k < lines.len())?;
@@ -616,13 +625,13 @@ fn params(
     let base = inner.as_ptr() as usize;
     split_top(kind, &inner, b',').into_iter().find_map(|p| {
         let at = find(p)? + (p.as_ptr() as usize - base);
-        Some(decl_line0 + 1 + inner[..at].matches('\n').count())
+        Some(decl_line0 + 1 + inner.get(..at)?.matches('\n').count())
     })
 }
 
 fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     static ATTR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:@[\w.]+(?:\([^)]*\))?|#\[[^\]]*\])\s*").unwrap()
+        Regex::new(r"(?:@[\w.]+(?:\([^)]*\))?|#\[[^\]]*\])\s*").expect("the regex is a literal")
     });
     let head = split_top(kind, part, b'=').into_iter().next()?;
     let head = ATTR.replace_all(head, |c: &regex::Captures| " ".repeat(c[0].len()));
@@ -630,7 +639,7 @@ fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
         Kind::CSharp | Kind::Php => None,
         _ => head.find(':'),
     };
-    let names = &head[..typed.unwrap_or(head.len())];
+    let names = head.get(..typed.unwrap_or(head.len()))?;
     let mut tokens = names
         .split(|c: char| c.is_whitespace())
         .filter(|t| !t.is_empty());
@@ -648,6 +657,7 @@ fn param_named(kind: Kind, part: &str, word: &str) -> Option<usize> {
     Some(at + (token.len() - token.trim_start_matches(['$', '*', '&', '.']).len()))
 }
 
+#[expect(clippy::cognitive_complexity, reason = "test tables")]
 #[cfg(test)]
 mod tests {
     use super::*;

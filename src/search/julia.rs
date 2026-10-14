@@ -1,10 +1,3 @@
-#![expect(clippy::case_sensitive_file_extension_comparisons, reason = "#858")]
-#![expect(clippy::items_after_statements, reason = "#858")]
-#![expect(clippy::iter_on_single_items, reason = "#858")]
-#![expect(clippy::match_bool, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -52,7 +45,11 @@ pub fn julia_patterns(word: &str) -> Vec<String> {
 }
 
 pub fn julia_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<usize>) {
-    let (word, before, after) = (&line[r.clone()], &line[..r.start], &line[r.end..]);
+    let (Some(word), Some(before), Some(after)) =
+        (line.get(r.clone()), line.get(..r.start), line.get(r.end..))
+    else {
+        return;
+    };
     let matches = |p: &str| Regex::new(p).is_ok_and(|re| re.is_match(line));
     let (field, mac) = (julia_field(word), julia_macro(word));
     if matches(&mac) {
@@ -98,19 +95,20 @@ pub(super) const JULIA_TYPE_SYMBOL: &str = concat!(
     r"\s+(?P<name>[A-Za-z_][\w!]*)"
 );
 
-static STRUCT: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(&format!(r"^\s*{MACROS}(?:mutable\s+)?struct\s")).unwrap());
+static STRUCT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^\s*{MACROS}(?:mutable\s+)?struct\s")).expect("the regex is a literal")
+});
 static KEYWORD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*(?:{MACROS}(?:function|(?:mutable\s+)?struct)|abstract\s+type|primitive\s+type|macro|(?:bare)?module|(?:global\s+)?const|@enum)\s"
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 static HEAD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*{MACROS}{QUALIFIER}([A-Za-z_][\w!]*)\s*{TYPE_PARAMS}\("
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 
 pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bool {
@@ -122,7 +120,7 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
         return true;
     }
     if let Some(c) = HEAD.captures(text).filter(|c| &c[1] == word) {
-        return defines(&text[c.get(0).map_or(0, |m| m.end() - 1)..]);
+        return text.get(c.get_match().end() - 1..).is_some_and(defines);
     }
     if !text.starts_with([' ', '\t']) {
         return true;
@@ -149,9 +147,14 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
 }
 
 fn defines(from_paren: &str) -> bool {
-    static REST: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(concat!("^", julia_method_tail!())).unwrap());
-    closing(from_paren).is_some_and(|close| REST.is_match(&from_paren[close + 1..]))
+    static REST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(concat!("^", julia_method_tail!())).expect("the regex is a literal")
+    });
+    closing(from_paren).is_some_and(|close| {
+        from_paren
+            .get(close + 1..)
+            .is_some_and(|rest| REST.is_match(rest))
+    })
 }
 
 fn closing(s: &str) -> Option<usize> {
@@ -172,8 +175,9 @@ fn closing(s: &str) -> Option<usize> {
 }
 
 pub fn julia_include(line: &str, col: usize) -> Option<String> {
-    static INCLUDE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).unwrap());
+    static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).expect("the regex is a literal")
+    });
     INCLUDE
         .captures_iter(line)
         .find(|c| c.get(0).is_some_and(|m| m.start() <= col && col < m.end()))
@@ -181,12 +185,14 @@ pub fn julia_include(line: &str, col: usize) -> Option<String> {
 }
 
 pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
-    static IMPORT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?m)^\s*(?:using|import)\s+([^\n#]+)").unwrap());
+    static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*(?:using|import)\s+([^\n#]+)").expect("the regex is a literal")
+    });
     let path = |m: &str| -> Vec<String> {
         let m = m.trim();
-        let dots = m.len() - m.trim_start_matches('.').len();
-        let mut parts: Vec<String> = m[dots..]
+        let unprefixed = m.trim_start_matches('.');
+        let dots = m.len() - unprefixed.len();
+        let mut parts: Vec<String> = unprefixed
             .split('.')
             .filter(|p| !p.is_empty())
             .map(str::to_owned)
@@ -332,7 +338,10 @@ pub fn julia_assigns_here(line: &str, start: usize, word: &str) -> bool {
         && line
             .match_indices('=')
             .find(|&(i, _)| {
-                !line[i + 1..].starts_with(['=', '>']) && !line[..i].ends_with(['=', '!', '<', '>'])
+                line.split_at_checked(i).is_some_and(|(before, rest)| {
+                    !rest.get(1..).is_some_and(|r| r.starts_with(['=', '>']))
+                        && !before.ends_with(['=', '!', '<', '>'])
+                })
             })
             .is_some_and(|(i, _)| start < i)
 }
@@ -341,18 +350,24 @@ static HEADER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*{MACROS}(?:function|macro)\s|\bdo(?:\s+[^#]*)?$"
     ))
-    .unwrap()
+    .expect("the regex is a literal")
 });
 
 fn method_def(lines: &[&str], k: usize) -> bool {
-    HEAD.find(lines[k])
-        .is_some_and(|m| defines(&lines[k..lines.len().min(k + 20)].join("\n")[m.end() - 1..]))
+    HEAD.find(lines[k]).is_some_and(|m| {
+        lines[k..lines.len().min(k + 20)]
+            .join("\n")
+            .get(m.end() - 1..)
+            .is_some_and(defines)
+    })
 }
 
 fn params(head: &str) -> Vec<String> {
-    static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[A-Za-z_][\w!]*").unwrap());
-    static DO: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\bdo(?:\s+([^#]*))?\s*(?:#.*)?$").unwrap());
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Za-z_][\w!]*").expect("the regex is a literal"));
+    static DO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bdo(?:\s+([^#]*))?\s*(?:#.*)?$").expect("the regex is a literal")
+    });
     let first = head.lines().next().unwrap_or_default();
     if let Some(c) = DO.captures(first) {
         return c
@@ -364,22 +379,24 @@ fn params(head: &str) -> Vec<String> {
             .collect();
     }
     let mut out = Vec::new();
-    let mut rest = match head.find('(') {
-        Some(i) => &head[i..],
-        None => return out,
+    let Some(mut rest) = head.find('(').and_then(|i| head.get(i..)) else {
+        return out;
     };
     while rest.starts_with('(') {
         let Some(close) = closing(rest) else { break };
         let mut depth = 0usize;
         let mut start = 1;
-        let inner = &rest[..close];
+        let (Some(inner), Some(after)) = (rest.get(..close), rest.get(close + 1..)) else {
+            break;
+        };
         for (i, c) in inner.char_indices() {
             match c {
                 '(' | '[' | '{' => depth += 1,
                 ')' | ']' | '}' => depth -= 1,
                 ',' | ';' if depth == 1 => {
                     out.extend(
-                        NAME.find(inner[start..i].trim())
+                        (inner.get(start..i))
+                            .and_then(|s| NAME.find(s.trim()))
                             .map(|m| m.as_str().to_owned()),
                     );
                     start = i + 1;
@@ -388,10 +405,11 @@ fn params(head: &str) -> Vec<String> {
             }
         }
         out.extend(
-            NAME.find(inner[start..].trim())
+            (inner.get(start..))
+                .and_then(|s| NAME.find(s.trim()))
                 .map(|m| m.as_str().to_owned()),
         );
-        rest = rest[close + 1..].trim_start();
+        rest = after.trim_start();
     }
     out
 }
@@ -499,9 +517,10 @@ pub(super) fn julia_literal_lines(text: &str) -> Vec<bool> {
 
 pub fn julia_name(line: &str, r: std::ops::Range<usize>) -> std::ops::Range<usize> {
     let rest = &line.as_bytes()[r.end..];
-    match rest.first() == Some(&b'!') && rest.get(1) != Some(&b'=') {
-        true => r.start..r.end + 1,
-        false => r,
+    if rest.first() == Some(&b'!') && rest.get(1) != Some(&b'=') {
+        r.start..r.end + 1
+    } else {
+        r
     }
 }
 
@@ -517,13 +536,13 @@ pub fn julia_col(line: &str, word: &str) -> Option<usize> {
     };
     line.match_indices(word).map(|(i, _)| i).find(|&i| {
         let end = i + word.len();
-        !(i > 0 && part(i - 1))
-            && !part(end)
+        !(part(end) || i > 0 && part(i - 1))
             && (word.ends_with('!') || b.get(end) != Some(&b'!') || b.get(end + 1) == Some(&b'='))
     })
 }
 
 pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let uuid = u128::from_str_radix(&uuid.replace('-', ""), 16).ok()?;
     let mut bytes = uuid.to_le_bytes().to_vec();
     if tree.len() != 40 {
@@ -540,7 +559,6 @@ pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
         }
     }
     let mut crc = !crc;
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     Some(
         (0..5)
             .map(|_| {
@@ -552,6 +570,10 @@ pub fn julia_slug(uuid: &str, tree: &str) -> Option<String> {
     )
 }
 
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "extensions match as written, as kind_of does; ignoring case would change which files merl recognises (#873)"
+)]
 pub fn julia_roots(root: &Path, share: Option<PathBuf>, depot: &Path) -> Vec<PathBuf> {
     let dirs_in = |d: &Path| -> Vec<PathBuf> {
         let mut found: Vec<PathBuf> = std::fs::read_dir(d)
@@ -585,8 +607,7 @@ pub fn julia_roots(root: &Path, share: Option<PathBuf>, depot: &Path) -> Vec<Pat
         .filter(|n| n.starts_with("Manifest-v") && n.ends_with(".toml"))
         .collect();
     versioned.sort();
-    let manifests: Vec<String> = ["JuliaManifest.toml".to_owned()]
-        .into_iter()
+    let manifests: Vec<String> = std::iter::once("JuliaManifest.toml".to_owned())
         .chain(versioned.into_iter().rev())
         .chain(["Manifest.toml".to_owned()])
         .collect();

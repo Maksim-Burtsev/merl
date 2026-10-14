@@ -1,9 +1,4 @@
-#![expect(clippy::naive_bytecount, reason = "#858")]
-#![expect(clippy::nonminimal_bool, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
-#![expect(clippy::useless_let_if_seq, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -39,13 +34,14 @@ pub fn nix_name(line: &str, r: Range<usize>) -> Range<usize> {
 
 pub fn nix_path(line: &str, col: usize) -> Option<String> {
     static PATH: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[\s(\[{=;])((?:\.{1,2}|[\w.+-]*)(?:/[\w.+-]+)+/?)").unwrap()
+        Regex::new(r"(?:^|[\s(\[{=;])((?:\.{1,2}|[\w.+-]*)(?:/[\w.+-]+)+/?)")
+            .expect("the regex is a literal")
     });
     let m = PATH
         .captures_iter(line)
         .filter_map(|c| c.get(1))
         .find(|m| m.start() <= col && col < m.end())?;
-    let before = &line[..m.start()];
+    let before = line.get(..m.start())?;
     let quotes = before.matches('"').count() - before.matches("\\\"").count();
     quotes
         .is_multiple_of(2)
@@ -120,7 +116,10 @@ fn lex(text: &str) -> Lexed {
                     continue;
                 }
                 if at(b"/*") {
-                    let end = text[i + 2..].find("*/").map_or(b.len(), |n| i + n + 4);
+                    let end = b[i + 2..]
+                        .windows(2)
+                        .position(|w| w == b"*/")
+                        .map_or(b.len(), |n| i + n + 4);
                     blank(&mut code, i..end);
                     literal.extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| true));
                     i = end;
@@ -208,13 +207,13 @@ fn tokens(code: &str) -> Vec<(Tok<'_>, usize)> {
         let c = b[i];
         if name_start(c) {
             let n = b[i..].iter().take_while(|&&c| name_byte(c)).count();
-            out.push((Tok::Word(&code[i..i + n]), i));
+            out.extend(code.get(i..i + n).map(|w| (Tok::Word(w), i)));
             i += n;
             continue;
         }
         let near = |j: usize| b.get(j).is_some_and(|c| b"=!<>".contains(c));
         match c {
-            b'=' if !near(i + 1) && !(i > 0 && near(i - 1)) => out.push((Tok::Eq, i)),
+            b'=' if !near(i + 1) && (i == 0 || !near(i - 1)) => out.push((Tok::Eq, i)),
             b'$' if b.get(i + 1) == Some(&b'{') => {
                 out.push((Tok::Punct(b'{'), i));
                 i += 1;
@@ -379,12 +378,13 @@ impl<'a> Parse<'a> {
             return None;
         }
         let open = self.matched[close]?;
-        let mut from = self.toks[open].1;
-        if open >= 2 && punct(open - 1, b'@') {
+        let from = if open >= 2 && punct(open - 1, b'@') {
             let alias = word(open - 2)?;
             binds.push(alias);
-            from = alias.1;
-        }
+            alias.1
+        } else {
+            self.toks[open].1
+        };
         let (mut k, mut item) = (open + 1, true);
         while k < close {
             match self.toks[k].0 {
@@ -417,6 +417,10 @@ impl<'a> Parse<'a> {
     }
 }
 
+#[expect(
+    clippy::naive_bytecount,
+    reason = "the bytecount crate would be a dependency for one count of newlines"
+)]
 fn line_of(text: &str, pos: usize) -> usize {
     text.as_bytes()[..pos]
         .iter()
@@ -458,8 +462,10 @@ pub fn nix_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str, in_let:
     let start = here.as_ptr() as usize - text.as_ptr() as usize;
     let lexed = lex(&text);
     let code = String::from_utf8_lossy(&lexed.code);
-    let shape = Regex::new(&nix_patterns(word).join("|"))
-        .is_ok_and(|re| re.is_match(&code[start..start + here.len()]));
+    let shape = Regex::new(&nix_patterns(word).join("|")).is_ok_and(|re| {
+        code.get(start..start + here.len())
+            .is_some_and(|c| re.is_match(c))
+    });
     if !shape || in_let {
         return shape;
     }

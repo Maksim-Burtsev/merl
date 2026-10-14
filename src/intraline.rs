@@ -1,6 +1,3 @@
-#![expect(clippy::cast_precision_loss, reason = "#858")]
-#![expect(clippy::float_cmp, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 
 pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
@@ -15,6 +12,10 @@ pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
     (changed(mid_a, &kept_a), changed(mid_b, &kept_b))
 }
 
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "a ratio of two counts, which rounding past 2^52 moves by under one part in 2^52"
+)]
 pub fn similarity(old: &str, new: &str) -> f64 {
     let (a, b) = (tokens(old), tokens(new));
     let (pre, suf) = common(old, new, &a, &b);
@@ -40,6 +41,10 @@ pub fn similarity(old: &str, new: &str) -> f64 {
     2.0 * kept as f64 / total as f64
 }
 
+#[expect(
+    clippy::float_cmp,
+    reason = "the walk back finds the cell a sum was copied from, and a copy is bit-equal"
+)]
 pub fn pair(deleted: &[String], added: &[String]) -> Vec<(usize, usize)> {
     if deleted.len() == added.len() {
         return (0..deleted.len()).map(|i| (i, i)).collect();
@@ -95,6 +100,10 @@ fn tokens(s: &str) -> Vec<Range<usize>> {
     out
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the ranges come from tokens, which cuts at char_indices"
+)]
 fn common(old: &str, new: &str, a: &[Range<usize>], b: &[Range<usize>]) -> (usize, usize) {
     let mut pre = 0;
     while pre < a.len().min(b.len())
@@ -113,6 +122,10 @@ fn common(old: &str, new: &str, a: &[Range<usize>], b: &[Range<usize>]) -> (usiz
     (pre, suf)
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the ranges come from tokens, which cuts at char_indices"
+)]
 fn texts<'a>(s: &'a str, tokens: &[Range<usize>]) -> Vec<&'a str> {
     tokens.iter().map(|t| &s[t.start..t.end]).collect()
 }
@@ -160,6 +173,10 @@ fn changed(tokens: &[Range<usize>], kept: &[bool]) -> Vec<Range<usize>> {
     out
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the ranges come from tokens, which cuts at char_indices"
+)]
 fn non_space_chars(s: &str, t: &Range<usize>) -> usize {
     let text = &s[t.start..t.end];
     if text.starts_with(char::is_whitespace) {
@@ -280,9 +297,16 @@ mod tests {
 
     #[test]
     fn similarity_is_the_share_of_kept_text() {
-        assert_eq!(similarity("same line", "same line"), 1.0);
-        assert_eq!(similarity("  ", "    "), 1.0, "no non-whitespace at all");
-        assert_eq!(similarity("a", "b"), 0.0);
+        assert_eq!(
+            similarity("same line", "same line").to_bits(),
+            1.0_f64.to_bits()
+        );
+        assert_eq!(
+            similarity("  ", "    ").to_bits(),
+            1.0_f64.to_bits(),
+            "no non-whitespace at all"
+        );
+        assert_eq!(similarity("a", "b").to_bits(), 0.0_f64.to_bits());
         let fs = r#"            ("fs".into(), p(&["fs", "default"])),"#;
         let node_fs = r#"            ("fs".into(), p(&["node:fs", "default"])),"#;
         let comment = "            // `node:` stays: the module is Node's own, whatever is \
@@ -344,7 +368,7 @@ mod tests {
         assert!(similarity(&old, &new) > 0.9);
         let (old, new) = (words_between("A", 249, "C"), words_between("B", 249, "D"));
         assert_eq!(changes(&old, &new).0, [0..old.len()]);
-        assert_eq!(similarity(&old, &new), 0.0);
+        assert_eq!(similarity(&old, &new).to_bits(), 0.0_f64.to_bits());
     }
 
     #[test]

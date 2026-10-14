@@ -1,5 +1,3 @@
-#![expect(clippy::iter_on_single_items, reason = "#858")]
-#![expect(clippy::or_fun_call, reason = "#858")]
 use super::{
     App, Buffer, Edit, Focus, HIST_MAX, HIST_NEAR, Mode, Path, PathBuf, PickItem, TextLine, Tree,
     buffer, edit, git, lock_no_write,
@@ -222,8 +220,7 @@ impl App {
             let carry = |t: &mut TextLine| match t {
                 TextLine::File(l) | TextLine::Deleted(l, _) => to(l),
             };
-            [&mut self.find_anchor.0]
-                .into_iter()
+            std::iter::once(&mut self.find_anchor.0)
                 .chain(self.anchor.as_mut().map(|a| &mut a.0))
                 .chain(self.find_sel.as_mut().map(|a| &mut a.0))
                 .chain(stop.map(|s| &mut s.1))
@@ -354,7 +351,7 @@ impl App {
                     (0..self.deleted_at(k)).map(move |i| (TextLine::Deleted(k, i), from + i + 1))
                 })
                 .min_by_key(|&(_, line)| line.abs_diff(n));
-            let t = nearest.map_or(TextLine::File(n.saturating_sub(1)), |(t, _)| t);
+            let t = nearest.map_or_else(|| TextLine::File(n.saturating_sub(1)), |(t, _)| t);
             let (t, col) = self.clamp_place((t, col));
             self.set_at(t);
             self.col = col;
