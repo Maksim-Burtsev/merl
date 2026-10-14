@@ -1,0 +1,11 @@
+edition = "2024";
+
+package acme.edition;
+
+export message Visible {
+  int32 x = 1 [features.field_presence = EXPLICIT];
+}
+
+local enum Hidden {
+  HIDDEN_ZERO = 0;
+}

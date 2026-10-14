@@ -18,6 +18,7 @@ adwaita	kotlin	18781	13546
 adwaita	lua	4590	3786
 adwaita	markdown	18398	13485
 adwaita	php	12811	9200
+adwaita	proto	4229	3717
 adwaita	python	19185	9995
 adwaita	query	7948	5727
 adwaita	ruby	13458	7778
@@ -47,6 +48,7 @@ adwaita-light	kotlin	18781	13551
 adwaita-light	lua	4590	3794
 adwaita-light	markdown	18398	13485
 adwaita-light	php	12811	9200
+adwaita-light	proto	4229	3717
 adwaita-light	python	19185	10121
 adwaita-light	query	7948	5727
 adwaita-light	ruby	13458	7787
@@ -76,6 +78,7 @@ alabaster	kotlin	18781	17727
 alabaster	lua	4590	3711
 alabaster	markdown	18398	13494
 alabaster	php	12811	10255
+alabaster	proto	4229	3993
 alabaster	python	19185	12297
 alabaster	query	7948	6660
 alabaster	ruby	13458	10314
@@ -105,6 +108,7 @@ alabaster-light	kotlin	18781	17727
 alabaster-light	lua	4590	3659
 alabaster-light	markdown	18398	13494
 alabaster-light	php	12811	10247
+alabaster-light	proto	4229	3993
 alabaster-light	python	19185	12286
 alabaster-light	query	7948	6658
 alabaster-light	ruby	13458	10314
@@ -134,6 +138,7 @@ alucard	kotlin	18781	13521
 alucard	lua	4590	3731
 alucard	markdown	18398	13464
 alucard	php	12811	9150
+alucard	proto	4229	3735
 alucard	python	19185	9182
 alucard	query	7948	5652
 alucard	ruby	13458	9363
@@ -163,6 +168,7 @@ ayu	kotlin	18781	6922
 ayu	lua	4590	3671
 ayu	markdown	18398	13191
 ayu	php	12811	9038
+ayu	proto	4229	2764
 ayu	python	19185	6866
 ayu	query	7948	5709
 ayu	ruby	13458	6181
@@ -192,6 +198,7 @@ ayu-light	kotlin	18781	6922
 ayu-light	lua	4590	3671
 ayu-light	markdown	18398	13191
 ayu-light	php	12811	9038
+ayu-light	proto	4229	2764
 ayu-light	python	19185	6866
 ayu-light	query	7948	5709
 ayu-light	ruby	13458	6181
@@ -221,6 +228,7 @@ ayu-mirage	kotlin	18781	6922
 ayu-mirage	lua	4590	3671
 ayu-mirage	markdown	18398	13191
 ayu-mirage	php	12811	9038
+ayu-mirage	proto	4229	2764
 ayu-mirage	python	19185	6866
 ayu-mirage	query	7948	5709
 ayu-mirage	ruby	13458	6181
@@ -250,6 +258,7 @@ bamboo	kotlin	18781	12371
 bamboo	lua	4590	3549
 bamboo	markdown	18398	12337
 bamboo	php	12811	8783
+bamboo	proto	4229	2805
 bamboo	python	19185	9267
 bamboo	query	7948	5555
 bamboo	ruby	13458	7787
@@ -279,6 +288,7 @@ bamboo-light	kotlin	18781	12371
 bamboo-light	lua	4590	3549
 bamboo-light	markdown	18398	12337
 bamboo-light	php	12811	8783
+bamboo-light	proto	4229	2805
 bamboo-light	python	19185	9267
 bamboo-light	query	7948	5555
 bamboo-light	ruby	13458	7787
@@ -308,6 +318,7 @@ bluloco-light	kotlin	18781	12926
 bluloco-light	lua	4590	3781
 bluloco-light	markdown	18398	12634
 bluloco-light	php	12811	9424
+bluloco-light	proto	4229	2871
 bluloco-light	python	19185	9231
 bluloco-light	query	7948	5555
 bluloco-light	ruby	13458	9397
@@ -337,6 +348,7 @@ catppuccin-frappe	kotlin	18781	12591
 catppuccin-frappe	lua	4590	3665
 catppuccin-frappe	markdown	18398	12345
 catppuccin-frappe	php	12811	9007
+catppuccin-frappe	proto	4229	2841
 catppuccin-frappe	python	19185	9032
 catppuccin-frappe	query	7948	5605
 catppuccin-frappe	ruby	13458	7791
@@ -366,6 +378,7 @@ catppuccin-latte	kotlin	18781	12591
 catppuccin-latte	lua	4590	3665
 catppuccin-latte	markdown	18398	12345
 catppuccin-latte	php	12811	9007
+catppuccin-latte	proto	4229	2841
 catppuccin-latte	python	19185	9032
 catppuccin-latte	query	7948	5605
 catppuccin-latte	ruby	13458	7791
@@ -395,6 +408,7 @@ catppuccin-macchiato	kotlin	18781	12591
 catppuccin-macchiato	lua	4590	3665
 catppuccin-macchiato	markdown	18398	12345
 catppuccin-macchiato	php	12811	9007
+catppuccin-macchiato	proto	4229	2841
 catppuccin-macchiato	python	19185	9032
 catppuccin-macchiato	query	7948	5605
 catppuccin-macchiato	ruby	13458	7791
@@ -424,6 +438,7 @@ catppuccin-mocha	kotlin	18781	12591
 catppuccin-mocha	lua	4590	3665
 catppuccin-mocha	markdown	18398	12345
 catppuccin-mocha	php	12811	9007
+catppuccin-mocha	proto	4229	2841
 catppuccin-mocha	python	19185	9032
 catppuccin-mocha	query	7948	5605
 catppuccin-mocha	ruby	13458	7791
@@ -453,6 +468,7 @@ cendre	kotlin	18781	12540
 cendre	lua	4590	3721
 cendre	markdown	18398	12493
 cendre	php	12811	8705
+cendre	proto	4229	2805
 cendre	python	19185	9742
 cendre	query	7948	5555
 cendre	ruby	13458	7861
@@ -482,6 +498,7 @@ darkearth	kotlin	18781	13497
 darkearth	lua	4590	3612
 darkearth	markdown	18398	13310
 darkearth	php	12811	8242
+darkearth	proto	4229	2885
 darkearth	python	19185	9091
 darkearth	query	7948	5191
 darkearth	ruby	13458	8726
@@ -511,6 +528,7 @@ dawnfox	kotlin	18781	12157
 dawnfox	lua	4590	2895
 dawnfox	markdown	18398	13155
 dawnfox	php	12811	7800
+dawnfox	proto	4229	2655
 dawnfox	python	19185	7257
 dawnfox	query	7948	5016
 dawnfox	ruby	13458	6950
@@ -540,6 +558,7 @@ dayfox	kotlin	18781	6403
 dayfox	lua	4590	2895
 dayfox	markdown	18398	13082
 dayfox	php	12811	7800
+dayfox	proto	4229	2515
 dayfox	python	19185	5132
 dayfox	query	7948	5016
 dayfox	ruby	13458	5307
@@ -569,6 +588,7 @@ dracula	kotlin	18781	13521
 dracula	lua	4590	3731
 dracula	markdown	18398	13464
 dracula	php	12811	9150
+dracula	proto	4229	3735
 dracula	python	19185	9182
 dracula	query	7948	5652
 dracula	ruby	13458	9363
@@ -598,6 +618,7 @@ e-ink	kotlin	18781	7456
 e-ink	lua	4590	3674
 e-ink	markdown	18398	13279
 e-ink	php	12811	9695
+e-ink	proto	4229	2732
 e-ink	python	19185	7774
 e-ink	query	7948	5161
 e-ink	ruby	13458	5555
@@ -627,6 +648,7 @@ e-ink-light	kotlin	18781	7456
 e-ink-light	lua	4590	3674
 e-ink-light	markdown	18398	13279
 e-ink-light	php	12811	9695
+e-ink-light	proto	4229	2732
 e-ink-light	python	19185	7774
 e-ink-light	query	7948	5161
 e-ink-light	ruby	13458	5555
@@ -656,6 +678,7 @@ edge	kotlin	18781	6774
 edge	lua	4590	3370
 edge	markdown	18398	12313
 edge	php	12811	7706
+edge	proto	4229	2573
 edge	python	19185	6475
 edge	query	7948	5022
 edge	ruby	13458	6724
@@ -685,6 +708,7 @@ edge-light	kotlin	18781	6774
 edge-light	lua	4590	3370
 edge-light	markdown	18398	12313
 edge-light	php	12811	7706
+edge-light	proto	4229	2573
 edge-light	python	19185	6475
 edge-light	query	7948	5022
 edge-light	ruby	13458	6724
@@ -714,6 +738,7 @@ everforest-dark	kotlin	18781	13135
 everforest-dark	lua	4590	3650
 everforest-dark	markdown	18398	13037
 everforest-dark	php	12811	8540
+everforest-dark	proto	4229	2763
 everforest-dark	python	19185	9250
 everforest-dark	query	7948	5613
 everforest-dark	ruby	13458	9185
@@ -743,6 +768,7 @@ everforest-light	kotlin	18781	13135
 everforest-light	lua	4590	3650
 everforest-light	markdown	18398	13037
 everforest-light	php	12811	8540
+everforest-light	proto	4229	2763
 everforest-light	python	19185	9250
 everforest-light	query	7948	5613
 everforest-light	ruby	13458	9185
@@ -772,6 +798,7 @@ flexoki-dark	kotlin	18781	7225
 flexoki-dark	lua	4590	3713
 flexoki-dark	markdown	18398	13722
 flexoki-dark	php	12811	9379
+flexoki-dark	proto	4229	3640
 flexoki-dark	python	19185	6930
 flexoki-dark	query	7948	5652
 flexoki-dark	ruby	13458	6215
@@ -801,6 +828,7 @@ flexoki-light	kotlin	18781	7225
 flexoki-light	lua	4590	3713
 flexoki-light	markdown	18398	13722
 flexoki-light	php	12811	9379
+flexoki-light	proto	4229	3640
 flexoki-light	python	19185	6930
 flexoki-light	query	7948	5652
 flexoki-light	ruby	13458	6215
@@ -830,6 +858,7 @@ github-dark	kotlin	18781	13372
 github-dark	lua	4590	3759
 github-dark	markdown	18398	17208
 github-dark	php	12811	8999
+github-dark	proto	4229	2811
 github-dark	python	19185	10467
 github-dark	query	7948	5781
 github-dark	ruby	13458	9317
@@ -859,6 +888,7 @@ github-light	kotlin	18781	13372
 github-light	lua	4590	3759
 github-light	markdown	18398	17208
 github-light	php	12811	8999
+github-light	proto	4229	2811
 github-light	python	19185	10467
 github-light	query	7948	5781
 github-light	ruby	13458	9317
@@ -888,6 +918,7 @@ gotham	kotlin	18781	7157
 gotham	lua	4590	3685
 gotham	markdown	18398	13192
 gotham	php	12811	9361
+gotham	proto	4229	2764
 gotham	python	19185	7204
 gotham	query	7948	5715
 gotham	ruby	13458	6215
@@ -917,6 +948,7 @@ gruvbox-dark	kotlin	18781	12140
 gruvbox-dark	lua	4590	3583
 gruvbox-dark	markdown	18398	13415
 gruvbox-dark	php	12811	9443
+gruvbox-dark	proto	4229	2761
 gruvbox-dark	python	19185	9508
 gruvbox-dark	query	7948	5560
 gruvbox-dark	ruby	13458	7784
@@ -946,6 +978,7 @@ gruvbox-light	kotlin	18781	12140
 gruvbox-light	lua	4590	3583
 gruvbox-light	markdown	18398	13415
 gruvbox-light	php	12811	9443
+gruvbox-light	proto	4229	2761
 gruvbox-light	python	19185	9508
 gruvbox-light	query	7948	5560
 gruvbox-light	ruby	13458	7784
@@ -975,6 +1008,7 @@ gruvbox-material-dark	kotlin	18781	13135
 gruvbox-material-dark	lua	4590	3650
 gruvbox-material-dark	markdown	18398	12889
 gruvbox-material-dark	php	12811	8540
+gruvbox-material-dark	proto	4229	2763
 gruvbox-material-dark	python	19185	9250
 gruvbox-material-dark	query	7948	5613
 gruvbox-material-dark	ruby	13458	9185
@@ -1004,6 +1038,7 @@ gruvbox-material-light	kotlin	18781	13135
 gruvbox-material-light	lua	4590	3650
 gruvbox-material-light	markdown	18398	12889
 gruvbox-material-light	php	12811	8540
+gruvbox-material-light	proto	4229	2763
 gruvbox-material-light	python	19185	9250
 gruvbox-material-light	query	7948	5613
 gruvbox-material-light	ruby	13458	9185
@@ -1033,6 +1068,7 @@ hojicha	kotlin	18781	12590
 hojicha	lua	4590	3383
 hojicha	markdown	18398	13262
 hojicha	php	12811	8367
+hojicha	proto	4229	2755
 hojicha	python	19185	8604
 hojicha	query	7948	5037
 hojicha	ruby	13458	7150
@@ -1062,6 +1098,7 @@ iceberg	kotlin	18781	13787
 iceberg	lua	4590	3806
 iceberg	markdown	18398	13486
 iceberg	php	12811	9638
+iceberg	proto	4229	3729
 iceberg	python	19185	10177
 iceberg	query	7948	5726
 iceberg	ruby	13458	7821
@@ -1091,6 +1128,7 @@ iceberg-light	kotlin	18781	13787
 iceberg-light	lua	4590	3806
 iceberg-light	markdown	18398	13486
 iceberg-light	php	12811	9644
+iceberg-light	proto	4229	3729
 iceberg-light	python	19185	10177
 iceberg-light	query	7948	5728
 iceberg-light	ruby	13458	7821
@@ -1120,6 +1158,7 @@ jellybeans	kotlin	18781	11897
 jellybeans	lua	4590	2893
 jellybeans	markdown	18398	12295
 jellybeans	php	12811	7606
+jellybeans	proto	4229	3513
 jellybeans	python	19185	12527
 jellybeans	query	7948	5032
 jellybeans	ruby	13458	8451
@@ -1149,6 +1188,7 @@ jellybeans-light	kotlin	18781	11897
 jellybeans-light	lua	4590	2893
 jellybeans-light	markdown	18398	12295
 jellybeans-light	php	12811	7606
+jellybeans-light	proto	4229	3513
 jellybeans-light	python	19185	12527
 jellybeans-light	query	7948	5032
 jellybeans-light	ruby	13458	8451
@@ -1178,6 +1218,7 @@ kanagawa-dragon	kotlin	18781	11939
 kanagawa-dragon	lua	4590	3651
 kanagawa-dragon	markdown	18398	13268
 kanagawa-dragon	php	12811	8749
+kanagawa-dragon	proto	4229	2807
 kanagawa-dragon	python	19185	8355
 kanagawa-dragon	query	7948	5555
 kanagawa-dragon	ruby	13458	7796
@@ -1207,6 +1248,7 @@ kanagawa-lotus	kotlin	18781	11939
 kanagawa-lotus	lua	4590	3651
 kanagawa-lotus	markdown	18398	13268
 kanagawa-lotus	php	12811	8749
+kanagawa-lotus	proto	4229	2807
 kanagawa-lotus	python	19185	8355
 kanagawa-lotus	query	7948	5555
 kanagawa-lotus	ruby	13458	7796
@@ -1236,6 +1278,7 @@ kanagawa-wave	kotlin	18781	11939
 kanagawa-wave	lua	4590	3651
 kanagawa-wave	markdown	18398	13268
 kanagawa-wave	php	12811	8749
+kanagawa-wave	proto	4229	2807
 kanagawa-wave	python	19185	8355
 kanagawa-wave	query	7948	5555
 kanagawa-wave	ruby	13458	7796
@@ -1265,6 +1308,7 @@ koda-dark	kotlin	18781	14154
 koda-dark	lua	4590	3632
 koda-dark	markdown	18398	13384
 koda-dark	php	12811	9169
+koda-dark	proto	4229	3731
 koda-dark	python	19185	15375
 koda-dark	query	7948	5357
 koda-dark	ruby	13458	7239
@@ -1294,6 +1338,7 @@ koda-light	kotlin	18781	13921
 koda-light	lua	4590	3618
 koda-light	markdown	18398	13384
 koda-light	php	12811	8838
+koda-light	proto	4229	3731
 koda-light	python	19185	15303
 koda-light	query	7948	5351
 koda-light	ruby	13458	7205
@@ -1323,6 +1368,7 @@ lackluster	kotlin	18781	12716
 lackluster	lua	4590	3681
 lackluster	markdown	18398	13018
 lackluster	php	12811	9043
+lackluster	proto	4229	2857
 lackluster	python	19185	9417
 lackluster	query	7948	5555
 lackluster	ruby	13458	7850
@@ -1352,6 +1398,7 @@ lightearth	kotlin	18781	13497
 lightearth	lua	4590	3612
 lightearth	markdown	18398	13310
 lightearth	php	12811	8242
+lightearth	proto	4229	2885
 lightearth	python	19185	9091
 lightearth	query	7948	5191
 lightearth	ruby	13458	8726
@@ -1381,6 +1428,7 @@ material-dark	kotlin	18781	12616
 material-dark	lua	4590	3172
 material-dark	markdown	18398	13144
 material-dark	php	12811	8047
+material-dark	proto	4229	3561
 material-dark	python	19185	13286
 material-dark	query	7948	5111
 material-dark	ruby	13458	6818
@@ -1410,6 +1458,7 @@ material-light	kotlin	18781	12616
 material-light	lua	4590	3172
 material-light	markdown	18398	13144
 material-light	php	12811	8047
+material-light	proto	4229	3561
 material-light	python	19185	13286
 material-light	query	7948	5111
 material-light	ruby	13458	6818
@@ -1439,6 +1488,7 @@ melange-dark	kotlin	18781	12611
 melange-dark	lua	4590	3585
 melange-dark	markdown	18398	12962
 melange-dark	php	12811	8991
+melange-dark	proto	4229	3619
 melange-dark	python	19185	10253
 melange-dark	query	7948	5636
 melange-dark	ruby	13458	9007
@@ -1468,6 +1518,7 @@ melange-light	kotlin	18781	12611
 melange-light	lua	4590	3585
 melange-light	markdown	18398	12962
 melange-light	php	12811	8991
+melange-light	proto	4229	3619
 melange-light	python	19185	10253
 melange-light	query	7948	5636
 melange-light	ruby	13458	9007
@@ -1497,6 +1548,7 @@ mellifluous	kotlin	18781	11946
 mellifluous	lua	4590	3247
 mellifluous	markdown	18398	12763
 mellifluous	php	12811	8646
+mellifluous	proto	4229	3665
 mellifluous	python	19185	9140
 mellifluous	query	7948	5653
 mellifluous	ruby	13458	7793
@@ -1526,6 +1578,7 @@ mellifluous-light	kotlin	18781	11946
 mellifluous-light	lua	4590	3247
 mellifluous-light	markdown	18398	12763
 mellifluous-light	php	12811	8646
+mellifluous-light	proto	4229	3665
 mellifluous-light	python	19185	9140
 mellifluous-light	query	7948	5653
 mellifluous-light	ruby	13458	7793
@@ -1555,6 +1608,7 @@ mellow	kotlin	18781	12447
 mellow	lua	4590	3514
 mellow	markdown	18398	13391
 mellow	php	12811	8725
+mellow	proto	4229	2865
 mellow	python	19185	9023
 mellow	query	7948	5555
 mellow	ruby	13458	7945
@@ -1584,6 +1638,7 @@ miasma	kotlin	18781	13958
 miasma	lua	4590	3832
 miasma	markdown	18398	13500
 miasma	php	12811	9629
+miasma	proto	4229	3799
 miasma	python	19185	9651
 miasma	query	7948	5735
 miasma	ruby	13458	9388
@@ -1613,6 +1668,7 @@ minischeme	kotlin	18781	12945
 minischeme	lua	4590	3722
 minischeme	markdown	18398	12589
 minischeme	php	12811	8721
+minischeme	proto	4229	2911
 minischeme	python	19185	9523
 minischeme	query	7948	5642
 minischeme	ruby	13458	7965
@@ -1642,6 +1698,7 @@ minischeme-light	kotlin	18781	12945
 minischeme-light	lua	4590	3722
 minischeme-light	markdown	18398	12589
 minischeme-light	php	12811	8721
+minischeme-light	proto	4229	2911
 minischeme-light	python	19185	9523
 minischeme-light	query	7948	5642
 minischeme-light	ruby	13458	7965
@@ -1671,6 +1728,7 @@ moonfly	kotlin	18781	12537
 moonfly	lua	4590	3655
 moonfly	markdown	18398	12323
 moonfly	php	12811	8946
+moonfly	proto	4229	2755
 moonfly	python	19185	8651
 moonfly	query	7948	5632
 moonfly	ruby	13458	7750
@@ -1700,6 +1758,7 @@ neomodern-light	kotlin	18781	12590
 neomodern-light	lua	4590	3383
 neomodern-light	markdown	18398	13262
 neomodern-light	php	12811	8367
+neomodern-light	proto	4229	2755
 neomodern-light	python	19185	8604
 neomodern-light	query	7948	5037
 neomodern-light	ruby	13458	7150
@@ -1729,6 +1788,7 @@ nightfly	kotlin	18781	12537
 nightfly	lua	4590	3655
 nightfly	markdown	18398	12323
 nightfly	php	12811	8946
+nightfly	proto	4229	2755
 nightfly	python	19185	8651
 nightfly	query	7948	5632
 nightfly	ruby	13458	7750
@@ -1758,6 +1818,7 @@ nightfox	kotlin	18781	6403
 nightfox	lua	4590	2895
 nightfox	markdown	18398	13082
 nightfox	php	12811	7800
+nightfox	proto	4229	2515
 nightfox	python	19185	5132
 nightfox	query	7948	5016
 nightfox	ruby	13458	5307
@@ -1787,6 +1848,7 @@ nord	kotlin	18781	13225
 nord	lua	4590	3736
 nord	markdown	18398	12461
 nord	php	12811	8833
+nord	proto	4229	3733
 nord	python	19185	10494
 nord	query	7948	5136
 nord	ruby	13458	8775
@@ -1816,6 +1878,7 @@ nordfox	kotlin	18781	6403
 nordfox	lua	4590	2895
 nordfox	markdown	18398	13082
 nordfox	php	12811	7800
+nordfox	proto	4229	2515
 nordfox	python	19185	5132
 nordfox	query	7948	5016
 nordfox	ruby	13458	5307
@@ -1845,6 +1908,7 @@ onedark	kotlin	18781	12389
 onedark	lua	4590	3549
 onedark	markdown	18398	12674
 onedark	php	12811	8379
+onedark	proto	4229	2805
 onedark	python	19185	9123
 onedark	query	7948	5558
 onedark	ruby	13458	7787
@@ -1874,6 +1938,7 @@ onedark-light	kotlin	18781	12389
 onedark-light	lua	4590	3549
 onedark-light	markdown	18398	12674
 onedark-light	php	12811	8379
+onedark-light	proto	4229	2805
 onedark-light	python	19185	9123
 onedark-light	query	7948	5558
 onedark-light	ruby	13458	7787
@@ -1903,6 +1968,7 @@ oxocarbon-dark	kotlin	18781	13256
 oxocarbon-dark	lua	4590	3119
 oxocarbon-dark	markdown	18398	12465
 oxocarbon-dark	php	12811	7813
+oxocarbon-dark	proto	4229	2701
 oxocarbon-dark	python	19185	8845
 oxocarbon-dark	query	7948	5105
 oxocarbon-dark	ruby	13458	6791
@@ -1932,6 +1998,7 @@ oxocarbon-light	kotlin	18781	13256
 oxocarbon-light	lua	4590	3119
 oxocarbon-light	markdown	18398	12465
 oxocarbon-light	php	12811	7813
+oxocarbon-light	proto	4229	2701
 oxocarbon-light	python	19185	8845
 oxocarbon-light	query	7948	5105
 oxocarbon-light	ruby	13458	6791
@@ -1961,6 +2028,7 @@ papercolor	kotlin	18781	12890
 papercolor	lua	4590	3983
 papercolor	markdown	18398	15372
 papercolor	php	12811	9267
+papercolor	proto	4229	2889
 papercolor	python	19185	10175
 papercolor	query	7948	5558
 papercolor	ruby	13458	7907
@@ -1990,6 +2058,7 @@ papercolor-light	kotlin	18781	12661
 papercolor-light	lua	4590	3969
 papercolor-light	markdown	18398	15372
 papercolor-light	php	12811	8944
+papercolor-light	proto	4229	2889
 papercolor-light	python	19185	10108
 papercolor-light	query	7948	5558
 papercolor-light	ruby	13458	7873
@@ -2019,6 +2088,7 @@ pencil	kotlin	18781	6926
 pencil	lua	4590	3748
 pencil	markdown	18398	13718
 pencil	php	12811	8884
+pencil	proto	4229	2770
 pencil	python	19185	6901
 pencil	query	7948	5640
 pencil	ruby	13458	6322
@@ -2048,6 +2118,7 @@ pencil-light	kotlin	18781	6926
 pencil-light	lua	4590	3748
 pencil-light	markdown	18398	13718
 pencil-light	php	12811	8884
+pencil-light	proto	4229	2770
 pencil-light	python	19185	6901
 pencil-light	query	7948	5640
 pencil-light	ruby	13458	6322
@@ -2077,6 +2148,7 @@ rose-pine	kotlin	18781	12996
 rose-pine	lua	4590	3939
 rose-pine	markdown	18398	12872
 rose-pine	php	12811	9765
+rose-pine	proto	4229	2925
 rose-pine	python	19185	10276
 rose-pine	query	7948	5605
 rose-pine	ruby	13458	7862
@@ -2106,6 +2178,7 @@ rose-pine-dawn	kotlin	18781	12996
 rose-pine-dawn	lua	4590	3939
 rose-pine-dawn	markdown	18398	12872
 rose-pine-dawn	php	12811	9765
+rose-pine-dawn	proto	4229	2925
 rose-pine-dawn	python	19185	10276
 rose-pine-dawn	query	7948	5605
 rose-pine-dawn	ruby	13458	7862
@@ -2135,6 +2208,7 @@ rose-pine-moon	kotlin	18781	12996
 rose-pine-moon	lua	4590	3939
 rose-pine-moon	markdown	18398	12872
 rose-pine-moon	php	12811	9765
+rose-pine-moon	proto	4229	2925
 rose-pine-moon	python	19185	10276
 rose-pine-moon	query	7948	5605
 rose-pine-moon	ruby	13458	7862
@@ -2164,6 +2238,7 @@ selenized	kotlin	18781	6392
 selenized	lua	4590	3959
 selenized	markdown	18398	13741
 selenized	php	12811	10272
+selenized	proto	4229	3578
 selenized	python	19185	12218
 selenized	query	7948	5700
 selenized	ruby	13458	6153
@@ -2193,6 +2268,7 @@ selenized-light	kotlin	18781	6392
 selenized-light	lua	4590	3959
 selenized-light	markdown	18398	13741
 selenized-light	php	12811	10272
+selenized-light	proto	4229	3578
 selenized-light	python	19185	12218
 selenized-light	query	7948	5700
 selenized-light	ruby	13458	6153
@@ -2222,6 +2298,7 @@ solarized-dark	kotlin	18781	7742
 solarized-dark	lua	4590	3782
 solarized-dark	markdown	18398	15085
 solarized-dark	php	12811	10281
+solarized-dark	proto	4229	3614
 solarized-dark	python	19185	7949
 solarized-dark	query	7948	5694
 solarized-dark	ruby	13458	6190
@@ -2251,6 +2328,7 @@ solarized-light	kotlin	18781	7208
 solarized-light	lua	4590	3782
 solarized-light	markdown	18398	15076
 solarized-light	php	12811	10218
+solarized-light	proto	4229	3564
 solarized-light	python	19185	7409
 solarized-light	query	7948	5694
 solarized-light	ruby	13458	6162
@@ -2280,6 +2358,7 @@ sonokai	kotlin	18781	12677
 sonokai	lua	4590	3374
 sonokai	markdown	18398	12492
 sonokai	php	12811	7917
+sonokai	proto	4229	2713
 sonokai	python	19185	8726
 sonokai	query	7948	5022
 sonokai	ruby	13458	6886
@@ -2309,6 +2388,7 @@ soviet-dark	kotlin	18781	12199
 soviet-dark	lua	4590	3276
 soviet-dark	markdown	18398	12674
 soviet-dark	php	12811	8025
+soviet-dark	proto	4229	2669
 soviet-dark	python	19185	7540
 soviet-dark	query	7948	5016
 soviet-dark	ruby	13458	6950
@@ -2338,6 +2418,7 @@ soviet-light	kotlin	18781	12199
 soviet-light	lua	4590	3276
 soviet-light	markdown	18398	12674
 soviet-light	php	12811	8025
+soviet-light	proto	4229	2669
 soviet-light	python	19185	7540
 soviet-light	query	7948	5016
 soviet-light	ruby	13458	6950
@@ -2367,6 +2448,7 @@ srcery	kotlin	18781	12028
 srcery	lua	4590	3753
 srcery	markdown	18398	12810
 srcery	php	12811	8803
+srcery	proto	4229	2809
 srcery	python	19185	8891
 srcery	query	7948	5605
 srcery	ruby	13458	7809
@@ -2396,6 +2478,7 @@ token	kotlin	18781	12051
 token	lua	4590	3780
 token	markdown	18398	12533
 token	php	12811	9070
+token	proto	4229	3667
 token	python	19185	9364
 token	query	7948	5652
 token	ruby	13458	9323
@@ -2425,6 +2508,7 @@ token-light	kotlin	18781	12051
 token-light	lua	4590	3780
 token-light	markdown	18398	12533
 token-light	php	12811	9070
+token-light	proto	4229	3667
 token-light	python	19185	9364
 token-light	query	7948	5652
 token-light	ruby	13458	9323
@@ -2454,6 +2538,7 @@ tokyonight-day	kotlin	18781	12087
 tokyonight-day	lua	4590	2727
 tokyonight-day	markdown	18398	12377
 tokyonight-day	php	12811	7674
+tokyonight-day	proto	4229	2663
 tokyonight-day	python	19185	7146
 tokyonight-day	query	7948	5016
 tokyonight-day	ruby	13458	6950
@@ -2483,6 +2568,7 @@ tokyonight-moon	kotlin	18781	11787
 tokyonight-moon	lua	4590	3764
 tokyonight-moon	markdown	18398	668
 tokyonight-moon	php	12811	9520
+tokyonight-moon	proto	4229	2009
 tokyonight-moon	python	19185	9103
 tokyonight-moon	query	7948	2254
 tokyonight-moon	ruby	13458	6413
@@ -2512,6 +2598,7 @@ tokyonight-night	kotlin	18781	12087
 tokyonight-night	lua	4590	2727
 tokyonight-night	markdown	18398	12377
 tokyonight-night	php	12811	7674
+tokyonight-night	proto	4229	2663
 tokyonight-night	python	19185	7146
 tokyonight-night	query	7948	5016
 tokyonight-night	ruby	13458	6950
@@ -2541,6 +2628,7 @@ tokyonight-storm	kotlin	18781	12087
 tokyonight-storm	lua	4590	2727
 tokyonight-storm	markdown	18398	12377
 tokyonight-storm	php	12811	7674
+tokyonight-storm	proto	4229	2663
 tokyonight-storm	python	19185	7146
 tokyonight-storm	query	7948	5016
 tokyonight-storm	ruby	13458	6950
@@ -2570,6 +2658,7 @@ vague	kotlin	18781	13204
 vague	lua	4590	3737
 vague	markdown	18398	13218
 vague	php	12811	8728
+vague	proto	4229	2871
 vague	python	19185	9163
 vague	query	7948	5632
 vague	ruby	13458	9355
@@ -2599,6 +2688,7 @@ vesper	kotlin	18781	6656
 vesper	lua	4590	3616
 vesper	markdown	18398	13677
 vesper	php	12811	8202
+vesper	proto	4229	2730
 vesper	python	19185	7287
 vesper	query	7948	5120
 vesper	ruby	13458	5553
@@ -2628,6 +2718,7 @@ vscode-dark	kotlin	18781	7428
 vscode-dark	lua	4590	3512
 vscode-dark	markdown	18398	15096
 vscode-dark	php	12811	9263
+vscode-dark	proto	4229	3570
 vscode-dark	python	19185	6401
 vscode-dark	query	7948	5655
 vscode-dark	ruby	13458	6337
@@ -2657,6 +2748,7 @@ vscode-light	kotlin	18781	7428
 vscode-light	lua	4590	3512
 vscode-light	markdown	18398	15084
 vscode-light	php	12811	9263
+vscode-light	proto	4229	3570
 vscode-light	python	19185	6401
 vscode-light	query	7948	5655
 vscode-light	ruby	13458	6337

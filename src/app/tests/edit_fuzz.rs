@@ -1101,6 +1101,22 @@ const RUBY: &[&str] = &[
     ")", "{", "}", "\"", "\n\n",
 ];
 
+const PROTO: &[&str] = &[
+    "message A {\n",
+    "}\n",
+    "string a = 1;\n",
+    "[default = \"x\"]",
+    "map<string, int32>",
+    "rpc A(B) returns (stream C);\n",
+    "/*",
+    "*/",
+    "// ",
+    "\"",
+    "{",
+    "}",
+    "\n\n",
+];
+
 const CMAKE: &[&str] = &[
     "set(",
     "${X}",
@@ -1286,6 +1302,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.xml",
         include_bytes!("../../../tests/colors/xml/project.xml").as_slice(),
         MARKUP,
+    ),
+    (
+        "f.proto",
+        include_bytes!("../../../tests/colors/proto/ledger.proto").as_slice(),
+        PROTO,
     ),
     (
         "CMakeLists.txt",
