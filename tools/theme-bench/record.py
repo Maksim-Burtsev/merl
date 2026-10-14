@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "graphql", "hcl", "terraform", "ini", "zig"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -70,7 +70,6 @@ LANGS = {
     "ruby": (["mastodon"], ["rb"]),
     "php": (["koel"], ["php"]),
     "elixir": (["phoenix"], ["ex", "exs"]),
-    "graphql": (["graphql-code-generator", "swapi-graphql"], ["graphql", "graphqls", "gql"], 25),
     "hcl": (["immich", "pipeline-library"], ["hcl"], 15),
     "terraform": (["lem", "immich"], ["tf", "tfvars"], 10),
     "ini": (["gitea"], ["ini"], 40),
@@ -91,11 +90,6 @@ NOT_HTML = re.compile(
     r"|\{#[ \t]+|<extend|<super>")
 THEME_ONLY = {
     "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
-    "graphql-code-generator": ["graphql-code-generator", "graphql",
-                               "https://github.com/dotansimha/graphql-code-generator.git",
-                               "291cfb2a434f24de54a856cc09c6a4dd8ad01526", "-"],
-    "swapi-graphql": ["swapi-graphql", "graphql", "https://github.com/graphql/swapi-graphql.git",
-                      "8c0bf5868f11fe84942548180751fceeb36bd606", "-"],
     "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
                 "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
     "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
