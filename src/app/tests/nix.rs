@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 #[test]
@@ -27,7 +26,10 @@ fn u_reads_a_dashed_and_a_primed_nix_name_whole() {
             .0
             .into_iter()
             .map(|r| {
-                r.item.label[..r.item.code_at.unwrap()]
+                r.item
+                    .label
+                    .get(..r.item.code_at.unwrap())
+                    .unwrap()
                     .trim_end()
                     .to_owned()
             })
@@ -66,7 +68,10 @@ fn u_marks_a_let_binding_and_lands_whole_on_a_quoted_word_elsewhere() {
         picker.settle();
         let rows: Vec<String> = (picker.window(50).0.into_iter())
             .map(|r| {
-                r.item.label[..r.item.code_at.unwrap()]
+                r.item
+                    .label
+                    .get(..r.item.code_at.unwrap())
+                    .unwrap()
                     .trim_end()
                     .to_owned()
             })

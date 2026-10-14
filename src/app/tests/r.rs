@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 #[test]
@@ -24,7 +23,10 @@ fn u_reads_a_dotted_and_a_backticked_r_name_whole() {
         picker.settle();
         let rows: Vec<String> = (picker.window(50).0.into_iter())
             .map(|r| {
-                r.item.label[..r.item.code_at.unwrap()]
+                r.item
+                    .label
+                    .get(..r.item.code_at.unwrap())
+                    .unwrap()
                     .trim_end()
                     .to_owned()
             })

@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
 #[derive(Debug, Clone)]
@@ -502,7 +501,10 @@ impl App {
     ) -> Result<Vec<Candidate>, Option<Vec<String>>> {
         let line = self.line_str();
         let (r, _) = self.definition_word(Some(Kind::CSharp)).ok_or(None)?;
-        let (before, after) = (line[..r.start].trim_end(), line[r.end..].trim_start());
+        let (before, after) = (
+            line.get(..r.start).ok_or(None)?.trim_end(),
+            line.get(r.end..).ok_or(None)?.trim_start(),
+        );
         if after.starts_with('=')
             && !after.starts_with("==")
             && !after.starts_with("=>")

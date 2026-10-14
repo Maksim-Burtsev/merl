@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::words::{Blocks, word_byte};
 
 #[derive(Clone, Copy, PartialEq)]
@@ -199,6 +197,10 @@ impl Lexer<'_> {
         e
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "word_end stops only at an ASCII byte, so s..e holds whole chars"
+    )]
     fn word_token(&self, s: usize, c: u8) -> (Tk, usize) {
         let mut e = self.word_end(s);
         if matches!(self.at(e), b'?' | b'!') && self.at(e + 1) != b'=' {
@@ -233,7 +235,9 @@ impl Lexer<'_> {
                     (Tk::Value, e)
                 }
             }
-            b'~' if self.sigil(s).is_some() => (Tk::Value, self.sigil(s).unwrap()),
+            b'~' if self.sigil(s).is_some() => {
+                (Tk::Value, self.sigil(s).expect("the guard saw a sigil"))
+            }
             b'?' => (Tk::Value, self.char_end(s)),
             b':' if next == b'"' || next == b'\'' => (Tk::Value, self.quoted(s + 2, next, true)),
             b':' if next != b':' && word_byte(next) => {
@@ -408,8 +412,7 @@ fn opens_args(t: &Tok, next: Option<&Tok>, after: Option<&Tok>) -> bool {
 }
 
 fn close_args(stack: &mut Vec<Frame>, last: usize, nodes: &mut Vec<(usize, usize)>) {
-    while stack.last().is_some_and(|f| f.kind == Fk::Args) {
-        let f = stack.pop().unwrap();
+    while let Some(f) = stack.pop_if(|f| f.kind == Fk::Args) {
         nodes.push((f.line, last));
     }
 }
@@ -425,7 +428,7 @@ fn pop_to(
             nodes.push((f.line, last));
         }
     }
-    stack.pop().unwrap()
+    stack.pop().expect("at indexes the stack")
 }
 
 fn defines(head: &str) -> bool {
@@ -550,8 +553,10 @@ pub(crate) fn elixir(lines: &[String]) -> Blocks {
             }
             _ => {}
         }
-        if opens_args(t, next, toks.get(k + 2)) {
-            stack.push(Frame::new(Fk::Args, next.unwrap().line));
+        if let Some(n) = next
+            && opens_args(t, next, toks.get(k + 2))
+        {
+            stack.push(Frame::new(Fk::Args, n.line));
         }
         last = t.end;
         cont = continues(t);

@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::Path;
 
@@ -37,7 +35,7 @@ pub(super) fn draw_preview(
     let end = (p.top + area.height as usize).min(p.doc.rows.len());
     highlight_code_on_screen(p, shown, theme, end);
 
-    let p = app.preview.as_ref().unwrap();
+    let p = &*p;
     let pal = Palette::new(theme);
     let gutter = base.fg(theme.gutter_fg);
     let mut lines: Vec<Line> = Vec::with_capacity(end - p.top);
@@ -172,6 +170,10 @@ fn place_pictures(app: &mut App, area: Rect, gutter_w: usize, end: usize) {
     }
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the cuts are the ends of the layers' spans, all on char boundaries of text"
+)]
 fn layered<'a>(
     text: &'a str,
     layers: &[&[(Style, Range<usize>)]],

@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::{K, Lang, Lexer, Model};
 
 const CONTROL: &[&str] = &["if", "for", "while", "switch", "catch", "@synchronized"];
@@ -515,8 +514,9 @@ impl Model<'_, '_> {
             let line = lines[n].trim();
             let directive = line.strip_prefix('#').map(|d| {
                 let d = d.trim_start();
-                let w = d.split(|c: char| !c.is_alphanumeric()).next().unwrap_or("");
-                (w, d[w.len()..].to_owned())
+                let (w, rest) =
+                    d.split_at(d.find(|c: char| !c.is_alphanumeric()).unwrap_or(d.len()));
+                (w, rest.to_owned())
             });
             let mut last = n;
             while lines[last].trim_end().ends_with('\\') && last + 1 < lines.len() {
@@ -534,12 +534,9 @@ impl Model<'_, '_> {
             }
             match directive.as_ref().map(|(w, r)| (*w, r.as_str())) {
                 Some(("define", rest)) if last > n => {
-                    let name = rest.trim_start();
-                    let ident = name
-                        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
-                        .next()
-                        .unwrap_or("");
-                    if name[ident.len()..].starts_with('(') {
+                    let after_ident = (rest.trim_start())
+                        .trim_start_matches(|c: char| c.is_alphanumeric() || c == '_');
+                    if after_ident.starts_with('(') {
                         self.add(n, Some(last), false);
                     }
                 }

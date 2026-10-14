@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Buffer, Edit, Instant, KeyCode, KeyEvent, KeyModifiers, Mode, Path, Pick, TextLine,
     buffer, next_char, open, prev_char,
@@ -62,7 +60,7 @@ impl App {
         let (from, to, text) = match self.selection() {
             Some(_) => {
                 let (from, to) = self.file_selection().unwrap_or(here);
-                (from, to, self.selected_text().unwrap())
+                (from, to, self.selected_text().expect("a selection"))
             }
             None if self.deleted.is_some() => (here.0, here.1, format!("{}\n", self.line_str())),
             None if self.line + 1 < self.buf.lines.len() => (
@@ -127,13 +125,15 @@ impl App {
                 if code == KeyCode::Char('x') && self.replace(from, to, "", Kind::Other) && last {
                     self.want_x = want;
                     self.apply_want_x(0);
-                    self.undo.last_mut().unwrap().after = (self.line, self.col);
+                    self.cursor_after_last_edit();
                 }
             }
             KeyCode::Char(c) if !ctrl => self.insert(&c.to_string(), Kind::Typing),
             KeyCode::Enter => {
-                let head = &self.line_str()[..self.col];
-                let indent = &head[..head.len() - head.trim_start().len()];
+                let indent: String = (self.line_str().char_indices())
+                    .take_while(|&(i, c)| i < self.col && c.is_whitespace())
+                    .map(|(_, c)| c)
+                    .collect();
                 self.insert(&format!("\n{indent}"), Kind::Typing);
             }
             KeyCode::Tab => {
@@ -215,7 +215,7 @@ impl App {
             self.anchor = anchor.map(moved).map(|(l, c)| (TextLine::File(l), c));
             self.go(moved(cursor));
             self.sync_want_x();
-            self.undo.last_mut().unwrap().after = (self.line, self.col);
+            self.cursor_after_last_edit();
         }
     }
 
@@ -245,6 +245,18 @@ impl App {
         }
     }
 
+    fn cursor_after_last_edit(&mut self) {
+        let at = (self.line, self.col);
+        self.undo
+            .last_mut()
+            .expect("replace recorded the edit")
+            .after = at;
+    }
+
+    #[expect(
+        clippy::string_slice,
+        reason = "from and to are cursor positions, on char boundaries of their lines"
+    )]
     fn replace(
         &mut self,
         from: (usize, usize),

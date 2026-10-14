@@ -1,5 +1,4 @@
 #![expect(clippy::cognitive_complexity, reason = "test tables")]
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 const MARKERS: [&str; 6] = ["//", "#", "--", ";", "%", "(*"];
@@ -31,14 +30,11 @@ struct Case {
 }
 
 fn annotation(line: &str) -> Option<(usize, &str)> {
-    let caret = line.find('^')?;
-    if !MARKERS.contains(&line[..caret].trim()) {
+    let (head, tail) = line.split_once('^')?;
+    if !MARKERS.contains(&head.trim()) {
         return None;
     }
-    Some((
-        caret,
-        line[caret + 1..].trim().trim_end_matches("*)").trim(),
-    ))
+    Some((head.len(), tail.trim().trim_end_matches("*)").trim()))
 }
 
 fn status_line(line: &str) -> Option<&str> {

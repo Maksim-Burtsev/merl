@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::links::in_project;
 use super::resolution::resolution;
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
@@ -27,17 +26,22 @@ impl App {
     pub(super) fn css_word(&self) -> Option<String> {
         let kind = self.kind();
         if let Some((Attr::Class | Attr::Id, range)) = self.attr_here(kind) {
-            return Some(self.line_str()[range].to_owned());
+            return Some(self.line_str().get(range)?.to_owned());
         }
         if !matches!(kind, Some(Kind::Css | Kind::Html)) {
             return None;
         }
         let (range, word) = search::word_at(self.line_str(), self.col, "-")?;
-        self.line_str()[..range.start]
+        self.line_str()
+            .get(..range.start)?
             .ends_with("--")
             .then(|| format!("--{word}"))
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "attr_here returns the range of an attribute's value on this line"
+    )]
     pub(super) fn css_definition(&mut self, kind: Option<Kind>, here: &Path) -> bool {
         let line = self.line_str().to_owned();
         match self.attr_here(kind) {
@@ -107,7 +111,10 @@ impl App {
             return false;
         };
         let chain = search::qualifier(line, range.start);
-        let object = match (chain.as_slice(), line[..range.start].ends_with('.')) {
+        let object = match (
+            chain.as_slice(),
+            line.get(..range.start).is_some_and(|b| b.ends_with('.')),
+        ) {
             ([head], true) => Some(head.as_str()),
             ([], false) => None,
             _ => return false,

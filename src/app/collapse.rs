@@ -327,7 +327,10 @@ impl<'a> Shape<'a> {
         shape
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "code[l] is the line's length or the offset of its comment's #"
+    )]
     fn code(&self, l: usize) -> &str {
         let line = &self.lines[l];
         line[..self.code[l].min(line.len())].trim()
@@ -388,7 +391,6 @@ impl<'a> Shape<'a> {
         self.block(h).or_else(|| self.strings.get(&h).copied())
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
     fn compound(&self, l: usize) -> bool {
         if self.nested[l] {
             return false;
@@ -396,10 +398,9 @@ impl<'a> Shape<'a> {
         let t = self.code(l);
         let word = t.split(|c: char| !c.is_alphanumeric() && c != '_').next();
         match word {
-            Some(w @ ("match" | "case")) => {
-                let rest = t[w.len()..].trim_start();
-                t[w.len()..].starts_with(' ') && !rest.starts_with(['=', '.', ')', ',', ':'])
-            }
+            Some(w @ ("match" | "case")) => t.strip_prefix(w).is_some_and(|after| {
+                after.starts_with(' ') && !after.trim_start().starts_with(['=', '.', ')', ',', ':'])
+            }),
             Some(w) => COMPOUND.contains(&w),
             None => false,
         }

@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 
 fn usage_rows(a: &mut App) -> Vec<(String, String)> {
@@ -15,7 +14,7 @@ fn usage_rows(a: &mut App) -> Vec<(String, String)> {
         .into_iter()
         .enumerate()
         .map(|(i, r)| {
-            let head = r.item.label[..r.item.code_at.unwrap()].trim();
+            let head = r.item.label.get(..r.item.code_at.unwrap()).unwrap().trim();
             let mark = if i < declarations { "declaration" } else { "" };
             (mark.into(), head.trim_end_matches(':').into())
         })

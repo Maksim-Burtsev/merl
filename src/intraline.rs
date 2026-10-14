@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::ops::Range;
 
 pub fn changes(old: &str, new: &str) -> (Vec<Range<usize>>, Vec<Range<usize>>) {
@@ -101,6 +100,10 @@ fn tokens(s: &str) -> Vec<Range<usize>> {
     out
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the ranges come from tokens, which cuts at char_indices"
+)]
 fn common(old: &str, new: &str, a: &[Range<usize>], b: &[Range<usize>]) -> (usize, usize) {
     let mut pre = 0;
     while pre < a.len().min(b.len())
@@ -119,6 +122,10 @@ fn common(old: &str, new: &str, a: &[Range<usize>], b: &[Range<usize>]) -> (usiz
     (pre, suf)
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the ranges come from tokens, which cuts at char_indices"
+)]
 fn texts<'a>(s: &'a str, tokens: &[Range<usize>]) -> Vec<&'a str> {
     tokens.iter().map(|t| &s[t.start..t.end]).collect()
 }
@@ -166,6 +173,10 @@ fn changed(tokens: &[Range<usize>], kept: &[bool]) -> Vec<Range<usize>> {
     out
 }
 
+#[expect(
+    clippy::string_slice,
+    reason = "the ranges come from tokens, which cuts at char_indices"
+)]
 fn non_space_chars(s: &str, t: &Range<usize>) -> usize {
     let text = &s[t.start..t.end];
     if text.starts_with(char::is_whitespace) {

@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use super::*;
 use crate::stats;
 
@@ -29,7 +28,7 @@ fn read(name: &str) -> KeyEvent {
         "PgUp" => KeyCode::PageUp,
         "PgDn" => KeyCode::PageDown,
         _ if key.len() > 1 && key.starts_with('F') => {
-            KeyCode::F(key[1..].parse().unwrap_or_else(|_| cannot()))
+            KeyCode::F(key.get(1..).unwrap().parse().unwrap_or_else(|_| cannot()))
         }
         _ if key.chars().count() == 1 && m.contains(KeyModifiers::CONTROL) => {
             KeyCode::Char(key.to_ascii_lowercase().chars().next().unwrap())

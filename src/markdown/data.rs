@@ -129,8 +129,10 @@ fn jsonl(lines: &[String]) -> Result<Parsed, String> {
     Ok(Parsed::Records(records))
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
-#[expect(clippy::unwrap_used, reason = "#858")]
+#[expect(
+    clippy::string_slice,
+    reason = "start and i sit at ASCII delimiters or after a closing quote of valid JSON"
+)]
 fn pretty(json: &str, l: usize) -> Vec<(String, (usize, usize))> {
     let mut out: Vec<(String, (usize, usize))> = Vec::new();
     let (mut depth, mut fresh) = (0usize, true);
@@ -167,11 +169,11 @@ fn pretty(json: &str, l: usize) -> Vec<(String, (usize, usize))> {
             out.push(("  ".repeat(depth), (l, start)));
             fresh = false;
         }
-        let row = &mut out.last_mut().unwrap().0;
+        let row = &mut out.last_mut().expect("the first token opens a row").0;
         row.push_str(token);
         match b[start] {
             c @ (b'{' | b'[') if closes(c) => {
-                let at = json[i..].find(['}', ']']).unwrap() + i;
+                let at = json[i..].find(['}', ']']).expect("closes saw the bracket") + i;
                 row.push(b[at] as char);
                 i = at + 1;
             }

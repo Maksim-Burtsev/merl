@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::fmt::Write as _;
 use std::ops::ControlFlow;
 use std::path::Path;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use pattern::{lua_pattern, lua_replacement, vim_pattern};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
@@ -346,6 +346,14 @@ pub struct Lang {
     highlights: Patterns,
     priority: Vec<u32>,
     injections: Option<Patterns>,
+    separate: Option<Patterns>,
+    combined: Option<Patterns>,
+}
+
+impl Lang {
+    fn top_injections(&self) -> Option<&Patterns> {
+        self.separate.as_ref().or(self.injections.as_ref())
+    }
 }
 
 pub fn for_syntax(
@@ -679,7 +687,20 @@ fn compile(name: &'static str, language: Language) -> Result<Lang, String> {
     let mut lang = compile_text(name, language, &source(name, |r| r.1)?)?;
     let injections = source(name, |r| r.2)?;
     if !injections.trim().is_empty() {
-        lang.injections = Some(patterns(name, &lang.language, &injections, INJECTION_KEYS)?);
+        let compiled = || patterns(name, &lang.language, &injections, INJECTION_KEYS);
+        let all = compiled()?;
+        let joins: Vec<bool> = (0..all.query.pattern_count())
+            .map(|p| all.setting(p, "injection.combined").is_some())
+            .collect();
+        if joins.contains(&true) {
+            let (mut separate, mut combined) = (compiled()?, compiled()?);
+            for (p, &joined) in joins.iter().enumerate() {
+                let off = if joined { &mut separate } else { &mut combined };
+                off.query.disable_pattern(p);
+            }
+            (lang.separate, lang.combined) = (Some(separate), Some(combined));
+        }
+        lang.injections = Some(all);
     }
     Ok(lang)
 }
@@ -700,6 +721,8 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
         highlights,
         priority,
         injections: None,
+        separate: None,
+        combined: None,
     })
 }
 
@@ -913,153 +936,6 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
     }
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
-#[expect(
-    clippy::match_same_arms,
-    reason = "the rows group Vim's specials by what they mean"
-)]
-fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
-    let bad = || Err(format!("vim pattern {p:?} is not supported"));
-    let body = match p.get(..2) {
-        Some("\\v") => &p[2..],
-        Some("\\m" | "\\M" | "\\V") => return bad(),
-        _ => p,
-    };
-    let mut out = String::new();
-    let mut chars = body.chars().peekable();
-    let mut class = None;
-    let mut case = "";
-    while let Some(c) = chars.next() {
-        match (c, class) {
-            ('<' | '>' | '=' | '@' | '%' | '~' | '{' | '&', _) => return bad(),
-            ('\\' | '[', Some(_)) => return bad(),
-            ('-', Some(_)) if chars.peek() == Some(&'-') => return bad(),
-            (']', Some(false)) => class = None,
-            ('^', Some(true)) => {}
-            (_, Some(_)) => class = Some(false),
-            ('[', None) => class = Some(true),
-            ('\\', None) => match chars.next() {
-                Some(n @ ('d' | 'w' | 'D' | 'W')) => {
-                    out.push('\\');
-                    out.push(n);
-                    continue;
-                }
-                Some('c') => {
-                    case = "i";
-                    continue;
-                }
-                Some('C') => continue,
-                Some(n) if !n.is_ascii_alphanumeric() && n != '_' => {
-                    out.push_str(&regex::escape(&n.to_string()));
-                    continue;
-                }
-                _ => return bad(),
-            },
-            _ => {}
-        }
-        out.push(c);
-    }
-    regex::bytes::Regex::new(&format!("(?s{case}-u){out}"))
-        .map_err(|e| format!("vim pattern {p:?}: {e}"))
-}
-
-fn lua_replacement(with: &str) -> Result<Vec<u8>, String> {
-    let mut out = Vec::new();
-    let mut chars = with.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '%' => match chars.next() {
-                Some(d @ '0'..='9') => out.extend(format!("${{{d}}}").bytes()),
-                Some('%') => out.push(b'%'),
-                _ => return Err(format!("lua replacement {with:?}: invalid use of '%'")),
-            },
-            '$' => out.extend(b"$$"),
-            c => out.extend(c.to_string().bytes()),
-        }
-    }
-    Ok(out)
-}
-
-fn lua_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
-    let class = |c: char| -> Option<&'static str> {
-        Some(match c {
-            'a' => "A-Za-z",
-            'c' => "\\x00-\\x1f\\x7f",
-            'd' => "0-9",
-            'g' => "!-~",
-            'l' => "a-z",
-            'p' => "!-/:-@\\[-`{-~",
-            's' => "\\t\\n\\x0b\\x0c\\r ",
-            'u' => "A-Z",
-            'w' => "A-Za-z0-9",
-            'x' => "0-9A-Fa-f",
-            _ => return None,
-        })
-    };
-    let bad = || Err(format!("lua pattern {p:?} is not supported"));
-    let chars: Vec<char> = p.chars().collect();
-    let mut out = String::from("(?s-u)");
-    let mut i = 0;
-    while i < chars.len() {
-        let c = chars[i];
-        match c {
-            '^' if i == 0 => out.push('^'),
-            '$' if i == chars.len() - 1 => out.push('$'),
-            '.' => out.push('.'),
-            '*' | '+' | '?' | '(' | ')' => out.push(c),
-            '-' => out.push_str("*?"),
-            '%' => {
-                i += 1;
-                let Some(&n) = chars.get(i) else { return bad() };
-                if let Some(set) = class(n.to_ascii_lowercase()) {
-                    let neg = if n.is_ascii_uppercase() { "^" } else { "" };
-                    _ = write!(out, "[{neg}{set}]");
-                } else if n.is_ascii_alphanumeric() {
-                    return bad();
-                } else {
-                    out.push_str(&regex::escape(&n.to_string()));
-                }
-            }
-            '[' => {
-                out.push('[');
-                i += 1;
-                if chars.get(i) == Some(&'^') {
-                    out.push('^');
-                    i += 1;
-                }
-                let mut first = true;
-                loop {
-                    let Some(&m) = chars.get(i) else { return bad() };
-                    if m == ']' && !first {
-                        break;
-                    }
-                    first = false;
-                    if m == '%' {
-                        i += 1;
-                        let Some(&n) = chars.get(i) else { return bad() };
-                        match class(n) {
-                            Some(set) => out.push_str(set),
-                            None if n.is_ascii_alphanumeric() => return bad(),
-                            None => _ = write!(out, "\\x{:02x}", n as u32),
-                        }
-                    } else if m == '-' {
-                        out.push('-');
-                    } else if m.is_ascii_alphanumeric() {
-                        out.push(m);
-                    } else {
-                        _ = write!(out, "\\x{:02x}", m as u32);
-                    }
-                    i += 1;
-                }
-                out.push(']');
-            }
-            _ => out.push_str(&regex::escape(&c.to_string())),
-        }
-        i += 1;
-    }
-    regex::bytes::Regex::new(&out).map_err(|e| format!("lua pattern {p:?}: {e}"))
-}
-
 #[cfg(test)]
 pub type Shape = Vec<(u16, std::ops::Range<usize>, bool, bool)>;
 
@@ -1073,6 +949,8 @@ pub struct Parsed {
     repaint_from: Option<usize>,
     halted: bool,
     before: Option<(Tree, String)>,
+    groups: Vec<layers::Group>,
+    rescan: bool,
 }
 
 fn joined(lines: &[String]) -> (String, Vec<usize>) {
@@ -1120,6 +998,8 @@ impl Parsed {
             repaint_from: Some(0),
             halted: false,
             before: None,
+            groups: Vec::new(),
+            rescan: false,
         })
     }
 
@@ -1151,6 +1031,9 @@ impl Parsed {
                 self.before = Some((tree.clone(), std::mem::take(&mut self.text)));
             }
             tree.edit(&edit);
+        }
+        for g in &mut self.groups {
+            g.tree.edit(&edit);
         }
         if std::mem::take(&mut self.halted) {
             self.parser.reset();
@@ -1204,6 +1087,16 @@ impl Parsed {
             Some(old) => from.min(recovered_row(old, &tree, from)),
             None => from,
         };
+        let dirty = self.tree.as_ref().map(|old| {
+            let text = self.before.as_ref().map(|(_, t)| {
+                let (prefix, suffix) = common_ends(t.as_bytes(), bytes);
+                prefix..bytes.len() - suffix
+            });
+            old.changed_ranges(&tree)
+                .map(|r| r.start_byte..r.end_byte)
+                .chain(text)
+                .reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
+        });
         let from = match self.before.take() {
             Some(before) => {
                 let row = |p: &Patterns| changed_text_row(p, &before, &tree, &self.text);
@@ -1212,9 +1105,18 @@ impl Parsed {
             }
             None => from,
         };
+        let from = match dirty {
+            Some(None) if !self.rescan => from,
+            dirty => from.min(self.regroup(&tree, dirty.flatten())),
+        };
+        let bytes = self.text.as_bytes();
         let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
         let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
-        let from = layers::region_start(&layers::injections(self.lang, &tree, None, &doc), from);
+        let injected = self
+            .lang
+            .top_injections()
+            .map(|inj| layers::injections(self.lang, inj, &tree, None, &doc));
+        let from = layers::region_start(&injected.unwrap_or_default(), from);
         (self.tree, self.repaint_from, self.halted) = (Some(tree), None, false);
         Some(from)
     }
@@ -1237,6 +1139,7 @@ impl Parsed {
             self.lang,
             std::slice::from_ref(tree),
             false,
+            Some(&self.groups),
             &mut layers::Ctx {
                 parser: &mut self.inner,
                 sub: 0,
@@ -1280,37 +1183,44 @@ impl Parsed {
 impl Parsed {
     #[cfg(test)]
     pub fn sexp(&self) -> String {
-        self.tree
-            .as_ref()
+        self.trees()
             .map(|t| t.root_node().to_sexp())
-            .unwrap_or_default()
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[cfg(test)]
+    fn trees(&self) -> impl Iterator<Item = &Tree> {
+        self.tree.iter().chain(self.groups.iter().map(|g| &g.tree))
     }
 
     #[cfg(test)]
     pub fn shape(&self) -> Shape {
         let mut out = Vec::new();
-        let Some(tree) = &self.tree else { return out };
-        let mut c = tree.walk();
-        loop {
-            let n = c.node();
-            out.push((
-                n.kind_id(),
-                n.byte_range(),
-                n.is_missing(),
-                n.child_count() == 0,
-            ));
-            if c.goto_first_child() || c.goto_next_sibling() {
-                continue;
-            }
-            loop {
-                if !c.goto_parent() {
-                    return out;
+        for tree in self.trees() {
+            let mut c = tree.walk();
+            'walk: loop {
+                let n = c.node();
+                out.push((
+                    n.kind_id(),
+                    n.byte_range(),
+                    n.is_missing(),
+                    n.child_count() == 0,
+                ));
+                if c.goto_first_child() || c.goto_next_sibling() {
+                    continue;
                 }
-                if c.goto_next_sibling() {
-                    break;
+                loop {
+                    if !c.goto_parent() {
+                        break 'walk;
+                    }
+                    if c.goto_next_sibling() {
+                        break;
+                    }
                 }
             }
         }
+        out
     }
 
     #[cfg(test)]
@@ -1448,7 +1358,9 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
     Some(crate::theme::style(highlighter.style_for_stack(&[scope])))
 }
 
+mod combined;
 mod layers;
+mod pattern;
 
 #[cfg(test)]
 mod tests;

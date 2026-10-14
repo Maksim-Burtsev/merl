@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
@@ -1252,7 +1251,10 @@ fn an_unwrapped_pinned_header_is_cut_where_the_code_is() {
     assert!(left > 0 && header.len() > left + w);
     assert_eq!(
         screen[0],
-        format!("1 \u{2039}{}\u{203a}", &header[left + 1..left + w - 1])
+        format!(
+            "1 \u{2039}{}\u{203a}",
+            header.get(left + 1..left + w - 1).unwrap()
+        )
     );
 }
 

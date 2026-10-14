@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use anyhow::Context as _;
 
 use super::{
@@ -148,7 +147,7 @@ impl App {
             next => next,
         };
         if let Next::Here(h) = next {
-            let path = self.buf.path.clone().unwrap();
+            let path = self.buf.path.clone().expect("hunks are of an open file");
             self.jump_to_hunk(&path, h);
             self.remember_hunk();
             return;

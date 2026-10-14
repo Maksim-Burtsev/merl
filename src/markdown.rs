@@ -701,7 +701,10 @@ impl Lay<'_> {
         Look { ink, mods }
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a source range pulldown-cmark reports, on char boundaries"
+    )]
     fn text(&mut self, s: &str, look: Look, r: Range<usize>) {
         let raw = &self.src[r.clone()];
         let inline = self.inline.get_or_insert_with(|| {
@@ -719,7 +722,10 @@ impl Lay<'_> {
         (l, i - self.line_starts[l])
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::string_slice,
+        reason = "line_starts sit after newlines and end before one"
+    )]
     fn line(&self, l: usize) -> &str {
         let end = self
             .line_starts
@@ -856,7 +862,7 @@ impl Lay<'_> {
         }
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "r is a row of wrap_line over seg")]
     fn flush(&mut self) -> bool {
         self.inline_is_tight_item_text = false;
         let Some(inline) = self.inline.take() else {
@@ -890,7 +896,7 @@ impl Lay<'_> {
         true
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "r is a row of wrap_line over line")]
     fn lines(&mut self, raw: &str, look: Look, (l, c): (usize, usize)) {
         let line = raw.replace('\t', crate::buffer::TAB);
         let mut tabs = Tabs::new(raw);
@@ -909,7 +915,7 @@ impl Lay<'_> {
         self.push(&text, vec![(Ink::Line.plain(), 0..n)], at, Kind::Text);
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(clippy::string_slice, reason = "r is a row of wrap_line over line")]
     fn code_block(&mut self, mut b: Block) {
         if b.lines.is_empty() {
             b.lines.push(BlockLine {
@@ -1205,7 +1211,7 @@ impl Lay<'_> {
     }
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(clippy::string_slice, reason = "r is a row of wrap_line over seg")]
 fn wrap_cell(text: &str, width: usize) -> Vec<Range<usize>> {
     let mut from = 0;
     let mut out = Vec::new();
@@ -1284,7 +1290,7 @@ impl Tabs {
     }
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
+#[expect(clippy::string_slice, reason = "r is a row of wrap_line over text")]
 fn cut(
     text: &str,
     looks: &[(Look, Range<usize>)],

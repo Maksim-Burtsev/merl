@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -358,13 +357,17 @@ impl App {
                     });
                 (
                     self.note_label(first, last),
-                    format!("{} ", &self.prompt[..]),
+                    format!("{} ", &*self.prompt),
                     false,
                 )
             }
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "r is a row of wrap_shown and p is the prompt's cursor, char boundaries of full"
+    )]
     pub fn slot_layout(&self, s: &Slot) -> (Vec<SlotRow>, Option<(usize, usize)>) {
         let (label, text, _) = self.slot_text(s);
         let head = if label.is_empty() {
@@ -665,6 +668,10 @@ impl App {
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "LineEdit keeps its cursor on a char boundary"
+    )]
     fn note_line(&self) -> (usize, usize, usize) {
         let c = self.prompt.cursor();
         let start = self.prompt[..c].rfind('\n').map_or(0, |i| i + 1);
@@ -692,6 +699,10 @@ impl App {
         }
     }
 
+    #[expect(
+        clippy::string_slice,
+        reason = "every cut is the prompt's cursor or selection, or next to a newline"
+    )]
     pub(super) fn note_key(&mut self, key: KeyEvent) {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
