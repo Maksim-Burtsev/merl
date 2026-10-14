@@ -7,6 +7,10 @@ impl App {
             KeyCode::Down => self.tree.down(),
             KeyCode::Right => self.tree.expand(),
             KeyCode::Left => self.tree.collapse(),
+            KeyCode::PageDown if p889().is_some() => self.tree_page(1, 1),
+            KeyCode::PageUp if p889().is_some() => self.tree_page(-1, 1),
+            KeyCode::Home if p889().is_some() => self.tree_page(-1, 0),
+            KeyCode::End if p889().is_some() => self.tree_page(1, 0),
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
                 Some(n) if self.root.join(&n.path).is_dir() => {}
@@ -30,6 +34,19 @@ impl App {
             },
             _ => {}
         }
+    }
+
+    pub(super) fn tree_page(&mut self, dir: isize, div: usize) {
+        let len = self.tree.visible().len();
+        let rows = if div == 0 { len } else { (self.tree_h / div).max(1) };
+        let step = isize::try_from(rows).unwrap_or(isize::MAX);
+        self.tree.settle();
+        self.tree.move_by(dir * step);
+        self.tree_top = if dir > 0 {
+            (self.tree_top + rows).min(len.saturating_sub(self.tree_h))
+        } else {
+            self.tree_top.saturating_sub(rows)
+        };
     }
 
     pub(super) fn start_new(&mut self) {
@@ -115,4 +132,8 @@ impl App {
             self.start_edit();
         }
     }
+}
+
+pub(super) fn p889() -> Option<String> {
+    std::env::var("MERL_P889").ok()
 }

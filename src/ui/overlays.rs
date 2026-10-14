@@ -103,6 +103,7 @@ pub(super) fn draw_tree(
     });
     let visible = app.tree.visible();
     let height = inner.height as usize;
+    app.tree_h = height;
     let shown = app.tree.shown();
     let at = visible.iter().position(|&i| i == shown).unwrap_or(0);
     app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));

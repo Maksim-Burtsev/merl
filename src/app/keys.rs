@@ -265,6 +265,13 @@ impl App {
                 self.hist_note(true);
             }
             KeyCode::Char('s') => self.start_search(),
+            KeyCode::Char('d' | 'u')
+                if ctrl
+                    && self.focus == Focus::Tree
+                    && super::tree::p889().as_deref() == Some("b") =>
+            {
+                self.tree_page(if key.code == KeyCode::Char('d') { 1 } else { -1 }, 2);
+            }
             KeyCode::Char('d') if ctrl => self.half_page(1),
             KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('{') => self.paragraph(-1),
