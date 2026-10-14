@@ -24,6 +24,7 @@ adwaita	php	12811	12807
 adwaita	proto	4229	4229
 adwaita	python	19185	19185
 adwaita	query	7948	7947
+adwaita	r	13936	13936
 adwaita	ruby	13458	13458
 adwaita	rust	17576	17576
 adwaita	scheme	19794	19794
@@ -60,6 +61,7 @@ adwaita-light	php	12811	12807
 adwaita-light	proto	4229	4229
 adwaita-light	python	19185	19185
 adwaita-light	query	7948	7947
+adwaita-light	r	13936	13936
 adwaita-light	ruby	13458	13458
 adwaita-light	rust	17576	17576
 adwaita-light	scheme	19794	19794
@@ -96,6 +98,7 @@ alabaster	php	12811	12811
 alabaster	proto	4229	4229
 alabaster	python	19185	19185
 alabaster	query	7948	7947
+alabaster	r	13936	13936
 alabaster	ruby	13458	13458
 alabaster	rust	17576	17576
 alabaster	scheme	19794	19794
@@ -132,6 +135,7 @@ alabaster-light	php	12811	12803
 alabaster-light	proto	4229	4229
 alabaster-light	python	19185	19185
 alabaster-light	query	7948	7945
+alabaster-light	r	13936	13936
 alabaster-light	ruby	13458	13458
 alabaster-light	rust	17576	17576
 alabaster-light	scheme	19794	19792
@@ -168,6 +172,7 @@ alucard	php	12811	12803
 alucard	proto	4229	4229
 alucard	python	19185	19185
 alucard	query	7948	7945
+alucard	r	13936	13936
 alucard	ruby	13458	13458
 alucard	rust	17576	17576
 alucard	scheme	19794	19792
@@ -204,6 +209,7 @@ ayu	php	12811	12803
 ayu	proto	4229	4229
 ayu	python	19185	19185
 ayu	query	7948	7945
+ayu	r	13936	13936
 ayu	ruby	13458	13458
 ayu	rust	17576	17576
 ayu	scheme	19794	19792
@@ -240,6 +246,7 @@ ayu-light	php	12811	12803
 ayu-light	proto	4229	4229
 ayu-light	python	19185	19185
 ayu-light	query	7948	7945
+ayu-light	r	13936	13936
 ayu-light	ruby	13458	13458
 ayu-light	rust	17576	17576
 ayu-light	scheme	19794	19792
@@ -276,6 +283,7 @@ ayu-mirage	php	12811	12803
 ayu-mirage	proto	4229	4229
 ayu-mirage	python	19185	19185
 ayu-mirage	query	7948	7945
+ayu-mirage	r	13936	13936
 ayu-mirage	ruby	13458	13458
 ayu-mirage	rust	17576	17576
 ayu-mirage	scheme	19794	19792
@@ -312,6 +320,7 @@ bamboo	php	12811	12803
 bamboo	proto	4229	4229
 bamboo	python	19185	19185
 bamboo	query	7948	7945
+bamboo	r	13936	13936
 bamboo	ruby	13458	13458
 bamboo	rust	17576	17576
 bamboo	scheme	19794	19792
@@ -348,6 +357,7 @@ bamboo-light	php	12811	12803
 bamboo-light	proto	4229	4229
 bamboo-light	python	19185	19185
 bamboo-light	query	7948	7945
+bamboo-light	r	13936	13936
 bamboo-light	ruby	13458	13458
 bamboo-light	rust	17576	17576
 bamboo-light	scheme	19794	19792
@@ -384,6 +394,7 @@ bluloco-light	php	12811	12803
 bluloco-light	proto	4229	4229
 bluloco-light	python	19185	19185
 bluloco-light	query	7948	7945
+bluloco-light	r	13936	13936
 bluloco-light	ruby	13458	13458
 bluloco-light	rust	17576	17576
 bluloco-light	scheme	19794	19792
@@ -420,6 +431,7 @@ catppuccin-frappe	php	12811	12803
 catppuccin-frappe	proto	4229	4229
 catppuccin-frappe	python	19185	19185
 catppuccin-frappe	query	7948	7945
+catppuccin-frappe	r	13936	13936
 catppuccin-frappe	ruby	13458	13458
 catppuccin-frappe	rust	17576	17576
 catppuccin-frappe	scheme	19794	19792
@@ -456,6 +468,7 @@ catppuccin-latte	php	12811	12803
 catppuccin-latte	proto	4229	4229
 catppuccin-latte	python	19185	19185
 catppuccin-latte	query	7948	7945
+catppuccin-latte	r	13936	13936
 catppuccin-latte	ruby	13458	13458
 catppuccin-latte	rust	17576	17576
 catppuccin-latte	scheme	19794	19792
@@ -492,6 +505,7 @@ catppuccin-macchiato	php	12811	12803
 catppuccin-macchiato	proto	4229	4229
 catppuccin-macchiato	python	19185	19185
 catppuccin-macchiato	query	7948	7945
+catppuccin-macchiato	r	13936	13936
 catppuccin-macchiato	ruby	13458	13458
 catppuccin-macchiato	rust	17576	17576
 catppuccin-macchiato	scheme	19794	19792
@@ -528,6 +542,7 @@ catppuccin-mocha	php	12811	12803
 catppuccin-mocha	proto	4229	4229
 catppuccin-mocha	python	19185	19185
 catppuccin-mocha	query	7948	7945
+catppuccin-mocha	r	13936	13936
 catppuccin-mocha	ruby	13458	13458
 catppuccin-mocha	rust	17576	17576
 catppuccin-mocha	scheme	19794	19792
@@ -564,6 +579,7 @@ cendre	php	12811	12803
 cendre	proto	4229	4229
 cendre	python	19185	19185
 cendre	query	7948	7945
+cendre	r	13936	13936
 cendre	ruby	13458	13458
 cendre	rust	17576	17576
 cendre	scheme	19794	19792
@@ -600,6 +616,7 @@ darkearth	php	12811	12807
 darkearth	proto	4229	4229
 darkearth	python	19185	19185
 darkearth	query	7948	7947
+darkearth	r	13936	13936
 darkearth	ruby	13458	13458
 darkearth	rust	17576	17576
 darkearth	scheme	19794	19794
@@ -636,6 +653,7 @@ dawnfox	php	12811	12803
 dawnfox	proto	4229	4229
 dawnfox	python	19185	19185
 dawnfox	query	7948	7945
+dawnfox	r	13936	13936
 dawnfox	ruby	13458	13458
 dawnfox	rust	17576	17576
 dawnfox	scheme	19794	19792
@@ -672,6 +690,7 @@ dayfox	php	12811	12803
 dayfox	proto	4229	4229
 dayfox	python	19185	19185
 dayfox	query	7948	7945
+dayfox	r	13936	13936
 dayfox	ruby	13458	13458
 dayfox	rust	17576	17576
 dayfox	scheme	19794	19792
@@ -708,6 +727,7 @@ dracula	php	12811	12803
 dracula	proto	4229	4229
 dracula	python	19185	19185
 dracula	query	7948	7945
+dracula	r	13936	13936
 dracula	ruby	13458	13458
 dracula	rust	17576	17576
 dracula	scheme	19794	19792
@@ -744,6 +764,7 @@ e-ink	php	12811	12811
 e-ink	proto	4229	4229
 e-ink	python	19185	19185
 e-ink	query	7948	7947
+e-ink	r	13936	13936
 e-ink	ruby	13458	13458
 e-ink	rust	17576	17576
 e-ink	scheme	19794	19794
@@ -780,6 +801,7 @@ e-ink-light	php	12811	12811
 e-ink-light	proto	4229	4229
 e-ink-light	python	19185	19185
 e-ink-light	query	7948	7947
+e-ink-light	r	13936	13936
 e-ink-light	ruby	13458	13458
 e-ink-light	rust	17576	17576
 e-ink-light	scheme	19794	19794
@@ -816,6 +838,7 @@ edge	php	12811	12811
 edge	proto	4229	4229
 edge	python	19185	19185
 edge	query	7948	7947
+edge	r	13936	13936
 edge	ruby	13458	13458
 edge	rust	17576	17576
 edge	scheme	19794	19794
@@ -852,6 +875,7 @@ edge-light	php	12811	12811
 edge-light	proto	4229	4229
 edge-light	python	19185	19185
 edge-light	query	7948	7947
+edge-light	r	13936	13936
 edge-light	ruby	13458	13458
 edge-light	rust	17576	17576
 edge-light	scheme	19794	19794
@@ -888,6 +912,7 @@ everforest-dark	php	12811	12811
 everforest-dark	proto	4229	4229
 everforest-dark	python	19185	19185
 everforest-dark	query	7948	7947
+everforest-dark	r	13936	13936
 everforest-dark	ruby	13458	13458
 everforest-dark	rust	17576	17576
 everforest-dark	scheme	19794	19794
@@ -924,6 +949,7 @@ everforest-light	php	12811	12811
 everforest-light	proto	4229	4229
 everforest-light	python	19185	19185
 everforest-light	query	7948	7947
+everforest-light	r	13936	13936
 everforest-light	ruby	13458	13458
 everforest-light	rust	17576	17576
 everforest-light	scheme	19794	19794
@@ -960,6 +986,7 @@ flexoki-dark	php	12811	12811
 flexoki-dark	proto	4229	4229
 flexoki-dark	python	19185	19185
 flexoki-dark	query	7948	7947
+flexoki-dark	r	13936	13936
 flexoki-dark	ruby	13458	13458
 flexoki-dark	rust	17576	17576
 flexoki-dark	scheme	19794	19794
@@ -996,6 +1023,7 @@ flexoki-light	php	12811	12811
 flexoki-light	proto	4229	4229
 flexoki-light	python	19185	19185
 flexoki-light	query	7948	7947
+flexoki-light	r	13936	13936
 flexoki-light	ruby	13458	13458
 flexoki-light	rust	17576	17576
 flexoki-light	scheme	19794	19794
@@ -1032,6 +1060,7 @@ github-dark	php	12811	12599
 github-dark	proto	4229	4229
 github-dark	python	19185	19185
 github-dark	query	7948	7947
+github-dark	r	13936	13936
 github-dark	ruby	13458	13458
 github-dark	rust	17576	16926
 github-dark	scheme	19794	19794
@@ -1068,6 +1097,7 @@ github-light	php	12811	12599
 github-light	proto	4229	4229
 github-light	python	19185	19185
 github-light	query	7948	7947
+github-light	r	13936	13936
 github-light	ruby	13458	13458
 github-light	rust	17576	16926
 github-light	scheme	19794	19794
@@ -1104,6 +1134,7 @@ gotham	php	12811	12803
 gotham	proto	4229	4229
 gotham	python	19185	19185
 gotham	query	7948	7945
+gotham	r	13936	13936
 gotham	ruby	13458	13458
 gotham	rust	17576	17576
 gotham	scheme	19794	19792
@@ -1140,6 +1171,7 @@ gruvbox-dark	php	12811	12811
 gruvbox-dark	proto	4229	4229
 gruvbox-dark	python	19185	19185
 gruvbox-dark	query	7948	7947
+gruvbox-dark	r	13936	13936
 gruvbox-dark	ruby	13458	13458
 gruvbox-dark	rust	17576	17576
 gruvbox-dark	scheme	19794	19794
@@ -1176,6 +1208,7 @@ gruvbox-light	php	12811	12811
 gruvbox-light	proto	4229	4229
 gruvbox-light	python	19185	19185
 gruvbox-light	query	7948	7947
+gruvbox-light	r	13936	13936
 gruvbox-light	ruby	13458	13458
 gruvbox-light	rust	17576	17576
 gruvbox-light	scheme	19794	19794
@@ -1212,6 +1245,7 @@ gruvbox-material-dark	php	12811	12811
 gruvbox-material-dark	proto	4229	4229
 gruvbox-material-dark	python	19185	19185
 gruvbox-material-dark	query	7948	7947
+gruvbox-material-dark	r	13936	13936
 gruvbox-material-dark	ruby	13458	13458
 gruvbox-material-dark	rust	17576	17576
 gruvbox-material-dark	scheme	19794	19794
@@ -1248,6 +1282,7 @@ gruvbox-material-light	php	12811	12811
 gruvbox-material-light	proto	4229	4229
 gruvbox-material-light	python	19185	19185
 gruvbox-material-light	query	7948	7947
+gruvbox-material-light	r	13936	13936
 gruvbox-material-light	ruby	13458	13458
 gruvbox-material-light	rust	17576	17576
 gruvbox-material-light	scheme	19794	19794
@@ -1284,6 +1319,7 @@ hojicha	php	12811	12803
 hojicha	proto	4229	4229
 hojicha	python	19185	19185
 hojicha	query	7948	7945
+hojicha	r	13936	13936
 hojicha	ruby	13458	13458
 hojicha	rust	17576	17576
 hojicha	scheme	19794	19792
@@ -1320,6 +1356,7 @@ iceberg	php	12811	12803
 iceberg	proto	4229	4229
 iceberg	python	19185	19185
 iceberg	query	7948	7945
+iceberg	r	13936	13936
 iceberg	ruby	13458	13458
 iceberg	rust	17576	17576
 iceberg	scheme	19794	19792
@@ -1356,6 +1393,7 @@ iceberg-light	php	12811	12810
 iceberg-light	proto	4229	4229
 iceberg-light	python	19185	19185
 iceberg-light	query	7948	7947
+iceberg-light	r	13936	13936
 iceberg-light	ruby	13458	13458
 iceberg-light	rust	17576	17576
 iceberg-light	scheme	19794	19794
@@ -1392,6 +1430,7 @@ jellybeans	php	12811	12803
 jellybeans	proto	4229	4229
 jellybeans	python	19185	19185
 jellybeans	query	7948	7946
+jellybeans	r	13936	13936
 jellybeans	ruby	13458	13458
 jellybeans	rust	17576	17576
 jellybeans	scheme	19794	19792
@@ -1428,6 +1467,7 @@ jellybeans-light	php	12811	12803
 jellybeans-light	proto	4229	4229
 jellybeans-light	python	19185	19185
 jellybeans-light	query	7948	7946
+jellybeans-light	r	13936	13936
 jellybeans-light	ruby	13458	13458
 jellybeans-light	rust	17576	17576
 jellybeans-light	scheme	19794	19792
@@ -1464,6 +1504,7 @@ kanagawa-dragon	php	12811	12803
 kanagawa-dragon	proto	4229	4229
 kanagawa-dragon	python	19185	19185
 kanagawa-dragon	query	7948	7945
+kanagawa-dragon	r	13936	13936
 kanagawa-dragon	ruby	13458	13458
 kanagawa-dragon	rust	17576	17576
 kanagawa-dragon	scheme	19794	19792
@@ -1500,6 +1541,7 @@ kanagawa-lotus	php	12811	12803
 kanagawa-lotus	proto	4229	4229
 kanagawa-lotus	python	19185	19185
 kanagawa-lotus	query	7948	7945
+kanagawa-lotus	r	13936	13936
 kanagawa-lotus	ruby	13458	13458
 kanagawa-lotus	rust	17576	17576
 kanagawa-lotus	scheme	19794	19792
@@ -1536,6 +1578,7 @@ kanagawa-wave	php	12811	12803
 kanagawa-wave	proto	4229	4229
 kanagawa-wave	python	19185	19185
 kanagawa-wave	query	7948	7945
+kanagawa-wave	r	13936	13936
 kanagawa-wave	ruby	13458	13458
 kanagawa-wave	rust	17576	17576
 kanagawa-wave	scheme	19794	19792
@@ -1572,6 +1615,7 @@ koda-dark	php	12811	12803
 koda-dark	proto	4229	4229
 koda-dark	python	19185	19185
 koda-dark	query	7948	7945
+koda-dark	r	13936	13936
 koda-dark	ruby	13458	13458
 koda-dark	rust	17576	17576
 koda-dark	scheme	19794	19792
@@ -1608,6 +1652,7 @@ koda-light	php	12811	12803
 koda-light	proto	4229	4229
 koda-light	python	19185	19185
 koda-light	query	7948	7945
+koda-light	r	13936	13936
 koda-light	ruby	13458	13458
 koda-light	rust	17576	17576
 koda-light	scheme	19794	19792
@@ -1644,6 +1689,7 @@ lackluster	php	12811	12803
 lackluster	proto	4229	4229
 lackluster	python	19185	19185
 lackluster	query	7948	7945
+lackluster	r	13936	13936
 lackluster	ruby	13458	13458
 lackluster	rust	17576	17576
 lackluster	scheme	19794	19792
@@ -1680,6 +1726,7 @@ lightearth	php	12811	12807
 lightearth	proto	4229	4229
 lightearth	python	19185	19185
 lightearth	query	7948	7947
+lightearth	r	13936	13936
 lightearth	ruby	13458	13458
 lightearth	rust	17576	17576
 lightearth	scheme	19794	19794
@@ -1716,6 +1763,7 @@ material-dark	php	12811	12803
 material-dark	proto	4229	4229
 material-dark	python	19185	19185
 material-dark	query	7948	7945
+material-dark	r	13936	13936
 material-dark	ruby	13458	13458
 material-dark	rust	17576	17576
 material-dark	scheme	19794	19792
@@ -1752,6 +1800,7 @@ material-light	php	12811	12803
 material-light	proto	4229	4229
 material-light	python	19185	19185
 material-light	query	7948	7945
+material-light	r	13936	13936
 material-light	ruby	13458	13458
 material-light	rust	17576	17576
 material-light	scheme	19794	19792
@@ -1788,6 +1837,7 @@ melange-dark	php	12811	12811
 melange-dark	proto	4229	4229
 melange-dark	python	19185	19185
 melange-dark	query	7948	7947
+melange-dark	r	13936	13936
 melange-dark	ruby	13458	13458
 melange-dark	rust	17576	17576
 melange-dark	scheme	19794	19794
@@ -1824,6 +1874,7 @@ melange-light	php	12811	12811
 melange-light	proto	4229	4229
 melange-light	python	19185	19185
 melange-light	query	7948	7947
+melange-light	r	13936	13936
 melange-light	ruby	13458	13458
 melange-light	rust	17576	17576
 melange-light	scheme	19794	19794
@@ -1860,6 +1911,7 @@ mellifluous	php	12811	12803
 mellifluous	proto	4229	4229
 mellifluous	python	19185	19185
 mellifluous	query	7948	7945
+mellifluous	r	13936	13936
 mellifluous	ruby	13458	13458
 mellifluous	rust	17576	17576
 mellifluous	scheme	19794	19792
@@ -1896,6 +1948,7 @@ mellifluous-light	php	12811	12803
 mellifluous-light	proto	4229	4229
 mellifluous-light	python	19185	19185
 mellifluous-light	query	7948	7945
+mellifluous-light	r	13936	13936
 mellifluous-light	ruby	13458	13458
 mellifluous-light	rust	17576	17576
 mellifluous-light	scheme	19794	19792
@@ -1932,6 +1985,7 @@ mellow	php	12811	12806
 mellow	proto	4229	4229
 mellow	python	19185	19185
 mellow	query	7948	7945
+mellow	r	13936	13936
 mellow	ruby	13458	13458
 mellow	rust	17576	17576
 mellow	scheme	19794	19792
@@ -1968,6 +2022,7 @@ miasma	php	12811	12810
 miasma	proto	4229	4229
 miasma	python	19185	19185
 miasma	query	7948	7947
+miasma	r	13936	13936
 miasma	ruby	13458	13458
 miasma	rust	17576	17576
 miasma	scheme	19794	19794
@@ -2004,6 +2059,7 @@ minischeme	php	12811	12811
 minischeme	proto	4229	4229
 minischeme	python	19185	19185
 minischeme	query	7948	7948
+minischeme	r	13936	13936
 minischeme	ruby	13458	13458
 minischeme	rust	17576	17576
 minischeme	scheme	19794	19794
@@ -2040,6 +2096,7 @@ minischeme-light	php	12811	12811
 minischeme-light	proto	4229	4229
 minischeme-light	python	19185	19185
 minischeme-light	query	7948	7948
+minischeme-light	r	13936	13936
 minischeme-light	ruby	13458	13458
 minischeme-light	rust	17576	17576
 minischeme-light	scheme	19794	19794
@@ -2076,6 +2133,7 @@ moonfly	php	12811	12811
 moonfly	proto	4229	4229
 moonfly	python	19185	19185
 moonfly	query	7948	7947
+moonfly	r	13936	13936
 moonfly	ruby	13458	13458
 moonfly	rust	17576	17576
 moonfly	scheme	19794	19794
@@ -2112,6 +2170,7 @@ neomodern-light	php	12811	12803
 neomodern-light	proto	4229	4229
 neomodern-light	python	19185	19185
 neomodern-light	query	7948	7945
+neomodern-light	r	13936	13936
 neomodern-light	ruby	13458	13458
 neomodern-light	rust	17576	17576
 neomodern-light	scheme	19794	19792
@@ -2148,6 +2207,7 @@ nightfly	php	12811	12811
 nightfly	proto	4229	4229
 nightfly	python	19185	19185
 nightfly	query	7948	7947
+nightfly	r	13936	13936
 nightfly	ruby	13458	13458
 nightfly	rust	17576	17576
 nightfly	scheme	19794	19794
@@ -2184,6 +2244,7 @@ nightfox	php	12811	12803
 nightfox	proto	4229	4229
 nightfox	python	19185	19185
 nightfox	query	7948	7945
+nightfox	r	13936	13936
 nightfox	ruby	13458	13458
 nightfox	rust	17576	17576
 nightfox	scheme	19794	19792
@@ -2220,6 +2281,7 @@ nord	php	12811	12811
 nord	proto	4229	4229
 nord	python	19185	19185
 nord	query	7948	7947
+nord	r	13936	13936
 nord	ruby	13458	13458
 nord	rust	17576	17576
 nord	scheme	19794	19794
@@ -2256,6 +2318,7 @@ nordfox	php	12811	12803
 nordfox	proto	4229	4229
 nordfox	python	19185	19185
 nordfox	query	7948	7945
+nordfox	r	13936	13936
 nordfox	ruby	13458	13458
 nordfox	rust	17576	17576
 nordfox	scheme	19794	19792
@@ -2292,6 +2355,7 @@ onedark	php	12811	12811
 onedark	proto	4229	4229
 onedark	python	19185	19185
 onedark	query	7948	7947
+onedark	r	13936	13936
 onedark	ruby	13458	13458
 onedark	rust	17576	17576
 onedark	scheme	19794	19794
@@ -2328,6 +2392,7 @@ onedark-light	php	12811	12811
 onedark-light	proto	4229	4229
 onedark-light	python	19185	19185
 onedark-light	query	7948	7947
+onedark-light	r	13936	13936
 onedark-light	ruby	13458	13458
 onedark-light	rust	17576	17576
 onedark-light	scheme	19794	19794
@@ -2364,6 +2429,7 @@ oxocarbon-dark	php	12811	12811
 oxocarbon-dark	proto	4229	4229
 oxocarbon-dark	python	19185	19185
 oxocarbon-dark	query	7948	7947
+oxocarbon-dark	r	13936	13936
 oxocarbon-dark	ruby	13458	13458
 oxocarbon-dark	rust	17576	17576
 oxocarbon-dark	scheme	19794	19794
@@ -2400,6 +2466,7 @@ oxocarbon-light	php	12811	12811
 oxocarbon-light	proto	4229	4229
 oxocarbon-light	python	19185	19185
 oxocarbon-light	query	7948	7947
+oxocarbon-light	r	13936	13936
 oxocarbon-light	ruby	13458	13458
 oxocarbon-light	rust	17576	17576
 oxocarbon-light	scheme	19794	19794
@@ -2436,6 +2503,7 @@ papercolor	php	12811	12803
 papercolor	proto	4229	4229
 papercolor	python	19185	19185
 papercolor	query	7948	7945
+papercolor	r	13936	13936
 papercolor	ruby	13458	13458
 papercolor	rust	17576	17576
 papercolor	scheme	19794	19792
@@ -2472,6 +2540,7 @@ papercolor-light	php	12811	12803
 papercolor-light	proto	4229	4229
 papercolor-light	python	19185	19185
 papercolor-light	query	7948	7945
+papercolor-light	r	13936	13936
 papercolor-light	ruby	13458	13458
 papercolor-light	rust	17576	17576
 papercolor-light	scheme	19794	19792
@@ -2508,6 +2577,7 @@ pencil	php	12811	12803
 pencil	proto	4229	4229
 pencil	python	19185	19185
 pencil	query	7948	7946
+pencil	r	13936	13936
 pencil	ruby	13458	13458
 pencil	rust	17576	17576
 pencil	scheme	19794	19792
@@ -2544,6 +2614,7 @@ pencil-light	php	12811	12803
 pencil-light	proto	4229	4229
 pencil-light	python	19185	19185
 pencil-light	query	7948	7946
+pencil-light	r	13936	13936
 pencil-light	ruby	13458	13458
 pencil-light	rust	17576	17576
 pencil-light	scheme	19794	19792
@@ -2580,6 +2651,7 @@ rose-pine	php	12811	12803
 rose-pine	proto	4229	4229
 rose-pine	python	19185	19185
 rose-pine	query	7948	7945
+rose-pine	r	13936	13936
 rose-pine	ruby	13458	13458
 rose-pine	rust	17576	17576
 rose-pine	scheme	19794	19792
@@ -2616,6 +2688,7 @@ rose-pine-dawn	php	12811	12803
 rose-pine-dawn	proto	4229	4229
 rose-pine-dawn	python	19185	19185
 rose-pine-dawn	query	7948	7945
+rose-pine-dawn	r	13936	13936
 rose-pine-dawn	ruby	13458	13458
 rose-pine-dawn	rust	17576	17576
 rose-pine-dawn	scheme	19794	19792
@@ -2652,6 +2725,7 @@ rose-pine-moon	php	12811	12803
 rose-pine-moon	proto	4229	4229
 rose-pine-moon	python	19185	19185
 rose-pine-moon	query	7948	7945
+rose-pine-moon	r	13936	13936
 rose-pine-moon	ruby	13458	13458
 rose-pine-moon	rust	17576	17576
 rose-pine-moon	scheme	19794	19792
@@ -2688,6 +2762,7 @@ selenized	php	12811	12806
 selenized	proto	4229	4229
 selenized	python	19185	19185
 selenized	query	7948	7945
+selenized	r	13936	13936
 selenized	ruby	13458	13458
 selenized	rust	17576	17576
 selenized	scheme	19794	19792
@@ -2724,6 +2799,7 @@ selenized-light	php	12811	12806
 selenized-light	proto	4229	4229
 selenized-light	python	19185	19185
 selenized-light	query	7948	7945
+selenized-light	r	13936	13936
 selenized-light	ruby	13458	13458
 selenized-light	rust	17576	17576
 selenized-light	scheme	19794	19792
@@ -2760,6 +2836,7 @@ solarized-dark	php	12811	12803
 solarized-dark	proto	4229	4229
 solarized-dark	python	19185	19185
 solarized-dark	query	7948	7945
+solarized-dark	r	13936	13936
 solarized-dark	ruby	13458	13458
 solarized-dark	rust	17576	17576
 solarized-dark	scheme	19794	19792
@@ -2796,6 +2873,7 @@ solarized-light	php	12811	12803
 solarized-light	proto	4229	4229
 solarized-light	python	19185	19185
 solarized-light	query	7948	7945
+solarized-light	r	13936	13936
 solarized-light	ruby	13458	13458
 solarized-light	rust	17576	17576
 solarized-light	scheme	19794	19792
@@ -2832,6 +2910,7 @@ sonokai	php	12811	12811
 sonokai	proto	4229	4229
 sonokai	python	19185	19185
 sonokai	query	7948	7947
+sonokai	r	13936	13936
 sonokai	ruby	13458	13458
 sonokai	rust	17576	17576
 sonokai	scheme	19794	19794
@@ -2868,6 +2947,7 @@ soviet-dark	php	12811	12803
 soviet-dark	proto	4229	4229
 soviet-dark	python	19185	19185
 soviet-dark	query	7948	7945
+soviet-dark	r	13936	13936
 soviet-dark	ruby	13458	13458
 soviet-dark	rust	17576	17576
 soviet-dark	scheme	19794	19792
@@ -2904,6 +2984,7 @@ soviet-light	php	12811	12803
 soviet-light	proto	4229	4229
 soviet-light	python	19185	19185
 soviet-light	query	7948	7945
+soviet-light	r	13936	13936
 soviet-light	ruby	13458	13458
 soviet-light	rust	17576	17576
 soviet-light	scheme	19794	19792
@@ -2940,6 +3021,7 @@ srcery	php	12811	12803
 srcery	proto	4229	4229
 srcery	python	19185	19185
 srcery	query	7948	7945
+srcery	r	13936	13936
 srcery	ruby	13458	13458
 srcery	rust	17576	17576
 srcery	scheme	19794	19792
@@ -2976,6 +3058,7 @@ token	php	12811	12803
 token	proto	4229	4229
 token	python	19185	19185
 token	query	7948	7945
+token	r	13936	13936
 token	ruby	13458	13458
 token	rust	17576	17576
 token	scheme	19794	19792
@@ -3012,6 +3095,7 @@ token-light	php	12811	12803
 token-light	proto	4229	4229
 token-light	python	19185	19185
 token-light	query	7948	7945
+token-light	r	13936	13936
 token-light	ruby	13458	13458
 token-light	rust	17576	17576
 token-light	scheme	19794	19792
@@ -3048,6 +3132,7 @@ tokyonight-day	php	12811	12803
 tokyonight-day	proto	4229	4229
 tokyonight-day	python	19185	19185
 tokyonight-day	query	7948	7945
+tokyonight-day	r	13936	13936
 tokyonight-day	ruby	13458	13458
 tokyonight-day	rust	17576	17576
 tokyonight-day	scheme	19794	19792
@@ -3084,6 +3169,7 @@ tokyonight-moon	php	12811	12803
 tokyonight-moon	proto	4229	4229
 tokyonight-moon	python	19185	19185
 tokyonight-moon	query	7948	7945
+tokyonight-moon	r	13936	13936
 tokyonight-moon	ruby	13458	13458
 tokyonight-moon	rust	17576	17576
 tokyonight-moon	scheme	19794	19792
@@ -3120,6 +3206,7 @@ tokyonight-night	php	12811	12803
 tokyonight-night	proto	4229	4229
 tokyonight-night	python	19185	19185
 tokyonight-night	query	7948	7945
+tokyonight-night	r	13936	13936
 tokyonight-night	ruby	13458	13458
 tokyonight-night	rust	17576	17576
 tokyonight-night	scheme	19794	19792
@@ -3156,6 +3243,7 @@ tokyonight-storm	php	12811	12803
 tokyonight-storm	proto	4229	4229
 tokyonight-storm	python	19185	19185
 tokyonight-storm	query	7948	7945
+tokyonight-storm	r	13936	13936
 tokyonight-storm	ruby	13458	13458
 tokyonight-storm	rust	17576	17576
 tokyonight-storm	scheme	19794	19792
@@ -3192,6 +3280,7 @@ vague	php	12811	12811
 vague	proto	4229	4229
 vague	python	19185	19185
 vague	query	7948	7947
+vague	r	13936	13936
 vague	ruby	13458	13458
 vague	rust	17576	17576
 vague	scheme	19794	19794
@@ -3228,6 +3317,7 @@ vesper	php	12811	12810
 vesper	proto	4229	4229
 vesper	python	19185	19185
 vesper	query	7948	7947
+vesper	r	13936	13936
 vesper	ruby	13458	13458
 vesper	rust	17576	17576
 vesper	scheme	19794	19794
@@ -3264,6 +3354,7 @@ vscode-dark	php	12811	12811
 vscode-dark	proto	4229	4229
 vscode-dark	python	19185	19185
 vscode-dark	query	7948	7947
+vscode-dark	r	13936	13936
 vscode-dark	ruby	13458	13458
 vscode-dark	rust	17576	17576
 vscode-dark	scheme	19794	19794
@@ -3300,6 +3391,7 @@ vscode-light	php	12811	12811
 vscode-light	proto	4229	4229
 vscode-light	python	19185	19185
 vscode-light	query	7948	7947
+vscode-light	r	13936	13936
 vscode-light	ruby	13458	13458
 vscode-light	rust	17576	17576
 vscode-light	scheme	19794	19794

@@ -1101,6 +1101,22 @@ const SCHEME: &[&str] = &[
     "\n\n",
 ];
 
+const R: &[&str] = &[
+    "r\"(x)\"",
+    "\\(x) ",
+    "function(x) {\n",
+    "# c\n",
+    "|> ",
+    "%>% ",
+    "x$y",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1296,6 +1312,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.scm",
         include_bytes!("../../../tests/colors/scheme/ledger.scm").as_slice(),
         SCHEME,
+    ),
+    (
+        "f.R",
+        include_bytes!("../../../tests/colors/r/ledger.R").as_slice(),
+        R,
     ),
     (
         "f.rb",

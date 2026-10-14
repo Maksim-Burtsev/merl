@@ -325,6 +325,11 @@ fn scheme_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn r_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("r");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -477,6 +482,12 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
+    for f in ["a.R", "a.r", ".Rprofile"] {
+        assert!(sexp(f, b"# a\nx <- 1\n").contains("(program "), "{f}");
+    }
+    assert!(sexp("a.r", b"x <- 1\n").contains("(program "));
+    assert_eq!(sexp("a.r", b"/* rexx */\nsay 1\n"), "");
+    assert_eq!(sexp("a.r", b"# a\nREBOL [Title: \"a\"]\n"), "");
     for f in ["a.scm", "a.ss", "a.sld"] {
         assert!(sexp(f, b"(define a 1)\n").contains("(program "), "{f}");
     }
@@ -817,6 +828,7 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("nix"), Some("nix"));
     assert_eq!(name("scheme"), Some("scheme"));
     assert_eq!(name("scm"), Some("scheme"));
+    assert_eq!(name("r"), Some("r"));
 }
 
 #[test]

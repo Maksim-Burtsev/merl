@@ -280,6 +280,16 @@ chibi-scheme:
 |---|---|---|---|---|
 | Scheme | 19,794 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
 
+R (#808), `.R` and `.r` unless Neovim's `detect.r` makes them Rebol (the word `rebol` in the first
+50 lines) or Rexx (a line starting `/*` before any starting `#`), and `.Rprofile`, `Rprofile`,
+`Rprofile.site` and `.Rhistory`; `comment` stays plain, as LazyVim installs no parser for it.
+crates.io's tree-sitter-r 1.3.0 is the pin (58a2279), `parser.c` and scanner alike. The bench's
+files come from dplyr, pinned in `THEME_ONLY` as `tools/d-bench/projects.tsv` has no R project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| R | 13,936 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are

@@ -231,6 +231,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/scheme/highlights.scm"),
         include_str!("../queries/scheme/injections.scm"),
     ),
+    (
+        "r",
+        include_str!("../queries/r/highlights.scm"),
+        include_str!("../queries/r/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -420,6 +425,7 @@ pub fn for_syntax(
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
         "PHP" if path.is_none_or(php) => lang("php"),
+        "R" if r(path, lines) => lang("r"),
         "Protocol Buffer" if path.is_none_or(|p| p.extension().is_some_and(|e| e == "proto")) => {
             lang("proto")
         }
@@ -507,6 +513,24 @@ fn euphoria(path: Option<&Path>, lines: &[String]) -> bool {
                     })
                 })
         })
+}
+
+fn r(path: Option<&Path>, lines: &[String]) -> bool {
+    static REBOL: OnceLock<regex::Regex> = OnceLock::new();
+    let Some(path) = path else { return true };
+    if !path.extension().is_some_and(|e| e == "r" || e == "R") {
+        return path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| [".Rprofile", "Rprofile", "Rprofile.site", ".Rhistory"].contains(&n));
+    }
+    let rebol = REBOL.get_or_init(|| regex::Regex::new(r"(?i)\brebol\b").expect("a valid regex"));
+    let head = || lines.iter().take(50);
+    !head().any(|l| rebol.is_match(l))
+        && head()
+            .map(|l| l.trim_start())
+            .find(|l| l.starts_with('#') || l.starts_with("/*"))
+            .is_none_or(|l| l.starts_with('#'))
 }
 
 fn cmake(path: &Path) -> bool {
@@ -715,6 +739,7 @@ fn grammar(name: &str) -> Option<Language> {
         "zig" => tree_sitter_zig::LANGUAGE.into(),
         "nix" => tree_sitter_nix::LANGUAGE.into(),
         "scheme" => tree_sitter_scheme::LANGUAGE.into(),
+        "r" => tree_sitter_r::LANGUAGE.into(),
         _ => return None,
     })
 }
