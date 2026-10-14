@@ -1063,6 +1063,22 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
+const ZIG: &[&str] = &[
+    "\\\\ text\n",
+    "\"{s}\\n\"",
+    "/// ",
+    "//! ",
+    "label: {\n",
+    "|x| ",
+    "switch (x) {\n",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1229,6 +1245,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "F.kt",
         include_bytes!("../../../tests/colors/kotlin/Ledger.kt").as_slice(),
         KOTLIN,
+    ),
+    (
+        "f.zig",
+        include_bytes!("../../../tests/colors/zig/ledger.zig").as_slice(),
+        ZIG,
     ),
     (
         "f.rb",

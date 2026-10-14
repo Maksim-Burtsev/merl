@@ -201,6 +201,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/luadoc/highlights.scm"),
         "",
     ),
+    (
+        "zig",
+        include_str!("../queries/zig/highlights.scm"),
+        include_str!("../queries/zig/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -395,6 +400,7 @@ pub fn for_syntax(
         "TypeScript" => lang("typescript"),
         "TypeScriptReact" if !astro => lang("tsx"),
         "Lua" => lang("lua"),
+        "Zig" => lang("zig"),
         _ => None,
     }
 }
@@ -636,6 +642,7 @@ fn grammar(name: &str) -> Option<Language> {
         "tsx" => tree_sitter_typescript::LANGUAGE_TSX.into(),
         "lua" => tree_sitter_lua::LANGUAGE.into(),
         "luadoc" => tree_sitter_luadoc::LANGUAGE.into(),
+        "zig" => tree_sitter_zig::LANGUAGE.into(),
         _ => return None,
     })
 }

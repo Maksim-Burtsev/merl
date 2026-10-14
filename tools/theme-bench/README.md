@@ -173,8 +173,8 @@ Neovim's cursor, PHP's ftplugin adds `<:>` to `matchpairs`, and matchparen draws
 
 Elixir (#808), `.ex` and `.exs` (a `.ex` that Neovim's `detect.ex` takes for Euphoria from its first
 100 lines stays on syntect), with its injections (`markdown` in `@moduledoc` and `@doc` strings,
-`regex` in `~r` sigils, `json` in `~j`; `comment`, `heex`, `eex`, `surface` and `zig` stay plain, as
-LazyVim installs no parser for them). The bench's files come from phoenix, pinned in `THEME_ONLY`
+`regex` in `~r` sigils, `json` in `~j`, `zig` in `~z` and `~Z` since Zig's step; `comment`, `heex`,
+`eex` and `surface` stay plain, as LazyVim installs no parser for them). The bench's files come from phoenix, pinned in `THEME_ONLY`
 as `tools/d-bench/projects.tsv` has no Elixir project:
 
 | language | chars | lowest | median | highest |
@@ -224,6 +224,16 @@ d-bench projects hold no `.proto` of 80:
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
 | Protobuf | 4,229 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+Zig (#807), `.zig` and `.zon`, as both syntect and Neovim call them; `comment` stays plain, as
+LazyVim installs no parser for it. The commit nvim-treesitter pins (6479aa1) is newer than
+crates.io's tree-sitter-zig 1.1.2 (another `grammar.json` and `parser.c` under the same version),
+so merl takes it as a git dependency. The bench's files come from zls, pinned in `THEME_ONLY` as
+`tools/d-bench/projects.tsv` has no Zig project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Zig | 14,602 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to

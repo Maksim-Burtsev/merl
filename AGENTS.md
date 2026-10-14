@@ -182,7 +182,7 @@ in epic #623, each saying `no fold rules for .EXT` until then.
 merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
-stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, HTML, CSS, XML, Diff, Query, Dockerfile, CMake and Protobuf today and for the languages of
+stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Diff, Query, Dockerfile, CMake and Protobuf today and for the languages of
 #806–#809 as they land; every other file goes through syntect as before. Dart stays on syntect:
 the tree-sitter-dart nvim-treesitter pins (UserNobody14's) binds tree-sitter 0.22 in its
 `Cargo.toml`, which cannot link beside merl's 0.27 (both declare `links = "tree-sitter"`), and

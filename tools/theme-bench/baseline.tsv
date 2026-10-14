@@ -29,6 +29,7 @@ adwaita	tsx	9700	9700
 adwaita	typescript	13701	13701
 adwaita	xml	20823	20823
 adwaita	yaml	16564	16564
+adwaita	zig	14602	14602
 adwaita-light	bash	12491	12491
 adwaita-light	c	17618	17618
 adwaita-light	c_sharp	16671	16671
@@ -59,6 +60,7 @@ adwaita-light	tsx	9700	9700
 adwaita-light	typescript	13701	13701
 adwaita-light	xml	20823	20823
 adwaita-light	yaml	16564	16564
+adwaita-light	zig	14602	14602
 alabaster	bash	12491	12491
 alabaster	c	17618	17618
 alabaster	c_sharp	16671	16671
@@ -89,6 +91,7 @@ alabaster	tsx	9700	9700
 alabaster	typescript	13701	13701
 alabaster	xml	20823	20823
 alabaster	yaml	16564	16564
+alabaster	zig	14602	14602
 alabaster-light	bash	12491	12491
 alabaster-light	c	17618	17618
 alabaster-light	c_sharp	16671	16671
@@ -119,6 +122,7 @@ alabaster-light	tsx	9700	9700
 alabaster-light	typescript	13701	13701
 alabaster-light	xml	20823	20823
 alabaster-light	yaml	16564	16564
+alabaster-light	zig	14602	14602
 alucard	bash	12491	12491
 alucard	c	17618	17618
 alucard	c_sharp	16671	16671
@@ -149,6 +153,7 @@ alucard	tsx	9700	9700
 alucard	typescript	13701	13701
 alucard	xml	20823	20823
 alucard	yaml	16564	16564
+alucard	zig	14602	14602
 ayu	bash	12491	12491
 ayu	c	17618	17618
 ayu	c_sharp	16671	16671
@@ -179,6 +184,7 @@ ayu	tsx	9700	9700
 ayu	typescript	13701	13701
 ayu	xml	20823	20823
 ayu	yaml	16564	16564
+ayu	zig	14602	14602
 ayu-light	bash	12491	12491
 ayu-light	c	17618	17618
 ayu-light	c_sharp	16671	16671
@@ -209,6 +215,7 @@ ayu-light	tsx	9700	9700
 ayu-light	typescript	13701	13701
 ayu-light	xml	20823	20823
 ayu-light	yaml	16564	16564
+ayu-light	zig	14602	14602
 ayu-mirage	bash	12491	12491
 ayu-mirage	c	17618	17618
 ayu-mirage	c_sharp	16671	16671
@@ -239,6 +246,7 @@ ayu-mirage	tsx	9700	9700
 ayu-mirage	typescript	13701	13701
 ayu-mirage	xml	20823	20823
 ayu-mirage	yaml	16564	16564
+ayu-mirage	zig	14602	14602
 bamboo	bash	12491	12491
 bamboo	c	17618	17618
 bamboo	c_sharp	16671	16671
@@ -269,6 +277,7 @@ bamboo	tsx	9700	9700
 bamboo	typescript	13701	13701
 bamboo	xml	20823	20823
 bamboo	yaml	16564	16564
+bamboo	zig	14602	14602
 bamboo-light	bash	12491	12491
 bamboo-light	c	17618	17618
 bamboo-light	c_sharp	16671	16671
@@ -299,6 +308,7 @@ bamboo-light	tsx	9700	9700
 bamboo-light	typescript	13701	13701
 bamboo-light	xml	20823	20823
 bamboo-light	yaml	16564	16564
+bamboo-light	zig	14602	14602
 bluloco-light	bash	12491	12491
 bluloco-light	c	17618	17618
 bluloco-light	c_sharp	16671	16671
@@ -329,6 +339,7 @@ bluloco-light	tsx	9700	9700
 bluloco-light	typescript	13701	13701
 bluloco-light	xml	20823	20823
 bluloco-light	yaml	16564	16564
+bluloco-light	zig	14602	14602
 catppuccin-frappe	bash	12491	12491
 catppuccin-frappe	c	17618	17618
 catppuccin-frappe	c_sharp	16671	16671
@@ -359,6 +370,7 @@ catppuccin-frappe	tsx	9700	9700
 catppuccin-frappe	typescript	13701	13701
 catppuccin-frappe	xml	20823	20823
 catppuccin-frappe	yaml	16564	16564
+catppuccin-frappe	zig	14602	14602
 catppuccin-latte	bash	12491	12491
 catppuccin-latte	c	17618	17618
 catppuccin-latte	c_sharp	16671	16671
@@ -389,6 +401,7 @@ catppuccin-latte	tsx	9700	9700
 catppuccin-latte	typescript	13701	13701
 catppuccin-latte	xml	20823	20823
 catppuccin-latte	yaml	16564	16564
+catppuccin-latte	zig	14602	14602
 catppuccin-macchiato	bash	12491	12491
 catppuccin-macchiato	c	17618	17618
 catppuccin-macchiato	c_sharp	16671	16671
@@ -419,6 +432,7 @@ catppuccin-macchiato	tsx	9700	9700
 catppuccin-macchiato	typescript	13701	13701
 catppuccin-macchiato	xml	20823	20823
 catppuccin-macchiato	yaml	16564	16564
+catppuccin-macchiato	zig	14602	14602
 catppuccin-mocha	bash	12491	12491
 catppuccin-mocha	c	17618	17618
 catppuccin-mocha	c_sharp	16671	16671
@@ -449,6 +463,7 @@ catppuccin-mocha	tsx	9700	9700
 catppuccin-mocha	typescript	13701	13701
 catppuccin-mocha	xml	20823	20823
 catppuccin-mocha	yaml	16564	16564
+catppuccin-mocha	zig	14602	14602
 cendre	bash	12491	12491
 cendre	c	17618	17618
 cendre	c_sharp	16671	16671
@@ -479,6 +494,7 @@ cendre	tsx	9700	9700
 cendre	typescript	13701	13701
 cendre	xml	20823	20823
 cendre	yaml	16564	16564
+cendre	zig	14602	14602
 darkearth	bash	12491	12491
 darkearth	c	17618	17618
 darkearth	c_sharp	16671	16671
@@ -509,6 +525,7 @@ darkearth	tsx	9700	9700
 darkearth	typescript	13701	13701
 darkearth	xml	20823	20823
 darkearth	yaml	16564	16564
+darkearth	zig	14602	14602
 dawnfox	bash	12491	12491
 dawnfox	c	17618	17618
 dawnfox	c_sharp	16671	16671
@@ -539,6 +556,7 @@ dawnfox	tsx	9700	9700
 dawnfox	typescript	13701	13701
 dawnfox	xml	20823	20823
 dawnfox	yaml	16564	16564
+dawnfox	zig	14602	14602
 dayfox	bash	12491	12491
 dayfox	c	17618	17618
 dayfox	c_sharp	16671	16671
@@ -569,6 +587,7 @@ dayfox	tsx	9700	9700
 dayfox	typescript	13701	13701
 dayfox	xml	20823	20823
 dayfox	yaml	16564	16564
+dayfox	zig	14602	14602
 dracula	bash	12491	12491
 dracula	c	17618	17618
 dracula	c_sharp	16671	16671
@@ -599,6 +618,7 @@ dracula	tsx	9700	9700
 dracula	typescript	13701	13701
 dracula	xml	20823	20823
 dracula	yaml	16564	16564
+dracula	zig	14602	14602
 e-ink	bash	12491	12491
 e-ink	c	17618	17618
 e-ink	c_sharp	16671	16671
@@ -629,6 +649,7 @@ e-ink	tsx	9700	9700
 e-ink	typescript	13701	13701
 e-ink	xml	20823	20823
 e-ink	yaml	16564	16564
+e-ink	zig	14602	14602
 e-ink-light	bash	12491	12491
 e-ink-light	c	17618	17618
 e-ink-light	c_sharp	16671	16671
@@ -659,6 +680,7 @@ e-ink-light	tsx	9700	9700
 e-ink-light	typescript	13701	13701
 e-ink-light	xml	20823	20823
 e-ink-light	yaml	16564	16564
+e-ink-light	zig	14602	14602
 edge	bash	12491	12491
 edge	c	17618	17618
 edge	c_sharp	16671	16671
@@ -689,6 +711,7 @@ edge	tsx	9700	9700
 edge	typescript	13701	13701
 edge	xml	20823	20823
 edge	yaml	16564	16564
+edge	zig	14602	14602
 edge-light	bash	12491	12491
 edge-light	c	17618	17618
 edge-light	c_sharp	16671	16671
@@ -719,6 +742,7 @@ edge-light	tsx	9700	9700
 edge-light	typescript	13701	13701
 edge-light	xml	20823	20823
 edge-light	yaml	16564	16564
+edge-light	zig	14602	14602
 everforest-dark	bash	12491	12491
 everforest-dark	c	17618	17618
 everforest-dark	c_sharp	16671	16671
@@ -749,6 +773,7 @@ everforest-dark	tsx	9700	9700
 everforest-dark	typescript	13701	13701
 everforest-dark	xml	20823	20823
 everforest-dark	yaml	16564	16564
+everforest-dark	zig	14602	14602
 everforest-light	bash	12491	12491
 everforest-light	c	17618	17618
 everforest-light	c_sharp	16671	16671
@@ -779,6 +804,7 @@ everforest-light	tsx	9700	9700
 everforest-light	typescript	13701	13701
 everforest-light	xml	20823	20823
 everforest-light	yaml	16564	16564
+everforest-light	zig	14602	14602
 flexoki-dark	bash	12491	12491
 flexoki-dark	c	17618	17618
 flexoki-dark	c_sharp	16671	16671
@@ -809,6 +835,7 @@ flexoki-dark	tsx	9700	9700
 flexoki-dark	typescript	13701	13701
 flexoki-dark	xml	20823	20823
 flexoki-dark	yaml	16564	16564
+flexoki-dark	zig	14602	14602
 flexoki-light	bash	12491	12491
 flexoki-light	c	17618	17618
 flexoki-light	c_sharp	16671	16671
@@ -839,6 +866,7 @@ flexoki-light	tsx	9700	9700
 flexoki-light	typescript	13701	13701
 flexoki-light	xml	20823	20823
 flexoki-light	yaml	16564	16564
+flexoki-light	zig	14602	14602
 github-dark	bash	12491	12421
 github-dark	c	17618	17618
 github-dark	c_sharp	16671	16671
@@ -869,6 +897,7 @@ github-dark	tsx	9700	9674
 github-dark	typescript	13701	13701
 github-dark	xml	20823	20823
 github-dark	yaml	16564	16538
+github-dark	zig	14602	14602
 github-light	bash	12491	12421
 github-light	c	17618	17618
 github-light	c_sharp	16671	16671
@@ -899,6 +928,7 @@ github-light	tsx	9700	9674
 github-light	typescript	13701	13701
 github-light	xml	20823	20823
 github-light	yaml	16564	16538
+github-light	zig	14602	14602
 gotham	bash	12491	12491
 gotham	c	17618	17618
 gotham	c_sharp	16671	16671
@@ -929,6 +959,7 @@ gotham	tsx	9700	9700
 gotham	typescript	13701	13701
 gotham	xml	20823	20823
 gotham	yaml	16564	16564
+gotham	zig	14602	14602
 gruvbox-dark	bash	12491	12491
 gruvbox-dark	c	17618	17618
 gruvbox-dark	c_sharp	16671	16671
@@ -959,6 +990,7 @@ gruvbox-dark	tsx	9700	9700
 gruvbox-dark	typescript	13701	13701
 gruvbox-dark	xml	20823	20823
 gruvbox-dark	yaml	16564	16564
+gruvbox-dark	zig	14602	14602
 gruvbox-light	bash	12491	12491
 gruvbox-light	c	17618	17618
 gruvbox-light	c_sharp	16671	16671
@@ -989,6 +1021,7 @@ gruvbox-light	tsx	9700	9700
 gruvbox-light	typescript	13701	13701
 gruvbox-light	xml	20823	20823
 gruvbox-light	yaml	16564	16564
+gruvbox-light	zig	14602	14602
 gruvbox-material-dark	bash	12491	12491
 gruvbox-material-dark	c	17618	17618
 gruvbox-material-dark	c_sharp	16671	16671
@@ -1019,6 +1052,7 @@ gruvbox-material-dark	tsx	9700	9700
 gruvbox-material-dark	typescript	13701	13701
 gruvbox-material-dark	xml	20823	20823
 gruvbox-material-dark	yaml	16564	16564
+gruvbox-material-dark	zig	14602	14602
 gruvbox-material-light	bash	12491	12491
 gruvbox-material-light	c	17618	17618
 gruvbox-material-light	c_sharp	16671	16671
@@ -1049,6 +1083,7 @@ gruvbox-material-light	tsx	9700	9700
 gruvbox-material-light	typescript	13701	13701
 gruvbox-material-light	xml	20823	20823
 gruvbox-material-light	yaml	16564	16564
+gruvbox-material-light	zig	14602	14602
 hojicha	bash	12491	12491
 hojicha	c	17618	17618
 hojicha	c_sharp	16671	16671
@@ -1079,6 +1114,7 @@ hojicha	tsx	9700	9700
 hojicha	typescript	13701	13701
 hojicha	xml	20823	20823
 hojicha	yaml	16564	16564
+hojicha	zig	14602	14602
 iceberg	bash	12491	12491
 iceberg	c	17618	17618
 iceberg	c_sharp	16671	16671
@@ -1109,6 +1145,7 @@ iceberg	tsx	9700	9700
 iceberg	typescript	13701	13701
 iceberg	xml	20823	20823
 iceberg	yaml	16564	16564
+iceberg	zig	14602	14602
 iceberg-light	bash	12491	12491
 iceberg-light	c	17618	17618
 iceberg-light	c_sharp	16671	16671
@@ -1139,6 +1176,7 @@ iceberg-light	tsx	9700	9700
 iceberg-light	typescript	13701	13701
 iceberg-light	xml	20823	20823
 iceberg-light	yaml	16564	16564
+iceberg-light	zig	14602	14602
 jellybeans	bash	12491	12491
 jellybeans	c	17618	17618
 jellybeans	c_sharp	16671	16671
@@ -1169,6 +1207,7 @@ jellybeans	tsx	9700	9700
 jellybeans	typescript	13701	13701
 jellybeans	xml	20823	20823
 jellybeans	yaml	16564	16564
+jellybeans	zig	14602	14602
 jellybeans-light	bash	12491	12491
 jellybeans-light	c	17618	17618
 jellybeans-light	c_sharp	16671	16671
@@ -1199,6 +1238,7 @@ jellybeans-light	tsx	9700	9700
 jellybeans-light	typescript	13701	13701
 jellybeans-light	xml	20823	20823
 jellybeans-light	yaml	16564	16564
+jellybeans-light	zig	14602	14602
 kanagawa-dragon	bash	12491	12491
 kanagawa-dragon	c	17618	17618
 kanagawa-dragon	c_sharp	16671	16671
@@ -1229,6 +1269,7 @@ kanagawa-dragon	tsx	9700	9700
 kanagawa-dragon	typescript	13701	13701
 kanagawa-dragon	xml	20823	20823
 kanagawa-dragon	yaml	16564	16564
+kanagawa-dragon	zig	14602	14602
 kanagawa-lotus	bash	12491	12491
 kanagawa-lotus	c	17618	17618
 kanagawa-lotus	c_sharp	16671	16671
@@ -1259,6 +1300,7 @@ kanagawa-lotus	tsx	9700	9700
 kanagawa-lotus	typescript	13701	13701
 kanagawa-lotus	xml	20823	20823
 kanagawa-lotus	yaml	16564	16564
+kanagawa-lotus	zig	14602	14602
 kanagawa-wave	bash	12491	12491
 kanagawa-wave	c	17618	17618
 kanagawa-wave	c_sharp	16671	16671
@@ -1289,6 +1331,7 @@ kanagawa-wave	tsx	9700	9700
 kanagawa-wave	typescript	13701	13701
 kanagawa-wave	xml	20823	20823
 kanagawa-wave	yaml	16564	16564
+kanagawa-wave	zig	14602	14602
 koda-dark	bash	12491	12491
 koda-dark	c	17618	17618
 koda-dark	c_sharp	16671	16671
@@ -1319,6 +1362,7 @@ koda-dark	tsx	9700	9700
 koda-dark	typescript	13701	13701
 koda-dark	xml	20823	20823
 koda-dark	yaml	16564	16564
+koda-dark	zig	14602	14602
 koda-light	bash	12491	12491
 koda-light	c	17618	17618
 koda-light	c_sharp	16671	16671
@@ -1349,6 +1393,7 @@ koda-light	tsx	9700	9700
 koda-light	typescript	13701	13701
 koda-light	xml	20823	20823
 koda-light	yaml	16564	16564
+koda-light	zig	14602	14602
 lackluster	bash	12491	12491
 lackluster	c	17618	17618
 lackluster	c_sharp	16671	16671
@@ -1379,6 +1424,7 @@ lackluster	tsx	9700	9700
 lackluster	typescript	13701	13701
 lackluster	xml	20823	20823
 lackluster	yaml	16564	16564
+lackluster	zig	14602	14602
 lightearth	bash	12491	12491
 lightearth	c	17618	17618
 lightearth	c_sharp	16671	16671
@@ -1409,6 +1455,7 @@ lightearth	tsx	9700	9700
 lightearth	typescript	13701	13701
 lightearth	xml	20823	20823
 lightearth	yaml	16564	16564
+lightearth	zig	14602	14602
 material-dark	bash	12491	12491
 material-dark	c	17618	17618
 material-dark	c_sharp	16671	16671
@@ -1439,6 +1486,7 @@ material-dark	tsx	9700	9700
 material-dark	typescript	13701	13701
 material-dark	xml	20823	20823
 material-dark	yaml	16564	16564
+material-dark	zig	14602	14602
 material-light	bash	12491	12491
 material-light	c	17618	17618
 material-light	c_sharp	16671	16671
@@ -1469,6 +1517,7 @@ material-light	tsx	9700	9700
 material-light	typescript	13701	13701
 material-light	xml	20823	20823
 material-light	yaml	16564	16564
+material-light	zig	14602	14602
 melange-dark	bash	12491	12491
 melange-dark	c	17618	17618
 melange-dark	c_sharp	16671	16671
@@ -1499,6 +1548,7 @@ melange-dark	tsx	9700	9700
 melange-dark	typescript	13701	13701
 melange-dark	xml	20823	20823
 melange-dark	yaml	16564	16564
+melange-dark	zig	14602	14602
 melange-light	bash	12491	12491
 melange-light	c	17618	17618
 melange-light	c_sharp	16671	16671
@@ -1529,6 +1579,7 @@ melange-light	tsx	9700	9700
 melange-light	typescript	13701	13701
 melange-light	xml	20823	20823
 melange-light	yaml	16564	16564
+melange-light	zig	14602	14602
 mellifluous	bash	12491	12491
 mellifluous	c	17618	17618
 mellifluous	c_sharp	16671	16671
@@ -1559,6 +1610,7 @@ mellifluous	tsx	9700	9700
 mellifluous	typescript	13701	13701
 mellifluous	xml	20823	20823
 mellifluous	yaml	16564	16564
+mellifluous	zig	14602	14602
 mellifluous-light	bash	12491	12491
 mellifluous-light	c	17618	17618
 mellifluous-light	c_sharp	16671	16671
@@ -1589,6 +1641,7 @@ mellifluous-light	tsx	9700	9700
 mellifluous-light	typescript	13701	13701
 mellifluous-light	xml	20823	20823
 mellifluous-light	yaml	16564	16564
+mellifluous-light	zig	14602	14602
 mellow	bash	12491	12491
 mellow	c	17618	17618
 mellow	c_sharp	16671	16671
@@ -1619,6 +1672,7 @@ mellow	tsx	9700	9700
 mellow	typescript	13701	13701
 mellow	xml	20823	20823
 mellow	yaml	16564	16564
+mellow	zig	14602	14602
 miasma	bash	12491	12491
 miasma	c	17618	17618
 miasma	c_sharp	16671	16671
@@ -1649,6 +1703,7 @@ miasma	tsx	9700	9700
 miasma	typescript	13701	13701
 miasma	xml	20823	20823
 miasma	yaml	16564	16564
+miasma	zig	14602	14602
 minischeme	bash	12491	12491
 minischeme	c	17618	17618
 minischeme	c_sharp	16671	16671
@@ -1679,6 +1734,7 @@ minischeme	tsx	9700	9700
 minischeme	typescript	13701	13701
 minischeme	xml	20823	20823
 minischeme	yaml	16564	16564
+minischeme	zig	14602	14602
 minischeme-light	bash	12491	12491
 minischeme-light	c	17618	17618
 minischeme-light	c_sharp	16671	16671
@@ -1709,6 +1765,7 @@ minischeme-light	tsx	9700	9700
 minischeme-light	typescript	13701	13701
 minischeme-light	xml	20823	20823
 minischeme-light	yaml	16564	16564
+minischeme-light	zig	14602	14602
 moonfly	bash	12491	12491
 moonfly	c	17618	17618
 moonfly	c_sharp	16671	16671
@@ -1739,6 +1796,7 @@ moonfly	tsx	9700	9700
 moonfly	typescript	13701	13701
 moonfly	xml	20823	20823
 moonfly	yaml	16564	16564
+moonfly	zig	14602	14602
 neomodern-light	bash	12491	12491
 neomodern-light	c	17618	17618
 neomodern-light	c_sharp	16671	16671
@@ -1769,6 +1827,7 @@ neomodern-light	tsx	9700	9700
 neomodern-light	typescript	13701	13701
 neomodern-light	xml	20823	20823
 neomodern-light	yaml	16564	16564
+neomodern-light	zig	14602	14602
 nightfly	bash	12491	12491
 nightfly	c	17618	17618
 nightfly	c_sharp	16671	16671
@@ -1799,6 +1858,7 @@ nightfly	tsx	9700	9700
 nightfly	typescript	13701	13701
 nightfly	xml	20823	20823
 nightfly	yaml	16564	16564
+nightfly	zig	14602	14602
 nightfox	bash	12491	12491
 nightfox	c	17618	17618
 nightfox	c_sharp	16671	16671
@@ -1829,6 +1889,7 @@ nightfox	tsx	9700	9700
 nightfox	typescript	13701	13701
 nightfox	xml	20823	20823
 nightfox	yaml	16564	16564
+nightfox	zig	14602	14602
 nord	bash	12491	12491
 nord	c	17618	17618
 nord	c_sharp	16671	16671
@@ -1859,6 +1920,7 @@ nord	tsx	9700	9700
 nord	typescript	13701	13701
 nord	xml	20823	20823
 nord	yaml	16564	16564
+nord	zig	14602	14602
 nordfox	bash	12491	12491
 nordfox	c	17618	17618
 nordfox	c_sharp	16671	16671
@@ -1889,6 +1951,7 @@ nordfox	tsx	9700	9700
 nordfox	typescript	13701	13701
 nordfox	xml	20823	20823
 nordfox	yaml	16564	16564
+nordfox	zig	14602	14602
 onedark	bash	12491	12491
 onedark	c	17618	17618
 onedark	c_sharp	16671	16671
@@ -1919,6 +1982,7 @@ onedark	tsx	9700	9700
 onedark	typescript	13701	13701
 onedark	xml	20823	20823
 onedark	yaml	16564	16564
+onedark	zig	14602	14602
 onedark-light	bash	12491	12491
 onedark-light	c	17618	17618
 onedark-light	c_sharp	16671	16671
@@ -1949,6 +2013,7 @@ onedark-light	tsx	9700	9700
 onedark-light	typescript	13701	13701
 onedark-light	xml	20823	20823
 onedark-light	yaml	16564	16564
+onedark-light	zig	14602	14602
 oxocarbon-dark	bash	12491	12491
 oxocarbon-dark	c	17618	17618
 oxocarbon-dark	c_sharp	16671	16671
@@ -1979,6 +2044,7 @@ oxocarbon-dark	tsx	9700	9700
 oxocarbon-dark	typescript	13701	13701
 oxocarbon-dark	xml	20823	20823
 oxocarbon-dark	yaml	16564	16564
+oxocarbon-dark	zig	14602	14602
 oxocarbon-light	bash	12491	12491
 oxocarbon-light	c	17618	17618
 oxocarbon-light	c_sharp	16671	16671
@@ -2009,6 +2075,7 @@ oxocarbon-light	tsx	9700	9700
 oxocarbon-light	typescript	13701	13701
 oxocarbon-light	xml	20823	20823
 oxocarbon-light	yaml	16564	16564
+oxocarbon-light	zig	14602	14602
 papercolor	bash	12491	12491
 papercolor	c	17618	17618
 papercolor	c_sharp	16671	16671
@@ -2039,6 +2106,7 @@ papercolor	tsx	9700	9700
 papercolor	typescript	13701	13701
 papercolor	xml	20823	20823
 papercolor	yaml	16564	16564
+papercolor	zig	14602	14602
 papercolor-light	bash	12491	12491
 papercolor-light	c	17618	17618
 papercolor-light	c_sharp	16671	16671
@@ -2069,6 +2137,7 @@ papercolor-light	tsx	9700	9700
 papercolor-light	typescript	13701	13701
 papercolor-light	xml	20823	20823
 papercolor-light	yaml	16564	16564
+papercolor-light	zig	14602	14602
 pencil	bash	12491	12491
 pencil	c	17618	17618
 pencil	c_sharp	16671	16671
@@ -2099,6 +2168,7 @@ pencil	tsx	9700	9700
 pencil	typescript	13701	13701
 pencil	xml	20823	20823
 pencil	yaml	16564	16564
+pencil	zig	14602	14602
 pencil-light	bash	12491	12491
 pencil-light	c	17618	17618
 pencil-light	c_sharp	16671	16671
@@ -2129,6 +2199,7 @@ pencil-light	tsx	9700	9700
 pencil-light	typescript	13701	13701
 pencil-light	xml	20823	20823
 pencil-light	yaml	16564	16564
+pencil-light	zig	14602	14602
 rose-pine	bash	12491	12491
 rose-pine	c	17618	17618
 rose-pine	c_sharp	16671	16671
@@ -2159,6 +2230,7 @@ rose-pine	tsx	9700	9700
 rose-pine	typescript	13701	13701
 rose-pine	xml	20823	20823
 rose-pine	yaml	16564	16564
+rose-pine	zig	14602	14602
 rose-pine-dawn	bash	12491	12491
 rose-pine-dawn	c	17618	17618
 rose-pine-dawn	c_sharp	16671	16671
@@ -2189,6 +2261,7 @@ rose-pine-dawn	tsx	9700	9700
 rose-pine-dawn	typescript	13701	13701
 rose-pine-dawn	xml	20823	20823
 rose-pine-dawn	yaml	16564	16564
+rose-pine-dawn	zig	14602	14602
 rose-pine-moon	bash	12491	12491
 rose-pine-moon	c	17618	17618
 rose-pine-moon	c_sharp	16671	16671
@@ -2219,6 +2292,7 @@ rose-pine-moon	tsx	9700	9700
 rose-pine-moon	typescript	13701	13701
 rose-pine-moon	xml	20823	20823
 rose-pine-moon	yaml	16564	16564
+rose-pine-moon	zig	14602	14602
 selenized	bash	12491	12491
 selenized	c	17618	17618
 selenized	c_sharp	16671	16671
@@ -2249,6 +2323,7 @@ selenized	tsx	9700	9700
 selenized	typescript	13701	13701
 selenized	xml	20823	20823
 selenized	yaml	16564	16564
+selenized	zig	14602	14602
 selenized-light	bash	12491	12491
 selenized-light	c	17618	17618
 selenized-light	c_sharp	16671	16671
@@ -2279,6 +2354,7 @@ selenized-light	tsx	9700	9700
 selenized-light	typescript	13701	13701
 selenized-light	xml	20823	20823
 selenized-light	yaml	16564	16564
+selenized-light	zig	14602	14602
 solarized-dark	bash	12491	12491
 solarized-dark	c	17618	17618
 solarized-dark	c_sharp	16671	16671
@@ -2309,6 +2385,7 @@ solarized-dark	tsx	9700	9700
 solarized-dark	typescript	13701	13701
 solarized-dark	xml	20823	20823
 solarized-dark	yaml	16564	16564
+solarized-dark	zig	14602	14602
 solarized-light	bash	12491	12491
 solarized-light	c	17618	17618
 solarized-light	c_sharp	16671	16671
@@ -2339,6 +2416,7 @@ solarized-light	tsx	9700	9700
 solarized-light	typescript	13701	13701
 solarized-light	xml	20823	20823
 solarized-light	yaml	16564	16564
+solarized-light	zig	14602	14602
 sonokai	bash	12491	12491
 sonokai	c	17618	17618
 sonokai	c_sharp	16671	16671
@@ -2369,6 +2447,7 @@ sonokai	tsx	9700	9700
 sonokai	typescript	13701	13701
 sonokai	xml	20823	20823
 sonokai	yaml	16564	16564
+sonokai	zig	14602	14602
 soviet-dark	bash	12491	12491
 soviet-dark	c	17618	17618
 soviet-dark	c_sharp	16671	16671
@@ -2399,6 +2478,7 @@ soviet-dark	tsx	9700	9700
 soviet-dark	typescript	13701	13701
 soviet-dark	xml	20823	20823
 soviet-dark	yaml	16564	16564
+soviet-dark	zig	14602	14602
 soviet-light	bash	12491	12491
 soviet-light	c	17618	17618
 soviet-light	c_sharp	16671	16671
@@ -2429,6 +2509,7 @@ soviet-light	tsx	9700	9700
 soviet-light	typescript	13701	13701
 soviet-light	xml	20823	20823
 soviet-light	yaml	16564	16564
+soviet-light	zig	14602	14602
 srcery	bash	12491	12491
 srcery	c	17618	17618
 srcery	c_sharp	16671	16671
@@ -2459,6 +2540,7 @@ srcery	tsx	9700	9700
 srcery	typescript	13701	13701
 srcery	xml	20823	20823
 srcery	yaml	16564	16564
+srcery	zig	14602	14602
 token	bash	12491	12491
 token	c	17618	17618
 token	c_sharp	16671	16671
@@ -2489,6 +2571,7 @@ token	tsx	9700	9700
 token	typescript	13701	13701
 token	xml	20823	20823
 token	yaml	16564	16564
+token	zig	14602	14602
 token-light	bash	12491	12491
 token-light	c	17618	17618
 token-light	c_sharp	16671	16671
@@ -2519,6 +2602,7 @@ token-light	tsx	9700	9700
 token-light	typescript	13701	13701
 token-light	xml	20823	20823
 token-light	yaml	16564	16564
+token-light	zig	14602	14602
 tokyonight-day	bash	12491	12491
 tokyonight-day	c	17618	17618
 tokyonight-day	c_sharp	16671	16671
@@ -2549,6 +2633,7 @@ tokyonight-day	tsx	9700	9700
 tokyonight-day	typescript	13701	13701
 tokyonight-day	xml	20823	20823
 tokyonight-day	yaml	16564	16564
+tokyonight-day	zig	14602	14602
 tokyonight-moon	bash	12491	12491
 tokyonight-moon	c	17618	17618
 tokyonight-moon	c_sharp	16671	16671
@@ -2579,6 +2664,7 @@ tokyonight-moon	tsx	9700	9700
 tokyonight-moon	typescript	13701	13701
 tokyonight-moon	xml	20823	20823
 tokyonight-moon	yaml	16564	16564
+tokyonight-moon	zig	14602	14602
 tokyonight-night	bash	12491	12491
 tokyonight-night	c	17618	17618
 tokyonight-night	c_sharp	16671	16671
@@ -2609,6 +2695,7 @@ tokyonight-night	tsx	9700	9700
 tokyonight-night	typescript	13701	13701
 tokyonight-night	xml	20823	20823
 tokyonight-night	yaml	16564	16564
+tokyonight-night	zig	14602	14602
 tokyonight-storm	bash	12491	12491
 tokyonight-storm	c	17618	17618
 tokyonight-storm	c_sharp	16671	16671
@@ -2639,6 +2726,7 @@ tokyonight-storm	tsx	9700	9700
 tokyonight-storm	typescript	13701	13701
 tokyonight-storm	xml	20823	20823
 tokyonight-storm	yaml	16564	16564
+tokyonight-storm	zig	14602	14602
 vague	bash	12491	12491
 vague	c	17618	17618
 vague	c_sharp	16671	16671
@@ -2669,6 +2757,7 @@ vague	tsx	9700	9700
 vague	typescript	13701	13701
 vague	xml	20823	20823
 vague	yaml	16564	16564
+vague	zig	14602	14602
 vesper	bash	12491	12491
 vesper	c	17618	17618
 vesper	c_sharp	16671	16671
@@ -2699,6 +2788,7 @@ vesper	tsx	9700	9700
 vesper	typescript	13701	13701
 vesper	xml	20823	20823
 vesper	yaml	16564	16564
+vesper	zig	14602	14602
 vscode-dark	bash	12491	12491
 vscode-dark	c	17618	17618
 vscode-dark	c_sharp	16671	16671
@@ -2729,6 +2819,7 @@ vscode-dark	tsx	9700	9700
 vscode-dark	typescript	13701	13701
 vscode-dark	xml	20823	20823
 vscode-dark	yaml	16564	16564
+vscode-dark	zig	14602	14602
 vscode-light	bash	12491	12491
 vscode-light	c	17618	17618
 vscode-light	c_sharp	16671	16671
@@ -2759,3 +2850,4 @@ vscode-light	tsx	9700	9700
 vscode-light	typescript	13701	13701
 vscode-light	xml	20823	20823
 vscode-light	yaml	16564	16564
+vscode-light	zig	14602	14602
