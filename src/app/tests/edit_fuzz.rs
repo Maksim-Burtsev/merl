@@ -1115,6 +1115,18 @@ const HCL: &[&str] = &[
     "}",
 ];
 
+const INI: &[&str] = &[
+    "[a]\n",
+    "b = c\n",
+    "; ",
+    "# ",
+    "[",
+    "]",
+    "=",
+    ":",
+    "\n",
+];
+
 const CMAKE: &[&str] = &[
     "set(",
     "${X}",
@@ -1310,6 +1322,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.tfvars",
         include_bytes!("../../../tests/colors/terraform/main.tf").as_slice(),
         HCL,
+    ),
+    (
+        "f.ini",
+        include_bytes!("../../../tests/colors/ini/settings.ini").as_slice(),
+        INI,
     ),
     (
         "CMakeLists.txt",
