@@ -1101,7 +1101,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const EXPECTS: usize = 224;
+    const EXPECTS: usize = 222;
 
     fn expected_lints(text: &str) -> usize {
         let b = text.as_bytes();

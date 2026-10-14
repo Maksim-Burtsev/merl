@@ -296,14 +296,17 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "similarity is exactly 1.0 or 0.0 at its ends"
-    )]
     fn similarity_is_the_share_of_kept_text() {
-        assert_eq!(similarity("same line", "same line"), 1.0);
-        assert_eq!(similarity("  ", "    "), 1.0, "no non-whitespace at all");
-        assert_eq!(similarity("a", "b"), 0.0);
+        assert_eq!(
+            similarity("same line", "same line").to_bits(),
+            1.0_f64.to_bits()
+        );
+        assert_eq!(
+            similarity("  ", "    ").to_bits(),
+            1.0_f64.to_bits(),
+            "no non-whitespace at all"
+        );
+        assert_eq!(similarity("a", "b").to_bits(), 0.0_f64.to_bits());
         let fs = r#"            ("fs".into(), p(&["fs", "default"])),"#;
         let node_fs = r#"            ("fs".into(), p(&["node:fs", "default"])),"#;
         let comment = "            // `node:` stays: the module is Node's own, whatever is \
@@ -359,17 +362,13 @@ mod tests {
     }
 
     #[test]
-    #[expect(
-        clippy::float_cmp,
-        reason = "similarity is exactly 0.0 when nothing is kept"
-    )]
     fn the_middles_are_matched_up_to_250_000_pairs_of_tokens() {
         let (old, new) = (words_between("A", 248, "C"), words_between("B", 248, "D"));
         assert_eq!(changes(&old, &new).0, [0..1, old.len() - 1..old.len()]);
         assert!(similarity(&old, &new) > 0.9);
         let (old, new) = (words_between("A", 249, "C"), words_between("B", 249, "D"));
         assert_eq!(changes(&old, &new).0, [0..old.len()]);
-        assert_eq!(similarity(&old, &new), 0.0);
+        assert_eq!(similarity(&old, &new).to_bits(), 0.0_f64.to_bits());
     }
 
     #[test]
