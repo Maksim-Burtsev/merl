@@ -10,6 +10,11 @@ defmodule Books.Ledger do
 
   @limit 1_000
   @pattern ~r/[a-z]+\d/i
+  @native ~Z"""
+  pub fn twice(x: i64) i64 {
+      return x * 2;
+  }
+  """
 
   defstruct owner: nil, entries: [], opened: nil
 
