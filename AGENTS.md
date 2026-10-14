@@ -183,10 +183,11 @@ merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-t
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
 stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Diff, Query, Dockerfile, CMake and Protobuf today and for the languages of
-#806–#809 as they land; every other file goes through syntect as before. Dart stays on syntect:
-the tree-sitter-dart nvim-treesitter pins (UserNobody14's) binds tree-sitter 0.22 in its
-`Cargo.toml`, which cannot link beside merl's 0.27 (both declare `links = "tree-sitter"`), and
-crates.io's tree-sitter-dart is another grammar.
+#806–#809 as they land; every other file goes through syntect as before. Dart and Groovy stay on
+syntect: the grammars nvim-treesitter pins bind an older tree-sitter in their `Cargo.toml`
+(UserNobody14's tree-sitter-dart 0.22, murtaza64's tree-sitter-groovy `~0.26.8`), which cannot
+link beside merl's 0.27 (both declare `links = "tree-sitter"`), and crates.io's tree-sitter-dart
+and tree-sitter-groovy (amaanq's) are other grammars.
 
 - **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in
   `lua/nvim-treesitter/parsers.lua` at `NVIM_TS` (compare its `parser.c` with that commit's), else
