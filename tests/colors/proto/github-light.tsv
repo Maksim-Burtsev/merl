@@ -1,0 +1,6 @@
+# github-light: projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d `colorscheme github_light_default`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=0550ae b=953800 c=cf222e d=1f2328 e=0a3069 f=57606a g=0a3069b
+broken.proto	1:c6ad8 2:d12 3:d10ad 4:c3d11ad2 5:c3d5 6:c4d
+edition.proto	1:c7ae6d 3:c7d5a7d 5:c13b7d 6:b5a3da8da15d10 7:d 9:c9b6d 10:a13d 11:d
+ledger.proto	1:f42 2:c6ad9 4:c7d5a6da2d 6:c6e33d 7:c12e25d 8:c10e23d 10:c6d10ae36d 11:c6d19a5d 12:c6d12ad6 13:c6d6a13dada4de8a5dad2 15:f22 16:c4b9d 17:c6d11a5d 18:a24d 19:a18d 20:a19da15d2 21:a20d 22:c8a2c2a2da2c5d 23:c8e5de6d 24:d 26:f23 27:c7b5d 28:b6a4d 29:b5a14da10e13d7a10dae7d2 30:b6a6d 31:b5a7da14d2 32:b4a9d 33:b5a6d 34:b9a6d 35:b6db8db9a12d 36:c8b6a6d 37:c8b6a10d 38:c3db6db5d7a3d 39:db4db6db5a8d 40:b6a7da8e4g2e4g2e6g16ed2 41:b8a6da12d2 42:b6a8da11d2 43:b6a6da8d5 44:b6a7da8d5 45:b4a6da13d2 47:c5d7 48:b6d7a3d 49:b8d8a3d 50:d 52:c7b8d 53:b6a6d 54:b6a4d 55:d 57:c8a2da2da2c2a2d 58:c8e14d 59:c10a3c2a3d 60:d 62:c6d6 63:b6a9d 64:d 66:c7b6d 67:c6d6a13dae10d 69:c3b8db15dc7db5d2 70:c3b11db18dc7dc6b5d2 71:c6d17ad16 72:d 73:c3b6dc6b5dc7dc6b9d3 74:d 76:c7b15d 77:b6a4d 78:d 80:c7b18d 81:b5a11d 82:b6a12d 83:d 85:c7b9d 86:b6a7d 87:d
+legacy.proto	1:c6ad9 3:c7d7 5:c7b3d 6:c8b6a6d 7:c8b5a5da10d2 8:c13b6a2d 9:c8b6a5d 10:d 11:c10a4c5d 12:d

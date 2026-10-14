@@ -1896,6 +1896,7 @@ dependencies = [
  "tree-sitter-md",
  "tree-sitter-php",
  "tree-sitter-printf",
+ "tree-sitter-proto",
  "tree-sitter-python",
  "tree-sitter-regex",
  "tree-sitter-ruby",
@@ -4115,6 +4116,15 @@ name = "tree-sitter-printf"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dffcc6f600c438d5df02ebc29d3a197023dd46554940b6ff155448bd3d140a3e"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-proto"
+version = "0.6.0"
+source = "git+https://github.com/coder3101/tree-sitter-proto?rev=d7d15427321da271cb1c25c12735e180ef981473#d7d15427321da271cb1c25c12735e180ef981473"
 dependencies = [
  "cc",
  "tree-sitter-language",

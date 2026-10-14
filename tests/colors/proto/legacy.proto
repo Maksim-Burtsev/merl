@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package legacy;
+
+message Old {
+  required string name = 1;
+  optional int32 age = 2 [default = 42];
+  repeated group Result = 3 {
+    required string url = 4;
+  }
+  extensions 1000 to max;
+}

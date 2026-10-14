@@ -85,6 +85,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/cmake/injections.scm"),
     ),
     (
+        "proto",
+        include_str!("../queries/proto/highlights.scm"),
+        include_str!("../queries/proto/injections.scm"),
+    ),
+    (
         "dockerfile",
         include_str!("../queries/dockerfile/highlights.scm"),
         include_str!("../queries/dockerfile/injections.scm"),
@@ -370,6 +375,9 @@ pub fn for_syntax(
         "JavaScript (Babel)" => lang("javascript"),
         "Python" => lang("python"),
         "PHP" if path.is_none_or(php) => lang("php"),
+        "Protocol Buffer" if path.is_none_or(|p| p.extension().is_some_and(|e| e == "proto")) => {
+            lang("proto")
+        }
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
         "Swift" => lang("swift"),
@@ -595,6 +603,7 @@ fn grammar(name: &str) -> Option<Language> {
         "kotlin" => tree_sitter_kotlin::LANGUAGE.into(),
         "dockerfile" => tree_sitter_dockerfile_updated::language(),
         "cmake" => tree_sitter_cmake::LANGUAGE.into(),
+        "proto" => tree_sitter_proto::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),

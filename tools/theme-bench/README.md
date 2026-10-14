@@ -216,6 +216,17 @@ Make (#809) stays on syntect: the commit nvim-treesitter pins (70613f3) has no `
 cannot be a git dependency, and crates.io's only release, tree-sitter-make 1.1.1, is built from an
 older grammar (another `grammar.json` and `parser.c`).
 
+Protobuf (#809), `.proto` files, which Neovim calls `proto` (`.protobuf` and `.protodevel`, Protocol
+Buffer in syntect and nothing in Neovim, stay on syntect); `comment` stays plain, as LazyVim
+installs no parser for it. The commit nvim-treesitter pins (d7d1542) is newer than crates.io's
+tree-sitter-proto 0.6.0 (another `grammar.json`), so merl takes it as a git dependency. The bench's
+files are three of rules_go, nowinandroid and gitea, with at least 25 recordable lines, as the
+d-bench projects hold no `.proto` of 80:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Protobuf | 4,229 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
@@ -286,7 +297,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
