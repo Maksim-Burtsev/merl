@@ -9,6 +9,8 @@ const NONE: KeyModifiers = KeyModifiers::NONE;
 const CTRL: KeyModifiers = KeyModifiers::CONTROL;
 const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
 
+type Keys<'a> = &'a [(KeyCode, KeyModifiers)];
+
 fn screen(a: &mut App) -> String {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
@@ -394,7 +396,7 @@ fn every_way_out_of_a_note_returns_to_the_mode_it_was_opened_from() {
     let cut = (KeyCode::Char('x'), CTRL);
     let undo = (KeyCode::Char('z'), CTRL);
     let redo = (KeyCode::Char('y'), CTRL);
-    let reading: &[(&str, &[(KeyCode, KeyModifiers)], &str, usize)] = &[
+    let reading: &[(&str, Keys, &str, usize)] = &[
         ("esc", &[esc], "hi", 2),
         ("enter-esc", &[enter, esc], "hi", 2),
         ("down", &[down], "hi", 3),
@@ -412,7 +414,7 @@ fn every_way_out_of_a_note_returns_to_the_mode_it_was_opened_from() {
         assert_eq!((a.mode, a.line), (Mode::Normal, line), "a {text} {tag}");
         drop(std::fs::remove_dir_all(dir));
     }
-    let editing: &[(&str, &[(KeyCode, KeyModifiers)], usize)] = &[
+    let editing: &[(&str, Keys, usize)] = &[
         ("esc", &[esc], 2),
         ("down", &[down], 3),
         ("up", &[up], 2),
