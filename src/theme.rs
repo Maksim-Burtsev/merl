@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::or_fun_call, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::struct_excessive_bools, reason = "#858")]
@@ -585,7 +584,10 @@ fn wcag_contrast(a: Color, b: Color) -> f64 {
 }
 
 fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
-    let m = |f: u8, b: u8| ((u32::from(f) * percent + u32::from(b) * (100 - percent)) / 100) as u8;
+    let m = |f: u8, b: u8| {
+        u8::try_from((u32::from(f) * percent + u32::from(b) * (100 - percent)) / 100)
+            .unwrap_or(u8::MAX)
+    };
     SynColor {
         r: m(fg.r, bg.r),
         g: m(fg.g, bg.g),

@@ -1,4 +1,3 @@
-#![expect(clippy::cast_possible_truncation, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::struct_excessive_bools, reason = "#858")]
 use std::fmt;
@@ -25,7 +24,7 @@ impl Xorshift64 {
         self.0
     }
     fn below(&mut self, n: usize) -> usize {
-        (self.next() % n as u64) as usize
+        usize::try_from(self.next() % n as u64).unwrap()
     }
     fn pick<'a, T>(&mut self, of: &'a [T]) -> &'a T {
         &of[self.below(of.len())]
