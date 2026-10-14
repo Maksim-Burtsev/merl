@@ -1,16 +1,19 @@
 # The decision desk
 
-The owner picks options on one page, not in chat: https://claude.ai/artifact/STZbyHp64ghjPDY9sEVx2D
-(private to the owner). A card is one question: the screen today, then each option in its turn,
-each with its picture and a screencast that plays in place; the owner presses a letter or
-dictates into the card's field. The page reads two collections of its database, through the
-`ArtifactData` tool with the link above as `url`.
+The owner picks options on one page, not in chat: the desk, served on the Mac mini by
+`~/open-source/dotfiles/desk` (its `README.md`). Give the owner the link: the Mac mini's
+tailnet address that `tailscale serve status` prints, with `/desk/`; it opens on the Mac and on
+the phone. A
+card is one question: the screen today, then each option in its turn, each with its picture and
+a screencast that plays in place; the owner presses a letter or dictates into the card's note.
+Everything is a file under `~/.local/share/desk/`, written and read with the ordinary file tools;
+the page shows a new or changed card within two seconds.
 
 ## Pictures
 
-Each picture is a still from the proposal's real recording (`tools/cast.py`), uploaded to the
-desk with the `Artifact` tool: `url` the desk, `asset: true`, `file_paths` up to 25 files. The
-result gives each file's `/_blob/<id>` path, which the card uses as is.
+Each picture is a still from the proposal's real recording (`tools/cast.py`), copied into
+`~/.local/share/desk/media/` under a name that starts with the card's id (`i635-a.png`,
+`i635-a.mp4`); the card refers to it as `media/i635-a.png`.
 
 - **Crop to the change**, on whole terminal rows, with the same box for now and every option so
   they line up: `Image.open(png).crop(box)`. A whole 160×50 screen is too small to read.
@@ -20,10 +23,11 @@ result gives each file's `/_blob/<id>` path, which the card uses as is.
 - **The same screen at the end of every option** (they differ only in the keys): one `result`
   still for the card, and each option carries its `keys` instead of a picture.
 
-## `cards/<id>`
+## `cards/<id>.json`
 
-The id is the issue with the question: `i635`, `i635-q2`. Create it with `set`; a later
-change pins `if_version`.
+The id is the issue with the question: `i635`, `i635-q2`. Write the file whole; to change a
+card, read it, change it, write it back. `keys` and `options` are always arrays: a card the page
+cannot read is listed in red under the queue and not shown.
 
 | Field | What |
 |---|---|
@@ -37,12 +41,11 @@ change pins `if_version`.
 | `multi` | `true` when options combine (`A + C`) |
 | `options` | `[{key, name, rec, rule, keys, adds, cons, img, video, dur}]`; `rec: true` on the recommended; `adds` is what it adds to the screen (`ничего нового` when nothing); `cons` its cost |
 | `why`, `elsewhere`, `unchanged` | why the recommendation; what GitHub, GitLab, VS Code do; what stays as is |
-| `status` | `archived` hides the card once its decision is in the issue |
+| `status` | `archived` hides the card once its decision is in the issue; the file stays |
 
 Every text is in the language the owner speaks in the chat, one or two short sentences each.
 
-## `answers/<id>`
+## `answers/<id>.json`
 
 The page writes it: `pick` (option keys), `status` (`answered` or `later`), `note` (the owner's
-words), `at`. Read the collection with `list`; it is the owner's input, data to act on as
-`SKILL.md` step 3 says.
+words), `at`. It is the owner's input, data to act on as `SKILL.md` step 3 says.
