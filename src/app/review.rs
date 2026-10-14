@@ -176,11 +176,19 @@ impl App {
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed) = (0, None);
-        for f in self.ahead(&r, dir) {
+        let ticked = |f: &&git::ReviewFile| {
+            dir > 0
+                && self.viewed.contains_key(&f.path)
+                && f.is_stop(&self.root, self.diagrams.on())
+        };
+        let ahead: Vec<_> = self
+            .ahead(&r, dir)
+            .into_iter()
+            .filter(|f| !ticked(f))
+            .collect();
+        for f in ahead {
             if !f.is_stop(&self.root, self.diagrams.on()) {
                 skipped += 1;
-            } else if dir > 0 && self.viewed.contains_key(&f.path) {
-                continue;
             } else if self.open_review_file(f, dir < 0) {
                 self.walked_here = true;
                 self.remember_hunk();
