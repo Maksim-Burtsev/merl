@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 
 use super::{
@@ -8,19 +6,21 @@ use super::{
 };
 
 pub fn returns(kind: Kind, text: &str, decl_line1: usize) -> Option<Value> {
-    static PY_DEF: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").unwrap());
+    static PY_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:async\s+)?def\s+\w+\s*\(").expect("the regex is a literal")
+    });
     static TS_FUNCTION_CONST_OR_METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(
         || {
-            Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").unwrap()
+            Regex::new(r"^\s*(?:(?:export|default|declare|async)\s+)*(?:function\*?\s*[\w$]*|(?:const|let|var)\s+[\w$]+\s*(?::[^=]+)?=\s*(?:async\s+)?(?:function\*?\s*[\w$]*)?)\s*(?:<[^>]*>)?\s*\(|^\s*(?:(?:public|private|protected|static|override|abstract|async)\s+)*#?[\w$]+\??\s*(?:<[^>]*>)?\s*\(").expect("the regex is a literal")
         },
     );
-    static TS_RETURN: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>|;|$)").unwrap());
+    static TS_RETURN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*:\s*(.+?)\s*(?:\{|=>|;|$)").expect("the regex is a literal")
+    });
     static GO_FUNC_METHOD_OR_INTERFACE_METHOD: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| {
             Regex::new(r"^(?:func\s*(?:\([^)]*\)\s*)?|\s+)[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*\(")
-                .unwrap()
+                .expect("the regex is a literal")
         });
     let lines: Vec<&str> = text.lines().collect();
     let k = decl_line1.checked_sub(1).filter(|&i| i < lines.len())?;
@@ -201,7 +201,7 @@ pub(super) fn type_list(kind: Kind, s: &str) -> Vec<String> {
 }
 pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
     static TS_EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bextends\s+(.+?)\s*(?:\bimplements\b|\{|$)").unwrap()
+        Regex::new(r"\bextends\s+(.+?)\s*(?:\bimplements\b|\{|$)").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl_line1.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -237,8 +237,9 @@ pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
     }
 }
 pub fn interfaces(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
-    static TS_IMPLEMENTS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bimplements\s+(.+?)\s*(?:\{|$)").unwrap());
+    static TS_IMPLEMENTS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bimplements\s+(.+?)\s*(?:\{|$)").expect("the regex is a literal")
+    });
     if kind != Kind::TsJs {
         return Vec::new();
     }
@@ -277,7 +278,8 @@ pub fn owner_decl(kind: Kind, text: &str, member_line1: usize) -> Option<usize> 
 }
 pub fn type_name(kind: Kind, line: &str) -> Option<String> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\b(?:class|interface|type|enum)\s+([A-Za-z_$][\w$]*)").unwrap()
+        Regex::new(r"\b(?:class|interface|type|enum)\s+([A-Za-z_$][\w$]*)")
+            .expect("the regex is a literal")
     });
     declares_type(kind, line)
         .then(|| NAME.captures(line))
@@ -336,7 +338,7 @@ pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
         p.split_once(char::is_whitespace).map(|(_, t)| t.trim())
     }
     static PKG: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"\b\w+\.").expect("the regex is a literal"));
     let kind = Kind::Go;
     let lines: Vec<&str> = text.lines().collect();
     let k = line1.checked_sub(1).filter(|&k| k < lines.len())?;
@@ -386,7 +388,7 @@ pub fn declares_type(kind: Kind, line: &str) -> bool {
         Regex::new(
             r"^\s*(?:(?:export|default|declare|abstract)\s+)*(?:(?:class|interface|enum)\s|type\s+[\w$]+\s*[=<])",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     match kind {
         Kind::Python => line.trim_start().starts_with("class "),
@@ -396,14 +398,15 @@ pub fn declares_type(kind: Kind, line: &str) -> bool {
     }
 }
 pub fn go_alias(kind: Kind, line: &str) -> Option<&str> {
-    static ALIAS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^type\s+[A-Za-z_]\w*\s*=\s*([^/]+)").unwrap());
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^type\s+[A-Za-z_]\w*\s*=\s*([^/]+)").expect("the regex is a literal")
+    });
     let named = ALIAS.captures(line).filter(|_| kind == Kind::Go)?;
     Some(named.get(1)?.as_str().trim())
 }
 pub fn type_path(kind: Kind, written: &str) -> Option<Vec<String>> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$").unwrap()
+        Regex::new(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$").expect("the regex is a literal")
     });
     let mut t = written.trim().trim_end_matches([';', ',']).trim();
     if kind == Kind::Python {
@@ -433,8 +436,11 @@ pub fn type_path(kind: Kind, written: &str) -> Option<Vec<String>> {
     } else {
         ('[', ']')
     };
-    if let Some(i) = t.find(open).filter(|_| t.ends_with(close)) {
-        t = t[..i].trim_end();
+    if let Some(head) = (t.find(open))
+        .filter(|_| t.ends_with(close))
+        .and_then(|i| t.get(..i))
+    {
+        t = head.trim_end();
     }
     NAME.is_match(t)
         .then(|| t.split('.').map(str::to_owned).collect())
@@ -447,8 +453,8 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
         close: char,
     ) -> Option<(&str, Vec<&str>)> {
         let i = t.find(open).filter(|_| t.ends_with(close))?;
-        let head = t[..i].trim_end();
-        let args = split_top(kind, &t[i + 1..t.len() - 1], b',');
+        let head = t.get(..i)?.trim_end();
+        let args = split_top(kind, t.get(i + 1..t.len() - 1)?, b',');
         Some((head.rsplit('.').next().unwrap_or(head), args))
     }
     let t = written.trim().trim_end_matches([';', ',']).trim();
@@ -485,7 +491,7 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
         Kind::Go => {
             let rest = t.strip_prefix("map").unwrap_or(t);
             let close = close_of(kind, rest, 0).filter(|_| rest.starts_with('['))?;
-            &rest[close..]
+            rest.get(close..)?
         }
         _ => return None,
     };

@@ -1,7 +1,4 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -258,7 +255,10 @@ fn tokens(code: &str) -> Vec<(Tok<'_>, usize)> {
             b'(' | b'[' | b'{' => out.push((Tok::Open(c), i)),
             b')' | b']' | b'}' => out.push((Tok::Close, i)),
             b'"' => {
-                let end = code[i + 1..].find('"').map_or(b.len(), |n| i + n + 1);
+                let end = b[i + 1..]
+                    .iter()
+                    .position(|&c| c == b'"')
+                    .map_or(b.len(), |n| i + n + 1);
                 out.push((Tok::Atom("\"\""), i));
                 i = end;
             }
@@ -268,7 +268,7 @@ fn tokens(code: &str) -> Vec<(Tok<'_>, usize)> {
                     .iter()
                     .position(|&c| delimiter(c))
                     .map_or(b.len(), |n| i + n);
-                out.push((Tok::Atom(&code[i..end]), i));
+                out.extend(code.get(i..end).map(|a| (Tok::Atom(a), i)));
                 i = end;
                 continue;
             }
@@ -406,7 +406,10 @@ pub(super) fn lisp_bindings(
     let mut scopes: Vec<(usize, Option<usize>)> = Vec::new();
     let mut found: Vec<(usize, usize, usize)> = Vec::new();
     let mut stack: Vec<Frame> = Vec::new();
-    for (tok, pos) in tokens(&code[starts[top]..]) {
+    let Some(from_top) = code.get(starts[top]..) else {
+        return Vec::new();
+    };
+    for (tok, pos) in tokens(from_top) {
         let pos = pos + starts[top];
         if pos > line_end {
             break;
@@ -718,12 +721,14 @@ pub fn clojure_ns_files(ns: &str, files: &[PathBuf]) -> Vec<PathBuf> {
 
 pub fn lisp_require(kind: Kind, line: &str, col: usize) -> Option<String> {
     static ELISP: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\(require\s+'([^\s()]+)").unwrap());
+        LazyLock::new(|| Regex::new(r"\(require\s+'([^\s()]+)").expect("the regex is a literal"));
     static RACKET: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"(?:\(require|^)\s+(?:[^"]*?\s)?("[^"]+"|[\w\-]+(?:/[\w\-]+)+)"#).unwrap()
+        Regex::new(r#"(?:\(require|^)\s+(?:[^"]*?\s)?("[^"]+"|[\w\-]+(?:/[\w\-]+)+)"#)
+            .expect("the regex is a literal")
     });
-    static CLOJURE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"'?\[([\w\-]+(?:\.[\w\-]+)+)(?:\s|\])").unwrap());
+    static CLOJURE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"'?\[([\w\-]+(?:\.[\w\-]+)+)(?:\s|\])").expect("the regex is a literal")
+    });
     let (re, required) = match kind {
         Kind::EmacsLisp => (&*ELISP, true),
         Kind::Scheme => (&*RACKET, line.contains("(require")),
@@ -785,7 +790,10 @@ pub fn scheme_foreign_branch(
     else {
         return false;
     };
-    let at = at + text[at..].len() - text[at..].trim_start().len();
+    let Some(rest) = text.get(at..) else {
+        return false;
+    };
+    let at = at + rest.len() - rest.trim_start().len();
     let mut stack: Vec<Open> = Vec::new();
     let mut expands = 0;
     let mut branches: Vec<(usize, Range<usize>, bool)> = Vec::new();
@@ -822,8 +830,8 @@ pub fn scheme_foreign_branch(
                 f.idx += 1;
                 if include
                     && a == "\"\""
-                    && let Some(end) = text[pos + 1..].find('"')
-                    && includes_here(&text[pos + 1..pos + 1 + end])
+                    && let Some((inside, _)) = text.get(pos + 1..).and_then(|t| t.split_once('"'))
+                    && includes_here(inside)
                     && let Some(b) = stack.iter_mut().rev().find(|o| o.branch_of.is_some())
                 {
                     b.here = true;

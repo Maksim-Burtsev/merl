@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -141,10 +139,10 @@ pub fn starlark_repo_line(text: &str, name: &str) -> Option<usize> {
 
 pub fn starlark_project_names(text: &str) -> Vec<String> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^(?:module|workspace)\s*\(([^)]*)\)").unwrap()
+        Regex::new(r"(?m)^(?:module|workspace)\s*\(([^)]*)\)").expect("the regex is a literal")
     });
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"\b(?:repo_)?name\s*=\s*["']([^"']+)["']"#).unwrap()
+        Regex::new(r#"\b(?:repo_)?name\s*=\s*["']([^"']+)["']"#).expect("the regex is a literal")
     });
     CALL.captures_iter(text)
         .flat_map(|c| {
@@ -213,7 +211,7 @@ fn load_tokens(text: &str, mut i: usize) -> Vec<Tok> {
 
 pub fn starlark_loads(text: &str) -> Vec<StarlarkLoad> {
     static LOAD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^load\s*\(").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^load\s*\(").expect("the regex is a literal"));
     let literal = literal_lines(Kind::Starlark, text);
     let mut starts = Vec::new();
     let mut at = 0;
@@ -227,7 +225,9 @@ pub fn starlark_loads(text: &str) -> Vec<StarlarkLoad> {
     };
     let mut out = Vec::new();
     for (i, &s) in starts.iter().enumerate() {
-        let line = &text[s..text[s..].find('\n').map_or(text.len(), |e| s + e)];
+        let Some(line) = text.get(s..).and_then(|t| t.split('\n').next()) else {
+            continue;
+        };
         let Some(m) = LOAD
             .find(line)
             .filter(|_| !literal.get(i).copied().unwrap_or(false))
@@ -239,8 +239,11 @@ pub fn starlark_loads(text: &str) -> Vec<StarlarkLoad> {
         let Some(Tok::Str(label)) = toks.next() else {
             continue;
         };
+        let Some(written) = text.get(label.clone()) else {
+            continue;
+        };
         let mut load = StarlarkLoad {
-            label: text[label.clone()].to_owned(),
+            label: written.to_owned(),
             names: Vec::new(),
             name_strings: Vec::new(),
             lines: i..=place(label.start).0,
@@ -248,9 +251,11 @@ pub fn starlark_loads(text: &str) -> Vec<StarlarkLoad> {
         let mut local = None;
         for t in toks {
             match t {
-                Tok::Name(r) => local = Some(text[r.clone()].to_owned()),
+                Tok::Name(r) => local = text.get(r.clone()).map(str::to_owned),
                 Tok::Str(r) => {
-                    let name = text[r.clone()].to_owned();
+                    let Some(name) = text.get(r.clone()).map(str::to_owned) else {
+                        continue;
+                    };
                     load.names
                         .push((local.take().unwrap_or_else(|| name.clone()), name));
                     load.name_strings.push(place(r.start));

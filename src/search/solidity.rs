@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -52,8 +50,9 @@ pub(super) const SOLIDITY_SYMBOL: &str =
     r"^\s*(?:(?:abstract\s+)?contract|library|modifier|event|error)\s+(?P<name>[A-Za-z_$][\w$]*)";
 
 pub fn solidity_declares<S: AsRef<str>>(lines: &[S], line: usize, line_text: &str) -> bool {
-    static BARE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s+[A-Za-z_$][\w$]*\s*,?\s*(?://.*)?$").unwrap());
+    static BARE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s+[A-Za-z_$][\w$]*\s*,?\s*(?://.*)?$").expect("the regex is a literal")
+    });
     let first = line_text.split_whitespace().next().unwrap_or_default();
     !STATEMENTS.contains(&first)
         && (!BARE.is_match(line_text) || directly_inside(lines, line, "enum "))
@@ -70,7 +69,7 @@ pub fn solidity_imports(text: &str) -> Vec<SolidityImport> {
         Regex::new(&format!(
             r#"(?m)^\s*import\s*(?:\{{([^}}]*)\}}\s*from\s*|\*\s*as\s+({NAME})\s+from\s*)?["']([^"']+)["'](?:\s*as\s+({NAME}))?\s*;"#
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let mut out = Vec::new();
     for c in IMPORT.captures_iter(text) {
@@ -100,8 +99,9 @@ pub fn solidity_imports(text: &str) -> Vec<SolidityImport> {
 }
 
 pub fn solidity_import_path(line: &str, col: usize) -> Option<String> {
-    static IMPORT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#"^\s*import\b[^"']*["']([^"']+)["']"#).unwrap());
+    static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"^\s*import\b[^"']*["']([^"']+)["']"#).expect("the regex is a literal")
+    });
     let path = IMPORT.captures(line)?.get(1)?;
     (path.start() <= col + 1 && col <= path.end()).then(|| path.as_str().to_owned())
 }
@@ -121,7 +121,10 @@ pub fn solidity_file(root: &Path, files: &[PathBuf], here: &Path, path: &str) ->
         .into_iter()
         .filter(|(from, _)| path.starts_with(from.as_str()))
         .max_by_key(|(from, _)| from.len())
-        .map(|(from, to)| PathBuf::from(format!("{to}{}", &path[from.len()..])));
+        .and_then(|(from, to)| {
+            path.strip_prefix(from.as_str())
+                .map(|rest| PathBuf::from(format!("{to}{rest}")))
+        });
     let dir = root.join(here.parent().unwrap_or_else(|| Path::new("")));
     remapped
         .into_iter()
@@ -131,9 +134,11 @@ pub fn solidity_file(root: &Path, files: &[PathBuf], here: &Path, path: &str) ->
 }
 
 fn solidity_remappings(root: &Path) -> Vec<(String, String)> {
-    static LIST: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?s)\bremappings\s*=\s*\[(.*?)\]").unwrap());
-    static ENTRY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"["']([^"']+)["']"#).unwrap());
+    static LIST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?s)\bremappings\s*=\s*\[(.*?)\]").expect("the regex is a literal")
+    });
+    static ENTRY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r#"["']([^"']+)["']"#).expect("the regex is a literal"));
     let read = |name: &str| std::fs::read_to_string(root.join(name)).unwrap_or_default();
     let toml = read("foundry.toml");
     let listed: Vec<String> = LIST
@@ -178,7 +183,9 @@ fn solidity_params(head: &str) -> Vec<std::ops::Range<usize>> {
             }
             ')' if depth > 0 => {
                 depth -= 1;
-                let returns = head[..open - 1].trim_end().ends_with("returns");
+                let returns = head
+                    .get(..open - 1)
+                    .is_some_and(|h| h.trim_end().ends_with("returns"));
                 if depth == 0 && (lists.is_empty() || returns) {
                     lists.push(open..i);
                 }
@@ -210,7 +217,7 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
         let head = span.join("\n");
         let at = solidity_params(&head).into_iter().find_map(|list| {
             let mut from = list.start;
-            head[list].split(',').find_map(|item| {
+            head.get(list)?.split(',').find_map(|item| {
                 let start = from;
                 from += item.len() + 1;
                 let last = item.trim_end().rsplit(char::is_whitespace).next()?;
@@ -218,7 +225,7 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
                     .then(|| start + item.trim_end().len() - last.len())
             })
         })?;
-        Some(i + head[..at].matches('\n').count())
+        Some(i + head.get(..at)?.matches('\n').count())
     };
     let own = lines[at].trim();
     if solidity_head(own) {

@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
 
@@ -20,16 +18,17 @@ fn options() -> Options {
 fn fenced_code_html_comment_or_front_matter(text: &str, ev: &Event, r: &Range<usize>) -> bool {
     match ev {
         Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(_)) | Tag::MetadataBlock(_)) => true,
-        Event::Start(Tag::HtmlBlock) | Event::InlineHtml(_) | Event::Html(_) => {
-            text[r.clone()].trim_start().starts_with("<!--")
-        }
+        Event::Start(Tag::HtmlBlock) | Event::InlineHtml(_) | Event::Html(_) => text
+            .get(r.clone())
+            .is_some_and(|t| t.trim_start().starts_with("<!--")),
         _ => false,
     }
 }
 
 pub fn markdown_at(text: &str, at: usize) -> MdAt {
     static HREF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#).unwrap()
+        Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#)
+            .expect("the regex is a literal")
     });
     let parser = Parser::new_ext(text, options());
     #[expect(
@@ -81,6 +80,10 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
 
 pub(super) fn markdown_literal_lines(text: &str) -> Vec<bool> {
     let mut out = vec![false; text.split('\n').count()];
+    #[expect(
+        clippy::string_slice,
+        reason = "pulldown-cmark's offsets fall on character boundaries"
+    )]
     let line = |at: usize| text[..at].matches('\n').count();
     for (ev, r) in Parser::new_ext(text, options()).into_offset_iter() {
         if !r.is_empty() && fenced_code_html_comment_or_front_matter(text, &ev, &r) {
@@ -101,9 +104,14 @@ pub fn github_anchor(heading: &str) -> String {
 
 pub fn anchor_line1(text: &str, anchor: &str) -> Option<usize> {
     static ID: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?i)<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']"#).unwrap()
+        Regex::new(r#"(?i)<a\s[^>]*?\b(?:id|name)\s*=\s*["']([^"']+)["']"#)
+            .expect("the regex is a literal")
     });
     let anchor = anchor.to_lowercase();
+    #[expect(
+        clippy::string_slice,
+        reason = "pulldown-cmark's offsets fall on character boundaries"
+    )]
     let line = |at: usize| text[..at].matches('\n').count() + 1;
     let mut seen: HashMap<String, usize> = HashMap::new();
     let mut heading: Option<(usize, String)> = None;
@@ -141,7 +149,7 @@ pub fn anchor_line1(text: &str, anchor: &str) -> Option<usize> {
     }
     ID.captures_iter(text)
         .find(|c| c[1].to_lowercase() == anchor)
-        .map(|c| line(c.get(0).unwrap().start()))
+        .map(|c| line(c.get_match().start()))
 }
 
 pub fn percent_decoded(s: &str) -> String {

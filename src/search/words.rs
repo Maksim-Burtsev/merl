@@ -1,6 +1,4 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
@@ -15,42 +13,49 @@ use super::{
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
     static RECEIVER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"^func\s+\(\s*(?:\w+\s+)?\*?\s*([A-Za-z_]\w*)").expect("the regex is a literal")
     });
     static FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"^func\s+(?:\([^)]*\)\s*)?([A-Za-z_]\w*)").expect("the regex is a literal")
     });
-    static GO_TYPE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^type\s+([A-Za-z_]\w*)").unwrap());
+    static GO_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^type\s+([A-Za-z_]\w*)").expect("the regex is a literal")
+    });
     static GO_STRUCT_WRITTEN_IN_PLACE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| {
-            Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").unwrap()
+            Regex::new(r"(?:\]|=|\(|,)\s*struct\s*\{\s*(?://.*)?$").expect("the regex is a literal")
         });
     static RUST_FN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+([A-Za-z_]\w*)"#).unwrap()
+        Regex::new(r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*fn\s+([A-Za-z_]\w*)"#).expect("the regex is a literal")
     });
-    static PY_DEF: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)").unwrap());
+    static PY_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)").expect("the regex is a literal")
+    });
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").unwrap()
+        Regex::new(r"^\s*(?:unsafe\s+)?impl\b(?:\s*<[^{]*?>)?\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?&?(?:\w+::)*([A-Za-z_]\w*)").expect("the regex is a literal")
     });
     static EX_MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)").unwrap()
+        Regex::new(r"^\s*def(?:module|protocol)\s+([A-Z](?:[\w.]*\w)?)")
+            .expect("the regex is a literal")
     });
     static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)").unwrap()
+        Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)")
+            .expect("the regex is a literal")
     });
     static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)").unwrap()
+        Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)")
+            .expect("the regex is a literal")
     });
     static COMPANION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)")).unwrap()
+        Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)"))
+            .expect("the regex is a literal")
     });
     static COLUMN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^\s*t\.\w+\s*\(?\s*(?:"(\w+)"|:(\w+))"#).unwrap()
+        Regex::new(r#"^\s*t\.\w+\s*\(?\s*(?:"(\w+)"|:(\w+))"#).expect("the regex is a literal")
     });
     static TABLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^\s*create_table\s*\(?\s*(?:"(\w+)"|:(\w+))"#).unwrap()
+        Regex::new(r#"^\s*create_table\s*\(?\s*(?:"(\w+)"|:(\w+))"#)
+            .expect("the regex is a literal")
     });
     if !nests(Some(kind)) {
         return None;
@@ -214,7 +219,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
 pub fn elixir_unalias(text: &str, line: usize, mut chain: Vec<String>) -> Vec<String> {
     static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*alias\s+([A-Z](?:[\w.]*\w)?)(?:\.\{([^}]*)\}|\s*,\s*as:\s*([A-Z]\w*))?")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let Some(first) = chain.first().cloned() else {
         return chain;
@@ -250,7 +255,7 @@ pub fn elixir_unalias(text: &str, line: usize, mut chain: Vec<String>) -> Vec<St
 fn ruby_namespace(line: &str) -> Vec<String> {
     static SPELLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:class|module)\s+(?:::)?((?:\w+::)+)\w|def\s+([A-Z]\w*)\.\w)")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let Some(c) = SPELLED.captures(line) else {
         return Vec::new();
@@ -273,7 +278,9 @@ fn cpp_namespace(line: &str, name: &str) -> Vec<String> {
     let Some(c) = spelled.captures(line) else {
         return Vec::new();
     };
-    let rest = &line[c.get(0).map_or(0, |m| m.end())..];
+    let Some(rest) = line.get(c.get_match().end()..) else {
+        return Vec::new();
+    };
     let rest = rest.split('(').next().unwrap_or(rest);
     let again = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
@@ -365,7 +372,7 @@ pub fn enclosing_declarations(kind: Option<Kind>, lines: &[String], line: usize)
 }
 fn field_like(kind: Kind, t: &str, name: &str) -> bool {
     static MODIFIED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+([\w$]+)").unwrap()
+        Regex::new(r"^(?:@[\w$.]+(?:\([^)]*\))?\s*)*(?:(?:public|private|protected|readonly|override)\s+)+([\w$]+)").expect("the regex is a literal")
     });
     match kind {
         Kind::Python => in_method(t, name),
@@ -377,8 +384,14 @@ pub(super) fn in_method(t: &str, name: &str) -> bool {
     let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
     ["self.", "this."].iter().any(|p| {
         let at = format!("{p}{name}");
-        t.match_indices(&at)
-            .any(|(i, m)| !t[..i].ends_with(ident) && !t[i + m.len()..].starts_with(ident))
+        t.match_indices(&at).any(|(i, m)| {
+            t.split_at_checked(i).is_some_and(|(before, rest)| {
+                !before.ends_with(ident)
+                    && rest
+                        .strip_prefix(m)
+                        .is_some_and(|after| !after.starts_with(ident))
+            })
+        })
     })
 }
 fn name_start(s: &str, is_name: impl Fn(char) -> bool) -> usize {
@@ -388,7 +401,9 @@ fn name_start(s: &str, is_name: impl Fn(char) -> bool) -> usize {
         .map_or(0, |(i, c)| i + c.len_utf8())
 }
 pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
-    let mut before = &line[..word_start];
+    let Some(mut before) = line.get(..word_start) else {
+        return Vec::new();
+    };
     let mut chain = Vec::new();
     while let Some(rest) = before
         .strip_suffix("::")
@@ -405,11 +420,14 @@ pub fn qualifier(line: &str, word_start: usize) -> Vec<String> {
         if start == rest.len() {
             break;
         }
-        if rest[..start].ends_with(".#") {
+        if rest.get(..start).is_some_and(|head| head.ends_with(".#")) {
             start -= 1;
         }
-        chain.insert(0, rest[start..].to_owned());
-        before = &rest[..start];
+        let Some((head, name)) = rest.split_at_checked(start) else {
+            break;
+        };
+        chain.insert(0, name.to_owned());
+        before = head;
     }
     let hangs_off_an_expression = before.ends_with('.') && !before.ends_with("..");
     if hangs_off_an_expression {
@@ -458,12 +476,16 @@ pub struct LineAsRead {
     pub word_start: usize,
 }
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
-    let before = match kind {
-        Kind::TsJs | Kind::Swift => line[..start].replace("?.", ".").replace("!.", "."),
-        Kind::Php => line[..start]
-            .replace('.', " ")
-            .replace("?->", ".")
-            .replace("->", "."),
+    let (before, after) = match (kind, line.split_at_checked(start)) {
+        (Kind::TsJs | Kind::Swift, Some((head, tail))) => {
+            (head.replace("?.", ".").replace("!.", "."), tail)
+        }
+        (Kind::Php, Some((head, tail))) => (
+            head.replace('.', " ")
+                .replace("?->", ".")
+                .replace("->", "."),
+            tail,
+        ),
         _ => {
             return LineAsRead {
                 line: line.to_owned(),
@@ -472,37 +494,38 @@ pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
         }
     };
     LineAsRead {
-        line: format!("{before}{}", &line[start..]),
+        line: format!("{before}{after}"),
         word_start: before.len(),
     }
 }
 pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> {
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
-    let mut before = line[..word_start].strip_suffix('.')?;
+    let mut before = line.get(..word_start)?.strip_suffix('.')?;
     let mut fields = Vec::new();
     while !before.ends_with(')') {
         let start = name_start(before, is_name);
         if start == before.len() {
             return None;
         }
-        fields.insert(0, before[start..].to_owned());
-        before = before[..start].strip_suffix('.')?;
+        let (head, field) = before.split_at_checked(start)?;
+        fields.insert(0, field.to_owned());
+        before = head.strip_suffix('.')?;
     }
     let paren_this_closes = code(kind, before)
         .filter(|(_, c)| *c == b'(')
         .map(|(i, _)| i)
         .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
-    let mut start = name_start(&before[..paren_this_closes], |c| is_name(c) || c == '.');
-    let callee = &before[start..paren_this_closes];
+    let mut start = name_start(before.get(..paren_this_closes)?, |c| is_name(c) || c == '.');
+    let callee = before.get(start..paren_this_closes)?;
     if kind == Kind::TsJs
-        && let Some(rest) = before[..start].trim_end().strip_suffix("new")
+        && let Some(rest) = (before.get(..start)).and_then(|h| h.trim_end().strip_suffix("new"))
         && !rest.ends_with(is_name)
     {
         start = rest.len();
     }
-    let written = &before[start..];
+    let written = before.get(start..)?;
     let without_cast_brackets = if callee.is_empty() {
-        &written[1..written.len() - 1]
+        written.get(1..written.len() - 1)?
     } else {
         written
     };
@@ -531,7 +554,7 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     if kind == Some(Kind::R)
         && let Some(r) = r_quoted_name(line, col)
     {
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     let sigil_of_the_word_behind = |i: usize| match kind {
         Some(Kind::TsJs) => line.as_bytes().get(i) == Some(&b'#'),
@@ -541,14 +564,15 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     let past_sigil = col + usize::from(sigil_of_the_word_behind(col));
     let (range, _) = word_at(line, past_sigil, extra)?;
     let stands_where_a_private_name_can = |i: usize| {
-        let before = line[..i].trim_end();
-        before.ends_with('.')
-            || before.split_whitespace().all(|w| {
-                matches!(
-                    w,
-                    "static" | "readonly" | "async" | "get" | "set" | "accessor" | "declare"
-                )
-            })
+        line.get(..i).map(str::trim_end).is_some_and(|before| {
+            before.ends_with('.')
+                || before.split_whitespace().all(|w| {
+                    matches!(
+                        w,
+                        "static" | "readonly" | "async" | "get" | "set" | "accessor" | "declare"
+                    )
+                })
+        })
     };
     let start = match range
         .start
@@ -560,41 +584,42 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     };
     if kind == Some(Kind::Dart) {
         let r = dart_name(line, range);
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     if kind == Some(Kind::Cmake) {
         let r = cmake_name(line, range);
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     if kind == Some(Kind::Nix) {
         let r = nix_name(line, range);
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     if kind == Some(Kind::Haskell) {
         let r = haskell_name(line, range);
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     if matches!(kind, Some(Kind::Ocaml | Kind::Fsharp)) {
         let r = ml_name(line, range, col);
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     if kind == Some(Kind::Julia) {
         let r = julia_name(line, start..range.end);
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     if kind == Some(Kind::R) {
-        let start = line[..range.start].trim_end_matches('.').len();
-        return Some((start..range.end, &line[start..range.end]));
+        let start = line.get(..range.start)?.trim_end_matches('.').len();
+        return line.get(start..range.end).map(|w| (start..range.end, w));
     }
     if let Some(k) = kind.filter(|&k| lisp(k)) {
         let r = lisp_name(k, line, range);
-        return Some((r.clone(), &line[r]));
+        return line.get(r.clone()).map(|w| (r, w));
     }
     let mut end = range.end;
     let rest = &line.as_bytes()[end..];
     let suffixed = match kind {
         Some(Kind::Ruby) => {
-            !matches!(rest.get(1), Some(b'=' | b'~')) && !line[..start].ends_with(['@', '$'])
+            !matches!(rest.get(1), Some(b'=' | b'~'))
+                && line.get(..start).is_some_and(|b| !b.ends_with(['@', '$']))
         }
         Some(Kind::Elixir) => rest.get(1) != Some(&b'='),
         _ => false,
@@ -602,7 +627,7 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
     if suffixed && matches!(rest.first(), Some(b'?' | b'!')) {
         end += 1;
     }
-    Some((start..end, &line[start..end]))
+    line.get(start..end).map(|w| (start..end, w))
 }
 pub fn dart_name(line: &str, r: Range<usize>) -> Range<usize> {
     let b = line.as_bytes();
@@ -633,10 +658,11 @@ pub fn ruby_singleton(text: &str, line1: usize) -> bool {
         Regex::new(
             r"^\s*(?:def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:|(?:[mc]attr_\w+|config_accessor)\s)",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     static MODULE_WIDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:extend\s+self|module_function)\s*(?:#|$)").unwrap()
+        Regex::new(r"^\s*(?:extend\s+self|module_function)\s*(?:#|$)")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(t) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
@@ -700,7 +726,9 @@ pub fn word_at<'a>(line: &'a str, byte_col: usize, extra: &str) -> Option<(Range
     while end > start && extra.contains(b[end - 1] as char) {
         end -= 1;
     }
-    (start < end).then(|| (start..end, &line[start..end]))
+    line.get(start..end)
+        .filter(|_| start < end)
+        .map(|w| (start..end, w))
 }
 pub fn binds_at(kind: Kind, line: &str, start: usize, word: &str) -> bool {
     match kind {

@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -62,13 +60,14 @@ fn owner<S: AsRef<str>>(lines: &[S], i: usize) -> Option<usize> {
 
 fn has_word(s: &str, name: &str) -> bool {
     s.match_indices(name).any(|(i, _)| {
-        s[..i].matches('"').count().is_multiple_of(2)
-            && !s[..i].bytes().next_back().is_some_and(hs_name_byte)
-            && !s
-                .as_bytes()
-                .get(i + name.len())
-                .copied()
-                .is_some_and(hs_name_byte)
+        s.get(..i).is_some_and(|before| {
+            before.matches('"').count().is_multiple_of(2)
+                && !before.bytes().next_back().is_some_and(hs_name_byte)
+        }) && !s
+            .as_bytes()
+            .get(i + name.len())
+            .copied()
+            .is_some_and(hs_name_byte)
     })
 }
 
@@ -78,7 +77,10 @@ fn starts_with_name(t: &str, name: &str) -> bool {
 }
 
 pub fn haskell_name(line: &str, r: Range<usize>) -> Range<usize> {
-    if line[..r.start].ends_with('\'') {
+    if line
+        .get(..r.start)
+        .is_none_or(|before| before.ends_with('\''))
+    {
         return r;
     }
     let primes = line.as_bytes()[r.end..]
@@ -112,8 +114,9 @@ pub fn haskell_patterns(word: &str) -> Vec<String> {
 }
 
 fn signed_names(lines: &[String], j: usize) -> Vec<&str> {
-    static SIGNATURE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^((?:[a-z_][\w']*\s*,\s*)*[a-z_][\w']*)\s*::").unwrap());
+    static SIGNATURE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^((?:[a-z_][\w']*\s*,\s*)*[a-z_][\w']*)\s*::").expect("the regex is a literal")
+    });
     let l = &lines[j];
     if let Some(c) = SIGNATURE.captures(l) {
         let names = c.get(1).map_or("", |m| m.as_str());
@@ -138,8 +141,8 @@ fn uncommented(l: &str) -> &str {
         match b[i] {
             b'"' if !(i > 0 && b[i - 1] == b'\\') => string = !string,
             _ if string => {}
-            b'{' if b.get(i + 1) == Some(&b'-') => return &l[..i],
-            b'-' if line_comment(b, i) => return &l[..i],
+            b'{' if b.get(i + 1) == Some(&b'-') => return l.get(..i).unwrap_or(l),
+            b'-' if line_comment(b, i) => return l.get(..i).unwrap_or(l),
             _ => {}
         }
     }
@@ -227,7 +230,7 @@ impl HaskellCode {
                 let t = l.trim_start();
                 !(t.starts_with(['=', '|'])
                     && t.find(word)
-                        .map(|at| &t[at + word.len()..])
+                        .and_then(|at| t.get(at + word.len()..))
                         .is_some_and(|rest| rest.contains('=') || rest.contains("<-")))
             }
             "class" => directly_inside(lines, line, "class"),
@@ -270,11 +273,11 @@ fn equation(t: &str) -> Option<(&str, &str, bool)> {
         Regex::new(&format!(
             r"^(?P<name>[a-z_][\w']*)(?P<args>{ARGS}){EQUATION_END}"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let c = EQ.captures(t)?;
     let args = c.name("args")?;
-    let open = t[args.end()..].trim().is_empty();
+    let open = t.get(args.end()..)?.trim().is_empty();
     Some((c.name("name")?.as_str(), args.as_str(), open))
 }
 
@@ -307,11 +310,11 @@ fn covers(lines: &[&str], j: usize, at: usize) -> bool {
 }
 
 fn arrow_pattern(t: &str) -> Option<&str> {
-    let lhs = &t[..t.find("->")?];
+    let (lhs, _) = t.split_once("->")?;
     let lhs = match (lhs.rfind('\\'), lhs.rfind(" of ")) {
-        (Some(a), Some(b)) if a > b => &lhs[a + 1..],
-        (_, Some(b)) => &lhs[b + 4..],
-        (Some(a), None) => &lhs[a + 1..],
+        (Some(a), Some(b)) if a > b => lhs.get(a + 1..)?,
+        (_, Some(b)) => lhs.get(b + 4..)?,
+        (Some(a), None) => lhs.get(a + 1..)?,
         (None, None) => lhs,
     };
     let refused = ["=", "::", "\"", "<-", "|"].iter().any(|s| lhs.contains(s));
@@ -359,8 +362,8 @@ pub(super) fn haskell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bin
         let named = eq.is_some_and(|(n, _)| n == name && !method);
         let parameter = eq.is_some_and(|(_, args)| bound(args)) && covers(lines, j, at);
         let drawn = t
-            .find("<-")
-            .map(|p| &t[..p])
+            .split_once("<-")
+            .map(|(lhs, _)| lhs)
             .is_some_and(|lhs| j <= at && !lhs.contains(['=', '"', '|', '[']) && bound(lhs));
         let alternative = arrow_pattern(t).is_some_and(bound) && covers(lines, j, at);
         if named || parameter || drawn || alternative {
@@ -424,7 +427,7 @@ pub fn haskell_imports(text: &str) -> Vec<HaskellImport> {
 }
 
 fn parse_import(l: &str) -> Option<HaskellImport> {
-    let head = l.find('(').map_or(l, |p| &l[..p]);
+    let head = l.split_once('(').map_or(l, |(head, _)| head);
     let mut words = head.split_whitespace().skip(1).filter(|w| {
         !matches!(*w, "safe" | "qualified" | "{-#" | "SOURCE" | "#-}") && !w.starts_with('"')
     });
@@ -440,11 +443,11 @@ fn parse_import(l: &str) -> Option<HaskellImport> {
         }
     }
     let mut names = Vec::new();
-    if let (false, Some(open)) = (hiding, l.find('(')) {
+    if let (false, Some((_, inside))) = (hiding, l.split_once('(')) {
         let mut depth = 0;
         let mut item = String::new();
         let mut items = Vec::new();
-        for c in l[open + 1..].chars() {
+        for c in inside.chars() {
             match c {
                 '(' => depth += 1,
                 ')' if depth == 0 => break,
@@ -484,7 +487,7 @@ fn parse_import(l: &str) -> Option<HaskellImport> {
 
 pub fn haskell_import_module(line: &str, col: usize) -> Option<String> {
     static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"^import\s+(?:safe\s+)?(?:\{-#\s*SOURCE\s*#-\}\s+)?(?:qualified\s+)?(?:"[^"]*"\s+)?([A-Z][\w'.]*)"#).unwrap()
+        Regex::new(r#"^import\s+(?:safe\s+)?(?:\{-#\s*SOURCE\s*#-\}\s+)?(?:qualified\s+)?(?:"[^"]*"\s+)?([A-Z][\w'.]*)"#).expect("the regex is a literal")
     });
     let m = IMPORT.captures(line)?.get(1)?;
     (m.start() <= col && col < m.end()).then(|| m.as_str().to_owned())

@@ -1,6 +1,4 @@
-#![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::{
     ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
@@ -332,7 +330,11 @@ pub fn narrow_patterns(
 ) {
     match kind {
         Kind::Php => php_namespace_patterns(p, php_block(text, row), line, r),
-        Kind::PowerShell => powershell_sigil(p, &line[..r.start], &line[r.end..]),
+        Kind::PowerShell => {
+            if let (Some(before), Some(after)) = (line.get(..r.start), line.get(r.end..)) {
+                powershell_sigil(p, before, after);
+            }
+        }
         Kind::Dart => dart_narrow(p, line, r),
         Kind::Julia => julia_narrow(p, line, r),
         _ => {}
@@ -409,7 +411,8 @@ pub fn c_type_rows(
 }
 fn in_class_body(text: &str, line1: usize) -> bool {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:template\s*<.*>\s*)?(?:class|struct|union)\b[^;]*$").unwrap()
+        Regex::new(r"^\s*(?:template\s*<.*>\s*)?(?:class|struct|union)\b[^;]*$")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(depth) = line1
@@ -440,12 +443,15 @@ pub fn c_file_local(
     text_of: impl Fn(&Path) -> Option<String>,
     cursor_on_candidate: bool,
 ) -> Vec<Hit> {
-    static INCLUDE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r#"^\s*#\s*include\s*"([^"]+)""#).unwrap());
-    static STATIC: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?:inline\s+)?static\b").unwrap());
-    static DEFINE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*#\s*define\b").unwrap());
+    static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*#\s*include\s*"([^"]+)""#).expect("the regex is a literal")
+    });
+    static STATIC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:inline\s+)?static\b").expect("the regex is a literal")
+    });
+    static DEFINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*#\s*define\b").expect("the regex is a literal")
+    });
     let (w, macros) = (regex::escape(word), c_mods!(macros));
     let ty = Regex::new(&format!(
         r"\b(?:struct|class|union|enum)\s+{macros}{w}\b|^\s*typedef\b"
@@ -495,8 +501,9 @@ pub fn c_file_local(
         .collect()
 }
 fn in_unnamed_namespace(text: &str, line1: usize) -> bool {
-    static UNNAMED: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*namespace\s*(?:\{|$)").unwrap());
+    static UNNAMED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*namespace\s*(?:\{|$)").expect("the regex is a literal")
+    });
     let literal = literal_lines(Kind::C, text);
     let (mut open, mut unnamed) = (Vec::new(), false);
     for (i, l) in text.lines().enumerate().take(line1.saturating_sub(1)) {
@@ -543,17 +550,21 @@ pub fn c_fallback(text: &str, line1: usize, word: &str) -> bool {
             .is_some_and(|l| guard.is_match(l))
 }
 fn c_param_type(p: &str) -> String {
-    static NAME: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"[\w*&\s]\b([A-Za-z_]\w*)\s*$").unwrap());
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"[\w*&\s]\b([A-Za-z_]\w*)\s*$").expect("the regex is a literal")
+    });
     let mut p = p.split('=').next().unwrap_or(p).trim();
-    while let Some(open) = p.strip_suffix(']').and_then(|q| q.rfind('[')) {
-        p = p[..open].trim_end();
+    while let Some(head) = (p.strip_suffix(']'))
+        .and_then(|q| q.rfind('['))
+        .and_then(|open| p.get(..open))
+    {
+        p = head.trim_end();
     }
     let builtin = [
         "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
     ];
     let p = match NAME.captures(p).and_then(|c| c.get(1)) {
-        Some(name) if !builtin.contains(&name.as_str()) => &p[..name.start()],
+        Some(name) if !builtin.contains(&name.as_str()) => p.get(..name.start()).unwrap_or(p),
         _ => p,
     };
     p.split_whitespace().collect()
@@ -602,7 +613,7 @@ pub fn c_one_definition(
                     .join("\n");
                 let open = m.end() - 1;
                 let close = close_of(Kind::C, &s, open)?;
-                let inner = &s[open + 1..close - 1];
+                let inner = s.get(open + 1..close - 1)?;
                 let params: Vec<String> = match inner.trim() {
                     "" | "void" => Vec::new(),
                     _ => split_top(Kind::C, inner, b',')
@@ -610,7 +621,7 @@ pub fn c_one_definition(
                         .map(c_param_type)
                         .collect(),
                 };
-                let body = code(Kind::C, &s[close..])
+                let body = code(Kind::C, s.get(close..)?)
                     .find(|(_, c)| matches!(c, b'{' | b';'))
                     .is_some_and(|(_, c)| c == b'{');
                 CShape {
@@ -669,9 +680,11 @@ pub fn c_declaration_only(word: &str, text: &str, line1: usize) -> bool {
     let Some(close) = close_of(Kind::C, &s, m.end() - 1) else {
         return false;
     };
-    code(Kind::C, &s[close..])
-        .find(|(_, c)| matches!(c, b'{' | b';'))
-        .is_some_and(|(_, c)| c == b';')
+    s.get(close..).is_some_and(|tail| {
+        code(Kind::C, tail)
+            .find(|(_, c)| matches!(c, b'{' | b';'))
+            .is_some_and(|(_, c)| c == b';')
+    })
 }
 pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
@@ -919,7 +932,7 @@ fn shaped_as_record_component(line: &str) -> bool {
             r"{RECORD_COMPONENT_ANNOTATIONS}{}\s+\w+\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)",
             jvm_return_type!()
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     SHAPE.is_match(line) && !line.trim_start().starts_with("return ")
 }
@@ -929,7 +942,7 @@ fn in_record_header<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
             jvm_mods!(),
             r"record\s+\w+\s*(?:<[^>]*>)?\s*\(\s*$"
         ))
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let above = lines[..line1.saturating_sub(1).min(lines.len())]
         .iter()
@@ -956,19 +969,19 @@ pub fn def_block(kind: Kind, word: &str) -> Option<&'static str> {
 pub fn ts_nested_local<S: AsRef<str>>(lines: &[S], line: usize) -> bool {
     static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s+(?:(?:async|abstract|declare)\s+)*(?:const|let|var|function\*?|class)\s")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^\s*(?:export\s+)?(?:declare\s+)?(?:namespace|module)\s|^\s*(?:export\s+)?declare\s+global\b",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     static AT_LOAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^\s*(?:[;!+~]\s*\(?|\(\s*|\}\)?\s*\(.*,\s*\(?)(?:async\s+)?(?:function\b|(?:\([^)]*\)|\w+)\s*=>)",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;
@@ -1009,7 +1022,7 @@ pub fn ts_literal_key<S: AsRef<str>>(
         r"^(?:(?:async|get|set|static)\s+)*\*?(?:{k}|'{k}'|\x22{k}\x22)\s*(?:[:(,}}]|$)"
     ))
     .ok()?;
-    let literal_on_head = &head[open..];
+    let literal_on_head = head.get(open..)?;
     let mut depth = 0i32;
     let mut part = 0;
     for (i, c) in literal_on_head
@@ -1020,7 +1033,7 @@ pub fn ts_literal_key<S: AsRef<str>>(
             '{' | '[' | '(' => depth += 1,
             '}' | ']' | ')' if depth > 0 => depth -= 1,
             ',' | '}' if depth == 0 => {
-                if form.is_match(literal_on_head[part..i].trim()) {
+                if (literal_on_head.get(part..i)).is_some_and(|t| form.is_match(t.trim())) {
                     return Some(line);
                 }
                 if c == '}' {
@@ -1065,12 +1078,15 @@ pub fn owner_line(text: &str, line1: usize) -> Option<&str> {
         .copied()
 }
 pub fn ts_global_scope(text: &str, line: usize) -> bool {
-    static MODULE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"(?m)^(?:import|export)\b").unwrap());
-    static GLOBAL: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*declare\s+global\s*\{").unwrap());
+    static MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^(?:import|export)\b").expect("the regex is a literal")
+    });
+    static GLOBAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*declare\s+global\s*\{").expect("the regex is a literal")
+    });
     static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:interface|namespace)\s").unwrap()
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:interface|namespace)\s")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = lines.get(line.wrapping_sub(1)) else {
@@ -1108,7 +1124,7 @@ pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
         Regex::new(
             r"\b(?:struct|enum|union|opaque)\s*(?:\((?:[^()]|\([^()]*\))*\))?\s*\{\s*(?://.*)?$",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(target) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
@@ -1135,7 +1151,8 @@ pub fn zig_visible(text: &str, line: usize, same_file: bool) -> bool {
 }
 pub fn graphql_member<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
     static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:extend\s+)?(?:type|interface|input|enum)\s").unwrap()
+        Regex::new(r"^(?:extend\s+)?(?:type|interface|input|enum)\s")
+            .expect("the regex is a literal")
     });
     let Some(target) = line1.checked_sub(1).and_then(|i| lines.get(i)) else {
         return false;

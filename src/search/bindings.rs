@@ -1,7 +1,6 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::string_slice, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::Range;
 
 use regex::Regex;
@@ -48,18 +47,22 @@ pub struct Binding {
 )]
 pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:await\s+)?(new\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*(?:<[^()]*>)?\s*\(").unwrap()
+        Regex::new(r"^(?:await\s+)?(new\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*(?:<[^()]*>)?\s*\(").expect("the regex is a literal")
     });
     static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(&)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*(?:\[[^\]]*\])?\s*\{").unwrap()
+        Regex::new(r"^(&)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)\s*(?:\[[^\]]*\])?\s*\{")
+            .expect("the regex is a literal")
     });
-    static NAME: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^[A-Za-z_$][\w$]*$").unwrap());
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z_$][\w$]*$").expect("the regex is a literal")
+    });
     static GO_STRUCTS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^((?:\[[^\]]*\]|map\[[^\]]*\])+)\s*struct\s*\{").unwrap()
+        Regex::new(r"^((?:\[[^\]]*\]|map\[[^\]]*\])+)\s*struct\s*\{")
+            .expect("the regex is a literal")
     });
     static ASSERTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^[A-Za-z_][\w.]*\.\(\s*(\*?[A-Za-z_][\w.]*)\s*\)$").unwrap()
+        Regex::new(r"^[A-Za-z_][\w.]*\.\(\s*(\*?[A-Za-z_][\w.]*)\s*\)$")
+            .expect("the regex is a literal")
     });
     let e = uncommented(kind, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
@@ -103,7 +106,7 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
         return Value::Type(c[1].to_owned());
     }
     if let Some(c) = CALL.captures(e) {
-        let open = c.get(0).unwrap().end() - 1;
+        let open = c.get_match().end() - 1;
         let name = c[2].to_owned();
         let args = close_of(kind, e, open).map(|end| e[open + 1..end - 1].trim());
         return match (ends(open), c.get(1).is_some()) {
@@ -132,7 +135,7 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     }
     if kind == Kind::Go
         && let Some(c) = LITERAL.captures(e)
-        && ends(c.get(0).unwrap().end() - 1)
+        && ends(c.get_match().end() - 1)
     {
         return Value::New(c[2].to_owned());
     }
@@ -183,7 +186,8 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
 }
 fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^def(?:p|macrop?|guardp?|module|impl|protocol)?\s+[\w.?!]+").unwrap()
+        Regex::new(r"^def(?:p|macrop?|guardp?|module|impl|protocol)?\s+[\w.?!]+")
+            .expect("the regex is a literal")
     });
     let literal = literal_lines(Kind::Elixir, &lines.join("\n"));
     let code = |i: usize| uncommented(Kind::Elixir, lines[i]).trim().to_owned();
@@ -278,7 +282,7 @@ fn elixir_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
 }
 fn elixir_binds(p: &str, name: &str) -> bool {
     static DEFAULT: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\\\\[^,)]*").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"\\\\[^,)]*").expect("the regex is a literal"));
     let p = p.split(" when ").next().unwrap_or(p);
     let p = p.split(", do:").next().unwrap_or(p);
     let p = DEFAULT.replace_all(p, "");
@@ -293,8 +297,9 @@ fn elixir_binds(p: &str, name: &str) -> bool {
     })
 }
 pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usize> {
-    static MODULE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^\s*def(?:module|impl|protocol)\s").unwrap());
+    static MODULE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*def(?:module|impl|protocol)\s").expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
@@ -326,12 +331,15 @@ pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usiz
 }
 fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))").unwrap()
+        Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))")
+            .expect("the regex is a literal")
     });
-    static PARAMS: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").unwrap());
-    static FOR: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^for\s+([\w\s,]+?)\s*(?:\bin\b|=)").unwrap());
+    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").expect("the regex is a literal")
+    });
+    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^for\s+([\w\s,]+?)\s*(?:\bin\b|=)").expect("the regex is a literal")
+    });
     let lists = |list: &str| {
         list.split(',')
             .any(|n| n.split('<').next().is_some_and(|n| n.trim() == name))
@@ -386,7 +394,9 @@ fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     Vec::new()
 }
 pub(super) static ZIG_FN_OR_TEST_HEAD: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").unwrap());
+    std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").expect("the regex is a literal")
+    });
 fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let n = regex::escape(name);
     let decl = Regex::new(&format!(r"^(?:comptime\s+)?(?:const|var)\s+{n}\b"))
@@ -478,7 +488,7 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
 }
 pub fn lua_required(value: &str) -> Option<&str> {
     static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).unwrap()
+        Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).expect("the regex is a literal")
     });
     Some(REQUIRE.captures(value)?.get(1)?.as_str())
 }
@@ -722,7 +732,8 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
 }
 fn this_opener(header: &str, line: usize) -> Option<Value> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b").unwrap()
+        Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b")
+            .expect("the regex is a literal")
     });
     if CLASS.is_match(header) {
         return Some(Value::Class { decl_line1: line });
@@ -853,25 +864,30 @@ fn opener_bindings(
     out: &mut Vec<Binding>,
 ) -> bool {
     static TS_LOOP: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bfor\s*\(\s*(?:const|let|var)\s+([^;]+?)\s+(?:of|in)\s|\bfor\s*\(\s*(?:const|let|var)\s+([^;]*);|\bcatch\s*\(([^)]*)\)").unwrap()
+        Regex::new(r"\bfor\s*\(\s*(?:const|let|var)\s+([^;]+?)\s+(?:of|in)\s|\bfor\s*\(\s*(?:const|let|var)\s+([^;]*);|\bcatch\s*\(([^)]*)\)").expect("the regex is a literal")
     });
-    static TS_ARROW: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?::\s*[^=]+?)?\s*=>").unwrap());
-    static TS_FUNCTION: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bfunction\*?\s*[\w$]*\s*(?:<[^>]*>)?$").unwrap());
+    static TS_ARROW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?::\s*[^=]+?)?\s*=>").expect("the regex is a literal")
+    });
+    static TS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\*?\s*[\w$]*\s*(?:<[^>]*>)?$").expect("the regex is a literal")
+    });
     static TS_METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?(?:#?([\w$]+)|"[^"\n]*"|'[^'\n]*'|\[[^\]\n]*\])\s*(?:<[^>]*>)?$"#).unwrap()
+        Regex::new(r#"^(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?(?:#?([\w$]+)|"[^"\n]*"|'[^'\n]*'|\[[^\]\n]*\])\s*(?:<[^>]*>)?$"#).expect("the regex is a literal")
     });
     static TS_BODY: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?::.*)?\{").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"^(?::.*)?\{").expect("the regex is a literal"));
     static TS_RETURN_TYPE_ARROW_BRACE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"^(?::[^(){}]+?)?\s*(?:=>)?\s*\{?\s*$").unwrap());
+        std::sync::LazyLock::new(|| {
+            Regex::new(r"^(?::[^(){}]+?)?\s*(?:=>)?\s*\{?\s*$").expect("the regex is a literal")
+        });
     static GO_ASSIGN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|\belse\s+)(?:if|for|switch|case)\s+([^;{]*?)\s*:=").unwrap()
+        Regex::new(r"(?:^|\belse\s+)(?:if|for|switch|case)\s+([^;{]*?)\s*:=")
+            .expect("the regex is a literal")
     });
     static GO_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bfunc\b\s*(?:\(([^)]*)\)\s*)?(?:[A-Za-z_]\w*\s*)?(?:\[[^\]]*\]\s*)?\(")
-            .unwrap()
+            .expect("the regex is a literal")
     });
     let unknown = |out: &mut Vec<Binding>| {
         out.push(Binding {
@@ -976,7 +992,7 @@ fn opener_bindings(
                 if let Some(receiver) = c.get(1) {
                     go_params(receiver.as_str(), line, name, out);
                 }
-                let open = c.get(0).unwrap().end() - 1;
+                let open = c.get_match().end() - 1;
                 if let Some(close) = close_of(kind, header, open) {
                     go_params(&header[open + 1..close - 1], line, name, out);
                     let results = header[close..].trim_start();
@@ -1114,19 +1130,21 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
 }
 fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$").unwrap()
+        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
+            .expect("the regex is a literal")
     });
     static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
     static TS_DESTRUCTURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*[\[{](.*)[\]}]\s*(?::.*)?=").unwrap()
+        Regex::new(r"^(?:export\s+)?(?:const|let|var)\s*[\[{](.*)[\]}]\s*(?::.*)?=")
+            .expect("the regex is a literal")
     });
     static KEY: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"[\w$]+\s*:").unwrap());
+        std::sync::LazyLock::new(|| Regex::new(r"[\w$]+\s*:").expect("the regex is a literal"));
     let n = regex::escape(name);
     let value = match kind {
         Kind::TsJs => {

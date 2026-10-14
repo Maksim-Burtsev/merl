@@ -1,5 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use regex::Regex;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -23,9 +21,10 @@ pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, 
         Regex::new(
             r#"(?:^|[\s<{(])(class|className|id|href|src)\s*=\s*(?:\{\s*)?(?:"([^"]*)"|'([^']*)'|`([^`$]*)`)"#,
         )
-        .unwrap()
+        .expect("the regex is a literal")
     });
-    static SVELTE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\bclass:([\w-]+)").unwrap());
+    static SVELTE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bclass:([\w-]+)").expect("the regex is a literal"));
     let jsx = read_as == AttrLine::Jsx;
     for c in ATTR.captures_iter(line) {
         let v = c.get(2).or_else(|| c.get(3)).or_else(|| c.get(4))?;
@@ -33,9 +32,11 @@ pub fn attr_at(line: &str, byte_col: usize, read_as: AttrLine) -> Option<(Attr, 
             continue;
         }
         let name = c.get(1)?;
-        let spaced =
-            !line[name.end()..].starts_with('=') || line[name.end() + 1..].starts_with([' ', '\t']);
-        let lead = line[..name.start()].trim_start();
+        let (after, lead) = (line.get(name.end()..)?, line.get(..name.start())?);
+        let spaced = after
+            .strip_prefix('=')
+            .is_none_or(|r| r.starts_with([' ', '\t']));
+        let lead = lead.trim_start();
         if jsx && (spaced || (&c[1] != "className" && !lead.is_empty() && !lead.contains('<'))) {
             return None;
         }
@@ -193,9 +194,9 @@ pub fn sass_rules(text: &str) -> Vec<Rule> {
             }
         }
         let t = l.trim_start();
-        let t = match t.as_bytes().first() {
-            Some(b'=') => format!("@mixin {}", &t[1..]),
-            Some(b'+') => format!("@include {}", &t[1..]),
+        let t = match (t.strip_prefix('='), t.strip_prefix('+')) {
+            (Some(rest), _) => format!("@mixin {rest}"),
+            (_, Some(rest)) => format!("@include {rest}"),
             _ => t.to_owned(),
         };
         buf.extend(t.bytes().map(|c| (c, i + 1)));
@@ -312,8 +313,10 @@ struct CompoundNames {
 }
 
 fn names(compound: &str, parents: &[String]) -> CompoundNames {
-    static NAME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([.#])([\w-]+)").unwrap());
-    static SUFFIX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^&([\w-]+)").unwrap());
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([.#])([\w-]+)").expect("the regex is a literal"));
+    static SUFFIX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^&([\w-]+)").expect("the regex is a literal"));
     let mut outside_brackets = String::new();
     let mut depth = 0;
     for c in compound.chars() {
@@ -326,7 +329,9 @@ fn names(compound: &str, parents: &[String]) -> CompoundNames {
     }
     let (mut classes, mut ids, mut ends_in) = (Vec::new(), Vec::new(), Vec::new());
     if let Some(c) = SUFFIX.captures(&outside_brackets) {
-        let glued = outside_brackets[c[0].len()..].starts_with(['#', '@']);
+        let glued = outside_brackets
+            .get(c[0].len()..)
+            .is_some_and(|r| r.starts_with(['#', '@']));
         if !glued {
             for p in parents {
                 classes.push(format!("{p}{}", &c[1]));
@@ -337,9 +342,9 @@ fn names(compound: &str, parents: &[String]) -> CompoundNames {
         }
     }
     for m in NAME.captures_iter(&outside_brackets) {
-        let whole = m.get(0).unwrap();
+        let whole = m.get_match();
         let finished_by_interpolation =
-            outside_brackets[whole.end()..].starts_with(['#', '@', '$']);
+            (outside_brackets.get(whole.end()..)).is_some_and(|r| r.starts_with(['#', '@', '$']));
         if finished_by_interpolation || m[2].starts_with(|c: char| c.is_ascii_digit()) {
             continue;
         }
@@ -359,14 +364,14 @@ fn names(compound: &str, parents: &[String]) -> CompoundNames {
 }
 
 pub fn style_blocks(text: &str) -> String {
-    static STYLE: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?is)<style\b[^>]*>(.*?)</style\s*>").unwrap());
+    static STYLE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?is)<style\b[^>]*>(.*?)</style\s*>").expect("the regex is a literal")
+    });
     let mut out: Vec<u8> = text
         .bytes()
         .map(|c| if c == b'\n' { c } else { b' ' })
         .collect();
-    for c in STYLE.captures_iter(text) {
-        let m = c.get(1).unwrap();
+    for m in STYLE.captures_iter(text).filter_map(|c| c.get(1)) {
         out[m.range()].copy_from_slice(m.as_str().as_bytes());
     }
     String::from_utf8(out).unwrap_or_default()
@@ -435,15 +440,21 @@ impl SheetSyntax {
     }
 }
 pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Sheet> {
-    static IMPORT: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*@(?:import|use|forward|require)\b").unwrap());
-    static QUOTED: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r#""([^"]*)"|'([^']*)'|url\(\s*([^)"'\s]+)\s*\)"#).unwrap());
-    static ANIMATION: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\s*(?:-[a-z]+-)?animation(?:-name)?\s*:").unwrap());
-    static NS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([\w-]+)\.$").unwrap());
+    static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*@(?:import|use|forward|require)\b").expect("the regex is a literal")
+    });
+    static QUOTED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#""([^"]*)"|'([^']*)'|url\(\s*([^)"'\s]+)\s*\)"#)
+            .expect("the regex is a literal")
+    });
+    static ANIMATION: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:-[a-z]+-)?animation(?:-name)?\s*:").expect("the regex is a literal")
+    });
+    static NS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([\w-]+)\.$").expect("the regex is a literal"));
     static AT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"@(include|mixin|function|extend)\s+(?:([\w-]+)\.)?(\.)?$").unwrap()
+        Regex::new(r"@(include|mixin|function|extend)\s+(?:([\w-]+)\.)?(\.)?$")
+            .expect("the regex is a literal")
     });
     let less = syntax == SheetSyntax::Less;
     if IMPORT.is_match(line) {
@@ -455,8 +466,7 @@ pub fn sheet_at(line: &str, byte_col: usize, syntax: SheetSyntax) -> Option<Shee
     }
     let (range, word) = super::word_at(line, byte_col, "-")?;
     let word = word.to_owned();
-    let before = &line[..range.start];
-    let after = &line[range.end..];
+    let (before, after) = (line.get(..range.start)?, line.get(range.end..)?);
     let ns = |b: &str| NS.captures(b).map(|c| c[1].to_owned());
     if before.ends_with("--") {
         return Some(Sheet::Custom(format!("--{word}")));
@@ -539,7 +549,8 @@ pub struct SassUse {
 }
 pub fn sass_uses(text: &str) -> Vec<SassUse> {
     static USE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"^\s*@use\s+["']([^"']+)["'](?:\s+as\s+([\w-]+|\*))?"#).unwrap()
+        Regex::new(r#"^\s*@use\s+["']([^"']+)["'](?:\s+as\s+([\w-]+|\*))?"#)
+            .expect("the regex is a literal")
     });
     text.lines()
         .filter_map(|l| USE.captures(l))
@@ -594,8 +605,9 @@ pub fn import_candidates(module: &str, syntax: SheetSyntax) -> Vec<PathBuf> {
 }
 
 pub fn is_url(target: &str) -> bool {
-    static URL: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").unwrap());
+    static URL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//)").expect("the regex is a literal")
+    });
     URL.is_match(target)
 }
 
@@ -617,18 +629,18 @@ pub fn html_literal_lines(text: &str) -> Vec<bool> {
         let mut l = line;
         loop {
             if open {
-                match l.find("-->") {
-                    Some(i) => {
+                match l.split_once("-->") {
+                    Some((_, after)) => {
                         open = false;
-                        l = &l[i + 3..];
+                        l = after;
                     }
                     None => break,
                 }
             } else {
-                match l.find("<!--") {
-                    Some(i) => {
+                match l.split_once("<!--") {
+                    Some((_, after)) => {
                         open = true;
-                        l = &l[i + 4..];
+                        l = after;
                     }
                     None => break,
                 }
@@ -683,9 +695,13 @@ pub fn css_declares(
 
 pub fn css_code(line: &str) -> String {
     let (mut out, mut depth, mut rest) = (String::new(), 0usize, line);
-    while let Some(c) = rest.chars().next() {
-        if rest.starts_with("/*") {
-            rest = rest[2..].split_once("*/").map_or("", |(_, r)| r);
+    loop {
+        let mut chars = rest.chars();
+        let Some(c) = chars.next() else {
+            break;
+        };
+        if let Some(comment) = rest.strip_prefix("/*") {
+            rest = comment.split_once("*/").map_or("", |(_, r)| r);
             continue;
         }
         if rest.starts_with("//") && depth == 0 {
@@ -697,7 +713,7 @@ pub fn css_code(line: &str) -> String {
             _ => {}
         }
         out.push(c);
-        rest = &rest[c.len_utf8()..];
+        rest = chars.as_str();
     }
     out
 }
