@@ -148,7 +148,7 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
             ),
             (
                 "src/lib.rs",
-                "mod extra;\n\npub struct Error {\n    msg: String,\n}\n\nimpl Clone for Error {\n    fn clone(&self) -> Error {\n        Error { msg: self.msg.clone() }\n    }\n}\n\nimpl Error {\n    fn describe(&self) -> u32 {\n        1\n    }\n}\n\npub fn first(v: Option<u32>) -> u32 {\n    v.unwrap()\n}\n\npub fn name(n: &String) -> String {\n    n.clone()\n}\n\npub fn text(s: &str) -> String {\n    s.to_string()\n}\n\npub fn told(e: &Error, x: &extra::Extra) -> u32 {\n    x.secret();\n    e.describe()\n}\n\npub fn peeked(v: Option<u32>) {\n    v.peek()\n}\n",
+                "mod extra;\n\npub struct Error {\n    msg: String,\n}\n\nimpl Clone for Error {\n    fn clone(&self) -> Error {\n        Error { msg: self.msg.clone() }\n    }\n}\n\nimpl Error {\n    fn describe(&self) -> u32 {\n        1\n    }\n}\n\npub fn first(v: Option<u32>) -> u32 {\n    v.unwrap()\n}\n\npub fn name(n: &String) -> String {\n    n.clone()\n}\n\npub fn text(s: &str) -> String {\n    s.to_string()\n}\n\npub fn told(e: &Error, x: &extra::Extra) -> u32 {\n    x.secret();\n    e.describe()\n}\n\npub fn peeked(v: Option<u32>) {\n    v.peek()\n}\n\npub fn drained(q: Vec<u32>) {\n    q.into_iter();\n}\n",
             ),
             (
                 "src/extra.rs",
@@ -169,11 +169,19 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/clone.rs",
-                "#[stable(feature = \"rust1\", since = \"1.0.0\")]\npub trait Clone: Sized {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    fn clone(&self) -> Self;\n}\n\nimpl Clone for u32 {\n    fn clone(&self) -> u32 {\n        *self\n    }\n}\n",
+                "#[stable(feature = \"rust1\", since = \"1.0.0\")]\npub const trait Clone: Sized {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    fn clone(&self) -> Self;\n}\n\nconst impl Clone for u32 {\n    fn clone(&self) -> u32 {\n        *self\n    }\n}\n",
             ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/string.rs",
                 "#[stable(feature = \"rust1\", since = \"1.0.0\")]\npub trait ToString {\n    fn to_string(&self) -> String;\n}\n\nimpl<T: fmt::Display + ?Sized> ToString for T {\n    default fn to_string(&self) -> String {\n        String::new()\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/iter/traits/collect.rs",
+                "#[stable(feature = \"rust1\", since = \"1.0.0\")]\npub const trait IntoIterator {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    fn into_iter(self) -> Self::IntoIter;\n}\n\nconst impl<I: Iterator> IntoIterator for I {\n    fn into_iter(self) -> I {\n        self\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+                "pub struct Vec<T>;\n\nimpl<T> IntoIterator for Vec<T> {\n    fn into_iter(self) -> IntoIter<T> {\n        loop {}\n    }\n}\n",
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/spec.rs",
@@ -267,6 +275,23 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         (
             "x.secret",
             Shown::Jump("no definition for secret".into(), String::new()),
+        ),
+        (
+            "q.into_iter",
+            Shown::Picker(
+                "into_iter: by name, 3 declarations".into(),
+                vec![
+                    row(
+                        "IntoIterator::into_iter",
+                        "core/src/iter/traits/collect.rs:4",
+                    ),
+                    row("Vec::into_iter", "alloc/src/vec/mod.rs:4"),
+                    row(
+                        "IntoIterator::into_iter",
+                        "core/src/iter/traits/collect.rs:8",
+                    ),
+                ],
+            ),
         ),
         (
             "v.peek",

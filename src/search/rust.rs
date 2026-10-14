@@ -849,7 +849,7 @@ pub enum RustVis {
 }
 pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
     static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto)\s+)*trait\s+([A-Za-z_]\w*)")
+        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto|const)\s+)*trait\s+([A-Za-z_]\w*)")
             .expect("the regex is a literal")
     });
     static IMPL: LazyLock<Regex> = LazyLock::new(|| {
@@ -857,10 +857,10 @@ pub fn rust_method_at(lines: &[&str], line1: usize) -> Option<RustMethod> {
             .expect("the regex is a literal")
     });
     static IMPL_FOR: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
+        Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*([A-Za-z_]\w*)(?:<[^{]*?>)?\s+for\s").expect("the regex is a literal")
     });
     static INHERENT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*")
+        Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl(?:\s*<[^{]*?>)?\s+(?:\w+::)*[A-Za-z_]\w*")
             .expect("the regex is a literal")
     });
     static VIS: LazyLock<Regex> =

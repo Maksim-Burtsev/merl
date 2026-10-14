@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `d` no longer crashes on non-ASCII text next to the word in an Erlang string, an R `pkg::name`,
   a Python statement or a component name (#863).
+- `d` on a method of a `const trait` of Rust's standard library (`clone`, `default`, `into_iter`)
+  finds the trait's method: first in the list, or the jump when that trait alone declares it (#514).
 
 ## [0.8.5] - 2026-10-13
 
