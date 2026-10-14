@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 impl App {
@@ -9,10 +8,12 @@ impl App {
         word: &str,
     ) -> Option<Vec<Candidate>> {
         static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#"^\s*import\s+(?:(?:public|weak)\s+)?"([^"]*)""#).unwrap()
+            Regex::new(r#"^\s*import\s+(?:(?:public|weak)\s+)?"([^"]*)""#)
+                .expect("the regex is a literal")
         });
-        static PACKAGE: std::sync::LazyLock<Regex> =
-            std::sync::LazyLock::new(|| Regex::new(r"(?m)^\s*package\s+([\w.]+)\s*;").unwrap());
+        static PACKAGE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"(?m)^\s*package\s+([\w.]+)\s*;").expect("the regex is a literal")
+        });
         if let Some(path) = IMPORT
             .captures(self.line_str())
             .and_then(|c| c.get(1))

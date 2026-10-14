@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::ops::ControlFlow;
 
 use super::{App, Focus, Instant, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, Mode, tutor};
@@ -328,7 +327,7 @@ impl App {
             KeyCode::Left if shift && alt => self.extend(Self::word_left),
             KeyCode::Right if shift && alt => self.extend(Self::word_right),
             KeyCode::Left | KeyCode::Right if !shift && !alt && self.selection().is_some() => {
-                let (start, end) = self.selection().unwrap();
+                let (start, end) = self.selection().expect("the guard saw a selection");
                 let (t, col) = if key.code == KeyCode::Left {
                     start
                 } else {

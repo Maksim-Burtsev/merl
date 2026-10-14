@@ -1,6 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::python::{enclosing_def_lines1, starts_by_assigning};
 use super::resolution::resolution;
 use super::{
@@ -1794,7 +1793,8 @@ impl App {
         depth: usize,
     ) -> Result<Option<Typed>, GoTypeUnread> {
         static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)").unwrap()
+            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)")
+                .expect("the regex is a literal")
         });
         let ty = self.type_decl(kind, file, written).ok_or(GoTypeUnread)?;
         let text = self.text_of(&ty.path).ok_or(GoTypeUnread)?;

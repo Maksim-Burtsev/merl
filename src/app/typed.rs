@@ -1,5 +1,4 @@
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{
     App, Candidate, HashSet, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, names_itself,
     search, signature,
@@ -819,7 +818,8 @@ impl App {
 
     fn typedef(&self, kind: Kind, file: &Path, parts: &[String], depth: usize) -> Option<Typed> {
         static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)$"#).unwrap()
+            Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)$"#)
+                .expect("the regex is a literal")
         });
         let [name] = parts else {
             return None;

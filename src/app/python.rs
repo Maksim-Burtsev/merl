@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
 pub(super) enum OutsideClassMember {
@@ -370,7 +369,8 @@ pub(super) fn python_absolute(
 }
 fn python_import_line(text: &str, name: &str) -> Option<usize> {
     static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)").unwrap()
+        Regex::new(r"(?m)^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)")
+            .expect("the regex is a literal")
     });
     let word = Regex::new(&format!(r"\b{}\b", regex::escape(name))).ok()?;
     FROM.captures_iter(text).find_map(|c| {

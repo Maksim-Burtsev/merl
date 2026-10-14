@@ -1,4 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
@@ -120,8 +119,8 @@ impl<'a> Rows<'a> {
 
     fn push_slot(&mut self, at: Option<(usize, usize)>, j: usize, nl: Line<'a>) {
         if self.lines.len() < self.height {
-            if at.is_some_and(|(r, _)| r == j) {
-                self.input_at = Some((self.lines.len(), at.unwrap().1));
+            if let Some((_, c)) = at.filter(|&(r, _)| r == j) {
+                self.input_at = Some((self.lines.len(), c));
             }
             self.lines.push(nl);
         }

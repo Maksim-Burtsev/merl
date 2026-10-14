@@ -1,6 +1,5 @@
 #![expect(clippy::cognitive_complexity, reason = "#858")]
 #![expect(clippy::too_many_lines, reason = "#858")]
-#![expect(clippy::unwrap_used, reason = "#858")]
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -101,7 +100,7 @@ impl<'a> Build<'a> {
         };
         self.stack.truncate(at + 1);
         self.end_clause(line);
-        let o = self.stack.pop().unwrap();
+        let o = self.stack.pop().expect("truncated to at + 1");
         if o.fold {
             self.span(o.line, line);
         }
@@ -318,7 +317,7 @@ pub(crate) fn ruby(lines: &[String]) -> Blocks {
                     start = false;
                 }
                 b'<' if next == b'<' && heredoc_id(s, i + 2).is_some() => {
-                    let (id, indented, j) = heredoc_id(s, i + 2).unwrap();
+                    let (id, indented, j) = heredoc_id(s, i + 2).expect("the guard saw a heredoc");
                     heredocs.push((id, indented));
                     i = j;
                     start = false;
@@ -818,8 +817,10 @@ pub(crate) fn shell(lines: &[String], zsh: bool) -> Blocks {
                         cmd = true;
                         continue;
                     }
-                    if w == "in" && b.stack.last().is_some_and(|o| o.word == "case" && o.armed) {
-                        b.stack.last_mut().unwrap().armed = false;
+                    if w == "in"
+                        && let Some(o) = b.stack.last_mut().filter(|o| o.word == "case" && o.armed)
+                    {
+                        o.armed = false;
                         pattern = true;
                         continue;
                     }
