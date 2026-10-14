@@ -1,4 +1,3 @@
-#![expect(clippy::string_slice, reason = "#858")]
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
@@ -46,7 +45,11 @@ pub fn julia_patterns(word: &str) -> Vec<String> {
 }
 
 pub fn julia_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<usize>) {
-    let (word, before, after) = (&line[r.clone()], &line[..r.start], &line[r.end..]);
+    let (Some(word), Some(before), Some(after)) =
+        (line.get(r.clone()), line.get(..r.start), line.get(r.end..))
+    else {
+        return;
+    };
     let matches = |p: &str| Regex::new(p).is_ok_and(|re| re.is_match(line));
     let (field, mac) = (julia_field(word), julia_macro(word));
     if matches(&mac) {
@@ -117,7 +120,7 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
         return true;
     }
     if let Some(c) = HEAD.captures(text).filter(|c| &c[1] == word) {
-        return defines(&text[c.get(0).map_or(0, |m| m.end() - 1)..]);
+        return text.get(c.get_match().end() - 1..).is_some_and(defines);
     }
     if !text.starts_with([' ', '\t']) {
         return true;
@@ -147,7 +150,11 @@ fn defines(from_paren: &str) -> bool {
     static REST: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(concat!("^", julia_method_tail!())).expect("the regex is a literal")
     });
-    closing(from_paren).is_some_and(|close| REST.is_match(&from_paren[close + 1..]))
+    closing(from_paren).is_some_and(|close| {
+        from_paren
+            .get(close + 1..)
+            .is_some_and(|rest| REST.is_match(rest))
+    })
 }
 
 fn closing(s: &str) -> Option<usize> {
@@ -183,8 +190,9 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
     });
     let path = |m: &str| -> Vec<String> {
         let m = m.trim();
-        let dots = m.len() - m.trim_start_matches('.').len();
-        let mut parts: Vec<String> = m[dots..]
+        let unprefixed = m.trim_start_matches('.');
+        let dots = m.len() - unprefixed.len();
+        let mut parts: Vec<String> = unprefixed
             .split('.')
             .filter(|p| !p.is_empty())
             .map(str::to_owned)
@@ -330,7 +338,10 @@ pub fn julia_assigns_here(line: &str, start: usize, word: &str) -> bool {
         && line
             .match_indices('=')
             .find(|&(i, _)| {
-                !line[i + 1..].starts_with(['=', '>']) && !line[..i].ends_with(['=', '!', '<', '>'])
+                line.split_at_checked(i).is_some_and(|(before, rest)| {
+                    !rest.get(1..).is_some_and(|r| r.starts_with(['=', '>']))
+                        && !before.ends_with(['=', '!', '<', '>'])
+                })
             })
             .is_some_and(|(i, _)| start < i)
 }
@@ -343,8 +354,12 @@ static HEADER: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 fn method_def(lines: &[&str], k: usize) -> bool {
-    HEAD.find(lines[k])
-        .is_some_and(|m| defines(&lines[k..lines.len().min(k + 20)].join("\n")[m.end() - 1..]))
+    HEAD.find(lines[k]).is_some_and(|m| {
+        lines[k..lines.len().min(k + 20)]
+            .join("\n")
+            .get(m.end() - 1..)
+            .is_some_and(defines)
+    })
 }
 
 fn params(head: &str) -> Vec<String> {
@@ -364,22 +379,24 @@ fn params(head: &str) -> Vec<String> {
             .collect();
     }
     let mut out = Vec::new();
-    let mut rest = match head.find('(') {
-        Some(i) => &head[i..],
-        None => return out,
+    let Some(mut rest) = head.find('(').and_then(|i| head.get(i..)) else {
+        return out;
     };
     while rest.starts_with('(') {
         let Some(close) = closing(rest) else { break };
         let mut depth = 0usize;
         let mut start = 1;
-        let inner = &rest[..close];
+        let (Some(inner), Some(after)) = (rest.get(..close), rest.get(close + 1..)) else {
+            break;
+        };
         for (i, c) in inner.char_indices() {
             match c {
                 '(' | '[' | '{' => depth += 1,
                 ')' | ']' | '}' => depth -= 1,
                 ',' | ';' if depth == 1 => {
                     out.extend(
-                        NAME.find(inner[start..i].trim())
+                        (inner.get(start..i))
+                            .and_then(|s| NAME.find(s.trim()))
                             .map(|m| m.as_str().to_owned()),
                     );
                     start = i + 1;
@@ -388,10 +405,11 @@ fn params(head: &str) -> Vec<String> {
             }
         }
         out.extend(
-            NAME.find(inner[start..].trim())
+            (inner.get(start..))
+                .and_then(|s| NAME.find(s.trim()))
                 .map(|m| m.as_str().to_owned()),
         );
-        rest = rest[close + 1..].trim_start();
+        rest = after.trim_start();
     }
     out
 }
