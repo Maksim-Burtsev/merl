@@ -1,5 +1,3 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::{
     Kind, haskell_literal_lines, html_literal_lines, julia_literal_lines, lisp, lisp_literal_lines,
     markdown_literal_lines, ml_literal_lines, nix_literal_lines, perl_literal_lines,
@@ -112,71 +110,134 @@ enum HeredocEnd {
     LabelLeadsLine,
     LabelAloneOnLine { may_indent: bool },
 }
+struct Rules {
+    triple_quotes: bool,
+    template: bool,
+    block_comment: bool,
+    line_comments: &'static [&'static str],
+}
 #[expect(
     clippy::match_same_arms,
     reason = "one row per language family of comment rules"
 )]
-fn scan(kind: Kind, text: &str, at: usize) -> Scan {
-    let (triple_quotes, long_bracket, template, block_comment, line_comments): (
+fn rules(kind: Kind) -> Rules {
+    let (triple_quotes, template, block_comment, line_comments): (
         _,
         _,
         _,
-        _,
-        &[&str],
+        &'static [&'static str],
     ) = match kind {
         Kind::Python | Kind::Starlark | Kind::Elixir | Kind::Gdscript => {
-            (true, false, false, false, &["#"])
+            (true, false, false, &["#"])
         }
-        Kind::Lua => (false, true, false, false, &["--"]),
-        Kind::Zig => (false, false, false, false, &["//"]),
-        Kind::Swift | Kind::CSharp => (true, false, true, true, &["//"]),
-        Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => {
-            (false, false, false, false, &["#"])
-        }
-        Kind::Sql => (false, false, false, true, &["--", "//"]),
-        Kind::PowerShell => (false, false, false, false, &["#"]),
-        Kind::Terraform => (false, false, false, true, &["#", "//"]),
-        Kind::Graphql => (true, false, false, false, &["#"]),
-        Kind::Proto | Kind::Solidity => (false, false, false, true, &["//"]),
-        Kind::Css => (false, false, false, true, &["//"]),
-        Kind::Php => (false, false, true, true, &["//", "#"]),
-        Kind::Rust => (false, false, false, true, &["//"]),
-        Kind::Ruby => (false, false, false, false, &["#"]),
-        Kind::Jvm => (true, false, false, true, &["//"]),
-        Kind::Dart => (true, false, false, true, &["//"]),
-        Kind::Cmake => (false, true, false, false, &["#"]),
-        _ => (false, false, true, true, &["//"]),
+        Kind::Lua => (false, false, false, &["--"]),
+        Kind::Zig => (false, false, false, &["//"]),
+        Kind::Swift | Kind::CSharp => (true, true, true, &["//"]),
+        Kind::Shell | Kind::Make | Kind::Docker | Kind::Yaml => (false, false, false, &["#"]),
+        Kind::Sql => (false, false, true, &["--", "//"]),
+        Kind::PowerShell => (false, false, false, &["#"]),
+        Kind::Terraform => (false, false, true, &["#", "//"]),
+        Kind::Graphql => (true, false, false, &["#"]),
+        Kind::Proto | Kind::Solidity => (false, false, true, &["//"]),
+        Kind::Css => (false, false, true, &["//"]),
+        Kind::Php => (false, true, true, &["//", "#"]),
+        Kind::Rust => (false, false, true, &["//"]),
+        Kind::Ruby => (false, false, false, &["#"]),
+        Kind::Jvm => (true, false, true, &["//"]),
+        Kind::Dart => (true, false, true, &["//"]),
+        Kind::Cmake => (false, false, false, &["#"]),
+        _ => (false, true, true, &["//"]),
     };
-    let (csharp_verbatim_strings, php_heredocs) = (kind == Kind::CSharp, kind == Kind::Php);
-    let shell_heredoc = matches!(kind, Kind::Shell | Kind::Docker | Kind::Terraform);
-    let comment_only_at_word_start = matches!(kind, Kind::Shell | Kind::Docker | Kind::PowerShell);
-    let powershell = kind == Kind::PowerShell;
-    let mut in_php_tags = false;
-    let b = text.as_bytes();
-    let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
-    let token_at = |at: usize, prefixes: &[&[u8]]| {
+    Rules {
+        triple_quotes,
+        template,
+        block_comment,
+        line_comments,
+    }
+}
+fn ident(c: u8) -> bool {
+    c.is_ascii_alphanumeric() || c == b'_'
+}
+struct Scanner<'a> {
+    kind: Kind,
+    b: &'a [u8],
+    rules: Rules,
+    in_php_tags: bool,
+    out: Vec<bool>,
+    literal_closer: Option<Cow<'a, [u8]>>,
+    long_bracket_level: usize,
+    line_quote: Option<u8>,
+    i: usize,
+    in_verbatim_string: bool,
+    in_raw_string: bool,
+    heredoc: Option<Heredoc>,
+    ruby_heredocs_from_next_line: Vec<Heredoc>,
+    template_substitution_braces: Vec<usize>,
+    rust_string: RustStringAt,
+}
+struct RustStringAt {
+    at: usize,
+    start: Option<usize>,
+    inside: bool,
+}
+fn scan(kind: Kind, text: &str, at: usize) -> Scan {
+    let mut s = Scanner {
+        kind,
+        b: text.as_bytes(),
+        rules: rules(kind),
+        in_php_tags: false,
+        out: vec![false],
+        literal_closer: None,
+        long_bracket_level: 0,
+        line_quote: None,
+        i: 0,
+        in_verbatim_string: false,
+        in_raw_string: false,
+        heredoc: None,
+        ruby_heredocs_from_next_line: Vec::new(),
+        template_substitution_braces: Vec::new(),
+        rust_string: RustStringAt {
+            at,
+            start: None,
+            inside: false,
+        },
+    };
+    while s.i < s.b.len() && s.step() {
+        s.i += 1;
+    }
+    if let Some(from) = s.rust_string.start {
+        s.rust_string.inside |= from < at && at <= s.b.len();
+    }
+    Scan {
+        lines_in_literal: s.out,
+        at_in_rust_string: s.rust_string.inside,
+    }
+}
+impl<'a> Scanner<'a> {
+    fn powershell(&self) -> bool {
+        self.kind == Kind::PowerShell
+    }
+
+    fn long_bracket(&self) -> bool {
+        matches!(self.kind, Kind::Lua | Kind::Cmake)
+    }
+
+    fn token_at(&self, at: usize, prefixes: &[&[u8]]) -> bool {
+        let b = self.b;
         std::iter::once(&&b""[..]).chain(prefixes).any(|p| {
             at >= p.len()
                 && b[at - p.len()..at] == **p
                 && (at == p.len() || !ident(b[at - p.len() - 1]))
         })
-    };
-    let mut out = vec![false];
-    let mut literal_closer: Option<Cow<[u8]>> = None;
-    let mut long_bracket_level = 0;
-    let mut line_quote: Option<u8> = None;
-    let mut i = 0;
-    let (mut in_verbatim_string, mut in_raw_string) = (false, false);
-    let mut heredoc: Option<Heredoc> = None;
-    let mut ruby_heredocs_from_next_line: Vec<Heredoc> = Vec::new();
-    let mut template_substitution_braces: Vec<usize> = Vec::new();
-    let (mut rust_string_start, mut at_in_rust_string) = (None, false);
-    let long_comment_open = if kind == Kind::Cmake {
-        &b"#["[..]
-    } else {
-        b"--["
-    };
-    let opens = |at: usize| -> Option<(usize, usize)> {
+    }
+
+    fn opens(&self, at: usize) -> Option<(usize, usize)> {
+        let b = self.b;
+        let long_comment_open = if self.kind == Kind::Cmake {
+            &b"#["[..]
+        } else {
+            b"--["
+        };
         let open = if b[at..].starts_with(long_comment_open) {
             at + long_comment_open.len() - 1
         } else {
@@ -187,116 +248,133 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         }
         let eq = b[open + 1..].iter().take_while(|&&c| c == b'=').count();
         (b.get(open + 1 + eq) == Some(&b'[')).then_some((eq, open + 1 + eq - at))
-    };
-    while i < b.len() {
+    }
+
+    fn step(&mut self) -> bool {
+        let (b, i, kind) = (self.b, self.i, self.kind);
         let c = b[i];
-        let line_start = i == 0 || b[i - 1] == b'\n';
         if c == b'\n' {
-            line_quote = None;
-            if heredoc.is_none() && !ruby_heredocs_from_next_line.is_empty() {
-                heredoc = Some(ruby_heredocs_from_next_line.remove(0));
-                literal_closer = Some(b"".into());
-            }
-            if let Some(Heredoc { label, end }) = &heredoc {
-                let rest = &b[i + 1..];
-                let word = rest
-                    .iter()
-                    .position(|c| !c.is_ascii_whitespace())
-                    .map_or(rest, |n| &rest[n..]);
-                let ends = match *end {
-                    HeredocEnd::LabelAloneOnLine { may_indent } => {
-                        let line = rest.split(|&c| c == b'\n').next().unwrap_or(rest);
-                        line.trim_ascii() == label && (may_indent || line.starts_with(label))
-                    }
-                    HeredocEnd::LabelLeadsLine => {
-                        word.starts_with(&label[..])
-                            && !word[label.len()..].first().is_some_and(|&c| ident(c))
-                    }
-                };
-                if ends {
-                    heredoc = None;
-                    literal_closer = None;
-                }
-            }
-            out.push(literal_closer.is_some());
-        } else if let Some(end) = literal_closer.as_deref()
-            && !(kind == Kind::TsJs
-                && end == b"`"
-                && b[i..].starts_with(b"${")
-                && b[i - 1] != b'\\')
-        {
-            let doubled = in_verbatim_string && c == b'"' && b.get(i + 1) == Some(&b'"');
-            let escape = matches!(kind, Kind::Rust | Kind::Cmake)
-                && !in_raw_string
-                && end == b"\""
-                && c == b'\\'
-                && b.get(i + 1) != Some(&b'\n');
-            let bracket = long_bracket && end == b"]]";
-            let closes = if bracket {
-                c == b']'
-                    && b[i + 1..]
-                        .iter()
-                        .take(long_bracket_level)
-                        .filter(|&&c| c == b'=')
-                        .count()
-                        == long_bracket_level
-                    && b.get(i + 1 + long_bracket_level) == Some(&b']')
+            self.newline();
+        } else if let Some(end) = self.literal_closer.take() {
+            if kind == Kind::TsJs && *end == *b"`" && b[i..].starts_with(b"${") && b[i - 1] != b'\\'
+            {
+                self.template_substitution_braces.push(0);
+                self.i += 1;
             } else {
-                heredoc.is_none()
-                    && !doubled
-                    && b[i..].starts_with(end)
-                    && (end.len() > 1
-                        || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake)
-                        || in_verbatim_string
-                        || b[i - 1] != b'\\')
-            };
-            let skip = end.len().saturating_sub(1);
-            if escape {
-                i += 1;
-            } else if closes {
-                literal_closer = None;
-                in_verbatim_string = false;
-                if let Some(from) = rust_string_start.take() {
-                    at_in_rust_string |= from < at && at < i;
-                }
-                i += if bracket {
-                    long_bracket_level + 1
-                } else {
-                    skip
-                };
-            } else if doubled {
-                i += 1;
+                self.in_literal(end, c);
             }
-        } else if literal_closer.is_some() {
-            template_substitution_braces.push(0);
-            literal_closer = None;
-            i += 1;
-        } else if !template_substitution_braces.is_empty()
-            && line_quote.is_none()
+        } else if !self.template_substitution_braces.is_empty()
+            && self.line_quote.is_none()
             && (c == b'{' || c == b'}')
             && b[i - 1] != b'\\'
         {
-            let depth = template_substitution_braces.last_mut().expect("not empty");
+            let depth = (self.template_substitution_braces.last_mut()).expect("not empty");
             match (c, *depth) {
                 (b'{', _) => *depth += 1,
                 (_, 0) => {
-                    template_substitution_braces.pop();
-                    literal_closer = Some(b"`".into());
+                    self.template_substitution_braces.pop();
+                    self.literal_closer = Some(b"`".into());
                 }
                 _ => *depth -= 1,
             }
-        } else if let Some(q) = line_quote {
-            let escape = if powershell {
+        } else if let Some(q) = self.line_quote {
+            let escape = if self.powershell() {
                 q == b'"' && c == b'`'
             } else {
                 c == b'\\'
             };
             if escape && b.get(i + 1) != Some(&b'\n') {
-                i += 1;
+                self.i += 1;
             } else if c == q {
-                line_quote = None;
+                self.line_quote = None;
             }
-        } else if triple_quotes
+        } else if !self.opens_quoted(c) && !self.opens_bracketed(c) {
+            if self.ruby_data_end() {
+                return false;
+            }
+            self.opens_rest(c);
+        }
+        true
+    }
+
+    fn newline(&mut self) {
+        let (b, i) = (self.b, self.i);
+        self.line_quote = None;
+        if self.heredoc.is_none() && !self.ruby_heredocs_from_next_line.is_empty() {
+            self.heredoc = Some(self.ruby_heredocs_from_next_line.remove(0));
+            self.literal_closer = Some(b"".into());
+        }
+        if let Some(Heredoc { label, end }) = &self.heredoc {
+            let rest = &b[i + 1..];
+            let word = rest
+                .iter()
+                .position(|c| !c.is_ascii_whitespace())
+                .map_or(rest, |n| &rest[n..]);
+            let ends = match *end {
+                HeredocEnd::LabelAloneOnLine { may_indent } => {
+                    let line = rest.split(|&c| c == b'\n').next().unwrap_or(rest);
+                    line.trim_ascii() == label && (may_indent || line.starts_with(label))
+                }
+                HeredocEnd::LabelLeadsLine => {
+                    word.starts_with(&label[..])
+                        && !word[label.len()..].first().is_some_and(|&c| ident(c))
+                }
+            };
+            if ends {
+                self.heredoc = None;
+                self.literal_closer = None;
+            }
+        }
+        self.out.push(self.literal_closer.is_some());
+    }
+
+    fn in_literal(&mut self, end: Cow<'a, [u8]>, c: u8) {
+        let (b, i, kind) = (self.b, self.i, self.kind);
+        let doubled = self.in_verbatim_string && c == b'"' && b.get(i + 1) == Some(&b'"');
+        let escape = matches!(kind, Kind::Rust | Kind::Cmake)
+            && !self.in_raw_string
+            && *end == *b"\""
+            && c == b'\\'
+            && b.get(i + 1) != Some(&b'\n');
+        let bracket = self.long_bracket() && *end == *b"]]";
+        let level = self.long_bracket_level;
+        let closes = if bracket {
+            c == b']'
+                && b[i + 1..]
+                    .iter()
+                    .take(level)
+                    .filter(|&&c| c == b'=')
+                    .count()
+                    == level
+                && b.get(i + 1 + level) == Some(&b']')
+        } else {
+            self.heredoc.is_none()
+                && !doubled
+                && b[i..].starts_with(&end)
+                && (end.len() > 1
+                    || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake)
+                    || self.in_verbatim_string
+                    || b[i - 1] != b'\\')
+        };
+        let skip = end.len().saturating_sub(1);
+        if escape {
+            self.i += 1;
+        } else if closes {
+            self.in_verbatim_string = false;
+            if let Some(from) = self.rust_string.start.take() {
+                self.rust_string.inside |= from < self.rust_string.at && self.rust_string.at < i;
+            }
+            self.i += if bracket { level + 1 } else { skip };
+            return;
+        } else if doubled {
+            self.i += 1;
+        }
+        self.literal_closer = Some(end);
+    }
+
+    fn opens_quoted(&mut self, c: u8) -> bool {
+        let (b, i, kind) = (self.b, self.i, self.kind);
+        if self.rules.triple_quotes
             && (b[i..].starts_with(b"\"\"\"")
                 || (matches!(
                     kind,
@@ -308,114 +386,158 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                         | Kind::Gdscript
                 ) && b[i..].starts_with(b"'''")))
         {
-            literal_closer = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
-            i += 2;
-        } else if kind == Kind::Jvm && b[i..].starts_with(b"$/") && token_at(i, &[]) {
-            literal_closer = Some(b"/$".into());
-            i += 1;
-        } else if powershell && b[i..].starts_with(b"<#") {
-            literal_closer = Some(b"#>".into());
-            i += 1;
-        } else if powershell
+            self.literal_closer = Some(if c == b'"' { b"\"\"\"" } else { b"'''" }.into());
+            self.i += 2;
+        } else if kind == Kind::Jvm && b[i..].starts_with(b"$/") && self.token_at(i, &[]) {
+            self.literal_closer = Some(b"/$".into());
+            self.i += 1;
+        } else if self.powershell() && b[i..].starts_with(b"<#") {
+            self.literal_closer = Some(b"#>".into());
+            self.i += 1;
+        } else if self.powershell()
             && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@'"))
             && b[i + 2..]
                 .iter()
                 .take_while(|&&c| c != b'\n')
                 .all(u8::is_ascii_whitespace)
         {
-            literal_closer = Some(b"".into());
-            heredoc = Some(Heredoc {
+            self.literal_closer = Some(b"".into());
+            self.heredoc = Some(Heredoc {
                 label: vec![b[i + 1], b'@'],
                 end: HeredocEnd::LabelLeadsLine,
             });
-            i += 1;
-        } else if powershell && c == b'`' {
+            self.i += 1;
+        } else if self.powershell() && c == b'`' {
             if !matches!(b.get(i + 1), Some(b'\n' | b'\r')) {
-                i += 1;
+                self.i += 1;
             }
-        } else if csharp_verbatim_strings
+        } else if kind == Kind::CSharp
             && (b[i..].starts_with(b"@\"") || b[i..].starts_with(b"@$\""))
         {
-            literal_closer = Some(b"\"".into());
-            in_verbatim_string = true;
-            i += if b[i + 1] == b'$' { 2 } else { 1 };
-        } else if php_heredocs && b[i..].starts_with(b"<<<") {
-            let word: Vec<u8> = b[i + 3..]
-                .iter()
-                .skip_while(|c| **c == b'"' || **c == b'\'')
-                .take_while(|c| ident(**c))
-                .copied()
-                .collect();
-            if !word.is_empty() {
-                i += 2;
-                literal_closer = Some(b"".into());
-                heredoc = Some(Heredoc {
-                    label: word,
-                    end: HeredocEnd::LabelLeadsLine,
-                });
-            }
-        } else if shell_heredoc && b[i..].starts_with(b"<<") {
-            let line = b[..i]
-                .iter()
-                .rposition(|&c| c == b'\n')
-                .map_or(0, |n| n + 1);
-            let word: Vec<u8> = b[i + 2..]
-                .iter()
-                .skip_while(|c| b"-'\"\\ \t".contains(c))
-                .take_while(|c| ident(**c))
-                .copied()
-                .collect();
-            if word.first().is_some_and(|c| !c.is_ascii_digit())
-                && !b[line..i].windows(2).any(|w| w == b"((")
-            {
-                literal_closer = Some(b"".into());
-                heredoc = Some(Heredoc {
-                    label: word,
-                    end: HeredocEnd::LabelLeadsLine,
-                });
-            }
-            i += 1;
-        } else if let Some((eq, skip)) = long_bracket.then(|| opens(i)).flatten() {
-            literal_closer = Some(b"]]".into());
-            long_bracket_level = eq;
-            i += skip;
-        } else if template && c == b'`' {
+            self.literal_closer = Some(b"\"".into());
+            self.in_verbatim_string = true;
+            self.i += if b[i + 1] == b'$' { 2 } else { 1 };
+        } else if kind == Kind::Php && b[i..].starts_with(b"<<<") {
+            self.php_heredoc();
+        } else if matches!(kind, Kind::Shell | Kind::Docker | Kind::Terraform)
+            && b[i..].starts_with(b"<<")
+        {
+            self.shell_heredoc();
+        } else {
+            return false;
+        }
+        true
+    }
+
+    fn php_heredoc(&mut self) {
+        let (b, i) = (self.b, self.i);
+        let word: Vec<u8> = b[i + 3..]
+            .iter()
+            .skip_while(|c| **c == b'"' || **c == b'\'')
+            .take_while(|c| ident(**c))
+            .copied()
+            .collect();
+        if !word.is_empty() {
+            self.i += 2;
+            self.literal_closer = Some(b"".into());
+            self.heredoc = Some(Heredoc {
+                label: word,
+                end: HeredocEnd::LabelLeadsLine,
+            });
+        }
+    }
+
+    fn shell_heredoc(&mut self) {
+        let (b, i) = (self.b, self.i);
+        let line = b[..i]
+            .iter()
+            .rposition(|&c| c == b'\n')
+            .map_or(0, |n| n + 1);
+        let word: Vec<u8> = b[i + 2..]
+            .iter()
+            .skip_while(|c| b"-'\"\\ \t".contains(c))
+            .take_while(|c| ident(**c))
+            .copied()
+            .collect();
+        if word.first().is_some_and(|c| !c.is_ascii_digit())
+            && !b[line..i].windows(2).any(|w| w == b"((")
+        {
+            self.literal_closer = Some(b"".into());
+            self.heredoc = Some(Heredoc {
+                label: word,
+                end: HeredocEnd::LabelLeadsLine,
+            });
+        }
+        self.i += 1;
+    }
+
+    fn opens_bracketed(&mut self, c: u8) -> bool {
+        let (b, i, kind) = (self.b, self.i, self.kind);
+        if let Some((eq, skip)) = self.long_bracket().then(|| self.opens(i)).flatten() {
+            self.literal_closer = Some(b"]]".into());
+            self.long_bracket_level = eq;
+            self.i += skip;
+        } else if self.rules.template && c == b'`' {
             if i == 0 || b[i - 1] != b'/' {
-                literal_closer = Some(b"`".into());
+                self.literal_closer = Some(b"`".into());
             }
-        } else if block_comment && b[i..].starts_with(b"/*") {
-            literal_closer = Some(b"*/".into());
-            i += 1;
+        } else if self.rules.block_comment && b[i..].starts_with(b"/*") {
+            self.literal_closer = Some(b"*/".into());
+            self.i += 1;
         } else if kind == Kind::Rust && c == b'"' {
-            (literal_closer, in_raw_string, rust_string_start) =
-                (Some(b"\"".into()), false, Some(i));
+            (
+                self.literal_closer,
+                self.in_raw_string,
+                self.rust_string.start,
+            ) = (Some(b"\"".into()), false, Some(i));
         } else if kind == Kind::Cmake && c == b'"' {
-            literal_closer = Some(b"\"".into());
-        } else if let Some(hashes) = (kind == Kind::Rust && c == b'r' && token_at(i, &[b"b", b"c"]))
-            .then(|| b[i + 1..].iter().take_while(|&&c| c == b'#').count())
-            .filter(|n| b.get(i + 1 + n) == Some(&b'"'))
+            self.literal_closer = Some(b"\"".into());
+        } else if let Some(hashes) =
+            (kind == Kind::Rust && c == b'r' && self.token_at(i, &[b"b", b"c"]))
+                .then(|| b[i + 1..].iter().take_while(|&&c| c == b'#').count())
+                .filter(|n| b.get(i + 1 + n) == Some(&b'"'))
         {
             let mut end = vec![b'"'];
             end.resize(hashes + 1, b'#');
-            (literal_closer, in_raw_string, rust_string_start) = (Some(end.into()), true, Some(i));
-            i += hashes + 1;
+            (
+                self.literal_closer,
+                self.in_raw_string,
+                self.rust_string.start,
+            ) = (Some(end.into()), true, Some(i));
+            self.i += hashes + 1;
         } else if kind == Kind::Rust && c == b'\'' {
-            let end = match b.get(i + 1) {
-                Some(b'\\') => b[(i + 3).min(b.len())..]
-                    .iter()
-                    .take(9)
-                    .position(|&c| c == b'\'')
-                    .map(|n| i + 3 + n),
-                Some(&c) => Some(i + 1 + (c.leading_ones() as usize).max(1)),
-                None => None,
-            };
-            if let Some(end) = end.filter(|&e| b.get(e) == Some(&b'\'')) {
-                i = end;
-            }
-        } else if let Some(delim) = (kind == Kind::C
+            self.rust_char();
+        } else if let Some(delim) = self.c_raw_string_delimiter(c) {
+            self.literal_closer = Some([&b")"[..], delim, b"\""].concat().into());
+            self.i += delim.len() + 2;
+        } else {
+            return false;
+        }
+        true
+    }
+
+    fn rust_char(&mut self) {
+        let (b, i) = (self.b, self.i);
+        let end = match b.get(i + 1) {
+            Some(b'\\') => b[(i + 3).min(b.len())..]
+                .iter()
+                .take(9)
+                .position(|&c| c == b'\'')
+                .map(|n| i + 3 + n),
+            Some(&c) => Some(i + 1 + (c.leading_ones() as usize).max(1)),
+            None => None,
+        };
+        if let Some(end) = end.filter(|&e| b.get(e) == Some(&b'\'')) {
+            self.i = end;
+        }
+    }
+
+    fn c_raw_string_delimiter(&self, c: u8) -> Option<&'a [u8]> {
+        let (b, i) = (self.b, self.i);
+        (self.kind == Kind::C
             && c == b'R'
             && b.get(i + 1) == Some(&b'"')
-            && token_at(i, &[b"u8", b"u", b"U", b"L"]))
+            && self.token_at(i, &[b"u8", b"u", b"U", b"L"]))
         .then(|| {
             b[i + 2..]
                 .iter()
@@ -425,74 +547,90 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         })
         .flatten()
         .filter(|d| !d.iter().any(|c| b" )\\\t\n".contains(c)))
-        {
-            literal_closer = Some([&b")"[..], delim, b"\""].concat().into());
-            i += delim.len() + 2;
-        } else if kind == Kind::Ruby && line_start && b[i..].starts_with(b"__END__") && {
-            let rest = &b[i + 7..];
-            rest.first().is_none_or(|&c| c == b'\n' || c == b'\r')
-        } {
-            out.extend(b[i..].iter().filter(|&&c| c == b'\n').map(|_| true));
-            break;
-        } else if kind == Kind::Ruby
-            && line_start
+    }
+
+    fn line_start(&self) -> bool {
+        self.i == 0 || self.b[self.i - 1] == b'\n'
+    }
+
+    fn ruby_data_end(&mut self) -> bool {
+        let (b, i) = (self.b, self.i);
+        let ends = self.kind == Kind::Ruby
+            && self.line_start()
+            && b[i..].starts_with(b"__END__")
+            && b[i + 7..].first().is_none_or(|&c| c == b'\n' || c == b'\r');
+        if ends {
+            self.out
+                .extend(b[i..].iter().filter(|&&c| c == b'\n').map(|_| true));
+        }
+        ends
+    }
+
+    fn opens_rest(&mut self, c: u8) {
+        let (b, i, kind) = (self.b, self.i, self.kind);
+        if kind == Kind::Ruby
+            && self.line_start()
             && b[i..].starts_with(b"=begin")
             && b.get(i + 6).is_none_or(u8::is_ascii_whitespace)
         {
-            literal_closer = Some(b"".into());
-            heredoc = Some(Heredoc {
+            self.literal_closer = Some(b"".into());
+            self.heredoc = Some(Heredoc {
                 label: b"=end".to_vec(),
                 end: HeredocEnd::LabelLeadsLine,
             });
         } else if kind == Kind::Ruby && b[i..].starts_with(b"<<") {
-            let flag = matches!(b.get(i + 2), Some(b'~' | b'-'));
-            let at_word = i + 2 + usize::from(flag);
-            let q = b.get(at_word).copied().filter(|c| b"'\"`".contains(c));
-            let from = at_word + usize::from(q.is_some());
-            let len = b[from..].iter().take_while(|&&c| ident(c)).count();
-            let first = b.get(from).copied().filter(|_| len > 0);
-            if first.is_some_and(|c| !c.is_ascii_digit())
-                && (flag || q.is_some() || first.is_some_and(|c| c.is_ascii_uppercase()))
-                && (q.is_none() || b.get(from + len).copied() == q)
-            {
-                ruby_heredocs_from_next_line.push(Heredoc {
-                    label: b[from..from + len].to_vec(),
-                    end: HeredocEnd::LabelAloneOnLine { may_indent: flag },
-                });
-                i = from + len + usize::from(q.is_some()) - 1;
-            } else {
-                i += 1;
-            }
+            self.ruby_heredoc();
         } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
             || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)
             || (matches!(kind, Kind::Sql | Kind::Ruby) && c == b'`')
         {
-            line_quote = Some(c);
+            self.line_quote = Some(c);
         } else if kind == Kind::Php && (b[i..].starts_with(b"<?") || b[i..].starts_with(b"?>")) {
-            in_php_tags = c == b'<';
-            i += 1;
-        } else if line_comments
+            self.in_php_tags = c == b'<';
+            self.i += 1;
+        } else if self.opens_line_comment(c) {
+            while self.i + 1 < b.len()
+                && b[self.i + 1] != b'\n'
+                && !(kind == Kind::Php && b[self.i + 1..].starts_with(b"?>"))
+            {
+                self.i += 1;
+            }
+        }
+    }
+
+    fn opens_line_comment(&self, c: u8) -> bool {
+        let (b, i, kind) = (self.b, self.i, self.kind);
+        let comment_only_at_word_start =
+            matches!(kind, Kind::Shell | Kind::Docker | Kind::PowerShell);
+        self.rules
+            .line_comments
             .iter()
             .any(|m| b[i..].starts_with(m.as_bytes()))
             && !(comment_only_at_word_start && i > 0 && !b" \t\n;&|()<>".contains(&b[i - 1]))
-            && !(kind == Kind::Php && c == b'#' && (!in_php_tags || b[i..].starts_with(b"#[")))
+            && !(kind == Kind::Php && c == b'#' && (!self.in_php_tags || b[i..].starts_with(b"#[")))
+    }
+
+    fn ruby_heredoc(&mut self) {
+        let (b, i) = (self.b, self.i);
+        let flag = matches!(b.get(i + 2), Some(b'~' | b'-'));
+        let at_word = i + 2 + usize::from(flag);
+        let q = b.get(at_word).copied().filter(|c| b"'\"`".contains(c));
+        let from = at_word + usize::from(q.is_some());
+        let len = b[from..].iter().take_while(|&&c| ident(c)).count();
+        let first = b.get(from).copied().filter(|_| len > 0);
+        if first.is_some_and(|c| !c.is_ascii_digit())
+            && (flag || q.is_some() || first.is_some_and(|c| c.is_ascii_uppercase()))
+            && (q.is_none() || b.get(from + len).copied() == q)
         {
-            while i + 1 < b.len()
-                && b[i + 1] != b'\n'
-                && !(kind == Kind::Php && b[i + 1..].starts_with(b"?>"))
-            {
-                i += 1;
-            }
+            self.ruby_heredocs_from_next_line.push(Heredoc {
+                label: b[from..from + len].to_vec(),
+                end: HeredocEnd::LabelAloneOnLine { may_indent: flag },
+            });
+            self.i = from + len + usize::from(q.is_some()) - 1;
+        } else {
+            self.i += 1;
         }
-        i += 1;
-    }
-    if let Some(from) = rust_string_start {
-        at_in_rust_string |= from < at && at <= b.len();
-    }
-    Scan {
-        lines_in_literal: out,
-        at_in_rust_string,
     }
 }
 pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '_ {
