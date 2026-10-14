@@ -345,6 +345,11 @@ fn common_lisp_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn haskell_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("haskell");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -497,6 +502,7 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
+    assert!(sexp("A.hs", b"module A where\n").contains("(haskell "));
     for f in ["a.lisp", "a.asd", "init.el", ".emacs"] {
         assert!(sexp(f, b"(defun a () 1)\n").contains("(source "), "{f}");
     }
@@ -864,6 +870,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
     assert_eq!(name("rkt"), Some("racket"));
     assert_eq!(name("lisp"), Some("commonlisp"));
     assert_eq!(name("commonlisp"), Some("commonlisp"));
+    assert_eq!(name("haskell"), Some("haskell"));
+    assert_eq!(name("hs"), Some("haskell"));
 }
 
 #[test]

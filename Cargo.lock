@@ -1887,6 +1887,7 @@ dependencies = [
  "tree-sitter-elixir",
  "tree-sitter-erlang",
  "tree-sitter-go",
+ "tree-sitter-haskell",
  "tree-sitter-hcl",
  "tree-sitter-html",
  "tree-sitter-ini",
@@ -4032,6 +4033,15 @@ name = "tree-sitter-go"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8560a4d2f835cc0d4d2c2e03cbd0dde2f6114b43bc491164238d333e28b16ea"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-haskell"
+version = "0.23.1"
+source = "git+https://github.com/tree-sitter-grammars/tree-sitter-haskell?rev=98aedbd2d6947a168ba3ba3755d70b0cb6b78395#98aedbd2d6947a168ba3ba3755d70b0cb6b78395"
 dependencies = [
  "cc",
  "tree-sitter-language",

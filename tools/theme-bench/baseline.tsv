@@ -11,6 +11,7 @@ adwaita	dockerfile	20413	20413
 adwaita	elixir	18319	18138
 adwaita	erlang	23025	23025
 adwaita	go	14810	14810
+adwaita	haskell	19881	19876
 adwaita	hcl	3592	3592
 adwaita	html	22445	22445
 adwaita	ini	9762	9762
@@ -51,6 +52,7 @@ adwaita-light	dockerfile	20413	20413
 adwaita-light	elixir	18319	18138
 adwaita-light	erlang	23025	23025
 adwaita-light	go	14810	14810
+adwaita-light	haskell	19881	19876
 adwaita-light	hcl	3592	3592
 adwaita-light	html	22445	22445
 adwaita-light	ini	9762	9762
@@ -91,6 +93,7 @@ alabaster	dockerfile	20413	20413
 alabaster	elixir	18319	18138
 alabaster	erlang	23025	23025
 alabaster	go	14810	14810
+alabaster	haskell	19881	19881
 alabaster	hcl	3592	3592
 alabaster	html	22445	22445
 alabaster	ini	9762	9762
@@ -131,6 +134,7 @@ alabaster-light	dockerfile	20413	20413
 alabaster-light	elixir	18319	18138
 alabaster-light	erlang	23025	23025
 alabaster-light	go	14810	14810
+alabaster-light	haskell	19881	19873
 alabaster-light	hcl	3592	3592
 alabaster-light	html	22445	22437
 alabaster-light	ini	9762	9762
@@ -171,6 +175,7 @@ alucard	dockerfile	20413	20413
 alucard	elixir	18319	18138
 alucard	erlang	23025	23025
 alucard	go	14810	14810
+alucard	haskell	19881	19873
 alucard	hcl	3592	3592
 alucard	html	22445	22437
 alucard	ini	9762	9762
@@ -211,6 +216,7 @@ ayu	dockerfile	20413	20413
 ayu	elixir	18319	18138
 ayu	erlang	23025	23025
 ayu	go	14810	14810
+ayu	haskell	19881	19876
 ayu	hcl	3592	3592
 ayu	html	22445	22439
 ayu	ini	9762	9762
@@ -251,6 +257,7 @@ ayu-light	dockerfile	20413	20413
 ayu-light	elixir	18319	18138
 ayu-light	erlang	23025	23025
 ayu-light	go	14810	14810
+ayu-light	haskell	19881	19876
 ayu-light	hcl	3592	3592
 ayu-light	html	22445	22439
 ayu-light	ini	9762	9762
@@ -291,6 +298,7 @@ ayu-mirage	dockerfile	20413	20413
 ayu-mirage	elixir	18319	18138
 ayu-mirage	erlang	23025	23025
 ayu-mirage	go	14810	14810
+ayu-mirage	haskell	19881	19876
 ayu-mirage	hcl	3592	3592
 ayu-mirage	html	22445	22439
 ayu-mirage	ini	9762	9762
@@ -331,6 +339,7 @@ bamboo	dockerfile	20413	20413
 bamboo	elixir	18319	18138
 bamboo	erlang	23025	23025
 bamboo	go	14810	14810
+bamboo	haskell	19881	19873
 bamboo	hcl	3592	3592
 bamboo	html	22445	22437
 bamboo	ini	9762	9762
@@ -371,6 +380,7 @@ bamboo-light	dockerfile	20413	20413
 bamboo-light	elixir	18319	18138
 bamboo-light	erlang	23025	23025
 bamboo-light	go	14810	14810
+bamboo-light	haskell	19881	19873
 bamboo-light	hcl	3592	3592
 bamboo-light	html	22445	22437
 bamboo-light	ini	9762	9762
@@ -411,6 +421,7 @@ bluloco-light	dockerfile	20413	20413
 bluloco-light	elixir	18319	18138
 bluloco-light	erlang	23025	23025
 bluloco-light	go	14810	14810
+bluloco-light	haskell	19881	19873
 bluloco-light	hcl	3592	3592
 bluloco-light	html	22445	22437
 bluloco-light	ini	9762	9762
@@ -451,6 +462,7 @@ catppuccin-frappe	dockerfile	20413	20413
 catppuccin-frappe	elixir	18319	18138
 catppuccin-frappe	erlang	23025	23025
 catppuccin-frappe	go	14810	14810
+catppuccin-frappe	haskell	19881	19873
 catppuccin-frappe	hcl	3592	3592
 catppuccin-frappe	html	22445	22437
 catppuccin-frappe	ini	9762	9762
@@ -491,6 +503,7 @@ catppuccin-latte	dockerfile	20413	20413
 catppuccin-latte	elixir	18319	18138
 catppuccin-latte	erlang	23025	23025
 catppuccin-latte	go	14810	14810
+catppuccin-latte	haskell	19881	19873
 catppuccin-latte	hcl	3592	3592
 catppuccin-latte	html	22445	22437
 catppuccin-latte	ini	9762	9762
@@ -531,6 +544,7 @@ catppuccin-macchiato	dockerfile	20413	20413
 catppuccin-macchiato	elixir	18319	18138
 catppuccin-macchiato	erlang	23025	23025
 catppuccin-macchiato	go	14810	14810
+catppuccin-macchiato	haskell	19881	19873
 catppuccin-macchiato	hcl	3592	3592
 catppuccin-macchiato	html	22445	22437
 catppuccin-macchiato	ini	9762	9762
@@ -571,6 +585,7 @@ catppuccin-mocha	dockerfile	20413	20413
 catppuccin-mocha	elixir	18319	18138
 catppuccin-mocha	erlang	23025	23025
 catppuccin-mocha	go	14810	14810
+catppuccin-mocha	haskell	19881	19873
 catppuccin-mocha	hcl	3592	3592
 catppuccin-mocha	html	22445	22437
 catppuccin-mocha	ini	9762	9762
@@ -611,6 +626,7 @@ cendre	dockerfile	20413	20413
 cendre	elixir	18319	18138
 cendre	erlang	23025	23025
 cendre	go	14810	14810
+cendre	haskell	19881	19873
 cendre	hcl	3592	3592
 cendre	html	22445	22437
 cendre	ini	9762	9762
@@ -651,6 +667,7 @@ darkearth	dockerfile	20413	20413
 darkearth	elixir	18319	18138
 darkearth	erlang	23025	23025
 darkearth	go	14810	14810
+darkearth	haskell	19881	19876
 darkearth	hcl	3592	3592
 darkearth	html	22445	22439
 darkearth	ini	9762	9762
@@ -691,6 +708,7 @@ dawnfox	dockerfile	20413	20413
 dawnfox	elixir	18319	18138
 dawnfox	erlang	23025	23025
 dawnfox	go	14810	14810
+dawnfox	haskell	19881	19873
 dawnfox	hcl	3592	3592
 dawnfox	html	22445	22437
 dawnfox	ini	9762	9762
@@ -731,6 +749,7 @@ dayfox	dockerfile	20413	20413
 dayfox	elixir	18319	18138
 dayfox	erlang	23025	23025
 dayfox	go	14810	14810
+dayfox	haskell	19881	19873
 dayfox	hcl	3592	3592
 dayfox	html	22445	22437
 dayfox	ini	9762	9762
@@ -771,6 +790,7 @@ dracula	dockerfile	20413	20413
 dracula	elixir	18319	18138
 dracula	erlang	23025	23025
 dracula	go	14810	14810
+dracula	haskell	19881	19873
 dracula	hcl	3592	3592
 dracula	html	22445	22437
 dracula	ini	9762	9762
@@ -811,6 +831,7 @@ e-ink	dockerfile	20413	20413
 e-ink	elixir	18319	18138
 e-ink	erlang	23025	23025
 e-ink	go	14810	14810
+e-ink	haskell	19881	19881
 e-ink	hcl	3592	3592
 e-ink	html	22445	22445
 e-ink	ini	9762	9762
@@ -851,6 +872,7 @@ e-ink-light	dockerfile	20413	20413
 e-ink-light	elixir	18319	18138
 e-ink-light	erlang	23025	23025
 e-ink-light	go	14810	14810
+e-ink-light	haskell	19881	19881
 e-ink-light	hcl	3592	3592
 e-ink-light	html	22445	22445
 e-ink-light	ini	9762	9762
@@ -891,6 +913,7 @@ edge	dockerfile	20413	20413
 edge	elixir	18319	18138
 edge	erlang	23025	23025
 edge	go	14810	14810
+edge	haskell	19881	19881
 edge	hcl	3592	3592
 edge	html	22445	22445
 edge	ini	9762	9762
@@ -931,6 +954,7 @@ edge-light	dockerfile	20413	20413
 edge-light	elixir	18319	18138
 edge-light	erlang	23025	23025
 edge-light	go	14810	14810
+edge-light	haskell	19881	19881
 edge-light	hcl	3592	3592
 edge-light	html	22445	22445
 edge-light	ini	9762	9762
@@ -971,6 +995,7 @@ everforest-dark	dockerfile	20413	20413
 everforest-dark	elixir	18319	18138
 everforest-dark	erlang	23025	23025
 everforest-dark	go	14810	14810
+everforest-dark	haskell	19881	19881
 everforest-dark	hcl	3592	3592
 everforest-dark	html	22445	22445
 everforest-dark	ini	9762	9762
@@ -1011,6 +1036,7 @@ everforest-light	dockerfile	20413	20413
 everforest-light	elixir	18319	18138
 everforest-light	erlang	23025	23025
 everforest-light	go	14810	14810
+everforest-light	haskell	19881	19881
 everforest-light	hcl	3592	3592
 everforest-light	html	22445	22445
 everforest-light	ini	9762	9762
@@ -1051,6 +1077,7 @@ flexoki-dark	dockerfile	20413	20413
 flexoki-dark	elixir	18319	18138
 flexoki-dark	erlang	23025	23025
 flexoki-dark	go	14810	14810
+flexoki-dark	haskell	19881	19881
 flexoki-dark	hcl	3592	3592
 flexoki-dark	html	22445	22445
 flexoki-dark	ini	9762	9762
@@ -1091,6 +1118,7 @@ flexoki-light	dockerfile	20413	20413
 flexoki-light	elixir	18319	18138
 flexoki-light	erlang	23025	23025
 flexoki-light	go	14810	14810
+flexoki-light	haskell	19881	19881
 flexoki-light	hcl	3592	3592
 flexoki-light	html	22445	22445
 flexoki-light	ini	9762	9762
@@ -1131,6 +1159,7 @@ github-dark	dockerfile	20413	20410
 github-dark	elixir	18319	18138
 github-dark	erlang	23025	23025
 github-dark	go	14810	14810
+github-dark	haskell	19881	19876
 github-dark	hcl	3592	3592
 github-dark	html	22445	22439
 github-dark	ini	9762	9762
@@ -1171,6 +1200,7 @@ github-light	dockerfile	20413	20410
 github-light	elixir	18319	18138
 github-light	erlang	23025	23025
 github-light	go	14810	14810
+github-light	haskell	19881	19876
 github-light	hcl	3592	3592
 github-light	html	22445	22439
 github-light	ini	9762	9762
@@ -1211,6 +1241,7 @@ gotham	dockerfile	20413	20413
 gotham	elixir	18319	18138
 gotham	erlang	23025	23025
 gotham	go	14810	14810
+gotham	haskell	19881	19876
 gotham	hcl	3592	3592
 gotham	html	22445	22439
 gotham	ini	9762	9762
@@ -1251,6 +1282,7 @@ gruvbox-dark	dockerfile	20413	20413
 gruvbox-dark	elixir	18319	18138
 gruvbox-dark	erlang	23025	23025
 gruvbox-dark	go	14810	14810
+gruvbox-dark	haskell	19881	19881
 gruvbox-dark	hcl	3592	3592
 gruvbox-dark	html	22445	22445
 gruvbox-dark	ini	9762	9762
@@ -1291,6 +1323,7 @@ gruvbox-light	dockerfile	20413	20413
 gruvbox-light	elixir	18319	18138
 gruvbox-light	erlang	23025	23025
 gruvbox-light	go	14810	14810
+gruvbox-light	haskell	19881	19881
 gruvbox-light	hcl	3592	3592
 gruvbox-light	html	22445	22445
 gruvbox-light	ini	9762	9762
@@ -1331,6 +1364,7 @@ gruvbox-material-dark	dockerfile	20413	20413
 gruvbox-material-dark	elixir	18319	18138
 gruvbox-material-dark	erlang	23025	23025
 gruvbox-material-dark	go	14810	14810
+gruvbox-material-dark	haskell	19881	19881
 gruvbox-material-dark	hcl	3592	3592
 gruvbox-material-dark	html	22445	22445
 gruvbox-material-dark	ini	9762	9762
@@ -1371,6 +1405,7 @@ gruvbox-material-light	dockerfile	20413	20413
 gruvbox-material-light	elixir	18319	18138
 gruvbox-material-light	erlang	23025	23025
 gruvbox-material-light	go	14810	14810
+gruvbox-material-light	haskell	19881	19881
 gruvbox-material-light	hcl	3592	3592
 gruvbox-material-light	html	22445	22445
 gruvbox-material-light	ini	9762	9762
@@ -1411,6 +1446,7 @@ hojicha	dockerfile	20413	20413
 hojicha	elixir	18319	18138
 hojicha	erlang	23025	23025
 hojicha	go	14810	14810
+hojicha	haskell	19881	19876
 hojicha	hcl	3592	3592
 hojicha	html	22445	22445
 hojicha	ini	9762	9762
@@ -1451,6 +1487,7 @@ iceberg	dockerfile	20413	20413
 iceberg	elixir	18319	18138
 iceberg	erlang	23025	23025
 iceberg	go	14810	14810
+iceberg	haskell	19881	19873
 iceberg	hcl	3592	3592
 iceberg	html	22445	22437
 iceberg	ini	9762	9762
@@ -1491,6 +1528,7 @@ iceberg-light	dockerfile	20413	20413
 iceberg-light	elixir	18319	18138
 iceberg-light	erlang	23025	23025
 iceberg-light	go	14810	14810
+iceberg-light	haskell	19881	19876
 iceberg-light	hcl	3592	3592
 iceberg-light	html	22445	22439
 iceberg-light	ini	9762	9762
@@ -1531,6 +1569,7 @@ jellybeans	dockerfile	20413	20413
 jellybeans	elixir	18319	18138
 jellybeans	erlang	23025	23025
 jellybeans	go	14810	14810
+jellybeans	haskell	19881	19873
 jellybeans	hcl	3592	3592
 jellybeans	html	22445	22437
 jellybeans	ini	9762	9762
@@ -1571,6 +1610,7 @@ jellybeans-light	dockerfile	20413	20413
 jellybeans-light	elixir	18319	18138
 jellybeans-light	erlang	23025	23025
 jellybeans-light	go	14810	14810
+jellybeans-light	haskell	19881	19873
 jellybeans-light	hcl	3592	3592
 jellybeans-light	html	22445	22437
 jellybeans-light	ini	9762	9762
@@ -1611,6 +1651,7 @@ kanagawa-dragon	dockerfile	20413	20413
 kanagawa-dragon	elixir	18319	18138
 kanagawa-dragon	erlang	23025	23025
 kanagawa-dragon	go	14810	14810
+kanagawa-dragon	haskell	19881	19873
 kanagawa-dragon	hcl	3592	3592
 kanagawa-dragon	html	22445	22437
 kanagawa-dragon	ini	9762	9762
@@ -1651,6 +1692,7 @@ kanagawa-lotus	dockerfile	20413	20413
 kanagawa-lotus	elixir	18319	18138
 kanagawa-lotus	erlang	23025	23025
 kanagawa-lotus	go	14810	14810
+kanagawa-lotus	haskell	19881	19873
 kanagawa-lotus	hcl	3592	3592
 kanagawa-lotus	html	22445	22437
 kanagawa-lotus	ini	9762	9762
@@ -1691,6 +1733,7 @@ kanagawa-wave	dockerfile	20413	20413
 kanagawa-wave	elixir	18319	18138
 kanagawa-wave	erlang	23025	23025
 kanagawa-wave	go	14810	14810
+kanagawa-wave	haskell	19881	19873
 kanagawa-wave	hcl	3592	3592
 kanagawa-wave	html	22445	22437
 kanagawa-wave	ini	9762	9762
@@ -1731,6 +1774,7 @@ koda-dark	dockerfile	20413	20413
 koda-dark	elixir	18319	18138
 koda-dark	erlang	23025	23025
 koda-dark	go	14810	14810
+koda-dark	haskell	19881	19873
 koda-dark	hcl	3592	3592
 koda-dark	html	22445	22437
 koda-dark	ini	9762	9762
@@ -1771,6 +1815,7 @@ koda-light	dockerfile	20413	20413
 koda-light	elixir	18319	18138
 koda-light	erlang	23025	23025
 koda-light	go	14810	14810
+koda-light	haskell	19881	19873
 koda-light	hcl	3592	3592
 koda-light	html	22445	22437
 koda-light	ini	9762	9762
@@ -1811,6 +1856,7 @@ lackluster	dockerfile	20413	20413
 lackluster	elixir	18319	18138
 lackluster	erlang	23025	23025
 lackluster	go	14810	14810
+lackluster	haskell	19881	19876
 lackluster	hcl	3592	3592
 lackluster	html	22445	22439
 lackluster	ini	9762	9762
@@ -1851,6 +1897,7 @@ lightearth	dockerfile	20413	20413
 lightearth	elixir	18319	18138
 lightearth	erlang	23025	23025
 lightearth	go	14810	14810
+lightearth	haskell	19881	19876
 lightearth	hcl	3592	3592
 lightearth	html	22445	22439
 lightearth	ini	9762	9762
@@ -1891,6 +1938,7 @@ material-dark	dockerfile	20413	20413
 material-dark	elixir	18319	18138
 material-dark	erlang	23025	23025
 material-dark	go	14810	14810
+material-dark	haskell	19881	19873
 material-dark	hcl	3592	3592
 material-dark	html	22445	22437
 material-dark	ini	9762	9762
@@ -1931,6 +1979,7 @@ material-light	dockerfile	20413	20413
 material-light	elixir	18319	18315
 material-light	erlang	23025	23025
 material-light	go	14810	14810
+material-light	haskell	19881	19873
 material-light	hcl	3592	3592
 material-light	html	22445	22437
 material-light	ini	9762	9762
@@ -1971,6 +2020,7 @@ melange-dark	dockerfile	20413	20413
 melange-dark	elixir	18319	18138
 melange-dark	erlang	23025	23025
 melange-dark	go	14810	14810
+melange-dark	haskell	19881	19881
 melange-dark	hcl	3592	3592
 melange-dark	html	22445	22445
 melange-dark	ini	9762	9762
@@ -2011,6 +2061,7 @@ melange-light	dockerfile	20413	20413
 melange-light	elixir	18319	18138
 melange-light	erlang	23025	23025
 melange-light	go	14810	14810
+melange-light	haskell	19881	19881
 melange-light	hcl	3592	3592
 melange-light	html	22445	22445
 melange-light	ini	9762	9762
@@ -2051,6 +2102,7 @@ mellifluous	dockerfile	20413	20413
 mellifluous	elixir	18319	18138
 mellifluous	erlang	23025	23025
 mellifluous	go	14810	14810
+mellifluous	haskell	19881	19873
 mellifluous	hcl	3592	3592
 mellifluous	html	22445	22437
 mellifluous	ini	9762	9762
@@ -2091,6 +2143,7 @@ mellifluous-light	dockerfile	20413	20413
 mellifluous-light	elixir	18319	18138
 mellifluous-light	erlang	23025	23025
 mellifluous-light	go	14810	14810
+mellifluous-light	haskell	19881	19873
 mellifluous-light	hcl	3592	3592
 mellifluous-light	html	22445	22437
 mellifluous-light	ini	9762	9762
@@ -2131,6 +2184,7 @@ mellow	dockerfile	20413	20413
 mellow	elixir	18319	18138
 mellow	erlang	23025	23025
 mellow	go	14810	14810
+mellow	haskell	19881	19873
 mellow	hcl	3592	3592
 mellow	html	22445	22437
 mellow	ini	9762	9762
@@ -2171,6 +2225,7 @@ miasma	dockerfile	20413	20413
 miasma	elixir	18319	18138
 miasma	erlang	23025	23025
 miasma	go	14810	14810
+miasma	haskell	19881	19876
 miasma	hcl	3592	3592
 miasma	html	22445	22439
 miasma	ini	9762	9762
@@ -2211,6 +2266,7 @@ minischeme	dockerfile	20413	20413
 minischeme	elixir	18319	18138
 minischeme	erlang	23025	23025
 minischeme	go	14810	14810
+minischeme	haskell	19881	19881
 minischeme	hcl	3592	3592
 minischeme	html	22445	22445
 minischeme	ini	9762	9762
@@ -2251,6 +2307,7 @@ minischeme-light	dockerfile	20413	20413
 minischeme-light	elixir	18319	18138
 minischeme-light	erlang	23025	23025
 minischeme-light	go	14810	14810
+minischeme-light	haskell	19881	19881
 minischeme-light	hcl	3592	3592
 minischeme-light	html	22445	22445
 minischeme-light	ini	9762	9762
@@ -2291,6 +2348,7 @@ moonfly	dockerfile	20413	20413
 moonfly	elixir	18319	18138
 moonfly	erlang	23025	23025
 moonfly	go	14810	14810
+moonfly	haskell	19881	19881
 moonfly	hcl	3592	3592
 moonfly	html	22445	22445
 moonfly	ini	9762	9762
@@ -2331,6 +2389,7 @@ neomodern-light	dockerfile	20413	20413
 neomodern-light	elixir	18319	18138
 neomodern-light	erlang	23025	23025
 neomodern-light	go	14810	14810
+neomodern-light	haskell	19881	19876
 neomodern-light	hcl	3592	3592
 neomodern-light	html	22445	22445
 neomodern-light	ini	9762	9762
@@ -2371,6 +2430,7 @@ nightfly	dockerfile	20413	20413
 nightfly	elixir	18319	18138
 nightfly	erlang	23025	23025
 nightfly	go	14810	14810
+nightfly	haskell	19881	19881
 nightfly	hcl	3592	3592
 nightfly	html	22445	22445
 nightfly	ini	9762	9762
@@ -2411,6 +2471,7 @@ nightfox	dockerfile	20413	20413
 nightfox	elixir	18319	18138
 nightfox	erlang	23025	23025
 nightfox	go	14810	14810
+nightfox	haskell	19881	19873
 nightfox	hcl	3592	3592
 nightfox	html	22445	22437
 nightfox	ini	9762	9762
@@ -2451,6 +2512,7 @@ nord	dockerfile	20413	20413
 nord	elixir	18319	18138
 nord	erlang	23025	23025
 nord	go	14810	14810
+nord	haskell	19881	19881
 nord	hcl	3592	3592
 nord	html	22445	22445
 nord	ini	9762	9762
@@ -2491,6 +2553,7 @@ nordfox	dockerfile	20413	20413
 nordfox	elixir	18319	18138
 nordfox	erlang	23025	23025
 nordfox	go	14810	14810
+nordfox	haskell	19881	19873
 nordfox	hcl	3592	3592
 nordfox	html	22445	22437
 nordfox	ini	9762	9762
@@ -2531,6 +2594,7 @@ onedark	dockerfile	20413	20413
 onedark	elixir	18319	18138
 onedark	erlang	23025	23025
 onedark	go	14810	14810
+onedark	haskell	19881	19881
 onedark	hcl	3592	3592
 onedark	html	22445	22445
 onedark	ini	9762	9762
@@ -2571,6 +2635,7 @@ onedark-light	dockerfile	20413	20413
 onedark-light	elixir	18319	18138
 onedark-light	erlang	23025	23025
 onedark-light	go	14810	14810
+onedark-light	haskell	19881	19881
 onedark-light	hcl	3592	3592
 onedark-light	html	22445	22445
 onedark-light	ini	9762	9762
@@ -2611,6 +2676,7 @@ oxocarbon-dark	dockerfile	20413	20413
 oxocarbon-dark	elixir	18319	18138
 oxocarbon-dark	erlang	23025	23025
 oxocarbon-dark	go	14810	14810
+oxocarbon-dark	haskell	19881	19881
 oxocarbon-dark	hcl	3592	3592
 oxocarbon-dark	html	22445	22445
 oxocarbon-dark	ini	9762	9762
@@ -2651,6 +2717,7 @@ oxocarbon-light	dockerfile	20413	20413
 oxocarbon-light	elixir	18319	18138
 oxocarbon-light	erlang	23025	23025
 oxocarbon-light	go	14810	14810
+oxocarbon-light	haskell	19881	19881
 oxocarbon-light	hcl	3592	3592
 oxocarbon-light	html	22445	22445
 oxocarbon-light	ini	9762	9762
@@ -2691,6 +2758,7 @@ papercolor	dockerfile	20413	20413
 papercolor	elixir	18319	18138
 papercolor	erlang	23025	23025
 papercolor	go	14810	14810
+papercolor	haskell	19881	19873
 papercolor	hcl	3592	3592
 papercolor	html	22445	22437
 papercolor	ini	9762	9762
@@ -2731,6 +2799,7 @@ papercolor-light	dockerfile	20413	20413
 papercolor-light	elixir	18319	18138
 papercolor-light	erlang	23025	23025
 papercolor-light	go	14810	14810
+papercolor-light	haskell	19881	19873
 papercolor-light	hcl	3592	3592
 papercolor-light	html	22445	22437
 papercolor-light	ini	9762	9762
@@ -2771,6 +2840,7 @@ pencil	dockerfile	20413	20413
 pencil	elixir	18319	18138
 pencil	erlang	23025	23025
 pencil	go	14810	14810
+pencil	haskell	19881	19876
 pencil	hcl	3592	3592
 pencil	html	22445	22439
 pencil	ini	9762	9762
@@ -2811,6 +2881,7 @@ pencil-light	dockerfile	20413	20413
 pencil-light	elixir	18319	18138
 pencil-light	erlang	23025	23025
 pencil-light	go	14810	14810
+pencil-light	haskell	19881	19876
 pencil-light	hcl	3592	3592
 pencil-light	html	22445	22439
 pencil-light	ini	9762	9762
@@ -2851,6 +2922,7 @@ rose-pine	dockerfile	20413	20413
 rose-pine	elixir	18319	18142
 rose-pine	erlang	23025	23025
 rose-pine	go	14810	14810
+rose-pine	haskell	19881	19873
 rose-pine	hcl	3592	3592
 rose-pine	html	22445	22437
 rose-pine	ini	9762	9762
@@ -2891,6 +2963,7 @@ rose-pine-dawn	dockerfile	20413	20413
 rose-pine-dawn	elixir	18319	18142
 rose-pine-dawn	erlang	23025	23025
 rose-pine-dawn	go	14810	14810
+rose-pine-dawn	haskell	19881	19873
 rose-pine-dawn	hcl	3592	3592
 rose-pine-dawn	html	22445	22437
 rose-pine-dawn	ini	9762	9762
@@ -2931,6 +3004,7 @@ rose-pine-moon	dockerfile	20413	20413
 rose-pine-moon	elixir	18319	18142
 rose-pine-moon	erlang	23025	23025
 rose-pine-moon	go	14810	14810
+rose-pine-moon	haskell	19881	19873
 rose-pine-moon	hcl	3592	3592
 rose-pine-moon	html	22445	22437
 rose-pine-moon	ini	9762	9762
@@ -2971,6 +3045,7 @@ selenized	dockerfile	20413	20413
 selenized	elixir	18319	18138
 selenized	erlang	23025	23025
 selenized	go	14810	14810
+selenized	haskell	19881	19873
 selenized	hcl	3592	3592
 selenized	html	22445	22437
 selenized	ini	9762	9762
@@ -3011,6 +3086,7 @@ selenized-light	dockerfile	20413	20413
 selenized-light	elixir	18319	18138
 selenized-light	erlang	23025	23025
 selenized-light	go	14810	14810
+selenized-light	haskell	19881	19873
 selenized-light	hcl	3592	3592
 selenized-light	html	22445	22437
 selenized-light	ini	9762	9762
@@ -3051,6 +3127,7 @@ solarized-dark	dockerfile	20413	20413
 solarized-dark	elixir	18319	18138
 solarized-dark	erlang	23025	23025
 solarized-dark	go	14810	14810
+solarized-dark	haskell	19881	19873
 solarized-dark	hcl	3592	3592
 solarized-dark	html	22445	22437
 solarized-dark	ini	9762	9762
@@ -3091,6 +3168,7 @@ solarized-light	dockerfile	20413	20413
 solarized-light	elixir	18319	18138
 solarized-light	erlang	23025	23025
 solarized-light	go	14810	14810
+solarized-light	haskell	19881	19873
 solarized-light	hcl	3592	3592
 solarized-light	html	22445	22437
 solarized-light	ini	9762	9762
@@ -3131,6 +3209,7 @@ sonokai	dockerfile	20413	20413
 sonokai	elixir	18319	18138
 sonokai	erlang	23025	23025
 sonokai	go	14810	14810
+sonokai	haskell	19881	19881
 sonokai	hcl	3592	3592
 sonokai	html	22445	22445
 sonokai	ini	9762	9762
@@ -3171,6 +3250,7 @@ soviet-dark	dockerfile	20413	20413
 soviet-dark	elixir	18319	18138
 soviet-dark	erlang	23025	23025
 soviet-dark	go	14810	14810
+soviet-dark	haskell	19881	19873
 soviet-dark	hcl	3592	3592
 soviet-dark	html	22445	22437
 soviet-dark	ini	9762	9762
@@ -3211,6 +3291,7 @@ soviet-light	dockerfile	20413	20413
 soviet-light	elixir	18319	18138
 soviet-light	erlang	23025	23025
 soviet-light	go	14810	14810
+soviet-light	haskell	19881	19873
 soviet-light	hcl	3592	3592
 soviet-light	html	22445	22437
 soviet-light	ini	9762	9762
@@ -3251,6 +3332,7 @@ srcery	dockerfile	20413	20413
 srcery	elixir	18319	18138
 srcery	erlang	23025	23025
 srcery	go	14810	14810
+srcery	haskell	19881	19873
 srcery	hcl	3592	3592
 srcery	html	22445	22437
 srcery	ini	9762	9762
@@ -3291,6 +3373,7 @@ token	dockerfile	20413	20413
 token	elixir	18319	18138
 token	erlang	23025	23025
 token	go	14810	14810
+token	haskell	19881	19873
 token	hcl	3592	3592
 token	html	22445	22437
 token	ini	9762	9762
@@ -3331,6 +3414,7 @@ token-light	dockerfile	20413	20413
 token-light	elixir	18319	18138
 token-light	erlang	23025	23025
 token-light	go	14810	14810
+token-light	haskell	19881	19873
 token-light	hcl	3592	3592
 token-light	html	22445	22437
 token-light	ini	9762	9762
@@ -3371,6 +3455,7 @@ tokyonight-day	dockerfile	20413	20413
 tokyonight-day	elixir	18319	18138
 tokyonight-day	erlang	23025	23025
 tokyonight-day	go	14810	14810
+tokyonight-day	haskell	19881	19873
 tokyonight-day	hcl	3592	3592
 tokyonight-day	html	22445	22437
 tokyonight-day	ini	9762	9762
@@ -3411,6 +3496,7 @@ tokyonight-moon	dockerfile	20413	20413
 tokyonight-moon	elixir	18319	18138
 tokyonight-moon	erlang	23025	23025
 tokyonight-moon	go	14810	14810
+tokyonight-moon	haskell	19881	19873
 tokyonight-moon	hcl	3592	3592
 tokyonight-moon	html	22445	22437
 tokyonight-moon	ini	9762	9762
@@ -3451,6 +3537,7 @@ tokyonight-night	dockerfile	20413	20413
 tokyonight-night	elixir	18319	18138
 tokyonight-night	erlang	23025	23025
 tokyonight-night	go	14810	14810
+tokyonight-night	haskell	19881	19873
 tokyonight-night	hcl	3592	3592
 tokyonight-night	html	22445	22437
 tokyonight-night	ini	9762	9762
@@ -3491,6 +3578,7 @@ tokyonight-storm	dockerfile	20413	20413
 tokyonight-storm	elixir	18319	18138
 tokyonight-storm	erlang	23025	23025
 tokyonight-storm	go	14810	14810
+tokyonight-storm	haskell	19881	19873
 tokyonight-storm	hcl	3592	3592
 tokyonight-storm	html	22445	22437
 tokyonight-storm	ini	9762	9762
@@ -3531,6 +3619,7 @@ vague	dockerfile	20413	20413
 vague	elixir	18319	18138
 vague	erlang	23025	23025
 vague	go	14810	14810
+vague	haskell	19881	19881
 vague	hcl	3592	3592
 vague	html	22445	22445
 vague	ini	9762	9762
@@ -3571,6 +3660,7 @@ vesper	dockerfile	20413	20413
 vesper	elixir	18319	18138
 vesper	erlang	23025	23025
 vesper	go	14810	14810
+vesper	haskell	19881	19873
 vesper	hcl	3592	3592
 vesper	html	22445	22443
 vesper	ini	9762	9762
@@ -3611,6 +3701,7 @@ vscode-dark	dockerfile	20413	20413
 vscode-dark	elixir	18319	18138
 vscode-dark	erlang	23025	23025
 vscode-dark	go	14810	14810
+vscode-dark	haskell	19881	19881
 vscode-dark	hcl	3592	3592
 vscode-dark	html	22445	22445
 vscode-dark	ini	9762	9762
@@ -3651,6 +3742,7 @@ vscode-light	dockerfile	20413	20413
 vscode-light	elixir	18319	18138
 vscode-light	erlang	23025	23025
 vscode-light	go	14810	14810
+vscode-light	haskell	19881	19881
 vscode-light	hcl	3592	3592
 vscode-light	html	22445	22445
 vscode-light	ini	9762	9762

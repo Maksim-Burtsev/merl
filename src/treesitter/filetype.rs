@@ -35,6 +35,14 @@ pub fn for_syntax(
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Erlang" if path.is_none_or(|p| erlang(p, lines)) => lang("erlang"),
         "Go" => lang("go"),
+        "Haskell"
+            if path.is_none_or(|p| {
+                p.extension()
+                    .is_some_and(|e| e == "hs" || e == "hsc" || e == "hsig")
+            }) =>
+        {
+            lang("haskell")
+        }
         "INI" if path.is_some_and(ini) => lang("ini"),
         "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
         "JSON" => lang("json"),

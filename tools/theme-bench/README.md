@@ -319,6 +319,17 @@ boundary, so only `+`, `*`, `=`, `<`, `>`, `/` and the empty string match. Files
 |---|---|---|---|---|
 | Common Lisp | 15,397 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
 
+Haskell (#808), `.hs`, `.hsc` and `.hsig`, as Neovim calls them `haskell`; quasi-quotes hold the
+languages nvim-treesitter's injections name where merl has them, and `comment` stays plain, as
+LazyVim installs no parser for it. The commit nvim-treesitter pins (98aedbd) differs from crates.io's
+tree-sitter-haskell 0.23.1 and 0.24.1 (another `parser.c`), so merl takes it as a git dependency.
+The bench's files come from shellcheck, pinned in `THEME_ONLY` as `tools/d-bench/projects.tsv` has
+no Haskell project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Haskell | 19,881 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
+
 HTML and CSS (#806). An HTML file is parsed as `html` unless Neovim's `detect.html` makes it
 `htmlangular`, `xhtml`, `htmldjango` or `superhtml` from its first 40 lines (merl leaves those to
 syntect, the bench skips them); `<style>` and `style="…"` are CSS, `<script>` and `on…="…"` are
