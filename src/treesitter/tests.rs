@@ -1,6 +1,4 @@
 #![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::ignore_without_reason, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::string_slice, reason = "#858"))]
 #![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -79,14 +77,13 @@ fn drawn(b: &Buffer, line: usize) -> Vec<(usize, String)> {
 
 fn token(line: &str, col: usize) -> &str {
     let word = |c: char| c.is_alphanumeric() || c == '_';
-    let start = line[..col].rfind(|c| !word(c)).map_or(0, |i| i + 1);
-    let end = line[col..]
-        .find(|c| !word(c))
-        .map_or(line.len(), |i| col + i);
+    let (before, after) = (line.get(..col).unwrap(), line.get(col..).unwrap());
+    let start = before.rfind(|c| !word(c)).map_or(0, |i| i + 1);
+    let end = after.find(|c| !word(c)).map_or(line.len(), |i| col + i);
     if start < end {
-        &line[start..end]
+        line.get(start..end).unwrap()
     } else {
-        &line[col..=col]
+        line.get(col..=col).unwrap()
     }
 }
 
@@ -966,7 +963,7 @@ fn the_speed_rows_finish_on_a_file_with_few_or_no_indented_lines() {
 }
 
 #[test]
-#[ignore]
+#[ignore = "times parsing against syntect in release; MERL_TS_SPEED=FILES runs it"]
 fn speed() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let files = std::env::var("MERL_TS_SPEED").unwrap_or_default();

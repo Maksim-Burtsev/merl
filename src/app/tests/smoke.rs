@@ -1,4 +1,3 @@
-#![expect(clippy::or_fun_call, reason = "#858")]
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -120,7 +119,7 @@ fn every_key_and_flag_is_smoked_or_skipped_on_purpose() {
         .map(|a| {
             let name = a
                 .get_long()
-                .map_or(a.get_id().to_string(), |l| format!("--{l}"));
+                .map_or_else(|| a.get_id().to_string(), |l| format!("--{l}"));
             (name, ids.contains(a.get_id().as_str()))
         })
         .collect();

@@ -57,9 +57,12 @@ enum Msg {
     Quit,
 }
 
-#[expect(clippy::struct_excessive_bools, reason = "#858")]
 #[derive(Parser)]
 #[command(name = "merl", version, about)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a command-line switch of its own"
+)]
 struct Cli {
     #[arg(help = "Directory, file, or FILE:LINE[:COL] to open (default: the current directory)")]
     target: Option<String>,
@@ -124,7 +127,6 @@ fn main() {
     }
 }
 
-#[expect(clippy::or_fun_call, reason = "#858")]
 #[expect(clippy::too_many_lines, reason = "#858")]
 fn run() -> Result<()> {
     let cli = Cli::parse();
@@ -189,7 +191,7 @@ fn run() -> Result<()> {
             file: dirs.common_refs_dir.join("merl").join("tree"),
             under: root
                 .strip_prefix(&top)
-                .unwrap_or(Path::new(""))
+                .unwrap_or_else(|_| Path::new(""))
                 .to_path_buf(),
         });
     let order = tree_order
@@ -258,7 +260,7 @@ fn run() -> Result<()> {
     quit_on_signals(tx.clone());
     let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
     drop(app.diagrams.clear(&mut stdout()));
-    leave_terminal(keyboard);
+    leave_terminal(&keyboard);
     if let Some(t) = &app.tutor {
         remove_sample_project_and_print_drill(t);
     }
@@ -332,8 +334,7 @@ fn quit_on_signals(quit: Sender<Msg>) {
     }
 }
 
-#[expect(clippy::needless_pass_by_value, reason = "#858")]
-fn leave_terminal(keyboard: KeyboardQueried) {
+fn leave_terminal(keyboard: &KeyboardQueried) {
     if keyboard.enhanced {
         drop(execute!(stdout(), PopKeyboardEnhancementFlags));
     }
@@ -369,7 +370,6 @@ fn record_presses_and_reviews(app: &mut App) {
     }
 }
 
-#[expect(clippy::assigning_clones, reason = "#858")]
 #[expect(clippy::cognitive_complexity, reason = "#858")]
 #[expect(clippy::too_many_lines, reason = "#858")]
 fn event_loop(
@@ -464,7 +464,7 @@ fn event_loop(
             drop(execute!(stdout(), vim_cursor(typing_now)));
         }
         if app.shown_theme() != drawn_theme {
-            drawn_theme = app.shown_theme().to_owned();
+            app.shown_theme().clone_into(&mut drawn_theme);
             match theme::load(&drawn_theme) {
                 Ok(t) => {
                     theme = t;
@@ -669,7 +669,6 @@ struct Opened {
     at: Option<LineCol1>,
 }
 
-#[expect(clippy::or_fun_call, reason = "#858")]
 fn resolve(target: Option<&str>) -> Result<Opened> {
     let dir = |project_root| Opened {
         project_root,
@@ -694,7 +693,10 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
     let path = path
         .canonicalize()
         .with_context(|| format!("{}", path.display()))?;
-    let dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let dir = path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_path_buf();
     let (project_root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
     Ok(Opened {
         project_root,
@@ -704,14 +706,13 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
     })
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn split_line(target: &str) -> (&str, Option<LineCol1>) {
     if Path::new(target).exists() {
         return (target, None);
     }
     let found = target
         .rmatch_indices(':')
-        .map(|(i, _)| (&target[..i], &target[i + 1..]))
+        .filter_map(|(i, _)| Some((target.get(..i)?, target.get(i + 1..)?)))
         .find(|(path, _)| Path::new(path).exists());
     let Some((path, rest)) = found else {
         return (target, None);
@@ -918,14 +919,13 @@ mod tests {
         assert!(super::Cli::try_parse_from(["merl", "-b", "x"]).is_err());
     }
 
-    #[expect(clippy::default_trait_access, reason = "#858")]
     #[test]
     fn a_directory_that_cannot_be_watched_is_not_tried_again() {
         use notify::{RecursiveMode, Watcher};
         let dir = std::env::temp_dir().join(format!("merl-rewatch-{}", std::process::id()));
         let gone = dir.join("gone");
         let buf = crate::buffer::Buffer::from_bytes(gone.join("x.rs"), b"x\n");
-        let app = crate::app::App::new(dir, Default::default(), Vec::new(), buf, None);
+        let app = crate::app::App::new(dir, crate::tree::Tree::default(), Vec::new(), buf, None);
         let mut watcher =
             notify::recommended_watcher(|_: notify::Result<notify::Event>| {}).unwrap();
         assert!(watcher.watch(&gone, RecursiveMode::NonRecursive).is_err());
@@ -934,7 +934,6 @@ mod tests {
         assert_eq!(watched.as_deref(), Some(gone.as_path()));
     }
 
-    #[expect(clippy::default_trait_access, reason = "#858")]
     #[test]
     fn a_namesake_elsewhere_in_the_project_is_not_the_open_file() {
         use notify::{Event, EventKind, event::CreateKind};
@@ -942,7 +941,13 @@ mod tests {
         std::fs::create_dir_all(dir.join("node_modules/pkg")).unwrap();
         std::fs::write(dir.join("index.js"), "x\n").unwrap();
         let buf = crate::buffer::Buffer::load(&dir.join("index.js")).unwrap();
-        let app = crate::app::App::new(dir.clone(), Default::default(), Vec::new(), buf, None);
+        let app = crate::app::App::new(
+            dir.clone(),
+            crate::tree::Tree::default(),
+            Vec::new(),
+            buf,
+            None,
+        );
         let real = dir.canonicalize().unwrap();
         for (path, want) in [
             (dir.join("index.js"), true),
@@ -1100,7 +1105,7 @@ mod tests {
         assert!(wrong.is_empty(), "\n{}", wrong.join("\n"));
     }
 
-    const EXPECTS: usize = 222;
+    const EXPECTS: usize = 201;
 
     fn expected_lints(text: &str) -> usize {
         let b = text.as_bytes();
@@ -1147,8 +1152,10 @@ mod tests {
     }
 
     #[expect(clippy::excessive_nesting, reason = "#858")]
-    #[expect(clippy::naive_bytecount, reason = "#858")]
-    #[expect(clippy::string_slice, reason = "#858")]
+    #[expect(
+        clippy::naive_bytecount,
+        reason = "the bytecount crate would be a dependency for one count of newlines"
+    )]
     fn comment_lines(text: &str) -> Vec<usize> {
         let b = text.as_bytes();
         let (mut i, mut line, mut lines) = (0, 0, Vec::new());
@@ -1204,9 +1211,8 @@ mod tests {
                             .and_then(|r| r.iter().position(|&c| c == b'\''))
                             .map(|n| i + 3 + n)
                     } else {
-                        text[i + 1..]
-                            .chars()
-                            .next()
+                        text.get(i + 1..)
+                            .and_then(|r| r.chars().next())
                             .map(|c| i + 1 + c.len_utf8())
                             .filter(|&e| b.get(e) == Some(&b'\''))
                     };
@@ -1378,7 +1384,6 @@ b";
         }
     }
 
-    #[expect(clippy::string_slice, reason = "#858")]
     fn script_comment_lines(name: &str, text: &str) -> Result<Vec<usize>, String> {
         let shebang = text.lines().next().filter(|l| l.starts_with("#!"));
         let ext = Path::new(name).extension().and_then(|e| e.to_str());
@@ -1405,21 +1410,25 @@ b";
             let mut rest = line;
             loop {
                 if let Some((q, _)) = quote {
-                    let Some(at) = rest.find(q) else { break };
+                    let Some((_, after)) = rest.split_once(q) else {
+                        break;
+                    };
                     quote = None;
-                    rest = &rest[at + 3..];
+                    rest = after;
                     continue;
                 }
-                let Some(at) = rest.find(['#', '"', '\'']) else {
+                let Some(tail) = rest.find(['#', '"', '\'']).and_then(|at| rest.get(at..)) else {
                     break;
                 };
-                let tail = &rest[at..];
                 if tail.starts_with('#') {
                     break;
                 }
-                if tail.starts_with("\"\"\"") || tail.starts_with("'''") {
-                    quote = Some((&tail[..3], i + 1));
-                    rest = &tail[3..];
+                if let Some((q, after)) = ["\"\"\"", "'''"]
+                    .into_iter()
+                    .find_map(|q| Some((q, tail.strip_prefix(q)?)))
+                {
+                    quote = Some((q, i + 1));
+                    rest = after;
                     continue;
                 }
                 let q = tail.as_bytes()[0];
@@ -1439,7 +1448,7 @@ b";
                 let Some(end) = end else {
                     return Err(format!("line {}: a string the check cannot close", i + 1));
                 };
-                rest = &tail[end + 1..];
+                rest = tail.get(end + 1..).unwrap();
             }
         }
         match quote {

@@ -534,12 +534,11 @@ fn html_or_xml(path: &Path, lines: &[String]) -> Option<&'static Lang> {
     if xml { lang("xml") } else { None }
 }
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn docbook_or_xbl(lines: &[String]) -> bool {
     lines.iter().take(100).any(|l| {
         let lower = l.to_lowercase();
-        l.find("<!DOCTYPE")
-            .is_some_and(|i| l[i..].contains("DocBook"))
+        l.split_once("<!DOCTYPE")
+            .is_some_and(|(_, doctype)| doctype.contains("DocBook"))
             || lower.contains(r#" xmlns="http://docbook.org/ns/docbook""#)
             || lower.contains(r#"xmlns:xbl="http://www.mozilla.org/xbl""#)
     })
@@ -1304,7 +1303,6 @@ const TEXTMATE: &[(&str, &str)] = &[
     ("variable.parameter", "variable.parameter"),
 ];
 
-#[expect(clippy::string_slice, reason = "#858")]
 fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
     static SCOPES: OnceLock<HashMap<&str, Scope>> = OnceLock::new();
     let scopes = SCOPES.get_or_init(|| {
@@ -1318,7 +1316,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
         if let Some(s) = scopes.get(name) {
             break *s;
         }
-        name = &name[..name.rfind('.')?];
+        name = name.rsplit_once('.')?.0;
     };
     Some(crate::theme::style(highlighter.style_for_stack(&[scope])))
 }
