@@ -669,7 +669,7 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
         .find(|(a, _)| *a == alias)
         .map_or(alias.as_str(), |(_, n)| n);
     lang(name).or_else(|| {
-        let syntax = crate::buffer::syntax_for_info(&alias)?;
+        let syntax = crate::buffer::syntax_for_info(&alias, false)?;
         for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
     })
 }

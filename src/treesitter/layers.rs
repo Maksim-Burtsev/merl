@@ -17,7 +17,7 @@ impl Target {
     fn of(name: &str, syntect: bool) -> Option<Self> {
         resolve(name).map(Target::Tree).or_else(|| {
             syntect
-                .then(|| crate::buffer::syntax_for_info(name))
+                .then(|| crate::buffer::syntax_for_info(name, false))
                 .flatten()
                 .map(Target::Syntect)
         })

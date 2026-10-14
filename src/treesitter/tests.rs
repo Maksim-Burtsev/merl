@@ -1053,6 +1053,25 @@ fn speed() {
 }
 
 #[test]
+fn a_block_neovim_finds_no_parser_for_stays_plain() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let fg_at = |info: &str| {
+        let lines: Vec<String> = [format!("```{info}"), "$ mix phx".into(), "```".into()].into();
+        let mut parsed = super::Parsed::new(super::lang("markdown").unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        parsed.spans(&lines, 0, 2, &mut styles)[1]
+            .iter()
+            .find(|(_, r)| r.contains(&2))
+            .map(|(s, _)| s.fg)
+    };
+    assert_ne!(fg_at("bash"), fg_at("nothing"));
+    for info in ["console", "shell", "objc"] {
+        assert_eq!(fg_at(info), fg_at("nothing"), "{info}");
+    }
+}
+
+#[test]
 fn an_injected_language_without_a_grammar_stays_plain_outside_markdown() {
     let theme = theme::load("tokyonight-moon").unwrap();
     let lang = super::lang("tsx").unwrap();
