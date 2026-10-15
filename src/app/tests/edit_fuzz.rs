@@ -1629,6 +1629,16 @@ fn a_tree_tree_sitter_builds_from_the_same_edits_is_painted_as_built() {
 }
 
 #[test]
+fn a_nested_combined_injection_joins_members_above_the_paint() {
+    replay_tree_sitter(
+        "f.md",
+        include_bytes!("../../../tests/colors/markdown/code.md"),
+        MARKDOWN,
+        4366..=4366,
+    );
+}
+
+#[test]
 fn a_combined_injection_over_many_scan_steps_equals_a_fresh_parse() {
     let page = include_str!("../../../tests/colors/php/Ledger.php").repeat(7);
     assert!(page.len() > 16 * 1024);

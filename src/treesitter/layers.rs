@@ -194,6 +194,12 @@ pub fn injections(
     let Some(inj) = &lang.injections else {
         return Vec::new();
     };
+    let whole = Doc::new(doc.bytes, doc.starts, 0, doc.bytes.len());
+    let doc = if parent.is_some() && lang.combined.is_some() {
+        &whole
+    } else {
+        doc
+    };
     let mut out: Vec<Injected> = Vec::new();
     let mut combined: Vec<(usize, usize, usize)> = Vec::new();
     each_injection(lang, inj, tree, parent, doc, |p, target, ranges, _| {
