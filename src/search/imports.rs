@@ -1,6 +1,3 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::excessive_nesting, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
@@ -136,79 +133,8 @@ pub fn ts_import_lines1(text: &str, name: &str) -> Vec<usize> {
 }
 pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
     let mut out = Vec::new();
-    let parts = |module: &str, sep: &str| -> Vec<String> {
-        module
-            .split(sep)
-            .filter(|p| !p.is_empty())
-            .map(str::to_owned)
-            .collect()
-    };
-    let alias_and_name = |item: &str| -> Option<(String, String)> {
-        let mut it = item.split_whitespace();
-        let name = it
-            .next()?
-            .trim_matches(|c| c == '{' || c == '}' || c == ',')
-            .to_owned();
-        let alias = match (it.next(), it.next()) {
-            (Some("as"), Some(a)) => a.trim_end_matches(',').to_owned(),
-            _ => name.clone(),
-        };
-        (!name.is_empty()).then_some((alias, name))
-    };
     match kind {
-        Kind::Python => {
-            static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(
-                    r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
-                )
-                .expect("the regex is a literal")
-            });
-            for c in IMPORT.captures_iter(text) {
-                if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
-                    let module = module.as_str();
-                    let relative = module.trim_start_matches('.');
-                    let mut base = parts(relative, ".");
-                    if relative.len() < module.len() {
-                        base.insert(0, ".".repeat(module.len() - relative.len()));
-                    }
-                    let names: Vec<&str> = names
-                        .as_str()
-                        .lines()
-                        .map(|l| l.split('#').next().unwrap_or_default())
-                        .collect();
-                    for item in names
-                        .join("\n")
-                        .trim()
-                        .trim_matches(|c| c == '(' || c == ')')
-                        .split(',')
-                    {
-                        if let Some((alias, name)) = alias_and_name(item.trim()) {
-                            let mut path = base.clone();
-                            path.push(name);
-                            out.push(Import { name: alias, path });
-                        }
-                    }
-                } else if let Some(list) = c.get(3) {
-                    let list = list.as_str().split('#').next().unwrap_or_default();
-                    for item in list.split(',') {
-                        if let Some((alias, name)) = alias_and_name(item.trim()) {
-                            if alias == name {
-                                let first = name.split('.').next().unwrap_or(&name).to_owned();
-                                out.push(Import {
-                                    name: first.clone(),
-                                    path: vec![first],
-                                });
-                            } else {
-                                out.push(Import {
-                                    name: alias,
-                                    path: parts(&name, "."),
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        Kind::Python => python_imports(text, &mut out),
         Kind::Rust => {
             out.extend(
                 rust_uses(text)
@@ -220,128 +146,9 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
                     }),
             );
         }
-        Kind::Go => {
-            static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#)
-                    .expect("the regex is a literal")
-            });
-            let version = |p: &str| {
-                p.strip_prefix('v')
-                    .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
-            };
-            for c in IMPORT.captures_iter(text) {
-                let path = parts(&c[2], "/");
-                if let Some(alias) = c.get(1) {
-                    out.push(Import {
-                        name: alias.as_str().to_owned(),
-                        path,
-                    });
-                    continue;
-                }
-                let Some(last) = path.iter().rev().find(|p| !version(p)) else {
-                    continue;
-                };
-                let mut name = last.as_str();
-                if let Some((stem, suffix)) = name.rsplit_once('.')
-                    && (version(suffix) || suffix == "go")
-                {
-                    name = stem;
-                }
-                name = name.strip_prefix("go-").unwrap_or(name);
-                name = name.strip_suffix("-go").unwrap_or(name);
-                out.push(Import {
-                    name: name.to_owned(),
-                    path: path.clone(),
-                });
-                if let Some(v) = path.last().filter(|p| version(p)) {
-                    out.push(Import {
-                        name: v.clone(),
-                        path: path.clone(),
-                    });
-                }
-            }
-        }
-        Kind::TsJs => {
-            let text = ts_continued(text);
-            for c in TS_IMPORT.captures_iter(&text) {
-                let module = &c[4];
-                let after = c.get(5).map_or("", |m| m.as_str()).trim_end();
-                if after.ends_with(['(', '[', '.']) {
-                    continue;
-                }
-                let member = after.split_once('.').map(|(_, m)| m.trim());
-                let mut path = parts(module, "/");
-                if module.starts_with('/') {
-                    path.insert(0, ".".to_owned());
-                }
-                let (clause, whole) = match (c.get(1), c.get(2).or_else(|| c.get(3))) {
-                    (Some(m), _) => (m.as_str(), "default"),
-                    (None, m) => (m.map_or("", |m| m.as_str()), member.unwrap_or("*")),
-                };
-                if member.is_some() && clause.contains('{') {
-                    continue;
-                }
-                let (outside, named) = clause.split_once('{').map_or((clause, ""), |(o, n)| {
-                    (o, n.split('}').next().unwrap_or(""))
-                });
-                let with = |taken: &str| {
-                    let mut p = path.clone();
-                    p.push(taken.to_owned());
-                    p
-                };
-                for item in outside.split(',').map(str::trim).filter(|i| !i.is_empty()) {
-                    match item.strip_prefix("* as ") {
-                        Some(ns) => out.push(Import {
-                            name: ns.trim().to_owned(),
-                            path: with("*"),
-                        }),
-                        None => out.push(Import {
-                            name: item.to_owned(),
-                            path: with(whole),
-                        }),
-                    }
-                }
-                for item in named.split(',') {
-                    let item = item.trim();
-                    let item = item.strip_prefix("type ").unwrap_or(item);
-                    if let Some((name, alias)) = item.split_once(':') {
-                        let (name, alias) = (name.trim(), alias.trim());
-                        if !name.is_empty() && !alias.is_empty() {
-                            out.push(Import {
-                                name: alias.to_owned(),
-                                path: with(name),
-                            });
-                        }
-                        continue;
-                    }
-                    if let Some((alias, name)) = alias_and_name(item) {
-                        out.push(Import {
-                            name: alias,
-                            path: with(&name),
-                        });
-                    }
-                }
-            }
-        }
-        Kind::Php => {
-            static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);")
-                    .expect("the regex is a literal")
-            });
-            for c in USE.captures_iter(text) {
-                for item in c[1].split(',') {
-                    if let Some((alias, name)) = alias_and_name(item.trim()) {
-                        let path = parts(&name, "\\");
-                        if let Some(last) = path.last().cloned() {
-                            out.push(Import {
-                                name: if alias == name { last } else { alias },
-                                path,
-                            });
-                        }
-                    }
-                }
-            }
-        }
+        Kind::Go => go_imports(text, &mut out),
+        Kind::TsJs => ts_imports(text, &mut out),
+        Kind::Php => php_imports(text, &mut out),
         Kind::Julia => julia_imports(text, &mut out),
         Kind::Jvm
         | Kind::Ruby
@@ -380,6 +187,203 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
         | Kind::Html => {}
     }
     out
+}
+fn parts(module: &str, sep: &str) -> Vec<String> {
+    module
+        .split(sep)
+        .filter(|p| !p.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+fn alias_and_name(item: &str) -> Option<(String, String)> {
+    let mut it = item.split_whitespace();
+    let name = it
+        .next()?
+        .trim_matches(|c| c == '{' || c == '}' || c == ',')
+        .to_owned();
+    let alias = match (it.next(), it.next()) {
+        (Some("as"), Some(a)) => a.trim_end_matches(',').to_owned(),
+        _ => name.clone(),
+    };
+    (!name.is_empty()).then_some((alias, name))
+}
+fn python_imports(text: &str, out: &mut Vec<Import>) {
+    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"(?m)^\s*(?:from\s+([\w.]+)\s+import\s+(\((?:[^)#]|#[^\n]*)*\)|[^\n]+)|import\s+([^\n]+))",
+        )
+        .expect("the regex is a literal")
+    });
+    for c in IMPORT.captures_iter(text) {
+        if let (Some(module), Some(names)) = (c.get(1), c.get(2)) {
+            let module = module.as_str();
+            let relative = module.trim_start_matches('.');
+            let mut base = parts(relative, ".");
+            if relative.len() < module.len() {
+                base.insert(0, ".".repeat(module.len() - relative.len()));
+            }
+            let names: Vec<&str> = names
+                .as_str()
+                .lines()
+                .map(|l| l.split('#').next().unwrap_or_default())
+                .collect();
+            for item in names
+                .join("\n")
+                .trim()
+                .trim_matches(|c| c == '(' || c == ')')
+                .split(',')
+            {
+                if let Some((alias, name)) = alias_and_name(item.trim()) {
+                    let mut path = base.clone();
+                    path.push(name);
+                    out.push(Import { name: alias, path });
+                }
+            }
+        } else if let Some(list) = c.get(3) {
+            let list = list.as_str().split('#').next().unwrap_or_default();
+            for item in list.split(',') {
+                if let Some((alias, name)) = alias_and_name(item.trim()) {
+                    if alias == name {
+                        let first = name.split('.').next().unwrap_or(&name).to_owned();
+                        out.push(Import {
+                            name: first.clone(),
+                            path: vec![first],
+                        });
+                    } else {
+                        out.push(Import {
+                            name: alias,
+                            path: parts(&name, "."),
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn go_imports(text: &str, out: &mut Vec<Import>) {
+    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#)
+            .expect("the regex is a literal")
+    });
+    let version = |p: &str| {
+        p.strip_prefix('v')
+            .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
+    };
+    for c in IMPORT.captures_iter(text) {
+        let path = parts(&c[2], "/");
+        if let Some(alias) = c.get(1) {
+            out.push(Import {
+                name: alias.as_str().to_owned(),
+                path,
+            });
+            continue;
+        }
+        let Some(last) = path.iter().rev().find(|p| !version(p)) else {
+            continue;
+        };
+        let mut name = last.as_str();
+        if let Some((stem, suffix)) = name.rsplit_once('.')
+            && (version(suffix) || suffix == "go")
+        {
+            name = stem;
+        }
+        name = name.strip_prefix("go-").unwrap_or(name);
+        name = name.strip_suffix("-go").unwrap_or(name);
+        out.push(Import {
+            name: name.to_owned(),
+            path: path.clone(),
+        });
+        if let Some(v) = path.last().filter(|p| version(p)) {
+            out.push(Import {
+                name: v.clone(),
+                path: path.clone(),
+            });
+        }
+    }
+}
+
+fn ts_imports(text: &str, out: &mut Vec<Import>) {
+    let text = ts_continued(text);
+    for c in TS_IMPORT.captures_iter(&text) {
+        let module = &c[4];
+        let after = c.get(5).map_or("", |m| m.as_str()).trim_end();
+        if after.ends_with(['(', '[', '.']) {
+            continue;
+        }
+        let member = after.split_once('.').map(|(_, m)| m.trim());
+        let mut path = parts(module, "/");
+        if module.starts_with('/') {
+            path.insert(0, ".".to_owned());
+        }
+        let (clause, whole) = match (c.get(1), c.get(2).or_else(|| c.get(3))) {
+            (Some(m), _) => (m.as_str(), "default"),
+            (None, m) => (m.map_or("", |m| m.as_str()), member.unwrap_or("*")),
+        };
+        if member.is_some() && clause.contains('{') {
+            continue;
+        }
+        let (outside, named) = clause.split_once('{').map_or((clause, ""), |(o, n)| {
+            (o, n.split('}').next().unwrap_or(""))
+        });
+        let with = |taken: &str| {
+            let mut p = path.clone();
+            p.push(taken.to_owned());
+            p
+        };
+        for item in outside.split(',').map(str::trim).filter(|i| !i.is_empty()) {
+            match item.strip_prefix("* as ") {
+                Some(ns) => out.push(Import {
+                    name: ns.trim().to_owned(),
+                    path: with("*"),
+                }),
+                None => out.push(Import {
+                    name: item.to_owned(),
+                    path: with(whole),
+                }),
+            }
+        }
+        for item in named.split(',') {
+            let item = item.trim();
+            let item = item.strip_prefix("type ").unwrap_or(item);
+            if let Some((name, alias)) = item.split_once(':') {
+                let (name, alias) = (name.trim(), alias.trim());
+                if !name.is_empty() && !alias.is_empty() {
+                    out.push(Import {
+                        name: alias.to_owned(),
+                        path: with(name),
+                    });
+                }
+                continue;
+            }
+            if let Some((alias, name)) = alias_and_name(item) {
+                out.push(Import {
+                    name: alias,
+                    path: with(&name),
+                });
+            }
+        }
+    }
+}
+
+fn php_imports(text: &str, out: &mut Vec<Import>) {
+    static USE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^use\s+(?:function\s+|const\s+)?([^;{]+);")
+            .expect("the regex is a literal")
+    });
+    for c in USE.captures_iter(text) {
+        for item in c[1].split(',') {
+            if let Some((alias, name)) = alias_and_name(item.trim()) {
+                let path = parts(&name, "\\");
+                if let Some(last) = path.last().cloned() {
+                    out.push(Import {
+                        name: if alias == name { last } else { alias },
+                        path,
+                    });
+                }
+            }
+        }
+    }
 }
 pub fn declares_wrapped_generic(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
@@ -778,102 +782,9 @@ pub fn module_files(
 ) -> Vec<PathBuf> {
     let dir = here.parent().unwrap_or_else(|| Path::new(""));
     match kind {
-        Kind::Python => {
-            let (base, parts) = match module.split_first() {
-                Some((dots, rest)) if dots.starts_with('.') => {
-                    match dir.ancestors().nth(dots.len() - 1) {
-                        Some(base) => (Some(base), rest),
-                        None => return Vec::new(),
-                    }
-                }
-                _ => (None, module),
-            };
-            let name: PathBuf = parts.iter().collect();
-            let mut forms = vec![name.join("__init__.py")];
-            if !parts.is_empty() {
-                forms.insert(0, name.with_extension("py"));
-            } else if base.is_none() {
-                return Vec::new();
-            }
-            files
-                .iter()
-                .filter(|f| {
-                    forms.iter().any(|m| match base {
-                        Some(base) => **f == base.join(m),
-                        None => {
-                            f.ends_with(m)
-                                && f.ancestors()
-                                    .nth(m.components().count())
-                                    .is_some_and(|top| !files.contains(&top.join("__init__.py")))
-                        }
-                    })
-                })
-                .cloned()
-                .collect()
-        }
-        Kind::TsJs => {
-            const EXTENSIONS: [&str; 9] =
-                ["ts", "tsx", "d.ts", "js", "jsx", "mts", "cts", "mjs", "cjs"];
-            let listed: std::collections::HashSet<&Path> =
-                files.iter().map(PathBuf::as_path).collect();
-            let spec = module.join("/");
-            let bases = if module.first().is_some_and(|p| p.starts_with('.')) {
-                vec![dir.join(&spec)]
-            } else {
-                ts_aliases(root, dir, &spec)
-            };
-            bases
-                .iter()
-                .filter_map(|b| lexical(b))
-                .find_map(|base| {
-                    let s = base.to_string_lossy();
-                    let stem = [".js", ".jsx", ".mjs", ".cjs"]
-                        .iter()
-                        .find_map(|e| s.strip_suffix(e))
-                        .unwrap_or(&s);
-                    EXTENSIONS
-                        .iter()
-                        .map(|e| PathBuf::from(format!("{stem}.{e}")))
-                        .chain([base.clone()])
-                        .chain(EXTENSIONS.iter().map(|e| base.join(format!("index.{e}"))))
-                        .find(|c| listed.contains(c.as_path()) && kind_of(c) == Some(Kind::TsJs))
-                })
-                .into_iter()
-                .collect()
-        }
-        Kind::Go => {
-            let import = module.join("/");
-            let package = files
-                .iter()
-                .filter(|f| f.file_name().is_some_and(|n| n == "go.mod"))
-                .filter_map(|gomod| {
-                    let text = std::fs::read_to_string(root.join(gomod)).ok()?;
-                    let name = text
-                        .lines()
-                        .find_map(|l| l.trim().strip_prefix("module "))?
-                        .split_whitespace()
-                        .next()?
-                        .trim_matches('"')
-                        .to_owned();
-                    let rest = match import.strip_prefix(&name)? {
-                        "" => "",
-                        rest => rest.strip_prefix('/')?,
-                    };
-                    Some((name.len(), gomod.parent()?.join(rest)))
-                })
-                .max_by_key(|(n, _)| *n);
-            let Some((_, package)) = package else {
-                return Vec::new();
-            };
-            files
-                .iter()
-                .filter(|f| f.parent() == Some(package.as_path()))
-                .filter(|f| {
-                    kind_of(f) == Some(Kind::Go) && !f.to_string_lossy().ends_with("_test.go")
-                })
-                .cloned()
-                .collect()
-        }
+        Kind::Python => python_module_files(dir, files, module),
+        Kind::TsJs => ts_module_files(root, dir, files, module),
+        Kind::Go => go_module_files(root, files, module),
         Kind::Rust
         | Kind::Jvm
         | Kind::Ruby
@@ -915,6 +826,96 @@ pub fn module_files(
             .into_iter()
             .collect(),
     }
+}
+fn python_module_files(dir: &Path, files: &[PathBuf], module: &[String]) -> Vec<PathBuf> {
+    let (base, parts) = match module.split_first() {
+        Some((dots, rest)) if dots.starts_with('.') => match dir.ancestors().nth(dots.len() - 1) {
+            Some(base) => (Some(base), rest),
+            None => return Vec::new(),
+        },
+        _ => (None, module),
+    };
+    let name: PathBuf = parts.iter().collect();
+    let mut forms = vec![name.join("__init__.py")];
+    if !parts.is_empty() {
+        forms.insert(0, name.with_extension("py"));
+    } else if base.is_none() {
+        return Vec::new();
+    }
+    files
+        .iter()
+        .filter(|f| {
+            forms.iter().any(|m| match base {
+                Some(base) => **f == base.join(m),
+                None => {
+                    f.ends_with(m)
+                        && f.ancestors()
+                            .nth(m.components().count())
+                            .is_some_and(|top| !files.contains(&top.join("__init__.py")))
+                }
+            })
+        })
+        .cloned()
+        .collect()
+}
+fn ts_module_files(root: &Path, dir: &Path, files: &[PathBuf], module: &[String]) -> Vec<PathBuf> {
+    const EXTENSIONS: [&str; 9] = ["ts", "tsx", "d.ts", "js", "jsx", "mts", "cts", "mjs", "cjs"];
+    let listed: std::collections::HashSet<&Path> = files.iter().map(PathBuf::as_path).collect();
+    let spec = module.join("/");
+    let bases = if module.first().is_some_and(|p| p.starts_with('.')) {
+        vec![dir.join(&spec)]
+    } else {
+        ts_aliases(root, dir, &spec)
+    };
+    bases
+        .iter()
+        .filter_map(|b| lexical(b))
+        .find_map(|base| {
+            let s = base.to_string_lossy();
+            let stem = [".js", ".jsx", ".mjs", ".cjs"]
+                .iter()
+                .find_map(|e| s.strip_suffix(e))
+                .unwrap_or(&s);
+            EXTENSIONS
+                .iter()
+                .map(|e| PathBuf::from(format!("{stem}.{e}")))
+                .chain([base.clone()])
+                .chain(EXTENSIONS.iter().map(|e| base.join(format!("index.{e}"))))
+                .find(|c| listed.contains(c.as_path()) && kind_of(c) == Some(Kind::TsJs))
+        })
+        .into_iter()
+        .collect()
+}
+fn go_module_files(root: &Path, files: &[PathBuf], module: &[String]) -> Vec<PathBuf> {
+    let import = module.join("/");
+    let package = files
+        .iter()
+        .filter(|f| f.file_name().is_some_and(|n| n == "go.mod"))
+        .filter_map(|gomod| {
+            let text = std::fs::read_to_string(root.join(gomod)).ok()?;
+            let name = text
+                .lines()
+                .find_map(|l| l.trim().strip_prefix("module "))?
+                .split_whitespace()
+                .next()?
+                .trim_matches('"')
+                .to_owned();
+            let rest = match import.strip_prefix(&name)? {
+                "" => "",
+                rest => rest.strip_prefix('/')?,
+            };
+            Some((name.len(), gomod.parent()?.join(rest)))
+        })
+        .max_by_key(|(n, _)| *n);
+    let Some((_, package)) = package else {
+        return Vec::new();
+    };
+    files
+        .iter()
+        .filter(|f| f.parent() == Some(package.as_path()))
+        .filter(|f| kind_of(f) == Some(Kind::Go) && !f.to_string_lossy().ends_with("_test.go"))
+        .cloned()
+        .collect()
 }
 pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
     match kind {

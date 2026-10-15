@@ -38,6 +38,7 @@ pub struct Editing {
     pub first: TextLine,
     pub last: TextLine,
     quote: Vec<String>,
+    from: Mode,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -554,6 +555,7 @@ impl App {
             first,
             last,
             quote,
+            from: self.mode,
         });
         self.message.clear();
         self.mode = Mode::Note;
@@ -681,10 +683,15 @@ impl App {
         (start, end, c - start)
     }
 
+    fn note_from(&self) -> Mode {
+        self.notes.editing.as_ref().map_or(Mode::Normal, |e| e.from)
+    }
+
     fn note_leave(&mut self, n: isize) {
         let last = self.notes.editing.as_ref().map(|e| e.last);
+        let from = self.note_from();
         let kept = self.note_commit();
-        self.mode = Mode::Edit;
+        self.mode = from;
         self.anchor = None;
         self.notes.focus = kept;
         match (kept, last) {
@@ -699,6 +706,29 @@ impl App {
         }
     }
 
+    fn note_esc(&mut self) {
+        let from = self.note_from();
+        self.notes.focus = self.note_commit();
+        self.anchor = None;
+        if let Some(h) = self.notes.focus.and_then(|i| self.here_of(i)) {
+            self.set_at(h.at);
+        }
+        if from == Mode::Edit {
+            self.notes.focus = None;
+        }
+        self.mode = from;
+    }
+
+    fn note_undo(&mut self, back: bool) {
+        let from = self.note_from();
+        self.notes.focus = self.note_commit();
+        self.mode = from;
+        self.undo(back);
+        if self.mode == Mode::Edit && self.notes.focus.is_some() {
+            self.start_note();
+        }
+    }
+
     #[expect(
         clippy::string_slice,
         reason = "every cut is the prompt's cursor or selection, or next to a newline"
@@ -707,14 +737,7 @@ impl App {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         match key.code {
-            KeyCode::Esc => {
-                self.notes.focus = self.note_commit();
-                self.anchor = None;
-                if let Some(h) = self.notes.focus.and_then(|i| self.here_of(i)) {
-                    self.set_at(h.at);
-                }
-                self.mode = Mode::Normal;
-            }
+            KeyCode::Esc => self.note_esc(),
             KeyCode::Enter => {
                 self.prompt.insert("\n");
             }
@@ -790,11 +813,7 @@ impl App {
                     self.note_leave(1);
                 }
             }
-            KeyCode::Char('z' | 'y') if ctrl => {
-                self.notes.focus = self.note_commit();
-                self.mode = Mode::Edit;
-                self.undo(key.code == KeyCode::Char('z'));
-            }
+            KeyCode::Char('z' | 'y') if ctrl => self.note_undo(key.code == KeyCode::Char('z')),
             KeyCode::Backspace if self.prompt.is_empty() && self.prompt.selection().is_none() => {
                 self.note_leave(-1);
             }

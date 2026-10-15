@@ -1,24 +1,30 @@
 use std::fmt::Write as _;
 
-#[expect(clippy::string_slice, reason = "#858")]
 #[expect(
     clippy::match_same_arms,
     reason = "the rows group Vim's specials by what they mean"
 )]
 pub(super) fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
     let bad = || Err(format!("vim pattern {p:?} is not supported"));
-    let body = match p.get(..2) {
-        Some("\\v") => &p[2..],
-        Some("\\m" | "\\M" | "\\V") => return bad(),
-        _ => p,
-    };
+    if ["\\m", "\\M", "\\V"].iter().any(|m| p.starts_with(m)) {
+        return bad();
+    }
+    let body = p.strip_prefix("\\v").unwrap_or(p);
     let mut out = String::new();
     let mut chars = body.chars().peekable();
     let mut class = None;
     let mut case = "";
     while let Some(c) = chars.next() {
         match (c, class) {
-            ('<' | '>' | '=' | '@' | '%' | '~' | '{' | '&', _) => return bad(),
+            ('<' | '>', None) if chars.peek() == Some(&'=') => {
+                chars.next();
+                continue;
+            }
+            ('=', None) => {
+                out.push('?');
+                continue;
+            }
+            ('<' | '>', None) | ('@' | '%' | '~' | '{' | '&', _) => return bad(),
             ('\\' | '[', Some(_)) => return bad(),
             ('-', Some(_)) if chars.peek() == Some(&'-') => return bad(),
             (']', Some(false)) => class = None,

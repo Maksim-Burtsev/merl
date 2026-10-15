@@ -1,5 +1,3 @@
-#![cfg_attr(test, expect(clippy::cognitive_complexity, reason = "#858"))]
-#![cfg_attr(test, expect(clippy::too_many_lines, reason = "#858"))]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -315,6 +313,36 @@ fn zig_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn nix_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("nix");
+}
+
+#[test]
+fn scheme_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("scheme");
+}
+
+#[test]
+fn r_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("r");
+}
+
+#[test]
+fn erlang_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("erlang");
+}
+
+#[test]
+fn racket_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("racket");
+}
+
+#[test]
+fn common_lisp_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("commonlisp");
+}
+
+#[test]
 fn ruby_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("ruby");
 }
@@ -369,13 +397,14 @@ fn a_capture_keeps_its_background_only_when_reversed() {
     assert_eq!(added("tokyonight-moon"), (None, false));
 }
 
+fn sexp(f: &str, src: &[u8]) -> String {
+    let mut b = Buffer::from_bytes(PathBuf::from(f), src);
+    b.parse_more(None);
+    b.sexp()
+}
+
 #[test]
-fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
-    let sexp = |f: &str, src: &[u8]| {
-        let mut b = Buffer::from_bytes(PathBuf::from(f), src);
-        b.parse_more(None);
-        b.sexp()
-    };
+fn script_files_get_their_grammar_and_astro_and_zsh_stay_on_syntect() {
     let jsx = b"const a = <b />;\n";
     for f in ["a.tsx", "a.jsx", "a.js", "a.mjs", "a.cjs"] {
         assert!(sexp(f, jsx).contains("jsx_self_closing_element"), "{f}");
@@ -400,6 +429,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     ] {
         assert_eq!(sexp(f, b"echo hi\n"), "", "{f}");
     }
+}
+
+#[test]
+fn data_files_get_their_grammar() {
     for f in ["a.json", "a.jsonc", "tsconfig.json", "a.ipynb"] {
         assert!(sexp(f, b"{\"a\": 1}\n").contains("(object "), "{f}");
     }
@@ -409,6 +442,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     for f in ["a.toml", "Cargo.lock"] {
         assert!(sexp(f, b"a = 1\n").contains("(pair "), "{f}");
     }
+}
+
+#[test]
+fn c_family_jvm_and_dotnet_files_get_their_grammar() {
     assert!(sexp("a.c", b"int x;\n").contains("(translation_unit "));
     for f in [
         "a.h", "a.cc", "a.cpp", "a.cxx", "a.c++", "a.hh", "a.hpp", "a.hxx", "a.inl",
@@ -425,6 +462,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
             "{f}"
         );
     }
+}
+
+#[test]
+fn build_and_config_files_get_their_grammar() {
     for f in [
         "Dockerfile",
         "dockerfile",
@@ -459,6 +500,34 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     }
     assert_eq!(sexp("a.cfg", b"[a]\nb = 1\n"), "");
     assert_eq!(sexp(".editorconfig", b"[a]\nb = 1\n"), "");
+}
+
+#[test]
+fn nix_lisp_erlang_and_r_files_get_their_grammar() {
+    assert!(sexp("a.nix", b"{ a = 1; }\n").contains("(source_code "));
+    for f in ["a.lisp", "a.asd", "init.el", ".emacs"] {
+        assert!(sexp(f, b"(defun a () 1)\n").contains("(source "), "{f}");
+    }
+    assert!(sexp("a.rkt", b"#lang racket\n(define a 1)\n").contains("(program "));
+    for f in ["a.erl", "a.hrl"] {
+        assert!(sexp(f, b"-module(a).\n").contains("(source_file "), "{f}");
+    }
+    let escript = b"#!/usr/bin/env escript\nmain(_) -> ok.\n";
+    assert!(sexp("a.escript", escript).contains("(source_file "));
+    assert_eq!(sexp("a.escript", b"main(_) -> ok.\n"), "");
+    for f in ["a.R", "a.r", ".Rprofile"] {
+        assert!(sexp(f, b"# a\nx <- 1\n").contains("(program "), "{f}");
+    }
+    assert!(sexp("a.r", b"x <- 1\n").contains("(program "));
+    assert_eq!(sexp("a.r", b"/* rexx */\nsay 1\n"), "");
+    assert_eq!(sexp("a.r", b"# a\nREBOL [Title: \"a\"]\n"), "");
+    for f in ["a.scm", "a.ss", "a.sld"] {
+        assert!(sexp(f, b"(define a 1)\n").contains("(program "), "{f}");
+    }
+}
+
+#[test]
+fn kotlin_swift_zig_ruby_and_php_files_get_their_grammar() {
     for f in ["A.kt", "build.gradle.kts"] {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
@@ -493,6 +562,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
     }
     assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
+}
+
+#[test]
+fn scripts_by_their_shebang_and_elixir_files_get_their_grammar() {
     for (f, src) in [
         ("bin/rails", &b"#!/usr/bin/env ruby\nx = 1\n"[..]),
         ("exe/tool", b"#!/usr/bin/env -S ruby -w\nx = 1\n"),
@@ -514,6 +587,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     assert_eq!(sexp("a.ex", b"-- c\nx = 1\n"), "");
     assert!(sexp("a.ex", b"includes = 1\n").contains("(source "));
     assert!(sexp("a.exs", b"include std/io.e\nx = 1\n").contains("(source "));
+}
+
+#[test]
+fn html_css_and_xml_files_get_their_grammar() {
     for f in ["a.html", "a.htm"] {
         assert!(sexp(f, b"<p>a</p>\n").contains("(element "), "{f}");
     }
@@ -533,6 +610,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
         assert_eq!(sexp(f, b"<a>b</a>\n"), "", "{f}");
     }
     assert!(sexp("a.dtml", b"<p>a</p>\n").contains("(start_tag "));
+}
+
+#[test]
+fn xml_files_are_told_by_their_prolog_and_namespace() {
     let prolog = "<?xml version=\"1.0\"?>\n<a>b</a>\n";
     for f in [
         "a.csproj",
@@ -558,6 +639,10 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     ] {
         assert_eq!(sexp("a.xml", text.as_bytes()), "", "{text}");
     }
+}
+
+#[test]
+fn diff_and_query_files_get_their_grammar() {
     let hunk = "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n";
     for f in ["a.diff", "a.patch", "/src/debian/patches/series.diff"] {
         assert!(sexp(f, hunk.as_bytes()).contains("(addition)"), "{f}");
@@ -573,7 +658,7 @@ fn each_file_type_gets_its_grammar_and_astro_stays_on_syntect() {
     ] {
         assert!(sexp(f, capture).contains("(named_node "), "{f}");
     }
-    assert_eq!(sexp("/a/scheme/x.scm", capture), "");
+    assert!(sexp("/a/scheme/x.scm", capture).contains("(program (list "));
     let dep3 = format!("Description: fix\n{hunk}");
     assert_eq!(sexp("/src/debian/patches/fix.patch", dep3.as_bytes()), "");
     assert!(sexp("/src/fix.patch", dep3.as_bytes()).contains("(addition)"));
@@ -690,6 +775,10 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         ("^a\\cb$", "AB", "ac"),
         ("^ab\\C$", "ab", "AB"),
         ("\\C^a\\c$", "A", "b"),
+        ("^ab=c$", "ac", "abbc"),
+        ("^([+*-+=<>]|<=|>=|/=)$", "<", "-"),
+        ("^([+*-+=<>]|<=|>=|/=)$", "/", "<="),
+        ("^([+*-+=<>]|<=|>=|/=)$", "", "/="),
     ] {
         let re = super::vim_pattern(pattern).unwrap();
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
@@ -766,40 +855,53 @@ fn a_theme_without_groups_colours_markdown_by_its_markup_scopes() {
 
 #[test]
 fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
-    let name = |alias| resolve(alias).map(|l| l.name);
-    assert_eq!(name("rs"), Some("rust"));
-    assert_eq!(name("md"), Some("markdown"));
-    assert_eq!(name("rust"), Some("rust"));
-    assert_eq!(name("pandoc"), Some("markdown"));
-    assert_eq!(name("astro"), None);
-    assert_eq!(name("yml"), Some("yaml"));
-    assert_eq!(name("sh"), Some("bash"));
-    assert_eq!(name("jsonc"), Some("json"));
-    assert_eq!(name("zsh"), None);
-    assert_eq!(name("cpp"), Some("cpp"));
-    assert_eq!(name("hpp"), Some("cpp"));
-    assert_eq!(name("java"), Some("java"));
-    assert_eq!(name("cs"), Some("c_sharp"));
-    assert_eq!(name("csharp"), Some("c_sharp"));
-    assert_eq!(name("kotlin"), Some("kotlin"));
-    assert_eq!(name("kt"), Some("kotlin"));
-    assert_eq!(name("dockerfile"), Some("dockerfile"));
-    assert_eq!(name("cmake"), Some("cmake"));
-    assert_eq!(name("proto"), Some("proto"));
-    assert_eq!(name("hcl"), Some("hcl"));
-    assert_eq!(name("terraform"), Some("terraform"));
-    assert_eq!(name("tfvars"), Some("terraform"));
-    assert_eq!(name("terraform-vars"), Some("terraform"));
-    assert_eq!(name("tf"), None);
-    assert_eq!(name("ini"), Some("ini"));
-    assert_eq!(name("dosini"), Some("ini"));
-    assert_eq!(name("swift"), Some("swift"));
-    assert_eq!(name("ruby"), Some("ruby"));
-    assert_eq!(name("rb"), Some("ruby"));
-    assert_eq!(name("php"), Some("php"));
-    assert_eq!(name("elixir"), Some("elixir"));
-    assert_eq!(name("ex"), Some("elixir"));
-    assert_eq!(name("zig"), Some("zig"));
+    for (alias, want) in [
+        ("rs", Some("rust")),
+        ("md", Some("markdown")),
+        ("rust", Some("rust")),
+        ("pandoc", Some("markdown")),
+        ("astro", None),
+        ("yml", Some("yaml")),
+        ("sh", Some("bash")),
+        ("jsonc", Some("json")),
+        ("zsh", None),
+        ("cpp", Some("cpp")),
+        ("hpp", Some("cpp")),
+        ("java", Some("java")),
+        ("cs", Some("c_sharp")),
+        ("csharp", Some("c_sharp")),
+        ("kotlin", Some("kotlin")),
+        ("kt", Some("kotlin")),
+        ("dockerfile", Some("dockerfile")),
+        ("cmake", Some("cmake")),
+        ("proto", Some("proto")),
+        ("hcl", Some("hcl")),
+        ("terraform", Some("terraform")),
+        ("tfvars", Some("terraform")),
+        ("terraform-vars", Some("terraform")),
+        ("tf", None),
+        ("ini", Some("ini")),
+        ("dosini", Some("ini")),
+        ("swift", Some("swift")),
+        ("ruby", Some("ruby")),
+        ("rb", Some("ruby")),
+        ("php", Some("php")),
+        ("elixir", Some("elixir")),
+        ("ex", Some("elixir")),
+        ("zig", Some("zig")),
+        ("nix", Some("nix")),
+        ("scheme", Some("scheme")),
+        ("scm", Some("scheme")),
+        ("r", Some("r")),
+        ("erlang", Some("erlang")),
+        ("erl", Some("erlang")),
+        ("racket", Some("racket")),
+        ("rkt", Some("racket")),
+        ("lisp", Some("commonlisp")),
+        ("commonlisp", Some("commonlisp")),
+    ] {
+        assert_eq!(resolve(alias).map(|l| l.name), want, "{alias}");
+    }
 }
 
 #[test]
@@ -1200,6 +1302,25 @@ fn an_edit_inside_a_name_repaints_a_capture_its_predicate_moves_on_an_earlier_li
         "    TypeVar(\"T\")",
         "    TypeVr(\"T\")",
     ] {
+        b.lines[1] = value.to_owned();
+        b.edited(1);
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        let text = b.lines.join("\n") + "\n";
+        let mut fresh = Buffer::from_bytes(PathBuf::from("a.py"), text.as_bytes());
+        fresh.parse_more(None);
+        fresh.paint_to(usize::MAX, &theme);
+        assert_eq!(b.hl, fresh.hl, "{value}");
+    }
+}
+
+#[test]
+fn an_edit_on_a_later_line_repaints_a_string_its_injection_moves_on_an_earlier_line() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(PathBuf::from("a.py"), b"x = (\"%d items\"\n     % n)\n");
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    for value in ["     + n)", "     % n)"] {
         b.lines[1] = value.to_owned();
         b.edited(1);
         b.parse_more(None);

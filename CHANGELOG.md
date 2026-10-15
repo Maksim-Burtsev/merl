@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code is coloured as LazyVim colours it, from tree-sitter's syntax tree and the theme's Neovim
   colours, in Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash, JSON, YAML,
   TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Dockerfiles,
-  CMake, Protobuf, HCL, Terraform, INI, diffs and tree-sitter queries, with the code embedded in them (a fenced block,
+  CMake, Protobuf, HCL, Terraform, INI, Nix, Scheme, Racket, Common Lisp, Emacs Lisp, R, Erlang, diffs and tree-sitter queries, with the code embedded in them (a fenced block,
   a regex, a `run:` script). Other files keep the colours they had. The hidden `tree_sitter =
   true` that turned this on early is gone: delete it from `~/.config/merl/config.toml`, where merl
   now stops on it. (#810)
@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `d` no longer crashes on non-ASCII text next to the word in an Erlang string, an R `pkg::name`,
   a Python statement or a component name (#863).
+- `d` on a method of a `const trait` of Rust's standard library (`clone`, `default`, `into_iter`)
+  finds the trait's method: first in the list, or the jump when that trait alone declares it (#514).
+- Leaving a review note returns to the mode it was opened from: a note opened with `a` while
+  reading goes back to reading, block cursor, however you leave it (an arrow, Backspace on an
+  empty note, Ctrl+X, Ctrl+Z / Ctrl+Y), where it used to land in edit mode on the code (#881).
 
 ## [0.8.5] - 2026-10-13
 
