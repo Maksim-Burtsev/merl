@@ -555,6 +555,63 @@ fn a_rule_that_answers_none_keeps_it_in_a_review() {
     drop(std::fs::remove_dir_all(dir));
 }
 
+fn cs_deleted_d(tag: &str, base: &[(&str, &str)], deleted: &str, at: (&str, usize, &str)) {
+    let (dir, mut a) = repo_review(tag, base, &[(deleted, Some("class Gone\n{\n}\n"))]);
+    use_roots(&mut a, Kind::CSharp, &[]);
+    let (file, line, word) = at;
+    a.jump_to(&dir.join(file), line);
+    a.col = a.line_str().find(word).unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.message.as_str()),
+        (Some(&*dir.join(file)), &*format!("no definition for {word}")),
+        "the namesake {deleted} lost is one the rules of #349 and #360 drop"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn a_deleted_property_is_no_type_in_a_type_position() {
+    let order = "class Order\n{\n    public Task Task { get; set; }\n}\n";
+    let run = "class Run\n{\n    Task Go()\n    {\n        return null;\n    }\n}\n";
+    cs_deleted_d(
+        "d-cs-type",
+        &[("Order.cs", order), ("Run.cs", run)],
+        "Order.cs",
+        ("Run.cs", 3, "Task"),
+    );
+}
+
+#[test]
+fn a_deleted_overload_that_cannot_take_the_call_is_dropped() {
+    let order = "class Order\n{\n    public bool Same(Order other)\n    {\n        return true;\n    }\n}\n";
+    let run = "class Run\n{\n    bool Go(Run x)\n    {\n        return Same(x, x);\n    }\n}\n";
+    cs_deleted_d(
+        "d-cs-arity",
+        &[("Order.cs", order), ("Run.cs", run)],
+        "Order.cs",
+        ("Run.cs", 5, "Same"),
+    );
+}
+
+#[test]
+fn a_deleted_namesake_in_an_unseen_project_is_dropped() {
+    let project = "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n";
+    let helper = "static class Helper\n{\n    public static int Twice(int x) => x * 2;\n}\n";
+    let page = "class Page\n{\n    int Go()\n    {\n        return Twice(1);\n    }\n}\n";
+    cs_deleted_d(
+        "d-cs-sight",
+        &[
+            ("Api/Api.csproj", project),
+            ("Api/Helper.cs", helper),
+            ("App/App.csproj", project),
+            ("App/Page.cs", page),
+        ],
+        "Api/Helper.cs",
+        ("App/Page.cs", 5, "Twice"),
+    );
+}
+
 #[test]
 fn d_from_a_branch_line_opens_a_deleted_definition_when_the_branch_has_none() {
     let (dir, mut a) = repo_review(
