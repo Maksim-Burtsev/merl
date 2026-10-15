@@ -373,6 +373,16 @@ fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
 }
 
 #[test]
+fn vue_and_the_typescript_and_css_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("vue");
+}
+
+#[test]
+fn svelte_and_the_typescript_and_css_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("svelte");
+}
+
+#[test]
 fn css_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("css");
 }
@@ -586,6 +596,12 @@ fn kotlin_swift_zig_ruby_and_php_files_get_their_grammar() {
         assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
     }
     assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
+}
+
+#[test]
+fn vue_and_svelte_files_get_their_grammar() {
+    assert!(sexp("A.vue", b"<template><p>{{ a }}</p></template>\n").contains("(interpolation "));
+    assert!(sexp("B.svelte", b"{#if a}<p>b</p>{/if}\n").contains("(if_statement "));
 }
 
 #[test]
@@ -925,6 +941,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("rkt", Some("racket")),
         ("lisp", Some("commonlisp")),
         ("commonlisp", Some("commonlisp")),
+        ("vue", Some("vue")),
+        ("svelte", Some("svelte")),
     ] {
         assert_eq!(resolve(alias).map(|l| l.name), want, "{alias}");
     }

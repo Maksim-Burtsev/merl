@@ -1306,6 +1306,26 @@ const MARKUP: &[&str] = &[
     "\n\n",
 ];
 
+const COMPONENT: &[&str] = &[
+    "<script lang=\"ts\">let x: number = 1;</script>",
+    "<style>a { color: red; }</style>",
+    "<p :class=\"{ a: b }\" @click=\"go(1)\">",
+    "</p>",
+    "{{ a + b }}",
+    "{#if a}",
+    "{:else}",
+    "{/if}",
+    "{a.b}",
+    "<!-- ",
+    " -->",
+    "<",
+    ">",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const LUA: &[&str] = &[
     "---@param x number\n",
     "string.format(\"%d\", x)",
@@ -1449,6 +1469,16 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.xml",
         include_bytes!("../../../tests/colors/xml/project.xml").as_slice(),
         MARKUP,
+    ),
+    (
+        "F.vue",
+        include_bytes!("../../../tests/colors/vue/Ledger.vue").as_slice(),
+        COMPONENT,
+    ),
+    (
+        "F.svelte",
+        include_bytes!("../../../tests/colors/svelte/Ledger.svelte").as_slice(),
+        COMPONENT,
     ),
     (
         "f.proto",
