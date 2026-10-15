@@ -214,7 +214,10 @@ fn every_unreleased_feature_is_smoked_or_skipped_on_purpose() {
             }
         }
     }
-    let changelog = std::fs::read_to_string(root().join("CHANGELOG.md")).unwrap();
+    let fragments: String = changes().iter().map(|(_, text)| format!("\n{text}")).collect();
+    let changelog = std::fs::read_to_string(root().join("CHANGELOG.md"))
+        .unwrap()
+        .replacen("## [Unreleased]\n", &format!("## [Unreleased]\n{fragments}"), 1);
     let skipped: Vec<u32> = UNSMOKED.iter().map(|(n, _)| *n).collect();
     let wrong = unplayed(&changelog, &played, &skipped);
     assert!(
@@ -233,6 +236,84 @@ fn an_entry_passes_by_any_issue_it_cites_that_a_scenario_plays() {
     let wrong = unplayed(log, &BTreeSet::from([2]), &[3]);
     assert_eq!(wrong.len(), 2, "{wrong:?}");
     assert!(wrong[0].contains("cites #4,") && wrong[1].contains("cites no issue"));
+}
+
+fn changes() -> Vec<(String, String)> {
+    let Ok(dir) = std::fs::read_dir(root().join("changes")) else {
+        return Vec::new();
+    };
+    dir.map(|f| {
+        let path = f.unwrap().path();
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        (name, std::fs::read_to_string(&path).unwrap_or_default())
+    })
+    .collect()
+}
+
+const HEADINGS: [&str; 6] = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"];
+
+fn misfiled(name: &str, text: &str) -> Option<String> {
+    let number = name
+        .strip_suffix(".md")
+        .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+    let Some(n) = number.and_then(|n| n.parse::<u32>().ok()) else {
+        return Some(format!("changes/{name}: name it changes/N.md, N the issue"));
+    };
+    if !text.starts_with("### ") {
+        return Some(format!("changes/{name}: start with its heading, `### Fixed`"));
+    }
+    for section in format!("\n{text}").split("\n### ").skip(1) {
+        let heading = section.lines().next().unwrap_or("").trim();
+        if !HEADINGS.contains(&heading) {
+            return Some(format!(
+                "changes/{name}: `### {heading}` is none of Keep a Changelog's {}",
+                HEADINGS.join(", ")
+            ));
+        }
+        let entries: Vec<&str> = section.split("\n- ").skip(1).collect();
+        if entries.is_empty() || entries.iter().any(|e| !cited(e).contains(&n)) {
+            return Some(format!(
+                "changes/{name}: every entry under `### {heading}` cites (#{n})"
+            ));
+        }
+    }
+    None
+}
+
+#[test]
+fn every_change_is_an_issue_s_entry_under_a_keep_a_changelog_heading() {
+    let wrong: Vec<String> = changes()
+        .iter()
+        .filter_map(|(name, text)| misfiled(name, text))
+        .collect();
+    assert!(
+        wrong.is_empty(),
+        "{}\nAGENTS.md `## Working on an issue` step 5 has the form",
+        wrong.join("\n")
+    );
+}
+
+#[test]
+fn a_change_is_misfiled_by_its_name_its_heading_or_its_issue() {
+    let fixed = "### Fixed\n\n- `d` lands. (#7)\n";
+    assert_eq!(misfiled("7.md", fixed), None);
+    assert_eq!(
+        misfiled("7.md", "### Added\n\n- A. (#7)\n- B.\n  (#3, #7)\n\n### Fixed\n\n- C (#7).\n"),
+        None
+    );
+    for name in ["fix.md", "7.txt", ".md", "+7.md", "7"] {
+        assert!(misfiled(name, fixed).is_some(), "{name}");
+    }
+    for text in [
+        "- `d` lands. (#7)\n",
+        "### Fixes\n\n- `d` lands. (#7)\n",
+        "### Fixed\n",
+        "### Fixed\n\n- `d` lands. (#8)\n",
+        "### Fixed\n\n- `d` lands. (#7)\n- `u` too.\n",
+        "### Fixed\n\n- `d` lands. (#7)\n\n### Fixd\n\n- `u` too. (#7)\n",
+    ] {
+        assert!(misfiled("7.md", text).is_some(), "{text}");
+    }
 }
 
 fn released(changelog: &str) -> Vec<(String, String)> {

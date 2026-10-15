@@ -491,6 +491,9 @@ def png_pair(pair, rows, png, fonts, cell):
 def unreleased(names):
     text = open(os.path.join(ROOT, "CHANGELOG.md")).read()
     part = text.split("## [Unreleased]", 1)[1].split("\n## [", 1)[0]
+    changes = os.path.join(ROOT, "changes")
+    for name in sorted(os.listdir(changes) if os.path.isdir(changes) else [], key=lambda n: (len(n), n)):
+        part += "\n" + open(os.path.join(changes, name)).read()
     cited = {n: set(re.findall(r"#(\d+)", open(p).read())) for n, p in names.items()}
     out = []
     for entry in re.split(r"\n- ", "\n" + part)[1:]:
