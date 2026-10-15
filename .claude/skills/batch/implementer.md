@@ -31,7 +31,8 @@ a release build of master, and the commit trailers. Read `AGENTS.md` in your wor
 
 Push the branch; open no PR and run no review: the dispatcher merges it into the epic. Root
 cause, the smallest fix, a test that fails without it (revert the fix and watch it go red). A
-fix a user can see gets its `CHANGELOG.md` entry and a before/after pair on `media`.
+fix a user can see gets its changelog entry as `changes/N.md` (AGENTS.md `## Working on an
+issue`, step 5), never in `CHANGELOG.md`, and a before/after pair on `media`.
 
 Report in up to 8 lines: branch, commits, before and after in a line each, the test that catches
 it, screencast links, what the change leaves alone.
