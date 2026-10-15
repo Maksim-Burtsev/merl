@@ -47,6 +47,7 @@ impl App {
     }
 
     pub(super) fn goto_definition(&mut self) {
+        self.anonymous_named.set(None);
         let kind = self.kind();
         if self.answered_without_word(kind) {
             return;
@@ -392,6 +393,7 @@ impl App {
         mut found: Vec<Candidate>,
         broke: Option<&str>,
     ) {
+        let anonymous = self.anonymous_named.take();
         self.keep_shown(kind, word, &mut found);
         let superclass = kind == Kind::Ruby
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
@@ -475,7 +477,7 @@ impl App {
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
             [_] if !namesakes && !offer_only && !truncated && !copy => {
-                self.jump_to_only(kind, word, &found, broke);
+                self.jump_to_only(kind, word, &found, broke, anonymous);
             }
             _ => self.pick_definitions(kind, word, found, broke, namesakes, truncated),
         }
@@ -511,7 +513,14 @@ impl App {
         }
     }
 
-    fn jump_to_only(&mut self, kind: Kind, word: &str, found: &[Candidate], broke: Option<&str>) {
+    fn jump_to_only(
+        &mut self,
+        kind: Kind,
+        word: &str,
+        found: &[Candidate],
+        broke: Option<&str>,
+        anonymous: Option<Typed>,
+    ) {
         let one = &found[0];
         let word_chars = search::word_chars(Some(kind), true);
         let path = self.root.join(&one.hit.path);
@@ -519,7 +528,16 @@ impl App {
         let target = self
             .hit_text(&one.hit)
             .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
-            .and_then(|text| search::qualified(kind, &text, one.hit.line1, &name));
+            .and_then(|text| {
+                let named = anonymous.filter(|ty| {
+                    ty.path == one.hit.path
+                        && search::owner_decl(kind, &text, one.hit.line1) == Some(ty.line)
+                });
+                match named {
+                    Some(ty) => Some(format!("{}.{name}", ty.name)),
+                    None => search::qualified(kind, &text, one.hit.line1, &name),
+                }
+            });
         let status = resolution(word, target.as_deref(), found, broke, false);
         let col = word_col(&one.hit.text, &name, word_chars);
         match one.hit.deleted {

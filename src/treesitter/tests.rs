@@ -1379,6 +1379,41 @@ fn an_edit_on_a_later_line_repaints_a_string_its_injection_moves_on_an_earlier_l
 }
 
 #[test]
+fn a_keyword_error_recovery_rereads_as_a_name_above_an_edit_is_repainted() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let mut b = Buffer::from_bytes(
+        PathBuf::from("a.py"),
+        b"#\ns\ns\nclass r:\ns.d()\nc={}\ndef _()->e:\nk()\ne\n",
+    );
+    b.parse_more(None);
+    b.paint_to(usize::MAX, &theme);
+    let broken = [
+        "\u{1f4bb}def f(class A:",
+        " x=1",
+        "f\"{x}\"\u{1f3fd}T=\\match x",
+    ];
+    for (row, tail, halted) in [
+        (9, &broken[..], false),
+        (12, &[""][..], false),
+        (12, &[][..], true),
+        (12, &[" :"][..], false),
+    ] {
+        b.lines.truncate(row);
+        b.lines.extend(tail.iter().map(|l| (*l).to_owned()));
+        b.edited(row);
+        if halted {
+            b.parse_more(Some(std::time::Duration::ZERO));
+        }
+        b.parse_more(None);
+        b.paint_to(usize::MAX, &theme);
+        let incremental = b.hl.clone();
+        b.clear_hl();
+        b.paint_to(usize::MAX, &theme);
+        assert_eq!(incremental, b.hl, "{tail:?}");
+    }
+}
+
+#[test]
 fn overlapping_combined_groups_keep_query_order_whatever_came_first() {
     let keys = |b: &Buffer| b.groups().into_iter().map(|g| g.key).collect::<Vec<_>>();
     for (was, now) in [
