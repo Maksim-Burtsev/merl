@@ -147,6 +147,14 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
+        if dir > 0
+            && self.hunk_left(&r).is_none()
+            && let Some(l) = self.unseen_in_hunk()
+        {
+            self.stand_on(TextLine::File(l));
+            self.remember_hunk();
+            return;
+        }
         let next = match self.next_hunk(&r, dir) {
             Next::Back(rel, h) => {
                 let path = self.root.join(rel);
@@ -203,6 +211,31 @@ impl App {
             format!("{end} hunk of the review")
         });
         self.mark_viewed(read.take());
+    }
+
+    pub fn note_seen(&mut self) {
+        if !p552_seen() || self.review.is_none() {
+            return;
+        }
+        if let Some(rel) = self.rel_current() {
+            let lines = self.top_line..=self.bottom_line();
+            self.seen.entry(rel).or_default().extend(lines);
+        }
+    }
+
+    fn unseen_in_hunk(&self) -> Option<usize> {
+        let rel = self.rel_current().filter(|_| p552_seen())?;
+        if self.viewed.contains_key(&rel) {
+            return None;
+        }
+        let at = self.hunk_place(self.at());
+        let start = self.diff.hunks.iter().rev().find(|&&h| h <= at)?.key();
+        let end = (start..)
+            .take_while(|l| self.diff.marks.contains_key(l))
+            .last()
+            .unwrap_or(start);
+        let seen = self.seen.get(&rel);
+        (self.at().key()..=end).find(|l| !seen.is_some_and(|s| s.contains(l)))
     }
 
     pub(super) fn next_hunk(&self, r: &git::Review, dir: isize) -> Next {
@@ -718,4 +751,8 @@ mod tests {
         assert!(paths.iter().all(|p| read.get(p) == Some(&7)), "{read:?}");
         drop(std::fs::remove_dir_all(dir));
     }
+}
+
+fn p552_seen() -> bool {
+    std::env::var_os("MERL_P552").is_some_and(|v| v == "seen")
 }
