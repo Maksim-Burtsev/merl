@@ -197,6 +197,13 @@ impl App {
                     self.open_review_file(&f, false);
                     self.remember_hunk();
                 }
+                if !sha.is_empty() {
+                    let body = crate::git::git(&self.root, &["show", "-s", "--format=%B", &sha])
+                        .unwrap_or_default();
+                    self.p407_msg = Some((sha, body.lines().map(str::to_owned).collect()));
+                    self.help_top = 0;
+                    self.mode = Mode::Help;
+                }
             }
             Err(e) => self.message = error_text(&e),
         }
