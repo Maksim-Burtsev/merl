@@ -304,21 +304,28 @@ impl Parsed {
                 .groups
                 .iter()
                 .find(|g| g.pattern == pattern && std::ptr::eq(g.lang, lang));
+            let mut fresh: Vec<Member> = found
+                .iter()
+                .filter(|&&(p, l, _)| p == pattern && std::ptr::eq(l, lang))
+                .map(|f| f.2)
+                .collect();
+            fresh.sort_by_key(|m| (m.piece.start_byte, m.piece.end_byte));
+            let overlaps = |m: &Member| {
+                let i = fresh.partition_point(|f| f.piece.end_byte <= m.piece.start_byte);
+                fresh
+                    .get(i)
+                    .is_some_and(|f| f.piece.start_byte < m.piece.end_byte)
+            };
             let mut members: Vec<Member> = old
                 .map(|g| {
                     g.members
                         .iter()
-                        .filter(|m| !near(m.extent, span))
+                        .filter(|m| !near(m.extent, span) && !overlaps(m))
                         .copied()
                         .collect()
                 })
                 .unwrap_or_default();
-            members.extend(
-                found
-                    .iter()
-                    .filter(|&&(p, l, _)| p == pattern && std::ptr::eq(l, lang))
-                    .map(|f| f.2),
-            );
+            members.extend(fresh);
             let key = |m: &Member| (m.piece.start_byte, m.piece.end_byte, m.extent);
             members.sort_by_key(key);
             members.dedup();
