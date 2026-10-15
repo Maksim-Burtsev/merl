@@ -86,7 +86,7 @@ impl App {
         }
         if found.is_empty() && self.probe.is_none() {
             *found = self.deleted_definitions(kind, &a.word, &a.here, p.cs_type);
-            if kind == Kind::CSharp {
+            if kind == Kind::CSharp && !found.is_empty() {
                 let chain = a.dotted.then_some(a.chain.as_slice());
                 let hits = found.drain(..).map(|c| c.hit).collect();
                 *found =

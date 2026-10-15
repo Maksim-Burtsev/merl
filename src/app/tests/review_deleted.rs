@@ -555,14 +555,29 @@ fn a_rule_that_answers_none_keeps_it_in_a_review() {
     drop(std::fs::remove_dir_all(dir));
 }
 
-fn cs_deleted_d(tag: &str, base: &[(&str, &str)], branch: (&str, &str), at: (&str, usize, &str)) {
-    let (deleted, now) = branch;
-    let (dir, mut a) = repo_review(tag, base, &[(deleted, Some(now))]);
+fn cs_review_d(
+    tag: &str,
+    base: &[(&str, &str)],
+    branch: (&str, Option<&str>),
+    at: (&str, usize, &str),
+) -> (PathBuf, App) {
+    let (dir, mut a) = repo_review(tag, base, &[branch]);
     use_roots(&mut a, Kind::CSharp, &[]);
     let (file, line, word) = at;
     a.jump_to(&dir.join(file), line);
     a.col = a.line_str().find(word).unwrap();
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    (dir, a)
+}
+
+fn cs_deleted_d(
+    tag: &str,
+    base: &[(&str, &str)],
+    branch: (&str, Option<&str>),
+    at: (&str, usize, &str),
+) {
+    let (dir, a) = cs_review_d(tag, base, branch, at);
+    let ((deleted, _), (file, _, word)) = (branch, at);
     assert_eq!(
         (a.buf.path.as_deref(), a.message.as_str()),
         (
@@ -581,7 +596,7 @@ fn a_deleted_property_is_no_type_in_a_type_position() {
     cs_deleted_d(
         "d-cs-type",
         &[("Order.cs", order), ("Run.cs", run)],
-        ("Order.cs", "class Order\n{\n}\n"),
+        ("Order.cs", Some("class Order\n{\n}\n")),
         ("Run.cs", 4, "Task"),
     );
 }
@@ -593,7 +608,7 @@ fn a_deleted_overload_that_cannot_take_the_call_is_dropped() {
     cs_deleted_d(
         "d-cs-arity",
         &[("Run.cs", &format!("class Run\n{{\n{same}{go}"))],
-        ("Run.cs", &format!("class Run\n{{\n{go}")),
+        ("Run.cs", Some(&format!("class Run\n{{\n{go}"))),
         ("Run.cs", 5, "Same"),
     );
 }
@@ -611,9 +626,79 @@ fn a_deleted_namesake_in_an_unseen_project_is_dropped() {
             ("App/App.csproj", project),
             ("App/Page.cs", page),
         ],
-        ("Api/Helper.cs", "static class Helper\n{\n}\n"),
+        ("Api/Helper.cs", Some("static class Helper\n{\n}\n")),
         ("App/Page.cs", 6, "Twice"),
     );
+}
+
+#[test]
+fn a_deleted_member_of_a_class_outside_the_walk_is_dropped() {
+    let helper = "static class Helper\n{\n    public static int Twice(int x) => x * 2;\n}\n";
+    let page = "class Page\n{\n    int Go()\n    {\n        return Twice(1);\n    }\n}\n";
+    cs_deleted_d(
+        "d-cs-walk",
+        &[("Helper.cs", helper), ("Page.cs", page)],
+        ("Helper.cs", None),
+        ("Page.cs", 5, "Twice"),
+    );
+}
+
+#[test]
+fn a_deleted_private_member_of_another_class_is_dropped() {
+    let helper = "static class Helper\n{\n    static int Twice(int x) => x * 2;\n}\n";
+    let page = "using static System.Math;\nclass Page\n{\n    int Go()\n    {\n        return Twice(1);\n    }\n}\n";
+    cs_deleted_d(
+        "d-cs-private",
+        &[("Helper.cs", helper), ("Page.cs", page)],
+        ("Helper.cs", Some("static class Helper\n{\n}\n")),
+        ("Page.cs", 6, "Twice"),
+    );
+}
+
+#[test]
+fn a_deleted_constructor_folds_into_its_deleted_class() {
+    let widget = "class Widget\n{\n    public Widget()\n    {\n    }\n\n    public static int Make() => 1;\n}\n";
+    let page = "using static System.Math;\nclass Page\n{\n    int Go()\n    {\n        return Widget.Make();\n    }\n}\n";
+    let (dir, a) = cs_review_d(
+        "d-cs-fold",
+        &[("Widget.cs", widget), ("Page.cs", page)],
+        ("Widget.cs", None),
+        ("Page.cs", 6, "Widget"),
+    );
+    assert_eq!(
+        (a.buf.path.as_deref(), a.line_str(), a.picker.is_none()),
+        (Some(&*dir.join("Widget.cs")), "class Widget", true),
+        "one jump to the deleted class, its constructor folded in: {}",
+        a.message
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn a_deleted_local_of_the_cursors_method_is_kept_when_lines_above_moved() {
+    let go = "    int Go()\n    {\n        int total = 0;\n        return total;\n    }\n}\n";
+    let (dir, a) = cs_review_d(
+        "d-cs-local",
+        &[(
+            "Run.cs",
+            &format!("class Run\n{{\n    void Old()\n    {{\n    }}\n\n{go}"),
+        )],
+        (
+            "Run.cs",
+            Some(&format!(
+                "class Run\n{{\n{}",
+                go.replace("        int total = 0;\n", "")
+            )),
+        ),
+        ("Run.cs", 5, "total"),
+    );
+    assert_eq!(
+        (a.line_str(), a.deleted.is_some()),
+        ("        int total = 0;", true),
+        "the deleted declaration, as master offered it: {}",
+        a.message
+    );
+    drop(std::fs::remove_dir_all(dir));
 }
 
 #[test]

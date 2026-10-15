@@ -704,14 +704,16 @@ impl App {
                     private: true,
                 } => mine.contains(&owner),
                 search::CsPlace::Local { from, to } => {
-                    chain.is_none() && h.path == here && (from..=to).contains(&(self.line + 1))
+                    chain.is_none()
+                        && h.path == here
+                        && (h.deleted.is_some() || (from..=to).contains(&(self.line + 1)))
                 }
                 _ => true,
             }
         });
         if !hits
             .iter()
-            .any(|h| h.path == here && h.line1 == self.line + 1)
+            .any(|h| h.deleted.is_none() && h.path == here && h.line1 == self.line + 1)
         {
             let patterns = search::def_patterns(Kind::CSharp, word);
             let ty = Regex::new(&patterns[0]).expect("an escaped name keeps the pattern valid");
