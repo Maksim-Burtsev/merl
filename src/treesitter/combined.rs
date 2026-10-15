@@ -460,12 +460,9 @@ fn edit_between(old: &[u8], new: &[u8]) -> InputEdit {
         .take_while(|&i| old[old.len() - 1 - i] == new[new.len() - 1 - i])
         .count();
     let at = |text: &[u8], byte: usize| {
-        let line = text[..byte]
-            .iter()
-            .rposition(|&c| c == b'\n')
-            .map_or(0, |i| i + 1);
-        let row = text[..byte].iter().filter(|&&c| c == b'\n').count();
-        Point::new(row, byte - line)
+        let mut lines = text[..byte].split(|&c| c == b'\n');
+        let last = lines.next_back().unwrap_or_default();
+        Point::new(lines.count(), last.len())
     };
     InputEdit {
         start_byte: prefix,
