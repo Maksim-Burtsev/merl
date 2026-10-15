@@ -253,7 +253,10 @@ fn an_anonymous_class_s_import_name_lasts_one_d() {
     let (_, mut a) = project_app(
         "ts-anonymous-carry",
         &[
-            ("spinner.ts", "export default class extends Object {\n  spin(): void {}\n}\n"),
+            (
+                "spinner.ts",
+                "export default class extends Object {\n  spin(): void {}\n}\n",
+            ),
             ("second.ts", "export function f(x) {\n  x.spin();\n}\n"),
         ],
     );

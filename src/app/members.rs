@@ -170,8 +170,7 @@ impl App {
         };
         let decl = text.lines().nth(ty.line.saturating_sub(1)).unwrap_or("");
         let named = search::type_name(kind, decl).filter(|_| kind == Kind::TsJs);
-        let anonymous =
-            kind == Kind::TsJs && named.is_none() && search::declares_type(kind, decl);
+        let anonymous = kind == Kind::TsJs && named.is_none() && search::declares_type(kind, decl);
         if anonymous {
             self.anonymous_named.set(Some(ty.clone()));
         }
