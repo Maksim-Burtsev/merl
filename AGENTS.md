@@ -241,10 +241,12 @@ tree-sitter 0.25, tree-sitter-julia 0.23.1 has another `parser.c`, and ts-parser
   LANG` (Neovim 0.12 in tmux, never in CI). `cargo test` compares every character and prints
   `file:line:col`, the token, want and got. All characters equal; a character that cannot be is
   listed with its cause in `tests/colors/LANG/NOTES.md` and skipped by name, never by a threshold.
-- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse` (`edit_fuzz.rs`) plays random
-  edits and compares the spans with a fresh parse after each; run it with
-  `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a change to
-  `src/treesitter.rs` or to `Buffer::edited`.
+- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay`
+  (`edit_fuzz.rs`) plays random edits and compares the spans with a fresh parse after each, or,
+  when the incremental tree differs from the fresh one without an error in either, with the
+  tree tree-sitter itself builds from the same edits (Neovim keeps the incremental tree too);
+  run it with `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a
+  change to `src/treesitter.rs` or to `Buffer::edited`.
 - **The bench**: `tools/theme-bench/run --lang LANG`. No
   theme × language may match fewer characters than `baseline.tsv`; a language joins `for_syntax`
   at ≥ 99 % median over the themes, its remaining misses listed by cause in
