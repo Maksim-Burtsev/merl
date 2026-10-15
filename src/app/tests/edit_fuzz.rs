@@ -1578,24 +1578,21 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
 
 #[test]
 fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
-    replay_tree_sitter(
-        "f.php",
-        include_bytes!("../../../tests/colors/php/Ledger.php"),
-        PHP,
-        5..=5,
-    );
-    replay_tree_sitter(
-        "f.xml",
-        include_bytes!("../../../tests/colors/xml/project.xml"),
-        MARKUP,
-        385..=385,
-    );
-    replay_tree_sitter(
-        "Dockerfile",
-        include_bytes!("../../../tests/colors/dockerfile/Dockerfile"),
-        DOCKERFILE,
-        1..=1,
-    );
+    let php = include_bytes!("../../../tests/colors/php/Ledger.php");
+    let xml = include_bytes!("../../../tests/colors/xml/project.xml");
+    let docker = include_bytes!("../../../tests/colors/dockerfile/Dockerfile");
+    let cases: &[(&str, &[u8], &[&str], u64)] = &[
+        ("f.php", php, PHP, 5),
+        ("f.php", php, PHP, 1085),
+        ("f.php", php, PHP, 1807),
+        ("f.xml", xml, MARKUP, 385),
+        ("f.xml", xml, MARKUP, 1085),
+        ("Dockerfile", docker, DOCKERFILE, 1),
+        ("Dockerfile", docker, DOCKERFILE, 453),
+    ];
+    for &(name, start, snippets, seed) in cases {
+        replay_tree_sitter(name, start, snippets, seed..=seed);
+    }
 }
 
 #[test]
@@ -1751,11 +1748,15 @@ fn groups_as_fresh(buf: &Buffer, fresh: &Buffer, top_same: bool, at: &str) -> bo
             return same;
         }
         assert!(
-            recovered(&g.shape) || recovered(&f.shape) || tokens(&g.shape) == tokens(&f.shape),
-            "{at}: the {} group's tree differs from a fresh parse's without an error in either\nincremental {}\nfresh {}",
+            recovered(&g.shape)
+                || recovered(&f.shape)
+                || tokens(&g.shape) == tokens(&f.shape)
+                || g.shape == g.own,
+            "{at}: the {} group's tree differs from a fresh parse's without an error in either, and from the one tree-sitter builds from the same edits and ranges\nincremental {}\nfresh {}\ntree-sitter {}",
             g.key,
             g.sexp,
-            f.sexp
+            f.sexp,
+            g.own_sexp
         );
         false
     })

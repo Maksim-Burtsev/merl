@@ -795,6 +795,13 @@ pub struct GroupShape {
     pub shape: Shape,
     pub sexp: String,
     pub stale: bool,
+    pub own: Shape,
+    pub own_sexp: String,
+}
+
+#[cfg(test)]
+fn sexp_of(tree: &Tree) -> String {
+    tree.root_node().to_sexp()
 }
 
 #[cfg(test)]
@@ -1127,16 +1134,18 @@ impl Parsed {
         let mut out: Vec<GroupShape> = self
             .groups
             .iter()
-            .map(|g| GroupShape {
-                key: format!("{} pattern {}", g.lang.name, g.pattern),
-                ranges: g.ranges.iter().map(|r| r.start_byte..r.end_byte).collect(),
-                shape: g.tree.as_ref().map(shape_of).unwrap_or_default(),
-                sexp: g
-                    .tree
-                    .as_ref()
-                    .map(|t| t.root_node().to_sexp())
-                    .unwrap_or_default(),
-                stale: g.tree.is_some() && g.parsed != combined::text_of(&g.ranges, bytes),
+            .map(|g| {
+                let own = g.as_tree_sitter();
+                GroupShape {
+                    key: format!("{} pattern {}", g.lang.name, g.pattern),
+                    ranges: g.ranges.iter().map(|r| r.start_byte..r.end_byte).collect(),
+                    shape: g.tree.as_ref().map(shape_of).unwrap_or_default(),
+                    sexp: g.tree.as_ref().map(sexp_of).unwrap_or_default(),
+                    stale: g.tree.is_some()
+                        && g.parsed() != Some(combined::text_of(&g.ranges, bytes)),
+                    own: own.as_ref().map(shape_of).unwrap_or_default(),
+                    own_sexp: own.as_ref().map(sexp_of).unwrap_or_default(),
+                }
             })
             .collect();
         out.sort_by(|a, b| a.key.cmp(&b.key));

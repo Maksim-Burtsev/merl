@@ -20,7 +20,14 @@ pub struct Group {
     pub ranges: Vec<Range>,
     pub tree: Option<Tree>,
     #[cfg(test)]
-    pub parsed: Vec<u8>,
+    pub steps: Vec<Step>,
+}
+
+#[cfg(test)]
+#[derive(Clone)]
+pub enum Step {
+    Edit(InputEdit),
+    Parse(Vec<Range>, Vec<u8>),
 }
 
 struct Built {
@@ -169,6 +176,8 @@ impl Group {
     pub fn edit(&mut self, e: &InputEdit) {
         if let Some(tree) = &mut self.tree {
             tree.edit(e);
+            #[cfg(test)]
+            self.steps.push(Step::Edit(*e));
         }
         let erased = |was: &Range, now: &Range| {
             was.start_byte < was.end_byte && now.start_byte == now.end_byte
@@ -248,6 +257,8 @@ impl Parsed {
                     || self.grouper.set_included_ranges(&b.group.ranges).is_err()
                 {
                     let was = b.old.take().map(|t| first_row(&t.included_ranges()));
+                    #[cfg(test)]
+                    b.group.steps.clear();
                     let row = first_row(&b.group.ranges).min(was.unwrap_or(usize::MAX));
                     (job.from, b.parse) = (job.from.min(row), false);
                     continue;
@@ -272,7 +283,9 @@ impl Parsed {
             job.from = job.from.min(row);
             #[cfg(test)]
             {
-                b.group.parsed = text_of(&b.group.ranges, bytes);
+                b.group
+                    .steps
+                    .push(Step::Parse(b.group.ranges.clone(), bytes.to_vec()));
             }
             (b.group.tree, b.old, b.parse) = (Some(new), None, false);
         }
@@ -352,7 +365,7 @@ impl Parsed {
                     ranges,
                     tree: old.and_then(|g| g.tree.clone()),
                     #[cfg(test)]
-                    parsed: old.map(|g| g.parsed.clone()).unwrap_or_default(),
+                    steps: old.map(|g| g.steps.clone()).unwrap_or_default(),
                 },
                 old: None,
                 parse,
@@ -370,4 +383,34 @@ pub fn text_of(ranges: &[Range], bytes: &[u8]) -> Vec<u8> {
         .flat_map(|r| &bytes[r.start_byte.min(bytes.len())..r.end_byte.min(bytes.len())])
         .copied()
         .collect()
+}
+
+#[cfg(test)]
+impl Group {
+    pub fn parsed(&self) -> Option<Vec<u8>> {
+        self.steps.iter().rev().find_map(|s| match s {
+            Step::Parse(ranges, bytes) => Some(text_of(ranges, bytes)),
+            Step::Edit(_) => None,
+        })
+    }
+
+    pub fn as_tree_sitter(&self) -> Option<Tree> {
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&self.lang.language).ok()?;
+        let mut tree: Option<Tree> = None;
+        for step in &self.steps {
+            match step {
+                Step::Edit(e) => {
+                    if let Some(t) = &mut tree {
+                        t.edit(e);
+                    }
+                }
+                Step::Parse(ranges, bytes) => {
+                    parser.set_included_ranges(ranges).ok()?;
+                    tree = parser.parse(bytes, tree.as_ref());
+                }
+            }
+        }
+        tree
+    }
 }
