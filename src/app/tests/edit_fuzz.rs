@@ -1590,6 +1590,7 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
         ("f.xml", xml, MARKUP, 1269),
         ("Dockerfile", docker, DOCKERFILE, 1),
         ("Dockerfile", docker, DOCKERFILE, 453),
+        ("Dockerfile", docker, DOCKERFILE, 256),
     ];
     for &(name, start, snippets, seed) in cases {
         replay_tree_sitter(name, start, snippets, seed..=seed);

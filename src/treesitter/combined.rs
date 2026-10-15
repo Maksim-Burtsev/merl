@@ -98,7 +98,7 @@ fn first_row(ranges: &[Range]) -> usize {
     ranges.first().map_or(usize::MAX, |r| r.start_point.row)
 }
 
-fn marked(mut old: Tree, ranges: &[Range]) -> Tree {
+fn marked(mut old: Tree, ranges: &[Range], from: &mut usize) -> Tree {
     let was = old.included_ranges();
     let (mut i, mut j) = (0, 0);
     let mut differ: Option<(Range, Range)> = None;
@@ -129,6 +129,7 @@ fn marked(mut old: Tree, ranges: &[Range]) -> Tree {
         }
     }
     if let Some((a, b)) = differ {
+        *from = (*from).min(a.start_point.row);
         old.edit(&InputEdit {
             start_byte: a.start_byte,
             old_end_byte: b.end_byte,
@@ -265,7 +266,11 @@ impl Parsed {
         for b in built.iter_mut().filter(|b| b.parse) {
             if !b.started {
                 b.started = true;
-                b.old = b.group.tree.take().map(|t| marked(t, &b.group.ranges));
+                b.old = b
+                    .group
+                    .tree
+                    .take()
+                    .map(|t| marked(t, &b.group.ranges, &mut job.from));
                 if self.grouper.set_language(&b.group.lang.language).is_err()
                     || self.grouper.set_included_ranges(&b.group.ranges).is_err()
                 {
