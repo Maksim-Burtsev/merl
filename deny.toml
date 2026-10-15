@@ -33,6 +33,7 @@ allow-git = [
   "https://github.com/tree-sitter/tree-sitter-json",
   "https://github.com/tree-sitter/tree-sitter-cpp",
   "https://github.com/tree-sitter/tree-sitter-ruby",
+  "https://github.com/tree-sitter/tree-sitter-scala",
   "https://github.com/fwcd/tree-sitter-kotlin",
   "https://github.com/derekstride/tree-sitter-sql",
   "https://github.com/tree-sitter-grammars/tree-sitter-yaml",

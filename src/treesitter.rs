@@ -193,6 +193,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/ruby/injections.scm"),
     ),
     (
+        "scala",
+        include_str!("../queries/scala/highlights.scm"),
+        include_str!("../queries/scala/injections.scm"),
+    ),
+    (
         "swift",
         include_str!("../queries/swift/highlights.scm"),
         include_str!("../queries/swift/injections.scm"),
@@ -437,6 +442,7 @@ fn grammar(name: &str) -> Option<Language> {
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
         "sql" => tree_sitter_sequel::LANGUAGE.into(),
+        "scala" => tree_sitter_scala::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),

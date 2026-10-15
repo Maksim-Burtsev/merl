@@ -30,6 +30,7 @@ adwaita	r	13936	13936
 adwaita	racket	16048	16043
 adwaita	ruby	13458	13458
 adwaita	rust	17576	17576
+adwaita	scala	26619	26619
 adwaita	scheme	19794	19794
 adwaita	sql	9476	9476
 adwaita	swift	22782	22782
@@ -71,6 +72,7 @@ adwaita-light	r	13936	13936
 adwaita-light	racket	16048	16043
 adwaita-light	ruby	13458	13458
 adwaita-light	rust	17576	17576
+adwaita-light	scala	26619	26619
 adwaita-light	scheme	19794	19794
 adwaita-light	sql	9476	9476
 adwaita-light	swift	22782	22782
@@ -112,6 +114,7 @@ alabaster	r	13936	13936
 alabaster	racket	16048	16047
 alabaster	ruby	13458	13458
 alabaster	rust	17576	17576
+alabaster	scala	26619	26619
 alabaster	scheme	19794	19794
 alabaster	sql	9476	9476
 alabaster	swift	22782	22782
@@ -153,6 +156,7 @@ alabaster-light	r	13936	13936
 alabaster-light	racket	16048	16047
 alabaster-light	ruby	13458	13458
 alabaster-light	rust	17576	17576
+alabaster-light	scala	26619	26619
 alabaster-light	scheme	19794	19792
 alabaster-light	sql	9476	9476
 alabaster-light	swift	22782	22782
@@ -194,6 +198,7 @@ alucard	r	13936	13936
 alucard	racket	16048	16043
 alucard	ruby	13458	13458
 alucard	rust	17576	17576
+alucard	scala	26619	26619
 alucard	scheme	19794	19792
 alucard	sql	9476	9476
 alucard	swift	22782	22782
@@ -235,6 +240,7 @@ ayu	r	13936	13936
 ayu	racket	16048	16043
 ayu	ruby	13458	13458
 ayu	rust	17576	17576
+ayu	scala	26619	26619
 ayu	scheme	19794	19792
 ayu	sql	9476	9476
 ayu	swift	22782	22782
@@ -276,6 +282,7 @@ ayu-light	r	13936	13936
 ayu-light	racket	16048	16043
 ayu-light	ruby	13458	13458
 ayu-light	rust	17576	17576
+ayu-light	scala	26619	26619
 ayu-light	scheme	19794	19792
 ayu-light	sql	9476	9476
 ayu-light	swift	22782	22782
@@ -317,6 +324,7 @@ ayu-mirage	r	13936	13936
 ayu-mirage	racket	16048	16043
 ayu-mirage	ruby	13458	13458
 ayu-mirage	rust	17576	17576
+ayu-mirage	scala	26619	26619
 ayu-mirage	scheme	19794	19792
 ayu-mirage	sql	9476	9476
 ayu-mirage	swift	22782	22782
@@ -358,6 +366,7 @@ bamboo	r	13936	13936
 bamboo	racket	16048	16043
 bamboo	ruby	13458	13458
 bamboo	rust	17576	17576
+bamboo	scala	26619	26619
 bamboo	scheme	19794	19792
 bamboo	sql	9476	9476
 bamboo	swift	22782	22782
@@ -399,6 +408,7 @@ bamboo-light	r	13936	13936
 bamboo-light	racket	16048	16043
 bamboo-light	ruby	13458	13458
 bamboo-light	rust	17576	17576
+bamboo-light	scala	26619	26619
 bamboo-light	scheme	19794	19792
 bamboo-light	sql	9476	9476
 bamboo-light	swift	22782	22782
@@ -440,6 +450,7 @@ bluloco-light	r	13936	13936
 bluloco-light	racket	16048	16043
 bluloco-light	ruby	13458	13458
 bluloco-light	rust	17576	17576
+bluloco-light	scala	26619	26619
 bluloco-light	scheme	19794	19792
 bluloco-light	sql	9476	9476
 bluloco-light	swift	22782	22782
@@ -481,6 +492,7 @@ catppuccin-frappe	r	13936	13936
 catppuccin-frappe	racket	16048	16043
 catppuccin-frappe	ruby	13458	13458
 catppuccin-frappe	rust	17576	17576
+catppuccin-frappe	scala	26619	26619
 catppuccin-frappe	scheme	19794	19792
 catppuccin-frappe	sql	9476	9476
 catppuccin-frappe	swift	22782	22782
@@ -522,6 +534,7 @@ catppuccin-latte	r	13936	13936
 catppuccin-latte	racket	16048	16043
 catppuccin-latte	ruby	13458	13458
 catppuccin-latte	rust	17576	17576
+catppuccin-latte	scala	26619	26619
 catppuccin-latte	scheme	19794	19792
 catppuccin-latte	sql	9476	9476
 catppuccin-latte	swift	22782	22782
@@ -563,6 +576,7 @@ catppuccin-macchiato	r	13936	13936
 catppuccin-macchiato	racket	16048	16043
 catppuccin-macchiato	ruby	13458	13458
 catppuccin-macchiato	rust	17576	17576
+catppuccin-macchiato	scala	26619	26619
 catppuccin-macchiato	scheme	19794	19792
 catppuccin-macchiato	sql	9476	9476
 catppuccin-macchiato	swift	22782	22782
@@ -604,6 +618,7 @@ catppuccin-mocha	r	13936	13936
 catppuccin-mocha	racket	16048	16043
 catppuccin-mocha	ruby	13458	13458
 catppuccin-mocha	rust	17576	17576
+catppuccin-mocha	scala	26619	26619
 catppuccin-mocha	scheme	19794	19792
 catppuccin-mocha	sql	9476	9476
 catppuccin-mocha	swift	22782	22782
@@ -645,6 +660,7 @@ cendre	r	13936	13936
 cendre	racket	16048	16043
 cendre	ruby	13458	13458
 cendre	rust	17576	17576
+cendre	scala	26619	26619
 cendre	scheme	19794	19792
 cendre	sql	9476	9476
 cendre	swift	22782	22782
@@ -686,6 +702,7 @@ darkearth	r	13936	13936
 darkearth	racket	16048	16043
 darkearth	ruby	13458	13458
 darkearth	rust	17576	17576
+darkearth	scala	26619	26619
 darkearth	scheme	19794	19794
 darkearth	sql	9476	9476
 darkearth	swift	22782	22782
@@ -727,6 +744,7 @@ dawnfox	r	13936	13936
 dawnfox	racket	16048	16043
 dawnfox	ruby	13458	13458
 dawnfox	rust	17576	17576
+dawnfox	scala	26619	26619
 dawnfox	scheme	19794	19792
 dawnfox	sql	9476	9476
 dawnfox	swift	22782	22782
@@ -768,6 +786,7 @@ dayfox	r	13936	13936
 dayfox	racket	16048	16043
 dayfox	ruby	13458	13458
 dayfox	rust	17576	17576
+dayfox	scala	26619	26619
 dayfox	scheme	19794	19792
 dayfox	sql	9476	9476
 dayfox	swift	22782	22782
@@ -809,6 +828,7 @@ dracula	r	13936	13936
 dracula	racket	16048	16043
 dracula	ruby	13458	13458
 dracula	rust	17576	17576
+dracula	scala	26619	26619
 dracula	scheme	19794	19792
 dracula	sql	9476	9476
 dracula	swift	22782	22782
@@ -850,6 +870,7 @@ e-ink	r	13936	13936
 e-ink	racket	16048	16043
 e-ink	ruby	13458	13458
 e-ink	rust	17576	17576
+e-ink	scala	26619	26619
 e-ink	scheme	19794	19794
 e-ink	sql	9476	9476
 e-ink	swift	22782	22782
@@ -891,6 +912,7 @@ e-ink-light	r	13936	13936
 e-ink-light	racket	16048	16043
 e-ink-light	ruby	13458	13458
 e-ink-light	rust	17576	17576
+e-ink-light	scala	26619	26619
 e-ink-light	scheme	19794	19794
 e-ink-light	sql	9476	9476
 e-ink-light	swift	22782	22782
@@ -932,6 +954,7 @@ edge	r	13936	13936
 edge	racket	16048	16043
 edge	ruby	13458	13458
 edge	rust	17576	17576
+edge	scala	26619	26619
 edge	scheme	19794	19794
 edge	sql	9476	9476
 edge	swift	22782	22782
@@ -973,6 +996,7 @@ edge-light	r	13936	13936
 edge-light	racket	16048	16043
 edge-light	ruby	13458	13458
 edge-light	rust	17576	17576
+edge-light	scala	26619	26619
 edge-light	scheme	19794	19794
 edge-light	sql	9476	9476
 edge-light	swift	22782	22782
@@ -1014,6 +1038,7 @@ everforest-dark	r	13936	13936
 everforest-dark	racket	16048	16043
 everforest-dark	ruby	13458	13458
 everforest-dark	rust	17576	17576
+everforest-dark	scala	26619	26619
 everforest-dark	scheme	19794	19794
 everforest-dark	sql	9476	9476
 everforest-dark	swift	22782	22782
@@ -1055,6 +1080,7 @@ everforest-light	r	13936	13936
 everforest-light	racket	16048	16043
 everforest-light	ruby	13458	13458
 everforest-light	rust	17576	17576
+everforest-light	scala	26619	26619
 everforest-light	scheme	19794	19794
 everforest-light	sql	9476	9476
 everforest-light	swift	22782	22782
@@ -1096,6 +1122,7 @@ flexoki-dark	r	13936	13936
 flexoki-dark	racket	16048	16043
 flexoki-dark	ruby	13458	13458
 flexoki-dark	rust	17576	17576
+flexoki-dark	scala	26619	26619
 flexoki-dark	scheme	19794	19794
 flexoki-dark	sql	9476	9476
 flexoki-dark	swift	22782	22782
@@ -1137,6 +1164,7 @@ flexoki-light	r	13936	13936
 flexoki-light	racket	16048	16043
 flexoki-light	ruby	13458	13458
 flexoki-light	rust	17576	17576
+flexoki-light	scala	26619	26619
 flexoki-light	scheme	19794	19794
 flexoki-light	sql	9476	9476
 flexoki-light	swift	22782	22782
@@ -1178,6 +1206,7 @@ github-dark	r	13936	13936
 github-dark	racket	16048	16043
 github-dark	ruby	13458	13458
 github-dark	rust	17576	16926
+github-dark	scala	26619	26619
 github-dark	scheme	19794	19794
 github-dark	sql	9476	9476
 github-dark	swift	22782	22782
@@ -1219,6 +1248,7 @@ github-light	r	13936	13936
 github-light	racket	16048	16043
 github-light	ruby	13458	13458
 github-light	rust	17576	16926
+github-light	scala	26619	26619
 github-light	scheme	19794	19794
 github-light	sql	9476	9476
 github-light	swift	22782	22782
@@ -1260,6 +1290,7 @@ gotham	r	13936	13936
 gotham	racket	16048	16043
 gotham	ruby	13458	13458
 gotham	rust	17576	17576
+gotham	scala	26619	26619
 gotham	scheme	19794	19792
 gotham	sql	9476	9476
 gotham	swift	22782	22782
@@ -1301,6 +1332,7 @@ gruvbox-dark	r	13936	13936
 gruvbox-dark	racket	16048	16043
 gruvbox-dark	ruby	13458	13458
 gruvbox-dark	rust	17576	17576
+gruvbox-dark	scala	26619	26619
 gruvbox-dark	scheme	19794	19794
 gruvbox-dark	sql	9476	9476
 gruvbox-dark	swift	22782	22782
@@ -1342,6 +1374,7 @@ gruvbox-light	r	13936	13936
 gruvbox-light	racket	16048	16043
 gruvbox-light	ruby	13458	13458
 gruvbox-light	rust	17576	17576
+gruvbox-light	scala	26619	26619
 gruvbox-light	scheme	19794	19794
 gruvbox-light	sql	9476	9476
 gruvbox-light	swift	22782	22782
@@ -1383,6 +1416,7 @@ gruvbox-material-dark	r	13936	13936
 gruvbox-material-dark	racket	16048	16043
 gruvbox-material-dark	ruby	13458	13458
 gruvbox-material-dark	rust	17576	17576
+gruvbox-material-dark	scala	26619	26619
 gruvbox-material-dark	scheme	19794	19794
 gruvbox-material-dark	sql	9476	9476
 gruvbox-material-dark	swift	22782	22782
@@ -1424,6 +1458,7 @@ gruvbox-material-light	r	13936	13936
 gruvbox-material-light	racket	16048	16043
 gruvbox-material-light	ruby	13458	13458
 gruvbox-material-light	rust	17576	17576
+gruvbox-material-light	scala	26619	26619
 gruvbox-material-light	scheme	19794	19794
 gruvbox-material-light	sql	9476	9476
 gruvbox-material-light	swift	22782	22782
@@ -1465,6 +1500,7 @@ hojicha	r	13936	13936
 hojicha	racket	16048	16043
 hojicha	ruby	13458	13458
 hojicha	rust	17576	17576
+hojicha	scala	26619	26619
 hojicha	scheme	19794	19792
 hojicha	sql	9476	9476
 hojicha	swift	22782	22782
@@ -1506,6 +1542,7 @@ iceberg	r	13936	13936
 iceberg	racket	16048	16043
 iceberg	ruby	13458	13458
 iceberg	rust	17576	17576
+iceberg	scala	26619	26619
 iceberg	scheme	19794	19792
 iceberg	sql	9476	9476
 iceberg	swift	22782	22782
@@ -1547,6 +1584,7 @@ iceberg-light	r	13936	13936
 iceberg-light	racket	16048	16043
 iceberg-light	ruby	13458	13458
 iceberg-light	rust	17576	17576
+iceberg-light	scala	26619	26619
 iceberg-light	scheme	19794	19794
 iceberg-light	sql	9476	9476
 iceberg-light	swift	22782	22782
@@ -1588,6 +1626,7 @@ jellybeans	r	13936	13936
 jellybeans	racket	16048	16043
 jellybeans	ruby	13458	13458
 jellybeans	rust	17576	17576
+jellybeans	scala	26619	26619
 jellybeans	scheme	19794	19792
 jellybeans	sql	9476	9476
 jellybeans	swift	22782	22782
@@ -1629,6 +1668,7 @@ jellybeans-light	r	13936	13936
 jellybeans-light	racket	16048	16043
 jellybeans-light	ruby	13458	13458
 jellybeans-light	rust	17576	17576
+jellybeans-light	scala	26619	26619
 jellybeans-light	scheme	19794	19792
 jellybeans-light	sql	9476	9476
 jellybeans-light	swift	22782	22782
@@ -1670,6 +1710,7 @@ kanagawa-dragon	r	13936	13936
 kanagawa-dragon	racket	16048	16043
 kanagawa-dragon	ruby	13458	13458
 kanagawa-dragon	rust	17576	17576
+kanagawa-dragon	scala	26619	26619
 kanagawa-dragon	scheme	19794	19792
 kanagawa-dragon	sql	9476	9476
 kanagawa-dragon	swift	22782	22782
@@ -1711,6 +1752,7 @@ kanagawa-lotus	r	13936	13936
 kanagawa-lotus	racket	16048	16043
 kanagawa-lotus	ruby	13458	13458
 kanagawa-lotus	rust	17576	17576
+kanagawa-lotus	scala	26619	26619
 kanagawa-lotus	scheme	19794	19792
 kanagawa-lotus	sql	9476	9476
 kanagawa-lotus	swift	22782	22782
@@ -1752,6 +1794,7 @@ kanagawa-wave	r	13936	13936
 kanagawa-wave	racket	16048	16043
 kanagawa-wave	ruby	13458	13458
 kanagawa-wave	rust	17576	17576
+kanagawa-wave	scala	26619	26619
 kanagawa-wave	scheme	19794	19792
 kanagawa-wave	sql	9476	9476
 kanagawa-wave	swift	22782	22782
@@ -1793,6 +1836,7 @@ koda-dark	r	13936	13936
 koda-dark	racket	16048	16043
 koda-dark	ruby	13458	13458
 koda-dark	rust	17576	17576
+koda-dark	scala	26619	26619
 koda-dark	scheme	19794	19792
 koda-dark	sql	9476	9476
 koda-dark	swift	22782	22782
@@ -1834,6 +1878,7 @@ koda-light	r	13936	13936
 koda-light	racket	16048	16043
 koda-light	ruby	13458	13458
 koda-light	rust	17576	17576
+koda-light	scala	26619	26619
 koda-light	scheme	19794	19792
 koda-light	sql	9476	9476
 koda-light	swift	22782	22782
@@ -1875,6 +1920,7 @@ lackluster	r	13936	13936
 lackluster	racket	16048	16043
 lackluster	ruby	13458	13458
 lackluster	rust	17576	17576
+lackluster	scala	26619	26619
 lackluster	scheme	19794	19792
 lackluster	sql	9476	9476
 lackluster	swift	22782	22782
@@ -1916,6 +1962,7 @@ lightearth	r	13936	13936
 lightearth	racket	16048	16043
 lightearth	ruby	13458	13458
 lightearth	rust	17576	17576
+lightearth	scala	26619	26619
 lightearth	scheme	19794	19794
 lightearth	sql	9476	9476
 lightearth	swift	22782	22782
@@ -1957,6 +2004,7 @@ material-dark	r	13936	13936
 material-dark	racket	16048	16043
 material-dark	ruby	13458	13458
 material-dark	rust	17576	17576
+material-dark	scala	26619	26619
 material-dark	scheme	19794	19792
 material-dark	sql	9476	9476
 material-dark	swift	22782	22782
@@ -1998,6 +2046,7 @@ material-light	r	13936	13936
 material-light	racket	16048	16043
 material-light	ruby	13458	13458
 material-light	rust	17576	17576
+material-light	scala	26619	26619
 material-light	scheme	19794	19792
 material-light	sql	9476	9476
 material-light	swift	22782	22782
@@ -2039,6 +2088,7 @@ melange-dark	r	13936	13936
 melange-dark	racket	16048	16043
 melange-dark	ruby	13458	13458
 melange-dark	rust	17576	17576
+melange-dark	scala	26619	26619
 melange-dark	scheme	19794	19794
 melange-dark	sql	9476	9476
 melange-dark	swift	22782	22782
@@ -2080,6 +2130,7 @@ melange-light	r	13936	13936
 melange-light	racket	16048	16043
 melange-light	ruby	13458	13458
 melange-light	rust	17576	17576
+melange-light	scala	26619	26619
 melange-light	scheme	19794	19794
 melange-light	sql	9476	9476
 melange-light	swift	22782	22782
@@ -2121,6 +2172,7 @@ mellifluous	r	13936	13936
 mellifluous	racket	16048	16043
 mellifluous	ruby	13458	13458
 mellifluous	rust	17576	17576
+mellifluous	scala	26619	26619
 mellifluous	scheme	19794	19792
 mellifluous	sql	9476	9476
 mellifluous	swift	22782	22782
@@ -2162,6 +2214,7 @@ mellifluous-light	r	13936	13936
 mellifluous-light	racket	16048	16043
 mellifluous-light	ruby	13458	13458
 mellifluous-light	rust	17576	17576
+mellifluous-light	scala	26619	26619
 mellifluous-light	scheme	19794	19792
 mellifluous-light	sql	9476	9476
 mellifluous-light	swift	22782	22782
@@ -2203,6 +2256,7 @@ mellow	r	13936	13936
 mellow	racket	16048	16043
 mellow	ruby	13458	13458
 mellow	rust	17576	17576
+mellow	scala	26619	26619
 mellow	scheme	19794	19792
 mellow	sql	9476	9476
 mellow	swift	22782	22782
@@ -2244,6 +2298,7 @@ miasma	r	13936	13936
 miasma	racket	16048	16043
 miasma	ruby	13458	13458
 miasma	rust	17576	17576
+miasma	scala	26619	26619
 miasma	scheme	19794	19794
 miasma	sql	9476	9476
 miasma	swift	22782	22782
@@ -2285,6 +2340,7 @@ minischeme	r	13936	13936
 minischeme	racket	16048	16043
 minischeme	ruby	13458	13458
 minischeme	rust	17576	17576
+minischeme	scala	26619	26619
 minischeme	scheme	19794	19794
 minischeme	sql	9476	9476
 minischeme	swift	22782	22782
@@ -2326,6 +2382,7 @@ minischeme-light	r	13936	13936
 minischeme-light	racket	16048	16043
 minischeme-light	ruby	13458	13458
 minischeme-light	rust	17576	17576
+minischeme-light	scala	26619	26619
 minischeme-light	scheme	19794	19794
 minischeme-light	sql	9476	9476
 minischeme-light	swift	22782	22782
@@ -2367,6 +2424,7 @@ moonfly	r	13936	13936
 moonfly	racket	16048	16043
 moonfly	ruby	13458	13458
 moonfly	rust	17576	17576
+moonfly	scala	26619	26619
 moonfly	scheme	19794	19794
 moonfly	sql	9476	9476
 moonfly	swift	22782	22782
@@ -2408,6 +2466,7 @@ neomodern-light	r	13936	13936
 neomodern-light	racket	16048	16043
 neomodern-light	ruby	13458	13458
 neomodern-light	rust	17576	17576
+neomodern-light	scala	26619	26619
 neomodern-light	scheme	19794	19792
 neomodern-light	sql	9476	9476
 neomodern-light	swift	22782	22782
@@ -2449,6 +2508,7 @@ nightfly	r	13936	13936
 nightfly	racket	16048	16043
 nightfly	ruby	13458	13458
 nightfly	rust	17576	17576
+nightfly	scala	26619	26619
 nightfly	scheme	19794	19794
 nightfly	sql	9476	9476
 nightfly	swift	22782	22782
@@ -2490,6 +2550,7 @@ nightfox	r	13936	13936
 nightfox	racket	16048	16043
 nightfox	ruby	13458	13458
 nightfox	rust	17576	17576
+nightfox	scala	26619	26619
 nightfox	scheme	19794	19792
 nightfox	sql	9476	9476
 nightfox	swift	22782	22782
@@ -2531,6 +2592,7 @@ nord	r	13936	13936
 nord	racket	16048	16043
 nord	ruby	13458	13458
 nord	rust	17576	17576
+nord	scala	26619	26619
 nord	scheme	19794	19794
 nord	sql	9476	9476
 nord	swift	22782	22782
@@ -2572,6 +2634,7 @@ nordfox	r	13936	13936
 nordfox	racket	16048	16043
 nordfox	ruby	13458	13458
 nordfox	rust	17576	17576
+nordfox	scala	26619	26619
 nordfox	scheme	19794	19792
 nordfox	sql	9476	9476
 nordfox	swift	22782	22782
@@ -2613,6 +2676,7 @@ onedark	r	13936	13936
 onedark	racket	16048	16043
 onedark	ruby	13458	13458
 onedark	rust	17576	17576
+onedark	scala	26619	26619
 onedark	scheme	19794	19794
 onedark	sql	9476	9476
 onedark	swift	22782	22782
@@ -2654,6 +2718,7 @@ onedark-light	r	13936	13936
 onedark-light	racket	16048	16043
 onedark-light	ruby	13458	13458
 onedark-light	rust	17576	17576
+onedark-light	scala	26619	26619
 onedark-light	scheme	19794	19794
 onedark-light	sql	9476	9476
 onedark-light	swift	22782	22782
@@ -2695,6 +2760,7 @@ oxocarbon-dark	r	13936	13936
 oxocarbon-dark	racket	16048	16043
 oxocarbon-dark	ruby	13458	13458
 oxocarbon-dark	rust	17576	17576
+oxocarbon-dark	scala	26619	26619
 oxocarbon-dark	scheme	19794	19794
 oxocarbon-dark	sql	9476	9476
 oxocarbon-dark	swift	22782	22782
@@ -2736,6 +2802,7 @@ oxocarbon-light	r	13936	13936
 oxocarbon-light	racket	16048	16043
 oxocarbon-light	ruby	13458	13458
 oxocarbon-light	rust	17576	17576
+oxocarbon-light	scala	26619	26619
 oxocarbon-light	scheme	19794	19794
 oxocarbon-light	sql	9476	9476
 oxocarbon-light	swift	22782	22782
@@ -2777,6 +2844,7 @@ papercolor	r	13936	13936
 papercolor	racket	16048	16043
 papercolor	ruby	13458	13458
 papercolor	rust	17576	17576
+papercolor	scala	26619	26619
 papercolor	scheme	19794	19792
 papercolor	sql	9476	9476
 papercolor	swift	22782	22782
@@ -2818,6 +2886,7 @@ papercolor-light	r	13936	13936
 papercolor-light	racket	16048	16043
 papercolor-light	ruby	13458	13458
 papercolor-light	rust	17576	17576
+papercolor-light	scala	26619	26619
 papercolor-light	scheme	19794	19792
 papercolor-light	sql	9476	9476
 papercolor-light	swift	22782	22782
@@ -2859,6 +2928,7 @@ pencil	r	13936	13936
 pencil	racket	16048	16043
 pencil	ruby	13458	13458
 pencil	rust	17576	17576
+pencil	scala	26619	26619
 pencil	scheme	19794	19792
 pencil	sql	9476	9476
 pencil	swift	22782	22782
@@ -2900,6 +2970,7 @@ pencil-light	r	13936	13936
 pencil-light	racket	16048	16043
 pencil-light	ruby	13458	13458
 pencil-light	rust	17576	17576
+pencil-light	scala	26619	26619
 pencil-light	scheme	19794	19792
 pencil-light	sql	9476	9476
 pencil-light	swift	22782	22782
@@ -2941,6 +3012,7 @@ rose-pine	r	13936	13936
 rose-pine	racket	16048	16043
 rose-pine	ruby	13458	13458
 rose-pine	rust	17576	17576
+rose-pine	scala	26619	26619
 rose-pine	scheme	19794	19792
 rose-pine	sql	9476	9476
 rose-pine	swift	22782	22782
@@ -2982,6 +3054,7 @@ rose-pine-dawn	r	13936	13936
 rose-pine-dawn	racket	16048	16043
 rose-pine-dawn	ruby	13458	13458
 rose-pine-dawn	rust	17576	17576
+rose-pine-dawn	scala	26619	26619
 rose-pine-dawn	scheme	19794	19792
 rose-pine-dawn	sql	9476	9476
 rose-pine-dawn	swift	22782	22782
@@ -3023,6 +3096,7 @@ rose-pine-moon	r	13936	13936
 rose-pine-moon	racket	16048	16043
 rose-pine-moon	ruby	13458	13458
 rose-pine-moon	rust	17576	17576
+rose-pine-moon	scala	26619	26619
 rose-pine-moon	scheme	19794	19792
 rose-pine-moon	sql	9476	9476
 rose-pine-moon	swift	22782	22782
@@ -3064,6 +3138,7 @@ selenized	r	13936	13936
 selenized	racket	16048	16043
 selenized	ruby	13458	13458
 selenized	rust	17576	17576
+selenized	scala	26619	26619
 selenized	scheme	19794	19792
 selenized	sql	9476	9476
 selenized	swift	22782	22782
@@ -3105,6 +3180,7 @@ selenized-light	r	13936	13936
 selenized-light	racket	16048	16043
 selenized-light	ruby	13458	13458
 selenized-light	rust	17576	17576
+selenized-light	scala	26619	26619
 selenized-light	scheme	19794	19792
 selenized-light	sql	9476	9476
 selenized-light	swift	22782	22782
@@ -3146,6 +3222,7 @@ solarized-dark	r	13936	13936
 solarized-dark	racket	16048	16043
 solarized-dark	ruby	13458	13458
 solarized-dark	rust	17576	17576
+solarized-dark	scala	26619	26619
 solarized-dark	scheme	19794	19792
 solarized-dark	sql	9476	9476
 solarized-dark	swift	22782	22782
@@ -3187,6 +3264,7 @@ solarized-light	r	13936	13936
 solarized-light	racket	16048	16043
 solarized-light	ruby	13458	13458
 solarized-light	rust	17576	17576
+solarized-light	scala	26619	26619
 solarized-light	scheme	19794	19792
 solarized-light	sql	9476	9476
 solarized-light	swift	22782	22782
@@ -3228,6 +3306,7 @@ sonokai	r	13936	13936
 sonokai	racket	16048	16043
 sonokai	ruby	13458	13458
 sonokai	rust	17576	17576
+sonokai	scala	26619	26619
 sonokai	scheme	19794	19794
 sonokai	sql	9476	9476
 sonokai	swift	22782	22782
@@ -3269,6 +3348,7 @@ soviet-dark	r	13936	13936
 soviet-dark	racket	16048	16043
 soviet-dark	ruby	13458	13458
 soviet-dark	rust	17576	17576
+soviet-dark	scala	26619	26619
 soviet-dark	scheme	19794	19792
 soviet-dark	sql	9476	9476
 soviet-dark	swift	22782	22782
@@ -3310,6 +3390,7 @@ soviet-light	r	13936	13936
 soviet-light	racket	16048	16043
 soviet-light	ruby	13458	13458
 soviet-light	rust	17576	17576
+soviet-light	scala	26619	26619
 soviet-light	scheme	19794	19792
 soviet-light	sql	9476	9476
 soviet-light	swift	22782	22782
@@ -3351,6 +3432,7 @@ srcery	r	13936	13936
 srcery	racket	16048	16043
 srcery	ruby	13458	13458
 srcery	rust	17576	17576
+srcery	scala	26619	26619
 srcery	scheme	19794	19792
 srcery	sql	9476	9476
 srcery	swift	22782	22782
@@ -3392,6 +3474,7 @@ token	r	13936	13936
 token	racket	16048	16043
 token	ruby	13458	13458
 token	rust	17576	17576
+token	scala	26619	26619
 token	scheme	19794	19792
 token	sql	9476	9476
 token	swift	22782	22782
@@ -3433,6 +3516,7 @@ token-light	r	13936	13936
 token-light	racket	16048	16043
 token-light	ruby	13458	13458
 token-light	rust	17576	17576
+token-light	scala	26619	26619
 token-light	scheme	19794	19792
 token-light	sql	9476	9476
 token-light	swift	22782	22782
@@ -3474,6 +3558,7 @@ tokyonight-day	r	13936	13936
 tokyonight-day	racket	16048	16043
 tokyonight-day	ruby	13458	13458
 tokyonight-day	rust	17576	17576
+tokyonight-day	scala	26619	26619
 tokyonight-day	scheme	19794	19792
 tokyonight-day	sql	9476	9476
 tokyonight-day	swift	22782	22782
@@ -3515,6 +3600,7 @@ tokyonight-moon	r	13936	13936
 tokyonight-moon	racket	16048	16043
 tokyonight-moon	ruby	13458	13458
 tokyonight-moon	rust	17576	17576
+tokyonight-moon	scala	26619	26619
 tokyonight-moon	scheme	19794	19792
 tokyonight-moon	sql	9476	9476
 tokyonight-moon	swift	22782	22782
@@ -3556,6 +3642,7 @@ tokyonight-night	r	13936	13936
 tokyonight-night	racket	16048	16043
 tokyonight-night	ruby	13458	13458
 tokyonight-night	rust	17576	17576
+tokyonight-night	scala	26619	26619
 tokyonight-night	scheme	19794	19792
 tokyonight-night	sql	9476	9476
 tokyonight-night	swift	22782	22782
@@ -3597,6 +3684,7 @@ tokyonight-storm	r	13936	13936
 tokyonight-storm	racket	16048	16043
 tokyonight-storm	ruby	13458	13458
 tokyonight-storm	rust	17576	17576
+tokyonight-storm	scala	26619	26619
 tokyonight-storm	scheme	19794	19792
 tokyonight-storm	sql	9476	9476
 tokyonight-storm	swift	22782	22782
@@ -3638,6 +3726,7 @@ vague	r	13936	13936
 vague	racket	16048	16043
 vague	ruby	13458	13458
 vague	rust	17576	17576
+vague	scala	26619	26619
 vague	scheme	19794	19794
 vague	sql	9476	9476
 vague	swift	22782	22782
@@ -3679,6 +3768,7 @@ vesper	r	13936	13936
 vesper	racket	16048	16043
 vesper	ruby	13458	13458
 vesper	rust	17576	17576
+vesper	scala	26619	26619
 vesper	scheme	19794	19794
 vesper	sql	9476	9476
 vesper	swift	22782	22782
@@ -3720,6 +3810,7 @@ vscode-dark	r	13936	13936
 vscode-dark	racket	16048	16043
 vscode-dark	ruby	13458	13458
 vscode-dark	rust	17576	17576
+vscode-dark	scala	26619	26619
 vscode-dark	scheme	19794	19794
 vscode-dark	sql	9476	9476
 vscode-dark	swift	22782	22782
@@ -3761,6 +3852,7 @@ vscode-light	r	13936	13936
 vscode-light	racket	16048	16043
 vscode-light	ruby	13458	13458
 vscode-light	rust	17576	17576
+vscode-light	scala	26619	26619
 vscode-light	scheme	19794	19794
 vscode-light	sql	9476	9476
 vscode-light	swift	22782	22782

@@ -308,6 +308,11 @@ fn kotlin_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn scala_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("scala");
+}
+
+#[test]
 fn swift_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("swift");
 }
@@ -541,6 +546,16 @@ fn kotlin_swift_zig_ruby_and_php_files_get_their_grammar() {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("A.swift", b"class A {}\n").contains("(source_file "));
+    for f in ["A.scala", "build.sbt", "run.sc", "build.mill"] {
+        assert!(
+            sexp(f, b"val a = 1\n").contains("(compilation_unit "),
+            "{f}"
+        );
+    }
+    for src in ["var <x;\n", "{ |freq| SinOsc.ar(freq) }\n", "^this.value\n"] {
+        assert_eq!(sexp("a.sc", src.as_bytes()), "", "{src}");
+    }
+    assert!(sexp("A.scala", b"var <x;\n").contains("(compilation_unit "));
     for f in ["a.zig", "build.zig.zon"] {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
@@ -898,6 +913,7 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("php", Some("php")),
         ("elixir", Some("elixir")),
         ("ex", Some("elixir")),
+        ("scala", Some("scala")),
         ("zig", Some("zig")),
         ("nix", Some("nix")),
         ("scheme", Some("scheme")),
