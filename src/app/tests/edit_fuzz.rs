@@ -1587,12 +1587,45 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
         ("f.php", php, PHP, 1807),
         ("f.xml", xml, MARKUP, 385),
         ("f.xml", xml, MARKUP, 1085),
+        ("f.xml", xml, MARKUP, 1269),
         ("Dockerfile", docker, DOCKERFILE, 1),
         ("Dockerfile", docker, DOCKERFILE, 453),
     ];
     for &(name, start, snippets, seed) in cases {
         replay_tree_sitter(name, start, snippets, seed..=seed);
     }
+}
+
+#[test]
+fn a_combined_injection_over_many_scan_steps_equals_a_fresh_parse() {
+    let page = include_str!("../../../tests/colors/php/Ledger.php").repeat(7);
+    assert!(page.len() > 16 * 1024);
+    replay_tree_sitter("f.php", page.as_bytes(), PHP, 1..=4);
+}
+
+#[test]
+fn two_combined_patterns_into_one_language_keep_a_tree_each() {
+    let text = include_str!("../../../tests/colors/nix/ledger.nix")
+        .replace("buildPhase = ''", "buildPhase = /* bash */ ''");
+    let mut fresh = Buffer::from_bytes(PathBuf::from("f.nix"), text.as_bytes());
+    fresh.parse_more(None);
+    let bash = fresh
+        .groups()
+        .iter()
+        .filter(|g| g.key.starts_with("bash"))
+        .count();
+    assert!(bash >= 2, "{:?}", fresh.groups());
+    let snippets = &[
+        "/* bash */ ",
+        "''",
+        "buildPhase = ",
+        "preBuild = ",
+        "$out ",
+        "${x}",
+        ";",
+        "\n",
+    ];
+    replay_tree_sitter("f.nix", text.as_bytes(), snippets, 1..=20);
 }
 
 #[test]

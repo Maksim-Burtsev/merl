@@ -839,10 +839,9 @@ pub struct Parsed {
     starts: Vec<usize>,
     repaint_from: Option<usize>,
     halted: bool,
-    stale: bool,
     before: Option<(Tree, String)>,
     grouper: Parser,
-    groups: Vec<combined::Group>,
+    groups: Option<Vec<combined::Group>>,
     regroup: Option<combined::Regroup>,
     pending: Option<std::ops::Range<usize>>,
 }
@@ -891,17 +890,16 @@ impl Parsed {
             text,
             repaint_from: Some(0),
             halted: false,
-            stale: true,
             before: None,
             grouper: Parser::new(),
-            groups: Vec::new(),
+            groups: None,
             regroup: None,
             pending: None,
         })
     }
 
     pub fn parsing(&self) -> bool {
-        self.repaint_from.is_some()
+        self.repaint_from.is_some() || self.regroup.is_some()
     }
 
     pub fn has_tree(&self) -> bool {
@@ -929,51 +927,48 @@ impl Parsed {
             }
             tree.edit(&edit);
         }
-        for g in &mut self.groups {
+        let (dropped, row) = self.drop_regroup().unzip();
+        for g in self.groups.iter_mut().flatten() {
             g.edit(&edit);
         }
-        let pending = self.pending.take().map(|p| combined::shift_span(&p, &edit));
-        let dropped = self
-            .regroup
-            .take()
-            .map(|j| combined::shift_span(j.span(), &edit));
-        if dropped.is_some() {
-            self.grouper.reset();
-        }
-        self.pending = combined::union(pending, dropped);
+        let shift = |s: std::ops::Range<usize>| combined::shift_span(&s, &edit);
+        self.pending = combined::union(self.pending.take().map(shift), dropped.map(shift));
         if std::mem::take(&mut self.halted) {
             self.parser.reset();
         }
-        self.stale = true;
-        let row = edit.start_position.row;
+        let row = edit.start_position.row.min(row.unwrap_or(usize::MAX));
         self.repaint_from = Some(self.repaint_from.map_or(row, |r| r.min(row)));
         (self.text, self.starts) = (text, starts);
     }
 
     pub fn parse(&mut self, budget: Option<Duration>) -> Option<usize> {
-        let from = self.repaint_from?;
         let deadline = budget.map(|b| Instant::now() + b);
-        if self.stale {
-            self.repaint_from = Some(self.parse_top(deadline, from)?);
+        let mut from = usize::MAX;
+        if let Some(row) = self.repaint_from {
+            from = self.parse_top(deadline, row)?;
+            self.repaint_from = None;
         }
-        let from = self.repaint_from?.min(self.step_regroup(deadline)?);
-        let tree = self.tree.as_ref()?;
+        let late = deadline.is_some_and(|d| Instant::now() >= d);
+        if self.regroup.is_some() && (from == usize::MAX || !late) {
+            from = from.min(self.step_regroup(deadline).unwrap_or(usize::MAX));
+        }
+        let tree = self.tree.as_ref().filter(|_| from < usize::MAX)?;
         let bytes = self.text.as_bytes();
         let from = from.min(self.starts.len() - 1);
         let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
         let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
-        let grouped = self.lang.combined.is_some();
+        let grouped = self.lang.combined.is_some() && self.groups.is_some();
         let mut injected = layers::injections(self.lang, tree, None, &doc, grouped);
         for g in self
             .groups
             .iter()
+            .flatten()
             .filter(|g| g.touches(near.start, near.end))
         {
             if let Some(t) = &g.tree {
                 injected.extend(layers::injections(g.lang, t, Some(&g.ranges), &doc, false));
             }
         }
-        self.repaint_from = None;
         Some(layers::region_start(&injected, from))
     }
 
@@ -1043,7 +1038,7 @@ impl Parsed {
             }
             None => from,
         };
-        (self.tree, self.halted, self.stale) = (Some(tree), false, false);
+        (self.tree, self.halted) = (Some(tree), false);
         if self.lang.combined.is_some() {
             let span = match dirty {
                 Some(d) => combined::union(d, self.pending.take()),
@@ -1073,7 +1068,7 @@ impl Parsed {
         layers::top(
             self.lang,
             tree,
-            &self.groups,
+            self.groups.as_deref(),
             &mut layers::Ctx {
                 parser: &mut self.inner,
                 sub: 0,
@@ -1131,9 +1126,9 @@ impl Parsed {
     #[cfg(test)]
     pub fn groups(&self) -> Vec<GroupShape> {
         let bytes = self.text.as_bytes();
-        let mut out: Vec<GroupShape> = self
-            .groups
+        self.groups
             .iter()
+            .flatten()
             .map(|g| {
                 let own = g.as_tree_sitter();
                 GroupShape {
@@ -1147,9 +1142,7 @@ impl Parsed {
                     own_sexp: own.as_ref().map(sexp_of).unwrap_or_default(),
                 }
             })
-            .collect();
-        out.sort_by(|a, b| a.key.cmp(&b.key));
-        out
+            .collect()
     }
 
     #[cfg(test)]

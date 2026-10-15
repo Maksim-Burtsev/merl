@@ -94,12 +94,6 @@ pub fn union(a: Option<Bytes<usize>>, b: Option<Bytes<usize>>) -> Option<Bytes<u
     }
 }
 
-impl Regroup {
-    pub fn span(&self) -> &Bytes<usize> {
-        &self.span
-    }
-}
-
 fn first_row(ranges: &[Range]) -> usize {
     ranges.first().map_or(usize::MAX, |r| r.start_point.row)
 }
@@ -205,7 +199,7 @@ impl Parsed {
         let mut grown = true;
         while grown {
             grown = false;
-            for m in self.groups.iter().flat_map(|g| &g.members) {
+            for m in self.groups.iter().flatten().flat_map(|g| &g.members) {
                 if near(m.extent, &span) && (m.extent.0 < span.start || m.extent.1 > span.end) {
                     span = span.start.min(m.extent.0)..span.end.max(m.extent.1);
                     grown = true;
@@ -219,6 +213,25 @@ impl Parsed {
             built: None,
             from: usize::MAX,
         });
+    }
+
+    pub(super) fn drop_regroup(&mut self) -> Option<(Bytes<usize>, usize)> {
+        let job = self.regroup.take()?;
+        if let Some(mut built) = job.built {
+            for b in built.iter_mut().filter(|b| b.group.tree.is_none()) {
+                let (pattern, lang) = (b.group.pattern, b.group.lang);
+                b.group.tree = self
+                    .groups
+                    .iter()
+                    .flatten()
+                    .find(|g| g.pattern == pattern && std::ptr::eq(g.lang, lang))
+                    .and_then(|g| g.tree.clone());
+            }
+            if self.groups.is_some() || built.iter().all(|b| b.group.tree.is_some()) {
+                self.groups = Some(built.into_iter().map(|b| b.group).collect());
+            }
+        }
+        Some((job.span, job.from))
     }
 
     pub(super) fn step_regroup(&mut self, deadline: Option<Instant>) -> Option<usize> {
@@ -294,7 +307,7 @@ impl Parsed {
             self.regroup = Some(job);
             return None;
         }
-        self.groups = built.into_iter().map(|b| b.group).collect();
+        self.groups = Some(built.into_iter().map(|b| b.group).collect());
         Some(job.from)
     }
 
@@ -304,18 +317,24 @@ impl Parsed {
         found: &[(usize, &'static Lang, Member)],
         from: &mut usize,
     ) -> Vec<Built> {
-        let mut keys: Vec<(usize, &'static Lang)> =
-            self.groups.iter().map(|g| (g.pattern, g.lang)).collect();
+        let mut keys: Vec<(usize, &'static Lang)> = self
+            .groups
+            .iter()
+            .flatten()
+            .map(|g| (g.pattern, g.lang))
+            .collect();
         for &(p, l, _) in found {
             if !keys.iter().any(|&(kp, kl)| kp == p && std::ptr::eq(kl, l)) {
                 keys.push((p, l));
             }
         }
+        keys.sort_by_key(|&(p, l)| (p, l.name));
         let mut out = Vec::new();
         for (pattern, lang) in keys {
             let old = self
                 .groups
                 .iter()
+                .flatten()
                 .find(|g| g.pattern == pattern && std::ptr::eq(g.lang, lang));
             let mut fresh: Vec<Member> = found
                 .iter()
@@ -351,8 +370,7 @@ impl Parsed {
             let parse = old.is_none_or(|g| {
                 g.tree
                     .as_ref()
-                    .map_or(g.ranges.clone(), Tree::included_ranges)
-                    != ranges
+                    .is_none_or(|t| t.included_ranges() != ranges)
                     || g.ranges
                         .iter()
                         .any(|r| near((r.start_byte, r.end_byte), span))

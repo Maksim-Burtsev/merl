@@ -320,9 +320,9 @@ fn parse(parser: &mut Parser, lang: &Lang, region: &[Range], bytes: &[u8]) -> Op
     parser.parse_with_options(&mut |i, _| &bytes[i.min(bytes.len())..], None, None)
 }
 
-pub fn top(lang: &'static Lang, tree: &Tree, groups: &[Group], ctx: &mut Ctx, doc: &Doc) {
+pub fn top(lang: &'static Lang, tree: &Tree, groups: Option<&[Group]>, ctx: &mut Ctx, doc: &Doc) {
     let end = doc.bytes.len();
-    let grouped = lang.combined.is_some();
+    let grouped = lang.combined.is_some() && groups.is_some();
     layer(
         lang,
         std::slice::from_ref(tree),
@@ -332,7 +332,7 @@ pub fn top(lang: &'static Lang, tree: &Tree, groups: &[Group], ctx: &mut Ctx, do
         ctx,
         doc,
     );
-    for g in groups {
+    for g in groups.into_iter().flatten() {
         let Some(tree) = &g.tree else { continue };
         if g.touches(doc.start, doc.end) {
             ctx.depth += 1;
