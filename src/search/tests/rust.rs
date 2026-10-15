@@ -388,6 +388,9 @@ fn rust_self_type_is_the_impl_around_and_none_in_a_trait() {
         rust_impl_type("impl<T: Copy> crate::Roll for &Wagon<T> {").as_deref(),
         Some("Wagon")
     );
+    let wrapping = "        const impl Shl<$f> for Wrapping<$t> {";
+    assert_eq!(rust_impl_type(wrapping).as_deref(), Some("Wrapping"));
+    assert_eq!(rust_impl_trait(wrapping).as_deref(), Some("Shl"));
 }
 
 #[test]

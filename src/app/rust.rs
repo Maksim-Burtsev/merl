@@ -353,8 +353,7 @@ impl App {
                 if let search::RustOwner::ImplOf(t) = &owner
                     && !inside
                     && receiver.is_some()
-                    && search::rust_impl_type(lines[owner_line - 1].trim_start_matches("const "))
-                        == receiver
+                    && search::rust_impl_type(lines[owner_line - 1]) == receiver
                 {
                     receiver_impls.push(t.clone());
                 }
@@ -1066,7 +1065,7 @@ impl App {
             return found;
         }
         let impls = format!(
-            r"^\s*(?:unsafe\s+)?impl\b[^{{]*\bfor\s+&?(?:\w+::)*{}\b",
+            r"^\s*(?:(?:unsafe|const)\s+)*impl\b[^{{]*\bfor\s+&?(?:\w+::)*{}\b",
             regex::escape(&ty.name)
         );
         let traits: Vec<String> = self
