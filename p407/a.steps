@@ -1,0 +1,11 @@
+wait agent/lookup
+key Escape
+sleep 1.5
+key l
+sleep 2
+key Down
+sleep 0.6
+key Enter
+sleep 4
+key Escape
+sleep 1

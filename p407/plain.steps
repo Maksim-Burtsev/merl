@@ -1,0 +1,7 @@
+wait 407-polar
+key Escape
+sleep 1.5
+key l
+sleep 1.5
+key Down Down
+sleep 1.5
