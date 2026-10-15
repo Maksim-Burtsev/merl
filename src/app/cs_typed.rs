@@ -690,7 +690,7 @@ impl App {
         });
         let mut hits = hits;
         hits.retain(|h| {
-            let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
+            let place = self.hit_text(h).map_or(search::CsPlace::Top, |t| {
                 search::cs_place(&t, h.line1, word)
             });
             match place {
@@ -750,7 +750,7 @@ impl App {
         };
         hits.into_iter()
             .filter(|h| {
-                let Some(text) = self.text_of(&h.path) else {
+                let Some(text) = self.hit_text(h) else {
                     return true;
                 };
                 let Some(search::CsArity {

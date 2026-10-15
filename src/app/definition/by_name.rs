@@ -42,7 +42,7 @@ impl App {
             self.swift_extensions(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
-        self.found_last(a, fallbacks, &mut found);
+        self.found_last(a, p, walk, fallbacks, &mut found);
         if kind == Kind::Ruby && p.on_value {
             self.ruby_member_outside(&a.word, &p.pattern, &mut found);
         }
@@ -52,7 +52,14 @@ impl App {
         }
     }
 
-    fn found_last(&mut self, a: &Asked, fallbacks: Vec<Hit>, found: &mut Vec<Candidate>) {
+    fn found_last(
+        &mut self,
+        a: &Asked,
+        p: &Patterns,
+        walk: &Walk,
+        fallbacks: Vec<Hit>,
+        found: &mut Vec<Candidate>,
+    ) {
         let kind = a.kind;
         if kind == Kind::Zig {
             found.retain(|c| {
@@ -78,7 +85,19 @@ impl App {
             }
         }
         if found.is_empty() && self.probe.is_none() {
-            *found = self.deleted_definitions(kind, &a.word, &a.here);
+            *found = self.deleted_definitions(kind, &a.word, &a.here, p.cs_type);
+            if kind == Kind::CSharp {
+                let chain = a.dotted.then_some(a.chain.as_slice());
+                let hits = found.drain(..).map(|c| c.hit).collect();
+                *found =
+                    (self.cs_reachable(&a.here, &a.word, chain, walk.cs_walked.as_deref(), hits))
+                        .into_iter()
+                        .map(|hit| Candidate {
+                            hit,
+                            reason: Reason::ByName,
+                        })
+                        .collect();
+            }
         }
     }
 

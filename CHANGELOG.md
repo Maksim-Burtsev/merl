@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `d` in TypeScript on a method of an anonymous default class (`export default class extends
   Base {`) jumps to it through the receiver's type, where it offered every method of that name
   (#817).
+- `d` in a C# review no longer jumps to a namesake the branch deleted that C# could not mean: a
+  property where only a type stands, an overload that cannot take the call's arguments, a member
+  of another class, or a declaration in a project the file does not reference (#580).
 - Leaving a review note returns to the mode it was opened from: a note opened with `a` while
   reading goes back to reading, block cursor, however you leave it (an arrow, Backspace on an
   empty note, Ctrl+X, Ctrl+Z / Ctrl+Y), where it used to land in edit mode on the code (#881).

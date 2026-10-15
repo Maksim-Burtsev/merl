@@ -555,8 +555,9 @@ fn a_rule_that_answers_none_keeps_it_in_a_review() {
     drop(std::fs::remove_dir_all(dir));
 }
 
-fn cs_deleted_d(tag: &str, base: &[(&str, &str)], deleted: &str, at: (&str, usize, &str)) {
-    let (dir, mut a) = repo_review(tag, base, &[(deleted, Some("class Gone\n{\n}\n"))]);
+fn cs_deleted_d(tag: &str, base: &[(&str, &str)], branch: (&str, &str), at: (&str, usize, &str)) {
+    let (deleted, now) = branch;
+    let (dir, mut a) = repo_review(tag, base, &[(deleted, Some(now))]);
     use_roots(&mut a, Kind::CSharp, &[]);
     let (file, line, word) = at;
     a.jump_to(&dir.join(file), line);
@@ -564,7 +565,10 @@ fn cs_deleted_d(tag: &str, base: &[(&str, &str)], deleted: &str, at: (&str, usiz
     press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
     assert_eq!(
         (a.buf.path.as_deref(), a.message.as_str()),
-        (Some(&*dir.join(file)), &*format!("no definition for {word}")),
+        (
+            Some(&*dir.join(file)),
+            &*format!("no definition for {word}")
+        ),
         "the namesake {deleted} lost is one the rules of #349 and #360 drop"
     );
     drop(std::fs::remove_dir_all(dir));
@@ -573,23 +577,23 @@ fn cs_deleted_d(tag: &str, base: &[(&str, &str)], deleted: &str, at: (&str, usiz
 #[test]
 fn a_deleted_property_is_no_type_in_a_type_position() {
     let order = "class Order\n{\n    public Task Task { get; set; }\n}\n";
-    let run = "class Run\n{\n    Task Go()\n    {\n        return null;\n    }\n}\n";
+    let run = "using static System.Math;\nclass Run\n{\n    Task Go()\n    {\n        return null;\n    }\n}\n";
     cs_deleted_d(
         "d-cs-type",
         &[("Order.cs", order), ("Run.cs", run)],
-        "Order.cs",
-        ("Run.cs", 3, "Task"),
+        ("Order.cs", "class Order\n{\n}\n"),
+        ("Run.cs", 4, "Task"),
     );
 }
 
 #[test]
 fn a_deleted_overload_that_cannot_take_the_call_is_dropped() {
-    let order = "class Order\n{\n    public bool Same(Order other)\n    {\n        return true;\n    }\n}\n";
-    let run = "class Run\n{\n    bool Go(Run x)\n    {\n        return Same(x, x);\n    }\n}\n";
+    let go = "    bool Go(Run x)\n    {\n        return Same(x, x);\n    }\n}\n";
+    let same = "    bool Same(Run other)\n    {\n        return true;\n    }\n\n";
     cs_deleted_d(
         "d-cs-arity",
-        &[("Order.cs", order), ("Run.cs", run)],
-        "Order.cs",
+        &[("Run.cs", &format!("class Run\n{{\n{same}{go}"))],
+        ("Run.cs", &format!("class Run\n{{\n{go}")),
         ("Run.cs", 5, "Same"),
     );
 }
@@ -598,7 +602,7 @@ fn a_deleted_overload_that_cannot_take_the_call_is_dropped() {
 fn a_deleted_namesake_in_an_unseen_project_is_dropped() {
     let project = "<Project Sdk=\"Microsoft.NET.Sdk\"></Project>\n";
     let helper = "static class Helper\n{\n    public static int Twice(int x) => x * 2;\n}\n";
-    let page = "class Page\n{\n    int Go()\n    {\n        return Twice(1);\n    }\n}\n";
+    let page = "using static System.Math;\nclass Page\n{\n    int Go()\n    {\n        return Twice(1);\n    }\n}\n";
     cs_deleted_d(
         "d-cs-sight",
         &[
@@ -607,8 +611,8 @@ fn a_deleted_namesake_in_an_unseen_project_is_dropped() {
             ("App/App.csproj", project),
             ("App/Page.cs", page),
         ],
-        "Api/Helper.cs",
-        ("App/Page.cs", 5, "Twice"),
+        ("Api/Helper.cs", "static class Helper\n{\n}\n"),
+        ("App/Page.cs", 6, "Twice"),
     );
 }
 
