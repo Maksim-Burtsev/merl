@@ -455,8 +455,9 @@ fn anchor(tree: &Tree, doc: &Doc) -> usize {
         .root_node()
         .descendant_for_byte_range(doc.start, doc.start);
     std::iter::successors(node, Node::parent)
-        .find(|n| n.start_byte() < doc.start)
-        .filter(|n| n.start_position().row + ANCHOR_ROWS >= row)
+        .take_while(|n| n.start_position().row + ANCHOR_ROWS >= row)
+        .filter(|n| n.start_byte() < doc.start)
+        .last()
         .map_or(doc.start, |n| n.start_byte())
 }
 

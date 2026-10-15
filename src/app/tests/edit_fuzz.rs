@@ -1020,6 +1020,23 @@ const QUERY: &[&str] = &[
     "\n\n",
 ];
 
+const NIX: &[&str] = &[
+    "\"${x}\"",
+    "''\n",
+    "''${",
+    "/* c */",
+    "# c\n",
+    "let\n",
+    "in\n",
+    "a: ",
+    "[",
+    "]",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const CPP: &[&str] = &[
     "template <typename T>\n",
     "R\"x(",
@@ -1572,6 +1589,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         include_bytes!("../../../tests/colors/query/queries/highlights.scm").as_slice(),
         QUERY,
     ),
+    (
+        "f.nix",
+        include_bytes!("../../../tests/colors/nix/ledger.nix").as_slice(),
+        NIX,
+    ),
 ];
 
 #[test]
@@ -1635,6 +1657,16 @@ fn a_nested_combined_injection_joins_members_above_the_paint() {
         include_bytes!("../../../tests/colors/markdown/code.md"),
         MARKDOWN,
         4366..=4366,
+    );
+}
+
+#[test]
+fn captures_of_one_byte_range_paint_in_the_order_of_a_paint_from_the_top() {
+    replay_tree_sitter(
+        "f.nix",
+        include_bytes!("../../../tests/colors/nix/ledger.nix"),
+        NIX,
+        32..=32,
     );
 }
 
