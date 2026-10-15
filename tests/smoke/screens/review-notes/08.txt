@@ -53,5 +53,5 @@ wait why delete these
 │                            │  ▎    def clear(self) -> None:
 │                            │  ▎        self.orders.clear()
 └────────────────────────────┘
-app/repos.py  -32:1  [code]  hunk 1/1  file 2/8                                                                                                                                   ? help
+app/repos.py  -32:1  [code]  hunk 1/1  file 2/8                                                                                                                                    14:32
 cursor (x,y,shown) 32,25,1

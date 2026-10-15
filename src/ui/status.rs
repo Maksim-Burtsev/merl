@@ -34,7 +34,6 @@ pub(super) fn draw_prompt(
 }
 
 pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
-    const HINT: &str = "? help ";
     let style = Style::new()
         .bg(theme.status_bg)
         .fg(theme.status_fg)
@@ -104,12 +103,16 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
     }
-    let hint = app.message.is_empty() && area.width as usize > HINT.len();
     let rest = spans[1..]
         .iter()
         .map(|s| wrap::width(&s.content))
-        .sum::<usize>()
-        + if hint { HINT.len() + 2 } else { 0 };
+        .sum::<usize>();
+    let clock = app
+        .clock
+        .as_deref()
+        .filter(|t| !t.is_empty())
+        .map(|t| (t, wrap::width(t) + 2))
+        .filter(|(_, w)| wrap::width(&spans[0].content) + rest + 1 + w <= area.width as usize);
     spans[0].content = fit_path(
         &spans[0].content,
         (area.width as usize).saturating_sub(rest),
@@ -126,14 +129,19 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         spans.last_mut().expect("the bar has spans").content = format!("  {name}{why}").into();
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
-    if hint {
-        let hint = Rect {
-            x: area.right() - u16::try_from(HINT.len()).unwrap_or(u16::MAX),
-            width: u16::try_from(HINT.len()).unwrap_or(u16::MAX),
-            ..area
-        };
-        frame.render_widget(Paragraph::new(HINT).style(style), hint);
+    if let Some((time, w)) = clock {
+        draw_clock(frame, time, w, style, area);
     }
+}
+
+fn draw_clock(frame: &mut Frame, time: &str, w: usize, style: Style, area: Rect) {
+    let w = u16::try_from(w).unwrap_or(u16::MAX);
+    let at = Rect {
+        x: area.right().saturating_sub(w),
+        width: w.min(area.width),
+        ..area
+    };
+    frame.render_widget(Paragraph::new(format!(" {time} ")).style(style), at);
 }
 
 fn draw_typed(frame: &mut Frame, app: &App, prefix: &str, style: Style, area: Rect) {

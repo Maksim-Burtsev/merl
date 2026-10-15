@@ -1,5 +1,6 @@
 mod app;
 mod buffer;
+mod clock;
 mod for_agents;
 mod git;
 mod intraline;
@@ -171,6 +172,7 @@ fn configure(app: &mut App, config: &theme::Config, name: String) {
     app.review_panel_colours = config.review_panel_colours;
     app.review_list_marks = config.review_list_marks;
     app.review_open_files_first = config.review_open_files_first;
+    app.clock_format = config.clock.clone();
     app.notes.on = config.review_notes;
     app.theme = name;
     app.config = theme::config_path();
@@ -620,6 +622,7 @@ fn event_loop(
             drop(execute!(stdout(), vim_cursor(typing_now)));
         }
         dirty |= restyle(app, &mut theme, &mut drawn_theme);
+        dirty |= app.tick_clock();
         if dirty {
             terminal.draw(|f| ui::draw(f, app, &theme))?;
             app.diagrams.flush(&mut stdout())?;

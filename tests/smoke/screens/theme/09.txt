@@ -53,5 +53,5 @@ wait github-light
 │                            │
 │                            │
 └────────────────────────────┘
-app/models.py  1:1  [code]                                                                                                                                                        ? help
+app/models.py  1:1  [code]                                                                                                                                                         14:32
 cursor (x,y,shown) 41,12,1

@@ -22,5 +22,5 @@ Tutor 3/23 · Next match
 The file is searched for `load_config`. `n` goes to the next match, `N` to the
 previous one; `/` again brings the query back, selected, to refine it. Press
 `n`: the call inside NoteStore.
-store.py  5:28  [code]  ✓ Find in the file  1/2
+store.py  5:28  [code]  ✓ Find in the file  1/2                           14:32
 cursor (x,y,shown) 30,5,1

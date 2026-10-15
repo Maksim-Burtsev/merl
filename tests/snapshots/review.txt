@@ -24,7 +24,7 @@ merl snapshot: review
 │                            │           read_text(encoding="utf-8"))
 │                            │21         return [Note.from_dict(item) for item
 └ 3 files · +5 −8 ───────────┘           in raw]
-store.py  13:1  [code]  hunk 1/2  file 2/3                               ? help
+store.py  13:1  [code]  hunk 1/2  file 2/3
 
 ==== 80x24 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddeddddddeddddddeffffffgeeeeeeeeeeeeeeeeeeeee
@@ -172,7 +172,7 @@ y fg #f6f8fa bg #5094e4
 │                            │29         """One past the highest id in use."""
 │                            │30         return max((note.id for note in self.notes), default=0) + 1
 └ 3 files · +5 −8 ───────────┘31
-store.py  13:1  [code]  hunk 1/2  file 2/3                                                                       ? help
+store.py  13:1  [code]  hunk 1/2  file 2/3
 
 ==== 120x33 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeee
@@ -361,7 +361,7 @@ y fg #f6f8fa bg #5094e4
 │                            │51     def find(self, needle: str) -> list[Note]:
 │                            │52         """Every note whose text contains `needle`, case-insensitively."""
 └ 3 files · +5 −8 ───────────┘53         lowered = needle.lower()
-store.py  13:1  [code]  hunk 1/2  file 2/3                                                                                                                                        ? help
+store.py  13:1  [code]  hunk 1/2  file 2/3
 
 ==== 185x55 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee

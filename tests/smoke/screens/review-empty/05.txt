@@ -53,5 +53,5 @@ wait py.typed  1:1
 │                            │
 │                            │
 └ 4 files · +4 −0 ───────────┘
-py.typed  1:1  [code]  hunk 0/0  file 4/4                                                                                                                                         ? help
+py.typed  1:1  [code]  hunk 0/0  file 4/4                                                                                                                                          14:32
 cursor (x,y,shown) 48,54,0

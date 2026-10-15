@@ -22,5 +22,5 @@ wait docs/notes.md  7:1
 │                            │12 - Search by customer finds orders by the
 │                            │     customer's number, not by their name.
 └────────────────────────────┘13
-docs/notes.md  7:1  [code]                                               ? help
+docs/notes.md  7:1  [code]                                                14:32
 cursor (x,y,shown) 33,11,1

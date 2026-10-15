@@ -53,5 +53,5 @@ wait [preview]
 │                            │
 │                            │
 └ 2 files · +4 −1 ───────────┘
-docs/paging.md  1:1  [preview]  hunk 1/1  file 2/2                                                                                                                                ? help
+docs/paging.md  1:1  [preview]  hunk 1/1  file 2/2                                                                                                                                 14:32
 cursor (x,y,shown) 50,54,0

@@ -264,7 +264,7 @@ i fg #f6f8fa bg #5094e4
 │                            │52  │   Picker: Esc                       Cancel                                                                        │
 │                            │53  │   ?                                 This help                                                                     │
 └────────────────────────────┘54  │   Help: Up / Down                   Scroll                                                                        │
-store.py  13:33  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
+store.py  13:33  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 ==== 185x55 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee

@@ -53,5 +53,5 @@ wait entries → crc_table::entries
 │                            │
 │                            │
 └────────────────────────────┘
-worker/internal/crc/crc.h  6:18  [code]  entries → crc_table::entries (via table: crc_table)
+worker/internal/crc/crc.h  6:18  [code]  entries → crc_table::entries (via table: crc_table)                                                                                       14:32
 cursor (x,y,shown) 50,5,1

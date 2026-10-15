@@ -24,7 +24,7 @@ merl snapshot: files
 │                            │
 │                            │
 └────────────────────────────┘
-notes/  [tree]                                                           ? help
+notes/  [tree]
 
 ==== 80x24 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -131,7 +131,7 @@ j fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-notes/  [tree]                                                                                                   ? help
+notes/  [tree]
 
 ==== 120x33 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -276,7 +276,7 @@ i fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-notes/  [tree]                                                                                                                                                                    ? help
+notes/  [tree]
 
 ==== 185x55 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

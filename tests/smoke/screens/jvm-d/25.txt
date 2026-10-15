@@ -53,5 +53,5 @@ wait <resources>  ⋯
 
 
 
-web/android/src/main/res/values/strings.xml  1:12  [code]                                                                                                                         ? help
+web/android/src/main/res/values/strings.xml  1:12  [code]                                                                                                                          14:32
 cursor (x,y,shown) 13,0,1

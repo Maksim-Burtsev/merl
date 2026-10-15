@@ -53,5 +53,5 @@ wait recent → Account.recent
 
 
 
-app/ruby/feed.rb  8:10  [code]  recent → Account.recent (via Account)
+app/ruby/feed.rb  8:10  [code]  recent → Account.recent (via Account)                                                                                                              14:32
 cursor (x,y,shown) 11,7,1

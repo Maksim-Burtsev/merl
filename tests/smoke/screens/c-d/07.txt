@@ -53,5 +53,5 @@ wait CRC_FAST → crc_mode::CRC_FAST
 │                            │
 │                            │
 └────────────────────────────┘
-worker/internal/crc/mode.cc  3:5  [code]  CRC_FAST → crc_mode::CRC_FAST (by name, 1 match)
+worker/internal/crc/mode.cc  3:5  [code]  CRC_FAST → crc_mode::CRC_FAST (by name, 1 match)                                                                                         14:32
 cursor (x,y,shown) 37,2,1
