@@ -178,7 +178,13 @@ pub(super) fn draw_tree(
                 } else {
                     full
                 };
-                spans.push(Span::styled(format!("{marker} {name}"), style));
+                let room = room + 2;
+                let text = format!("{marker} {name}");
+                match proto() {
+                    b'a' => spans.push(Span::styled(ellipsize(&text, room), style)),
+                    b'b' => spans.extend(fade(&text, room, style, theme.bg)),
+                    _ => spans.push(Span::styled(text, style)),
+                }
             }
             let used: usize = spans[1..].iter().map(|s| wrap::width(&s.content)).sum();
             spans.push(Span::styled(" ".repeat(width.saturating_sub(used)), style));
@@ -195,8 +201,15 @@ fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'stati
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
         None => app.root_name(),
     };
+    let bold = accent.add_modifier(Modifier::BOLD);
+    let room = area.width.saturating_sub(2) as usize;
+    let title = match proto() {
+        b'a' => Line::from(Span::styled(ellipsize(&title, room), bold)),
+        b'b' => Line::from(fade(&title, room, bold, theme.bg)),
+        _ => Line::from(Span::styled(title, bold)),
+    };
     let mut block = Block::bordered()
-        .title(Span::styled(title, accent.add_modifier(Modifier::BOLD)))
+        .title(title)
         .border_style(accent)
         .style(base);
     if let Some(r) = app.review.as_ref().filter(|_| app.review_panel_colours) {
@@ -218,6 +231,46 @@ fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'stati
         }
     }
     block
+}
+
+fn proto() -> u8 {
+    std::env::var("MERL_557")
+        .ok()
+        .and_then(|v| v.bytes().next())
+        .unwrap_or(b'-')
+}
+
+#[expect(clippy::string_slice, reason = "prototype")]
+fn ellipsize(s: &str, room: usize) -> String {
+    if wrap::width(s) <= room {
+        return s.to_owned();
+    }
+    let fits = wrap::cut(s, 0, room.saturating_sub(1)).0;
+    format!("{}\u{2026}", &s[fits])
+}
+
+#[expect(clippy::string_slice, reason = "prototype")]
+fn fade(s: &str, room: usize, style: Style, bg: Color) -> Vec<Span<'static>> {
+    if wrap::width(s) <= room {
+        return vec![Span::styled(s.to_owned(), style)];
+    }
+    let fits = wrap::cut(s, 0, room).0;
+    let g: Vec<&str> = s[fits].graphemes(true).collect();
+    let k = g.len().saturating_sub(3);
+    let fg = style.fg.unwrap_or(Color::Reset);
+    let mut spans = vec![Span::styled(g[..k].concat(), style)];
+    for (c, pct) in g[k..].iter().zip([68u16, 60, 35]) {
+        spans.push(Span::styled((*c).to_owned(), style.fg(blend(fg, style.bg.unwrap_or(bg), pct))));
+    }
+    spans
+}
+
+fn blend(fg: Color, bg: Color, pct: u16) -> Color {
+    let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (fg, bg) else {
+        return fg;
+    };
+    let m = |a: u8, b: u8| u8::try_from((u16::from(a) * pct + u16::from(b) * (100 - pct)) / 100).unwrap_or(a);
+    Color::Rgb(m(r1, r2), m(g1, g2), m(b1, b2))
 }
 
 fn tree_tick(app: &App, path: &Path, noted: bool) -> &'static str {
