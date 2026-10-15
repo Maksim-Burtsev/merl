@@ -183,7 +183,7 @@ impl App {
         } else {
             let base = self.p407_narrow.take().map_or(r.base.clone(), |(_, b)| b);
             r.base = format!("{sha}^");
-            self.p407_narrow = Some((sha, base));
+            self.p407_narrow = Some((sha.clone(), base));
         }
         match r.refresh(&self.root) {
             Ok(fresh) => {
