@@ -214,10 +214,17 @@ fn every_unreleased_feature_is_smoked_or_skipped_on_purpose() {
             }
         }
     }
-    let fragments: String = changes().iter().map(|(_, text)| format!("\n{text}")).collect();
+    let fragments: String = changes()
+        .iter()
+        .map(|(_, text)| format!("\n{text}"))
+        .collect();
     let changelog = std::fs::read_to_string(root().join("CHANGELOG.md"))
         .unwrap()
-        .replacen("## [Unreleased]\n", &format!("## [Unreleased]\n{fragments}"), 1);
+        .replacen(
+            "## [Unreleased]\n",
+            &format!("## [Unreleased]\n{fragments}"),
+            1,
+        );
     let skipped: Vec<u32> = UNSMOKED.iter().map(|(n, _)| *n).collect();
     let wrong = unplayed(&changelog, &played, &skipped);
     assert!(
@@ -250,7 +257,14 @@ fn changes() -> Vec<(String, String)> {
     .collect()
 }
 
-const HEADINGS: [&str; 6] = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"];
+const HEADINGS: [&str; 6] = [
+    "Added",
+    "Changed",
+    "Deprecated",
+    "Removed",
+    "Fixed",
+    "Security",
+];
 
 fn misfiled(name: &str, text: &str) -> Option<String> {
     let number = name
@@ -260,7 +274,9 @@ fn misfiled(name: &str, text: &str) -> Option<String> {
         return Some(format!("changes/{name}: name it changes/N.md, N the issue"));
     };
     if !text.starts_with("### ") {
-        return Some(format!("changes/{name}: start with its heading, `### Fixed`"));
+        return Some(format!(
+            "changes/{name}: start with its heading, `### Fixed`"
+        ));
     }
     for section in format!("\n{text}").split("\n### ").skip(1) {
         let heading = section.lines().next().unwrap_or("").trim();
@@ -298,7 +314,10 @@ fn a_change_is_misfiled_by_its_name_its_heading_or_its_issue() {
     let fixed = "### Fixed\n\n- `d` lands. (#7)\n";
     assert_eq!(misfiled("7.md", fixed), None);
     assert_eq!(
-        misfiled("7.md", "### Added\n\n- A. (#7)\n- B.\n  (#3, #7)\n\n### Fixed\n\n- C (#7).\n"),
+        misfiled(
+            "7.md",
+            "### Added\n\n- A. (#7)\n- B.\n  (#3, #7)\n\n### Fixed\n\n- C (#7).\n"
+        ),
         None
     );
     for name in ["fix.md", "7.txt", ".md", "+7.md", "7"] {

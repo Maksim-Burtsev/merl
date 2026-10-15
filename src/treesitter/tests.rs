@@ -1387,7 +1387,11 @@ fn a_keyword_error_recovery_rereads_as_a_name_above_an_edit_is_repainted() {
     );
     b.parse_more(None);
     b.paint_to(usize::MAX, &theme);
-    let broken = ["\u{1f4bb}def f(class A:", " x=1", "f\"{x}\"\u{1f3fd}T=\\match x"];
+    let broken = [
+        "\u{1f4bb}def f(class A:",
+        " x=1",
+        "f\"{x}\"\u{1f3fd}T=\\match x",
+    ];
     for (row, tail, halted) in [
         (9, &broken[..], false),
         (12, &[""][..], false),
