@@ -1909,6 +1909,7 @@ dependencies = [
  "tree-sitter-ruby",
  "tree-sitter-rust",
  "tree-sitter-scheme",
+ "tree-sitter-sequel",
  "tree-sitter-swift",
  "tree-sitter-toml-ng",
  "tree-sitter-tsquery",
@@ -4250,6 +4251,15 @@ dependencies = [
 name = "tree-sitter-scheme"
 version = "0.24.7-1"
 source = "git+https://github.com/6cdh/tree-sitter-scheme?rev=1b112d9571e4f62fb3d095d52a51f1da7756fb94#1b112d9571e4f62fb3d095d52a51f1da7756fb94"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-sequel"
+version = "0.3.11"
+source = "git+https://github.com/derekstride/tree-sitter-sql?rev=39fdb006403747241244326e8af3b3e96b85381c#39fdb006403747241244326e8af3b3e96b85381c"
 dependencies = [
  "cc",
  "tree-sitter-language",

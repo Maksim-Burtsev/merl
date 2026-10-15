@@ -268,6 +268,11 @@ fn c_sharp_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn sql_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("sql");
+}
+
+#[test]
 fn cmake_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("cmake");
 }
@@ -481,6 +486,10 @@ fn build_and_config_files_get_their_grammar() {
         assert!(sexp(f, b"set(A 1)\n").contains("(normal_command "), "{f}");
     }
     assert_eq!(sexp("CMakeCache.txt", b"A:BOOL=ON\n"), "");
+    assert!(sexp("a.sql", b"SELECT 1;\n").contains("(program "));
+    for f in ["a.psql", "a.pgsql", "a.mysql", "a.ddl"] {
+        assert_eq!(sexp(f, b"SELECT 1;\n"), "", "{f}");
+    }
     assert!(sexp("a.proto", b"message A {}\n").contains("(message "));
     assert_eq!(sexp("a.protodevel", b"message A {}\n"), "");
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
@@ -882,6 +891,7 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("tf", None),
         ("ini", Some("ini")),
         ("dosini", Some("ini")),
+        ("sql", Some("sql")),
         ("swift", Some("swift")),
         ("ruby", Some("ruby")),
         ("rb", Some("ruby")),

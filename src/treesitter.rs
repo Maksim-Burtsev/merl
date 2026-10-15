@@ -106,6 +106,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/proto/injections.scm"),
     ),
     (
+        "sql",
+        include_str!("../queries/sql/highlights.scm"),
+        include_str!("../queries/sql/injections.scm"),
+    ),
+    (
         "dockerfile",
         include_str!("../queries/dockerfile/highlights.scm"),
         include_str!("../queries/dockerfile/injections.scm"),
@@ -431,6 +436,7 @@ fn grammar(name: &str) -> Option<Language> {
         "proto" => tree_sitter_proto::LANGUAGE.into(),
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
+        "sql" => tree_sitter_sequel::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),

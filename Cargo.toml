@@ -66,6 +66,7 @@ tree-sitter-regex = "=0.25.0"
 tree-sitter-ruby = { version = "=0.23.1", git = "https://github.com/tree-sitter/tree-sitter-ruby", rev = "ad907a69da0c8a4f7a943a7fe012712208da6dee" }
 tree-sitter-rust = "=0.24.2"
 tree-sitter-scheme = { version = "=0.24.7-1", git = "https://github.com/6cdh/tree-sitter-scheme", rev = "1b112d9571e4f62fb3d095d52a51f1da7756fb94" }
+tree-sitter-sequel = { version = "=0.3.11", git = "https://github.com/derekstride/tree-sitter-sql", rev = "39fdb006403747241244326e8af3b3e96b85381c" }
 tree-sitter-swift = "=0.7.4"
 tree-sitter-toml-ng = "=0.7.0"
 tree-sitter-typescript = "=0.23.2"

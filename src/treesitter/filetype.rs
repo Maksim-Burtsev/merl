@@ -58,6 +58,7 @@ pub fn for_syntax(
         }
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
+        "SQL" if path.is_none_or(sql) => lang("sql"),
         "Swift" => lang("swift"),
         "Terraform" => terraform(path, lines),
         "Markdown" => lang("markdown"),
@@ -171,6 +172,15 @@ fn erlang(path: &Path, lines: &[String]) -> bool {
 fn cmake(path: &Path) -> bool {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
     name == "CMakeLists.txt" || path.extension().is_some_and(|e| e == "cmake")
+}
+
+fn sql(path: &Path) -> bool {
+    const EXTENSIONS: &[&str] = &["sql", "zsql", "tyc", "pkb", "tyb", "pks"];
+    path.file_name().is_some_and(|n| n == ".sqlite_history")
+        || path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| EXTENSIONS.contains(&e))
 }
 
 fn php(path: &Path) -> bool {

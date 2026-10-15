@@ -1205,6 +1205,23 @@ const HCL: &[&str] = &[
 
 const INI: &[&str] = &["[a]\n", "b = c\n", "; ", "# ", "[", "]", "=", ":", "\n"];
 
+const SQL: &[&str] = &[
+    "SELECT ",
+    " FROM t",
+    " WHERE x = 1",
+    "'a''b'",
+    "$$",
+    "/* ",
+    " */",
+    "-- ",
+    "CASE WHEN x THEN 1 END",
+    "(",
+    ")",
+    "'",
+    ";",
+    "\n\n",
+];
+
 const CMAKE: &[&str] = &[
     "set(",
     "${X}",
@@ -1430,6 +1447,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.ini",
         include_bytes!("../../../tests/colors/ini/settings.ini").as_slice(),
         INI,
+    ),
+    (
+        "f.sql",
+        include_bytes!("../../../tests/colors/sql/ledger.sql").as_slice(),
+        SQL,
     ),
     (
         "CMakeLists.txt",
