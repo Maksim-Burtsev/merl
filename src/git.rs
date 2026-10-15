@@ -297,7 +297,18 @@ impl Review {
                 Path::new(""),
             ),
         };
-        files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
+        match std::env::var("MERL_P245").ok().filter(|_| order.is_empty()).as_deref() {
+            Some("git") => files.sort_by_cached_key(|f| f.path.to_string_lossy().into_owned()),
+            Some("gitlab") => files.sort_by_cached_key(|f| {
+                let last = f.path.components().count() - 1;
+                f.path
+                    .components()
+                    .enumerate()
+                    .map(|(i, c)| (i == last, c.as_os_str().to_string_lossy().into_owned()))
+                    .collect::<Vec<_>>()
+            }),
+            _ => files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order)),
+        }
         let patch = git(&[
             "-c",
             "core.quotePath=false",

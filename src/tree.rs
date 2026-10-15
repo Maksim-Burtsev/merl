@@ -214,6 +214,11 @@ impl Order {
         Self(at)
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+
     fn at(&self, path: &Path) -> usize {
         self.0.get(path).copied().unwrap_or(usize::MAX)
     }
