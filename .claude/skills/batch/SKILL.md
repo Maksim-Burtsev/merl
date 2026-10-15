@@ -44,8 +44,17 @@ against the owner's "all in one epic" and spent a weekly limit on 18 reviews.
 then `P2`, `P3`. Read each with its comments. Leave out an issue with a question still open
 (move it to `needs-owner`) and a visible one without a picked `## Proposal`.
 
-Fill the hours: a small fix is ~15 minutes of one agent, an ordinary issue ~30, a large one ~60;
-three agents work at once at night and four by day (see **Calm**), and an epic costs ~1.5 hours
+Fill the hours with these minutes of one agent, measured in the ledgers of 2026-10-02..10-15:
+
+| Task | Minutes |
+|---|---|
+| A small fix: one rule, one key | 7–25 |
+| A lint or comment slice | 25–45 |
+| A proposal | 9–15 |
+| A grammar | about 60 per language |
+| An own visible PR, screencasts and Punchcard included | median about 55 |
+
+Three agents work at once at night and four by day (see **Calm**), and an epic costs ~1.5 hours
 on top for integration, its review and CI, while the next tasks go on building (**While the
 epic closes**). Correct these from the ledgers of earlier runs when there are any.
 
@@ -101,7 +110,10 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   a slot.
 - **Epic issues.** The agent pushes its branch: no PR, no review. Read its diff, merge the
   branch into the epic (`--no-ff`), and check each conflict hunk by hand: fixes for different
-  languages add helpers at the same spot, and a careless union drops a closing brace. When
+  languages add helpers at the same spot, and a careless union drops a closing brace. A
+  conflict on `EXPECTS` or `LONG_FILES` in `src/main.rs` is measured again, never unioned:
+  `.claude/skills/batch/bin/recount` in the worktree mid-merge, once its other conflicts are
+  resolved, runs the two tests that own them and writes and stages the measured values. When
   several branches wait, a separate integrator agent keeps the conflicts out of your context.
   After each merge of a language or of master, `tests/smoke/run.py --golden` on the epic.
 - **Own-PR issues.** The agent opens its PR, with before/after screencasts when it is visible
@@ -113,7 +125,10 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   review comes back to it and not to you.
 - **The epic PR.** First the full `tools/heavy tools/ci-local` on the epic: its tasks ran only
   `clippy tests`. Then one PR into master, a section per issue (before, after, the test that
-  catches it). One fresh agent runs Punchcard on it once and its findings are fixed in one pass,
+  catches it): `.claude/skills/batch/bin/epic-body [RUN_DIR]` drafts `epic-body.md` and
+  `squash-msg.txt` in the run's folder from the ledger's merged `epic` rows, each
+  implementer's report and `COMMON.md`'s trailers; read every section, merge the ones of one
+  issue and check `Closes` against what the reports say is left. One fresh agent runs Punchcard on it once and its findings are fixed in one pass,
   by parallel agents on branches off the epic when there are many. No second review. A finding
   outside the batch becomes an issue. With the fixes pushed, `gh pr merge --squash --auto`, and
   one background `gh pr checks --watch` on it; a red check gets a fixer agent.
@@ -129,9 +144,11 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
 - **A stuck agent.** A blocked agent sends no notification: on 2026-10-03 two night agents
   waited 4–6 hours on a permission prompt while listed as working. On every wake, and at least
   every 30 minutes (a Monitor or ScheduleWakeup), read the modification time of each running
-  agent's output file. An agent silent for more than 20 minutes is named in the chat with its
-  last command; unblock it, or stop it and push its worktree's commits. Read file times only,
-  never the machine's load.
+  agent's output file: `.claude/skills/batch/bin/stuck [TASKS_DIR]` prints each running agent
+  of this session with its silent minutes and last call, then the load and the time (`sleep
+  1800; …/stuck` in the background wakes you). An agent silent for more than 20 minutes is named
+  in the chat with its last command; unblock it, or stop it and push its worktree's commits.
+  Judge by file times only, never by the machine's load.
 - A bug met on the way is filed with its three labels, not fixed in passing.
 
 ## 5. Left-over time
@@ -144,7 +161,13 @@ highest priority first.
 
 - The epic merges itself when it is green (`--auto`, above), unless the owner said in the
   session that it waits; then it waits under `needs-owner`, with no auto-merge. One consolidated
-  squash message, a paragraph per issue: `gh pr merge --squash --auto --body-file`.
+  squash message, a paragraph per issue (`epic-body`'s `squash-msg.txt`, read and trimmed):
+  `gh pr merge --squash --auto --body-file`.
+- Once the epic is on master, `.claude/skills/batch/bin/refresh-prs [-n] [RUN_DIR]` merges
+  origin/master into each open `needs-owner` PR the ledger names (a merge, not a rebase:
+  reviews link to the commits), pushes the clean ones and lists the conflicting ones; each of
+  those goes to an agent that resolves it, regenerates screens and snapshots, and runs
+  `tools/ci-local` before its push. `-n` merges without pushing.
 - Remove the worktrees and local branches of everything merged or handed over as a PR, the
   master build included. Take `in-progress` off whatever was not finished, with a comment on
   what is left.
