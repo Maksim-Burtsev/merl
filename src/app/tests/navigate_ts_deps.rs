@@ -247,3 +247,25 @@ fn a_dependency_merl_saved_is_read_again() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn an_anonymous_class_s_import_name_lasts_one_d() {
+    let (_, mut a) = project_app(
+        "ts-anonymous-carry",
+        &[
+            ("spinner.ts", "export default class extends Object {\n  spin(): void {}\n}\n"),
+            ("second.ts", "export function f(x) {\n  x.spin();\n}\n"),
+        ],
+    );
+    a.anonymous_named.set(Some(crate::app::search_job::Typed {
+        name: "Whirl".into(),
+        path: "spinner.ts".into(),
+        line: 1,
+    }));
+    d_on(&mut a, "second.ts", "x.spin");
+    assert_eq!(
+        shown(&mut a),
+        jump("spin → extends.spin (by name, 1 match)", "spinner.ts:2"),
+        "a name an earlier d left behind is not this d's"
+    );
+}

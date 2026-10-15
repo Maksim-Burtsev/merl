@@ -914,7 +914,7 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
 
 fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
     search::type_name(kind, decl)
-        .filter(|n| kind == Kind::Python || kind == Kind::TsJs && n != "extends")
+        .filter(|_| matches!(kind, Kind::Python | Kind::TsJs))
         .or_else(|| parts.last().cloned())
         .unwrap_or_default()
 }
