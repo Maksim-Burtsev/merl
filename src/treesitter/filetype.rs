@@ -66,6 +66,8 @@ pub fn for_syntax(
         "Lua" => lang("lua"),
         "Zig" => lang("zig"),
         "Nix" => lang("nix"),
+        "Vue Component" => lang("vue"),
+        "Svelte" => lang("svelte"),
         _ => None,
     }
 }

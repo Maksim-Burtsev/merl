@@ -252,6 +252,16 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/commonlisp/highlights.scm"),
         include_str!("../queries/commonlisp/injections.scm"),
     ),
+    (
+        "vue",
+        include_str!("../queries/vue/highlights.scm"),
+        include_str!("../queries/vue/injections.scm"),
+    ),
+    (
+        "svelte",
+        include_str!("../queries/svelte/highlights.scm"),
+        include_str!("../queries/svelte/injections.scm"),
+    ),
 ];
 
 const ALIASES: &[(&str, &str)] = &[
@@ -448,6 +458,8 @@ fn grammar(name: &str) -> Option<Language> {
         "erlang" => tree_sitter_erlang::LANGUAGE.into(),
         "racket" => tree_sitter_racket::LANGUAGE.into(),
         "commonlisp" => tree_sitter_commonlisp::LANGUAGE_COMMONLISP.into(),
+        "vue" => tree_sitter_vue_next::LANGUAGE.into(),
+        "svelte" => tree_sitter_svelte_ng::LANGUAGE.into(),
         _ => return None,
     })
 }
