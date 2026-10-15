@@ -1020,6 +1020,23 @@ const QUERY: &[&str] = &[
     "\n\n",
 ];
 
+const NIX: &[&str] = &[
+    "\"${x}\"",
+    "''\n",
+    "''${",
+    "/* c */",
+    "# c\n",
+    "let\n",
+    "in\n",
+    "a: ",
+    "[",
+    "]",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const CPP: &[&str] = &[
     "template <typename T>\n",
     "R\"x(",
@@ -1061,6 +1078,22 @@ const KOTLIN: &[&str] = &[
     "@JvmStatic\n",
     "when (x) {\n",
     "<T : A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const SWIFT: &[&str] = &[
+    "\"\\(x)\"",
+    "\"\"\"\n",
+    "/// ",
+    "/[a-z]+/",
+    "@MainActor\n",
+    "switch x {\n",
+    "<T: A>",
     "(",
     ")",
     "{",
@@ -1437,6 +1470,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         KOTLIN,
     ),
     (
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift").as_slice(),
+        SWIFT,
+    ),
+    (
         "F.scala",
         include_bytes!("../../../tests/colors/scala/Ledger.scala").as_slice(),
         SCALA,
@@ -1551,6 +1589,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         include_bytes!("../../../tests/colors/query/queries/highlights.scm").as_slice(),
         QUERY,
     ),
+    (
+        "f.nix",
+        include_bytes!("../../../tests/colors/nix/ledger.nix").as_slice(),
+        NIX,
+    ),
 ];
 
 #[test]
@@ -1595,6 +1638,36 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
     for &(name, start, snippets, seed) in cases {
         replay_tree_sitter(name, start, snippets, seed..=seed);
     }
+}
+
+#[test]
+fn a_tree_tree_sitter_builds_from_the_same_edits_is_painted_as_built() {
+    replay_tree_sitter(
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift"),
+        SWIFT,
+        754..=754,
+    );
+}
+
+#[test]
+fn a_nested_combined_injection_joins_members_above_the_paint() {
+    replay_tree_sitter(
+        "f.md",
+        include_bytes!("../../../tests/colors/markdown/code.md"),
+        MARKDOWN,
+        4366..=4366,
+    );
+}
+
+#[test]
+fn captures_of_one_byte_range_paint_in_the_order_of_a_paint_from_the_top() {
+    replay_tree_sitter(
+        "f.nix",
+        include_bytes!("../../../tests/colors/nix/ledger.nix"),
+        NIX,
+        32..=32,
+    );
 }
 
 #[test]
@@ -1664,6 +1737,7 @@ fn replay_tree_sitter(
     snippets: &[&str],
     seeds: std::ops::RangeInclusive<u64>,
 ) {
+    crate::treesitter::RECORD.set(true);
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let dir = std::env::temp_dir().join(format!(
         "merl-ts-fuzz-{}-{}",
@@ -1712,11 +1786,13 @@ fn replay_tree_sitter(
                 fresh.hl
             } else {
                 if shape != fresh_shape {
+                    let (own, own_sexp) = a.buf.own();
                     assert!(
                         recovered(&shape)
                             || recovered(&fresh_shape)
-                            || tokens(&shape) == tokens(&fresh_shape),
-                        "{at}: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                            || tokens(&shape) == tokens(&fresh_shape)
+                            || shape == own,
+                        "{at}: the tree differs from a fresh parse without an error in either, and from the one tree-sitter builds from the same edits\nincremental {}\nfresh {}\ntree-sitter {own_sexp}",
                         a.buf.sexp(),
                         fresh.sexp()
                     );

@@ -844,6 +844,13 @@ pub struct Parsed {
     groups: Option<Vec<combined::Group>>,
     regroup: Option<combined::Regroup>,
     pending: Option<std::ops::Range<usize>>,
+    #[cfg(test)]
+    steps: Option<Vec<combined::Step>>,
+}
+
+#[cfg(test)]
+thread_local! {
+    pub static RECORD: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn joined(lines: &[String]) -> (String, Vec<usize>) {
@@ -895,6 +902,8 @@ impl Parsed {
             groups: None,
             regroup: None,
             pending: None,
+            #[cfg(test)]
+            steps: RECORD.get().then(Vec::new),
         })
     }
 
@@ -926,6 +935,10 @@ impl Parsed {
                 self.before = Some((tree.clone(), std::mem::take(&mut self.text)));
             }
             tree.edit(&edit);
+            #[cfg(test)]
+            if let Some(steps) = &mut self.steps {
+                steps.push(combined::Step::Text(text.as_bytes().to_vec()));
+            }
         }
         let (dropped, row) = self.drop_regroup().unzip();
         for g in self.groups.iter_mut().flatten() {
@@ -1038,6 +1051,10 @@ impl Parsed {
             }
             None => from,
         };
+        #[cfg(test)]
+        if let Some(steps) = &mut self.steps {
+            steps.push(combined::Step::Parse(Vec::new(), bytes.to_vec()));
+        }
         (self.tree, self.halted) = (Some(tree), false);
         if self.lang.combined.is_some() {
             let span = match dirty {
@@ -1121,6 +1138,18 @@ impl Parsed {
     #[cfg(test)]
     pub fn shape(&self) -> Shape {
         self.tree.as_ref().map(shape_of).unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn own(&self) -> (Shape, String) {
+        let steps = self.steps.as_deref().unwrap_or_default();
+        let current = matches!(steps.last(),
+            Some(combined::Step::Parse(_, b)) if *b == self.text.as_bytes());
+        let own = combined::as_tree_sitter(self.lang, steps).filter(|_| current);
+        (
+            own.as_ref().map(shape_of).unwrap_or_default(),
+            own.as_ref().map(sexp_of).unwrap_or_default(),
+        )
     }
 
     #[cfg(test)]
