@@ -3,7 +3,8 @@ use syntect::highlighting::{HighlightIterator, HighlightState};
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference};
 use tree_sitter::{Node, Parser, Point, QueryCursor, Range, StreamingIterator, Tree};
 
-use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Styles, point, resolve};
+use super::combined::Group;
+use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, point, resolve};
 
 const MAX_DEPTH: usize = 8;
 const ANCHOR_ROWS: usize = 64;
@@ -188,15 +189,73 @@ pub fn injections(
     tree: &Tree,
     parent: Option<&[Range]>,
     doc: &Doc,
+    grouped: bool,
 ) -> Vec<Injected> {
     let Some(inj) = &lang.injections else {
         return Vec::new();
     };
+    let mut out: Vec<Injected> = Vec::new();
+    let mut combined: Vec<(usize, usize, usize)> = Vec::new();
+    each_injection(lang, inj, tree, parent, doc, |p, target, ranges, _| {
+        let joined = inj.setting(p, "injection.combined").is_some();
+        if grouped && joined && matches!(target, Target::Tree(_)) {
+            return;
+        }
+        let k = if let Some(k) = out.iter().position(|i| i.target.same(&target)) {
+            k
+        } else {
+            out.push(Injected {
+                target,
+                regions: Vec::new(),
+            });
+            out.len() - 1
+        };
+        if !joined {
+            out[k].regions.push(ranges);
+            return;
+        }
+        if let Some(&(_, _, r)) = combined.iter().find(|(cp, ck, _)| *cp == p && *ck == k) {
+            out[k].regions[r].extend(ranges);
+        } else {
+            combined.push((p, k, out[k].regions.len()));
+            out[k].regions.push(ranges);
+        }
+    });
+    out
+}
+
+pub fn members(
+    lang: &'static Lang,
+    tree: &Tree,
+    doc: &Doc,
+    mut found: impl FnMut(usize, &'static Lang, std::ops::Range<usize>, Vec<Range>),
+) {
+    let Some(inj) = &lang.combined else { return };
+    each_injection(lang, inj, tree, None, doc, |p, target, ranges, m| {
+        let Target::Tree(child) = target else { return };
+        let mut nodes = m.captures().iter().map(|c| c.node);
+        let Some(first) = nodes.next() else { return };
+        let (start, end) = nodes.fold((first.start_byte(), first.end_byte()), |(s, e), n| {
+            (s.min(n.start_byte()), e.max(n.end_byte()))
+        });
+        let extent = std::iter::successors(Some(first), Node::parent)
+            .find(|n| n.start_byte() <= start && n.end_byte() >= end)
+            .map_or(start..end, |n| n.byte_range());
+        found(p, child, extent, ranges);
+    });
+}
+
+fn each_injection(
+    lang: &'static Lang,
+    inj: &Patterns,
+    tree: &Tree,
+    parent: Option<&[Range]>,
+    doc: &Doc,
+    mut found: impl FnMut(usize, Target, Vec<Range>, &tree_sitter::QueryMatch),
+) {
     let mut cursor = QueryCursor::new();
     cursor.set_byte_range(doc.start..doc.end);
     let names = inj.query.capture_names();
-    let mut out: Vec<Injected> = Vec::new();
-    let mut combined: Vec<(usize, usize, usize)> = Vec::new();
     let syntect = lang.name.starts_with("markdown");
     let mut matches = cursor.matches(&inj.query, tree.root_node(), doc.bytes);
     while let Some(m) = matches.next() {
@@ -232,27 +291,8 @@ pub fn injections(
         if ranges.is_empty() {
             continue;
         }
-        let k = if let Some(k) = out.iter().position(|i| i.target.same(&target)) {
-            k
-        } else {
-            out.push(Injected {
-                target,
-                regions: Vec::new(),
-            });
-            out.len() - 1
-        };
-        if inj.setting(p, "injection.combined").is_none() {
-            out[k].regions.push(ranges);
-            continue;
-        }
-        if let Some(&(_, _, r)) = combined.iter().find(|(cp, ck, _)| *cp == p && *ck == k) {
-            out[k].regions[r].extend(ranges);
-        } else {
-            combined.push((p, k, out[k].regions.len()));
-            out[k].regions.push(ranges);
-        }
+        found(p, target, ranges, m);
     }
-    out
 }
 
 pub fn region_start(injected: &[Injected], row: usize) -> usize {
@@ -280,10 +320,48 @@ fn parse(parser: &mut Parser, lang: &Lang, region: &[Range], bytes: &[u8]) -> Op
     parser.parse_with_options(&mut |i, _| &bytes[i.min(bytes.len())..], None, None)
 }
 
-pub fn layer(lang: &'static Lang, trees: &[Tree], parent: bool, ctx: &mut Ctx, doc: &Doc) {
+pub fn top(lang: &'static Lang, tree: &Tree, groups: &[Group], ctx: &mut Ctx, doc: &Doc) {
+    let end = doc.bytes.len();
+    let grouped = lang.combined.is_some();
+    layer(
+        lang,
+        std::slice::from_ref(tree),
+        false,
+        grouped,
+        end,
+        ctx,
+        doc,
+    );
+    for g in groups {
+        let Some(tree) = &g.tree else { continue };
+        if g.touches(doc.start, doc.end) {
+            ctx.depth += 1;
+            layer(
+                g.lang,
+                std::slice::from_ref(tree),
+                true,
+                false,
+                doc.end,
+                ctx,
+                doc,
+            );
+            ctx.depth -= 1;
+        }
+    }
+}
+
+fn layer(
+    lang: &'static Lang,
+    trees: &[Tree],
+    parent: bool,
+    grouped: bool,
+    end: usize,
+    ctx: &mut Ctx,
+    doc: &Doc,
+) {
     for tree in trees {
         ctx.sub += 1;
-        paint(lang, tree, ctx, doc);
+        paint(lang, tree, end, ctx, doc);
     }
     if ctx.depth >= MAX_DEPTH {
         return;
@@ -292,7 +370,7 @@ pub fn layer(lang: &'static Lang, trees: &[Tree], parent: bool, ctx: &mut Ctx, d
     for tree in trees {
         let ranges = tree.included_ranges();
         let clip_to = parent.then_some(&ranges[..]);
-        merge(&mut children, injections(lang, tree, clip_to, doc));
+        merge(&mut children, injections(lang, tree, clip_to, doc, grouped));
     }
     for inj in &children {
         let regions = inj.regions.iter().filter(|r| doc.touches(r));
@@ -302,7 +380,7 @@ pub fn layer(lang: &'static Lang, trees: &[Tree], parent: bool, ctx: &mut Ctx, d
                     .filter_map(|r| parse(ctx.parser, child, r, doc.bytes))
                     .collect();
                 ctx.depth += 1;
-                layer(child, &trees, true, ctx, doc);
+                layer(child, &trees, true, false, doc.bytes.len(), ctx, doc);
                 ctx.depth -= 1;
             }
             Target::Syntect(syntax) => {
@@ -315,13 +393,13 @@ pub fn layer(lang: &'static Lang, trees: &[Tree], parent: bool, ctx: &mut Ctx, d
     }
 }
 
-fn paint(lang: &Lang, tree: &Tree, ctx: &mut Ctx, doc: &Doc) {
+fn paint(lang: &Lang, tree: &Tree, end: usize, ctx: &mut Ctx, doc: &Doc) {
     let included = tree.included_ranges();
     let q = &lang.highlights;
     let styles = ctx.styles.of(lang);
     let names = q.query.capture_names();
     let mut cursor = QueryCursor::new();
-    cursor.set_byte_range(anchor(tree, doc)..doc.bytes.len());
+    cursor.set_byte_range(anchor(tree, doc)..end);
     let mut checked: Option<(u32, bool)> = None;
     let mut captures = cursor.captures(&q.query, tree.root_node(), doc.bytes);
     while let Some((m, i)) = captures.next() {
@@ -343,7 +421,11 @@ fn paint(lang: &Lang, tree: &Tree, ctx: &mut Ctx, doc: &Doc) {
         let nospell = u32::from(names[c.index as usize] == "nospell");
         let prio = lang.priority[m.pattern_index] + nospell;
         let r = doc.range(c.node, q.offset(m.pattern_index, c.index));
-        for inc in &included {
+        let first = included.partition_point(|inc| inc.end_byte <= r.start_byte);
+        for inc in included[first..]
+            .iter()
+            .take_while(|inc| inc.start_byte < r.end_byte)
+        {
             let (a, b) = (
                 r.start_byte.max(inc.start_byte),
                 r.end_byte.min(inc.end_byte),

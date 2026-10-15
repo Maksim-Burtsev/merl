@@ -400,6 +400,7 @@ pub struct Lang {
     highlights: Patterns,
     priority: Vec<u32>,
     injections: Option<Patterns>,
+    combined: Option<Patterns>,
 }
 
 fn grammar(name: &str) -> Option<Language> {
@@ -513,7 +514,16 @@ fn compile(name: &'static str, language: Language) -> Result<Lang, String> {
     let mut lang = compile_text(name, language, &source(name, |r| r.1)?)?;
     let injections = source(name, |r| r.2)?;
     if !injections.trim().is_empty() {
-        lang.injections = Some(patterns(name, &lang.language, &injections, INJECTION_KEYS)?);
+        let all = patterns(name, &lang.language, &injections, INJECTION_KEYS)?;
+        let joins = |p: usize| all.setting(p, "injection.combined").is_some();
+        if (0..all.query.pattern_count()).any(joins) {
+            let mut only = patterns(name, &lang.language, &injections, INJECTION_KEYS)?;
+            for p in (0..all.query.pattern_count()).filter(|&p| !joins(p)) {
+                only.query.disable_pattern(p);
+            }
+            lang.combined = Some(only);
+        }
+        lang.injections = Some(all);
     }
     Ok(lang)
 }
@@ -534,6 +544,7 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
         highlights,
         priority,
         injections: None,
+        combined: None,
     })
 }
 
@@ -752,6 +763,42 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
 #[cfg(test)]
 pub type Shape = Vec<(u16, std::ops::Range<usize>, bool, bool)>;
 
+#[cfg(test)]
+#[derive(Debug)]
+pub struct GroupShape {
+    pub key: String,
+    pub ranges: Vec<std::ops::Range<usize>>,
+    pub shape: Shape,
+    pub sexp: String,
+    pub stale: bool,
+}
+
+#[cfg(test)]
+fn shape_of(tree: &Tree) -> Shape {
+    let mut out = Vec::new();
+    let mut c = tree.walk();
+    loop {
+        let n = c.node();
+        out.push((
+            n.kind_id(),
+            n.byte_range(),
+            n.is_missing(),
+            n.child_count() == 0,
+        ));
+        if c.goto_first_child() || c.goto_next_sibling() {
+            continue;
+        }
+        loop {
+            if !c.goto_parent() {
+                return out;
+            }
+            if c.goto_next_sibling() {
+                break;
+            }
+        }
+    }
+}
+
 pub struct Parsed {
     pub lang: &'static Lang,
     parser: Parser,
@@ -761,7 +808,12 @@ pub struct Parsed {
     starts: Vec<usize>,
     repaint_from: Option<usize>,
     halted: bool,
+    stale: bool,
     before: Option<(Tree, String)>,
+    grouper: Parser,
+    groups: Vec<combined::Group>,
+    regroup: Option<combined::Regroup>,
+    pending: Option<std::ops::Range<usize>>,
 }
 
 fn joined(lines: &[String]) -> (String, Vec<usize>) {
@@ -808,7 +860,12 @@ impl Parsed {
             text,
             repaint_from: Some(0),
             halted: false,
+            stale: true,
             before: None,
+            grouper: Parser::new(),
+            groups: Vec::new(),
+            regroup: None,
+            pending: None,
         })
     }
 
@@ -841,9 +898,22 @@ impl Parsed {
             }
             tree.edit(&edit);
         }
+        for g in &mut self.groups {
+            g.edit(&edit);
+        }
+        let pending = self.pending.take().map(|p| combined::shift_span(&p, &edit));
+        let dropped = self
+            .regroup
+            .take()
+            .map(|j| combined::shift_span(j.span(), &edit));
+        if dropped.is_some() {
+            self.grouper.reset();
+        }
+        self.pending = combined::union(pending, dropped);
         if std::mem::take(&mut self.halted) {
             self.parser.reset();
         }
+        self.stale = true;
         let row = edit.start_position.row;
         self.repaint_from = Some(self.repaint_from.map_or(row, |r| r.min(row)));
         (self.text, self.starts) = (text, starts);
@@ -852,6 +922,31 @@ impl Parsed {
     pub fn parse(&mut self, budget: Option<Duration>) -> Option<usize> {
         let from = self.repaint_from?;
         let deadline = budget.map(|b| Instant::now() + b);
+        if self.stale {
+            self.repaint_from = Some(self.parse_top(deadline, from)?);
+        }
+        let from = self.repaint_from?.min(self.step_regroup(deadline)?);
+        let tree = self.tree.as_ref()?;
+        let bytes = self.text.as_bytes();
+        let from = from.min(self.starts.len() - 1);
+        let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
+        let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
+        let grouped = self.lang.combined.is_some();
+        let mut injected = layers::injections(self.lang, tree, None, &doc, grouped);
+        for g in self
+            .groups
+            .iter()
+            .filter(|g| g.touches(near.start, near.end))
+        {
+            if let Some(t) = &g.tree {
+                injected.extend(layers::injections(g.lang, t, Some(&g.ranges), &doc, false));
+            }
+        }
+        self.repaint_from = None;
+        Some(layers::region_start(&injected, from))
+    }
+
+    fn parse_top(&mut self, deadline: Option<Instant>, from: usize) -> Option<usize> {
         let mut on_time = |_: &ParseState| match deadline {
             Some(d) if Instant::now() >= d => ControlFlow::Break(()),
             _ => ControlFlow::Continue(()),
@@ -874,9 +969,14 @@ impl Parsed {
         } else {
             tree
         };
+        let changed: Vec<tree_sitter::Range> = self
+            .tree
+            .as_ref()
+            .map(|old| old.changed_ranges(&tree).collect())
+            .unwrap_or_default();
         let from = match &self.tree {
-            Some(old) => old
-                .changed_ranges(&tree)
+            Some(old) => changed
+                .iter()
                 .map(|r| {
                     let range = r.start_byte..r.end_byte;
                     let row = |p: &Patterns| changed_match_row(p, old, &tree, range.clone(), bytes);
@@ -893,6 +993,17 @@ impl Parsed {
             Some(old) => from.min(recovered_row(old, &tree, from)),
             None => from,
         };
+        let dirty = self.tree.as_ref().map(|_| {
+            let text = self.before.as_ref().map(|(_, t)| {
+                let (prefix, suffix) = common_ends(t.as_bytes(), bytes);
+                prefix..bytes.len() - suffix
+            });
+            changed
+                .iter()
+                .map(|r| r.start_byte..r.end_byte)
+                .chain(text)
+                .reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
+        });
         let from = match self.before.take() {
             Some(before) => {
                 let row = |p: &Patterns| changed_text_row(p, &before, &tree, &self.text);
@@ -901,10 +1012,16 @@ impl Parsed {
             }
             None => from,
         };
-        let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
-        let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
-        let from = layers::region_start(&layers::injections(self.lang, &tree, None, &doc), from);
-        (self.tree, self.repaint_from, self.halted) = (Some(tree), None, false);
+        (self.tree, self.halted, self.stale) = (Some(tree), false, false);
+        if self.lang.combined.is_some() {
+            let span = match dirty {
+                Some(d) => combined::union(d, self.pending.take()),
+                None => Some(0..self.text.len()),
+            };
+            if let Some(span) = span {
+                self.start_regroup(span);
+            }
+        }
         Some(from)
     }
 
@@ -922,10 +1039,10 @@ impl Parsed {
         let end = self.starts.get(to + 1).copied().unwrap_or(self.text.len());
         let doc = layers::Doc::new(self.text.as_bytes(), &self.starts, start, end);
         let mut painted = Vec::new();
-        layers::layer(
+        layers::top(
             self.lang,
-            std::slice::from_ref(tree),
-            false,
+            tree,
+            &self.groups,
             &mut layers::Ctx {
                 parser: &mut self.inner,
                 sub: 0,
@@ -977,29 +1094,29 @@ impl Parsed {
 
     #[cfg(test)]
     pub fn shape(&self) -> Shape {
-        let mut out = Vec::new();
-        let Some(tree) = &self.tree else { return out };
-        let mut c = tree.walk();
-        loop {
-            let n = c.node();
-            out.push((
-                n.kind_id(),
-                n.byte_range(),
-                n.is_missing(),
-                n.child_count() == 0,
-            ));
-            if c.goto_first_child() || c.goto_next_sibling() {
-                continue;
-            }
-            loop {
-                if !c.goto_parent() {
-                    return out;
-                }
-                if c.goto_next_sibling() {
-                    break;
-                }
-            }
-        }
+        self.tree.as_ref().map(shape_of).unwrap_or_default()
+    }
+
+    #[cfg(test)]
+    pub fn groups(&self) -> Vec<GroupShape> {
+        let bytes = self.text.as_bytes();
+        let mut out: Vec<GroupShape> = self
+            .groups
+            .iter()
+            .map(|g| GroupShape {
+                key: format!("{} pattern {}", g.lang.name, g.pattern),
+                ranges: g.ranges.iter().map(|r| r.start_byte..r.end_byte).collect(),
+                shape: g.tree.as_ref().map(shape_of).unwrap_or_default(),
+                sexp: g
+                    .tree
+                    .as_ref()
+                    .map(|t| t.root_node().to_sexp())
+                    .unwrap_or_default(),
+                stale: g.tree.is_some() && g.parsed != combined::text_of(&g.ranges, bytes),
+            })
+            .collect();
+        out.sort_by(|a, b| a.key.cmp(&b.key));
+        out
     }
 
     #[cfg(test)]
@@ -1136,6 +1253,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
     Some(crate::theme::style(highlighter.style_for_stack(&[scope])))
 }
 
+mod combined;
 mod filetype;
 mod layers;
 mod pattern;

@@ -1290,7 +1290,38 @@ const LUA: &[&str] = &[
     "  ",
 ];
 
+const PHP: &[&str] = &[
+    "\"{$x}\"",
+    "<<<TEXT\n",
+    "TEXT;\n",
+    "/** ",
+    " */",
+    "?>\n<p>",
+    "<?php ",
+    "#[Attr]\n",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const DOCKERFILE: &[&str] = &[
+    "RUN ", " \\\n", "<<EOT\n", "EOT\n", "${X}", "$X", " && ", "[\"", "\"]", "\"", "# ", "\n\n",
+];
+
 const SESSIONS: &[(&str, &[u8], &[&str])] = &[
+    (
+        "f.php",
+        include_bytes!("../../../tests/colors/php/Ledger.php").as_slice(),
+        PHP,
+    ),
+    (
+        "Dockerfile",
+        include_bytes!("../../../tests/colors/dockerfile/Dockerfile").as_slice(),
+        DOCKERFILE,
+    ),
     (
         "f.py",
         include_bytes!("../../../tests/colors/python/classes.py").as_slice(),
@@ -1472,6 +1503,28 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
 }
 
 #[test]
+fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
+    replay_tree_sitter(
+        "f.php",
+        include_bytes!("../../../tests/colors/php/Ledger.php"),
+        PHP,
+        5..=5,
+    );
+    replay_tree_sitter(
+        "f.xml",
+        include_bytes!("../../../tests/colors/xml/project.xml"),
+        MARKUP,
+        385..=385,
+    );
+    replay_tree_sitter(
+        "Dockerfile",
+        include_bytes!("../../../tests/colors/dockerfile/Dockerfile"),
+        DOCKERFILE,
+        1..=1,
+    );
+}
+
+#[test]
 fn a_paint_from_any_row_orders_captures_at_one_byte_as_a_paint_from_the_top() {
     replay_tree_sitter(
         "f.cpp",
@@ -1549,34 +1602,25 @@ fn replay_tree_sitter(
             fresh.parse_more(None);
             fresh.paint_to(usize::MAX, &theme);
             let (shape, fresh_shape) = (a.buf.shape(), fresh.shape());
-            let recovered = |s: &crate::treesitter::Shape| {
-                s.iter()
-                    .any(|(kind, _, missing, _)| *missing || *kind == u16::MAX)
-            };
-            let tokens = |s: &crate::treesitter::Shape| {
-                s.iter()
-                    .filter(|n| n.3)
-                    .map(|n| (n.0, n.1.clone()))
-                    .collect::<Vec<_>>()
-            };
-            let want = if shape == fresh_shape {
+            let at = format!("{name} seed {seed}, after [{}]", done.join(", "));
+            let want = if groups_as_fresh(&a.buf, &fresh, shape == fresh_shape, &at) {
                 fresh.hl
             } else {
-                assert!(
-                    recovered(&shape)
-                        || recovered(&fresh_shape)
-                        || tokens(&shape) == tokens(&fresh_shape),
-                    "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
-                    done.join(", "),
-                    a.buf.sexp(),
-                    fresh.sexp()
-                );
-                assert_eq!(
-                    a.buf.root_bytes(),
-                    fresh.root_bytes(),
-                    "{name} seed {seed}, after [{}]: the tree does not span the text",
-                    done.join(", ")
-                );
+                if shape != fresh_shape {
+                    assert!(
+                        recovered(&shape)
+                            || recovered(&fresh_shape)
+                            || tokens(&shape) == tokens(&fresh_shape),
+                        "{at}: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                        a.buf.sexp(),
+                        fresh.sexp()
+                    );
+                    assert_eq!(
+                        a.buf.root_bytes(),
+                        fresh.root_bytes(),
+                        "{at}: the tree does not span the text"
+                    );
+                }
                 let kept = a.buf.hl.clone();
                 a.buf.clear_hl();
                 a.buf.paint_to(usize::MAX, &theme);
@@ -1584,8 +1628,7 @@ fn replay_tree_sitter(
             };
             if let Some(l) = (0..a.buf.lines.len()).find(|&l| a.buf.hl[l] != want[l]) {
                 panic!(
-                    "{name} seed {seed}, after [{}]: line {} {:?}\nincremental {:?}\nfresh {:?}",
-                    done.join(", "),
+                    "{at}: line {} {:?}\nincremental {:?}\nfresh {:?}",
                     l + 1,
                     a.buf.lines[l],
                     a.buf.hl[l],
@@ -1594,4 +1637,52 @@ fn replay_tree_sitter(
             }
         }
     }
+}
+
+fn recovered(s: &crate::treesitter::Shape) -> bool {
+    s.iter()
+        .any(|(kind, _, missing, _)| *missing || *kind == u16::MAX)
+}
+
+fn tokens(s: &crate::treesitter::Shape) -> Vec<(u16, std::ops::Range<usize>)> {
+    s.iter()
+        .filter(|n| n.3)
+        .map(|n| (n.0, n.1.clone()))
+        .collect()
+}
+
+fn groups_as_fresh(buf: &Buffer, fresh: &Buffer, top_same: bool, at: &str) -> bool {
+    let (groups, fresh_groups) = (buf.groups(), fresh.groups());
+    if let Some(g) = groups.iter().find(|g| g.stale) {
+        panic!(
+            "{at}: the {} group keeps a tree parsed from text its members no longer hold",
+            g.key
+        );
+    }
+    if !top_same {
+        return false;
+    }
+    let members = |gs: &[crate::treesitter::GroupShape]| {
+        gs.iter()
+            .map(|g| (g.key.clone(), g.ranges.clone()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        members(&groups),
+        members(&fresh_groups),
+        "{at}: the combined injections' members differ from a fresh parse's"
+    );
+    groups.iter().zip(&fresh_groups).fold(true, |same, (g, f)| {
+        if g.shape == f.shape {
+            return same;
+        }
+        assert!(
+            recovered(&g.shape) || recovered(&f.shape) || tokens(&g.shape) == tokens(&f.shape),
+            "{at}: the {} group's tree differs from a fresh parse's without an error in either\nincremental {}\nfresh {}",
+            g.key,
+            g.sexp,
+            f.sexp
+        );
+        false
+    })
 }
