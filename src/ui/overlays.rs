@@ -89,6 +89,18 @@ pub(super) fn draw_tree(
     area: Rect,
     base: Style,
 ) -> Option<usize> {
+    let mut area = area;
+    if app.review.is_some() && crate::app::p407() == "b" {
+        let n = app
+            .review
+            .as_ref()
+            .map_or(0, |r| crate::app::p407_commits(&app.root, &r.base).len());
+        let h = u16::try_from(n.min(8) + 2).unwrap_or(10).min(area.height / 2);
+        let [top, bottom] =
+            Layout::vertical([Constraint::Min(0), Constraint::Length(h)]).areas(area);
+        draw_p407_commits(frame, app, theme, bottom, base);
+        area = top;
+    }
     let accent = base.fg(theme.accent);
     let block = tree_block(app, theme, area, base);
     let inner = block.inner(area);
@@ -189,9 +201,84 @@ pub(super) fn draw_tree(
     cut_any.then_some(need)
 }
 
+pub(super) fn draw_p407_msg(
+    frame: &mut Frame,
+    app: &App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+) {
+    let Some((sha, text)) = &app.p407_msg else {
+        return;
+    };
+    let widest = text.iter().map(|l| wrap::width(l)).max().unwrap_or(0);
+    let w = u16::try_from(widest + 4).unwrap_or(u16::MAX).min(area.width);
+    let h = u16::try_from(text.len() + 2).unwrap_or(u16::MAX).min(area.height);
+    let [area] = Layout::horizontal([Constraint::Length(w)])
+        .flex(Flex::Center)
+        .areas(area);
+    let [area] = Layout::vertical([Constraint::Length(h)])
+        .flex(Flex::Center)
+        .areas(area);
+    let bold = base.add_modifier(Modifier::BOLD);
+    let lines: Vec<Line> = text
+        .iter()
+        .enumerate()
+        .map(|(i, l)| {
+            let style = if i == 0 { bold } else { base };
+            Line::styled(format!(" {l}"), style)
+        })
+        .collect();
+    let accent = base.fg(theme.accent);
+    let block = Block::bordered()
+        .title(Span::styled(sha.clone(), accent.add_modifier(Modifier::BOLD)))
+        .border_style(accent)
+        .style(base);
+    frame.render_widget(Clear, area);
+    frame.render_widget(Paragraph::new(lines).block(block).style(base), area);
+}
+
+fn draw_p407_commits(frame: &mut Frame, app: &App, theme: &Theme, area: Rect, base: Style) {
+    let Some(r) = &app.review else { return };
+    let commits = crate::app::p407_commits(&app.root, &r.base);
+    let accent = base.fg(theme.accent);
+    let block = Block::bordered()
+        .title(Span::styled(
+            format!("Commits {}", commits.len()),
+            accent.add_modifier(Modifier::BOLD),
+        ))
+        .border_style(accent)
+        .style(base);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+    let width = inner.width as usize;
+    let lines: Vec<Line> = commits
+        .iter()
+        .map(|(h, s)| {
+            let room = width.saturating_sub(h.len() + 1);
+            let s = if wrap::width(s) > room {
+                let fits = wrap::cut(s, 0, room.saturating_sub(1)).0;
+                format!("{}\u{2026}", s.get(fits).unwrap_or(""))
+            } else {
+                s.clone()
+            };
+            Line::from(vec![
+                Span::styled(format!("{h} "), base.fg(theme.ghost_fg)),
+                Span::styled(s, base),
+            ])
+        })
+        .collect();
+    frame.render_widget(Paragraph::new(lines).style(base), inner);
+}
+
 fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'static> {
     let accent = base.fg(theme.accent);
     let title = match &app.review {
+        Some(r) if app.p407_narrow.is_some() => format!(
+            "{} @ {}",
+            r.branch,
+            app.p407_narrow.as_ref().map_or("", |(s, _)| s.as_str())
+        ),
         Some(r) => format!("{} \u{2190} {}", r.branch, r.base),
         None => app.root_name(),
     };

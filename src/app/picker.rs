@@ -126,6 +126,82 @@ impl App {
         }
     }
 
+    pub(super) fn open_commits_picker(&mut self) {
+        let Some(r) = &self.review else { return };
+        let narrowing = p407() == "d";
+        let mut items: Vec<PickItem> = Vec::new();
+        let base = self.p407_narrow.as_ref().map_or(r.base.clone(), |(_, b)| b.clone());
+        let commits = p407_commits(&self.root, &base);
+        if narrowing {
+            items.push(PickItem {
+                label: format!("all commits ({})", commits.len()),
+                path: PathBuf::new(),
+                line: 0,
+                col: 0,
+                code_at: None,
+                path_at: None,
+                deleted: false,
+            });
+        }
+        let at = match &self.p407_narrow {
+            Some((sha, _)) => commits.iter().position(|(h, _)| h == sha).map_or(0, |i| i + 1),
+            None => 0,
+        };
+        for (h, s) in commits {
+            items.push(PickItem {
+                label: format!("{h}  {s}"),
+                path: PathBuf::from(h),
+                line: 0,
+                col: 0,
+                code_at: None,
+                path_at: None,
+                deleted: false,
+            });
+        }
+        self.show_picker(PickerKind::Commits, items);
+        if let Some(p) = &mut self.picker {
+            p.selected = at;
+        }
+    }
+
+    fn accept_commit(&mut self, item: &PickItem) {
+        let sha = item.path.to_string_lossy().into_owned();
+        if p407() != "d" {
+            let body = crate::git::git(&self.root, &["show", "-s", "--format=%B", &sha])
+                .unwrap_or_default();
+            self.p407_msg = Some((sha, body.lines().map(str::to_owned).collect()));
+            self.help_top = 0;
+            self.mode = Mode::Help;
+            return;
+        }
+        let Some(r) = self.review.clone() else { return };
+        let mut r = r;
+        if sha.is_empty() {
+            if let Some((_, base)) = self.p407_narrow.take() {
+                r.base = base;
+            }
+        } else {
+            let base = self.p407_narrow.take().map_or(r.base.clone(), |(_, b)| b);
+            r.base = format!("{sha}^");
+            self.p407_narrow = Some((sha, base));
+        }
+        match r.refresh(&self.root) {
+            Ok(fresh) => {
+                let first = fresh
+                    .files
+                    .iter()
+                    .find(|f| f.is_stop(&self.root, self.diagrams.on()))
+                    .cloned();
+                self.review_refreshed(fresh);
+                if let Some(f) = first {
+                    self.open_review_file(&f, false);
+                    self.remember_hunk();
+                }
+            }
+            Err(e) => self.message = error_text(&e),
+        }
+    }
+
     pub fn shown_theme(&self) -> &str {
         match (&self.picker, self.mode) {
             (Some(p), Mode::Picker(PickerKind::Themes)) => p
@@ -171,6 +247,12 @@ impl App {
                     None => format!("theme {}", self.theme),
                 };
             }
+            Pick::Accept(item) if self.mode == Mode::Picker(PickerKind::Commits) => {
+                self.picker = None;
+                self.mode = Mode::Normal;
+                self.accept_commit(&item);
+                return;
+            }
             Pick::Accept(item) => self.jump_to_item(&item),
         }
         self.picker = None;
@@ -188,4 +270,17 @@ impl App {
             self.search_done(self.search_seq, Vec::new());
         }
     }
+}
+
+pub fn p407() -> String {
+    std::env::var("MERL_P407").unwrap_or_default()
+}
+
+pub fn p407_commits(root: &std::path::Path, base: &str) -> Vec<(String, String)> {
+    crate::git::git(root, &["log", "--format=%h%x09%s", &format!("{base}..HEAD")])
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| l.split_once('\t'))
+        .map(|(h, s)| (h.to_owned(), s.to_owned()))
+        .collect()
 }

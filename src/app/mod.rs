@@ -50,6 +50,7 @@ mod open;
 mod perl;
 mod php;
 mod picker;
+pub use picker::{p407, p407_commits};
 mod preview;
 mod preview_data;
 mod project_search;
@@ -264,6 +265,7 @@ pub enum PickerKind {
     Usages,
     Symbols,
     Themes,
+    Commits,
 }
 
 impl PickerKind {
@@ -275,6 +277,7 @@ impl PickerKind {
             Self::Usages => "Usages",
             Self::Symbols => "Symbols",
             Self::Themes => "Themes",
+            Self::Commits => "Commits",
         }
     }
 }
@@ -373,6 +376,8 @@ pub struct App {
     center: bool,
     pub tutor: Option<Tutor>,
     pub help_top: usize,
+    pub p407_msg: Option<(String, Vec<String>)>,
+    pub p407_narrow: Option<(String, String)>,
     pub no_watch: bool,
     pub dirty: bool,
     pub conflict: bool,
@@ -528,6 +533,8 @@ impl App {
             center: false,
             tutor: None,
             help_top: 0,
+            p407_msg: None,
+            p407_narrow: None,
             no_watch: false,
             dirty: false,
             conflict: false,

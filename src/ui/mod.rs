@@ -142,7 +142,9 @@ fn draw_overlays(
         };
         draw_picker(frame, app, theme, list, share, base);
     }
-    if app.mode == Mode::Help {
+    if app.mode == Mode::Help && app.p407_msg.is_some() {
+        overlays::draw_p407_msg(frame, app, theme, over, base);
+    } else if app.mode == Mode::Help {
         draw_help(frame, app, theme, over, base);
     }
 }

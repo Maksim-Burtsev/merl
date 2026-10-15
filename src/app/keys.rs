@@ -146,6 +146,7 @@ impl App {
         match key.code {
             KeyCode::Esc | KeyCode::Char('?' | 'q') => {
                 self.mode = Mode::Normal;
+                self.p407_msg = None;
             }
             KeyCode::Up => self.help_top = self.help_top.saturating_sub(1),
             KeyCode::Down => self.help_top += 1,
@@ -303,6 +304,11 @@ impl App {
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
             KeyCode::Char('m') => self.toggle_viewed(),
+            KeyCode::Char('l')
+                if self.review.is_some() && matches!(super::p407().as_str(), "a" | "d") =>
+            {
+                self.open_commits_picker();
+            }
             KeyCode::Char('a') if self.notes.on => self.add_note(),
             KeyCode::Char('v') if self.notes.focus.is_some() => self.notes.selected = true,
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow_selection(),
@@ -422,7 +428,7 @@ fn leaves_the_text(key: KeyEvent) -> bool {
     let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     match key.code {
         KeyCode::Char('e' | 'n') => ctrl,
-        KeyCode::Char('c' | 'C' | 'm' | 't' | 'T' | 'o' | 's' | 'D' | '[' | ']') => !ctrl,
+        KeyCode::Char('c' | 'C' | 'l' | 'm' | 't' | 'T' | 'o' | 's' | 'D' | '[' | ']') => !ctrl,
         KeyCode::Esc | KeyCode::Tab => true,
         _ => false,
     }
