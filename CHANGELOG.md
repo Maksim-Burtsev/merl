@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a Python statement or a component name (#863).
 - `d` on a method of a `const trait` of Rust's standard library (`clone`, `default`, `into_iter`)
   finds the trait's method: first in the list, or the jump when that trait alone declares it (#514).
+- `d` in TypeScript on a method of an anonymous default class (`export default class extends
+  Base {`) jumps to it through the receiver's type, where it offered every method of that name
+  (#817).
 - Leaving a review note returns to the mode it was opened from: a note opened with `a` while
   reading goes back to reading, block cursor, however you leave it (an arrow, Backspace on an
   empty note, Ctrl+X, Ctrl+Z / Ctrl+Y), where it used to land in edit mode on the code (#881).

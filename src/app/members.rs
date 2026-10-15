@@ -168,8 +168,13 @@ impl App {
         let Some(text) = self.text_of(&ty.path) else {
             return Vec::new();
         };
-        let owner =
-            search::qualified(kind, &text, ty.line, &ty.name).unwrap_or_else(|| ty.name.clone());
+        let named = text
+            .lines()
+            .nth(ty.line.saturating_sub(1))
+            .and_then(|l| search::type_name(kind, l))
+            .filter(|_| kind == Kind::TsJs)
+            .unwrap_or_else(|| ty.name.clone());
+        let owner = search::qualified(kind, &text, ty.line, &named).unwrap_or(named);
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
         let files = self.package_files(kind, &ty.path);
