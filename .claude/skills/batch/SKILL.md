@@ -15,6 +15,13 @@ Ask nothing the repo already answers: invisible work merges when it is green (AG
 `## Merging`). In one message, ask only what the owner has not said in the session:
 
 - About how many hours of work to pick?
+- The budget: a share of the weekly limit, and until 2026-10-22 a token budget beside it (the
+  owner's form: "10 % of the week, or 4M"). The owner's status line writes
+  `~/.claude/state/rate-limits.json`: `seven_day.used_percentage`, `seven_day.resets_at` and
+  `updated`, both in epoch seconds. Read it at the start, into the ledger, and on every wake:
+  start no new agent once it has risen by the budget since the start, or reads 95. When the
+  file is missing or its `updated` is over 30 minutes old (a headless session draws no status
+  line), go by the token budget, counted as before.
 - The kind of run, when the owner did not name it:
 
 | Kind | Shape |
@@ -34,8 +41,9 @@ then `P2`, `P3`. Read each with its comments. Leave out an issue with a question
 (move it to `needs-owner`) and a visible one without a picked `## Proposal`.
 
 Fill the hours: a small fix is ~15 minutes of one agent, an ordinary issue ~30, a large one ~60;
-two agents work at once at night and four by day (see **Calm**), and an epic costs ~1.5 hours
-on top for integration, its review and CI. Correct these from the ledgers of earlier runs when there are any.
+three agents work at once at night and four by day (see **Calm**), and an epic costs ~1.5 hours
+on top for integration, its review and CI, while the next tasks go on building (**While the
+epic closes**). Correct these from the ledgers of earlier runs when there are any.
 
 Show one table and wait for the owner's word to start:
 
@@ -60,7 +68,8 @@ sequence.
 - The owner's words from the session (the kind of run, what merges, what waits, anything said
   against the skill's default) go into the run's files before the first agent starts: a
   `COMMON.md` every task file points to, so implementers and a resuming session read them.
-- `ledger.md` there, a row per issue: branch, agent, state, tokens, minutes. Keep it current
+- `ledger.md` there: the weekly percentage at the start, then a row per issue: branch, agent,
+  state, tokens, minutes. Keep it current
   after every agent result: a usage limit can end the run at any moment, and the ledger is what
   the next session resumes from.
 - Label every picked issue `in-progress`, with a comment naming its branch.
@@ -77,24 +86,37 @@ reviewer are `merl-implementer` too, and every Punchcard finder is a `merl-finde
 owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens and a finder at
 ~6k, where a `general-purpose` agent starts at ~54k.
 
-- **Calm.** At night at most 2 agents at once, by day 4: a night has hours to spare, and more
-  agents only queue on the Mac mini's 10 cores and run its fan all night. The owner may lift it
-  for a run ("без ограничения", a big batch to finish by morning): then 4, and the task files say
-  so. While `sysctl -n vm.loadavg` reads over 16, start nothing. Other sessions share the
-  machine: their processes are theirs.
+- **Calm.** Every build, test, clippy, `ci-local`, smoke run, bench and sweep, yours and the
+  agents', runs under `tools/heavy`: two at a time on the whole machine, 5 jobs and 5 test
+  threads each, so the Mac mini's 10 cores stay busy and its fan calm, and an agent that reads,
+  writes or waits on a review holds no slot. At night 3 agents at once, by day 4; the owner may
+  lift it for a run ("без ограничения", a big batch to finish by morning): then 4 at night too,
+  and the task files say so. While `sysctl -n vm.loadavg` reads over 16, start nothing. Other
+  sessions share the machine: their processes are theirs. The slots are on trial from the night
+  of 2026-10-15: note in the ledger's last line the load you saw and how long agents waited for
+  a slot.
 - **Epic issues.** The agent pushes its branch: no PR, no review. Read its diff, merge the
   branch into the epic (`--no-ff`), and check each conflict hunk by hand: fixes for different
   languages add helpers at the same spot, and a careless union drops a closing brace. When
   several branches wait, a separate integrator agent keeps the conflicts out of your context.
   After each merge of a language or of master, `tests/smoke/run.py --golden` on the epic.
 - **Own-PR issues.** The agent opens its PR, with before/after screencasts when it is visible
-  (then under `needs-owner`), and reviews it with Punchcard once itself. The finders run as
+  (then under `needs-owner`), and reviews it with Punchcard once itself. An invisible PR then
+  gets `gh pr merge --squash --auto`: GitHub merges it when CI is green, and nobody waits on CI.
+  On every wake, `gh pr list --author @me --json number,autoMergeRequest,statusCheckRollup`
+  shows a red one: a fixer agent pushes the fix to its branch. The finders run as
   `merl-finder` in the foreground inside the implementer (`run_in_background: false`), so the
   review comes back to it and not to you.
-- **The epic PR.** One PR into master, a section per issue (before, after, the test that catches
-  it). One fresh agent runs Punchcard on it once and its findings are fixed in one pass, by
-  parallel agents on branches off the epic when there are many. No second review. A finding
-  outside the batch becomes an issue.
+- **The epic PR.** First the full `tools/heavy tools/ci-local` on the epic: its tasks ran only
+  `clippy tests`. Then one PR into master, a section per issue (before, after, the test that
+  catches it). One fresh agent runs Punchcard on it once and its findings are fixed in one pass,
+  by parallel agents on branches off the epic when there are many. No second review. A finding
+  outside the batch becomes an issue. With the fixes pushed, `gh pr merge --squash --auto`, and
+  one background `gh pr checks --watch` on it; a red check gets a fixer agent.
+- **While the epic closes.** Tasks still waiting do not wait for it: from the moment the epic PR
+  is opened, they go into `epic/agent-ok-<date>-2`, cut from the epic, with the free agents.
+  Merge the epic's last commit into it before the squash, and origin/master after: the same
+  changes on both sides merge clean. It then closes as an epic of its own.
 - **The owner's call.** A Punchcard finding that asks whether a change is the owner's call is
   never answered by you or an implementer: that change leaves the epic or the PR, into its own
   PR under `needs-owner` with a before/after screencast, or it is reverted. On 2026-10-02 a
@@ -116,11 +138,12 @@ highest priority first.
 
 ## 6. Close
 
-- Merge the epic when it is green, unless the owner said in the session that it waits; then it
-  waits under `needs-owner`. One consolidated squash message, a paragraph per issue.
+- The epic merges itself when it is green (`--auto`, above), unless the owner said in the
+  session that it waits; then it waits under `needs-owner`, with no auto-merge. One consolidated
+  squash message, a paragraph per issue: `gh pr merge --squash --auto --body-file`.
 - Remove the worktrees and local branches of everything merged or handed over as a PR, the
   master build included. Take `in-progress` off whatever was not finished, with a comment on
   what is left.
 - The last message is one table, in the owner's language: merged (issue, one line), waiting for
-  the owner (link, what to look at), not done (why, what is left), then tokens and hours against
-  the estimate.
+  the owner (link, what to look at), not done (why, what is left), then the weekly percentage
+  and the tokens used, and the hours, against the budget and the estimate.

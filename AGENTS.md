@@ -144,7 +144,7 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    it on the build. Otherwise it says `Part of #N`, and what is left is filed as an issue.
 8. Once the whole task is in the PR, review it with Punchcard, once. Fix every finding on the
    branch's own change in this PR; a finding outside it becomes an issue. Do not review again:
-   with the fixes pushed and CI green, go on as `## Merging` says. A docs-only PR needs no review.
+   with the fixes pushed, go on as `## Merging` says. A docs-only PR needs no review.
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
@@ -329,7 +329,8 @@ run under ~15 s.
 ## Merging
 
 - Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
-  without asking, once CI is green and the findings of its one review are fixed.
+  without asking. Once the findings of its one review are fixed, `gh pr merge --squash --auto`:
+  GitHub merges it when CI is green, and nobody waits on CI. A red check is yours to fix.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.
