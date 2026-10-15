@@ -1,0 +1,29 @@
+#!/bin/zsh
+push=1
+[[ $1 == -n ]] && { push=0; shift; }
+ledgers=($HOME/.cache/merl-batch/*/ledger.md(Nom))
+run=${1:-${ledgers[1]:h}}
+[[ -f $run/ledger.md ]] || { echo "usage: refresh-prs [-n] [RUN_DIR]: no ledger.md in '$run'" >&2; exit 2; }
+git fetch -q origin || exit 1
+conflicts=()
+for pr in ${(u)${(f)"$(grep needs-owner $run/ledger.md | grep -oE 'PR #[0-9]+' | grep -oE '[0-9]+')"}}; do
+  branch=$(gh pr view $pr --json state,labels,headRefName -q 'select(.state == "OPEN" and any(.labels[]; .name == "needs-owner")) | .headRefName')
+  [[ -n $branch ]] || { print "#$pr: not an open needs-owner PR, left alone"; continue; }
+  dir=$(mktemp -d)
+  git worktree add -q --detach $dir origin/$branch || { conflicts+="#$pr $branch: no worktree"; continue; }
+  if git -C $dir merge -q --no-edit origin/master >/dev/null 2>&1; then
+    if [[ $(git -C $dir rev-parse HEAD) == $(git rev-parse origin/$branch) ]]; then
+      print "#$pr $branch: up to date"
+    elif (( push )) && git -C $dir push -q origin HEAD:$branch; then
+      print "#$pr $branch: master merged, pushed $(git -C $dir rev-parse --short HEAD)"
+    else
+      print "#$pr $branch: master merges clean, not pushed"
+    fi
+  else
+    conflicts+="#$pr $branch: $(git -C $dir diff --name-only --diff-filter=U | tr '\n' ' ')"
+    git -C $dir merge --abort
+  fi
+  git worktree remove --force $dir
+done
+(( $#conflicts )) && print "\nConflicts, for an agent to resolve:" && print -l -- $conflicts
+exit 0

@@ -35,7 +35,9 @@ fix a user can see gets its changelog entry as `changes/N.md` (AGENTS.md `## Wor
 issue`, step 5), never in `CHANGELOG.md`, and a before/after pair on `media`.
 
 Report in up to 8 lines: branch, commits, before and after in a line each, the test that catches
-it, screencast links, what the change leaves alone.
+it, screencast links, what the change leaves alone. Write before, after and the test as
+`- **Before:**`, `- **After:**` and `- **Test:**` lines, in a user's words: the dispatcher's
+`bin/epic-body` lifts them into the epic PR.
 
 ## Kind `own PR`
 
