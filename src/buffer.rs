@@ -402,6 +402,9 @@ pub(crate) fn syntax_for_info(word: &str, block_names: bool) -> Option<&'static 
 
 fn by_name(path: &Path) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
+    if path.extension().is_some_and(|e| e == "m") && !crate::search::objc_m(path) {
+        return set.find_syntax_by_name("MATLAB");
+    }
     known_name(path)
         .and_then(|name| set.find_syntax_by_name(name))
         .or_else(|| set.find_syntax_for_file(path).ok().flatten())

@@ -82,10 +82,66 @@ pub fn objc_file(path: &Path, text: impl FnOnce() -> String) -> bool {
             .expect("the regex is a literal")
     });
     match path.extension().and_then(|e| e.to_str()) {
-        Some("m" | "mm") => true,
+        Some("m") => objc_m(path),
+        Some("mm") => true,
         Some("h") => MARK.is_match(&text()),
         _ => false,
     }
+}
+
+pub fn objc_m(path: &Path) -> bool {
+    static SEEN: LazyLock<std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, bool>>> =
+        LazyLock::new(Default::default);
+    let rule = std::env::var("MERL_P589").unwrap_or_default();
+    if rule.is_empty() {
+        return true;
+    }
+    if let Some(&seen) = SEEN.lock().ok().and_then(|s| s.get(path).copied()).as_ref() {
+        return seen;
+    }
+    let text = std::fs::read(path).map_or_else(
+        |_| String::new(),
+        |b| String::from_utf8_lossy(&b).into_owned(),
+    );
+    let objc = text.is_empty()
+        || match rule.as_str() {
+            "linguist" => linguist_objc(&text),
+            _ => vim_objc(&text),
+        };
+    if let Ok(mut s) = SEEN.lock() {
+        s.insert(path.to_path_buf(), objc);
+    }
+    objc
+}
+
+fn linguist_objc(text: &str) -> bool {
+    static OBJC: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"(?m)^\s*(@(interface|class|protocol|property|end|synchronised|selector|implementation)\b|#import\s+.+\.h[">])"#)
+            .expect("the regex is a literal")
+    });
+    OBJC.is_match(text)
+}
+
+fn vim_objc(text: &str) -> bool {
+    static RULES: LazyLock<[Regex; 3]> = LazyLock::new(|| {
+        [
+            r"^\s*/\*",
+            r"^\s*//|^\s*@import\b|^\s*#\s*(import|include|define|if|ifn?def|undef|line|error|pragma)\b",
+            r"^\s*(#|%!)|^\s*unwind_protect\b|(^|;)\s*end(_try_catch|classdef|enumeration|events|methods|parfor|properties)\b|^\s*%|^\s*\(\*|(?i)^\s*((type|var)\b|--)",
+        ]
+        .map(|r| Regex::new(r).expect("the regex is a literal"))
+    });
+    let mut saw_comment = false;
+    for line in text.lines().take(99) {
+        saw_comment |= RULES[0].is_match(line);
+        if RULES[1].is_match(line) {
+            return true;
+        }
+        if RULES[2].is_match(line) {
+            return false;
+        }
+    }
+    saw_comment
 }
 
 pub fn objc_root(root: &Path) -> bool {
