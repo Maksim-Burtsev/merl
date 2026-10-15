@@ -1069,6 +1069,22 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
+const SWIFT: &[&str] = &[
+    "\"\\(x)\"",
+    "\"\"\"\n",
+    "/// ",
+    "/[a-z]+/",
+    "@MainActor\n",
+    "switch x {\n",
+    "<T: A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const SCALA: &[&str] = &[
     "s\"${x}\"",
     "\"\"\"\n",
@@ -1437,6 +1453,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         KOTLIN,
     ),
     (
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift").as_slice(),
+        SWIFT,
+    ),
+    (
         "F.scala",
         include_bytes!("../../../tests/colors/scala/Ledger.scala").as_slice(),
         SCALA,
@@ -1598,6 +1619,16 @@ fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
 }
 
 #[test]
+fn a_tree_tree_sitter_builds_from_the_same_edits_is_painted_as_built() {
+    replay_tree_sitter(
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift"),
+        SWIFT,
+        754..=754,
+    );
+}
+
+#[test]
 fn a_combined_injection_over_many_scan_steps_equals_a_fresh_parse() {
     let page = include_str!("../../../tests/colors/php/Ledger.php").repeat(7);
     assert!(page.len() > 16 * 1024);
@@ -1712,11 +1743,13 @@ fn replay_tree_sitter(
                 fresh.hl
             } else {
                 if shape != fresh_shape {
+                    let (own, own_sexp) = a.buf.own();
                     assert!(
                         recovered(&shape)
                             || recovered(&fresh_shape)
-                            || tokens(&shape) == tokens(&fresh_shape),
-                        "{at}: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
+                            || tokens(&shape) == tokens(&fresh_shape)
+                            || shape == own,
+                        "{at}: the tree differs from a fresh parse without an error in either, and from the one tree-sitter builds from the same edits\nincremental {}\nfresh {}\ntree-sitter {own_sexp}",
                         a.buf.sexp(),
                         fresh.sexp()
                     );
