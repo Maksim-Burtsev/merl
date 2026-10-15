@@ -82,8 +82,12 @@ impl App {
     pub(super) fn start_search(&mut self) {
         let seed = self.one_line_selection();
         self.show_picker(PickerKind::Search, Vec::new());
+        let only = self.p171_only;
         if let Some(p) = &mut self.picker {
             p.live = true;
+            if only {
+                p.title = "Search the changes".to_owned();
+            }
             if let Some(seed) = &seed {
                 p.query = LineEdit::selected(seed);
             }
@@ -117,7 +121,11 @@ impl App {
         } else {
             regex::escape(&query)
         };
-        let mut job = self.grep_job(self.search_seq, &pattern, |_| true);
+        let only = self.p171_only && !symbols;
+        let review = self.review.as_ref();
+        let mut job = self.grep_job(self.search_seq, &pattern, |p| {
+            !only || review.is_some_and(|r| r.file(p).is_some())
+        });
         if symbols {
             job.deleted = self.symbol_deleted();
         }
@@ -139,13 +147,18 @@ impl App {
     }
 
     pub fn search_done(&mut self, seq: u64, items: Vec<PickItem>) -> bool {
-        let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
-            return false;
-        };
-        if seq != self.search_seq {
+        if !self.picker.as_ref().is_some_and(|p| p.live) || seq != self.search_seq {
             return false;
         }
         self.search_sent = None;
+        let items = if self.mode == Mode::Picker(PickerKind::Search) {
+            p171_order(self.review.as_ref(), &self.root, self.p171_only, items)
+        } else {
+            items
+        };
+        let Some(old) = self.picker.as_mut().filter(|p| p.live) else {
+            return false;
+        };
         let selected = old
             .current()
             .and_then(|cur| {
@@ -187,6 +200,39 @@ impl App {
             .unwrap_or_default();
         self.note_cut(&hits);
         hits
+    }
+}
+
+fn p171_order(
+    review: Option<&git::Review>,
+    root: &Path,
+    only: bool,
+    items: Vec<PickItem>,
+) -> Vec<PickItem> {
+    let Some(r) = review else {
+        return items;
+    };
+    if !only && std::env::var("MERL_P171").as_deref() != Ok("first") {
+        return items;
+    }
+    let mut marks: std::collections::HashMap<PathBuf, std::collections::HashMap<usize, git::Mark>> =
+        std::collections::HashMap::new();
+    let (changed, rest): (Vec<_>, Vec<_>) = items.into_iter().partition(|it| {
+        it.deleted
+            || r.file(&it.path).is_some_and(|f| {
+                let m = marks
+                    .entry(it.path.clone())
+                    .or_insert_with(|| r.diff(root, &root.join(&it.path), Some(f)).marks);
+                matches!(
+                    m.get(&it.line.saturating_sub(1)),
+                    Some(git::Mark::Added | git::Mark::Changed)
+                )
+            })
+    });
+    if only {
+        changed
+    } else {
+        changed.into_iter().chain(rest).collect()
     }
 }
 
