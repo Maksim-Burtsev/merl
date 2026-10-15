@@ -185,12 +185,9 @@ impl<'a> Painter<'a> {
             partner: app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect(),
             span: app.note_span(),
             occ: app.occurrence_word(),
-            occ_style: Style::new().bg(
-                theme
-                    .group("LspReferenceText")
-                    .and_then(|s| s.bg)
-                    .unwrap_or(theme.selection),
-            ),
+            occ_style: theme
+                .group("LspReferenceText")
+                .unwrap_or_else(|| Style::new().bg(theme.selection)),
         }
     }
 
