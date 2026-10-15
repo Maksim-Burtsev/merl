@@ -220,7 +220,10 @@ tree-sitter 0.25, tree-sitter-julia 0.23.1 has another `parser.c`, and ts-parser
   (`_get_injections`, `_get_injection`, `get_node_ranges`, `add_injection`) and
   `highlighter.lua`: each injected region is parsed with `set_included_ranges`, a child's
   captures paint over its parent's at equal priority, and an edit repaints from the first row of
-  the region it falls in. A language merl has no grammar for yet goes through syntect
+  the region it falls in. A top-level `injection.combined` pattern keeps one child tree per
+  pattern and language (`src/treesitter/combined.rs`, as `add_injection` keys it), built from
+  its members in the whole file, edited with the parent and scanned and parsed again in the same
+  steps as the parent; a nested layer still combines per paint. A language merl has no grammar for yet goes through syntect
   (`syntax_for_info`), so a fenced block keeps its colours until its language's step lands;
   the injected languages of a step's hosts (`regex`, `printf` for Python) come with it.
 - **The queries** are nvim-treesitter's `highlights.scm` and `injections.scm` at `NVIM_TS` in

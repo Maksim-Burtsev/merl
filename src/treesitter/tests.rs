@@ -1069,6 +1069,7 @@ fn a_parse_cut_short_resumes_and_an_edit_in_between_restarts_it() {
     fresh.parse_more(None);
     fresh.paint_to(usize::MAX, &theme);
     assert_eq!(b.sexp(), fresh.sexp());
+    eprintln!("{:?}\n{:?}", b.hl[2], fresh.hl[2]);
     assert_eq!(b.hl, fresh.hl);
 }
 
@@ -1406,4 +1407,45 @@ fn a_keyword_error_recovery_rereads_as_a_name_above_an_edit_is_repainted() {
         b.paint_to(usize::MAX, &theme);
         assert_eq!(incremental, b.hl, "{tail:?}");
     }
+}
+
+#[test]
+fn overlapping_combined_groups_keep_query_order_whatever_came_first() {
+    let keys = |b: &Buffer| b.groups().into_iter().map(|g| g.key).collect::<Vec<_>>();
+    for (was, now) in [
+        ("build = /* bash */", "buildPhase = /* bash */"),
+        ("buildPhase =", "buildPhase = /* bash */"),
+    ] {
+        let src =
+            format!("{{\n  {was} ''\n    echo \"a\n  '';\n  checkPhase = ''\n    b\"\n  '';\n}}\n");
+        let mut b = Buffer::from_bytes(PathBuf::from("a.nix"), src.as_bytes());
+        b.parse_more(None);
+        b.lines[1] = format!("  {now} ''");
+        b.edited(1);
+        b.parse_more(None);
+        let text = b.lines.join("\n") + "\n";
+        let mut fresh = Buffer::from_bytes(PathBuf::from("a.nix"), text.as_bytes());
+        fresh.parse_more(None);
+        assert_eq!(keys(&b).len(), 2);
+        assert_eq!(keys(&b), keys(&fresh), "{was}");
+    }
+}
+
+#[test]
+fn a_finished_top_tree_paints_before_its_combined_groups_are_parsed() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let src = include_str!("../../tests/colors/php/Ledger.php").repeat(7);
+    let mut fresh = Buffer::from_bytes(PathBuf::from("a.php"), src.as_bytes());
+    fresh.parse_more(None);
+    fresh.paint_to(usize::MAX, &theme);
+    let mut b = Buffer::from_bytes(PathBuf::from("a.php"), src.as_bytes());
+    while !b.parse_more(Some(std::time::Duration::ZERO)) {}
+    assert!(b.parsing(), "the groups are not parsed yet");
+    b.paint_to(usize::MAX, &theme);
+    assert_eq!(b.hl, fresh.hl);
+    while b.parsing() {
+        b.parse_more(Some(std::time::Duration::ZERO));
+    }
+    b.paint_to(usize::MAX, &theme);
+    assert_eq!(b.hl, fresh.hl);
 }

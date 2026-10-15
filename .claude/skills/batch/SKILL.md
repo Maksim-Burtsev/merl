@@ -16,16 +16,14 @@ Ask nothing the repo already answers: invisible work merges when it is green (AG
 
 - About how many hours of work to pick?
 - The budget: a share of the weekly limit, and until 2026-10-22 a token budget beside it (the
-  owner's form: "10 % of the week, or 4M"). The owner's status line writes
-  `~/.claude/state/rate-limits.json`: `seven_day.used_percentage`, `seven_day.resets_at` and
-  `updated`, both in epoch seconds. Read it at the start, into the ledger, and on every wake:
-  start no new agent once it has risen by the budget since the start, or reads 95. When the
-  file is missing or its `updated` is over 30 minutes old (a headless session draws no status
-  line), ask the account's usage endpoint, undocumented and whole percents:
+  owner's form: "10 % of the week, or 4M"). The account's usage endpoint, undocumented and in
+  whole percents, gives the weekly percentage:
   `curl -s https://api.anthropic.com/api/oauth/usage -H "Authorization: Bearer $(security
   find-generic-password -s 'Claude Code-credentials' -w | jq -r .claudeAiOauth.accessToken)" -H
-  'anthropic-beta: oauth-2025-04-20' | jq .seven_day.utilization`. When neither answers, go by
-  the token budget, counted as before. Both count the whole account, other sessions included.
+  'anthropic-beta: oauth-2025-04-20' | jq .seven_day`. Read it at the start, into the ledger, and
+  on every wake: start no new agent once `utilization` has risen by the budget since the start,
+  or reads 95. When it does not answer, go by the token budget, counted as before. It counts the
+  whole account, other sessions included.
 - The kind of run, when the owner did not name it:
 
 | Kind | Shape |
