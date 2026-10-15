@@ -27,3 +27,16 @@ type load_config
 key Enter
 wait Tutor 3/
 wait the call inside NoteStore.
+# #761, #857: the status bar ends with the clock, no `? help` before it; the runner fixes the time
+# at 14:32 UTC. A `:` prompt takes the right edge, and the clock is back after Enter.
+merl app/config.py
+wait 14:32
+key :
+type 10
+wait :10
+key Enter
+wait 14:32
+# #761: `clock` in config.toml sets the format, 12 hours here.
+run mkdir -p "$HOME/.config/merl" && printf 'clock = "%%I:%%M %%p"\n' >> "$HOME/.config/merl/config.toml"
+merl app/config.py
+wait 02:32 PM

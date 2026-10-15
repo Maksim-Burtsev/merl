@@ -53,5 +53,5 @@ wait renamed, no changes
 │                            │
 │                            │
 └ 2 files · +2 −0 ───────────┘
-tools/refund_by_hand.py  1:1  [code]  hunk 0/0  file 1/2                                                                                                                          ? help
+tools/refund_by_hand.py  1:1  [code]  hunk 0/0  file 1/2                                                                                                                           14:32
 cursor (x,y,shown) 185,54,0

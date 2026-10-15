@@ -24,7 +24,7 @@ merl snapshot: nowrap
 │                            │
 │                            │
 └────────────────────────────┘
-export.csv  1:1  [code]  nowrap                                          ? help
+export.csv  1:1  [code]  nowrap
 
 ==== 80x24 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddefffffffegggggggehhheiiiieddddddeffffffffeggc
@@ -145,7 +145,7 @@ o fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-export.csv  1:1  [code]  nowrap                                                                                  ? help
+export.csv  1:1  [code]  nowrap
 
 ==== 120x33 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddefffffffegggggggehhheiiiieddddddeffffffffeggggggggehhhheiiiiieddddeffffffegggggjjjjjj
@@ -307,7 +307,7 @@ o fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-export.csv  1:1  [code]  nowrap                                                                                                                                                   ? help
+export.csv  1:1  [code]  nowrap
 
 ==== 185x55 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddefffffffegggggggehhheiiiieddddddeffffffffeggggggggehhhheiiiiieddddeffffffegggggjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj

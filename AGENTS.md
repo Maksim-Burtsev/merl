@@ -144,7 +144,7 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    it on the build. Otherwise it says `Part of #N`, and what is left is filed as an issue.
 8. Once the whole task is in the PR, review it with Punchcard, once. Fix every finding on the
    branch's own change in this PR; a finding outside it becomes an issue. Do not review again:
-   with the fixes pushed and CI green, go on as `## Merging` says. A docs-only PR needs no review.
+   with the fixes pushed, go on as `## Merging` says. A docs-only PR needs no review.
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
@@ -182,7 +182,7 @@ in epic #623, each saying `no fold rules for .EXT` until then.
 merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
 queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
 `src/treesitter.rs`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
-stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Diff, Query, Dockerfile, CMake, Protobuf, HCL, Terraform, INI, Nix, Scheme, Racket, Common Lisp (Emacs Lisp too, as Neovim calls it `lisp`), R and Erlang today and for the languages of
+stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Scala, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Diff, Query, Dockerfile, CMake, Protobuf, HCL, Terraform, INI, Nix, Scheme, Racket, Common Lisp (Emacs Lisp too, as Neovim calls it `lisp`), R, Erlang, SQL, Vue and Svelte today and for the languages of
 #806–#809 as they land; every other file goes through syntect as before. Dart and Groovy stay on
 syntect: the grammars nvim-treesitter pins bind an older tree-sitter in their `Cargo.toml`
 (UserNobody14's tree-sitter-dart 0.22, murtaza64's tree-sitter-groovy `~0.26.8`), which cannot
@@ -332,7 +332,8 @@ run under ~15 s.
 ## Merging
 
 - Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
-  without asking, once CI is green and the findings of its one review are fixed.
+  without asking. Once the findings of its one review are fixed, `gh pr merge --squash --auto`:
+  GitHub merges it when CI is green, and nobody waits on CI. A red check is yours to fix.
 - A change the user has to learn (a new or changed key, screen, animation or default): leave the
   PR open with the before/after screencasts, add the `needs-owner` label and name it in your
   status line. Never ask "can I merge?" in chat.

@@ -24,7 +24,7 @@ merl snapshot: drill
 Drill 1/5
 Open store.py.
 
-notes/  [code]                                                           ? help
+notes/  [code]
 
 ==== 80x24 tokyonight-moon styles
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -123,7 +123,7 @@ f fg #f6f8fa bg #5094e4
 Drill 1/5
 Open store.py.
 
-notes/  [code]                                                                                                   ? help
+notes/  [code]
 
 ==== 120x33 tokyonight-moon styles
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
@@ -262,7 +262,7 @@ f fg #f6f8fa bg #5094e4
 Drill 1/5
 Open store.py.
 
-notes/  [code]                                                                                                                                                                    ? help
+notes/  [code]
 
 ==== 185x55 tokyonight-moon styles
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

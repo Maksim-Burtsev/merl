@@ -53,5 +53,5 @@ wait Close an overlay, leave edit mode
 │                            │    │   f                                 Fold the function or block at the cursor into its first line, or unfold it    │
 │                            │    │   T                                 Pick a theme (live preview)                                                   │
 └────────────────────────────┘    │   Esc                               Close an overlay, leave edit mode, or clear selection and find                │
-app/uow.py  1:1  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                           ? help
+app/uow.py  1:1  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 134,53,0

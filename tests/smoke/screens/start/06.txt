@@ -22,5 +22,5 @@ wait Tutor 1/
 Tutor 1/23 · Open a file
 Press `o` (or Ctrl+E), type `store`, and press Enter to open store.py.
 
-merl-tutor-NNNNN/  [code]                                                ? help
+merl-tutor-NNNNN/  [code]                                                 14:32
 cursor (x,y,shown) 80,23,0

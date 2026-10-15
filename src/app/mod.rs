@@ -381,6 +381,8 @@ pub struct App {
     pub review_panel_colours: bool,
     pub review_list_marks: bool,
     pub review_open_files_first: bool,
+    pub clock: Option<String>,
+    pub clock_format: crate::clock::Clock,
     undo: Vec<Edit>,
     redo: Vec<Edit>,
     undo_break: bool,
@@ -534,6 +536,8 @@ impl App {
             review_panel_colours: true,
             review_list_marks: true,
             review_open_files_first: true,
+            clock: None,
+            clock_format: crate::clock::Clock::default(),
             undo: Vec::new(),
             redo: Vec::new(),
             undo_break: false,
@@ -580,6 +584,15 @@ impl App {
         }
         app.hist_note(true);
         app
+    }
+
+    pub fn tick_clock(&mut self) -> bool {
+        let time = self.clock_format.now();
+        if time == self.clock {
+            return false;
+        }
+        self.clock = time;
+        true
     }
 
     pub fn rel_path(&self) -> String {

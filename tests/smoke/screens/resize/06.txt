@@ -11,5 +11,5 @@ wait docs/notes.md  16:1
 │▸ scripts                   │14 ## 1.7.1
 │▸ tests                     │15
 └────────────────────────────┘16 - A cancelled order keeps its total. The customer sees it struck through.
-docs/notes.md  16:1  [code]                                                                                                                              ? help
+docs/notes.md  16:1  [code]                                                                                                                               14:32
 cursor (x,y,shown) 33,11,1

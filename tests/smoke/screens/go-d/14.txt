@@ -53,5 +53,5 @@ wait worker/main.go  1:1
 52         if err := handle(job); err != nil {
 53             return err
 54         }
-worker/main.go  1:1  [code]                                                                                                                                                       ? help
+worker/main.go  1:1  [code]                                                                                                                                                        14:32
 cursor (x,y,shown) 3,0,1

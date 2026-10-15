@@ -287,6 +287,7 @@ the rest, edit `~/.config/merl/config.toml`.
 |---|---|---|
 | `theme` | `"tokyonight-moon"` | The colour theme; `T` picks it and writes it here |
 | `autosave_delay_ms` | `1000` | How long after the last keystroke an edit is saved |
+| `clock` | `"%H:%M"` | The time on the status bar's right edge, in strftime fields (`"%I:%M %p"` for 12 hours); `false` turns it off |
 | `review_panel_colours` | `true` | Review: the file panel dims the counts and adds the branch totals |
 | `review_list_marks` | `true` | Review: `u` and `s` mark the rows on lines the branch changed |
 | `review_open_files_first` | `true` | Review: `o` lists the review's files first |

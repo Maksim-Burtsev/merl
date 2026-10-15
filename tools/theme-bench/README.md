@@ -135,6 +135,18 @@ plain, as LazyVim installs no parser for them):
 |---|---|---|---|---|
 | Kotlin | 18,781 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
+Scala (#807), `.scala`, `.sc`, `.mill` and `.sbt`, the files syntect calls Scala (Neovim calls `.sbt`
+`sbt` and nvim-treesitter parses it as `scala`; a `.sc` that Neovim's `detect.sc` takes for
+SuperCollider from its first 25 lines stays on syntect); `comment` stays plain, as LazyVim installs no parser for it.
+The commit nvim-treesitter pins (db390f3) carries version 0.26.2 but differs from crates.io's
+0.26.2 (`grammar.json`, `parser.c`, `scanner.c`), so merl takes it as a git dependency. The
+bench's files come from cats, pinned in `THEME_ONLY` as `tools/d-bench/projects.tsv` has no Scala
+project:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Scala | 26,619 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 Swift (#807), `.swift`, with its injections (`regex` in a regex literal; `comment` comments stay
 plain, as LazyVim installs no parser for them). nvim-treesitter generates its `parser.c` from the
 pinned `grammar.json` (`generate = true`), so `record.py` runs `tree-sitter generate` for it; merl
@@ -209,6 +221,17 @@ with at least 40 recordable lines, as the d-bench projects hold only three of 80
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
 | CMake | 17,403 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+SQL (#809), `.sql` and the other files Neovim calls `sql` that syntect calls SQL (`.psql`, `.pgsql`
+and `.mysql`, SQL in syntect and not `sql` in Neovim, stay on syntect), and a Markdown block marked
+`sql`; `comment` stays plain, as LazyVim installs no parser for it. crates.io's tree-sitter-sequel
+0.3.11 has another `parser.c` than the pin (39fdb00, on the repo's `gh-pages` branch, which carries
+the generated parser), so it is a git dependency at the pin. The bench's files are immich's
+generated queries (lines over 140 columns are not recorded, so 9,476 characters):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| SQL | 9,476 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
 Make (#809) stays on syntect: the commit nvim-treesitter pins (70613f3) has no `Cargo.toml`, so it
 cannot be a git dependency, and crates.io's only release, tree-sitter-make 1.1.1, is built from an
@@ -361,6 +384,21 @@ stays plain. No d-bench project has query files, so the bench takes them from nv
 |---|---|---|---|---|
 | Query | 7,948 | 100.0 alabaster-light | 100.0 | 100.0 minischeme-light |
 
+Vue and Svelte (#809), `.vue` and `.svelte`, both on top of `html_tags`: Vue's `<script>` is
+JavaScript or, with `lang="ts"`, TypeScript, its `{{ }}` and directive values TypeScript, its
+`<style>` CSS; Svelte's `<script>` and `{ }` JavaScript or TypeScript, its `<style>` CSS. A
+`<style lang="scss">` (and less, postcss, sass) asks for `scss`, which merl has no grammar for yet:
+it is left plain, as LazyVim recorded without the scss parser leaves it (the syntect fallback is
+only for Markdown's code blocks); the bench's files hold none. The pinned commits bind tree-sitter 0.20 (Vue) or are released on crates.io as
+tree-sitter-svelte-ng 1.0.2 (Svelte); Vue comes from crates.io's tree-sitter-vue-next 0.1.0, whose
+`parser.c`, `scanner.c` and `tag.h` equal the pin's byte for byte, on `tree-sitter-language`. Vue
+from gitea, Svelte from immich; master's syntect medians are 67.2 and 73.0:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Vue | 16,402 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
+| Svelte | 14,924 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
+
 Vim (#806) stays on syntect: the commit nvim-treesitter pins (039c8d0) has no `Cargo.toml`, so
 it cannot be a git dependency, and crates.io's only release, 0.4.0, has another `parser.c` and
 binds `tree_sitter::Language` through the pre-0.24 `extern "C"` API instead of `tree-sitter-language`. No d-bench project has a `.vim` file either.
@@ -389,7 +427,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, HCL from immich and pipeline-library, Terraform from lem and immich, INI from gitea, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, HCL from immich and pipeline-library, Terraform from lem and immich, INI from gitea, SQL from immich, Vue from gitea, Svelte from immich, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,

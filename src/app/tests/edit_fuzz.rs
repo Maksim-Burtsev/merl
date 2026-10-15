@@ -1069,6 +1069,23 @@ const KOTLIN: &[&str] = &[
     "\n\n",
 ];
 
+const SCALA: &[&str] = &[
+    "s\"${x}\"",
+    "\"\"\"\n",
+    "/** ",
+    " */",
+    "@main ",
+    "x match {\n",
+    "case _ => ",
+    "[A]",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
 const ZIG: &[&str] = &[
     "\\\\ text\n",
     "\"{s}\\n\"",
@@ -1205,6 +1222,23 @@ const HCL: &[&str] = &[
 
 const INI: &[&str] = &["[a]\n", "b = c\n", "; ", "# ", "[", "]", "=", ":", "\n"];
 
+const SQL: &[&str] = &[
+    "SELECT ",
+    " FROM t",
+    " WHERE x = 1",
+    "'a''b'",
+    "$$",
+    "/* ",
+    " */",
+    "-- ",
+    "CASE WHEN x THEN 1 END",
+    "(",
+    ")",
+    "'",
+    ";",
+    "\n\n",
+];
+
 const CMAKE: &[&str] = &[
     "set(",
     "${X}",
@@ -1269,6 +1303,26 @@ const MARKUP: &[&str] = &[
     "}",
     "\"",
     "&amp;",
+    "\n\n",
+];
+
+const COMPONENT: &[&str] = &[
+    "<script lang=\"ts\">let x: number = 1;</script>",
+    "<style>a { color: red; }</style>",
+    "<p :class=\"{ a: b }\" @click=\"go(1)\">",
+    "</p>",
+    "{{ a + b }}",
+    "{#if a}",
+    "{:else}",
+    "{/if}",
+    "{a.b}",
+    "<!-- ",
+    " -->",
+    "<",
+    ">",
+    "{",
+    "}",
+    "\"",
     "\n\n",
 ];
 
@@ -1383,6 +1437,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         KOTLIN,
     ),
     (
+        "F.scala",
+        include_bytes!("../../../tests/colors/scala/Ledger.scala").as_slice(),
+        SCALA,
+    ),
+    (
         "f.zig",
         include_bytes!("../../../tests/colors/zig/ledger.zig").as_slice(),
         ZIG,
@@ -1443,6 +1502,16 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         MARKUP,
     ),
     (
+        "F.vue",
+        include_bytes!("../../../tests/colors/vue/Ledger.vue").as_slice(),
+        COMPONENT,
+    ),
+    (
+        "F.svelte",
+        include_bytes!("../../../tests/colors/svelte/Ledger.svelte").as_slice(),
+        COMPONENT,
+    ),
+    (
         "f.proto",
         include_bytes!("../../../tests/colors/proto/ledger.proto").as_slice(),
         PROTO,
@@ -1461,6 +1530,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.ini",
         include_bytes!("../../../tests/colors/ini/settings.ini").as_slice(),
         INI,
+    ),
+    (
+        "f.sql",
+        include_bytes!("../../../tests/colors/sql/ledger.sql").as_slice(),
+        SQL,
     ),
     (
         "CMakeLists.txt",

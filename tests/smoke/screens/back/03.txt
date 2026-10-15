@@ -18,5 +18,5 @@ wait worker/internal/queue/queue.go
 │    go.mod                  │30     defer q.mu.Unlock()
 │    main.go                 │31     q.jobs = append(q.jobs, job)
 └────────────────────────────┘32 }
-worker/internal/queue/queue.go  24:6  [code]  New: via import worker/internal/queue/
+worker/internal/queue/queue.go  24:6  [code]  New: via import worker/internal/queue/                                                                      14:32
 cursor (x,y,shown) 38,10,1

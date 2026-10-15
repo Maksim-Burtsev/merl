@@ -53,5 +53,5 @@ wait let label m
 │                            │
 │                            │
 └────────────────────────────┘
-mlshop/lib/cart.ml  1:1  [code]                                                                                                                                                   ? help
+mlshop/lib/cart.ml  1:1  [code]                                                                                                                                                    14:32
 cursor (x,y,shown) 32,0,1

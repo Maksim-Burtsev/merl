@@ -18,5 +18,5 @@ wait // Command worker drains the order jobs
 │  docker-compose.yml        │17     defer stop()
 │  Dockerfile                │18
 └────────────────────────────┘19     q := queue.New()
-worker/main.go  1:1  [code]                                                                                                                              ? help
+worker/main.go  1:1  [code]                                                                                                                               14:32
 cursor (x,y,shown) 33,0,1
