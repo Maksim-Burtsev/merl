@@ -60,9 +60,23 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         Some(Status::Size(size)) => Some(size),
         _ => None,
     };
+    let proto = std::env::var("MERL_P302")
+        .ok()
+        .filter(|_| app.buf.path.is_none());
+    let pane_text = if proto.is_some() {
+        String::new()
+    } else {
+        format!("[{pane}]")
+    };
+    let left = match proto.as_deref() {
+        Some("a") => String::new(),
+        Some("b") if app.tutor.is_some() => "notes/".to_owned(),
+        Some("c") => "[No Name]".to_owned(),
+        _ => app.rel_path(),
+    };
     let mut spans = vec![
         Span::styled(
-            app.rel_path(),
+            left,
             if theme.groups.is_empty() {
                 style.fg(theme.accent)
             } else {
@@ -72,7 +86,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         ),
         Span::styled(
             format!(
-                "{}  {}[{pane}]{}{}{}{}",
+                "{}  {}{pane_text}{}{}{}{}",
                 if app.dirty { " \u{25cf}" } else { "" },
                 position(app, size),
                 if app.mode == Mode::Edit {
@@ -102,6 +116,20 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     }
     if !app.message.is_empty() {
         spans.push(Span::styled(format!("  {}", app.message), style));
+    }
+    if proto.is_some() {
+        let body = spans[1..]
+            .iter()
+            .map(|s| s.content.as_ref())
+            .collect::<String>();
+        let body = body.trim_start().to_owned();
+        spans.truncate(1);
+        let sep = if spans[0].content.is_empty() || body.is_empty() {
+            ""
+        } else {
+            "  "
+        };
+        spans.push(Span::styled(format!("{sep}{body}"), style));
     }
     let rest = spans[1..]
         .iter()
