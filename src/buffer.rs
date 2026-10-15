@@ -139,6 +139,14 @@ impl Buffer {
     }
 
     #[cfg(test)]
+    pub fn groups(&self) -> Vec<treesitter::GroupShape> {
+        self.ts
+            .as_ref()
+            .map(treesitter::Parsed::groups)
+            .unwrap_or_default()
+    }
+
+    #[cfg(test)]
     pub fn root_bytes(&self) -> Option<Range<usize>> {
         self.ts.as_ref().and_then(treesitter::Parsed::root_bytes)
     }
