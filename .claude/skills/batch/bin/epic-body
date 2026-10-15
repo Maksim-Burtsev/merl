@@ -8,6 +8,7 @@ from pathlib import Path
 BATCH = Path.home() / ".cache/merl-batch"
 TRANSCRIPTS = Path.home() / ".claude/projects"
 FIELD = re.compile(r"^\s*[-*]\s*\*\*(Before|After|Tests?)\b[^*]*\*\*:?\s*(.+)$", re.I | re.M)
+PART = re.compile(r"^part((?:\s*#\d+)*)\s*:", re.I)
 GIF = re.compile(r"https://raw\.githubusercontent\.com/Maksim-Burtsev/merl/media/\S+?\.gif")
 
 
@@ -54,7 +55,7 @@ def reports(run):
 
 def title(issue):
     run = subprocess.run(
-        ["gh", "issue", "view", issue, "--json", "title", "-q", ".title"],
+        ["gh", "issue", "view", issue, "--repo", "Maksim-Burtsev/merl", "--json", "title", "-q", ".title"],
         capture_output=True,
         text=True,
     )
@@ -83,7 +84,8 @@ def main():
     for row in merged:
         issues = re.findall(r"#(\d+)", row.get("Task", ""))
         state = row["State"]
-        left = re.findall(r"#(\d+)[^;|#]*\bleft\b", state) or (issues if re.search(r"\bleft\b", state) else [])
+        marked = PART.match(state)
+        left = (re.findall(r"#(\d+)", marked.group(1)) or issues) if marked else []
         for issue in issues:
             target = part if issue in left else closes
             if issue not in closes + part:
