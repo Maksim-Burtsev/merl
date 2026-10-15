@@ -1695,6 +1695,7 @@ fn replay_tree_sitter(
     snippets: &[&str],
     seeds: std::ops::RangeInclusive<u64>,
 ) {
+    crate::treesitter::RECORD.set(true);
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let dir = std::env::temp_dir().join(format!(
         "merl-ts-fuzz-{}-{}",
