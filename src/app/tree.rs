@@ -7,6 +7,21 @@ impl App {
             KeyCode::Down => self.tree.down(),
             KeyCode::Right => self.tree.expand(),
             KeyCode::Left => self.tree.collapse(),
+            KeyCode::Char(c @ ('<' | '>')) if std::env::var("MERL_709").as_deref() == Ok("a") => {
+                let now = self.tree_hand.or(self.tree_width).unwrap_or(30);
+                self.tree_hand = Some(if c == '>' {
+                    now.saturating_add(5)
+                } else {
+                    now.saturating_sub(5)
+                });
+            }
+            KeyCode::Char('A') if std::env::var("MERL_709").as_deref() == Ok("b") => {
+                self.tree_zoom = !self.tree_zoom;
+            }
+            KeyCode::Enter if self.tree.selected().is_some_and(|n| !n.is_dir) && self.tree_zoom => {
+                self.tree_zoom = false;
+                self.tree_key(code);
+            }
             KeyCode::Enter => match self.tree.selected() {
                 Some(n) if n.is_dir => self.tree.toggle(),
                 Some(n) if self.root.join(&n.path).is_dir() => {}

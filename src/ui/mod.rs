@@ -51,13 +51,33 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     .areas(area);
     if app.focus != Focus::Tree {
         app.tree_width = None;
+        app.tree_zoom = false;
     }
-    let half = (main.width / 2).max(TREE_W);
+    let proto = std::env::var("MERL_709").unwrap_or_default();
+    let rest = if proto == "c" { 40 } else { TREE_W };
+    let half = (main.width / 2).max(rest);
+    if let Some(w) = app.tree_hand {
+        let w = w.clamp(20, main.width.saturating_sub(20).max(20));
+        app.tree_hand = Some(w);
+        app.tree_width = Some(w);
+    }
     let tree_w = match (app.show_tree, app.tree_width) {
         (false, _) => 0,
+        (true, _) if app.tree_zoom => main.width,
+        (true, Some(w)) if app.tree_hand.is_some() => w,
         (true, Some(w)) => w.min(half),
-        (true, None) => TREE_W,
+        (true, None) => rest,
     };
+    if app.show_tree && app.tree_zoom {
+        draw_tree(frame, app, theme, main, base);
+        if let Some(panel) = panel {
+            frame.render_widget(panel, lesson);
+        }
+        draw_status(frame, app, theme, status);
+        draw_overlays(frame, app, theme, (area, main), base);
+        force_emoji_widths(frame);
+        return;
+    }
     let [tree, code] =
         Layout::horizontal([Constraint::Length(tree_w), Constraint::Min(1)]).areas(main);
 
@@ -67,17 +87,17 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         None
     };
     if app.show_tree && app.focus == Focus::Tree && app.tree_width.is_none() {
-        let w = need.map_or(TREE_W, |n| {
-            (u16::try_from(n + 2).unwrap_or(u16::MAX)).clamp(TREE_W, half)
+        let w = need.map_or(rest, |n| {
+            (u16::try_from(n + 2).unwrap_or(u16::MAX)).clamp(rest, half)
         });
         app.tree_width = Some(w);
-        if w > TREE_W {
+        if w > rest {
             frame.render_widget(ratatui::widgets::Clear, frame.area());
             return draw(frame, app, theme);
         }
     }
     let mut pane = |app: &mut App| draw_pane(frame, app, theme, code, base);
-    if app.tree_width.is_some_and(|w| w > TREE_W) {
+    if app.tree_hand.is_none() && app.focus == Focus::Tree && app.tree_width.is_some_and(|w| w > rest) {
         app.drawn_aside(pane);
     } else {
         pane(app);
