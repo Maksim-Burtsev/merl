@@ -1085,6 +1085,86 @@ const ZIG: &[&str] = &[
     "\n\n",
 ];
 
+const SCHEME: &[&str] = &[
+    "#| c |#",
+    "#;",
+    "; c\n",
+    "'(a b)",
+    "`(a ,b)",
+    "#\\x",
+    "(define (f x)\n",
+    "(",
+    ")",
+    "[",
+    "]",
+    "\"",
+    "\n\n",
+];
+
+const R: &[&str] = &[
+    "r\"(x)\"",
+    "\\(x) ",
+    "function(x) {\n",
+    "# c\n",
+    "|> ",
+    "%>% ",
+    "x$y",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const ERLANG: &[&str] = &[
+    "%% c\n",
+    "-define(X, 1).\n",
+    "?X",
+    "#{a => 1}",
+    "<<\"b\">>",
+    "fun(X) -> X end",
+    "case X of\n",
+    "end.\n",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const RACKET: &[&str] = &[
+    "#| c |#",
+    "#;",
+    "; c\n",
+    "'(a b)",
+    "#rx\"a\"",
+    "#:key ",
+    "(define (f x)\n",
+    "(",
+    ")",
+    "[",
+    "]",
+    "\"",
+    "\n\n",
+];
+
+const COMMON_LISP: &[&str] = &[
+    "#| c |#",
+    "#+sbcl ",
+    "; c\n",
+    "'(a b)",
+    "`(a ,b)",
+    "#'f",
+    "(defun f (x)\n",
+    "(loop for x in y collect x)",
+    "(",
+    ")",
+    "\"",
+    "\n\n",
+];
+
 const RUBY: &[&str] = &[
     "\"#{x}\"", "<<~SQL\n", "SQL\n", "=begin\n", "=end\n", "/[a-z]+/", "do |x|\n", "end\n", "(",
     ")", "{", "}", "\"", "\n\n",
@@ -1275,6 +1355,31 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.zig",
         include_bytes!("../../../tests/colors/zig/ledger.zig").as_slice(),
         ZIG,
+    ),
+    (
+        "f.scm",
+        include_bytes!("../../../tests/colors/scheme/ledger.scm").as_slice(),
+        SCHEME,
+    ),
+    (
+        "f.R",
+        include_bytes!("../../../tests/colors/r/ledger.R").as_slice(),
+        R,
+    ),
+    (
+        "f.erl",
+        include_bytes!("../../../tests/colors/erlang/ledger.erl").as_slice(),
+        ERLANG,
+    ),
+    (
+        "f.rkt",
+        include_bytes!("../../../tests/colors/racket/ledger.rkt").as_slice(),
+        RACKET,
+    ),
+    (
+        "f.lisp",
+        include_bytes!("../../../tests/colors/commonlisp/ledger.lisp").as_slice(),
+        COMMON_LISP,
     ),
     (
         "f.rb",

@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
 use super::{
     ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
@@ -61,198 +60,21 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             format!(r"^\s*(?:async\s+)?(def|class)\s+{w}\b"),
             format!(r"^{w}\s*(:[^=]*)?="),
         ],
-        Kind::Go => vec![
-            format!(r"^func\s+(\([^)]*\)\s*)?{w}(?:\[[^\]]*\])?\("),
-            format!(r"^type\s+{w}\b"),
-            format!(r"^(var|const)\s+{w}\b"),
-            format!(r"^\s*{w}\s*:="),
-            format!(
-                r"^\t(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*,[ \t]*)*{w}(?:[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*)*(?:[ \t]*=[^=]|[ \t]+[^ \t:=]|\[|[ \t]*$)"
-            ),
-        ],
-        Kind::Rust => {
-            let vis = r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
-            vec![
-                format!(r"{vis}(?:fn|struct|enum|union|trait|type|const|static|mod)\s+{w}\b"),
-                format!(r"^\s*macro_rules!\s+{w}\b"),
-            ]
-        }
-        Kind::TsJs => {
-            let pre = r"^\s*(?:(?:export|default|declare|abstract|async)\s+)*";
-            let mut patterns = vec![
-                format!(
-                    r"{pre}(?:function\*?|class|interface|(?:const\s+)?enum|namespace|module)\s+{w}\b"
-                ),
-                format!(r"{pre}type\s+{w}\s*[=<]"),
-                format!(r"{pre}(?:const|let|var)\s+{w}\b"),
-            ];
-            patterns.extend(member_patterns(kind, word).unwrap_or_default());
-            patterns
-        }
-        Kind::Jvm => {
-            let (mods, ret) = (jvm_mods!(), jvm_return_type!());
-            let mods_at_least_one = jvm_mods!(at_least_one);
-            let mut patterns = vec![
-                format!(
-                    r"{mods}(?:class|interface|fun\s+interface|enum|record|@interface|object|typealias)\s+{w}\b"
-                ),
-                format!(
-                    r"{mods}fun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}\s*\("
-                ),
-                format!(
-                    r"{mods}(?:val|var)\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}(?:[^\w.]|$)"
-                ),
-                format!(r"{mods_at_least_one}{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
-                format!(r"{mods_at_least_one}{w}\s*\((?:[^;()]*,)?\s*$"),
-                format!(
-                    r"{mods}record\s+\w+\s*(?:<[^>]*>)?\s*\((?:[^)]*,)?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*{ret}\s+{w}\s*[,)]"
-                ),
-                format!(
-                    r"{RECORD_COMPONENT_ANNOTATIONS}{ret}\s+{w}\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)"
-                ),
-                format!(
-                    r"{mods}(?:enum\s+|data\s+|value\s+)?class\s+\w+[^(]*\((?:.*[(,])?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:private|public|protected|internal|override|open|final)\s+)*(?:val|var)\s+{w}\s*:"
-                ),
-                format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
-            ];
-            patterns.extend(scala_patterns(word));
-            patterns.extend(groovy_patterns(word));
-            patterns
-        }
-        Kind::Ruby => {
-            let end = r"(?:[^\w?!=]|$)";
-            let option = r"(?:(?:to|allow_nil|private):|prefix:\s*false\b)[^,#]*";
-            let method = vec![
-                format!(r"^\s*def\s+(?:self\??\.|[A-Z]\w*\.)?{w}{end}"),
-                format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
-                format!(
-                    r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
-                ),
-            ];
-            let attr = |which: &str, name: &str| {
-                format!(
-                    r"^\s*(?:[mc]?attr_(?:accessor|{which})|config_accessor)\s+(?:[:\w]+\s*,\s*)*:{name}\b"
-                )
-            };
-            match word.strip_suffix('=') {
-                Some(name) => [method, vec![attr("writer", &regex::escape(name))]].concat(),
-                None if word.ends_with(['?', '!']) => method,
-                None if word.starts_with('@') => vec![ruby_assignment(word)],
-                None => [
-                    method,
-                    vec![
-                        format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
-                        ruby_assignment(word),
-                        attr("reader", &w),
-                        format!(
-                            r"^\s*(?:has_many|has_one|belongs_to|has_and_belongs_to_many|scope|has_one_attached|has_many_attached|has_attached_file|attribute|alias_attribute|enum)\s*\(?\s*:{w}{end}"
-                        ),
-                        format!(r"^\s*enum\s*\(?\s*{w}:"),
-                        format!(r"^\s*store_accessor\s*\(?\s*:\w+\s*(?:,\s*:\w+\s*)*,\s*:{w}{end}"),
-                        format!(r#"^\s*t\.\w+\s*\(?\s*(?:"{w}"|:{w}{end})"#),
-                    ],
-                ]
-                .concat(),
-            }
-        }
-        Kind::C => {
-            let (mods, macros) = (c_mods!(), c_mods!(macros));
-            vec![
-                format!(
-                    r"^(?:\w[^;(){{}}=]*(?:\b(?:__\w+|_[A-Z][A-Z0-9_]*)\s*\([^()]*\)[^;(){{}}=]*)?[\s*&:])?{w}\s*\("
-                ),
-                format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
-                format!(
-                    r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*(?:[{{;<]|:(?:[^:]|$)|final\b|$)"
-                ),
-                format!(r"^\s*(?:inline\s+)?namespace\s+(?:\w+::)*{w}\s*::"),
-                format!(
-                    r"^\s*typedef\s+[^;{{]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"
-                ),
-                format!(
-                    r"^(?:\}}|(?:[^\s{{}}]|\s*typedef\b)[^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"
-                ),
-                format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
-                format!(r"^\s*#\s*define\s+{w}\b"),
-                format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
-                c_enumerators(Some(word)),
-                c_enum_line(word),
-                c_member_decl(Some(word)),
-            ]
-            .into_iter()
-            .chain(objc_patterns(word))
-            .collect()
-        }
-        Kind::CSharp => {
-            let (mods, ty, access) = (cs_mods!(), cs_type!(), cs_mods!(access));
-            vec![
-                format!(
-                    r"{mods}(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+{w}\s*(?:<[^>]*>)?\s*(?:[:{{;(]|where\b|$)"
-                ),
-                format!(r"{mods}delegate\s+{ty}\s+{w}\s*(?:<[^>]*>)?\s*\("),
-                format!(r"^\s*namespace\s+(?:[\w.]+\.)?{w}\s*[;{{]?\s*$"),
-                format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
-                format!(
-                    r"{access}{w}\s*\((?:[^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?|[^;{{}}]*\)\s*(?::\s*(?:base|this)\b[^{{]*)?\{{.*\}}|[^;)]*)\s*$"
-                ),
-                format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
-            ]
-        }
-        Kind::Swift => {
-            let mods = swift_mods!();
-            let mut patterns = vec![
-                format!(
-                    r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
-                ),
-                format!(r"{mods}func\s+`?{w}`?\s*[(<]"),
-                format!(r"{mods}(?:let|var)\s+`?{w}\b"),
-                format!(
-                    r"^\s*(?:indirect\s+)?case\s+(?:`?\w+`?(?:\([^)]*\))?\s*,\s*)*`?{w}`?\s*(?:\(|=[^=]|,|$)"
-                ),
-            ];
-            if matches!(word, "init" | "subscript" | "deinit") {
-                patterns.push(format!(r"{mods}{w}\s*[?!(<{{]"));
-            }
-            patterns
-        }
-        Kind::Php => {
-            let mods = php_mods!();
-            let [property, promoted] = php_properties(&w);
-            let [property_tag, method_tag] = php_tags(&w);
-            let [constant, case] = php_constants(&w);
-            vec![
-                php_method(&w),
-                format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
-                php_namespace_line(&w),
-                constant,
-                format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
-                case,
-                property,
-                promoted,
-                format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
-                property_tag,
-                method_tag,
-            ]
-        }
+        Kind::Go => go_patterns(word),
+        Kind::Rust => rust_patterns(word),
+        Kind::TsJs => ts_patterns(word),
+        Kind::Jvm => jvm_patterns(word),
+        Kind::Ruby => ruby_patterns(word),
+        Kind::C => c_patterns(word),
+        Kind::CSharp => csharp_patterns(word),
+        Kind::Swift => swift_patterns(word),
+        Kind::Php => php_patterns(word),
         Kind::Lua => vec![
             format!(r"^\s*(?:local\s+)?function\s+(?:[\w.]+[.:])?{w}\s*\("),
             format!(r"^\s*(?:local\s+)?(?:[\w.]+[.:])?{w}\s*=\s*function\b"),
             format!(r"^\s*local\s+(?:[\w\s,]*,\s*)?{w}\b"),
         ],
-        Kind::Elixir => {
-            let mut patterns = vec![
-                format!(
-                    r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}\s*(?:\(|,|do\b|$)"
-                ),
-                format!(r"^\s*def(?:module|protocol)\s+(?:[\w.]+\.)?{w}\s+do\b"),
-                format!(r"^\s*defstruct\b.*(?::{w}\b|\b{w}:)"),
-            ];
-            if !ELIXIR_DIRECTIVES.contains(&word) && !EXUNIT_AND_MIX_DIRECTIVES.contains(&word) {
-                patterns.push(format!(r"^\s*@{w}\s+[^\s|]"));
-            }
-            patterns.extend(erlang_patterns(&w));
-            patterns
-        }
+        Kind::Elixir => elixir_patterns(word),
         Kind::Zig => {
             let mods = r#"^\s*(?:(?:pub|export|extern(?:\s+"[^"]*")?|inline|noinline|threadlocal|comptime)\s+)*"#;
             vec![
@@ -319,6 +141,212 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
         Kind::Css => css_patterns(word),
         Kind::Markdown | Kind::Html => Vec::new(),
     }
+}
+
+fn go_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    vec![
+        format!(r"^func\s+(\([^)]*\)\s*)?{w}(?:\[[^\]]*\])?\("),
+        format!(r"^type\s+{w}\b"),
+        format!(r"^(var|const)\s+{w}\b"),
+        format!(r"^\s*{w}\s*:="),
+        format!(
+            r"^\t(?:[A-Za-z_][A-Za-z0-9_]*[ \t]*,[ \t]*)*{w}(?:[ \t]*,[ \t]*[A-Za-z_][A-Za-z0-9_]*)*(?:[ \t]*=[^=]|[ \t]+[^ \t:=]|\[|[ \t]*$)"
+        ),
+    ]
+}
+
+fn rust_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let vis =
+        r#"^\s*(?:(?:pub(?:\([^)]*\))?|async|unsafe|const|extern(?:\s+"[^"]*")?|default)\s+)*"#;
+    vec![
+        format!(r"{vis}(?:fn|struct|enum|union|trait|type|const|static|mod)\s+{w}\b"),
+        format!(r"^\s*macro_rules!\s+{w}\b"),
+    ]
+}
+
+fn ts_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let pre = r"^\s*(?:(?:export|default|declare|abstract|async)\s+)*";
+    let mut patterns = vec![
+        format!(r"{pre}(?:function\*?|class|interface|(?:const\s+)?enum|namespace|module)\s+{w}\b"),
+        format!(r"{pre}type\s+{w}\s*[=<]"),
+        format!(r"{pre}(?:const|let|var)\s+{w}\b"),
+    ];
+    patterns.extend(member_patterns(Kind::TsJs, word).unwrap_or_default());
+    patterns
+}
+
+fn jvm_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let (mods, ret) = (jvm_mods!(), jvm_return_type!());
+    let mods_at_least_one = jvm_mods!(at_least_one);
+    let mut patterns = vec![
+        format!(
+            r"{mods}(?:class|interface|fun\s+interface|enum|record|@interface|object|typealias)\s+{w}\b"
+        ),
+        format!(
+            r"{mods}fun\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}\s*\("
+        ),
+        format!(
+            r"{mods}(?:val|var)\s+(?:<[^>]*>\s*)?(?:[\w.]+(?:<[^<>]*(?:<[^<>]*>[^<>]*)*>)?\??\.)?{w}(?:[^\w.]|$)"
+        ),
+        format!(r"{mods_at_least_one}{w}\s*\([^;]*\)\s*(?:throws [\w.,\s]+)?\{{\s*$"),
+        format!(r"{mods_at_least_one}{w}\s*\((?:[^;()]*,)?\s*$"),
+        format!(
+            r"{mods}record\s+\w+\s*(?:<[^>]*>)?\s*\((?:[^)]*,)?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*{ret}\s+{w}\s*[,)]"
+        ),
+        format!(
+            r"{RECORD_COMPONENT_ANNOTATIONS}{ret}\s+{w}\s*(?:,\s*$|\)\s*(?:implements\b[^{{]*)?\{{)"
+        ),
+        format!(
+            r"{mods}(?:enum\s+|data\s+|value\s+)?class\s+\w+[^(]*\((?:.*[(,])?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:private|public|protected|internal|override|open|final)\s+)*(?:val|var)\s+{w}\s*:"
+        ),
+        format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
+    ];
+    patterns.extend(scala_patterns(word));
+    patterns.extend(groovy_patterns(word));
+    patterns
+}
+
+fn ruby_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let end = r"(?:[^\w?!=]|$)";
+    let option = r"(?:(?:to|allow_nil|private):|prefix:\s*false\b)[^,#]*";
+    let method = vec![
+        format!(r"^\s*def\s+(?:self\??\.|[A-Z]\w*\.)?{w}{end}"),
+        format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
+        format!(
+            r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
+        ),
+    ];
+    let attr = |which: &str, name: &str| {
+        format!(
+            r"^\s*(?:[mc]?attr_(?:accessor|{which})|config_accessor)\s+(?:[:\w]+\s*,\s*)*:{name}\b"
+        )
+    };
+    match word.strip_suffix('=') {
+        Some(name) => [method, vec![attr("writer", &regex::escape(name))]].concat(),
+        None if word.ends_with(['?', '!']) => method,
+        None if word.starts_with('@') => vec![ruby_assignment(word)],
+        None => [
+            method,
+            vec![
+                format!(r"^\s*(?:class|module)\s+(?:[\w:]+::)?{w}(?:[^\w:]|$)"),
+                ruby_assignment(word),
+                attr("reader", &w),
+                format!(
+                    r"^\s*(?:has_many|has_one|belongs_to|has_and_belongs_to_many|scope|has_one_attached|has_many_attached|has_attached_file|attribute|alias_attribute|enum)\s*\(?\s*:{w}{end}"
+                ),
+                format!(r"^\s*enum\s*\(?\s*{w}:"),
+                format!(r"^\s*store_accessor\s*\(?\s*:\w+\s*(?:,\s*:\w+\s*)*,\s*:{w}{end}"),
+                format!(r#"^\s*t\.\w+\s*\(?\s*(?:"{w}"|:{w}{end})"#),
+            ],
+        ]
+        .concat(),
+    }
+}
+
+fn c_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let (mods, macros) = (c_mods!(), c_mods!(macros));
+    vec![
+        format!(
+            r"^(?:\w[^;(){{}}=]*(?:\b(?:__\w+|_[A-Z][A-Z0-9_]*)\s*\([^()]*\)[^;(){{}}=]*)?[\s*&:])?{w}\s*\("
+        ),
+        format!(r"^[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{"),
+        format!(
+            r"^\s*{mods}(?:typedef\s+)?(?:struct|class|union|enum\s+class|enum\s+struct|enum|namespace)\s+{macros}(?:\w+(?:<[^<>]*>)?::)*{w}\s*(?:[{{;<]|:(?:[^:]|$)|final\b|$)"
+        ),
+        format!(r"^\s*(?:inline\s+)?namespace\s+(?:\w+::)*{w}\s*::"),
+        format!(
+            r"^\s*typedef\s+[^;{{]*(?:\(\s*\*+\s*{w}\s*\)|\b{w}\s*(?:\[[^\]]*\])*\s*;)"
+        ),
+        format!(
+            r"^(?:\}}|(?:[^\s{{}}]|\s*typedef\b)[^{{}}]*\{{[^{{}}]*\}})\s*[\w\s,*]*\b{w}\s*[,;]"
+        ),
+        format!(r"^\s*(?:template\s*<[^>]*>\s*)?using\s+{w}\s*="),
+        format!(r"^\s*#\s*define\s+{w}\b"),
+        format!(r"^\w[^;(){{}}=<>]*[\s*&]{w}\s*(?:\[[^\]]*\])*\s*(?:=[^=]|;)"),
+        c_enumerators(Some(word)),
+        c_enum_line(word),
+        c_member_decl(Some(word)),
+    ]
+    .into_iter()
+    .chain(objc_patterns(word))
+    .collect()
+}
+
+fn csharp_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let (mods, ty, access) = (cs_mods!(), cs_type!(), cs_mods!(access));
+    vec![
+        format!(
+            r"{mods}(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+{w}\s*(?:<[^>]*>)?\s*(?:[:{{;(]|where\b|$)"
+        ),
+        format!(r"{mods}delegate\s+{ty}\s+{w}\s*(?:<[^>]*>)?\s*\("),
+        format!(r"^\s*namespace\s+(?:[\w.]+\.)?{w}\s*[;{{]?\s*$"),
+        format!(r"^\s*(?:global\s+)?using\s+(?:unsafe\s+)?{w}\s*="),
+        format!(
+            r"{access}{w}\s*\((?:[^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?|[^;{{}}]*\)\s*(?::\s*(?:base|this)\b[^{{]*)?\{{.*\}}|[^;)]*)\s*$"
+        ),
+        format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
+    ]
+}
+
+fn swift_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let mods = swift_mods!();
+    let mut patterns = vec![
+        format!(
+            r"{mods}(?:class|struct|enum|protocol|actor|extension|typealias|associatedtype)\s+`?{w}\b"
+        ),
+        format!(r"{mods}func\s+`?{w}`?\s*[(<]"),
+        format!(r"{mods}(?:let|var)\s+`?{w}\b"),
+        format!(
+            r"^\s*(?:indirect\s+)?case\s+(?:`?\w+`?(?:\([^)]*\))?\s*,\s*)*`?{w}`?\s*(?:\(|=[^=]|,|$)"
+        ),
+    ];
+    if matches!(word, "init" | "subscript" | "deinit") {
+        patterns.push(format!(r"{mods}{w}\s*[?!(<{{]"));
+    }
+    patterns
+}
+
+fn php_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let mods = php_mods!();
+    let [property, promoted] = php_properties(&w);
+    let [property_tag, method_tag] = php_tags(&w);
+    let [constant, case] = php_constants(&w);
+    vec![
+        php_method(&w),
+        format!(r"{mods}(?:class|interface|trait|enum)\s+{w}\b"),
+        php_namespace_line(&w),
+        constant,
+        format!(r#"^\s*define\s*\(\s*['"]{w}['"]"#),
+        case,
+        property,
+        promoted,
+        format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+        property_tag,
+        method_tag,
+    ]
+}
+
+fn elixir_patterns(word: &str) -> Vec<String> {
+    let w = regex::escape(word);
+    let mut patterns = vec![
+        format!(r"^\s*def(?:p|macro|macrop|guard|guardp|delegate)?\s+{w}\s*(?:\(|,|do\b|$)"),
+        format!(r"^\s*def(?:module|protocol)\s+(?:[\w.]+\.)?{w}\s+do\b"),
+        format!(r"^\s*defstruct\b.*(?::{w}\b|\b{w}:)"),
+    ];
+    if !ELIXIR_DIRECTIVES.contains(&word) && !EXUNIT_AND_MIX_DIRECTIVES.contains(&word) {
+        patterns.push(format!(r"^\s*@{w}\s+[^\s|]"));
+    }
+    patterns.extend(erlang_patterns(&w));
+    patterns
 }
 pub fn narrow_patterns(
     kind: Kind,

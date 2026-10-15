@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig", "nix", "scheme", "r", "erlang", "racket", "commonlisp"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -82,6 +82,12 @@ LANGS = {
     "diff": (["rules_go", "openzeppelin-contracts", "outline", "halo"], ["diff", "patch"]),
     "query": (["nvim-treesitter"], ["scm"]),
     "zig": (["zls"], ["zig", "zon"]),
+    "nix": (["nix-darwin"], ["nix"]),
+    "scheme": (["chibi-scheme"], ["scm", "sld"]),
+    "r": (["dplyr"], ["R", "r"]),
+    "erlang": (["cowboy"], ["erl", "hrl"]),
+    "racket": (["drracket"], ["rkt"]),
+    "commonlisp": (["lem"], ["lisp", "asd"]),
 }
 NOT_HTML = re.compile(
     r"@(if|for|defer|switch)|\*(ngIf|ngFor|ngSwitch|ngTemplateOutlet)|\bng-(template|content)|\bDTD[ \t]+XHTML[ \t]"
@@ -93,6 +99,8 @@ THEME_ONLY = {
     "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
                 "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
     "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
+    "dplyr": ["dplyr", "r", "https://github.com/tidyverse/dplyr.git", "d5e94e7fa8fd4a5f79c1a707d1842216bb4c691f", "-"],
+    "cowboy": ["cowboy", "erlang", "https://github.com/ninenines/cowboy.git", "3a001e2fd022c41897c17e88c0e719f53456ff6e", "-"],
 }
 SKIP_DIRS = ("migrations/", "vendor/", "testdata/", "node_modules/", "CHANGELOG")
 FILES, LINES, MINLINES, MAXLEN, WIDTH = 4, 200, 80, 140, 200

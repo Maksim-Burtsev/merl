@@ -1,4 +1,3 @@
-#![expect(clippy::too_many_lines, reason = "#858")]
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -239,8 +238,10 @@ impl Theme {
     }
 }
 
-pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
-    let (bytes, ctx, groups) = match user_path(dir, name) {
+type Source = (Vec<u8>, String, HashMap<String, Style>);
+
+fn source(dir: Option<&Path>, name: &str) -> Result<Source> {
+    Ok(match user_path(dir, name) {
         Some(path) => {
             let ctx = path.display().to_string();
             let groups_path = path.with_extension("groups.json");
@@ -268,7 +269,42 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
                 bail!("unknown theme `{name}`; available: {}", all.join(", "));
             }
         }
-    };
+    })
+}
+
+fn dim_line_hl(line_hl_syn: SynColor, line_hl: Color, fg: SynColor, bg: SynColor) -> Color {
+    let mut line_hl_dim = blend(line_hl_syn, bg, 50);
+    for percent in [7, 12, 20] {
+        if line_hl_dim != rgb(bg) && line_hl_dim != line_hl {
+            break;
+        }
+        line_hl_dim = blend(fg, bg, percent);
+    }
+    line_hl_dim
+}
+
+fn ghost(fg: SynColor, bg: SynColor) -> Color {
+    (50..=GHOST_MAX_TEXT_PERCENT)
+        .step_by(5)
+        .map(|percent| blend(fg, bg, percent))
+        .find(|&c| wcag_contrast(c, rgb(bg)) >= GHOST_TARGET_CONTRAST)
+        .unwrap_or_else(|| blend(fg, bg, GHOST_MAX_TEXT_PERCENT))
+}
+
+fn readable_on(tints: &[Color], toward: SynColor, fg: SynColor) -> Color {
+    (0..=100)
+        .step_by(10)
+        .map(|percent| blend(toward, fg, percent))
+        .find(|&c| {
+            tints
+                .iter()
+                .all(|&w| wcag_contrast(c, w) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
+        })
+        .unwrap_or_else(|| rgb(toward))
+}
+
+pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
+    let (bytes, ctx, groups) = source(dir, name)?;
     let syntect = ThemeSet::load_from_reader(&mut Cursor::new(&bytes[..])).with_context(|| ctx)?;
 
     let s = &syntect.settings;
@@ -286,18 +322,8 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
             .map_or_else(|| mix(fg, bg, 12), |c| over_at_own_alpha(c, bg)),
     };
     let line_hl = rgb(line_hl_syn);
-    let mut line_hl_dim = blend(line_hl_syn, bg, 50);
-    for percent in [7, 12, 20] {
-        if line_hl_dim != rgb(bg) && line_hl_dim != line_hl {
-            break;
-        }
-        line_hl_dim = blend(fg, bg, percent);
-    }
-    let ghost_fg = (50..=GHOST_MAX_TEXT_PERCENT)
-        .step_by(5)
-        .map(|percent| blend(fg, bg, percent))
-        .find(|&c| wcag_contrast(c, rgb(bg)) >= GHOST_TARGET_CONTRAST)
-        .unwrap_or_else(|| blend(fg, bg, GHOST_MAX_TEXT_PERCENT));
+    let line_hl_dim = dim_line_hl(line_hl_syn, line_hl, fg, bg);
+    let ghost_fg = ghost(fg, bg);
     let light = wcag_luminance(rgb(bg)) > wcag_luminance(rgb(fg));
     let hue = |r, g, b| SynColor { r, g, b, a: 255 };
     let ((del, del_row, del_word), (add, add_row, add_word)) = if light {
@@ -323,15 +349,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     } else {
         SynColor::WHITE
     };
-    let word_fg = (0..=100)
-        .step_by(10)
-        .map(|percent| blend(toward, fg, percent))
-        .find(|&c| {
-            words
-                .iter()
-                .all(|&w| wcag_contrast(c, w) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
-        })
-        .unwrap_or_else(|| rgb(toward));
+    let word_fg = readable_on(&words, toward, fg);
     let own_gutter = s
         .gutter_foreground
         .map_or_else(|| mix(fg, bg, 45), |c| over_at_own_alpha(c, bg));
@@ -340,11 +358,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         .map_or_else(|| mix(fg, bg, 35), |c| over_at_own_alpha(c, bg));
     let find_bg = rgb(find_bg_syn);
     let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
-    let tag_fg = (0..=100)
-        .step_by(10)
-        .map(|percent| blend(toward, fg, percent))
-        .find(|&c| wcag_contrast(c, tag_bg) >= WORD_ON_TINT_CONTRAST_WCAG_AA)
-        .unwrap_or_else(|| rgb(toward));
+    let tag_fg = readable_on(&[tag_bg], toward, fg);
     let selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
     let find_fg = match (s.find_highlight, s.find_highlight_foreground) {
         (_, Some(c)) => Some(over_bg(c)),

@@ -206,7 +206,7 @@ fn rust_struct_key(
     open: usize,
 ) -> Option<Label> {
     static IMPL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:unsafe\s+)?impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
+        Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\b.*?(?:\bfor\s+)?(?:\w+::)*(\w+)\s*(?:<[^{]*>)?\s*(?:where\b.*)?$")
             .expect("the regex is a literal")
     });
     static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

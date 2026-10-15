@@ -37,6 +37,7 @@ tree-sitter-bash = "=0.25.1"
 tree-sitter-c = "=0.24.2"
 tree-sitter-c-sharp = "=0.23.5"
 tree-sitter-cmake = "=0.7.5"
+tree-sitter-commonlisp = "=0.4.1"
 tree-sitter-cpp = { version = "=0.23.4", git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "c009222808634c1014f82438d4883753516a2c24" }
 tree-sitter-css = "=0.25.0"
 tree-sitter-dockerfile-updated = "=0.2.0"
@@ -45,6 +46,7 @@ tree-sitter-hcl = { version = "=1.2.0", git = "https://github.com/tree-sitter-gr
 tree-sitter-html = "=0.23.2"
 tree-sitter-xml = { version = "=0.7.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-xml", rev = "5000ae8f22d11fbe93939b05c1e37cf21117162d" }
 tree-sitter-elixir = "=0.3.5"
+tree-sitter-erlang = "=0.21.0"
 tree-sitter-go = "=0.25.0"
 tree-sitter-json = { version = "=0.24.8", git = "https://github.com/tree-sitter/tree-sitter-json", rev = "254c42a6476413b776221e03982ac8ae159eeb72" }
 tree-sitter-ini = "=1.4.0"
@@ -53,14 +55,18 @@ tree-sitter-javascript = "=0.25.0"
 tree-sitter-kotlin = { version = "=0.4.0", git = "https://github.com/fwcd/tree-sitter-kotlin", rev = "1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1" }
 tree-sitter-jsdoc = "=0.25.0"
 tree-sitter-md = "=0.5.3"
+tree-sitter-nix = { version = "=0.3.0", git = "https://github.com/nix-community/tree-sitter-nix", rev = "f9765b709987418e7526cca8b9dcf73429ddf169" }
 tree-sitter-php = "=0.25.1"
 tree-sitter-printf = "=0.5.1"
 tree-sitter-proto = { version = "=0.6.0", git = "https://github.com/coder3101/tree-sitter-proto", rev = "d7d15427321da271cb1c25c12735e180ef981473" }
 tree-sitter-python = "=0.25.0"
+tree-sitter-r = "=1.3.0"
+tree-sitter-racket = "=0.25.0"
 tree-sitter-tsquery = { version = "=0.8.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-query", rev = "8e9e223812ff30854fbc912adbec696ba5f0e023" }
 tree-sitter-regex = "=0.25.0"
 tree-sitter-ruby = { version = "=0.23.1", git = "https://github.com/tree-sitter/tree-sitter-ruby", rev = "ad907a69da0c8a4f7a943a7fe012712208da6dee" }
 tree-sitter-rust = "=0.24.2"
+tree-sitter-scheme = { version = "=0.24.7-1", git = "https://github.com/6cdh/tree-sitter-scheme", rev = "1b112d9571e4f62fb3d095d52a51f1da7756fb94" }
 tree-sitter-swift = "=0.7.4"
 tree-sitter-toml-ng = "=0.7.0"
 tree-sitter-typescript = "=0.23.2"

@@ -11,9 +11,16 @@ the page shows a new or changed card within two seconds.
 
 ## Pictures
 
-Each picture is a still from the proposal's real recording (`tools/cast.py`), copied into
+Each picture is a still from a real recording of the proposal's steps, run once more for the
+desk with `tools/cast.py --font sf-mono --font-size 36`: SF Mono at twice the pixels, as the
+owner's Ghostty and the README GIFs look. The issue's 18 px Menlo GIFs look like a virtual
+machine on the desk's large screens (owner, 2026-10-14). Copy the files into
 `~/.local/share/desk/media/` under a name that starts with the card's id (`i635-a.png`,
-`i635-a.mp4`); the card refers to it as `media/i635-a.png`.
+`i635-a.mp4`); the card refers to one as `media/i635-a.png`. Copy the media before the card, so
+the page never asks for a file that is not there yet.
+
+- **One screen per picture.** Two screens glued into one picture, with a bar between them, are
+  two pictures, or two rows of the card.
 
 - **Crop to the change**, on whole terminal rows, with the same box for now and every option so
   they line up: `Image.open(png).crop(box)`. A whole 160×50 screen is too small to read.
