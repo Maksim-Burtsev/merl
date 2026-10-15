@@ -158,7 +158,10 @@ impl<'a> Painter<'a> {
             theme,
             base,
             gutter_w,
-            gutter_style: base.fg(theme.gutter_fg),
+            gutter_style: theme
+                .p913_gutter_bg(false)
+                .map_or(base, |c| base.bg(c))
+                .fg(theme.gutter_fg),
             find_styles: (
                 find_style(theme.find_fg, theme.find_bg, &["Search"]),
                 find_style(
@@ -171,7 +174,7 @@ impl<'a> Painter<'a> {
             hl: base.bg(theme.line_hl),
             hl_gutter: base
                 .fg(theme.cursor_gutter_fg)
-                .bg(theme.line_hl)
+                .bg(theme.p913_gutter_bg(true).unwrap_or(theme.line_hl))
                 .add_modifier(theme.modifiers(&["CursorLineNr"])),
             sel: theme
                 .selected(base)

@@ -43,7 +43,10 @@ pub(super) fn draw_preview(
         let row = &p.doc.rows[i];
         let bg = (i == p.row).then_some(theme.line_hl);
         let t = bg.map_or(base, |c| base.bg(c));
-        let g = bg.map_or(gutter, |c| gutter.bg(c));
+        let g = match theme.p913_gutter_bg(bg.is_some()) {
+            Some(c) => gutter.bg(c),
+            None => bg.map_or(gutter, |c| gutter.bg(c)),
+        };
         let looks: Vec<(Style, Range<usize>)> = row
             .looks
             .iter()

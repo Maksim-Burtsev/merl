@@ -224,6 +224,16 @@ impl Theme {
         }
     }
 
+    pub fn p913_gutter_bg(&self, cursor: bool) -> Option<Color> {
+        let opt = std::env::var("MERL_P913").unwrap_or_default();
+        let own = |name: &str| self.groups.get(name).and_then(|s| s.bg).or(Some(self.bg));
+        match (opt.as_str(), cursor) {
+            ("a", true) | ("b", true) => own("CursorLineNr"),
+            ("a", false) => own("LineNr"),
+            _ => None,
+        }
+    }
+
     pub fn modifiers(&self, names: &[&str]) -> Modifier {
         names
             .iter()
