@@ -21,7 +21,11 @@ Ask nothing the repo already answers: invisible work merges when it is green (AG
   `updated`, both in epoch seconds. Read it at the start, into the ledger, and on every wake:
   start no new agent once it has risen by the budget since the start, or reads 95. When the
   file is missing or its `updated` is over 30 minutes old (a headless session draws no status
-  line), go by the token budget, counted as before.
+  line), ask the account's usage endpoint, undocumented and whole percents:
+  `curl -s https://api.anthropic.com/api/oauth/usage -H "Authorization: Bearer $(security
+  find-generic-password -s 'Claude Code-credentials' -w | jq -r .claudeAiOauth.accessToken)" -H
+  'anthropic-beta: oauth-2025-04-20' | jq .seven_day.utilization`. When neither answers, go by
+  the token budget, counted as before. Both count the whole account, other sessions included.
 - The kind of run, when the owner did not name it:
 
 | Kind | Shape |
