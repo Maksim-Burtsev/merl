@@ -1585,7 +1585,7 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
 ];
 
 #[test]
-fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
+fn tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay() {
     for (name, start, snippets) in SESSIONS {
         fuzz_tree_sitter(name, start, snippets);
     }

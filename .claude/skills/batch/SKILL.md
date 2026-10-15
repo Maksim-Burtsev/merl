@@ -80,7 +80,9 @@ sequence.
   against the skill's default) go into the run's files before the first agent starts: a
   `COMMON.md` every task file points to, so implementers and a resuming session read them.
 - `ledger.md` there: the weekly percentage at the start, then a row per issue: branch, agent,
-  state, tokens, minutes. Keep it current
+  state, tokens, minutes. A merged `epic` row whose issue keeps work starts its State with
+  `part:` (`part #874:` when only some of the row's issues do): `epic-body` writes those as
+  `Part of`, every other merged issue as `Closes`. Keep it current
   after every agent result: a usage limit can end the run at any moment, and the ledger is what
   the next session resumes from.
 - Label every picked issue `in-progress`, with a comment naming its branch.

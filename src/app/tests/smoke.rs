@@ -214,24 +214,74 @@ fn every_unreleased_feature_is_smoked_or_skipped_on_purpose() {
             }
         }
     }
-    let fragments: String = changes()
-        .iter()
-        .map(|(_, text)| format!("\n{text}"))
-        .collect();
-    let changelog = std::fs::read_to_string(root().join("CHANGELOG.md"))
-        .unwrap()
-        .replacen(
-            "## [Unreleased]\n",
-            &format!("## [Unreleased]\n{fragments}"),
-            1,
-        );
     let skipped: Vec<u32> = UNSMOKED.iter().map(|(n, _)| *n).collect();
-    let wrong = unplayed(&changelog, &played, &skipped);
+    let wrong = unplayed(&with_changes(&changes()), &played, &skipped);
     assert!(
         wrong.is_empty(),
         "{}\nplay the feature in a tests/smoke scenario whose comment cites `(#N)`, or annotate a \
          fixture with it, or list the issue in UNSMOKED with why",
         wrong.join("\n")
+    );
+}
+
+fn with_changes(changes: &[(String, String)]) -> String {
+    let fragments: String = changes
+        .iter()
+        .map(|(_, text)| format!("\n{text}"))
+        .collect();
+    std::fs::read_to_string(root().join("CHANGELOG.md"))
+        .unwrap()
+        .replacen(
+            "## [Unreleased]\n",
+            &format!("## [Unreleased]\n{fragments}"),
+            1,
+        )
+}
+
+#[test]
+fn a_change_s_feature_reaches_the_unreleased_guard() {
+    let change = (
+        "9.md".to_owned(),
+        "### Added\n\n- A new key. (#9)\n".to_owned(),
+    );
+    let wrong = unplayed(&with_changes(&[change]), &BTreeSet::new(), &[]);
+    assert!(wrong.iter().any(|w| w.contains("cites #9,")), "{wrong:?}");
+}
+
+#[test]
+fn gather_changes_puts_each_heading_once_in_keep_a_changelog_s_order() {
+    let dir = std::env::temp_dir().join(format!("merl-gather-{}", std::process::id()));
+    drop(std::fs::remove_dir_all(&dir));
+    std::fs::create_dir_all(dir.join("tools")).unwrap();
+    std::fs::create_dir_all(dir.join("changes")).unwrap();
+    std::fs::copy(
+        root().join("tools/gather-changes.py"),
+        dir.join("tools/gather-changes.py"),
+    )
+    .unwrap();
+    for (name, text) in [
+        ("12.md", "### Fixed\n\n- Twelve fixed. (#12)\n"),
+        (
+            "3.md",
+            "### Fixed\n\n- Three fixed. (#3)\n\n### Added\n\n- Three added. (#3)\n",
+        ),
+    ] {
+        std::fs::write(dir.join("changes").join(name), text).unwrap();
+    }
+    let run = std::process::Command::new("python3")
+        .arg(dir.join("tools/gather-changes.py"))
+        .arg("--print")
+        .output()
+        .unwrap();
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&run.stdout),
+        "### Added\n\n- Three added. (#3)\n\n### Fixed\n\n- Three fixed. (#3)\n- Twelve fixed. \
+         (#12)\n"
     );
 }
 

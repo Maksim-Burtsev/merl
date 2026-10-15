@@ -168,15 +168,13 @@ impl App {
         let Some(text) = self.text_of(&ty.path) else {
             return Vec::new();
         };
-        let named = text
-            .lines()
-            .nth(ty.line.saturating_sub(1))
-            .and_then(|l| search::type_name(kind, l))
-            .filter(|_| kind == Kind::TsJs)
-            .unwrap_or_else(|| ty.name.clone());
-        if named == "extends" {
+        let decl = text.lines().nth(ty.line.saturating_sub(1)).unwrap_or("");
+        let named = search::type_name(kind, decl).filter(|_| kind == Kind::TsJs);
+        let anonymous = kind == Kind::TsJs && named.is_none() && search::declares_type(kind, decl);
+        if anonymous {
             self.anonymous_named.set(Some(ty.clone()));
         }
+        let named = named.unwrap_or_else(|| ty.name.clone());
         let owner = search::qualified(kind, &text, ty.line, &named).unwrap_or(named);
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
@@ -184,10 +182,11 @@ impl App {
         let hits = self
             .grep_in(&patterns.join("|"), &files)
             .into_iter()
-            .filter(|h| {
-                self.text_of(&h.path)
-                    .and_then(|text| search::qualified(kind, &text, h.line1, word))
-                    == want
+            .filter(|h| match self.text_of(&h.path) {
+                Some(text) if anonymous => {
+                    h.path == ty.path && search::owner_decl(kind, &text, h.line1) == Some(ty.line)
+                }
+                text => text.and_then(|text| search::qualified(kind, &text, h.line1, word)) == want,
             })
             .collect();
         self.host_built(kind, hits)

@@ -8,6 +8,7 @@ use super::*;
 
 mod android;
 mod annotated;
+mod batch_tools;
 mod budgets;
 mod cmake;
 mod collapse;
