@@ -258,8 +258,18 @@ impl App {
         clippy::match_same_arms,
         reason = "the visibility table reads row by row, in order of precedence"
     )]
-    pub(super) fn rust_methods(&mut self, here: &Path, word: &str) -> Vec<Candidate> {
+    pub(super) fn rust_methods(
+        &mut self,
+        here: &Path,
+        word: &str,
+        text: &str,
+        chain: &[String],
+    ) -> Vec<Candidate> {
         let kind = Kind::Rust;
+        let receiver = match chain {
+            [name] => rust_written_type(text, self.line, name),
+            _ => None,
+        };
         let pattern = search::rust_method_pattern(word);
         let mut hits = self.project_definitions(kind, here, word, &pattern);
         let files = self.external_files(kind);
@@ -286,6 +296,7 @@ impl App {
         let mut texts: HashMap<PathBuf, String> = HashMap::new();
         let mut rows: Vec<(Hit, search::RustOwner)> = Vec::new();
         let mut hidden: Vec<String> = Vec::new();
+        let mut receiver_impls: Vec<String> = Vec::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
                 let text = self.text_of(&h.path).unwrap_or_default();
@@ -339,10 +350,17 @@ impl App {
                 hidden.push(t.clone());
             }
             if visible && self.rust_reached(&h, reach.as_ref(), &workspace) {
+                if let search::RustOwner::ImplOf(t) = &owner
+                    && !inside
+                    && receiver.is_some()
+                    && search::rust_impl_type(lines[owner_line - 1]) == receiver
+                {
+                    receiver_impls.push(t.clone());
+                }
                 rows.push((h, owner));
             }
         }
-        rust_ranked(rows, &hidden)
+        rust_ranked(rows, &hidden, &receiver_impls)
     }
 
     fn rust_bound(
@@ -1047,7 +1065,7 @@ impl App {
             return found;
         }
         let impls = format!(
-            r"^\s*(?:unsafe\s+)?impl\b[^{{]*\bfor\s+&?(?:\w+::)*{}\b",
+            r"^\s*(?:(?:unsafe|const)\s+)*impl\b[^{{]*\bfor\s+&?(?:\w+::)*{}\b",
             regex::escape(&ty.name)
         );
         let traits: Vec<String> = self
@@ -1088,7 +1106,28 @@ fn rust_below(here: &Path, p: &Path) -> bool {
     here == p || here.starts_with(dir)
 }
 
-fn rust_ranked(mut rows: Vec<(Hit, search::RustOwner)>, hidden: &[String]) -> Vec<Candidate> {
+fn rust_written_type(text: &str, line0: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
+    let [b] = bindings.as_slice() else {
+        return None;
+    };
+    match search::rust_holds(&lines, b.line1 - 1, name)? {
+        search::RustHolds::Type(w) | search::RustHolds::Literal(w) => {
+            Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)*(?:\w+::)*([A-Za-z_]\w*)")
+                .ok()?
+                .captures(&w)
+                .map(|c| c[1].to_owned())
+        }
+        _ => None,
+    }
+}
+
+fn rust_ranked(
+    mut rows: Vec<(Hit, search::RustOwner)>,
+    hidden: &[String],
+    receiver_impls: &[String],
+) -> Vec<Candidate> {
     let kept: Vec<String> = rows
         .iter()
         .filter_map(|(_, o)| match o {
@@ -1109,6 +1148,7 @@ fn rust_ranked(mut rows: Vec<(Hit, search::RustOwner)>, hidden: &[String]) -> Ve
         })
         .collect();
     if let [tr] = traits.as_slice()
+        && !receiver_impls.contains(tr)
         && rows.iter().all(|(_, o)| {
             matches!(o, search::RustOwner::Trait(t) | search::RustOwner::ImplOf(t) if t == *tr)
         })

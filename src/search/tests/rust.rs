@@ -233,7 +233,7 @@ fn rust_bindings_take_each_form_that_binds_a_name() {
 #[test]
 fn rust_method_at_names_what_a_fn_sits_in_and_how_far_its_pub_reaches() {
     use RustOwner::*;
-    let text = "pub trait Tr {\n    fn req(&self);\n}\n\nimpl<T> Tr for Vec<T> {\n    fn req(&self) {}\n}\n\nimpl X {\n    pub(crate) fn own(&self) {}\n}\n\nimpl const Tr for Y {\n    fn req(&self) {}\n}\n\nimpl<T>\n    Wrapped for T {\n    fn wr(&self) {}\n}\n\nfn outer() {\n    fn inner() {}\n}\n\nmacro_rules! methods {\n    () => {\n        fn mac(&self) {}\n    };\n}\n\nmod m {\n    pub fn free() {}\n}\n";
+    let text = "pub trait Tr {\n    fn req(&self);\n}\n\nimpl<T> Tr for Vec<T> {\n    fn req(&self) {}\n}\n\nimpl X {\n    pub(crate) fn own(&self) {}\n}\n\nimpl const Tr for Y {\n    fn req(&self) {}\n}\n\nimpl<T>\n    Wrapped for T {\n    fn wr(&self) {}\n}\n\nfn outer() {\n    fn inner() {}\n}\n\nmacro_rules! methods {\n    () => {\n        fn mac(&self) {}\n    };\n}\n\nmod m {\n    pub fn free() {}\n}\n\npub const trait Ct {\n    fn ct(&self);\n}\n\nconst impl Ct for Z {\n    fn ct(&self) {}\n}\n";
     let lines: Vec<&str> = text.lines().collect();
     let at = |needle: &str| {
         rust_method_at(&lines, line_of(text, needle)).map(|m| (m.owner, m.vis, m.owner_line1))
@@ -265,6 +265,16 @@ fn rust_method_at_names_what_a_fn_sits_in_and_how_far_its_pub_reaches() {
     );
     assert_eq!(at("fn inner"), None, "nested in a function");
     assert_eq!(at("fn free"), None, "in a `mod` block");
+    assert_eq!(
+        at("    fn ct(&self);"),
+        Some((Trait("Ct".into()), RustVis::Pub, 36)),
+        "`pub const trait`"
+    );
+    assert_eq!(
+        at("    fn ct(&self) {}"),
+        Some((ImplOf("Ct".into()), RustVis::Private, 40)),
+        "`const impl … for`"
+    );
 }
 
 #[test]
@@ -378,6 +388,9 @@ fn rust_self_type_is_the_impl_around_and_none_in_a_trait() {
         rust_impl_type("impl<T: Copy> crate::Roll for &Wagon<T> {").as_deref(),
         Some("Wagon")
     );
+    let wrapping = "        const impl Shl<$f> for Wrapping<$t> {";
+    assert_eq!(rust_impl_type(wrapping).as_deref(), Some("Wrapping"));
+    assert_eq!(rust_impl_trait(wrapping).as_deref(), Some("Shl"));
 }
 
 #[test]

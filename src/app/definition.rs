@@ -1,5 +1,11 @@
-#![expect(clippy::cognitive_complexity, reason = "#858")]
-#![expect(clippy::too_many_lines, reason = "#858")]
+mod by_name;
+mod early;
+mod imports;
+mod locals;
+mod members;
+mod pathed;
+mod receivers;
+
 use super::python::{enclosing_def_lines1, starts_by_assigning};
 use super::resolution::resolution;
 use super::{
@@ -7,6 +13,11 @@ use super::{
     bound, cs_typed, external, import_line, imported, is_word, jvm, names_itself, python, rust,
     search, typed, whole_at, word_col,
 };
+use early::Asked;
+use imports::Imported;
+use locals::Near;
+use members::Patterns;
+use receivers::Walk;
 
 impl App {
     pub(super) fn definition_word(
@@ -37,1569 +48,60 @@ impl App {
 
     pub(super) fn goto_definition(&mut self) {
         let kind = self.kind();
-        if kind == Some(Kind::Markdown)
-            && let Some(here) = self.rel_current()
-        {
-            self.follow_markdown(&here);
+        if self.answered_without_word(kind) {
             return;
         }
-        if self.probe.is_none()
-            && let Some(FileLine { path, line1 }) = self.base_place()
-        {
-            self.definition_at_base(&path, line1);
-            return;
-        }
-        if let Some(here) = self.rel_current()
-            && (self.follow_ref(&here)
-                || self.css_definition(kind, &here)
-                || kind == Some(Kind::Starlark) && self.starlark_definition(&here))
-        {
-            return;
-        }
-        if let Some(kind) = kind
-            && let Some(here) = self.rel_current()
-            && let Some(module) = search::file_import(kind, self.line_str(), self.col)
-        {
-            let module = [module];
-            let files = self.import_files(kind, &here, &module);
-            let found = self.module_candidates(files);
-            self.show_definitions(kind, &module[0], &here, found, None);
-            return;
-        }
-        let Some((range, mut word)) = self.definition_word(kind) else {
-            self.message = "no word".into();
+        let Some(mut a) = self.asked(kind) else {
             return;
         };
-        let search::LineAsRead {
-            line: written,
-            word_start: start,
-        } = self.written(kind, range.start);
-        let (Some(before), Some(lead), Some(tail)) = (
-            written.get(..start),
-            self.line_str().get(..range.start).map(str::to_owned),
-            self.line_str().get(range.end..).map(str::to_owned),
-        ) else {
-            self.message = "no word".into();
+        if self.answered_early(&mut a) {
+            return;
+        }
+        let Some(near) = self.scope_near(&a) else {
             return;
         };
-        let dotted = before.ends_with('.') && !before.ends_with("..");
-        let chain = search::qualifier(&written, start);
-        let here = self.rel_current();
-        let (Some(kind), Some(here)) = (kind, here) else {
-            self.message = self.no_rules();
+        if self.answered_by_members(&a, &near) {
+            return;
+        }
+        let Some(p) = self.patterns(&a, &near) else {
             return;
         };
-        if kind == Kind::Perl {
-            self.perl_definition(&here);
+        self.define_by_patterns(a, near, p);
+    }
+
+    fn define_by_patterns(&mut self, mut a: Asked, mut near: Near, mut p: Patterns) {
+        if self.answered_by_rust_or_name(&a, &near, &p) {
             return;
         }
-        if self.component_template(&here, &range, &mut word)
-            || (kind == Kind::Gdscript && self.gdscript_definition(&here, &range, &chain, &word))
-        {
-            return;
-        }
-        if (kind == Kind::Go && word == "_")
-            || (kind == Kind::Graphql && lead.ends_with('$'))
-            || (kind == Kind::Jvm && word == "class" && lead.ends_with("::"))
-            || (kind == Kind::PowerShell && search::powershell_argument(lead.as_str()))
-            || (kind == Kind::R
-                && search::r_foreign_package(self.line_str(), range.start, &self.root))
-        {
-            self.message = resolution(&word, None, &[], None, false);
-            return;
-        }
-        let text = self.buf.lines.join("\n");
-        let text = search::script_text(&here, &text, Some(self.line)).into_owned();
-        let at = self.buf.lines[..self.line]
-            .iter()
-            .map(|l| l.len() + 1)
-            .sum::<usize>()
-            + range.start;
-        let captured = lead.ends_with('{') && !lead.ends_with("{{") && tail.starts_with(['}', ':']);
-        if !captured
-            && search::in_string(kind, &text, at)
-            && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
-        {
-            self.message = resolution(&word, None, &[], None, false);
-            return;
-        }
-        if let Some(found) = self.ml_definitions(kind, &here, &chain, &word, dotted) {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::Jvm
-            && import_line(kind, self.line_str())
-            && !lead.contains('{')
-            && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), true)
-        {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::Jvm && self.android_definition(&here, &text, &word, range.start) {
-            return;
-        }
-        let early = match kind {
-            Kind::CSharp => self.cs_namespace_segment(&here, &range),
-            Kind::Elixir => self.erlang_definitions(&here, &word, range.clone()),
-            _ => None,
+        let mut walk = Walk {
+            broke: None,
+            cs_walked: None,
+            declares_here: self.declares_here(&a),
         };
-        if let Some(found) = early {
-            self.show_definitions(kind, &word, &here, found, None);
+        if self.answered_by_go_ts_swift(&a, &near, &p, walk.declares_here)
+            || self.answered_by_cs(&a, &near, &p, &mut walk)
+            || self.answered_by_typed(&a, &near, &p, &mut walk)
+            || self.answered_by_rust_crate(&a, &near)
+        {
             return;
         }
-        let chain = match kind {
-            Kind::Elixir => search::elixir_unalias(&text, self.line, chain),
-            _ => chain,
+        let import = self.import_path(&a, &mut near, &p);
+        if self.answered_by_missing_package(&a, import.as_deref()) {
+            return;
+        }
+        let Some(imported) = self.imported(&a, &near, import) else {
+            return;
         };
-        if kind == Kind::Yaml
-            && let Some(lines) = search::stage_entries(lead.as_str(), &text, &word)
-        {
-            let found = lines
-                .into_iter()
-                .map(|line| Candidate {
-                    hit: Hit {
-                        deleted: None,
-                        path: here.clone(),
-                        line1: line,
-                        byte_col: None,
-                        text: self.buf.lines[line - 1].clone(),
-                    },
-                    reason: Reason::ByName,
-                })
-                .collect();
-            self.show_definitions(kind, &word, &here, found, None);
+        if self.answered_by_globals(&a, &near, &p) {
             return;
         }
-        if kind == Kind::Proto
-            && let Some(found) = self.proto_definitions(&text, before, &word)
-        {
-            self.show_definitions(kind, &word, &here, found, None);
+        let Some(q) = self.pathed(&mut a, &near, &mut p) else {
             return;
-        }
-        if let Some(found) = self.file_imported(kind, &here, &text, before, &chain, &word) {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if self.probe.is_none()
-            && let java = here.extension().is_some_and(|e| e == "java")
-            && let Some(label) = search::label_at(kind, java, &text, self.line, range.clone())
-        {
-            let found = label
-                .owner
-                .map(|o| self.label_targets(kind, &here, &word, o.line0, o.byte_col, &o.how))
-                .unwrap_or_default();
-            if found.is_empty() {
-                self.message = format!("{word}: {}", label.what);
-            } else {
-                self.show_definitions(kind, &word, &here, found, None);
-            }
-            return;
-        }
-        self.offer_only =
-            kind == Kind::Python && search::names_a_parameter(&text, self.line + 1, &range);
-        self.truncated.set(false);
-        let sigil = lead.as_str();
-        if kind == Kind::Php
-            && sigil.ends_with('$')
-            && !sigil.ends_with("::$")
-            && word != "this"
-            && let Some(lines) = search::php_variable(&text, self.line + 1, &word)
-        {
-            let found = lines
-                .into_iter()
-                .map(|line| Candidate {
-                    hit: Hit {
-                        deleted: None,
-                        path: here.clone(),
-                        line1: line,
-                        byte_col: None,
-                        text: self.buf.lines[line - 1].clone(),
-                    },
-                    reason: Reason::Local,
-                })
-                .collect();
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::C
-            && let Some((found, broke)) = self.c_early(&here, &text, &word, range.clone())
-        {
-            self.show_definitions(kind, &word, &here, found, broke.as_deref());
-            return;
-        }
-        if kind == Kind::Python
-            && let Some(module) = search::python_import_module(self.line_str(), range.start)
-        {
-            let found = self.python_module(&here, &module);
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        let go_key = if kind == Kind::Go && !dotted {
-            search::go_key(&text, self.line + 1, range.start, range.end)
-        } else {
-            search::GoKey::No
         };
-        let go_keyed = go_key != search::GoKey::No;
-        if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
-            self.external_files(kind);
-        }
-        match go_key {
-            search::GoKey::Of(written) => match self.literal_field(kind, &here, &written, &word) {
-                Ok(Some(found)) => {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-                Ok(None) => {}
-                Err(GoTypeUnread) => self.offer_only = true,
-            },
-            search::GoKey::Struct(line) => {
-                let ty = typed::anonymous(&here, line);
-                let found = self
-                    .field_of(kind, &ty, &word, false)
-                    .into_iter()
-                    .map(|hit| Candidate {
-                        hit,
-                        reason: Reason::Receiver(ty.name.clone()),
-                    })
-                    .collect();
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-            search::GoKey::Unknown => self.offer_only = true,
-            search::GoKey::No | search::GoKey::Value => {}
-        }
-        let lead = lead.as_str();
-        if kind == Kind::Ruby && lead.ends_with('@') {
-            let sigil = if lead.ends_with("@@") { "@@" } else { "@" };
-            let ivar = format!("{sigil}{word}");
-            let found = self.ruby_ivars(&here, &text, &ivar);
-            self.show_definitions(kind, &ivar, &here, found, None);
+        if self.answered_by_elixir(&a, &near) || self.answered_by_cs_path(&a, &near, &q) {
             return;
         }
-        if kind == Kind::Clojure
-            && let Some(found) = self.clojure_qualified(&text, before, &word, tail.as_str())
-        {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        let in_literal = search::literal_lines(kind, &text).get(self.line) == Some(&true);
-        let mut imports = if in_literal {
-            search::imports_as_written(kind, &text)
-        } else {
-            search::imports(kind, &text)
-        };
-        let first = chain.first().map_or(word.as_str(), String::as_str);
-        let key = kind == Kind::Lua
-            && (search::table_key(&text, self.line + 1, &range)
-                || (before.ends_with(':') && !before.ends_with("::")));
-        let after = tail.as_str();
-        let call = kind == Kind::Elixir
-            && !dotted
-            && (after.starts_with('(')
-                || before.ends_with(['@', '&'])
-                || before.trim_start().starts_with("@spec "));
-        let key = key
-            || call
-            || search::erlang(&here)
-            || (kind == Kind::Elixir
-                && !dotted
-                && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
-        let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
-        let after = tail.trim_start();
-        let rust_path = kind == Kind::Rust
-            && (before.ends_with("::")
-                || after.starts_with("::")
-                || (after.starts_with('!') && !after.starts_with("!=")));
-        let rust_field =
-            kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !captured;
-        let line = self.line_str();
-        let swift_binds_here = kind == Kind::Swift
-            && !dotted
-            && line.get(range.clone()) == Some(word.as_str())
-            && search::swift_binds_on(line, &word)
-            && !search::swift_binds_on(&format!("{lead}_{tail}"), &word);
-        let declared = swift_binds_here
-            || (chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, &word));
-        let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
-        let required = match kind {
-            Kind::TsJs => search::ts_import_lines1(&text, first),
-            _ => Vec::new(),
-        };
-        let closure = |n: usize| {
-            (kind == Kind::Swift || kind == Kind::Python && search::python_in_function(&text, n))
-                && !dotted
-                && chain.is_empty()
-                && n != self.line + 1
-        };
-        let locals_at = |text: &str, line: usize| -> Vec<usize> {
-            let binding: Vec<usize> = if declared {
-                vec![self.line + 1]
-            } else {
-                self.binding_lines(kind, text, line, range.start, chain.is_empty(), first)
-            };
-            binding
-                .into_iter()
-                .filter(|&n| {
-                    let l = &self.buf.lines[n - 1];
-                    !key && !super_keyword
-                        && (closure(n) || !names_itself(kind, l, first) || bare)
-                        && !import_line(kind, l)
-                        && !rust_path
-                        && (!rust_field || n == self.line + 1)
-                })
-                .map(|n| match kind {
-                    Kind::TsJs => search::written_line(&self.buf.lines, n, first),
-                    Kind::CSharp => search::cs_written_line(&self.buf.lines, n, first),
-                    _ => n,
-                })
-                .filter(|n| !required.contains(n) && !self.template_shadows(&here, first))
-                .collect()
-        };
-        let mut locals = locals_at(&text, self.line + 1);
-        let go_own = kind == Kind::Go
-            && locals.contains(&(self.line + 1))
-            && search::go_binds_here(self.line_str(), &word, range.start);
-        if go_own {
-            locals = vec![self.line + 1];
-        }
-        if (bare || self.script_scope(&here, Some(first)).is_some()) && locals.is_empty() {
-            let module = locals_at(&format!("{text}\n0"), self.buf.lines.len() + 1);
-            if !module.contains(&(self.line + 1)) {
-                locals = module;
-            }
-        }
-        let own_arrow = kind == Kind::TsJs
-            && !dotted
-            && locals.contains(&(self.line + 1))
-            && search::ts_arrow_binds(self.line_str(), &word, range.start);
-        let arrow_param = kind == Kind::TsJs
-            && !dotted
-            && search::ts_arrow_param(self.line_str(), &word, range.start);
-        if own_arrow || arrow_param {
-            locals = vec![self.line + 1];
-        }
-        if !locals.is_empty() {
-            imports.retain(|i| i.name != first);
-        }
-        let star = kind == Kind::Python && imports.iter().any(|i| i.name == "*");
-        let unbound = kind == Kind::Python
-            && !dotted
-            && chain.is_empty()
-            && search::bindings(kind, &text, self.line + 1, &word).is_empty()
-            && !search::python_class_binds(&text, self.line + 1, &word)
-            && !names_itself(kind, self.line_str(), &word)
-            && !self.offer_only;
-        if unbound && !star && search::PYTHON_BUILTINS.contains(&word.as_str()) {
-            self.offer_only = false;
-            self.message = format!("{word}: builtin, no source");
-            return;
-        }
-        let on_itself = match kind {
-            Kind::C => search::c_bindings_at(&text, self.line + 1, first)
-                .iter()
-                .all(|p| p.line1 == self.line + 1 && p.byte_col == range.start),
-            _ => locals == [self.line + 1],
-        };
-        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
-            || (kind == Kind::Swift && !declared))
-            && locals == [self.line + 1]
-            && whole_at(self.line_str(), &word, "").is_some_and(|at| at < range.start);
-        let own_line = go_own
-            || (kind == Kind::CSharp
-                && locals == [self.line + 1]
-                && search::cs_binds_here(self.line_str(), &word, range.start));
-        if !dotted
-            && !before.ends_with("::")
-            && !locals.is_empty()
-            && (!on_itself
-                || same_line
-                || own_line
-                || own_arrow
-                || matches!(
-                    kind,
-                    Kind::Rust
-                        | Kind::Nix
-                        | Kind::Haskell
-                        | Kind::Julia
-                        | Kind::Gdscript
-                        | Kind::Solidity
-                )
-                || search::lisp(kind))
-        {
-            let found = locals
-                .iter()
-                .map(|&line| Candidate {
-                    hit: Hit {
-                        deleted: None,
-                        path: here.clone(),
-                        line1: line,
-                        byte_col: None,
-                        text: self.buf.lines[line - 1].clone(),
-                    },
-                    reason: Reason::Local,
-                })
-                .collect();
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::C
-            && !dotted
-            && chain.is_empty()
-            && locals.is_empty()
-            && !before.ends_with("::")
-            && let Some(class) = search::c_method_class(&text, self.line + 1, &word)
-        {
-            let found = self.c_class_fields(&here, &word, &class, false);
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        let constructed = before
-            .trim_end()
-            .strip_suffix("new")
-            .is_some_and(|b| !b.ends_with(is_word));
-        if kind == Kind::Jvm
-            && !constructed
-            && chain.is_empty()
-            && !dotted
-            && !before.ends_with("::")
-            && locals.is_empty()
-            && let Some(found) = self.jvm_members(&here, &text, &word)
-        {
-            let found = self.jvm_fit_candidates(&here, &word, range.clone(), &chain, found);
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::Jvm
-            && locals.is_empty()
-            && !(dotted && chain.is_empty())
-            && !names_itself(kind, self.line_str(), &word)
-            && let Some(found) = self.jvm_imported(&text, &chain, &word, range.clone(), false)
-        {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::Lua {
-            let chain = match before.strip_suffix(':') {
-                Some(b) if !b.ends_with(':') => search::qualifier(&format!("{b}."), start),
-                _ => chain.clone(),
-            };
-            let found = self.lua_qualified(&here, &text, &chain, &word);
-            let on = |c: &Candidate| c.hit.path == here && c.hit.line1 == self.line + 1;
-            if !found.iter().all(on) {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        if kind == Kind::Go
-            && !dotted
-            && tail.starts_with('.')
-            && let Some(path) = bound(&imports, &word)
-            && let Some(line) = search::go_import_line1(&text, &word)
-            && !search::go_may_declare(&text, self.line + 1, &word)
-            && self
-                .package_declarations(kind, &here, &word, None)
-                .is_empty()
-        {
-            let hit = Hit {
-                deleted: None,
-                path: here.clone(),
-                line1: line,
-                byte_col: None,
-                text: self.buf.lines[line - 1].clone(),
-            };
-            let reason = Reason::Import(path.join("/"));
-            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
-            return;
-        }
-        let own = matches!(chain.as_slice(), [s] if s == "self" || s == "cls" || s == "this");
-        if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !own {
-            let literal = dotted
-                && chain.is_empty()
-                && before.strip_suffix('.').is_some_and(|b| b.ends_with('"'));
-            let found = if literal {
-                self.jvm_outside(&here, &word, "String").map(|hits| {
-                    hits.into_iter()
-                        .map(|hit| Candidate {
-                            hit,
-                            reason: Reason::Receiver("String".into()),
-                        })
-                        .collect()
-                })
-            } else {
-                self.jvm_typed(&here, &text, before, &chain, &word)
-            };
-            if let Some(found) = found {
-                let found = self.jvm_fit_candidates(&here, &word, range.clone(), &chain, found);
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        let referenced = kind == Kind::Jvm
-            && before.ends_with("::")
-            && chain.first().is_some_and(|f| f != "super");
-        let php_members = (kind == Kind::Php && dotted).then(|| {
-            let call = tail.trim_start().starts_with('(');
-            search::php_member_patterns(&word, call).join("|")
-        });
-        let on_value = (dotted || referenced)
-            && !own
-            && (kind == Kind::Php || chain.first().is_none_or(|f| bound(&imports, f).is_none()));
-        let members = match &php_members {
-            Some(m) => on_value.then(|| m.clone()),
-            None => on_value
-                .then(|| search::member_patterns(kind, &word))
-                .flatten()
-                .map(|m| m.join("|")),
-        };
-        let mut patterns = search::def_patterns(kind, &word);
-        let cs_type = kind == Kind::CSharp
-            && !dotted
-            && chain.is_empty()
-            && self.cs_types_only(&here, &word, range.clone());
-        if cs_type {
-            patterns = search::cs_type_patterns(&word);
-        }
-        let ruby_local =
-            kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
-        if kind == Kind::Ruby && (dotted || ruby_local) {
-            let assignment = search::ruby_assignment(&word);
-            patterns.retain(|p| *p != assignment);
-        }
-        if ruby_local
-            && locals.is_empty()
-            && ((!dotted && chain.is_empty() && !before.ends_with("::")) || own)
-            && search::ruby_locals(&text, self.line + 1, &word).is_empty()
-        {
-            let found = self.ruby_self_methods(&here, &text, &word);
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-            self.truncated.set(false);
-        }
-        if kind == Kind::Elixir && dotted {
-            patterns.retain(|p| !p.starts_with(r"^\s*@"));
-        }
-        self.narrow(kind, &mut patterns, &text, range.clone());
-        if patterns.is_empty() {
-            self.message = self.no_rules();
-            return;
-        }
-        let pattern = patterns.join("|");
-        if kind == Kind::Php
-            && let Some(found) = self.php_early(&here, &text, before, &chain, &word, range.clone())
-        {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        let mut rust_broke = None;
-        if kind == Kind::Rust
-            && dotted
-            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
-            && word != "await"
-            && chain.first().is_some_and(|f| bound(&imports, f).is_none())
-            && !chain.iter().any(|n| rust::tuple_field(n))
-        {
-            let after = tail.as_str();
-            let call = after.starts_with('(') || after.starts_with("::<");
-            match self.rust_typed(&here, &text, &word, &chain, call) {
-                Ok(found) if !found.is_empty() => {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-                Ok(_) => {}
-                Err(at) => rust_broke = (chain.len() > 1).then_some(at),
-            }
-        }
-        if kind == Kind::Rust
-            && let Some(found) = self.rust_early(&here, &text, &word, range.clone(), dotted)
-        {
-            self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
-            return;
-        }
-        if kind == Kind::Rust
-            && on_value
-            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
-            && word != "await"
-        {
-            let found = self.rust_methods(&here, &word);
-            self.show_definitions(kind, &word, &here, found, rust_broke.as_deref());
-            return;
-        }
-        let js_private_member = word.starts_with('#');
-        if !dotted && !js_private_member {
-            let found = self.implementations(kind, &here, &text, &word);
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        if !dotted && search::field_decl_at(kind, &text, self.line + 1, range.start, &word) {
-            let found = self.field_namesakes(kind, &here, &word);
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        let mut declaring = search::def_patterns(kind, &word);
-        declaring.extend(search::member_or_signature(kind, &word).unwrap_or_default());
-        let declares_here =
-            Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()));
-        if kind == Kind::Go
-            && !dotted
-            && !go_keyed
-            && locals.is_empty()
-            && !declares_here
-            && bound(&imports, &word).is_none()
-        {
-            let found = self.go_bare(&here, &word, &imports);
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::TsJs
-            && dotted
-            && let [name] = chain.as_slice()
-            && let [binding] = locals.as_slice()
-            && let Some(line) = search::ts_literal_key(&self.buf.lines, *binding, name, &word)
-        {
-            let hit = Hit {
-                deleted: None,
-                path: here.clone(),
-                line1: line,
-                byte_col: None,
-                text: self.buf.lines[line - 1].clone(),
-            };
-            let found = vec![Candidate {
-                hit,
-                reason: Reason::Local,
-            }];
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::Swift
-            && !dotted
-            && chain.is_empty()
-            && (locals.is_empty() && search::swift_no_local(&text, self.line + 1, &word))
-            && !declares_here
-            && !matches!(word.as_str(), "self" | "super" | "init")
-            && let Some(found) = self.swift_self_members(&here, &text, &word, &pattern)
-        {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::Swift
-            && dotted
-            && !chain.is_empty()
-            && chain[0] != "super"
-            && word != "init"
-            && bound(&imports, &chain[0]).is_none()
-            && let Some(found) = self.swift_typed(&here, &text, &word, &chain)
-        {
-            if found.is_empty() {
-                self.message = resolution(&word, None, &[], None, false);
-            } else {
-                self.show_definitions(kind, &word, &here, found, None);
-            }
-            return;
-        }
-        let mut broke = None;
-        let mut cs_walked = None;
-        if kind == Kind::CSharp {
-            let answer = match dotted {
-                false => self.cs_initializer(&here, &word, &range).map(Ok),
-                true if !chain.is_empty() && bound(&imports, &chain[0]).is_none() => {
-                    Some(self.cs_typed(&here, &word, &chain))
-                }
-                true => None,
-            };
-            match answer {
-                Some(Ok(cs_typed::CsAnswer::Found(found))) => {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-                Some(Ok(cs_typed::CsAnswer::Outside { links: via })) => {
-                    self.offer_only = false;
-                    self.truncated.set(false);
-                    self.message = format!("no definition for {word} in the project (via {via})");
-                    return;
-                }
-                Some(Err(at)) => broke = (chain.len() > 1).then_some(at),
-                None => {}
-            }
-            if !dotted && chain.is_empty() && locals.is_empty() && !before.ends_with("::") {
-                match self.cs_class_first(&here, &word, cs_type) {
-                    Ok(found) => {
-                        self.show_definitions(kind, &word, &here, found, None);
-                        return;
-                    }
-                    Err(walked) => cs_walked = walked.filter(|_| !declares_here),
-                }
-            }
-        }
-        let head = (dotted && chain.is_empty())
-            .then(|| search::call_head(kind, &written, start))
-            .flatten();
-        if dotted
-            && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
-            && (head.is_some() || chain.first().is_some_and(|f| bound(&imports, f).is_none()))
-        {
-            match self.typed_definitions(kind, &here, &word, &chain, head.as_ref()) {
-                Ok(found)
-                    if own
-                        && matches!(found.as_slice(), [c] if c.hit.line1 == self.line + 1 && c.hit.path == here) =>
-                {
-                    let found = self.field_namesakes(kind, &here, &word);
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-                Ok(found) if !found.is_empty() => {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-                Ok(_) => {
-                    if let Some(ty) = self.inherited_outside(kind, &here, &chain, head.as_ref()) {
-                        let found = self.subclass_members(kind, &here, &word, &pattern, &ty);
-                        self.show_definitions(kind, &word, &here, found, None);
-                        return;
-                    }
-                }
-                Err(at) => {
-                    if let Some(via) = self.builtin_receiver(kind, &here, &chain, head.as_ref()) {
-                        self.offer_only = false;
-                        self.truncated.set(false);
-                        self.message = format!("{word}: builtin, no source (via {via})");
-                        return;
-                    }
-                    let names = head
-                        .as_ref()
-                        .map_or(chain.len(), |h| h.fields_to_word.len() + 1);
-                    broke = (names > 1).then_some(at);
-                }
-            }
-        }
-        if kind == Kind::Rust
-            && !dotted
-            && locals.is_empty()
-            && let Some(found) = self.rust_crate_path(&here, &text, &word, &chain, {
-                rust::MacroUse::after_word(tail.as_str())
-            })
-        {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        let import = (!on_value)
-            .then(|| {
-                bound(
-                    &imports,
-                    chain.first().map_or(word.as_str(), String::as_str),
-                )
-            })
-            .flatten();
-        let barrel = import
-            .as_deref()
-            .and_then(|path| self.barrel_package(kind, &here, &word, &chain, path));
-        let import = match barrel {
-            Some(package) => {
-                for i in &mut imports {
-                    if i.name == first {
-                        i.path.clone_from(&package);
-                    }
-                }
-                Some(package)
-            }
-            None => import,
-        };
-        if kind == Kind::TsJs
-            && let Some((_, module)) = import.as_ref().and_then(|p| p.split_last())
-            && search::package_missing(
-                &self.root,
-                &self.files,
-                here.parent().unwrap_or_else(|| Path::new("")),
-                module,
-            )
-            && !self.external_files(kind).iter().any(|f| {
-                let parts = if module[0].starts_with('@') { 2 } else { 1 };
-                search::in_module(f, &module[..parts.min(module.len())])
-            })
-            && let Some(line) = search::ts_import_line1(&text, first)
-        {
-            let hit = Hit {
-                deleted: None,
-                path: here.clone(),
-                line1: line,
-                byte_col: None,
-                text: self.buf.lines[line - 1].clone(),
-            };
-            let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
-            self.show_definitions(kind, &word, &here, vec![Candidate { hit, reason }], None);
-            return;
-        }
-        let mut outside = false;
-        let mut import_is_linked_package_or_alias = false;
-        let mut import_read = false;
-        let mut value: Option<Vec<String>> = None;
-        let mut found = match import {
-            Some(path) => {
-                let project = self.imported_definitions(kind, &here, &word, &chain, &path);
-                import_read = project.is_some();
-                if project.is_none()
-                    && kind == Kind::Python
-                    && !dotted
-                    && chain.is_empty()
-                    && imports.iter().filter(|i| i.name == word).count() == 1
-                    && let Some(found) = self.bound_module(&path)
-                {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-                if project.is_none() && kind == Kind::Python && dotted && chain.len() == 1 {
-                    match self.outside_class_member(&word, &path) {
-                        Some(python::OutsideClassMember::Found(found)) => {
-                            self.show_definitions(kind, &word, &here, found, None);
-                            return;
-                        }
-                        Some(python::OutsideClassMember::NoSuchClass) => {
-                            value = Some(path[..path.len() - 1].to_vec());
-                        }
-                        None => {}
-                    }
-                }
-                let mut found = project.unwrap_or_else(|| {
-                    if value.is_some() {
-                        return Vec::new();
-                    }
-                    let found =
-                        self.external_definitions(kind, &word, &chain, dotted, &imports, true);
-                    outside = found.is_some();
-                    import_is_linked_package_or_alias = found.is_none();
-                    found.unwrap_or_default()
-                });
-                let others: Vec<Vec<String>> = imports
-                    .iter()
-                    .filter(|i| i.name == first && i.path != path)
-                    .map(|i| i.path.clone())
-                    .collect();
-                for other in others {
-                    let more = self
-                        .imported_definitions(kind, &here, &word, &chain, &other)
-                        .unwrap_or_default();
-                    found.extend(more);
-                }
-                found
-            }
-            None => Vec::new(),
-        };
-        let go_qualified = kind == Kind::Go
-            && chain.len() == 1
-            && bound(&imports, &chain[0]).is_some_and(|p| {
-                p != ["C"] && (import_read || !self.files.iter().any(|f| search::in_package(f, &p)))
-            });
-        if !found.is_empty() || go_qualified {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::TsJs
-            && locals.is_empty()
-            && let [global] = chain.as_slice()
-            && imported::JS_GLOBALS.contains(&global.as_str())
-            && bound(&imports, global).is_none()
-            && self
-                .project_definitions(
-                    kind,
-                    &here,
-                    global,
-                    &search::def_patterns(kind, global).join("|"),
-                )
-                .is_empty()
-        {
-            let found = self.js_global_members(&here, &word, members.as_deref(), &pattern);
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::Rust && !dotted && chain.is_empty() && locals.is_empty() {
-            let found = self.rust_glob_variant(&here, &text, &word, &imports);
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        if kind == Kind::Rust && !dotted && chain.is_empty() && !before.ends_with("::") {
-            let found = self.rust_file_items(&here, &text, &word, range.clone());
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        let nested_binding = |a: &Self| {
-            search::bindings(kind, &text, a.line + 1, first)
-                .iter()
-                .any(|b| a.buf.lines[b.line1 - 1].starts_with([' ', '\t']))
-        };
-        if kind == Kind::Python && locals.is_empty() && !chain.is_empty() && !nested_binding(self) {
-            let found = self.class_attribute(kind, &here, &chain, &word);
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        if kind == Kind::Jvm
-            && own
-            && (dotted || before.ends_with("::"))
-            && let Some(owner) = search::jvm_this_owner(&text, self.line + 1)
-        {
-            let full = format!("{owner}.{word}");
-            let re = Regex::new(&pattern).expect("an escaped name keeps the pattern valid");
-            let found: Vec<Candidate> = text
-                .lines()
-                .enumerate()
-                .filter(|&(i, l)| {
-                    re.is_match(l)
-                        && search::qualified(kind, &text, i + 1, &word).as_ref() == Some(&full)
-                })
-                .map(|(i, l)| Candidate {
-                    hit: Hit {
-                        deleted: None,
-                        path: here.clone(),
-                        line1: i + 1,
-                        byte_col: None,
-                        text: l.to_owned(),
-                    },
-                    reason: Reason::Path("this".to_owned()),
-                })
-                .collect();
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        let sep = search::separator(kind);
-        let path = chain.join(sep);
-        let declared = !tail.starts_with("::")
-            && Regex::new(r"^\s*(?:class|module)\s+[\w:]*$").is_ok_and(|re| re.is_match(before));
-        let colons = kind == Kind::Ruby && before.ends_with("::") && !declared;
-        let pathed = match sep {
-            "." => on_value || colons,
-            _ => lead.ends_with(&format!("{path}{sep}")),
-        };
-        let mut answer_files: Option<Vec<PathBuf>> = None;
-        let seen = if kind == Kind::Rust && pathed && locals.is_empty() && chain.len() == 1 {
-            search::rust_scope_items(&text, self.line + 1, &chain[0], search::RustNamespace::Path)
-        } else {
-            Vec::new()
-        };
-        let owners: Vec<String> = seen
-            .iter()
-            .map(|&l| {
-                search::qualified(kind, &text, l, &chain[0]).unwrap_or_else(|| chain[0].clone())
-            })
-            .collect();
-        let mine = match owners.as_slice() {
-            [owner, rest @ ..] if rest.iter().all(|o| o == owner) => {
-                let cut = self.truncated.get();
-                let pattern = search::def_patterns(kind, &chain[0]).join("|");
-                let elsewhere = self
-                    .project_definitions(kind, &here, &chain[0], &pattern)
-                    .iter()
-                    .any(|h| h.path != here);
-                self.truncated.set(cut);
-                elsewhere.then(|| owner.clone())
-            }
-            _ => None,
-        };
-        if mine.is_some() {
-            answer_files = Some(vec![here.clone()]);
-        }
-        let pathed = pathed
-            && !chain.is_empty()
-            && (sep == "." || mine.is_some() || {
-                let owner = &chain[chain.len() - 1];
-                let brings = Regex::new(&format!(
-                    r"^\s*(?:pub\s+)?us(?:e|ing)\b.*(?:\*|\bnamespace\b|\b{}\b)",
-                    regex::escape(owner)
-                ))
-                .expect("an escaped name keeps the pattern valid");
-                let inside = |l: &str| ["crate", "self::", "super::"].iter().any(|k| l.contains(k));
-                let outside = bound(&imports, &chain[0])
-                    .is_some_and(|p| !matches!(p[0].as_str(), "crate" | "self" | "super"))
-                    || self
-                        .buf
-                        .lines
-                        .iter()
-                        .any(|l| brings.is_match(l) && !inside(l))
-                    || lead
-                        .strip_suffix(&format!("{path}{sep}"))
-                        .is_some_and(|b| b.ends_with('\\'));
-                let owners = search::def_patterns(kind, owner).join("|");
-                let mut declared = self.project_definitions(kind, &here, owner, &owners);
-                if kind == Kind::C {
-                    declared = search::c_type_rows(
-                        owner,
-                        declared,
-                        |p| self.text_of(p),
-                        search::CTypeWord::NAMED,
-                    );
-                }
-                if !outside
-                    && declared.len() > 1
-                    && kind == Kind::Rust
-                    && chain.len() == 1
-                    && !declared.iter().any(|h| h.path == here)
-                {
-                    let files = search::rust_use_files(&self.files, &here, &text, owner);
-                    answer_files = (!files.is_empty()).then_some(files);
-                }
-                self.truncated.set(false);
-                !outside && (declared.len() == 1 || answer_files.is_some())
-            });
-        let class_method = kind == Kind::Ruby
-            && dotted
-            && chain.last().is_some_and(|c| {
-                c.starts_with(|c: char| c.is_ascii_uppercase())
-                    && c.contains(|c: char| c.is_ascii_lowercase())
-            });
-        let (word, pattern) = if class_method && word == "new" {
-            (
-                "initialize".to_owned(),
-                search::def_patterns(kind, "initialize").join("|"),
-            )
-        } else {
-            (word, pattern)
-        };
-        if pathed && locals.is_empty() && !chain.is_empty() {
-            let full = format!("{path}{sep}{word}");
-            let starts_with_project_module = sep != "." && self.names_module(&chain[0]);
-            let mut hits = match &answer_files {
-                Some(files) => self
-                    .grep(&pattern, false, false, |p| files.iter().any(|f| f == p))
-                    .unwrap_or_default(),
-                None => self.project_definitions(kind, &here, &word, &pattern),
-            };
-            if kind == Kind::Rust {
-                let variants = self.rust_variants(&here, &word);
-                hits.extend(variants.into_iter().filter(|v| {
-                    answer_files
-                        .as_ref()
-                        .is_none_or(|files| files.contains(&v.path))
-                }));
-            }
-            let singleton = class_method && word != "initialize";
-            let concerns = singleton.then(|| hits.clone());
-            let named: Vec<Candidate> = hits
-                .into_iter()
-                .filter(|h| {
-                    let Some(t) = self.text_of(&h.path) else {
-                        return false;
-                    };
-                    let qualified = search::qualified(kind, &t, h.line1, &word);
-                    qualified.is_some_and(|q| match &answer_files {
-                        Some(files) if mine.is_some() => {
-                            mine.as_ref()
-                                .is_some_and(|o| q == format!("{o}{sep}{word}"))
-                                && files.contains(&h.path)
-                        }
-                        Some(files) => q == full && files.contains(&h.path),
-                        None => {
-                            q == full
-                                || q.ends_with(&format!("{sep}{full}"))
-                                || (starts_with_project_module
-                                    && full.ends_with(&format!("{sep}{q}")))
-                        }
-                    }) && (!singleton || search::ruby_singleton(&t, h.line1))
-                })
-                .map(|hit| Candidate {
-                    reason: match answer_files {
-                        Some(_) if mine.is_some() => Reason::Path(path.clone()),
-                        Some(_) => Reason::Import(hit.path.display().to_string()),
-                        None => Reason::Path(path.clone()),
-                    },
-                    hit,
-                })
-                .collect();
-            let on_row = named
-                .iter()
-                .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
-            let named = if kind == Kind::C && !on_row {
-                let rows: Vec<Hit> = named.iter().map(|c| c.hit.clone()).collect();
-                let kept = search::c_type_rows(
-                    &word,
-                    rows,
-                    |_| None,
-                    search::CTypeWord {
-                        constructs: true,
-                        struct_tag: false,
-                    },
-                );
-                named
-                    .into_iter()
-                    .filter(|c| {
-                        kept.iter()
-                            .any(|h| h.path == c.hit.path && h.line1 == c.hit.line1)
-                    })
-                    .collect()
-            } else {
-                named
-            };
-            let named = if kind == Kind::Swift
-                && named
-                    .iter()
-                    .any(|c| !search::swift_instance_member(&c.hit.text))
-            {
-                named
-                    .into_iter()
-                    .filter(|c| !search::swift_instance_member(&c.hit.text))
-                    .collect()
-            } else {
-                named
-            };
-            if !named.is_empty() {
-                self.show_definitions(kind, &word, &here, named, None);
-                return;
-            }
-            if let (Kind::Jvm, [owner]) = (kind, chain.as_slice()) {
-                let found = self.enum_constant(kind, &here, owner, &word);
-                if !found.is_empty() {
-                    self.show_definitions(kind, &word, &here, found, None);
-                    return;
-                }
-            }
-            if class_method {
-                let (asked, found) =
-                    self.ruby_class_method_elsewhere(&here, &chain, &word, &pattern, concerns);
-                self.show_definitions(kind, &asked, &here, found, None);
-                return;
-            }
-            self.truncated.set(false);
-            self.offer_only |= colons;
-        }
-        if kind == Kind::Elixir && dotted && !chain.is_empty() && locals.is_empty() {
-            let found = self
-                .external_definitions(kind, &word, &chain, dotted, &imports, true)
-                .unwrap_or_default();
-            if !found.is_empty() {
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        let attribute = before.ends_with('@');
-        let imported = !attribute
-            && text.lines().any(|l| {
-                l.trim_start().starts_with("import ")
-                    && (!l.contains("only:") || l.contains(&format!("{word}:")))
-            });
-        let module_pattern = search::def_patterns(kind, &word)
-            .into_iter()
-            .filter(|p| {
-                if attribute {
-                    p.starts_with(r"^\s*@")
-                } else {
-                    !p.starts_with(r"^\s*@") && !p.contains("defstruct")
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("|");
-        if call
-            && !imported
-            && let Ok(re) = Regex::new(&module_pattern)
-        {
-            let lines = search::elixir_module_lines(&text, self.line + 1, &re);
-            if !lines.is_empty() && !lines.contains(&(self.line + 1)) {
-                let found = lines
-                    .into_iter()
-                    .map(|line| Candidate {
-                        hit: Hit {
-                            deleted: None,
-                            path: here.clone(),
-                            line1: line,
-                            byte_col: None,
-                            text: self.buf.lines[line - 1].clone(),
-                        },
-                        reason: Reason::File,
-                    })
-                    .collect();
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-        }
-        if kind == Kind::CSharp
-            && pathed
-            && locals.is_empty()
-            && let Some(found) = self.cs_enum_member(&here, &text, &chain, &word, &path)
-        {
-            self.show_definitions(kind, &word, &here, found, None);
-            return;
-        }
-        if kind == Kind::CSharp
-            && dotted
-            && locals.is_empty()
-            && let Some(first) = chain.first()
-            && first.starts_with(|c: char| c.is_ascii_uppercase())
-            && !self.cs_declares(&here, first)
-        {
-            self.show_definitions(kind, &word, &here, Vec::new(), None);
-            return;
-        }
-        let hits = members
-            .as_ref()
-            .map(|m| self.members_by_name(kind, &here, &word, m))
-            .filter(|hits| !hits.is_empty() || !locals.is_empty() || kind == Kind::Php)
-            .unwrap_or_else(|| {
-                if own {
-                    let pattern = php_members.as_ref().unwrap_or(&pattern);
-                    self.members_by_name(kind, &here, &word, pattern)
-                } else {
-                    self.project_definitions(kind, &here, &word, &pattern)
-                }
-            });
-        let mut hits = hits;
-        if kind == Kind::Python
-            && !dotted
-            && chain.is_empty()
-            && !declares_here
-            && !search::python_class_binds(&text, self.line + 1, &word)
-        {
-            let all = hits.len();
-            let mut kept = hits.clone();
-            kept.retain(|h| {
-                let d = h.text.trim_start();
-                !(d.starts_with("def ") || d.starts_with("async def "))
-                    || !self
-                        .text_of(&h.path)
-                        .is_some_and(|t| search::python_method(&t, h.line1))
-            });
-            let around = enclosing_def_lines1(&text, self.line + 1);
-            let unreachable = |h: &Hit| {
-                let inside = self
-                    .text_of(&h.path)
-                    .and_then(|t| enclosing_def_lines1(&t, h.line1).first().copied());
-                inside.is_some_and(|f| h.path != here || !around.contains(&f))
-            };
-            if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
-                hits = kept;
-            }
-        }
-        if kind == Kind::Swift
-            && dotted
-            && chain.is_empty()
-            && word != "init"
-            && let Some(dot) = before.strip_suffix('.')
-        {
-            let lead = dot.trim_end();
-            let implicit = lead.is_empty()
-                || lead.ends_with([
-                    '(', ',', '[', ':', '=', '<', '>', '&', '|', '+', '-', '*', '/', '%', '^', '~',
-                ])
-                || (lead.len() < dot.len() && lead.ends_with(['?', '!']))
-                || ["return", "case", "let", "var"]
-                    .iter()
-                    .any(|k| lead.strip_suffix(k).is_some_and(|b| !b.ends_with(is_word)));
-            let pattern = written.trim_start().starts_with("case ");
-            let kept: Vec<Hit> = hits
-                .iter()
-                .filter(|h| {
-                    search::swift_case(&h.text)
-                        || (!pattern
-                            && search::swift_member_kind(&h.text)
-                                == Some(search::SwiftMember::StaticOrClass))
-                })
-                .cloned()
-                .collect();
-            if implicit && !kept.is_empty() {
-                hits = kept;
-            }
-        }
-        if kind == Kind::Swift && !dotted && chain.is_empty() {
-            self.swift_nested_unseen(&mut hits);
-        }
-        if ruby_local && !dotted && chain.is_empty() {
-            hits.extend(
-                search::ruby_locals(&text, self.line + 1, &word)
-                    .into_iter()
-                    .map(|line| Hit {
-                        deleted: None,
-                        path: here.clone(),
-                        line1: line,
-                        byte_col: None,
-                        text: self.buf.lines[line - 1].clone(),
-                    }),
-            );
-        }
-        if kind == Kind::CSharp {
-            let chain = dotted.then_some(chain.as_slice());
-            hits = self.cs_reachable(&here, &word, chain, cs_walked.as_deref(), hits);
-        }
-        if kind == Kind::Lua {
-            let at = |h: &Hit| h.path == here && h.line1 == self.line + 1;
-            let all = hits.len();
-            hits.retain(|h| {
-                !h.text.starts_with([' ', '\t'])
-                    || !h.text.trim_start().starts_with("local ")
-                    || at(h)
-            });
-            self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
-        }
-        if arrow_param
-            && !hits
-                .iter()
-                .any(|h| h.path == here && h.line1 == self.line + 1)
-        {
-            hits.push(Hit {
-                path: here.clone(),
-                line1: self.line + 1,
-                byte_col: None,
-                text: self.line_str().to_owned(),
-                deleted: None,
-            });
-        }
-        if kind == Kind::Swift {
-            let own = Hit {
-                path: here.clone(),
-                line1: self.line + 1,
-                byte_col: None,
-                text: self.line_str().to_owned(),
-                deleted: None,
-            };
-            if swift_binds_here
-                && !hits
-                    .iter()
-                    .any(|h| h.path == own.path && h.line1 == own.line1)
-            {
-                hits.push(own);
-            }
-            let all = hits.len();
-            let lines: Vec<&str> = text.lines().collect();
-            let literal = search::literal_lines(kind, &text);
-            let mut scopes =
-                vec![search::swift_scope(&lines, &literal, self.line + 1).header_line1];
-            while let Some(&s @ 1..) = scopes.last() {
-                match search::swift_scope(&lines, &literal, s).header_line1 {
-                    0 => break,
-                    up => scopes.push(up),
-                }
-            }
-            let mut files: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();
-            hits.retain(|h| {
-                let (lines, literal) = files.entry(h.path.clone()).or_insert_with(|| {
-                    let t = self.text_of(&h.path).unwrap_or_default();
-                    let literal = search::literal_lines(kind, &t);
-                    (t.lines().map(str::to_owned).collect(), literal)
-                });
-                match search::swift_local(lines, literal, h.line1) {
-                    Some(at) => !dotted && h.path == here && scopes.contains(&at),
-                    None => true,
-                }
-            });
-            self.offer_only |= hits.len() < all
-                && matches!(hits.as_slice(), [h] if h.path == here && h.line1 == self.line + 1);
-        }
-        let hits = match kind {
-            Kind::Jvm => {
-                let hits = self.jvm_seen(&here, hits, dotted || before.ends_with("::"));
-                let hits = self.jvm_use_fit(&here, &word, range.clone(), &chain, hits);
-                if matches!(word.as_str(), "values" | "valueOf")
-                    && matches!(hits.as_slice(), [h] if h.text.contains("enum "))
-                {
-                    self.offer_only = false;
-                }
-                hits
-            }
-            _ => hits,
-        };
-        let mut fallbacks = Vec::new();
-        let mut aside = None;
-        let hits = if kind == Kind::C && !dotted && !before.ends_with("->") {
-            let (before, after) = (before.trim_end(), tail.as_str());
-            let keyword = |k: &str| {
-                before
-                    .strip_suffix(k)
-                    .is_some_and(|b| !b.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_'))
-            };
-            let construction = after.trim_start().starts_with(['(', '{']) || keyword("new");
-            let after = after.trim_start();
-            let value = locals.is_empty()
-                && (after.starts_with("->")
-                    || (after.starts_with('.') && !after.starts_with("..")));
-            let tag = ["struct", "union", "enum"].into_iter().any(keyword);
-            let mut literal = HashMap::new();
-            let hits: Vec<Hit> = hits
-                .into_iter()
-                .filter(|h| !value || !Self::c_type_line(&word, h))
-                .filter(|h| self.c_code_line(&mut literal, h))
-                .collect();
-            let hits = search::c_type_rows(
-                &word,
-                hits,
-                |p| self.text_of(p),
-                search::CTypeWord {
-                    constructs: construction,
-                    struct_tag: tag,
-                },
-            );
-            let hits = self.c_reached_only(&here, &word, hits);
-            let on = hits
-                .iter()
-                .any(|h| h.path == here && h.line1 == self.line + 1);
-            let hits = search::c_file_local(&word, &here, &text, hits, |p| self.text_of(p), on);
-            let line = self.line_str();
-            let declared: Vec<Option<String>> = hits
-                .iter()
-                .map(|h| {
-                    let scopes = self
-                        .text_of(&h.path)
-                        .filter(|_| on && before.ends_with("::"))
-                        .and_then(|t| search::c_member_class(&t, h.line1, &word))?;
-                    search::c_defines_member(line, &scopes, &word)
-                        .then(|| scopes.last().cloned())
-                        .flatten()
-                })
-                .collect();
-            if declared.iter().any(Option::is_some) {
-                let found = hits
-                    .into_iter()
-                    .zip(declared)
-                    .filter_map(|(hit, owner)| {
-                        Some(Candidate {
-                            hit,
-                            reason: Reason::Path(owner?),
-                        })
-                    })
-                    .collect();
-                self.show_definitions(kind, &word, &here, found, None);
-                return;
-            }
-            let (fallback, hits): (Vec<Hit>, Vec<Hit>) = hits.into_iter().partition(|h| {
-                self.text_of(&h.path)
-                    .is_some_and(|t| search::c_fallback(&t, h.line1, &word))
-            });
-            if hits.is_empty() {
-                fallbacks = fallback;
-            }
-            let parameter = search::c_parameter(&text, self.line + 1, &word);
-            match search::c_one_definition(&word, &hits, |p| self.text_of(p))
-                .filter(|_| !on && !parameter)
-            {
-                Some(one) => {
-                    aside = Some(one.set_aside_note);
-                    vec![hits[one.hit_index].clone()]
-                }
-                None => hits,
-            }
-        } else {
-            hits
-        };
-        found = hits
-            .into_iter()
-            .map(|hit| Candidate {
-                hit,
-                reason: Reason::ByName,
-            })
-            .collect();
-        if let Some(module) = &value {
-            found.retain(|c| starts_by_assigning(&c.hit.text, &word));
-            found.extend(self.block_assignments(&here, &word));
-            if found.is_empty() {
-                found = self.package_assignments(&word, module);
-            }
-        }
-        if kind == Kind::Swift && !found.is_empty() {
-            let extends = |c: &Candidate| search::swift_extension(&c.hit.text);
-            if found.iter().any(|c| !extends(c)) {
-                found.retain(|c| !extends(c));
-            } else {
-                let mut away = self
-                    .external_definitions(kind, &word, &chain, dotted, &imports, false)
-                    .unwrap_or_default();
-                away.retain(|c| !extends(c));
-                if away.is_empty() {
-                    self.offer_only = true;
-                } else {
-                    found = away;
-                }
-            }
-        }
-        if let Some(members) = &members {
-            let all = self.external_files(kind);
-            let files: Vec<PathBuf> = all
-                .iter()
-                .filter(|p| kind != Kind::TsJs || search::declaration_file(p))
-                .cloned()
-                .collect();
-            let external::OutsideMembers {
-                methods: external,
-                unlisted_field_declares_it,
-            } = self.outside_members(kind, &all, &files, &imports, members, &word);
-            if found.is_empty() && external.len() == 1 && unlisted_field_declares_it {
-                self.truncated.set(true);
-            }
-            let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
-            found.extend(
-                external
-                    .into_iter()
-                    .filter(|h| !seen.contains(&h.path))
-                    .map(|hit| Candidate {
-                        hit,
-                        reason: Reason::ByName,
-                    }),
-            );
-        } else if found.is_empty()
-            && !outside
-            && value.is_none()
-            && !matches!(
-                chain.first().map(String::as_str),
-                Some("self" | "cls" | "this")
-            )
-        {
-            found = if unbound && !search::PYTHON_BUILTINS.contains(&word.as_str()) {
-                self.star_imported(&word, &imports)
-            } else {
-                self.external_definitions(kind, &word, &chain, dotted, &imports, false)
-                    .unwrap_or_default()
-            };
-            let after = tail.trim_start();
-            if kind == Kind::C
-                && locals.is_empty()
-                && (after.starts_with("->") || (after.starts_with('.') && !after.starts_with("..")))
-            {
-                found.retain(|c| !Self::c_type_line(&word, &c.hit));
-            }
-            if import_is_linked_package_or_alias {
-                for c in &mut found {
-                    c.reason = Reason::ByName;
-                }
-            }
-        }
-        if kind == Kind::Zig {
-            found.retain(|c| {
-                (c.hit.path == here && c.hit.line1 == self.line + 1)
-                    || self
-                        .text_of(&c.hit.path)
-                        .is_some_and(|t| search::zig_visible(&t, c.hit.line1, c.hit.path == here))
-            });
-        }
-        if found.is_empty() {
-            found = fallbacks
-                .into_iter()
-                .map(|hit| Candidate {
-                    hit,
-                    reason: Reason::ByName,
-                })
-                .collect();
-        }
-        if kind == Kind::Jvm && found.is_empty() {
-            found = self.jvm_lombok(&here, &text, &chain, &word);
-            if found.is_empty() && !dotted {
-                found = self.jenkins_step(&here, &word);
-            }
-        }
-        if found.is_empty() && self.probe.is_none() {
-            found = self.deleted_definitions(kind, &word, &here);
-        }
-        if kind == Kind::Ruby && on_value {
-            self.ruby_member_outside(&word, &pattern, &mut found);
-        }
-        self.show_definitions(kind, &word, &here, found, broke.as_deref());
-        if let Some(note) = aside {
-            self.message = self.message.replacen("1 match", &note, 1);
-        }
+        self.define_by_name(&a, &near, &p, &walk, &imported);
     }
 
     fn label_targets(
@@ -1658,33 +160,9 @@ impl App {
             {
                 continue;
             }
-            let Some(text) = self.text_of(&c.hit.path) else {
+            let Some(at) = self.owner_label_lines(kind, here, word, owner, &name, &c.hit) else {
                 continue;
             };
-            let of =
-                search::qualified(kind, &text, c.hit.line1, &name).unwrap_or_else(|| name.clone());
-            let mut at: Vec<(PathBuf, usize, String)> =
-                search::label_lines(kind, &text, c.hit.line1, &name, word, owner)
-                    .into_iter()
-                    .map(|l| (c.hit.path.clone(), l, of.clone()))
-                    .collect();
-            if at.is_empty()
-                && let search::Owner::Object(n) = owner
-                && let Some(ty) = search::object_type(kind, &text, c.hit.line1, &name, *n)
-            {
-                let cut = self.truncated.get();
-                let pattern = search::def_patterns(kind, &ty).join("|");
-                let decls = self.project_definitions(kind, here, &ty, &pattern);
-                self.truncated.set(cut);
-                if let [d] = decls.as_slice()
-                    && let Some(t) = self.text_of(&d.path)
-                {
-                    at = search::label_lines(kind, &t, d.line1, &ty, word, &search::Owner::Typed)
-                        .into_iter()
-                        .map(|l| (d.path.clone(), l, ty.clone()))
-                        .collect();
-                }
-            }
             let by_name = if c.reason.proven() {
                 ""
             } else {
@@ -1715,6 +193,42 @@ impl App {
         }
         self.offer_only = offer && !out.is_empty();
         out
+    }
+
+    fn owner_label_lines(
+        &self,
+        kind: Kind,
+        here: &Path,
+        word: &str,
+        owner: &search::Owner,
+        name: &str,
+        c: &Hit,
+    ) -> Option<Vec<(PathBuf, usize, String)>> {
+        let text = self.text_of(&c.path)?;
+        let of = search::qualified(kind, &text, c.line1, name).unwrap_or_else(|| name.to_owned());
+        let mut at: Vec<(PathBuf, usize, String)> =
+            search::label_lines(kind, &text, c.line1, name, word, owner)
+                .into_iter()
+                .map(|l| (c.path.clone(), l, of.clone()))
+                .collect();
+        if at.is_empty()
+            && let search::Owner::Object(n) = owner
+            && let Some(ty) = search::object_type(kind, &text, c.line1, name, *n)
+        {
+            let cut = self.truncated.get();
+            let pattern = search::def_patterns(kind, &ty).join("|");
+            let decls = self.project_definitions(kind, here, &ty, &pattern);
+            self.truncated.set(cut);
+            if let [d] = decls.as_slice()
+                && let Some(t) = self.text_of(&d.path)
+            {
+                at = search::label_lines(kind, &t, d.line1, &ty, word, &search::Owner::Typed)
+                    .into_iter()
+                    .map(|l| (d.path.clone(), l, ty.clone()))
+                    .collect();
+            }
+        }
+        Some(at)
     }
 
     fn receiver_outside(
@@ -1878,33 +392,7 @@ impl App {
         mut found: Vec<Candidate>,
         broke: Option<&str>,
     ) {
-        if kind == Kind::TsJs {
-            let head = search::ts_method_head(word);
-            found.retain(|c| {
-                !search::ts_call_statement(&head, &c.hit.text, c.hit.line1, || {
-                    self.text_of(&c.hit.path)
-                })
-            });
-        }
-        if found.len() <= 500 {
-            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
-            found.retain(|c| {
-                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
-                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
-                let call = kind == Kind::TsJs
-                    && c.hit.text.trim_end().ends_with('<')
-                    && !search::declares_type(kind, &c.hit.text)
-                    && !Regex::new(r"\b(?:extends|implements)\b")
-                        .is_ok_and(|re| re.is_match(&c.hit.text))
-                    && self
-                        .text_of(&c.hit.path)
-                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
-                let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
-                    && !self.doc_tag(kind, &c.hit)
-                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
-                !call && !literal
-            });
-        }
+        self.keep_shown(kind, word, &mut found);
         let superclass = kind == Kind::Ruby
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {
@@ -1986,40 +474,86 @@ impl App {
         }
         match found.as_slice() {
             [] => self.message = resolution(word, None, &found, broke, truncated),
-            [one] if !namesakes && !offer_only && !truncated && !copy => {
-                let path = self.root.join(&one.hit.path);
-                let name = jvm::declared_as(kind, word, &one.hit.text);
-                let target = self
-                    .hit_text(&one.hit)
-                    .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
-                    .and_then(|text| search::qualified(kind, &text, one.hit.line1, &name));
-                let status = resolution(word, target.as_deref(), &found, broke, false);
-                let col = word_col(&one.hit.text, &name, word_chars);
-                match one.hit.deleted {
-                    Some(_) => self.jump_to_deleted(&path, one.hit.line1, col),
-                    None => self.jump_to_col(&path, one.hit.line1, col),
-                }
-                if self.buf.path.as_deref() == Some(path.as_path()) {
-                    self.message = status;
-                }
+            [_] if !namesakes && !offer_only && !truncated && !copy => {
+                self.jump_to_only(kind, word, &found, broke);
             }
-            _ => {
-                let status = if namesakes {
-                    let others = if found.len() == 1 { "other" } else { "others" };
-                    format!("{word}: at a declaration, {} {others} by name", found.len())
-                } else {
-                    resolution(word, None, &found, broke, truncated)
-                };
-                let items = self.definition_items(kind, word, found);
-                self.show_picker(PickerKind::Definitions, items);
-                if let Some(p) = &mut self.picker {
-                    p.title = p
-                        .title
-                        .replacen(PickerKind::Definitions.title(), &status, 1);
-                }
-                self.message = status;
-            }
+            _ => self.pick_definitions(kind, word, found, broke, namesakes, truncated),
         }
+    }
+
+    fn keep_shown(&self, kind: Kind, word: &str, found: &mut Vec<Candidate>) {
+        if kind == Kind::TsJs {
+            let head = search::ts_method_head(word);
+            found.retain(|c| {
+                !search::ts_call_statement(&head, &c.hit.text, c.hit.line1, || {
+                    self.text_of(&c.hit.path)
+                })
+            });
+        }
+        if found.len() <= 500 {
+            let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
+            found.retain(|c| {
+                let lines = (literal.entry((c.hit.path.clone(), c.hit.deleted.is_some())))
+                    .or_insert_with(|| self.hidden_now(kind, &c.hit));
+                let call = kind == Kind::TsJs
+                    && c.hit.text.trim_end().ends_with('<')
+                    && !search::declares_type(kind, &c.hit.text)
+                    && !Regex::new(r"\b(?:extends|implements)\b")
+                        .is_ok_and(|re| re.is_match(&c.hit.text))
+                    && self
+                        .text_of(&c.hit.path)
+                        .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
+                let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
+                    && !self.doc_tag(kind, &c.hit)
+                    && !(c.reason == Reason::Local && search::component(&c.hit.path));
+                !call && !literal
+            });
+        }
+    }
+
+    fn jump_to_only(&mut self, kind: Kind, word: &str, found: &[Candidate], broke: Option<&str>) {
+        let one = &found[0];
+        let word_chars = search::word_chars(Some(kind), true);
+        let path = self.root.join(&one.hit.path);
+        let name = jvm::declared_as(kind, word, &one.hit.text);
+        let target = self
+            .hit_text(&one.hit)
+            .filter(|_| !matches!(one.reason, Reason::Module(_) | Reason::Label(_)))
+            .and_then(|text| search::qualified(kind, &text, one.hit.line1, &name));
+        let status = resolution(word, target.as_deref(), found, broke, false);
+        let col = word_col(&one.hit.text, &name, word_chars);
+        match one.hit.deleted {
+            Some(_) => self.jump_to_deleted(&path, one.hit.line1, col),
+            None => self.jump_to_col(&path, one.hit.line1, col),
+        }
+        if self.buf.path.as_deref() == Some(path.as_path()) {
+            self.message = status;
+        }
+    }
+
+    fn pick_definitions(
+        &mut self,
+        kind: Kind,
+        word: &str,
+        found: Vec<Candidate>,
+        broke: Option<&str>,
+        namesakes: bool,
+        truncated: bool,
+    ) {
+        let status = if namesakes {
+            let others = if found.len() == 1 { "other" } else { "others" };
+            format!("{word}: at a declaration, {} {others} by name", found.len())
+        } else {
+            resolution(word, None, &found, broke, truncated)
+        };
+        let items = self.definition_items(kind, word, found);
+        self.show_picker(PickerKind::Definitions, items);
+        if let Some(p) = &mut self.picker {
+            p.title = p
+                .title
+                .replacen(PickerKind::Definitions.title(), &status, 1);
+        }
+        self.message = status;
     }
 
     pub(super) fn project_definitions(
