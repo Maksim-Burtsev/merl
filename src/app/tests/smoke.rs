@@ -51,6 +51,10 @@ const UNSMOKED: &[(u32, &str)] = &[
         812,
         "the default theme's colours only, which the smoke screens (text) cannot see; tools/theme-bench compares them with LazyVim's",
     ),
+    (
+        834,
+        "Mermaid pictures drawn by merman 0.9: tmux passes no kitty graphics, so merl draws the source there; src/mermaid/tests.rs covers the pictures",
+    ),
 ];
 
 fn root() -> PathBuf {

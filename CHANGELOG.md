@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Mermaid pictures in the Markdown preview (`p`) are drawn by merman 0.9: labels take more room
+  and wrap sooner, a class diagram loses the rules between its name, fields and methods, and
+  more diagrams draw (Temporal's sequence diagrams among them). A flowchart with a `{` in an edge
+  label, which merman 0.7 drew anyway, now stays source. (#834)
 - The status bar no longer ends with `? help`: the start screen lists `?` among its keys. (#857)
 
 - Code is coloured as LazyVim colours it, from tree-sitter's syntax tree and the theme's Neovim

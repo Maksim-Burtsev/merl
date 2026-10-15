@@ -365,3 +365,13 @@ fn file_pictures_off_the_screen_go_past_the_last_four() {
         drop(std::fs::remove_dir_all(p.parent().unwrap()));
     }
 }
+
+#[test]
+fn a_diagram_up_to_8192_pixels_draws() {
+    let chain: Vec<String> = (0..30).map(|i| format!("  N{i} --> N{}", i + 1)).collect();
+    let src = format!("graph TD\n{}", chain.join("\n"));
+    let Some(drawn) = draw(&src) else {
+        panic!("a diagram taller than 4096 pixels draws")
+    };
+    assert!(drawn.h > 4096 && drawn.h <= 8192, "{}", drawn.h);
+}
