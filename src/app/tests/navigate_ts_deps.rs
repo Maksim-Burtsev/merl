@@ -257,7 +257,7 @@ fn an_anonymous_class_s_import_name_lasts_one_d() {
             ("second.ts", "export function f(x) {\n  x.spin();\n}\n"),
         ],
     );
-    a.anonymous_named.set(Some(crate::app::search_job::Typed {
+    a.anonymous_named.set(Some(Typed {
         name: "Whirl".into(),
         path: "spinner.ts".into(),
         line: 1,
