@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+BATCH = Path.home() / ".cache/merl-batch"
+TRANSCRIPTS = Path.home() / ".claude/projects"
+FIELD = re.compile(r"^\s*[-*]\s*\*\*(Before|After|Tests?)\b[^*]*\*\*:?\s*(.+)$", re.I | re.M)
+PART = re.compile(r"^part((?:\s*#\d+)*)\s*:", re.I)
+GIF = re.compile(r"https://raw\.githubusercontent\.com/Maksim-Burtsev/merl/media/\S+?\.gif")
+
+
+def ledger_rows(run):
+    rows, header = [], None
+    for line in (run / "ledger.md").read_text().splitlines():
+        if not line.startswith("|") or line.startswith("|---"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if "Branch" in cells and "State" in cells:
+            header = cells
+        elif header:
+            rows.append(dict(zip(header, cells)))
+    return rows
+
+
+def first_line(path):
+    with path.open() as f:
+        return f.readline()
+
+
+def last_text(path):
+    text = ""
+    for line in path.read_text().splitlines():
+        entry = json.loads(line)
+        if entry.get("type") != "assistant":
+            continue
+        parts = [c.get("text", "") for c in entry["message"].get("content", []) if c.get("type") == "text"]
+        if any(parts):
+            text = "\n".join(parts)
+    return text
+
+
+def reports(run):
+    found = {}
+    for path in sorted(TRANSCRIPTS.glob("*/*/subagents/agent-*.jsonl"), key=lambda p: p.stat().st_mtime):
+        task = re.search(re.escape(str(run)) + r"/task-([\w.-]+)\.md", first_line(path))
+        if task:
+            text = last_text(path)
+            if text:
+                found[task.group(1)] = text
+    return found
+
+
+def title(issue):
+    run = subprocess.run(
+        ["gh", "issue", "view", issue, "--repo", "Maksim-Burtsev/merl", "--json", "title", "-q", ".title"],
+        capture_output=True,
+        text=True,
+    )
+    return run.stdout.strip()
+
+
+def indented_block(common, label):
+    lines = common.split(label, 1)[1].splitlines()[1:] if label in common else []
+    block = []
+    for line in lines:
+        if line and not line.startswith("    "):
+            break
+        block.append(line[4:])
+    return "\n".join(block).strip()
+
+
+def main():
+    if len(sys.argv) > 3:
+        sys.exit("usage: epic-body [RUN_DIR] [OUT_DIR]")
+    run = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else max(BATCH.glob("*/ledger.md")).parent
+    out = Path(sys.argv[2]) if len(sys.argv) > 2 else run
+    common = (run / "COMMON.md").read_text() if (run / "COMMON.md").exists() else ""
+    merged = [r for r in ledger_rows(run) if r.get("Kind") == "epic" and "merged" in r.get("State", "")]
+    texts = reports(run)
+    closes, part, sections, paragraphs = [], [], [], []
+    for row in merged:
+        issues = re.findall(r"#(\d+)", row.get("Task", ""))
+        state = row["State"]
+        marked = PART.match(state)
+        left = (re.findall(r"#(\d+)", marked.group(1)) or issues) if marked else []
+        for issue in issues:
+            target = part if issue in left else closes
+            if issue not in closes + part:
+                target.append(issue)
+            elif target is closes and issue in part:
+                part.remove(issue)
+                closes.append(issue)
+        name = ", ".join(f"#{i}" for i in issues)
+        head = f"{name}: {title(issues[0])}" if issues else row.get("Task", "")
+        report = texts.get(row["Branch"].rsplit("/", 1)[-1], "")
+        fields = {k.lower().rstrip("s"): v[:1].upper() + v[1:].strip() for k, v in reversed(FIELD.findall(report))}
+        gifs = " ".join(f"![{Path(u).stem}]({u})" for u in dict.fromkeys(GIF.findall(report)))
+        if "before" in fields or "after" in fields:
+            body = [f"**Today** {fields.get('before', '')}", f"**Now** {fields.get('after', '')} {fields.get('test', '')}".rstrip()]
+            paragraph = f"{head}. {fields.get('after', '')} {fields.get('test', '')}".rstrip()
+        else:
+            body = ["> " + line for line in (report or "no report found").splitlines()]
+            paragraph = f"{head}. {report.splitlines()[0] if report else ''}".rstrip()
+        sections.append("\n".join([f"### {head}", *body, *([gifs] if gifs else [])]))
+        paragraphs.append(paragraph)
+    lead = [", ".join(f"{'Closes' if n == 0 else 'closes'} #{i}" for n, i in enumerate(closes)) + "."] if closes else []
+    lead += [f"Part of {', '.join('#' + i for i in part)}: what is left is on each issue."] if part else []
+    footer = indented_block(common, "PR bodies end with:")
+    (out / "epic-body.md").write_text("\n\n".join([*lead, *sections, "Keys — none", *([footer] if footer else [])]) + "\n")
+    trailers = indented_block(common, "Commit trailers:")
+    (out / "squash-msg.txt").write_text("\n\n".join([*paragraphs, *([trailers] if trailers else [])]) + "\n")
+    print(out / "epic-body.md")
+    print(out / "squash-msg.txt")
+
+
+main()

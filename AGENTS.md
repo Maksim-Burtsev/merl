@@ -120,9 +120,21 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
 5. Before a push, `tools/ci-local`: every job of `.github/workflows/ci.yml`, which calls it step
    by step (`tools/ci-local clippy tests` runs only those), and the Deny workflow's `cargo deny`
    (`deny`), stopping non-zero at the first that fails. A change a user can see adds its
-   entry under `## [Unreleased]` in `CHANGELOG.md`, citing the issue as `(#N)`; docs, refactors,
-   tests and tooling get none. What the change moves in the tests, the bullets at the top
-   saying how:
+   changelog entry as a file of its own, `changes/N.md`, `N` the issue (two issues, two files),
+   never into `CHANGELOG.md`, whose `## [Unreleased]` stays empty until a release gathers the
+   files: so parallel PRs never conflict on it. The file is the heading and the entry as the
+   changelog will read them, citing the issue as `(#N)`:
+
+   ```
+   ### Fixed
+
+   - `d` no longer … (#N)
+   ```
+
+   The heading is one of Keep a Changelog's (Added, Changed, Deprecated, Removed, Fixed,
+   Security); `every_change_is_an_issue_s_entry_under_a_keep_a_changelog_heading` checks the
+   name, the heading and the `(#N)`. Docs, refactors, tests and tooling get none. What the change
+   moves in the tests, the bullets at the top saying how:
 
    | The PR changes | It moves |
    |---|---|
@@ -131,12 +143,13 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    | a new screen, overlay or panel | its state in `STATES` |
    | what an edit key does | the `edit_fuzz` model |
    | where `d` lands | a fixture annotation, and the bench's baseline |
-   | an `### Added` or `### Changed` entry | smoke steps citing `(#N)`, or a fixture annotation |
+   | an `### Added` or `### Changed` entry in `changes/N.md` | smoke steps citing `(#N)`, or a fixture annotation |
    | a bug | a test that fails without the fix |
 
    The `### Added` / `### Changed` row is enforced:
    `every_unreleased_feature_is_smoked_or_skipped_on_purpose` (`src/app/tests/smoke.rs`) fails on
-   an entry no scenario or fixture cites, until its issue is listed in `UNSMOKED` with why.
+   an entry, in `changes/` or under `## [Unreleased]`, no scenario or fixture cites, until its
+   issue is listed in `UNSMOKED` with why.
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
 7. Record the screencast, open the PR, and check `gh pr diff --name-only` holds only your files.
@@ -207,7 +220,10 @@ tree-sitter 0.25, tree-sitter-julia 0.23.1 has another `parser.c`, and ts-parser
   (`_get_injections`, `_get_injection`, `get_node_ranges`, `add_injection`) and
   `highlighter.lua`: each injected region is parsed with `set_included_ranges`, a child's
   captures paint over its parent's at equal priority, and an edit repaints from the first row of
-  the region it falls in. A language merl has no grammar for yet goes through syntect
+  the region it falls in. A top-level `injection.combined` pattern keeps one child tree per
+  pattern and language (`src/treesitter/combined.rs`, as `add_injection` keys it), built from
+  its members in the whole file, edited with the parent and scanned and parsed again in the same
+  steps as the parent; a nested layer combines per paint, each of its trees whole, as `_get_injections` scans the whole tree of a query with a combined pattern. A language merl has no grammar for yet goes through syntect
   (`syntax_for_info`), so a fenced block keeps its colours until its language's step lands;
   the injected languages of a step's hosts (`regex`, `printf` for Python) come with it.
 - **The queries** are nvim-treesitter's `highlights.scm` and `injections.scm` at `NVIM_TS` in
@@ -225,10 +241,12 @@ tree-sitter 0.25, tree-sitter-julia 0.23.1 has another `parser.c`, and ts-parser
   LANG` (Neovim 0.12 in tmux, never in CI). `cargo test` compares every character and prints
   `file:line:col`, the token, want and got. All characters equal; a character that cannot be is
   listed with its cause in `tests/colors/LANG/NOTES.md` and skipped by name, never by a threshold.
-- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse` (`edit_fuzz.rs`) plays random
-  edits and compares the spans with a fresh parse after each; run it with
-  `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a change to
-  `src/treesitter.rs` or to `Buffer::edited`.
+- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay`
+  (`edit_fuzz.rs`) plays random edits and compares the spans with a fresh parse after each, or,
+  when the incremental tree differs from the fresh one without an error in either, with the
+  tree tree-sitter itself builds from the same edits (Neovim keeps the incremental tree too);
+  run it with `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a
+  change to `src/treesitter.rs` or to `Buffer::edited`.
 - **The bench**: `tools/theme-bench/run --lang LANG`. No
   theme × language may match fewer characters than `baseline.tsv`; a language joins `for_syntax`
   at ≥ 99 % median over the themes, its remaining misses listed by cause in
@@ -372,10 +390,12 @@ master is fixed before the next merge.
 Only when the owner asks for one, and with nothing open under `release-blocker`. In order:
 
 1. The changelog covers every PR since the last tag (`git log vX.Y.Z..origin/master`): check
-   each commit's issue and content, since PRs merge without an entry, and parallel merges leave a
-   second `### Added` in `## [Unreleased]` to fold into the first. Dependabot, `docs:`,
-   `refactor:` and tooling commits get no entry. Entries cite the issue. The entries go in on the
-   release branch: its PR (step 4) carries them.
+   each commit's issue and content, since PRs merge without an entry; a missing one is written as
+   its `changes/N.md`. Dependabot, `docs:`, `refactor:` and tooling commits get no entry. Entries
+   cite the issue. Then `tools/gather-changes.py` moves every `changes/N.md` under
+   `## [Unreleased]`, one heading each in Keep a Changelog's order, entries by issue number, and
+   deletes the files (`--print` shows the section and touches nothing). This happens on the
+   release branch: its PR (step 4) carries the section and the deletions.
 2. Smoke test: `.claude/skills/smoke-test/SKILL.md` (`/smoke-test` in Claude Code), from that
    branch, so the report reads the finished changelog. No release without its GO.
 3. The release note, `docs/releases/X.Y.Z.md`: `release.yml` publishes it as the release, titled

@@ -7,46 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- The status bar shows the time of day on its right edge, as LazyVim does, so a full-screen
-  terminal keeps a clock in sight. It goes before the path would be shortened and while a `:`,
-  `/` or `new:` prompt is open. `clock` in `~/.config/merl/config.toml` sets its format
-  (`"%H:%M"` by default, `"%I:%M %p"` for 12 hours, `"%H:%M:%S"` with seconds) or turns it off
-  (`clock = false`); a format merl cannot read stops it at start. (#761)
-
-### Changed
-
-- The status bar no longer ends with `? help`: the start screen lists `?` among its keys. (#857)
-
-- Code is coloured as LazyVim colours it, from tree-sitter's syntax tree and the theme's Neovim
-  colours, in Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash, JSON, YAML,
-  TOML, Lua, C, C++, Java, C#, Kotlin, Scala, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Dockerfiles,
-  CMake, Protobuf, HCL, Terraform, INI, Nix, Scheme, Racket, Common Lisp, Emacs Lisp, R, Erlang, SQL, Vue, Svelte, diffs and tree-sitter queries, with the code embedded in them (a fenced block,
-  a regex, a `run:` script). Other files keep the colours they had. The hidden `tree_sitter =
-  true` that turned this on early is gone: delete it from `~/.config/merl/config.toml`, where merl
-  now stops on it. (#810)
-- The default theme, `tokyonight-moon`, is tokyonight.nvim's Moon as Neovim paints it, where it
-  shipped folke's Sublime file: the files merl does not colour with tree-sitter come closer to
-  LazyVim too. (#812)
-- In `--review`, `c` passes over the files ticked viewed in an earlier round, by `c` or `m`, and
-  goes to the changed and the unread; a file changed since its tick is a stop again, and `C`
-  still stops on every file. A reopened review opens on the first unticked file, or says `all
-  files viewed`. (#824)
-
-### Fixed
-
-- `d` no longer crashes on non-ASCII text next to the word in an Erlang string, an R `pkg::name`,
-  a Python statement or a component name (#863).
-- `d` on a method of a `const trait` of Rust's standard library (`clone`, `default`, `into_iter`)
-  finds the trait's method: first in the list, or the jump when that trait alone declares it (#514).
-- `d` in TypeScript on a method of an anonymous default class (`export default class extends
-  Base {`) jumps to it through the receiver's type, where it offered every method of that name
-  (#817).
-- Leaving a review note returns to the mode it was opened from: a note opened with `a` while
-  reading goes back to reading, block cursor, however you leave it (an arrow, Backspace on an
-  empty note, Ctrl+X, Ctrl+Z / Ctrl+Y), where it used to land in edit mode on the code (#881).
-
 ## [0.8.5] - 2026-10-13
 
 ### Added

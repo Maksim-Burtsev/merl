@@ -1020,6 +1020,11 @@ const QUERY: &[&str] = &[
     "\n\n",
 ];
 
+const NIX: &[&str] = &[
+    "\"${x}\"", "''\n", "''${", "/* c */", "# c\n", "let\n", "in\n", "a: ", "[", "]", "{", "}",
+    "\"", "\n\n",
+];
+
 const CPP: &[&str] = &[
     "template <typename T>\n",
     "R\"x(",
@@ -1061,6 +1066,22 @@ const KOTLIN: &[&str] = &[
     "@JvmStatic\n",
     "when (x) {\n",
     "<T : A>",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const SWIFT: &[&str] = &[
+    "\"\\(x)\"",
+    "\"\"\"\n",
+    "/// ",
+    "/[a-z]+/",
+    "@MainActor\n",
+    "switch x {\n",
+    "<T: A>",
     "(",
     ")",
     "{",
@@ -1344,7 +1365,38 @@ const LUA: &[&str] = &[
     "  ",
 ];
 
+const PHP: &[&str] = &[
+    "\"{$x}\"",
+    "<<<TEXT\n",
+    "TEXT;\n",
+    "/** ",
+    " */",
+    "?>\n<p>",
+    "<?php ",
+    "#[Attr]\n",
+    "(",
+    ")",
+    "{",
+    "}",
+    "\"",
+    "\n\n",
+];
+
+const DOCKERFILE: &[&str] = &[
+    "RUN ", " \\\n", "<<EOT\n", "EOT\n", "${X}", "$X", " && ", "[\"", "\"]", "\"", "# ", "\n\n",
+];
+
 const SESSIONS: &[(&str, &[u8], &[&str])] = &[
+    (
+        "f.php",
+        include_bytes!("../../../tests/colors/php/Ledger.php").as_slice(),
+        PHP,
+    ),
+    (
+        "Dockerfile",
+        include_bytes!("../../../tests/colors/dockerfile/Dockerfile").as_slice(),
+        DOCKERFILE,
+    ),
     (
         "f.py",
         include_bytes!("../../../tests/colors/python/classes.py").as_slice(),
@@ -1404,6 +1456,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "F.kt",
         include_bytes!("../../../tests/colors/kotlin/Ledger.kt").as_slice(),
         KOTLIN,
+    ),
+    (
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift").as_slice(),
+        SWIFT,
     ),
     (
         "F.scala",
@@ -1520,10 +1577,15 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         include_bytes!("../../../tests/colors/query/queries/highlights.scm").as_slice(),
         QUERY,
     ),
+    (
+        "f.nix",
+        include_bytes!("../../../tests/colors/nix/ledger.nix").as_slice(),
+        NIX,
+    ),
 ];
 
 #[test]
-fn tree_sitter_spans_after_edits_equal_a_fresh_parse() {
+fn tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay() {
     for (name, start, snippets) in SESSIONS {
         fuzz_tree_sitter(name, start, snippets);
     }
@@ -1543,6 +1605,89 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
         JAVA,
         2445..=2445,
     );
+}
+
+#[test]
+fn an_edit_in_one_member_of_a_combined_injection_repaints_the_others() {
+    let php = include_bytes!("../../../tests/colors/php/Ledger.php");
+    let xml = include_bytes!("../../../tests/colors/xml/project.xml");
+    let docker = include_bytes!("../../../tests/colors/dockerfile/Dockerfile");
+    let cases: &[(&str, &[u8], &[&str], u64)] = &[
+        ("f.php", php, PHP, 5),
+        ("f.php", php, PHP, 1085),
+        ("f.php", php, PHP, 1807),
+        ("f.xml", xml, MARKUP, 385),
+        ("f.xml", xml, MARKUP, 1085),
+        ("f.xml", xml, MARKUP, 1269),
+        ("Dockerfile", docker, DOCKERFILE, 1),
+        ("Dockerfile", docker, DOCKERFILE, 453),
+        ("Dockerfile", docker, DOCKERFILE, 256),
+    ];
+    for &(name, start, snippets, seed) in cases {
+        replay_tree_sitter(name, start, snippets, seed..=seed);
+    }
+}
+
+#[test]
+fn a_tree_tree_sitter_builds_from_the_same_edits_is_painted_as_built() {
+    replay_tree_sitter(
+        "F.swift",
+        include_bytes!("../../../tests/colors/swift/Ledger.swift"),
+        SWIFT,
+        754..=754,
+    );
+}
+
+#[test]
+fn a_nested_combined_injection_joins_members_above_the_paint() {
+    replay_tree_sitter(
+        "f.md",
+        include_bytes!("../../../tests/colors/markdown/code.md"),
+        MARKDOWN,
+        4366..=4366,
+    );
+}
+
+#[test]
+fn captures_of_one_byte_range_paint_in_the_order_of_a_paint_from_the_top() {
+    replay_tree_sitter(
+        "f.nix",
+        include_bytes!("../../../tests/colors/nix/ledger.nix"),
+        NIX,
+        32..=32,
+    );
+}
+
+#[test]
+fn a_combined_injection_over_many_scan_steps_equals_a_fresh_parse() {
+    let page = include_str!("../../../tests/colors/php/Ledger.php").repeat(7);
+    assert!(page.len() > 16 * 1024);
+    replay_tree_sitter("f.php", page.as_bytes(), PHP, 1..=4);
+}
+
+#[test]
+fn two_combined_patterns_into_one_language_keep_a_tree_each() {
+    let text = include_str!("../../../tests/colors/nix/ledger.nix")
+        .replace("buildPhase = ''", "buildPhase = /* bash */ ''");
+    let mut fresh = Buffer::from_bytes(PathBuf::from("f.nix"), text.as_bytes());
+    fresh.parse_more(None);
+    let bash = fresh
+        .groups()
+        .iter()
+        .filter(|g| g.key.starts_with("bash"))
+        .count();
+    assert!(bash >= 2, "{:?}", fresh.groups());
+    let snippets = &[
+        "/* bash */ ",
+        "''",
+        "buildPhase = ",
+        "preBuild = ",
+        "$out ",
+        "${x}",
+        ";",
+        "\n",
+    ];
+    replay_tree_sitter("f.nix", text.as_bytes(), snippets, 1..=20);
 }
 
 #[test]
@@ -1580,6 +1725,7 @@ fn replay_tree_sitter(
     snippets: &[&str],
     seeds: std::ops::RangeInclusive<u64>,
 ) {
+    crate::treesitter::RECORD.set(true);
     let theme = crate::theme::load("tokyonight-moon").unwrap();
     let dir = std::env::temp_dir().join(format!(
         "merl-ts-fuzz-{}-{}",
@@ -1623,34 +1769,27 @@ fn replay_tree_sitter(
             fresh.parse_more(None);
             fresh.paint_to(usize::MAX, &theme);
             let (shape, fresh_shape) = (a.buf.shape(), fresh.shape());
-            let recovered = |s: &crate::treesitter::Shape| {
-                s.iter()
-                    .any(|(kind, _, missing, _)| *missing || *kind == u16::MAX)
-            };
-            let tokens = |s: &crate::treesitter::Shape| {
-                s.iter()
-                    .filter(|n| n.3)
-                    .map(|n| (n.0, n.1.clone()))
-                    .collect::<Vec<_>>()
-            };
-            let want = if shape == fresh_shape {
+            let at = format!("{name} seed {seed}, after [{}]", done.join(", "));
+            let want = if groups_as_fresh(&a.buf, &fresh, shape == fresh_shape, &at) {
                 fresh.hl
             } else {
-                assert!(
-                    recovered(&shape)
-                        || recovered(&fresh_shape)
-                        || tokens(&shape) == tokens(&fresh_shape),
-                    "{name} seed {seed}, after [{}]: the tree differs from a fresh parse without an error in either\nincremental {}\nfresh {}",
-                    done.join(", "),
-                    a.buf.sexp(),
-                    fresh.sexp()
-                );
-                assert_eq!(
-                    a.buf.root_bytes(),
-                    fresh.root_bytes(),
-                    "{name} seed {seed}, after [{}]: the tree does not span the text",
-                    done.join(", ")
-                );
+                if shape != fresh_shape {
+                    let (own, own_sexp) = a.buf.own();
+                    assert!(
+                        recovered(&shape)
+                            || recovered(&fresh_shape)
+                            || tokens(&shape) == tokens(&fresh_shape)
+                            || shape == own,
+                        "{at}: the tree differs from a fresh parse without an error in either, and from the one tree-sitter builds from the same edits\nincremental {}\nfresh {}\ntree-sitter {own_sexp}",
+                        a.buf.sexp(),
+                        fresh.sexp()
+                    );
+                    assert_eq!(
+                        a.buf.root_bytes(),
+                        fresh.root_bytes(),
+                        "{at}: the tree does not span the text"
+                    );
+                }
                 let kept = a.buf.hl.clone();
                 a.buf.clear_hl();
                 a.buf.paint_to(usize::MAX, &theme);
@@ -1658,8 +1797,7 @@ fn replay_tree_sitter(
             };
             if let Some(l) = (0..a.buf.lines.len()).find(|&l| a.buf.hl[l] != want[l]) {
                 panic!(
-                    "{name} seed {seed}, after [{}]: line {} {:?}\nincremental {:?}\nfresh {:?}",
-                    done.join(", "),
+                    "{at}: line {} {:?}\nincremental {:?}\nfresh {:?}",
                     l + 1,
                     a.buf.lines[l],
                     a.buf.hl[l],
@@ -1668,4 +1806,56 @@ fn replay_tree_sitter(
             }
         }
     }
+}
+
+fn recovered(s: &crate::treesitter::Shape) -> bool {
+    s.iter()
+        .any(|(kind, _, missing, _)| *missing || *kind == u16::MAX)
+}
+
+fn tokens(s: &crate::treesitter::Shape) -> Vec<(u16, std::ops::Range<usize>)> {
+    s.iter()
+        .filter(|n| n.3)
+        .map(|n| (n.0, n.1.clone()))
+        .collect()
+}
+
+fn groups_as_fresh(buf: &Buffer, fresh: &Buffer, top_same: bool, at: &str) -> bool {
+    let (groups, fresh_groups) = (buf.groups(), fresh.groups());
+    if let Some(g) = groups.iter().find(|g| g.stale) {
+        panic!(
+            "{at}: the {} group keeps a tree parsed from text its members no longer hold",
+            g.key
+        );
+    }
+    if !top_same {
+        return false;
+    }
+    let members = |gs: &[crate::treesitter::GroupShape]| {
+        gs.iter()
+            .map(|g| (g.key.clone(), g.ranges.clone()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        members(&groups),
+        members(&fresh_groups),
+        "{at}: the combined injections' members differ from a fresh parse's"
+    );
+    groups.iter().zip(&fresh_groups).fold(true, |same, (g, f)| {
+        if g.shape == f.shape {
+            return same;
+        }
+        assert!(
+            recovered(&g.shape)
+                || recovered(&f.shape)
+                || tokens(&g.shape) == tokens(&f.shape)
+                || g.shape == g.own,
+            "{at}: the {} group's tree differs from a fresh parse's without an error in either, and from the one tree-sitter builds from the same edits and ranges\nincremental {}\nfresh {}\ntree-sitter {}",
+            g.key,
+            g.sexp,
+            f.sexp,
+            g.own_sexp
+        );
+        false
+    })
 }

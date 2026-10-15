@@ -1426,6 +1426,7 @@ b";
         "tests/smoke/setup.sh",
         "assets/tapes",
         ".claude/hooks",
+        ".claude/skills/batch/bin",
         ".github",
         "Cargo.toml",
         "deny.toml",
