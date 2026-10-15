@@ -70,9 +70,12 @@ sequence.
 
 ## 4. Run
 
-Each implementer is one agent whose prompt is two lines: read `.claude/skills/batch/implementer.md`
-and its task file (kind, issue, worktree, branch, base, scratch folder, the master build, the
-commit trailers).
+Each implementer is one `merl-implementer` agent (`.claude/agents/`) whose prompt is two lines:
+read `.claude/skills/batch/implementer.md` and its task file (kind, issue, worktree, branch, base,
+scratch folder, the master build, the commit trailers). Integrators, fixers and the epic's
+reviewer are `merl-implementer` too, and every Punchcard finder is a `merl-finder`: both skip the
+owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens and a finder at
+~6k, where a `general-purpose` agent starts at ~54k.
 
 - **Calm.** At night at most 2 agents at once, by day 4: a night has hours to spare, and more
   agents only queue on the Mac mini's 10 cores and run its fan all night. The owner may lift it
@@ -85,9 +88,9 @@ commit trailers).
   several branches wait, a separate integrator agent keeps the conflicts out of your context.
   After each merge of a language or of master, `tests/smoke/run.py --golden` on the epic.
 - **Own-PR issues.** The agent opens its PR, with before/after screencasts when it is visible
-  (then under `needs-owner`), and reviews it with Punchcard once itself. The finders run in the
-  foreground inside the implementer (`run_in_background: false`), so the review comes back to
-  it and not to you.
+  (then under `needs-owner`), and reviews it with Punchcard once itself. The finders run as
+  `merl-finder` in the foreground inside the implementer (`run_in_background: false`), so the
+  review comes back to it and not to you.
 - **The epic PR.** One PR into master, a section per issue (before, after, the test that catches
   it). One fresh agent runs Punchcard on it once and its findings are fixed in one pass, by
   parallel agents on branches off the epic when there are many. No second review. A finding
