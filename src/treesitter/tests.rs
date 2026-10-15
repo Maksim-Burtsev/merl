@@ -268,6 +268,11 @@ fn c_sharp_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn sql_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("sql");
+}
+
+#[test]
 fn cmake_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("cmake");
 }
@@ -300,6 +305,11 @@ fn dockerfile_and_the_shell_in_it_are_coloured_as_lazyvim() {
 #[test]
 fn kotlin_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("kotlin");
+}
+
+#[test]
+fn scala_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("scala");
 }
 
 #[test]
@@ -360,6 +370,16 @@ fn elixir_and_the_markdown_in_its_docs_are_coloured_as_lazyvim() {
 #[test]
 fn html_and_the_css_and_javascript_in_it_are_coloured_as_lazyvim() {
     coloured_as_lazyvim("html");
+}
+
+#[test]
+fn vue_and_the_typescript_and_css_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("vue");
+}
+
+#[test]
+fn svelte_and_the_typescript_and_css_in_it_are_coloured_as_lazyvim() {
+    coloured_as_lazyvim("svelte");
 }
 
 #[test]
@@ -481,6 +501,10 @@ fn build_and_config_files_get_their_grammar() {
         assert!(sexp(f, b"set(A 1)\n").contains("(normal_command "), "{f}");
     }
     assert_eq!(sexp("CMakeCache.txt", b"A:BOOL=ON\n"), "");
+    assert!(sexp("a.sql", b"SELECT 1;\n").contains("(program "));
+    for f in ["a.psql", "a.pgsql", "a.mysql", "a.ddl"] {
+        assert_eq!(sexp(f, b"SELECT 1;\n"), "", "{f}");
+    }
     assert!(sexp("a.proto", b"message A {}\n").contains("(message "));
     assert_eq!(sexp("a.protodevel", b"message A {}\n"), "");
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
@@ -532,6 +556,16 @@ fn kotlin_swift_zig_ruby_and_php_files_get_their_grammar() {
         assert!(sexp(f, b"class A\n").contains("(source_file "), "{f}");
     }
     assert!(sexp("A.swift", b"class A {}\n").contains("(source_file "));
+    for f in ["A.scala", "build.sbt", "run.sc", "build.mill"] {
+        assert!(
+            sexp(f, b"val a = 1\n").contains("(compilation_unit "),
+            "{f}"
+        );
+    }
+    for src in ["var <x;\n", "{ |freq| SinOsc.ar(freq) }\n", "^this.value\n"] {
+        assert_eq!(sexp("a.sc", src.as_bytes()), "", "{src}");
+    }
+    assert!(sexp("A.scala", b"var <x;\n").contains("(compilation_unit "));
     for f in ["a.zig", "build.zig.zon"] {
         assert!(sexp(f, b"const a = 1;\n").contains("(source_file "), "{f}");
     }
@@ -562,6 +596,12 @@ fn kotlin_swift_zig_ruby_and_php_files_get_their_grammar() {
         assert!(sexp(f, b"<?php echo 1;\n").contains("(program "), "{f}");
     }
     assert_eq!(sexp("a.blade.php", b"<?php echo 1;\n"), "");
+}
+
+#[test]
+fn vue_and_svelte_files_get_their_grammar() {
+    assert!(sexp("A.vue", b"<template><p>{{ a }}</p></template>\n").contains("(interpolation "));
+    assert!(sexp("B.svelte", b"{#if a}<p>b</p>{/if}\n").contains("(if_statement "));
 }
 
 #[test]
@@ -882,12 +922,14 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("tf", None),
         ("ini", Some("ini")),
         ("dosini", Some("ini")),
+        ("sql", Some("sql")),
         ("swift", Some("swift")),
         ("ruby", Some("ruby")),
         ("rb", Some("ruby")),
         ("php", Some("php")),
         ("elixir", Some("elixir")),
         ("ex", Some("elixir")),
+        ("scala", Some("scala")),
         ("zig", Some("zig")),
         ("nix", Some("nix")),
         ("scheme", Some("scheme")),
@@ -899,6 +941,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("rkt", Some("racket")),
         ("lisp", Some("commonlisp")),
         ("commonlisp", Some("commonlisp")),
+        ("vue", Some("vue")),
+        ("svelte", Some("svelte")),
     ] {
         assert_eq!(resolve(alias).map(|l| l.name), want, "{alias}");
     }

@@ -106,6 +106,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/proto/injections.scm"),
     ),
     (
+        "sql",
+        include_str!("../queries/sql/highlights.scm"),
+        include_str!("../queries/sql/injections.scm"),
+    ),
+    (
         "dockerfile",
         include_str!("../queries/dockerfile/highlights.scm"),
         include_str!("../queries/dockerfile/injections.scm"),
@@ -188,6 +193,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/ruby/injections.scm"),
     ),
     (
+        "scala",
+        include_str!("../queries/scala/highlights.scm"),
+        include_str!("../queries/scala/injections.scm"),
+    ),
+    (
         "swift",
         include_str!("../queries/swift/highlights.scm"),
         include_str!("../queries/swift/injections.scm"),
@@ -251,6 +261,16 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "commonlisp",
         include_str!("../queries/commonlisp/highlights.scm"),
         include_str!("../queries/commonlisp/injections.scm"),
+    ),
+    (
+        "vue",
+        include_str!("../queries/vue/highlights.scm"),
+        include_str!("../queries/vue/injections.scm"),
+    ),
+    (
+        "svelte",
+        include_str!("../queries/svelte/highlights.scm"),
+        include_str!("../queries/svelte/injections.scm"),
     ),
 ];
 
@@ -431,6 +451,8 @@ fn grammar(name: &str) -> Option<Language> {
         "proto" => tree_sitter_proto::LANGUAGE.into(),
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
+        "sql" => tree_sitter_sequel::LANGUAGE.into(),
+        "scala" => tree_sitter_scala::LANGUAGE.into(),
         "swift" => tree_sitter_swift::LANGUAGE.into(),
         "ruby" => tree_sitter_ruby::LANGUAGE.into(),
         "elixir" => tree_sitter_elixir::LANGUAGE.into(),
@@ -448,6 +470,8 @@ fn grammar(name: &str) -> Option<Language> {
         "erlang" => tree_sitter_erlang::LANGUAGE.into(),
         "racket" => tree_sitter_racket::LANGUAGE.into(),
         "commonlisp" => tree_sitter_commonlisp::LANGUAGE_COMMONLISP.into(),
+        "vue" => tree_sitter_vue_next::LANGUAGE.into(),
+        "svelte" => tree_sitter_svelte_ng::LANGUAGE.into(),
         _ => return None,
     })
 }
