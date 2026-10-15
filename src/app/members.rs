@@ -174,6 +174,9 @@ impl App {
             .and_then(|l| search::type_name(kind, l))
             .filter(|_| kind == Kind::TsJs)
             .unwrap_or_else(|| ty.name.clone());
+        if named == "extends" {
+            self.anonymous_named.set(Some(ty.clone()));
+        }
         let owner = search::qualified(kind, &text, ty.line, &named).unwrap_or(named);
         let want = Some(format!("{owner}.{word}"));
         let patterns = search::member_or_signature(kind, word).unwrap_or_default();
