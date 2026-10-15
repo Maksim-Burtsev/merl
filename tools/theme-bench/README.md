@@ -365,8 +365,8 @@ Vue and Svelte (#809), `.vue` and `.svelte`, both on top of `html_tags`: Vue's `
 JavaScript or, with `lang="ts"`, TypeScript, its `{{ }}` and directive values TypeScript, its
 `<style>` CSS; Svelte's `<script>` and `{ }` JavaScript or TypeScript, its `<style>` CSS. A
 `<style lang="scss">` (and less, postcss, sass) asks for `scss`, which merl has no grammar for yet:
-syntect colours it, while LazyVim, recorded without the scss parser, leaves it plain; the bench's
-files hold none. The pinned commits bind tree-sitter 0.20 (Vue) or are released on crates.io as
+it is left plain, as LazyVim recorded without the scss parser leaves it (the syntect fallback is
+only for Markdown's code blocks); the bench's files hold none. The pinned commits bind tree-sitter 0.20 (Vue) or are released on crates.io as
 tree-sitter-svelte-ng 1.0.2 (Svelte); Vue comes from crates.io's tree-sitter-vue-next 0.1.0, whose
 `parser.c`, `scanner.c` and `tag.h` equal the pin's byte for byte, on `tree-sitter-language`. Vue
 from gitea, Svelte from immich; master's syntect medians are 67.2 and 73.0:
