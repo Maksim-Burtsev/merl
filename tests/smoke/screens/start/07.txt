@@ -22,5 +22,5 @@ wait Tutor 2/
 Tutor 2/23 · Find in the file
 Press `/` (or Ctrl+F), type `load_config`, Enter. The search runs as you type.
 
-store.py  1:1  [code]  ✓ Open a file
+store.py  1:1  [code]  ✓ Open a file                                      14:32
 cursor (x,y,shown) 3,0,1

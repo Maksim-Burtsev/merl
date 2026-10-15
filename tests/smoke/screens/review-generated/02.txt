@@ -53,5 +53,5 @@ wait file 1/2
 │                            │
 │                            │
 └ 2 files · +5 −3 ───────────┘
-web/package-lock.json  [code]  folded  file 1/2                                                                                                                                   ? help
+web/package-lock.json  [code]  folded  file 1/2                                                                                                                                    14:32
 cursor (x,y,shown) 185,54,0

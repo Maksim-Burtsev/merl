@@ -53,5 +53,5 @@ wait empty file, deleted
 │                            │
 │                            │
 └ 2 files · +2 −0 ───────────┘
-scripts/__init__.py  1:1  [code]  read-only  hunk 0/0  file 1/2                                                                                                                   ? help
+scripts/__init__.py  1:1  [code]  read-only  hunk 0/0  file 1/2                                                                                                                    14:32
 cursor (x,y,shown) 185,54,0

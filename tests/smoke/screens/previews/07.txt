@@ -53,5 +53,5 @@ wait "sku": "A-1",
 │                            │
 │                            │
 └────────────────────────────┘
-data/events.jsonl  1:1  [preview]                                                                                                                                                 ? help
+data/events.jsonl  1:1  [preview]                                                                                                                                                  14:32
 cursor (x,y,shown) 33,54,0

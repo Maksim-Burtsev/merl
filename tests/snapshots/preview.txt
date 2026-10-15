@@ -24,7 +24,7 @@ merl snapshot: preview
 │                            │   ☐ tests
 │                            │
 └────────────────────────────┘   ┌────────┬─────────────────────┬──────────────┐
-PLAN.md  1:1  [preview]                                                  ? help
+PLAN.md  1:1  [preview]
 
 ==== 80x24 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeee
@@ -132,7 +132,7 @@ k fg #f6f8fa bg #5094e4
 │                            │   │ Tags match as typed: Work and work are two tags, as they are today.
 │                            │
 └────────────────────────────┘    def find(self, needle: str, tags: list[str] | None = None) -> list[Note]:
-PLAN.md  1:1  [preview]                                                                                          ? help
+PLAN.md  1:1  [preview]
 
 ==== 120x33 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -298,7 +298,7 @@ r fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-PLAN.md  1:1  [preview]                                                                                                                                                           ? help
+PLAN.md  1:1  [preview]
 
 ==== 185x55 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccdddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee

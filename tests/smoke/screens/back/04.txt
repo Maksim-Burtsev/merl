@@ -18,5 +18,5 @@ wait worker/main.go  19:
 │    go.mod                  │17     defer stop()
 │    main.go                 │18
 └────────────────────────────┘19     q := queue.New()
-worker/main.go  19:18  [code]                                                                                                                            ? help
+worker/main.go  19:18  [code]                                                                                                                             14:32
 cursor (x,y,shown) 50,18,1

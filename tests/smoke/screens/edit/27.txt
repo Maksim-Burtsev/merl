@@ -53,5 +53,5 @@ wait app/money.py  1:8  [code]
 │                            │
 │                            │
 └────────────────────────────┘
-app/money.py  1:8  [code]                                                                                                                                                         ? help
+app/money.py  1:8  [code]                                                                                                                                                          14:32
 cursor (x,y,shown) 39,0,1

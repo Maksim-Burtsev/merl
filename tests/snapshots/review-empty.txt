@@ -24,7 +24,7 @@ merl snapshot: review-empty
 │                            │
 │                            │
 └ 4 files · +5 −8 ───────────┘
-tests/__init__.py  1:1  [code]  hunk 0/0  file 1/4                       ? help
+tests/__init__.py  1:1  [code]  hunk 0/0  file 1/4
 
 ==== 80x24 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -131,7 +131,7 @@ j fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └ 4 files · +5 −8 ───────────┘
-tests/__init__.py  1:1  [code]  hunk 0/0  file 1/4                                                               ? help
+tests/__init__.py  1:1  [code]  hunk 0/0  file 1/4
 
 ==== 120x33 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -278,7 +278,7 @@ j fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └ 4 files · +5 −8 ───────────┘
-tests/__init__.py  1:1  [code]  hunk 0/0  file 1/4                                                                                                                                ? help
+tests/__init__.py  1:1  [code]  hunk 0/0  file 1/4
 
 ==== 185x55 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

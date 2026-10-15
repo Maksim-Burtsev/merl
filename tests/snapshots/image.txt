@@ -24,7 +24,7 @@ merl snapshot: image
 │                            │
 │                            │
 └────────────────────────────┘
-logo.png  96×48  [code]                                                  ? help
+logo.png  96×48  [code]
 
 ==== 80x24 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -127,7 +127,7 @@ h fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-logo.png  96×48  [code]                                                                                          ? help
+logo.png  96×48  [code]
 
 ==== 120x33 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -270,7 +270,7 @@ h fg #f6f8fa bg #5094e4
 │                            │
 │                            │
 └────────────────────────────┘
-logo.png  96×48  [code]                                                                                                                                                           ? help
+logo.png  96×48  [code]
 
 ==== 185x55 tokyonight-moon styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

@@ -53,5 +53,5 @@ wait trimmed → ParcelList.refresh.trimmed (local)
 
 
 
-web/android/src/main/kotlin/courier/app/ParcelList.kt  5:13  [code]  trimmed → ParcelList.refresh.trimmed (local)
+web/android/src/main/kotlin/courier/app/ParcelList.kt  5:13  [code]  trimmed → ParcelList.refresh.trimmed (local)                                                                  14:32
 cursor (x,y,shown) 15,4,1
