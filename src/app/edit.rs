@@ -445,7 +445,7 @@ impl App {
     }
 
     pub fn tick(&mut self) -> bool {
-        let parsed = self.parse_tick();
+        let parsed = self.parse_tick() | self.occurrence_tick();
         let due = self.last_edit.is_some_and(|t| t.elapsed() >= self.autosave);
         if !due || !self.dirty || self.conflict {
             return parsed;

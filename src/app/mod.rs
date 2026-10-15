@@ -363,6 +363,7 @@ pub struct App {
     pub mode: Mode,
     pub prompt: LineEdit,
     pub find_re: Option<Regex>,
+    occ_rest: Option<((TextLine, usize), Instant, bool)>,
     find_query: String,
     find_anchor: (TextLine, usize),
     find_sel: Option<(TextLine, usize)>,
@@ -518,6 +519,7 @@ impl App {
             mode: Mode::Normal,
             prompt: LineEdit::default(),
             find_re: None,
+            occ_rest: None,
             find_query: String::new(),
             find_anchor: (TextLine::File(0), 0),
             find_sel: None,
@@ -623,6 +625,41 @@ impl App {
             || self.root.display().to_string(),
             |n| n.to_string_lossy().into_owned(),
         )
+    }
+
+    pub fn occurrence_tick(&mut self) -> bool {
+        let here = (self.at(), self.col);
+        match self.occ_rest {
+            Some((h, t, false)) if h == here && t.elapsed() >= Duration::from_millis(200) => {
+                self.occ_rest = Some((h, t, true));
+                true
+            }
+            Some((h, _, _)) if h == here => false,
+            _ => {
+                self.occ_rest = Some((here, Instant::now(), false));
+                false
+            }
+        }
+    }
+
+    pub fn occurrence_word(&self) -> Option<(String, &'static str)> {
+        let opt = std::env::var("MERL_P411").ok()?;
+        let rested = self.occ_rest.is_some_and(|(h, _, shown)| shown && h == (self.at(), self.col));
+        let on = match opt.as_str() {
+            "a" => true,
+            "b" => rested,
+            _ => false,
+        };
+        if !on
+            || self.mode != Mode::Normal
+            || self.focus != Focus::Code
+            || self.notes.focus.is_some()
+            || self.selection().is_some()
+        {
+            return None;
+        }
+        let extra = search::word_chars(self.kind(), false);
+        self.word_under(extra).map(|w| (w, extra))
     }
 
     pub fn line_str(&self) -> &str {

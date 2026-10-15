@@ -144,6 +144,8 @@ struct Painter<'a> {
     review: bool,
     partner: HashMap<(usize, usize), usize>,
     span: Option<(TextLine, TextLine)>,
+    occ: Option<(String, &'static str)>,
+    occ_style: Style,
 }
 
 impl<'a> Painter<'a> {
@@ -182,6 +184,13 @@ impl<'a> Painter<'a> {
             review: app.review.is_some(),
             partner: app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect(),
             span: app.note_span(),
+            occ: app.occurrence_word(),
+            occ_style: Style::new().bg(
+                theme
+                    .group("LspReferenceText")
+                    .and_then(|s| s.bg)
+                    .unwrap_or(theme.selection),
+            ),
         }
     }
 
@@ -194,6 +203,19 @@ impl<'a> Painter<'a> {
             .bg(bg)
             .fg(self.theme.word_fg)
             .remove_modifier(Modifier::BOLD | Modifier::ITALIC | Modifier::UNDERLINED)
+    }
+
+    fn occurrences(&self, text: &str) -> Vec<Range<usize>> {
+        let Some((word, extra)) = &self.occ else {
+            return Vec::new();
+        };
+        let part = |c: char| c.is_alphanumeric() || c == '_' || extra.contains(c);
+        text.match_indices(word.as_str())
+            .filter(|(i, w)| {
+                !text[..*i].ends_with(part) && !text[i + w.len()..].starts_with(part)
+            })
+            .map(|(i, w)| i..i + w.len())
+            .collect()
     }
 
     fn in_span(&self, t: TextLine) -> bool {
@@ -331,6 +353,7 @@ impl<'a> Painter<'a> {
             .find_re
             .as_ref()
             .map_or_else(Vec::new, |re| matches(re, text));
+        let syntax = &with_find(syntax, &self.occurrences(text), self.occ_style);
         let spans = paint_finds(
             &with_find(syntax, &words, self.word(self.theme.del_word_bg)),
             &finds,
@@ -442,6 +465,7 @@ impl<'a> Painter<'a> {
         } else {
             theme.add_word_bg
         };
+        let syntax = &with_find(syntax, &self.occurrences(clipped), self.occ_style);
         let spans = paint_finds(
             &with_find(syntax, &words, self.word(word_bg)),
             &finds,
