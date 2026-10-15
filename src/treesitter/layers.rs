@@ -4,7 +4,7 @@ use syntect::parsing::{ParseState, ScopeStack, SyntaxReference};
 use tree_sitter::{Node, Parser, Point, QueryCursor, Range, StreamingIterator, Tree};
 
 use super::combined::Group;
-use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, point, resolve};
+use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, point};
 
 const MAX_DEPTH: usize = 8;
 const ANCHOR_ROWS: usize = 64;
@@ -16,10 +16,12 @@ pub enum Target {
 
 impl Target {
     fn of(name: &str, syntect: bool) -> Option<Self> {
-        resolve(name).map(Target::Tree).or_else(|| {
+        let strict = super::proto_strict(syntect);
+        super::resolve_as(name, !strict).map(Target::Tree).or_else(|| {
             syntect
                 .then(|| crate::buffer::syntax_for_info(name, false))
                 .flatten()
+                .filter(|s| !strict || super::for_syntax(&s.name, Some(std::path::Path::new(&format!("a.{name}"))), &[]).is_none())
                 .map(Target::Syntect)
         })
     }

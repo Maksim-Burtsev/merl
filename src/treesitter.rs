@@ -294,6 +294,11 @@ const ALIASES: &[(&str, &str)] = &[
     ("terraform_vars", "terraform"),
     ("confini", "ini"),
     ("dosini", "ini"),
+    ("cs", "c_sharp"),
+    ("ex", "elixir"),
+    ("erl", "erlang"),
+    ("lisp", "commonlisp"),
+    ("sbt", "scala"),
 ];
 
 const PREDICATES: &[&str] = &[
@@ -487,6 +492,18 @@ pub fn lang(name: &str) -> Option<&'static Lang> {
 }
 
 pub fn resolve(alias: &str) -> Option<&'static Lang> {
+    resolve_as(alias, true)
+}
+
+pub fn proto_strict(fence: bool) -> bool {
+    match std::env::var("MERL_P879").as_deref() {
+        Ok("a") => true,
+        Ok("c") => !fence,
+        _ => false,
+    }
+}
+
+pub fn resolve_as(alias: &str, by_extension: bool) -> Option<&'static Lang> {
     let alias: String = alias
         .chars()
         .filter(|c| !c.is_whitespace())
@@ -507,6 +524,9 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
         .find(|(a, _)| *a == alias)
         .map_or(alias.as_str(), |(_, n)| n);
     lang(name).or_else(|| {
+        if !by_extension {
+            return None;
+        }
         let syntax = crate::buffer::syntax_for_info(&alias, false)?;
         for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
     })
