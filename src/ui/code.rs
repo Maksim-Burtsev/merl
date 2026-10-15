@@ -485,7 +485,7 @@ impl<'a> Painter<'a> {
             lead: cut_lead,
             right_mark: after,
         } = cut_unwrapped(app, &app.buf.lines[l]);
-        let rows = if self.nowrap {
+        let rows = if self.nowrap || (std::env::var("MERL_P634").as_deref() == Ok("c") && app.collapsed_at(l).is_some()) {
             vec![shown]
         } else {
             app.rows(l)
@@ -496,7 +496,8 @@ impl<'a> Painter<'a> {
             } else {
                 " "
             };
-            (gap, tail)
+            let n = app.collapsed_at(l).map_or(0, |e| e - l - usize::from(!tail.is_empty()));
+            (gap, tail, n)
         });
         let line = FileLine {
             l,
@@ -578,14 +579,58 @@ impl<'a> Painter<'a> {
         if lead > 0 {
             row.push(Span::styled(" ".repeat(lead), t));
         }
+        let variant = std::env::var("MERL_P634").unwrap_or_default();
+        if variant == "c"
+            && let Some((_, tail, n)) = f.folded.as_ref()
+        {
+            if i > 0 {
+                return Line::from(row);
+            }
+            let head = f.clipped.trim_start();
+            let ind = f.clipped.len() - head.len();
+            let level = ind / 4 + 1;
+            let text = format!("+-{} {} lines: {}", "-".repeat(level), n + 1 + usize::from(!tail.is_empty()), head);
+            let w = wrap::width(&text);
+            let mut text = text;
+            if w < app.view_w {
+                text.push_str(&"\u{b7}".repeat(app.view_w - w));
+            }
+            let chip = if f.cursor_line {
+                theme.selected(t.fg(theme.fg))
+            } else {
+                t.bg(theme.line_hl).fg(theme.fg)
+            };
+            row.push(Span::styled(text, chip));
+            return Line::from(row);
+        }
+        let chip_text = f.folded.as_ref().map(|(_, _, n)| match variant.as_str() {
+            "a" => format!(" {n} {} \u{22ef} ", if *n == 1 { "line" } else { "lines" }),
+            "b" => format!(" \u{22ef} {n} "),
+            _ => FOLDED.to_string(),
+        });
         let fold = f.folded.as_ref().filter(|_| i == f.last);
+        let used = lead
+            + wrap::width(&f.clipped[r.clone()])
+            + usize::from(before)
+            + usize::from(after)
+            + usize::from(ell);
+        let chip_text = match (fold, chip_text) {
+            (Some((gap, tail, _)), Some(c))
+                if used + gap.len() + wrap::width(&c) + wrap::width(tail) > app.view_w =>
+            {
+                Some(FOLDED.to_string())
+            }
+            (_, c) => c,
+        };
         let pad = app.view_w.saturating_sub(
             lead + wrap::width(&f.clipped[r.clone()])
                 + usize::from(before)
                 + usize::from(after)
                 + usize::from(ell)
-                + fold.map_or(0, |(gap, tail)| {
-                    gap.len() + wrap::width(FOLDED) + wrap::width(tail)
+                + fold.map_or(0, |(gap, tail, _)| {
+                    gap.len()
+                        + wrap::width(chip_text.as_deref().unwrap_or(FOLDED))
+                        + wrap::width(tail)
                 }),
         );
         row.extend(selected_row(
@@ -600,14 +645,14 @@ impl<'a> Painter<'a> {
         if ell {
             row.push(self.ellipsis(pad_style));
         }
-        if let Some((gap, tail)) = fold {
+        if let Some((gap, tail, _)) = fold {
             let chip = if f.cursor_line {
                 theme.selected(t.fg(theme.fg))
             } else {
                 t.bg(theme.line_hl).fg(theme.fg)
             };
             row.push(Span::styled(*gap, t));
-            row.push(Span::styled(FOLDED, chip));
+            row.push(Span::styled(chip_text.unwrap_or_default(), chip));
             row.push(Span::styled(*tail, t));
         }
         if f.padded || after {
@@ -637,7 +682,7 @@ struct FileLine<'a> {
     edges: (bool, bool),
     leads: (usize, usize),
     last: usize,
-    folded: Option<(&'static str, &'a str)>,
+    folded: Option<(&'static str, &'a str, usize)>,
 }
 
 pub(super) fn draw_binary(
