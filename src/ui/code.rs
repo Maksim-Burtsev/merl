@@ -330,6 +330,7 @@ impl<'a> Painter<'a> {
         let finds = app
             .find_re
             .as_ref()
+            .filter(|_| !app.find_hidden)
             .map_or_else(Vec::new, |re| matches(re, text));
         let spans = paint_finds(
             &with_find(syntax, &words, self.word(self.theme.del_word_bg)),
@@ -436,6 +437,7 @@ impl<'a> Painter<'a> {
         let finds = app
             .find_re
             .as_ref()
+            .filter(|_| !app.find_hidden)
             .map_or_else(Vec::new, |re| matches(re, clipped));
         let word_bg = if lit {
             theme.add_word_bg_hl

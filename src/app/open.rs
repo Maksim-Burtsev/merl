@@ -43,6 +43,11 @@ impl App {
                     self.edit_kind = edit::Kind::Other;
                     self.anchor = None;
                     self.preview = None;
+                    match std::env::var("MERL_P724").as_deref() {
+                        Ok("b") => self.find_hidden = true,
+                        Ok("c") => self.find_re = None,
+                        _ => {}
+                    }
                     if self.notes.on {
                         self.notes_resolve();
                     }

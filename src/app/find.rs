@@ -59,6 +59,7 @@ impl App {
     }
 
     pub(super) fn refresh_find(&mut self) {
+        self.find_hidden = false;
         if self.prompt.is_empty() {
             self.find_re = None;
             self.message.clear();
@@ -106,6 +107,7 @@ impl App {
     }
 
     pub(super) fn step_find(&mut self, forward: bool) {
+        self.find_hidden = false;
         let Some(re) = self.find_re.clone() else {
             self.message = "no pattern".into();
             return;
