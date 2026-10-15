@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -u
+[ $# -gt 0 ] || { echo "usage: tools/heavy COMMAND [ARG]..." >&2; exit 2; }
+export CARGO_BUILD_JOBS=5 RUST_TEST_THREADS=5
+while :; do
+  for slot in 1 2; do
+    lockf -k -s -t 0 "/tmp/merl-heavy.$slot.lock" nice -n 15 "$@"
+    rc=$?
+    [ "$rc" -eq 75 ] || exit "$rc"
+  done
+  sleep 5
+done
