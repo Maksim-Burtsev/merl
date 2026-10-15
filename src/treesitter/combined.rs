@@ -170,13 +170,22 @@ impl Group {
         if let Some(tree) = &mut self.tree {
             tree.edit(e);
         }
-        for m in &mut self.members {
+        let erased = |was: &Range, now: &Range| {
+            was.start_byte < was.end_byte && now.start_byte == now.end_byte
+        };
+        self.members.retain_mut(|m| {
+            let piece = shifted(m.piece, e);
             m.extent = (shift(m.extent.0, e), shift(m.extent.1, e));
-            m.piece = shifted(m.piece, e);
-        }
-        for r in &mut self.ranges {
-            *r = shifted(*r, e);
-        }
+            let kept = !erased(&m.piece, &piece);
+            m.piece = piece;
+            kept
+        });
+        self.ranges.retain_mut(|r| {
+            let now = shifted(*r, e);
+            let kept = !erased(r, &now);
+            *r = now;
+            kept
+        });
     }
 }
 
@@ -320,7 +329,10 @@ impl Parsed {
                 continue;
             }
             let parse = old.is_none_or(|g| {
-                g.ranges != ranges
+                g.tree
+                    .as_ref()
+                    .map_or(g.ranges.clone(), Tree::included_ranges)
+                    != ranges
                     || g.ranges
                         .iter()
                         .any(|r| near((r.start_byte, r.end_byte), span))
