@@ -66,7 +66,7 @@ impl App {
             return;
         }
         if self.pushed_folder.is_some() {
-            self.message = super::edit::PUSHED.to_owned();
+            self.message = super::edit::PUSHED.into();
             return;
         }
         let mut rel = PathBuf::new();
