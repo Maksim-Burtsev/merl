@@ -107,9 +107,17 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             "............",
             "....########",
             "..##########",
-            "--##--------"
+            "..##........"
         ],
-        "the line above the selection stays clean; the cursor line keeps its highlight"
+        "the line above the selection stays clean; while a selection is on screen the cursor \
+         line has no band, as in Neovim's Visual mode (#554)"
+    );
+    let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        terminal.backend().buffer()[(0, 3)].fg,
+        theme.cursor_gutter_fg,
+        "the line number keeps its cursor-line colour"
     );
     app.key(KeyEvent::new(
         KeyCode::Left,
@@ -117,9 +125,8 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ));
     assert_eq!(
         paint(&mut app)[3],
-        "--..........",
-        "ending at the start of the cursor line selects none of its text: lit in the gutter \
-         only, as in VS Code, or past the selection it would pass for selected text"
+        "............",
+        "ending at the start of the cursor line selects none of its text, and the line has no band"
     );
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
@@ -145,7 +152,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
 }
 
 #[test]
-fn selecting_inside_a_wrapped_line_keeps_its_highlight_on_the_other_rows() {
+fn selecting_inside_a_wrapped_line_takes_the_band_off_all_its_rows() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     let mut app = App::new(
         PathBuf::from("/demo"),
@@ -188,8 +195,8 @@ z
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     assert_eq!(
         paint(&mut app),
-        ["------####", "--####----", "----------", ".........."],
-        "Shift+Up selects half a row up to the cursor, the rest of the line stays highlighted"
+        ["......####", "..####....", "..........", ".........."],
+        "Shift+Up selects half a row up to the cursor, and no row of the line keeps the band"
     );
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
@@ -204,8 +211,14 @@ z
     assert_eq!(app.file_selection(), Some(((0, 16), (1, 0))));
     assert_eq!(
         paint(&mut app),
-        ["----------", "----------", "--########", ".........."],
-        "Shift+Up from the start of the next line: the rows above the cursor keep the highlight"
+        ["..........", "..........", "..########", ".........."],
+        "Shift+Up from the start of the next line: the cursor's rows have no band either"
+    );
+    app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert_eq!(
+        paint(&mut app)[..3],
+        ["----------", "----------", "----------"],
+        "the selection gone, the band is back"
     );
 }
 
