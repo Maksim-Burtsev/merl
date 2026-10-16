@@ -293,6 +293,11 @@ fn ini_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn graphql_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("graphql");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -507,6 +512,12 @@ fn build_and_config_files_get_their_grammar() {
     }
     assert!(sexp("a.proto", b"message A {}\n").contains("(message "));
     assert_eq!(sexp("a.protodevel", b"message A {}\n"), "");
+    for f in ["a.graphql", "a.graphqls", "a.gql"] {
+        assert!(
+            sexp(f, b"type A { b: Int }\n").contains("(object_type_definition "),
+            "{f}"
+        );
+    }
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
         assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
     }
@@ -915,6 +926,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("dockerfile", Some("dockerfile")),
         ("cmake", Some("cmake")),
         ("proto", Some("proto")),
+        ("graphql", Some("graphql")),
+        ("gql", Some("graphql")),
         ("hcl", Some("hcl")),
         ("terraform", Some("terraform")),
         ("tfvars", Some("terraform")),
