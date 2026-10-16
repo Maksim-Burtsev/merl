@@ -1358,6 +1358,33 @@ b";
         );
     }
 
+    #[test]
+    fn mutants_skip_the_comment_test_and_only_tests_that_exist() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let flow = std::fs::read_to_string(root.join(".github/workflows/mutants.yml")).unwrap();
+        let skips: Vec<&str> = flow
+            .split("--skip ")
+            .skip(1)
+            .filter_map(|s| s.split_whitespace().next())
+            .collect();
+        assert!(
+            skips.contains(&"src_holds_no_comment"),
+            "cargo-mutants writes a comment into every mutant, so the comment test catches them all: {skips:?}"
+        );
+        let mut files = Vec::new();
+        rust_files(&root.join("src"), true, &mut files);
+        let src: String = files
+            .iter()
+            .map(|p| std::fs::read_to_string(p).unwrap())
+            .collect();
+        for name in skips {
+            assert!(
+                src.contains(&format!("fn {name}(")) || src.contains(&format!("mod {name};")),
+                "mutants.yml skips {name}, which names no test"
+            );
+        }
+    }
+
     const USAGE: &str = "the program reads its docstring as `__doc__` and prints it as its usage, \
          so it is behaviour, not a comment; steps 1-6 kept to src/ and never read the tools; without \
          it the tool has no help, which no name or commit message can print";
