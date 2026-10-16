@@ -1260,6 +1260,20 @@ const SQL: &[&str] = &[
     "\n\n",
 ];
 
+const GRAPHQL: &[&str] = &[
+    "type A {\n",
+    "}\n",
+    "a(b: Int = 1): [B!]!\n",
+    "\"\"\"",
+    "query Q($a: ID) {\n",
+    "...F\n",
+    "@include(if: $a)",
+    "# ",
+    "\"",
+    "{",
+    "}",
+];
+
 const CMAKE: &[&str] = &[
     "set(",
     "${X}",
@@ -1561,6 +1575,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.sql",
         include_bytes!("../../../tests/colors/sql/ledger.sql").as_slice(),
         SQL,
+    ),
+    (
+        "f.graphql",
+        include_bytes!("../../../tests/colors/graphql/schema.graphql").as_slice(),
+        GRAPHQL,
     ),
     (
         "CMakeLists.txt",
