@@ -70,6 +70,7 @@ tree-sitter-regex = "=0.25.0"
 tree-sitter-ruby = { version = "=0.23.1", git = "https://github.com/tree-sitter/tree-sitter-ruby", rev = "ad907a69da0c8a4f7a943a7fe012712208da6dee" }
 tree-sitter-rust = "=0.24.2"
 tree-sitter-scala = { version = "=0.26.2", git = "https://github.com/tree-sitter/tree-sitter-scala", rev = "db390f312a54b04b13790e1767bfac32665c17ac" }
+tree-sitter-solidity = "=1.2.13"
 tree-sitter-starlark = "=1.3.0"
 tree-sitter-scheme = { version = "=0.24.7-1", git = "https://github.com/6cdh/tree-sitter-scheme", rev = "1b112d9571e4f62fb3d095d52a51f1da7756fb94" }
 tree-sitter-sequel = { version = "=0.3.11", git = "https://github.com/derekstride/tree-sitter-sql", rev = "39fdb006403747241244326e8af3b3e96b85381c" }

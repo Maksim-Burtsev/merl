@@ -63,6 +63,7 @@ pub fn for_syntax(
         }
         "Ruby" if path.is_none_or(ruby) => lang("ruby"),
         "Rust" => lang("rust"),
+        "Solidity" => lang("solidity"),
         "SQL" if path.is_none_or(sql) => lang("sql"),
         "Scala" if !supercollider(path, lines) => lang("scala"),
         "Swift" => lang("swift"),

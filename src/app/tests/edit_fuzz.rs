@@ -1302,6 +1302,20 @@ const STARLARK: &[&str] = &[
     ")",
 ];
 
+const SOLIDITY: &[&str] = &[
+    "contract A is B {\n",
+    "}\n",
+    "function f(uint256 a) public view returns (bool) {\n",
+    "emit E(msg.sender);\n",
+    "/// @notice ",
+    "/**",
+    "*/",
+    "// ",
+    "\"",
+    "{",
+    ";",
+];
+
 const GRAPHQL: &[&str] = &[
     "type A {\n",
     "}\n",
@@ -1637,6 +1651,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "defs.bzl",
         include_bytes!("../../../tests/colors/starlark/defs.bzl").as_slice(),
         STARLARK,
+    ),
+    (
+        "f.sol",
+        include_bytes!("../../../tests/colors/solidity/Token.sol").as_slice(),
+        SOLIDITY,
     ),
     (
         "CMakeLists.txt",
