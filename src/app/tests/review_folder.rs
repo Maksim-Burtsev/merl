@@ -139,6 +139,44 @@ fn two_reviews_of_pushed_branches_keep_their_own_folders_and_your_checkout() {
         (a.mode, a.message.as_str()),
         (Mode::Normal, "read-only: a pushed branch")
     );
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::CONTROL);
+    typed(&mut a, "new.py");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(a.message, "read-only: a pushed branch");
+    assert!(!one.join("new.py").exists(), "Ctrl+N writes nothing");
+}
+
+#[test]
+fn a_folder_keeps_your_own_commits_and_opens_offline_at_the_last_fetch() {
+    let c = Clones::new("own");
+    c.git("b", &["switch", "-q", "feat2"]);
+    std::fs::write(c.b().join("mine.py"), "z = 3\n").unwrap();
+    c.git("b", &["add", "mine.py"]);
+    c.git("b", &["commit", "-q", "-m", "mine"]);
+    c.git("b", &["switch", "-q", "mine"]);
+    c.git("a", &["switch", "-q", "feat2"]);
+    c.commit("a", "theirs.py", "w = 4\n");
+    c.git("a", &["push", "-q", "origin", "feat2"]);
+    let (_, r) = c.open("feat2");
+    assert_eq!(
+        (names(&r), r.note.as_deref()),
+        (
+            vec!["feat2.py".to_owned(), "mine.py".to_owned()],
+            Some("diverged from origin/feat2")
+        ),
+        "your own commit stays, and the review says origin moved on"
+    );
+
+    std::fs::remove_dir_all(c.dir.join("remote.git")).unwrap();
+    let (_, r) = c.open("feat3");
+    assert_eq!(
+        (names(&r), r.note.as_deref()),
+        (
+            vec!["feat3.py".to_owned()],
+            Some("origin/feat3 not fetched")
+        ),
+        "offline, a branch with no local copy opens at what was fetched last"
+    );
 }
 
 #[test]

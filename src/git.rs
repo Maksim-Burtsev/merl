@@ -237,7 +237,8 @@ impl Review {
 
     pub fn open_branch(root: &Path, b: &str, base: Option<&str>) -> Result<(PathBuf, Self)> {
         let git = |args: &[&str]| git(root, args);
-        if git(&["symbolic-ref", "-q", "--short", "HEAD"]).is_ok_and(|h| h == b) {
+        let on = |h: String| h == b || b.strip_prefix("origin/") == Some(h.as_str());
+        if git(&["symbolic-ref", "-q", "--short", "HEAD"]).is_ok_and(on) {
             return Ok((root.to_path_buf(), Self::open(root, Some(b), base)?));
         }
         let base = match base {
@@ -246,9 +247,15 @@ impl Review {
         };
         let (b, fetched) = fetch(&git, b, &base)?;
         let (remote, local) = (format!("origin/{b}"), format!("refs/heads/{b}"));
+        let has_local = git(&["rev-parse", "--verify", "-q", &local]).is_ok();
         let (at, note) = if !fetched {
-            (b.to_owned(), Some(format!("{remote} not fetched")))
-        } else if git(&["rev-parse", "--verify", "-q", &local]).is_ok() && own_commits(&git, b) {
+            let at = if has_local {
+                local
+            } else {
+                format!("refs/remotes/{remote}")
+            };
+            (at, Some(format!("{remote} not fetched")))
+        } else if has_local && own_commits(&git, b) {
             let ahead = git(&["merge-base", "--is-ancestor", &remote, &local]).is_ok();
             let note = (!ahead).then(|| lag(&git, &remote, &local));
             (local, note)
@@ -498,7 +505,9 @@ impl Review {
                 ],
             )
             .unwrap_or_default();
-            for d in ignored.split('\0').filter(|d| d.ends_with('/')) {
+            let dir =
+                |d: &str| d.ends_with('/') || root.join(d).is_symlink() && root.join(d).is_dir();
+            for d in ignored.split('\0').filter(|d| dir(d)) {
                 let d = Path::new(d.trim_end_matches('/'));
                 let dst = tmp.join(d);
                 if dst.parent().is_some_and(Path::exists) && !dst.exists() {
@@ -990,14 +999,20 @@ fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
     let common = dirs(root).context("no git directory")?.common_refs_dir;
     let name = root.file_name().context("no repository name")?;
     let folder = common.join(FOLDERS).join(b).join(name);
-    let reused = folder.join(".git").is_file()
-        && git(&folder, &["checkout", "-q", "-f", "--detach", at]).is_ok();
-    if !reused {
-        drop(std::fs::remove_dir_all(&folder));
-        git(root, &["worktree", "prune"])?;
-        let path = folder.to_str().context("a folder name that is not UTF-8")?;
-        git(root, &["worktree", "add", "-q", "--detach", path, at])
+    if folder.join(".git").is_file() && dirs(&folder).is_some_and(|d| d.common_refs_dir == common) {
+        git(&folder, &["checkout", "-q", "-f", "--detach", at])
             .with_context(|| format!("checking out {b}"))?;
+    } else {
+        drop(std::fs::remove_dir_all(&folder));
+        let path = folder.to_str().context("a folder name that is not UTF-8")?;
+        git(root, &["worktree", "add", "-q", "-f", "--detach", path, at])
+            .with_context(|| format!("checking out {b}"))?;
+    }
+    if let Some(d) = dirs(&folder) {
+        let admin = d.worktree_head_dir.join("merl");
+        drop(
+            std::fs::create_dir_all(&admin).and_then(|()| std::fs::write(admin.join("opened"), "")),
+        );
     }
     #[cfg(unix)]
     for name in DEPENDENCIES {
@@ -1017,10 +1032,11 @@ impl Opened {
         folder_branch(&dirs)?;
         let admin = dirs.worktree_head_dir.join("merl");
         let open = admin.join("open");
-        std::fs::create_dir_all(&open).ok()?;
-        std::fs::write(admin.join("opened"), "").ok()?;
         let pid = open.join(std::process::id().to_string());
-        std::fs::write(&pid, "").ok()?;
+        drop(std::fs::create_dir_all(&open).and_then(|()| {
+            std::fs::write(admin.join("opened"), "")?;
+            std::fs::write(&pid, "")
+        }));
         Some(Self(pid))
     }
 }
@@ -1052,6 +1068,11 @@ fn heads_on_origin(root: &Path) -> Option<String> {
         .arg(root)
         .args(["ls-remote", "--heads", "origin"])
         .env("GIT_TERMINAL_PROMPT", "0")
+        .env(
+            "GIT_SSH_COMMAND",
+            std::env::var("GIT_SSH_COMMAND").unwrap_or_else(|_| "ssh".to_owned())
+                + " -o BatchMode=yes",
+        )
         .stdin(std::process::Stdio::null())
         .output()
         .ok()?;
