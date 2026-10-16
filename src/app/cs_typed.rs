@@ -182,6 +182,10 @@ impl App {
                 literal.get(i) != Some(&true)
                     && re.is_match(l)
                     && search::cs_owner(&text, i + 1) == Some(ty.line)
+                    && !matches!(
+                        search::cs_place(&text, i + 1, word),
+                        search::CsPlace::Local { .. }
+                    )
             })
             .map(|(i, _)| hit(i + 1))
             .collect();
@@ -616,12 +620,6 @@ impl App {
         for part in &parts {
             let mut own = self.cs_members(part, word);
             let text = self.text_of(&part.path).unwrap_or_default();
-            own.retain(|h| {
-                !matches!(
-                    search::cs_place(&text, h.line1, word),
-                    search::CsPlace::Local { .. }
-                )
-            });
             if own
                 .iter()
                 .any(|h| h.path == level.cursor_file && h.line1 == level.cursor_line1)
