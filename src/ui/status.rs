@@ -30,7 +30,8 @@ pub(super) fn draw_prompt(
     ]);
     let x = wrap::width(prefix) + wrap::width(&edit[..edit.cursor()]);
     frame.render_widget(Paragraph::new(line).style(style), area);
-    Position::new(area.x + u16::try_from(x).unwrap_or(u16::MAX), area.y)
+    let x = area.x.saturating_add(u16::try_from(x).unwrap_or(u16::MAX));
+    Position::new(x.min(area.right().saturating_sub(1)), area.y)
 }
 
 pub(super) fn draw_status(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {

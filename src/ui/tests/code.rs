@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::layout::Position;
+
 use ratatui::style::{Color, Modifier};
 
 use crate::app::App;
@@ -13,6 +13,14 @@ use crate::git::{Mark, TextLine};
 use crate::tree::Tree;
 
 use super::rows;
+
+fn no_cursor(name: &str) -> crate::theme::Theme {
+    crate::theme::Theme {
+        cursor: ratatui::style::Style::new(),
+        typing_cursor: ratatui::style::Style::new(),
+        ..crate::theme::load(name).unwrap()
+    }
+}
 
 #[test]
 fn unwrapped_lines_are_cut_at_the_edge_and_follow_the_cursor() {
@@ -84,7 +92,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ] {
         app.key(KeyEvent::new(code, m));
     }
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     let paint = |app: &mut App| -> Vec<String> {
         let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
@@ -93,7 +101,6 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             .map(|y| {
                 (0..buf.area.width)
                     .map(|x| match buf[(x, y)].bg {
-                        _ if app.cursor_cell == Some(Position::new(x, y)) => '|',
                         bg if bg == theme.selection => '#',
                         bg if bg == theme.line_hl => '-',
                         _ => '.',
@@ -108,7 +115,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             "............",
             "....########",
             "..##########",
-            "--##|-------"
+            "--##--------"
         ],
         "the line above the selection stays clean; the cursor line keeps its highlight"
     );
@@ -118,7 +125,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ));
     assert_eq!(
         paint(&mut app)[3],
-        "--|.........",
+        "--..........",
         "ending at the start of the cursor line selects none of its text: lit in the gutter \
          only, as in VS Code, or past the selection it would pass for selected text"
     );
@@ -133,14 +140,14 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     }
     assert_eq!(
         paint(&mut app)[1],
-        "--|---------",
+        "------------",
         "back on the anchor nothing is selected, and the cursor line is highlighted again"
     );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(app.selection(), None);
     assert_eq!(
         paint(&mut app)[1],
-        "--|---------",
+        "------------",
         "with no selection at all, the cursor line is highlighted"
     );
 }
@@ -161,7 +168,7 @@ z
         None,
     );
     app.show_tree = false;
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     let paint = |app: &mut App| -> Vec<String> {
         let mut terminal = Terminal::new(TestBackend::new(10, 5)).unwrap();
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
@@ -170,7 +177,6 @@ z
             .map(|y| {
                 (0..buf.area.width)
                     .map(|x| match buf[(x, y)].bg {
-                        _ if app.cursor_cell == Some(Position::new(x, y)) => '|',
                         bg if bg == theme.selection => '#',
                         bg if bg == theme.line_hl => '-',
                         _ => '.',
@@ -185,12 +191,12 @@ z
     }
     assert_eq!(
         paint(&mut app)[..3],
-        ["----------", "------|---", "----------"]
+        ["----------", "----------", "----------"]
     );
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     assert_eq!(
         paint(&mut app),
-        ["------|###", "--####----", "----------", ".........."],
+        ["------####", "--####----", "----------", ".........."],
         "Shift+Up selects half a row up to the cursor, the rest of the line stays highlighted"
     );
     for (code, m) in [
@@ -206,7 +212,7 @@ z
     assert_eq!(app.file_selection(), Some(((0, 16), (1, 0))));
     assert_eq!(
         paint(&mut app),
-        ["----------", "----------", "--|#######", ".........."],
+        ["----------", "----------", "--########", ".........."],
         "Shift+Up from the start of the next line: the rows above the cursor keep the highlight"
     );
 }
@@ -1018,15 +1024,13 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
         None,
     );
     app.show_tree = false;
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     let mut terminal = Terminal::new(TestBackend::new(30, 12)).unwrap();
     let mut press = |app: &mut App, code: KeyCode| {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let y = app.cursor_cell.unwrap().y as usize;
-        let band = (0..30)
-            .filter(|&x| app.cursor_cell != Some(Position::new(x, 0)))
-            .all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
+        let band = (0..30).all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
         (rows(&terminal), y, band)
     };
     let (screen, _, _) = press(&mut app, KeyCode::Null);
@@ -1133,7 +1137,7 @@ fn press(
     terminal: &mut Terminal<TestBackend>,
     code: KeyCode,
 ) -> (Vec<String>, usize) {
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     app.key(KeyEvent::new(code, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
     (rows(terminal), app.cursor_cell.unwrap().y as usize)
@@ -1362,11 +1366,10 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_not_wrapped() {
         "the end of the drawn part in view: the `…` in the column after it"
     );
     let buf = terminal.backend().buffer();
-    assert_eq!(app.cursor_cell, Some(Position::new(11, 1)));
     assert_eq!(
-        (Some(buf[(11, 1)].fg), Some(buf[(11, 1)].bg)),
-        (theme.cursor.fg, theme.cursor.bg),
-        "the cursor past the end stands on the `…`"
+        (buf[(11, 1)].fg, buf[(11, 1)].bg),
+        (theme.gutter_fg, theme.line_hl),
+        "the `…` dim, on the cursor line"
     );
     app.left = 19_990;
     app.col = 19_995;
@@ -1862,17 +1865,13 @@ fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
     }
     app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     app.key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
-    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let theme = no_cursor("tokyonight-moon");
     let mut terminal = Terminal::new(TestBackend::new(12, 3)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let bg = |x: u16| terminal.backend().buffer()[(x, 0)].bg;
     let hex = |s: &str| s.parse::<Color>().unwrap();
     assert_eq!((bg(2), bg(3)), (hex("#3e68d7"), hex("#3e68d7")));
-    assert_eq!(
-        (bg(5), bg(6)),
-        (hex("#c8d3f5"), hex("#ff966c")),
-        "the cursor, then the match"
-    );
+    assert_eq!((bg(5), bg(6)), (hex("#ff966c"), hex("#ff966c")));
 }
 
 #[test]

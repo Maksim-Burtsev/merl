@@ -474,9 +474,15 @@ fn cursors(
     normal: (Color, Color),
     accent: Color,
 ) -> (Style, Style) {
-    let block = |name: &str| drawn(groups, name, normal).filter(|&(_, bg)| apart(bg, normal.1));
-    let cursor = block("Cursor").unwrap_or((Some(normal.1), normal.0));
     let readable = |bg: Color| (more_readable([normal.0, normal.1], bg), bg);
+    let block = |name: &str| {
+        let (fg, bg) = drawn(groups, name, normal).filter(|&(_, bg)| apart(bg, normal.1))?;
+        Some(
+            fg.filter(|&fg| apart(fg, bg))
+                .map_or_else(|| readable(bg), |fg| (Some(fg), bg)),
+        )
+    };
+    let cursor = block("Cursor").unwrap_or((Some(normal.1), normal.0));
     let typing = [block("lCursor"), Some(readable(accent))]
         .into_iter()
         .flatten()
@@ -772,6 +778,19 @@ mod tests {
         let hex = |h: &str| h.parse::<Color>().unwrap();
         let github = load_from(None, "github-light").unwrap();
         assert_eq!(github.cursor.bg, Some(hex("#1f2328")), "its Cursor group");
+        let rose = load_from(None, "rose-pine").unwrap();
+        assert_eq!(rose.cursor.bg, Some(hex("#524f67")), "not Neovim's default");
+        assert_eq!(
+            (rose.typing_cursor.fg, rose.typing_cursor.bg),
+            (Some(hex("#191724")), Some(hex("#e0def4"))),
+            "its lCursor, apart from Cursor"
+        );
+        let koda = load_from(None, "koda-dark").unwrap();
+        assert_eq!(
+            (koda.cursor.fg, koda.cursor.bg),
+            (Some(hex("#101010")), Some(hex("#b0b0b0"))),
+            "a Cursor drawn #b0b0b0 on #b0b0b0 keeps its character readable"
+        );
         let seneca = load_from(None, "seneca").unwrap();
         assert_eq!(
             (seneca.cursor.fg, seneca.cursor.bg),

@@ -308,16 +308,19 @@ fn enter_terminal() -> Result<(ratatui::DefaultTerminal, KeyboardQueried)> {
                     | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
             )
         )?;
-        pop_keyboard_flags_before_ratatui_restores_on_panic();
     }
+    restore_on_panic(enhanced);
     Ok((terminal, KeyboardQueried { enhanced }))
 }
 
-fn pop_keyboard_flags_before_ratatui_restores_on_panic() {
+fn restore_on_panic(enhanced: bool) {
     let ratatui_restore = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        drop(execute!(stdout(), PopKeyboardEnhancementFlags));
+        if enhanced {
+            drop(execute!(stdout(), PopKeyboardEnhancementFlags));
+        }
         ratatui_restore(info);
+        drop(execute!(stdout(), Show));
     }));
 }
 
