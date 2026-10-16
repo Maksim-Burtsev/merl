@@ -174,7 +174,7 @@ impl App {
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         self.settle_notes(key);
         let far = is_far(key.code);
-        let extending = key.code == KeyCode::Char('v')
+        let extending = matches!(key.code, KeyCode::Char('v' | 'V'))
             || shift
                 && (far
                     || matches!(
@@ -305,7 +305,8 @@ impl App {
             KeyCode::Char('m') => self.toggle_viewed(),
             KeyCode::Char('a') if self.notes.on => self.add_note(),
             KeyCode::Char('v') if self.notes.focus.is_some() => self.notes.selected = true,
-            KeyCode::Char('v') if self.focus == Focus::Code => self.grow_selection(),
+            KeyCode::Char('v') if self.focus == Focus::Code => self.p924_grow(),
+            KeyCode::Char('V') if self.focus == Focus::Code && super::p924::variant().is_some() => self.p924_back(),
             _ if self.focus == Focus::Tree => self.tree_key(key.code),
             KeyCode::Enter if self.notes.focus.is_some() => self.start_note(),
             KeyCode::Enter => self.start_edit(),

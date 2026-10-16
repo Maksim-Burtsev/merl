@@ -25,6 +25,7 @@ mod cpp;
 mod cs_typed;
 mod css;
 mod cursor;
+mod p924;
 mod dart;
 mod definition;
 mod edit;
