@@ -521,6 +521,7 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
 fn source(
     name: &str,
     pick: fn(&(&str, &'static str, &'static str)) -> &'static str,
+    theme: Option<&str>,
 ) -> Result<String, String> {
     let row = QUERIES
         .iter()
@@ -531,18 +532,26 @@ fn source(
     for line in text.lines() {
         if let Some(bases) = line.strip_prefix("; inherits:") {
             for base in bases.split(',').map(str::trim).filter(|b| !b.is_empty()) {
-                out.push_str(&source(base.trim_matches(|c| c == '(' || c == ')'), pick)?);
+                out.push_str(&source(
+                    base.trim_matches(|c| c == '(' || c == ')'),
+                    pick,
+                    theme,
+                )?);
                 out.push('\n');
             }
         }
     }
     out.push_str(text);
+    if let Some(extension) = extends::extension(theme, name) {
+        out.push('\n');
+        out.push_str(extension);
+    }
     Ok(out)
 }
 
 fn compile(name: &'static str, language: Language) -> Result<Lang, String> {
-    let mut lang = compile_text(name, language, &source(name, |r| r.1)?)?;
-    let injections = source(name, |r| r.2)?;
+    let mut lang = compile_text(name, language, &source(name, |r| r.1, None)?)?;
+    let injections = source(name, |r| r.2, None)?;
     if !injections.trim().is_empty() {
         let all = patterns(name, &lang.language, &injections, INJECTION_KEYS)?;
         let joins = |p: usize| all.setting(p, "injection.combined").is_some();
@@ -594,8 +603,9 @@ fn patterns(
     {
         return Err(format!("{name}: #{op} is not implemented"));
     }
-    let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
-    let text = url.replace_all(text, "");
+    let dropped = regex::Regex::new(r#"\(#set! @[\w.]+ url @[\w.]+\)|\(#any-of\? "[^)]*\)"#)
+        .expect("a valid regex");
+    let text = dropped.replace_all(text, "");
     let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
     let text = vim.replace_all(&text, "(#${1}vim-match?");
     let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
@@ -1215,6 +1225,10 @@ impl<'a> Styles<'a> {
         }
     }
 
+    fn themed(&self, lang: &'static Lang) -> &'static Lang {
+        extends::themed(lang, self.theme.builtin)
+    }
+
     fn of(&mut self, lang: &Lang) -> &[Option<Style>] {
         let i = if let Some(i) = self.by_lang.iter().position(|(n, _)| *n == lang.name) {
             i
@@ -1315,6 +1329,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
 }
 
 mod combined;
+mod extends;
 mod filetype;
 mod layers;
 mod pattern;

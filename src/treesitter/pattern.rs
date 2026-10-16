@@ -24,6 +24,18 @@ pub(super) fn vim_pattern(p: &str) -> Result<regex::bytes::Regex, String> {
                 out.push('?');
                 continue;
             }
+            ('{', None) => {
+                let mut count = String::new();
+                while let Some(&n) = chars.peek().filter(|n| n.is_ascii_digit() || **n == ',') {
+                    count.push(n);
+                    chars.next();
+                }
+                if chars.next() != Some('}') || !count.starts_with(|n: char| n.is_ascii_digit()) {
+                    return bad();
+                }
+                out.push_str(&["{", &count, "}"].concat());
+                continue;
+            }
             ('<' | '>', None) | ('@' | '%' | '~' | '{' | '&', _) => return bad(),
             ('\\' | '[', Some(_)) => return bad(),
             ('-', Some(_)) if chars.peek() == Some(&'-') => return bad(),

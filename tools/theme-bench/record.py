@@ -15,7 +15,7 @@ $THEME_BENCH_CACHE or ~/.cache/merl-theme-bench), with nvim-treesitter at NVIM_T
 parsers LazyVim installs by default (PARSERS) built with `cc` at the revisions nvim-treesitter
 pins, a parser it marks `generate` first through `tree-sitter generate` (the CLI on PATH, 0.26.1 or
 later), as nvim-treesitter does. Neovim then starts in tmux on its own server, isolated `XDG_*` under the cache, with only
-the colorscheme, nvim-treesitter's queries and parsers, `termguicolors`, `number`, `cursorline`
+the colorscheme with its `after/` appended as lazy.nvim's `add_to_rtp` does, nvim-treesitter's queries and parsers, `termguicolors`, `number`, `cursorline`
 and `nowrap`, the theme's `before` commands and `:colorscheme`, and `vim.treesitter.start` on
 every buffer. Each file is drawn WIDTH columns wide and tall enough for its first LINES lines;
 the screen, read as tools/cast.py reads it, gives the foreground of every character that is not
@@ -227,6 +227,8 @@ def init_lua(cache, name, ts, check=False):
     source, colorscheme, before, deps = manifest()[name]
     dirs = [repo(cache, source)] + [repo(cache, d) for d in deps.split(",") if d != "-"]
     lines = [f"vim.opt.rtp:prepend({json.dumps(d)})" for d in dirs]
+    lines += [f"vim.opt.rtp:append({json.dumps(os.path.join(d, 'after'))})" for d in dirs
+              if os.path.isdir(os.path.join(d, "after"))]
     if not check:
         lines += [f"vim.opt.rtp:prepend({json.dumps(ts)})",
                   f"vim.opt.rtp:prepend({json.dumps(os.path.join(ts, 'runtime'))})",

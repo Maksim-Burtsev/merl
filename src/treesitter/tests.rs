@@ -740,7 +740,7 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
     let python = || tree_sitter_python::LANGUAGE.into();
     for text in [
         "((identifier) @x (#match? @x \"<a\"))",
-        "((identifier) @x (#vim-match? @x \"a{2}\"))",
+        "((identifier) @x (#vim-match? @x \"a{-2}\"))",
         "((identifier) @x (#kind-eq? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
@@ -827,6 +827,7 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         ("^ab\\C$", "ab", "AB"),
         ("\\C^a\\c$", "A", "b"),
         ("^ab=c$", "ac", "abbc"),
+        ("^(.{1,2}/|src/)", "../a", "abc/d"),
         ("^([+*-+=<>]|<=|>=|/=)$", "<", "-"),
         ("^([+*-+=<>]|<=|>=|/=)$", "/", "<="),
         ("^([+*-+=<>]|<=|>=|/=)$", "", "/="),
@@ -835,7 +836,7 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
         assert!(!re.is_match(no.as_bytes()), "{pattern} on {no}");
     }
-    for pattern in ["<a>", "\\Va", "a{2}", "a\\zsb"] {
+    for pattern in ["<a>", "\\Va", "a{-1,2}", "a{,2}", "a\\zsb"] {
         assert!(super::vim_pattern(pattern).is_err(), "{pattern}");
     }
 }

@@ -40,11 +40,11 @@ again as Rust and `regex` in Rust):
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
 | Go | 14,810 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
-| Rust | 17,576 | 96.3 github-dark | 100.0 | 100.0 vscode-light |
+| Rust | 17,576 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
-- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
-  `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
-  names), which merl does not load.
+- The theme's own queries: since #819 merl appends github-nvim-theme's
+  `queries/rust/highlights.scm` in github-dark and github-light, as Neovim does, and every
+  character matches.
 
 Markdown (#803), 18,398 characters per theme: 100.0 % median (100.0 adwaita, 100.0
 vscode-light), against 71.3 % on syntect. Every character of Markdown's own grammars,
@@ -56,14 +56,16 @@ Bash, JSON, YAML and TOML (#806), with Bash injected into YAML's `run:` blocks:
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| Bash | 12,491 | 99.4 github-dark | 100.0 | 100.0 vscode-light |
+| Bash | 12,491 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JSON | 7,070 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
-| YAML | 16,564 | 99.8 github-dark | 100.0 | 100.0 vscode-light |
+| YAML | 16,564 | 100.0 jellybeans | 100.0 | 100.0 vscode-light |
 | TOML | 10,487 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
 
-- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
-  `queries/bash/highlights.scm` (`$(`, `<(` and their `)` as strings, the `#` of `${#a}` as an
-  operator), in Bash files and in YAML's `run:` blocks, which merl does not load.
+- jellybeans' `after/queries/bash/highlights.scm` (#819) adds a `(word)` pattern for every word;
+  with it, Neovim draws the `$(` and `)` of one `$(…)` in a quoted string of caddy's
+  `release.yml` (`run:`, line 130) in the string's colour, though the captures there are the
+  same with and without it (`get_captures_at_pos`): three characters in jellybeans and
+  jellybeans-light. The theme defines no `@bash.*` group, so merl draws it as without the file.
 - The recording's cursor: a file starting with a bracket (every JSON file, `[tool]` in TOML) has
   its first `{` or `[` and the matching one drawn as `MatchParen` by Neovim, not a colour of the
   code: two characters per file.
@@ -76,13 +78,9 @@ Markdown's code blocks):
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
 | TypeScript | 13,701 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
-| TSX | 9,700 | 99.7 github-dark | 100.0 | 100.0 vscode-light |
+| TSX | 9,700 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JavaScript | 13,199 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JSX | 14,130 | 100.0 | 100.0 | 100.0 |
-
-- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
-  `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
-  not load.
 
 Lua (#806), with its injections (`---@` comments parsed as `luadoc`, `string.format` strings as
 `printf`); the bench's four files are redis's `deps/lua`, the only Lua of the d-bench projects,
@@ -175,13 +173,11 @@ installs no parser for them:
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| PHP | 12,811 | 98.3 github-dark | 99.9 | 100.0 vscode-light |
+| PHP | 12,811 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
 
 What is left is not merl's colour of the code: every recorded file starts with `<?php` under
 Neovim's cursor, PHP's ftplugin adds `<:>` to `matchpairs`, and matchparen draws that `<` and the
-`>` it pairs with as `MatchParen` (3 to 8 characters per theme); and github-nvim-theme's own
-`queries/php/highlights.scm` (#819), which paints a variable's `$` as `@operator` and `<?php` as
-`@tag`, costs the github themes up to 1.7 points.
+`>` it pairs with as `MatchParen` (3 to 8 characters per theme).
 
 Elixir (#808), `.ex` and `.exs` (a `.ex` that Neovim's `detect.ex` takes for Euphoria from its first
 100 lines stays on syntect), with its injections (`markdown` in `@moduledoc` and `@doc` strings,
@@ -428,7 +424,8 @@ binds `tree_sitter::Language` through the pre-0.24 `extern "C"` API instead of `
 
 ## The reference
 
-LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-treesitter's
+LazyVim as the epic defines it: Neovim with the theme's own colorscheme (its repo on the
+runtimepath and its `after/` too, as lazy.nvim's `add_to_rtp` puts it, #819), nvim-treesitter's
 queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx`,
 `javascriptreact` to `javascript`, `sh` to `bash` and `jsonc` to `json`, #804, #806) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,

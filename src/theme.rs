@@ -195,6 +195,7 @@ pub struct Theme {
     pub light: bool,
     pub syntect: syntect::highlighting::Theme,
     pub groups: HashMap<String, Style>,
+    pub builtin: Option<&'static str>,
 }
 
 pub fn load(name: &str) -> Result<Theme> {
@@ -344,11 +345,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         blend(add, bg, add_word),
         blend(add, line_hl_syn, add_word),
     ];
-    let toward = if light {
-        SynColor::BLACK
-    } else {
-        SynColor::WHITE
-    };
+    let toward = [SynColor::WHITE, SynColor::BLACK][usize::from(light)];
     let word_fg = readable_on(&words, toward, fg);
     let own_gutter = s
         .gutter_foreground
@@ -399,6 +396,9 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         light,
         syntect,
         groups,
+        builtin: names()
+            .find(|n| *n == name)
+            .filter(|_| user_path(dir, name).is_none()),
     };
     Ok(if own.groups.is_empty() {
         own
