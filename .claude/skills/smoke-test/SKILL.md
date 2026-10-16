@@ -27,12 +27,15 @@ release's binary once into `~/.cache/merl-smoke/`, rebuilds the fixture (`tests/
 and the README's gitea and polar (`assets/tapes/setup.sh`, fetched once) under
 `/tmp/merl-smoke`, plays every `tests/smoke/*.steps` on the new build, then on the old one, and writes
 `/tmp/merl-smoke/out/report.md` with a PNG per differing checkpoint beside it (old above new).
+Four scenarios play at once, each in its own tmux server; the ones with timed steps (`python-d`,
+`odd-files`, `scale`) and `readme-review` play after them, alone. At a wait the new build met,
+the old build gives up after 4× the new build's time (2 s at least) instead of 10 s.
 Needs macOS, tmux, Go and Python 3 (`d` goes into their standard libraries), Pillow, and
 `gh` logged in. `--help` has the scenario grammar. One run at a time: a second one is refused
 while the first holds `/tmp/merl-smoke` (a `--golden` or `--gif` run on the default WORK waits instead).
 
 When the change under test touches `run.py` itself, run `tests/smoke/run.py --selftest` first:
-fake merls go through every verdict in about 20 seconds, and it ends `selftest ok`.
+fake merls go through every verdict in under a minute, and it ends `selftest ok`.
 
 The run is done when the report's table has a row for every scenario.
 
