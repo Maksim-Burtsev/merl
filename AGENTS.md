@@ -233,7 +233,10 @@ tree-sitter 0.25, tree-sitter-julia 0.23.1 has another `parser.c`, and ts-parser
   the injected languages of a step's hosts (`regex`, `printf` for Python) come with it.
 - **The queries** are nvim-treesitter's `highlights.scm` and `injections.scm` at `NVIM_TS` in
   `tools/theme-bench/record.py`, the one pin, copied into `queries/LANG/` by `tools/ts-queries
-  LANG` and never edited by hand. merl reproduces Neovim 0.12's reading of them, from
+  LANG` and never edited by hand. A theme's own `queries/` and `after/queries/` (lazy.nvim puts
+  a plugin's `after/` on the runtimepath, #819) are copied at its `themes.tsv` pin into
+  `themes/NAME.queries/LANG.scm` by `tools/theme-queries`, also never by hand, and appended to
+  the language's query when that theme paints (`src/treesitter/extends.rs`). merl reproduces Neovim 0.12's reading of them, from
   `runtime/lua/vim/treesitter/query.lua` and `highlighter.lua`, not tree-sitter-highlight's: a
   higher `priority` paints over a lower one, captures of equal priority paint in the order Neovim
   sets them and combine (a colour replaces the one below, bold and italic add up), and `@a.b`
