@@ -1,0 +1,25 @@
+#!/bin/zsh
+tasks=$1
+if [[ -z $tasks ]]; then
+  for dir in /private/tmp/claude-$UID/*/${CLAUDE_CODE_SESSION_ID:-*}/tasks(N/om); do
+    outputs=($dir/a*.output(N))
+    (( $#outputs )) && { tasks=$dir; break; }
+  done
+fi
+[[ -d $tasks ]] || { echo "usage: stuck [TASKS_DIR]: no tasks folder with agents found" >&2; exit 2; }
+now=$(date +%s)
+done_count=0
+print "| Agent | Task | Silent, min | Last call |"
+print "|---|---|---|---|"
+for f in $tasks/a*.output(N); do
+  log=$(readlink $f || print $f)
+  meta=${log%.jsonl}.meta.json
+  if [[ -f $meta ]] && jq -e .finished $meta >/dev/null 2>&1 || tail -1 $f | jq -e '.message.stop_reason == "end_turn"' >/dev/null 2>&1; then
+    (( done_count++ ))
+    continue
+  fi
+  what=$([[ -f $meta ]] && jq -r '.description // ""' $meta)
+  last=$(tail -40 $f | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use") | .input.command // .input.description // .name' 2>/dev/null | tail -1 | tr '\n|' ' /' | cut -c1-90)
+  print "| ${$(basename $f .output):0:8} | $what | $(( (now - $(stat -L -f %m $f)) / 60 )) | \`$last\` |"
+done
+print "\n$done_count finished. Load $(sysctl -n vm.loadavg). $(date +%H:%M). $tasks"

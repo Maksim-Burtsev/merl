@@ -194,6 +194,12 @@ pub fn injections(
     let Some(inj) = &lang.injections else {
         return Vec::new();
     };
+    let whole = Doc::new(doc.bytes, doc.starts, 0, doc.bytes.len());
+    let doc = if parent.is_some() && lang.combined.is_some() {
+        &whole
+    } else {
+        doc
+    };
     let mut out: Vec<Injected> = Vec::new();
     let mut combined: Vec<(usize, usize, usize)> = Vec::new();
     each_injection(lang, inj, tree, parent, doc, |p, target, ranges, _| {
@@ -449,8 +455,9 @@ fn anchor(tree: &Tree, doc: &Doc) -> usize {
         .root_node()
         .descendant_for_byte_range(doc.start, doc.start);
     std::iter::successors(node, Node::parent)
-        .find(|n| n.start_byte() < doc.start)
-        .filter(|n| n.start_position().row + ANCHOR_ROWS >= row)
+        .take_while(|n| n.start_position().row + ANCHOR_ROWS >= row)
+        .filter(|n| n.start_byte() < doc.start)
+        .last()
         .map_or(doc.start, |n| n.start_byte())
 }
 

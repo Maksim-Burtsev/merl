@@ -50,7 +50,8 @@ cannot read is listed in red under the queue and not shown.
 | `why`, `elsewhere`, `unchanged` | why the recommendation; what GitHub, GitLab, VS Code do; what stays as is |
 | `status` | `archived` hides the card once its decision is in the issue; the file stays |
 
-Every text is in the language the owner speaks in the chat, one or two short sentences each.
+Every text is in plain English, whatever language the chat is in (the owner moved to English on
+2026-10-15), one or two short sentences each.
 
 ## `answers/<id>.json`
 

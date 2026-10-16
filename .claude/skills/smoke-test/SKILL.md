@@ -12,7 +12,10 @@ under `tests/smoke/screens/`, as text, without timings or the last release.
 
 ## 1. Run
 
-From a worktree of the release branch, the changelog finished (step 1), with its own `target/`:
+From a worktree of the release branch, the changelog finished (step 1: `changes/N.md` gathered
+under `## [Unreleased]`), with its own `target/`. An Unreleased entry below is one under that
+heading or in a `changes/N.md` not gathered yet: `run.py` reads both, so a run before step 1
+reports the same entries.
 
 ```sh
 sysctl -n vm.loadavg          # timings mean something under ~8: write it down with them
