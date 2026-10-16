@@ -308,6 +308,11 @@ fn gdscript_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn starlark_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("starlark");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -432,6 +437,10 @@ fn a_capture_keeps_its_background_only_when_reversed() {
     assert_eq!(added("tokyonight-moon"), (None, false));
 }
 
+fn by_python(f: &str) -> Option<&'static str> {
+    super::for_syntax("Python", Some(Path::new(f)), &[]).map(|l| l.name)
+}
+
 fn sexp(f: &str, src: &[u8]) -> String {
     let mut b = Buffer::from_bytes(PathBuf::from(f), src);
     b.parse_more(None);
@@ -541,6 +550,27 @@ fn build_and_config_files_get_their_grammar() {
     }
     assert_eq!(sexp("a.conf", b"a b;\n"), "");
     assert!(sexp("a.gd", b"var a = 1\n").starts_with("(source "));
+    for f in [
+        "BUILD",
+        "BUILD.bazel",
+        "MODULE.bazel",
+        "WORKSPACE",
+        "WORKSPACE.bzlmod",
+        "BUCK",
+        "a.bzl",
+        "a.bxl",
+        "a.star",
+        "a.sky",
+        "a.ipd",
+        "a.starlark",
+        "third_party.BUILD",
+    ] {
+        assert!(sexp(f, b"a = 1\n").starts_with("(module "), "{f}");
+        assert_eq!(by_python(f), Some("starlark"), "{f}");
+    }
+    for f in ["a.py", "Tiltfile", "SConstruct"] {
+        assert_eq!(by_python(f), Some("python"), "{f}");
+    }
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
         assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
     }
@@ -955,6 +985,10 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("conf", None),
         ("gdscript", Some("gdscript")),
         ("gd", Some("gdscript")),
+        ("starlark", Some("starlark")),
+        ("bzl", Some("starlark")),
+        ("star", Some("starlark")),
+        ("python", Some("python")),
         ("hcl", Some("hcl")),
         ("terraform", Some("terraform")),
         ("tfvars", Some("terraform")),

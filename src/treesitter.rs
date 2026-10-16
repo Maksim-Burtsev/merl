@@ -116,6 +116,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/gdscript/injections.scm"),
     ),
     (
+        "starlark",
+        include_str!("../queries/starlark/highlights.scm"),
+        include_str!("../queries/starlark/injections.scm"),
+    ),
+    (
         "proto",
         include_str!("../queries/proto/highlights.scm"),
         include_str!("../queries/proto/injections.scm"),
@@ -473,6 +478,7 @@ fn grammar(name: &str) -> Option<Language> {
         "graphql" => arborium_graphql::language().into(),
         "nginx" => tree_sitter_nginx::LANGUAGE.into(),
         "gdscript" => tree_sitter_gdscript::LANGUAGE.into(),
+        "starlark" => tree_sitter_starlark::LANGUAGE.into(),
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
         "sql" => tree_sitter_sequel::LANGUAGE.into(),

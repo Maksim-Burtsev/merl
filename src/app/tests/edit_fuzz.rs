@@ -1288,6 +1288,20 @@ const GDSCRIPT: &[&str] = &[
     "\n",
 ];
 
+const STARLARK: &[&str] = &[
+    "def a(b, c = 1):\n",
+    "    return b\n",
+    "load(\":d.bzl\", \"e\")\n",
+    "x = [f for f in g if f]\n",
+    "\"%s\" % h",
+    "\"\"\"",
+    "    ",
+    "# ",
+    "\"",
+    "(",
+    ")",
+];
+
 const GRAPHQL: &[&str] = &[
     "type A {\n",
     "}\n",
@@ -1618,6 +1632,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.gd",
         include_bytes!("../../../tests/colors/gdscript/player.gd").as_slice(),
         GDSCRIPT,
+    ),
+    (
+        "defs.bzl",
+        include_bytes!("../../../tests/colors/starlark/defs.bzl").as_slice(),
+        STARLARK,
     ),
     (
         "CMakeLists.txt",

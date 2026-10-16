@@ -433,6 +433,16 @@ give and merl paints; not traced further:
 |---|---|---|---|---|
 | GDScript | 13,031 | 99.5 bluloco-light | 100.0 | 100.0 vscode-light |
 
+Starlark (#809), the files Neovim reads as `bzl` or `starlark` (`.bzl`, `.bazel`, `BUILD`,
+`WORKSPACE`, `BUCK`, `.star`, …), which syntect reads as Python; every other Python file stays on
+Python's grammar. crates.io's tree-sitter-starlark 1.3.0 equals the pin (a453dbf). The bench takes
+it from rules_go, with at least 40 recordable lines; master already coloured these files with
+Python's grammar, median 99.9 (99.2 github-dark):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Starlark | 15,410 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 Vim (#806) stays on syntect: the commit nvim-treesitter pins (039c8d0) has no `Cargo.toml`, so
 it cannot be a git dependency, and crates.io's only release, 0.4.0, has another `parser.c` and
 binds `tree_sitter::Language` through the pre-0.24 `extern "C"` API instead of `tree-sitter-language`. No d-bench project has a `.vim` file either.
@@ -461,7 +471,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, HCL from immich and pipeline-library, Terraform from lem and immich, INI from gitea, SQL from immich, Vue from gitea, Svelte from immich, GraphQL from graphql-code-generator and swapi-graphql, nginx from mastodon, paperless-ngx and server-configs-nginx, GDScript from dialogic, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, HCL from immich and pipeline-library, Terraform from lem and immich, INI from gitea, SQL from immich, Vue from gitea, Svelte from immich, GraphQL from graphql-code-generator and swapi-graphql, nginx from mastodon, paperless-ngx and server-configs-nginx, GDScript from dialogic, Starlark from rules_go, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,

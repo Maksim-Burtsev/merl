@@ -46,6 +46,7 @@ pub fn for_syntax(
         "TOML" => lang("toml"),
         "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
+        "Python" if path.is_some_and(starlark) => lang("starlark"),
         "Python" => lang("python"),
         "PHP" if path.is_none_or(php) => lang("php"),
         "R" if r(path, lines) => lang("r"),
@@ -106,6 +107,20 @@ fn nginx(path: &Path) -> bool {
         || full.contains("/etc/nginx/")
         || full.contains("/usr/local/nginx/conf/")
         || (full.contains("/nginx/") && full.ends_with(".conf"))
+}
+
+fn starlark(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    ["WORKSPACE", "WORKSPACE.bzlmod", "BUCK", "BUILD"].contains(&name)
+        || path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+            [
+                "bzl", "bxl", "bazel", "BUILD", "ipd", "sky", "star", "starlark",
+            ]
+            .contains(&e)
+        })
 }
 
 fn ini(path: &Path) -> bool {

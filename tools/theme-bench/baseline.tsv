@@ -36,6 +36,7 @@ adwaita	rust	17576	17576
 adwaita	scala	26619	26619
 adwaita	scheme	19794	19794
 adwaita	sql	9476	9476
+adwaita	starlark	15410	15410
 adwaita	svelte	14924	12257
 adwaita	swift	22782	22782
 adwaita	terraform	4842	4842
@@ -83,6 +84,7 @@ adwaita-light	rust	17576	17576
 adwaita-light	scala	26619	26619
 adwaita-light	scheme	19794	19794
 adwaita-light	sql	9476	9476
+adwaita-light	starlark	15410	15410
 adwaita-light	svelte	14924	12279
 adwaita-light	swift	22782	22782
 adwaita-light	terraform	4842	4842
@@ -130,6 +132,7 @@ alabaster	rust	17576	17576
 alabaster	scala	26619	26619
 alabaster	scheme	19794	19794
 alabaster	sql	9476	9476
+alabaster	starlark	15410	15410
 alabaster	svelte	14924	12960
 alabaster	swift	22782	22782
 alabaster	terraform	4842	4842
@@ -177,6 +180,7 @@ alabaster-light	rust	17576	17576
 alabaster-light	scala	26619	26619
 alabaster-light	scheme	19794	19792
 alabaster-light	sql	9476	9476
+alabaster-light	starlark	15410	15410
 alabaster-light	svelte	14924	12959
 alabaster-light	swift	22782	22782
 alabaster-light	terraform	4842	4842
@@ -224,6 +228,7 @@ alucard	rust	17576	17576
 alucard	scala	26619	26619
 alucard	scheme	19794	19792
 alucard	sql	9476	9476
+alucard	starlark	15410	15410
 alucard	svelte	14924	11287
 alucard	swift	22782	22782
 alucard	terraform	4842	4842
@@ -271,6 +276,7 @@ ayu	rust	17576	17576
 ayu	scala	26619	26619
 ayu	scheme	19794	19792
 ayu	sql	9476	9476
+ayu	starlark	15410	15410
 ayu	svelte	14924	11294
 ayu	swift	22782	22782
 ayu	terraform	4842	4842
@@ -318,6 +324,7 @@ ayu-light	rust	17576	17576
 ayu-light	scala	26619	26619
 ayu-light	scheme	19794	19792
 ayu-light	sql	9476	9476
+ayu-light	starlark	15410	15410
 ayu-light	svelte	14924	11294
 ayu-light	swift	22782	22782
 ayu-light	terraform	4842	4842
@@ -365,6 +372,7 @@ ayu-mirage	rust	17576	17576
 ayu-mirage	scala	26619	26619
 ayu-mirage	scheme	19794	19792
 ayu-mirage	sql	9476	9476
+ayu-mirage	starlark	15410	15410
 ayu-mirage	svelte	14924	11294
 ayu-mirage	swift	22782	22782
 ayu-mirage	terraform	4842	4842
@@ -412,6 +420,7 @@ bamboo	rust	17576	17576
 bamboo	scala	26619	26619
 bamboo	scheme	19794	19792
 bamboo	sql	9476	9476
+bamboo	starlark	15410	15410
 bamboo	svelte	14924	10930
 bamboo	swift	22782	22782
 bamboo	terraform	4842	4842
@@ -459,6 +468,7 @@ bamboo-light	rust	17576	17576
 bamboo-light	scala	26619	26619
 bamboo-light	scheme	19794	19792
 bamboo-light	sql	9476	9476
+bamboo-light	starlark	15410	15410
 bamboo-light	svelte	14924	10930
 bamboo-light	swift	22782	22782
 bamboo-light	terraform	4842	4842
@@ -506,6 +516,7 @@ bluloco-light	rust	17576	17576
 bluloco-light	scala	26619	26619
 bluloco-light	scheme	19794	19792
 bluloco-light	sql	9476	9476
+bluloco-light	starlark	15410	15410
 bluloco-light	svelte	14924	10908
 bluloco-light	swift	22782	22782
 bluloco-light	terraform	4842	4842
@@ -553,6 +564,7 @@ catppuccin-frappe	rust	17576	17576
 catppuccin-frappe	scala	26619	26619
 catppuccin-frappe	scheme	19794	19792
 catppuccin-frappe	sql	9476	9476
+catppuccin-frappe	starlark	15410	15410
 catppuccin-frappe	svelte	14924	10642
 catppuccin-frappe	swift	22782	22782
 catppuccin-frappe	terraform	4842	4842
@@ -600,6 +612,7 @@ catppuccin-latte	rust	17576	17576
 catppuccin-latte	scala	26619	26619
 catppuccin-latte	scheme	19794	19792
 catppuccin-latte	sql	9476	9476
+catppuccin-latte	starlark	15410	15410
 catppuccin-latte	svelte	14924	10642
 catppuccin-latte	swift	22782	22782
 catppuccin-latte	terraform	4842	4842
@@ -647,6 +660,7 @@ catppuccin-macchiato	rust	17576	17576
 catppuccin-macchiato	scala	26619	26619
 catppuccin-macchiato	scheme	19794	19792
 catppuccin-macchiato	sql	9476	9476
+catppuccin-macchiato	starlark	15410	15410
 catppuccin-macchiato	svelte	14924	10642
 catppuccin-macchiato	swift	22782	22782
 catppuccin-macchiato	terraform	4842	4842
@@ -694,6 +708,7 @@ catppuccin-mocha	rust	17576	17576
 catppuccin-mocha	scala	26619	26619
 catppuccin-mocha	scheme	19794	19792
 catppuccin-mocha	sql	9476	9476
+catppuccin-mocha	starlark	15410	15410
 catppuccin-mocha	svelte	14924	10642
 catppuccin-mocha	swift	22782	22782
 catppuccin-mocha	terraform	4842	4842
@@ -741,6 +756,7 @@ cendre	rust	17576	17576
 cendre	scala	26619	26619
 cendre	scheme	19794	19792
 cendre	sql	9476	9476
+cendre	starlark	15410	15410
 cendre	svelte	14924	11002
 cendre	swift	22782	22782
 cendre	terraform	4842	4842
@@ -788,6 +804,7 @@ darkearth	rust	17576	17576
 darkearth	scala	26619	26619
 darkearth	scheme	19794	19794
 darkearth	sql	9476	9476
+darkearth	starlark	15410	15410
 darkearth	svelte	14924	11574
 darkearth	swift	22782	22782
 darkearth	terraform	4842	4842
@@ -835,6 +852,7 @@ dawnfox	rust	17576	17576
 dawnfox	scala	26619	26619
 dawnfox	scheme	19794	19792
 dawnfox	sql	9476	9476
+dawnfox	starlark	15410	15410
 dawnfox	svelte	14924	8844
 dawnfox	swift	22782	22782
 dawnfox	terraform	4842	4842
@@ -882,6 +900,7 @@ dayfox	rust	17576	17576
 dayfox	scala	26619	26619
 dayfox	scheme	19794	19792
 dayfox	sql	9476	9476
+dayfox	starlark	15410	15410
 dayfox	svelte	14924	8832
 dayfox	swift	22782	22782
 dayfox	terraform	4842	4842
@@ -929,6 +948,7 @@ dracula	rust	17576	17576
 dracula	scala	26619	26619
 dracula	scheme	19794	19792
 dracula	sql	9476	9476
+dracula	starlark	15410	15410
 dracula	svelte	14924	11287
 dracula	swift	22782	22782
 dracula	terraform	4842	4842
@@ -976,6 +996,7 @@ e-ink	rust	17576	17576
 e-ink	scala	26619	26619
 e-ink	scheme	19794	19794
 e-ink	sql	9476	9476
+e-ink	starlark	15410	15410
 e-ink	svelte	14924	11152
 e-ink	swift	22782	22782
 e-ink	terraform	4842	4842
@@ -1023,6 +1044,7 @@ e-ink-light	rust	17576	17576
 e-ink-light	scala	26619	26619
 e-ink-light	scheme	19794	19794
 e-ink-light	sql	9476	9476
+e-ink-light	starlark	15410	15410
 e-ink-light	svelte	14924	11152
 e-ink-light	swift	22782	22782
 e-ink-light	terraform	4842	4842
@@ -1070,6 +1092,7 @@ edge	rust	17576	17576
 edge	scala	26619	26619
 edge	scheme	19794	19794
 edge	sql	9476	9476
+edge	starlark	15410	15410
 edge	svelte	14924	9991
 edge	swift	22782	22782
 edge	terraform	4842	4842
@@ -1117,6 +1140,7 @@ edge-light	rust	17576	17576
 edge-light	scala	26619	26619
 edge-light	scheme	19794	19794
 edge-light	sql	9476	9476
+edge-light	starlark	15410	15410
 edge-light	svelte	14924	9991
 edge-light	swift	22782	22782
 edge-light	terraform	4842	4842
@@ -1164,6 +1188,7 @@ everforest-dark	rust	17576	17576
 everforest-dark	scala	26619	26619
 everforest-dark	scheme	19794	19794
 everforest-dark	sql	9476	9476
+everforest-dark	starlark	15410	15410
 everforest-dark	svelte	14924	9935
 everforest-dark	swift	22782	22782
 everforest-dark	terraform	4842	4842
@@ -1211,6 +1236,7 @@ everforest-light	rust	17576	17576
 everforest-light	scala	26619	26619
 everforest-light	scheme	19794	19794
 everforest-light	sql	9476	9476
+everforest-light	starlark	15410	15410
 everforest-light	svelte	14924	9935
 everforest-light	swift	22782	22782
 everforest-light	terraform	4842	4842
@@ -1258,6 +1284,7 @@ flexoki-dark	rust	17576	17576
 flexoki-dark	scala	26619	26619
 flexoki-dark	scheme	19794	19794
 flexoki-dark	sql	9476	9476
+flexoki-dark	starlark	15410	15410
 flexoki-dark	svelte	14924	11459
 flexoki-dark	swift	22782	22782
 flexoki-dark	terraform	4842	4842
@@ -1305,6 +1332,7 @@ flexoki-light	rust	17576	17576
 flexoki-light	scala	26619	26619
 flexoki-light	scheme	19794	19794
 flexoki-light	sql	9476	9476
+flexoki-light	starlark	15410	15410
 flexoki-light	svelte	14924	11459
 flexoki-light	swift	22782	22782
 flexoki-light	terraform	4842	4842
@@ -1352,6 +1380,7 @@ github-dark	rust	17576	16926
 github-dark	scala	26619	26619
 github-dark	scheme	19794	19794
 github-dark	sql	9476	9476
+github-dark	starlark	15410	15410
 github-dark	svelte	14924	11060
 github-dark	swift	22782	22782
 github-dark	terraform	4842	4842
@@ -1399,6 +1428,7 @@ github-light	rust	17576	16926
 github-light	scala	26619	26619
 github-light	scheme	19794	19794
 github-light	sql	9476	9476
+github-light	starlark	15410	15410
 github-light	svelte	14924	11060
 github-light	swift	22782	22782
 github-light	terraform	4842	4842
@@ -1446,6 +1476,7 @@ gotham	rust	17576	17576
 gotham	scala	26619	26619
 gotham	scheme	19794	19792
 gotham	sql	9476	9476
+gotham	starlark	15410	15410
 gotham	svelte	14924	11523
 gotham	swift	22782	22782
 gotham	terraform	4842	4842
@@ -1493,6 +1524,7 @@ gruvbox-dark	rust	17576	17576
 gruvbox-dark	scala	26619	26619
 gruvbox-dark	scheme	19794	19794
 gruvbox-dark	sql	9476	9476
+gruvbox-dark	starlark	15410	15410
 gruvbox-dark	svelte	14924	10307
 gruvbox-dark	swift	22782	22782
 gruvbox-dark	terraform	4842	4842
@@ -1540,6 +1572,7 @@ gruvbox-light	rust	17576	17576
 gruvbox-light	scala	26619	26619
 gruvbox-light	scheme	19794	19794
 gruvbox-light	sql	9476	9476
+gruvbox-light	starlark	15410	15410
 gruvbox-light	svelte	14924	10307
 gruvbox-light	swift	22782	22782
 gruvbox-light	terraform	4842	4842
@@ -1587,6 +1620,7 @@ gruvbox-material-dark	rust	17576	17576
 gruvbox-material-dark	scala	26619	26619
 gruvbox-material-dark	scheme	19794	19794
 gruvbox-material-dark	sql	9476	9476
+gruvbox-material-dark	starlark	15410	15410
 gruvbox-material-dark	svelte	14924	10625
 gruvbox-material-dark	swift	22782	22782
 gruvbox-material-dark	terraform	4842	4842
@@ -1634,6 +1668,7 @@ gruvbox-material-light	rust	17576	17576
 gruvbox-material-light	scala	26619	26619
 gruvbox-material-light	scheme	19794	19794
 gruvbox-material-light	sql	9476	9476
+gruvbox-material-light	starlark	15410	15410
 gruvbox-material-light	svelte	14924	10625
 gruvbox-material-light	swift	22782	22782
 gruvbox-material-light	terraform	4842	4842
@@ -1681,6 +1716,7 @@ hojicha	rust	17576	17576
 hojicha	scala	26619	26619
 hojicha	scheme	19794	19792
 hojicha	sql	9476	9476
+hojicha	starlark	15410	15410
 hojicha	svelte	14924	10474
 hojicha	swift	22782	22782
 hojicha	terraform	4842	4842
@@ -1728,6 +1764,7 @@ iceberg	rust	17576	17576
 iceberg	scala	26619	26619
 iceberg	scheme	19794	19792
 iceberg	sql	9476	9476
+iceberg	starlark	15410	15410
 iceberg	svelte	14924	11907
 iceberg	swift	22782	22782
 iceberg	terraform	4842	4842
@@ -1775,6 +1812,7 @@ iceberg-light	rust	17576	17576
 iceberg-light	scala	26619	26619
 iceberg-light	scheme	19794	19794
 iceberg-light	sql	9476	9476
+iceberg-light	starlark	15410	15410
 iceberg-light	svelte	14924	11915
 iceberg-light	swift	22782	22782
 iceberg-light	terraform	4842	4842
@@ -1822,6 +1860,7 @@ jellybeans	rust	17576	17576
 jellybeans	scala	26619	26619
 jellybeans	scheme	19794	19792
 jellybeans	sql	9476	9476
+jellybeans	starlark	15410	15410
 jellybeans	svelte	14924	9365
 jellybeans	swift	22782	22782
 jellybeans	terraform	4842	4842
@@ -1869,6 +1908,7 @@ jellybeans-light	rust	17576	17576
 jellybeans-light	scala	26619	26619
 jellybeans-light	scheme	19794	19792
 jellybeans-light	sql	9476	9476
+jellybeans-light	starlark	15410	15410
 jellybeans-light	svelte	14924	9365
 jellybeans-light	swift	22782	22782
 jellybeans-light	terraform	4842	4842
@@ -1916,6 +1956,7 @@ kanagawa-dragon	rust	17576	17576
 kanagawa-dragon	scala	26619	26619
 kanagawa-dragon	scheme	19794	19792
 kanagawa-dragon	sql	9476	9476
+kanagawa-dragon	starlark	15410	15410
 kanagawa-dragon	svelte	14924	10108
 kanagawa-dragon	swift	22782	22782
 kanagawa-dragon	terraform	4842	4842
@@ -1963,6 +2004,7 @@ kanagawa-lotus	rust	17576	17576
 kanagawa-lotus	scala	26619	26619
 kanagawa-lotus	scheme	19794	19792
 kanagawa-lotus	sql	9476	9476
+kanagawa-lotus	starlark	15410	15410
 kanagawa-lotus	svelte	14924	10108
 kanagawa-lotus	swift	22782	22782
 kanagawa-lotus	terraform	4842	4842
@@ -2010,6 +2052,7 @@ kanagawa-wave	rust	17576	17576
 kanagawa-wave	scala	26619	26619
 kanagawa-wave	scheme	19794	19792
 kanagawa-wave	sql	9476	9476
+kanagawa-wave	starlark	15410	15410
 kanagawa-wave	svelte	14924	10108
 kanagawa-wave	swift	22782	22782
 kanagawa-wave	terraform	4842	4842
@@ -2057,6 +2100,7 @@ koda-dark	rust	17576	17576
 koda-dark	scala	26619	26619
 koda-dark	scheme	19794	19792
 koda-dark	sql	9476	9476
+koda-dark	starlark	15410	15410
 koda-dark	svelte	14924	11938
 koda-dark	swift	22782	22782
 koda-dark	terraform	4842	4842
@@ -2104,6 +2148,7 @@ koda-light	rust	17576	17576
 koda-light	scala	26619	26619
 koda-light	scheme	19794	19792
 koda-light	sql	9476	9476
+koda-light	starlark	15410	15410
 koda-light	svelte	14924	11761
 koda-light	swift	22782	22782
 koda-light	terraform	4842	4842
@@ -2151,6 +2196,7 @@ lackluster	rust	17576	17576
 lackluster	scala	26619	26619
 lackluster	scheme	19794	19792
 lackluster	sql	9476	9476
+lackluster	starlark	15410	15410
 lackluster	svelte	14924	10181
 lackluster	swift	22782	22782
 lackluster	terraform	4842	4842
@@ -2198,6 +2244,7 @@ lightearth	rust	17576	17576
 lightearth	scala	26619	26619
 lightearth	scheme	19794	19794
 lightearth	sql	9476	9476
+lightearth	starlark	15410	15410
 lightearth	svelte	14924	11574
 lightearth	swift	22782	22782
 lightearth	terraform	4842	4842
@@ -2245,6 +2292,7 @@ material-dark	rust	17576	17576
 material-dark	scala	26619	26619
 material-dark	scheme	19794	19792
 material-dark	sql	9476	9476
+material-dark	starlark	15410	15410
 material-dark	svelte	14924	10019
 material-dark	swift	22782	22782
 material-dark	terraform	4842	4842
@@ -2292,6 +2340,7 @@ material-light	rust	17576	17576
 material-light	scala	26619	26619
 material-light	scheme	19794	19792
 material-light	sql	9476	9476
+material-light	starlark	15410	15410
 material-light	svelte	14924	10019
 material-light	swift	22782	22782
 material-light	terraform	4842	4842
@@ -2339,6 +2388,7 @@ melange-dark	rust	17576	17576
 melange-dark	scala	26619	26619
 melange-dark	scheme	19794	19794
 melange-dark	sql	9476	9476
+melange-dark	starlark	15410	15410
 melange-dark	svelte	14924	11018
 melange-dark	swift	22782	22782
 melange-dark	terraform	4842	4842
@@ -2386,6 +2436,7 @@ melange-light	rust	17576	17576
 melange-light	scala	26619	26619
 melange-light	scheme	19794	19794
 melange-light	sql	9476	9476
+melange-light	starlark	15410	15410
 melange-light	svelte	14924	11018
 melange-light	swift	22782	22782
 melange-light	terraform	4842	4842
@@ -2433,6 +2484,7 @@ mellifluous	rust	17576	17576
 mellifluous	scala	26619	26619
 mellifluous	scheme	19794	19792
 mellifluous	sql	9476	9476
+mellifluous	starlark	15410	15410
 mellifluous	svelte	14924	10611
 mellifluous	swift	22782	22782
 mellifluous	terraform	4842	4842
@@ -2480,6 +2532,7 @@ mellifluous-light	rust	17576	17576
 mellifluous-light	scala	26619	26619
 mellifluous-light	scheme	19794	19792
 mellifluous-light	sql	9476	9476
+mellifluous-light	starlark	15410	15410
 mellifluous-light	svelte	14924	10611
 mellifluous-light	swift	22782	22782
 mellifluous-light	terraform	4842	4842
@@ -2527,6 +2580,7 @@ mellow	rust	17576	17576
 mellow	scala	26619	26619
 mellow	scheme	19794	19792
 mellow	sql	9476	9476
+mellow	starlark	15410	15410
 mellow	svelte	14924	11008
 mellow	swift	22782	22782
 mellow	terraform	4842	4842
@@ -2574,6 +2628,7 @@ miasma	rust	17576	17576
 miasma	scala	26619	26619
 miasma	scheme	19794	19794
 miasma	sql	9476	9476
+miasma	starlark	15410	15410
 miasma	svelte	14924	12183
 miasma	swift	22782	22782
 miasma	terraform	4842	4842
@@ -2621,6 +2676,7 @@ minischeme	rust	17576	17576
 minischeme	scala	26619	26619
 minischeme	scheme	19794	19794
 minischeme	sql	9476	9476
+minischeme	starlark	15410	15410
 minischeme	svelte	14924	11685
 minischeme	swift	22782	22782
 minischeme	terraform	4842	4842
@@ -2668,6 +2724,7 @@ minischeme-light	rust	17576	17576
 minischeme-light	scala	26619	26619
 minischeme-light	scheme	19794	19794
 minischeme-light	sql	9476	9476
+minischeme-light	starlark	15410	15410
 minischeme-light	svelte	14924	11685
 minischeme-light	swift	22782	22782
 minischeme-light	terraform	4842	4842
@@ -2715,6 +2772,7 @@ moonfly	rust	17576	17576
 moonfly	scala	26619	26619
 moonfly	scheme	19794	19794
 moonfly	sql	9476	9476
+moonfly	starlark	15410	15410
 moonfly	svelte	14924	10210
 moonfly	swift	22782	22782
 moonfly	terraform	4842	4842
@@ -2762,6 +2820,7 @@ neomodern-light	rust	17576	17576
 neomodern-light	scala	26619	26619
 neomodern-light	scheme	19794	19792
 neomodern-light	sql	9476	9476
+neomodern-light	starlark	15410	15410
 neomodern-light	svelte	14924	10474
 neomodern-light	swift	22782	22782
 neomodern-light	terraform	4842	4842
@@ -2809,6 +2868,7 @@ nightfly	rust	17576	17576
 nightfly	scala	26619	26619
 nightfly	scheme	19794	19794
 nightfly	sql	9476	9476
+nightfly	starlark	15410	15410
 nightfly	svelte	14924	10210
 nightfly	swift	22782	22782
 nightfly	terraform	4842	4842
@@ -2856,6 +2916,7 @@ nightfox	rust	17576	17576
 nightfox	scala	26619	26619
 nightfox	scheme	19794	19792
 nightfox	sql	9476	9476
+nightfox	starlark	15410	15410
 nightfox	svelte	14924	8832
 nightfox	swift	22782	22782
 nightfox	terraform	4842	4842
@@ -2903,6 +2964,7 @@ nord	rust	17576	17576
 nord	scala	26619	26619
 nord	scheme	19794	19794
 nord	sql	9476	9476
+nord	starlark	15410	15410
 nord	svelte	14924	11482
 nord	swift	22782	22782
 nord	terraform	4842	4842
@@ -2950,6 +3012,7 @@ nordfox	rust	17576	17576
 nordfox	scala	26619	26619
 nordfox	scheme	19794	19792
 nordfox	sql	9476	9476
+nordfox	starlark	15410	15410
 nordfox	svelte	14924	8832
 nordfox	swift	22782	22782
 nordfox	terraform	4842	4842
@@ -2997,6 +3060,7 @@ onedark	rust	17576	17576
 onedark	scala	26619	26619
 onedark	scheme	19794	19794
 onedark	sql	9476	9476
+onedark	starlark	15410	15410
 onedark	svelte	14924	10660
 onedark	swift	22782	22782
 onedark	terraform	4842	4842
@@ -3044,6 +3108,7 @@ onedark-light	rust	17576	17576
 onedark-light	scala	26619	26619
 onedark-light	scheme	19794	19794
 onedark-light	sql	9476	9476
+onedark-light	starlark	15410	15410
 onedark-light	svelte	14924	10660
 onedark-light	swift	22782	22782
 onedark-light	terraform	4842	4842
@@ -3091,6 +3156,7 @@ oxocarbon-dark	rust	17576	17576
 oxocarbon-dark	scala	26619	26619
 oxocarbon-dark	scheme	19794	19794
 oxocarbon-dark	sql	9476	9476
+oxocarbon-dark	starlark	15410	15410
 oxocarbon-dark	svelte	14924	10946
 oxocarbon-dark	swift	22782	22782
 oxocarbon-dark	terraform	4842	4842
@@ -3138,6 +3204,7 @@ oxocarbon-light	rust	17576	17576
 oxocarbon-light	scala	26619	26619
 oxocarbon-light	scheme	19794	19794
 oxocarbon-light	sql	9476	9476
+oxocarbon-light	starlark	15410	15410
 oxocarbon-light	svelte	14924	10946
 oxocarbon-light	swift	22782	22782
 oxocarbon-light	terraform	4842	4842
@@ -3185,6 +3252,7 @@ papercolor	rust	17576	17576
 papercolor	scala	26619	26619
 papercolor	scheme	19794	19792
 papercolor	sql	9476	9476
+papercolor	starlark	15410	15410
 papercolor	svelte	14924	11221
 papercolor	swift	22782	22782
 papercolor	terraform	4842	4842
@@ -3232,6 +3300,7 @@ papercolor-light	rust	17576	17576
 papercolor-light	scala	26619	26619
 papercolor-light	scheme	19794	19792
 papercolor-light	sql	9476	9476
+papercolor-light	starlark	15410	15410
 papercolor-light	svelte	14924	10876
 papercolor-light	swift	22782	22782
 papercolor-light	terraform	4842	4842
@@ -3279,6 +3348,7 @@ pencil	rust	17576	17576
 pencil	scala	26619	26619
 pencil	scheme	19794	19792
 pencil	sql	9476	9476
+pencil	starlark	15410	15410
 pencil	svelte	14924	11577
 pencil	swift	22782	22782
 pencil	terraform	4842	4842
@@ -3326,6 +3396,7 @@ pencil-light	rust	17576	17576
 pencil-light	scala	26619	26619
 pencil-light	scheme	19794	19792
 pencil-light	sql	9476	9476
+pencil-light	starlark	15410	15410
 pencil-light	svelte	14924	11577
 pencil-light	swift	22782	22782
 pencil-light	terraform	4842	4842
@@ -3373,6 +3444,7 @@ rose-pine	rust	17576	17576
 rose-pine	scala	26619	26619
 rose-pine	scheme	19794	19792
 rose-pine	sql	9476	9476
+rose-pine	starlark	15410	15410
 rose-pine	svelte	14924	11012
 rose-pine	swift	22782	22782
 rose-pine	terraform	4842	4842
@@ -3420,6 +3492,7 @@ rose-pine-dawn	rust	17576	17576
 rose-pine-dawn	scala	26619	26619
 rose-pine-dawn	scheme	19794	19792
 rose-pine-dawn	sql	9476	9476
+rose-pine-dawn	starlark	15410	15410
 rose-pine-dawn	svelte	14924	11012
 rose-pine-dawn	swift	22782	22782
 rose-pine-dawn	terraform	4842	4842
@@ -3467,6 +3540,7 @@ rose-pine-moon	rust	17576	17576
 rose-pine-moon	scala	26619	26619
 rose-pine-moon	scheme	19794	19792
 rose-pine-moon	sql	9476	9476
+rose-pine-moon	starlark	15410	15410
 rose-pine-moon	svelte	14924	11012
 rose-pine-moon	swift	22782	22782
 rose-pine-moon	terraform	4842	4842
@@ -3514,6 +3588,7 @@ selenized	rust	17576	17576
 selenized	scala	26619	26619
 selenized	scheme	19794	19792
 selenized	sql	9476	9476
+selenized	starlark	15410	15410
 selenized	svelte	14924	10921
 selenized	swift	22782	22782
 selenized	terraform	4842	4842
@@ -3561,6 +3636,7 @@ selenized-light	rust	17576	17576
 selenized-light	scala	26619	26619
 selenized-light	scheme	19794	19792
 selenized-light	sql	9476	9476
+selenized-light	starlark	15410	15410
 selenized-light	svelte	14924	10921
 selenized-light	swift	22782	22782
 selenized-light	terraform	4842	4842
@@ -3608,6 +3684,7 @@ solarized-dark	rust	17576	17576
 solarized-dark	scala	26619	26619
 solarized-dark	scheme	19794	19792
 solarized-dark	sql	9476	9476
+solarized-dark	starlark	15410	15410
 solarized-dark	svelte	14924	11203
 solarized-dark	swift	22782	22782
 solarized-dark	terraform	4842	4842
@@ -3655,6 +3732,7 @@ solarized-light	rust	17576	17576
 solarized-light	scala	26619	26619
 solarized-light	scheme	19794	19792
 solarized-light	sql	9476	9476
+solarized-light	starlark	15410	15410
 solarized-light	svelte	14924	10740
 solarized-light	swift	22782	22782
 solarized-light	terraform	4842	4842
@@ -3702,6 +3780,7 @@ sonokai	rust	17576	17576
 sonokai	scala	26619	26619
 sonokai	scheme	19794	19794
 sonokai	sql	9476	9476
+sonokai	starlark	15410	15410
 sonokai	svelte	14924	10017
 sonokai	swift	22782	22782
 sonokai	terraform	4842	4842
@@ -3749,6 +3828,7 @@ soviet-dark	rust	17576	17576
 soviet-dark	scala	26619	26619
 soviet-dark	scheme	19794	19792
 soviet-dark	sql	9476	9476
+soviet-dark	starlark	15410	15410
 soviet-dark	svelte	14924	9415
 soviet-dark	swift	22782	22782
 soviet-dark	terraform	4842	4842
@@ -3796,6 +3876,7 @@ soviet-light	rust	17576	17576
 soviet-light	scala	26619	26619
 soviet-light	scheme	19794	19792
 soviet-light	sql	9476	9476
+soviet-light	starlark	15410	15410
 soviet-light	svelte	14924	9415
 soviet-light	swift	22782	22782
 soviet-light	terraform	4842	4842
@@ -3843,6 +3924,7 @@ srcery	rust	17576	17576
 srcery	scala	26619	26619
 srcery	scheme	19794	19792
 srcery	sql	9476	9476
+srcery	starlark	15410	15410
 srcery	svelte	14924	10409
 srcery	swift	22782	22782
 srcery	terraform	4842	4842
@@ -3890,6 +3972,7 @@ token	rust	17576	17576
 token	scala	26619	26619
 token	scheme	19794	19792
 token	sql	9476	9476
+token	starlark	15410	15410
 token	svelte	14924	11152
 token	swift	22782	22782
 token	terraform	4842	4842
@@ -3937,6 +4020,7 @@ token-light	rust	17576	17576
 token-light	scala	26619	26619
 token-light	scheme	19794	19792
 token-light	sql	9476	9476
+token-light	starlark	15410	15410
 token-light	svelte	14924	11152
 token-light	swift	22782	22782
 token-light	terraform	4842	4842
@@ -3984,6 +4068,7 @@ tokyonight-day	rust	17576	17576
 tokyonight-day	scala	26619	26619
 tokyonight-day	scheme	19794	19792
 tokyonight-day	sql	9476	9476
+tokyonight-day	starlark	15410	15410
 tokyonight-day	svelte	14924	9246
 tokyonight-day	swift	22782	22782
 tokyonight-day	terraform	4842	4842
@@ -4031,6 +4116,7 @@ tokyonight-moon	rust	17576	17576
 tokyonight-moon	scala	26619	26619
 tokyonight-moon	scheme	19794	19792
 tokyonight-moon	sql	9476	9476
+tokyonight-moon	starlark	15410	15410
 tokyonight-moon	svelte	14924	9246
 tokyonight-moon	swift	22782	22782
 tokyonight-moon	terraform	4842	4842
@@ -4078,6 +4164,7 @@ tokyonight-night	rust	17576	17576
 tokyonight-night	scala	26619	26619
 tokyonight-night	scheme	19794	19792
 tokyonight-night	sql	9476	9476
+tokyonight-night	starlark	15410	15410
 tokyonight-night	svelte	14924	9246
 tokyonight-night	swift	22782	22782
 tokyonight-night	terraform	4842	4842
@@ -4125,6 +4212,7 @@ tokyonight-storm	rust	17576	17576
 tokyonight-storm	scala	26619	26619
 tokyonight-storm	scheme	19794	19792
 tokyonight-storm	sql	9476	9476
+tokyonight-storm	starlark	15410	15410
 tokyonight-storm	svelte	14924	9246
 tokyonight-storm	swift	22782	22782
 tokyonight-storm	terraform	4842	4842
@@ -4172,6 +4260,7 @@ vague	rust	17576	17576
 vague	scala	26619	26619
 vague	scheme	19794	19794
 vague	sql	9476	9476
+vague	starlark	15410	15410
 vague	svelte	14924	10624
 vague	swift	22782	22782
 vague	terraform	4842	4842
@@ -4219,6 +4308,7 @@ vesper	rust	17576	17576
 vesper	scala	26619	26619
 vesper	scheme	19794	19794
 vesper	sql	9476	9476
+vesper	starlark	15410	15410
 vesper	svelte	14924	10894
 vesper	swift	22782	22782
 vesper	terraform	4842	4842
@@ -4266,6 +4356,7 @@ vscode-dark	rust	17576	17576
 vscode-dark	scala	26619	26619
 vscode-dark	scheme	19794	19794
 vscode-dark	sql	9476	9476
+vscode-dark	starlark	15410	15410
 vscode-dark	svelte	14924	10668
 vscode-dark	swift	22782	22782
 vscode-dark	terraform	4842	4842
@@ -4313,6 +4404,7 @@ vscode-light	rust	17576	17576
 vscode-light	scala	26619	26619
 vscode-light	scheme	19794	19794
 vscode-light	sql	9476	9476
+vscode-light	starlark	15410	15410
 vscode-light	svelte	14924	10668
 vscode-light	swift	22782	22782
 vscode-light	terraform	4842	4842
