@@ -332,6 +332,26 @@ impl App {
         self.hist_note(true);
     }
 
+    pub fn receive(&mut self, path: &Path, line: usize, col1: usize) {
+        use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        for _ in 0..3 {
+            if self.picker.is_none() && self.mode == Mode::Normal {
+                break;
+            }
+            self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        }
+        self.jump_to_col(path, line, 0);
+        if col1 > 1 && self.buf.path.as_deref() == Some(path) {
+            let s = self.buf.shown(self.line);
+            self.col = s
+                .char_indices()
+                .nth(col1 - 1)
+                .map_or(s.len(), |(i, _)| i);
+            self.sync_want_x();
+            self.hist_note(false);
+        }
+    }
+
     pub(super) fn jump_to_item(&mut self, item: &PickItem) {
         let path = self.root.join(&item.path);
         if item.deleted {

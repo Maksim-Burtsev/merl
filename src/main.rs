@@ -10,6 +10,7 @@ mod markdown;
 mod mermaid;
 mod picker;
 mod picture;
+mod remote;
 mod reviews;
 mod search;
 mod stats;
@@ -56,6 +57,7 @@ enum Msg {
     DiffDone(PathBuf, git::Diff),
     SearchDone { seq: u64, rows: Vec<PickItem> },
     Diagram(mermaid::Done),
+    Remote(PathBuf, usize, usize),
     Quit,
 }
 
@@ -120,6 +122,12 @@ struct Cli {
     base: Option<String>,
     #[arg(long, hide = true)]
     for_agents: bool,
+    #[arg(long, hide = true, value_name = "FILE:LINE")]
+    send: Option<String>,
+    #[arg(long, hide = true, value_name = "NAME")]
+    server: Option<String>,
+    #[arg(long, hide = true, value_name = "NAME")]
+    listen: Option<String>,
 }
 
 fn main() {
@@ -204,6 +212,9 @@ fn start_tutor(app: &mut App, drill: Option<u16>, dir: PathBuf) -> Result<()> {
 
 fn run() -> Result<()> {
     let cli = Cli::parse();
+    if let Some(target) = &cli.send {
+        return send(target, cli.server.as_deref());
+    }
     if let Some(text) = report(&cli)? {
         print_even_to_a_closed_pipe(&text);
         return Ok(());
@@ -229,6 +240,14 @@ fn run() -> Result<()> {
     } else {
         resolve(cli.target.as_deref())?
     };
+    if remote::variant() == 'B'
+        && cli.review.is_none()
+        && let Some(f) = &file
+        && let Some(name) = remote::receiver(f, None)
+    {
+        let (l, c) = line.unwrap_or((0, 0));
+        return remote::send(&name, f, l, c);
+    }
     let diagrams = mermaid::Diagrams::detect();
     let review = open_review(&cli, &mut root, &mut file, &diagrams)?;
     let git_dirs = git::dirs(&root);
@@ -278,9 +297,10 @@ fn run() -> Result<()> {
     let (mut terminal, keyboard) = enter_terminal()?;
     mermaid::keep_panics_inside();
     let (tx, rx) = mpsc::channel();
+    let listening = remote::listen(&app.root, cli.listen.as_deref(), tx.clone(), Msg::Remote);
     spawn_key_reader(&keyboard, tx.clone());
     quit_on_signals(tx.clone());
-    let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project);
+    let result = event_loop(&mut terminal, &mut app, theme, &rx, tx, project, listening);
     drop(app.diagrams.clear(&mut stdout()));
     leave_terminal(&keyboard);
     if let Some(t) = &app.tutor {
@@ -510,6 +530,10 @@ impl Watching {
                 }
                 shown
             }
+            Ok(Msg::Remote(path, line, col)) => {
+                app.receive(&path, line, col);
+                true
+            }
             Ok(Msg::Quit) => {
                 app.flush();
                 return ControlFlow::Break(());
@@ -595,6 +619,7 @@ fn event_loop(
     rx: &mpsc::Receiver<Msg>,
     fs: Sender<Msg>,
     project: live::Project,
+    mut listening: Option<remote::Listening>,
 ) -> Result<()> {
     let diff_tx = fs.clone();
     let mut drawn_theme = app.theme.clone();
@@ -641,7 +666,11 @@ fn event_loop(
         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
         let idle = if app.parsing() { Duration::ZERO } else { idle };
-        match live.on_msg(app, rx.recv_timeout(idle)) {
+        let msg = rx.recv_timeout(idle);
+        if let (Some(l), Ok(Msg::Key(_))) = (&mut listening, &msg) {
+            l.pressed();
+        }
+        match live.on_msg(app, msg) {
             ControlFlow::Continue(changed) => dirty |= changed,
             ControlFlow::Break(()) => return Ok(()),
         }
@@ -771,6 +800,26 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
         file: Some(path),
         at: line,
     })
+}
+
+fn send(target: &str, server: Option<&str>) -> Result<()> {
+    if remote::variant() == 'C' && server.is_none() {
+        anyhow::bail!("--send needs --server NAME");
+    }
+    let (path, at) = split_line(target);
+    let p = Path::new(path);
+    if !p.exists() {
+        anyhow::bail!("{path}: no such file or directory");
+    }
+    if !p.is_file() {
+        anyhow::bail!("{path}: not a regular file");
+    }
+    let file = p.canonicalize()?;
+    let Some(name) = remote::receiver(&file, server) else {
+        anyhow::bail!("no merl open on {path}");
+    };
+    let (l, c) = at.unwrap_or((0, 0));
+    remote::send(&name, &file, l, c)
 }
 
 fn split_line(target: &str) -> (&str, Option<LineCol1>) {
