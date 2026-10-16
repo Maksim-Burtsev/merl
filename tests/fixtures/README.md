@@ -361,6 +361,16 @@ both kinds, each refusal of the issue, and declaration-shaped lines in a `"…"`
 beside a `%` comment holding `"""` and a `$"`. `lib/shop/seed.exs` calls a function in column zero,
 which declares nothing. Its annotations start with `%`.
 
+`sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
+set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
+`AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
+it, an alias named like a table, an overloaded function, a view declared twice, a parameter
+named like a table, and a statement in a string over lines and in a comment. `dart/lib/tea/` has a
+`Kettle` with named, redirecting and factory constructors and a `part`, a namesake `Kettle`
+behind an import prefix, a `Teapot` sharing `pour` and a static `cold`, a parameter hiding the
+prefix and one hiding a field, `super.` and a cascade, record and object patterns, a local
+function, and declaration-shaped lines in a raw string, a nested `/* */` and a `///` comment.
+
 ### Adding a kind
 
 1. Make `tests/fixtures/<kind>/`, a small project laid out as the language lays one out (a
