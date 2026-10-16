@@ -211,19 +211,26 @@ impl App {
         kind: Kind,
         word: &str,
         here: &Path,
+        cs_type: bool,
     ) -> Vec<Candidate> {
         let Some(r) = &self.review else {
             return Vec::new();
         };
-        let mut patterns = search::def_patterns_for(kind, word, self.c_dialect());
-        self.spelling_cut(kind, word, &mut patterns);
-        patterns.extend(search::member_patterns(kind, word).unwrap_or_default());
+        let patterns = if cs_type {
+            search::cs_type_patterns(word)
+        } else {
+            let mut all = search::def_patterns_for(kind, word, self.c_dialect());
+            self.spelling_cut(kind, word, &mut all);
+            all.extend(search::member_patterns(kind, word).unwrap_or_default());
+            all
+        };
         let Ok(re) = Regex::new(&patterns.join("|")) else {
             return Vec::new();
         };
+        let sight = self.cs_sight(kind, here);
         let hits = deleted_hits(
             &r.deleted,
-            |p| search::in_def_scope(kind, here, p),
+            |p| search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p)),
             |t| re.is_match(t).then_some(0),
         );
         let mut base: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();

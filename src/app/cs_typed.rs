@@ -690,7 +690,7 @@ impl App {
         });
         let mut hits = hits;
         hits.retain(|h| {
-            let place = self.text_of(&h.path).map_or(search::CsPlace::Top, |t| {
+            let place = self.hit_text(h).map_or(search::CsPlace::Top, |t| {
                 search::cs_place(&t, h.line1, word)
             });
             match place {
@@ -704,14 +704,16 @@ impl App {
                     private: true,
                 } => mine.contains(&owner),
                 search::CsPlace::Local { from, to } => {
-                    chain.is_none() && h.path == here && (from..=to).contains(&(self.line + 1))
+                    chain.is_none()
+                        && h.path == here
+                        && (h.deleted.is_some() || (from..=to).contains(&(self.line + 1)))
                 }
                 _ => true,
             }
         });
         if !hits
             .iter()
-            .any(|h| h.path == here && h.line1 == self.line + 1)
+            .any(|h| h.deleted.is_none() && h.path == here && h.line1 == self.line + 1)
         {
             let patterns = search::def_patterns(Kind::CSharp, word);
             let ty = Regex::new(&patterns[0]).expect("an escaped name keeps the pattern valid");
@@ -750,7 +752,7 @@ impl App {
         };
         hits.into_iter()
             .filter(|h| {
-                let Some(text) = self.text_of(&h.path) else {
+                let Some(text) = self.hit_text(h) else {
                     return true;
                 };
                 let Some(search::CsArity {
