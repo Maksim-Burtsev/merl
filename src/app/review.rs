@@ -147,6 +147,11 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
+        if dir > 0 && self.sweeping && p552("sweep") {
+            self.sweep(&r);
+            return;
+        }
+        self.sweeping = false;
         if dir > 0
             && self.hunk_left(&r).is_none()
             && let Some(l) = self.unseen_in_hunk()
@@ -178,7 +183,8 @@ impl App {
         }
         let mut read = self
             .rel_current()
-            .filter(|rel| dir > 0 && r.file(rel).is_some());
+            .filter(|rel| dir > 0 && r.file(rel).is_some())
+            .filter(|rel| !p552("tick") || self.unseen_in(&r, rel).is_none());
         let (mut skipped, mut failed) = (0, None);
         let ticked = |f: &&git::ReviewFile| {
             dir > 0 && self.ticked(&f.path) && f.is_stop(&self.root, self.diagrams.on())
@@ -206,6 +212,12 @@ impl App {
                 failed = Some(std::mem::take(&mut self.message));
             }
         }
+        if dir > 0 && failed.is_none() && p552("sweep") && self.unseen(&r).is_some() {
+            self.mark_viewed(read.take());
+            self.sweeping = true;
+            self.sweep(&r);
+            return;
+        }
         self.message = failed.unwrap_or_else(|| {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
@@ -213,8 +225,54 @@ impl App {
         self.mark_viewed(read.take());
     }
 
+    fn sweep(&mut self, r: &git::Review) {
+        if p552("tick") {
+            let done: Vec<_> = r
+                .files
+                .iter()
+                .filter(|f| self.seen.contains_key(&f.path) && !self.ticked(&f.path))
+                .filter(|f| self.unseen_in(r, &f.path).is_none())
+                .map(|f| f.path.clone())
+                .collect();
+            self.mark_viewed(done);
+        }
+        match self.unseen(r) {
+            Some((rel, l)) => {
+                let path = self.root.join(rel);
+                self.jump_to_hunk(&path, TextLine::File(l));
+                self.remember_hunk();
+            }
+            None => {
+                self.sweeping = false;
+                self.message = "last hunk of the review".into();
+            }
+        }
+    }
+
+    fn unseen(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
+        r.files
+            .iter()
+            .filter(|f| f.has_hunks() && f.status != 'D')
+            .filter(|f| f.is_stop(&self.root, self.diagrams.on()))
+            .find_map(|f| self.unseen_in(r, &f.path).map(|l| (f.path.clone(), l)))
+    }
+
+    fn unseen_in(&self, r: &git::Review, rel: &Path) -> Option<usize> {
+        let rows: Vec<usize> = if self.rel_current().as_deref() == Some(rel) {
+            self.diff.marks.keys().copied().collect()
+        } else {
+            let f = r.file(rel)?;
+            let diff = r.diff(&self.root, &self.root.join(rel), Some(f));
+            diff.marks.into_keys().collect()
+        };
+        let seen = self.seen.get(rel);
+        rows.into_iter()
+            .filter(|l| !seen.is_some_and(|s| s.contains(l)))
+            .min()
+    }
+
     pub fn note_seen(&mut self) {
-        if !p552_seen() || self.review.is_none() {
+        if std::env::var_os("MERL_P552").is_none() || self.review.is_none() {
             return;
         }
         if let Some(rel) = self.rel_current() {
@@ -224,7 +282,7 @@ impl App {
     }
 
     fn unseen_in_hunk(&self) -> Option<usize> {
-        let rel = self.rel_current().filter(|_| p552_seen())?;
+        let rel = self.rel_current().filter(|_| p552("seen"))?;
         if self.viewed.contains_key(&rel) {
             return None;
         }
@@ -753,6 +811,6 @@ mod tests {
     }
 }
 
-fn p552_seen() -> bool {
-    std::env::var_os("MERL_P552").is_some_and(|v| v == "seen")
+fn p552(flag: &str) -> bool {
+    std::env::var("MERL_P552").is_ok_and(|v| v.split(',').any(|f| f == flag))
 }
