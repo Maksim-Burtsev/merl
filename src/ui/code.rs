@@ -173,11 +173,11 @@ impl<'a> Painter<'a> {
             ),
             tag: Style::new().bg(theme.tag_bg).fg(theme.tag_fg),
             hl: base.bg(theme.line_hl),
-            hl_gutter: if text_hl {
-                hl_gutter.bg(theme.line_hl)
+            hl_gutter: hl_gutter.bg(if text_hl {
+                theme.line_hl
             } else {
-                hl_gutter
-            },
+                theme.cursor_gutter_bg()
+            }),
             sel: theme
                 .selected(base)
                 .add_modifier(theme.modifiers(&["Visual"])),
