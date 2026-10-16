@@ -1234,9 +1234,7 @@ impl<'a> Styles<'a> {
             return textmate(name, &self.highlighter);
         }
         let s = self.theme.group(&format!("@{name}.{lang}"))?;
-        let reversed = s.add_modifier.contains(ratatui::style::Modifier::REVERSED);
         Some(Style {
-            bg: s.bg.filter(|_| reversed),
             underline_color: None,
             ..s
         })

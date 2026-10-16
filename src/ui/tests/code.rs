@@ -934,6 +934,48 @@ fn outside_a_review_added_lines_are_not_tinted() {
 }
 
 #[test]
+fn a_capture_s_background_wins_over_the_cursor_line_and_under_a_selection() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.diff"), b"@@ -1 +1 @@\n-a\n+bb\n"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let plus = theme.group("@diff.plus").and_then(|s| s.bg).unwrap();
+    app.buf.parse_more(None);
+    app.buf.highlight_to(usize::MAX, &theme);
+    let paint = |app: &mut App| -> String {
+        let mut terminal = Terminal::new(TestBackend::new(8, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let buf = terminal.backend().buffer();
+        (2..buf.area.width)
+            .map(|x| match buf[(x, 2)].bg {
+                bg if bg == plus => '+',
+                bg if bg == theme.selection => '#',
+                bg if bg == theme.line_hl => '-',
+                _ => '.',
+            })
+            .collect()
+    };
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    assert_eq!(
+        paint(&mut app),
+        "+++---",
+        "the cursor line's band yields to @diff.plus behind the text, as in Neovim"
+    );
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    assert_eq!(
+        paint(&mut app),
+        "#++---",
+        "a selection paints over @diff.plus, as Visual does in Neovim"
+    );
+}
+
+#[test]
 fn a_changed_word_is_painted_on_a_wrapped_or_scrolled_ghost() {
     let mut app = App::new(
         PathBuf::from("/tmp"),

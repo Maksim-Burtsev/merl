@@ -331,7 +331,7 @@ pub(super) fn draw_picker(
         );
         let code = code_hl(&mut picker.bufs, &app.root, review, &row.item, theme);
         let lit = !(i == selected && theme.selection_fg.is_some());
-        let cells = row_cells(row, code, lit, style);
+        let cells = row_cells(row, code, (lit, i == selected), style);
         let Some(place) = place else {
             let at = picker.selected + i - selected;
             lines.push(tagged_line(
@@ -445,7 +445,7 @@ fn picker_title(picker: &Picker, pending: bool) -> String {
 fn row_cells<'a>(
     row: &Row,
     code: Option<(&Spans, usize)>,
-    lit: bool,
+    (lit, selected): (bool, bool),
     style: Style,
 ) -> Vec<(usize, Span<'a>)> {
     let mut c = 0;
@@ -461,7 +461,11 @@ fn row_cells<'a>(
                 && b >= at
                 && let Some((s, _)) = hl.iter().find(|(_, r)| r.contains(&(b - at + off)))
             {
-                style = style.patch(*s);
+                style = style.patch(if selected {
+                    Style { bg: None, ..*s }
+                } else {
+                    *s
+                });
             }
             if chars
                 .into_iter()

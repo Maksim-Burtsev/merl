@@ -205,12 +205,14 @@ impl<'a> Painter<'a> {
             .is_some_and(|(first, last)| first <= line && line < last)
     }
 
-    fn plain_syntax<'s>(&self, syntax: &'s Spans) -> &'s Spans {
+    fn plain_syntax(&self, syntax: &Spans) -> Painted {
         if self.theme.selection_fg.is_some() {
-            &[]
-        } else {
-            syntax
+            return Vec::new();
         }
+        syntax
+            .iter()
+            .map(|(s, r)| (Style { bg: None, ..*s }, r.clone()))
+            .collect()
     }
 
     fn ghost_wrap(&self, raw: &str) -> Vec<(Range<usize>, usize)> {
@@ -337,7 +339,7 @@ impl<'a> Painter<'a> {
             here,
             self.find_styles,
         );
-        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        let plain = paint_finds(&self.plain_syntax(syntax), &finds, here, self.find_styles);
         (spans, plain)
     }
 
@@ -448,7 +450,7 @@ impl<'a> Painter<'a> {
             here,
             self.find_styles,
         );
-        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        let plain = paint_finds(&self.plain_syntax(syntax), &finds, here, self.find_styles);
         (spans, plain)
     }
 
