@@ -47,6 +47,9 @@ impl App {
     }
 
     fn locked<'a>(&self, mut lines: impl Iterator<Item = &'a String>) -> Option<String> {
+        if self.pushed_folder.is_some() {
+            return Some("read-only: a pushed branch".to_owned());
+        }
         if let Some(why) = self.buf.readonly {
             return Some(format!("read-only: {why}"));
         }

@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 use crate::tree::Order;
 use anyhow::{Context, Result, bail};
@@ -234,6 +235,31 @@ impl Review {
         Ok(Self { note, ..r })
     }
 
+    pub fn open_branch(root: &Path, b: &str, base: Option<&str>) -> Result<(PathBuf, Self)> {
+        let git = |args: &[&str]| git(root, args);
+        if git(&["symbolic-ref", "-q", "--short", "HEAD"]).is_ok_and(|h| h == b) {
+            return Ok((root.to_path_buf(), Self::open(root, Some(b), base)?));
+        }
+        let base = match base {
+            Some(b) => b.to_owned(),
+            None => detect_base(&git)?,
+        };
+        let (b, fetched) = fetch(&git, b, &base)?;
+        let (remote, local) = (format!("origin/{b}"), format!("refs/heads/{b}"));
+        let (at, note) = if !fetched {
+            (b.to_owned(), Some(format!("{remote} not fetched")))
+        } else if git(&["rev-parse", "--verify", "-q", &local]).is_ok() && own_commits(&git, b) {
+            let ahead = git(&["merge-base", "--is-ancestor", &remote, &local]).is_ok();
+            let note = (!ahead).then(|| lag(&git, &remote, &local));
+            (local, note)
+        } else {
+            (format!("refs/remotes/{remote}"), None)
+        };
+        let folder = check_out_folder(root, b, &at)?;
+        let r = Self::open(&folder, None, Some(&base))?;
+        Ok((folder, Self { note, ..r }))
+    }
+
     pub fn first_file(&self, root: &Path, pictures: bool) -> Option<PathBuf> {
         if let Some(f) = self.files.iter().find(|f| f.is_stop(root, pictures)) {
             return (f.status != 'D').then(|| root.join(&f.path));
@@ -250,10 +276,12 @@ impl Review {
     fn list(root: &Path, base: String) -> Result<Self> {
         let git = |args: &[&str]| git(root, args);
         let head = git(&["symbolic-ref", "-q", "HEAD"]).or_else(|_| rebasing(&git, root));
+        let folder = dirs(root).as_ref().and_then(folder_branch);
         let branch = (head.as_deref().ok())
             .and_then(|h| h.strip_prefix("refs/heads/"))
-            .unwrap_or("HEAD")
-            .to_owned();
+            .map(str::to_owned)
+            .or_else(|| folder.clone())
+            .unwrap_or_else(|| "HEAD".to_owned());
         let merge_base = git(&["merge-base", &base, "HEAD"])
             .with_context(|| format!("no merge base between {base} and HEAD"))?;
         let raw = ["diff", "--raw", "--no-abbrev", "-z", &merge_base];
@@ -278,6 +306,7 @@ impl Review {
         for path in others
             .split('\0')
             .filter(|p| !p.is_empty() && !p.ends_with('/'))
+            .filter(|p| folder.is_none() || !dir_link(&root.join(p)))
         {
             files.retain(|f| f.path != Path::new(path));
             files.push(untracked(root, Path::new(path)));
@@ -893,11 +922,11 @@ fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
     rows
 }
 
-fn checkout(
+fn fetch<'a>(
     git: &dyn Fn(&[&str]) -> Result<String>,
-    b: &str,
+    b: &'a str,
     base: &str,
-) -> Result<Option<String>> {
+) -> Result<(&'a str, bool)> {
     let pushed = b
         .strip_prefix("origin/")
         .filter(|_| git(&["rev-parse", "--verify", "-q", &format!("refs/heads/{b}")]).is_err());
@@ -911,6 +940,15 @@ fn checkout(
     {
         bail!("no branch {b} on origin");
     }
+    Ok((b, fetched))
+}
+
+fn checkout(
+    git: &dyn Fn(&[&str]) -> Result<String>,
+    b: &str,
+    base: &str,
+) -> Result<Option<String>> {
+    let (b, fetched) = fetch(git, b, base)?;
     git(&["switch", "-q", b]).with_context(|| format!("switching to {b}"))?;
     let remote = format!("origin/{b}");
     if !fetched {
@@ -924,21 +962,161 @@ fn checkout(
     if current.is_ok() {
         return Ok(None);
     }
-    let behind = git(&["merge-base", "--is-ancestor", "HEAD", &remote]).is_ok();
+    Ok(Some(lag(git, &remote, "HEAD")))
+}
+
+fn lag(git: &dyn Fn(&[&str]) -> Result<String>, remote: &str, tip: &str) -> String {
+    let behind = git(&["merge-base", "--is-ancestor", tip, remote]).is_ok();
     let how = if behind { "behind" } else { "diverged from" };
-    Ok(Some(format!("{how} {remote}")))
+    format!("{how} {remote}")
+}
+
+const FOLDERS: &str = "merl/branches";
+const UNOPENED_FOR: Duration = Duration::from_hours(14 * 24);
+const DEPENDENCIES: [&str; 3] = [".venv", "node_modules", "target"];
+
+fn branch_of_folder(common: &Path, folder: &Path) -> Option<String> {
+    let rel = folder.strip_prefix(common.join(FOLDERS)).ok()?.parent()?;
+    rel.to_str().filter(|b| !b.is_empty()).map(str::to_owned)
+}
+
+pub fn folder_branch(dirs: &GitDirs) -> Option<String> {
+    let gitdir = std::fs::read_to_string(dirs.worktree_head_dir.join("gitdir")).ok()?;
+    let folder = Path::new(gitdir.trim_end()).parent()?.canonicalize().ok()?;
+    branch_of_folder(&dirs.common_refs_dir, &folder)
+}
+
+fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
+    let common = dirs(root).context("no git directory")?.common_refs_dir;
+    let name = root.file_name().context("no repository name")?;
+    let folder = common.join(FOLDERS).join(b).join(name);
+    let reused = folder.join(".git").is_file()
+        && git(&folder, &["checkout", "-q", "-f", "--detach", at]).is_ok();
+    if !reused {
+        drop(std::fs::remove_dir_all(&folder));
+        git(root, &["worktree", "prune"])?;
+        let path = folder.to_str().context("a folder name that is not UTF-8")?;
+        git(root, &["worktree", "add", "-q", "--detach", path, at])
+            .with_context(|| format!("checking out {b}"))?;
+    }
+    #[cfg(unix)]
+    for name in DEPENDENCIES {
+        let (mine, there) = (root.join(name), folder.join(name));
+        if mine.is_dir() && there.symlink_metadata().is_err() {
+            drop(std::os::unix::fs::symlink(mine, there));
+        }
+    }
+    Ok(folder)
+}
+
+pub struct Opened(PathBuf);
+
+impl Opened {
+    pub fn mark(folder: &Path) -> Option<Self> {
+        let dirs = dirs(folder)?;
+        folder_branch(&dirs)?;
+        let admin = dirs.worktree_head_dir.join("merl");
+        let open = admin.join("open");
+        std::fs::create_dir_all(&open).ok()?;
+        std::fs::write(admin.join("opened"), "").ok()?;
+        let pid = open.join(std::process::id().to_string());
+        std::fs::write(&pid, "").ok()?;
+        Some(Self(pid))
+    }
+}
+
+impl Drop for Opened {
+    fn drop(&mut self) {
+        drop(std::fs::remove_file(&self.0));
+    }
+}
+
+fn open_in_a_merl(admin: &Path) -> bool {
+    let alive = |pid: &str| {
+        Command::new("ps")
+            .args(["-p", pid])
+            .stdout(std::process::Stdio::null())
+            .status()
+            .map_or(true, |s| s.success())
+    };
+    std::fs::read_dir(admin.join("merl/open"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|e| e.file_name().to_str().is_some_and(alive))
+}
+
+fn heads_on_origin(root: &Path) -> Option<String> {
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["ls-remote", "--heads", "origin"])
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+pub fn sweep_folders(root: &Path, now: SystemTime) {
+    let (Some(common), Ok(list)) = (
+        dirs(root).map(|d| d.common_refs_dir),
+        git(root, &["worktree", "list", "--porcelain"]),
+    ) else {
+        return;
+    };
+    let top = common.join(FOLDERS);
+    let mut heads = None;
+    for folder in (list.lines())
+        .filter_map(|l| l.strip_prefix("worktree "))
+        .filter_map(|p| Path::new(p).canonicalize().ok())
+    {
+        let (Some(branch), Some(d)) = (branch_of_folder(&common, &folder), dirs(&folder)) else {
+            continue;
+        };
+        if open_in_a_merl(&d.worktree_head_dir) {
+            continue;
+        }
+        let opened =
+            std::fs::metadata(d.worktree_head_dir.join("merl/opened")).and_then(|m| m.modified());
+        let aged = opened.map_or(true, |t| {
+            now.duration_since(t).unwrap_or_default() > UNOPENED_FOR
+        });
+        let head = format!("\trefs/heads/{branch}");
+        let mut gone = || {
+            (heads
+                .get_or_insert_with(|| heads_on_origin(root))
+                .as_deref())
+            .is_some_and(|h: &str| !h.lines().any(|l| l.ends_with(&head)))
+        };
+        let Some(path) = folder.to_str() else {
+            continue;
+        };
+        if (aged || gone()) && git(root, &["worktree", "remove", "--force", path]).is_ok() {
+            for dir in folder.ancestors().skip(1).take_while(|d| *d != top) {
+                if std::fs::remove_dir(dir).is_err() {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, b: &str) -> bool {
-    let remote = format!("refs/remotes/origin/{b}");
+    let (remote, local) = (
+        format!("refs/remotes/origin/{b}"),
+        format!("refs/heads/{b}"),
+    );
     let tips = git(&["reflog", "--format=%H", &remote]).unwrap_or_default();
-    let log = git(&["reflog", "--format=%H %gs", &format!("refs/heads/{b}")]).unwrap_or_default();
+    let log = git(&["reflog", "--format=%H %gs", &local]).unwrap_or_default();
     let created = log
         .lines()
         .filter_map(|l| l.split_once(' '))
         .filter(|(_, subject)| subject.starts_with("branch: Created from"))
         .map(|(sha, _)| sha);
-    let mut args = vec!["rev-list", "--count", "HEAD", "--not", &remote];
+    let mut args = vec!["rev-list", "--count", &local, "--not", &remote];
     args.extend(tips.lines().chain(created));
     args.push("--");
     !git(&args).is_ok_and(|n| n == "0")
@@ -1604,8 +1782,7 @@ mod tests {
                 ),
             );
         });
-        let rows: Vec<(PathBuf, bool)> =
-            rx.recv_timeout(std::time::Duration::from_secs(60)).unwrap();
+        let rows: Vec<(PathBuf, bool)> = rx.recv_timeout(Duration::from_secs(60)).unwrap();
         assert_eq!(rows, [(PathBuf::from("pipe.link"), false)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }
