@@ -132,7 +132,7 @@ fn c_reads_no_cpp_header_and_only_objective_c_reads_the_pods() {
     let call = "int main(void) {\n    puts(\"x\");\n    return 0;\n}\n";
     let (dir, mut a) = project_app(
         "outside-c",
-        &[("main.c", call), ("main.m", call), ("main.mm", call)],
+        &[("main.c", call), ("main.m", &format!("// main.m\n{call}")), ("main.mm", call)],
     );
     use_roots(&mut a, Kind::C, &[inc.clone(), pods_root]);
     let rows = |a: &mut App, file: &str| {

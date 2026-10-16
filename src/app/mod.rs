@@ -460,6 +460,7 @@ impl App {
         } else {
             Focus::Tree
         };
+        search::note_root(&root);
         let ignored = tree.ignored_files();
         let mut app = Self {
             root,

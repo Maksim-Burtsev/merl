@@ -60,7 +60,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         (_, "java") => (Lang::Java, false),
         (_, "kt" | "kts") => (Lang::Kotlin, false),
         (_, "c") => (Lang::C, false),
-        (_, "m") => (Lang::ObjC, false),
+        (Some(Kind::C), "m") => (Lang::ObjC, false),
         (_, "h" | "cc" | "cpp" | "cxx" | "c++" | "hh" | "hpp" | "hxx" | "h++" | "ipp") => {
             (Lang::Cpp, false)
         }
