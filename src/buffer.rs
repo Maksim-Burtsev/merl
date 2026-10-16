@@ -418,7 +418,9 @@ pub(crate) fn syntax_for_info(word: &str, block_names: bool) -> Option<&'static 
 
 fn by_name(path: &Path) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
+    let matlab = path.extension().is_some_and(|e| e == "m") && !crate::search::objc_m(path);
     known_name(path)
+        .or_else(|| matlab.then_some("MATLAB"))
         .and_then(|name| set.find_syntax_by_name(name))
         .or_else(|| set.find_syntax_for_file(path).ok().flatten())
 }
@@ -649,6 +651,24 @@ mod tests {
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
         }
+    }
+
+    #[test]
+    fn a_dot_m_is_coloured_as_matlab_or_objective_c_by_its_text() {
+        let dir = std::env::temp_dir().join(format!("merl-m-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (file, text, lang) in [
+            ("setup.m", "% VL_SETUP\nfunction p = setup()\n", "MATLAB"),
+            ("Shop.m", "#import \"Shop.h\"\n@implementation Shop\n@end\n", "Objective-C"),
+            ("only_c.m", "#include <stdio.h>\nint x;\n", "Objective-C"),
+            ("empty.m", "", "Objective-C"),
+        ] {
+            let path = dir.join(file);
+            std::fs::write(&path, text).unwrap();
+            let b = Buffer::from_bytes(path, text.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some(lang), "{file}");
+        }
+        drop(std::fs::remove_dir_all(dir));
     }
 
     #[test]
