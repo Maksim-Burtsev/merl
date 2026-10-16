@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use merman::runtime::RuntimePolicy;
 use merman::svg::export::{RasterOptions, RasterSizeLimit};
 use merman::svg::{RootBackgroundPostprocessor, SvgPipeline};
 use merman::{OperationControl, PngRequest, RenderOutput, RenderRequest, Renderer, SvgRequest};
@@ -23,6 +24,7 @@ const LEAST_SHRINK: f32 = 0.5;
 const RENDERS: usize = 2;
 const MAX_SIDE: u32 = 8192;
 pub const THREAD: &str = "mermaid";
+const MERMAN_THREAD: &str = "merman-svg-backend";
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Key {
@@ -350,7 +352,7 @@ pub fn keep_panics_inside() {
         let name = std::thread::current().name().map(str::to_owned);
         if !matches!(
             name.as_deref(),
-            Some(THREAD | crate::markdown::data::THREAD)
+            Some(THREAD | MERMAN_THREAD | crate::markdown::data::THREAD)
         ) {
             hook(info);
         }
@@ -536,7 +538,7 @@ fn draw(src: &str) -> Option<Drawn> {
             ..RasterOptions::default()
         },
     };
-    let RenderOutput::Png(Some(out)) = Renderer::new()
+    let RenderOutput::Png(Some(out)) = renderer()
         .render(RenderRequest::png(src, OperationControl::new(), request))
         .ok()?
     else {
@@ -552,6 +554,16 @@ fn draw(src: &str) -> Option<Drawn> {
         h: plan.height_px,
         frames: vec![(out.bytes, 0)],
     })
+}
+
+fn renderer() -> Renderer {
+    let now = chrono::Local::now();
+    let clock = RuntimePolicy::deterministic().with_fixed_unix_millis(now.timestamp_millis());
+    let policy = clock
+        .clone()
+        .try_with_fixed_local_offset_minutes(now.offset().local_minus_utc() / 60)
+        .unwrap_or(clock);
+    Renderer::new().with_runtime_policy(policy)
 }
 
 fn transmit(buf: &mut String, pic: &Pic) {

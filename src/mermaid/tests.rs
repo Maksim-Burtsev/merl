@@ -375,3 +375,19 @@ fn a_diagram_up_to_8192_pixels_draws() {
     };
     assert!(drawn.h > 4096 && drawn.h <= 8192, "{}", drawn.h);
 }
+
+#[test]
+fn a_gantt_draws_today_inside_its_chart() {
+    let yesterday = chrono::Local::now().date_naive() - chrono::Days::new(1);
+    let src = format!("gantt\n  dateFormat YYYY-MM-DD\n  section S\n  A : {yesterday}, 3d\n");
+    let request = RenderRequest::svg(&src, OperationControl::new(), SvgRequest::default());
+    let Ok(RenderOutput::Svg(Some(out))) = renderer().render(request) else {
+        panic!("a gantt renders")
+    };
+    let (_, line) = out
+        .svg()
+        .split_once(r#"<g class="today"><line x1=""#)
+        .unwrap();
+    let x: f64 = line.split('"').next().unwrap().parse().unwrap();
+    assert!((0.0..2000.0).contains(&x), "{x}");
+}
