@@ -49,8 +49,6 @@ fn every_action_counts_where_it_is_pressed() {
     presses.extend([
         ("Ctrl+E", "o"),
         ("Ctrl+F", "/"),
-        ("F12", "d"),
-        ("Shift+F12", "u"),
         ("Ctrl+G", ":"),
         ("Up", "Arrows"),
         ("Down", "Arrows"),

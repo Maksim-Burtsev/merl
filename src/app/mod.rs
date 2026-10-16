@@ -89,13 +89,13 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Files and jumps",
     ),
     (
-        "d / F12",
+        "d",
         "Go to definition of the word under the cursor, or its implementations",
         "Files and jumps",
     ),
     ("D", "Project symbols (fuzzy)", "Files and jumps"),
     (
-        "u / Shift+F12",
+        "u",
         "Usages of the word under the cursor",
         "Files and jumps",
     ),

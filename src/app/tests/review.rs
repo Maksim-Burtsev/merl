@@ -1839,11 +1839,11 @@ fn a_deleted_line_is_refused_and_returned_to_every_way() {
         "`u` reads the word on a deleted line: `b` is only there"
     );
     key(&mut a, KeyCode::Esc);
-    key(&mut a, KeyCode::F(12));
+    key(&mut a, KeyCode::Char('d'));
     assert_eq!(
         (a.message.as_str(), a.picker.is_none()),
         ("no definition for b", true),
-        "F12 reads the word on a deleted line"
+        "`d` reads the word on a deleted line"
     );
 
     key(&mut a, KeyCode::Char('/'));
