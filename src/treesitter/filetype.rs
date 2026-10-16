@@ -41,6 +41,7 @@ pub fn for_syntax(
         "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "Kotlin" => lang("kotlin"),
+        "nginx" if path.is_some_and(nginx) => lang("nginx"),
         "TOML" => lang("toml"),
         "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
@@ -89,6 +90,21 @@ fn terraform(path: Option<&Path>, lines: &[String]) -> Option<&'static Lang> {
         }
         _ => None,
     }
+}
+
+fn nginx(path: &Path) -> bool {
+    let full = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let full = full.to_string_lossy();
+    let tail = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    path.extension().is_some_and(|e| e == "nginx")
+        || tail.ends_with("nginx.conf")
+        || (tail.starts_with("nginx") && tail.ends_with(".conf"))
+        || full.contains("/etc/nginx/")
+        || full.contains("/usr/local/nginx/conf/")
+        || (full.contains("/nginx/") && full.ends_with(".conf"))
 }
 
 fn ini(path: &Path) -> bool {

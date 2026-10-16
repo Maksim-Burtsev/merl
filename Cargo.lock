@@ -1932,6 +1932,7 @@ dependencies = [
  "tree-sitter-lua",
  "tree-sitter-luadoc",
  "tree-sitter-md",
+ "tree-sitter-nginx",
  "tree-sitter-nix",
  "tree-sitter-php",
  "tree-sitter-printf",
@@ -4182,6 +4183,15 @@ name = "tree-sitter-md"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2efd398be546456c814598ee56c0f51769a77241511b4a58077815d120afa882"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-nginx"
+version = "1.0.1"
+source = "git+https://github.com/opa-oz/tree-sitter-nginx?rev=7cdf006ed1addef698fc680ae31721950f85e5e9#7cdf006ed1addef698fc680ae31721950f85e5e9"
 dependencies = [
  "cc",
  "tree-sitter-language",

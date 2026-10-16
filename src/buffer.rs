@@ -450,6 +450,7 @@ fn known_file(name: &str) -> Option<&'static str> {
         ("Procfile" | "yarn.lock", _) => "YAML",
         ("WORKSPACE" | "Tiltfile" | "BUILD" | "BUCK", _) | (_, "star") => "Python",
         (_, "mdx") => "Markdown",
+        (_, "nginx") => "nginx",
         (_, "astro") => "TypeScriptReact",
         (_, "mill") => "Scala",
         (_, "fs") => "F#",

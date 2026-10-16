@@ -22,6 +22,7 @@ adwaita	jsx	14130	14130
 adwaita	kotlin	18781	18781
 adwaita	lua	4590	4590
 adwaita	markdown	18398	18398
+adwaita	nginx	9928	9928
 adwaita	nix	15630	15630
 adwaita	php	12811	12807
 adwaita	proto	4229	4229
@@ -67,6 +68,7 @@ adwaita-light	jsx	14130	14130
 adwaita-light	kotlin	18781	18781
 adwaita-light	lua	4590	4590
 adwaita-light	markdown	18398	18398
+adwaita-light	nginx	9928	9928
 adwaita-light	nix	15630	15630
 adwaita-light	php	12811	12807
 adwaita-light	proto	4229	4229
@@ -112,6 +114,7 @@ alabaster	jsx	14130	14130
 alabaster	kotlin	18781	18781
 alabaster	lua	4590	4590
 alabaster	markdown	18398	18398
+alabaster	nginx	9928	9928
 alabaster	nix	15630	15630
 alabaster	php	12811	12811
 alabaster	proto	4229	4229
@@ -157,6 +160,7 @@ alabaster-light	jsx	14130	14130
 alabaster-light	kotlin	18781	18781
 alabaster-light	lua	4590	4590
 alabaster-light	markdown	18398	18398
+alabaster-light	nginx	9928	9928
 alabaster-light	nix	15630	15622
 alabaster-light	php	12811	12803
 alabaster-light	proto	4229	4229
@@ -202,6 +206,7 @@ alucard	jsx	14130	14130
 alucard	kotlin	18781	18781
 alucard	lua	4590	4590
 alucard	markdown	18398	18398
+alucard	nginx	9928	9928
 alucard	nix	15630	15622
 alucard	php	12811	12803
 alucard	proto	4229	4229
@@ -247,6 +252,7 @@ ayu	jsx	14130	14130
 ayu	kotlin	18781	18781
 ayu	lua	4590	4590
 ayu	markdown	18398	18398
+ayu	nginx	9928	9928
 ayu	nix	15630	15622
 ayu	php	12811	12803
 ayu	proto	4229	4229
@@ -292,6 +298,7 @@ ayu-light	jsx	14130	14130
 ayu-light	kotlin	18781	18781
 ayu-light	lua	4590	4590
 ayu-light	markdown	18398	18398
+ayu-light	nginx	9928	9928
 ayu-light	nix	15630	15622
 ayu-light	php	12811	12803
 ayu-light	proto	4229	4229
@@ -337,6 +344,7 @@ ayu-mirage	jsx	14130	14130
 ayu-mirage	kotlin	18781	18781
 ayu-mirage	lua	4590	4590
 ayu-mirage	markdown	18398	18398
+ayu-mirage	nginx	9928	9928
 ayu-mirage	nix	15630	15622
 ayu-mirage	php	12811	12803
 ayu-mirage	proto	4229	4229
@@ -382,6 +390,7 @@ bamboo	jsx	14130	14130
 bamboo	kotlin	18781	18781
 bamboo	lua	4590	4590
 bamboo	markdown	18398	18398
+bamboo	nginx	9928	9928
 bamboo	nix	15630	15622
 bamboo	php	12811	12803
 bamboo	proto	4229	4229
@@ -427,6 +436,7 @@ bamboo-light	jsx	14130	14130
 bamboo-light	kotlin	18781	18781
 bamboo-light	lua	4590	4590
 bamboo-light	markdown	18398	18398
+bamboo-light	nginx	9928	9928
 bamboo-light	nix	15630	15622
 bamboo-light	php	12811	12803
 bamboo-light	proto	4229	4229
@@ -472,6 +482,7 @@ bluloco-light	jsx	14130	14130
 bluloco-light	kotlin	18781	18781
 bluloco-light	lua	4590	4590
 bluloco-light	markdown	18398	18398
+bluloco-light	nginx	9928	9928
 bluloco-light	nix	15630	15622
 bluloco-light	php	12811	12803
 bluloco-light	proto	4229	4229
@@ -517,6 +528,7 @@ catppuccin-frappe	jsx	14130	14130
 catppuccin-frappe	kotlin	18781	18781
 catppuccin-frappe	lua	4590	4590
 catppuccin-frappe	markdown	18398	18398
+catppuccin-frappe	nginx	9928	9928
 catppuccin-frappe	nix	15630	15622
 catppuccin-frappe	php	12811	12803
 catppuccin-frappe	proto	4229	4229
@@ -562,6 +574,7 @@ catppuccin-latte	jsx	14130	14130
 catppuccin-latte	kotlin	18781	18781
 catppuccin-latte	lua	4590	4590
 catppuccin-latte	markdown	18398	18398
+catppuccin-latte	nginx	9928	9928
 catppuccin-latte	nix	15630	15622
 catppuccin-latte	php	12811	12803
 catppuccin-latte	proto	4229	4229
@@ -607,6 +620,7 @@ catppuccin-macchiato	jsx	14130	14130
 catppuccin-macchiato	kotlin	18781	18781
 catppuccin-macchiato	lua	4590	4590
 catppuccin-macchiato	markdown	18398	18398
+catppuccin-macchiato	nginx	9928	9928
 catppuccin-macchiato	nix	15630	15622
 catppuccin-macchiato	php	12811	12803
 catppuccin-macchiato	proto	4229	4229
@@ -652,6 +666,7 @@ catppuccin-mocha	jsx	14130	14130
 catppuccin-mocha	kotlin	18781	18781
 catppuccin-mocha	lua	4590	4590
 catppuccin-mocha	markdown	18398	18398
+catppuccin-mocha	nginx	9928	9928
 catppuccin-mocha	nix	15630	15622
 catppuccin-mocha	php	12811	12803
 catppuccin-mocha	proto	4229	4229
@@ -697,6 +712,7 @@ cendre	jsx	14130	14130
 cendre	kotlin	18781	18781
 cendre	lua	4590	4590
 cendre	markdown	18398	18398
+cendre	nginx	9928	9928
 cendre	nix	15630	15622
 cendre	php	12811	12803
 cendre	proto	4229	4229
@@ -742,6 +758,7 @@ darkearth	jsx	14130	14130
 darkearth	kotlin	18781	18781
 darkearth	lua	4590	4590
 darkearth	markdown	18398	18398
+darkearth	nginx	9928	9928
 darkearth	nix	15630	15630
 darkearth	php	12811	12807
 darkearth	proto	4229	4229
@@ -787,6 +804,7 @@ dawnfox	jsx	14130	14130
 dawnfox	kotlin	18781	18781
 dawnfox	lua	4590	4590
 dawnfox	markdown	18398	18398
+dawnfox	nginx	9928	9928
 dawnfox	nix	15630	15622
 dawnfox	php	12811	12803
 dawnfox	proto	4229	4229
@@ -832,6 +850,7 @@ dayfox	jsx	14130	14130
 dayfox	kotlin	18781	18781
 dayfox	lua	4590	4590
 dayfox	markdown	18398	18398
+dayfox	nginx	9928	9928
 dayfox	nix	15630	15622
 dayfox	php	12811	12803
 dayfox	proto	4229	4229
@@ -877,6 +896,7 @@ dracula	jsx	14130	14130
 dracula	kotlin	18781	18781
 dracula	lua	4590	4590
 dracula	markdown	18398	18398
+dracula	nginx	9928	9928
 dracula	nix	15630	15622
 dracula	php	12811	12803
 dracula	proto	4229	4229
@@ -922,6 +942,7 @@ e-ink	jsx	14130	14130
 e-ink	kotlin	18781	18781
 e-ink	lua	4590	4590
 e-ink	markdown	18398	18398
+e-ink	nginx	9928	9928
 e-ink	nix	15630	15630
 e-ink	php	12811	12811
 e-ink	proto	4229	4229
@@ -967,6 +988,7 @@ e-ink-light	jsx	14130	14130
 e-ink-light	kotlin	18781	18781
 e-ink-light	lua	4590	4590
 e-ink-light	markdown	18398	18398
+e-ink-light	nginx	9928	9928
 e-ink-light	nix	15630	15630
 e-ink-light	php	12811	12811
 e-ink-light	proto	4229	4229
@@ -1012,6 +1034,7 @@ edge	jsx	14130	14130
 edge	kotlin	18781	18781
 edge	lua	4590	4590
 edge	markdown	18398	18398
+edge	nginx	9928	9928
 edge	nix	15630	15630
 edge	php	12811	12811
 edge	proto	4229	4229
@@ -1057,6 +1080,7 @@ edge-light	jsx	14130	14130
 edge-light	kotlin	18781	18781
 edge-light	lua	4590	4590
 edge-light	markdown	18398	18398
+edge-light	nginx	9928	9928
 edge-light	nix	15630	15630
 edge-light	php	12811	12811
 edge-light	proto	4229	4229
@@ -1102,6 +1126,7 @@ everforest-dark	jsx	14130	14130
 everforest-dark	kotlin	18781	18781
 everforest-dark	lua	4590	4590
 everforest-dark	markdown	18398	18398
+everforest-dark	nginx	9928	9928
 everforest-dark	nix	15630	15630
 everforest-dark	php	12811	12811
 everforest-dark	proto	4229	4229
@@ -1147,6 +1172,7 @@ everforest-light	jsx	14130	14130
 everforest-light	kotlin	18781	18781
 everforest-light	lua	4590	4590
 everforest-light	markdown	18398	18398
+everforest-light	nginx	9928	9928
 everforest-light	nix	15630	15630
 everforest-light	php	12811	12811
 everforest-light	proto	4229	4229
@@ -1192,6 +1218,7 @@ flexoki-dark	jsx	14130	14130
 flexoki-dark	kotlin	18781	18781
 flexoki-dark	lua	4590	4590
 flexoki-dark	markdown	18398	18398
+flexoki-dark	nginx	9928	9928
 flexoki-dark	nix	15630	15630
 flexoki-dark	php	12811	12811
 flexoki-dark	proto	4229	4229
@@ -1237,6 +1264,7 @@ flexoki-light	jsx	14130	14130
 flexoki-light	kotlin	18781	18781
 flexoki-light	lua	4590	4590
 flexoki-light	markdown	18398	18398
+flexoki-light	nginx	9928	9928
 flexoki-light	nix	15630	15630
 flexoki-light	php	12811	12811
 flexoki-light	proto	4229	4229
@@ -1282,6 +1310,7 @@ github-dark	jsx	14130	14130
 github-dark	kotlin	18781	18781
 github-dark	lua	4590	4590
 github-dark	markdown	18398	18398
+github-dark	nginx	9928	9928
 github-dark	nix	15630	15624
 github-dark	php	12811	12599
 github-dark	proto	4229	4229
@@ -1327,6 +1356,7 @@ github-light	jsx	14130	14130
 github-light	kotlin	18781	18781
 github-light	lua	4590	4590
 github-light	markdown	18398	18398
+github-light	nginx	9928	9928
 github-light	nix	15630	15624
 github-light	php	12811	12599
 github-light	proto	4229	4229
@@ -1372,6 +1402,7 @@ gotham	jsx	14130	14130
 gotham	kotlin	18781	18781
 gotham	lua	4590	4590
 gotham	markdown	18398	18398
+gotham	nginx	9928	9928
 gotham	nix	15630	15622
 gotham	php	12811	12803
 gotham	proto	4229	4229
@@ -1417,6 +1448,7 @@ gruvbox-dark	jsx	14130	14130
 gruvbox-dark	kotlin	18781	18781
 gruvbox-dark	lua	4590	4590
 gruvbox-dark	markdown	18398	18398
+gruvbox-dark	nginx	9928	9928
 gruvbox-dark	nix	15630	15630
 gruvbox-dark	php	12811	12811
 gruvbox-dark	proto	4229	4229
@@ -1462,6 +1494,7 @@ gruvbox-light	jsx	14130	14130
 gruvbox-light	kotlin	18781	18781
 gruvbox-light	lua	4590	4590
 gruvbox-light	markdown	18398	18398
+gruvbox-light	nginx	9928	9928
 gruvbox-light	nix	15630	15630
 gruvbox-light	php	12811	12811
 gruvbox-light	proto	4229	4229
@@ -1507,6 +1540,7 @@ gruvbox-material-dark	jsx	14130	14130
 gruvbox-material-dark	kotlin	18781	18781
 gruvbox-material-dark	lua	4590	4590
 gruvbox-material-dark	markdown	18398	18398
+gruvbox-material-dark	nginx	9928	9928
 gruvbox-material-dark	nix	15630	15630
 gruvbox-material-dark	php	12811	12811
 gruvbox-material-dark	proto	4229	4229
@@ -1552,6 +1586,7 @@ gruvbox-material-light	jsx	14130	14130
 gruvbox-material-light	kotlin	18781	18781
 gruvbox-material-light	lua	4590	4590
 gruvbox-material-light	markdown	18398	18398
+gruvbox-material-light	nginx	9928	9928
 gruvbox-material-light	nix	15630	15630
 gruvbox-material-light	php	12811	12811
 gruvbox-material-light	proto	4229	4229
@@ -1597,6 +1632,7 @@ hojicha	jsx	14130	14130
 hojicha	kotlin	18781	18781
 hojicha	lua	4590	4590
 hojicha	markdown	18398	18398
+hojicha	nginx	9928	9928
 hojicha	nix	15630	15622
 hojicha	php	12811	12803
 hojicha	proto	4229	4229
@@ -1642,6 +1678,7 @@ iceberg	jsx	14130	14130
 iceberg	kotlin	18781	18781
 iceberg	lua	4590	4590
 iceberg	markdown	18398	18398
+iceberg	nginx	9928	9928
 iceberg	nix	15630	15622
 iceberg	php	12811	12803
 iceberg	proto	4229	4229
@@ -1687,6 +1724,7 @@ iceberg-light	jsx	14130	14130
 iceberg-light	kotlin	18781	18781
 iceberg-light	lua	4590	4590
 iceberg-light	markdown	18398	18398
+iceberg-light	nginx	9928	9928
 iceberg-light	nix	15630	15630
 iceberg-light	php	12811	12810
 iceberg-light	proto	4229	4229
@@ -1732,6 +1770,7 @@ jellybeans	jsx	14130	14130
 jellybeans	kotlin	18781	18781
 jellybeans	lua	4590	4590
 jellybeans	markdown	18398	18398
+jellybeans	nginx	9928	9928
 jellybeans	nix	15630	15622
 jellybeans	php	12811	12803
 jellybeans	proto	4229	4229
@@ -1777,6 +1816,7 @@ jellybeans-light	jsx	14130	14130
 jellybeans-light	kotlin	18781	18781
 jellybeans-light	lua	4590	4590
 jellybeans-light	markdown	18398	18398
+jellybeans-light	nginx	9928	9928
 jellybeans-light	nix	15630	15622
 jellybeans-light	php	12811	12803
 jellybeans-light	proto	4229	4229
@@ -1822,6 +1862,7 @@ kanagawa-dragon	jsx	14130	14130
 kanagawa-dragon	kotlin	18781	18781
 kanagawa-dragon	lua	4590	4590
 kanagawa-dragon	markdown	18398	18398
+kanagawa-dragon	nginx	9928	9928
 kanagawa-dragon	nix	15630	15622
 kanagawa-dragon	php	12811	12803
 kanagawa-dragon	proto	4229	4229
@@ -1867,6 +1908,7 @@ kanagawa-lotus	jsx	14130	14130
 kanagawa-lotus	kotlin	18781	18781
 kanagawa-lotus	lua	4590	4590
 kanagawa-lotus	markdown	18398	18398
+kanagawa-lotus	nginx	9928	9928
 kanagawa-lotus	nix	15630	15622
 kanagawa-lotus	php	12811	12803
 kanagawa-lotus	proto	4229	4229
@@ -1912,6 +1954,7 @@ kanagawa-wave	jsx	14130	14130
 kanagawa-wave	kotlin	18781	18781
 kanagawa-wave	lua	4590	4590
 kanagawa-wave	markdown	18398	18398
+kanagawa-wave	nginx	9928	9928
 kanagawa-wave	nix	15630	15622
 kanagawa-wave	php	12811	12803
 kanagawa-wave	proto	4229	4229
@@ -1957,6 +2000,7 @@ koda-dark	jsx	14130	14130
 koda-dark	kotlin	18781	18781
 koda-dark	lua	4590	4590
 koda-dark	markdown	18398	18398
+koda-dark	nginx	9928	9928
 koda-dark	nix	15630	15622
 koda-dark	php	12811	12803
 koda-dark	proto	4229	4229
@@ -2002,6 +2046,7 @@ koda-light	jsx	14130	14130
 koda-light	kotlin	18781	18781
 koda-light	lua	4590	4590
 koda-light	markdown	18398	18398
+koda-light	nginx	9928	9928
 koda-light	nix	15630	15622
 koda-light	php	12811	12803
 koda-light	proto	4229	4229
@@ -2047,6 +2092,7 @@ lackluster	jsx	14130	14130
 lackluster	kotlin	18781	18781
 lackluster	lua	4590	4590
 lackluster	markdown	18398	18398
+lackluster	nginx	9928	9928
 lackluster	nix	15630	15622
 lackluster	php	12811	12803
 lackluster	proto	4229	4229
@@ -2092,6 +2138,7 @@ lightearth	jsx	14130	14130
 lightearth	kotlin	18781	18781
 lightearth	lua	4590	4590
 lightearth	markdown	18398	18398
+lightearth	nginx	9928	9928
 lightearth	nix	15630	15630
 lightearth	php	12811	12807
 lightearth	proto	4229	4229
@@ -2137,6 +2184,7 @@ material-dark	jsx	14130	14130
 material-dark	kotlin	18781	18781
 material-dark	lua	4590	4590
 material-dark	markdown	18398	18398
+material-dark	nginx	9928	9928
 material-dark	nix	15630	15622
 material-dark	php	12811	12803
 material-dark	proto	4229	4229
@@ -2182,6 +2230,7 @@ material-light	jsx	14130	14130
 material-light	kotlin	18781	18781
 material-light	lua	4590	4590
 material-light	markdown	18398	18398
+material-light	nginx	9928	9928
 material-light	nix	15630	15622
 material-light	php	12811	12803
 material-light	proto	4229	4229
@@ -2227,6 +2276,7 @@ melange-dark	jsx	14130	14130
 melange-dark	kotlin	18781	18781
 melange-dark	lua	4590	4590
 melange-dark	markdown	18398	18398
+melange-dark	nginx	9928	9928
 melange-dark	nix	15630	15630
 melange-dark	php	12811	12811
 melange-dark	proto	4229	4229
@@ -2272,6 +2322,7 @@ melange-light	jsx	14130	14130
 melange-light	kotlin	18781	18781
 melange-light	lua	4590	4590
 melange-light	markdown	18398	18398
+melange-light	nginx	9928	9928
 melange-light	nix	15630	15630
 melange-light	php	12811	12811
 melange-light	proto	4229	4229
@@ -2317,6 +2368,7 @@ mellifluous	jsx	14130	14130
 mellifluous	kotlin	18781	18781
 mellifluous	lua	4590	4590
 mellifluous	markdown	18398	18398
+mellifluous	nginx	9928	9928
 mellifluous	nix	15630	15622
 mellifluous	php	12811	12803
 mellifluous	proto	4229	4229
@@ -2362,6 +2414,7 @@ mellifluous-light	jsx	14130	14130
 mellifluous-light	kotlin	18781	18781
 mellifluous-light	lua	4590	4590
 mellifluous-light	markdown	18398	18398
+mellifluous-light	nginx	9928	9928
 mellifluous-light	nix	15630	15622
 mellifluous-light	php	12811	12803
 mellifluous-light	proto	4229	4229
@@ -2407,6 +2460,7 @@ mellow	jsx	14130	14130
 mellow	kotlin	18781	18781
 mellow	lua	4590	4590
 mellow	markdown	18398	18398
+mellow	nginx	9928	9928
 mellow	nix	15630	15622
 mellow	php	12811	12806
 mellow	proto	4229	4229
@@ -2452,6 +2506,7 @@ miasma	jsx	14130	14130
 miasma	kotlin	18781	18781
 miasma	lua	4590	4590
 miasma	markdown	18398	18398
+miasma	nginx	9928	9928
 miasma	nix	15630	15630
 miasma	php	12811	12810
 miasma	proto	4229	4229
@@ -2497,6 +2552,7 @@ minischeme	jsx	14130	14130
 minischeme	kotlin	18781	18781
 minischeme	lua	4590	4590
 minischeme	markdown	18398	18398
+minischeme	nginx	9928	9928
 minischeme	nix	15630	15630
 minischeme	php	12811	12811
 minischeme	proto	4229	4229
@@ -2542,6 +2598,7 @@ minischeme-light	jsx	14130	14130
 minischeme-light	kotlin	18781	18781
 minischeme-light	lua	4590	4590
 minischeme-light	markdown	18398	18398
+minischeme-light	nginx	9928	9928
 minischeme-light	nix	15630	15630
 minischeme-light	php	12811	12811
 minischeme-light	proto	4229	4229
@@ -2587,6 +2644,7 @@ moonfly	jsx	14130	14130
 moonfly	kotlin	18781	18781
 moonfly	lua	4590	4590
 moonfly	markdown	18398	18398
+moonfly	nginx	9928	9928
 moonfly	nix	15630	15630
 moonfly	php	12811	12811
 moonfly	proto	4229	4229
@@ -2632,6 +2690,7 @@ neomodern-light	jsx	14130	14130
 neomodern-light	kotlin	18781	18781
 neomodern-light	lua	4590	4590
 neomodern-light	markdown	18398	18398
+neomodern-light	nginx	9928	9928
 neomodern-light	nix	15630	15622
 neomodern-light	php	12811	12803
 neomodern-light	proto	4229	4229
@@ -2677,6 +2736,7 @@ nightfly	jsx	14130	14130
 nightfly	kotlin	18781	18781
 nightfly	lua	4590	4590
 nightfly	markdown	18398	18398
+nightfly	nginx	9928	9928
 nightfly	nix	15630	15630
 nightfly	php	12811	12811
 nightfly	proto	4229	4229
@@ -2722,6 +2782,7 @@ nightfox	jsx	14130	14130
 nightfox	kotlin	18781	18781
 nightfox	lua	4590	4590
 nightfox	markdown	18398	18398
+nightfox	nginx	9928	9928
 nightfox	nix	15630	15622
 nightfox	php	12811	12803
 nightfox	proto	4229	4229
@@ -2767,6 +2828,7 @@ nord	jsx	14130	14130
 nord	kotlin	18781	18781
 nord	lua	4590	4590
 nord	markdown	18398	18398
+nord	nginx	9928	9928
 nord	nix	15630	15630
 nord	php	12811	12811
 nord	proto	4229	4229
@@ -2812,6 +2874,7 @@ nordfox	jsx	14130	14130
 nordfox	kotlin	18781	18781
 nordfox	lua	4590	4590
 nordfox	markdown	18398	18398
+nordfox	nginx	9928	9928
 nordfox	nix	15630	15622
 nordfox	php	12811	12803
 nordfox	proto	4229	4229
@@ -2857,6 +2920,7 @@ onedark	jsx	14130	14130
 onedark	kotlin	18781	18781
 onedark	lua	4590	4590
 onedark	markdown	18398	18398
+onedark	nginx	9928	9928
 onedark	nix	15630	15630
 onedark	php	12811	12811
 onedark	proto	4229	4229
@@ -2902,6 +2966,7 @@ onedark-light	jsx	14130	14130
 onedark-light	kotlin	18781	18781
 onedark-light	lua	4590	4590
 onedark-light	markdown	18398	18398
+onedark-light	nginx	9928	9928
 onedark-light	nix	15630	15630
 onedark-light	php	12811	12811
 onedark-light	proto	4229	4229
@@ -2947,6 +3012,7 @@ oxocarbon-dark	jsx	14130	14130
 oxocarbon-dark	kotlin	18781	18781
 oxocarbon-dark	lua	4590	4590
 oxocarbon-dark	markdown	18398	18398
+oxocarbon-dark	nginx	9928	9928
 oxocarbon-dark	nix	15630	15630
 oxocarbon-dark	php	12811	12811
 oxocarbon-dark	proto	4229	4229
@@ -2992,6 +3058,7 @@ oxocarbon-light	jsx	14130	14130
 oxocarbon-light	kotlin	18781	18781
 oxocarbon-light	lua	4590	4590
 oxocarbon-light	markdown	18398	18398
+oxocarbon-light	nginx	9928	9928
 oxocarbon-light	nix	15630	15630
 oxocarbon-light	php	12811	12811
 oxocarbon-light	proto	4229	4229
@@ -3037,6 +3104,7 @@ papercolor	jsx	14130	14130
 papercolor	kotlin	18781	18781
 papercolor	lua	4590	4590
 papercolor	markdown	18398	18398
+papercolor	nginx	9928	9928
 papercolor	nix	15630	15622
 papercolor	php	12811	12803
 papercolor	proto	4229	4229
@@ -3082,6 +3150,7 @@ papercolor-light	jsx	14130	14130
 papercolor-light	kotlin	18781	18781
 papercolor-light	lua	4590	4590
 papercolor-light	markdown	18398	18398
+papercolor-light	nginx	9928	9928
 papercolor-light	nix	15630	15622
 papercolor-light	php	12811	12803
 papercolor-light	proto	4229	4229
@@ -3127,6 +3196,7 @@ pencil	jsx	14130	14130
 pencil	kotlin	18781	18781
 pencil	lua	4590	4590
 pencil	markdown	18398	18398
+pencil	nginx	9928	9928
 pencil	nix	15630	15622
 pencil	php	12811	12803
 pencil	proto	4229	4229
@@ -3172,6 +3242,7 @@ pencil-light	jsx	14130	14130
 pencil-light	kotlin	18781	18781
 pencil-light	lua	4590	4590
 pencil-light	markdown	18398	18398
+pencil-light	nginx	9928	9928
 pencil-light	nix	15630	15622
 pencil-light	php	12811	12803
 pencil-light	proto	4229	4229
@@ -3217,6 +3288,7 @@ rose-pine	jsx	14130	14130
 rose-pine	kotlin	18781	18781
 rose-pine	lua	4590	4590
 rose-pine	markdown	18398	18398
+rose-pine	nginx	9928	9928
 rose-pine	nix	15630	15622
 rose-pine	php	12811	12803
 rose-pine	proto	4229	4229
@@ -3262,6 +3334,7 @@ rose-pine-dawn	jsx	14130	14130
 rose-pine-dawn	kotlin	18781	18781
 rose-pine-dawn	lua	4590	4590
 rose-pine-dawn	markdown	18398	18398
+rose-pine-dawn	nginx	9928	9928
 rose-pine-dawn	nix	15630	15622
 rose-pine-dawn	php	12811	12803
 rose-pine-dawn	proto	4229	4229
@@ -3307,6 +3380,7 @@ rose-pine-moon	jsx	14130	14130
 rose-pine-moon	kotlin	18781	18781
 rose-pine-moon	lua	4590	4590
 rose-pine-moon	markdown	18398	18398
+rose-pine-moon	nginx	9928	9928
 rose-pine-moon	nix	15630	15622
 rose-pine-moon	php	12811	12803
 rose-pine-moon	proto	4229	4229
@@ -3352,6 +3426,7 @@ selenized	jsx	14130	14130
 selenized	kotlin	18781	18781
 selenized	lua	4590	4590
 selenized	markdown	18398	18398
+selenized	nginx	9928	9928
 selenized	nix	15630	15622
 selenized	php	12811	12806
 selenized	proto	4229	4229
@@ -3397,6 +3472,7 @@ selenized-light	jsx	14130	14130
 selenized-light	kotlin	18781	18781
 selenized-light	lua	4590	4590
 selenized-light	markdown	18398	18398
+selenized-light	nginx	9928	9928
 selenized-light	nix	15630	15622
 selenized-light	php	12811	12806
 selenized-light	proto	4229	4229
@@ -3442,6 +3518,7 @@ solarized-dark	jsx	14130	14130
 solarized-dark	kotlin	18781	18781
 solarized-dark	lua	4590	4590
 solarized-dark	markdown	18398	18398
+solarized-dark	nginx	9928	9928
 solarized-dark	nix	15630	15622
 solarized-dark	php	12811	12803
 solarized-dark	proto	4229	4229
@@ -3487,6 +3564,7 @@ solarized-light	jsx	14130	14130
 solarized-light	kotlin	18781	18781
 solarized-light	lua	4590	4590
 solarized-light	markdown	18398	18398
+solarized-light	nginx	9928	9928
 solarized-light	nix	15630	15622
 solarized-light	php	12811	12803
 solarized-light	proto	4229	4229
@@ -3532,6 +3610,7 @@ sonokai	jsx	14130	14130
 sonokai	kotlin	18781	18781
 sonokai	lua	4590	4590
 sonokai	markdown	18398	18398
+sonokai	nginx	9928	9928
 sonokai	nix	15630	15630
 sonokai	php	12811	12811
 sonokai	proto	4229	4229
@@ -3577,6 +3656,7 @@ soviet-dark	jsx	14130	14130
 soviet-dark	kotlin	18781	18781
 soviet-dark	lua	4590	4590
 soviet-dark	markdown	18398	18398
+soviet-dark	nginx	9928	9928
 soviet-dark	nix	15630	15622
 soviet-dark	php	12811	12803
 soviet-dark	proto	4229	4229
@@ -3622,6 +3702,7 @@ soviet-light	jsx	14130	14130
 soviet-light	kotlin	18781	18781
 soviet-light	lua	4590	4590
 soviet-light	markdown	18398	18398
+soviet-light	nginx	9928	9928
 soviet-light	nix	15630	15622
 soviet-light	php	12811	12803
 soviet-light	proto	4229	4229
@@ -3667,6 +3748,7 @@ srcery	jsx	14130	14130
 srcery	kotlin	18781	18781
 srcery	lua	4590	4590
 srcery	markdown	18398	18398
+srcery	nginx	9928	9928
 srcery	nix	15630	15622
 srcery	php	12811	12803
 srcery	proto	4229	4229
@@ -3712,6 +3794,7 @@ token	jsx	14130	14130
 token	kotlin	18781	18781
 token	lua	4590	4590
 token	markdown	18398	18398
+token	nginx	9928	9928
 token	nix	15630	15622
 token	php	12811	12803
 token	proto	4229	4229
@@ -3757,6 +3840,7 @@ token-light	jsx	14130	14130
 token-light	kotlin	18781	18781
 token-light	lua	4590	4590
 token-light	markdown	18398	18398
+token-light	nginx	9928	9928
 token-light	nix	15630	15622
 token-light	php	12811	12803
 token-light	proto	4229	4229
@@ -3802,6 +3886,7 @@ tokyonight-day	jsx	14130	14130
 tokyonight-day	kotlin	18781	18781
 tokyonight-day	lua	4590	4590
 tokyonight-day	markdown	18398	18398
+tokyonight-day	nginx	9928	9928
 tokyonight-day	nix	15630	15622
 tokyonight-day	php	12811	12803
 tokyonight-day	proto	4229	4229
@@ -3847,6 +3932,7 @@ tokyonight-moon	jsx	14130	14130
 tokyonight-moon	kotlin	18781	18781
 tokyonight-moon	lua	4590	4590
 tokyonight-moon	markdown	18398	18398
+tokyonight-moon	nginx	9928	9928
 tokyonight-moon	nix	15630	15622
 tokyonight-moon	php	12811	12803
 tokyonight-moon	proto	4229	4229
@@ -3892,6 +3978,7 @@ tokyonight-night	jsx	14130	14130
 tokyonight-night	kotlin	18781	18781
 tokyonight-night	lua	4590	4590
 tokyonight-night	markdown	18398	18398
+tokyonight-night	nginx	9928	9928
 tokyonight-night	nix	15630	15622
 tokyonight-night	php	12811	12803
 tokyonight-night	proto	4229	4229
@@ -3937,6 +4024,7 @@ tokyonight-storm	jsx	14130	14130
 tokyonight-storm	kotlin	18781	18781
 tokyonight-storm	lua	4590	4590
 tokyonight-storm	markdown	18398	18398
+tokyonight-storm	nginx	9928	9928
 tokyonight-storm	nix	15630	15622
 tokyonight-storm	php	12811	12803
 tokyonight-storm	proto	4229	4229
@@ -3982,6 +4070,7 @@ vague	jsx	14130	14130
 vague	kotlin	18781	18781
 vague	lua	4590	4590
 vague	markdown	18398	18398
+vague	nginx	9928	9928
 vague	nix	15630	15630
 vague	php	12811	12811
 vague	proto	4229	4229
@@ -4027,6 +4116,7 @@ vesper	jsx	14130	14130
 vesper	kotlin	18781	18781
 vesper	lua	4590	4590
 vesper	markdown	18398	18398
+vesper	nginx	9928	9928
 vesper	nix	15630	15630
 vesper	php	12811	12810
 vesper	proto	4229	4229
@@ -4072,6 +4162,7 @@ vscode-dark	jsx	14130	14130
 vscode-dark	kotlin	18781	18781
 vscode-dark	lua	4590	4590
 vscode-dark	markdown	18398	18398
+vscode-dark	nginx	9928	9928
 vscode-dark	nix	15630	15630
 vscode-dark	php	12811	12811
 vscode-dark	proto	4229	4229
@@ -4117,6 +4208,7 @@ vscode-light	jsx	14130	14130
 vscode-light	kotlin	18781	18781
 vscode-light	lua	4590	4590
 vscode-light	markdown	18398	18398
+vscode-light	nginx	9928	9928
 vscode-light	nix	15630	15630
 vscode-light	php	12811	12811
 vscode-light	proto	4229	4229

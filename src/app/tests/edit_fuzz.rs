@@ -1260,6 +1260,20 @@ const SQL: &[&str] = &[
     "\n\n",
 ];
 
+const NGINX: &[&str] = &[
+    "server {\n",
+    "}\n",
+    "location ~* \\.(js)$ {\n",
+    "proxy_pass http://a;\n",
+    "if ($a = b) {\n",
+    "\"",
+    "'",
+    "# ",
+    "$host",
+    ";",
+    "{",
+];
+
 const GRAPHQL: &[&str] = &[
     "type A {\n",
     "}\n",
@@ -1580,6 +1594,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.graphql",
         include_bytes!("../../../tests/colors/graphql/schema.graphql").as_slice(),
         GRAPHQL,
+    ),
+    (
+        "nginx.conf",
+        include_bytes!("../../../tests/colors/nginx/site.conf").as_slice(),
+        NGINX,
     ),
     (
         "CMakeLists.txt",

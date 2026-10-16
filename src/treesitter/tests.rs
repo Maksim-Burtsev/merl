@@ -298,6 +298,11 @@ fn graphql_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn nginx_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("nginx");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -518,6 +523,18 @@ fn build_and_config_files_get_their_grammar() {
             "{f}"
         );
     }
+    for f in [
+        "nginx.conf",
+        "test-nginx.conf",
+        "nginx-site.conf",
+        "a/nginx/b.conf",
+        "/etc/nginx/x.conf",
+        "/usr/local/nginx/conf/mime.types",
+        "a.nginx",
+    ] {
+        assert!(sexp(f, b"a b;\n").starts_with("(source_file"), "{f}");
+    }
+    assert_eq!(sexp("a.conf", b"a b;\n"), "");
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
         assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
     }
@@ -928,6 +945,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("proto", Some("proto")),
         ("graphql", Some("graphql")),
         ("gql", Some("graphql")),
+        ("nginx", Some("nginx")),
+        ("conf", None),
         ("hcl", Some("hcl")),
         ("terraform", Some("terraform")),
         ("tfvars", Some("terraform")),
