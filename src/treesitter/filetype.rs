@@ -102,12 +102,13 @@ fn nginx(path: &Path) -> bool {
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or_default();
+    let conf = path.extension().is_some_and(|e| e == "conf");
     path.extension().is_some_and(|e| e == "nginx")
         || tail.ends_with("nginx.conf")
-        || (tail.starts_with("nginx") && tail.ends_with(".conf"))
+        || (tail.starts_with("nginx") && conf)
         || full.contains("/etc/nginx/")
         || full.contains("/usr/local/nginx/conf/")
-        || (full.contains("/nginx/") && full.ends_with(".conf"))
+        || (full.contains("/nginx/") && conf)
 }
 
 fn starlark(path: &Path) -> bool {

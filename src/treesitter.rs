@@ -607,6 +607,15 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     })
 }
 
+fn as_neovim_reads(text: &str) -> String {
+    let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
+    let text = url.replace_all(text, "");
+    let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
+    let text = vim.replace_all(&text, "(#${1}vim-match?");
+    let any_of = regex::Regex::new(r"\(#(not-)?any-of\?").expect("a valid regex");
+    any_of.replace_all(&text, "(#${1}nvim-any-of?").into_owned()
+}
+
 fn patterns(
     name: &str,
     language: &Language,
@@ -623,13 +632,7 @@ fn patterns(
     {
         return Err(format!("{name}: #{op} is not implemented"));
     }
-    let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
-    let text = url.replace_all(text, "");
-    let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
-    let text = vim.replace_all(&text, "(#${1}vim-match?");
-    let any_of = regex::Regex::new(r"\(#(not-)?any-of\?").expect("a valid regex");
-    let text = any_of.replace_all(&text, "(#${1}nvim-any-of?");
-    let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
+    let query = Query::new(language, &as_neovim_reads(text)).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
     let mut rewrites = Vec::new();
