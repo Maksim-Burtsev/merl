@@ -65,6 +65,10 @@ impl App {
         if typed.is_empty() {
             return;
         }
+        if self.pushed_folder.is_some() {
+            self.message = super::edit::PUSHED.into();
+            return;
+        }
         let mut rel = PathBuf::new();
         for part in Path::new(typed).components() {
             match part {
