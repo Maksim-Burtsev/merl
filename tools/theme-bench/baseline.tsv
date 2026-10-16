@@ -10,6 +10,7 @@ adwaita	diff	18764	18764
 adwaita	dockerfile	20413	20413
 adwaita	elixir	18319	18138
 adwaita	erlang	23025	23025
+adwaita	gdscript	13031	13031
 adwaita	go	14810	14810
 adwaita	graphql	3933	3933
 adwaita	hcl	3592	3592
@@ -56,6 +57,7 @@ adwaita-light	diff	18764	18764
 adwaita-light	dockerfile	20413	20413
 adwaita-light	elixir	18319	18138
 adwaita-light	erlang	23025	23025
+adwaita-light	gdscript	13031	13031
 adwaita-light	go	14810	14810
 adwaita-light	graphql	3933	3933
 adwaita-light	hcl	3592	3592
@@ -102,6 +104,7 @@ alabaster	diff	18764	18764
 alabaster	dockerfile	20413	20413
 alabaster	elixir	18319	18138
 alabaster	erlang	23025	23025
+alabaster	gdscript	13031	13031
 alabaster	go	14810	14810
 alabaster	graphql	3933	3933
 alabaster	hcl	3592	3592
@@ -148,6 +151,7 @@ alabaster-light	diff	18764	18764
 alabaster-light	dockerfile	20413	20413
 alabaster-light	elixir	18319	18138
 alabaster-light	erlang	23025	23025
+alabaster-light	gdscript	13031	13031
 alabaster-light	go	14810	14810
 alabaster-light	graphql	3933	3933
 alabaster-light	hcl	3592	3592
@@ -194,6 +198,7 @@ alucard	diff	18764	18764
 alucard	dockerfile	20413	20413
 alucard	elixir	18319	18138
 alucard	erlang	23025	23025
+alucard	gdscript	13031	13031
 alucard	go	14810	14810
 alucard	graphql	3933	3933
 alucard	hcl	3592	3592
@@ -240,6 +245,7 @@ ayu	diff	18764	18764
 ayu	dockerfile	20413	20413
 ayu	elixir	18319	18138
 ayu	erlang	23025	23025
+ayu	gdscript	13031	13031
 ayu	go	14810	14810
 ayu	graphql	3933	3933
 ayu	hcl	3592	3592
@@ -286,6 +292,7 @@ ayu-light	diff	18764	18764
 ayu-light	dockerfile	20413	20413
 ayu-light	elixir	18319	18138
 ayu-light	erlang	23025	23025
+ayu-light	gdscript	13031	13031
 ayu-light	go	14810	14810
 ayu-light	graphql	3933	3933
 ayu-light	hcl	3592	3592
@@ -332,6 +339,7 @@ ayu-mirage	diff	18764	18764
 ayu-mirage	dockerfile	20413	20413
 ayu-mirage	elixir	18319	18138
 ayu-mirage	erlang	23025	23025
+ayu-mirage	gdscript	13031	13031
 ayu-mirage	go	14810	14810
 ayu-mirage	graphql	3933	3933
 ayu-mirage	hcl	3592	3592
@@ -378,6 +386,7 @@ bamboo	diff	18764	18764
 bamboo	dockerfile	20413	20413
 bamboo	elixir	18319	18138
 bamboo	erlang	23025	23025
+bamboo	gdscript	13031	13031
 bamboo	go	14810	14810
 bamboo	graphql	3933	3933
 bamboo	hcl	3592	3592
@@ -424,6 +433,7 @@ bamboo-light	diff	18764	18764
 bamboo-light	dockerfile	20413	20413
 bamboo-light	elixir	18319	18138
 bamboo-light	erlang	23025	23025
+bamboo-light	gdscript	13031	13031
 bamboo-light	go	14810	14810
 bamboo-light	graphql	3933	3933
 bamboo-light	hcl	3592	3592
@@ -470,6 +480,7 @@ bluloco-light	diff	18764	18764
 bluloco-light	dockerfile	20413	20413
 bluloco-light	elixir	18319	18138
 bluloco-light	erlang	23025	23025
+bluloco-light	gdscript	13031	12961
 bluloco-light	go	14810	14810
 bluloco-light	graphql	3933	3933
 bluloco-light	hcl	3592	3592
@@ -516,6 +527,7 @@ catppuccin-frappe	diff	18764	18764
 catppuccin-frappe	dockerfile	20413	20413
 catppuccin-frappe	elixir	18319	18138
 catppuccin-frappe	erlang	23025	23025
+catppuccin-frappe	gdscript	13031	13031
 catppuccin-frappe	go	14810	14810
 catppuccin-frappe	graphql	3933	3933
 catppuccin-frappe	hcl	3592	3592
@@ -562,6 +574,7 @@ catppuccin-latte	diff	18764	18764
 catppuccin-latte	dockerfile	20413	20413
 catppuccin-latte	elixir	18319	18138
 catppuccin-latte	erlang	23025	23025
+catppuccin-latte	gdscript	13031	13031
 catppuccin-latte	go	14810	14810
 catppuccin-latte	graphql	3933	3933
 catppuccin-latte	hcl	3592	3592
@@ -608,6 +621,7 @@ catppuccin-macchiato	diff	18764	18764
 catppuccin-macchiato	dockerfile	20413	20413
 catppuccin-macchiato	elixir	18319	18138
 catppuccin-macchiato	erlang	23025	23025
+catppuccin-macchiato	gdscript	13031	13031
 catppuccin-macchiato	go	14810	14810
 catppuccin-macchiato	graphql	3933	3933
 catppuccin-macchiato	hcl	3592	3592
@@ -654,6 +668,7 @@ catppuccin-mocha	diff	18764	18764
 catppuccin-mocha	dockerfile	20413	20413
 catppuccin-mocha	elixir	18319	18138
 catppuccin-mocha	erlang	23025	23025
+catppuccin-mocha	gdscript	13031	13031
 catppuccin-mocha	go	14810	14810
 catppuccin-mocha	graphql	3933	3933
 catppuccin-mocha	hcl	3592	3592
@@ -700,6 +715,7 @@ cendre	diff	18764	18764
 cendre	dockerfile	20413	20413
 cendre	elixir	18319	18138
 cendre	erlang	23025	23025
+cendre	gdscript	13031	13031
 cendre	go	14810	14810
 cendre	graphql	3933	3933
 cendre	hcl	3592	3592
@@ -746,6 +762,7 @@ darkearth	diff	18764	18764
 darkearth	dockerfile	20413	20413
 darkearth	elixir	18319	18138
 darkearth	erlang	23025	23025
+darkearth	gdscript	13031	13031
 darkearth	go	14810	14810
 darkearth	graphql	3933	3933
 darkearth	hcl	3592	3592
@@ -792,6 +809,7 @@ dawnfox	diff	18764	18764
 dawnfox	dockerfile	20413	20413
 dawnfox	elixir	18319	18138
 dawnfox	erlang	23025	23025
+dawnfox	gdscript	13031	13031
 dawnfox	go	14810	14810
 dawnfox	graphql	3933	3933
 dawnfox	hcl	3592	3592
@@ -838,6 +856,7 @@ dayfox	diff	18764	18764
 dayfox	dockerfile	20413	20413
 dayfox	elixir	18319	18138
 dayfox	erlang	23025	23025
+dayfox	gdscript	13031	13031
 dayfox	go	14810	14810
 dayfox	graphql	3933	3933
 dayfox	hcl	3592	3592
@@ -884,6 +903,7 @@ dracula	diff	18764	18764
 dracula	dockerfile	20413	20413
 dracula	elixir	18319	18138
 dracula	erlang	23025	23025
+dracula	gdscript	13031	13031
 dracula	go	14810	14810
 dracula	graphql	3933	3933
 dracula	hcl	3592	3592
@@ -930,6 +950,7 @@ e-ink	diff	18764	18764
 e-ink	dockerfile	20413	20413
 e-ink	elixir	18319	18138
 e-ink	erlang	23025	23025
+e-ink	gdscript	13031	13031
 e-ink	go	14810	14810
 e-ink	graphql	3933	3933
 e-ink	hcl	3592	3592
@@ -976,6 +997,7 @@ e-ink-light	diff	18764	18764
 e-ink-light	dockerfile	20413	20413
 e-ink-light	elixir	18319	18138
 e-ink-light	erlang	23025	23025
+e-ink-light	gdscript	13031	13031
 e-ink-light	go	14810	14810
 e-ink-light	graphql	3933	3933
 e-ink-light	hcl	3592	3592
@@ -1022,6 +1044,7 @@ edge	diff	18764	18764
 edge	dockerfile	20413	20413
 edge	elixir	18319	18138
 edge	erlang	23025	23025
+edge	gdscript	13031	13031
 edge	go	14810	14810
 edge	graphql	3933	3933
 edge	hcl	3592	3592
@@ -1068,6 +1091,7 @@ edge-light	diff	18764	18764
 edge-light	dockerfile	20413	20413
 edge-light	elixir	18319	18138
 edge-light	erlang	23025	23025
+edge-light	gdscript	13031	13031
 edge-light	go	14810	14810
 edge-light	graphql	3933	3933
 edge-light	hcl	3592	3592
@@ -1114,6 +1138,7 @@ everforest-dark	diff	18764	18764
 everforest-dark	dockerfile	20413	20413
 everforest-dark	elixir	18319	18138
 everforest-dark	erlang	23025	23025
+everforest-dark	gdscript	13031	13031
 everforest-dark	go	14810	14810
 everforest-dark	graphql	3933	3933
 everforest-dark	hcl	3592	3592
@@ -1160,6 +1185,7 @@ everforest-light	diff	18764	18764
 everforest-light	dockerfile	20413	20413
 everforest-light	elixir	18319	18138
 everforest-light	erlang	23025	23025
+everforest-light	gdscript	13031	13031
 everforest-light	go	14810	14810
 everforest-light	graphql	3933	3933
 everforest-light	hcl	3592	3592
@@ -1206,6 +1232,7 @@ flexoki-dark	diff	18764	18764
 flexoki-dark	dockerfile	20413	20413
 flexoki-dark	elixir	18319	18138
 flexoki-dark	erlang	23025	23025
+flexoki-dark	gdscript	13031	13031
 flexoki-dark	go	14810	14810
 flexoki-dark	graphql	3933	3933
 flexoki-dark	hcl	3592	3592
@@ -1252,6 +1279,7 @@ flexoki-light	diff	18764	18764
 flexoki-light	dockerfile	20413	20413
 flexoki-light	elixir	18319	18138
 flexoki-light	erlang	23025	23025
+flexoki-light	gdscript	13031	13031
 flexoki-light	go	14810	14810
 flexoki-light	graphql	3933	3933
 flexoki-light	hcl	3592	3592
@@ -1298,6 +1326,7 @@ github-dark	diff	18764	18764
 github-dark	dockerfile	20413	20410
 github-dark	elixir	18319	18138
 github-dark	erlang	23025	23025
+github-dark	gdscript	13031	13031
 github-dark	go	14810	14810
 github-dark	graphql	3933	3933
 github-dark	hcl	3592	3592
@@ -1344,6 +1373,7 @@ github-light	diff	18764	18764
 github-light	dockerfile	20413	20410
 github-light	elixir	18319	18138
 github-light	erlang	23025	23025
+github-light	gdscript	13031	13031
 github-light	go	14810	14810
 github-light	graphql	3933	3933
 github-light	hcl	3592	3592
@@ -1390,6 +1420,7 @@ gotham	diff	18764	18764
 gotham	dockerfile	20413	20413
 gotham	elixir	18319	18138
 gotham	erlang	23025	23025
+gotham	gdscript	13031	13031
 gotham	go	14810	14810
 gotham	graphql	3933	3933
 gotham	hcl	3592	3592
@@ -1436,6 +1467,7 @@ gruvbox-dark	diff	18764	18764
 gruvbox-dark	dockerfile	20413	20413
 gruvbox-dark	elixir	18319	18138
 gruvbox-dark	erlang	23025	23025
+gruvbox-dark	gdscript	13031	13031
 gruvbox-dark	go	14810	14810
 gruvbox-dark	graphql	3933	3933
 gruvbox-dark	hcl	3592	3592
@@ -1482,6 +1514,7 @@ gruvbox-light	diff	18764	18764
 gruvbox-light	dockerfile	20413	20413
 gruvbox-light	elixir	18319	18138
 gruvbox-light	erlang	23025	23025
+gruvbox-light	gdscript	13031	13031
 gruvbox-light	go	14810	14810
 gruvbox-light	graphql	3933	3933
 gruvbox-light	hcl	3592	3592
@@ -1528,6 +1561,7 @@ gruvbox-material-dark	diff	18764	18764
 gruvbox-material-dark	dockerfile	20413	20413
 gruvbox-material-dark	elixir	18319	18138
 gruvbox-material-dark	erlang	23025	23025
+gruvbox-material-dark	gdscript	13031	13031
 gruvbox-material-dark	go	14810	14810
 gruvbox-material-dark	graphql	3933	3933
 gruvbox-material-dark	hcl	3592	3592
@@ -1574,6 +1608,7 @@ gruvbox-material-light	diff	18764	18764
 gruvbox-material-light	dockerfile	20413	20413
 gruvbox-material-light	elixir	18319	18138
 gruvbox-material-light	erlang	23025	23025
+gruvbox-material-light	gdscript	13031	13031
 gruvbox-material-light	go	14810	14810
 gruvbox-material-light	graphql	3933	3933
 gruvbox-material-light	hcl	3592	3592
@@ -1620,6 +1655,7 @@ hojicha	diff	18764	18764
 hojicha	dockerfile	20413	20413
 hojicha	elixir	18319	18138
 hojicha	erlang	23025	23025
+hojicha	gdscript	13031	13031
 hojicha	go	14810	14810
 hojicha	graphql	3933	3933
 hojicha	hcl	3592	3592
@@ -1666,6 +1702,7 @@ iceberg	diff	18764	18764
 iceberg	dockerfile	20413	20413
 iceberg	elixir	18319	18138
 iceberg	erlang	23025	23025
+iceberg	gdscript	13031	13031
 iceberg	go	14810	14810
 iceberg	graphql	3933	3933
 iceberg	hcl	3592	3592
@@ -1712,6 +1749,7 @@ iceberg-light	diff	18764	18764
 iceberg-light	dockerfile	20413	20413
 iceberg-light	elixir	18319	18138
 iceberg-light	erlang	23025	23025
+iceberg-light	gdscript	13031	13031
 iceberg-light	go	14810	14810
 iceberg-light	graphql	3933	3933
 iceberg-light	hcl	3592	3592
@@ -1758,6 +1796,7 @@ jellybeans	diff	18764	18764
 jellybeans	dockerfile	20413	20413
 jellybeans	elixir	18319	18138
 jellybeans	erlang	23025	23025
+jellybeans	gdscript	11864	11864
 jellybeans	go	14810	14810
 jellybeans	graphql	3933	3933
 jellybeans	hcl	3592	3592
@@ -1804,6 +1843,7 @@ jellybeans-light	diff	18764	18764
 jellybeans-light	dockerfile	20413	20413
 jellybeans-light	elixir	18319	18138
 jellybeans-light	erlang	23025	23025
+jellybeans-light	gdscript	11864	11864
 jellybeans-light	go	14810	14810
 jellybeans-light	graphql	3933	3933
 jellybeans-light	hcl	3592	3592
@@ -1850,6 +1890,7 @@ kanagawa-dragon	diff	18764	18764
 kanagawa-dragon	dockerfile	20413	20413
 kanagawa-dragon	elixir	18319	18138
 kanagawa-dragon	erlang	23025	23025
+kanagawa-dragon	gdscript	11864	11864
 kanagawa-dragon	go	14810	14810
 kanagawa-dragon	graphql	3933	3933
 kanagawa-dragon	hcl	3592	3592
@@ -1896,6 +1937,7 @@ kanagawa-lotus	diff	18764	18764
 kanagawa-lotus	dockerfile	20413	20413
 kanagawa-lotus	elixir	18319	18138
 kanagawa-lotus	erlang	23025	23025
+kanagawa-lotus	gdscript	11864	11864
 kanagawa-lotus	go	14810	14810
 kanagawa-lotus	graphql	3933	3933
 kanagawa-lotus	hcl	3592	3592
@@ -1942,6 +1984,7 @@ kanagawa-wave	diff	18764	18764
 kanagawa-wave	dockerfile	20413	20413
 kanagawa-wave	elixir	18319	18138
 kanagawa-wave	erlang	23025	23025
+kanagawa-wave	gdscript	11864	11864
 kanagawa-wave	go	14810	14810
 kanagawa-wave	graphql	3933	3933
 kanagawa-wave	hcl	3592	3592
@@ -1988,6 +2031,7 @@ koda-dark	diff	18764	18764
 koda-dark	dockerfile	20413	20413
 koda-dark	elixir	18319	18138
 koda-dark	erlang	23025	23025
+koda-dark	gdscript	13031	13031
 koda-dark	go	14810	14810
 koda-dark	graphql	3933	3933
 koda-dark	hcl	3592	3592
@@ -2034,6 +2078,7 @@ koda-light	diff	18764	18764
 koda-light	dockerfile	20413	20413
 koda-light	elixir	18319	18138
 koda-light	erlang	23025	23025
+koda-light	gdscript	13031	13031
 koda-light	go	14810	14810
 koda-light	graphql	3933	3933
 koda-light	hcl	3592	3592
@@ -2080,6 +2125,7 @@ lackluster	diff	18764	18764
 lackluster	dockerfile	20413	20413
 lackluster	elixir	18319	18138
 lackluster	erlang	23025	23025
+lackluster	gdscript	13031	13031
 lackluster	go	14810	14810
 lackluster	graphql	3933	3933
 lackluster	hcl	3592	3592
@@ -2126,6 +2172,7 @@ lightearth	diff	18764	18764
 lightearth	dockerfile	20413	20413
 lightearth	elixir	18319	18138
 lightearth	erlang	23025	23025
+lightearth	gdscript	13031	13031
 lightearth	go	14810	14810
 lightearth	graphql	3933	3933
 lightearth	hcl	3592	3592
@@ -2172,6 +2219,7 @@ material-dark	diff	18764	18764
 material-dark	dockerfile	20413	20413
 material-dark	elixir	18319	18138
 material-dark	erlang	23025	23025
+material-dark	gdscript	13031	13031
 material-dark	go	14810	14810
 material-dark	graphql	3933	3933
 material-dark	hcl	3592	3592
@@ -2218,6 +2266,7 @@ material-light	diff	18764	18764
 material-light	dockerfile	20413	20413
 material-light	elixir	18319	18315
 material-light	erlang	23025	23025
+material-light	gdscript	13031	13031
 material-light	go	14810	14810
 material-light	graphql	3933	3933
 material-light	hcl	3592	3592
@@ -2264,6 +2313,7 @@ melange-dark	diff	18764	18764
 melange-dark	dockerfile	20413	20413
 melange-dark	elixir	18319	18138
 melange-dark	erlang	23025	23025
+melange-dark	gdscript	13031	13031
 melange-dark	go	14810	14810
 melange-dark	graphql	3933	3933
 melange-dark	hcl	3592	3592
@@ -2310,6 +2360,7 @@ melange-light	diff	18764	18764
 melange-light	dockerfile	20413	20413
 melange-light	elixir	18319	18138
 melange-light	erlang	23025	23025
+melange-light	gdscript	13031	13031
 melange-light	go	14810	14810
 melange-light	graphql	3933	3933
 melange-light	hcl	3592	3592
@@ -2356,6 +2407,7 @@ mellifluous	diff	18764	18764
 mellifluous	dockerfile	20413	20413
 mellifluous	elixir	18319	18138
 mellifluous	erlang	23025	23025
+mellifluous	gdscript	13031	13031
 mellifluous	go	14810	14810
 mellifluous	graphql	3933	3933
 mellifluous	hcl	3592	3592
@@ -2402,6 +2454,7 @@ mellifluous-light	diff	18764	18764
 mellifluous-light	dockerfile	20413	20413
 mellifluous-light	elixir	18319	18138
 mellifluous-light	erlang	23025	23025
+mellifluous-light	gdscript	13031	13031
 mellifluous-light	go	14810	14810
 mellifluous-light	graphql	3933	3933
 mellifluous-light	hcl	3592	3592
@@ -2448,6 +2501,7 @@ mellow	diff	18764	18764
 mellow	dockerfile	20413	20413
 mellow	elixir	18319	18138
 mellow	erlang	23025	23025
+mellow	gdscript	13031	13031
 mellow	go	14810	14810
 mellow	graphql	3933	3933
 mellow	hcl	3592	3592
@@ -2494,6 +2548,7 @@ miasma	diff	18764	18764
 miasma	dockerfile	20413	20413
 miasma	elixir	18319	18138
 miasma	erlang	23025	23025
+miasma	gdscript	13031	13031
 miasma	go	14810	14810
 miasma	graphql	3933	3933
 miasma	hcl	3592	3592
@@ -2540,6 +2595,7 @@ minischeme	diff	18764	18764
 minischeme	dockerfile	20413	20413
 minischeme	elixir	18319	18138
 minischeme	erlang	23025	23025
+minischeme	gdscript	13031	13031
 minischeme	go	14810	14810
 minischeme	graphql	3933	3933
 minischeme	hcl	3592	3592
@@ -2586,6 +2642,7 @@ minischeme-light	diff	18764	18764
 minischeme-light	dockerfile	20413	20413
 minischeme-light	elixir	18319	18138
 minischeme-light	erlang	23025	23025
+minischeme-light	gdscript	13031	13031
 minischeme-light	go	14810	14810
 minischeme-light	graphql	3933	3933
 minischeme-light	hcl	3592	3592
@@ -2632,6 +2689,7 @@ moonfly	diff	18764	18764
 moonfly	dockerfile	20413	20413
 moonfly	elixir	18319	18138
 moonfly	erlang	23025	23025
+moonfly	gdscript	13031	13031
 moonfly	go	14810	14810
 moonfly	graphql	3933	3933
 moonfly	hcl	3592	3592
@@ -2678,6 +2736,7 @@ neomodern-light	diff	18764	18764
 neomodern-light	dockerfile	20413	20413
 neomodern-light	elixir	18319	18138
 neomodern-light	erlang	23025	23025
+neomodern-light	gdscript	13031	13031
 neomodern-light	go	14810	14810
 neomodern-light	graphql	3933	3933
 neomodern-light	hcl	3592	3592
@@ -2724,6 +2783,7 @@ nightfly	diff	18764	18764
 nightfly	dockerfile	20413	20413
 nightfly	elixir	18319	18138
 nightfly	erlang	23025	23025
+nightfly	gdscript	13031	13031
 nightfly	go	14810	14810
 nightfly	graphql	3933	3933
 nightfly	hcl	3592	3592
@@ -2770,6 +2830,7 @@ nightfox	diff	18764	18764
 nightfox	dockerfile	20413	20413
 nightfox	elixir	18319	18138
 nightfox	erlang	23025	23025
+nightfox	gdscript	13031	13031
 nightfox	go	14810	14810
 nightfox	graphql	3933	3933
 nightfox	hcl	3592	3592
@@ -2816,6 +2877,7 @@ nord	diff	18764	18764
 nord	dockerfile	20413	20413
 nord	elixir	18319	18138
 nord	erlang	23025	23025
+nord	gdscript	13031	13031
 nord	go	14810	14810
 nord	graphql	3933	3933
 nord	hcl	3592	3592
@@ -2862,6 +2924,7 @@ nordfox	diff	18764	18764
 nordfox	dockerfile	20413	20413
 nordfox	elixir	18319	18138
 nordfox	erlang	23025	23025
+nordfox	gdscript	13031	13031
 nordfox	go	14810	14810
 nordfox	graphql	3933	3933
 nordfox	hcl	3592	3592
@@ -2908,6 +2971,7 @@ onedark	diff	18764	18764
 onedark	dockerfile	20413	20413
 onedark	elixir	18319	18138
 onedark	erlang	23025	23025
+onedark	gdscript	13031	13031
 onedark	go	14810	14810
 onedark	graphql	3933	3933
 onedark	hcl	3592	3592
@@ -2954,6 +3018,7 @@ onedark-light	diff	18764	18764
 onedark-light	dockerfile	20413	20413
 onedark-light	elixir	18319	18138
 onedark-light	erlang	23025	23025
+onedark-light	gdscript	13031	13031
 onedark-light	go	14810	14810
 onedark-light	graphql	3933	3933
 onedark-light	hcl	3592	3592
@@ -3000,6 +3065,7 @@ oxocarbon-dark	diff	18764	18764
 oxocarbon-dark	dockerfile	20413	20413
 oxocarbon-dark	elixir	18319	18138
 oxocarbon-dark	erlang	23025	23025
+oxocarbon-dark	gdscript	13031	13031
 oxocarbon-dark	go	14810	14810
 oxocarbon-dark	graphql	3933	3933
 oxocarbon-dark	hcl	3592	3592
@@ -3046,6 +3112,7 @@ oxocarbon-light	diff	18764	18764
 oxocarbon-light	dockerfile	20413	20413
 oxocarbon-light	elixir	18319	18138
 oxocarbon-light	erlang	23025	23025
+oxocarbon-light	gdscript	13031	13031
 oxocarbon-light	go	14810	14810
 oxocarbon-light	graphql	3933	3933
 oxocarbon-light	hcl	3592	3592
@@ -3092,6 +3159,7 @@ papercolor	diff	18764	18764
 papercolor	dockerfile	20413	20413
 papercolor	elixir	18319	18138
 papercolor	erlang	23025	23025
+papercolor	gdscript	13031	13031
 papercolor	go	14810	14810
 papercolor	graphql	3933	3933
 papercolor	hcl	3592	3592
@@ -3138,6 +3206,7 @@ papercolor-light	diff	18764	18764
 papercolor-light	dockerfile	20413	20413
 papercolor-light	elixir	18319	18138
 papercolor-light	erlang	23025	23025
+papercolor-light	gdscript	13031	13031
 papercolor-light	go	14810	14810
 papercolor-light	graphql	3933	3933
 papercolor-light	hcl	3592	3592
@@ -3184,6 +3253,7 @@ pencil	diff	18764	18764
 pencil	dockerfile	20413	20413
 pencil	elixir	18319	18138
 pencil	erlang	23025	23025
+pencil	gdscript	13031	13031
 pencil	go	14810	14810
 pencil	graphql	3933	3933
 pencil	hcl	3592	3592
@@ -3230,6 +3300,7 @@ pencil-light	diff	18764	18764
 pencil-light	dockerfile	20413	20413
 pencil-light	elixir	18319	18138
 pencil-light	erlang	23025	23025
+pencil-light	gdscript	13031	13031
 pencil-light	go	14810	14810
 pencil-light	graphql	3933	3933
 pencil-light	hcl	3592	3592
@@ -3276,6 +3347,7 @@ rose-pine	diff	18764	18764
 rose-pine	dockerfile	20413	20413
 rose-pine	elixir	18319	18142
 rose-pine	erlang	23025	23025
+rose-pine	gdscript	13031	13031
 rose-pine	go	14810	14810
 rose-pine	graphql	3933	3933
 rose-pine	hcl	3592	3592
@@ -3322,6 +3394,7 @@ rose-pine-dawn	diff	18764	18764
 rose-pine-dawn	dockerfile	20413	20413
 rose-pine-dawn	elixir	18319	18142
 rose-pine-dawn	erlang	23025	23025
+rose-pine-dawn	gdscript	13031	13031
 rose-pine-dawn	go	14810	14810
 rose-pine-dawn	graphql	3933	3933
 rose-pine-dawn	hcl	3592	3592
@@ -3368,6 +3441,7 @@ rose-pine-moon	diff	18764	18764
 rose-pine-moon	dockerfile	20413	20413
 rose-pine-moon	elixir	18319	18142
 rose-pine-moon	erlang	23025	23025
+rose-pine-moon	gdscript	13031	13031
 rose-pine-moon	go	14810	14810
 rose-pine-moon	graphql	3933	3933
 rose-pine-moon	hcl	3592	3592
@@ -3414,6 +3488,7 @@ selenized	diff	18764	18764
 selenized	dockerfile	20413	20413
 selenized	elixir	18319	18138
 selenized	erlang	23025	23025
+selenized	gdscript	13031	13031
 selenized	go	14810	14810
 selenized	graphql	3933	3933
 selenized	hcl	3592	3592
@@ -3460,6 +3535,7 @@ selenized-light	diff	18764	18764
 selenized-light	dockerfile	20413	20413
 selenized-light	elixir	18319	18138
 selenized-light	erlang	23025	23025
+selenized-light	gdscript	13031	13031
 selenized-light	go	14810	14810
 selenized-light	graphql	3933	3933
 selenized-light	hcl	3592	3592
@@ -3506,6 +3582,7 @@ solarized-dark	diff	18764	18764
 solarized-dark	dockerfile	20413	20413
 solarized-dark	elixir	18319	18138
 solarized-dark	erlang	23025	23025
+solarized-dark	gdscript	13031	13031
 solarized-dark	go	14810	14810
 solarized-dark	graphql	3933	3933
 solarized-dark	hcl	3592	3592
@@ -3552,6 +3629,7 @@ solarized-light	diff	18764	18764
 solarized-light	dockerfile	20413	20413
 solarized-light	elixir	18319	18138
 solarized-light	erlang	23025	23025
+solarized-light	gdscript	13031	13031
 solarized-light	go	14810	14810
 solarized-light	graphql	3933	3933
 solarized-light	hcl	3592	3592
@@ -3598,6 +3676,7 @@ sonokai	diff	18764	18764
 sonokai	dockerfile	20413	20413
 sonokai	elixir	18319	18138
 sonokai	erlang	23025	23025
+sonokai	gdscript	13031	13031
 sonokai	go	14810	14810
 sonokai	graphql	3933	3933
 sonokai	hcl	3592	3592
@@ -3644,6 +3723,7 @@ soviet-dark	diff	18764	18764
 soviet-dark	dockerfile	20413	20413
 soviet-dark	elixir	18319	18138
 soviet-dark	erlang	23025	23025
+soviet-dark	gdscript	13031	13031
 soviet-dark	go	14810	14810
 soviet-dark	graphql	3933	3933
 soviet-dark	hcl	3592	3592
@@ -3690,6 +3770,7 @@ soviet-light	diff	18764	18764
 soviet-light	dockerfile	20413	20413
 soviet-light	elixir	18319	18138
 soviet-light	erlang	23025	23025
+soviet-light	gdscript	13031	13031
 soviet-light	go	14810	14810
 soviet-light	graphql	3933	3933
 soviet-light	hcl	3592	3592
@@ -3736,6 +3817,7 @@ srcery	diff	18764	18764
 srcery	dockerfile	20413	20413
 srcery	elixir	18319	18138
 srcery	erlang	23025	23025
+srcery	gdscript	13031	13031
 srcery	go	14810	14810
 srcery	graphql	3933	3933
 srcery	hcl	3592	3592
@@ -3782,6 +3864,7 @@ token	diff	18764	18764
 token	dockerfile	20413	20413
 token	elixir	18319	18138
 token	erlang	23025	23025
+token	gdscript	13031	13031
 token	go	14810	14810
 token	graphql	3933	3933
 token	hcl	3592	3592
@@ -3828,6 +3911,7 @@ token-light	diff	18764	18764
 token-light	dockerfile	20413	20413
 token-light	elixir	18319	18138
 token-light	erlang	23025	23025
+token-light	gdscript	13031	13031
 token-light	go	14810	14810
 token-light	graphql	3933	3933
 token-light	hcl	3592	3592
@@ -3874,6 +3958,7 @@ tokyonight-day	diff	18764	18764
 tokyonight-day	dockerfile	20413	20413
 tokyonight-day	elixir	18319	18138
 tokyonight-day	erlang	23025	23025
+tokyonight-day	gdscript	13031	13031
 tokyonight-day	go	14810	14810
 tokyonight-day	graphql	3933	3933
 tokyonight-day	hcl	3592	3592
@@ -3920,6 +4005,7 @@ tokyonight-moon	diff	18764	18764
 tokyonight-moon	dockerfile	20413	20413
 tokyonight-moon	elixir	18319	18138
 tokyonight-moon	erlang	23025	23025
+tokyonight-moon	gdscript	13031	13031
 tokyonight-moon	go	14810	14810
 tokyonight-moon	graphql	3933	3933
 tokyonight-moon	hcl	3592	3592
@@ -3966,6 +4052,7 @@ tokyonight-night	diff	18764	18764
 tokyonight-night	dockerfile	20413	20413
 tokyonight-night	elixir	18319	18138
 tokyonight-night	erlang	23025	23025
+tokyonight-night	gdscript	13031	13031
 tokyonight-night	go	14810	14810
 tokyonight-night	graphql	3933	3933
 tokyonight-night	hcl	3592	3592
@@ -4012,6 +4099,7 @@ tokyonight-storm	diff	18764	18764
 tokyonight-storm	dockerfile	20413	20413
 tokyonight-storm	elixir	18319	18138
 tokyonight-storm	erlang	23025	23025
+tokyonight-storm	gdscript	13031	13031
 tokyonight-storm	go	14810	14810
 tokyonight-storm	graphql	3933	3933
 tokyonight-storm	hcl	3592	3592
@@ -4058,6 +4146,7 @@ vague	diff	18764	18764
 vague	dockerfile	20413	20413
 vague	elixir	18319	18138
 vague	erlang	23025	23025
+vague	gdscript	13031	13031
 vague	go	14810	14810
 vague	graphql	3933	3933
 vague	hcl	3592	3592
@@ -4104,6 +4193,7 @@ vesper	diff	18764	18764
 vesper	dockerfile	20413	20413
 vesper	elixir	18319	18138
 vesper	erlang	23025	23025
+vesper	gdscript	13031	13031
 vesper	go	14810	14810
 vesper	graphql	3933	3933
 vesper	hcl	3592	3592
@@ -4150,6 +4240,7 @@ vscode-dark	diff	18764	18764
 vscode-dark	dockerfile	20413	20413
 vscode-dark	elixir	18319	18138
 vscode-dark	erlang	23025	23025
+vscode-dark	gdscript	13031	13031
 vscode-dark	go	14810	14810
 vscode-dark	graphql	3933	3933
 vscode-dark	hcl	3592	3592
@@ -4196,6 +4287,7 @@ vscode-light	diff	18764	18764
 vscode-light	dockerfile	20413	20413
 vscode-light	elixir	18319	18138
 vscode-light	erlang	23025	23025
+vscode-light	gdscript	13031	13031
 vscode-light	go	14810	14810
 vscode-light	graphql	3933	3933
 vscode-light	hcl	3592	3592

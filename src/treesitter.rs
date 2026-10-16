@@ -111,6 +111,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/nginx/injections.scm"),
     ),
     (
+        "gdscript",
+        include_str!("../queries/gdscript/highlights.scm"),
+        include_str!("../queries/gdscript/injections.scm"),
+    ),
+    (
         "proto",
         include_str!("../queries/proto/highlights.scm"),
         include_str!("../queries/proto/injections.scm"),
@@ -349,6 +354,7 @@ struct Check {
 enum Test {
     Match(regex::bytes::Regex),
     Contains(Vec<String>),
+    AnyOf(Vec<String>),
     HasParent(Vec<String>),
     HasAncestor(Vec<String>),
 }
@@ -366,6 +372,10 @@ impl Check {
                 words
                     .iter()
                     .all(|w| text.windows(w.len()).any(|x| x == w.as_bytes()))
+            }),
+            Test::AnyOf(words) => nodes.any(|n| {
+                let text = &bytes[n.byte_range()];
+                words.iter().any(|w| w.as_bytes() == text)
             }),
             Test::HasParent(kinds) => nodes.any(|n| {
                 n.parent()
@@ -462,6 +472,7 @@ fn grammar(name: &str) -> Option<Language> {
         "proto" => tree_sitter_proto::LANGUAGE.into(),
         "graphql" => arborium_graphql::language().into(),
         "nginx" => tree_sitter_nginx::LANGUAGE.into(),
+        "gdscript" => tree_sitter_gdscript::LANGUAGE.into(),
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
         "sql" => tree_sitter_sequel::LANGUAGE.into(),
@@ -604,6 +615,8 @@ fn patterns(
     let text = url.replace_all(text, "");
     let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
     let text = vim.replace_all(&text, "(#${1}vim-match?");
+    let any_of = regex::Regex::new(r"\(#(not-)?any-of\?").expect("a valid regex");
+    let text = any_of.replace_all(&text, "(#${1}nvim-any-of?");
     let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
@@ -668,6 +681,7 @@ fn patterns(
                 "lua-match?" if args.len() == 1 => Test::Match(lua_pattern(&args[0])?),
                 "vim-match?" if args.len() == 1 => Test::Match(vim_pattern(&args[0])?),
                 "contains?" => Test::Contains(args),
+                "nvim-any-of?" => Test::AnyOf(args),
                 "has-parent?" => Test::HasParent(args),
                 "has-ancestor?" => Test::HasAncestor(args),
                 _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),

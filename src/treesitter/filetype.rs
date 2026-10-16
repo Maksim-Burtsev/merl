@@ -35,6 +35,7 @@ pub fn for_syntax(
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Erlang" if path.is_none_or(|p| erlang(p, lines)) => lang("erlang"),
+        "GDScript (Godot Engine)" => lang("gdscript"),
         "Go" => lang("go"),
         "GraphQL" => lang("graphql"),
         "INI" if path.is_some_and(ini) => lang("ini"),

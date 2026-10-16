@@ -1920,6 +1920,7 @@ dependencies = [
  "tree-sitter-dockerfile-updated",
  "tree-sitter-elixir",
  "tree-sitter-erlang",
+ "tree-sitter-gdscript",
  "tree-sitter-go",
  "tree-sitter-hcl",
  "tree-sitter-html",
@@ -4061,6 +4062,15 @@ name = "tree-sitter-erlang"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8079a9cfe733c3b6749bb3c683c0e997ee68a2305f7a210800bbbc53e82d3f64"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-gdscript"
+version = "6.0.0"
+source = "git+https://github.com/PrestonKnopp/tree-sitter-gdscript?rev=9686853b696db07118ad110e440d6de0ca6498b4#9686853b696db07118ad110e440d6de0ca6498b4"
 dependencies = [
  "cc",
  "tree-sitter-language",

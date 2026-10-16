@@ -1274,6 +1274,20 @@ const NGINX: &[&str] = &[
     "{",
 ];
 
+const GDSCRIPT: &[&str] = &[
+    "func a(b: int) -> void:\n",
+    "\tif b:\n",
+    "\t\tpass\n",
+    "@export var c := 1\n",
+    "\"\"\"",
+    "$Node",
+    "\t",
+    "# ",
+    "\"",
+    ":",
+    "\n",
+];
+
 const GRAPHQL: &[&str] = &[
     "type A {\n",
     "}\n",
@@ -1599,6 +1613,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "nginx.conf",
         include_bytes!("../../../tests/colors/nginx/site.conf").as_slice(),
         NGINX,
+    ),
+    (
+        "f.gd",
+        include_bytes!("../../../tests/colors/gdscript/player.gd").as_slice(),
+        GDSCRIPT,
     ),
     (
         "CMakeLists.txt",
