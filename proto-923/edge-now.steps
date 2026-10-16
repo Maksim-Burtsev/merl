@@ -1,0 +1,33 @@
+wait service.py
+key Escape
+sleep 0.6
+key :
+type 480
+key Enter
+sleep 1.2
+key M-Right M-Right M-Right
+sleep 1.4
+key v
+sleep 0.5
+key /
+sleep 1.0
+key Enter
+sleep 2.2
+key Up
+sleep 1.0
+key v
+sleep 0.5
+key /
+sleep 1.0
+key Enter
+sleep 2.2
+key Down Down Down Down
+sleep 0.8
+key End Left Left
+sleep 1.2
+key v
+sleep 0.5
+key /
+sleep 1.0
+key Enter
+sleep 2.4

@@ -264,6 +264,10 @@ impl App {
                 self.step_find(false);
                 self.hist_note(true);
             }
+            KeyCode::Char('*') if self.focus == Focus::Code => {
+                self.star();
+                self.hist_note(true);
+            }
             KeyCode::Char('s') => self.start_search(),
             KeyCode::Char('d') if ctrl => self.half_page(1),
             KeyCode::Char('u') if ctrl => self.half_page(-1),

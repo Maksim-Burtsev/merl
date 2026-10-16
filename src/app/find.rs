@@ -27,6 +27,51 @@ impl App {
         }
     }
 
+    pub(super) fn star(&mut self) {
+        let mode = std::env::var("MERL_P923").unwrap_or_default();
+        if !matches!(mode.as_str(), "a" | "b" | "c") {
+            return;
+        }
+        let (re, query, end) = if let Some(sel) = self.one_line_selection() {
+            let re = RegexBuilder::new(&regex::escape(&sel))
+                .case_insensitive(true)
+                .build()
+                .expect("literal");
+            let end = self.selection().map_or((self.at(), self.col), |(_, e)| e);
+            (re, sel, end)
+        } else {
+            let extra = super::search::word_chars(self.kind(), false);
+            let Some((range, w)) = super::search::word_at(self.line_str(), self.col, &extra)
+                .map(|(r, w)| (r, w.to_owned()))
+            else {
+                self.message = "no word under the cursor".into();
+                return;
+            };
+            let re = if mode == "c" {
+                RegexBuilder::new(&regex::escape(&w))
+                    .case_insensitive(true)
+                    .build()
+                    .expect("literal")
+            } else {
+                Regex::new(&format!(r"\b{}\b", regex::escape(&w))).expect("word")
+            };
+            (re, w, (self.at(), range.end))
+        };
+        if mode == "b" {
+            self.message = self.match_count(&re);
+        } else {
+            let hit = self
+                .match_at_or_after(&re, end)
+                .or_else(|| self.match_at_or_after(&re, (self.first_line(), 0)));
+            if let Some(at) = hit {
+                self.go_to_match(at);
+                self.message = self.match_count(&re);
+            }
+        }
+        self.find_re = Some(re);
+        self.find_query = query;
+    }
+
     pub(super) fn one_line_selection(&self) -> Option<String> {
         let (start, end) = self.selection()?;
         let text = self.selected_text().filter(|_| start.0 == end.0)?;
