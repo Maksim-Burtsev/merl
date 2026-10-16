@@ -29,7 +29,7 @@ and the README's gitea and polar (`assets/tapes/setup.sh`, fetched once) under
 `/tmp/merl-smoke/out/report.md` with a PNG per differing checkpoint beside it (old above new).
 Needs macOS, tmux, Go and Python 3 (`d` goes into their standard libraries), Pillow, and
 `gh` logged in. `--help` has the scenario grammar. One run at a time: a second one is refused
-while the first holds `/tmp/merl-smoke`.
+while the first holds `/tmp/merl-smoke` (a `--golden` or `--gif` run on the default WORK waits instead).
 
 When the change under test touches `run.py` itself, run `tests/smoke/run.py --selftest` first:
 fake merls go through every verdict in about 20 seconds, and it ends `selftest ok`.
