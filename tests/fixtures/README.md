@@ -111,7 +111,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   closed by `} as T;`.
 
 - Go (#100): `globals` reads package-level names that `globals_vars.go` declares (a `var`, a
-  `var (` block, a list whose second name has no value the rules pair up), one declared below
+  `var (` block, a list whose second name takes the value in its position), one declared below
   its use, one declared as two types under build tags, and locals that hide them; a `var` inside
   a function and a raw string's line declare nothing. `aliases` follows `type X = Y` through a
   second alias, another package and an alias declared in that package, next to a defined type

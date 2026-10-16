@@ -1168,6 +1168,13 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
+fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
+    let parts = split_top(Kind::Go, values, b',');
+    match parts.get(at) {
+        Some(v) if parts.len() == names.split(',').count() => Some(v),
+        _ => (at == 0).then_some(values),
+    }
+}
 fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     let items: Vec<&str> = split_top(Kind::Go, params, b',')
         .into_iter()
@@ -1245,11 +1252,10 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
             let list =
                 |s: &str| -> Vec<String> { s.split(',').map(|p| p.trim().to_owned()).collect() };
             if let Some(c) = GO_SHORT.captures(t) {
-                match list(&c[1]).iter().position(|p| p == name) {
-                    Some(0) => value_of(kind, &c[2]),
-                    Some(_) => Value::Unknown,
-                    None => return,
-                }
+                let Some(at) = list(&c[1]).iter().position(|p| p == name) else {
+                    return;
+                };
+                go_assigned(&c[1], &c[2], at).map_or(Value::Unknown, |e| value_of(kind, e))
             } else if let Some(c) = GO_VAR.captures(t) {
                 match (
                     list(&c[1]).iter().position(|p| p == name),
@@ -1258,7 +1264,8 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 ) {
                     (None, ..) => return,
                     (Some(_), Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-                    (Some(0), None, Some(v)) => value_of(kind, v.as_str()),
+                    (Some(at), None, Some(v)) => go_assigned(&c[1], v.as_str(), at)
+                        .map_or(Value::Unknown, |e| value_of(kind, e)),
                     _ => Value::Unknown,
                 }
             } else if t
