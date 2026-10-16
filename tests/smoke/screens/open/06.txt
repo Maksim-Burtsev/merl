@@ -3,9 +3,9 @@ wait Go to definition of the word under the cursor
  2                                │ Files and jumps                                                                                                   │
  3                                │   o / Ctrl+E                        Open a file (fuzzy)                                                           │
  4 class UnitOfWork:              │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
- 5     """One transaction: `with u│   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+ 5     """One transaction: `with u│   d                                 Go to definition of the word under the cursor, or its implementations         │
  6                                │   D                                 Project symbols (fuzzy)                                                       │
- 7     def __init__(self, db):    │   u / Shift+F12                     Usages of the word under the cursor                                           │
+ 7     def __init__(self, db):    │   u                                 Usages of the word under the cursor                                           │
  8         self.db = db           │   [ / ]                             Back / forward in the jump history                                            │
  9         self.orders = OrderRepo│   : / Ctrl+G                        Go to line                                                                    │
 10                                │ Search                                                                                                            │
