@@ -2,7 +2,7 @@ use regex::Regex;
 
 pub fn sql_cte(word: &str) -> String {
     let w = regex::escape(word);
-    format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}\s+AS\s*\(")
+    format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}(?:\s*\([^()]*\))?\s+AS(?:\s+(?:NOT\s+)?MATERIALIZED)?\s*\(")
 }
 pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> Option<bool> {
     let start = |l: usize| -> usize { text.split_inclusive('\n').take(l - 1).map(str::len).sum() };
@@ -12,12 +12,24 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
     };
     let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, text.as_bytes());
     let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
-    let mut ended = false;
+    let (mut ended, mut after) = (false, 0_usize);
     while i < b.len() {
         let skip = match &b[i..] {
             [b'-', b'-', ..] => "\n",
             [b'/', b'*', ..] => "*/",
             [b'\'', ..] => "'",
+            [b'(', ..] if close.is_some() => {
+                after += 1;
+                ""
+            }
+            [b')', ..] if close.is_some() => {
+                if after == 0 {
+                    ended = true;
+                    break;
+                }
+                after -= 1;
+                ""
+            }
             [b'(', ..] if i >= open => {
                 depth = Some(depth.map_or(1, |d| d + 1));
                 ""
