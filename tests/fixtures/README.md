@@ -205,6 +205,19 @@ above a declaration, and a heredoc or a block scalar holding a declaration-shape
 answers there are the known misses of #436, and the globs inside quotes (`"parcels/*"`,
 `["src/**/*.rs"]`) guard what already works.
 
+The adversarial corners of #931 for PHP, Lua and Bash keep a tea set's names too. `php/src/Tea/`
+has a `Kettle` and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` in
+`Shop\Tea\Stale` imported under an alias, `use function` of a `steep` the file's own namespace
+also declares, a function `pour` beside the methods, `static::` and `parent::`, a trait's method,
+a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
+block comment declaring what the files declare. `lua/lua/tea/` has `local function pour` beside
+`function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
+`local fact = function` against `local function fib`, `local later` assigned by `function
+later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
+`shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
+as `$pour`, `${#pour}` and as a command, `command steep`, case patterns named like functions, a
+function declared twice, `for` and `read` variables, and two heredocs declaring functions.
+
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
 each part of its selector, a property, a block property, the four `NS_ENUM` macros, a category, a

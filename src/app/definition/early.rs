@@ -138,7 +138,9 @@ impl App {
         {
             return None;
         }
-        if self.needs_no_lookup(kind, &word, &lead, range.start) {
+        if self.needs_no_lookup(kind, &word, &lead, range.start)
+            || (kind == Kind::Shell && search::shell_no_name(&self.buf.lines, self.line, &lead, &tail))
+        {
             self.message = resolution(&word, None, &[], None, false);
             return None;
         }

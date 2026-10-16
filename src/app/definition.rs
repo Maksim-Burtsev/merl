@@ -628,6 +628,18 @@ impl App {
                     None => true,
                 }
             });
+            let lead = search::definition_word(Some(kind), self.line_str(), self.col)
+                .and_then(|(r, _)| self.line_str().get(..r.start));
+            if let Some(command) = lead.and_then(search::shell_command_position) {
+                let sorted: Vec<Hit> = hits
+                    .iter()
+                    .filter(|h| search::shell_names_a_command(&h.text) == command)
+                    .cloned()
+                    .collect();
+                if !sorted.is_empty() {
+                    hits = sorted;
+                }
+            }
         }
         if kind == Kind::Sql
             && !hits
