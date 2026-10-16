@@ -437,11 +437,7 @@ fn a_capture_keeps_its_background_only_when_reversed() {
     assert_eq!(added("tokyonight-moon"), (None, false));
 }
 
-fn by_python(f: &str) -> Option<&'static str> {
-    super::for_syntax("Python", Some(Path::new(f)), &[]).map(|l| l.name)
-}
-
-fn sexp(f: &str, src: &[u8]) -> String {
+pub(super) fn sexp(f: &str, src: &[u8]) -> String {
     let mut b = Buffer::from_bytes(PathBuf::from(f), src);
     b.parse_more(None);
     b.sexp()
@@ -537,40 +533,7 @@ fn build_and_config_files_get_their_grammar() {
             "{f}"
         );
     }
-    for f in [
-        "nginx.conf",
-        "test-nginx.conf",
-        "nginx-site.conf",
-        "a/nginx/b.conf",
-        "/etc/nginx/x.conf",
-        "/usr/local/nginx/conf/mime.types",
-        "a.nginx",
-    ] {
-        assert!(sexp(f, b"a b;\n").starts_with("(source_file"), "{f}");
-    }
-    assert_eq!(sexp("a.conf", b"a b;\n"), "");
     assert!(sexp("a.gd", b"var a = 1\n").starts_with("(source "));
-    for f in [
-        "BUILD",
-        "BUILD.bazel",
-        "MODULE.bazel",
-        "WORKSPACE",
-        "WORKSPACE.bzlmod",
-        "BUCK",
-        "a.bzl",
-        "a.bxl",
-        "a.star",
-        "a.sky",
-        "a.ipd",
-        "a.starlark",
-        "third_party.BUILD",
-    ] {
-        assert!(sexp(f, b"a = 1\n").starts_with("(module "), "{f}");
-        assert_eq!(by_python(f), Some("starlark"), "{f}");
-    }
-    for f in ["a.py", "Tiltfile", "SConstruct"] {
-        assert_eq!(by_python(f), Some("python"), "{f}");
-    }
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
         assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
     }
