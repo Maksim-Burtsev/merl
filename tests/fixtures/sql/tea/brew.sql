@@ -13,11 +13,11 @@ SELECT id FROM kettles;
 --             ^ d: tea/brew.sql:9
 
 SELECT teapots.id FROM tea.kettles AS teapots;
---     ^ d: tea/schema.sql:14; want tea/brew.sql:15 (#945)
+--     ^ d: tea/brew.sql:15
 
 SELECT k.cups, p.leaves FROM tea.kettles k JOIN teapots p ON p.kettle_id = k.id;
---     ^ d: none; want tea/brew.sql:18 (#945)
---             ^ d: none; want tea/brew.sql:18 (#945)
+--     ^ d: tea/brew.sql:18
+--             ^ d: tea/brew.sql:18
 
 SELECT * FROM stale.kettles, tea.kettles, kettles;
 --            ^ d: tea/schema.sql:3
