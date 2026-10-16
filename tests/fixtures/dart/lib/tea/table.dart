@@ -5,36 +5,36 @@ import 'stale/kettle.dart' as stale;
 // #931: what Dart's own scoping makes hard for `d`.
 void serve(Teapot pot) {
   final kettle = Kettle.cold();
-  //             ^ d: lib/tea/kettle.dart:6
+  //             ^ d: picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7, lib/tea/stale/kettle.dart:1; want lib/tea/kettle.dart:6 (#950)
   //                    ^ d: lib/tea/kettle.dart:8
   final cold = stale.Kettle.cold();
-  //           ^ d: lib/tea/table.dart:3
+  //           ^ d: none; want lib/tea/table.dart:3 (#950)
   //                 ^ d: lib/tea/stale/kettle.dart:1
-  //                        ^ d: lib/tea/stale/kettle.dart:2
+  //                        ^ d: picker lib/tea/kettle.dart:8, lib/tea/teapot.dart:4; want lib/tea/stale/kettle.dart:2 (#950)
   kettle.pour(1);
-  //     ^ d: lib/tea/kettle.dart:17
+  //     ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/kettle.dart:17 (#949)
   pot.pour(1);
-  //  ^ d: lib/tea/teapot.dart:6
+  //  ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/teapot.dart:6 (#949)
   cold.pour(2);
-  //   ^ d: lib/tea/stale/kettle.dart:4
+  //   ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/stale/kettle.dart:4 (#949)
   Teapot.cold().decant();
   //     ^ d: lib/tea/teapot.dart:4
   //            ^ d: lib/tea/teapot.dart:8
   Kettle(1)..pour(2)..cups = 3;
-  //^ d: picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7
-  //          ^ d: lib/tea/kettle.dart:17
+  //^ d: picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7, lib/tea/stale/kettle.dart:1; want picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7 (#950)
+  //          ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/kettle.dart:17 (#949)
   //                  ^ d: lib/tea/kettle.dart:15
   print(steep(1) + stale.steep(2));
-  //    ^ d: lib/tea/kettle_parts.dart:3
+  //    ^ d: picker lib/tea/table.dart:49, lib/tea/kettle_parts.dart:3, lib/tea/stale/kettle.dart:7; want lib/tea/kettle_parts.dart:3 (#950)
   //                     ^ d: lib/tea/stale/kettle.dart:7
 }
 
 // A parameter named like an import prefix hides it.
 int pourAll(Teapot stale, int steep) {
   return stale.pour(steep);
-  //     ^ d: lib/tea/table.dart:33
-  //           ^ d: lib/tea/teapot.dart:6
-  //                ^ d: lib/tea/table.dart:33
+  //     ^ d: none; want lib/tea/table.dart:33 (#948)
+  //           ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/teapot.dart:6 (#949)
+  //                ^ d: picker lib/tea/table.dart:49, lib/tea/kettle_parts.dart:3, lib/tea/stale/kettle.dart:7; want lib/tea/table.dart:33 (#948)
 }
 
 class Samovar extends Kettle {
@@ -43,21 +43,21 @@ class Samovar extends Kettle {
 
   @override
   int pour(int cups) => super.pour(cups) + 1;
-  //                          ^ d: lib/tea/kettle.dart:17
+  //                          ^ d: picker lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/kettle.dart:17 (#949)
 
   int brew() {
     int steep(int n) => n;
     final (cups, leaves) = (steep(1), 2);
-    //                      ^ d: lib/tea/table.dart:49
+    //                      ^ d: picker lib/tea/table.dart:49, lib/tea/kettle_parts.dart:3, lib/tea/stale/kettle.dart:7; want lib/tea/table.dart:49 (#948)
     return cups + leaves + this.cups;
-    //     ^ d: lib/tea/table.dart:50
-    //            ^ d: lib/tea/table.dart:50
+    //     ^ d: lib/tea/kettle.dart:15; want lib/tea/table.dart:50 (#948)
+    //            ^ d: none; want lib/tea/table.dart:50 (#948)
     //                          ^ d: lib/tea/kettle.dart:15
   }
 
   int brewed(Object o) => switch (o) {
     Kettle(:final cups) => cups,
-    //                     ^ d: lib/tea/table.dart:59
+    //                     ^ d: lib/tea/kettle.dart:15; want lib/tea/table.dart:59 (#948)
     _ => 0,
   };
 }

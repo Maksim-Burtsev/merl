@@ -32,7 +32,7 @@ CREATE OR REPLACE VIEW brews AS SELECT id, leaves FROM teapots;
 -- A parameter named like a table.
 CREATE FUNCTION pour(teapots integer) RETURNS integer AS $$
   SELECT teapots + 1
-  --     ^ d: tea/schema.sql:33
+  --     ^ d: tea/schema.sql:14; want tea/schema.sql:33 (#947)
 $$ LANGUAGE sql;
 
 -- A string over lines holds a statement; a comment line opens with one.
