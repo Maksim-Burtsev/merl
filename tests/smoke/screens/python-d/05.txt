@@ -54,4 +54,4 @@ wait app/repos.py  14:
 53         self.orders[order.id] = order
 54
 app/repos.py  14:9  [code]  find_by_customer: by name, 3 declarations                                                                                                              14:32
-cursor (x,y,shown) 11,13,1
+cursor (x,y,shown) 11,13,0

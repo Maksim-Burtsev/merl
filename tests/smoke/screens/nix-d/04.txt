@@ -54,4 +54,4 @@ wait mkService: by name, 1 match
 │                            │
 └────────────────────────────┘
 nixshop/lib/default.nix  3:3  [code]  mkService: by name, 1 match                                                                                                                  14:32
-cursor (x,y,shown) 34,2,1
+cursor (x,y,shown) 34,2,0

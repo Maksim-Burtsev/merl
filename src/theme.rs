@@ -192,6 +192,8 @@ pub struct Theme {
     pub word_fg: Color,
     pub tag_bg: Color,
     pub tag_fg: Color,
+    pub cursor: Style,
+    pub typing_cursor: Style,
     pub light: bool,
     pub syntect: syntect::highlighting::Theme,
     pub groups: HashMap<String, Style>,
@@ -360,14 +362,10 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let tag_bg = blend(hue(0xd2, 0x99, 0x22), bg, if light { 45 } else { 40 });
     let tag_fg = readable_on(&[tag_bg], toward, fg);
     let selection = s.selection.map_or_else(|| blend(fg, bg, 25), over_bg);
-    let find_fg = match (s.find_highlight, s.find_highlight_foreground) {
-        (_, Some(c)) => Some(over_bg(c)),
-        (Some(_), None) => None,
-        (None, None) => [rgb(fg), rgb(bg)]
-            .into_iter()
-            .max_by(|&a, &b| wcag_contrast(a, find_bg).total_cmp(&wcag_contrast(b, find_bg))),
-    };
+    let find_fg = find_fg(s, find_bg, bg, fg);
     let gutter_fg = gutter_fg(own_gutter, bg, comment_color(&syntect), toward);
+    let accent = rgb(accent_color(&syntect).unwrap_or(fg));
+    let (cursor, typing_cursor) = cursors(&groups, normal, accent);
     let own = Theme {
         bg: rgb(bg),
         fg: rgb(fg),
@@ -395,7 +393,9 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         word_fg,
         tag_bg,
         tag_fg,
-        accent: rgb(accent_color(&syntect).unwrap_or(fg)),
+        cursor,
+        typing_cursor,
+        accent,
         light,
         syntect,
         groups,
@@ -441,6 +441,54 @@ fn drawn(
     } else {
         (s.fg, s.bg.unwrap_or(bg))
     })
+}
+
+fn find_fg(
+    s: &syntect::highlighting::ThemeSettings,
+    find_bg: Color,
+    bg: SynColor,
+    fg: SynColor,
+) -> Option<Color> {
+    match (s.find_highlight, s.find_highlight_foreground) {
+        (_, Some(c)) => Some(rgb(over_at_own_alpha(c, bg))),
+        (Some(_), None) => None,
+        (None, None) => more_readable([rgb(fg), rgb(bg)], find_bg),
+    }
+}
+
+fn more_readable(colours: [Color; 2], on: Color) -> Option<Color> {
+    colours
+        .into_iter()
+        .max_by(|&a, &b| wcag_contrast(a, on).total_cmp(&wcag_contrast(b, on)))
+}
+
+fn apart(a: Color, b: Color) -> bool {
+    let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (a, b) else {
+        return true;
+    };
+    r1.abs_diff(r2) >= 12 || g1.abs_diff(g2) >= 12 || b1.abs_diff(b2) >= 12
+}
+
+fn cursors(
+    groups: &HashMap<String, Style>,
+    normal: (Color, Color),
+    accent: Color,
+) -> (Style, Style) {
+    let block = |name: &str| drawn(groups, name, normal).filter(|&(_, bg)| apart(bg, normal.1));
+    let cursor = block("Cursor").unwrap_or((Some(normal.1), normal.0));
+    let readable = |bg: Color| (more_readable([normal.0, normal.1], bg), bg);
+    let typing = [block("lCursor"), Some(readable(accent))]
+        .into_iter()
+        .flatten()
+        .find(|&(_, bg)| apart(bg, cursor.1))
+        .unwrap_or_else(|| readable(blend(syn(cursor.1), syn(normal.1), 50)));
+    let style = |(fg, bg): (Option<Color>, Color)| Style {
+        fg,
+        bg: Some(bg),
+        sub_modifier: Modifier::REVERSED,
+        ..Style::new()
+    };
+    (style(cursor), style(typing))
 }
 
 #[derive(Deserialize)]
@@ -713,11 +761,23 @@ mod tests {
     use super::*;
     use crate::buffer::Buffer;
 
-    fn apart(a: Color, b: Color) -> bool {
-        let (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) = (a, b) else {
-            return true;
-        };
-        r1.abs_diff(r2) >= 12 || g1.abs_diff(g2) >= 12 || b1.abs_diff(b2) >= 12
+    #[test]
+    fn every_theme_draws_a_cursor_apart_from_its_background_and_a_typing_one_apart_from_both() {
+        for name in names() {
+            let t = load_from(None, name).unwrap();
+            let (cursor, typing) = (t.cursor.bg.unwrap(), t.typing_cursor.bg.unwrap());
+            assert!(apart(cursor, t.bg) && apart(cursor, t.line_hl), "{name}");
+            assert!(apart(typing, t.line_hl) && apart(typing, cursor), "{name}");
+        }
+        let hex = |h: &str| h.parse::<Color>().unwrap();
+        let github = load_from(None, "github-light").unwrap();
+        assert_eq!(github.cursor.bg, Some(hex("#1f2328")), "its Cursor group");
+        let seneca = load_from(None, "seneca").unwrap();
+        assert_eq!(
+            (seneca.cursor.fg, seneca.cursor.bg),
+            (Some(seneca.bg), Some(seneca.fg)),
+            "no groups: Neovim's own Cursor, guifg=bg guibg=fg"
+        );
     }
 
     #[test]

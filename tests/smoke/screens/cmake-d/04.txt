@@ -54,4 +54,4 @@ wait shop_add_library: by name, 1 match
 │                            │
 └────────────────────────────┘
 cmakeshop/cmake/ShopHelpers.cmake  1:10  [code]  shop_add_library: by name, 1 match                                                                                                14:32
-cursor (x,y,shown) 41,0,1
+cursor (x,y,shown) 41,0,0

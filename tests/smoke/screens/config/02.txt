@@ -54,4 +54,4 @@ wait Search (3 hits)
 
 
 deploy/helm/orders/templates/deployment.yaml  1:1  [code]                                                                                                                          14:32
-cursor (x,y,shown) 35,12,1
+cursor (x,y,shown) 35,12,0

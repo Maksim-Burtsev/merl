@@ -54,4 +54,4 @@ wait worker/internal/queue/queue.go  1:1
 53         {name: "sync", worker: true},
 54         {name: "audit"},
 worker/internal/queue/queue.go  1:1  [code]                                                                                                                                        14:32
-cursor (x,y,shown) 3,0,1
+cursor (x,y,shown) 3,0,0

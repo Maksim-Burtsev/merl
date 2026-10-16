@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
+use ratatui::layout::Position;
 use ratatui::style::{Color, Modifier};
 
 use crate::app::App;
@@ -93,6 +93,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             .map(|y| {
                 (0..buf.area.width)
                     .map(|x| match buf[(x, y)].bg {
+                        _ if app.cursor_cell == Some(Position::new(x, y)) => '|',
                         bg if bg == theme.selection => '#',
                         bg if bg == theme.line_hl => '-',
                         _ => '.',
@@ -107,7 +108,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             "............",
             "....########",
             "..##########",
-            "--##--------"
+            "--##|-------"
         ],
         "the line above the selection stays clean; the cursor line keeps its highlight"
     );
@@ -117,7 +118,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ));
     assert_eq!(
         paint(&mut app)[3],
-        "--..........",
+        "--|.........",
         "ending at the start of the cursor line selects none of its text: lit in the gutter \
          only, as in VS Code, or past the selection it would pass for selected text"
     );
@@ -132,14 +133,14 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     }
     assert_eq!(
         paint(&mut app)[1],
-        "------------",
+        "--|---------",
         "back on the anchor nothing is selected, and the cursor line is highlighted again"
     );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(app.selection(), None);
     assert_eq!(
         paint(&mut app)[1],
-        "------------",
+        "--|---------",
         "with no selection at all, the cursor line is highlighted"
     );
 }
@@ -169,6 +170,7 @@ z
             .map(|y| {
                 (0..buf.area.width)
                     .map(|x| match buf[(x, y)].bg {
+                        _ if app.cursor_cell == Some(Position::new(x, y)) => '|',
                         bg if bg == theme.selection => '#',
                         bg if bg == theme.line_hl => '-',
                         _ => '.',
@@ -183,12 +185,12 @@ z
     }
     assert_eq!(
         paint(&mut app)[..3],
-        ["----------", "----------", "----------"]
+        ["----------", "------|---", "----------"]
     );
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     assert_eq!(
         paint(&mut app),
-        ["------####", "--####----", "----------", ".........."],
+        ["------|###", "--####----", "----------", ".........."],
         "Shift+Up selects half a row up to the cursor, the rest of the line stays highlighted"
     );
     for (code, m) in [
@@ -204,7 +206,7 @@ z
     assert_eq!(app.file_selection(), Some(((0, 16), (1, 0))));
     assert_eq!(
         paint(&mut app),
-        ["----------", "----------", "--########", ".........."],
+        ["----------", "----------", "--|#######", ".........."],
         "Shift+Up from the start of the next line: the rows above the cursor keep the highlight"
     );
 }
@@ -269,7 +271,7 @@ fn cursor_stays_on_a_drawn_row_of_a_clipped_line() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    let y = terminal.get_cursor_position().unwrap().y;
+    let y = app.cursor_cell.unwrap().y;
     let buf = terminal.backend().buffer();
     assert_eq!(
         buf[(2, y)].symbol(),
@@ -307,7 +309,7 @@ fn an_emoji_with_a_selector_wraps_and_holds_the_cursor_as_drawn() {
     app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
-        terminal.get_cursor_position().unwrap().x,
+        app.cursor_cell.unwrap().x,
         2 + 3,
         "on the `b`: the emoji is two columns wide, as ratatui draws it"
     );
@@ -372,7 +374,39 @@ fn tabs_draw_four_wide_and_the_status_shows_the_edit_state() {
         status.contains("f.go \u{25cf}") && status.contains("[edit]  Tab"),
         "{status:?}"
     );
-    assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 4 + 7);
+    assert_eq!(app.cursor_cell.unwrap().x, 2 + 4 + 7);
+}
+
+#[test]
+fn merl_paints_the_cursor_cell_in_the_theme_s_colours_and_hides_the_terminal_s() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.py"), b"from enum import Enum\n"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load("github-light").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+    let mut cell = |app: &mut App| {
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        assert!(!terminal.backend().cursor_visible());
+        let at = app.cursor_cell.unwrap();
+        let c = &terminal.backend().buffer()[(at.x, at.y)];
+        (c.symbol().to_owned(), c.fg, c.bg)
+    };
+    let hex = |h: &str| h.parse::<Color>().unwrap();
+    assert_eq!(
+        cell(&mut app),
+        ("f".to_owned(), hex("#ffffff"), hex("#1f2328")),
+        "github-light's Cursor group"
+    );
+    app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    let (symbol, _, typing) = cell(&mut app);
+    assert_eq!(symbol, "f");
+    assert_eq!(Some(typing), theme.typing_cursor.bg);
+    assert_ne!(typing, hex("#1f2328"), "typing is told apart by colour");
 }
 
 #[test]
@@ -394,7 +428,7 @@ fn wrapped_rows_and_the_cursor_on_them_start_under_the_text() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(20, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    let cursor = terminal.get_cursor_position().unwrap();
+    let cursor = app.cursor_cell.unwrap();
     let buf = terminal.backend().buffer();
     let row = |y: u16| (0..20).map(|x| buf[(x, y)].symbol()).collect::<String>();
     assert_eq!(row(0), "1 - Celery lost     ");
@@ -449,10 +483,7 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
     ] {
         key(&mut app, c);
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        assert_eq!(
-            (app.at(), terminal.get_cursor_position().unwrap().y),
-            (at, y)
-        );
+        assert_eq!((app.at(), app.cursor_cell.unwrap().y), (at, y));
     }
     key(&mut app, KeyCode::Down);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
@@ -493,7 +524,7 @@ fn up_scrolls_onto_the_ghosts_one_row_at_a_time() {
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         assert_eq!((app.top_line, app.top_row), top);
         assert_eq!(rows(&terminal)[..2], shown);
-        assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+        assert_eq!(app.cursor_cell.unwrap().y, 0);
     }
 }
 
@@ -557,11 +588,11 @@ fn every_ghost_after_the_last_line_can_be_walked_to() {
         rows(&terminal)[..4],
         ["\u{258e}g7", "\u{258e}g8", "\u{258e}g9", "\u{258e}g10"]
     );
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 3);
+    assert_eq!(app.cursor_cell.unwrap().y, 3);
     app.key(key(KeyCode::Up));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(app.at(), TextLine::Deleted(2, 8));
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 2);
+    assert_eq!(app.cursor_cell.unwrap().y, 2);
 }
 
 #[test]
@@ -590,7 +621,7 @@ fn up_and_down_walk_a_wrapped_ghost_row_by_row() {
     ] {
         app.key(key(c));
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        let cursor = terminal.get_cursor_position().unwrap().y;
+        let cursor = app.cursor_cell.unwrap().y;
         assert_eq!(((app.at(), app.col), cursor), (at, y), "{c:?}");
     }
 }
@@ -624,7 +655,7 @@ fn up_scrolls_a_wrapped_ghost_in_one_row_at_a_time() {
         app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         assert_eq!(rows(&terminal)[..2], shown);
-        assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+        assert_eq!(app.cursor_cell.unwrap().y, 0);
     }
 }
 
@@ -653,7 +684,7 @@ fn wrapped_ghosts_after_the_last_line_can_all_be_walked_to() {
         rows(&terminal)[..3],
         ["\u{258e}five", "\u{258e}six seven", "\u{258e}eight"]
     );
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 2);
+    assert_eq!(app.cursor_cell.unwrap().y, 2);
 }
 
 #[test]
@@ -992,8 +1023,10 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
     let mut press = |app: &mut App, code: KeyCode| {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
-        let y = terminal.get_cursor_position().unwrap().y as usize;
-        let band = (0..30).all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
+        let y = app.cursor_cell.unwrap().y as usize;
+        let band = (0..30)
+            .filter(|&x| app.cursor_cell != Some(Position::new(x, 0)))
+            .all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
         (rows(&terminal), y, band)
     };
     let (screen, _, _) = press(&mut app, KeyCode::Null);
@@ -1069,7 +1102,7 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     app.key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let screen = rows(&terminal);
-    let y = terminal.get_cursor_position().unwrap().y as usize;
+    let y = app.cursor_cell.unwrap().y as usize;
     assert_eq!(app.line, 21);
     assert_eq!(screen[0], "1 def long():");
     let buf = terminal.backend().buffer();
@@ -1103,10 +1136,7 @@ fn press(
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     app.key(KeyEvent::new(code, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
-    (
-        rows(terminal),
-        terminal.get_cursor_position().unwrap().y as usize,
-    )
+    (rows(terminal), app.cursor_cell.unwrap().y as usize)
 }
 
 fn line_no(row: &str) -> usize {
@@ -1295,7 +1325,7 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_wrapped() {
     app.col = app.buf.shown(0).len();
     press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(
-        terminal.get_cursor_position().unwrap(),
+        app.cursor_cell.unwrap(),
         (2, 1).into(),
         "the end of the drawn part is the `…`"
     );
@@ -1332,10 +1362,11 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_not_wrapped() {
         "the end of the drawn part in view: the `…` in the column after it"
     );
     let buf = terminal.backend().buffer();
+    assert_eq!(app.cursor_cell, Some(Position::new(11, 1)));
     assert_eq!(
-        (buf[(11, 1)].fg, buf[(11, 1)].bg),
-        (theme.gutter_fg, theme.line_hl),
-        "the `…` dim, on the cursor line"
+        (Some(buf[(11, 1)].fg), Some(buf[(11, 1)].bg)),
+        (theme.cursor.fg, theme.cursor.bg),
+        "the cursor past the end stands on the `…`"
     );
     app.left = 19_990;
     app.col = 19_995;
@@ -1630,7 +1661,7 @@ fn the_cursor_steps_over_a_tag_and_delete_removes_it() {
     key(&mut app, KeyCode::Right);
     key(&mut app, KeyCode::Right);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 1 + 6);
+    assert_eq!(app.cursor_cell.unwrap().x, 2 + 1 + 6);
     key(&mut app, KeyCode::Left);
     key(&mut app, KeyCode::Enter);
     key(&mut app, KeyCode::Delete);
@@ -1837,7 +1868,11 @@ fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
     let bg = |x: u16| terminal.backend().buffer()[(x, 0)].bg;
     let hex = |s: &str| s.parse::<Color>().unwrap();
     assert_eq!((bg(2), bg(3)), (hex("#3e68d7"), hex("#3e68d7")));
-    assert_eq!((bg(5), bg(6)), (hex("#ff966c"), hex("#ff966c")));
+    assert_eq!(
+        (bg(5), bg(6)),
+        (hex("#c8d3f5"), hex("#ff966c")),
+        "the cursor, then the match"
+    );
 }
 
 #[test]

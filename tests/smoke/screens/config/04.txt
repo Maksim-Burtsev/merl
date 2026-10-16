@@ -54,4 +54,4 @@ wait Usages of replicaCount: 3 in code (3/3)
 
 
 deploy/helm/orders/values.yaml  1:1  [code]                                                                                                                                        14:32
-cursor (x,y,shown) 22,12,1
+cursor (x,y,shown) 22,12,0

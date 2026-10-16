@@ -54,4 +54,4 @@ wait dispatcher → ParcelSync.dispatcher (via ParcelSync)
 
 
 web/android/src/main/java/courier/app/ParcelSync.java  7:30  [code]  dispatcher → ParcelSync.dispatcher (via ParcelSync)                                                           14:32
-cursor (x,y,shown) 32,6,1
+cursor (x,y,shown) 32,6,0

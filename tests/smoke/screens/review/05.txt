@@ -54,4 +54,4 @@ wait hunk 2/4  file 3/8
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/service.py  5:1  [code]  hunk 2/4  file 3/8                                                                                                                                    14:32
-cursor (x,y,shown) 33,4,1
+cursor (x,y,shown) 33,4,0

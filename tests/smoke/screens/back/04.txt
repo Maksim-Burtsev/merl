@@ -19,4 +19,4 @@ wait worker/main.go  19:
 │    main.go                 │18
 └────────────────────────────┘19     q := queue.New()
 worker/main.go  19:18  [code]                                                                                                                             14:32
-cursor (x,y,shown) 50,18,1
+cursor (x,y,shown) 50,18,0

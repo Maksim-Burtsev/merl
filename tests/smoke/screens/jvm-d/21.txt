@@ -54,4 +54,4 @@ wait web/android/build.gradle.kts  1:1
 
 
 web/android/build.gradle.kts  1:1  [code]                                                                                                                                          14:32
-cursor (x,y,shown) 2,0,1
+cursor (x,y,shown) 2,0,0

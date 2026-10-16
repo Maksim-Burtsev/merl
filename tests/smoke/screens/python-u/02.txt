@@ -54,4 +54,4 @@ wait Usages of save: 2 declarations, 2 in code, 1 in tests (5/5)
 53         self.orders[order.id] = order
 54
 app/repos.py  20:9  [code]                                                                                                                                                         14:32
-cursor (x,y,shown) 22,12,1
+cursor (x,y,shown) 22,12,0

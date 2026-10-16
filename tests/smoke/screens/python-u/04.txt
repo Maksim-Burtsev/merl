@@ -54,4 +54,4 @@ wait app/uow.py:4
 53 def test_first_of_many():
 54     assert next(iter([3, 4])) == 3
 tests/test_service.py  21:9  [code]                                                                                                                                                14:32
-cursor (x,y,shown) 28,12,1
+cursor (x,y,shown) 28,12,0

@@ -289,7 +289,7 @@ pub(super) fn draw_picker(
 
     let [prompt, list] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(inner);
     let prefix = if search { "s> " } else { "> " };
-    draw_prompt(frame, prefix, &picker.query, base, prompt);
+    app.cursor_cell = Some(draw_prompt(frame, prefix, &picker.query, base, prompt));
 
     let width = list.width as usize;
     let files = app.mode == Mode::Picker(PickerKind::Files);

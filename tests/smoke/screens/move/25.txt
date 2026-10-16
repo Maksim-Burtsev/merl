@@ -54,4 +54,4 @@ wait docker-compose.yml  9:1  [code]
 
 
 docker-compose.yml  9:1  [code]                                                                                                                                                    14:32
-cursor (x,y,shown) 3,8,1
+cursor (x,y,shown) 3,8,0

@@ -41,3 +41,10 @@ wait seneca-light
 key Escape
 merl --theme lucerna app/models.py
 wait class OrderStatus(Enum):
+# merl draws the cursor itself, in the theme's Cursor colours, and hides the terminal's: a light
+# theme's dark block reads in a dark terminal, over mosh too; typing, as in a picker's input, takes
+# a second colour (#558).
+merl --theme github-light app/models.py
+wait class OrderStatus(Enum):
+key T
+wait github-light

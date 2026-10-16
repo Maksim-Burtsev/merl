@@ -54,4 +54,4 @@ wait Files (
 │                            │
 └ 8 files · +59 −39 ─────────┘
 scripts/refund_by_hand.py  1:1  [code]  read-only  hunk 0/0  file 6/8                                                                                                              14:32
-cursor (x,y,shown) 41,12,1
+cursor (x,y,shown) 41,12,0

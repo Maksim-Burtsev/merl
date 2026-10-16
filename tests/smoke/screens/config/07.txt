@@ -54,4 +54,4 @@ wait docker-compose.yml  15:3  [code]  db: by name, 1 match
 
 
 docker-compose.yml  15:3  [code]  db: by name, 1 match                                                                                                                             14:32
-cursor (x,y,shown) 5,14,1
+cursor (x,y,shown) 5,14,0

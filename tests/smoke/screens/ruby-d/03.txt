@@ -54,4 +54,4 @@ wait track → SessionsController.track (via SessionsController)
 
 
 app/ruby/sessions.rb  6:7  [code]  track → SessionsController.track (via SessionsController)                                                                                       14:32
-cursor (x,y,shown) 9,5,1
+cursor (x,y,shown) 9,5,0

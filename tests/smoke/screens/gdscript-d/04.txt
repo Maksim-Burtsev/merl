@@ -54,4 +54,4 @@ wait add_coins: via GameState
 │                            │
 └────────────────────────────┘
 godotshop/globals/game_state.gd  5:6  [code]  add_coins: via GameState                                                                                                             14:32
-cursor (x,y,shown) 37,4,1
+cursor (x,y,shown) 37,4,0

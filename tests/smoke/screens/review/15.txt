@@ -54,4 +54,4 @@ wait REFUNDED → OrderStatus.REFUNDED (via OrderStatus)
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/models.py  12:5  [code]  REFUNDED → OrderStatus.REFUNDED (via OrderStatus)                                                                                                     14:32
-cursor (x,y,shown) 37,11,1
+cursor (x,y,shown) 37,11,0

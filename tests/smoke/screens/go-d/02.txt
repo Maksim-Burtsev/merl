@@ -54,4 +54,4 @@ wait New: via import worker/internal/queue/
 53         {name: "sync", worker: true},
 54         {name: "audit"},
 worker/internal/queue/queue.go  24:6  [code]  New: via import worker/internal/queue/                                                                                               14:32
-cursor (x,y,shown) 8,23,1
+cursor (x,y,shown) 8,23,0

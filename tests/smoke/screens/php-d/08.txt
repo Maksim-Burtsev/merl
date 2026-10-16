@@ -54,4 +54,4 @@ wait function close
 │                            │
 └────────────────────────────┘
 scripts/billing/Month.php  8:42  [code]                                                                                                                                            14:32
-cursor (x,y,shown) 73,7,1
+cursor (x,y,shown) 73,7,0

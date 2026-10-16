@@ -47,4 +47,4 @@ wait │     the payment team reads it.
 │                            │
 └────────────────────────────┘
 docs/notes.md  7:1  [code]                                                                                                                                14:32
-cursor (x,y,shown) 33,7,1
+cursor (x,y,shown) 33,7,0

@@ -54,4 +54,4 @@ wait send_receipt
 │                            │
 └────────────────────────────┘
 scripts/invoices.php  52:24  [code]                                                                                                                                                14:32
-cursor (x,y,shown) 56,28,1
+cursor (x,y,shown) 56,28,0

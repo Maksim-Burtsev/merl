@@ -54,4 +54,4 @@ wait Props: local
 
 
 web/src/components/Dialog.ts  23:6  [code]  Props: local                                                                                                                           14:32
-cursor (x,y,shown) 8,22,1
+cursor (x,y,shown) 8,22,0

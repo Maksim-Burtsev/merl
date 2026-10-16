@@ -54,4 +54,4 @@ wait Shipped → ParcelState.Shipped (via import web/src/orders/types.ts)
 
 
 web/src/orders/types.ts  11:3  [code]  Shipped → ParcelState.Shipped (via import web/src/orders/types.ts)                                                                          14:32
-cursor (x,y,shown) 5,10,1
+cursor (x,y,shown) 5,10,0

@@ -54,4 +54,4 @@ wait ShopToken.Minted (by name, 1 match)
 │                            │
 └────────────────────────────┘
 solshop/ShopToken.sol  2:11  [code]  Minted → ShopToken.Minted (by name, 1 match)                                                                                                  14:32
-cursor (x,y,shown) 43,1,1
+cursor (x,y,shown) 43,1,0

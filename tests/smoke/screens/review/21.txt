@@ -54,4 +54,4 @@ wait copied 1 line
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/repos.py  -59:14  [code]  hunk 1/1  file 2/8  copied 1 line                                                                                                                    14:32
-cursor (x,y,shown) 46,27,1
+cursor (x,y,shown) 46,27,0

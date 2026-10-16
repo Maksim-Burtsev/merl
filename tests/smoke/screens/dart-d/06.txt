@@ -54,4 +54,4 @@ wait via import coupon.dart
 │                            │
 └────────────────────────────┘
 shop/lib/coupon.dart  1:8  [code]  discount: via import coupon.dart                                                                                                                14:32
-cursor (x,y,shown) 39,0,1
+cursor (x,y,shown) 39,0,0

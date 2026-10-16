@@ -12,4 +12,4 @@ wait 16▎X- A cancelled order keeps its total.
 15
 16▎X- A cancelled order keeps its total. The customer sees it struck through.
 docs/notes.md  16:2  [code]                                                                                                                               14:32
-cursor (x,y,shown) 4,11,1
+cursor (x,y,shown) 4,11,0

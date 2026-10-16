@@ -54,4 +54,4 @@ wait sum → report::sum (local)
 
 
 scripts/payouts/src/summary.rs  8:9  [code]  sum → report::sum (local)                                                                                                             14:32
-cursor (x,y,shown) 11,7,1
+cursor (x,y,shown) 11,7,0

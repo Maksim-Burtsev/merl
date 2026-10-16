@@ -54,4 +54,4 @@ wait value → Instant.value
 
 
 ios/Instant.swift  2:9  [code]  value → Instant.value (via lhs: Instant)                                                                                                           14:32
-cursor (x,y,shown) 11,1,1
+cursor (x,y,shown) 11,1,0

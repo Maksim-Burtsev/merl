@@ -54,4 +54,4 @@ wait - ⚠️ A refund past the 30-day window needs a manager's approval: open t
 
 
 docs/notes.md  1:37  [code]                                                                                                                                                        14:32
-cursor (x,y,shown) 39,0,1
+cursor (x,y,shown) 39,0,0

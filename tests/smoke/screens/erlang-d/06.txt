@@ -54,4 +54,4 @@ wait order: by name, 1 match
 │                            │
 └────────────────────────────┘
 erlshop/include/shop.hrl  1:9  [code]  order: by name, 1 match                                                                                                                     14:32
-cursor (x,y,shown) 40,0,1
+cursor (x,y,shown) 40,0,0
