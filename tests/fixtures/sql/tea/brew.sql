@@ -21,8 +21,8 @@ SELECT k.cups, p.leaves FROM tea.kettles k JOIN teapots p ON p.kettle_id = k.id;
 
 SELECT * FROM stale.kettles, tea.kettles, kettles;
 --            ^ d: tea/schema.sql:3
---                  ^ d: picker tea/schema.sql:5, tea/schema.sql:10; want tea/schema.sql:10 (#946)
---                                ^ d: picker tea/schema.sql:5, tea/schema.sql:10; want tea/schema.sql:5 (#946)
+--                  ^ d: tea/schema.sql:10
+--                                ^ d: tea/schema.sql:5
 --                                        ^ d: picker tea/schema.sql:5, tea/schema.sql:10
 
 SELECT * FROM (

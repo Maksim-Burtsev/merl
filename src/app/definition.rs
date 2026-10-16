@@ -630,6 +630,15 @@ impl App {
             });
         }
         if kind == Kind::Sql
+            && let Some((range, _)) = self.word_here(Some(kind)).filter(|(_, w)| *w == word)
+            && let Some(lead) = self.line_str().get(..range.start)
+            && hits
+                .iter()
+                .any(|h| search::sql_same_schema(lead, &h.text) == Some(true))
+        {
+            hits.retain(|h| search::sql_same_schema(lead, &h.text) == Some(true));
+        }
+        if kind == Kind::Sql
             && !hits
                 .iter()
                 .any(|h| h.path == here && h.line1 == self.line + 1)

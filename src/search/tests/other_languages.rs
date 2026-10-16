@@ -1257,3 +1257,13 @@ fn sql_local_reads_from_aliases_and_no_keyword_as_one() {
     let t = "SELECT y.a FROM t y -- FROM u y\n/* FROM v y */;";
     assert_eq!(at(t, "y", 0), [1], "comments declare no alias");
 }
+
+#[test]
+fn sql_same_schema_reads_both_qualifiers_quoted_or_not() {
+    let decl = "CREATE TABLE \"Tea\".kettles (";
+    assert_eq!(sql_same_schema("SELECT * FROM tea.", decl), Some(true));
+    assert_eq!(sql_same_schema("SELECT * FROM db.\"tea\" . ", decl), Some(true));
+    assert_eq!(sql_same_schema("SELECT * FROM stale.", decl), Some(false));
+    assert_eq!(sql_same_schema("SELECT * FROM tea.", "CREATE TABLE kettles ("), Some(false));
+    assert_eq!(sql_same_schema("SELECT * FROM ", decl), None, "an unqualified use");
+}

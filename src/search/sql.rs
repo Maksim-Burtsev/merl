@@ -1,5 +1,7 @@
 use regex::Regex;
 
+use super::{SQL_NAME_PART, sql_create};
+
 pub fn sql_cte(word: &str) -> String {
     let w = regex::escape(word);
     format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}(?:\s*\([^()]*\))?\s+AS(?:\s+(?:NOT\s+)?MATERIALIZED)?\s*\(")
@@ -238,4 +240,13 @@ fn sql_from_items(stmt: &str) -> Vec<SqlFromItem> {
         }
     }
     items
+}
+
+pub fn sql_same_schema(lead: &str, decl: &str) -> Option<bool> {
+    let unquote = |s: &str| s.trim_matches(['"', '`']).to_ascii_lowercase();
+    let used = Regex::new(&format!(r"({SQL_NAME_PART})\s*\.\s*$")).expect("a valid pattern");
+    let declared = Regex::new(&format!(r"{}({SQL_NAME_PART})\s*\.", sql_create!()))
+        .expect("a valid pattern");
+    let used = unquote(&used.captures(lead)?[1]);
+    Some(declared.captures(decl).is_some_and(|c| unquote(&c[1]) == used))
 }
