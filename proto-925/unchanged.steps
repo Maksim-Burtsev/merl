@@ -1,0 +1,13 @@
+wait routing.py
+key Escape
+sleep 1
+key C-d
+sleep 1.2
+key /
+type solve_dep
+key Enter
+sleep 1
+key d
+sleep 2.5
+key [
+sleep 1.5

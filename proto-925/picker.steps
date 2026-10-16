@@ -1,0 +1,11 @@
+wait routing.py
+key Escape
+sleep 1
+key o
+sleep 0.4
+type encod
+sleep 1
+wait 586:1
+sleep 2.5
+key [
+sleep 1.5

@@ -1,0 +1,17 @@
+wait routing.py
+key Escape
+sleep 1.5
+key C-d
+sleep 1.5
+key o
+sleep 0.4
+type dependencies/utils
+sleep 0.8
+key Enter
+sleep 0.6
+key :
+type 586
+key Enter
+sleep 2.5
+key [
+sleep 1.5

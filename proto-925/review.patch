@@ -1,0 +1,44 @@
+From 5c9b9f9c88573c20135b98357c00ca623f17f392 Mon Sep 17 00:00:00 2001
+From: demo <demo@example.com>
+Date: Fri, 16 Oct 2026 23:43:05 +0400
+Subject: [PATCH] Response errors: inline the context, count in str
+
+---
+ fastapi/exceptions.py | 3 +++
+ fastapi/routing.py    | 3 +--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/fastapi/exceptions.py b/fastapi/exceptions.py
+index d7065c5..a2c3d1e 100644
+--- a/fastapi/exceptions.py
++++ b/fastapi/exceptions.py
+@@ -220,6 +220,9 @@ class RequestValidationError(ValidationException):
+         super().__init__(errors, endpoint_ctx=endpoint_ctx)
+         self.body = body
+ 
++    def __str__(self) -> str:
++        return f"{len(self.errors())} response validation errors"
++
+ 
+ class WebSocketRequestValidationError(ValidationException):
+     def __init__(
+diff --git a/fastapi/routing.py b/fastapi/routing.py
+index 4816602..cd9d6ee 100644
+--- a/fastapi/routing.py
++++ b/fastapi/routing.py
+@@ -327,11 +327,10 @@ async def serialize_response(
+                 field.validate, response_content, {}, loc=("response",)
+             )
+         if errors:
+-            ctx = endpoint_ctx or EndpointContext()
+             raise ResponseValidationError(
+                 errors=errors,
+                 body=response_content,
+-                endpoint_ctx=ctx,
++                endpoint_ctx=endpoint_ctx or EndpointContext(),
+             )
+         serializer = field.serialize_json if dump_json else field.serialize
+         return serializer(
+-- 
+2.55.0
+

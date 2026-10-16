@@ -1,0 +1,8 @@
+wait $
+sleep 0.8
+type merl --send fastapi/dependencies/utils.py:586
+key Enter
+sleep 1.3
+type merl --server main --send fastapi/dependencies/utils.py:586
+key Enter
+sleep 2.5

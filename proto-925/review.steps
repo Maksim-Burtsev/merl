@@ -1,0 +1,11 @@
+wait fix/response-errors
+key Escape
+sleep 1
+key c
+sleep 1.5
+wait 586:1
+sleep 2.5
+key [
+sleep 1.5
+key c
+sleep 1.5

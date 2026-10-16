@@ -1,0 +1,9 @@
+wait routing.py
+key Escape
+sleep 1.5
+key C-d
+sleep 1.5
+wait 586:1
+sleep 2.5
+key [
+sleep 1.5
