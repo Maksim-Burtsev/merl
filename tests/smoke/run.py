@@ -16,9 +16,11 @@ Without --new the checkout is built (`cargo build --release --locked`, its own t
 --old the last GitHub release's macOS binary is downloaded once into ~/.cache/merl-smoke/TAG/,
 checked against the release's sha256 and against `--version` before it is kept. A run rebuilds
 the fixture (setup.sh) in WORK, /tmp/merl-smoke by default: a short path that is the same on
-every run, so the two builds' screens can be compared. A lock on WORK refuses a second run while
-one plays. The report goes to WORK/out, or WORK/out-only for --only, so a rerun of one scenario
-leaves the full report in place; a directory --out names is deleted only if a run made it.
+every run, so the two builds' screens can be compared. A lock on WORK makes a second --golden
+or --gif run wait while one plays; it refuses a second run that writes a report (the first one's
+would be deleted) or has a --work given. The report goes to
+WORK/out, or WORK/out-only for --only, so a rerun of one scenario leaves the full report in
+place; a directory --out names is deleted only if a run made it.
 
 Each scenario is played on the new build, then the old one, from a fresh copy of the fixture in a
 tmux pane of 185x55, a laptop's full screen, with an empty HOME. A scenario is a steps file, one
@@ -77,6 +79,7 @@ import cast
 from PIL import Image, ImageDraw, ImageFont
 
 CACHE = os.path.expanduser("~/.cache/merl-smoke")
+WORK = "/tmp/merl-smoke"
 DEMOS = ("gitea", "polar")
 PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (185, 55)
 HOLD = 1.2
@@ -722,15 +725,18 @@ def last_release(tag=None):
     return binary, tag
 
 
-def lock(work):
+def lock(work, wait=False):
     os.makedirs(work, exist_ok=True)
     f = open(os.path.join(work, "lock"), "a+")
     try:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
         f.seek(0)
-        sys.exit(f"{work} is in use by another smoke run: {f.read().strip() or 'unknown'}.\n"
-                 "Wait for it to end, or pass --work DIR.")
+        busy = f"{work} is in use by another smoke run: {f.read().strip() or 'unknown'}"
+        if not wait:
+            sys.exit(f"{busy}.\nWait for it to end, or pass another --work DIR.")
+        print(f"{busy}; waiting for it to end", flush=True)
+        fcntl.flock(f, fcntl.LOCK_EX)
     f.truncate(0)
     f.write(f"pid {os.getpid()}, {' '.join(sys.argv)}, from {os.getcwd()}, since {time.ctime()}\n")
     f.flush()
@@ -919,6 +925,22 @@ def selftest():
         assert subprocess.run([*tmux, "ls"], capture_output=True).returncode, f"{sig.name} left a tmux server"
         assert not os.path.exists(socket.stdout.strip()), f"{sig.name} left the tmux socket file"
     assert open(os.path.join(work, "lock")).read() == "", "SIGTERM left the lock held"
+    held, said = lock(work), lambda name: open(os.path.join(tmp, f"lock-{name}.txt")).read()
+    waits, given, reports = (subprocess.Popen(
+        [sys.executable, "-B", "-c", f"import sys; sys.path.insert(0, {HERE!r}); import run; run.WORK = {work!r}; "
+         f"sys.argv = ['run.py', *{argv!r}]; run.played = lambda *_: print('played'); run.main()"],
+        cwd=tmp, stdout=open(os.path.join(tmp, f"lock-{name}.txt"), "w"), stderr=subprocess.STDOUT)
+        for name, argv in (("default", ["--golden"]), ("given", ["--golden", "--work", "work"]), ("report", [])))
+    for name, run in (("given", given), ("report", reports)):
+        assert run.wait(timeout=10) == 1 and "pass another --work" in said(name), said(name)
+    end = time.monotonic() + 10
+    while "waiting" not in said("default"):
+        assert time.monotonic() < end and waits.poll() is None, f"no wait: {said('default')!r}"
+        time.sleep(POLL)
+    time.sleep(0.3)
+    assert waits.poll() is None and "played" not in said("default"), "the default --work played under the lock"
+    unlock(held)
+    assert waits.wait(timeout=10) == 0 and "played" in said("default"), said("default")
     assert os.path.exists(os.path.join(out, "signal", "new-last.png")), "no last screen of the crash"
     left = subprocess.run(["tmux", "-L", f"smoke{os.getpid()}", "ls"], capture_output=True)
     assert left.returncode, "a tmux server outlived its play"
@@ -930,7 +952,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--new", help="the build to check (default: this checkout, built)")
     p.add_argument("--old", help="the build to compare with, a binary or a tag (default: the last release)")
-    p.add_argument("--work", default="/tmp/merl-smoke", help="the fixture and the copies merl runs in")
+    p.add_argument("--work", help=f"the fixture and the copies merl runs in (default: {WORK})")
     p.add_argument("--out", help="the report and its PNGs (default: WORK/out, WORK/out-only for --only)")
     p.add_argument("--only", help="comma-separated scenario names, or parts of names")
     p.add_argument("--gif", help="record the one scenario --only names on the new build as this GIF")
@@ -945,7 +967,7 @@ def main():
     a.golden |= a.update
     if a.selftest:
         return selftest()
-    a.work = os.path.abspath(a.work)
+    wait, a.work = a.work is None and (a.golden or a.gif), os.path.abspath(a.work or WORK)
     out = os.path.abspath(a.out or os.path.join(a.work, ("shots" if a.all_shots else "out") + "-only" * bool(a.only)))
     names = {f[:-6]: os.path.join(HERE, f) for f in sorted(os.listdir(HERE)) if f.endswith(".steps")}
     if a.again:
@@ -958,7 +980,7 @@ def main():
               and not (a.golden and n in RELEASE_ONLY)}
     if not picked:
         sys.exit(f"no scenario is named or holds {a.only}")
-    held = lock(a.work)
+    held = lock(a.work, wait)
     for sig in (signal.SIGTERM, signal.SIGHUP):
         if signal.getsignal(sig) != signal.SIG_IGN:
             signal.signal(sig, lambda n, _: sys.exit(128 + n))
