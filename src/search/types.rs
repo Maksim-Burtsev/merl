@@ -285,6 +285,7 @@ pub fn type_name(kind: Kind, line: &str) -> Option<String> {
         .then(|| NAME.captures(line))
         .flatten()
         .map(|c| c[1].to_owned())
+        .filter(|n| !matches!(n.as_str(), "extends" | "implements"))
 }
 pub fn type_decl_at(kind: Kind, text: &str, line1: usize) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();

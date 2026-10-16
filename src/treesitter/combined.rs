@@ -27,6 +27,7 @@ pub struct Group {
 #[derive(Clone)]
 pub enum Step {
     Edit(InputEdit),
+    Text(Vec<u8>),
     Parse(Vec<Range>, Vec<u8>),
 }
 
@@ -413,27 +414,62 @@ impl Group {
     pub fn parsed(&self) -> Option<Vec<u8>> {
         self.steps.iter().rev().find_map(|s| match s {
             Step::Parse(ranges, bytes) => Some(text_of(ranges, bytes)),
-            Step::Edit(_) => None,
+            Step::Edit(_) | Step::Text(_) => None,
         })
     }
 
     pub fn as_tree_sitter(&self) -> Option<Tree> {
-        let mut parser = tree_sitter::Parser::new();
-        parser.set_language(&self.lang.language).ok()?;
-        let mut tree: Option<Tree> = None;
-        for step in &self.steps {
-            match step {
-                Step::Edit(e) => {
-                    if let Some(t) = &mut tree {
-                        t.edit(e);
-                    }
-                }
-                Step::Parse(ranges, bytes) => {
-                    parser.set_included_ranges(ranges).ok()?;
-                    tree = parser.parse(bytes, tree.as_ref());
+        as_tree_sitter(self.lang, &self.steps)
+    }
+}
+
+#[cfg(test)]
+pub fn as_tree_sitter(lang: &Lang, steps: &[Step]) -> Option<Tree> {
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&lang.language).ok()?;
+    let mut tree: Option<Tree> = None;
+    let mut last: &[u8] = &[];
+    for step in steps {
+        match step {
+            Step::Edit(e) => {
+                if let Some(t) = &mut tree {
+                    t.edit(e);
                 }
             }
+            Step::Text(now) => {
+                if let Some(t) = &mut tree {
+                    t.edit(&edit_between(last, now));
+                }
+                last = now;
+            }
+            Step::Parse(ranges, bytes) => {
+                parser.set_included_ranges(ranges).ok()?;
+                tree = parser.parse(bytes, tree.as_ref());
+                last = bytes;
+            }
         }
-        tree
+    }
+    tree
+}
+
+#[cfg(test)]
+fn edit_between(old: &[u8], new: &[u8]) -> InputEdit {
+    let prefix = old.iter().zip(new).take_while(|(a, b)| a == b).count();
+    let room = old.len().min(new.len()) - prefix;
+    let suffix = (0..room)
+        .take_while(|&i| old[old.len() - 1 - i] == new[new.len() - 1 - i])
+        .count();
+    let at = |text: &[u8], byte: usize| {
+        let mut lines = text[..byte].split(|&c| c == b'\n');
+        let last = lines.next_back().unwrap_or_default();
+        Point::new(lines.count(), last.len())
+    };
+    InputEdit {
+        start_byte: prefix,
+        old_end_byte: old.len() - suffix,
+        new_end_byte: new.len() - suffix,
+        start_position: at(old, prefix),
+        old_end_position: at(old, old.len() - suffix),
+        new_end_position: at(new, new.len() - suffix),
     }
 }
