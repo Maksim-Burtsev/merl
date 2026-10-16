@@ -1,0 +1,54 @@
+#include "tea/kettle.hh"
+
+int stale::steep(int dose) { return dose + 1; }
+
+int set_table() {
+  infuse::Leaf leaf{3};
+  infuse::Kettle near(1);
+  stale::Kettle far;
+  //     ^ d: picker include/tea/kettle.hh:11, include/tea/kettle.hh:41; want include/tea/kettle.hh:41 (#943)
+  infuse::Teapot pot;
+  return steep(leaf) + steep(4) + stale::steep(5) + near.decant(1) + far.decant(1) + pot.decant(1);
+  //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:11, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
+  //                   ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:11, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:44 (#944)
+  //                                     ^ d: src/tea/table.cc:3
+  //                                                     ^ d: picker include/tea/kettle.hh:25, include/tea/kettle.hh:43, src/tea/kettle.cc:23, src/tea/kettle.cc:27; want src/tea/kettle.cc:23 (#943)
+  //                                                                     ^ d: picker include/tea/kettle.hh:25, include/tea/kettle.hh:43, src/tea/kettle.cc:23, src/tea/kettle.cc:27; want include/tea/kettle.hh:43 (#943)
+  //                                                                                     ^ d: include/tea/kettle.hh:25
+}
+
+int shade() {
+  infuse::Kettle cup(2);
+  auto f = [](infuse::Teapot cup) { return cup.decant(1); };
+  //                                           ^ d: include/tea/kettle.hh:25
+  return f(infuse::Teapot{}) + cup.decant(1) + cup.topup();
+  //                               ^ d: picker include/tea/kettle.hh:25, include/tea/kettle.hh:43, src/tea/kettle.cc:23, src/tea/kettle.cc:27; want src/tea/kettle.cc:23 (#943)
+  //                                               ^ d: src/tea/kettle.cc:29
+}
+
+namespace bt = infuse;
+
+int once_more() {
+  bt::Kettle k(3);
+  //  ^ d: picker include/tea/kettle.hh:11, include/tea/kettle.hh:41; want include/tea/kettle.hh:11 (#943)
+  bt::Urn urn;
+  return k.topup() + urn.serve() + urn.rinse() + Tin<int>{}.seal();
+  //                     ^ d: include/tea/kettle.hh:31
+  //                                   ^ d: include/tea/kettle.hh:34
+  //                                                        ^ d: include/tea/kettle.hh:52
+}
+
+using infuse::steep;
+
+int steep_again() {
+  infuse::Leaf leaf{1};
+  return steep(leaf);
+  //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:11, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
+}
+
+int cosy() {
+  infuse::Urn urn;
+  //      ^ d: include/tea/kettle.hh:28
+  return urn.topup();
+  //         ^ d: src/tea/kettle.cc:29
+}

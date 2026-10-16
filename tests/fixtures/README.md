@@ -211,6 +211,19 @@ each part of its selector, a property, a block property, the four `NS_ENUM` macr
 class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
 the refusals included, from `Profile.mm`.
 
+The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
+a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
+local or parameter named like an import or a field, and declaration-shaped lines in a string and
+a comment. `go/rival/` adds `:=` redeclaring `err` and a `var`, method values and expressions, an
+`if` header and a closure re-declaring a local, a promoted method and one an embedding type
+overrides, an interface method, a function-typed field and a generic method, and its `twin`
+package imported plainly and under an alias. `csharp/src/Shop/Tea/` adds a partial class over
+two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
+interface implementation, a lambda parameter hiding a local and a `using` alias of
+`Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
+initializer list, overloads, ADL beside a global namesake, a qualified definition of
+`stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block.
+
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
 a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is
