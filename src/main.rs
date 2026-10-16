@@ -148,7 +148,6 @@ fn open_review(
     cli: &Cli,
     root: &mut PathBuf,
     file: &mut Option<PathBuf>,
-    diagrams: &mermaid::Diagrams,
 ) -> Result<Option<git::Review>> {
     let Some(branch) = &cli.review else {
         return Ok(None);
@@ -160,11 +159,7 @@ fn open_review(
         *file = file.take().and_then(rel).filter(|f| f.is_file());
         (*root, branch) = (wt, None);
     }
-    let r = git::Review::open(root, branch, cli.base.as_deref())?;
-    if file.is_none() {
-        *file = r.first_file(root, diagrams.on());
-    }
-    Ok(Some(r))
+    Ok(Some(git::Review::open(root, branch, cli.base.as_deref())?))
 }
 
 fn configure(app: &mut App, config: &theme::Config, name: String) {
@@ -230,7 +225,7 @@ fn run() -> Result<()> {
         resolve(cli.target.as_deref())?
     };
     let diagrams = mermaid::Diagrams::detect();
-    let review = open_review(&cli, &mut root, &mut file, &diagrams)?;
+    let review = open_review(&cli, &mut root, &mut file)?;
     let git_dirs = git::dirs(&root);
     let tree_order = (git_toplevel(&root))
         .zip(git_dirs.clone())

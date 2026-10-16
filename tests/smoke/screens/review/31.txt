@@ -1,48 +1,48 @@
-wait app/repos.py  -59:14
-┌agent/refund ← origin/main──┐  ▎
-│  ▾ app                     │  ▎
-│✓   A refunds.py      +18 −0│  ▎class InMemoryOrderRepo:
-│✓   M repos.py        +0 −28│  ▎    """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
-│✓   M service.py      +13 −1│  ▎
-│  ▾ deploy                  │  ▎    def __init__(self):
-│    ▾ helm                  │  ▎        self.orders: dict[int, Order] = {}
-│      ▾ orders              │  ▎
-│✓       M values.yaml  +1 −0│  ▎    def get(self, order_id: int) -> Order | None:
-│  ▾ docs                    │  ▎        return self.orders.get(order_id)
-│    M architecture.png   bin│  ▎
-│  ▾ scripts                 │  ▎    def find_by_customer(self, customer_id: int) -> list[Order]:
-│    D refund_by_hand.… +0 −9│  ▎        return sorted(
-│  ▾ tests                   │  ▎            (o for o in self.orders.values() if o.customer_id == customer_id),
-│    A test_refunds.py +23 −0│  ▎            key=lambda o: o.id,
-│  ▾ worker                  │  ▎        )
-│    M main.go          +4 −1│  ▎
-│                            │  ▎    def find_by_status(self, status: OrderStatus) -> list[Order]:
-│                            │  ▎        return [o for o in self.orders.values() if o.status is status]
-│                            │  ▎
-│                            │  ▎    def save(self, order: Order) -> None:
-│                            │  ▎        self.orders[order.id] = order
-│                            │  ▎
-│                            │  ▎    def delete(self, order_id: int) -> None:
-│                            │  ▎        self.orders.pop(order_id, None)
-│                            │  ▎
-│                            │  ▎    def clear(self) -> None:
-│                            │  ▎        self.orders.clear()
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
+wait Files (
+┌agent/refund ← origin/main──┐1▎"""Refund an order by hand until the service can do it: python scripts/refund_by_hand.py ID"""
+│  ▾ app                     │2▎import sys
+│✓   A refunds.py      +18 −0│3▎
+│✓   M repos.py        +0 −28│4▎from app.config import load
+│✓   M service.py      +13 −1│5▎from app.models import OrderStatus
+│  ▾ deploy                  │6▎
+│    ▾ helm                  │7▎ORDER_ID = int(sys.argv[1])
+│      ▾ orders              │8▎print(f"UPDATE orders SET status = '{OrderStatus.REFUNDED.value}' WHERE id = {ORDER_ID};")
+│✓       M values.yaml  +1 −0│9▎print(f"-- then refund it in the payment provider's dashboard ({load().database_url})")
+│  ▾ docs                    │
+│    M architecture.png   bin│
+│  ▾ scripts                 │        ┌Files (62/62)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│    D refund_by_hand.… +0 −9│        │>                                                                                                                                        │
+│  ▾ tests                   │        │A app/refunds.py                                                                                                                         │
+│    A test_refunds.py +23 −0│        │M app/repos.py                                                                                                                           │
+│  ▾ worker                  │        │M app/service.py                                                                                                                         │
+│    M main.go          +4 −1│        │M deploy/helm/orders/values.yaml                                                                                                         │
+│                            │        │M docs/architecture.png                                                                                                                  │
+│                            │        │A tests/test_refunds.py                                                                                                                  │
+│                            │        │M worker/main.go                                                                                                                         │
+│                            │        │  .github/workflows/ci.yml                                                                                                               │
+│                            │        │  app/__init__.py                                                                                                                        │
+│                            │        │  app/api.py                                                                                                                             │
+│                            │        │  app/config.py                                                                                                                          │
+│                            │        │  app/models.py                                                                                                                          │
+│                            │        │  app/uow.py                                                                                                                             │
+│                            │        │  data/orders.min.json                                                                                                                   │
+│                            │        │  data/refunds-2026-08.csv                                                                                                               │
+│                            │        │  deploy/helm/orders/templates/_helpers.tpl                                                                                              │
+│                            │        │  deploy/helm/orders/templates/deployment.yaml                                                                                           │
+│                            │        │  deploy/helm/orders/Chart.yaml                                                                                                          │
+│                            │        │  docs/notes.md                                                                                                                          │
+│                            │        │  scripts/payouts/src/ledger.rs                                                                                                          │
+│                            │        │  scripts/payouts/src/main.rs                                                                                                            │
+│                            │        │  scripts/payouts/src/summary.rs                                                                                                         │
+│                            │        │  scripts/payouts/Cargo.toml                                                                                                             │
+│                            │        │  scripts/invoices.php                                                                                                                   │
+│                            │        │  tests/test_service.py                                                                                                                  │
+│                            │        │  web/android/gradle/libs.versions.toml                                                                                                  │
+│                            │        │  web/android/src/main/java/courier/app/scan/Parcel.java                                                                                 │
+│                            │        │  web/android/src/main/java/courier/app/ParcelSync.java                                                                                  │
+│                            │        │  web/android/src/main/java/courier/app/Scale.java                                                                                       │
+│                            │        │  web/android/src/main/kotlin/courier/app/ship/Parcel.kt                                                                                 │
+│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -53,5 +53,5 @@ wait app/repos.py  -59:14
 │                            │
 │                            │
 └ 8 files · +59 −39 ─────────┘
-app/repos.py  -59:14  [code]  hunk 1/1  file 2/8  1/1                                                                                                                              14:32
-cursor (x,y,shown) 46,27,1
+scripts/refund_by_hand.py  1:1  [code]  read-only  hunk 0/0  file 6/8                                                                                                              14:32
+cursor (x,y,shown) 41,12,1

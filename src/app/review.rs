@@ -11,6 +11,9 @@ impl App {
         self.viewed_branch = review.branch_name().map(str::to_owned);
         self.review = Some(review);
         self.refresh_diff();
+        self.load_viewed();
+        let marks_failed =
+            (self.message.starts_with("viewed marks not read")).then(|| self.message.clone());
         if let Some(path) = self.buf.path.clone() {
             self.reveal(&path);
             if self.line == 0
@@ -20,18 +23,26 @@ impl App {
                 self.hist_note(true);
             }
         }
-        let first = (self.review.as_ref()).and_then(|r| {
+        let stop = |f: &&git::ReviewFile| f.is_stop(&self.root, self.diagrams.on());
+        let unread = (self.review.as_ref()).and_then(|r| {
             r.files
                 .iter()
-                .find(|f| f.is_stop(&self.root, self.diagrams.on()))
+                .filter(stop)
+                .find(|f| !self.ticked(&f.path))
                 .cloned()
         });
+        let all_viewed = unread.is_none();
+        let first = unread.or_else(|| (self.review.as_ref())?.files.iter().find(stop).cloned());
         let first_stop = first.as_ref().map(|f| f.path.clone());
-        if self.buf.path.is_none()
-            && let Some(f) = first
-        {
-            self.open_review_file(&f, false);
-            self.remember_hunk();
+        if self.buf.path.is_none() {
+            if let Some(f) = &first {
+                self.open_review_file(f, false);
+                self.remember_hunk();
+            } else if let Some(p) =
+                (self.review.as_ref()).and_then(|r| r.first_file(&self.root, self.diagrams.on()))
+            {
+                self.jump_to(&p, 1);
+            }
         }
         self.walked_here = first_stop.is_some() && self.rel_current() == first_stop;
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
@@ -44,10 +55,15 @@ impl App {
                 self.say_skipped(skipped);
             }
         }
+        if all_viewed && first_stop.is_some() {
+            self.message = "all files viewed".into();
+        }
         if let Some(note) = note {
             self.message = note;
         }
-        self.load_viewed();
+        if let Some(failed) = marks_failed {
+            self.message = failed;
+        }
         self.open_session();
     }
 
@@ -156,7 +172,15 @@ impl App {
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed) = (0, None);
-        for f in self.ahead(&r, dir) {
+        let ticked = |f: &&git::ReviewFile| {
+            dir > 0 && self.ticked(&f.path) && f.is_stop(&self.root, self.diagrams.on())
+        };
+        let ahead: Vec<_> = self
+            .ahead(&r, dir)
+            .into_iter()
+            .filter(|f| !ticked(f))
+            .collect();
+        for f in ahead {
             if !f.is_stop(&self.root, self.diagrams.on()) {
                 skipped += 1;
             } else if self.open_review_file(f, dir < 0) {
@@ -353,6 +377,10 @@ impl App {
         if any {
             self.save_viewed();
         }
+    }
+
+    fn ticked(&self, rel: &Path) -> bool {
+        self.viewed.get(rel) == Some(&self.disk_hash(rel))
     }
 
     fn disk_hash(&self, rel: &Path) -> u64 {

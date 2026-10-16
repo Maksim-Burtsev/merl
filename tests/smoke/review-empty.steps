@@ -5,6 +5,9 @@
 # file's stop says `empty file, added` and `c  next file` where its text would be. Then a branch
 # that deletes an empty scripts/__init__.py, its first file: the review opens on it (#720). Last, a
 # branch that moves scripts/refund_by_hand.py without changes: its stop shows the move (#746).
+# Then a second round of typed, after the author changes worker/main.go: the review opens on it,
+# c passes over the files ticked in the first round, and a reopened review with every file ticked
+# says `all files viewed` (#824).
 merl README.md
 wait # orders
 run git switch -q -c typed && : > scripts/__init__.py && : > py.typed && printf '\n# Refunds go through the service.\n' >> app/service.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git add -A && git commit -qm typed
@@ -33,3 +36,13 @@ merl --review
 wait renamed, no changes
 key c
 wait hunk 1/1  file 2/2
+caption a second round of typed: the author fixed worker/main.go since its tick, and the review opens on it (#824)
+run git switch -q typed && printf '// Jitter spreads the retries.\n' >> worker/main.go && git commit -qam jitter
+merl --review
+wait hunk 1/1  file 3/4
+caption c passes over py.typed, ticked in the first round: the review ends there (#824)
+key c
+wait last hunk of the review
+caption every file ticked, a reopened review opens on the first and says so (#824)
+merl --review
+wait all files viewed
