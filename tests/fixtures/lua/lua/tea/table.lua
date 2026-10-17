@@ -34,8 +34,8 @@ function T.pots()
   --               ^ d: lua/tea/kettle.lua:3
   --                      ^ d: lua/tea/kettle.lua:6
   return pot:pour(1) + k:pour(1) + pot:decant()
-  --         ^ d: picker lua/tea/kettle.lua:10, lua/tea/kettle.lua:14, lua/tea/kettle.lua:18, lua/tea/teapot.lua:8; want lua/tea/teapot.lua:8 (#952)
-  --                     ^ d: picker lua/tea/kettle.lua:10, lua/tea/kettle.lua:14, lua/tea/kettle.lua:18, lua/tea/teapot.lua:8; want lua/tea/kettle.lua:10 (#952)
+  --         ^ d: lua/tea/teapot.lua:8
+  --                     ^ d: lua/tea/kettle.lua:10
   --                                   ^ d: lua/tea/teapot.lua:12
 end
 

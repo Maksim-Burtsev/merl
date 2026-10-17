@@ -8,7 +8,7 @@ function Scope:weight() return 1 end
 function Scope.ship(self)
   local weight = 1
   return self:weight() + weight
-  --          ^ d: picker lua/shop/scope.lua:6
+  --          ^ d: lua/shop/scope.lua:6
 end
 
 function Scope.poll(step)

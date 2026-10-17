@@ -761,6 +761,30 @@ fn lua_tables_keys_and_members() {
         "`M.pour = pour` hands the local on"
     );
     assert!(lua_members(handed, "M", "off").is_empty(), "nor `nil`");
+}
+
+#[test]
+fn lua_receivers_of_a_constructor_and_of_self() {
+    let pot = "local P = {}\nP.__index = P\nfunction P.new()\n  return setmetatable({}, P)\nend\nfunction P.plain()\n  return {}\nend\nfunction P.decant(self)\n  return self:pour()\nend\nfunction P:sip()\n  local function inner(self)\n    return self\n  end\n  return function() return self end\nend\n";
+    assert!(lua_makes_instance(pot, 3, "P"), "#952");
+    assert!(!lua_makes_instance(pot, 6, "P"));
+    assert!(!lua_makes_instance(
+        &pot.replace("P.__index = P", ""),
+        3,
+        "P"
+    ));
+    assert_eq!(lua_self_table(pot, 10).as_deref(), Some("P"), "#952");
+    assert_eq!(lua_self_table(pot, 14), None, "a function's own `self`");
+    assert_eq!(lua_self_table(pot, 16).as_deref(), Some("P"));
+    assert_eq!(
+        lua_call("kettle.Kettle.new(1)"),
+        Some((
+            vec!["kettle".to_owned(), "Kettle".to_owned()],
+            "new".to_owned()
+        ))
+    );
+    assert_eq!(lua_call("new(1)"), None);
+    assert_eq!(lua_call("P.new(1) + 1"), None);
     assert!(continued(Kind::Python, &["x = 1 + \\", "    y"], 1));
     assert!(continued(Kind::Python, &["f(a,", "  b)"], 1));
     assert!(!continued(Kind::Python, &["x = 1", "y"], 1));
