@@ -98,9 +98,10 @@ fn hide_c_define_bodies(text: &str, out: &mut [bool]) {
 pub fn hide_c_disabled(text: &str, out: &mut [bool]) {
     let mut depth = 0;
     for (l, hidden) in text.lines().zip(out.iter_mut()) {
-        let directive = match *hidden {
-            true => "",
-            false => l.trim_start().strip_prefix('#').map_or("", str::trim_start),
+        let directive = if *hidden {
+            ""
+        } else {
+            l.trim_start().strip_prefix('#').map_or("", str::trim_start)
         };
         let name = directive.split(|c: char| !c.is_ascii_alphabetic()).next();
         if depth == 0 {
