@@ -86,6 +86,12 @@ const STATES: &[State] = &[
         on_call(a);
         press(a, "vv");
     }),
+    ("fold", |a| {
+        for line in [13, 17, 24, 29, 33, 40] {
+            at(a, "store.py", line, "");
+            press(a, "f");
+        }
+    }),
     ("nowrap", |a| at(a, "export.csv", 1, "")),
     ("preview", |a| {
         at(a, "PLAN.md", 1, "");
@@ -437,6 +443,7 @@ snapshots! {
     snapshot_new_file: "new-file",
     snapshot_edit: "edit",
     snapshot_selection: "selection",
+    snapshot_fold: "fold",
     snapshot_nowrap: "nowrap",
     snapshot_preview: "preview",
     snapshot_preview_csv: "preview-csv",
