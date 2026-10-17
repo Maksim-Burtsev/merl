@@ -1,8 +1,8 @@
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, code, indent, literal_lines, names, split_top, uncommented,
-    value_of,
+    Binding, Kind, Value, close_of, code, group, indent, literal_lines, names, split_top,
+    uncommented, value_of,
 };
 
 pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
@@ -229,6 +229,61 @@ fn blank_comments(s: &str) -> String {
         i += 1;
     }
     String::from_utf8(out).unwrap_or_else(|_| s.to_owned())
+}
+pub struct TsSignature {
+    pub fewest: usize,
+    pub most: Option<usize>,
+    pub body: bool,
+    pub end_line1: usize,
+}
+pub fn ts_signature(text: &str, line1: usize, word: &str) -> Option<TsSignature> {
+    let rows: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1)?;
+    let head = Regex::new(&format!(
+        r"\b{}\s*\??\s*(?:<[^()]*>)?\s*\(",
+        regex::escape(word)
+    ))
+    .ok()?;
+    let open = head.find(rows.get(at)?)?.end() - 1;
+    let g = group(Kind::TsJs, &rows, at, open)?;
+    let after = g.after_close.trim_end();
+    let body = after.ends_with('{');
+    if !body && !after.ends_with(';') {
+        return None;
+    }
+    let params: Vec<&str> = split_top(Kind::TsJs, &g.inner_uncommented, b',')
+        .into_iter()
+        .map(str::trim)
+        .filter(|p| !p.is_empty() && split_top(Kind::TsJs, p, b':')[0].trim() != "this")
+        .collect();
+    let rest = params.iter().any(|p| p.starts_with("..."));
+    let fewest = params
+        .iter()
+        .filter(|p| {
+            !p.starts_with("...")
+                && !split_top(Kind::TsJs, p, b':')[0].trim().ends_with('?')
+                && split_top(Kind::TsJs, p, b'=').len() == 1
+        })
+        .count();
+    Some(TsSignature {
+        fewest,
+        most: (!rest).then_some(params.len()),
+        body,
+        end_line1: g.close_line + 1,
+    })
+}
+pub fn ts_call_arity<S: AsRef<str>>(lines: &[S], line: usize, open: usize) -> Option<usize> {
+    let rows: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+    let inner = group(Kind::TsJs, &rows, line, open)?.inner_uncommented;
+    if inner.replace("=>", "").contains(['<', '>']) || inner.contains("...") {
+        return None;
+    }
+    Some(
+        split_top(Kind::TsJs, &inner, b',')
+            .iter()
+            .filter(|a| !a.trim().is_empty())
+            .count(),
+    )
 }
 pub fn ts_merged_namespace(text: &str, line1: usize, word: &str) -> Vec<usize> {
     static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

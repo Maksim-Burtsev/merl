@@ -18,8 +18,8 @@ export function setTable(pot: Pot | undefined, recipe: Blend): number {
   const boiler = new Boiler();
   //                 ^ d: tea/kettle.ts:1
   const hot = kettle.boil(95) + boiler.boil();
-  //                 ^ d: picker tea/kettle.ts:4, tea/kettle.ts:5, tea/kettle.ts:6; want tea/kettle.ts:5 (#975)
-  //                                   ^ d: picker tea/kettle.ts:4, tea/kettle.ts:5, tea/kettle.ts:6; want tea/kettle.ts:4 (#975)
+  //                 ^ d: tea/kettle.ts:5
+  //                                   ^ d: tea/kettle.ts:4
   const poured = pot?.pour(2) ?? 0;
   //             ^ d: tea/table.ts:13
   //                  ^ d: tea/teapot.ts:15
