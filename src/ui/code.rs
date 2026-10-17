@@ -19,7 +19,7 @@ use crate::wrap;
 use super::status::fit_path;
 use super::tagged;
 
-const FOLDED: &str = " \u{22ef} ";
+const FOLDED_MARK: char = '\u{22ef}';
 
 pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
     let gutter_w = prepare_view(app, theme, area);
@@ -505,14 +505,17 @@ impl<'a> Painter<'a> {
         } else {
             app.rows(l)
         };
-        let folded = app.collapsed_tail(l).map(|tail| {
-            let gap = if clipped.ends_with(['{', '(', '[']) {
-                ""
-            } else {
-                " "
-            };
-            (gap, tail)
-        });
+        let folded = app
+            .collapsed_at(l)
+            .zip(app.collapsed_tail(l))
+            .map(|(e, tail)| {
+                let gap = if clipped.ends_with(['{', '(', '[']) {
+                    ""
+                } else {
+                    " "
+                };
+                (gap, tail, e - l - usize::from(!tail.is_empty()))
+            });
         let line = FileLine {
             l,
             clipped,
@@ -593,15 +596,24 @@ impl<'a> Painter<'a> {
         if lead > 0 {
             row.push(Span::styled(" ".repeat(lead), t));
         }
-        let fold = f.folded.as_ref().filter(|_| i == f.last);
+        let used = lead
+            + wrap::width(&f.clipped[r.clone()])
+            + usize::from(before)
+            + usize::from(after)
+            + usize::from(ell);
+        let fold = f.folded.filter(|_| i == f.last).map(|(gap, tail, n)| {
+            let used = used + gap.len() + wrap::width(tail);
+            let counted = format!(" {n} line{} {FOLDED_MARK} ", if n == 1 { "" } else { "s" });
+            let chip = if used + wrap::width(&counted) > app.view_w {
+                format!(" {FOLDED_MARK} ")
+            } else {
+                counted
+            };
+            (gap, chip, tail, used)
+        });
         let pad = app.view_w.saturating_sub(
-            lead + wrap::width(&f.clipped[r.clone()])
-                + usize::from(before)
-                + usize::from(after)
-                + usize::from(ell)
-                + fold.map_or(0, |(gap, tail)| {
-                    gap.len() + wrap::width(FOLDED) + wrap::width(tail)
-                }),
+            fold.as_ref()
+                .map_or(used, |(_, chip, _, used)| used + wrap::width(chip)),
         );
         row.extend(selected_row(
             f.clipped,
@@ -615,15 +627,15 @@ impl<'a> Painter<'a> {
         if ell {
             row.push(self.ellipsis(pad_style));
         }
-        if let Some((gap, tail)) = fold {
+        if let Some((gap, text, tail, _)) = fold {
             let chip = if f.cursor_line {
                 theme.selected(t.fg(theme.fg))
             } else {
                 t.bg(theme.line_hl).fg(theme.fg)
             };
-            row.push(Span::styled(*gap, t));
-            row.push(Span::styled(FOLDED, chip));
-            row.push(Span::styled(*tail, t));
+            row.push(Span::styled(gap, t));
+            row.push(Span::styled(text, chip));
+            row.push(Span::styled(tail, t));
         }
         if f.padded || after {
             row.push(Span::styled(" ".repeat(pad), pad_style));
@@ -659,7 +671,7 @@ struct FileLine<'a> {
     edges: (bool, bool),
     leads: (usize, usize),
     last: usize,
-    folded: Option<(&'static str, &'a str)>,
+    folded: Option<(&'static str, &'a str, usize)>,
 }
 
 pub(super) fn draw_binary(

@@ -1757,10 +1757,7 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
 }
 
-#[test]
-fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
-    let body: String = (0..30).map(|i| format!("    \"x{i}\": {i},\n")).collect();
-    let text = format!("ITEMS = {{\n{body}}}\ndef g():\n    pass\n");
+fn folded(text: &str, width: u16) -> Terminal<TestBackend> {
     let mut app = App::new(
         PathBuf::from("/demo"),
         Tree::default(),
@@ -1771,14 +1768,28 @@ fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
     app.show_tree = false;
     app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    let mut terminal = Terminal::new(TestBackend::new(30, 6)).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(width, 6)).unwrap();
     while app.parsing() {
         app.parse_more();
     }
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    terminal
+}
+
+fn items(width: u16) -> Terminal<TestBackend> {
+    let body: String = (0..30).map(|i| format!("    \"x{i}\": {i},\n")).collect();
+    folded(
+        &format!("ITEMS = {{\n{body}}}\ndef g():\n    pass\n"),
+        width,
+    )
+}
+
+#[test]
+fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
+    let terminal = items(30);
     assert_eq!(
         rows(&terminal)[..2],
-        ["1 ITEMS = { \u{22ef} }", "33 def g():"]
+        ["1 ITEMS = { 30 lines \u{22ef} }", "33 def g():"]
     );
     let buf = terminal.backend().buffer();
     assert_ne!(
@@ -1786,6 +1797,20 @@ fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
         buf[(7, 1)].fg,
         "line 33 is drawn uncoloured"
     );
+}
+
+#[test]
+fn a_fold_counts_one_hidden_line_as_one_line() {
+    let terminal = folded("def g():\n    pass\nx = 1\n", 30);
+    assert_eq!(
+        rows(&terminal)[..2],
+        ["1 def g():  1 line \u{22ef}", "3 x = 1"]
+    );
+}
+
+#[test]
+fn a_fold_whose_count_does_not_fit_the_row_shows_the_dots_alone() {
+    assert_eq!(rows(&items(24))[0], "1 ITEMS = { \u{22ef} }");
 }
 
 #[test]
