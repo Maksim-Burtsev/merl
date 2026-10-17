@@ -1,5 +1,5 @@
 import pourOver from "./filter.mjs";
-import { Cezve, Moka, Ibrik, Jezve, Briki } from "./cezve.js";
+import { Cezve, Moka, Ibrik, Jezve, Briki, Fs } from "./cezve.js";
 
 export function order() {
   const c = new Cezve();
@@ -16,7 +16,9 @@ export function order() {
 export function special() {
   const j = new Jezve();
   const b = new Briki();
-  return j.crema() + b.crema;
+  const f = new Fs();
+  return j.crema() + b.crema + f.stat();
   //       ^ d: coffee/cezve.js:37
   //                   ^ d: coffee/cezve.js:27
+  //                             ^ d: coffee/cezve.js:47
 }

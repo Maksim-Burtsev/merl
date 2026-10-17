@@ -40,3 +40,24 @@ export class Jezve {
 }
 
 export class Briki extends Ibrik {}
+
+export class Fs {
+  static stat = 1;
+
+  stat() {
+    return 4;
+  }
+}
+
+export class Samovar {
+  kind = "m";
+
+  static kind() {
+    return "model";
+  }
+
+  static tagline() {
+    return this.kind();
+    //          ^ d: coffee/cezve.js:55
+  }
+}

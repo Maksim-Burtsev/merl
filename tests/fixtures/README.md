@@ -400,7 +400,8 @@ template literal.
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,
 `exports.darken = function` and `exports.Roaster = class`, a destructured and renamed `require`,
 an anonymous `export default function`, a getter, a class field beside a method of its name in
-another class, in the same one (also static, and inherited by a subclass), a `var` declared
+another class, in the same one (also static, named like a prefix of `static`, beside a static
+method read through `this`, and inherited by a subclass), a `var` declared
 twice, a function called above its declaration, a JSDoc `@typedef`, and declaration-shaped lines
 in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a

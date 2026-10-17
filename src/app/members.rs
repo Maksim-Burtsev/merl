@@ -595,22 +595,26 @@ impl App {
     pub(super) fn own_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
         let members = self.members_of(kind, t, word);
         if members.is_empty() {
-            return self.field_of(kind, t, word, false).map(|hit| vec![hit]);
+            self.field_of(kind, t, word, false).map(|hit| vec![hit])
+        } else {
+            Some(members)
         }
-        let instance_field = |f: &Hit| {
-            !f.text
-                .split_whitespace()
-                .take_while(|w| !w.starts_with(word))
-                .any(|w| w == "static")
-                && !members
-                    .iter()
-                    .any(|m| m.path == f.path && m.line1 == f.line1)
-        };
+    }
+
+    pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let members = self.own_member(kind, t, word)?;
         let field = (kind == Kind::TsJs)
             .then(|| self.field_of(kind, t, word, false))
             .flatten();
+        let shadows = |f: &Hit| {
+            !ts_modifiers(&f.text).any(|m| matches!(m, "static" | "get" | "set"))
+                && members.iter().all(|m| {
+                    (m.path != f.path || m.line1 != f.line1)
+                        && !ts_modifiers(&m.text).any(|m| m == "static")
+                })
+        };
         match field {
-            Some(field) if instance_field(&field) => Some(vec![field]),
+            Some(field) if shadows(&field) => Some(vec![field]),
             _ => Some(members),
         }
     }
@@ -760,6 +764,26 @@ impl App {
         let member = before.ends_with(['.', '>']) || before.ends_with("::");
         !(r.start < first || member || (called(r.start) && !called(first)))
     }
+}
+
+fn ts_modifiers(line: &str) -> impl Iterator<Item = &str> {
+    line.split_whitespace().take_while(|w| {
+        matches!(
+            *w,
+            "public"
+                | "private"
+                | "protected"
+                | "readonly"
+                | "static"
+                | "declare"
+                | "override"
+                | "abstract"
+                | "accessor"
+                | "async"
+                | "get"
+                | "set"
+        )
+    })
 }
 
 fn is_protocol(text: &str, decl1: usize) -> bool {
