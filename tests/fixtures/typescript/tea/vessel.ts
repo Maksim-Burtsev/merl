@@ -31,6 +31,6 @@ export namespace Caddy {
 export namespace Caddy {
   export function fill(): number {
     return size * 2;
-    //     ^ d: picker tea/vessel.ts:28, scope/Panel.tsx:27; want tea/vessel.ts:28 (#976)
+    //     ^ d: tea/vessel.ts:28
   }
 }

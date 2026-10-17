@@ -1,7 +1,8 @@
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, code, indent, names, split_top, uncommented, value_of,
+    Binding, Kind, Value, close_of, code, indent, literal_lines, names, split_top, uncommented,
+    value_of,
 };
 
 pub(super) fn ts_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
@@ -228,4 +229,42 @@ fn blank_comments(s: &str) -> String {
         i += 1;
     }
     String::from_utf8(out).unwrap_or_else(|_| s.to_owned())
+}
+pub fn ts_merged_namespace(text: &str, line1: usize, word: &str) -> Vec<usize> {
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:export\s+)?(?:declare\s+)?namespace\s+([A-Za-z_$][\w$]*)\s*\{\s*$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::TsJs, text);
+    let lit = |i: usize| literal.get(i).copied().unwrap_or(false);
+    let top = |i: usize| !lit(i) && !lines[i].trim().is_empty() && indent(lines[i]) == 0;
+    let Some(at) = (0..line1.saturating_sub(1).min(lines.len()))
+        .rev()
+        .find(|&i| top(i))
+    else {
+        return Vec::new();
+    };
+    let Some(name) = HEADER.captures(lines[at]).map(|c| c[1].to_owned()) else {
+        return Vec::new();
+    };
+    let export = Regex::new(&format!(
+        r"^\s+export\s+(?:declare\s+)?(?:const|let|var|function\*?|class|enum|interface|type|namespace)\s+{}\b",
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let mut out = Vec::new();
+    let (mut other, mut member) = (false, None);
+    for (i, l) in lines.iter().enumerate() {
+        if top(i) {
+            other = i != at && HEADER.captures(l).is_some_and(|c| c[1] == name);
+            member = None;
+        } else if other && !lit(i) && !l.trim().is_empty() {
+            let m = *member.get_or_insert_with(|| indent(l));
+            if indent(l) == m && export.is_match(l) {
+                out.push(i + 1);
+            }
+        }
+    }
+    out
 }
