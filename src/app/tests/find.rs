@@ -323,7 +323,7 @@ fn typing_after_a_find_from_edit_mode_is_an_undo_step_of_its_own() {
 #[test]
 fn find_reaches_a_match_past_the_cut_and_draws_the_line_on_to_it() {
     let pad = "ab ".repeat(10_000);
-    let text = format!("{pad}THE END {pad}THE END\nTHE END\n");
+    let text = format!("{pad}THE END {pad}THE END\nTHE END\n{pad}\n");
     let (_, mut a) = temp_file("find-past-cut", &text);
     assert_eq!(a.buf.shown(0).len(), 20_000);
     find(&mut a, "the end");
@@ -332,6 +332,11 @@ fn find_reaches_a_match_past_the_cut_and_draws_the_line_on_to_it() {
         (a.line, a.col, a.message.as_str(), a.buf.shown(0).len()),
         (0, 30_000, "1/3", 50_000),
         "the first match is past the cut: the cursor is on it and the line is drawn 20 KB past it"
+    );
+    assert_eq!(
+        a.buf.shown(2).len(),
+        20_000,
+        "another long line keeps its cut"
     );
     press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
     assert_eq!((a.line, a.col, a.message.as_str()), (0, 60_008, "2/3"));
@@ -361,4 +366,43 @@ fn an_s_hit_past_the_cut_opens_on_the_hit() {
         (0, 30_000, 30_007),
         "the hit opens on itself and the line is drawn on past it"
     );
+}
+
+#[test]
+fn n_from_the_cut_goes_on_past_it_and_esc_takes_the_reach_back() {
+    let text = format!("{}THE END\nTHE END\n", "ab ".repeat(10_000));
+    let (_, mut a) = temp_file("find-from-cut", &text);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 20_000));
+    find(&mut a, "the end");
+    assert_eq!(a.buf.shown(0).len(), 30_007);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, a.buf.shown(0).len()),
+        (0, 20_000, 20_000),
+        "Esc puts the cut back with the cursor"
+    );
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col),
+        (0, 30_000),
+        "`n` from the `…` finds the match past it, not the next line's"
+    );
+}
+
+#[test]
+fn a_line_drawn_whole_by_a_find_gets_its_colour() {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let text = format!("x = \"{}\"\ny = 1\n", "ab ".repeat(10_000));
+    let (_, mut a) = temp_file("find-colour", &text);
+    a.buf.parse_more(None);
+    a.buf.paint_to(1, &theme);
+    assert!(a.buf.hl[0].is_empty(), "a cut line is drawn plain");
+    find(&mut a, "\"");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    a.buf.parse_more(None);
+    a.buf.paint_to(1, &theme);
+    assert!(!a.buf.hl[0].is_empty());
 }

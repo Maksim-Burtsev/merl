@@ -56,7 +56,7 @@ impl App {
             return Some(format!("read-only: {why}"));
         }
         lines
-            .any(|l| Buffer::too_long_to_edit(l))
+            .any(|l| Buffer::too_long(l))
             .then(|| "line too long to edit".to_owned())
     }
 
