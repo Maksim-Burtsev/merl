@@ -450,8 +450,10 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "h") => "C++",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
-        ("WORKSPACE" | "Tiltfile" | "BUILD" | "BUCK", _) | (_, "star") => "Python",
+        ("WORKSPACE" | "WORKSPACE.bzlmod" | "Tiltfile" | "BUILD" | "BUCK", _)
+        | (_, "star" | "starlark" | "sky" | "ipd" | "bxl" | "BUILD") => "Python",
         (_, "mdx") => "Markdown",
+        (_, "nginx") => "nginx",
         (_, "astro") => "TypeScriptReact",
         (_, "mill") => "Scala",
         (_, "fs") => "F#",

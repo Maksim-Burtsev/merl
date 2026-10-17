@@ -1,0 +1,30 @@
+load(":defs.bzl", "greet_all", "greeting")
+
+package(default_visibility = ["//visibility:public"])
+
+greeting(
+    name = "hello",
+    count = 2,
+    message = "Hello, world!",
+)
+
+greet_all(
+    name = "many",
+    messages = [
+        "hi",
+        'yo',
+    ],
+)
+
+cc_library(
+    name = "lib",
+    srcs = glob(["*.cc"], exclude = ["*_test.cc"]),
+    hdrs = select({
+        "@platforms//os:linux": ["linux.h"],
+        "//conditions:default": [],
+    }),
+    copts = ["-Wall"] + (["-O2"] if True else []),
+    deps = [":hello"],
+)
+
+exports_files(["defs.bzl"])

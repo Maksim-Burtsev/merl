@@ -1260,6 +1260,48 @@ const SQL: &[&str] = &[
     "\n\n",
 ];
 
+const NGINX: &[&str] = &[
+    "server {\n",
+    "}\n",
+    "location ~* \\.(js)$ {\n",
+    "proxy_pass http://a;\n",
+    "if ($a = b) {\n",
+    "\"",
+    "'",
+    "# ",
+    "$host",
+    ";",
+    "{",
+];
+
+const GDSCRIPT: &[&str] = &[
+    "func a(b: int) -> void:\n",
+    "\tif b:\n",
+    "\t\tpass\n",
+    "@export var c := 1\n",
+    "\"\"\"",
+    "$Node",
+    "\t",
+    "# ",
+    "\"",
+    ":",
+    "\n",
+];
+
+const STARLARK: &[&str] = &[
+    "def a(b, c = 1):\n",
+    "    return b\n",
+    "load(\":d.bzl\", \"e\")\n",
+    "x = [f for f in g if f]\n",
+    "\"%s\" % h",
+    "\"\"\"",
+    "    ",
+    "# ",
+    "\"",
+    "(",
+    ")",
+];
+
 const GRAPHQL: &[&str] = &[
     "type A {\n",
     "}\n",
@@ -1580,6 +1622,21 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         "f.graphql",
         include_bytes!("../../../tests/colors/graphql/schema.graphql").as_slice(),
         GRAPHQL,
+    ),
+    (
+        "nginx.conf",
+        include_bytes!("../../../tests/colors/nginx/site.conf").as_slice(),
+        NGINX,
+    ),
+    (
+        "f.gd",
+        include_bytes!("../../../tests/colors/gdscript/player.gd").as_slice(),
+        GDSCRIPT,
+    ),
+    (
+        "defs.bzl",
+        include_bytes!("../../../tests/colors/starlark/defs.bzl").as_slice(),
+        STARLARK,
     ),
     (
         "CMakeLists.txt",

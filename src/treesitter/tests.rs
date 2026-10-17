@@ -298,6 +298,21 @@ fn graphql_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn nginx_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("nginx");
+}
+
+#[test]
+fn gdscript_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("gdscript");
+}
+
+#[test]
+fn starlark_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("starlark");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -422,7 +437,7 @@ fn a_capture_keeps_its_background_only_when_reversed() {
     assert_eq!(added("tokyonight-moon"), (None, false));
 }
 
-fn sexp(f: &str, src: &[u8]) -> String {
+pub(super) fn sexp(f: &str, src: &[u8]) -> String {
     let mut b = Buffer::from_bytes(PathBuf::from(f), src);
     b.parse_more(None);
     b.sexp()
@@ -518,6 +533,7 @@ fn build_and_config_files_get_their_grammar() {
             "{f}"
         );
     }
+    assert!(sexp("a.gd", b"var a = 1\n").starts_with("(source "));
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
         assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
     }
@@ -929,6 +945,14 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("proto", Some("proto")),
         ("graphql", Some("graphql")),
         ("gql", Some("graphql")),
+        ("nginx", Some("nginx")),
+        ("conf", None),
+        ("gdscript", Some("gdscript")),
+        ("gd", Some("gdscript")),
+        ("starlark", Some("starlark")),
+        ("bzl", Some("starlark")),
+        ("star", Some("starlark")),
+        ("python", Some("python")),
         ("hcl", Some("hcl")),
         ("terraform", Some("terraform")),
         ("tfvars", Some("terraform")),

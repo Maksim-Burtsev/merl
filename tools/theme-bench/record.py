@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig", "nix", "scheme", "r", "erlang", "racket", "commonlisp", "sql", "scala", "vue", "svelte", "graphql"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig", "nix", "scheme", "r", "erlang", "racket", "commonlisp", "sql", "scala", "vue", "svelte", "graphql", "nginx", "gdscript", "starlark"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -75,6 +75,9 @@ LANGS = {
     "terraform": (["lem", "immich"], ["tf", "tfvars"], 10),
     "ini": (["gitea"], ["ini"], 40),
     "graphql": (["graphql-code-generator", "swapi-graphql"], ["graphql", "graphqls", "gql"], 25),
+    "nginx": (["mastodon", "paperless-ngx", "server-configs-nginx"], ["conf", "nginx"], 10),
+    "gdscript": (["dialogic"], ["gd"], 40),
+    "starlark": (["rules_go"], ["bzl", "bazel", "star", "BUILD", "WORKSPACE"], 40),
     "proto": (["rules_go", "nowinandroid", "eShop", "gitea"], ["proto"], 25),
     "cmake": (["chibi-scheme", "leveldb", "redis"], ["CMakeLists.txt", "cmake"], 40),
     "dockerfile": (["mastodon", "paperless-ngx", "immich", "gitea"], ["Dockerfile", "dockerfile"]),
@@ -106,6 +109,10 @@ THEME_ONLY = {
                                "291cfb2a434f24de54a856cc09c6a4dd8ad01526", "-"],
     "swapi-graphql": ["swapi-graphql", "graphql", "https://github.com/graphql/swapi-graphql.git",
                       "8c0bf5868f11fe84942548180751fceeb36bd606", "-"],
+    "server-configs-nginx": ["server-configs-nginx", "nginx", "https://github.com/h5bp/server-configs-nginx.git",
+                             "d2f2c3e2fac76f429adb738894499b8fb756d2f3", "-"],
+    "dialogic": ["dialogic", "gdscript", "https://github.com/dialogic-godot/dialogic.git",
+                 "701b67bbe60114e010476d1685f7de1261091c29", "-"],
     "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
                 "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
     "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
@@ -181,6 +188,10 @@ def pick(lang):
         if lang == "html" and any(map(NOT_HTML.search, file_lines(path)[:40])):
             continue
         if lang == "xml" and any(re.search("<!DOCTYPE.*DocBook", l) or "docbook.org/ns/docbook" in l.lower() for l in file_lines(path)[:100]):
+            continue
+        base = os.path.basename(rel)
+        if lang == "nginx" and not (rel.endswith(".nginx") or base.startswith("nginx") or base.endswith("nginx.conf")
+                                    or "/nginx/" in rel):
             continue
         if lang == "query" and "/queries/" not in f"/{rel}":
             continue

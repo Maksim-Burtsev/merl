@@ -1,0 +1,5 @@
+# tokyonight-moon: folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6 `colorscheme tokyonight-moon`; NVIM v0.12.5, nvim-treesitter 1a4f47b
+# palette a=fca7eai b=c8d3f5 c=65bcff d=c3e88d e=ff966c f=ff757f g=89ddff h=828bb8 i=636da6i j=c099ff
+broken.conf	1:a6h 2:a6e2 3:b10 4:b13g 5:h
+nginx.conf	1:i18 2:a4b8g 3:a16f4g 4:a19e16g 5:a3c14g 6:a9c24f4g 8:a6h 9:a18e4g 10:a3f5g 11:a12e2g 12:h 14:a4h 15:a7c21g 16:a12b24g 17:a8e2g 18:a17e3g 19:a20e3g 20:a4e3g 22:a10b4d50 23:d40g 24:a10b29g 26:j3f32h 27:a7b7g 28:a2b5g 29:h 31:a8b8 32:b6e5bebeb13g 33:a6b22g 34:a9e2g 35:h 37:a7c24g 38:h
+site.conf	1:a6h 2:a6e2g 3:a6b16g 4:a11b26g 5:a4b16g 6:a5b19g 8:a15b26g 9:a19e2g 10:a10b25d18b6g 12:a8gc7h 13:a6e3b6g 14:h 16:a8ch 17:a9b24g 18:h 20:a8g2c19h 21:a7e3g 22:a10e3g 23:h 25:a8g2c5h 26:a10b14g 27:a16b9g 28:a16b20g 29:a18e3g 30:h 32:j2f22h 33:a6e3g 34:h 36:a10e12b9g 37:a3b7d4g 38:h

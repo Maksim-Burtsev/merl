@@ -46,4 +46,6 @@ allow-git = [
   "https://github.com/tree-sitter-grammars/tree-sitter-hcl",
   "https://github.com/nix-community/tree-sitter-nix",
   "https://github.com/6cdh/tree-sitter-scheme",
+  "https://github.com/opa-oz/tree-sitter-nginx",
+  "https://github.com/PrestonKnopp/tree-sitter-gdscript",
 ]
