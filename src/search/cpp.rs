@@ -84,14 +84,38 @@ pub fn cpp_alias_in_scope(text: &str, pos: usize, alias: &str) -> Option<Vec<Str
     Some(c[1].split("::").map(|p| p.trim().to_owned()).collect())
 }
 
-pub fn cpp_one_namespace(name: &str, rows: &[super::Hit]) -> bool {
+pub fn cpp_one_namespace(
+    name: &str,
+    rows: &[super::Hit],
+    text_of: impl Fn(&std::path::Path) -> Option<String>,
+) -> bool {
     let w = regex::escape(name);
-    let Ok(re) = Regex::new(&format!(
-        r"^\s*(?:(?:inline\s+)?namespace\s+(?:\w+\s*::\s*)*{w}\s*(?:\{{|$)|using\s+namespace\s+(?:\w+\s*::\s*)*{w}\s*;)"
-    )) else {
+    let (Ok(opens), Ok(uses)) = (
+        Regex::new(&format!(
+            r"^\s*(?:inline\s+)?namespace\s+((?:\w+\s*::\s*)*){w}\s*(?:\{{|$)"
+        )),
+        Regex::new(&format!(r"^\s*using\s+namespace\s+(?:\w+\s*::\s*)*{w}\s*;")),
+    ) else {
         return false;
     };
-    rows.iter().all(|h| re.is_match(&h.text)) && rows.iter().any(|h| !h.text.contains("using"))
+    let mut paths = Vec::new();
+    for h in rows.iter().filter(|h| !uses.is_match(&h.text)) {
+        let (Some(c), Some(text)) = (opens.captures(&h.text), text_of(&h.path)) else {
+            return false;
+        };
+        let code = c_code(&text);
+        let start: usize = (text.split('\n').take(h.line1.saturating_sub(1)))
+            .map(|l| l.len() + 1)
+            .sum();
+        let mut path = cpp_scope_path(&code, start.min(code.len()));
+        path.extend(
+            (c[1].split("::").map(str::trim))
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned),
+        );
+        paths.push(path);
+    }
+    paths.first().is_some_and(|p| paths.iter().all(|q| q == p))
 }
 
 pub fn cpp_namespace_alias(code: &str, alias: &str) -> Option<Vec<String>> {

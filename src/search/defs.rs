@@ -676,11 +676,6 @@ pub fn c_one_definition(
     let (Some((at, _)), None) = (defs.next(), defs.next()) else {
         return None;
     };
-    let file_local = (hits[at].text.split(word).next())
-        .is_some_and(|b| b.split_whitespace().any(|t| t == "static"));
-    if file_local && hits.iter().any(|h| h.path != hits[at].path) {
-        return None;
-    }
     let n = hits.len() - 1;
     let function = matches!(shapes[0].declares, CDeclares::Function { .. });
     let what = match (function, n) {
@@ -738,17 +733,17 @@ pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
         })
         .and_then(|l| l.split_once('('))
         .is_some_and(|(_, params)| {
-            let mut depth = 0usize;
+            let mut depth = 1usize;
             let end = params.find(|c| match c {
                 '(' => {
                     depth += 1;
                     false
                 }
-                ')' if depth == 0 => true,
                 ')' => {
-                    depth -= 1;
+                    depth = depth.saturating_sub(1);
                     false
                 }
+                '{' => depth == 0,
                 _ => false,
             });
             names(end.and_then(|e| params.get(..e)).unwrap_or(params), word)

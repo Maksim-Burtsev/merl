@@ -1090,6 +1090,22 @@ fn a_prototype_puts_no_parameter_in_scope_below_it() {
         1,
         "g"
     ));
+    assert!(c_parameter(
+        "int f(void (*cb)(int), int n) { return n; }\n",
+        1,
+        "n"
+    ));
+    assert!(c_parameter(
+        "bool Cmp::operator()(int g) const { return g > 0; }\n",
+        1,
+        "g"
+    ));
+    assert!(!c_parameter("int f(S s = {}) { return g(s); }\n", 1, "g"));
+    assert!(c_parameter(
+        "int f(int a,\n      int b) {\n  return a;\n}\n",
+        3,
+        "a"
+    ));
 }
 
 #[test]
@@ -1098,20 +1114,4 @@ fn a_typescript_signature_has_no_equals_sign_in_its_return_type() {
     let re = Regex::new(&members).unwrap();
     assert!(re.is_match("  next(value: number): number;"));
     assert!(!re.is_match("  next(value: number): number => value;"));
-}
-
-#[test]
-fn a_static_definition_is_one_function_only_with_the_prototypes_of_its_file() {
-    let text = "static int f(void);\nstatic int f(void) { return 1; }\n";
-    let here = [
-        c_hit("a.c", 1, "static int f(void);"),
-        c_hit("a.c", 2, "static int f(void) { return 1; }"),
-    ];
-    let one = c_one_definition("f", &here, |_| Some(text.to_owned()));
-    assert_eq!(one.map(|o| o.hit_index), Some(1));
-    let apart = [
-        c_hit("f.h", 1, "int f(void);"),
-        c_hit("a.h", 2, "static int f(void) { return 1; }"),
-    ];
-    assert!(c_one_definition("f", &apart, |_| Some(text.to_owned())).is_none());
 }
