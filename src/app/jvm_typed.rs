@@ -44,6 +44,12 @@ impl App {
             return None;
         }
         let line = self.line + 1;
+        if first == "super" {
+            return rest
+                .is_empty()
+                .then(|| self.jvm_super(here, text, line, word))
+                .flatten();
+        }
         let smart = || {
             kotlin
                 .then(|| search::jvm_smart_cast(text, line, before, first))
@@ -92,6 +98,34 @@ impl App {
             });
         }
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_super(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let &decl = search::jvm_enclosing_types(text, line1).first()?;
+        search::jvm_type_name(lines.get(decl - 1)?)?;
+        let mut found = Vec::new();
+        for base in search::jvm_bases(text, decl, search::scala(here)) {
+            let JvmType::Project(b) = self.jvm_type_at(here, text, &base) else {
+                return None;
+            };
+            let reason = Reason::Receiver(format!("super: {base}"));
+            found.extend(
+                self.jvm_hierarchy_member(&b, word, 0, &mut Vec::new())
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: reason.clone(),
+                    }),
+            );
+        }
+        (!found.is_empty()).then_some(found)
     }
 
     fn jvm_typed_member(
