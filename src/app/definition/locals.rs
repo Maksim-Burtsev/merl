@@ -152,6 +152,9 @@ impl App {
         let locals = locals_at(&a.text, self.line + 1);
         if (bare || self.script_scope(&a.here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{}\n0", a.text), self.buf.lines.len() + 1);
+            if module.is_empty() && bare && a.text.contains("namespace") {
+                return search::ts_merged_namespace(&a.text, self.line + 1, first);
+            }
             if !module.contains(&(self.line + 1)) {
                 return module;
             }

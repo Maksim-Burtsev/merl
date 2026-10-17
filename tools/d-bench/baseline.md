@@ -1,11 +1,11 @@
 # `d` bench baseline
 
-merl at `c1bc392b` (csharp rows) and `c8d08dd7` (c, cpp, objc rows), 2026-10-17, release build, `vm.loadavg` { 15.43 14.03 12.27 } and { 9.81 6.89 6.20 } before the runs; merged into the night's second epic.
+merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the other rows as in the night's second epic.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 213 | 199 (93%) | 8 (4%) | 0 (0%) | 6 (3%) | 57 | 13.6 | 258.1 |
-| ts (outline) | 122 | 114 (93%) | 5 (4%) | 1 (1%) | 2 (2%) | 178 | 41.5 | 82.3 |
+| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 46.2 | 99.5 |
 | js (eslint) | 147 | 119 (81%) | 21 (14%) | 0 (0%) | 7 (5%) | 123 | 38.6 | 152.5 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
 | rust (ripgrep) | 231 | 183 (79%) | 44 (19%) | 0 (0%) | 4 (2%) | 69 | 5.7 | 67.7 |

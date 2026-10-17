@@ -18,8 +18,8 @@ export function setTable(pot: Pot | undefined, recipe: Blend): number {
   const boiler = new Boiler();
   //                 ^ d: tea/kettle.ts:1
   const hot = kettle.boil(95) + boiler.boil();
-  //                 ^ d: picker tea/kettle.ts:4, tea/kettle.ts:5, tea/kettle.ts:6; want tea/kettle.ts:5 (#975)
-  //                                   ^ d: picker tea/kettle.ts:4, tea/kettle.ts:5, tea/kettle.ts:6; want tea/kettle.ts:4 (#975)
+  //                 ^ d: tea/kettle.ts:5
+  //                                   ^ d: tea/kettle.ts:4
   const poured = pot?.pour(2) ?? 0;
   //             ^ d: tea/table.ts:13
   //                  ^ d: tea/teapot.ts:15
@@ -39,7 +39,7 @@ export function brew({ leaves, water: ml }: Recipe, minutes = steep.minutes): nu
   return leaves + ml + steep(minutes);
   //     ^ d: tea/table.ts:36
   //              ^ d: tea/table.ts:36
-  //                   ^ d: picker tea/kettle.ts:11, tea/kettle.ts:15; want tea/kettle.ts:11 (#976)
+  //                   ^ d: tea/kettle.ts:11
   //                         ^ d: tea/table.ts:36
 }
 
@@ -72,7 +72,7 @@ const Pot = 1;
 
 export function serveMenu(): number {
   return steep(menu.length) + new Pot().pour(1);
-  //     ^ d: picker tea/kettle.ts:11, tea/kettle.ts:15; want tea/kettle.ts:11 (#976)
+  //     ^ d: tea/kettle.ts:11
   //                              ^ d: tea/teapot.ts:10
   //                                    ^ d: tea/teapot.ts:15
 }
@@ -87,8 +87,8 @@ export function drain({ water }: Recipe): number {
 export function refill(vessel: Vessel): number {
   return water + vessel.pour(vessel.volume);
   //     ^ d: tea/table.ts:80
-  //                    ^ d: picker tea/teapot.ts:15, tea/vessel.ts:6; want tea/vessel.ts:6 (#976)
-  //                                ^ d: picker tea/teapot.ts:11, tea/vessel.ts:2; want tea/vessel.ts:2 (#976)
+  //                    ^ d: tea/vessel.ts:6
+  //                                ^ d: tea/vessel.ts:2
 }
 
 export namespace Tray {
