@@ -290,85 +290,84 @@ fn a_constant_after_is_is_found_when_no_type_of_the_name_is_reached() {
     );
 }
 
+const UNPROVEN: &[(&str, &str)] = &[
+    (
+        "Shop/Order.cs",
+        "namespace Shop;\n\npublic class Order\n{\n    public int Id;\n    public int Total() => 1;\n}\n",
+    ),
+    (
+        "Shop/Receipt.cs",
+        "namespace Shop;\n\npublic class Receipt\n{\n    public int Total() => 2;\n}\n",
+    ),
+    (
+        "Shop/Use.cs",
+        "namespace Shop;\n\npublic class Use\n{\n    public Receipt Process(Order o) => new Receipt();\n    public int Run() => Process(new Order { Id = 1 }).Total();\n    public int Text() => new StringBuilder().Append(1).Length;\n}\n",
+    ),
+    (
+        "Clock/Engine.cs",
+        "namespace Clock;\n\npublic class Engine\n{\n    public void Start() { }\n}\n",
+    ),
+    (
+        "Clock/Timer.cs",
+        "namespace Clock;\n\npublic class Timer\n{\n    public void Start() { }\n}\n",
+    ),
+    (
+        "Clock/UseT.cs",
+        "namespace Clock;\n\npublic class UseT\n{\n    public void Go() { new System.Timers.Timer(1).Start(); }\n}\n",
+    ),
+    (
+        "Pot/Kettle.cs",
+        "namespace Pot;\n\npublic partial class Kettle\n{\n    static Kettle() { }\n    public Kettle(int a) => A = a;\n    public int A;\n}\n",
+    ),
+    (
+        "Pot/Kettle.More.cs",
+        "namespace Pot;\n\npublic partial class Kettle\n{\n    public Kettle(string b) { }\n}\n",
+    ),
+    (
+        "Pot/Cup.cs",
+        "namespace Pot;\n\npublic partial class Cup(int size)\n{\n    public int Size => size;\n}\n",
+    ),
+    (
+        "Pot/Cup.More.cs",
+        "namespace Pot;\n\npublic partial class Cup\n{\n    public Cup(string s) : this(s.Length) { }\n}\n",
+    ),
+    (
+        "Pot/Mug.cs",
+        "namespace Pot;\n\npublic partial class Mug\n{\n}\n",
+    ),
+    (
+        "Pot/Mug.Gen.cs",
+        "namespace Pot;\n\npublic partial class Mug<T>\n{\n    public Mug() { }\n}\n",
+    ),
+    (
+        "Pot/UseK.cs",
+        "namespace Pot;\n\npublic class UseK\n{\n    public object Fresh() => new Kettle();\n    public object Cup() => new Cup(1);\n    public object Mug() => new Mug();\n}\n",
+    ),
+    (
+        "Nest/A.cs",
+        "namespace Outer\n{\n    namespace Inner\n    {\n        public class Lid { }\n    }\n}\n",
+    ),
+    (
+        "Nest/B.cs",
+        "namespace Outer\n{\n    public class Lid { }\n}\n",
+    ),
+    (
+        "Nest/UseL.cs",
+        "namespace Outer.Inner;\n\npublic class UseL\n{\n    public Lid Get() => null;\n}\n",
+    ),
+    (
+        "Dup/One.cs",
+        "namespace Dup.One;\n\npublic class Tray { }\n",
+    ),
+    (
+        "Dup/Two.cs",
+        "namespace Dup.Two;\n\npublic class Tray { }\n",
+    ),
+];
+
 #[test]
 fn d_keeps_the_picker_where_csharp_s_choice_is_not_proven() {
-    let (dir, mut a) = cs_app(
-        "cs-935-unproven",
-        &[
-            (
-                "Shop/Order.cs",
-                "namespace Shop;\n\npublic class Order\n{\n    public int Id;\n    public int Total() => 1;\n}\n",
-            ),
-            (
-                "Shop/Receipt.cs",
-                "namespace Shop;\n\npublic class Receipt\n{\n    public int Total() => 2;\n}\n",
-            ),
-            (
-                "Shop/Use.cs",
-                "namespace Shop;\n\npublic class Use\n{\n    public Receipt Process(Order o) => new Receipt();\n    public int Run() => Process(new Order { Id = 1 }).Total();\n    public int Text() => new StringBuilder().Append(1).Length;\n}\n",
-            ),
-            (
-                "Clock/Engine.cs",
-                "namespace Clock;\n\npublic class Engine\n{\n    public void Start() { }\n}\n",
-            ),
-            (
-                "Clock/Timer.cs",
-                "namespace Clock;\n\npublic class Timer\n{\n    public void Start() { }\n}\n",
-            ),
-            (
-                "Clock/UseT.cs",
-                "namespace Clock;\n\npublic class UseT\n{\n    public void Go() { new System.Timers.Timer(1).Start(); }\n}\n",
-            ),
-            (
-                "Pot/Kettle.cs",
-                "namespace Pot;\n\npublic partial class Kettle\n{\n    static Kettle() { }\n    public Kettle(int a) => A = a;\n    public int A;\n}\n",
-            ),
-            (
-                "Pot/Kettle.More.cs",
-                "namespace Pot;\n\npublic partial class Kettle\n{\n    public Kettle(string b) { }\n}\n",
-            ),
-            (
-                "Pot/Cup.cs",
-                "namespace Pot;\n\npublic partial class Cup(int size)\n{\n    public int Size => size;\n}\n",
-            ),
-            (
-                "Pot/Cup.More.cs",
-                "namespace Pot;\n\npublic partial class Cup\n{\n    public Cup(string s) : this(s.Length) { }\n}\n",
-            ),
-            (
-                "Pot/Mug.cs",
-                "namespace Pot;\n\npublic partial class Mug\n{\n}\n",
-            ),
-            (
-                "Pot/Mug.Gen.cs",
-                "namespace Pot;\n\npublic partial class Mug<T>\n{\n    public Mug() { }\n}\n",
-            ),
-            (
-                "Pot/UseK.cs",
-                "namespace Pot;\n\npublic class UseK\n{\n    public object Fresh() => new Kettle();\n    public object Cup() => new Cup(1);\n    public object Mug() => new Mug();\n}\n",
-            ),
-            (
-                "Nest/A.cs",
-                "namespace Outer\n{\n    namespace Inner\n    {\n        public class Lid { }\n    }\n}\n",
-            ),
-            (
-                "Nest/B.cs",
-                "namespace Outer\n{\n    public class Lid { }\n}\n",
-            ),
-            (
-                "Nest/UseL.cs",
-                "namespace Outer.Inner;\n\npublic class UseL\n{\n    public Lid Get() => null;\n}\n",
-            ),
-            (
-                "Dup/One.cs",
-                "namespace Dup.One;\n\npublic class Tray { }\n",
-            ),
-            (
-                "Dup/Two.cs",
-                "namespace Dup.Two;\n\npublic class Tray { }\n",
-            ),
-        ],
-    );
+    let (dir, mut a) = cs_app("cs-935-unproven", UNPROVEN);
     let mut places = |file: &str, code: &str| {
         d_on(&mut a, file, code);
         match shown(&mut a) {
