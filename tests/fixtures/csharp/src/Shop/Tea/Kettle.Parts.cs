@@ -15,6 +15,6 @@ class Kettle {
 
     public int Again() => Brew() + Grind() + Rinse();
     //                    ^ d: src/Shop/Tea/Kettle.Parts.cs:5
-    //                             ^ d: picker src/Shop/Tea/Kettle.cs:40, src/Shop/Tea/Teapot.cs:25; want src/Shop/Tea/Kettle.cs:40 (#935)
-    //                                       ^ d: picker src/Shop/Tea/Kettle.cs:42, src/Shop/Tea/Teapot.cs:13; want src/Shop/Tea/Kettle.cs:42 (#935)
+    //                             ^ d: src/Shop/Tea/Kettle.cs:40
+    //                                       ^ d: src/Shop/Tea/Kettle.cs:42
 }

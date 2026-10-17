@@ -1,8 +1,8 @@
 use regex::Regex;
 
 use super::{
-    Group, Kind, close_of, code, comment, cs_generics, cs_type, def_patterns, group, indent,
-    split_top, uncommented, written_line,
+    Group, Kind, close_of, code, comment, cs_generics, cs_namespace, cs_type, cs_usings,
+    def_patterns, group, indent, split_top, uncommented, written_line,
 };
 
 pub struct CsTypeDecl {
@@ -91,13 +91,19 @@ fn cs_private(line: &str, word: &str) -> bool {
 
 pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
     let depth = indent(lines[k]);
+    let literal = std::cell::OnceCell::new();
     (0..k).rev().find(|&i| {
         let t = lines[i].trim();
         !(t.is_empty()
             || comment(Kind::CSharp, t)
             || t.starts_with(['#', '{', ')', ':', '['])
             || t.starts_with("where ")
-            || indent(lines[i]) >= depth)
+            || indent(lines[i]) >= depth
+            || literal
+                .get_or_init(|| super::literal_lines(Kind::CSharp, &lines.join("\n")))
+                .get(i)
+                .copied()
+                .unwrap_or(false))
     })
 }
 
@@ -528,6 +534,63 @@ pub fn cs_type_name(written: &str) -> Option<String> {
     let word = !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_');
     (word && !cs_names_no_type(name) && !name.chars().next()?.is_ascii_digit())
         .then(|| name.to_owned())
+}
+
+pub fn cs_namespace_pick(text: &str, line1: usize, written: &str, found: &[String]) -> Vec<usize> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\u{feff}?\s*(?:global\s+)?using\s+(\w+)\s*=\s*([\w.]+)\s*;")
+            .expect("the regex is a literal")
+    });
+    let after_namespace = text
+        .lines()
+        .skip_while(|l| !cs_namespace_line(l))
+        .any(|l| l.trim_start().starts_with("using "));
+    let t = written.trim().trim_end_matches('?');
+    let t = t.split_once('<').map_or(t, |(head, _)| head);
+    let (absolute, t) = t
+        .strip_prefix("global::")
+        .map_or((false, t), |rest| (true, rest));
+    if after_namespace || t.contains("::") {
+        return Vec::new();
+    }
+    let qualifier = t.rsplit_once('.').map_or("", |(q, _)| q);
+    let inside = cs_namespace(text, line1);
+    let mut levels: Vec<&str> = Vec::new();
+    if !absolute {
+        let mut at = inside.as_str();
+        while !at.is_empty() {
+            levels.push(at);
+            at = at.rsplit_once('.').map_or("", |(outer, _)| outer);
+        }
+    }
+    levels.push("");
+    let join = |a: &str, b: &str| match (a.is_empty(), b.is_empty()) {
+        (true, _) => b.to_owned(),
+        (_, true) => a.to_owned(),
+        _ => format!("{a}.{b}"),
+    };
+    for level in levels {
+        let mut wanted = vec![join(level, qualifier)];
+        if level.is_empty() && !absolute {
+            if qualifier.is_empty() {
+                wanted.extend(cs_usings(text));
+            } else {
+                let (head, rest) = qualifier.split_once('.').unwrap_or((qualifier, ""));
+                wanted.extend(
+                    (text.lines().filter_map(|l| ALIAS.captures(l)))
+                        .filter(|c| &c[1] == head)
+                        .map(|c| join(&c[2], rest)),
+                );
+            }
+        }
+        let picked: Vec<usize> = (0..found.len())
+            .filter(|&i| wanted.contains(&found[i]))
+            .collect();
+        if !picked.is_empty() {
+            return picked;
+        }
+    }
+    Vec::new()
 }
 
 pub fn cs_awaited(written: &str) -> Option<&str> {

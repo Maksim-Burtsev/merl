@@ -35,17 +35,17 @@ public class Table
         //               ^ d: picker src/Shop/Tea/Kettle.Parts.cs:3, src/Shop/Tea/Kettle.cs:13, src/Shop/Tea/Stale/Kettle.cs:3; want src/Shop/Tea/Kettle.cs:17 (#935)
         Kettle near = kettle;
         return kettle.Pour(1) + pot.Pour(1) + old.Pour(1) + near.Pour(1) + Spices.Grind();
-        //            ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Kettle.cs:24 (#935)
-        //                          ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Teapot.cs:18 (#935)
-        //                                        ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Stale/Kettle.cs:5 (#935)
-        //                                                       ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Kettle.cs:24 (#935)
+        //            ^ d: src/Shop/Tea/Kettle.cs:24
+        //                          ^ d: src/Shop/Tea/Teapot.cs:18
+        //                                        ^ d: src/Shop/Tea/Stale/Kettle.cs:5
+        //                                                       ^ d: src/Shop/Tea/Kettle.cs:24
         //                                                                        ^ d: src/Shop/Tea/Teapot.cs:25
     }
 
     public int Lid(Teapot pot)
     {
         int Lid = pot.Lid;
-        //            ^ d: picker src/Shop/Tea/Teapot.cs:20, src/Shop/Tea/Teapot.cs:45; want src/Shop/Tea/Teapot.cs:20 (#935)
+        //            ^ d: src/Shop/Tea/Teapot.cs:20
         return Lid;
         //     ^ d: src/Shop/Tea/Teapot.cs:47
     }
@@ -56,12 +56,12 @@ public class Table
         Func<Teapot, int> f = cup => cup.Pour(1);
         //                               ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Teapot.cs:18 (#939)
         return f(new Teapot()) + cup.Pour(1);
-        //                           ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Kettle.cs:24 (#935)
+        //                           ^ d: src/Shop/Tea/Kettle.cs:24
     }
 
     public int Fresh(Stale.Kettle stale) => stale.Pour(3) + new Stale.Kettle().Pour(4);
     //                     ^ d: picker src/Shop/Tea/Kettle.Parts.cs:3, src/Shop/Tea/Kettle.cs:13, src/Shop/Tea/Stale/Kettle.cs:3; want src/Shop/Tea/Stale/Kettle.cs:3 (#935)
-    //                                            ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Stale/Kettle.cs:5 (#935)
+    //                                            ^ d: src/Shop/Tea/Stale/Kettle.cs:5
     //                                                                         ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Stale/Kettle.cs:5 (#935)
 
     public int Names(IPourer pourer) => pourer.Pour() + nameof(Steam).Length;

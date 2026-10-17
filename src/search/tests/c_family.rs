@@ -1638,6 +1638,32 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     assert_eq!(literals("Equals(spout)"), None);
     assert_eq!(literals("Equals(2L)"), None);
     assert_eq!(literals("Equals()"), None);
+    let file =
+        "using Shop.Pricing;\nusing Stale = Shop.Tea.Stale;\n\nnamespace Shop.Tea;\n\nclass T {}";
+    let found: Vec<String> = [
+        "Shop.Tea.Stale",
+        "Shop",
+        "Shop.Tea",
+        "Shop.Pricing",
+        "Shop.Tea",
+    ]
+    .map(str::to_owned)
+    .to_vec();
+    let pick = |written: &str| cs_namespace_pick(file, 6, written, &found);
+    assert_eq!(pick("Kettle"), vec![2, 4]);
+    assert_eq!(pick("Stale.Kettle"), vec![0]);
+    assert_eq!(pick("global::Shop.Kettle"), vec![1]);
+    assert_eq!(pick("Pricing.Kettle"), vec![3]);
+    assert_eq!(cs_namespace_pick(file, 6, "Kettle", &found[3..4]), vec![0]);
+    assert_eq!(
+        cs_namespace_pick(file, 6, "Kettle", &found[..1]),
+        Vec::<usize>::new()
+    );
+    let inner = "namespace Shop.Tea\n{\n    using Shop.Pricing;\n    class T {}\n}";
+    assert_eq!(
+        cs_namespace_pick(inner, 4, "Kettle", &found),
+        Vec::<usize>::new()
+    );
     let keywords = |line: &str| cs_parameter_keywords(line, 1, "Equals");
     assert_eq!(
         keywords("bool Equals([In] int a, string b = \"\", int? c, ref int d, Int32 e)"),
