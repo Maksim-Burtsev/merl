@@ -54,4 +54,4 @@ wait via h: Hasher
 │                            │
 └────────────────────────────┘
 worker/internal/crc/mode.cc  7:22  [code]  Sum → Hasher::Sum (via h: Hasher)                                                                                                       14:32
-cursor (x,y,shown) 54,6,1
+cursor (x,y,shown) 54,6,0

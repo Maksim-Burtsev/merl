@@ -54,4 +54,4 @@ wait find → OrderRepo.find (via this.repo: OrderRepo)
 
 
 web/src/orders/repo.ts  7:3  [code]  find → OrderRepo.find (via this.repo: OrderRepo)                                                                                              14:32
-cursor (x,y,shown) 5,6,1
+cursor (x,y,shown) 5,6,0

@@ -54,4 +54,4 @@ wait app/uow.py ●  21:45  [code]
 
 
 app/uow.py ●  21:45  [code]  changed on disk: Ctrl+S overwrites, Ctrl+R reloads                                                                                                    14:32
-cursor (x,y,shown) 47,20,1
+cursor (x,y,shown) 47,20,0

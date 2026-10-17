@@ -54,4 +54,4 @@ wait report.m (local)
 │                            │
 └────────────────────────────┘
 jlshop/scripts/report.jl  4:5  [code]  m → report.m (local)                                                                                                                        14:32
-cursor (x,y,shown) 36,3,1
+cursor (x,y,shown) 36,3,0

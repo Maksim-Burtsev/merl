@@ -54,4 +54,4 @@ wait Pop → Queue.Pop (via q: Queue)
 53         {name: "sync", worker: true},
 54         {name: "audit"},
 worker/internal/queue/queue.go  15:5  [code]  Pop → Queue.Pop (via q: Queue)                                                                                                       14:32
-cursor (x,y,shown) 7,14,1
+cursor (x,y,shown) 7,14,0

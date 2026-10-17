@@ -54,4 +54,4 @@ wait class_name Player
 │                            │
 └────────────────────────────┘
 godotshop/actors/player.gd  1:1  [code]                                                                                                                                            14:32
-cursor (x,y,shown) 32,0,1
+cursor (x,y,shown) 32,0,0

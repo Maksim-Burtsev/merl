@@ -54,4 +54,4 @@ wait - ✔️ Cancelled orders show the reason the customer gave, under the tota
 
 
 docs/notes.md  38:46  [code]                                                                                                                                                       14:32
-cursor (x,y,shown) 48,37,1
+cursor (x,y,shown) 48,37,0

@@ -54,4 +54,4 @@ wait no preview for .py
 │                            │
 └────────────────────────────┘
 app/service.py  1:1  [code]  no preview for .py                                                                                                                                    14:32
-cursor (x,y,shown) 33,0,1
+cursor (x,y,shown) 33,0,0

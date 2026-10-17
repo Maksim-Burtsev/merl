@@ -54,4 +54,4 @@ wait pkgs: local
 │                            │
 └────────────────────────────┘
 nixshop/hosts/web.nix  1:11  [code]  pkgs: local                                                                                                                                   14:32
-cursor (x,y,shown) 42,0,1
+cursor (x,y,shown) 42,0,0

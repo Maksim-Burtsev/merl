@@ -54,4 +54,4 @@ wait 5▎    token = "abcdef"
 
 
 scripts/grant_admin.py  5:17  [code]                                                                                                                                               14:32
-cursor (x,y,shown) 18,4,1
+cursor (x,y,shown) 18,4,0

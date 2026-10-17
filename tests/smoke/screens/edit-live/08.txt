@@ -54,4 +54,4 @@ wait changed on disk: Ctrl+S overwrites, Ctrl+R reloads
 
 
 app/service.py ●  37:44  [edit]  Spaces: 4  changed on disk: Ctrl+S overwrites, Ctrl+R reloads                                                                                     14:32
-cursor (x,y,shown) 46,28,1
+cursor (x,y,shown) 46,28,0

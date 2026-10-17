@@ -54,4 +54,4 @@ wait .env  3:30  [code]
 
 
 .env  3:30  [code]                                                                                                                                                                 14:32
-cursor (x,y,shown) 31,2,1
+cursor (x,y,shown) 31,2,0

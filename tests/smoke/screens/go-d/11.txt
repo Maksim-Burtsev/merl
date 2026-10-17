@@ -54,4 +54,4 @@ wait Job: by name, 1 match
 
 
 worker/internal/queue/queue.proto  10:9  [code]  Job: by name, 1 match                                                                                                             14:32
-cursor (x,y,shown) 11,9,1
+cursor (x,y,shown) 11,9,0

@@ -54,4 +54,4 @@ wait no definition for AppendLine in the project (via sb: StringBuilder)
 │                            │
 └────────────────────────────┘
 billing/Outbox.cs  19:12  [code]  no definition for AppendLine in the project (via sb: StringBuilder)                                                                              14:32
-cursor (x,y,shown) 44,18,1
+cursor (x,y,shown) 44,18,0

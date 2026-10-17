@@ -54,4 +54,4 @@ wait via self: Lock
 
 
 ios/Protected.swift  2:10  [code]  lock → Lock.lock (via self: Lock)                                                                                                               14:32
-cursor (x,y,shown) 12,1,1
+cursor (x,y,shown) 12,1,0

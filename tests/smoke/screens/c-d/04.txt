@@ -54,4 +54,4 @@ wait i → crc32::i (local)
 │                            │
 └────────────────────────────┘
 worker/internal/crc/crc.c  19:14  [code]  i → crc32::i (local)                                                                                                                     14:32
-cursor (x,y,shown) 46,18,1
+cursor (x,y,shown) 46,18,0

@@ -54,4 +54,4 @@ wait shop_binary: via import
 │                            │
 └────────────────────────────┘
 bazelshop/tools/defs.bzl  1:5  [code]  shop_binary: via import bazelshop/tools/defs.bzl                                                                                            14:32
-cursor (x,y,shown) 36,0,1
+cursor (x,y,shown) 36,0,0

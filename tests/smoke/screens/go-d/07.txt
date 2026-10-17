@@ -54,4 +54,4 @@ wait jobs → drain.jobs (local)
 
 
 worker/main.go  45:5  [code]  jobs → drain.jobs (local)                                                                                                                            14:32
-cursor (x,y,shown) 7,27,1
+cursor (x,y,shown) 7,27,0

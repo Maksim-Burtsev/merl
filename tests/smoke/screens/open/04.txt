@@ -54,4 +54,4 @@ wait app/uow.py  8:14  [code]  2/7
 │                            │
 └────────────────────────────┘
 app/uow.py  8:14  [code]  2/7                                                                                                                                                      14:32
-cursor (x,y,shown) 46,7,1
+cursor (x,y,shown) 46,7,0

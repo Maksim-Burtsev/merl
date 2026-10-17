@@ -54,4 +54,4 @@ wait Address: by name, 1 match
 │                            │
 └────────────────────────────┘
 shop.app/Address.cs  2:14  [code]  Address: by name, 1 match                                                                                                                       14:32
-cursor (x,y,shown) 45,1,1
+cursor (x,y,shown) 45,1,0

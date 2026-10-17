@@ -54,4 +54,4 @@ wait Value: local
 
 
 ios/Publisher.swift  1:24  [code]  Value: local                                                                                                                                    14:32
-cursor (x,y,shown) 25,0,1
+cursor (x,y,shown) 25,0,0

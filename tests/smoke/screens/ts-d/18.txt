@@ -54,4 +54,4 @@ wait total → Receipt.total (via receipt: Receipt)
 
 
 web/src/orders/receipt.js  3:23  [code]  total → Receipt.total (via receipt: Receipt)                                                                                              14:32
-cursor (x,y,shown) 25,2,1
+cursor (x,y,shown) 25,2,0

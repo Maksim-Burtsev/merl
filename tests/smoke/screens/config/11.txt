@@ -54,4 +54,4 @@ wait Makefile  12:1  [code]  lint: by name, 1 match
 
 
 Makefile  12:1  [code]  lint: by name, 1 match                                                                                                                                     14:32
-cursor (x,y,shown) 3,11,1
+cursor (x,y,shown) 3,11,0

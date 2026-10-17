@@ -54,4 +54,4 @@ wait replicas: {{ .Values.replicaCount }}
 │                            │
 └────────────────────────────┘
 deploy/helm/orders/templates/deployment.yaml  1:1  [code]                                                                                                                          14:32
-cursor (x,y,shown) 33,0,1
+cursor (x,y,shown) 33,0,0

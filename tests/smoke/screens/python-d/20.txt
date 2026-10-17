@@ -54,4 +54,4 @@ wait page_url → page_links.page_url
 
 
 app/api.py  35:9  [code]  page_url → page_links.page_url (local)                                                                                                                   14:32
-cursor (x,y,shown) 11,27,1
+cursor (x,y,shown) 11,27,0

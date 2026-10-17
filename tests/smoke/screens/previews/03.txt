@@ -54,4 +54,4 @@ wait id,customer,total
 │                            │
 └────────────────────────────┘
 data/refunds.csv  1:1  [code]  nowrap                                                                                                                                              14:32
-cursor (x,y,shown) 32,0,1
+cursor (x,y,shown) 32,0,0
