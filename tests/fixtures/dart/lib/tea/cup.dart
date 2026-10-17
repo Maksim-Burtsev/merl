@@ -23,3 +23,9 @@ class Cup {
   String mark() => stale.toString();
   //               ^ d: lib/tea/cup.dart:22
 }
+
+// A closure parameter hides the outer one of its name on the same line.
+void serveAll(Kettle kettle) => [Teapot()].forEach((Teapot kettle) => kettle.pour(1));
+//                                                                           ^ d: picker lib/tea/teapot.dart:6, …
+void serveEach(Kettle kettle) => [Teapot()].forEach((kettle) => kettle.pour(1));
+//                                                                     ^ d: picker lib/tea/teapot.dart:6, …

@@ -647,6 +647,18 @@ pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
     let declared = rule(format!(
         r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const)\s+)*(?:([a-z_$][\w$]*)\.)?([A-Z][\w$]*)(?:<[^()]*>)?\??\s+{w}\s*(?:[,)=;}}\]]|$)"
     ));
+    let assigned = rule(format!(r"(?:final|var|const|late)\s+{w}\s*=\s*{DART_NEW}"));
+    let closure = rule(format!(
+        r"[(,]\s*{w}\s*(?:,[^()]*)?\)\s*(?:async\s*)?(?:=>|\{{)"
+    ));
+    if [&declared, &assigned, &closure]
+        .iter()
+        .map(|r| r.find_iter(line).count())
+        .sum::<usize>()
+        > 1
+    {
+        return None;
+    }
     if let Some(c) = declared.captures(line) {
         return Some(DartType {
             prefix: c.get(1).map(|m| m.as_str().to_owned()),
@@ -654,7 +666,6 @@ pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
             constructor: None,
         });
     }
-    let assigned = rule(format!(r"(?:final|var|const|late)\s+{w}\s*=\s*{DART_NEW}"));
     let c = assigned.captures(line)?;
     let (ty, close) = dart_new(line, &c, c.get(0)?.end() - 1)?;
     line.get(close..)?
