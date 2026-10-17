@@ -1302,6 +1302,20 @@ const STARLARK: &[&str] = &[
     ")",
 ];
 
+const SOLIDITY: &[&str] = &[
+    "contract A is B {\n",
+    "}\n",
+    "function f(uint256 a) public view returns (bool) {\n",
+    "emit E(msg.sender);\n",
+    "/// @notice ",
+    "/**",
+    "*/",
+    "// ",
+    "\"",
+    "{",
+    ";",
+];
+
 const GRAPHQL: &[&str] = &[
     "type A {\n",
     "}\n",
@@ -1639,6 +1653,11 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
         STARLARK,
     ),
     (
+        "f.sol",
+        include_bytes!("../../../tests/colors/solidity/Token.sol").as_slice(),
+        SOLIDITY,
+    ),
+    (
         "CMakeLists.txt",
         include_bytes!("../../../tests/colors/cmake/CMakeLists.txt").as_slice(),
         CMAKE,
@@ -1680,6 +1699,12 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
         include_bytes!("../../../tests/colors/java/Ledger.java"),
         JAVA,
         2445..=2445,
+    );
+    replay_tree_sitter(
+        "f.sol",
+        include_bytes!("../../../tests/colors/solidity/Token.sol"),
+        SOLIDITY,
+        614..=614,
     );
 }
 

@@ -121,6 +121,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/starlark/injections.scm"),
     ),
     (
+        "solidity",
+        include_str!("../queries/solidity/highlights.scm"),
+        include_str!("../queries/solidity/injections.scm"),
+    ),
+    (
         "proto",
         include_str!("../queries/proto/highlights.scm"),
         include_str!("../queries/proto/injections.scm"),
@@ -479,6 +484,7 @@ fn grammar(name: &str) -> Option<Language> {
         "nginx" => tree_sitter_nginx::LANGUAGE.into(),
         "gdscript" => tree_sitter_gdscript::LANGUAGE.into(),
         "starlark" => tree_sitter_starlark::LANGUAGE.into(),
+        "solidity" => tree_sitter_solidity::LANGUAGE.into(),
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
         "sql" => tree_sitter_sequel::LANGUAGE.into(),
@@ -808,7 +814,7 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
         {
             return row;
         }
-        if x.has_error() || y.has_error() {
+        if x.id() != y.id() {
             match (a.goto_first_child(), b.goto_first_child()) {
                 (true, true) => continue,
                 (false, false) => {}

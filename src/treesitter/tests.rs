@@ -313,6 +313,11 @@ fn starlark_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn solidity_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("solidity");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -953,6 +958,8 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("bzl", Some("starlark")),
         ("star", Some("starlark")),
         ("python", Some("python")),
+        ("solidity", Some("solidity")),
+        ("sol", Some("solidity")),
         ("hcl", Some("hcl")),
         ("terraform", Some("terraform")),
         ("tfvars", Some("terraform")),
