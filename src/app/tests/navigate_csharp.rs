@@ -224,7 +224,7 @@ fn a_file_sees_its_own_project_and_the_ones_it_references() {
             ),
             (
                 "Shop.App/Page.cs",
-                "namespace Shop.App;\npublic class Page\n{\n    public Address Home() => new Address { Street = \"Main\" };\n}\n",
+                "using Shop.Api;\nusing Shop.App;\nnamespace Shop.Web;\npublic class Page\n{\n    public Address Home() => new Address { Street = \"Main\" };\n}\n",
             ),
         ]
     };
