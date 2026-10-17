@@ -26,7 +26,7 @@ pub trait Pour {
 
     fn twice(&self) -> u32 {
         self.pour() * 2
-//           ^ d: picker src/tea/kettle.rs:12, src/tea/kettle.rs:25, src/tea/kettle.rs:34, src/tea/kettle.rs:38, src/tea/cups.rs:5, src/tea/teapot.rs:8; want src/tea/kettle.rs:25 (#989)
+//           ^ d: src/tea/kettle.rs:25
     }
 }
 

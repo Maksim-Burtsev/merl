@@ -45,7 +45,7 @@ pub fn two_traits(p: &Pot) -> u32 {
 
 pub fn bound<T: Spill>(t: &T) -> u32 {
     t.pour()
-//    ^ d: picker src/tea/cups.rs:5, src/tea/kettle.rs:12, src/tea/kettle.rs:25, src/tea/kettle.rs:34, src/tea/kettle.rs:38, src/tea/teapot.rs:8; want src/tea/kettle.rs:34 (#989)
+//    ^ d: src/tea/kettle.rs:34
 }
 
 pub fn twice(k: &Kettle) -> u32 {

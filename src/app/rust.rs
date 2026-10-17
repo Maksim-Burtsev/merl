@@ -780,9 +780,15 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
-        let (mut ty, link) = self
-            .rust_value_type(here, text, self.line, &chain[0])
-            .ok_or_else(|| chain[0].clone())?;
+        let Some((mut ty, link)) = self.rust_value_type(here, text, self.line, &chain[0]) else {
+            if let [name] = chain
+                && call
+                && let Some(found) = self.rust_trait_bound(here, text, word, name)
+            {
+                return Ok(found);
+            }
+            return Err(chain[0].clone());
+        };
         let mut links = vec![link];
         for (i, field) in chain.iter().enumerate().skip(1) {
             let next = self
@@ -1022,18 +1028,21 @@ impl App {
         Some((hit, written))
     }
 
-    fn rust_type_files(&self, ty: &Typed) -> (Vec<PathBuf>, Vec<PathBuf>) {
-        let own = self.rust_crate_of(&ty.path);
-        let files: Vec<PathBuf> = self
-            .files
+    fn rust_crate_rs(&self, p: &Path) -> Vec<PathBuf> {
+        let own = self.rust_crate_of(p);
+        self.files
             .iter()
             .filter(|f| f.extension().is_some_and(|e| e == "rs") && self.rust_crate_of(f) == own)
             .cloned()
-            .collect();
+            .collect()
+    }
+
+    fn rust_type_files(&self, ty: &Typed) -> Vec<PathBuf> {
+        let files = self.rust_crate_rs(&ty.path);
         let decl = search::rust_type_decl_pattern(&ty.name);
         match self.grep_in(&decl, &files).len() {
-            0 | 1 => (files.clone(), files),
-            _ => (vec![ty.path.clone()], files),
+            0 | 1 => files,
+            _ => vec![ty.path.clone()],
         }
     }
 
@@ -1063,7 +1072,7 @@ impl App {
             let arg = ARG.captures(line.get(range.end..)?)?;
             (self.rust_value_type(here, text, self.line, &arg[1])?.0, tr)
         };
-        let (files, _) = self.rust_type_files(&ty);
+        let files = self.rust_type_files(&ty);
         let hits: Vec<Hit> = self
             .grep_in(&search::rust_method_pattern(word), &files)
             .into_iter()
@@ -1130,10 +1139,62 @@ impl App {
         })
     }
 
+    fn rust_trait_bound(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        name: &str,
+    ) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let (files, own, traits) = if name == "self" {
+            let t = search::rust_self_trait(&lines, self.line)?;
+            (vec![here.to_path_buf()], Some(t + 1), Vec::new())
+        } else {
+            let [b] = &search::bindings(Kind::Rust, text, self.line + 1, name)[..] else {
+                return None;
+            };
+            let search::RustHolds::Type(w) = search::rust_holds(&lines, b.line1 - 1, name)? else {
+                return None;
+            };
+            let param = w.trim_start_matches('&').trim_start_matches("mut ").trim();
+            let traits = search::rust_bounds(&lines, b.line1 - 1, param);
+            if traits.is_empty() {
+                return None;
+            }
+            (self.rust_crate_rs(here), None, traits)
+        };
+        let found: Vec<(Hit, String)> = self
+            .grep_in(&search::rust_method_pattern(word), &files)
+            .into_iter()
+            .filter_map(|h| {
+                let t = self.text_of(&h.path)?;
+                let lines: Vec<&str> = t.lines().collect();
+                if search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) == Some(&true) {
+                    return None;
+                }
+                let m = search::rust_method_at(&lines, h.line1)?;
+                let search::RustOwner::Trait(tr) = m.owner else {
+                    return None;
+                };
+                let fits = match own {
+                    Some(line1) => m.owner_line1 == line1,
+                    None => traits.contains(&tr),
+                };
+                fits.then_some((h, tr))
+            })
+            .collect();
+        let [(hit, tr)] = <[(Hit, String); 1]>::try_from(found).ok()?;
+        Some(vec![Candidate {
+            hit,
+            reason: Reason::Trait(tr),
+        }])
+    }
+
     fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
         let decl = search::rust_type_decl_pattern(&ty.name);
-        let (files, _) = self.rust_type_files(ty);
+        let files = self.rust_type_files(ty);
         let method = |hits: Vec<Hit>, owner: &dyn Fn(&search::RustOwner, &str) -> bool| {
             hits.into_iter()
                 .filter(|h| {
