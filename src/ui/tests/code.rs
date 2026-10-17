@@ -107,9 +107,10 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             "............",
             "....########",
             "..##########",
-            "--##--------"
+            "..##........"
         ],
-        "the line above the selection stays clean; the cursor line keeps its highlight"
+        "the line above the selection stays clean; while a selection is on screen the cursor \
+         line has no band, as in Neovim's Visual mode (#554)"
     );
     app.key(KeyEvent::new(
         KeyCode::Left,
@@ -117,9 +118,8 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ));
     assert_eq!(
         paint(&mut app)[3],
-        "--..........",
-        "ending at the start of the cursor line selects none of its text: lit in the gutter \
-         only, as in VS Code, or past the selection it would pass for selected text"
+        "............",
+        "ending at the start of the cursor line selects none of its text, and the line has no band"
     );
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
@@ -145,7 +145,47 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
 }
 
 #[test]
-fn selecting_inside_a_wrapped_line_keeps_its_highlight_on_the_other_rows() {
+fn under_a_selection_the_line_number_is_drawn_as_cursor_line_nr_alone() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"abc\n"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load("iceberg").unwrap();
+    assert_eq!(
+        (theme.bg, theme.line_hl, theme.cursor_gutter_bg()),
+        (
+            Color::Rgb(0x16, 0x18, 0x21),
+            Color::Rgb(0x1e, 0x21, 0x32),
+            Color::Rgb(0x2a, 0x31, 0x58)
+        ),
+        "iceberg's CursorLineNr has a background of its own"
+    );
+    let mut terminal = Terminal::new(TestBackend::new(10, 3)).unwrap();
+    let mut gutter = |app: &mut App| {
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let c = &terminal.backend().buffer()[(0, 0)];
+        (c.fg, c.bg)
+    };
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    assert_eq!(
+        gutter(&mut app),
+        (theme.cursor_gutter_fg, theme.cursor_gutter_bg()),
+        "as Neovim draws it in Visual mode: CursorLineNr's own colours, not the band (#554)"
+    );
+    app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert_eq!(
+        gutter(&mut app),
+        (theme.cursor_gutter_fg, theme.line_hl),
+        "the selection gone, the band is back under the number"
+    );
+}
+
+#[test]
+fn selecting_inside_a_wrapped_line_takes_the_band_off_all_its_rows() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     let mut app = App::new(
         PathBuf::from("/demo"),
@@ -188,8 +228,8 @@ z
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     assert_eq!(
         paint(&mut app),
-        ["------####", "--####----", "----------", ".........."],
-        "Shift+Up selects half a row up to the cursor, the rest of the line stays highlighted"
+        ["......####", "..####....", "..........", ".........."],
+        "Shift+Up selects half a row up to the cursor, and no row of the line keeps the band"
     );
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
@@ -204,8 +244,14 @@ z
     assert_eq!(app.file_selection(), Some(((0, 16), (1, 0))));
     assert_eq!(
         paint(&mut app),
-        ["----------", "----------", "--########", ".........."],
-        "Shift+Up from the start of the next line: the rows above the cursor keep the highlight"
+        ["..........", "..........", "..########", ".........."],
+        "Shift+Up from the start of the next line: the cursor's rows have no band either"
+    );
+    app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert_eq!(
+        paint(&mut app)[..3],
+        ["----------", "----------", "----------"],
+        "the selection gone, the band is back"
     );
 }
 
@@ -1930,11 +1976,31 @@ fn a_selection_over_a_changed_word_draws_the_selection_not_the_word() {
     let mut terminal = Terminal::new(TestBackend::new(24, 5)).unwrap();
     app.key(KeyEvent::new(KeyCode::End, KeyModifiers::SHIFT));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    drop(std::fs::remove_dir_all(&dir));
     assert_eq!(rows(&terminal)[2], "2\u{258e}    return a >= b");
     let buf = terminal.backend().buffer();
     let x = (0..24).find(|&x| buf[(x, 2)].symbol() == ">").unwrap();
     let gt = &buf[(x, 2)];
     assert_eq!(gt.bg, theme.selection);
     assert_ne!(gt.fg, theme.word_fg);
+    assert_eq!(
+        buf[(23, 2)].bg,
+        theme.add_bg,
+        "past the selection the added line keeps its tint without the band (#554)"
+    );
+    for (code, m) in [
+        (KeyCode::Esc, KeyModifiers::NONE),
+        (KeyCode::Up, KeyModifiers::NONE),
+        (KeyCode::Left, KeyModifiers::SHIFT),
+    ] {
+        app.key(KeyEvent::new(code, m));
+    }
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    drop(std::fs::remove_dir_all(&dir));
+    assert_eq!(app.at(), TextLine::Deleted(1, 0));
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(0, 1)].bg, buf[(23, 1)].bg),
+        (theme.cursor_gutter_bg(), theme.del_bg),
+        "a selection on a deleted line takes the band off it too"
+    );
 }
