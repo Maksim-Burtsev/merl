@@ -423,7 +423,9 @@ not declare (#1001): a function nested in its body, `Mill.grind` on the construc
 extending `Grinder` and a JSDoc `{Grinder}` parameter. `scoop.js` declares a `var` again in a
 `for`, in a nested function, in an arrow callback and in a template literal, and in another
 function (#1003). `brew.cjs` names in JSDoc braces a `@typedef` of a string, a constructor
-function and a class behind a `require`, and a `Kettle` the file does not import (#1002).
+function and a class behind a `require`, and a `Kettle` the file does not import (#1002);
+`dosing.js` holds braces JSDoc must not read: a code line continuing a product with `* f({ x })`,
+an object literal after a one-line `/** @type {…} */`, and a word in braces in a plain comment.
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`

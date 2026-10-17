@@ -12,7 +12,7 @@ const { Roaster } = require("./roast.cjs");
 /** @param {Roaster} r */
 //          ^ d: coffee/roast.cjs:7
 /** @param {Kettle} k */
-//          ^ d: none
+//          ^ d: picker coffee/kettle.mjs:1, tea/kettle.ts:1
 /** @returns {Origin} */
 //            ^ d: coffee/brew.cjs:6
 function brew(g, o, r, k) {
