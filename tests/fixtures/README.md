@@ -240,6 +240,14 @@ initializer list, overloads, ADL beside a global namesake, a qualified definitio
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
 `leaf_alias.cc` passes an argument typed by a `using` alias named like `infuse::Leaf`, which
 must neither pick an overload nor add a namespace.
+`stale_again.cc` opens `namespace stale {` again and writes `using namespace stale;`, which
+must not turn `stale::Kettle` into a picker, and has a `tray` that is a namespace in one place and
+a class in another, where the picker stays (#1019); `wrap.cc` writes `tidy::Napkin` inside
+`infuse`, where a `tidy` of its own and a global one are two namespaces, not one. `brew_line.cc`
+(and `c/src/brew_line.c`) call a declared and defined function from a one-line function, whose
+body holds no parameter (#1020); `brew.hh`'s prototype stays apart from the definition in
+`brew_hidden.hh`, which the file does not include, and joins the one in `brew_impl.hh`, which it
+does; an out-of-class `operator()` keeps its parameters.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
