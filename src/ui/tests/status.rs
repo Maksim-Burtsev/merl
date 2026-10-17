@@ -227,3 +227,30 @@ fn a_prompt_keeps_the_right_edge_for_its_count() {
         "{line:?}"
     );
 }
+
+#[test]
+fn with_no_file_open_the_bar_holds_only_the_message_and_the_clock() {
+    let bar = |say: fn(&mut App)| {
+        let mut app = App::new(
+            PathBuf::from("/work/app"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::empty(),
+            None,
+        );
+        app.clock = Some("14:32".into());
+        say(&mut app);
+        let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(60, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+        rows(&terminal).pop().unwrap()
+    };
+    assert_eq!(bar(|_| {}).trim(), "14:32");
+    let said = bar(|app| app.message = "start of history".into());
+    assert!(
+        said.starts_with("start of history") && said.ends_with("14:32"),
+        "{said:?}"
+    );
+    let about = bar(|app| app.say_about(&PathBuf::from("/work/app/gone.rs"), " deleted"));
+    assert!(about.starts_with("gone.rs deleted"), "{about:?}");
+}

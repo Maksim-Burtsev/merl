@@ -91,6 +91,12 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             style,
         ),
     ];
+    let gap = if app.buf.path.is_some() {
+        "  "
+    } else {
+        spans.iter_mut().for_each(|s| s.content = "".into());
+        ""
+    };
     if app.conflict {
         spans.push(Span::styled(
             "  changed on disk: Ctrl+S overwrites, Ctrl+R reloads",
@@ -101,7 +107,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         spans.push(Span::styled(format!("  {review}"), style));
     }
     if !app.message.is_empty() {
-        spans.push(Span::styled(format!("  {}", app.message), style));
+        spans.push(Span::styled(format!("{gap}{}", app.message), style));
     }
     let rest = spans[1..]
         .iter()
@@ -123,10 +129,10 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
             .iter()
             .map(|s| wrap::width(&s.content))
             .sum::<usize>();
-        let room = (area.width as usize).saturating_sub(before + 2);
+        let room = (area.width as usize).saturating_sub(before + gap.len());
         let (name, why) = app.message.split_at(*len);
         let name = fit_path(name, room.saturating_sub(wrap::width(why)));
-        spans.last_mut().expect("the bar has spans").content = format!("  {name}{why}").into();
+        spans.last_mut().expect("the bar has spans").content = format!("{gap}{name}{why}").into();
     }
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     if let Some((time, w)) = clock {
