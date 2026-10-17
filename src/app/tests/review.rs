@@ -2507,7 +2507,12 @@ fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
     let mut c = |a: &mut App, code: KeyCode, m: KeyModifiers| {
         press(a, code, m);
         t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
-        (a.buf.path.clone().unwrap(), a.line, a.top_line, a.bottom_line())
+        (
+            a.buf.path.clone().unwrap(),
+            a.line,
+            a.top_line,
+            a.bottom_line(),
+        )
     };
     let tall = dir.join("big");
     let mut now = c(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
@@ -2517,7 +2522,11 @@ fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
         }
         now = c(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     }
-    assert_eq!((&now.0, now.1), (&tall, 0), "the hunk's first row, as before");
+    assert_eq!(
+        (&now.0, now.1),
+        (&tall, 0),
+        "the hunk's first row, as before"
+    );
     let first_screen = now.3;
     now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(
@@ -2528,11 +2537,7 @@ fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
     now = c(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
     let scrolled_to = now.3;
     now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    assert_eq!(
-        now.1,
-        scrolled_to + 1,
-        "rows Ctrl+D drew count as seen"
-    );
+    assert_eq!(now.1, scrolled_to + 1, "rows Ctrl+D drew count as seen");
     let mut stops = vec![now.1];
     for _ in 0..9 {
         if now.0 != tall {
@@ -2545,6 +2550,10 @@ fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
         a.seen[Path::new("big")].is_superset(&(0..60).map(TextLine::File).collect()),
         "every row of the hunk was drawn before c left it: {stops:?}"
     );
-    assert_eq!(now.0, dir.join("crlf.txt"), "then on to the next file, as before");
+    assert_eq!(
+        now.0,
+        dir.join("crlf.txt"),
+        "then on to the next file, as before"
+    );
     drop(std::fs::remove_dir_all(dir));
 }
