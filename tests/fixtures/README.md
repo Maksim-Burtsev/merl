@@ -395,6 +395,17 @@ beside a module-level namesake, `this` in an arrow and in a `function` that decl
 Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
 template literal.
 
+`typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
+`.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
+`Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,
+`exports.darken = function` and `exports.Roaster = class`, a destructured and renamed `require`,
+an anonymous `export default function`, a getter, a class field beside a method of its name in
+another class and in the same one, a `var` declared twice, a function called above its
+declaration, a JSDoc `@typedef`, and declaration-shaped lines in a template literal and comments.
+Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
+`require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
+import named like a prototype method of the exported constructor (`firing.mjs`).
+
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`
 that does not, members of `Kettle` declared in extensions, a nested `Kettle.Lid` beside a
