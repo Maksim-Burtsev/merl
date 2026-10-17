@@ -5,11 +5,12 @@ use super::c::{
     Head, c_code, c_head, c_head_start, c_innermost_open_brace, c_struct_head, c_words_on_line,
 };
 
+static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:^|[\n;])\s*(?:inline\s+)?namespace\b\s*((?:\w+\s*::\s*)*\w+)?\s*$")
+        .expect("the regex is a literal")
+});
+
 pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
-    static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[\n;])\s*(?:inline\s+)?namespace\b\s*((?:\w+\s*::\s*)*\w+)?\s*$")
-            .expect("the regex is a literal")
-    });
     let mut out: Vec<String> = Vec::new();
     let mut at = pos;
     while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
@@ -35,11 +36,51 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
 pub fn cpp_scoped_name(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
     let at = *c_words_on_line(&code, line1, name, None).first()?;
-    let mut path = cpp_scope_path(&code, at);
-    (!path.is_empty()).then(|| {
-        path.push(name.to_owned());
-        path.join("::")
-    })
+    let rest = code.get(at + name.len()..)?.trim_start();
+    let body = rest.starts_with('{')
+        || rest.starts_with("final")
+        || (rest.starts_with(':') && !rest.starts_with("::"));
+    if !body || code.get(..at)?.trim_end().ends_with("::") {
+        return None;
+    }
+    let mut path = vec![name.to_owned()];
+    let mut pos = at;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), pos) {
+        let head = code.get(c_head_start(&code, open)..open)?;
+        let named = match (c_struct_head(head), NAMESPACE.captures(head)) {
+            (Some(class), _) if !class.is_empty() && !head.contains("::") => class,
+            (None, Some(c)) => c.get(1)?.as_str().to_owned(),
+            _ => return None,
+        };
+        path.extend(named.rsplit("::").map(|p| p.trim().to_owned()));
+        pos = open;
+    }
+    path.reverse();
+    (path.len() > 1).then(|| path.join("::"))
+}
+
+pub fn cpp_alias_in_scope(text: &str, pos: usize, alias: &str) -> Option<Vec<String>> {
+    let code = c_code(text);
+    let re = Regex::new(&format!(
+        r"\bnamespace\s+{}\s*=\s*((?:\w+\s*::\s*)*\w+)\s*;",
+        regex::escape(alias)
+    ))
+    .ok()?;
+    let mut open = Vec::new();
+    let mut at = pos.min(code.len());
+    while let Some(o) = c_innermost_open_brace(code.as_bytes(), at) {
+        open.push(o);
+        at = o;
+    }
+    let seen = |start: usize| {
+        start < pos
+            && c_innermost_open_brace(code.as_bytes(), start).is_none_or(|o| open.contains(&o))
+    };
+    let c = re
+        .captures_iter(&code)
+        .filter(|c| c.get(0).is_some_and(|m| seen(m.start())))
+        .last()?;
+    Some(c[1].split("::").map(|p| p.trim().to_owned()).collect())
 }
 
 pub fn cpp_namespace_alias(code: &str, alias: &str) -> Option<Vec<String>> {
