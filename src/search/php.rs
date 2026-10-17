@@ -385,6 +385,101 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
     Some(PhpResolved { full, imported })
 }
 
+pub fn php_new_receiver(before: &str) -> Option<String> {
+    static NEW: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$>:])\(\s*new\s+([\w\\]+)\s*(?:\([^()]*\))?\s*\)\s*(?:\?->|->)\s*$")
+            .expect("the regex is a literal")
+    });
+    let written = NEW.captures(before)?.get(1)?.as_str();
+    let short = written.rsplit('\\').next().unwrap_or(written);
+    (!NO_CLASS.contains(&short.to_ascii_lowercase().as_str()) && short != "class")
+        .then(|| written.to_owned())
+}
+
+pub fn php_function_at(line: &str, range: Range<usize>) -> Option<String> {
+    let (before, word, after) = (
+        line.get(..range.start)?,
+        line.get(range.clone())?,
+        line.get(range.end..)?,
+    );
+    if !after.trim_start().starts_with('(') {
+        return None;
+    }
+    let pre = before.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\');
+    let written = format!("{}{word}", before.get(pre.len()..)?);
+    let pre = pre.trim_end();
+    let last = pre
+        .trim_end_matches('&')
+        .trim_end()
+        .rsplit(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let not_a_call = pre.ends_with(['$', '>', ':'])
+        || pre.ends_with("#[")
+        || matches!(last.as_str(), "function" | "fn" | "new" | "use" | "const");
+    (!not_a_call && !written.ends_with('\\')).then_some(written)
+}
+
+pub fn php_function_names(text: &str, written: &str) -> Vec<PhpResolved> {
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^use\s+function\s+([\w\\\s,]+?)\s*;").expect("the regex is a literal")
+    });
+    static GROUP: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").expect("the regex is a literal")
+    });
+    if let Some(full) = written.strip_prefix('\\') {
+        return vec![PhpResolved {
+            full: full.to_owned(),
+            imported: false,
+        }];
+    }
+    if written.contains('\\') {
+        return php_resolve(text, written).into_iter().collect();
+    }
+    let used = USE
+        .captures_iter(text)
+        .flat_map(|c| {
+            c[1].split(',')
+                .map(|item| item.trim().to_owned())
+                .collect::<Vec<_>>()
+        })
+        .find_map(|item| {
+            let (path, alias) = match item.split_once(" as ") {
+                Some((path, alias)) => (path.trim().to_owned(), alias.trim().to_owned()),
+                None => (item.clone(), item.rsplit('\\').next()?.to_owned()),
+            };
+            (alias == written).then(|| path.trim_start_matches('\\').to_owned())
+        });
+    if let Some(full) = used {
+        return vec![PhpResolved {
+            full,
+            imported: true,
+        }];
+    }
+    let grouped = GROUP.captures_iter(text).any(|c| {
+        c[1].split(',')
+            .any(|item| item.trim().rsplit([' ', '\\']).next() == Some(written))
+    });
+    if grouped {
+        return Vec::new();
+    }
+    let global = PhpResolved {
+        full: written.to_owned(),
+        imported: false,
+    };
+    match php_namespace(text) {
+        Some(ns) => vec![
+            PhpResolved {
+                full: format!("{ns}\\{written}"),
+                imported: false,
+            },
+            global,
+        ],
+        None => vec![global],
+    }
+}
+
 pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     static MAP: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).expect("the regex is a literal")
@@ -467,6 +562,60 @@ pub enum PhpBinding {
     StaticCall { class: String, method: String },
     ThisCall(String),
     FunctionCall(String),
+    ThisProperty(String),
+    Captured,
+}
+
+pub fn php_captures(line: &str, name: &str) -> bool {
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bfunction\b[^{]*\buse\s*\(([^)]*)\)").expect("the regex is a literal")
+    });
+    let var = format!("${name}");
+    let code = php_code(line);
+    USE.captures(&code).is_some_and(|c| {
+        c[1].split(',').any(|item| item.trim() == var)
+            && !code
+                .get(..c.get_match().start())
+                .is_some_and(|head| head.contains(&var))
+    })
+}
+
+pub fn php_last_binding(text: &str, from: usize, to: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Php, text);
+    let Some(own) = lines.get(from).map(|l| php_code(l)) else {
+        return false;
+    };
+    let own = own.trim();
+    let assigns = own.strip_prefix(&format!("${name}")).is_some_and(|rest| {
+        rest.trim_start().starts_with('=') && !rest.trim_start().starts_with("==")
+    });
+    let opens_statement = (0..from)
+        .rev()
+        .filter(|&i| literal.get(i) != Some(&true))
+        .map(|i| php_code(lines[i]).trim().to_owned())
+        .find(|l| !l.is_empty())
+        .is_none_or(|l| l.ends_with([';', '{', '}']));
+    if !assigns || !opens_statement || !own.ends_with(';') || from >= to {
+        return false;
+    }
+    let mut depth = 0i32;
+    for (i, line) in lines.iter().enumerate().take(to).skip(from + 1) {
+        if literal.get(i) == Some(&true) {
+            continue;
+        }
+        for c in php_code(line).bytes() {
+            match c {
+                b'{' => depth += 1,
+                b'}' => depth -= 1,
+                _ => {}
+            }
+            if depth < 0 {
+                return false;
+            }
+        }
+    }
+    depth == 0
 }
 
 const NO_CLASS: &[&str] = &[
@@ -540,6 +689,8 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         LazyLock::new(|| Regex::new(r"^([\w\\]+)::(\w+)\s*\(").expect("the regex is a literal"));
     static THIS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*\(").expect("the regex is a literal"));
+    static PROPERTY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*;").expect("the regex is a literal"));
     static FUNCTION: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^([\w\\]+)\s*\(").expect("the regex is a literal"));
     let first = statement.lines().next().unwrap_or_default();
@@ -570,6 +721,9 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         let lower = class.to_ascii_lowercase();
         return (lower != "static" && lower != "class" && lower != "parent")
             .then_some(PhpBinding::New(class));
+    }
+    if let Some(c) = PROPERTY.captures(value) {
+        return Some(PhpBinding::ThisProperty(c[1].to_owned()));
     }
     let open = value.find('(')?;
     call_ends_statement(open)?;
