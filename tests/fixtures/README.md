@@ -404,8 +404,10 @@ template literal.
 an anonymous `export default function`, a getter, a class field beside a method of its name in
 another class, in the same one (also static, named like a prefix of `static`, beside a static
 method read through `this`, declared after the method, named `get`, inherited by a subclass, and
-behind `super`), a `var` declared twice, a function called above its declaration, a JSDoc
-`@typedef`, and declaration-shaped lines in a template literal and comments.
+behind `super`, where the answer is the runtime's method: tsserver 6 answers the field, its
+binder dropping a method declared after a field of its name), a `var` declared twice, a
+function called above its declaration, a JSDoc `@typedef`, and declaration-shaped lines in a
+template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).
