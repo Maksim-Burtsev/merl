@@ -221,6 +221,7 @@ fn ruby_patterns(word: &str) -> Vec<String> {
     let method = vec![
         format!(r"^\s*def\s+(?:self\??\.|[A-Z]\w*\.)?{w}{end}"),
         format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
+        format!(r"^\s*define_method\s*\(?\s*:{w}{end}"),
         format!(
             r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
         ),

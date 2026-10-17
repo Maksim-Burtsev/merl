@@ -172,6 +172,14 @@ fn block_binds(line: &str, name: &str) -> bool {
         .is_some_and(|c| param_names(&c[1]).iter().any(|p| p == name))
 }
 
+fn block_on_line_binds(line: &str, name: &str) -> bool {
+    static PARAMS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:\bdo|\{)\s*\|([^|]*)\|").expect("the regex is a literal"));
+    PARAMS
+        .captures_iter(&uncommented(Kind::Ruby, line))
+        .any(|c| param_names(&c[1]).iter().any(|p| p == name))
+}
+
 pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let n = regex::escape(name);
     let local = Regex::new(&format!(
@@ -182,7 +190,7 @@ pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
         line1: line + 1,
         value: Value::Unknown,
     };
-    if def_binds(lines, at, name) || block_binds(lines[at], name) {
+    if def_binds(lines, at, name) || block_on_line_binds(lines[at], name) {
         return vec![found(at)];
     }
     let text = lines.join("\n");

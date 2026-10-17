@@ -425,6 +425,14 @@ extension functions (one named like a member) with their implicit and labelled `
 default arguments, `when` subjects and smart casts, an import alias of `brew.stale.Samovar`, and
 declaration-shaped lines in a KDoc, a raw string and a string template.
 
+`ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
+Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
+`attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides
+and a `Fillable` one the `Kettle` extends, `def self.cold` beside an instance `cold`, `class <<
+self`, `define_method(:whistle)`, `steep = steep() + 1` and `steep * steep()`, a block parameter
+hiding a method on its own line and one hiding a parameter over lines, and a heredoc declaring
+`descale`, `Teapot` and `whistle`.
+
 ### Adding a kind
 
 1. Make `tests/fixtures/<kind>/`, a small project laid out as the language lays one out (a
