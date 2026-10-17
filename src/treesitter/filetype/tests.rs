@@ -46,3 +46,8 @@ fn bazel_and_starlark_files_get_starlark_and_other_python_stays_python() {
         assert_eq!(by_python(f), Some("python"), "{f}");
     }
 }
+
+#[test]
+fn solidity_files_get_their_grammar() {
+    assert!(sexp("a.sol", b"contract A {}\n").contains("(contract_declaration "));
+}
