@@ -36,9 +36,9 @@ serve() {
 
 for cup in 1 2; do
   echo "$cup"
-  #      ^ d: none; want bin/tea.sh:37 (#957)
+  #      ^ d: bin/tea.sh:37
 done
 
 read -r teapot
 echo "$teapot"
-#      ^ d: none; want bin/tea.sh:42 (#957)
+#      ^ d: bin/tea.sh:42

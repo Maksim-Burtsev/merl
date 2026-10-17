@@ -617,6 +617,9 @@ impl App {
             let lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
             let mine = search::shell_function_at(&lines, self.line);
             hits.retain(|h| {
+                if let Some(binds) = search::shell_loop_binds(&h.text, word) {
+                    return binds && h.path == here;
+                }
                 let Some(text) = self.text_of(&h.path) else {
                     return true;
                 };

@@ -48,6 +48,48 @@ pub fn shell_local_of(line: &str) -> Option<Vec<&str>> {
         .collect();
     Some(names)
 }
+pub fn shell_loop_binds(line: &str, name: &str) -> Option<bool> {
+    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:for|select)\s+(\w+)\s*(?:\bin\b|;|$)").expect("the regex is a literal")
+    });
+    static READ: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:while|until)\s+)?(?:\w+=\S*\s+)*(read|mapfile|readarray)\s+(.*)")
+            .expect("the regex is a literal")
+    });
+    if let Some(c) = FOR.captures(line) {
+        return Some(&c[1] == name);
+    }
+    let c = READ.captures(line)?;
+    let read = &c[1] == "read";
+    let takes = if read { "adinNptu" } else { "dnOsuCc" };
+    let is_name = |n: &str| {
+        n.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && n.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    let mut words = shell_words(c.get(2).map_or("", |m| m.as_str())).into_iter();
+    while let Some(w) = words.next() {
+        if let Some(flags) = w.strip_prefix('-') {
+            if flags.ends_with(|f| takes.contains(f)) {
+                let arg = words.next()?;
+                if read && flags.ends_with('a') && arg == name {
+                    return Some(true);
+                }
+            }
+            continue;
+        }
+        let n = w.split([';', '|', '&', '<', '>']).next().unwrap_or("");
+        if !is_name(n) {
+            break;
+        }
+        if n == name {
+            return Some(true);
+        }
+        if n.len() < w.len() || !read {
+            break;
+        }
+    }
+    Some(false)
+}
 #[expect(
     clippy::match_same_arms,
     reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
