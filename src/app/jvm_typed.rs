@@ -56,12 +56,27 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let smart = || {
-            kotlin
-                .then(|| search::jvm_smart_cast(text, line, before, first))
-                .flatten()
+        let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
+        let narrowed = || {
+            let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, first));
+            smart.flatten().or_else(|| {
+                let lambda =
+                    kt.then(|| search::kotlin_lambda_collection(text, line, before, first));
+                Self::kotlin_element(text, line, &lambda.flatten()?)
+            })
         };
+        let labelled = |f: &str| before.trim_end().ends_with(&format!("this@{f}."));
         let (mut ty, mut links) = match first.as_str() {
+            f if labelled(f)
+                || (f == "this" && search::jvm_enclosing_types(text, line).is_empty()) =>
+            {
+                let ext = kt.then(|| search::kotlin_extension_at(text, line, before))??;
+                if first != "this" && ext.name != *first {
+                    return None;
+                }
+                let ty = self.jvm_type_at(here, text, &ext.receiver);
+                (ty, vec![format!("this: {}", ext.receiver)])
+            }
             "this" => {
                 let lines: Vec<&str> = text.lines().collect();
                 let decl = search::jvm_enclosing_types(text, line)
@@ -80,7 +95,7 @@ impl App {
                 let WrittenType {
                     resolved: ty,
                     written,
-                } = match smart() {
+                } = match narrowed() {
                     Some(t) => WrittenType {
                         resolved: self.jvm_type_at(here, text, &t),
                         written: t,
@@ -109,7 +124,7 @@ impl App {
     fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
         if !written.contains('.') {
             let found = self
-                .jvm_members(here, text, written)
+                .jvm_members(here, text, "", written)
                 .or_else(|| self.jvm_imported_all(text, &[], written, false))
                 .unwrap_or_default();
             let named =
@@ -229,7 +244,13 @@ impl App {
             r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b"
         };
         let narrowed = Regex::new(&narrowing.replace("{0}", &regex::escape(name))).ok()?;
-        if narrowed.is_match(text) {
+        let own_when = kotlin
+            .then(|| search::jvm_when_else(text, line1, name))
+            .flatten();
+        if narrowed
+            .find_iter(text)
+            .any(|m| text.get(..m.start()).map(|t| t.matches('\n').count() + 1) != own_when)
+        {
             return None;
         }
         let lines: Vec<&str> = text.lines().collect();
@@ -268,6 +289,23 @@ impl App {
             found = Some(this);
         }
         found
+    }
+
+    fn kotlin_element(text: &str, line1: usize, name: &str) -> Option<String> {
+        let mut declared: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect();
+        if declared.is_empty() {
+            declared = search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .map(|d| search::jvm_members_of(text, d, name))
+                .find(|m| !m.is_empty())?;
+        }
+        let [l] = declared[..] else {
+            return None;
+        };
+        search::kotlin_element_type(text.lines().nth(l.checked_sub(1)?)?, name)
     }
 
     fn jvm_returned(

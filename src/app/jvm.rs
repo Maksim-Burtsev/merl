@@ -262,6 +262,7 @@ impl App {
         &self,
         here: &Path,
         text: &str,
+        before: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let lines: Vec<&str> = text.lines().collect();
@@ -275,6 +276,13 @@ impl App {
             },
             reason,
         };
+        let kotlin = here.extension().is_some_and(|e| e == "kt" || e == "kts");
+        if kotlin
+            && let Some(line) =
+                search::kotlin_initializer_parameter(text, self.line + 1, before, word)
+        {
+            return Some(vec![candidate(here, &lines, line, Reason::Local)]);
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for &decl in &types {
@@ -320,6 +328,24 @@ impl App {
                         }),
                 );
             }
+        }
+        if found.is_empty()
+            && types.is_empty()
+            && kotlin
+            && word.starts_with(|c: char| c.is_ascii_lowercase())
+            && let Some(ext) = search::kotlin_extension_at(text, self.line + 1, before)
+            && let super::jvm_typed::JvmType::Project(decl) =
+                self.jvm_type_at(here, text, &ext.receiver)
+        {
+            let reason = Reason::Receiver(format!("this: {}", ext.receiver));
+            found = self
+                .jvm_hierarchy_member(&decl, word, 0, &mut Vec::new())
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect();
         }
         let on_it = found
             .iter()

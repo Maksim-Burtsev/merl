@@ -41,7 +41,7 @@ impl App {
             && !dotted
             && !before.ends_with("::")
             && locals.is_empty())
-        .then(|| self.jvm_members(&a.here, &a.text, &a.word))
+        .then(|| self.jvm_members(&a.here, &a.text, before, &a.word))
         .flatten();
         let nested_type =
             |c: &Candidate| search::jvm_type_name(&c.hit.text).is_some_and(|name| name == a.word);
@@ -95,7 +95,10 @@ impl App {
             let reason = Reason::Import(path.join("/"));
             return self.show_found(a, vec![Candidate { hit, reason }]);
         }
-        if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !a.own() {
+        if kind == Kind::Jvm
+            && (dotted || before.ends_with("::"))
+            && (!a.own() || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty())
+        {
             let literal = dotted
                 && chain.is_empty()
                 && before.strip_suffix('.').is_some_and(|b| b.ends_with('"'));
