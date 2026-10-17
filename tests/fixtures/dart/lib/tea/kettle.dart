@@ -8,7 +8,7 @@ class Kettle {
   Kettle.cold() : cups = 0;
   Kettle.boiled(this.cups);
   Kettle.again() : this.cold();
-  //                    ^ d: picker lib/tea/kettle.dart:8, lib/tea/table.dart:10, lib/tea/teapot.dart:4; want lib/tea/kettle.dart:8 (#949)
+  //                    ^ d: lib/tea/kettle.dart:8
   factory Kettle.from(int n) => Kettle.boiled(n);
   //                                   ^ d: lib/tea/kettle.dart:9
 
