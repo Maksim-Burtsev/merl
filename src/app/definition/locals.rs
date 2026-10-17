@@ -48,6 +48,16 @@ impl App {
         if own_arrow || arrow_param || swift_closure || ruby_block {
             locals = vec![self.line + 1];
         }
+        let type_param = (kind == Kind::TsJs
+            && !a.dotted
+            && a.chain.is_empty()
+            && locals.is_empty()
+            && imports.iter().all(|i| i.name != *word))
+        .then(|| search::ts_type_param(&a.text, self.line + 1, word))
+        .flatten();
+        if let Some(p) = &type_param {
+            locals = vec![p.line1];
+        }
         if !locals.is_empty() {
             imports.retain(|i| i.name != a.first());
         }
@@ -80,7 +90,7 @@ impl App {
         if self.answered_by_locals(
             a,
             &locals,
-            same_line || own_line || own_arrow || python_inline,
+            same_line || own_line || own_arrow || python_inline || type_param.is_some(),
         ) {
             return None;
         }

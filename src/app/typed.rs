@@ -512,7 +512,11 @@ impl App {
                 if path.is_some_and(|p| hidden(kind, file, text, b.line1, &p[0])) {
                     return None;
                 }
-                self.type_decl(kind, file, t).map(|ty| TypeVia {
+                let ty = match &b.value {
+                    search::Value::Type(_) => self.annotated_type(kind, file, text, b.line1, t),
+                    _ => self.type_decl(kind, file, t),
+                };
+                ty.map(|ty| TypeVia {
                     ty,
                     call_signature: None,
                 })
@@ -658,7 +662,11 @@ impl App {
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
                 (anonymous(&at, c.line1), None)
             } else {
-                (self.type_decl(kind, &at, &element)?, Some(link))
+                let line1 = if at == file { c.line1 } else { 0 };
+                (
+                    self.annotated_type(kind, &at, text, line1, &element)?,
+                    Some(link),
+                )
             };
             match &found {
                 Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => {
@@ -726,10 +734,39 @@ impl App {
             }
             _ => return None,
         };
-        let ty = self.type_decl(kind, &decl.path, &written)?;
+        let ty = self.annotated_type(kind, &decl.path, &text, decl.line1, &written)?;
         Some(TypeVia {
             ty,
             call_signature: Some(signature),
+        })
+    }
+
+    fn annotated_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        written: &str,
+    ) -> Option<Typed> {
+        if kind != Kind::TsJs {
+            return self.type_decl(kind, file, written);
+        }
+        let param = search::type_path(kind, written)
+            .filter(|p| p.len() == 1)
+            .and_then(|p| search::ts_type_param(text, line1, &p[0]));
+        let written = match param {
+            Some(p) => p.constraint?,
+            None => written.to_owned(),
+        };
+        self.type_decl(kind, file, &written).or_else(|| {
+            let parts = search::type_path(kind, &written)?;
+            let decl = self.type_declaration(kind, file, &parts)?;
+            Some(Typed {
+                name: declared_name(kind, &decl.text, &parts),
+                path: decl.path,
+                line: decl.line1,
+            })
         })
     }
 

@@ -5,6 +5,19 @@ use super::{
 
 impl App {
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
+        self.declared(kind, file, parts, false)
+    }
+
+    pub(super) fn type_declaration(
+        &self,
+        kind: Kind,
+        file: &Path,
+        parts: &[String],
+    ) -> Option<Hit> {
+        self.declared(kind, file, parts, true)
+    }
+
+    fn declared(&self, kind: Kind, file: &Path, parts: &[String], types_only: bool) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
         let interface = Regex::new(&format!(
             r"^\s*(?:export\s+)?(?:declare\s+)?interface\s+{}\b",
@@ -20,6 +33,14 @@ impl App {
         let one = |hits: Vec<Hit>| match <[Hit; 1]>::try_from(hits) {
             Ok([hit]) => Some(hit),
             Err(hits) if merged(&hits) => hits.into_iter().min_by_key(|h| h.line1),
+            Err(hits) if types_only => {
+                let types = hits
+                    .into_iter()
+                    .filter(|h| search::declares_type(kind, &h.text));
+                <[Hit; 1]>::try_from(types.collect::<Vec<_>>())
+                    .ok()
+                    .map(|[hit]| hit)
+            }
             Err(_) => None,
         };
         if chain.is_empty() || kind == Kind::TsJs {
@@ -640,7 +661,9 @@ impl App {
         let mut members = self.members_of(kind, t, word);
         let field = self.field_of(kind, t, word, false);
         if members.is_empty() {
-            return field.map(|hit| vec![hit]);
+            return field
+                .map(|hit| vec![hit])
+                .or_else(|| self.alias_literal_member(t, word));
         }
         let Some(field) = field.filter(|f| {
             !ts_modifiers(&f.text)
@@ -661,6 +684,20 @@ impl App {
         }
         members.push(field);
         Some(members)
+    }
+
+    fn alias_literal_member(&self, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&t.path)?;
+        let decl = text.lines().nth(t.line.checked_sub(1)?)?;
+        search::ts_alias_literal_member(decl, word).then(|| {
+            vec![Hit {
+                text: decl.to_owned(),
+                path: t.path.clone(),
+                line1: t.line,
+                byte_col: None,
+                deleted: None,
+            }]
+        })
     }
 
     pub(super) fn above(

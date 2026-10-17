@@ -702,3 +702,43 @@ fn literal_overloads_keep_the_matches_and_the_unknown_when_one_matches() {
         "an overload with fewer parameters than arguments is out"
     );
 }
+
+#[test]
+fn ts_type_param_reads_the_enclosing_declarations_list_and_never_a_call_s_arguments() {
+    let text = "export class Shelf<S extends Pot> {
+  take<T extends Map<string, S>, U = T>(a: T): U {
+    return a;
+  }
+}
+useMemo<Lid>(() => {
+  return 1;
+});
+const pick = <K,>(k: K) => k;
+function pour<C extends Cup>(
+  c: C,
+): C {
+  return c;
+}";
+    let at = |line, name| ts_type_param(text, line, name).map(|p| (p.line1, p.constraint));
+    assert_eq!(at(3, "T"), Some((2, Some("Map<string, S>".into()))));
+    assert_eq!(at(3, "U"), Some((2, None)));
+    assert_eq!(at(3, "S"), Some((1, Some("Pot".into()))));
+    assert_eq!(at(7, "Lid"), None);
+    assert_eq!(at(9, "K"), Some((9, None)));
+    assert_eq!(at(9, "string"), None);
+    assert_eq!(at(13, "C"), Some((10, Some("Cup".into()))));
+    assert_eq!(at(11, "C"), Some((10, Some("Cup".into()))));
+    assert_eq!(at(13, "K"), None);
+}
+
+#[test]
+fn ts_alias_literal_member_reads_a_one_line_object_type() {
+    let decl = "export type Blend = { leaves: number; water?: number };";
+    assert!(ts_alias_literal_member(decl, "leaves"));
+    assert!(ts_alias_literal_member(decl, "water"));
+    assert!(!ts_alias_literal_member(decl, "number"));
+    assert!(!ts_alias_literal_member(
+        "type Blend = Pot & { leaves: number };",
+        "leaves"
+    ));
+}
