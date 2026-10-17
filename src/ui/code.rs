@@ -153,6 +153,10 @@ impl<'a> Painter<'a> {
                 .bg(bg)
                 .add_modifier(theme.modifiers(groups))
         };
+        let text_hl = app.selection().is_none();
+        let hl_gutter = base
+            .fg(theme.cursor_gutter_fg)
+            .add_modifier(theme.modifiers(&["CursorLineNr"]));
         Self {
             app,
             theme,
@@ -169,15 +173,16 @@ impl<'a> Painter<'a> {
             ),
             tag: Style::new().bg(theme.tag_bg).fg(theme.tag_fg),
             hl: base.bg(theme.line_hl),
-            hl_gutter: base
-                .fg(theme.cursor_gutter_fg)
-                .bg(theme.line_hl)
-                .add_modifier(theme.modifiers(&["CursorLineNr"])),
+            hl_gutter: hl_gutter.bg(if text_hl {
+                theme.line_hl
+            } else {
+                theme.cursor_gutter_bg()
+            }),
             sel: theme
                 .selected(base)
                 .add_modifier(theme.modifiers(&["Visual"])),
             sel_lines: app.selection().map(|(start, end)| (start.0, end.0)),
-            text_hl: app.selected_bytes(app.at()).is_none_or(|r| !r.is_empty()),
+            text_hl,
             nowrap: app.nowrap(),
             review: app.review.is_some(),
             partner: app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect(),
