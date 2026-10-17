@@ -255,6 +255,7 @@ fn starts<'t>(split: &Split, root: Node<'t>, range: &Range<usize>, bytes: &[u8])
         if near.is_none() && !cursor.goto_first_child() {
             continue;
         }
+        let first = stack.len();
         loop {
             let child = cursor.node();
             if child.start_byte() > end {
@@ -267,6 +268,7 @@ fn starts<'t>(split: &Split, root: Node<'t>, range: &Range<usize>, bytes: &[u8])
                 break;
             }
         }
+        stack[first..].reverse();
     }
     out
 }
@@ -277,7 +279,7 @@ mod tests {
 
     use super::super::extends::themed;
     use super::super::{Patterns, lang};
-    use super::each_match;
+    use super::{each_match, starts};
 
     type Set = Vec<(usize, Vec<(u32, usize, usize)>)>;
 
@@ -321,8 +323,7 @@ mod tests {
         assert_eq!(count(&lang("python").unwrap().highlights), 0);
     }
 
-    #[test]
-    fn matches_split_by_tag_name_are_the_matches_of_one_query_from_the_root() {
+    fn html() -> String {
         let item = |i: usize| match i % 6 {
             _ if i == 100 => "<b>\n".to_owned() + &"w <i>z</i>\n".repeat(300) + "</b>\n",
             _ if i == 150 => "</p><v    <style>a { color: red; }</style>\n".to_owned(),
@@ -334,16 +335,57 @@ mod tests {
             _ if i % 4 == 1 => "<style>a { color: red; }</style>\n".to_owned(),
             _ => format!("text {i}\n"),
         };
-        let text = format!(
+        format!(
             "<html><body>\n{}</body></html>\n",
             (0..300).map(item).collect::<String>()
-        );
-        let bytes = text.as_bytes();
-        for name in ["html", "vue", "svelte", "xml"] {
+        )
+    }
+
+    fn repeated(lines: &[&str]) -> String {
+        (0..300)
+            .map(|i| lines[i % lines.len()].replace('N', &i.to_string()) + "\n")
+            .collect()
+    }
+
+    #[test]
+    fn matches_split_by_tag_name_are_the_matches_of_one_query_from_the_root() {
+        let ruby = repeated(&[
+            "require \"aN\"",
+            "require_relative \"bN\"",
+            "def fN(x) load \"c\" end",
+            "load \"dN\"; xN = 1",
+        ]);
+        let terraform = repeated(&[
+            "resource \"x\" \"yN\" {",
+            "  a = var.fooN",
+            "  b = path.root",
+            "  c = terraform.workspace",
+            "  d = local.zN.e",
+            "}",
+            "variable \"vN\" { type = string }",
+        ]);
+        let jsx = repeated(&[
+            "const aN = <div><style jsx>{`a { color: red; }`}</style><p>{x}</p></div>;",
+            "function fN() { return <style jsx>{`b { margin: 0; }`}</style>; }",
+            "const bN = <style>{`c {}`}</style>;",
+        ]);
+        let html = html();
+        let cases = [
+            ("html", &html),
+            ("vue", &html),
+            ("svelte", &html),
+            ("xml", &html),
+            ("ruby", &ruby),
+            ("terraform", &terraform),
+            ("javascript", &jsx),
+            ("tsx", &jsx),
+        ];
+        for (name, text) in cases {
+            let bytes = text.as_bytes();
             let lang = lang(name).unwrap();
             let mut parser = Parser::new();
             parser.set_language(&lang.language).unwrap();
-            let tree = parser.parse(&text, None).unwrap();
+            let tree = parser.parse(text, None).unwrap();
             let root = tree.root_node();
             let sets = [
                 Some(&lang.highlights),
@@ -351,7 +393,11 @@ mod tests {
                 lang.combined.as_ref(),
                 Some(&themed(lang, Some("moonfly")).highlights),
             ];
+            let mut heavy = 0;
             for p in sets.into_iter().flatten() {
+                if let Some(split) = &p.split {
+                    heavy += starts(split, root, &(0..text.len()), bytes).len();
+                }
                 let ranges = (0..text.len())
                     .step_by(61)
                     .flat_map(|at| [at..at + 2, at.saturating_sub(40)..at + 40, at..at])
@@ -367,12 +413,13 @@ mod tests {
                     each_match(p, root, &range, bytes, false, |m| {
                         add(&mut split, p, m, bytes);
                     });
-                    split.sort();
+                    split.sort_by_key(|(pattern, _)| *pattern);
                     let mut one = one;
-                    one.sort();
+                    one.sort_by_key(|(pattern, _)| *pattern);
                     assert_eq!(split, one, "{name} {range:?}");
                 }
             }
+            assert!(heavy > 0, "{name}");
         }
     }
 }
