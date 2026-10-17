@@ -1,9 +1,6 @@
 use regex::Regex;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
-use std::sync::{LazyLock, Mutex, PoisonError};
+use std::path::Path;
+use std::sync::LazyLock;
 
 const METHOD: &str = r"^[-+]\s*\((?:[^()]|\([^()]*\))*\)";
 
@@ -85,53 +82,14 @@ pub fn objc_file(path: &Path, text: impl FnOnce() -> String) -> bool {
             .expect("the regex is a literal")
     });
     match path.extension().and_then(|e| e.to_str()) {
-        Some("m") => objc_m(path),
+        Some("m") => objc_m(&text()),
         Some("mm") => true,
         Some("h") => MARK.is_match(&text()),
         _ => false,
     }
 }
 
-static ROOTS: LazyLock<Mutex<Vec<PathBuf>>> = LazyLock::new(Mutex::default);
-
-pub fn note_root(root: &Path) {
-    let mut roots = ROOTS.lock().unwrap_or_else(PoisonError::into_inner);
-    if !roots.iter().any(|r| r == root) {
-        roots.push(root.to_path_buf());
-    }
-}
-
-fn on_disk(path: &Path) -> PathBuf {
-    let roots = ROOTS.lock().unwrap_or_else(PoisonError::into_inner);
-    (roots.iter().rev())
-        .map(|r| r.join(path))
-        .find(|p| p.is_file())
-        .unwrap_or_else(|| path.to_path_buf())
-}
-
-pub fn objc_m(path: &Path) -> bool {
-    static SEEN: LazyLock<Mutex<HashMap<PathBuf, bool>>> = LazyLock::new(Mutex::default);
-    let seen = || SEEN.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(&objc) = seen().get(path) {
-        return objc;
-    }
-    let lines: Vec<String> = File::open(on_disk(path)).map_or_else(
-        |_| Vec::new(),
-        |f| {
-            BufReader::new(f)
-                .split(b'\n')
-                .take(99)
-                .map_while(Result::ok)
-                .map(|l| String::from_utf8_lossy(&l).into_owned())
-                .collect()
-        },
-    );
-    let objc = objc_m_text(&lines);
-    seen().insert(path.to_path_buf(), objc);
-    objc
-}
-
-fn objc_m_text(lines: &[String]) -> bool {
+pub fn objc_m(text: &str) -> bool {
     static RULES: LazyLock<[Regex; 3]> = LazyLock::new(|| {
         [
             r"^\s*/\*",
@@ -140,8 +98,9 @@ fn objc_m_text(lines: &[String]) -> bool {
         ]
         .map(|r| Regex::new(r).expect("the regex is a literal"))
     });
-    let mut comment = lines.iter().all(|l| l.trim().is_empty());
-    for line in lines {
+    let lines = || text.lines().take(99);
+    let mut comment = lines().all(|l| l.trim().is_empty());
+    for line in lines() {
         comment |= RULES[0].is_match(line);
         if RULES[1].is_match(line) {
             return true;
@@ -257,7 +216,6 @@ mod tests {
 
     #[test]
     fn a_dot_m_is_objective_c_by_vim_s_rule() {
-        let lines = |t: &str| t.lines().map(str::to_owned).collect::<Vec<_>>();
         for text in [
             "",
             "\n\n",
@@ -268,7 +226,7 @@ mod tests {
             "// Shop\n% not MATLAB\n",
             "/* Shop */\nint main(void) { return 0; }\n",
         ] {
-            assert!(objc_m_text(&lines(text)), "{text:?}");
+            assert!(objc_m(text), "{text:?}");
         }
         for text in [
             "% VL_SETUP\n#import <a.h>\n",
@@ -282,7 +240,7 @@ mod tests {
             "Type t: 0..1;\n",
             "-- Murphi\n",
         ] {
-            assert!(!objc_m_text(&lines(text)), "{text:?}");
+            assert!(!objc_m(text), "{text:?}");
         }
     }
 

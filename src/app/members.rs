@@ -405,9 +405,7 @@ impl App {
                 break;
             };
             let hits = self
-                .grep(&pattern, false, false, |p| {
-                    search::in_def_scope(kind, here, p)
-                })
+                .grep(&pattern, false, false, |p| self.in_def_scope(kind, here, p))
                 .unwrap_or_default();
             let mut next = Vec::new();
             let mut found = Vec::new();
