@@ -1,0 +1,55 @@
+use regex::Regex;
+
+use super::indent;
+
+pub fn js_constructor(line: &str) -> Option<&str> {
+    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+(?:default\s+)?)?function\s+([A-Za-z_$][\w$]*)\s*\(")
+            .expect("the regex is a literal")
+    });
+    Some(FUNCTION.captures(line)?.get(1)?.as_str())
+}
+pub fn js_exported_class(line: &str) -> bool {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:module\.)?exports\.[\w$]+\s*=\s*class\b")
+            .expect("the regex is a literal")
+    });
+    CLASS.is_match(line)
+}
+pub fn prototype_owner(header: &str) -> Option<&str> {
+    static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_$][\w$]*)\.prototype\.[\w$]+\s*=\s*(?:async\s+)?function\b")
+            .expect("the regex is a literal")
+    });
+    Some(METHOD.captures(header)?.get(1)?.as_str())
+}
+pub fn prototype_members(text: &str, name: &str, word: &str) -> Vec<usize> {
+    let assigned = Regex::new(&format!(
+        r"^\s*{}\.prototype\.{}\s*=[^=]",
+        regex::escape(name),
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    (1..)
+        .zip(text.lines())
+        .filter(|(_, l)| assigned.is_match(l))
+        .map(|(n, _)| n)
+        .collect()
+}
+pub fn constructor_field(text: &str, decl: usize, word: &str) -> Option<usize> {
+    let assigned = Regex::new(&format!(r"^this\.{}\s*=[^=]", regex::escape(word)))
+        .expect("an escaped name keeps the pattern valid");
+    let lines: Vec<&str> = text.lines().collect();
+    let head = indent(lines.get(decl.checked_sub(1)?)?);
+    let body = lines.get(decl..)?;
+    let end = body
+        .iter()
+        .position(|l| !l.trim().is_empty() && indent(l) <= head)?;
+    let level = body[..end]
+        .iter()
+        .find(|l| !l.trim().is_empty())
+        .map(|l| indent(l))?;
+    (0..end)
+        .find(|&i| indent(body[i]) == level && assigned.is_match(body[i].trim_start()))
+        .map(|i| decl + i + 1)
+}

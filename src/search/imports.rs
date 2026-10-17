@@ -435,6 +435,20 @@ pub enum ModuleExports {
     OneAssignment { line1: usize, name: Option<String> },
     Piecemeal,
 }
+pub fn cjs_export(name: &str) -> String {
+    format!(
+        r"^\s*(?:module\.)?exports\.{}\s*=\s*(?:async\s+)?(?:function\b|class\b|\([^()]*\)\s*=>|[\w$]+\s*=>)",
+        regex::escape(name)
+    )
+}
+pub fn cjs_exported_lines(text: &str, name: &str) -> Vec<usize> {
+    let export = Regex::new(&cjs_export(name)).expect("an escaped name keeps the pattern valid");
+    (1..)
+        .zip(text.lines())
+        .filter(|(_, l)| export.is_match(l))
+        .map(|(n, _)| n)
+        .collect()
+}
 pub fn module_exports(text: &str) -> Option<ModuleExports> {
     static WHOLE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^[ \t]*module\.exports\s*=\s*([^=\n][^\n]*)$")

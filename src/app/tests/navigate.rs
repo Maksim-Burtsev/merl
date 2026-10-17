@@ -1659,8 +1659,9 @@ fn c_includes_narrow_no_further_than_they_should() {
         "a prototype the file reaches yields to the definition it does not"
     );
     d_on(&mut a, "bar.cc", "{ Bar");
-    assert!(
-        matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+    assert_eq!(
+        place(shown(&mut a)),
+        "foo.cc:8",
         "a macro's braces inside `namespace {{` close nothing of the namespace's"
     );
     d_on(&mut a, "x/main.c", "return util");

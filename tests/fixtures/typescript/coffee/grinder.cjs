@@ -6,7 +6,7 @@ function Grinder(burr) {
 
 Grinder.prototype.grind = function (beans) {
   const viaArrow = () => this.burr;
-  //                          ^ d: none; want coffee/grinder.cjs:4 (#1001)
+  //                          ^ d: coffee/grinder.cjs:4
   const viaFunction = function () {
     return this.burr;
     //          ^ d: none
@@ -16,8 +16,8 @@ Grinder.prototype.grind = function (beans) {
 
 Grinder.prototype.coarse = function () {
   return this.grind(3) + this.burr;
-  //          ^ d: none; want coffee/grinder.cjs:7 (#1001)
-  //                          ^ d: none; want coffee/grinder.cjs:4 (#1001)
+  //          ^ d: coffee/grinder.cjs:7
+  //                          ^ d: coffee/grinder.cjs:4
 };
 
 module.exports = Grinder;
