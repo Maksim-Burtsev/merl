@@ -56,28 +56,21 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let smart = || {
-            kotlin
-                .then(|| search::jvm_smart_cast(text, line, before, first))
-                .flatten()
-        };
         let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
-        let extension = || {
-            kt.then(|| search::kotlin_extension_at(text, line, before))
-                .flatten()
-        };
-        let element = || {
-            let collection = kt
-                .then(|| search::kotlin_lambda_collection(text, line, before, first))
-                .flatten()?;
-            Self::kotlin_element(text, line, &collection)
+        let narrowed = || {
+            let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, first));
+            smart.flatten().or_else(|| {
+                let lambda =
+                    kt.then(|| search::kotlin_lambda_collection(text, line, before, first));
+                Self::kotlin_element(text, line, &lambda.flatten()?)
+            })
         };
         let labelled = |f: &str| before.trim_end().ends_with(&format!("this@{f}."));
         let (mut ty, mut links) = match first.as_str() {
             f if labelled(f)
                 || (f == "this" && search::jvm_enclosing_types(text, line).is_empty()) =>
             {
-                let ext = extension()?;
+                let ext = kt.then(|| search::kotlin_extension_at(text, line, before))??;
                 if first != "this" && ext.name != *first {
                     return None;
                 }
@@ -102,7 +95,7 @@ impl App {
                 let WrittenType {
                     resolved: ty,
                     written,
-                } = match smart().or_else(element) {
+                } = match narrowed() {
                     Some(t) => WrittenType {
                         resolved: self.jvm_type_at(here, text, &t),
                         written: t,
