@@ -509,9 +509,19 @@ impl App {
         h: &Hit,
     ) -> bool {
         let lines = literal_lines.entry(h.path.clone()).or_insert_with(|| {
-            (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(Kind::C, &t))
+            (self.text_of(&h.path)).map_or_else(Vec::new, |t| self.c_hidden(&h.path, &t))
         });
         !lines.get(h.line1 - 1).copied().unwrap_or(false)
+    }
+
+    pub(super) fn c_hidden(&self, path: &Path, text: &str) -> Vec<bool> {
+        let literal = search::literal_lines(Kind::C, text);
+        let mut dead = literal.clone();
+        search::hide_c_disabled(text, &mut dead);
+        let asked_in_dead = dead.get(self.line) == Some(&true)
+            && literal.get(self.line) != Some(&true)
+            && self.rel_current().is_some_and(|p| p == path);
+        if asked_in_dead { literal } else { dead }
     }
 
     pub(super) fn c_reached_only(

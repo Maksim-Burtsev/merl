@@ -951,12 +951,9 @@ impl App {
         if search::component(&h.path) && kind != Kind::Css {
             self.hidden_of(kind, h)
         } else {
-            (self.file_text(&h.path)).map_or_else(Vec::new, |t| {
-                let mut out = search::file_literal_lines(kind, &h.path, &t);
-                if kind == Kind::C {
-                    search::hide_c_disabled(&t, &mut out);
-                }
-                out
+            (self.file_text(&h.path)).map_or_else(Vec::new, |t| match kind {
+                Kind::C => self.c_hidden(&h.path, &t),
+                _ => search::file_literal_lines(kind, &h.path, &t),
             })
         }
     }
