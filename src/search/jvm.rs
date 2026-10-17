@@ -884,7 +884,9 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
         r"\bif\s*\(\s*{n}\s+is\s+{ty}\s*(?:\)|&&)|^\s*{n}\s+is\s+{ty}\s*->"
     ));
     let branch = rule(format!(r"^\s*is\s+{ty}\s*->"));
-    let subject = rule(format!(r"\bwhen\s*\(\s*{n}\s*\)\s*\{{\s*$"));
+    let subject = rule(format!(
+        r"\bwhen\s*\(\s*(?:{n}\s*|val\s+{n}\s*(?::[^=]*)?=.*)\)\s*\{{\s*$"
+    ));
     let lines: Vec<&str> = text.lines().collect();
     let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
     let header_of = |i: usize| {
@@ -925,6 +927,29 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
         i = h;
     }
     None
+}
+
+pub fn jvm_when_else(text: &str, line1: usize, name: &str) -> Option<usize> {
+    static ELSE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\s*else\s*->").expect("the regex is a literal"));
+    let subject = Regex::new(&format!(
+        r"\bwhen\s*\(\s*{}\s*\)\s*\{{\s*$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    if !ELSE.is_match(lines[at]) {
+        return None;
+    }
+    let depth = indent(lines[at]);
+    let head = (0..at).rev().find(|&j| {
+        let t = lines[j].trim_start();
+        !(t.is_empty() || comment(Kind::Jvm, t)) && indent(lines[j]) < depth
+    })?;
+    subject
+        .is_match(&uncommented(Kind::Jvm, lines[head]))
+        .then_some(head + 1)
 }
 
 pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {

@@ -170,7 +170,13 @@ impl App {
             r"\b{0}\s+instanceof\s|\(\s*[A-Z][\w.<>]*\s*\)\s*{0}\b"
         };
         let narrowed = Regex::new(&narrowing.replace("{0}", &regex::escape(name))).ok()?;
-        if narrowed.is_match(text) {
+        let own_when = kotlin
+            .then(|| search::jvm_when_else(text, line1, name))
+            .flatten();
+        if narrowed
+            .find_iter(text)
+            .any(|m| text.get(..m.start()).map(|t| t.matches('\n').count() + 1) != own_when)
+        {
             return None;
         }
         let lines: Vec<&str> = text.lines().collect();

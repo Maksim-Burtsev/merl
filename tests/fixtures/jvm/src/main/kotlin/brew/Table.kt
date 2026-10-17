@@ -38,7 +38,7 @@ class Table(val glass: Glass) {
         is Samovar -> v.dose()
         //              ^ d: src/main/kotlin/brew/Samovar.kt:15
         else -> v.scald()
-        //        ^ d: picker src/main/kotlin/brew/Glass.kt:10, src/main/kotlin/brew/Samovar.kt:32, src/main/kotlin/brew/Urn.kt:6; want src/main/kotlin/brew/Urn.kt:6 (#969)
+        //        ^ d: src/main/kotlin/brew/Urn.kt:6
     }
 
     fun hold(x: Any): Int {
@@ -46,7 +46,7 @@ class Table(val glass: Glass) {
         //                       ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:4 (#964)
         return when (val g = x) {
             is Samovar -> g.mint()
-            //              ^ d: picker src/main/kotlin/brew/Table.kt:9, src/main/kotlin/brew/Herbs.kt:4, src/main/kotlin/brew/Samovar.kt:19; want src/main/kotlin/brew/Samovar.kt:19 (#969)
+            //              ^ d: src/main/kotlin/brew/Samovar.kt:19
             else -> 0
         }
     }

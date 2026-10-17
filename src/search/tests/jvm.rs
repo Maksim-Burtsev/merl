@@ -207,3 +207,15 @@ fn jvm_assigned_calls_are_of_a_lowercase_name() {
     assert_eq!(call("    val s = make()"), Some((None, "make".to_owned())));
     assert_eq!(call("    val s = Make()"), None);
 }
+
+#[test]
+fn a_kotlin_when_subject_keeps_its_type_in_else_and_casts_when_bound_by_val() {
+    let text = "fun f(v: Urn, x: Any) {\n    when (v) {\n        is Glass -> v.dose()\n        else -> v.scald()\n    }\n    when (val g = x) {\n        is Samovar -> g.mint()\n    }\n}\n";
+    assert_eq!(jvm_when_else(text, 4, "v"), Some(2));
+    assert_eq!(jvm_when_else(text, 3, "v"), None, "an `is` branch");
+    assert_eq!(jvm_when_else(text, 4, "x"), None, "not the subject");
+    assert_eq!(
+        jvm_smart_cast(text, 7, "        is Samovar -> g.", "g").as_deref(),
+        Some("Samovar")
+    );
+}
