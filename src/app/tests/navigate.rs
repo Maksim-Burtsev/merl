@@ -566,7 +566,7 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
             "",
             "depot.rs",
             "Self::open",
-            picker("open: by name, 2 declarations", &rs),
+            jump("open \u{2192} Depot::open (via Self: Depot)", "depot.rs:4"),
         ),
         (
             "",

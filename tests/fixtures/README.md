@@ -237,6 +237,18 @@ interface implementation, a lambda parameter hiding a local and a `using` alias 
 initializer list, overloads, ADL beside a global namesake, a qualified definition of
 `stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block.
 
+`python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
+and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
+a local hiding the imported `steep`, `global` and `nonlocal`, a comprehension variable named like
+a module-level one, a class attribute beside an instance attribute of one name, `self.` and
+`super()` in a subclass, a wrapping decorator, an import under `TYPE_CHECKING` and one in
+`try`/`except ImportError`, a dataclass's fields, `match` captures (one named like an import),
+two star imports of one name, and declaration-shaped lines in a docstring and an f-string. A
+comprehension's iterable and a lambda's default read a module-level name. The `menu_*` modules
+star-import `infuse` where the later-wins rule must give up (#980): a later module with
+`__all__` (`listed`), one that mentions it without declaring it (`mentions`), an underscore
+name, and a star import below the use or indented.
+
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
 a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is
@@ -374,6 +386,33 @@ both kinds, each refusal of the issue, and declaration-shaped lines in a `"…"`
 beside a `%` comment holding `"""` and a `$"`. `lib/shop/seed.exs` calls a function in column zero,
 which declares nothing. Its annotations start with `%`.
 
+`typescript/tea/` is the adversarial corner of #974 for TypeScript, its answers tsserver's. A
+`Blend` that is a type alias and a const, an interface `Vessel` and a namespace `Caddy` each
+declared twice, an enum `Leaf` merged with a namespace, a function `steep` merged with one, a
+default-exported `Kettle` imported under two names (one through a chain of `export *` and a
+renaming re-export), `import type`, overloads of `boil`, destructured and renamed parameters
+beside a module-level namesake, `this` in an arrow and in a `function` that declares `this:
+Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
+template literal.
+
+`swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
+A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`
+that does not, members of `Kettle` declared in extensions, a nested `Kettle.Lid` beside a
+top-level `Lid`, computed properties, `pour` overloaded by argument label beside a top-level
+`pour`, two `init`s of `Cup`, `self` and implicit `self` in closures (`[weak self]`, `guard let
+self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter, `if let` over a
+property, a one-line closure whose parameter is named like a property, and declaration-shaped
+lines in a multi-line and a raw string.
+
+`rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
+`Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
+`Teapot` implements in two modules, called as a method, by `Trait::pour` and by `<T as Trait>::`;
+`self.pour()` in a trait's default method and on a generic bound; `Self` as a type and a path;
+`Kettle` and `Teapot as Pot` re-exported by `pub use`; an import shadowed by a local closure, a
+local and a parameter; a struct and its method declared by a `macro_rules!`; a closure parameter
+named like a field; an inherent `impl` in another module; and a doc comment and a raw string
+declaring what `cups.rs` declares.
+
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
@@ -398,6 +437,14 @@ nested and a top-level `Cosy`, a companion object, `it`, a lambda parameter and 
 extension functions (one named like a member) with their implicit and labelled `this`, named and
 default arguments, `when` subjects and smart casts, an import alias of `brew.stale.Samovar`, and
 declaration-shaped lines in a KDoc, a raw string and a string template.
+
+`ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
+Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
+`attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides
+and a `Fillable` one the `Kettle` extends, `def self.cold` beside an instance `cold`, `class <<
+self`, `define_method(:whistle)`, `steep = steep() + 1` and `steep * steep()`, a block parameter
+hiding a method on its own line and one hiding a parameter over lines, and a heredoc declaring
+`descale`, `Teapot` and `whistle`.
 
 ### Adding a kind
 

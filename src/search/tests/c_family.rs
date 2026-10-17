@@ -681,6 +681,25 @@ protocol Boxed {
 }
 
 #[test]
+fn a_swift_closure_on_one_line_binds_its_parameters_in_its_body() {
+    let param = |line: &str| swift_closure_param(line, "water", line.rfind("water").unwrap());
+    assert!(param("cups.map { water in water.ounces }"));
+    assert!(param(
+        "cups.map { [self] (water: Cup) -> Int in water.ounces }"
+    ));
+    assert!(param("cups.map { cup, water in water }"));
+    assert!(
+        !param("cups.map { water in water.ounces } + water"),
+        "past the closing brace"
+    );
+    assert!(!param("cups.map { cup in water }"), "another parameter");
+    assert!(
+        !param(r#"let s = "{ water in" + water"#),
+        "a brace in a string"
+    );
+}
+
+#[test]
 fn swift_def_patterns_tell_a_declaration_from_a_call_or_a_pattern() {
     let (dir, files) = scratch("swift-calls", &[("Session.swift", SWIFT)]);
     let d = |w| defs(&dir, &files, Kind::Swift, w);
@@ -1872,6 +1891,15 @@ fn csharp_declarations_and_expressions_give_their_written_types() {
         Some("Task<Order>")
     );
     assert_eq!(cs_returns("    public void Save(Order o)", "Save"), None);
+    for (line, want) in [
+        ("Func<Teapot, int> f = cup => cup.Pour(1);", Some("Teapot")),
+        ("Action<Pot> f = (cup) => cup.Pour();", Some("Pot")),
+        ("Func<A, B, int> f = cup => cup.Pour();", None),
+        ("Func<Pot, int> f = cup => cup.All(cup => cup.Ok);", None),
+        ("Func<Pot, int> f = x => cup.Pour();", None),
+    ] {
+        assert_eq!(cs_lambda_delegate(line, "cup").as_deref(), want, "{line}");
+    }
     assert_eq!(
         cs_extended("    public static int Count(this List<Item> items)").as_deref(),
         Some("List<Item>")

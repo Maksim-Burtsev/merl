@@ -71,6 +71,12 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
     ]
 }
 
+pub fn dart_bare_constructor(class: &str, word: &str) -> String {
+    let c = regex::escape(class);
+    let w = regex::escape(word);
+    format!(r"^\s+{ANNOTATIONS}{c}\.{w}\s*\(\s*\)\s*;")
+}
+
 pub fn dart_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) -> bool {
     static BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
@@ -138,7 +144,12 @@ static SHAPES: std::sync::LazyLock<Vec<Regex>> = std::sync::LazyLock::new(|| {
     let any = |s: &str| s.replace("NAME", r"[A-Za-z_$][\w$]*");
     [&p[0], &p[1], &p[2], &p[3]]
         .into_iter()
-        .chain([&format!("{}|{}", p[4], p[5])])
+        .chain([&format!(
+            "{}|{}|{}",
+            p[4],
+            p[5],
+            dart_bare_constructor("NAME", "NAME")
+        )])
         .chain([&p[6], &p[7]])
         .map(|s| Regex::new(&any(s)).expect("the regex is a literal"))
         .collect()

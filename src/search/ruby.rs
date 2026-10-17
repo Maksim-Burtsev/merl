@@ -4,8 +4,8 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, group, indent, literal_lines, ruby_assignment, ruby_singleton, split_top,
-    uncommented,
+    Binding, Kind, Value, code, group, indent, literal_lines, ruby_assignment, ruby_singleton,
+    split_top, uncommented,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -172,6 +172,33 @@ fn block_binds(line: &str, name: &str) -> bool {
         .is_some_and(|c| param_names(&c[1]).iter().any(|p| p == name))
 }
 
+pub fn ruby_block_param(line: &str, name: &str, at: usize) -> bool {
+    static PARAMS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*\|([^|]*)\|").expect("the regex is a literal"));
+    let b = line.as_bytes();
+    let word = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
+    let keyword = |i: usize, w: &str| {
+        line.get(i..).is_some_and(|s| s.starts_with(w))
+            && (i == 0 || !word(&b[i - 1]))
+            && b.get(i + w.len()).is_none_or(|c| !word(c))
+    };
+    let mut open = Vec::new();
+    for (i, c) in code(Kind::Ruby, line).take_while(|&(i, _)| i < at) {
+        match c {
+            b'{' => open.push(i + 1),
+            b'd' if keyword(i, "do") => open.push(i + 2),
+            b'}' => drop(open.pop()),
+            b'e' if keyword(i, "end") => drop(open.pop()),
+            _ => {}
+        }
+    }
+    open.iter().any(|&o| {
+        line.get(o..at)
+            .and_then(|s| PARAMS.captures(s))
+            .is_some_and(|c| param_names(&c[1]).iter().any(|p| p == name))
+    })
+}
+
 pub(super) fn ruby_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let n = regex::escape(name);
     let local = Regex::new(&format!(
@@ -296,6 +323,14 @@ pub struct RubyParents {
     pub superclasses: Vec<String>,
     pub includes: Vec<String>,
     pub extends: Vec<String>,
+}
+
+pub fn ruby_constructed_receiver(before: &str) -> Option<String> {
+    static NEW: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.new\s*\([^()]*\)\.$")
+            .expect("the regex is a literal")
+    });
+    NEW.captures(before.trim_end()).map(|c| c[1].to_owned())
 }
 
 pub fn ruby_on_class(text: &str, line1: usize) -> bool {

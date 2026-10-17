@@ -6,7 +6,22 @@ use super::{
 impl App {
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
-        let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
+        let interface = Regex::new(&format!(
+            r"^\s*(?:export\s+)?(?:declare\s+)?interface\s+{}\b",
+            regex::escape(name)
+        ))
+        .expect("an escaped name keeps the pattern valid");
+        let merged = |hits: &[Hit]| {
+            kind == Kind::TsJs
+                && hits
+                    .iter()
+                    .all(|h| h.path == hits[0].path && interface.is_match(&h.text))
+        };
+        let one = |hits: Vec<Hit>| match <[Hit; 1]>::try_from(hits) {
+            Ok([hit]) => Some(hit),
+            Err(hits) if merged(&hits) => hits.into_iter().min_by_key(|h| h.line1),
+            Err(_) => None,
+        };
         if chain.is_empty() || kind == Kind::TsJs {
             let within = (!chain.is_empty()).then(|| parts.join("."));
             let hits = self.package_declarations(kind, file, name, within.as_deref());
@@ -14,8 +29,14 @@ impl App {
                 return one(self.host_built(kind, hits));
             }
         }
-        let imports = search::imports(kind, &self.text_of(file)?);
-        let path = bound(&imports, chain.first().unwrap_or(name))?;
+        let text = self.text_of(file)?;
+        let imports = search::imports(kind, &text);
+        let Some(path) = bound(&imports, chain.first().unwrap_or(name)) else {
+            return (kind == Kind::Python && chain.is_empty())
+                .then(|| self.star_source(file, &text, usize::MAX, name))
+                .flatten()
+                .and_then(|(_, decls)| one(decls));
+        };
         if kind == Kind::Python && file.is_absolute() {
             return self.outside_class(file, &path, parts);
         }

@@ -51,7 +51,7 @@ impl App {
         hits: Option<Vec<Hit>>,
     ) -> (String, Vec<Candidate>) {
         let path = chain.join(".");
-        let found: Vec<Candidate> = hits
+        let mut found: Vec<Candidate> = hits
             .map(|hits| self.concern_class_methods(Kind::Ruby, here, chain, hits))
             .unwrap_or_default()
             .into_iter()
@@ -60,6 +60,9 @@ impl App {
                 reason: Reason::Path(path.clone()),
             })
             .collect();
+        if found.is_empty() && word != "initialize" {
+            found = self.ruby_extended(here, chain, word);
+        }
         match (found.is_empty(), word == "initialize") {
             (true, true) => ("new".to_owned(), found),
             (true, false) => (word.to_owned(), self.ruby_outside(word, pattern)),
@@ -102,6 +105,42 @@ impl App {
             return Vec::new();
         }
         let on_class = search::ruby_self_is_class(text, self.line + 1);
+        self.ruby_methods_from(here, word, class, on_class)
+    }
+
+    fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
+        self.ruby_class_named(here, &chain.join("::"))
+            .map(|class| self.ruby_methods_from(here, word, class, true))
+            .unwrap_or_default()
+    }
+
+    pub(super) fn ruby_constructed(&self, here: &Path, made: &str, word: &str) -> Vec<Candidate> {
+        let Some(class) = self.ruby_class_named(here, made) else {
+            return Vec::new();
+        };
+        if !self
+            .ruby_methods_from(here, "new", class.clone(), true)
+            .is_empty()
+        {
+            return Vec::new();
+        }
+        self.ruby_methods_from(here, word, class, false)
+    }
+
+    fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
+        let from = search::ruby_class_path(&self.text_of(here)?, self.line + 1);
+        let own = from == name || from.ends_with(&format!("::{name}"));
+        self.ruby_resolve(here, &from, name)
+            .or_else(|| own.then_some(from))
+    }
+
+    fn ruby_methods_from(
+        &self,
+        here: &Path,
+        word: &str,
+        class: String,
+        on_class: bool,
+    ) -> Vec<Candidate> {
         let mut patterns = search::def_patterns(Kind::Ruby, word);
         let assignment = search::ruby_assignment(word);
         patterns.retain(|p| *p != assignment);

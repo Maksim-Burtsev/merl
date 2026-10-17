@@ -14,3 +14,4 @@ pub mod rules;
 pub mod tints;
 pub mod carts;
 pub mod hauls;
+pub mod tea;
