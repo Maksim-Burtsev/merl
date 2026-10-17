@@ -86,11 +86,27 @@ final class Table
         return $f($this->kettle) + $g();
     }
 
+    public function adjacent(): int
+    {
+        $pot = $this->pot;
+        $g = function () use ($pot) {
+            return $pot->pour(2);
+            //           ^ d: src/Tea/Teapot.php:12
+        };
+        $cup = new Kettle();
+        $cup = new Teapot();
+        $h = function () use ($cup) {
+            return $cup->pour(3);
+            //           ^ d: src/Tea/Teapot.php:12
+        };
+        return $g() + $h();
+    }
+
     public function lid(): int
     {
         $lid = $this->kettle->lid;
         //                    ^ d: src/Tea/Kettle.php:9
         return $lid;
-        //      ^ d: src/Tea/Table.php:91
+        //      ^ d: src/Tea/Table.php:107
     }
 }
