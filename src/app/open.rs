@@ -208,6 +208,9 @@ impl App {
         let old = std::mem::replace(&mut self.buf, buf);
         self.carry_collapsed(&old.lines);
         if self.review.is_some() {
+            if let Some(rel) = self.rel_current() {
+                self.seen.remove(&rel);
+            }
             let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
             let here = self.at();
             let stop = self.history.get_mut(self.hist_idx);

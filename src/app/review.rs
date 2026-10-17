@@ -225,13 +225,24 @@ impl App {
         self.seen.entry(rel).or_default().extend(rows);
     }
 
-    fn unseen_in_hunk(&self) -> Option<TextLine> {
+    pub(super) fn unseen_in_hunk(&self) -> Option<TextLine> {
         let rel = self.rel_current()?;
         if self.viewed.contains_key(&rel) || self.folded_here().is_some() {
             return None;
         }
-        let at = self.hunk_place(self.at());
-        let start = self.diff.hunks.iter().rev().find(|&&h| h <= at)?;
+        let rows = self.tall_hunk_rows(self.at())?;
+        let seen = self.seen.get(&rel);
+        rows.into_iter()
+            .find(|t| *t != self.at() && !seen.is_some_and(|s| s.contains(t)))
+    }
+
+    pub(super) fn tall_hunk_rows(&self, t: TextLine) -> Option<Vec<TextLine>> {
+        let at = self.hunk_place(t);
+        let hunks = self.diff.hunks.iter().rev();
+        let start = hunks
+            .copied()
+            .find(|&h| h <= at)
+            .unwrap_or(TextLine::File(0));
         let mut pos = (start.key(), 0);
         let mut rows = Vec::new();
         loop {
@@ -246,12 +257,7 @@ impl App {
             }
             pos = next;
         }
-        if rows.len() <= self.view_h {
-            return None;
-        }
-        let seen = self.seen.get(&rel);
-        rows.into_iter()
-            .find(|t| *t > self.at() && !seen.is_some_and(|s| s.contains(t)))
+        (rows.len() > self.view_h && rows.contains(&t)).then_some(rows)
     }
 
     pub(super) fn next_hunk(&self, r: &git::Review, dir: isize) -> Next {

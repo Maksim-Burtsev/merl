@@ -246,6 +246,9 @@ impl App {
             std::cmp::Ordering::Less => (hunks.iter().rev().find(|&&h| h < from)?, "C"),
             std::cmp::Ordering::Equal => return None,
         };
+        if key == "c" && self.tall_hunk_rows(from).is_some() {
+            return None;
+        }
         let changed = |t: TextLine| match t {
             TextLine::Deleted(..) => true,
             TextLine::File(l) => self.diff.marks.contains_key(&l),
@@ -402,6 +405,7 @@ impl App {
             .and_then(|r| match self.next_hunk(r, 1) {
                 Next::Back(rel, _) => Some(rel),
                 Next::Here(_) => None,
+                Next::On if self.unseen_in_hunk().is_some() => None,
                 Next::On => self
                     .ahead(r, 1)
                     .into_iter()

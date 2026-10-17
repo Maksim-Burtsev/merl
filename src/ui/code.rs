@@ -59,8 +59,8 @@ fn prepare_view(app: &mut App, theme: &Theme, area: Rect) -> usize {
     app.view_w = (area.width as usize).saturating_sub(gutter_w).max(1);
     app.view_h = area.height as usize;
     app.clamp_scroll();
-    app.note_seen();
     app.notes_reveal_input();
+    app.note_seen();
     let bottom = (app.top_line + app.view_h).max(app.bottom_line() + 1);
     app.buf.highlight_to(bottom, theme);
     if let Some((_, b)) = &mut app.base
