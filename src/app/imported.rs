@@ -135,13 +135,11 @@ impl App {
         let Some(name) = inside.last() else {
             return Some(Vec::new());
         };
-        let wanted = |p: &Path| files.iter().any(|f| f == p);
         let mut hits = self.declared_inside(kind, &files, &inside, name);
         let named = path.last().is_some_and(|t| t != "default");
         if hits.is_empty() && kind == Kind::TsJs && inside.len() <= 1 && named {
-            hits = self.renamed_export(name, |p| {
-                self.grep(p, false, false, wanted).unwrap_or_default()
-            });
+            let module = chain.is_empty() && path.last().is_some_and(|t| t == "*");
+            hits = self.named_export(name, &files, module);
         }
         if hits.is_empty()
             && chain.is_empty()
@@ -330,6 +328,19 @@ impl App {
                     && (!added || !bare.is_match(&h.text) || enumed || literal)
             })
         });
+        hits
+    }
+
+    fn named_export(&self, name: &str, files: &[PathBuf], module: bool) -> Vec<Hit> {
+        let wanted = |p: &Path| files.iter().any(|f| f == p);
+        let hits = self.renamed_export(name, |p| {
+            self.grep(p, false, false, wanted).unwrap_or_default()
+        });
+        if hits.is_empty() && !module {
+            return self
+                .grep(&search::cjs_export(name), false, false, wanted)
+                .unwrap_or_default();
+        }
         hits
     }
 

@@ -412,6 +412,10 @@ in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).
+`kettle.mjs` exports as its default an instance bound to a `const` (#1008). `sieve.cjs` assigns
+to `exports.name` a value in parentheses, which declares nothing, an `async` arrow, an arrow with
+a bare parameter and a named function behind `module.exports.`, read from `pouring.cjs` through a
+destructured and a whole `require` (#1007).
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`

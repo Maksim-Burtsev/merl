@@ -21,7 +21,7 @@ exports.Roaster = class Roaster {
 function measure(bean) {
   return bean.scoops + exports.darken(1);
   //          ^ d: coffee/roast.cjs:16
-  //                           ^ d: none; want coffee/roast.cjs:3 (#1007)
+  //                           ^ d: coffee/roast.cjs:3
 }
 
 module.exports.measure = measure;

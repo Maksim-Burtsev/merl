@@ -19,9 +19,9 @@ function serve(cups) {
   //^ d: none; want coffee/grinder.cjs:7 (#1001)
   tamp(darken(cups));
 //^ d: coffee/counter.cjs:37
-  //   ^ d: none; want coffee/roast.cjs:3 (#1007)
+  //   ^ d: coffee/roast.cjs:3
   const oven = new Oven(1);
-  //               ^ d: none; want coffee/roast.cjs:7 (#1007)
+  //               ^ d: coffee/roast.cjs:7
   roast.measure({ origin: "", scoops: oven.level });
   //    ^ d: coffee/roast.cjs:21
   //                                       ^ d: none; want coffee/roast.cjs:9 (#1001)
@@ -31,7 +31,7 @@ function serve(cups) {
   }
   return dose + recipe.length + roast.darken(dose);
   //     ^ d: coffee/counter.cjs:28; want picker coffee/counter.cjs:28, coffee/counter.cjs:30 (#1003)
-  //                                  ^ d: none; want coffee/roast.cjs:3 (#1007)
+  //                                  ^ d: coffee/roast.cjs:3
 }
 
 function tamp(x) {
