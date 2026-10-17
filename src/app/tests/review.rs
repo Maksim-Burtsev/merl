@@ -2500,7 +2500,7 @@ fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     let tall: String = (0..60).map(|i| format!("t{i}\n")).collect();
-    let (dir, mut a) = review_app_with("tallhunk", &[("tall", tall.as_bytes())]);
+    let (dir, mut a) = review_app_with("tallhunk", &[("big", tall.as_bytes())]);
     a.show_tree = false;
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
@@ -2509,12 +2509,15 @@ fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
         t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
         (a.buf.path.clone().unwrap(), a.line, a.top_line, a.bottom_line())
     };
-    let tall = dir.join("tall");
-    let mut now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
-    while now.0 != tall {
-        now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    let tall = dir.join("big");
+    let mut now = c(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    for _ in 0..9 {
+        if now.0 == tall {
+            break;
+        }
+        now = c(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
     }
-    assert_eq!(now.1, 0, "the hunk's first row, as before");
+    assert_eq!((&now.0, now.1), (&tall, 0), "the hunk's first row, as before");
     let first_screen = now.3;
     now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
     assert_eq!(
@@ -2531,14 +2534,17 @@ fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
         "rows Ctrl+D drew count as seen"
     );
     let mut stops = vec![now.1];
-    while now.0 == tall {
+    for _ in 0..9 {
+        if now.0 != tall {
+            break;
+        }
         now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
         stops.push(now.1);
     }
     assert!(
-        a.seen[Path::new("tall")].is_superset(&(0..60).map(TextLine::File).collect()),
+        a.seen[Path::new("big")].is_superset(&(0..60).map(TextLine::File).collect()),
         "every row of the hunk was drawn before c left it: {stops:?}"
     );
-    assert_eq!(now.0, dir.join("src/a.rs"), "then on, past the end, as before");
+    assert_eq!(now.0, dir.join("crlf.txt"), "then on to the next file, as before");
     drop(std::fs::remove_dir_all(dir));
 }
