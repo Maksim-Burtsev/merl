@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use super::{
     App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, search,
 };
@@ -63,6 +65,9 @@ impl App {
                 search::RustAttr::Nothing => Vec::new(),
                 _ => self.rust_macros(attr, word),
             });
+        }
+        if !dotted && let Some(found) = self.rust_trait_impl(here, text, word, range.clone()) {
+            return Some(found);
         }
         let named = word.starts_with(|c: char| c.is_alphabetic() || c == '_');
         if dotted && named && word != "await" && !after.starts_with('(') && !after.starts_with("::")
@@ -978,15 +983,20 @@ impl App {
         else {
             return None;
         };
-        let real = rest.last()?;
-        let decl = Regex::new(&search::rust_type_decl_pattern(real)).ok()?;
-        let types: Vec<Hit> = hits
+        static DECL: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")
+                .expect("the regex is a literal")
+        });
+        let types: Vec<(Hit, String)> = hits
             .into_iter()
-            .filter(|h| decl.is_match(&h.text))
+            .filter_map(|h| {
+                let real = DECL.captures(&h.text)?[1].to_owned();
+                Some((h, real))
+            })
             .collect();
-        let [hit] = <[Hit; 1]>::try_from(types).ok()?;
+        let [(hit, real)] = <[(Hit, String); 1]>::try_from(types).ok()?;
         Some(Typed {
-            name: real.clone(),
+            name: real,
             path: hit.path,
             line: hit.line1,
         })
@@ -1009,27 +1019,74 @@ impl App {
         Some((hit, written))
     }
 
-    fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
-        let crate_of = |p: &Path| {
-            p.ancestors()
-                .skip(1)
-                .find(|d| self.files.contains(&d.join("Cargo.toml")))
-                .map(Path::to_path_buf)
-        };
-        let own = crate_of(&ty.path);
-        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+    fn rust_type_files(&self, ty: &Typed) -> (Vec<PathBuf>, Vec<PathBuf>) {
+        let own = self.rust_crate_of(&ty.path);
         let files: Vec<PathBuf> = self
             .files
             .iter()
-            .filter(|f| rs(f) && crate_of(f) == own)
+            .filter(|f| f.extension().is_some_and(|e| e == "rs") && self.rust_crate_of(f) == own)
             .cloned()
             .collect();
         let decl = search::rust_type_decl_pattern(&ty.name);
-        let namesakes = self.grep_in(&decl, &files).len();
-        let files: Vec<PathBuf> = match namesakes {
-            0 | 1 => files,
-            _ => vec![ty.path.clone()],
+        match self.grep_in(&decl, &files).len() {
+            0 | 1 => (files.clone(), files),
+            _ => (vec![ty.path.clone()], files),
+        }
+    }
+
+    fn rust_trait_impl(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        range: std::ops::Range<usize>,
+    ) -> Option<Vec<Candidate>> {
+        static AS: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"<\s*([\w:]+)\s+as\s+(?:\w+::)*([A-Za-z_]\w*)\s*>::$")
+                .expect("the regex is a literal")
+        });
+        static PATH: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?:^|[^\w:>])(?:\w+::)*([A-Z]\w*)::$").expect("the regex is a literal")
+        });
+        static ARG: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"^\(\s*&?(?:mut\s+)?([a-z_]\w*)\s*[,)]").expect("the regex is a literal")
+        });
+        let line = self.line_str();
+        let before = line.get(..range.start)?;
+        let (ty, tr) = if let Some(c) = AS.captures(before) {
+            (self.rust_resolve(here, &c[1], self.line)?, c[2].to_owned())
+        } else {
+            let tr = PATH.captures(before)?[1].to_owned();
+            let arg = ARG.captures(line.get(range.end..)?)?;
+            (self.rust_value_type(here, text, self.line, &arg[1])?.0, tr)
         };
+        let (files, _) = self.rust_type_files(&ty);
+        let hits: Vec<Hit> = self
+            .grep_in(&search::rust_method_pattern(word), &files)
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    let lines: Vec<&str> = t.lines().collect();
+                    search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
+                        && search::rust_method_at(&lines, h.line1).is_some_and(|m| {
+                            m.owner == search::RustOwner::ImplOf(tr.clone())
+                                && search::rust_impl_type(lines[m.owner_line1 - 1])
+                                    .is_some_and(|t| t == ty.name)
+                        })
+                })
+            })
+            .collect();
+        let [hit] = <[Hit; 1]>::try_from(hits).ok()?;
+        Some(vec![Candidate {
+            hit,
+            reason: Reason::Receiver(format!("<{} as {tr}>", ty.name)),
+        }])
+    }
+
+    fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        let decl = search::rust_type_decl_pattern(&ty.name);
+        let (files, _) = self.rust_type_files(ty);
         let method = |hits: Vec<Hit>, owner: &dyn Fn(&search::RustOwner, &str) -> bool| {
             hits.into_iter()
                 .filter(|h| {
