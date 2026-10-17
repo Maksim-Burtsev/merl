@@ -51,7 +51,7 @@ impl App {
         hits: Option<Vec<Hit>>,
     ) -> (String, Vec<Candidate>) {
         let path = chain.join(".");
-        let found: Vec<Candidate> = hits
+        let mut found: Vec<Candidate> = hits
             .map(|hits| self.concern_class_methods(Kind::Ruby, here, chain, hits))
             .unwrap_or_default()
             .into_iter()
@@ -60,6 +60,9 @@ impl App {
                 reason: Reason::Path(path.clone()),
             })
             .collect();
+        if found.is_empty() && word != "initialize" {
+            found = self.ruby_extended(here, chain, word);
+        }
         match (found.is_empty(), word == "initialize") {
             (true, true) => ("new".to_owned(), found),
             (true, false) => (word.to_owned(), self.ruby_outside(word, pattern)),
@@ -102,6 +105,31 @@ impl App {
             return Vec::new();
         }
         let on_class = search::ruby_self_is_class(text, self.line + 1);
+        self.ruby_methods_from(here, word, class, on_class)
+    }
+
+    fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
+        let name = chain.join("::");
+        let Some(text) = self.text_of(here) else {
+            return Vec::new();
+        };
+        let from = search::ruby_class_path(&text, self.line + 1);
+        let own = from == name || from.ends_with(&format!("::{name}"));
+        let class = match self.ruby_resolve(here, &from, &name) {
+            Some(c) => c,
+            None if own => from,
+            None => return Vec::new(),
+        };
+        self.ruby_methods_from(here, word, class, true)
+    }
+
+    fn ruby_methods_from(
+        &self,
+        here: &Path,
+        word: &str,
+        class: String,
+        on_class: bool,
+    ) -> Vec<Candidate> {
         let mut patterns = search::def_patterns(Kind::Ruby, word);
         let assignment = search::ruby_assignment(word);
         patterns.retain(|p| *p != assignment);

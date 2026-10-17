@@ -61,7 +61,7 @@ impl App {
             self.message = format!("{word}: builtin, no source");
             return None;
         }
-        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell | Kind::Dart)
+        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell | Kind::Dart | Kind::Ruby)
             || (kind == Kind::Swift && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
@@ -98,6 +98,7 @@ impl App {
         let after = a.tail.as_str();
         let key = key
             || a.elixir_call()
+            || (kind == Kind::Ruby && after.starts_with('('))
             || search::erlang(&a.here)
             || (kind == Kind::Elixir
                 && !dotted

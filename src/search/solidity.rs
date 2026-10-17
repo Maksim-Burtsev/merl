@@ -3,9 +3,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::{
-    Binding, Kind, Value, directly_inside, indent, lexical, literal_lines, node_modules, own_copy,
-};
+use super::{Binding, Kind, Value, directly_inside, indent, lexical, literal_lines, node_modules};
 
 const NAME: &str = r"[A-Za-z_$][\w$]*";
 const TYPE: &str =
@@ -111,7 +109,6 @@ pub fn solidity_import_path(line: &str, col: usize) -> Option<String> {
 pub fn solidity_file(root: &Path, files: &[PathBuf], here: &Path, path: &str) -> Option<PathBuf> {
     let found = |p: PathBuf| -> Option<PathBuf> {
         let p = lexical(&p)?;
-        let p = own_copy(root, &p).unwrap_or(p);
         let p = p
             .strip_prefix(root)
             .map_or_else(|_| p.clone(), Path::to_path_buf);
