@@ -399,7 +399,9 @@ default-exported `Kettle` imported under two names (one through a chain of `expo
 renaming re-export), `import type`, overloads of `boil`, destructured and renamed parameters
 beside a module-level namesake, `this` in an arrow and in a `function` that declares `this:
 Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
-template literal.
+template literal. `ladle.ts` holds where a constraint must not be read: the result of a
+generic call, typed by its argument rather than the constraint, and a generic call taking a
+callback, which declares no type parameter.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on

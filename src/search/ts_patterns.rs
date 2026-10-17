@@ -412,12 +412,20 @@ pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam
             let Some((params, rest)) = angle_list(t.get(whole.end()..).unwrap_or_default()) else {
                 continue;
             };
-            let call_shaped = rest.trim_start().starts_with('(');
+            let rest = rest.trim_start();
+            let call_shaped = rest.starts_with('(');
+            let method_head = || {
+                close_of(Kind::TsJs, rest, 0)
+                    .and_then(|end| rest.get(end..))
+                    .map(str::trim_start)
+                    .is_some_and(|after| after.starts_with([':', '{']))
+            };
             let fits = c.name("decl").is_some()
                 || (c.name("method").is_some()
                     && call_shaped
                     && t.ends_with('{')
-                    && !t.contains("=>"))
+                    && !t.contains("=>")
+                    && method_head())
                 || (c.name("arrow").is_some() && call_shaped && t.contains("=>"));
             if !fits {
                 continue;

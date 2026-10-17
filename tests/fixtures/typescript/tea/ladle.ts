@@ -18,3 +18,16 @@ export function ladleOut(): number {
   //                   ^ d: picker tea/ladle.ts:4, …
   //                                 ^ d: picker tea/ladle.ts:4, …
 }
+
+interface Spout {
+  pour(): number;
+}
+
+declare function register<S>(make: () => void): void;
+declare function spout(): Spout;
+
+register<Spout>(function () {
+  const s: Spout = spout();
+  s.pour();
+  //^ d: tea/ladle.ts:23
+});
