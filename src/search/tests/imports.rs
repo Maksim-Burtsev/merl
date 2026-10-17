@@ -649,6 +649,12 @@ fn a_require_binds_only_the_module_itself_or_a_name_of_it() {
 }
 
 #[test]
+fn a_cjs_export_declares_only_a_function_class_or_arrow() {
+    let text = "exports.a = function () {};\nmodule.exports.a = class A {};\nexports.a = async (x) => x;\nexports.a = x => x;\nexports.a = (process.env.A || 5);\nexports.a = (0, m_1.f)(x);\nexports.a = a;\nexports.ab = function () {};\nfoo.exports.a = function () {};\n";
+    assert_eq!(cjs_exported_lines(text, "a"), [1, 2, 3, 4]);
+}
+
+#[test]
 fn module_exports_is_one_assignment_or_nothing_known() {
     assert_eq!(
         module_exports("class S {}\n\nmodule.exports = S;\n"),

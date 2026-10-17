@@ -520,7 +520,8 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
     let mut before = line.get(..word_start)?.strip_suffix('.')?;
     let mut fields = Vec::new();
-    while !before.ends_with(')') {
+    let indexed = |b: &str| kind == Kind::TsJs && b.ends_with(']');
+    while !before.ends_with(')') && !indexed(before) {
         let start = name_start(before, is_name);
         if start == before.len() {
             return None;
@@ -528,6 +529,24 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
         let (head, field) = before.split_at_checked(start)?;
         fields.insert(0, field.to_owned());
         before = head.strip_suffix('.')?;
+    }
+    if indexed(before) {
+        let open = code(kind, before)
+            .filter(|(_, c)| *c == b'[')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
+        let head = before.get(..open)?;
+        let start = name_start(head, |c| is_name(c) || c == '.');
+        let list = head.get(start..)?;
+        let plain = !list.is_empty()
+            && !list.starts_with('.')
+            && !list.ends_with('.')
+            && !head.get(..start)?.ends_with([')', ']', '.']);
+        return plain.then(|| CallHead {
+            call_without_arguments: format!("{list}[]"),
+            value: Value::Element(list.to_owned()),
+            fields_to_word: fields,
+        });
     }
     let paren_this_closes = code(kind, before)
         .filter(|(_, c)| *c == b'(')

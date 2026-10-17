@@ -1,4 +1,5 @@
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, bound, search};
+use std::ops::ControlFlow;
 
 impl App {
     pub(super) fn imported_definitions(
@@ -134,13 +135,11 @@ impl App {
         let Some(name) = inside.last() else {
             return Some(Vec::new());
         };
-        let wanted = |p: &Path| files.iter().any(|f| f == p);
         let mut hits = self.declared_inside(kind, &files, &inside, name);
         let named = path.last().is_some_and(|t| t != "default");
         if hits.is_empty() && kind == Kind::TsJs && inside.len() <= 1 && named {
-            hits = self.renamed_export(name, |p| {
-                self.grep(p, false, false, wanted).unwrap_or_default()
-            });
+            let module = chain.is_empty() && path.last().is_some_and(|t| t == "*");
+            hits = self.named_export(name, &files, module);
         }
         if hits.is_empty()
             && chain.is_empty()
@@ -159,11 +158,9 @@ impl App {
             && instance.is_none()
             && path.last().is_some_and(|t| t == "default")
         {
-            hits = self
-                .grep(r"^export\s+default\b", false, false, wanted)
-                .unwrap_or_default();
-            if let Some(found) = self.default_reexported(kind, &hits, depth) {
-                return Some(found);
+            match self.export_default(kind, &files, depth) {
+                ControlFlow::Continue(found) => hits = found,
+                ControlFlow::Break(handed) => return Some(handed),
             }
         }
         if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
@@ -334,6 +331,46 @@ impl App {
         hits
     }
 
+    fn named_export(&self, name: &str, files: &[PathBuf], module: bool) -> Vec<Hit> {
+        let wanted = |p: &Path| files.iter().any(|f| f == p);
+        let hits = self.renamed_export(name, |p| {
+            self.grep(p, false, false, wanted).unwrap_or_default()
+        });
+        if hits.is_empty() && !module {
+            return self
+                .grep(&search::cjs_export(name), false, false, wanted)
+                .unwrap_or_default();
+        }
+        hits
+    }
+
+    fn export_default(
+        &self,
+        kind: Kind,
+        files: &[PathBuf],
+        depth: usize,
+    ) -> ControlFlow<Vec<Candidate>, Vec<Hit>> {
+        let wanted = |p: &Path| files.iter().any(|f| f == p);
+        let hits = self
+            .grep(r"^export\s+default\b", false, false, wanted)
+            .unwrap_or_default();
+        if let Some(found) = self.default_reexported(kind, &hits, depth) {
+            return ControlFlow::Break(found);
+        }
+        let declared = match hits.as_slice() {
+            [hit] => search::default_name(&hit.text).map_or_else(Vec::new, |local| {
+                self.declared_inside(
+                    kind,
+                    std::slice::from_ref(&hit.path),
+                    std::slice::from_ref(&local),
+                    &local,
+                )
+            }),
+            _ => Vec::new(),
+        };
+        ControlFlow::Continue(if declared.is_empty() { hits } else { declared })
+    }
+
     fn default_reexported(&self, kind: Kind, hits: &[Hit], depth: usize) -> Option<Vec<Candidate>> {
         let [hit] = hits else {
             return None;
@@ -356,7 +393,7 @@ impl App {
             .find_map(|f| Some((f.clone(), search::module_exports(&self.text_of(f)?)?)))
     }
 
-    fn export_hit(&self, file: &Path, line: usize) -> Hit {
+    pub(super) fn export_hit(&self, file: &Path, line: usize) -> Hit {
         Hit {
             deleted: None,
             text: self

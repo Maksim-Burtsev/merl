@@ -9,10 +9,10 @@ int set_table() {
   //     ^ d: include/tea/kettle.hh:41
   infuse::Teapot pot;
   return steep(leaf) + steep(4) + stale::steep(5) + near.decant(1) + far.decant(1) + pot.decant(1);
-  //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
-  //                   ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:44 (#944)
+  //     ^ d: src/tea/kettle.cc:39
+  //                   ^ d: src/tea/kettle.cc:44
   //                                     ^ d: src/tea/table.cc:3
-  //                                                     ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27; want src/tea/kettle.cc:23 (#943)
+  //                                                     ^ d: src/tea/kettle.cc:23
   //                                                                     ^ d: include/tea/kettle.hh:43
   //                                                                                     ^ d: include/tea/kettle.hh:25
 }
@@ -22,7 +22,7 @@ int shade() {
   auto f = [](infuse::Teapot cup) { return cup.decant(1); };
   //                                           ^ d: include/tea/kettle.hh:25
   return f(infuse::Teapot{}) + cup.decant(1) + cup.topup();
-  //                               ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27; want src/tea/kettle.cc:23 (#943)
+  //                               ^ d: src/tea/kettle.cc:23
   //                                               ^ d: src/tea/kettle.cc:29
 }
 
@@ -43,7 +43,7 @@ using infuse::steep;
 int steep_again() {
   infuse::Leaf leaf{1};
   return steep(leaf);
-  //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
+  //     ^ d: src/tea/kettle.cc:39
 }
 
 int cosy() {
@@ -51,4 +51,12 @@ int cosy() {
   //      ^ d: include/tea/kettle.hh:28
   return urn.topup();
   //         ^ d: src/tea/kettle.cc:29
+}
+
+int lid_again() {
+  stale::Lid lid{1};
+  //     ^ d: src/tea/stale_again.cc:4
+  tray::Mat mat{2};
+  //    ^ d: picker src/tea/stale_again.cc:12, src/tea/stale_again.cc:19
+  return lid.size + mat.size;
 }

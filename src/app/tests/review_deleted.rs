@@ -1038,6 +1038,45 @@ fn a_deleted_ts_call_over_several_lines_is_no_definition() {
 }
 
 #[test]
+fn deleted_ts_overloads_are_told_apart_by_the_base() {
+    let (dir, mut a) = repo_review(
+        "d-deleted-ts-overloads",
+        &[
+            (
+                "svc.ts",
+                "export function helper(x: string): string;\nexport function helper(x: number, y: number): number;\nexport function helper(x: unknown, y?: number): unknown {\n  return x;\n}\n",
+            ),
+            ("main.ts", "export const a = 1;\n"),
+        ],
+        &[
+            ("svc.ts", Some("export const z = 1;\n")),
+            ("main.ts", Some("export const a = helper(1, 2);\n")),
+        ],
+    );
+    use_roots(&mut a, Kind::TsJs, &[]);
+    a.jump_to(&dir.join("main.ts"), 1);
+    a.col = a.line_str().find("helper").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (
+            a.buf.path.as_deref(),
+            a.line_str(),
+            a.deleted.is_some(),
+            a.picker.is_some()
+        ),
+        (
+            Some(&*dir.join("svc.ts")),
+            "export function helper(x: number, y: number): number;",
+            true,
+            false
+        ),
+        "the overloads' signatures are the base's lines: {}",
+        a.message
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn d_on_a_deleted_files_line_answers_from_the_base() {
     let (dir, mut a) = moves_review("d-deleted-file");
     let old = "from app.repo import Repo\n\n\ndef use(r: Repo):\n    return r.fetch(1)\n";

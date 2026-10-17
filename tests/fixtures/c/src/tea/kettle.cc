@@ -31,8 +31,8 @@ int Kettle::topup() {
   return spout_ + this->spout_ + decant(2) + decant("two") + rinse();
   //     ^ d: src/tea/kettle.cc:30
   //                    ^ d: include/tea/kettle.hh:20
-  //                             ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27
-  //                                         ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27
+  //                             ^ d: src/tea/kettle.cc:23
+  //                                         ^ d: src/tea/kettle.cc:27
   //                                                         ^ d: include/tea/kettle.hh:17
 }
 
