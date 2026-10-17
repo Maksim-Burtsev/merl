@@ -32,6 +32,16 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
     out
 }
 
+pub fn cpp_scoped_name(text: &str, line1: usize, name: &str) -> Option<String> {
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, name, None).first()?;
+    let mut path = cpp_scope_path(&code, at);
+    (!path.is_empty()).then(|| {
+        path.push(name.to_owned());
+        path.join("::")
+    })
+}
+
 pub fn cpp_namespace_alias(code: &str, alias: &str) -> Option<Vec<String>> {
     let re = Regex::new(&format!(
         r"\bnamespace\s+{}\s*=\s*((?:\w+\s*::\s*)*\w+)\s*;",

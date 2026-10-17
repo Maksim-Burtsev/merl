@@ -195,20 +195,28 @@ impl App {
                 let Some(t) = self.text_of(&h.path) else {
                     return false;
                 };
+                let scoped = (kind == Kind::C && Self::c_type_line(word, h))
+                    .then(|| search::cpp_scoped_name(&t, h.line1, word))
+                    .flatten();
                 let qualified = search::qualified(kind, &t, h.line1, word);
-                qualified.is_some_and(|q| match answer_files {
-                    Some(files) if mine.is_some() => {
-                        mine.as_ref()
-                            .is_some_and(|o| q == format!("{o}{sep}{word}"))
-                            && files.contains(&h.path)
-                    }
-                    Some(files) => q == full && files.contains(&h.path),
-                    None => {
-                        q == full
-                            || q.ends_with(&format!("{sep}{full}"))
-                            || (starts_with_project_module && full.ends_with(&format!("{sep}{q}")))
-                    }
-                }) && (!singleton || search::ruby_singleton(&t, h.line1))
+                [qualified, scoped]
+                    .into_iter()
+                    .flatten()
+                    .any(|q| match answer_files {
+                        Some(files) if mine.is_some() => {
+                            mine.as_ref()
+                                .is_some_and(|o| q == format!("{o}{sep}{word}"))
+                                && files.contains(&h.path)
+                        }
+                        Some(files) => q == full && files.contains(&h.path),
+                        None => {
+                            q == full
+                                || q.ends_with(&format!("{sep}{full}"))
+                                || (starts_with_project_module
+                                    && full.ends_with(&format!("{sep}{q}")))
+                        }
+                    })
+                    && (!singleton || search::ruby_singleton(&t, h.line1))
             })
             .map(|hit| Candidate {
                 reason: match answer_files {
