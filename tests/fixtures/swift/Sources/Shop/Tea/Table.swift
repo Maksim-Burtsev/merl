@@ -59,7 +59,7 @@ func lay(_ kettle: Kettle?) {
     kettle.whistle()
     // ^ d: Sources/Shop/Tea/Table.swift:53; want Sources/Shop/Tea/Table.swift:58 (#986)
     pour(into: Cup(ounces: 3))
-    // ^ d: picker Sources/Shop/Tea/Table.swift:51, Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Table.swift:51 (#985)
+    // ^ d: Sources/Shop/Tea/Table.swift:51
     kettle.pour(into: Cup(ounces: 4))
     //     ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:33 (#983)
 }

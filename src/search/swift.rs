@@ -145,6 +145,20 @@ pub fn swift_enclosing_type<S: AsRef<str>>(
         }
     }
 }
+pub fn swift_in_top_level_func<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> bool {
+    let (mut at, mut outer) = (line, 0);
+    loop {
+        match swift_scope(lines, literal, at).header_line1 {
+            0 => break,
+            up if swift_type_header(lines[up - 1].as_ref()).is_some() => return false,
+            up => (at, outer) = (up, up),
+        }
+    }
+    outer > 0 && {
+        let t = uncommented(Kind::Swift, lines[outer - 1].as_ref());
+        indent(&t) == 0 && SWIFT_FUNC.is_match(&t)
+    }
+}
 pub fn swift_instance_member(line: &str) -> bool {
     swift_member_kind(line) == Some(SwiftMember::Instance)
 }
