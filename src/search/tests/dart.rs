@@ -414,3 +414,23 @@ int top() => cups;
     );
     assert_eq!(at(9, "Kettle"), [0usize; 0]);
 }
+
+#[test]
+fn dart_directives_read_combinators_and_parts() {
+    let text = "library;\nimport 'a.dart' hide A, B;\nexport \"b.dart\" show C;\nimport 'c.dart' if (dart.library.io) 'd.dart';\npart 'e.dart';\n";
+    let d = dart_directives(text).unwrap();
+    assert_eq!(d.len(), 4);
+    assert_eq!((d[0].keyword.as_str(), d[0].line1), ("import", 2));
+    assert_eq!(d[0].hide, ["A", "B"]);
+    assert_eq!(d[1].show.as_deref(), Some(&["C".to_owned()][..]));
+    assert!(d[2].conditional && !d[0].conditional);
+    assert_eq!(
+        (d[3].keyword.as_str(), d[3].uri.as_str()),
+        ("part", "e.dart")
+    );
+    assert_eq!(
+        dart_directives("part of 'k.dart';").unwrap()[0].keyword,
+        "part of"
+    );
+    assert_eq!(dart_directives("part of tea.kettle;"), None);
+}

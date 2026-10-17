@@ -19,7 +19,7 @@ class Kettle {
     //   ^ d: lib/tea/kettle.dart:15
     //           ^ d: lib/tea/kettle.dart:17
     return steep(cups) + _Spout().drip;
-    //     ^ d: picker lib/tea/kettle_parts.dart:3, lib/tea/stale/kettle.dart:7, lib/tea/table.dart:49; want lib/tea/kettle_parts.dart:3 (#950)
+    //     ^ d: lib/tea/kettle_parts.dart:3
     //                   ^ d: lib/tea/kettle_parts.dart:7
     //                            ^ d: lib/tea/kettle_parts.dart:8
   }

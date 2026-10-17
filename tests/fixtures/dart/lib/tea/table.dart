@@ -5,10 +5,10 @@ import 'stale/kettle.dart' as stale;
 // #931: what Dart's own scoping makes hard for `d`.
 void serve(Teapot pot) {
   final kettle = Kettle.cold();
-  //             ^ d: picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7, lib/tea/stale/kettle.dart:1; want lib/tea/kettle.dart:6 (#950)
+  //             ^ d: lib/tea/kettle.dart:6
   //                    ^ d: lib/tea/kettle.dart:8
   final cold = stale.Kettle.cold();
-  //           ^ d: none; want lib/tea/table.dart:3 (#950)
+  //           ^ d: lib/tea/table.dart:3
   //                 ^ d: lib/tea/stale/kettle.dart:1
   //                        ^ d: lib/tea/stale/kettle.dart:2
   kettle.pour(1);
@@ -21,11 +21,11 @@ void serve(Teapot pot) {
   //     ^ d: lib/tea/teapot.dart:4
   //            ^ d: lib/tea/teapot.dart:8
   Kettle(1)..pour(2)..cups = 3;
-  //^ d: picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7, lib/tea/stale/kettle.dart:1; want picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7 (#950)
+  //^ d: picker lib/tea/kettle.dart:6, lib/tea/kettle.dart:7
   //          ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/kettle.dart:17 (#949)
   //                  ^ d: lib/tea/kettle.dart:15
   print(steep(1) + stale.steep(2));
-  //    ^ d: picker lib/tea/table.dart:49, lib/tea/kettle_parts.dart:3, lib/tea/stale/kettle.dart:7; want lib/tea/kettle_parts.dart:3 (#950)
+  //    ^ d: lib/tea/kettle_parts.dart:3
   //                     ^ d: lib/tea/stale/kettle.dart:7
 }
 
@@ -95,3 +95,9 @@ int timedOver(int minutes) => steepFor(
 Map<int, int> cupsBy(int cups, bool full) => {cups: full ? cups: 0};
 //                                            ^ d: lib/tea/table.dart:95
 //                                                         ^ d: lib/tea/table.dart:95
+
+// Inside a class with a superclass, an inherited member may be the namesake.
+class Brewer extends Samovar {
+  int again() => steep(1);
+  //             ^ d: picker lib/tea/kettle_parts.dart:3, lib/tea/table.dart:49
+}
