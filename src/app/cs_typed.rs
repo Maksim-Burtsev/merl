@@ -534,22 +534,83 @@ impl App {
         if !types {
             return hits;
         }
+        let (hidden, mut live): (Vec<Hit>, Vec<Hit>) = hits
+            .into_iter()
+            .partition(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) == Some(&true));
         let written = match chain {
             Some(c) if !c.is_empty() => format!("{}.{word}", c.join(".")),
             _ => word.to_owned(),
         };
         let text = self.buf.lines.join("\n");
-        let all: Vec<&Hit> = hits.iter().collect();
         let picked = self
-            .cs_namespace_hits(&text, self.line + 1, &written, &all)
+            .cs_namespace_hits(
+                &text,
+                self.line + 1,
+                &written,
+                &live.iter().collect::<Vec<_>>(),
+            )
             .unwrap_or_default();
-        if picked.is_empty() {
-            return hits;
+        if !picked.is_empty() {
+            live = (live.into_iter().enumerate())
+                .filter_map(|(i, h)| picked.contains(&i).then_some(h))
+                .collect();
         }
-        hits.into_iter()
-            .enumerate()
-            .filter_map(|(i, h)| picked.contains(&i).then_some(h))
-            .collect()
+        if chain.is_none() && self.cs_new_call() {
+            live = self.cs_partial_constructors(word, live);
+        }
+        live.extend(hidden);
+        live
+    }
+
+    fn cs_new_call(&self) -> bool {
+        let line = self.line_str();
+        let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@' || c == '.';
+        self.definition_word(Some(Kind::CSharp))
+            .is_some_and(|(r, _)| {
+                line.get(..r.start)
+                    .and_then(|b| b.trim_end().strip_suffix("new"))
+                    .is_some_and(|b| !b.ends_with(ident))
+                    && line
+                        .get(r.end..)
+                        .is_some_and(|a| a.trim_start().starts_with('('))
+            })
+    }
+
+    fn cs_partial_constructors(&self, word: &str, parts: Vec<Hit>) -> Vec<Hit> {
+        let partial = Regex::new(r"\bpartial\b").expect("the regex is a literal");
+        let texts: Option<Vec<String>> = parts.iter().map(|h| self.text_of(&h.path)).collect();
+        let Some(texts) = texts.filter(|_| parts.len() > 1) else {
+            return parts;
+        };
+        let mut namespaces =
+            (parts.iter().zip(&texts)).map(|(h, t)| search::cs_namespace(t, h.line1));
+        let first = namespaces.next();
+        if !namespaces.all(|n| Some(n) == first) || !parts.iter().all(|h| partial.is_match(&h.text))
+        {
+            return parts;
+        }
+        let ctor = Regex::new(&search::def_patterns(Kind::CSharp, word)[4])
+            .expect("an escaped name keeps the pattern valid");
+        let mut ctors = Vec::new();
+        for (h, text) in parts.iter().zip(&texts) {
+            let literal = search::literal_lines(Kind::CSharp, text);
+            for (i, l) in text.lines().enumerate() {
+                if literal.get(i) != Some(&true)
+                    && ctor.is_match(l)
+                    && search::cs_owner(text, i + 1) == Some(h.line1)
+                {
+                    ctors.push(Hit {
+                        path: h.path.clone(),
+                        line1: i + 1,
+                        byte_col: None,
+                        text: l.to_owned(),
+                        deleted: None,
+                    });
+                }
+            }
+        }
+        let ctors = self.cs_fit(word, self.cs_args(), None, ctors);
+        if ctors.is_empty() { parts } else { ctors }
     }
 }
 

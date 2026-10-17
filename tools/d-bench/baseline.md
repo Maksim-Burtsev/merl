@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the other rows as in the night's second epic.
+merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the csharp row with the fixes of #935, `vm.loadavg` { 5.00 5.48 5.37 }; the other rows as in the night's second epic.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -15,7 +15,7 @@ merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `v
 | swift (Alamofire) | 154 | 115 (75%) | 37 (24%) | 0 (0%) | 2 (1%) | 116 | 10.2 | 16.7 |
 | java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |
 | kotlin (nowinandroid) | 34 | 34 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 46 | 26.5 | 55.9 |
-| csharp (eShop) | 27 | 24 (89%) | 3 (11%) | 0 (0%) | 0 (0%) | 53 | 18.8 | 32.0 |
+| csharp (eShop) | 27 | 25 (93%) | 2 (7%) | 0 (0%) | 0 (0%) | 53 | 18.0 | 28.9 |
 | ruby (mastodon) | 28 | 22 (79%) | 5 (18%) | 0 (0%) | 1 (4%) | 52 | 64.6 | 141.3 |
 | objc (SDWebImage) | 229 | 92 (40%) | 122 (53%) | 0 (0%) | 15 (7%) | 41 | 26.3 | 110.1 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 73.4 | 164.6 |

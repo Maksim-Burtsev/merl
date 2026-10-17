@@ -32,7 +32,7 @@ public class Table
     public int Set(Teapot pot, Stale.Kettle old)
     {
         var kettle = new Kettle(1);
-        //               ^ d: picker src/Shop/Tea/Kettle.Parts.cs:3, src/Shop/Tea/Kettle.cs:13; want src/Shop/Tea/Kettle.cs:17 (#935)
+        //               ^ d: src/Shop/Tea/Kettle.cs:17
         Kettle near = kettle;
         return kettle.Pour(1) + pot.Pour(1) + old.Pour(1) + near.Pour(1) + Spices.Grind();
         //            ^ d: src/Shop/Tea/Kettle.cs:24
