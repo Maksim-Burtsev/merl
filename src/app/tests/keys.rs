@@ -116,6 +116,53 @@ fn unbound_ctrl_letter_is_never_the_bare_letter() {
 }
 
 #[test]
+fn cmd_letter_other_than_c_and_x_does_nothing() {
+    let mut a = app(&"x\n".repeat(200));
+    a.show_tree = false;
+    let cmd = KeyModifiers::SUPER;
+    for c in ['o', 's', 't', 'w', 'p', 'q', 'j', '?', 'C'] {
+        assert!(!press(&mut a, KeyCode::Char(c), cmd), "Cmd+{c}");
+        assert!(a.picker.is_none() && !a.show_tree, "Cmd+{c}");
+        assert_eq!((a.mode, a.line), (Mode::Normal, 0), "Cmd+{c}");
+    }
+    assert!(!press(&mut a, KeyCode::Char('o'), cmd | KeyModifiers::ALT));
+    assert!(!press(&mut a, KeyCode::Char('d'), cmd | KeyModifiers::CONTROL));
+    assert_eq!((a.picker.is_none(), a.line), (true, 0));
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('o'), cmd);
+    assert_eq!(a.buf.lines[0], "x");
+    press(&mut a, KeyCode::Char('x'), cmd);
+    assert_eq!(a.buf.lines.len(), 199, "Cmd+X still cuts the line");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('o'), cmd);
+    assert_eq!(&*a.prompt, "");
+}
+
+#[test]
+fn alt_ctrl_letter_with_an_unbound_ctrl_letter_does_nothing() {
+    let mut a = app(&"x\n".repeat(200));
+    let alt_ctrl = KeyModifiers::ALT | KeyModifiers::CONTROL;
+    press(&mut a, KeyCode::Char('?'), KeyModifiers::NONE);
+    assert!(!press(&mut a, KeyCode::Char('q'), alt_ctrl));
+    assert_eq!(a.mode, Mode::Help, "the overlay stays open");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    find(&mut a, "x");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    for c in ['q', 't', 'o', 'D'] {
+        assert!(!press(&mut a, KeyCode::Char(c), alt_ctrl), "Alt+Ctrl+{c}");
+        assert!(a.find_re.is_some() && a.anchor.is_some(), "Alt+Ctrl+{c}");
+    }
+    assert!(!press(&mut a, KeyCode::Char('t'), alt_ctrl | KeyModifiers::SHIFT));
+    assert!(a.find_re.is_some() && a.anchor.is_some());
+    let line = a.line;
+    press(&mut a, KeyCode::Char('d'), alt_ctrl);
+    assert!(a.find_re.is_none() && a.anchor.is_none(), "a bound one is Esc first");
+    assert!(a.line > line, "then the Ctrl+letter");
+}
+
+#[test]
 fn aliases_reach_the_same_actions() {
     let mut a = app("foo bar\n");
     std::fs::remove_file(a.buf.path.as_ref().unwrap()).unwrap();
