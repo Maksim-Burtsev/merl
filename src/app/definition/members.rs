@@ -28,6 +28,9 @@ impl App {
             if !found.is_empty() {
                 return self.show_found(a, found);
             }
+            if let Some(found) = self.cpp_class_scope(&a.here, &a.text, &a.word, &class) {
+                return self.show_found(a, found);
+            }
         }
         let constructed = before
             .trim_end()

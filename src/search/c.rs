@@ -122,7 +122,7 @@ fn literal_end(b: &[u8], open: usize, quote: u8) -> usize {
     }
     b.len()
 }
-fn c_innermost_open_brace(code: &[u8], at: usize) -> Option<usize> {
+pub(super) fn c_innermost_open_brace(code: &[u8], at: usize) -> Option<usize> {
     let mut depth = 0usize;
     for i in (0..at.min(code.len())).rev() {
         match code[i] {
@@ -154,7 +154,7 @@ fn untemplated(s: &str) -> String {
     }
     s
 }
-fn c_struct_head(head: &str) -> Option<String> {
+pub(super) fn c_struct_head(head: &str) -> Option<String> {
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)|\b(?:alignas|__declspec)\s*\([^()]*\)|\[\[[^\]]*\]\]").expect("the regex is a literal")
     });
@@ -348,7 +348,7 @@ fn line_starts(code: &str) -> Vec<usize> {
     clippy::match_same_arms,
     reason = "each arm is one kind of byte the scan stops at"
 )]
-fn c_head_start(code: &str, open: usize) -> usize {
+pub(super) fn c_head_start(code: &str, open: usize) -> usize {
     let b = code.as_bytes();
     let item_of_init_list = |close: usize| {
         code.get(close + 1..)
@@ -406,7 +406,7 @@ fn top_level_paren_groups(s: &str) -> Vec<Range<usize>> {
     }
     out
 }
-enum Head {
+pub(super) enum Head {
     TypeOrNamespace,
     Function { params: Range<usize>, name: String },
     Lambda { params: Range<usize> },
@@ -414,7 +414,7 @@ enum Head {
     Control { parens: Range<usize> },
     Block,
 }
-fn c_head(head: &str) -> Head {
+pub(super) fn c_head(head: &str) -> Head {
     static NAMESPACE_EXTERN_OR_ENUM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:inline\s+)?namespace\b|^\s*extern\s*$|^\s*(?:typedef\s+)?enum\b[^(]*$")
             .expect("the regex is a literal")
@@ -728,6 +728,9 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
             byte_col: at - starts[line1 - 1],
         }
     };
+    if let Some(at) = initializer_parameter(&code, pos, name) {
+        return vec![place(at)];
+    }
     for Scope {
         open,
         head_start: start,
@@ -770,6 +773,21 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
         }
     }
     Vec::new()
+}
+fn initializer_parameter(code: &str, pos: usize, name: &str) -> Option<usize> {
+    let open = pos + code.get(pos..)?.find(['{', ';', '}'])?;
+    if code.as_bytes()[open] != b'{' {
+        return None;
+    }
+    let start = c_head_start(code, open);
+    let Head::Function { params, .. } = c_head(code.get(start..open)?) else {
+        return None;
+    };
+    if start + params.end > pos {
+        return None;
+    }
+    let inner = start + params.start + 1..start + params.end - 1;
+    parameter_at(code.get(inner.clone())?, name).map(|j| inner.start + j)
 }
 fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
     let f = bracket_contents_blanked(s);

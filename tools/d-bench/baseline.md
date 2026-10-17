@@ -1,6 +1,6 @@
 # `d` bench baseline
 
-merl at `c1bc392b`, 2026-10-17, release build, `vm.loadavg` { 15.43 14.03 12.27 } before the run, { 11.35 13.11 12.03 } after.
+merl at `c1bc392b` (csharp rows) and `c8d08dd7` (c, cpp, objc rows), 2026-10-17, release build, `vm.loadavg` { 15.43 14.03 12.27 } and { 9.81 6.89 6.20 } before the runs; merged into the night's second epic.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -9,15 +9,15 @@ merl at `c1bc392b`, 2026-10-17, release build, `vm.loadavg` { 15.43 14.03 12.27 
 | js (eslint) | 147 | 119 (81%) | 21 (14%) | 0 (0%) | 7 (5%) | 123 | 38.6 | 152.5 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
 | rust (ripgrep) | 231 | 183 (79%) | 44 (19%) | 0 (0%) | 4 (2%) | 69 | 5.7 | 67.7 |
-| c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 22.5 | 32.3 |
-| cpp (leveldb) | 232 | 177 (76%) | 53 (23%) | 0 (0%) | 2 (1%) | 68 | 14.6 | 61.2 |
+| c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 24.7 | 33.3 |
+| cpp (leveldb) | 232 | 182 (78%) | 48 (21%) | 0 (0%) | 2 (1%) | 68 | 22.8 | 94.6 |
 | php (koel) | 104 | 99 (95%) | 5 (5%) | 0 (0%) | 0 (0%) | 196 | 13.8 | 25.9 |
 | swift (Alamofire) | 154 | 115 (75%) | 37 (24%) | 0 (0%) | 2 (1%) | 116 | 10.2 | 16.7 |
 | java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |
 | kotlin (nowinandroid) | 34 | 34 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 46 | 26.5 | 55.9 |
 | csharp (eShop) | 27 | 24 (89%) | 3 (11%) | 0 (0%) | 0 (0%) | 53 | 18.8 | 32.0 |
 | ruby (mastodon) | 28 | 22 (79%) | 5 (18%) | 0 (0%) | 1 (4%) | 52 | 64.6 | 141.3 |
-| objc (SDWebImage) | 229 | 92 (40%) | 122 (53%) | 0 (0%) | 15 (7%) | 41 | 34.5 | 144.3 |
+| objc (SDWebImage) | 229 | 92 (40%) | 122 (53%) | 0 (0%) | 15 (7%) | 41 | 26.3 | 110.1 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 73.4 | 164.6 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 59.0 | 91.8 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 7.6 | 9.2 |
