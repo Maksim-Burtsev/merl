@@ -6,7 +6,7 @@ int set_table() {
   infuse::Leaf leaf{3};
   infuse::Kettle near(1);
   stale::Kettle far;
-  //     ^ d: picker include/tea/kettle.hh:11, include/tea/kettle.hh:41; want include/tea/kettle.hh:41 (#943)
+  //     ^ d: include/tea/kettle.hh:41
   infuse::Teapot pot;
   return steep(leaf) + steep(4) + stale::steep(5) + near.decant(1) + far.decant(1) + pot.decant(1);
   //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:11, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
@@ -30,7 +30,7 @@ namespace bt = infuse;
 
 int once_more() {
   bt::Kettle k(3);
-  //  ^ d: picker include/tea/kettle.hh:11, include/tea/kettle.hh:41; want include/tea/kettle.hh:11 (#943)
+  //  ^ d: include/tea/kettle.hh:11
   bt::Urn urn;
   return k.topup() + urn.serve() + urn.rinse() + Tin<int>{}.seal();
   //                     ^ d: include/tea/kettle.hh:31
