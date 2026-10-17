@@ -39,7 +39,7 @@ export function brew({ leaves, water: ml }: Recipe, minutes = steep.minutes): nu
   return leaves + ml + steep(minutes);
   //     ^ d: tea/table.ts:36
   //              ^ d: tea/table.ts:36
-  //                   ^ d: picker tea/kettle.ts:11, tea/kettle.ts:15; want tea/kettle.ts:11 (#976)
+  //                   ^ d: tea/kettle.ts:11
   //                         ^ d: tea/table.ts:36
 }
 
@@ -72,7 +72,7 @@ const Pot = 1;
 
 export function serveMenu(): number {
   return steep(menu.length) + new Pot().pour(1);
-  //     ^ d: picker tea/kettle.ts:11, tea/kettle.ts:15; want tea/kettle.ts:11 (#976)
+  //     ^ d: tea/kettle.ts:11
   //                              ^ d: tea/teapot.ts:10
   //                                    ^ d: tea/teapot.ts:15
 }

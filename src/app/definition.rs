@@ -491,6 +491,22 @@ impl App {
                     self.text_of(&c.hit.path)
                 })
             });
+            let called = search::definition_word(Some(kind), self.line_str(), self.col)
+                .is_some_and(|(r, w)| {
+                    w == word
+                        && self
+                            .line_str()
+                            .get(r.end..)
+                            .is_some_and(|t| t.starts_with('('))
+                });
+            let namespace = Regex::new(&format!(
+                r"^\s*(?:export\s+)?(?:declare\s+)?namespace\s+{}\b",
+                regex::escape(word)
+            ))
+            .expect("an escaped name keeps the pattern valid");
+            if called && found.iter().any(|c| !namespace.is_match(&c.hit.text)) {
+                found.retain(|c| !namespace.is_match(&c.hit.text));
+            }
         }
         if found.len() <= 500 {
             let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
