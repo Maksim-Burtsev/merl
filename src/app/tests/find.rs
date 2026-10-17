@@ -398,11 +398,11 @@ fn a_line_drawn_whole_by_a_find_gets_its_colour() {
     let (_, mut a) = temp_file("find-colour", &text);
     a.buf.parse_more(None);
     a.buf.paint_to(1, &theme);
-    assert!(a.buf.hl[0].is_empty(), "a cut line is drawn plain");
+    assert_eq!(a.buf.hl[0], Vec::new(), "a cut line is drawn plain");
     find(&mut a, "\"");
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
     a.buf.parse_more(None);
     a.buf.paint_to(1, &theme);
-    assert!(!a.buf.hl[0].is_empty());
+    assert_ne!(a.buf.hl[0], Vec::new());
 }
