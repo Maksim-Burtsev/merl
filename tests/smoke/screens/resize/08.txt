@@ -4,10 +4,10 @@ wait Go to definition of the word under the
 │   o / Ctrl+E                        Open a file (fuzzy)                      │
 │   Ctrl+N                            New file: type its path, Enter creates   │
 │                                     and edits it                             │
-│   d / F12                           Go to definition of the word under the   │
+│   d                                 Go to definition of the word under the   │
 │                                     cursor, or its implementations           │
 │   D                                 Project symbols (fuzzy)                  │
-│   u / Shift+F12                     Usages of the word under the cursor      │
+│   u                                 Usages of the word under the cursor      │
 │   [ / ]                             Back / forward in the jump history       │
 │   : / Ctrl+G                        Go to line                               │
 │ Search                                                                       │

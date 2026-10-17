@@ -20,10 +20,10 @@ merl snapshot: tutor
 20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
 21         return [Note.from_dict(item) for item in raw]
 Tutor 4/23 · Go to definition
-With the cursor on `load_config`, press `d` (or F12) to jump to its definition.
-The status line says how it was found: via the import at the top, in config.py.
-`d` reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration
-it lists what implements it.
+With the cursor on `load_config`, press `d` to jump to its definition. The
+status line says how it was found: via the import at the top, in config.py. `d`
+reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration it
+lists what implements it.
 store.py  13:33  [code]
 
 ==== 80x24 tokyonight-moon styles
@@ -144,9 +144,9 @@ m fg #f6f8fa bg #5094e4
 27
 28     def next_id(self) -> int:
 Tutor 4/23 · Go to definition
-With the cursor on `load_config`, press `d` (or F12) to jump to its definition. The status line says how it was found:
-via the import at the top, in config.py. `d` reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration
-it lists what implements it.
+With the cursor on `load_config`, press `d` to jump to its definition. The status line says how it was found: via the
+import at the top, in config.py. `d` reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration it lists
+what implements it.
 store.py  13:33  [code]
 
 ==== 120x33 tokyonight-moon styles
@@ -309,8 +309,8 @@ m fg #f6f8fa bg #5094e4
 50         lowered = needle.lower()
 51         return [note for note in self.notes if lowered in note.text.lower()]
 Tutor 4/23 · Go to definition
-With the cursor on `load_config`, press `d` (or F12) to jump to its definition. The status line says how it was found: via the import at the top, in config.py. `d` reads Makefiles,
-Terraform, Dockerfiles and YAML too, and on a declaration it lists what implements it.
+With the cursor on `load_config`, press `d` to jump to its definition. The status line says how it was found: via the import at the top, in config.py. `d` reads Makefiles, Terraform,
+Dockerfiles and YAML too, and on a declaration it lists what implements it.
 store.py  13:33  [code]
 
 ==== 185x55 tokyonight-moon styles

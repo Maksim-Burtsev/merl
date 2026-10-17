@@ -3,9 +3,9 @@ wait This help
 │▸ .github                   │ 2  │ Files and jumps                                                                                                   │
 │▸ .venv                     │ 3  │   o / Ctrl+E                        Open a file (fuzzy)                                                           │
 │▾ app                       │ 4 c│   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
-│    __init__.py             │ 5  │   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+│    __init__.py             │ 5  │   d                                 Go to definition of the word under the cursor, or its implementations         │
 │    api.py                  │ 6  │   D                                 Project symbols (fuzzy)                                                       │
-│    config.py               │ 7  │   u / Shift+F12                     Usages of the word under the cursor                                           │
+│    config.py               │ 7  │   u                                 Usages of the word under the cursor                                           │
 │    models.py               │ 8  │   [ / ]                             Back / forward in the jump history                                            │
 │    repos.py                │ 9  │   : / Ctrl+G                        Go to line                                                                    │
 │    service.py              │10  │ Search                                                                                                            │

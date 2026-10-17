@@ -9,7 +9,8 @@ What the user does in merl:
 
 - `merl` opens the project: a file tree on the left, the code on the right.
 - `merl --review` reviews the checked-out branch against its base; `merl --review=BRANCH` fetches
-  BRANCH and checks out what was pushed. The left panel lists the changed files, the diff is drawn
+  BRANCH and checks out what was pushed in a folder of its own (`.git/merl/branches/BRANCH/`),
+  leaving the user's checkout as it is. The left panel lists the changed files, the diff is drawn
   over the code, and `c` / `C` walk the hunks file by file, top to bottom of the panel.
 - `a` leaves a note for you on a line or a selected range, while reviewing or reading (an
   experiment, on with `review_notes = true` in `~/.config/merl/config.toml`).
@@ -91,7 +92,7 @@ how it works.
 ## Review notes
 
 When the user says they reviewed in merl or left notes, read
-`$(git rev-parse --git-common-dir)/merl/notes/BRANCH`, BRANCH being the checked-out branch with
+`$(git rev-parse --git-common-dir)/merl/notes/BRANCH`, BRANCH being the reviewed branch with
 its slashes (`.git/merl/notes/feat/paging`). merl rewrites it whole on every change, so it is
 current even while merl is open.
 

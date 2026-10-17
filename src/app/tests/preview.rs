@@ -510,8 +510,6 @@ fn keys_of_a_word_say_nothing_in_the_preview() {
         (KeyCode::Char('d'), KeyModifiers::NONE),
         (KeyCode::Char('n'), KeyModifiers::NONE),
         (KeyCode::Char('N'), KeyModifiers::SHIFT),
-        (KeyCode::F(12), KeyModifiers::NONE),
-        (KeyCode::F(12), KeyModifiers::SHIFT),
         (KeyCode::Char('f'), KeyModifiers::CONTROL),
         (KeyCode::Up, KeyModifiers::SHIFT),
         (KeyCode::Right, KeyModifiers::ALT),
