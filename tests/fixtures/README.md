@@ -422,7 +422,8 @@ not declare (#1001): a function nested in its body, `Mill.grind` on the construc
 `Grinder.burr`; beside a prototype member holding an arrow, an `async function` method, a class
 extending `Grinder` and a JSDoc `{Grinder}` parameter. `scoop.js` declares a `var` again in a
 `for`, in a nested function, in an arrow callback and in a template literal, and in another
-function (#1003). `brew.cjs` names in JSDoc braces a `@typedef` of a string, a constructor
+function (#1003), in a promise chain's second callback, and in the next of two functions whose
+bodies are not indented. `brew.cjs` names in JSDoc braces a `@typedef` of a string, a constructor
 function and a class behind a `require`, and a `Kettle` the file does not import (#1002);
 `dosing.js` holds braces JSDoc must not read: a code line continuing a product with `* f({ x })`,
 an object literal after a one-line `/** @type {…} */`, and a word in braces in a plain comment.
