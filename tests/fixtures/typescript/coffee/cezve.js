@@ -30,3 +30,64 @@ export class Ibrik {
     return 2;
   }
 }
+
+export class Jezve {
+  static crema = 1;
+
+  crema() {
+    return 3;
+  }
+}
+
+export class Briki extends Ibrik {}
+
+export class Fs {
+  static stat = 1;
+
+  stat() {
+    return 4;
+  }
+}
+
+export class Samovar {
+  kind = "m";
+
+  static kind() {
+    return "model";
+  }
+
+  static tagline() {
+    return this.kind();
+    //          ^ d: coffee/cezve.js:55
+  }
+}
+
+export class Dallah {
+  decant() {
+    return 5;
+  }
+
+  decant = 6;
+}
+
+export class Lid {
+  get = 1;
+
+  get() {
+    return 2;
+  }
+}
+
+export class Kanaka extends Ibrik {
+  crema() {
+    return super.crema();
+    //           ^ d: coffee/cezve.js:29
+  }
+}
+
+export class Saucer {
+  get warmth() { return this._w; }
+  set warmth(v) {
+    this._w = v;
+  }
+}

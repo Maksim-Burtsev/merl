@@ -247,7 +247,9 @@ two star imports of one name, and declaration-shaped lines in a docstring and an
 comprehension's iterable and a lambda's default read a module-level name. The `menu_*` modules
 star-import `infuse` where the later-wins rule must give up (#980): a later module with
 `__all__` (`listed`), one that mentions it without declaring it (`mentions`), an underscore
-name, and a star import below the use or indented.
+name, and a star import below the use or indented. `lamp.py` has a class attribute and a `def`
+below it of one name, the `def` the answer: JavaScript's rule that a field shadows its method
+(#1004) must stay out of Python.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
@@ -400,8 +402,13 @@ template literal.
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,
 `exports.darken = function` and `exports.Roaster = class`, a destructured and renamed `require`,
 an anonymous `export default function`, a getter, a class field beside a method of its name in
-another class and in the same one, a `var` declared twice, a function called above its
-declaration, a JSDoc `@typedef`, and declaration-shaped lines in a template literal and comments.
+another class, in the same one (also static, named like a prefix of `static`, beside a static
+method read through `this`, declared after the method, named `get`, inherited by a subclass, and
+behind `super`, where the answer is the runtime's method: tsserver 6 answers the field, its
+binder dropping a method declared after a field of its name), a one-line getter above its
+setter (tsserver offers both; `d` jumps to the setter, which is no field), a `var` declared
+twice, a function called above its declaration, a JSDoc `@typedef`, and declaration-shaped lines
+in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).

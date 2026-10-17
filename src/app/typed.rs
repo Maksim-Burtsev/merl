@@ -82,14 +82,7 @@ impl App {
             return Ok(found);
         }
         let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
-        let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
-            let members = self.members_of(kind, t, word);
-            if members.is_empty() {
-                self.field_of(kind, t, word, false).map(|hit| vec![hit])
-            } else {
-                Some(members)
-            }
-        });
+        let declared = self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word));
         let hits = declared
             .or_else(|| {
                 let mut assigned = None;

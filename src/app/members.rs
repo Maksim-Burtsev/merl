@@ -592,6 +592,45 @@ impl App {
             .collect()
     }
 
+    pub(super) fn own_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let members = self.members_of(kind, t, word);
+        if members.is_empty() {
+            self.field_of(kind, t, word, false).map(|hit| vec![hit])
+        } else {
+            Some(members)
+        }
+    }
+
+    pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        if kind != Kind::TsJs {
+            return self.own_member(kind, t, word);
+        }
+        let mut members = self.members_of(kind, t, word);
+        let field = self.field_of(kind, t, word, false);
+        if members.is_empty() {
+            return field.map(|hit| vec![hit]);
+        }
+        let Some(field) = field.filter(|f| {
+            !ts_modifiers(&f.text)
+                .iter()
+                .any(|m| matches!(*m, "static" | "get" | "set"))
+                && members.iter().all(|m| {
+                    (m.path != f.path || m.line1 != f.line1)
+                        && !ts_modifiers(&m.text).contains(&"static")
+                })
+        }) else {
+            return Some(members);
+        };
+        if members
+            .iter()
+            .all(|m| m.path == field.path && m.line1 > field.line1)
+        {
+            return Some(vec![field]);
+        }
+        members.push(field);
+        Some(members)
+    }
+
     pub(super) fn above(
         &self,
         kind: Kind,
@@ -600,14 +639,7 @@ impl App {
         depth: usize,
     ) -> Result<Vec<Hit>, String> {
         let broke = || "super".to_owned();
-        let find = |t: &Typed| {
-            let members = self.members_of(kind, t, word);
-            if members.is_empty() {
-                self.field_of(kind, t, word, false).map(|hit| vec![hit])
-            } else {
-                Some(members)
-            }
-        };
+        let find = |t: &Typed| self.own_member(kind, t, word);
         let text = self
             .text_of(&ty.path)
             .filter(|_| depth < 8)
@@ -744,6 +776,31 @@ impl App {
         let member = before.ends_with(['.', '>']) || before.ends_with("::");
         !(r.start < first || member || (called(r.start) && !called(first)))
     }
+}
+
+fn ts_modifiers(line: &str) -> Vec<&str> {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    words
+        .windows(2)
+        .take_while(|w| {
+            matches!(
+                w[0],
+                "public"
+                    | "private"
+                    | "protected"
+                    | "readonly"
+                    | "static"
+                    | "declare"
+                    | "override"
+                    | "abstract"
+                    | "accessor"
+                    | "async"
+                    | "get"
+                    | "set"
+            ) && !w[1].starts_with(['=', ';', ':', '(', '?', '!'])
+        })
+        .map(|w| w[0])
+        .collect()
 }
 
 fn is_protocol(text: &str, decl1: usize) -> bool {
