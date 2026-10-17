@@ -661,7 +661,11 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         for (file, text, lang) in [
             ("setup.m", "% VL_SETUP\nfunction p = setup()\n", "MATLAB"),
-            ("Shop.m", "#import \"Shop.h\"\n@implementation Shop\n@end\n", "Objective-C"),
+            (
+                "Shop.m",
+                "#import \"Shop.h\"\n@implementation Shop\n@end\n",
+                "Objective-C",
+            ),
             ("only_c.m", "#include <stdio.h>\nint x;\n", "Objective-C"),
             ("empty.m", "", "Objective-C"),
         ] {

@@ -4,7 +4,9 @@ use super::{SQL_NAME_PART, sql_create};
 
 pub fn sql_cte(word: &str) -> String {
     let w = regex::escape(word);
-    format!(r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}(?:\s*\([^()]*\))?\s+AS(?:\s+(?:NOT\s+)?MATERIALIZED)?\s*\(")
+    format!(
+        r"(?i)^\s*(?:\)\s*)?(?:WITH\s+(?:RECURSIVE\s+)?|,\s*)?{w}(?:\s*\([^()]*\))?\s+AS(?:\s+(?:NOT\s+)?MATERIALIZED)?\s*\("
+    )
 }
 pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize) -> Option<bool> {
     let start = |l: usize| -> usize { text.split_inclusive('\n').take(l - 1).map(str::len).sum() };
@@ -97,10 +99,15 @@ fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
         let rest = text.get(i..).unwrap_or_default();
         let skip = match b[i] {
             b'-' if rest.starts_with("--") => rest.find('\n'),
-            b'/' if rest.starts_with("/*") => rest.get(2..).and_then(|r| r.find("*/")).map(|n| n + 4),
+            b'/' if rest.starts_with("/*") => {
+                rest.get(2..).and_then(|r| r.find("*/")).map(|n| n + 4)
+            }
             b'\'' => rest.get(1..).and_then(|r| r.find('\'')).map(|n| n + 2),
             b'"' => {
-                i += rest.get(1..).and_then(|r| r.find('"')).map_or(b.len(), |n| n + 2);
+                i += rest
+                    .get(1..)
+                    .and_then(|r| r.find('"'))
+                    .map_or(b.len(), |n| n + 2);
                 continue;
             }
             b'$' if i == 0 || !(b[i - 1].is_ascii_alphanumeric() || b[i - 1] == b'_') => {
@@ -126,7 +133,10 @@ fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
             }
         };
         let end = skip.map_or(b.len(), |n| (i + n).min(b.len()));
-        out[i..end].iter_mut().filter(|c| **c != b'\n').for_each(|c| *c = b' ');
+        out[i..end]
+            .iter_mut()
+            .filter(|c| **c != b'\n')
+            .for_each(|c| *c = b' ');
         i = end;
     }
     (String::from_utf8_lossy(&out).into_owned(), bodies)
@@ -176,12 +186,63 @@ fn sql_parameter(
 }
 
 const SQL_NOT_ALIAS: &[&str] = &[
-    "and", "or", "not", "is", "in", "on", "using", "where", "join", "inner", "left", "right",
-    "full", "outer", "cross", "natural", "lateral", "group", "order", "having", "limit", "offset",
-    "fetch", "for", "window", "union", "except", "intersect", "minus", "returning", "set",
-    "values", "select", "from", "with", "as", "into", "tablesample", "when", "then", "else", "end",
-    "only", "straight_join", "use", "force", "ignore", "partition", "qualify", "connect", "start",
-    "pivot", "unpivot", "go", "apply", "between", "like",
+    "and",
+    "or",
+    "not",
+    "is",
+    "in",
+    "on",
+    "using",
+    "where",
+    "join",
+    "inner",
+    "left",
+    "right",
+    "full",
+    "outer",
+    "cross",
+    "natural",
+    "lateral",
+    "group",
+    "order",
+    "having",
+    "limit",
+    "offset",
+    "fetch",
+    "for",
+    "window",
+    "union",
+    "except",
+    "intersect",
+    "minus",
+    "returning",
+    "set",
+    "values",
+    "select",
+    "from",
+    "with",
+    "as",
+    "into",
+    "tablesample",
+    "when",
+    "then",
+    "else",
+    "end",
+    "only",
+    "straight_join",
+    "use",
+    "force",
+    "ignore",
+    "partition",
+    "qualify",
+    "connect",
+    "start",
+    "pivot",
+    "unpivot",
+    "go",
+    "apply",
+    "between",
+    "like",
 ];
 
 type SqlFromItem = (std::ops::Range<usize>, Option<std::ops::Range<usize>>);
@@ -219,15 +280,25 @@ fn sql_from_items(stmt: &str) -> Vec<SqlFromItem> {
     let mut items = Vec::new();
     for m in start.find_iter(stmt) {
         let mut i = m.end();
-        while let Some(n) = stmt.get(i..).and_then(|r| name.captures(r)).and_then(|c| c.get(1)) {
+        while let Some(n) = stmt
+            .get(i..)
+            .and_then(|r| name.captures(r))
+            .and_then(|c| c.get(1))
+        {
             let table = i + n.start()..i + n.end();
             if keyword(&table) {
                 break;
             }
             i = table.end;
-            let named = stmt.get(i..).and_then(|r| alias.captures(r)).and_then(|c| c.get(1));
+            let named = stmt
+                .get(i..)
+                .and_then(|r| alias.captures(r))
+                .and_then(|c| c.get(1));
             let aliased = named.map(|a| i + a.start()..i + a.end()).filter(|a| {
-                !keyword(a) && !stmt.get(a.end..).is_some_and(|r| r.trim_start().starts_with('.'))
+                !keyword(a)
+                    && !stmt
+                        .get(a.end..)
+                        .is_some_and(|r| r.trim_start().starts_with('.'))
             });
             if let Some(a) = &aliased {
                 i = a.end;
@@ -245,8 +316,12 @@ fn sql_from_items(stmt: &str) -> Vec<SqlFromItem> {
 pub fn sql_same_schema(lead: &str, decl: &str) -> Option<bool> {
     let unquote = |s: &str| s.trim_matches(['"', '`']).to_ascii_lowercase();
     let used = Regex::new(&format!(r"({SQL_NAME_PART})\s*\.\s*$")).expect("a valid pattern");
-    let declared = Regex::new(&format!(r"{}({SQL_NAME_PART})\s*\.", sql_create!()))
-        .expect("a valid pattern");
+    let declared =
+        Regex::new(&format!(r"{}({SQL_NAME_PART})\s*\.", sql_create!())).expect("a valid pattern");
     let used = unquote(&used.captures(lead)?[1]);
-    Some(declared.captures(decl).is_some_and(|c| unquote(&c[1]) == used))
+    Some(
+        declared
+            .captures(decl)
+            .is_some_and(|c| unquote(&c[1]) == used),
+    )
 }

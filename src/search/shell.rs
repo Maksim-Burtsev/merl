@@ -83,14 +83,20 @@ pub fn shell_names_a_command(line: &str) -> bool {
     HEADER.is_match(line) || line.trim_start().starts_with("alias ")
 }
 pub fn shell_command_position(lead: &str) -> Option<bool> {
-    if ["$", "${", "${#", "${!", "(("].iter().any(|s| lead.ends_with(s)) {
+    if ["$", "${", "${#", "${!", "(("]
+        .iter()
+        .any(|s| lead.ends_with(s))
+    {
         return Some(false);
     }
     let l = lead.trim_end();
     let last = l.rsplit(char::is_whitespace).next().unwrap_or("");
     (l.is_empty()
         || l.ends_with([';', '&', '|', '(', '{', '!'])
-        || matches!(last, "then" | "do" | "else" | "elif" | "if" | "while" | "until"))
+        || matches!(
+            last,
+            "then" | "do" | "else" | "elif" | "if" | "while" | "until"
+        ))
     .then_some(true)
 }
 pub fn shell_no_name(lines: &[String], at: usize, lead: &str, tail: &str) -> bool {
@@ -107,7 +113,10 @@ pub fn shell_no_name(lines: &[String], at: usize, lead: &str, tail: &str) -> boo
         return true;
     }
     tail.starts_with(')')
-        && lead.trim_start().chars().all(|c| c.is_alphanumeric() || "_|*-.( ".contains(c))
+        && lead
+            .trim_start()
+            .chars()
+            .all(|c| c.is_alphanumeric() || "_|*-.( ".contains(c))
         && lines[..at].iter().rev().map(|l| l.trim()).find_map(|l| {
             if l.starts_with("case ") && l.ends_with(" in") {
                 Some(true)
