@@ -69,3 +69,18 @@ export class Dallah {
 
   decant = 6;
 }
+
+export class Lid {
+  get = 1;
+
+  get() {
+    return 2;
+  }
+}
+
+export class Kanaka extends Ibrik {
+  crema() {
+    return super.crema();
+    //           ^ d: coffee/cezve.js:29
+  }
+}

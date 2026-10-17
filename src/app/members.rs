@@ -611,10 +611,12 @@ impl App {
             return field.map(|hit| vec![hit]);
         }
         let Some(field) = field.filter(|f| {
-            !ts_modifiers(&f.text).any(|m| matches!(m, "static" | "get" | "set"))
+            !ts_modifiers(&f.text)
+                .iter()
+                .any(|m| matches!(*m, "static" | "get" | "set"))
                 && members.iter().all(|m| {
                     (m.path != f.path || m.line1 != f.line1)
-                        && !ts_modifiers(&m.text).any(|m| m == "static")
+                        && !ts_modifiers(&m.text).contains(&"static")
                 })
         }) else {
             return Some(members);
@@ -776,24 +778,29 @@ impl App {
     }
 }
 
-fn ts_modifiers(line: &str) -> impl Iterator<Item = &str> {
-    line.split_whitespace().take_while(|w| {
-        matches!(
-            *w,
-            "public"
-                | "private"
-                | "protected"
-                | "readonly"
-                | "static"
-                | "declare"
-                | "override"
-                | "abstract"
-                | "accessor"
-                | "async"
-                | "get"
-                | "set"
-        )
-    })
+fn ts_modifiers(line: &str) -> Vec<&str> {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    words
+        .windows(2)
+        .take_while(|w| {
+            matches!(
+                w[0],
+                "public"
+                    | "private"
+                    | "protected"
+                    | "readonly"
+                    | "static"
+                    | "declare"
+                    | "override"
+                    | "abstract"
+                    | "accessor"
+                    | "async"
+                    | "get"
+                    | "set"
+            ) && !w[1].starts_with(['=', ';', ':', '(', '?', '!'])
+        })
+        .map(|w| w[0])
+        .collect()
 }
 
 fn is_protocol(text: &str, decl1: usize) -> bool {
