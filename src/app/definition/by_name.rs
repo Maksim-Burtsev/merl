@@ -457,17 +457,16 @@ impl App {
             *fallbacks = fallback;
         }
         let parameter = search::c_parameter(&a.text, self.line + 1, word);
-        Some(
-            match search::c_one_definition(word, &hits, |p| self.text_of(p))
-                .filter(|_| !on && !parameter)
-            {
-                Some(one) => {
-                    *aside = Some(one.set_aside_note);
-                    vec![hits[one.hit_index].clone()]
-                }
-                None => hits,
-            },
-        )
+        let one = search::c_one_definition(word, &hits, |p| self.text_of(p))
+            .filter(|_| !on && !parameter)
+            .filter(|o| !self.c_unreached_header(&a.here, &hits[o.hit_index].path));
+        Some(match one {
+            Some(one) => {
+                *aside = Some(one.set_aside_note);
+                vec![hits[one.hit_index].clone()]
+            }
+            None => hits,
+        })
     }
 
     fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {
