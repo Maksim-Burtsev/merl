@@ -153,7 +153,7 @@ public class Nursery
     public void Rock(Kid kid)
     {
         kid.Nudge();
-        //  ^ d: picker src/Shop/Rules/Rules.cs:143, src/Shop/Rules/Old/Twin.cs:5
+        //  ^ d: src/Shop/Rules/Rules.cs:143
     }
 }
 

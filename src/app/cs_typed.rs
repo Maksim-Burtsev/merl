@@ -88,9 +88,23 @@ impl App {
         let (walked, outside) = match ty {
             CsType::Outside(name) => (vec![name.clone()], true),
             CsType::Project(t) => match self.cs_up(t, word, 0) {
-                Up::Found(hits) => {
+                Up::Found(mut hits) => {
+                    let mine: Vec<String> = (self.buf.lines.iter())
+                        .filter_map(|l| search::cs_type_decl(l).map(|d| d.name))
+                        .collect();
+                    hits.retain(|h| {
+                        let place = self.text_of(&h.path).map(|t| search::cs_place(&t, h.line1, word));
+                        !matches!(place, Some(search::CsPlace::Member { owner, private: true }) if !mine.contains(&owner))
+                    });
+                    if hits.is_empty() {
+                        return None;
+                    }
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
-                    let hits = if fit.is_empty() { hits } else { fit };
+                    let hits = if fit.is_empty() {
+                        hits
+                    } else {
+                        self.cs_overload(word, fit)
+                    };
                     return Some(CsAnswer::Found(receivers(hits, label)));
                 }
                 Up::Outside { walked } => (walked, true),
@@ -117,43 +131,84 @@ impl App {
     }
 
     fn cs_up(&self, ty: &Typed, word: &str, depth: usize) -> Up {
-        let own = self.cs_members(ty, word);
+        let mut walked = vec![ty.name.clone()];
+        let Some(text) = self.text_of(&ty.path) else {
+            return Up::Outside { walked };
+        };
+        let (parts, partial) = self.cs_parts(ty, &text);
+        let own: Vec<Hit> = parts
+            .iter()
+            .flat_map(|p| self.cs_members(p, word))
+            .collect();
         if !own.is_empty() {
             return Up::Found(own);
         }
-        let mut walked = vec![ty.name.clone()];
-        let mut outside = false;
-        let Some(text) = self.text_of(&ty.path).filter(|_| depth < 8) else {
+        if depth >= 8 {
             return Up::Outside { walked };
-        };
-        for base in search::cs_bases(&text, ty.line) {
-            match self.cs_resolve(&ty.path, &text, ty.line, &base) {
-                Some(CsType::Project(b)) => match self.cs_up(&b, word, depth + 1) {
-                    Up::Found(hits) => return Up::Found(hits),
-                    Up::Outside { walked: more } => {
+        }
+        let mut outside = false;
+        for part in &parts {
+            let Some(text) = self.text_of(&part.path) else {
+                return Up::Unknown;
+            };
+            for base in search::cs_bases(&text, part.line) {
+                match self.cs_resolve(&part.path, &text, part.line, &base) {
+                    Some(CsType::Project(b)) => match self.cs_up(&b, word, depth + 1) {
+                        Up::Found(hits) => return Up::Found(hits),
+                        Up::Outside { walked: more } => {
+                            outside = true;
+                            walked.extend(more);
+                        }
+                        Up::Missing { walked: more } => walked.extend(more),
+                        Up::Unknown => return Up::Unknown,
+                    },
+                    Some(CsType::Outside(name)) => {
                         outside = true;
-                        walked.extend(more);
+                        walked.push(name);
                     }
-                    Up::Missing { walked: more } => walked.extend(more),
-                    Up::Unknown => return Up::Unknown,
-                },
-                Some(CsType::Outside(name)) => {
-                    outside = true;
-                    walked.push(name);
+                    None => return Up::Unknown,
                 }
-                None => return Up::Unknown,
             }
         }
-        let partial = Regex::new(r"\bpartial\b").is_ok_and(|re| {
-            text.lines()
-                .nth(ty.line - 1)
-                .is_some_and(|l| re.is_match(l))
-        });
         match (partial, outside) {
             (true, _) => Up::Unknown,
             (false, true) => Up::Outside { walked },
             (false, false) => Up::Missing { walked },
         }
+    }
+
+    #[expect(
+        clippy::suspicious_operation_groupings,
+        reason = "a hit's `line1` and a type's `line` are the same row, named apart"
+    )]
+    fn cs_parts(&self, ty: &Typed, text: &str) -> (Vec<Typed>, bool) {
+        let mut parts = vec![ty.clone()];
+        let partial = Regex::new(r"\bpartial\b").is_ok_and(|re| {
+            text.lines()
+                .nth(ty.line - 1)
+                .is_some_and(|l| re.is_match(l))
+        });
+        if partial {
+            let n = regex::escape(&ty.name);
+            let pattern =
+                format!(r"\bpartial\s+(?:record\s+)?(?:class|struct|interface|record)\s+{n}\b");
+            let cut = self.truncated.get();
+            let namespace = search::cs_namespace(text, ty.line);
+            for h in self.project_grep(Kind::CSharp, &ty.path, &pattern) {
+                let same = self
+                    .text_of(&h.path)
+                    .is_some_and(|t| search::cs_namespace(&t, h.line1) == namespace);
+                if same && (h.path != ty.path || h.line1 != ty.line) {
+                    parts.push(Typed {
+                        name: ty.name.clone(),
+                        path: h.path,
+                        line: h.line1,
+                    });
+                }
+            }
+            self.truncated.set(cut);
+        }
+        (parts, partial)
     }
 
     fn cs_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
@@ -182,6 +237,10 @@ impl App {
                 literal.get(i) != Some(&true)
                     && re.is_match(l)
                     && search::cs_owner(&text, i + 1) == Some(ty.line)
+                    && !matches!(
+                        search::cs_place(&text, i + 1, word),
+                        search::CsPlace::Local { .. }
+                    )
             })
             .map(|(i, _)| hit(i + 1))
             .collect();
@@ -337,7 +396,8 @@ impl App {
         }
         let cut = self.truncated.get();
         let pattern = search::def_patterns(Kind::CSharp, &name)[..4].join("|");
-        let hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);
+        let mut hits = self.project_definitions(Kind::CSharp, file, &name, &pattern);
+        hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
         let (types, other): (Vec<&Hit>, Vec<&Hit>) = hits
             .iter()
             .partition(|h| search::cs_type_decl(&h.text).is_some_and(|d| d.name == name));
@@ -348,10 +408,59 @@ impl App {
                 line: one.line1,
             })),
             ([], true) => Some(CsType::Outside(name)),
+            (many, true) => self.cs_one_of(text, line1, written, &name, many),
             _ => None,
         };
         self.truncated.set(cut);
         found
+    }
+
+    fn cs_one_of(
+        &self,
+        text: &str,
+        line1: usize,
+        written: &str,
+        name: &str,
+        many: &[&Hit],
+    ) -> Option<CsType> {
+        let mut namespaces = Vec::new();
+        for h in many {
+            let t = self.text_of(&h.path)?;
+            if search::cs_owner(&t, h.line1).is_some() {
+                return None;
+            }
+            namespaces.push(search::cs_namespace(&t, h.line1));
+        }
+        let picked: Vec<&Hit> = search::cs_namespace_pick(text, line1, written, &namespaces)
+            .into_iter()
+            .map(|i| many[i])
+            .collect();
+        let shape = Regex::new(&format!(
+            r"\bpartial\b.*?\b{}\s*(<[^>]*>)?",
+            regex::escape(name)
+        ))
+        .ok()?;
+        let shapes: Vec<Option<String>> = picked
+            .iter()
+            .map(|h| {
+                let c = shape.captures(&h.text)?;
+                Some(
+                    c.get(1)
+                        .map_or("", |m| m.as_str())
+                        .replace(char::is_whitespace, ""),
+                )
+            })
+            .collect();
+        let one = match (picked.as_slice(), shapes.first()) {
+            ([one], _) => one,
+            ([first, ..], Some(Some(s))) if shapes.iter().all(|t| t.as_ref() == Some(s)) => first,
+            _ => return None,
+        };
+        Some(CsType::Project(Typed {
+            name: name.to_owned(),
+            path: one.path.clone(),
+            line: one.line1,
+        }))
     }
 }
 
@@ -569,10 +678,6 @@ impl App {
         Err((!unknown).then_some(walked))
     }
 
-    #[expect(
-        clippy::suspicious_operation_groupings,
-        reason = "a hit's `line1` and a type's `line` are the same row, named apart"
-    )]
     fn cs_walk(
         &self,
         ty: &Typed,
@@ -583,45 +688,14 @@ impl App {
         unknown: &mut bool,
     ) -> Vec<Hit> {
         walked.push(ty.name.clone());
-        let mut parts = vec![ty.clone()];
         let Some(text) = self.text_of(&ty.path) else {
             *unknown = true;
             return Vec::new();
         };
-        let partial = Regex::new(r"\bpartial\b").is_ok_and(|re| {
-            text.lines()
-                .nth(ty.line - 1)
-                .is_some_and(|l| re.is_match(l))
-        });
-        if partial {
-            let n = regex::escape(&ty.name);
-            let pattern =
-                format!(r"\bpartial\s+(?:record\s+)?(?:class|struct|interface|record)\s+{n}\b");
-            let cut = self.truncated.get();
-            let namespace = search::cs_namespace(&text, ty.line);
-            for h in self.project_grep(Kind::CSharp, &ty.path, &pattern) {
-                let same = self
-                    .text_of(&h.path)
-                    .is_some_and(|t| search::cs_namespace(&t, h.line1) == namespace);
-                if same && (h.path != ty.path || h.line1 != ty.line) {
-                    parts.push(Typed {
-                        name: ty.name.clone(),
-                        path: h.path,
-                        line: h.line1,
-                    });
-                }
-            }
-            self.truncated.set(cut);
-        }
+        let (parts, _) = self.cs_parts(ty, &text);
         for part in &parts {
             let mut own = self.cs_members(part, word);
             let text = self.text_of(&part.path).unwrap_or_default();
-            own.retain(|h| {
-                !matches!(
-                    search::cs_place(&text, h.line1, word),
-                    search::CsPlace::Local { .. }
-                )
-            });
             if own
                 .iter()
                 .any(|h| h.path == level.cursor_file && h.line1 == level.cursor_line1)
@@ -636,7 +710,7 @@ impl App {
                 !(depth > 0 && private)
                     && level.types.as_ref().is_none_or(|re| re.is_match(&h.text))
             });
-            let own = self.cs_fit(word, level.args, None, own);
+            let own = self.cs_overload(word, self.cs_fit(word, level.args, None, own));
             if !own.is_empty() {
                 return own;
             }
@@ -770,6 +844,36 @@ impl App {
                 let by = usize::from(this && receiver.is_some_and(|q| q.is_empty() || q != owner));
                 n + by >= min && max.is_none_or(|m| n + by <= m)
             })
+            .collect()
+    }
+
+    fn cs_overload(&self, word: &str, hits: Vec<Hit>) -> Vec<Hit> {
+        let Some(args) = self
+            .definition_word(Some(Kind::CSharp))
+            .and_then(|(r, _)| search::cs_literal_arguments(&self.buf.lines, self.line, r.end))
+        else {
+            return hits;
+        };
+        let exact: Vec<Option<bool>> = hits
+            .iter()
+            .map(|h| {
+                let takes = search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)?;
+                Some(
+                    takes.len() >= args.len()
+                        && args
+                            .iter()
+                            .zip(&takes)
+                            .all(|(a, t)| t.as_deref() == Some(*a)),
+                )
+            })
+            .collect();
+        if !exact.contains(&Some(true)) {
+            return hits;
+        }
+        hits.into_iter()
+            .zip(exact)
+            .filter(|(_, e)| *e != Some(false))
+            .map(|(h, _)| h)
             .collect()
     }
 }
