@@ -734,6 +734,17 @@ fn lua_tables_keys_and_members() {
     assert_eq!(lua_members(module, "M", "a"), [4]);
     assert_eq!(lua_members(module, "M", "b"), [5]);
     assert_eq!(lua_members(module, "M", "c"), [6]);
+    let handed = "local function pour() end\nM.steep = pour -- alias\nM.pour = pour\nM.off = nil\n";
+    assert_eq!(
+        lua_members(handed, "M", "steep"),
+        [2],
+        "a field assigned a local (#954)"
+    );
+    assert!(
+        lua_members(handed, "M", "pour").is_empty(),
+        "`M.pour = pour` hands the local on"
+    );
+    assert!(lua_members(handed, "M", "off").is_empty(), "nor `nil`");
     assert!(continued(Kind::Python, &["x = 1 + \\", "    y"], 1));
     assert!(continued(Kind::Python, &["f(a,", "  b)"], 1));
     assert!(!continued(Kind::Python, &["x = 1", "y"], 1));

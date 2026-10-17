@@ -23,7 +23,7 @@ end
 function T.brew()
   return kettle.pour(1) + kettle.steep(2)
   --            ^ d: lua/tea/kettle.lua:18
-  --                             ^ d: none; want lua/tea/kettle.lua:24 (#954)
+  --                             ^ d: lua/tea/kettle.lua:24
 end
 
 function T.pots()

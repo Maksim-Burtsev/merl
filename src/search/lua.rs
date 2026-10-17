@@ -170,14 +170,21 @@ pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> 
 pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
     let (t, w) = (regex::escape(table), regex::escape(word));
     let re = Regex::new(&format!(
-        r"^\s*(?:function\s+{t}[.:]{w}\s*\(|{t}\.{w}\s*=\s*function\b)"
+        r"^\s*(?:function\s+{t}[.:]{w}\s*\(|{t}\.{w}\s*=\s*(?:function\b|([A-Za-z_]\w*)\s*;?\s*$))"
     ))
     .expect("an escaped name keeps the pattern valid");
     let literal = literal_lines(Kind::Lua, text);
     text.lines()
         .zip(literal)
         .enumerate()
-        .filter(|(_, (l, inside))| !inside && re.is_match(l))
+        .filter(|(_, (l, inside))| {
+            !inside
+                && re.captures(l.split("--").next().unwrap_or(l)).is_some_and(|c| {
+                    c.get(1).is_none_or(|v| {
+                        !matches!(v.as_str(), "nil" | "true" | "false") && v.as_str() != word
+                    })
+                })
+        })
         .map(|(i, _)| i + 1)
         .collect()
 }
