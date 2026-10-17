@@ -968,6 +968,76 @@ fn a_deleted_declaration_is_masked_by_the_base_not_the_branch() {
 }
 
 #[test]
+fn a_deleted_ts_head_over_several_lines_is_read_from_the_base() {
+    for (tag, base, now, call, head) in [
+        (
+            "method",
+            "export class Svc {\n  helper(\n    x: number,\n  ): number {\n    return x;\n  }\n}\n",
+            "export function run() {\n  go(\n    1,\n  );\n}\n",
+            "export const a = new Svc().helper(1);\n",
+            "  helper(",
+        ),
+        (
+            "generic",
+            "export function helper<\n  T,\n>(x: T): T {\n  return x;\n}\n",
+            "export const z = 1;\n",
+            "export const a = helper(1);\n",
+            "export function helper<",
+        ),
+    ] {
+        let (dir, mut a) = repo_review(
+            &format!("d-deleted-ts-{tag}"),
+            &[("svc.ts", base), ("main.ts", "export const a = 1;\n")],
+            &[("svc.ts", Some(now)), ("main.ts", Some(call))],
+        );
+        use_roots(&mut a, Kind::TsJs, &[]);
+        a.jump_to(&dir.join("main.ts"), 1);
+        a.col = a.line_str().find("helper").unwrap();
+        press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+        assert_eq!(
+            (a.buf.path.as_deref(), a.line_str(), a.deleted.is_some()),
+            (Some(&*dir.join("svc.ts")), head, true),
+            "{tag}: the head's next lines are the base's, not the branch's: {}",
+            a.message
+        );
+        drop(std::fs::remove_dir_all(dir));
+    }
+}
+
+#[test]
+fn a_deleted_ts_call_over_several_lines_is_no_definition() {
+    let (dir, mut a) = repo_review(
+        "d-deleted-ts-call",
+        &[
+            (
+                "svc.ts",
+                "export function run() {\n  helper(\n    1,\n  );\n}\n",
+            ),
+            ("main.ts", "export const a = 1;\n"),
+        ],
+        &[
+            (
+                "svc.ts",
+                Some(
+                    "export class Svc {\n  go(\n    x: number,\n  ): number {\n    return x;\n  }\n}\n",
+                ),
+            ),
+            ("main.ts", Some("export const a = helper(1);\n")),
+        ],
+    );
+    use_roots(&mut a, Kind::TsJs, &[]);
+    a.jump_to(&dir.join("main.ts"), 1);
+    a.col = a.line_str().find("helper").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.message.as_str()),
+        (Some(&*dir.join("main.ts")), "no definition for helper"),
+        "the base's `);` closes a call, whatever the branch has at that line"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn d_on_a_deleted_files_line_answers_from_the_base() {
     let (dir, mut a) = moves_review("d-deleted-file");
     let old = "from app.repo import Repo\n\n\ndef use(r: Repo):\n    return r.fetch(1)\n";
