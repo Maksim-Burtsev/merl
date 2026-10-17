@@ -1,0 +1,53 @@
+#pragma once
+
+namespace infuse {
+
+struct Leaf {
+  int dose;
+};
+
+int steep(Leaf leaf);
+
+class Kettle {
+ public:
+  explicit Kettle(int spout);
+  int decant(int cups) const;
+  int decant(const char* cups) const;
+  int topup();
+  virtual int rinse() const { return 1; }
+
+ protected:
+  int spout_;
+};
+
+class Teapot {
+ public:
+  int decant(int cups) const { return cups; }
+};
+
+class Urn : public Kettle {
+ public:
+  Urn() : Kettle(2) {}
+  int serve() const { return decant(1) + spout_; }
+  //                         ^ d: picker include/tea/kettle.hh:25, include/tea/kettle.hh:43, src/tea/kettle.cc:23, src/tea/kettle.cc:27; want src/tea/kettle.cc:23 (#940)
+  //                                     ^ d: none; want include/tea/kettle.hh:20 (#940)
+  int rinse() const override { return Kettle::rinse() + 1; }
+  //                                          ^ d: include/tea/kettle.hh:17
+};
+
+}  // namespace infuse
+
+namespace stale {
+class Kettle {
+ public:
+  int decant(int cups) const { return cups * 2; }
+};
+int steep(int dose);
+}  // namespace stale
+
+int steep(int dose);
+
+template <typename T>
+struct Tin {
+  T seal() const { return T{}; }
+};

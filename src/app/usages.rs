@@ -28,7 +28,7 @@ impl App {
         let hits = ranked
             .into_iter()
             .map(|(_, h)| {
-                let kind = search::kind_of(&h.path);
+                let kind = self.kind_at(&h.path);
                 let row = search::word_chars(kind, false);
                 let col = match kind {
                     Some(Kind::Haskell) => search::haskell_whole(&h.text, word),
@@ -119,7 +119,7 @@ impl App {
                 |t| whole.captures(t).and_then(|c| c.get(1)).map(|m| m.start()),
             ));
         }
-        let hits = hits.into_iter().filter(|h| match search::kind_of(&h.path) {
+        let hits = hits.into_iter().filter(|h| match self.kind_at(&h.path) {
             Some(Kind::Haskell) => search::haskell_whole(&h.text, text).is_some(),
             k => {
                 let extra = search::word_chars(k, false);
@@ -133,7 +133,7 @@ impl App {
         let mut lines: HashMap<(PathBuf, bool), Vec<String>> = HashMap::new();
         let mut marked: Vec<_> = hits
             .map(|h| {
-                let kind = search::kind_of(&h.path);
+                let kind = self.kind_at(&h.path);
                 let re = rules.entry(kind).or_insert_with_key(|k| {
                     let mut patterns = k
                         .map(|k| search::def_patterns_for(k, word, dialect))

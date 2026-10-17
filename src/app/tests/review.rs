@@ -2268,6 +2268,18 @@ fn a_review_whose_first_file_is_deleted_opens_on_it() {
 }
 
 #[test]
+fn a_deleted_matlab_m_of_the_review_is_matlab() {
+    let base = [("a.m", "% setup\nglobal count;\n"), ("b.py", "x\n")];
+    let dir = branch_repo("reviewgonem", &base, &[&["rm", "-q", "a.m"]]);
+    std::fs::write(dir.join("b.py"), "y\n").unwrap();
+    let a = started_as_main_starts(&dir);
+    assert_eq!(at(&a), (dir.join("a.m"), 0));
+    assert_eq!(a.kind(), None);
+    assert_eq!(a.kind_at(Path::new("a.m")), None);
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn an_empty_file_of_the_review_shows_its_note_until_it_has_text() {
     let base = [("a.py", "x\n"), ("old", ""), ("keep.py", "k\n")];
     let moves: &[&[&str]] = &[&["mv", "old", "new"], &["mv", "keep.py", "kept.py"]];

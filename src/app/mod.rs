@@ -318,6 +318,7 @@ pub struct App {
     pub tree: Tree,
     pub files: Vec<PathBuf>,
     pub ignored: Vec<PathBuf>,
+    pub pushed_folder: Option<git::Opened>,
     external: HashMap<Kind, (Vec<PathBuf>, Arc<Vec<PathBuf>>)>,
     walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     shaped: search::ShapedFiles,
@@ -472,6 +473,7 @@ impl App {
             tree,
             files,
             ignored,
+            pushed_folder: None,
             external: HashMap::new(),
             walked_roots: HashMap::new(),
             shaped: search::ShapedFiles::default(),
@@ -607,7 +609,10 @@ impl App {
     }
 
     pub fn rel_path_of(&self, path: &Path) -> String {
-        match (path.strip_prefix(&self.root), search::opened_kind(path)) {
+        match (
+            path.strip_prefix(&self.root),
+            search::opened_kind(path, String::new),
+        ) {
             (Ok(rel), _) => rel,
             (Err(_), Some(kind)) => self.rel_to_its_root(kind, path),
             (Err(_), None) => path,

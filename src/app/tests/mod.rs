@@ -54,6 +54,7 @@ mod r;
 mod reload_deleted;
 mod review;
 mod review_deleted;
+mod review_folder;
 mod smoke;
 mod starlark;
 mod stats;

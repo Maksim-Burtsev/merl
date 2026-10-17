@@ -14,10 +14,6 @@ pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
     })
 }
 pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
-    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))")
-            .expect("the regex is a literal")
-    });
     static ONE_LINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").expect("the regex is a literal")
     });
@@ -79,4 +75,50 @@ fn shell_words(s: &str) -> Vec<&str> {
         out.extend(s.get(start..i.min(b.len())));
     }
     out
+}
+static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\s*(?:function\s+[^\s(){}]+|[\w.:-]+\s*\(\s*\))").expect("the regex is a literal")
+});
+pub fn shell_names_a_command(line: &str) -> bool {
+    HEADER.is_match(line) || line.trim_start().starts_with("alias ")
+}
+pub fn shell_command_position(lead: &str) -> Option<bool> {
+    let l = lead.trim_end();
+    if ["$", "${", "${#", "${!"].iter().any(|s| lead.ends_with(s)) || l.ends_with("((") {
+        return Some(false);
+    }
+    let last = l.rsplit(char::is_whitespace).next().unwrap_or("");
+    (l.is_empty()
+        || l.ends_with([';', '&', '|', '(', '{', '!'])
+        || matches!(
+            last,
+            "then" | "do" | "else" | "elif" | "if" | "while" | "until"
+        ))
+    .then_some(true)
+}
+pub fn shell_no_name(lines: &[String], at: usize, lead: &str, tail: &str) -> bool {
+    let quoted = !lead.contains('"')
+        && lead.matches('\'').count() % 2 == 1
+        && shell_command_position(lead) == Some(false);
+    let bypass = lead.ends_with([' ', '\t'])
+        && ["command", "builtin"].iter().any(|w| {
+            lead.trim_end()
+                .strip_suffix(w)
+                .is_some_and(|rest| shell_command_position(rest) == Some(true))
+        });
+    if quoted || bypass {
+        return true;
+    }
+    tail.starts_with(')')
+        && lead
+            .trim_start()
+            .chars()
+            .all(|c| c.is_alphanumeric() || "_|*-.( ".contains(c))
+        && lines[..at].iter().rev().map(|l| l.trim()).find_map(|l| {
+            if l.starts_with("case ") && l.ends_with(" in") {
+                Some(true)
+            } else {
+                (l == "esac" || l.starts_with("esac ")).then_some(false)
+            }
+        }) == Some(true)
 }

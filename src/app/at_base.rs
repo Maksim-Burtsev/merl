@@ -230,7 +230,7 @@ impl App {
         let sight = self.cs_sight(kind, here);
         let hits = deleted_hits(
             &r.deleted,
-            |p| search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p)),
+            |p| self.in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p)),
             |t| re.is_match(t).then_some(0),
         );
         let mut base: HashMap<PathBuf, (Vec<String>, Vec<bool>)> = HashMap::new();

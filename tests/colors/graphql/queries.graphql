@@ -1,0 +1,38 @@
+query BookPage($id: ID!, $withTags: Boolean = false, $first: Int = 5) @cached(ttl: 30) {
+  book: node(id: $id) {
+    __typename
+    ... on Book {
+      title: name
+      pages
+      tags(first: $first) @include(if: $withTags)
+      ...BookParts
+    }
+    ... @skip(if: true) {
+      id
+    }
+  }
+}
+
+mutation Rename($input: RenameInput!) {
+  rename(input: $input, options: { dryRun: false, note: "a \"quoted\" note\n", tries: 3, ratio: -1.5e3 }) {
+    ok
+  }
+}
+
+subscription OnBook {
+  bookAdded {
+    id
+  }
+}
+
+fragment BookParts on Book {
+  rating
+  published
+}
+
+{
+  search(text: """block
+string""") {
+    ... on Author { name }
+  }
+}

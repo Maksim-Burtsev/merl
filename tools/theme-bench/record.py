@@ -15,7 +15,7 @@ $THEME_BENCH_CACHE or ~/.cache/merl-theme-bench), with nvim-treesitter at NVIM_T
 parsers LazyVim installs by default (PARSERS) built with `cc` at the revisions nvim-treesitter
 pins, a parser it marks `generate` first through `tree-sitter generate` (the CLI on PATH, 0.26.1 or
 later), as nvim-treesitter does. Neovim then starts in tmux on its own server, isolated `XDG_*` under the cache, with only
-the colorscheme, nvim-treesitter's queries and parsers, `termguicolors`, `number`, `cursorline`
+the colorscheme with its `after/` appended as lazy.nvim's `add_to_rtp` does, nvim-treesitter's queries and parsers, `termguicolors`, `number`, `cursorline`
 and `nowrap`, the theme's `before` commands and `:colorscheme`, and `vim.treesitter.start` on
 every buffer. Each file is drawn WIDTH columns wide and tall enough for its first LINES lines;
 the screen, read as tools/cast.py reads it, gives the foreground of every character that is not
@@ -46,7 +46,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 NVIM_TS = "1a4f47b03dfe92d28de7d5654c67327ef008c9e6"
 PARSERS = ["bash", "c", "css", "diff", "html", "javascript", "jsdoc", "json", "lua", "luadoc", "luap", "markdown",
            "markdown_inline", "printf", "python", "query", "regex", "toml", "tsx", "typescript", "vim",
-           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig", "nix", "scheme", "r", "erlang", "racket", "commonlisp", "sql", "scala", "vue", "svelte"]
+           "vimdoc", "xml", "yaml", "rust", "go", "cpp", "java", "c_sharp", "kotlin", "swift", "ruby", "php", "php_only", "elixir", "dockerfile", "cmake", "proto", "hcl", "terraform", "ini", "zig", "nix", "scheme", "r", "erlang", "racket", "commonlisp", "sql", "scala", "vue", "svelte", "graphql", "nginx", "gdscript", "starlark"]
 LANGS = {
     "python": (["paperless-ngx"], ["py"]),
     "rust": (["ripgrep"], ["rs"]),
@@ -74,6 +74,10 @@ LANGS = {
     "hcl": (["immich", "pipeline-library"], ["hcl"], 15),
     "terraform": (["lem", "immich"], ["tf", "tfvars"], 10),
     "ini": (["gitea"], ["ini"], 40),
+    "graphql": (["graphql-code-generator", "swapi-graphql"], ["graphql", "graphqls", "gql"], 25),
+    "nginx": (["mastodon", "paperless-ngx", "server-configs-nginx"], ["conf", "nginx"], 10),
+    "gdscript": (["dialogic"], ["gd"], 40),
+    "starlark": (["rules_go"], ["bzl", "bazel", "star", "BUILD", "WORKSPACE"], 40),
     "proto": (["rules_go", "nowinandroid", "eShop", "gitea"], ["proto"], 25),
     "cmake": (["chibi-scheme", "leveldb", "redis"], ["CMakeLists.txt", "cmake"], 40),
     "dockerfile": (["mastodon", "paperless-ngx", "immich", "gitea"], ["Dockerfile", "dockerfile"]),
@@ -100,6 +104,15 @@ NOT_HTML = re.compile(
     r"|\{#[ \t]+|<extend|<super>")
 THEME_ONLY = {
     "nvim-treesitter": ["nvim-treesitter", "query", "https://github.com/nvim-treesitter/nvim-treesitter.git", NVIM_TS, "-"],
+    "graphql-code-generator": ["graphql-code-generator", "graphql",
+                               "https://github.com/dotansimha/graphql-code-generator.git",
+                               "291cfb2a434f24de54a856cc09c6a4dd8ad01526", "-"],
+    "swapi-graphql": ["swapi-graphql", "graphql", "https://github.com/graphql/swapi-graphql.git",
+                      "8c0bf5868f11fe84942548180751fceeb36bd606", "-"],
+    "server-configs-nginx": ["server-configs-nginx", "nginx", "https://github.com/h5bp/server-configs-nginx.git",
+                             "d2f2c3e2fac76f429adb738894499b8fb756d2f3", "-"],
+    "dialogic": ["dialogic", "gdscript", "https://github.com/dialogic-godot/dialogic.git",
+                 "701b67bbe60114e010476d1685f7de1261091c29", "-"],
     "phoenix": ["phoenix", "elixir", "https://github.com/phoenixframework/phoenix.git",
                 "e9eeba217bbc89635d8f26404a9471d49617f07f", "-"],
     "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
@@ -176,6 +189,10 @@ def pick(lang):
             continue
         if lang == "xml" and any(re.search("<!DOCTYPE.*DocBook", l) or "docbook.org/ns/docbook" in l.lower() for l in file_lines(path)[:100]):
             continue
+        base = os.path.basename(rel)
+        if lang == "nginx" and not (rel.endswith(".nginx") or base.startswith("nginx") or base.endswith("nginx.conf")
+                                    or "/nginx/" in rel):
+            continue
         if lang == "query" and "/queries/" not in f"/{rel}":
             continue
         if lang == "diff" and re.match(r"From [0-9a-fA-F]{40,} Mon Sep 17 00:00:00 2001$", file_lines(path)[0]):
@@ -221,6 +238,8 @@ def init_lua(cache, name, ts, check=False):
     source, colorscheme, before, deps = manifest()[name]
     dirs = [repo(cache, source)] + [repo(cache, d) for d in deps.split(",") if d != "-"]
     lines = [f"vim.opt.rtp:prepend({json.dumps(d)})" for d in dirs]
+    lines += [f"vim.opt.rtp:append({json.dumps(os.path.join(d, 'after'))})" for d in dirs
+              if os.path.isdir(os.path.join(d, "after"))]
     if not check:
         lines += [f"vim.opt.rtp:prepend({json.dumps(ts)})",
                   f"vim.opt.rtp:prepend({json.dumps(os.path.join(ts, 'runtime'))})",

@@ -170,6 +170,7 @@ struct Scanner<'a> {
     i: usize,
     in_verbatim_string: bool,
     in_raw_string: bool,
+    nested_comments: usize,
     heredoc: Option<Heredoc>,
     ruby_heredocs_from_next_line: Vec<Heredoc>,
     template_substitution_braces: Vec<usize>,
@@ -193,6 +194,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         i: 0,
         in_verbatim_string: false,
         in_raw_string: false,
+        nested_comments: 0,
         heredoc: None,
         ruby_heredocs_from_next_line: Vec::new(),
         template_substitution_braces: Vec::new(),
@@ -357,7 +359,14 @@ impl<'a> Scanner<'a> {
                     || b[i - 1] != b'\\')
         };
         let skip = end.len().saturating_sub(1);
-        if escape {
+        let nests = kind == Kind::Dart && *end == *b"*/";
+        if nests && b[i..].starts_with(b"/*") {
+            self.nested_comments += 1;
+            self.i += 1;
+        } else if nests && closes && self.nested_comments > 0 {
+            self.nested_comments -= 1;
+            self.i += 1;
+        } else if escape {
             self.i += 1;
         } else if closes {
             self.in_verbatim_string = false;
@@ -580,6 +589,11 @@ impl<'a> Scanner<'a> {
             });
         } else if kind == Kind::Ruby && b[i..].starts_with(b"<<") {
             self.ruby_heredoc();
+        } else if kind == Kind::Sql && c == b'\'' {
+            let end = super::sql::sql_string_end(b, i).unwrap_or(b.len());
+            self.out
+                .extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| true));
+            self.i = end - 1;
         } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
             || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)

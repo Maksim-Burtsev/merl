@@ -205,11 +205,37 @@ above a declaration, and a heredoc or a block scalar holding a declaration-shape
 answers there are the known misses of #436, and the globs inside quotes (`"parcels/*"`,
 `["src/**/*.rs"]`) guard what already works.
 
+The adversarial corners of #931 for PHP, Lua and Bash keep a tea set's names too. `php/src/Tea/`
+has a `Kettle` and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` in
+`Shop\Tea\Stale` imported under an alias, `use function` of a `steep` the file's own namespace
+also declares, a function `pour` beside the methods, `static::` and `parent::`, a trait's method,
+a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
+block comment declaring what the files declare. `lua/lua/tea/` has `local function pour` beside
+`function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
+`local fact = function` against `local function fib`, `local later` assigned by `function
+later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
+`shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
+as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
+function declared twice, `for` and `read` variables, and two heredocs declaring functions.
+
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
 each part of its selector, a property, a block property, the four `NS_ENUM` macros, a category, a
 class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
 the refusals included, from `Profile.mm`.
+
+The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
+a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
+local or parameter named like an import or a field, and declaration-shaped lines in a string and
+a comment. `go/rival/` adds `:=` redeclaring `err` and a `var`, method values and expressions, an
+`if` header and a closure re-declaring a local, a promoted method and one an embedding type
+overrides, an interface method, a function-typed field and a generic method, and its `twin`
+package imported plainly and under an alias. `csharp/src/Shop/Tea/` adds a partial class over
+two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
+interface implementation, a lambda parameter hiding a local and a `using` alias of
+`Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
+initializer list, overloads, ADL beside a global namesake, a qualified definition of
+`stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
@@ -347,6 +373,17 @@ the `-record` line and on the lines it wraps to, macros, types, clauses over lin
 both kinds, each refusal of the issue, and declaration-shaped lines in a `"…"` and a `"""…"""`
 beside a `%` comment holding `"""` and a `$"`. `lib/shop/seed.exs` calls a function in column zero,
 which declares nothing. Its annotations start with `%`.
+
+`sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
+set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
+`AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
+it, an alias named like a table, an overloaded function, a view declared twice, a parameter
+named like a table, a statement in a string over lines and in a comment, and tables after a
+`'C:\\'` and an `E'it\'s'`. `dart/lib/tea/` has a
+`Kettle` with named, redirecting and factory constructors and a `part`, a namesake `Kettle`
+behind an import prefix, a `Teapot` sharing `pour` and a static `cold`, a parameter hiding the
+prefix and one hiding a field, `super.` and a cascade, record and object patterns, a local
+function, and declaration-shaped lines in a raw string, a nested `/* */` and a `///` comment.
 
 ### Adding a kind
 
