@@ -80,6 +80,21 @@ impl App {
         }
     }
 
+    pub(super) fn cs_constructed(&self, here: &Path, word: &str, before: &str) -> Option<CsAnswer> {
+        static NEW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"(?:^|[^\w@.])(new\s)").expect("the regex is a literal")
+        });
+        let before = before.trim_end().strip_suffix('.')?;
+        let at = NEW.captures_iter(before).last()?.get(1)?.start();
+        let search::CsValue::Type(written) = search::cs_expr(before.get(at..)?) else {
+            return None;
+        };
+        let text = self.buf.lines.join("\n");
+        let ty = self.cs_resolve(here, &text, self.line + 1, &written)?;
+        let label = format!("new {}", search::cs_type_name(&written)?);
+        self.cs_member_answer(here, &ty, word, &label)
+    }
+
     fn cs_member_answer(
         &self,
         here: &Path,

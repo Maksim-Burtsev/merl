@@ -62,7 +62,7 @@ public class Table
     public int Fresh(Stale.Kettle stale) => stale.Pour(3) + new Stale.Kettle().Pour(4);
     //                     ^ d: src/Shop/Tea/Stale/Kettle.cs:3
     //                                            ^ d: src/Shop/Tea/Stale/Kettle.cs:5
-    //                                                                         ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Stale/Kettle.cs:5 (#935)
+    //                                                                         ^ d: src/Shop/Tea/Stale/Kettle.cs:5
 
     public int Names(IPourer pourer) => pourer.Pour() + nameof(Steam).Length;
     //                                         ^ d: src/Shop/Tea/Teapot.cs:8
