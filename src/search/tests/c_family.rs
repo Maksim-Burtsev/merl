@@ -1774,6 +1774,14 @@ fn csharp_type_positions_namespace_segments_and_arity() {
         cs_namespace_pick(inner, 4, "Kettle", &found),
         Vec::<usize>::new()
     );
+    let statements = format!(
+        "{file} void Brew() {{\n using var s = Open();\n using (var t = Open()) {{}}\n using Stream u = Open();\n}}"
+    );
+    assert_eq!(
+        cs_namespace_pick(&statements, 6, "Kettle", &found),
+        vec![2, 4],
+        "a using statement in a method is no using directive"
+    );
     let keywords = |line: &str| cs_parameter_keywords(line, 1, "Equals");
     assert_eq!(
         keywords("bool Equals([In] int a, string b = \"\", int? c, ref int d, Int32 e)"),

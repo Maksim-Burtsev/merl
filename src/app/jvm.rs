@@ -393,27 +393,14 @@ impl App {
         let Some(args) = literals.filter(|a| !a.is_empty() && !call.trailing_lambda) else {
             return hits;
         };
-        let exact: Vec<Option<bool>> = hits
-            .iter()
-            .map(|h| {
-                let takes = parts(h)?;
-                Some(
-                    takes.len() >= args.len()
-                        && args
-                            .iter()
-                            .zip(&takes)
-                            .all(|(a, t)| search::jvm_literal_parameter(t) == Some(*a)),
-                )
-            })
-            .collect();
-        if !exact.contains(&Some(true)) {
-            return hits;
-        }
-        hits.into_iter()
-            .zip(exact)
-            .filter(|(_, e)| *e != Some(false))
-            .map(|(h, _)| h)
-            .collect()
+        search::literal_overloads(hits, &args, |h| {
+            Some(
+                parts(h)?
+                    .iter()
+                    .map(|t| search::jvm_literal_parameter(t))
+                    .collect(),
+            )
+        })
     }
 
     pub(super) fn jvm_constructors(&self, types: &[Candidate], word: &str) -> Vec<Candidate> {

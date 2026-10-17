@@ -1,3 +1,5 @@
+use std::cell::OnceCell;
+
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
 #[derive(Debug, Clone)]
@@ -88,17 +90,7 @@ impl App {
         let (walked, outside) = match ty {
             CsType::Outside(name) => (vec![name.clone()], true),
             CsType::Project(t) => match self.cs_up(t, word, 0) {
-                Up::Found(mut hits) => {
-                    let mine: Vec<String> = (self.buf.lines.iter())
-                        .filter_map(|l| search::cs_type_decl(l).map(|d| d.name))
-                        .collect();
-                    hits.retain(|h| {
-                        let place = self.text_of(&h.path).map(|t| search::cs_place(&t, h.line1, word));
-                        !matches!(place, Some(search::CsPlace::Member { owner, private: true }) if !mine.contains(&owner))
-                    });
-                    if hits.is_empty() {
-                        return None;
-                    }
+                Up::Found(hits) => {
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
                     let hits = if fit.is_empty() {
                         hits
@@ -136,9 +128,16 @@ impl App {
             return Up::Outside { walked };
         };
         let (parts, partial) = self.cs_parts(ty, &text);
+        let around = OnceCell::new();
         let own: Vec<Hit> = parts
             .iter()
-            .flat_map(|p| self.cs_members(p, word))
+            .flat_map(|p| {
+                let text = self.text_of(&p.path).unwrap_or_default();
+                let around = &around;
+                self.cs_members(p, word)
+                    .into_iter()
+                    .filter(move |h| self.cs_sees(&search::cs_place(&text, h.line1, word), around))
+            })
             .collect();
         if !own.is_empty() {
             return Up::Found(own);
@@ -175,6 +174,38 @@ impl App {
             (false, true) => Up::Outside { walked },
             (false, false) => Up::Missing { walked },
         }
+    }
+
+    fn cs_around(&self) -> Vec<(String, usize)> {
+        let text = self.buf.lines.join("\n");
+        let mut around = Vec::new();
+        let mut at = search::cs_owner(&text, self.line + 1);
+        while let Some(decl) = at.filter(|_| around.len() < 8) {
+            let Some(d) = self
+                .buf
+                .lines
+                .get(decl - 1)
+                .and_then(|l| search::cs_type_decl(l))
+            else {
+                break;
+            };
+            around.push((d.name, decl));
+            at = search::cs_owner(&text, decl);
+        }
+        around
+    }
+
+    fn cs_sees(&self, place: &search::CsPlace, around: &OnceCell<Vec<String>>) -> bool {
+        let search::CsPlace::Member {
+            owner,
+            private: true,
+        } = place
+        else {
+            return true;
+        };
+        around
+            .get_or_init(|| self.cs_around().into_iter().map(|(name, _)| name).collect())
+            .contains(owner)
     }
 
     #[expect(
@@ -622,23 +653,18 @@ impl App {
         {
             return Err(None);
         }
-        let text = self.buf.lines.join("\n");
-        let lines: Vec<&str> = text.lines().collect();
-        let mut around = Vec::new();
-        let mut at = search::cs_owner(&text, self.line + 1);
-        while let Some(decl) = at.filter(|_| around.len() < 8) {
-            let name = search::cs_type_decl(lines[decl - 1]).ok_or(None)?.name;
-            around.push(Typed {
+        let around: Vec<Typed> = (self.cs_around().into_iter())
+            .map(|(name, line)| Typed {
                 name,
                 path: here.to_path_buf(),
-                line: decl,
-            });
-            at = search::cs_owner(&text, decl);
-        }
+                line,
+            })
+            .collect();
         if around.is_empty() {
             return Err(None);
         }
         let level = Level {
+            around: OnceCell::from(around.iter().map(|t| t.name.clone()).collect::<Vec<_>>()),
             types: types_only.then(|| {
                 Regex::new(&search::def_patterns(Kind::CSharp, word)[..2].join("|"))
                     .expect("an escaped name keeps the pattern valid")
@@ -703,11 +729,7 @@ impl App {
                 return own;
             }
             own.retain(|h| {
-                let private = matches!(
-                    search::cs_place(&text, h.line1, word),
-                    search::CsPlace::Member { private: true, .. }
-                );
-                !(depth > 0 && private)
+                self.cs_sees(&search::cs_place(&text, h.line1, word), &level.around)
                     && level.types.as_ref().is_none_or(|re| re.is_match(&h.text))
             });
             let own = self.cs_overload(word, self.cs_fit(word, level.args, None, own));
@@ -748,12 +770,7 @@ impl App {
         walked: Option<&[String]>,
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
-        let mine: Vec<String> = self
-            .buf
-            .lines
-            .iter()
-            .filter_map(|l| search::cs_type_decl(l).map(|d| d.name))
-            .collect();
+        let around = OnceCell::new();
         let statics = r"^\u{feff}?\s*global\s+using\s+static\b";
         let walked = walked.filter(|_| {
             let cut = self.truncated.get();
@@ -767,22 +784,17 @@ impl App {
             let place = self.hit_text(h).map_or(search::CsPlace::Top, |t| {
                 search::cs_place(&t, h.line1, word)
             });
+            if !self.cs_sees(&place, &around) {
+                return false;
+            }
             match place {
-                search::CsPlace::Member { owner, .. }
-                    if walked.is_some_and(|w| !w.contains(&owner)) =>
-                {
-                    false
-                }
-                search::CsPlace::Member {
-                    owner,
-                    private: true,
-                } => mine.contains(&owner),
+                search::CsPlace::Member { owner, .. } => walked.is_none_or(|w| w.contains(&owner)),
                 search::CsPlace::Local { from, to } => {
                     chain.is_none()
                         && h.path == here
                         && (h.deleted.is_some() || (from..=to).contains(&(self.line + 1)))
                 }
-                _ => true,
+                search::CsPlace::Top => true,
             }
         });
         if !hits
@@ -854,31 +866,14 @@ impl App {
         else {
             return hits;
         };
-        let exact: Vec<Option<bool>> = hits
-            .iter()
-            .map(|h| {
-                let takes = search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)?;
-                Some(
-                    takes.len() >= args.len()
-                        && args
-                            .iter()
-                            .zip(&takes)
-                            .all(|(a, t)| t.as_deref() == Some(*a)),
-                )
-            })
-            .collect();
-        if !exact.contains(&Some(true)) {
-            return hits;
-        }
-        hits.into_iter()
-            .zip(exact)
-            .filter(|(_, e)| *e != Some(false))
-            .map(|(h, _)| h)
-            .collect()
+        search::literal_overloads(hits, &args, |h| {
+            search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)
+        })
     }
 }
 
 struct Level {
+    around: OnceCell<Vec<String>>,
     types: Option<Regex>,
     args: Option<usize>,
     cursor_file: PathBuf,
