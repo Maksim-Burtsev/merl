@@ -243,7 +243,11 @@ a local hiding the imported `steep`, `global` and `nonlocal`, a comprehension va
 a module-level one, a class attribute beside an instance attribute of one name, `self.` and
 `super()` in a subclass, a wrapping decorator, an import under `TYPE_CHECKING` and one in
 `try`/`except ImportError`, a dataclass's fields, `match` captures (one named like an import),
-two star imports of one name, and declaration-shaped lines in a docstring and an f-string.
+two star imports of one name, and declaration-shaped lines in a docstring and an f-string. A
+comprehension's iterable and a lambda's default read a module-level name. The `menu_*` modules
+star-import `infuse` where the later-wins rule must give up (#980): a later module with
+`__all__` (`listed`), one that mentions it without declaring it (`mentions`), an underscore
+name, and a star import below the use or indented.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
