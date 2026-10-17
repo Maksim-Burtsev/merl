@@ -21,7 +21,7 @@ export class Teapot implements Vessel {
     //                          ^ d: tea/teapot.ts:12
     const viaFunction = function (this: Kettle): number {
       return this.heat;
-      //          ^ d: picker tea/teapot.ts:12, tea/kettle.ts:2; want tea/kettle.ts:2 (#978)
+      //          ^ d: tea/kettle.ts:2
     };
     return viaArrow() + viaFunction.call(new Kettle());
     //     ^ d: tea/teapot.ts:20
@@ -31,6 +31,6 @@ export class Teapot implements Vessel {
 
 export function warm(this: Kettle): number {
   const inner = () => this.heat;
-  //                       ^ d: picker tea/teapot.ts:12, tea/kettle.ts:2; want tea/kettle.ts:2 (#978)
+  //                       ^ d: tea/kettle.ts:2
   return inner();
 }
