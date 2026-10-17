@@ -148,18 +148,29 @@ fn open_review(
     cli: &Cli,
     root: &mut PathBuf,
     file: &mut Option<PathBuf>,
-) -> Result<Option<git::Review>> {
+) -> Result<(Option<git::Review>, Option<git::Opened>)> {
     let Some(branch) = &cli.review else {
-        return Ok(None);
+        return Ok((None, None));
     };
     *root = git_toplevel(root).context("--review needs a git repository")?;
-    let mut branch = Some(branch.as_str()).filter(|b| !b.is_empty());
-    if let Some(wt) = branch.and_then(|b| git::worktree_of(root, b)) {
-        let rel = |f: PathBuf| Some(wt.join(f.strip_prefix(&*root).ok()?));
+    let branch = Some(branch.as_str()).filter(|b| !b.is_empty());
+    let base = cli.base.as_deref();
+    let (at, r) = match branch {
+        Some(b) => match git::worktree_of(root, b) {
+            Some(wt) => (wt.clone(), git::Review::open(&wt, None, base)?),
+            None => git::Review::open_branch(root, b, base)?,
+        },
+        None => (root.clone(), git::Review::open(root, None, base)?),
+    };
+    let opened = git::Opened::mark(&at);
+    let top = root.clone();
+    std::thread::spawn(move || git::sweep_folders(&top, std::time::SystemTime::now()));
+    if at != *root {
+        let rel = |f: PathBuf| Some(at.join(f.strip_prefix(&*root).ok()?));
         *file = file.take().and_then(rel).filter(|f| f.is_file());
-        (*root, branch) = (wt, None);
+        *root = at;
     }
-    Ok(Some(git::Review::open(root, branch, cli.base.as_deref())?))
+    Ok((Some(r), opened))
 }
 
 fn configure(app: &mut App, config: &theme::Config, name: String) {
@@ -225,7 +236,7 @@ fn run() -> Result<()> {
         resolve(cli.target.as_deref())?
     };
     let diagrams = mermaid::Diagrams::detect();
-    let review = open_review(&cli, &mut root, &mut file)?;
+    let (review, pushed_folder) = open_review(&cli, &mut root, &mut file)?;
     let git_dirs = git::dirs(&root);
     let tree_order = (git_toplevel(&root))
         .zip(git_dirs.clone())
@@ -258,6 +269,7 @@ fn run() -> Result<()> {
     app.shallow = shallow;
     app.tree_order = tree_order;
     app.ignored = ignored;
+    app.pushed_folder = pushed_folder;
     if !(cli.tutor || cli.drill.is_some()) {
         app.recent_file = git_dirs.map(|d| d.worktree_head_dir.join("merl/recent"));
     }

@@ -399,7 +399,8 @@ fn layer(
     }
 }
 
-fn paint(lang: &Lang, tree: &Tree, end: usize, ctx: &mut Ctx, doc: &Doc) {
+fn paint(lang: &'static Lang, tree: &Tree, end: usize, ctx: &mut Ctx, doc: &Doc) {
+    let lang = ctx.styles.themed(lang);
     let included = tree.included_ranges();
     let q = &lang.highlights;
     let styles = ctx.styles.of(lang);

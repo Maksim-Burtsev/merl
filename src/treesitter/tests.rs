@@ -297,6 +297,26 @@ fn ini_is_coloured_as_lazyvim() {
 }
 
 #[test]
+fn graphql_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("graphql");
+}
+
+#[test]
+fn nginx_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("nginx");
+}
+
+#[test]
+fn gdscript_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("gdscript");
+}
+
+#[test]
+fn starlark_is_coloured_as_lazyvim() {
+    coloured_as_lazyvim("starlark");
+}
+
+#[test]
 fn proto_is_coloured_as_lazyvim() {
     coloured_as_lazyvim("proto");
 }
@@ -424,7 +444,7 @@ fn a_capture_keeps_its_background_reversed_or_not() {
     );
 }
 
-fn sexp(f: &str, src: &[u8]) -> String {
+pub(super) fn sexp(f: &str, src: &[u8]) -> String {
     let mut b = Buffer::from_bytes(PathBuf::from(f), src);
     b.parse_more(None);
     b.sexp()
@@ -514,6 +534,13 @@ fn build_and_config_files_get_their_grammar() {
     }
     assert!(sexp("a.proto", b"message A {}\n").contains("(message "));
     assert_eq!(sexp("a.protodevel", b"message A {}\n"), "");
+    for f in ["a.graphql", "a.graphqls", "a.gql"] {
+        assert!(
+            sexp(f, b"type A { b: Int }\n").contains("(object_type_definition "),
+            "{f}"
+        );
+    }
+    assert!(sexp("a.gd", b"var a = 1\n").starts_with("(source "));
     for f in ["a.hcl", "a.tf", "a.tfvars"] {
         assert!(sexp(f, b"a = 1\n").contains("(config_file "), "{f}");
     }
@@ -736,7 +763,7 @@ fn a_query_using_what_merl_does_not_implement_is_refused() {
     let python = || tree_sitter_python::LANGUAGE.into();
     for text in [
         "((identifier) @x (#match? @x \"<a\"))",
-        "((identifier) @x (#vim-match? @x \"a{2}\"))",
+        "((identifier) @x (#vim-match? @x \"a{-2}\"))",
         "((identifier) @x (#kind-eq? @x call))",
         "((identifier) @x (#offset! @x 0 1))",
         "((identifier) @x (#set! injection.language \"regex\"))",
@@ -823,6 +850,7 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         ("^ab\\C$", "ab", "AB"),
         ("\\C^a\\c$", "A", "b"),
         ("^ab=c$", "ac", "abbc"),
+        ("^(.{1,2}/|src/)", "../a", "abc/d"),
         ("^([+*-+=<>]|<=|>=|/=)$", "<", "-"),
         ("^([+*-+=<>]|<=|>=|/=)$", "/", "<="),
         ("^([+*-+=<>]|<=|>=|/=)$", "", "/="),
@@ -831,7 +859,7 @@ fn vim_patterns_match_as_neovim_reads_them_very_magic() {
         assert!(re.is_match(yes.as_bytes()), "{pattern} on {yes}");
         assert!(!re.is_match(no.as_bytes()), "{pattern} on {no}");
     }
-    for pattern in ["<a>", "\\Va", "a{2}", "a\\zsb"] {
+    for pattern in ["<a>", "\\Va", "a{-1,2}", "a{,2}", "a\\zsb"] {
         assert!(super::vim_pattern(pattern).is_err(), "{pattern}");
     }
 }
@@ -922,6 +950,16 @@ fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
         ("dockerfile", Some("dockerfile")),
         ("cmake", Some("cmake")),
         ("proto", Some("proto")),
+        ("graphql", Some("graphql")),
+        ("gql", Some("graphql")),
+        ("nginx", Some("nginx")),
+        ("conf", None),
+        ("gdscript", Some("gdscript")),
+        ("gd", Some("gdscript")),
+        ("starlark", Some("starlark")),
+        ("bzl", Some("starlark")),
+        ("star", Some("starlark")),
+        ("python", Some("python")),
         ("hcl", Some("hcl")),
         ("terraform", Some("terraform")),
         ("tfvars", Some("terraform")),

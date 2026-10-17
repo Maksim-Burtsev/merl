@@ -40,11 +40,11 @@ again as Rust and `regex` in Rust):
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
 | Go | 14,810 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
-| Rust | 17,576 | 96.3 github-dark | 100.0 | 100.0 vscode-light |
+| Rust | 17,576 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 
-- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
-  `queries/rust/highlights.scm` (attributes, `crate`/`self`/`super`, lifetimes, capitalised
-  names), which merl does not load.
+- The theme's own queries: since #819 merl appends github-nvim-theme's
+  `queries/rust/highlights.scm` in github-dark and github-light, as Neovim does, and every
+  character matches.
 
 Markdown (#803), 18,398 characters per theme: 100.0 % median (100.0 adwaita, 100.0
 vscode-light), against 71.3 % on syntect. Every character of Markdown's own grammars,
@@ -56,14 +56,16 @@ Bash, JSON, YAML and TOML (#806), with Bash injected into YAML's `run:` blocks:
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| Bash | 12,491 | 99.4 github-dark | 100.0 | 100.0 vscode-light |
+| Bash | 12,491 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JSON | 7,070 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
-| YAML | 16,564 | 99.8 github-dark | 100.0 | 100.0 vscode-light |
+| YAML | 16,564 | 100.0 jellybeans | 100.0 | 100.0 vscode-light |
 | TOML | 10,487 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
 
-- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
-  `queries/bash/highlights.scm` (`$(`, `<(` and their `)` as strings, the `#` of `${#a}` as an
-  operator), in Bash files and in YAML's `run:` blocks, which merl does not load.
+- jellybeans' `after/queries/bash/highlights.scm` (#819) adds a `(word)` pattern for every word;
+  with it, Neovim draws the `$(` and `)` of one `$(…)` in a quoted string of caddy's
+  `release.yml` (`run:`, line 130) in the string's colour, though the captures there are the
+  same with and without it (`get_captures_at_pos`): three characters in jellybeans and
+  jellybeans-light. The theme defines no `@bash.*` group, so merl draws it as without the file.
 - The recording's cursor: a file starting with a bracket (every JSON file, `[tool]` in TOML) has
   its first `{` or `[` and the matching one drawn as `MatchParen` by Neovim, not a colour of the
   code: two characters per file.
@@ -76,13 +78,9 @@ Markdown's code blocks):
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
 | TypeScript | 13,701 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
-| TSX | 9,700 | 99.7 github-dark | 100.0 | 100.0 vscode-light |
+| TSX | 9,700 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JavaScript | 13,199 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
 | JSX | 14,130 | 100.0 | 100.0 | 100.0 |
-
-- The theme's own queries (#819): github-dark and github-light append github-nvim-theme's
-  `queries/jsx/highlights.scm` (a member expression tag such as `<Icons.Close>`), which merl does
-  not load.
 
 Lua (#806), with its injections (`---@` comments parsed as `luadoc`, `string.format` strings as
 `printf`); the bench's four files are redis's `deps/lua`, the only Lua of the d-bench projects,
@@ -175,13 +173,11 @@ installs no parser for them:
 
 | language | chars | lowest | median | highest |
 |---|---|---|---|---|
-| PHP | 12,811 | 98.3 github-dark | 99.9 | 100.0 vscode-light |
+| PHP | 12,811 | 99.9 alabaster-light | 99.9 | 100.0 vscode-light |
 
 What is left is not merl's colour of the code: every recorded file starts with `<?php` under
 Neovim's cursor, PHP's ftplugin adds `<:>` to `matchpairs`, and matchparen draws that `<` and the
-`>` it pairs with as `MatchParen` (3 to 8 characters per theme); and github-nvim-theme's own
-`queries/php/highlights.scm` (#819), which paints a variable's `$` as `@operator` and `<?php` as
-`@tag`, costs the github themes up to 1.7 points.
+`>` it pairs with as `MatchParen` (3 to 8 characters per theme).
 
 Elixir (#808), `.ex` and `.exs` (a `.ex` that Neovim's `detect.ex` takes for Euphoria from its first
 100 lines stays on syntect), with its injections (`markdown` in `@moduledoc` and `@doc` strings,
@@ -399,6 +395,50 @@ from gitea, Svelte from immich; master's syntect medians are 67.2 and 73.0:
 | Vue | 16,402 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
 | Svelte | 14,924 | 100.0 alabaster-light | 100.0 | 100.0 vscode-light |
 
+GraphQL (#809), `.graphql`, `.graphqls` and `.gql`; `comment` stays plain. The commit
+nvim-treesitter pins (bkegley's 5e66e96) binds tree-sitter 0.17 in its `Cargo.toml`, so merl takes
+crates.io's arborium-graphql 2.18.2, whose `grammar.json` is the pin's and whose `parser.c` is it
+regenerated at ABI 15. No d-bench project holds GraphQL, so the bench takes it from
+graphql-code-generator and swapi-graphql (`THEME_ONLY`), with at least 25 recordable lines. Not from
+octokit/graphql-schema: its `schema.graphql` is 64,309 lines, past the 30,000 merl colours at all
+(`MAX_HL_LINES`), so merl draws it plain where Neovim colours it:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| GraphQL | 3,933 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+nginx (#809), the files Neovim calls `nginx`: `.nginx`, `nginx*.conf`, `*nginx.conf`, a `.conf`
+under a `nginx/` folder and the files under `/etc/nginx/` and `/usr/local/nginx/conf/` that syntect
+reads as nginx; any other `.conf` stays on syntect. Git dependency at the pin (opa-oz's 7cdf006):
+crates.io's 1.0.1 has its `parser.c` but an older `scanner.c`. The bench takes mastodon's and
+paperless-ngx's nginx configs and h5bp's server-configs-nginx (`THEME_ONLY`), with at least 10
+recordable lines; master's syntect median is 64.2 (61.3 jellybeans):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| nginx | 9,928 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
+GDScript (#809), `.gd`. Git dependency at the pin (PrestonKnopp's 9686853): crates.io's 5.0.1 and
+6.1.0 have another `parser.c`. No d-bench project holds GDScript, so the bench takes it from
+dialogic (`THEME_ONLY`), with at least 40 recordable lines; master's syntect median is 60.3 (38.7
+dayfox). The one theme under 100 is bluloco-light (99.5): LazyVim paints the `$` and `%` of a
+`get_node` (`$Sprite2D`, `%Label`) #82aaff, a colour its `@string.special.url` (#255ee4) does not
+give and merl paints; not traced further:
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| GDScript | 13,031 | 99.5 bluloco-light | 100.0 | 100.0 vscode-light |
+
+Starlark (#809), the files Neovim reads as `bzl` or `starlark` (`.bzl`, `.bazel`, `BUILD`,
+`WORKSPACE`, `BUCK`, `.star`, …), which syntect reads as Python; every other Python file stays on
+Python's grammar. crates.io's tree-sitter-starlark 1.3.0 equals the pin (a453dbf). The bench takes
+it from rules_go, with at least 40 recordable lines; master already coloured these files with
+Python's grammar, median 99.9 (99.2 github-dark):
+
+| language | chars | lowest | median | highest |
+|---|---|---|---|---|
+| Starlark | 15,410 | 100.0 adwaita | 100.0 | 100.0 vscode-light |
+
 Vim (#806) stays on syntect: the commit nvim-treesitter pins (039c8d0) has no `Cargo.toml`, so
 it cannot be a git dependency, and crates.io's only release, 0.4.0, has another `parser.c` and
 binds `tree_sitter::Language` through the pre-0.24 `extern "C"` API instead of `tree-sitter-language`. No d-bench project has a `.vim` file either.
@@ -416,7 +456,8 @@ binds `tree_sitter::Language` through the pre-0.24 `extern "C"` API instead of `
 
 ## The reference
 
-LazyVim as the epic defines it: Neovim with the theme's own colorscheme, nvim-treesitter's
+LazyVim as the epic defines it: Neovim with the theme's own colorscheme (its repo on the
+runtimepath and its `after/` too, as lazy.nvim's `add_to_rtp` puts it, #819), nvim-treesitter's
 queries and plugin (`main`, pinned in `record.py`; the plugin maps `typescriptreact` to `tsx`,
 `javascriptreact` to `javascript`, `sh` to `bash` and `jsonc` to `json`, #804, #806) and the parsers LazyVim installs by default plus Rust and
 Go, built with `cc` at the revisions nvim-treesitter pins, `termguicolors`, `number`,
@@ -427,7 +468,7 @@ cache, so neither `~/.config/nvim` nor a system-wide `site` directory reaches it
 The files: four per language from the projects of `tools/d-bench/projects.tsv` at their pinned
 commits (Python from paperless-ngx, Rust from ripgrep, TypeScript and TSX from outline,
 JavaScript from eslint, JSX from mastodon, Go from caddy, Lua and C from redis, C++ from leveldb, Java from halo, C# from eShop, Kotlin from nowinandroid, Swift from Alamofire, Ruby from mastodon, PHP from koel, Elixir from phoenix, HTML from bootstrap, caddy, eslint, outline and redis, CSS from gitea,
-paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, HCL from immich and pipeline-library, Terraform from lem and immich, INI from gitea, SQL from immich, Vue from gitea, Svelte from immich, Markdown from ripgrep, caddy,
+paperless-ngx, caddy and redis, XML from koel, paperless-ngx and nowinandroid, Diff from rules_go, openzeppelin-contracts, outline and halo, Query from nvim-treesitter, Dockerfile from mastodon, paperless-ngx, immich and gitea, CMake from chibi-scheme, leveldb and redis, Protobuf from rules_go, nowinandroid, eShop and gitea, HCL from immich and pipeline-library, Terraform from lem and immich, INI from gitea, SQL from immich, Vue from gitea, Svelte from immich, GraphQL from graphql-code-generator and swapi-graphql, nginx from mastodon, paperless-ngx and server-configs-nginx, GDScript from dialogic, Starlark from rules_go, Markdown from ripgrep, caddy,
 outline and paperless-ngx, Bash, JSON, YAML and TOML from redis, paperless-ngx, ripgrep, caddy and eslint
 as `LANGS` in `record.py` lists them), taken in the order of the hash of their path, each with at least 80
 lines among its first 200 that are ASCII and at most 140 columns: those are the lines recorded,
