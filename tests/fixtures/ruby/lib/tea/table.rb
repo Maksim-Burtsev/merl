@@ -79,5 +79,16 @@ module Tea
       Teapot
       # ^ d: lib/tea/kettle.rb:37
     end
+
+    def total(cups, price)
+      price.tap { |price| price } + price
+      # ^ d: lib/tea/table.rb:83
+      #                   ^ d: lib/tea/table.rb:84
+      #                             ^ d: lib/tea/table.rb:83
+      cups.each do |cups| cups end && cups
+      # ^ d: lib/tea/table.rb:83
+      #                   ^ d: lib/tea/table.rb:88
+      #                               ^ d: lib/tea/table.rb:83
+    end
   end
 end

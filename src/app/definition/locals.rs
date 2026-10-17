@@ -42,7 +42,10 @@ impl App {
         let swift_closure = kind == Kind::Swift
             && !a.dotted
             && search::swift_closure_param(self.line_str(), word, range.start);
-        if own_arrow || arrow_param || swift_closure {
+        let ruby_block = kind == Kind::Ruby
+            && !a.dotted
+            && search::ruby_block_param(self.line_str(), word, range.start);
+        if own_arrow || arrow_param || swift_closure || ruby_block {
             locals = vec![self.line + 1];
         }
         if !locals.is_empty() {
@@ -61,11 +64,12 @@ impl App {
             self.message = format!("{word}: builtin, no source");
             return None;
         }
-        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell | Kind::Dart | Kind::Ruby)
+        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell | Kind::Dart)
             || (kind == Kind::Swift && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
+            || ruby_block
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
