@@ -7,7 +7,7 @@ wait docker-compose.yml  15:1  [code]
  6     ports:
  7       - "8000:8000"
  8     depends_on: [db]
- 9   worker:  ⋯
+ 9   worker:  5 lines ⋯
 15   db:
 16     image: postgres:16
 17     environment:

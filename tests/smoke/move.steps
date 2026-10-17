@@ -105,3 +105,8 @@ wait app/service.py  36:21  [code]
 # the wrap, the preview and merl as they were, and Home after them still moves the cursor (#699).
 key Escape C-t C-w C-p C-q Home
 wait app/service.py  36:1  [code]
+# The chip of a folded method says how many lines it hides (#634).
+key :
+type 18
+key Enter f
+wait lines ⋯

@@ -88,5 +88,5 @@ wait @implementation CrcStamp
 key :
 type 4
 key Enter f
-wait job { ⋯ }
+wait ⋯ }
 key f

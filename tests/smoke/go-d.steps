@@ -74,8 +74,8 @@ wait worker/main.go  1:1
 key :
 type 30
 key Enter f
-wait func run(ctx context.Context, q queue.Queue) error { ⋯ }
+wait ⋯ }
 key f :
 type 21
 key Enter f
-wait err != nil { ⋯ }
+wait ⋯ }
