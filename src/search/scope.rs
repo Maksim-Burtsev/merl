@@ -410,12 +410,10 @@ const NODE_BUILTINS: &[&str] = &[
     "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
 ];
 fn project_s_own(root: &Path, project: Option<&Path>, level: &Path, dir: &Path) -> Option<PathBuf> {
-    let rel = level.strip_prefix(root).ok()?;
+    let depth = level.strip_prefix(root).ok()?.components().count();
     let real = level.canonicalize().ok()?;
-    let tree = real.ancestors().nth(rel.components().count())?;
-    let project = project.filter(|_| real.ends_with(rel))?;
-    let own = project.join(dir.strip_prefix(tree).ok()?);
-    (in_copy(&own, &[project.to_path_buf()]) && own.is_dir()).then_some(own)
+    let own = project?.join(dir.strip_prefix(real.ancestors().nth(depth)?).ok()?);
+    own.canonicalize().is_ok_and(|c| c == own).then_some(own)
 }
 pub fn package_copy(
     root: &Path,
@@ -450,11 +448,12 @@ pub fn package_copy(
     };
     let mut chosen = None;
     for (i, level) in roots.iter().enumerate() {
-        let dirs: Vec<PathBuf> = [&name, &types]
-            .iter()
-            .filter_map(|d| level.join(d).canonicalize().ok())
-            .map(|d| project_s_own(root, project.as_deref(), level, &d).unwrap_or(d))
-            .collect();
+        let found = |d: &String| {
+            let d = level.join(d).canonicalize().ok()?;
+            Some(project_s_own(root, project.as_deref(), level, &d).unwrap_or(d))
+        };
+        let package = found(&name);
+        let dirs: Vec<PathBuf> = package.iter().cloned().chain(found(&types)).collect();
         if dirs.is_empty() {
             continue;
         }
@@ -474,8 +473,8 @@ pub fn package_copy(
         let whole = copy
             .module(module)
             .is_some_and(|m| m.matched_parts == module.len());
-        let exports = std::fs::read_to_string(level.join(&name).join("package.json"))
-            .is_ok_and(|text| exports_map(&text));
+        let exports = (package.and_then(|p| std::fs::read_to_string(p.join("package.json")).ok()))
+            .is_some_and(|text| exports_map(&text));
         if exports && !whole {
             return Some(PackageCopy::default());
         }
