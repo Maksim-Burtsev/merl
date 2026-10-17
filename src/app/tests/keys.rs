@@ -126,7 +126,11 @@ fn cmd_letter_other_than_c_and_x_does_nothing() {
         assert_eq!((a.mode, a.line), (Mode::Normal, 0), "Cmd+{c}");
     }
     assert!(!press(&mut a, KeyCode::Char('o'), cmd | KeyModifiers::ALT));
-    assert!(!press(&mut a, KeyCode::Char('d'), cmd | KeyModifiers::CONTROL));
+    assert!(!press(
+        &mut a,
+        KeyCode::Char('d'),
+        cmd | KeyModifiers::CONTROL
+    ));
     assert_eq!((a.picker.is_none(), a.line), (true, 0));
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('o'), cmd);
@@ -154,11 +158,18 @@ fn alt_ctrl_letter_with_an_unbound_ctrl_letter_does_nothing() {
         assert!(!press(&mut a, KeyCode::Char(c), alt_ctrl), "Alt+Ctrl+{c}");
         assert!(a.find_re.is_some() && a.anchor.is_some(), "Alt+Ctrl+{c}");
     }
-    assert!(!press(&mut a, KeyCode::Char('t'), alt_ctrl | KeyModifiers::SHIFT));
+    assert!(!press(
+        &mut a,
+        KeyCode::Char('t'),
+        alt_ctrl | KeyModifiers::SHIFT
+    ));
     assert!(a.find_re.is_some() && a.anchor.is_some());
     let line = a.line;
     press(&mut a, KeyCode::Char('d'), alt_ctrl);
-    assert!(a.find_re.is_none() && a.anchor.is_none(), "a bound one is Esc first");
+    assert!(
+        a.find_re.is_none() && a.anchor.is_none(),
+        "a bound one is Esc first"
+    );
     assert!(a.line > line, "then the Ctrl+letter");
 }
 
