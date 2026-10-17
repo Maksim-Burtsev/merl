@@ -94,3 +94,23 @@ pub fn strings() -> u32 {
     decant()
 //  ^ d: src/tea/cups.rs:18
 }
+
+pub struct Celsius(pub u32);
+pub struct Fahrenheit(pub u32);
+
+impl From<Fahrenheit> for Celsius {
+    fn from(f: Fahrenheit) -> Self {
+        Celsius(f.0)
+    }
+}
+
+impl From<Celsius> for Fahrenheit {
+    fn from(c: Celsius) -> Self {
+        Fahrenheit(c.0)
+    }
+}
+
+pub fn convert(c: Celsius) -> Fahrenheit {
+    From::from(c)
+//        ^ d: picker src/tea/brew.rs:102, src/tea/brew.rs:108
+}

@@ -1063,14 +1063,26 @@ impl App {
         static ARG: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"^\(\s*&?(?:mut\s+)?([a-z_]\w*)\s*[,)]").expect("the regex is a literal")
         });
+        static TAKES_SELF: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"\bfn\s+\w+[^(]*\(\s*(?:&\s*(?:'\w+\s+)?)?(?:mut\s+)?self\b")
+                .expect("the regex is a literal")
+        });
         let line = self.line_str();
         let before = line.get(..range.start)?;
-        let (ty, tr) = if let Some(c) = AS.captures(before) {
-            (self.rust_resolve(here, &c[1], self.line)?, c[2].to_owned())
+        let (ty, tr, by_arg) = if let Some(c) = AS.captures(before) {
+            (
+                self.rust_resolve(here, &c[1], self.line)?,
+                c[2].to_owned(),
+                false,
+            )
         } else {
             let tr = PATH.captures(before)?[1].to_owned();
             let arg = ARG.captures(line.get(range.end..)?)?;
-            (self.rust_value_type(here, text, self.line, &arg[1])?.0, tr)
+            (
+                self.rust_value_type(here, text, self.line, &arg[1])?.0,
+                tr,
+                true,
+            )
         };
         let files = self.rust_type_files(&ty);
         let hits: Vec<Hit> = self
@@ -1080,6 +1092,16 @@ impl App {
                 self.text_of(&h.path).is_some_and(|t| {
                     let lines: Vec<&str> = t.lines().collect();
                     search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
+                        && (!by_arg
+                            || TAKES_SELF.is_match(
+                                &lines
+                                    .iter()
+                                    .skip(h.line1 - 1)
+                                    .take(3)
+                                    .copied()
+                                    .collect::<Vec<_>>()
+                                    .join(" "),
+                            ))
                         && search::rust_method_at(&lines, h.line1).is_some_and(|m| {
                             m.owner == search::RustOwner::ImplOf(tr.clone())
                                 && search::rust_impl_type(lines[m.owner_line1 - 1])
