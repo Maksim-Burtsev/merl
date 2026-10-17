@@ -221,10 +221,14 @@ impl App {
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
             let all = hits.len();
+            let unseen = (!dotted && chain.is_empty())
+                .then(|| search::lua_value_of_its_own(&a.text, self.line + 1, word))
+                .flatten();
             hits.retain(|h| {
-                !h.text.starts_with([' ', '\t'])
+                (!h.text.starts_with([' ', '\t'])
                     || !h.text.trim_start().starts_with("local ")
-                    || at(h)
+                    || at(h))
+                    && (h.path != a.here || Some(h.line1) != unseen)
             });
             self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
         }
@@ -407,6 +411,7 @@ impl App {
                     })
                 })
                 .collect();
+            let found = self.c_same_overload(a, found);
             self.show_found(a, found);
             return None;
         }
@@ -429,6 +434,23 @@ impl App {
                 None => hits,
             },
         )
+    }
+
+    fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {
+        let Some(mine) = search::cpp_defined_signature(&a.text, self.line + 1, &a.word) else {
+            return found;
+        };
+        let same: Vec<Candidate> = (found.iter())
+            .filter(|c| {
+                self.text_of(&c.hit.path)
+                    .and_then(|t| search::cpp_declared_signature(&t, c.hit.line1, &a.word))
+                    .as_ref()
+                    == Some(&mine)
+            })
+            .cloned()
+            .collect();
+        let other = |c: &Candidate| c.hit.path != a.here || c.hit.line1 != self.line + 1;
+        if same.iter().any(other) { same } else { found }
     }
 
     fn c_member_owners(&self, a: &Asked, hits: &[Hit], on: bool) -> Vec<Option<String>> {

@@ -888,6 +888,32 @@ fn a_shell_local_declare_or_typeset_names_its_function_locals() {
     }
 }
 
+#[test]
+fn a_shell_for_or_read_binds_only_its_own_names() {
+    for (line, name) in [
+        ("for cup in 1 2; do", "cup"),
+        ("  select pot in a b", "pot"),
+        ("read -r teapot", "teapot"),
+        ("while IFS= read -r a b; do", "b"),
+        (r#"read -rp "Name: " who"#, "who"),
+        ("read -a cups <<< \"$x\"", "cups"),
+        ("mapfile -t lines < f", "lines"),
+        ("read -r x;", "x"),
+    ] {
+        assert_eq!(shell_loop_binds(line, name), Some(true), "{line}");
+    }
+    for (line, name) in [
+        ("for cup in pot; do", "pot"),
+        (r#"read -p "teapot " x"#, "teapot"),
+        ("read -r x < teapot", "teapot"),
+        ("mapfile -t a b", "b"),
+        ("read -u fd x", "fd"),
+    ] {
+        assert_eq!(shell_loop_binds(line, name), Some(false), "{line}");
+    }
+    assert_eq!(shell_loop_binds("echo read x", "x"), None);
+}
+
 const TF: &str = r#"variable "region" {
   default = "eu"
 }

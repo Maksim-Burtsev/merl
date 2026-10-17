@@ -1,14 +1,12 @@
-use std::ops::Range;
-
 use regex::Regex;
 
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
-    cs_opener, cs_statement, cs_type_decl, declares_type, gdscript_bindings, haskell_bindings,
-    indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines, names, nix_bindings,
-    powershell_params, python_bindings, ruby_bindings, rust_bindings, shell_bindings,
-    solidity_bindings, split_top, swift_bindings, ts_declarators, ts_destructured, ts_params,
-    type_list, uncommented,
+    cs_opener, cs_statement, cs_type_decl, dart_bindings, declares_type, gdscript_bindings,
+    haskell_bindings, indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines,
+    lua_bindings, names, nix_bindings, powershell_params, python_bindings, ruby_bindings,
+    rust_bindings, shell_bindings, solidity_bindings, split_top, swift_bindings, ts_declarators,
+    ts_destructured, ts_params, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,7 +173,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Shell => shell_bindings(&lines, at, name),
         Kind::PowerShell => powershell_params(&lines, at, name),
         Kind::Zig => zig_bindings(&lines, at, name),
-        Kind::C => c_bindings(text, line, name),
+        Kind::C => c_bindings(text, line, None, name),
         Kind::Jvm => jvm_bindings(&lines, at, name),
         Kind::Swift => swift_bindings(&lines, at, name),
         Kind::Ruby => ruby_bindings(&lines, at, name),
@@ -186,6 +184,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Julia => julia_bindings(&lines, at, name),
         Kind::Gdscript => gdscript_bindings(&lines, at, name),
         Kind::Solidity => solidity_bindings(&lines, at, name),
+        Kind::Dart => dart_bindings(&lines, at, name),
         k if lisp(k) => lisp_bindings(k, &lines, at, None, name),
         _ => Vec::new(),
     }
@@ -338,70 +337,6 @@ pub fn elixir_module_lines(text: &str, line: usize, pattern: &Regex) -> Vec<usiz
         .map(|i| i + 1)
         .collect()
 }
-fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))")
-            .expect("the regex is a literal")
-    });
-    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").expect("the regex is a literal")
-    });
-    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^for\s+([\w\s,]+?)\s*(?:\bin\b|=)").expect("the regex is a literal")
-    });
-    let lists = |list: &str| {
-        list.split(',')
-            .any(|n| n.split('<').next().is_some_and(|n| n.trim() == name))
-    };
-    let literal = literal_lines(Kind::Lua, &lines.join("\n"));
-    let found = |line: usize| {
-        vec![Binding {
-            line1: line,
-            value: Value::Unknown,
-        }]
-    };
-    let mut depth = indent(lines[at]);
-    let own = uncommented(Kind::Lua, lines[at]);
-    if own
-        .trim_start()
-        .strip_prefix("until")
-        .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
-        && let Some(body) = (0..at).rev().find(|&i| !lines[i].trim().is_empty())
-    {
-        depth = depth.max(indent(lines[body]));
-    }
-    for i in (0..at).rev() {
-        let code = uncommented(Kind::Lua, lines[i]);
-        let t = code.trim();
-        let ind = indent(lines[i]);
-        if depth == 0 {
-            break;
-        }
-        if t.is_empty() || literal[i] || ind > depth {
-            continue;
-        }
-        if ind == depth {
-            if let Some(c) = LOCAL.captures(t)
-                && (c.get(1).is_some_and(|f| f.as_str() == name)
-                    || c.get(2).is_some_and(|l| lists(l.as_str())))
-            {
-                return found(i + 1);
-            }
-            continue;
-        }
-        depth = ind;
-        let own = LOCAL
-            .captures(t)
-            .and_then(|c| c.get(1))
-            .is_some_and(|f| f.as_str() == name);
-        let params = PARAMS.captures_iter(t).any(|c| lists(&c[1]));
-        let vars = FOR.captures(t).is_some_and(|c| lists(&c[1]));
-        if own || params || vars {
-            return found(i + 1);
-        }
-    }
-    Vec::new()
-}
 pub(super) static ZIG_FN_OR_TEST_HEAD: std::sync::LazyLock<Regex> =
     std::sync::LazyLock::new(|| {
         Regex::new(r"\bfn\b|^(?:pub\s+)?test\b").expect("the regex is a literal")
@@ -453,100 +388,6 @@ fn zig_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
         }
     }
     Vec::new()
-}
-pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
-        return false;
-    };
-    let (Some(after), Some(before)) = (l.get(range.end..), l.get(..range.start)) else {
-        return false;
-    };
-    let (after, before) = (after.trim_start(), before.trim_end());
-    after.starts_with('=')
-        && !after.starts_with("==")
-        && (before.ends_with(['{', ','])
-            || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
-}
-pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
-    let lines: Vec<&str> = text.lines().collect();
-    let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
-        .expect("an escaped name keeps the pattern valid");
-    let at = if let Some(b) = bindings(Kind::Lua, text, line, name).first() {
-        b.line1 - 1
-    } else {
-        let own = line
-            .checked_sub(1)
-            .and_then(|i| lines.get(i))
-            .map(|l| uncommented(Kind::Lua, l))
-            .unwrap_or_default();
-        let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
-            .expect("an escaped name keeps the pattern valid");
-        if Regex::new(r"\b(?:for|function)\b")
-            .expect("a fixed pattern compiles")
-            .find(&own)
-            .is_some_and(|m| own.get(m.end()..).is_some_and(|r| word.is_match(r)))
-        {
-            return None;
-        }
-        let literal = literal_lines(Kind::Lua, text);
-        (0..line.saturating_sub(1).min(lines.len()))
-            .rev()
-            .find(|&i| !literal[i] && indent(lines[i]) == 0 && re.is_match(lines[i]))?
-    };
-    let code = uncommented(Kind::Lua, lines[at]);
-    Some(re.captures(&code)?[1].trim().to_owned())
-}
-pub fn lua_required(value: &str) -> Option<&str> {
-    static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).expect("the regex is a literal")
-    });
-    Some(REQUIRE.captures(value)?.get(1)?.as_str())
-}
-pub fn lua_returned(text: &str) -> Option<String> {
-    let literal = literal_lines(Kind::Lua, text);
-    text.lines()
-        .zip(literal)
-        .filter(|(l, inside)| !inside && indent(l) == 0)
-        .filter_map(|(l, _)| {
-            let t = uncommented(Kind::Lua, l);
-            let t = t
-                .trim()
-                .strip_prefix("return ")?
-                .trim()
-                .trim_end_matches(';');
-            (!t.is_empty() && t.chars().all(|c| c.is_alphanumeric() || c == '_'))
-                .then(|| t.to_owned())
-        })
-        .last()
-}
-pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> {
-    let end = text.lines().count() + 1;
-    if lua_local_value(text, end, name).is_some_and(|v| v.starts_with('{')) {
-        return Some(name.to_owned());
-    }
-    let path = format!("{}.{name}", owner?);
-    let re = Regex::new(&format!(r"^{}\s*=\s*\{{", regex::escape(&path)))
-        .expect("an escaped name keeps the pattern valid");
-    let literal = literal_lines(Kind::Lua, text);
-    text.lines()
-        .zip(literal)
-        .any(|(l, inside)| !inside && re.is_match(l))
-        .then_some(path)
-}
-pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
-    let (t, w) = (regex::escape(table), regex::escape(word));
-    let re = Regex::new(&format!(
-        r"^\s*(?:function\s+{t}[.:]{w}\s*\(|{t}\.{w}\s*=\s*function\b)"
-    ))
-    .expect("an escaped name keeps the pattern valid");
-    let literal = literal_lines(Kind::Lua, text);
-    text.lines()
-        .zip(literal)
-        .enumerate()
-        .filter(|(_, (l, inside))| !inside && re.is_match(l))
-        .map(|(i, _)| i + 1)
-        .collect()
 }
 pub(super) fn continued(kind: Kind, lines: &[&str], i: usize) -> bool {
     lines[..i]
@@ -1036,6 +877,8 @@ fn go_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
         &format!(r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"),
     ) {
         out.push(b);
+    } else if let Some(value) = go_header_init(header, name) {
+        out.push(Binding { line1: line, value });
     } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
         out.push(unknown(line));
     }
@@ -1168,6 +1011,36 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
+static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
+        .expect("the regex is a literal")
+});
+fn go_header_init(header: &str, name: &str) -> Option<Value> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\belse\s+)if\s+").expect("the regex is a literal")
+    });
+    let (names, values, at) = HEAD.find_iter(header).find_map(|m| {
+        let [init, _, ..] = split_top(Kind::Go, header.get(m.end()..)?, b';')[..] else {
+            return None;
+        };
+        let c = GO_SHORT.captures(init.trim())?;
+        let at = c[1].split(',').position(|n| n.trim() == name)?;
+        Some((c.get(1)?.as_str(), c.get(2)?.as_str(), at))
+    })?;
+    let e = go_assigned(names, values, at)?.trim();
+    let e = match e.strip_prefix('(').and_then(|i| i.strip_suffix(')')) {
+        Some(inner) if close_of(Kind::Go, e, 0) == Some(e.len()) => inner,
+        _ => e,
+    };
+    Some(value_of(Kind::Go, e))
+}
+fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
+    let parts = split_top(Kind::Go, values, b',');
+    match parts.get(at) {
+        Some(v) if parts.len() == names.split(',').count() => Some(v),
+        _ => (at == 0).then_some(values),
+    }
+}
 fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     let items: Vec<&str> = split_top(Kind::Go, params, b',')
         .into_iter()
@@ -1196,10 +1069,6 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     }
 }
 fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
-    static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
-            .expect("the regex is a literal")
-    });
     static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
@@ -1245,11 +1114,10 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
             let list =
                 |s: &str| -> Vec<String> { s.split(',').map(|p| p.trim().to_owned()).collect() };
             if let Some(c) = GO_SHORT.captures(t) {
-                match list(&c[1]).iter().position(|p| p == name) {
-                    Some(0) => value_of(kind, &c[2]),
-                    Some(_) => Value::Unknown,
-                    None => return,
-                }
+                let Some(at) = list(&c[1]).iter().position(|p| p == name) else {
+                    return;
+                };
+                go_assigned(&c[1], &c[2], at).map_or(Value::Unknown, |e| value_of(kind, e))
             } else if let Some(c) = GO_VAR.captures(t) {
                 match (
                     list(&c[1]).iter().position(|p| p == name),
@@ -1258,7 +1126,8 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 ) {
                     (None, ..) => return,
                     (Some(_), Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-                    (Some(0), None, Some(v)) => value_of(kind, v.as_str()),
+                    (Some(at), None, Some(v)) => go_assigned(&c[1], v.as_str(), at)
+                        .map_or(Value::Unknown, |e| value_of(kind, e)),
                     _ => Value::Unknown,
                 }
             } else if t

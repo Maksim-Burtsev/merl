@@ -1,5 +1,5 @@
 -- #461: a method called with `:` is no local, `until` reads its `repeat` body, a local of a
--- block the cursor has left is not its, nor is a top-level local.
+-- block the cursor has left is not its, but a top-level local above is (#953).
 local Scope = {}
 local RATE = 2
 
@@ -8,7 +8,7 @@ function Scope:weight() return 1 end
 function Scope.ship(self)
   local weight = 1
   return self:weight() + weight
-  --          ^ d: picker lua/shop/scope.lua:6
+  --          ^ d: lua/shop/scope.lua:6
 end
 
 function Scope.poll(step)
@@ -30,7 +30,7 @@ end
 function Scope.charge()
   return RATE
   --     ^ d: lua/shop/scope.lua:4
-  --   status: by name
+  --   status: local
 end
 
 return Scope

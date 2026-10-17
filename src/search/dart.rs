@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 
 use regex::Regex;
 
-use super::{indent, lexical};
+use super::{
+    Binding, Kind, Value, close_of, indent, lexical, literal_lines, split_top, uncommented,
+};
 
 macro_rules! dart_generics {
     () => {
@@ -141,6 +143,34 @@ static SHAPES: std::sync::LazyLock<Vec<Regex>> = std::sync::LazyLock::new(|| {
         .map(|s| Regex::new(&any(s)).expect("the regex is a literal"))
         .collect()
 });
+
+pub fn dart_label(text: &str, line1: usize, col: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let (mut depth, mut comma) = (0usize, false);
+    for i in (at.saturating_sub(50)..=at).rev() {
+        let code = uncommented(Kind::Dart, lines[i]);
+        let end = if i == at {
+            col.min(code.len())
+        } else {
+            code.len()
+        };
+        for c in code.get(..end).unwrap_or_default().chars().rev() {
+            match c {
+                ')' | '}' | ']' => depth += 1,
+                '(' | '{' | '[' if depth > 0 => depth -= 1,
+                '(' => return true,
+                '{' | '[' => return false,
+                '?' if depth == 0 && !comma => return false,
+                ',' if depth == 0 => comma = true,
+                _ => {}
+            }
+        }
+    }
+    false
+}
 
 pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
     static CALLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -371,3 +401,142 @@ pub(super) const DART_ACCESSOR_SYMBOL: &str = concat!(
     dart_any_type!(),
     r"\s+)?(?:get|set)\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:=>|\{|\(|;|async\b|sync\*|$)"
 );
+
+pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
+        ))
+        .expect("the regex is a literal")
+    });
+    if matches!(name, "this" | "super") {
+        return Vec::new();
+    }
+    let literal = literal_lines(Kind::Dart, &lines.join("\n"));
+    let code = |i: usize| uncommented(Kind::Dart, lines[i]);
+    let found = |i: usize| {
+        vec![Binding {
+            line1: i + 1,
+            value: Value::Unknown,
+        }]
+    };
+    if dart_header_binds(code(at).trim(), name) {
+        return found(at);
+    }
+    let mut depth = indent(lines[at]);
+    let mut hit = None;
+    let mut i = at;
+    while i > 0 {
+        i -= 1;
+        let t = code(i);
+        let t = t.trim();
+        let ind = indent(lines[i]);
+        if t.is_empty() || literal[i] || ind > depth {
+            continue;
+        }
+        if ind == depth {
+            if hit.is_none() && dart_local(t, name) {
+                hit = Some(i);
+            }
+            continue;
+        }
+        let end = i;
+        if t.starts_with(')') {
+            i = (0..i)
+                .rev()
+                .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)
+                .unwrap_or(i);
+        }
+        depth = indent(lines[i]);
+        if TYPE_BODY.is_match(lines[i]) {
+            return Vec::new();
+        }
+        if let Some(h) = hit {
+            return found(h);
+        }
+        let head: Vec<String> = (i..=end).map(code).collect();
+        if dart_header_binds(head.join(" ").trim(), name) {
+            let w = Regex::new(&format!(
+                r"(?:^|[^\w$]){}{NAME_END_PAST_DOLLAR}",
+                regex::escape(name)
+            ))
+            .expect("an escaped name");
+            return found(i + head.iter().position(|l| w.is_match(l)).unwrap_or(0));
+        }
+        if depth == 0 {
+            return Vec::new();
+        }
+    }
+    Vec::new()
+}
+
+fn dart_local(t: &str, name: &str) -> bool {
+    let w = regex::escape(name);
+    let declares = Regex::new(&format!(
+        r"^(?:(?:(?:final|const|var|late)\s+)+(?:{ANY_TYPE}\s+)?{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:<[^()]*>)?\s*\(.*(?:=>|\{{)|(?:final|var)\s*[\w$.]*\s*\((.*)\)\s*=[^=>])"
+    ))
+    .expect("an escaped name");
+    declares.captures(t).is_some_and(|c| {
+        c.get(1)
+            .is_none_or(|pattern| dart_pattern_names(pattern.as_str(), &w))
+    })
+}
+
+fn dart_pattern_names(pattern: &str, w: &str) -> bool {
+    Regex::new(&format!(r"(?:^|[^\w$.]){w}\s*(?:[^\w$\s:]|$)"))
+        .expect("an escaped name")
+        .is_match(pattern)
+}
+
+fn dart_header_binds(head: &str, name: &str) -> bool {
+    static CONTROL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[}\s]*(?:if|else|for|await\s+for|while|switch|do|try|catch|on|finally|case|default)\b")
+            .expect("the regex is a literal")
+    });
+    static BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\)\s*(?:async\*?|sync\*)?\s*(?:=>|\{)").expect("the regex is a literal")
+    });
+    let w = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name");
+    let pattern = rule(format!(
+        r"[:(,]\s*(?:final|var)\s+(?:{ANY_TYPE}\s+)?{w}{NAME_END_PAST_DOLLAR}"
+    ));
+    let before_arrow = head.split("=>").next().unwrap_or_default();
+    if CONTROL.is_match(head) {
+        let clause = rule(format!(
+            r"\bfor\s*\(\s*(?:(?:final|var|const)\s+)?(?:{ANY_TYPE}\s+)?{w}\s*(?:\bin\b|[=;])|\bcatch\s*\(\s*(?:{w}\s*[,)]|[\w$]+\s*,\s*{w}\s*\))"
+        ));
+        return clause.is_match(head) || (head.contains("case") && pattern.is_match(before_arrow));
+    }
+    if head.contains("=>") && pattern.is_match(before_arrow) {
+        return true;
+    }
+    let Some(close) = BODY.find(head).map(|m| m.start()) else {
+        return false;
+    };
+    let Some(open) = (0..close)
+        .rev()
+        .find(|&o| head.as_bytes()[o] == b'(' && close_of(Kind::Dart, head, o) == Some(close + 1))
+    else {
+        return false;
+    };
+    let mut inner = head.get(open + 1..close).unwrap_or_default().to_owned();
+    let generic = Regex::new(r"<[^<>]*>").expect("the regex is a literal");
+    while generic.is_match(&inner) {
+        inner = generic.replace_all(&inner, "").into_owned();
+    }
+    let inner = inner.replace(['{', '}', '[', ']'], " ");
+    split_top(Kind::Dart, &inner, b',').iter().any(|item| {
+        let item = split_top(Kind::Dart, item, b'=')[0].trim();
+        let item = match item.strip_suffix(')') {
+            Some(_) => item.split('(').next().unwrap_or_default(),
+            None => item,
+        };
+        !item.starts_with("this.")
+            && !item.starts_with("super.")
+            && item
+                .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+                .next()
+                == Some(name)
+    })
+}

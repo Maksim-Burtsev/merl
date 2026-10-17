@@ -32,9 +32,9 @@ void serve(Teapot pot) {
 // A parameter named like an import prefix hides it.
 int pourAll(Teapot stale, int steep) {
   return stale.pour(steep);
-  //     ^ d: none; want lib/tea/table.dart:33 (#948)
+  //     ^ d: lib/tea/table.dart:33
   //           ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/teapot.dart:6 (#949)
-  //                ^ d: picker lib/tea/table.dart:49, lib/tea/kettle_parts.dart:3, lib/tea/stale/kettle.dart:7; want lib/tea/table.dart:33 (#948)
+  //                ^ d: lib/tea/table.dart:33
 }
 
 class Samovar extends Kettle {
@@ -48,16 +48,16 @@ class Samovar extends Kettle {
   int brew() {
     int steep(int n) => n;
     final (cups, leaves) = (steep(1), 2);
-    //                      ^ d: picker lib/tea/table.dart:49, lib/tea/kettle_parts.dart:3, lib/tea/stale/kettle.dart:7; want lib/tea/table.dart:49 (#948)
+    //                      ^ d: lib/tea/table.dart:49
     return cups + leaves + this.cups;
-    //     ^ d: lib/tea/kettle.dart:15; want lib/tea/table.dart:50 (#948)
-    //            ^ d: none; want lib/tea/table.dart:50 (#948)
+    //     ^ d: lib/tea/table.dart:50
+    //            ^ d: lib/tea/table.dart:50
     //                          ^ d: lib/tea/kettle.dart:15
   }
 
   int brewed(Object o) => switch (o) {
     Kettle(:final cups) => cups,
-    //                     ^ d: lib/tea/kettle.dart:15; want lib/tea/table.dart:59 (#948)
+    //                     ^ d: lib/tea/table.dart:59
     _ => 0,
   };
 }
@@ -79,3 +79,19 @@ void spook() => print([Banshee.boo, Wraith, Specter]);
 //                             ^ d: none
 //                                  ^ d: none
 //                                          ^ d: none
+
+// A named argument's label is no local of the call's own function.
+int steepFor({int minutes = 1}) => minutes;
+int timed(int minutes) => steepFor(minutes: minutes);
+//                                 ^ d: none
+//                                          ^ d: lib/tea/table.dart:85
+int timedOver(int minutes) => steepFor(
+  minutes: minutes,
+//^ d: none
+//         ^ d: lib/tea/table.dart:88
+);
+
+// A local used as a map key, or between a `?` and its `:`, is still the local.
+Map<int, int> cupsBy(int cups, bool full) => {cups: full ? cups: 0};
+//                                            ^ d: lib/tea/table.dart:95
+//                                                         ^ d: lib/tea/table.dart:95

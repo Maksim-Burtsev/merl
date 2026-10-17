@@ -1031,6 +1031,116 @@ fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
 }
 
 #[test]
+fn php_function_call_resolves_as_php_does() {
+    let at = |line: &str, word: &str| {
+        let start = line.rfind(word).expect("the word is on the line");
+        php_function_at(line, start..start + word.len())
+    };
+    assert_eq!(at("return steep(3);", "steep").as_deref(), Some("steep"));
+    assert_eq!(
+        at("x(\\Shop\\Tea\\steep(3));", "steep").as_deref(),
+        Some("\\Shop\\Tea\\steep")
+    );
+    assert_eq!(at("$a && pour($k);", "pour").as_deref(), Some("pour"));
+    for (line, word) in [
+        ("$k->pour(1);", "pour"),
+        ("Kettle::pour(1);", "pour"),
+        ("new Kettle();", "Kettle"),
+        ("function &pour(int $c)", "pour"),
+        ("$pour(1);", "pour"),
+        ("#[Pure()]", "Pure"),
+        ("return steep;", "steep"),
+    ] {
+        assert_eq!(at(line, word), None, "{line}");
+    }
+    let names = |text: &str, written: &str| -> Vec<(String, bool)> {
+        php_function_names(text, written)
+            .into_iter()
+            .map(|r| (r.full, r.imported))
+            .collect()
+    };
+    let text = "namespace Shop\\Tea;\nuse function Shop\\Tea\\Stale\\steep;\nuse function A\\b as pour;\nuse Shop\\Cup;\n";
+    assert_eq!(
+        names(text, "steep"),
+        [("Shop\\Tea\\Stale\\steep".to_owned(), true)]
+    );
+    assert_eq!(names(text, "pour"), [("A\\b".to_owned(), true)]);
+    assert_eq!(
+        names(text, "brew"),
+        [
+            ("Shop\\Tea\\brew".to_owned(), false),
+            ("brew".to_owned(), false)
+        ],
+        "an unqualified name is the namespace's, then the global one"
+    );
+    assert_eq!(
+        names(text, "\\Shop\\Tea\\steep"),
+        [("Shop\\Tea\\steep".to_owned(), false)]
+    );
+    assert_eq!(
+        names(text, "Cup\\fill"),
+        [("Shop\\Cup\\fill".to_owned(), true)]
+    );
+    assert_eq!(names("use function A\\{steep, pour};\n", "steep"), []);
+}
+
+#[test]
+fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
+    assert_eq!(
+        php_new_receiver("return (new OldKettle())->").as_deref(),
+        Some("OldKettle")
+    );
+    assert_eq!(
+        php_new_receiver("(new \\A\\B($x, 1))?->").as_deref(),
+        Some("\\A\\B")
+    );
+    for before in ["make(new A())->", "(new static())->", "(new A())->b()->"] {
+        assert_eq!(php_new_receiver(before), None, "{before}");
+    }
+    assert!(php_captures("$g = function () use ($a, $pot) {", "pot"));
+    assert!(!php_captures("$g = function () use (&$pot) {", "pot"));
+    assert!(!php_captures("$g = function ($pot) {", "pot"));
+    assert!(
+        !php_captures("$pot = function () use ($pot) {", "pot"),
+        "the line binds $pot to the closure itself"
+    );
+    assert_eq!(
+        php_binding("$pot = $this->pot;", "pot"),
+        Some(PhpBinding::ThisProperty("pot".into()))
+    );
+    assert_eq!(php_binding("$pot = $this->pot->x;", "pot"), None);
+    let text = "<?php\n\
+                function f() {\n\
+                $v = new A();\n\
+                $v = new B();\n\
+                if ($x) {\n\
+                    $w = 1;\n\
+                }\n\
+                $v->pour();\n\
+                if ($x)\n\
+                    $v = new C();\n\
+                $v->pour();\n\
+                if ($x) {\n\
+                    $v = new D();\n\
+                }\n\
+                $v->pour();\n\
+                }\n";
+    assert!(
+        php_last_binding(text, 3, 7, "v"),
+        "the last assignment above, in the cursor's block, is what $v holds"
+    );
+    assert!(
+        !php_last_binding(text, 9, 10, "v"),
+        "an assignment under an `if` with no braces may not run"
+    );
+    assert!(
+        !php_last_binding(text, 12, 14, "v"),
+        "an assignment in a block the cursor is outside of may not run"
+    );
+    assert!(!php_last_binding(text, 3, 3, "v"));
+}
+
+#[test]
 fn php_scope_roots_imports_and_names() {
     let here = Path::new("src/Invoice.php");
     assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));
@@ -1166,7 +1276,7 @@ fn swift_receiver_types_are_read_off_their_lines() {
 fn c_bindings_read_a_head_with_non_ascii_names() {
     let text = "int (r *R\u{e9}po) M\u{e9}thode(int x)\n{\n    return x;\n}\n";
     assert_eq!(
-        c_bindings_at(text, 3, "x").first().map(|b| b.line1),
+        c_bindings_at(text, 3, None, "x").first().map(|b| b.line1),
         Some(1)
     );
 }
@@ -1626,6 +1736,63 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     );
     assert_eq!(params("public record Equals(int A);"), None);
     assert_eq!(params("public Func<int, bool> Equals { get; }"), None);
+    let literals = |text: &str| {
+        let lines: Vec<&str> = text.lines().collect();
+        let end = lines[0].find("Equals").unwrap() + "Equals".len();
+        cs_literal_arguments(&lines, 0, end)
+    };
+    assert_eq!(
+        literals(r#"Equals("a, b", 2)"#),
+        Some(vec!["string", "int"])
+    );
+    assert_eq!(literals("Equals(spout)"), None);
+    assert_eq!(literals("Equals(2L)"), None);
+    assert_eq!(literals("Equals()"), None);
+    let file =
+        "using Shop.Pricing;\nusing Stale = Shop.Tea.Stale;\n\nnamespace Shop.Tea;\n\nclass T {}";
+    let found: Vec<String> = [
+        "Shop.Tea.Stale",
+        "Shop",
+        "Shop.Tea",
+        "Shop.Pricing",
+        "Shop.Tea",
+    ]
+    .map(str::to_owned)
+    .to_vec();
+    let pick = |written: &str| cs_namespace_pick(file, 6, written, &found);
+    assert_eq!(pick("Kettle"), vec![2, 4]);
+    assert_eq!(pick("Stale.Kettle"), vec![0]);
+    assert_eq!(pick("global::Shop.Kettle"), vec![1]);
+    assert_eq!(pick("Pricing.Kettle"), vec![3]);
+    assert_eq!(cs_namespace_pick(file, 6, "Kettle", &found[3..4]), vec![0]);
+    assert_eq!(
+        cs_namespace_pick(file, 6, "Kettle", &found[..1]),
+        Vec::<usize>::new()
+    );
+    let inner = "namespace Shop.Tea\n{\n    using Shop.Pricing;\n    class T {}\n}";
+    assert_eq!(
+        cs_namespace_pick(inner, 4, "Kettle", &found),
+        Vec::<usize>::new()
+    );
+    let statements = format!(
+        "{file} void Brew() {{\n using var s = Open();\n using (var t = Open()) {{}}\n using Stream u = Open();\n}}"
+    );
+    assert_eq!(
+        cs_namespace_pick(&statements, 6, "Kettle", &found),
+        vec![2, 4],
+        "a using statement in a method is no using directive"
+    );
+    let keywords = |line: &str| cs_parameter_keywords(line, 1, "Equals");
+    assert_eq!(
+        keywords("bool Equals([In] int a, string b = \"\", int? c, ref int d, Int32 e)"),
+        Some(vec![
+            Some("int".to_owned()),
+            Some("string".to_owned()),
+            None,
+            None,
+            None
+        ])
+    );
 }
 
 #[test]

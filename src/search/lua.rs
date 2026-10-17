@@ -1,0 +1,257 @@
+use std::ops::Range;
+
+use regex::Regex;
+
+use super::{Binding, Kind, Value, bindings, continued, indent, literal_lines, uncommented};
+
+pub(super) fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    lua_walk(lines, at, name).map_or_else(
+        |_| Vec::new(),
+        |line1| {
+            vec![Binding {
+                line1,
+                value: Value::Unknown,
+            }]
+        },
+    )
+}
+pub fn lua_value_of_its_own(text: &str, line: usize, name: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    lua_walk(&lines, at, name).err().flatten()
+}
+fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize>> {
+    static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))")
+            .expect("the regex is a literal")
+    });
+    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").expect("the regex is a literal")
+    });
+    static FOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^for\s+([\w\s,]+?)\s*(?:\bin\b|=)").expect("the regex is a literal")
+    });
+    let lists = |list: &str| {
+        list.split(',')
+            .any(|n| n.split('<').next().is_some_and(|n| n.trim() == name))
+    };
+    let literal = literal_lines(Kind::Lua, &lines.join("\n"));
+    let mut unseen = None;
+    let mut depth = indent(lines[at]);
+    let own = uncommented(Kind::Lua, lines[at]);
+    if own
+        .trim_start()
+        .strip_prefix("until")
+        .is_some_and(|r| !r.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        && let Some(body) = (0..at).rev().find(|&i| !lines[i].trim().is_empty())
+    {
+        depth = depth.max(indent(lines[body]));
+    }
+    let binds_here = lua_binds_on_its_line(lines[at], name);
+    for i in (0..at).rev() {
+        let code = uncommented(Kind::Lua, lines[i]);
+        let t = code.trim();
+        let ind = indent(lines[i]);
+        if depth == 0 && binds_here {
+            break;
+        }
+        if t.is_empty() || literal[i] || ind > depth {
+            continue;
+        }
+        if ind == depth {
+            if let Some(c) = LOCAL.captures(t)
+                && (c.get(1).is_some_and(|f| f.as_str() == name)
+                    || c.get(2).is_some_and(|l| lists(l.as_str())))
+            {
+                return Ok(i + 1);
+            }
+            continue;
+        }
+        depth = ind;
+        let local = LOCAL.captures(t);
+        let own = local
+            .as_ref()
+            .and_then(|c| c.get(1))
+            .is_some_and(|f| f.as_str() == name);
+        let params = PARAMS.captures_iter(t).any(|c| lists(&c[1]));
+        let vars = FOR.captures(t).is_some_and(|c| lists(&c[1]));
+        if own || params || vars {
+            return Ok(i + 1);
+        }
+        if local.and_then(|c| c.get(2)).is_some_and(|l| {
+            lists(l.as_str())
+                && t.get(l.end()..)
+                    .is_some_and(|r| r.trim_start().starts_with('='))
+        }) {
+            unseen = unseen.or(Some(i + 1));
+        }
+    }
+    Err(unseen)
+}
+fn lua_binds_on_its_line(line: &str, name: &str) -> bool {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:for|function)\b").expect("the regex is a literal")
+    });
+    let own = uncommented(Kind::Lua, line);
+    let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    HEAD.find(&own)
+        .is_some_and(|m| own.get(m.end()..).is_some_and(|r| word.is_match(r)))
+}
+pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return false;
+    };
+    let (Some(after), Some(before)) = (l.get(range.end..), l.get(..range.start)) else {
+        return false;
+    };
+    let (after, before) = (after.trim_start(), before.trim_end());
+    after.starts_with('=')
+        && !after.starts_with("==")
+        && (before.ends_with(['{', ','])
+            || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
+}
+pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    let at = if let Some(b) = bindings(Kind::Lua, text, line, name).first() {
+        b.line1 - 1
+    } else {
+        if line
+            .checked_sub(1)
+            .and_then(|i| lines.get(i))
+            .is_some_and(|l| lua_binds_on_its_line(l, name))
+        {
+            return None;
+        }
+        let literal = literal_lines(Kind::Lua, text);
+        (0..line.saturating_sub(1).min(lines.len()))
+            .rev()
+            .find(|&i| !literal[i] && indent(lines[i]) == 0 && re.is_match(lines[i]))?
+    };
+    let code = uncommented(Kind::Lua, lines[at]);
+    Some(re.captures(&code)?[1].trim().to_owned())
+}
+pub fn lua_required(value: &str) -> Option<&str> {
+    static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).expect("the regex is a literal")
+    });
+    Some(REQUIRE.captures(value)?.get(1)?.as_str())
+}
+pub fn lua_returned(text: &str) -> Option<String> {
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .filter(|(l, inside)| !inside && indent(l) == 0)
+        .filter_map(|(l, _)| {
+            let t = uncommented(Kind::Lua, l);
+            let t = t
+                .trim()
+                .strip_prefix("return ")?
+                .trim()
+                .trim_end_matches(';');
+            (!t.is_empty() && t.chars().all(|c| c.is_alphanumeric() || c == '_'))
+                .then(|| t.to_owned())
+        })
+        .last()
+}
+pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> {
+    let end = text.lines().count() + 1;
+    if lua_local_value(text, end, name).is_some_and(|v| v.starts_with('{')) {
+        return Some(name.to_owned());
+    }
+    let path = format!("{}.{name}", owner?);
+    let re = Regex::new(&format!(r"^{}\s*=\s*\{{", regex::escape(&path)))
+        .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .any(|(l, inside)| !inside && re.is_match(l))
+        .then_some(path)
+}
+pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
+    let (t, w) = (regex::escape(table), regex::escape(word));
+    let re = Regex::new(&format!(
+        r"^\s*(?:function\s+{t}[.:]{w}\s*\(|{t}\.{w}\s*=\s*(?:function\b|([A-Za-z_]\w*)\s*;?\s*$))"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .enumerate()
+        .filter(|(_, (l, inside))| {
+            !inside
+                && re
+                    .captures(l.split("--").next().unwrap_or(l))
+                    .is_some_and(|c| {
+                        c.get(1).is_none_or(|v| {
+                            !matches!(v.as_str(), "nil" | "true" | "false") && v.as_str() != word
+                        })
+                    })
+        })
+        .map(|(i, _)| i + 1)
+        .collect()
+}
+pub fn lua_self_table(text: &str, line: usize) -> Option<String> {
+    static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^function\s+([A-Za-z_][\w.]*)(?::\w+\s*\(|\.\w+\s*\(\s*self\s*[,)])")
+            .expect("the regex is a literal")
+    });
+    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    let literal = literal_lines(Kind::Lua, text);
+    let mut depth = indent(lines[at]);
+    for i in (0..at).rev() {
+        let code = uncommented(Kind::Lua, lines[i]);
+        let t = code.trim();
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || literal[i] || indent(lines[i]) >= depth {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if let Some(c) = METHOD.captures(t) {
+            return Some(c[1].to_owned());
+        }
+        if PARAMS
+            .captures_iter(t)
+            .any(|c| c[1].split(',').any(|p| p.trim() == "self"))
+        {
+            return None;
+        }
+    }
+    None
+}
+pub fn lua_makes_instance(text: &str, line: usize, table: &str) -> bool {
+    let t = regex::escape(table);
+    let set = Regex::new(&format!(r"\bsetmetatable\s*\(.*,\s*{t}\s*\)"))
+        .expect("an escaped name keeps the pattern valid");
+    let index = Regex::new(&format!(r"^{t}\.__index\s*=\s*{t}\s*;?$"))
+        .expect("an escaped name keeps the pattern valid");
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Lua, text);
+    let code = |i: usize| (!literal[i]).then(|| uncommented(Kind::Lua, lines[i]));
+    let Some(head) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let body = (head + 1..lines.len())
+        .take_while(|&i| lines[i].trim().is_empty() || indent(lines[i]) > indent(lines[head]));
+    let sets = std::iter::once(head)
+        .chain(body)
+        .any(|i| code(i).is_some_and(|c| set.is_match(&c)));
+    sets && (0..lines.len()).any(|i| code(i).is_some_and(|c| index.is_match(c.trim_end())))
+}
+pub fn lua_call(value: &str) -> Option<(Vec<String>, String)> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_][\w.]*)[.:](\w+)\s*\([^()]*\)$").expect("the regex is a literal")
+    });
+    let c = CALL.captures(value.trim().trim_end_matches(';'))?;
+    let chain = c[1].split('.').map(str::to_owned).collect();
+    Some((chain, c[2].to_owned()))
+}

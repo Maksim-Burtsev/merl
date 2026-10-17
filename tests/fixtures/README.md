@@ -111,7 +111,7 @@ The same small project in Python, TypeScript and Go, for the tests of `d` (#68).
   closed by `} as T;`.
 
 - Go (#100): `globals` reads package-level names that `globals_vars.go` declares (a `var`, a
-  `var (` block, a list whose second name has no value the rules pair up), one declared below
+  `var (` block, a list whose second name takes the value in its position), one declared below
   its use, one declared as two types under build tags, and locals that hide them; a `var` inside
   a function and a raw string's line declare nothing. `aliases` follows `type X = Y` through a
   second alias, another package and an alias declared in that package, next to a defined type
@@ -384,6 +384,20 @@ named like a table, a statement in a string over lines and in a comment, and tab
 behind an import prefix, a `Teapot` sharing `pour` and a static `cold`, a parameter hiding the
 prefix and one hiding a field, `super.` and a cascade, record and object patterns, a local
 function, and declaration-shaped lines in a raw string, a nested `/* */` and a `///` comment.
+
+`jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
+Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a
+`Kettle` whose field, constructor parameter and local share a name with a field of its base
+`Vessel`, `this.` and `super.`, a static import beside a member of the same name, overloads by
+arity and by type, a lambda parameter hiding a field, a nested `Lid` beside the package's `Lid`,
+a `Cart` whose nested `Tray` with two constructors hides the package's `Tray` (#965),
+a namesake `Kettle` in `tea.stale` imported over the package's own, and declaration-shaped lines
+in a Javadoc and a text block. `brew/` has a `Samovar` whose property is initialized from a
+constructor parameter of its name, an explicitly imported object function beside a member, a
+nested and a top-level `Cosy`, a companion object, `it`, a lambda parameter and `this@Samovar`,
+extension functions (one named like a member) with their implicit and labelled `this`, named and
+default arguments, `when` subjects and smart casts, an import alias of `brew.stale.Samovar`, and
+declaration-shaped lines in a KDoc, a raw string and a string template.
 
 ### Adding a kind
 

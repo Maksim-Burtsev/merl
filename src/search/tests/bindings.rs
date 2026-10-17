@@ -354,9 +354,40 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(21, "fresh"), [(10, new("Repo"))]);
     assert_eq!(at(21, "shared"), [(3, new("AuditLog"))]);
     assert_eq!(at(12, "item"), [(11, Value::Element("items".into()))]);
-    assert_eq!(at(15, "r"), [(14, Value::Unknown)]);
+    assert_eq!(at(15, "r"), [(14, ty("*Repo"))]);
     assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
     assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
+}
+
+#[test]
+fn each_name_of_a_go_multi_value_declaration_takes_its_own_value() {
+    let text = "func f() {\n\tk, err := Kettle{}, error(nil)\n\tt, err := Teapot{}, f(a, b)\n\tvar u, w = Urn{}, Cup{}\n\tx, y := pair()\n\tk.Go(t, u, w, x, y)\n}\n";
+    let at = |name| bound_at(Kind::Go, text, 6, name);
+    let new = |t: &str| Value::New(t.into());
+    assert_eq!(at("k"), [(2, new("Kettle"))]);
+    assert_eq!(at("t"), [(3, new("Teapot"))]);
+    assert_eq!(
+        at("err"),
+        [(2, Value::Call("error".into()))],
+        "a `:=` that declares it again in the same block reuses the first"
+    );
+    assert_eq!(at("u"), [(4, new("Urn"))]);
+    assert_eq!(at("w"), [(4, new("Cup"))]);
+    assert_eq!(at("x"), [(5, Value::Call("pair".into()))]);
+    assert_eq!(at("y"), [(5, Value::Unknown)]);
+}
+
+#[test]
+fn a_go_if_header_declares_with_its_value() {
+    let text = "func f() {\n\tk := Kettle{}\n\tif k := (Teapot{}); k.ok {\n\t\tk.Go()\n\t} else if t, ok := (Urn{}), true; ok {\n\t\tt.Go()\n\t}\n\tif v := <-ch; v {\n\t\tv.Go()\n\t}\n}\n";
+    let at = |line, name| bound_at(Kind::Go, text, line, name);
+    assert_eq!(at(4, "k"), [(3, Value::New("Teapot".into()))]);
+    assert_eq!(
+        at(6, "t"),
+        [(3, Value::New("Urn".into()))],
+        "an `else if` is read with the header of its `if`"
+    );
+    assert_eq!(at(9, "v"), [(8, Value::Unknown)]);
 }
 
 #[test]
@@ -693,6 +724,32 @@ fn lua_blocks_bind_locals_parameters_and_their_own_function() {
     assert_eq!(at(own, 2, "node"), [1]);
     let each = "for i, repo in ipairs(xs) do\n  print(repo)\nend\n";
     assert_eq!(at(each, 2, "repo"), [1]);
+    let value = "local fact = function(x)\n  return fact(x - 1)\nend\n";
+    assert_eq!(
+        lua_value_of_its_own(value, 2, "fact"),
+        Some(1),
+        "a `local` is not in scope inside its own value (#951)"
+    );
+    assert_eq!(lua_value_of_its_own(own, 2, "walk"), None);
+    let param = "local f = function(f)\n  return f\nend\n";
+    assert_eq!(lua_value_of_its_own(param, 2, "f"), None);
+    assert_eq!(at(param, 2, "f"), [1]);
+    let file = "local function pour() end\nlocal later\nfunction later() end\nfunction M.pour()\n  return pour() + later() + after()\nend\nlocal function after() end\nreturn later()\n";
+    assert_eq!(
+        at(file, 5, "pour"),
+        [1],
+        "the file's own `local` is seen from a function (#953)"
+    );
+    assert_eq!(
+        at(file, 5, "later"),
+        [2],
+        "`function later()` assigns the `local`"
+    );
+    assert!(
+        at(file, 5, "after").is_empty(),
+        "a `local` below is not in scope"
+    );
+    assert_eq!(at(file, 8, "later"), [2]);
 }
 
 #[test]
@@ -724,6 +781,41 @@ fn lua_tables_keys_and_members() {
     assert_eq!(lua_members(module, "M", "a"), [4]);
     assert_eq!(lua_members(module, "M", "b"), [5]);
     assert_eq!(lua_members(module, "M", "c"), [6]);
+    let handed = "local function pour() end\nM.steep = pour -- alias\nM.pour = pour\nM.off = nil\n";
+    assert_eq!(
+        lua_members(handed, "M", "steep"),
+        [2],
+        "a field assigned a local (#954)"
+    );
+    assert!(
+        lua_members(handed, "M", "pour").is_empty(),
+        "`M.pour = pour` hands the local on"
+    );
+    assert!(lua_members(handed, "M", "off").is_empty(), "nor `nil`");
+}
+
+#[test]
+fn lua_receivers_of_a_constructor_and_of_self() {
+    let pot = "local P = {}\nP.__index = P\nfunction P.new()\n  return setmetatable({}, P)\nend\nfunction P.plain()\n  return {}\nend\nfunction P.decant(self)\n  return self:pour()\nend\nfunction P:sip()\n  local function inner(self)\n    return self\n  end\n  return function() return self end\nend\n";
+    assert!(lua_makes_instance(pot, 3, "P"), "#952");
+    assert!(!lua_makes_instance(pot, 6, "P"));
+    assert!(!lua_makes_instance(
+        &pot.replace("P.__index = P", ""),
+        3,
+        "P"
+    ));
+    assert_eq!(lua_self_table(pot, 10).as_deref(), Some("P"), "#952");
+    assert_eq!(lua_self_table(pot, 14), None, "a function's own `self`");
+    assert_eq!(lua_self_table(pot, 16).as_deref(), Some("P"));
+    assert_eq!(
+        lua_call("kettle.Kettle.new(1)"),
+        Some((
+            vec!["kettle".to_owned(), "Kettle".to_owned()],
+            "new".to_owned()
+        ))
+    );
+    assert_eq!(lua_call("new(1)"), None);
+    assert_eq!(lua_call("P.new(1) + 1"), None);
     assert!(continued(Kind::Python, &["x = 1 + \\", "    y"], 1));
     assert!(continued(Kind::Python, &["f(a,", "  b)"], 1));
     assert!(!continued(Kind::Python, &["x = 1", "y"], 1));

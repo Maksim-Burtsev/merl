@@ -329,6 +329,34 @@ pub fn params(kind: Kind, text: &str, line1: usize) -> Option<usize> {
             .count(),
     )
 }
+pub fn literal_overloads<T, S: AsRef<str>>(
+    overloads: Vec<T>,
+    args: &[&str],
+    takes: impl Fn(&T) -> Option<Vec<Option<S>>>,
+) -> Vec<T> {
+    let exact: Vec<Option<bool>> = overloads
+        .iter()
+        .map(|o| {
+            let takes = takes(o)?;
+            Some(
+                takes.len() >= args.len()
+                    && args
+                        .iter()
+                        .zip(&takes)
+                        .all(|(a, t)| t.as_ref().map(AsRef::as_ref) == Some(*a)),
+            )
+        })
+        .collect();
+    if !exact.contains(&Some(true)) {
+        return overloads;
+    }
+    overloads
+        .into_iter()
+        .zip(exact)
+        .filter(|(_, e)| *e != Some(false))
+        .map(|(o, _)| o)
+        .collect()
+}
 #[derive(Debug, PartialEq, Eq)]
 pub struct GoSignature {
     pub param_types: Vec<String>,

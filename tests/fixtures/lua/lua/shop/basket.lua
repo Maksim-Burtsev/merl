@@ -52,7 +52,7 @@ function Basket.dispatch()
   --                        ^ d: lua/shop/warehouse.lua:3
   --                                ^ d: lua/shop/warehouse.lua:6
   return courier:dispatch()
-  --             ^ d: picker lua/shop/basket.lua:50, lua/shop/warehouse.lua:10
+  --             ^ d: lua/shop/warehouse.lua:10
 end
 
 function Basket.settle(total)
