@@ -160,7 +160,9 @@ impl App {
         found: Vec<Candidate>,
     ) -> Vec<Candidate> {
         let hits: Vec<Hit> = found.iter().map(|c| c.hit.clone()).collect();
+        let end = range.end;
         let kept = self.jvm_use_fit(here, word, range, chain, hits);
+        let kept = self.jvm_overloads(here, word, end, kept);
         let fit: Vec<Candidate> = found
             .iter()
             .filter(|c| {
@@ -323,6 +325,69 @@ impl App {
             .iter()
             .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
         (!found.is_empty() && !on_it).then_some(found)
+    }
+
+    fn jvm_overloads(&self, here: &Path, word: &str, end: usize, hits: Vec<Hit>) -> Vec<Hit> {
+        let java = here.extension().is_some_and(|e| e == "java");
+        if hits.len() < 2
+            || search::groovy(here)
+            || !self
+                .line_str()
+                .get(end..)
+                .is_some_and(|a| a.starts_with('('))
+        {
+            return hits;
+        }
+        let Some(call) = search::jvm_call(&self.buf.lines, self.line, end) else {
+            return hits;
+        };
+        let parts = |h: &Hit| search::jvm_parameter_parts(&self.text_of(&h.path)?, h.line1, word);
+        let mut hits = hits;
+        if !java
+            && !call
+                .arguments
+                .iter()
+                .any(|a| a.starts_with('*') || a.contains('<'))
+        {
+            let n = call.arguments.len() + usize::from(call.trailing_lambda);
+            let fit: Vec<Hit> = hits
+                .iter()
+                .filter(|h| parts(h).is_none_or(|p| search::jvm_takes(&p, n)))
+                .cloned()
+                .collect();
+            if !fit.is_empty() {
+                hits = fit;
+            }
+        }
+        let literals: Option<Vec<&str>> = call
+            .arguments
+            .iter()
+            .map(|a| search::jvm_literal_argument(a))
+            .collect();
+        let Some(args) = literals.filter(|a| !a.is_empty() && !call.trailing_lambda) else {
+            return hits;
+        };
+        let exact: Vec<Option<bool>> = hits
+            .iter()
+            .map(|h| {
+                let takes = parts(h)?;
+                Some(
+                    takes.len() >= args.len()
+                        && args
+                            .iter()
+                            .zip(&takes)
+                            .all(|(a, t)| search::jvm_literal_parameter(t) == Some(*a)),
+                )
+            })
+            .collect();
+        if !exact.contains(&Some(true)) {
+            return hits;
+        }
+        hits.into_iter()
+            .zip(exact)
+            .filter(|(_, e)| *e != Some(false))
+            .map(|(h, _)| h)
+            .collect()
     }
 
     pub(super) fn jvm_constructors(&self, types: &[Candidate], word: &str) -> Vec<Candidate> {

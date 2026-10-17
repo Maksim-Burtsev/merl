@@ -3,9 +3,9 @@ package tea;
 public class Table {
     public int set(Teapot pot, Kettle kettle) {
         return pot.pour(1) + pot.pour(1, 2) + pot.pour("two") + kettle.pour(3);
-        //         ^ d: picker src/main/java/tea/Teapot.java:4, src/main/java/tea/Teapot.java:12; want src/main/java/tea/Teapot.java:4 (#964)
+        //         ^ d: src/main/java/tea/Teapot.java:4
         //                       ^ d: src/main/java/tea/Teapot.java:8
-        //                                        ^ d: picker src/main/java/tea/Teapot.java:4, src/main/java/tea/Teapot.java:12; want src/main/java/tea/Teapot.java:12 (#964)
+        //                                        ^ d: src/main/java/tea/Teapot.java:12
         //                                                             ^ d: src/main/java/tea/Kettle.java:22
     }
 
