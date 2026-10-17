@@ -279,4 +279,23 @@ fn d_through_a_folder_s_node_modules_lands_in_its_own_workspace_package() {
         ],
         "a workspace package is the reviewed branch's, a dependency your checkout's"
     );
+
+    c.git("a", &["rm", "-q", "-r", "packages/web"]);
+    c.git("a", &["commit", "-q", "-m", "drop web"]);
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    std::fs::rename(b.join(".venv"), b.join("venv.moved")).unwrap();
+    let (again, r) = c.open("feat1");
+    assert_eq!(
+        (again.join("packages/web").exists(), names(&r)),
+        (
+            false,
+            vec![
+                "packages/shared/theme.css".to_owned(),
+                "packages/shared/Token.sol".to_owned(),
+                ".gitignore".to_owned(),
+                "feat1.py".to_owned(),
+            ]
+        ),
+        "a package the branch drops leaves no folder, a link to nothing no row"
+    );
 }
