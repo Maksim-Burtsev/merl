@@ -33,7 +33,7 @@ class Samovar(vapor: Int, val bulk: Int = 1) : Urn() {
     //                                ^ d: src/main/kotlin/brew/Urn.kt:6
     //                                                ^ d: src/main/kotlin/brew/Herbs.kt:4
     //                                                         ^ d: src/main/kotlin/brew/Samovar.kt:37
-    //                                                                ^ d: picker src/main/kotlin/brew/Samovar.kt:38, src/main/kotlin/brew/Cosy.kt:4; want src/main/kotlin/brew/Samovar.kt:38 (#965)
+    //                                                                ^ d: src/main/kotlin/brew/Samovar.kt:38
     class Cosy {
         fun tilt(): Int = 2
     }

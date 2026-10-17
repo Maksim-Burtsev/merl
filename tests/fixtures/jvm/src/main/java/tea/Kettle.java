@@ -45,8 +45,8 @@ public class Kettle extends Vessel {
         return super.rinse() + Spices.grind() + new Lid().pour(1);
         //           ^ d: src/main/java/tea/Vessel.java:6
         //                            ^ d: src/main/java/tea/Spices.java:4
-        //                                          ^ d: picker src/main/java/tea/Kettle.java:52, src/main/java/tea/Lid.java:3; want src/main/java/tea/Kettle.java:52 (#965)
-        //                                                ^ d: picker src/main/java/tea/Kettle.java:22, src/main/java/tea/Kettle.java:53, src/main/java/tea/Teapot.java:4, src/main/java/tea/Teapot.java:12, src/main/java/tea/stale/Kettle.java:4; want src/main/java/tea/Kettle.java:53 (#965)
+        //                                          ^ d: src/main/java/tea/Kettle.java:52
+        //                                                ^ d: src/main/java/tea/Kettle.java:53
     }
 
     static class Lid {

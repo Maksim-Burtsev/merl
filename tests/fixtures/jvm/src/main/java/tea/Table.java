@@ -15,7 +15,7 @@ public class Table {
         return lid.heft() + new Kettle.Lid().pour(2);
         //         ^ d: src/main/java/tea/Lid.java:4
         //                             ^ d: src/main/java/tea/Kettle.java:52
-        //                                   ^ d: picker src/main/java/tea/Kettle.java:22, src/main/java/tea/Kettle.java:53, src/main/java/tea/Teapot.java:4, src/main/java/tea/Teapot.java:12, src/main/java/tea/stale/Kettle.java:4; want src/main/java/tea/Kettle.java:53 (#965)
+        //                                   ^ d: src/main/java/tea/Kettle.java:53
     }
 
     public int old(tea.stale.Kettle stale, Teapot pot) {

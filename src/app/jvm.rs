@@ -172,7 +172,7 @@ impl App {
         if fit.is_empty() { found } else { fit }
     }
 
-    fn jvm_imported_all(
+    pub(super) fn jvm_imported_all(
         &self,
         text: &str,
         chain: &[String],
@@ -323,6 +323,38 @@ impl App {
             .iter()
             .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
         (!found.is_empty() && !on_it).then_some(found)
+    }
+
+    pub(super) fn jvm_constructors(&self, types: &[Candidate], word: &str) -> Vec<Candidate> {
+        let Ok(re) = Regex::new(&search::def_patterns(Kind::Jvm, word).join("|")) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for c in types {
+            let Some(text) = self.text_of(&c.hit.path) else {
+                continue;
+            };
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Jvm, &text);
+            let inside = |line: usize| {
+                re.is_match(lines[line - 1])
+                    && !literal.get(line - 1).copied().unwrap_or(false)
+                    && search::jvm_enclosing_types(&text, line).first() == Some(&c.hit.line1)
+            };
+            for line in (c.hit.line1 + 1..=lines.len()).filter(|&l| inside(l)) {
+                out.push(Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: c.hit.path.clone(),
+                        line1: line,
+                        byte_col: None,
+                        text: lines[line - 1].to_owned(),
+                    },
+                    reason: c.reason.clone(),
+                });
+            }
+        }
+        out
     }
 
     pub(super) fn jvm_packages(&self) -> Option<HashMap<String, Vec<PathBuf>>> {

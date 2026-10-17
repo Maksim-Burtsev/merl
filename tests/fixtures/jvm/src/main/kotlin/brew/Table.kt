@@ -53,7 +53,7 @@ class Table(val glass: Glass) {
 
     fun drape(): Int = Cosy().tilt() + Samovar.mold().bulk + Samovar.CUPS
     //                 ^ d: src/main/kotlin/brew/Cosy.kt:3
-    //                        ^ d: picker src/main/kotlin/brew/Cosy.kt:4, src/main/kotlin/brew/Samovar.kt:38; want src/main/kotlin/brew/Cosy.kt:4 (#965)
+    //                        ^ d: src/main/kotlin/brew/Cosy.kt:4
     //                                         ^ d: src/main/kotlin/brew/Samovar.kt:44
     //                                                               ^ d: src/main/kotlin/brew/Samovar.kt:42
 }

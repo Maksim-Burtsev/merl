@@ -30,6 +30,12 @@ impl App {
             let ty = self.jvm_type_at(here, text, &cast);
             return self.jvm_typed_member(here, ty, &cast, word);
         }
+        if let ([], Some(made)) = (chain, search::jvm_constructed_receiver(before, kotlin)) {
+            return match self.jvm_made(here, text, &made, kotlin) {
+                ty @ JvmType::Project(_) => self.jvm_typed_member(here, ty, &made, word),
+                _ => None,
+            };
+        }
         let safe: Vec<String>;
         let chain = match chain {
             [] if kotlin => {
@@ -98,6 +104,25 @@ impl App {
             });
         }
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
+        if !written.contains('.') {
+            let found = self
+                .jvm_members(here, text, written)
+                .or_else(|| self.jvm_imported_all(text, &[], written, false))
+                .unwrap_or_default();
+            let named =
+                |c: &Candidate| search::jvm_type_name(&c.hit.text).as_deref() == Some(written);
+            if kotlin && !found.iter().all(named) {
+                return JvmType::Unknown;
+            }
+            let types: Vec<Hit> = found.into_iter().filter(named).map(|c| c.hit).collect();
+            if !types.is_empty() {
+                return one_type(types);
+            }
+        }
+        self.jvm_type_at(here, text, written)
     }
 
     fn jvm_super(

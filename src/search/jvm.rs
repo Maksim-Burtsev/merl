@@ -929,6 +929,23 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     None
 }
 
+pub fn jvm_constructed_receiver(before: &str, kotlin: bool) -> Option<String> {
+    static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])new\s+([A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}\s*\([^()]*\)\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])([A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}\s*\([^()]*\)\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    let re = if kotlin { &*KOTLIN } else { &*JAVA };
+    re.captures(before.trim_end()).map(|c| c[1].to_owned())
+}
+
 pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
     static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
