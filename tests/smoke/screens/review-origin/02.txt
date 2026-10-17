@@ -54,4 +54,4 @@ wait read-only: a pushed branch
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/refunds.py  1:1  [code]  hunk 1/1  file 1/8  read-only: a pushed branch                                                                                                        14:32
-cursor (x,y,shown) 33,0,1
+cursor (x,y,shown) 33,0,0
