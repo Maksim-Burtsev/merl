@@ -30,10 +30,19 @@ impl App {
             .get(before.len()..)
             .and_then(|r| r.strip_prefix(word))
             .is_some_and(|r| r.starts_with('.') && !r.starts_with(".."));
+        let member = || {
+            let declares = Regex::new(&search::def_patterns(Kind::Dart, word).join("|")).ok();
+            search::dart_body_at(text, self.line).is_some_and(|(body, _)| {
+                text.lines().enumerate().any(|(i, l)| {
+                    body.contains(&(i + 1)) && declares.as_ref().is_some_and(|d| d.is_match(l))
+                })
+            })
+        };
         if chain.is_empty()
             && qualifier
             && !before.trim_end().ends_with('.')
             && search::bindings(Kind::Dart, text, self.line + 1, word).is_empty()
+            && !member()
             && let Some(d) = search::dart_directives(text)
                 .into_iter()
                 .flatten()

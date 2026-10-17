@@ -17,4 +17,9 @@ class Cup {
     //           ^ d: picker lib/tea/cup.dart:8, lib/tea/cup.dart:12
     //                  ^ d: lib/tea/cup.dart:12
   }
+
+  // A field named like an import prefix hides it in its class.
+  int stale = 0;
+  String mark() => stale.toString();
+  //               ^ d: lib/tea/cup.dart:22
 }
