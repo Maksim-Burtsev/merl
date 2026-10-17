@@ -235,7 +235,19 @@ two files, `using static` beside a member of the same name, overloads, `base.`, 
 interface implementation, a lambda parameter hiding a local and a `using` alias of
 `Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
 initializer list, overloads, ADL beside a global namesake, a qualified definition of
-`stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block.
+`stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block;
+`caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
+and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
+`leaf_alias.cc` passes an argument typed by a `using` alias named like `infuse::Leaf`, which
+must neither pick an overload nor add a namespace.
+`stale_again.cc` opens `namespace stale {` again and writes `using namespace stale;`, which
+must not turn `stale::Kettle` into a picker, and has a `tray` that is a namespace in one place and
+a class in another, where the picker stays (#1019); `wrap.cc` writes `tidy::Napkin` inside
+`infuse`, where a `tidy` of its own and a global one are two namespaces, not one. `brew_line.cc`
+(and `c/src/brew_line.c`) call a declared and defined function from a one-line function, whose
+body holds no parameter (#1020); `brew.hh`'s prototype stays apart from the definition in
+`brew_hidden.hh`, which the file does not include, and joins the one in `brew_impl.hh`, which it
+does; an out-of-class `operator()` keeps its parameters.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
@@ -395,7 +407,9 @@ default-exported `Kettle` imported under two names (one through a chain of `expo
 renaming re-export), `import type`, overloads of `boil`, destructured and renamed parameters
 beside a module-level namesake, `this` in an arrow and in a `function` that declares `this:
 Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
-template literal.
+template literal. `ladle.ts` holds where a constraint must not be read: the result of a
+generic call, typed by its argument rather than the constraint, and a generic call taking a
+callback, which declares no type parameter.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -412,6 +426,21 @@ in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).
+`kettle.mjs` exports as its default an instance bound to a `const` (#1008). `sieve.cjs` assigns
+to `exports.name` a value in parentheses, which declares nothing, an `async` arrow, an arrow with
+a bare parameter and a named function behind `module.exports.`, read from `pouring.cjs` through a
+destructured and a whole `require` (#1007). `mill.cjs` holds what a constructor function must
+not declare (#1001): a function nested in its body, `Mill.grind` on the constructor itself and
+`Grinder.burr`; beside a prototype member holding an arrow, an `async function` method, a class
+extending `Grinder` and a JSDoc `{Grinder}` parameter. `scoop.js` declares a `var` again in a
+`for`, in a nested function, in an arrow callback and in a template literal, and in another
+function (#1003), in a promise chain's second callback, and in the next of two functions whose
+bodies are not indented. `brew.cjs` names in JSDoc braces a `@typedef` of a string, a constructor
+function and a class behind a `require`, and a `Kettle` the file does not import (#1002);
+`dosing.js` holds braces JSDoc must not read: a code line continuing a product with `* f({ x })`,
+an object literal after a one-line `/** @type {…} */`, and a word in braces in a plain comment.
+`blooming.cjs` writes `exports.bloom = function` only in a block comment and a template literal,
+then exports a named function behind `module.exports.bloom =`.
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`
