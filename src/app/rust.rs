@@ -69,6 +69,9 @@ impl App {
         if !dotted && let Some(found) = self.rust_trait_impl(here, text, word, range.clone()) {
             return Some(found);
         }
+        if !dotted && let Some(found) = self.rust_self_path(here, text, word, range.start) {
+            return Some(found);
+        }
         let named = word.starts_with(|c: char| c.is_alphabetic() || c == '_');
         if dotted && named && word != "await" && !after.starts_with('(') && !after.starts_with("::")
         {
@@ -1081,6 +1084,50 @@ impl App {
             hit,
             reason: Reason::Receiver(format!("<{} as {tr}>", ty.name)),
         }])
+    }
+
+    fn rust_self_path(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        start: usize,
+    ) -> Option<Vec<Candidate>> {
+        let before = self.line_str().get(..start)?;
+        let pathed = before
+            .strip_suffix("Self::")
+            .is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == ':'));
+        if word != "Self" && !pathed {
+            return None;
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        let search::RustSelfType {
+            written,
+            impl_line0,
+        } = search::rust_self_type(&lines, self.line)?;
+        if word == "Self" {
+            return Some(vec![Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: here.to_path_buf(),
+                    line1: impl_line0 + 1,
+                    byte_col: None,
+                    text: lines[impl_line0].to_owned(),
+                },
+                reason: Reason::File,
+            }]);
+        }
+        let ty = self.rust_resolve(here, &written, impl_line0)?;
+        let found = self.rust_members(&ty, word);
+        (!found.is_empty()).then(|| {
+            found
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(format!("Self: {}", ty.name)),
+                })
+                .collect()
+        })
     }
 
     fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
