@@ -215,7 +215,7 @@ block comment declaring what the files declare. `lua/lua/tea/` has `local functi
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
-as `$pour`, `${#pour}` and as a command, `command steep`, case patterns named like functions, a
+as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
