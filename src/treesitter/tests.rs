@@ -46,7 +46,7 @@ fn recorded(path: &Path) -> HashMap<String, Vec<(usize, Vec<String>)>> {
     out
 }
 
-fn drawn(b: &Buffer, line: usize) -> Vec<(usize, String)> {
+fn drawn(b: &Buffer, line: usize, plain: [Color; 2]) -> Vec<(usize, String)> {
     let text = &b.lines[line];
     text.char_indices()
         .filter(|(_, c)| !c.is_whitespace())
@@ -59,8 +59,12 @@ fn drawn(b: &Buffer, line: usize) -> Vec<(usize, String)> {
                 panic!("line {line} col {i}: no colour")
             };
             let m = style.add_modifier;
+            let bg = match style.bg.filter(|c| !plain.contains(c)) {
+                Some(Color::Rgb(r, g, b)) => format!("/{r:02x}{g:02x}{b:02x}"),
+                _ => String::new(),
+            };
             let flags = format!(
-                "{}{}",
+                "{}{}{bg}",
                 if m.contains(Modifier::BOLD) { "b" } else { "" },
                 if m.contains(Modifier::ITALIC) {
                     "i"
@@ -144,7 +148,7 @@ fn mismatches(lang: &str) -> Vec<String> {
             b.parse_more(None);
             b.highlight_to(usize::MAX, &theme);
             for (n, want) in lines {
-                let got = drawn(&b, n - 1);
+                let got = drawn(&b, n - 1, [theme.bg, theme.line_hl]);
                 assert_eq!(got.len(), want.len(), "{file}:{n}: characters");
                 for ((col, got), want) in got.iter().zip(&want) {
                     if got == want {
@@ -428,7 +432,7 @@ fn query_is_coloured_as_lazyvim() {
 }
 
 #[test]
-fn a_capture_keeps_its_background_only_when_reversed() {
+fn a_capture_keeps_its_background_reversed_or_not() {
     let added = |name: &str| {
         let theme = theme::load(name).unwrap();
         let text = b"--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n";
@@ -439,7 +443,10 @@ fn a_capture_keeps_its_background_only_when_reversed() {
         (style.bg, style.add_modifier.contains(Modifier::REVERSED))
     };
     assert_eq!(added("nord"), (Some(Color::Rgb(0x3b, 0x42, 0x52)), true));
-    assert_eq!(added("tokyonight-moon"), (None, false));
+    assert_eq!(
+        added("tokyonight-moon"),
+        (Some(Color::Rgb(0x2a, 0x45, 0x56)), false)
+    );
 }
 
 pub(super) fn sexp(f: &str, src: &[u8]) -> String {

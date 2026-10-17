@@ -828,6 +828,10 @@ fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
 }
 
 fn review_of(tag: &str, base: &str, new: &str) -> (PathBuf, App) {
+    review_of_file(tag, "f.py", base, new)
+}
+
+fn review_of_file(tag: &str, name: &str, base: &str, new: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
@@ -842,15 +846,15 @@ fn review_of(tag: &str, base: &str, new: &str) -> (PathBuf, App) {
         assert!(out.status.success(), "git {args:?}");
     };
     git(&["init", "-q", "-b", "main"]);
-    std::fs::write(dir.join("f.py"), base).unwrap();
+    std::fs::write(dir.join(name), base).unwrap();
     std::fs::write(dir.join("gone.py"), "x = 1\n").unwrap();
     git(&["add", "."]);
     git(&["commit", "-q", "-m", "base"]);
     git(&["switch", "-q", "-c", "feature"]);
     git(&["rm", "-q", "gone.py"]);
     git(&["commit", "-q", "-m", "gone"]);
-    std::fs::write(dir.join("f.py"), new).unwrap();
-    let path = dir.join("f.py");
+    std::fs::write(dir.join(name), new).unwrap();
+    let path = dir.join(name);
     let mut app = App::new(
         dir.clone(),
         Tree::default(),
@@ -977,6 +981,48 @@ fn outside_a_review_added_lines_are_not_tinted() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(rows(&terminal)[1], "2\u{258e}b");
     assert_eq!(terminal.backend().buffer()[(2, 1)].bg, theme.bg);
+}
+
+#[test]
+fn a_capture_s_background_wins_over_the_cursor_line_and_under_a_selection() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.diff"), b"@@ -1 +1 @@\n-a\n+bb\n"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let plus = theme.group("@diff.plus").and_then(|s| s.bg).unwrap();
+    app.buf.parse_more(None);
+    app.buf.highlight_to(usize::MAX, &theme);
+    let paint = |app: &mut App| -> String {
+        let mut terminal = Terminal::new(TestBackend::new(8, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let buf = terminal.backend().buffer();
+        (2..buf.area.width)
+            .map(|x| match buf[(x, 2)].bg {
+                bg if bg == plus => '+',
+                bg if bg == theme.selection => '#',
+                bg if bg == theme.line_hl => '-',
+                _ => '.',
+            })
+            .collect()
+    };
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    assert_eq!(
+        paint(&mut app),
+        "+++---",
+        "the cursor line's band yields to @diff.plus behind the text, as in Neovim"
+    );
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    assert_eq!(
+        paint(&mut app),
+        "#++---",
+        "a selection paints over @diff.plus, as Visual does in Neovim"
+    );
 }
 
 #[test]
@@ -2003,4 +2049,23 @@ fn a_selection_over_a_changed_word_draws_the_selection_not_the_word() {
         (theme.cursor_gutter_bg(), theme.del_bg),
         "a selection on a deleted line takes the band off it too"
     );
+}
+
+#[test]
+fn a_review_s_tint_wins_over_a_capture_s_background_as_diff_add_does_in_neovim() {
+    let (dir, mut app) =
+        review_of_file("tint-bg", "f.md", "# A\n# Same old\n", "# A\n# Same new\n");
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(24, 5)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[1..3],
+        ["\u{258e}# Same old", "2\u{258e}# Same new"]
+    );
+    assert_eq!(app.at(), TextLine::File(1));
+    let buf = terminal.backend().buffer();
+    assert_eq!(buf[(4, 1)].bg, theme.del_bg, "the deleted heading");
+    assert_eq!(buf[(4, 2)].bg, theme.add_bg_hl, "the added heading");
+    std::fs::remove_dir_all(dir).unwrap();
 }

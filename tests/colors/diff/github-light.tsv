@@ -1,4 +1,4 @@
 # github-light: projekt0n/github-nvim-theme@c106c9472154d6b2c74b74565616b877ae8ed31d `colorscheme github_light_default`; NVIM v0.12.5, nvim-treesitter 1a4f47b
-# palette a=1f2328 b=1a7f37 c=0550ae d=d1242f e=116329 f=6639ba g=cf222e
-change.diff	1:f4a29 2:g5c7a2c13 3:d3a12 4:b3a12 5:c22 6:a40 7:d35 8:b26 9:b41 10:a37 11:a6 12:a 13:c23 14:d7 15:b16 16:a 17:a21 18:f4a23 19:e15c3 20:e10a7 21:e8a7 22:f4a21 23:e7c6 24:e7c6 25:f4a25 26:e11c6 27:g5c7a2c7 28:e11a9e3a10e6 29:f4a25 30:e15c6 31:g5c7a2c7 32:d3a10 33:b3a9 34:c12 35:d6 36:d7
-unified.patch	1:a28 3:f4a30 4:d3a46 5:b3a46 6:c12 7:a42 8:b 9:b31 11:a11 12:a11 13:c21 14:d18 15:b30 16:a13 17:d15 18:b15 19:c12 20:d10 21:b13 22:a9
+# palette a=1f2328 b=1a7f37/b8d0bf c=0550ae d=d1242f/e4b7be e=116329 f=1f2328/e4b7be g=1f2328/b8d0bf h=6639ba i=cf222e
+change.diff	1:h4a29 2:i5c7a2c13 3:d3f12 4:b3g12 5:c22 6:a40 7:d35 8:b26 9:b41 10:a37 11:a6 12:a 13:c23 14:d7 15:b16 16:a 17:a21 18:h4a23 19:e15c3 20:e10a7 21:e8a7 22:h4a21 23:e7c6 24:e7c6 25:h4a25 26:e11c6 27:i5c7a2c7 28:e11a9e3a10e6 29:h4a25 30:e15c6 31:i5c7a2c7 32:d3f10 33:b3g9 34:c12 35:d6 36:d7
+unified.patch	1:a28 3:h4a30 4:d3f46 5:b3g46 6:c12 7:a42 8:b 9:b31 11:a11 12:a11 13:c21 14:d18 15:b30 16:a13 17:d15 18:b15 19:c12 20:d10 21:b13 22:a9

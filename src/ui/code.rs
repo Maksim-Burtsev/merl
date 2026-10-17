@@ -210,12 +210,11 @@ impl<'a> Painter<'a> {
             .is_some_and(|(first, last)| first <= line && line < last)
     }
 
-    fn plain_syntax<'s>(&self, syntax: &'s Spans) -> &'s Spans {
+    fn plain_syntax(&self, syntax: &Spans) -> Painted {
         if self.theme.selection_fg.is_some() {
-            &[]
-        } else {
-            syntax
+            return Vec::new();
         }
+        without_bg(syntax)
     }
 
     fn ghost_wrap(&self, raw: &str) -> Vec<(Range<usize>, usize)> {
@@ -326,6 +325,7 @@ impl<'a> Painter<'a> {
             }
             _ => &[],
         };
+        let syntax = &without_bg(syntax);
         let words = self
             .partner
             .get(&(l, i))
@@ -342,7 +342,7 @@ impl<'a> Painter<'a> {
             here,
             self.find_styles,
         );
-        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        let plain = paint_finds(&self.plain_syntax(syntax), &finds, here, self.find_styles);
         (spans, plain)
     }
 
@@ -425,7 +425,7 @@ impl<'a> Painter<'a> {
         &self,
         l: usize,
         clipped: &str,
-        lit: bool,
+        (lit, tinted): (bool, bool),
         here: Option<usize>,
     ) -> (Painted, Painted) {
         let (app, theme) = (self.app, self.theme);
@@ -438,6 +438,11 @@ impl<'a> Painter<'a> {
             .map(|old| intraline::changes(shown_str(old), clipped).1)
             .unwrap_or_default();
         let syntax = app.buf.hl.get(l).map_or(&[][..], Vec::as_slice);
+        let syntax = &if tinted {
+            without_bg(syntax)
+        } else {
+            syntax.to_vec()
+        };
         let finds = app
             .find_re
             .as_ref()
@@ -453,7 +458,7 @@ impl<'a> Painter<'a> {
             here,
             self.find_styles,
         );
-        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        let plain = paint_finds(&self.plain_syntax(syntax), &finds, here, self.find_styles);
         (spans, plain)
     }
 
@@ -468,7 +473,12 @@ impl<'a> Painter<'a> {
             (true, Some(Mark::Deleted)) => Some((theme.del_bg, theme.del_bg_hl)),
             _ => None,
         };
-        let (spans, plain) = self.file_spans(l, clipped, lit, cursor_line.then_some(app.col));
+        let (spans, plain) = self.file_spans(
+            l,
+            clipped,
+            (lit, tint.is_some()),
+            cursor_line.then_some(app.col),
+        );
         let g = if cursor_line {
             self.hl_gutter
         } else {
@@ -626,6 +636,13 @@ impl<'a> Painter<'a> {
 }
 
 type Painted = Vec<(Style, Range<usize>)>;
+
+fn without_bg(syntax: &Spans) -> Painted {
+    syntax
+        .iter()
+        .map(|(s, r)| (Style { bg: None, ..*s }, r.clone()))
+        .collect()
+}
 
 struct FileLine<'a> {
     l: usize,
