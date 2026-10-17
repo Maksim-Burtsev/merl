@@ -461,15 +461,7 @@ impl App {
         name: &str,
         many: &[&Hit],
     ) -> Option<CsType> {
-        let mut namespaces = Vec::new();
-        for h in many {
-            let t = self.text_of(&h.path)?;
-            if search::cs_owner(&t, h.line1).is_some() {
-                return None;
-            }
-            namespaces.push(search::cs_namespace(&t, h.line1));
-        }
-        let picked: Vec<&Hit> = search::cs_namespace_pick(text, line1, written, &namespaces)
+        let picked: Vec<&Hit> = (self.cs_namespace_hits(text, line1, written, many)?)
             .into_iter()
             .map(|i| many[i])
             .collect();
@@ -499,6 +491,50 @@ impl App {
             path: one.path.clone(),
             line: one.line1,
         }))
+    }
+
+    fn cs_namespace_hits(
+        &self,
+        text: &str,
+        line1: usize,
+        written: &str,
+        many: &[&Hit],
+    ) -> Option<Vec<usize>> {
+        let mut namespaces = Vec::new();
+        for h in many {
+            let t = self.text_of(&h.path)?;
+            if search::cs_owner(&t, h.line1).is_some() {
+                return None;
+            }
+            namespaces.push(search::cs_namespace(&t, h.line1));
+        }
+        Some(search::cs_namespace_pick(text, line1, written, &namespaces))
+    }
+
+    fn cs_type_namesakes(&self, word: &str, chain: Option<&[String]>, hits: Vec<Hit>) -> Vec<Hit> {
+        let types = hits.len() > 1
+            && hits.iter().all(|h| {
+                h.deleted.is_none() && search::cs_type_decl(&h.text).is_some_and(|d| d.name == word)
+            });
+        if !types {
+            return hits;
+        }
+        let written = match chain {
+            Some(c) if !c.is_empty() => format!("{}.{word}", c.join(".")),
+            _ => word.to_owned(),
+        };
+        let text = self.buf.lines.join("\n");
+        let all: Vec<&Hit> = hits.iter().collect();
+        let picked = self
+            .cs_namespace_hits(&text, self.line + 1, &written, &all)
+            .unwrap_or_default();
+        if picked.is_empty() {
+            return hits;
+        }
+        hits.into_iter()
+            .enumerate()
+            .filter_map(|(i, h)| picked.contains(&i).then_some(h))
+            .collect()
     }
 }
 
@@ -819,6 +855,7 @@ impl App {
                 ty.is_match(&h.text) || !ctor.is_match(&h.text) || !typed.contains(&h.path)
             });
         }
+        let hits = self.cs_type_namesakes(word, chain, hits);
         let receiver = chain.map(|c| c.last().map_or("", String::as_str));
         self.cs_fit(word, self.cs_args(), receiver, hits)
     }
