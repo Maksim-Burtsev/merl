@@ -592,6 +592,29 @@ impl App {
             .collect()
     }
 
+    pub(super) fn own_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let members = self.members_of(kind, t, word);
+        if members.is_empty() {
+            return self.field_of(kind, t, word, false).map(|hit| vec![hit]);
+        }
+        let instance_field = |f: &Hit| {
+            !f.text
+                .split_whitespace()
+                .take_while(|w| !w.starts_with(word))
+                .any(|w| w == "static")
+                && !members
+                    .iter()
+                    .any(|m| m.path == f.path && m.line1 == f.line1)
+        };
+        let field = (kind == Kind::TsJs)
+            .then(|| self.field_of(kind, t, word, false))
+            .flatten();
+        match field {
+            Some(field) if instance_field(&field) => Some(vec![field]),
+            _ => Some(members),
+        }
+    }
+
     pub(super) fn above(
         &self,
         kind: Kind,
@@ -600,14 +623,7 @@ impl App {
         depth: usize,
     ) -> Result<Vec<Hit>, String> {
         let broke = || "super".to_owned();
-        let find = |t: &Typed| {
-            let members = self.members_of(kind, t, word);
-            if members.is_empty() {
-                self.field_of(kind, t, word, false).map(|hit| vec![hit])
-            } else {
-                Some(members)
-            }
-        };
+        let find = |t: &Typed| self.own_member(kind, t, word);
         let text = self
             .text_of(&ty.path)
             .filter(|_| depth < 8)

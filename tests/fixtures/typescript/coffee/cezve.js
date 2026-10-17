@@ -30,3 +30,13 @@ export class Ibrik {
     return 2;
   }
 }
+
+export class Jezve {
+  static crema = 1;
+
+  crema() {
+    return 3;
+  }
+}
+
+export class Briki extends Ibrik {}
