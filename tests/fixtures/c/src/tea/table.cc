@@ -52,3 +52,11 @@ int cosy() {
   return urn.topup();
   //         ^ d: src/tea/kettle.cc:29
 }
+
+int lid_again() {
+  stale::Lid lid{1};
+  //     ^ d: src/tea/stale_again.cc:4
+  tray::Mat mat{2};
+  //    ^ d: picker src/tea/stale_again.cc:12, src/tea/stale_again.cc:19
+  return lid.size + mat.size;
+}

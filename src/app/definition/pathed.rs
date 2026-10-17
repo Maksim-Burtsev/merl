@@ -125,6 +125,9 @@ impl App {
                 |p| self.text_of(p),
                 search::CTypeWord::NAMED,
             );
+            if search::cpp_one_namespace(owner, &declared) {
+                declared.truncate(1);
+            }
         }
         if !outside
             && declared.len() > 1

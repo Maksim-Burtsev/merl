@@ -84,6 +84,16 @@ pub fn cpp_alias_in_scope(text: &str, pos: usize, alias: &str) -> Option<Vec<Str
     Some(c[1].split("::").map(|p| p.trim().to_owned()).collect())
 }
 
+pub fn cpp_one_namespace(name: &str, rows: &[super::Hit]) -> bool {
+    let w = regex::escape(name);
+    let Ok(re) = Regex::new(&format!(
+        r"^\s*(?:(?:inline\s+)?namespace\s+(?:\w+\s*::\s*)*{w}\s*(?:\{{|$)|using\s+namespace\s+(?:\w+\s*::\s*)*{w}\s*;)"
+    )) else {
+        return false;
+    };
+    rows.iter().all(|h| re.is_match(&h.text)) && rows.iter().any(|h| !h.text.contains("using"))
+}
+
 pub fn cpp_namespace_alias(code: &str, alias: &str) -> Option<Vec<String>> {
     let re = Regex::new(&format!(
         r"\bnamespace\s+{}\s*=\s*((?:\w+\s*::\s*)*\w+)\s*;",
