@@ -230,7 +230,7 @@ fn a_prompt_keeps_the_right_edge_for_its_count() {
 
 #[test]
 fn with_no_file_open_the_bar_holds_only_the_message_and_the_clock() {
-    let bar = |say: fn(&mut App)| {
+    let bar = |width: u16, say: fn(&mut App)| {
         let mut app = App::new(
             PathBuf::from("/work/app"),
             Tree::default(),
@@ -241,16 +241,22 @@ fn with_no_file_open_the_bar_holds_only_the_message_and_the_clock() {
         app.clock = Some("14:32".into());
         say(&mut app);
         let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-        let mut terminal = Terminal::new(TestBackend::new(60, 4)).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(width, 4)).unwrap();
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        rows(&terminal).pop().unwrap()
+        let buf = terminal.backend().buffer();
+        (0..width).map(|x| buf[(x, 3)].symbol()).collect::<String>()
     };
-    assert_eq!(bar(|_| {}).trim(), "14:32");
-    let said = bar(|app| app.message = "start of history".into());
-    assert!(
-        said.starts_with("start of history") && said.ends_with("14:32"),
-        "{said:?}"
+    assert_eq!(bar(40, |_| {}), format!("{} 14:32 ", " ".repeat(33)));
+    assert_eq!(
+        bar(40, |app| app.message = "start of history".into()),
+        format!("start of history{} 14:32 ", " ".repeat(17))
     );
-    let about = bar(|app| app.say_about(&PathBuf::from("/work/app/gone.rs"), " deleted"));
-    assert!(about.starts_with("gone.rs deleted"), "{about:?}");
+    assert_eq!(
+        bar(35, |app| app.say_about(
+            &PathBuf::from("/work/app/services/billing/providers/webhooks/handlers/paid.py"),
+            " deleted"
+        )),
+        "\u{2026}/webhooks/handlers/paid.py deleted",
+        "the path is cut to the whole width, none of it kept for a gap"
+    );
 }
