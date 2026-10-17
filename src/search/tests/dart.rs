@@ -362,3 +362,51 @@ fn dart_uris_name_files() {
     );
     drop(std::fs::remove_dir_all(&own));
 }
+
+#[test]
+fn dart_locals_bind_inside_a_body_and_never_a_member() {
+    let text = "class Kettle {
+  int cups;
+  int pour(int cups, {required Map<String, int> by}) {
+    this.cups -= cups + by.length;
+    final (left, right) = (1, 2);
+    int steep(int n) => n * left;
+    for (final leaf in leaves) {
+      try {
+        steep(leaf);
+      } catch (e, trace) {
+        print(trace);
+      }
+    }
+    leaves.forEach((tea) {
+      print(tea + right);
+    });
+    return switch (cups) {
+      Kettle(:final size) => size,
+      _ => 0,
+    };
+  }
+  int other() => cups;
+}
+int cups = 1;
+int top() => cups;
+";
+    let at = |line: usize, name: &str| -> Vec<usize> {
+        bindings(Kind::Dart, text, line, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect()
+    };
+    assert_eq!(at(4, "cups"), [3], "a parameter hides the field");
+    assert_eq!(at(4, "by"), [3], "a named parameter of a generic type");
+    assert_eq!(at(6, "left"), [5], "a record pattern");
+    assert_eq!(at(9, "steep"), [6], "a local function");
+    assert_eq!(at(9, "leaf"), [7], "a loop variable");
+    assert_eq!(at(11, "trace"), [10], "a stack trace of a catch");
+    assert_eq!(at(15, "tea"), [14], "a closure's parameter");
+    assert_eq!(at(15, "right"), [5], "out of a closure into its function");
+    assert_eq!(at(18, "size"), [18], "an object pattern of a switch arm");
+    assert_eq!(at(22, "cups"), [0usize; 0], "the field, no local");
+    assert_eq!(at(25, "cups"), [0usize; 0], "a top-level variable, no local");
+    assert_eq!(at(9, "Kettle"), [0usize; 0]);
+}

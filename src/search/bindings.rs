@@ -4,11 +4,11 @@ use regex::Regex;
 
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
-    cs_opener, cs_statement, cs_type_decl, declares_type, gdscript_bindings, haskell_bindings,
-    indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines, names, nix_bindings,
-    powershell_params, python_bindings, ruby_bindings, rust_bindings, shell_bindings,
-    solidity_bindings, split_top, swift_bindings, ts_declarators, ts_destructured, ts_params,
-    type_list, uncommented,
+    cs_opener, cs_statement, cs_type_decl, dart_bindings, declares_type, gdscript_bindings,
+    haskell_bindings, indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines,
+    names, nix_bindings, powershell_params, python_bindings, ruby_bindings, rust_bindings,
+    shell_bindings, solidity_bindings, split_top, swift_bindings, ts_declarators, ts_destructured,
+    ts_params, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -186,6 +186,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Julia => julia_bindings(&lines, at, name),
         Kind::Gdscript => gdscript_bindings(&lines, at, name),
         Kind::Solidity => solidity_bindings(&lines, at, name),
+        Kind::Dart => dart_bindings(&lines, at, name),
         k if lisp(k) => lisp_bindings(k, &lines, at, None, name),
         _ => Vec::new(),
     }
