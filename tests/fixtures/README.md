@@ -418,7 +418,9 @@ a bare parameter and a named function behind `module.exports.`, read from `pouri
 destructured and a whole `require` (#1007). `mill.cjs` holds what a constructor function must
 not declare (#1001): a function nested in its body, `Mill.grind` on the constructor itself and
 `Grinder.burr`; beside a prototype member holding an arrow, an `async function` method, a class
-extending `Grinder` and a JSDoc `{Grinder}` parameter.
+extending `Grinder` and a JSDoc `{Grinder}` parameter. `scoop.js` declares a `var` again in a
+`for`, in a nested function, in an arrow callback and in a template literal, and in another
+function (#1003).
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`

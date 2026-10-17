@@ -30,7 +30,7 @@ function serve(cups) {
     var dose = 2;
   }
   return dose + recipe.length + roast.darken(dose);
-  //     ^ d: coffee/counter.cjs:28; want picker coffee/counter.cjs:28, coffee/counter.cjs:30 (#1003)
+  //     ^ d: picker coffee/counter.cjs:28, coffee/counter.cjs:30
   //                                  ^ d: coffee/roast.cjs:3
 }
 

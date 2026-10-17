@@ -466,7 +466,9 @@ with `(chain broke at x)` past the first name. `via tmpdir() -> TempDir`, `via d
 The innermost scope that declares `x` decides: in Python the function the cursor is in (every
 binding in it, before the cursor or after), else the nearest enclosing function that binds the
 name, else the module; in TypeScript, Go and C# the nearest block around the cursor with a declaration
-above it, a function's parameters counting with its body. So a local hides a module-level name, a
+above it, a function's parameters counting with its body; a `var` found so is one variable with
+each `var` of its name below it in the blocks (`if`, `for`, `try` …) of the same function, and
+`d` offers them all (#1003). So a local hides a module-level name, a
 closure's variable the one of the function around it, a block's the function's. The declarations
 of that one scope must all read the same type, and one that reads none (a loop variable, a
 parameter with no annotation) hides the outer ones all the same, so nothing is guessed: two
