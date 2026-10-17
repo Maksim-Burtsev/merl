@@ -17,6 +17,22 @@ pub(super) enum JvmType {
 }
 
 impl App {
+    fn jvm_own_type(here: &Path, text: &str, line: usize, name: Option<&str>) -> Option<JvmType> {
+        let lines: Vec<&str> = text.lines().collect();
+        let decl = search::jvm_enclosing_types(text, line)
+            .into_iter()
+            .find(|&d| {
+                search::jvm_type_name(lines[d - 1]).is_some_and(|n| name.is_none_or(|w| n == w))
+            })?;
+        Some(JvmType::Project(Hit {
+            deleted: None,
+            path: here.to_path_buf(),
+            line1: decl,
+            byte_col: None,
+            text: lines[decl - 1].to_owned(),
+        }))
+    }
+
     pub(super) fn jvm_typed(
         &self,
         here: &Path,
@@ -66,21 +82,7 @@ impl App {
             })
         };
         let labelled = |f: &str| before.trim_end().ends_with(&format!("this@{f}."));
-        let own = |name: Option<&str>| {
-            let lines: Vec<&str> = text.lines().collect();
-            let decl = search::jvm_enclosing_types(text, line)
-                .into_iter()
-                .find(|&d| {
-                    search::jvm_type_name(lines[d - 1]).is_some_and(|n| name.is_none_or(|w| n == w))
-                })?;
-            Some(JvmType::Project(Hit {
-                deleted: None,
-                path: here.to_path_buf(),
-                line1: decl,
-                byte_col: None,
-                text: lines[decl - 1].to_owned(),
-            }))
-        };
+        let own = |name| Self::jvm_own_type(here, text, line, name);
         let (mut ty, mut links) = match first.as_str() {
             f if labelled(f)
                 || (f == "this" && search::jvm_enclosing_types(text, line).is_empty()) =>
