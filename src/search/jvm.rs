@@ -929,6 +929,50 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     None
 }
 
+pub fn kotlin_initializer_parameter(
+    text: &str,
+    line1: usize,
+    before: &str,
+    name: &str,
+) -> Option<usize> {
+    static PROPERTY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:[a-z]+\s+)*(?:val|var)\s+[A-Za-z_]\w*\s*(?::\s*[\w.<>?, ]*)?=(?:[^=>]|$)",
+        )
+        .expect("the regex is a literal")
+    });
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bclass\s+[A-Za-z_]\w*\s*(?:<[^()]*>)?\s*(?:[\w@\s]*\bconstructor\s*)?\(")
+            .expect("the regex is a literal")
+    });
+    if !PROPERTY.is_match(&uncommented(Kind::Jvm, before)) {
+        return None;
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let k = scope_of(&lines, at)?;
+    let open = CLASS.find(lines[k])?.end() - 1;
+    let Group {
+        inner_uncommented: inner,
+        close_line,
+        ..
+    } = group(Kind::Jvm, &lines, k, open)?;
+    if !split_top(Kind::Jvm, &inner, b',')
+        .iter()
+        .any(|e| param_names(e, false).iter().any(|p| p == name))
+    {
+        return None;
+    }
+    let word = Regex::new(&format!(
+        r"(?:^|[^\w$.]){}(?:[^\w$]|$)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    (k..=close_line)
+        .find(|&i| word.is_match(&uncommented(Kind::Jvm, lines[i])))
+        .map(|i| i + 1)
+}
+
 pub fn jvm_when_else(text: &str, line1: usize, name: &str) -> Option<usize> {
     static ELSE: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"^\s*else\s*->").expect("the regex is a literal"));

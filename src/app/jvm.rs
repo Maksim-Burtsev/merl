@@ -260,6 +260,7 @@ impl App {
         &self,
         here: &Path,
         text: &str,
+        before: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let lines: Vec<&str> = text.lines().collect();
@@ -273,6 +274,12 @@ impl App {
             },
             reason,
         };
+        if here.extension().is_some_and(|e| e == "kt" || e == "kts")
+            && let Some(line) =
+                search::kotlin_initializer_parameter(text, self.line + 1, before, word)
+        {
+            return Some(vec![candidate(here, &lines, line, Reason::Local)]);
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for &decl in &types {

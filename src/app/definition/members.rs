@@ -41,7 +41,7 @@ impl App {
             && !dotted
             && !before.ends_with("::")
             && locals.is_empty())
-        .then(|| self.jvm_members(&a.here, &a.text, &a.word))
+        .then(|| self.jvm_members(&a.here, &a.text, before, &a.word))
         .flatten();
         let nested_type =
             |c: &Candidate| search::jvm_type_name(&c.hit.text).is_some_and(|name| name == a.word);

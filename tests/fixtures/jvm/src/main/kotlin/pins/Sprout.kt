@@ -20,7 +20,7 @@ fun shade(germ: Int): Any {
 fun sow(limit: Int): Int {
     class Local(limit: Int) {
         val twice = limit * 2
-        //          ^ d: none
+        //          ^ d: src/main/kotlin/pins/Sprout.kt:21
     }
     return Local(limit).twice
 }

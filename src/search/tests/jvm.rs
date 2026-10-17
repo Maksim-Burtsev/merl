@@ -219,3 +219,14 @@ fn a_kotlin_when_subject_keeps_its_type_in_else_and_casts_when_bound_by_val() {
         Some("Samovar")
     );
 }
+
+#[test]
+fn a_kotlin_property_initializer_reads_the_primary_constructor_parameter() {
+    let text = "class S(vapor: Int) {\n    private val vapor: Int = vapor\n    val x: Int get() = vapor\n    fun f() = vapor\n}\n";
+    let at =
+        |line1: usize, before: &str| kotlin_initializer_parameter(text, line1, before, "vapor");
+    assert_eq!(at(2, "    private val vapor: Int = "), Some(1));
+    assert_eq!(at(2, "    private val "), None, "the declared name");
+    assert_eq!(at(3, "    val x: Int get() = "), None, "a getter");
+    assert_eq!(at(4, "    fun f() = "), None, "a function");
+}

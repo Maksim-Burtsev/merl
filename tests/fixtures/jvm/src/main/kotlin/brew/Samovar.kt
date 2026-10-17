@@ -10,7 +10,7 @@ import brew.Herbs.sage
  */
 class Samovar(vapor: Int, val bulk: Int = 1) : Urn() {
     private val vapor: Int = vapor
-    //                       ^ d: picker src/main/kotlin/brew/Samovar.kt:12; want src/main/kotlin/brew/Samovar.kt:11 (#970)
+    //                       ^ d: src/main/kotlin/brew/Samovar.kt:11
 
     fun dose(cups: Int = 1): Int = cups + vapor
     //                             ^ d: src/main/kotlin/brew/Samovar.kt:15
