@@ -27,10 +27,10 @@ export function setTable(pot: Pot | undefined, recipe: Blend): number {
   //                  ^ d: tea/teapot.ts:13
   //                       ^ d: tea/teapot.ts:5
   return hot + poured + lifted + recipe.leaves + Blend.mix(1).water;
-  //                                    ^ d: none; want tea/vessel.ts:9 (#977)
+  //                                    ^ d: tea/vessel.ts:9
   //                                             ^ d: picker tea/vessel.ts:9, tea/vessel.ts:10
   //                                                   ^ d: tea/vessel.ts:11
-  //                                                          ^ d: picker tea/table.ts:80, tea/table.ts:95; want tea/vessel.ts:9 (#977)
+  //                                                          ^ d: tea/vessel.ts:9
 }
 
 export function brew({ leaves, water: ml }: Recipe, minutes = steep.minutes): number {
@@ -45,10 +45,10 @@ export function brew({ leaves, water: ml }: Recipe, minutes = steep.minutes): nu
 
 export function strongest<T extends Vessel>(vessels: T[]): number {
   //                                ^ d: picker tea/vessel.ts:1, tea/vessel.ts:5
-  //                                                 ^ d: none; want tea/table.ts:46 (#977)
+  //                                                 ^ d: tea/table.ts:46
   return vessels[0].pour(vessels[0].volume);
-  //                ^ d: picker tea/teapot.ts:15, tea/vessel.ts:6; want tea/vessel.ts:6 (#977)
-  //                                ^ d: picker tea/teapot.ts:11, tea/vessel.ts:2; want tea/vessel.ts:2 (#977)
+  //                ^ d: tea/vessel.ts:6
+  //                                ^ d: tea/vessel.ts:2
 }
 
 export function pick(): number {
@@ -116,7 +116,7 @@ export function wipe(): number {
 
 export function emptiest<P extends Pot>(pots: P[]): number {
   return pots[0].pour(0) + pots.length;
-  //             ^ d: picker tea/teapot.ts:15, tea/vessel.ts:6; want tea/teapot.ts:15 (#977)
+  //             ^ d: tea/teapot.ts:15
 }
 
 export function lidOf(pot: Pot): boolean {
