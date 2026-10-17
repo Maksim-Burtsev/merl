@@ -19,7 +19,7 @@ impl App {
         let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
         self.prompt = LineEdit::selected(seed.as_deref().unwrap_or(last)).capped(FIND_CAP);
         self.find_anchor = (self.at(), self.col);
-        self.find_view = (self.top_line, self.top_row, self.left);
+        self.find_view = (self.top_line, self.top_row, self.left, self.want_x);
         self.find_sel = self.anchor.take();
         if seed.is_some() {
             self.refresh_find();
@@ -81,8 +81,7 @@ impl App {
             let (t, col) = self.clamp_place(self.find_anchor);
             self.set_at(t);
             self.col = col;
-            self.sync_want_x();
-            (self.top_line, self.top_row, self.left) = self.find_view;
+            (self.top_line, self.top_row, self.left, self.want_x) = self.find_view;
             self.center = false;
             self.message = "no match".into();
         }
