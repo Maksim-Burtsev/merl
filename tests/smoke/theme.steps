@@ -41,3 +41,10 @@ wait seneca-light
 key Escape
 merl --theme lucerna app/models.py
 wait class OrderStatus(Enum):
+# A diff's added and removed lines carry the tint the theme gives them, behind the text, as LazyVim
+# draws it; the cursor line's band yields to it and a selection paints over it (#845).
+run git --git-dir=../origin.git show agent/refund > refund.patch
+merl --theme tokyonight-moon refund.patch
+wait +class RefundNotAllowed(Exception):
+key Down Down Down Down Down Down Down Down Down Down Down S-Down
+wait refund.patch  13:1

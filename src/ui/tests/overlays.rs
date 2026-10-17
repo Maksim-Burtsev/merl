@@ -1259,3 +1259,34 @@ fn a_terminal_too_narrow_to_widen_keeps_the_tree_at_30_columns() {
     assert_eq!(tree_width(&mut app, 60).0, 30);
     assert_eq!(app.tree_width, Some(30));
 }
+
+#[test]
+fn the_selected_hit_row_paints_its_selection_over_a_capture_s_background() {
+    let root = std::env::temp_dir().join(format!("merl-hit-bg-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("p.diff"),
+        "--- a/x\n+++ b/x\n@@ -1 +1,2 @@\n+bb\n+cc\n",
+    )
+    .unwrap();
+    let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
+    let hit = |line1: usize, text: &str| crate::search::Hit {
+        path: PathBuf::from("p.diff"),
+        line1,
+        byte_col: None,
+        text: text.into(),
+        deleted: None,
+    };
+    let hits = vec![hit(4, "+bb"), hit(5, "+cc")];
+    app.show_picker(crate::app::PickerKind::Usages, App::hit_items(hits));
+    app.picker.as_mut().unwrap().settle();
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let plus = theme.group("@diff.plus").and_then(|s| s.bg).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let buf = terminal.backend().buffer();
+    let (x, y) = cell_at(&terminal, "4  +bb");
+    let (x2, y2) = cell_at(&terminal, "5  +cc");
+    assert_eq!(buf[(x + 4, y)].bg, theme.selection, "the selected row");
+    assert_eq!(buf[(x2 + 4, y2)].bg, plus, "a row under it");
+}

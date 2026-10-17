@@ -1,3 +1,4 @@
+Arrows
 Esc
 Picker: Down
 Picker: Enter

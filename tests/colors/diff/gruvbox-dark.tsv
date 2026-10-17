@@ -1,4 +1,4 @@
 # gruvbox-dark: ellisonleao/gruvbox.nvim@154eb5ff5b96d0641307113fa385eaf0d36d9796 `set background=dark | colorscheme gruvbox`; NVIM v0.12.5, nvim-treesitter 1a4f47b
-# palette a=ebdbb2 b=83a598 c=fb4934 d=8ec07c e=d3869b f=fe8019 g=b8bb26b
-change.diff	1:g4b29 2:c5e7f2e13 3:f3b12 4:f3b12 5:d22 6:a40 7:fa34 8:fa25 9:fa40 10:a37 11:a6 12:a 13:d23 14:fa6 15:fa15 16:a 17:f21 18:g4b23 19:c15e3 20:c10b7 21:c8b7 22:g4b21 23:c7e6 24:c7e6 25:g4b25 26:c11e6 27:c5e7f2e7 28:c11b9c3b10c6 29:g4b25 30:c15e6 31:c5e7f2e7 32:f3b10 33:f3b9 34:d12 35:fa5 36:fa6
-unified.patch	1:a28 3:g4b30 4:f3b46 5:f3b46 6:d12 7:a42 8:f 9:fa30 11:a11 12:a11 13:d21 14:fa17 15:fa29 16:a13 17:f3a12 18:f3a12 19:d12 20:fa9 21:fa12 22:a9
+# palette a=ebdbb2 b=83a598 c=ebdbb2/62693e d=fb4934 e=8ec07c f=ebdbb2/722529 g=d3869b h=83a598/722529 i=83a598/62693e j=fe8019 k=b8bb26b l=fe8019/62693e m=fe8019/722529
+change.diff	1:k4b29 2:d5g7j2g13 3:m3h12 4:l3i12 5:e22 6:a40 7:mf34 8:lc25 9:lc40 10:a37 11:a6 12:a 13:e23 14:mf6 15:lc15 16:a 17:j21 18:k4b23 19:d15g3 20:d10b7 21:d8b7 22:k4b21 23:d7g6 24:d7g6 25:k4b25 26:d11g6 27:d5g7j2g7 28:d11b9d3b10d6 29:k4b25 30:d15g6 31:d5g7j2g7 32:m3h10 33:l3i9 34:e12 35:mf5 36:mf6
+unified.patch	1:a28 3:k4b30 4:m3h46 5:l3i46 6:e12 7:a42 8:l 9:lc30 11:a11 12:a11 13:e21 14:mf17 15:lc29 16:a13 17:m3f12 18:l3c12 19:e12 20:mf9 21:lc12 22:a9
