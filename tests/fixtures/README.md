@@ -240,6 +240,7 @@ initializer list, overloads, ADL beside a global namesake, a qualified definitio
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
 `leaf_alias.cc` passes an argument typed by a `using` alias named like `infuse::Leaf`, which
 must neither pick an overload nor add a namespace.
+`sieve.cc` reads the parameters of operators, in and out of their class (#1029).
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
