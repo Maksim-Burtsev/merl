@@ -553,6 +553,47 @@ impl App {
         hits
     }
 
+    pub(super) fn c_static_by_macro(&mut self, hits: &[Hit]) -> HashSet<(PathBuf, usize)> {
+        static FIRST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^(?:inline\s+)?([A-Za-z_]\w*)\s+[A-Za-z_]")
+                .expect("the regex is a literal")
+        });
+        let mut out = HashSet::new();
+        let mut reached: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
+        for h in hits {
+            let Some(w) = FIRST.captures(&h.text).and_then(|c| c.get(1)) else {
+                continue;
+            };
+            let w = w.as_str();
+            if matches!(
+                w,
+                "static" | "extern" | "struct" | "union" | "enum" | "typedef"
+            ) {
+                continue;
+            }
+            let define = Regex::new(&format!(r"(?m)^\s*#\s*define\s+{w}\b(.*)$"))
+                .expect("a word keeps the pattern valid");
+            if !reached.contains_key(&h.path) {
+                let files = self.c_reached(&h.path).into_iter();
+                let files = files.filter(|p| p.is_relative()).collect();
+                reached.insert(h.path.clone(), files);
+            }
+            let bodies: Vec<String> = std::iter::once(&h.path)
+                .chain(reached.get(&h.path).into_iter().flatten())
+                .filter_map(|p| self.text_of(p))
+                .flat_map(|t| {
+                    (define.captures_iter(&t))
+                        .map(|c| c[1].trim().to_owned())
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            if !bodies.is_empty() && bodies.iter().all(|b| b == "static") {
+                out.insert((h.path.clone(), h.line1));
+            }
+        }
+        out
+    }
+
     pub(super) fn c_rows(&self, word: &str, here: &Path, found: &mut Vec<Candidate>) {
         static OBJC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r"^\s*@(interface|protocol)\b").expect("the regex is a literal")

@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::HashSet;
 
 #[test]
 fn python_def_patterns_find_declarations_only() {
@@ -1004,10 +1005,18 @@ fn a_file_scope_static_of_the_file_on_screen_hides_the_rest_unless_the_cursor_is
         ]
     };
     let rows = |on| {
-        c_file_local("count", here, here_text, hits(), |_| None, on)
-            .into_iter()
-            .map(|h| h.path)
-            .collect::<Vec<_>>()
+        c_file_local(
+            "count",
+            here,
+            here_text,
+            hits(),
+            &HashSet::new(),
+            |_| None,
+            on,
+        )
+        .into_iter()
+        .map(|h| h.path)
+        .collect::<Vec<_>>()
     };
     assert_eq!(rows(false), [PathBuf::from("a.c")]);
     assert_eq!(rows(true), [PathBuf::from("a.c"), PathBuf::from("b.h")]);
@@ -1021,6 +1030,7 @@ fn a_type_in_another_source_files_unnamed_namespace_stays_a_candidate() {
         Path::new("a.cc"),
         "",
         vec![c_hit("b.cc", 2, "struct Impl {")],
+        &HashSet::new(),
         |p| (p == Path::new("b.cc")).then(|| other.to_owned()),
         false,
     );
@@ -1035,6 +1045,7 @@ fn a_static_of_another_source_file_is_seen_where_that_file_is_included() {
             Path::new("a.c"),
             here_text,
             vec![c_hit("b.c", 1, "static int count;")],
+            &HashSet::new(),
             |_| Some(String::new()),
             false,
         )
@@ -1042,6 +1053,24 @@ fn a_static_of_another_source_file_is_seen_where_that_file_is_included() {
     };
     assert_eq!(rows("#include \"b.c\"\n"), 1);
     assert_eq!(rows(""), 0);
+}
+#[test]
+fn a_static_spelled_through_a_macro_is_local_to_its_file() {
+    let rows = |by_macro| {
+        let hits = vec![c_hit("b.c", 1, "local int count;")];
+        c_file_local(
+            "count",
+            Path::new("a.c"),
+            "",
+            hits,
+            &by_macro,
+            |_| Some(String::new()),
+            false,
+        )
+        .len()
+    };
+    assert_eq!(rows(HashSet::from([(PathBuf::from("b.c"), 1)])), 0);
+    assert_eq!(rows(HashSet::new()), 1);
 }
 #[test]
 fn every_go_rule_builds_a_small_automaton_with_ascii_classes() {
@@ -1063,6 +1092,7 @@ fn an_objective_c_plus_plus_file_is_compiled_alone() {
         Path::new("a.c"),
         "",
         vec![c_hit("b.mm", 1, "static int count;")],
+        &HashSet::new(),
         |_| Some(String::new()),
         false,
     );
