@@ -49,7 +49,7 @@ end
 
 local fact = function(x)
   return x > 1 and fact(x - 1) or 1
-  --               ^ d: lua/tea/table.lua:50; want none (#951)
+  --               ^ d: none
 end
 
 local function fib(x)

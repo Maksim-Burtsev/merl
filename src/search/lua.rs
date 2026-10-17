@@ -5,6 +5,22 @@ use regex::Regex;
 use super::{Binding, Kind, Value, bindings, continued, indent, literal_lines, uncommented};
 
 pub(super) fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    lua_walk(lines, at, name).map_or_else(
+        |_| Vec::new(),
+        |line1| {
+            vec![Binding {
+                line1,
+                value: Value::Unknown,
+            }]
+        },
+    )
+}
+pub fn lua_value_of_its_own(text: &str, line: usize, name: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    lua_walk(&lines, at, name).err().flatten()
+}
+fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize>> {
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))")
             .expect("the regex is a literal")
@@ -20,12 +36,7 @@ pub(super) fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
             .any(|n| n.split('<').next().is_some_and(|n| n.trim() == name))
     };
     let literal = literal_lines(Kind::Lua, &lines.join("\n"));
-    let found = |line: usize| {
-        vec![Binding {
-            line1: line,
-            value: Value::Unknown,
-        }]
-    };
+    let mut unseen = None;
     let mut depth = indent(lines[at]);
     let own = uncommented(Kind::Lua, lines[at]);
     if own
@@ -51,22 +62,30 @@ pub(super) fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
                 && (c.get(1).is_some_and(|f| f.as_str() == name)
                     || c.get(2).is_some_and(|l| lists(l.as_str())))
             {
-                return found(i + 1);
+                return Ok(i + 1);
             }
             continue;
         }
         depth = ind;
-        let own = LOCAL
-            .captures(t)
+        let local = LOCAL.captures(t);
+        let own = local
+            .as_ref()
             .and_then(|c| c.get(1))
             .is_some_and(|f| f.as_str() == name);
         let params = PARAMS.captures_iter(t).any(|c| lists(&c[1]));
         let vars = FOR.captures(t).is_some_and(|c| lists(&c[1]));
         if own || params || vars {
-            return found(i + 1);
+            return Ok(i + 1);
+        }
+        if local.and_then(|c| c.get(2)).is_some_and(|l| {
+            lists(l.as_str())
+                && t.get(l.end()..)
+                    .is_some_and(|r| r.trim_start().starts_with('='))
+        }) {
+            unseen = unseen.or(Some(i + 1));
         }
     }
-    Vec::new()
+    Err(unseen)
 }
 pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
     let lines: Vec<&str> = text.lines().collect();

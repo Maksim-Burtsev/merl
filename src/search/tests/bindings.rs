@@ -693,6 +693,16 @@ fn lua_blocks_bind_locals_parameters_and_their_own_function() {
     assert_eq!(at(own, 2, "node"), [1]);
     let each = "for i, repo in ipairs(xs) do\n  print(repo)\nend\n";
     assert_eq!(at(each, 2, "repo"), [1]);
+    let value = "local fact = function(x)\n  return fact(x - 1)\nend\n";
+    assert_eq!(
+        lua_value_of_its_own(value, 2, "fact"),
+        Some(1),
+        "a `local` is not in scope inside its own value (#951)"
+    );
+    assert_eq!(lua_value_of_its_own(own, 2, "walk"), None);
+    let param = "local f = function(f)\n  return f\nend\n";
+    assert_eq!(lua_value_of_its_own(param, 2, "f"), None);
+    assert_eq!(at(param, 2, "f"), [1]);
 }
 
 #[test]
