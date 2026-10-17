@@ -238,6 +238,8 @@ initializer list, overloads, ADL beside a global namesake, a qualified definitio
 `stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block;
 `caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
+`leaf_alias.cc` passes an argument typed by a `using` alias named like `infuse::Leaf`, which
+must neither pick an overload nor add a namespace.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,

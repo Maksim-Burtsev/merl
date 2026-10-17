@@ -318,6 +318,13 @@ impl App {
         let Ok(Some(ty)) = search::cpp_value_type(text, self.line + 1, name) else {
             return None;
         };
+        let name = ty.last()?;
+        let p = search::def_patterns(Kind::C, name);
+        let aliases = self.project_definitions(Kind::C, here, name, &format!("{}|{}", p[4], p[6]));
+        let aliases = self.c_reached_only(here, name, aliases);
+        if aliases.iter().any(|h| h.path == here || c_header(&h.path)) {
+            return None;
+        }
         let class = self.cpp_class(here, &ty, code, None, ctx)?;
         search::cpp_plain_class_namespace(&class.code, class.open)
     }
