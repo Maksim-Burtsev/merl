@@ -407,6 +407,10 @@ int top() => cups;
     assert_eq!(at(15, "right"), [5], "out of a closure into its function");
     assert_eq!(at(18, "size"), [18], "an object pattern of a switch arm");
     assert_eq!(at(22, "cups"), [0usize; 0], "the field, no local");
-    assert_eq!(at(25, "cups"), [0usize; 0], "a top-level variable, no local");
+    assert_eq!(
+        at(25, "cups"),
+        [0usize; 0],
+        "a top-level variable, no local"
+    );
     assert_eq!(at(9, "Kettle"), [0usize; 0]);
 }
