@@ -74,20 +74,17 @@ impl App {
         let hit = self
             .match_at_or_after(&re, self.clamp_place(self.find_anchor))
             .or_else(|| self.match_at_or_after(&re, (self.first_line(), 0)));
-        match hit {
-            Some(at) => {
-                self.go_to_match(at);
-                self.message = self.match_count(&re);
-            }
-            None => {
-                let (t, col) = self.clamp_place(self.find_anchor);
-                self.set_at(t);
-                self.col = col;
-                self.sync_want_x();
-                (self.top_line, self.top_row, self.left) = self.find_view;
-                self.center = false;
-                self.message = "no match".into();
-            }
+        if let Some(at) = hit {
+            self.go_to_match(at);
+            self.message = self.match_count(&re);
+        } else {
+            let (t, col) = self.clamp_place(self.find_anchor);
+            self.set_at(t);
+            self.col = col;
+            self.sync_want_x();
+            (self.top_line, self.top_row, self.left) = self.find_view;
+            self.center = false;
+            self.message = "no match".into();
         }
         self.find_re = Some(re);
         self.find_query = self.prompt.to_string();

@@ -257,8 +257,8 @@ fn a_jump_or_a_find_match_drops_the_selection() {
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     assert_eq!(
         (a.line, a.file_selection()),
-        (2, None),
-        "one that moved the cursor and then stopped matching has still moved it"
+        (1, Some(((0, 0), (1, 0)))),
+        "one that moved the cursor and then stopped matching puts it back and keeps it (#895)"
     );
     press(&mut a, KeyCode::Up, KeyModifiers::SHIFT);
     let hit = Hit {
