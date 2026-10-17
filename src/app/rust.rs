@@ -1061,6 +1061,20 @@ impl App {
                     || search::rust_inline_mod(&lines_of_ty, h.line1 - 1) == home
             })
             .collect();
+        let inherent: Vec<Hit> = found
+            .iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    let lines: Vec<&str> = t.lines().collect();
+                    search::rust_method_at(&lines, h.line1)
+                        .is_some_and(|m| matches!(m.owner, search::RustOwner::Inherent))
+                })
+            })
+            .cloned()
+            .collect();
+        if !inherent.is_empty() {
+            return inherent;
+        }
         if !found.is_empty() {
             return found;
         }
