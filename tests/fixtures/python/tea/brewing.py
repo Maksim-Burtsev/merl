@@ -152,3 +152,18 @@ def pot() -> int:
 def sweeten(cups: list[int]) -> list[int]:
     return list(map(lambda cup: cup + 1, cups))
     #                           ^ d: tea/brewing.py:153
+
+
+STRENGTHS = [1, 2]
+
+
+def strong() -> list[int]:
+    return [s for s in STRENGTHS if s in STRENGTHS]
+    #                  ^ d: tea/brewing.py:157
+    #                                    ^ d: tea/brewing.py:157
+    #                               ^ d: tea/brewing.py:161
+
+
+def by_default() -> int:
+    return (lambda n=brews: n)()
+    #                ^ d: tea/brewing.py:16
