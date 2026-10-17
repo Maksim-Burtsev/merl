@@ -120,6 +120,9 @@ impl App {
         tail: &str,
         found: &mut Vec<Candidate>,
     ) {
+        if tail.trim_start().starts_with(':') {
+            return;
+        }
         let Some(files) = self.dart_visible_files(here, word) else {
             return;
         };
