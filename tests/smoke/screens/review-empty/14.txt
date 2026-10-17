@@ -1,0 +1,57 @@
+wait scripts/refund_by_hand.py  →  tools/refund_by_hand.py
+┌moved-edited ← origin/main──┐ scripts/refund_by_hand.py  →  tools/refund_by_hand.py
+│  ▾ tools                   │ 1 """Refund an order by hand until the service can do it: python scripts/refund_by_hand.py ID"""
+│    R refund_by_hand.… +2 −0│ 2 import sys
+│                            │ 3
+│                            │ 4 from app.config import load
+│                            │ 5 from app.models import OrderStatus
+│                            │ 6
+│                            │ 7 ORDER_ID = int(sys.argv[1])
+│                            │ 8 print(f"UPDATE orders SET status = '{OrderStatus.REFUNDED.value}' WHERE id = {ORDER_ID};")
+│                            │ 9 print(f"-- then refund it in the payment provider's dashboard ({load().database_url})")
+│                            │10▎
+│                            │11▎# Run it once per refund.
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 1 file · +2 −0 ────────────┘
+tools/refund_by_hand.py  10:1  [code]  hunk 1/1  file 1/1                                                                                                                          14:32
+cursor (x,y,shown) 33,10,1

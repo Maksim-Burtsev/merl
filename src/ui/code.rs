@@ -719,6 +719,41 @@ pub(super) fn draw_renamed(
     draw_note(frame, area, base, lines);
 }
 
+pub(super) fn draw_rename_band(
+    frame: &mut Frame,
+    app: &App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+) -> Rect {
+    let Some((old, new)) = app.renamed_with_changes().filter(|_| area.height > 1) else {
+        return area;
+    };
+    let band = base.bg(theme.line_hl);
+    let (old, new) = (old.display().to_string(), new.display().to_string());
+    let changed = renamed_part(&old, &new);
+    let del = band.bg(theme.del_word_bg).fg(theme.word_fg);
+    let add = band.bg(theme.add_word_bg).fg(theme.word_fg);
+    let room = (area.width as usize).saturating_sub(7);
+    let (old_w, new_w) = (wrap::width(&old), wrap::width(&new));
+    let old_room = if new_w <= room / 2 {
+        room - new_w
+    } else {
+        old_w.min(room / 2)
+    };
+    let mut row = vec![Span::styled(" ", band)];
+    row.extend(tinted(&old, changed, band, del, old_room));
+    row.push(Span::styled("  \u{2192}  ", band.fg(theme.ghost_fg)));
+    row.extend(tinted(&new, changed, band, add, room - old_room));
+    let top = Rect { height: 1, ..area };
+    frame.render_widget(Paragraph::new(Line::from(row)).style(band), top);
+    Rect {
+        y: area.y + 1,
+        height: area.height - 1,
+        ..area
+    }
+}
+
 fn next_file(base: Style, dim: Style) -> Line<'static> {
     Line::from(vec![
         Span::styled("c", base.add_modifier(Modifier::BOLD)),

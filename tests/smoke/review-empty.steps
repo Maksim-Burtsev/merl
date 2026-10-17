@@ -7,7 +7,8 @@
 # branch that moves scripts/refund_by_hand.py without changes: its stop shows the move (#746).
 # Then a second round of typed, after the author changes worker/main.go: the review opens on it,
 # c passes over the files ticked in the first round, and a reopened review with every file ticked
-# says `all files viewed` (#824).
+# says `all files viewed` (#824). Then a branch that moves scripts/refund_by_hand.py and edits
+# it: its stop heads the text with the old and new path (#885).
 merl README.md
 wait # orders
 run git switch -q -c typed && : > scripts/__init__.py && : > py.typed && printf '\n# Refunds go through the service.\n' >> app/service.py && printf '\n// Retries back off: see the queue.\n' >> worker/main.go && git add -A && git commit -qm typed
@@ -46,3 +47,7 @@ wait last hunk of the review
 caption every file ticked, a reopened review opens on the first and says so (#824)
 merl --review
 wait all files viewed
+caption a file moved and edited heads its text with the old and new path, on every hunk (#885)
+run git switch -q main && git switch -q -c moved-edited && mkdir -p tools && git mv scripts/refund_by_hand.py tools/refund_by_hand.py && printf '\n# Run it once per refund.\n' >> tools/refund_by_hand.py && git commit -qam moved-edited
+merl --review
+wait scripts/refund_by_hand.py  →  tools/refund_by_hand.py

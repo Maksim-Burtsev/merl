@@ -294,6 +294,12 @@ impl App {
             .then_some((f.old.as_deref()?, f.path.as_path()))
     }
 
+    pub fn renamed_with_changes(&self) -> Option<(&Path, &Path)> {
+        let rel = self.rel_current()?;
+        let f = self.review.as_ref()?.file(&rel)?;
+        (f.status == 'R' && f.has_hunks()).then_some((f.old.as_deref()?, f.path.as_path()))
+    }
+
     pub fn picture_sides(&self) -> Option<Vec<Side>> {
         if !self.diagrams.on() {
             return None;
