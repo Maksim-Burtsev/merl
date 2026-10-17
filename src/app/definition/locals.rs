@@ -58,7 +58,7 @@ impl App {
             self.message = format!("{word}: builtin, no source");
             return None;
         }
-        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell)
+        let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell | Kind::Dart)
             || (kind == Kind::Swift && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
@@ -90,7 +90,8 @@ impl App {
             || search::erlang(&a.here)
             || (kind == Kind::Elixir
                 && !dotted
-                && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))));
+                && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))))
+            || (kind == Kind::Dart && after.starts_with(':'));
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
         let rust_path = kind == Kind::Rust
