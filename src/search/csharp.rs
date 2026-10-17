@@ -598,6 +598,23 @@ pub fn cs_awaited(written: &str) -> Option<&str> {
     Some(inner.strip_suffix('>')?.trim())
 }
 
+pub fn cs_lambda_delegate(line: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let re = Regex::new(&format!(
+        r"^\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*=\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>(.*)$"
+    ))
+    .ok()?;
+    let code = uncommented(Kind::CSharp, line);
+    let c = re.captures(&code)?;
+    if c[3].contains("=>") {
+        return None;
+    }
+    let args = cs_split(&c[2]);
+    let wanted = if &c[1] == "Func" { 2 } else { 1 };
+    let first = args.first()?.trim();
+    (args.len() == wanted && cs_type_name(first).is_some()).then(|| first.to_owned())
+}
+
 #[expect(
     clippy::string_slice,
     reason = "every cut is at or right after an ASCII comma code() yielded"
