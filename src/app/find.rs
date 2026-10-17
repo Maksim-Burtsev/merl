@@ -165,10 +165,20 @@ impl App {
     }
 
     fn go_to_match(&mut self, at: (TextLine, usize)) {
+        self.reach(at);
         let (t, col) = self.clamp_place(at);
         self.set_at(t);
         self.col = col;
         self.sync_want_x();
         self.center = true;
+    }
+
+    pub(super) fn reach(&mut self, (t, col): (TextLine, usize)) {
+        if crate::buffer::reach(self.text(t), col) {
+            self.buf.clear_hl();
+            if let Some((_, base)) = &mut self.base {
+                base.clear_hl();
+            }
+        }
     }
 }

@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -19,6 +20,9 @@ const BINARY: &str = "binary file";
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SHOWN_BYTES: usize = 20_000;
+thread_local! {
+    static SHOWN_BYTES: Cell<usize> = const { Cell::new(MAX_SHOWN_BYTES) };
+}
 pub const PARSE_STEP: Duration = Duration::from_micros(500);
 pub const PARSE_IDLE_STEP: Duration = Duration::from_millis(3);
 
@@ -261,6 +265,10 @@ impl Buffer {
     }
 
     pub fn clips(line: &str) -> bool {
+        line.len() > shown_bytes()
+    }
+
+    pub fn too_long_to_edit(line: &str) -> bool {
         line.len() > MAX_SHOWN_BYTES
     }
 
@@ -358,8 +366,20 @@ pub fn hash(bytes: &[u8]) -> u64 {
     h.finish()
 }
 
+fn shown_bytes() -> usize {
+    SHOWN_BYTES.get()
+}
+
+pub fn reach(line: &str, col: usize) -> bool {
+    let past = Buffer::clips(line) && col >= shown_str(line).len();
+    if past {
+        SHOWN_BYTES.set(col.saturating_add(MAX_SHOWN_BYTES));
+    }
+    past
+}
+
 pub(crate) fn shown_str(s: &str) -> &str {
-    s.get(..floor_char_boundary(s, MAX_SHOWN_BYTES))
+    s.get(..floor_char_boundary(s, shown_bytes()))
         .unwrap_or_default()
 }
 

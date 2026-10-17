@@ -324,6 +324,7 @@ impl App {
         if self.open(path, line) {
             self.focus = Focus::Code;
             if col > 0 {
+                self.reach((TextLine::File(self.line), col));
                 self.go(self.clamp_pos((self.line, col)));
                 self.sync_want_x();
             }
