@@ -703,6 +703,22 @@ fn lua_blocks_bind_locals_parameters_and_their_own_function() {
     let param = "local f = function(f)\n  return f\nend\n";
     assert_eq!(lua_value_of_its_own(param, 2, "f"), None);
     assert_eq!(at(param, 2, "f"), [1]);
+    let file = "local function pour() end\nlocal later\nfunction later() end\nfunction M.pour()\n  return pour() + later() + after()\nend\nlocal function after() end\nreturn later()\n";
+    assert_eq!(
+        at(file, 5, "pour"),
+        [1],
+        "the file's own `local` is seen from a function (#953)"
+    );
+    assert_eq!(
+        at(file, 5, "later"),
+        [2],
+        "`function later()` assigns the `local`"
+    );
+    assert!(
+        at(file, 5, "after").is_empty(),
+        "a `local` below is not in scope"
+    );
+    assert_eq!(at(file, 8, "later"), [2]);
 }
 
 #[test]

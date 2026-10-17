@@ -28,7 +28,7 @@ end
 
 function T.pots()
   local pot = Teapot.new()
-  --          ^ d: picker lua/tea/table.lua:3, lua/tea/teapot.lua:1; want lua/tea/table.lua:3 (#953)
+  --          ^ d: lua/tea/table.lua:3
   --                 ^ d: lua/tea/teapot.lua:4
   local k = kettle.Kettle.new(1)
   --               ^ d: lua/tea/kettle.lua:3
@@ -74,7 +74,7 @@ end
 
 function brew_global()
   return later() + fact(3) + fib(3)
-  --     ^ d: picker lua/tea/table.lua:60, lua/tea/table.lua:61; want lua/tea/table.lua:60 (#953)
+  --     ^ d: lua/tea/table.lua:60
   --               ^ d: lua/tea/table.lua:50
   --                         ^ d: lua/tea/table.lua:55
 end

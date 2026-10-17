@@ -47,11 +47,12 @@ fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize
     {
         depth = depth.max(indent(lines[body]));
     }
+    let binds_here = lua_binds_on_its_line(lines[at], name);
     for i in (0..at).rev() {
         let code = uncommented(Kind::Lua, lines[i]);
         let t = code.trim();
         let ind = indent(lines[i]);
-        if depth == 0 {
+        if depth == 0 && binds_here {
             break;
         }
         if t.is_empty() || literal[i] || ind > depth {
@@ -87,6 +88,16 @@ fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize
     }
     Err(unseen)
 }
+fn lua_binds_on_its_line(line: &str, name: &str) -> bool {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:for|function)\b").expect("the regex is a literal")
+    });
+    let own = uncommented(Kind::Lua, line);
+    let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    HEAD.find(&own)
+        .is_some_and(|m| own.get(m.end()..).is_some_and(|r| word.is_match(r)))
+}
 pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(l) = line.checked_sub(1).and_then(|i| lines.get(i)) else {
@@ -108,17 +119,10 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
     let at = if let Some(b) = bindings(Kind::Lua, text, line, name).first() {
         b.line1 - 1
     } else {
-        let own = line
+        if line
             .checked_sub(1)
             .and_then(|i| lines.get(i))
-            .map(|l| uncommented(Kind::Lua, l))
-            .unwrap_or_default();
-        let word = Regex::new(&format!(r"\b{}\b", regex::escape(name)))
-            .expect("an escaped name keeps the pattern valid");
-        if Regex::new(r"\b(?:for|function)\b")
-            .expect("a fixed pattern compiles")
-            .find(&own)
-            .is_some_and(|m| own.get(m.end()..).is_some_and(|r| word.is_match(r)))
+            .is_some_and(|l| lua_binds_on_its_line(l, name))
         {
             return None;
         }
