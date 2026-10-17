@@ -18,7 +18,7 @@ class Urn {
 
 Kettle::Kettle(int spout) : spout_(spout) {}
 //                          ^ d: include/tea/kettle.hh:20
-//                                 ^ d: none; want src/tea/kettle.cc:19 (#941)
+//                                 ^ d: src/tea/kettle.cc:19
 
 int Kettle::decant(int cups) const { return cups + spout_ + recipe[0]; }
 //          ^ d: picker include/tea/kettle.hh:14, include/tea/kettle.hh:15; want include/tea/kettle.hh:14 (#942)

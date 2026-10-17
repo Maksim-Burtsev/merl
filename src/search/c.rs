@@ -728,6 +728,9 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
             byte_col: at - starts[line1 - 1],
         }
     };
+    if let Some(at) = initializer_parameter(&code, pos, name) {
+        return vec![place(at)];
+    }
     for Scope {
         open,
         head_start: start,
@@ -770,6 +773,21 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
         }
     }
     Vec::new()
+}
+fn initializer_parameter(code: &str, pos: usize, name: &str) -> Option<usize> {
+    let open = pos + code.get(pos..)?.find(['{', ';', '}'])?;
+    if code.as_bytes()[open] != b'{' {
+        return None;
+    }
+    let start = c_head_start(code, open);
+    let Head::Function { params, .. } = c_head(code.get(start..open)?) else {
+        return None;
+    };
+    if start + params.end > pos {
+        return None;
+    }
+    let inner = start + params.start + 1..start + params.end - 1;
+    parameter_at(code.get(inner.clone())?, name).map(|j| inner.start + j)
 }
 fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
     let f = bracket_contents_blanked(s);
