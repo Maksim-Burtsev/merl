@@ -1,7 +1,49 @@
 use regex::Regex;
 use std::sync::LazyLock;
 
-use super::c::{Head, c_code, c_head, c_head_start, c_words_on_line};
+use super::c::{
+    Head, c_code, c_head, c_head_start, c_innermost_open_brace, c_struct_head, c_words_on_line,
+};
+
+pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
+    static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[\n;])\s*(?:inline\s+)?namespace\b\s*((?:\w+\s*::\s*)*\w+)?\s*$")
+            .expect("the regex is a literal")
+    });
+    let mut out: Vec<String> = Vec::new();
+    let mut at = pos;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
+        let head = code.get(c_head_start(code, open)..open).unwrap_or_default();
+        let path = match (c_struct_head(head), NAMESPACE.captures(head)) {
+            (Some(name), _) => name,
+            (None, Some(c)) => c.get(1).map_or("", |m| m.as_str()).to_owned(),
+            (None, None) => match c_head(head) {
+                Head::Function { name, .. } => name.rsplit_once("::").unzip().0.unwrap_or("").to_owned(),
+                _ => String::new(),
+            },
+        };
+        let parts = path.rsplit("::").map(str::trim).filter(|p| !p.is_empty());
+        out.extend(parts.map(str::to_owned));
+        at = open;
+    }
+    out.reverse();
+    out
+}
+
+pub fn cpp_namespace_alias(code: &str, alias: &str) -> Option<Vec<String>> {
+    let re = Regex::new(&format!(
+        r"\bnamespace\s+{}\s*=\s*((?:\w+\s*::\s*)*\w+)\s*;",
+        regex::escape(alias)
+    ))
+    .ok()?;
+    let c = re.captures(code)?;
+    Some(c[1].split("::").map(|p| p.trim().to_owned()).collect())
+}
+
+pub fn cpp_using_declares(code: &str, name: &str) -> bool {
+    Regex::new(&format!(r"\busing\s+(?:\w+\s*::\s*)+{}\s*;", regex::escape(name)))
+        .is_ok_and(|re| re.is_match(code))
+}
 
 pub fn cpp_defined_signature(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
     let code = c_code(text);

@@ -122,7 +122,7 @@ fn literal_end(b: &[u8], open: usize, quote: u8) -> usize {
     }
     b.len()
 }
-fn c_innermost_open_brace(code: &[u8], at: usize) -> Option<usize> {
+pub(super) fn c_innermost_open_brace(code: &[u8], at: usize) -> Option<usize> {
     let mut depth = 0usize;
     for i in (0..at.min(code.len())).rev() {
         match code[i] {
@@ -154,7 +154,7 @@ fn untemplated(s: &str) -> String {
     }
     s
 }
-fn c_struct_head(head: &str) -> Option<String> {
+pub(super) fn c_struct_head(head: &str) -> Option<String> {
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)|\b(?:alignas|__declspec)\s*\([^()]*\)|\[\[[^\]]*\]\]").expect("the regex is a literal")
     });

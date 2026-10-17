@@ -31,7 +31,7 @@ impl App {
         if let Some(seventh) = fields.get(5) {
             return broke(seventh);
         }
-        let Some((mut ty, mut scope)) = self.cpp_head_type(here, text, &head, word) else {
+        let Some((mut ty, mut scope, mut ctx)) = self.cpp_head_type(here, text, &head, word) else {
             return broke(&head);
         };
         let mut around = search::c_method_class(text, self.line + 1, word);
@@ -47,7 +47,7 @@ impl App {
                 };
             }
             links.push(format!("{prev}: {}", ty[ty.len() - 1]));
-            let Some(class) = self.cpp_class(here, &ty, &scope, around.as_deref()) else {
+            let Some(class) = self.cpp_class(here, &ty, &scope, around.as_deref(), &ctx) else {
                 return broke(&prev);
             };
             let Some((owner, ats)) = self.cpp_member(here, &class, name, 0) else {
@@ -56,15 +56,32 @@ impl App {
             if i == last {
                 return CppAnswer::Found(self.cpp_candidates(here, &owner, &ats, word, &links));
             }
-            let Some(next) =
-                (ats.iter()).find_map(|&at| search::cpp_type_at(&owner.code, at, name.len()))
+            let Some((next, at)) =
+                (ats.iter()).find_map(|&at| Some((search::cpp_type_at(&owner.code, at, name.len())?, at)))
             else {
                 return broke(name);
             };
+            ctx = search::cpp_scope_path(&owner.code, at);
             (ty, scope, around) = (next, owner.code, Some(owner.name));
             name.clone_into(&mut prev);
         }
         CppAnswer::ByName(None)
+    }
+
+    pub(super) fn cpp_class_scope(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        class: &str,
+    ) -> Option<Vec<Candidate>> {
+        if word == class || self.c_source() || self.objc_file() {
+            return None;
+        }
+        match self.cpp_typed(here, text, "this->", word) {
+            CppAnswer::Found(found) => Some(found),
+            CppAnswer::Outside | CppAnswer::ByName(_) => None,
+        }
     }
 
     fn cpp_head_type(
@@ -73,24 +90,32 @@ impl App {
         text: &str,
         head: &str,
         word: &str,
-    ) -> Option<(Vec<String>, String)> {
+    ) -> Option<(Vec<String>, String, Vec<String>)> {
         let code = search::c_code(text);
+        let pos = (text.split('\n').take(self.line))
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + self.col;
+        let here_ctx = search::cpp_scope_path(&code, pos.min(code.len()));
         if head == "this" {
             return Some((
                 vec![search::c_method_class(text, self.line + 1, word)?],
                 code,
+                here_ctx,
             ));
         }
         match search::cpp_value_type(text, self.line + 1, head) {
-            Ok(Some(t)) => return Some((t, code)),
+            Ok(Some(t)) => return Some((t, code, here_ctx)),
             Ok(None) => {}
             Err(()) => return None,
         }
         let class = search::c_method_class(text, self.line + 1, word)?;
-        let class = self.cpp_class(here, &[class], &code, None)?;
+        let class = self.cpp_class(here, &[class], &code, None, &here_ctx)?;
         let (owner, ats) = self.cpp_member(here, &class, head, 0)?;
-        let t = (ats.iter()).find_map(|&at| search::cpp_type_at(&owner.code, at, head.len()))?;
-        Some((t, owner.code))
+        let (t, at) = (ats.iter())
+            .find_map(|&at| Some((search::cpp_type_at(&owner.code, at, head.len())?, at)))?;
+        let ctx = search::cpp_scope_path(&owner.code, at);
+        Some((t, owner.code, ctx))
     }
 
     fn cpp_class(
@@ -99,6 +124,7 @@ impl App {
         ty: &[String],
         scope: &str,
         around: Option<&str>,
+        ctx: &[String],
     ) -> Option<Class> {
         let name = ty.last()?;
         if ty.len() == 1 && search::cpp_template_param(scope, name) {
@@ -145,6 +171,16 @@ impl App {
         if bodies.len() > 1 {
             bodies.retain(|(b, _)| b.path == here || c_header(&b.path));
         }
+        if bodies.len() > 1 {
+            let paths: Vec<Vec<String>> = (bodies.iter())
+                .map(|(b, _)| [search::cpp_scope_path(&b.code, b.open), vec![name.clone()]].concat())
+                .collect();
+            let mine = cpp_namesake(&paths, ty, scope, ctx);
+            if let Some(mine) = mine.filter(|m| m.iter().filter(|&&k| k).count() == 1) {
+                let mut keep = mine.into_iter();
+                bodies.retain(|_| keep.next().unwrap_or(false));
+            }
+        }
         match <[_; 1]>::try_from(bodies) {
             Ok([(class, _)]) => Some(class),
             Err(_) => None,
@@ -169,7 +205,8 @@ impl App {
             if base[0] == "std" {
                 return None;
             }
-            let base = self.cpp_class(here, &base, &class.code, None)?;
+            let ctx = search::cpp_scope_path(&class.code, class.open);
+            let base = self.cpp_class(here, &base, &class.code, None, &ctx)?;
             if let Some(found) = self.cpp_member(here, &base, word, depth + 1) {
                 return Some(found);
             }
@@ -242,4 +279,30 @@ impl App {
         );
         found
     }
+}
+
+fn cpp_namesake(
+    paths: &[Vec<String>],
+    ty: &[String],
+    scope: &str,
+    ctx: &[String],
+) -> Option<Vec<bool>> {
+    let name = ty.last()?;
+    if let [first, rest @ ..] = ty
+        && !rest.is_empty()
+    {
+        let written = (!paths.iter().any(|p| p.ends_with(ty)))
+            .then(|| search::cpp_namespace_alias(scope, first))
+            .flatten()
+            .map_or_else(|| ty.to_vec(), |real| [real, rest.to_vec()].concat());
+        return Some(paths.iter().map(|p| p.ends_with(&written)).collect());
+    }
+    if search::cpp_using_declares(scope, name) {
+        return None;
+    }
+    (0..=ctx.len()).rev().find_map(|k| {
+        let want = [&ctx[..k], std::slice::from_ref(name)].concat();
+        let mine: Vec<bool> = paths.iter().map(|p| *p == want).collect();
+        mine.contains(&true).then_some(mine)
+    })
 }
