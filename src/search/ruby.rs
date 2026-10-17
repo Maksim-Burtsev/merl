@@ -306,6 +306,14 @@ pub struct RubyParents {
     pub extends: Vec<String>,
 }
 
+pub fn ruby_constructed_receiver(before: &str) -> Option<String> {
+    static NEW: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.new\s*\([^()]*\)\.$")
+            .expect("the regex is a literal")
+    });
+    NEW.captures(before.trim_end()).map(|c| c[1].to_owned())
+}
+
 pub fn ruby_on_class(text: &str, line1: usize) -> bool {
     static ON: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:[a-z_]+\s+)?def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)")
