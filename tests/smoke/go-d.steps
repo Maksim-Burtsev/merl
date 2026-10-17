@@ -81,3 +81,8 @@ key :
 type 21
 key Enter f
 wait ⋯ }
+# The chip of a folded function says how many lines it hides (#634).
+key :
+type 26
+key Enter f
+wait lines ⋯
