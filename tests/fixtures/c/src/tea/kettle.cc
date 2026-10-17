@@ -18,10 +18,10 @@ class Urn {
 
 Kettle::Kettle(int spout) : spout_(spout) {}
 //                          ^ d: include/tea/kettle.hh:20
-//                                 ^ d: none; want src/tea/kettle.cc:19 (#941)
+//                                 ^ d: src/tea/kettle.cc:19
 
 int Kettle::decant(int cups) const { return cups + spout_ + recipe[0]; }
-//          ^ d: picker include/tea/kettle.hh:14, include/tea/kettle.hh:15; want include/tea/kettle.hh:14 (#942)
+//          ^ d: include/tea/kettle.hh:14
 //                                                          ^ d: src/tea/kettle.cc:14
 
 int Kettle::decant(const char* cups) const { return cups[0]; }
@@ -31,9 +31,9 @@ int Kettle::topup() {
   return spout_ + this->spout_ + decant(2) + decant("two") + rinse();
   //     ^ d: src/tea/kettle.cc:30
   //                    ^ d: include/tea/kettle.hh:20
-  //                             ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27, include/tea/kettle.hh:25, include/tea/kettle.hh:43; want src/tea/kettle.cc:23 (#940)
-  //                                         ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27, include/tea/kettle.hh:25, include/tea/kettle.hh:43; want src/tea/kettle.cc:27 (#940)
-  //                                                         ^ d: picker include/tea/kettle.hh:17, include/tea/kettle.hh:34; want include/tea/kettle.hh:17 (#940)
+  //                             ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27
+  //                                         ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27
+  //                                                         ^ d: include/tea/kettle.hh:17
 }
 
 int steep(Leaf leaf) { return leaf.dose; }

@@ -28,23 +28,35 @@ impl App {
             if !found.is_empty() {
                 return self.show_found(a, found);
             }
+            if let Some(found) = self.cpp_class_scope(&a.here, &a.text, &a.word, &class) {
+                return self.show_found(a, found);
+            }
         }
         let constructed = before
             .trim_end()
             .strip_suffix("new")
             .is_some_and(|b| !b.ends_with(is_word));
-        if kind == Kind::Jvm
-            && !constructed
+        let members = (kind == Kind::Jvm
             && chain.is_empty()
             && !dotted
             && !before.ends_with("::")
-            && locals.is_empty()
-            && let Some(found) = self.jvm_members(&a.here, &a.text, &a.word)
+            && locals.is_empty())
+        .then(|| self.jvm_members(&a.here, &a.text, before, &a.word))
+        .flatten();
+        let nested_type =
+            |c: &Candidate| search::jvm_type_name(&c.hit.text).is_some_and(|name| name == a.word);
+        let nested = constructed && members.as_ref().is_some_and(|f| f.iter().all(nested_type));
+        if (nested || !constructed)
+            && let Some(mut found) = members
         {
+            if nested {
+                found.extend(self.jvm_constructors(&found, &a.word));
+            }
             let found = self.jvm_fit_candidates(&a.here, &a.word, a.range.clone(), chain, found);
             return self.show_found(a, found);
         }
         if kind == Kind::Jvm
+            && !nested
             && locals.is_empty()
             && !(dotted && chain.is_empty())
             && !names_itself(kind, self.line_str(), &a.word)
@@ -83,7 +95,10 @@ impl App {
             let reason = Reason::Import(path.join("/"));
             return self.show_found(a, vec![Candidate { hit, reason }]);
         }
-        if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !a.own() {
+        if kind == Kind::Jvm
+            && (dotted || before.ends_with("::"))
+            && (!a.own() || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty())
+        {
             let literal = dotted
                 && chain.is_empty()
                 && before.strip_suffix('.').is_some_and(|b| b.ends_with('"'));

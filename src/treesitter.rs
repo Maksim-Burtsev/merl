@@ -9,10 +9,7 @@ use pattern::{lua_pattern, lua_replacement, vim_pattern};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;
 use syntect::parsing::Scope;
-use tree_sitter::{
-    InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, QueryCursor,
-    StreamingIterator, Tree,
-};
+use tree_sitter::{InputEdit, Language, ParseOptions, ParseState, Parser, Point, Query, Tree};
 
 use crate::buffer::{Buffer, Spans};
 use crate::theme::Theme;
@@ -119,6 +116,11 @@ const QUERIES: &[(&str, &str, &str)] = &[
         "starlark",
         include_str!("../queries/starlark/highlights.scm"),
         include_str!("../queries/starlark/injections.scm"),
+    ),
+    (
+        "solidity",
+        include_str!("../queries/solidity/highlights.scm"),
+        include_str!("../queries/solidity/injections.scm"),
     ),
     (
         "proto",
@@ -397,6 +399,7 @@ impl Check {
 
 struct Patterns {
     query: Query,
+    split: Option<heads::Split>,
     checks: Vec<Vec<Check>>,
     offsets: Vec<Vec<Offset>>,
     rewrites: Vec<Vec<Rewrite>>,
@@ -479,6 +482,7 @@ fn grammar(name: &str) -> Option<Language> {
         "nginx" => tree_sitter_nginx::LANGUAGE.into(),
         "gdscript" => tree_sitter_gdscript::LANGUAGE.into(),
         "starlark" => tree_sitter_starlark::LANGUAGE.into(),
+        "solidity" => tree_sitter_solidity::LANGUAGE.into(),
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
         "sql" => tree_sitter_sequel::LANGUAGE.into(),
@@ -582,6 +586,9 @@ fn compile(name: &'static str, language: Language) -> Result<Lang, String> {
             let mut only = patterns(name, &lang.language, &injections, INJECTION_KEYS)?;
             for p in (0..all.query.pattern_count()).filter(|&p| !joins(p)) {
                 only.query.disable_pattern(p);
+                if let Some(split) = &mut only.split {
+                    split.disable(p);
+                }
             }
             lang.combined = Some(only);
         }
@@ -636,7 +643,8 @@ fn patterns(
     {
         return Err(format!("{name}: #{op} is not implemented"));
     }
-    let query = Query::new(language, &as_neovim_reads(text)).map_err(|e| format!("{name}: {e}"))?;
+    let text = as_neovim_reads(text);
+    let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
     let mut rewrites = Vec::new();
@@ -716,6 +724,7 @@ fn patterns(
         rewrites.push(subs);
     }
     Ok(Patterns {
+        split: heads::split(name, language, &query, &text)?,
         query,
         checks,
         offsets,
@@ -733,13 +742,10 @@ fn found(
     bytes: &[u8],
     clip: usize,
 ) -> Found {
-    let mut cursor = QueryCursor::new();
-    cursor.set_byte_range(range);
     let mut out = Found::new();
-    let mut matches = cursor.matches(&patterns.query, tree.root_node(), bytes);
-    while let Some(m) = matches.next() {
+    heads::each_match(patterns, tree.root_node(), &range, bytes, false, |m| {
         if !patterns.matches(m, bytes) {
-            continue;
+            return;
         }
         let captures: Vec<_> = m
             .captures()
@@ -758,7 +764,7 @@ fn found(
         if !captures.is_empty() {
             out.insert((m.pattern_index, captures));
         }
-    }
+    });
     out
 }
 
@@ -808,7 +814,7 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
         {
             return row;
         }
-        if x.has_error() || y.has_error() {
+        if x.id() != y.id() {
             match (a.goto_first_child(), b.goto_first_child()) {
                 (true, true) => continue,
                 (false, false) => {}
@@ -1018,7 +1024,7 @@ impl Parsed {
         let near = self.starts[from]..self.starts.get(from + 1).copied().unwrap_or(bytes.len());
         let doc = layers::Doc::new(bytes, &self.starts, near.start, near.end);
         let grouped = self.lang.combined.is_some() && self.groups.is_some();
-        let mut injected = layers::injections(self.lang, tree, None, &doc, grouped);
+        let mut injected = layers::injections(self.lang, tree, None, &doc, grouped, false);
         for g in self
             .groups
             .iter()
@@ -1026,7 +1032,14 @@ impl Parsed {
             .filter(|g| g.touches(near.start, near.end))
         {
             if let Some(t) = &g.tree {
-                injected.extend(layers::injections(g.lang, t, Some(&g.ranges), &doc, false));
+                injected.extend(layers::injections(
+                    g.lang,
+                    t,
+                    Some(&g.ranges),
+                    &doc,
+                    false,
+                    false,
+                ));
             }
         }
         Some(layers::region_start(&injected, from))
@@ -1363,6 +1376,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
 mod combined;
 mod extends;
 mod filetype;
+mod heads;
 mod layers;
 mod pattern;
 

@@ -207,3 +207,103 @@ fn jvm_assigned_calls_are_of_a_lowercase_name() {
     assert_eq!(call("    val s = make()"), Some((None, "make".to_owned())));
     assert_eq!(call("    val s = Make()"), None);
 }
+
+#[test]
+fn a_kotlin_when_subject_keeps_its_type_in_else_and_casts_when_bound_by_val() {
+    let text = "fun f(v: Urn, x: Any) {\n    when (v) {\n        is Glass -> v.dose()\n        else -> v.scald()\n    }\n    when (val g = x) {\n        is Samovar -> g.mint()\n    }\n}\n";
+    assert_eq!(jvm_when_else(text, 4, "v"), Some(2));
+    assert_eq!(jvm_when_else(text, 3, "v"), None, "an `is` branch");
+    assert_eq!(jvm_when_else(text, 4, "x"), None, "not the subject");
+    assert_eq!(
+        jvm_smart_cast(text, 7, "        is Samovar -> g.", "g").as_deref(),
+        Some("Samovar")
+    );
+}
+
+#[test]
+fn a_kotlin_property_initializer_reads_the_primary_constructor_parameter() {
+    let text = "class S(vapor: Int) {\n    private val vapor: Int = vapor\n    val x: Int get() = vapor\n    fun f() = vapor\n}\n";
+    let at =
+        |line1: usize, before: &str| kotlin_initializer_parameter(text, line1, before, "vapor");
+    assert_eq!(at(2, "    private val vapor: Int = "), Some(1));
+    assert_eq!(at(2, "    private val "), None, "the declared name");
+    assert_eq!(at(3, "    val x: Int get() = "), None, "a getter");
+    assert_eq!(at(4, "    fun f() = "), None, "a function");
+}
+
+#[test]
+fn a_kotlin_extension_function_s_body_has_its_receiver_as_this() {
+    let text = "fun Glass.dip(): Int = dose(1) + with(x) { dose() }\nfun Glass.pour(): Int {\n    return dose(1)\n}\nclass A {\n    fun Glass.tip() = dose()\n}\n";
+    let at = |line1: usize, before: &str| {
+        kotlin_extension_at(text, line1, before).map(|e| (e.name, e.receiver))
+    };
+    let glass = |name: &str| Some((name.to_owned(), "Glass".to_owned()));
+    assert_eq!(at(1, "fun Glass.dip(): Int = "), glass("dip"));
+    assert_eq!(
+        at(1, "fun Glass.dip(): Int = dose(1) + with(x) { "),
+        None,
+        "a lambda"
+    );
+    assert_eq!(at(1, "fun Glass."), None, "the header");
+    assert_eq!(at(3, "    return "), glass("pour"));
+    assert_eq!(at(6, "    fun Glass.tip() = "), None, "a member extension");
+}
+
+#[test]
+fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
+    let text = "fun f(glasses: List<Glass>, n: Map<String, Glass>) {\n    glasses.sumOf { it.dose() }\n    glasses.forEach { g ->\n        g.dose()\n    }\n}\n";
+    let at = |line1: usize, before: &str, name: &str| {
+        kotlin_lambda_collection(text, line1, before, name)
+    };
+    assert_eq!(
+        at(2, "    glasses.sumOf { ", "it").as_deref(),
+        Some("glasses")
+    );
+    assert_eq!(
+        at(4, "        ", "g").as_deref(),
+        Some("glasses"),
+        "the lambda's header"
+    );
+    assert_eq!(
+        at(2, "    glasses.sumOf { x -> ", "it"),
+        None,
+        "a named parameter"
+    );
+    assert_eq!(at(2, "    glasses.let { ", "it"), None, "not one element");
+    assert_eq!(
+        at(2, "    glasses.sumOf { a.let { ", "it"),
+        None,
+        "an inner lambda"
+    );
+    assert_eq!(
+        kotlin_element_type(text.lines().next().unwrap(), "glasses").as_deref(),
+        Some("Glass")
+    );
+    assert_eq!(
+        kotlin_element_type(text.lines().next().unwrap(), "n"),
+        None,
+        "a map"
+    );
+}
+
+#[test]
+fn kotlin_arity_counts_defaults_varargs_and_a_trailing_lambda() {
+    let parts = |decl: &str| jvm_parameter_parts(decl, 1, "f").expect("a parameter list");
+    let takes = |decl: &str, n: usize| jvm_takes(&parts(decl), n);
+    assert_eq!(
+        parts("fun f(a: Map<String, Int>, b: (Int, Int) -> Unit = { _, _ -> }) {"),
+        ["a: Map<String, Int>", "b: (Int, Int) -> Unit = { _, _ -> }"]
+    );
+    assert!(takes("fun f(a: Int, b: Int = 1): Int", 1));
+    assert!(!takes("fun f(a: Int, b: Int = 1): Int", 3));
+    assert!(takes("fun f(a: Int, vararg b: Int)", 4));
+    assert!(!takes("fun f(a: Int)", 2));
+    let call = jvm_call(&["f(1, \"a,b\") { it }"], 0, 1).expect("a call");
+    assert_eq!(call.arguments, ["1", "\"a,b\""]);
+    assert!(call.trailing_lambda);
+    assert_eq!(jvm_literal_parameter("cups: Int"), Some("int"));
+    assert_eq!(jvm_literal_parameter("final String cups"), Some("string"));
+    assert_eq!(jvm_literal_parameter("cups: Int = 1"), None);
+    assert_eq!(jvm_literal_argument("\"two\""), Some("string"));
+    assert_eq!(jvm_literal_argument("2L"), None);
+}

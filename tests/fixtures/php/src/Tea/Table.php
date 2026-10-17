@@ -38,15 +38,15 @@ final class Table
         return $old->pour() + (new OldKettle())->pour() + steep(3);
         //           ^ d: src/Tea/Stale/Kettle.php:7
         //                         ^ d: src/Tea/Stale/Kettle.php:5
-        //                                       ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Stale/Kettle.php:7 (#956)
-        //                                                ^ d: picker src/Tea/Stale/functions.php:5, src/Tea/brew.php:5; want src/Tea/Stale/functions.php:5 (#955)
+        //                                       ^ d: src/Tea/Stale/Kettle.php:7
+        //                                                ^ d: src/Tea/Stale/functions.php:5
     }
 
     public function fresh(): int
     {
         return \Shop\Tea\steep(3) + pour($this->kettle) + STRENGTH;
-        //               ^ d: picker src/Tea/Stale/functions.php:5, src/Tea/brew.php:5; want src/Tea/brew.php:5 (#955)
-        //                          ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12, src/Tea/brew.php:10; want src/Tea/brew.php:10 (#955)
+        //               ^ d: src/Tea/brew.php:5
+        //                          ^ d: src/Tea/brew.php:10
         //                                                ^ d: src/Tea/brew.php:16
     }
 
@@ -55,7 +55,7 @@ final class Table
         $vessel = new Kettle();
         $vessel = new Teapot();
         return $vessel->pour(1);
-        //              ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Teapot.php:12 (#956)
+        //              ^ d: src/Tea/Teapot.php:12
     }
 
     public function steeped(): int
@@ -81,9 +81,25 @@ final class Table
         //                             ^ d: src/Tea/Kettle.php:11
         $g = function () use ($pot) {
             return $pot->pour(2);
-            //           ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Teapot.php:12 (#956)
+            //           ^ d: src/Tea/Teapot.php:12
         };
         return $f($this->kettle) + $g();
+    }
+
+    public function adjacent(): int
+    {
+        $pot = $this->pot;
+        $g = function () use ($pot) {
+            return $pot->pour(2);
+            //           ^ d: src/Tea/Teapot.php:12
+        };
+        $cup = new Kettle();
+        $cup = new Teapot();
+        $h = function () use ($cup) {
+            return $cup->pour(3);
+            //           ^ d: src/Tea/Teapot.php:12
+        };
+        return $g() + $h();
     }
 
     public function lid(): int
@@ -91,6 +107,6 @@ final class Table
         $lid = $this->kettle->lid;
         //                    ^ d: src/Tea/Kettle.php:9
         return $lid;
-        //      ^ d: src/Tea/Table.php:91
+        //      ^ d: src/Tea/Table.php:107
     }
 }

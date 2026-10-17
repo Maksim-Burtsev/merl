@@ -122,7 +122,7 @@ fn literal_end(b: &[u8], open: usize, quote: u8) -> usize {
     }
     b.len()
 }
-fn c_innermost_open_brace(code: &[u8], at: usize) -> Option<usize> {
+pub(super) fn c_innermost_open_brace(code: &[u8], at: usize) -> Option<usize> {
     let mut depth = 0usize;
     for i in (0..at.min(code.len())).rev() {
         match code[i] {
@@ -154,7 +154,7 @@ fn untemplated(s: &str) -> String {
     }
     s
 }
-fn c_struct_head(head: &str) -> Option<String> {
+pub(super) fn c_struct_head(head: &str) -> Option<String> {
     static ATTR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"__attribute__\s*\(\((?:[^()]|\([^()]*\))*\)\)|\b(?:alignas|__declspec)\s*\([^()]*\)|\[\[[^\]]*\]\]").expect("the regex is a literal")
     });
@@ -348,7 +348,7 @@ fn line_starts(code: &str) -> Vec<usize> {
     clippy::match_same_arms,
     reason = "each arm is one kind of byte the scan stops at"
 )]
-fn c_head_start(code: &str, open: usize) -> usize {
+pub(super) fn c_head_start(code: &str, open: usize) -> usize {
     let b = code.as_bytes();
     let item_of_init_list = |close: usize| {
         code.get(close + 1..)
@@ -406,7 +406,7 @@ fn top_level_paren_groups(s: &str) -> Vec<Range<usize>> {
     }
     out
 }
-enum Head {
+pub(super) enum Head {
     TypeOrNamespace,
     Function { params: Range<usize>, name: String },
     Lambda { params: Range<usize> },
@@ -414,7 +414,7 @@ enum Head {
     Control { parens: Range<usize> },
     Block,
 }
-fn c_head(head: &str) -> Head {
+pub(super) fn c_head(head: &str) -> Head {
     static NAMESPACE_EXTERN_OR_ENUM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:inline\s+)?namespace\b|^\s*extern\s*$|^\s*(?:typedef\s+)?enum\b[^(]*$")
             .expect("the regex is a literal")
@@ -706,8 +706,8 @@ fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<u
             .map_or(to, |(i, _)| from + i),
     )
 }
-pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
-    c_bindings_at(text, line1, name)
+pub fn c_bindings(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<Binding> {
+    c_bindings_at(text, line1, col, name)
         .into_iter()
         .map(|p| Binding {
             line1: p.line1,
@@ -715,7 +715,7 @@ pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
         })
         .collect()
 }
-pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
+pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<CPlace> {
     let code = c_code(text);
     let starts = line_starts(&code);
     let Some(pos) = scope_pos(&code, &starts, line1, name) else {
@@ -728,6 +728,14 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
             byte_col: at - starts[line1 - 1],
         }
     };
+    let member = col.is_some_and(|c| {
+        (code.get(starts[line1 - 1] + c..))
+            .and_then(|r| r.strip_prefix(name))
+            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
+    });
+    if let Some(at) = initializer_parameter(&code, pos, name).filter(|_| !member) {
+        return vec![place(at)];
+    }
     for Scope {
         open,
         head_start: start,
@@ -770,6 +778,21 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
         }
     }
     Vec::new()
+}
+fn initializer_parameter(code: &str, pos: usize, name: &str) -> Option<usize> {
+    let open = pos + code.get(pos..)?.find(['{', ';', '}'])?;
+    if code.as_bytes()[open] != b'{' {
+        return None;
+    }
+    let start = c_head_start(code, open);
+    let Head::Function { params, .. } = c_head(code.get(start..open)?) else {
+        return None;
+    };
+    if start + params.end > pos {
+        return None;
+    }
+    let inner = start + params.start + 1..start + params.end - 1;
+    parameter_at(code.get(inner.clone())?, name).map(|j| inner.start + j)
 }
 fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
     let f = bracket_contents_blanked(s);
@@ -1188,7 +1211,7 @@ pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
 pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let mut at: Vec<usize> = c_bindings_at(text, line1, name)
+    let mut at: Vec<usize> = c_bindings_at(text, line1, None, name)
         .into_iter()
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
@@ -1375,7 +1398,7 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
 pub fn cpp_value_type(text: &str, line1: usize, name: &str) -> Result<Option<Vec<String>>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let at: Vec<usize> = c_bindings_at(text, line1, name)
+    let at: Vec<usize> = c_bindings_at(text, line1, None, name)
         .into_iter()
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
@@ -1475,7 +1498,7 @@ mod tests {
     }
 
     fn bound_on(text: &str, line1: usize, name: &str) -> Vec<usize> {
-        c_bindings_at(text, line1, name)
+        c_bindings_at(text, line1, None, name)
             .into_iter()
             .map(|p| p.line1)
             .collect()
@@ -1616,6 +1639,20 @@ mod tests {
         assert_eq!(at(2, "Base"), None);
         assert_eq!(at(7, "g"), None);
         assert_eq!(at(9, "x_"), None);
+    }
+
+    #[test]
+    fn a_same_named_member_of_an_initializer_list_is_not_its_parameter() {
+        let text = "Kettle::Kettle(int spout) : spout(spout) {}\n";
+        let at = |col: usize| c_bindings_at(text, 1, Some(col), "spout");
+        assert_eq!(at(28), vec![]);
+        assert_eq!(
+            at(34),
+            vec![CPlace {
+                line1: 1,
+                byte_col: 19
+            }]
+        );
     }
 
     #[test]

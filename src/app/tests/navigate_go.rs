@@ -57,7 +57,7 @@ fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
             "",
             "globals.go",
             "spareAudit.DeleteUser",
-            picker("DeleteUser: by name, 2 declarations", &BOTH_DELETE_USER),
+            audit("spareAudit: AuditLog"),
         ),
         (
             "Declared twice under build tags, as two types",

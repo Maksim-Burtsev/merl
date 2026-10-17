@@ -60,8 +60,8 @@ func Brew() int {
 	_ = err
 	//  ^ d: rival/rival.go:58
 	return k.Pour() + t.Pour()
-	//       ^ d: picker rival/rival.go:25, rival/rival.go:31, rival/rival.go:45, rival/twin/twin.go:7; want rival/rival.go:25 (#933)
-	//                  ^ d: picker rival/rival.go:25, rival/rival.go:31, rival/rival.go:45, rival/twin/twin.go:7; want rival/rival.go:31 (#933)
+	//       ^ d: rival/rival.go:25
+	//                  ^ d: rival/rival.go:31
 }
 
 func Steep() int {
@@ -132,7 +132,7 @@ func Simmer() int {
 	k := Kettle{}
 	if k := (Teapot{}); k.Spout != "" {
 		return k.Pour()
-		//       ^ d: picker rival/rival.go:25, rival/rival.go:31, rival/rival.go:45, rival/twin/twin.go:7; want rival/rival.go:31 (#934)
+		//       ^ d: rival/rival.go:31
 	}
 	return k.Pour()
 	//       ^ d: rival/rival.go:25

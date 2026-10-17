@@ -1,8 +1,8 @@
 use regex::Regex;
 
 use super::{
-    Group, Kind, close_of, code, comment, cs_generics, cs_type, def_patterns, group, indent,
-    split_top, uncommented, written_line,
+    Group, Kind, close_of, code, comment, cs_generics, cs_namespace, cs_type, cs_using, cs_usings,
+    def_patterns, group, indent, split_top, uncommented, written_line,
 };
 
 pub struct CsTypeDecl {
@@ -91,13 +91,19 @@ fn cs_private(line: &str, word: &str) -> bool {
 
 pub(super) fn cs_enclosing(lines: &[&str], k: usize) -> Option<usize> {
     let depth = indent(lines[k]);
+    let literal = std::cell::OnceCell::new();
     (0..k).rev().find(|&i| {
         let t = lines[i].trim();
         !(t.is_empty()
             || comment(Kind::CSharp, t)
             || t.starts_with(['#', '{', ')', ':', '['])
             || t.starts_with("where ")
-            || indent(lines[i]) >= depth)
+            || indent(lines[i]) >= depth
+            || literal
+                .get_or_init(|| super::literal_lines(Kind::CSharp, &lines.join("\n")))
+                .get(i)
+                .copied()
+                .unwrap_or(false))
     })
 }
 
@@ -528,6 +534,59 @@ pub fn cs_type_name(written: &str) -> Option<String> {
     let word = !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_');
     (word && !cs_names_no_type(name) && !name.chars().next()?.is_ascii_digit())
         .then(|| name.to_owned())
+}
+
+pub fn cs_namespace_pick(text: &str, line1: usize, written: &str, found: &[String]) -> Vec<usize> {
+    let after_namespace = text
+        .lines()
+        .skip_while(|l| !cs_namespace_line(l))
+        .any(|l| cs_using(l).is_some());
+    let t = written.trim().trim_end_matches('?');
+    let t = t.split_once('<').map_or(t, |(head, _)| head);
+    let (absolute, t) = t
+        .strip_prefix("global::")
+        .map_or((false, t), |rest| (true, rest));
+    if after_namespace || t.contains("::") {
+        return Vec::new();
+    }
+    let qualifier = t.rsplit_once('.').map_or("", |(q, _)| q);
+    let inside = cs_namespace(text, line1);
+    let mut levels: Vec<&str> = Vec::new();
+    if !absolute {
+        let mut at = inside.as_str();
+        while !at.is_empty() {
+            levels.push(at);
+            at = at.rsplit_once('.').map_or("", |(outer, _)| outer);
+        }
+    }
+    levels.push("");
+    let join = |a: &str, b: &str| match (a.is_empty(), b.is_empty()) {
+        (true, _) => b.to_owned(),
+        (_, true) => a.to_owned(),
+        _ => format!("{a}.{b}"),
+    };
+    for level in levels {
+        let mut wanted = vec![join(level, qualifier)];
+        if level.is_empty() && !absolute {
+            if qualifier.is_empty() {
+                wanted.extend(cs_usings(text));
+            } else {
+                let (head, rest) = qualifier.split_once('.').unwrap_or((qualifier, ""));
+                wanted.extend(
+                    (text.lines().filter_map(cs_using))
+                        .filter(|u| !u.fixed && u.alias.as_deref() == Some(head))
+                        .map(|u| join(&u.target, rest)),
+                );
+            }
+        }
+        let picked: Vec<usize> = (0..found.len())
+            .filter(|&i| wanted.contains(&found[i]))
+            .collect();
+        if !picked.is_empty() {
+            return picked;
+        }
+    }
+    Vec::new()
 }
 
 pub fn cs_awaited(written: &str) -> Option<&str> {
@@ -976,6 +1035,32 @@ pub fn cs_namespace_prefix(line: &str, start: usize, end: usize) -> Option<CsNam
 }
 
 pub fn cs_arguments<S: AsRef<str>>(lines: &[S], line: usize, end: usize) -> Option<usize> {
+    cs_count(&cs_argument_list(lines, line, end)?)
+}
+
+pub fn cs_literal_arguments<S: AsRef<str>>(
+    lines: &[S],
+    line: usize,
+    end: usize,
+) -> Option<Vec<&'static str>> {
+    static STRING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^"(?:[^"\\\n]|\\.)*"$"#).expect("the regex is a literal")
+    });
+    static INT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\d{1,9}$").expect("the regex is a literal"));
+    let inner = cs_argument_list(lines, line, end)?;
+    cs_count(&inner).filter(|&n| n > 0)?;
+    cs_split(&inner)
+        .into_iter()
+        .map(|a| match a.trim() {
+            a if STRING.is_match(a) => Some("string"),
+            a if INT.is_match(a) => Some("int"),
+            _ => None,
+        })
+        .collect()
+}
+
+fn cs_argument_list<S: AsRef<str>>(lines: &[S], line: usize, end: usize) -> Option<String> {
     let text = lines.get(line)?.as_ref();
     let after = text.get(end..)?;
     let generics = Regex::new(concat!("^", cs_generics!(), r"\s*\(")).ok()?;
@@ -985,7 +1070,7 @@ pub fn cs_arguments<S: AsRef<str>>(lines: &[S], line: usize, end: usize) -> Opti
         inner_uncommented: inner,
         ..
     } = group(Kind::CSharp, &rows, line, open)?;
-    cs_count(&inner)
+    Some(inner)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -996,21 +1081,7 @@ pub struct CsArity {
 }
 
 pub fn cs_parameters(text: &str, line1: usize, word: &str) -> Option<CsArity> {
-    let rows: Vec<&str> = text.lines().collect();
-    let l = *rows.get(line1.checked_sub(1)?)?;
-    if cs_type_decl(l).is_some() || Regex::new(r"\bdelegate\b").ok()?.is_match(l) {
-        return None;
-    }
-    let head = Regex::new(&format!(
-        concat!(r"\b{}\s*", cs_generics!(), r"\s*\("),
-        regex::escape(word)
-    ))
-    .ok()?;
-    let open = head.find(l)?.end() - 1;
-    let Group {
-        inner_uncommented: inner,
-        ..
-    } = group(Kind::CSharp, &rows, line1 - 1, open)?;
+    let inner = cs_parameter_list(text, line1, word)?;
     let parts = cs_split(&inner);
     let total = if inner.trim().is_empty() {
         0
@@ -1030,6 +1101,42 @@ pub fn cs_parameters(text: &str, line1: usize, word: &str) -> Option<CsArity> {
         most_unless_params: (!params).then_some(total),
         extension_this: this,
     })
+}
+
+pub fn cs_parameter_keywords(text: &str, line1: usize, word: &str) -> Option<Vec<Option<String>>> {
+    static PLAIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?s)^\s*(?:\[[^\]]*\]\s*)*(?:this\s+)?(int|string)\s+@?\w+\s*(?:=.*)?$")
+            .expect("the regex is a literal")
+    });
+    let inner = cs_parameter_list(text, line1, word)?;
+    if inner.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    Some(
+        cs_split(&inner)
+            .into_iter()
+            .map(|p| PLAIN.captures(p).map(|c| c[1].to_owned()))
+            .collect(),
+    )
+}
+
+fn cs_parameter_list(text: &str, line1: usize, word: &str) -> Option<String> {
+    let rows: Vec<&str> = text.lines().collect();
+    let l = *rows.get(line1.checked_sub(1)?)?;
+    if cs_type_decl(l).is_some() || Regex::new(r"\bdelegate\b").ok()?.is_match(l) {
+        return None;
+    }
+    let head = Regex::new(&format!(
+        concat!(r"\b{}\s*", cs_generics!(), r"\s*\("),
+        regex::escape(word)
+    ))
+    .ok()?;
+    let open = head.find(l)?.end() - 1;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(Kind::CSharp, &rows, line1 - 1, open)?;
+    Some(inner)
 }
 
 fn cs_count(inner: &str) -> Option<usize> {

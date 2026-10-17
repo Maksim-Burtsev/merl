@@ -17,7 +17,7 @@ public partial class Kettle : Vessel, IPourer
     public Kettle(int spout)
     {
         this.spout = spout;
-        //   ^ d: picker src/Shop/Tea/Kettle.cs:15, src/Shop/Tea/Kettle.cs:30; want src/Shop/Tea/Kettle.cs:15 (#936)
+        //   ^ d: src/Shop/Tea/Kettle.cs:15
         //           ^ d: src/Shop/Tea/Kettle.cs:17
     }
 
@@ -30,9 +30,9 @@ public partial class Kettle : Vessel, IPourer
         int spout = 1;
         return spout + this.spout + Pour("two") + Pour(2) + Grind() + Brew();
         //     ^ d: src/Shop/Tea/Kettle.cs:30
-        //                  ^ d: picker src/Shop/Tea/Kettle.cs:15, src/Shop/Tea/Kettle.cs:30; want src/Shop/Tea/Kettle.cs:15 (#936)
-        //                          ^ d: picker src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26; want src/Shop/Tea/Kettle.cs:26 (#937)
-        //                                        ^ d: picker src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26; want src/Shop/Tea/Kettle.cs:24 (#937)
+        //                  ^ d: src/Shop/Tea/Kettle.cs:15
+        //                          ^ d: src/Shop/Tea/Kettle.cs:26
+        //                                        ^ d: src/Shop/Tea/Kettle.cs:24
         //                                                  ^ d: src/Shop/Tea/Kettle.cs:40
         //                                                            ^ d: src/Shop/Tea/Kettle.Parts.cs:5
     }
