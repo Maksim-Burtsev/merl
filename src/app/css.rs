@@ -338,6 +338,7 @@ impl App {
                     .iter()
                     .map(|c| modules.join(c))
                     .find(|p| self.root.join(p).is_file())
+                    .map(|p| search::own_copy(&self.root, &p).unwrap_or(p))
             })
         })
     }
