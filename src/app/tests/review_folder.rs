@@ -312,3 +312,16 @@ fn d_through_a_folder_s_node_modules_lands_in_its_own_workspace_package() {
         "a package the branch drops leaves no folder, a link to nothing no row"
     );
 }
+
+#[test]
+fn a_name_that_climbs_out_of_the_folders_deletes_nothing() {
+    let c = Clones::new("climb");
+    let kept = c.b().join("b/keep.py");
+    std::fs::create_dir_all(kept.parent().unwrap()).unwrap();
+    std::fs::write(&kept, "x = 1\n").unwrap();
+    for name in [c.b().to_str().unwrap(), "../../..", "feat1/../../../.."] {
+        let e = git::Review::open_branch(&c.b(), name, None).unwrap_err();
+        assert!(format!("{e:#}").contains("no branch"), "{name}: {e:#}");
+        assert!(kept.is_file(), "{name} deleted the checkout's b/keep.py");
+    }
+}
