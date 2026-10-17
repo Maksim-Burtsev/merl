@@ -263,7 +263,7 @@ impl Rules {
             annotated: rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$")),
             assigned: rule(format!(r"^{n}\s*=\s*([^=].*)$")),
             unknown: rule(format!(
-                r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b|^import\s(?:.*[\s,])?{n}\b"
+                r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
             )),
             inline: python_inline(name),
             declared_outside: rule(format!(r"^(global|nonlocal)\s.*\b{n}\b")),

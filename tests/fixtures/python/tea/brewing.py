@@ -73,7 +73,7 @@ class TravelKettle(Kettle):
     def pour(self) -> int:
         return super().pour() + Kettle.material.count("e")
         #              ^ d: tea/kettle.py:28
-        #                              ^ d: tea/brewing.py:60; want tea/kettle.py:21 (#979)
+        #                              ^ d: tea/kettle.py:21
 
 
 def timed(fn):
