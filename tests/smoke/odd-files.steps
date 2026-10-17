@@ -74,3 +74,11 @@ key o
 type architecture
 key Enter
 wait PNG 48×32, not shown
+# Find goes to a match past the 20 KB cut of the JSON's one line, and the line is drawn on to it
+# (#888).
+merl data/orders.min.json
+wait [{"id":1,"customer_id":1327,"total":"853.34"
+key /
+type "id":3000,
+key Enter
+wait data/orders.min.json  1:503785
