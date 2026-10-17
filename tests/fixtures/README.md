@@ -215,7 +215,7 @@ block comment declaring what the files declare. `lua/lua/tea/` has `local functi
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
-as `$pour`, `${#pour}` and as a command, `command steep`, case patterns named like functions, a
+as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
@@ -378,7 +378,8 @@ which declares nothing. Its annotations start with `%`.
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
 it, an alias named like a table, an overloaded function, a view declared twice, a parameter
-named like a table, and a statement in a string over lines and in a comment. `dart/lib/tea/` has a
+named like a table, a statement in a string over lines and in a comment, and tables after a
+`'C:\\'` and an `E'it\'s'`. `dart/lib/tea/` has a
 `Kettle` with named, redirecting and factory constructors and a `part`, a namesake `Kettle`
 behind an import prefix, a `Teapot` sharing `pour` and a static `cold`, a parameter hiding the
 prefix and one hiding a field, `super.` and a cascade, record and object patterns, a local

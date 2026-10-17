@@ -2,10 +2,8 @@
 ignore = [
     { id = "RUSTSEC-2024-0320", reason = "yaml-rust unmaintained, through syntect (bat's syntax definitions), which has no release without it" },
     { id = "RUSTSEC-2025-0141", reason = "bincode 1 unmaintained, through syntect (bat's syntax definitions), which has no release without it" },
-    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained, through merman's layout (manatee) and rasterizer (resvg, usvg); merman 0.7 has no release without it" },
-    { id = "RUSTSEC-2026-0206", reason = "rustybuzz unmaintained, through merman's layout (manatee) and rasterizer (resvg, usvg); merman 0.7 has no release without it" },
-    { id = "RUSTSEC-2024-0436", reason = "paste unmaintained, through merman; merman 0.7 has no release without it" },
-    { id = "RUSTSEC-2024-0449", reason = "unsafe-libyaml unmaintained, through serde_yaml in merman-core 0.7" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser unmaintained, through usvg and resvg, the rasterizer of merman 0.9, which has no release without it" },
+    { id = "RUSTSEC-2026-0206", reason = "rustybuzz unmaintained, through usvg and resvg, the rasterizer of merman 0.9, which has no release without it" },
 ]
 
 [licenses]

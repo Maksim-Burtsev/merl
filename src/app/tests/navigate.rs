@@ -2357,8 +2357,16 @@ fn a_dot_m_is_told_matlab_or_objective_c_by_its_text() {
         ("late.m", None),
         ("early.m", Some(Kind::C)),
     ] {
-        assert_eq!(search::kind_of(&dir.join(file)), kind, "{file}");
+        assert_eq!(a.kind_at(Path::new(file)), kind, "{file}");
+        assert_eq!(a.kind_at(&dir.join(file)), kind, "{file}");
     }
+    std::fs::write(dir.join("new.m"), "% now MATLAB\n").unwrap();
+    assert_eq!(a.kind_at(Path::new("new.m")), None);
+    assert_eq!(a.kind_at(&dir.join("new.m")), None);
+    a.jump_to(&dir.join("empty.m"), 1);
+    assert_eq!(a.kind(), Some(Kind::C));
+    a.buf.lines = vec!["% typed MATLAB".to_owned()];
+    assert_eq!(a.kind(), None);
     d_on(&mut a, "toolbox/vl_setup.m", "if vl_isoctave");
     assert_eq!(a.message, "no rules for .m");
     press(&mut a, KeyCode::Char('f'), KeyModifiers::NONE);

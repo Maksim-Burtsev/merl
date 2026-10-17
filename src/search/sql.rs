@@ -91,6 +91,22 @@ pub fn sql_local(text: &str, at: usize, word: &str) -> Vec<usize> {
     }
 }
 
+pub(super) fn sql_string_end(b: &[u8], open: usize) -> Option<usize> {
+    let escapes = open > 0
+        && b[open - 1].eq_ignore_ascii_case(&b'e')
+        && (open < 2 || !(b[open - 2].is_ascii_alphanumeric() || b[open - 2] == b'_'));
+    let mut i = open + 1;
+    while let Some(&c) = b.get(i) {
+        match c {
+            b'\\' if escapes => i += 2,
+            b'\'' if b.get(i + 1) == Some(&b'\'') => i += 2,
+            b'\'' => return Some(i + 1),
+            _ => i += 1,
+        }
+    }
+    None
+}
+
 fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
     let tag = Regex::new(r"^\$(?:[A-Za-z_]\w*)?\$").expect("a valid pattern");
     let (b, mut out) = (text.as_bytes(), text.as_bytes().to_vec());
@@ -102,7 +118,7 @@ fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
             b'/' if rest.starts_with("/*") => {
                 rest.get(2..).and_then(|r| r.find("*/")).map(|n| n + 4)
             }
-            b'\'' => rest.get(1..).and_then(|r| r.find('\'')).map(|n| n + 2),
+            b'\'' => sql_string_end(b, i).map(|end| end - i),
             b'"' => {
                 i += rest
                     .get(1..)

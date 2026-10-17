@@ -119,10 +119,6 @@ fn unbound_ctrl_letter_is_never_the_bare_letter() {
 fn aliases_reach_the_same_actions() {
     let mut a = app("foo bar\n");
     std::fs::remove_file(a.buf.path.as_ref().unwrap()).unwrap();
-    press(&mut a, KeyCode::F(12), KeyModifiers::NONE);
-    assert_eq!(a.message, "no rules for .txt");
-    press(&mut a, KeyCode::F(12), KeyModifiers::SHIFT);
-    assert_eq!(a.message, "no usages of foo");
     press(&mut a, KeyCode::Char('e'), KeyModifiers::CONTROL);
     assert_eq!(a.mode, Mode::Picker(PickerKind::Files));
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);

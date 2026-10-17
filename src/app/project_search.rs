@@ -57,7 +57,18 @@ impl App {
     }
 
     pub(super) fn kind(&self) -> Option<Kind> {
-        self.buf.path.as_deref().and_then(search::opened_kind)
+        let path = self.buf.path.as_deref()?;
+        search::opened_kind(path, || self.buf.lines.join("\n"))
+    }
+
+    pub(super) fn kind_at(&self, path: &Path) -> Option<Kind> {
+        search::kind_read(path, || {
+            (self.file_text(path).or_else(|| self.base_text(path))).unwrap_or_default()
+        })
+    }
+
+    pub(super) fn in_def_scope(&self, kind: Kind, here: &Path, path: &Path) -> bool {
+        search::in_def_scope(kind, here, path) && (kind != Kind::C || self.kind_at(path).is_some())
     }
 
     pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {
@@ -182,7 +193,7 @@ impl App {
         let sight = self.cs_sight(kind, here);
         let hits = self
             .grep(pattern, false, false, |p| {
-                search::in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
+                self.in_def_scope(kind, here, p) && sight.as_ref().is_none_or(|s| s.sees(p))
             })
             .unwrap_or_default();
         self.note_cut(&hits);

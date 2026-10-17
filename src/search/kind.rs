@@ -44,11 +44,14 @@ pub enum Kind {
     Css,
     Html,
 }
-pub fn opened_kind(path: &Path) -> Option<Kind> {
+pub fn opened_kind(path: &Path, text: impl FnOnce() -> String) -> Option<Kind> {
     match path.extension() {
         Some(e) if e == "rbs" => Some(Kind::Ruby),
-        _ => kind_of(path),
+        _ => kind_read(path, text),
     }
+}
+pub fn kind_read(path: &Path, text: impl FnOnce() -> String) -> Option<Kind> {
+    kind_of(path).filter(|_| path.extension().is_none_or(|e| e != "m") || super::objc_m(&text()))
 }
 #[expect(
     clippy::match_same_arms,
@@ -66,7 +69,6 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
         (_, "java" | "kt" | "kts" | "scala" | "sc" | "sbt" | "mill") => Kind::Jvm,
         (_, "groovy" | "gvy" | "gradle" | "jenkinsfile") | ("Jenkinsfile", _) => Kind::Jvm,
         (_, "rb" | "rake" | "gemspec" | "podspec" | "rbi" | "ru") => Kind::Ruby,
-        (_, "m") if !super::objc_m(path) => return None,
         (_, "c" | "h" | "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx" | "m" | "mm") => Kind::C,
         (_, "cs" | "csx") => Kind::CSharp,
         (_, "swift") => Kind::Swift,

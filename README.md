@@ -105,8 +105,8 @@ The dozen you will use every day. `?` inside merl shows the rest.
 | o / Ctrl+E | Open a file (fuzzy) |
 | s | Search the project |
 | / / Ctrl+F | Find in the open file |
-| d / F12 | Go to definition of the word under the cursor, or its implementations |
-| u / Shift+F12 | Usages of the word under the cursor |
+| d | Go to definition of the word under the cursor, or its implementations |
+| u | Usages of the word under the cursor |
 | D | Project symbols (fuzzy) |
 | [ / ] | Back / forward in the jump history |
 | c / C | Review: next / previous hunk, on to the next file |
@@ -131,9 +131,9 @@ counts stay on your machine.
 |---|---|
 | o / Ctrl+E | Open a file (fuzzy) |
 | Ctrl+N | New file: type its path, Enter creates and edits it |
-| d / F12 | Go to definition of the word under the cursor, or its implementations |
+| d | Go to definition of the word under the cursor, or its implementations |
 | D | Project symbols (fuzzy) |
-| u / Shift+F12 | Usages of the word under the cursor |
+| u | Usages of the word under the cursor |
 | [ / ] | Back / forward in the jump history |
 | : / Ctrl+G | Go to line |
 

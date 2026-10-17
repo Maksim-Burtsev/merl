@@ -877,6 +877,7 @@ fn shape_of(tree: &Tree) -> Shape {
 
 pub struct Parsed {
     pub lang: &'static Lang,
+    themed: &'static Lang,
     parser: Parser,
     inner: Parser,
     tree: Option<Tree>,
@@ -935,6 +936,7 @@ impl Parsed {
         let (text, starts) = joined(lines);
         Some(Self {
             lang,
+            themed: lang,
             parser,
             inner: Parser::new(),
             tree: None,
@@ -1067,7 +1069,7 @@ impl Parsed {
                     let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
                     r.start_point
                         .row
-                        .min(row(&self.lang.highlights))
+                        .min(row(&self.themed.highlights))
                         .min(injected)
                 })
                 .fold(from, usize::min),
@@ -1092,7 +1094,7 @@ impl Parsed {
             Some(before) => {
                 let row = |p: &Patterns| changed_text_row(p, &before, &tree, &self.text);
                 let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
-                from.min(row(&self.lang.highlights)).min(injected)
+                from.min(row(&self.themed.highlights)).min(injected)
             }
             None => from,
         };
@@ -1120,6 +1122,7 @@ impl Parsed {
         to: usize,
         styles: &mut Styles,
     ) -> Vec<Spans> {
+        self.themed = styles.themed(self.lang);
         let Some(tree) = &self.tree else {
             return Vec::new();
         };

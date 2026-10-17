@@ -110,8 +110,13 @@ key c
 wait docs/paging.md
 caption d on a line the branch deleted lands on the deleted code it names, [ back (#440)
 merl --review=agent/refund
-wait hunk 1/1  file 1/8
-key c /
+wait 8 files · +59 −39
+key o
+wait Files (
+type app/repos.py
+key Enter
+wait app/repos.py
+key /
 type orders.clear
 key Enter
 wait app/repos.py  -59:14
@@ -121,7 +126,7 @@ key [
 wait app/repos.py  -59:14
 caption p on a Markdown file of the review renders it as the branch has it, p again the source with its diff (#596)
 merl -r agent/page-size
-wait hunk 1/1  file 1/2
+wait 2 files · +4 −1
 key c
 wait docs/paging.md
 key p

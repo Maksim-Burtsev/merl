@@ -125,13 +125,10 @@ pub fn shell_names_a_command(line: &str) -> bool {
     HEADER.is_match(line) || line.trim_start().starts_with("alias ")
 }
 pub fn shell_command_position(lead: &str) -> Option<bool> {
-    if ["$", "${", "${#", "${!", "(("]
-        .iter()
-        .any(|s| lead.ends_with(s))
-    {
+    let l = lead.trim_end();
+    if ["$", "${", "${#", "${!"].iter().any(|s| lead.ends_with(s)) || l.ends_with("((") {
         return Some(false);
     }
-    let l = lead.trim_end();
     let last = l.rsplit(char::is_whitespace).next().unwrap_or("");
     (l.is_empty()
         || l.ends_with([';', '&', '|', '(', '{', '!'])

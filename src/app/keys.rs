@@ -223,7 +223,6 @@ impl App {
 
     fn command_key(&mut self, key: KeyEvent, fold: bool, hidden: bool) -> bool {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         match key.code {
             _ if self.preview_key(key) => {}
             KeyCode::Char('q') => return true,
@@ -269,8 +268,8 @@ impl App {
             KeyCode::Char('u') if ctrl => self.half_page(-1),
             KeyCode::Char('{') => self.paragraph(-1),
             KeyCode::Char('}') => self.paragraph(1),
-            KeyCode::Char('d') | KeyCode::F(12) if !shift => self.goto_definition(),
-            KeyCode::Char('u') | KeyCode::F(12) => self.usages(),
+            KeyCode::Char('d') => self.goto_definition(),
+            KeyCode::Char('u') => self.usages(),
             KeyCode::Char('D') => self.symbols(),
             _ => self.view_key(key),
         }
