@@ -45,6 +45,9 @@ impl App {
             self.swift_extensions(a, near, &mut found);
             self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
         }
+        if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
+            self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
+        }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);
         if kind == Kind::Rust && found.is_empty() {

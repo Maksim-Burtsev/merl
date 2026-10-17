@@ -414,3 +414,62 @@ int top() => cups;
     );
     assert_eq!(at(9, "Kettle"), [0usize; 0]);
 }
+
+#[test]
+fn dart_directives_read_combinators_and_parts() {
+    let text = "library;\nimport 'a.dart' hide A, B;\nexport \"b.dart\" show C;\nimport 'c.dart' if (dart.library.io) 'd.dart';\npart 'e.dart';\n";
+    let d = dart_directives(text).unwrap();
+    assert_eq!(d.len(), 4);
+    assert_eq!((d[0].keyword.as_str(), d[0].line1), ("import", 2));
+    assert_eq!(d[0].hide, ["A", "B"]);
+    assert_eq!(d[1].show.as_deref(), Some(&["C".to_owned()][..]));
+    assert!(d[2].conditional && !d[0].conditional);
+    assert_eq!(
+        (d[3].keyword.as_str(), d[3].uri.as_str()),
+        ("part", "e.dart")
+    );
+    assert_eq!(
+        dart_directives("part of 'k.dart';").unwrap()[0].keyword,
+        "part of"
+    );
+    assert_eq!(dart_directives("part of tea.kettle;"), None);
+}
+
+#[test]
+fn dart_receivers_read_a_written_type() {
+    let ty = |prefix: Option<&str>, class: &str, constructor: Option<&str>| DartType {
+        prefix: prefix.map(str::to_owned),
+        class: class.to_owned(),
+        constructor: constructor.map(str::to_owned),
+    };
+    assert_eq!(
+        dart_typed("void serve(Teapot pot) {", "pot"),
+        Some(ty(None, "Teapot", None))
+    );
+    assert_eq!(
+        dart_typed("  final Kettle? k;", "k"),
+        Some(ty(None, "Kettle", None))
+    );
+    assert_eq!(
+        dart_typed("  final cold = stale.Kettle.cold();", "cold"),
+        Some(ty(Some("stale"), "Kettle", Some("cold")))
+    );
+    assert_eq!(dart_typed("  final n = Kettle.cold().pour(1);", "n"), None);
+    assert_eq!(dart_typed("  final n = make(1);", "n"), None);
+    assert_eq!(
+        dart_cascade("  Kettle(1).."),
+        Some(Ok(ty(None, "Kettle", None)))
+    );
+    assert_eq!(
+        dart_cascade("  kettle..pour(1).."),
+        Some(Err("kettle".to_owned()))
+    );
+    assert_eq!(dart_cascade("  make(1).."), None);
+    let text = "class A extends p.B {\n  int f() => 1;\n}\nclass C extends B with M {\n  int g() => 2;\n}\n";
+    assert_eq!(dart_this_super(text, 1, false), Some(ty(None, "A", None)));
+    assert_eq!(
+        dart_this_super(text, 1, true),
+        Some(ty(Some("p"), "B", None))
+    );
+    assert_eq!(dart_this_super(text, 4, true), None);
+}
