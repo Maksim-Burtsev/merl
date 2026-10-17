@@ -183,49 +183,83 @@ pub fn dart_label(text: &str, line1: usize, col: usize) -> bool {
     false
 }
 
-pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
+pub fn dart_called(rest: &str) -> bool {
     static CALLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:<[^()]*>)?\s*\(").expect("the regex is a literal")
     });
+    CALLED.is_match(rest)
+}
+
+pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
     if patterns.len() == DART_PATTERN_COUNT
-        && line
-            .get(word.end..)
-            .is_some_and(|rest| !CALLED.is_match(rest))
+        && line.get(word.end..).is_some_and(|rest| !dart_called(rest))
     {
         patterns.remove(DART_CONSTRUCTOR_PATTERN);
     }
 }
 
-pub fn dart_imports(text: &str) -> Vec<DartImport> {
-    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?m)^\s*import\s+(?:'([^']*)'|"([^"]*)")([^;]*);"#)
-            .expect("the regex is a literal")
-    });
-    static PREFIX: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bas\s+([A-Za-z_$][\w$]*)").expect("the regex is a literal")
-    });
-    static SHOW: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bshow\s+([\w$,\s]+)").expect("the regex is a literal")
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct DartDirective {
+    pub keyword: String,
+    pub uri: String,
+    pub prefix: Option<String>,
+    pub show: Option<Vec<String>>,
+    pub hide: Vec<String>,
+    pub conditional: bool,
+    pub line1: usize,
+}
+
+pub fn dart_directives(text: &str) -> Option<Vec<DartDirective>> {
+    static DIRECTIVE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r#"(?m)^\s*(import|export|part\s+of|part)\s+(?:'([^']*)'|"([^"]*)"|([\w$.]+))([^;]*);"#,
+        )
+        .expect("the regex is a literal")
     });
     let mut out = Vec::new();
-    for c in IMPORT.captures_iter(text) {
-        let uri = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
-        let rest = &c[3];
-        if let Some(p) = PREFIX.captures(rest) {
-            out.push(DartImport {
-                name: p[1].to_owned(),
-                uri_as_written: uri.to_owned(),
-                is_prefix: true,
-            });
-        } else if let Some(s) = SHOW.captures(rest) {
-            for name in s[1].split(',').filter_map(|n| n.split_whitespace().next()) {
-                out.push(DartImport {
-                    name: name.to_owned(),
-                    uri_as_written: uri.to_owned(),
-                    is_prefix: false,
-                });
+    for c in DIRECTIVE.captures_iter(text) {
+        let keyword = c[1].split_whitespace().collect::<Vec<_>>().join(" ");
+        let uri = c.get(2).or_else(|| c.get(3))?.as_str().to_owned();
+        let mut d = DartDirective {
+            keyword,
+            uri,
+            line1: text.get(..c.get(1)?.start())?.matches('\n').count() + 1,
+            ..DartDirective::default()
+        };
+        let mut mode = "";
+        for t in c[5].split(|ch: char| ch.is_whitespace() || ch == ',') {
+            match t {
+                "" => {}
+                "as" | "show" | "hide" | "deferred" => mode = t,
+                _ if t == "if" || t.starts_with("if(") => d.conditional = true,
+                _ => match mode {
+                    "as" => d.prefix = Some(t.to_owned()),
+                    "show" => d.show.get_or_insert_with(Vec::new).push(t.to_owned()),
+                    "hide" => d.hide.push(t.to_owned()),
+                    _ => {}
+                },
             }
         }
+        out.push(d);
+    }
+    Some(out)
+}
+
+pub fn dart_imports(text: &str) -> Vec<DartImport> {
+    let mut out = Vec::new();
+    for d in dart_directives(text).unwrap_or_default() {
+        if d.keyword != "import" {
+            continue;
+        }
+        let names = match d.prefix {
+            Some(p) => vec![(p, true)],
+            None => d.show.into_iter().flatten().map(|n| (n, false)).collect(),
+        };
+        out.extend(names.into_iter().map(|(name, is_prefix)| DartImport {
+            name,
+            uri_as_written: d.uri.clone(),
+            is_prefix,
+        }));
     }
     out
 }
@@ -549,5 +583,148 @@ fn dart_header_binds(head: &str, name: &str) -> bool {
                 .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
                 .next()
                 == Some(name)
+    })
+}
+
+pub fn dart_body_at(text: &str, at: usize) -> Option<(std::ops::Range<usize>, bool)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"^{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
+        ))
+        .expect("the regex is a literal")
+    });
+    static SUPERS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:extends|with|on)\b").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Dart, text);
+    let outer = |l: &str| !l.is_empty() && !l.starts_with(char::is_whitespace);
+    if outer(lines.get(at)?) {
+        return Some((0..0, false));
+    }
+    let head = (0..at)
+        .rev()
+        .find(|&i| outer(lines[i]) && !literal[i] && !lines[i].starts_with("//"))?;
+    if SHAPES[Shape::Function as usize].is_match(lines[head]) && !HEAD.is_match(lines[head]) {
+        return Some((0..0, false));
+    }
+    if !HEAD.is_match(lines[head]) {
+        return None;
+    }
+    let end = (at..lines.len())
+        .find(|&i| lines[i].starts_with('}'))
+        .unwrap_or(lines.len());
+    let open = (head..end)
+        .find(|&i| lines[i].contains('{'))
+        .unwrap_or(head);
+    let supers = SUPERS.is_match(&lines[head..=open].join(" "));
+    Some((head + 1..end + 2, supers))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct DartType {
+    pub prefix: Option<String>,
+    pub class: String,
+    pub constructor: Option<String>,
+}
+
+const DART_NEW: &str = r"(?:const\s+|new\s+)?(?:([a-z_$][\w$]*)\.)?([A-Z][\w$]*)(?:\.([A-Za-z_$][\w$]*))?\s*(?:<[^()]*>)?\s*\(";
+
+fn dart_new(s: &str, c: &regex::Captures, open: usize) -> Option<(DartType, usize)> {
+    let close = close_of(Kind::Dart, s, open)?;
+    let owned = |i: usize| c.get(i).map(|m| m.as_str().to_owned());
+    let ty = DartType {
+        prefix: owned(1),
+        class: owned(2)?,
+        constructor: owned(3),
+    };
+    Some((ty, close))
+}
+
+pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
+    let w = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name");
+    let declared = rule(format!(
+        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const)\s+)*(?:([a-z_$][\w$]*)\.)?([A-Z][\w$]*)(?:<[^()]*>)?\??\s+{w}\s*(?:[,)=;}}\]]|$)"
+    ));
+    let assigned = rule(format!(r"(?:final|var|const|late)\s+{w}\s*=\s*{DART_NEW}"));
+    let closure = rule(format!(
+        r"[(,]\s*{w}\s*(?:,[^()]*)?\)\s*(?:async\s*)?(?:=>|\{{)"
+    ));
+    if [&declared, &assigned, &closure]
+        .iter()
+        .map(|r| r.find_iter(line).count())
+        .sum::<usize>()
+        > 1
+    {
+        return None;
+    }
+    if let Some(c) = declared.captures(line) {
+        return Some(DartType {
+            prefix: c.get(1).map(|m| m.as_str().to_owned()),
+            class: c[2].to_owned(),
+            constructor: None,
+        });
+    }
+    let c = assigned.captures(line)?;
+    let (ty, close) = dart_new(line, &c, c.get(0)?.end() - 1)?;
+    line.get(close..)?
+        .trim_start()
+        .starts_with(';')
+        .then_some(ty)
+}
+
+pub fn dart_cascade(before: &str) -> Option<Result<DartType, String>> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"^\s*{DART_NEW}")).expect("the regex is a literal")
+    });
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([a-z_$][\w$]*)\s*$").expect("the regex is a literal")
+    });
+    let head = before.split("..").next()?;
+    if let Some(c) = NAME.captures(head) {
+        return Some(Err(c[1].to_owned()));
+    }
+    let c = HEAD.captures(head)?;
+    let (ty, close) = dart_new(head, &c, c.get(0)?.end() - 1)?;
+    head.get(close..)?.trim().is_empty().then_some(Ok(ty))
+}
+
+pub fn dart_this_super(text: &str, line0: usize, of_super: bool) -> Option<DartType> {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:class|mixin|enum)\s+([A-Za-z_$][\w$]*)").expect("the regex is a literal")
+    });
+    static EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bextends\s+(?:([a-z_$][\w$]*)\.)?([A-Z][\w$]*)")
+            .expect("the regex is a literal")
+    });
+    let (lines, _) = dart_body_at(text, line0)?;
+    let all: Vec<&str> = text.lines().collect();
+    let head = lines.start.checked_sub(1)?;
+    let open = (head..all.len()).find(|&i| all[i].contains('{'))?;
+    let header = all[head..=open].join(" ");
+    let header = header.split('{').next()?;
+    if !of_super {
+        if header.trim_start().starts_with("extension") {
+            return None;
+        }
+        let class = CLASS.captures(header)?[1].to_owned();
+        return Some(DartType {
+            prefix: None,
+            class,
+            constructor: None,
+        });
+    }
+    if Regex::new(r"\b(?:with|on)\b")
+        .expect("the regex is a literal")
+        .is_match(header)
+    {
+        return None;
+    }
+    let c = EXTENDS.captures(header)?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
     })
 }
