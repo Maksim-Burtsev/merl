@@ -946,6 +946,28 @@ fn a_deleted_string_declares_nothing() {
 }
 
 #[test]
+fn a_deleted_declaration_is_masked_by_the_base_not_the_branch() {
+    let (dir, mut a) = repo_review(
+        "d-deleted-mask",
+        &[
+            ("svc.py", "X = 1\ndef helper(x):\n    return x\n"),
+            ("main.py", "def run():\n    helper(1)\n"),
+        ],
+        &[("svc.py", Some("\"\"\"\ndoc\n\"\"\"\n"))],
+    );
+    a.jump_to(&dir.join("main.py"), 2);
+    a.col = a.line_str().find("helper").unwrap();
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.line_str(), a.deleted.is_some()),
+        (Some(&*dir.join("svc.py")), "def helper(x):", true),
+        "the branch's line 2 is inside a string, the base's is the deleted `def`: {}",
+        a.message
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn d_on_a_deleted_files_line_answers_from_the_base() {
     let (dir, mut a) = moves_review("d-deleted-file");
     let old = "from app.repo import Repo\n\n\ndef use(r: Repo):\n    return r.fetch(1)\n";

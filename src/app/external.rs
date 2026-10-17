@@ -951,7 +951,7 @@ impl App {
         if search::component(&h.path) && kind != Kind::Css {
             self.hidden_of(kind, h)
         } else {
-            (self.file_text(&h.path)).map_or_else(Vec::new, |t| match kind {
+            (self.hit_file_text(h)).map_or_else(Vec::new, |t| match kind {
                 Kind::C => self.c_hidden(&h.path, &t),
                 _ => search::file_literal_lines(kind, &h.path, &t),
             })
