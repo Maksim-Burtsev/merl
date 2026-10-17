@@ -249,7 +249,6 @@ struct Rules {
     annotated: Regex,
     assigned: Regex,
     unknown: Regex,
-    inline: Regex,
     declared_outside: Regex,
     plain_loop_over_a_name: Regex,
     chained_assignment: Regex,
@@ -265,7 +264,6 @@ impl Rules {
             unknown: rule(format!(
                 r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
             )),
-            inline: python_inline(name),
             declared_outside: rule(format!(r"^(global|nonlocal)\s.*\b{n}\b")),
             plain_loop_over_a_name: rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:")),
             chained_assignment: rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]")),
@@ -331,7 +329,7 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
             let value = if let Some(c) = r.plain_loop_over_a_name.captures(t) {
                 Some(Value::Element(c[1].to_owned()))
             } else if r.unknown.is_match(t)
-                || (i == at && r.inline.is_match(t))
+                || (i == at && python_inline(t, name))
                 || python_case_binds(t, name)
             {
                 Some(Value::Unknown)
@@ -376,17 +374,26 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
     }
     out
 }
-fn python_inline(name: &str) -> Regex {
-    let n = regex::escape(name);
-    Regex::new(&format!(
-        r"\bfor\s+[^=]*?\b{n}\b[^=]*?\s+in\b|\blambda\b[^:]*\b{n}\b"
-    ))
-    .expect("an escaped name keeps the pattern valid")
+fn python_inline(t: &str, name: &str) -> bool {
+    static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfor\s+([^=]*?)\s+in\b|\blambda\b([^:]*)").expect("the regex is a literal")
+    });
+    INLINE.captures_iter(t).any(|c| match (c.get(1), c.get(2)) {
+        (Some(targets), _) => names(targets.as_str(), name),
+        (_, Some(params)) => params.as_str().split(',').any(|p| {
+            p.split_once('=')
+                .map_or(p, |(param, _)| param)
+                .trim()
+                .trim_start_matches('*')
+                == name
+        }),
+        _ => false,
+    })
 }
 pub fn python_inline_binds(line: &str, name: &str) -> bool {
     let t = uncommented(Kind::Python, line);
     let t = t.trim_start();
-    !t.starts_with("for ") && !t.starts_with("async for ") && python_inline(name).is_match(t)
+    !t.starts_with("for ") && !t.starts_with("async for ") && python_inline(t, name)
 }
 fn python_case_binds(t: &str, name: &str) -> bool {
     let Some(pattern) = t.strip_prefix("case ") else {
