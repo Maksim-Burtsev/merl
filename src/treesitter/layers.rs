@@ -4,7 +4,7 @@ use syntect::parsing::{ParseState, ScopeStack, SyntaxReference};
 use tree_sitter::{Node, Parser, Point, QueryCursor, Range, StreamingIterator, Tree};
 
 use super::combined::Group;
-use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, point, resolve};
+use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, heads, point, resolve};
 
 const MAX_DEPTH: usize = 8;
 const ANCHOR_ROWS: usize = 64;
@@ -190,6 +190,7 @@ pub fn injections(
     parent: Option<&[Range]>,
     doc: &Doc,
     grouped: bool,
+    ordered: bool,
 ) -> Vec<Injected> {
     let Some(inj) = &lang.injections else {
         return Vec::new();
@@ -202,31 +203,39 @@ pub fn injections(
     };
     let mut out: Vec<Injected> = Vec::new();
     let mut combined: Vec<(usize, usize, usize)> = Vec::new();
-    each_injection(lang, inj, tree, parent, doc, |p, target, ranges, _| {
-        let joined = inj.setting(p, "injection.combined").is_some();
-        if grouped && joined && matches!(target, Target::Tree(_)) {
-            return;
-        }
-        let k = if let Some(k) = out.iter().position(|i| i.target.same(&target)) {
-            k
-        } else {
-            out.push(Injected {
-                target,
-                regions: Vec::new(),
-            });
-            out.len() - 1
-        };
-        if !joined {
-            out[k].regions.push(ranges);
-            return;
-        }
-        if let Some(&(_, _, r)) = combined.iter().find(|(cp, ck, _)| *cp == p && *ck == k) {
-            out[k].regions[r].extend(ranges);
-        } else {
-            combined.push((p, k, out[k].regions.len()));
-            out[k].regions.push(ranges);
-        }
-    });
+    each_injection(
+        lang,
+        inj,
+        tree,
+        parent,
+        doc,
+        ordered,
+        |p, target, ranges, _| {
+            let joined = inj.setting(p, "injection.combined").is_some();
+            if grouped && joined && matches!(target, Target::Tree(_)) {
+                return;
+            }
+            let k = if let Some(k) = out.iter().position(|i| i.target.same(&target)) {
+                k
+            } else {
+                out.push(Injected {
+                    target,
+                    regions: Vec::new(),
+                });
+                out.len() - 1
+            };
+            if !joined {
+                out[k].regions.push(ranges);
+                return;
+            }
+            if let Some(&(_, _, r)) = combined.iter().find(|(cp, ck, _)| *cp == p && *ck == k) {
+                out[k].regions[r].extend(ranges);
+            } else {
+                combined.push((p, k, out[k].regions.len()));
+                out[k].regions.push(ranges);
+            }
+        },
+    );
     out
 }
 
@@ -237,7 +246,7 @@ pub fn members(
     mut found: impl FnMut(usize, &'static Lang, std::ops::Range<usize>, Vec<Range>),
 ) {
     let Some(inj) = &lang.combined else { return };
-    each_injection(lang, inj, tree, None, doc, |p, target, ranges, m| {
+    each_injection(lang, inj, tree, None, doc, true, |p, target, ranges, m| {
         let Target::Tree(child) = target else { return };
         let mut nodes = m.captures().iter().map(|c| c.node);
         let Some(first) = nodes.next() else { return };
@@ -251,54 +260,61 @@ pub fn members(
     });
 }
 
+fn injection(
+    lang: &'static Lang,
+    inj: &Patterns,
+    m: &tree_sitter::QueryMatch,
+    parent: Option<&[Range]>,
+    doc: &Doc,
+) -> Option<(Target, Vec<Range>)> {
+    if !inj.matches(m, doc.bytes) {
+        return None;
+    }
+    let names = inj.query.capture_names();
+    let syntect = lang.name.starts_with("markdown");
+    let p = m.pattern_index;
+    let mut target = match inj.setting(p, "injection.self") {
+        Some(_) => Some(Target::Tree(lang)),
+        None => inj
+            .setting(p, "injection.language")
+            .flatten()
+            .and_then(|n| Target::of(n, syntect)),
+    };
+    let children = inj.setting(p, "injection.include-children").is_some();
+    let mut ranges = Vec::new();
+    for c in m.captures() {
+        let offset = inj.offset(p, c.index);
+        match names[c.index as usize] {
+            "injection.language" => {
+                let r = doc.range(c.node, offset);
+                let text = inj.text(p, c.index, &doc.bytes[r.start_byte..r.end_byte]);
+                target = std::str::from_utf8(&text)
+                    .ok()
+                    .and_then(|n| Target::of(n, syntect));
+            }
+            "injection.content" => ranges.extend(doc.node_ranges(c.node, offset, children)),
+            _ => {}
+        }
+    }
+    let ranges = clip(ranges, parent);
+    Some((target?, ranges)).filter(|(_, r)| !r.is_empty())
+}
+
 fn each_injection(
     lang: &'static Lang,
     inj: &Patterns,
     tree: &Tree,
     parent: Option<&[Range]>,
     doc: &Doc,
+    ordered: bool,
     mut found: impl FnMut(usize, Target, Vec<Range>, &tree_sitter::QueryMatch),
 ) {
-    let mut cursor = QueryCursor::new();
-    cursor.set_byte_range(doc.start..doc.end);
-    let names = inj.query.capture_names();
-    let syntect = lang.name.starts_with("markdown");
-    let mut matches = cursor.matches(&inj.query, tree.root_node(), doc.bytes);
-    while let Some(m) = matches.next() {
-        if !inj.matches(m, doc.bytes) {
-            continue;
+    let range = doc.start..doc.end;
+    heads::each_match(inj, tree.root_node(), &range, doc.bytes, ordered, |m| {
+        if let Some((target, ranges)) = injection(lang, inj, m, parent, doc) {
+            found(m.pattern_index, target, ranges, m);
         }
-        let p = m.pattern_index;
-        let mut target = match inj.setting(p, "injection.self") {
-            Some(_) => Some(Target::Tree(lang)),
-            None => inj
-                .setting(p, "injection.language")
-                .flatten()
-                .and_then(|n| Target::of(n, syntect)),
-        };
-        let children = inj.setting(p, "injection.include-children").is_some();
-        let mut ranges = Vec::new();
-        for c in m.captures() {
-            let offset = inj.offset(p, c.index);
-            match names[c.index as usize] {
-                "injection.language" => {
-                    let r = doc.range(c.node, offset);
-                    let text = inj.text(p, c.index, &doc.bytes[r.start_byte..r.end_byte]);
-                    target = std::str::from_utf8(&text)
-                        .ok()
-                        .and_then(|n| Target::of(n, syntect));
-                }
-                "injection.content" => ranges.extend(doc.node_ranges(c.node, offset, children)),
-                _ => {}
-            }
-        }
-        let Some(target) = target else { continue };
-        let ranges = clip(ranges, parent);
-        if ranges.is_empty() {
-            continue;
-        }
-        found(p, target, ranges, m);
-    }
+    });
 }
 
 pub fn region_start(injected: &[Injected], row: usize) -> usize {
@@ -376,7 +392,10 @@ fn layer(
     for tree in trees {
         let ranges = tree.included_ranges();
         let clip_to = parent.then_some(&ranges[..]);
-        merge(&mut children, injections(lang, tree, clip_to, doc, grouped));
+        merge(
+            &mut children,
+            injections(lang, tree, clip_to, doc, grouped, true),
+        );
     }
     for inj in &children {
         let regions = inj.regions.iter().filter(|r| doc.touches(r));
