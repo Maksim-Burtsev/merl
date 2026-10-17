@@ -36,18 +36,22 @@ impl App {
             .trim_end()
             .strip_suffix("new")
             .is_some_and(|b| !b.ends_with(is_word));
-        if kind == Kind::Jvm
-            && !constructed
+        let members = (kind == Kind::Jvm
             && chain.is_empty()
             && !dotted
             && !before.ends_with("::")
-            && locals.is_empty()
-            && let Some(found) = self.jvm_members(&a.here, &a.text, &a.word)
-        {
+            && locals.is_empty())
+        .then(|| self.jvm_members(&a.here, &a.text, &a.word))
+        .flatten();
+        let nested_type =
+            |c: &Candidate| search::jvm_type_name(&c.hit.text).is_some_and(|name| name == a.word);
+        let nested = constructed && members.as_ref().is_some_and(|f| f.iter().all(nested_type));
+        if !constructed && let Some(found) = members {
             let found = self.jvm_fit_candidates(&a.here, &a.word, a.range.clone(), chain, found);
             return self.show_found(a, found);
         }
         if kind == Kind::Jvm
+            && !nested
             && locals.is_empty()
             && !(dotted && chain.is_empty())
             && !names_itself(kind, self.line_str(), &a.word)
