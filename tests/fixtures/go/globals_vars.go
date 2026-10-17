@@ -7,7 +7,7 @@ var (
 	sharedRepo  = NewRepo()
 )
 
-// The second name of a list has a value the rules do not pair up.
+// The second name of a list takes the value in its own position (#933).
 var spareRepo, spareAudit = NewRepo(), AuditLog{}
 
 // A `var` inside a function, and a line of a raw string, declare nothing for the package.

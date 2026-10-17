@@ -354,9 +354,40 @@ func (s *UserService) Remove(id int, a, b *Repo) (n int, err error) {
     assert_eq!(at(21, "fresh"), [(10, new("Repo"))]);
     assert_eq!(at(21, "shared"), [(3, new("AuditLog"))]);
     assert_eq!(at(12, "item"), [(11, Value::Element("items".into()))]);
-    assert_eq!(at(15, "r"), [(14, Value::Unknown)]);
+    assert_eq!(at(15, "r"), [(14, ty("*Repo"))]);
     assert_eq!(at(18, "repo"), [(17, ty("*UserRepository"))]);
     assert_eq!(at(21, "other"), [(20, Value::Unknown)]);
+}
+
+#[test]
+fn each_name_of_a_go_multi_value_declaration_takes_its_own_value() {
+    let text = "func f() {\n\tk, err := Kettle{}, error(nil)\n\tt, err := Teapot{}, f(a, b)\n\tvar u, w = Urn{}, Cup{}\n\tx, y := pair()\n\tk.Go(t, u, w, x, y)\n}\n";
+    let at = |name| bound_at(Kind::Go, text, 6, name);
+    let new = |t: &str| Value::New(t.into());
+    assert_eq!(at("k"), [(2, new("Kettle"))]);
+    assert_eq!(at("t"), [(3, new("Teapot"))]);
+    assert_eq!(
+        at("err"),
+        [(2, Value::Call("error".into()))],
+        "a `:=` that declares it again in the same block reuses the first"
+    );
+    assert_eq!(at("u"), [(4, new("Urn"))]);
+    assert_eq!(at("w"), [(4, new("Cup"))]);
+    assert_eq!(at("x"), [(5, Value::Call("pair".into()))]);
+    assert_eq!(at("y"), [(5, Value::Unknown)]);
+}
+
+#[test]
+fn a_go_if_header_declares_with_its_value() {
+    let text = "func f() {\n\tk := Kettle{}\n\tif k := (Teapot{}); k.ok {\n\t\tk.Go()\n\t} else if t, ok := (Urn{}), true; ok {\n\t\tt.Go()\n\t}\n\tif v := <-ch; v {\n\t\tv.Go()\n\t}\n}\n";
+    let at = |line, name| bound_at(Kind::Go, text, line, name);
+    assert_eq!(at(4, "k"), [(3, Value::New("Teapot".into()))]);
+    assert_eq!(
+        at(6, "t"),
+        [(3, Value::New("Urn".into()))],
+        "an `else if` is read with the header of its `if`"
+    );
+    assert_eq!(at(9, "v"), [(8, Value::Unknown)]);
 }
 
 #[test]

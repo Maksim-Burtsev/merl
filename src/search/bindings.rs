@@ -1037,6 +1037,8 @@ fn go_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
         &format!(r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"),
     ) {
         out.push(b);
+    } else if let Some(value) = go_header_init(header, name) {
+        out.push(Binding { line1: line, value });
     } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
         out.push(unknown(line));
     }
@@ -1169,6 +1171,36 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
+static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
+        .expect("the regex is a literal")
+});
+fn go_header_init(header: &str, name: &str) -> Option<Value> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\belse\s+)if\s+").expect("the regex is a literal")
+    });
+    let (names, values, at) = HEAD.find_iter(header).find_map(|m| {
+        let [init, _, ..] = split_top(Kind::Go, header.get(m.end()..)?, b';')[..] else {
+            return None;
+        };
+        let c = GO_SHORT.captures(init.trim())?;
+        let at = c[1].split(',').position(|n| n.trim() == name)?;
+        Some((c.get(1)?.as_str(), c.get(2)?.as_str(), at))
+    })?;
+    let e = go_assigned(names, values, at)?.trim();
+    let e = match e.strip_prefix('(').and_then(|i| i.strip_suffix(')')) {
+        Some(inner) if close_of(Kind::Go, e, 0) == Some(e.len()) => inner,
+        _ => e,
+    };
+    Some(value_of(Kind::Go, e))
+}
+fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
+    let parts = split_top(Kind::Go, values, b',');
+    match parts.get(at) {
+        Some(v) if parts.len() == names.split(',').count() => Some(v),
+        _ => (at == 0).then_some(values),
+    }
+}
 fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     let items: Vec<&str> = split_top(Kind::Go, params, b',')
         .into_iter()
@@ -1197,10 +1229,6 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     }
 }
 fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
-    static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
-            .expect("the regex is a literal")
-    });
     static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
@@ -1246,11 +1274,10 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
             let list =
                 |s: &str| -> Vec<String> { s.split(',').map(|p| p.trim().to_owned()).collect() };
             if let Some(c) = GO_SHORT.captures(t) {
-                match list(&c[1]).iter().position(|p| p == name) {
-                    Some(0) => value_of(kind, &c[2]),
-                    Some(_) => Value::Unknown,
-                    None => return,
-                }
+                let Some(at) = list(&c[1]).iter().position(|p| p == name) else {
+                    return;
+                };
+                go_assigned(&c[1], &c[2], at).map_or(Value::Unknown, |e| value_of(kind, e))
             } else if let Some(c) = GO_VAR.captures(t) {
                 match (
                     list(&c[1]).iter().position(|p| p == name),
@@ -1259,7 +1286,8 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 ) {
                     (None, ..) => return,
                     (Some(_), Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-                    (Some(0), None, Some(v)) => value_of(kind, v.as_str()),
+                    (Some(at), None, Some(v)) => go_assigned(&c[1], v.as_str(), at)
+                        .map_or(Value::Unknown, |e| value_of(kind, e)),
                     _ => Value::Unknown,
                 }
             } else if t
