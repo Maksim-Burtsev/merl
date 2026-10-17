@@ -675,3 +675,30 @@ fn a_keyword_argument_names_no_variable() {
     assert!(!at("make(size == 1)", 1, "size"));
     assert!(!at("size = 1", 1, "size"));
 }
+
+#[test]
+fn literal_overloads_keep_the_matches_and_the_unknown_when_one_matches() {
+    let overloads = vec![
+        Some(vec![Some("int"), Some("string")]),
+        Some(vec![Some("string")]),
+        None,
+        Some(vec![None]),
+        Some(vec![Some("int")]),
+    ];
+    let pick = |args: &[&str]| literal_overloads(overloads.clone(), args, Clone::clone);
+    assert_eq!(
+        pick(&["int"]),
+        [
+            Some(vec![Some("int"), Some("string")]),
+            None,
+            Some(vec![Some("int")])
+        ],
+        "an overload whose parameters are unread stays"
+    );
+    assert_eq!(pick(&["bool"]), overloads, "no match keeps them all");
+    assert_eq!(
+        pick(&["int", "string"]),
+        [Some(vec![Some("int"), Some("string")]), None],
+        "an overload with fewer parameters than arguments is out"
+    );
+}

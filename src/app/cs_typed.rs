@@ -854,27 +854,9 @@ impl App {
         else {
             return hits;
         };
-        let exact: Vec<Option<bool>> = hits
-            .iter()
-            .map(|h| {
-                let takes = search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)?;
-                Some(
-                    takes.len() >= args.len()
-                        && args
-                            .iter()
-                            .zip(&takes)
-                            .all(|(a, t)| t.as_deref() == Some(*a)),
-                )
-            })
-            .collect();
-        if !exact.contains(&Some(true)) {
-            return hits;
-        }
-        hits.into_iter()
-            .zip(exact)
-            .filter(|(_, e)| *e != Some(false))
-            .map(|(h, _)| h)
-            .collect()
+        search::literal_overloads(hits, &args, |h| {
+            search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)
+        })
     }
 }
 
