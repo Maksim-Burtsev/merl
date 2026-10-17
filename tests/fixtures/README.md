@@ -235,7 +235,9 @@ two files, `using static` beside a member of the same name, overloads, `base.`, 
 interface implementation, a lambda parameter hiding a local and a `using` alias of
 `Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
 initializer list, overloads, ADL beside a global namesake, a qualified definition of
-`stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block.
+`stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block;
+`caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
+and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,

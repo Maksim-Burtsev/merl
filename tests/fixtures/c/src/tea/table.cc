@@ -9,8 +9,8 @@ int set_table() {
   //     ^ d: include/tea/kettle.hh:41
   infuse::Teapot pot;
   return steep(leaf) + steep(4) + stale::steep(5) + near.decant(1) + far.decant(1) + pot.decant(1);
-  //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
-  //                   ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:44 (#944)
+  //     ^ d: src/tea/kettle.cc:39
+  //                   ^ d: src/tea/kettle.cc:44
   //                                     ^ d: src/tea/table.cc:3
   //                                                     ^ d: src/tea/kettle.cc:23
   //                                                                     ^ d: include/tea/kettle.hh:43
@@ -43,7 +43,7 @@ using infuse::steep;
 int steep_again() {
   infuse::Leaf leaf{1};
   return steep(leaf);
-  //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
+  //     ^ d: src/tea/kettle.cc:39
 }
 
 int cosy() {

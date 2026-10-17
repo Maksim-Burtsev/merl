@@ -345,6 +345,82 @@ impl App {
             .filter(|_| keep.next().unwrap_or(true))
             .collect()
     }
+
+    pub(super) fn cpp_free_call(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        start: usize,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        let on = |h: &Hit| h.path == here && h.line1 == self.line + 1;
+        if hits.len() < 2 || self.c_source() || self.objc_file() || hits.iter().any(on) {
+            return hits;
+        }
+        let Some((visible, args)) = self.cpp_visible(here, text, word, start, &hits) else {
+            return hits;
+        };
+        let mut keep = visible.into_iter();
+        let hits: Vec<Hit> = hits
+            .into_iter()
+            .filter(|_| keep.next().unwrap_or(true))
+            .collect();
+        self.cpp_viable_only(word, &args, hits, |h| h)
+    }
+
+    fn cpp_visible(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        start: usize,
+        hits: &[Hit],
+    ) -> Option<(Vec<bool>, Vec<search::CppArg>)> {
+        let code = search::c_code(text);
+        let pos = offset(text, self.line, start);
+        let ctx = search::cpp_call_namespaces(&code, pos)?;
+        let mut usings = search::cpp_usings(&code, word, pos).ok()?;
+        for f in self.c_reached(here) {
+            if f.is_absolute() || f == here {
+                continue;
+            }
+            let Some(t) = self.text_of(&f) else {
+                continue;
+            };
+            let c = search::c_code(&t);
+            usings.extend(search::cpp_usings(&c, word, c.len()).ok()?);
+        }
+        let spaces = (hits.iter())
+            .map(|h| search::cpp_function_namespace(&self.text_of(&h.path)?, h.line1, word).ok())
+            .collect::<Option<Vec<_>>>()?;
+        let args = self.cpp_call_args(here, text)?;
+        let mut adl = Vec::new();
+        for arg in &args {
+            match arg {
+                search::CppArg::Class(ns) => adl.push(ns.clone()),
+                search::CppArg::NonZeroInt | search::CppArg::Str | search::CppArg::Literal => {}
+                search::CppArg::Name(_) | search::CppArg::Other => return None,
+            }
+        }
+        let ordinary = (0..=ctx.len())
+            .rev()
+            .map(|k| {
+                (spaces.iter())
+                    .map(|s| {
+                        s.as_ref().is_some_and(|s| {
+                            s.as_slice() == &ctx[..k] || (k == 0 && usings.contains(s))
+                        })
+                    })
+                    .collect::<Vec<bool>>()
+            })
+            .find(|v| v.contains(&true))
+            .unwrap_or_else(|| vec![false; hits.len()]);
+        let visible: Vec<bool> = (spaces.iter().zip(ordinary))
+            .map(|(s, o)| o || s.as_ref().is_some_and(|s| adl.contains(s)))
+            .collect();
+        visible.contains(&true).then_some((visible, args))
+    }
 }
 
 fn cpp_namesake(

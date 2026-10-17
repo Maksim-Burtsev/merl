@@ -347,6 +347,88 @@ fn brace(code: &str, open: usize) -> Brace {
     }
 }
 
+pub fn cpp_call_namespaces(code: &str, pos: usize) -> Option<Vec<String>> {
+    let mut out: Vec<String> = Vec::new();
+    let mut at = pos;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
+        match brace(code, open) {
+            Brace::Namespace(n) => out = [n, out].concat(),
+            Brace::Linkage | Brace::Code => {}
+            Brace::Class | Brace::Unknown => return None,
+        }
+        at = open;
+    }
+    Some(out)
+}
+
+pub fn cpp_function_namespace(
+    text: &str,
+    line1: usize,
+    word: &str,
+) -> Result<Option<Vec<String>>, ()> {
+    static QUALIFIER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b((?:\w+\s*::\s*)+)$").expect("the regex is a literal"));
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, word, Some('('))
+        .first()
+        .ok_or(())?;
+    let mut out: Vec<String> = Vec::new();
+    let mut pos = at;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), pos) {
+        match brace(&code, open) {
+            Brace::Namespace(n) => out = [n, out].concat(),
+            Brace::Linkage => {}
+            Brace::Class
+                if !text
+                    .lines()
+                    .nth(line1 - 1)
+                    .is_some_and(|l| l.contains("friend")) =>
+            {
+                return Ok(None);
+            }
+            Brace::Class | Brace::Code | Brace::Unknown => return Err(()),
+        }
+        pos = open;
+    }
+    if let Some(q) = QUALIFIER.captures(code.get(..at).unwrap_or_default()) {
+        out.extend(
+            q[1].split("::")
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned),
+        );
+    }
+    Ok(Some(out))
+}
+
+pub fn cpp_usings(code: &str, word: &str, pos: usize) -> Result<Vec<Vec<String>>, ()> {
+    static DIRECTIVE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\busing\s+namespace\b").expect("the regex is a literal"));
+    if DIRECTIVE.is_match(code) {
+        return Err(());
+    }
+    let re = Regex::new(&format!(
+        r"\busing\s+((?:\w+\s*::\s*)+){}\s*;",
+        regex::escape(word)
+    ))
+    .map_err(|_| ())?;
+    let mut out = Vec::new();
+    for c in re.captures_iter(code) {
+        let start = c.get(0).map_or(0, |m| m.start());
+        match (c_innermost_open_brace(code.as_bytes(), start), start < pos) {
+            (Some(_), _) => return Err(()),
+            (None, true) => out.push(
+                (c[1].split("::").map(str::trim))
+                    .filter(|p| !p.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
+            ),
+            (None, false) => {}
+        }
+    }
+    Ok(out)
+}
+
 pub fn cpp_plain_class_namespace(code: &str, open: usize) -> Option<Vec<String>> {
     static BASE_OR_TEMPLATE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"\btemplate\b|(?:^|[^:]):(?:[^:]|$)").expect("the regex is a literal")
@@ -423,5 +505,45 @@ mod tests {
         assert!(!out("int f(const char* s, ...);", r#"f("a", 1, 2)"#));
         assert!(!out("int f(Leaf leaf);", "f(1)"));
         assert!(!out("int f(const long& n);", "f(x)"));
+    }
+
+    #[test]
+    fn an_unqualified_call_sees_its_namespaces_and_the_usings_before_it() {
+        let code = "namespace a {\nint g() {\n  return f(1);\n}\n}\nusing b::f;\nstruct S {\nint h() { return f(2); }\n};\n";
+        let code = c_code(code);
+        assert_eq!(
+            cpp_call_namespaces(&code, code.find("f(1)").expect("a call")),
+            Some(vec!["a".into()])
+        );
+        assert_eq!(
+            cpp_call_namespaces(&code, code.find("f(2)").expect("a call")),
+            None
+        );
+        let tried = c_code("int S::g() try {\n  return f(3);\n} catch (...) {}");
+        assert_eq!(
+            cpp_call_namespaces(&tried, tried.find("f(3)").expect("a call")),
+            None
+        );
+        assert_eq!(
+            cpp_usings(&code, "f", code.find("f(1)").expect("a call")),
+            Ok(vec![])
+        );
+        assert_eq!(
+            cpp_usings(&code, "f", code.len()),
+            Ok(vec![vec!["b".into()]])
+        );
+        assert_eq!(cpp_usings("using namespace b;", "f", 0), Err(()));
+        assert_eq!(cpp_usings("void g() { using b::f; }", "f", 0), Err(()));
+        let ns = |text: &str, line1| cpp_function_namespace(text, line1, "f");
+        assert_eq!(
+            ns("namespace a::b {\nint f(int);\n}", 2),
+            Ok(Some(vec!["a".into(), "b".into()]))
+        );
+        assert_eq!(ns("int a::f(int n) {}", 1), Ok(Some(vec!["a".into()])));
+        assert_eq!(ns("struct S {\n  int f(int);\n};", 2), Ok(None));
+        assert_eq!(ns("struct S {\n  friend int f(S);\n};", 2), Err(()));
+        assert_eq!(ns("namespace {\nint f(int);\n}", 2), Err(()));
+        assert_eq!(ns("inline namespace v1 {\nint f(int);\n}", 2), Err(()));
+        assert_eq!(ns("extern \"C\" {\nint f(int);\n}", 2), Ok(Some(vec![])));
     }
 }
