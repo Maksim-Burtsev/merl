@@ -732,7 +732,22 @@ pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
                 && !l.trim_end().ends_with(';')
         })
         .and_then(|l| l.split_once('('))
-        .is_some_and(|(_, params)| names(params, word))
+        .is_some_and(|(_, params)| {
+            let mut depth = 0usize;
+            let end = params.find(|c| match c {
+                '(' => {
+                    depth += 1;
+                    false
+                }
+                ')' if depth == 0 => true,
+                ')' => {
+                    depth -= 1;
+                    false
+                }
+                _ => false,
+            });
+            names(&params[..end.unwrap_or(params.len())], word)
+        })
 }
 pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
     let key = Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
