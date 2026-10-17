@@ -39,7 +39,10 @@ impl App {
         let arrow_param = kind == Kind::TsJs
             && !a.dotted
             && search::ts_arrow_param(self.line_str(), word, range.start);
-        if own_arrow || arrow_param {
+        let swift_closure = kind == Kind::Swift
+            && !a.dotted
+            && search::swift_closure_param(self.line_str(), word, range.start);
+        if own_arrow || arrow_param || swift_closure {
             locals = vec![self.line + 1];
         }
         if !locals.is_empty() {
