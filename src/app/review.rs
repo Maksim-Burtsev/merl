@@ -147,6 +147,13 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
+        if dir > 0
+            && self.hunk_left(&r).is_none()
+            && let Some(t) = self.unseen_in_hunk()
+        {
+            self.stand_on(t);
+            return;
+        }
         let next = match self.next_hunk(&r, dir) {
             Next::Back(rel, h) => {
                 let path = self.root.join(rel);
@@ -203,6 +210,48 @@ impl App {
             format!("{end} hunk of the review")
         });
         self.mark_viewed(read.take());
+    }
+
+    pub fn note_seen(&mut self) {
+        let Some(rel) = self.rel_current().filter(|_| self.review.is_some()) else {
+            return;
+        };
+        let mut at = (self.top_line, self.top_row);
+        let mut rows = Vec::new();
+        for _ in 0..self.view_h.saturating_sub(self.pinned(self.top_line).len()) {
+            rows.push(self.line_at_row(at.0, at.1).0);
+            at = self.forward_rows(at, 1);
+        }
+        self.seen.entry(rel).or_default().extend(rows);
+    }
+
+    fn unseen_in_hunk(&self) -> Option<TextLine> {
+        let rel = self.rel_current()?;
+        if self.viewed.contains_key(&rel) || self.folded_here().is_some() {
+            return None;
+        }
+        let at = self.hunk_place(self.at());
+        let start = self.diff.hunks.iter().rev().find(|&&h| h <= at)?;
+        let mut pos = (start.key(), 0);
+        let mut rows = Vec::new();
+        loop {
+            let t = self.line_at_row(pos.0, pos.1).0;
+            if matches!(t, TextLine::File(l) if !self.diff.marks.contains_key(&l)) {
+                break;
+            }
+            rows.push(t);
+            let next = self.forward_rows(pos, 1);
+            if next == pos {
+                break;
+            }
+            pos = next;
+        }
+        if rows.len() <= self.view_h {
+            return None;
+        }
+        let seen = self.seen.get(&rel);
+        rows.into_iter()
+            .find(|t| *t > self.at() && !seen.is_some_and(|s| s.contains(t)))
     }
 
     pub(super) fn next_hunk(&self, r: &git::Review, dir: isize) -> Next {
@@ -545,6 +594,7 @@ impl App {
         }
         if switched {
             self.last_hunk = None;
+            self.seen.clear();
         }
         let closed = if switched { self.session.take() } else { None };
         let reopen = closed.is_some();
