@@ -272,3 +272,63 @@ fn an_anonymous_class_s_import_name_lasts_one_d() {
         "a name an earlier d left behind is not this d's"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn a_review_folder_reads_its_workspace_packages_as_your_checkout_reads_its_own() {
+    let main = "import { helper, fresh, stale, gone } from \"@app/shared\";\nimport * as sh from \"@app/shared\";\n\nhelper();\nfresh();\nstale();\ngone();\nsh.helper();\nsh.fresh();\nsh.stale();\n";
+    let shared = "packages/shared/index.ts";
+    let mine = "export function helper() {}\nexport function fresh() {}\n";
+    let theirs = "export function helper() {}\nexport function stale() {}\n";
+    let outside = [
+        (
+            "node_modules/other/node_modules/@app/shared/index.d.ts",
+            "export declare function gone(): void;\nexport declare function stale(): void;\n",
+        ),
+        (
+            "node_modules/lib/index.d.ts",
+            "export declare function fresh(): void;\n",
+        ),
+    ];
+    let link = |node_modules: &Path| {
+        std::fs::create_dir_all(node_modules.join("@app")).unwrap();
+        std::os::unix::fs::symlink("../../packages/shared", node_modules.join("@app/shared"))
+            .unwrap();
+    };
+    let files = [("src/main.ts", main), (shared, mine)];
+    let (own, mut checkout) = project_app("ts-workspace-checkout", &files);
+    write_outside(&own, &outside);
+    link(&own.join("node_modules"));
+    let (folder, mut review) = project_app("ts-workspace-review", &files);
+    let yours = folder.with_extension("yours");
+    drop(std::fs::remove_dir_all(&yours));
+    write_outside(&yours, &[(shared, theirs)]);
+    write_outside(&yours, &outside);
+    link(&yours.join("node_modules"));
+    std::os::unix::fs::symlink(yours.join("node_modules"), folder.join("node_modules")).unwrap();
+    let codes = [
+        "^helper",
+        "^fresh",
+        "^stale",
+        "^gone",
+        "sh.helper",
+        "sh.fresh",
+        "sh.stale",
+    ];
+    let answers = |a: &mut App| {
+        (codes.iter())
+            .map(|code| {
+                d_on(a, "src/main.ts", code);
+                (*code, shown(a))
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        answers(&mut review),
+        answers(&mut checkout),
+        "the reviewed branch's own package, never the copy in your checkout its node_modules links to"
+    );
+    for dir in [own, folder, yours] {
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}

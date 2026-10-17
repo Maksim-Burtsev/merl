@@ -409,6 +409,14 @@ const NODE_BUILTINS: &[&str] = &[
     "readline", "repl", "stream", "string_decoder", "sys", "timers", "tls", "trace_events", "tty",
     "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
 ];
+fn project_s_own(root: &Path, project: Option<&Path>, level: &Path, dir: &Path) -> Option<PathBuf> {
+    let rel = level.strip_prefix(root).ok()?;
+    let real = level.canonicalize().ok()?;
+    let tree = real.ancestors().nth(rel.components().count())?;
+    let project = project.filter(|_| real.ends_with(rel))?;
+    let own = project.join(dir.strip_prefix(tree).ok()?);
+    (in_copy(&own, &[project.to_path_buf()]) && own.is_dir()).then_some(own)
+}
 pub fn package_copy(
     root: &Path,
     roots: &[PathBuf],
@@ -445,6 +453,7 @@ pub fn package_copy(
         let dirs: Vec<PathBuf> = [&name, &types]
             .iter()
             .filter_map(|d| level.join(d).canonicalize().ok())
+            .map(|d| project_s_own(root, project.as_deref(), level, &d).unwrap_or(d))
             .collect();
         if dirs.is_empty() {
             continue;
