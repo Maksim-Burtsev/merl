@@ -40,6 +40,7 @@ impl App {
         }
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
+            self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);

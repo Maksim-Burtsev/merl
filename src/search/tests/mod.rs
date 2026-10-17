@@ -39,6 +39,7 @@ mod rust;
 mod scope;
 mod solidity;
 mod starlark;
+mod swift;
 mod symbols;
 mod syntax;
 mod types;

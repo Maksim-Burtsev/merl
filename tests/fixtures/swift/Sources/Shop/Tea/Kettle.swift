@@ -59,11 +59,11 @@ extension Kettle {
         }
         boil { [self] in
             self.pour(into: Cup(ounces: 1))
-            //   ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:33 (#983)
+            //   ^ d: Sources/Shop/Tea/Kettle.swift:33
             self.pour(over: Saucer())
-            //   ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:34 (#983)
+            //   ^ d: Sources/Shop/Tea/Kettle.swift:34
             pour(5)
-            // ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:35 (#983)
+            // ^ d: Sources/Shop/Tea/Kettle.swift:35
         }
         _ = lid.knob
         //      ^ d: Sources/Shop/Tea/Kettle.swift:19

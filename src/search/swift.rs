@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, code, comment, indent, literal_lines, names, split_top,
+    Binding, Kind, Value, close_of, code, comment, group, indent, literal_lines, names, split_top,
     swift_mods, uncommented,
 };
 
@@ -158,6 +158,59 @@ pub fn swift_in_top_level_func<S: AsRef<str>>(lines: &[S], literal: &[bool], lin
         let t = uncommented(Kind::Swift, lines[outer - 1].as_ref());
         indent(&t) == 0 && SWIFT_FUNC.is_match(&t)
     }
+}
+pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<Vec<String>> {
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*`?(\w+)`?\s*:").expect("the regex is a literal")
+    });
+    if !lines.get(line0)?.get(after..)?.starts_with('(') {
+        return None;
+    }
+    let g = group(Kind::Swift, lines, line0, after)?;
+    if g.after_close.trim_start().starts_with('{') {
+        return None;
+    }
+    let inner = g.inner_uncommented;
+    if inner.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    Some(
+        split_top(Kind::Swift, &inner, b',')
+            .into_iter()
+            .map(|a| {
+                LABEL
+                    .captures(a)
+                    .map_or_else(|| "_".to_owned(), |c| c[1].to_owned())
+            })
+            .collect(),
+    )
+}
+pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Vec<String>> {
+    let line = lines.get(line0)?;
+    let from = line.find(name)? + name.len();
+    let open = code(Kind::Swift, line)
+        .find(|&(i, c)| i >= from && c == b'(')
+        .map(|(i, _)| i)?;
+    let between = line.get(from..open)?.trim();
+    if !SWIFT_FUNC.is_match(line)
+        || !(matches!(between, "" | "?" | "!") || between.starts_with('<'))
+    {
+        return None;
+    }
+    let inner = group(Kind::Swift, lines, line0, open)?.inner_uncommented;
+    if inner.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    split_top(Kind::Swift, &inner, b',')
+        .into_iter()
+        .map(|p| {
+            let variadic_or_default =
+                p.contains("...") || split_top(Kind::Swift, p, b'=').len() > 1;
+            let names = p.split(':').next().filter(|_| !variadic_or_default)?;
+            let label = names.split_whitespace().next()?;
+            Some(label.trim_matches('`').to_owned())
+        })
+        .collect()
 }
 pub fn swift_instance_member(line: &str) -> bool {
     swift_member_kind(line) == Some(SwiftMember::Instance)
