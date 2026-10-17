@@ -1,4 +1,5 @@
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, bound, search};
+use std::ops::ControlFlow;
 
 impl App {
     pub(super) fn imported_definitions(
@@ -159,11 +160,9 @@ impl App {
             && instance.is_none()
             && path.last().is_some_and(|t| t == "default")
         {
-            hits = self
-                .grep(r"^export\s+default\b", false, false, wanted)
-                .unwrap_or_default();
-            if let Some(found) = self.default_reexported(kind, &hits, depth) {
-                return Some(found);
+            match self.export_default(kind, &files, depth) {
+                ControlFlow::Continue(found) => hits = found,
+                ControlFlow::Break(handed) => return Some(handed),
             }
         }
         if hits.is_empty() && !named && files.iter().all(|f| search::component(f)) {
@@ -332,6 +331,33 @@ impl App {
             })
         });
         hits
+    }
+
+    fn export_default(
+        &self,
+        kind: Kind,
+        files: &[PathBuf],
+        depth: usize,
+    ) -> ControlFlow<Vec<Candidate>, Vec<Hit>> {
+        let wanted = |p: &Path| files.iter().any(|f| f == p);
+        let hits = self
+            .grep(r"^export\s+default\b", false, false, wanted)
+            .unwrap_or_default();
+        if let Some(found) = self.default_reexported(kind, &hits, depth) {
+            return ControlFlow::Break(found);
+        }
+        let declared = match hits.as_slice() {
+            [hit] => search::default_name(&hit.text).map_or_else(Vec::new, |local| {
+                self.declared_inside(
+                    kind,
+                    std::slice::from_ref(&hit.path),
+                    std::slice::from_ref(&local),
+                    &local,
+                )
+            }),
+            _ => Vec::new(),
+        };
+        ControlFlow::Continue(if declared.is_empty() { hits } else { declared })
     }
 
     fn default_reexported(&self, kind: Kind, hits: &[Hit], depth: usize) -> Option<Vec<Candidate>> {

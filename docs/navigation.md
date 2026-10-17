@@ -19,7 +19,7 @@ another package. TypeScript's `./x` reads `x.ts`, `x.tsx`, `x.d.ts`, the JavaScr
 `x/index.*` (`./x.js` finds `x.ts` too), and an alias such as `@/x` goes through the `paths` and
 `baseUrl` of the nearest `tsconfig.json` (or `jsconfig.json`) and the configs it extends. A named import finds that
 name, aliased or not; a default import finds the declaration under its local name, or else the
-module's `export default`; `ns.x` behind `import * as ns` finds `x`. A Go import path below the
+module's `export default`, and behind `export default Name;` the module's own `Name` (#1008); `ns.x` behind `import * as ns` finds `x`. A Go import path below the
 `module` of a `go.mod` in the project is that package's directory. The word must be declared
 directly in the module, or in the class the chain goes through (`UserRepo.create`), so `store.Open`
 never lands on a method called `Open`. The status line names the file or the package:

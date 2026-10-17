@@ -37,3 +37,4 @@ export const shopName = settings.SHOP_NAME;
 //                               status: SHOP_NAME → ShopSettings.SHOP_NAME (via settings: ShopSettings)
 export const ledgerName = ledgerConf.LEDGER_NAME;
 //                                   ^ d: shop/ledger_settings.ts:3
+//                        ^ d: shop/ledger_settings.ts:6
