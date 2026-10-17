@@ -1,4 +1,4 @@
-wait 14:32
+wait :10
 ┌orders──────────────────────┐ 1 """Settings, read from the environment once at
 │▸ .github                   │   startup."""
 │▸ .venv                     │ 2 import os
@@ -22,5 +22,5 @@ wait 14:32
 │  docker-compose.yml        │18         page_size=int(os.environ.
 │  Dockerfile                │           get("PAGE_SIZE", "50")),
 └────────────────────────────┘19     )
-app/config.py  10:1  [code]                                               14:32
-cursor (x,y,shown) 33,10,1
+:10
+cursor (x,y,shown) 3,23,1

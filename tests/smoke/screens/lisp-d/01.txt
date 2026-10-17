@@ -53,5 +53,5 @@ wait Open a file (fuzzy)
 │                            │
 │                            │
 └────────────────────────────┘
-orders/  [tree]                                                                                                                                                                    14:32
+                                                                                                                                                                                   14:32
 cursor (x,y,shown) 185,54,0

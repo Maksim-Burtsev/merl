@@ -6,10 +6,13 @@ merl --drill 3
 wait Drill 1/3
 merl --keys
 wait merl exited: 0
-# plain `merl` with no file to open: the start screen, its status bar with no cursor position,
-# only the project and the pane (#285)
+# plain `merl` with no file to open: the start screen, its status bar with no cursor position
+# (#285), no project and no pane, only the clock (#302); a message, `[` here, starts at the left
+# edge (#302)
 merl
 wait Open a file (fuzzy)
+key [
+wait start of history
 # --help prints the flags and exits 0 (#310).
 merl --help
 wait merl exited: 0

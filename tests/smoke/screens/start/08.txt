@@ -1,4 +1,4 @@
-wait Tutor 3/
+wait Tutor 2/
  1 """Storage: every note lives in one JSON file, read and written as a
    whole."""
  2
@@ -18,9 +18,9 @@ wait Tutor 3/
 16     def _read(self) -> list[Note]:
 17         """Load the notes from disk; a missing file means no notes yet."""
 18         if not self.config.path.exists():
-Tutor 3/23 · Next match
-The file is searched for `load_config`. `n` goes to the next match, `N` to the
-previous one; `/` again brings the query back, selected, to refine it. Press
-`n`: the call inside NoteStore.
-store.py  5:28  [code]  ✓ Find in the file  1/2                           14:32
-cursor (x,y,shown) 30,5,1
+19             return []
+Tutor 2/23 · Find in the file
+Press `/` (or Ctrl+F), type `load_config`, Enter. The search runs as you type.
+
+store.py  1:1  [code]  ✓ Open a file                                      14:32
+cursor (x,y,shown) 3,0,1
