@@ -360,12 +360,12 @@ mod tests {
                     let one = whole(p, root, range.clone(), bytes);
                     let mut ordered = Set::new();
                     each_match(p, root, &range, bytes, true, |m| {
-                        add(&mut ordered, p, m, bytes)
+                        add(&mut ordered, p, m, bytes);
                     });
                     assert_eq!(ordered, one, "{name} {range:?} in order");
                     let mut split = Set::new();
                     each_match(p, root, &range, bytes, false, |m| {
-                        add(&mut split, p, m, bytes)
+                        add(&mut split, p, m, bytes);
                     });
                     split.sort();
                     let mut one = one;
