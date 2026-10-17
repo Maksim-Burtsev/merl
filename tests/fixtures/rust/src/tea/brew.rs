@@ -32,20 +32,20 @@ pub fn inherent(k: &Kettle) -> u32 {
 pub fn by_trait(k: &Kettle) -> u32 {
     Pour::pour(k) + <Kettle as Pour>::pour(k)
 //  ^ d: src/tea/kettle.rs:24
-//        ^ d: src/tea/kettle.rs:25; want src/tea/kettle.rs:38 (#988)
-//                                    ^ d: picker src/tea/cups.rs:5, src/tea/kettle.rs:12, src/tea/kettle.rs:25, src/tea/kettle.rs:34, src/tea/kettle.rs:38, src/tea/teapot.rs:8; want src/tea/kettle.rs:38 (#988)
+//        ^ d: src/tea/kettle.rs:38
+//                                    ^ d: src/tea/kettle.rs:38
 }
 
 pub fn two_traits(p: &Pot) -> u32 {
     Pour::pour(p) + Spill::pour(p) + <Pot as Spill>::pour(p)
-//        ^ d: src/tea/kettle.rs:25; want src/tea/cups.rs:5 (#988)
-//                         ^ d: src/tea/kettle.rs:34; want src/tea/teapot.rs:8 (#988)
-//                                                   ^ d: picker src/tea/cups.rs:5, src/tea/kettle.rs:12, src/tea/kettle.rs:25, src/tea/kettle.rs:34, src/tea/kettle.rs:38, src/tea/teapot.rs:8; want src/tea/teapot.rs:8 (#988)
+//        ^ d: src/tea/cups.rs:5
+//                         ^ d: src/tea/teapot.rs:8
+//                                                   ^ d: src/tea/teapot.rs:8
 }
 
 pub fn bound<T: Spill>(t: &T) -> u32 {
     t.pour()
-//    ^ d: picker src/tea/cups.rs:5, src/tea/kettle.rs:12, src/tea/kettle.rs:25, src/tea/kettle.rs:34, src/tea/kettle.rs:38, src/tea/teapot.rs:8; want src/tea/kettle.rs:34 (#989)
+//    ^ d: src/tea/kettle.rs:34
 }
 
 pub fn twice(k: &Kettle) -> u32 {
@@ -71,7 +71,7 @@ pub fn reexports() -> u32 {
 
 pub fn generated() -> u32 {
     let c = super::kettle::Caddy;
-//                         ^ d: none; want src/tea/kettle.rs:66 (#990)
+//                         ^ d: src/tea/kettle.rs:66
     c.rinse()
 //    ^ d: src/tea/kettle.rs:59
 }

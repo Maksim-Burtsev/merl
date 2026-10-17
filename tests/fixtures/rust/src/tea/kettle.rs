@@ -5,7 +5,7 @@ pub struct Kettle {
 impl Kettle {
     pub fn new(water: u32) -> Self {
         Self { water }
-//      ^ d: none; want src/tea/kettle.rs:5 (#987)
+//      ^ d: src/tea/kettle.rs:5
 //             ^ d: src/tea/kettle.rs:6
     }
 
@@ -14,10 +14,10 @@ impl Kettle {
     }
 
     pub fn refill(&self) -> Self {
-//                          ^ d: none; want src/tea/kettle.rs:5 (#987)
+//                          ^ d: src/tea/kettle.rs:5
         Self::new(self.water + 1)
-//      ^ d: none; want src/tea/kettle.rs:5 (#987)
-//            ^ d: picker src/tea/kettle.rs:6, …; want src/tea/kettle.rs:6 (#987)
+//      ^ d: src/tea/kettle.rs:5
+//            ^ d: src/tea/kettle.rs:6
     }
 }
 
@@ -26,7 +26,7 @@ pub trait Pour {
 
     fn twice(&self) -> u32 {
         self.pour() * 2
-//           ^ d: picker src/tea/kettle.rs:12, src/tea/kettle.rs:25, src/tea/kettle.rs:34, src/tea/kettle.rs:38, src/tea/cups.rs:5, src/tea/teapot.rs:8; want src/tea/kettle.rs:25 (#989)
+//           ^ d: src/tea/kettle.rs:25
     }
 }
 
@@ -65,3 +65,8 @@ macro_rules! vessel {
 
 vessel!(Caddy);
 //^ d: src/tea/kettle.rs:54
+
+pub trait Brew {
+    fn brew() -> Self;
+//               ^ d: none
+}
