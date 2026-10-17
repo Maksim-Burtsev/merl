@@ -96,7 +96,7 @@ impl App {
             let ns = name.full.rsplit_once('\\').map_or("", |(ns, _)| ns);
             let reason = match (name.imported, ns) {
                 (true, _) => Reason::Import(name.full.clone()),
-                (false, "") => Reason::Path(short.to_owned()),
+                (false, "") => Reason::ByName,
                 (false, ns) => Reason::Path(ns.to_owned()),
             };
             let found: Vec<Candidate> = hits
