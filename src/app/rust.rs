@@ -972,6 +972,10 @@ impl App {
     }
 
     fn rust_used_type(&self, file: &Path, text: &str, name: &str) -> Option<Typed> {
+        static DECL: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")
+                .expect("the regex is a literal")
+        });
         let mut bound = search::rust_uses(text)
             .into_iter()
             .filter(|u| u.name == name);
@@ -992,10 +996,6 @@ impl App {
         else {
             return None;
         };
-        static DECL: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")
-                .expect("the regex is a literal")
-        });
         let types: Vec<(Hit, String)> = hits
             .into_iter()
             .filter_map(|h| {
