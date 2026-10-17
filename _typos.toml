@@ -23,6 +23,7 @@ PNGs = "PNGs"
 from_numer_denom_ms = "from_numer_denom_ms"
 numer_denom_ms = "numer_denom_ms"
 or_of_ands = "or_of_ands"
+adinNptu = "adinNptu"
 
 [default.extend-words]
 ratatui = "ratatui"
