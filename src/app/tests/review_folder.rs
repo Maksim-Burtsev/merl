@@ -259,18 +259,18 @@ fn d_through_a_folder_s_node_modules_lands_in_its_own_workspace_package() {
         Buffer::load(&folder.join("packages/web/app.css")).unwrap(),
         None,
     );
-    let mut place = |file: &str, code: &str| {
-        d_on(&mut a, file, code);
-        match shown(&mut a) {
+    let place = |a: &mut App, file: &str, code: &str| {
+        d_on(a, file, code);
+        match shown(a) {
             Shown::Jump(_, place) => place,
             Shown::Picker(status, _) => status,
         }
     };
     assert_eq!(
         [
-            place("packages/web/App.sol", "Token"),
-            place("packages/web/app.css", "theme"),
-            place("packages/web/App.sol", "Lib.sol"),
+            place(&mut a, "packages/web/App.sol", "Token"),
+            place(&mut a, "packages/web/app.css", "theme"),
+            place(&mut a, "packages/web/App.sol", "Lib.sol"),
         ],
         [
             "packages/shared/Token.sol:1",
@@ -278,6 +278,19 @@ fn d_through_a_folder_s_node_modules_lands_in_its_own_workspace_package() {
             "node_modules/lib/Lib.sol:1"
         ],
         "a workspace package is the reviewed branch's, a dependency your checkout's"
+    );
+    write(&b, "packages/web/App.sol", app);
+    let mut yours = App::new(
+        b.clone(),
+        crate::tree::from_listing(&[PathBuf::from("packages/web/App.sol")]),
+        Vec::new(),
+        Buffer::load(&b.join("packages/web/App.sol")).unwrap(),
+        None,
+    );
+    assert_eq!(
+        place(&mut yours, "packages/web/App.sol", "Token"),
+        "packages/web/node_modules/@app/shared/Token.sol:1",
+        "your own checkout reads its workspace link as before"
     );
 
     c.git("a", &["rm", "-q", "-r", "packages/web"]);
