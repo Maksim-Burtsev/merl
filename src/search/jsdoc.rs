@@ -222,3 +222,17 @@ pub fn jsdoc_properties(lines: &[&str], line0: usize, name: &str) -> Option<Vec<
     }
     Some(out)
 }
+pub fn jsdoc_braced_at(line: &str, word: Range<usize>) -> bool {
+    let t = line.trim_start();
+    let (Some(before), Some(after)) = (line.get(..word.start), line.get(word.end..)) else {
+        return false;
+    };
+    (t.starts_with("/**") || (t.starts_with('*') && !t.starts_with("*/")))
+        && before.rfind('{') > before.rfind('}')
+        && after
+            .find('}')
+            .is_some_and(|c| after.find('{').is_none_or(|o| c < o))
+}
+pub fn jsdoc_typedef_line(line: &str) -> bool {
+    typedef(line).is_some()
+}

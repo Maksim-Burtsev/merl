@@ -19,7 +19,7 @@ another package. TypeScript's `./x` reads `x.ts`, `x.tsx`, `x.d.ts`, the JavaScr
 `x/index.*` (`./x.js` finds `x.ts` too), and an alias such as `@/x` goes through the `paths` and
 `baseUrl` of the nearest `tsconfig.json` (or `jsconfig.json`) and the configs it extends. A named import finds that
 name, aliased or not; a default import finds the declaration under its local name, or else the
-module's `export default`; `ns.x` behind `import * as ns` finds `x`. A Go import path below the
+module's `export default`, and behind `export default Name;` the module's own `Name` (#1008); a CommonJS module's `exports.name =` a function, a class or an arrow declares `name` for a named import, a destructured `require`, `mod.name` behind a whole `require` and `exports.name` in the module itself, while any other value declares nothing and a whole `require` stays the module (#1007); `ns.x` behind `import * as ns` finds `x`. A Go import path below the
 `module` of a `go.mod` in the project is that package's directory. The word must be declared
 directly in the module, or in the class the chain goes through (`UserRepo.create`), so `store.Open`
 never lands on a method called `Open`. The status line names the file or the package:
@@ -403,7 +403,14 @@ the type before it. The type comes from the declaration:
   require("./repo")` is a type too. The type in the braces is one name, `?T` and `T|null` read
   as `T`, `T[]` and `Array<T>` hand out `T` to a loop; a union of two types, another generic, an
   inline object or function type, `*`, `any`, a block with a blank line under it and a
-  `@typedef` its file declares twice type nothing. A `.ts` file's JSDoc is not read.
+  `@typedef` its file declares twice type nothing. A `.ts` file's JSDoc is not read. `d` on a
+  name inside the braces of a JSDoc line (#1002) lands on the file's `@typedef` of that name, any
+  type, else on the type it reads as; a name nothing declares or imports finds nothing.
+- A constructor function in a `.js`, `.jsx`, `.mjs` or `.cjs` file (#1001): `function Grinder(…)`
+  is a type there, and so is a class assigned to `exports.Roaster`. A member of its instance is a
+  `this.name = …` statement directly in its body, else a `Grinder.prototype.name = …` of its
+  file; a nested function, `Grinder.name` itself and anything else declare nothing. `this` in a
+  `Grinder.prototype.name = function` (and in an arrow inside it) is a `Grinder`.
 - Swift (#384): a parameter's annotation (`lhs: Instant`, `with convertible: URLConvertible`), a
   local's or a property's (`let encoder: FormEncoder`), a construction `FormEncoder()`,
   `FormEncoder.init(…)` or with a trailing closure of a type the project declares (a callee it
@@ -461,7 +468,9 @@ with `(chain broke at x)` past the first name. `via tmpdir() -> TempDir`, `via d
 The innermost scope that declares `x` decides: in Python the function the cursor is in (every
 binding in it, before the cursor or after), else the nearest enclosing function that binds the
 name, else the module; in TypeScript, Go and C# the nearest block around the cursor with a declaration
-above it, a function's parameters counting with its body. So a local hides a module-level name, a
+above it, a function's parameters counting with its body; a `var` found so is one variable with
+each `var` of its name below it in the blocks (`if`, `for`, `try` …) of the same function, and
+`d` offers them all (#1003). So a local hides a module-level name, a
 closure's variable the one of the function around it, a block's the function's. The declarations
 of that one scope must all read the same type, and one that reads none (a loop variable, a
 parameter with no annotation) hides the outer ones all the same, so nothing is guessed: two

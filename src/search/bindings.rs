@@ -622,6 +622,9 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
     if let Some(c) = THIS_PARAM.captures(header) {
         return Some(Value::Type(c[1].to_owned()));
     }
+    if let Some(owner) = super::prototype_owner(header) {
+        return Some(Value::Type(owner.to_owned()));
+    }
     let before = header.strip_suffix('{').map(str::trim_end);
     let case = (header.starts_with("case ") || header.starts_with("default"))
         && before.is_some_and(|b| b.ends_with(':'));

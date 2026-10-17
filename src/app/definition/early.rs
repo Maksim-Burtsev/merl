@@ -295,6 +295,39 @@ impl App {
             self.show_definitions(kind, &a.word, &a.here, found, broke.as_deref());
             return true;
         }
+        if kind == Kind::TsJs && matches!(a.chain.join(".").as_str(), "exports" | "module.exports")
+        {
+            let lines = search::cjs_exported_lines(&a.text, &a.word);
+            if !lines.is_empty() {
+                let found = self.lines_here(a, lines, &Reason::Path(a.chain.join(".")));
+                return self.show_found(a, found);
+            }
+        }
+        if search::reads_jsdoc(kind, &a.here)
+            && a.chain.is_empty()
+            && !a.dotted
+            && search::jsdoc_braced_at(self.line_str(), a.range.clone())
+        {
+            let found: Vec<Hit> = match &search::jsdoc_typedefs(&a.text, &a.word)[..] {
+                [] => self
+                    .type_decl(kind, &a.here, &a.word)
+                    .map(|ty| self.export_hit(&ty.path, ty.line))
+                    .into_iter()
+                    .collect(),
+                typedefs => typedefs
+                    .iter()
+                    .map(|t| self.line_hit(&a.here, t.line1))
+                    .collect(),
+            };
+            let found = found
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Path("JSDoc".to_owned()),
+                })
+                .collect();
+            return self.show_found(a, found);
+        }
         if kind == Kind::Python
             && let Some(module) = search::python_import_module(self.line_str(), a.range.start)
         {

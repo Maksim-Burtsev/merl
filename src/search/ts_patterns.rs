@@ -323,3 +323,43 @@ pub fn ts_merged_namespace(text: &str, line1: usize, word: &str) -> Vec<usize> {
     }
     out
 }
+pub fn ts_var_again(text: &str, first: usize, name: &str) -> Vec<usize> {
+    let var = Regex::new(&format!(r"^\s*var\s+{}\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(f) = first
+        .checked_sub(1)
+        .filter(|&f| lines.get(f).is_some_and(|l| var.is_match(l)))
+    else {
+        return Vec::new();
+    };
+    let literal = literal_lines(Kind::TsJs, text);
+    let skipped = |i: usize| lines[i].trim().is_empty() || literal.get(i) == Some(&true);
+    let home = indent(lines[f]);
+    let blocks_only = |i: usize| {
+        let mut depth = indent(lines[i]);
+        (f + 1..i).rev().filter(|&j| !skipped(j)).all(|j| {
+            if indent(lines[j]) >= depth {
+                return true;
+            }
+            depth = indent(lines[j]);
+            let t = lines[j].trim_start();
+            t.starts_with(['{', '}'])
+                || [
+                    "if", "else", "for", "while", "do", "try", "catch", "finally", "switch",
+                    "case", "default",
+                ]
+                .iter()
+                .any(|k| {
+                    t.strip_prefix(k).is_some_and(|r| {
+                        !r.starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '$')
+                    })
+                })
+        })
+    };
+    (f + 1..lines.len())
+        .take_while(|&i| skipped(i) || indent(lines[i]) >= home)
+        .filter(|&i| !skipped(i) && var.is_match(lines[i]) && blocks_only(i))
+        .map(|i| i + 1)
+        .collect()
+}
