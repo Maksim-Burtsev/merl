@@ -1020,8 +1020,9 @@ fn a_capture_s_background_wins_over_the_cursor_line_and_under_a_selection() {
     app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
     assert_eq!(
         paint(&mut app),
-        "#++---",
-        "a selection paints over @diff.plus, as Visual does in Neovim"
+        "#++...",
+        "a selection paints over @diff.plus, as Visual does in Neovim, and takes the band off \
+         the rest of the line (#554)"
     );
 }
 
