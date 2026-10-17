@@ -16,11 +16,11 @@ impl App {
 
     pub(super) fn start_find(&mut self) {
         self.mode = Mode::Find;
+        self.find_reach = crate::buffer::reached();
         let seed = self.one_line_selection();
         let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
         self.prompt = LineEdit::selected(seed.as_deref().unwrap_or(last)).capped(FIND_CAP);
         self.find_anchor = (self.at(), self.col);
-        self.find_reach = crate::buffer::reached();
         self.find_sel = self.anchor.take();
         if seed.is_some() {
             self.refresh_find();
