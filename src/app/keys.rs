@@ -383,7 +383,8 @@ impl App {
         chord.modifiers.contains(KeyModifiers::CONTROL)
             && (chord.modifiers.contains(KeyModifiers::SHIFT)
                 || !c.is_ascii_lowercase()
-                || self.letters_are_keys() && !self.binds(chord))
+                || (self.letters_are_keys() || key.modifiers.contains(KeyModifiers::ALT))
+                    && !self.binds(chord))
     }
 
     fn letters_are_keys(&self) -> bool {

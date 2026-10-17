@@ -123,8 +123,17 @@ fn cmd_letter_other_than_c_and_x_does_nothing() {
     for c in ['o', 's', 't', 'w', 'p', 'q', 'j', '?', 'C'] {
         assert!(!press(&mut a, KeyCode::Char(c), cmd), "Cmd+{c}");
         assert!(a.picker.is_none() && !a.show_tree, "Cmd+{c}");
+        assert!(a.wrap_opposite_of_kind.is_empty(), "Cmd+{c}");
         assert_eq!((a.mode, a.line), (Mode::Normal, 0), "Cmd+{c}");
     }
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('a'), cmd);
+    assert_eq!(a.picker.as_ref().map(|p| &*p.query), Some(""));
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
+    press(&mut a, KeyCode::Char('c'), cmd | KeyModifiers::SHIFT);
+    assert!(a.clipboard.take().is_some(), "Cmd+Shift+C copies");
+    press(&mut a, KeyCode::Up, KeyModifiers::NONE);
     assert!(!press(&mut a, KeyCode::Char('o'), cmd | KeyModifiers::ALT));
     assert!(!press(
         &mut a,
@@ -137,6 +146,8 @@ fn cmd_letter_other_than_c_and_x_does_nothing() {
     assert_eq!(a.buf.lines[0], "x");
     press(&mut a, KeyCode::Char('x'), cmd);
     assert_eq!(a.buf.lines.len(), 199, "Cmd+X still cuts the line");
+    press(&mut a, KeyCode::Char('x'), cmd | KeyModifiers::CONTROL);
+    assert_eq!(a.buf.lines.len(), 199, "Cmd+Ctrl+X does not");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
     press(&mut a, KeyCode::Char('o'), cmd);
@@ -151,7 +162,17 @@ fn alt_ctrl_letter_with_an_unbound_ctrl_letter_does_nothing() {
     assert!(!press(&mut a, KeyCode::Char('q'), alt_ctrl));
     assert_eq!(a.mode, Mode::Help, "the overlay stays open");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('q'), alt_ctrl);
+    assert!(a.picker.is_some(), "the picker stays open");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     find(&mut a, "x");
+    press(&mut a, KeyCode::Char('q'), alt_ctrl);
+    assert_eq!(
+        (a.mode, &*a.prompt),
+        (Mode::Find, "x"),
+        "so does the prompt"
+    );
     press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     press(&mut a, KeyCode::Down, KeyModifiers::SHIFT);
     for c in ['q', 't', 'o', 'D'] {
