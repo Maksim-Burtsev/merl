@@ -238,6 +238,8 @@ initializer list, overloads, ADL beside a global namesake, a qualified definitio
 `stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block;
 `caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
+`leaf_alias.cc` passes an argument typed by a `using` alias named like `infuse::Leaf`, which
+must neither pick an overload nor add a namespace.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
@@ -397,7 +399,9 @@ default-exported `Kettle` imported under two names (one through a chain of `expo
 renaming re-export), `import type`, overloads of `boil`, destructured and renamed parameters
 beside a module-level namesake, `this` in an arrow and in a `function` that declares `this:
 Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
-template literal.
+template literal. `ladle.ts` holds where a constraint must not be read: the result of a
+generic call, typed by its argument rather than the constraint, and a generic call taking a
+callback, which declares no type parameter.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on

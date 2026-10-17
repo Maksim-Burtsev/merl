@@ -718,7 +718,10 @@ function pour<C extends Cup>(
   c: C,
 ): C {
   return c;
-}";
+}
+register<Spout>(function () {
+  return 1;
+});";
     let at = |line, name| ts_type_param(text, line, name).map(|p| (p.line1, p.constraint));
     assert_eq!(at(3, "T"), Some((2, Some("Map<string, S>".into()))));
     assert_eq!(at(3, "U"), Some((2, None)));
@@ -729,6 +732,7 @@ function pour<C extends Cup>(
     assert_eq!(at(13, "C"), Some((10, Some("Cup".into()))));
     assert_eq!(at(11, "C"), Some((10, Some("Cup".into()))));
     assert_eq!(at(13, "K"), None);
+    assert_eq!(at(16, "Spout"), None);
 }
 
 #[test]
