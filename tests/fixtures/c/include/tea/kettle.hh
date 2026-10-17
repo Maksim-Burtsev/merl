@@ -29,7 +29,7 @@ class Urn : public Kettle {
  public:
   Urn() : Kettle(2) {}
   int serve() const { return decant(1) + spout_; }
-  //                         ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27
+  //                         ^ d: src/tea/kettle.cc:23
   //                                     ^ d: include/tea/kettle.hh:20
   int rinse() const override { return Kettle::rinse() + 1; }
   //                                          ^ d: include/tea/kettle.hh:17

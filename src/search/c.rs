@@ -650,7 +650,7 @@ fn control_init(code: &str, from: usize, pos: usize, name: &str) -> Option<usize
     }
     found
 }
-fn close_or_end(code: &str, open: usize, end: usize) -> usize {
+pub(super) fn close_or_end(code: &str, open: usize, end: usize) -> usize {
     let mut depth = 0usize;
     for (i, c) in code.bytes().enumerate().take(end).skip(open) {
         match c {

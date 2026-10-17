@@ -90,24 +90,10 @@ pub fn ts_literal_member(
     if operands.len() < 2 {
         return None;
     }
-    let member = Regex::new(&format!(
-        r"^(?:readonly\s+)?{}\s*\??\s*[:(]",
-        regex::escape(word)
-    ))
-    .expect("an escaped name keeps the pattern valid");
     let declaring: Vec<(&str, usize)> = operands
         .iter()
         .map(|o| o.trim())
-        .filter(|o| o.starts_with('{') && close_of(Kind::TsJs, o, 0) == Some(o.len()))
-        .filter_map(|o| {
-            let inner = o.strip_prefix('{')?.strip_suffix('}')?;
-            let at = split_top(Kind::TsJs, inner, b';')
-                .into_iter()
-                .flat_map(|s| split_top(Kind::TsJs, s, b','))
-                .find(|m| member.is_match(m.trim_start()))?;
-            let offset = at.as_ptr() as usize - o.as_ptr() as usize;
-            Some((o, offset + at.len() - at.trim_start().len()))
-        })
+        .filter_map(|o| Some((o, literal_member_at(o, word)?)))
         .collect();
     let [(literal, offset)] = declaring[..] else {
         return None;
@@ -322,4 +308,167 @@ pub fn ts_merged_namespace(text: &str, line1: usize, word: &str) -> Vec<usize> {
         }
     }
     out
+}
+pub fn ts_var_again(text: &str, first: usize, name: &str) -> Vec<usize> {
+    static OPENS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\b|=>").expect("the regex is a literal")
+    });
+    let var = Regex::new(&format!(r"^\s*var\s+{}\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(f) = first
+        .checked_sub(1)
+        .filter(|&f| lines.get(f).is_some_and(|l| var.is_match(l)))
+    else {
+        return Vec::new();
+    };
+    let literal = literal_lines(Kind::TsJs, text);
+    let skipped = |i: usize| lines[i].trim().is_empty() || literal.get(i) == Some(&true);
+    let home = indent(lines[f]);
+    let blocks_only = |i: usize| {
+        let mut depth = indent(lines[i]);
+        (f + 1..i).rev().filter(|&j| !skipped(j)).all(|j| {
+            if OPENS_FUNCTION.is_match(lines[j]) {
+                return false;
+            }
+            if indent(lines[j]) >= depth {
+                return true;
+            }
+            depth = indent(lines[j]);
+            let t = lines[j].trim_start();
+            t.starts_with(['{', '}'])
+                || [
+                    "if", "else", "for", "while", "do", "try", "catch", "finally", "switch",
+                    "case", "default",
+                ]
+                .iter()
+                .any(|k| {
+                    t.strip_prefix(k).is_some_and(|r| {
+                        !r.starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '$')
+                    })
+                })
+        })
+    };
+    (f + 1..lines.len())
+        .take_while(|&i| skipped(i) || indent(lines[i]) >= home)
+        .filter(|&i| !skipped(i) && var.is_match(lines[i]) && blocks_only(i))
+        .map(|i| i + 1)
+        .collect()
+}
+fn literal_member_at(literal: &str, word: &str) -> Option<usize> {
+    let member = Regex::new(&format!(
+        r"^(?:readonly\s+)?{}\s*\??\s*[:(]",
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let inner = literal
+        .strip_prefix('{')?
+        .strip_suffix('}')
+        .filter(|_| close_of(Kind::TsJs, literal, 0) == Some(literal.len()))?;
+    let at = split_top(Kind::TsJs, inner, b';')
+        .into_iter()
+        .flat_map(|s| split_top(Kind::TsJs, s, b','))
+        .find(|m| member.is_match(m.trim_start()))?;
+    Some(at.as_ptr() as usize - literal.as_ptr() as usize + at.len() - at.trim_start().len())
+}
+
+pub fn ts_alias_literal_member(decl: &str, word: &str) -> bool {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:export|declare)\s+)*type\s+[\w$]+\s*=\s*(\{.*\})\s*;?\s*$")
+            .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::TsJs, decl);
+    ALIAS
+        .captures(&code)
+        .and_then(|c| literal_member_at(c.get(1)?.as_str(), word))
+        .is_some()
+}
+
+pub struct TsTypeParam {
+    pub line1: usize,
+    pub constraint: Option<String>,
+}
+
+pub fn ts_type_param(text: &str, line1: usize, name: &str) -> Option<TsTypeParam> {
+    static OPENS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?P<decl>\bfunction\*?\s*[\w$]*|\b(?:class|interface|type)\s+[\w$]+)\s*<|(?P<method>^(?:(?:public|private|protected|static|readonly|abstract|override|async|get|set)\s+)*\*?#?[\w$]+)\s*<|(?P<arrow>=\s*(?:async\s+)?)<")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::TsJs, text);
+    let mut depth = usize::MAX;
+    for i in (0..line1.min(lines.len())).rev() {
+        let code = uncommented(Kind::TsJs, lines[i]);
+        let t = code.trim();
+        let ind = indent(lines[i]);
+        if t.is_empty() || literal.get(i) == Some(&true) || (ind >= depth && i + 1 != line1) {
+            continue;
+        }
+        depth = ind + usize::from(t.starts_with([')', '>']));
+        for c in OPENS.captures_iter(t) {
+            let Some(whole) = c.get(0) else {
+                continue;
+            };
+            let Some((params, rest)) = angle_list(t.get(whole.end()..).unwrap_or_default()) else {
+                continue;
+            };
+            let rest = rest.trim_start();
+            let call_shaped = rest.starts_with('(');
+            let method_head = || {
+                close_of(Kind::TsJs, rest, 0)
+                    .and_then(|end| rest.get(end..))
+                    .map(str::trim_start)
+                    .is_some_and(|after| after.starts_with([':', '{']))
+            };
+            let fits = c.name("decl").is_some()
+                || (c.name("method").is_some()
+                    && call_shaped
+                    && t.ends_with('{')
+                    && !t.contains("=>")
+                    && method_head())
+                || (c.name("arrow").is_some() && call_shaped && t.contains("=>"));
+            if !fits {
+                continue;
+            }
+            for p in split_top(Kind::TsJs, params, b',') {
+                let p = split_top(Kind::TsJs, p, b'=')[0].trim();
+                let p = p.strip_prefix("const ").unwrap_or(p).trim_start();
+                let (pname, constraint) = match p.split_once(char::is_whitespace) {
+                    Some((pname, rest)) => (pname, rest.trim_start().strip_prefix("extends ")),
+                    None => (p, None),
+                };
+                if pname == name {
+                    return Some(TsTypeParam {
+                        line1: i + 1,
+                        constraint: constraint.map(|c| c.trim().to_owned()),
+                    });
+                }
+            }
+        }
+        if depth == 0 {
+            break;
+        }
+    }
+    None
+}
+
+fn angle_list(s: &str) -> Option<(&str, &str)> {
+    let b = s.as_bytes();
+    let mut depth = 1i32;
+    for (i, c) in code(Kind::TsJs, s) {
+        match c {
+            b'<' | b'(' | b'[' | b'{' => depth += 1,
+            b'>' if i > 0 && b[i - 1] == b'=' => {}
+            b'>' | b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        if depth == 0 {
+            return if c == b'>' {
+                Some((s.get(..i)?, s.get(i + 1..)?))
+            } else {
+                None
+            };
+        }
+    }
+    None
 }
