@@ -41,3 +41,9 @@ SELECT steep(1), steep('x'), pour(2) FROM brews;
 SELECT * FROM ghosts, wraiths;
 --            ^ d: none
 --                    ^ d: none
+
+SELECT * FROM trays, saucers WHERE leaves = E'it\'s';
+--            ^ d: tea/schema.sql:48
+--                   ^ d: tea/schema.sql:50
+SELECT t.id FROM trays t;
+--     ^ d: tea/brew.sql:48

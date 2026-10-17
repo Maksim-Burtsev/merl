@@ -378,7 +378,8 @@ which declares nothing. Its annotations start with `%`.
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
 it, an alias named like a table, an overloaded function, a view declared twice, a parameter
-named like a table, and a statement in a string over lines and in a comment. `dart/lib/tea/` has a
+named like a table, a statement in a string over lines and in a comment, and tables after a
+`'C:\\'` and an `E'it\'s'`. `dart/lib/tea/` has a
 `Kettle` with named, redirecting and factory constructors and a `part`, a namesake `Kettle`
 behind an import prefix, a `Teapot` sharing `pour` and a static `cold`, a parameter hiding the
 prefix and one hiding a field, `super.` and a cascade, record and object patterns, a local
