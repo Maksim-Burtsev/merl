@@ -18,7 +18,9 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
             (Some(name), _) => name,
             (None, Some(c)) => c.get(1).map_or("", |m| m.as_str()).to_owned(),
             (None, None) => match c_head(head) {
-                Head::Function { name, .. } => name.rsplit_once("::").unzip().0.unwrap_or("").to_owned(),
+                Head::Function { name, .. } => {
+                    name.rsplit_once("::").unzip().0.unwrap_or("").to_owned()
+                }
                 _ => String::new(),
             },
         };
@@ -41,8 +43,11 @@ pub fn cpp_namespace_alias(code: &str, alias: &str) -> Option<Vec<String>> {
 }
 
 pub fn cpp_using_declares(code: &str, name: &str) -> bool {
-    Regex::new(&format!(r"\busing\s+(?:\w+\s*::\s*)+{}\s*;", regex::escape(name)))
-        .is_ok_and(|re| re.is_match(code))
+    Regex::new(&format!(
+        r"\busing\s+(?:\w+\s*::\s*)+{}\s*;",
+        regex::escape(name)
+    ))
+    .is_ok_and(|re| re.is_match(code))
 }
 
 pub fn cpp_defined_signature(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
@@ -74,9 +79,8 @@ pub fn cpp_declared_signature(text: &str, line1: usize, word: &str) -> Option<Ve
 }
 
 fn signature(head: &str) -> Option<Vec<String>> {
-    static TOKEN: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\w+|::|&&|\.\.\.|\S").expect("the regex is a literal")
-    });
+    static TOKEN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\w+|::|&&|\.\.\.|\S").expect("the regex is a literal"));
     let tokens: Vec<&str> = TOKEN.find_iter(head).map(|m| m.as_str()).collect();
     let close = tokens.iter().position(|t| *t == ")")?;
     let inner = tokens.get(1..close)?;
@@ -111,7 +115,9 @@ fn parameter_type(param: &[&str]) -> String {
         "int", "char", "short", "long", "float", "double", "void", "signed", "unsigned", "bool",
         "auto", "const", "volatile", "struct", "class", "enum", "union", "typename",
     ];
-    const BEFORE_TYPE: &[&str] = &["const", "volatile", "struct", "class", "enum", "union", "typename"];
+    const BEFORE_TYPE: &[&str] = &[
+        "const", "volatile", "struct", "class", "enum", "union", "typename",
+    ];
     let param = param
         .iter()
         .position(|t| *t == "=")
@@ -126,7 +132,11 @@ fn parameter_type(param: &[&str]) -> String {
         }
         _ => false,
     };
-    let kept = if named { &param[..param.len() - 1] } else { param };
+    let kept = if named {
+        &param[..param.len() - 1]
+    } else {
+        param
+    };
     kept.join(" ")
 }
 

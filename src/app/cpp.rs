@@ -56,8 +56,8 @@ impl App {
             if i == last {
                 return CppAnswer::Found(self.cpp_candidates(here, &owner, &ats, word, &links));
             }
-            let Some((next, at)) =
-                (ats.iter()).find_map(|&at| Some((search::cpp_type_at(&owner.code, at, name.len())?, at)))
+            let Some((next, at)) = (ats.iter())
+                .find_map(|&at| Some((search::cpp_type_at(&owner.code, at, name.len())?, at)))
             else {
                 return broke(name);
             };
@@ -173,7 +173,9 @@ impl App {
         }
         if bodies.len() > 1 {
             let paths: Vec<Vec<String>> = (bodies.iter())
-                .map(|(b, _)| [search::cpp_scope_path(&b.code, b.open), vec![name.clone()]].concat())
+                .map(|(b, _)| {
+                    [search::cpp_scope_path(&b.code, b.open), vec![name.clone()]].concat()
+                })
                 .collect();
             let mine = cpp_namesake(&paths, ty, scope, ctx);
             if let Some(mine) = mine.filter(|m| m.iter().filter(|&&k| k).count() == 1) {
