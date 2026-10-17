@@ -174,6 +174,17 @@ impl App {
             }
             self.truncated.set(false);
         }
+        if lower
+            && chain.is_empty()
+            && let Some(made) = search::ruby_constructed_receiver(before)
+        {
+            let found = self.ruby_constructed(&a.here, &made, word);
+            if !found.is_empty() {
+                self.show_found(a, found);
+                return None;
+            }
+            self.truncated.set(false);
+        }
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }

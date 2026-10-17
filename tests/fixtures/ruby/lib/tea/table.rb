@@ -66,12 +66,12 @@ module Tea
       Vessel.empty
       #      ^ d: lib/tea/vessel.rb:26
       Teapot.new(1).pour(2) + Kettle.new(1).pour(2)
-      #             ^ d: picker lib/tea/kettle.rb:40, lib/tea/vessel.rb:4; want lib/tea/kettle.rb:40 (#991)
-      #                                     ^ d: picker lib/tea/kettle.rb:40, lib/tea/vessel.rb:4; want lib/tea/vessel.rb:4 (#991)
+      #             ^ d: lib/tea/kettle.rb:40
+      #                                     ^ d: lib/tea/vessel.rb:4
       Teapot.new(1).spill
-      #             ^ d: picker lib/tea/vessel.rb:8; want lib/tea/vessel.rb:8 (#991)
+      #             ^ d: lib/tea/vessel.rb:8
       Kettle.new(1).descale
-      #             ^ d: picker lib/tea/descale.rb:5; want lib/tea/descale.rb:5 (#991)
+      #             ^ d: lib/tea/descale.rb:5
       kettle.heat = 3
       #      ^ d: picker lib/tea/kettle.rb:13
       Kettle

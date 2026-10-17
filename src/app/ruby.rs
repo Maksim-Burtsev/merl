@@ -109,18 +109,29 @@ impl App {
     }
 
     fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
-        let name = chain.join("::");
-        let Some(text) = self.text_of(here) else {
+        self.ruby_class_named(here, &chain.join("::"))
+            .map(|class| self.ruby_methods_from(here, word, class, true))
+            .unwrap_or_default()
+    }
+
+    pub(super) fn ruby_constructed(&self, here: &Path, made: &str, word: &str) -> Vec<Candidate> {
+        let Some(class) = self.ruby_class_named(here, made) else {
             return Vec::new();
         };
-        let from = search::ruby_class_path(&text, self.line + 1);
+        if !self
+            .ruby_methods_from(here, "new", class.clone(), true)
+            .is_empty()
+        {
+            return Vec::new();
+        }
+        self.ruby_methods_from(here, word, class, false)
+    }
+
+    fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
+        let from = search::ruby_class_path(&self.text_of(here)?, self.line + 1);
         let own = from == name || from.ends_with(&format!("::{name}"));
-        let class = match self.ruby_resolve(here, &from, &name) {
-            Some(c) => c,
-            None if own => from,
-            None => return Vec::new(),
-        };
-        self.ruby_methods_from(here, word, class, true)
+        self.ruby_resolve(here, &from, name)
+            .or_else(|| own.then_some(from))
     }
 
     fn ruby_methods_from(
