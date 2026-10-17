@@ -426,6 +426,8 @@ function (#1003). `brew.cjs` names in JSDoc braces a `@typedef` of a string, a c
 function and a class behind a `require`, and a `Kettle` the file does not import (#1002);
 `dosing.js` holds braces JSDoc must not read: a code line continuing a product with `* f({ x })`,
 an object literal after a one-line `/** @type {…} */`, and a word in braces in a plain comment.
+`blooming.cjs` writes `exports.bloom = function` only in a block comment and a template literal,
+then exports a named function behind `module.exports.bloom =`.
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`
