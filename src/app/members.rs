@@ -29,8 +29,14 @@ impl App {
                 return one(self.host_built(kind, hits));
             }
         }
-        let imports = search::imports(kind, &self.text_of(file)?);
-        let path = bound(&imports, chain.first().unwrap_or(name))?;
+        let text = self.text_of(file)?;
+        let imports = search::imports(kind, &text);
+        let Some(path) = bound(&imports, chain.first().unwrap_or(name)) else {
+            return (kind == Kind::Python && chain.is_empty())
+                .then(|| self.star_source(file, &text, usize::MAX, name))
+                .flatten()
+                .and_then(|(_, decls)| one(decls));
+        };
         if kind == Kind::Python && file.is_absolute() {
             return self.outside_class(file, &path, parts);
         }
