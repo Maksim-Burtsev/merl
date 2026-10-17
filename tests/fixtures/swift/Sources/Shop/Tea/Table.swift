@@ -12,7 +12,7 @@ let brewMenu = #"""
 
 func serve(_ pot: Teapot, _ kettle: Kettle, _ brewing: any Brewing) {
     _ = pot.steep()
-    //      ^ d: picker Sources/Shop/Tea/Kettle.swift:7, Sources/Shop/Tea/Kettle.swift:12, Sources/Shop/Tea/Kettle.swift:31; want Sources/Shop/Tea/Kettle.swift:12 (#984)
+    //      ^ d: Sources/Shop/Tea/Kettle.swift:12
     pot.rinse()
     //  ^ d: Sources/Shop/Tea/Teapot.swift:14
     pot.strain()
@@ -20,7 +20,7 @@ func serve(_ pot: Teapot, _ kettle: Kettle, _ brewing: any Brewing) {
     _ = kettle.steep()
     //         ^ d: Sources/Shop/Tea/Kettle.swift:31
     _ = brewing.steep()
-    //          ^ d: picker Sources/Shop/Tea/Kettle.swift:7, Sources/Shop/Tea/Kettle.swift:12, Sources/Shop/Tea/Kettle.swift:31; want Sources/Shop/Tea/Kettle.swift:7 (#984)
+    //          ^ d: Sources/Shop/Tea/Kettle.swift:7
     kettle.whistle()
     //     ^ d: Sources/Shop/Tea/Kettle.swift:41
     _ = Kettle.fresh()

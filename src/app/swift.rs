@@ -113,7 +113,7 @@ impl App {
                 ("class", Some(next)) if seen.insert(next.clone()) => next,
                 _ => {
                     self.truncated.set(cut);
-                    return None;
+                    return self.swift_self_default(here, &own, word);
                 }
             };
             let classes: Vec<_> = self
@@ -136,7 +136,7 @@ impl App {
             ] = classes.as_slice()
             else {
                 self.truncated.set(cut);
-                return None;
+                return self.swift_self_default(here, &own, word);
             };
             (keyword, base, ty) = (k.clone(), b.clone(), next);
         }

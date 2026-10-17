@@ -80,7 +80,7 @@ extension Kettle {
         strain()
         // ^ d: Sources/Shop/Tea/Kettle.swift:14
         rinse()
-        // ^ d: picker Sources/Shop/Tea/Kettle.swift:8, Sources/Shop/Tea/Kettle.swift:13, Sources/Shop/Tea/Teapot.swift:14; want Sources/Shop/Tea/Kettle.swift:13 (#984)
+        // ^ d: Sources/Shop/Tea/Kettle.swift:13
     }
 
     func sip(leaf: Leaf?) {

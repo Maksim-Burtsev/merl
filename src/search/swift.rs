@@ -123,6 +123,24 @@ pub fn swift_type_header(line: &str) -> Option<SwiftTypeHeader> {
         where_constrained: t.contains(" where "),
     })
 }
+pub fn swift_inherited(line: &str) -> Vec<String> {
+    static INHERITS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}(?:class|struct|enum|protocol|actor|extension)\s+`?[\w.]+`?(?:<[^>]*>)?\s*:([^{{]*)",
+            swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, line);
+    let Some(c) = INHERITS.captures(&t) else {
+        return Vec::new();
+    };
+    let list = c[1].split(" where ").next().unwrap_or_default();
+    split_top(Kind::Swift, list, b',')
+        .into_iter()
+        .filter_map(|n| swift_type_name(n.split('<').next().unwrap_or(n)))
+        .collect()
+}
 pub struct SwiftTypeHeader {
     pub keyword: String,
     pub name: String,

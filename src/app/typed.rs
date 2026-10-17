@@ -938,7 +938,35 @@ impl App {
         let found = (|| {
             let SwiftChain { written, links } =
                 self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
-            let ty = self.swift_type(here, &written)?;
+            let label = links.join(" \u{2192} ");
+            let Some(ty) = self.swift_type(here, &written) else {
+                let w = written.trim();
+                let w = w
+                    .strip_prefix("any ")
+                    .or_else(|| w.strip_prefix("some "))
+                    .unwrap_or(w);
+                let a_type = search::bindings(Kind::Swift, text, self.line + 1, &chain[0])
+                    .iter()
+                    .any(|b| {
+                        text.lines()
+                            .nth(b.line1 - 1)
+                            .is_some_and(|l| search::swift_type_header(l).is_some())
+                    });
+                let p = search::swift_type_name(w)
+                    .filter(|p| !a_type && self.swift_protocol(here, p))?;
+                let mut rows = self.swift_protocol_rows(here, &p, word, true)?;
+                if rows.is_empty() {
+                    rows = self.swift_protocol_rows(here, &p, word, false)?;
+                }
+                return (!rows.is_empty()).then(|| {
+                    rows.into_iter()
+                        .map(|hit| Candidate {
+                            hit,
+                            reason: Reason::Receiver(label.clone()),
+                        })
+                        .collect()
+                });
+            };
             let mut rows = self.swift_member_rows(here, &ty, word)?;
             if rows
                 .iter()
@@ -948,7 +976,6 @@ impl App {
                     search::swift_member_kind(&h.text) != Some(search::SwiftMember::StaticOrClass)
                 });
             }
-            let label = links.join(" \u{2192} ");
             Some(
                 rows.into_iter()
                     .map(|hit| Candidate {
@@ -1217,6 +1244,7 @@ impl App {
         let mut owner = ty.owner.clone();
         let (mut keyword, mut base) = (ty.keyword.clone(), ty.base.clone());
         let mut seen = HashSet::from([owner.clone()]);
+        let mut walked = vec![ty.name.clone()];
         loop {
             let full = format!("{owner}.{word}");
             let rows: Vec<Hit> = hits
@@ -1236,14 +1264,117 @@ impl App {
             match (keyword.as_deref(), base) {
                 (None, _) => return Some(Vec::new()),
                 (Some("class"), Some(next)) if seen.insert(next.clone()) => {
-                    let up = self.swift_type(here, &next)?;
-                    if up.keyword.as_deref() != Some("class") {
-                        return None;
+                    match self.swift_type(here, &next) {
+                        Some(up) if up.keyword.as_deref() == Some("class") => {
+                            walked.push(up.name);
+                            (owner, keyword, base) = (up.owner, up.keyword, up.base);
+                        }
+                        None if self.swift_protocol(here, &next) => {
+                            return self.swift_defaults(here, &walked, word);
+                        }
+                        _ => return None,
                     }
-                    (owner, keyword, base) = (up.owner, up.keyword, up.base);
                 }
-                _ => return None,
+                (Some("class"), Some(_)) => return None,
+                (Some(_), _) => return self.swift_defaults(here, &walked, word),
             }
         }
+    }
+
+    pub(super) fn swift_self_default(
+        &self,
+        here: &Path,
+        own: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let cut = self.truncated.get();
+        let rows = self
+            .swift_type(here, own)
+            .and_then(|ty| self.swift_member_rows(here, &ty, word))
+            .filter(|rows| !rows.is_empty());
+        self.truncated.set(cut);
+        Some(
+            rows?
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(format!("self: {own}")),
+                })
+                .collect(),
+        )
+    }
+
+    fn swift_protocol(&self, here: &Path, name: &str) -> bool {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let decls: Vec<String> = self
+            .project_definitions(Kind::Swift, here, name, &pattern)
+            .iter()
+            .filter(|h| self.in_code(Kind::Swift, h))
+            .filter_map(|h| search::swift_type_header(&h.text))
+            .filter(|t| t.name == name && t.keyword != "extension")
+            .map(|t| t.keyword)
+            .collect();
+        matches!(decls.as_slice(), [k] if k == "protocol")
+    }
+
+    fn swift_defaults(&self, here: &Path, types: &[String], word: &str) -> Option<Vec<Hit>> {
+        let mut protocols: Vec<String> = Vec::new();
+        for t in types {
+            let pattern = search::def_patterns(Kind::Swift, t).join("|");
+            for h in self.project_definitions(Kind::Swift, here, t, &pattern) {
+                let Some(head) = search::swift_type_header(&h.text)
+                    .filter(|head| head.name == *t && self.in_code(Kind::Swift, &h))
+                else {
+                    continue;
+                };
+                let inherited = search::swift_inherited(&h.text);
+                if head.where_constrained && !inherited.is_empty() {
+                    return None;
+                }
+                protocols.extend(inherited);
+            }
+        }
+        protocols.sort();
+        protocols.dedup();
+        let mut rows: Vec<Hit> = Vec::new();
+        for p in protocols.iter().filter(|p| self.swift_protocol(here, p)) {
+            rows.extend(self.swift_protocol_rows(here, p, word, false)?);
+        }
+        (!rows.is_empty()).then_some(rows)
+    }
+
+    fn swift_protocol_rows(
+        &self,
+        here: &Path,
+        protocol: &str,
+        word: &str,
+        requirement: bool,
+    ) -> Option<Vec<Hit>> {
+        let pattern = search::def_patterns(Kind::Swift, word).join("|");
+        let full = format!("{protocol}.{word}");
+        let mut rows = Vec::new();
+        for h in self.project_definitions(Kind::Swift, here, word, &pattern) {
+            let text = self.text_of(&h.path)?;
+            let named = search::qualified(Kind::Swift, &text, h.line1, word)
+                .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")));
+            if !named || !self.in_code(Kind::Swift, &h) {
+                continue;
+            }
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, &text);
+            let at = search::swift_enclosing_type(&lines, &literal, h.line1)?;
+            let head = search::swift_type_header(lines[at - 1])?;
+            let constrained = head.where_constrained
+                || lines
+                    .get(at)
+                    .is_some_and(|l| l.trim_start().starts_with("where "));
+            match head.keyword.as_str() {
+                "protocol" if requirement => rows.push(h),
+                "extension" if !requirement && constrained => return None,
+                "extension" if !requirement => rows.push(h),
+                _ => {}
+            }
+        }
+        Some(rows)
     }
 }
