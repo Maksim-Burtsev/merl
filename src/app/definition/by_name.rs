@@ -38,6 +38,9 @@ impl App {
                 found = self.package_assignments(&a.word, module);
             }
         }
+        if kind == Kind::Python && near.unbound {
+            self.star_winner(&a.here, &a.text, &a.word, &mut found);
+        }
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
         }
