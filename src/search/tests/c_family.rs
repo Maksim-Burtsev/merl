@@ -1626,6 +1626,29 @@ fn csharp_type_positions_namespace_segments_and_arity() {
     );
     assert_eq!(params("public record Equals(int A);"), None);
     assert_eq!(params("public Func<int, bool> Equals { get; }"), None);
+    let literals = |text: &str| {
+        let lines: Vec<&str> = text.lines().collect();
+        let end = lines[0].find("Equals").unwrap() + "Equals".len();
+        cs_literal_arguments(&lines, 0, end)
+    };
+    assert_eq!(
+        literals(r#"Equals("a, b", 2)"#),
+        Some(vec!["string", "int"])
+    );
+    assert_eq!(literals("Equals(spout)"), None);
+    assert_eq!(literals("Equals(2L)"), None);
+    assert_eq!(literals("Equals()"), None);
+    let keywords = |line: &str| cs_parameter_keywords(line, 1, "Equals");
+    assert_eq!(
+        keywords("bool Equals([In] int a, string b = \"\", int? c, ref int d, Int32 e)"),
+        Some(vec![
+            Some("int".to_owned()),
+            Some("string".to_owned()),
+            None,
+            None,
+            None
+        ])
+    );
 }
 
 #[test]

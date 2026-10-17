@@ -90,7 +90,11 @@ impl App {
             CsType::Project(t) => match self.cs_up(t, word, 0) {
                 Up::Found(hits) => {
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
-                    let hits = if fit.is_empty() { hits } else { fit };
+                    let hits = if fit.is_empty() {
+                        hits
+                    } else {
+                        self.cs_overload(word, fit)
+                    };
                     return Some(CsAnswer::Found(receivers(hits, label)));
                 }
                 Up::Outside { walked } => (walked, true),
@@ -634,7 +638,7 @@ impl App {
                 !(depth > 0 && private)
                     && level.types.as_ref().is_none_or(|re| re.is_match(&h.text))
             });
-            let own = self.cs_fit(word, level.args, None, own);
+            let own = self.cs_overload(word, self.cs_fit(word, level.args, None, own));
             if !own.is_empty() {
                 return own;
             }
@@ -768,6 +772,33 @@ impl App {
                 let by = usize::from(this && receiver.is_some_and(|q| q.is_empty() || q != owner));
                 n + by >= min && max.is_none_or(|m| n + by <= m)
             })
+            .collect()
+    }
+
+    fn cs_overload(&self, word: &str, hits: Vec<Hit>) -> Vec<Hit> {
+        let Some(args) = self
+            .definition_word(Some(Kind::CSharp))
+            .and_then(|(r, _)| search::cs_literal_arguments(&self.buf.lines, self.line, r.end))
+        else {
+            return hits;
+        };
+        let exact: Vec<Option<bool>> = hits
+            .iter()
+            .map(|h| {
+                let takes = search::cs_parameter_keywords(&self.hit_text(h)?, h.line1, word)?;
+                Some(
+                    takes.len() >= args.len()
+                        && args.iter().zip(&takes).all(|(a, t)| t.as_deref() == Some(*a)),
+                )
+            })
+            .collect();
+        if !exact.contains(&Some(true)) {
+            return hits;
+        }
+        hits.into_iter()
+            .zip(exact)
+            .filter(|(_, e)| *e != Some(false))
+            .map(|(h, _)| h)
             .collect()
     }
 }
