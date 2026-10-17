@@ -933,7 +933,7 @@ impl App {
         }
     }
 
-    fn base_text(&self, path: &Path) -> Option<String> {
+    pub(super) fn base_text(&self, path: &Path) -> Option<String> {
         let r = self.review.as_ref()?;
         let from = r.file(path).and_then(|f| f.old.as_deref());
         let bytes = r.base_bytes(&self.root, from.unwrap_or(path)).ok()?;

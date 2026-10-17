@@ -460,7 +460,6 @@ impl App {
         } else {
             Focus::Tree
         };
-        search::note_root(&root);
         let ignored = tree.ignored_files();
         let mut app = Self {
             root,
@@ -606,7 +605,10 @@ impl App {
     }
 
     pub fn rel_path_of(&self, path: &Path) -> String {
-        match (path.strip_prefix(&self.root), search::opened_kind(path)) {
+        match (
+            path.strip_prefix(&self.root),
+            search::opened_kind(path, String::new),
+        ) {
             (Ok(rel), _) => rel,
             (Err(_), Some(kind)) => self.rel_to_its_root(kind, path),
             (Err(_), None) => path,
