@@ -90,7 +90,10 @@ impl App {
             let reason = Reason::Import(path.join("/"));
             return self.show_found(a, vec![Candidate { hit, reason }]);
         }
-        if kind == Kind::Jvm && (dotted || before.ends_with("::")) && !a.own() {
+        if kind == Kind::Jvm
+            && (dotted || before.ends_with("::"))
+            && (!a.own() || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty())
+        {
             let literal = dotted
                 && chain.is_empty()
                 && before.strip_suffix('.').is_some_and(|b| b.ends_with('"'));

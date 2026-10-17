@@ -274,7 +274,8 @@ impl App {
             },
             reason,
         };
-        if here.extension().is_some_and(|e| e == "kt" || e == "kts")
+        let kotlin = here.extension().is_some_and(|e| e == "kt" || e == "kts");
+        if kotlin
             && let Some(line) =
                 search::kotlin_initializer_parameter(text, self.line + 1, before, word)
         {
@@ -325,6 +326,23 @@ impl App {
                         }),
                 );
             }
+        }
+        if found.is_empty()
+            && types.is_empty()
+            && kotlin
+            && let Some(ext) = search::kotlin_extension_at(text, self.line + 1, before)
+            && let super::jvm_typed::JvmType::Project(decl) =
+                self.jvm_type_at(here, text, &ext.receiver)
+        {
+            let reason = Reason::Receiver(format!("this: {}", ext.receiver));
+            found = self
+                .jvm_hierarchy_member(&decl, word, 0, &mut Vec::new())
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect();
         }
         let on_it = found
             .iter()

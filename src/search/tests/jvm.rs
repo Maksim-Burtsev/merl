@@ -230,3 +230,21 @@ fn a_kotlin_property_initializer_reads_the_primary_constructor_parameter() {
     assert_eq!(at(3, "    val x: Int get() = "), None, "a getter");
     assert_eq!(at(4, "    fun f() = "), None, "a function");
 }
+
+#[test]
+fn a_kotlin_extension_function_s_body_has_its_receiver_as_this() {
+    let text = "fun Glass.dip(): Int = dose(1) + with(x) { dose() }\nfun Glass.pour(): Int {\n    return dose(1)\n}\nclass A {\n    fun Glass.tip() = dose()\n}\n";
+    let at = |line1: usize, before: &str| {
+        kotlin_extension_at(text, line1, before).map(|e| (e.name, e.receiver))
+    };
+    let glass = |name: &str| Some((name.to_owned(), "Glass".to_owned()));
+    assert_eq!(at(1, "fun Glass.dip(): Int = "), glass("dip"));
+    assert_eq!(
+        at(1, "fun Glass.dip(): Int = dose(1) + with(x) { "),
+        None,
+        "a lambda"
+    );
+    assert_eq!(at(1, "fun Glass."), None, "the header");
+    assert_eq!(at(3, "    return "), glass("pour"));
+    assert_eq!(at(6, "    fun Glass.tip() = "), None, "a member extension");
+}

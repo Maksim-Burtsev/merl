@@ -929,6 +929,50 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     None
 }
 
+pub struct KotlinExtension {
+    pub name: String,
+    pub receiver: String,
+}
+
+pub fn kotlin_extension_at(text: &str, line1: usize, before: &str) -> Option<KotlinExtension> {
+    static BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?::[^={]*)?[={]").expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let head = |k: usize| {
+        let g = group(Kind::Jvm, &lines, k, params_open_byte(lines[k])?)?;
+        let rest = uncommented(Kind::Jvm, g.after_close);
+        let body = BODY.find(&rest)?.end();
+        Some((
+            g.close_line,
+            rest.len() - body,
+            rest.trim_end().len() == body,
+        ))
+    };
+    let (k, inside) = match head(at) {
+        Some((close, after_body, _)) if close == at => {
+            let code = uncommented(Kind::Jvm, lines[at]);
+            (at, before.get(code.len() - after_body..)?.to_owned())
+        }
+        _ => {
+            let k = scope_of(&lines, at)?;
+            let (_, _, opens_body) = head(k)?;
+            if !opens_body {
+                return None;
+            }
+            (k, before.to_owned())
+        }
+    };
+    let inside = uncommented(Kind::Jvm, &inside);
+    if scope_of(&lines, k).is_some() || inside.matches('{').count() != inside.matches('}').count() {
+        return None;
+    }
+    let name = jvm_function(lines[k])?;
+    let receiver = jvm_receiver(lines[k], &name)?;
+    Some(KotlinExtension { name, receiver })
+}
+
 pub fn kotlin_initializer_parameter(
     text: &str,
     line1: usize,

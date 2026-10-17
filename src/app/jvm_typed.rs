@@ -49,7 +49,24 @@ impl App {
                 .then(|| search::jvm_smart_cast(text, line, before, first))
                 .flatten()
         };
+        let extension = || {
+            here.extension()
+                .is_some_and(|e| e == "kt" || e == "kts")
+                .then(|| search::kotlin_extension_at(text, line, before))
+                .flatten()
+        };
+        let labelled = |f: &str| before.trim_end().ends_with(&format!("this@{f}."));
         let (mut ty, mut links) = match first.as_str() {
+            f if labelled(f)
+                || (f == "this" && search::jvm_enclosing_types(text, line).is_empty()) =>
+            {
+                let ext = extension()?;
+                if first != "this" && ext.name != *first {
+                    return None;
+                }
+                let ty = self.jvm_type_at(here, text, &ext.receiver);
+                (ty, vec![format!("this: {}", ext.receiver)])
+            }
             "this" => {
                 let lines: Vec<&str> = text.lines().collect();
                 let decl = search::jvm_enclosing_types(text, line)

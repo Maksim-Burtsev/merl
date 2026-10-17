@@ -3,15 +3,15 @@ package brew
 import brew.stale.Samovar as OldSamovar
 
 fun Glass.dip(): Int = dose(1) + scald()
-//                     ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8, src/main/kotlin/brew/Samovar.kt:15, src/main/kotlin/brew/stale/Samovar.kt:4; want src/main/kotlin/brew/Glass.kt:4 (#968)
-//                               ^ d: picker src/main/kotlin/brew/Glass.kt:10, src/main/kotlin/brew/Samovar.kt:32, src/main/kotlin/brew/Urn.kt:6; want src/main/kotlin/brew/Glass.kt:10 (#968)
+//                     ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:4 (#964)
+//                               ^ d: src/main/kotlin/brew/Glass.kt:10
 
 fun Samovar.mint(): Int = 0
 
 fun Samovar.soaks(): Int = this.mint() + bulk + this@soaks.dose()
-//                              ^ d: picker src/main/kotlin/brew/Table.kt:9, src/main/kotlin/brew/Herbs.kt:4, src/main/kotlin/brew/Samovar.kt:19; want src/main/kotlin/brew/Samovar.kt:19 (#968)
+//                              ^ d: src/main/kotlin/brew/Samovar.kt:19
 //                                       ^ d: src/main/kotlin/brew/Samovar.kt:11
-//                                                         ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8, src/main/kotlin/brew/Samovar.kt:15, src/main/kotlin/brew/stale/Samovar.kt:4; want src/main/kotlin/brew/Samovar.kt:15 (#968)
+//                                                         ^ d: src/main/kotlin/brew/Samovar.kt:15
 
 class Table(val glass: Glass) {
     fun set(samovar: Samovar, old: OldSamovar): Int {
