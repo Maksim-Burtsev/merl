@@ -403,7 +403,7 @@ impl App {
             (class, vec![link], rest)
         } else {
             let ProvenClass { class, link } =
-                self.php_variable_type(here, text, head, self.line)?;
+                self.php_variable_type(here, text, head, self.line, true)?;
             (class, vec![link], fields)
         };
         for field in rest {
@@ -462,12 +462,14 @@ impl App {
         text: &str,
         name: &str,
         line0: usize,
+        cursor: bool,
     ) -> Option<ProvenClass> {
         let lines: Vec<&str> = text.lines().collect();
         let mut found: Option<ProvenClass> = None;
         let bound = search::php_variable(text, line0 + 1, name)?;
-        let bound = match bound.iter().rposition(|&b| b <= line0) {
-            Some(i) if search::php_last_binding(text, bound[i] - 1, line0, name) => {
+        let to = if cursor { line0 } else { line0 + 1 };
+        let bound = match bound.iter().rposition(|&b| b <= to) {
+            Some(i) if search::php_last_binding(text, bound[i] - 1, to, name) => {
                 bound[i..].to_vec()
             }
             _ => bound,
@@ -480,7 +482,8 @@ impl App {
             } else {
                 search::php_binding(&statement, name)?
             };
-            if at == line0
+            if cursor
+                && at == line0
                 && !matches!(
                     binding,
                     search::PhpBinding::Type(_) | search::PhpBinding::Captured
@@ -491,7 +494,7 @@ impl App {
             let (class, call) = match binding {
                 search::PhpBinding::Captured => {
                     let ProvenClass { class, link } =
-                        self.php_variable_type(here, text, name, at.checked_sub(1)?)?;
+                        self.php_variable_type(here, text, name, at.checked_sub(1)?, false)?;
                     (class, Some(link))
                 }
                 search::PhpBinding::ThisProperty(field) => {
