@@ -374,6 +374,15 @@ both kinds, each refusal of the issue, and declaration-shaped lines in a `"…"`
 beside a `%` comment holding `"""` and a `$"`. `lib/shop/seed.exs` calls a function in column zero,
 which declares nothing. Its annotations start with `%`.
 
+`typescript/tea/` is the adversarial corner of #974 for TypeScript, its answers tsserver's. A
+`Blend` that is a type alias and a const, an interface `Vessel` and a namespace `Caddy` each
+declared twice, an enum `Leaf` merged with a namespace, a function `steep` merged with one, a
+default-exported `Kettle` imported under two names (one through a chain of `export *` and a
+renaming re-export), `import type`, overloads of `boil`, destructured and renamed parameters
+beside a module-level namesake, `this` in an arrow and in a `function` that declares `this:
+Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
+template literal.
+
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
