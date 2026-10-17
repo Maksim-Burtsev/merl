@@ -365,13 +365,16 @@ fn quit_on_signals(quit: Sender<Msg>) {
 }
 
 fn leave_terminal(keyboard: &KeyboardQueried) {
-    undo_what_merl_set(&mut stdout(), keyboard);
+    undo_what_merl_set_while_still_on_the_alternate_screen(&mut stdout(), keyboard);
     ratatui::restore();
     let show_cursor_the_last_frame_hid = Show;
     drop(execute!(stdout(), show_cursor_the_last_frame_hid));
 }
 
-fn undo_what_merl_set(out: &mut impl Write, keyboard: &KeyboardQueried) {
+fn undo_what_merl_set_while_still_on_the_alternate_screen(
+    out: &mut impl Write,
+    keyboard: &KeyboardQueried,
+) {
     if keyboard.enhanced {
         drop(execute!(out, PopKeyboardEnhancementFlags));
     }
@@ -881,7 +884,10 @@ mod tests {
     fn leaving_clears_the_screen_and_homes_the_cursor_for_a_terminal_without_alternate_screen() {
         for enhanced in [false, true] {
             let mut out = Vec::new();
-            super::undo_what_merl_set(&mut out, &super::KeyboardQueried { enhanced });
+            super::undo_what_merl_set_while_still_on_the_alternate_screen(
+                &mut out,
+                &super::KeyboardQueried { enhanced },
+            );
             let out = String::from_utf8(out).unwrap();
             assert!(out.ends_with("\x1b[2J\x1b[1;1H"), "{out:?}");
             assert_eq!(out.starts_with("\x1b[<1u"), enhanced, "{out:?}");
