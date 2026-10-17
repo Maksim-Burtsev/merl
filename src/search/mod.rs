@@ -1,6 +1,7 @@
 mod android;
 mod bindings;
 mod c;
+mod cpp;
 mod cmake;
 mod component;
 mod csharp;
@@ -49,6 +50,7 @@ mod words;
 pub use android::*;
 pub use bindings::*;
 pub use c::*;
+pub use cpp::*;
 pub use cmake::*;
 pub use component::*;
 pub use csharp::*;

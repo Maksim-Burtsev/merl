@@ -348,7 +348,7 @@ fn line_starts(code: &str) -> Vec<usize> {
     clippy::match_same_arms,
     reason = "each arm is one kind of byte the scan stops at"
 )]
-fn c_head_start(code: &str, open: usize) -> usize {
+pub(super) fn c_head_start(code: &str, open: usize) -> usize {
     let b = code.as_bytes();
     let item_of_init_list = |close: usize| {
         code.get(close + 1..)
@@ -406,7 +406,7 @@ fn top_level_paren_groups(s: &str) -> Vec<Range<usize>> {
     }
     out
 }
-enum Head {
+pub(super) enum Head {
     TypeOrNamespace,
     Function { params: Range<usize>, name: String },
     Lambda { params: Range<usize> },
@@ -414,7 +414,7 @@ enum Head {
     Control { parens: Range<usize> },
     Block,
 }
-fn c_head(head: &str) -> Head {
+pub(super) fn c_head(head: &str) -> Head {
     static NAMESPACE_EXTERN_OR_ENUM: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:inline\s+)?namespace\b|^\s*extern\s*$|^\s*(?:typedef\s+)?enum\b[^(]*$")
             .expect("the regex is a literal")
