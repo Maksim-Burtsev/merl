@@ -397,6 +397,22 @@ fn a_cpp_raw_string_runs_to_its_delimiter() {
 }
 
 #[test]
+fn c_lines_under_if_0_or_if_false_are_hidden_up_to_their_else_or_endif() {
+    let cc = "#if 0\nint a;\n#ifdef X\nint b;\n#else\nint b2;\n#endif\nint c;\n#else\nint d;\n#endif\n\
+              # if false // off\nint e;\n#elif Y\nint f;\n#endif\n#if 0x1\nint g;\n#endif\n\
+              /*\n#if 0\n*/\nint h;\n#if ZERO\nint i;\n#endif\n#if\t0 /* off */\nint j;\n#endif\n";
+    let mut out = literal_lines(Kind::C, cc);
+    hide_c_disabled(cc, &mut out);
+    let hidden: Vec<usize> = (1..=out.len()).filter(|&n| out[n - 1]).collect();
+    assert_eq!(
+        hidden,
+        [2, 4, 5, 6, 8, 13, 21, 22, 28],
+        "nested conditionals stay inside; `#else` and `#elif` end the dead part; `#if 0` in a \
+         comment, `0x1` and a macro hide nothing"
+    );
+}
+
+#[test]
 fn a_reason_says_whether_it_proves_the_target() {
     assert_eq!(Reason::ByName.to_string(), "by name");
     assert!(!Reason::ByName.proven());

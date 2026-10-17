@@ -95,6 +95,31 @@ fn hide_c_define_bodies(text: &str, out: &mut [bool]) {
         define &= l.trim_end().ends_with('\\');
     }
 }
+pub fn hide_c_disabled(text: &str, out: &mut [bool]) {
+    let mut depth = 0;
+    for (l, hidden) in text.lines().zip(out.iter_mut()) {
+        let directive = if *hidden {
+            ""
+        } else {
+            l.trim_start().strip_prefix('#').map_or("", str::trim_start)
+        };
+        let name = directive.split(|c: char| !c.is_ascii_alphabetic()).next();
+        if depth == 0 {
+            let condition = (directive.strip_prefix("if"))
+                .filter(|c| c.starts_with([' ', '\t']))
+                .map(|c| c.split("//").next().unwrap_or(c))
+                .map(|c| c.split("/*").next().unwrap_or(c).trim());
+            depth = usize::from(matches!(condition, Some("0" | "false")));
+            continue;
+        }
+        match name {
+            Some("if" | "ifdef" | "ifndef") => depth += 1,
+            Some("endif") => depth -= 1,
+            Some("else" | "elif" | "elifdef" | "elifndef") if depth == 1 => depth = 0,
+            _ => *hidden = true,
+        }
+    }
+}
 pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
     kind == Kind::Rust && scan(kind, text, at).at_in_rust_string
 }
