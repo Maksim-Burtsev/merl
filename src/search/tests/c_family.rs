@@ -1060,16 +1060,28 @@ fn php_function_call_resolves_as_php_does() {
             .collect()
     };
     let text = "namespace Shop\\Tea;\nuse function Shop\\Tea\\Stale\\steep;\nuse function A\\b as pour;\nuse Shop\\Cup;\n";
-    assert_eq!(names(text, "steep"), [("Shop\\Tea\\Stale\\steep".to_owned(), true)]);
+    assert_eq!(
+        names(text, "steep"),
+        [("Shop\\Tea\\Stale\\steep".to_owned(), true)]
+    );
     assert_eq!(names(text, "pour"), [("A\\b".to_owned(), true)]);
     assert_eq!(
         names(text, "brew"),
-        [("Shop\\Tea\\brew".to_owned(), false), ("brew".to_owned(), false)],
+        [
+            ("Shop\\Tea\\brew".to_owned(), false),
+            ("brew".to_owned(), false)
+        ],
         "an unqualified name is the namespace's, then the global one"
     );
-    assert_eq!(names(text, "\\Shop\\Tea\\steep"), [("Shop\\Tea\\steep".to_owned(), false)]);
-    assert_eq!(names(text, "Cup\\fill"), [("Shop\\Cup\\fill".to_owned(), true)]);
-    assert!(names("use function A\\{steep, pour};\n", "steep").is_empty());
+    assert_eq!(
+        names(text, "\\Shop\\Tea\\steep"),
+        [("Shop\\Tea\\steep".to_owned(), false)]
+    );
+    assert_eq!(
+        names(text, "Cup\\fill"),
+        [("Shop\\Cup\\fill".to_owned(), true)]
+    );
+    assert_eq!(names("use function A\\{steep, pour};\n", "steep"), []);
 }
 
 #[test]
@@ -1078,13 +1090,20 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         php_new_receiver("return (new OldKettle())->").as_deref(),
         Some("OldKettle")
     );
-    assert_eq!(php_new_receiver("(new \\A\\B($x, 1))?->").as_deref(), Some("\\A\\B"));
+    assert_eq!(
+        php_new_receiver("(new \\A\\B($x, 1))?->").as_deref(),
+        Some("\\A\\B")
+    );
     for before in ["make(new A())->", "(new static())->", "(new A())->b()->"] {
         assert_eq!(php_new_receiver(before), None, "{before}");
     }
     assert!(php_captures("$g = function () use ($a, $pot) {", "pot"));
     assert!(!php_captures("$g = function () use (&$pot) {", "pot"));
     assert!(!php_captures("$g = function ($pot) {", "pot"));
+    assert!(
+        !php_captures("$pot = function () use ($pot) {", "pot"),
+        "the line binds $pot to the closure itself"
+    );
     assert_eq!(
         php_binding("$pot = $this->pot;", "pot"),
         Some(PhpBinding::ThisProperty("pot".into()))

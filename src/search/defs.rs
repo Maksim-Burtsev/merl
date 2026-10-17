@@ -98,7 +98,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             ),
             format!(r"^\s*alias\s+{w}="),
             format!(r"^\s*(?:for|select)\s+{w}\s*(?:\bin\b|;|$)"),
-            format!(r"^\s*(?:(?:while|until)\s+)?(?:\w+=\S*\s+)*(?:read|mapfile|readarray)\s.*\b{w}\b"),
+            format!(
+                r"^\s*(?:(?:while|until)\s+)?(?:\w+=\S*\s+)*(?:read|mapfile|readarray)\s.*\b{w}\b"
+            ),
         ],
         Kind::Sql => {
             let create = sql_create!();

@@ -571,8 +571,13 @@ pub fn php_captures(line: &str, name: &str) -> bool {
         Regex::new(r"\bfunction\b[^{]*\buse\s*\(([^)]*)\)").expect("the regex is a literal")
     });
     let var = format!("${name}");
-    USE.captures(&php_code(line))
-        .is_some_and(|c| c[1].split(',').any(|item| item.trim() == var))
+    let code = php_code(line);
+    USE.captures(&code).is_some_and(|c| {
+        c[1].split(',').any(|item| item.trim() == var)
+            && !code
+                .get(..c.get_match().start())
+                .is_some_and(|head| head.contains(&var))
+    })
 }
 
 pub fn php_last_binding(text: &str, from: usize, to: usize, name: &str) -> bool {
@@ -582,9 +587,9 @@ pub fn php_last_binding(text: &str, from: usize, to: usize, name: &str) -> bool 
         return false;
     };
     let own = own.trim();
-    let assigns = own
-        .strip_prefix(&format!("${name}"))
-        .is_some_and(|rest| rest.trim_start().starts_with('=') && !rest.trim_start().starts_with("=="));
+    let assigns = own.strip_prefix(&format!("${name}")).is_some_and(|rest| {
+        rest.trim_start().starts_with('=') && !rest.trim_start().starts_with("==")
+    });
     let opens_statement = (0..from)
         .rev()
         .filter(|&i| literal.get(i) != Some(&true))
@@ -595,11 +600,11 @@ pub fn php_last_binding(text: &str, from: usize, to: usize, name: &str) -> bool 
         return false;
     }
     let mut depth = 0i32;
-    for i in from + 1..to.min(lines.len()) {
+    for (i, line) in lines.iter().enumerate().take(to).skip(from + 1) {
         if literal.get(i) == Some(&true) {
             continue;
         }
-        for c in php_code(lines[i]).bytes() {
+        for c in php_code(line).bytes() {
             match c {
                 b'{' => depth += 1,
                 b'}' => depth -= 1,
@@ -684,6 +689,8 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         LazyLock::new(|| Regex::new(r"^([\w\\]+)::(\w+)\s*\(").expect("the regex is a literal"));
     static THIS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*\(").expect("the regex is a literal"));
+    static PROPERTY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*;").expect("the regex is a literal"));
     static FUNCTION: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^([\w\\]+)\s*\(").expect("the regex is a literal"));
     let first = statement.lines().next().unwrap_or_default();
@@ -715,8 +722,6 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         return (lower != "static" && lower != "class" && lower != "parent")
             .then_some(PhpBinding::New(class));
     }
-    static PROPERTY: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*;").expect("the regex is a literal"));
     if let Some(c) = PROPERTY.captures(value) {
         return Some(PhpBinding::ThisProperty(c[1].to_owned()));
     }

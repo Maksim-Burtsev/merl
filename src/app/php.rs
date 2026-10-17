@@ -103,12 +103,7 @@ impl App {
         self.php_named(here, text, range, access)
     }
 
-    fn php_function(
-        &self,
-        here: &Path,
-        text: &str,
-        range: Range<usize>,
-    ) -> Option<Vec<Candidate>> {
+    fn php_function(&self, here: &Path, text: &str, range: Range<usize>) -> Option<Vec<Candidate>> {
         let written = search::php_function_at(self.line_str(), range)?;
         let short = written.rsplit('\\').next().unwrap_or(&written);
         let pattern = format!(r"^\s*function\s+&?\s*{}\s*\(", regex::escape(short));
@@ -407,7 +402,8 @@ impl App {
             let link = format!("$this->{field}: {}", Self::php_class_name(&class)?);
             (class, vec![link], rest)
         } else {
-            let ProvenClass { class, link } = self.php_variable_type(here, text, head, self.line)?;
+            let ProvenClass { class, link } =
+                self.php_variable_type(here, text, head, self.line)?;
             (class, vec![link], fields)
         };
         for field in rest {
