@@ -43,6 +43,9 @@ impl App {
         let file = search::dart_uri_file(&self.root, here, &uri, sdk.as_deref())?;
         let mut patterns = search::def_patterns(Kind::Dart, word);
         self.spelling_cut(Kind::Dart, word, &mut patterns);
+        if let [_, class] = chain {
+            patterns.push(search::dart_bare_constructor(class, word));
+        }
         let pattern = patterns.join("|");
         let built = chain.is_empty().then(|| format!("{word}.{word}"));
         let hits = if file.is_absolute() {
