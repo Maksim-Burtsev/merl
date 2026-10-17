@@ -23,19 +23,19 @@ end
 function T.brew()
   return kettle.pour(1) + kettle.steep(2)
   --            ^ d: lua/tea/kettle.lua:18
-  --                             ^ d: none; want lua/tea/kettle.lua:24 (#954)
+  --                             ^ d: lua/tea/kettle.lua:24
 end
 
 function T.pots()
   local pot = Teapot.new()
-  --          ^ d: picker lua/tea/table.lua:3, lua/tea/teapot.lua:1; want lua/tea/table.lua:3 (#953)
+  --          ^ d: lua/tea/table.lua:3
   --                 ^ d: lua/tea/teapot.lua:4
   local k = kettle.Kettle.new(1)
   --               ^ d: lua/tea/kettle.lua:3
   --                      ^ d: lua/tea/kettle.lua:6
   return pot:pour(1) + k:pour(1) + pot:decant()
-  --         ^ d: picker lua/tea/kettle.lua:10, lua/tea/kettle.lua:14, lua/tea/kettle.lua:18, lua/tea/teapot.lua:8; want lua/tea/teapot.lua:8 (#952)
-  --                     ^ d: picker lua/tea/kettle.lua:10, lua/tea/kettle.lua:14, lua/tea/kettle.lua:18, lua/tea/teapot.lua:8; want lua/tea/kettle.lua:10 (#952)
+  --         ^ d: lua/tea/teapot.lua:8
+  --                     ^ d: lua/tea/kettle.lua:10
   --                                   ^ d: lua/tea/teapot.lua:12
 end
 
@@ -49,7 +49,7 @@ end
 
 local fact = function(x)
   return x > 1 and fact(x - 1) or 1
-  --               ^ d: lua/tea/table.lua:50; want none (#951)
+  --               ^ d: none
 end
 
 local function fib(x)
@@ -74,7 +74,7 @@ end
 
 function brew_global()
   return later() + fact(3) + fib(3)
-  --     ^ d: picker lua/tea/table.lua:60, lua/tea/table.lua:61; want lua/tea/table.lua:60 (#953)
+  --     ^ d: lua/tea/table.lua:60
   --               ^ d: lua/tea/table.lua:50
   --                         ^ d: lua/tea/table.lua:55
 end

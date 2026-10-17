@@ -221,10 +221,14 @@ impl App {
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
             let all = hits.len();
+            let unseen = (!dotted && chain.is_empty())
+                .then(|| search::lua_value_of_its_own(&a.text, self.line + 1, word))
+                .flatten();
             hits.retain(|h| {
-                !h.text.starts_with([' ', '\t'])
+                (!h.text.starts_with([' ', '\t'])
                     || !h.text.trim_start().starts_with("local ")
-                    || at(h)
+                    || at(h))
+                    && (h.path != a.here || Some(h.line1) != unseen)
             });
             self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
         }
