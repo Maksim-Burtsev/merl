@@ -706,8 +706,8 @@ fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<u
             .map_or(to, |(i, _)| from + i),
     )
 }
-pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
-    c_bindings_at(text, line1, name)
+pub fn c_bindings(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<Binding> {
+    c_bindings_at(text, line1, col, name)
         .into_iter()
         .map(|p| Binding {
             line1: p.line1,
@@ -715,7 +715,7 @@ pub fn c_bindings(text: &str, line1: usize, name: &str) -> Vec<Binding> {
         })
         .collect()
 }
-pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
+pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<CPlace> {
     let code = c_code(text);
     let starts = line_starts(&code);
     let Some(pos) = scope_pos(&code, &starts, line1, name) else {
@@ -728,7 +728,12 @@ pub fn c_bindings_at(text: &str, line1: usize, name: &str) -> Vec<CPlace> {
             byte_col: at - starts[line1 - 1],
         }
     };
-    if let Some(at) = initializer_parameter(&code, pos, name) {
+    let member = col.is_some_and(|c| {
+        (code.get(starts[line1 - 1] + c..))
+            .and_then(|r| r.strip_prefix(name))
+            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
+    });
+    if let Some(at) = initializer_parameter(&code, pos, name).filter(|_| !member) {
         return vec![place(at)];
     }
     for Scope {
@@ -1206,7 +1211,7 @@ pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
 pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let mut at: Vec<usize> = c_bindings_at(text, line1, name)
+    let mut at: Vec<usize> = c_bindings_at(text, line1, None, name)
         .into_iter()
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
@@ -1393,7 +1398,7 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
 pub fn cpp_value_type(text: &str, line1: usize, name: &str) -> Result<Option<Vec<String>>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let at: Vec<usize> = c_bindings_at(text, line1, name)
+    let at: Vec<usize> = c_bindings_at(text, line1, None, name)
         .into_iter()
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
@@ -1493,7 +1498,7 @@ mod tests {
     }
 
     fn bound_on(text: &str, line1: usize, name: &str) -> Vec<usize> {
-        c_bindings_at(text, line1, name)
+        c_bindings_at(text, line1, None, name)
             .into_iter()
             .map(|p| p.line1)
             .collect()
@@ -1634,6 +1639,20 @@ mod tests {
         assert_eq!(at(2, "Base"), None);
         assert_eq!(at(7, "g"), None);
         assert_eq!(at(9, "x_"), None);
+    }
+
+    #[test]
+    fn a_same_named_member_of_an_initializer_list_is_not_its_parameter() {
+        let text = "Kettle::Kettle(int spout) : spout(spout) {}\n";
+        let at = |col: usize| c_bindings_at(text, 1, Some(col), "spout");
+        assert_eq!(at(28), vec![]);
+        assert_eq!(
+            at(34),
+            vec![CPlace {
+                line1: 1,
+                byte_col: 19
+            }]
+        );
     }
 
     #[test]

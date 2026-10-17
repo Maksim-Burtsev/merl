@@ -51,3 +51,19 @@ template <typename T>
 struct Tin {
   T seal() const { return T{}; }
 };
+
+namespace infuse {
+class Samovar {
+ public:
+  explicit Samovar(int spout);
+  int spout;
+};
+
+class Brewer {
+ public:
+  explicit Brewer(int spout) : spout(spout) {}
+  //                           ^ d: include/tea/kettle.hh:67
+  //                                 ^ d: include/tea/kettle.hh:64
+  int spout;
+};
+}  // namespace infuse

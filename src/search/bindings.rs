@@ -173,7 +173,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Shell => shell_bindings(&lines, at, name),
         Kind::PowerShell => powershell_params(&lines, at, name),
         Kind::Zig => zig_bindings(&lines, at, name),
-        Kind::C => c_bindings(text, line, name),
+        Kind::C => c_bindings(text, line, None, name),
         Kind::Jvm => jvm_bindings(&lines, at, name),
         Kind::Swift => swift_bindings(&lines, at, name),
         Kind::Ruby => ruby_bindings(&lines, at, name),

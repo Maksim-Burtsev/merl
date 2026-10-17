@@ -1276,7 +1276,7 @@ fn swift_receiver_types_are_read_off_their_lines() {
 fn c_bindings_read_a_head_with_non_ascii_names() {
     let text = "int (r *R\u{e9}po) M\u{e9}thode(int x)\n{\n    return x;\n}\n";
     assert_eq!(
-        c_bindings_at(text, 3, "x").first().map(|b| b.line1),
+        c_bindings_at(text, 3, None, "x").first().map(|b| b.line1),
         Some(1)
     );
 }
