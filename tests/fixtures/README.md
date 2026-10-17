@@ -400,6 +400,15 @@ self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter
 property, a one-line closure whose parameter is named like a property, and declaration-shaped
 lines in a multi-line and a raw string.
 
+`rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
+`Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
+`Teapot` implements in two modules, called as a method, by `Trait::pour` and by `<T as Trait>::`;
+`self.pour()` in a trait's default method and on a generic bound; `Self` as a type and a path;
+`Kettle` and `Teapot as Pot` re-exported by `pub use`; an import shadowed by a local closure, a
+local and a parameter; a struct and its method declared by a `macro_rules!`; a closure parameter
+named like a field; an inherent `impl` in another module; and a doc comment and a raw string
+declaring what `cups.rs` declares.
+
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
