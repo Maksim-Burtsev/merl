@@ -66,31 +66,38 @@ impl App {
             })
         };
         let labelled = |f: &str| before.trim_end().ends_with(&format!("this@{f}."));
+        let own = |name: Option<&str>| {
+            let lines: Vec<&str> = text.lines().collect();
+            let decl = search::jvm_enclosing_types(text, line)
+                .into_iter()
+                .find(|&d| {
+                    search::jvm_type_name(lines[d - 1]).is_some_and(|n| name.is_none_or(|w| n == w))
+                })?;
+            Some(JvmType::Project(Hit {
+                deleted: None,
+                path: here.to_path_buf(),
+                line1: decl,
+                byte_col: None,
+                text: lines[decl - 1].to_owned(),
+            }))
+        };
         let (mut ty, mut links) = match first.as_str() {
             f if labelled(f)
                 || (f == "this" && search::jvm_enclosing_types(text, line).is_empty()) =>
             {
-                let ext = kt.then(|| search::kotlin_extension_at(text, line, before))??;
-                if first != "this" && ext.name != *first {
-                    return None;
+                let ext = kt
+                    .then(|| search::kotlin_extension_at(text, line, before))
+                    .flatten()
+                    .filter(|e| f == "this" || e.name == f);
+                match ext {
+                    Some(ext) => {
+                        let ty = self.jvm_type_at(here, text, &ext.receiver);
+                        (ty, vec![format!("this: {}", ext.receiver)])
+                    }
+                    None => (own((f != "this").then_some(f))?, Vec::new()),
                 }
-                let ty = self.jvm_type_at(here, text, &ext.receiver);
-                (ty, vec![format!("this: {}", ext.receiver)])
             }
-            "this" => {
-                let lines: Vec<&str> = text.lines().collect();
-                let decl = search::jvm_enclosing_types(text, line)
-                    .into_iter()
-                    .find(|&d| search::jvm_type_name(lines[d - 1]).is_some())?;
-                let hit = Hit {
-                    deleted: None,
-                    path: here.to_path_buf(),
-                    line1: decl,
-                    byte_col: None,
-                    text: lines[decl - 1].to_owned(),
-                };
-                (JvmType::Project(hit), Vec::new())
-            }
+            "this" => (own(None)?, Vec::new()),
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
                 let WrittenType {
                     resolved: ty,

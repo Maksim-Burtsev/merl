@@ -61,4 +61,7 @@ class Samovar(vapor: Int, val bulk: Int = 1) : Urn() {
         }
     """ + "fun mint(): Int = $vapor"
     //                         ^ d: src/main/kotlin/brew/Samovar.kt:12
+
+    fun labelled(glasses: List<Glass>): Int = glasses.sumOf { this@Samovar.dose(it.dose(1)) }
+    //                                                                     ^ d: src/main/kotlin/brew/Samovar.kt:15
 }
