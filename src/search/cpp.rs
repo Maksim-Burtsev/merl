@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 
 use super::c::{
     Head, c_code, c_head, c_head_start, c_innermost_open_brace, c_struct_head, c_words_on_line,
+    close_or_end,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -130,9 +131,23 @@ pub fn cpp_declared_signature(text: &str, line1: usize, word: &str) -> Option<Ve
 }
 
 fn signature(head: &str) -> Option<Vec<String>> {
+    let tokens = head_tokens(head);
+    let (params, close) = split_parameters(&tokens)?;
+    let mut out: Vec<String> = params.iter().map(|p| parameter_type(p)).collect();
+    let quals = tokens[close + 1..]
+        .iter()
+        .filter(|t| matches!(**t, "const" | "volatile" | "&" | "&&"));
+    out.push(quals.copied().collect::<Vec<_>>().join(" "));
+    Some(out)
+}
+
+fn head_tokens(head: &str) -> Vec<&str> {
     static TOKEN: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\w+|::|&&|\.\.\.|\S").expect("the regex is a literal"));
-    let tokens: Vec<&str> = TOKEN.find_iter(head).map(|m| m.as_str()).collect();
+    TOKEN.find_iter(head).map(|m| m.as_str()).collect()
+}
+
+fn split_parameters<'a>(tokens: &'a [&'a str]) -> Option<(Vec<&'a [&'a str]>, usize)> {
     let close = tokens.iter().position(|t| *t == ")")?;
     let inner = tokens.get(1..close)?;
     if tokens.first() != Some(&"(") || inner.contains(&"(") {
@@ -145,20 +160,16 @@ fn signature(head: &str) -> Option<Vec<String>> {
             "<" => depth += 1,
             ">" => depth = depth.checked_sub(1)?,
             "," if depth == 0 => {
-                out.push(parameter_type(&inner[from..i]));
+                out.push(&inner[from..i]);
                 from = i + 1;
             }
             _ => {}
         }
     }
     if !inner.is_empty() && inner != ["void"] {
-        out.push(parameter_type(&inner[from..]));
+        out.push(&inner[from..]);
     }
-    let quals = tokens[close + 1..]
-        .iter()
-        .filter(|t| matches!(**t, "const" | "volatile" | "&" | "&&"));
-    out.push(quals.copied().collect::<Vec<_>>().join(" "));
-    Some(out)
+    Some((out, close))
 }
 
 fn parameter_type(param: &[&str]) -> String {
@@ -191,6 +202,175 @@ fn parameter_type(param: &[&str]) -> String {
     kept.join(" ")
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CppArg {
+    NonZeroInt,
+    Str,
+    Literal,
+    Name(String),
+    Class(Vec<String>),
+    Other,
+}
+
+pub fn cpp_call_args(text: &str, open: usize) -> Option<Vec<CppArg>> {
+    static INT: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[1-9][0-9']*[uUlL]*$").expect("the regex is a literal"));
+    static LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[0-9][\w'.]*|true|false|nullptr)$").expect("the regex is a literal")
+    });
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Za-z_]\w*$").expect("the regex is a literal"));
+    let code = c_code(text);
+    let b = code.as_bytes();
+    if b.get(open) != Some(&b'(') {
+        return None;
+    }
+    let (mut depth, mut from, mut ranges) = (0usize, open + 1, Vec::new());
+    let mut i = open + 1;
+    loop {
+        match *b.get(i)? {
+            b')' if depth == 0 => {
+                ranges.push(from..i);
+                break;
+            }
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth = depth.checked_sub(1)?,
+            b',' if depth == 0 => {
+                ranges.push(from..i);
+                from = i + 1;
+            }
+            b'<' | b';' => return None,
+            _ => {}
+        }
+        i += 1;
+    }
+    if let [only] = ranges.as_slice()
+        && text.get(only.clone())?.trim().is_empty()
+    {
+        return Some(Vec::new());
+    }
+    ranges
+        .into_iter()
+        .map(|r| {
+            let (raw, c) = (text.get(r.clone())?.trim(), code.get(r)?.trim());
+            Some(if raw.is_empty() {
+                return None;
+            } else if c.is_empty() && raw.starts_with('"') && raw.ends_with('"') {
+                CppArg::Str
+            } else if c.is_empty() {
+                CppArg::Literal
+            } else if INT.is_match(c) {
+                CppArg::NonZeroInt
+            } else if LITERAL.is_match(c) {
+                CppArg::Literal
+            } else if NAME.is_match(c) && c != "this" {
+                CppArg::Name(c.to_owned())
+            } else {
+                CppArg::Other
+            })
+        })
+        .collect()
+}
+
+pub fn cpp_parameters(text: &str, line1: usize, word: &str) -> Option<Vec<Vec<String>>> {
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, word, Some('(')).first()?;
+    let open = at + code.get(at..)?.find('(')?;
+    let end = open + code.get(open..)?.find(['{', ';'])?;
+    let tokens = head_tokens(code.get(open..end)?);
+    let (params, _) = split_parameters(&tokens)?;
+    Some(
+        (params.into_iter())
+            .map(|p| {
+                (parameter_type(p).split_whitespace())
+                    .filter(|t| !matches!(*t, "const" | "volatile" | "&" | "&&"))
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .collect(),
+    )
+}
+
+pub fn cpp_not_viable(params: &[Vec<String>], args: &[CppArg]) -> bool {
+    const ARITHMETIC: &[&str] = &[
+        "int", "long", "short", "unsigned", "signed", "char", "float", "double",
+    ];
+    let fixed = (params.iter())
+        .take_while(|ty| !ty.iter().any(|t| t == "..."))
+        .count();
+    if fixed == params.len() && args.len() > params.len() {
+        return true;
+    }
+    params[..fixed].iter().zip(args).any(|(ty, arg)| {
+        let arithmetic = !ty.is_empty() && ty.iter().all(|t| ARITHMETIC.contains(&t.as_str()));
+        match arg {
+            CppArg::NonZeroInt => ty.iter().any(|t| t == "*"),
+            CppArg::Str | CppArg::Class(_) => arithmetic,
+            CppArg::Literal | CppArg::Name(_) | CppArg::Other => false,
+        }
+    })
+}
+
+enum Brace {
+    Namespace(Vec<String>),
+    Class,
+    Linkage,
+    Code,
+    Unknown,
+}
+
+fn brace(code: &str, open: usize) -> Brace {
+    static MACRO: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Z][A-Z0-9_]*$").expect("the regex is a literal"));
+    let head = code.get(c_head_start(code, open)..open).unwrap_or_default();
+    if c_struct_head(head).is_some() {
+        return Brace::Class;
+    }
+    if let Some(c) = NAMESPACE.captures(head) {
+        return match c.get(1) {
+            Some(name) if !c[0].contains("inline") => Brace::Namespace(
+                (name.as_str().split("::"))
+                    .map(|p| p.trim().to_owned())
+                    .collect(),
+            ),
+            _ => Brace::Unknown,
+        };
+    }
+    match c_head(head) {
+        Head::TypeOrNamespace if head.trim() == "extern" => Brace::Linkage,
+        Head::TypeOrNamespace => Brace::Unknown,
+        Head::Function { name, .. } if name.contains("::") || MACRO.is_match(&name) => {
+            Brace::Unknown
+        }
+        Head::Block if head.contains(['(', ':']) => Brace::Unknown,
+        _ => Brace::Code,
+    }
+}
+
+pub fn cpp_plain_class_namespace(code: &str, open: usize) -> Option<Vec<String>> {
+    static BASE_OR_TEMPLATE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\btemplate\b|(?:^|[^:]):(?:[^:]|$)").expect("the regex is a literal")
+    });
+    static OPERATOR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\boperator\b").expect("the regex is a literal"));
+    let head = code.get(c_head_start(code, open)..open)?;
+    let body = code.get(open..close_or_end(code, open, code.len()))?;
+    if BASE_OR_TEMPLATE.is_match(head) || OPERATOR.is_match(body) {
+        return None;
+    }
+    let mut out: Vec<String> = Vec::new();
+    let mut at = open;
+    while let Some(o) = c_innermost_open_brace(code.as_bytes(), at) {
+        match brace(code, o) {
+            Brace::Namespace(n) => out = [n, out].concat(),
+            Brace::Linkage => {}
+            Brace::Class | Brace::Code | Brace::Unknown => return None,
+        }
+        at = o;
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,5 +395,33 @@ mod tests {
         assert_eq!(defined("if (K::f(x)) {"), None);
         assert_eq!(defined("void f(int x) {"), None);
         assert_eq!(declared("void f(int (*cb)(int));"), None);
+    }
+
+    #[test]
+    fn a_call_rules_out_only_what_its_plain_arguments_cannot_reach() {
+        let args = |call: &str| cpp_call_args(call, call.find('(').expect("a call")).expect("args");
+        let params = |decl: &str| cpp_parameters(decl, 1, "f").expect("params");
+        let out = |decl: &str, call: &str| cpp_not_viable(&params(decl), &args(call));
+        assert_eq!(
+            args(r#"f(1, "a", 0, x, a + b, 'c')"#),
+            [
+                CppArg::NonZeroInt,
+                CppArg::Str,
+                CppArg::Literal,
+                CppArg::Name("x".into()),
+                CppArg::Other,
+                CppArg::Literal
+            ]
+        );
+        assert_eq!(cpp_call_args("f(a < b, c)", 1), None);
+        assert!(out("int f(const char* s);", "f(1)"));
+        assert!(!out("int f(const char* s);", "f(0)"));
+        assert!(out("int f(int n);", r#"f("a")"#));
+        assert!(!out("int f(bool b);", r#"f("a")"#));
+        assert!(out("int f(int n);", "f(1, 2)"));
+        assert!(!out("int f(const char* s, int n);", r#"f("a")"#));
+        assert!(!out("int f(const char* s, ...);", r#"f("a", 1, 2)"#));
+        assert!(!out("int f(Leaf leaf);", "f(1)"));
+        assert!(!out("int f(const long& n);", "f(x)"));
     }
 }

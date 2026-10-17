@@ -12,7 +12,7 @@ int set_table() {
   //     ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:39 (#944)
   //                   ^ d: picker src/tea/table.cc:3, include/tea/kettle.hh:9, include/tea/kettle.hh:45, include/tea/kettle.hh:48, src/tea/kettle.cc:39, src/tea/kettle.cc:44; want src/tea/kettle.cc:44 (#944)
   //                                     ^ d: src/tea/table.cc:3
-  //                                                     ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27; want src/tea/kettle.cc:23 (#943)
+  //                                                     ^ d: src/tea/kettle.cc:23
   //                                                                     ^ d: include/tea/kettle.hh:43
   //                                                                                     ^ d: include/tea/kettle.hh:25
 }
@@ -22,7 +22,7 @@ int shade() {
   auto f = [](infuse::Teapot cup) { return cup.decant(1); };
   //                                           ^ d: include/tea/kettle.hh:25
   return f(infuse::Teapot{}) + cup.decant(1) + cup.topup();
-  //                               ^ d: picker src/tea/kettle.cc:23, src/tea/kettle.cc:27; want src/tea/kettle.cc:23 (#943)
+  //                               ^ d: src/tea/kettle.cc:23
   //                                               ^ d: src/tea/kettle.cc:29
 }
 

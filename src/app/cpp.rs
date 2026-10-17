@@ -54,7 +54,11 @@ impl App {
                 return broke(&prev);
             };
             if i == last {
-                return CppAnswer::Found(self.cpp_candidates(here, &owner, &ats, word, &links));
+                let found = self.cpp_candidates(here, &owner, &ats, word, &links);
+                return CppAnswer::Found(match self.cpp_call_args(here, text) {
+                    Some(args) => self.cpp_viable_only(word, &args, found, |c| &c.hit),
+                    None => found,
+                });
             }
             let Some((next, at)) = (ats.iter())
                 .find_map(|&at| Some((search::cpp_type_at(&owner.code, at, name.len())?, at)))
@@ -281,6 +285,66 @@ impl App {
         );
         found
     }
+
+    fn cpp_call_args(&mut self, here: &Path, text: &str) -> Option<Vec<search::CppArg>> {
+        let pos = offset(text, self.line, self.col);
+        let rest = text.get(pos..)?;
+        let end = pos + rest.find(|c: char| !(c.is_alphanumeric() || c == '_'))?;
+        let after = text.get(end..)?;
+        let open = end + after.len() - after.trim_start().len();
+        let args = search::cpp_call_args(text, open)?;
+        let code = search::c_code(text);
+        let ctx = search::cpp_scope_path(&code, pos.min(code.len()));
+        Some(
+            args.into_iter()
+                .map(|arg| match arg {
+                    search::CppArg::Name(name) => self
+                        .cpp_arg_class(here, text, &code, &ctx, &name)
+                        .map_or(search::CppArg::Other, search::CppArg::Class),
+                    arg => arg,
+                })
+                .collect(),
+        )
+    }
+
+    fn cpp_arg_class(
+        &mut self,
+        here: &Path,
+        text: &str,
+        code: &str,
+        ctx: &[String],
+        name: &str,
+    ) -> Option<Vec<String>> {
+        let Ok(Some(ty)) = search::cpp_value_type(text, self.line + 1, name) else {
+            return None;
+        };
+        let class = self.cpp_class(here, &ty, code, None, ctx)?;
+        search::cpp_plain_class_namespace(&class.code, class.open)
+    }
+
+    fn cpp_viable_only<T>(
+        &self,
+        word: &str,
+        args: &[search::CppArg],
+        found: Vec<T>,
+        hit: fn(&T) -> &Hit,
+    ) -> Vec<T> {
+        let keep: Vec<bool> = (found.iter().map(hit))
+            .map(|h| {
+                (self.text_of(&h.path))
+                    .and_then(|t| search::cpp_parameters(&t, h.line1, word))
+                    .is_none_or(|p| !search::cpp_not_viable(&p, args))
+            })
+            .collect();
+        if !keep.contains(&true) {
+            return found;
+        }
+        let mut keep = keep.into_iter();
+        found
+            .into_iter()
+            .filter(|_| keep.next().unwrap_or(true))
+            .collect()
+    }
 }
 
 fn cpp_namesake(
@@ -307,4 +371,11 @@ fn cpp_namesake(
         let mine: Vec<bool> = paths.iter().map(|p| *p == want).collect();
         mine.contains(&true).then_some(mine)
     })
+}
+
+fn offset(text: &str, line: usize, col: usize) -> usize {
+    (text.split('\n').take(line))
+        .map(|l| l.len() + 1)
+        .sum::<usize>()
+        + col
 }
