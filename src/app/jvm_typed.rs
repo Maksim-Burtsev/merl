@@ -49,11 +49,16 @@ impl App {
                 .then(|| search::jvm_smart_cast(text, line, before, first))
                 .flatten()
         };
+        let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
         let extension = || {
-            here.extension()
-                .is_some_and(|e| e == "kt" || e == "kts")
-                .then(|| search::kotlin_extension_at(text, line, before))
+            kt.then(|| search::kotlin_extension_at(text, line, before))
                 .flatten()
+        };
+        let element = || {
+            let collection = kt
+                .then(|| search::kotlin_lambda_collection(text, line, before, first))
+                .flatten()?;
+            Self::kotlin_element(text, line, &collection)
         };
         let labelled = |f: &str| before.trim_end().ends_with(&format!("this@{f}."));
         let (mut ty, mut links) = match first.as_str() {
@@ -85,7 +90,7 @@ impl App {
                 let WrittenType {
                     resolved: ty,
                     written,
-                } = match smart() {
+                } = match smart().or_else(element) {
                     Some(t) => WrittenType {
                         resolved: self.jvm_type_at(here, text, &t),
                         written: t,
@@ -232,6 +237,23 @@ impl App {
             found = Some(this);
         }
         found
+    }
+
+    fn kotlin_element(text: &str, line1: usize, name: &str) -> Option<String> {
+        let mut declared: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
+            .iter()
+            .map(|b| b.line1)
+            .collect();
+        if declared.is_empty() {
+            declared = search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .map(|d| search::jvm_members_of(text, d, name))
+                .find(|m| !m.is_empty())?;
+        }
+        let [l] = declared[..] else {
+            return None;
+        };
+        search::kotlin_element_type(text.lines().nth(l.checked_sub(1)?)?, name)
     }
 
     fn jvm_returned(

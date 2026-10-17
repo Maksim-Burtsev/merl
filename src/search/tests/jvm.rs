@@ -248,3 +248,40 @@ fn a_kotlin_extension_function_s_body_has_its_receiver_as_this() {
     assert_eq!(at(3, "    return "), glass("pour"));
     assert_eq!(at(6, "    fun Glass.tip() = "), None, "a member extension");
 }
+
+#[test]
+fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
+    let text = "fun f(glasses: List<Glass>, n: Map<String, Glass>) {\n    glasses.sumOf { it.dose() }\n    glasses.forEach { g ->\n        g.dose()\n    }\n}\n";
+    let at = |line1: usize, before: &str, name: &str| {
+        kotlin_lambda_collection(text, line1, before, name)
+    };
+    assert_eq!(
+        at(2, "    glasses.sumOf { ", "it").as_deref(),
+        Some("glasses")
+    );
+    assert_eq!(
+        at(4, "        ", "g").as_deref(),
+        Some("glasses"),
+        "the lambda's header"
+    );
+    assert_eq!(
+        at(2, "    glasses.sumOf { x -> ", "it"),
+        None,
+        "a named parameter"
+    );
+    assert_eq!(at(2, "    glasses.let { ", "it"), None, "not one element");
+    assert_eq!(
+        at(2, "    glasses.sumOf { a.let { ", "it"),
+        None,
+        "an inner lambda"
+    );
+    assert_eq!(
+        kotlin_element_type(text.lines().next().unwrap(), "glasses").as_deref(),
+        Some("Glass")
+    );
+    assert_eq!(
+        kotlin_element_type(text.lines().next().unwrap(), "n"),
+        None,
+        "a map"
+    );
+}

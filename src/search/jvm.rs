@@ -929,6 +929,74 @@ pub fn jvm_smart_cast(text: &str, line: usize, before: &str, name: &str) -> Opti
     None
 }
 
+pub fn kotlin_lambda_collection(
+    text: &str,
+    line1: usize,
+    before: &str,
+    name: &str,
+) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:forEach|map|mapNotNull|flatMap|filter|filterNot|sumOf",
+            r"|any|all|none|count|first|firstOrNull|last|lastOrNull|find|findLast|single|singleOrNull",
+            r"|onEach|sortedBy|sortedByDescending|maxBy|minBy|maxByOrNull|minByOrNull|maxOf|minOf",
+            r"|groupBy|associateBy|associateWith|partition|takeWhile|dropWhile|distinctBy)\s*\{$"
+        ))
+        .expect("the regex is a literal")
+    });
+    static PARAMETER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([A-Za-z_]\w*)\s*->").expect("the regex is a literal")
+    });
+    let innermost = |code: &str| {
+        let mut open = Vec::new();
+        for (i, c) in code.char_indices() {
+            match c {
+                '{' => open.push(i),
+                '}' => {
+                    open.pop();
+                }
+                _ => {}
+            }
+        }
+        open.pop()
+    };
+    let mut code = uncommented(Kind::Jvm, before).replace("?.", ".");
+    if innermost(&code).is_none() {
+        if code.contains('}') {
+            return None;
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+        code = uncommented(Kind::Jvm, lines[scope_of(&lines, at)?]).replace("?.", ".");
+        let tail = code.get(innermost(&code)? + 1..)?;
+        if !(tail.trim().is_empty()
+            || PARAMETER
+                .find(tail)
+                .is_some_and(|m| m.end() == tail.trim_end().len()))
+        {
+            return None;
+        }
+    }
+    let brace = innermost(&code)?;
+    let inside = code.get(brace + 1..)?;
+    let bound = match PARAMETER.captures(inside) {
+        Some(c) => c[1].to_owned(),
+        None if inside.contains("->") => return None,
+        None => "it".to_owned(),
+    };
+    (bound == name).then_some(())?;
+    Some(CALL.captures(code.get(..=brace)?)?[1].to_owned())
+}
+
+pub fn kotlin_element_type(line: &str, name: &str) -> Option<String> {
+    let re = Regex::new(&format!(
+        r"(?:^|[^\w.]){}\s*:\s*(?:List|MutableList|ArrayList|Set|MutableSet|HashSet|Collection|MutableCollection|Iterable|Sequence|Array)<\s*(?:out\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\??\s*>",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(re.captures(&uncommented(Kind::Jvm, line))?[1].to_owned())
+}
+
 pub struct KotlinExtension {
     pub name: String,
     pub receiver: String,
