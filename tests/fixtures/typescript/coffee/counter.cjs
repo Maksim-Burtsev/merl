@@ -16,7 +16,7 @@ function serve(cups) {
   const g = new Grinder(2);
   //            ^ d: coffee/grinder.cjs:3
   g.grind(cups);
-  //^ d: none; want coffee/grinder.cjs:7 (#1001)
+  //^ d: coffee/grinder.cjs:7
   tamp(darken(cups));
 //^ d: coffee/counter.cjs:37
   //   ^ d: coffee/roast.cjs:3
@@ -24,7 +24,7 @@ function serve(cups) {
   //               ^ d: coffee/roast.cjs:7
   roast.measure({ origin: "", scoops: oven.level });
   //    ^ d: coffee/roast.cjs:21
-  //                                       ^ d: none; want coffee/roast.cjs:9 (#1001)
+  //                                       ^ d: coffee/roast.cjs:9
   var dose = 1;
   if (cups > 2) {
     var dose = 2;

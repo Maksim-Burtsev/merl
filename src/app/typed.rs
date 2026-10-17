@@ -764,7 +764,7 @@ impl App {
         {
             return Some(ty);
         }
-        if !search::declares_type(kind, &decl.text) {
+        if !search::declares_type(kind, &decl.text) && !js_type(kind, &decl.path, &decl.text) {
             return self.required(kind, file, &parts);
         }
         Some(Typed {
@@ -874,10 +874,12 @@ impl App {
             return None;
         };
         let hit = &found.hit;
-        search::declares_type(kind, &hit.text).then(|| Typed {
-            name: declared_name(kind, &hit.text, parts),
-            path: hit.path.clone(),
-            line: hit.line1,
+        (search::declares_type(kind, &hit.text) || js_type(kind, &hit.path, &hit.text)).then(|| {
+            Typed {
+                name: declared_name(kind, &hit.text, parts),
+                path: hit.path.clone(),
+                line: hit.line1,
+            }
         })
     }
 }
@@ -903,6 +905,11 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
                 || search::reads_jsdoc(kind, file) && required.is_match(l))
         })
     })
+}
+
+fn js_type(kind: Kind, file: &Path, line: &str) -> bool {
+    search::reads_jsdoc(kind, file)
+        && (search::js_constructor(line).is_some() || search::js_exported_class(line))
 }
 
 fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {

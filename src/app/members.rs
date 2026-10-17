@@ -190,6 +190,9 @@ impl App {
             return Vec::new();
         };
         let decl = text.lines().nth(ty.line.saturating_sub(1)).unwrap_or("");
+        if kind == Kind::TsJs && search::js_constructor(decl).is_some() {
+            return Vec::new();
+        }
         let named = search::type_name(kind, decl).filter(|_| kind == Kind::TsJs);
         let anonymous = kind == Kind::TsJs && named.is_none() && search::declares_type(kind, decl);
         if anonymous {
@@ -247,6 +250,10 @@ impl App {
         assigned: bool,
     ) -> Option<Hit> {
         let text = self.text_of(&ty.path)?;
+        let decl = text.lines().nth(ty.line.saturating_sub(1)).unwrap_or("");
+        if kind == Kind::TsJs && search::js_constructor(decl).is_some() {
+            return None;
+        }
         let search::FieldLine {
             line,
             assigned_in_method,
@@ -601,9 +608,33 @@ impl App {
         }
     }
 
+    fn constructor_name(&self, t: &Typed) -> Option<String> {
+        let text = self.text_of(&t.path)?;
+        search::js_constructor(text.lines().nth(t.line.saturating_sub(1))?).map(str::to_owned)
+    }
+
+    fn constructed_member(&self, t: &Typed, name: &str, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&t.path)?;
+        let hit = |line1: usize| Hit {
+            text: text.lines().nth(line1 - 1).unwrap_or_default().to_owned(),
+            path: t.path.clone(),
+            line1,
+            byte_col: None,
+            deleted: None,
+        };
+        if let Some(line1) = search::constructor_field(&text, t.line, word) {
+            return Some(vec![hit(line1)]);
+        }
+        let methods = search::prototype_members(&text, name, word);
+        (!methods.is_empty()).then(|| methods.into_iter().map(hit).collect())
+    }
+
     pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
         if kind != Kind::TsJs {
             return self.own_member(kind, t, word);
+        }
+        if let Some(name) = self.constructor_name(t) {
+            return self.constructed_member(t, &name, word);
         }
         let mut members = self.members_of(kind, t, word);
         let field = self.field_of(kind, t, word, false);

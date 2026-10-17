@@ -404,6 +404,11 @@ the type before it. The type comes from the declaration:
   as `T`, `T[]` and `Array<T>` hand out `T` to a loop; a union of two types, another generic, an
   inline object or function type, `*`, `any`, a block with a blank line under it and a
   `@typedef` its file declares twice type nothing. A `.ts` file's JSDoc is not read.
+- A constructor function in a `.js`, `.jsx`, `.mjs` or `.cjs` file (#1001): `function Grinder(…)`
+  is a type there, and so is a class assigned to `exports.Roaster`. A member of its instance is a
+  `this.name = …` statement directly in its body, else a `Grinder.prototype.name = …` of its
+  file; a nested function, `Grinder.name` itself and anything else declare nothing. `this` in a
+  `Grinder.prototype.name = function` (and in an arrow inside it) is a `Grinder`.
 - Swift (#384): a parameter's annotation (`lhs: Instant`, `with convertible: URLConvertible`), a
   local's or a property's (`let encoder: FormEncoder`), a construction `FormEncoder()`,
   `FormEncoder.init(…)` or with a trailing closure of a type the project declares (a callee it
