@@ -415,6 +415,16 @@ fn project_s_own(root: &Path, project: Option<&Path>, level: &Path, dir: &Path) 
     let own = project?.join(dir.strip_prefix(real.ancestors().nth(depth)?).ok()?);
     own.canonicalize().is_ok_and(|c| c == own).then_some(own)
 }
+pub fn own_copy(root: &Path, path: &Path) -> Option<PathBuf> {
+    let (path, project) = (root.join(path), root.canonicalize().ok()?);
+    let real = path
+        .canonicalize()
+        .ok()
+        .filter(|r| !r.starts_with(&project))?;
+    let level = path.ancestors().find(|a| a.ends_with("node_modules"))?;
+    let own = project_s_own(root, Some(&project), level, &real)?;
+    Some(own.strip_prefix(&project).ok()?.to_path_buf())
+}
 pub fn package_copy(
     root: &Path,
     roots: &[PathBuf],
