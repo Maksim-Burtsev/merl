@@ -313,7 +313,7 @@ impl Review {
         for path in others
             .split('\0')
             .filter(|p| !p.is_empty() && !p.ends_with('/'))
-            .filter(|p| folder.is_none() || !dir_link(&root.join(p)))
+            .filter(|p| folder.is_none() || !root.join(p).is_symlink())
         {
             files.retain(|f| f.path != Path::new(path));
             files.push(untracked(root, Path::new(path)));
@@ -995,11 +995,27 @@ pub fn folder_branch(dirs: &GitDirs) -> Option<String> {
     branch_of_folder(&dirs.common_refs_dir, &folder)
 }
 
+fn package_modules(folder: &Path) -> Vec<String> {
+    let listed = git(folder, &["ls-files", "-z", "--", "*package.json"]).unwrap_or_default();
+    (listed.split('\0'))
+        .filter_map(|f| f.strip_suffix("/package.json"))
+        .map(|d| format!("{d}/node_modules"))
+        .collect()
+}
+
 fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
+    if !(Path::new(b).components()).all(|c| matches!(c, std::path::Component::Normal(_))) {
+        bail!("no branch {b}");
+    }
     let common = dirs(root).context("no git directory")?.common_refs_dir;
     let name = root.file_name().context("no repository name")?;
     let folder = common.join(FOLDERS).join(b).join(name);
     if folder.join(".git").is_file() && dirs(&folder).is_some_and(|d| d.common_refs_dir == common) {
+        for name in package_modules(&folder) {
+            if std::fs::read_link(folder.join(&name)).is_ok_and(|l| l == root.join(&name)) {
+                drop(std::fs::remove_file(folder.join(&name)));
+            }
+        }
         git(&folder, &["checkout", "-q", "-f", "--detach", at])
             .with_context(|| format!("checking out {b}"))?;
     } else {
@@ -1015,15 +1031,18 @@ fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
         );
     }
     #[cfg(unix)]
-    for name in DEPENDENCIES {
-        let (mine, there) = (root.join(name), folder.join(name));
+    for name in DEPENDENCIES
+        .map(String::from)
+        .into_iter()
+        .chain(package_modules(&folder))
+    {
+        let (mine, there) = (root.join(&name), folder.join(&name));
         if mine.is_dir() && there.symlink_metadata().is_err() {
             drop(std::os::unix::fs::symlink(mine, there));
         }
     }
     Ok(folder)
 }
-
 pub struct Opened(PathBuf);
 
 impl Opened {
