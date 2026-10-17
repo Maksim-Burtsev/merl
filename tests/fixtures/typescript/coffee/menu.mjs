@@ -1,5 +1,5 @@
 import pourOver from "./filter.mjs";
-import { Cezve, Moka, Ibrik, Jezve, Briki, Fs, Dallah, Lid } from "./cezve.js";
+import { Cezve, Moka, Ibrik, Jezve, Briki, Fs, Dallah, Lid, Saucer } from "./cezve.js";
 
 export function order() {
   const c = new Cezve();
@@ -16,6 +16,11 @@ export function order() {
 export function lidded() {
   return new Lid().get;
   //               ^ d: coffee/cezve.js:74
+}
+
+export function warm() {
+  return new Saucer().warmth;
+  //                  ^ d: coffee/cezve.js:90
 }
 
 export function special() {

@@ -84,3 +84,10 @@ export class Kanaka extends Ibrik {
     //           ^ d: coffee/cezve.js:29
   }
 }
+
+export class Saucer {
+  get warmth() { return this._w; }
+  set warmth(v) {
+    this._w = v;
+  }
+}
