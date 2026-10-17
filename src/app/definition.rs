@@ -541,7 +541,7 @@ impl App {
         {
             return;
         }
-        let Some(text) = self.text_of(&found[0].hit.path) else {
+        let Some(text) = self.hit_text(&found[0].hit) else {
             return;
         };
         if !found.is_sorted_by_key(|c| c.hit.line1) {
