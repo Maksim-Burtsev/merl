@@ -138,7 +138,10 @@ impl App {
         {
             return None;
         }
-        if self.needs_no_lookup(kind, &word, &lead, range.start) {
+        if self.needs_no_lookup(kind, &word, &lead, range.start)
+            || (kind == Kind::Shell
+                && search::shell_no_name(&self.buf.lines, self.line, &lead, &tail))
+        {
             self.message = resolution(&word, None, &[], None, false);
             return None;
         }
@@ -273,6 +276,18 @@ impl App {
         {
             let found = self.lines_here(a, lines, &Reason::Local);
             return self.show_found(a, found);
+        }
+        if kind == Kind::Sql && !a.dotted {
+            let at = self.buf.lines[..self.line]
+                .iter()
+                .map(|l| l.len() + 1)
+                .sum::<usize>()
+                + a.range.start;
+            let lines = search::sql_local(&a.text, at, &a.word);
+            if !lines.is_empty() {
+                let found = self.lines_here(a, lines, &Reason::Local);
+                return self.show_found(a, found);
+            }
         }
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())

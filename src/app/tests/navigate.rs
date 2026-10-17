@@ -2317,3 +2317,65 @@ fn another_python_protocol_with_the_member_does_not_implement_it() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_dot_m_is_told_matlab_or_objective_c_by_its_text() {
+    let objc_m = "#import \"Shop.h\"\n\n@implementation Shop\n- (int)count { return 0; }\n@end\n";
+    let late = format!("{}#import <a.h>\n", "x = 1;\n".repeat(99));
+    let early = format!("{}#import <a.h>\n", "x = 1;\n".repeat(98));
+    let (dir, mut a) = project_app(
+        "matlab-m",
+        &[
+            (
+                "toolbox/vl_setup.m",
+                "function path = vl_setup()\n% VL_SETUP  Add VLFeat to the path\nglobal count;\nif vl_isoctave()\n  count = 1;\nend\n",
+            ),
+            (
+                "toolbox/vl_isoctave.m",
+                "function z = vl_isoctave()\nz = exist('OCTAVE_VERSION', 'builtin') ;\n",
+            ),
+            ("Shop.m", objc_m),
+            ("only_c.m", "#include <stdio.h>\nint total;\n"),
+            ("comment.m", "/* a C comment */\nint total;\n"),
+            ("empty.m", ""),
+            ("late.m", &late),
+            ("early.m", &early),
+            (
+                "count.c",
+                "int count;\nint main(void) {\n    return count;\n}\n",
+            ),
+        ],
+    );
+    for (file, kind) in [
+        ("toolbox/vl_setup.m", None),
+        ("toolbox/vl_isoctave.m", None),
+        ("Shop.m", Some(Kind::C)),
+        ("only_c.m", Some(Kind::C)),
+        ("comment.m", Some(Kind::C)),
+        ("empty.m", Some(Kind::C)),
+        ("new.m", Some(Kind::C)),
+        ("late.m", None),
+        ("early.m", Some(Kind::C)),
+    ] {
+        assert_eq!(a.kind_at(Path::new(file)), kind, "{file}");
+        assert_eq!(a.kind_at(&dir.join(file)), kind, "{file}");
+    }
+    std::fs::write(dir.join("new.m"), "% now MATLAB\n").unwrap();
+    assert_eq!(a.kind_at(Path::new("new.m")), None);
+    assert_eq!(a.kind_at(&dir.join("new.m")), None);
+    a.jump_to(&dir.join("empty.m"), 1);
+    assert_eq!(a.kind(), Some(Kind::C));
+    a.buf.lines = vec!["% typed MATLAB".to_owned()];
+    assert_eq!(a.kind(), None);
+    d_on(&mut a, "toolbox/vl_setup.m", "if vl_isoctave");
+    assert_eq!(a.message, "no rules for .m");
+    press(&mut a, KeyCode::Char('f'), KeyModifiers::NONE);
+    assert_eq!(a.message, "no fold rules for .m");
+    d_on(&mut a, "count.c", "return count");
+    assert_eq!(
+        shown(&mut a),
+        jump("count: by name, 1 match", "count.c:1"),
+        "a MATLAB `global count;` is no C global"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}

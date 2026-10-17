@@ -24,7 +24,7 @@ run ! test -e "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Escape C-z
 wait and the clock
 key c
-wait repos.py
+wait hunk 1/1  file 2/8
 key a
 type why delete these
 key Escape

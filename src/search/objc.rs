@@ -82,10 +82,34 @@ pub fn objc_file(path: &Path, text: impl FnOnce() -> String) -> bool {
             .expect("the regex is a literal")
     });
     match path.extension().and_then(|e| e.to_str()) {
-        Some("m" | "mm") => true,
+        Some("m") => objc_m(&text()),
+        Some("mm") => true,
         Some("h") => MARK.is_match(&text()),
         _ => false,
     }
+}
+
+pub fn objc_m(text: &str) -> bool {
+    static RULES: LazyLock<[Regex; 3]> = LazyLock::new(|| {
+        [
+            r"^\s*/\*",
+            r"(?i)^\s*(?://|@import\b|#\s*(?:import|include|define|if|ifn?def|undef|line|error|pragma)\b)",
+            r"(?i)^\s*(?:#|%|unwind_protect\b|\(\*|(?:type|var)\b|--)|(?:^|;)\s*end(?:_try_catch|classdef|enumeration|events|methods|parfor|properties)\b",
+        ]
+        .map(|r| Regex::new(r).expect("the regex is a literal"))
+    });
+    let lines = || text.lines().take(99);
+    let mut comment = lines().all(|l| l.trim().is_empty());
+    for line in lines() {
+        comment |= RULES[0].is_match(line);
+        if RULES[1].is_match(line) {
+            return true;
+        }
+        if RULES[2].is_match(line) {
+            return false;
+        }
+    }
+    comment
 }
 
 pub fn objc_root(root: &Path) -> bool {
@@ -188,6 +212,36 @@ mod tests {
             "load"
         );
         assert!(!re.is_match("- (void)load:(id)x;"));
+    }
+
+    #[test]
+    fn a_dot_m_is_objective_c_by_vim_s_rule() {
+        for text in [
+            "",
+            "\n\n",
+            "#import <Foundation/Foundation.h>\n",
+            "#include <stdio.h>\nint main(void) { return 0; }\n",
+            "  # IfDef DEBUG\n",
+            "@import UIKit;\n",
+            "// Shop\n% not MATLAB\n",
+            "/* Shop */\nint main(void) { return 0; }\n",
+        ] {
+            assert!(objc_m(text), "{text:?}");
+        }
+        for text in [
+            "% VL_SETUP\n#import <a.h>\n",
+            "function y = f(x)\n  y = x;\nend\n",
+            "/* a */\n% b\n",
+            "# octave\n",
+            "%!test\n",
+            "Unwind_Protect\n",
+            "x = 1; end_try_catch\n",
+            "(* Mathematica *)\n",
+            "Type t: 0..1;\n",
+            "-- Murphi\n",
+        ] {
+            assert!(!objc_m(text), "{text:?}");
+        }
     }
 
     #[test]

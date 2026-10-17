@@ -35,14 +35,18 @@ pub fn for_syntax(
         "HTML" | "XML" => html_or_xml(path?, lines),
         "Elixir" if !euphoria(path, lines) => lang("elixir"),
         "Erlang" if path.is_none_or(|p| erlang(p, lines)) => lang("erlang"),
+        "GDScript (Godot Engine)" => lang("gdscript"),
         "Go" => lang("go"),
+        "GraphQL" => lang("graphql"),
         "INI" if path.is_some_and(ini) => lang("ini"),
         "Java" if path.is_none_or(|p| p.extension().is_none_or(|e| e != "bsh")) => lang("java"),
         "JSON" => lang("json"),
         "Kotlin" => lang("kotlin"),
+        "nginx" if path.is_some_and(nginx) => lang("nginx"),
         "TOML" => lang("toml"),
         "YAML" => lang("yaml"),
         "JavaScript (Babel)" => lang("javascript"),
+        "Python" if path.is_some_and(starlark) => lang("starlark"),
         "Python" => lang("python"),
         "PHP" if path.is_none_or(php) => lang("php"),
         "R" if r(path, lines) => lang("r"),
@@ -88,6 +92,36 @@ fn terraform(path: Option<&Path>, lines: &[String]) -> Option<&'static Lang> {
         }
         _ => None,
     }
+}
+
+fn nginx(path: &Path) -> bool {
+    let full = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let full = full.to_string_lossy();
+    let tail = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    let conf = path.extension().is_some_and(|e| e == "conf");
+    path.extension().is_some_and(|e| e == "nginx")
+        || tail.ends_with("nginx.conf")
+        || (tail.starts_with("nginx") && conf)
+        || full.contains("/etc/nginx/")
+        || full.contains("/usr/local/nginx/conf/")
+        || (full.contains("/nginx/") && conf)
+}
+
+fn starlark(path: &Path) -> bool {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    ["WORKSPACE", "WORKSPACE.bzlmod", "BUCK", "BUILD"].contains(&name)
+        || path.extension().and_then(|e| e.to_str()).is_some_and(|e| {
+            [
+                "bzl", "bxl", "bazel", "BUILD", "ipd", "sky", "star", "starlark",
+            ]
+            .contains(&e)
+        })
 }
 
 fn ini(path: &Path) -> bool {
@@ -379,3 +413,6 @@ fn zsh(path: &Path) -> bool {
         || matches!(name, ".zprofile" | ".zfbfmarks")
         || path == Path::new("/etc/zprofile")
 }
+
+#[cfg(test)]
+mod tests;
