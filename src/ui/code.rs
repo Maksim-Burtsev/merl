@@ -604,7 +604,7 @@ impl<'a> Painter<'a> {
         let fold = f.folded.filter(|_| i == f.last).map(|(gap, tail, n)| {
             let used = used + gap.len() + wrap::width(tail);
             let counted = format!(" {n} line{} {FOLDED_MARK} ", if n == 1 { "" } else { "s" });
-            let chip = if used + wrap::width(&counted) > app.view_w {
+            let chip = if n == 0 || used + wrap::width(&counted) > app.view_w {
                 format!(" {FOLDED_MARK} ")
             } else {
                 counted

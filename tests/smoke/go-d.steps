@@ -75,7 +75,9 @@ key :
 type 30
 key Enter f
 wait ⋯ }
-key f :
+key f
+wait select {
+key :
 type 21
 key Enter f
 wait ⋯ }
