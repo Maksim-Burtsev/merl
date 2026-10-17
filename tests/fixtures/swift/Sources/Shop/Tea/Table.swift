@@ -12,7 +12,7 @@ let brewMenu = #"""
 
 func serve(_ pot: Teapot, _ kettle: Kettle, _ brewing: any Brewing) {
     _ = pot.steep()
-    //      ^ d: picker Sources/Shop/Tea/Kettle.swift:7, Sources/Shop/Tea/Kettle.swift:12, Sources/Shop/Tea/Kettle.swift:31; want Sources/Shop/Tea/Kettle.swift:12 (#984)
+    //      ^ d: Sources/Shop/Tea/Kettle.swift:12
     pot.rinse()
     //  ^ d: Sources/Shop/Tea/Teapot.swift:14
     pot.strain()
@@ -20,7 +20,7 @@ func serve(_ pot: Teapot, _ kettle: Kettle, _ brewing: any Brewing) {
     _ = kettle.steep()
     //         ^ d: Sources/Shop/Tea/Kettle.swift:31
     _ = brewing.steep()
-    //          ^ d: picker Sources/Shop/Tea/Kettle.swift:7, Sources/Shop/Tea/Kettle.swift:12, Sources/Shop/Tea/Kettle.swift:31; want Sources/Shop/Tea/Kettle.swift:7 (#984)
+    //          ^ d: Sources/Shop/Tea/Kettle.swift:7
     kettle.whistle()
     //     ^ d: Sources/Shop/Tea/Kettle.swift:41
     _ = Kettle.fresh()
@@ -32,14 +32,14 @@ func serve(_ pot: Teapot, _ kettle: Kettle, _ brewing: any Brewing) {
     kettle.lid.lift()
     //         ^ d: Sources/Shop/Tea/Kettle.swift:46
     kettle.pour(over: Saucer())
-    //     ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:34 (#983)
+    //     ^ d: Sources/Shop/Tea/Kettle.swift:34
     kettle.pour(into: Cup(from: Saucer()))
-    //     ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:33 (#983)
-    //                ^ d: Sources/Shop/Tea/Teapot.swift:5; want Sources/Shop/Tea/Teapot.swift:8 (#983)
+    //     ^ d: Sources/Shop/Tea/Kettle.swift:33
+    //                ^ d: Sources/Shop/Tea/Teapot.swift:8
     kettle.pour(3)
-    //     ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:35 (#983)
+    //     ^ d: Sources/Shop/Tea/Kettle.swift:35
     _ = Cup(ounces: 2)
-    //  ^ d: Sources/Shop/Tea/Teapot.swift:5; want Sources/Shop/Tea/Teapot.swift:7 (#983)
+    //  ^ d: Sources/Shop/Tea/Teapot.swift:7
     _ = kettle.celsius
     //         ^ d: Sources/Shop/Tea/Kettle.swift:23
     kettle.fahrenheit = 90
@@ -59,7 +59,7 @@ func lay(_ kettle: Kettle?) {
     kettle.whistle()
     // ^ d: Sources/Shop/Tea/Table.swift:53; want Sources/Shop/Tea/Table.swift:58 (#986)
     pour(into: Cup(ounces: 3))
-    // ^ d: picker Sources/Shop/Tea/Table.swift:51, Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Table.swift:51 (#985)
+    // ^ d: Sources/Shop/Tea/Table.swift:51
     kettle.pour(into: Cup(ounces: 4))
-    //     ^ d: picker Sources/Shop/Tea/Kettle.swift:33, Sources/Shop/Tea/Kettle.swift:34, Sources/Shop/Tea/Kettle.swift:35; want Sources/Shop/Tea/Kettle.swift:33 (#983)
+    //     ^ d: Sources/Shop/Tea/Kettle.swift:33
 }

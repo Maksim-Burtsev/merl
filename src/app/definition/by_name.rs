@@ -43,6 +43,7 @@ impl App {
         }
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
+            self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);
@@ -347,6 +348,21 @@ impl App {
                 None => true,
             }
         });
+        if !a.dotted && search::swift_in_top_level_func(&lines, &literal, self.line + 1) {
+            let in_type = |h: &Hit| {
+                files.get(&h.path).is_some_and(|(lines, literal)| {
+                    search::swift_enclosing_type(lines, literal, h.line1).is_some()
+                })
+            };
+            let top = |h: &Hit| {
+                !in_type(h)
+                    && !h.text.starts_with([' ', '\t'])
+                    && (h.path != a.here || h.line1 != self.line + 1)
+            };
+            if hits.iter().any(top) {
+                hits.retain(|h| !in_type(h));
+            }
+        }
         self.offer_only |= hits.len() < all
             && matches!(hits.as_slice(), [h] if h.path == a.here && h.line1 == self.line + 1);
     }

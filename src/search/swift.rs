@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, code, comment, indent, literal_lines, names, split_top,
+    Binding, Kind, Value, close_of, code, comment, group, indent, literal_lines, names, split_top,
     swift_mods, uncommented,
 };
 
@@ -123,6 +123,24 @@ pub fn swift_type_header(line: &str) -> Option<SwiftTypeHeader> {
         where_constrained: t.contains(" where "),
     })
 }
+pub fn swift_inherited(line: &str) -> Vec<String> {
+    static INHERITS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}(?:class|struct|enum|protocol|actor|extension)\s+`?[\w.]+`?(?:<[^>]*>)?\s*:([^{{]*)",
+            swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, line);
+    let Some(c) = INHERITS.captures(&t) else {
+        return Vec::new();
+    };
+    let list = c[1].split(" where ").next().unwrap_or_default();
+    split_top(Kind::Swift, list, b',')
+        .into_iter()
+        .filter_map(|n| swift_type_name(n.split('<').next().unwrap_or(n)))
+        .collect()
+}
 pub struct SwiftTypeHeader {
     pub keyword: String,
     pub name: String,
@@ -144,6 +162,73 @@ pub fn swift_enclosing_type<S: AsRef<str>>(
             return Some(at);
         }
     }
+}
+pub fn swift_in_top_level_func<S: AsRef<str>>(lines: &[S], literal: &[bool], line: usize) -> bool {
+    let (mut at, mut outer) = (line, 0);
+    loop {
+        match swift_scope(lines, literal, at).header_line1 {
+            0 => break,
+            up if swift_type_header(lines[up - 1].as_ref()).is_some() => return false,
+            up => (at, outer) = (up, up),
+        }
+    }
+    outer > 0 && {
+        let t = uncommented(Kind::Swift, lines[outer - 1].as_ref());
+        indent(&t) == 0 && SWIFT_FUNC.is_match(&t)
+    }
+}
+pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<Vec<String>> {
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*`?(\w+)`?\s*:").expect("the regex is a literal")
+    });
+    if !lines.get(line0)?.get(after..)?.starts_with('(') {
+        return None;
+    }
+    let g = group(Kind::Swift, lines, line0, after)?;
+    if g.after_close.trim_start().starts_with('{') {
+        return None;
+    }
+    let inner = g.inner_uncommented;
+    if inner.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    Some(
+        split_top(Kind::Swift, &inner, b',')
+            .into_iter()
+            .map(|a| {
+                LABEL
+                    .captures(a)
+                    .map_or_else(|| "_".to_owned(), |c| c[1].to_owned())
+            })
+            .collect(),
+    )
+}
+pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Vec<String>> {
+    let line = lines.get(line0)?;
+    let from = line.find(name)? + name.len();
+    let open = code(Kind::Swift, line)
+        .find(|&(i, c)| i >= from && c == b'(')
+        .map(|(i, _)| i)?;
+    let between = line.get(from..open)?.trim();
+    if !SWIFT_FUNC.is_match(line)
+        || !(matches!(between, "" | "?" | "!") || between.starts_with('<'))
+    {
+        return None;
+    }
+    let inner = group(Kind::Swift, lines, line0, open)?.inner_uncommented;
+    if inner.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    split_top(Kind::Swift, &inner, b',')
+        .into_iter()
+        .map(|p| {
+            let variadic_or_default =
+                p.contains("...") || split_top(Kind::Swift, p, b'=').len() > 1;
+            let names = p.split(':').next().filter(|_| !variadic_or_default)?;
+            let label = names.split_whitespace().next()?;
+            Some(label.trim_matches('`').to_owned())
+        })
+        .collect()
 }
 pub fn swift_instance_member(line: &str) -> bool {
     swift_member_kind(line) == Some(SwiftMember::Instance)
