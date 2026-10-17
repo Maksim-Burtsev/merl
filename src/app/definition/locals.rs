@@ -66,7 +66,15 @@ impl App {
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
-        if self.answered_by_locals(a, &locals, same_line || own_line || own_arrow) {
+        let python_inline = kind == Kind::Python
+            && !declared
+            && locals == [self.line + 1]
+            && search::python_inline_binds(self.line_str(), word);
+        if self.answered_by_locals(
+            a,
+            &locals,
+            same_line || own_line || own_arrow || python_inline,
+        ) {
             return None;
         }
         Some(Near {

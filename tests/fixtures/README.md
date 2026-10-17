@@ -237,6 +237,14 @@ interface implementation, a lambda parameter hiding a local and a `using` alias 
 initializer list, overloads, ADL beside a global namesake, a qualified definition of
 `stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block.
 
+`python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
+and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
+a local hiding the imported `steep`, `global` and `nonlocal`, a comprehension variable named like
+a module-level one, a class attribute beside an instance attribute of one name, `self.` and
+`super()` in a subclass, a wrapping decorator, an import under `TYPE_CHECKING` and one in
+`try`/`except ImportError`, a dataclass's fields, `match` captures (one named like an import),
+two star imports of one name, and declaration-shaped lines in a docstring and an f-string.
+
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
 a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is
