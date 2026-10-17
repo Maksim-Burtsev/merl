@@ -1234,3 +1234,36 @@ fn rust_attribute_reads_past_a_call_ending_in_a_combining_mark() {
     assert!(rust_attribute(&lines, 0, x, x + 1).is_none());
     assert!(!rust_attribute_path(&lines, 0, x));
 }
+
+#[test]
+fn sql_local_reads_from_aliases_and_no_keyword_as_one() {
+    let at = |t: &str, w: &str, n: usize| {
+        let i = t.match_indices(w).nth(n).unwrap().0;
+        sql_local(t, i, w)
+    };
+    let t = "SELECT x.a FROM t x WHERE a IS DISTINCT FROM b AND c;";
+    assert_eq!(at(t, "x", 0), [1]);
+    let t = "SELECT 1 FROM t JOIN u ON true JOIN v ON true;";
+    assert!(at(t, "JOIN", 1).is_empty(), "a keyword after a FROM is no alias");
+    let t = "SELECT o.a, v.b\nFROM ONLY t o, u AS v\nJOIN w ON true;";
+    assert_eq!(at(t, "o", 0), [2]);
+    assert_eq!(at(t, "v", 0), [2], "a comma goes on with the FROM list");
+    assert!(at("SELECT u.a FROM ONLY u;", "u", 0).is_empty(), "ONLY names no table");
+    let t = "SELECT t.a FROM u t JOIN t z ON 1 = 1;";
+    assert!(at(t, "t", 2).is_empty(), "a table's name is no alias");
+    assert!(at(t, "t", 1).is_empty(), "on the alias itself");
+    let t = "SELECT a FROM t a;\nSELECT a FROM u;";
+    assert!(at(t, "a", 2).is_empty(), "an alias holds for its statement only");
+    let t = "SELECT y.a FROM t y -- FROM u y\n/* FROM v y */;";
+    assert_eq!(at(t, "y", 0), [1], "comments declare no alias");
+}
+
+#[test]
+fn sql_same_schema_reads_both_qualifiers_quoted_or_not() {
+    let decl = "CREATE TABLE \"Tea\".kettles (";
+    assert_eq!(sql_same_schema("SELECT * FROM tea.", decl), Some(true));
+    assert_eq!(sql_same_schema("SELECT * FROM db.\"tea\" . ", decl), Some(true));
+    assert_eq!(sql_same_schema("SELECT * FROM stale.", decl), Some(false));
+    assert_eq!(sql_same_schema("SELECT * FROM tea.", "CREATE TABLE kettles ("), Some(false));
+    assert_eq!(sql_same_schema("SELECT * FROM ", decl), None, "an unqualified use");
+}
