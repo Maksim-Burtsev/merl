@@ -34,7 +34,7 @@ public class Kettle extends Vessel {
         return spout + this.spout + super.spout + pour(2) + grind() + steam();
         //     ^ d: src/main/java/tea/Kettle.java:33
         //                  ^ d: src/main/java/tea/Kettle.java:14
-        //                                ^ d: picker src/main/java/tea/Kettle.java:14, src/main/java/tea/Vessel.java:4; want src/main/java/tea/Vessel.java:4 (#963)
+        //                                ^ d: src/main/java/tea/Vessel.java:4
         //                                        ^ d: src/main/java/tea/Kettle.java:22
         //                                                  ^ d: src/main/java/tea/Kettle.java:28
         //                                                            ^ d: src/main/java/tea/Spices.java:8
@@ -43,10 +43,10 @@ public class Kettle extends Vessel {
     @Override
     public int rinse() {
         return super.rinse() + Spices.grind() + new Lid().pour(1);
-        //           ^ d: picker src/main/java/tea/Kettle.java:44, src/main/java/tea/Teapot.java:17, src/main/java/tea/Vessel.java:6; want src/main/java/tea/Vessel.java:6 (#963)
+        //           ^ d: src/main/java/tea/Vessel.java:6
         //                            ^ d: src/main/java/tea/Spices.java:4
-        //                                          ^ d: picker src/main/java/tea/Kettle.java:52, src/main/java/tea/Lid.java:3; want src/main/java/tea/Kettle.java:52 (#965)
-        //                                                ^ d: picker src/main/java/tea/Kettle.java:22, src/main/java/tea/Kettle.java:53, src/main/java/tea/Teapot.java:4, src/main/java/tea/Teapot.java:12, src/main/java/tea/stale/Kettle.java:4; want src/main/java/tea/Kettle.java:53 (#965)
+        //                                          ^ d: src/main/java/tea/Kettle.java:52
+        //                                                ^ d: src/main/java/tea/Kettle.java:53
     }
 
     static class Lid {

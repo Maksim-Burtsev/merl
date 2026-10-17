@@ -160,7 +160,9 @@ impl App {
         found: Vec<Candidate>,
     ) -> Vec<Candidate> {
         let hits: Vec<Hit> = found.iter().map(|c| c.hit.clone()).collect();
+        let end = range.end;
         let kept = self.jvm_use_fit(here, word, range, chain, hits);
+        let kept = self.jvm_overloads(here, word, end, kept);
         let fit: Vec<Candidate> = found
             .iter()
             .filter(|c| {
@@ -172,7 +174,7 @@ impl App {
         if fit.is_empty() { found } else { fit }
     }
 
-    fn jvm_imported_all(
+    pub(super) fn jvm_imported_all(
         &self,
         text: &str,
         chain: &[String],
@@ -330,6 +332,7 @@ impl App {
         if found.is_empty()
             && types.is_empty()
             && kotlin
+            && word.starts_with(|c: char| c.is_ascii_lowercase())
             && let Some(ext) = search::kotlin_extension_at(text, self.line + 1, before)
             && let super::jvm_typed::JvmType::Project(decl) =
                 self.jvm_type_at(here, text, &ext.receiver)
@@ -348,6 +351,101 @@ impl App {
             .iter()
             .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
         (!found.is_empty() && !on_it).then_some(found)
+    }
+
+    fn jvm_overloads(&self, here: &Path, word: &str, end: usize, hits: Vec<Hit>) -> Vec<Hit> {
+        let java = here.extension().is_some_and(|e| e == "java");
+        if hits.len() < 2
+            || search::groovy(here)
+            || !self
+                .line_str()
+                .get(end..)
+                .is_some_and(|a| a.starts_with('('))
+        {
+            return hits;
+        }
+        let Some(call) = search::jvm_call(&self.buf.lines, self.line, end) else {
+            return hits;
+        };
+        let parts = |h: &Hit| search::jvm_parameter_parts(&self.text_of(&h.path)?, h.line1, word);
+        let mut hits = hits;
+        if !java
+            && !call
+                .arguments
+                .iter()
+                .any(|a| a.starts_with('*') || a.contains('<'))
+        {
+            let n = call.arguments.len() + usize::from(call.trailing_lambda);
+            let fit: Vec<Hit> = hits
+                .iter()
+                .filter(|h| parts(h).is_none_or(|p| search::jvm_takes(&p, n)))
+                .cloned()
+                .collect();
+            if !fit.is_empty() {
+                hits = fit;
+            }
+        }
+        let literals: Option<Vec<&str>> = call
+            .arguments
+            .iter()
+            .map(|a| search::jvm_literal_argument(a))
+            .collect();
+        let Some(args) = literals.filter(|a| !a.is_empty() && !call.trailing_lambda) else {
+            return hits;
+        };
+        let exact: Vec<Option<bool>> = hits
+            .iter()
+            .map(|h| {
+                let takes = parts(h)?;
+                Some(
+                    takes.len() >= args.len()
+                        && args
+                            .iter()
+                            .zip(&takes)
+                            .all(|(a, t)| search::jvm_literal_parameter(t) == Some(*a)),
+                )
+            })
+            .collect();
+        if !exact.contains(&Some(true)) {
+            return hits;
+        }
+        hits.into_iter()
+            .zip(exact)
+            .filter(|(_, e)| *e != Some(false))
+            .map(|(h, _)| h)
+            .collect()
+    }
+
+    pub(super) fn jvm_constructors(&self, types: &[Candidate], word: &str) -> Vec<Candidate> {
+        let Ok(re) = Regex::new(&search::def_patterns(Kind::Jvm, word).join("|")) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for c in types {
+            let Some(text) = self.text_of(&c.hit.path) else {
+                continue;
+            };
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Jvm, &text);
+            let inside = |line: usize| {
+                re.is_match(lines[line - 1])
+                    && !literal.get(line - 1).copied().unwrap_or(false)
+                    && search::jvm_enclosing_types(&text, line).first() == Some(&c.hit.line1)
+            };
+            for line in (c.hit.line1 + 1..=lines.len()).filter(|&l| inside(l)) {
+                out.push(Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: c.hit.path.clone(),
+                        line1: line,
+                        byte_col: None,
+                        text: lines[line - 1].to_owned(),
+                    },
+                    reason: c.reason.clone(),
+                });
+            }
+        }
+        out
     }
 
     pub(super) fn jvm_packages(&self) -> Option<HashMap<String, Vec<PathBuf>>> {

@@ -3,7 +3,7 @@ package brew
 import brew.stale.Samovar as OldSamovar
 
 fun Glass.dip(): Int = dose(1) + scald()
-//                     ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:4 (#964)
+//                     ^ d: src/main/kotlin/brew/Glass.kt:4
 //                               ^ d: src/main/kotlin/brew/Glass.kt:10
 
 fun Samovar.mint(): Int = 0
@@ -17,9 +17,9 @@ class Table(val glass: Glass) {
     fun set(samovar: Samovar, old: OldSamovar): Int {
         //                         ^ d: src/main/kotlin/brew/stale/Samovar.kt:3
         val a = glass.dose(1) + glass.dose(1, 2) + glass.dose("two")
-        //            ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:4 (#964)
-        //                            ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:6 (#964)
-        //                                               ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:8 (#964)
+        //            ^ d: src/main/kotlin/brew/Glass.kt:4
+        //                            ^ d: src/main/kotlin/brew/Glass.kt:6
+        //                                               ^ d: src/main/kotlin/brew/Glass.kt:8
         val b = samovar.dose(cups = 2) + samovar.dose() + samovar.mint() + glass.dip()
         //              ^ d: src/main/kotlin/brew/Samovar.kt:15
         //                   ^ d: src/main/kotlin/brew/Samovar.kt:15
@@ -34,7 +34,7 @@ class Table(val glass: Glass) {
 
     fun sift(v: Urn): Int = when (v) {
         is Glass -> v.dose(1)
-        //            ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:4 (#964)
+        //            ^ d: src/main/kotlin/brew/Glass.kt:4
         is Samovar -> v.dose()
         //              ^ d: src/main/kotlin/brew/Samovar.kt:15
         else -> v.scald()
@@ -43,7 +43,7 @@ class Table(val glass: Glass) {
 
     fun hold(x: Any): Int {
         if (x is Glass) return x.dose(2)
-        //                       ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:4 (#964)
+        //                       ^ d: src/main/kotlin/brew/Glass.kt:4
         return when (val g = x) {
             is Samovar -> g.mint()
             //              ^ d: src/main/kotlin/brew/Samovar.kt:19
@@ -53,7 +53,7 @@ class Table(val glass: Glass) {
 
     fun drape(): Int = Cosy().tilt() + Samovar.mold().bulk + Samovar.CUPS
     //                 ^ d: src/main/kotlin/brew/Cosy.kt:3
-    //                        ^ d: picker src/main/kotlin/brew/Cosy.kt:4, src/main/kotlin/brew/Samovar.kt:38; want src/main/kotlin/brew/Cosy.kt:4 (#965)
+    //                        ^ d: src/main/kotlin/brew/Cosy.kt:4
     //                                         ^ d: src/main/kotlin/brew/Samovar.kt:44
     //                                                               ^ d: src/main/kotlin/brew/Samovar.kt:42
 }

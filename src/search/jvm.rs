@@ -662,7 +662,9 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
         ]
     } else {
         vec![
-            format!(r"(?:^|[\s(,<]){ty}{GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"),
+            format!(
+                r"(?:^|[\s(,<])((?:[a-z]\w*\.)*[A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"
+            ),
             format!(r"\bvar\s+{n}\s*=\s*new\s+{ty}{GENERIC}\s*\("),
             format!(r"\bvar\s+{n}\s*=\s*\(\s*{ty}{GENERIC}\s*\)\s*[\w(]"),
         ]
@@ -1108,6 +1110,23 @@ pub fn jvm_when_else(text: &str, line1: usize, name: &str) -> Option<usize> {
         .then_some(head + 1)
 }
 
+pub fn jvm_constructed_receiver(before: &str, kotlin: bool) -> Option<String> {
+    static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])new\s+([A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}\s*\([^()]*\)\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?:^|[^\w.])([A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}\s*\([^()]*\)\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    let re = if kotlin { &*KOTLIN } else { &*JAVA };
+    re.captures(before.trim_end()).map(|c| c[1].to_owned())
+}
+
 pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
     static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
@@ -1123,4 +1142,107 @@ pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
     });
     let re = if kotlin { &*KOTLIN } else { &*JAVA };
     re.captures(before.trim_end()).map(|c| c[1].to_owned())
+}
+
+pub struct JvmCall {
+    pub arguments: Vec<String>,
+    pub trailing_lambda: bool,
+}
+
+pub fn jvm_call<S: AsRef<str>>(lines: &[S], line: usize, open: usize) -> Option<JvmCall> {
+    let rows: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+    let Group {
+        inner_uncommented: inner,
+        after_close,
+        ..
+    } = group(Kind::Jvm, &rows, line, open)?;
+    let arguments = if inner.trim().is_empty() {
+        Vec::new()
+    } else {
+        split_top(Kind::Jvm, &inner, b',')
+            .into_iter()
+            .map(|a| a.trim().to_owned())
+            .collect()
+    };
+    Some(JvmCall {
+        arguments,
+        trailing_lambda: after_close.trim_start().starts_with('{'),
+    })
+}
+
+pub fn jvm_parameter_parts(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
+    let rows: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1)?;
+    let head = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
+    let open = head.find(rows.get(at)?)?.end() - 1;
+    let Group {
+        inner_uncommented: inner,
+        ..
+    } = group(Kind::Jvm, &rows, at, open)?;
+    if inner.trim().is_empty() {
+        return Some(Vec::new());
+    }
+    let b = inner.as_bytes();
+    let (mut depth, mut start, mut out) = (0i32, 0, Vec::new());
+    for (i, c) in code(Kind::Jvm, &inner) {
+        match c {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b'>' if i > 0 && b[i - 1] == b'-' => {}
+            b')' | b']' | b'}' | b'>' => depth -= 1,
+            b',' if depth == 0 => {
+                out.push(inner.get(start..i)?.trim().to_owned());
+                start = i + 1;
+            }
+            _ => {}
+        }
+        if depth < 0 {
+            return None;
+        }
+    }
+    out.push(inner.get(start..)?.trim().to_owned());
+    (depth == 0).then_some(out)
+}
+
+pub fn jvm_takes(parameters: &[String], count: usize) -> bool {
+    let vararg = parameters
+        .iter()
+        .any(|p| p.starts_with("vararg ") || p.contains("..."));
+    let required = parameters.iter().filter(|p| !DEFAULT.is_match(p)).count();
+    if vararg {
+        count + 1 >= required
+    } else {
+        (required..=parameters.len()).contains(&count)
+    }
+}
+
+pub fn jvm_literal_parameter(parameter: &str) -> Option<&'static str> {
+    static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:final\s+)?(int|String)\s+\w+$").expect("the regex is a literal")
+    });
+    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\w+\s*:\s*(Int|String)$").expect("the regex is a literal")
+    });
+    let c = JAVA
+        .captures(parameter)
+        .or_else(|| KOTLIN.captures(parameter))?;
+    Some(if c[1].eq_ignore_ascii_case("int") {
+        "int"
+    } else {
+        "string"
+    })
+}
+
+pub fn jvm_literal_argument(argument: &str) -> Option<&'static str> {
+    static STRING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^"(?:[^"\\$\n]|\\.)*"$"#).expect("the regex is a literal")
+    });
+    static INT: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^\d{1,9}$").expect("the regex is a literal"));
+    if STRING.is_match(argument) {
+        Some("string")
+    } else if INT.is_match(argument) {
+        Some("int")
+    } else {
+        None
+    }
 }

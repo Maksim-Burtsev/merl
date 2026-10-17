@@ -1,4 +1,4 @@
-use super::{App, Candidate, Hit, Kind, Path, Reason, Regex, search};
+use super::{App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, search};
 
 struct WrittenType {
     resolved: JvmType,
@@ -30,6 +30,12 @@ impl App {
             let ty = self.jvm_type_at(here, text, &cast);
             return self.jvm_typed_member(here, ty, &cast, word);
         }
+        if let ([], Some(made)) = (chain, search::jvm_constructed_receiver(before, kotlin)) {
+            return match self.jvm_made(here, text, &made, kotlin) {
+                ty @ JvmType::Project(_) => self.jvm_typed_member(here, ty, &made, word),
+                _ => None,
+            };
+        }
         let safe: Vec<String>;
         let chain = match chain {
             [] if kotlin => {
@@ -44,6 +50,12 @@ impl App {
             return None;
         }
         let line = self.line + 1;
+        if first == "super" {
+            return rest
+                .is_empty()
+                .then(|| self.jvm_super(here, text, line, word))
+                .flatten();
+        }
         let smart = || {
             kotlin
                 .then(|| search::jvm_smart_cast(text, line, before, first))
@@ -114,6 +126,53 @@ impl App {
             });
         }
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
+        if !written.contains('.') {
+            let found = self
+                .jvm_members(here, text, "", written)
+                .or_else(|| self.jvm_imported_all(text, &[], written, false))
+                .unwrap_or_default();
+            let named =
+                |c: &Candidate| search::jvm_type_name(&c.hit.text).as_deref() == Some(written);
+            if kotlin && !found.iter().all(named) {
+                return JvmType::Unknown;
+            }
+            let types: Vec<Hit> = found.into_iter().filter(named).map(|c| c.hit).collect();
+            if !types.is_empty() {
+                return one_type(types);
+            }
+        }
+        self.jvm_type_at(here, text, written)
+    }
+
+    fn jvm_super(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let &decl = search::jvm_enclosing_types(text, line1).first()?;
+        search::jvm_type_name(lines.get(decl - 1)?)?;
+        let mut found = Vec::new();
+        for base in search::jvm_bases(text, decl, search::scala(here)) {
+            let JvmType::Project(b) = self.jvm_type_at(here, text, &base) else {
+                return None;
+            };
+            let reason = Reason::Receiver(format!("super: {base}"));
+            found.extend(
+                self.jvm_hierarchy_member(&b, word, 0, &mut Vec::new())
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: reason.clone(),
+                    }),
+            );
+        }
+        (!found.is_empty()).then_some(found)
     }
 
     fn jvm_typed_member(
@@ -358,6 +417,15 @@ impl App {
     }
 
     pub(super) fn jvm_type_at(&self, file: &Path, text: &str, written: &str) -> JvmType {
+        if written.starts_with(|c: char| c.is_ascii_lowercase())
+            && written.contains('.')
+            && let Some(packages) = self.jvm_packages()
+        {
+            let path: Vec<String> = written.split('.').map(str::to_owned).collect();
+            if let Some(ty) = self.jvm_in_package(&packages, &path) {
+                return ty;
+            }
+        }
         if let Some((outer, inner)) = written.rsplit_once('.') {
             return match self.jvm_type_at(file, text, outer) {
                 JvmType::Project(decl) => self.jvm_nested(&decl, inner),
@@ -371,18 +439,6 @@ impl App {
             return JvmType::Unknown;
         }
         let is_type = |h: &Hit| search::jvm_type_name(&h.text).as_deref() == Some(written);
-        let code = |h: &Hit| {
-            self.text_of(&h.path).is_some_and(|t| {
-                !search::literal_lines(Kind::Jvm, &t)
-                    .get(h.line1 - 1)
-                    .copied()
-                    .unwrap_or(false)
-            })
-        };
-        let one = |mut hits: Vec<Hit>| match hits.len() {
-            1 => JvmType::Project(hits.remove(0)),
-            _ => JvmType::Unknown,
-        };
         let imports = search::jvm_imports(text);
         if let Some(search::JvmImport { path, .. }) =
             imports.iter().find(|i| i.bound_name == written)
@@ -390,28 +446,14 @@ impl App {
             let Some(packages) = self.jvm_packages() else {
                 return JvmType::Unknown;
             };
-            let split = (1..path.len()).rev().find_map(|n| {
-                let files = packages.get(&path[..n].join("."))?;
-                Some((files, path[n..].to_vec()))
-            });
-            let Some((files, names)) = split else {
-                return JvmType::Outside(written.to_owned());
-            };
-            let mut hits: Vec<Hit> = self
-                .jvm_declared(files, &names)
-                .into_iter()
-                .map(|c| c.hit)
-                .collect();
-            hits.retain(|h| {
-                search::jvm_type_name(&h.text).as_deref() == names.last().map(String::as_str)
-                    && code(h)
-            });
-            return one(hits);
+            return self
+                .jvm_in_package(&packages, path)
+                .unwrap_or_else(|| JvmType::Outside(written.to_owned()));
         }
         let pattern = search::def_patterns(Kind::Jvm, written).join("|");
         let cut = self.truncated.get();
         let mut hits = self.project_definitions(Kind::Jvm, file, written, &pattern);
-        hits.retain(|h| code(h));
+        hits.retain(|h| self.jvm_code(h));
         let full = self.truncated.get() && !cut;
         self.truncated.set(cut);
         if full {
@@ -428,11 +470,11 @@ impl App {
             return JvmType::Unknown;
         }
         if types.len() < 2 {
-            return one(types);
+            return one_type(types);
         }
         let mine: Vec<Hit> = types.iter().filter(|h| h.path == file).cloned().collect();
         if !mine.is_empty() {
-            return one(mine);
+            return one_type(mine);
         }
         let package = search::jvm_package(text);
         let same: Vec<Hit> = types
@@ -444,7 +486,37 @@ impl App {
                         .is_some_and(|t| search::jvm_package(&t) == package)
             })
             .collect();
-        one(same)
+        one_type(same)
+    }
+
+    fn jvm_code(&self, h: &Hit) -> bool {
+        self.text_of(&h.path).is_some_and(|t| {
+            !search::literal_lines(Kind::Jvm, &t)
+                .get(h.line1 - 1)
+                .copied()
+                .unwrap_or(false)
+        })
+    }
+
+    fn jvm_in_package(
+        &self,
+        packages: &HashMap<String, Vec<PathBuf>>,
+        path: &[String],
+    ) -> Option<JvmType> {
+        let (files, names) = (1..path.len()).rev().find_map(|n| {
+            let files = packages.get(&path[..n].join("."))?;
+            Some((files, &path[n..]))
+        })?;
+        let mut hits: Vec<Hit> = self
+            .jvm_declared(files, names)
+            .into_iter()
+            .map(|c| c.hit)
+            .collect();
+        hits.retain(|h| {
+            search::jvm_type_name(&h.text).as_deref() == names.last().map(String::as_str)
+                && self.jvm_code(h)
+        });
+        Some(one_type(hits))
     }
 
     fn jvm_nested(&self, decl: &Hit, name: &str) -> JvmType {
@@ -519,5 +591,12 @@ impl App {
         }
         self.offer_only |= !found.is_empty();
         found
+    }
+}
+
+fn one_type(mut hits: Vec<Hit>) -> JvmType {
+    match hits.len() {
+        1 => JvmType::Project(hits.remove(0)),
+        _ => JvmType::Unknown,
     }
 }

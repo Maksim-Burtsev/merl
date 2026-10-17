@@ -30,10 +30,10 @@ class Samovar(vapor: Int, val bulk: Int = 1) : Urn() {
     }
 
     override fun scald(): Int = super.scald() + Herbs.mint() + Cosy().tilt()
-    //                                ^ d: picker src/main/kotlin/brew/Glass.kt:10, src/main/kotlin/brew/Urn.kt:6; want src/main/kotlin/brew/Urn.kt:6 (#963)
+    //                                ^ d: src/main/kotlin/brew/Urn.kt:6
     //                                                ^ d: src/main/kotlin/brew/Herbs.kt:4
     //                                                         ^ d: src/main/kotlin/brew/Samovar.kt:37
-    //                                                                ^ d: picker src/main/kotlin/brew/Samovar.kt:38, src/main/kotlin/brew/Cosy.kt:4; want src/main/kotlin/brew/Samovar.kt:38 (#965)
+    //                                                                ^ d: src/main/kotlin/brew/Samovar.kt:38
     class Cosy {
         fun tilt(): Int = 2
     }
@@ -48,11 +48,11 @@ class Samovar(vapor: Int, val bulk: Int = 1) : Urn() {
 
     fun pourAll(glasses: List<Glass>): Int {
         val total = glasses.sumOf { it.dose(1) + this@Samovar.vapor }
-        //                             ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:4 (#964)
+        //                             ^ d: src/main/kotlin/brew/Glass.kt:4
         //                                                    ^ d: src/main/kotlin/brew/Samovar.kt:12
         return glasses.sumOf { vapor -> vapor.dose("x") } + total
         //                              ^ d: src/main/kotlin/brew/Samovar.kt:53
-        //                                    ^ d: picker src/main/kotlin/brew/Glass.kt:4, src/main/kotlin/brew/Glass.kt:6, src/main/kotlin/brew/Glass.kt:8; want src/main/kotlin/brew/Glass.kt:8 (#964)
+        //                                    ^ d: src/main/kotlin/brew/Glass.kt:8
     }
 
     fun ritual(): String = """
