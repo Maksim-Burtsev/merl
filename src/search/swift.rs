@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, comment, indent, literal_lines, names, split_top, swift_mods,
-    uncommented,
+    Binding, Kind, Value, close_of, code, comment, indent, literal_lines, names, split_top,
+    swift_mods, uncommented,
 };
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -506,14 +506,40 @@ fn swift_header_binds(first_line: &str, joined: &str, opening_line: &str, name: 
     } else if CONDITION.is_match(first_line) {
         swift_condition_binds(joined, name)
     } else if let Some(c) = CLOSURE.captures(opening_line) {
-        let params = c[1].trim().trim_start_matches('(').trim_end_matches(')');
-        Binds::name_if(params.split(',').any(|p| {
-            let p = p.split(':').next().unwrap_or(p);
-            p.split_whitespace().last() == Some(name)
-        }))
+        Binds::name_if(swift_closure_params_bind(&c[1], name))
     } else {
         Binds::Nothing
     }
+}
+fn swift_closure_params_bind(params: &str, name: &str) -> bool {
+    let params = params.trim().trim_start_matches('(').trim_end_matches(')');
+    params.split(',').any(|p| {
+        let p = p.split(':').next().unwrap_or(p);
+        p.split_whitespace().last() == Some(name)
+    })
+}
+pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\s",
+        )
+        .expect("the regex is a literal")
+    });
+    let mut open = Vec::new();
+    for (i, c) in code(Kind::Swift, line).take_while(|&(i, _)| i < at) {
+        match c {
+            b'{' => open.push(i),
+            b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open.iter().any(|&o| {
+        line.get(o + 1..at)
+            .and_then(|s| HEAD.captures(s))
+            .is_some_and(|c| swift_closure_params_bind(&c[1], name))
+    })
 }
 pub fn swift_binds_on(line: &str, name: &str) -> bool {
     let t = uncommented(Kind::Swift, line).trim().to_owned();

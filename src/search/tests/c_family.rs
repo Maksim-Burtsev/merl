@@ -681,6 +681,25 @@ protocol Boxed {
 }
 
 #[test]
+fn a_swift_closure_on_one_line_binds_its_parameters_in_its_body() {
+    let param = |line: &str| swift_closure_param(line, "water", line.rfind("water").unwrap());
+    assert!(param("cups.map { water in water.ounces }"));
+    assert!(param(
+        "cups.map { [self] (water: Cup) -> Int in water.ounces }"
+    ));
+    assert!(param("cups.map { cup, water in water }"));
+    assert!(
+        !param("cups.map { water in water.ounces } + water"),
+        "past the closing brace"
+    );
+    assert!(!param("cups.map { cup in water }"), "another parameter");
+    assert!(
+        !param(r#"let s = "{ water in" + water"#),
+        "a brace in a string"
+    );
+}
+
+#[test]
 fn swift_def_patterns_tell_a_declaration_from_a_call_or_a_pattern() {
     let (dir, files) = scratch("swift-calls", &[("Session.swift", SWIFT)]);
     let d = |w| defs(&dir, &files, Kind::Swift, w);

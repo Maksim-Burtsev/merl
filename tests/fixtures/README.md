@@ -383,6 +383,15 @@ beside a module-level namesake, `this` in an arrow and in a `function` that decl
 Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
 template literal.
 
+`swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
+A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`
+that does not, members of `Kettle` declared in extensions, a nested `Kettle.Lid` beside a
+top-level `Lid`, computed properties, `pour` overloaded by argument label beside a top-level
+`pour`, two `init`s of `Cup`, `self` and implicit `self` in closures (`[weak self]`, `guard let
+self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter, `if let` over a
+property, a one-line closure whose parameter is named like a property, and declaration-shaped
+lines in a multi-line and a raw string.
+
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
