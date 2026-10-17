@@ -1802,7 +1802,7 @@ fn replay_tree_sitter(
     seeds: std::ops::RangeInclusive<u64>,
 ) {
     crate::treesitter::RECORD.set(true);
-    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let themes = ["tokyonight-moon", "github-dark"].map(|t| crate::theme::load(t).unwrap());
     let dir = std::env::temp_dir().join(format!(
         "merl-ts-fuzz-{}-{}",
         std::process::id(),
@@ -1811,6 +1811,7 @@ fn replay_tree_sitter(
     let path = dir.join(name);
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     for seed in seeds {
+        let theme = &themes[usize::from(seed % 2 == 0)];
         let mut rng = Xorshift64::new(seed);
         std::fs::write(&path, start).unwrap();
         let buf = Buffer::from_bytes(path.clone(), start);
@@ -1833,19 +1834,23 @@ fn replay_tree_sitter(
             done.push(op.to_string());
             for _ in 0..rng.below(3) {
                 a.buf.parse_more(Some(Duration::ZERO));
-                a.buf.paint_to(rng.below(a.buf.lines.len()), &theme);
+                a.buf.paint_to(rng.below(a.buf.lines.len()), theme);
             }
             if rng.below(3) > 0 {
                 continue;
             }
             a.buf.parse_more(None);
-            a.buf.paint_to(usize::MAX, &theme);
+            a.buf.paint_to(usize::MAX, theme);
             let text = a.buf.lines.join("\n") + "\n";
             let mut fresh = Buffer::from_bytes(path.clone(), text.as_bytes());
             fresh.parse_more(None);
-            fresh.paint_to(usize::MAX, &theme);
+            fresh.paint_to(usize::MAX, theme);
             let (shape, fresh_shape) = (a.buf.shape(), fresh.shape());
-            let at = format!("{name} seed {seed}, after [{}]", done.join(", "));
+            let at = format!(
+                "{name} seed {seed} in {:?}, after [{}]",
+                theme.builtin,
+                done.join(", ")
+            );
             let want = if groups_as_fresh(&a.buf, &fresh, shape == fresh_shape, &at) {
                 fresh.hl
             } else {
@@ -1868,7 +1873,7 @@ fn replay_tree_sitter(
                 }
                 let kept = a.buf.hl.clone();
                 a.buf.clear_hl();
-                a.buf.paint_to(usize::MAX, &theme);
+                a.buf.paint_to(usize::MAX, theme);
                 std::mem::replace(&mut a.buf.hl, kept)
             };
             if let Some(l) = (0..a.buf.lines.len()).find(|&l| a.buf.hl[l] != want[l]) {
