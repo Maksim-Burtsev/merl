@@ -224,7 +224,11 @@ fn a_file_sees_its_own_project_and_the_ones_it_references() {
             ),
             (
                 "Shop.App/Page.cs",
-                "namespace Shop.App;\npublic class Page\n{\n    public Address Home() => new Address { Street = \"Main\" };\n}\n",
+                "using Shop.Api;\nusing Shop.App;\nnamespace Shop.Web;\npublic class Page\n{\n    public Address Home() => new Address { Street = \"Main\" };\n}\n",
+            ),
+            (
+                "Shop.App/Home.cs",
+                "namespace Shop.App;\npublic class Home\n{\n    public Address At() => new Address { Street = \"Home\" };\n}\n",
             ),
         ]
     };
@@ -247,6 +251,12 @@ fn a_file_sees_its_own_project_and_the_ones_it_references() {
     d_on(&mut a, "Shop.App/Page.cs", "new |Address");
     assert!(
         matches!(shown(&mut a), Shown::Picker(s, rows) if s.contains("2 declarations") && rows.len() == 2)
+    );
+    d_on(&mut a, "Shop.App/Home.cs", "new |Address");
+    assert_eq!(
+        shown(&mut a),
+        jump("Address: by name, 1 match", "Shop.App/Address.cs:2"),
+        "inside namespace Shop.App its own Address hides the referenced project's"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -278,4 +288,132 @@ fn a_constant_after_is_is_found_when_no_type_of_the_name_is_reached() {
         jump("no definition for Max", "Gauge.cs:9"),
         "a declaration pattern keeps the lookup by type"
     );
+}
+
+const UNPROVEN: &[(&str, &str)] = &[
+    (
+        "Shop/Order.cs",
+        "namespace Shop;\n\npublic class Order\n{\n    public int Id;\n    public int Total() => 1;\n}\n",
+    ),
+    (
+        "Shop/Receipt.cs",
+        "namespace Shop;\n\npublic class Receipt\n{\n    public int Total() => 2;\n}\n",
+    ),
+    (
+        "Shop/Use.cs",
+        "namespace Shop;\n\npublic class Use\n{\n    public Receipt Process(Order o) => new Receipt();\n    public int Run() => Process(new Order { Id = 1 }).Total();\n    public int Text() => new StringBuilder().Append(1).Length;\n}\n",
+    ),
+    (
+        "Clock/Engine.cs",
+        "namespace Clock;\n\npublic class Engine\n{\n    public void Start() { }\n}\n",
+    ),
+    (
+        "Clock/Timer.cs",
+        "namespace Clock;\n\npublic class Timer\n{\n    public void Start() { }\n}\n",
+    ),
+    (
+        "Clock/UseT.cs",
+        "namespace Clock;\n\npublic class UseT\n{\n    public void Go() { new System.Timers.Timer(1).Start(); }\n}\n",
+    ),
+    (
+        "Pot/Kettle.cs",
+        "namespace Pot;\n\npublic partial class Kettle\n{\n    static Kettle() { }\n    public Kettle(int a) => A = a;\n    public int A;\n}\n",
+    ),
+    (
+        "Pot/Kettle.More.cs",
+        "namespace Pot;\n\npublic partial class Kettle\n{\n    public Kettle(string b) { }\n}\n",
+    ),
+    (
+        "Pot/Cup.cs",
+        "namespace Pot;\n\npublic partial class Cup(int size)\n{\n    public int Size => size;\n}\n",
+    ),
+    (
+        "Pot/Cup.More.cs",
+        "namespace Pot;\n\npublic partial class Cup\n{\n    public Cup(string s) : this(s.Length) { }\n}\n",
+    ),
+    (
+        "Pot/Mug.cs",
+        "namespace Pot;\n\npublic partial class Mug\n{\n}\n",
+    ),
+    (
+        "Pot/Mug.Gen.cs",
+        "namespace Pot;\n\npublic partial class Mug<T>\n{\n    public Mug() { }\n}\n",
+    ),
+    (
+        "Pot/UseK.cs",
+        "namespace Pot;\n\npublic class UseK\n{\n    public object Fresh() => new Kettle();\n    public object Cup() => new Cup(1);\n    public object Mug() => new Mug();\n}\n",
+    ),
+    (
+        "Nest/A.cs",
+        "namespace Outer\n{\n    namespace Inner\n    {\n        public class Lid { }\n    }\n}\n",
+    ),
+    (
+        "Nest/B.cs",
+        "namespace Outer\n{\n    public class Lid { }\n}\n",
+    ),
+    (
+        "Nest/UseL.cs",
+        "namespace Outer.Inner;\n\npublic class UseL\n{\n    public Lid Get() => null;\n}\n",
+    ),
+    (
+        "Dup/One.cs",
+        "namespace Dup.One;\n\npublic class Tray { }\n",
+    ),
+    (
+        "Dup/Two.cs",
+        "namespace Dup.Two;\n\npublic class Tray { }\n",
+    ),
+];
+
+#[test]
+fn d_keeps_the_picker_where_csharp_s_choice_is_not_proven() {
+    let (dir, mut a) = cs_app("cs-935-unproven", UNPROVEN);
+    let mut places = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        match shown(&mut a) {
+            Shown::Picker(_, rows) => rows.into_iter().map(|(_, _, place)| place).collect(),
+            Shown::Jump(status, place) => vec![format!("jump {place} ({status})")],
+        }
+    };
+    assert_eq!(
+        places("Shop/Use.cs", "Id = 1 }).|Total"),
+        ["Shop/Order.cs:6", "Shop/Receipt.cs:5"],
+        "the initializer is not the receiver"
+    );
+    assert_eq!(
+        places("Clock/UseT.cs", "Timer(1).|Start"),
+        ["Clock/Engine.cs:5", "Clock/Timer.cs:5"],
+        "System.Timers.Timer is not the project's Clock.Timer"
+    );
+    assert_eq!(
+        places("Pot/UseK.cs", "new |Kettle()"),
+        ["Pot/Kettle.More.cs:3", "Pot/Kettle.cs:3"],
+        "no instance constructor takes no argument; the static one is never called"
+    );
+    assert_eq!(
+        places("Pot/UseK.cs", "new |Cup(1)"),
+        ["Pot/Cup.More.cs:3", "Pot/Cup.cs:3"],
+        "the primary constructor is the one called"
+    );
+    assert_eq!(
+        places("Pot/UseK.cs", "new |Mug()"),
+        ["Pot/Mug.Gen.cs:3", "Pot/Mug.cs:3"],
+        "Mug and Mug<T> are two types"
+    );
+    assert_eq!(
+        places("Nest/UseL.cs", "public |Lid"),
+        ["Nest/A.cs:5", "Nest/B.cs:3"],
+        "the nested block namespace is Outer.Inner, not Inner"
+    );
+    assert_eq!(
+        places("Dup/One.cs", "class |Tray"),
+        ["Dup/Two.cs:3"],
+        "on its own declaration the namesake stays offered"
+    );
+    d_on(&mut a, "Shop/Use.cs", "new StringBuilder().|Append");
+    assert_eq!(
+        a.message,
+        "no definition for Append in the project (via new StringBuilder)"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }

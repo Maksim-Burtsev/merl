@@ -141,6 +141,7 @@ impl App {
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
                 Some(self.cs_typed(&a.here, word, chain))
             }
+            true if chain.is_empty() => self.cs_constructed(&a.here, word, &a.before).map(Ok),
             true => None,
         };
         match answer {
