@@ -46,7 +46,12 @@ impl App {
         let nested_type =
             |c: &Candidate| search::jvm_type_name(&c.hit.text).is_some_and(|name| name == a.word);
         let nested = constructed && members.as_ref().is_some_and(|f| f.iter().all(nested_type));
-        if !constructed && let Some(found) = members {
+        if (nested || !constructed)
+            && let Some(mut found) = members
+        {
+            if nested {
+                found.extend(self.jvm_constructors(&found, &a.word));
+            }
             let found = self.jvm_fit_candidates(&a.here, &a.word, a.range.clone(), chain, found);
             return self.show_found(a, found);
         }

@@ -207,3 +207,25 @@ fn jvm_assigned_calls_are_of_a_lowercase_name() {
     assert_eq!(call("    val s = make()"), Some((None, "make".to_owned())));
     assert_eq!(call("    val s = Make()"), None);
 }
+
+#[test]
+fn kotlin_arity_counts_defaults_varargs_and_a_trailing_lambda() {
+    let parts = |decl: &str| jvm_parameter_parts(decl, 1, "f").expect("a parameter list");
+    let takes = |decl: &str, n: usize| jvm_takes(&parts(decl), n);
+    assert_eq!(
+        parts("fun f(a: Map<String, Int>, b: (Int, Int) -> Unit = { _, _ -> }) {"),
+        ["a: Map<String, Int>", "b: (Int, Int) -> Unit = { _, _ -> }"]
+    );
+    assert!(takes("fun f(a: Int, b: Int = 1): Int", 1));
+    assert!(!takes("fun f(a: Int, b: Int = 1): Int", 3));
+    assert!(takes("fun f(a: Int, vararg b: Int)", 4));
+    assert!(!takes("fun f(a: Int)", 2));
+    let call = jvm_call(&["f(1, \"a,b\") { it }"], 0, 1).expect("a call");
+    assert_eq!(call.arguments, ["1", "\"a,b\""]);
+    assert!(call.trailing_lambda);
+    assert_eq!(jvm_literal_parameter("cups: Int"), Some("int"));
+    assert_eq!(jvm_literal_parameter("final String cups"), Some("string"));
+    assert_eq!(jvm_literal_parameter("cups: Int = 1"), None);
+    assert_eq!(jvm_literal_argument("\"two\""), Some("string"));
+    assert_eq!(jvm_literal_argument("2L"), None);
+}

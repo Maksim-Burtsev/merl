@@ -390,6 +390,7 @@ Java and Kotlin, each in names of its own so the two do not answer for each othe
 `Kettle` whose field, constructor parameter and local share a name with a field of its base
 `Vessel`, `this.` and `super.`, a static import beside a member of the same name, overloads by
 arity and by type, a lambda parameter hiding a field, a nested `Lid` beside the package's `Lid`,
+a `Cart` whose nested `Tray` with two constructors hides the package's `Tray` (#965),
 a namesake `Kettle` in `tea.stale` imported over the package's own, and declaration-shaped lines
 in a Javadoc and a text block. `brew/` has a `Samovar` whose property is initialized from a
 constructor parameter of its name, an explicitly imported object function beside a member, a
