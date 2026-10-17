@@ -662,7 +662,11 @@ impl App {
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
                 (anonymous(&at, c.line1), None)
             } else {
-                let line1 = if at == file { c.line1 } else { 0 };
+                let line1 = if matches!(c.value, search::Value::Type(_)) {
+                    c.line1
+                } else {
+                    0
+                };
                 (
                     self.annotated_type(kind, &at, text, line1, &element)?,
                     Some(link),
@@ -734,7 +738,7 @@ impl App {
             }
             _ => return None,
         };
-        let ty = self.annotated_type(kind, &decl.path, &text, decl.line1, &written)?;
+        let ty = self.annotated_type(kind, &decl.path, &text, 0, &written)?;
         Some(TypeVia {
             ty,
             call_signature: Some(signature),
