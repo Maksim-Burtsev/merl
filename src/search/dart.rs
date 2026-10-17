@@ -231,7 +231,7 @@ pub fn dart_directives(text: &str) -> Option<Vec<DartDirective>> {
             match t {
                 "" => {}
                 "as" | "show" | "hide" | "deferred" => mode = t,
-                _ if t.starts_with("if") => d.conditional = true,
+                _ if t == "if" || t.starts_with("if(") => d.conditional = true,
                 _ => match mode {
                     "as" => d.prefix = Some(t.to_owned()),
                     "show" => d.show.get_or_insert_with(Vec::new).push(t.to_owned()),
