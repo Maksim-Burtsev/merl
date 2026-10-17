@@ -42,3 +42,6 @@ done
 read -r teapot
 echo "$teapot"
 #      ^ d: none; want bin/tea.sh:42 (#957)
+
+(( pour++ ))
+#  ^ d: lib/tea.sh:4

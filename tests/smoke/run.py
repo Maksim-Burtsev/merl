@@ -235,6 +235,11 @@ def suffix(slot):
     return f"-{slot}" if slot else ""
 
 
+def servers_left(pid):
+    return [slot for slot in range(JOBS)
+            if not subprocess.run(["tmux", "-L", f"smoke{pid}{suffix(slot)}", "ls"], capture_output=True).returncode]
+
+
 def fresh(work, project, slot=0):
     run = os.path.join(work, "run" + suffix(slot))
     shutil.rmtree(run, ignore_errors=True)
@@ -971,7 +976,7 @@ def selftest():
             child.kill()
             raise AssertionError(f"{sig.name}: the run went on")
         assert want is None or status == want, f"{sig.name}: exit {status}, want {want}"
-        assert subprocess.run([*tmux, "ls"], capture_output=True).returncode, f"{sig.name} left a tmux server"
+        assert not servers_left(child.pid), f"{sig.name} left a tmux server in slots {servers_left(child.pid)}"
         assert not os.path.exists(socket.stdout.strip()), f"{sig.name} left the tmux socket file"
     assert open(os.path.join(work, "lock")).read() == "", "SIGTERM left the lock held"
     held, said = lock(work), lambda name: open(os.path.join(tmp, f"lock-{name}.txt")).read()
@@ -991,8 +996,7 @@ def selftest():
     unlock(held)
     assert waits.wait(timeout=10) == 0 and "played" in said("default"), said("default")
     assert os.path.exists(os.path.join(out, "signal", "new-last.png")), "no last screen of the crash"
-    left = subprocess.run(["tmux", "-L", f"smoke{os.getpid()}", "ls"], capture_output=True)
-    assert left.returncode, "a tmux server outlived its play"
+    assert not servers_left(os.getpid()), f"a tmux server outlived its play in slots {servers_left(os.getpid())}"
     shutil.rmtree(tmp)
     print("selftest ok")
 

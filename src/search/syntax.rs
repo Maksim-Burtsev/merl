@@ -590,7 +590,10 @@ impl<'a> Scanner<'a> {
         } else if kind == Kind::Ruby && b[i..].starts_with(b"<<") {
             self.ruby_heredoc();
         } else if kind == Kind::Sql && c == b'\'' {
-            self.literal_closer = Some(b"'".into());
+            let end = super::sql::sql_string_end(b, i).unwrap_or(b.len());
+            self.out
+                .extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| true));
+            self.i = end - 1;
         } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
             || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)

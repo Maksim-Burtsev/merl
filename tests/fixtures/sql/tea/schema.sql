@@ -42,3 +42,9 @@ CREATE TABLE ghosts (
 );
 ');
 -- CREATE TABLE wraiths (id integer);
+
+-- A backslash ends a standard string; in an E string it escapes the quote.
+INSERT INTO teapots (leaves) VALUES ('C:\\');
+CREATE TABLE trays (id integer);
+INSERT INTO teapots (leaves) VALUES (E'it\'s');
+CREATE TABLE saucers (id integer);
