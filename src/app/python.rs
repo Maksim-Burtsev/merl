@@ -304,11 +304,32 @@ impl App {
         word: &str,
         found: &mut Vec<Candidate>,
     ) {
+        if found.iter().any(|c| c.hit.path == here) {
+            return;
+        }
+        if let Some((module, decls)) = self.star_source(here, text, self.line, word) {
+            *found = decls
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Import(module.join(".")),
+                })
+                .collect();
+        }
+    }
+
+    pub(super) fn star_source(
+        &self,
+        here: &Path,
+        text: &str,
+        line0: usize,
+        word: &str,
+    ) -> Option<(Vec<String>, Vec<Hit>)> {
         static STAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
             Regex::new(r"^(\s*)from\s+[\w.]+\s+import\s+\*").expect("the regex is a literal")
         });
-        if word.starts_with('_') || found.iter().any(|c| c.hit.path == here) {
-            return;
+        if word.starts_with('_') {
+            return None;
         }
         let literal = search::literal_lines(Kind::Python, text);
         let mut stars = Vec::new();
@@ -319,8 +340,8 @@ impl App {
             else {
                 continue;
             };
-            if !c[1].is_empty() || i >= self.line {
-                return;
+            if !c[1].is_empty() || i >= line0 {
+                return None;
             }
             stars.extend(search::imports(Kind::Python, l));
         }
@@ -330,31 +351,18 @@ impl App {
             let module = &path[..path.len() - 1];
             let files = self.project_module(here, module);
             let [file] = files.as_slice() else {
-                return;
+                return None;
             };
-            let Some(module_text) = self.text_of(file).filter(|t| !t.contains("__all__")) else {
-                return;
-            };
-            let declared: Vec<Candidate> = found
-                .iter()
-                .filter(|c| {
-                    c.hit.path == *file
-                        && search::qualified(Kind::Python, &module_text, c.hit.line1, word)
-                            .is_none()
-                })
-                .map(|c| Candidate {
-                    hit: c.hit.clone(),
-                    reason: Reason::Import(module.join(".")),
-                })
-                .collect();
-            if !declared.is_empty() {
-                *found = declared;
-                return;
+            let module_text = self.text_of(file).filter(|t| !t.contains("__all__"))?;
+            let decls = self.package_declarations(Kind::Python, file, word, None);
+            if !decls.is_empty() {
+                return Some((module.to_vec(), decls));
             }
             if mentions.is_match(&module_text) {
-                return;
+                return None;
             }
         }
+        None
     }
 
     pub(super) fn python_implementation(
