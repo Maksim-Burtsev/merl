@@ -70,7 +70,58 @@ impl App {
         {
             return Some(found);
         }
+        if let Some(found) = self.php_function(here, text, range.clone()) {
+            return Some(found);
+        }
         self.php_named(here, text, range, access)
+    }
+
+    fn php_function(
+        &self,
+        here: &Path,
+        text: &str,
+        range: Range<usize>,
+    ) -> Option<Vec<Candidate>> {
+        let written = search::php_function_at(self.line_str(), range)?;
+        let short = written.rsplit('\\').next().unwrap_or(&written);
+        let pattern = format!(r"^\s*function\s+&?\s*{}\s*\(", regex::escape(short));
+        let cut = self.truncated.get();
+        let hits = self.project_definitions(Kind::Php, here, short, &pattern);
+        let truncated = self.truncated.replace(cut);
+        let names = search::php_function_names(search::php_block(text, self.line), &written);
+        for (i, name) in names.iter().enumerate() {
+            if i > 0 && truncated {
+                return None;
+            }
+            let ns = name.full.rsplit_once('\\').map_or("", |(ns, _)| ns);
+            let reason = match (name.imported, ns) {
+                (true, _) => Reason::Import(name.full.clone()),
+                (false, "") => Reason::Path(short.to_owned()),
+                (false, ns) => Reason::Path(ns.to_owned()),
+            };
+            let found: Vec<Candidate> = hits
+                .iter()
+                .filter(|h| {
+                    let Some(t) = self.text_of(&h.path) else {
+                        return false;
+                    };
+                    let at = h.line1 - 1;
+                    let lines: Vec<&str> = t.lines().collect();
+                    search::literal_lines(Kind::Php, &t).get(at) != Some(&true)
+                        && search::php_enclosing_class(&lines, at).is_none()
+                        && search::php_namespace(search::php_block(&t, at)).unwrap_or_default()
+                            == ns
+                })
+                .map(|h| Candidate {
+                    hit: h.clone(),
+                    reason: reason.clone(),
+                })
+                .collect();
+            if !found.is_empty() {
+                return Some(found);
+            }
+        }
+        None
     }
 
     fn php_named(

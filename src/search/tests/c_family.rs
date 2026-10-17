@@ -1031,6 +1031,48 @@ fn php_namespace_line_answers_only_the_namespace_written_up_to_the_word() {
 }
 
 #[test]
+fn php_function_call_resolves_as_php_does() {
+    let at = |line: &str, word: &str| {
+        let start = line.rfind(word).expect("the word is on the line");
+        php_function_at(line, start..start + word.len())
+    };
+    assert_eq!(at("return steep(3);", "steep").as_deref(), Some("steep"));
+    assert_eq!(
+        at("x(\\Shop\\Tea\\steep(3));", "steep").as_deref(),
+        Some("\\Shop\\Tea\\steep")
+    );
+    assert_eq!(at("$a && pour($k);", "pour").as_deref(), Some("pour"));
+    for (line, word) in [
+        ("$k->pour(1);", "pour"),
+        ("Kettle::pour(1);", "pour"),
+        ("new Kettle();", "Kettle"),
+        ("function &pour(int $c)", "pour"),
+        ("$pour(1);", "pour"),
+        ("#[Pure()]", "Pure"),
+        ("return steep;", "steep"),
+    ] {
+        assert_eq!(at(line, word), None, "{line}");
+    }
+    let names = |text: &str, written: &str| -> Vec<(String, bool)> {
+        php_function_names(text, written)
+            .into_iter()
+            .map(|r| (r.full, r.imported))
+            .collect()
+    };
+    let text = "namespace Shop\\Tea;\nuse function Shop\\Tea\\Stale\\steep;\nuse function A\\b as pour;\nuse Shop\\Cup;\n";
+    assert_eq!(names(text, "steep"), [("Shop\\Tea\\Stale\\steep".to_owned(), true)]);
+    assert_eq!(names(text, "pour"), [("A\\b".to_owned(), true)]);
+    assert_eq!(
+        names(text, "brew"),
+        [("Shop\\Tea\\brew".to_owned(), false), ("brew".to_owned(), false)],
+        "an unqualified name is the namespace's, then the global one"
+    );
+    assert_eq!(names(text, "\\Shop\\Tea\\steep"), [("Shop\\Tea\\steep".to_owned(), false)]);
+    assert_eq!(names(text, "Cup\\fill"), [("Shop\\Cup\\fill".to_owned(), true)]);
+    assert!(names("use function A\\{steep, pour};\n", "steep").is_empty());
+}
+
+#[test]
 fn php_scope_roots_imports_and_names() {
     let here = Path::new("src/Invoice.php");
     assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));

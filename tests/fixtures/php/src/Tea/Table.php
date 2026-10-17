@@ -39,14 +39,14 @@ final class Table
         //           ^ d: src/Tea/Stale/Kettle.php:7
         //                         ^ d: src/Tea/Stale/Kettle.php:5
         //                                       ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Stale/Kettle.php:7 (#956)
-        //                                                ^ d: picker src/Tea/Stale/functions.php:5, src/Tea/brew.php:5; want src/Tea/Stale/functions.php:5 (#955)
+        //                                                ^ d: src/Tea/Stale/functions.php:5
     }
 
     public function fresh(): int
     {
         return \Shop\Tea\steep(3) + pour($this->kettle) + STRENGTH;
-        //               ^ d: picker src/Tea/Stale/functions.php:5, src/Tea/brew.php:5; want src/Tea/brew.php:5 (#955)
-        //                          ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12, src/Tea/brew.php:10; want src/Tea/brew.php:10 (#955)
+        //               ^ d: src/Tea/brew.php:5
+        //                          ^ d: src/Tea/brew.php:10
         //                                                ^ d: src/Tea/brew.php:16
     }
 

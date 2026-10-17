@@ -385,6 +385,90 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
     Some(PhpResolved { full, imported })
 }
 
+pub fn php_function_at(line: &str, range: Range<usize>) -> Option<String> {
+    let (before, word, after) = (
+        line.get(..range.start)?,
+        line.get(range.clone())?,
+        line.get(range.end..)?,
+    );
+    if !after.trim_start().starts_with('(') {
+        return None;
+    }
+    let pre = before.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_' || c == '\\');
+    let written = format!("{}{word}", before.get(pre.len()..)?);
+    let pre = pre.trim_end();
+    let last = pre
+        .trim_end_matches('&')
+        .trim_end()
+        .rsplit(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let not_a_call = pre.ends_with(['$', '>', ':'])
+        || pre.ends_with("#[")
+        || matches!(last.as_str(), "function" | "fn" | "new" | "use" | "const");
+    (!not_a_call && !written.ends_with('\\')).then_some(written)
+}
+
+pub fn php_function_names(text: &str, written: &str) -> Vec<PhpResolved> {
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^use\s+function\s+([\w\\\s,]+?)\s*;").expect("the regex is a literal")
+    });
+    static GROUP: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").expect("the regex is a literal")
+    });
+    if let Some(full) = written.strip_prefix('\\') {
+        return vec![PhpResolved {
+            full: full.to_owned(),
+            imported: false,
+        }];
+    }
+    if written.contains('\\') {
+        return php_resolve(text, written).into_iter().collect();
+    }
+    let used = USE
+        .captures_iter(text)
+        .flat_map(|c| {
+            c[1].split(',')
+                .map(|item| item.trim().to_owned())
+                .collect::<Vec<_>>()
+        })
+        .find_map(|item| {
+            let (path, alias) = match item.split_once(" as ") {
+                Some((path, alias)) => (path.trim().to_owned(), alias.trim().to_owned()),
+                None => (item.clone(), item.rsplit('\\').next()?.to_owned()),
+            };
+            (alias == written).then(|| path.trim_start_matches('\\').to_owned())
+        });
+    if let Some(full) = used {
+        return vec![PhpResolved {
+            full,
+            imported: true,
+        }];
+    }
+    let grouped = GROUP.captures_iter(text).any(|c| {
+        c[1].split(',')
+            .any(|item| item.trim().rsplit([' ', '\\']).next() == Some(written))
+    });
+    if grouped {
+        return Vec::new();
+    }
+    let global = PhpResolved {
+        full: written.to_owned(),
+        imported: false,
+    };
+    match php_namespace(text) {
+        Some(ns) => vec![
+            PhpResolved {
+                full: format!("{ns}\\{written}"),
+                imported: false,
+            },
+            global,
+        ],
+        None => vec![global],
+    }
+}
+
 pub fn php_psr4(root: &Path, dir: &Path) -> Vec<(String, Vec<PathBuf>)> {
     static MAP: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#""psr-4"\s*:\s*\{([^}]*)\}"#).expect("the regex is a literal")
