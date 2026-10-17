@@ -1004,6 +1004,9 @@ fn package_modules(folder: &Path) -> Vec<String> {
 }
 
 fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
+    if !(Path::new(b).components()).all(|c| matches!(c, std::path::Component::Normal(_))) {
+        bail!("no branch {b}");
+    }
     let common = dirs(root).context("no git directory")?.common_refs_dir;
     let name = root.file_name().context("no repository name")?;
     let folder = common.join(FOLDERS).join(b).join(name);
