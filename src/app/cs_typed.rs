@@ -342,6 +342,13 @@ impl App {
         if bindings.is_empty() {
             return self.cs_field_type(&owner()?, name);
         }
+        if bindings.first().is_some_and(|b| b.line1 == line1)
+            && let Some(w) = search::cs_lambda_delegate(lines.get(line1 - 1)?, name)
+        {
+            let ty = self.cs_resolve(file, text, line1, &w)?;
+            let link = format!("{name}: {}", search::cs_type_name(&w)?);
+            return Some(Proven { ty, link });
+        }
         let mut found: Option<Proven> = None;
         for b in bindings {
             let at = search::cs_written_line(&lines, b.line1, name);

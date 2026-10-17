@@ -54,7 +54,7 @@ public class Table
     {
         var cup = new Kettle(2);
         Func<Teapot, int> f = cup => cup.Pour(1);
-        //                               ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Teapot.cs:18 (#939)
+        //                               ^ d: src/Shop/Tea/Teapot.cs:18
         return f(new Teapot()) + cup.Pour(1);
         //                           ^ d: src/Shop/Tea/Kettle.cs:24
     }
