@@ -1114,6 +1114,28 @@ fn a_prototype_and_a_definition_naming_a_built_in_type_are_one_function() {
 fn a_prototype_puts_no_parameter_in_scope_below_it() {
     assert!(c_parameter("int f(int n)\n{\n  return n;\n}\n", 3, "n"));
     assert!(!c_parameter("int g(int n);\n  n = 1;\n", 2, "n"));
+    assert!(!c_parameter("int f() { return g(6); }\n", 1, "g"));
+    assert!(c_parameter(
+        "int f(int (*g)(int)) { return g(6); }\n",
+        1,
+        "g"
+    ));
+    assert!(c_parameter(
+        "int f(void (*cb)(int), int n) { return n; }\n",
+        1,
+        "n"
+    ));
+    assert!(c_parameter(
+        "bool Cmp::operator()(int g) const { return g > 0; }\n",
+        1,
+        "g"
+    ));
+    assert!(!c_parameter("int f(S s = {}) { return g(s); }\n", 1, "g"));
+    assert!(c_parameter(
+        "int f(int a,\n      int b) {\n  return a;\n}\n",
+        3,
+        "a"
+    ));
 }
 
 #[test]

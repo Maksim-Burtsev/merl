@@ -2,4 +2,4 @@
 #include "window.h"
 
 int inflate(void) { return slide(2); }
-//                         ^ d: picker src/zl/window.c:3, src/zl/window.h:1
+//                         ^ d: src/zl/window.c:3
