@@ -6,10 +6,10 @@ merl snapshot: help
 │   o / Ctrl+E                        Open a file (fuzzy)                      │
 │   Ctrl+N                            New file: type its path, Enter creates   │
 │                                     and edits it                             │
-│   d / F12                           Go to definition of the word under the   │
+│   d                                 Go to definition of the word under the   │
 │                                     cursor, or its implementations           │
 │   D                                 Project symbols (fuzzy)                  │
-│   u / Shift+F12                     Usages of the word under the cursor      │
+│   u                                 Usages of the word under the cursor      │
 │   [ / ]                             Back / forward in the jump history       │
 │   : / Ctrl+G                        Go to line                               │
 │ Search                                                                       │
@@ -91,9 +91,9 @@ d fg #787b7e bg #ffffff
 │▸│ Files and jumps                                                                                                   │
 │ │   o / Ctrl+E                        Open a file (fuzzy)                                                           │
 │ │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
-│ │   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+│ │   d                                 Go to definition of the word under the cursor, or its implementations         │
 │ │   D                                 Project symbols (fuzzy)                                                       │
-│ │   u / Shift+F12                     Usages of the word under the cursor                                           │
+│ │   u                                 Usages of the word under the cursor                                           │
 │ │   [ / ]                             Back / forward in the jump history                                            │
 │ │   : / Ctrl+G                        Go to line                                                                    │
 │ │ Search                                                                                                            │
@@ -214,9 +214,9 @@ i fg #f6f8fa bg #5094e4
 │▸ tests                     │ 2  │ Files and jumps                                                                                                   │
 │  cli.py                    │ 3 i│   o / Ctrl+E                        Open a file (fuzzy)                                                           │
 │  config.py                 │ 4  │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
-│  export.csv                │ 5 f│   d / F12                           Go to definition of the word under the cursor, or its implementations         │
+│  export.csv                │ 5 f│   d                                 Go to definition of the word under the cursor, or its implementations         │
 │  Makefile                  │ 6 f│   D                                 Project symbols (fuzzy)                                                       │
-│  models.py                 │ 7  │   u / Shift+F12                     Usages of the word under the cursor                                           │
+│  models.py                 │ 7  │   u                                 Usages of the word under the cursor                                           │
 │  notes.json                │ 8  │   [ / ]                             Back / forward in the jump history                                            │
 │  PLAN.md                   │ 9 c│   : / Ctrl+G                        Go to line                                                                    │
 │  store.py                  │10  │ Search                                                                                                            │

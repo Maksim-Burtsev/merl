@@ -9,7 +9,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{KEYS, plural};
 
-const ALIASES: &[&str] = &["Ctrl+E", "Ctrl+F", "F12", "Shift+F12", "Ctrl+G"];
+const ALIASES: &[&str] = &["Ctrl+E", "Ctrl+F", "Ctrl+G"];
 
 pub struct Action {
     pub name: String,
@@ -301,13 +301,7 @@ mod tests {
         ] {
             assert!(names.contains(&name), "{name}");
         }
-        for (alias, primary) in [
-            ("Ctrl+E", "o"),
-            ("Ctrl+F", "/"),
-            ("F12", "d"),
-            ("Shift+F12", "u"),
-            ("Ctrl+G", ":"),
-        ] {
+        for (alias, primary) in [("Ctrl+E", "o"), ("Ctrl+F", "/"), ("Ctrl+G", ":")] {
             assert!(!names.contains(&alias), "{alias}");
             assert_eq!(action(alias), Some(primary), "{alias}");
         }

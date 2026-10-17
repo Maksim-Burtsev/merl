@@ -560,15 +560,15 @@ mod tests {
         press(&mut a, "?<Esc>d");
         assert_eq!(a.message, "miss");
         press(&mut a, "d");
-        run(&mut a, task("u"), false).unwrap();
-        a.key(KeyEvent::new(KeyCode::F(12), KeyModifiers::SHIFT));
-        press(&mut a, "<Down><Enter>");
+        run(&mut a, task("o"), false).unwrap();
+        a.key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::CONTROL));
+        press(&mut a, "store<Enter>");
         assert!(a.message.starts_with("\u{2713} "), "{}", a.message);
         let lines = logged(&log);
         assert_eq!(lines[0], "d\tmiss");
         assert!(
             lines[1]
-                .strip_prefix("u\t")
+                .strip_prefix("o\t")
                 .is_some_and(|ms| ms.parse::<u32>().is_ok())
         );
         clean_up("drill-help", &log);

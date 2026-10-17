@@ -60,11 +60,19 @@ impl SearchJob {
         let mut named: Vec<NamedSymbol> = Vec::new();
         let mut cut = false;
         let mut haskell_code: HashMap<PathBuf, search::HaskellCode> = HashMap::new();
+        let read = |path: &Path| match (&self.unsaved, &self.current) {
+            (Some(t), Some(c)) if c.as_path() == path => String::from_utf8_lossy(t).into_owned(),
+            _ => std::fs::read_to_string(self.root.join(path)).unwrap_or_default(),
+        };
+        let kinds: HashMap<&Path, Option<Kind>> = (self.files.iter())
+            .map(|p| (p.as_path(), search::kind_read(p, || read(p))))
+            .collect();
+        let kind_of = |p: &Path| kinds.get(p).copied().unwrap_or_else(|| search::kind_of(p));
         for (kind, pattern) in search::SYMBOLS {
             let re = Regex::new(pattern).expect("built-in symbol patterns are valid");
             let wanted = |p: &Path| match kind {
-                Some(k) => search::kind_of(p) == Some(*k) && search::row_reads(pattern, p),
-                None => search::shared_symbols(search::kind_of(p)),
+                Some(k) => kind_of(p) == Some(*k) && search::row_reads(pattern, p),
+                None => search::shared_symbols(kind_of(p)),
             };
             let files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();
             let keep = |line: &str| {
@@ -82,12 +90,6 @@ impl SearchJob {
             )
             .unwrap_or_default();
             cut |= hits.len() >= search::MAX_HITS;
-            let read = |path: &Path| match (&self.unsaved, &self.current) {
-                (Some(t), Some(c)) if c.as_path() == path => {
-                    String::from_utf8_lossy(t).into_owned()
-                }
-                _ => std::fs::read_to_string(self.root.join(path)).unwrap_or_default(),
-            };
             let mut script: HashMap<PathBuf, Vec<bool>> = HashMap::new();
             hits.retain(|h| {
                 !search::component(&h.path)

@@ -86,7 +86,10 @@ fn kinds_come_from_the_file_name() {
     ] {
         assert_eq!(kind_of(Path::new(name)), kind, "{name}");
     }
-    assert_eq!(opened_kind(Path::new("core/hash.rbs")), Some(Kind::Ruby));
+    assert_eq!(
+        opened_kind(Path::new("core/hash.rbs"), String::new),
+        Some(Kind::Ruby)
+    );
 }
 
 #[test]

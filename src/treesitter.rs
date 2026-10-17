@@ -101,6 +101,26 @@ const QUERIES: &[(&str, &str, &str)] = &[
         include_str!("../queries/ini/injections.scm"),
     ),
     (
+        "graphql",
+        include_str!("../queries/graphql/highlights.scm"),
+        include_str!("../queries/graphql/injections.scm"),
+    ),
+    (
+        "nginx",
+        include_str!("../queries/nginx/highlights.scm"),
+        include_str!("../queries/nginx/injections.scm"),
+    ),
+    (
+        "gdscript",
+        include_str!("../queries/gdscript/highlights.scm"),
+        include_str!("../queries/gdscript/injections.scm"),
+    ),
+    (
+        "starlark",
+        include_str!("../queries/starlark/highlights.scm"),
+        include_str!("../queries/starlark/injections.scm"),
+    ),
+    (
         "proto",
         include_str!("../queries/proto/highlights.scm"),
         include_str!("../queries/proto/injections.scm"),
@@ -339,6 +359,7 @@ struct Check {
 enum Test {
     Match(regex::bytes::Regex),
     Contains(Vec<String>),
+    AnyOf(Vec<String>),
     HasParent(Vec<String>),
     HasAncestor(Vec<String>),
 }
@@ -356,6 +377,10 @@ impl Check {
                 words
                     .iter()
                     .all(|w| text.windows(w.len()).any(|x| x == w.as_bytes()))
+            }),
+            Test::AnyOf(words) => nodes.any(|n| {
+                let text = &bytes[n.byte_range()];
+                words.iter().any(|w| w.as_bytes() == text)
             }),
             Test::HasParent(kinds) => nodes.any(|n| {
                 n.parent()
@@ -450,6 +475,10 @@ fn grammar(name: &str) -> Option<Language> {
         "dockerfile" => tree_sitter_dockerfile_updated::language(),
         "cmake" => tree_sitter_cmake::LANGUAGE.into(),
         "proto" => tree_sitter_proto::LANGUAGE.into(),
+        "graphql" => arborium_graphql::language().into(),
+        "nginx" => tree_sitter_nginx::LANGUAGE.into(),
+        "gdscript" => tree_sitter_gdscript::LANGUAGE.into(),
+        "starlark" => tree_sitter_starlark::LANGUAGE.into(),
         "hcl" | "terraform" => tree_sitter_hcl::LANGUAGE.into(),
         "ini" => tree_sitter_ini::LANGUAGE.into(),
         "sql" => tree_sitter_sequel::LANGUAGE.into(),
@@ -515,6 +544,7 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
 fn source(
     name: &str,
     pick: fn(&(&str, &'static str, &'static str)) -> &'static str,
+    theme: Option<&str>,
 ) -> Result<String, String> {
     let row = QUERIES
         .iter()
@@ -525,18 +555,26 @@ fn source(
     for line in text.lines() {
         if let Some(bases) = line.strip_prefix("; inherits:") {
             for base in bases.split(',').map(str::trim).filter(|b| !b.is_empty()) {
-                out.push_str(&source(base.trim_matches(|c| c == '(' || c == ')'), pick)?);
+                out.push_str(&source(
+                    base.trim_matches(|c| c == '(' || c == ')'),
+                    pick,
+                    theme,
+                )?);
                 out.push('\n');
             }
         }
     }
     out.push_str(text);
+    if let Some(extension) = extends::extension(theme, name) {
+        out.push('\n');
+        out.push_str(extension);
+    }
     Ok(out)
 }
 
 fn compile(name: &'static str, language: Language) -> Result<Lang, String> {
-    let mut lang = compile_text(name, language, &source(name, |r| r.1)?)?;
-    let injections = source(name, |r| r.2)?;
+    let mut lang = compile_text(name, language, &source(name, |r| r.1, None)?)?;
+    let injections = source(name, |r| r.2, None)?;
     if !injections.trim().is_empty() {
         let all = patterns(name, &lang.language, &injections, INJECTION_KEYS)?;
         let joins = |p: usize| all.setting(p, "injection.combined").is_some();
@@ -572,6 +610,16 @@ fn compile_text(name: &'static str, language: Language, text: &str) -> Result<La
     })
 }
 
+fn as_neovim_reads(text: &str) -> String {
+    let dropped = regex::Regex::new(r#"\(#set! @[\w.]+ url @[\w.]+\)|\(#any-of\? "[^)]*\)"#)
+        .expect("a valid regex");
+    let text = dropped.replace_all(text, "");
+    let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
+    let text = vim.replace_all(&text, "(#${1}vim-match?");
+    let any_of = regex::Regex::new(r"\(#(not-)?any-of\?").expect("a valid regex");
+    any_of.replace_all(&text, "(#${1}nvim-any-of?").into_owned()
+}
+
 fn patterns(
     name: &str,
     language: &Language,
@@ -588,11 +636,7 @@ fn patterns(
     {
         return Err(format!("{name}: #{op} is not implemented"));
     }
-    let url = regex::Regex::new(r"\(#set! @[\w.]+ url @[\w.]+\)").expect("a valid regex");
-    let text = url.replace_all(text, "");
-    let vim = regex::Regex::new(r"\(#(not-)?match\?").expect("a valid regex");
-    let text = vim.replace_all(&text, "(#${1}vim-match?");
-    let query = Query::new(language, &text).map_err(|e| format!("{name}: {e}"))?;
+    let query = Query::new(language, &as_neovim_reads(text)).map_err(|e| format!("{name}: {e}"))?;
     let mut checks = Vec::new();
     let mut offsets = Vec::new();
     let mut rewrites = Vec::new();
@@ -656,6 +700,7 @@ fn patterns(
                 "lua-match?" if args.len() == 1 => Test::Match(lua_pattern(&args[0])?),
                 "vim-match?" if args.len() == 1 => Test::Match(vim_pattern(&args[0])?),
                 "contains?" => Test::Contains(args),
+                "nvim-any-of?" => Test::AnyOf(args),
                 "has-parent?" => Test::HasParent(args),
                 "has-ancestor?" => Test::HasAncestor(args),
                 _ => return Err(format!("{name}: #{} is not implemented", pred.operator)),
@@ -832,6 +877,7 @@ fn shape_of(tree: &Tree) -> Shape {
 
 pub struct Parsed {
     pub lang: &'static Lang,
+    themed: &'static Lang,
     parser: Parser,
     inner: Parser,
     tree: Option<Tree>,
@@ -890,6 +936,7 @@ impl Parsed {
         let (text, starts) = joined(lines);
         Some(Self {
             lang,
+            themed: lang,
             parser,
             inner: Parser::new(),
             tree: None,
@@ -1022,7 +1069,7 @@ impl Parsed {
                     let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
                     r.start_point
                         .row
-                        .min(row(&self.lang.highlights))
+                        .min(row(&self.themed.highlights))
                         .min(injected)
                 })
                 .fold(from, usize::min),
@@ -1047,7 +1094,7 @@ impl Parsed {
             Some(before) => {
                 let row = |p: &Patterns| changed_text_row(p, &before, &tree, &self.text);
                 let injected = self.lang.injections.as_ref().map_or(usize::MAX, row);
-                from.min(row(&self.lang.highlights)).min(injected)
+                from.min(row(&self.themed.highlights)).min(injected)
             }
             None => from,
         };
@@ -1075,6 +1122,7 @@ impl Parsed {
         to: usize,
         styles: &mut Styles,
     ) -> Vec<Spans> {
+        self.themed = styles.themed(self.lang);
         let Some(tree) = &self.tree else {
             return Vec::new();
         };
@@ -1209,6 +1257,10 @@ impl<'a> Styles<'a> {
         }
     }
 
+    fn themed(&self, lang: &'static Lang) -> &'static Lang {
+        extends::themed(lang, self.theme.builtin)
+    }
+
     fn of(&mut self, lang: &Lang) -> &[Option<Style>] {
         let i = if let Some(i) = self.by_lang.iter().position(|(n, _)| *n == lang.name) {
             i
@@ -1309,6 +1361,7 @@ fn textmate(capture: &str, highlighter: &Highlighter) -> Option<Style> {
 }
 
 mod combined;
+mod extends;
 mod filetype;
 mod layers;
 mod pattern;

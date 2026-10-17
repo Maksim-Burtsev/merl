@@ -23,14 +23,18 @@ WORK/out, or WORK/out-only for --only, so a rerun of one scenario leaves the ful
 place; a directory --out names is deleted only if a run made it.
 
 Each scenario is played on the new build, then the old one, from a fresh copy of the fixture in a
-tmux pane of 185x55, a laptop's full screen, with an empty HOME. A scenario is a steps file, one
+tmux pane of 185x55, a laptop's full screen, with an empty HOME. JOBS scenarios play at once, each
+in its own tmux server and its own copy (WORK/run, WORK/run-1, ...); the ones with timed steps or
+on a demo checkout play after them, alone, so their timings are taken on a quiet machine. A scenario is a steps file, one
 step per line, `#` comments and blank lines skipped; the grammar of tools/cast.py and
 assets/tapes/record.py plus a few verbs of its own:
 
     merl ARGS          start merl in the project; later in the file: quit it (it must exit 0)
                        and start it again, the same HOME kept
     wait TEXT          an assertion and a checkpoint: the pane shows TEXT within 10 s, and the
-                       screen is saved once it has settled; a timeout is a FAIL, merl dead a CRASH
+                       screen is saved once it has settled; a timeout is a FAIL, merl dead a CRASH.
+                       At a wait the new build met, the old one waits 4x the new one's time, 2 s
+                       at least (OLD_WAIT): a release lacking a feature fails its wait sooner
     key K*N            tmux key names, each N times (`key@P` paces a GIF, here keys go 10 ms apart)
     type TEXT          the characters: at once here, one keystroke each in a GIF
     sleep S            seconds, at most 0.3: the waits do the syncing
@@ -68,8 +72,8 @@ A scenario that is not about the tree hides it (`t`) after its first wait, so th
 tree shows in one checkpoint per scenario, not in all of them. What a wait may name, and where a new
 feature's steps go: AGENTS.md, its bullets on tests/smoke.
 """
-import argparse, contextlib, datetime, difflib, fcntl, hashlib, io, json, os, platform, re, shlex, shutil, signal, subprocess, sys
-import tempfile, threading, time, traceback
+import argparse, concurrent.futures, contextlib, datetime, difflib, fcntl, hashlib, io, json, os, platform, queue, re, shlex
+import shutil, signal, subprocess, sys, tempfile, threading, time, traceback
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.join(ROOT, "tests", "smoke")
@@ -83,6 +87,8 @@ WORK = "/tmp/merl-smoke"
 DEMOS = ("gitea", "polar")
 PACE, POLL, TIMEOUT, SLEEP_CAP, SIZE = 0.01, 0.02, 10.0, 0.3, (185, 55)
 HOLD = 1.2
+JOBS, OLD_WAIT = 4, (4, 2.0)
+STOP = threading.Event()
 MARK = ".merl-smoke-report"
 SGR = re.compile(r"\x1b\[[0-9;]*m")
 VOLATILE = re.compile(r"(?<=merl-tutor-)\d+")
@@ -121,8 +127,8 @@ DEFAULT_ONLY = {"theme": "its first wait is a theme the picker lists around the 
 
 class Merl(cast.Pane):
 
-    def __init__(self, binary, home, size, err):
-        self.sock, self.home, self.binary, self.err = "smoke%d" % os.getpid(), home, binary, err
+    def __init__(self, binary, home, size, err, slot=0):
+        self.sock, self.home, self.binary, self.err = f"smoke{os.getpid()}{suffix(slot)}", home, binary, err
         self.size = size
         self.socket = os.path.join(os.environ.get("TMUX_TMPDIR") or "/tmp", f"tmux-{os.getuid()}", self.sock)
 
@@ -135,6 +141,8 @@ class Merl(cast.Pane):
                   self.command(args))
 
     def tmux(self, *args):
+        if STOP.is_set():
+            raise RuntimeError("the run was stopped")
         out = subprocess.run(["tmux", "-L", self.sock, "-f", "/dev/null", *args],
                              capture_output=True, text=True)
         if out.returncode:
@@ -223,8 +231,17 @@ def load(path):
     return project, steps
 
 
-def fresh(work, project):
-    run = os.path.join(work, "run")
+def suffix(slot):
+    return f"-{slot}" if slot else ""
+
+
+def servers_left(pid):
+    return [slot for slot in range(JOBS)
+            if not subprocess.run(["tmux", "-L", f"smoke{pid}{suffix(slot)}", "ls"], capture_output=True).returncode]
+
+
+def fresh(work, project, slot=0):
+    run = os.path.join(work, "run" + suffix(slot))
     shutil.rmtree(run, ignore_errors=True)
     shutil.copytree(os.path.join(work, "base"), run, symlinks=True)
     if project in DEMOS:
@@ -255,9 +272,10 @@ class Recorder:
             self.thread.join()
 
 
-def play(binary, path, work, timed_only=False, rec=None, theme=None):
-    home, err = os.path.join(work, "run", "home"), os.path.join(work, "run", "stderr")
-    r = {"checkpoints": [], "times": {}, "slow": [], "status": "ok", "timed": False}
+def play(binary, path, work, timed_only=False, rec=None, theme=None, slot=0, met=None):
+    run = os.path.join(work, "run" + suffix(slot))
+    home, err = os.path.join(run, "home"), os.path.join(run, "stderr")
+    r = {"checkpoints": [], "times": {}, "slow": [], "status": "ok", "timed": False, "met": []}
     size, pane, timed, t0 = list(SIZE), None, False, time.monotonic()
     last_key, step, runner, seen, gone = t0, "", "", None, False
 
@@ -271,7 +289,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
             keep("the screen after merl died", pane.frame())
     try:
         project, steps = load(path)
-        cwd = fresh(work, project)
+        cwd = fresh(work, project, slot)
         open(err, "w").close()
         if theme:
             os.makedirs(os.path.join(home, ".config", "merl"))
@@ -288,7 +306,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                 break
             if verb == "merl":
                 if pane is None:
-                    pane = Merl(binary, home, size, err)
+                    pane = Merl(binary, home, size, err, slot)
                     pane.start(shlex.split(arg), cwd)
                 else:
                     before = pane.frame()
@@ -306,8 +324,9 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                     pane.size = size
                     last_key = time.monotonic()
             elif verb == "wait":
-                ms, dead_at = None, None
-                while time.monotonic() - last_key < TIMEOUT:
+                ms, dead_at, k = None, None, len(r["met"])
+                limit = min(TIMEOUT, max(OLD_WAIT[1], OLD_WAIT[0] * met[k] / 1000)) if k < len(met or []) else TIMEOUT
+                while time.monotonic() - last_key < limit:
                     if arg in pane.tmux("capture-pane", "-p", "-t", "0"):
                         ms = round((time.monotonic() - last_key) * 1000)
                         break
@@ -325,6 +344,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None):
                     else:
                         keep_dead()
                     break
+                r["met"].append(ms)
                 if timed:
                     r["times"][f"{where} wait {arg}"], timed = ms, False
                 elif ms > 1000:
@@ -406,14 +426,16 @@ def pressed(home):
     return sorted({r[1] for r in rows if len(r) > 2 and r[2] != "0"})
 
 
-def scenario(path, new, old, work):
-    res = {s: play(b, path, work) for s, b in (("new", new), ("old", old))}
+def scenario(path, new, old, work, slot=0):
+    res = {"new": play(new, path, work, slot=slot)}
+    met = {"new": None, "old": res["new"]["met"]}
+    res["old"] = play(old, path, work, slot=slot, met=met["old"])
     if res["new"]["timed"]:
         for side in res:
             res[side]["samples"] = {k: [v] for k, v in res[side]["times"].items()}
         for n, order in enumerate((("old", "new"), ("new", "old")), 2):
             for side in order:
-                again = play(new if side == "new" else old, path, work, timed_only=True)
+                again = play(new if side == "new" else old, path, work, timed_only=True, slot=slot, met=met[side])
                 for k, v in again["times"].items():
                     res[side]["samples"].setdefault(k, []).append(v)
                 res[side]["stderr"] += again["stderr"]
@@ -421,6 +443,36 @@ def scenario(path, new, old, work):
                     res[side]["status"] = f"{again['status']} (play {n} of 3, for the timed steps)"
                     res[side]["last"] = again.get("last")
     return res
+
+
+def alone(path):
+    project, steps = load(path)
+    return project in DEMOS or any(s[1] == "time" for s in steps)
+
+
+def pooled(picked, fn):
+    later = [n for n, p in picked.items() if alone(p)]
+    slots, pool = queue.Queue(), concurrent.futures.ThreadPoolExecutor(JOBS)
+    for slot in range(JOBS):
+        slots.put(slot)
+
+    def job(name):
+        slot = slots.get()
+        try:
+            return fn(name, slot)
+        finally:
+            slots.put(slot)
+    try:
+        futures = {n: pool.submit(job, n) for n in picked if n not in later}
+        for name, future in futures.items():
+            yield name, future.result()
+        for name in later:
+            yield name, fn(name, 0)
+    except BaseException:
+        STOP.set()
+        raise
+    finally:
+        pool.shutdown(cancel_futures=True)
 
 
 def hexed(v):
@@ -604,9 +656,8 @@ def screen(name, checkpoint):
 
 def golden(new, picked, work, update, screens=SCREENS):
     good = True
-    for name, path in picked.items():
-        r = play(new, path, work)
-        got = {f"{i:02d}.txt": screen(name, c) for i, c in enumerate(r["checkpoints"], 1)}
+    for name, r in pooled(picked, lambda name, slot: play(new, picked[name], work, slot=slot)):
+        got ={f"{i:02d}.txt": screen(name, c) for i, c in enumerate(r["checkpoints"], 1)}
         if r["keys"]:
             got["keys.txt"] = "".join(k + "\n" for k in r["keys"])
         where = os.path.join(screens, name)
@@ -818,6 +869,7 @@ SELFTEST = {
               {"d": '[ -e "$0.played" ] && exit 101; touch "$0.played";'}, {}, "CRASH",
               "(play 2 of 3, for the timed steps)"),
     "slower": ("merl\nwait ready\nkey d\ntime\nwait done\n", {"d": "sleep 0.5;"}, {}, "PASS", "**slower**"),
+    "short": ("merl\nwait ready\nkey d\nwait done\n", {}, {"d": "continue;"}, "DIFF", "FAIL at short.steps:4"),
     "diff-red": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[31m';"}, {}, "DIFF", "#cd0000"),
     "diff-blue": ("merl\nwait ready\nkey d\nwait done\n", {"d": "printf '\\033[34m';"}, {}, "DIFF", "#0000ee"),
     "error": ("merl\nwait ready\nrun $SMOKE_TMUX kill-server; for _ in $(seq 500); do"
@@ -849,17 +901,18 @@ def selftest():
     work, out = os.path.join(tmp, "work"), os.path.join(tmp, "out")
     for d in ("orders", "home"):
         os.makedirs(os.path.join(work, "base", d))
-    names, results = {}, {}
+    names, results, bins = {}, {}, {}
     for name, (steps, new, old, _, _) in SELFTEST.items():
         names[name] = os.path.join(tmp, name + ".steps")
         open(names[name], "w").write(steps)
-        bins = []
-        for side, acts in (("new", new), ("old", old)):
-            bins.append(os.path.join(tmp, f"{name}-{side}"))
-            open(bins[-1], "w").write(FAKE % {"q": "exit 0", "d": "", "s": "", **acts})
-            os.chmod(bins[-1], 0o755)
-        results[name] = scenario(names[name], *bins, work)
-        print(f"{name:8} new {results[name]['new']['status']}", flush=True)
+        bins[name] = [os.path.join(tmp, f"{name}-{side}") for side in ("new", "old")]
+        for binary, acts in zip(bins[name], (new, old)):
+            open(binary, "w").write(FAKE % {"q": "exit 0", "d": "", "s": "", **acts})
+            os.chmod(binary, 0o755)
+    for name, r in pooled(names, lambda name, slot: scenario(names[name], *bins[name], work, slot)):
+        results[name] = r
+        print(f"{name:8} new {r['new']['status']}", flush=True)
+    assert results["short"]["old"]["seconds"] < TIMEOUT / 2, f"the old build waited {results['short']['old']}"
     report_dir(out)
     for name in results:
         os.makedirs(os.path.join(out, name))
@@ -904,7 +957,8 @@ def selftest():
     for sig, code, want in (
             (signal.SIGINT, f"run.play({hung!r}, {names['hung']!r}, {work!r})", None),
             (signal.SIGTERM, f"sys.argv = ['run.py', '--work', 'work']; "
-                             f"run.played = lambda a, *_: run.play({hung!r}, {names['hung']!r}, a.work); run.main()",
+                             f"run.played = lambda a, *_: list(run.pooled({{'hung': {names['hung']!r}}}, "
+                             f"lambda n, s: run.play({hung!r}, {names['hung']!r}, a.work, slot=s))); run.main()",
              128 + signal.SIGTERM)):
         child = subprocess.Popen([sys.executable, "-B", "-c", f"import sys; sys.path.insert(0, {HERE!r}); "
                                   f"import run; {code}"], cwd=tmp,
@@ -922,7 +976,7 @@ def selftest():
             child.kill()
             raise AssertionError(f"{sig.name}: the run went on")
         assert want is None or status == want, f"{sig.name}: exit {status}, want {want}"
-        assert subprocess.run([*tmux, "ls"], capture_output=True).returncode, f"{sig.name} left a tmux server"
+        assert not servers_left(child.pid), f"{sig.name} left a tmux server in slots {servers_left(child.pid)}"
         assert not os.path.exists(socket.stdout.strip()), f"{sig.name} left the tmux socket file"
     assert open(os.path.join(work, "lock")).read() == "", "SIGTERM left the lock held"
     held, said = lock(work), lambda name: open(os.path.join(tmp, f"lock-{name}.txt")).read()
@@ -942,8 +996,7 @@ def selftest():
     unlock(held)
     assert waits.wait(timeout=10) == 0 and "played" in said("default"), said("default")
     assert os.path.exists(os.path.join(out, "signal", "new-last.png")), "no last screen of the crash"
-    left = subprocess.run(["tmux", "-L", f"smoke{os.getpid()}", "ls"], capture_output=True)
-    assert left.returncode, "a tmux server outlived its play"
+    assert not servers_left(os.getpid()), f"a tmux server outlived its play in slots {servers_left(os.getpid())}"
     shutil.rmtree(tmp)
     print("selftest ok")
 
@@ -1017,11 +1070,11 @@ def played(a, picked, names, out, t0, load0):
     results = {}
     describe = ["git", "describe", "--tags", "--always", "--dirty"]
     built = "" if a.new else ", " + subprocess.run(describe, cwd=ROOT, capture_output=True, text=True).stdout
-    for name, path in picked.items():
+    for name, r in pooled(picked, lambda name, slot: scenario(picked[name], new, old, a.work, slot)):
         os.makedirs(os.path.join(out, name))
-        results[name] = scenario(path, new, old, a.work)
-        print(f"{name:12} new {results[name]['new']['status']} | old {results[name]['old']['status']}",
-              flush=True)
+        results[name] = r
+        results = {n: results[n] for n in picked if n in results}
+        print(f"{name:12} new {r['new']['status']} | old {r['old']['status']}", flush=True)
         wall = time.monotonic() - t0
         head = (f"# merl smoke: new vs old\n\nnew `{os.path.relpath(new, ROOT)}` ({version(new)}{built.strip()})"
                 f" · old {tag or '`' + old + '`'} ({version(old)}) · {len(results)} of {len(picked)} scenarios"

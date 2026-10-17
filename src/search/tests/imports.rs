@@ -456,6 +456,69 @@ fn a_package_is_the_copy_in_the_nearest_node_modules_that_has_it() {
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[cfg(unix)]
+#[test]
+fn a_review_folder_s_workspace_package_is_its_own_through_your_node_modules() {
+    let p = |v: &[&str]| v.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let dir = std::env::temp_dir().join(format!("merl-review-copy-{}", std::process::id()));
+    drop(std::fs::remove_dir_all(&dir));
+    for f in [
+        "yours/node_modules/lib/index.d.ts",
+        "yours/packages/shared/index.ts",
+        "yours/packages/gone/index.ts",
+        "yours/packages/aliased/index.ts",
+        "folder/packages/shared/index.ts",
+    ] {
+        std::fs::create_dir_all(dir.join(f).parent().unwrap()).unwrap();
+        std::fs::write(dir.join(f), "").unwrap();
+    }
+    std::fs::create_dir_all(dir.join("yours/node_modules/@app")).unwrap();
+    for name in ["shared", "gone", "aliased"] {
+        std::os::unix::fs::symlink(
+            format!("../../packages/{name}"),
+            dir.join("yours/node_modules/@app").join(name),
+        )
+        .unwrap();
+    }
+    std::os::unix::fs::symlink(
+        dir.join("yours/node_modules"),
+        dir.join("folder/node_modules"),
+    )
+    .unwrap();
+    let root = dir.join("folder");
+    let roots = [root.join("node_modules")];
+    let files = external_files(Kind::TsJs, &roots);
+    let own = [PathBuf::from("packages/shared/index.ts")];
+    let copy =
+        |module: &[&str]| package_copy(&root, &roots, &files, &own, &p(module)).map(|c| c.files);
+    assert_eq!(
+        copy(&["lib"]),
+        Some(vec![roots[0].join("lib/index.d.ts")]),
+        "a dependency stays your node_modules' copy"
+    );
+    assert_eq!(
+        copy(&["@app", "shared"]),
+        None,
+        "a workspace package the folder has is the folder's own"
+    );
+    assert_eq!(
+        copy(&["@app", "gone"]),
+        Some(vec![]),
+        "a workspace package only your checkout has is not the folder's"
+    );
+    std::os::unix::fs::symlink(
+        dir.join("yours/packages/aliased"),
+        dir.join("folder/packages/aliased"),
+    )
+    .unwrap();
+    assert_eq!(
+        copy(&["@app", "aliased"]),
+        Some(vec![]),
+        "nor is a folder's path that only links back into your checkout"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 #[test]
 fn a_package_is_missing_when_nothing_installs_or_declares_it() {
     let dir = std::env::temp_dir().join(format!("merl-missing-{}", std::process::id()));

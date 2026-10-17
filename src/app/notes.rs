@@ -68,10 +68,13 @@ pub struct Notes {
 
 pub fn store(dirs: &git::GitDirs) -> Option<(PathBuf, String)> {
     let head = std::fs::read_to_string(dirs.worktree_head_dir.join("HEAD")).ok()?;
-    let branch = head.trim_end().strip_prefix("ref: refs/heads/")?;
+    let branch = match head.trim_end().strip_prefix("ref: refs/heads/") {
+        Some(b) => b.to_owned(),
+        None => git::folder_branch(dirs)?,
+    };
     Some((
-        dirs.common_refs_dir.join("merl/notes").join(branch),
-        branch.to_owned(),
+        dirs.common_refs_dir.join("merl/notes").join(&branch),
+        branch,
     ))
 }
 

@@ -1,22 +1,22 @@
-wait hunk 1/1  file 1/8
-┌agent/refund ← origin/main──┐ 1▎from datetime import datetime, timedelta, timezone
-│  ▾ app                     │ 2▎from decimal import Decimal
-│✓   A refunds.py      +18 −0│ 3▎
-│✓   M repos.py        +0 −28│ 4▎from app.models import Order, OrderStatus
-│✓   M service.py      +13 −1│ 5▎
-│  ▾ deploy                  │ 6▎
-│    ▾ helm                  │ 7▎class RefundNotAllowed(Exception):
-│      ▾ orders              │ 8▎    pass
-│✓       M values.yaml  +1 −0│ 9▎
-│  ▾ docs                    │10▎
-│    M architecture.png   bin│11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
-│  ▾ scripts                 │12▎    """What to give back: the whole total inside the window, nothing after it."""
-│    D refund_by_hand.… +0 −9│13▎    now = now or datetime.now(timezone.utc)
-│  ▾ tests                   │14▎    if order.status is not OrderStatus.PAID:
-│    A test_refunds.py +23 −0│15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
-│  ▾ worker                  │16▎    if now - order.created_at > timedelta(days=window_days):
-│    M main.go          +4 −1│17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
-│                            │18▎    return order.total
+wait 8 files · +59 −39
+┌agent/refund ← origin/main──┐1▎"""Refund an order by hand until the service can do it: python scripts/refund_by_hand.py ID"""
+│  ▾ app                     │2▎import sys
+│✓   A refunds.py      +18 −0│3▎
+│✓   M repos.py        +0 −28│4▎from app.config import load
+│✓   M service.py      +13 −1│5▎from app.models import OrderStatus
+│  ▾ deploy                  │6▎
+│    ▾ helm                  │7▎ORDER_ID = int(sys.argv[1])
+│      ▾ orders              │8▎print(f"UPDATE orders SET status = '{OrderStatus.REFUNDED.value}' WHERE id = {ORDER_ID};")
+│✓       M values.yaml  +1 −0│9▎print(f"-- then refund it in the payment provider's dashboard ({load().database_url})")
+│  ▾ docs                    │
+│    M architecture.png   bin│
+│  ▾ scripts                 │
+│    D refund_by_hand.… +0 −9│
+│  ▾ tests                   │
+│    A test_refunds.py +23 −0│
+│  ▾ worker                  │
+│    M main.go          +4 −1│
+│                            │
 │                            │
 │                            │
 │                            │
@@ -53,5 +53,5 @@ wait hunk 1/1  file 1/8
 │                            │
 │                            │
 └ 8 files · +59 −39 ─────────┘
-app/refunds.py  1:1  [code]  hunk 1/1  file 1/8                                                                                                                                    14:32
-cursor (x,y,shown) 33,0,1
+scripts/refund_by_hand.py  1:1  [code]  read-only  hunk 0/0  file 6/8                                                                                                              14:32
+cursor (x,y,shown) 32,0,1

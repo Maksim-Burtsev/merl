@@ -104,7 +104,7 @@ impl Buffer {
             lines.push(String::new());
         }
         let syntax = (lines.len() <= MAX_HL_LINES && bytes.len() <= MAX_HL_BYTES)
-            .then(|| syntax_for(&path, &lines[0]));
+            .then(|| syntax_for(&path, &text));
         let mut b = Self::new(Some(path), lines, syntax);
         b.bom = bom;
         b.crlf = crlf;
@@ -374,10 +374,10 @@ fn floor_char_boundary(s: &str, max: usize) -> usize {
     i
 }
 
-fn syntax_for(path: &Path, first_line: &str) -> &'static SyntaxReference {
+fn syntax_for(path: &Path, text: &str) -> &'static SyntaxReference {
     let set = syntaxes();
-    let found = by_name(path)
-        .or_else(|| set.find_syntax_by_first_line(first_line))
+    let found = by_name(path, text)
+        .or_else(|| set.find_syntax_by_first_line(text.lines().next().unwrap_or_default()))
         .unwrap_or_else(|| set.find_syntax_plain_text());
     with_bash(found)
 }
@@ -416,9 +416,11 @@ pub(crate) fn syntax_for_info(word: &str, block_names: bool) -> Option<&'static 
     Some(with_bash(found))
 }
 
-fn by_name(path: &Path) -> Option<&'static SyntaxReference> {
+fn by_name(path: &Path, text: &str) -> Option<&'static SyntaxReference> {
     let set = syntaxes();
+    let matlab = path.extension().is_some_and(|e| e == "m") && !crate::search::objc_m(text);
     known_name(path)
+        .or_else(|| matlab.then_some("MATLAB"))
         .and_then(|name| set.find_syntax_by_name(name))
         .or_else(|| set.find_syntax_for_file(path).ok().flatten())
 }
@@ -448,8 +450,10 @@ fn known_file(name: &str) -> Option<&'static str> {
         (_, "h") => "C++",
         (".npmrc", _) | (_, "service" | "timer" | "socket") => "INI",
         ("Procfile" | "yarn.lock", _) => "YAML",
-        ("WORKSPACE" | "Tiltfile" | "BUILD" | "BUCK", _) | (_, "star") => "Python",
+        ("WORKSPACE" | "WORKSPACE.bzlmod" | "Tiltfile" | "BUILD" | "BUCK", _)
+        | (_, "star" | "starlark" | "sky" | "ipd" | "bxl" | "BUILD") => "Python",
         (_, "mdx") => "Markdown",
+        (_, "nginx") => "nginx",
         (_, "astro") => "TypeScriptReact",
         (_, "mill") => "Scala",
         (_, "fs") => "F#",
@@ -648,6 +652,23 @@ mod tests {
                     b.hl.iter().flatten().map(|(s, _)| s.fg).collect();
                 assert!(colours.len() > 1, "{file} {name}: everything is one colour");
             }
+        }
+    }
+
+    #[test]
+    fn a_dot_m_is_coloured_as_matlab_or_objective_c_by_its_text() {
+        for (file, text, lang) in [
+            ("setup.m", "% VL_SETUP\nfunction p = setup()\n", "MATLAB"),
+            (
+                "Shop.m",
+                "#import \"Shop.h\"\n@implementation Shop\n@end\n",
+                "Objective-C",
+            ),
+            ("only_c.m", "#include <stdio.h>\nint x;\n", "Objective-C"),
+            ("empty.m", "", "Objective-C"),
+        ] {
+            let b = Buffer::from_bytes(PathBuf::from("/nowhere").join(file), text.as_bytes());
+            assert_eq!(b.syntax.map(|s| s.name.as_str()), Some(lang), "{file}");
         }
     }
 

@@ -121,7 +121,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "d",
         title: "Go to definition",
-        tutor: "With the cursor on `load_config`, press `d` (or F12) to jump to its definition. \
+        tutor: "With the cursor on `load_config`, press `d` to jump to its definition. \
                 The status line says how it was found: via the import at the top, in config.py. \
                 `d` reads Makefiles, Terraform, Dockerfiles and YAML too, and on a declaration \
                 it lists what implements it.",
@@ -145,7 +145,7 @@ pub const POOL: &[Task] = &[
     Task {
         key: "u",
         title: "Usages",
-        tutor: "`u` (or Shift+F12) lists every use of the word under the cursor, the declaration \
+        tutor: "`u` lists every use of the word under the cursor, the declaration \
                 first and the tests last. Press `u`, then pick the hit in cli.py with Down and \
                 Enter.",
         drill: "Go to where cli.py uses `load_config`.",

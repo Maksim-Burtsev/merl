@@ -6,11 +6,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use merman::render::{
-    LayoutOptions, RootBackgroundPostprocessor, SvgPipeline, SvgRenderOptions,
-    VendoredFontMetricsTextMeasurer,
-};
-use merman::{Engine, ParseOptions};
+use merman::runtime::RuntimePolicy;
+use merman::svg::export::{RasterOptions, RasterSizeLimit};
+use merman::svg::{RootBackgroundPostprocessor, SvgPipeline};
+use merman::{OperationControl, PngRequest, RenderOutput, RenderRequest, Renderer, SvgRequest};
 use ratatui::style::Color;
 
 use crate::picture::{self, Drawn};
@@ -23,7 +22,9 @@ const FILE: u64 = 0;
 const KEEP_FILES: usize = 4;
 const LEAST_SHRINK: f32 = 0.5;
 const RENDERS: usize = 2;
+const MAX_SIDE: u32 = 8192;
 pub const THREAD: &str = "mermaid";
+const MERMAN_THREAD: &str = "merman-svg-backend";
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Key {
@@ -351,7 +352,7 @@ pub fn keep_panics_inside() {
         let name = std::thread::current().name().map(str::to_owned);
         if !matches!(
             name.as_deref(),
-            Some(THREAD | crate::markdown::data::THREAD)
+            Some(THREAD | MERMAN_THREAD | crate::markdown::data::THREAD)
         ) {
             hook(info);
         }
@@ -519,63 +520,50 @@ fn file_key(path: &Path) -> Option<Key> {
     reason = "a diagram's sides in pixels sit far below 2^24, and `as` saturates a float into u32"
 )]
 #[expect(
-    clippy::cast_precision_loss,
-    reason = "a diagram's sides in pixels sit far below 2^24, and `as` saturates a float into u32"
-)]
-#[expect(
     clippy::cast_sign_loss,
     reason = "a diagram's sides in pixels sit far below 2^24, and `as` saturates a float into u32"
 )]
 fn draw(src: &str) -> Option<Drawn> {
-    let layout = LayoutOptions {
-        viewport_width: 800.0,
-        viewport_height: 600.0,
-        text_measurer: Arc::new(VendoredFontMetricsTextMeasurer::default()),
-        math_renderer: None,
-        use_manatee_layout: true,
-    };
-    let mut pipeline = SvgPipeline::parity();
+    let mut pipeline = SvgPipeline::resvg_safe();
     pipeline.push_postprocessor(RootBackgroundPostprocessor::new("transparent"));
-    let svg = merman::render::render_svg_with_pipeline_sync(
-        &Engine::new(),
-        src,
-        ParseOptions::default(),
-        &layout,
-        &SvgRenderOptions::default(),
-        &pipeline,
-    )
-    .ok()??;
-    let svg = merman::render::svg_resvg_safe(&svg).ok()?;
-    let (vw, vh) = view_box(&svg)?;
-    let options = merman::render::raster::RasterOptions {
-        scale: SCALE,
-        background: Some("transparent".into()),
-        ..Default::default()
+    let request = PngRequest {
+        svg: SvgRequest {
+            pipeline: Some(pipeline),
+            ..SvgRequest::default()
+        },
+        options: RasterOptions {
+            scale: SCALE,
+            size_limit: RasterSizeLimit::new(Some(MAX_SIDE), Some(MAX_SIDE), None),
+            background: Some("transparent".into()),
+            ..RasterOptions::default()
+        },
     };
-    let png = merman::render::raster::svg_to_png(&svg, &options).ok()?;
-    let size = |at: usize| png.get(at..at + 4)?.try_into().ok().map(u32::from_be_bytes);
-    let (w, h) = (size(16)?, size(20)?);
-    let whole = w as f32 >= (vw * SCALE).floor() - 1.0 && h as f32 >= (vh * SCALE).floor() - 1.0;
-    (png.starts_with(b"\x89PNG") && whole).then(|| Drawn {
-        frames: vec![(png, 0)],
-        natural: (vw.ceil() as u32, vh.ceil() as u32),
-        h,
+    let RenderOutput::Png(Some(out)) = renderer()
+        .render(RenderRequest::png(src, OperationControl::new(), request))
+        .ok()?
+    else {
+        return None;
+    };
+    let plan = out.plan;
+    let natural = |px: f64| (px / f64::from(SCALE)).ceil() as u32;
+    (out.bytes.starts_with(b"\x89PNG") && !plan.limited).then(|| Drawn {
+        natural: (
+            natural(plan.requested_width_px),
+            natural(plan.requested_height_px),
+        ),
+        h: plan.height_px,
+        frames: vec![(out.bytes, 0)],
     })
 }
 
-fn view_box(svg: &str) -> Option<(f32, f32)> {
-    let (_, rest) = svg.split_once("viewBox=\"")?;
-    let nums: Vec<f32> = rest
-        .split_once('"')?
-        .0
-        .split([' ', ','])
-        .filter(|n| !n.is_empty())
-        .filter_map(|n| n.parse().ok())
-        .collect();
-    match nums[..] {
-        [_, _, w, h] if w > 0.0 && h > 0.0 => Some((w, h)),
-        _ => None,
-    }
+fn renderer() -> Renderer {
+    let now = chrono::Local::now();
+    let clock = RuntimePolicy::deterministic().with_fixed_unix_millis(now.timestamp_millis());
+    let policy = clock
+        .clone()
+        .try_with_fixed_local_offset_minutes(now.offset().local_minus_utc() / 60)
+        .unwrap_or(clock);
+    Renderer::new().with_runtime_policy(policy)
 }
 
 fn transmit(buf: &mut String, pic: &Pic) {

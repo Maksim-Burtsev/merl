@@ -44,11 +44,14 @@ pub enum Kind {
     Css,
     Html,
 }
-pub fn opened_kind(path: &Path) -> Option<Kind> {
+pub fn opened_kind(path: &Path, text: impl FnOnce() -> String) -> Option<Kind> {
     match path.extension() {
         Some(e) if e == "rbs" => Some(Kind::Ruby),
-        _ => kind_of(path),
+        _ => kind_read(path, text),
     }
+}
+pub fn kind_read(path: &Path, text: impl FnOnce() -> String) -> Option<Kind> {
+    kind_of(path).filter(|_| path.extension().is_none_or(|e| e != "m") || super::objc_m(&text()))
 }
 #[expect(
     clippy::match_same_arms,
