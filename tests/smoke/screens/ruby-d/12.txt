@@ -1,6 +1,6 @@
-wait then  ⋯ fi
+wait ⋯ fi
 ┌orders──────────────────────┐1 deploy() {
-│▸ .bundle                   │2   if [ -n "$1" ]; then  ⋯ fi
+│▸ .bundle                   │2   if [ -n "$1" ]; then  1 line ⋯ fi
 │▸ .github                   │5 }
 │▸ .venv                     │
 │▸ app                       │

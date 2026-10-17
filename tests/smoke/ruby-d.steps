@@ -41,11 +41,11 @@ wait class Checkout
 key :
 type 3
 key Enter f
-wait admin?  ⋯ end
+wait ⋯ end
 run printf '%s\n' 'deploy() {' '  if [ -n "$1" ]; then' '    echo "$1"' '  fi' '}' > scripts/deploy.sh
 merl scripts/deploy.sh
 wait deploy() {
 key :
 type 2
 key Enter f
-wait then  ⋯ fi
+wait ⋯ fi
