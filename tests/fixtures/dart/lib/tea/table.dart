@@ -10,7 +10,7 @@ void serve(Teapot pot) {
   final cold = stale.Kettle.cold();
   //           ^ d: none; want lib/tea/table.dart:3 (#950)
   //                 ^ d: lib/tea/stale/kettle.dart:1
-  //                        ^ d: picker lib/tea/kettle.dart:8, lib/tea/teapot.dart:4; want lib/tea/stale/kettle.dart:2 (#950)
+  //                        ^ d: lib/tea/stale/kettle.dart:2
   kettle.pour(1);
   //     ^ d: picker lib/tea/table.dart:45, lib/tea/kettle.dart:17, lib/tea/stale/kettle.dart:4, lib/tea/teapot.dart:6; want lib/tea/kettle.dart:17 (#949)
   pot.pour(1);
