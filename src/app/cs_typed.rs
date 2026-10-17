@@ -86,11 +86,25 @@ impl App {
         });
         let before = before.trim_end().strip_suffix('.')?;
         let at = NEW.captures_iter(before).last()?.get(1)?.start();
-        let search::CsValue::Type(written) = search::cs_expr(before.get(at..)?) else {
+        let made = before.get(at..).filter(|m| !m.contains('{'))?;
+        let search::CsValue::Type(written) = search::cs_expr(made) else {
             return None;
         };
         let text = self.buf.lines.join("\n");
         let ty = self.cs_resolve(here, &text, self.line + 1, &written)?;
+        if let CsType::Project(t) = &ty
+            && written.contains('.')
+        {
+            let hit = Hit {
+                path: t.path.clone(),
+                line1: t.line,
+                byte_col: None,
+                text: String::new(),
+                deleted: None,
+            };
+            (self.cs_namespace_hits(&text, self.line + 1, &written, &[&hit]))
+                .filter(|picked| !picked.is_empty())?;
+        }
         let label = format!("new {}", search::cs_type_name(&written)?);
         self.cs_member_answer(here, &ty, word, &label)
     }
@@ -480,21 +494,10 @@ impl App {
             .into_iter()
             .map(|i| many[i])
             .collect();
-        let shape = Regex::new(&format!(
-            r"\bpartial\b.*?\b{}\s*(<[^>]*>)?",
-            regex::escape(name)
-        ))
-        .ok()?;
+        let shape = partial_shape(name);
         let shapes: Vec<Option<String>> = picked
             .iter()
-            .map(|h| {
-                let c = shape.captures(&h.text)?;
-                Some(
-                    c.get(1)
-                        .map_or("", |m| m.as_str())
-                        .replace(char::is_whitespace, ""),
-                )
-            })
+            .map(|h| part_shape(&shape, &h.text).map(|(generics, _)| generics))
             .collect();
         let one = match (picked.as_slice(), shapes.first()) {
             ([one], _) => one,
@@ -526,10 +529,18 @@ impl App {
         Some(search::cs_namespace_pick(text, line1, written, &namespaces))
     }
 
-    fn cs_type_namesakes(&self, word: &str, chain: Option<&[String]>, hits: Vec<Hit>) -> Vec<Hit> {
+    fn cs_type_namesakes(
+        &self,
+        here: &Path,
+        word: &str,
+        chain: Option<&[String]>,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
         let types = hits.len() > 1
             && hits.iter().all(|h| {
-                h.deleted.is_none() && search::cs_type_decl(&h.text).is_some_and(|d| d.name == word)
+                h.deleted.is_none()
+                    && (h.path != here || h.line1 != self.line + 1)
+                    && search::cs_type_decl(&h.text).is_some_and(|d| d.name == word)
             });
         if !types {
             return hits;
@@ -542,13 +553,17 @@ impl App {
             _ => word.to_owned(),
         };
         let text = self.buf.lines.join("\n");
-        let picked = self
-            .cs_namespace_hits(
-                &text,
-                self.line + 1,
-                &written,
-                &live.iter().collect::<Vec<_>>(),
-            )
+        let plain = one_namespace(&text, None)
+            && live.iter().all(|h| {
+                self.text_of(&h.path)
+                    .is_some_and(|t| one_namespace(&t, Some(h.line1)))
+            });
+        let picked = plain
+            .then(|| {
+                let all: Vec<&Hit> = live.iter().collect();
+                self.cs_namespace_hits(&text, self.line + 1, &written, &all)
+            })
+            .flatten()
             .unwrap_or_default();
         if !picked.is_empty() {
             live = (live.into_iter().enumerate())
@@ -577,7 +592,6 @@ impl App {
     }
 
     fn cs_partial_constructors(&self, word: &str, parts: Vec<Hit>) -> Vec<Hit> {
-        let partial = Regex::new(r"\bpartial\b").expect("the regex is a literal");
         let texts: Option<Vec<String>> = parts.iter().map(|h| self.text_of(&h.path)).collect();
         let Some(texts) = texts.filter(|_| parts.len() > 1) else {
             return parts;
@@ -585,18 +599,34 @@ impl App {
         let mut namespaces =
             (parts.iter().zip(&texts)).map(|(h, t)| search::cs_namespace(t, h.line1));
         let first = namespaces.next();
-        if !namespaces.all(|n| Some(n) == first) || !parts.iter().all(|h| partial.is_match(&h.text))
-        {
+        let shape = partial_shape(word);
+        let mut shapes = parts.iter().map(|h| part_shape(&shape, &h.text));
+        let head = shapes.next().flatten();
+        let one_type = namespaces.all(|n| Some(n) == first)
+            && head.as_ref().is_some_and(|(_, primary)| !primary)
+            && shapes.all(|s| s == head);
+        if !one_type {
             return parts;
         }
-        let ctor = Regex::new(&search::def_patterns(Kind::CSharp, word)[4])
-            .expect("an escaped name keeps the pattern valid");
+        let ctor = Regex::new(&format!(
+            r"^\s*(?:\[[^\]]*\]\s*)*((?:\w+\s+)*)@?{}\s*\(",
+            regex::escape(word)
+        ))
+        .expect("an escaped name keeps the pattern valid");
+        let instance = |modifiers: &str| {
+            modifiers.split_whitespace().all(|m| {
+                matches!(
+                    m,
+                    "public" | "private" | "protected" | "internal" | "extern" | "unsafe"
+                )
+            })
+        };
         let mut ctors = Vec::new();
         for (h, text) in parts.iter().zip(&texts) {
             let literal = search::literal_lines(Kind::CSharp, text);
             for (i, l) in text.lines().enumerate() {
                 if literal.get(i) != Some(&true)
-                    && ctor.is_match(l)
+                    && ctor.captures(l).is_some_and(|c| instance(&c[1]))
                     && search::cs_owner(text, i + 1) == Some(h.line1)
                 {
                     ctors.push(Hit {
@@ -931,7 +961,7 @@ impl App {
                 ty.is_match(&h.text) || !ctor.is_match(&h.text) || !typed.contains(&h.path)
             });
         }
-        let hits = self.cs_type_namesakes(word, chain, hits);
+        let hits = self.cs_type_namesakes(here, word, chain, hits);
         let receiver = chain.map(|c| c.last().map_or("", String::as_str));
         self.cs_fit(word, self.cs_args(), receiver, hits)
     }
@@ -1015,4 +1045,35 @@ fn receivers(hits: Vec<Hit>, label: &str) -> Vec<Candidate> {
             reason: Reason::Receiver(label.to_owned()),
         })
         .collect()
+}
+
+fn partial_shape(name: &str) -> Regex {
+    Regex::new(&format!(
+        r"\bpartial\b.*?\b{}\s*(<[^>]*>)?\s*(\()?",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid")
+}
+
+fn part_shape(shape: &Regex, header: &str) -> Option<(String, bool)> {
+    let c = shape.captures(header)?;
+    let generics = c.get(1).map_or("", |m| m.as_str());
+    Some((
+        generics.replace(char::is_whitespace, ""),
+        c.get(2).is_some(),
+    ))
+}
+
+fn one_namespace(text: &str, line1: Option<usize>) -> bool {
+    let mut namespaces = text.lines().filter(|l| search::cs_namespace_line(l));
+    match (namespaces.next(), namespaces.next()) {
+        (None, _) => true,
+        (Some(only), None) => {
+            only.trim_end().ends_with(';')
+                || line1.is_none_or(|n| {
+                    (text.lines().nth(n - 1)).is_some_and(|l| l.starts_with([' ', '\t']))
+                })
+        }
+        _ => false,
+    }
 }

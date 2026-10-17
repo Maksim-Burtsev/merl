@@ -70,7 +70,7 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     }
 }
 
-pub(super) fn cs_namespace_line(line: &str) -> bool {
+pub fn cs_namespace_line(line: &str) -> bool {
     line.trim_start_matches(['\u{feff}', ' ', '\t'])
         .starts_with("namespace ")
 }
