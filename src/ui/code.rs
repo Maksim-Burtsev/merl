@@ -694,22 +694,17 @@ pub(super) fn draw_renamed(
 ) {
     let (old, new) = (old.display().to_string(), new.display().to_string());
     let dim = base.fg(theme.ghost_fg);
-    let changed = renamed_part(&old, &new);
-    let del = base.bg(theme.del_word_bg).fg(theme.word_fg);
-    let add = base.bg(theme.add_word_bg).fg(theme.word_fg);
     let room = (area.width as usize).saturating_sub(2);
     let mut lines = if wrap::width(&old) + 5 + wrap::width(&new) <= room {
-        let mut row = tinted(&old, changed, base, del, room);
-        row.push(Span::styled("  \u{2192}  ", dim));
-        row.extend(tinted(&new, changed, base, add, room));
-        vec![Line::from(row)]
+        let [old, new] = renamed_paths(theme, base, &old, &new, (room, room));
+        vec![Line::from(
+            [old, vec![Span::styled("  \u{2192}  ", dim)], new].concat(),
+        )]
     } else {
-        let mut second = vec![Span::styled("\u{2192}  ", dim)];
-        second.extend(tinted(&new, changed, base, add, room.saturating_sub(3)));
-        vec![
-            Line::from(tinted(&old, changed, base, del, room)),
-            Line::from(second),
-        ]
+        let rooms = (room, room.saturating_sub(3));
+        let [old, new] = renamed_paths(theme, base, &old, &new, rooms);
+        let arrow = vec![Span::styled("\u{2192}  ", dim)];
+        vec![Line::from(old), Line::from([arrow, new].concat())]
     };
     lines.extend([
         Line::styled("renamed, no changes", dim),
@@ -730,28 +725,49 @@ pub(super) fn draw_rename_band(
         return area;
     };
     let band = base.bg(theme.line_hl);
+    let row = rename_band(theme, band, old, new, area.width as usize);
+    let top = Rect { height: 1, ..area };
+    frame.render_widget(Paragraph::new(row).style(band), top);
+    Rect {
+        y: area.y + 1,
+        height: area.height - 1,
+        ..area
+    }
+}
+
+pub(super) fn rename_band(
+    theme: &Theme,
+    band: Style,
+    old: &Path,
+    new: &Path,
+    width: usize,
+) -> Line<'static> {
     let (old, new) = (old.display().to_string(), new.display().to_string());
-    let changed = renamed_part(&old, &new);
-    let del = band.bg(theme.del_word_bg).fg(theme.word_fg);
-    let add = band.bg(theme.add_word_bg).fg(theme.word_fg);
-    let room = (area.width as usize).saturating_sub(7);
+    let room = width.saturating_sub(7);
     let (old_w, new_w) = (wrap::width(&old), wrap::width(&new));
     let old_room = if new_w <= room / 2 {
         room - new_w
     } else {
         old_w.min(room / 2)
     };
-    let mut row = vec![Span::styled(" ", band)];
-    row.extend(tinted(&old, changed, band, del, old_room));
-    row.push(Span::styled("  \u{2192}  ", band.fg(theme.ghost_fg)));
-    row.extend(tinted(&new, changed, band, add, room - old_room));
-    let top = Rect { height: 1, ..area };
-    frame.render_widget(Paragraph::new(Line::from(row)).style(band), top);
-    Rect {
-        y: area.y + 1,
-        height: area.height - 1,
-        ..area
-    }
+    let [old, new] = renamed_paths(theme, band, &old, &new, (old_room, room - old_room));
+    let arrow = Span::styled("  \u{2192}  ", band.fg(theme.ghost_fg));
+    Line::from([vec![Span::styled(" ", band)], old, vec![arrow], new].concat())
+}
+
+fn renamed_paths(
+    theme: &Theme,
+    base: Style,
+    old: &str,
+    new: &str,
+    (old_room, new_room): (usize, usize),
+) -> [Vec<Span<'static>>; 2] {
+    let changed = renamed_part(old, new);
+    let word = |bg| base.bg(bg).fg(theme.word_fg);
+    [
+        tinted(old, changed, base, word(theme.del_word_bg), old_room),
+        tinted(new, changed, base, word(theme.add_word_bg), new_room),
+    ]
 }
 
 fn next_file(base: Style, dim: Style) -> Line<'static> {

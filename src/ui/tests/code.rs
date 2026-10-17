@@ -1909,6 +1909,48 @@ fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
 }
 
 #[test]
+fn a_rename_band_cuts_each_path_from_its_start_when_the_two_do_not_fit() {
+    use ratatui::style::Style;
+    use std::path::Path;
+    let theme = crate::theme::load_from(None, crate::theme::DEFAULT).unwrap();
+    let band = Style::new().bg(theme.line_hl).fg(theme.fg);
+    let shown = |w: usize, old: &str, new: &str| {
+        let line = super::super::code::rename_band(&theme, band, Path::new(old), Path::new(new), w);
+        let on = |bg| {
+            line.spans
+                .iter()
+                .filter(|s| s.style.bg == Some(bg))
+                .map(|s| s.content.as_ref())
+                .collect::<String>()
+        };
+        (
+            line.to_string(),
+            on(theme.del_word_bg),
+            on(theme.add_word_bg),
+        )
+    };
+
+    let (text, del, add) = shown(60, "store.py", "app/store.py");
+    assert_eq!(text, " store.py  \u{2192}  app/store.py");
+    assert_eq!((del.as_str(), add.as_str()), ("", "app/"));
+
+    let (text, del, add) = shown(40, "lib/a.py", "src/shop/billing/providers/a.py");
+    assert_eq!(text, " lib/a.py  \u{2192}  \u{2026}/billing/providers/a.py");
+    assert_eq!((del.as_str(), add.as_str()), ("lib", "/billing/providers"));
+
+    let (old, new) = (
+        "aaaaaaaaaa/bbbbbbbbbb/old_name.py",
+        "aaaaaaaaaa/bbbbbbbbbb/new_name.py",
+    );
+    let (text, del, add) = shown(50, old, new);
+    assert_eq!(
+        text,
+        " \u{2026}/old_name.py  \u{2192}  \u{2026}/new_name.py"
+    );
+    assert_eq!((del.as_str(), add.as_str()), ("old_name", "new_name"));
+}
+
+#[test]
 fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
     let mut app = App::new(
         PathBuf::from("/demo"),

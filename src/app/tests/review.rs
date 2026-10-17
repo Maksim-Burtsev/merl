@@ -2377,6 +2377,35 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
 }
 
 #[test]
+fn only_a_file_renamed_with_changes_is_headed_by_its_old_path() {
+    let moved = "def f():\n    return 1\n\n\ndef g():\n    return 2\n";
+    let base = [
+        ("a.py", "x\n"),
+        ("text.py", "def t():\n    pass\n"),
+        ("c.py", moved),
+    ];
+    let work: &[&[&str]] = &[&["mv", "text.py", "words.py"], &["mv", "c.py", "d.py"]];
+    let dir = branch_repo("renameband", &base, work);
+    std::fs::write(dir.join("a.py"), "y\n").unwrap();
+    std::fs::write(
+        dir.join("d.py"),
+        format!("{moved}\n\ndef h():\n    return 3\n"),
+    )
+    .unwrap();
+    let mut a = started_as_main_starts(&dir);
+    let band = |a: &mut App, file: &str| {
+        a.jump_to(&dir.join(file), 1);
+        a.renamed_with_changes()
+            .map(|(o, n)| (o.to_path_buf(), n.to_path_buf()))
+    };
+    let d = Some((PathBuf::from("c.py"), PathBuf::from("d.py")));
+    assert_eq!(band(&mut a, "d.py"), d);
+    assert_eq!(band(&mut a, "words.py"), None);
+    assert_eq!(band(&mut a, "a.py"), None);
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn a_jump_into_a_file_renamed_without_changes_shows_its_code_and_the_walk_still_stops_on_the_rename()
  {
     let base = [("a.py", "x\n"), ("text.py", "def t():\n    pass\n")];

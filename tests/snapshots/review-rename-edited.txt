@@ -2,338 +2,348 @@ merl snapshot: review-rename-edited
 
 ==== 80x24 tokyonight-moon text, cursor 33,12
 ┌feature ← main──────────────┐ store.py  →  app/store.py
-│  ▾ app                     │ 5 from config import Config, load_config
-│    R store.py         +4 −1│ 6 from models import Note
-│  D Makefile           +0 −7│ 7
-│  A tags.py            +1 −0│ 8
-│                            │ 9 class NoteStore:
-│                            │10     """Reads and writes the notes of a single
-│                            │       JSON file."""
-│                            │11
-│                            │12     def __init__(self, config: Config | None =
-│                            │       None) -> None:
-│                            │  ▎        self.config = config or load_config()
-│                            │13▎        self.config = config or load_settings()
-│                            │14         self.notes: list[Note] = self._read()
-│                            │15
-│                            │16     def _read(self) -> list[Note]:
-│                            │17         """Load the notes from disk; a missing
-│                            │           file means no notes yet."""
-│                            │18         if not self.config.path.exists():
-│                            │19             return []
-│                            │20         raw = json.loads(self.config.path.
-│                            │           read_text(encoding="utf-8"))
-└ 3 files · +5 −8 ───────────┘21         return [Note.from_dict(item) for item
-app/store.py  13:1  [code]  hunk 1/2  file 1/3
+│  ▾ app                     │ 9 class NoteStore:
+│    R store.py         +4 −1│31
+│  D Makefile           +0 −7│32     def add(self, text: str, tags: list[str] |
+│  A tags.py            +1 −0│       None = None) -> Note:
+│                            │33         """Append a note and save the file."""
+│                            │34         note = Note(id=self.next_id(),
+│                            │           text=text, tags=tags or [])
+│                            │35         self.notes.append(note)
+│                            │36         self._write()
+│                            │37         return note
+│                            │38
+│                            │39▎    def count(self) -> int:
+│                            │40▎        return len(self.notes)
+│                            │41▎
+│                            │42     def remove(self, note_id: int) -> bool:
+│                            │43         """Delete the note with this id and
+│                            │           report whether it existed."""
+│                            │44         keep = [note for note in self.notes if
+│                            │           note.id != note_id]
+│                            │45         if len(keep) == len(self.notes):
+│                            │46             return False
+└ 3 files · +5 −8 ───────────┘47         self.notes = keep
+app/store.py  39:1  [code]  hunk 2/2  file 1/3
 
 ==== 80x24 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeecccccccccccccccccccccccccccccccc
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggghgggggghgggggghiiiiiijhhhhhhhhhhhhhhhhhhhhh
-akklllllllllllllllllllllmmmmmafffgggghgggggghgggggghiiiihhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhnnnnnafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhnnnnnafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffooooohiiiiiiiiijhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhpppppppppppppppppppppppppppppppppppppppppph
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhppppppppppppphhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhqqqqqqqqrssssjhppppppjhiiiiiihjhiiiihjh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhiiiirhjjhiiiijhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafftuuuuuuuuvvvvwxxxxxxuwuuuuuuuuwwuyyyyyyyyyyyzzuu
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaAABCCCCCCCCDDDDEFFFFFFCECCCCCCCCEECGGGGGGGGGGGGGHH
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssjIIIIIjhJJJJriiiirhjhssssjaaaaarrhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaarssssrhjjhJJJJriiiirjhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhppppppppppppppppppppppppppppppppppppppp
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhppppppppppppppppppppppppppphhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhqqhjjjhssssjIIIIIIjIIIIjaaaaaarrjhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhoooooohrrhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhjhhhhhjaaaaarssssjIIIIIIjIIIIjhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhaaaaaaaaarppppppppjKKKKKKKrrhhhhhhhhhhh
-annnnnnnnnnnnnnnnnaaaaaaaaaaaafffhhhhhhhhoooooohriiiijaaaaaaaaarhhhhrhqqqhhhhhhh
-LLLLLLLLLLLLMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggchhhhhhhhhiccccccccccccccccccccccccccccccc
+ajjkkkkkkkkkkkkkkkkkkkkklllllammmnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+aaannnnnnnnnnnnnnnnnnnnnoooooammmnnnnpppnaaaqrrrrsnttttsnuuusnttttsnuuuuquuuqnsn
+aaannnnnnnnnnnnnnnnnnnnnoooooammmnnnnvvvvnsnvvvvqnssnvvvvsnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnttttttttttttttttttttttttttttttttttttttn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnnnnnnsnppppqttsrrrrsaaaaaaaqqsnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnttttsnnnnsnttttsnnnnnssnqqqnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnrrrrswwwwwsaaaaaaqnnnnqnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnrrrrsaaaaaaqqnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnxxxxxxnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnayyzAAAABBBACCCCCDEEEEDAFFAGGGFAAAAAAAAAAAAAAAAAAAA
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammHIIIIIIIIJJJJJJIKKKLMMMMNOOOOOLIIIIIIIIIIIIIIIII
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammHIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnpppnaaaaaaqrrrrsntttttttsnuuuqnssnuuuusnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnttttttttttttttttttttttttttttttttttttnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnntttttttttttttttttttttttttttttnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnnnnnnsnqnnnnnpppnnnnnnssnrrrrswwwwwnppn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnnnnnswwnssnnnnnnnnqnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnppnvvvqnnnnqnssnvvvqrrrrswwwwwqsnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnammmnnnnnnnnnnnnxxxxxxnPPPPPnnnnnnnnnnnnnnnnnnnnnnn
+aoooooooooooooooooaaaaaaaaaaaammmnnnnnnnnrrrrswwwwwnsnnnnnnnnnnnnnnnnnnnnnnnnnnn
+QQQQQQQQQQQQRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #2f334d
 d fg #7d849f bg #2f334d
 e fg #c8d3f5 bg #26553b
-f fg #3b4261 bg #222436
-g fg #86e1fc bg #222436
-h fg #c8d3f5 bg #222436
-i fg #65bcff bg #222436
-j fg #89ddff bg #222436
-k fg #82aaff bg #2d3f76
-l fg #c8d3f5 bg #2d3f76
-m fg #7d849f bg #2d3f76
-n fg #7d849f bg #222436
-o fg #fca7ea bg #222436 ITALIC
-p fg #ffc777 bg #222436
-q fg #c099ff bg #222436
-r fg #828bb8 bg #222436
-s fg #ff757f bg #222436
-t fg red bg #222436
-u fg #c8d3f5 bg #372837
-v fg #ff757f bg #372837
-w fg #89ddff bg #372837
-x fg #4fd6be bg #372837
-y fg #c8d3f5 bg #77363d
-z fg #828bb8 bg #372837
-A fg #ff966c bg #2f334d BOLD
-B fg green bg #2f334d BOLD
-C fg #c8d3f5 bg #2e434b
-D fg #ff757f bg #2e434b
-E fg #89ddff bg #2e434b
-F fg #4fd6be bg #2e434b
-G fg #c8d3f5 bg #2e5e49
-H fg #828bb8 bg #2e434b
-I fg #4fd6be bg #222436
-J fg #589ed7 bg #222436
-K fg #c3e88d bg #222436
-L fg #828bb8 bg #1e2030 BOLD
-M fg #828bb8 bg #1e2030
+f fg #3b4261 bg #2f334d
+g fg #fca7ea bg #2f334d ITALIC
+h fg #65bcff bg #2f334d
+i fg #89ddff bg #2f334d
+j fg #82aaff bg #2d3f76
+k fg #c8d3f5 bg #2d3f76
+l fg #7d849f bg #2d3f76
+m fg #3b4261 bg #222436
+n fg #c8d3f5 bg #222436
+o fg #7d849f bg #222436
+p fg #c099ff bg #222436
+q fg #828bb8 bg #222436
+r fg #ff757f bg #222436
+s fg #89ddff bg #222436
+t fg #ffc777 bg #222436
+u fg #589ed7 bg #222436
+v fg #65bcff bg #222436
+w fg #4fd6be bg #222436
+x fg #fca7ea bg #222436 ITALIC
+y fg #ff966c bg #2f334d BOLD
+z fg green bg #2f334d BOLD
+A fg #c8d3f5 bg #2e434b
+B fg #c099ff bg #2e434b
+C fg #82aaff bg #2e434b
+D fg #828bb8 bg #2e434b
+E fg #ff757f bg #2e434b
+F fg #89ddff bg #2e434b
+G fg #589ed7 bg #2e434b
+H fg green bg #222436
+I fg #c8d3f5 bg #233637
+J fg #fca7ea bg #233637 ITALIC
+K fg #65bcff bg #233637
+L fg #828bb8 bg #233637
+M fg #ff757f bg #233637
+N fg #89ddff bg #233637
+O fg #4fd6be bg #233637
+P fg #ff966c bg #222436
+Q fg #828bb8 bg #1e2030 BOLD
+R fg #828bb8 bg #1e2030
 
 ==== 80x24 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeecccccccccccccccccccccccccccccccc
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggghhhhhhhhgggggghiiiiiihhhhhhhhhhhhhhhhhhhhhh
-ajjkkkkkkkkkkkkkkkkkkkkklllllafffgggghhhhhhhhgggggghiiiihhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhmmmmmafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhmmmmmafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffggggghiiiiiiiiihhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhnnnnnnnnnnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhggghiiiiiiiihoooohhhhhhhhhhiiiiiihohoooohoh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhoooohhoohoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqq
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaccuvvvvvvvvwwwwvvvvvvvvwvvvvvvvvxxvyyyyyyyyyyyyyvv
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohhhhhhhhoooohiiiihhohoooohaaaaahhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhggghaaaaahoooohhoohoooohiiiihhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhnnnnnnnnnnnnnnnnnnnnnnnnnnnhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgghggghoooohhhhhhhhhhhhhaaaaaahhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhgggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohhhhhhaaaaahoooohhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhaaaaaaaaahhhhhhhhhonnnnnnnhhhhhhhhhhhhh
-ammmmmmmmmmmmmmmmmaaaaaaaaaaaafffhhhhhhhhgggggghhiiiihaaaaaaaaahhhhhhhggghhhhhhh
-zzzzzzzzzzzzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggchhhhhhhhhcccccccccccccccccccccccccccccccc
+aiijjjjjjjjjjjjjjjjjjjjjkkkkkalllmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+aaammmmmmmmmmmmmmmmmmmmmnnnnnalllmmmmooomaaamppppmmmmmmmmpppmmmmmmmmppppmpppmmpm
+aaammmmmmmmmmmmmmmmmmmmmnnnnnalllmmmmppppmpmppppmmppmqqqqmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmmpmqqqqmmmpppppmaaaaaaammmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmpmmmmmmmmmmpmmmmmoommmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmppppmmmmmmmaaaaaammmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmppppmaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmoooooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaccsttttuuutvvvvvtwwwwttwwtwwwttttttttttttttttttttt
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmallxyyyyyyyyzzzzzzyAAAyBBBByyyyyyyyyyyyyyyyyyyyyyyy
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmallxyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmooomaaaaaamppppmmmmmmmmmmmpppmmppmppppmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmmpmmmmmmmooommmmmmoomppppmmmmmmmoom
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmmmmmppmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmoomaaammmmmmmppmaaamppppmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmoooooompppppmmmmmmmmmmmmmmmmmmmmmmm
+annnnnnnnnnnnnnnnnaaaaaaaaaaaalllmmmmmmmmppppmmmmmmmpmmmmmmmmmmmmmmmmmmmmmmmmmmm
+CCCCCCCCCCCCDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #e7eaf0
 d fg #787b7e bg #e7eaf0
 e fg #1f2328 bg #abedbb
-f fg #6e7781 bg #ffffff
-g fg #cf222e bg #ffffff
-h fg #1f2328 bg #ffffff
-i fg #953800 bg #ffffff
-j fg #6639ba bg #dae9f9
-k fg #1f2328 bg #dae9f9
-l fg #787b7e bg #dae9f9
-m fg #787b7e bg #ffffff
-n fg #0a3069 bg #ffffff
-o fg #0550ae bg #ffffff
-p fg red bg #ffffff
-q fg #1f2328 bg #feeae9
-r fg #0550ae bg #feeae9
-s fg #cf222e bg #feeae9
-t fg #1f2328 bg #fdcecc
-u fg green bg #e7eaf0
-v fg #1f2328 bg #c7e6d5
+f fg #6e7781 bg #e7eaf0
+g fg #cf222e bg #e7eaf0
+h fg #953800 bg #e7eaf0
+i fg #6639ba bg #dae9f9
+j fg #1f2328 bg #dae9f9
+k fg #787b7e bg #dae9f9
+l fg #6e7781 bg #ffffff
+m fg #1f2328 bg #ffffff
+n fg #787b7e bg #ffffff
+o fg #cf222e bg #ffffff
+p fg #0550ae bg #ffffff
+q fg #953800 bg #ffffff
+r fg #0a3069 bg #ffffff
+s fg green bg #e7eaf0
+t fg #1f2328 bg #c7e6d5
+u fg #cf222e bg #c7e6d5
+v fg #6639ba bg #c7e6d5
 w fg #0550ae bg #c7e6d5
-x fg #cf222e bg #c7e6d5
-y fg #1f2328 bg #9de1b2
-z fg #f6f8fa bg #5094e4 BOLD
-A fg #f6f8fa bg #5094e4
+x fg green bg #ffffff
+y fg #1f2328 bg #dbf7e2
+z fg #cf222e bg #dbf7e2
+A fg #6639ba bg #dbf7e2
+B fg #0550ae bg #dbf7e2
+C fg #f6f8fa bg #5094e4 BOLD
+D fg #f6f8fa bg #5094e4
 
-==== 120x33 tokyonight-moon text, cursor 33,14
+==== 120x33 tokyonight-moon text, cursor 33,17
 ┌feature ← main──────────────┐ store.py  →  app/store.py
-│  ▾ app                     │ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
-│    R store.py         +4 −1│ 2
-│  D Makefile           +0 −7│ 3 import json
-│  A tags.py            +1 −0│ 4
-│                            │ 5 from config import Config, load_config
-│                            │ 6 from models import Note
-│                            │ 7
-│                            │ 8
-│                            │ 9 class NoteStore:
-│                            │10     """Reads and writes the notes of a single JSON file."""
-│                            │11
-│                            │12     def __init__(self, config: Config | None = None) -> None:
-│                            │  ▎        self.config = config or load_config()
-│                            │13▎        self.config = config or load_settings()
-│                            │14         self.notes: list[Note] = self._read()
-│                            │15
-│                            │16     def _read(self) -> list[Note]:
-│                            │17         """Load the notes from disk; a missing file means no notes yet."""
-│                            │18         if not self.config.path.exists():
-│                            │19             return []
-│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
-│                            │21         return [Note.from_dict(item) for item in raw]
-│                            │22
-│                            │23     def _write(self) -> None:
-│                            │24         """Write every note back to disk."""
-│                            │25         raw = [note.to_dict() for note in self.notes]
-│                            │26         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+│  ▾ app                     │ 9 class NoteStore:
+│    R store.py         +4 −1│23     def _write(self) -> None:
+│  D Makefile           +0 −7│25         raw = [note.to_dict() for note in self.notes]
+│  A tags.py            +1 −0│26         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
 │                            │27
 │                            │28     def next_id(self) -> int:
 │                            │29         """One past the highest id in use."""
-└ 3 files · +5 −8 ───────────┘30         return max((note.id for note in self.notes), default=0) + 1
-app/store.py  13:1  [code]  hunk 1/2  file 1/3
+│                            │30         return max((note.id for note in self.notes), default=0) + 1
+│                            │31
+│                            │32     def add(self, text: str, tags: list[str] | None = None) -> Note:
+│                            │33         """Append a note and save the file."""
+│                            │34         note = Note(id=self.next_id(), text=text, tags=tags or [])
+│                            │35         self.notes.append(note)
+│                            │36         self._write()
+│                            │37         return note
+│                            │38
+│                            │39▎    def count(self) -> int:
+│                            │40▎        return len(self.notes)
+│                            │41▎
+│                            │42     def remove(self, note_id: int) -> bool:
+│                            │43         """Delete the note with this id and report whether it existed."""
+│                            │44         keep = [note for note in self.notes if note.id != note_id]
+│                            │45         if len(keep) == len(self.notes):
+│                            │46             return False
+│                            │47         self.notes = keep
+│                            │48         self._write()
+│                            │49         return True
+│                            │50
+│                            │51     def find(self, needle: str) -> list[Note]:
+│                            │52         """Every note whose text contains `needle`, case-insensitively."""
+└ 3 files · +5 −8 ───────────┘53         lowered = needle.lower()
+app/store.py  39:1  [code]  hunk 2/2  file 1/3
 
 ==== 120x33 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhh
-aiijjjjjjjjjjjjjjjjjjjjjkkkkkafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffmmmmmmhmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhmmmmmmhmmmmmmhnnnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhmmmmmmhmmmmmmhnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffppppphnnnnnnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhqqqqqqqqrssssohggggggohnnnnnnhohnnnnhohnnnnrhoohnnnnohhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafftuuuuuuuuvvvvwxxxxxxuwuuuuuuuuwwuyyyyyyyyyyyzzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaAABCCCCCCCCDDDDEFFFFFFCECCCCCCCCEECGGGGGGGGGGGGGHHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoIIIIIohJJJJrnnnnrhohssssoaaaaarrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaarssssrhoohJJJJrnnnnrohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhqqhooohssssoIIIIIIoIIIIoaaaaaarrohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhpppppphrrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohhhhhoaaaaarssssoIIIIIIoIIIIoaaaaaaaaarggggggggoKKKKKKKrrhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhpppppphrnnnnoaaaaaaaaarhhhhrhqqqhhhhhhoohhhhrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaaarssssrhoohnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohrhhhhoaaaaaaarrhqqqhhhhhhoohssssoIIIIIrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoIIIIIIoIIIIoaaaaaaaaaarhhhhoaaaaarhhhohggggggoLrohggggggggoKKKKKKKrhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaaaarssssrhoohJJJohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-alllllllllllllllllaaaaaaaaaaaafffhhhhhhhhpppppphnnnrrhhhhoIIhqqqhhhhhhoohssssoIIIIIrohgggggggoLrhohLhhhhhhhhhhhhhhhhhhhh
-MMMMMMMMMMMMNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggchhhhhhhhhiccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ajjkkkkkkkkkkkkkkkkkkkkklllllafffccccmmmcnnnnnnoppppociichhhhicccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaqqqqqqqqqqqqqqqqqqqqqrrrrrasssqqqqqqqqqqqqtquqqqqtaaaaaaauuqvvvqqqqqqttqwwwwtxxxxxuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aaaqqqqqqqqqqqqqqqqqqqqqrrrrrasssqqqqqqqqwwwwtxxxxxxtxxxxtaaaaaaaaaauqqqqtaaaaauqqqtqyyyyyytzutqyyyyyyyytAAAAAAAuqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqvvvqaaaaaaauwwwwuqttqBBBtqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqCCCCCCqDDDuuqqqqtxxqvvvqqqqqqttqwwwwtxxxxxutqyyyyyyytzuqtqzqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqvvvqaaauwwwwtqyyyytqBBBtqyyyytqBBBBuBBBuqtqDDDDqtqDDDDuqttqDDDDtqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqtqvvvvuyytwwwwtaaaaaaauutqyyyytqqqqtqyyyytqqqqqttquuuqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqwwwwtxxxxxtaaaaaauqqqquqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqwwwwtaaaaaauuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqCCCCCCqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqaEEFGGGGHHHGIIIIIJKKKKJGLLGMMMLGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqassNOOOOOOOOPPPPPPOQQQRSSSSTUUUUUROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqassNOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqvvvqaaaaaauwwwwtqyyyyyyytqBBBuqttqBBBBtqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqtquqqqqqvvvqqqqqqttqwwwwtxxxxxqvvqqqqqtxxqttqqqqqqqquqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqvvqDDDuqqqquqttqDDDuwwwwtxxxxxutqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqCCCCCCqzzzzzqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqwwwwtxxxxxqtqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqwwwwtaaaaaauuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqCCCCCCqzzzzqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqvvvqaaaauwwwwtqyyyyyytqBBBuqttqBBBBuDDDDutqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyqqqqqqqqqqqqq
+arrrrrrrrrrrrrrrrraaaaaaaaaaaasssqqqqqqqqqqqqqqqqtqqqqqqqtaaaaauuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+VVVVVVVVVVVVWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #2f334d
 d fg #7d849f bg #2f334d
 e fg #c8d3f5 bg #26553b
-f fg #3b4261 bg #222436
-g fg #ffc777 bg #222436
-h fg #c8d3f5 bg #222436
-i fg #82aaff bg #2d3f76
-j fg #c8d3f5 bg #2d3f76
-k fg #7d849f bg #2d3f76
-l fg #7d849f bg #222436
-m fg #86e1fc bg #222436
-n fg #65bcff bg #222436
-o fg #89ddff bg #222436
-p fg #fca7ea bg #222436 ITALIC
-q fg #c099ff bg #222436
-r fg #828bb8 bg #222436
-s fg #ff757f bg #222436
-t fg red bg #222436
-u fg #c8d3f5 bg #372837
-v fg #ff757f bg #372837
-w fg #89ddff bg #372837
-x fg #4fd6be bg #372837
-y fg #c8d3f5 bg #77363d
-z fg #828bb8 bg #372837
-A fg #ff966c bg #2f334d BOLD
-B fg green bg #2f334d BOLD
-C fg #c8d3f5 bg #2e434b
-D fg #ff757f bg #2e434b
-E fg #89ddff bg #2e434b
-F fg #4fd6be bg #2e434b
-G fg #c8d3f5 bg #2e5e49
-H fg #828bb8 bg #2e434b
-I fg #4fd6be bg #222436
-J fg #589ed7 bg #222436
-K fg #c3e88d bg #222436
-L fg #ff966c bg #222436
-M fg #828bb8 bg #1e2030 BOLD
-N fg #828bb8 bg #1e2030
+f fg #3b4261 bg #2f334d
+g fg #fca7ea bg #2f334d ITALIC
+h fg #65bcff bg #2f334d
+i fg #89ddff bg #2f334d
+j fg #82aaff bg #2d3f76
+k fg #c8d3f5 bg #2d3f76
+l fg #7d849f bg #2d3f76
+m fg #c099ff bg #2f334d
+n fg #82aaff bg #2f334d
+o fg #828bb8 bg #2f334d
+p fg #ff757f bg #2f334d
+q fg #c8d3f5 bg #222436
+r fg #7d849f bg #222436
+s fg #3b4261 bg #222436
+t fg #89ddff bg #222436
+u fg #828bb8 bg #222436
+v fg #c099ff bg #222436
+w fg #ff757f bg #222436
+x fg #4fd6be bg #222436
+y fg #ffc777 bg #222436
+z fg #ff966c bg #222436
+A fg #c3e88d bg #222436
+B fg #589ed7 bg #222436
+C fg #fca7ea bg #222436 ITALIC
+D fg #65bcff bg #222436
+E fg #ff966c bg #2f334d BOLD
+F fg green bg #2f334d BOLD
+G fg #c8d3f5 bg #2e434b
+H fg #c099ff bg #2e434b
+I fg #82aaff bg #2e434b
+J fg #828bb8 bg #2e434b
+K fg #ff757f bg #2e434b
+L fg #89ddff bg #2e434b
+M fg #589ed7 bg #2e434b
+N fg green bg #222436
+O fg #c8d3f5 bg #233637
+P fg #fca7ea bg #233637 ITALIC
+Q fg #65bcff bg #233637
+R fg #828bb8 bg #233637
+S fg #ff757f bg #233637
+T fg #89ddff bg #233637
+U fg #4fd6be bg #233637
+V fg #828bb8 bg #1e2030 BOLD
+W fg #828bb8 bg #1e2030
 
 ==== 120x33 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhh
-aiijjjjjjjjjjjjjjjjjjjjjkkkkkafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffmmmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhhhhhhhhmmmmmmhnnnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhhhhhhhhmmmmmmhnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmmhnnnnnnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhnnnnnnnnhoooohhhhhhhhhhnnnnnnhohoooohohoooohhoohoooohhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaccuvvvvvvvvwwwwvvvvvvvvwvvvvvvvvxxvyyyyyyyyyyyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohhhhhhhhoooohnnnnhhohoooohaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaaahoooohhoohoooohnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmhmmmhoooohhhhhhhhhhhhhaaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhmmmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohhhhhhaaaaahoooohhhhhhhhhhhhhaaaaaaaaahhhhhhhhhoggggggghhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmmmmmhhnnnnhaaaaaaaaahhhhhhhmmmhhhhhhmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaaaahoooohhoohoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohhhhhhhaaaaaaahhhmmmhhhhhhmmhoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohhhhhhhhhhhhhaaaaaaaaaahhhhhhaaaaahhhhhhhhhhhhoohhhhhhhhhhhoggggggghhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaaaaahoooohhoohooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-alllllllllllllllllaaaaaaaaaaaafffhhhhhhhhmmmmmmhaaahhhhhhhhhhmmmhhhhhhmmhoooohhhhhhhhhhhhhhhhoohhohohhhhhhhhhhhhhhhhhhhh
-zzzzzzzzzzzzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggchhhhhhhhhcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aiijjjjjjjjjjjjjjjjjjjjjkkkkkafffccccgggcllllllcmmmmccmmcmmmmccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaannnnnnnnnnnnnnnnnnnnnoooooapppnnnnnnnnnnnnqnnnnnnnaaaaaaannnrrrnnnnnnrrnqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+aaannnnnnnnnnnnnnnnnnnnnoooooapppnnnnnnnnqqqqnnnnnnnnnnnnnaaaaaaaaaannnnnnaaaaannnnnnnnnnnnqqnnnnnnnnnnnqsssssssnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnrrrnaaaaaaanqqqqnnqqnqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnsssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnrrrrrrnaaannnnnnnnnnrrrnnnnnnrrnqqqqnnnnnnnnnnnnnnnnqqnnqnqnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnrrrnaaanqqqqnnnnnnnnqqqnnnnnnnnqqqqnqqqnnqnqqqqnqnqqqqnnqqnttttnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnqnttttnnnqqqqqnaaaaaaannnnnnnnqnnnnnnnnnnqnnnnnrrnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnqqqqnnnnnnnaaaaaannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnqqqqnaaaaaannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnrrrrrrnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnaccuvvvvwwwvxxxxxvyyyyvvyyvyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+annnnnnnnnnnnnnnnnnnnnnnnnnnnappzAAAAAAAABBBBBBACCCADDDDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+annnnnnnnnnnnnnnnnnnnnnnnnnnnappzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnrrrnaaaaaanqqqqnnnnnnnnnnnqqqnnqqnqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnqnnnnnnnrrrnnnnnnrrnqqqqnnnnnnnrrnnnnnnnnnqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnrrnaaannnnnnnqqnaaanqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnrrrrrrnqqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnqqqqnnnnnnnqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnqqqqnaaaaaannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnrrrrrrnqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnrrrnaaaanqqqqnnnnnnnnnnqqqnnqqnqqqqnttttnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnn
+aoooooooooooooooooaaaaaaaaaaaapppnnnnnnnnnnnnnnnnqnnnnnnnnaaaaannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+EEEEEEEEEEEEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #e7eaf0
 d fg #787b7e bg #e7eaf0
 e fg #1f2328 bg #abedbb
-f fg #6e7781 bg #ffffff
-g fg #0a3069 bg #ffffff
-h fg #1f2328 bg #ffffff
+f fg #6e7781 bg #e7eaf0
+g fg #cf222e bg #e7eaf0
+h fg #953800 bg #e7eaf0
 i fg #6639ba bg #dae9f9
 j fg #1f2328 bg #dae9f9
 k fg #787b7e bg #dae9f9
-l fg #787b7e bg #ffffff
-m fg #cf222e bg #ffffff
-n fg #953800 bg #ffffff
-o fg #0550ae bg #ffffff
-p fg red bg #ffffff
-q fg #1f2328 bg #feeae9
-r fg #0550ae bg #feeae9
-s fg #cf222e bg #feeae9
-t fg #1f2328 bg #fdcecc
+l fg #6639ba bg #e7eaf0
+m fg #0550ae bg #e7eaf0
+n fg #1f2328 bg #ffffff
+o fg #787b7e bg #ffffff
+p fg #6e7781 bg #ffffff
+q fg #0550ae bg #ffffff
+r fg #cf222e bg #ffffff
+s fg #0a3069 bg #ffffff
+t fg #953800 bg #ffffff
 u fg green bg #e7eaf0
 v fg #1f2328 bg #c7e6d5
-w fg #0550ae bg #c7e6d5
-x fg #cf222e bg #c7e6d5
-y fg #1f2328 bg #9de1b2
-z fg #f6f8fa bg #5094e4 BOLD
-A fg #f6f8fa bg #5094e4
+w fg #cf222e bg #c7e6d5
+x fg #6639ba bg #c7e6d5
+y fg #0550ae bg #c7e6d5
+z fg green bg #ffffff
+A fg #1f2328 bg #dbf7e2
+B fg #cf222e bg #dbf7e2
+C fg #6639ba bg #dbf7e2
+D fg #0550ae bg #dbf7e2
+E fg #f6f8fa bg #5094e4 BOLD
+F fg #f6f8fa bg #5094e4
 
-==== 185x55 tokyonight-moon text, cursor 33,14
+==== 185x55 tokyonight-moon text, cursor 33,28
 ┌feature ← main──────────────┐ store.py  →  app/store.py
-│  ▾ app                     │ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
-│    R store.py         +4 −1│ 2
-│  D Makefile           +0 −7│ 3 import json
-│  A tags.py            +1 −0│ 4
-│                            │ 5 from config import Config, load_config
-│                            │ 6 from models import Note
-│                            │ 7
-│                            │ 8
-│                            │ 9 class NoteStore:
-│                            │10     """Reads and writes the notes of a single JSON file."""
-│                            │11
-│                            │12     def __init__(self, config: Config | None = None) -> None:
-│                            │  ▎        self.config = config or load_config()
-│                            │13▎        self.config = config or load_settings()
-│                            │14         self.notes: list[Note] = self._read()
-│                            │15
+│  ▾ app                     │ 9 class NoteStore:
+│    R store.py         +4 −1│12     def __init__(self, config: Config | None = None) -> None:
+│  D Makefile           +0 −7│14         self.notes: list[Note] = self._read()
+│  A tags.py            +1 −0│15
 │                            │16     def _read(self) -> list[Note]:
 │                            │17         """Load the notes from disk; a missing file means no notes yet."""
 │                            │18         if not self.config.path.exists():
@@ -370,202 +380,211 @@ A fg #f6f8fa bg #5094e4
 │                            │49         return True
 │                            │50
 │                            │51     def find(self, needle: str) -> list[Note]:
-└ 3 files · +5 −8 ───────────┘52         """Every note whose text contains `needle`, case-insensitively."""
-app/store.py  13:1  [code]  hunk 1/2  file 1/3
+│                            │52         """Every note whose text contains `needle`, case-insensitively."""
+│                            │53         lowered = needle.lower()
+│                            │54         return [note for note in self.notes if lowered in note.text.lower()]
+│                            │55
+│                            │56     def page(self, number: int = 1) -> list[Note]:
+│                            │57         """One page of notes, newest first."""
+│                            │58         newest = sorted(self.notes, key=lambda note: note.created, reverse=True)
+│                            │59         start = (number - 1) * self.config.page_size
+│                            │60         return newest[start : start + self.config.page_size]
+│                            │
+│                            │
+│                            │
+└ 3 files · +5 −8 ───────────┘
+app/store.py  39:1  [code]  hunk 2/2  file 1/3
 
 ==== 185x55 tokyonight-moon styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aiijjjjjjjjjjjjjjjjjjjjjkkkkkafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffmmmmmmhmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhmmmmmmhmmmmmmhnnnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhmmmmmmhmmmmmmhnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffppppphnnnnnnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhqqqqqqqqrssssohggggggohnnnnnnhohnnnnhohnnnnrhoohnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafftuuuuuuuuvvvvwxxxxxxuwuuuuuuuuwwuyyyyyyyyyyyzzuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaAABCCCCCCCCDDDDEFFFFFFCECCCCCCCCEECGGGGGGGGGGGGGHHCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoIIIIIohJJJJrnnnnrhohssssoaaaaarrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaarssssrhoohJJJJrnnnnrohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhqqhooohssssoIIIIIIoIIIIoaaaaaarrohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhpppppphrrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohhhhhoaaaaarssssoIIIIIIoIIIIoaaaaaaaaarggggggggoKKKKKKKrrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhpppppphrnnnnoaaaaaaaaarhhhhrhqqqhhhhhhoohhhhrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaaarssssrhoohnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohrhhhhoaaaaaaarrhqqqhhhhhhoohssssoIIIIIrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoIIIIIIoIIIIoaaaaaaaaaarhhhhoaaaaarhhhohggggggoLrohggggggggoKKKKKKKrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaaaarssssrhoohJJJohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhpppppphnnnrrhhhhoIIhqqqhhhhhhoohssssoIIIIIrohgggggggoLrhohLhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaarssssohggggohJJJohggggohJJJJrJJJrhohnnnnhohnnnnrhoohnnnnohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhohqqqqrggossssoaaaaaaarrohggggohhhhohggggohhhhhoohrrrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoIIIIIoaaaaaarhhhhrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoaaaaaarrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhpppppphhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffMNNNNOOONPPPPPQRRRRQNSSNTTTSNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffMNNNNNNNNUUUUUUNVVVQRRRRSWWWWWQNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffMNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaaaarssssohgggggggohJJJrhoohJJJJohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhohrhhhhhqqqhhhhhhoohssssoIIIIIhqqhhhhhoIIhoohhhhhhhhrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhqqhnnnrhhhhrhoohnnnrssssoIIIIIrohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhpppppphLLLLLhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoIIIIIhohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhssssoaaaaaarrhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhpppppphLLLLhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhqqqhaaaarssssohggggggohJJJrhoohJJJJrnnnnrohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-alllllllllllllllllaaaaaaaaaaaafffhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-XXXXXXXXXXXXYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggchhhhhhhhhicccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+ajjkkkkkkkkkkkkkkkkkkkkklllllafffccccmmmcmmmmmmmmnooooicppppppichhhhhhcichhhhcichhhhnciichhhhiccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaaqqqqqqqqqqqqqqqqqqqqqrrrrrasssqqqqqqqqttttuvvvvvuqwwwwxyyyyxquqttttuaaaaaxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aaaqqqqqqqqqqqqqqqqqqqqqrrrrrasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqzzzqaaaaaxttttxquuqwwwwxyyyyxuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqzzquuuqttttuvvvvvvuvvvvuaaaaaaxxuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqBBBBBBqxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqquqqqqquaaaaaxttttuvvvvvvuvvvvuaaaaaaaaaxAAAAAAAAuCCCCCCCxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqBBBBBBqxyyyyuaaaaaaaaaxqqqqxqzzzqqqqqquuqqqqxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqzzzqaaaaaaxttttxquuqyyyyuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqquqxqqqquaaaaaaaxxqzzzqqqqqquuqttttuvvvvvxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqttttuvvvvvvuvvvvuaaaaaaaaaaxqqqquaaaaaxqqquqAAAAAAuDxuqAAAAAAAAuCCCCCCCxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqzzzqaaaaaaaxttttxquuqwwwuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqBBBBBBqyyyxxqqqquvvqzzzqqqqqquuqttttuvvvvvxuqAAAAAAAuDxquqDqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqzzzqaaaxttttuqAAAAuqwwwuqAAAAuqwwwwxwwwxquqyyyyquqyyyyxquuqyyyyuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqquqzzzzxAAuttttuaaaaaaaxxuqAAAAuqqqquqAAAAuqqqqquuqxxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqttttuvvvvvuaaaaaaxqqqqxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqttttuaaaaaaxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqBBBBBBqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqaEEFGGGGHHHGIIIIIJKKKKJGLLGMMMLGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqassNOOOOOOOOPPPPPPOQQQRSSSSTUUUUUROOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqassNOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqzzzqaaaaaaxttttuqAAAAAAAuqwwwxquuqwwwwuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqquqxqqqqqzzzqqqqqquuqttttuvvvvvqzzqqqqquvvquuqqqqqqqqxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqzzqyyyxqqqqxquuqyyyxttttuvvvvvxuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqBBBBBBqDDDDDqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqttttuvvvvvquqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqttttuaaaaaaxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqBBBBBBqDDDDqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqzzzqaaaaxttttuqAAAAAAuqwwwxquuqwwwwxyyyyxuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqquqqqqqqquaaaaaxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqBBBBBBqxqqqqqzzzqqqqqquuqttttuvvvvvqzzqqqqqqqqquuqqqqquvvvvuaaaaaxxxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqzzzqaaaaxttttuqAAAAAAuqwwwquqDxquuqwwwwxyyyyxuqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqqquqyyyyyyxttttuvvvvvuqAAAuzzzzzzqAAAAuqqqqquvvvvvvvuqAAAAAAAuDDDDxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqqqqqqquqxqqqqqqquqDxquqttttuvvvvvvuvvvvvvvvvqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqasssqqqqqqqqBBBBBBqqqqqqqxqqqqqquqqqqqqquqttttuvvvvvvuvvvvvvvvvxqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+aqqqqqqqqqqqqqqqqqqqqqqqqqqqqaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+arrrrrrrrrrrrrrrrraaaaaaaaaaaaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+VVVVVVVVVVVVWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #c8d3f5 bg #2f334d
 d fg #7d849f bg #2f334d
 e fg #c8d3f5 bg #26553b
-f fg #3b4261 bg #222436
-g fg #ffc777 bg #222436
-h fg #c8d3f5 bg #222436
-i fg #82aaff bg #2d3f76
-j fg #c8d3f5 bg #2d3f76
-k fg #7d849f bg #2d3f76
-l fg #7d849f bg #222436
-m fg #86e1fc bg #222436
-n fg #65bcff bg #222436
-o fg #89ddff bg #222436
-p fg #fca7ea bg #222436 ITALIC
-q fg #c099ff bg #222436
-r fg #828bb8 bg #222436
-s fg #ff757f bg #222436
-t fg red bg #222436
-u fg #c8d3f5 bg #372837
-v fg #ff757f bg #372837
-w fg #89ddff bg #372837
-x fg #4fd6be bg #372837
-y fg #c8d3f5 bg #77363d
-z fg #828bb8 bg #372837
-A fg #ff966c bg #2f334d BOLD
-B fg green bg #2f334d BOLD
-C fg #c8d3f5 bg #2e434b
-D fg #ff757f bg #2e434b
-E fg #89ddff bg #2e434b
-F fg #4fd6be bg #2e434b
-G fg #c8d3f5 bg #2e5e49
-H fg #828bb8 bg #2e434b
-I fg #4fd6be bg #222436
-J fg #589ed7 bg #222436
-K fg #c3e88d bg #222436
-L fg #ff966c bg #222436
-M fg green bg #222436
-N fg #c8d3f5 bg #233637
-O fg #c099ff bg #233637
-P fg #82aaff bg #233637
-Q fg #828bb8 bg #233637
-R fg #ff757f bg #233637
-S fg #89ddff bg #233637
-T fg #589ed7 bg #233637
-U fg #fca7ea bg #233637 ITALIC
-V fg #65bcff bg #233637
-W fg #4fd6be bg #233637
-X fg #828bb8 bg #1e2030 BOLD
-Y fg #828bb8 bg #1e2030
+f fg #3b4261 bg #2f334d
+g fg #fca7ea bg #2f334d ITALIC
+h fg #65bcff bg #2f334d
+i fg #89ddff bg #2f334d
+j fg #82aaff bg #2d3f76
+k fg #c8d3f5 bg #2d3f76
+l fg #7d849f bg #2d3f76
+m fg #c099ff bg #2f334d
+n fg #828bb8 bg #2f334d
+o fg #ff757f bg #2f334d
+p fg #ffc777 bg #2f334d
+q fg #c8d3f5 bg #222436
+r fg #7d849f bg #222436
+s fg #3b4261 bg #222436
+t fg #ff757f bg #222436
+u fg #89ddff bg #222436
+v fg #4fd6be bg #222436
+w fg #589ed7 bg #222436
+x fg #828bb8 bg #222436
+y fg #65bcff bg #222436
+z fg #c099ff bg #222436
+A fg #ffc777 bg #222436
+B fg #fca7ea bg #222436 ITALIC
+C fg #c3e88d bg #222436
+D fg #ff966c bg #222436
+E fg #ff966c bg #2f334d BOLD
+F fg green bg #2f334d BOLD
+G fg #c8d3f5 bg #2e434b
+H fg #c099ff bg #2e434b
+I fg #82aaff bg #2e434b
+J fg #828bb8 bg #2e434b
+K fg #ff757f bg #2e434b
+L fg #89ddff bg #2e434b
+M fg #589ed7 bg #2e434b
+N fg green bg #222436
+O fg #c8d3f5 bg #233637
+P fg #fca7ea bg #233637 ITALIC
+Q fg #65bcff bg #233637
+R fg #828bb8 bg #233637
+S fg #ff757f bg #233637
+T fg #89ddff bg #233637
+U fg #4fd6be bg #233637
+V fg #828bb8 bg #1e2030 BOLD
+W fg #828bb8 bg #1e2030
 
 ==== 185x55 github-light styles
 abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccccccccdddddeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aiijjjjjjjjjjjjjjjjjjjjjkkkkkafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffmmmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-aaahhhhhhhhhhhhhhhhhhhhhlllllafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhhhhhhhhmmmmmmhnnnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmhhhhhhhhmmmmmmhnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffmmmmmhnnnnnnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhnnnnnnnnhoooohhhhhhhhhhnnnnnnhohoooohohoooohhoohoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffpqqqqqqqqrrrrqqqqqqqqrqqqqqqqqssqtttttttttttqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaccuvvvvvvvvwwwwvvvvvvvvwvvvvvvvvxxvyyyyyyyyyyyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohhhhhhhhoooohnnnnhhohoooohaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaaahoooohhoohoooohnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmhmmmhoooohhhhhhhhhhhhhaaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhmmmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohhhhhhaaaaahoooohhhhhhhhhhhhhaaaaaaaaahhhhhhhhhoggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmmmmmhhnnnnhaaaaaaaaahhhhhhhmmmhhhhhhmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaaaahoooohhoohoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhohhhhhhhaaaaaaahhhmmmhhhhhhmmhoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohhhhhhhhhhhhhaaaaaaaaaahhhhhhaaaaahhhhhhhhhhhhoohhhhhhhhhhhoggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaaaaahoooohhoohooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmmmmmhaaahhhhhhhhhhmmmhhhhhhmmhoooohhhhhhhhhhhhhhhhoohhohohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaahoooohhhhhhhhooohhhhhhhhoooohooohhohoooohohoooohhoohnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhgggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhohnnnnhhhooooohaaaaaaahhhhhhhhohhhhhhhhhhohhhhhmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohhhhhhhaaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohaaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmmmmmhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffzAAAABBBACCCCCADDDDAADDADDDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffzAAAAAAAABBBBBBACCCADDDDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhaffzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaaaahoooohhhhhhhhhhhooohhoohoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhohhhhhhhmmmhhhhhhmmhoooohhhhhhhmmhhhhhhhhhoohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmhaaahhhhhhhoohaaahoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhmmmmmmhooooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohhhhhhhohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhoooohaaaaaahhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhmmmmmmhoooohhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-ahhhhhhhhhhhhhhhhhhhhhhhhhhhhafffhhhhmmmhaaaahoooohhhhhhhhhhooohhoohoooohnnnnhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-alllllllllllllllllaaaaaaaaaaaafffhhhhhhhhgggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
-EEEEEEEEEEEEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaafffgggggchhhhhhhhhccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aiijjjjjjjjjjjjjjjjjjjjjkkkkkafffccccgggchhhhhhhhcllllcccccccccchhhhhhclcllllclcllllccllcllllcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+aaammmmmmmmmmmmmmmmmmmmmnnnnnaooommmmmmmmppppmmmmmmmmppppmqqqqmmpmppppmaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+aaammmmmmmmmmmmmmmmmmmmmnnnnnaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaaaamppppmmppmppppmqqqqmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrmrrrmppppmmmmmmmmmmmmmaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmrrrrrrmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmpmmmmmmaaaaamppppmmmmmmmmmmmmmaaaaaaaaammmmmmmmmpsssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrrrrrmmqqqqmaaaaaaaaammmmmmmrrrmmmmmmrrmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaaaaamppppmmppmppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmpmmmmmmmaaaaaaammmrrrmmmmmmrrmppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmppppmmmmmmmmmmmmmaaaaaaaaaammmmmmaaaaammmmmmmmmmmmppmmmmmmmmmmmpsssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaaaaaamppppmmppmpppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmsssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrrrrrmaaammmmmmmmmmrrrmmmmmmrrmppppmmmmmmmmmmmmmmmmppmmpmpmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaamppppmmmmmmmmpppmmmmmmmmppppmpppmmpmppppmpmppppmmppmqqqqmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmssssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmpmqqqqmmmpppppmaaaaaaammmmmmmmpmmmmmmmmmmpmmmmmrrmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmppppmmmmmmmaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmppppmaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrrrrrmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmacctuuuuvvvuwwwwwuxxxxuuxxuxxxuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooyzzzzzzzzAAAAAAzBBBzCCCCzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaaaaamppppmmmmmmmmmmmpppmmppmppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmpmmmmmmmrrrmmmmmmrrmppppmmmmmmmrrmmmmmmmmmppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrmaaammmmmmmppmaaamppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmrrrrrrmpppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmppppmmmmmmmpmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmppppmaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrrrrrmppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaaamppppmmmmmmmmmmpppmmppmppppmqqqqmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmpmmmmmmmmaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrrrrrmmmmmmmrrrmmmmmmrrmppppmmmmmmmrrmmmmmmmmmrrmmmmmmmmmmmaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaaamppppmmmmmmmmmmpppmpmpmmppmppppmqqqqmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmssssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmpmaaaaaamppppmmmmmmmmmmmprrrrrrmmmmmmmmmmmmmmmmmmmmmmmmmmmmpppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmpmmmmmmmmmpmpmmpmppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrrrrrmmmmmmmmmmmmmmmmmmmmmmpmppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+annnnnnnnnnnnnnnnnaaaaaaaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+DDDDDDDDDDDDEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #e7eaf0
 d fg #787b7e bg #e7eaf0
 e fg #1f2328 bg #abedbb
-f fg #6e7781 bg #ffffff
-g fg #0a3069 bg #ffffff
-h fg #1f2328 bg #ffffff
+f fg #6e7781 bg #e7eaf0
+g fg #cf222e bg #e7eaf0
+h fg #953800 bg #e7eaf0
 i fg #6639ba bg #dae9f9
 j fg #1f2328 bg #dae9f9
 k fg #787b7e bg #dae9f9
-l fg #787b7e bg #ffffff
-m fg #cf222e bg #ffffff
-n fg #953800 bg #ffffff
-o fg #0550ae bg #ffffff
-p fg red bg #ffffff
-q fg #1f2328 bg #feeae9
-r fg #0550ae bg #feeae9
-s fg #cf222e bg #feeae9
-t fg #1f2328 bg #fdcecc
-u fg green bg #e7eaf0
-v fg #1f2328 bg #c7e6d5
-w fg #0550ae bg #c7e6d5
-x fg #cf222e bg #c7e6d5
-y fg #1f2328 bg #9de1b2
-z fg green bg #ffffff
-A fg #1f2328 bg #dbf7e2
-B fg #cf222e bg #dbf7e2
-C fg #6639ba bg #dbf7e2
-D fg #0550ae bg #dbf7e2
-E fg #f6f8fa bg #5094e4 BOLD
-F fg #f6f8fa bg #5094e4
+l fg #0550ae bg #e7eaf0
+m fg #1f2328 bg #ffffff
+n fg #787b7e bg #ffffff
+o fg #6e7781 bg #ffffff
+p fg #0550ae bg #ffffff
+q fg #953800 bg #ffffff
+r fg #cf222e bg #ffffff
+s fg #0a3069 bg #ffffff
+t fg green bg #e7eaf0
+u fg #1f2328 bg #c7e6d5
+v fg #cf222e bg #c7e6d5
+w fg #6639ba bg #c7e6d5
+x fg #0550ae bg #c7e6d5
+y fg green bg #ffffff
+z fg #1f2328 bg #dbf7e2
+A fg #cf222e bg #dbf7e2
+B fg #6639ba bg #dbf7e2
+C fg #0550ae bg #dbf7e2
+D fg #f6f8fa bg #5094e4 BOLD
+E fg #f6f8fa bg #5094e4

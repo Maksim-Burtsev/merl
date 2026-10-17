@@ -142,6 +142,7 @@ const STATES: &[State] = &[
     }),
     ("review-rename-edited", |a| {
         review(a, &[], Some(("store.py", "app/store.py")), None);
+        press(a, "c");
     }),
     ("tutor", |a| {
         a.tutor = Some(Tutor {
