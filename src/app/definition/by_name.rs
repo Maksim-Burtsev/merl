@@ -45,6 +45,9 @@ impl App {
             self.swift_extensions(a, near, &mut found);
             self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
         }
+        if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
+            self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
+        }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);
         if kind == Kind::Rust && found.is_empty() {
@@ -421,6 +424,15 @@ impl App {
             .iter()
             .any(|h| h.path == a.here && h.line1 == self.line + 1);
         let hits = search::c_file_local(word, &a.here, &a.text, hits, |p| self.text_of(p), on);
+        let hits = if a.chain.is_empty()
+            && near.locals.is_empty()
+            && after.starts_with('(')
+            && !before.ends_with("::")
+        {
+            self.cpp_free_call(&a.here, &a.text, word, a.range.start, hits)
+        } else {
+            hits
+        };
         let declared = self.c_member_owners(a, &hits, on);
         if declared.iter().any(Option::is_some) {
             let found = hits
@@ -445,17 +457,16 @@ impl App {
             *fallbacks = fallback;
         }
         let parameter = search::c_parameter(&a.text, self.line + 1, word);
-        Some(
-            match search::c_one_definition(word, &hits, |p| self.text_of(p))
-                .filter(|_| !on && !parameter)
-            {
-                Some(one) => {
-                    *aside = Some(one.set_aside_note);
-                    vec![hits[one.hit_index].clone()]
-                }
-                None => hits,
-            },
-        )
+        let one = search::c_one_definition(word, &hits, |p| self.text_of(p))
+            .filter(|_| !on && !parameter)
+            .filter(|o| !self.c_unreached_header(&a.here, &hits[o.hit_index].path));
+        Some(match one {
+            Some(one) => {
+                *aside = Some(one.set_aside_note);
+                vec![hits[one.hit_index].clone()]
+            }
+            None => hits,
+        })
     }
 
     fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {

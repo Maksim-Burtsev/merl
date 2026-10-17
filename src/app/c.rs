@@ -524,6 +524,10 @@ impl App {
         if asked_in_dead { literal } else { dead }
     }
 
+    pub(super) fn c_unreached_header(&mut self, here: &Path, path: &Path) -> bool {
+        path != here && c_header(path) && !self.c_reached(here).contains(path)
+    }
+
     pub(super) fn c_reached_only(
         &mut self,
         here: &Path,

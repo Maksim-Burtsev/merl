@@ -386,3 +386,19 @@ fn a_ruby_method_under_a_comment_at_the_left_edge_stays_in_its_block() {
     let text = "class << self\n# the rates\n  def rate\n  end\nend\n";
     assert!(ruby_singleton(text, 3));
 }
+
+#[test]
+fn a_typescript_receiver_indexed_off_a_name_is_its_element() {
+    let head = |line: &str| call_head(Kind::TsJs, line, line.rfind('.').map_or(0, |i| i + 1));
+    assert_eq!(
+        head("return this.pots[0].lid.lift"),
+        Some(CallHead {
+            call_without_arguments: "this.pots[]".into(),
+            value: Value::Element("this.pots".into()),
+            fields_to_word: vec!["lid".into()],
+        })
+    );
+    assert_eq!(head("f()[0].lift"), None);
+    assert_eq!(head("[a, b][0].lift"), None);
+    assert_eq!(call_head(Kind::Python, "pots[0].lift", 8), None);
+}
