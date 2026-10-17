@@ -1,7 +1,7 @@
 use regex::Regex;
 
 use super::{
-    Group, Kind, close_of, code, comment, cs_generics, cs_namespace, cs_type, cs_usings,
+    Group, Kind, close_of, code, comment, cs_generics, cs_namespace, cs_type, cs_using, cs_usings,
     def_patterns, group, indent, split_top, uncommented, written_line,
 };
 
@@ -537,14 +537,10 @@ pub fn cs_type_name(written: &str) -> Option<String> {
 }
 
 pub fn cs_namespace_pick(text: &str, line1: usize, written: &str, found: &[String]) -> Vec<usize> {
-    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\u{feff}?\s*(?:global\s+)?using\s+(\w+)\s*=\s*([\w.]+)\s*;")
-            .expect("the regex is a literal")
-    });
     let after_namespace = text
         .lines()
         .skip_while(|l| !cs_namespace_line(l))
-        .any(|l| l.trim_start().starts_with("using "));
+        .any(|l| cs_using(l).is_some());
     let t = written.trim().trim_end_matches('?');
     let t = t.split_once('<').map_or(t, |(head, _)| head);
     let (absolute, t) = t
@@ -577,9 +573,9 @@ pub fn cs_namespace_pick(text: &str, line1: usize, written: &str, found: &[Strin
             } else {
                 let (head, rest) = qualifier.split_once('.').unwrap_or((qualifier, ""));
                 wanted.extend(
-                    (text.lines().filter_map(|l| ALIAS.captures(l)))
-                        .filter(|c| &c[1] == head)
-                        .map(|c| join(&c[2], rest)),
+                    (text.lines().filter_map(cs_using))
+                        .filter(|u| !u.fixed && u.alias.as_deref() == Some(head))
+                        .map(|u| join(&u.target, rest)),
                 );
             }
         }

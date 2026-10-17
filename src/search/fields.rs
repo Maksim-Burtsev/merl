@@ -375,14 +375,41 @@ pub fn cs_namespace(text: &str, line: usize) -> String {
         .last()
         .map_or_else(String::new, |c| c[1].to_owned())
 }
-pub fn cs_usings(text: &str) -> Vec<String> {
+pub struct CsUsing {
+    pub fixed: bool,
+    pub alias: Option<String>,
+    pub target: String,
+}
+
+pub fn cs_using(line: &str) -> Option<CsUsing> {
     static USING: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^\u{feff}?\s*(?:global\s+)?using\s+([\w.]+)\s*;|<Using\s+Include="([\w.]+)""#)
-            .expect("the regex is a literal")
+        Regex::new(
+            r"^\u{feff}?\s*(?:global\s+)?using\s+(static\s+)?(?:(\w+)\s*=\s*)?([\w.:]+(?:<[^;]*>)?)\s*;",
+        )
+        .expect("the regex is a literal")
     });
+    let c = USING.captures(line)?;
+    Some(CsUsing {
+        fixed: c.get(1).is_some(),
+        alias: c.get(2).map(|m| m.as_str().to_owned()),
+        target: c[3].to_owned(),
+    })
+}
+
+pub fn cs_usings(text: &str) -> Vec<String> {
+    static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"<Using\s+Include="([\w.]+)""#).expect("the regex is a literal")
+    });
+    let plain = |u: CsUsing| {
+        let namespace = !u.fixed && u.alias.is_none() && !u.target.contains([':', '<']);
+        namespace.then_some(u.target)
+    };
     text.lines()
-        .filter_map(|l| USING.captures(l))
-        .filter_map(|c| c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_owned()))
+        .filter_map(|l| {
+            cs_using(l)
+                .and_then(plain)
+                .or_else(|| INCLUDE.captures(l).map(|c| c[1].to_owned()))
+        })
         .collect()
 }
 

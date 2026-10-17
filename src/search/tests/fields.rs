@@ -369,6 +369,10 @@ fn csharp_usings_open_namespaces_and_aliases_open_none() {
         cs_usings(text),
         ["Shop.Billing", "Shop.Shipping", "Shop.Couriers"]
     );
+    assert!(cs_using("using var s = Open();").is_none());
+    assert!(cs_using("using (var s = Open())").is_none());
+    assert!(cs_using("using Stream s = Open();").is_none());
+    assert!(cs_using("using L = System.Collections.Generic.List<int>;").is_some());
 }
 
 #[test]
