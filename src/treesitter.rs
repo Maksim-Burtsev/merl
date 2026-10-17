@@ -814,7 +814,7 @@ fn recovered_row(old: &Tree, new: &Tree, below: usize) -> usize {
         {
             return row;
         }
-        if x.has_error() || y.has_error() {
+        if x.id() != y.id() {
             match (a.goto_first_child(), b.goto_first_child()) {
                 (true, true) => continue,
                 (false, false) => {}

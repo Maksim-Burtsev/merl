@@ -1700,6 +1700,12 @@ fn a_node_error_recovery_rebuilds_above_the_edit_is_repainted() {
         JAVA,
         2445..=2445,
     );
+    replay_tree_sitter(
+        "f.sol",
+        include_bytes!("../../../tests/colors/solidity/Token.sol"),
+        SOLIDITY,
+        614..=614,
+    );
 }
 
 #[test]
