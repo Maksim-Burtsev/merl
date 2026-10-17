@@ -982,7 +982,7 @@ fn lag(git: &dyn Fn(&[&str]) -> Result<String>, remote: &str, tip: &str) -> Stri
 
 const FOLDERS: &str = "merl/branches";
 const UNOPENED_FOR: Duration = Duration::from_hours(14 * 24);
-const DEPENDENCIES: [&str; 2] = [".venv", "target"];
+const DEPENDENCIES: [&str; 3] = [".venv", "node_modules", "target"];
 
 fn branch_of_folder(common: &Path, folder: &Path) -> Option<String> {
     let rel = folder.strip_prefix(common.join(FOLDERS)).ok()?.parent()?;
@@ -1015,48 +1015,19 @@ fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
         );
     }
     #[cfg(unix)]
-    for name in DEPENDENCIES {
-        let (mine, there) = (root.join(name), folder.join(name));
-        if mine.is_dir() && there.symlink_metadata().is_err() {
-            drop(std::os::unix::fs::symlink(mine, there));
-        }
-    }
-    #[cfg(unix)]
-    if let Ok(real) = root.canonicalize() {
+    {
         let listed = git(&folder, &["ls-files", "-z", "--", "*package.json"]).unwrap_or_default();
         let packages = (listed.split('\0'))
             .filter_map(|f| f.strip_suffix("/package.json"))
-            .chain([""]);
-        for dir in packages {
-            link_node_modules(&real, &folder, &Path::new(dir).join("node_modules"));
+            .map(|d| format!("{d}/node_modules"));
+        for name in DEPENDENCIES.map(String::from).into_iter().chain(packages) {
+            let (mine, there) = (root.join(&name), folder.join(&name));
+            if mine.is_dir() && there.symlink_metadata().is_err() {
+                drop(std::os::unix::fs::symlink(mine, there));
+            }
         }
     }
     Ok(folder)
-}
-
-#[cfg(unix)]
-fn link_node_modules(real: &Path, folder: &Path, dir: &Path) {
-    let Ok(entries) = std::fs::read_dir(real.join(dir)) else {
-        return;
-    };
-    drop(std::fs::create_dir_all(folder.join(dir)));
-    for e in entries.flatten() {
-        let name = dir.join(e.file_name());
-        let scope = e.file_name().to_string_lossy().starts_with('@');
-        if scope && e.file_type().is_ok_and(|t| t.is_dir()) {
-            link_node_modules(real, folder, &name);
-            continue;
-        }
-        let to = folder.join(&name);
-        if to.symlink_metadata().is_ok() {
-            continue;
-        }
-        let workspace = (e.path().canonicalize().ok())
-            .and_then(|t| Some(t.strip_prefix(real).ok()?.to_path_buf()))
-            .filter(|t| !t.components().any(|c| c.as_os_str() == "node_modules"));
-        let from = workspace.map_or_else(|| e.path(), |t| folder.join(t));
-        drop(std::os::unix::fs::symlink(from, to));
-    }
 }
 
 pub struct Opened(PathBuf);

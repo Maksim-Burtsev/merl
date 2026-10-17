@@ -219,7 +219,7 @@ fn a_sweep_removes_aged_and_gone_folders_but_never_an_open_one() {
 
 #[cfg(unix)]
 #[test]
-fn a_folder_s_workspace_packages_are_its_own_and_only_dependencies_are_yours() {
+fn d_through_a_folder_s_node_modules_lands_in_its_own_workspace_package() {
     let c = Clones::new("workspace");
     let write = |at: &Path, f: &str, text: &str| {
         std::fs::create_dir_all(at.join(f).parent().unwrap()).unwrap();
@@ -231,41 +231,52 @@ fn a_folder_s_workspace_packages_are_its_own_and_only_dependencies_are_yours() {
     };
     let a = c.dir.join("a");
     c.git("a", &["switch", "-q", "feat1"]);
-    write(&a, "packages/shared/index.ts", "theirs\n");
+    write(&a, "packages/shared/Token.sol", "contract Theirs {}\n");
+    write(&a, "packages/shared/theme.css", ".theirs {}\n");
     write(&a, "packages/web/package.json", "{}\n");
+    let app = "import \"@app/shared/Token.sol\";\nimport \"lib/Lib.sol\";\n";
+    write(&a, "packages/web/App.sol", app);
+    write(
+        &a,
+        "packages/web/app.css",
+        "@import \"@app/shared/theme.css\";\n",
+    );
     c.commit("a", ".gitignore", ".venv/\nnode_modules/\n");
     c.git("a", &["push", "-q", "origin", "feat1"]);
     let b = c.b();
-    write(&b, "packages/shared/index.ts", "mine\n");
-    write(&b, "node_modules/lib/index.js", "lib\n");
-    link("../../packages/shared", b.join("node_modules/@app/shared"));
+    write(&b, "packages/shared/Token.sol", "contract Mine {}\n");
+    write(&b, "packages/shared/theme.css", ".mine {}\n");
+    write(&b, "node_modules/lib/Lib.sol", "contract Lib {}\n");
     link(
         "../../../shared",
         b.join("packages/web/node_modules/@app/shared"),
     );
-    link(
-        "../../../node_modules/lib",
-        b.join("packages/web/node_modules/lib"),
-    );
     let (folder, _) = c.open("feat1");
-    let read = |f: &str| std::fs::read_to_string(folder.join(f)).unwrap_or_default();
-    let files = [
-        "node_modules/@app/shared/index.ts",
-        "packages/web/node_modules/@app/shared/index.ts",
-        "node_modules/lib/index.js",
-        "packages/web/node_modules/lib/index.js",
-        "node_modules/added/index.js",
-    ];
-    assert_eq!(
-        files.map(read),
-        ["theirs\n", "theirs\n", "lib\n", "lib\n", ""],
-        "a workspace package is the reviewed branch's, a dependency your checkout's"
+    let mut a = App::new(
+        folder.clone(),
+        crate::tree::from_listing(&[PathBuf::from("packages/web/app.css")]),
+        Vec::new(),
+        Buffer::load(&folder.join("packages/web/app.css")).unwrap(),
+        None,
     );
-    write(&b, "node_modules/added/index.js", "added\n");
-    assert_eq!(c.open("feat1").0, folder);
+    let mut place = |file: &str, code: &str| {
+        d_on(&mut a, file, code);
+        match shown(&mut a) {
+            Shown::Jump(_, place) => place,
+            Shown::Picker(status, _) => status,
+        }
+    };
     assert_eq!(
-        files.map(read),
-        ["theirs\n", "theirs\n", "lib\n", "lib\n", "added\n"],
-        "a reused folder keeps its links and gets the ones you installed since"
+        [
+            place("packages/web/App.sol", "Token"),
+            place("packages/web/app.css", "theme"),
+            place("packages/web/App.sol", "Lib.sol"),
+        ],
+        [
+            "packages/shared/Token.sol:1",
+            "packages/shared/theme.css:1",
+            "node_modules/lib/Lib.sol:1"
+        ],
+        "a workspace package is the reviewed branch's, a dependency your checkout's"
     );
 }
