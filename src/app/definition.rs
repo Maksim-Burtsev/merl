@@ -488,7 +488,7 @@ impl App {
             let head = search::ts_method_head(word);
             found.retain(|c| {
                 !search::ts_call_statement(&head, &c.hit.text, c.hit.line1, || {
-                    self.text_of(&c.hit.path)
+                    self.hit_text(&c.hit)
                 })
             });
             let called = search::definition_word(Some(kind), self.line_str(), self.col)
@@ -522,7 +522,7 @@ impl App {
                     && !Regex::new(r"\b(?:extends|implements)\b")
                         .is_ok_and(|re| re.is_match(&c.hit.text))
                     && self
-                        .text_of(&c.hit.path)
+                        .hit_text(&c.hit)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
                 let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
                     && !self.doc_tag(kind, &c.hit)
