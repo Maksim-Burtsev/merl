@@ -662,7 +662,9 @@ pub fn jvm_declared_type(line: &str, name: &str, kotlin: bool) -> Option<String>
         ]
     } else {
         vec![
-            format!(r"(?:^|[\s(,<]){ty}{GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"),
+            format!(
+                r"(?:^|[\s(,<])((?:[a-z]\w*\.)*[A-Z]\w*(?:\.[A-Z]\w*)*){GENERIC}(?:\s*\.\.\.)?\s+{n}\s*(?:[=;,:)]|&&|$)"
+            ),
             format!(r"\bvar\s+{n}\s*=\s*new\s+{ty}{GENERIC}\s*\("),
             format!(r"\bvar\s+{n}\s*=\s*\(\s*{ty}{GENERIC}\s*\)\s*[\w(]"),
         ]

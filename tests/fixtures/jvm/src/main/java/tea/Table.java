@@ -20,7 +20,7 @@ public class Table {
 
     public int old(tea.stale.Kettle stale, Teapot pot) {
         return stale.pour(1) + new Kettle(2).serve() + pot.rinse();
-        //           ^ d: picker src/main/java/tea/Kettle.java:22, src/main/java/tea/Kettle.java:53, src/main/java/tea/Teapot.java:4, src/main/java/tea/Teapot.java:12, src/main/java/tea/stale/Kettle.java:4; want src/main/java/tea/stale/Kettle.java:4 (#966)
+        //           ^ d: src/main/java/tea/stale/Kettle.java:4
         //                         ^ d: src/main/java/tea/Kettle.java:16
         //                                   ^ d: src/main/java/tea/Kettle.java:32
         //                                                 ^ d: src/main/java/tea/Teapot.java:17
