@@ -94,7 +94,9 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
     let gap = if app.buf.path.is_some() {
         "  "
     } else {
-        spans.iter_mut().for_each(|s| s.content = "".into());
+        for s in &mut spans {
+            s.content = "".into();
+        }
         ""
     };
     if app.conflict {
@@ -124,20 +126,28 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         (area.width as usize).saturating_sub(rest),
     )
     .into();
-    if let Some((_, len)) = app.message_path.as_ref().filter(|(m, _)| *m == app.message) {
-        let before = spans[..spans.len() - 1]
-            .iter()
-            .map(|s| wrap::width(&s.content))
-            .sum::<usize>();
-        let room = (area.width as usize).saturating_sub(before + gap.len());
-        let (name, why) = app.message.split_at(*len);
-        let name = fit_path(name, room.saturating_sub(wrap::width(why)));
-        spans.last_mut().expect("the bar has spans").content = format!("{gap}{name}{why}").into();
-    }
+    fit_message_path(app, &mut spans, gap, area.width as usize);
     frame.render_widget(Paragraph::new(Line::from(spans)).style(style), area);
     if let Some((time, w)) = clock {
         draw_clock(frame, time, w, style, area);
     }
+}
+
+fn fit_message_path(app: &App, spans: &mut [Span], gap: &str, width: usize) {
+    let Some((_, len)) = app.message_path.as_ref().filter(|(m, _)| *m == app.message) else {
+        return;
+    };
+    let Some((last, before)) = spans.split_last_mut() else {
+        return;
+    };
+    let before = before
+        .iter()
+        .map(|s| wrap::width(&s.content))
+        .sum::<usize>();
+    let room = width.saturating_sub(before + gap.len());
+    let (name, why) = app.message.split_at(*len);
+    let name = fit_path(name, room.saturating_sub(wrap::width(why)));
+    last.content = format!("{gap}{name}{why}").into();
 }
 
 fn draw_clock(frame: &mut Frame, time: &str, w: usize, style: Style, area: Rect) {
