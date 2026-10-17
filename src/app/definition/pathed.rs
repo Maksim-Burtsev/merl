@@ -188,7 +188,15 @@ impl App {
     ) -> Vec<Candidate> {
         let (kind, word, sep, path) = (a.kind, &a.word, q.sep, &q.path);
         let (answer_files, mine) = (&q.answer_files, &q.mine);
-        let full = format!("{path}{sep}{word}");
+        let real = (kind == Kind::C)
+            .then(|| search::cpp_namespace_alias(&search::c_code(&a.text), &a.chain[0]))
+            .flatten();
+        let full = match real {
+            Some(real) => [&real[..], &a.chain[1..], std::slice::from_ref(word)]
+                .concat()
+                .join(sep),
+            None => format!("{path}{sep}{word}"),
+        };
         let starts_with_project_module = sep != "." && self.names_module(&a.chain[0]);
         hits.into_iter()
             .filter(|h| {

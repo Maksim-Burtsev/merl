@@ -30,7 +30,7 @@ namespace bt = infuse;
 
 int once_more() {
   bt::Kettle k(3);
-  //  ^ d: picker include/tea/kettle.hh:11, include/tea/kettle.hh:41; want include/tea/kettle.hh:11 (#943)
+  //  ^ d: include/tea/kettle.hh:11
   bt::Urn urn;
   return k.topup() + urn.serve() + urn.rinse() + Tin<int>{}.seal();
   //                     ^ d: include/tea/kettle.hh:31
