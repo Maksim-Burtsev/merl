@@ -116,6 +116,10 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   resolved, runs the two tests that own them and writes and stages the measured values. When
   several branches wait, a separate integrator agent keeps the conflicts out of your context.
   After each merge of a language or of master, `tests/smoke/run.py --golden` on the epic.
+  Before merging, `git diff --stat EPIC...BRANCH` lists only files the task needs: an agent
+  that squashed or rebased on a stale tree can roll other files back without a conflict, and
+  on 2026-10-17 a Ruby branch put back `src/git.rs` from before #973's guard against deleting
+  the user's files.
 - **Own-PR issues.** The agent opens its PR, with before/after screencasts when it is visible
   (then under `needs-owner`), and reviews it with Punchcard once itself. An invisible PR then
   gets `gh pr merge --squash --auto`: GitHub merges it when CI is green, and nobody waits on CI.
@@ -134,8 +138,11 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   one background `gh pr checks --watch` on it; a red check gets a fixer agent.
 - **While the epic closes.** Tasks still waiting do not wait for it: from the moment the epic PR
   is opened, they go into `epic/agent-ok-<date>-2`, cut from the epic, with the free agents.
-  Merge the epic's last commit into it before the squash, and origin/master after: the same
-  changes on both sides merge clean. It then closes as an epic of its own.
+  Merge the epic's last commit into it before the squash, and origin/master after. Lines the
+  second epic changed again conflict with the squash; take each such file as
+  `git merge-file OURS EPIC'S-LAST THEIRS` (the first epic's last version as the base), and
+  check that only the files master changed after the first epic moved. It then closes as an
+  epic of its own.
 - **The owner's call.** A Punchcard finding that asks whether a change is the owner's call is
   never answered by you or an implementer: that change leaves the epic or the PR, into its own
   PR under `needs-owner` with a before/after screencast, or it is reverted. On 2026-10-02 a
