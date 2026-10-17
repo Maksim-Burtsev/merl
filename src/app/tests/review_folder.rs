@@ -216,3 +216,56 @@ fn a_sweep_removes_aged_and_gone_folders_but_never_an_open_one() {
         1
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn a_folder_s_workspace_packages_are_its_own_and_only_dependencies_are_yours() {
+    let c = Clones::new("workspace");
+    let write = |at: &Path, f: &str, text: &str| {
+        std::fs::create_dir_all(at.join(f).parent().unwrap()).unwrap();
+        std::fs::write(at.join(f), text).unwrap();
+    };
+    let link = |to: &str, at: PathBuf| {
+        std::fs::create_dir_all(at.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(to, at).unwrap();
+    };
+    let a = c.dir.join("a");
+    c.git("a", &["switch", "-q", "feat1"]);
+    write(&a, "packages/shared/index.ts", "theirs\n");
+    write(&a, "packages/web/package.json", "{}\n");
+    c.commit("a", ".gitignore", ".venv/\nnode_modules/\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let b = c.b();
+    write(&b, "packages/shared/index.ts", "mine\n");
+    write(&b, "node_modules/lib/index.js", "lib\n");
+    link("../../packages/shared", b.join("node_modules/@app/shared"));
+    link(
+        "../../../shared",
+        b.join("packages/web/node_modules/@app/shared"),
+    );
+    link(
+        "../../../node_modules/lib",
+        b.join("packages/web/node_modules/lib"),
+    );
+    let (folder, _) = c.open("feat1");
+    let read = |f: &str| std::fs::read_to_string(folder.join(f)).unwrap_or_default();
+    let files = [
+        "node_modules/@app/shared/index.ts",
+        "packages/web/node_modules/@app/shared/index.ts",
+        "node_modules/lib/index.js",
+        "packages/web/node_modules/lib/index.js",
+        "node_modules/added/index.js",
+    ];
+    assert_eq!(
+        files.map(read),
+        ["theirs\n", "theirs\n", "lib\n", "lib\n", ""],
+        "a workspace package is the reviewed branch's, a dependency your checkout's"
+    );
+    write(&b, "node_modules/added/index.js", "added\n");
+    assert_eq!(c.open("feat1").0, folder);
+    assert_eq!(
+        files.map(read),
+        ["theirs\n", "theirs\n", "lib\n", "lib\n", "added\n"],
+        "a reused folder keeps its links and gets the ones you installed since"
+    );
+}
