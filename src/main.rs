@@ -33,11 +33,12 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use clap::Parser;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use ratatui::crossterm::cursor::{SetCursorStyle, Show};
+use ratatui::crossterm::cursor::{MoveTo, SetCursorStyle, Show};
 use ratatui::crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
+use ratatui::crossterm::terminal::{Clear, ClearType};
 use ratatui::crossterm::{execute, terminal};
 
 use crate::app::{App, Focus, Mode};
@@ -364,17 +365,23 @@ fn quit_on_signals(quit: Sender<Msg>) {
 }
 
 fn leave_terminal(keyboard: &KeyboardQueried) {
-    if keyboard.enhanced {
-        drop(execute!(stdout(), PopKeyboardEnhancementFlags));
-    }
-    drop(execute!(
-        stdout(),
-        SetCursorStyle::DefaultUserShape,
-        DisableBracketedPaste
-    ));
+    undo_what_merl_set(&mut stdout(), keyboard);
     ratatui::restore();
     let show_cursor_the_last_frame_hid = Show;
     drop(execute!(stdout(), show_cursor_the_last_frame_hid));
+}
+
+fn undo_what_merl_set(out: &mut impl Write, keyboard: &KeyboardQueried) {
+    if keyboard.enhanced {
+        drop(execute!(out, PopKeyboardEnhancementFlags));
+    }
+    drop(execute!(
+        out,
+        SetCursorStyle::DefaultUserShape,
+        DisableBracketedPaste,
+        Clear(ClearType::All),
+        MoveTo(0, 0)
+    ));
 }
 
 fn remove_sample_project_and_print_drill(tutor: &Tutor) {
@@ -868,6 +875,17 @@ mod tests {
         assert_eq!(super::base64(b"fo"), "Zm8=");
         assert_eq!(super::base64(b"foo"), "Zm9v");
         assert_eq!(super::base64("hi\nтам".as_bytes()), "aGkK0YLQsNC8");
+    }
+
+    #[test]
+    fn leaving_clears_the_screen_and_homes_the_cursor_for_a_terminal_without_alternate_screen() {
+        for enhanced in [false, true] {
+            let mut out = Vec::new();
+            super::undo_what_merl_set(&mut out, &super::KeyboardQueried { enhanced });
+            let out = String::from_utf8(out).unwrap();
+            assert!(out.ends_with("\x1b[2J\x1b[1;1H"), "{out:?}");
+            assert_eq!(out.starts_with("\x1b[<1u"), enhanced, "{out:?}");
+        }
     }
 
     #[test]
