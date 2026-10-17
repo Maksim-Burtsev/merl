@@ -310,6 +310,9 @@ pub fn ts_merged_namespace(text: &str, line1: usize, word: &str) -> Vec<usize> {
     out
 }
 pub fn ts_var_again(text: &str, first: usize, name: &str) -> Vec<usize> {
+    static OPENS_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\b|=>").expect("the regex is a literal")
+    });
     let var = Regex::new(&format!(r"^\s*var\s+{}\b", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
     let lines: Vec<&str> = text.lines().collect();
@@ -325,6 +328,9 @@ pub fn ts_var_again(text: &str, first: usize, name: &str) -> Vec<usize> {
     let blocks_only = |i: usize| {
         let mut depth = indent(lines[i]);
         (f + 1..i).rev().filter(|&j| !skipped(j)).all(|j| {
+            if OPENS_FUNCTION.is_match(lines[j]) {
+                return false;
+            }
             if indent(lines[j]) >= depth {
                 return true;
             }

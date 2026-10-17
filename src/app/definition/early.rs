@@ -297,7 +297,11 @@ impl App {
         }
         if kind == Kind::TsJs && matches!(a.chain.join(".").as_str(), "exports" | "module.exports")
         {
-            let lines = search::cjs_exported_lines(&a.text, &a.word);
+            let literal = search::literal_lines(kind, &a.text);
+            let lines: Vec<usize> = search::cjs_exported_lines(&a.text, &a.word)
+                .into_iter()
+                .filter(|&n| literal.get(n - 1) != Some(&true))
+                .collect();
             if !lines.is_empty() {
                 let found = self.lines_here(a, lines, &Reason::Path(a.chain.join(".")));
                 return self.show_found(a, found);
@@ -306,7 +310,11 @@ impl App {
         if search::reads_jsdoc(kind, &a.here)
             && a.chain.is_empty()
             && !a.dotted
-            && search::jsdoc_braced_at(self.line_str(), a.range.clone())
+            && search::jsdoc_braced_at(
+                self.line_str(),
+                a.range.clone(),
+                search::literal_lines(kind, &a.text).get(self.line) == Some(&true),
+            )
         {
             let found: Vec<Hit> = match &search::jsdoc_typedefs(&a.text, &a.word)[..] {
                 [] => self
@@ -319,14 +327,16 @@ impl App {
                     .map(|t| self.line_hit(&a.here, t.line1))
                     .collect(),
             };
-            let found = found
-                .into_iter()
-                .map(|hit| Candidate {
-                    hit,
-                    reason: Reason::Path("JSDoc".to_owned()),
-                })
-                .collect();
-            return self.show_found(a, found);
+            if !found.is_empty() {
+                let found = found
+                    .into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Path("JSDoc".to_owned()),
+                    })
+                    .collect();
+                return self.show_found(a, found);
+            }
         }
         if kind == Kind::Python
             && let Some(module) = search::python_import_module(self.line_str(), a.range.start)

@@ -222,12 +222,13 @@ pub fn jsdoc_properties(lines: &[&str], line0: usize, name: &str) -> Option<Vec<
     }
     Some(out)
 }
-pub fn jsdoc_braced_at(line: &str, word: Range<usize>) -> bool {
+pub fn jsdoc_braced_at(line: &str, word: Range<usize>, in_comment: bool) -> bool {
     let t = line.trim_start();
     let (Some(before), Some(after)) = (line.get(..word.start), line.get(word.end..)) else {
         return false;
     };
-    (t.starts_with("/**") || (t.starts_with('*') && !t.starts_with("*/")))
+    (t.starts_with("/**") || (in_comment && t.starts_with('*') && !t.starts_with("*/")))
+        && !before.contains("*/")
         && before.rfind('{') > before.rfind('}')
         && after
             .find('}')
