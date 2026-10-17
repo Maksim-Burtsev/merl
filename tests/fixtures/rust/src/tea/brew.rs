@@ -71,7 +71,7 @@ pub fn reexports() -> u32 {
 
 pub fn generated() -> u32 {
     let c = super::kettle::Caddy;
-//                         ^ d: none; want src/tea/kettle.rs:66 (#990)
+//                         ^ d: src/tea/kettle.rs:66
     c.rinse()
 //    ^ d: src/tea/kettle.rs:59
 }

@@ -1191,6 +1191,66 @@ impl App {
         }])
     }
 
+    pub(super) fn rust_macro_declared(&self, word: &str) -> Vec<Candidate> {
+        static MATCHER: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"^\s*[(\[{]\s*\$(\w+)\s*:\s*ident\b").expect("the regex is a literal")
+        });
+        if !word.starts_with(|c: char| c.is_alphabetic() || c == '_') {
+            return Vec::new();
+        }
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        let call = format!(r"^\s*(\w+)!\s*[(\[{{]\s*{}\b", regex::escape(word));
+        let Ok(call_re) = Regex::new(&call) else {
+            return Vec::new();
+        };
+        let declares = |m: &str| {
+            let rules = format!(
+                r"^\s*(?:#\[[^\]]*\]\s*)*macro_rules!\s*{}\b",
+                regex::escape(m)
+            );
+            let [h] = &self.grep(&rules, false, false, rs).unwrap_or_default()[..] else {
+                return false;
+            };
+            let Some(t) = self.text_of(&h.path) else {
+                return false;
+            };
+            let lines: Vec<&str> = t.lines().collect();
+            let depth = lines[h.line1 - 1].len() - lines[h.line1 - 1].trim_start().len();
+            let body: Vec<&str> = lines[h.line1..]
+                .iter()
+                .take_while(|l| l.trim().is_empty() || l.len() - l.trim_start().len() > depth)
+                .copied()
+                .collect();
+            let Some(x) = body
+                .iter()
+                .find(|l| !l.trim().is_empty())
+                .and_then(|l| MATCHER.captures(l))
+            else {
+                return false;
+            };
+            Regex::new(&format!(
+                r"\b(?:struct|enum|union|fn|trait|type|mod|const|static)\s+\${}\b",
+                &x[1]
+            ))
+            .is_ok_and(|re| body.iter().any(|l| re.is_match(l)))
+        };
+        self.grep(&call, false, false, rs)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
+                }) && call_re
+                    .captures(&h.text)
+                    .is_some_and(|c| c[1] != *"macro_rules" && declares(&c[1]))
+            })
+            .map(|hit| Candidate {
+                reason: Reason::ByName,
+                hit,
+            })
+            .collect()
+    }
+
     fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
         let decl = search::rust_type_decl_pattern(&ty.name);
