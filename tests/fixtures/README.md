@@ -401,9 +401,9 @@ template literal.
 `exports.darken = function` and `exports.Roaster = class`, a destructured and renamed `require`,
 an anonymous `export default function`, a getter, a class field beside a method of its name in
 another class, in the same one (also static, named like a prefix of `static`, beside a static
-method read through `this`, and inherited by a subclass), a `var` declared
-twice, a function called above its declaration, a JSDoc `@typedef`, and declaration-shaped lines
-in a template literal and comments.
+method read through `this`, declared after the method, and inherited by a subclass), a `var`
+declared twice, a function called above its declaration, a JSDoc `@typedef`, and
+declaration-shaped lines in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).

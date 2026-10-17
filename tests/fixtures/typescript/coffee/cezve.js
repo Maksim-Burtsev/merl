@@ -61,3 +61,11 @@ export class Samovar {
     //          ^ d: coffee/cezve.js:55
   }
 }
+
+export class Dallah {
+  decant() {
+    return 5;
+  }
+
+  decant = 6;
+}

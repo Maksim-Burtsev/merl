@@ -602,21 +602,31 @@ impl App {
     }
 
     pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
-        let members = self.own_member(kind, t, word)?;
-        let field = (kind == Kind::TsJs)
-            .then(|| self.field_of(kind, t, word, false))
-            .flatten();
-        let shadows = |f: &Hit| {
+        if kind != Kind::TsJs {
+            return self.own_member(kind, t, word);
+        }
+        let mut members = self.members_of(kind, t, word);
+        let field = self.field_of(kind, t, word, false);
+        if members.is_empty() {
+            return field.map(|hit| vec![hit]);
+        }
+        let Some(field) = field.filter(|f| {
             !ts_modifiers(&f.text).any(|m| matches!(m, "static" | "get" | "set"))
                 && members.iter().all(|m| {
                     (m.path != f.path || m.line1 != f.line1)
                         && !ts_modifiers(&m.text).any(|m| m == "static")
                 })
+        }) else {
+            return Some(members);
         };
-        match field {
-            Some(field) if shadows(&field) => Some(vec![field]),
-            _ => Some(members),
+        if members
+            .iter()
+            .all(|m| m.path == field.path && m.line1 > field.line1)
+        {
+            return Some(vec![field]);
         }
+        members.push(field);
+        Some(members)
     }
 
     pub(super) fn above(
