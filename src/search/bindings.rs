@@ -1036,6 +1036,8 @@ fn go_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
         &format!(r"^for\s+[A-Za-z_]\w*\s*,\s*{n}\s*:=\s*range\s+([A-Za-z_]\w*)\s*\{{"),
     ) {
         out.push(b);
+    } else if let Some(value) = go_header_init(header, name) {
+        out.push(Binding { line1: line, value });
     } else if GO_ASSIGN.captures_iter(header).any(|c| names(&c[1], name)) {
         out.push(unknown(line));
     }
@@ -1168,6 +1170,29 @@ fn return_type(before: &str) -> bool {
     }
     false
 }
+static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
+        .expect("the regex is a literal")
+});
+fn go_header_init(header: &str, name: &str) -> Option<Value> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\belse\s+)if\s+").expect("the regex is a literal")
+    });
+    let (names, values, at) = HEAD.find_iter(header).find_map(|m| {
+        let [init, _, ..] = split_top(Kind::Go, header.get(m.end()..)?, b';')[..] else {
+            return None;
+        };
+        let c = GO_SHORT.captures(init.trim())?;
+        let at = c[1].split(',').position(|n| n.trim() == name)?;
+        Some((c.get(1)?.as_str(), c.get(2)?.as_str(), at))
+    })?;
+    let e = go_assigned(names, values, at)?.trim();
+    let e = match e.strip_prefix('(').and_then(|i| i.strip_suffix(')')) {
+        Some(inner) if close_of(Kind::Go, e, 0) == Some(e.len()) => inner,
+        _ => e,
+    };
+    Some(value_of(Kind::Go, e))
+}
 fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
     let parts = split_top(Kind::Go, values, b',');
     match parts.get(at) {
@@ -1203,10 +1228,6 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
     }
 }
 fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
-    static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:=\s*(.*)$")
-            .expect("the regex is a literal")
-    });
     static GO_VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
             r"^var\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)(?:\s+([^=]+?))?\s*(?:=\s*(.*))?$",
