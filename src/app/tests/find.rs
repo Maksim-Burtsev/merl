@@ -225,6 +225,44 @@ fn esc_restores_the_anchor() {
 }
 
 #[test]
+fn a_word_that_stops_matching_puts_the_cursor_and_view_back_where_find_started() {
+    let mut text: String = (0..40).map(|i| format!("line {i}\n")).collect();
+    text.push_str("build_redirect_request()\n");
+    let mut a = app(&text);
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+    a.line = 8;
+    a.col = 2;
+    let start = (a.line, a.col, a.top_line, a.top_row, a.left);
+    find(&mut a, "build_redirect_reque");
+    a.clamp_scroll();
+    assert_eq!((a.line, a.col), (40, 0), "the letters typed so far match");
+    typed(&mut a, "ts");
+    a.clamp_scroll();
+    assert_eq!(
+        (
+            a.line,
+            a.col,
+            a.top_line,
+            a.top_row,
+            a.left,
+            a.message.as_str()
+        ),
+        (start.0, start.1, start.2, start.3, start.4, "no match"),
+        "a typo puts cursor and view back where `/` was pressed (#895)"
+    );
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (40, 0), "fixing the word finds it again");
+    typed(&mut a, "tz");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Normal, start.0, start.1),
+        "Enter on `no match` leaves the cursor where `/` was pressed"
+    );
+}
+
+#[test]
 fn the_query_is_capped_so_it_always_compiles() {
     let mut a = app("яяя\n");
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
