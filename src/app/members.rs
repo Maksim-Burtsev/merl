@@ -116,7 +116,8 @@ impl App {
             Kind::Php => search::php_tag_class(&lines, hit.line1 - 1).is_some(),
             Kind::TsJs => {
                 search::reads_jsdoc(kind, &hit.path)
-                    && search::jsdoc_owner(&lines, hit.line1 - 1).is_some()
+                    && (search::jsdoc_owner(&lines, hit.line1 - 1).is_some()
+                        || search::jsdoc_typedef_line(lines[hit.line1 - 1]))
             }
             _ => false,
         }

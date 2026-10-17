@@ -393,7 +393,7 @@ impl App {
             .find_map(|f| Some((f.clone(), search::module_exports(&self.text_of(f)?)?)))
     }
 
-    fn export_hit(&self, file: &Path, line: usize) -> Hit {
+    pub(super) fn export_hit(&self, file: &Path, line: usize) -> Hit {
         Hit {
             deleted: None,
             text: self

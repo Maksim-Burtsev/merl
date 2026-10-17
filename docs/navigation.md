@@ -403,7 +403,9 @@ the type before it. The type comes from the declaration:
   require("./repo")` is a type too. The type in the braces is one name, `?T` and `T|null` read
   as `T`, `T[]` and `Array<T>` hand out `T` to a loop; a union of two types, another generic, an
   inline object or function type, `*`, `any`, a block with a blank line under it and a
-  `@typedef` its file declares twice type nothing. A `.ts` file's JSDoc is not read.
+  `@typedef` its file declares twice type nothing. A `.ts` file's JSDoc is not read. `d` on a
+  name inside the braces of a JSDoc line (#1002) lands on the file's `@typedef` of that name, any
+  type, else on the type it reads as; a name nothing declares or imports finds nothing.
 - A constructor function in a `.js`, `.jsx`, `.mjs` or `.cjs` file (#1001): `function Grinder(…)`
   is a type there, and so is a class assigned to `exports.Roaster`. A member of its instance is a
   `this.name = …` statement directly in its body, else a `Grinder.prototype.name = …` of its

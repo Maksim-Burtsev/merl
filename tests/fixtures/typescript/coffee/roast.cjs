@@ -17,7 +17,7 @@ exports.Roaster = class Roaster {
  */
 
 /** @param {Bean} bean */
-//          ^ d: none; want coffee/roast.cjs:14 (#1002)
+//          ^ d: coffee/roast.cjs:14
 function measure(bean) {
   return bean.scoops + exports.darken(1);
   //          ^ d: coffee/roast.cjs:16
