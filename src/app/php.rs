@@ -70,6 +70,33 @@ impl App {
         {
             return Some(found);
         }
+        if let Some(written) = self
+            .line_str()
+            .get(..range.start)
+            .and_then(search::php_new_receiver)
+        {
+            let class = self.php_type(here, text, self.line, &written)?;
+            let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
+            let Walk::Found(hits) = self.php_walk(
+                &class.path,
+                &class.text,
+                class.header0,
+                &re,
+                0,
+                &mut Vec::new(),
+            ) else {
+                return None;
+            };
+            let reason = Reason::Receiver(format!("new {written}"));
+            return Some(
+                hits.into_iter()
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: reason.clone(),
+                    })
+                    .collect(),
+            );
+        }
         if let Some(found) = self.php_function(here, text, range.clone()) {
             return Some(found);
         }
@@ -380,7 +407,7 @@ impl App {
             let link = format!("$this->{field}: {}", Self::php_class_name(&class)?);
             (class, vec![link], rest)
         } else {
-            let ProvenClass { class, link } = self.php_variable_type(here, text, head)?;
+            let ProvenClass { class, link } = self.php_variable_type(here, text, head, self.line)?;
             (class, vec![link], fields)
         };
         for field in rest {
@@ -433,17 +460,50 @@ impl App {
         (matching.len() == 1).then(|| matching.remove(0))
     }
 
-    fn php_variable_type(&mut self, here: &Path, text: &str, name: &str) -> Option<ProvenClass> {
+    fn php_variable_type(
+        &mut self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        line0: usize,
+    ) -> Option<ProvenClass> {
         let lines: Vec<&str> = text.lines().collect();
         let mut found: Option<ProvenClass> = None;
-        for b in search::php_variable(text, self.line + 1, name)? {
+        let bound = search::php_variable(text, line0 + 1, name)?;
+        let bound = match bound.iter().rposition(|&b| b <= line0) {
+            Some(i) if search::php_last_binding(text, bound[i] - 1, line0, name) => {
+                bound[i..].to_vec()
+            }
+            _ => bound,
+        };
+        for b in bound {
             let at = b - 1;
             let statement = lines[at..lines.len().min(at + 20)].join("\n");
-            let binding = search::php_binding(&statement, name)?;
-            if at == self.line && !matches!(binding, search::PhpBinding::Type(_)) {
+            let binding = if search::php_captures(lines[at], name) {
+                search::PhpBinding::Captured
+            } else {
+                search::php_binding(&statement, name)?
+            };
+            if at == line0
+                && !matches!(
+                    binding,
+                    search::PhpBinding::Type(_) | search::PhpBinding::Captured
+                )
+            {
                 continue;
             }
             let (class, call) = match binding {
+                search::PhpBinding::Captured => {
+                    let ProvenClass { class, link } =
+                        self.php_variable_type(here, text, name, at.checked_sub(1)?)?;
+                    (class, Some(link))
+                }
+                search::PhpBinding::ThisProperty(field) => {
+                    let own = Self::php_self(here, text, at)?;
+                    let class = self.php_property_type(&own, &field)?;
+                    let link = format!("$this->{field}: {}", Self::php_class_name(&class)?);
+                    (class, Some(link))
+                }
                 search::PhpBinding::Type(t) | search::PhpBinding::New(t) => {
                     (self.php_type(here, text, at, &t)?, None)
                 }

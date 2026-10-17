@@ -38,7 +38,7 @@ final class Table
         return $old->pour() + (new OldKettle())->pour() + steep(3);
         //           ^ d: src/Tea/Stale/Kettle.php:7
         //                         ^ d: src/Tea/Stale/Kettle.php:5
-        //                                       ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Stale/Kettle.php:7 (#956)
+        //                                       ^ d: src/Tea/Stale/Kettle.php:7
         //                                                ^ d: src/Tea/Stale/functions.php:5
     }
 
@@ -55,7 +55,7 @@ final class Table
         $vessel = new Kettle();
         $vessel = new Teapot();
         return $vessel->pour(1);
-        //              ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Teapot.php:12 (#956)
+        //              ^ d: src/Tea/Teapot.php:12
     }
 
     public function steeped(): int
@@ -81,7 +81,7 @@ final class Table
         //                             ^ d: src/Tea/Kettle.php:11
         $g = function () use ($pot) {
             return $pot->pour(2);
-            //           ^ d: picker src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Teapot.php:12 (#956)
+            //           ^ d: src/Tea/Teapot.php:12
         };
         return $f($this->kettle) + $g();
     }

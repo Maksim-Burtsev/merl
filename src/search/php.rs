@@ -385,6 +385,17 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
     Some(PhpResolved { full, imported })
 }
 
+pub fn php_new_receiver(before: &str) -> Option<String> {
+    static NEW: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$>:])\(\s*new\s+([\w\\]+)\s*(?:\([^()]*\))?\s*\)\s*(?:\?->|->)\s*$")
+            .expect("the regex is a literal")
+    });
+    let written = NEW.captures(before)?.get(1)?.as_str();
+    let short = written.rsplit('\\').next().unwrap_or(written);
+    (!NO_CLASS.contains(&short.to_ascii_lowercase().as_str()) && short != "class")
+        .then(|| written.to_owned())
+}
+
 pub fn php_function_at(line: &str, range: Range<usize>) -> Option<String> {
     let (before, word, after) = (
         line.get(..range.start)?,
@@ -551,6 +562,55 @@ pub enum PhpBinding {
     StaticCall { class: String, method: String },
     ThisCall(String),
     FunctionCall(String),
+    ThisProperty(String),
+    Captured,
+}
+
+pub fn php_captures(line: &str, name: &str) -> bool {
+    static USE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bfunction\b[^{]*\buse\s*\(([^)]*)\)").expect("the regex is a literal")
+    });
+    let var = format!("${name}");
+    USE.captures(&php_code(line))
+        .is_some_and(|c| c[1].split(',').any(|item| item.trim() == var))
+}
+
+pub fn php_last_binding(text: &str, from: usize, to: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Php, text);
+    let Some(own) = lines.get(from).map(|l| php_code(l)) else {
+        return false;
+    };
+    let own = own.trim();
+    let assigns = own
+        .strip_prefix(&format!("${name}"))
+        .is_some_and(|rest| rest.trim_start().starts_with('=') && !rest.trim_start().starts_with("=="));
+    let opens_statement = (0..from)
+        .rev()
+        .filter(|&i| literal.get(i) != Some(&true))
+        .map(|i| php_code(lines[i]).trim().to_owned())
+        .find(|l| !l.is_empty())
+        .is_none_or(|l| l.ends_with([';', '{', '}']));
+    if !assigns || !opens_statement || !own.ends_with(';') || from >= to {
+        return false;
+    }
+    let mut depth = 0i32;
+    for i in from + 1..to.min(lines.len()) {
+        if literal.get(i) == Some(&true) {
+            continue;
+        }
+        for c in php_code(lines[i]).bytes() {
+            match c {
+                b'{' => depth += 1,
+                b'}' => depth -= 1,
+                _ => {}
+            }
+            if depth < 0 {
+                return false;
+            }
+        }
+    }
+    depth == 0
 }
 
 const NO_CLASS: &[&str] = &[
@@ -654,6 +714,11 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         let lower = class.to_ascii_lowercase();
         return (lower != "static" && lower != "class" && lower != "parent")
             .then_some(PhpBinding::New(class));
+    }
+    static PROPERTY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*;").expect("the regex is a literal"));
+    if let Some(c) = PROPERTY.captures(value) {
+        return Some(PhpBinding::ThisProperty(c[1].to_owned()));
     }
     let open = value.find('(')?;
     call_ends_statement(open)?;

@@ -1073,6 +1073,55 @@ fn php_function_call_resolves_as_php_does() {
 }
 
 #[test]
+fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
+    assert_eq!(
+        php_new_receiver("return (new OldKettle())->").as_deref(),
+        Some("OldKettle")
+    );
+    assert_eq!(php_new_receiver("(new \\A\\B($x, 1))?->").as_deref(), Some("\\A\\B"));
+    for before in ["make(new A())->", "(new static())->", "(new A())->b()->"] {
+        assert_eq!(php_new_receiver(before), None, "{before}");
+    }
+    assert!(php_captures("$g = function () use ($a, $pot) {", "pot"));
+    assert!(!php_captures("$g = function () use (&$pot) {", "pot"));
+    assert!(!php_captures("$g = function ($pot) {", "pot"));
+    assert_eq!(
+        php_binding("$pot = $this->pot;", "pot"),
+        Some(PhpBinding::ThisProperty("pot".into()))
+    );
+    assert_eq!(php_binding("$pot = $this->pot->x;", "pot"), None);
+    let text = "<?php\n\
+                function f() {\n\
+                $v = new A();\n\
+                $v = new B();\n\
+                if ($x) {\n\
+                    $w = 1;\n\
+                }\n\
+                $v->pour();\n\
+                if ($x)\n\
+                    $v = new C();\n\
+                $v->pour();\n\
+                if ($x) {\n\
+                    $v = new D();\n\
+                }\n\
+                $v->pour();\n\
+                }\n";
+    assert!(
+        php_last_binding(text, 3, 7, "v"),
+        "the last assignment above, in the cursor's block, is what $v holds"
+    );
+    assert!(
+        !php_last_binding(text, 9, 10, "v"),
+        "an assignment under an `if` with no braces may not run"
+    );
+    assert!(
+        !php_last_binding(text, 12, 14, "v"),
+        "an assignment in a block the cursor is outside of may not run"
+    );
+    assert!(!php_last_binding(text, 3, 3, "v"));
+}
+
+#[test]
 fn php_scope_roots_imports_and_names() {
     let here = Path::new("src/Invoice.php");
     assert!(in_def_scope(Kind::Php, here, Path::new("views/show.phtml")));
