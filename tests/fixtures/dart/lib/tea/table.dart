@@ -85,3 +85,13 @@ int steepFor({int minutes = 1}) => minutes;
 int timed(int minutes) => steepFor(minutes: minutes);
 //                                 ^ d: none
 //                                          ^ d: lib/tea/table.dart:85
+int timedOver(int minutes) => steepFor(
+  minutes: minutes,
+//^ d: none
+//         ^ d: lib/tea/table.dart:88
+);
+
+// A local used as a map key, or between a `?` and its `:`, is still the local.
+Map<int, int> cupsBy(int cups, bool full) => {cups: full ? cups: 0};
+//                                            ^ d: lib/tea/table.dart:95
+//                                                         ^ d: lib/tea/table.dart:95

@@ -144,6 +144,34 @@ static SHAPES: std::sync::LazyLock<Vec<Regex>> = std::sync::LazyLock::new(|| {
         .collect()
 });
 
+pub fn dart_label(text: &str, line1: usize, col: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let (mut depth, mut comma) = (0usize, false);
+    for i in (at.saturating_sub(50)..=at).rev() {
+        let code = uncommented(Kind::Dart, lines[i]);
+        let end = if i == at {
+            col.min(code.len())
+        } else {
+            code.len()
+        };
+        for c in code.get(..end).unwrap_or_default().chars().rev() {
+            match c {
+                ')' | '}' | ']' => depth += 1,
+                '(' | '{' | '[' if depth > 0 => depth -= 1,
+                '(' => return true,
+                '{' | '[' => return false,
+                '?' if depth == 0 && !comma => return false,
+                ',' if depth == 0 => comma = true,
+                _ => {}
+            }
+        }
+    }
+    false
+}
+
 pub fn dart_narrow(patterns: &mut Vec<String>, line: &str, word: std::ops::Range<usize>) {
     static CALLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:<[^()]*>)?\s*\(").expect("the regex is a literal")
