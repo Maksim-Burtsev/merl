@@ -87,8 +87,8 @@ export function drain({ water }: Recipe): number {
 export function refill(vessel: Vessel): number {
   return water + vessel.pour(vessel.volume);
   //     ^ d: tea/table.ts:80
-  //                    ^ d: picker tea/teapot.ts:15, tea/vessel.ts:6; want tea/vessel.ts:6 (#976)
-  //                                ^ d: picker tea/teapot.ts:11, tea/vessel.ts:2; want tea/vessel.ts:2 (#976)
+  //                    ^ d: tea/vessel.ts:6
+  //                                ^ d: tea/vessel.ts:2
 }
 
 export namespace Tray {
