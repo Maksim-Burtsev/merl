@@ -1,0 +1,14 @@
+wait hunk 1/1  file 1/8
+┌agent/refund ← origin/main──┐ 1▎from datetime import datetime, timedelta, timezone
+│✓   A refunds.py      +18 −0│ 2▎from decimal import Decimal
+│✓   M repos.py        +0 −28│ 3▎
+│✓   M service.py      +13 −1│ 4▎from app.models import Order, OrderStatus
+│  ▾ deploy                  │ 5▎
+│    ▾ helm                  │ 6▎
+│      ▾ orders              │ 7▎class RefundNotAllowed(Exception):
+│✓       M values.yaml  +1 −0│ 8▎    pass
+│  ▾ docs                    │ 9▎
+│    M architecture.png   bin│10▎
+└ 8 files · +59 −39 ─────────┘11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
+app/refunds.py  1:1  [code]  hunk 1/1  file 1/8                                                                                                                                    14:32
+cursor (x,y,shown) 33,0,1
