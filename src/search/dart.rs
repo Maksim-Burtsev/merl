@@ -447,6 +447,10 @@ pub(super) const DART_ACCESSOR_SYMBOL: &str = concat!(
     r"\s+)?(?:get|set)\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:=>|\{|\(|;|async\b|sync\*|$)"
 );
 
+static OPTIONAL_PARAMS_CLOSE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^[}\]]\)\s*(?:async\*?|sync\*)?\s*(?:\{|=>)").expect("the regex is a literal")
+});
+
 static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
@@ -487,7 +491,7 @@ pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
             continue;
         }
         let end = i;
-        if t.starts_with(')') {
+        if t.starts_with(')') || OPTIONAL_PARAMS_CLOSE.is_match(t) {
             i = (0..i)
                 .rev()
                 .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)

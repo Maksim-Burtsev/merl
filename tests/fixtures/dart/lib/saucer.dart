@@ -15,3 +15,33 @@ void wash(Saucer saucer) {
   saucer.polish();
   //     ^ d: none
 }
+
+class Glaze {
+  String? tint;
+}
+
+void fire(
+  String kiln, {
+  String? tint,
+}) {
+  for (final s in [kiln]) {
+    print(tint);
+    //    ^ d: lib/saucer.dart:25
+  }
+}
+
+void cool(
+  String kiln, [
+  String? tint,
+]) =>
+    print(tint);
+    //    ^ d: lib/saucer.dart:35
+
+void glow(Future<int> f) {
+  f.then((v) {
+    print(v);
+  }).then((w) {
+    print(w);
+    //    ^ d: lib/saucer.dart:43
+  });
+}
