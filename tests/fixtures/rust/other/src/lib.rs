@@ -17,3 +17,11 @@ impl Shine for shop::rules::Lamp {
         1
     }
 }
+
+pub struct Reel;
+
+impl Reel {
+    pub fn wind(&self) -> u32 {
+        1
+    }
+}

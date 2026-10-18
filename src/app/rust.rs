@@ -1024,9 +1024,13 @@ impl App {
             _ if !used.in_column_zero => return None,
             Some((root, rest)) if root == "crate" || root == "super" => (root.as_str(), rest),
             Some((root, _)) if declares_mod(text, root) => ("self", used.path.as_slice()),
+            Some((root, rest)) if root != "self" => (root.as_str(), rest),
             _ => return None,
         };
-        let (krate, module) = self.rust_own_crate(file, root, rest)?;
+        let (krate, module) = match root {
+            "crate" | "super" | "self" => self.rust_own_crate(file, root, rest)?,
+            _ => (self.workspace_crate(root)?, Vec::new()),
+        };
         let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
         let InCrate {
             hits, proven: true, ..

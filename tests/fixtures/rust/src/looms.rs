@@ -1,4 +1,4 @@
-//! #1045: a method called on the result of another call, on one line and one call per line; #1046: through `?`, `.unwrap()` and `.expect(..)`; #1047: `let x = x(..)`, whose right-hand `x` is the function.
+//! #1045: a method called on the result of another call, on one line and one call per line; #1046: through `?`, `.unwrap()` and `.expect(..)`; #1048: a receiver whose type another crate of the workspace declares; #1047: `let x = x(..)`, whose right-hand `x` is the function.
 
 pub struct Loom {
     width: usize,
@@ -132,4 +132,19 @@ impl Bobbin {
     pub fn twine(&self) -> usize {
         0
     }
+}
+
+use other::Reel;
+
+pub struct Winch;
+
+impl Winch {
+    pub fn wind(&self) -> u32 {
+        2
+    }
+}
+
+pub fn reeled(reel: &Reel) -> u32 {
+    reel.wind()
+    //   ^ d: other/src/lib.rs:24
 }
