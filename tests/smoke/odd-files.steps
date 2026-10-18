@@ -37,7 +37,7 @@ wait alias gs="git status"
 # A line longer than merl draws, the JSON's, ends in a dim `…` after its last drawn char, wrapped
 # at Ctrl+End and not wrapped at End (#283).
 merl data/orders.min.json
-wait [{"id":1,"customer_id":1327,"total":"853.34"
+wait M refunds-2026-08.csv
 key C-End
 wait {"i…
 key w End
@@ -77,7 +77,7 @@ wait PNG 48×32, not shown
 # Find goes to a match past the 20 KB cut of the JSON's one line, and the line is drawn on to it
 # (#888).
 merl data/orders.min.json
-wait [{"id":1,"customer_id":1327,"total":"853.34"
+wait M refunds-2026-08.csv
 key /
 type "id":3000,
 key Enter

@@ -1,4 +1,4 @@
-wait typealias Handler
+wait A Publisher.swift
 ┌orders──────────────────────┐1 struct StreamPublisher<Value: Sendable> {
 │▸ .github                   │2     typealias Handler = (Value) -> Void
 │▸ .venv                     │3 }

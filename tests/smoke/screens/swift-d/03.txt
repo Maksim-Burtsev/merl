@@ -1,4 +1,4 @@
-wait func retry(
+wait A Retry.swift
 ┌orders──────────────────────┐1 struct Stats {
 │▸ .github                   │2     let attempt: Int
 │▸ .venv                     │3 }

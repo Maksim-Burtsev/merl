@@ -1,4 +1,4 @@
-wait class SessionsController
+wait A sessions.rb
 ┌orders──────────────────────┐ 1 class SessionsController
 │▸ .github                   │ 2   def on_success(user)
 │▸ .venv                     │ 3     track(user)

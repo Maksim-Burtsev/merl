@@ -8,7 +8,7 @@ key p
 wait no preview for .py
 run printf 'id,customer,total\n1042,"Lovelace, Ada",40.00\n1077,Babbage,12.50\n' > data/refunds.csv && printf '{"id":1,"items":[{"sku":"A-1","qty":2}],"paid":true}\n{"id":2,"items":[]}\n' > data/events.jsonl && printf '{"id":1}\n{"id":\n' > data/broken.jsonl
 merl data/refunds.csv
-wait id,customer,total
+wait A refunds.csv
 key p
 wait │ 1042 │ Lovelace, Ada │ 40.00 │
 key p

@@ -1,4 +1,4 @@
-wait Outbox.cs
+wait A Outbox.cs
 ┌orders──────────────────────┐ 1 namespace Orders.Billing;
 │▸ .github                   │ 2
 │▸ .venv                     │ 3 public static class Refunds

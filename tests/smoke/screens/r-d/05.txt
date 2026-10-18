@@ -1,4 +1,4 @@
-wait R6Class
+wait A cart.R
 ┌orders──────────────────────┐ 1 source("R/money.R")
 │▸ .github                   │ 2
 │▸ .venv                     │ 3 Cart <- R6::R6Class("Cart",

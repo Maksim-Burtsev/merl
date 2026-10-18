@@ -1,4 +1,4 @@
-wait class Checkout
+wait A checkout.rb
 ┌orders──────────────────────┐1 class Checkout
 │▸ .bundle                   │2   def call(user)
 │▸ .github                   │3     if user.admin?

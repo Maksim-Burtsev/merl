@@ -7,7 +7,7 @@ run mkdir -p perlshop/lib/Shop perlshop/bin && printf 'package Shop::Order;\nuse
 key q
 wait merl exited: 0
 merl perlshop/bin/report.pl
-wait use Shop::Order
+wait A report.pl
 key /
 type new(total
 key Enter d

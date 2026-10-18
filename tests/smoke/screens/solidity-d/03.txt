@@ -1,4 +1,4 @@
-wait contract ShopToken
+wait A ShopToken.sol
 ┌orders──────────────────────┐ 1 contract ShopToken {
 │▸ .github                   │ 2     event Minted(address to, uint256 amount);
 │▸ .venv                     │ 3

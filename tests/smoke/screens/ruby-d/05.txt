@@ -1,4 +1,4 @@
-wait class Feed
+wait A feed.rb
 ┌orders──────────────────────┐1 class Feed
 │▸ .github                   │2   def call
 │▸ .venv                     │3     Account.recent

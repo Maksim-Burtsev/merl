@@ -7,13 +7,13 @@ run mkdir -p shop/lib && printf 'name: shop\n' > shop/pubspec.yaml && printf 'St
 key q
 wait merl exited: 0
 merl shop/lib/cart.dart
-wait class Cart
+wait A cart.dart
 key /
 type formatPrice
 key Enter d
 wait formatPrice: by name, 1 match
 merl shop/lib/cart.dart
-wait class Cart
+wait A cart.dart
 key /
 type c.discount
 key Enter

@@ -85,7 +85,7 @@ run kill -HUP $($SMOKE_TMUX display -p -t 0 '#{pane_pid}')
 wait merl exited: 0
 check grep -q 'Runbook: docs/notes.md' README.md && grep -q sk_live_smoke_4242 .env && ! grep -rq sk_live_smoke "$HOME"
 merl app/money.py
-wait app/money.py  1:1
+wait A money.py
 run $SMOKE_TMUX set -s set-clipboard external
 key C-c
 wait copied 1 line

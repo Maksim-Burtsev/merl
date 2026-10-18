@@ -1,4 +1,4 @@
-wait -module(shop_order)
+wait A shop_order.erl
 ┌orders──────────────────────┐ 1 -module(shop_order).
 │▸ .github                   │ 2 -export([new/1, total/1]).
 │▸ .venv                     │ 3

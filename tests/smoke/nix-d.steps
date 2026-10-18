@@ -7,13 +7,13 @@ run mkdir -p nixshop/lib nixshop/hosts && printf '{ lib }:\n{\n  mkService = { n
 key q
 wait merl exited: 0
 merl nixshop/hosts/web.nix
-wait shopLib = import
+wait A web.nix
 key /
 type mkService
 key Enter d
 wait mkService: by name, 1 match
 merl nixshop/hosts/web.nix
-wait shopLib = import
+wait A web.nix
 key /
 type pkgs.hello
 key Enter d

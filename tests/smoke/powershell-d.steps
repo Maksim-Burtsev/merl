@@ -8,7 +8,7 @@ run mkdir -p ops/Shop && printf 'function Get-ShopUser {\n    param(\n        [P
 key q
 wait merl exited: 0
 merl ops/sync.ps1
-wait get-shopuser -Id
+wait A sync.ps1
 key /
 type get-shopuser
 key Enter d
@@ -22,7 +22,7 @@ type BaseUri/
 key Enter d
 wait BaseUri: by name, 1 match
 merl ops/sync.ps1
-wait get-shopuser -Id
+wait A sync.ps1
 key /
 type Users.psm1
 key Enter d

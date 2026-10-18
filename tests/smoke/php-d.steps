@@ -27,10 +27,10 @@ run printf '<?php\nnamespace Billing;\n\nclass Ledger\n{\n    public static func
 run printf '<?php\nnamespace Billing\\Legacy;\n\nclass Ledger\n{\n    public static function total(): int\n    {\n        return -1;\n    }\n}\n' > scripts/billing/Legacy/Ledger.php
 run printf '<?php\nnamespace Billing;\n\nuse Billing\\Legacy\\Ledger as OldLedger;\n\nfunction close(): int\n{\n    return Ledger::total() - OldLedger::total();\n}\n' > scripts/billing/Month.php
 merl scripts/billing/Month.php:8:21
-wait function close
+wait A Month.php
 key d
 wait total → Ledger::total (via Ledger)
 merl scripts/billing/Month.php:8:42
-wait function close
+wait A Month.php
 key d
 wait total → Ledger::total (via import scripts/billing/Legacy/Ledger.php)

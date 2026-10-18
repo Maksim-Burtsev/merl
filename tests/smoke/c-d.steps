@@ -8,7 +8,7 @@ run mkdir -p worker/internal/crc
 run printf '/* The CRC-32 the queue stamps on every job, in C for the cgo build. */\n#ifndef CRC_H\n#define CRC_H\n\nstruct crc_table {\n    unsigned int entries[256];\n    int ready;\n};\n\nunsigned int crc32(struct crc_table *table, const unsigned char *buf, int len);\n\n#endif\n' > worker/internal/crc/crc.h
 run printf '#include "crc.h"\n\nstatic void crc_fill(struct crc_table *table)\n{\n    for (unsigned int n = 0; n < 256; n++) {\n        unsigned int c = n;\n        for (int k = 0; k < 8; k++)\n            c = c & 1 ? 0xedb88320 ^ (c >> 1) : c >> 1;\n        table->entries[n] = c;\n    }\n    table->ready = 1;\n}\n\nunsigned int crc32(struct crc_table *table, const unsigned char *buf, int len)\n{\n    unsigned int crc = 0xffffffff;\n    if (!table->ready)\n        crc_fill(table);\n    for (int i = 0; i < len; i++)\n        crc = table->entries[(crc ^ buf[i]) & 0xff] ^ (crc >> 8);\n    return crc ^ 0xffffffff;\n}\n' > worker/internal/crc/crc.c
 merl worker/internal/crc/crc.c
-wait crc_fill(table);
+wait A crc.c
 key /
 type buf[i]
 key Enter d
@@ -26,7 +26,7 @@ wait entries → crc_table::entries
 # #389).
 run printf 'enum crc_mode {\n    CRC_PLAIN,\n    CRC_FAST\n};\n\nstruct Hasher {\n    virtual unsigned Sum() const = 0;\n};\n\nstruct Fast : Hasher {\n    unsigned Sum() const override { return 1; }\n};\n\ntemplate <class H> int crc_pick(H *h) { return h->Sum() ? CRC_FAST : CRC_PLAIN; }\n\nint crc_check(Hasher *h) { return h->Sum(); }\n' > worker/internal/crc/mode.cc
 merl worker/internal/crc/mode.cc
-wait int crc_pick
+wait A mode.cc
 key /
 type CRC_FAST :
 key Enter d
@@ -43,7 +43,7 @@ wait via h: Hasher
 # A field two structs share is the one of the struct the receiver is declared as (#386).
 run printf 'typedef struct client {\n    int flags;\n} client;\n\nstruct job {\n    int flags;\n};\n\nvoid crc_reset(client *c) { c->flags = 0; }\n' > worker/internal/crc/client.c
 merl worker/internal/crc/client.c
-wait void crc_reset
+wait A client.c
 key /
 type flags =
 key Enter d
@@ -53,7 +53,7 @@ key Escape
 # are searched first, and a header linked under two names is one file (#382).
 run printf '#include <stdio.h>\n\nvoid crc_log(void) { printf("crc"); }\n' > worker/internal/crc/log.c
 merl worker/internal/crc/log.c
-wait void crc_log
+wait A log.c
 key /
 type printf(
 key Enter d
@@ -64,7 +64,7 @@ key Escape
 run printf '#import <Foundation/Foundation.h>\n\n@interface CrcStamp : NSObject\n- (unsigned int)stampJob:(NSData *)job;\n@end\n' > worker/internal/crc/CrcStamp.h
 run printf '#import "CrcStamp.h"\n\n@implementation CrcStamp\n- (unsigned int)stampJob:(NSData *)job {\n    return 0;\n}\n\n- (void)log {\n    [self stampJob:nil];\n}\n@end\n' > worker/internal/crc/CrcStamp.m
 merl worker/internal/crc/CrcStamp.m
-wait @implementation CrcStamp
+wait A CrcStamp.m
 key /
 type stampJob:nil
 key Enter d
@@ -76,7 +76,7 @@ run printf 'struct Slice {\n    unsigned long size() const { return n; }\n    un
 run printf 'struct Block {\n    unsigned long size() const { return n; }\n    unsigned long n;\n};\n' > worker/internal/crc/block.h
 run printf '#include "slice.h"\n\nunsigned long crc_len(const Slice& key) { return key.size(); }\n' > worker/internal/crc/use.cc
 merl worker/internal/crc/use.cc
-wait unsigned long crc_len
+wait A use.cc
 key /
 type size()
 key Enter d
@@ -84,7 +84,7 @@ wait via key: Slice
 key Escape
 # f folds Objective-C (#625): on a method's line in a `.m` file, f folds the method to its `}`.
 merl worker/internal/crc/CrcStamp.m
-wait @implementation CrcStamp
+wait A CrcStamp.m
 key :
 type 4
 key Enter f

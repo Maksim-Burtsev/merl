@@ -1,4 +1,4 @@
-wait +class RefundNotAllowed(Exception):
+wait A refund.patch
 ┌orders──────────────────────┐  1 commit 3e50800319d367744c5b3106debe20ac7b2b205c
 │▸ .github                   │  2 Author: agent <dev@example.com>
 │▸ .venv                     │  3 Date:   Wed Sep 2 10:00:00 2026 +0000

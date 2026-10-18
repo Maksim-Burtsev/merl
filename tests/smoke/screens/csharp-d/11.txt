@@ -1,4 +1,4 @@
-wait public class Page
+wait A Page.cs
 ┌orders──────────────────────┐ 1 namespace Shop.App;
 │▸ .github                   │ 2
 │▸ .venv                     │ 3 public class ViewModelBase

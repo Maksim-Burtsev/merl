@@ -8,7 +8,7 @@ wait billing
 key o
 type billing/Refunds.cs
 key Enter
-wait public static class Refunds
+wait A Refunds.cs
 key /
 type options.Redirect
 key Enter d
@@ -20,7 +20,7 @@ wait callbackUrl → Refunds.Register.callbackUrl (local)
 # #352: a member of a typed receiver lands in its type, not on a namesake, and a member of a
 # type the project does not declare has no definition in it.
 run printf '%s\n' 'public class Mailer' '{' '    public void Send(string to) { }' '}' '' 'public class Fax' '{' '    public void Send(string to) { }' '    public void AppendLine(int n) { }' '}' '' 'public class Outbox' '{' '    public void Flush()' '    {' '        var mailer = new Mailer();' '        mailer.Send("ops");' '        var sb = new StringBuilder();' '        sb.AppendLine("sent");' '    }' '}' > billing/Outbox.cs
-wait Outbox.cs
+wait A Outbox.cs
 key o
 type billing/Outbox.cs
 key Enter
@@ -40,7 +40,7 @@ wait shop.app
 key o
 type shop.app/Page.cs
 key Enter
-wait public class Page
+wait A Page.cs
 key /
 type IsBusyFor(1
 key Enter d

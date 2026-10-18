@@ -7,13 +7,13 @@ run mkdir -p mlshop/lib mlshop/src && printf 'type t = { cents : int }\n\nlet fo
 key q
 wait merl exited: 0
 merl mlshop/lib/cart.ml
-wait let label m
+wait A cart.ml
 key /
 type format_price
 key Enter d
 wait format_price: via Money
 merl mlshop/src/Cart.fs
-wait module Shop.Cart
+wait A Cart.fs
 key /
 type formatPrice
 key Enter d

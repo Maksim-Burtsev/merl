@@ -1,4 +1,4 @@
-wait openapi: 3.1.0
+wait A openapi.yaml
 ┌orders──────────────────────┐ 1 openapi: 3.1.0
 │▸ .github                   │ 2 paths:
 │▸ .venv                     │ 3   /orders:

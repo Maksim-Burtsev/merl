@@ -1,4 +1,4 @@
-wait struct Clock
+wait A Instant.swift
 ┌orders──────────────────────┐ 1 struct Instant {
 │▸ .github                   │ 2     let value: Double
 │▸ .venv                     │ 3

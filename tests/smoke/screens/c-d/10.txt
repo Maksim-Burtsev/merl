@@ -1,4 +1,4 @@
-wait void crc_reset
+wait A client.c
 ┌orders──────────────────────┐1 typedef struct client {
 │▸ .github                   │2     int flags;
 │▸ .venv                     │3 } client;

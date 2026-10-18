@@ -1,4 +1,4 @@
-wait [{"id":1,"customer_id":1327,"total":"853.34"
+wait M refunds-2026-08.csv
 ┌orders──────────────────────┐1 [{"id":1,"customer_id":1327,"total":"853.34","status":"cancelled","created_at":"2026-01-03T17:06:00Z","items":[{"sku":"SKU-76387","qty":1},
 │▸ .github                   │  {"sku":"SKU-66510","qty":1}]},{"id":2,"customer_id":154,"total":"81.92","status":"cancelled","created_at":"2026-02-08T02:35:00Z",
 │▸ .venv                     │  "items":[{"sku":"SKU-07747","qty":3},{"sku":"SKU-16226","qty":1}]},{"id":3,"customer_id":2584,"total":"566.55","status":"pending",
