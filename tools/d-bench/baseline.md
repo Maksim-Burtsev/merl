@@ -3,7 +3,7 @@
 merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the csharp row with the fixes of #935, `vm.loadavg` { 5.00 5.48 5.37 }; the other rows as in the night's second epic.
 The rust row: merl at `20ac5110` with the `d` fixes of branch `b1019/rust`, 2026-10-19, release build, `vm.loadavg` { 6.98 6.29 6.45 } before the run and after.
 The swift row (#1053, #1052, #1055, branch `b1019/swift`): 2026-10-19, release build, `vm.loadavg` { 5.07 5.68 5.67 } before the run.
-The lua row with the fixes of branch `b1019/lua` (#1061), 2026-10-19, release build, `vm.loadavg` { 4.95 5.75 5.80 } before the run and after.
+The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, release build, `vm.loadavg` { 8.08 7.25 6.44 } before the run, { 6.75 6.94 6.39 } after.
 The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
@@ -38,4 +38,4 @@ The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.lo
 | scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 8.0 | 9.7 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 7.2 | 8.1 |
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 4.8 | 7.1 |
-| lua (nvim-treesitter, kong) | 63 | 56 (89%) | 3 (5%) | 0 (0%) | 4 (6%) | 47 | 2.5 | 15.0 |
+| lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 2.5 | 15.4 |

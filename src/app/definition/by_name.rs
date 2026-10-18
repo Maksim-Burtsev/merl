@@ -250,8 +250,12 @@ impl App {
         }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
+            let bare = !dotted && chain.is_empty();
+            hits.retain(|h| {
+                !bare || h.path == a.here || !h.text.trim_start().starts_with("local ")
+            });
             let all = hits.len();
-            let unseen = (!dotted && chain.is_empty())
+            let unseen = bare
                 .then(|| search::lua_value_of_its_own(&a.text, self.line + 1, word))
                 .flatten();
             hits.retain(|h| {
