@@ -1,0 +1,110 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+bash0000	libexec/bats-core/bats-gather-tests:355		
+bash0001	test/bats_pipe.bats:18		
+bash0002	bin/bats:87;bin/bats:90		judged: bin/bats exports it to libexec
+bash0003	test/test_helper.bash:63		
+bash0004	docs/examples/package-tarball.bats:12		
+bash0005	lib/bats-core/formatter.bash:28		
+bash0006	install.sh:7		
+bash0007	lib/bats-core/tracing.bash:28		
+bash0008		an executable on PATH (bin/bats)	judged
+bash0009	lib/bats-core/test_functions.bash:314		judged: bats loads test_functions.bash
+bash0010	libexec/bats-core/bats:355		
+bash0011	lib/bats-core/test_functions.bash:407		judged: run fills lines
+bash0012	lib/bats-core/test_functions.bash:314		judged
+bash0013	libexec/bats-core/bats-format-tap13:5		
+bash0014	libexec/bats-core/bats:537		
+bash0015	lib/bats-core/common.bash:94		
+bash0016	lib/bats-core/test_functions.bash:128;lib/bats-core/test_functions.bash:118		reviewed: the local declaration too
+bash0017	lib/bats-core/test_functions.bash:407		judged
+bash0018	libexec/bats-core/bats-format-pretty:200		
+bash0019	lib/bats-core/test_functions.bash:407		judged
+bash0020		defined by each formatter script that sources formatter.bash (runtime choice)	judged
+bash0021	bin/bats:90		judged
+bash0022	test/test_helper.bash:14		judged
+bash0023	lib/bats-core/test_functions.bash:407		judged
+bash0024	test/bats_pipe.bats:18		
+bash0025	lib/bats-core/tracing.bash:1		
+bash0026	test/test_helper.bash:1;lib/bats-core/test_functions.bash:149		reviewed: load() too
+bash0027		a case label, not a use	
+bash0028	lib/bats-core/test_functions.bash:314		judged
+bash0029	test/test_helper.bash:63		
+bash0030	libexec/bats-core/bats-exec-file:192		
+bash0031	lib/bats-core/common.bash:1		
+bash0032	test/test_helper.bash:63		
+bash0033	test/timeout.bats:7		
+bash0034		a variable's name as an array element	judged
+bash0035	lib/bats-core/test_functions.bash:394;lib/bats-core/test_functions.bash:398;lib/bats-core/test_functions.bash:404		judged: run sets status
+bash0036		a case label, not a use	
+bash0037	lib/bats-core/test_functions.bash:314		judged
+bash0038	test/bats_pipe.bats:41		
+bash0039	lib/bats-core/tracing.bash:1		
+bash0040	test/test_helper.bash:1;lib/bats-core/test_functions.bash:149		reviewed: load() too
+bash0041			
+bash0042	lib/bats-core/test_functions.bash:407		judged
+bash0043	lib/bats-core/preprocessing.bash:1		
+bash0044	lib/bats-core/test_functions.bash:407		judged
+bash0045			
+bash0046	lib/bats-core/common.bash:1		
+bash0047			
+bash0048	libexec/bats-core/bats:501		
+bash0049	libexec/bats-core/bats-format-pretty:243		
+bash0050	test/test_helper.bash:1;lib/bats-core/test_functions.bash:149		reviewed: load() too
+bash0051	libexec/bats-core/bats:143		
+bash0052	test/trace.bats:56		
+bash0053	lib/bats-core/preprocessing.bash:1		
+bash0054	lib/bats-core/test_functions.bash:327;lib/bats-core/test_functions.bash:315		reviewed: the local declaration too
+bash0055	lib/bats-core/test_functions.bash:407		judged
+bash0056	dnsapi/dns_rltx.sh:51		
+bash0057	deploy/redfish.sh:310		
+bash0058	deploy/proxmoxve.sh:38		
+bash0059	acme.sh:382		judged: acme.sh sources the plugin, its function
+bash0060	acme.sh:289		judged: acme.sh sources the plugin, its function
+bash0061	acme.sh:6064		
+bash0062	acme.sh:7041		
+bash0063	acme.sh:3082		
+bash0064	acme.sh:382		judged: acme.sh sources the plugin, its function
+bash0065	acme.sh:3065		judged: acme.sh sources the plugin, its function
+bash0066	dnsapi/dns_1984hosting.sh:49		
+bash0067	acme.sh:542		
+bash0068	dnsapi/dns_azure.sh:252		
+bash0069	dnsapi/dns_baidu.sh:33		
+bash0070		inside a multi-line string	
+bash0071			
+bash0072	dnsapi/dns_netlify.sh:120		
+bash0073	acme.sh:3011		judged: acme.sh sources the plugin, its function
+bash0074	acme.sh:348		judged: acme.sh sources the plugin, its function
+bash0075	acme.sh:906		judged: acme.sh sources the plugin, its function
+bash0076	acme.sh:5333		
+bash0077	dnsapi/dns_ispconfig.sh:47		
+bash0078	dnsapi/dns_udr.sh:146		
+bash0079	acme.sh:348		judged: acme.sh sources the plugin, its function
+bash0080	dnsapi/dns_tele3.sh:55		
+bash0081	acme.sh:3065		judged: acme.sh sources the plugin, its function
+bash0082	acme.sh:297		judged: acme.sh sources the plugin, its function
+bash0083	acme.sh:395		judged: acme.sh sources the plugin, its function
+bash0084	acme.sh:297		judged: acme.sh sources the plugin, its function
+bash0085	acme.sh:2928		
+bash0086	acme.sh:484		judged: acme.sh sources the plugin, its function
+bash0087		inside a multi-line string	
+bash0088	acme.sh:8827		
+bash0089	dnsapi/dns_la.sh:24		
+bash0090	acme.sh:348		judged: acme.sh sources the plugin, its function
+bash0091	acme.sh:297		judged: acme.sh sources the plugin, its function
+bash0092	acme.sh:289		
+bash0093	dnsapi/dns_hostup.sh:233		
+bash0094	acme.sh:289		judged: acme.sh sources the plugin, its function
+bash0095	dnsapi/dns_wedos.sh:156		
+bash0096	acme.sh:3964		
+bash0097	dnsapi/dns_eurodns.sh:137		
+bash0098	dnsapi/dns_schlundtech.sh:228		
+bash0099	dnsapi/dns_freemyip.sh:104		
+bash0100	acme.sh:289		judged: acme.sh sources the plugin, its function
+bash0101	acme.sh:1419		
+bash0102	acme.sh:2412		
+bash0103	acme.sh:3051		judged: acme.sh sources the plugin, its function
+bash0104	notify/xmpp.sh:17		
+bash0105	dnsapi/dns_laodc.sh:144		
+bash0106	lib/bats-core/tracing.bash:1		
+bash0107	lib/bats-core/common.bash:1		
+bash0108	lib/bats-core/warnings.bash:1		

@@ -126,7 +126,7 @@ def table(rows, projects):
         c = Counter(r[2] for r in by[lang])
         n = sum(c[k] for k in SCORED)
         ms = [r[3] for r in by[lang]]
-        name = next(p[0] for p in projects if p[1] == lang)
+        name = ", ".join(p[0] for p in projects if p[1] == lang)
         out.append(f"| {lang} ({name}) | {n} | {pct(c['ok'], n)} | {pct(c['pick-hit'], n)} | "
                    f"{pct(c['WRONG'], n)} | {pct(c['pick-miss'] + c['none'], n)} | "
                    f"{len(ms) - n} | {quantile(ms, .5):.1f} | {quantile(ms, .9):.1f} |")
@@ -170,6 +170,14 @@ def selftest():
     assert words("f('a', g($y)); # tail", "php") == ["f", "g"]
     assert words("(foo? 'a \"b ;\\\"\" ?\\( #'bar) ; tail", "elisp") == ["foo?", "a", "bar"]
     assert words("(set! x #\\( #| c |# y-2) ; tail", "racket") == ["set!", "x", "y-2"]
+    sh = lambda text: [(s, w) for _, _, s, w in record.sh_words(text, set(record.KW["bash"]))]
+    assert sh('f() { echo "$a ${b} lit" | grep x; helper "$c"; }  # $d\nsource "$root/lib/util.bash"\n'
+              'cat <<EOF\n$e\nEOF\nrun g\n') == [("path", "util"), ("name", "a"), ("name", "b"), ("call", "helper"),
+                                                ("name", "c"), ("name", "root"), ("call", "run"), ("call", "g")]
+    lua = lambda text: [(s, w) for _, _, s, w in record.lua_words(text, set(record.KW["lua"]))]
+    assert lua('local util = require("a.util") -- c\n--[[ x.y ]] local s = [[ z ]]\n'
+               'return util.join(s, M:pick "k")\n') == [("path", "util"), ("call", "require"), ("name", "util"),
+                                                       ("member", "join"), ("member", "pick")]
     print("selftest ok")
 
 
