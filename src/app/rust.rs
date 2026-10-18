@@ -1,3 +1,4 @@
+mod chain;
 mod sysroot;
 
 use std::sync::LazyLock;
@@ -855,7 +856,17 @@ impl App {
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
-            let this = match search::rust_holds(&lines, at, name)? {
+            let Some(holds) = search::rust_holds(&lines, at, name) else {
+                let ty = self.rust_let_chain(file, text, at, name)?;
+                let this = (ty.clone(), format!("{name}: {}", ty.name));
+                match &found {
+                    Some((t, _)) if (&t.path, t.line) != (&ty.path, ty.line) => return None,
+                    Some(_) => {}
+                    None => found = Some(this),
+                }
+                continue;
+            };
+            let this = match holds {
                 search::RustHolds::Type(w) | search::RustHolds::Literal(w) => {
                     let ty = self.rust_resolve(file, &w, at)?;
                     let link = format!("{name}: {}", ty.name);
