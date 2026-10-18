@@ -7,6 +7,312 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-18
+
+### Added
+
+- The status bar shows the time of day on its right edge, as LazyVim does, so a full-screen
+  terminal keeps a clock in sight. It goes before the path would be shortened and while a `:`,
+  `/` or `new:` prompt is open. `clock` in `~/.config/merl/config.toml` sets its format
+  (`"%H:%M"` by default, `"%I:%M %p"` for 12 hours, `"%H:%M:%S"` with seconds) or turns it off
+  (`clock = false`); a format merl cannot read stops it at start. (#761)
+- A review's stop on a file renamed and edited heads the code pane with `old/path  →  new/path`,
+  the changed part on the review's word tints, on every hunk of the file (#885)
+
+### Changed
+
+- `merl -r BRANCH` for a branch checked out nowhere opens it in a folder of its own, at what was
+  pushed, and leaves your checkout, its branch and your uncommitted work as they were: reviews of
+  two branches in two tabs keep their own trees. The next review of the branch reuses its folder,
+  a key that edits code there says `read-only`, `d` into libraries reads your checkout's `.venv`,
+  `node_modules` and `target/`, and a folder goes away by itself once its branch is gone from
+  origin or no merl has opened it for 14 days (#215)
+- A line folded with `f` says how many lines it hides: its chip reads `32 lines ⋯`, `1 line ⋯`
+  for one; when the count does not fit the row, the chip stays a plain `⋯` (#634)
+- Code is coloured as LazyVim colours it, from tree-sitter's syntax tree and the theme's Neovim
+  colours, in Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash, JSON, YAML,
+  TOML, Lua, C, C++, Java, C#, Kotlin, Scala, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Dockerfiles,
+  CMake, Protobuf, HCL, Terraform, INI, Nix, Scheme, Racket, Common Lisp, Emacs Lisp, R, Erlang, SQL, Vue, Svelte, GraphQL, nginx, GDScript, Starlark, Solidity, diffs and tree-sitter queries, with the code embedded in them (a fenced block,
+  a regex, a `run:` script). Other files keep the colours they had. The hidden `tree_sitter =
+  true` that turned this on early is gone: delete it from `~/.config/merl/config.toml`, where merl
+  now stops on it. (#810)
+- The default theme, `tokyonight-moon`, is tokyonight.nvim's Moon as Neovim paints it, where it
+  shipped folke's Sublime file: the files merl does not colour with tree-sitter come closer to
+  LazyVim too. (#812)
+- In `--review`, `c` passes over the files ticked viewed in an earlier round, by `c` or `m`, and
+  goes to the changed and the unread; a file changed since its tick is a stop again, and `C`
+  still stops on every file. A reopened review opens on the first unticked file, or says `all
+  files viewed`. (#824)
+- Mermaid pictures in the Markdown preview (`p`) are drawn by merman 0.9: labels take more room
+  and wrap sooner, a class diagram loses the rules between its name, fields and methods, and
+  more diagrams draw (Temporal's sequence diagrams among them). A flowchart with a `{` in an edge
+  label, which merman 0.7 drew anyway, now stays source. (#834)
+- A Cmd+letter other than Cmd+C and Cmd+X does nothing, in terminals that pass it on: Cmd+O no
+  longer opens the files list as `o`, nor Cmd+S starts a search as `s`. An Alt+Ctrl+letter whose
+  Ctrl+letter merl does not bind does nothing too: Alt+Ctrl+Q no longer closes the `?` overlay, a
+  picker or a prompt, clears the find or drops the selection as Esc. (#839)
+- A colour theme's background for a piece of code is drawn behind it, as LazyVim draws it: the
+  green and red tint under the added and removed lines of a diff or a patch (tokyonight, github,
+  gruvbox, rose-pine, …), and tokyonight's tint behind Markdown headings and inline code. The
+  cursor line's band yields to it, a selection paints over it, and in a review the added and
+  removed lines keep their own tint over it, as Neovim's DiffAdd does. (#845)
+- The status bar no longer ends with `? help`: the start screen lists `?` among its keys. (#857)
+- `c` in a review, inside a hunk taller than the screen, stands on the hunk's first changed row
+  not drawn yet before it moves to the next hunk; rows you scrolled past or found with `/` count
+  as seen. A hunk that fits on the screen walks as before (#908)
+
+### Removed
+
+- F12 and Shift+F12, the VS Code aliases of `d` and `u`: press `d` and `u` (#921)
+
+### Fixed
+
+- `d` on a method of a `const trait` of Rust's standard library (`clone`, `default`, `into_iter`)
+  finds the trait's method: first in the list, or the jump when that trait alone declares it (#514).
+- While text is selected, the cursor line drops its band, as in Neovim's Visual mode: in
+  github-light a selection on the cursor line no longer blends into it (#554).
+- merl draws its own cursor in the theme's colours and hides the terminal's, so a light theme
+  in a dark terminal, or a dark one in a light terminal, keeps a cursor you can see, over mosh
+  too. Typing (an edit, a note, a picker's input) shows a block of a second colour instead of a
+  bar (#558).
+- `d` in a C# review no longer jumps to a namesake the branch deleted that C# could not mean: a
+  property where only a type stands, an overload that cannot take the call's arguments, a member
+  of another class, or a declaration in a project the file does not reference (#580).
+- A MATLAB or Octave `.m` file is no longer read as Objective-C: merl tells a `.m` by its first
+  99 lines, as Vim and Neovim do, so a MATLAB file gets MATLAB colours and `d`, `u` and `D` stop
+  reading its lines with C's rules (#589).
+- `d` in TypeScript on a method of an anonymous default class (`export default class extends
+  Base {`) jumps to it through the receiver's type, where it offered every method of that name
+  (#817)
+- A theme that ships tree-sitter queries of its own colours code with them, as LazyVim does: Rust
+  attributes, `crate`/`self`/`super` and lifetimes in github-dark and github-light, PHP's `<?php`
+  and `$`, and the extra captures of alabaster, catppuccin, solarized, vscode, jellybeans,
+  moonfly, nightfly and vesper (#819).
+- `d` no longer crashes on non-ASCII text next to the word in an Erlang string, an R `pkg::name`,
+  a Python statement or a component name (#863).
+- Leaving a review note returns to the mode it was opened from: a note opened with `a` while
+  reading goes back to reading, block cursor, however you leave it (an arrow, Backspace on an
+  empty note, Ctrl+X, Ctrl+Z / Ctrl+Y), where it used to land in edit mode on the code (#881).
+- Over mosh, or in any terminal without an alternate screen, quitting merl leaves an empty
+  screen with the prompt at the top, where merl's last frame stayed with the prompt printed over
+  it (#882)
+- Find reaches a match past the dim `…` that ends a line longer than 20 KB: the cursor goes
+  to it and the line is drawn on to 20 KB past it, where `/` said `0/9` and parked the cursor on
+  the `…`; a hit of `s` there opens on the hit (#888)
+- A find word that stops matching puts the cursor and the view back where `/` was pressed, as Vim, Neovim and Helix do; Enter on `no match` leaves the cursor there, no longer where the word's first letters last matched (#895)
+- `d` on a method of TypeScript's anonymous default class (`export default class extends Base {`
+  or `implements I {`) names the class after its import in the status line, `spin → Spinner.spin`
+  where it said `extends.spin` (#896)
+- `d` in SQL finds a CTE written with a column list or `AS MATERIALIZED`, stops reading a CTE
+  inside a subquery as the table of its name after the subquery's closing bracket, and no longer
+  jumps to a `CREATE` inside a string over several lines; in Dart it no longer jumps to a class
+  inside a nested `/* */` comment (#931).
+- `d` in a shell script tells a variable from a function of the same name: `$name`, `${name}`
+  and `$((name))` lead to the variable, `name` run as a command to the function. It no longer
+  jumps to a function from a case pattern (`name)`), from `command name` or `builtin name`, or
+  from a `'$name'` in single quotes (#931).
+- `d` on a name imported from a package of your own monorepo, in a review of a branch checked out
+  nowhere, reads the reviewed branch's copy of that package as your checkout does, instead of
+  jumping to a namesake in another dependency (#932)
+- `d` in Go on a member of a name a multi-value `:=` or `var` declares (`k, err := Kettle{}, nil`)
+  lands on its type's method, not a picker of every namesake: each name takes the value in its
+  own position (#933).
+- `d` in Go inside an `if` whose header declares a name again (`if k := (Teapot{}); …`)
+  lands on the method of the header's value, not a picker of every namesake (#934).
+- `d` in C# types a receiver whose class is `partial` over several files, has a namesake in another
+  namespace, or has a declaration-shaped line in a comment or a string, so `kettle.Pour` lands
+  on its own `Pour` instead of offering every `Pour` (#935).
+- `d` in C# on a type name with a namesake in another namespace (`Stale.Kettle`, through a `using`
+  alias or the enclosing namespace) goes to the one C# means, `d` on a `partial` class in `new
+  Kettle(1)` goes to its constructor, and `new Stale.Kettle().Pour(4)` goes to that class's `Pour`
+  (#935).
+- `d` on `this.x` in C# no longer offers a local `x` of another method as a field (#936).
+- `d` on a C# call with string or integer literal arguments goes to the overload whose
+  parameters are exactly `string` or `int`, where the overloads have the same arity (#937).
+- `d` in C# on a member of a lambda's parameter, in a lambda assigned to a `Func<…>` or
+  `Action<…>` (`Func<Teapot, int> f = cup => cup.Pour(1);`), lands on the member of the
+  delegate's parameter type instead of offering every member of the name (#939).
+- `d` in C++ on a name in a member function's body looks in its class and the class's bases first:
+  a base's field jumps there, a call offers that class's overloads only, not every namesake in
+  the project (#940).
+- `d` in C++ on an argument in a constructor's member initializer list (`: spout_(spout)`) jumps
+  to the constructor's parameter (#941).
+- `d` in C++ on the name of an out-of-class definition (`int Kettle::decant(int cups) const`)
+  jumps to the declaration whose parameter list it repeats, not a picker of every overload (#942).
+- `d` in C++ on a member of a receiver whose class has a namesake in another namespace
+  (`stale::Kettle far; far.decant(1)`) follows the class the declaration names (#943).
+- `d` in C++ on a type written with its namespace (`stale::Kettle`) or behind a namespace alias
+  (`namespace bt = infuse; bt::Kettle`) jumps to the class in that namespace instead of offering
+  its namesakes (#943).
+- `d` in C++ on a call of an overloaded member picks the overload its plain arguments can reach:
+  `cup.decant(1)` jumps to `decant(int)`, not `decant(const char*)`, and `decant("two")` the
+  other way; arguments of an unknown type keep the picker (#943).
+- `d` in C and C++ no longer offers a declaration that sits inside `#if 0` or `#if false`, which
+  no build compiles (#944).
+- `d` in C++ on an unqualified call from code outside a class looks the function up as C++
+  does: in the innermost namespace around the call that declares it, through a `using X::name;`
+  above it, and in the namespaces of its arguments' classes, so `steep(leaf)` with an
+  `infuse::Leaf leaf` jumps to `infuse::steep` and `steep(4)` in global code to `::steep`; a
+  `using namespace` or an argument of unknown type keeps the picker (#944).
+- `d` in SQL on a table alias of a `FROM` or `JOIN`, with or without `AS`, finds the alias in its
+  statement, and an alias named like a table no longer jumps to the table (#945).
+- `d` in SQL on a schema-qualified name jumps to the declaration in that schema, not to a picker
+  of every schema's namesake (#946).
+- `d` in SQL on a name of a function's parameter, inside its `$$` body, finds the parameter
+  instead of a table of that name (#947).
+- `d` in Dart reads local scope: a parameter, a local, a local function, a loop or `catch`
+  variable and a record or object pattern variable named like a field, a top-level function or an
+  import prefix lands on its own declaration, not on the namesake (#948).
+- `d` in Dart on a member reads the receiver's type where the code writes it: a typed
+  parameter or local (`Teapot pot`), a local made by a constructor (`final k = Kettle.cold()`,
+  also through an import prefix), the head of a cascade (`Kettle(1)..pour(2)`), `this` and
+  `super` (through `extends`). It lands on that class's member, where it offered every
+  class's namesake (#949).
+- `d` in Dart on a named constructor through an import prefix, as `cold` in
+  `stale.Kettle.cold()`, jumps to `Kettle.cold();` in the prefixed file when that constructor
+  has no parameters and no body, instead of offering the namesakes of other classes (#950).
+- `d` in Dart follows a plain import and a `part`: a name the file's library, its parts or its
+  imports without a prefix declare is no longer offered beside the namesakes of a file imported
+  only under a prefix, or of a file the library does not import, as `steep(1)` and
+  `Kettle.cold()`. `Kettle` before `.cold()` is the class, not its constructor, and `d` on an
+  import prefix, as `stale` in `stale.Kettle`, lands on its `import` line (#950).
+- `d` in Lua no longer jumps to `local f = function` from the `f` inside its own value, where the
+  local is not yet in scope (#951).
+- `d` in Lua on a method of a receiver built by `X.new()` (which returns `setmetatable(…, X)`),
+  or of `self` in `function X.m(self)` and `function X:m()`, jumps to `X`'s method instead of
+  offering every namesake in the project (#952).
+- `d` in Lua on a name the file binds with a top-level `local` (`local function pour`,
+  `local Teapot = require(…)`, a `local later` that `function later()` assigns) jumps to that
+  local instead of offering namesakes from other files (#953).
+- `d` in Lua finds a module field assigned a local, as `M.steep = pour` (#954).
+- `d` on a PHP function call (`steep(3)`, `\Shop\Tea\steep(3)`) jumps to the function PHP
+  calls, by the `use function` imports, then the file's namespace, then the global one, instead
+  of a picker of every namesake, methods included (#955).
+- `d` on a PHP method call jumps to the receiver's own method when the code names its class: on
+  `(new Kettle())->pour()`, on a variable assigned twice (the last assignment above wins, when
+  it stands in the cursor's own block), on `$pot = $this->pot;` and on a variable a closure
+  captures by `use ($pot)`, instead of a picker of every `pour` (#956).
+- `d` on a Bash variable bound by `for name in`, `select`, `read` (`read -a` too) or
+  `mapfile`/`readarray` jumps to that line of the same file instead of finding nothing (#957).
+- `d` into a package of your own monorepo, in a review of a branch checked out nowhere, opens the
+  reviewed branch's copy of it from a package's own `node_modules` and from Solidity and CSS
+  imports too, instead of your checkout's copy or a namesake in another dependency (#960)
+- `d` in Java on `new Name()` inside a class that declares a nested `Name` no longer jumps to
+  a class of that name elsewhere in the package; it offers both (#961).
+- `d` in Java and Kotlin on a member after `super.` looks in the class's direct base when the
+  project declares it, so `super.rinse()` lands on the base's `rinse` instead of offering every
+  override (#963).
+- `d` on a Java or Kotlin call tells a typed receiver's overloads apart: in Kotlin by the number
+  of arguments (defaults, `vararg` and a trailing lambda counted), and in both by string or integer
+  literal arguments, which pick the overload taking exactly `String` or `int` / `Int` (#964).
+- `d` in Java and Kotlin on a member of a freshly constructed object (`new Lid().pour(1)`,
+  `Cosy().tilt()`) looks in the constructed class, and `new Lid()` inside a class that declares
+  a nested `Lid` lands on that nested class or its constructor instead of offering the package's
+  `Lid` beside it (#965).
+- `d` in Java reads a parameter or local whose type is written with its package
+  (`tea.stale.Kettle stale`), so `stale.pour` lands on that class's `pour` instead of offering
+  every `pour` (#966).
+- `d` in Kotlin on a member of `it` or of a lambda's parameter, in a `forEach`, `map`, `filter`,
+  `sumOf` and the like over a collection whose element type is written (`glasses: List<Glass>`),
+  looks the member up in that element type instead of offering every namesake in the project
+  (#967).
+- `d` in Kotlin inside a top-level extension function reads `this` as the receiver type: a bare
+  call, `this.name` and `this@function.name` land on the receiver's member, which wins over an
+  extension of the same name, instead of offering every namesake in the project (#968).
+- `d` in Kotlin on a member of a `when` subject in its `else` branch reads the subject by its
+  declared type, and a subject bound by `when (val x = ...)` gets the smart cast of its `is`
+  branches, instead of offering every namesake in the project (#969).
+- `d` in Kotlin on a name in a property's initializer that the primary constructor declares as a
+  parameter, `private val vapor: Int = vapor`, jumps to the parameter instead of offering the
+  property itself (#970).
+- `d` in Python follows `global` and `nonlocal` to the module's or the enclosing function's
+  variable instead of stopping on the statement, lands on a comprehension's or a lambda's own
+  variable when it is used before its `for` (`[cup * 2 for cup in cups]`) instead of a
+  module-level namesake, and finds the names a `match` case captures (`case [first, *rest]:`,
+  `case {"heat": heat}:`, `case steep:` over an imported `steep`) (#974).
+- `d` in TypeScript on a call of an overloaded method or function jumps to the overload signature
+  whose number of parameters fits the call, as tsserver does, and never offers the
+  implementation's line; when several signatures fit, the picker holds those (#975).
+- `d` in TypeScript reads merged declarations: a member of an interface declared twice in one
+  file, a name another block of the same `namespace` exports, and a call of a function merged
+  with a namespace each land on their declaration, where they offered namesakes (#976).
+- `d` in TypeScript reads type parameters: a `T` lands on the `<T …>` that declares it, and a
+  member of a value typed `T`, or of `xs[0]` with `xs: T[]`, lands on the member of `T`'s
+  constraint, where it offered every namesake. A property of a one-line object type alias
+  (`type Blend = { leaves: number }`) is found too, also when a `const` shares the alias's
+  name (#977).
+- `d` in TypeScript on `this.member` inside a `function` that declares `this: Type`, and in the
+  arrow functions inside it, jumps to that type's member, where it offered every member of that
+  name (#978).
+- `d` in Python on a class attribute read through the class name (`Kettle.material`) lands on
+  the class's attribute, instead of a module-level function of the same name, when another
+  module's `Kettle` is imported under an alias (`from tea.stale import Kettle as StaleKettle`)
+  inside a block (#979).
+- `d` in Python on a name two `from x import *` lines both export lands on the later module's
+  declaration, the one Python binds, instead of offering both (#980).
+- `d` in Python on a method of a class a `from x import *` brings in (`Teapot().pour()`,
+  `teapot = Teapot()` then `teapot.pour()`) lands on that class's method instead of offering every
+  method of the name (#981).
+- `d` in Ruby finds a method declared by `define_method(:name)`, and `Klass.name` finds a method
+  of a module the class `extend`s. A block parameter used on the block's own line (`{ |x| x + 1 }`)
+  leads to the parameter, not to a method of its name, and `name()` with parentheses leads to the
+  method even when a local shares its name (#982).
+- `d` in Swift on a call of an overloaded method leads to the overload whose argument labels
+  match the call (`pour(over:)`, `pour(_:)`), and on a constructor call such as
+  `Cup(from: saucer)` to the one `init` whose labels match, no longer to the type (#983).
+- `d` in Swift on a method a type takes from a protocol extension's default (`pot.steep()`, or
+  `rinse()` inside the type) leads to that default, and on a receiver typed by a protocol
+  (`any Brewing`, `some Brewing`) to the protocol's requirement, no longer offering every
+  namesake by name (#984).
+- `d` in Swift on a bare call inside a top-level function leads to the top-level function of
+  that name, no longer offering a type's methods beside it: they need an implicit `self` the
+  function does not have (#985).
+- `d` in Rust on `Self` inside an `impl` jumps to the `impl` line, and on `new` of `Self::new` to
+  the type's `new`, as `Kettle::new` does, instead of "no definition" and every `new` by name.
+  Inside a `trait`, `Self` stays unanswered (#987).
+- `d` in Rust on a trait's method called by path, `Pour::pour(k)` or `<Kettle as Pour>::pour(k)`,
+  jumps to the method of the `impl Pour for Kettle`, as rust-analyzer does, instead of the trait's
+  declaration or every `pour` by name. A type imported under another name (`use x::Teapot as
+  Pot`) is read through the alias (#988).
+- `d` in Rust on `self.m()` in a trait's default method jumps to the trait's own `m`, and on
+  `t.m()` of a `t: &T` whose `T: Trait` (in `<…>` or `where`) to `Trait::m`, instead of every `m`
+  by name. A method none of the bounds declares keeps today's answer (#989).
+- `d` in Rust on a name nothing declares but a `macro_rules!` of the project does, through an
+  invocation such as `vessel!(Caddy)` whose macro declares `struct $name`, jumps to that
+  invocation instead of "no definition" (#990).
+- `d` in Ruby on a method called on `Const.new(…)` jumps to that class's method, found as a bare
+  call inside the class finds it (its reopenings, its `include`s, its superclasses), instead of
+  offering every method of that name. A class the project does not declare, or one that defines
+  `self.new`, still gets the list by name (#991).
+- `d` in Swift on a parameter of a closure written on one line, `cups.map { water in water.ounces }`,
+  lands on the parameter, not on a property of the same name (#992).
+- `d` in Rust on a method a type declares itself and through a trait it implements, `kettle.pour()`,
+  lands on the type's own method, which Rust calls, instead of offering both (#993).
+- `d` on a member of a JavaScript constructor function's instance, or of `this` in its prototype
+  methods, lands on its `this.name = …` or `Ctor.prototype.name = …`, and a member of a class
+  assigned to `exports.Name` on its field (#1001)
+- `d` on a type name inside a JSDoc `{…}` in a JavaScript file lands on its `@typedef`, class or
+  constructor function instead of finding nothing (#1002)
+- `d` on a JavaScript or TypeScript `var` declared again in a block of the same function offers
+  every declaration, not only the first (#1003)
+- `d` on a member of a JavaScript class that declares a field and a method of one name lands on
+  the field, which shadows the method, instead of the method; when the method is declared first,
+  it offers both (#1004)
+- `d` in a review no longer drops a deleted definition when the branch has a comment or a string on the line of the same number (#1006)
+- `d` on a JavaScript function or class a CommonJS module assigns to `exports.name` lands on that
+  assignment, from a destructured `require`, an import, `mod.name` and `exports.name` alike (#1007)
+- `d` on a JavaScript or TypeScript default import whose module ends in `export default Name;`
+  lands on the `Name` the module declares, not on the export line (#1008)
+- `d` in a review no longer drops a deleted TypeScript or JavaScript definition whose head runs over several lines because of what the branch now has on the lines below it (#1012)
+- `d` in a review tells apart the overloads of a TypeScript function the branch deleted by the
+  call's arity, as it does for live ones, where it offered every overload in a picker (#1014)
+- `d` in C++ on a qualified `ns::Name` jumps to the one `Name` declared in `ns`, also when another file opens `namespace ns {` again or writes `using namespace ns;` (#1019)
+- `d` in C and C++ on a call inside a one-line function (`int f() { return g(6); }`) jumps to `g`'s definition instead of offering its declaration beside it (#1020)
+- `d` on a parameter of a C++ operator (`bool Cmp::operator()(int pour) const`) lands on the
+  parameter, not on a picker of the functions sharing its name (#1029)
+- `d` in C no longer jumps to a function of another file made `static` through a macro
+  (`#define local static`, as zlib writes it), and on a call in that file lands on it (#1030)
+
 ## [0.8.5] - 2026-10-13
 
 ### Added
@@ -2247,7 +2553,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.8.5...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.9.0
 [0.8.5]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.5
 [0.8.4]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.4
 [0.8.3]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.3
