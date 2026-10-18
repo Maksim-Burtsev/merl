@@ -221,7 +221,8 @@ function declared twice, `for` and `read` variables, and two heredocs declaring 
 `shell/NOTES`, with no `#!` line, holds a function-shaped line no lookup may find.
 `shell/bin/brew.sh` assigns plain `name=` in a function twice, `+=` after `=`, a global above
 the function, a heredoc line shaped like an assignment, and a variable named like a function
-(#1057).
+(#1057). `shell/test/shop.bats` loads `lib/warehouse.bash` and reads a variable another
+`@test` assigns (#1058).
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by

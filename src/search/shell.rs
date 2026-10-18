@@ -1,6 +1,8 @@
+use std::path::{Path, PathBuf};
+
 use regex::Regex;
 
-use super::{Binding, Value, indent};
+use super::{Binding, Value, indent, lexical};
 
 pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     shell_function_at(lines, at).map_or_else(Vec::new, |f| {
@@ -32,13 +34,45 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
         })
         .map(|i| i + 1)
 }
+pub fn shell_source(line: &str, col: usize) -> Option<String> {
+    static SOURCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(load)\s+(.*)").expect("the regex is a literal")
+    });
+    let c = SOURCE.captures(line)?;
+    let (keyword, rest) = (c.get(1)?, c.get(2)?);
+    let word = *shell_words(rest.as_str()).first()?;
+    let end = rest.start() + rest.as_str().find(word)? + word.len();
+    if col < keyword.start() || col > end {
+        return None;
+    }
+    let path = word.replace(['"', '\''], "");
+    if path.starts_with('/') || path.contains(['$', '`', '*']) {
+        return None;
+    }
+    let bash = if Path::new(&path).extension().is_some_and(|e| e == "bash") {
+        ""
+    } else {
+        ".bash"
+    };
+    Some(format!("./{path}{bash}"))
+}
+pub fn shell_files(dir: &Path, path: &str, files: &[PathBuf]) -> Vec<PathBuf> {
+    match lexical(&dir.join(path)).filter(|f| files.contains(f)) {
+        Some(f) => vec![f],
+        None => files
+            .iter()
+            .filter(|f| f.ends_with(path))
+            .cloned()
+            .collect(),
+    }
+}
 pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
     static ONE_LINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").expect("the regex is a literal")
     });
     (0..at.min(lines.len())).rev().find(|&k| {
         let l = lines[k];
-        HEADER.is_match(l)
+        (HEADER.is_match(l) || l.starts_with("@test "))
             && !ONE_LINE.is_match(l)
             && !lines[k + 1..=at]
                 .iter()

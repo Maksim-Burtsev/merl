@@ -8,3 +8,5 @@ weigh() {
 courier_dispatch() {
   echo "$COURIER_NAME: $1"
 }
+
+parcel=0

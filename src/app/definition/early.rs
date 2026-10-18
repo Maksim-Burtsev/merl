@@ -98,9 +98,11 @@ impl App {
         {
             let module = [module];
             let files = self.import_files(kind, &here, &module);
-            let found = self.module_candidates(files);
-            self.show_definitions(kind, &module[0], &here, found, None);
-            return true;
+            if kind != Kind::Shell || !files.is_empty() {
+                let found = self.module_candidates(files);
+                self.show_definitions(kind, &module[0], &here, found, None);
+                return true;
+            }
         }
         false
     }

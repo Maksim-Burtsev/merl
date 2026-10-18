@@ -92,7 +92,7 @@ pub fn kind_of(path: &Path) -> Option<Kind> {
             | "Podfile" | "Brewfile" | "Dangerfile" | "Fastfile",
             _,
         ) => Kind::Ruby,
-        (_, "sh" | "bash" | "zsh" | "ksh") => Kind::Shell,
+        (_, "sh" | "bash" | "zsh" | "ksh" | "bats") => Kind::Shell,
         (
             ".bashrc" | ".bash_profile" | ".bash_aliases" | ".zshrc" | ".zshenv" | ".zprofile"
             | ".profile",

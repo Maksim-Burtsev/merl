@@ -46,6 +46,7 @@ fn kinds_come_from_the_file_name() {
         ("run.bash", Some(Kind::Shell)),
         ("run.zsh", Some(Kind::Shell)),
         ("run.ksh", Some(Kind::Shell)),
+        ("shop.bats", Some(Kind::Shell)),
         (".bashrc", Some(Kind::Shell)),
         (".bash_profile", Some(Kind::Shell)),
         (".bash_aliases", Some(Kind::Shell)),
