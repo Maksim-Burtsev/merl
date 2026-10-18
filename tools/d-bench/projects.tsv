@@ -2,11 +2,13 @@
 paperless-ngx	python	https://github.com/paperless-ngx/paperless-ngx.git	6a5d06ee26a4620e6c8452870f157998d5b35050	uv sync
 outline	ts	https://github.com/outline/outline.git	179d7dd7be2cb395d45f0151b858e14009cec9d1	-
 eslint	js	https://github.com/eslint/eslint.git	93de066d4125f8df013d40305e8009f4634a5cba	npm install --ignore-scripts --before=2026-09-29
+uptime-kuma	js	https://github.com/louislam/uptime-kuma.git	b092505f894d66669b67f46e1da72b51016eceab	npm install --ignore-scripts --before=2026-10-19
 caddy	go	https://github.com/caddyserver/caddy.git	ea1e94b89972b83b189cbb946352abd9acec0f8c	go mod download
+gitea	go	https://github.com/go-gitea/gitea.git	bea6fcaa840f2e14030aa2adc360969a1c8a0e0c	-
 ripgrep	rust	https://github.com/BurntSushi/ripgrep.git	3fce3b5bb0236da2df6d99672afb8a719642eca7	cargo fetch
 redis	c	https://github.com/redis/redis.git	8623fade2008754962316cecdba1f71ee103bdd8	-
 leveldb	cpp	https://github.com/google/leveldb.git	7ee830d02b623e8ffe0b95d59a74db1e58da04c5	-
-koel	php	https://github.com/koel/koel.git	2b4c6338f6e286d3cfc484e99be4c279b2c7b645	-
+koel	php	https://github.com/koel/koel.git	2b4c6338f6e286d3cfc484e99be4c279b2c7b645	S="$D_BENCH_SERVERS/php" && COMPOSER_HOME="$S/home" COMPOSER_CACHE_DIR="$S/cache" "$S/php" "$S/composer.phar" install --no-scripts --ignore-platform-reqs --no-interaction --no-progress
 Alamofire	swift	https://github.com/Alamofire/Alamofire.git	bda9ed57d72988a3a2ada33d824583541f86eac6	-
 halo	java	https://github.com/halo-dev/halo.git	fe77aacf894c9200ae4b4ddb0f904346813732d0	-
 nowinandroid	kotlin	https://github.com/android/nowinandroid.git	a49ed253d75e61a2b6ab80a8da677b57437b08eb	-
@@ -32,3 +34,5 @@ bats-core	bash	https://github.com/bats-core/bats-core.git	f2a9f7449df1701429a254
 acme.sh	bash	https://github.com/acmesh-official/acme.sh.git	37d064f7b580055d3f2ddf9a9c960f754f3694d6	-
 nvim-treesitter	lua	https://github.com/nvim-treesitter/nvim-treesitter.git	1a4f47b03dfe92d28de7d5654c67327ef008c9e6	-
 kong	lua	https://github.com/Kong/kong.git	6605dd81630d5f239514cf0dcdf77b51b878bd24	-
+dio	dart	https://github.com/cfug/dio.git	45a2849a601b2137b797e4f183ee2da6b13c05a8	cd dio && dart --suppress-analytics pub get
+lemmy	sql	https://github.com/LemmyNet/lemmy.git	fc640cf86a130bc897d83dbd06d84c3c7d9b16e3	-

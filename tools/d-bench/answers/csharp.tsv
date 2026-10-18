@@ -79,3 +79,138 @@ csharp0076		not a name with a definition	namespace segment global::System
 csharp0077		not a name with a definition	on declaration
 csharp0078			outside the project: ILogger LogInformation
 csharp0079	tests/Basket.UnitTests/BasketServiceTests.cs:110		local var service in same method
+csharp0080			outside the project: JsonWebTokenHandler (Microsoft.IdentityModel)
+csharp0081		not a name with a definition	namespace segment
+csharp0082			outside the project: CancellationToken
+csharp0083		not a name with a definition	namespace segment
+csharp0084			outside the project: ILogger
+csharp0085	src/Ordering.Domain/AggregatesModel/BuyerAggregate/PaymentMethod.cs:5		read the code
+csharp0086			outside the project: DataType.Password
+csharp0087		not a name with a definition	on declaration: an anonymous type's member
+csharp0088			outside the project: IReadOnlyList
+csharp0089	src/Ordering.Domain/Events/OrderStatusChangedToStockConfirmedDomainEvent.cs:6		read the code
+csharp0090			outside the project: List<T>.FindAll
+csharp0091		not a name with a definition	on declaration
+csharp0092		not a name with a definition	on declaration
+csharp0093		not a name with a definition	namespace segment
+csharp0094			outside the project: TracerProviderBuilder.AddSource
+csharp0095		not a name with a definition	namespace segment
+csharp0096		not a name with a definition	on declaration
+csharp0097			outside the project: EF ToTable
+csharp0098	src/eShop.ServiceDefaults/OpenApi.Extensions.cs:28		var local
+csharp0099			outside the project: Type.GetGenericArguments
+csharp0100		not a name with a definition	on declaration
+csharp0101		not a name with a definition	namespace segment
+csharp0102		not a name with a definition	on declaration
+csharp0103	src/WebApp/Services/OrderStatus/OrderStatusNotificationService.cs:52		primary constructor of a nested class
+csharp0104	src/Catalog.API/Model/CatalogItem.cs:47;src/Catalog.API/Model/CatalogItem.cs:7		constructor CatalogItem(string), or the class
+csharp0105		not a name with a definition	on declaration
+csharp0106			outside the project: DateTime.UtcNow
+csharp0107		not a name with a definition	on declaration
+csharp0108			outside the project: LINQ Where
+csharp0109		not a name with a definition	on declaration
+csharp0110		not a name with a definition	namespace segment
+csharp0111			outside the project: DataTypeAttribute
+csharp0112	src/Ordering.Domain/AggregatesModel/BuyerAggregate/IBuyerRepository.cs:11		field typed by an interface
+csharp0113	src/WebApp/Extensions/Extensions.cs:72		lambda parameter
+csharp0114		not a name with a definition	keyword `global`
+csharp0115			outside the project: System.Security.Claims.Claim
+csharp0116	src/Ordering.Infrastructure/OrderingContext.cs:10		read the code
+csharp0117		not a name with a definition	on declaration
+csharp0118	src/Ordering.API/Application/Queries/OrderViewModel.cs:34		using CardType = ...Queries.CardType alias
+csharp0119		not a name with a definition	on declaration
+csharp0120			outside the project: RabbitMQ BasicDeliverEventArgs
+csharp0121			outside the project: CookieAuthenticationDefaults
+csharp0122		not a name with a definition	on declaration
+csharp0123		not a name with a definition	namespace segment
+csharp0124			outside the project: ArgumentNullException
+csharp0125	src/Catalog.API/Apis/CatalogApi.cs:189		var local
+csharp0126	src/EventBus/Abstractions/IEventBus.cs:3		read the code
+csharp0127			outside the project: EF HasMaxLength
+csharp0128		not a name with a definition	on declaration
+csharp0129		not a name with a definition	on declaration
+csharp0130		not a name with a definition	namespace segment
+csharp0131	src/Ordering.Domain/SeedWork/Entity.cs:38		this.IsTransient
+csharp0132	src/EventBusRabbitMQ/RabbitMQEventBus.cs:183		own private method
+csharp0133			outside the project: JsonSerializerOptions
+csharp0134		not a name with a definition	on declaration
+csharp0135		not a name with a definition	on declaration
+csharp0136		not a name with a definition	namespace segment
+csharp0137		not a name with a definition	on declaration
+csharp0138	src/Ordering.API/Apis/OrdersApi.cs:80		method group, same class
+csharp0139	src/Catalog.API/Infrastructure/CatalogContext.cs:14		services.Context.CatalogItems: CatalogServices.Context is CatalogContext
+csharp0140	src/Ordering.API/Application/Queries/IOrderQueries.cs:5		services.Queries.GetOrderAsync: OrderServices.Queries is IOrderQueries
+csharp0141		not a name with a definition	on declaration
+csharp0142			outside the project: string.IsNullOrWhiteSpace
+csharp0143			outside the project: FluentValidation RuleFor
+csharp0144			outside the project: Exception
+csharp0145			outside the project: Duende options
+csharp0146	src/Ordering.API/Application/Commands/CreateOrderCommand.cs:32		validator of CreateOrderCommand: lambda parameter
+csharp0147	src/Catalog.API/Model/PaginatedItems.cs:5		read the code
+csharp0148			outside the project: HttpRequestMessage.Headers
+csharp0149	src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs:16		o is Order (context.Orders lambda)
+csharp0150	src/EventBus/Extensions/GenericTypeExtensions.cs:22		extension on object: the (this object) overload
+csharp0151	src/Webhooks.API/Infrastructure/WebhooksContext.cs:10		primary constructor parameter db: WebhooksContext
+csharp0152			outside the project: IServiceCollection.AddAuthorization
+csharp0153			outside the project: Activity.SetTag
+csharp0154			outside the project: string.ToString
+csharp0155			outside the project: OpenApiParameter.Schema
+csharp0156			outside the project: Uri.Host
+csharp0157	src/WebApp/Services/BasketService.cs:9		primary constructor parameter basketService: BasketService
+csharp0158	src/Ordering.API/Application/IntegrationEvents/IOrderingIntegrationEventService.cs:6		field typed by an interface
+csharp0159			outside the project: GrpcClientFactoryOptions.Address
+csharp0160			outside the project: string.IsNullOrWhiteSpace
+csharp0161	src/Ordering.API/Application/Commands/CreateOrderDraftCommandHandler.cs:56		item: OrderItemDTO from ToOrderItemDTO()
+csharp0162	src/Ordering.API/Application/Commands/IdentifiedCommand.cs:7		validator of IdentifiedCommand: lambda parameter
+csharp0163			outside the project: string.IsNullOrWhiteSpace
+csharp0164			outside the project: AddScoped
+csharp0165	src/Catalog.API/Infrastructure/CatalogContextSeed.cs:81		source: CatalogSourceEntry (Select lambda)
+csharp0166			outside the project: OpenApiOperation.Responses
+csharp0167			outside the project: KeyValuePair.Key
+csharp0168			outside the project: LogInformation
+csharp0169	src/Ordering.Domain/SeedWork/Entity.cs:7		buyer: Buyer : Entity, Id inherited
+csharp0170	src/Basket.API/Proto/basket.proto:22	protobuf accessor, generated	proto field BasketItem.quantity (WebApp builds the client from Basket.API's basket.proto), as kotlin0065; reviewed: was no-answer as gRPC-generated
+csharp0171			outside the project: int[].Contains
+csharp0172	src/WebApp/Services/BasketCheckoutInfo.cs:14		parameter checkoutInfo: BasketCheckoutInfo
+csharp0173			outside the project: AddOpenAIClientFromConfiguration (Aspire)
+csharp0174			outside the project: IOptions.Value
+csharp0175			outside the project: Uri.Scheme
+csharp0176	src/Ordering.Domain/Events/OrderStatusChangedToStockConfirmedDomainEvent.cs:9		parameter domainEvent
+csharp0177	src/Ordering.Domain/SeedWork/Entity.cs:7		this.Id
+csharp0178	src/Webhooks.API/Infrastructure/WebhooksContext.cs:10		parameter context: WebhooksContext
+csharp0179	src/Ordering.Domain/AggregatesModel/BuyerAggregate/IBuyerRepository.cs:11		field typed by an interface
+csharp0180			outside the project: IConfigurationSection.Exists
+csharp0181			outside the project: string.ToString
+csharp0182	src/eShop.ServiceDefaults/ConfigurationExtensions.cs:5		extension on IConfiguration
+csharp0183	src/Catalog.API/Infrastructure/CatalogContext.cs:14		parameter context: CatalogContext
+csharp0184			outside the project: HttpClient.GetFromJsonAsync
+csharp0185			outside the project: IHostApplicationBuilder.Services
+csharp0186			outside the project: AddOllamaApiClient (CommunityToolkit)
+csharp0187			outside the project: string.IsNullOrWhiteSpace
+csharp0188	src/EventBus/Events/IntegrationEvent.cs:12		parameter @event: IntegrationEvent
+csharp0189			outside the project: AuthenticationState.User
+csharp0190			outside the project: options.AddDocument
+csharp0191	src/WebApp/Services/BasketService.cs:49		existing: BasketQuantity record (var from List<BasketQuantity>)
+csharp0192	src/Catalog.API/Model/CatalogItem.cs:29		this.AvailableStock
+csharp0193	src/WebApp/Services/BasketService.cs:49		read the code: existing: BasketQuantity, a positional record
+csharp0194	src/WebAppComponents/Catalog/CatalogItem.cs:4		read the code: item: CatalogItem parameter, a positional record
+csharp0195	src/WebAppComponents/Catalog/CatalogItem.cs:4		read the code: item: CatalogItem parameter, in an interpolated string
+csharp0196	src/Basket.API/IntegrationEvents/Events/OrderStartedIntegrationEvent.cs:6		read the code: @event: OrderStartedIntegrationEvent(string UserId)
+csharp0197	src/Ordering.API/Application/Commands/CreateOrderDraftCommand.cs:4		read the code: command: CreateOrderDraftCommand(string BuyerId, ...)
+csharp0198	src/WebApp/Services/BasketService.cs:49		read the code: foreach var item over GetBasketAsync(): BasketQuantity
+csharp0199	src/WebApp/Extensions/Extensions.cs:43		read the code: same class
+csharp0200	src/eShop.ServiceDefaults/HttpClientExtensions.cs:11		read the code
+csharp0201			outside the project: Asp.Versioning AddApiVersion
+csharp0202	src/Ordering.API/Extensions/Extensions.cs:53		read the code: same class
+csharp0203	src/WebApp/Services/BasketState.cs:21		read the code: @inject BasketState Basket
+csharp0204	src/WebApp/Services/BasketState.cs:58		read the code: @inject BasketState Basket
+csharp0205	src/WebApp/Services/BasketState.cs:9		read the code: type in @inject
+csharp0206	src/WebAppComponents/Services/IProductImageUrlProvider.cs:10		read the code: the (int productId) overload
+csharp0207	src/WebApp/Services/BasketItem.cs:3		read the code: WebApp's BasketItem
+csharp0208	src/WebAppComponents/Services/CatalogService.cs:11		read the code: @inject CatalogService CatalogService
+csharp0209	src/WebApp/Services/BasketState.cs:33		read the code: @inject BasketState BasketState
+csharp0210	src/WebApp/Components/Pages/Item/ItemPage.razor:160		read the code: own @code method
+csharp0211	src/WebApp/Services/BasketState.cs:78		read the code: @inject BasketState Basket
+csharp0212	src/WebApp/Components/Pages/Checkout/Checkout.razor:111		read the code: own @code method
+csharp0213	src/WebAppComponents/Services/PriceFormatter.cs:9		read the code: extension on decimal
+csharp0214	src/WebApp/Services/BasketItem.cs:10		read the code: items from GetBasketItemsAsync: BasketItem
