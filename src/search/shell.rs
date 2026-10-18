@@ -13,6 +13,25 @@ pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             .collect()
     })
 }
+pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -> Option<usize> {
+    let assign = Regex::new(&format!(
+        r"^\s*(?:(?:export|readonly|declare|typeset)(?:\s+-\w+)*\s+)?{}=",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let assigns = |i: usize| {
+        literal.get(i) != Some(&true)
+            && (assign.is_match(lines[i]) || shell_loop_binds(lines[i], name) == Some(true))
+    };
+    let mine = shell_function_at(lines, at);
+    mine.and_then(|f| (f + 1..at).rev().find(|&i| assigns(i)))
+        .or_else(|| {
+            (0..mine.unwrap_or(at))
+                .rev()
+                .find(|&i| assigns(i) && shell_function_at(lines, i).is_none())
+        })
+        .map(|i| i + 1)
+}
 pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
     static ONE_LINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").expect("the regex is a literal")
