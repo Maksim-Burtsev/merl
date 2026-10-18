@@ -15,6 +15,8 @@ chmod +x "$D/bin/starpls"
 mkdir -p "$D/lua-language-server"
 curl -fsSL "https://github.com/LuaLS/lua-language-server/releases/download/3.19.2/lua-language-server-3.19.2-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/x64/; s/aarch64/arm64/').tar.gz" |
   tar -xz -C "$D/lua-language-server"
+curl -fsSL "https://storage.googleapis.com/dart-archive/channels/stable/release/3.13.5/sdk/dartsdk-$(uname -s | tr A-Z a-z | sed 's/darwin/macos/')-$(uname -m | sed 's/x86_64/x64/; s/aarch64/arm64/')-release.zip" -o "$D/dart-sdk.zip"
+rm -rf "$D/dart-sdk" && unzip -q "$D/dart-sdk.zip" -d "$D" && rm "$D/dart-sdk.zip"
 julia --project=@ls -e 'using Pkg; Pkg.add("LanguageServer")'
 depot=$(julia -e 'print(first(DEPOT_PATH))')
 test -d "$depot"

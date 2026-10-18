@@ -201,6 +201,10 @@ def main():
         sys.exit("no project matches")
     cache = os.path.realpath(os.path.expanduser(a.cache))
     os.makedirs(cache, exist_ok=True)
+    servers = os.path.realpath(os.environ.get("D_BENCH_SERVERS", os.path.join(cache, "servers")))
+    if os.path.isdir(os.path.join(servers, "dart-sdk", "bin")):
+        os.environ["PATH"] = os.path.join(servers, "dart-sdk", "bin") + os.pathsep + os.environ["PATH"]
+        os.environ["PUB_CACHE"] = os.path.join(servers, "dart-pub-cache")
     roots, cursors, answers = {}, [], {}
     for name, lang, url, commit, install in pick:
         roots[name] = os.path.realpath(ensure(cache, name, url, commit, install))
