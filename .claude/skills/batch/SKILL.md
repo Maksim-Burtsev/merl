@@ -180,7 +180,7 @@ highest priority first.
   what is left.
 - With every PR pushed and no agent running, `.claude/skills/batch/bin/clean-builds [RUN_DIR]`
   deletes the run's build output: each cargo `target` dir (3–10 GB) under the run's folder and
-  this session's `/private/tmp` folder. The ledger, task files, logs and reports stay. On
+  this session's `/private/tmp` folder. The ledger, task files, logs and reports stay, and a dir a process still has open is left and named. On
   2026-10-18 runs that never did this had left ~100 GB and filled the disk.
 - The last message is one table, in the owner's language: merged (issue, one line), waiting for
   the owner (link, what to look at), not done (why, what is left), then the weekly percentage
