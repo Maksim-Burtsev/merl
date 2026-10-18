@@ -707,13 +707,37 @@ pub fn php_written_type(line: &str, name: &str) -> Option<String> {
         .then(|| written.to_owned())
 }
 
+pub fn php_param_tag(lines: &[&str], at: usize, name: &str) -> Option<Option<String>> {
+    static FUNCTION: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bfunction\b").expect("the regex is a literal"));
+    static PARAM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"@param\s+(\S+)\s+(?:\.\.\.)?&?\$(\w+)\b").expect("the regex is a literal")
+    });
+    let header = (at.saturating_sub(10)..=at)
+        .rev()
+        .find(|&i| lines.get(i).is_some_and(|l| FUNCTION.is_match(l)))?;
+    if lines[header..at].iter().any(|l| l.contains(['{', ';'])) {
+        return None;
+    }
+    lines[..header]
+        .iter()
+        .rev()
+        .map(|l| l.trim_start())
+        .take_while(|l| l.starts_with('*') || l.starts_with("/**") || l.starts_with("#["))
+        .find_map(|l| PARAM.captures(l).filter(|c| &c[2] == name))
+        .map(|c| php_one_class(&c[1]))
+}
+
 pub fn php_tag_type(line: &str, name: &str) -> Option<String> {
     static TAG: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*\*\s*@property(?:-read|-write)?\s+(\S+)\s+\$(\w+)\b")
             .expect("the regex is a literal")
     });
-    let c = TAG.captures(line).filter(|c| &c[2] == name)?;
-    let mut types = c[1]
+    php_one_class(&TAG.captures(line).filter(|c| &c[2] == name)?[1])
+}
+
+fn php_one_class(types: &str) -> Option<String> {
+    let mut types = types
         .split('|')
         .map(|t| t.trim_start_matches('?'))
         .filter(|t| !t.eq_ignore_ascii_case("null"));
