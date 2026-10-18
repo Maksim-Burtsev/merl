@@ -8,4 +8,4 @@ wait hunk 1/1  file 1/8
 # read-only, and your checkout stays on main (#215).
 key Enter
 wait read-only: a pushed branch
-run test "$(git symbolic-ref --short HEAD)" = main
+check test "$(git symbolic-ref --short HEAD)" = main
