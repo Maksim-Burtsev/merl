@@ -1,4 +1,7 @@
-use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
+use super::php::{
+    php_assignment, php_bare_word_cut, php_constants, php_method, php_namespace_line,
+    php_properties, php_tags,
+};
 use super::{
     ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
     c_declares_where, c_enum_line, c_enumerators, c_member_decl, c_mods, close_of, cmake_patterns,
@@ -334,7 +337,7 @@ fn php_patterns(word: &str) -> Vec<String> {
         case,
         property,
         promoted,
-        format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+        php_assignment(&w),
         property_tag,
         method_tag,
     ]
@@ -362,7 +365,10 @@ pub fn narrow_patterns(
     r: std::ops::Range<usize>,
 ) {
     match kind {
-        Kind::Php => php_namespace_patterns(p, php_block(text, row), line, r),
+        Kind::Php => {
+            php_bare_word_cut(p, line, r.clone());
+            php_namespace_patterns(p, php_block(text, row), line, r);
+        }
         Kind::PowerShell => {
             if let (Some(before), Some(after)) = (line.get(..r.start), line.get(r.end..)) {
                 powershell_sigil(p, before, after);

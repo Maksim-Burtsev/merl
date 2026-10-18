@@ -319,3 +319,72 @@ fn a_path_outside_is_shown_from_its_root() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
+    let builder = "<?php\n\nnamespace App\\Builders;\n\nuse Illuminate\\Database\\Query\\JoinClause;\n\nclass ArtistBuilder\n{\n    public function joined(): void\n    {\n        $this->leftJoin('t', function (JoinClause $join): void {\n            $join->on('a', 'b');\n            $join->where('c', 1);\n        });\n    }\n\n    /**\n     * @param Scanner $user\n     */\n    public function __invoke(JoinClause $user): void\n    {\n        $user->on('x');\n    }\n}\n";
+    let scanner = "<?php\n\nnamespace App\\Services;\n\nclass Scanner\n{\n    public function on(string $event): void\n    {\n    }\n\n    public function where(): void\n    {\n    }\n}\n";
+    let join = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass JoinClause extends Builder\n{\n    public function on($first, $second)\n    {\n    }\n}\n";
+    let query = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass Builder\n{\n    public function where($column, $value)\n    {\n    }\n}\n";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Builders/ArtistBuilder.php", builder),
+        ("app/Services/Scanner.php", scanner),
+        ("vendor/laravel/Query/JoinClause.php", join),
+        ("vendor/laravel/Query/Builder.php", query),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-outside-receiver", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |code: &str| {
+            d_on(&mut a, "app/Builders/ArtistBuilder.php", code);
+            shown(&mut a)
+        };
+        let scanner_on = ("Scanner::on", "app/Services/Scanner.php:7");
+        let by_name = if vendor {
+            picker(
+                "on: by name, 2 declarations",
+                &[
+                    scanner_on,
+                    ("JoinClause::on", "laravel/Query/JoinClause.php:7"),
+                ],
+            )
+        } else {
+            jump("on \u{2192} Scanner::on (by name, 1 match)", scanner_on.1)
+        };
+        let (on, where_) = if vendor {
+            (
+                jump(
+                    "on \u{2192} JoinClause::on (via $join: JoinClause)",
+                    "vendor/laravel/Query/JoinClause.php:7",
+                ),
+                jump(
+                    "where \u{2192} Builder::where (via $join: JoinClause)",
+                    "vendor/laravel/Query/Builder.php:7",
+                ),
+            )
+        } else {
+            (
+                jump("no definition for on", "app/Builders/ArtistBuilder.php:12"),
+                jump(
+                    "no definition for where",
+                    "app/Builders/ArtistBuilder.php:13",
+                ),
+            )
+        };
+        assert_eq!(d("$join->on"), on, "vendor: {vendor}");
+        assert_eq!(d("$join->where"), where_, "vendor: {vendor}");
+        assert_eq!(
+            d("$user->on"),
+            by_name,
+            "a docblock's @param keeps the search by name: vendor: {vendor}"
+        );
+        drop(std::fs::remove_dir_all(dir));
+    }
+}
