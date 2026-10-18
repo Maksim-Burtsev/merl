@@ -11,7 +11,9 @@ a release build of master, and the commit trailers. Read `AGENTS.md` in your wor
   worktrees belong to others.
 - The machine is shared: every cargo command, `tools/ci-local`, `tests/smoke/run.py`, the
   benches and the sweeps run under `tools/heavy` (`tools/heavy cargo test …`). It waits for one
-  of the machine's two slots and sets 5 build jobs and 5 test threads; the sweeps that spawn
+  of the machine's two slots, sets 5 build jobs and 5 test threads by day and 3 from 22:00 to
+  08:00, and kills a command after 45 minutes (`MERL_HEAVY_MINUTES=90` for a longer bench); the
+  sweeps that spawn
   threads of their own read only `RUST_TEST_THREADS`, never `--test-threads`. Reading, git and gh
   take no slot.
 - Commit work in progress; `git stash` is shared by every worktree of the repository, and

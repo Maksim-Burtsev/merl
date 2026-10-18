@@ -1481,6 +1481,7 @@ b";
         "assets/tapes",
         ".claude/hooks",
         ".claude/skills/batch/bin",
+        ".claude/skills/groom/bin",
         ".github",
         "Cargo.toml",
         "deny.toml",

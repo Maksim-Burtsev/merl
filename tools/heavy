@@ -1,11 +1,26 @@
 #!/usr/bin/env bash
 set -u
 [ $# -gt 0 ] || { echo "usage: tools/heavy COMMAND [ARG]..." >&2; exit 2; }
-export CARGO_BUILD_JOBS=5 RUST_TEST_THREADS=5
+hour=$(date +%-H)
+if [ "$hour" -ge 22 ] || [ "$hour" -lt 8 ]; then jobs=3; else jobs=5; fi
+jobs=${MERL_HEAVY_JOBS:-$jobs}
+minutes=${MERL_HEAVY_MINUTES:-45}
+export CARGO_BUILD_JOBS=$jobs RUST_TEST_THREADS=$jobs
+kill_tree() {
+  local child
+  for child in $(pgrep -P "$1"); do kill_tree "$child"; done
+  kill "$1" 2>/dev/null
+}
 while :; do
   for slot in 1 2; do
-    lockf -k -s -t 0 "/tmp/merl-heavy.$slot.lock" nice -n 15 "$@"
+    lockf -k -s -t 0 "/tmp/merl-heavy.$slot.lock" nice -n 15 "$@" <&0 &
+    run=$!
+    { sleep $((minutes * 60)); echo "tools/heavy: killed after $minutes min: $*" >&2; kill_tree "$run"; } &
+    watchdog=$!
+    wait "$run"
     rc=$?
+    kill_tree "$watchdog"
+    wait "$watchdog" 2>/dev/null
     [ "$rc" -eq 75 ] || exit "$rc"
   done
   sleep 5
