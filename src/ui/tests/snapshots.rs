@@ -140,6 +140,10 @@ const STATES: &[State] = &[
     ("review-rename", |a| {
         review(a, &[], Some(("config.py", "app/settings.py")), None);
     }),
+    ("review-rename-edited", |a| {
+        review(a, &[], Some(("store.py", "app/store.py")), None);
+        press(a, "c");
+    }),
     ("tutor", |a| {
         a.tutor = Some(Tutor {
             step: 3,
@@ -446,6 +450,7 @@ snapshots! {
     snapshot_review_notes: "review-notes",
     snapshot_review_empty: "review-empty",
     snapshot_review_rename: "review-rename",
+    snapshot_review_rename_edited: "review-rename-edited",
     snapshot_tutor: "tutor",
     snapshot_drill: "drill",
 }

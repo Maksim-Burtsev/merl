@@ -112,6 +112,7 @@ fn draw_pane(frame: &mut Frame, app: &mut App, theme: &Theme, code: Rect, base: 
             .and_then(crate::picture::not_shown_note);
         draw_binary(frame, theme, code, base, note);
     } else if app.buf.path.is_some() {
+        let code = code::draw_rename_band(frame, app, theme, code, base);
         draw_code(frame, app, theme, code, base);
     } else {
         draw_welcome(frame, theme, code, base);
