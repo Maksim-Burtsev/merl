@@ -213,7 +213,7 @@ impl App {
         {
             self.python_reachable(a, &mut hits);
         }
-        Self::swift_implicit(a, &mut hits);
+        self.swift_implicit(a, &mut hits);
         if kind == Kind::Swift && !dotted && chain.is_empty() {
             self.swift_nested_unseen(&mut hits);
         }
@@ -290,7 +290,7 @@ impl App {
         }
     }
 
-    fn swift_implicit(a: &Asked, hits: &mut Vec<Hit>) {
+    fn swift_implicit(&self, a: &Asked, hits: &mut Vec<Hit>) {
         if a.kind == Kind::Swift
             && a.dotted
             && a.chain.is_empty()
@@ -319,6 +319,8 @@ impl App {
                 .collect();
             if implicit && !kept.is_empty() {
                 *hits = kept;
+            } else if implicit && !(lead.is_empty() && search::swift_continues(&a.text, self.line)) {
+                hits.retain(|h| !search::swift_instance_member(&h.text));
             }
         }
     }

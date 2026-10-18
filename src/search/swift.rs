@@ -257,6 +257,25 @@ pub fn swift_case(line: &str) -> bool {
     let t = line.trim_start();
     t.starts_with("case ") || t.starts_with("indirect case ")
 }
+pub fn swift_continues(text: &str, line0: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let Some(above) = (0..line0.min(lines.len()))
+        .rev()
+        .find(|&i| swift_code(&lines, &literal, i))
+    else {
+        return false;
+    };
+    let code = uncommented(Kind::Swift, lines[above]);
+    let code = code.trim_end();
+    let keyword = ["return", "case", "in", "else", "throw", "try", "await"]
+        .iter()
+        .any(|k| {
+            code.strip_suffix(k)
+                .is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+        });
+    !keyword && code.ends_with(|c: char| c.is_alphanumeric() || "_)]}?!\">".contains(c))
+}
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"{}extension\s", swift_mods!())).expect("the regex is a literal")
