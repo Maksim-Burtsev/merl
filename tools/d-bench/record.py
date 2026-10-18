@@ -7,7 +7,7 @@
 The projects are LANG's rows of projects.tsv, N cursors from each, cloned into the cache by `run`
 first ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
-Java, Kotlin, C#, Ruby, Nix, Groovy, Jenkins (a Groovy shared library, its own row), Emacs Lisp,
+Java, Kotlin, C#, Ruby, SQL, Nix, Groovy, Jenkins (a Groovy shared library, its own row), Emacs Lisp,
 Scheme and Common Lisp have no server here: their answers were judged by reading the code, as are
 the classes of CSS's Astro templates, which no server answers (`judge` in the note).
 """
