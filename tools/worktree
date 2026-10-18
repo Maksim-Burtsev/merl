@@ -20,11 +20,11 @@ if [ "$(cat "$seed.stamp" 2>/dev/null)" != "$want" ]; then
   (
     cd "$seed"
     export CARGO_TERM_QUIET=true
-    cargo clippy --locked --all-targets &&
+    tools/heavy sh -c 'cargo clippy --locked --all-targets &&
       cargo test --locked --no-run &&
       cargo build --locked --release &&
       cargo test --locked --release --no-run &&
-      tools/ci-local msrv >/dev/null
+      tools/ci-local msrv >/dev/null'
   ) || echo "tools/worktree: the seed build failed; the worktrees get what it built until Cargo.lock changes" >&2
   echo "$want" >"$seed.stamp"
 fi

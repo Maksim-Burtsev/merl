@@ -101,13 +101,15 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
 
 - **Calm.** Every build, test, clippy, `ci-local`, smoke run, bench and sweep, yours and the
   agents', runs under `tools/heavy`: two at a time on the whole machine, 5 jobs and 5 test
-  threads each, so the Mac mini's 10 cores stay busy and its fan calm, and an agent that reads,
-  writes or waits on a review holds no slot. At night 3 agents at once, by day 4; the owner may
+  threads each by day and 3 from 22:00 to 08:00, so the Mac mini's fan stays calm while the
+  owner is home or asleep, and an agent that reads, writes or waits on a review holds no slot.
+  `tools/heavy` kills a command after 45 minutes (`MERL_HEAVY_MINUTES` for a longer bench): on
+  2026-10-17 a hung test held a slot for 38. At night 3 agents at once, by day 4; the owner may
   lift it for a run ("без ограничения", a big batch to finish by morning): then 4 at night too,
-  and the task files say so. While `sysctl -n vm.loadavg` reads over 16, start nothing. Other
-  sessions share the machine: their processes are theirs. The slots are on trial from the night
-  of 2026-10-15: note in the ledger's last line the load you saw and how long agents waited for
-  a slot.
+  `MERL_HEAVY_JOBS=5`, and the task files say so. While `sysctl -n vm.loadavg` reads over 16,
+  start nothing. Other sessions share the machine: their processes are theirs. The ledger's
+  last line gives the night's load from `~/.local/state/load.log` (a minute's `vm.loadavg` per
+  line): its median and its peak with the time, and how long agents waited for a slot.
 - **Epic issues.** The agent pushes its branch: no PR, no review. Read its diff, merge the
   branch into the epic (`--no-ff`), and check each conflict hunk by hand: fixes for different
   languages add helpers at the same spot, and a careless union drops a closing brace. A
@@ -160,9 +162,22 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
 
 ## 5. Left-over time
 
-Shape issues for the owner's next pass: a `## Proposal` for `to-think` issues and for
-`needs-owner` ones that have none (`.claude/skills/proposal/SKILL.md`), one agent each, the
-highest priority first.
+A run the owner gave an end ("until 08:00 or 10 % of the week") goes on until the time or the
+budget is hit, whichever comes first; a finished list is not an end. On 2026-10-18 a run closed
+at 05:50 with 7 % of a 12 % budget spent, and the owner's first question in the morning was why.
+When the list runs dry, in this order:
+
+1. The next `agent-ok` issues of the queue, the ones filed during the run included, picked and
+   sized as in step 2.
+2. A `## Proposal` (`.claude/skills/proposal/SKILL.md`) for a `P1` or `P2` issue under
+   `to-think`, or under `needs-owner` without one, the highest priority first: one
+   `merl-implementer` agent each, whose prompt names the proposal skill, the issue and the
+   scratch folder (a `general-purpose` agent starts at ~54k tokens). At most 5 new desk cards a
+   night, and none for `P3`: on 2026-10-17 the owner could not follow 5 of 23 cards and dropped
+   5 more, several of them shaped in left-over time from `P3` issues.
+
+Leave something out only for a hard reason (the machine's limit, a question for the owner), and
+say it in the plan.
 
 ## 6. Close
 
@@ -182,6 +197,10 @@ highest priority first.
   deletes the run's build output: each cargo `target` dir (3–10 GB) under the run's folder and
   this session's `/private/tmp` folder. The ledger, task files, logs and reports stay, and a dir a process still has open is left and named. On
   2026-10-18 runs that never did this had left ~100 GB and filled the disk.
+- One push notification (the `PushNotification` tool, loaded through ToolSearch) once the
+  last message is written: the verdict in a line (merged, waiting for the owner, not done) and
+  the one link the owner opens first. The owner reads the morning on the phone and should not
+  have to ask whether the run is done.
 - The last message is one table, in the owner's language: merged (issue, one line), waiting for
   the owner (link, what to look at), not done (why, what is left), then the weekly percentage
   and the tokens used, and the hours, against the budget and the estimate.

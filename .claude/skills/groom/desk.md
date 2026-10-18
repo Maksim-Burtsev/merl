@@ -29,6 +29,13 @@ the page never asks for a file that is not there yet.
   `dur` is `ffprobe -v error -show_entries format=duration -of csv=p=0 X.mp4`.
 - **The same screen at the end of every option** (they differ only in the keys): one `result`
   still for the card, and each option carries its `keys` instead of a picture.
+- **The change shows.** `.claude/skills/groom/bin/desk-diff NOW.png OPTION.png…` prints the
+  share of pixels each option changes and their box; the recommended one's share goes into the
+  card as `diff`. Under 1 %, crop every picture of the card to that box (whole rows, a row of
+  margin), so the change fills the picture, and run it again. A change that still does not show
+  is not a question of pictures: put it to the owner in words, in the issue, not on the desk.
+  On 2026-10-17 the owner answered "не понял" on 6 of the 9 cards under 1 %, and on 2 of the 21
+  above.
 
 ## `cards/<id>.json`
 
@@ -40,6 +47,7 @@ cannot read is listed in red under the queue and not shown.
 |---|---|
 | `order` | its place in the queue |
 | `tag`, `link` | `#635` and the issue's URL |
+| `problem` | the card's first line: what goes wrong or is missing for the user today, in their keys and screen ("`c` walks past the files the agent left out of the review, so you never see them"). Without it the page lists the card in red and does not show it |
 | `title` | the question as the user feels it, a few words |
 | `today` | one sentence: what the user presses and sees today |
 | `visible` | what changes on screen, a few words; left out when nothing does |
@@ -48,6 +56,7 @@ cannot read is listed in red under the queue and not shown.
 | `multi` | `true` when options combine (`A + C`) |
 | `options` | `[{key, name, rec, rule, keys, adds, cons, img, video, dur}]`; `rec: true` on the recommended; `adds` is what it adds to the screen (`ничего нового` when nothing); `cons` its cost |
 | `why`, `elsewhere`, `unchanged` | why the recommendation; what GitHub, GitLab, VS Code do; what stays as is |
+| `diff` | the recommended option's share of changed pixels from `desk-diff`, a number; the page marks a card under 1 |
 | `status` | `archived` hides the card once its decision is in the issue; the file stays |
 
 Every text is in plain English, whatever language the chat is in (the owner moved to English on

@@ -1,0 +1,17 @@
+#!/usr/bin/env python3
+import sys
+
+from PIL import Image, ImageChops
+
+if len(sys.argv) < 3:
+    sys.exit("usage: desk-diff NOW.png OPTION.png...")
+now = Image.open(sys.argv[1]).convert("RGB")
+for path in sys.argv[2:]:
+    other = Image.open(path).convert("RGB")
+    if other.size != now.size:
+        print(f"{path}\t{other.width}x{other.height} against {now.width}x{now.height}: crop both to one box")
+        continue
+    red, green, blue = ImageChops.difference(now, other).split()
+    changed = ImageChops.lighter(ImageChops.lighter(red, green), blue).point(lambda v: 255 if v > 16 else 0)
+    share = 100 * changed.histogram()[255] / (now.width * now.height)
+    print(f"{path}\t{share:.2f}%\t{changed.getbbox()}")
