@@ -52,6 +52,9 @@ impl App {
                 self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
             }
         }
+        if kind == Kind::TsJs && a.dotted {
+            self.ts_member_namesakes(a, near, &mut found);
+        }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);
         if kind == Kind::Rust && found.is_empty() {
@@ -63,6 +66,30 @@ impl App {
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
+        }
+    }
+
+    fn ts_member_namesakes(&mut self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        static TOP_LEVEL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(
+                r"^(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\*?|class)\s",
+            )
+            .expect("the regex is a literal")
+        });
+        found.retain(|c| {
+            !self.text_of(&c.hit.path).is_some_and(|t| {
+                search::ts_nested_local(&t.lines().collect::<Vec<_>>(), c.hit.line1)
+            })
+        });
+        let namespace = a.chain.first().is_some_and(|head| {
+            matches!(head.as_str(), "exports" | "module")
+                || near.imports.iter().any(|i| {
+                    i.name == *head
+                        && matches!(i.path.last().map(String::as_str), Some("*" | "default"))
+                })
+        });
+        if !namespace && found.iter().any(|c| TOP_LEVEL.is_match(&c.hit.text)) {
+            self.offer_only = true;
         }
     }
 

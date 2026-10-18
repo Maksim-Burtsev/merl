@@ -414,7 +414,10 @@ beside a module-level namesake, `this` in an arrow and in a `function` that decl
 Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
 template literal. `ladle.ts` holds where a constraint must not be read: the result of a
 generic call, typed by its argument rather than the constraint, and a generic call taking a
-callback, which declares no type parameter.
+callback, which declares no type parameter. `packaged.ts` types receivers by packages that are not
+installed (`yjs`, `markdown-it`) beside project members of the same names, and calls a member
+named like a top-level function and a class of the file (#1079); `cut.ts` reads a member named
+like a local of another function.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
