@@ -423,7 +423,8 @@ pub(super) fn c_head(head: &str) -> Head {
         Regex::new(r"(?s)^\s*(?:(?:const|volatile|noexcept|override|final|mutable|throw|&&?|[A-Z_][A-Z0-9_]*)\s*(?:\(\s*\))?\s*)*(?:->.*|:[^:].*)?$").expect("the regex is a literal")
     });
     static NAME: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"((?:\w+\s*::\s*)*~?\w+)\s*$").expect("the regex is a literal")
+        Regex::new(r"((?:\w+\s*::\s*)*(?:operator\s*[^\w\s]+|~?\w+))\s*$")
+            .expect("the regex is a literal")
     });
     if c_struct_head(head).is_some() || NAMESPACE_EXTERN_OR_ENUM.is_match(head) {
         return Head::TypeOrNamespace;
@@ -1723,6 +1724,10 @@ mod tests {
         ] {
             let text = format!("void f({params}) {{\n  use(x);\n}}\n");
             assert_eq!(bound_on(&text, 2, "x"), [1], "{params}");
+        }
+        for head in ["bool C::operator()(int x) const", "bool operator==(T x)"] {
+            let text = format!("{head} {{\n  use(x);\n}}\n");
+            assert_eq!(bound_on(&text, 2, "x"), [1], "{head}");
         }
         let text = "void f(unsigned int, T) {\n  use(int, T);\n}\n";
         assert_eq!(bound_on(text, 2, "int"), Vec::<usize>::new());

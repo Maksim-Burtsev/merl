@@ -83,7 +83,7 @@ key Enter
 wait app/repos.py  -59:14  [code]  hunk 1/1  file 2/8  1/1
 key C-c
 wait copied 1 line
-run $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
+check $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
 key Enter
 wait -59:14  [code]  hunk 1/1  file 2/8  deleted
 caption o lists the review's files first, with their panel letter (#246)
