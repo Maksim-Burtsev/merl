@@ -17,7 +17,7 @@ type 100
 wait app/config.py ●  10:25  [edit]
 key Escape
 wait 10▎    page_size: int = 100
-run grep -q 'page_size: int = 100' app/config.py
+check grep -q 'page_size: int = 100' app/config.py
 key o
 type models.py
 key Enter
@@ -53,7 +53,7 @@ key :
 type 17
 key Enter Enter M-S-Right M-S-Right C-c
 wait copied
-run $SMOKE_TMUX show-buffer | grep -q 'api_token='
+check $SMOKE_TMUX show-buffer | grep -q 'api_token='
 key C-f
 type refund_window
 key Enter
@@ -65,7 +65,7 @@ key Enter
 type from decimal import Decimal
 key Escape
 wait app/money.py  1:28  [code]
-run grep -q 'from decimal import Decimal' app/money.py
+check grep -q 'from decimal import Decimal' app/money.py
 key o
 type .env
 key Enter
@@ -83,13 +83,13 @@ type Runbook: docs/notes.md
 wait README.md ●
 run kill -HUP $($SMOKE_TMUX display -p -t 0 '#{pane_pid}')
 wait merl exited: 0
-run grep -q 'Runbook: docs/notes.md' README.md && grep -q sk_live_smoke_4242 .env && ! grep -rq sk_live_smoke "$HOME"
+check grep -q 'Runbook: docs/notes.md' README.md && grep -q sk_live_smoke_4242 .env && ! grep -rq sk_live_smoke "$HOME"
 merl app/money.py
 wait app/money.py  1:1
 run $SMOKE_TMUX set -s set-clipboard external
 key C-c
 wait copied 1 line
-run $SMOKE_TMUX show-buffer | grep -q 'from decimal import Decimal'
+check $SMOKE_TMUX show-buffer | grep -q 'from decimal import Decimal'
 # Alt+Delete deletes the word after the cursor, Ctrl+X cuts the line (#310).
 key Enter M-DC
 wait app/money.py ●
@@ -97,7 +97,7 @@ key C-x
 wait copied 1 line
 key Escape
 wait app/money.py  1:1  [code]
-run ! grep -q Decimal app/money.py
+check ! grep -q Decimal app/money.py
 # Undo steps close as in VS Code (#478): `def` typed after the cursor went away and came back is
 # undone alone, and a cut after typing is undone without the typing.
 key Enter
@@ -110,4 +110,4 @@ key Space
 type ghi
 key M-Left M-S-Right C-x C-z Escape
 wait app/money.py  1:8  [code]
-run grep -q 'abc ghi' app/money.py
+check grep -q 'abc ghi' app/money.py
