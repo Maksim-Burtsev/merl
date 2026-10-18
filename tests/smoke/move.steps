@@ -105,3 +105,13 @@ wait app/service.py  36:21  [code]
 # the wrap, the preview and merl as they were, and Home after them still moves the cursor (#699).
 key Escape C-t C-w C-p C-q Home
 wait app/service.py  36:1  [code]
+# A Cmd+letter merl does not bind does nothing: Cmd+O, sent as Ghostty sends it (CSI 111;9u), opens
+# no files list, and End after it still moves the cursor. An Alt+Ctrl+letter whose Ctrl+letter merl
+# does not bind runs no Esc: Alt+Ctrl+Q leaves the `?` overlay open (#839).
+run $SMOKE_TMUX send-keys -t 0 -H 1b 5b 31 31 31 3b 39 75
+key End
+wait app/service.py  36:21  [code]
+key ? C-M-q
+wait This help
+key Escape
+wait app/service.py  36:21  [code]

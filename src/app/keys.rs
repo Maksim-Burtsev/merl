@@ -79,6 +79,10 @@ impl App {
                 _ => {}
             }
         }
+        if self.does_nothing(key) {
+            self.message.clear();
+            return ControlFlow::Break(false);
+        }
         if key.modifiers.contains(KeyModifiers::ALT) && matches!(key.code, KeyCode::Char(_)) {
             if matches!(self.mode, Mode::Edit | Mode::Note) {
                 return ControlFlow::Break(false);
@@ -89,15 +93,6 @@ impl App {
             self.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
             self.session = session;
             return ControlFlow::Break(!overlay && self.key(key));
-        }
-        if let KeyCode::Char(c) = key.code
-            && key.modifiers.contains(KeyModifiers::CONTROL)
-            && (key.modifiers.contains(KeyModifiers::SHIFT)
-                || !c.is_ascii_lowercase()
-                || self.letters_are_keys() && !self.binds(key))
-        {
-            self.message.clear();
-            return ControlFlow::Break(false);
         }
         if matches!(key.code, KeyCode::Char(_)) {
             key.modifiers.remove(KeyModifiers::SHIFT);
@@ -373,6 +368,23 @@ impl App {
             KeyCode::Home => self.line_start(),
             _ => self.line_end(),
         }
+    }
+
+    fn does_nothing(&self, key: KeyEvent) -> bool {
+        let KeyCode::Char(c) = key.code else {
+            return false;
+        };
+        if key.modifiers.contains(KeyModifiers::SUPER) {
+            return key.modifiers.difference(KeyModifiers::SHIFT) != KeyModifiers::SUPER
+                || !matches!(c, 'c' | 'x');
+        }
+        let mut chord = key;
+        chord.modifiers.remove(KeyModifiers::ALT);
+        chord.modifiers.contains(KeyModifiers::CONTROL)
+            && (chord.modifiers.contains(KeyModifiers::SHIFT)
+                || !c.is_ascii_lowercase()
+                || (self.letters_are_keys() || key.modifiers.contains(KeyModifiers::ALT))
+                    && !self.binds(chord))
     }
 
     fn letters_are_keys(&self) -> bool {
