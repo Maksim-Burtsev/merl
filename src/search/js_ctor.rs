@@ -11,7 +11,7 @@ pub fn js_constructor(line: &str) -> Option<&str> {
 }
 pub fn js_exported_class(line: &str) -> bool {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:module\.)?exports\.[\w$]+\s*=\s*class\b")
+        Regex::new(r"^\s*(?:(?:module\.)?exports\.[\w$]+|module\.exports)\s*=\s*class\b")
             .expect("the regex is a literal")
     });
     CLASS.is_match(line)

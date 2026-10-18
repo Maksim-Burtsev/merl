@@ -612,11 +612,19 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
         Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b")
             .expect("the regex is a literal")
     });
+    static ASSIGNED_CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:module\.exports|exports\.[\w$]+|(?:const|let|var)\s+[\w$]+)\s*=\s*class\s+([A-Za-z_$][\w$]*)")
+            .expect("the regex is a literal")
+    });
     static THIS_PARAM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bfunction\b[^(]*\(\s*this\s*:\s*([A-Za-z_$][\w$]*)\s*[,)]")
             .expect("the regex is a literal")
     });
-    if CLASS.is_match(header) {
+    if CLASS.is_match(header)
+        || ASSIGNED_CLASS
+            .captures(header)
+            .is_some_and(|c| &c[1] != "extends")
+    {
         return Some(Value::Class { decl_line1: line });
     }
     if let Some(c) = THIS_PARAM.captures(header) {
