@@ -105,7 +105,10 @@ fn cases() -> Vec<Case> {
         let (_, files) = crate::tree::build(&root.join(&fixture), false);
         for file in files {
             let path = root.join(&fixture).join(&file);
-            if search::kind_of(&path).is_none() && path.extension().is_none_or(|e| e != "json") {
+            let read = || std::fs::read_to_string(&path).unwrap_or_default();
+            if search::kind_read(&path, read).is_none()
+                && path.extension().is_none_or(|e| e != "json")
+            {
                 continue;
             }
             let Ok(text) = std::fs::read_to_string(&path) else {

@@ -217,6 +217,13 @@ later()`, a loop variable hiding a local, and a long string and a block comment 
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
+`shell/bin/infuse` is a script with no extension, Bash by its `#!` line (#1056), and
+`shell/NOTES`, with no `#!` line, holds a function-shaped line no lookup may find.
+`shell/bin/brew.sh` assigns plain `name=` in a function twice, `+=` after `=`, a global above
+the function, a heredoc line shaped like an assignment, and a variable named like a function
+(#1057). `shell/test/shop.bats` loads `lib/warehouse.bash` and reads a variable another
+`@test` assigns (#1058). The end of `shell/bin/brew.sh` sources paths behind `$VAR/`,
+`${VAR}/` and `$(dirname "$0")/`, a path a variable builds, and the variable in front (#1059).
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by

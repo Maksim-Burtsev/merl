@@ -142,7 +142,7 @@ fn ini(path: &Path) -> bool {
         })
 }
 
-fn hashbang(first: &str) -> Option<&str> {
+pub fn hashbang(first: &str) -> Option<&str> {
     let mut words = first.strip_prefix("#!")?.split_whitespace();
     let program = words.next()?.rsplit(['/', '\\']).next()?;
     if program != "env" {
