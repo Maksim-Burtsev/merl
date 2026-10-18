@@ -54,4 +54,4 @@ wait scripts/grant_admin.py  5:23
 
 
 scripts/grant_admin.py  5:23  [code]                                                                                                                                               14:32
-cursor (x,y,shown) 24,4,1
+cursor (x,y,shown) 24,4,0

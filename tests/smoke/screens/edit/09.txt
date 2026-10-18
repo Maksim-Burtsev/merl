@@ -54,4 +54,4 @@ wait 16▎        database_url=os.environ.get("DATABASE_URL", "postgresql://orde
 
 
 app/config.py  16:76  [code]                                                                                                                                                       14:32
-cursor (x,y,shown) 78,15,1
+cursor (x,y,shown) 78,15,0

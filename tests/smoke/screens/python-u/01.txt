@@ -54,4 +54,4 @@ wait class OrderRepo:
 │                            │53         self.orders[order.id] = order
 └────────────────────────────┘54
 app/repos.py  1:1  [code]                                                                                                                                                          14:32
-cursor (x,y,shown) 33,0,1
+cursor (x,y,shown) 33,0,0

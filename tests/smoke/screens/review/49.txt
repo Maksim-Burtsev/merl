@@ -11,4 +11,4 @@ wait hunk 0/0  file 6/8
 │    D refund_by_hand.… +0 −9│
 └ 8 files · +59 −39 ─────────┘
 scripts/refund_by_hand.py  1:1  [code]  read-only  hunk 0/0  file 6/8  skipped 1 file without hunks                                                                                14:32
-cursor (x,y,shown) 32,0,1
+cursor (x,y,shown) 32,0,0

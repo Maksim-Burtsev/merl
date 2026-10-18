@@ -54,4 +54,4 @@ wait 32             raise ValueError(f"order {order_id} is
 
 
 app/service.py  32:1  [code]                                                                                                                                                       14:32
-cursor (x,y,shown) 3,23,1
+cursor (x,y,shown) 3,23,0

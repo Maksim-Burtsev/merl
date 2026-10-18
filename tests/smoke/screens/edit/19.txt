@@ -54,4 +54,4 @@ wait README.md ●
 
 
 README.md ●  11:23  [edit]  Spaces: 4                                                                                                                                              14:32
-cursor (x,y,shown) 25,10,1
+cursor (x,y,shown) 25,10,0

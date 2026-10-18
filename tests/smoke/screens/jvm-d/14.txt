@@ -54,4 +54,4 @@ wait getLimit → Scale.limit (via scale: Scale)
 
 
 web/android/src/main/java/courier/app/Scale.java  12:17  [code]  getLimit → Scale.limit (via scale: Scale)                                                                         14:32
-cursor (x,y,shown) 19,11,1
+cursor (x,y,shown) 19,11,0

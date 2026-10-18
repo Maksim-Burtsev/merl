@@ -54,4 +54,4 @@ wait new: app/
 
 
 new: app/
-cursor (x,y,shown) 9,54,1
+cursor (x,y,shown) 9,54,0

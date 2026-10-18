@@ -14,6 +14,14 @@ use crate::tree::Tree;
 
 use super::rows;
 
+fn no_cursor(name: &str) -> crate::theme::Theme {
+    crate::theme::Theme {
+        cursor: ratatui::style::Style::new(),
+        typing_cursor: ratatui::style::Style::new(),
+        ..crate::theme::load(name).unwrap()
+    }
+}
+
 #[test]
 fn unwrapped_lines_are_cut_at_the_edge_and_follow_the_cursor() {
     let mut app = App::new(
@@ -84,7 +92,7 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ] {
         app.key(KeyEvent::new(code, m));
     }
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     let paint = |app: &mut App| -> Vec<String> {
         let mut terminal = Terminal::new(TestBackend::new(12, 5)).unwrap();
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
@@ -200,7 +208,7 @@ z
         None,
     );
     app.show_tree = false;
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     let paint = |app: &mut App| -> Vec<String> {
         let mut terminal = Terminal::new(TestBackend::new(10, 5)).unwrap();
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
@@ -315,7 +323,7 @@ fn cursor_stays_on_a_drawn_row_of_a_clipped_line() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     app.key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    let y = terminal.get_cursor_position().unwrap().y;
+    let y = app.cursor_cell.unwrap().y;
     let buf = terminal.backend().buffer();
     assert_eq!(
         buf[(2, y)].symbol(),
@@ -353,7 +361,7 @@ fn an_emoji_with_a_selector_wraps_and_holds_the_cursor_as_drawn() {
     app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(
-        terminal.get_cursor_position().unwrap().x,
+        app.cursor_cell.unwrap().x,
         2 + 3,
         "on the `b`: the emoji is two columns wide, as ratatui draws it"
     );
@@ -418,7 +426,39 @@ fn tabs_draw_four_wide_and_the_status_shows_the_edit_state() {
         status.contains("f.go \u{25cf}") && status.contains("[edit]  Tab"),
         "{status:?}"
     );
-    assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 4 + 7);
+    assert_eq!(app.cursor_cell.unwrap().x, 2 + 4 + 7);
+}
+
+#[test]
+fn merl_paints_the_cursor_cell_in_the_theme_s_colours_and_hides_the_terminal_s() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.py"), b"from enum import Enum\n"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load("github-light").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+    let mut cell = |app: &mut App| {
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        assert!(!terminal.backend().cursor_visible());
+        let at = app.cursor_cell.unwrap();
+        let c = &terminal.backend().buffer()[(at.x, at.y)];
+        (c.symbol().to_owned(), c.fg, c.bg)
+    };
+    let hex = |h: &str| h.parse::<Color>().unwrap();
+    assert_eq!(
+        cell(&mut app),
+        ("f".to_owned(), hex("#ffffff"), hex("#1f2328")),
+        "github-light's Cursor group"
+    );
+    app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    let (symbol, _, typing) = cell(&mut app);
+    assert_eq!(symbol, "f");
+    assert_eq!(Some(typing), theme.typing_cursor.bg);
+    assert_ne!(typing, hex("#1f2328"), "typing is told apart by colour");
 }
 
 #[test]
@@ -440,7 +480,7 @@ fn wrapped_rows_and_the_cursor_on_them_start_under_the_text() {
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(20, 4)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    let cursor = terminal.get_cursor_position().unwrap();
+    let cursor = app.cursor_cell.unwrap();
     let buf = terminal.backend().buffer();
     let row = |y: u16| (0..20).map(|x| buf[(x, y)].symbol()).collect::<String>();
     assert_eq!(row(0), "1 - Celery lost     ");
@@ -495,10 +535,7 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
     ] {
         key(&mut app, c);
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        assert_eq!(
-            (app.at(), terminal.get_cursor_position().unwrap().y),
-            (at, y)
-        );
+        assert_eq!((app.at(), app.cursor_cell.unwrap().y), (at, y));
     }
     key(&mut app, KeyCode::Down);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
@@ -539,7 +576,7 @@ fn up_scrolls_onto_the_ghosts_one_row_at_a_time() {
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         assert_eq!((app.top_line, app.top_row), top);
         assert_eq!(rows(&terminal)[..2], shown);
-        assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+        assert_eq!(app.cursor_cell.unwrap().y, 0);
     }
 }
 
@@ -603,11 +640,11 @@ fn every_ghost_after_the_last_line_can_be_walked_to() {
         rows(&terminal)[..4],
         ["\u{258e}g7", "\u{258e}g8", "\u{258e}g9", "\u{258e}g10"]
     );
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 3);
+    assert_eq!(app.cursor_cell.unwrap().y, 3);
     app.key(key(KeyCode::Up));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(app.at(), TextLine::Deleted(2, 8));
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 2);
+    assert_eq!(app.cursor_cell.unwrap().y, 2);
 }
 
 #[test]
@@ -636,7 +673,7 @@ fn up_and_down_walk_a_wrapped_ghost_row_by_row() {
     ] {
         app.key(key(c));
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-        let cursor = terminal.get_cursor_position().unwrap().y;
+        let cursor = app.cursor_cell.unwrap().y;
         assert_eq!(((app.at(), app.col), cursor), (at, y), "{c:?}");
     }
 }
@@ -670,7 +707,7 @@ fn up_scrolls_a_wrapped_ghost_in_one_row_at_a_time() {
         app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         assert_eq!(rows(&terminal)[..2], shown);
-        assert_eq!(terminal.get_cursor_position().unwrap().y, 0);
+        assert_eq!(app.cursor_cell.unwrap().y, 0);
     }
 }
 
@@ -699,7 +736,7 @@ fn wrapped_ghosts_after_the_last_line_can_all_be_walked_to() {
         rows(&terminal)[..3],
         ["\u{258e}five", "\u{258e}six seven", "\u{258e}eight"]
     );
-    assert_eq!(terminal.get_cursor_position().unwrap().y, 2);
+    assert_eq!(app.cursor_cell.unwrap().y, 2);
 }
 
 #[test]
@@ -993,7 +1030,7 @@ fn a_capture_s_background_wins_over_the_cursor_line_and_under_a_selection() {
         None,
     );
     app.show_tree = false;
-    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let theme = no_cursor("tokyonight-moon");
     let plus = theme.group("@diff.plus").and_then(|s| s.bg).unwrap();
     app.buf.parse_more(None);
     app.buf.highlight_to(usize::MAX, &theme);
@@ -1080,12 +1117,12 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
         None,
     );
     app.show_tree = false;
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     let mut terminal = Terminal::new(TestBackend::new(30, 12)).unwrap();
     let mut press = |app: &mut App, code: KeyCode| {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
-        let y = terminal.get_cursor_position().unwrap().y as usize;
+        let y = app.cursor_cell.unwrap().y as usize;
         let band = (0..30).all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
         (rows(&terminal), y, band)
     };
@@ -1162,7 +1199,7 @@ fn a_hunk_inside_a_long_function_lands_below_the_pinned_header() {
     app.key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let screen = rows(&terminal);
-    let y = terminal.get_cursor_position().unwrap().y as usize;
+    let y = app.cursor_cell.unwrap().y as usize;
     assert_eq!(app.line, 21);
     assert_eq!(screen[0], "1 def long():");
     let buf = terminal.backend().buffer();
@@ -1193,13 +1230,10 @@ fn press(
     terminal: &mut Terminal<TestBackend>,
     code: KeyCode,
 ) -> (Vec<String>, usize) {
-    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let theme = no_cursor(crate::theme::DEFAULT);
     app.key(KeyEvent::new(code, KeyModifiers::NONE));
     terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
-    (
-        rows(terminal),
-        terminal.get_cursor_position().unwrap().y as usize,
-    )
+    (rows(terminal), app.cursor_cell.unwrap().y as usize)
 }
 
 fn line_no(row: &str) -> usize {
@@ -1388,7 +1422,7 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_wrapped() {
     app.col = app.buf.shown(0).len();
     press(&mut app, &mut terminal, KeyCode::Null);
     assert_eq!(
-        terminal.get_cursor_position().unwrap(),
+        app.cursor_cell.unwrap(),
         (2, 1).into(),
         "the end of the drawn part is the `…`"
     );
@@ -1723,7 +1757,7 @@ fn the_cursor_steps_over_a_tag_and_delete_removes_it() {
     key(&mut app, KeyCode::Right);
     key(&mut app, KeyCode::Right);
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    assert_eq!(terminal.get_cursor_position().unwrap().x, 2 + 1 + 6);
+    assert_eq!(app.cursor_cell.unwrap().x, 2 + 1 + 6);
     key(&mut app, KeyCode::Left);
     key(&mut app, KeyCode::Enter);
     key(&mut app, KeyCode::Delete);
@@ -2010,7 +2044,7 @@ fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
     }
     app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
     app.key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE));
-    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let theme = no_cursor("tokyonight-moon");
     let mut terminal = Terminal::new(TestBackend::new(12, 3)).unwrap();
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let bg = |x: u16| terminal.backend().buffer()[(x, 0)].bg;

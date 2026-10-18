@@ -54,4 +54,4 @@ wait via key: Slice
 │                            │
 └────────────────────────────┘
 worker/internal/crc/slice.h  2:19  [code]  size → Slice::size (via key: Slice)                                                                                                     14:32
-cursor (x,y,shown) 50,1,1
+cursor (x,y,shown) 50,1,0

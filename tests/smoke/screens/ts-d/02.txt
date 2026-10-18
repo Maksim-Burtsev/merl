@@ -54,4 +54,4 @@ wait 17▎    return <p>Loading order…</p>;
 
 
 web/src/routes/orders/[id].tsx  1:1  [code]  reloaded                                                                                                                              14:32
-cursor (x,y,shown) 3,0,1
+cursor (x,y,shown) 3,0,0

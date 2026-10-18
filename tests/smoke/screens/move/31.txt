@@ -54,4 +54,4 @@ wait app/service.py  15:33  [code]
 
 
 app/service.py  15:33  [code]                                                                                                                                                      14:32
-cursor (x,y,shown) 35,14,1
+cursor (x,y,shown) 35,14,0

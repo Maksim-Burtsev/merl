@@ -54,4 +54,4 @@ wait formatPrice: via import
 │                            │
 └────────────────────────────┘
 hsshop/src/Shop/Money.hs  5:1  [code]  formatPrice: via import hsshop/src/Shop/Money.hs                                                                                            14:32
-cursor (x,y,shown) 32,4,1
+cursor (x,y,shown) 32,4,0

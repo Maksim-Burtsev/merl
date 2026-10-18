@@ -23,4 +23,4 @@ wait 14:32
 │  Dockerfile                │           get("PAGE_SIZE", "50")),
 └────────────────────────────┘19     )
 app/config.py  1:1  [code]                                                14:32
-cursor (x,y,shown) 33,0,1
+cursor (x,y,shown) 33,0,0

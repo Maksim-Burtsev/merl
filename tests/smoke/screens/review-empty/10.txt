@@ -54,4 +54,4 @@ wait hunk 1/1  file 2/2
 │                            │
 └ 2 files · +2 −0 ───────────┘
 worker/main.go  68:1  [code]  hunk 1/1  file 2/2                                                                                                                                   14:32
-cursor (x,y,shown) 33,27,1
+cursor (x,y,shown) 33,27,0

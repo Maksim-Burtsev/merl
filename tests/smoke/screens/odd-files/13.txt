@@ -54,4 +54,4 @@ wait 1 ‹
 │                            │
 └────────────────────────────┘
 data/orders.min.json  1:20001  [code]  nowrap                                                                                                                                      14:32
-cursor (x,y,shown) 184,0,1
+cursor (x,y,shown) 184,0,0

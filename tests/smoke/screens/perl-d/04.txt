@@ -54,4 +54,4 @@ wait new: via Shop::Order
 │                            │
 └────────────────────────────┘
 perlshop/lib/Shop/Order.pm  4:5  [code]  new: via Shop::Order                                                                                                                      14:32
-cursor (x,y,shown) 37,3,1
+cursor (x,y,shown) 37,3,0

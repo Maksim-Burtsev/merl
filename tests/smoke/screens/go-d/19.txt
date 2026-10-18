@@ -54,4 +54,4 @@ wait ⋯ }
 55     }
 56     return nil
 worker/main.go  21:1  [code]                                                                                                                                                       14:32
-cursor (x,y,shown) 3,20,1
+cursor (x,y,shown) 3,20,0

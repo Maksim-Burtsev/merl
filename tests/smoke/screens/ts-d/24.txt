@@ -54,4 +54,4 @@ wait page-list: by name, 1 match
 
 
 web/src/styles/pages.css  1:2  [code]  page-list: by name, 1 match                                                                                                                 14:32
-cursor (x,y,shown) 3,0,1
+cursor (x,y,shown) 3,0,0

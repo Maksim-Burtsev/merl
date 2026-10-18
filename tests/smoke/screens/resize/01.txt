@@ -23,4 +23,4 @@ wait # Release notes for the support team
 │                            │     customer's number, not by their name.
 └────────────────────────────┘13
 docs/notes.md  1:1  [code]                                                14:32
-cursor (x,y,shown) 33,0,1
+cursor (x,y,shown) 33,0,0

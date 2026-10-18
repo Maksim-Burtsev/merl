@@ -54,4 +54,4 @@ wait go: local
 │                            │
 └────────────────────────────┘
 hsshop/src/Shop/Cart.hs  8:5  [code]  go: local                                                                                                                                    14:32
-cursor (x,y,shown) 36,7,1
+cursor (x,y,shown) 36,7,0

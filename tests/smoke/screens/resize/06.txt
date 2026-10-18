@@ -12,4 +12,4 @@ wait docs/notes.md  16:1
 │▸ tests                     │15
 └────────────────────────────┘16 - A cancelled order keeps its total. The customer sees it struck through.
 docs/notes.md  16:1  [code]                                                                                                                               14:32
-cursor (x,y,shown) 33,11,1
+cursor (x,y,shown) 33,11,0

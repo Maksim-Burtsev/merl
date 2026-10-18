@@ -32,6 +32,7 @@ const TREE_W: u16 = 30;
 
 pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let area = frame.area();
+    app.cursor_cell = None;
     app.diagrams.begin();
     app.diagrams.theme(theme, theme.line_hl_dim);
     let base = Style::new().bg(theme.bg).fg(theme.fg);
@@ -88,6 +89,16 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     draw_status(frame, app, theme, status);
     draw_overlays(frame, app, theme, (area, main), base);
     force_emoji_widths(frame);
+    if let Some(cell) = app
+        .cursor_cell
+        .and_then(|at| frame.buffer_mut().cell_mut(at))
+    {
+        cell.set_style(if matches!(app.mode, Mode::Normal | Mode::Help) {
+            theme.cursor
+        } else {
+            theme.typing_cursor
+        });
+    }
 }
 
 fn draw_pane(frame: &mut Frame, app: &mut App, theme: &Theme, code: Rect, base: Style) {
@@ -113,7 +124,7 @@ fn draw_pane(frame: &mut Frame, app: &mut App, theme: &Theme, code: Rect, base: 
         draw_binary(frame, theme, code, base, note);
     } else if app.buf.path.is_some() {
         let code = code::draw_rename_band(frame, app, theme, code, base);
-        draw_code(frame, app, theme, code, base);
+        app.cursor_cell = draw_code(frame, app, theme, code, base);
     } else {
         draw_welcome(frame, theme, code, base);
     }

@@ -54,4 +54,4 @@ wait scripts/payouts/src/ledger.rs  7:
 │                            │
 └────────────────────────────┘
 scripts/payouts/src/ledger.rs  7:8  [code]  entry: via import crate::ledger                                                                                                        14:32
-cursor (x,y,shown) 40,6,1
+cursor (x,y,shown) 40,6,0

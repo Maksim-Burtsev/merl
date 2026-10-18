@@ -54,4 +54,4 @@ wait web/android/src/main/scala/courier/app/Route.scala  4:
 
 
 web/android/src/main/scala/courier/app/Route.scala  4:7  [code]  legs → Route.legs (via Route)                                                                                     14:32
-cursor (x,y,shown) 8,3,1
+cursor (x,y,shown) 8,3,0

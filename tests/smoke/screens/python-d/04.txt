@@ -54,4 +54,4 @@ wait find_by_customer: by name, 3 declarations (3/3)
 
 
 app/api.py  23:19  [code]  find_by_customer: by name, 3 declarations                                                                                                               14:32
-cursor (x,y,shown) 22,12,1
+cursor (x,y,shown) 22,12,0

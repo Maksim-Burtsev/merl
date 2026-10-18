@@ -54,4 +54,4 @@ wait total → Ledger::total (via import scripts/billing/Legacy/Ledger.php)
 │                            │
 └────────────────────────────┘
 scripts/billing/Legacy/Ledger.php  6:28  [code]  total → Ledger::total (via import scripts/billing/Legacy/Ledger.php)                                                              14:32
-cursor (x,y,shown) 60,5,1
+cursor (x,y,shown) 60,5,0

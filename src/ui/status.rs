@@ -1,5 +1,5 @@
 use ratatui::Frame;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -21,7 +21,7 @@ pub(super) fn draw_prompt(
     edit: &LineEdit,
     style: Style,
     area: Rect,
-) {
+) -> Position {
     let sel = edit.selection().unwrap_or(0..0);
     let line = Line::from(vec![
         Span::raw(format!("{prefix}{}", &edit[..sel.start])),
@@ -29,11 +29,12 @@ pub(super) fn draw_prompt(
         Span::raw(&edit[sel.end..]),
     ]);
     let x = wrap::width(prefix) + wrap::width(&edit[..edit.cursor()]);
-    frame.set_cursor_position((area.x + u16::try_from(x).unwrap_or(u16::MAX), area.y));
     frame.render_widget(Paragraph::new(line).style(style), area);
+    let x = area.x.saturating_add(u16::try_from(x).unwrap_or(u16::MAX));
+    Position::new(x.min(area.right().saturating_sub(1)), area.y)
 }
 
-pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rect) {
+pub(super) fn draw_status(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect) {
     let style = Style::new()
         .bg(theme.status_bg)
         .fg(theme.status_fg)
@@ -45,7 +46,7 @@ pub(super) fn draw_status(frame: &mut Frame, app: &App, theme: &Theme, area: Rec
         _ => "",
     };
     if !prefix.is_empty() {
-        draw_typed(frame, app, prefix, style, area);
+        app.cursor_cell = Some(draw_typed(frame, app, prefix, style, area));
         return;
     }
     let pane = match (app.mode, app.focus) {
@@ -144,8 +145,8 @@ fn draw_clock(frame: &mut Frame, time: &str, w: usize, style: Style, area: Rect)
     frame.render_widget(Paragraph::new(format!(" {time} ")).style(style), at);
 }
 
-fn draw_typed(frame: &mut Frame, app: &App, prefix: &str, style: Style, area: Rect) {
-    draw_prompt(frame, prefix, &app.prompt, style, area);
+fn draw_typed(frame: &mut Frame, app: &App, prefix: &str, style: Style, area: Rect) -> Position {
+    let cursor = draw_prompt(frame, prefix, &app.prompt, style, area);
     let found_w = u16::try_from(wrap::width(&app.message)).unwrap_or(u16::MAX) + 1;
     let typed = wrap::width(prefix) + wrap::width(&app.prompt) + 2;
     if !app.message.is_empty() && area.width as usize > typed + found_w as usize {
@@ -159,6 +160,7 @@ fn draw_typed(frame: &mut Frame, app: &App, prefix: &str, style: Style, area: Re
             found_at_right_edge,
         );
     }
+    cursor
 }
 
 fn position(app: &App, size: Option<&String>) -> String {

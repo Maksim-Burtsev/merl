@@ -54,4 +54,4 @@ wait send → ParcelSync.send (via target: ParcelSync)
 
 
 web/android/src/main/java/courier/app/ParcelSync.java  9:16  [code]  send → ParcelSync.send (via target: ParcelSync)                                                               14:32
-cursor (x,y,shown) 18,8,1
+cursor (x,y,shown) 18,8,0

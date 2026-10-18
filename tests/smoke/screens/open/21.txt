@@ -54,4 +54,4 @@ wait 2/14
 │                            │
 └────────────────────────────┘
 docs/notes.md  11:7  [code]  2/14                                                                                                                                                  14:32
-cursor (x,y,shown) 39,11,1
+cursor (x,y,shown) 39,11,0

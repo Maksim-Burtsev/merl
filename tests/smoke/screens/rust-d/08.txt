@@ -54,4 +54,4 @@ wait via latest() -> Payout
 │                            │
 └────────────────────────────┘
 scripts/payouts/src/ledger.rs  16:12  [code]  line → Payout::line (via latest() -> Payout)                                                                                         14:32
-cursor (x,y,shown) 44,15,1
+cursor (x,y,shown) 44,15,0

@@ -54,4 +54,4 @@ wait IsBusyFor → ViewModelBase.IsBusyFor (via Page)
 │                            │
 └────────────────────────────┘
 shop.app/Page.cs  5:20  [code]  IsBusyFor → ViewModelBase.IsBusyFor (via Page)                                                                                                     14:32
-cursor (x,y,shown) 52,4,1
+cursor (x,y,shown) 52,4,0

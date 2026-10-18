@@ -54,4 +54,4 @@ wait web/android/src/main/java/courier/app/scan/Parcel.java  6:
 
 
 web/android/src/main/java/courier/app/scan/Parcel.java  6:13  [code]  grams → Parcel.grams (via parcel: Parcel)                                                                    14:32
-cursor (x,y,shown) 14,5,1
+cursor (x,y,shown) 14,5,0

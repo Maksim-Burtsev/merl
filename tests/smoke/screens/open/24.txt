@@ -54,4 +54,4 @@ wait recently opened
 │                            │
 └────────────────────────────┘
 docs/notes.md  11:7  [preview]                                                                                                                                                     14:32
-cursor (x,y,shown) 41,12,1
+cursor (x,y,shown) 41,12,0

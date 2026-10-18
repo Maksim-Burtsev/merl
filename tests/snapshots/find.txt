@@ -50,7 +50,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeaaaaaaaaaljjjjjjjjgzzzzzzzlleeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiiiiiielhhhhgaaaaaaaaaleeeelekkkeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeggeeeeleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #3b4261 bg #222436
@@ -78,6 +78,7 @@ x fg #82aaff bg #2f334d
 y fg #589ed7 bg #222436
 z fg #c3e88d bg #222436
 A fg #828bb8 bg #1e2030
+B fg #222436 bg #82aaff
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddeeeeeeeeddddddeffffffeeeeeeeeeeeeeeeeeeeeee
@@ -103,7 +104,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeaaaaaaaaaeeeeeeeeejhhhhhhheeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddeeggggeaaaaaaaaaeeeeeeedddeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+pppppqpppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -120,6 +121,7 @@ m fg #0550ae bg #e7eaf0
 n fg #57606a bg #fb8f44
 o fg #6639ba bg #e7eaf0
 p fg #f6f8fa bg #5094e4
+q fg #ffffff bg #6639ba
 
 ==== 120x33 tokyonight-moon text, cursor 5,32
 ┌notes───────────────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
@@ -189,7 +191,7 @@ affffffffffffffffffffffffffffacccffffffffdddddddddddddddddddddddddddddddddddddff
 affffffffffffffffffffffffffffacccffffffffjjjjjjfhhhmmeeeeiooflllfeeeefiifnnnnieeeeomifdddddddiAmfifAffffffffffffffffffff
 affffffffffffffffffffffffffffacccfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccfffflllfaaamnnnnifddddifyyyifddddifyyyymyyymfifhhhhfifhhhhmfiifeeeeifffffffffffffffffff
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBCBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #3b4261 bg #222436
@@ -218,6 +220,7 @@ y fg #589ed7 bg #222436
 z fg #c3e88d bg #222436
 A fg #ff966c bg #222436
 B fg #828bb8 bg #1e2030
+C fg #222436 bg #82aaff
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddfffffffff
@@ -252,7 +255,7 @@ affffffffffffffffffffffffffffacccffffffffdddddddddddddddddddddddddddddddddddddff
 affffffffffffffffffffffffffffacccffffffffggggggfaaaffppppffffgggfppppfggfkkkkfppppfffffffffffkkffkfkffffffffffffffffffff
 affffffffffffffffffffffffffffacccfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccffffgggfaaafkkkkffffffffkkkffffffffkkkkfkkkffkfkkkkfkfkkkkffkkfiiiiffffffffffffffffffff
-qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqrqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -270,6 +273,7 @@ n fg #57606a bg #fb8f44
 o fg #6639ba bg #e7eaf0
 p fg #1f2328 bg #e1d1b3
 q fg #f6f8fa bg #5094e4
+r fg #ffffff bg #6639ba
 
 ==== 185x55 tokyonight-moon text, cursor 5,54
 ┌notes───────────────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
@@ -383,7 +387,7 @@ affffffffffffffffffffffffffffacccffffffffjjjjjjfmeeeeflllfeeeefiifnnnnieeeeofllf
 affffffffffffffffffffffffffffacccffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 affffffffffffffffffffffffffffacccfffflllfaaaamnnnnifddddddifyyyfifAmfiifyyyymeeeemiffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccffffffffdddddddddddddddeeeedddddddddddddddddddffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+BBBBBCBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
 c fg #3b4261 bg #222436
@@ -412,6 +416,7 @@ y fg #589ed7 bg #222436
 z fg #c3e88d bg #222436
 A fg #ff966c bg #222436
 B fg #828bb8 bg #1e2030
+C fg #222436 bg #82aaff
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
@@ -468,7 +473,7 @@ affffffffffffffffffffffffffffacccffffffffggggggffppppfgggfppppfggfkkkkfppppffggf
 affffffffffffffffffffffffffffacccffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 affffffffffffffffffffffffffffacccffffgggfaaaafkkkkffffffffffkkkfkfkffkkfkkkkfiiiiffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaacccffffffffdddddddddddddddeeeedddddddddddddddddddffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+qqqqqrqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #6e7781 bg #ffffff
@@ -486,3 +491,4 @@ n fg #57606a bg #fb8f44
 o fg #6639ba bg #e7eaf0
 p fg #1f2328 bg #e1d1b3
 q fg #f6f8fa bg #5094e4
+r fg #ffffff bg #6639ba

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
+use ratatui::layout::Position;
 use ratatui::style::Color;
 
 use crate::app::{App, Focus};
@@ -240,7 +241,11 @@ fn notes(state: &str) -> PathBuf {
     dir
 }
 
-fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend> {
+fn frame(
+    state: &State,
+    theme: &str,
+    (w, h): (u16, u16),
+) -> (Terminal<TestBackend>, Option<Position>) {
     let dir = notes(state.0);
     let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir, tree, files, Buffer::empty(), None);
@@ -262,7 +267,7 @@ fn frame(state: &State, theme: &str, (w, h): (u16, u16)) -> Terminal<TestBackend
     }
     draw(&mut terminal, &mut a);
     drop(std::fs::remove_dir_all(a.root.parent().unwrap()));
-    terminal
+    (terminal, a.cursor_cell)
 }
 
 fn text(t: &Terminal<TestBackend>) -> String {
@@ -318,13 +323,11 @@ fn hex(c: Color) -> String {
     }
 }
 
-fn cursor(t: &Terminal<TestBackend>) -> String {
-    let b = t.backend();
-    if b.cursor_visible() {
-        format!("cursor {},{}", b.cursor_position().x, b.cursor_position().y)
-    } else {
-        "cursor hidden".to_owned()
-    }
+fn cursor(at: Option<Position>) -> String {
+    at.map_or_else(
+        || "cursor hidden".to_owned(),
+        |p| format!("cursor {},{}", p.x, p.y),
+    )
 }
 
 fn render(state: &State) -> String {
@@ -332,10 +335,10 @@ fn render(state: &State) -> String {
     for &size in SIZES {
         let mut first = String::new();
         for &theme in THEMES {
-            let t = frame(state, theme, size);
+            let (t, at) = frame(state, theme, size);
             let (text, head) = (text(&t), format!("{}x{} {theme}", size.0, size.1));
             if first.is_empty() || text != first {
-                let _ = write!(out, "\n==== {head} text, {}\n{text}", cursor(&t));
+                let _ = write!(out, "\n==== {head} text, {}\n{text}", cursor(at));
                 first = text;
             }
             let _ = write!(out, "\n==== {head} styles\n{}", styles(&t));

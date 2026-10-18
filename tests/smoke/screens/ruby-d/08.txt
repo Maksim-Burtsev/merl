@@ -54,4 +54,4 @@ wait read-only
 
 
 rack-attack-6.7.0/lib/rack/attack.rb  3:14  [code]  read-only  throttle → Rack.Attack.throttle (by name, 1 match)                                                                  14:32
-cursor (x,y,shown) 15,2,1
+cursor (x,y,shown) 15,2,0

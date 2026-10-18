@@ -54,4 +54,4 @@ wait app/money.py  1:4  [edit]
 │                            │
 └────────────────────────────┘
 app/money.py  1:4  [edit]  Spaces: 4                                                                                                                                               14:32
-cursor (x,y,shown) 35,0,1
+cursor (x,y,shown) 35,0,0

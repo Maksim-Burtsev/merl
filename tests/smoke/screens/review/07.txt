@@ -54,4 +54,4 @@ wait refund_amount: via import app/refunds.py
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/refunds.py  11:5  [code]  hunk 1/1  file 1/8  refund_amount: via import app/refunds.py                                                                                         14:32
-cursor (x,y,shown) 37,10,1
+cursor (x,y,shown) 37,10,0

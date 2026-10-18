@@ -54,4 +54,4 @@ wait Send → Mailer.Send (via mailer: Mailer)
 │                            │
 └────────────────────────────┘
 billing/Outbox.cs  3:17  [code]  Send → Mailer.Send (via mailer: Mailer)                                                                                                           14:32
-cursor (x,y,shown) 49,2,1
+cursor (x,y,shown) 49,2,0

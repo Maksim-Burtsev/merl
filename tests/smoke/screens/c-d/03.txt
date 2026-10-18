@@ -54,4 +54,4 @@ wait buf: local
 │                            │
 └────────────────────────────┘
 worker/internal/crc/crc.c  14:66  [code]  buf: local                                                                                                                               14:32
-cursor (x,y,shown) 98,13,1
+cursor (x,y,shown) 98,13,0

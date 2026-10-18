@@ -54,4 +54,4 @@ wait .github/workflows/ci.yml  8:3  [code]  test: by name, 1 match
 
 
 .github/workflows/ci.yml  8:3  [code]  test: by name, 1 match                                                                                                                      14:32
-cursor (x,y,shown) 5,7,1
+cursor (x,y,shown) 5,7,0

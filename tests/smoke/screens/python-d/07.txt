@@ -54,4 +54,4 @@ wait app/api.py  9:17
 
 
 app/api.py  9:17  [code]                                                                                                                                                           14:32
-cursor (x,y,shown) 19,8,1
+cursor (x,y,shown) 19,8,0

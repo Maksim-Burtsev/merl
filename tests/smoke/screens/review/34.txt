@@ -54,4 +54,4 @@ wait orders → InMemoryOrderRepo.orders
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/repos.py  -38:14  [code]  hunk 1/1  file 2/8  orders → InMemoryOrderRepo.orders (via self: InMemoryOrderRepo)                                                                  14:32
-cursor (x,y,shown) 46,28,1
+cursor (x,y,shown) 46,28,0

@@ -54,4 +54,4 @@ wait number → Numbered::number (via $this: Invoice)
 53 }
 
 scripts/invoices.php  17:24  [code]  number → Numbered::number (via $this: Invoice)                                                                                                14:32
-cursor (x,y,shown) 26,16,1
+cursor (x,y,shown) 26,16,0

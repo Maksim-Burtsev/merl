@@ -54,4 +54,4 @@ wait Search (15 hits)
 
 
 app/service.py  1:1  [code]                                                                                                                                                        14:32
-cursor (x,y,shown) 32,12,1
+cursor (x,y,shown) 32,12,0

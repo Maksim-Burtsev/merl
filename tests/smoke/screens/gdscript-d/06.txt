@@ -54,4 +54,4 @@ wait pick_up.direction (local)
 │                            │
 └────────────────────────────┘
 godotshop/actors/player.gd  5:9  [code]  direction → pick_up.direction (local)                                                                                                     14:32
-cursor (x,y,shown) 40,4,1
+cursor (x,y,shown) 40,4,0

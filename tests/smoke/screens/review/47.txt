@@ -11,4 +11,4 @@ wait app/refunds.py  12:1
 │    M architecture.png   bin│16▎    if now - order.created_at > timedelta(days=window_days):
 └ 8 files · +59 −39 ─────────┘17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
 app/refunds.py  12:1  [code]  hunk 1/1  file 1/8                                                                                                                                   14:32
-cursor (x,y,shown) 33,5,1
+cursor (x,y,shown) 33,5,0

@@ -54,4 +54,4 @@ wait project(shop CXX)
 │                            │
 └────────────────────────────┘
 cmakeshop/CMakeLists.txt  1:1  [code]                                                                                                                                              14:32
-cursor (x,y,shown) 32,0,1
+cursor (x,y,shown) 32,0,0

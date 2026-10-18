@@ -54,4 +54,4 @@ wait [{"id":1,"customer_id":1327,"total":"853.34"
   "created_at":"2026-01-27T22:57:00Z","items":[{"sku":"SKU-82225","qty":2},{"sku":"SKU-96187","qty":3},{"sku":"SKU-66262","qty":1}]},{"id":55,"customer_id":2146,"total":"678.82",
   "status":"refunded","created_at":"2026-01-27T21:37:00Z","items":[{"sku":"SKU-89508","qty":3},{"sku":"SKU-84264","qty":1},{"sku":"SKU-11153","qty":1}]},{"id":56,"customer_id":172,
 data/orders.min.json  1:1  [code]                                                                                                                                                  14:32
-cursor (x,y,shown) 2,0,1
+cursor (x,y,shown) 2,0,0

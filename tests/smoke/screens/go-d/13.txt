@@ -54,4 +54,4 @@ wait worker → struct{…}.worker (via k: struct{…})
 
 
 worker/internal/queue/queue.go  50:9  [code]  worker → struct{…}.worker (via k: struct{…})                                                                                         14:32
-cursor (x,y,shown) 11,27,1
+cursor (x,y,shown) 11,27,0

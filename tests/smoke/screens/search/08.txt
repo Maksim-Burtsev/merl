@@ -54,4 +54,4 @@ wait /OrderRepo
 
 
 /OrderRepo                                                                                                                                                                           2/2
-cursor (x,y,shown) 10,54,1
+cursor (x,y,shown) 10,54,0

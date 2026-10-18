@@ -54,4 +54,4 @@ wait [edit]
 │                            │
 └ 8 files · +59 −39 ─────────┘
 app/refunds.py  1:1  [edit]  hunk 1/1  file 1/8                                                                                                                                    14:32
-cursor (x,y,shown) 34,1,1
+cursor (x,y,shown) 34,1,0

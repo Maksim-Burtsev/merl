@@ -54,4 +54,4 @@ wait close → Dialog.close (via this: Dialog)
 
 
 web/src/components/Dialog.ts  14:3  [code]  close → Dialog.close (via this: Dialog)                                                                                                14:32
-cursor (x,y,shown) 5,13,1
+cursor (x,y,shown) 5,13,0

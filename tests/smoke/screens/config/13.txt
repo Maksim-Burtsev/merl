@@ -54,4 +54,4 @@ wait Dockerfile  1:26  [code]  build: by name, 1 match
 
 
 Dockerfile  1:26  [code]  build: by name, 1 match                                                                                                                                  14:32
-cursor (x,y,shown) 28,0,1
+cursor (x,y,shown) 28,0,0

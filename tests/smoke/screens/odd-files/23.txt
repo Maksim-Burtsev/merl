@@ -54,4 +54,4 @@ wait data/orders.min.json  1:503785
 │                            │  "customer_id":2694,"total":"449.98","status":"refunded","created_at":"2026-08-18T23:07:00Z","items":[{"sku":"SKU-12171","qty":1}]},{"id":3021,
 └────────────────────────────┘  "customer_id":1509,"total":"307.36","status":"shipped","created_at":"2026-02-14T19:59:00Z","items":[{"sku":"SKU-36318","qty":3},{"sku":"SKU-77390",
 data/orders.min.json  1:503785  [code]  1/1                                                                                                                                        14:32
-cursor (x,y,shown) 127,27,1
+cursor (x,y,shown) 127,27,0

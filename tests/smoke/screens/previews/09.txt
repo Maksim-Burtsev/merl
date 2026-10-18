@@ -54,4 +54,4 @@ wait p: line 2 is not JSON
 │                            │
 └────────────────────────────┘
 data/broken.jsonl  1:1  [code]  p: line 2 is not JSON                                                                                                                              14:32
-cursor (x,y,shown) 32,0,1
+cursor (x,y,shown) 32,0,0

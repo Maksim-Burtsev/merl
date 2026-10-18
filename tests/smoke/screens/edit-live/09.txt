@@ -54,4 +54,4 @@ wait reloaded
 
 
 app/service.py  37:39  [edit]  Spaces: 4  reloaded                                                                                                                                 14:32
-cursor (x,y,shown) 41,28,1
+cursor (x,y,shown) 41,28,0

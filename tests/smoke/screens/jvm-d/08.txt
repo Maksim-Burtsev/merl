@@ -54,4 +54,4 @@ wait Parcel: via import web/android/src/main/java/courier/app/scan/Parcel.java
 
 
 web/android/src/main/java/courier/app/scan/Parcel.java  4:15  [code]  Parcel: via import web/android/src/main/java/courier/app/scan/Parcel.java                                    14:32
-cursor (x,y,shown) 16,3,1
+cursor (x,y,shown) 16,3,0

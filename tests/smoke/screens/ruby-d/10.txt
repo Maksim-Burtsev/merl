@@ -54,4 +54,4 @@ wait ⋯ end
 │                            │
 └────────────────────────────┘
 app/ruby/checkout.rb  3:1  [code]                                                                                                                                                  14:32
-cursor (x,y,shown) 32,2,1
+cursor (x,y,shown) 32,2,0

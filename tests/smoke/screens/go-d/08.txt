@@ -54,4 +54,4 @@ wait Kind → Job.Kind (via job: Job)
 53         {name: "sync", worker: true},
 54         {name: "audit"},
 worker/internal/queue/queue.go  8:5  [code]  Kind → Job.Kind (via job: Job)                                                                                                        14:32
-cursor (x,y,shown) 7,7,1
+cursor (x,y,shown) 7,7,0

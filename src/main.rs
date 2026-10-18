@@ -33,7 +33,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use clap::Parser;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use ratatui::crossterm::cursor::{MoveTo, SetCursorStyle, Show};
+use ratatui::crossterm::cursor::{MoveTo, Show};
 use ratatui::crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
@@ -41,7 +41,7 @@ use ratatui::crossterm::event::{
 use ratatui::crossterm::terminal::{Clear, ClearType};
 use ratatui::crossterm::{execute, terminal};
 
-use crate::app::{App, Focus, Mode};
+use crate::app::{App, Focus};
 use crate::buffer::Buffer;
 use crate::picker::PickItem;
 use crate::tutor::{Drill, Tutor};
@@ -321,16 +321,19 @@ fn enter_terminal() -> Result<(ratatui::DefaultTerminal, KeyboardQueried)> {
                     | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
             )
         )?;
-        pop_keyboard_flags_before_ratatui_restores_on_panic();
     }
+    restore_on_panic(enhanced);
     Ok((terminal, KeyboardQueried { enhanced }))
 }
 
-fn pop_keyboard_flags_before_ratatui_restores_on_panic() {
+fn restore_on_panic(enhanced: bool) {
     let ratatui_restore = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        drop(execute!(stdout(), PopKeyboardEnhancementFlags));
+        if enhanced {
+            drop(execute!(stdout(), PopKeyboardEnhancementFlags));
+        }
         ratatui_restore(info);
+        drop(execute!(stdout(), Show));
     }));
 }
 
@@ -380,7 +383,6 @@ fn undo_what_merl_set_while_still_on_the_alternate_screen(
     }
     drop(execute!(
         out,
-        SetCursorStyle::DefaultUserShape,
         DisableBracketedPaste,
         Clear(ClearType::All),
         MoveTo(0, 0)
@@ -621,7 +623,6 @@ fn event_loop(
     let mut live = Watching::start(app, project, &diff_tx);
 
     let mut dirty = true;
-    let mut typing: Option<bool> = None;
     loop {
         if drill_answered(app) {
             return Ok(());
@@ -633,16 +634,14 @@ fn event_loop(
         app.warm_up();
         rewatch(open_file_dir_watcher.as_mut(), &mut watched, app);
         live.spawn_jobs(app, &diff_tx);
-        let typing_now = !matches!(app.mode, Mode::Normal | Mode::Help);
-        if typing != Some(typing_now) {
-            typing = Some(typing_now);
-            drop(execute!(stdout(), vim_cursor(typing_now)));
-        }
         dirty |= restyle(app, &mut theme, &mut drawn_theme);
         dirty |= app.tick_clock();
         if dirty {
             terminal.draw(|f| ui::draw(f, app, &theme))?;
             app.diagrams.flush(&mut stdout())?;
+            if let Some(at) = app.cursor_cell {
+                terminal.set_cursor_position(at)?;
+            }
             dirty = false;
         }
         for job in app.diagrams.jobs() {
@@ -687,14 +686,6 @@ fn spawn_tmux_copier() -> Option<Sender<String>> {
 
 fn drill_answered(app: &App) -> bool {
     (app.tutor.as_ref()).is_some_and(|t| t.drill.as_ref().is_some_and(Drill::over))
-}
-
-fn vim_cursor(typing: bool) -> SetCursorStyle {
-    if typing {
-        SetCursorStyle::SteadyBar
-    } else {
-        SetCursorStyle::SteadyBlock
-    }
 }
 
 fn osc52_copy(text: &str) {

@@ -54,4 +54,4 @@ wait (local)
 
 
 ios/Retry.swift  6:9  [code]  attempt → retry.attempt (local)                                                                                                                      14:32
-cursor (x,y,shown) 10,5,1
+cursor (x,y,shown) 10,5,0

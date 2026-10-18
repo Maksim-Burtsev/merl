@@ -54,4 +54,4 @@ wait 17▎            api_token=os.environ["API_TOKEN"],
 
 
 app/config.py  19:1  [edit]  Spaces: 4                                                                                                                                             14:32
-cursor (x,y,shown) 3,18,1
+cursor (x,y,shown) 3,18,0

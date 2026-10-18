@@ -54,4 +54,4 @@ wait parcel_removed: via web/android/src/main/res/values/strings.xml
 
 
 web/android/src/main/res/values/strings.xml  2:19  [code]  parcel_removed: via web/android/src/main/res/values/strings.xml                                                         14:32
-cursor (x,y,shown) 20,1,1
+cursor (x,y,shown) 20,1,0

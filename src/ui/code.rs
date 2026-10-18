@@ -3,7 +3,7 @@ use std::ops::Range;
 use std::path::Path;
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
@@ -21,7 +21,13 @@ use super::tagged;
 
 const FOLDED_MARK: char = '\u{22ef}';
 
-pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: Rect, base: Style) {
+pub(super) fn draw_code(
+    frame: &mut Frame,
+    app: &mut App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+) -> Option<Position> {
     let gutter_w = prepare_view(app, theme, area);
     let app: &App = app;
     let p = Painter::new(app, theme, base, gutter_w);
@@ -50,7 +56,7 @@ pub(super) fn draw_code(frame: &mut Frame, app: &mut App, theme: &Theme, area: R
     }
     let input_at = out.input_at;
     frame.render_widget(Paragraph::new(out.lines).style(base), area);
-    place_cursor(frame, app, area, (gutter_w, pinned), input_at);
+    place_cursor(app, area, (gutter_w, pinned), input_at)
 }
 
 fn prepare_view(app: &mut App, theme: &Theme, area: Rect) -> usize {
@@ -72,15 +78,20 @@ fn prepare_view(app: &mut App, theme: &Theme, area: Rect) -> usize {
 }
 
 fn place_cursor(
-    frame: &mut Frame,
     app: &App,
     area: Rect,
     (gutter_w, pinned): (usize, usize),
     input_at: Option<(usize, usize)>,
-) {
+) -> Option<Position> {
     let screen_row =
         rows_between(app, (app.top_line, app.top_row), app.cursor_at()).map(|y| y + pinned);
-    if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
+    let (x, y) = if app.mode == Mode::Note {
+        let (y, x) = input_at?;
+        (
+            area.x + u16::try_from(gutter_w + 1 + x).unwrap_or(u16::MAX),
+            y,
+        )
+    } else if let Some(y) = screen_row.filter(|y| *y < area.height as usize)
         && matches!(app.mode, Mode::Normal | Mode::Edit)
     {
         let x = match app.notes.focus {
@@ -91,20 +102,14 @@ fn place_cursor(
                         .unwrap_or(u16::MAX)
             }
         };
-        frame.set_cursor_position((
-            x.min(area.right().saturating_sub(1)),
-            area.y + u16::try_from(y).unwrap_or(u16::MAX),
-        ));
-    }
-    if app.mode == Mode::Note
-        && let Some((y, x)) = input_at
-    {
-        let x = area.x + u16::try_from(gutter_w + 1 + x).unwrap_or(u16::MAX);
-        frame.set_cursor_position((
-            x.min(area.right().saturating_sub(1)),
-            area.y + u16::try_from(y).unwrap_or(u16::MAX),
-        ));
-    }
+        (x, y)
+    } else {
+        return None;
+    };
+    Some(Position::new(
+        x.min(area.right().saturating_sub(1)),
+        area.y + u16::try_from(y).unwrap_or(u16::MAX),
+    ))
 }
 
 struct Rows<'a> {
