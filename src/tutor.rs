@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{App, Focus};
 use crate::buffer::Buffer;
+use crate::key::{KeyCode, KeyEvent, KeyModifiers};
 
 pub mod drill;
 mod pool;
@@ -210,7 +210,7 @@ fn chord(name: &str) -> (KeyCode, KeyModifiers) {
     (code, mods)
 }
 
-fn unpack(dir: &Path) -> Result<()> {
+pub(crate) fn unpack(dir: &Path) -> Result<()> {
     drop(std::fs::remove_dir_all(dir));
     std::fs::create_dir_all(dir.join("tests"))?;
     for (name, text) in SAMPLE_FILES {

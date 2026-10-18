@@ -659,7 +659,7 @@ impl App {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, target_family = "wasm"))]
     pub(crate) fn no_external(&mut self) {
         let new_kind_fails_to_compile_until_listed = |kind: Kind| match kind {
             Kind::Python

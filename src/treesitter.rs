@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ops::ControlFlow;
 use std::path::Path;
+#[cfg(not(target_family = "wasm"))]
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -13,6 +14,8 @@ use tree_sitter::{InputEdit, Language, ParseOptions, ParseState, Parser, Point, 
 
 use crate::buffer::{Buffer, Spans};
 use crate::theme::Theme;
+#[cfg(target_family = "wasm")]
+use crate::web::WasmOnce as OnceLock;
 
 const NEOVIM_TREESITTER_PRIORITY: u32 = 100;
 

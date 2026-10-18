@@ -1,0 +1,139 @@
+[package]
+name = "merl-web"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+path = "../src/main.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+dirs = "7"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+grep-matcher = "0.1"
+grep-regex = "0.1"
+grep-searcher = "0.1"
+ignore = "0.4"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico", "tiff"] }
+notify = "8"
+merman = { version = "0.9", default-features = false, features = ["all-diagrams", "layout-cytoscape", "png"] }
+nucleo = "0.5"
+pulldown-cmark = { version = "0.13", default-features = false }
+ratatui = { version = "0.30", default-features = false, features = ["all-widgets", "layout-cache", "macros", "underline-color", "std", "unstable-rendered-line-info"] }
+regex = "1"
+resvg = "0.48"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+syntect = "5.3"
+toml = "1.1"
+tree-sitter = "0.27"
+arborium-graphql = "=2.18.2"
+tree-sitter-bash = "=0.25.1"
+tree-sitter-c = "=0.24.2"
+tree-sitter-c-sharp = "=0.23.5"
+tree-sitter-cmake = "=0.7.5"
+tree-sitter-commonlisp = "=0.4.1"
+tree-sitter-cpp = { version = "=0.23.4", git = "https://github.com/tree-sitter/tree-sitter-cpp", rev = "c009222808634c1014f82438d4883753516a2c24" }
+tree-sitter-css = "=0.25.0"
+tree-sitter-dockerfile-updated = "=0.2.0"
+tree-sitter-diff = { version = "=0.2.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-diff", rev = "ada384ac7bfc1307f32de474620120add29998fb" }
+tree-sitter-hcl = { version = "=1.2.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-hcl", rev = "64ad62785d442eb4d45df3a1764962dafd5bc98b" }
+tree-sitter-html = "=0.23.2"
+tree-sitter-xml = { version = "=0.7.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-xml", rev = "5000ae8f22d11fbe93939b05c1e37cf21117162d" }
+tree-sitter-elixir = "=0.3.5"
+tree-sitter-erlang = "=0.21.0"
+tree-sitter-gdscript = { version = "=6.0.0", git = "https://github.com/PrestonKnopp/tree-sitter-gdscript", rev = "9686853b696db07118ad110e440d6de0ca6498b4" }
+tree-sitter-go = "=0.25.0"
+tree-sitter-json = { version = "=0.24.8", git = "https://github.com/tree-sitter/tree-sitter-json", rev = "254c42a6476413b776221e03982ac8ae159eeb72" }
+tree-sitter-ini = "=1.4.0"
+tree-sitter-java = "=0.23.5"
+tree-sitter-javascript = "=0.25.0"
+tree-sitter-kotlin = { version = "=0.4.0", git = "https://github.com/fwcd/tree-sitter-kotlin", rev = "1852ea17b7f60fb3f9d84e0b1555d56b46b39fb1" }
+tree-sitter-jsdoc = "=0.25.0"
+tree-sitter-md = "=0.5.3"
+tree-sitter-nginx = { version = "=1.0.1", git = "https://github.com/opa-oz/tree-sitter-nginx", rev = "7cdf006ed1addef698fc680ae31721950f85e5e9" }
+tree-sitter-nix = { version = "=0.3.0", git = "https://github.com/nix-community/tree-sitter-nix", rev = "f9765b709987418e7526cca8b9dcf73429ddf169" }
+tree-sitter-php = "=0.25.1"
+tree-sitter-printf = "=0.5.1"
+tree-sitter-proto = { version = "=0.6.0", git = "https://github.com/coder3101/tree-sitter-proto", rev = "d7d15427321da271cb1c25c12735e180ef981473" }
+tree-sitter-python = "=0.25.0"
+tree-sitter-r = "=1.3.0"
+tree-sitter-racket = "=0.25.0"
+tree-sitter-tsquery = { version = "=0.8.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-query", rev = "8e9e223812ff30854fbc912adbec696ba5f0e023" }
+tree-sitter-regex = "=0.25.0"
+tree-sitter-ruby = { version = "=0.23.1", git = "https://github.com/tree-sitter/tree-sitter-ruby", rev = "ad907a69da0c8a4f7a943a7fe012712208da6dee" }
+tree-sitter-rust = "=0.24.2"
+tree-sitter-scala = { version = "=0.26.2", git = "https://github.com/tree-sitter/tree-sitter-scala", rev = "db390f312a54b04b13790e1767bfac32665c17ac" }
+tree-sitter-solidity = "=1.2.13"
+tree-sitter-starlark = "=1.3.0"
+tree-sitter-scheme = { version = "=0.24.7-1", git = "https://github.com/6cdh/tree-sitter-scheme", rev = "1b112d9571e4f62fb3d095d52a51f1da7756fb94" }
+tree-sitter-sequel = { version = "=0.3.11", git = "https://github.com/derekstride/tree-sitter-sql", rev = "39fdb006403747241244326e8af3b3e96b85381c" }
+tree-sitter-svelte-ng = "=1.0.2"
+tree-sitter-swift = "=0.7.4"
+tree-sitter-toml-ng = "=0.7.0"
+tree-sitter-typescript = "=0.23.2"
+tree-sitter-vue-next = "=0.1.0"
+tree-sitter-zig = { version = "=1.1.2", git = "https://github.com/tree-sitter-grammars/tree-sitter-zig", rev = "6479aa13f32f701c383083d8b28360ebd682fb7d" }
+tree-sitter-yaml = { version = "=0.7.2", git = "https://github.com/tree-sitter-grammars/tree-sitter-yaml", rev = "a1c4812a73ec5e089de8e441fdea3a921e8d5079" }
+tree-sitter-lua = "=0.5.0"
+tree-sitter-luadoc = { version = "=1.1.0", git = "https://github.com/tree-sitter-grammars/tree-sitter-luadoc", rev = "4d04632a3a398b78af52e83be074883e722f40be" }
+two-face = "0.5"
+unicase = "2.6"
+unicode-segmentation = "1"
+
+[lints.rust]
+dead_code = "allow"
+unfulfilled_lint_expectations = "allow"
+unused_qualifications = "warn"
+let_underscore_drop = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+or_fun_call = "warn"
+use_self = "warn"
+redundant_clone = "warn"
+needless_collect = "warn"
+nonminimal_bool = "warn"
+derive_partial_eq_without_eq = "warn"
+useless_let_if_seq = "warn"
+iter_on_single_items = "warn"
+needless_pass_by_ref_mut = "warn"
+branches_sharing_code = "warn"
+equatable_if_let = "warn"
+suboptimal_flops = "warn"
+suspicious_operation_groupings = "warn"
+trivial_regex = "warn"
+cognitive_complexity = "warn"
+excessive_nesting = "warn"
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+unwrap_used = "warn"
+string_slice = "warn"
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+str_to_string = "warn"
+clone_on_ref_ptr = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+similar_names = "allow"
+many_single_char_names = "allow"
+missing_const_for_fn = "allow"
+option_if_let_else = "allow"
+redundant_pub_crate = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+doc_markdown = "allow"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[patch.crates-io]
+nucleo = { path = "vendor/nucleo" }

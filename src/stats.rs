@@ -5,9 +5,9 @@ use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{KEYS, plural};
+use crate::key::{KeyCode, KeyEvent, KeyModifiers};
 
 const ALIASES: &[&str] = &["Ctrl+E", "Ctrl+F", "Ctrl+G"];
 
@@ -159,7 +159,7 @@ pub fn write(path: &Path, text: &str) -> Result<()> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).with_context(ctx)?;
     }
-    let tmp = path.with_extension(format!("tsv.{}", std::process::id()));
+    let tmp = path.with_extension(format!("tsv.{}", crate::real::pid()));
     std::fs::write(&tmp, text).with_context(ctx)?;
     std::fs::rename(&tmp, path).with_context(ctx)
 }

@@ -370,6 +370,12 @@ pub fn supported(env: &dyn Fn(&str) -> Option<String>) -> bool {
         || env("KITTY_WINDOW_ID").is_some()
 }
 
+#[cfg(target_family = "wasm")]
+fn cell() -> Option<(u32, u32)> {
+    None
+}
+
+#[cfg(not(target_family = "wasm"))]
 fn cell() -> Option<(u32, u32)> {
     let ws = ratatui::crossterm::terminal::window_size().ok()?;
     if ws.width == 0 || ws.height == 0 || ws.columns == 0 || ws.rows == 0 {
