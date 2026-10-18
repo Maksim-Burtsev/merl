@@ -5,6 +5,7 @@ The rust row: merl at `20ac5110` with the `d` fixes of branch `b1019/rust`, 2026
 The swift row (#1053, #1052, #1055, branch `b1019/swift`): 2026-10-19, release build, `vm.loadavg` { 5.07 5.68 5.67 } before the run.
 The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, release build, `vm.loadavg` { 8.08 7.25 6.44 } before the run, { 6.75 6.94 6.39 } after.
 The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
+The ruby row with the fixes of branch `b1019/ruby` (#1095, #1094, #1096, #1097, #1098), 2026-10-19, release build, `vm.loadavg` { 5.64 7.46 7.01 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -20,7 +21,7 @@ The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.lo
 | java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |
 | kotlin (nowinandroid) | 34 | 34 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 46 | 26.5 | 55.9 |
 | csharp (eShop) | 27 | 25 (93%) | 2 (7%) | 0 (0%) | 0 (0%) | 53 | 18.0 | 28.9 |
-| ruby (mastodon) | 28 | 22 (79%) | 5 (18%) | 0 (0%) | 1 (4%) | 52 | 64.6 | 141.3 |
+| ruby (mastodon) | 28 | 23 (82%) | 4 (14%) | 0 (0%) | 1 (4%) | 52 | 57.0 | 166.5 |
 | objc (SDWebImage) | 229 | 92 (40%) | 122 (53%) | 0 (0%) | 15 (7%) | 41 | 26.3 | 110.1 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 73.4 | 164.6 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 59.0 | 91.8 |

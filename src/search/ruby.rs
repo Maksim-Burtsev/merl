@@ -99,23 +99,48 @@ pub fn ruby_locals(text: &str, line1: usize, name: &str) -> Vec<usize> {
         .collect()
 }
 
-pub fn ruby_class_path(text: &str, line1: usize) -> String {
+fn openers_outermost_first(text: &str, line1: usize) -> Vec<&str> {
     static NAME: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:class|module)\s+((?:::)?[A-Z][\w:]*)").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return String::new();
+        return Vec::new();
     };
     let literal = literal_lines(Kind::Ruby, text);
     let mut names: Vec<&str> = around(&lines, &literal, at)
         .openers_innermost_first
         .iter()
         .filter_map(|&(i, _)| NAME.captures(lines[i]))
-        .map(|c| c.get(1).map_or("", |m| m.as_str().trim_start_matches(':')))
+        .map(|c| c.get(1).map_or("", |m| m.as_str()))
         .collect();
     names.reverse();
-    names.join("::")
+    names
+}
+
+pub fn ruby_class_path(text: &str, line1: usize) -> String {
+    openers_outermost_first(text, line1)
+        .iter()
+        .map(|n| n.trim_start_matches(':'))
+        .collect::<Vec<_>>()
+        .join("::")
+}
+
+pub fn ruby_nesting_innermost_first(text: &str, line1: usize) -> Vec<String> {
+    let mut path = String::new();
+    let mut out: Vec<String> = openers_outermost_first(text, line1)
+        .into_iter()
+        .map(|n| {
+            path = match n.strip_prefix("::") {
+                Some(top) => top.to_owned(),
+                None if path.is_empty() => n.to_owned(),
+                None => format!("{path}::{n}"),
+            };
+            path.clone()
+        })
+        .collect();
+    out.reverse();
+    out
 }
 
 fn param_names(list: &str) -> Vec<String> {

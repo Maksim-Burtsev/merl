@@ -244,6 +244,14 @@ impl App {
                     .map(|line| self.line_hit(&a.here, line)),
             );
         }
+        if kind == Kind::Ruby
+            && !dotted
+            && chain.is_empty()
+            && !a.before.ends_with("::")
+            && word.starts_with(|c: char| c.is_ascii_uppercase())
+        {
+            self.ruby_constant_in_scope(&a.here, &a.text, word, &mut hits);
+        }
         if kind == Kind::CSharp {
             let chain = dotted.then_some(chain.as_slice());
             hits = self.cs_reachable(&a.here, word, chain, walk.cs_walked.as_deref(), hits);
