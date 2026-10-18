@@ -707,7 +707,7 @@ pub fn php_written_type(line: &str, name: &str) -> Option<String> {
         .then(|| written.to_owned())
 }
 
-pub fn php_param_tag(lines: &[&str], at: usize, name: &str) -> Option<Option<String>> {
+pub fn php_param_tag(lines: &[&str], at: usize, name: &str) -> Option<String> {
     static FUNCTION: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\bfunction\b").expect("the regex is a literal"));
     static PARAM: LazyLock<Regex> = LazyLock::new(|| {
@@ -725,7 +725,7 @@ pub fn php_param_tag(lines: &[&str], at: usize, name: &str) -> Option<Option<Str
         .map(|l| l.trim_start())
         .take_while(|l| l.starts_with('*') || l.starts_with("/**") || l.starts_with("#["))
         .find_map(|l| PARAM.captures(l).filter(|c| &c[2] == name))
-        .map(|c| php_one_class(&c[1]))
+        .map(|c| c[1].to_owned())
 }
 
 pub fn php_tag_type(line: &str, name: &str) -> Option<String> {
@@ -736,7 +736,7 @@ pub fn php_tag_type(line: &str, name: &str) -> Option<String> {
     php_one_class(&TAG.captures(line).filter(|c| &c[2] == name)?[1])
 }
 
-fn php_one_class(types: &str) -> Option<String> {
+pub fn php_one_class(types: &str) -> Option<String> {
     let mut types = types
         .split('|')
         .map(|t| t.trim_start_matches('?'))
@@ -744,7 +744,9 @@ fn php_one_class(types: &str) -> Option<String> {
     let written = types.next().filter(|_| types.next().is_none())?;
     let short = written.rsplit('\\').next().unwrap_or(written);
     (!short.is_empty()
-        && written.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '\\')
+        && written
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '\\')
         && !NO_CLASS.contains(&short.to_ascii_lowercase().as_str()))
     .then(|| written.to_owned())
 }

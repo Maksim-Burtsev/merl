@@ -327,7 +327,10 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
     let join = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass JoinClause extends Builder\n{\n    public function on($first, $second)\n    {\n    }\n}\n";
     let query = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass Builder\n{\n    public function where($column, $value)\n    {\n    }\n}\n";
     let files = [
-        ("composer.json", r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#),
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
         (".gitignore", "vendor/\n"),
         ("app/Builders/ArtistBuilder.php", builder),
         ("app/Services/Scanner.php", scanner),
@@ -347,7 +350,10 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
         let by_name = if vendor {
             picker(
                 "on: by name, 2 declarations",
-                &[scanner_on, ("JoinClause::on", "laravel/Query/JoinClause.php:7")],
+                &[
+                    scanner_on,
+                    ("JoinClause::on", "laravel/Query/JoinClause.php:7"),
+                ],
             )
         } else {
             jump("on \u{2192} Scanner::on (by name, 1 match)", scanner_on.1)
@@ -366,7 +372,10 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
         } else {
             (
                 jump("no definition for on", "app/Builders/ArtistBuilder.php:12"),
-                jump("no definition for where", "app/Builders/ArtistBuilder.php:13"),
+                jump(
+                    "no definition for where",
+                    "app/Builders/ArtistBuilder.php:13",
+                ),
             )
         };
         assert_eq!(d("$join->on"), on, "vendor: {vendor}");

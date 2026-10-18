@@ -473,7 +473,9 @@ impl App {
         for b in search::php_variable(text, self.line + 1, name)? {
             let at = b - 1;
             let statement = lines[at..lines.len().min(at + 20)].join("\n");
-            if search::php_captures(lines[at], name) || search::php_param_tag(&lines, at, name).is_some() {
+            if search::php_captures(lines[at], name)
+                || search::php_param_tag(&lines, at, name).is_some()
+            {
                 return None;
             }
             let search::PhpBinding::Type(t) = search::php_binding(&statement, name)? else {
@@ -701,7 +703,7 @@ impl App {
         }
         let lines: Vec<&str> = text.lines().collect();
         if let Some(tag) = search::php_param_tag(&lines, line0, field) {
-            return tag
+            return search::php_one_class(&tag)
                 .and_then(|t| self.php_type(&path, &text, line0, &t))
                 .map_or(Link::Unread, Link::Class);
         }
@@ -741,16 +743,11 @@ impl App {
 
     fn php_outside_classes(&mut self, full: Option<&str>, short: &str) -> Vec<PhpClass> {
         let file = format!("{short}.php");
-        let files: Vec<PathBuf> = self
-            .external_files(Kind::Php)
+        self.external_files(Kind::Php)
             .iter()
             .filter(|p| p.file_name().is_some_and(|n| n == file.as_str()))
-            .cloned()
-            .collect();
-        files
-            .into_iter()
             .filter_map(|path| {
-                let text = std::fs::read_to_string(&path).ok()?;
+                let text = std::fs::read_to_string(path).ok()?;
                 let ns = search::php_namespace(&text).unwrap_or_default();
                 let named = match ns {
                     "" => short.to_owned(),
@@ -759,11 +756,11 @@ impl App {
                 if full.is_some_and(|f| f != named) {
                     return None;
                 }
-                let header0 = text.lines().position(|l| {
-                    search::php_class_header(l).is_some_and(|h| h.name == short)
-                })?;
+                let header0 = text
+                    .lines()
+                    .position(|l| search::php_class_header(l).is_some_and(|h| h.name == short))?;
                 Some(PhpClass {
-                    path,
+                    path: path.clone(),
                     text,
                     header0,
                 })

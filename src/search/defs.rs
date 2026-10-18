@@ -1,6 +1,6 @@
 use super::php::{
-    php_assignment, php_constants, php_method, php_namespace_line, php_properties, php_tags,
-    php_bare_word_cut,
+    php_assignment, php_bare_word_cut, php_constants, php_method, php_namespace_line,
+    php_properties, php_tags,
 };
 use super::{
     ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
