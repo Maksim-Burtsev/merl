@@ -32,5 +32,4 @@ wait why delete these
 run grep -qx -- '- .*' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 run rm "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Down
-sleep 0.3
 run ! $SMOKE_TMUX capture-pane -p -t 0 | grep -q 'why delete these'
