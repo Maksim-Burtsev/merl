@@ -202,9 +202,13 @@ def main():
     cache = os.path.realpath(os.path.expanduser(a.cache))
     os.makedirs(cache, exist_ok=True)
     servers = os.path.realpath(os.environ.get("D_BENCH_SERVERS", os.path.join(cache, "servers")))
-    if os.path.isdir(os.path.join(servers, "dart-sdk", "bin")):
-        os.environ["PATH"] = os.path.join(servers, "dart-sdk", "bin") + os.pathsep + os.environ["PATH"]
+    os.environ["D_BENCH_SERVERS"] = servers
+    dart_bin = os.path.join(servers, "dart-sdk", "bin")
+    if os.path.isdir(dart_bin):
+        os.environ["PATH"] = dart_bin + os.pathsep + os.environ["PATH"]
         os.environ["PUB_CACHE"] = os.path.join(servers, "dart-pub-cache")
+    elif any(p[1] == "dart" for p in pick):
+        sys.exit(f"the dart row needs the Dart SDK in {dart_bin}: tools/d-bench/install-servers.sh fetches it")
     roots, cursors, answers = {}, [], {}
     for name, lang, url, commit, install in pick:
         roots[name] = os.path.realpath(ensure(cache, name, url, commit, install))

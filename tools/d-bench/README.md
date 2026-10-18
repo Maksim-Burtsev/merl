@@ -218,8 +218,8 @@ cursors, sampled, score 75 % direct; with the 459 picked ones the row scores 91 
   `dart language-server` from the Dart SDK 3.13.5 answered all 114, 24 in the SDK and 1 in the pub
   cache; the 18 disagreements were read, and the server was right in all. merl reads the SDK's
   `lib/` only when `dart` is on `PATH`, so `run` puts `<servers>/dart-sdk/bin` first on `PATH` and
-  `PUB_CACHE` at `<servers>/dart-pub-cache`, for dio's install and for merl; `install-servers.sh`
-  fetches the SDK. dio installs with `dart --suppress-analytics pub get`, as a plain `dart pub`
+  `PUB_CACHE` at `<servers>/dart-pub-cache`, for dio's install and for merl, and stops when the
+  `dart` row is asked for without it; `install-servers.sh` fetches the SDK. dio installs with `dart --suppress-analytics pub get`, as a plain `dart pub`
   writes `~/.dart-tool`.
 - **sql** (lemmy, Postgres), judged by reading: 80 cursors in `migrations/*/{up,down}.sql` and 30
   in `crates/diesel_utils/replaceable_schema/`, drawn by the pass's own sampler (comments and
