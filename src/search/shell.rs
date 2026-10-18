@@ -36,20 +36,34 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
 }
 pub fn shell_source(line: &str, col: usize) -> Option<String> {
     static SOURCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(load)\s+(.*)").expect("the regex is a literal")
+        Regex::new(r"^\s*(load|source|\.)\s+(.*)").expect("the regex is a literal")
     });
     let c = SOURCE.captures(line)?;
     let (keyword, rest) = (c.get(1)?, c.get(2)?);
     let word = *shell_words(rest.as_str()).first()?;
-    let end = rest.start() + rest.as_str().find(word)? + word.len();
-    if col < keyword.start() || col > end {
+    let start = rest.start() + rest.as_str().find(word)?;
+    let unquoted = word.replace(['"', '\''], "");
+    let mut path = unquoted.as_str();
+    while let Some(after) = path.strip_prefix('$') {
+        let at = match after.as_bytes().first() {
+            Some(b'(') => after.find(')')? + 1,
+            Some(b'{') => after.find('}')? + 1,
+            _ => (after.find(|c: char| !c.is_ascii_alphanumeric() && c != '_'))
+                .unwrap_or(after.len()),
+        };
+        path = after.get(at..)?.strip_prefix('/')?;
+    }
+    if path.is_empty() || path.starts_with('/') || path.contains(['$', '`', '*']) {
         return None;
     }
-    let path = word.replace(['"', '\''], "");
-    if path.starts_with('/') || path.contains(['$', '`', '*']) {
+    let literal = start + word.rfind(path)?;
+    if !(keyword.range().contains(&col) || (literal..=start + word.len()).contains(&col)) {
         return None;
     }
-    let bash = if Path::new(&path).extension().is_some_and(|e| e == "bash") {
+    if keyword.as_str() != "load" {
+        return Some(path.to_owned());
+    }
+    let bash = if Path::new(path).extension().is_some_and(|e| e == "bash") {
         ""
     } else {
         ".bash"
