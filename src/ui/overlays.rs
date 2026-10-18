@@ -147,9 +147,15 @@ pub(super) fn draw_tree(
                 _ if !skipped || noted => tree_tick(app, &n.path, noted),
                 "robot" | "robot-dim" => "\u{1f916}",
                 "tick" => "\u{2713} ",
+                "kimi1" => "a\u{2713}",
+                "kimi2" => "\u{bb} ",
                 _ => "  ",
             };
-            let tick_fg = if skipped { theme.ghost_fg } else { theme.accent };
+            let tick_fg = if skipped && !matches!(look.as_str(), "kimi1" | "kimi2") {
+                theme.ghost_fg
+            } else {
+                theme.accent
+            };
             let width = width.saturating_sub(wrap::width(tick));
             let mut spans = vec![
                 Span::styled(tick, style.fg(tick_fg)),

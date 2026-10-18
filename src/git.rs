@@ -337,9 +337,9 @@ impl Review {
         let skipped = match (branch.as_str(), dirs(root)) {
             _ if !crate::tree::orders_on() => Default::default(),
             ("HEAD", _) | (_, None) => Default::default(),
-            (b, Some(dirs)) => crate::tree::skipped_in(
-                &dirs.common_refs_dir.join("merl").join("review").join(b),
-            ),
+            (b, Some(dirs)) => {
+                crate::tree::skipped_in(&dirs.common_refs_dir.join("merl").join("review").join(b))
+            }
         };
         for f in &mut files {
             f.agent_skipped = skipped.contains(&f.path);

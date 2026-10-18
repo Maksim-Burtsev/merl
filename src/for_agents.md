@@ -89,6 +89,33 @@ is a chapter.
 A project to read is the same at the scale of the system: by the last file the user knows
 how it works.
 
+### What the user need not read
+
+When the user asks you to leave out what they need not read, write `skip ` before each such
+path, in its place in the order (`skip CHANGELOG.md`). merl keeps the file in its panel with a
+mark, `c` / `C` walk past it, and the user can still open it from the panel.
+
+Read a file's diff before you skip it, and skip only what needs no human judgement:
+
+- output a tool regenerated from a source the branch also changes;
+- a lock file whose manifest adds or drops no direct dependency;
+- docs that only describe the change: a changelog line, a comment, a page that says what the
+  code already says;
+- tests that only add: new tests or test files, no existing assertion, expected value or
+  fixture changed.
+
+Never skip:
+
+- a test change that deletes, disables or loosens an existing test, assertion or expected
+  value: agents make failing tests pass this way, and it is what the user most needs to see;
+- snapshots and golden files: they show what the change does;
+- CI, build scripts, dependency manifests, migrations and schemas, binary files;
+- anything that touches auth, secrets, payments or users' data;
+- the part of the change the task asked for.
+
+When in doubt, keep the file: a kept file costs the user a minute, a wrong skip costs a bug
+they never saw.
+
 ## Review notes
 
 When the user says they reviewed in merl or left notes, read
