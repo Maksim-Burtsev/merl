@@ -38,6 +38,7 @@ jobs:
           cp -R web/site/. _site/
           web/build.sh _site/merl.wasm
           if [ -f web/site/review.json ]; then node web/review/check.mjs _site/merl.wasm web/site/review.json; fi
+          gzip -9 _site/merl.wasm
       - if: steps.site.outputs.ready == 'yes'
         uses: actions/upload-pages-artifact@v5.0.0
         with:

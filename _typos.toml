@@ -17,6 +17,8 @@ extend-exclude = [
   "tools/d-bench/cursors/",
   "tools/fold-bench/folds/",
   "web/vendor/",
+  "web/site/review.json",
+  "web/site/wasi/",
 ]
 
 [default.extend-identifiers]

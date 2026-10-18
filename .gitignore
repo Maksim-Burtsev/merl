@@ -2,3 +2,4 @@
 __pycache__/
 /mutants.out*
 /web/target
+/web/site/merl.wasm*
