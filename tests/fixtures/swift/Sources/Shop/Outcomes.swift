@@ -138,3 +138,19 @@ func consigned() {
     consign(to: "dock", express: true)
     //                  ^ d: Sources/Shop/Outcomes.swift:132
 }
+
+// A case of an enum is a value of that enum (#1055).
+enum Roast {
+    case light, dark
+
+    var level: Int { 0 }
+}
+
+struct Blend {
+    let level: Int
+}
+
+func roasted() -> Int {
+    Roast.dark.level
+    //         ^ d: Sources/Shop/Outcomes.swift:146
+}

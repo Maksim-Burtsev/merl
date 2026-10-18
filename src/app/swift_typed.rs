@@ -107,13 +107,17 @@ impl App {
         names: &[String],
         hops: usize,
     ) -> Option<SwiftChain> {
+        let (first, skip) = match self.swift_value(here, file, text, line1, &names[0], hops) {
+            Some(v) => (v, 1),
+            None => (self.swift_enum_case(here, text, line1, names)?, 2),
+        };
         let WrittenVia {
             mut written,
             call_signature: link,
-        } = self.swift_value(here, file, text, line1, &names[0], hops)?;
+        } = first;
         let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
-        for (i, field) in names[1..].iter().enumerate() {
+        for (i, field) in names[skip..].iter().enumerate() {
             if i == 5 {
                 return None;
             }
@@ -137,6 +141,33 @@ impl App {
             written = next;
         }
         Some(SwiftChain { written, links })
+    }
+
+    fn swift_enum_case(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        names: &[String],
+    ) -> Option<WrittenVia> {
+        let [own, case, ..] = names else {
+            return None;
+        };
+        if !search::bindings(Kind::Swift, text, line1, own).is_empty() {
+            return None;
+        }
+        let ty = self.swift_type(here, own)?;
+        if ty.keyword.as_deref() != Some("enum") {
+            return None;
+        }
+        let rows = self.swift_member_rows(here, &ty, case)?;
+        let [row] = rows.as_slice() else {
+            return None;
+        };
+        search::swift_case(&row.text).then(|| WrittenVia {
+            call_signature: Some(format!("{own}.{case}: {}", ty.name)),
+            written: ty.name,
+        })
     }
 
     fn swift_value(
