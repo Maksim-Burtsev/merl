@@ -449,6 +449,9 @@ then exports a named function behind `module.exports.bloom =`.
 `hopper.cjs` is `module.exports = class Hopper extends Bin`, `Bin` itself `module.exports = class`
 behind a `require` (#1076): `this.x` reads the class's own fields and the base's, and a namesake
 field of `Roaster` stays out.
+`ledger.js` declares several names in one `let` (#1077), without initializers and with a comma
+inside one, beside a function `count` and another function's local `last` the later names must
+not reach.
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`

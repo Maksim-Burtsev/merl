@@ -1099,6 +1099,10 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
     });
     static KEY: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"[\w$]+\s*:").expect("the regex is a literal"));
+    static TS_LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^((?:export\s+)?(?:declare\s+)?(?:const|let|var)\s+)(.*?);?$")
+            .expect("the regex is a literal")
+    });
     let n = regex::escape(name);
     let value = match kind {
         Kind::TsJs => {
@@ -1110,14 +1114,30 @@ fn statement_bindings(kind: Kind, t: &str, line: usize, name: &str, out: &mut Ve
                 r"^(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\*?|class|enum|namespace|interface|type)\s+{n}(?:[^\w$]|$)"
             ))
             .expect("an escaped name keeps the pattern valid");
+            let declared_value = |c: regex::Captures| match (
+                c.get(1),
+                c.get(2).filter(|v| !v.as_str().is_empty()),
+            ) {
+                (Some(ty), _) => Value::Type(ty.as_str().to_owned()),
+                (None, Some(v)) => value_of(kind, v.as_str()),
+                (None, None) => Value::Unknown,
+            };
+            let listed = || {
+                let c = TS_LIST.captures(t)?;
+                let parts = split_top(kind, &c[2], b',');
+                (parts.len() > 1).then(|| {
+                    parts.iter().find_map(|p| {
+                        let own = format!("{}{}", &c[1], p.trim());
+                        declared.captures(&own).map(declared_value)
+                    })
+                })?
+            };
             if let Some(c) = declared.captures(t) {
-                match (c.get(1), c.get(2).filter(|v| !v.as_str().is_empty())) {
-                    (Some(ty), _) => Value::Type(ty.as_str().to_owned()),
-                    (None, Some(v)) => value_of(kind, v.as_str()),
-                    (None, None) => Value::Unknown,
-                }
+                declared_value(c)
             } else if let Some(field) = ts_destructured(t, name) {
                 field
+            } else if let Some(value) = listed() {
+                value
             } else if named.is_match(t)
                 || TS_DESTRUCTURE
                     .captures(t)
