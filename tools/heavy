@@ -11,6 +11,13 @@ kill_tree() {
   for child in $(pgrep -P "$1"); do kill_tree "$child"; done
   kill "$1" 2>/dev/null
 }
+run= watchdog=
+stop() {
+  for pid in $run $watchdog; do kill_tree "$pid"; done
+  exit "$1"
+}
+trap 'stop 130' INT
+trap 'stop 143' TERM HUP
 while :; do
   for slot in 1 2; do
     lockf -k -s -t 0 "/tmp/merl-heavy.$slot.lock" nice -n 15 "$@" <&0 &
@@ -21,6 +28,7 @@ while :; do
     rc=$?
     kill_tree "$watchdog"
     wait "$watchdog" 2>/dev/null
+    run= watchdog=
     [ "$rc" -eq 75 ] || exit "$rc"
   done
   sleep 5

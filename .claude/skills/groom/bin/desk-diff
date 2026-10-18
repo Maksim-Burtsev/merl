@@ -11,6 +11,7 @@ for path in sys.argv[2:]:
     if other.size != now.size:
         print(f"{path}\t{other.width}x{other.height} against {now.width}x{now.height}: crop both to one box")
         continue
-    changed = ImageChops.difference(now, other).convert("L").point(lambda v: 255 if v > 16 else 0)
+    red, green, blue = ImageChops.difference(now, other).split()
+    changed = ImageChops.lighter(ImageChops.lighter(red, green), blue).point(lambda v: 255 if v > 16 else 0)
     share = 100 * changed.histogram()[255] / (now.width * now.height)
     print(f"{path}\t{share:.2f}%\t{changed.getbbox()}")
