@@ -33,6 +33,24 @@ impl App {
             }
         }
         if kind == Kind::Rust
+            && dotted
+            && chain.is_empty()
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+            && let Some(receiver) = a
+                .before
+                .strip_suffix('.')
+                .filter(|r| r.ends_with([')', '?']))
+        {
+            let after = a.tail.as_str();
+            let call = after.starts_with('(') || after.starts_with("::<");
+            if let Some(found) = self.rust_call_chain(&a.here, &a.text, receiver, word, call)
+                && !found.is_empty()
+            {
+                return self.show_found(a, found);
+            }
+        }
+        if kind == Kind::Rust
             && let Some(found) = self.rust_early(&a.here, &a.text, word, a.range.clone(), dotted)
         {
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());

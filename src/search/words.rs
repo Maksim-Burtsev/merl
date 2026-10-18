@@ -457,7 +457,7 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     let led = |l: &str| {
         let t = l.trim_start();
         match kind {
-            Kind::TsJs => t.starts_with('.') && !t.starts_with(".."),
+            Kind::TsJs | Kind::Rust => t.starts_with('.') && !t.starts_with(".."),
             Kind::Php => t.starts_with("->") || t.starts_with("?->"),
             _ => false,
         }
