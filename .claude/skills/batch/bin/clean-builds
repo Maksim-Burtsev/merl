@@ -1,7 +1,4 @@
 #!/bin/zsh
-# Deletes the cargo build output a run leaves behind: every dir cargo made (CACHEDIR.TAG inside)
-# under the run's folder and this session's /private/tmp folder. Ledger, task files, logs and
-# reports stay; a dir a process still has open is left and named.
 ledgers=($HOME/.cache/merl-batch/*/ledger.md(Nom))
 run=${1:-${ledgers[1]:h}}
 [[ -f $run/ledger.md ]] || { echo "usage: clean-builds [RUN_DIR]: no ledger.md in '$run'" >&2; exit 2; }
