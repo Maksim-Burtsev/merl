@@ -216,7 +216,7 @@ impl App {
             let stop = self.history.get_mut(self.hist_idx);
             let stop = stop.filter(|s| s.0 == path && s.1 == here);
             let deleted = self.deleted.as_mut().map(|(k, _)| k);
-            [&mut self.line, &mut self.top_line]
+            [&mut self.line, &mut self.top_line, &mut self.find_view.0]
                 .into_iter()
                 .chain(deleted)
                 .for_each(to);
