@@ -169,7 +169,12 @@ impl App {
             } else {
                 ", found by name"
             };
-            for (path, line, of) in at {
+            for (path, mut line, of) in at {
+                if kind == Kind::Swift && *owner == search::Owner::Args {
+                    line = self
+                        .text_of(&path)
+                        .map_or(line, |t| search::swift_signature_line(&t, line));
+                }
                 if out
                     .iter()
                     .any(|o| o.hit.path == path && o.hit.line1 == line)

@@ -44,6 +44,9 @@ impl App {
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
             self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
+            if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, &found) {
+                self.swift_by_labels(&a.word, a.range.end, &mut found);
+            }
         }
         if kind == Kind::Dart {
             let member = a.before.trim_end().ends_with('.');
@@ -217,7 +220,20 @@ impl App {
         {
             self.python_reachable(a, &mut hits);
         }
-        Self::swift_implicit(a, &mut hits);
+        self.swift_implicit(a, &mut hits);
+        if kind == Kind::Swift
+            && dotted
+            && chain.first().is_some_and(|f| f != "self" && f != "super")
+            && chain
+                .iter()
+                .all(|n| n.starts_with(|c: char| c.is_lowercase() || c.is_ascii_digit()))
+        {
+            hits.retain(|h| {
+                !search::swift_case(&h.text)
+                    && search::swift_member_kind(&h.text)
+                        != Some(search::SwiftMember::StaticOrClass)
+            });
+        }
         if kind == Kind::Swift && !dotted && chain.is_empty() {
             self.swift_nested_unseen(&mut hits);
         }
@@ -294,7 +310,7 @@ impl App {
         }
     }
 
-    fn swift_implicit(a: &Asked, hits: &mut Vec<Hit>) {
+    fn swift_implicit(&self, a: &Asked, hits: &mut Vec<Hit>) {
         if a.kind == Kind::Swift
             && a.dotted
             && a.chain.is_empty()
@@ -323,6 +339,9 @@ impl App {
                 .collect();
             if implicit && !kept.is_empty() {
                 *hits = kept;
+            } else if implicit && !(lead.is_empty() && search::swift_continues(&a.text, self.line))
+            {
+                hits.retain(|h| !search::swift_instance_member(&h.text));
             }
         }
     }
