@@ -1,0 +1,27 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+g3js0000	lib/rules/utils/ast-utils.js:1585		
+g3js0007	lib/rules/utils/ast-utils.js:1590;lib/rules/utils/ast-utils.js:230		
+g3js0008			
+g3js0014	lib/rules/indent.js:344		
+g3js0028	lib/config/config.js:521;lib/config/config.js:526;lib/config/config.js:540		
+g3js0029	lib/linter/code-path-analysis/fork-context.js:299		
+g3js0030	lib/rules/utils/ast-utils.js:1603		
+g3js0034	lib/linter/code-path-analysis/code-path-state.js:534		
+g3js0046	lib/linter/code-path-analysis/code-path-state.js:941		
+g3js0066	lib/rules/indent.js:234		
+g3js0070	lib/eslint/eslint.js:959		
+g3js0084	lib/rules/utils/ast-utils.js:2960;lib/rules/utils/ast-utils.js:342		
+g3js0086	lib/rules/indent.js:262		
+g3js0104	lib/linter/esquery.js:41		
+g3js0107	lib/rules/indent-legacy.js:206		
+g3js0119	lib/rules/utils/ast-utils.js:1599;lib/rules/utils/ast-utils.js:655		
+g3js0126	lib/linter/code-path-analysis/code-path-state.js:1092		
+g3js0132	lib/linter/code-path-analysis/code-path-state.js:521		
+g3js0146	<typescript>/lib/lib.es2022.object.d.ts:23		
+g3js0149	node_modules/@eslint-community/regexpp/index.d.ts:1008		
+g3js0162	lib/rules/no-useless-assignment.js:277		
+g3js0165	lib/shared/logging.js:35		
+g3js0166	lib/rules/indent.js:253		
+g3js0179	lib/cli-engine/lint-result-cache.js:104		
+g3js0180	lib/languages/js/source-code/token-store/forward-token-cursor.js:32		
+g3js0192			

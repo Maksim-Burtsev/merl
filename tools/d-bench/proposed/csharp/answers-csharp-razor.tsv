@@ -1,0 +1,13 @@
+# id	targets: path:line joined by ; (project-relative; empty: outside the project)	skip: why the row is not scored	note
+csr0000	src/WebApp/Services/BasketState.cs:21		read the code: @inject BasketState Basket
+csr0001	src/WebApp/Services/BasketState.cs:58		read the code: @inject BasketState Basket
+csr0002	src/WebApp/Services/BasketState.cs:9		read the code: type in @inject
+csr0003	src/WebAppComponents/Services/IProductImageUrlProvider.cs:10		read the code: the (int productId) overload
+csr0004	src/WebApp/Services/BasketItem.cs:3		read the code: WebApp's BasketItem
+csr0005	src/WebAppComponents/Services/CatalogService.cs:11		read the code: @inject CatalogService CatalogService
+csr0006	src/WebApp/Services/BasketState.cs:33		read the code: @inject BasketState BasketState
+csr0007	src/WebApp/Components/Pages/Item/ItemPage.razor:160		read the code: own @code method
+csr0008	src/WebApp/Services/BasketState.cs:78		read the code: @inject BasketState Basket
+csr0009	src/WebApp/Components/Pages/Checkout/Checkout.razor:111		read the code: own @code method
+csr0010	src/WebAppComponents/Services/PriceFormatter.cs:9		read the code: extension on decimal
+csr0011	src/WebApp/Services/BasketItem.cs:10		read the code: items from GetBasketItemsAsync: BasketItem

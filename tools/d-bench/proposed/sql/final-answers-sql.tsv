@@ -1,0 +1,111 @@
+# id	targets	skip	note
+sqlm0000	migrations/2025-08-01-000042_community-hidden-visibility/up.sql:59		judged: a column; merl has no column definitions; table not checked
+sqlm0001	migrations/2020-03-26-192410_add_activitypub_tables/up.sql:5		judged: a column; merl has no column definitions; table not checked
+sqlm0002	migrations/2019-03-03-163336_create_post/up.sql:3		judged: a column; merl has no column definitions; table not checked
+sqlm0003	migrations/2020-08-03-000110_add_preferred_usernames_banners_and_icons/up.sql:117		judged: the cursor is on the declaration
+sqlm0004	migrations/2021-03-09-171136_split_user_table_2/up.sql:6		judged: user_ RENAME TO person
+sqlm0005	migrations/2025-08-01-000016_smoosh-tables-together/down.sql:38		judged: a column; merl has no column definitions; table not checked
+sqlm0006	migrations/2020-12-03-035643_create_user_aggregates/up.sql:5		judged: a column; merl has no column definitions; table not checked
+sqlm0007	migrations/2020-08-03-000110_add_preferred_usernames_banners_and_icons/up.sql:509		judged: alias
+sqlm0008	migrations/2020-01-21-001001_create_private_message/up.sql:5		judged: a column; merl has no column definitions; table not checked
+sqlm0009	migrations/2019-03-05-233828_create_comment/up.sql:6		judged: a column; merl has no column definitions; table not checked
+sqlm0010	migrations/2026-04-16-000000-0000_add_invitation_table/up.sql:7		judged: a column; merl has no column definitions; table not checked
+sqlm0011		the cursor is on the name a RENAME TO gives	judged
+sqlm0012	migrations/2021-03-09-171136_split_user_table_2/down.sql:232		judged: a column; merl has no column definitions; table not checked
+sqlm0013	migrations/2019-03-03-163336_create_post/up.sql:3		judged: a column; merl has no column definitions; table not checked
+sqlm0014			judged: a builtin
+sqlm0015	migrations/2023-07-04-153335_add_optimized_indexes/up.sql:48		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0016	migrations/2019-03-05-233828_create_comment/up.sql:18		judged: a column; merl has no column definitions; table not checked
+sqlm0017	migrations/2023-08-09-101305_user_instance_block/up.sql:10		judged: a column; merl has no column definitions; table not checked
+sqlm0018	migrations/2020-01-21-001001_create_private_message/up.sql:4		judged: a column; merl has no column definitions; table not checked
+sqlm0019	migrations/2019-03-03-163336_create_post/up.sql:7		judged: a column; merl has no column definitions; table not checked
+sqlm0020	migrations/2019-09-09-042010_add_stickied_posts/up.sql:9		judged: a column; merl has no column definitions; table not checked
+sqlm0021	migrations/2020-03-26-192410_add_activitypub_tables/up.sql:4		judged: a column; merl has no column definitions; table not checked
+sqlm0022		the cursor is on the name a RENAME TO gives	judged
+sqlm0023	migrations/2025-08-01-000022_instance-block-mod-log/up.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0024	migrations/2022-10-06-183632_move_blocklist_to_db/up.sql:3		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0025	migrations/2019-09-09-042010_add_stickied_posts/up.sql:9		judged: a column; merl has no column definitions; table not checked
+sqlm0026	migrations/2019-03-03-163336_create_post/up.sql:23		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0027	migrations/2021-08-17-210508_create_mod_transfer_community/up.sql:7		judged: a column; merl has no column definitions; table not checked
+sqlm0028	migrations/2020-12-14-020038_create_comment_aggregates/up.sql:5		judged: a column; merl has no column definitions; table not checked
+sqlm0029	migrations/2025-08-01-000009_add_federation_vote_rejection/up.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0030	migrations/2019-04-07-003142_create_moderation_logs/up.sql:18		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0031	migrations/2019-03-03-163336_create_post/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0032	migrations/2020-01-13-025151_create_materialized_views/down.sql:280		judged: the cursor is on the declaration
+sqlm0033	migrations/2025-10-15-114811-0000_merge-modlog-tables/down.sql:121		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0034	migrations/2022-01-04-034553_add_hidden_column/up.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0035		DROP FUNCTION of a function re-created in several migrations, not checked	judged
+sqlm0036	migrations/2019-03-30-212058_create_post_view/up.sql:2		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0037	migrations/2019-02-26-002946_create_user/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0038			judged: a builtin
+sqlm0039	migrations/2025-10-09-101527-0000_community-follower-denied/down.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0040	migrations/2022-10-06-183632_move_blocklist_to_db/up.sql:1		judged: column added by the up.sql; line not pinned
+sqlm0041	migrations/2020-03-26-192410_add_activitypub_tables/up.sql:4		judged: a column; merl has no column definitions; table not checked
+sqlm0042	migrations/2020-01-21-001001_create_private_message/up.sql:4		judged: a column; merl has no column definitions; table not checked
+sqlm0043	migrations/2019-02-26-002946_create_user/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0044	migrations/2019-04-29-175834_add_delete_columns/up.sql:13		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0045			judged: a builtin
+sqlm0046	migrations/2025-08-01-000063_post-or-comment-notification/up.sql:10		judged: comment_reply RENAME TO notification
+sqlm0047	migrations/2019-10-24-002614_create_password_reset_request/up.sql:2		judged: a column; merl has no column definitions; table not checked
+sqlm0048	migrations/2019-09-09-042010_add_stickied_posts/up.sql:9		judged: a column; merl has no column definitions; table not checked
+sqlm0049	migrations/2021-10-01-141650_create_admin_purge/up.sql:24		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0050	migrations/2019-04-07-003142_create_moderation_logs/up.sql:63		judged: a column; merl has no column definitions; table not checked
+sqlm0051	migrations/2025-08-01-000041_remove-aggregate-tables/up.sql:249		judged: a column; merl has no column definitions; table not checked
+sqlm0052	migrations/2019-03-05-233828_create_comment/up.sql:18		judged: a column; merl has no column definitions; table not checked
+sqlm0053	migrations/2025-10-15-114811-0000_merge-modlog-tables/down.sql:145		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0054	migrations/2021-03-09-171136_split_user_table_2/up.sql:12		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0055	migrations/2022-10-06-183632_move_blocklist_to_db/up.sql:3		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0056	migrations/2020-06-30-135809_remove_mat_views/down.sql:967		judged: alias on its own line, second UNION branch
+sqlm0057	migrations/2019-03-03-163336_create_post/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0058	migrations/2019-10-24-002614_create_password_reset_request/up.sql:2		judged: a column; merl has no column definitions; table not checked
+sqlm0059	migrations/2021-03-09-171136_split_user_table_2/up.sql:6		judged: user_ RENAME TO person
+sqlm0060	migrations/2025-10-15-114811-0000_merge-modlog-tables/up.sql:36		judged: a column; merl has no column definitions; table not checked
+sqlm0061	migrations/2019-04-07-003142_create_moderation_logs/up.sql:73		judged: a column; merl has no column definitions; table not checked
+sqlm0062	migrations/2025-10-15-114811-0000_merge-modlog-tables/up.sql:26		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlm0063	migrations/2020-06-30-135809_remove_mat_views/down.sql:851		judged: alias
+sqlm0064	migrations/2021-08-17-210508_create_mod_transfer_community/up.sql:7		judged: a column; merl has no column definitions; table not checked
+sqlm0065	migrations/2020-03-26-192410_add_activitypub_tables/up.sql:4		judged: a column; merl has no column definitions; table not checked
+sqlm0066	migrations/2020-06-30-135809_remove_mat_views/down.sql:851		judged: alias
+sqlm0067	migrations/2025-10-15-114811-0000_merge-modlog-tables/up.sql:39		judged: a column; merl has no column definitions; table not checked
+sqlm0068			judged: a builtin
+sqlm0069	migrations/2019-12-29-164820_add_avatar/down.sql:281		judged: alias
+sqlm0070	migrations/2019-04-29-175834_add_delete_columns/down.sql:85		judged: CTE
+sqlm0071	migrations/2020-01-21-001001_create_private_message/up.sql:4		judged: a column; merl has no column definitions; table not checked
+sqlm0072		alias in a UNION branch, not checked which	judged
+sqlm0073			judged: a builtin
+sqlm0074	migrations/2025-08-01-000041_remove-aggregate-tables/up.sql:103		judged: a column; merl has no column definitions; table not checked
+sqlm0075			judged: a builtin
+sqlm0076	migrations/2020-03-26-192410_add_activitypub_tables/up.sql:4		judged: a column; merl has no column definitions; table not checked
+sqlm0077	migrations/2019-04-03-155205_create_community_view/up.sql:52		judged: the cursor is on the declaration
+sqlm0078	migrations/2020-01-21-001001_create_private_message/up.sql:3		judged: a column; merl has no column definitions; table not checked
+sqlm0079	migrations/2023-12-19-210053_tolerable-batch-insert-speed/up.sql:159		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlr0000	migrations/2025-08-01-000024_add_person_content_combined_table/up.sql:36		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlr0001	migrations/2025-08-01-000055_rename_timestamp_add_at/up.sql:171		judged: a column; merl has no column definitions; table not checked
+sqlr0002	crates/diesel_utils/replaceable_schema/triggers.sql:198		judged: the cursor is on the declaration
+sqlr0003	migrations/2025-08-01-000057_multi-community/up.sql:28		judged: a column; merl has no column definitions; table not checked
+sqlr0004	migrations/2025-08-01-000024_add_person_content_combined_table/up.sql:36		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlr0005	crates/diesel_utils/replaceable_schema/triggers.sql:317		judged: derived-table alias `AS diff` later in the statement; line approximate
+sqlr0006	migrations/2025-08-01-000049_add_liked_combined/up.sql:12		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlr0007	migrations/2025-08-01-000023_add_report_combined_table/up.sql:3		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlr0008	migrations/2025-08-01-000041_remove-aggregate-tables/up.sql:413		judged: a column; merl has no column definitions; table not checked
+sqlr0009	migrations/2025-08-01-000049_add_liked_combined/up.sql:12		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlr0010	crates/diesel_utils/replaceable_schema/utils.sql:82		judged: procedure
+sqlr0011	crates/diesel_utils/replaceable_schema/triggers.sql:290		judged: the cursor is on the declaration
+sqlr0012			judged: a builtin
+sqlr0013	migrations/2025-08-01-000057_multi-community/up.sql:28		judged: a column; merl has no column definitions; table not checked
+sqlr0014	migrations/2026-03-19-234307-0000_same_table_joins/up.sql:125		judged: a column; merl has no column definitions; table not checked
+sqlr0015	crates/diesel_utils/replaceable_schema/utils.sql:135		judged: the cursor is on the declaration
+sqlr0016	migrations/2025-08-01-000041_remove-aggregate-tables/up.sql:412		judged: a column; merl has no column definitions; table not checked
+sqlr0017	migrations/2021-03-09-171136_split_user_table_2/up.sql:6		judged: user_ RENAME TO person
+sqlr0018	migrations/2025-08-01-000057_multi-community/up.sql:28		judged: a column; merl has no column definitions; table not checked
+sqlr0019	migrations/2026-03-19-234307-0000_same_table_joins/up.sql:276		judged: a column; merl has no column definitions; table not checked
+sqlr0020	crates/diesel_utils/replaceable_schema/utils.sql:86		judged: the cursor is on the declaration
+sqlr0021	crates/diesel_utils/replaceable_schema/utils.sql:49		judged: the cursor is on the declaration
+sqlr0022	migrations/2026-02-24-205759-0000_add_notification_creator_id/up.sql:3		judged: a column; merl has no column definitions; table not checked
+sqlr0023	migrations/2019-02-27-170003_create_community/up.sql:35		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sqlr0024		a column of a derived table's select list	judged
+sqlr0025		not checked	judged
+sqlr0026	migrations/2021-03-31-105915_add_bot_account/up.sql:5		judged: a column; merl has no column definitions; table not checked
+sqlr0027	crates/diesel_utils/replaceable_schema/triggers.sql:132		judged: the cursor is on the declaration
+sqlr0028	crates/diesel_utils/replaceable_schema/utils.sql:127		judged: PL/pgSQL DECLARE
+sqlr0029	migrations/2025-08-01-000057_multi-community/up.sql:10		judged: a column; merl has no column definitions; table not checked

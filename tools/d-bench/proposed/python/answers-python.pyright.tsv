@@ -1,0 +1,56 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+py4n000	<python-stdlib>/logging/__init__.py:1467		
+py4n001	<python-stdlib>/logging/__init__.py:1491		
+py4n002	<python-stdlib>/logging/__init__.py:1479		
+py4n003	<python-stdlib>/logging/__init__.py:1467		
+py4n004	<python-stdlib>/logging/__init__.py:1479		
+py4n005	<python-stdlib>/logging/__init__.py:1520		
+py4n006	<python-stdlib>/logging/__init__.py:1467		
+py4n007	<python-stdlib>/logging/__init__.py:1491		
+py4n008	<python-stdlib>/logging/__init__.py:1491		
+py4n009	<python-stdlib>/logging/__init__.py:1491		
+py4n010	.venv/lib/python3.11/site-packages/django/test/client.py:1141		
+py4n011			
+py4n012	.venv/lib/python3.11/site-packages/django/test/client.py:1274		
+py4n013	.venv/lib/python3.11/site-packages/django/test/client.py:1141		
+py4n014	.venv/lib/python3.11/site-packages/django/test/client.py:1113		
+py4n015	.venv/lib/python3.11/site-packages/django/test/client.py:1113		
+py4n016	.venv/lib/python3.11/site-packages/django/test/client.py:1141		
+py4n017	.venv/lib/python3.11/site-packages/django/test/client.py:1141		
+py4n018	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+py4n019	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+py4n020	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+py4n021			
+py4n022			
+py4n023			
+py4n024			
+py4n025			
+py4n026			
+py4n027			
+py4n028			
+py4n029	.venv/lib/python3.11/site-packages/django_softdelete/models.py:49		
+py4n030	.venv/lib/python3.11/site-packages/django_softdelete/models.py:49		
+py4n031	.venv/lib/python3.11/site-packages/auditlog/models.py:394		
+py4n032			
+py4n033	.venv/lib/python3.11/site-packages/time_machine/__init__.py:298		
+py4n034	src/documents/search/_backend.py:878		
+py4n035	src/documents/regex.py:53		
+py4n036			
+py4n037			
+py4n038	src/documents/tests/test_api_document_versions.py:51		
+py4n039			
+py4n040			
+py4n041			
+py4n042			
+py4n043			
+py4n044			
+py4n045			
+py4n046			
+py4n047			
+py4n048			
+py4n049	<python-stdlib>/unittest/mock.py:557;<python-stdlib>/unittest/mock.py:545		
+py4n050	<python-stdlib>/unittest/mock.py:569;<python-stdlib>/unittest/mock.py:605		
+py4n051			
+py4n052	<python-stdlib>/unittest/mock.py:569;<python-stdlib>/unittest/mock.py:605		
+py4n053			
+py4n054			

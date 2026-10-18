@@ -1,0 +1,7 @@
+# id	project	file	line	col	shape	word  (eslint@93de066d)
+g3jsx01	eslint	lib/languages/js/source-code/source-code.js	295	3	name	scopeManager
+g3jsx02	eslint	lib/languages/js/source-code/source-code.js	294	3	name	parserServices
+g3jsx03	eslint	lib/languages/js/source-code/source-code.js	337	32	name	hasBOM
+g3jsx04	eslint	lib/languages/js/source-code/source-code.js	356	24	name	parserServices
+g3jsx05	eslint	lib/rules/no-useless-escape.js	134	12	name	character
+g3jsx06	eslint	lib/rules/prefer-promise-reject-errors.js	121	27	name	Promise

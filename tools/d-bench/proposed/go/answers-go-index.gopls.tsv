@@ -1,0 +1,17 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+go4i000	models/activities/action.go:139		
+go4i001	services/repository/repository.go:39		
+go4i002	models/issues/comment.go:750		
+go4i003	modules/packages/rpm/metadata.go:316		
+go4i004	modules/indexer/issues/internal/model.go:43		
+go4i005	modules/migration/pullrequest.go:16		
+go4i006	models/git/lfs.go:83		
+go4i007	models/repo/language_stats.go:22		
+go4i008	models/activities/repo_activity.go:27		
+go4i009	models/packages/descriptor.go:63		
+go4i010	models/repo/repo.go:198		
+go4i011	models/repo/language_stats.go:24		
+go4i012	models/issues/comment.go:300		
+go4i013	modules/charset/escape_stream.go:403		
+go4i014	modules/git/pipeline/lfs_common.go:17		
+go4i015	models/packages/descriptor.go:63		

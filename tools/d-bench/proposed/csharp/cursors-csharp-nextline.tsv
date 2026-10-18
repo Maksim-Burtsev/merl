@@ -1,0 +1,5 @@
+# id	project	file	line	col	shape	word
+csx0300	eShop	src/WebApp/Extensions/Extensions.cs	18	16	member	AddEventBusSubscriptions
+csx0301	eShop	src/WebApp/Extensions/Extensions.cs	32	13	member	AddAuthToken
+csx0302	eShop	src/WebApp/Extensions/Extensions.cs	35	13	member	AddApiVersion
+csx0303	eShop	src/Ordering.API/Extensions/Extensions.cs	29	16	member	AddEventBusSubscriptions

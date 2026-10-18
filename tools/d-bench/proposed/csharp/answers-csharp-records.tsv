@@ -1,0 +1,7 @@
+# id	targets	skip	note
+csx0200	src/WebApp/Services/BasketService.cs:49		read the code: existing: BasketQuantity, a positional record
+csx0201	src/WebAppComponents/Catalog/CatalogItem.cs:4		read the code: item: CatalogItem parameter, a positional record
+csx0202	src/WebAppComponents/Catalog/CatalogItem.cs:4		read the code: item: CatalogItem parameter, in an interpolated string
+csx0203	src/Basket.API/IntegrationEvents/Events/OrderStartedIntegrationEvent.cs:6		read the code: @event: OrderStartedIntegrationEvent(string UserId)
+csx0204	src/Ordering.API/Application/Commands/CreateOrderDraftCommand.cs:4		read the code: command: CreateOrderDraftCommand(string BuyerId, ...)
+csx0205	src/WebApp/Services/BasketService.cs:49		read the code: foreach var item over GetBasketAsync(): BasketQuantity

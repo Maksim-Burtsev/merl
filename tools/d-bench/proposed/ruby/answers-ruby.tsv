@@ -1,0 +1,119 @@
+# id	targets	skip	note (mastodon@a4ac5f5670942265804dbb261713e1ff0109a402, judged by reading the code)
+rb4n000			outside the project: Rails.configuration (railties gem)
+rb4n001			outside the project: ActiveRecord find (gem)
+rb4n002	app/lib/rss/element.rb:4		RSS::MediaContent < RSS::Element, def self.with
+rb4n003	app/models/user_role.rb:125		def self.everyone
+rb4n004	app/models/domain_block.rb:32		scope :with_limitations
+rb4n005			outside the project: TermsOfService::Generator has no initialize; ActiveModel::Model (gem)
+rb4n006			outside the project: Sidekiq perform_async (gem)
+rb4n007			outside the project: Digest base64digest (stdlib)
+rb4n008	app/models/concerns/account/suspensions.rb:9		scope :without_suspended in an Account concern
+rb4n009			outside the project: Chewy BulkRequest.new (gem)
+rb4n010	app/models/preview_card_provider.rb:38		def self.matching_domain
+rb4n011			outside the project: I18n.t (gem)
+rb4n012			outside the project: ActiveRecord::RecordNotFound (gem)
+rb4n013	app/controllers/api/v1/statuses/quotes_controller.rb:3		cursor on the class declaration
+rb4n014	app/models/form/email_subscriptions_confirmation.rb:3		class Form::EmailSubscriptionsConfirmation
+rb4n015			outside the project: ActiveRecord::RecordInvalid (gem)
+rb4n016			outside the project: Elasticsearch::Transport (gem)
+rb4n017			implicit Zeitwerk namespace Admin::Metrics: no declaration in code
+rb4n018	app/models/trends/status_filter.rb:3		class Trends::StatusFilter
+rb4n019	app/controllers/api/v1/trends/statuses_controller.rb:3		cursor on the class declaration
+rb4n020	app/controllers/concerns/authorization.rb:3		module Authorization
+rb4n021	app/models/concerns/lockable.rb:3		module Lockable
+rb4n022	app/models/concerns/expireable.rb:3		module Expireable
+rb4n023	app/controllers/concerns/admin/permissions_concern.rb:3		module Admin::PermissionsConcern
+rb4n024	app/services/concerns/payloadable.rb:3		module Payloadable
+rb4n025			outside the project: ActiveSupport::Concern (gem)
+rb4n036	app/services/activitypub/process_status_update_service.rb:452		own private method
+rb4n037			outside the project: ActionController render (gem); picker = 4 unrelated project render methods
+rb4n038	app/services/revoke_collection_item_service.rb:18		own private method
+rb4n039			outside the project: ActionController redirect_to (gem)
+rb4n040	app/services/fetch_resource_service.rb:22		own method
+rb4n041	app/controllers/api/base_controller.rb:33		inherited from Api::BaseController
+rb4n042			outside the project: ActionController render (gem); picker = 4 unrelated project render methods
+rb4n043		keyword `next`, not a name with a definition	merl jumps to `attribute :next` of ActivityPub::CollectionSerializer (wrong)
+rb4n044		keyword `next`, not a name with a definition	merl jumps to `attribute :next` of ActivityPub::CollectionSerializer (wrong)
+rb4n045			outside the project: ActionController render (gem); picker = 4 unrelated project render methods
+rb4n046	app/lib/feed_manager.rb:535		own method
+rb4n047			outside the project: ActionController redirect_to (gem)
+rb4n048	app/services/after_block_domain_from_account_service.rb:52		own private method
+rb4n049	app/controllers/concerns/authorization.rb:12		Admin::BaseController includes Authorization
+rb4n050	app/models/user_settings/dsl.rb:29		self.class -> UserSettings; DSL.included extends ClassMethods
+rb4n051		self.class::CONST in a base class: each subclass defines its own	7 subclasses define PERMITTED_PARAMS
+rb4n052	app/models/user_settings/dsl.rb:29		self.class -> UserSettings; DSL.included extends ClassMethods
+rb4n053	app/lib/seo/adapter.rb:8		self.class -> SEO::Adapter, def self.transform_key_casing!
+rb4n054	app/models/concerns/account/associations.rb:55		@target_account is an Account: has_many :targeted_account_notes
+rb4n055	app/models/concerns/account/associations.rb:49		@account is an Account: has_one :user
+rb4n056		ActiveRecord column, only in db/schema.rb	implicit id
+rb4n057		ActiveRecord column, only in db/schema.rb	implicit id
+rb4n058	db/schema.rb:1418;app/models/concerns/user/has_settings.rb:7	ActiveRecord column, serialized in User::HasSettings	users.settings
+rb4n059		ActiveRecord column, only in db/schema.rb	implicit id
+rb4n060		ActiveRecord column, only in db/schema.rb	statuses.created_at
+rb4n061	app/models/concerns/account/associations.rb:49		target_account is an Account: has_one :user
+rb4n062		ActiveRecord column, only in db/schema.rb	implicit id
+rb4n063		ActiveRecord column, only in db/schema.rb	implicit id
+rb4n026	app/lib/activitypub/parser/custom_emoji_parser.rb:7		cursor on the @ sigil; the only assignment in the class
+rb4n026b	app/lib/activitypub/parser/custom_emoji_parser.rb:7		cursor on the name after @; the only assignment in the class
+rb4n027	app/controllers/admin/webhooks_controller.rb:73		cursor on the @ sigil; before_action :set_webhook
+rb4n027b	app/controllers/admin/webhooks_controller.rb:73		cursor on the name after @; before_action :set_webhook
+rb4n028	app/services/bulk_import_row_service.rb:8		cursor on the @ sigil; the only assignment in the class
+rb4n028b	app/services/bulk_import_row_service.rb:8		cursor on the name after @; the only assignment in the class
+rb4n029	app/controllers/admin/roles_controller.rb:60		cursor on the @ sigil; before_action :set_role
+rb4n029b	app/controllers/admin/roles_controller.rb:60		cursor on the name after @; before_action :set_role
+rb4n030	app/lib/activitypub/forwarder.rb:6		cursor on the @ sigil; the only assignment in the class
+rb4n030b	app/lib/activitypub/forwarder.rb:6		cursor on the name after @; the only assignment in the class
+rb4n031	app/controllers/admin/reports_controller.rb:63		cursor on the @ sigil; before_action :set_report
+rb4n031b	app/controllers/admin/reports_controller.rb:63		cursor on the name after @; before_action :set_report
+rb4n032	app/controllers/api/v1/tags_controller.rb:42		cursor on the @ sigil; before_action :set_or_create_tag
+rb4n032b	app/controllers/api/v1/tags_controller.rb:42		cursor on the name after @; before_action :set_or_create_tag
+rb4n033	app/models/concerns/expireable.rb:21		cursor on the @ sigil; the only assignment in the class
+rb4n033b	app/models/concerns/expireable.rb:21		cursor on the name after @; the only assignment in the class
+rb4n034	app/services/fan_out_on_write_service.rb:15		cursor on the @ sigil; the only assignment in the class
+rb4n034b	app/services/fan_out_on_write_service.rb:15		cursor on the name after @; the only assignment in the class
+rb4n035	app/controllers/application_controller.rb:128		cursor on the @ sigil; the only assignment in the class
+rb4n035b	app/controllers/application_controller.rb:128		cursor on the name after @; the only assignment in the class
+rb4c000	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+rb4c001	app/models/user.rb:44		top-level model; migrations nest their own copies (Migration::User), unreachable from here
+rb4c002	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+rb4c003	app/models/user.rb:44		top-level model; migrations nest their own copies (Migration::User), unreachable from here
+rb4c004	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+rb4c005	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+rb4c006	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+rb4c007	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+rb4c008	app/models/setting.rb:43		top-level model; migrations nest their own copies (Migration::Setting), unreachable from here
+rb4c009	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+rb4c010	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+rb4c011	app/models/notification.rb:19		top-level model; migrations nest their own copies (Migration::Notification), unreachable from here
+rb4c012	app/presenters/account_relationships_presenter.rb:3		the only declaration
+rb4c013	app/services/notify_of_collection_update_service.rb:3		the only declaration
+rb4c014	app/models/async_refresh.rb:3		the only declaration
+rb4c015	app/models/worker_batch.rb:3		the only declaration
+rb4c016	app/services/suspend_account_service.rb:3		the only declaration
+rb4c017	app/models/instance.rb:11		the only declaration
+rb4c018	app/lib/hashtag_normalizer.rb:3		the only declaration
+rb4c019	app/models/custom_emoji.rb:24		top-level model; migrations nest their own copies (Migration::CustomEmoji), unreachable from here
+rb4m000	app/lib/activitypub/activity/create.rb:50		read the code: delegate/association line of the class
+rb4m001	app/models/collection_item.rb:31		read the code: delegate/association line of the class
+rb4m002	app/models/poll.rb:67		read the code: delegate/association line of the class
+rb4m003	app/lib/text_formatter.rb:159		read the code: delegate/association line of the class
+rb4m004	app/lib/activitypub/activity/create.rb:50		read the code: delegate/association line of the class
+rb4m005	app/lib/activitypub/activity/create.rb:50		read the code: delegate/association line of the class
+rb4m006	app/models/instance.rb:68		read the code: delegate/association line of the class
+rb4m007	app/models/collection_item.rb:31		read the code: delegate/association line of the class
+rb4m008	app/lib/feed_manager.rb:182		FeedManager includes Singleton; .instance is a FeedManager
+rb4m009	app/services/purge_domain_service.rb:4		PurgeDomainService.new.call: the class own def call
+rb4m010	app/lib/activitypub/tag_manager.rb:37		TagManager includes Singleton
+rb4m011			outside: Rails.logger (gem)
+rb4m012	app/services/unblock_domain_service.rb:6		UnblockDomainService.new.call
+rb4m013	app/lib/activitypub/tag_manager.rb:37		TagManager includes Singleton
+rb4m014			outside: Rails.logger (gem)
+rb4m015	app/services/translate_status_service.rb:9		TranslateStatusService.new.call
+rb4m016	app/models/concerns/account/counters.rb:47;app/models/concerns/account/counters.rb:9		def account_stat overrides has_one :account_stat, same concern
+rb4m017	app/models/featured_tag.rb:19		read the code: delegate/association line of the class
+rb4m018	app/models/featured_tag.rb:19		read the code: delegate/association line of the class
+rb4m019	app/serializers/activitypub/vote_serializer.rb:35		read the code: delegate/association line of the class
+rb4m020	app/models/account_migration.rb:22		read the code: delegate/association line of the class
+rb4m021	app/models/status.rb:80		read the code: delegate/association line of the class
+rb4m022	app/models/scheduled_status.rb:20		read the code: delegate/association line of the class
+rb4m023	app/serializers/activitypub/reject_follow_serializer.rb:6		read the code: delegate/association line of the class

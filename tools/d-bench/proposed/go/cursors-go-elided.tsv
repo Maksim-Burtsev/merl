@@ -1,0 +1,15 @@
+# id	project	file	line	col (0-based)	shape	word
+go4e000	caddy	caddyconfig/caddyfile/lexer_test.go	365	5	name	Line
+go4e001	caddy	caddyconfig/caddyfile/lexer_test.go	478	5	name	Line
+go4e002	caddy	caddyconfig/caddyfile/lexer_test.go	241	5	name	Line
+go4e003	caddy	caddyconfig/caddyfile/lexer_test.go	329	5	name	Line
+go4e004	caddy	caddyconfig/caddyfile/lexer_test.go	186	5	name	Line
+go4e005	caddy	caddyconfig/caddyfile/lexer_test.go	314	5	name	Line
+go4e006	caddy	modules/logging/journaldencoder_test.go	51	3	name	name
+go4e007	caddy	caddyconfig/caddyfile/lexer_test.go	149	5	name	Line
+go4e008	caddy	caddyconfig/caddyfile/lexer_test.go	75	5	name	Line
+go4e009	caddy	modules/caddyhttp/fileserver/browsetplcontext_test.go	56	4	name	Link
+go4e010	caddy	caddyconfig/caddyfile/lexer_test.go	293	5	name	Line
+go4e011	caddy	caddyconfig/caddyfile/lexer_test.go	489	5	name	Line
+go4e012	caddy	modules_test.go	72	5	name	ID
+go4e013	caddy	modules/caddyhttp/reverseproxy/selectionpolicies_test.go	470	3	name	Host

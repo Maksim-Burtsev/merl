@@ -1,0 +1,11 @@
+# id	project	file	line	col (0-based)	shape	word
+dart0200	dio	dio/lib/src/form_data.dart	110	30	member	contentType
+dart0201	dio	dio/lib/src/interceptors/log.dart	90	27	member	requestOptions
+dart0202	dio	dio/lib/src/interceptors/log.dart	90	42	member	uri
+dart0203	dio	dio/lib/src/dio_exception.dart	324	9	member	message
+dart0204	dio	dio/lib/src/dio_exception.dart	328	29	member	error
+dart0205	dio	dio/lib/src/dio_mixin.dart	720	29	member	boundary
+dart0206	dio	dio/lib/src/parameter.dart	23	30	member	value
+dart0207	dio	dio/lib/src/parameter.dart	23	46	member	format
+dart0208	dio	dio/lib/src/form_data.dart	52	32	member	_nextRandomId
+dart0209	dio	dio/lib/src/form_data.dart	95	13	member	_contentDispositionKey

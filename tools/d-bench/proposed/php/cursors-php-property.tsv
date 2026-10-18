@@ -1,0 +1,22 @@
+# id	project	file	line	col	shape	word	chain  (koel@2b4c633)
+g3php500	koel	app/Services/SongService.php	116	64	member	name	Song.artist:Artist
+g3php501	koel	app/Services/Integrations/SpotifyService.php	42	80	member	is_various	Album.artist:Artist
+g3php502	koel	app/Services/Integrations/LastfmService.php	64	50	member	is_unknown	Album.artist:Artist
+g3php503	koel	app/Services/Integrations/MusicBrainzService.php	68	40	member	name	Album.artist:Artist
+g3php504	koel	app/Services/Playlist/PlaylistService.php	95	53	member	id	Playlist.owner:User
+g3php505	koel	app/Services/Integrations/MbidService.php	85	40	member	name	Album.artist:Artist
+g3php506	koel	app/Services/Integrations/SpotifyService.php	46	84	member	name	Album.artist:Artist
+g3php507	koel	app/Services/SongService.php	115	61	member	name	Song.album:Album
+g3php508	koel	app/Services/Integrations/EncyclopediaService.php	37	77	member	name	Album.artist:Artist
+g3php509	koel	app/Services/Integrations/SpotifyService.php	42	50	member	is_unknown	Album.artist:Artist
+g3php510	koel	app/Services/Integrations/MusicBrainzService.php	74	50	member	is_unknown	Album.artist:Artist
+g3php511	koel	app/Services/SongService.php	129	75	member	name	Song.album_artist:Artist
+g3php512	koel	app/Policies/RadioStationPolicy.php	22	58	member	organization_id	RadioStation.user:User
+g3php513	koel	app/Services/SongService.php	137	64	member	user	Song.album_artist:Artist
+g3php514	koel	app/Services/SongService.php	82	83	member	artist_id	Song.album:Album
+g3php515	koel	app/Ai/Tools/PlaySimilarSongs.php	85	101	member	name	Song.artist:Artist
+g3php516	koel	app/Http/Controllers/API/ScrobbleController.php	23	28	member	is_unknown	Song.artist:Artist
+g3php517	koel	app/Http/Responses/Subsonic/Resources/PlaylistResource.php	42	41	member	name	Playlist.owner:User
+g3php518	koel	app/Services/Integrations/MbidService.php	42	50	member	is_unknown	Album.artist:Artist
+g3php519	koel	app/Listeners/LoveMultipleTracksOnLastfm.php	18	104	member	is_unknown	Song.artist:Artist
+g3php520	koel	app/Services/SongService.php	138	53	member	user	Song.artist:Artist

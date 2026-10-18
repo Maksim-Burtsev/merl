@@ -1,0 +1,123 @@
+# id	judged (by reading)	cursor	word	merl jumped to	right answer when WRONG
+rbbare0001	WRONG	app/models/account.rb:325:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0002	WRONG	app/models/account.rb:334:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0022	WRONG	app/models/account_suggestions.rb:36:8	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0024	in-sql-heredoc	app/models/account_summary.rb:44:12	mode	app/models/form/import.rb:88	
+rbbare0025	in-sql-heredoc	app/models/account_summary.rb:45:12	mode	app/models/form/import.rb:88	
+rbbare0026	WRONG	app/models/announcement.rb:51:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0027	WRONG	app/models/announcement.rb:55:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0028	WRONG	app/models/announcement_filter.rb:21:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0030	WRONG	app/models/appeal.rb:51:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0031	WRONG	app/models/appeal.rb:55:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0032	column	app/models/appeal.rb:63:4	account_warning_id	db/schema.rb:291	
+rbbare0041	column	app/models/canonical_email_block.rb:33:4	canonical_email_hash	db/schema.rb:363	
+rbbare0069	in-sql-heredoc	app/models/follow_recommendation.rb:34:10	sum	app/lib/activity_tracker.rb:41	
+rbbare0071	in-sql-heredoc	app/models/follow_recommendation.rb:39:12	count	app/serializers/rest/reaction_serializer.rb:12	
+rbbare0072	in-sql-heredoc	app/models/follow_recommendation.rb:51:16	sum	app/lib/activity_tracker.rb:41	
+rbbare0105	WRONG	app/models/quote.rb:50:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0106	WRONG	app/models/quote.rb:52:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0109	WRONG	app/models/quote.rb:60:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0110	WRONG	app/models/quote.rb:62:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0114	WRONG	app/models/relationship_filter.rb:28:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0131	WRONG	app/models/relay.rb:36:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0134	WRONG	app/models/relay.rb:45:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0140	WRONG	app/models/report.rb:103:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0141	WRONG	app/models/report.rb:107:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0142	WRONG	app/models/report.rb:111:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0143	WRONG	app/models/report.rb:115:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0162	WRONG	app/models/user.rb:169:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0163	WRONG	app/models/user.rb:177:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0168	WRONG	app/models/user.rb:242:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0174	WRONG	app/models/user.rb:444:7	approved?	app/models/appeal.rb:42	users.approved column query method (db/schema.rb:1395)
+rbbare0178	WRONG	app/models/user.rb:496:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0185	WRONG	app/models/webhook.rb:47:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0186	WRONG	app/models/webhook.rb:51:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0187	WRONG	app/models/webhook.rb:55:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0210	WRONG	app/models/form/domain_block_batch.rb:24:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0238	WRONG	app/models/admin/action_log_filter.rb:99:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0240	WRONG	app/models/admin/appeal_filter.rb:20:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0265	WRONG	app/models/admin/status_filter.rb:22:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0267	WRONG	app/models/admin/tag_filter.rb:22:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0276	WRONG	app/models/account_suggestions/setting_source.rb:39:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0290	WRONG	app/models/trends/preview_card_filter.rb:21:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0295	WRONG	app/models/trends/preview_card_provider_filter.rb:20:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0310	WRONG	app/models/trends/status_filter.rb:21:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0321	WRONG	app/models/trends/tag_filter.rb:21:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0329	WRONG	app/models/terms_of_service/generator.rb:25:4	format	app/services/fetch_oembed_service.rb:7	outside: Kernel#format
+rbbare0331	WRONG	app/models/fasp/backfill_request.rb:41:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0332	WRONG	app/models/fasp/backfill_request.rb:43:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0338	right	app/models/concerns/attachmentable.rb:31:8	set_file_content_type	app/models/concerns/attachmentable.rb:40	
+rbbare0343	right	app/models/concerns/lockable.rb:9:4	with_redis	app/models/concerns/redisable.rb:8	
+rbbare0359	WRONG	app/models/concerns/user/ldap_authenticable.rb:9:15	format	app/services/fetch_oembed_service.rb:7	outside: Kernel#format
+rbbare0367	right	app/models/concerns/status/fasp_concern.rb:23:4	store_uri	app/models/status.rb:425	
+rbbare0368	column	app/models/concerns/status/fasp_concern.rb:46:9	reblog_of_id	db/schema.rb:1258	
+rbbare0372	WRONG	app/models/concerns/account/avatar.rb:22:2	included	app/models/user_settings/dsl.rb:38	outside: ActiveSupport::Concern.included (gem)
+rbbare0373	right	app/models/concerns/account/avatar.rb:24:4	has_attached_file	app/models/concerns/attachmentable.rb:25	
+rbbare0376	right	app/models/concerns/account/avatar.rb:27:4	remotable_attachment	app/models/concerns/remotable.rb:7	
+rbbare0384	WRONG	app/models/concerns/account/header.rb:22:2	included	app/models/user_settings/dsl.rb:38	outside: ActiveSupport::Concern.included (gem)
+rbbare0385	right	app/models/concerns/account/header.rb:24:4	has_attached_file	app/models/concerns/attachmentable.rb:25	
+rbbare0388	right	app/models/concerns/account/header.rb:27:4	remotable_attachment	app/models/concerns/remotable.rb:7	
+rbbare0391	right	app/models/concerns/account/interaction_policy_concern.rb:34:23	followed_by?	app/models/concerns/account/interactions.rb:138	
+rbbare0392	right	app/models/concerns/account/interaction_policy_concern.rb:39:25	following?	app/models/concerns/account/interactions.rb:122	
+rbbare0393	right	app/models/concerns/account/interaction_policy_concern.rb:49:23	followed_by?	app/models/concerns/account/interactions.rb:138	
+rbbare0394	right	app/models/concerns/account/interaction_policy_concern.rb:54:25	following?	app/models/concerns/account/interactions.rb:122	
+rbbare0396	WRONG	app/models/concerns/account/merging.rb:41:10	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare0397	WRONG	app/models/concerns/account/sensitizes.rb:15:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0398	WRONG	app/models/concerns/account/sensitizes.rb:19:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0399	WRONG	app/models/concerns/account/silences.rb:16:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0400	WRONG	app/models/concerns/account/silences.rb:20:4	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0406	WRONG	app/models/concerns/account/suspensions.rb:39:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0407	right	app/models/concerns/account/suspensions.rb:40:6	create_canonical_email_block!	app/models/account.rb:578	
+rbbare0409	WRONG	app/models/concerns/account/suspensions.rb:51:6	update!	app/models/form/custom_emoji_batch.rb:34	outside: ActiveRecord::Persistence#update! (gem)
+rbbare0410	right	app/models/concerns/account/suspensions.rb:52:6	destroy_canonical_email_block!	app/models/account.rb:588	
+rbbare0579	right	app/controllers/oauth/authorized_applications_controller.rb:31:4	forbidden	app/controllers/concerns/error_responses.rb:28	
+rbbare0757	WRONG	app/controllers/admin/email_domain_blocks_controller.rb:41:12	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare1094	WRONG	app/controllers/api/v1/annual_reports_controller.rb:45:13	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1096	WRONG	app/controllers/api/v1/annual_reports_controller.rb:52:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1117	WRONG	app/controllers/api/v1/collection_items_controller.rb:33:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1119	WRONG	app/controllers/api/v1/collection_items_controller.rb:41:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1133	WRONG	app/controllers/api/v1/collections_controller.rb:66:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1155	WRONG	app/controllers/api/v1/donation_campaigns_controller.rb:10:11	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1157	WRONG	app/controllers/api/v1/donation_campaigns_controller.rb:16:11	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1503	WRONG	app/controllers/api/v1/accounts/email_subscriptions_controller.rb:22:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1504	WRONG	app/controllers/api/v1/accounts/email_subscriptions_controller.rb:26:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1558	WRONG	app/controllers/api/v1/peers/search_controller.rb:22:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1563	WRONG	app/controllers/api/v1/instances/activity_controller.rb:51:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1567	WRONG	app/controllers/api/v1/instances/domain_blocks_controller.rb:22:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1574	WRONG	app/controllers/api/v1/instances/peers_controller.rb:21:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1666	WRONG	app/controllers/api/web/push_subscriptions_controller.rb:26:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1722	WRONG	app/controllers/api/fasp/data_sharing/v0/continuations_controller.rb:8:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1724	WRONG	app/controllers/api/fasp/data_sharing/v0/event_subscriptions_controller.rb:14:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1740	WRONG	app/controllers/well_known/webfinger_controller.rb:34:6	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1742	WRONG	app/controllers/well_known/webfinger_controller.rb:39:6	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1744	WRONG	app/controllers/well_known/webfinger_controller.rb:44:6	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1774	WRONG	app/controllers/activitypub/inboxes_controller.rb:16:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1775	WRONG	app/controllers/activitypub/inboxes_controller.rb:22:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1776	WRONG	app/controllers/activitypub/inboxes_controller.rb:30:4	head	app/lib/link_details_extractor.rb:282	outside: ActionController::Head#head (gem)
+rbbare1814	right	app/controllers/concerns/account_owned_concern.rb:63:4	forbidden	app/controllers/concerns/error_responses.rb:28	
+rbbare1827	WRONG	app/controllers/concerns/deprecation_concern.rb:16:8	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare1848	right	app/controllers/concerns/auth/two_factor_authentication_concern.rb:47:8	restart_session	app/controllers/auth/sessions_controller.rb:111	
+rbbare1852	right	app/controllers/concerns/auth/two_factor_authentication_concern.rb:60:6	on_authentication_success	app/controllers/auth/sessions_controller.rb:139	
+rbbare1854	right	app/controllers/concerns/auth/two_factor_authentication_concern.rb:63:6	on_authentication_failure	app/controllers/auth/sessions_controller.rb:163	
+rbbare1856	right	app/controllers/concerns/auth/two_factor_authentication_concern.rb:69:7	check_second_factor_rate_limits	app/controllers/auth/sessions_controller.rb:130	
+rbbare1858	right	app/controllers/concerns/auth/two_factor_authentication_concern.rb:75:6	on_authentication_success	app/controllers/auth/sessions_controller.rb:139	
+rbbare1859	right	app/controllers/concerns/auth/two_factor_authentication_concern.rb:77:6	on_authentication_failure	app/controllers/auth/sessions_controller.rb:163	
+rbbare1860	right	app/controllers/concerns/auth/two_factor_authentication_concern.rb:84:4	register_attempt_in_session	app/controllers/auth/sessions_controller.rb:116	
+rbbare1864	right	app/controllers/concerns/admin/permissions_concern.rb:14:4	forbidden	app/controllers/concerns/error_responses.rb:28	
+rbbare2232	WRONG	app/services/activitypub/synchronize_followers_service.rb:48:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare2283	WRONG	app/workers/refollow_worker.rb:25:8	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare2318	WRONG	app/workers/scheduler/suspended_user_cleanup_scheduler.rb:33:6	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare2338	WRONG	app/workers/fasp/account_search_worker.rb:20:10	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare2350	WRONG	app/workers/fasp/follow_recommendation_worker.rb:23:10	next	app/serializers/activitypub/collection_serializer.rb:33	keyword `next`
+rbbare2407	WRONG	app/lib/scope_transformer.rb:42:2	rule	app/models/rule_translation.rb:16	outside: Parslet rule (gem)
+rbbare2704	right	app/helpers/accounts_helper.rb:8:6	prerender_custom_emojis	app/helpers/application_helper.rb:256	
+rbbare2710	right	app/helpers/application_helper.rb:149:7	prefers_autoplay?	app/helpers/statuses_helper.rb:86	
+rbbare2724	right	app/helpers/formatting_helper.rb:36:4	prerender_custom_emojis	app/helpers/application_helper.rb:256	
+rbbare2746	right	app/helpers/home_helper.rb:57:7	closed_registrations?	app/helpers/application_helper.rb:33	
+rbbare2775	WRONG	app/helpers/admin/filter_helper.rb:48:4	url_for	app/lib/activitypub/tag_manager.rb:18	outside: ActionDispatch url_for (gem)
+rbbare2791	right	app/helpers/admin/trends/statuses_helper.rb:20:4	prerender_custom_emojis	app/helpers/application_helper.rb:256	
+rbbare2821	WRONG	app/mailers/admin_mailer.rb:97:4	headers	app/lib/request.rb:91	outside: ActionMailer/ActionController headers (gem)
+rbbare2822	WRONG	app/mailers/application_mailer.rb:19:4	headers	app/lib/request.rb:91	outside: ActionMailer/ActionController headers (gem)
+rbbare2825	WRONG	app/mailers/email_subscription_mailer.rb:40:4	headers	app/lib/request.rb:91	outside: ActionMailer/ActionController headers (gem)
+rbbare2834	WRONG	app/mailers/notification_mailer.rb:77:4	headers	app/lib/request.rb:91	outside: ActionMailer/ActionController headers (gem)
+rbbare2835	WRONG	app/mailers/notification_mailer.rb:89:4	headers	app/lib/request.rb:91	outside: ActionMailer/ActionController headers (gem)

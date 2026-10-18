@@ -1,0 +1,36 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+g3ts0002	app/stores/base/Store.ts:105		
+g3ts0008	app/utils/ModelContext.ts:19		
+g3ts0016	server/test/TestServer.ts:196		
+g3ts0028	server/test/TestServer.ts:196		
+g3ts0032	app/models/Document.ts:82		
+g3ts0036	app/env.ts:15		
+g3ts0037	app/components/ModelSelection.ts:91		
+g3ts0041	app/editor/components/SelectionToolbar.tsx:67		
+g3ts0045	app/models/Comment.ts:114		
+g3ts0049	server/test/TestServer.ts:196		
+g3ts0055	app/utils/ApiClient.ts:132		
+g3ts0061	server/env.ts:947		
+g3ts0067	server/test/TestServer.ts:196		
+g3ts0078			
+g3ts0082	server/models/Share.ts:290		
+g3ts0083			
+g3ts0085	app/stores/base/Store.ts:172		
+g3ts0092			
+g3ts0094	shared/editor/lib/prosemirror-recreate-transform/recreateTransform.ts:33		
+g3ts0098	server/collaboration/AwarenessIdentityExtension.ts:29		
+g3ts0106	server/policies/cancan.ts:277		
+g3ts0117	plugins/oidc/server/env.ts:70		
+g3ts0119	server/emails/templates/CommentCreatedEmail.tsx:113		
+g3ts0123	server/models/Comment.ts:81		
+g3ts0133	shared/editor/extensions/Diff.ts:25		
+g3ts0141			
+g3ts0155	app/components/Sidebar/components/DocumentLink.tsx:53		
+g3ts0163	app/stores/base/StorePersistence.ts:96		
+g3ts0164	server/test/TestServer.ts:196		
+g3ts0166	server/queues/tasks/ExportDocumentTreeTask.ts:407		
+g3ts0172	server/test/factories.ts:397		
+g3ts0180	server/test/TestServer.ts:196		
+g3ts0190			
+g3ts0193			
+g3ts0197	shared/editor/lib/ChangesetHelper.ts:220		

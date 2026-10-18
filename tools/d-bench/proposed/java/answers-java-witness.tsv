@@ -1,0 +1,13 @@
+# id	targets	skip	note
+g2jwit00	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit01	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:47		read the code: IndexSpecs.<E, K>multi(...)
+g2jwit02			outside the project: Reactor Mono.<T>error
+g2jwit03	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit04	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit05	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit06	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit07	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit08	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit09			outside the project: Reactor Mono.<T>create
+g2jwit10	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+g2jwit11	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method

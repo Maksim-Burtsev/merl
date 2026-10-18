@@ -1,0 +1,17 @@
+# id	project	file	line	col (0-based)	shape	word
+go4i000	gitea	services/feed/feed.go	119	23	member	ActUserID
+go4i001	gitea	routers/web/repo/repo.go	549	14	member	LatestCommitStatus
+go4i002	gitea	services/gitdiff/gitdiff.go	174	22	member	DiffSide
+go4i003	gitea	routers/api/packages/rpm/rpm.go	436	18	member	References
+go4i004	gitea	modules/indexer/issues/internal/tests/tests.go	493	54	member	UpdatedUnix
+go4i005	gitea	services/migrations/migrate.go	382	36	member	Number
+go4i006	gitea	models/git/lfs.go	235	16	member	RepositoryID
+go4i007	gitea	models/repo/language_stats.go	220	30	member	CommitID
+go4i008	gitea	models/activities/repo_activity.go	131	29	member	Commits
+go4i009	gitea	routers/api/packages/npm/api.go	27	69	member	Version
+go4i010	gitea	routers/web/user/setting/profile.go	311	15	member	IsFork
+go4i011	gitea	models/repo/language_stats.go	120	28	member	Language
+go4i012	gitea	services/pull/review.go	233	21	member	Patch
+go4i013	gitea	modules/charset/escape_stream.go	452	14	member	runeType
+go4i014	gitea	modules/git/pipeline/lfs_common.go	27	74	member	When
+go4i015	gitea	routers/api/packages/maven/maven.go	110	45	member	Version

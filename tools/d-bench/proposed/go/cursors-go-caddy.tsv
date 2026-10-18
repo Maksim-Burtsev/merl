@@ -1,0 +1,17 @@
+# id	project	file	line	col (0-based)	shape	word
+go4c000	caddy	modules/caddytls/matchers_test.go	147	21	name	ctx
+go4c001	caddy	modules/caddytls/matchers_test.go	146	2	name	ctx
+go4c002	caddy	modules/caddyhttp/reverseproxy/reverseproxy.go	1391	6	name	repl
+go4c003	caddy	modules/caddyhttp/matchers.go	1246	8	name	match
+go4c004	caddy	modules/caddyhttp/replacer.go	271	11	name	or
+go4c005	caddy	modules/caddyhttp/vars_test.go	170	81	name	req
+go4c006	caddy	modules/caddyhttp/celmatcher_test.go	556	7	name	block
+go4c007	caddy	caddy_test.go	79	24	name	ctx
+go4c008	caddy	modules/caddyhttp/server_test.go	1373	26	name	localPrivatePrefix
+go4c009	caddy	modules/caddyhttp/fileserver/browsetplcontext.go	93	29	name	targetInfo
+go4c010	caddy	caddytest/integration/intercept_test.go	35	4	name	r
+go4c011	caddy	modules/caddyhttp/server_test.go	489	26	name	localPrivatePrefix
+go4c012	caddy	modules/caddyhttp/caddyauth/caddyauth_test.go	312	85	name	req
+go4c013	caddy	cmd/main.go	331	12	name	val
+go4c014	caddy	modules/caddyhttp/matchers.go	1441	8	name	match
+go4c015	caddy	modules/caddyhttp/metrics_test.go	531	27	name	ctx

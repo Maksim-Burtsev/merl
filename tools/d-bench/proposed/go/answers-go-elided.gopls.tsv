@@ -1,0 +1,15 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+go4e000	caddyconfig/caddyfile/lexer.go:43		
+go4e001	caddyconfig/caddyfile/lexer.go:43		
+go4e002	caddyconfig/caddyfile/lexer.go:43		
+go4e003	caddyconfig/caddyfile/lexer.go:43		
+go4e004	caddyconfig/caddyfile/lexer.go:43		
+go4e005	caddyconfig/caddyfile/lexer.go:43		
+go4e006	modules/logging/journaldencoder_test.go:43		
+go4e007	caddyconfig/caddyfile/lexer.go:43		
+go4e008	caddyconfig/caddyfile/lexer.go:43		
+go4e009	modules/caddyhttp/fileserver/browsetplcontext.go:285		
+go4e010	caddyconfig/caddyfile/lexer.go:43		
+go4e011	caddyconfig/caddyfile/lexer.go:43		
+go4e012	modules.go:66		
+go4e013	modules/caddyhttp/reverseproxy/hosts.go:36		

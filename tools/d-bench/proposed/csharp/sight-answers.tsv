@@ -1,0 +1,124 @@
+# id	targets: path:line joined by ; (project-relative; empty: outside the project)	skip: why the row is not scored	note
+csx0000			outside: JsonWebTokenHandler (Microsoft.IdentityModel)
+csx0001		a namespace segment	
+csx0002			outside: CancellationToken
+csx0003		a namespace segment	
+csx0004			outside: ILogger
+csx0005	src/Ordering.Domain/AggregatesModel/BuyerAggregate/PaymentMethod.cs:5		read the code
+csx0006			outside: DataType.Password
+csx0007		an anonymous type's member, declared at the cursor	
+csx0008			outside: IReadOnlyList
+csx0009	src/Ordering.Domain/Events/OrderStatusChangedToStockConfirmedDomainEvent.cs:6		read the code
+csx0010			outside: List<T>.FindAll
+csx0011	src/Catalog.API/IntegrationEvents/Events/ProductPriceChangedIntegrationEvent.cs:6		on the declaration
+csx0012	src/WebhookClient/Extensions/Extensions.cs:10		on the declaration
+csx0013		a namespace segment	
+csx0014			outside: TracerProviderBuilder.AddSource
+csx0015		a namespace segment	
+csx0016	src/Basket.API/Model/BasketItem.cs:13		on the declaration
+csx0017			outside: EF ToTable
+csx0018	src/eShop.ServiceDefaults/OpenApi.Extensions.cs:28		var local
+csx0019			outside: Type.GetGenericArguments
+csx0020	src/IntegrationEventLogEF/IntegrationEventLogEntry.cs:35		on the declaration
+csx0021		a namespace segment	
+csx0022	src/IntegrationEventLogEF/Services/IIntegrationEventLogService.cs:6		on the declaration
+csx0023	src/WebApp/Services/OrderStatus/OrderStatusNotificationService.cs:52		primary constructor of a nested class
+csx0024	src/Catalog.API/Model/CatalogItem.cs:47;src/Catalog.API/Model/CatalogItem.cs:7		constructor CatalogItem(string), or the class
+csx0025	src/Webhooks.API/Extensions/RouteHandlerBuilderExtensions.cs:27		on the declaration
+csx0026			outside: DateTime.UtcNow
+csx0027	src/Ordering.Domain/AggregatesModel/OrderAggregate/Address.cs:15		on the declaration
+csx0028			outside: LINQ Where
+csx0029	src/eShop.ServiceDefaults/ConfigurationExtensions.cs:5		on the declaration
+csx0030		a namespace segment	
+csx0031			outside: DataTypeAttribute
+csx0032	src/Ordering.Domain/AggregatesModel/BuyerAggregate/IBuyerRepository.cs:11		field typed by an interface
+csx0033	src/WebApp/Extensions/Extensions.cs:72		lambda parameter
+csx0034		a keyword	
+csx0035			outside: System.Security.Claims.Claim
+csx0036	src/Ordering.Infrastructure/OrderingContext.cs:10		read the code
+csx0037	src/Ordering.API/Application/Queries/IOrderQueries.cs:9		on the declaration
+csx0038	src/Ordering.API/Application/Queries/OrderViewModel.cs:34		using CardType = ...Queries.CardType alias
+csx0039	src/IntegrationEventLogEF/Services/IIntegrationEventLogService.cs:6		on the declaration
+csx0040			outside: RabbitMQ BasicDeliverEventArgs
+csx0041			outside: CookieAuthenticationDefaults
+csx0042	src/OrderProcessor/Services/GracePeriodManagerService.cs:15		on the declaration
+csx0043		a namespace segment	
+csx0044			outside: ArgumentNullException
+csx0045	src/Catalog.API/Apis/CatalogApi.cs:189		var local
+csx0046	src/EventBus/Abstractions/IEventBus.cs:3		read the code
+csx0047			outside: EF HasMaxLength
+csx0048	src/Ordering.API/Application/Commands/SetStockRejectedOrderStatusCommandHandler.cs:19		on the declaration
+csx0049	src/WebApp/Services/BasketState.cs:153		on the declaration
+csx0050		a namespace segment	
+csx0051	src/Ordering.Domain/SeedWork/Entity.cs:38		this.IsTransient
+csx0052	src/EventBusRabbitMQ/RabbitMQEventBus.cs:183		own private method
+csx0053			outside: JsonSerializerOptions
+csx0054	src/EventBus/Abstractions/EventBusSubscriptionInfo.cs:19		on the declaration
+csx0055	src/Shared/MigrateDbContextExtensions.cs:58		on the declaration
+csx0056		a namespace segment	
+csx0057	src/Ordering.API/Application/IntegrationEvents/Events/OrderStockRejectedIntegrationEvent.cs:20		on the declaration
+csx0058	src/Ordering.API/Apis/OrdersApi.cs:80		method group, same class
+csx0059	src/Catalog.API/Infrastructure/CatalogContext.cs:14		services.Context.CatalogItems: CatalogServices.Context is CatalogContext
+csx0060	src/Ordering.API/Application/Queries/IOrderQueries.cs:5		services.Queries.GetOrderAsync: OrderServices.Queries is IOrderQueries
+csx0061	src/Ordering.Domain/SeedWork/IUnitOfWork.cs:5		on the declaration
+csx0062			outside: string.IsNullOrWhiteSpace
+csx0063			outside: FluentValidation RuleFor
+csx0064			outside: Exception
+csx0065			outside: Duende options
+csx0066	src/Ordering.API/Application/Commands/CreateOrderCommand.cs:32		validator of CreateOrderCommand: lambda parameter
+csx0067	src/Catalog.API/Model/PaginatedItems.cs:5		read the code
+csx0100			outside: HttpRequestMessage.Headers
+csx0101	src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs:16		o is Order (context.Orders lambda)
+csx0102	src/EventBus/Extensions/GenericTypeExtensions.cs:22		extension on object: the (this object) overload
+csx0103	src/Webhooks.API/Infrastructure/WebhooksContext.cs:10		primary constructor parameter db: WebhooksContext
+csx0104			outside: IServiceCollection.AddAuthorization
+csx0105			outside: Activity.SetTag
+csx0106			outside: string.ToString
+csx0107			outside: OpenApiParameter.Schema
+csx0108			outside: Uri.Host
+csx0109	src/WebApp/Services/BasketService.cs:9		primary constructor parameter basketService: BasketService
+csx0110	src/Ordering.API/Application/IntegrationEvents/IOrderingIntegrationEventService.cs:6		field typed by an interface
+csx0111			outside: GrpcClientFactoryOptions.Address
+csx0112			outside: string.IsNullOrWhiteSpace
+csx0113	src/Ordering.API/Application/Commands/CreateOrderDraftCommandHandler.cs:56		item: OrderItemDTO from ToOrderItemDTO()
+csx0114	src/Ordering.API/Application/Commands/IdentifiedCommand.cs:7		validator of IdentifiedCommand: lambda parameter
+csx0115			outside: string.IsNullOrWhiteSpace
+csx0116			outside: AddScoped
+csx0117	src/Catalog.API/Infrastructure/CatalogContextSeed.cs:81		source: CatalogSourceEntry (Select lambda)
+csx0118			outside: OpenApiOperation.Responses
+csx0119			outside: KeyValuePair.Key
+csx0120			outside: LogInformation
+csx0121	src/Ordering.Domain/SeedWork/Entity.cs:7		buyer: Buyer : Entity, Id inherited
+csx0122			outside: gRPC generated BasketItem
+csx0123			outside: int[].Contains
+csx0124	src/WebApp/Services/BasketCheckoutInfo.cs:14		parameter checkoutInfo: BasketCheckoutInfo
+csx0125			outside: AddOpenAIClientFromConfiguration (Aspire)
+csx0126			outside: IOptions.Value
+csx0127			outside: Uri.Scheme
+csx0128	src/Ordering.Domain/Events/OrderStatusChangedToStockConfirmedDomainEvent.cs:9		parameter domainEvent
+csx0129	src/Ordering.Domain/SeedWork/Entity.cs:7		this.Id
+csx0130	src/Webhooks.API/Infrastructure/WebhooksContext.cs:10		parameter context: WebhooksContext
+csx0131	src/Ordering.Domain/AggregatesModel/BuyerAggregate/IBuyerRepository.cs:11		field typed by an interface
+csx0132			outside: IConfigurationSection.Exists
+csx0133			outside: string.ToString
+csx0134	src/eShop.ServiceDefaults/ConfigurationExtensions.cs:5		extension on IConfiguration
+csx0135	src/Catalog.API/Infrastructure/CatalogContext.cs:14		parameter context: CatalogContext
+csx0136			outside: HttpClient.GetFromJsonAsync
+csx0137			outside: IHostApplicationBuilder.Services
+csx0138			outside: AddOllamaApiClient (CommunityToolkit)
+csx0139			outside: string.IsNullOrWhiteSpace
+csx0140	src/EventBus/Events/IntegrationEvent.cs:12		parameter @event: IntegrationEvent
+csx0141			outside: AuthenticationState.User
+csx0142			outside: options.AddDocument
+csx0143	src/WebApp/Services/BasketService.cs:49		existing: BasketQuantity record (var from List<BasketQuantity>)
+csx0144	src/Catalog.API/Model/CatalogItem.cs:29		this.AvailableStock
+csx0200	src/WebApp/Services/BasketService.cs:49		read the code: existing: BasketQuantity, a positional record
+csx0201	src/WebAppComponents/Catalog/CatalogItem.cs:4		read the code: item: CatalogItem parameter, a positional record
+csx0202	src/WebAppComponents/Catalog/CatalogItem.cs:4		read the code: item: CatalogItem parameter, in an interpolated string
+csx0203	src/Basket.API/IntegrationEvents/Events/OrderStartedIntegrationEvent.cs:6		read the code: @event: OrderStartedIntegrationEvent(string UserId)
+csx0204	src/Ordering.API/Application/Commands/CreateOrderDraftCommand.cs:4		read the code: command: CreateOrderDraftCommand(string BuyerId, ...)
+csx0205	src/WebApp/Services/BasketService.cs:49		read the code: foreach var item over GetBasketAsync(): BasketQuantity
+csx0300	src/WebApp/Extensions/Extensions.cs:43		read the code: same class
+csx0301	src/eShop.ServiceDefaults/HttpClientExtensions.cs:11		read the code
+csx0302			outside: Asp.Versioning AddApiVersion
+csx0303	src/Ordering.API/Extensions/Extensions.cs:53		read the code: same class

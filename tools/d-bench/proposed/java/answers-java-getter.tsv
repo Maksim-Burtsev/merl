@@ -1,0 +1,26 @@
+# id	targets	skip	note
+g2jget00	api/src/main/java/run/halo/app/core/extension/AuthProvider.java:58		read the code: AuthProvider getter chain, Lombok field
+g2jget01	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget02	api/src/main/java/run/halo/app/core/extension/User.java:58		read the code: User getter chain, Lombok field
+g2jget03	api/src/main/java/run/halo/app/core/extension/AuthProvider.java:75		read the code: AuthProvider getter chain, Lombok field
+g2jget04	api/src/main/java/run/halo/app/core/extension/content/Comment.java:76		read the code: Comment getter chain, Lombok field
+g2jget05	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget06	api/src/main/java/run/halo/app/extension/MetadataOperator.java:43		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget07	api/src/main/java/run/halo/app/core/extension/content/Post.java:141		read the code: Post getter chain, Lombok field
+g2jget08	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget10	api/src/main/java/run/halo/app/core/extension/Theme.java:80		read the code: Theme getter chain, Lombok field
+g2jget13	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget14	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget16	api/src/main/java/run/halo/app/core/extension/content/Comment.java:80		read the code: Comment getter chain, Lombok field
+g2jget19	api/src/main/java/run/halo/app/core/extension/content/Post.java:144		read the code: Post getter chain, Lombok field
+g2jget20	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget22	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget23	api/src/main/java/run/halo/app/core/extension/User.java:88		read the code: User getter chain, Lombok field
+g2jget25	api/src/main/java/run/halo/app/core/extension/content/Comment.java:80		read the code: Comment getter chain, Lombok field
+g2jget26	api/src/main/java/run/halo/app/core/extension/content/Post.java:127		read the code: Post getter chain, Lombok field
+g2jget28	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget29	api/src/main/java/run/halo/app/core/extension/content/Post.java:167		read the code: Post getter chain, Lombok field
+g2jget30	api/src/main/java/run/halo/app/core/extension/notification/Subscription.java:45		read the code: Subscription getter chain, Lombok field
+g2jget32	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget34	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+g2jget36	api/src/main/java/run/halo/app/core/extension/attachment/Attachment.java:72		read the code: Attachment getter chain, Lombok field

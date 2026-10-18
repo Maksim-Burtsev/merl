@@ -1,0 +1,13 @@
+# id	project	file	line	col (0-based)	shape	word
+csr0000	eShop	src/WebApp/Components/Pages/Cart/CartPage.razor	120	35	call	GetBasketItemsAsync
+csr0001	eShop	src/WebApp/Components/Pages/Cart/CartPage.razor	137	21	call	SetQuantityAsync
+csr0002	eShop	src/WebApp/Components/Pages/Cart/CartPage.razor	3	8	type	BasketState
+csr0003	eShop	src/WebApp/Components/Pages/Cart/CartPage.razor	43	73	call	GetProductImageUrl
+csr0004	eShop	src/WebApp/Components/Pages/Cart/CartPage.razor	110	32	type	BasketItem
+csr0005	eShop	src/WebApp/Components/Pages/Item/ItemPage.razor	114	40	call	GetCatalogItem
+csr0006	eShop	src/WebApp/Components/Pages/Item/ItemPage.razor	155	30	call	AddAsync
+csr0007	eShop	src/WebApp/Components/Pages/Item/ItemPage.razor	115	18	call	UpdateNumInCartAsync
+csr0008	eShop	src/WebApp/Components/Pages/Checkout/Checkout.razor	114	21	call	CheckoutAsync
+csr0009	eShop	src/WebApp/Components/Pages/Checkout/Checkout.razor	107	18	call	HandleValidSubmitAsync
+csr0010	eShop	src/WebApp/Components/Pages/Item/ItemPage.razor	41	53	call	ToPriceDisplay
+csr0011	eShop	src/WebApp/Components/Pages/Item/ItemPage.razor	163	74	member	Quantity

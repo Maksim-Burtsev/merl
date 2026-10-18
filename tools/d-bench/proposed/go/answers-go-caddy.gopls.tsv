@@ -1,0 +1,17 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+go4c000	modules/caddytls/matchers_test.go:146		
+go4c001	modules/caddytls/matchers_test.go:146		
+go4c002	modules/caddyhttp/reverseproxy/reverseproxy.go:1390		
+go4c003	modules/caddyhttp/matchers.go:1245		
+go4c004	modules/caddyhttp/replacer.go:270		
+go4c005	modules/caddyhttp/vars_test.go:169		
+go4c006	modules/caddyhttp/celmatcher_test.go:555		
+go4c007	caddy_test.go:78		
+go4c008	modules/caddyhttp/server_test.go:1369		
+go4c009	modules/caddyhttp/fileserver/browsetplcontext.go:82		
+go4c010	caddytest/integration/intercept_test.go:34		
+go4c011	modules/caddyhttp/server_test.go:485		
+go4c012	modules/caddyhttp/caddyauth/caddyauth_test.go:311		
+go4c013	cmd/main.go:330		
+go4c014	modules/caddyhttp/matchers.go:1440		
+go4c015	modules/caddyhttp/metrics_test.go:527		

@@ -1,0 +1,72 @@
+# id	targets	skip	note
+g2java000	application/src/main/java/run/halo/app/core/reconciler/UserReconciler.java:202		the cursor is on a declaration
+g2java001	application/src/main/java/run/halo/app/infra/ExtensionInitializedEvent.java:12		read the code: constructor
+g2java002			outside the project: JDK Instant.now
+g2java003	api/src/main/java/run/halo/app/extension/Unstructured.java:149		the cursor is on a declaration
+g2java004			outside the project: JDK Objects
+g2java005			outside the project: Reactor Mono.filter
+g2java006	application/src/main/java/run/halo/app/theme/finders/CommentPublicQueryService.java:28		read the code: receiver commentPublicQueryService on the line before, interface method
+g2java007	api/src/main/java/run/halo/app/core/extension/User.java:39		read the code
+g2java008			outside the project: JDK File
+g2java009			outside the project: Spring Data Sort
+g2java010	application/src/main/java/run/halo/app/theme/finders/PluginFinder.java:13		the cursor is on a declaration
+g2java011			outside the project: Stream.sorted
+g2java012			outside the project: Spring Security
+g2java013	application/src/main/java/run/halo/app/infra/config/WebFluxConfig.java:206		the cursor is on a declaration
+g2java014	api/src/main/java/run/halo/app/extension/controller/DefaultQueue.java:109		the cursor is on a declaration
+g2java015	api/src/main/java/run/halo/app/core/extension/content/SinglePage.java:34		read the code
+g2java016	api/src/main/java/run/halo/app/notification/ReasonPayload.java:18		read the code: no explicit constructor, Lombok/implicit; class line
+g2java017			outside the project: Reactor map
+g2java018	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:13		read the code
+g2java019	application/src/main/java/run/halo/app/core/endpoint/console/MenuItemConsoleService.java:307		the cursor is on a declaration
+g2java020	api/src/main/java/run/halo/app/core/extension/content/Comment.java:143		the cursor is on a declaration
+g2java021			outside the project: springdoc builder
+g2java022			outside the project: pf4j ExtensionPoint
+g2java023			outside the project: Spring ServerRequest
+g2java024	api/src/main/java/run/halo/app/infra/FileCategoryMatcher.java:52		the cursor is on a declaration
+g2java025	api/src/main/java/run/halo/app/content/ContentWrapper.java:19		read the code
+g2java026			outside the project: Stream.sorted
+g2java027			outside the project: JDK Clock.instant
+g2java028			outside the project: Stream.toList
+g2java029	application/src/main/java/run/halo/app/theme/finders/impl/TagFinderImpl.java:65		the cursor is on a declaration
+g2java030	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: static generic method
+g2java031			outside the project: springdoc builder
+g2java032	api/src/main/java/run/halo/app/notification/ReasonPayload.java:41		read the code: lambda builder of emit(String, Consumer<ReasonPayloadBuilder>)
+g2java033			outside the project: array length
+g2java034			outside the project: JDK HashSet
+g2java035			outside the project: Spring ServerRequest
+g2java036	api/src/main/java/run/halo/app/extension/index/query/Queries.java:258		read the code
+g2java037	api/src/main/java/run/halo/app/core/extension/notification/Subscription.java:29		read the code
+g2java038	application/src/main/java/run/halo/app/core/counter/MeterUtils.java:92		read the code: local or parameter, checked at the line
+g2java039			outside the project: JDK Class
+g2java040	application/src/main/java/run/halo/app/security/preauth/SystemSetupEndpoint.java:113		the cursor is on a declaration
+g2java041			outside the project: Spring UriComponentsBuilder
+g2java042	api/src/main/java/run/halo/app/extension/index/query/Queries.java:38		read the code: import static Queries.or
+g2java043	application/src/main/java/run/halo/app/theme/message/ThemeMessageResolver.java:25		read the code: local or parameter, checked at the line
+g2java044	api/src/main/java/run/halo/app/plugin/SettingFetcher.java:42		the cursor is on a declaration
+g2java045	application/src/main/java/run/halo/app/infra/utils/FileUtils.java:328		the cursor is on a declaration
+g2java046			outside the project: Reactor switchIfEmpty
+g2java047	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:13		read the code
+g2java048	application/src/main/java/run/halo/app/core/extension/migration/CategoryHierarchyMigration.java:247		read the code
+g2java049			outside the project: JDK Path.resolve
+g2java050			outside the project: Reactor Mono.filter
+g2java051	application/src/main/java/run/halo/app/core/endpoint/uc/UcUserPreferenceEndpoint.java:90		read the code: local or parameter, checked at the line
+g2java052	application/src/main/java/run/halo/app/core/counter/MeterUtils.java:84		read the code: local or parameter, checked at the line
+g2java053	application/src/main/java/run/halo/app/migration/MigrationEndpoint.java:54		read the code: local or parameter, checked at the line
+g2java054	application/src/main/java/run/halo/app/migration/impl/MigrationServiceImpl.java:245		read the code
+g2java055	api/src/main/java/run/halo/app/extension/ReactiveExtensionClient.java:40		the cursor is on a declaration
+g2java056			outside the project: Spring CollectionUtils
+g2java057	application/src/main/java/run/halo/app/security/authentication/twofactor/TwoFactorAuthenticationEntryPoint.java:41		the cursor is on a declaration
+g2java058			outside the project: JDK ObjectInputStream
+g2java059	api/src/main/java/run/halo/app/extension/ReactiveExtensionClient.java:40		read the code: 5-argument overload
+g2java060	application/src/main/java/run/halo/app/core/endpoint/uc/AttachmentUcEndpoint.java:325		the cursor is on a declaration
+g2java061	api/src/main/java/run/halo/app/core/extension/content/Reply.java:24		read the code
+g2java062			outside the project: Spring ServerResponse
+g2java063	api/src/main/java/run/halo/app/core/extension/content/Comment.java:80		read the code: getSpec() CommentSpec, Lombok field owner
+g2java064			outside the project: Reactor collectList
+g2java065	api/src/main/java/run/halo/app/core/extension/Plugin.java:112		read the code: var plugin = pluginGetter.getPlugin(...), PluginSpec Lombok field
+g2java066	application/src/main/java/run/halo/app/infra/utils/IpAddressUtils.java:11		read the code
+g2java067	api/src/main/java/run/halo/app/extension/index/query/BetweenCondition.java:7		the cursor is on a declaration
+g2java068	api/src/main/java/run/halo/app/core/extension/content/Post.java:68		read the code: Flux<Post> filter lambda, Lombok field spec
+g2java069	application/src/main/java/run/halo/app/theme/dialect/HaloSpringSecurityDialect.java:95		read the code: local or parameter, checked at the line
+g2java070	api/src/main/java/run/halo/app/extension/ReactiveExtensionClient.java:79		read the code

@@ -1,0 +1,22 @@
+# id	targets	skip	note
+g3php500	app/Models/Artist.php:45		read: @property chain Song.artist:Artist
+g3php501	app/Models/Artist.php:41		read: @property chain Album.artist:Artist
+g3php502	app/Models/Artist.php:40		read: @property chain Album.artist:Artist
+g3php503	app/Models/Artist.php:45		read: @property chain Album.artist:Artist
+g3php504	app/Models/User.php:50		read: @property chain Playlist.owner:User
+g3php505	app/Models/Artist.php:45		read: @property chain Album.artist:Artist
+g3php506	app/Models/Artist.php:45		read: @property chain Album.artist:Artist
+g3php507	app/Models/Album.php:50		read: @property chain Song.album:Album
+g3php508	app/Models/Artist.php:45		read: @property chain Album.artist:Artist
+g3php509	app/Models/Artist.php:40		read: @property chain Album.artist:Artist
+g3php510	app/Models/Artist.php:40		read: @property chain Album.artist:Artist
+g3php511	app/Models/Artist.php:45		read: @property chain Song.album_artist:Artist
+g3php512	app/Models/User.php:53		read: @property chain RadioStation.user:User
+g3php513	app/Models/Artist.php:39		read: @property chain Song.album_artist:Artist
+g3php514	app/Models/Album.php:45		read: @property chain Song.album:Album
+g3php515	app/Models/Artist.php:45		read: @property chain Song.artist:Artist
+g3php516	app/Models/Artist.php:40		read: @property chain Song.artist:Artist
+g3php517	app/Models/User.php:52		read: @property chain Playlist.owner:User
+g3php518	app/Models/Artist.php:40		read: @property chain Album.artist:Artist
+g3php519	app/Models/Artist.php:40		read: @property chain Song.artist:Artist
+g3php520	app/Models/Artist.php:39		read: @property chain Song.artist:Artist

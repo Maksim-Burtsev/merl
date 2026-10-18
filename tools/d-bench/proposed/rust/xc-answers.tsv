@@ -1,0 +1,21 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+xc01	crates/searcher/src/searcher/mod.rs:727		
+xc02	<cargo-registry>/same-file-1.0.6/src/lib.rs:346		
+xc03	crates/searcher/src/sink.rs:416		
+xc04	crates/searcher/src/searcher/mod.rs:850		
+xc05	crates/searcher/src/searcher/mod.rs:842		
+xc06	crates/searcher/src/searcher/mod.rs:850		
+xc07	crates/searcher/src/sink.rs:454		
+xc08	crates/searcher/src/searcher/mod.rs:842		
+xc09	crates/searcher/src/searcher/mod.rs:896		
+xc10	crates/searcher/src/sink.rs:416		
+xc11	crates/searcher/src/searcher/mod.rs:842		
+xc12	crates/searcher/src/sink.rs:359		
+xc13	crates/searcher/src/searcher/mod.rs:842		
+xc14	crates/searcher/src/searcher/mod.rs:896		
+xc15	crates/searcher/src/searcher/mod.rs:896		
+xc16	crates/searcher/src/searcher/mod.rs:836		
+xc17	crates/matcher/src/lib.rs:226		
+xc18	crates/matcher/src/lib.rs:341		
+xc19	crates/matcher/src/lib.rs:357		
+xc20	crates/matcher/src/lib.rs:226		

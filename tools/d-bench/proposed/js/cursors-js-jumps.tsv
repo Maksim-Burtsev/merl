@@ -1,0 +1,27 @@
+# id	project	file	line	col (0-based)	shape	word	category  (eslint)
+g3js0000	eslint	lib/rules/array-bracket-newline.js	266	17	member	isTokenOnSameLine	member
+g3js0007	eslint	lib/rules/array-callback-return.js	88	35	member	isCallee	member
+g3js0008	eslint	lib/cli-engine/formatters/stylish.js	81	23	member	errorCount	member
+g3js0014	eslint	lib/rules/indent.js	1820	13	member	setDesiredOffset	member
+g3js0028	eslint	lib/config/config.js	531	46	member	languageOptions	member
+g3js0029	eslint	lib/linter/code-path-analysis/code-path-state.js	832	32	member	add	member
+g3js0030	eslint	lib/rules/arrow-spacing.js	96	13	member	isArrowToken	member
+g3js0034	eslint	lib/linter/code-path-analysis/code-path-state.js	1477	30	member	forkCount	member
+g3js0046	eslint	lib/linter/code-path-analysis/code-path-state.js	966	21	member	finalSegments	member
+g3js0066	eslint	lib/rules/indent.js	435	21	member	getTokenIndent	member
+g3js0070	eslint	lib/cli.js	386	26	member	lintFiles	member
+g3js0084	eslint	lib/rules/new-cap.js	213	27	member	skipChainExpression	member
+g3js0086	eslint	lib/rules/indent.js	428	12	member	_ignoredTokens	member
+g3js0104	eslint	lib/linter/source-code-traverser.js	109	29	member	isExit	member
+g3js0107	eslint	lib/rules/indent-legacy.js	1153	53	member	SwitchCase	member
+g3js0119	eslint	lib/rules/logical-assignment-operators.js	208	15	member	isParenthesised	member
+g3js0126	eslint	lib/linter/code-path-analysis/code-path-state.js	1891	9	member	popChoiceContext	member
+g3js0132	eslint	lib/linter/code-path-analysis/code-path-state.js	1532	12	member	foundEmptyDefault	member
+g3js0146	eslint	lib/rules/max-nested-callbacks.js	75	47	member	hasOwn	member
+g3js0149	eslint	lib/rules/prefer-regex-literals.js	329	15	member	validateFlags	member
+g3js0162	eslint	lib/rules/no-useless-assignment.js	290	34	member	queueSegments	member
+g3js0165	eslint	lib/cli.js	502	9	member	error	member
+g3js0166	eslint	lib/rules/indent.js	445	11	member	_tokenInfo	member
+g3js0179	eslint	lib/cli-engine/lint-result-cache.js	210	30	member	fileEntryCache	member
+g3js0180	eslint	lib/languages/js/source-code/token-store/forward-token-cursor.js	40	23	member	tokens	member
+g3js0192	eslint	lib/languages/js/source-code/token-store/index.js	176	16	member	createCursor	member

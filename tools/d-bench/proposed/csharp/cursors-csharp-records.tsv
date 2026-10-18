@@ -1,0 +1,7 @@
+# id	project	file	line	col (0-based)	shape	word
+csx0200	eShop	src/WebApp/Services/BasketState.cs	40	25	member	ProductId
+csx0201	eShop	src/WebApp/Services/BasketState.cs	40	43	member	Id
+csx0202	eShop	src/WebAppComponents/Item/ItemHelper.cs	8	24	member	Id
+csx0203	eShop	src/Basket.API/IntegrationEvents/EventHandling/OrderStartedIntegrationEventHandler.cs	14	50	member	UserId
+csx0204	eShop	src/Ordering.API/Apis/OrdersApi.cs	111	27	member	BuyerId
+csx0205	eShop	src/WebApp/Services/BasketState.cs	135	52	member	ProductId

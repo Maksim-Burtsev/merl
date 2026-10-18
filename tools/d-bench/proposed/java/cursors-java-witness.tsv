@@ -1,0 +1,13 @@
+# id	project	file	line	col (0-based)	shape	word
+g2jwit00	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	512	54	call	single
+g2jwit01	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	267	56	call	multi
+g2jwit02	halo	application/src/main/java/run/halo/app/core/endpoint/uc/UcSnapshotEndpoint.java	93	31	call	error
+g2jwit03	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	122	53	call	single
+g2jwit04	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	161	52	call	single
+g2jwit05	halo	api/src/main/java/run/halo/app/extension/index/IndexSpec.java	73	36	call	single
+g2jwit06	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	189	57	call	single
+g2jwit07	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	581	60	call	single
+g2jwit08	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	141	56	call	single
+g2jwit09	halo	application/src/main/java/run/halo/app/migration/impl/MigrationServiceImpl.java	172	26	call	create
+g2jwit10	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	357	56	call	single
+g2jwit11	halo	application/src/main/java/run/halo/app/infra/SchemeInitializer.java	109	53	call	single

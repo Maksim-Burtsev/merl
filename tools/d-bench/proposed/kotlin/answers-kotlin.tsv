@@ -1,0 +1,72 @@
+# id	targets	skip	note
+g2kotlin000	feature/bookmarks/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/bookmarks/impl/BookmarksScreen.kt:107		read the code: checked at the line
+g2kotlin001			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin002			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin003			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin004			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin005	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/icon/NiaIcons.kt:42		read the code: checked at the line
+g2kotlin006	sync/work/src/main/kotlin/com/google/samples/apps/nowinandroid/sync/workers/AnalyticsExtensions.kt:27		the cursor is on a declaration
+g2kotlin007			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin008			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin009			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin010			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin011	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/theme/Gradient.kt:32		read the code: checked at the line
+g2kotlin012			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin013			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin014			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin015			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin016			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin017	core/model/src/main/kotlin/com/google/samples/apps/nowinandroid/core/model/data/Topic.kt:28		read the code: checked at the line
+g2kotlin018	build-logic/convention/src/main/kotlin/com/google/samples/apps/nowinandroid/NiaFlavor.kt:34		read the code: niaFlavor iterates NiaFlavor.values(), constructor property
+g2kotlin019			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin020			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin021	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Button.kt:51		read the code: named argument contentPadding exists only in this overload
+g2kotlin022	core/datastore/src/main/kotlin/com/google/samples/apps/nowinandroid/core/datastore/ChangeListVersions.kt:22		read the code: checked at the line
+g2kotlin023			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin024	core/data/src/main/kotlin/com/google/samples/apps/nowinandroid/core/data/repository/UserNewsResourceRepository.kt:25		read the code: checked at the line
+g2kotlin025			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin026	feature/settings/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/settings/impl/SettingsViewModel.kt:78		read the code: checked at the line
+g2kotlin027			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin028	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/scrollbar/Scrollbar.kt:213		read the code: checked at the line
+g2kotlin029	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Navigation.kt:67		read the code: checked at the line
+g2kotlin030			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin031	core/data/src/main/kotlin/com/google/samples/apps/nowinandroid/core/data/repository/UserDataRepository.kt:49		read the code: checked at the line
+g2kotlin032			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin033			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin034	core/model/src/main/kotlin/com/google/samples/apps/nowinandroid/core/model/data/FollowableTopic.kt:24		read the code
+g2kotlin035			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin036			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin037	feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicViewModel.kt:161		read the code: checked at the line
+g2kotlin038			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin039			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin040	core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/JankStatsExtensions.kt:81		read the code: checked at the line
+g2kotlin041			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin042			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin043			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin044	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Tag.kt:77		read the code: checked at the line
+g2kotlin045			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin046		protobuf accessor, generated	
+g2kotlin047			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin048		an Android R resource, generated	
+g2kotlin049	feature/settings/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/settings/impl/SettingsDialog.kt:93		read the code: checked at the line
+g2kotlin050			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin051			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin052			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin053			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin054	core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/NewsResourceCard.kt:300		read the code: checked at the line
+g2kotlin055			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin056			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin057			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin058			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin059			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin060	sync/work/src/main/kotlin/com/google/samples/apps/nowinandroid/sync/initializers/SyncWorkHelpers.kt:44		the cursor is on a declaration
+g2kotlin061			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin062	build-logic/convention/src/main/kotlin/com/google/samples/apps/nowinandroid/Graph.kt:330		the cursor is on a declaration
+g2kotlin063	feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicScreen.kt:104		the cursor is on a declaration
+g2kotlin064			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin065			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin066	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/scrollbar/ThumbExt.kt:78		read the code: checked at the line
+g2kotlin067			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin068	core/database/src/main/kotlin/com/google/samples/apps/nowinandroid/core/database/model/TopicEntity.kt:44		read the code: topics is List<TopicEntity> from topicDao.getTopicEntities
+g2kotlin069			outside the project (Compose, AndroidX, Kotlin stdlib, Gradle, Room, OkHttp, kotlinx)
+g2kotlin070	core/data/src/main/kotlin/com/google/samples/apps/nowinandroid/core/data/util/SyncManager.kt:25		read the code: syncManager is a constructor parameter of type SyncManager
