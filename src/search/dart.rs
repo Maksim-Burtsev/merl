@@ -38,6 +38,13 @@ macro_rules! dart_any_type {
 const ANNOTATIONS: &str = dart_annotations!();
 const TYPE: &str = dart_type!();
 const ANY_TYPE: &str = dart_any_type!();
+const FN_TYPE: &str = concat!(
+    r"(?:",
+    dart_any_type!(),
+    r"\s+)?Function\s*",
+    dart_generics!(),
+    r"\([^;]*\)\??"
+);
 const NAME_END_PAST_DOLLAR: &str = r"(?:[^\w$]|$)";
 
 const DART_PATTERN_COUNT: usize = 9;
@@ -64,7 +71,7 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
             r"^\s+{ANNOTATIONS}(?:(?:(?:const|factory|external)\s+)+[A-Za-z_$][\w$]*\.{w}\s*\(|[A-Za-z_$][\w$]*\.{w}\s*{params})"
         ),
         format!(
-            r"^\s*{ANNOTATIONS}(?:(?:(?:static|external|covariant)\s+)*(?:(?:final|const|var|late)\s+)+(?:{ANY_TYPE}\s+)?|(?:(?:static|external|covariant)\s+)*{TYPE}\s+){w}\s*(?:=[^=>]|;|,|$)"
+            r"^\s*{ANNOTATIONS}(?:(?:(?:static|external|covariant)\s+)*(?:(?:final|const|var|late)\s+)+(?:(?:{FN_TYPE}|{ANY_TYPE})\s+)?|(?:(?:static|external|covariant)\s+)*(?:{FN_TYPE}|{TYPE})\s+){w}\s*(?:=[^=>]|;|,|$)"
         ),
         format!(r"^\s*enum\s+[\w$]+[^{{]*\{{(?:[^}}]*[,{{\s])?{w}\s*(?:[,}}(]|$)"),
         format!(r"^\s+{w}\s*(?:[,;(]|$)"),
@@ -521,7 +528,7 @@ pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
 fn dart_local(t: &str, name: &str) -> bool {
     let w = regex::escape(name);
     let declares = Regex::new(&format!(
-        r"^(?:(?:(?:final|const|var|late)\s+)+(?:{ANY_TYPE}\s+)?{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:<[^()]*>)?\s*\(.*(?:=>|\{{)|(?:final|var)\s*[\w$.]*\s*\((.*)\)\s*=[^=>])"
+        r"^(?:(?:(?:final|const|var|late)\s+)+(?:(?:{FN_TYPE}|{ANY_TYPE})\s+)?{w}\s*(?:[=;,]|$)|(?:{FN_TYPE}|{TYPE})\s+{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:<[^()]*>)?\s*\(.*(?:=>|\{{)|(?:final|var)\s*[\w$.]*\s*\((.*)\)\s*=[^=>])"
     ))
     .expect("an escaped name");
     declares.captures(t).is_some_and(|c| {

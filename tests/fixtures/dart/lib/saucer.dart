@@ -45,3 +45,20 @@ void glow(Future<int> f) {
     //    ^ d: lib/saucer.dart:43
   });
 }
+
+// A field or a local whose type is a function type (#1087).
+class Ladle {
+  Ladle(this.logPrint, this._builder);
+
+  void Function(Object object) logPrint;
+  final Stream<List<int>> Function() _builder;
+
+  void serve() {
+    final void Function() pour = () {};
+    logPrint(_builder());
+    //^ d: lib/saucer.dart:53
+    //         ^ d: lib/saucer.dart:54
+    pour();
+    //^ d: lib/saucer.dart:57
+  }
+}
