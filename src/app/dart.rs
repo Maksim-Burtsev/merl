@@ -217,9 +217,6 @@ impl App {
             .map(|d| (files[0].clone(), d))
             .collect();
         while let Some((from, d)) = queue.pop() {
-            if d.conditional {
-                return None;
-            }
             if d.uri.starts_with("dart:")
                 || d.show
                     .as_ref()
@@ -277,21 +274,45 @@ impl App {
         };
         let file = self.dart_class_file(here, &ty)?;
         let class = &ty.class;
-        let made = |c: &str| {
-            let bare = Some(search::dart_bare_constructor(class, c));
-            let within = [Some(format!("{class}.{c}"))];
-            let reason = Reason::Receiver(class.clone());
-            self.dart_declared_in(&file, c, bare, &within, &reason)
-        };
         if let Some(c) = &ty.constructor
-            && !made(c)
+            && !self
+                .dart_member_of(&file, class, c)
                 .iter()
                 .any(|h| h.hit.text.contains(&format!("{class}.{c}")))
         {
             return None;
         }
-        let found = made(word);
+        let mut found = self.dart_member_of(&file, class, word);
+        if found.is_empty() {
+            found = self.dart_inherited(&file, class, word, 0);
+        }
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {
+        let bare = Some(search::dart_bare_constructor(class, word));
+        let within = [Some(format!("{class}.{word}"))];
+        let reason = Reason::Receiver(class.to_owned());
+        self.dart_declared_in(file, word, bare, &within, &reason)
+    }
+
+    fn dart_inherited(&self, file: &Path, class: &str, word: &str, depth: usize) -> Vec<Candidate> {
+        let Some(text) = self.text_of(file).filter(|_| depth < 8) else {
+            return Vec::new();
+        };
+        for ty in search::dart_supertypes(&text, class) {
+            let Some(up) = self.dart_class_file(file, &ty) else {
+                return Vec::new();
+            };
+            let mut found = self.dart_member_of(&up, &ty.class, word);
+            if found.is_empty() {
+                found = self.dart_inherited(&up, &ty.class, word, depth + 1);
+            }
+            if !found.is_empty() {
+                return found;
+            }
+        }
+        Vec::new()
     }
 
     fn dart_class_file(&self, here: &Path, ty: &search::DartType) -> Option<PathBuf> {
