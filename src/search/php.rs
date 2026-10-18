@@ -47,6 +47,31 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     }
 }
 
+pub(super) fn php_assignment(w: &str) -> String {
+    format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])")
+}
+
+pub(super) fn php_bare_word_cut(patterns: &mut Vec<String>, line: &str, range: Range<usize>) {
+    let (Some(word), Some(before), Some(after)) = (
+        line.get(range.clone()),
+        line.get(..range.start),
+        line.get(range.end..),
+    ) else {
+        return;
+    };
+    if word.starts_with('$') || before.ends_with('$') {
+        return;
+    }
+    let w = regex::escape(word);
+    let mut cut = vec![php_assignment(&w)];
+    let head = before.trim_end();
+    if after.trim_start().starts_with('(') && !head.ends_with("->") && !head.ends_with("::") {
+        cut.extend(php_properties(&w));
+        cut.push(php_tags(&w)[0].clone());
+    }
+    patterns.retain(|p| !cut.contains(p));
+}
+
 const NAMESPACE_HEAD: &str = r"^\s*(?:<\?php\s+)?namespace\s+";
 
 pub(super) fn php_namespace_line(w: &str) -> String {
