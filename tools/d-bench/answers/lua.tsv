@@ -1,0 +1,111 @@
+# id	targets: path:line joined by ; (project-relative; ~/ or / outside the project; empty: the oracle found none)	skip: why the row is not scored	note
+lua0000	scripts/update-readme.lua:60		
+lua0001	lua/nvim-treesitter/install.lua:20;lua/nvim-treesitter/install.lua:21		
+lua0002	lua/nvim-treesitter/async.lua:216		
+lua0003			
+lua0004	lua/nvim-treesitter/config.lua:1		
+lua0005	lua/nvim-treesitter/async.lua:286		
+lua0006	lua/nvim-treesitter/log.lua:23		
+lua0007			
+lua0008		builtin: the server's own stub	
+lua0009	lua/nvim-treesitter/parsers.lua:1		
+lua0010			
+lua0011	lua/nvim-treesitter/install.lua:44		
+lua0012	lua/nvim-treesitter/install.lua:379		
+lua0013		builtin: the server's own stub	
+lua0014		builtin: the server's own stub	
+lua0015		builtin: the server's own stub	
+lua0016	lua/nvim-treesitter/async.lua:382		
+lua0017			
+lua0018	lua/nvim-treesitter/async.lua:216		
+lua0019	lua/nvim-treesitter/config.lua:1		
+lua0020	lua/nvim-treesitter/parsers.lua:1		
+lua0021	lua/nvim-treesitter/health.lua:5		
+lua0022	lua/nvim-treesitter/config.lua:15		
+lua0023		builtin: the server's own stub	
+lua0024	lua/nvim-treesitter/async.lua:245;lua/nvim-treesitter/async.lua:246		
+lua0025			
+lua0026			
+lua0027		builtin: the server's own stub	
+lua0028	lua/nvim-treesitter/config.lua:1		
+lua0029		builtin: the server's own stub	
+lua0030	lua/nvim-treesitter/install.lua:6		
+lua0031		builtin: the server's own stub	
+lua0032			
+lua0033	lua/nvim-treesitter/async.lua:96		
+lua0034			
+lua0035	lua/nvim-treesitter/async.lua:5;lua/nvim-treesitter/async.lua:435		
+lua0036			
+lua0037	lua/nvim-treesitter/util.lua:1		
+lua0038	lua/nvim-treesitter/async.lua:44;lua/nvim-treesitter/async.lua:572		
+lua0039			
+lua0040			
+lua0041	scripts/update-parsers.lua:18		reviewed: the server's own stub dropped
+lua0042		builtin: the server's own stub	
+lua0043		builtin: the server's own stub	
+lua0044		builtin: the server's own stub	
+lua0045	lua/nvim-treesitter/install.lua:26;lua/nvim-treesitter/install.lua:27		
+lua0046		builtin: the server's own stub	
+lua0047		builtin: the server's own stub	
+lua0048		builtin: the server's own stub	
+lua0049	lua/nvim-treesitter/install.lua:627		
+lua0050	lua/nvim-treesitter/install.lua:499		
+lua0051	lua/nvim-treesitter/_meta/parsers.lua:25		
+lua0052	lua/nvim-treesitter/install.lua:473		
+lua0053			
+lua0054			
+lua0055			
+lua0056	kong/tools/sandbox/environment/init.lua:75		
+lua0057	kong/plugins/ai-prompt-guard/filters/guard-prompt.lua:36		
+lua0058	kong/concurrency.lua:42		
+lua0059		builtin: the server's own stub	
+lua0060		builtin: the server's own stub	
+lua0061			
+lua0062	kong/resty/mlcache/init.lua:22		reviewed: the server's own stub dropped
+lua0063	kong/api/init.lua:11		reviewed: the server's own stub dropped
+lua0064	kong/cluster_events/strategies/postgres.lua:14		
+lua0065			
+lua0066		builtin: the server's own stub	
+lua0067	kong/db/schema/init.lua:2391		
+lua0068	kong/db/schema/vault_loader.lua:1		
+lua0069	kong/router/transform.lua:12		reviewed: the server's own stub dropped
+lua0070			
+lua0071	kong/dynamic_hook/init.lua:1		
+lua0072			
+lua0073	kong/meta.lua:1		
+lua0074	kong/router/traditional.lua:851		
+lua0075	kong/clustering/data_plane.lua:21		
+lua0076	kong/clustering/data_plane.lua:277;kong/clustering/data_plane.lua:427		
+lua0077	kong/cmd/utils/nginx_signals.lua:14		reviewed: the server's own stub dropped
+lua0078			
+lua0079			
+lua0080	kong/cmd/config.lua:75;kong/cmd/migrations.lua:97;kong/cmd/reload.lua:42;kong/cmd/start.lua:64;kong/cmd/vault.lua:32;kong/init.lua:65;kong/llm/adapters/bedrock.lua:315;kong/llm/adapters/gemini.lua:351;kong/llm/drivers/shared.lua:1058;kong/runloop/handler.lua:23;spec/01-unit/01-db/01-schema/01-schema_spec.lua:957;spec/01-unit/01-db/01-schema/01-schema_spec.lua:965;spec/01-unit/01-db/01-schema/01-schema_spec.lua:3653;spec/01-unit/01-db/01-schema/01-schema_spec.lua:3659;spec/01-unit/01-db/01-schema/05-services_spec.lua:9;spec/01-unit/01-db/01-schema/06-routes_spec.lua:9;spec/01-unit/01-db/01-schema/06-routes_spec.lua:24;spec/01-unit/01-db/01-schema/08-targets_spec.lua:8;spec/01-unit/01-db/01-schema/09-upstreams_spec.lua:7;spec/01-unit/01-db/01-schema/11-snis_spec.lua:10;spec/01-unit/01-db/04-dao_spec.lua:465;spec/01-unit/08-router_spec.lua:8;spec/01-unit/09-balancer/01-generic_spec.lua:164;spec/01-unit/09-balancer/02-least_connections_spec.lua:179;spec/01-unit/09-balancer/03-consistent_hashing_spec.lua:225;spec/01-unit/09-balancer/04-round_robin_spec.lua:263;spec/01-unit/09-balancer/05-worker_consistency_spec.lua:55;spec/01-unit/09-balancer/06-latency_spec.lua:177;spec/01-unit/11-reports_spec.lua:44;spec/01-unit/12-plugins_order_spec.lua:17;spec/01-unit/13-plugins_version_spec.lua:14;spec/01-unit/14-dns_spec.lua:48;spec/01-unit/19-hybrid/03-compat_spec.lua:647;spec/01-unit/20-sandbox_spec.lua:13;spec/01-unit/23-vaults_spec.lua:46;spec/01-unit/26-observability/01-tracer_pdk_spec.lua:21;spec/01-unit/26-observability/01-tracer_pdk_spec.lua:78;spec/01-unit/26-observability/02-propagation_strategies_spec.lua:1755;spec/01-unit/26-observability/02-propagation_strategies_spec.lua:1776;spec/01-unit/26-observability/03-propagation_module_spec.lua:410;spec/01-unit/26-observability/03-propagation_module_spec.lua:435;spec/01-unit/26-observability/04-request-id_spec.lua:16;spec/01-unit/26-observability/05-logs_spec.lua:21;spec/01-unit/26-observability/05-logs_spec.lua:39;spec/01-unit/26-observability/06-telemetry-pdk_spec.lua:10;spec/01-unit/26-observability/06-telemetry-pdk_spec.lua:15;spec/02-integration/13-vaults/02-env_vault_spec.lua:12;spec/03-plugins/03-http-log/03-schem-vault_spec.lua:19;spec/03-plugins/04-file-log/02-schema_spec.lua:153;spec/03-plugins/15-response-transformer/01-header_transformer_spec.lua:44;spec/03-plugins/15-response-transformer/02-body_transformer_spec.lua:384;spec/03-plugins/15-response-transformer/02-body_transformer_spec.lua:407;spec/03-plugins/23-rate-limiting/02-policies_spec.lua:118;spec/03-plugins/24-response-rate-limiting/02-policies_spec.lua:22;spec/03-plugins/30-session/03-session_spec.lua:2;spec/03-plugins/30-session/03-session_spec.lua:23;spec/fixtures/mocker.lua:32;spec/fixtures/mocker.lua:43;spec/internal/db.lua:46;spec/internal/module.lua:16		
+lua0081	kong/api/arguments.lua:1		
+lua0082		builtin: the server's own stub	
+lua0083			
+lua0084	kong/plugins/oauth2/access.lua:57		
+lua0085			
+lua0086			
+lua0087	kong/plugins/jwt/jwt_parser.lua:1		
+lua0088		builtin: the server's own stub	
+lua0089	kong/plugins/request-transformer/access.lua:464		
+lua0090	kong/api/routes/plugins.lua:23		
+lua0091			
+lua0092	kong/pdk/response.lua:943;kong/pdk/response.lua:1005		
+lua0093	kong/plugins/request-transformer/migrations/common.lua:8		
+lua0094	kong/runloop/plugin_servers/plugin.lua:18;kong/runloop/plugin_servers/plugin.lua:23;kong/runloop/plugin_servers/plugin.lua:28;kong/runloop/plugin_servers/plugin.lua:30;spec/01-unit/10-log_serializer_spec.lua:49;spec/01-unit/10-log_serializer_spec.lua:281;spec/03-plugins/27-aws-lambda/05-aws-serializer_spec.lua:29		
+lua0095	kong/resty/mlcache/init.lua:18		reviewed: the server's own stub dropped
+lua0096	kong/runloop/certificate.lua:389		
+lua0097	kong/db/schema/init.lua:38		reviewed: the server's own stub dropped
+lua0098	kong/db/schema/typedefs.lua:359		
+lua0099	kong/cluster_events/strategies/postgres.lua:10		reviewed: the server's own stub dropped
+lua0100	kong/tools/http.lua:17;kong/tools/string.lua:166		
+lua0101	kong/conf_loader/init.lua:1		
+lua0102	spec/01-unit/10-log_serializer_spec.lua:29	LuaLS answers a mock in spec/	
+lua0103			
+lua0104	kong/tools/emmy_debugger.lua:1		
+lua0105	kong/llm/plugin/base.lua:199		
+lua0106			
+lua0107	spec/01-unit/01-db/01-schema/01-schema_spec.lua:3654;spec/01-unit/01-db/01-schema/05-services_spec.lua:10;spec/01-unit/01-db/01-schema/06-routes_spec.lua:10;spec/01-unit/01-db/01-schema/08-targets_spec.lua:9;spec/01-unit/01-db/01-schema/09-upstreams_spec.lua:8;spec/01-unit/01-db/01-schema/11-snis_spec.lua:11;spec/01-unit/10-log_serializer_spec.lua:59;spec/01-unit/10-log_serializer_spec.lua:295;spec/01-unit/26-observability/02-propagation_strategies_spec.lua:1756;spec/01-unit/26-observability/03-propagation_module_spec.lua:414;spec/01-unit/26-observability/04-request-id_spec.lua:17;spec/03-plugins/15-response-transformer/02-body_transformer_spec.lua:396;spec/03-plugins/30-session/03-session_spec.lua:8	LuaLS answers a mock in spec/	
+lua0108	kong/cmd/utils/prefix_handler.lua:21		
+lua0109	kong/plugins/request-transformer/access.lua:124		

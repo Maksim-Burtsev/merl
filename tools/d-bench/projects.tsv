@@ -28,3 +28,7 @@ magit	elisp	https://github.com/magit/magit.git	bd9bce524cce1557db37c4e2260b0a787
 drracket	racket	https://github.com/racket/drracket.git	05e05cb74fc6adc740a7841d258e1f942f12d701	-
 chibi-scheme	scheme	https://github.com/ashinn/chibi-scheme.git	c4e7367e867428889d8fe898a0b39f42e418b3f1	-
 lem	commonlisp	https://github.com/lem-project/lem.git	8cb37f8ecf2a9d6c9b51f51587de5950619a0a10	-
+bats-core	bash	https://github.com/bats-core/bats-core.git	f2a9f7449df1701429a2541499e925a5fa6966d2	-
+acme.sh	bash	https://github.com/acmesh-official/acme.sh.git	37d064f7b580055d3f2ddf9a9c960f754f3694d6	-
+nvim-treesitter	lua	https://github.com/nvim-treesitter/nvim-treesitter.git	1a4f47b03dfe92d28de7d5654c67327ef008c9e6	-
+kong	lua	https://github.com/Kong/kong.git	6605dd81630d5f239514cf0dcdf77b51b878bd24	-

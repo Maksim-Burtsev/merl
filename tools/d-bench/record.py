@@ -4,8 +4,8 @@
   record.py sample LANG N [--exclude dir,dir]   picks N cursors in LANG's project -> cursors/LANG.tsv
   record.py oracle LANG                         asks a language server -> answers/LANG.tsv
 
-The project is LANG's row of projects.tsv, cloned into the cache by `run` first
-($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
+The projects are LANG's rows of projects.tsv, N cursors from each, cloned into the cache by `run`
+first ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
 Java, Kotlin, C#, Ruby, Nix, Groovy, Jenkins (a Groovy shared library, its own row), Emacs Lisp,
 Scheme and Common Lisp have no server here: their answers were judged by reading the code, as are
@@ -143,6 +143,16 @@ error values multiple-value-bind destructuring-bind handler-case handler-bind un
 with-accessors return return-from block eq eql equal gethash make-instance make-hash-table function
 quote length nth elt aref string= null listp consp stringp numberp mapcar mapc remove find position
 member assoc append nreverse reverse concatenate coerce use export import-from shadow""".split()
+KW["bash"] = """if then else elif fi case esac for select while until do done in function time coproc
+local declare typeset export readonly unset return exit shift set eval exec source trap wait break continue
+echo printf read cd pwd test true false command builtin type hash alias unalias let getopts shopt ulimit umask
+kill jobs disown bg fg mapfile readarray caller compgen complete enable help history logout popd pushd dirs
+suspend times grep sed awk cat cut tr sort uniq head tail wc rm mv cp mkdir rmdir ln ls find xargs chmod
+chown touch date sleep env basename dirname printenv mktemp tee diff curl wget openssl base64 od hexdump
+git tput stty uname id whoami ps tar gzip gunzip sha256sum shasum md5sum dd seq expr bc jq python python3
+perl ruby node bash sh zsh nc socat ssh scp realpath readlink file stat timeout which install make""".split()
+KW["lua"] = """and break do else elseif end false for function goto if in local nil not or repeat return then
+true until while self""".split()
 KW["js"] = KW["ts"]
 for _c in ("vue", "svelte", "astro"):
     KW[_c] = KW["ts"] + "each then key html snippet render debug".split()
@@ -381,7 +391,7 @@ CSS_SHAPES = [
 ]
 
 
-def sample_css(project, root, n, out, exclude=()):
+def sample_css(root, n, exclude=()):
     buckets = defaultdict(list)
     declared = set(re.findall(r"@function\s+([\w-]+)", subprocess.run(
         ["grep", "-rh", "@function", os.path.join(root, "scss")], capture_output=True, text=True).stdout))
@@ -410,24 +420,169 @@ def sample_css(project, root, n, out, exclude=()):
                     for m in re.finditer(r'\bclass="([^"{}]*)"', line):
                         for w in re.finditer(r"[^\s]+", m.group(1)):
                             buckets["class"].append((rel, ln, m.start(1) + w.start(), "class", w.group()))
-    rnd = random.Random(20261002)
-    mix = {"name": 0.4, "call": 0.25, "path": 0.1, "class": 0.25}
+    return draw(buckets, {"name": 0.4, "call": 0.25, "path": 0.1, "class": 0.25}, 20261002, n)
+
+
+SH_VARS = set("BASH_SOURCE FUNCNAME LINENO PWD HOME PATH IFS RANDOM OPTARG OPTIND BASH_VERSION".split())
+
+
+def sh_tokens(text):
+    out, heredoc = [], None
+    for n, line in enumerate(text.split("\n"), 1):
+        if heredoc:
+            if line.strip() == heredoc or line.lstrip("\t") == heredoc:
+                heredoc = None
+            continue
+        m = re.search(r"<<-?\s*['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?", line)
+        i, L, quote = 0, len(line), None
+        code, dq = [True] * L, [False] * L
+        while i < L:
+            c = line[i]
+            if quote == "'":
+                code[i] = False
+                quote = None if c == "'" else quote
+                i += 1; continue
+            if c == "\\":
+                code[i:i + 2] = [False] * len(code[i:i + 2])
+                i += 2; continue
+            if quote == '"':
+                dq[i] = True
+                quote = None if c == '"' else quote
+                i += 1; continue
+            if c == "'":
+                quote = "'"; code[i] = False; i += 1; continue
+            if c == '"':
+                quote = '"'; dq[i] = True; i += 1; continue
+            if c == "#" and (i == 0 or line[i - 1] in " \t;|&(") and not line[max(0, i - 2):i].endswith(("$", "${")):
+                code[i:] = [False] * (L - i)
+                break
+            i += 1
+        for t in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", line):
+            s, e = t.span()
+            if not code[s] or (s > 0 and (line[s - 1].isalnum() or line[s - 1] in "-./:@")) or line[e:e + 1] == "-":
+                continue
+            before, after = line[:s], line[e:]
+            var = before.endswith(("$", "${", "${#", "${!"))
+            if var or not dq[s]:
+                out.append((n, s, t.group(), before, after, var))
+        if m and not heredoc:
+            heredoc = m.group(1)
+    return out
+
+
+def sh_words(text, kw):
+    for n, line in enumerate(text.split("\n"), 1):
+        r = re.match(r"""\s*(?:source|\.)\s+["']?([^\s;"']*/([A-Za-z_][\w-]*)[\w.-]*)""", line)
+        if r and "$(" not in r.group(1):
+            yield n, r.start(2), "path", r.group(2)
+    for n, s, w, before, after, var in sh_tokens(text):
+        if var:
+            if w not in SH_VARS:
+                yield n, s, "name", w
+            continue
+        b = before.rstrip()
+        cmd = (b == "" or b.endswith((";", "&&", "||", "|", "$(", "`", "{", "(", "!"))
+               or re.search(r"(?:^|\s)(?:then|do|else|if|while|until|elif|run|time)$", b))
+        if cmd and w not in kw and not re.match(r"\s*(=|\+=|\(\s*\)|\[)", after):
+            yield n, s, "call", w
+
+
+def lua_mask(text):
+    out, i, n = list(text), 0, len(text)
+
+    def blank(a, b):
+        out[a:b] = [ch if ch == "\n" else " " for ch in text[a:b]]
+
+    while i < n:
+        long = re.match(r"(--)?\[(=*)\[", text[i:i + 20])
+        if long:
+            j = text.find("]" + long.group(2) + "]", i)
+            j = n if j < 0 else j + len(long.group(2)) + 2
+        elif text.startswith("--", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+        elif text[i] in "\"'":
+            j = i + 1
+            while j < n and text[j] not in (text[i], "\n"):
+                j += 2 if text[j] == "\\" else 1
+            j += 1
+        else:
+            i += 1; continue
+        blank(i, j); i = j
+    return "".join(out)
+
+
+def lua_words(text, kw):
+    for n, (line, m) in enumerate(zip(text.split("\n"), lua_mask(text).split("\n")), 1):
+        for r in re.finditer(r"""\brequire\s*\(?\s*["']([\w./-]+)["']""", line):
+            if m[r.start()] != " ":
+                last = r.group(1).rsplit(".", 1)[-1]
+                yield n, r.end(1) - len(last), "path", last
+        for t in re.finditer(r"[A-Za-z_][A-Za-z0-9_]*", m):
+            s, e = t.span()
+            w, before, after = t.group(), m[:s], m[e:]
+            if (w in kw or len(w) < 2 or s > 0 and m[s - 1].isdigit()
+                    or re.search(r"\b(?:local|function)\s+(?:[\w.]*[.:])?$", before) and not before.rstrip().endswith(",")
+                    or re.search(r"\blocal\s+[\w\s,<>]*,\s*$", before) or re.search(r"\bfor\s+[\w\s,]*$", before)
+                    or re.match(r"\s*=[^=]", after) and (before.strip() == "" or before.rstrip().endswith((",", "{")))):
+                continue
+            if before.endswith((".", ":")) and not before.endswith(".."):
+                yield n, s, "member", w
+            else:
+                yield n, s, "call" if re.match(r"\s*[(\"'{]", after) else "name", w
+
+
+SPEC["bash"] = dict(exts=(".sh", ".bash", ".bats"), shebang=r"#!.*\b(?:ba)?sh\b", words=sh_words,
+                    mix={"call": 0.5, "name": 0.4, "path": 0.1})
+SPEC["lua"] = dict(exts=(".lua",), words=lua_words, mix={"member": 0.35, "call": 0.3, "name": 0.25, "path": 0.1},
+                   only={"nvim-treesitter": ("lua", "plugin", "scripts"), "kong": ("kong",)})
+
+
+def script_files(root, spec, only, exclude):
+    skip = SKIP_DIRS - {"migrations"}
+    for d, dirs, files in os.walk(root):
+        dirs[:] = sorted(x for x in dirs if x not in skip and x not in exclude and not x.startswith(".")
+                         and (d != root or not only or x in only))
+        if d == root and only:
+            continue
+        for f in sorted(files):
+            p = os.path.join(d, f)
+            try:
+                if not f.endswith(spec["exts"]) and not ("." not in f and spec.get("shebang") and re.match(
+                        spec["shebang"], open(p, encoding="utf-8", errors="replace").readline())):
+                    continue
+                text = open(p, encoding="utf-8", newline="").read()
+            except Exception:
+                continue
+            if len(text) < 400_000:
+                yield os.path.relpath(p, root), text
+
+
+def sample_script(lang, project, root, n, exclude):
+    spec, kw, buckets = SPEC[lang], set(KW[lang]), defaultdict(list)
+    for rel, text in script_files(root, spec, spec.get("only", {}).get(project, ()), exclude):
+        for ln, col, sh, w in spec["words"](text, kw):
+            buckets[sh].append((rel, ln, col, sh, w))
+    return draw(buckets, spec["mix"], 20261018, n)
+
+
+def draw(buckets, mix, seed, n):
+    rnd = random.Random(seed)
     chosen = []
     for sh, frac in mix.items():
         pool = buckets.get(sh, [])
         chosen += rnd.sample(pool, min(len(pool), round(n * frac)))
     rnd.shuffle(chosen)
-    with open(out, "w") as fh:
-        fh.write("# id\tproject\tfile\tline\tcol (0-based)\tshape\tword\n")
-        for i, (rel, ln, col, sh, w) in enumerate(chosen):
-            fh.write(f"css{i:04d}\t{project}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
     print({k: len(v) for k, v in buckets.items()}, "->", len(chosen), file=sys.stderr)
+    return chosen
 
 
-def sample(lang, project, root, n, out, exclude=()):
+def sample(lang, project, root, n, exclude=()):
     if lang == "css":
-        return sample_css(project, root, n, out, exclude)
+        return sample_css(root, n, exclude)
     spec = SPEC[lang]
+    if spec.get("words"):
+        return sample_script(lang, project, root, n, exclude)
     kw = set(KW[lang])
     buckets = defaultdict(list)
     for d, dirs, files in os.walk(root):
@@ -469,20 +624,10 @@ def sample(lang, project, root, n, out, exclude=()):
                     continue
                 sh = shape(before, after, lang) or ("type" if w[0].isupper() else "name")
                 buckets[sh].append((rel, ln, col, sh, w))
-    rnd = random.Random(20260928)
     mix = {"member": 0.35, "call": 0.25, "type": 0.2, "name": 0.1, "path": 0.1}
     if spec.get("lisp"):
         mix = {"call": 0.5, "name": 0.35, "path": 0.1, "member": 0.025, "type": 0.025}
-    chosen = []
-    for sh, frac in mix.items():
-        pool = buckets.get(sh, [])
-        chosen += rnd.sample(pool, min(len(pool), round(n * frac)))
-    rnd.shuffle(chosen)
-    with open(out, "w") as fh:
-        fh.write("# id\tproject\tfile\tline\tcol (0-based)\tshape\tword\n")
-        for i, (rel, ln, col, sh, w) in enumerate(chosen):
-            fh.write(f"{lang}{i:04d}\t{project}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
-    print({k: len(v) for k, v in buckets.items()}, "->", len(chosen), file=sys.stderr)
+    return draw(buckets, mix, 20260928, n)
 
 
 class Lsp:
@@ -652,6 +797,14 @@ def server(lang, root):
         return Lsp([node, server, "--stdio"], root)
     if lang == "starlark":
         return Lsp([os.path.join(LSP, "bin", "starpls"), "server"], root)
+    if lang == "bash":
+        return Lsp([node, os.path.join(nm, "bash-language-server", "out", "cli.js"), "start"], root,
+                   settings={"bashIde": {"backgroundAnalysisMaxFiles": 2000}})
+    if lang == "lua":
+        return Lsp([os.path.join(LSP, "lua-language-server", "bin", "lua-language-server")], root, settings={"Lua": {
+            "runtime": {"version": "LuaJIT", "path": ["?.lua", "?/init.lua", "lua/?.lua", "lua/?/init.lua"]},
+            "workspace": {"checkThirdParty": False, "maxPreload": 20000, "preloadFileSize": 2000},
+            "diagnostics": {"enable": False}, "telemetry": {"enable": False}}})
     if lang == "clojure":
         edn = open(os.path.join(root, "deps.edn")).read()
         paths = re.findall(r'"([^"]+)"', " ".join(re.findall(r":(?:extra-)?paths\s*\[([^\]]*)\]", edn)))
@@ -681,8 +834,8 @@ def locs(res):
     return out
 
 
-def oracle(lang, root, cursors, out, warm=0):
-    rows = [l.rstrip("\n").split("\t") for l in open(cursors) if not l.startswith("#")]
+def oracle(lang, project, root, cursors, out, warm=0):
+    rows = [r for r in (l.rstrip("\n").split("\t") for l in open(cursors) if not l.startswith("#")) if r[1] == project]
     if not os.path.exists(out):
         with open(out, "w") as fh:
             fh.write("# id\ttargets: path:line joined by ; (project-relative; ~/ or / outside the project;"
@@ -708,9 +861,9 @@ def short(p, root):
 
 def oracle_run(lang, root, rows, out, warm):
     s = server(lang, root)
-    for r in rows[:5]:
+    for r in rows[:0 if lang == "bash" else 5]:
         p = os.path.join(root, r[2]); s.open(p, LANG_ID.get(os.path.splitext(p)[1], lang))
-    s.settle(quiet=8 if lang in ("rust", "c", "cpp", "objc", "swift", "php") else 3)
+    s.settle(quiet=8 if lang in ("rust", "c", "cpp", "objc", "swift", "php", "bash", "lua") else 3)
     if warm:
         s.pump(warm)
     with open(out, "a") as fh:
@@ -740,23 +893,27 @@ def oracle_run(lang, root, rows, out, warm):
     s.p.kill()
 
 
-def project(lang):
-    for l in open(os.path.join(HERE, "projects.tsv")):
-        r = l.rstrip("\n").split("\t")
-        if r[1] == lang:
-            return r[0], os.path.join(CACHE, r[0])
-    raise SystemExit(f"no project for {lang}")
+def projects(lang):
+    rows = [l.rstrip("\n").split("\t") for l in open(os.path.join(HERE, "projects.tsv")) if not l.startswith("#")]
+    found = [(r[0], os.path.realpath(os.path.join(CACHE, r[0]))) for r in rows if r[1] == lang]
+    if not found:
+        raise SystemExit(f"no project for {lang}")
+    return found
 
 
 if __name__ == "__main__":
     a = sys.argv[1:]
-    name, root = project(a[1])
-    root = os.path.realpath(root)
+    lang = a[1]
+    cursors, answers = (os.path.join(HERE, d, f"{lang}.tsv") for d in ("cursors", "answers"))
     if a[0] == "sample":
         ex = a[a.index("--exclude") + 1].split(",") if "--exclude" in a else ()
-        sample(a[1], name, root, int(a[2]), os.path.join(HERE, "cursors", f"{a[1]}.tsv"), ex)
+        rows = [(name, *c) for name, root in projects(lang) for c in sample(lang, name, root, int(a[2]), ex)]
+        with open(cursors, "w") as fh:
+            fh.write("# id\tproject\tfile\tline\tcol (0-based)\tshape\tword\n")
+            for i, (name, rel, ln, col, sh, w) in enumerate(rows):
+                fh.write(f"{lang}{i:04d}\t{name}\t{rel}\t{ln}\t{col}\t{sh}\t{w}\n")
     elif a[0] == "oracle":
-        oracle(a[1], root, os.path.join(HERE, "cursors", f"{a[1]}.tsv"),
-               os.path.join(HERE, "answers", f"{a[1]}.tsv"))
+        for name, root in projects(lang):
+            oracle(lang, name, root, cursors, answers)
     else:
         raise SystemExit(__doc__)

@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 29 real projects pinned to a
-commit: 6,069 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 33 real projects pinned to a
+commit: 6,288 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -59,8 +59,9 @@ Never in merl, never in CI. The servers go into a scratch directory:
 tools/d-bench/run --project koel                # clone and install the project first
 tools/d-bench/install-servers.sh                # pyright, typescript-language-server with typescript@6,
                                                 # intelephense, the Vue, Svelte and Astro servers,
-                                                # @nomicfoundation/solidity-language-server, gopls,
-                                                # rust-analyzer, starpls, LanguageServer.jl
+                                                # @nomicfoundation/solidity-language-server,
+                                                # bash-language-server, gopls, rust-analyzer, starpls,
+                                                # lua-language-server, LanguageServer.jl
 tools/d-bench/record.py sample php 300          # -> cursors/php.tsv (seeded: the same cursors again)
 tools/d-bench/record.py oracle php              # -> answers/php.tsv, resumes where it stopped
 ```
@@ -172,6 +173,32 @@ the name a defining form introduces; a word right after `(` is a `call`, after `
   libraries), the builtins and a primitive chibi implements only in C are `no-answer`; a generic
   function's answer is its `defgeneric` and every method. `sample` reads files with `newline=""`
   since magit-diff.el holds a lone CR, which Python would count as a line break and merl does not.
+
+## Bash and Lua, 2026-10-18
+
+Two projects each (#1091); the row adds them up. `record.py sample bash 55` and `sample lua 55`
+draw the same cursors again: 56 in bats-core, 50 in acme.sh (whose `source` lines name only
+variables, so no `path` cursor) and 55 in each Lua project.
+
+- **bash** (bats-core, acme.sh): bats-core's libraries, `.bats` tests and extensionless `libexec/`
+  scripts (found by their `#!` line), and acme.sh's main script with the `dnsapi/`, `deploy/` and
+  `notify/` plugins it sources. `sample` keeps `$name` inside double quotes, skips builtins and
+  common commands, and takes the last segment of a `source` path as a `path` cursor; three more on
+  the `source` lines of bats-core's `.bash` files were added by hand. bash-language-server 5.8.1,
+  default settings, answers within a file and the files it sources by a static path. It analyzes a
+  file only if it opens after the server has initialized, so `oracle` opens none before it settles.
+  Where it found nothing, 33 answers were read from the code (`judged` in the note), 18 of them a
+  plugin's call into acme.sh, which sources the plugin. A variable set outside the project
+  (`OSTYPE`, `ME_Secret`) is `no-answer`. `skip`: 4 sampler misses (a `case` label, words inside a
+  multi-line string), a formatter function each formatter script defines (which one runs is a
+  runtime choice), an executable on `PATH` and a variable's name used as an array element.
+- **lua** (nvim-treesitter, kong): nvim-treesitter's `lua/`, `plugin/` and `scripts/`, and kong's
+  `kong/`. lua-language-server 3.19.2, LuaJIT with `lua/?.lua` on the path. An answer in its own
+  stubs (`type`, `assert`, `require`) is `skip`, as `lib.dom.d.ts` is for TypeScript: 19 rows.
+  Where it adds its stub to a file's own `local type = type`, only the local stays (8 rows,
+  `reviewed:`). Two answers into kong's `spec/` mocks are `skip`. Its 26 empty answers, mostly
+  members of Neovim's `vim` and OpenResty's `ngx` (no stubs for them here) and fields of tables
+  built at runtime, are `no-answer`.
 
 ## History
 
