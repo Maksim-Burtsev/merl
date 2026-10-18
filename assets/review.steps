@@ -83,7 +83,8 @@ key Escape
 sleep 0.3
 
 # the tests, read whole: Ctrl+D brings the class to the top, Ctrl+D again shows its last test;
-# c on the last hunk says the review is done and ticks the last file
+# c stands on the hunk's last row not drawn yet (#908), then says the review is done and ticks
+# the last file
 key c
 wait file 3/3
 sleep 1.0
@@ -91,6 +92,8 @@ key C-d
 sleep 2.4
 key C-d
 sleep 2.8
+key c
+sleep 1.0
 key c
 wait last hunk of the review
 sleep 2.4
