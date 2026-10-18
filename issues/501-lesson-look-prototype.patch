@@ -1,0 +1,140 @@
+diff --git a/src/main.rs b/src/main.rs
+index b95b98ab..3d60b672 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -495,6 +495,9 @@ impl Watching {
+         app: &mut App,
+         k: ratatui::crossterm::event::KeyEvent,
+     ) -> ControlFlow<(), bool> {
++        if k.kind == ratatui::crossterm::event::KeyEventKind::Press {
++            ui::card_seen();
++        }
+         if app.key(k) {
+             return ControlFlow::Break(());
+         }
+diff --git a/src/ui/mod.rs b/src/ui/mod.rs
+index 9cba9130..9b49544e 100644
+--- a/src/ui/mod.rs
++++ b/src/ui/mod.rs
+@@ -39,7 +39,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+     frame.render_widget(Block::new().style(base), area);
+ 
+     let panel = lesson_panel(app, theme, area.width, base);
+-    let lesson_h = panel.as_ref().map_or(0, |p| {
++    let card = card_up(app);
++    let lesson_h = panel.as_ref().filter(|_| !card).map_or(0, |p| {
+         u16::try_from(p.line_count(area.width))
+             .unwrap_or(u16::MAX)
+             .max(3)
+@@ -84,7 +85,20 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+         pane(app);
+     }
+     if let Some(panel) = panel {
+-        frame.render_widget(panel, lesson);
++        if card {
++            let w = area.width.saturating_sub(8).min(76);
++            let h = u16::try_from(panel.line_count(w)).unwrap_or(u16::MAX);
++            let [r] = Layout::horizontal([Constraint::Length(w)])
++                .flex(ratatui::layout::Flex::Center)
++                .areas(main);
++            let [r] = Layout::vertical([Constraint::Length(h)])
++                .flex(ratatui::layout::Flex::Center)
++                .areas(r);
++            frame.render_widget(ratatui::widgets::Clear, r);
++            frame.render_widget(panel, r);
++        } else {
++            frame.render_widget(panel, lesson);
++        }
+     }
+     draw_status(frame, app, theme, status);
+     draw_overlays(frame, app, theme, (area, main), base);
+@@ -204,3 +218,20 @@ pub(super) fn tagged<'a>(out: &mut Vec<Span<'a>>, s: &'a str, style: Style, tag:
+         out.push(Span::styled(expand(rest), style));
+     }
+ }
++
++pub static CARD_SHOWN: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
++pub static CARD_SEEN: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
++
++pub fn card_seen() {
++    let shown = CARD_SHOWN.lock().map(|s| s.clone()).unwrap_or_default();
++    if let Ok(mut seen) = CARD_SEEN.lock() {
++        *seen = shown;
++    }
++}
++
++fn card_up(app: &App) -> bool {
++    std::env::var("MERL_P501").as_deref() == Ok("d")
++        && app.tutor.is_some()
++        && CARD_SHOWN.lock().map(|s| s.clone()).unwrap_or_default()
++            != CARD_SEEN.lock().map(|s| s.clone()).unwrap_or_default()
++}
+diff --git a/src/ui/overlays.rs b/src/ui/overlays.rs
+index 0a0c968b..2ca797aa 100644
+--- a/src/ui/overlays.rs
++++ b/src/ui/overlays.rs
+@@ -738,14 +738,59 @@ pub(super) fn lesson_panel(
+             crate::tutor::ALL_LESSONS_DONE,
+         ),
+     };
++    if let Ok(mut s) = super::CARD_SHOWN.lock() { s.clone_from(&title); }
+     let pad = (width as usize).saturating_sub(wrap::width(&title));
+     let head = Style::new()
+         .bg(theme.status_bg)
+         .fg(theme.status_fg)
+         .add_modifier(Modifier::BOLD);
+-    let lines = vec![
+-        Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
+-        Line::from(Span::styled(format!(" {text}"), base)),
+-    ];
+-    Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(base))
++    let float = theme
++        .groups
++        .get("NormalFloat")
++        .and_then(|s| s.bg)
++        .unwrap_or(theme.status_bg);
++    let opt = std::env::var("MERL_P501").unwrap_or_default();
++    let border = base.fg(theme.ghost_fg);
++    match opt.as_str() {
++        "a" => {
++            let band = base.bg(theme.line_hl);
++            let block = Block::new()
++                .title(Span::styled(format!("{title}{}", " ".repeat(pad)), head))
++                .padding(ratatui::widgets::Padding::new(2, 2, 0, 1))
++                .style(band);
++            let lines = vec![Line::from(Span::styled(text.to_owned(), band))];
++            Some(
++                Paragraph::new(lines)
++                    .wrap(Wrap { trim: true })
++                    .style(band)
++                    .block(block),
++            )
++        }
++        "b" | "c" | "d" => {
++            let style = if opt != "b" { base.bg(float) } else { base };
++            let block = Block::bordered()
++                .border_type(ratatui::widgets::BorderType::Rounded)
++                .border_style(border.bg(style.bg.unwrap_or(theme.bg)))
++                .title(Span::styled(
++                    format!("{} ", title),
++                    style.add_modifier(Modifier::BOLD),
++                ))
++                .padding(if opt == "d" && super::CARD_SEEN.lock().map(|s| *s != title).unwrap_or(false) { ratatui::widgets::Padding::new(2, 2, 1, 1) } else { ratatui::widgets::Padding::horizontal(1) })
++                .style(style);
++            let lines = vec![Line::from(Span::styled(text.to_owned(), style))];
++            Some(
++                Paragraph::new(lines)
++                    .wrap(Wrap { trim: true })
++                    .style(style)
++                    .block(block),
++            )
++        }
++        _ => {
++            let lines = vec![
++                Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
++                Line::from(Span::styled(format!(" {text}"), base)),
++            ];
++            Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(base))
++        }
++    }
+ }
