@@ -39,9 +39,11 @@ assets/tapes/record.py plus a few verbs of its own:
     type TEXT          the characters: at once here, one keystroke each in a GIF
     sleep S            seconds, at most 0.3: the waits do the syncing
     run CMD            a shell command in the project, before the next step: the agent in the next
-                       split, or a check of the bytes on disk; a non-zero exit fails the scenario.
-                       $SMOKE_TMUX is the tmux command of merl's pane: `$SMOKE_TMUX show-buffer`
-                       holds what OSC 52 copied
+                       split; a non-zero exit fails the scenario. $SMOKE_TMUX is the tmux
+                       command of merl's pane: `$SMOKE_TMUX show-buffer` holds what OSC 52 copied
+    check CMD          a run that only reads what merl wrote (the bytes on disk, the pane, the
+                       clipboard): a non-zero exit runs it again until it exits 0, for 10 s, as
+                       a wait waits, so it never reads a file before merl has saved it (#1033)
     size WxH           the pane's size: before the first `merl`, the size it starts at
     time               the next wait is a timed step: three samples on each build, the fastest kept
     caption TEXT       skipped here; --gif draws it under the screen from then on, over the step
@@ -117,7 +119,7 @@ LEGEND = [("PASS", "every checkpoint the same on both builds"),
           ("CRASH", "merl died: a panic (101) or a signal, named"),
           ("EXIT", "merl exited with another status, on its own or on q"),
           ("HUNG", "merl did not quit on q"),
-          ("RUN", "a `run` step failed: wrong bytes on disk, or the agent's command"),
+          ("RUN", "a `run` or `check` step failed: wrong bytes on disk, or the agent's command"),
           ("ERROR", "the runner failed, not merl: rerun, fix run.py if it comes back")]
 THEMES = ((None, None), ("github-light", "GitHub Light Default"))
 NEVER_SHOWN = "(never shown)"
@@ -300,7 +302,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None, slot=0, met
             step = f"{where} `{verb} {arg}`"
             if rec and not rec.thread and pane and verb not in ("wait", "sleep", "caption"):
                 rec.start(pane)
-            if pane and not gone and verb in ("merl", "key", "type", "run") and (s := pane.dead()) is not None:
+            if pane and not gone and verb in ("merl", "key", "type", "run", "check") and (s := pane.dead()) is not None:
                 r["status"] = f"{died(s)} before {step}"
                 keep_dead()
                 break
@@ -369,12 +371,21 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None, slot=0, met
                 last_key = time.monotonic()
             elif verb == "sleep":
                 time.sleep(float(arg) if rec else min(float(arg), SLEEP_CAP))
-            elif verb == "run":
+            elif verb in ("run", "check"):
                 if rec:
-                    rec.step = f"run {arg[:90]}"
+                    rec.step = f"{verb} {arg[:90]}"
                 env = {**os.environ, **AGENT, "HOME": home,
                        "SMOKE_TMUX": f"tmux -L {pane.sock} -f /dev/null"}
-                out = subprocess.run(arg, shell=True, cwd=cwd, env=env, capture_output=True, text=True)
+                end = time.monotonic() + (TIMEOUT if verb == "check" else 0)
+                while (out := subprocess.run(arg, shell=True, cwd=cwd, env=env, capture_output=True,
+                                             text=True)).returncode and time.monotonic() < end:
+                    if not gone and (s := pane.dead()) is not None:
+                        r["status"] = f"{died(s)} at {step}"
+                        keep_dead()
+                        break
+                    time.sleep(POLL)
+                if r["status"] != "ok":
+                    break
                 if out.returncode:
                     said = (out.stdout + out.stderr).strip()[-300:]
                     r["status"] = f"RUN {out.returncode} at {step}: {said}"
@@ -858,6 +869,10 @@ SELFTEST = {
     "fail": ("merl\nwait ready\nwait never\n", {}, {}, "FAIL", "FAIL at fail.steps:3"),
     "hung": ("merl\nwait ready\n", {"q": ":"}, {}, "HUNG", "HUNG on q"),
     "run": ("merl\nwait ready\nrun test -e nowhere\n", {}, {}, "RUN", "RUN 1 at"),
+    "run-once": ("merl\nwait ready\nrun test -e saved || ! touch saved\n", {}, {}, "RUN", "RUN 1 at"),
+    "check": ("merl\nwait ready\ncheck test -e saved || ! touch saved\n", {}, {}, "PASS", ""),
+    "check-dies": ("merl\nwait ready\nkey d\ncheck test -e nowhere\n", {"d": "sleep 0.2; kill -ABRT $$;"}, {},
+                   "CRASH", "CRASH SIGABRT at"),
     "semicolon": ("merl\nwait ready\ntype x;;\nwait ;;\n", {}, {}, "PASS", ""),
     "end": ("merl\nwait ready\nsize 60x10\n" + DIE, {}, {}, "EXIT", "EXIT 3 after its last step"),
     "restart": ("merl\nwait ready\n" + DIE + "merl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),
@@ -913,6 +928,7 @@ def selftest():
         results[name] = r
         print(f"{name:8} new {r['new']['status']}", flush=True)
     assert results["short"]["old"]["seconds"] < TIMEOUT / 2, f"the old build waited {results['short']['old']}"
+    assert results["check-dies"]["new"]["seconds"] < TIMEOUT / 2, f"a check outlived merl: {results['check-dies']['new']}"
     report_dir(out)
     for name in results:
         os.makedirs(os.path.join(out, name))
