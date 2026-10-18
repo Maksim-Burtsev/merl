@@ -38,7 +38,7 @@ wait 2/14
 │                            │36 ## 1.4.0
 │                            │37
 │                            │38 - How to run the API on your machine: [the README](../README.md#orders).
-│                            │
+│                            │39 - The same setup, as the agents read it: @../README.md
 │                            │
 │                            │
 │                            │

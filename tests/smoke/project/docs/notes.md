@@ -36,3 +36,4 @@
 ## 1.4.0
 
 - How to run the API on your machine: [the README](../README.md#orders).
+- The same setup, as the agents read it: @../README.md

@@ -82,3 +82,11 @@ key /
 type "id":3000,
 key Enter
 wait data/orders.min.json  1:503785
+# `d` on an `@path` import opens the file it names, read from the file's own folder (#1016).
+merl docs/notes.md
+wait # Release notes for the support team
+key /
+type @../
+key Enter
+key d
+wait import README.md

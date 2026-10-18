@@ -37,6 +37,7 @@ wait - ✔️ Cancelled orders show the reason the customer gave, under the tota
 36 ## 1.4.0
 37
 38 - How to run the API on your machine: [the README](../README.md#orders).
+39 - The same setup, as the agents read it: @../README.md
 
 
 
@@ -52,6 +53,5 @@ wait - ✔️ Cancelled orders show the reason the customer gave, under the tota
 
 
 
-
-docs/notes.md  38:46  [code]                                                                                                                                                       14:32
-cursor (x,y,shown) 48,37,0
+docs/notes.md  39:46  [code]                                                                                                                                                       14:32
+cursor (x,y,shown) 48,38,0
