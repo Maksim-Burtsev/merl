@@ -214,6 +214,19 @@ impl App {
             self.python_reachable(a, &mut hits);
         }
         self.swift_implicit(a, &mut hits);
+        if kind == Kind::Swift
+            && dotted
+            && chain.first().is_some_and(|f| f != "self" && f != "super")
+            && chain
+                .iter()
+                .all(|n| n.starts_with(|c: char| c.is_lowercase() || c.is_ascii_digit()))
+        {
+            hits.retain(|h| {
+                !search::swift_case(&h.text)
+                    && search::swift_member_kind(&h.text)
+                        != Some(search::SwiftMember::StaticOrClass)
+            });
+        }
         if kind == Kind::Swift && !dotted && chain.is_empty() {
             self.swift_nested_unseen(&mut hits);
         }
@@ -319,7 +332,8 @@ impl App {
                 .collect();
             if implicit && !kept.is_empty() {
                 *hits = kept;
-            } else if implicit && !(lead.is_empty() && search::swift_continues(&a.text, self.line)) {
+            } else if implicit && !(lead.is_empty() && search::swift_continues(&a.text, self.line))
+            {
                 hits.retain(|h| !search::swift_instance_member(&h.text));
             }
         }

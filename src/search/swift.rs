@@ -16,7 +16,7 @@ static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 });
 static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
-        r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w]",
+        r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w\[]",
         swift_mods!()
     ))
     .expect("the regex is a literal")
@@ -275,6 +275,26 @@ pub fn swift_continues(text: &str, line0: usize) -> bool {
                 .is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
         });
     !keyword && code.ends_with(|c: char| c.is_alphanumeric() || "_)]}?!\">".contains(c))
+}
+pub fn swift_extended(line: &str) -> Option<String> {
+    static EXTENDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}extension\s+(\[[^\]]*\]|[\w.]+)",
+            swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    EXTENDED
+        .captures(&uncommented(Kind::Swift, line))
+        .map(|c| c[1].to_owned())
+}
+pub fn swift_outside_name(written: &str) -> Option<String> {
+    let t = written.trim().trim_end_matches(['?', '!']);
+    if t.starts_with('[') && t.ends_with(']') {
+        let array = swift_element(t).is_some();
+        return Some(if array { "Array" } else { "Dictionary" }.to_owned());
+    }
+    swift_type_name(t).filter(|n| n.starts_with(char::is_uppercase))
 }
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
