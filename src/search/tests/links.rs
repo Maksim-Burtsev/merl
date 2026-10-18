@@ -5,6 +5,29 @@ fn at(text: &str, on: &str) -> MdAt {
 }
 
 #[test]
+fn an_import_runs_from_its_at_sign_to_the_first_unescaped_space() {
+    let import = |s: &str| MdAt::Import(s.into());
+    let text = "@AGENTS.md\nSee @docs/my\\ notes.md here, \t@up.md and @../x.md.\n";
+    assert_eq!(at(text, "@AGENTS"), import("AGENTS.md"));
+    assert_eq!(at(text, "S.md"), import("AGENTS.md"));
+    assert_eq!(at(text, "notes"), import("docs/my notes.md"));
+    assert_eq!(at(text, "@docs"), import("docs/my notes.md"));
+    assert_eq!(at(text, "@up"), import("up.md"));
+    assert_eq!(at(text, "../x"), import("../x.md."));
+    assert_eq!(at(text, " here"), MdAt::Nothing);
+    assert_eq!(at(text, " @docs"), MdAt::Nothing);
+    let text = "Mail me@example.com, `@a.md`, [@b.md](c.md), ![@d.md](e.png)\n\n```\n@f.md\n```\n\n    @g.md\n\n<!-- @h.md -->\n";
+    assert_eq!(at(text, "@example"), MdAt::Nothing);
+    assert_eq!(at(text, "example"), MdAt::Nothing);
+    assert_eq!(at(text, "@a.md"), MdAt::Code("@a.md".into()));
+    assert_eq!(at(text, "@b.md"), MdAt::Link("c.md".into()));
+    assert_eq!(at(text, "@d.md"), MdAt::Nothing);
+    assert_eq!(at(text, "@f.md"), MdAt::Nothing);
+    assert_eq!(at(text, "@g.md"), MdAt::Nothing);
+    assert_eq!(at(text, "@h.md"), MdAt::Nothing);
+}
+
+#[test]
 fn a_link_is_read_whole_from_its_text_its_target_or_its_definition() {
     let link = |s: &str| MdAt::Link(s.into());
     let text =

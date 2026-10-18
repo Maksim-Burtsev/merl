@@ -18,7 +18,29 @@ impl App {
         match search::markdown_at(&lines.join("\n"), at) {
             MdAt::Link(target) => self.follow_link(here, &target),
             MdAt::Code(span) => self.follow_code_path(here, &span),
+            MdAt::Import(path) => self.follow_import(here, &path),
             MdAt::Nothing => self.message = "no link here".into(),
+        }
+    }
+
+    fn follow_import(&mut self, here: &Path, path: &str) {
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
+        let rel = if path.starts_with(['~', '/']) {
+            None
+        } else {
+            in_project(dir, path)
+        };
+        let Some(rel) = rel else {
+            self.message = "import outside the project".into();
+            return;
+        };
+        let full = self.root.join(&rel);
+        if full.is_dir() {
+            self.say_about(&full, "/: a directory");
+        } else if full.is_file() {
+            self.open_link(&full, 1, format!("import {}", rel.display()));
+        } else {
+            self.message = format!("no file {}", rel.display());
         }
     }
 

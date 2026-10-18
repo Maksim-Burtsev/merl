@@ -1380,6 +1380,41 @@ fn markdown_links_outside_to_a_directory_and_to_a_spaced_name() {
 }
 
 #[test]
+fn an_import_opens_from_the_file_it_is_in_and_says_where_it_cannot() {
+    let (dir, mut a) = project_app(
+        "markdown-import",
+        &[
+            (
+                "docs/CLAUDE.md",
+                "@AGENTS.md\n@my\\ notes.md @../README.md @../docs @~/.claude/x.md @/etc/hosts @../../out.md\n",
+            ),
+            ("docs/AGENTS.md", "# Agents\n"),
+            ("docs/my notes.md", "# Notes\n"),
+            ("README.md", "# Readme\n"),
+        ],
+    );
+    d_on(&mut a, "docs/CLAUDE.md", "|@AGENTS");
+    assert_eq!(
+        shown(&mut a),
+        jump("import docs/AGENTS.md", "docs/AGENTS.md:1")
+    );
+    d_on(&mut a, "docs/CLAUDE.md", "@my\\ no|tes");
+    assert_eq!(
+        shown(&mut a),
+        jump("import docs/my notes.md", "docs/my notes.md:1")
+    );
+    d_on(&mut a, "docs/CLAUDE.md", "@../READ|ME");
+    assert_eq!(shown(&mut a), jump("import README.md", "README.md:1"));
+    d_on(&mut a, "docs/CLAUDE.md", "@../do|cs");
+    assert_eq!(a.message, "docs/: a directory");
+    for word in ["@~/.cl|aude", "@/et|c", "@../../o|ut"] {
+        d_on(&mut a, "docs/CLAUDE.md", word);
+        assert_eq!(a.message, "import outside the project", "{word}");
+    }
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn a_c_member_the_project_lacks_is_a_field_outside() {
     let (dir, mut a) = project_app(
         "c-field-outside",

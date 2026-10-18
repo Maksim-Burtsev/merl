@@ -123,3 +123,27 @@ Inline <!-- [README](../README.md) --> too.
 ## Local heading
 
 The end.
+
+An `@path` import, read as Claude Code reads it, from this file's folder (#1016):
+
+@guide.md
+#^ d: docs/guide.md:1
+# status: import docs/guide.md
+See @../README.md and @nope.md, not `@guide.md`, nor me@guide.md.
+#    ^ d: README.md:1
+# status: import README.md
+See @../README.md and @nope.md, not `@guide.md`, nor me@guide.md.
+#                     ^ d: none
+# status: no file docs/nope.md
+See @../README.md and @nope.md, not `@guide.md`, nor me@guide.md.
+#                                    ^ d: none
+# status: no link here
+See @../README.md and @nope.md, not `@guide.md`, nor me@guide.md.
+#                                                      ^ d: none
+# status: no link here
+
+```markdown
+@guide.md
+#^ d: none
+# status: no link here
+```

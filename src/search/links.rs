@@ -8,6 +8,7 @@ use regex::Regex;
 pub enum MdAt {
     Link(String),
     Code(String),
+    Import(String),
     Nothing,
 }
 
@@ -41,6 +42,7 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         .map(|(_, d)| (d.span.clone(), d.dest.to_string()))
         .collect();
     let mut found = MdAt::Nothing;
+    let (mut prose, mut literal) = (false, false);
     for (ev, r) in parser.into_offset_iter() {
         if !r.contains(&at) {
             continue;
@@ -59,10 +61,15 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
                     _ => dest_url.to_string(),
                 });
             }
-            Event::Start(Tag::Image { .. }) => found = MdAt::Nothing,
+            Event::Start(Tag::Image { .. }) => {
+                found = MdAt::Nothing;
+                literal = true;
+            }
+            Event::Start(Tag::CodeBlock(_)) => literal = true,
             Event::Code(code) if !matches!(found, MdAt::Link(_)) => {
                 found = MdAt::Code(code.to_string());
             }
+            Event::Text(_) => prose = true,
             _ => {}
         }
     }
@@ -75,7 +82,29 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
     HREF.captures_iter(text)
         .find(|c| c.get(0).is_some_and(|m| m.range().contains(&at)))
         .and_then(|c| c.get(1).or_else(|| c.get(2)))
-        .map_or(MdAt::Nothing, |m| MdAt::Link(m.as_str().to_owned()))
+        .map_or_else(
+            || {
+                if prose && !literal {
+                    import_at(text, at)
+                } else {
+                    MdAt::Nothing
+                }
+            },
+            |m| MdAt::Link(m.as_str().to_owned()),
+        )
+}
+
+fn import_at(text: &str, at: usize) -> MdAt {
+    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)(?:^|\s)@((?:[^\s\\]|\\ )+)").expect("the regex is a literal")
+    });
+    IMPORT
+        .captures_iter(text)
+        .filter_map(|c| c.get(1))
+        .find(|p| p.start() <= at + 1 && at < p.end())
+        .map_or(MdAt::Nothing, |p| {
+            MdAt::Import(p.as_str().replace("\\ ", " "))
+        })
 }
 
 pub(super) fn markdown_literal_lines(text: &str) -> Vec<bool> {
