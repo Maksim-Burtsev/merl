@@ -25,7 +25,8 @@ the page never asks for a file that is not there yet.
 - **Crop to the change**, on whole terminal rows, with the same box for now and every option so
   they line up: `Image.open(png).crop(box)`. A whole 160×50 screen is too small to read.
 - **A screencast is an MP4**, converted from the GIF:
-  `ffmpeg -i X.gif -movflags +faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -crf 20 X.mp4`;
+  `ffmpeg -i X.gif -movflags +faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2,tpad=stop_mode=clone:stop_duration=3" -c:v libx264 -crf 20 X.mp4`
+  (the `tpad` holds the last frame for 3 s: without it the end screen barely shows);
   `dur` is `ffprobe -v error -show_entries format=duration -of csv=p=0 X.mp4`.
 - **The same screen at the end of every option** (they differ only in the keys): one `result`
   still for the card, and each option carries its `keys` instead of a picture.
