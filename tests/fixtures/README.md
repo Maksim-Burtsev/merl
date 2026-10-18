@@ -248,7 +248,7 @@ a class in another, where the picker stays (#1019); `wrap.cc` writes `tidy::Napk
 body holds no parameter (#1020); `brew.hh`'s prototype stays apart from the definition in
 `brew_hidden.hh`, which the file does not include, and joins the one in `brew_impl.hh`, which it
 does; an out-of-class `operator()` keeps its parameters.
-`sieve.cc` reads the parameters of operators, in and out of their class (#1029).
+`sieve.cc` reads the parameters of operators, in and out of their class, and a member of the class inside an operator before a global namesake; a call inside a free operator in a namespace keeps its picker (#1029).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).

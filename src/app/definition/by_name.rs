@@ -424,7 +424,7 @@ impl App {
             .iter()
             .any(|h| h.path == a.here && h.line1 == self.line + 1);
         let hits = {
-            let by_macro = self.c_static_by_macro(&hits);
+            let by_macro = self.c_static_by_macro(&a.here, &hits);
             search::c_file_local(
                 word,
                 &a.here,
