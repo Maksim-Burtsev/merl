@@ -601,10 +601,11 @@ impl App {
         let [hit] = hits.as_slice() else {
             return None;
         };
-        if hit.text.trim_start().starts_with('*') {
-            return None;
-        }
-        let written = search::php_written_type(&hit.text, field)?;
+        let written = if hit.text.trim_start().starts_with('*') {
+            search::php_tag_type(&hit.text, field)?
+        } else {
+            search::php_written_type(&hit.text, field)?
+        };
         let text = self.text_of(&hit.path)?;
         self.php_type(&hit.path, &text, hit.line1 - 1, &written)
     }

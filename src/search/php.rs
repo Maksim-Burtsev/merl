@@ -707,6 +707,24 @@ pub fn php_written_type(line: &str, name: &str) -> Option<String> {
         .then(|| written.to_owned())
 }
 
+pub fn php_tag_type(line: &str, name: &str) -> Option<String> {
+    static TAG: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*\*\s*@property(?:-read|-write)?\s+(\S+)\s+\$(\w+)\b")
+            .expect("the regex is a literal")
+    });
+    let c = TAG.captures(line).filter(|c| &c[2] == name)?;
+    let mut types = c[1]
+        .split('|')
+        .map(|t| t.trim_start_matches('?'))
+        .filter(|t| !t.eq_ignore_ascii_case("null"));
+    let written = types.next().filter(|_| types.next().is_none())?;
+    let short = written.rsplit('\\').next().unwrap_or(written);
+    (!short.is_empty()
+        && written.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '\\')
+        && !NO_CLASS.contains(&short.to_ascii_lowercase().as_str()))
+    .then(|| written.to_owned())
+}
+
 pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     static NEW: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^new\s+([\w\\]+)\s*").expect("the regex is a literal"));

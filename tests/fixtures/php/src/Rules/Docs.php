@@ -18,6 +18,6 @@ class Docs
         $f = $this->framed();
         return $f->shine() . $this->glass->shine();
         //         ^ d: picker src/Rules/Doubled.php:7, src/Rules/DoubledAgain.php:7, src/Rules/Frame.php:7
-        //                                 ^ d: picker src/Rules/Doubled.php:7, src/Rules/DoubledAgain.php:7, src/Rules/Frame.php:7
+        //                                 ^ d: src/Rules/Frame.php:7
     }
 }
