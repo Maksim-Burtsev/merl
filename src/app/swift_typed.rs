@@ -309,17 +309,26 @@ impl App {
         self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 
+    fn swift_type(&self, here: &Path, written: &str) -> Option<SwiftType> {
+        self.swift_type_through(here, written, true)
+    }
+
     #[expect(
         clippy::match_same_arms,
         reason = "a guarded arm sits between the two; merging them would move one past it"
     )]
-    fn swift_type(&self, here: &Path, written: &str) -> Option<SwiftType> {
+    fn swift_type_through(&self, here: &Path, written: &str, alias: bool) -> Option<SwiftType> {
         let name = search::swift_type_name(written)?;
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
         let mut decls = Vec::new();
         let mut extended = false;
+        let mut aliases = Vec::new();
         for h in self.project_definitions(Kind::Swift, here, &name, &pattern) {
             if !self.in_code(Kind::Swift, &h) {
+                continue;
+            }
+            if let Some(target) = search::swift_alias(&h.text, &name) {
+                aliases.push(target);
                 continue;
             }
             match search::swift_type_header(&h.text) {
@@ -334,6 +343,14 @@ impl App {
                 }
                 None => {}
             }
+        }
+        if let ([], false, [target]) = (decls.as_slice(), extended, aliases.as_slice()) {
+            return alias
+                .then(|| self.swift_type_through(here, target, false))
+                .flatten();
+        }
+        if !aliases.is_empty() {
+            return None;
         }
         match decls.as_slice() {
             [] if extended => Some(SwiftType {

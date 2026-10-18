@@ -87,3 +87,22 @@ func bundled(_ items: [Int]) -> Int {
     items.bundle
     //    ^ d: Sources/Shop/Outcomes.swift:81
 }
+
+// A receiver typed through a `typealias` reads the aliased type, one hop (#1053).
+struct Satchel<Contents, Fault> {
+    let unwrapped: Contents?
+}
+
+struct Envelope {
+    let unwrapped: Int
+}
+
+public typealias ShopSatchel<Contents> = Satchel<Contents, Error>
+typealias Posted = ShopSatchel<Int>
+
+func opened(_ satchel: ShopSatchel<Int>?, _ posted: Posted) -> Int? {
+    _ = posted.unwrapped
+    //         ^ d: picker Sources/Shop/Outcomes.swift:93, Sources/Shop/Outcomes.swift:97
+    return satchel?.unwrapped
+    //              ^ d: Sources/Shop/Outcomes.swift:93
+}

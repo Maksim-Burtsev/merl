@@ -288,6 +288,18 @@ pub fn swift_extended(line: &str) -> Option<String> {
         .captures(&uncommented(Kind::Swift, line))
         .map(|c| c[1].to_owned())
 }
+pub fn swift_alias(line: &str, name: &str) -> Option<String> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}typealias\s+`?(\w+)`?\s*(?:<[^=]*>)?\s*=\s*(.+?)\s*$",
+            swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, line);
+    let c = ALIAS.captures(&t)?;
+    (&c[1] == name).then(|| c[2].to_owned())
+}
 pub fn swift_outside_name(written: &str) -> Option<String> {
     let t = written.trim().trim_end_matches(['?', '!']);
     if t.starts_with('[') && t.ends_with(']') {

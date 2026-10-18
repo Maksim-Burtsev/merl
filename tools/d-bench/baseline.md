@@ -2,6 +2,7 @@
 
 merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the csharp row with the fixes of #935, `vm.loadavg` { 5.00 5.48 5.37 }; the other rows as in the night's second epic.
 The bash and lua rows (#1091): merl at `0e47807c`, 2026-10-18, release build, `vm.loadavg` { 4.68 5.99 6.51 } before the run and after.
+The swift row (#1053, branch `b1019/swift`): 2026-10-19, release build, `vm.loadavg` { 9.76 7.92 7.36 } before the run and after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -13,7 +14,7 @@ The bash and lua rows (#1091): merl at `0e47807c`, 2026-10-18, release build, `v
 | c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 24.7 | 33.3 |
 | cpp (leveldb) | 232 | 182 (78%) | 48 (21%) | 0 (0%) | 2 (1%) | 68 | 22.8 | 94.6 |
 | php (koel) | 104 | 99 (95%) | 5 (5%) | 0 (0%) | 0 (0%) | 196 | 13.8 | 25.9 |
-| swift (Alamofire) | 154 | 115 (75%) | 37 (24%) | 0 (0%) | 2 (1%) | 116 | 10.2 | 16.7 |
+| swift (Alamofire) | 154 | 118 (77%) | 34 (22%) | 0 (0%) | 2 (1%) | 116 | 16.4 | 32.2 |
 | java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |
 | kotlin (nowinandroid) | 34 | 34 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 46 | 26.5 | 55.9 |
 | csharp (eShop) | 27 | 25 (93%) | 2 (7%) | 0 (0%) | 0 (0%) | 53 | 18.0 | 28.9 |
