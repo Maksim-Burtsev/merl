@@ -23,7 +23,8 @@ impl App {
                 self.hist_note(true);
             }
         }
-        let stop = |f: &&git::ReviewFile| f.is_stop(&self.root, self.diagrams.on());
+        let stop =
+            |f: &&git::ReviewFile| !f.agent_skipped && f.is_stop(&self.root, self.diagrams.on());
         let unread = (self.review.as_ref()).and_then(|r| {
             r.files
                 .iter()
@@ -185,7 +186,7 @@ impl App {
         let ahead: Vec<_> = self
             .ahead(&r, dir)
             .into_iter()
-            .filter(|f| !ticked(f))
+            .filter(|f| !ticked(f) && !f.agent_skipped)
             .collect();
         for f in ahead {
             if !f.is_stop(&self.root, self.diagrams.on()) {

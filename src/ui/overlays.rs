@@ -125,7 +125,10 @@ pub(super) fn draw_tree(
                 let m = &app.tree.nodes[j];
                 need = need.max(used(app.review.as_ref(), m, m.depth) + wrap::width(&m.name()));
             }
-            let row = if n.ignored {
+            let skipped = (review.and_then(|r| r.file(&n.path)))
+                .is_some_and(|f| f.agent_skipped && !app.viewed.contains_key(&n.path));
+            let look = std::env::var("MERL_SKIP_LOOK").unwrap_or_default();
+            let row = if n.ignored || skipped && look != "robot" {
                 base.fg(theme.ghost_fg)
             } else if n.is_dir {
                 accent
@@ -140,10 +143,16 @@ pub(super) fn draw_tree(
                 row.bg(theme.line_hl_dim)
             };
             let noted = !n.is_dir && app.notes_in(&n.path) > 0;
-            let tick = tree_tick(app, &n.path, noted);
+            let tick = match look.as_str() {
+                _ if !skipped || noted => tree_tick(app, &n.path, noted),
+                "robot" | "robot-dim" => "\u{1f916}",
+                "tick" => "\u{2713} ",
+                _ => "  ",
+            };
+            let tick_fg = if skipped { theme.ghost_fg } else { theme.accent };
             let width = width.saturating_sub(wrap::width(tick));
             let mut spans = vec![
-                Span::styled(tick, style.fg(theme.accent)),
+                Span::styled(tick, style.fg(tick_fg)),
                 Span::styled("  ".repeat(depth), style),
             ];
             if let Some(f) = app.review.as_ref().and_then(|r| r.file(&n.path)) {

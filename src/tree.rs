@@ -192,6 +192,7 @@ impl Order {
             text.lines()
                 .map(str::trim)
                 .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .map(|l| l.strip_prefix("skip ").map_or(l, str::trim))
                 .filter_map(|l| {
                     Path::new(l.trim_start_matches("./"))
                         .strip_prefix(under)
@@ -217,6 +218,14 @@ impl Order {
     fn at(&self, path: &Path) -> usize {
         self.0.get(path).copied().unwrap_or(usize::MAX)
     }
+}
+
+pub fn skipped_in(file: &Path) -> HashSet<PathBuf> {
+    let text = std::fs::read_to_string(file).unwrap_or_default();
+    text.lines()
+        .filter_map(|l| l.trim().strip_prefix("skip "))
+        .map(|l| PathBuf::from(l.trim().trim_start_matches("./")))
+        .collect()
 }
 
 #[derive(Clone)]

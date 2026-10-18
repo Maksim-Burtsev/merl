@@ -188,6 +188,7 @@ pub struct ReviewFile {
     pub untracked: bool,
     pub generated: bool,
     pub same_bytes: bool,
+    pub agent_skipped: bool,
 }
 
 impl ReviewFile {
@@ -333,6 +334,16 @@ impl Review {
                 Path::new(""),
             ),
         };
+        let skipped = match (branch.as_str(), dirs(root)) {
+            _ if !crate::tree::orders_on() => Default::default(),
+            ("HEAD", _) | (_, None) => Default::default(),
+            (b, Some(dirs)) => crate::tree::skipped_in(
+                &dirs.common_refs_dir.join("merl").join("review").join(b),
+            ),
+        };
+        for f in &mut files {
+            f.agent_skipped = skipped.contains(&f.path);
+        }
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
         let patch = git(&[
             "-c",
@@ -757,6 +768,7 @@ fn untracked(root: &Path, path: &Path) -> ReviewFile {
         binary,
         untracked: true,
         generated: false,
+        agent_skipped: false,
         same_bytes: false,
     }
 }
@@ -906,6 +918,7 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
             binary: false,
             untracked: false,
             generated: false,
+            agent_skipped: false,
             same_bytes,
         });
     }
@@ -1365,6 +1378,7 @@ mod tests {
             binary: false,
             untracked: false,
             generated: false,
+            agent_skipped: false,
             same_bytes: false,
         };
         let (deleted, added) = changed_lines(Path::new("/nonexistent"), patch, &[file]);

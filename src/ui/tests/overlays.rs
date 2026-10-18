@@ -465,6 +465,7 @@ fn review_panel_counts_end_at_the_border() {
             binary: false,
             untracked: false,
             generated: false,
+            agent_skipped: false,
             same_bytes: false,
         }],
         deleted: Arc::default(),
@@ -519,6 +520,7 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             binary: true,
             untracked: false,
             generated: false,
+            agent_skipped: false,
             same_bytes: false,
         }],
         deleted: Arc::default(),
@@ -557,6 +559,7 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
                 binary: path.ends_with(".png"),
                 untracked: false,
                 generated: false,
+                agent_skipped: false,
                 same_bytes: false,
             })
             .collect(),

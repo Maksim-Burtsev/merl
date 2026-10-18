@@ -424,6 +424,7 @@ mod tests {
             binary: false,
             untracked: false,
             generated: false,
+            agent_skipped: false,
             same_bytes: false,
         };
         let review = git::Review {
