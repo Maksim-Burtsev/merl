@@ -19,4 +19,4 @@ struct Cmp {
 };
 
 bool Cmp::operator()(int pour) const { return pour > 0; }
-//                                            ^ d: picker src/tea/brew_line.cc:3, src/tea/brew_line.cc:5, src/tea/shelf.cc:10; want src/tea/brew_line.cc:21 (#1029)
+//                                            ^ d: src/tea/brew_line.cc:21

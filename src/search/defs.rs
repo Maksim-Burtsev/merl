@@ -473,6 +473,7 @@ pub fn c_file_local(
     here: &Path,
     here_text: &str,
     hits: Vec<Hit>,
+    by_macro: &std::collections::HashSet<(PathBuf, usize)>,
     text_of: impl Fn(&Path) -> Option<String>,
     cursor_on_candidate: bool,
 ) -> Vec<Hit> {
@@ -490,7 +491,10 @@ pub fn c_file_local(
         r"\b(?:struct|class|union|enum)\s+{macros}{w}\b|^\s*typedef\b"
     ))
     .expect("an escaped name keeps the pattern valid");
-    let local = |h: &Hit| STATIC.is_match(&h.text) && !ty.is_match(&h.text);
+    let local = |h: &Hit| {
+        (STATIC.is_match(&h.text) || by_macro.contains(&(h.path.clone(), h.line1)))
+            && !ty.is_match(&h.text)
+    };
     if !cursor_on_candidate && hits.iter().any(|h| h.path == here && local(h)) {
         return hits
             .into_iter()
