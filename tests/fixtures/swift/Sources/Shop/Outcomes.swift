@@ -106,3 +106,35 @@ func opened(_ satchel: ShopSatchel<Int>?, _ posted: Posted) -> Int? {
     return satchel?.unwrapped
     //              ^ d: Sources/Shop/Outcomes.swift:93
 }
+
+// Overloads that differ by a defaulted parameter or a trailing closure: the one the call fits (#1052).
+final class Turnstile {
+    func authorize(user: String, password: String, keep: Bool = true) -> Turnstile { self }
+    func authorize(with token: Int) -> Turnstile { self }
+    func announce(on queue: Int, calling handler: @escaping (String) -> Void) -> Turnstile { self }
+    func announce(calling handler: @escaping (String) -> Void) -> Turnstile { self }
+}
+
+func admit(_ gate: Turnstile) {
+    _ = gate.authorize(user: "a", password: "b")
+    //       ^ d: Sources/Shop/Outcomes.swift:112
+    _ = gate.announce { _ in }
+    //       ^ d: Sources/Shop/Outcomes.swift:115
+    _ = gate.announce(on: 1) { _ in }
+    //       ^ d: Sources/Shop/Outcomes.swift:114
+}
+
+func untyped(_ gates: [Turnstile]) {
+    gates.randomElement()!.authorize(user: "a", password: "b")
+    //                     ^ d: Sources/Shop/Outcomes.swift:112
+}
+
+func consign(
+    to place: String,
+    express: Bool = false
+) {}
+
+func consigned() {
+    consign(to: "dock", express: true)
+    //                  ^ d: Sources/Shop/Outcomes.swift:132
+}

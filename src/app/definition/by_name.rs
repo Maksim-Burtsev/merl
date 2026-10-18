@@ -44,6 +44,9 @@ impl App {
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
             self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
+            if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, &found) {
+                self.swift_by_labels(&a.word, a.range.end, &mut found);
+            }
         }
         if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
             self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
