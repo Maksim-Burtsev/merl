@@ -1,0 +1,11 @@
+# Limits per API key. A bucket holds up to the capacity below and gains
+# rate_per_minute / 60 tokens a second.
+
+[default]
+rate_per_minute = 600
+burst = 2
+
+# Partners that send their requests in batches.
+[overrides.key_live_9f2c41]
+rate_per_minute = 3000
+burst = 200

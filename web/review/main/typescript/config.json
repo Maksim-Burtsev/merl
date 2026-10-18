@@ -1,0 +1,6 @@
+{
+  "default": { "ratePerMinute": 600, "burst": 2 },
+  "overrides": {
+    "key_live_9f2c41": { "ratePerMinute": 3000, "burst": 200 }
+  }
+}

@@ -1531,11 +1531,14 @@ b";
         "deny.toml",
         "web/build.sh",
         "web/Cargo.toml",
+        "web/review",
     ];
     const SCRIPT_DATA: &[&str] = &[
         "tools/d-bench/answers",
         "tools/fold-bench/folds",
         "tools/themes-src",
+        "web/review/main",
+        "web/review/branch",
     ];
 
     fn script_files(root: &Path, name: &str, out: &mut Vec<String>) {
