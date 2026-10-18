@@ -1,6 +1,6 @@
 # tokyonight-moon: folke/tokyonight.nvim@cdc07ac78467a233fd62c493de29a17e0cf2b2b6 `colorscheme tokyonight-moon`; NVIM v0.12.5, nvim-treesitter 1a4f47b
-# palette a=c8d3f5 b=c3e88d c=65bcff d=82aaffb e=ffc777b f=82aaff g=ff966c h=ffc777 i=c8d3f5b j=c8d3f5i k=89ddff l=ff966cb m=c099ffb n=fca7eab o=4fd6be p=c3e88db q=4fd6beb r=828bb8 s=ffc777bi t=86e1fc u=589ed7 v=fca7eai w=c099ff
-blocks.md	1:d11 3:e16d6e3s10 5:p15 7:q15 9:m16 11:n16 13:d16 14:d18 16:e16 17:e18 19:a14i14aj10aj13a14f12a 20:a63c5a5 22:ga15i10a5 23:ga15 24:g 25:g2a13 27:g3 29:g3 31:b17 32:b14
-code.md	1:d11 3:a50 5:b3f6 6:t8 8:w3f5rh4ku3rk2u4k 9:h31 10:v6a2kf5rb2krgkg2rkw2k2bka4rk5c4 12:c5rbc2b3c2b6kra4kgr2 13:b3 15:a29 17:b3 18:b17 19:b10 20:b3 22:a12 24:b3f6 25:akrgkgkgr 26:b3 28:la18 30:b3f6 31:a5krb5kgr 32:b3
-links.md	1:d6 4:aoc13o6a4oc12o3a4oc8oa 8:c5ka23c16 9:c14ka29 10:c10ka28 12:gd4gd5gd4g 13:g17 14:ga3gf3gi5g 15:ga3gagj3g
-lists.md	1:d6 3:la9 4:la14f6 5:la10 6:la17 7:la8 8:la8 10:l2a10 11:l2a10 12:l2a13 13:l2a17 15:lf2a10 16:lo3a9 18:a17
+# palette a=c8d3f5 b=c3e88d c=65bcff d=82aaffb/2c314a e=ffc777b/38343d f=ff966c g=ffc777 h=82aaff i=c8d3f5b j=c8d3f5i k=89ddff l=82aaff/444a73 m=ff966cb n=c099ffb/32304a o=fca7eab/383148 p=4fd6be q=c3e88db/32383f r=4fd6beb/273644 s=828bb8 t=82aaffb u=ffc777bi/38343d v=86e1fc w=589ed7 x=82aaffb/444a73 y=fca7eai z=c099ff
+blocks.md	1:d11 3:e16x6e3u10 5:q15 7:r15 9:n16 11:o16 13:d16 14:d18 16:e16 17:e18 19:a14i14aj10aj13a14l12a 20:a63c5a5 22:fa15i10a5 23:fa15 24:f 25:f2a13 27:f3 29:f3 31:b17 32:b14
+code.md	1:d11 3:a50 5:b3h6 6:v8 8:z3h5sg4kw3sk2w4k 9:g31 10:y6a2kh5sb2ksfkf2skz2k2bka4sk5c4 12:c5sbc2b3c2b6ksa4kfs2 13:b3 15:a29 17:b3 18:b17 19:b10 20:b3 22:a12 24:b3h6 25:aksfkfkfs 26:b3 28:ma18 30:b3h6 31:a5ksb5kfs 32:b3
+links.md	1:d6 4:apc13p6a4pc12p3a4pc8pa 8:c5ka23c16 9:c14ka29 10:c10ka28 12:ft4ft5ft4f 13:f17 14:fa3fl3fi5f 15:fa3fafj3f
+lists.md	1:d6 3:ma9 4:ma14l6 5:ma10 6:ma17 7:ma8 8:ma8 10:m2a10 11:m2a10 12:m2a13 13:m2a17 15:mh2a10 16:mp3a9 18:a17

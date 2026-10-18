@@ -115,9 +115,10 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
             "............",
             "....########",
             "..##########",
-            "--##--------"
+            "..##........"
         ],
-        "the line above the selection stays clean; the cursor line keeps its highlight"
+        "the line above the selection stays clean; while a selection is on screen the cursor \
+         line has no band, as in Neovim's Visual mode (#554)"
     );
     app.key(KeyEvent::new(
         KeyCode::Left,
@@ -125,9 +126,8 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     ));
     assert_eq!(
         paint(&mut app)[3],
-        "--..........",
-        "ending at the start of the cursor line selects none of its text: lit in the gutter \
-         only, as in VS Code, or past the selection it would pass for selected text"
+        "............",
+        "ending at the start of the cursor line selects none of its text, and the line has no band"
     );
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
@@ -153,7 +153,47 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
 }
 
 #[test]
-fn selecting_inside_a_wrapped_line_keeps_its_highlight_on_the_other_rows() {
+fn under_a_selection_the_line_number_is_drawn_as_cursor_line_nr_alone() {
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"abc\n"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load("iceberg").unwrap();
+    assert_eq!(
+        (theme.bg, theme.line_hl, theme.cursor_gutter_bg()),
+        (
+            Color::Rgb(0x16, 0x18, 0x21),
+            Color::Rgb(0x1e, 0x21, 0x32),
+            Color::Rgb(0x2a, 0x31, 0x58)
+        ),
+        "iceberg's CursorLineNr has a background of its own"
+    );
+    let mut terminal = Terminal::new(TestBackend::new(10, 3)).unwrap();
+    let mut gutter = |app: &mut App| {
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let c = &terminal.backend().buffer()[(0, 0)];
+        (c.fg, c.bg)
+    };
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    assert_eq!(
+        gutter(&mut app),
+        (theme.cursor_gutter_fg, theme.cursor_gutter_bg()),
+        "as Neovim draws it in Visual mode: CursorLineNr's own colours, not the band (#554)"
+    );
+    app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert_eq!(
+        gutter(&mut app),
+        (theme.cursor_gutter_fg, theme.line_hl),
+        "the selection gone, the band is back under the number"
+    );
+}
+
+#[test]
+fn selecting_inside_a_wrapped_line_takes_the_band_off_all_its_rows() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     let mut app = App::new(
         PathBuf::from("/demo"),
@@ -196,8 +236,8 @@ z
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     assert_eq!(
         paint(&mut app),
-        ["------####", "--####----", "----------", ".........."],
-        "Shift+Up selects half a row up to the cursor, the rest of the line stays highlighted"
+        ["......####", "..####....", "..........", ".........."],
+        "Shift+Up selects half a row up to the cursor, and no row of the line keeps the band"
     );
     for (code, m) in [
         (KeyCode::Esc, KeyModifiers::NONE),
@@ -212,8 +252,14 @@ z
     assert_eq!(app.file_selection(), Some(((0, 16), (1, 0))));
     assert_eq!(
         paint(&mut app),
-        ["----------", "----------", "--########", ".........."],
-        "Shift+Up from the start of the next line: the rows above the cursor keep the highlight"
+        ["..........", "..........", "..########", ".........."],
+        "Shift+Up from the start of the next line: the cursor's rows have no band either"
+    );
+    app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert_eq!(
+        paint(&mut app)[..3],
+        ["----------", "----------", "----------"],
+        "the selection gone, the band is back"
     );
 }
 
@@ -819,6 +865,10 @@ fn review_of_one_operator(tag: &str) -> (PathBuf, App) {
 }
 
 fn review_of(tag: &str, base: &str, new: &str) -> (PathBuf, App) {
+    review_of_file(tag, "f.py", base, new)
+}
+
+fn review_of_file(tag: &str, name: &str, base: &str, new: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-{tag}-{}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
     std::fs::create_dir_all(&dir).unwrap();
@@ -833,15 +883,15 @@ fn review_of(tag: &str, base: &str, new: &str) -> (PathBuf, App) {
         assert!(out.status.success(), "git {args:?}");
     };
     git(&["init", "-q", "-b", "main"]);
-    std::fs::write(dir.join("f.py"), base).unwrap();
+    std::fs::write(dir.join(name), base).unwrap();
     std::fs::write(dir.join("gone.py"), "x = 1\n").unwrap();
     git(&["add", "."]);
     git(&["commit", "-q", "-m", "base"]);
     git(&["switch", "-q", "-c", "feature"]);
     git(&["rm", "-q", "gone.py"]);
     git(&["commit", "-q", "-m", "gone"]);
-    std::fs::write(dir.join("f.py"), new).unwrap();
-    let path = dir.join("f.py");
+    std::fs::write(dir.join(name), new).unwrap();
+    let path = dir.join(name);
     let mut app = App::new(
         dir.clone(),
         Tree::default(),
@@ -968,6 +1018,49 @@ fn outside_a_review_added_lines_are_not_tinted() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     assert_eq!(rows(&terminal)[1], "2\u{258e}b");
     assert_eq!(terminal.backend().buffer()[(2, 1)].bg, theme.bg);
+}
+
+#[test]
+fn a_capture_s_background_wins_over_the_cursor_line_and_under_a_selection() {
+    let mut app = App::new(
+        PathBuf::from("/tmp"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::from_bytes(PathBuf::from("/tmp/f.diff"), b"@@ -1 +1 @@\n-a\n+bb\n"),
+        None,
+    );
+    app.show_tree = false;
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let plus = theme.group("@diff.plus").and_then(|s| s.bg).unwrap();
+    app.buf.parse_more(None);
+    app.buf.highlight_to(usize::MAX, &theme);
+    let paint = |app: &mut App| -> String {
+        let mut terminal = Terminal::new(TestBackend::new(8, 4)).unwrap();
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let buf = terminal.backend().buffer();
+        (2..buf.area.width)
+            .map(|x| match buf[(x, 2)].bg {
+                bg if bg == plus => '+',
+                bg if bg == theme.selection => '#',
+                bg if bg == theme.line_hl => '-',
+                _ => '.',
+            })
+            .collect()
+    };
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    app.key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    assert_eq!(
+        paint(&mut app),
+        "+++---",
+        "the cursor line's band yields to @diff.plus behind the text, as in Neovim"
+    );
+    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+    assert_eq!(
+        paint(&mut app),
+        "#++...",
+        "a selection paints over @diff.plus, as Visual does in Neovim, and takes the band off \
+         the rest of the line (#554)"
+    );
 }
 
 #[test]
@@ -1698,28 +1791,43 @@ fn a_binary_file_is_an_empty_pane_with_a_centred_note() {
     assert_eq!(buf[(x, 3)].fg, theme.ghost_fg);
 }
 
-#[test]
-fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
-    let body: String = (0..30).map(|i| format!("    \"x{i}\": {i},\n")).collect();
-    let text = format!("ITEMS = {{\n{body}}}\ndef g():\n    pass\n");
+fn folded(name: &str, text: &str, keys: &str, width: u16) -> Terminal<TestBackend> {
     let mut app = App::new(
         PathBuf::from("/demo"),
         Tree::default(),
         Vec::new(),
-        Buffer::from_bytes(PathBuf::from("/demo/f.py"), text.as_bytes()),
+        Buffer::from_bytes(PathBuf::from("/demo").join(name), text.as_bytes()),
         None,
     );
     app.show_tree = false;
-    app.key(KeyEvent::new(KeyCode::Char('f'), KeyModifiers::NONE));
+    for c in keys.chars() {
+        app.key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
-    let mut terminal = Terminal::new(TestBackend::new(30, 6)).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(width, 6)).unwrap();
     while app.parsing() {
         app.parse_more();
     }
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    terminal
+}
+
+fn items(width: u16) -> Terminal<TestBackend> {
+    let body: String = (0..30).map(|i| format!("    \"x{i}\": {i},\n")).collect();
+    folded(
+        "f.py",
+        &format!("ITEMS = {{\n{body}}}\ndef g():\n    pass\n"),
+        "f",
+        width,
+    )
+}
+
+#[test]
+fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
+    let terminal = items(30);
     assert_eq!(
         rows(&terminal)[..2],
-        ["1 ITEMS = { \u{22ef} }", "33 def g():"]
+        ["1 ITEMS = { 30 lines \u{22ef} }", "33 def g():"]
     );
     let buf = terminal.backend().buffer();
     assert_ne!(
@@ -1727,6 +1835,35 @@ fn a_fold_draws_its_tail_and_the_lines_under_it_in_colour() {
         buf[(7, 1)].fg,
         "line 33 is drawn uncoloured"
     );
+}
+
+#[test]
+fn a_fold_counts_one_hidden_line_as_one_line() {
+    let terminal = folded("f.py", "def g():\n    pass\nx = 1\n", "f", 30);
+    assert_eq!(
+        rows(&terminal)[..2],
+        ["1 def g():  1 line \u{22ef}", "3 x = 1"]
+    );
+}
+
+#[test]
+fn a_fold_whose_count_does_not_fit_the_row_shows_the_dots_alone() {
+    assert_eq!(rows(&items(24))[0], "1 ITEMS = { \u{22ef} }");
+    assert_eq!(rows(&items(25))[0], "1 ITEMS = { 30 lines \u{22ef} }");
+}
+
+#[test]
+fn a_fold_that_hides_no_line_shows_the_dots_alone() {
+    let terminal = folded("f.rs", "fn f() {\n}\nfn g() {}\n", "f", 30);
+    assert_eq!(rows(&terminal)[0], "1 fn f() { \u{22ef} }");
+}
+
+#[test]
+fn a_fold_without_wrap_says_its_count_and_its_band_reaches_the_edge() {
+    let terminal = folded("f.py", "def g():\n    pass\nx = 1\n", "wf", 30);
+    assert_eq!(rows(&terminal)[0], "1 def g():  1 line \u{22ef}");
+    let buf = terminal.backend().buffer();
+    assert_eq!(buf[(29, 0)].bg, buf[(10, 0)].bg, "the cursor line's band");
 }
 
 #[test]
@@ -1851,6 +1988,48 @@ fn a_rename_without_changes_tints_the_part_of_each_path_that_changed() {
 }
 
 #[test]
+fn a_rename_band_cuts_each_path_from_its_start_when_the_two_do_not_fit() {
+    use ratatui::style::Style;
+    use std::path::Path;
+    let theme = crate::theme::load_from(None, crate::theme::DEFAULT).unwrap();
+    let band = Style::new().bg(theme.line_hl).fg(theme.fg);
+    let shown = |w: usize, old: &str, new: &str| {
+        let line = super::super::code::rename_band(&theme, band, Path::new(old), Path::new(new), w);
+        let on = |bg| {
+            line.spans
+                .iter()
+                .filter(|s| s.style.bg == Some(bg))
+                .map(|s| s.content.as_ref())
+                .collect::<String>()
+        };
+        (
+            line.to_string(),
+            on(theme.del_word_bg),
+            on(theme.add_word_bg),
+        )
+    };
+
+    let (text, del, add) = shown(60, "store.py", "app/store.py");
+    assert_eq!(text, " store.py  \u{2192}  app/store.py");
+    assert_eq!((del.as_str(), add.as_str()), ("", "app/"));
+
+    let (text, del, add) = shown(40, "lib/a.py", "src/shop/billing/providers/a.py");
+    assert_eq!(text, " lib/a.py  \u{2192}  \u{2026}/billing/providers/a.py");
+    assert_eq!((del.as_str(), add.as_str()), ("lib", "/billing/providers"));
+
+    let (old, new) = (
+        "aaaaaaaaaa/bbbbbbbbbb/old_name.py",
+        "aaaaaaaaaa/bbbbbbbbbb/new_name.py",
+    );
+    let (text, del, add) = shown(50, old, new);
+    assert_eq!(
+        text,
+        " \u{2026}/old_name.py  \u{2192}  \u{2026}/new_name.py"
+    );
+    assert_eq!((del.as_str(), add.as_str()), ("old_name", "new_name"));
+}
+
+#[test]
 fn the_match_under_the_cursor_draws_in_cur_search_the_others_in_search() {
     let mut app = App::new(
         PathBuf::from("/demo"),
@@ -1964,11 +2143,50 @@ fn a_selection_over_a_changed_word_draws_the_selection_not_the_word() {
     let mut terminal = Terminal::new(TestBackend::new(24, 5)).unwrap();
     app.key(KeyEvent::new(KeyCode::End, KeyModifiers::SHIFT));
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
-    drop(std::fs::remove_dir_all(&dir));
     assert_eq!(rows(&terminal)[2], "2\u{258e}    return a >= b");
     let buf = terminal.backend().buffer();
     let x = (0..24).find(|&x| buf[(x, 2)].symbol() == ">").unwrap();
     let gt = &buf[(x, 2)];
     assert_eq!(gt.bg, theme.selection);
     assert_ne!(gt.fg, theme.word_fg);
+    assert_eq!(
+        buf[(23, 2)].bg,
+        theme.add_bg,
+        "past the selection the added line keeps its tint without the band (#554)"
+    );
+    for (code, m) in [
+        (KeyCode::Esc, KeyModifiers::NONE),
+        (KeyCode::Up, KeyModifiers::NONE),
+        (KeyCode::Left, KeyModifiers::SHIFT),
+    ] {
+        app.key(KeyEvent::new(code, m));
+    }
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    drop(std::fs::remove_dir_all(&dir));
+    assert_eq!(app.at(), TextLine::Deleted(1, 0));
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(0, 1)].bg, buf[(23, 1)].bg),
+        (theme.cursor_gutter_bg(), theme.del_bg),
+        "a selection on a deleted line takes the band off it too"
+    );
+}
+
+#[test]
+fn a_review_s_tint_wins_over_a_capture_s_background_as_diff_add_does_in_neovim() {
+    let (dir, mut app) =
+        review_of_file("tint-bg", "f.md", "# A\n# Same old\n", "# A\n# Same new\n");
+    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(24, 5)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    assert_eq!(
+        rows(&terminal)[1..3],
+        ["\u{258e}# Same old", "2\u{258e}# Same new"]
+    );
+    assert_eq!(app.at(), TextLine::File(1));
+    let buf = terminal.backend().buffer();
+    assert_eq!(buf[(4, 1)].bg, theme.del_bg, "the deleted heading");
+    assert_eq!(buf[(4, 2)].bg, theme.add_bg_hl, "the added heading");
+    std::fs::remove_dir_all(dir).unwrap();
 }

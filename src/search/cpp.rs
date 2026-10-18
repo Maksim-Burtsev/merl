@@ -3,13 +3,15 @@ use std::sync::LazyLock;
 
 use super::c::{
     Head, c_code, c_head, c_head_start, c_innermost_open_brace, c_struct_head, c_words_on_line,
+    close_or_end,
 };
 
+static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?:^|[\n;])\s*(?:inline\s+)?namespace\b\s*((?:\w+\s*::\s*)*\w+)?\s*$")
+        .expect("the regex is a literal")
+});
+
 pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
-    static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[\n;])\s*(?:inline\s+)?namespace\b\s*((?:\w+\s*::\s*)*\w+)?\s*$")
-            .expect("the regex is a literal")
-    });
     let mut out: Vec<String> = Vec::new();
     let mut at = pos;
     while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
@@ -30,6 +32,90 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
     }
     out.reverse();
     out
+}
+
+pub fn cpp_scoped_name(text: &str, line1: usize, name: &str) -> Option<String> {
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, name, None).first()?;
+    let rest = code.get(at + name.len()..)?.trim_start();
+    let body = rest.starts_with('{')
+        || rest.starts_with("final")
+        || (rest.starts_with(':') && !rest.starts_with("::"));
+    if !body || code.get(..at)?.trim_end().ends_with("::") {
+        return None;
+    }
+    let mut path = vec![name.to_owned()];
+    let mut pos = at;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), pos) {
+        let head = code.get(c_head_start(&code, open)..open)?;
+        let named = match (c_struct_head(head), NAMESPACE.captures(head)) {
+            (Some(class), _) if !class.is_empty() && !head.contains("::") => class,
+            (None, Some(c)) => c.get(1)?.as_str().to_owned(),
+            _ => return None,
+        };
+        path.extend(named.rsplit("::").map(|p| p.trim().to_owned()));
+        pos = open;
+    }
+    path.reverse();
+    (path.len() > 1).then(|| path.join("::"))
+}
+
+pub fn cpp_alias_in_scope(text: &str, pos: usize, alias: &str) -> Option<Vec<String>> {
+    let code = c_code(text);
+    let re = Regex::new(&format!(
+        r"\bnamespace\s+{}\s*=\s*((?:\w+\s*::\s*)*\w+)\s*;",
+        regex::escape(alias)
+    ))
+    .ok()?;
+    let mut open = Vec::new();
+    let mut at = pos.min(code.len());
+    while let Some(o) = c_innermost_open_brace(code.as_bytes(), at) {
+        open.push(o);
+        at = o;
+    }
+    let seen = |start: usize| {
+        start < pos
+            && c_innermost_open_brace(code.as_bytes(), start).is_none_or(|o| open.contains(&o))
+    };
+    let c = re
+        .captures_iter(&code)
+        .filter(|c| c.get(0).is_some_and(|m| seen(m.start())))
+        .last()?;
+    Some(c[1].split("::").map(|p| p.trim().to_owned()).collect())
+}
+
+pub fn cpp_one_namespace(
+    name: &str,
+    rows: &[super::Hit],
+    text_of: impl Fn(&std::path::Path) -> Option<String>,
+) -> bool {
+    let w = regex::escape(name);
+    let (Ok(opens), Ok(uses)) = (
+        Regex::new(&format!(
+            r"^\s*(?:inline\s+)?namespace\s+((?:\w+\s*::\s*)*){w}\s*(?:\{{|$)"
+        )),
+        Regex::new(&format!(r"^\s*using\s+namespace\s+(?:\w+\s*::\s*)*{w}\s*;")),
+    ) else {
+        return false;
+    };
+    let mut paths = Vec::new();
+    for h in rows.iter().filter(|h| !uses.is_match(&h.text)) {
+        let (Some(c), Some(text)) = (opens.captures(&h.text), text_of(&h.path)) else {
+            return false;
+        };
+        let code = c_code(&text);
+        let start: usize = (text.split('\n').take(h.line1.saturating_sub(1)))
+            .map(|l| l.len() + 1)
+            .sum();
+        let mut path = cpp_scope_path(&code, start.min(code.len()));
+        path.extend(
+            (c[1].split("::").map(str::trim))
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned),
+        );
+        paths.push(path);
+    }
+    paths.first().is_some_and(|p| paths.iter().all(|q| q == p))
 }
 
 pub fn cpp_namespace_alias(code: &str, alias: &str) -> Option<Vec<String>> {
@@ -79,9 +165,23 @@ pub fn cpp_declared_signature(text: &str, line1: usize, word: &str) -> Option<Ve
 }
 
 fn signature(head: &str) -> Option<Vec<String>> {
+    let tokens = head_tokens(head);
+    let (params, close) = split_parameters(&tokens)?;
+    let mut out: Vec<String> = params.iter().map(|p| parameter_type(p)).collect();
+    let quals = tokens[close + 1..]
+        .iter()
+        .filter(|t| matches!(**t, "const" | "volatile" | "&" | "&&"));
+    out.push(quals.copied().collect::<Vec<_>>().join(" "));
+    Some(out)
+}
+
+fn head_tokens(head: &str) -> Vec<&str> {
     static TOKEN: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\w+|::|&&|\.\.\.|\S").expect("the regex is a literal"));
-    let tokens: Vec<&str> = TOKEN.find_iter(head).map(|m| m.as_str()).collect();
+    TOKEN.find_iter(head).map(|m| m.as_str()).collect()
+}
+
+fn split_parameters<'a>(tokens: &'a [&'a str]) -> Option<(Vec<&'a [&'a str]>, usize)> {
     let close = tokens.iter().position(|t| *t == ")")?;
     let inner = tokens.get(1..close)?;
     if tokens.first() != Some(&"(") || inner.contains(&"(") {
@@ -94,20 +194,16 @@ fn signature(head: &str) -> Option<Vec<String>> {
             "<" => depth += 1,
             ">" => depth = depth.checked_sub(1)?,
             "," if depth == 0 => {
-                out.push(parameter_type(&inner[from..i]));
+                out.push(&inner[from..i]);
                 from = i + 1;
             }
             _ => {}
         }
     }
     if !inner.is_empty() && inner != ["void"] {
-        out.push(parameter_type(&inner[from..]));
+        out.push(&inner[from..]);
     }
-    let quals = tokens[close + 1..]
-        .iter()
-        .filter(|t| matches!(**t, "const" | "volatile" | "&" | "&&"));
-    out.push(quals.copied().collect::<Vec<_>>().join(" "));
-    Some(out)
+    Some((out, close))
 }
 
 fn parameter_type(param: &[&str]) -> String {
@@ -140,6 +236,257 @@ fn parameter_type(param: &[&str]) -> String {
     kept.join(" ")
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CppArg {
+    NonZeroInt,
+    Str,
+    Literal,
+    Name(String),
+    Class(Vec<String>),
+    Other,
+}
+
+pub fn cpp_call_args(text: &str, open: usize) -> Option<Vec<CppArg>> {
+    static INT: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[1-9][0-9']*[uUlL]*$").expect("the regex is a literal"));
+    static LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:[0-9][\w'.]*|true|false|nullptr)$").expect("the regex is a literal")
+    });
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Za-z_]\w*$").expect("the regex is a literal"));
+    let code = c_code(text);
+    let b = code.as_bytes();
+    if b.get(open) != Some(&b'(') {
+        return None;
+    }
+    let (mut depth, mut from, mut ranges) = (0usize, open + 1, Vec::new());
+    let mut i = open + 1;
+    loop {
+        match *b.get(i)? {
+            b')' if depth == 0 => {
+                ranges.push(from..i);
+                break;
+            }
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth = depth.checked_sub(1)?,
+            b',' if depth == 0 => {
+                ranges.push(from..i);
+                from = i + 1;
+            }
+            b'<' | b';' => return None,
+            _ => {}
+        }
+        i += 1;
+    }
+    if let [only] = ranges.as_slice()
+        && text.get(only.clone())?.trim().is_empty()
+    {
+        return Some(Vec::new());
+    }
+    ranges
+        .into_iter()
+        .map(|r| {
+            let (raw, c) = (text.get(r.clone())?.trim(), code.get(r)?.trim());
+            Some(if raw.is_empty() {
+                return None;
+            } else if c.is_empty() && raw.starts_with('"') && raw.ends_with('"') {
+                CppArg::Str
+            } else if c.is_empty() {
+                CppArg::Literal
+            } else if INT.is_match(c) {
+                CppArg::NonZeroInt
+            } else if LITERAL.is_match(c) {
+                CppArg::Literal
+            } else if NAME.is_match(c) && c != "this" {
+                CppArg::Name(c.to_owned())
+            } else {
+                CppArg::Other
+            })
+        })
+        .collect()
+}
+
+pub fn cpp_parameters(text: &str, line1: usize, word: &str) -> Option<Vec<Vec<String>>> {
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, word, Some('(')).first()?;
+    let open = at + code.get(at..)?.find('(')?;
+    let end = open + code.get(open..)?.find(['{', ';'])?;
+    let tokens = head_tokens(code.get(open..end)?);
+    let (params, _) = split_parameters(&tokens)?;
+    Some(
+        (params.into_iter())
+            .map(|p| {
+                (parameter_type(p).split_whitespace())
+                    .filter(|t| !matches!(*t, "const" | "volatile" | "&" | "&&"))
+                    .map(str::to_owned)
+                    .collect()
+            })
+            .collect(),
+    )
+}
+
+pub fn cpp_not_viable(params: &[Vec<String>], args: &[CppArg]) -> bool {
+    const ARITHMETIC: &[&str] = &[
+        "int", "long", "short", "unsigned", "signed", "char", "float", "double",
+    ];
+    let fixed = (params.iter())
+        .take_while(|ty| !ty.iter().any(|t| t == "..."))
+        .count();
+    if fixed == params.len() && args.len() > params.len() {
+        return true;
+    }
+    params[..fixed].iter().zip(args).any(|(ty, arg)| {
+        let arithmetic = !ty.is_empty() && ty.iter().all(|t| ARITHMETIC.contains(&t.as_str()));
+        match arg {
+            CppArg::NonZeroInt => ty.iter().any(|t| t == "*"),
+            CppArg::Str | CppArg::Class(_) => arithmetic,
+            CppArg::Literal | CppArg::Name(_) | CppArg::Other => false,
+        }
+    })
+}
+
+enum Brace {
+    Namespace(Vec<String>),
+    Class,
+    Linkage,
+    Code,
+    Unknown,
+}
+
+fn brace(code: &str, open: usize) -> Brace {
+    static MACRO: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^[A-Z][A-Z0-9_]*$").expect("the regex is a literal"));
+    let head = code.get(c_head_start(code, open)..open).unwrap_or_default();
+    if c_struct_head(head).is_some() {
+        return Brace::Class;
+    }
+    if let Some(c) = NAMESPACE.captures(head) {
+        return match c.get(1) {
+            Some(name) if !c[0].contains("inline") => Brace::Namespace(
+                (name.as_str().split("::"))
+                    .map(|p| p.trim().to_owned())
+                    .collect(),
+            ),
+            _ => Brace::Unknown,
+        };
+    }
+    match c_head(head) {
+        Head::TypeOrNamespace if head.trim() == "extern" => Brace::Linkage,
+        Head::TypeOrNamespace => Brace::Unknown,
+        Head::Function { name, .. } if name.contains("::") || MACRO.is_match(&name) => {
+            Brace::Unknown
+        }
+        Head::Block if head.contains(['(', ':']) => Brace::Unknown,
+        _ => Brace::Code,
+    }
+}
+
+pub fn cpp_call_namespaces(code: &str, pos: usize) -> Option<Vec<String>> {
+    let mut out: Vec<String> = Vec::new();
+    let mut at = pos;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
+        match brace(code, open) {
+            Brace::Namespace(n) => out = [n, out].concat(),
+            Brace::Linkage | Brace::Code => {}
+            Brace::Class | Brace::Unknown => return None,
+        }
+        at = open;
+    }
+    Some(out)
+}
+
+pub fn cpp_function_namespace(
+    text: &str,
+    line1: usize,
+    word: &str,
+) -> Result<Option<Vec<String>>, ()> {
+    static QUALIFIER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b((?:\w+\s*::\s*)+)$").expect("the regex is a literal"));
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, word, Some('('))
+        .first()
+        .ok_or(())?;
+    let mut out: Vec<String> = Vec::new();
+    let mut pos = at;
+    while let Some(open) = c_innermost_open_brace(code.as_bytes(), pos) {
+        match brace(&code, open) {
+            Brace::Namespace(n) => out = [n, out].concat(),
+            Brace::Linkage => {}
+            Brace::Class
+                if !text
+                    .lines()
+                    .nth(line1 - 1)
+                    .is_some_and(|l| l.contains("friend")) =>
+            {
+                return Ok(None);
+            }
+            Brace::Class | Brace::Code | Brace::Unknown => return Err(()),
+        }
+        pos = open;
+    }
+    if let Some(q) = QUALIFIER.captures(code.get(..at).unwrap_or_default()) {
+        out.extend(
+            q[1].split("::")
+                .map(str::trim)
+                .filter(|p| !p.is_empty())
+                .map(str::to_owned),
+        );
+    }
+    Ok(Some(out))
+}
+
+pub fn cpp_usings(code: &str, word: &str, pos: usize) -> Result<Vec<Vec<String>>, ()> {
+    static DIRECTIVE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\busing\s+namespace\b").expect("the regex is a literal"));
+    if DIRECTIVE.is_match(code) {
+        return Err(());
+    }
+    let re = Regex::new(&format!(
+        r"\busing\s+((?:\w+\s*::\s*)+){}\s*;",
+        regex::escape(word)
+    ))
+    .map_err(|_| ())?;
+    let mut out = Vec::new();
+    for c in re.captures_iter(code) {
+        let start = c.get(0).map_or(0, |m| m.start());
+        match (c_innermost_open_brace(code.as_bytes(), start), start < pos) {
+            (Some(_), _) => return Err(()),
+            (None, true) => out.push(
+                (c[1].split("::").map(str::trim))
+                    .filter(|p| !p.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
+            ),
+            (None, false) => {}
+        }
+    }
+    Ok(out)
+}
+
+pub fn cpp_plain_class_namespace(code: &str, open: usize) -> Option<Vec<String>> {
+    static BASE_OR_TEMPLATE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\btemplate\b|(?:^|[^:]):(?:[^:]|$)").expect("the regex is a literal")
+    });
+    static OPERATOR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\boperator\b").expect("the regex is a literal"));
+    let head = code.get(c_head_start(code, open)..open)?;
+    let body = code.get(open..close_or_end(code, open, code.len()))?;
+    if BASE_OR_TEMPLATE.is_match(head) || OPERATOR.is_match(body) {
+        return None;
+    }
+    let mut out: Vec<String> = Vec::new();
+    let mut at = open;
+    while let Some(o) = c_innermost_open_brace(code.as_bytes(), at) {
+        match brace(code, o) {
+            Brace::Namespace(n) => out = [n, out].concat(),
+            Brace::Linkage => {}
+            Brace::Class | Brace::Code | Brace::Unknown => return None,
+        }
+        at = o;
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,5 +511,73 @@ mod tests {
         assert_eq!(defined("if (K::f(x)) {"), None);
         assert_eq!(defined("void f(int x) {"), None);
         assert_eq!(declared("void f(int (*cb)(int));"), None);
+    }
+
+    #[test]
+    fn a_call_rules_out_only_what_its_plain_arguments_cannot_reach() {
+        let args = |call: &str| cpp_call_args(call, call.find('(').expect("a call")).expect("args");
+        let params = |decl: &str| cpp_parameters(decl, 1, "f").expect("params");
+        let out = |decl: &str, call: &str| cpp_not_viable(&params(decl), &args(call));
+        assert_eq!(
+            args(r#"f(1, "a", 0, x, a + b, 'c')"#),
+            [
+                CppArg::NonZeroInt,
+                CppArg::Str,
+                CppArg::Literal,
+                CppArg::Name("x".into()),
+                CppArg::Other,
+                CppArg::Literal
+            ]
+        );
+        assert_eq!(cpp_call_args("f(a < b, c)", 1), None);
+        assert!(out("int f(const char* s);", "f(1)"));
+        assert!(!out("int f(const char* s);", "f(0)"));
+        assert!(out("int f(int n);", r#"f("a")"#));
+        assert!(!out("int f(bool b);", r#"f("a")"#));
+        assert!(out("int f(int n);", "f(1, 2)"));
+        assert!(!out("int f(const char* s, int n);", r#"f("a")"#));
+        assert!(!out("int f(const char* s, ...);", r#"f("a", 1, 2)"#));
+        assert!(!out("int f(Leaf leaf);", "f(1)"));
+        assert!(!out("int f(const long& n);", "f(x)"));
+    }
+
+    #[test]
+    fn an_unqualified_call_sees_its_namespaces_and_the_usings_before_it() {
+        let code = "namespace a {\nint g() {\n  return f(1);\n}\n}\nusing b::f;\nstruct S {\nint h() { return f(2); }\n};\n";
+        let code = c_code(code);
+        assert_eq!(
+            cpp_call_namespaces(&code, code.find("f(1)").expect("a call")),
+            Some(vec!["a".into()])
+        );
+        assert_eq!(
+            cpp_call_namespaces(&code, code.find("f(2)").expect("a call")),
+            None
+        );
+        let tried = c_code("int S::g() try {\n  return f(3);\n} catch (...) {}");
+        assert_eq!(
+            cpp_call_namespaces(&tried, tried.find("f(3)").expect("a call")),
+            None
+        );
+        assert_eq!(
+            cpp_usings(&code, "f", code.find("f(1)").expect("a call")),
+            Ok(vec![])
+        );
+        assert_eq!(
+            cpp_usings(&code, "f", code.len()),
+            Ok(vec![vec!["b".into()]])
+        );
+        assert_eq!(cpp_usings("using namespace b;", "f", 0), Err(()));
+        assert_eq!(cpp_usings("void g() { using b::f; }", "f", 0), Err(()));
+        let ns = |text: &str, line1| cpp_function_namespace(text, line1, "f");
+        assert_eq!(
+            ns("namespace a::b {\nint f(int);\n}", 2),
+            Ok(Some(vec!["a".into(), "b".into()]))
+        );
+        assert_eq!(ns("int a::f(int n) {}", 1), Ok(Some(vec!["a".into()])));
+        assert_eq!(ns("struct S {\n  int f(int);\n};", 2), Ok(None));
+        assert_eq!(ns("struct S {\n  friend int f(S);\n};", 2), Err(()));
+        assert_eq!(ns("namespace {\nint f(int);\n}", 2), Err(()));
+        assert_eq!(ns("inline namespace v1 {\nint f(int);\n}", 2), Err(()));
+        assert_eq!(ns("extern \"C\" {\nint f(int);\n}", 2), Ok(Some(vec![])));
     }
 }

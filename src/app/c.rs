@@ -509,9 +509,23 @@ impl App {
         h: &Hit,
     ) -> bool {
         let lines = literal_lines.entry(h.path.clone()).or_insert_with(|| {
-            (self.text_of(&h.path)).map_or_else(Vec::new, |t| search::literal_lines(Kind::C, &t))
+            (self.text_of(&h.path)).map_or_else(Vec::new, |t| self.c_hidden(&h.path, &t))
         });
         !lines.get(h.line1 - 1).copied().unwrap_or(false)
+    }
+
+    pub(super) fn c_hidden(&self, path: &Path, text: &str) -> Vec<bool> {
+        let literal = search::literal_lines(Kind::C, text);
+        let mut dead = literal.clone();
+        search::hide_c_disabled(text, &mut dead);
+        let asked_in_dead = dead.get(self.line) == Some(&true)
+            && literal.get(self.line) != Some(&true)
+            && self.rel_current().is_some_and(|p| p == path);
+        if asked_in_dead { literal } else { dead }
+    }
+
+    pub(super) fn c_unreached_header(&mut self, here: &Path, path: &Path) -> bool {
+        path != here && c_header(path) && !self.c_reached(here).contains(path)
     }
 
     pub(super) fn c_reached_only(
@@ -541,6 +555,56 @@ impl App {
             .collect();
         hits.retain(|h| !gone.contains(&(h.path.clone(), h.line1)));
         hits
+    }
+
+    pub(super) fn c_static_by_macro(
+        &mut self,
+        here: &Path,
+        hits: &[Hit],
+    ) -> HashSet<(PathBuf, usize)> {
+        static FIRST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^(?:inline\s+)?([A-Za-z_]\w*)\s+[A-Za-z_]")
+                .expect("the regex is a literal")
+        });
+        let mut decided: HashMap<(PathBuf, &str), bool> = HashMap::new();
+        let mut out = HashSet::new();
+        for h in hits {
+            let Some(w) = FIRST.captures(&h.text).and_then(|c| c.get(1)) else {
+                continue;
+            };
+            let w = w.as_str();
+            let skip = matches!(
+                w,
+                "static" | "extern" | "struct" | "union" | "enum" | "typedef"
+            );
+            if skip || (h.path != here && c_header(&h.path)) {
+                continue;
+            }
+            let key = (h.path.clone(), w);
+            let local = if let Some(&local) = decided.get(&key) {
+                local
+            } else {
+                let define = Regex::new(&format!(r"(?m)^\s*#\s*define\s+{w}\b(.*)$"))
+                    .expect("a word keeps the pattern valid");
+                let reached = self.c_reached(&h.path);
+                let bodies: Vec<String> = std::iter::once(&h.path)
+                    .chain(reached.iter().filter(|p| p.is_relative()))
+                    .filter_map(|p| self.text_of(p))
+                    .flat_map(|t| {
+                        (define.captures_iter(&t))
+                            .map(|c| c[1].trim().to_owned())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                let local = !bodies.is_empty() && bodies.iter().all(|b| b == "static");
+                decided.insert(key, local);
+                local
+            };
+            if local {
+                out.insert((h.path.clone(), h.line1));
+            }
+        }
+        out
     }
 
     pub(super) fn c_rows(&self, word: &str, here: &Path, found: &mut Vec<Candidate>) {

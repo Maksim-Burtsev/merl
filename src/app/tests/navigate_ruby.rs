@@ -275,3 +275,39 @@ fn an_ivar_at_the_top_of_a_file_is_that_files_own() {
     assert_eq!(shown(&mut a), jump("@x: in this file", "app/a.rb:1"));
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_member_on_new_is_the_class_s_unless_the_class_defines_new_or_is_not_declared() {
+    let (dir, mut a) = project_app(
+        "ruby-on-new",
+        &[
+            (
+                "app/pots.rb",
+                "class Pot\n  def self.new(n)\n    Cup.allocate\n  end\n\n  def fill\n  end\nend\n\nclass Cup\n  def fill\n  end\nend\n",
+            ),
+            (
+                "app/run.rb",
+                "Cup.new(1).fill\nPot.new(1).fill\nJar.new(1).fill\n",
+            ),
+        ],
+    );
+    a.no_external();
+    d_on(&mut a, "app/run.rb", "Cup.new(1).|fill");
+    assert_eq!(
+        shown(&mut a),
+        jump("fill \u{2192} Cup.fill (via Cup)", "app/pots.rb:11")
+    );
+    let both = [
+        ("Pot.fill", "app/pots.rb:6"),
+        ("Cup.fill", "app/pots.rb:11"),
+    ];
+    for code in ["Pot.new(1).|fill", "Jar.new(1).|fill"] {
+        d_on(&mut a, "app/run.rb", code);
+        assert_eq!(
+            shown(&mut a),
+            picker("fill: by name, 2 declarations", &both),
+            "{code}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

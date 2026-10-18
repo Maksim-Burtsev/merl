@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::HashSet;
 
 #[test]
 fn python_def_patterns_find_declarations_only() {
@@ -393,6 +394,22 @@ fn a_cpp_raw_string_runs_to_its_delimiter() {
         [2, 3, 5, 6],
         "with a delimiter and behind an encoding prefix; an `R` that ends a longer name opens \
          nothing"
+    );
+}
+
+#[test]
+fn c_lines_under_if_0_or_if_false_are_hidden_up_to_their_else_or_endif() {
+    let cc = "#if 0\nint a;\n#ifdef X\nint b;\n#else\nint b2;\n#endif\nint c;\n#else\nint d;\n#endif\n\
+              # if false // off\nint e;\n#elif Y\nint f;\n#endif\n#if 0x1\nint g;\n#endif\n\
+              /*\n#if 0\n*/\nint h;\n#if ZERO\nint i;\n#endif\n#if\t0 /* off */\nint j;\n#endif\n";
+    let mut out = literal_lines(Kind::C, cc);
+    hide_c_disabled(cc, &mut out);
+    let hidden: Vec<usize> = (1..=out.len()).filter(|&n| out[n - 1]).collect();
+    assert_eq!(
+        hidden,
+        [2, 4, 5, 6, 8, 13, 21, 22, 28],
+        "nested conditionals stay inside; `#else` and `#elif` end the dead part; `#if 0` in a \
+         comment, `0x1` and a macro hide nothing"
     );
 }
 
@@ -988,10 +1005,18 @@ fn a_file_scope_static_of_the_file_on_screen_hides_the_rest_unless_the_cursor_is
         ]
     };
     let rows = |on| {
-        c_file_local("count", here, here_text, hits(), |_| None, on)
-            .into_iter()
-            .map(|h| h.path)
-            .collect::<Vec<_>>()
+        c_file_local(
+            "count",
+            here,
+            here_text,
+            hits(),
+            &HashSet::new(),
+            |_| None,
+            on,
+        )
+        .into_iter()
+        .map(|h| h.path)
+        .collect::<Vec<_>>()
     };
     assert_eq!(rows(false), [PathBuf::from("a.c")]);
     assert_eq!(rows(true), [PathBuf::from("a.c"), PathBuf::from("b.h")]);
@@ -1005,6 +1030,7 @@ fn a_type_in_another_source_files_unnamed_namespace_stays_a_candidate() {
         Path::new("a.cc"),
         "",
         vec![c_hit("b.cc", 2, "struct Impl {")],
+        &HashSet::new(),
         |p| (p == Path::new("b.cc")).then(|| other.to_owned()),
         false,
     );
@@ -1019,6 +1045,7 @@ fn a_static_of_another_source_file_is_seen_where_that_file_is_included() {
             Path::new("a.c"),
             here_text,
             vec![c_hit("b.c", 1, "static int count;")],
+            &HashSet::new(),
             |_| Some(String::new()),
             false,
         )
@@ -1026,6 +1053,24 @@ fn a_static_of_another_source_file_is_seen_where_that_file_is_included() {
     };
     assert_eq!(rows("#include \"b.c\"\n"), 1);
     assert_eq!(rows(""), 0);
+}
+#[test]
+fn a_static_spelled_through_a_macro_is_local_to_its_file() {
+    let rows = |by_macro| {
+        let hits = vec![c_hit("b.c", 1, "local int count;")];
+        c_file_local(
+            "count",
+            Path::new("a.c"),
+            "",
+            hits,
+            &by_macro,
+            |_| Some(String::new()),
+            false,
+        )
+        .len()
+    };
+    assert_eq!(rows(HashSet::from([(PathBuf::from("b.c"), 1)])), 0);
+    assert_eq!(rows(HashSet::new()), 1);
 }
 #[test]
 fn every_go_rule_builds_a_small_automaton_with_ascii_classes() {
@@ -1047,6 +1092,7 @@ fn an_objective_c_plus_plus_file_is_compiled_alone() {
         Path::new("a.c"),
         "",
         vec![c_hit("b.mm", 1, "static int count;")],
+        &HashSet::new(),
         |_| Some(String::new()),
         false,
     );
@@ -1068,6 +1114,28 @@ fn a_prototype_and_a_definition_naming_a_built_in_type_are_one_function() {
 fn a_prototype_puts_no_parameter_in_scope_below_it() {
     assert!(c_parameter("int f(int n)\n{\n  return n;\n}\n", 3, "n"));
     assert!(!c_parameter("int g(int n);\n  n = 1;\n", 2, "n"));
+    assert!(!c_parameter("int f() { return g(6); }\n", 1, "g"));
+    assert!(c_parameter(
+        "int f(int (*g)(int)) { return g(6); }\n",
+        1,
+        "g"
+    ));
+    assert!(c_parameter(
+        "int f(void (*cb)(int), int n) { return n; }\n",
+        1,
+        "n"
+    ));
+    assert!(c_parameter(
+        "bool Cmp::operator()(int g) const { return g > 0; }\n",
+        1,
+        "g"
+    ));
+    assert!(!c_parameter("int f(S s = {}) { return g(s); }\n", 1, "g"));
+    assert!(c_parameter(
+        "int f(int a,\n      int b) {\n  return a;\n}\n",
+        3,
+        "a"
+    ));
 }
 
 #[test]

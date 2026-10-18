@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -19,6 +20,9 @@ const BINARY: &str = "binary file";
 const MAX_HL_LINES: usize = 30_000;
 const MAX_HL_BYTES: usize = 4 * 1024 * 1024;
 const MAX_SHOWN_BYTES: usize = 20_000;
+thread_local! {
+    static REACHED: Cell<Option<Reach>> = const { Cell::new(None) };
+}
 pub const PARSE_STEP: Duration = Duration::from_micros(500);
 pub const PARSE_IDLE_STEP: Duration = Duration::from_millis(3);
 
@@ -261,6 +265,10 @@ impl Buffer {
     }
 
     pub fn clips(line: &str) -> bool {
+        line.len() > shown_bytes(line)
+    }
+
+    pub fn too_long(line: &str) -> bool {
         line.len() > MAX_SHOWN_BYTES
     }
 
@@ -333,7 +341,7 @@ fn line_spans(
     raw: &str,
     highlighter: &Highlighter,
 ) -> Spans {
-    if Buffer::clips(raw) {
+    if Buffer::too_long(raw) {
         return Vec::new();
     }
     let line = format!("{raw}\n");
@@ -358,8 +366,42 @@ pub fn hash(bytes: &[u8]) -> u64 {
     h.finish()
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Reach {
+    addr: usize,
+    len: usize,
+    cut: usize,
+}
+
+fn shown_bytes(line: &str) -> usize {
+    REACHED
+        .get()
+        .filter(|r| (r.addr, r.len) == (line.as_ptr().addr(), line.len()))
+        .map_or(MAX_SHOWN_BYTES, |r| r.cut)
+}
+
+pub fn reach(line: &str, col: usize) -> bool {
+    let past = Buffer::clips(line) && col >= shown_str(line).len();
+    if past {
+        REACHED.set(Some(Reach {
+            addr: line.as_ptr().addr(),
+            len: line.len(),
+            cut: col.saturating_add(MAX_SHOWN_BYTES),
+        }));
+    }
+    past
+}
+
+pub fn reached() -> Option<Reach> {
+    REACHED.get()
+}
+
+pub fn restore_reach(r: Option<Reach>) -> bool {
+    REACHED.replace(r) != r
+}
+
 pub(crate) fn shown_str(s: &str) -> &str {
-    s.get(..floor_char_boundary(s, MAX_SHOWN_BYTES))
+    s.get(..floor_char_boundary(s, shown_bytes(s)))
         .unwrap_or_default()
 }
 

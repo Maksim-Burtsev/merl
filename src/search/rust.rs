@@ -1104,11 +1104,11 @@ pub struct RustSelfType {
     pub written: String,
     pub impl_line0: usize,
 }
-pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
-    static TRAIT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto|const)\s+)*trait\s")
-            .expect("the regex is a literal")
-    });
+static TRAIT_LINE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:(?:pub(?:\([^)]*\))?|unsafe|auto|const)\s+)*trait\s")
+        .expect("the regex is a literal")
+});
+fn self_owner(lines: &[&str], line0: usize) -> Option<usize> {
     let mut depth = indent(lines.get(line0)?);
     for i in (0..line0).rev() {
         let t = lines[i].trim();
@@ -1124,17 +1124,57 @@ pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
             continue;
         }
         depth = indent(lines[i]);
-        if TRAIT.is_match(lines[i]) {
-            return None;
-        }
-        if let Some(ty) = rust_impl_type(lines[i]) {
-            return Some(RustSelfType {
-                written: ty,
-                impl_line0: i,
-            });
+        if TRAIT_LINE.is_match(lines[i]) || rust_impl_type(lines[i]).is_some() {
+            return Some(i);
         }
     }
     None
+}
+pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
+    let i = self_owner(lines, line0)?;
+    Some(RustSelfType {
+        written: rust_impl_type(lines[i])?,
+        impl_line0: i,
+    })
+}
+pub fn rust_self_trait(lines: &[&str], line0: usize) -> Option<usize> {
+    self_owner(lines, line0).filter(|&i| TRAIT_LINE.is_match(lines[i]))
+}
+pub fn rust_bounds(lines: &[&str], at: usize, param: &str) -> Vec<String> {
+    static FN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bfn\s+\w+").expect("the regex is a literal"));
+    let Some(f) = (0..=at).rev().take(20).find(|&i| FN.is_match(lines[i])) else {
+        return Vec::new();
+    };
+    if lines[f..at].iter().any(|l| l.contains(['{', ';'])) {
+        return Vec::new();
+    }
+    let mut sig = String::new();
+    for l in &lines[f..] {
+        sig.push_str(l);
+        sig.push(' ');
+        if l.contains('{') || l.trim_end().ends_with(';') {
+            break;
+        }
+    }
+    let Ok(re) = Regex::new(&format!(
+        r"(?:<|,|\bwhere)\s*{}\s*:\s*([^,{{>]+)",
+        regex::escape(param)
+    )) else {
+        return Vec::new();
+    };
+    re.captures_iter(&sig)
+        .flat_map(|c| {
+            c[1].split('+')
+                .filter_map(|b| {
+                    let b = b.trim();
+                    let name = b.split('<').next()?.rsplit("::").next()?.trim();
+                    name.starts_with(|c: char| c.is_ascii_uppercase())
+                        .then(|| name.to_owned())
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
     static MOD: LazyLock<Regex> = LazyLock::new(|| {

@@ -202,6 +202,15 @@ fn python_bindings_see_the_enclosing_functions_but_not_the_nested_ones() {
 }
 
 #[test]
+fn a_python_import_as_binds_the_alias_not_the_imported_name() {
+    let text = "from tea.kettle import Kettle\nif TYPE_CHECKING:\n    from tea.stale import Kettle as StaleKettle\n    from tea.cups import Cup as Mug, Kettle\nKettle.material\n";
+    let at = |name| bound_at(Kind::Python, text, 5, name);
+    assert_eq!(at("Kettle"), [(1, Value::Unknown), (4, Value::Unknown)]);
+    assert_eq!(at("StaleKettle"), [(3, Value::Unknown)]);
+    assert_eq!(at("Cup"), []);
+}
+
+#[test]
 fn ts_bindings_follow_the_blocks_around_the_cursor() {
     let text = r#"import { AuditLog, UserRepository } from "./repos";
 

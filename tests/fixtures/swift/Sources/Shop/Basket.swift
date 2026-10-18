@@ -60,7 +60,7 @@ func overweight(_ grams: Int) -> Bool {
 
 func dispatch() -> String {
     let courier = Courier(name: "post")
-    //            ^ d: Sources/Warehouse/Warehouse.swift:1
+    //            ^ d: Sources/Warehouse/Warehouse.swift:3
     //                    ^ d: Sources/Warehouse/Warehouse.swift:3
     return courier.name
     //             ^ d: Sources/Warehouse/Warehouse.swift:2

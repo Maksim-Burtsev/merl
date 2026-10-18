@@ -1,8 +1,8 @@
-wait job { ⋯ }
+wait ⋯ }
 ┌orders──────────────────────┐ 1 #import "CrcStamp.h"
 │▸ .github                   │ 2
 │▸ .venv                     │ 3 @implementation CrcStamp
-│▸ app                       │ 4 - (unsigned int)stampJob:(NSData *)job { ⋯ }
+│▸ app                       │ 4 - (unsigned int)stampJob:(NSData *)job { 1 line ⋯ }
 │▸ data                      │ 7
 │▸ deploy                    │ 8 - (void)log {
 │▸ docs                      │ 9     [self stampJob:nil];

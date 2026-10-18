@@ -39,8 +39,24 @@ impl App {
         let arrow_param = kind == Kind::TsJs
             && !a.dotted
             && search::ts_arrow_param(self.line_str(), word, range.start);
-        if own_arrow || arrow_param {
+        let swift_closure = kind == Kind::Swift
+            && !a.dotted
+            && search::swift_closure_param(self.line_str(), word, range.start);
+        let ruby_block = kind == Kind::Ruby
+            && !a.dotted
+            && search::ruby_block_param(self.line_str(), word, range.start);
+        if own_arrow || arrow_param || swift_closure || ruby_block {
             locals = vec![self.line + 1];
+        }
+        let type_param = (kind == Kind::TsJs
+            && !a.dotted
+            && a.chain.is_empty()
+            && locals.is_empty()
+            && imports.iter().all(|i| i.name != *word))
+        .then(|| search::ts_type_param(&a.text, self.line + 1, word))
+        .flatten();
+        if let Some(p) = &type_param {
+            locals = vec![p.line1];
         }
         if !locals.is_empty() {
             imports.retain(|i| i.name != a.first());
@@ -63,10 +79,19 @@ impl App {
             && locals == [self.line + 1]
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
+            || ruby_block
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
-        if self.answered_by_locals(a, &locals, same_line || own_line || own_arrow) {
+        let python_inline = kind == Kind::Python
+            && !declared
+            && locals == [self.line + 1]
+            && search::python_inline_binds(self.line_str(), word);
+        if self.answered_by_locals(
+            a,
+            &locals,
+            same_line || own_line || own_arrow || python_inline || type_param.is_some(),
+        ) {
             return None;
         }
         Some(Near {
@@ -87,6 +112,7 @@ impl App {
         let after = a.tail.as_str();
         let key = key
             || a.elixir_call()
+            || (kind == Kind::Ruby && after.starts_with('('))
             || search::erlang(&a.here)
             || (kind == Kind::Elixir
                 && !dotted
@@ -137,9 +163,18 @@ impl App {
                 .filter(|n| !required.contains(n) && !self.template_shadows(&a.here, first))
                 .collect()
         };
-        let locals = locals_at(&a.text, self.line + 1);
+        let mut locals = locals_at(&a.text, self.line + 1);
+        if let [only] = locals[..]
+            && bare
+            && only != self.line + 1
+        {
+            locals.extend(search::ts_var_again(&a.text, only, first));
+        }
         if (bare || self.script_scope(&a.here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{}\n0", a.text), self.buf.lines.len() + 1);
+            if module.is_empty() && bare && a.text.contains("namespace") {
+                return search::ts_merged_namespace(&a.text, self.line + 1, first);
+            }
             if !module.contains(&(self.line + 1)) {
                 return module;
             }

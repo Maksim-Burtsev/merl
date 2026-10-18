@@ -155,18 +155,30 @@ impl App {
         if cs_type {
             patterns = search::cs_type_patterns(word);
         }
-        let ruby_local =
+        let lower =
             kind == Kind::Ruby && word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_');
-        if kind == Kind::Ruby && (dotted || ruby_local) {
+        if kind == Kind::Ruby && (dotted || lower) {
             let assignment = search::ruby_assignment(word);
             patterns.retain(|p| *p != assignment);
         }
-        if ruby_local
+        let ruby_local = lower && !a.tail.starts_with('(');
+        if lower
             && near.locals.is_empty()
             && ((!dotted && chain.is_empty() && !before.ends_with("::")) || own)
-            && search::ruby_locals(&a.text, self.line + 1, word).is_empty()
+            && (!ruby_local || search::ruby_locals(&a.text, self.line + 1, word).is_empty())
         {
             let found = self.ruby_self_methods(&a.here, &a.text, word);
+            if !found.is_empty() {
+                self.show_found(a, found);
+                return None;
+            }
+            self.truncated.set(false);
+        }
+        if lower
+            && chain.is_empty()
+            && let Some(made) = search::ruby_constructed_receiver(before)
+        {
+            let found = self.ruby_constructed(&a.here, &made, word);
             if !found.is_empty() {
                 self.show_found(a, found);
                 return None;

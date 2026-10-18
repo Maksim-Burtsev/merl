@@ -1,0 +1,57 @@
+wait This help
+ 1 from app.config import Settings┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
+ 2 from app.models import Order, O│ Files and jumps                                                                                                   │
+ 3 from app.repos import OrderRepo│   o / Ctrl+E                        Open a file (fuzzy)                                                           │
+ 4 from app.uow import UnitOfWork │   Ctrl+N                            New file: type its path, Enter creates and edits it                           │
+ 5                                │   d                                 Go to definition of the word under the cursor, or its implementations         │
+ 6                                │   D                                 Project symbols (fuzzy)                                                       │
+ 7 class OrderNotFound(Exception):│   u                                 Usages of the word under the cursor                                           │
+ 8     pass                       │   [ / ]                             Back / forward in the jump history                                            │
+ 9                                │   : / Ctrl+G                        Go to line                                                                    │
+10                                │ Search                                                                                                            │
+11 class OrderService:            │   / / Ctrl+F                        Find in the open file                                                         │
+12     def __init__(self, repo: Or│   n / N                             Next / previous match                                                         │
+13         self.repo = repo       │   s                                 Search the project                                                            │
+14         self.uow = uow         │ Review                                                                                                            │
+15         self.settings = setting│   c / C                             Review: next / previous hunk, on to the next file                             │
+16                                │   m                                 Review: mark the file as viewed, or take the mark off                         │
+17     def get(self, order_id: int│   Fold: Enter                       Review: load the diff of a folded generated file                              │
+18         order = self.repo.get(o│ Editing                                                                                                           │
+19         if order is None:      │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+20             raise OrderNotFound│   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+21         return order           │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+22                                │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+23     def mark_paid(self, order_i│   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+24         order = self.get(order_│   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+25         order.status = OrderSta│   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+26         self.repo.save(order)  │ Selection                                                                                                         │
+27         return order           │   v                                 Select the word, then the line, then the paragraph, then the whole file       │
+28                                │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+29     def cancel(self, order_id: │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+30         order = self.get(order_│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+31         if not order.can_cancel│   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+32             raise ValueError(f"│   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+33         order.status = OrderSta│   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+34         with self.uow:         │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
+35             self.uow.orders.sav│ Movement                                                                                                          │
+36         return order           │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
+                                  │   Alt+Left / Alt+Right              Move one word                                                                 │
+                                  │   Home / End                        Start / end of the screen row, then of the line                               │
+                                  │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
+                                  │   { / }                             Previous / next paragraph (blank line)                                        │
+                                  │   Ctrl+D / Ctrl+U                   Move half a screen down / up                                                  │
+                                  │   PgUp / PgDn                       Move one screen                                                               │
+                                  │ Panels                                                                                                            │
+                                  │   t                                 Show or hide the file tree                                                    │
+                                  │   Tab                               Switch focus between tree and code                                            │
+                                  │   Tree: Up / Down                   Move                                                                          │
+                                  │   Tree: Enter                       Open the file, or expand the directory                                        │
+                                  │   Tree: Left / Right                Collapse / expand                                                             │
+                                  │   Picker: Up / Down                 Move                                                                          │
+                                  │   Picker: PgUp / PgDn               Move one page                                                                 │
+                                  │   Picker: Enter                     Accept                                                                        │
+                                  │   Picker: Esc                       Cancel                                                                        │
+                                  │   ?                                 This help                                                                     │
+                                  │   Help: Up / Down                   Scroll                                                                        │
+app/service.py  36:21  [code]     └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
+cursor (x,y,shown) 151,54,0

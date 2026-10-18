@@ -100,8 +100,8 @@ func outside(_ request: URLRequest) {
     //          ^ d: none
 }
 
-// What proves nothing stays by name: a protocol, `any`, `some`, a generic parameter, even one
-// named like a type, a tuple, a closure, and a construction of what the project only extends.
+// A protocol, `any` or `some` receiver leads to the requirement (#984); what proves nothing stays
+// by name: a generic parameter, even one named like a type, a tuple, a closure, a construction.
 protocol Encoding {
     func encode(_ value: Int) -> String
 }
@@ -117,11 +117,11 @@ func refused<FormEncoder: Encoding>(
     _ = generic.encode(1)
     //          ^ d: picker Sources/Shop/Receivers.swift:19, Sources/Shop/Receivers.swift:25, Sources/Shop/Receivers.swift:106
     _ = proto.encode(1)
-    //        ^ d: picker Sources/Shop/Receivers.swift:19, Sources/Shop/Receivers.swift:25, Sources/Shop/Receivers.swift:106
+    //        ^ d: Sources/Shop/Receivers.swift:106
     _ = existential.encode(1)
-    //              ^ d: picker Sources/Shop/Receivers.swift:19, Sources/Shop/Receivers.swift:25, Sources/Shop/Receivers.swift:106
+    //              ^ d: Sources/Shop/Receivers.swift:106
     _ = opaque.encode(1)
-    //         ^ d: picker Sources/Shop/Receivers.swift:19, Sources/Shop/Receivers.swift:25, Sources/Shop/Receivers.swift:106
+    //         ^ d: Sources/Shop/Receivers.swift:106
     _ = pair.encode(1)
     //       ^ d: picker Sources/Shop/Receivers.swift:19, Sources/Shop/Receivers.swift:25, Sources/Shop/Receivers.swift:106
     _ = make.encode(1)

@@ -1,6 +1,74 @@
 use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
 impl App {
+    pub(super) fn swift_by_labels(
+        &self,
+        name: &str,
+        after: usize,
+        found: &mut Vec<Candidate>,
+    ) -> bool {
+        let lines: Vec<&str> = self.buf.lines.iter().map(String::as_str).collect();
+        let Some(call) = search::swift_call_labels(&lines, self.line, after) else {
+            return false;
+        };
+        let labels: Option<Vec<Vec<String>>> = found
+            .iter()
+            .map(|c| {
+                let text = self.text_of(&c.hit.path)?;
+                let lines: Vec<&str> = text.lines().collect();
+                search::swift_param_labels(&lines, c.hit.line1.checked_sub(1)?, name)
+            })
+            .collect();
+        let Some(labels) = labels else {
+            return false;
+        };
+        let fit = labels.contains(&call);
+        if fit {
+            let mut fits = labels.iter().map(|l| *l == call);
+            found.retain(|_| fits.next().unwrap_or(true));
+        }
+        fit
+    }
+
+    pub(super) fn swift_init_by_labels(
+        &self,
+        here: &Path,
+        word: &str,
+        after: usize,
+        found: &mut Vec<Candidate>,
+    ) {
+        let [c] = found.as_slice() else {
+            return;
+        };
+        let typed = search::swift_type_header(&c.hit.text)
+            .is_some_and(|h| h.name == word && h.keyword != "protocol" && h.keyword != "extension");
+        let Some(owner) = self.text_of(&c.hit.path).filter(|_| typed).map(|t| {
+            search::qualified(Kind::Swift, &t, c.hit.line1, word).unwrap_or_else(|| word.to_owned())
+        }) else {
+            return;
+        };
+        let full = format!("{owner}.init");
+        let cut = self.truncated.get();
+        let pattern = search::def_patterns(Kind::Swift, "init").join("|");
+        let mut inits: Vec<Candidate> = self
+            .project_definitions(Kind::Swift, here, "init", &pattern)
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, "init"))
+                    .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: c.reason.clone(),
+            })
+            .collect();
+        self.truncated.set(cut);
+        if !inits.is_empty() && self.swift_by_labels("init", after, &mut inits) && inits.len() == 1
+        {
+            *found = inits;
+        }
+    }
     pub(super) fn swift_self_members(
         &self,
         here: &Path,
@@ -45,7 +113,7 @@ impl App {
                 ("class", Some(next)) if seen.insert(next.clone()) => next,
                 _ => {
                     self.truncated.set(cut);
-                    return None;
+                    return self.swift_self_default(here, &own, word);
                 }
             };
             let classes: Vec<_> = self
@@ -68,7 +136,7 @@ impl App {
             ] = classes.as_slice()
             else {
                 self.truncated.set(cut);
-                return None;
+                return self.swift_self_default(here, &own, word);
             };
             (keyword, base, ty) = (k.clone(), b.clone(), next);
         }

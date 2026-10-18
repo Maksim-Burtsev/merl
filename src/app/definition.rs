@@ -488,9 +488,28 @@ impl App {
             let head = search::ts_method_head(word);
             found.retain(|c| {
                 !search::ts_call_statement(&head, &c.hit.text, c.hit.line1, || {
-                    self.text_of(&c.hit.path)
+                    self.hit_text(&c.hit)
                 })
             });
+            let called = search::definition_word(Some(kind), self.line_str(), self.col)
+                .is_some_and(|(r, w)| {
+                    w == word
+                        && self
+                            .line_str()
+                            .get(r.end..)
+                            .is_some_and(|t| t.starts_with('('))
+                });
+            let namespace = Regex::new(&format!(
+                r"^\s*(?:export\s+)?(?:declare\s+)?namespace\s+{}\b",
+                regex::escape(word)
+            ))
+            .expect("an escaped name keeps the pattern valid");
+            if called && found.iter().any(|c| !namespace.is_match(&c.hit.text)) {
+                found.retain(|c| !namespace.is_match(&c.hit.text));
+            }
+            if called {
+                self.ts_overloads(word, found);
+            }
         }
         if found.len() <= 500 {
             let mut literal: HashMap<(PathBuf, bool), Vec<bool>> = HashMap::new();
@@ -503,13 +522,69 @@ impl App {
                     && !Regex::new(r"\b(?:extends|implements)\b")
                         .is_ok_and(|re| re.is_match(&c.hit.text))
                     && self
-                        .text_of(&c.hit.path)
+                        .hit_text(&c.hit)
                         .is_some_and(|t| !search::declares_wrapped_generic(&t, c.hit.line1));
                 let literal = lines.get(c.hit.line1 - 1).copied().unwrap_or(false)
                     && !self.doc_tag(kind, &c.hit)
                     && !(c.reason == Reason::Local && search::component(&c.hit.path));
                 !call && !literal
             });
+        }
+    }
+
+    fn ts_overloads(&self, word: &str, found: &mut Vec<Candidate>) {
+        let on_one = |c: &Candidate| c.hit.line1 == self.line + 1 && c.hit.text == self.line_str();
+        if found.len() < 2
+            || found
+                .iter()
+                .any(|c| c.hit.path != found[0].hit.path || on_one(c))
+        {
+            return;
+        }
+        let Some(text) = self.hit_text(&found[0].hit) else {
+            return;
+        };
+        if !found.is_sorted_by_key(|c| c.hit.line1) {
+            return;
+        }
+        let sigs: Option<Vec<search::TsSignature>> = found
+            .iter()
+            .map(|c| search::ts_signature(&text, c.hit.line1, word))
+            .collect();
+        let Some(sigs) = sigs else {
+            return;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let between = |s: &search::TsSignature, next: usize| {
+            lines.get(s.end_line1..next - 1).is_some_and(|gap| {
+                gap.iter().all(|l| {
+                    let t = l.trim();
+                    t.is_empty() || t.starts_with("//") || t.starts_with("/*") || t.starts_with('*')
+                })
+            })
+        };
+        let Some((last, signatures)) = sigs.split_last() else {
+            return;
+        };
+        let one_set = last.body
+            && signatures.iter().all(|s| !s.body)
+            && sigs
+                .iter()
+                .zip(&found[1..])
+                .all(|(s, next)| between(s, next.hit.line1));
+        if !one_set {
+            return;
+        }
+        found.pop();
+        let arity = search::definition_word(Some(Kind::TsJs), self.line_str(), self.col)
+            .and_then(|(r, _)| search::ts_call_arity(&self.buf.lines, self.line, r.end));
+        let Some(n) = arity else {
+            return;
+        };
+        let fits = |s: &search::TsSignature| n >= s.fewest && s.most.is_none_or(|m| n <= m);
+        if signatures.iter().any(fits) {
+            let mut fit = signatures.iter().map(fits);
+            found.retain(|_| fit.next().unwrap_or(false));
         }
     }
 

@@ -5,8 +5,44 @@ use super::{
 
 impl App {
     pub(super) fn declaration(&self, kind: Kind, file: &Path, parts: &[String]) -> Option<Hit> {
+        self.declared(kind, file, parts, false)
+    }
+
+    pub(super) fn type_declaration(
+        &self,
+        kind: Kind,
+        file: &Path,
+        parts: &[String],
+    ) -> Option<Hit> {
+        self.declared(kind, file, parts, true)
+    }
+
+    fn declared(&self, kind: Kind, file: &Path, parts: &[String], types_only: bool) -> Option<Hit> {
         let (name, chain) = parts.split_last()?;
-        let one = |hits: Vec<Hit>| <[Hit; 1]>::try_from(hits).ok().map(|[hit]| hit);
+        let interface = Regex::new(&format!(
+            r"^\s*(?:export\s+)?(?:declare\s+)?interface\s+{}\b",
+            regex::escape(name)
+        ))
+        .expect("an escaped name keeps the pattern valid");
+        let merged = |hits: &[Hit]| {
+            kind == Kind::TsJs
+                && hits
+                    .iter()
+                    .all(|h| h.path == hits[0].path && interface.is_match(&h.text))
+        };
+        let one = |hits: Vec<Hit>| match <[Hit; 1]>::try_from(hits) {
+            Ok([hit]) => Some(hit),
+            Err(hits) if merged(&hits) => hits.into_iter().min_by_key(|h| h.line1),
+            Err(hits) if types_only => {
+                let types = hits
+                    .into_iter()
+                    .filter(|h| search::declares_type(kind, &h.text));
+                <[Hit; 1]>::try_from(types.collect::<Vec<_>>())
+                    .ok()
+                    .map(|[hit]| hit)
+            }
+            Err(_) => None,
+        };
         if chain.is_empty() || kind == Kind::TsJs {
             let within = (!chain.is_empty()).then(|| parts.join("."));
             let hits = self.package_declarations(kind, file, name, within.as_deref());
@@ -14,8 +50,14 @@ impl App {
                 return one(self.host_built(kind, hits));
             }
         }
-        let imports = search::imports(kind, &self.text_of(file)?);
-        let path = bound(&imports, chain.first().unwrap_or(name))?;
+        let text = self.text_of(file)?;
+        let imports = search::imports(kind, &text);
+        let Some(path) = bound(&imports, chain.first().unwrap_or(name)) else {
+            return (kind == Kind::Python && chain.is_empty())
+                .then(|| self.star_source(file, &text, usize::MAX, name))
+                .flatten()
+                .and_then(|(_, decls)| one(decls));
+        };
         if kind == Kind::Python && file.is_absolute() {
             return self.outside_class(file, &path, parts);
         }
@@ -95,7 +137,8 @@ impl App {
             Kind::Php => search::php_tag_class(&lines, hit.line1 - 1).is_some(),
             Kind::TsJs => {
                 search::reads_jsdoc(kind, &hit.path)
-                    && search::jsdoc_owner(&lines, hit.line1 - 1).is_some()
+                    && (search::jsdoc_owner(&lines, hit.line1 - 1).is_some()
+                        || search::jsdoc_typedef_line(lines[hit.line1 - 1]))
             }
             _ => false,
         }
@@ -169,6 +212,9 @@ impl App {
             return Vec::new();
         };
         let decl = text.lines().nth(ty.line.saturating_sub(1)).unwrap_or("");
+        if kind == Kind::TsJs && search::js_constructor(decl).is_some() {
+            return Vec::new();
+        }
         let named = search::type_name(kind, decl).filter(|_| kind == Kind::TsJs);
         let anonymous = kind == Kind::TsJs && named.is_none() && search::declares_type(kind, decl);
         if anonymous {
@@ -226,6 +272,10 @@ impl App {
         assigned: bool,
     ) -> Option<Hit> {
         let text = self.text_of(&ty.path)?;
+        let decl = text.lines().nth(ty.line.saturating_sub(1)).unwrap_or("");
+        if kind == Kind::TsJs && search::js_constructor(decl).is_some() {
+            return None;
+        }
         let search::FieldLine {
             line,
             assigned_in_method,
@@ -571,6 +621,85 @@ impl App {
             .collect()
     }
 
+    pub(super) fn own_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let members = self.members_of(kind, t, word);
+        if members.is_empty() {
+            self.field_of(kind, t, word, false).map(|hit| vec![hit])
+        } else {
+            Some(members)
+        }
+    }
+
+    fn constructor_name(&self, t: &Typed) -> Option<String> {
+        let text = self.text_of(&t.path)?;
+        search::js_constructor(text.lines().nth(t.line.saturating_sub(1))?).map(str::to_owned)
+    }
+
+    fn constructed_member(&self, t: &Typed, name: &str, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&t.path)?;
+        let hit = |line1: usize| Hit {
+            text: text.lines().nth(line1 - 1).unwrap_or_default().to_owned(),
+            path: t.path.clone(),
+            line1,
+            byte_col: None,
+            deleted: None,
+        };
+        if let Some(line1) = search::constructor_field(&text, t.line, word) {
+            return Some(vec![hit(line1)]);
+        }
+        let methods = search::prototype_members(&text, name, word);
+        (!methods.is_empty()).then(|| methods.into_iter().map(hit).collect())
+    }
+
+    pub(super) fn instance_member(&self, kind: Kind, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        if kind != Kind::TsJs {
+            return self.own_member(kind, t, word);
+        }
+        if let Some(name) = self.constructor_name(t) {
+            return self.constructed_member(t, &name, word);
+        }
+        let mut members = self.members_of(kind, t, word);
+        let field = self.field_of(kind, t, word, false);
+        if members.is_empty() {
+            return field
+                .map(|hit| vec![hit])
+                .or_else(|| self.alias_literal_member(t, word));
+        }
+        let Some(field) = field.filter(|f| {
+            !ts_modifiers(&f.text)
+                .iter()
+                .any(|m| matches!(*m, "static" | "get" | "set"))
+                && members.iter().all(|m| {
+                    (m.path != f.path || m.line1 != f.line1)
+                        && !ts_modifiers(&m.text).contains(&"static")
+                })
+        }) else {
+            return Some(members);
+        };
+        if members
+            .iter()
+            .all(|m| m.path == field.path && m.line1 > field.line1)
+        {
+            return Some(vec![field]);
+        }
+        members.push(field);
+        Some(members)
+    }
+
+    fn alias_literal_member(&self, t: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&t.path)?;
+        let decl = text.lines().nth(t.line.checked_sub(1)?)?;
+        search::ts_alias_literal_member(decl, word).then(|| {
+            vec![Hit {
+                text: decl.to_owned(),
+                path: t.path.clone(),
+                line1: t.line,
+                byte_col: None,
+                deleted: None,
+            }]
+        })
+    }
+
     pub(super) fn above(
         &self,
         kind: Kind,
@@ -579,14 +708,7 @@ impl App {
         depth: usize,
     ) -> Result<Vec<Hit>, String> {
         let broke = || "super".to_owned();
-        let find = |t: &Typed| {
-            let members = self.members_of(kind, t, word);
-            if members.is_empty() {
-                self.field_of(kind, t, word, false).map(|hit| vec![hit])
-            } else {
-                Some(members)
-            }
-        };
+        let find = |t: &Typed| self.own_member(kind, t, word);
         let text = self
             .text_of(&ty.path)
             .filter(|_| depth < 8)
@@ -723,6 +845,31 @@ impl App {
         let member = before.ends_with(['.', '>']) || before.ends_with("::");
         !(r.start < first || member || (called(r.start) && !called(first)))
     }
+}
+
+fn ts_modifiers(line: &str) -> Vec<&str> {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    words
+        .windows(2)
+        .take_while(|w| {
+            matches!(
+                w[0],
+                "public"
+                    | "private"
+                    | "protected"
+                    | "readonly"
+                    | "static"
+                    | "declare"
+                    | "override"
+                    | "abstract"
+                    | "accessor"
+                    | "async"
+                    | "get"
+                    | "set"
+            ) && !w[1].starts_with(['=', ';', ':', '(', '?', '!'])
+        })
+        .map(|w| w[0])
+        .collect()
 }
 
 fn is_protocol(text: &str, decl1: usize) -> bool {

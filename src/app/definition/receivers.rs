@@ -101,8 +101,9 @@ impl App {
             && (locals.is_empty() && search::swift_no_local(&a.text, self.line + 1, word))
             && !declares_here
             && !matches!(word.as_str(), "self" | "super" | "init")
-            && let Some(found) = self.swift_self_members(&a.here, &a.text, word, &p.pattern)
+            && let Some(mut found) = self.swift_self_members(&a.here, &a.text, word, &p.pattern)
         {
+            self.swift_by_labels(word, a.range.end, &mut found);
             return self.show_found(a, found);
         }
         if kind == Kind::Swift
@@ -111,8 +112,9 @@ impl App {
             && chain[0] != "super"
             && word != "init"
             && bound(&near.imports, &chain[0]).is_none()
-            && let Some(found) = self.swift_typed(&a.here, &a.text, word, chain)
+            && let Some(mut found) = self.swift_typed(&a.here, &a.text, word, chain)
         {
+            self.swift_by_labels(word, a.range.end, &mut found);
             if found.is_empty() {
                 self.message = resolution(word, None, &[], None, false);
             } else {
@@ -139,6 +141,7 @@ impl App {
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
                 Some(self.cs_typed(&a.here, word, chain))
             }
+            true if chain.is_empty() => self.cs_constructed(&a.here, word, &a.before).map(Ok),
             true => None,
         };
         match answer {

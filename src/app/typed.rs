@@ -82,14 +82,7 @@ impl App {
             return Ok(found);
         }
         let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
-        let declared = self.hierarchy(kind, &ty, 0, &mut |t| {
-            let members = self.members_of(kind, t, word);
-            if members.is_empty() {
-                self.field_of(kind, t, word, false).map(|hit| vec![hit])
-            } else {
-                Some(members)
-            }
-        });
+        let declared = self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word));
         let hits = declared
             .or_else(|| {
                 let mut assigned = None;
@@ -519,7 +512,11 @@ impl App {
                 if path.is_some_and(|p| hidden(kind, file, text, b.line1, &p[0])) {
                     return None;
                 }
-                self.type_decl(kind, file, t).map(|ty| TypeVia {
+                let ty = match &b.value {
+                    search::Value::Type(_) => self.annotated_type(kind, file, text, b.line1, t),
+                    _ => self.type_decl(kind, file, t),
+                };
+                ty.map(|ty| TypeVia {
                     ty,
                     call_signature: None,
                 })
@@ -665,7 +662,15 @@ impl App {
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
                 (anonymous(&at, c.line1), None)
             } else {
-                (self.type_decl(kind, &at, &element)?, Some(link))
+                let line1 = if matches!(c.value, search::Value::Type(_)) {
+                    c.line1
+                } else {
+                    0
+                };
+                (
+                    self.annotated_type(kind, &at, text, line1, &element)?,
+                    Some(link),
+                )
             };
             match &found {
                 Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => {
@@ -733,10 +738,39 @@ impl App {
             }
             _ => return None,
         };
-        let ty = self.type_decl(kind, &decl.path, &written)?;
+        let ty = self.annotated_type(kind, &decl.path, &text, 0, &written)?;
         Some(TypeVia {
             ty,
             call_signature: Some(signature),
+        })
+    }
+
+    fn annotated_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        written: &str,
+    ) -> Option<Typed> {
+        if kind != Kind::TsJs {
+            return self.type_decl(kind, file, written);
+        }
+        let param = search::type_path(kind, written)
+            .filter(|p| p.len() == 1)
+            .and_then(|p| search::ts_type_param(text, line1, &p[0]));
+        let written = match param {
+            Some(p) => p.constraint?,
+            None => written.to_owned(),
+        };
+        self.type_decl(kind, file, &written).or_else(|| {
+            let parts = search::type_path(kind, &written)?;
+            let decl = self.type_declaration(kind, file, &parts)?;
+            Some(Typed {
+                name: declared_name(kind, &decl.text, &parts),
+                path: decl.path,
+                line: decl.line1,
+            })
         })
     }
 
@@ -771,7 +805,7 @@ impl App {
         {
             return Some(ty);
         }
-        if !search::declares_type(kind, &decl.text) {
+        if !search::declares_type(kind, &decl.text) && !js_type(kind, &decl.path, &decl.text) {
             return self.required(kind, file, &parts);
         }
         Some(Typed {
@@ -881,10 +915,12 @@ impl App {
             return None;
         };
         let hit = &found.hit;
-        search::declares_type(kind, &hit.text).then(|| Typed {
-            name: declared_name(kind, &hit.text, parts),
-            path: hit.path.clone(),
-            line: hit.line1,
+        (search::declares_type(kind, &hit.text) || js_type(kind, &hit.path, &hit.text)).then(|| {
+            Typed {
+                name: declared_name(kind, &hit.text, parts),
+                path: hit.path.clone(),
+                line: hit.line1,
+            }
         })
     }
 }
@@ -910,6 +946,11 @@ fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool
                 || search::reads_jsdoc(kind, file) && required.is_match(l))
         })
     })
+}
+
+fn js_type(kind: Kind, file: &Path, line: &str) -> bool {
+    search::reads_jsdoc(kind, file)
+        && (search::js_constructor(line).is_some() || search::js_exported_class(line))
 }
 
 fn declared_name(kind: Kind, decl: &str, parts: &[String]) -> String {
@@ -938,7 +979,35 @@ impl App {
         let found = (|| {
             let SwiftChain { written, links } =
                 self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
-            let ty = self.swift_type(here, &written)?;
+            let label = links.join(" \u{2192} ");
+            let Some(ty) = self.swift_type(here, &written) else {
+                let w = written.trim();
+                let w = w
+                    .strip_prefix("any ")
+                    .or_else(|| w.strip_prefix("some "))
+                    .unwrap_or(w);
+                let a_type = search::bindings(Kind::Swift, text, self.line + 1, &chain[0])
+                    .iter()
+                    .any(|b| {
+                        text.lines()
+                            .nth(b.line1 - 1)
+                            .is_some_and(|l| search::swift_type_header(l).is_some())
+                    });
+                let p = search::swift_type_name(w)
+                    .filter(|p| !a_type && self.swift_protocol(here, p))?;
+                let mut rows = self.swift_protocol_rows(here, &p, word, true)?;
+                if rows.is_empty() {
+                    rows = self.swift_protocol_rows(here, &p, word, false)?;
+                }
+                return (!rows.is_empty()).then(|| {
+                    rows.into_iter()
+                        .map(|hit| Candidate {
+                            hit,
+                            reason: Reason::Receiver(label.clone()),
+                        })
+                        .collect()
+                });
+            };
             let mut rows = self.swift_member_rows(here, &ty, word)?;
             if rows
                 .iter()
@@ -948,7 +1017,6 @@ impl App {
                     search::swift_member_kind(&h.text) != Some(search::SwiftMember::StaticOrClass)
                 });
             }
-            let label = links.join(" \u{2192} ");
             Some(
                 rows.into_iter()
                     .map(|hit| Candidate {
@@ -1217,6 +1285,7 @@ impl App {
         let mut owner = ty.owner.clone();
         let (mut keyword, mut base) = (ty.keyword.clone(), ty.base.clone());
         let mut seen = HashSet::from([owner.clone()]);
+        let mut walked = vec![ty.name.clone()];
         loop {
             let full = format!("{owner}.{word}");
             let rows: Vec<Hit> = hits
@@ -1236,14 +1305,117 @@ impl App {
             match (keyword.as_deref(), base) {
                 (None, _) => return Some(Vec::new()),
                 (Some("class"), Some(next)) if seen.insert(next.clone()) => {
-                    let up = self.swift_type(here, &next)?;
-                    if up.keyword.as_deref() != Some("class") {
-                        return None;
+                    match self.swift_type(here, &next) {
+                        Some(up) if up.keyword.as_deref() == Some("class") => {
+                            walked.push(up.name);
+                            (owner, keyword, base) = (up.owner, up.keyword, up.base);
+                        }
+                        None if self.swift_protocol(here, &next) => {
+                            return self.swift_defaults(here, &walked, word);
+                        }
+                        _ => return None,
                     }
-                    (owner, keyword, base) = (up.owner, up.keyword, up.base);
                 }
-                _ => return None,
+                (Some("class"), Some(_)) => return None,
+                (Some(_), _) => return self.swift_defaults(here, &walked, word),
             }
         }
+    }
+
+    pub(super) fn swift_self_default(
+        &self,
+        here: &Path,
+        own: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let cut = self.truncated.get();
+        let rows = self
+            .swift_type(here, own)
+            .and_then(|ty| self.swift_member_rows(here, &ty, word))
+            .filter(|rows| !rows.is_empty());
+        self.truncated.set(cut);
+        Some(
+            rows?
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(format!("self: {own}")),
+                })
+                .collect(),
+        )
+    }
+
+    fn swift_protocol(&self, here: &Path, name: &str) -> bool {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let decls: Vec<String> = self
+            .project_definitions(Kind::Swift, here, name, &pattern)
+            .iter()
+            .filter(|h| self.in_code(Kind::Swift, h))
+            .filter_map(|h| search::swift_type_header(&h.text))
+            .filter(|t| t.name == name && t.keyword != "extension")
+            .map(|t| t.keyword)
+            .collect();
+        matches!(decls.as_slice(), [k] if k == "protocol")
+    }
+
+    fn swift_defaults(&self, here: &Path, types: &[String], word: &str) -> Option<Vec<Hit>> {
+        let mut protocols: Vec<String> = Vec::new();
+        for t in types {
+            let pattern = search::def_patterns(Kind::Swift, t).join("|");
+            for h in self.project_definitions(Kind::Swift, here, t, &pattern) {
+                let Some(head) = search::swift_type_header(&h.text)
+                    .filter(|head| head.name == *t && self.in_code(Kind::Swift, &h))
+                else {
+                    continue;
+                };
+                let inherited = search::swift_inherited(&h.text);
+                if head.where_constrained && !inherited.is_empty() {
+                    return None;
+                }
+                protocols.extend(inherited);
+            }
+        }
+        protocols.sort();
+        protocols.dedup();
+        let mut rows: Vec<Hit> = Vec::new();
+        for p in protocols.iter().filter(|p| self.swift_protocol(here, p)) {
+            rows.extend(self.swift_protocol_rows(here, p, word, false)?);
+        }
+        (!rows.is_empty()).then_some(rows)
+    }
+
+    fn swift_protocol_rows(
+        &self,
+        here: &Path,
+        protocol: &str,
+        word: &str,
+        requirement: bool,
+    ) -> Option<Vec<Hit>> {
+        let pattern = search::def_patterns(Kind::Swift, word).join("|");
+        let full = format!("{protocol}.{word}");
+        let mut rows = Vec::new();
+        for h in self.project_definitions(Kind::Swift, here, word, &pattern) {
+            let text = self.text_of(&h.path)?;
+            let named = search::qualified(Kind::Swift, &text, h.line1, word)
+                .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")));
+            if !named || !self.in_code(Kind::Swift, &h) {
+                continue;
+            }
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, &text);
+            let at = search::swift_enclosing_type(&lines, &literal, h.line1)?;
+            let head = search::swift_type_header(lines[at - 1])?;
+            let constrained = head.where_constrained
+                || lines
+                    .get(at)
+                    .is_some_and(|l| l.trim_start().starts_with("where "));
+            match head.keyword.as_str() {
+                "protocol" if requirement => rows.push(h),
+                "extension" if !requirement && constrained => return None,
+                "extension" if !requirement => rows.push(h),
+                _ => {}
+            }
+        }
+        Some(rows)
     }
 }

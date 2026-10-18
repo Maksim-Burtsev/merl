@@ -19,7 +19,7 @@ use crate::wrap;
 use super::status::fit_path;
 use super::tagged;
 
-const FOLDED: &str = " \u{22ef} ";
+const FOLDED_MARK: char = '\u{22ef}';
 
 pub(super) fn draw_code(
     frame: &mut Frame,
@@ -66,6 +66,7 @@ fn prepare_view(app: &mut App, theme: &Theme, area: Rect) -> usize {
     app.view_h = area.height as usize;
     app.clamp_scroll();
     app.notes_reveal_input();
+    app.note_seen();
     let bottom = (app.top_line + app.view_h).max(app.bottom_line() + 1);
     app.buf.highlight_to(bottom, theme);
     if let Some((_, b)) = &mut app.base
@@ -158,6 +159,10 @@ impl<'a> Painter<'a> {
                 .bg(bg)
                 .add_modifier(theme.modifiers(groups))
         };
+        let text_hl = app.selection().is_none();
+        let hl_gutter = base
+            .fg(theme.cursor_gutter_fg)
+            .add_modifier(theme.modifiers(&["CursorLineNr"]));
         Self {
             app,
             theme,
@@ -174,15 +179,16 @@ impl<'a> Painter<'a> {
             ),
             tag: Style::new().bg(theme.tag_bg).fg(theme.tag_fg),
             hl: base.bg(theme.line_hl),
-            hl_gutter: base
-                .fg(theme.cursor_gutter_fg)
-                .bg(theme.line_hl)
-                .add_modifier(theme.modifiers(&["CursorLineNr"])),
+            hl_gutter: hl_gutter.bg(if text_hl {
+                theme.line_hl
+            } else {
+                theme.cursor_gutter_bg()
+            }),
             sel: theme
                 .selected(base)
                 .add_modifier(theme.modifiers(&["Visual"])),
             sel_lines: app.selection().map(|(start, end)| (start.0, end.0)),
-            text_hl: app.selected_bytes(app.at()).is_none_or(|r| !r.is_empty()),
+            text_hl,
             nowrap: app.nowrap(),
             review: app.review.is_some(),
             partner: app.diff.pairs.iter().map(|(&l, &g)| (g, l)).collect(),
@@ -210,12 +216,11 @@ impl<'a> Painter<'a> {
             .is_some_and(|(first, last)| first <= line && line < last)
     }
 
-    fn plain_syntax<'s>(&self, syntax: &'s Spans) -> &'s Spans {
+    fn plain_syntax(&self, syntax: &Spans) -> Painted {
         if self.theme.selection_fg.is_some() {
-            &[]
-        } else {
-            syntax
+            return Vec::new();
         }
+        without_bg(syntax)
     }
 
     fn ghost_wrap(&self, raw: &str) -> Vec<(Range<usize>, usize)> {
@@ -326,6 +331,7 @@ impl<'a> Painter<'a> {
             }
             _ => &[],
         };
+        let syntax = &without_bg(syntax);
         let words = self
             .partner
             .get(&(l, i))
@@ -342,7 +348,7 @@ impl<'a> Painter<'a> {
             here,
             self.find_styles,
         );
-        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        let plain = paint_finds(&self.plain_syntax(syntax), &finds, here, self.find_styles);
         (spans, plain)
     }
 
@@ -425,7 +431,7 @@ impl<'a> Painter<'a> {
         &self,
         l: usize,
         clipped: &str,
-        lit: bool,
+        (lit, tinted): (bool, bool),
         here: Option<usize>,
     ) -> (Painted, Painted) {
         let (app, theme) = (self.app, self.theme);
@@ -438,6 +444,11 @@ impl<'a> Painter<'a> {
             .map(|old| intraline::changes(shown_str(old), clipped).1)
             .unwrap_or_default();
         let syntax = app.buf.hl.get(l).map_or(&[][..], Vec::as_slice);
+        let syntax = &if tinted {
+            without_bg(syntax)
+        } else {
+            syntax.to_vec()
+        };
         let finds = app
             .find_re
             .as_ref()
@@ -453,7 +464,7 @@ impl<'a> Painter<'a> {
             here,
             self.find_styles,
         );
-        let plain = paint_finds(self.plain_syntax(syntax), &finds, here, self.find_styles);
+        let plain = paint_finds(&self.plain_syntax(syntax), &finds, here, self.find_styles);
         (spans, plain)
     }
 
@@ -468,7 +479,12 @@ impl<'a> Painter<'a> {
             (true, Some(Mark::Deleted)) => Some((theme.del_bg, theme.del_bg_hl)),
             _ => None,
         };
-        let (spans, plain) = self.file_spans(l, clipped, lit, cursor_line.then_some(app.col));
+        let (spans, plain) = self.file_spans(
+            l,
+            clipped,
+            (lit, tint.is_some()),
+            cursor_line.then_some(app.col),
+        );
         let g = if cursor_line {
             self.hl_gutter
         } else {
@@ -495,14 +511,17 @@ impl<'a> Painter<'a> {
         } else {
             app.rows(l)
         };
-        let folded = app.collapsed_tail(l).map(|tail| {
-            let gap = if clipped.ends_with(['{', '(', '[']) {
-                ""
-            } else {
-                " "
-            };
-            (gap, tail)
-        });
+        let folded = app
+            .collapsed_at(l)
+            .zip(app.collapsed_tail(l))
+            .map(|(e, tail)| {
+                let gap = if clipped.ends_with(['{', '(', '[']) {
+                    ""
+                } else {
+                    " "
+                };
+                (gap, tail, e - l - usize::from(!tail.is_empty()))
+            });
         let line = FileLine {
             l,
             clipped,
@@ -583,15 +602,24 @@ impl<'a> Painter<'a> {
         if lead > 0 {
             row.push(Span::styled(" ".repeat(lead), t));
         }
-        let fold = f.folded.as_ref().filter(|_| i == f.last);
+        let used = lead
+            + wrap::width(&f.clipped[r.clone()])
+            + usize::from(before)
+            + usize::from(after)
+            + usize::from(ell);
+        let fold = f.folded.filter(|_| i == f.last).map(|(gap, tail, n)| {
+            let used = used + gap.len() + wrap::width(tail);
+            let counted = format!(" {n} line{} {FOLDED_MARK} ", if n == 1 { "" } else { "s" });
+            let chip = if n == 0 || used + wrap::width(&counted) > app.view_w {
+                format!(" {FOLDED_MARK} ")
+            } else {
+                counted
+            };
+            (gap, chip, tail, used)
+        });
         let pad = app.view_w.saturating_sub(
-            lead + wrap::width(&f.clipped[r.clone()])
-                + usize::from(before)
-                + usize::from(after)
-                + usize::from(ell)
-                + fold.map_or(0, |(gap, tail)| {
-                    gap.len() + wrap::width(FOLDED) + wrap::width(tail)
-                }),
+            fold.as_ref()
+                .map_or(used, |(_, chip, _, used)| used + wrap::width(chip)),
         );
         row.extend(selected_row(
             f.clipped,
@@ -605,15 +633,15 @@ impl<'a> Painter<'a> {
         if ell {
             row.push(self.ellipsis(pad_style));
         }
-        if let Some((gap, tail)) = fold {
+        if let Some((gap, text, tail, _)) = fold {
             let chip = if f.cursor_line {
                 theme.selected(t.fg(theme.fg))
             } else {
                 t.bg(theme.line_hl).fg(theme.fg)
             };
-            row.push(Span::styled(*gap, t));
-            row.push(Span::styled(FOLDED, chip));
-            row.push(Span::styled(*tail, t));
+            row.push(Span::styled(gap, t));
+            row.push(Span::styled(text, chip));
+            row.push(Span::styled(tail, t));
         }
         if f.padded || after {
             row.push(Span::styled(" ".repeat(pad), pad_style));
@@ -626,6 +654,13 @@ impl<'a> Painter<'a> {
 }
 
 type Painted = Vec<(Style, Range<usize>)>;
+
+fn without_bg(syntax: &Spans) -> Painted {
+    syntax
+        .iter()
+        .map(|(s, r)| (Style { bg: None, ..*s }, r.clone()))
+        .collect()
+}
 
 struct FileLine<'a> {
     l: usize,
@@ -642,7 +677,7 @@ struct FileLine<'a> {
     edges: (bool, bool),
     leads: (usize, usize),
     last: usize,
-    folded: Option<(&'static str, &'a str)>,
+    folded: Option<(&'static str, &'a str, usize)>,
 }
 
 pub(super) fn draw_binary(
@@ -677,22 +712,17 @@ pub(super) fn draw_renamed(
 ) {
     let (old, new) = (old.display().to_string(), new.display().to_string());
     let dim = base.fg(theme.ghost_fg);
-    let changed = renamed_part(&old, &new);
-    let del = base.bg(theme.del_word_bg).fg(theme.word_fg);
-    let add = base.bg(theme.add_word_bg).fg(theme.word_fg);
     let room = (area.width as usize).saturating_sub(2);
     let mut lines = if wrap::width(&old) + 5 + wrap::width(&new) <= room {
-        let mut row = tinted(&old, changed, base, del, room);
-        row.push(Span::styled("  \u{2192}  ", dim));
-        row.extend(tinted(&new, changed, base, add, room));
-        vec![Line::from(row)]
+        let [old, new] = renamed_paths(theme, base, &old, &new, (room, room));
+        vec![Line::from(
+            [old, vec![Span::styled("  \u{2192}  ", dim)], new].concat(),
+        )]
     } else {
-        let mut second = vec![Span::styled("\u{2192}  ", dim)];
-        second.extend(tinted(&new, changed, base, add, room.saturating_sub(3)));
-        vec![
-            Line::from(tinted(&old, changed, base, del, room)),
-            Line::from(second),
-        ]
+        let rooms = (room, room.saturating_sub(3));
+        let [old, new] = renamed_paths(theme, base, &old, &new, rooms);
+        let arrow = vec![Span::styled("\u{2192}  ", dim)];
+        vec![Line::from(old), Line::from([arrow, new].concat())]
     };
     lines.extend([
         Line::styled("renamed, no changes", dim),
@@ -700,6 +730,62 @@ pub(super) fn draw_renamed(
         next_file(base, dim),
     ]);
     draw_note(frame, area, base, lines);
+}
+
+pub(super) fn draw_rename_band(
+    frame: &mut Frame,
+    app: &App,
+    theme: &Theme,
+    area: Rect,
+    base: Style,
+) -> Rect {
+    let Some((old, new)) = app.renamed_with_changes().filter(|_| area.height > 1) else {
+        return area;
+    };
+    let band = base.bg(theme.line_hl);
+    let row = rename_band(theme, band, old, new, area.width as usize);
+    let top = Rect { height: 1, ..area };
+    frame.render_widget(Paragraph::new(row).style(band), top);
+    Rect {
+        y: area.y + 1,
+        height: area.height - 1,
+        ..area
+    }
+}
+
+pub(super) fn rename_band(
+    theme: &Theme,
+    band: Style,
+    old: &Path,
+    new: &Path,
+    width: usize,
+) -> Line<'static> {
+    let (old, new) = (old.display().to_string(), new.display().to_string());
+    let room = width.saturating_sub(7);
+    let (old_w, new_w) = (wrap::width(&old), wrap::width(&new));
+    let old_room = if new_w <= room / 2 {
+        room - new_w
+    } else {
+        old_w.min(room / 2)
+    };
+    let [old, new] = renamed_paths(theme, band, &old, &new, (old_room, room - old_room));
+    let arrow = Span::styled("  \u{2192}  ", band.fg(theme.ghost_fg));
+    Line::from([vec![Span::styled(" ", band)], old, vec![arrow], new].concat())
+}
+
+fn renamed_paths(
+    theme: &Theme,
+    base: Style,
+    old: &str,
+    new: &str,
+    (old_room, new_room): (usize, usize),
+) -> [Vec<Span<'static>>; 2] {
+    let changed = renamed_part(old, new);
+    let word = |bg| base.bg(bg).fg(theme.word_fg);
+    [
+        tinted(old, changed, base, word(theme.del_word_bg), old_room),
+        tinted(new, changed, base, word(theme.add_word_bg), new_room),
+    ]
 }
 
 fn next_file(base: Style, dim: Style) -> Line<'static> {

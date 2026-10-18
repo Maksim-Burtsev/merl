@@ -1,0 +1,14 @@
+wait file 6/8
+┌agent/refund ← origin/main──┐1▎"""Refund an order by hand until the service can do it: python scripts/refund_by_hand.py ID"""
+│✓   M service.py      +13 −1│2▎import sys
+│  ▾ deploy                  │3▎
+│    ▾ helm                  │4▎from app.config import load
+│      ▾ orders              │5▎from app.models import OrderStatus
+│✓       M values.yaml  +1 −0│6▎
+│  ▾ docs                    │7▎ORDER_ID = int(sys.argv[1])
+│    M architecture.png   bin│8▎print(f"UPDATE orders SET status = '{OrderStatus.REFUNDED.value}' WHERE id = {ORDER_ID};")
+│  ▾ scripts                 │9▎print(f"-- then refund it in the payment provider's dashboard ({load().database_url})")
+│    D refund_by_hand.… +0 −9│
+└ 8 files · +59 −39 ─────────┘
+scripts/refund_by_hand.py  1:1  [code]  read-only  hunk 0/0  file 6/8                                                                                                              14:32
+cursor (x,y,shown) 32,0,0

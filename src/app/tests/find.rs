@@ -225,6 +225,107 @@ fn esc_restores_the_anchor() {
 }
 
 #[test]
+fn a_word_that_stops_matching_puts_the_cursor_and_view_back_where_find_started() {
+    let mut text: String = (0..40).map(|i| format!("line {i}\n")).collect();
+    text.push_str("build_redirect_request()\n");
+    let mut a = app(&text);
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+    a.line = 8;
+    a.col = 2;
+    let start = (a.line, a.col, a.top_line, a.top_row, a.left);
+    find(&mut a, "build_redirect_reque");
+    a.clamp_scroll();
+    assert_eq!((a.line, a.col), (40, 0), "the letters typed so far match");
+    typed(&mut a, "ts");
+    a.clamp_scroll();
+    assert_eq!(
+        (
+            a.line,
+            a.col,
+            a.top_line,
+            a.top_row,
+            a.left,
+            a.message.as_str()
+        ),
+        (start.0, start.1, start.2, start.3, start.4, "no match"),
+        "a typo puts cursor and view back where `/` was pressed (#895)"
+    );
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (40, 0), "fixing the word finds it again");
+    typed(&mut a, "tz");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        (a.mode, a.line, a.col),
+        (Mode::Normal, start.0, start.1),
+        "Enter on `no match` leaves the cursor where `/` was pressed"
+    );
+}
+
+#[test]
+fn a_typo_keeps_the_column_up_and_down_return_to() {
+    let mut a = app("abcdefghij\nab\nabcdefghij\n");
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    find(&mut a, "bcz");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (2, 10));
+}
+
+#[test]
+fn a_typo_restores_a_scroll_down_a_wrapped_line() {
+    let mut a = app(&format!("{}\nx\nneedle\n", "w ".repeat(100)));
+    a.view_h = 4;
+    a.col = 150;
+    a.clamp_scroll();
+    let top = (a.top_line, a.top_row);
+    assert_ne!(top.1, 0, "the view starts on a later row of line 0");
+    find(&mut a, "nee");
+    a.clamp_scroll();
+    typed(&mut a, "x");
+    a.clamp_scroll();
+    assert_eq!((a.top_line, a.top_row), top);
+}
+
+#[test]
+fn a_typo_restores_a_scroll_along_an_unwrapped_line() {
+    let mut a = app(&format!("{}\nzq\n", "a".repeat(100)));
+    a.wrap_opposite_of_kind.insert(a.buf.path.clone().unwrap());
+    a.col = 50;
+    a.clamp_scroll();
+    a.left += 3;
+    a.clamp_scroll();
+    let left = a.left;
+    assert_eq!(left, 42, "scrolled further right than the cursor needs");
+    find(&mut a, "z");
+    a.clamp_scroll();
+    assert_eq!(a.left, 0);
+    typed(&mut a, "x");
+    a.clamp_scroll();
+    assert_eq!(a.left, left);
+}
+
+#[test]
+fn a_typo_after_a_reload_restores_the_view_carried_with_the_text() {
+    let (dir, mut a) = review_app("find-reload");
+    let text = |r: std::ops::Range<usize>| r.map(|i| format!("l{i}\n")).collect::<String>();
+    a.jump_to(&dir.join("src/a.rs"), 1);
+    std::fs::write(dir.join("src/a.rs"), text(0..40)).unwrap();
+    a.reload(false);
+    (a.view_h, a.line, a.top_line) = (10, 35, 30);
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    std::fs::write(dir.join("src/a.rs"), text(25..40)).unwrap();
+    assert!(a.reload(false));
+    typed(&mut a, "qqq");
+    a.clamp_scroll();
+    assert_eq!(
+        (a.line, a.top_line, a.buf.lines[a.line].as_str()),
+        (10, 5, "l35")
+    );
+}
+
+#[test]
 fn the_query_is_capped_so_it_always_compiles() {
     let mut a = app("яяя\n");
     press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
@@ -318,4 +419,91 @@ fn typing_after_a_find_from_edit_mode_is_an_undo_step_of_its_own() {
     typed(&mut a, "y");
     press(&mut a, KeyCode::Char('z'), KeyModifiers::CONTROL);
     assert_eq!(a.buf.lines[0], "xab");
+}
+
+#[test]
+fn find_reaches_a_match_past_the_cut_and_draws_the_line_on_to_it() {
+    let pad = "ab ".repeat(10_000);
+    let text = format!("{pad}THE END {pad}THE END\nTHE END\n{pad}\n");
+    let (_, mut a) = temp_file("find-past-cut", &text);
+    assert_eq!(a.buf.shown(0).len(), 20_000);
+    find(&mut a, "the end");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, a.message.as_str(), a.buf.shown(0).len()),
+        (0, 30_000, "1/3", 50_000),
+        "the first match is past the cut: the cursor is on it and the line is drawn 20 KB past it"
+    );
+    assert_eq!(
+        a.buf.shown(2).len(),
+        20_000,
+        "another long line keeps its cut"
+    );
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, a.message.as_str()), (0, 60_008, "2/3"));
+    assert!(
+        !Buffer::clips(&a.buf.lines[0]),
+        "the line is now drawn whole"
+    );
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, a.message.as_str()), (1, 0, "3/3"));
+    press(&mut a, KeyCode::Char('N'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, a.message.as_str()), (0, 60_008, "2/3"));
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        (a.mode, a.message.as_str()),
+        (Mode::Normal, "line too long to edit"),
+        "a line drawn on past 20 KB stays read-only"
+    );
+}
+
+#[test]
+fn an_s_hit_past_the_cut_opens_on_the_hit() {
+    let text = format!("{}THE END\n", "ab ".repeat(10_000));
+    let (path, mut a) = temp_file("open-past-cut", &text);
+    a.jump_to_col(&path, 1, 30_000);
+    assert_eq!(
+        (a.line, a.col, a.buf.shown(0).len()),
+        (0, 30_000, 30_007),
+        "the hit opens on itself and the line is drawn on past it"
+    );
+}
+
+#[test]
+fn n_from_the_cut_goes_on_past_it_and_esc_takes_the_reach_back() {
+    let text = format!("{}THE END\nTHE END\n", "ab ".repeat(10_000));
+    let (_, mut a) = temp_file("find-from-cut", &text);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 20_000));
+    find(&mut a, "the end");
+    assert_eq!(a.buf.shown(0).len(), 30_007);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, a.buf.shown(0).len()),
+        (0, 20_000, 20_000),
+        "Esc puts the cut back with the cursor"
+    );
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col),
+        (0, 30_000),
+        "`n` from the `…` finds the match past it, not the next line's"
+    );
+}
+
+#[test]
+fn a_line_drawn_whole_by_a_find_gets_its_colour() {
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let text = format!("x = \"{}\"\ny = 1\n", "ab ".repeat(10_000));
+    let (_, mut a) = temp_file("find-colour", &text);
+    a.buf.parse_more(None);
+    a.buf.paint_to(1, &theme);
+    assert_eq!(a.buf.hl[0], Vec::new(), "a cut line is drawn plain");
+    find(&mut a, "\"");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    a.buf.parse_more(None);
+    a.buf.paint_to(1, &theme);
+    assert_ne!(a.buf.hl[0], Vec::new());
 }

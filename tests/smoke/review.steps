@@ -19,6 +19,8 @@
 # `merl -r agent/totp` reviews a Java package eleven directories deep: the panel folds its
 # one-child chain into `…/twofactor/totp`; Tab gives the panel the keys and, its names still cut,
 # it widens to its longest row, at most half the screen; Tab back returns it to 30 columns (#399).
+# On a pane of 12 rows, c in refunds.py, a hunk taller than the screen, stands on its first rows
+# not drawn yet, 12 then 18, before it goes on to the next file not ticked (#908).
 caption review · merl --review=agent/refund fetches the agent's branch and opens on its first hunk
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
@@ -81,7 +83,7 @@ key Enter
 wait app/repos.py  -59:14  [code]  hunk 1/1  file 2/8  1/1
 key C-c
 wait copied 1 line
-run $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
+check $SMOKE_TMUX show-buffer | grep -qx '        self.orders.clear()'
 key Enter
 wait -59:14  [code]  hunk 1/1  file 2/8  deleted
 caption o lists the review's files first, with their panel letter (#246)
@@ -146,3 +148,17 @@ wait [tree]
 caption Tab back to the code: the panel is 30 columns again (#399)
 key Tab
 wait [code]
+caption c in a hunk taller than the screen: its first row not drawn yet, then the next hunk (#908)
+size 185x12
+merl --review=agent/refund
+wait file 6/8
+key C C C C C C C
+wait hunk 1/1  file 1/8
+key m
+wait not viewed
+key c
+wait app/refunds.py  12:1
+key c
+wait app/refunds.py  18:1
+key c
+wait hunk 0/0  file 6/8

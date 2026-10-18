@@ -8,7 +8,8 @@ theme. Once, on a recording machine; never in CI.
 
 --fixtures records the golden colours of `cargo test` (#802): every file of tests/colors/LANG/
 drawn in the FIXTURE_THEMES, written to tests/colors/LANG/THEME.tsv as colors/ is, with a
-character's colour as `rrggbb` followed by `b` when bold and `i` when italic.
+character's colour as `rrggbb` followed by `b` when bold, `i` when italic and `/rrggbb` its
+background when it is neither Normal's nor CursorLine's (#845).
 
 Every theme of themes.tsv is cloned at its pinned commit into the cache (default
 $THEME_BENCH_CACHE or ~/.cache/merl-theme-bench), with nvim-treesitter at NVIM_TS and the
@@ -263,9 +264,9 @@ def xdg(cache, name):
     return {**homes, "XDG_CONFIG_DIRS": os.path.join(d, "config-dirs"), "XDG_DATA_DIRS": os.path.join(d, "data-dirs")}
 
 
-def groups(cache, name, init):
+def groups(cache, name, init, names=GROUPS):
     out = tempfile.mktemp(suffix=".json")
-    lua = ("local o = {} for _, g in ipairs(vim.split(" + json.dumps(",".join(GROUPS)) + ", ',')) do "
+    lua = ("local o = {} for _, g in ipairs(vim.split(" + json.dumps(",".join(names)) + ", ',')) do "
            "o[g] = vim.api.nvim_get_hl(0, {name = g, link = false}) end "
            f"vim.fn.writefile({{vim.json.encode(o)}}, {json.dumps(out)})")
     subprocess.run(["nvim", "--headless", "-u", init, "-c", f"lua {lua}", "-c", "qa!"],
@@ -278,7 +279,7 @@ def groups(cache, name, init):
     def drawn(g):
         fg, bg = hl[g].get("fg", normal.get("fg")), hl[g].get("bg", normal.get("bg"))
         return (hexed(bg), hexed(fg)) if hl[g].get("reverse") else (hexed(fg), hexed(bg))
-    return {g: drawn(g) for g in GROUPS}
+    return {g: drawn(g) for g in names}
 
 
 def shipped(name):
@@ -329,7 +330,7 @@ def capture(session, cmd, rows, env, ready, keys=()):
     return grids
 
 
-def on_screen(grid, lines, styled=False):
+def on_screen(grid, lines, plain_bgs=None):
     hits = []
     for cells in grid:
         text = "".join(c[0] for c in cells)
@@ -338,7 +339,8 @@ def on_screen(grid, lines, styled=False):
             if not 1 <= n <= len(lines):
                 continue
             want = "".join(lines[n - 1].split())
-            got = [(c[0], hexed(c[1]) + "b" * c[3] + "i" * c[4] if styled else c[1])
+            got = [(c[0], c[1] if plain_bgs is None else hexed(c[1]) + "b" * c[3] + "i" * c[4]
+                    + ("" if hexed(c[2]) in plain_bgs else "/" + hexed(c[2])))
                    for c in cells[m.end():] if not c[0].isspace()]
             if want and "".join(ch for ch, _ in got[:len(want)]) == want:
                 hits.append((m.end(), n, [fg for _, fg in got[:len(want)]]))
@@ -427,6 +429,8 @@ def record(cache, ts, name, langs):
 def record_fixtures(cache, ts, name, langs):
     init = init_lua(cache, name, ts)
     env = {**xdg(cache, name), "TERM": "tmux-256color"}
+    hl = groups(cache, name, init, ["Normal", "CursorLine", "MatchParen"])
+    plain = {bg.lstrip("#") for _, bg in hl.values()}
     for lang in langs:
         d = os.path.join(ROOT, "tests", "colors", lang)
         files = []
@@ -442,7 +446,7 @@ def record_fixtures(cache, ts, name, langs):
             ready = lambda g: first in on_screen(g, lines)
             grid, = capture(f"f{threading.get_ident()}", f"nvim -u {shlex.quote(init)} {shlex.quote(path)}", LINES + 4,
                             env, ready)
-            files.append((f, {n: cells for n, cells in on_screen(grid, lines, styled=True).items() if recordable(lines[n - 1])}))
+            files.append((f, {n: cells for n, cells in on_screen(grid, lines, plain).items() if recordable(lines[n - 1])}))
         version = subprocess.run(["nvim", "--version"], capture_output=True, text=True).stdout.split("\n")[0]
         source, colorscheme, before, _ = manifest()[name]
         head = (f"# {name}: {source} `{before if before != '-' else ''}{' | ' if before != '-' else ''}"

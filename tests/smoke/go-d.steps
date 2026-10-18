@@ -74,8 +74,15 @@ wait worker/main.go  1:1
 key :
 type 30
 key Enter f
-wait func run(ctx context.Context, q queue.Queue) error { ⋯ }
-key f :
+wait ⋯ }
+key f
+wait select {
+key :
 type 21
 key Enter f
-wait err != nil { ⋯ }
+wait ⋯ }
+# The chip of a folded function says how many lines it hides (#634).
+key :
+type 26
+key Enter f
+wait lines ⋯

@@ -39,7 +39,9 @@ Times mean something only with `sysctl -n vm.loadavg` under ~8; the baseline not
 ## Verdicts
 
 A jump is right when it lands within one line of the answer; for an answer outside the project,
-the same file name under the same directory counts (a dependency's copy in another cache).
+the same file name under the same directory counts (a dependency's copy in another cache). pnpm
+keeps a copy of a package per set of peers it resolved with (`.pnpm/astro@7.2.10_<peers>/`), the
+same files in each: a file in one copy counts as the same file in another copy of that version.
 
 | verdict | merl |
 |---|---|

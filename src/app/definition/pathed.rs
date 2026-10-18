@@ -125,6 +125,9 @@ impl App {
                 |p| self.text_of(p),
                 search::CTypeWord::NAMED,
             );
+            if search::cpp_one_namespace(owner, &declared, |p| self.text_of(p)) {
+                declared.truncate(1);
+            }
         }
         if !outside
             && declared.len() > 1
@@ -157,7 +160,11 @@ impl App {
         }
         let singleton = q.class_method && word != "initialize";
         let concerns = singleton.then(|| hits.clone());
-        let named = self.path_named(a, q, hits, singleton);
+        let types = (kind == Kind::C).then(|| hits.clone());
+        let named = match (self.path_named(a, q, hits, singleton), types) {
+            (named, Some(types)) if named.is_empty() => self.cpp_path_named(a, q, types),
+            (named, _) => named,
+        };
         let named = self.named_kept(a, named);
         if !named.is_empty() {
             return self.show_found(a, named);
@@ -219,6 +226,38 @@ impl App {
                 hit,
             })
             .collect()
+    }
+
+    fn cpp_path_named(&self, a: &Asked, q: &OwnerPath, hits: Vec<Hit>) -> Vec<Candidate> {
+        let word = &a.word;
+        let scoped: Vec<(Hit, Option<String>)> = hits
+            .into_iter()
+            .map(|h| {
+                let name = Self::c_type_line(word, &h)
+                    .then(|| self.text_of(&h.path))
+                    .flatten()
+                    .and_then(|t| search::cpp_scoped_name(&t, h.line1, word));
+                (h, name)
+            })
+            .collect();
+        let pick = |want: &str| -> Vec<Candidate> {
+            (scoped.iter())
+                .filter(|(_, name)| name.as_deref() == Some(want))
+                .map(|(hit, _)| Candidate {
+                    hit: hit.clone(),
+                    reason: Reason::Path(q.path.clone()),
+                })
+                .collect()
+        };
+        let pos = (a.text.split('\n').take(self.line))
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + a.range.start;
+        let path = match search::cpp_alias_in_scope(&a.text, pos, &a.chain[0]) {
+            Some(real) => [&real[..], &a.chain[1..]].concat().join("::"),
+            None => q.path.clone(),
+        };
+        pick(&format!("{path}::{word}"))
     }
 
     fn named_kept(&self, a: &Asked, named: Vec<Candidate>) -> Vec<Candidate> {

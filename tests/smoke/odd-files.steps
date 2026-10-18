@@ -25,7 +25,7 @@ key Enter
 wait 1 order_id;amount;reason
 key Enter Delete*6 Escape
 wait 1▎id;amount;reason
-run python3 -c "d = open('data/refunds-2026-08.csv', 'rb').read(); assert d.startswith(b'\xef\xbb\xbfid;amount;reason\r\n') and d.count(b'\n') == d.count(b'\r\n') == 3, d"
+check python3 -c "d = open('data/refunds-2026-08.csv', 'rb').read(); assert d.startswith(b'\xef\xbb\xbfid;amount;reason\r\n') and d.count(b'\n') == d.count(b'\r\n') == 3, d"
 key o
 type architecture
 key Enter
@@ -60,7 +60,7 @@ key Right
 wait scripts/grant_admin.py  5:23
 key Left Enter Delete Escape
 wait 5▎    token = "abcdef"
-run python3 -c "d = open('scripts/grant_admin.py').read(); assert 'token = \"abcdef\"' in d and '‮' in d, d"
+check python3 -c "d = open('scripts/grant_admin.py').read(); assert 'token = \"abcdef\"' in d and '‮' in d, d"
 # `d` on a Markdown link opens the file at the heading it names (#421).
 merl docs/notes.md
 wait # Release notes for the support team
@@ -74,3 +74,11 @@ key o
 type architecture
 key Enter
 wait PNG 48×32, not shown
+# Find goes to a match past the 20 KB cut of the JSON's one line, and the line is drawn on to it
+# (#888).
+merl data/orders.min.json
+wait [{"id":1,"customer_id":1327,"total":"853.34"
+key /
+type "id":3000,
+key Enter
+wait data/orders.min.json  1:503785

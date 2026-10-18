@@ -1,0 +1,14 @@
+wait app/refunds.py  18:1
+┌agent/refund ← origin/main──┐11 def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
+│    A refunds.py      +18 −0│13▎    now = now or datetime.now(timezone.utc)
+│✓   M repos.py        +0 −28│14▎    if order.status is not OrderStatus.PAID:
+│✓   M service.py      +13 −1│15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
+│  ▾ deploy                  │16▎    if now - order.created_at > timedelta(days=window_days):
+│    ▾ helm                  │17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
+│      ▾ orders              │18▎    return order.total
+│✓       M values.yaml  +1 −0│
+│  ▾ docs                    │
+│    M architecture.png   bin│
+└ 8 files · +59 −39 ─────────┘
+app/refunds.py  18:1  [code]  hunk 1/1  file 1/8                                                                                                                                   14:32
+cursor (x,y,shown) 33,6,0

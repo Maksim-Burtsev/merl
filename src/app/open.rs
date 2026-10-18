@@ -208,12 +208,15 @@ impl App {
         let old = std::mem::replace(&mut self.buf, buf);
         self.carry_collapsed(&old.lines);
         if self.review.is_some() {
+            if let Some(rel) = self.rel_current() {
+                self.seen.remove(&rel);
+            }
             let to = |l: &mut usize| *l = carried(&old.lines, &self.buf.lines, *l);
             let here = self.at();
             let stop = self.history.get_mut(self.hist_idx);
             let stop = stop.filter(|s| s.0 == path && s.1 == here);
             let deleted = self.deleted.as_mut().map(|(k, _)| k);
-            [&mut self.line, &mut self.top_line]
+            [&mut self.line, &mut self.top_line, &mut self.find_view.0]
                 .into_iter()
                 .chain(deleted)
                 .for_each(to);
@@ -324,6 +327,7 @@ impl App {
         if self.open(path, line) {
             self.focus = Focus::Code;
             if col > 0 {
+                self.reach((TextLine::File(self.line), col));
                 self.go(self.clamp_pos((self.line, col)));
                 self.sync_want_x();
             }
@@ -352,6 +356,7 @@ impl App {
                 })
                 .min_by_key(|&(_, line)| line.abs_diff(n));
             let t = nearest.map_or_else(|| TextLine::File(n.saturating_sub(1)), |(t, _)| t);
+            self.reach((t, col));
             let (t, col) = self.clamp_place((t, col));
             self.set_at(t);
             self.col = col;

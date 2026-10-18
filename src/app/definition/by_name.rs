@@ -38,11 +38,21 @@ impl App {
                 found = self.package_assignments(&a.word, module);
             }
         }
+        if kind == Kind::Python && near.unbound {
+            self.star_winner(&a.here, &a.text, &a.word, &mut found);
+        }
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
+            self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
+        }
+        if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
+            self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);
+        if kind == Kind::Rust && found.is_empty() {
+            found = self.rust_macro_declared(&a.word);
+        }
         if kind == Kind::Ruby && p.on_value {
             self.ruby_member_outside(&a.word, &p.pattern, &mut found);
         }
@@ -344,6 +354,21 @@ impl App {
                 None => true,
             }
         });
+        if !a.dotted && search::swift_in_top_level_func(&lines, &literal, self.line + 1) {
+            let in_type = |h: &Hit| {
+                files.get(&h.path).is_some_and(|(lines, literal)| {
+                    search::swift_enclosing_type(lines, literal, h.line1).is_some()
+                })
+            };
+            let top = |h: &Hit| {
+                !in_type(h)
+                    && !h.text.starts_with([' ', '\t'])
+                    && (h.path != a.here || h.line1 != self.line + 1)
+            };
+            if hits.iter().any(top) {
+                hits.retain(|h| !in_type(h));
+            }
+        }
         self.offer_only |= hits.len() < all
             && matches!(hits.as_slice(), [h] if h.path == a.here && h.line1 == self.line + 1);
     }
@@ -398,7 +423,27 @@ impl App {
         let on = hits
             .iter()
             .any(|h| h.path == a.here && h.line1 == self.line + 1);
-        let hits = search::c_file_local(word, &a.here, &a.text, hits, |p| self.text_of(p), on);
+        let hits = {
+            let by_macro = self.c_static_by_macro(&a.here, &hits);
+            search::c_file_local(
+                word,
+                &a.here,
+                &a.text,
+                hits,
+                &by_macro,
+                |p| self.text_of(p),
+                on,
+            )
+        };
+        let hits = if a.chain.is_empty()
+            && near.locals.is_empty()
+            && after.starts_with('(')
+            && !before.ends_with("::")
+        {
+            self.cpp_free_call(&a.here, &a.text, word, a.range.start, hits)
+        } else {
+            hits
+        };
         let declared = self.c_member_owners(a, &hits, on);
         if declared.iter().any(Option::is_some) {
             let found = hits
@@ -423,17 +468,16 @@ impl App {
             *fallbacks = fallback;
         }
         let parameter = search::c_parameter(&a.text, self.line + 1, word);
-        Some(
-            match search::c_one_definition(word, &hits, |p| self.text_of(p))
-                .filter(|_| !on && !parameter)
-            {
-                Some(one) => {
-                    *aside = Some(one.set_aside_note);
-                    vec![hits[one.hit_index].clone()]
-                }
-                None => hits,
-            },
-        )
+        let one = search::c_one_definition(word, &hits, |p| self.text_of(p))
+            .filter(|_| !on && !parameter)
+            .filter(|o| !self.c_unreached_header(&a.here, &hits[o.hit_index].path));
+        Some(match one {
+            Some(one) => {
+                *aside = Some(one.set_aside_note);
+                vec![hits[one.hit_index].clone()]
+            }
+            None => hits,
+        })
     }
 
     fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {

@@ -21,6 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 RANK = {"ok": 0, "pick-hit": 1, "pick-miss": 2, "none": 2, "WRONG": 3}
 SCORED = list(RANK)
+PNPM_PEERS = re.compile(r"(/node_modules/\.pnpm/(?:@[^/+]+\+)?[^/@]+@[^/_]+)_[^/]+")
 
 
 def tsv(path):
@@ -55,6 +56,10 @@ def ensure(cache, name, url, commit, install):
     return d
 
 
+def same_file(a, b):
+    return PNPM_PEERS.sub(r"\1", a) == PNPM_PEERS.sub(r"\1", b)
+
+
 def modkey(p):
     base = re.sub(r"(\.d)?\.[A-Za-z]+$", "", p)
     return "/".join(base.split("/")[-2:])
@@ -82,7 +87,7 @@ def verdict(cur, ans, got, root):
     external = not all(p.startswith(root + "/") for p, _ in want)
 
     def hit(g):
-        return any(abs(g[1] - ln) <= 1 if g[0] == p else external and modkey(g[0]) == modkey(p)
+        return any(abs(g[1] - ln) <= 1 if same_file(g[0], p) else external and modkey(g[0]) == modkey(p)
                    for p, ln in want)
 
     outcome, found = got
@@ -140,6 +145,13 @@ def selftest():
     assert verdict(cur, ans(f"{dep}:50"), jump(dep, 50), root) == "ok"
     assert verdict(cur, ans(f"{dep}:50"), jump(dep, 90), root) == "WRONG"
     assert verdict(cur, ans("b.py:10"), ("picker", targets("c.py:1;b.py:10", root)), root) == "pick-hit"
+    pnpm = "node_modules/.pnpm/{}/node_modules/astro/env.d.ts:7"
+    copy = lambda d: ans(pnpm.format(d))
+    got = lambda d: ("picker", targets("c.py:1;" + pnpm.format(d), root))
+    assert verdict(cur, copy("astro@7.2.10_@astrojs+md@7.3.0__ffe8"), got("astro@7.2.10_vite@7__06e3"), root) == "pick-hit"
+    assert verdict(cur, copy("@astrojs+check@0.9.10_ts@6"), got("@astrojs+check@0.9.10"), root) == "pick-hit"
+    assert verdict(cur, copy("astro@7.2.10_vite@7__06e3"), got("astro@7.2.11_vite@7__06e3"), root) == "pick-miss"
+    assert verdict(cur, copy("astro@7.2.10_vite@7"), got("astro-x@7.2.10_vite@7"), root) == "pick-miss"
     assert byte_col('label = _("Ärger") + format_label(x)', 21) == 22
     base = {"go1": ["go1", "ok"], "go2": ["go2", "WRONG"], "go3": ["go3", "pick-hit"]}
     swap = {"go1": ["go1", "WRONG"], "go2": ["go2", "ok"], "go3": ["go3", "pick-hit"]}

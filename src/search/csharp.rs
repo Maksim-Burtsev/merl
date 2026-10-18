@@ -70,7 +70,7 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     }
 }
 
-pub(super) fn cs_namespace_line(line: &str) -> bool {
+pub fn cs_namespace_line(line: &str) -> bool {
     line.trim_start_matches(['\u{feff}', ' ', '\t'])
         .starts_with("namespace ")
 }
@@ -596,6 +596,23 @@ pub fn cs_awaited(written: &str) -> Option<&str> {
         .strip_prefix("Task<")
         .or_else(|| t.strip_prefix("ValueTask<"))?;
     Some(inner.strip_suffix('>')?.trim())
+}
+
+pub fn cs_lambda_delegate(line: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let re = Regex::new(&format!(
+        r"^\s*(?:System\.)?(Func|Action)<(.+)>\s+@?\w+\s*=\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>(.*)$"
+    ))
+    .ok()?;
+    let code = uncommented(Kind::CSharp, line);
+    let c = re.captures(&code)?;
+    if c[3].contains("=>") {
+        return None;
+    }
+    let args = cs_split(&c[2]);
+    let wanted = if &c[1] == "Func" { 2 } else { 1 };
+    let first = args.first()?.trim();
+    (args.len() == wanted && cs_type_name(first).is_some()).then(|| first.to_owned())
 }
 
 #[expect(

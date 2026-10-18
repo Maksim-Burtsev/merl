@@ -2377,6 +2377,35 @@ fn a_file_renamed_without_changes_hides_its_text_and_takes_only_the_keys_that_le
 }
 
 #[test]
+fn only_a_file_renamed_with_changes_is_headed_by_its_old_path() {
+    let moved = "def f():\n    return 1\n\n\ndef g():\n    return 2\n";
+    let base = [
+        ("a.py", "x\n"),
+        ("text.py", "def t():\n    pass\n"),
+        ("c.py", moved),
+    ];
+    let work: &[&[&str]] = &[&["mv", "text.py", "words.py"], &["mv", "c.py", "d.py"]];
+    let dir = branch_repo("renameband", &base, work);
+    std::fs::write(dir.join("a.py"), "y\n").unwrap();
+    std::fs::write(
+        dir.join("d.py"),
+        format!("{moved}\n\ndef h():\n    return 3\n"),
+    )
+    .unwrap();
+    let mut a = started_as_main_starts(&dir);
+    let band = |a: &mut App, file: &str| {
+        a.jump_to(&dir.join(file), 1);
+        a.renamed_with_changes()
+            .map(|(o, n)| (o.to_path_buf(), n.to_path_buf()))
+    };
+    let d = Some((PathBuf::from("c.py"), PathBuf::from("d.py")));
+    assert_eq!(band(&mut a, "d.py"), d);
+    assert_eq!(band(&mut a, "words.py"), None);
+    assert_eq!(band(&mut a, "a.py"), None);
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn a_jump_into_a_file_renamed_without_changes_shows_its_code_and_the_walk_still_stops_on_the_rename()
  {
     let base = [("a.py", "x\n"), ("text.py", "def t():\n    pass\n")];
@@ -2493,4 +2522,156 @@ fn walk_into(a: &mut App, rel: &str) {
     a.tree.reveal(Path::new(rel));
     press(a, KeyCode::Enter, KeyModifiers::NONE);
     a.focus = Focus::Code;
+}
+
+#[test]
+fn c_in_a_hunk_taller_than_the_screen_stands_on_its_first_row_not_drawn_yet() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let tall: String = (0..60).map(|i| format!("t{i}\n")).collect();
+    let (dir, mut a) = review_app_with("tallhunk", &[("big", tall.as_bytes())]);
+    a.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
+    let mut c = |a: &mut App, code: KeyCode, m: KeyModifiers| {
+        press(a, code, m);
+        t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+        (
+            a.buf.path.clone().unwrap(),
+            a.line,
+            a.top_line,
+            a.bottom_line(),
+        )
+    };
+    let tall = dir.join("big");
+    let mut now = c(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    for _ in 0..9 {
+        if now.0 == tall {
+            break;
+        }
+        now = c(&mut a, KeyCode::Char('C'), KeyModifiers::NONE);
+    }
+    assert_eq!(
+        (&now.0, now.1),
+        (&tall, 0),
+        "the hunk's first row, as before"
+    );
+    let first_screen = now.3;
+    now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(
+        (&now.0, now.1),
+        (&tall, first_screen + 1),
+        "the first row the screen did not draw"
+    );
+    now = c(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+    let scrolled_to = now.3;
+    now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+    assert_eq!(now.1, scrolled_to + 1, "rows Ctrl+D drew count as seen");
+    let mut stops = vec![now.1];
+    for _ in 0..9 {
+        if now.0 != tall {
+            break;
+        }
+        now = c(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        stops.push(now.1);
+    }
+    assert!(
+        a.seen[Path::new("big")].is_superset(&(0..60).map(TextLine::File).collect()),
+        "every row of the hunk was drawn before c left it: {stops:?}"
+    );
+    assert_eq!(
+        now.0,
+        dir.join("crlf.txt"),
+        "then on to the next file, as before"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn c_walks_the_deleted_rows_of_a_tall_replaced_block_and_a_tall_deleted_file() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let dir = std::env::temp_dir().join(format!("merl-tallgone-{}", std::process::id()));
+    drop(std::fs::remove_dir_all(&dir));
+    std::fs::create_dir_all(&dir).unwrap();
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&dir)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "git {args:?}");
+    };
+    let lines =
+        |p: &str, r: std::ops::Range<usize>| r.map(|i| format!("{p}{i}\n")).collect::<String>();
+    git(&["init", "-q", "-b", "main"]);
+    git(&["config", "user.email", "t@t"]);
+    git(&["config", "user.name", "t"]);
+    std::fs::write(dir.join("big"), lines("b", 0..100)).unwrap();
+    std::fs::write(dir.join("gone"), lines("g", 0..80)).unwrap();
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "base"]);
+    git(&["switch", "-q", "-c", "feature"]);
+    let replaced = lines("b", 0..40) + &lines("new", 40..70) + &lines("b", 70..100);
+    std::fs::write(dir.join("big"), &replaced).unwrap();
+    std::fs::remove_file(dir.join("gone")).unwrap();
+    std::fs::write(dir.join("new"), "n\n").unwrap();
+    git(&["add", "-A"]);
+    git(&["commit", "-q", "-m", "work"]);
+    let mut a = review_start(&dir, None);
+    a.show_tree = false;
+    a.jump_to(&dir.join("big"), 1);
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
+    let mut c = |a: &mut App| {
+        press(a, KeyCode::Char('c'), KeyModifiers::NONE);
+        t.draw(|f| crate::ui::draw(f, a, &theme)).unwrap();
+        (a.buf.path.clone().unwrap(), a.at())
+    };
+    let mut stops = vec![c(&mut a)];
+    for _ in 0..12 {
+        if stops.last().unwrap().0 != dir.join("big") {
+            break;
+        }
+        stops.push(c(&mut a));
+    }
+    let in_big: Vec<_> = stops
+        .iter()
+        .filter(|s| s.0 == dir.join("big"))
+        .map(|s| s.1)
+        .collect();
+    assert_eq!(
+        in_big[0],
+        TextLine::File(40),
+        "the replaced block's first added line, as before"
+    );
+    assert!(
+        in_big.contains(&TextLine::Deleted(40, 0)),
+        "c goes up to the deleted rows centring the first added line left off the screen: {in_big:?}"
+    );
+    assert!(
+        in_big.len() > 3 && stops.iter().any(|s| s.0 == dir.join("gone")),
+        "then down the added rows, and on to the deleted file: {stops:?}"
+    );
+    let mut in_gone = vec![stops.last().unwrap().1];
+    for _ in 0..9 {
+        let (path, at) = c(&mut a);
+        if path != dir.join("gone") {
+            break;
+        }
+        in_gone.push(at);
+    }
+    assert!(
+        in_gone.len() > 2 && in_gone.windows(2).all(|w| w[0] < w[1]),
+        "an 80-line deleted file is walked down, not left after one screen: {in_gone:?}"
+    );
+    a.jump_to(&dir.join("big"), 1);
+    std::fs::write(dir.join("big"), replaced.replace("new45\n", "newer45\n")).unwrap();
+    assert!(a.reload(false));
+    assert!(
+        !a.seen.contains_key(Path::new("big")),
+        "a file changed on disk is read again"
+    );
+    drop(std::fs::remove_dir_all(dir));
 }

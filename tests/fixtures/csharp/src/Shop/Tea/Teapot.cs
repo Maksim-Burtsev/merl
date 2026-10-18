@@ -32,7 +32,7 @@ public class Table
     public int Set(Teapot pot, Stale.Kettle old)
     {
         var kettle = new Kettle(1);
-        //               ^ d: picker src/Shop/Tea/Kettle.Parts.cs:3, src/Shop/Tea/Kettle.cs:13, src/Shop/Tea/Stale/Kettle.cs:3; want src/Shop/Tea/Kettle.cs:17 (#935)
+        //               ^ d: src/Shop/Tea/Kettle.cs:17
         Kettle near = kettle;
         return kettle.Pour(1) + pot.Pour(1) + old.Pour(1) + near.Pour(1) + Spices.Grind();
         //            ^ d: src/Shop/Tea/Kettle.cs:24
@@ -54,15 +54,15 @@ public class Table
     {
         var cup = new Kettle(2);
         Func<Teapot, int> f = cup => cup.Pour(1);
-        //                               ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Teapot.cs:18 (#939)
+        //                               ^ d: src/Shop/Tea/Teapot.cs:18
         return f(new Teapot()) + cup.Pour(1);
         //                           ^ d: src/Shop/Tea/Kettle.cs:24
     }
 
     public int Fresh(Stale.Kettle stale) => stale.Pour(3) + new Stale.Kettle().Pour(4);
-    //                     ^ d: picker src/Shop/Tea/Kettle.Parts.cs:3, src/Shop/Tea/Kettle.cs:13, src/Shop/Tea/Stale/Kettle.cs:3; want src/Shop/Tea/Stale/Kettle.cs:3 (#935)
+    //                     ^ d: src/Shop/Tea/Stale/Kettle.cs:3
     //                                            ^ d: src/Shop/Tea/Stale/Kettle.cs:5
-    //                                                                         ^ d: picker src/Shop/Tea/Teapot.cs:18, src/Shop/Tea/Kettle.cs:24, src/Shop/Tea/Kettle.cs:26, src/Shop/Tea/Stale/Kettle.cs:5; want src/Shop/Tea/Stale/Kettle.cs:5 (#935)
+    //                                                                         ^ d: src/Shop/Tea/Stale/Kettle.cs:5
 
     public int Names(IPourer pourer) => pourer.Pour() + nameof(Steam).Length;
     //                                         ^ d: src/Shop/Tea/Teapot.cs:8

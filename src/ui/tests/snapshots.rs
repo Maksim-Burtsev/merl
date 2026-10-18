@@ -87,6 +87,12 @@ const STATES: &[State] = &[
         on_call(a);
         press(a, "vv");
     }),
+    ("fold", |a| {
+        for line in [13, 17, 24, 29, 33, 40] {
+            at(a, "store.py", line, "");
+            press(a, "f");
+        }
+    }),
     ("nowrap", |a| at(a, "export.csv", 1, "")),
     ("preview", |a| {
         at(a, "PLAN.md", 1, "");
@@ -140,6 +146,10 @@ const STATES: &[State] = &[
     }),
     ("review-rename", |a| {
         review(a, &[], Some(("config.py", "app/settings.py")), None);
+    }),
+    ("review-rename-edited", |a| {
+        review(a, &[], Some(("store.py", "app/store.py")), None);
+        press(a, "c");
     }),
     ("tutor", |a| {
         a.tutor = Some(Tutor {
@@ -440,6 +450,7 @@ snapshots! {
     snapshot_new_file: "new-file",
     snapshot_edit: "edit",
     snapshot_selection: "selection",
+    snapshot_fold: "fold",
     snapshot_nowrap: "nowrap",
     snapshot_preview: "preview",
     snapshot_preview_csv: "preview-csv",
@@ -449,6 +460,7 @@ snapshots! {
     snapshot_review_notes: "review-notes",
     snapshot_review_empty: "review-empty",
     snapshot_review_rename: "review-rename",
+    snapshot_review_rename_edited: "review-rename-edited",
     snapshot_tutor: "tutor",
     snapshot_drill: "drill",
 }

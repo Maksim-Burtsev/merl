@@ -1,4 +1,4 @@
-wait func run(ctx context.Context, q queue.Queue) error { ⋯ }
+wait ⋯ }
  3
  4 import (
  5     "context"
@@ -22,7 +22,7 @@ wait func run(ctx context.Context, q queue.Queue) error { ⋯ }
 23     }
 24 }
 25
-26 func run(ctx context.Context, q queue.Queue) error { ⋯ }
+26 func run(ctx context.Context, q queue.Queue) error { 14 lines ⋯ }
 42
 43 // drain runs the jobs left in q before the worker stops.
 44 func drain(q queue.Queue) error {

@@ -221,6 +221,7 @@ fn ruby_patterns(word: &str) -> Vec<String> {
     let method = vec![
         format!(r"^\s*def\s+(?:self\??\.|[A-Z]\w*\.)?{w}{end}"),
         format!(r"^\s*alias(?:_method)?\s+:?{w}{end}"),
+        format!(r"^\s*define_method\s*\(?\s*:{w}{end}"),
         format!(
             r"^\s*delegate\s*\(?\s*(?::[\w?!]+\s*,\s*)*:{w}\s*,\s*(?::[\w?!]+\s*,\s*)*{option}(?:,\s*{option})*(?:#.*)?$"
         ),
@@ -472,6 +473,7 @@ pub fn c_file_local(
     here: &Path,
     here_text: &str,
     hits: Vec<Hit>,
+    by_macro: &std::collections::HashSet<(PathBuf, usize)>,
     text_of: impl Fn(&Path) -> Option<String>,
     cursor_on_candidate: bool,
 ) -> Vec<Hit> {
@@ -489,7 +491,10 @@ pub fn c_file_local(
         r"\b(?:struct|class|union|enum)\s+{macros}{w}\b|^\s*typedef\b"
     ))
     .expect("an escaped name keeps the pattern valid");
-    let local = |h: &Hit| STATIC.is_match(&h.text) && !ty.is_match(&h.text);
+    let local = |h: &Hit| {
+        (STATIC.is_match(&h.text) || by_macro.contains(&(h.path.clone(), h.line1)))
+            && !ty.is_match(&h.text)
+    };
     if !cursor_on_candidate && hits.iter().any(|h| h.path == here && local(h)) {
         return hits
             .into_iter()
@@ -731,7 +736,22 @@ pub fn c_parameter(text: &str, line1: usize, word: &str) -> bool {
                 && !l.trim_end().ends_with(';')
         })
         .and_then(|l| l.split_once('('))
-        .is_some_and(|(_, params)| names(params, word))
+        .is_some_and(|(_, params)| {
+            let mut depth = 1usize;
+            let end = params.find(|c| match c {
+                '(' => {
+                    depth += 1;
+                    false
+                }
+                ')' => {
+                    depth = depth.saturating_sub(1);
+                    false
+                }
+                '{' => depth == 0,
+                _ => false,
+            });
+            names(end.and_then(|e| params.get(..e)).unwrap_or(params), word)
+        })
 }
 pub fn stage_entries(before: &str, text: &str, word: &str) -> Option<Vec<usize>> {
     let key = Regex::new(r#"^\s*stage:\s*["']?$"#).expect("a fixed pattern is valid");
