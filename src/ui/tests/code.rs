@@ -1030,7 +1030,7 @@ fn a_capture_s_background_wins_over_the_cursor_line_and_under_a_selection() {
         None,
     );
     app.show_tree = false;
-    let theme = crate::theme::load("tokyonight-moon").unwrap();
+    let theme = no_cursor("tokyonight-moon");
     let plus = theme.group("@diff.plus").and_then(|s| s.bg).unwrap();
     app.buf.parse_more(None);
     app.buf.highlight_to(usize::MAX, &theme);
