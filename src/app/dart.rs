@@ -269,7 +269,22 @@ impl App {
             [r] if r == "this" || r == "super" => {
                 search::dart_this_super(text, self.line, r == "super")?
             }
-            [r] => bound(r)?,
+            [r] => match bound(r) {
+                Some(ty) => ty,
+                None if r.trim_start_matches('_').starts_with(char::is_uppercase)
+                    && search::bindings(Kind::Dart, text, self.line + 1, r).is_empty() =>
+                {
+                    let ty = search::DartType {
+                        prefix: None,
+                        class: r.clone(),
+                        constructor: None,
+                    };
+                    let file = self.dart_class_file(here, &ty)?;
+                    let found = self.dart_member_of(&file, r, word);
+                    return (file.is_absolute() && !found.is_empty()).then_some(found);
+                }
+                None => return None,
+            },
             _ => return None,
         };
         let file = self.dart_class_file(here, &ty)?;
