@@ -1,6 +1,4 @@
-wait err != nil { ⋯ }
- 1 // Command worker drains the order jobs the API queues: shipping and syncs.
- 2 package main
+wait select {
  3
  4 import (
  5     "context"
@@ -19,7 +17,9 @@ wait err != nil { ⋯ }
 18
 19     q := queue.New()
 20     q.Push(queue.Job{Kind: "sync"})
-21     if err := run(ctx, q); err != nil { ⋯ }
+21     if err := run(ctx, q); err != nil {
+22         log.Fatal(err)
+23     }
 24 }
 25
 26 func run(ctx context.Context, q queue.Queue) error {
@@ -53,5 +53,5 @@ wait err != nil { ⋯ }
 54         }
 55     }
 56     return nil
-worker/main.go  21:1  [code]                                                                                                                                                       14:32
-cursor (x,y,shown) 3,20,1
+worker/main.go  26:1  [code]                                                                                                                                                       14:32
+cursor (x,y,shown) 3,23,1

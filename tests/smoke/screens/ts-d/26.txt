@@ -3,7 +3,7 @@ wait ⋯ </section>
  2
  3 export default function OrdersPage() {
  4   return (
- 5     <section className="page-list">  ⋯ </section>
+ 5     <section className="page-list">  3 lines ⋯ </section>
 10   );
 11 }
 12
