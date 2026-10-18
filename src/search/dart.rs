@@ -38,6 +38,13 @@ macro_rules! dart_any_type {
 const ANNOTATIONS: &str = dart_annotations!();
 const TYPE: &str = dart_type!();
 const ANY_TYPE: &str = dart_any_type!();
+const FN_TYPE: &str = concat!(
+    r"(?:",
+    dart_any_type!(),
+    r"\s+)?Function\s*",
+    dart_generics!(),
+    r"\([^;]*\)\??"
+);
 const NAME_END_PAST_DOLLAR: &str = r"(?:[^\w$]|$)";
 
 const DART_PATTERN_COUNT: usize = 9;
@@ -64,7 +71,7 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
             r"^\s+{ANNOTATIONS}(?:(?:(?:const|factory|external)\s+)+[A-Za-z_$][\w$]*\.{w}\s*\(|[A-Za-z_$][\w$]*\.{w}\s*{params})"
         ),
         format!(
-            r"^\s*{ANNOTATIONS}(?:(?:(?:static|external|covariant)\s+)*(?:(?:final|const|var|late)\s+)+(?:{ANY_TYPE}\s+)?|(?:(?:static|external|covariant)\s+)*{TYPE}\s+){w}\s*(?:=[^=>]|;|,|$)"
+            r"^\s*{ANNOTATIONS}(?:(?:(?:static|external|covariant)\s+)*(?:(?:final|const|var|late)\s+)+(?:(?:{FN_TYPE}|{ANY_TYPE})\s+)?|(?:(?:static|external|covariant)\s+)*(?:{FN_TYPE}|{TYPE})\s+){w}\s*(?:=[^=>]|;|,|$)"
         ),
         format!(r"^\s*enum\s+[\w$]+[^{{]*\{{(?:[^}}]*[,{{\s])?{w}\s*(?:[,}}(]|$)"),
         format!(r"^\s+{w}\s*(?:[,;(]|$)"),
@@ -205,7 +212,6 @@ pub struct DartDirective {
     pub prefix: Option<String>,
     pub show: Option<Vec<String>>,
     pub hide: Vec<String>,
-    pub conditional: bool,
     pub line1: usize,
 }
 
@@ -231,7 +237,6 @@ pub fn dart_directives(text: &str) -> Option<Vec<DartDirective>> {
             match t {
                 "" => {}
                 "as" | "show" | "hide" | "deferred" => mode = t,
-                _ if t == "if" || t.starts_with("if(") => d.conditional = true,
                 _ => match mode {
                     "as" => d.prefix = Some(t.to_owned()),
                     "show" => d.show.get_or_insert_with(Vec::new).push(t.to_owned()),
@@ -447,13 +452,18 @@ pub(super) const DART_ACCESSOR_SYMBOL: &str = concat!(
     r"\s+)?(?:get|set)\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:=>|\{|\(|;|async\b|sync\*|$)"
 );
 
+static OPTIONAL_PARAMS_CLOSE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^[}\]]\)\s*(?:async\*?|sync\*)?\s*(?:\{|=>)").expect("the regex is a literal")
+});
+
+static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
+    ))
+    .expect("the regex is a literal")
+});
+
 pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(
-            r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
-        ))
-        .expect("the regex is a literal")
-    });
     if matches!(name, "this" | "super") {
         return Vec::new();
     }
@@ -486,7 +496,7 @@ pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
             continue;
         }
         let end = i;
-        if t.starts_with(')') {
+        if t.starts_with(')') || OPTIONAL_PARAMS_CLOSE.is_match(t) {
             i = (0..i)
                 .rev()
                 .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)
@@ -518,7 +528,7 @@ pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
 fn dart_local(t: &str, name: &str) -> bool {
     let w = regex::escape(name);
     let declares = Regex::new(&format!(
-        r"^(?:(?:(?:final|const|var|late)\s+)+(?:{ANY_TYPE}\s+)?{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:<[^()]*>)?\s*\(.*(?:=>|\{{)|(?:final|var)\s*[\w$.]*\s*\((.*)\)\s*=[^=>])"
+        r"^(?:(?:(?:final|const|var|late)\s+)+(?:(?:{FN_TYPE}|{ANY_TYPE})\s+)?{w}\s*(?:[=;,]|$)|(?:{FN_TYPE}|{TYPE})\s+{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:<[^()]*>)?\s*\(.*(?:=>|\{{)|(?:final|var)\s*[\w$.]*\s*\((.*)\)\s*=[^=>])"
     ))
     .expect("an escaped name");
     declares.captures(t).is_some_and(|c| {
@@ -586,6 +596,79 @@ fn dart_header_binds(head: &str, name: &str) -> bool {
     })
 }
 
+pub fn dart_supertypes(text: &str, class: &str) -> Vec<DartType> {
+    let Ok(declares) = Regex::new(&dart_patterns(class)[0]) else {
+        return Vec::new();
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Dart, text);
+    let Some(head) = (0..lines.len()).find(|&i| {
+        !literal[i] && !lines[i].starts_with(char::is_whitespace) && declares.is_match(lines[i])
+    }) else {
+        return Vec::new();
+    };
+    let mut header = String::new();
+    for l in lines.iter().skip(head).take(10) {
+        let code = uncommented(Kind::Dart, l);
+        header.push(' ');
+        header.push_str(code.split('{').next().unwrap_or_default());
+        if code.contains('{') || code.contains(';') {
+            break;
+        }
+    }
+    let generic = Regex::new(r"<[^<>]*>").expect("the regex is a literal");
+    while generic.is_match(&header) {
+        header = generic.replace_all(&header, "").into_owned();
+    }
+    let (mut with, mut extends, mut implements) = (Vec::new(), Vec::new(), Vec::new());
+    let mut mode = "";
+    for t in header.split(|c: char| c.is_whitespace() || c == ',') {
+        match t {
+            "extends" | "with" | "implements" | "on" => mode = t,
+            "" => {}
+            _ => {
+                let (prefix, name) = match t.split_once('.') {
+                    Some((p, n)) => (Some(p.to_owned()), n),
+                    None => (None, t),
+                };
+                let ty = DartType {
+                    prefix,
+                    class: name.trim_end_matches('?').to_owned(),
+                    constructor: None,
+                };
+                match mode {
+                    "extends" => extends.push(ty),
+                    "with" => with.insert(0, ty),
+                    "implements" | "on" => implements.push(ty),
+                    _ => {}
+                }
+            }
+        }
+    }
+    with.into_iter().chain(extends).chain(implements).collect()
+}
+
+pub fn dart_in_function(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let depth = indent(lines[at]);
+    let literal = literal_lines(Kind::Dart, text);
+    depth > 0
+        && (0..at)
+            .rev()
+            .find(|&i| {
+                let t = lines[i].trim_start();
+                !literal[i]
+                    && !t.is_empty()
+                    && !t.starts_with("//")
+                    && !t.starts_with('*')
+                    && indent(lines[i]) < depth
+            })
+            .is_some_and(|i| !TYPE_BODY.is_match(lines[i]))
+}
+
 pub fn dart_body_at(text: &str, at: usize) -> Option<(std::ops::Range<usize>, bool)> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(
@@ -628,7 +711,7 @@ pub struct DartType {
     pub constructor: Option<String>,
 }
 
-const DART_NEW: &str = r"(?:const\s+|new\s+)?(?:([a-z_$][\w$]*)\.)?([A-Z][\w$]*)(?:\.([A-Za-z_$][\w$]*))?\s*(?:<[^()]*>)?\s*\(";
+const DART_NEW: &str = r"(?:const\s+|new\s+)?(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)(?:\.([A-Za-z_$][\w$]*))?\s*(?:<[^()]*>)?\s*\(";
 
 fn dart_new(s: &str, c: &regex::Captures, open: usize) -> Option<(DartType, usize)> {
     let close = close_of(Kind::Dart, s, open)?;
@@ -645,7 +728,7 @@ pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
     let w = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name");
     let declared = rule(format!(
-        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const)\s+)*(?:([a-z_$][\w$]*)\.)?([A-Z][\w$]*)(?:<[^()]*>)?\??\s+{w}\s*(?:[,)=;}}\]]|$)"
+        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const)\s+)*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)(?:<[^()]*>)?\??\s+{w}\s*(?:[,)=;}}\]]|$)"
     ));
     let assigned = rule(format!(r"(?:final|var|const|late)\s+{w}\s*=\s*{DART_NEW}"));
     let closure = rule(format!(
@@ -695,7 +778,7 @@ pub fn dart_this_super(text: &str, line0: usize, of_super: bool) -> Option<DartT
         Regex::new(r"\b(?:class|mixin|enum)\s+([A-Za-z_$][\w$]*)").expect("the regex is a literal")
     });
     static EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bextends\s+(?:([a-z_$][\w$]*)\.)?([A-Z][\w$]*)")
+        Regex::new(r"\bextends\s+(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)")
             .expect("the regex is a literal")
     });
     let (lines, _) = dart_body_at(text, line0)?;

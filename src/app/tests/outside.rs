@@ -185,6 +185,101 @@ fn a_dart_qualifier_is_no_directory() {
 }
 
 #[test]
+fn a_dart_receiver_of_an_sdk_type_answers_from_the_sdk() {
+    let sdk = external_root(
+        "outside-dart-sdk",
+        &[
+            ("lib/core/core.dart", "library dart.core;\n"),
+            (
+                "lib/async/async.dart",
+                "library dart.async;\n\npart 'future.dart';\n",
+            ),
+            (
+                "lib/async/future.dart",
+                "part of dart.async;\n\nabstract interface class Completer<T> {\n  bool get isCompleted;\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-sdk-project",
+        &[(
+            "lib/main.dart",
+            "import 'dart:async';\n\nclass Handler {\n  bool get isCompleted => false;\n}\n\nvoid run() {\n  final Completer<int> completer = Completer<int>();\n  if (completer.isCompleted) {}\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "completer.isCompleted");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "isCompleted \u{2192} Completer.isCompleted (via Completer)",
+            &at(&sdk, "lib/async/future.dart", 4)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_dart_sdk_name_skips_the_patch_files_and_a_static_reads_its_class() {
+    let sdk = external_root(
+        "outside-dart-patch",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'uri.dart';\npart 'print.dart';\n",
+            ),
+            (
+                "lib/core/uri.dart",
+                "part of dart.core;\n\nabstract interface class Uri {\n  static Uri parse(String s) => throw 0;\n}\n",
+            ),
+            (
+                "lib/core/print.dart",
+                "part of dart.core;\n\nvoid print(Object? o) {}\n",
+            ),
+            (
+                "lib/_internal/vm/core_patch.dart",
+                "@patch\nclass Uri {\n  @patch\n  static Uri parse(String s) => throw 0;\n}\n\n@patch\nvoid print(Object? o) {}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-patch-project",
+        &[
+            (
+                "lib/main.dart",
+                "void main() {\n  Uri.parse('x');\n  print(1);\n}\n",
+            ),
+            (
+                "lib/other.dart",
+                "class Url {\n  static Url parse(String s) => Url();\n}\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "Uri.parse");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "parse \u{2192} Uri.parse (via Uri)",
+            &at(&sdk, "lib/core/uri.dart", 4)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "print");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "print: by name, 1 match",
+            &at(&sdk, "lib/core/print.dart", 3)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_component_reads_as_its_script_with_the_rest_blank() {
     let (dir, a) = project_app(
         "outside-component",
