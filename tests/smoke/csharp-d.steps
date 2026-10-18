@@ -8,7 +8,7 @@ wait billing
 key o
 type billing/Refunds.cs
 key Enter
-wait public static class Refunds
+wait A Refunds.cs
 key /
 type options.Redirect
 key Enter d
@@ -40,7 +40,7 @@ wait shop.app
 key o
 type shop.app/Page.cs
 key Enter
-wait public class Page
+wait A Page.cs
 key /
 type IsBusyFor(1
 key Enter d
