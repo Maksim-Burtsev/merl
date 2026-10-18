@@ -182,6 +182,17 @@ impl App {
             if found.is_empty() && external.len() == 1 && unlisted_field_declares_it {
                 self.truncated.set(true);
             }
+            let external = if kind == Kind::TsJs && found.is_empty() && external.is_empty() {
+                let signature = search::member_or_signature(kind, word)
+                    .and_then(|patterns| patterns.last().cloned());
+                let properties = signature
+                    .map(|s| self.outside_grep(kind, &files, &s, None))
+                    .unwrap_or_default();
+                self.offer_only |= !properties.is_empty();
+                properties
+            } else {
+                external
+            };
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
             found.extend(
                 external

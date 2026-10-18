@@ -417,7 +417,8 @@ generic call, typed by its argument rather than the constraint, and a generic ca
 callback, which declares no type parameter. `packaged.ts` types receivers by packages that are not
 installed (`yjs`, `markdown-it`) beside project members of the same names, and calls a member
 named like a top-level function and a class of the file (#1079); `cut.ts` reads a member named
-like a local of another function.
+like a local of another function. `crate.js` reads `hinge` off an untyped parameter, declared only
+as a plain property of an interface in `node_modules/parcel-kit` (#1078).
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
