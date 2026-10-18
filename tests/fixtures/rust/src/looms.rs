@@ -1,4 +1,4 @@
-//! #1045: a method called on the result of another call, on one line and one call per line.
+//! #1045: a method called on the result of another call, on one line and one call per line; #1046: through `?`, `.unwrap()` and `.expect(..)`.
 
 pub struct Loom {
     width: usize,
@@ -82,4 +82,28 @@ pub fn woven(b: Bobbin) -> usize {
 pub fn unknown(x: Unknown) -> usize {
     x.spin().shuttle()
     //       ^ d: picker src/looms.rs:35, src/looms.rs:41
+}
+
+pub fn knot() -> Result<Loom, String> {
+    Ok(Loom { width: 6 })
+}
+
+pub fn maybe() -> Option<Bobbin> {
+    Some(Bobbin)
+}
+
+pub fn tied() -> Result<usize, String> {
+    let a = knot()?;
+    a.shuttle();
+    //^ d: src/looms.rs:35
+    let b = maybe().unwrap();
+    b.spin();
+    //^ d: src/looms.rs:49
+    let c = maybe().expect("a bobbin");
+    c.spin();
+    //^ d: src/looms.rs:49
+    knot()?.shuttle();
+    //      ^ d: src/looms.rs:35
+    Ok(maybe().unwrap().spin().shuttle())
+    //                         ^ d: src/looms.rs:35
 }
