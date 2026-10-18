@@ -1,0 +1,160 @@
+diff --git a/src/main.rs b/src/main.rs
+index b95b98ab..1c9c9dc0 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -202,7 +202,7 @@ fn start_tutor(app: &mut App, drill: Option<u16>, dir: PathBuf) -> Result<()> {
+         None => None,
+     };
+     app.tutor = Some(Tutor {
+-        step: 0,
++        step: std::env::var("MERL_158_STEP").ok().and_then(|s| s.parse().ok()).unwrap_or(0),
+         dir,
+         drill,
+     });
+diff --git a/src/tutor.rs b/src/tutor.rs
+index 8e5284e0..53f221ae 100644
+--- a/src/tutor.rs
++++ b/src/tutor.rs
+@@ -80,9 +80,51 @@ pub const SAMPLE_FILES: &[(&str, &str)] = &[
+ pub const ALL_LESSONS_DONE: &str =
+     "That is all of merl. Everything else is a VS Code habit. `q` quits.";
+ 
++pub fn variant() -> String {
++    std::env::var("MERL_158").unwrap_or_default()
++}
++
++const REVIEW_STEPS: &[&str] = &["c", "C", "m"];
++
++pub fn steps() -> Vec<&'static str> {
++    match variant().as_str() {
++        "A" | "C" => TUTOR.iter().chain(REVIEW_STEPS).copied().collect(),
++        "B" => REVIEW_STEPS.to_vec(),
++        _ => TUTOR.to_vec(),
++    }
++}
++
+ pub fn lesson(step: usize) -> Option<&'static Task> {
+-    let key = TUTOR.get(step)?;
+-    POOL.iter().find(|t| t.key == *key)
++    let key = *steps().get(step)?;
++    POOL.iter().find(|t| t.key == key)
++}
++
++const STORE_FIND_OLD: &str = "        lowered = needle.lower()\n        return [note for note in self.notes if lowered in note.text.lower()]\n";
++const STORE_FIND_NEW: &str = "        lowered = needle.lower()\n        return [\n            note\n            for note in self.notes\n            if lowered in note.text.lower()\n            or any(lowered == tag.lower() for tag in note.tags)\n        ]\n";
++const TEST_FIND: &str = "from models import Note\nfrom store import NoteStore\n\n\ndef test_find_matches_a_tag(tmp_path):\n    store = NoteStore.__new__(NoteStore)\n    store.notes = [Note(id=1, text=\"milk\", tags=[\"Shop\"])]\n    assert store.find(\"shop\") == store.notes\n";
++
++fn git_sample(dir: &Path) -> Result<()> {
++    let run = |args: &[&str]| -> Result<()> {
++        let ok = std::process::Command::new("git")
++            .args(["-c", "user.name=merl", "-c", "user.email=merl@localhost"])
++            .args(args)
++            .current_dir(dir)
++            .output()?
++            .status
++            .success();
++        anyhow::ensure!(ok, "git {args:?} failed");
++        Ok(())
++    };
++    run(&["init", "-q", "-b", "main"])?;
++    run(&["add", "-A"])?;
++    run(&["commit", "-q", "-m", "notes"])?;
++    let models = include_str!("../tutor/notes/models.py");
++    let cut = models.find("\n\nclass JsonFormatter").unwrap_or(models.len());
++    std::fs::write(dir.join("models.py"), format!("{}\n", &models[..cut]))?;
++    let store = include_str!("../tutor/notes/store.py").replace(STORE_FIND_OLD, STORE_FIND_NEW);
++    std::fs::write(dir.join("store.py"), store)?;
++    std::fs::write(dir.join("tests/test_find.py"), TEST_FIND)?;
++    Ok(())
+ }
+ 
+ pub fn check(app: &mut App, action: Option<&str>) {
+@@ -132,14 +174,26 @@ pub fn fresh(a: &mut App) -> Result<()> {
+     unpack(&dir).context("the sample project could not be unpacked again")?;
+     let tutor = a.tutor.take();
+     let (tree, files) = crate::tree::build(&dir, false);
+-    let mut new = App::new(dir, tree, files, Buffer::empty(), None);
++    let mut new = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+     (new.show_tree, new.focus) = (false, Focus::Code);
+     new.theme = std::mem::take(&mut a.theme);
+     new.config = a.config.take();
+     new.autosave = a.autosave;
+     new.no_watch = a.no_watch;
+     (new.view_w, new.view_h) = (a.view_w, a.view_h);
++    let review_lesson = tutor
++        .as_ref()
++        .and_then(|t| lesson(t.step))
++        .is_some_and(|t| REVIEW_STEPS.contains(&t.key));
+     new.tutor = tutor;
++    if review_lesson && !variant().is_empty() {
++        git_sample(&dir)?;
++        let r = crate::git::Review::open(&dir, None, Some("HEAD"))?;
++        new.tree = crate::tree::from_listing(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
++        new.show_tree = variant() != "C";
++        new.start_review(r);
++        new.message.clear();
++    }
+     *a = new;
+     Ok(())
+ }
+diff --git a/src/tutor/pool.rs b/src/tutor/pool.rs
+index 5c6d28b5..891cd66c 100644
+--- a/src/tutor/pool.rs
++++ b/src/tutor/pool.rs
+@@ -49,6 +49,40 @@ fn word_deleted(a: &App) -> bool {
+ }
+ 
+ pub const POOL: &[Task] = &[
++    Task {
++        key: "c",
++        title: "Next change",
++        tutor: "An agent left work in three files, open for review. `c` goes to the next \
++                change, and on into the next file at the end of this one. Press `c`: the grey \
++                lines in models.py are what the agent deleted.",
++        drill: "Go to the next change.",
++        start: None,
++        keys: "",
++        answer: "c",
++        done: |a| at(a, "models.py"),
++    },
++    Task {
++        key: "C",
++        title: "Previous change",
++        tutor: "`C` walks back: to the change before, into the file before. Press `C`: back to \
++                the block the agent deleted in models.py.",
++        drill: "Go back to the change before this one.",
++        start: None,
++        keys: "cc",
++        answer: "C",
++        done: |a| at(a, "models.py"),
++    },
++    Task {
++        key: "m",
++        title: "Mark viewed",
++        tutor: "`m` marks the file viewed: it gets a tick, and the tick goes if the file \
++                changes again. Press `m` on store.py.",
++        drill: "Mark this file as viewed.",
++        start: None,
++        keys: "cc",
++        answer: "m",
++        done: |a| a.viewed.contains_key(std::path::Path::new("store.py")),
++    },
+     Task {
+         key: "o",
+         title: "Open a file",
+diff --git a/src/ui/overlays.rs b/src/ui/overlays.rs
+index 0a0c968b..e44abac8 100644
+--- a/src/ui/overlays.rs
++++ b/src/ui/overlays.rs
+@@ -726,9 +726,9 @@ pub(super) fn lesson_panel(
+         (Some(drill), _) => drill.panel(),
+         (None, Some(t)) => (
+             format!(
+-                " Tutor {}/{} \u{00b7} {}",
++                " {}Tutor {}/{} \u{00b7} {}", if crate::tutor::variant() == "B" { "Review " } else { "" },
+                 tutor.step + 1,
+-                crate::tutor::TUTOR.len(),
++                crate::tutor::steps().len(),
+                 t.title
+             ),
+             t.tutor,
