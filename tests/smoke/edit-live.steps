@@ -23,13 +23,13 @@ run perl -pi -e 's/\QOrderNotFound(Exception)\E/OrderNotFound(LookupError)/' app
 wait changed on disk: Ctrl+S overwrites, Ctrl+R reloads
 key C-s
 wait app/service.py  37:39  [edit]
-run grep -q 'paid orders go to the worker' app/service.py && ! grep -q LookupError app/service.py
+check grep -q 'paid orders go to the worker' app/service.py && ! grep -q LookupError app/service.py
 type  soon
 run perl -pi -e 's/\QOrderNotFound(Exception)\E/OrderNotFound(LookupError)/' app/service.py
 wait changed on disk: Ctrl+S overwrites, Ctrl+R reloads
 key C-r
 wait reloaded
-run grep -q LookupError app/service.py && ! grep -q 'worker soon' app/service.py
+check grep -q LookupError app/service.py && ! grep -q 'worker soon' app/service.py
 key Escape o
 type uow
 key Enter
@@ -40,7 +40,7 @@ run git rm -q app/uow.py
 wait app/uow.py gone
 key Escape
 wait app/uow.py ●  21:45  [code]
-run test ! -e app/uow.py
+check test ! -e app/uow.py
 key C-r
 wait app/uow.py  21:45  [code]  app/uow.py gone
 key [
@@ -49,7 +49,7 @@ key [
 wait app/service.py  37:39  [code]
 key ]
 wait app/service.py  37:39  [code]  app/uow.py gone
-run test ! -e app/uow.py
+check test ! -e app/uow.py
 # The tree marks the file the agent changed `M` and the one it added `A`, as git sees them, and
 # a file written while merl runs gets its mark after the walk (#402).
 run printf 'def notify(order):\n    return order\n' > app/notify.py

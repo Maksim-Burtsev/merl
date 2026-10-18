@@ -423,7 +423,18 @@ impl App {
         let on = hits
             .iter()
             .any(|h| h.path == a.here && h.line1 == self.line + 1);
-        let hits = search::c_file_local(word, &a.here, &a.text, hits, |p| self.text_of(p), on);
+        let hits = {
+            let by_macro = self.c_static_by_macro(&a.here, &hits);
+            search::c_file_local(
+                word,
+                &a.here,
+                &a.text,
+                hits,
+                &by_macro,
+                |p| self.text_of(p),
+                on,
+            )
+        };
         let hits = if a.chain.is_empty()
             && near.locals.is_empty()
             && after.starts_with('(')
