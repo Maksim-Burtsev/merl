@@ -12,12 +12,13 @@ key a
 wait [edit]
 type check the window
 key Escape
-wait check the window
+wait app/refunds.py  1:1  [code]
 check grep -qx 'check the window' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Enter End Enter
 type and the clock
-key Escape
 wait and the clock
+key Escape
+wait app/refunds.py  1:1  [code]
 check tail -2 "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 'and the clock'
 key Enter C-x C-x
 check ! test -e "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
@@ -27,8 +28,9 @@ key c
 wait hunk 1/1  file 2/8
 key a
 type why delete these
-key Escape
 wait why delete these
+key Escape
+wait app/repos.py  -32:1  [code]
 check grep -qx -- '- .*' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 run rm "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Down
