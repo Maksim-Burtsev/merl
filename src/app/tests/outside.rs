@@ -185,6 +185,43 @@ fn a_dart_qualifier_is_no_directory() {
 }
 
 #[test]
+fn a_dart_receiver_of_an_sdk_type_answers_from_the_sdk() {
+    let sdk = external_root(
+        "outside-dart-sdk",
+        &[
+            ("lib/core/core.dart", "library dart.core;\n"),
+            (
+                "lib/async/async.dart",
+                "library dart.async;\n\npart 'future.dart';\n",
+            ),
+            (
+                "lib/async/future.dart",
+                "part of dart.async;\n\nabstract interface class Completer<T> {\n  bool get isCompleted;\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-sdk-project",
+        &[(
+            "lib/main.dart",
+            "import 'dart:async';\n\nclass Handler {\n  bool get isCompleted => false;\n}\n\nvoid run() {\n  final Completer<int> completer = Completer<int>();\n  if (completer.isCompleted) {}\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "completer.isCompleted");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "isCompleted \u{2192} Completer.isCompleted (via Completer)",
+            &at(&sdk, "lib/async/future.dart", 4)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_component_reads_as_its_script_with_the_rest_blank() {
     let (dir, a) = project_app(
         "outside-component",

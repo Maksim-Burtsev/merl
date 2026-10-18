@@ -1,0 +1,17 @@
+class Saucer {
+  int rim = 0;
+}
+
+void stack(List<Saucer> saucers) {
+  final chipped = saucers.isEmpty;
+  print(chipped);
+}
+
+void wash(Saucer saucer) {
+  // A member is never a function's local (#1083).
+  saucer.chipped;
+  //     ^ d: none
+  // From `lib/`, a declaration under the package's `test/` is out of reach (#1083).
+  saucer.polish();
+  //     ^ d: none
+}

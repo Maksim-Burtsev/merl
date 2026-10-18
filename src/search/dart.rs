@@ -447,13 +447,14 @@ pub(super) const DART_ACCESSOR_SYMBOL: &str = concat!(
     r"\s+)?(?:get|set)\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:=>|\{|\(|;|async\b|sync\*|$)"
 );
 
+static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(&format!(
+        r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
+    ))
+    .expect("the regex is a literal")
+});
+
 pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(
-            r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
-        ))
-        .expect("the regex is a literal")
-    });
     if matches!(name, "this" | "super") {
         return Vec::new();
     }
@@ -584,6 +585,27 @@ fn dart_header_binds(head: &str, name: &str) -> bool {
                 .next()
                 == Some(name)
     })
+}
+
+pub fn dart_in_function(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let depth = indent(lines[at]);
+    let literal = literal_lines(Kind::Dart, text);
+    depth > 0
+        && (0..at)
+            .rev()
+            .find(|&i| {
+                let t = lines[i].trim_start();
+                !literal[i]
+                    && !t.is_empty()
+                    && !t.starts_with("//")
+                    && !t.starts_with('*')
+                    && indent(lines[i]) < depth
+            })
+            .is_some_and(|i| !TYPE_BODY.is_match(lines[i]))
 }
 
 pub fn dart_body_at(text: &str, at: usize) -> Option<(std::ops::Range<usize>, bool)> {
