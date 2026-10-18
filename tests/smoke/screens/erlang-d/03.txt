@@ -1,4 +1,4 @@
-wait defmodule Shop.Report
+wait A report.ex
 ┌orders──────────────────────┐1 defmodule Shop.Report do
 │▸ .github                   │2   def summary(id), do: :shop_order.total(:shop_order.new(id))
 │▸ .venv                     │3 end

@@ -7,7 +7,7 @@ run mkdir -p api/schemas && printf 'Order:\n  type: object\n  properties:\n    i
 key q
 wait merl exited: 0
 merl api/openapi.yaml
-wait openapi: 3.1.0
+wait A openapi.yaml
 key /
 type Order'
 key Enter d

@@ -7,13 +7,13 @@ run mkdir -p solshop && printf 'contract ShopToken {\n    event Minted(address t
 key q
 wait merl exited: 0
 merl solshop/ShopToken.sol
-wait contract ShopToken
+wait A ShopToken.sol
 key /
 type withinSupply(amount
 key Enter d
 wait ShopToken.withinSupply (by name, 1 match)
 merl solshop/ShopToken.sol
-wait contract ShopToken
+wait A ShopToken.sol
 key /
 type Minted(to
 key Enter d

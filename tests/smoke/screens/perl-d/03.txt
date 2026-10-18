@@ -1,4 +1,4 @@
-wait use Shop::Order
+wait A report.pl
 ┌orders──────────────────────┐1 use lib "lib";
 │▸ .github                   │2 use Shop::Order;
 │▸ .venv                     │3

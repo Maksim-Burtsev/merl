@@ -45,13 +45,13 @@ wait class OrderStatus(Enum):
 # draws it; the cursor line's band yields to it and a selection paints over it (#845).
 run git --git-dir=../origin.git show agent/refund > refund.patch
 merl --theme tokyonight-moon refund.patch
-wait +class RefundNotAllowed(Exception):
+wait A refund.patch
 key Down Down Down Down Down Down Down Down Down Down Down S-Down
 wait refund.patch  13:1
 # merl draws the cursor itself, in the theme's Cursor colours, and hides the terminal's: a light
 # theme's dark block reads in a dark terminal, over mosh too; typing, as in a picker's input, takes
 # a second colour (#558).
 merl --theme github-light app/models.py
-wait class OrderStatus(Enum):
+wait A refund.patch
 key T
 wait github-light

@@ -20,7 +20,7 @@ wait callbackUrl → Refunds.Register.callbackUrl (local)
 # #352: a member of a typed receiver lands in its type, not on a namesake, and a member of a
 # type the project does not declare has no definition in it.
 run printf '%s\n' 'public class Mailer' '{' '    public void Send(string to) { }' '}' '' 'public class Fax' '{' '    public void Send(string to) { }' '    public void AppendLine(int n) { }' '}' '' 'public class Outbox' '{' '    public void Flush()' '    {' '        var mailer = new Mailer();' '        mailer.Send("ops");' '        var sb = new StringBuilder();' '        sb.AppendLine("sent");' '    }' '}' > billing/Outbox.cs
-wait Outbox.cs
+wait A Outbox.cs
 key o
 type billing/Outbox.cs
 key Enter

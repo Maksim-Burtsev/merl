@@ -7,13 +7,13 @@ run mkdir -p bazelshop/tools bazelshop/api && printf 'module(name = "shop")\n' >
 key q
 wait merl exited: 0
 merl bazelshop/api/BUILD.bazel
-wait shop_binary(
+wait A BUILD.bazel
 key /
 type shop_binary(
 key Enter d
 wait shop_binary: via import
 merl bazelshop/api/BUILD.bazel
-wait shop_binary(
+wait A BUILD.bazel
 key /
 type :api
 key Enter d

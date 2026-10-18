@@ -7,13 +7,13 @@ run mkdir -p cmakeshop/cmake && printf 'function(shop_add_library name)\n  add_l
 key q
 wait merl exited: 0
 merl cmakeshop/CMakeLists.txt
-wait project(shop CXX)
+wait A CMakeLists.txt
 key /
 type shop_add_library
 key Enter d
 wait shop_add_library: by name, 1 match
 merl cmakeshop/CMakeLists.txt
-wait project(shop CXX)
+wait A CMakeLists.txt
 key /
 type ShopHelpers
 key Enter d

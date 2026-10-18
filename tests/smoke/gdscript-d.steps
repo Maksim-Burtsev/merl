@@ -7,13 +7,13 @@ run mkdir -p godotshop/globals godotshop/actors && printf '[autoload]\nGameState
 key q
 wait merl exited: 0
 merl godotshop/actors/player.gd
-wait class_name Player
+wait A player.gd
 key /
 type add_coins
 key Enter d
 wait add_coins: via GameState
 merl godotshop/actors/player.gd
-wait class_name Player
+wait A player.gd
 key /
 type direction)
 key Enter d

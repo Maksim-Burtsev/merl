@@ -7,13 +7,13 @@ run mkdir -p rshop/R && printf 'format_price <- function(cents) {\n  sprintf("$%
 key q
 wait merl exited: 0
 merl rshop/R/cart.R
-wait R6Class
+wait A cart.R
 key /
 type format_price
 key Enter d
 wait format_price: by name, 1 match
 merl rshop/R/cart.R
-wait R6Class
+wait A cart.R
 key /
 type filter(rows
 key Enter d

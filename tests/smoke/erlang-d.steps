@@ -7,13 +7,13 @@ run mkdir -p erlshop/src erlshop/include erlshop/lib && printf -- '-record(order
 key q
 wait merl exited: 0
 merl erlshop/lib/report.ex
-wait defmodule Shop.Report
+wait A report.ex
 key /
 type total(
 key Enter d
 wait total: via shop_order
 merl erlshop/src/shop_order.erl
-wait -module(shop_order)
+wait A shop_order.erl
 key /
 type order{id
 key Enter d

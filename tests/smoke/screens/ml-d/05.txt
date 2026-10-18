@@ -1,4 +1,4 @@
-wait module Shop.Cart
+wait A Cart.fs
 ┌orders──────────────────────┐1 module Shop.Cart
 │▸ .github                   │2
 │▸ .venv                     │3 open Shop.Money

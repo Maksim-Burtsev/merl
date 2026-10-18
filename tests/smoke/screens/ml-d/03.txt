@@ -1,4 +1,4 @@
-wait let label m
+wait A cart.ml
 ┌orders──────────────────────┐1 let label m =
 │▸ .github                   │2   let prefix = "Total: " in
 │▸ .venv                     │3   prefix ^ Money.format_price m

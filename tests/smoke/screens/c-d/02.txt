@@ -1,4 +1,4 @@
-wait crc_fill(table);
+wait A crc.c
 ┌orders──────────────────────┐ 1 #include "crc.h"
 │▸ .github                   │ 2
 │▸ .venv                     │ 3 static void crc_fill(struct crc_table *table)

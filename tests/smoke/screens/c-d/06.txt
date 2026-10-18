@@ -1,4 +1,4 @@
-wait int crc_pick
+wait A mode.cc
 ┌orders──────────────────────┐ 1 enum crc_mode {
 │▸ .github                   │ 2     CRC_PLAIN,
 │▸ .venv                     │ 3     CRC_FAST

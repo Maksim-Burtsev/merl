@@ -1,4 +1,4 @@
-wait shopLib = import
+wait A web.nix
 ┌orders──────────────────────┐1 { config, pkgs, lib, ... }:
 │▸ .github                   │2 let
 │▸ .venv                     │3   shopLib = import ../lib { inherit lib; };

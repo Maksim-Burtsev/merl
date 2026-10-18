@@ -1,4 +1,4 @@
-wait id,customer,total
+wait A refunds.csv
 ┌orders──────────────────────┐1 id,customer,total
 │▸ .github                   │2 1042,"Lovelace, Ada",40.00
 │▸ .venv                     │3 1077,Babbage,12.50

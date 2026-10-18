@@ -1,4 +1,4 @@
-wait class Cart
+wait A cart.dart
 ┌orders──────────────────────┐1 import 'money.dart';
 │▸ .github                   │2 import 'coupon.dart' as c;
 │▸ .venv                     │3

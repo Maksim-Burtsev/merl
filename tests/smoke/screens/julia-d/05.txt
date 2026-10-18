@@ -1,4 +1,4 @@
-wait function report
+wait A report.jl
 ┌orders──────────────────────┐1 include("../src/money.jl")
 │▸ .github                   │2
 │▸ .venv                     │3 function report(xs)

@@ -1,4 +1,4 @@
-wait deploy() {
+wait A deploy.sh
 ┌orders──────────────────────┐1 deploy() {
 │▸ .bundle                   │2   if [ -n "$1" ]; then
 │▸ .github                   │3     echo "$1"

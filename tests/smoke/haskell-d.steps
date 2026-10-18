@@ -7,13 +7,13 @@ run mkdir -p hsshop/src/Shop && printf 'module Shop.Money (Money (..), formatPri
 key q
 wait merl exited: 0
 merl hsshop/src/Shop/Cart.hs
-wait label m = go
+wait A Cart.hs
 key /
 type (formatPrice
 key Enter Right d
 wait formatPrice: via import
 merl hsshop/src/Shop/Cart.hs
-wait label m = go
+wait A Cart.hs
 key /
 type go (
 key Enter d

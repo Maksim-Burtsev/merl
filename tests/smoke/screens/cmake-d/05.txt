@@ -1,4 +1,4 @@
-wait project(shop CXX)
+wait A CMakeLists.txt
 ┌orders──────────────────────┐1 project(shop CXX)
 │▸ .github                   │2 include(ShopHelpers)
 │▸ .venv                     │3

@@ -1,4 +1,4 @@
-wait class_name Player
+wait A player.gd
 ┌orders──────────────────────┐1 class_name Player
 │▸ .github                   │2 extends CharacterBody2D
 │▸ .venv                     │3

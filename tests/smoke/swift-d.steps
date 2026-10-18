@@ -7,7 +7,7 @@ run mkdir -p ios && printf 'struct Stats {\n    let attempt: Int\n}\n\nfunc retr
 key q
 wait merl exited: 0
 merl ios/Retry.swift
-wait func retry(
+wait A Retry.swift
 key t /
 type attempt)
 key Enter d
@@ -16,7 +16,7 @@ wait (local)
 # every declaration of the name in the project (#380).
 run printf 'protocol Lock {\n    func lock()\n}\n\nextension Lock {\n    func around() {\n        lock() // held\n    }\n}\n\nfinal class UnfairLock {\n    private let lock = 0\n}\n' > ios/Protected.swift
 merl ios/Protected.swift
-wait extension Lock
+wait A Protected.swift
 key t /
 type lock() //
 key Enter d
@@ -25,7 +25,7 @@ wait via self: Lock
 # offered every member of the name in the project (#384).
 run printf 'struct Instant {\n    let value: Double\n\n    static func - (lhs: Instant, rhs: Instant) -> Double {\n        lhs.value - rhs.value\n    }\n}\n\nstruct Clock {\n    let value: Int\n}\n' > ios/Instant.swift
 merl ios/Instant.swift
-wait struct Clock
+wait A Instant.swift
 key t /
 type value - rhs
 key Enter d
@@ -34,7 +34,7 @@ wait value → Instant.value
 # to a type declared inside another function, which nothing there sees (#375).
 run printf 'struct StreamPublisher<Value: Sendable> {\n    typealias Handler = (Value) -> Void\n}\n\nfunc encode() {\n    struct Value {}\n    _ = Value()\n}\n' > ios/Publisher.swift
 merl ios/Publisher.swift
-wait typealias Handler
+wait A Publisher.swift
 key t /
 type Value) ->
 key Enter d

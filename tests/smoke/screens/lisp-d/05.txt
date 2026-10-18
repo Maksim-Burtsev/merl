@@ -1,4 +1,4 @@
-wait (ns shop.cart
+wait A cart.clj
 ┌orders──────────────────────┐1 (ns shop.cart
 │▸ .github                   │2   (:require [shop.money :as money]))
 │▸ .venv                     │3

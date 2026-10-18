@@ -7,13 +7,13 @@ run mkdir -p cljshop/src/shop && printf '(ns shop.money)\n\n(defn format-price [
 key q
 wait merl exited: 0
 merl cljshop/src/shop/cart.clj
-wait (ns shop.cart
+wait A cart.clj
 key /
 type format-price total
 key Enter d
 wait format-price: via import
 merl cljshop/src/shop/cart.clj
-wait (ns shop.cart
+wait A cart.clj
 key /
 type total)
 key Enter d

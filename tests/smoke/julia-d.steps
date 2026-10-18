@@ -7,13 +7,13 @@ run mkdir -p jlshop/src jlshop/scripts && printf 'struct Money\n    cents::Int\n
 key q
 wait merl exited: 0
 merl jlshop/scripts/report.jl
-wait function report
+wait A report.jl
 key /
 type format_price
 key Enter d
 wait format_price: by name, 1 match
 merl jlshop/scripts/report.jl
-wait function report
+wait A report.jl
 key /
 type price(m
 key Enter Right Right Right Right Right Right d

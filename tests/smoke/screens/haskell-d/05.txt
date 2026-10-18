@@ -1,4 +1,4 @@
-wait label m = go
+wait A Cart.hs
 ┌orders──────────────────────┐1 module Shop.Cart where
 │▸ .github                   │2
 │▸ .venv                     │3 import Shop.Money (Money (..), formatPrice)

@@ -1,4 +1,4 @@
-wait get-shopuser -Id
+wait A sync.ps1
 ┌orders──────────────────────┐1 Import-Module ./Shop/Users.psm1
 │▸ .github                   │2 $user = get-shopuser -Id 42
 │▸ .venv                     │

@@ -1,4 +1,4 @@
-wait extension Lock
+wait A Protected.swift
 ┌orders──────────────────────┐ 1 protocol Lock {
 │▸ .github                   │ 2     func lock()
 │▸ .venv                     │ 3 }
