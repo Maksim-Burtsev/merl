@@ -403,3 +403,15 @@ fn a_typescript_receiver_indexed_off_a_name_is_its_element() {
     assert_eq!(head("[a, b][0].lift"), None);
     assert_eq!(call_head(Kind::Python, "pots[0].lift", 8), None);
 }
+
+#[test]
+fn a_bare_ruby_loop_keyword_is_no_name() {
+    assert!(ruby_loop_keyword("next", "      ", " if done"));
+    assert!(ruby_loop_keyword("break", "  x = ", ""));
+    assert!(!ruby_loop_keyword("next", "  page.", ""));
+    assert!(!ruby_loop_keyword("next", "  page&.", ""));
+    assert!(!ruby_loop_keyword("next", "  attribute :", ""));
+    assert!(!ruby_loop_keyword("next", "  def ", "(page)"));
+    assert!(!ruby_loop_keyword("next", "  link(", ": 1)"));
+    assert!(!ruby_loop_keyword("nextt", "  ", ""));
+}

@@ -350,6 +350,13 @@ pub struct RubyParents {
     pub extends: Vec<String>,
 }
 
+pub fn ruby_loop_keyword(word: &str, lead: &str, tail: &str) -> bool {
+    matches!(word, "next" | "redo" | "retry" | "break")
+        && !lead.trim_end().ends_with(['.', ':'])
+        && lead.split_whitespace().last() != Some("def")
+        && (!tail.starts_with(':') || tail.starts_with("::"))
+}
+
 pub fn ruby_constructed_receiver(before: &str) -> Option<String> {
     static NEW: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.new\s*\([^()]*\)\.$")

@@ -185,6 +185,14 @@ impl App {
             || (kind == Kind::Graphql && lead.ends_with('$'))
             || (kind == Kind::Jvm && word == "class" && lead.ends_with("::"))
             || (kind == Kind::PowerShell && search::powershell_argument(lead))
+            || (kind == Kind::Ruby
+                && search::ruby_loop_keyword(
+                    word,
+                    lead,
+                    self.line_str()
+                        .get(start + word.len()..)
+                        .unwrap_or_default(),
+                ))
             || (kind == Kind::R && search::r_foreign_package(self.line_str(), start, &self.root))
     }
 
