@@ -39,7 +39,10 @@ assets/tapes/record.py plus a few verbs of its own:
     type TEXT          the characters: at once here, one keystroke each in a GIF
     sleep S            seconds, at most 0.3: the waits do the syncing
     run CMD            a shell command in the project, before the next step: the agent in the next
-                       split, or a check of the bytes on disk; a non-zero exit fails the scenario.
+                       split, or a check of the bytes on disk. A non-zero exit runs it again until
+                       it exits 0, for 10 s, so a check waits for a file merl saves after a key
+                       (#1033); then it fails the scenario. A run that writes must be one that
+                       can run twice.
                        $SMOKE_TMUX is the tmux command of merl's pane: `$SMOKE_TMUX show-buffer`
                        holds what OSC 52 copied
     size WxH           the pane's size: before the first `merl`, the size it starts at
@@ -374,7 +377,10 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None, slot=0, met
                     rec.step = f"run {arg[:90]}"
                 env = {**os.environ, **AGENT, "HOME": home,
                        "SMOKE_TMUX": f"tmux -L {pane.sock} -f /dev/null"}
-                out = subprocess.run(arg, shell=True, cwd=cwd, env=env, capture_output=True, text=True)
+                end = time.monotonic() + TIMEOUT
+                while (out := subprocess.run(arg, shell=True, cwd=cwd, env=env, capture_output=True,
+                                             text=True)).returncode and time.monotonic() < end:
+                    time.sleep(POLL)
                 if out.returncode:
                     said = (out.stdout + out.stderr).strip()[-300:]
                     r["status"] = f"RUN {out.returncode} at {step}: {said}"
@@ -858,6 +864,7 @@ SELFTEST = {
     "fail": ("merl\nwait ready\nwait never\n", {}, {}, "FAIL", "FAIL at fail.steps:3"),
     "hung": ("merl\nwait ready\n", {"q": ":"}, {}, "HUNG", "HUNG on q"),
     "run": ("merl\nwait ready\nrun test -e nowhere\n", {}, {}, "RUN", "RUN 1 at"),
+    "run-again": ("merl\nwait ready\nrun test -e saved || ! touch saved\n", {}, {}, "PASS", ""),
     "semicolon": ("merl\nwait ready\ntype x;;\nwait ;;\n", {}, {}, "PASS", ""),
     "end": ("merl\nwait ready\nsize 60x10\n" + DIE, {}, {}, "EXIT", "EXIT 3 after its last step"),
     "restart": ("merl\nwait ready\n" + DIE + "merl\nwait ready\n", {}, {}, "EXIT", "EXIT 3 before"),
