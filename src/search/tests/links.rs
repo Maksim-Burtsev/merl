@@ -25,6 +25,16 @@ fn an_import_runs_from_its_at_sign_to_the_first_unescaped_space() {
     assert_eq!(at(text, "@f.md"), MdAt::Nothing);
     assert_eq!(at(text, "@g.md"), MdAt::Nothing);
     assert_eq!(at(text, "@h.md"), MdAt::Nothing);
+    let text = "![logo @i.md](e.png)\n\n<div>\nsee @j.md\n</div>\n\nsee @[k](k.md), `x @l.md`more, @m.md`x` @n.md<b>\n";
+    assert_eq!(at(text, "@i.md"), MdAt::Nothing);
+    assert_eq!(at(text, "@j.md"), MdAt::Nothing);
+    assert_eq!(at(text, "@[k]"), MdAt::Nothing);
+    assert_eq!(at(text, "more"), MdAt::Nothing);
+    assert_eq!(at(text, "@m.md"), import("m.md"));
+    assert_eq!(at(text, "n.md"), import("n.md"));
+    let text = "See **@AGENTS.md** and @src/__init__.py.\n";
+    assert_eq!(at(text, "_init"), import("src/__init__.py."));
+    assert_eq!(at(text, "@AGENTS"), MdAt::Nothing);
 }
 
 #[test]

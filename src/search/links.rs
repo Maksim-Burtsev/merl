@@ -42,8 +42,17 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         .map(|(_, d)| (d.span.clone(), d.dest.to_string()))
         .collect();
     let mut found = MdAt::Nothing;
-    let (mut prose, mut literal) = (false, false);
+    let mut markup: Vec<Range<usize>> = Vec::new();
     for (ev, r) in parser.into_offset_iter() {
+        if matches!(
+            ev,
+            Event::Code(_)
+                | Event::InlineHtml(_)
+                | Event::Html(_)
+                | Event::Start(Tag::Link { .. } | Tag::Image { .. } | Tag::CodeBlock(_))
+        ) {
+            markup.push(r.clone());
+        }
         if !r.contains(&at) {
             continue;
         }
@@ -61,15 +70,10 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
                     _ => dest_url.to_string(),
                 });
             }
-            Event::Start(Tag::Image { .. }) => {
-                found = MdAt::Nothing;
-                literal = true;
-            }
-            Event::Start(Tag::CodeBlock(_)) => literal = true,
+            Event::Start(Tag::Image { .. }) => found = MdAt::Nothing,
             Event::Code(code) if !matches!(found, MdAt::Link(_)) => {
                 found = MdAt::Code(code.to_string());
             }
-            Event::Text(_) => prose = true,
             _ => {}
         }
     }
@@ -83,28 +87,31 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         .find(|c| c.get(0).is_some_and(|m| m.range().contains(&at)))
         .and_then(|c| c.get(1).or_else(|| c.get(2)))
         .map_or_else(
-            || {
-                if prose && !literal {
-                    import_at(text, at)
-                } else {
-                    MdAt::Nothing
-                }
-            },
+            || import_at(text, at, &markup),
             |m| MdAt::Link(m.as_str().to_owned()),
         )
 }
 
-fn import_at(text: &str, at: usize) -> MdAt {
+fn import_at(text: &str, at: usize, markup: &[Range<usize>]) -> MdAt {
     static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?m)(?:^|\s)@((?:[^\s\\]|\\ )+)").expect("the regex is a literal")
+        Regex::new(r"(?:^|\s)@((?:[^\s\\]|\\ )+)").expect("the regex is a literal")
     });
     IMPORT
         .captures_iter(text)
         .filter_map(|c| c.get(1))
-        .find(|p| p.start() <= at + 1 && at < p.end())
-        .map_or(MdAt::Nothing, |p| {
-            MdAt::Import(p.as_str().replace("\\ ", " "))
+        .find_map(|p| {
+            let sign = p.start().saturating_sub(1);
+            let end = markup
+                .iter()
+                .filter(|m| m.end > sign && m.start < p.end())
+                .map(|m| m.start)
+                .fold(p.end(), usize::min);
+            let path = text
+                .get(p.start()..end)
+                .filter(|path| !path.is_empty() && sign <= at && at < end)?;
+            Some(MdAt::Import(path.replace("\\ ", " ")))
         })
+        .unwrap_or(MdAt::Nothing)
 }
 
 pub(super) fn markdown_literal_lines(text: &str) -> Vec<bool> {

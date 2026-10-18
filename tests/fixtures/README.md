@@ -270,7 +270,7 @@ below it of one name, the `def` the answer: JavaScript's rule that a field shado
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
-a setext one, backticks and punctuation, an `<a id>`), code spans naming files (`mod.rs` is
+a setext one, backticks and punctuation, an `<a id>`), `@path` imports (#1016), code spans naming files (`mod.rs` is
 carried by two), and links in a fence, a comment and the front matter. Its annotations start
 with `#`, which Markdown reads as a heading: a `#^` right under a line is no heading but text, so
 a reference definition below one needs a blank line to start its own block.
