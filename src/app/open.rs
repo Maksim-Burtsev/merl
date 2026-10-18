@@ -327,6 +327,7 @@ impl App {
         if self.open(path, line) {
             self.focus = Focus::Code;
             if col > 0 {
+                self.reach((TextLine::File(self.line), col));
                 self.go(self.clamp_pos((self.line, col)));
                 self.sync_want_x();
             }
@@ -355,6 +356,7 @@ impl App {
                 })
                 .min_by_key(|&(_, line)| line.abs_diff(n));
             let t = nearest.map_or_else(|| TextLine::File(n.saturating_sub(1)), |(t, _)| t);
+            self.reach((t, col));
             let (t, col) = self.clamp_place((t, col));
             self.set_at(t);
             self.col = col;

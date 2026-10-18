@@ -500,7 +500,7 @@ fn an_emoji_is_one_step_and_two_columns() {
 #[test]
 fn the_cursor_stays_on_the_drawn_part_of_a_cut_line() {
     let text = format!("{}THE END\nTHE END", "ab ".repeat(10_000));
-    let (path, mut a) = temp_file("cut-line", &text);
+    let (_, mut a) = temp_file("cut-line", &text);
     let end = a.buf.shown(0).len();
     assert!(end < a.buf.lines[0].len());
     let key = |a: &mut App, code, m| {
@@ -538,22 +538,6 @@ fn the_cursor_stays_on_the_drawn_part_of_a_cut_line() {
         (a.line, a.col),
         (0, end),
         "the selection's line step ends there too"
-    );
-    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
-    a.jump_to_col(&path, 1, 25_000);
-    assert_eq!(
-        (a.line, a.col),
-        (0, end),
-        "a jump to a column past the drawn end lands on it"
-    );
-    press(&mut a, KeyCode::Home, KeyModifiers::CONTROL);
-    find(&mut a, "THE END");
-    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!((a.line, a.col), (0, end), "so does a find");
-    assert_eq!(
-        key(&mut a, KeyCode::Char('n'), KeyModifiers::NONE),
-        (1, 0),
-        "`n` goes on to the next line"
     );
     let (_, mut a) = temp_file("cut-line-last", &format!("top\n{}", "ab ".repeat(10_000)));
     let end = a.buf.shown(1).len();

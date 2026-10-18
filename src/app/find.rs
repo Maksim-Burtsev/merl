@@ -1,5 +1,6 @@
 use super::{
-    App, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, next_char, shown_str,
+    App, Buffer, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, next_char,
+    shown_str,
 };
 
 const FIND_CAP: usize = 1_000;
@@ -15,6 +16,7 @@ impl App {
 
     pub(super) fn start_find(&mut self) {
         self.mode = Mode::Find;
+        self.find_reach = crate::buffer::reached();
         let seed = self.one_line_selection();
         let last = self.find_re.as_ref().map_or("", |_| &self.find_query);
         self.prompt = LineEdit::selected(seed.as_deref().unwrap_or(last)).capped(FIND_CAP);
@@ -45,6 +47,9 @@ impl App {
             KeyCode::Esc => {
                 self.close_overlay();
                 self.message.clear();
+                if crate::buffer::restore_reach(self.find_reach) {
+                    self.recolour();
+                }
                 let (t, col) = self.clamp_place(self.find_anchor);
                 self.set_at(t);
                 self.col = col;
@@ -164,16 +169,31 @@ impl App {
         let s = shown_str(self.line_str());
         match self.next_line(self.at()) {
             _ if self.col < s.len() => (self.at(), next_char(s, self.col)),
+            _ if Buffer::clips(self.line_str()) => (self.at(), s.len()),
             Some(t) => (t, 0),
             None => (self.at(), s.len()),
         }
     }
 
     fn go_to_match(&mut self, at: (TextLine, usize)) {
+        self.reach(at);
         let (t, col) = self.clamp_place(at);
         self.set_at(t);
         self.col = col;
         self.sync_want_x();
         self.center = true;
+    }
+
+    pub(super) fn reach(&mut self, (t, col): (TextLine, usize)) {
+        if crate::buffer::reach(self.text(t), col) {
+            self.recolour();
+        }
+    }
+
+    fn recolour(&mut self) {
+        self.buf.clear_hl();
+        if let Some((_, base)) = &mut self.base {
+            base.clear_hl();
+        }
     }
 }
