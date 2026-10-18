@@ -178,6 +178,10 @@ highest priority first.
 - Remove the worktrees and local branches of everything merged or handed over as a PR, the
   master build included. Take `in-progress` off whatever was not finished, with a comment on
   what is left.
+- With every PR pushed and no agent running, `.claude/skills/batch/bin/clean-builds [RUN_DIR]`
+  deletes the run's build output: each cargo `target` dir (3–10 GB) under the run's folder and
+  this session's `/private/tmp` folder. The ledger, task files, logs and reports stay. On
+  2026-10-18 runs that never did this had left ~100 GB and filled the disk.
 - The last message is one table, in the owner's language: merged (issue, one line), waiting for
   the owner (link, what to look at), not done (why, what is left), then the weekly percentage
   and the tokens used, and the hours, against the budget and the estimate.
