@@ -16,6 +16,9 @@ a release build of master, and the commit trailers. Read `AGENTS.md` in your wor
   sweeps that spawn
   threads of their own read only `RUST_TEST_THREADS`, never `--test-threads`. Reading, git and gh
   take no slot.
+- Never `rm` a glob (`rm -rf *`, `rm -f $S/*`): it asks for permission even in bypass mode,
+  and on 10-13..10-16 eight agents waited on that prompt for 24 minutes to 10 hours; zsh also
+  fails on an empty one. Remove the folder itself (`rm -rf "$S/e2"`) or write into a new one.
 - Commit work in progress; `git stash` is shared by every worktree of the repository, and
   another agent's `pop` takes yours.
 - `tools/d-bench/run` gets `--cache` pointing at a private folder of symlinks to
