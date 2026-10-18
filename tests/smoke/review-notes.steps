@@ -13,14 +13,14 @@ wait [edit]
 type check the window
 key Escape
 wait check the window
-run grep -qx 'check the window' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+check grep -qx 'check the window' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Enter End Enter
 type and the clock
 key Escape
 wait and the clock
-run tail -2 "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 'and the clock'
+check tail -2 "$(git rev-parse --git-common-dir)/merl/notes/agent/refund" | grep -qx 'and the clock'
 key Enter C-x C-x
-run ! test -e "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+check ! test -e "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Escape C-z
 wait and the clock
 key c
@@ -29,7 +29,7 @@ key a
 type why delete these
 key Escape
 wait why delete these
-run grep -qx -- '- .*' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
+check grep -qx -- '- .*' "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 run rm "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Down
-run ! $SMOKE_TMUX capture-pane -p -t 0 | grep -q 'why delete these'
+check ! $SMOKE_TMUX capture-pane -p -t 0 | grep -q 'why delete these'
