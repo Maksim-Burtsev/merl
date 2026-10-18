@@ -5,12 +5,13 @@ The rust row: merl at `20ac5110` with the `d` fixes of branch `b1019/rust`, 2026
 The swift row (#1053, #1052, #1055, branch `b1019/swift`): 2026-10-19, release build, `vm.loadavg` { 5.07 5.68 5.67 } before the run.
 The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, release build, `vm.loadavg` { 8.08 7.25 6.44 } before the run, { 6.75 6.94 6.39 } after.
 The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
+The ts, js, vue, svelte and astro rows: merl at `168369f0` with the `d` fix of #1078 on branch `b1019/jsts`, 2026-10-19, release build, `vm.loadavg` { 5.60 7.28 6.96 } before the run and after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 213 | 199 (93%) | 8 (4%) | 0 (0%) | 6 (3%) | 57 | 13.6 | 258.1 |
-| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 46.2 | 99.5 |
-| js (eslint) | 147 | 119 (81%) | 21 (14%) | 0 (0%) | 7 (5%) | 123 | 38.6 | 152.5 |
+| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 43.2 | 91.7 |
+| js (eslint) | 147 | 119 (81%) | 23 (16%) | 0 (0%) | 5 (3%) | 123 | 45.9 | 208.8 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
 | rust (ripgrep) | 231 | 203 (88%) | 24 (10%) | 0 (0%) | 4 (2%) | 69 | 6.5 | 77.2 |
 | c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 24.7 | 33.3 |
@@ -29,9 +30,9 @@ The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.lo
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 8.1 | 24.4 |
 | css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 4.9 | 36.1 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 3 (1%) | 50 (23%) | 52 | 52.4 | 441.4 |
-| svelte (immich) | 182 | 115 (63%) | 42 (23%) | 5 (3%) | 20 (11%) | 88 | 76.2 | 500.0 |
-| astro (starlight) | 167 | 112 (67%) | 13 (8%) | 1 (1%) | 41 (25%) | 103 | 83.2 | 358.9 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 50.4 | 170.4 |
+| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 34.8 | 179.2 |
+| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 35.7 | 107.0 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 5.0 | 14.0 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 4.1 | 5.1 |
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 13.2 | 16.1 |

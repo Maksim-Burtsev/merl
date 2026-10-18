@@ -197,7 +197,7 @@ impl App {
         Some(links.join(" \u{2192} "))
     }
 
-    fn last_bindings(
+    pub(super) fn last_bindings(
         &self,
         kind: Kind,
         here: &Path,

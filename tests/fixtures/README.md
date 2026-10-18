@@ -425,7 +425,11 @@ beside a module-level namesake, `this` in an arrow and in a `function` that decl
 Kettle`, generic constraints, optional chaining, and declaration-shaped lines in a JSDoc and a
 template literal. `ladle.ts` holds where a constraint must not be read: the result of a
 generic call, typed by its argument rather than the constraint, and a generic call taking a
-callback, which declares no type parameter.
+callback, which declares no type parameter. `packaged.ts` types receivers by packages that are not
+installed (`yjs`, `markdown-it`) beside project members of the same names, and calls a member
+named like a top-level function and a class of the file (#1079); `cut.ts` reads a member named
+like a local of another function. `crate.js` reads `hinge` off an untyped parameter, declared only
+as a plain property of an interface in `node_modules/parcel-kit` (#1078).
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -457,6 +461,12 @@ function and a class behind a `require`, and a `Kettle` the file does not import
 an object literal after a one-line `/** @type {…} */`, and a word in braces in a plain comment.
 `blooming.cjs` writes `exports.bloom = function` only in a block comment and a template literal,
 then exports a named function behind `module.exports.bloom =`.
+`hopper.cjs` is `module.exports = class Hopper extends Bin`, `Bin` itself `module.exports = class`
+behind a `require` (#1076): `this.x` reads the class's own fields and the base's, and a namesake
+field of `Roaster` stays out.
+`ledger.js` declares several names in one `let` (#1077), without initializers and with a comma
+inside one, beside a function `count` and another function's local `last` the later names must
+not reach.
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`
