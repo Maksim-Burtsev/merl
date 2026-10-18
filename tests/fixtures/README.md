@@ -214,6 +214,8 @@ block comment declaring what the files declare. `lua/lua/tea/` has `local functi
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
+`lua/lua/shop/requires.lua` puts the cursor on `require` paths (#1061): modules of the project,
+one whose last name is another directory's file, and one from outside.
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.

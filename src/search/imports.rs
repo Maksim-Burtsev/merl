@@ -5,9 +5,9 @@ use regex::Regex;
 use super::{
     Group, Kind, TsDeclarator, cmake_import, erlang_include, gdscript_files, gdscript_path, group,
     haskell_files, haskell_import_module, indent, julia_imports, julia_include, kind_of,
-    lisp_files, lisp_require, literal_lines, nix_files, nix_path, powershell_import, r_files,
-    r_source, shell_files, shell_source, solidity_file, solidity_import_path, split_top,
-    ts_declarators,
+    lisp_files, lisp_require, literal_lines, lua_module_file, lua_require_path, nix_files,
+    nix_path, powershell_import, r_files, r_source, shell_files, shell_source, solidity_file,
+    solidity_import_path, split_top, ts_declarators,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -807,7 +807,6 @@ pub fn module_files(
         | Kind::CSharp
         | Kind::Swift
         | Kind::Php
-        | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
         | Kind::Proto
@@ -829,6 +828,9 @@ pub fn module_files(
         Kind::Haskell => haskell_files(&module.join("."), files),
         Kind::R => r_files(dir, &module.join("/"), files),
         Kind::Shell => shell_files(dir, &module.join("/"), files),
+        Kind::Lua => lua_module_file(&module.join("."), files)
+            .into_iter()
+            .collect(),
         Kind::Gdscript => gdscript_files(here, &module.join("/"), files),
         Kind::Solidity => solidity_file(root, files, here, &module.join("/"))
             .into_iter()
@@ -943,6 +945,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::Julia => julia_include(line, col),
         Kind::R => r_source(line, col),
         Kind::Shell => shell_source(line, col),
+        Kind::Lua => lua_require_path(line, col),
         Kind::Gdscript => gdscript_path(line, col),
         Kind::Solidity => solidity_import_path(line, col),
         Kind::Clojure | Kind::EmacsLisp | Kind::Scheme => lisp_require(kind, line, col),
