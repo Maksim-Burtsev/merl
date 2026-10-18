@@ -51,7 +51,17 @@ pub fn opened_kind(path: &Path, text: impl FnOnce() -> String) -> Option<Kind> {
     }
 }
 pub fn kind_read(path: &Path, text: impl FnOnce() -> String) -> Option<Kind> {
-    kind_of(path).filter(|_| path.extension().is_none_or(|e| e != "m") || super::objc_m(&text()))
+    match kind_of(path) {
+        None if path.extension().is_none() => shell_script(&text()).then_some(Kind::Shell),
+        kind => {
+            kind.filter(|_| path.extension().is_none_or(|e| e != "m") || super::objc_m(&text()))
+        }
+    }
+}
+pub fn shell_script(text: &str) -> bool {
+    (text.lines().next())
+        .and_then(crate::treesitter::hashbang)
+        .is_some_and(|p| matches!(p, "sh" | "bash" | "zsh" | "ksh" | "dash" | "bats"))
 }
 #[expect(
     clippy::match_same_arms,

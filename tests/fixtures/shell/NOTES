@@ -1,0 +1,2 @@
+Notes with no `#!` line are no script, whatever they hold:
+strain() {
