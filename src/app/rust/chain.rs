@@ -194,7 +194,14 @@ impl App {
         }
     }
 
-    fn rust_head(&self, file: &Path, text: &str, line0: usize, w: &Walked) -> Option<Got> {
+    fn rust_head(
+        &self,
+        file: &Path,
+        text: &str,
+        line0: usize,
+        w: &Walked,
+        own: Option<&str>,
+    ) -> Option<Got> {
         match (w.head.as_slice(), w.head_call) {
             ([name], false) => Some(Got::Ty(self.rust_value_type(file, text, line0, name)?.0)),
             ([.., ty, f], true) if ty.starts_with(|c: char| c.is_ascii_uppercase()) => {
@@ -204,7 +211,12 @@ impl App {
                 self.rust_fn_returns(&decl)
             }
             (parts, true) => {
-                if !search::bindings(Kind::Rust, text, line0 + 1, &parts[0]).is_empty() {
+                let own_let =
+                    |b: &search::Binding| own == Some(parts[0].as_str()) && b.line1 == line0 + 1;
+                if search::bindings(Kind::Rust, text, line0 + 1, &parts[0])
+                    .iter()
+                    .any(|b| !own_let(b))
+                {
                     return None;
                 }
                 let decl = self
@@ -232,10 +244,13 @@ impl App {
         let lines: Vec<&str> = text.lines().collect();
         let init = let_initializer(&lines, at, name)?;
         let w = walk_back(&init)?;
-        if w.rest != 0 || w.links.is_empty() || w.head.first().is_some_and(|h| h == name) {
+        if w.rest != 0
+            || w.links.is_empty()
+            || (!w.head_call && w.head.first().is_some_and(|h| h == name))
+        {
             return None;
         }
-        let mut got = self.rust_head(file, text, at, &w)?;
+        let mut got = self.rust_head(file, text, at, &w, Some(name))?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
         }
@@ -257,7 +272,7 @@ impl App {
         if !w.head_call && w.links.is_empty() {
             return None;
         }
-        let mut got = self.rust_head(here, text, self.line, &w)?;
+        let mut got = self.rust_head(here, text, self.line, &w, None)?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
         }

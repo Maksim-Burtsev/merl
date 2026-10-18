@@ -250,7 +250,17 @@ impl App {
         } else {
             search::RustNamespace::Other
         };
-        search::rust_scope_items(text, self.line + 1, word, ns)
+        let line = self.line_str();
+        let right_of_own_let = !search::rust_let_declares(line, range.start, word)
+            && line
+                .match_indices(word)
+                .any(|(i, _)| i < range.start && search::rust_let_declares(line, i, word));
+        let items = if right_of_own_let {
+            search::rust_scope_items_right_of_let(text, self.line + 1, word, ns)
+        } else {
+            search::rust_scope_items(text, self.line + 1, word, ns)
+        };
+        items
             .into_iter()
             .map(|line| Candidate {
                 hit: Hit {
@@ -905,7 +915,8 @@ impl App {
                     } else {
                         let [f] = parts.as_slice() else { return None };
                         let ns = search::RustNamespace::Other;
-                        let [l] = search::rust_scope_items(text, at + 1, f, ns)[..] else {
+                        let [l] = search::rust_scope_items_right_of_let(text, at + 1, f, ns)[..]
+                        else {
                             return None;
                         };
                         Hit {
