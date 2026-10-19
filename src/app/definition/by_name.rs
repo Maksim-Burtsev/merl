@@ -59,6 +59,9 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
+        if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
+            self.dart_outside_constructor(&a.word, &a.tail, &mut found);
+        }
         self.found_last(a, p, walk, fallbacks, &mut found);
         if kind == Kind::Jvm && a.dotted {
             self.jvm_by_arguments(&a.here, &a.word, a.range.end, &mut found);

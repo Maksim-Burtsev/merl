@@ -182,6 +182,34 @@ impl App {
         });
     }
 
+    pub(super) fn dart_outside_constructor(
+        &self,
+        word: &str,
+        tail: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        let built = format!("{word}.{word}");
+        let constructor = |c: &Candidate| {
+            self.text_of(&c.hit.path).is_some_and(|t| {
+                search::qualified(Kind::Dart, &t, c.hit.line1, word).as_ref() == Some(&built)
+            })
+        };
+        let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
+        let paired = |c: &Candidate| {
+            let mut file = found.iter().filter(|o| o.hit.path == c.hit.path);
+            let (Some(a), Some(b), None) = (file.next(), file.next(), file.next()) else {
+                return false;
+            };
+            let (class, made) = if top(a) { (a, b) } else { (b, a) };
+            top(class) && !top(made) && constructor(made)
+        };
+        if found.is_empty() || !found.iter().all(|c| c.hit.path.is_absolute() && paired(c)) {
+            return;
+        }
+        let called = search::dart_called(tail);
+        found.retain(|c| top(c) != called);
+    }
+
     fn dart_library(
         &self,
         file: PathBuf,
@@ -309,8 +337,7 @@ impl App {
             Regex::new(r"^\s*=(?:[^=>]|$)").expect("the regex is a literal")
         });
         static READ: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"^\s*(?:$|[),;\]}.]|[!=]=|&&|\|\|)")
-                .expect("the regex is a literal")
+            Regex::new(r"^\s*(?:$|[),;\]}.]|[!=]=|&&|\|\|)").expect("the regex is a literal")
         });
         let Some(tail) = self
             .word_here(Some(Kind::Dart))

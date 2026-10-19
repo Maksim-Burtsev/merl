@@ -280,6 +280,58 @@ fn a_dart_sdk_name_skips_the_patch_files_and_a_static_reads_its_class() {
 }
 
 #[test]
+fn a_called_dart_sdk_class_lands_on_its_constructor_and_a_written_one_on_the_class() {
+    let sdk = external_root(
+        "outside-dart-constructor",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'errors.dart';\n",
+            ),
+            (
+                "lib/core/errors.dart",
+                "part of dart.core;\n\nclass StateError extends Error {\n  final String message;\n  StateError(this.message);\n}\n\n@pragma(1)\nabstract interface class Completer<T> {\n  factory Completer() => throw 0;\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-constructor-project",
+        &[(
+            "lib/main.dart",
+            "StateError fail() {\n  throw StateError('x');\n}\n\nfinal c = Completer<int>();\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "throw |StateError(");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "StateError \u{2192} StateError.StateError (by name, 1 match)",
+            &at(&sdk, "lib/core/errors.dart", 5)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "^|StateError fail");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "StateError: by name, 1 match",
+            &at(&sdk, "lib/core/errors.dart", 3)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "c = |Completer<int>");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Completer \u{2192} Completer.Completer (by name, 1 match)",
+            &at(&sdk, "lib/core/errors.dart", 10)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_component_reads_as_its_script_with_the_rest_blank() {
     let (dir, a) = project_app(
         "outside-component",
