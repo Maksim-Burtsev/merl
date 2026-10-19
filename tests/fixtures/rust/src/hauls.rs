@@ -47,3 +47,15 @@ pub fn yarded(y: Wagon) -> u32 {
 }
 
 mod reels;
+
+pub struct Hoist;
+
+impl Hoist {
+    pub fn new() -> Hoist {
+        Hoist
+    }
+
+    pub fn lift(&self) -> u32 {
+        1
+    }
+}

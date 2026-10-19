@@ -45,3 +45,21 @@ mod tests {
         //^ d: src/hauls/reels.rs:22
     }
 }
+
+mod drums {
+    use super::Hoist;
+
+    fn hoisted() -> u32 {
+        Hoist::new().lift()
+        //           ^ d: src/hauls/reels.rs:10
+    }
+}
+
+mod spools {
+    use crate::hauls::Hoist;
+
+    fn hoisted() -> u32 {
+        Hoist::new().lift()
+        //           ^ d: src/hauls.rs:58
+    }
+}
