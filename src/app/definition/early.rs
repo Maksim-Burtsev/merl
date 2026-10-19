@@ -94,7 +94,7 @@ impl App {
         }
         if let Some(kind) = kind
             && let Some(here) = self.rel_current()
-            && let Some(module) = search::file_import(kind, self.line_str(), self.col)
+            && let Some(module) = search::file_import(kind, &here, self.line_str(), self.col)
         {
             let module = [module];
             let files = self.import_files(kind, &here, &module);

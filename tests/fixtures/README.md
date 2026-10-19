@@ -217,7 +217,8 @@ later()`, a loop variable hiding a local, and a long string and a block comment 
 `lua/lua/shop/requires.lua` puts the cursor on `require` paths (#1061): modules of the project,
 one whose last name is another directory's file, and one from outside. `lua/tea/spec.lua` binds
 `local assert` and `local brew_global` at its top level, which the bare names of `lua/tea/cup.lua`
-and `lua/tea/table.lua` must not reach (#1062).
+and `lua/tea/table.lua` must not reach (#1062); `lua/tea/tray.lua` calls a bare `rinse` whose
+namesakes are `function S.rinse` in `saucer.lua` and `spec.lua`'s `local rinse`, a picker of both.
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
@@ -226,8 +227,11 @@ function declared twice, `for` and `read` variables, and two heredocs declaring 
 `shell/bin/brew.sh` assigns plain `name=` in a function twice, `+=` after `=`, a global above
 the function, a heredoc line shaped like an assignment, and a variable named like a function
 (#1057). `shell/test/shop.bats` loads `lib/warehouse.bash` and reads a variable another
-`@test` assigns (#1058). The end of `shell/bin/brew.sh` sources paths behind `$VAR/`,
-`${VAR}/` and `$(dirname "$0")/`, a path a variable builds, and the variable in front (#1059).
+`@test` assigns (#1058); `shell/lib/loader.sh` defines a `load` of its own and calls it beside
+`lib/warehouse.bash`, so outside a `.bats` file, and on the word `load` in one, the call is
+looked up. The end of `shell/bin/brew.sh` sources paths behind `$VAR/`, `${VAR}/` and
+`$(dirname "$0")/`, a path a variable builds, the variable in front, and paths behind `$HOME`,
+`${HOME}` and `~`, which share their tail with project files and must not open them (#1059).
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
@@ -250,7 +254,9 @@ initializer list, overloads, ADL beside a global namesake, a qualified definitio
 `caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
 `leaf_alias.cc` passes an argument typed by a `using` alias named like `infuse::Leaf`, which
-must neither pick an overload nor add a namespace.
+must neither pick an overload nor add a namespace. `dripper.hh` declares a pure virtual whose one
+override is in `dripper.cc`'s other class: no prototype and definition of one function, so a
+picker both ways (#1050).
 `stale_again.cc` opens `namespace stale {` again and writes `using namespace stale;`, which
 must not turn `stale::Kettle` into a picker, and has a `tray` that is a namespace in one place and
 a class in another, where the picker stays (#1019); `wrap.cc` writes `tidy::Napkin` inside
@@ -518,8 +524,9 @@ a type outside the project, a chain off a call that is no getter (a picker of th
 getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/arity/`
-calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take, two
-that fit, one of two by count, a varargs one, and one on the line that closes a text block;
+calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
+are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
+text block, and a Kotlin extension called through its file class (`LoudKt.holler`);
 `jvm/src/main/kotlin/named/` has two `Knob` overloads told apart by a named argument.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
