@@ -462,8 +462,13 @@ impl App {
             && self.on_declared_name(kind, word, false);
         let counterpart = match (own, found.as_slice()) {
             (Some(own), [other]) if namesakes && kind == Kind::C && all == 2 => {
+                let owner = |h: &Hit| {
+                    self.text_of(&h.path)
+                        .and_then(|t| search::cpp_owner(&t, h.line1, word))
+                };
                 let pair = [own, other.hit.clone()];
-                search::c_one_definition(word, &pair, |p| self.text_of(p)).is_some()
+                owner(&pair[0]).is_some_and(|o| owner(&pair[1]) == Some(o))
+                    && search::c_one_definition(word, &pair, |p| self.text_of(p)).is_some()
             }
             _ => false,
         };
