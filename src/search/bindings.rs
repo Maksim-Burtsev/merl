@@ -510,8 +510,8 @@ fn go_arm(header: &str, arm: Option<Vec<String>>) -> Option<Vec<String>> {
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
-    if !this {
-        opener_bindings(kind, &uncommented(kind, lines[at]), at + 1, name, &mut out);
+    if !this && own_line_hides(kind, lines[at], at, name, &mut out) {
+        return out;
     }
     let literal = literal_lines(kind, &lines.join("\n"));
     let mut depth = indent(lines[at]);
@@ -606,6 +606,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     out
+}
+fn own_line_hides(kind: Kind, line: &str, at: usize, name: &str, out: &mut Vec<Binding>) -> bool {
+    let own = uncommented(kind, line);
+    let own = if kind == Kind::CSharp {
+        own.trim()
+    } else {
+        &own
+    };
+    opener_bindings(kind, own, at + 1, name, out) && kind == Kind::CSharp
 }
 fn this_opener(header: &str, line: usize) -> Option<Value> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
