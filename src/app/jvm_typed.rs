@@ -205,7 +205,19 @@ impl App {
         owner: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
+        let companion = search::jvm_type_name(&decl.text).map(|n| format!("{n}.Companion"));
         self.jvm_typed_member(here, JvmType::Project(decl), owner, word)
+            .or_else(|| {
+                let companion = companion?;
+                let found: Vec<Candidate> = (self.jvm_extensions(here, word).into_iter())
+                    .filter(|h| self.jvm_receiver_of(h, word).as_ref() == Some(&companion))
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(owner.to_owned()),
+                    })
+                    .collect();
+                (!found.is_empty()).then_some(found)
+            })
     }
 
     fn jvm_typed_member(

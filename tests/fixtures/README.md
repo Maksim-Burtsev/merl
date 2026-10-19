@@ -536,7 +536,11 @@ calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
 (#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
 annotation with arguments the rules cannot read (a `Ledger` namesake must not be jumped to),
-and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/src/main/java/arity/`
+and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/src/main/kotlin/ladle/`
+calls through a type's name the extensions declared in another file: on its `Companion`
+(`Ladle.dollop()`, `Ladle.brim`), on an `object`, and on an `object` written with its package
+(`fun ladle.Spoon.scoop()`), which only the extension test of the owner's hits keeps a jump.
+`jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
 text block, and a Kotlin extension called through its file class (`LoudKt.holler`);
