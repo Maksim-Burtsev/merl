@@ -463,6 +463,28 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     .map_or(CsValue::Unknown, CsValue::Type)
 }
 
+pub fn cs_var_chain<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option<(String, bool)> {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let re = Regex::new(&format!(r"\bvar\s+@?{n}\s*=\s*(.+)$")).ok()?;
+    let code = uncommented(Kind::CSharp, lines.get(at)?.as_ref());
+    let mut expr = re.captures(&code)?[1].trim_end().to_owned();
+    let mut continued = false;
+    for l in lines.iter().skip(at + 1).take(40) {
+        let l = uncommented(Kind::CSharp, l.as_ref());
+        let l = l.trim();
+        if l.is_empty() {
+            continue;
+        }
+        if !l.starts_with('.') || expr.ends_with(';') {
+            break;
+        }
+        expr.push_str(l);
+        continued = true;
+    }
+    let expr = expr.trim_end_matches(';').trim_end();
+    expr.ends_with(')').then(|| (expr.to_owned(), continued))
+}
+
 pub fn cs_one_argument(written: &str) -> Option<String> {
     let t = written.trim().strip_suffix('>')?;
     let inner = t.get(t.find('<')? + 1..)?.trim();

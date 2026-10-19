@@ -49,10 +49,10 @@ public class Tasting
             .Build();
         //   ^ d: src/Shop/Tea/Infuse/Cup.cs:36
         return made.Sip() + new Brew().Leaf("black").Build().Sip();
-        //          ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:14 (#1135)
+        //          ^ d: src/Shop/Tea/Infuse/Cup.cs:14
         //                      ^ d: src/Shop/Tea/Infuse/Tasting.cs:3
         //                             ^ d: src/Shop/Tea/Infuse/Cup.cs:32
-        //                                                   ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:14 (#1135)
+        //                                                   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
     }
 
     public int Lines(Brewer brewer)
@@ -159,5 +159,16 @@ public class Tasting
         var (left, right) = (new Stove(), mugs);
         return total + left.Sip();
         //                  ^ d: src/Shop/Tea/Infuse/Cup.cs:48
+    }
+
+    public int Made()
+    {
+        var b = new Brewer().Build();
+        var leaf = new Brewer()
+            .Leaf("green");
+        return b.Sip() + new Brewer().Build().Sip() + leaf.Build().Sip();
+        //       ^ d: src/Shop/Tea/Infuse/Cup.cs:14
+        //                                    ^ d: src/Shop/Tea/Infuse/Cup.cs:14
+        //                                                         ^ d: src/Shop/Tea/Infuse/Cup.cs:14
     }
 }
