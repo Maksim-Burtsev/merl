@@ -542,6 +542,21 @@ are offered), two that fit, one of two by count, a varargs one, one on the line 
 text block, and a Kotlin extension called through its file class (`LoudKt.holler`);
 `jvm/src/main/kotlin/named/` has two `Knob` overloads told apart by a named argument.
 
+`jvm/src/main/java/quern/` and `jvm/src/main/kotlin/press/` are the third adversarial corners
+(#1126) for Java and Kotlin, their answers read from the code. `quern/` has a `Quern` extending
+`Stone` and implementing `Turnable`, whose default `crank` it calls bare and through
+`Turnable.super`, a `Hopper` in its own package beside one behind `import quern.parts.*`, a static
+wildcard import whose `notch()` a parameter `notch` must not hide, `StringBuilder.append` and
+`String.strip` beside a project `Spout` declaring both, a builder chain over lines, a local named
+like a field and a method (`Hopper hopper = hopper()`), a loop variable hiding a field, type and
+record patterns in `instanceof` and `case`, an anonymous class, an inner class and
+`Quern.this`. `press/` has a `Cafetiere` extending `Carafe` and implementing `Lever`, a member
+beside an extension of its name, a `String` local beside a project `trimIndent`, an extension on
+`String`, a builder chain over lines, `with`, `let`, `apply` and `also`, `val plunge = plunge(2)`
+and `var plunger = plunger`, destructuring in a `val` and a loop header, a star import beside a
+same-package `Mesh`, an alias import of a function, a local function hiding a member inside an
+object expression, and `this@Cafetiere` from an inner class.
+
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
 `attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides
