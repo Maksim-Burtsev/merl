@@ -77,13 +77,13 @@ int binds() {
 
 int aliases() {
   taste::Pot pot;
-  //     ^ d: picker include/tea/cup.hh:43, src/tea/shelf.cc:17; want include/tea/cup.hh:43 (#1141)
+  //     ^ d: include/tea/cup.hh:43
   taste::Range range;
   //     ^ d: include/tea/cup.hh:44
   return pot.sip() + range.sip() + pot.level;
-  //         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:20 (#1141)
-  //                       ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:29 (#1141)
-  //                                   ^ d: picker include/tea/cup.hh:15, src/level.cc:7; want include/tea/cup.hh:15 (#1141)
+  //         ^ d: include/tea/cup.hh:20
+  //                       ^ d: include/tea/cup.hh:29
+  //                                   ^ d: include/tea/cup.hh:15
 }
 
 int lambdas() {
@@ -160,4 +160,16 @@ int calls(Percolator perc, int n) {
     //                        ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
   }
   return total;
+}
+
+int poured() {
+  using namespace taste;
+  Pot pot;
+  //^ d: include/tea/cup.hh:43
+  std::vector<int> v;
+  using Cups = std::vector<int>;
+  Cups cups;
+  return pot.sip() + cups.size();
+  //         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  //                      ^ d: src/rnd.cc:6; want none (#1144)
 }

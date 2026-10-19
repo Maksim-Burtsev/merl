@@ -807,6 +807,15 @@ fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
         })
         .collect()
 }
+pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    scope_pos(&code, &starts, line1, name).is_some_and(|pos| {
+        scopes_inside_out_to_type_or_namespace(&code, pos)
+            .iter()
+            .any(|s| matches!(s.head, Head::Function { .. } | Head::Lambda { .. }))
+    })
+}
 pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
     let starts = line_starts(&code);

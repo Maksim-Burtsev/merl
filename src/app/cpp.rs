@@ -368,6 +368,56 @@ impl App {
         if ty.len() == 1 && search::cpp_template_param(scope, name) {
             return None;
         }
+        if let Some(class) = self.cpp_class_of(here, ty, scope, around, ctx) {
+            return Some(class);
+        }
+        let (target, code, ctx) = self.cpp_alias(here, ty, scope, ctx)?;
+        self.cpp_class_of(here, &target, &code, None, &ctx)
+    }
+
+    fn cpp_alias(
+        &mut self,
+        here: &Path,
+        ty: &[String],
+        scope: &str,
+        ctx: &[String],
+    ) -> Option<(Vec<String>, String, Vec<String>)> {
+        let name = ty.last()?;
+        let p = search::def_patterns(Kind::C, name);
+        let hits = self.project_definitions(Kind::C, here, name, &format!("{}|{}", p[4], p[6]));
+        let reached = self.c_reached(here);
+        let mut found = Vec::new();
+        for h in hits.into_iter().filter(|h| h.path == here || reached.contains(&h.path)) {
+            let Some(text) = self.text_of(&h.path) else {
+                continue;
+            };
+            let code = search::c_code(&text);
+            if let Some((at, target)) = search::cpp_alias_target(&code, h.line1, name) {
+                let ctx = search::cpp_scope_path(&code, at);
+                found.push((
+                    [&ctx[..], std::slice::from_ref(name)].concat(),
+                    target,
+                    code,
+                    ctx,
+                ));
+            }
+        }
+        let paths: Vec<Vec<String>> = found.iter().map(|f| f.0.clone()).collect();
+        let mine = cpp_namesake(&paths, ty, scope, ctx)?;
+        let mut mine = found.into_iter().zip(mine).filter(|(_, m)| *m);
+        let ((_, target, code, ctx), _) = mine.next()?;
+        (mine.next().is_none() && target[0] != "std").then_some((target, code, ctx))
+    }
+
+    fn cpp_class_of(
+        &mut self,
+        here: &Path,
+        ty: &[String],
+        scope: &str,
+        around: Option<&str>,
+        ctx: &[String],
+    ) -> Option<Class> {
+        let name = ty.last()?;
         let p = search::def_patterns(Kind::C, name);
         let hits = self.project_definitions(Kind::C, here, name, &p[2]);
         let hits = self.c_reached_only(here, name, hits);

@@ -41,7 +41,8 @@ pub fn cpp_scoped_name(text: &str, line1: usize, name: &str) -> Option<String> {
     let rest = code.get(at + name.len()..)?.trim_start();
     let body = rest.starts_with('{')
         || rest.starts_with("final")
-        || (rest.starts_with(':') && !rest.starts_with("::"));
+        || (rest.starts_with(':') && !rest.starts_with("::"))
+        || cpp_alias_target(&code, line1, name).is_some_and(|(a, _)| a == at);
     if !body || code.get(..at)?.trim_end().ends_with("::") {
         return None;
     }
@@ -640,6 +641,25 @@ pub fn cpp_auto_init(text: &str, line1: usize, name: &str) -> Option<(String, us
     let r = super::cpp_receiver(&format!("{expr}."))?;
     (!rest.starts_with('=') && expr.get(..r.start)?.trim().is_empty())
         .then(|| (expr.to_owned(), p.line1 - 1))
+}
+
+pub fn cpp_alias_target(code: &str, line1: usize, name: &str) -> Option<(usize, Vec<String>)> {
+    c_words_on_line(code, line1, name, None)
+        .into_iter()
+        .find_map(|at| {
+            let head = code.get(..at)?;
+            let stmt = head.get(head.rfind([';', '{', '}']).map_or(0, |i| i + 1)..)?;
+            let rest = code.get(at + name.len()..)?.trim_start();
+            let written = match stmt.trim().strip_prefix("typedef") {
+                Some(t) if t.starts_with(char::is_whitespace) && rest.starts_with(';') => t,
+                None if stmt.trim() == "using" => {
+                    let r = rest.strip_prefix('=')?;
+                    r.get(..r.find(';')?)?
+                }
+                _ => return None,
+            };
+            Some((at, cpp_class_path(written)?))
+        })
 }
 
 pub fn cpp_method_at(code: &str, at: usize, len: usize) -> bool {
