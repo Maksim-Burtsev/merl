@@ -5219,7 +5219,7 @@ ruby0128	ok	jump	28.18
 ruby0129	ok	jump	225.04
 ruby0130	ok	jump	63.02
 ruby0131	skip	picker	63.35
-ruby0132	pick-hit	picker	66.96
+ruby0132	ok	jump	57.87
 ruby0133	ok	jump	30.98
 ruby0134	pick-hit	picker	77.00
 ruby0135	pick-hit	picker	69.54

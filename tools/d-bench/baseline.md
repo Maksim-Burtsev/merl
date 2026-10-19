@@ -11,6 +11,7 @@ The swift row with #1047: over `06a28815`, 2026-10-19, release build, `vm.loadav
 The go row with #1072's chains of calls: over `72304a83`, 2026-10-20, release build, `vm.loadavg` { 5.32 4.55 4.67 } before the run, { 6.51 4.92 4.79 } after.
 The go row with #1116's element of a named slice type: over `278338c8`, 2026-10-20, release build, `vm.loadavg` { 16.44 16.00 15.35 } before the run, { 32.60 21.85 17.71 } after (the times read high under that load).
 The `not scored, jumps elsewhere` column (#1092): every row but julia's played over `a7e01566`, 2026-10-20, release build, `vm.loadavg` { 10.33 15.89 16.80 } before the run; only the verdicts of the rows not scored moved, the times and the scored rows are as they were. julia's 0 is unmeasured.
+The ruby row with the fixes of #1093 and #1114: over `1db99ebe`, 2026-10-20, release build, `vm.loadavg` { 12.75 11.33 13.33 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
