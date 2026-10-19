@@ -1,6 +1,8 @@
+use std::path::{Path, PathBuf};
+
 use regex::Regex;
 
-use super::{Binding, Value, indent};
+use super::{Binding, Value, indent, lexical};
 
 pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     shell_function_at(lines, at).map_or_else(Vec::new, |f| {
@@ -13,13 +15,89 @@ pub(super) fn shell_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             .collect()
     })
 }
+pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -> Option<usize> {
+    let assign = Regex::new(&format!(
+        r"^\s*(?:(?:export|readonly|declare|typeset)(?:\s+-\w+)*\s+)?{}=",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let assigns = |i: usize| {
+        literal.get(i) != Some(&true)
+            && (assign.is_match(lines[i]) || shell_loop_binds(lines[i], name) == Some(true))
+    };
+    let mine = shell_function_at(lines, at);
+    mine.and_then(|f| (f + 1..at).rev().find(|&i| assigns(i)))
+        .or_else(|| {
+            (0..mine.unwrap_or(at))
+                .rev()
+                .find(|&i| assigns(i) && shell_function_at(lines, i).is_none())
+        })
+        .map(|i| i + 1)
+}
+pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
+    static SOURCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(load|source|\.)\s+(.*)").expect("the regex is a literal")
+    });
+    let c = SOURCE.captures(line)?;
+    let (keyword, rest) = (c.get(1)?, c.get(2)?);
+    let load = keyword.as_str() == "load";
+    if load && !bats {
+        return None;
+    }
+    let word = *shell_words(rest.as_str()).first()?;
+    let start = rest.start() + rest.as_str().find(word)?;
+    let unquoted = word.replace(['"', '\''], "");
+    let mut path = unquoted.as_str();
+    if path.starts_with('~') {
+        return None;
+    }
+    while let Some(after) = path.strip_prefix('$') {
+        let at = match after.as_bytes().first() {
+            Some(b'(') => after.find(')')? + 1,
+            Some(b'{') => after.find('}')? + 1,
+            _ => (after.find(|c: char| !c.is_ascii_alphanumeric() && c != '_'))
+                .unwrap_or(after.len()),
+        };
+        if after.get(..at)?.trim_matches(['{', '}']) == "HOME" {
+            return None;
+        }
+        path = after.get(at..)?.strip_prefix('/')?;
+    }
+    if path.is_empty() || path.starts_with('/') || path.contains(['$', '`', '*']) {
+        return None;
+    }
+    let literal = start + word.rfind(path)?;
+    let on_keyword = !load && keyword.range().contains(&col);
+    if !(on_keyword || (literal..=start + word.len()).contains(&col)) {
+        return None;
+    }
+    if !load {
+        return Some(path.to_owned());
+    }
+    let bash = if Path::new(path).extension().is_some_and(|e| e == "bash") {
+        ""
+    } else {
+        ".bash"
+    };
+    Some(format!("./{path}{bash}"))
+}
+pub fn shell_files(dir: &Path, path: &str, files: &[PathBuf]) -> Vec<PathBuf> {
+    match lexical(&dir.join(path)).filter(|f| files.contains(f)) {
+        Some(f) => vec![f],
+        None => files
+            .iter()
+            .filter(|f| f.ends_with(path))
+            .cloned()
+            .collect(),
+    }
+}
 pub fn shell_function_at(lines: &[&str], at: usize) -> Option<usize> {
     static ONE_LINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\{.*[;\s]\}\s*(?:#.*)?$|\(\s*$").expect("the regex is a literal")
     });
     (0..at.min(lines.len())).rev().find(|&k| {
         let l = lines[k];
-        HEADER.is_match(l)
+        (HEADER.is_match(l) || l.starts_with("@test "))
             && !ONE_LINE.is_match(l)
             && !lines[k + 1..=at]
                 .iter()

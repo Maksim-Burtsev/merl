@@ -1296,29 +1296,32 @@ pub fn c_body_name(code: &str, open: usize) -> String {
     clippy::match_same_arms,
     reason = "each arm is one kind of byte the scan stops at"
 )]
-pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
-    static AUTO: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
-            .expect("the regex is a literal")
-    });
+pub(super) fn cpp_decl_start(code: &str, at: usize) -> Option<usize> {
     let b = code.as_bytes();
     let (mut depth, mut i) = (0usize, at);
-    let from = loop {
+    loop {
         if i == 0 {
-            break 0;
+            return Some(0);
         }
         i -= 1;
         match b[i] {
             b'>' if i > 0 && b[i - 1] == b'-' => return None,
             b')' | b']' | b'>' => depth += 1,
-            b'(' | b',' if depth == 0 => break i + 1,
+            b'(' | b',' if depth == 0 => return Some(i + 1),
             b'[' | b'<' if depth == 0 => return None,
             b'(' | b'[' | b'<' => depth -= 1,
-            b';' | b'{' | b'}' if depth == 0 => break i + 1,
+            b';' | b'{' | b'}' if depth == 0 => return Some(i + 1),
             b';' | b'{' | b'}' => return None,
             _ => {}
         }
-    };
+    }
+}
+pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
+    static AUTO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
+            .expect("the regex is a literal")
+    });
+    let from = cpp_decl_start(code, at)?;
     let segment = ACCESS_LABELS.replace(code.get(from..at)?, "");
     let path = cpp_class_path(&segment)?;
     if path != ["auto"] {
@@ -1396,7 +1399,11 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
         && (path[0] != "std" || std_only()))
     .then_some(path)
 }
-pub fn cpp_value_type(text: &str, line1: usize, name: &str) -> Result<Option<Vec<String>>, ()> {
+pub fn cpp_value_type(
+    text: &str,
+    line1: usize,
+    name: &str,
+) -> Result<Option<(Vec<String>, usize)>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
     let at: Vec<usize> = c_bindings_at(text, line1, None, name)
@@ -1408,7 +1415,7 @@ pub fn cpp_value_type(text: &str, line1: usize, name: &str) -> Result<Option<Vec
         return Ok(None);
     };
     match first {
-        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some(t)),
+        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some((t, at[0]))),
         _ => Err(()),
     }
 }

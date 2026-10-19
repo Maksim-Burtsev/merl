@@ -1144,6 +1144,34 @@ pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
     re.captures(before.trim_end()).map(|c| c[1].to_owned())
 }
 
+pub fn jvm_getter_chain(before: &str) -> Vec<String> {
+    let mut rest = before;
+    let mut chain = Vec::new();
+    while let Some(link) = rest.strip_suffix('.') {
+        let (link, call) = link.strip_suffix("()").map_or((link, false), |l| (l, true));
+        let head = link.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_');
+        let name = link.get(head.len()..).unwrap_or_default();
+        if name.is_empty() || (call && jvm_accessor(name).is_none_or(|a| a.setter)) {
+            return Vec::new();
+        }
+        chain.insert(
+            0,
+            if call {
+                format!("{name}()")
+            } else {
+                name.to_owned()
+            },
+        );
+        rest = head;
+    }
+    let led_by_a_name = chain.first().is_some_and(|f| !f.ends_with(')'));
+    let calls = chain.iter().any(|l| l.ends_with(')'));
+    if !led_by_a_name || !calls || rest.ends_with(['$', ')', ']', '>', ':', '"']) {
+        return Vec::new();
+    }
+    chain
+}
+
 pub struct JvmCall {
     pub arguments: Vec<String>,
     pub trailing_lambda: bool,
@@ -1213,6 +1241,22 @@ pub fn jvm_takes(parameters: &[String], count: usize) -> bool {
     } else {
         (required..=parameters.len()).contains(&count)
     }
+}
+
+pub fn jvm_takes_call(parameters: &[String], call: &JvmCall, kotlin: bool) -> bool {
+    static NAMED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(\w+)\s*=(?:[^=]|$)").expect("the regex is a literal")
+    });
+    let named = |a: &String| NAMED.captures(a).map(|c| c[1].to_owned());
+    let declares = |name: String| {
+        parameters.iter().any(|p| {
+            let head = p.split([':', '=']).next().unwrap_or_default();
+            head.split_whitespace().last() == Some(name.as_str())
+        })
+    };
+    let count = call.arguments.len() + usize::from(call.trailing_lambda);
+    jvm_takes(parameters, count)
+        && (!kotlin || call.arguments.iter().filter_map(named).all(declares))
 }
 
 pub fn jvm_literal_parameter(parameter: &str) -> Option<&'static str> {

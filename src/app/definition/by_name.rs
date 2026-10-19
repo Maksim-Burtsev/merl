@@ -44,12 +44,25 @@ impl App {
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
             self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
+            if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, &found) {
+                self.swift_by_labels(&a.word, a.range.end, &mut found);
+            }
         }
-        if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
-            self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
+        if kind == Kind::Dart {
+            let member = a.before.trim_end().ends_with('.');
+            self.dart_reachable(&a.here, member, &mut found);
+            if !member {
+                self.dart_visible(&a.here, &a.word, &a.tail, &mut found);
+            }
+        }
+        if kind == Kind::TsJs && a.dotted {
+            self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);
+        if kind == Kind::Jvm && a.dotted {
+            self.jvm_by_arguments(&a.here, &a.word, a.range.end, &mut found);
+        }
         if kind == Kind::Rust && found.is_empty() {
             found = self.rust_macro_declared(&a.word);
         }
@@ -59,6 +72,30 @@ impl App {
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
+        }
+    }
+
+    fn ts_member_namesakes(&mut self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        static TOP_LEVEL: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(
+                r"^(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:function\*?|class)\s",
+            )
+            .expect("the regex is a literal")
+        });
+        found.retain(|c| {
+            !self.text_of(&c.hit.path).is_some_and(|t| {
+                search::ts_nested_local(&t.lines().collect::<Vec<_>>(), c.hit.line1)
+            })
+        });
+        let namespace = a.chain.first().is_some_and(|head| {
+            matches!(head.as_str(), "exports" | "module")
+                || near.imports.iter().any(|i| {
+                    i.name == *head
+                        && matches!(i.path.last().map(String::as_str), Some("*" | "default"))
+                })
+        });
+        if !namespace && found.iter().any(|c| TOP_LEVEL.is_match(&c.hit.text)) {
+            self.offer_only = true;
         }
     }
 
@@ -87,6 +124,10 @@ impl App {
                     reason: Reason::ByName,
                 })
                 .collect();
+        }
+        if kind == Kind::Jvm && a.dotted && !found.is_empty() && a.chain.is_empty() {
+            let fields = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
+            found.extend(fields);
         }
         if kind == Kind::Jvm && found.is_empty() {
             *found = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
@@ -151,6 +192,17 @@ impl App {
             if found.is_empty() && external.len() == 1 && unlisted_field_declares_it {
                 self.truncated.set(true);
             }
+            let external = if kind == Kind::TsJs && found.is_empty() && external.is_empty() {
+                let signature = search::member_or_signature(kind, word)
+                    .and_then(|patterns| patterns.last().cloned());
+                let properties = signature
+                    .map(|s| self.outside_grep(kind, &files, &s, None))
+                    .unwrap_or_default();
+                self.offer_only |= !properties.is_empty();
+                properties
+            } else {
+                external
+            };
             let seen: Vec<PathBuf> = found.iter().map(|c| self.root.join(&c.hit.path)).collect();
             found.extend(
                 external
@@ -213,7 +265,20 @@ impl App {
         {
             self.python_reachable(a, &mut hits);
         }
-        Self::swift_implicit(a, &mut hits);
+        self.swift_implicit(a, &mut hits);
+        if kind == Kind::Swift
+            && dotted
+            && chain.first().is_some_and(|f| f != "self" && f != "super")
+            && chain
+                .iter()
+                .all(|n| n.starts_with(|c: char| c.is_lowercase() || c.is_ascii_digit()))
+        {
+            hits.retain(|h| {
+                !search::swift_case(&h.text)
+                    && search::swift_member_kind(&h.text)
+                        != Some(search::SwiftMember::StaticOrClass)
+            });
+        }
         if kind == Kind::Swift && !dotted && chain.is_empty() {
             self.swift_nested_unseen(&mut hits);
         }
@@ -224,14 +289,33 @@ impl App {
                     .map(|line| self.line_hit(&a.here, line)),
             );
         }
+        if kind == Kind::Ruby
+            && !dotted
+            && chain.is_empty()
+            && !a.before.ends_with("::")
+            && word.starts_with(|c: char| c.is_ascii_uppercase())
+        {
+            self.ruby_constant_in_scope(&a.here, &a.text, word, &mut hits);
+        }
         if kind == Kind::CSharp {
             let chain = dotted.then_some(chain.as_slice());
             hits = self.cs_reachable(&a.here, word, chain, walk.cs_walked.as_deref(), hits);
         }
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
+            let bare = !dotted && chain.is_empty();
+            let table = regex::Regex::new(&format!(
+                r"^\s*function\s+[\w.:]*[.:]{}\b",
+                regex::escape(word)
+            ));
+            let qualified =
+                |h: &Hit| h.path != a.here && table.as_ref().is_ok_and(|re| re.is_match(&h.text));
+            let narrow = bare && !hits.iter().any(qualified);
+            hits.retain(|h| {
+                !narrow || h.path == a.here || !h.text.trim_start().starts_with("local ")
+            });
             let all = hits.len();
-            let unseen = (!dotted && chain.is_empty())
+            let unseen = bare
                 .then(|| search::lua_value_of_its_own(&a.text, self.line + 1, word))
                 .flatten();
             hits.retain(|h| {
@@ -290,7 +374,7 @@ impl App {
         }
     }
 
-    fn swift_implicit(a: &Asked, hits: &mut Vec<Hit>) {
+    fn swift_implicit(&self, a: &Asked, hits: &mut Vec<Hit>) {
         if a.kind == Kind::Swift
             && a.dotted
             && a.chain.is_empty()
@@ -319,6 +403,9 @@ impl App {
                 .collect();
             if implicit && !kept.is_empty() {
                 *hits = kept;
+            } else if implicit && !(lead.is_empty() && search::swift_continues(&a.text, self.line))
+            {
+                hits.retain(|h| !search::swift_instance_member(&h.text));
             }
         }
     }

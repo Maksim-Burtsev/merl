@@ -1,3 +1,6 @@
+mod chain;
+mod sysroot;
+
 use std::sync::LazyLock;
 
 use super::{
@@ -247,7 +250,17 @@ impl App {
         } else {
             search::RustNamespace::Other
         };
-        search::rust_scope_items(text, self.line + 1, word, ns)
+        let line = self.line_str();
+        let right_of_own_let = !search::rust_let_declares(line, range.start, word)
+            && line
+                .match_indices(word)
+                .any(|(i, _)| i < range.start && search::rust_let_declares(line, i, word));
+        let items = if right_of_own_let {
+            search::rust_scope_items_right_of_let(text, self.line + 1, word, ns)
+        } else {
+            search::rust_scope_items(text, self.line + 1, word, ns)
+        };
+        items
             .into_iter()
             .map(|line| Candidate {
                 hit: Hit {
@@ -770,7 +783,7 @@ impl App {
     }
 
     pub(super) fn rust_typed(
-        &self,
+        &mut self,
         here: &Path,
         text: &str,
         word: &str,
@@ -783,18 +796,32 @@ impl App {
         let Some((mut ty, link)) = self.rust_value_type(here, text, self.line, &chain[0]) else {
             if let [name] = chain
                 && call
-                && let Some(found) = self.rust_trait_bound(here, text, word, name)
             {
-                return Ok(found);
+                if let Some(found) = self.rust_trait_bound(here, text, word, name) {
+                    return Ok(found);
+                }
+                if let Some(written) = rust_written_type(text, self.line, name)
+                    && let Some(found) = self.rust_std_call(text, name, &written, word)
+                {
+                    return Ok(found);
+                }
             }
             return Err(chain[0].clone());
         };
         let mut links = vec![link];
         for (i, field) in chain.iter().enumerate().skip(1) {
-            let next = self
-                .rust_field(&ty, field)
-                .and_then(|(hit, written)| self.rust_resolve(&ty.path, &written, hit.line1 - 1))
-                .ok_or_else(|| field.clone())?;
+            let (hit, written) = self.rust_field(&ty, field).ok_or_else(|| field.clone())?;
+            let Some(next) = self.rust_resolve(&ty.path, &written, hit.line1 - 1) else {
+                if call
+                    && i + 1 == chain.len()
+                    && let Some(std) = rust_bare_type(&written)
+                    && let Some(owner) = self.text_of(&ty.path)
+                    && let Some(found) = self.rust_std_call(&owner, field, &std, word)
+                {
+                    return Ok(found);
+                }
+                return Err(field.clone());
+            };
             match i {
                 1 => links[0] = format!("{}.{field}: {}", chain[0], next.name),
                 _ => links.push(format!("{field}: {}", next.name)),
@@ -839,7 +866,17 @@ impl App {
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
-            let this = match search::rust_holds(&lines, at, name)? {
+            let Some(holds) = search::rust_holds(&lines, at, name) else {
+                let ty = self.rust_let_chain(file, text, at, name)?;
+                let this = (ty.clone(), format!("{name}: {}", ty.name));
+                match &found {
+                    Some((t, _)) if (&t.path, t.line) != (&ty.path, ty.line) => return None,
+                    Some(_) => {}
+                    None => found = Some(this),
+                }
+                continue;
+            };
+            let this = match holds {
                 search::RustHolds::Type(w) | search::RustHolds::Literal(w) => {
                     let ty = self.rust_resolve(file, &w, at)?;
                     let link = format!("{name}: {}", ty.name);
@@ -878,7 +915,8 @@ impl App {
                     } else {
                         let [f] = parts.as_slice() else { return None };
                         let ns = search::RustNamespace::Other;
-                        let [l] = search::rust_scope_items(text, at + 1, f, ns)[..] else {
+                        let [l] = search::rust_scope_items_right_of_let(text, at + 1, f, ns)[..]
+                        else {
                             return None;
                         };
                         Hit {
@@ -986,9 +1024,13 @@ impl App {
             _ if !used.in_column_zero => return None,
             Some((root, rest)) if root == "crate" || root == "super" => (root.as_str(), rest),
             Some((root, _)) if declares_mod(text, root) => ("self", used.path.as_slice()),
+            Some((root, rest)) if root != "self" => (root.as_str(), rest),
             _ => return None,
         };
-        let (krate, module) = self.rust_own_crate(file, root, rest)?;
+        let (krate, module) = match root {
+            "crate" | "super" | "self" => self.rust_own_crate(file, root, rest)?,
+            _ => (self.workspace_crate(root)?, Vec::new()),
+        };
         let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
         let InCrate {
             hits, proven: true, ..
@@ -1373,15 +1415,26 @@ fn rust_written_type(text: &str, line0: usize, name: &str) -> Option<String> {
     let [b] = bindings.as_slice() else {
         return None;
     };
+    let str_literal = Regex::new(&format!(
+        r#"^\s*let\s+(?:mut\s+)?{}\s*=\s*"(?:[^"\\]|\\.)*"\s*;\s*$"#,
+        regex::escape(name)
+    ))
+    .ok()?;
+    if str_literal.is_match(lines.get(b.line1 - 1)?) {
+        return Some("str".to_owned());
+    }
     match search::rust_holds(&lines, b.line1 - 1, name)? {
-        search::RustHolds::Type(w) | search::RustHolds::Literal(w) => {
-            Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)*(?:\w+::)*([A-Za-z_]\w*)")
-                .ok()?
-                .captures(&w)
-                .map(|c| c[1].to_owned())
-        }
+        search::RustHolds::Type(w) | search::RustHolds::Literal(w) => rust_bare_type(&w),
         _ => None,
     }
+}
+
+fn rust_bare_type(written: &str) -> Option<String> {
+    static BARE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)*(?:\w+::)*([A-Za-z_]\w*)")
+            .expect("the regex is a literal")
+    });
+    BARE.captures(written.trim()).map(|c| c[1].to_owned())
 }
 
 fn rust_ranked(

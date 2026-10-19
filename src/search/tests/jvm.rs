@@ -307,3 +307,29 @@ fn kotlin_arity_counts_defaults_varargs_and_a_trailing_lambda() {
     assert_eq!(jvm_literal_argument("\"two\""), Some("string"));
     assert_eq!(jvm_literal_argument("2L"), None);
 }
+
+#[test]
+fn a_getter_chain_is_read_up_to_the_name_it_starts_from() {
+    let chain = |before: &str| jvm_getter_chain(before).join(" ");
+    assert_eq!(chain("x = user.getSpec()."), "user getSpec()");
+    assert_eq!(
+        chain("this.post.getSpec().isPinned()."),
+        "this post getSpec() isPinned()"
+    );
+    assert_eq!(
+        chain("user.spec."),
+        "",
+        "a chain of fields is the qualifier's"
+    );
+    assert_eq!(
+        chain("getSpec()."),
+        "",
+        "a call on the own class is left alone"
+    );
+    assert_eq!(chain("user.find().getSpec()."), "");
+    assert_eq!(chain("user.getSpec(id)."), "");
+    assert_eq!(chain("user.setSpec()."), "");
+    assert_eq!(chain("new User().getSpec()."), "");
+    assert_eq!(chain("list.get(0).getSpec()."), "");
+    assert_eq!(chain("Foo::getSpec()."), "");
+}

@@ -457,7 +457,7 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     let led = |l: &str| {
         let t = l.trim_start();
         match kind {
-            Kind::TsJs => t.starts_with('.') && !t.starts_with(".."),
+            Kind::TsJs | Kind::Rust => t.starts_with('.') && !t.starts_with(".."),
             Kind::Php => t.starts_with("->") || t.starts_with("?->"),
             _ => false,
         }
@@ -504,6 +504,10 @@ pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
                 .replace("->", "."),
             tail,
         ),
+        (Kind::Jvm, Some((head, tail))) if head.ends_with('>') => (
+            without_type_arguments(head).unwrap_or(head).to_owned(),
+            tail,
+        ),
         _ => {
             return LineAsRead {
                 line: line.to_owned(),
@@ -515,6 +519,24 @@ pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
         line: format!("{before}{after}"),
         word_start: before.len(),
     }
+}
+fn without_type_arguments(head: &str) -> Option<&str> {
+    let mut depth = 0;
+    for (i, c) in head.char_indices().rev() {
+        match c {
+            '>' => depth += 1,
+            '<' => depth -= 1,
+            c if c.is_ascii_alphanumeric() || " _.,?&[]".contains(c) => {}
+            _ => return None,
+        }
+        if depth == 0 {
+            return head
+                .get(..i)
+                .map(str::trim_end)
+                .filter(|h| h.ends_with('.'));
+        }
+    }
+    None
 }
 pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> {
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
@@ -598,7 +620,17 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         Some(Kind::Dart) => line.as_bytes().get(i) == Some(&b'$'),
         _ => false,
     };
-    let past_sigil = col + usize::from(sigil_of_the_word_behind(col));
+    let past_sigil = match kind {
+        Some(Kind::Ruby) => {
+            let rest = line.as_bytes().get(col..).unwrap_or_default();
+            let ats = rest.iter().take(2).take_while(|&&b| b == b'@').count();
+            let named = rest
+                .get(ats)
+                .is_some_and(|b| b.is_ascii_alphabetic() || *b == b'_');
+            col + if named { ats } else { 0 }
+        }
+        _ => col + usize::from(sigil_of_the_word_behind(col)),
+    };
     let (range, _) = word_at(line, past_sigil, extra)?;
     let stands_where_a_private_name_can = |i: usize| {
         line.get(..i).map(str::trim_end).is_some_and(|before| {

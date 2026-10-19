@@ -16,7 +16,7 @@ static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 });
 static SWIFT_TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
-        r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w]",
+        r"{}(?:class|struct|enum|protocol|actor|extension)\s+[`\w\[]",
         swift_mods!()
     ))
     .expect("the regex is a literal")
@@ -177,22 +177,35 @@ pub fn swift_in_top_level_func<S: AsRef<str>>(lines: &[S], literal: &[bool], lin
         indent(&t) == 0 && SWIFT_FUNC.is_match(&t)
     }
 }
-pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<Vec<String>> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct SwiftCall {
+    pub labels: Vec<String>,
+    pub trailing_closure: bool,
+}
+pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<SwiftCall> {
     static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*`?(\w+)`?\s*:").expect("the regex is a literal")
     });
-    if !lines.get(line0)?.get(after..)?.starts_with('(') {
+    let line = lines.get(line0)?;
+    let rest = line.get(after..)?;
+    if rest.trim_start().starts_with('{') {
+        let condition = ["if ", "guard ", "while ", "for ", "switch ", "} else"]
+            .iter()
+            .any(|k| line.trim_start().starts_with(k));
+        return (!condition).then(|| SwiftCall {
+            labels: Vec::new(),
+            trailing_closure: true,
+        });
+    }
+    if !rest.starts_with('(') {
         return None;
     }
     let g = group(Kind::Swift, lines, line0, after)?;
-    if g.after_close.trim_start().starts_with('{') {
-        return None;
-    }
+    let trailing_closure = g.after_close.trim_start().starts_with('{');
     let inner = g.inner_uncommented;
-    if inner.trim().is_empty() {
-        return Some(Vec::new());
-    }
-    Some(
+    let labels = if inner.trim().is_empty() {
+        Vec::new()
+    } else {
         split_top(Kind::Swift, &inner, b',')
             .into_iter()
             .map(|a| {
@@ -200,10 +213,21 @@ pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<V
                     .captures(a)
                     .map_or_else(|| "_".to_owned(), |c| c[1].to_owned())
             })
-            .collect(),
-    )
+            .collect()
+    };
+    Some(SwiftCall {
+        labels,
+        trailing_closure,
+    })
 }
-pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Vec<String>> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct SwiftParam {
+    pub label: String,
+    pub defaulted: bool,
+    pub variadic: bool,
+    pub closure: bool,
+}
+pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Vec<SwiftParam>> {
     let line = lines.get(line0)?;
     let from = line.find(name)? + name.len();
     let open = code(Kind::Swift, line)
@@ -222,13 +246,63 @@ pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Ve
     split_top(Kind::Swift, &inner, b',')
         .into_iter()
         .map(|p| {
-            let variadic_or_default =
-                p.contains("...") || split_top(Kind::Swift, p, b'=').len() > 1;
-            let names = p.split(':').next().filter(|_| !variadic_or_default)?;
+            let parts = split_top(Kind::Swift, p, b'=');
+            let (names, ty) = parts[0].split_once(':')?;
             let label = names.split_whitespace().next()?;
-            Some(label.trim_matches('`').to_owned())
+            let ty = ty.trim();
+            let ty = ty
+                .split_whitespace()
+                .skip_while(|w| w.starts_with('@'))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let bare = ty
+                .strip_prefix('(')
+                .and_then(|t| t.strip_suffix(")?").or_else(|| t.strip_suffix(")!")))
+                .unwrap_or(&ty);
+            Some(SwiftParam {
+                label: label.trim_matches('`').to_owned(),
+                defaulted: parts.len() > 1,
+                variadic: ty.ends_with("..."),
+                closure: top_level_arrow(bare),
+            })
         })
         .collect()
+}
+fn top_level_arrow(ty: &str) -> bool {
+    let mut depth = 0i32;
+    let b = ty.as_bytes();
+    for (i, &c) in b.iter().enumerate() {
+        match c {
+            b'(' | b'[' | b'<' => depth += 1,
+            b')' | b']' => depth -= 1,
+            b'>' if i > 0 && b[i - 1] != b'-' => depth -= 1,
+            b'-' if depth == 0 && b.get(i + 1) == Some(&b'>') => return true,
+            _ => {}
+        }
+    }
+    false
+}
+pub fn swift_call_fits(call: &SwiftCall, params: &[SwiftParam]) -> bool {
+    let mut args = call.labels.iter().peekable();
+    let mut rest = params.iter();
+    for p in rest.by_ref() {
+        match args.peek() {
+            Some(l) if **l == p.label => {
+                args.next();
+                if p.variadic {
+                    while args.peek().is_some_and(|l| *l == "_") {
+                        args.next();
+                    }
+                }
+            }
+            None if call.trailing_closure && p.closure => {
+                return rest.all(|p| p.defaulted || p.variadic);
+            }
+            _ if p.defaulted || p.variadic => {}
+            _ => return false,
+        }
+    }
+    args.peek().is_none() && !call.trailing_closure
 }
 pub fn swift_instance_member(line: &str) -> bool {
     swift_member_kind(line) == Some(SwiftMember::Instance)
@@ -256,6 +330,71 @@ pub fn swift_member_kind(line: &str) -> Option<SwiftMember> {
 pub fn swift_case(line: &str) -> bool {
     let t = line.trim_start();
     t.starts_with("case ") || t.starts_with("indirect case ")
+}
+pub fn swift_continues(text: &str, line0: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let Some(above) = (0..line0.min(lines.len()))
+        .rev()
+        .find(|&i| swift_code(&lines, &literal, i))
+    else {
+        return false;
+    };
+    let code = uncommented(Kind::Swift, lines[above]);
+    let code = code.trim_end();
+    let keyword = ["return", "case", "in", "else", "throw", "try", "await"]
+        .iter()
+        .any(|k| {
+            code.strip_suffix(k)
+                .is_some_and(|b| !b.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+        });
+    !keyword && code.ends_with(|c: char| c.is_alphanumeric() || "_)]}?!\">".contains(c))
+}
+pub fn swift_extended(line: &str) -> Option<String> {
+    static EXTENDED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}extension\s+(\[[^\]]*\]|[\w.]+)",
+            swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    EXTENDED
+        .captures(&uncommented(Kind::Swift, line))
+        .map(|c| c[1].to_owned())
+}
+pub fn swift_signature_line(text: &str, line1: usize) -> usize {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Swift, text);
+    let Some(mut i) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return line1;
+    };
+    loop {
+        i = swift_header_start(&lines, &literal, i);
+        match (0..i).rev().find(|&j| swift_code(&lines, &literal, j)) {
+            Some(j) if uncommented(Kind::Swift, lines[j]).trim_end().ends_with('(') => i = j,
+            _ => return i + 1,
+        }
+    }
+}
+pub fn swift_alias(line: &str, name: &str) -> Option<String> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}typealias\s+`?(\w+)`?\s*(?:<[^=]*>)?\s*=\s*(.+?)\s*$",
+            swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, line);
+    let c = ALIAS.captures(&t)?;
+    (&c[1] == name).then(|| c[2].to_owned())
+}
+pub fn swift_outside_name(written: &str) -> Option<String> {
+    let t = written.trim().trim_end_matches(['?', '!']);
+    if t.starts_with('[') && t.ends_with(']') {
+        let array = swift_element(t).is_some();
+        return Some(if array { "Array" } else { "Dictionary" }.to_owned());
+    }
+    swift_type_name(t).filter(|n| n.starts_with(char::is_uppercase))
 }
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

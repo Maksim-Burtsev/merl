@@ -76,12 +76,7 @@ impl App {
         let first = chain.first()?;
         let value = search::lua_local_value(text, self.line + 1, first)?;
         if let Some(module) = search::lua_required(&value) {
-            let dir = module.replace('.', "/");
-            let path = ["", "lua/"]
-                .iter()
-                .flat_map(|root| [format!("{root}{dir}.lua"), format!("{root}{dir}/init.lua")])
-                .map(PathBuf::from)
-                .find(|p| self.files.contains(p))?;
+            let path = search::lua_module_file(module, &self.files)?;
             let source = self.text_of(&path)?;
             return Some(Owner {
                 table: search::lua_returned(&source),

@@ -1,4 +1,6 @@
-use super::{App, Asked, Kind, Near, Patterns, Regex, bound, cs_typed, resolution, rust, search};
+use super::{
+    App, Asked, Kind, Near, Path, Patterns, Regex, bound, cs_typed, resolution, rust, search,
+};
 
 pub(super) struct Walk {
     pub(super) broke: Option<String>,
@@ -30,6 +32,24 @@ impl App {
                 Ok(found) if !found.is_empty() => return self.show_found(a, found),
                 Ok(_) => {}
                 Err(at) => rust_broke = (chain.len() > 1).then_some(at),
+            }
+        }
+        if kind == Kind::Rust
+            && dotted
+            && chain.is_empty()
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+            && let Some(receiver) = a
+                .before
+                .strip_suffix('.')
+                .filter(|r| r.ends_with([')', '?']))
+        {
+            let after = a.tail.as_str();
+            let call = after.starts_with('(') || after.starts_with("::<");
+            if let Some(found) = self.rust_call_chain(&a.here, &a.text, receiver, word, call)
+                && !found.is_empty()
+            {
+                return self.show_found(a, found);
             }
         }
         if kind == Kind::Rust
@@ -206,6 +226,15 @@ impl App {
                     self.message = format!("{word}: builtin, no source (via {via})");
                     return true;
                 }
+                if head.is_none()
+                    && kind == Kind::TsJs
+                    && let Some(via) = self.missing_package_receiver(&a.here, chain, &at)
+                {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
+                }
                 let names = head
                     .as_ref()
                     .map_or(chain.len(), |h| h.fields_to_word.len() + 1);
@@ -213,6 +242,29 @@ impl App {
             }
         }
         false
+    }
+
+    fn missing_package_receiver(&self, here: &Path, chain: &[String], at: &str) -> Option<String> {
+        let kind = Kind::TsJs;
+        let upto = chain.iter().position(|l| l == at)?;
+        let (file, text, bindings, _) = self.last_bindings(kind, here, &chain[..=upto])?;
+        let imports = search::imports(kind, &text);
+        let dir = file.parent().unwrap_or_else(|| Path::new(""));
+        let mut via = None;
+        for b in &bindings {
+            let search::Value::Type(written) = &b.value else {
+                continue;
+            };
+            let parts = search::type_path(kind, written)?;
+            let path = bound(&imports, &parts[0])?;
+            if !search::package_missing(&self.root, &self.files, dir, &path) {
+                return None;
+            }
+            let parts_of_name = if path[0].starts_with('@') { 2 } else { 1 };
+            let package = path[..parts_of_name.min(path.len())].join("/");
+            via.get_or_insert_with(|| format!("{at}: {}, {package} not installed", written.trim()));
+        }
+        via
     }
 
     pub(super) fn answered_by_rust_crate(&mut self, a: &Asked, near: &Near) -> bool {

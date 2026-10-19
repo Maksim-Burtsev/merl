@@ -46,6 +46,7 @@ fn kinds_come_from_the_file_name() {
         ("run.bash", Some(Kind::Shell)),
         ("run.zsh", Some(Kind::Shell)),
         ("run.ksh", Some(Kind::Shell)),
+        ("shop.bats", Some(Kind::Shell)),
         (".bashrc", Some(Kind::Shell)),
         (".bash_profile", Some(Kind::Shell)),
         (".bash_aliases", Some(Kind::Shell)),
@@ -367,6 +368,10 @@ fn a_member_access_reads_as_a_plain_dot() {
         "$a foo()",
         "a PHP dot concatenates"
     );
+    let java = "IndexSpecs.<Post, Map<String, ?>>single(x)";
+    assert_eq!(plain(Kind::Jvm, java, 33), "IndexSpecs.single(x)");
+    assert_eq!(plain(Kind::Jvm, "if (a < b >c)", 11), "if (a < b >c)");
+    assert_eq!(plain(Kind::Jvm, "f(x->c)", 5), "f(x->c)");
 }
 
 #[test]
@@ -401,4 +406,26 @@ fn a_typescript_receiver_indexed_off_a_name_is_its_element() {
     assert_eq!(head("f()[0].lift"), None);
     assert_eq!(head("[a, b][0].lift"), None);
     assert_eq!(call_head(Kind::Python, "pots[0].lift", 8), None);
+}
+
+#[test]
+fn a_bare_ruby_loop_keyword_is_no_name() {
+    assert!(ruby_loop_keyword("next", "      ", " if done"));
+    assert!(ruby_loop_keyword("break", "  x = ", ""));
+    assert!(!ruby_loop_keyword("next", "  page.", ""));
+    assert!(!ruby_loop_keyword("next", "  page&.", ""));
+    assert!(!ruby_loop_keyword("next", "  attribute :", ""));
+    assert!(!ruby_loop_keyword("next", "  def ", "(page)"));
+    assert!(!ruby_loop_keyword("next", "  link(", ": 1)"));
+    assert!(!ruby_loop_keyword("nextt", "  ", ""));
+}
+
+#[test]
+fn the_at_of_a_ruby_variable_reads_the_variable() {
+    let word =
+        |line, col| definition_word(Some(Kind::Ruby), line, col).map(|(r, w)| (r, w.to_owned()));
+    assert_eq!(word("  @rows.size", 2), Some((3..7, "rows".to_owned())));
+    assert_eq!(word("@@beads", 0), Some((2..7, "beads".to_owned())));
+    assert_eq!(word("@@beads", 1), Some((2..7, "beads".to_owned())));
+    assert_eq!(word("@rows", 1), Some((1..5, "rows".to_owned())));
 }

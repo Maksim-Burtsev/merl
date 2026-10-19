@@ -58,7 +58,10 @@ impl App {
 
     pub(super) fn kind(&self) -> Option<Kind> {
         let path = self.buf.path.as_deref()?;
-        search::opened_kind(path, || self.buf.lines.join("\n"))
+        search::opened_kind(path, || match path.extension() {
+            None => self.buf.lines.first().cloned().unwrap_or_default(),
+            Some(_) => self.buf.lines.join("\n"),
+        })
     }
 
     pub(super) fn kind_at(&self, path: &Path) -> Option<Kind> {
@@ -68,7 +71,22 @@ impl App {
     }
 
     pub(super) fn in_def_scope(&self, kind: Kind, here: &Path, path: &Path) -> bool {
+        if kind == Kind::Shell && path.extension().is_none() && search::kind_of(path).is_none() {
+            return search::shell_script(&self.head_of(path));
+        }
         search::in_def_scope(kind, here, path) && (kind != Kind::C || self.kind_at(path).is_some())
+    }
+
+    fn head_of(&self, path: &Path) -> String {
+        use std::io::Read;
+        if self.rel_current().as_deref() == Some(path) {
+            return self.buf.lines.first().cloned().unwrap_or_default();
+        }
+        let mut head = Vec::new();
+        (std::fs::File::open(self.root.join(path)))
+            .and_then(|f| f.take(256).read_to_end(&mut head))
+            .ok();
+        String::from_utf8_lossy(&head).into_owned()
     }
 
     pub(crate) fn hit_items(hits: Vec<Hit>) -> Vec<PickItem> {

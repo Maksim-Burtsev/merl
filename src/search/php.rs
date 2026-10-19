@@ -47,6 +47,31 @@ pub fn php_member_patterns(word: &str, call: bool) -> Vec<String> {
     }
 }
 
+pub(super) fn php_assignment(w: &str) -> String {
+    format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])")
+}
+
+pub(super) fn php_bare_word_cut(patterns: &mut Vec<String>, line: &str, range: Range<usize>) {
+    let (Some(word), Some(before), Some(after)) = (
+        line.get(range.clone()),
+        line.get(..range.start),
+        line.get(range.end..),
+    ) else {
+        return;
+    };
+    if word.starts_with('$') || before.ends_with('$') {
+        return;
+    }
+    let w = regex::escape(word);
+    let mut cut = vec![php_assignment(&w)];
+    let head = before.trim_end();
+    if after.trim_start().starts_with('(') && !head.ends_with("->") && !head.ends_with("::") {
+        cut.extend(php_properties(&w));
+        cut.push(php_tags(&w)[0].clone());
+    }
+    patterns.retain(|p| !cut.contains(p));
+}
+
 const NAMESPACE_HEAD: &str = r"^\s*(?:<\?php\s+)?namespace\s+";
 
 pub(super) fn php_namespace_line(w: &str) -> String {
@@ -680,6 +705,50 @@ pub fn php_written_type(line: &str, name: &str) -> Option<String> {
     let short = written.rsplit('\\').next().unwrap_or(written);
     (!short.is_empty() && !NO_CLASS.contains(&short.to_ascii_lowercase().as_str()))
         .then(|| written.to_owned())
+}
+
+pub fn php_param_tag(lines: &[&str], at: usize, name: &str) -> Option<String> {
+    static FUNCTION: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bfunction\b").expect("the regex is a literal"));
+    static PARAM: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"@param\s+(\S+)\s+(?:\.\.\.)?&?\$(\w+)\b").expect("the regex is a literal")
+    });
+    let header = (at.saturating_sub(10)..=at)
+        .rev()
+        .find(|&i| lines.get(i).is_some_and(|l| FUNCTION.is_match(l)))?;
+    if lines[header..at].iter().any(|l| l.contains(['{', ';'])) {
+        return None;
+    }
+    lines[..header]
+        .iter()
+        .rev()
+        .map(|l| l.trim_start())
+        .take_while(|l| l.starts_with('*') || l.starts_with("/**") || l.starts_with("#["))
+        .find_map(|l| PARAM.captures(l).filter(|c| &c[2] == name))
+        .map(|c| c[1].to_owned())
+}
+
+pub fn php_tag_type(line: &str, name: &str) -> Option<String> {
+    static TAG: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*\*\s*@property(?:-read|-write)?\s+(\S+)\s+\$(\w+)\b")
+            .expect("the regex is a literal")
+    });
+    php_one_class(&TAG.captures(line).filter(|c| &c[2] == name)?[1])
+}
+
+pub fn php_one_class(types: &str) -> Option<String> {
+    let mut types = types
+        .split('|')
+        .map(|t| t.trim_start_matches('?'))
+        .filter(|t| !t.eq_ignore_ascii_case("null"));
+    let written = types.next().filter(|_| types.next().is_none())?;
+    let short = written.rsplit('\\').next().unwrap_or(written);
+    (!short.is_empty()
+        && written
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '\\')
+        && !NO_CLASS.contains(&short.to_ascii_lowercase().as_str()))
+    .then(|| written.to_owned())
 }
 
 pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {

@@ -114,14 +114,25 @@ impl App {
             .unwrap_or_default()
     }
 
-    pub(super) fn ruby_constructed(&self, here: &Path, made: &str, word: &str) -> Vec<Candidate> {
-        let Some(class) = self.ruby_class_named(here, made) else {
+    pub(super) fn ruby_constructed(
+        &self,
+        here: &Path,
+        made: &search::RubyMade,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let Some(class) = self.ruby_class_named(here, &made.class) else {
             return Vec::new();
         };
-        if !self
-            .ruby_methods_from(here, "new", class.clone(), true)
-            .is_empty()
-        {
+        let instance = if made.by_singleton {
+            self.ruby_parents(here, &class)
+                .includes
+                .iter()
+                .any(|m| m.trim_start_matches(':') == "Singleton")
+        } else {
+            self.ruby_methods_from(here, "new", class.clone(), true)
+                .is_empty()
+        };
+        if !instance {
             return Vec::new();
         }
         self.ruby_methods_from(here, word, class, false)
@@ -197,6 +208,69 @@ impl App {
             }
         }
         Vec::new()
+    }
+
+    pub(super) fn ruby_constant_in_scope(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        hits: &mut Vec<Hit>,
+    ) {
+        if hits.len() < 2 {
+            return;
+        }
+        let declared: Vec<Option<String>> = hits
+            .iter()
+            .map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
+            .collect();
+        let declares = |scope: &str| {
+            let want = format!("{scope}::{word}");
+            declared
+                .iter()
+                .any(|d| d.as_deref() == Some(&want))
+                .then_some(want)
+        };
+        let nesting = search::ruby_nesting_innermost_first(text, self.line + 1);
+        let wanted = nesting
+            .iter()
+            .find_map(|n| declares(n))
+            .or_else(|| {
+                nesting
+                    .first()
+                    .and_then(|class| self.ruby_ancestors(here, class).find_map(|a| declares(&a)))
+            })
+            .or_else(|| {
+                declared
+                    .iter()
+                    .any(|d| d.as_deref() == Some(word))
+                    .then(|| word.to_owned())
+            });
+        let Some(wanted) = wanted else {
+            return;
+        };
+        let mut kept = declared.iter();
+        hits.retain(|_| {
+            kept.next()
+                .is_some_and(|d| d.as_ref().is_none_or(|d| *d == wanted))
+        });
+    }
+
+    fn ruby_ancestors(&self, here: &Path, class: &str) -> impl Iterator<Item = String> {
+        let mut seen = vec![class.to_owned()];
+        let mut i = 0;
+        while let Some(c) = seen.get(i).cloned() {
+            i += 1;
+            let parents = self.ruby_parents(here, &c);
+            for name in parents.includes.into_iter().chain(parents.superclasses) {
+                if let Some(path) = self.ruby_resolve(here, &c, &name)
+                    && !seen.contains(&path)
+                {
+                    seen.push(path);
+                }
+            }
+        }
+        seen.into_iter().skip(1)
     }
 
     fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {

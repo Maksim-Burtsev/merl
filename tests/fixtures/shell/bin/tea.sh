@@ -45,3 +45,6 @@ echo "$teapot"
 
 (( pour++ ))
 #  ^ d: lib/tea.sh:4
+
+strain
+# ^ d: bin/infuse:9
