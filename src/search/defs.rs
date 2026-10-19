@@ -111,6 +111,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             let create = sql_create!();
             vec![
                 format!(r#"{create}(?:{SQL_NAME_PART}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
+                format!(
+                    r#"(?i)^\s*ALTER\s+(?:MATERIALIZED\s+)?(?:TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TYPE|SCHEMA|SEQUENCE|DOMAIN)(?:\s+IF\s+EXISTS)?(?:\s+ONLY)?\s+{SQL_NAME_PART}(?:\.{SQL_NAME_PART})?(?:\s*\([^)]*\))?\s+RENAME\s+TO\s+(?:"{w}"|`{w}`|{w}\b)"#
+                ),
                 sql_cte(word),
             ]
         }

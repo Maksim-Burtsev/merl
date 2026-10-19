@@ -341,3 +341,9 @@ pub fn sql_same_schema(lead: &str, decl: &str) -> Option<bool> {
             .is_some_and(|c| unquote(&c[1]) == used),
     )
 }
+
+pub fn sql_renames(line: &str) -> bool {
+    Regex::new(r"(?i)^\s*ALTER\s.*\sRENAME\s+TO\s")
+        .expect("a valid pattern")
+        .is_match(line)
+}

@@ -47,3 +47,8 @@ SELECT * FROM trays, saucers WHERE leaves = E'it\'s';
 --                   ^ d: tea/schema.sql:50
 SELECT t.id FROM trays t;
 --     ^ d: tea/brew.sql:48
+
+SELECT decant(1) FROM platters, rims;
+--     ^ d: tea/schema.sql:55
+--                    ^ d: tea/schema.sql:53
+--                              ^ d: none

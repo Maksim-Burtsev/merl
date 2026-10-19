@@ -2,6 +2,7 @@
 
 merl at `75ae4ef7`, 2026-10-19, release build, `vm.loadavg` { 6.62 8.01 7.63 } before the run, { 6.73 7.45 7.50 } after. The julia row and its cursors are kept from master: this machine has no Julia, so its standard library is not found and 54 cursors read worse with master's build too.
 The go row with the fixes of #1101 and #1102: `fd32efdb`, 2026-10-19, release build, `vm.loadavg` { 10.63 9.74 8.39 } before the run, { 10.42 9.77 8.50 } after.
+The sql row with the fix of #1065: over `b81c63d9`, 2026-10-19, release build, `vm.loadavg` { 5.56 7.54 7.72 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -37,4 +38,4 @@ The go row with the fixes of #1101 and #1102: `fd32efdb`, 2026-10-19, release bu
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1.4 | 14.8 |
 | dart (dio) | 97 | 63 (65%) | 29 (30%) | 0 (0%) | 5 (5%) | 17 | 33.3 | 103.4 |
-| sql (lemmy) | 79 | 22 (28%) | 13 (16%) | 0 (0%) | 44 (56%) | 31 | 11.2 | 15.4 |
+| sql (lemmy) | 79 | 26 (33%) | 13 (16%) | 0 (0%) | 40 (51%) | 31 | 9.3 | 13.2 |

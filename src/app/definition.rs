@@ -736,8 +736,14 @@ impl App {
                 }
             }
         }
-        if kind == Kind::Sql
-            && let Some((range, _)) = self.word_here(Some(kind)).filter(|(_, w)| *w == word)
+        if kind == Kind::Sql {
+            self.sql_hits(here, word, &mut hits);
+        }
+        hits
+    }
+
+    fn sql_hits(&self, here: &Path, word: &str, hits: &mut Vec<Hit>) {
+        if let Some((range, _)) = self.word_here(Some(Kind::Sql)).filter(|(_, w)| *w == word)
             && let Some(lead) = self.line_str().get(..range.start)
             && hits
                 .iter()
@@ -745,10 +751,9 @@ impl App {
         {
             hits.retain(|h| search::sql_same_schema(lead, &h.text) == Some(true));
         }
-        if kind == Kind::Sql
-            && !hits
-                .iter()
-                .any(|h| h.path == here && h.line1 == self.line + 1)
+        if !hits
+            .iter()
+            .any(|h| h.path == here && h.line1 == self.line + 1)
         {
             let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
             let text = self.text_of(here).unwrap_or_default();
@@ -772,7 +777,9 @@ impl App {
                 }
             });
         }
-        hits
+        if hits.iter().any(|h| !search::sql_renames(&h.text)) {
+            hits.retain(|h| !search::sql_renames(&h.text));
+        }
     }
 }
 
