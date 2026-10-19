@@ -399,6 +399,7 @@ pub fn cs_written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> u
 pub enum CsValue {
     Type(String),
     Call { callee: String, awaited: bool },
+    Element(String),
     Unknown,
 }
 
@@ -444,6 +445,12 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     if let Some(expr) = written(format!(r"\bvar\s+@?{n}\s*=\s*(.+)$")) {
         return cs_expr(&expr);
     }
+    if let Some(items) = written(format!(r"\bforeach\s*\(\s*var\s+@?{n}\s+in\s+(@?\w+)\s*\)")) {
+        return CsValue::Element(items.replace('@', ""));
+    }
+    if let Some(value) = cs_deconstructed(&code, name) {
+        return cs_expr(value);
+    }
     [
         format!(r"\b(?:is|case)\s+({CS_TYPE})\s+@?{n}\b"),
         format!(r"\bout\s+({CS_TYPE})\s+@?{n}\b"),
@@ -454,6 +461,53 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     .into_iter()
     .find_map(written)
     .map_or(CsValue::Unknown, CsValue::Type)
+}
+
+pub fn cs_var_chain<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option<(String, bool)> {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let re = Regex::new(&format!(r"\bvar\s+@?{n}\s*=\s*(.+)$")).ok()?;
+    let code = uncommented(Kind::CSharp, lines.get(at)?.as_ref());
+    let mut expr = re.captures(&code)?[1].trim_end().to_owned();
+    let mut continued = false;
+    for l in lines.iter().skip(at + 1).take(40) {
+        let l = uncommented(Kind::CSharp, l.as_ref());
+        let l = l.trim();
+        if l.is_empty() {
+            continue;
+        }
+        if !l.starts_with('.') || expr.ends_with(';') {
+            break;
+        }
+        expr.push_str(l);
+        continued = true;
+    }
+    let expr = expr.trim_end_matches(';').trim_end();
+    expr.ends_with(')').then(|| (expr.to_owned(), continued))
+}
+
+pub fn cs_one_argument(written: &str) -> Option<String> {
+    let t = written.trim().strip_suffix('>')?;
+    let inner = t.get(t.find('<')? + 1..)?.trim();
+    (!inner.contains(',') && !inner.is_empty()).then(|| inner.to_owned())
+}
+
+fn cs_deconstructed<'a>(code: &'a str, name: &str) -> Option<&'a str> {
+    static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bvar\s*\(([\w@\s,]+)\)\s*=\s*\(").expect("the regex is a literal")
+    });
+    let c = VAR.captures(code)?;
+    let at = (c[1].split(','))
+        .position(|n| n.trim().trim_start_matches('@') == name.trim_start_matches('@'))?;
+    let open = c.get_match().end() - 1;
+    let close = close_of(Kind::CSharp, code, open)?;
+    let values = split_top(Kind::CSharp, code.get(open + 1..close - 1)?, b',');
+    let ends = code
+        .get(close..)?
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .is_empty();
+    (ends && values.len() == c[1].split(',').count()).then_some(values.get(at)?.trim())
 }
 
 pub fn cs_expr(expr: &str) -> CsValue {
@@ -866,6 +920,71 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
         return cs_returned(lines, from + target.matches('\n').count());
     }
     None
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct CsSteps {
+    pub new: Option<String>,
+    pub parts: Vec<(String, bool)>,
+}
+
+pub fn cs_receiver<S: AsRef<str>>(lines: &[S], at: usize, start: usize) -> Option<String> {
+    let mut joined = uncommented(Kind::CSharp, lines.get(at)?.as_ref().get(..start)?)
+        .trim()
+        .to_owned();
+    let mut top = at;
+    while joined.starts_with('.') && top > 0 && at - top < 40 {
+        top -= 1;
+        let above = uncommented(Kind::CSharp, lines.get(top)?.as_ref());
+        joined.insert_str(0, above.trim());
+    }
+    let r = joined.strip_suffix('.')?;
+    Some(r.strip_suffix(['?', '!']).unwrap_or(r).to_owned())
+}
+
+pub fn cs_steps(expr: &str) -> Option<CsSteps> {
+    let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@';
+    let mut s = expr.trim_end();
+    let mut parts: Vec<(String, bool)> = Vec::new();
+    loop {
+        let call = s.ends_with(')');
+        if call {
+            let open = code(Kind::CSharp, s)
+                .filter(|(_, c)| *c == b'(')
+                .map(|(i, _)| i)
+                .find(|&i| close_of(Kind::CSharp, s, i) == Some(s.len()))?;
+            s = s.get(..open)?.trim_end();
+        }
+        let start = s
+            .char_indices()
+            .rev()
+            .find(|&(_, c)| !ident(c))
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        let name = s.get(start..)?.trim_start_matches('@');
+        if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) || parts.len() > 8 {
+            return None;
+        }
+        parts.insert(0, (name.to_owned(), call));
+        let head = s.get(..start)?.trim_end();
+        if let Some(h) = head.strip_suffix('.') {
+            let h = h.trim_end();
+            s = h.strip_suffix(['?', '!']).unwrap_or(h);
+            continue;
+        }
+        let new = head
+            .strip_suffix("new")
+            .is_some_and(|r| !r.ends_with(|c: char| ident(c) || c == '.'));
+        if !new {
+            return Some(CsSteps { new: None, parts });
+        }
+        let ctor = parts.iter().position(|(_, call)| *call)?;
+        let rest = parts.split_off(ctor + 1);
+        let written: Vec<String> = parts.into_iter().map(|(n, _)| n).collect();
+        return Some(CsSteps {
+            new: Some(written.join(".")),
+            parts: rest,
+        });
+    }
 }
 
 pub fn cs_extended(line: &str) -> Option<String> {

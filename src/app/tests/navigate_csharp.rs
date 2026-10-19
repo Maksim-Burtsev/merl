@@ -377,8 +377,8 @@ fn d_keeps_the_picker_where_csharp_s_choice_is_not_proven() {
     };
     assert_eq!(
         places("Shop/Use.cs", "Id = 1 }).|Total"),
-        ["Shop/Order.cs:6", "Shop/Receipt.cs:5"],
-        "the initializer is not the receiver"
+        ["jump Shop/Receipt.cs:5 (Total → Receipt.Total (via Process(): Receipt))"],
+        "the initializer is not the receiver, the Receipt that Process returns is"
     );
     assert_eq!(
         places("Clock/UseT.cs", "Timer(1).|Start"),

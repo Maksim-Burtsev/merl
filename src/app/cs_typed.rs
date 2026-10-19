@@ -23,6 +23,7 @@ enum Up {
 struct Proven {
     ty: CsType,
     link: String,
+    written: String,
 }
 
 struct CsWrittenType {
@@ -39,7 +40,7 @@ impl App {
     ) -> Result<CsAnswer, String> {
         let text = self.buf.lines.join("\n");
         let (first, fields) = chain.split_first().ok_or_else(|| word.to_owned())?;
-        let Proven { mut ty, link } = self
+        let Proven { mut ty, link, .. } = self
             .cs_name_type(here, &text, self.line + 1, first, 1)
             .ok_or_else(|| first.clone())?;
         let mut links = vec![link];
@@ -50,7 +51,7 @@ impl App {
             let CsType::Project(t) = &ty else {
                 return Err(field.clone());
             };
-            let Proven { ty: next, link } =
+            let Proven { ty: next, link, .. } =
                 self.cs_field_type(t, field).ok_or_else(|| field.clone())?;
             links.push(link);
             ty = next;
@@ -91,7 +92,13 @@ impl App {
             return None;
         };
         let text = self.buf.lines.join("\n");
-        let ty = self.cs_resolve(here, &text, self.line + 1, &written)?;
+        let ty = self.cs_new_type(here, &text, self.line + 1, &written)?;
+        let label = format!("new {}", search::cs_type_name(&written)?);
+        self.cs_member_answer(here, &ty, word, &label)
+    }
+
+    fn cs_new_type(&self, file: &Path, text: &str, line1: usize, written: &str) -> Option<CsType> {
+        let ty = self.cs_resolve(file, text, line1, written)?;
         if let CsType::Project(t) = &ty
             && written.contains('.')
         {
@@ -102,11 +109,107 @@ impl App {
                 text: String::new(),
                 deleted: None,
             };
-            (self.cs_namespace_hits(&text, self.line + 1, &written, &[&hit]))
+            (self.cs_namespace_hits(text, line1, written, &[&hit]))
                 .filter(|picked| !picked.is_empty())?;
         }
-        let label = format!("new {}", search::cs_type_name(&written)?);
-        self.cs_member_answer(here, &ty, word, &label)
+        Some(ty)
+    }
+
+    pub(super) fn cs_call_result(&self, here: &Path, word: &str, start: usize) -> Option<CsAnswer> {
+        let receiver = search::cs_receiver(&self.buf.lines, self.line, start)?;
+        let text = self.buf.lines.join("\n");
+        let p = self.cs_chain_type(here, &text, self.line + 1, &receiver, 1)?;
+        self.cs_member_answer(here, &p.ty, word, &p.link)
+    }
+
+    fn cs_chain_type(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        expr: &str,
+        hops: usize,
+    ) -> Option<Proven> {
+        let search::CsSteps { new, parts } = search::cs_steps(expr)?;
+        let (mut ty, mut written, mut links, rest) = match (new, parts.split_first()) {
+            (Some(w), _) => {
+                let link = format!("new {}", search::cs_type_name(&w)?);
+                let alias = (text.lines().filter_map(search::cs_using))
+                    .find(|u| !u.fixed && u.alias.as_deref() == Some(w.as_str()));
+                let w = alias.map_or(w, |u| u.target);
+                let ty = self.cs_new_type(file, text, line1, &w)?;
+                (ty, w, vec![link], parts.as_slice())
+            }
+            (None, Some(((name, false), rest))) => {
+                let p = self.cs_name_type(file, text, line1, name, hops)?;
+                (p.ty, p.written, vec![p.link], rest)
+            }
+            (None, Some(((name, true), rest))) => {
+                let w = self.cs_call_type(file, text, line1, name, false, hops)?;
+                let link = format!("{name}(): {}", search::cs_type_name(&w.written)?);
+                (w.ty, w.written, vec![link], rest)
+            }
+            _ => return None,
+        };
+        for (name, call) in rest {
+            let p = self.cs_step(file, &ty, &written, name, *call)?;
+            (ty, written) = (p.ty, p.written);
+            links.push(p.link);
+        }
+        Some(Proven {
+            ty,
+            link: links.join(" \u{2192} "),
+            written,
+        })
+    }
+
+    fn cs_step(
+        &self,
+        here: &Path,
+        ty: &CsType,
+        written: &str,
+        name: &str,
+        call: bool,
+    ) -> Option<Proven> {
+        let t = match ty {
+            CsType::Project(t) if !call => return self.cs_field_type(t, name),
+            CsType::Project(t) => t,
+            CsType::Outside(_) if !call || written.contains('<') => return None,
+            CsType::Outside(_) => {
+                let n = regex::escape(name);
+                let pattern = format!(r"\bstatic\b.*\b{n}\s*(?:<[^>]*>)?\s*\(\s*this\s");
+                let cut = self.truncated.get();
+                let unextended = self.project_grep(Kind::CSharp, here, &pattern).is_empty();
+                self.truncated.set(cut);
+                return unextended.then(|| Proven {
+                    ty: CsType::Outside(format!("{name}()")),
+                    link: format!("{name}()"),
+                    written: format!("{name}()"),
+                });
+            }
+        };
+        let Up::Found(hits) = self.cs_up(t, name, 0) else {
+            return None;
+        };
+        let mut found: Option<Proven> = None;
+        for hit in hits {
+            let w = search::cs_returns(&hit.text, name)?;
+            let at = self.text_of(&hit.path)?;
+            let ty = self.cs_resolve(&hit.path, &at, hit.line1, &w)?;
+            match &found {
+                Some(one) if !same(&one.ty, &ty) => return None,
+                Some(_) => {}
+                None => {
+                    let link = format!("{name}(): {}", search::cs_type_name(&w)?);
+                    found = Some(Proven {
+                        ty,
+                        link,
+                        written: w,
+                    });
+                }
+            }
+        }
+        found
     }
 
     fn cs_member_answer(
@@ -328,7 +431,7 @@ impl App {
         let text = self.text_of(&hit.path)?;
         let ty = self.cs_resolve(&hit.path, &text, hit.line1, &written)?;
         let link = format!("{field}: {}", search::cs_type_name(&written)?);
-        Some(Proven { ty, link })
+        Some(Proven { ty, link, written })
     }
 
     fn cs_name_type(
@@ -353,6 +456,7 @@ impl App {
                 let t = owner()?;
                 let link = format!("this: {}", t.name);
                 return Some(Proven {
+                    written: t.name.clone(),
                     ty: CsType::Project(t),
                     link,
                 });
@@ -362,7 +466,11 @@ impl App {
                 let base = search::cs_bases(text, t.line).into_iter().next()?;
                 let ty = self.cs_resolve(file, text, t.line, &base)?;
                 let link = format!("base: {}", search::cs_type_name(&base)?);
-                return Some(Proven { ty, link });
+                return Some(Proven {
+                    ty,
+                    link,
+                    written: base,
+                });
             }
             _ => {}
         }
@@ -376,27 +484,52 @@ impl App {
         {
             let ty = self.cs_resolve(file, text, line1, &w)?;
             let link = format!("{name}: {}", search::cs_type_name(&w)?);
-            return Some(Proven { ty, link });
+            return Some(Proven {
+                ty,
+                link,
+                written: w,
+            });
         }
         let mut found: Option<Proven> = None;
         for b in bindings {
             let at = search::cs_written_line(&lines, b.line1, name);
             let value = search::cs_declared(lines.get(at - 1)?, name);
-            let CsWrittenType { ty, written } = match value {
-                search::CsValue::Type(w) => CsWrittenType {
+            let chain = search::cs_var_chain(&lines, at - 1, name)
+                .filter(|(_, continued)| *continued || value == search::CsValue::Unknown);
+            let CsWrittenType { ty, written } = match (chain, value) {
+                (Some((expr, _)), _) if hops > 0 => {
+                    let p = self.cs_chain_type(file, text, at, &expr, hops - 1)?;
+                    CsWrittenType {
+                        ty: p.ty,
+                        written: p.written,
+                    }
+                }
+                (None, search::CsValue::Type(w)) => CsWrittenType {
                     ty: self.cs_resolve(file, text, at, &w)?,
                     written: w,
                 },
-                search::CsValue::Call { callee, awaited } if hops > 0 => {
+                (None, search::CsValue::Call { callee, awaited }) if hops > 0 => {
                     self.cs_call_type(file, text, at, &callee, awaited, hops - 1)?
+                }
+                (None, search::CsValue::Element(items)) if hops > 0 => {
+                    let p = self.cs_name_type(file, text, at, &items, hops - 1)?;
+                    let CsType::Outside(_) = p.ty else {
+                        return None;
+                    };
+                    let w = search::cs_one_argument(&p.written)?;
+                    CsWrittenType {
+                        ty: self.cs_resolve(file, text, at, &w)?,
+                        written: w,
+                    }
                 }
                 _ => return None,
             };
-            let link = format!("{name}: {}", search::cs_type_name(&written)?);
+            let shown = search::cs_type_name(&written).unwrap_or_else(|| written.clone());
+            let link = format!("{name}: {shown}");
             match &found {
                 Some(one) if !same(&one.ty, &ty) => return None,
                 Some(_) => {}
-                None => found = Some(Proven { ty, link }),
+                None => found = Some(Proven { ty, link, written }),
             }
         }
         found

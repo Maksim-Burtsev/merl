@@ -27,7 +27,7 @@ public class Tasting
         //  ^ d: none
         sb.Append(name)
             .Append("!");
-        //   ^ d: src/Shop/Tea/Infuse/Cup.cs:16; want none (#1134)
+        //   ^ d: none
         var cups = new List<Cup>();
         cups.Add(new Mug());
         //   ^ d: none
@@ -49,10 +49,10 @@ public class Tasting
             .Build();
         //   ^ d: src/Shop/Tea/Infuse/Cup.cs:36
         return made.Sip() + new Brew().Leaf("black").Build().Sip();
-        //          ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:14 (#1135)
+        //          ^ d: src/Shop/Tea/Infuse/Cup.cs:14
         //                      ^ d: src/Shop/Tea/Infuse/Tasting.cs:3
         //                             ^ d: src/Shop/Tea/Infuse/Cup.cs:32
-        //                                                   ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:14 (#1135)
+        //                                                   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
     }
 
     public int Lines(Brewer brewer)
@@ -60,7 +60,7 @@ public class Tasting
         return brewer
             .Build()
             .Sip();
-        //   ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:14 (#1135)
+        //   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
     }
 
     public int Loop(List<Mug> mugs)
@@ -69,7 +69,7 @@ public class Tasting
         foreach (var cup in mugs)
         {
             total += cup.Sip();
-            //           ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:25 (#1136)
+            //           ^ d: src/Shop/Tea/Infuse/Cup.cs:25
         }
         return total;
     }
@@ -79,7 +79,7 @@ public class Tasting
         if (o is Mug cup)
         {
             return cup.Strength;
-            //         ^ d: picker src/Shop/Tea/Infuse/Cup.cs:7, src/Shop/Tea/Infuse/Cup.cs:27; want src/Shop/Tea/Infuse/Cup.cs:27 (#1136)
+            //         ^ d: src/Shop/Tea/Infuse/Cup.cs:27
         }
         return this.cup.Sip();
         //          ^ d: src/Shop/Tea/Infuse/Tasting.cs:21
@@ -99,14 +99,14 @@ public class Tasting
     {
         var (mug, stove) = (new Mug(), new Stove());
         return mug.Sip() + stove.Sip();
-        //         ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:25 (#1136)
-        //                       ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:48 (#1136)
+        //         ^ d: src/Shop/Tea/Infuse/Cup.cs:25
+        //                       ^ d: src/Shop/Tea/Infuse/Cup.cs:48
     }
 
     public int Inherited(Mug mug, ISteeper steeper)
     {
         return mug.Count + mug.Add(mug) + steeper.Steep() + steeper.Strength;
-        //         ^ d: picker src/Shop/Tea/Infuse/Tasting.cs:15, src/Shop/Pricing/Pricing.cs:53, src/Shop/Rules/Crates.cs:32, src/Shop/Rules/Crates.cs:76, src/Shop/Tea/Infuse/Cup.cs:12; want src/Shop/Tea/Infuse/Cup.cs:12 (#1137)
+        //         ^ d: src/Shop/Tea/Infuse/Cup.cs:12
         //                     ^ d: src/Shop/Tea/Infuse/Cup.cs:18
         //                                        ^ d: src/Shop/Tea/Infuse/Cup.cs:5
         //                                                          ^ d: src/Shop/Tea/Infuse/Cup.cs:7
@@ -128,6 +128,47 @@ public class Tasting
             """;
         return text.Length + glass.Pour(1) + new Mug().Count;
         //                         ^ d: src/Shop/Tea/Infuse/Cup.cs:56
-        //                                       ^ d: picker src/Shop/Tea/Infuse/Tasting.cs:13, src/Shop/Tea/Infuse/Cup.cs:23; want src/Shop/Tea/Infuse/Cup.cs:23 (#1137)
+        //                                       ^ d: src/Shop/Tea/Infuse/Cup.cs:23
+    }
+
+    public int Beyond(string name, Brewer brewer)
+    {
+        var told = new StringBuilder().Append(name).Append("!");
+        //                                          ^ d: none
+        brewer.Build()
+            // a note between the links
+            .Sip();
+        //   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
+        return new List<Cup>().Find(c => true).Sip() + told.Length;
+        //                                     ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48
+    }
+
+    public int Written(List<Mug> mugs, Dictionary<string, Mug> prices)
+    {
+        int total = 0;
+        foreach (Mug c in mugs)
+        {
+            total += c.Sip();
+            //         ^ d: src/Shop/Tea/Infuse/Cup.cs:25
+        }
+        foreach (var pair in prices)
+        {
+            total += pair.Value.Sip();
+            //                  ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48
+        }
+        var (left, right) = (new Stove(), mugs);
+        return total + left.Sip();
+        //                  ^ d: src/Shop/Tea/Infuse/Cup.cs:48
+    }
+
+    public int Made()
+    {
+        var b = new Brewer().Build();
+        var leaf = new Brewer()
+            .Leaf("green");
+        return b.Sip() + new Brewer().Build().Sip() + leaf.Build().Sip();
+        //       ^ d: src/Shop/Tea/Infuse/Cup.cs:14
+        //                                    ^ d: src/Shop/Tea/Infuse/Cup.cs:14
+        //                                                         ^ d: src/Shop/Tea/Infuse/Cup.cs:14
     }
 }
