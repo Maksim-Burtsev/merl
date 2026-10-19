@@ -460,6 +460,15 @@ lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
 another class. `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078).
+`infusion.ts` is the third corner (#1126), its answers tsserver's: members of a string, a
+`Promise` and a `Map` beside project namesakes (`Basket.trim`, `Basket.then`), a builder chain
+over lines through a renaming re-export (`Strainer as Filter`), an inherited and an overridden
+member of `strainer.ts`, a loop variable, a destructured local and an arrow parameter hiding
+namesakes, `basket = basket.next`, a nested function called above its declaration, a type behind
+`export * as mesh`, a dynamic `import()`, a call inside a template literal holding a declaration,
+a commented-out declaration, and `this` in a class expression. One answer is read from the code:
+`sieve.sift` on `const sieve: Sieve = { sift: … }` is the literal's `sift`, where tsserver
+answers the interface's.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -497,6 +506,11 @@ field of `Roaster` stays out.
 `ledger.js` declares several names in one `let` (#1077), without initializers and with a comma
 inside one, beside a function `count` and another function's local `last` the later names must
 not reach.
+`pulling.mjs`, `steamer.cjs` and `wand.cjs` are the third corner (#1126), their answers
+tsserver's with `checkJs`: the shapes of `tea/infusion.ts` in JavaScript over `lever.mjs` and its
+re-exports in `espresso.mjs`, a JSDoc `import("…")` type, `const self = this` and `const that =
+this` in a constructor function and a prototype method, and a name re-exported by a
+`...require("./roast.cjs")` spread in `module.exports = { … }`.
 
 `swift/Sources/Shop/Tea/` is the adversarial corner of #982 for Swift, its answers sourcekit-lsp's.
 A `Brewing` protocol whose extension gives defaults, a `Kettle` that overrides one and a `Teapot`
