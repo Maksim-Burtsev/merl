@@ -59,6 +59,10 @@ impl App {
                 safe = search::qualifier(&plain, plain.len());
                 &safe[..]
             }
+            [] => {
+                safe = search::jvm_getter_chain(before);
+                &safe[..]
+            }
             _ => chain,
         };
         let (first, rest) = chain.split_first()?;
@@ -119,7 +123,10 @@ impl App {
             let JvmType::Project(decl) = ty else {
                 return None;
             };
-            let TypedField { hit, written } = self.jvm_field_type(&decl, field)?;
+            let TypedField { hit, written } = match field.strip_suffix("()") {
+                Some(call) => self.jvm_call_type(&decl, call)?,
+                None => self.jvm_field_type(&decl, field)?,
+            };
             let t = self.text_of(&hit.path)?;
             ty = self.jvm_type_at(&hit.path, &t, &written);
             links.push(match (i, first.as_str()) {
@@ -344,22 +351,27 @@ impl App {
         let JvmType::Project(decl) = owner else {
             return None;
         };
-        let [m] = self
-            .jvm_hierarchy_member(&decl, call, 0, &mut Vec::new())
-            .try_into()
-            .ok()?;
-        let mk = m.path.extension().is_none_or(|e| e != "java");
-        let written = search::jvm_return_type(&m.text, call, mk).or_else(|| {
-            let names = search::jvm_accessor(call)?.fields_it_may_read;
-            names
-                .iter()
-                .find_map(|n| search::jvm_declared_type(&m.text, n, mk))
-        })?;
+        let TypedField { hit: m, written } = self.jvm_call_type(&decl, call)?;
         let t = self.text_of(&m.path)?;
         Some(WrittenType {
             resolved: self.jvm_type_at(&m.path, &t, &written),
             written,
         })
+    }
+
+    fn jvm_call_type(&self, decl: &Hit, call: &str) -> Option<TypedField> {
+        let [hit] = self
+            .jvm_hierarchy_member(decl, call, 0, &mut Vec::new())
+            .try_into()
+            .ok()?;
+        let mk = hit.path.extension().is_none_or(|e| e != "java");
+        let written = search::jvm_return_type(&hit.text, call, mk).or_else(|| {
+            let names = search::jvm_accessor(call)?.fields_it_may_read;
+            names
+                .iter()
+                .find_map(|n| search::jvm_declared_type(&hit.text, n, mk))
+        })?;
+        Some(TypedField { hit, written })
     }
 
     fn jvm_field_type(&self, decl: &Hit, field: &str) -> Option<TypedField> {

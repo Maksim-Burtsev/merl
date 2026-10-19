@@ -511,6 +511,12 @@ extension functions (one named like a member) with their implicit and labelled `
 default arguments, `when` subjects and smart casts, an import alias of `brew.stale.Samovar`, and
 declaration-shaped lines in a KDoc, a raw string and a string template.
 
+`jvm/src/main/java/getters/` holds chains of getters (#1071): an `Account` whose Lombok `spec`
+and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
+field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayName()` that returns
+a type outside the project, a chain off a call that is no getter (a picker of the explicit
+getter and the Lombok fields) and a getter returning a type parameter.
+
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
 `attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides

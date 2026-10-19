@@ -122,6 +122,10 @@ impl App {
                 })
                 .collect();
         }
+        if kind == Kind::Jvm && a.dotted && !found.is_empty() && a.chain.is_empty() {
+            let fields = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
+            found.extend(fields);
+        }
         if kind == Kind::Jvm && found.is_empty() {
             *found = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
             if found.is_empty() && !a.dotted {

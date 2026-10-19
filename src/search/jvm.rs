@@ -1144,6 +1144,34 @@ pub fn jvm_cast_receiver(before: &str, kotlin: bool) -> Option<String> {
     re.captures(before.trim_end()).map(|c| c[1].to_owned())
 }
 
+pub fn jvm_getter_chain(before: &str) -> Vec<String> {
+    let mut rest = before;
+    let mut chain = Vec::new();
+    while let Some(link) = rest.strip_suffix('.') {
+        let (link, call) = link.strip_suffix("()").map_or((link, false), |l| (l, true));
+        let head = link.trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_');
+        let name = link.get(head.len()..).unwrap_or_default();
+        if name.is_empty() || (call && jvm_accessor(name).is_none_or(|a| a.setter)) {
+            return Vec::new();
+        }
+        chain.insert(
+            0,
+            if call {
+                format!("{name}()")
+            } else {
+                name.to_owned()
+            },
+        );
+        rest = head;
+    }
+    let led_by_a_name = chain.first().is_some_and(|f| !f.ends_with(')'));
+    let calls = chain.iter().any(|l| l.ends_with(')'));
+    if !led_by_a_name || !calls || rest.ends_with(['$', ')', ']', '>', ':', '"']) {
+        return Vec::new();
+    }
+    chain
+}
+
 pub struct JvmCall {
     pub arguments: Vec<String>,
     pub trailing_lambda: bool,
