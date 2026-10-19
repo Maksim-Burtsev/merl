@@ -74,7 +74,7 @@ public class Quern extends Stone implements Turnable {
             //                          ^ d: src/main/java/quern/Quern.java:15
         }
         total += stones.get(0).turn();
-        //                     ^ d: picker src/main/java/quern/Quern.java:18, src/main/java/quern/Stone.java:4; want src/main/java/quern/Stone.java:4 (#1129)
+        //                     ^ d: src/main/java/quern/Stone.java:4
         if (o instanceof HandMill mill) {
             total += mill.crank();
             //       ^ d: src/main/java/quern/Quern.java:78

@@ -211,7 +211,10 @@ fn jvm_assigned_calls_are_of_a_lowercase_name() {
 #[test]
 fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
     let kt = |line: &str| jvm_literal_type(line, "s", false);
-    assert_eq!(kt(r#"    val s = " fun slosh(): Int = 0 ""#), Some("String"));
+    assert_eq!(
+        kt(r#"    val s = " fun slosh(): Int = 0 ""#),
+        Some("String")
+    );
     assert_eq!(kt(r#"    val s = "a \" $b""#), Some("String"));
     assert_eq!(kt("    var s = 'c'"), Some("Char"));
     assert_eq!(kt("    val s = 1_000"), Some("Int"));
@@ -227,17 +230,51 @@ fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
 }
 
 #[test]
+fn a_java_element_comes_out_of_a_written_collection() {
+    assert_eq!(
+        java_element_access("        total += stones.get(0).").as_deref(),
+        Some("stones")
+    );
+    assert_eq!(
+        java_element_access("        x = q.peek()."),
+        Some("q".into())
+    );
+    assert_eq!(java_element_access("        x = q.size()."), None);
+    assert_eq!(java_element_access("        x = a.b.get(0)."), None);
+    let field = "    private final List<Stone> stones = new ArrayList<>();";
+    assert_eq!(java_element_type(field, "stones").as_deref(), Some("Stone"));
+    assert_eq!(
+        java_element_type("    Map<K, Stone> stones;", "stones"),
+        None
+    );
+    assert_eq!(
+        java_element_type("    Optional<? extends a.B> stones,", "stones"),
+        None
+    );
+}
+
+#[test]
 fn a_java_class_lists_its_interfaces_apart_from_its_superclass() {
-    let text = "public class Quern extends Stone<A, B>\n        implements Turnable, x.Grind<C> {\n}\n";
+    let text =
+        "public class Quern extends Stone<A, B>\n        implements Turnable, x.Grind<C> {\n}\n";
     assert_eq!(jvm_bases(text, 1, false), ["Stone"]);
     assert_eq!(java_implements(text, 1), ["Turnable", "Grind"]);
-    assert_eq!(java_implements("class K : Lever {\n}\n", 1), Vec::<String>::new());
+    assert_eq!(
+        java_implements("class K : Lever {\n}\n", 1),
+        Vec::<String>::new()
+    );
 }
 
 #[test]
 fn a_java_member_is_a_method_when_its_name_opens_a_parameter_list() {
-    assert!(java_declares_method("    public Hopper hopper() {", "hopper"));
-    assert!(!java_declares_method("    private Hopper hopper = hopper();", "hopper"));
+    assert!(java_declares_method(
+        "    public Hopper hopper() {",
+        "hopper"
+    ));
+    assert!(!java_declares_method(
+        "    private Hopper hopper = hopper();",
+        "hopper"
+    ));
     assert!(!java_declares_method("    private int burr = 3;", "burr"));
 }
 
@@ -275,7 +312,10 @@ fn a_kotlin_scope_function_hands_on_its_receiver() {
         kotlin_lambda_subject("", 1, "    x.let { c -> c.", "c").as_deref(),
         Some("x")
     );
-    assert_eq!(kotlin_lambda_subject("", 1, "    x.let { c -> it.", "it"), None);
+    assert_eq!(
+        kotlin_lambda_subject("", 1, "    x.let { c -> it.", "it"),
+        None
+    );
 }
 
 #[test]

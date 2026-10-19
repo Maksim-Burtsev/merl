@@ -52,6 +52,12 @@ impl App {
                 _ => None,
             };
         }
+        if let ([], false, Some(source)) = (chain, kotlin, search::java_element_access(before)) {
+            let element = Self::jvm_element(text, self.line + 1, &source, true)?;
+            let ty = self.jvm_type_at(here, text, &element);
+            let label = format!("{source}: element {element}");
+            return self.jvm_typed_member(here, ty, &label, word);
+        }
         let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
         let safe: Vec<String>;
         let chain = match chain {
@@ -169,7 +175,7 @@ impl App {
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =
                         kt.then(|| search::kotlin_lambda_collection(text, line, before, f));
-                    Self::kotlin_element(text, line, &lambda.flatten()?)
+                    Self::jvm_element(text, line, &lambda.flatten()?, false)
                 });
                 let WrittenType {
                     resolved: ty,
@@ -219,7 +225,7 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
-    fn jvm_made(&self,here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
+    fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
         if !written.contains('.') {
             let found = self
                 .jvm_members(here, text, "", written)
@@ -435,7 +441,7 @@ impl App {
         found
     }
 
-    fn kotlin_element(text: &str, line1: usize, name: &str) -> Option<String> {
+    fn jvm_element(text: &str, line1: usize, name: &str, java: bool) -> Option<String> {
         let mut declared: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
             .iter()
             .map(|b| b.line1)
@@ -449,7 +455,12 @@ impl App {
         let [l] = declared[..] else {
             return None;
         };
-        search::kotlin_element_type(text.lines().nth(l.checked_sub(1)?)?, name)
+        let line = text.lines().nth(l.checked_sub(1)?)?;
+        if java {
+            search::java_element_type(line, name)
+        } else {
+            search::kotlin_element_type(line, name)
+        }
     }
 
     fn jvm_returned(

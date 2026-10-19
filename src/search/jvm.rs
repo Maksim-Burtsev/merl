@@ -1018,8 +1018,10 @@ pub fn kotlin_lambda_subject(text: &str, line1: usize, before: &str, name: &str)
 
 pub fn kotlin_lambda_receiver(text: &str, line1: usize, before: &str) -> Option<String> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:run|apply)|\bwith\s*\(\s*([a-z]\w*)\s*\))\s*\{$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"(?:(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:run|apply)|\bwith\s*\(\s*([a-z]\w*)\s*\))\s*\{$",
+        )
+        .expect("the regex is a literal")
     });
     let (head, bound) = kotlin_lambda_head(text, line1, before)?;
     (bound == "it").then_some(())?;
@@ -1033,7 +1035,10 @@ pub fn kotlin_scope_returned(before: &str) -> Option<String> {
     });
     let close = before.rfind("}.")?;
     let tail = before.get(close + 1..)?;
-    if !tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.') {
+    if !tail
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
+    {
         return None;
     }
     let body = before.get(..close)?;
@@ -1093,6 +1098,26 @@ fn kotlin_lambda_head(text: &str, line1: usize, before: &str) -> Option<(String,
         None => "it".to_owned(),
     };
     Some((code.get(..=brace)?.to_owned(), bound))
+}
+
+pub fn java_element_access(before: &str) -> Option<String> {
+    static ACCESS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(concat!(
+            r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:get|getFirst|getLast|peek|peekFirst|peekLast",
+            r"|poll|pollFirst|pollLast|pop|element|orElseThrow|orElse)\s*\([^()]*\)\s*\.$"
+        ))
+        .expect("the regex is a literal")
+    });
+    Some(ACCESS.captures(before)?[1].to_owned())
+}
+
+pub fn java_element_type(line: &str, name: &str) -> Option<String> {
+    let re = Regex::new(&format!(
+        r"(?:^|[\s(,])(?:List|ArrayList|LinkedList|Deque|ArrayDeque|Queue|Stack|Vector|Optional|PriorityQueue|BlockingQueue)<\s*(?:\?\s+extends\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\s*>\s+{}\s*(?:[=;,)]|$)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(re.captures(&uncommented(Kind::Jvm, line))?[1].to_owned())
 }
 
 pub fn kotlin_element_type(line: &str, name: &str) -> Option<String> {
