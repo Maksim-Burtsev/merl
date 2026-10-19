@@ -62,3 +62,30 @@ class Ladle {
     //^ d: lib/saucer.dart:57
   }
 }
+
+// A named parameter list closed by `})` before a constructor's initializer list (#1084).
+class Cup {
+  Cup({
+    String? tint,
+    int? size,
+  })  : assert(tint != 'x'),
+        size = size ?? 0 {
+      //^ d: lib/saucer.dart:78
+    print(tint);
+    //    ^ d: lib/saucer.dart:69
+  }
+
+  int size;
+  String? tint;
+
+  void spill(bool full) {
+    final m = full
+        ? Cup(
+            tint: tint,
+          ) : {
+            'b': tint,
+            //   ^ d: picker lib/saucer.dart:20, lib/saucer.dart:79
+          };
+    print(m);
+  }
+}

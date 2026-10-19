@@ -4,7 +4,8 @@ merl at `75ae4ef7`, 2026-10-19, release build, `vm.loadavg` { 6.62 8.01 7.63 } b
 The go row with the fixes of #1101 and #1102: `fd32efdb`, 2026-10-19, release build, `vm.loadavg` { 10.63 9.74 8.39 } before the run, { 10.42 9.77 8.50 } after.
 The csharp row with the fixes of #1089 and #1090: `b81c63d9`, 2026-10-19, release build, `vm.loadavg` { 8.59 7.21 7.29 } before the run, { 6.82 6.94 7.18 } after.
 The sql row with the fixes of #1065 and #1066: over `b81c63d9`, 2026-10-19, release build, `vm.loadavg` { 6.87 5.88 6.62 } before the run.
-The java, kotlin, swift, dart and go rows with #1072: `9f4c7433`, 2026-10-19, release build, `vm.loadavg` { 4.76 5.68 6.38 } before the run, { 4.76 5.68 6.38 } after.
+The java, kotlin, swift and go rows with #1072: `9f4c7433`, 2026-10-19, release build, `vm.loadavg` { 4.76 5.68 6.38 } before the run, { 4.76 5.68 6.38 } after.
+The dart row with the fixes of #1084, #1085 and #1086: over `76c2d351`, 2026-10-19, release build, `vm.loadavg` { 6.98 6.92 7.40 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -39,5 +40,5 @@ The java, kotlin, swift, dart and go rows with #1072: `9f4c7433`, 2026-10-19, re
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1.4 | 14.8 |
-| dart (dio) | 97 | 63 (65%) | 29 (30%) | 0 (0%) | 5 (5%) | 17 | 33.6 | 102.7 |
+| dart (dio) | 97 | 70 (72%) | 23 (24%) | 0 (0%) | 4 (4%) | 17 | 44.3 | 124.2 |
 | sql (lemmy) | 79 | 27 (34%) | 12 (15%) | 0 (0%) | 40 (51%) | 31 | 11.6 | 19.9 |
