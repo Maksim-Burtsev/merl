@@ -16,8 +16,9 @@ The runner clones each project into the cache (`--cache`, `$D_BENCH_CACHE`, defa
 `~/.cache/merl-d-bench`) at its pinned commit and runs its install command until it succeeds
 once (marked in the clone's `.git`); a clone already at that commit and installed is only read. It then plays every cursor through the `#[ignore]` test
 `src/app/tests/d_bench.rs` in release (one `App` per project: jump to the line, set the column,
-converted from code points to merl's bytes, press `d`), prints the table, and diffs every cursor
-against `baseline.tsv`: each cursor that got worse, new wrong jumps first, and exit 1 when there
+converted from code points to merl's bytes, press `d`), prints the table and under it every wrong
+jump on a row it does not score, and diffs every cursor against `baseline.tsv`: each cursor that
+got worse, new wrong jumps first (a new one on a row not scored among them), and exit 1 when there
 is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring, this
 gate and `record.py`'s tokenizer on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
 targets and the answer; `--merl <cache>/last-merl.tsv` scores the last run again without
@@ -50,6 +51,11 @@ same files in each: a file in one copy counts as the same file in another copy o
 | `WRONG` (wrong jump) | jumped elsewhere |
 | `pick-miss`, `none` (miss) | a picker without it, or "no definition" |
 | not scored | `skip` (the answer is debatable), `no-answer` (the oracle found nothing, or the definition is outside the project for a judged language), `on-decl` (the cursor is on the definition) |
+| `skip-WRONG`, `no-answer-WRONG`, `on-decl-WRONG` (wrong jump, not scored) | jumped from a row not scored, away from its recorded answer: not within a line of it, nor into its file outside the project (an SDK's generated interface) |
+
+The rows not scored are where most wrong jumps hid (#1092): a `-WRONG` one is out of the rates,
+counted in the table's own column, listed under it, and a new one fails the gate as a wrong jump
+does. A `no-answer` row has no answer to land near, so any jump from it counts.
 
 ## Recording, once
 
