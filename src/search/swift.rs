@@ -31,6 +31,12 @@ static SWIFT_LOCAL_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|
     ))
     .expect("the regex is a literal")
 });
+pub fn swift_right_of_binding(lead: &str) -> bool {
+    static RIGHT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:let|var)\s[^=;]*[^=!<>;]=(?:[^=]|$)[^;]*$").expect("the regex is a literal")
+    });
+    RIGHT.is_match(&uncommented(Kind::Swift, lead))
+}
 fn swift_code<S: AsRef<str>>(lines: &[S], literal: &[bool], i: usize) -> bool {
     let t = lines[i].as_ref().trim();
     !t.is_empty()

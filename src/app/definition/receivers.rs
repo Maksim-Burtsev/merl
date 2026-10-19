@@ -82,6 +82,9 @@ impl App {
     }
 
     pub(super) fn declares_here(&self, a: &Asked) -> bool {
+        if a.kind == Kind::Swift && search::swift_right_of_binding(&a.lead) {
+            return false;
+        }
         let mut declaring = search::def_patterns(a.kind, &a.word);
         declaring.extend(search::member_or_signature(a.kind, &a.word).unwrap_or_default());
         Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()))

@@ -154,3 +154,20 @@ func roasted() -> Int {
     Roast.dark.level
     //         ^ d: Sources/Shop/Outcomes.swift:146
 }
+
+// A `let` binds its name only after its `=`: the name on the right is the one outside (#1047).
+func warden(_ n: Int) -> Int { n }
+
+final class Ward {
+    let sentries: [Int] = []
+
+    func patrol() -> Int {
+        let sentries = sentries.count
+        //             ^ d: Sources/Shop/Outcomes.swift:162
+        let warden = warden(sentries)
+        //           ^ d: Sources/Shop/Outcomes.swift:159
+        //                  ^ d: Sources/Shop/Outcomes.swift:165
+        return warden
+        //     ^ d: Sources/Shop/Outcomes.swift:167
+    }
+}
