@@ -197,7 +197,7 @@ impl App {
     }
 
     pub(super) fn answered_early(&mut self, a: &mut Asked) -> bool {
-        if self.answered_by_module(a) {
+        if self.answered_by_module(a) || self.answered_on_rust_field(a) {
             return true;
         }
         if a.kind == Kind::Elixir {
@@ -242,6 +242,44 @@ impl App {
             return self.show_found(a, found);
         }
         false
+    }
+
+    fn answered_on_rust_field(&mut self, a: &Asked) -> bool {
+        static VISIBILITY: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?$").expect("the regex is a literal")
+        });
+        let line1 = self.line + 1;
+        let on_field = a.kind == Kind::Rust
+            && !a.dotted
+            && VISIBILITY.is_match(&a.lead)
+            && a.tail.trim_start().starts_with(':')
+            && !a.tail.trim_start().starts_with("::")
+            && search::rust_field_at(&a.text, line1);
+        if !on_field {
+            return false;
+        }
+        let methods = search::rust_method_pattern(&a.word);
+        let fields = search::rust_field_pattern(&a.word, false);
+        let mut hits = self.project_definitions(a.kind, &a.here, &a.word, &methods);
+        hits.extend(
+            self.project_definitions(a.kind, &a.here, &a.word, &fields)
+                .into_iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .is_some_and(|t| search::rust_field_at(&t, h.line1))
+                }),
+        );
+        if !hits.iter().any(|h| h.path == a.here && h.line1 == line1) {
+            hits.push(self.line_hit(&a.here, line1));
+        }
+        let found = hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect();
+        self.show_found(a, found)
     }
 
     fn answered_by_file(&mut self, a: &Asked) -> bool {
