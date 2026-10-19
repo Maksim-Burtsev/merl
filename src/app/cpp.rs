@@ -387,7 +387,10 @@ impl App {
         let hits = self.project_definitions(Kind::C, here, name, &format!("{}|{}", p[4], p[6]));
         let reached = self.c_reached(here);
         let mut found = Vec::new();
-        for h in hits.into_iter().filter(|h| h.path == here || reached.contains(&h.path)) {
+        for h in hits
+            .into_iter()
+            .filter(|h| h.path == here || reached.contains(&h.path))
+        {
             let Some(text) = self.text_of(&h.path) else {
                 continue;
             };
