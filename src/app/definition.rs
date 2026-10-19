@@ -313,13 +313,13 @@ impl App {
         depth: usize,
     ) -> Result<Option<Typed>, GoTypeUnread> {
         static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)")
+            Regex::new(r"^(?:type\s+)?[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)")
                 .expect("the regex is a literal")
         });
         let ty = self.type_decl(kind, file, written).ok_or(GoTypeUnread)?;
         let text = self.text_of(&ty.path).ok_or(GoTypeUnread)?;
         let line = text.lines().nth(ty.line - 1).ok_or(GoTypeUnread)?;
-        let over = DEFINED.captures(line).ok_or(GoTypeUnread)?[1]
+        let over = DEFINED.captures(line.trim_start()).ok_or(GoTypeUnread)?[1]
             .trim()
             .to_owned();
         if over.starts_with("struct") {
