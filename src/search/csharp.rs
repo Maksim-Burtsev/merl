@@ -399,6 +399,7 @@ pub fn cs_written_line<S: AsRef<str>>(lines: &[S], line: usize, name: &str) -> u
 pub enum CsValue {
     Type(String),
     Call { callee: String, awaited: bool },
+    Element(String),
     Unknown,
 }
 
@@ -444,6 +445,12 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     if let Some(expr) = written(format!(r"\bvar\s+@?{n}\s*=\s*(.+)$")) {
         return cs_expr(&expr);
     }
+    if let Some(items) = written(format!(r"\bforeach\s*\(\s*var\s+@?{n}\s+in\s+(@?\w+)\s*\)")) {
+        return CsValue::Element(items.replace('@', ""));
+    }
+    if let Some(value) = cs_deconstructed(&code, name) {
+        return cs_expr(value);
+    }
     [
         format!(r"\b(?:is|case)\s+({CS_TYPE})\s+@?{n}\b"),
         format!(r"\bout\s+({CS_TYPE})\s+@?{n}\b"),
@@ -454,6 +461,31 @@ pub fn cs_declared(line: &str, name: &str) -> CsValue {
     .into_iter()
     .find_map(written)
     .map_or(CsValue::Unknown, CsValue::Type)
+}
+
+pub fn cs_one_argument(written: &str) -> Option<String> {
+    let t = written.trim().strip_suffix('>')?;
+    let inner = t.get(t.find('<')? + 1..)?.trim();
+    (!inner.contains(',') && !inner.is_empty()).then(|| inner.to_owned())
+}
+
+fn cs_deconstructed<'a>(code: &'a str, name: &str) -> Option<&'a str> {
+    static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bvar\s*\(([\w@\s,]+)\)\s*=\s*\(").expect("the regex is a literal")
+    });
+    let c = VAR.captures(code)?;
+    let at = (c[1].split(','))
+        .position(|n| n.trim().trim_start_matches('@') == name.trim_start_matches('@'))?;
+    let open = c.get_match().end() - 1;
+    let close = close_of(Kind::CSharp, code, open)?;
+    let values = split_top(Kind::CSharp, code.get(open + 1..close - 1)?, b',');
+    let ends = code
+        .get(close..)?
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .is_empty();
+    (ends && values.len() == c[1].split(',').count()).then_some(values.get(at)?.trim())
 }
 
 pub fn cs_expr(expr: &str) -> CsValue {

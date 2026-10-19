@@ -1865,7 +1865,23 @@ fn csharp_declarations_and_expressions_give_their_written_types() {
             call("repo.LoadAsync", true),
         ),
         ("    var x = y;", "x", CsValue::Unknown),
-        ("    foreach (var item in items)", "item", CsValue::Unknown),
+        (
+            "    foreach (var item in items)",
+            "item",
+            CsValue::Element("items".into()),
+        ),
+        (
+            "    var (a, b) = (new A(), Make());",
+            "b",
+            call("Make", false),
+        ),
+        ("    var (a, b) = (new A(), Make());", "a", ty("A")),
+        (
+            "    var (a, b) = (new A(), b).Swap();",
+            "a",
+            CsValue::Unknown,
+        ),
+        ("    var (a, b) = (new A(), b, c);", "a", CsValue::Unknown),
         (
             "    items.Select(item => item.Id);",
             "item",

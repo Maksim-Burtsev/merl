@@ -69,7 +69,7 @@ public class Tasting
         foreach (var cup in mugs)
         {
             total += cup.Sip();
-            //           ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:25 (#1136)
+            //           ^ d: src/Shop/Tea/Infuse/Cup.cs:25
         }
         return total;
     }
@@ -99,8 +99,8 @@ public class Tasting
     {
         var (mug, stove) = (new Mug(), new Stove());
         return mug.Sip() + stove.Sip();
-        //         ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:25 (#1136)
-        //                       ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:48 (#1136)
+        //         ^ d: src/Shop/Tea/Infuse/Cup.cs:25
+        //                       ^ d: src/Shop/Tea/Infuse/Cup.cs:48
     }
 
     public int Inherited(Mug mug, ISteeper steeper)
@@ -141,5 +141,23 @@ public class Tasting
         //   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
         return new List<Cup>().Find(c => true).Sip() + told.Length;
         //                                     ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48
+    }
+
+    public int Written(List<Mug> mugs, Dictionary<string, Mug> prices)
+    {
+        int total = 0;
+        foreach (Mug c in mugs)
+        {
+            total += c.Sip();
+            //         ^ d: src/Shop/Tea/Infuse/Cup.cs:25
+        }
+        foreach (var pair in prices)
+        {
+            total += pair.Value.Sip();
+            //                  ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48
+        }
+        var (left, right) = (new Stove(), mugs);
+        return total + left.Sip();
+        //                  ^ d: src/Shop/Tea/Infuse/Cup.cs:48
     }
 }

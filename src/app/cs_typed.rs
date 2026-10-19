@@ -479,6 +479,17 @@ impl App {
                 search::CsValue::Call { callee, awaited } if hops > 0 => {
                     self.cs_call_type(file, text, at, &callee, awaited, hops - 1)?
                 }
+                search::CsValue::Element(items) if hops > 0 => {
+                    let p = self.cs_name_type(file, text, at, &items, hops - 1)?;
+                    let CsType::Outside(_) = p.ty else {
+                        return None;
+                    };
+                    let w = search::cs_one_argument(&p.written)?;
+                    CsWrittenType {
+                        ty: self.cs_resolve(file, text, at, &w)?,
+                        written: w,
+                    }
+                }
                 _ => return None,
             };
             let link = format!("{name}: {}", search::cs_type_name(&written)?);
