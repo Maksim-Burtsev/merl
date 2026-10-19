@@ -148,11 +148,15 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
             ),
             (
                 "src/lib.rs",
-                "mod extra;\n\npub struct Error {\n    msg: String,\n}\n\nimpl Clone for Error {\n    fn clone(&self) -> Error {\n        Error { msg: self.msg.clone() }\n    }\n}\n\nimpl Error {\n    fn describe(&self) -> u32 {\n        1\n    }\n}\n\npub fn first(v: Option<u32>) -> u32 {\n    v.unwrap()\n}\n\npub fn name(n: &String) -> String {\n    n.clone()\n}\n\npub fn text(s: &str) -> String {\n    s.to_string()\n}\n\npub fn told(e: &Error, x: &extra::Extra) -> u32 {\n    x.secret();\n    e.describe()\n}\n\npub fn peeked(v: Option<u32>) {\n    v.peek()\n}\n\npub fn drained(q: Vec<u32>) {\n    q.into_iter();\n}\n",
+                "mod extra;\n\npub struct Error {\n    msg: String,\n}\n\nimpl Clone for Error {\n    fn clone(&self) -> Error {\n        Error { msg: self.msg.clone() }\n    }\n}\n\nimpl Error {\n    fn describe(&self) -> u32 {\n        1\n    }\n}\n\npub fn first(v: Opaque) -> u32 {\n    v.unwrap()\n}\n\npub fn name(n: &String) -> String {\n    n.clone()\n}\n\npub fn text(s: &str) -> String {\n    s.to_string()\n}\n\npub fn told(e: &Error, x: &extra::Extra) -> u32 {\n    x.secret();\n    e.describe()\n}\n\npub fn peeked(v: Option<u32>) {\n    v.peek()\n}\n\npub fn drained(q: Vec<u32>) {\n    q.into_iter();\n}\n\npub fn opted(w: Option<u32>) -> u32 {\n    w.unwrap()\n}\n\npub struct Bag;\n\nimpl Bag {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn sized(m: &String) -> usize {\n    m.len()\n}\n\npub fn lit() -> usize {\n    let k = \"x\";\n    k.len()\n}\n",
             ),
             (
                 "src/extra.rs",
                 "pub struct Extra;\n\nimpl Extra {\n    fn secret(&self) {}\n}\n",
+            ),
+            (
+                "src/strs.rs",
+                "use dep::String;\n\npub fn sized(m: &String) -> usize {\n    m.len()\n}\n",
             ),
         ],
     );
@@ -173,7 +177,11 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
             ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/string.rs",
-                "#[stable(feature = \"rust1\", since = \"1.0.0\")]\npub trait ToString {\n    fn to_string(&self) -> String;\n}\n\nimpl<T: fmt::Display + ?Sized> ToString for T {\n    default fn to_string(&self) -> String {\n        String::new()\n    }\n}\n",
+                "#[stable(feature = \"rust1\", since = \"1.0.0\")]\npub trait ToString {\n    fn to_string(&self) -> String;\n}\n\nimpl<T: fmt::Display + ?Sized> ToString for T {\n    default fn to_string(&self) -> String {\n        String::new()\n    }\n}\n\npub struct String;\n\nimpl Clone for String {\n    fn clone(&self) -> String {\n        String\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                "impl str {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n",
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/iter/traits/collect.rs",
@@ -254,8 +262,29 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         (
             "n.clone",
             jump(
-                "clone \u{2192} Clone::clone (via trait Clone)",
-                "core/src/clone.rs:4",
+                "clone \u{2192} String::clone (via n: String)",
+                "alloc/src/string.rs:15",
+            ),
+        ),
+        (
+            "w.unwrap",
+            jump(
+                "unwrap \u{2192} Option::unwrap (via w: Option)",
+                "core/src/option.rs:8",
+            ),
+        ),
+        (
+            "m.len",
+            jump(
+                "len \u{2192} str::len (via m: String)",
+                "core/src/str/mod.rs:3",
+            ),
+        ),
+        (
+            "k.len",
+            jump(
+                "len \u{2192} str::len (via k: str)",
+                "core/src/str/mod.rs:3",
             ),
         ),
         (
@@ -278,16 +307,9 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         ),
         (
             "q.into_iter",
-            Shown::Picker(
-                "into_iter: by name, 3 declarations".into(),
-                vec![
-                    row(
-                        "IntoIterator::into_iter",
-                        "core/src/iter/traits/collect.rs:4",
-                    ),
-                    row("Vec::into_iter", "alloc/src/vec/mod.rs:6"),
-                    row("I::into_iter", "core/src/iter/traits/collect.rs:8"),
-                ],
+            jump(
+                "into_iter \u{2192} Vec::into_iter (via q: Vec)",
+                "alloc/src/vec/mod.rs:6",
             ),
         ),
         (
@@ -314,6 +336,11 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         };
         assert_eq!(got, want, "{code}");
     }
+    d_on(&mut a, "src/strs.rs", "m.len");
+    assert!(
+        !matches!(shown(&mut a), Shown::Jump(s, _) if s.contains("str::len")),
+        "a String imported from a crate is not the standard library's"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
     std::fs::remove_dir_all(&registry).unwrap();

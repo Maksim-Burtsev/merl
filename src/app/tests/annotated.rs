@@ -105,9 +105,9 @@ fn cases() -> Vec<Case> {
         let (_, files) = crate::tree::build(&root.join(&fixture), false);
         for file in files {
             let path = root.join(&fixture).join(&file);
-            if search::kind_of(&path).is_none() && path.extension().is_none_or(|e| e != "json") {
-                continue;
-            }
+            let read = || std::fs::read_to_string(&path).unwrap_or_default();
+            let classified = search::kind_read(&path, read).is_some()
+                || path.extension().is_some_and(|e| e == "json");
             let Ok(text) = std::fs::read_to_string(&path) else {
                 continue;
             };
@@ -123,6 +123,7 @@ fn cases() -> Vec<Case> {
                     probed_line: nearest_code_line_above(&lines, i),
                     col,
                     want: match want.strip_prefix("d:") {
+                        _ if !classified => Err("an annotated file no kind reads".into()),
                         Some(w) => parse_want(w.trim()),
                         None => Err(format!("no `d:` after the caret: `{want}`")),
                     },

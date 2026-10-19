@@ -7,6 +7,8 @@ pub(super) enum CppAnswer {
     ByName(Option<String>),
 }
 
+type HeadType = (Vec<String>, String, Vec<String>, Option<usize>);
+
 #[derive(Clone)]
 struct Class {
     path: PathBuf,
@@ -31,7 +33,9 @@ impl App {
         if let Some(seventh) = fields.get(5) {
             return broke(seventh);
         }
-        let Some((mut ty, mut scope, mut ctx)) = self.cpp_head_type(here, text, &head, word) else {
+        let Some((mut ty, mut scope, mut ctx, mut decl)) =
+            self.cpp_head_type(here, text, &head, word)
+        else {
             return broke(&head);
         };
         let mut around = search::c_method_class(text, self.line + 1, word);
@@ -39,14 +43,24 @@ impl App {
         let mut prev = head.clone();
         let last = fields.len();
         for (i, name) in fields.iter().map(String::as_str).chain([word]).enumerate() {
-            if ty[0] == "std" {
-                return if i == last {
-                    CppAnswer::Outside
-                } else {
-                    broke(&prev)
-                };
+            if ty[0] == "std" && i < last {
+                return broke(&prev);
             }
             links.push(format!("{prev}: {}", ty[ty.len() - 1]));
+            if ty[0] == "std" {
+                let written =
+                    decl.and_then(|at| search::cpp_written(&scope, at, &ty[ty.len() - 1]));
+                let found = match written {
+                    Some(w) if w.pointer == before.ends_with("->") => {
+                        self.cpp_std_member(here, &ty, word, w.first_arg.as_deref())
+                    }
+                    _ => None,
+                };
+                return match found {
+                    Some((owner, ats)) => self.cpp_found(here, text, &owner, &ats, word, &links),
+                    None => CppAnswer::Outside,
+                };
+            }
             let Some(class) = self.cpp_class(here, &ty, &scope, around.as_deref(), &ctx) else {
                 return broke(&prev);
             };
@@ -54,11 +68,7 @@ impl App {
                 return broke(&prev);
             };
             if i == last {
-                let found = self.cpp_candidates(here, &owner, &ats, word, &links);
-                return CppAnswer::Found(match self.cpp_call_args(here, text) {
-                    Some(args) => self.cpp_viable_only(word, &args, found, |c| &c.hit),
-                    None => found,
-                });
+                return self.cpp_found(here, text, &owner, &ats, word, &links);
             }
             let Some((next, at)) = (ats.iter())
                 .find_map(|&at| Some((search::cpp_type_at(&owner.code, at, name.len())?, at)))
@@ -66,10 +76,132 @@ impl App {
                 return broke(name);
             };
             ctx = search::cpp_scope_path(&owner.code, at);
-            (ty, scope, around) = (next, owner.code, Some(owner.name));
+            (ty, scope, around, decl) = (next, owner.code, Some(owner.name), Some(at));
             name.clone_into(&mut prev);
         }
         CppAnswer::ByName(None)
+    }
+
+    fn cpp_found(
+        &mut self,
+        here: &Path,
+        text: &str,
+        owner: &Class,
+        ats: &[usize],
+        word: &str,
+        links: &[String],
+    ) -> CppAnswer {
+        let found = self.cpp_candidates(here, owner, ats, word, links);
+        CppAnswer::Found(match self.cpp_call_args(here, text) {
+            Some(args) => self.cpp_viable_only(word, &args, found, |c| &c.hit),
+            None => found,
+        })
+    }
+
+    fn cpp_std_member(
+        &mut self,
+        here: &Path,
+        ty: &[String],
+        word: &str,
+        arg: Option<&str>,
+    ) -> Option<(Class, Vec<usize>)> {
+        let [_, name] = ty else {
+            return None;
+        };
+        let mut files: Vec<PathBuf> = (self.c_reached(here).into_iter())
+            .filter(|f| f.is_absolute() && f.components().any(|c| c.as_os_str() == "c++"))
+            .collect();
+        files.sort();
+        if let Some(class) = self.cpp_std_class(&files, name) {
+            return self.cpp_std_walk(&files, class, word, arg, 0);
+        }
+        let pattern = format!(r"^\s*using\s+{}\s*=\s*\w+\s*<", regex::escape(name));
+        let mut real: Vec<String> = (self.external_grep(Kind::C, &files, &pattern).iter())
+            .filter_map(|h| {
+                Some(
+                    h.text
+                        .split_once('=')?
+                        .1
+                        .split('<')
+                        .next()?
+                        .trim()
+                        .to_owned(),
+                )
+            })
+            .collect();
+        real.sort();
+        real.dedup();
+        let [real] = real.as_slice() else {
+            return None;
+        };
+        let class = self.cpp_std_class(&files, real)?;
+        self.cpp_std_walk(&files, class, word, None, 0)
+    }
+
+    fn cpp_std_class(
+        &self,
+        files: &[PathBuf],
+        name: &str,
+    ) -> Option<(Class, Vec<(Class, String)>)> {
+        let w = regex::escape(name);
+        let pattern = format!(r"^\s*(?:struct|class)\s+(?:[A-Z_][A-Z0-9_]*\s+)*{w}\b");
+        let (mut primary, mut special) = (Vec::new(), Vec::new());
+        for h in self.external_grep(Kind::C, files, &pattern) {
+            let Some(text) = self.text_of(&h.path) else {
+                continue;
+            };
+            let code = search::c_code(&text);
+            let Some((open, arg)) = search::cpp_std_class_body(&code, h.line1, name) else {
+                continue;
+            };
+            let class = Class {
+                path: h.path,
+                text,
+                code,
+                open,
+                name: name.to_owned(),
+            };
+            match arg {
+                Some(arg) => special.push((class, arg)),
+                None => primary.push(class),
+            }
+        }
+        let [class] = <[_; 1]>::try_from(primary).ok()?;
+        Some((class, special))
+    }
+
+    fn cpp_std_walk(
+        &self,
+        files: &[PathBuf],
+        (class, special): (Class, Vec<(Class, String)>),
+        word: &str,
+        arg: Option<&str>,
+        depth: usize,
+    ) -> Option<(Class, Vec<usize>)> {
+        let other = |a: &str| !a.starts_with('_') && arg.is_some_and(|r| r != a);
+        if (special.iter())
+            .any(|(s, a)| !other(a) && !search::cpp_body_members(&s.code, s.open, word).is_empty())
+        {
+            return None;
+        }
+        let ats = search::cpp_body_members(&class.code, class.open, word);
+        if !ats.is_empty() {
+            return Some((class, ats));
+        }
+        if depth == 4 {
+            return None;
+        }
+        for base in search::cpp_bases(&class.code, class.open) {
+            let (["std", name] | [name]) = base.iter().map(String::as_str).collect::<Vec<_>>()[..]
+            else {
+                return None;
+            };
+            let base = self.cpp_std_class(files, name)?;
+            if let Some(found) = self.cpp_std_walk(files, base, word, None, depth + 1) {
+                return Some(found);
+            }
+        }
+        None
     }
 
     pub(super) fn cpp_class_scope(
@@ -94,7 +226,7 @@ impl App {
         text: &str,
         head: &str,
         word: &str,
-    ) -> Option<(Vec<String>, String, Vec<String>)> {
+    ) -> Option<HeadType> {
         let code = search::c_code(text);
         let pos = (text.split('\n').take(self.line))
             .map(|l| l.len() + 1)
@@ -106,10 +238,11 @@ impl App {
                 vec![search::c_method_class(text, self.line + 1, word)?],
                 code,
                 here_ctx,
+                None,
             ));
         }
         match search::cpp_value_type(text, self.line + 1, head) {
-            Ok(Some(t)) => return Some((t, code, here_ctx)),
+            Ok(Some((t, at))) => return Some((t, code, here_ctx, Some(at))),
             Ok(None) => {}
             Err(()) => return None,
         }
@@ -119,7 +252,7 @@ impl App {
         let (t, at) = (ats.iter())
             .find_map(|&at| Some((search::cpp_type_at(&owner.code, at, head.len())?, at)))?;
         let ctx = search::cpp_scope_path(&owner.code, at);
-        Some((t, owner.code, ctx))
+        Some((t, owner.code, ctx, Some(at)))
     }
 
     fn cpp_class(
@@ -315,7 +448,7 @@ impl App {
         ctx: &[String],
         name: &str,
     ) -> Option<Vec<String>> {
-        let Ok(Some(ty)) = search::cpp_value_type(text, self.line + 1, name) else {
+        let Ok(Some((ty, _))) = search::cpp_value_type(text, self.line + 1, name) else {
             return None;
         };
         let name = ty.last()?;

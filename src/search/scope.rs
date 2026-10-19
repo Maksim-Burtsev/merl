@@ -720,6 +720,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
         let others: Vec<PathBuf> = dirs.iter().filter(|o| *o != dir).cloned().collect();
         let frameworks = kind == Kind::C && objc_frameworks(dir);
         let sysroot = kind == Kind::Rust && dir.ends_with("lib/rustlib/src/rust/library");
+        let dart_sdk = kind == Kind::Dart && dir.join("core/core.dart").is_file();
         let walk = ignore::WalkBuilder::new(dir)
             .filter_entry(move |e| {
                 let is_dir = e.depth() > 0 && e.file_type().is_some_and(|t| t.is_dir());
@@ -735,6 +736,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     let name = e.file_name().to_string_lossy();
                     name == "benches" || name.ends_with("tests")
                 };
+                let patches = dart_sdk && is_dir && e.depth() == 1 && e.file_name() == "_internal";
                 let header = match e.depth() {
                     1 => e.file_name().to_string_lossy().ends_with(".framework"),
                     2 => e.file_name() == "Headers",
@@ -744,6 +746,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
                     && !base_packages
                     && !nested
                     && !untaken
+                    && !patches
                     && (!frameworks || header)
                     && (e.depth() != 1 || Some(e.file_name()) != copy_of_itself.as_deref())
             })

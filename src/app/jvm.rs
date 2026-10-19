@@ -354,31 +354,18 @@ impl App {
     }
 
     fn jvm_overloads(&self, here: &Path, word: &str, end: usize, hits: Vec<Hit>) -> Vec<Hit> {
-        let java = here.extension().is_some_and(|e| e == "java");
-        if hits.len() < 2
-            || search::groovy(here)
-            || !self
-                .line_str()
-                .get(end..)
-                .is_some_and(|a| a.starts_with('('))
-        {
+        if hits.len() < 2 {
             return hits;
         }
-        let Some(call) = search::jvm_call(&self.buf.lines, self.line, end) else {
+        let Some(call) = self.jvm_call_here(here, end) else {
             return hits;
         };
         let parts = |h: &Hit| search::jvm_parameter_parts(&self.text_of(&h.path)?, h.line1, word);
         let mut hits = hits;
-        if !java
-            && !call
-                .arguments
-                .iter()
-                .any(|a| a.starts_with('*') || a.contains('<'))
-        {
-            let n = call.arguments.len() + usize::from(call.trailing_lambda);
+        if Self::plain_arguments(&call) {
             let fit: Vec<Hit> = hits
                 .iter()
-                .filter(|h| parts(h).is_none_or(|p| search::jvm_takes(&p, n)))
+                .filter(|h| self.jvm_fits(here, &call, word, h))
                 .cloned()
                 .collect();
             if !fit.is_empty() {
@@ -401,6 +388,48 @@ impl App {
                     .collect(),
             )
         })
+    }
+
+    fn jvm_call_here(&self, here: &Path, end: usize) -> Option<search::JvmCall> {
+        let line = self.line_str();
+        let called = line.get(end..).is_some_and(|a| a.starts_with('('));
+        if search::groovy(here) || !called || line.contains("\"\"\"") {
+            return None;
+        }
+        search::jvm_call(&self.buf.lines, self.line, end)
+    }
+
+    fn plain_arguments(call: &search::JvmCall) -> bool {
+        !call
+            .arguments
+            .iter()
+            .any(|a| a.starts_with('*') || a.contains('<'))
+    }
+
+    fn jvm_fits(&self, here: &Path, call: &search::JvmCall, word: &str, h: &Hit) -> bool {
+        let kotlin = here.extension().is_none_or(|e| e != "java");
+        self.text_of(&h.path)
+            .and_then(|t| search::jvm_parameter_parts(&t, h.line1, word))
+            .is_none_or(|p| search::jvm_takes_call(&p, call, kotlin))
+    }
+
+    pub(super) fn jvm_by_arguments(
+        &self,
+        here: &Path,
+        word: &str,
+        end: usize,
+        found: &mut Vec<Candidate>,
+    ) {
+        let java = here.extension().is_some_and(|e| e == "java");
+        if let Some(call) = self.jvm_call_here(here, end)
+            && java
+            && Self::plain_arguments(&call)
+            && found
+                .iter()
+                .any(|c| self.jvm_fits(here, &call, word, &c.hit))
+        {
+            found.retain(|c| self.jvm_fits(here, &call, word, &c.hit));
+        }
     }
 
     pub(super) fn jvm_constructors(&self, types: &[Candidate], word: &str) -> Vec<Candidate> {

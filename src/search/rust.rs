@@ -471,6 +471,23 @@ fn rust_use_in_a_block_around(lines: &[&str], literal: &[bool], around: &[usize]
     })
 }
 pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace) -> Vec<usize> {
+    scope_items(text, line1, word, ns, false)
+}
+pub fn rust_scope_items_right_of_let(
+    text: &str,
+    line1: usize,
+    word: &str,
+    ns: RustNamespace,
+) -> Vec<usize> {
+    scope_items(text, line1, word, ns, true)
+}
+fn scope_items(
+    text: &str,
+    line1: usize,
+    word: &str,
+    ns: RustNamespace,
+    right_of_let: bool,
+) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
@@ -513,16 +530,9 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
     }
     if let Some(&f) = functions.first()
         && word.starts_with(|c: char| c.is_lowercase() || c == '_')
+        && mentioned_as_value(&lines[f..=k], &w, right_of_let)
     {
-        let mention = rule(&format!(r"(^|[^.\w])({w})\b(\s*(?:\(|!|::))?"));
-        let mentioned = lines[f..=k].iter().any(|l| {
-            mention
-                .captures_iter(&uncommented(Kind::Rust, l))
-                .any(|c| c.get(3).is_none())
-        });
-        if mentioned {
-            return Vec::new();
-        }
+        return Vec::new();
     }
     let found = |scope: Option<usize>| -> Vec<usize> {
         rust_direct(&lines, scope, &literal)
@@ -571,6 +581,19 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
     } else {
         items.into_iter().map(|i| i + 1).collect()
     }
+}
+fn mentioned_as_value(lines: &[&str], w: &str, right_of_let: bool) -> bool {
+    let mention = Regex::new(&format!(r"(^|[^.\w])({w})\b(\s*(?:\(|!|::))?"))
+        .expect("an escaped name keeps the pattern valid");
+    let last = lines.len().saturating_sub(1);
+    lines.iter().enumerate().any(|(j, l)| {
+        let code = uncommented(Kind::Rust, l);
+        let code = match let_pattern(&code).filter(|_| right_of_let && j == last) {
+            Some(p) => code.get(p.end..).unwrap_or_default().to_owned(),
+            None => code,
+        };
+        mention.captures_iter(&code).any(|c| c.get(3).is_none())
+    })
 }
 fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     let b = s.as_bytes();

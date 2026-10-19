@@ -164,6 +164,14 @@ impl App {
                 .collect()
         };
         let mut locals = locals_at(&a.text, self.line + 1);
+        if kind == Kind::Shell
+            && locals.is_empty()
+            && search::shell_command_position(&a.lead) == Some(false)
+        {
+            let lines: Vec<&str> = a.text.lines().collect();
+            let literal = search::literal_lines(kind, &a.text);
+            locals.extend(search::shell_assigned(&lines, &literal, self.line, first));
+        }
         if let [only] = locals[..]
             && bare
             && only != self.line + 1

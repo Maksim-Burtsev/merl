@@ -259,9 +259,9 @@ fn typescript_spellings_are_read_in_typescript_only() {
     ];
     for kind in [Kind::Python, Kind::Go, Kind::Rust, Kind::C] {
         assert_eq!(
-            unbroken(kind, &lines, 1, 9),
-            None,
-            "outside TypeScript a line led by a dot is not joined to the one above"
+            unbroken(kind, &lines, 1, 9).is_some(),
+            kind == Kind::Rust,
+            "outside TypeScript and Rust a line led by a dot is not joined to the one above"
         );
         assert_eq!(
             plain_access(kind, &lines[1], 24),

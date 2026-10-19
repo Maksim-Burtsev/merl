@@ -423,7 +423,7 @@ fn dart_directives_read_combinators_and_parts() {
     assert_eq!((d[0].keyword.as_str(), d[0].line1), ("import", 2));
     assert_eq!(d[0].hide, ["A", "B"]);
     assert_eq!(d[1].show.as_deref(), Some(&["C".to_owned()][..]));
-    assert!(d[2].conditional && !d[0].conditional);
+    assert_eq!(d[2].uri, "c.dart");
     assert_eq!(
         (d[3].keyword.as_str(), d[3].uri.as_str()),
         ("part", "e.dart")

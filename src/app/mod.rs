@@ -64,6 +64,7 @@ mod search_job;
 mod solidity;
 mod starlark;
 mod swift;
+mod swift_typed;
 mod symbols;
 mod tree;
 mod typed;

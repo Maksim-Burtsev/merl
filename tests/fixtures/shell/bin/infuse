@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# #1056: a script with no extension is Bash by its `#!` line.
+
+main() {
+  strain
+  # ^ d: bin/infuse:9
+}
+
+strain() {
+  echo strained
+}
