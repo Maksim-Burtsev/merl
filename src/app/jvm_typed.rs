@@ -184,6 +184,30 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
+    pub(super) fn jvm_owner_type(&self, here: &Path, text: &str, owner: &str) -> Option<Hit> {
+        if !owner.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return None;
+        }
+        match self.jvm_type_at(here, text, owner) {
+            JvmType::Project(decl) => Some(decl),
+            _ => None,
+        }
+    }
+
+    pub(super) fn jvm_owns(&self, decl: &Hit, hit: &Hit, word: &str) -> bool {
+        hit.path == decl.path || self.jvm_receiver_of(hit, word).is_some()
+    }
+
+    pub(super) fn jvm_owner_member(
+        &self,
+        here: &Path,
+        decl: Hit,
+        owner: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        self.jvm_typed_member(here, JvmType::Project(decl), owner, word)
+    }
+
     fn jvm_typed_member(
         &self,
         here: &Path,

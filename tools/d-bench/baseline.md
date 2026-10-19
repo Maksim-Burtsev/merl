@@ -8,14 +8,15 @@ The java, kotlin, swift and go rows with #1072: `9f4c7433`, 2026-10-19, release 
 The dart row with the fixes of #1084, #1085 and #1086: over `76c2d351`, 2026-10-19, release build, `vm.loadavg` { 6.98 6.92 7.40 } before the run.
 The rust row with the fixes of #1044 and #1045 (a `use` inside an inline `mod`, a crate handed on by `pub extern crate`, a receiver whose call's arguments span lines): over `da06cd37`, 2026-10-20, release build, `vm.loadavg` { 8.81 9.06 8.23 } before the run.
 The swift row with #1047: over `06a28815`, 2026-10-19, release build, `vm.loadavg` { 6.95 10.10 9.35 } before the run.
+The go row with #1072's chains of calls: over `72304a83`, 2026-10-20, release build, `vm.loadavg` { 5.32 4.55 4.67 } before the run, { 6.51 4.92 4.79 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 257 | 214 (83%) | 25 (10%) | 0 (0%) | 18 (7%) | 68 | 19.5 | 386.8 |
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 42.8 | 97.7 |
 | js (eslint, uptime-kuma) | 217 | 174 (80%) | 33 (15%) | 1 (0%) | 9 (4%) | 177 | 40.1 | 174.0 |
-| go (caddy, gitea) | 318 | 310 (97%) | 6 (2%) | 0 (0%) | 2 (1%) | 51 | 5.8 | 17.3 |
 | rust (ripgrep) | 231 | 208 (90%) | 19 (8%) | 0 (0%) | 4 (2%) | 69 | 5.8 | 61.0 |
+| go (caddy, gitea) | 318 | 311 (98%) | 6 (2%) | 0 (0%) | 1 (0%) | 51 | 5.8 | 17.1 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 24.6 | 34.5 |
 | cpp (leveldb) | 232 | 197 (85%) | 34 (15%) | 0 (0%) | 1 (0%) | 68 | 17.0 | 63.1 |
 | php (koel) | 392 | 238 (61%) | 132 (34%) | 0 (0%) | 22 (6%) | 88 | 31.4 | 244.8 |

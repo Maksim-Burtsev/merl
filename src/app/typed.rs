@@ -89,6 +89,60 @@ impl App {
             .collect())
     }
 
+    pub(super) fn go_call_chain(
+        &self,
+        here: &Path,
+        line: &str,
+        word_start: usize,
+        word: &str,
+    ) -> Option<Result<Vec<Candidate>, String>> {
+        let kind = Kind::Go;
+        let (end, methods) = search::go_method_calls(line, word_start)?;
+        let head = search::call_head(kind, line, end)?;
+        let ProvenType { mut ty, mut links } = self.receiver(kind, here, &[], Some(&head)).ok()?;
+        for method in &methods {
+            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                let members = self.members_of(kind, t, method);
+                (!members.is_empty()).then_some(members)
+            })?;
+            let [decl] = <[Hit; 1]>::try_from(found).ok()?;
+            let text = self.text_of(&decl.path)?;
+            let search::Value::Type(written) =
+                self.returns_of(kind, &decl.path, &text, decl.line1)?
+            else {
+                return None;
+            };
+            links.push(signature(kind, method, &written));
+            match self.annotated_type(kind, &decl.path, &text, 0, &written) {
+                Some(next) => ty = next,
+                None if self.go_outside(&decl.path, &text, &written) => {
+                    return Some(Err(links.join(" \u{2192} ")));
+                }
+                None => return None,
+            }
+        }
+        let label = links.join(" \u{2192} ");
+        let hits = self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word));
+        Some(Ok(hits
+            .unwrap_or_default()
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Receiver(label.clone()),
+            })
+            .collect()))
+    }
+
+    fn go_outside(&self, file: &Path, text: &str, written: &str) -> bool {
+        let parts = search::type_path(Kind::Go, written).unwrap_or_default();
+        let [package, _] = parts.as_slice() else {
+            return false;
+        };
+        bound(&search::imports(Kind::Go, text), package).is_some_and(|path| {
+            search::module_files(Kind::Go, &self.root, &self.files, file, &path).is_empty()
+        })
+    }
+
     fn scope(&self, here: &Path, first: Option<&String>) -> Result<(String, usize), String> {
         if let Some(scope) = self.script_scope(here, first.map(String::as_str)) {
             return Ok(scope);

@@ -249,7 +249,10 @@ local or parameter named like an import or a field, and declaration-shaped lines
 a comment. `go/rival/` adds `:=` redeclaring `err` and a `var`, method values and expressions, an
 `if` header and a closure re-declaring a local, a promoted method and one an embedding type
 overrides, an interface method, a function-typed field and a generic method, and its `twin`
-package imported plainly and under an alias. `csharp/src/Shop/Tea/` adds a partial class over
+package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
+`GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
+package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the
+project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
 `Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
@@ -527,7 +530,10 @@ field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayNam
 a type outside the project, a chain off a call that is no getter (a picker of the explicit
 getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
-parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/arity/`
+parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
+(#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
+annotation with arguments the rules cannot read (a `Ledger` namesake must not be jumped to),
+and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
 text block, and a Kotlin extension called through its file class (`LoudKt.holler`);
