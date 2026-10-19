@@ -179,13 +179,10 @@ impl App {
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed) = (0, None);
-        let ticked = |f: &&git::ReviewFile| {
-            dir > 0 && self.ticked(&f.path) && f.is_stop(&self.root, self.diagrams.on())
-        };
         let ahead: Vec<_> = self
             .ahead(&r, dir)
             .into_iter()
-            .filter(|f| !ticked(f))
+            .filter(|f| !self.passed_over(f, dir))
             .collect();
         for f in ahead {
             if !f.is_stop(&self.root, self.diagrams.on()) {
@@ -444,6 +441,14 @@ impl App {
         self.viewed.get(rel) == Some(&self.disk_hash(rel))
     }
 
+    fn passed_over(&self, f: &git::ReviewFile, dir: isize) -> bool {
+        let earlier_round = || self.ticked_at_open.get(&f.path) == self.viewed.get(&f.path);
+        !self.walk_every_file
+            && self.ticked(&f.path)
+            && f.is_stop(&self.root, self.diagrams.on())
+            && (dir > 0 || earlier_round())
+    }
+
     fn disk_hash(&self, rel: &Path) -> u64 {
         std::fs::read(self.root.join(rel)).map_or(0, |bytes| {
             let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
@@ -496,6 +501,10 @@ impl App {
             }
         }
         self.recheck_viewed();
+        self.ticked_at_open = self.viewed.clone();
+        let stop = |f: &&git::ReviewFile| f.is_stop(&self.root, self.diagrams.on());
+        self.walk_every_file = (self.review.as_ref())
+            .is_some_and(|r| r.files.iter().filter(stop).all(|f| self.ticked(&f.path)));
     }
 
     fn follow_branch(&mut self) -> bool {
