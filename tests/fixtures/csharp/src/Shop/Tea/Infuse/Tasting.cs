@@ -27,7 +27,7 @@ public class Tasting
         //  ^ d: none
         sb.Append(name)
             .Append("!");
-        //   ^ d: src/Shop/Tea/Infuse/Cup.cs:16; want none (#1134)
+        //   ^ d: none
         var cups = new List<Cup>();
         cups.Add(new Mug());
         //   ^ d: none
@@ -60,7 +60,7 @@ public class Tasting
         return brewer
             .Build()
             .Sip();
-        //   ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48; want src/Shop/Tea/Infuse/Cup.cs:14 (#1135)
+        //   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
     }
 
     public int Loop(List<Mug> mugs)
@@ -129,5 +129,17 @@ public class Tasting
         return text.Length + glass.Pour(1) + new Mug().Count;
         //                         ^ d: src/Shop/Tea/Infuse/Cup.cs:56
         //                                       ^ d: picker src/Shop/Tea/Infuse/Tasting.cs:13, src/Shop/Tea/Infuse/Cup.cs:23; want src/Shop/Tea/Infuse/Cup.cs:23 (#1137)
+    }
+
+    public int Beyond(string name, Brewer brewer)
+    {
+        var told = new StringBuilder().Append(name).Append("!");
+        //                                          ^ d: none
+        brewer.Build()
+            // a note between the links
+            .Sip();
+        //   ^ d: src/Shop/Tea/Infuse/Cup.cs:14
+        return new List<Cup>().Find(c => true).Sip() + told.Length;
+        //                                     ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48
     }
 }

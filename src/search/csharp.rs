@@ -868,6 +868,71 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
     None
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct CsSteps {
+    pub new: Option<String>,
+    pub parts: Vec<(String, bool)>,
+}
+
+pub fn cs_receiver<S: AsRef<str>>(lines: &[S], at: usize, start: usize) -> Option<String> {
+    let mut joined = uncommented(Kind::CSharp, lines.get(at)?.as_ref().get(..start)?)
+        .trim()
+        .to_owned();
+    let mut top = at;
+    while joined.starts_with('.') && top > 0 && at - top < 40 {
+        top -= 1;
+        let above = uncommented(Kind::CSharp, lines.get(top)?.as_ref());
+        joined.insert_str(0, above.trim());
+    }
+    let r = joined.strip_suffix('.')?;
+    Some(r.strip_suffix(['?', '!']).unwrap_or(r).to_owned())
+}
+
+pub fn cs_steps(expr: &str) -> Option<CsSteps> {
+    let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@';
+    let mut s = expr.trim_end();
+    let mut parts: Vec<(String, bool)> = Vec::new();
+    loop {
+        let call = s.ends_with(')');
+        if call {
+            let open = code(Kind::CSharp, s)
+                .filter(|(_, c)| *c == b'(')
+                .map(|(i, _)| i)
+                .find(|&i| close_of(Kind::CSharp, s, i) == Some(s.len()))?;
+            s = s.get(..open)?.trim_end();
+        }
+        let start = s
+            .char_indices()
+            .rev()
+            .find(|&(_, c)| !ident(c))
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        let name = s.get(start..)?.trim_start_matches('@');
+        if name.is_empty() || name.starts_with(|c: char| c.is_ascii_digit()) || parts.len() > 8 {
+            return None;
+        }
+        parts.insert(0, (name.to_owned(), call));
+        let head = s.get(..start)?.trim_end();
+        if let Some(h) = head.strip_suffix('.') {
+            let h = h.trim_end();
+            s = h.strip_suffix(['?', '!']).unwrap_or(h);
+            continue;
+        }
+        let new = head
+            .strip_suffix("new")
+            .is_some_and(|r| !r.ends_with(|c: char| ident(c) || c == '.'));
+        if !new {
+            return Some(CsSteps { new: None, parts });
+        }
+        let ctor = parts.iter().position(|(_, call)| *call)?;
+        let rest = parts.split_off(ctor + 1);
+        let written: Vec<String> = parts.into_iter().map(|(n, _)| n).collect();
+        return Some(CsSteps {
+            new: Some(written.join(".")),
+            parts: rest,
+        });
+    }
+}
+
 pub fn cs_extended(line: &str) -> Option<String> {
     static THIS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"\(\s*this\s+({CS_TYPE})\s+@?\w+")).expect("the regex is a literal")

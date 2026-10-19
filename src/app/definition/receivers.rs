@@ -178,7 +178,10 @@ impl App {
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
                 Some(self.cs_typed(&a.here, word, chain))
             }
-            true if chain.is_empty() => self.cs_constructed(&a.here, word, &a.before).map(Ok),
+            true if chain.is_empty() => self
+                .cs_constructed(&a.here, word, &a.before)
+                .or_else(|| self.cs_call_result(&a.here, word, a.range.start))
+                .map(Ok),
             true => None,
         };
         match answer {
