@@ -7490,7 +7490,7 @@ ts0060	ok	jump	19.99
 ts0061	ok	jump	80.41
 ts0062	pick-hit	picker	131.60
 ts0063	no-answer	picker	90.12
-ts0064	no-answer	jump	88.82
+ts0064	no-answer	stay	88.82
 ts0065	ok	jump	21.48
 ts0066	ok	jump	22.03
 ts0067	no-answer	picker	44.28
@@ -7679,7 +7679,7 @@ ts0249	on-decl	stay	87.54
 ts0250	no-answer	picker	44.34
 ts0251	no-answer	picker	53.93
 ts0252	ok	jump	23.26
-ts0253	no-answer	picker	124.19
+ts0253	no-answer	stay	124.19
 ts0254	on-decl	stay	60.48
 ts0255	skip	picker	22.57
 ts0256	no-answer	jump	21.45

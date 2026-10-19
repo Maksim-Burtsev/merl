@@ -115,6 +115,11 @@ impl App {
                 if taken == "*" {
                     exports = self.star_exports(&files);
                 }
+                if let ("default", [head]) = (taken.as_str(), chain)
+                    && let Some(found) = self.default_literal_member(&files, head, word)
+                {
+                    return Some(found);
+                }
                 let Some(inside) =
                     self.ts_inside(word, chain, taken, &files, exports.as_ref(), &mut instance)
                 else {
@@ -234,6 +239,40 @@ impl App {
             let own = files == [here] && !target[n..].first().is_some_and(declares);
             (!files.is_empty() && !own).then(|| (files, target[n..].to_vec()))
         })
+    }
+
+    fn default_literal_member(
+        &self,
+        files: &[PathBuf],
+        head: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let [file] = files else {
+            return None;
+        };
+        let text = self.text_of(file)?;
+        let (at, name) = text
+            .lines()
+            .enumerate()
+            .find_map(|(i, l)| Some((i + 1, search::default_name(l)?)))?;
+        let [b] = &search::bindings(Kind::TsJs, &text, at, &name)[..] else {
+            return None;
+        };
+        let search::Value::Type(written) = &b.value else {
+            return None;
+        };
+        let (line, literal) = search::ts_literal_member(&text, b.line1, written, word)?;
+        let hit = Hit {
+            text: text.lines().nth(line - 1)?.to_owned(),
+            path: file.clone(),
+            line1: line,
+            byte_col: None,
+            deleted: None,
+        };
+        Some(vec![Candidate {
+            hit,
+            reason: Reason::Receiver(format!("{head}: {literal}")),
+        }])
     }
 
     fn ts_inside(
