@@ -219,3 +219,24 @@ func annotated() -> Roast {
     //                  ^ d: Sources/Shop/Outcomes.swift:144
     return roast
 }
+
+// An unqualified call inside a type reaches a method through the implicit `self` (#1054).
+class Bench {
+    func stored(_ crate: Crate) -> Crate { crate }
+}
+
+final class Crate {
+    func unload() {}
+}
+
+final class Pallet {
+    func unload() {}
+}
+
+final class Dock: Bench {
+    func work() {
+        let crate = stored(Crate())
+        crate.unload()
+        //    ^ d: Sources/Shop/Outcomes.swift:229
+    }
+}

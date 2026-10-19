@@ -298,8 +298,20 @@ impl App {
                         })
                 })
                 .collect();
-            let [decl] = <[Hit; 1]>::try_from(funcs).ok()?;
-            (decl, None)
+            match <[Hit; 1]>::try_from(funcs) {
+                Ok([decl]) => (decl, None),
+                Err(funcs) if funcs.is_empty() => {
+                    let lines: Vec<&str> = text.lines().collect();
+                    let literal = search::literal_lines(Kind::Swift, text);
+                    let at = search::swift_enclosing_type(&lines, &literal, line1)?;
+                    let own = search::swift_type_header(lines[at - 1])?.name;
+                    let ty = self.swift_type(here, &own)?;
+                    let rows = self.swift_member_rows(here, &ty, method)?;
+                    let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
+                    (decl, Some(ty.name))
+                }
+                Err(_) => return None,
+            }
         } else {
             let chain =
                 self.swift_chain(here, file, text, line1, receiver, hops.checked_sub(1)?)?;
