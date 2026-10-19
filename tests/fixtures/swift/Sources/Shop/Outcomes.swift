@@ -154,3 +154,113 @@ func roasted() -> Int {
     Roast.dark.level
     //         ^ d: Sources/Shop/Outcomes.swift:146
 }
+
+// A `let` binds its name only after its `=`: the name on the right is the one outside (#1047).
+func warden(_ n: Int) -> Int { n }
+
+final class Ward {
+    let sentries: [Int] = []
+
+    func patrol() -> Int {
+        let sentries = sentries.count
+        //             ^ d: Sources/Shop/Outcomes.swift:162
+        let warden = warden(sentries)
+        //           ^ d: Sources/Shop/Outcomes.swift:159
+        //                  ^ d: Sources/Shop/Outcomes.swift:165
+        return warden
+        //     ^ d: Sources/Shop/Outcomes.swift:167
+    }
+}
+
+// An implicit `.x` reads the type written next to it: a closure parameter's, the declared type of
+// a returning func or property, an annotation; a type from outside the project answers none (#1069).
+final class Gate {
+    enum ResponseDisposition {
+        case allow, cancel
+    }
+}
+
+func respond(completion: @escaping @Sendable (URLSession.ResponseDisposition) -> Void) {
+    completion(.allow)
+    //          ^ d: none
+}
+
+func disposed() -> URLSession.ResponseDisposition {
+    let pick = { () -> Gate.ResponseDisposition in
+        return .allow
+        //      ^ d: Sources/Shop/Outcomes.swift:179
+    }
+    _ = pick
+    return .cancel
+    //      ^ d: none
+}
+
+func gated() -> Gate.ResponseDisposition {
+    return .cancel
+    //      ^ d: Sources/Shop/Outcomes.swift:179
+}
+
+extension Gate.ResponseDisposition {
+    var outward: URLSession.ResponseDisposition {
+        switch self {
+        case .allow: .allow
+        //            ^ d: none
+        case .cancel: .cancel
+        //    ^ d: Sources/Shop/Outcomes.swift:179
+        }
+    }
+}
+
+func annotated() -> Roast {
+    let posted: URLSession.ResponseDisposition = .cancel
+    //                                            ^ d: none
+    _ = posted
+    let roast: Roast = .dark
+    //                  ^ d: Sources/Shop/Outcomes.swift:144
+    return roast
+}
+
+// An unqualified call inside a type reaches a method through the implicit `self` (#1054).
+class Bench {
+    func stored(_ crate: Crate) -> Crate { crate }
+}
+
+final class Crate {
+    func unload() {}
+}
+
+final class Pallet {
+    func unload() {}
+}
+
+final class Dock: Bench {
+    func work() {
+        let crate = stored(Crate())
+        crate.unload()
+        //    ^ d: Sources/Shop/Outcomes.swift:229
+    }
+}
+
+// An element taken by index, and a type from outside the project as the receiver of a static
+// member, answer from the project's extensions or none (#1068).
+struct Label {
+    var stringValue: String
+    static var isCancelled: Bool { false }
+}
+
+extension DispatchQueue {
+    static let shopQueue = DispatchQueue(label: "shop")
+}
+
+func indexed(_ keys: [any CodingKey], _ ledgers: [Logbook]) -> Bool {
+    let end = keys[0]
+    _ = end.stringValue
+    //      ^ d: none
+    let first = ledgers[0]
+    _ = first.isEmpty
+    //        ^ d: Sources/Shop/Outcomes.swift:29
+    _ = DispatchQueue.shopQueue
+    //                ^ d: Sources/Shop/Outcomes.swift:252
+    return Task.isCancelled
+    //          ^ d: none
+}
