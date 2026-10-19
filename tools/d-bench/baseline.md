@@ -11,7 +11,7 @@ The swift row with #1047: over `06a28815`, 2026-10-19, release build, `vm.loadav
 The go row with #1072's chains of calls: over `72304a83`, 2026-10-20, release build, `vm.loadavg` { 5.32 4.55 4.67 } before the run, { 6.51 4.92 4.79 } after.
 The go row with #1116's element of a named slice type: over `278338c8`, 2026-10-20, release build, `vm.loadavg` { 16.44 16.00 15.35 } before the run, { 32.60 21.85 17.71 } after (the times read high under that load).
 The `not scored, jumps elsewhere` column (#1092): every row but julia's played over `a7e01566`, 2026-10-20, release build, `vm.loadavg` { 10.33 15.89 16.80 } before the run; only the verdicts of the rows not scored moved, the times and the scored rows are as they were. julia's 0 is unmeasured.
-The ruby row with the fixes of #1093 and #1114: over `1db99ebe`, 2026-10-20, release build, `vm.loadavg` { 12.75 11.33 13.33 } before the run.
+The ruby row with the fixes of #1093 and #1114: `2594316e`, 2026-10-20, release build, `vm.loadavg` { 7.36 8.57 7.73 } before the run, { 11.24 9.40 8.07 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -27,7 +27,7 @@ The ruby row with the fixes of #1093 and #1114: over `1db99ebe`, 2026-10-20, rel
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 61 (72%) | 12 (14%) | 0 (0%) | 12 (14%) | 130 | 1 | 20.9 | 37.7 |
-| ruby (mastodon) | 140 | 126 (90%) | 13 (9%) | 0 (0%) | 1 (1%) | 179 | 72 | 72.0 | 638.9 |
+| ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 2 | 66.3 | 382.6 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 22.4 | 88.3 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
