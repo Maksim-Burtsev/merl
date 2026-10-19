@@ -37,3 +37,15 @@ impl Spool {
         3
     }
 }
+
+pub struct Bale;
+
+impl Bale {
+    pub fn new() -> Bale {
+        Bale
+    }
+
+    pub fn wind(&self) -> u32 {
+        4
+    }
+}

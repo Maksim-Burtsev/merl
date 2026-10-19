@@ -1,6 +1,8 @@
 use std::sync::LazyLock;
 
-use super::{App, Hit, InCrate, Kind, MacroUse, Path, Regex, Typed, declares_mod, search};
+use super::{
+    App, CrateSrc, Hit, InCrate, Kind, MacroUse, Path, Regex, Typed, declares_mod, search,
+};
 
 impl App {
     pub(super) fn rust_used_type(
@@ -42,9 +44,18 @@ impl App {
             Some((root, rest)) if root != "self" => (root.as_str(), rest),
             _ => return None,
         };
-        let (krate, module) = match root {
-            "crate" | "super" | "self" => self.rust_own_crate(file, root, rest)?,
-            _ => (self.workspace_crate(root)?, Vec::new()),
+        let (krate, module, rest) = match root {
+            "crate" | "super" | "self" => {
+                let (krate, module) = self.rust_own_crate(file, root, rest)?;
+                (krate, module, rest)
+            }
+            _ => {
+                let krate = self.workspace_crate(root)?;
+                match self.rust_crate_reexported(&krate, rest) {
+                    Some(inner) => (inner, Vec::new(), rest.get(1..)?),
+                    None => (krate, Vec::new(), rest),
+                }
+            }
         };
         let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
         let InCrate {
@@ -66,5 +77,26 @@ impl App {
             path: hit.path,
             line: hit.line1,
         })
+    }
+
+    fn rust_crate_reexported(&self, krate: &CrateSrc, rest: &[String]) -> Option<CrateSrc> {
+        let [alias, _, ..] = rest else {
+            return None;
+        };
+        let lib = krate.src.join("lib.rs");
+        if !krate.files.contains(&lib) {
+            return None;
+        }
+        let text = self.text_of(&lib)?;
+        let re = Regex::new(&format!(
+            r"(?m)^\s*pub\s+(?:extern\s+crate|use)\s+(?:::)?(\w+)\s+as\s+{}\s*;",
+            regex::escape(alias)
+        ))
+        .ok()?;
+        let target = re.captures(&text)?[1].to_owned();
+        if matches!(target.as_str(), "crate" | "self" | "super") || declares_mod(&text, &target) {
+            return None;
+        }
+        self.workspace_crate(&target)
     }
 }
