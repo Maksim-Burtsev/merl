@@ -443,7 +443,11 @@ impl App {
                 let base = search::cs_bases(text, t.line).into_iter().next()?;
                 let ty = self.cs_resolve(file, text, t.line, &base)?;
                 let link = format!("base: {}", search::cs_type_name(&base)?);
-                return Some(Proven { ty, link, written: base });
+                return Some(Proven {
+                    ty,
+                    link,
+                    written: base,
+                });
             }
             _ => {}
         }
@@ -457,7 +461,11 @@ impl App {
         {
             let ty = self.cs_resolve(file, text, line1, &w)?;
             let link = format!("{name}: {}", search::cs_type_name(&w)?);
-            return Some(Proven { ty, link, written: w });
+            return Some(Proven {
+                ty,
+                link,
+                written: w,
+            });
         }
         let mut found: Option<Proven> = None;
         for b in bindings {
