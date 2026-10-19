@@ -34,8 +34,11 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let cut = self.truncated.get();
         let found = (|| {
-            let SwiftChain { written, links } =
-                self.swift_chain(here, here, text, self.line + 1, chain, 1)?;
+            let Some(SwiftChain { written, links }) =
+                self.swift_chain(here, here, text, self.line + 1, chain, 1)
+            else {
+                return self.swift_outside_static(here, text, word, chain);
+            };
             let label = links.join(" \u{2192} ");
             let Some(ty) = self.swift_type(here, &written) else {
                 let w = written.trim();
@@ -701,6 +704,59 @@ impl App {
         Some(
             rows?
                 .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        )
+    }
+}
+
+impl App {
+    fn swift_outside_static(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        chain: &[String],
+    ) -> Option<Vec<Candidate>> {
+        let [name] = chain else {
+            return None;
+        };
+        if !name.starts_with(char::is_uppercase)
+            || name == "Self"
+            || !word.starts_with(char::is_lowercase)
+            || matches!(word, "self" | "init")
+            || !search::bindings(Kind::Swift, text, self.line + 1, name).is_empty()
+        {
+            return None;
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let mut scope = search::swift_scope(&lines, &literal, self.line + 1).header_line1;
+        while scope > 0 {
+            if search::swift_generics(lines[scope - 1]).contains(name) {
+                return None;
+            }
+            scope = search::swift_scope(&lines, &literal, scope).header_line1;
+        }
+        let package = std::fs::read_to_string(self.root.join("Package.swift")).unwrap_or_default();
+        let module = self.root.file_name().is_some_and(|d| d == name.as_str())
+            || package.contains(&format!("\"{name}\""));
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        if module
+            || !self
+                .project_definitions(Kind::Swift, here, name, &pattern)
+                .iter()
+                .all(|h| search::swift_extension(&h.text))
+        {
+            return None;
+        }
+        let rows = self.swift_outside_rows(here, name, word)?;
+        let label = name.clone();
+        Some(
+            rows.into_iter()
                 .map(|hit| Candidate {
                     hit,
                     reason: Reason::Receiver(label.clone()),

@@ -917,6 +917,10 @@ pub enum SwiftGiven {
     Element(String),
 }
 pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
+    static INDEXED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\[\s*\d+\s*\]$")
+            .expect("the regex is a literal")
+    });
     let t = uncommented(Kind::Swift, line);
     let t = t.trim();
     let n = regex::escape(name);
@@ -950,6 +954,9 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
         rest
     };
     let value = split_top(Kind::Swift, rest, b',')[0].trim();
+    if let Some(c) = INDEXED.captures(value) {
+        return Some(SwiftGiven::Element(c[1].to_owned()));
+    }
     (!value.is_empty()).then(|| SwiftGiven::Value(value.to_owned()))
 }
 fn annotation_end(rest: &str) -> usize {

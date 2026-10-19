@@ -240,3 +240,27 @@ final class Dock: Bench {
         //    ^ d: Sources/Shop/Outcomes.swift:229
     }
 }
+
+// An element taken by index, and a type from outside the project as the receiver of a static
+// member, answer from the project's extensions or none (#1068).
+struct Label {
+    var stringValue: String
+    static var isCancelled: Bool { false }
+}
+
+extension DispatchQueue {
+    static let shopQueue = DispatchQueue(label: "shop")
+}
+
+func indexed(_ keys: [any CodingKey], _ ledgers: [Logbook]) -> Bool {
+    let end = keys[0]
+    _ = end.stringValue
+    //      ^ d: none
+    let first = ledgers[0]
+    _ = first.isEmpty
+    //        ^ d: Sources/Shop/Outcomes.swift:29
+    _ = DispatchQueue.shopQueue
+    //                ^ d: Sources/Shop/Outcomes.swift:252
+    return Task.isCancelled
+    //          ^ d: none
+}
