@@ -105,7 +105,9 @@ pub fn ts_literal_member(
         .map(|l| l.trim())
         .collect();
     let header = uncommented(Kind::TsJs, &header.join("\n"));
-    let start = header.find(literal)?;
+    let start = header
+        .find(literal)
+        .or_else(|| header.replace('\n', " ").find(literal))?;
     let found = from + header.get(..start + offset)?.matches('\n').count() + 1;
     Some((
         found,

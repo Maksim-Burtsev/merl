@@ -309,15 +309,15 @@ impl App {
         chain: &[String],
         head: Option<&search::CallHead>,
     ) -> Option<Typed> {
-        if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
+        if !matches!(kind, Kind::Python | Kind::TsJs) || chain.first().is_some_and(|f| f == "super")
+        {
             return None;
         }
         let ProvenType { ty, .. } = self.receiver(kind, here, chain, head).ok()?;
-        (self.python_ancestry(&ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
+        (self.ancestry(kind, &ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
     }
 
-    fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
-        let kind = Kind::Python;
+    fn ancestry(&self, kind: Kind, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
         let imports = search::imports(kind, &text);
         let mut outside = false;
@@ -329,8 +329,7 @@ impl App {
             }
             if let Some(base) = self.type_decl(kind, &ty.path, &base) {
                 outside |= base.path.is_absolute()
-                    || self.python_ancestry(&base, depth + 1)?
-                        == Ancestry::ReachesOutsideTheProject;
+                    || self.ancestry(kind, &base, depth + 1)? == Ancestry::ReachesOutsideTheProject;
                 continue;
             }
             let path = bound(&imports, &parts[0])?;
