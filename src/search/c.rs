@@ -367,7 +367,7 @@ pub(super) fn c_head_start(code: &str, open: usize) -> usize {
     }
     0
 }
-fn bracket_contents_blanked(s: &str) -> String {
+pub(super) fn bracket_contents_blanked(s: &str) -> String {
     let mut depth = 0usize;
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -759,6 +759,7 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
                 code.get(inner.clone())
                     .and_then(|p| parameter_at(p, name))
                     .map(|j| inner.start + j)
+                    .or_else(|| super::cpp::init_capture(&code, start..inner.start - 1, name))
             }
             Head::Control { parens } => {
                 let inner = start + parens.start + 1..start + parens.end - 1;
