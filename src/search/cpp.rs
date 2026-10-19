@@ -2,8 +2,8 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use super::c::{
-    Head, c_code, c_head, c_head_start, c_innermost_open_brace, c_struct_head, c_words_on_line,
-    close_or_end, cpp_decl_start,
+    Head, bracket_contents_blanked, c_code, c_head, c_head_start, c_innermost_open_brace,
+    c_struct_head, c_words_on_line, close_or_end, cpp_decl_start,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -578,6 +578,25 @@ fn first_arg(s: &str) -> Option<String> {
     None
 }
 
+pub(super) fn init_capture(code: &str, span: std::ops::Range<usize>, name: &str) -> Option<usize> {
+    let (base, head) = (span.start, code.get(span)?);
+    let close = head.trim_end().strip_suffix(']')?.len();
+    let open = bracket_contents_blanked(head).get(..close)?.rfind('[')?;
+    let list = head.get(open + 1..close)?;
+    let mut from = 0;
+    for entry in bracket_contents_blanked(list).split(',') {
+        let at = from;
+        from += entry.len() + 1;
+        let raw = list.get(at..at + entry.len())?;
+        let lead = raw.len() - raw.trim_start_matches([' ', '\t', '\n', '&']).len();
+        if (raw.get(lead..)?.strip_prefix(name))
+            .is_some_and(|r| r.trim_start().starts_with(['=', '{', '(']))
+        {
+            return Some(base + open + 1 + at + lead);
+        }
+    }
+    None
+}
 #[cfg(test)]
 mod tests {
     use super::*;

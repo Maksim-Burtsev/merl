@@ -278,6 +278,18 @@ the class inside an operator before a global namesake; a call inside a free oper
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
 
+The third corners of #1126 keep a tasting's names, `Cup`, `Mug` and `Stove` sharing `Sip` /
+`sip`. `csharp/src/Shop/Tea/Infuse/` calls `StringBuilder` and `List<T>` members named like the
+project's, a builder chained on one line and over lines, a call on a call's result and through a
+`using` alias, `foreach`, `is Mug cup` and deconstruction binding a name a field also has, `cup =
+cup.Refill()`, an inherited property, an interface default method, an extension method beside an
+instance namesake, a local function, a primary constructor whose parameter a method's own
+parameter hides, and declarations in a block comment, a raw interpolated string and `#if false`.
+`c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
+`std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
+`if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
+local, `using` and `typedef` aliases, `using namespace` in a function and a macro.
+
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
 a local hiding the imported `steep`, `global` and `nonlocal`, a comprehension variable named like
