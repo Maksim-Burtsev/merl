@@ -179,10 +179,11 @@ impl App {
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed) = (0, None);
+        let walk_all = self.every_stop_ticked(&r);
         let ahead: Vec<_> = self
             .ahead(&r, dir)
             .into_iter()
-            .filter(|f| !self.passed_over(f, dir))
+            .filter(|f| walk_all || !self.passed_over(f, dir))
             .collect();
         for f in ahead {
             if !f.is_stop(&self.root, self.diagrams.on()) {
@@ -429,6 +430,7 @@ impl App {
         for rel in rels {
             let hash = self.disk_hash(&rel);
             self.hidden.remove(&rel);
+            self.ticked_this_round.insert(rel.clone());
             self.viewed.insert(rel, hash);
             any = true;
         }
@@ -442,11 +444,15 @@ impl App {
     }
 
     fn passed_over(&self, f: &git::ReviewFile, dir: isize) -> bool {
-        let earlier_round = || self.ticked_at_open.get(&f.path) == self.viewed.get(&f.path);
-        !self.walk_every_file
-            && self.ticked(&f.path)
+        (dir > 0 || !self.ticked_this_round.contains(&f.path))
             && f.is_stop(&self.root, self.diagrams.on())
-            && (dir > 0 || earlier_round())
+            && self.ticked(&f.path)
+    }
+
+    fn every_stop_ticked(&self, r: &git::Review) -> bool {
+        (r.files.iter())
+            .filter(|f| f.is_stop(&self.root, self.diagrams.on()))
+            .all(|f| self.ticked(&f.path))
     }
 
     fn disk_hash(&self, rel: &Path) -> u64 {
@@ -501,10 +507,6 @@ impl App {
             }
         }
         self.recheck_viewed();
-        self.ticked_at_open = self.viewed.clone();
-        let stop = |f: &&git::ReviewFile| f.is_stop(&self.root, self.diagrams.on());
-        self.walk_every_file = (self.review.as_ref())
-            .is_some_and(|r| r.files.iter().filter(stop).all(|f| self.ticked(&f.path)));
     }
 
     fn follow_branch(&mut self) -> bool {
@@ -616,6 +618,7 @@ impl App {
         if switched {
             self.last_hunk = None;
             self.seen.clear();
+            self.ticked_this_round.clear();
         }
         let closed = if switched { self.session.take() } else { None };
         let reopen = closed.is_some();
