@@ -368,6 +368,10 @@ fn a_member_access_reads_as_a_plain_dot() {
         "$a foo()",
         "a PHP dot concatenates"
     );
+    let java = "IndexSpecs.<Post, Map<String, ?>>single(x)";
+    assert_eq!(plain(Kind::Jvm, java, 33), "IndexSpecs.single(x)");
+    assert_eq!(plain(Kind::Jvm, "if (a < b >c)", 11), "if (a < b >c)");
+    assert_eq!(plain(Kind::Jvm, "f(x->c)", 5), "f(x->c)");
 }
 
 #[test]

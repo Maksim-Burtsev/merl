@@ -515,7 +515,9 @@ declaration-shaped lines in a KDoc, a raw string and a string template.
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
 field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayName()` that returns
 a type outside the project, a chain off a call that is no getter (a picker of the explicit
-getter and the Lombok fields) and a getter returning a type parameter.
+getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
+calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
+parameters, beside an `Other.single` that a read by name would offer.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
