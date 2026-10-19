@@ -154,7 +154,10 @@ impl App {
             .map(|l| l.len() + 1)
             .sum::<usize>()
             + range.start;
-        let captured = lead.ends_with('{') && !lead.ends_with("{{") && tail.starts_with(['}', ':']);
+        let captured = kind == Kind::Rust
+            && lead.ends_with('{')
+            && !lead.ends_with("{{")
+            && tail.starts_with(['}', ':']);
         if !captured
             && search::in_string(kind, &text, at)
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)

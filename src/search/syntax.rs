@@ -122,11 +122,25 @@ pub fn hide_c_disabled(text: &str, out: &mut [bool]) {
     }
 }
 pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
-    kind == Kind::Rust && scan(kind, text, at).at_in_rust_string
+    match kind {
+        Kind::Rust => scan(kind, text, at).at_in_rust_string,
+        Kind::Php => {
+            let lead = text.get(..at).and_then(|t| t.rsplit('\n').next());
+            lead.is_some_and(|l| !php_interpolated(l)) && scan(kind, text, at).at_in_heredoc
+        }
+        _ => false,
+    }
+}
+fn php_interpolated(lead: &str) -> bool {
+    let open = lead.rfind("{$").max(lead.rfind("${"));
+    (lead.ends_with('$') && !lead.ends_with("\\$"))
+        || lead.ends_with("->")
+        || open.is_some_and(|o| lead.get(o..).is_some_and(|l| !l.contains('}')))
 }
 struct Scan {
     lines_in_literal: Vec<bool>,
     at_in_rust_string: bool,
+    at_in_heredoc: bool,
 }
 struct Heredoc {
     label: Vec<u8>,
@@ -200,12 +214,14 @@ struct Scanner<'a> {
     heredoc: Option<Heredoc>,
     ruby_heredocs_from_next_line: Vec<Heredoc>,
     template_substitution_braces: Vec<usize>,
-    rust_string: RustStringAt,
+    cursor: Cursor,
 }
-struct RustStringAt {
+struct Cursor {
     at: usize,
-    start: Option<usize>,
-    inside: bool,
+    line: usize,
+    rust_string_start: Option<usize>,
+    in_rust_string: bool,
+    in_heredoc: bool,
 }
 fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     let mut s = Scanner {
@@ -224,21 +240,26 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         heredoc: None,
         ruby_heredocs_from_next_line: Vec::new(),
         template_substitution_braces: Vec::new(),
-        rust_string: RustStringAt {
+        cursor: Cursor {
             at,
-            start: None,
-            inside: false,
+            line: text
+                .get(..at)
+                .map_or(usize::MAX, |t| t.bytes().filter(|&c| c == b'\n').count()),
+            rust_string_start: None,
+            in_rust_string: false,
+            in_heredoc: false,
         },
     };
     while s.i < s.b.len() && s.step() {
         s.i += 1;
     }
-    if let Some(from) = s.rust_string.start {
-        s.rust_string.inside |= from < at && at <= s.b.len();
+    if let Some(from) = s.cursor.rust_string_start {
+        s.cursor.in_rust_string |= from < at && at <= s.b.len();
     }
     Scan {
         lines_in_literal: s.out,
-        at_in_rust_string: s.rust_string.inside,
+        at_in_rust_string: s.cursor.in_rust_string,
+        at_in_heredoc: s.cursor.in_heredoc,
     }
 }
 impl<'a> Scanner<'a> {
@@ -354,6 +375,7 @@ impl<'a> Scanner<'a> {
             }
         }
         self.out.push(self.literal_closer.is_some());
+        self.cursor.in_heredoc |= self.heredoc.is_some() && self.out.len() - 1 == self.cursor.line;
     }
 
     fn in_literal(&mut self, end: Cow<'a, [u8]>, c: u8) {
@@ -396,8 +418,8 @@ impl<'a> Scanner<'a> {
             self.i += 1;
         } else if closes {
             self.in_verbatim_string = false;
-            if let Some(from) = self.rust_string.start.take() {
-                self.rust_string.inside |= from < self.rust_string.at && self.rust_string.at < i;
+            if let Some(from) = self.cursor.rust_string_start.take() {
+                self.cursor.in_rust_string |= from < self.cursor.at && self.cursor.at < i;
             }
             self.i += if bracket { level + 1 } else { skip };
             return;
@@ -523,7 +545,7 @@ impl<'a> Scanner<'a> {
             (
                 self.literal_closer,
                 self.in_raw_string,
-                self.rust_string.start,
+                self.cursor.rust_string_start,
             ) = (Some(b"\"".into()), false, Some(i));
         } else if kind == Kind::Cmake && c == b'"' {
             self.literal_closer = Some(b"\"".into());
@@ -537,7 +559,7 @@ impl<'a> Scanner<'a> {
             (
                 self.literal_closer,
                 self.in_raw_string,
-                self.rust_string.start,
+                self.cursor.rust_string_start,
             ) = (Some(end.into()), true, Some(i));
             self.i += hashes + 1;
         } else if kind == Kind::Rust && c == b'\'' {
