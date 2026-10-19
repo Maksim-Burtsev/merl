@@ -117,7 +117,7 @@ key o
 wait Files (
 type app/repos.py
 key Enter
-wait app/repos.py
+wait app/repos.py  1:1  [code]  hunk 0/1  file 2/8
 key /
 type orders.clear
 key Enter
