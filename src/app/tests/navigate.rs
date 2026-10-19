@@ -1670,6 +1670,36 @@ fn on_a_prototype_or_a_definition_its_one_counterpart_is_jumped_to() {
 }
 
 #[test]
+fn a_type_defined_in_another_source_file_is_no_namesake_of_this_file_s() {
+    let (dir, mut a) = project_app(
+        "cpp-file-types",
+        &[
+            (
+                "a.cc",
+                "struct FileState {\n  int n;\n};\nint use(FileState* s) { return s->n; }\nenum Order { SEQUENTIAL, RANDOM };\nint pick() { return RANDOM; }\n",
+            ),
+            (
+                "b.cc",
+                "class FileState {\n  int Order;\n};\nenum Mode { RANDOM, FIXED };\n",
+            ),
+            ("c.cc", "struct Hidden;\nint size_of(Hidden* h);\n"),
+            ("d.cc", "struct Hidden {\n  int x;\n};\n"),
+            ("e.cc", "struct Hidden {\n  long y;\n};\n"),
+        ],
+    );
+    d_on(&mut a, "a.cc", "int use(FileState");
+    assert_eq!(shown(&mut a), jump("FileState: by name, 1 match", "a.cc:1"));
+    d_on(&mut a, "a.cc", "return RANDOM");
+    assert_eq!(shown(&mut a), jump("RANDOM: by name, 1 match", "a.cc:5"));
+    d_on(&mut a, "c.cc", "size_of(Hidden");
+    assert!(
+        !matches!(shown(&mut a), Shown::Jump(_, at) if at == "c.cc:1"),
+        "a forward declaration defines no type of this file's own"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn c_includes_narrow_no_further_than_they_should() {
     let (dir, mut a) = project_app(
         "c-includes-review",

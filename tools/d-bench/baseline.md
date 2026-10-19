@@ -6,7 +6,7 @@ The swift row (#1053, #1052, #1055, branch `b1019/swift`): 2026-10-19, release b
 The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, release build, `vm.loadavg` { 8.08 7.25 6.44 } before the run, { 6.75 6.94 6.39 } after.
 The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
 The ts, js, vue, svelte and astro rows: merl at `168369f0` with the `d` fix of #1078 on branch `b1019/jsts`, 2026-10-19, release build, `vm.loadavg` { 5.60 7.28 6.96 } before the run and after.
-The c, cpp and objc rows: merl at `290bfdc6` with the `d` fixes of #1049 and #1050 on branch `b1019/cpp`, 2026-10-19, release build, `vm.loadavg` { 5.70 5.94 6.01 } before the run.
+The c, cpp and objc rows: merl at `290bfdc6` with the `d` fixes of #1049, #1050 and #1051 on branch `b1019/cpp`, 2026-10-19, release build, `vm.loadavg` { 4.90 5.40 5.85 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -15,15 +15,15 @@ The c, cpp and objc rows: merl at `290bfdc6` with the `d` fixes of #1049 and #10
 | js (eslint) | 147 | 119 (81%) | 23 (16%) | 0 (0%) | 5 (3%) | 123 | 45.9 | 208.8 |
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
 | rust (ripgrep) | 231 | 203 (88%) | 24 (10%) | 0 (0%) | 4 (2%) | 69 | 6.5 | 77.2 |
-| c (redis) | 250 | 238 (95%) | 12 (5%) | 0 (0%) | 0 (0%) | 20 | 25.6 | 38.8 |
-| cpp (leveldb) | 232 | 194 (84%) | 37 (16%) | 0 (0%) | 1 (0%) | 68 | 23.1 | 77.7 |
+| c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 26.4 | 36.4 |
+| cpp (leveldb) | 232 | 197 (85%) | 34 (15%) | 0 (0%) | 1 (0%) | 68 | 18.8 | 66.9 |
 | php (koel) | 104 | 99 (95%) | 5 (5%) | 0 (0%) | 0 (0%) | 196 | 13.8 | 25.9 |
 | swift (Alamofire) | 154 | 125 (81%) | 28 (18%) | 0 (0%) | 1 (1%) | 116 | 18.4 | 40.2 |
 | java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |
 | kotlin (nowinandroid) | 34 | 34 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 46 | 26.5 | 55.9 |
 | csharp (eShop) | 27 | 25 (93%) | 2 (7%) | 0 (0%) | 0 (0%) | 53 | 18.0 | 28.9 |
 | ruby (mastodon) | 28 | 22 (79%) | 5 (18%) | 0 (0%) | 1 (4%) | 52 | 64.6 | 141.3 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 24.9 | 117.5 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 23.0 | 101.4 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 73.4 | 164.6 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 59.0 | 91.8 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 7.6 | 9.2 |
