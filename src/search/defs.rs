@@ -5,8 +5,9 @@ use super::php::{
 use super::{
     ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
     c_body_head, c_class_around, c_declares_where, c_enum_head, c_enum_line, c_enumerators,
-    c_member_decl, c_mods, close_of, cmake_patterns, code, component, cs_generics, cs_mods,
-    cs_type, css_declares, css_patterns, dart_declares, dart_narrow, dart_patterns, erlang_clause,
+    c_member_decl, c_mods, close_of, cmake_patterns, code, component, cs_generics,
+    cs_header_parameter_line, cs_in_record_header, cs_mods, cs_record_parameter_patterns, cs_type,
+    css_declares, css_patterns, dart_declares, dart_narrow, dart_patterns, erlang_clause,
     erlang_head, erlang_patterns, gdscript_declares, gdscript_patterns, groovy_declares,
     groovy_patterns, haskell_declares, haskell_patterns, indent, julia_declares, julia_narrow,
     julia_patterns, jvm_mods, jvm_return_type, lisp_declares, lisp_patterns, literal_lines,
@@ -110,6 +111,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             let create = sql_create!();
             vec![
                 format!(r#"{create}(?:{SQL_NAME_PART}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
+                format!(
+                    r#"(?i)^\s*ALTER\s+(?:MATERIALIZED\s+)?(?:TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TYPE|SCHEMA|SEQUENCE|DOMAIN)(?:\s+IF\s+EXISTS)?(?:\s+ONLY)?\s+{SQL_NAME_PART}(?:\.{SQL_NAME_PART})?(?:\s*\([^)]*\))?\s+RENAME\s+TO\s+(?:"{w}"|`{w}`|{w}\b)"#
+                ),
                 sql_cte(word),
             ]
         }
@@ -290,6 +294,7 @@ fn c_patterns(word: &str) -> Vec<String> {
 fn csharp_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     let (mods, ty, access) = (cs_mods!(), cs_type!(), cs_mods!(access));
+    let [record_head, record_header] = cs_record_parameter_patterns(&w);
     vec![
         format!(
             r"{mods}(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+{w}\s*(?:<[^>]*>)?\s*(?:[:{{;(]|where\b|$)"
@@ -301,6 +306,8 @@ fn csharp_patterns(word: &str) -> Vec<String> {
             r"{access}{w}\s*\((?:[^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?|[^;{{}}]*\)\s*(?::\s*(?:base|this)\b[^{{]*)?\{{.*\}}|[^;)]*)\s*$"
         ),
         format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
+        record_head,
+        record_header,
     ]
 }
 
@@ -985,6 +992,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
             }
         }
         Kind::Jvm if shaped_as_record_component(line_text) => in_record_header(lines(), line),
+        Kind::CSharp if cs_header_parameter_line(line_text) => cs_in_record_header(lines(), line),
         Kind::Jvm => groovy_declares(path, word, line, line_text, lines).unwrap_or(true),
         Kind::C => c_declares_where(line, line_text, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,

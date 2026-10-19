@@ -40,3 +40,9 @@ func (h *Handler) DeleteAccount(id int, folder *Folder) {
 	folder.Parent.Parent.Parent.Parent.Parent.Root()
 	folder.Parent.Parent.Parent.Parent.Parent.Parent.Root()
 }
+
+func (h *Handler) Chained(id int) {
+	h.uow.
+		Audit.DeleteUser(id)
+	//     ^ d: repos.go:21
+}

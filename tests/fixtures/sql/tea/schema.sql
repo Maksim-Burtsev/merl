@@ -48,3 +48,10 @@ INSERT INTO teapots (leaves) VALUES ('C:\\');
 CREATE TABLE trays (id integer);
 INSERT INTO teapots (leaves) VALUES (E'it\'s');
 CREATE TABLE saucers (id integer);
+
+-- A table renamed declares its new name; a column renamed declares nothing.
+ALTER TABLE saucers RENAME TO platters;
+ALTER TABLE IF EXISTS ONLY tea.trays RENAME COLUMN id TO rims;
+ALTER FUNCTION pour(integer) RENAME TO decant;
+-- A rename to a name some CREATE declares yields to it, as on master: which counts is #1064.
+ALTER TABLE cups RENAME TO trays;

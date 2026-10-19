@@ -304,15 +304,13 @@ impl App {
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
             let bare = !dotted && chain.is_empty();
-            let table = regex::Regex::new(&format!(
-                r"^\s*function\s+[\w.:]*[.:]{}\b",
-                regex::escape(word)
-            ));
-            let qualified =
-                |h: &Hit| h.path != a.here && table.as_ref().is_ok_and(|re| re.is_match(&h.text));
-            let narrow = bare && !hits.iter().any(qualified);
+            let narrow = bare && !lua_qualified_elsewhere(&a.here, word, &hits);
             hits.retain(|h| {
-                !narrow || h.path == a.here || !h.text.trim_start().starts_with("local ")
+                let t = h.text.trim_start();
+                !bare
+                    || h.path == a.here
+                    || !((narrow && t.starts_with("local "))
+                        || (t.starts_with(word.as_str()) && self.lua_key_elsewhere(h, word)))
             });
             let all = hits.len();
             let unseen = bare
@@ -340,6 +338,12 @@ impl App {
             Kind::Jvm => self.jvm_hits(a, hits),
             _ => hits,
         }
+    }
+
+    fn lua_key_elsewhere(&self, h: &Hit, word: &str) -> bool {
+        let start = h.text.len() - h.text.trim_start().len();
+        std::fs::read_to_string(self.root.join(&h.path))
+            .is_ok_and(|text| search::table_key(&text, h.line1, &(start..start + word.len())))
     }
 
     fn own_hit(&self, a: &Asked) -> Hit {
@@ -599,4 +603,13 @@ impl App {
             })
             .collect()
     }
+}
+
+fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> bool {
+    let table = regex::Regex::new(&format!(
+        r"^\s*function\s+[\w.:]*[.:]{}\b",
+        regex::escape(word)
+    ));
+    hits.iter()
+        .any(|h| h.path != here && table.as_ref().is_ok_and(|re| re.is_match(&h.text)))
 }

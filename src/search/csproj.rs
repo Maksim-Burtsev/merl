@@ -6,11 +6,14 @@ use regex::Regex;
 pub struct CsProjects {
     csproj_dirs: Vec<PathBuf>,
     compiled_against: Vec<PathBuf>,
+    included: Vec<PathBuf>,
 }
 
 impl CsProjects {
     pub fn sees(&self, path: &Path) -> bool {
-        deepest_holding(&self.csproj_dirs, path).is_none_or(|d| self.compiled_against.contains(d))
+        self.included.iter().any(|f| f == path)
+            || deepest_holding(&self.csproj_dirs, path)
+                .is_none_or(|d| self.compiled_against.contains(d))
     }
 }
 
@@ -23,11 +26,16 @@ pub fn cs_projects(
         Regex::new(r#"<ProjectReference\b[^>]*?\bInclude\s*=\s*"([^"]*)""#)
             .expect("the regex is a literal")
     });
-    static SOURCE_FROM_OUTSIDE_OR_SHARED: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| {
-            Regex::new(r"<Compile\b[^>]*\.\.|<Import\b[^>]*\.projitems")
-                .expect("the regex is a literal")
-        });
+    static SHARED_PROJECT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"<Import\b[^>]*\.projitems").expect("the regex is a literal")
+    });
+    static COMPILE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"<Compile\b[^>]*").expect("the regex is a literal")
+    });
+    static ONE_FILE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^<Compile\s+Include\s*=\s*"([^";]*)"(?:\s+Link\s*=\s*"[^"]*")?\s*/?$"#)
+            .expect("the regex is a literal")
+    });
     let manifests: Vec<&PathBuf> = files
         .iter()
         .filter(|f| f.extension().is_some_and(|e| e == "csproj"))
@@ -43,6 +51,7 @@ pub fn cs_projects(
     }
     let own = cs_own_project(files, here)?;
     let mut compiled_against = vec![own];
+    let mut included = Vec::new();
     let mut i = 0;
     while let Some(dir) = compiled_against.get(i).cloned() {
         i += 1;
@@ -60,10 +69,18 @@ pub fn cs_projects(
             .collect::<Vec<_>>();
         for other in std::iter::once(&text).chain(&props) {
             let written = other.matches("<ProjectReference").count();
-            if SOURCE_FROM_OUTSIDE_OR_SHARED.is_match(other)
-                || REFERENCE.captures_iter(other).count() != written
-            {
+            if SHARED_PROJECT.is_match(other) || REFERENCE.captures_iter(other).count() != written {
                 return None;
+            }
+            for tag in COMPILE.find_iter(other).map(|m| m.as_str()) {
+                if !tag.contains("..") {
+                    continue;
+                }
+                let file = ONE_FILE
+                    .captures(tag)
+                    .and_then(|c| lexical(&dir, &c[1].replace('\\', "/")))
+                    .filter(|f| files.contains(f))?;
+                included.push(file);
             }
             for c in REFERENCE.captures_iter(other) {
                 let target = lexical(&dir, &c[1].replace('\\', "/"))?;
@@ -83,6 +100,7 @@ pub fn cs_projects(
     Some(CsProjects {
         csproj_dirs,
         compiled_against,
+        included,
     })
 }
 

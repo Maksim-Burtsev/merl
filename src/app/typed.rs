@@ -782,18 +782,28 @@ impl App {
             let pattern = format!(r"^func\s+\(\s*(?:\w+\s+)?\*?{}\b", regex::escape(alias));
             !self.grep_in(&pattern, &files).is_empty()
         };
+        let grouped = kind == Kind::Go
+            && decl.text.starts_with([' ', '\t'])
+            && self.text_of(&decl.path).is_some_and(|t| {
+                search::directly_inside(&t.lines().collect::<Vec<_>>(), decl.line1, "type (")
+            });
+        let written = if grouped {
+            format!("type {}", decl.text.trim_start())
+        } else {
+            decl.text.clone()
+        };
         if depth < 8
-            && let Some(named) = search::go_alias(kind, &decl.text)
+            && let Some(named) = search::go_alias(kind, &written)
             && !parts.last().is_some_and(|alias| receiver(alias))
             && let Some(ty) = self.type_decl_at(kind, &decl.path, named, depth + 1)
         {
             return Some(ty);
         }
-        if !search::declares_type(kind, &decl.text) && !js_type(kind, &decl.path, &decl.text) {
+        if !search::declares_type(kind, &written) && !js_type(kind, &decl.path, &decl.text) {
             return self.required(kind, file, &parts);
         }
         Some(Typed {
-            name: declared_name(kind, &decl.text, &parts),
+            name: declared_name(kind, &written, &parts),
             path: decl.path,
             line: decl.line1,
         })
