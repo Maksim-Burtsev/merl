@@ -227,6 +227,14 @@ fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
 }
 
 #[test]
+fn a_java_class_lists_its_interfaces_apart_from_its_superclass() {
+    let text = "public class Quern extends Stone<A, B>\n        implements Turnable, x.Grind<C> {\n}\n";
+    assert_eq!(jvm_bases(text, 1, false), ["Stone"]);
+    assert_eq!(java_implements(text, 1), ["Turnable", "Grind"]);
+    assert_eq!(java_implements("class K : Lever {\n}\n", 1), Vec::<String>::new());
+}
+
+#[test]
 fn a_java_member_is_a_method_when_its_name_opens_a_parameter_list() {
     assert!(java_declares_method("    public Hopper hopper() {", "hopper"));
     assert!(!java_declares_method("    private Hopper hopper = hopper();", "hopper"));

@@ -70,6 +70,14 @@ impl App {
             _ => chain,
         };
         let upper = |n: &str| n.starts_with(|c: char| c.is_ascii_uppercase());
+        if let ([named, s], false) = (chain, kotlin)
+            && s == "super"
+            && upper(named)
+            && Self::jvm_own_type(here, text, self.line + 1, Some(named)).is_none()
+        {
+            let ty = self.jvm_type_at(here, text, named);
+            return self.jvm_typed_member(here, ty, &format!("{named}.super"), word);
+        }
         let outer = match chain {
             [o, t, ..] if !kotlin && t == "this" && upper(o) => Some(o.as_str()),
             _ => None,
@@ -86,17 +94,50 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let narrowed = || {
-            let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, first));
-            smart.flatten().or_else(|| {
-                let lambda =
-                    kt.then(|| search::kotlin_lambda_collection(text, line, before, first));
-                Self::kotlin_element(text, line, &lambda.flatten()?)
-            })
-        };
+        let (ty, links) = self.jvm_chain_head(here, text, before, first, outer)?;
+        let (ty, links) = self.jvm_follow(ty, links, first, rest)?;
+        self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+    }
+
+    fn jvm_follow(
+        &self,
+        mut ty: JvmType,
+        mut links: Vec<String>,
+        first: &str,
+        rest: &[String],
+    ) -> Option<(JvmType, Vec<String>)> {
+        for (i, field) in rest.iter().enumerate() {
+            let JvmType::Project(decl) = ty else {
+                return None;
+            };
+            let TypedField { hit, written } = match field.strip_suffix("()") {
+                Some(call) => self.jvm_call_type(&decl, call)?,
+                None => self.jvm_field_type(&decl, field)?,
+            };
+            let t = self.text_of(&hit.path)?;
+            ty = self.jvm_type_at(&hit.path, &t, &written);
+            links.push(match (i, first) {
+                (0, "this") => format!("this.{field}: {written}"),
+                _ => format!("{field}: {written}"),
+            });
+        }
+        Some((ty, links))
+    }
+
+    fn jvm_chain_head(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        first: &str,
+        outer: Option<&str>,
+    ) -> Option<(JvmType, Vec<String>)> {
+        let kotlin = here.extension().is_none_or(|e| e != "java");
+        let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
+        let line = self.line + 1;
         let labelled = |f: &str| before.trim_end().ends_with(&format!("this@{f}."));
         let own = |name| Self::jvm_own_type(here, text, line, name);
-        let (mut ty, mut links) = match first.as_str() {
+        Some(match first {
             f if labelled(f)
                 || (f == "this" && search::jvm_enclosing_types(text, line).is_empty()) =>
             {
@@ -124,42 +165,31 @@ impl App {
                 None => (own(outer)?, Vec::new()),
             },
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
+                let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, f));
+                let narrowed = smart.flatten().or_else(|| {
+                    let lambda =
+                        kt.then(|| search::kotlin_lambda_collection(text, line, before, f));
+                    Self::kotlin_element(text, line, &lambda.flatten()?)
+                });
                 let WrittenType {
                     resolved: ty,
                     written,
-                } = match narrowed() {
-                    Some(t) => WrittenType {
+                } = if let Some(t) = narrowed {
+                    WrittenType {
                         resolved: self.jvm_type_at(here, text, &t),
                         written: t,
-                    },
-                    None => {
-                        let subject = kt
-                            .then(|| search::kotlin_lambda_subject(text, line, before, f))
-                            .flatten();
-                        let value = subject.as_deref().unwrap_or(f);
-                        self.jvm_value(here, text, line, value, kotlin, 1)?
                     }
+                } else {
+                    let subject = kt
+                        .then(|| search::kotlin_lambda_subject(text, line, before, f))
+                        .flatten();
+                    let value = subject.as_deref().unwrap_or(f);
+                    self.jvm_value(here, text, line, value, kotlin, 1)?
                 };
                 (ty, vec![format!("{f}: {written}")])
             }
             _ => return None,
-        };
-        for (i, field) in rest.iter().enumerate() {
-            let JvmType::Project(decl) = ty else {
-                return None;
-            };
-            let TypedField { hit, written } = match field.strip_suffix("()") {
-                Some(call) => self.jvm_call_type(&decl, call)?,
-                None => self.jvm_field_type(&decl, field)?,
-            };
-            let t = self.text_of(&hit.path)?;
-            ty = self.jvm_type_at(&hit.path, &t, &written);
-            links.push(match (i, first.as_str()) {
-                (0, "this") => format!("this.{field}: {written}"),
-                _ => format!("{field}: {written}"),
-            });
-        }
-        self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
+        })
     }
 
     pub(super) fn kotlin_scope_member(
@@ -516,9 +546,20 @@ impl App {
                 .collect();
         }
         let mut out = Vec::new();
+        let mut known = true;
         for base in search::jvm_bases(&text, decl.line1, search::scala(&decl.path)) {
-            if let JvmType::Project(b) = self.jvm_type_at(&decl.path, &text, &base) {
-                out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, walked));
+            match self.jvm_type_at(&decl.path, &text, &base) {
+                JvmType::Project(b) => {
+                    out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, walked));
+                }
+                _ => known = false,
+            }
+        }
+        if out.is_empty() && known {
+            for base in search::java_implements(&text, decl.line1) {
+                if let JvmType::Project(b) = self.jvm_type_at(&decl.path, &text, &base) {
+                    out.extend(self.jvm_hierarchy_member(&b, word, depth + 1, walked));
+                }
             }
         }
         out

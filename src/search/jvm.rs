@@ -530,10 +530,31 @@ pub fn jvm_bases(text: &str, decl_line1: usize, scala: bool) -> Vec<String> {
     if scala {
         return scala_bases(text, decl_line1);
     }
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(k) = decl_line1.checked_sub(1).filter(|&k| k < lines.len()) else {
+    let Some(outside_brackets) = header_outside_brackets(text, decl_line1) else {
         return Vec::new();
     };
+    let list = match JAVA.captures(&outside_brackets) {
+        Some(c) => c[1].to_owned(),
+        None => match outside_brackets.split_once(':') {
+            Some((_, rest)) => rest.split(" where ").next().unwrap_or("").to_owned(),
+            None => return Vec::new(),
+        },
+    };
+    base_names(&list)
+}
+
+pub fn java_implements(text: &str, decl_line1: usize) -> Vec<String> {
+    static IMPLEMENTS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bimplements\s+(.+?)\s*(?:\{|$)").expect("the regex is a literal")
+    });
+    header_outside_brackets(text, decl_line1)
+        .and_then(|h| IMPLEMENTS.captures(&h).map(|c| base_names(&c[1])))
+        .unwrap_or_default()
+}
+
+fn header_outside_brackets(text: &str, decl_line1: usize) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let k = decl_line1.checked_sub(1).filter(|&k| k < lines.len())?;
     let mut header = String::new();
     for l in lines[k..].iter().take(20) {
         let code = uncommented(Kind::Jvm, l);
@@ -553,13 +574,10 @@ pub fn jvm_bases(text: &str, decl_line1: usize, scala: bool) -> Vec<String> {
             _ => {}
         }
     }
-    let list = match JAVA.captures(&outside_brackets) {
-        Some(c) => c[1].to_owned(),
-        None => match outside_brackets.split_once(':') {
-            Some((_, rest)) => rest.split(" where ").next().unwrap_or("").to_owned(),
-            None => return Vec::new(),
-        },
-    };
+    Some(outside_brackets)
+}
+
+fn base_names(list: &str) -> Vec<String> {
     list.split(',')
         .filter_map(|b| b.split_whitespace().next())
         .filter_map(|b| b.rsplit('.').next())

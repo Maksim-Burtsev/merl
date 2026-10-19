@@ -20,8 +20,8 @@ public class Quern extends Stone implements Turnable {
         return super.turn() + wear() + crank() + Turnable.super.crank() + notch();
         //           ^ d: src/main/java/quern/Stone.java:4
         //                    ^ d: src/main/java/quern/Stone.java:8
-        //                             ^ d: picker src/main/java/quern/HandMill.java:5, src/main/java/quern/Turnable.java:4; want src/main/java/quern/Turnable.java:4 (#1128)
-        //                                                      ^ d: picker src/main/java/quern/HandMill.java:5, src/main/java/quern/Turnable.java:4; want src/main/java/quern/Turnable.java:4 (#1128)
+        //                             ^ d: src/main/java/quern/Turnable.java:4
+        //                                                      ^ d: src/main/java/quern/Turnable.java:4
         //                                                                ^ d: src/main/java/quern/Knobs.java:4
     }
 
