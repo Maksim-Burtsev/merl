@@ -25,8 +25,10 @@ fn around(lines: &[&str], literal: &[bool], line0: usize) -> Around {
         Regex::new(r"^(?:[a-z_]+\s+)?def\s|^(?:class|module)\b").expect("the regex is a literal")
     });
     static HOLDS_NO_LINE_BELOW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:[a-z_]+\s+)?def\s+[^\s(]+(?:\([^)]*\)\s*|\s+)=(?:[^=~>]|$)|\bend\s*(?:#.*)?$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"^(?:[a-z_]+\s+)?def\s+[^\s(]+(?:\([^)]*\)\s*|\s+)=(?:[^=~>]|$)|\bend\s*(?:#.*)?$",
+        )
+        .expect("the regex is a literal")
     });
     static BLOCK: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:\bdo|\{)\s*(?:\|[^|]*\|)?\s*(?:#.*)?$").expect("the regex is a literal")
@@ -400,7 +402,9 @@ pub fn ruby_in_module(text: &str, line1: usize) -> bool {
         .openers_innermost_first
         .iter()
         .map(|&(i, _)| lines[i].trim_start())
-        .find(|l| l.starts_with("module ") || (l.starts_with("class ") && !l.starts_with("class <<")))
+        .find(|l| {
+            l.starts_with("module ") || (l.starts_with("class ") && !l.starts_with("class <<"))
+        })
         .is_some_and(|l| l.starts_with("module "))
 }
 

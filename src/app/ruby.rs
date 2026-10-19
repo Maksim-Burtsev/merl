@@ -127,8 +127,8 @@ impl App {
                 return search::ruby_on_class(&t, c.hit.line1)
                     && !search::ruby_in_block(&t, c.hit.line1);
             }
-            !ancestors.contains(&owner)
-                && !(in_module && self.ruby_ancestors(here, &owner).any(|a| a == class))
+            !(ancestors.contains(&owner)
+                || in_module && self.ruby_ancestors(here, &owner).any(|a| a == class))
         })
     }
 

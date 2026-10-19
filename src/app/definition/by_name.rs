@@ -76,7 +76,8 @@ impl App {
             && !a.dotted
             && a.chain.is_empty()
             && !a.before.ends_with("::")
-            && a.word.starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
+            && a.word
+                .starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
         {
             self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
