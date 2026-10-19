@@ -299,11 +299,20 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
     std::fs::write(dir.join("crlf.txt"), "one\r\nTWO\nthree\n").unwrap();
     git(&["commit", "-qam", "fix"]);
 
-    let named = open_on(Buffer::load(&dir.join("src/a.rs")).unwrap());
+    let mut named = open_on(Buffer::load(&dir.join("src/a.rs")).unwrap());
     assert_eq!(
         at(&named).0,
         dir.join("src/a.rs"),
         "a file named on the command line is kept"
+    );
+    key(&mut named, 'c');
+    key(&mut named, 'c');
+    assert_eq!(at(&named).0, dir.join("crlf.txt"));
+    key(&mut named, 'C');
+    assert_eq!(
+        at(&named).0,
+        dir.join("src/a.rs"),
+        "`c` ticked `src/a.rs` again in this round as it left it: a stop for `C` (#823)"
     );
     let mut a = open();
     assert_eq!(
@@ -316,6 +325,12 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
         at(&a).0,
         dir.join("crlf.txt"),
         "the ticked first file was never shown"
+    );
+    key(&mut a, 'C');
+    assert_eq!(
+        (at(&a), a.message.as_str()),
+        ((dir.join("crlf.txt"), 1), "first hunk of the review"),
+        "`C` passes over `src/a.rs`, ticked in the first round (#823)"
     );
     key(&mut a, 'c');
     assert_eq!(
@@ -332,10 +347,14 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
         "`tail`, ticked by `m`, is no stop for `c`"
     );
     key(&mut a, 'C');
-    assert_eq!(at(&a).0, dir.join("gone"), "`C` stops on every file");
+    assert_eq!(
+        at(&a).0,
+        dir.join("gone"),
+        "`C` stops on a file ticked in this round"
+    );
     walk_into(&mut a, "tail");
     key(&mut a, 'C');
-    assert_eq!(at(&a).0, dir.join("new"), "`C` stops on ticked files too");
+    assert_eq!(at(&a).0, dir.join("new"), "and on `new`, ticked by `c` now");
     key(&mut a, 'C');
     std::fs::write(dir.join("new"), "n\nchanged\n").unwrap();
     key(&mut a, 'c');
@@ -346,10 +365,29 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
     );
     std::fs::write(dir.join("new"), "n\n").unwrap();
 
-    let a = open();
+    let mut a = open();
     assert_eq!(
         (at(&a), a.message.as_str()),
         ((dir.join("src/a.rs"), 1), "all files viewed")
+    );
+    key(&mut a, 'c');
+    key(&mut a, 'c');
+    assert_eq!(
+        at(&a),
+        (dir.join("crlf.txt"), 1),
+        "with every file ticked, `c` walks them all from the first (#823)"
+    );
+    key(&mut a, 'C');
+    assert_eq!(at(&a).0, dir.join("src/a.rs"), "and so does `C`");
+    std::fs::write(dir.join("new"), "n\nmore\n").unwrap();
+    git(&["commit", "-qam", "more"]);
+    let fresh = a.review.as_ref().unwrap().refresh(&a.root).unwrap();
+    a.review_refreshed(fresh);
+    key(&mut a, 'c');
+    assert_eq!(
+        at(&a).0,
+        dir.join("new"),
+        "a fix pushed while it is open: `c` passes over the ticked files to it again"
     );
     drop(std::fs::remove_dir_all(dir));
 }
