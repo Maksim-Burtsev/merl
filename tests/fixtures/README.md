@@ -496,7 +496,10 @@ property, a one-line closure whose parameter is named like a property, and decla
 lines in a multi-line and a raw string.
 `swift/Sources/Shop/KeepLog.swift` calls free functions through a module `Package.swift` does not
 name, only its folder `Sources/Kit/` (#1068): `Kit.record` jumps, `Kit.jot` offers its namesake
-in `Diary` too, as the search by name does.
+in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `.x` from functions
+returning `Self` (in a struct and in an extension of an outside type) and a generic `T`, which
+the expected type must not read (#1069): each jumps by name, and says "no definition" with its
+guard removed.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
