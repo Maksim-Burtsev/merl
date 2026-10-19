@@ -305,7 +305,11 @@ impl App {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
             let bare = !dotted && chain.is_empty();
             hits.retain(|h| {
-                !bare || h.path == a.here || !h.text.trim_start().starts_with("local ")
+                let t = h.text.trim_start();
+                !bare
+                    || h.path == a.here
+                    || !(t.starts_with("local ")
+                        || (t.starts_with(word.as_str()) && self.lua_key_elsewhere(h, word)))
             });
             let all = hits.len();
             let unseen = bare
@@ -333,6 +337,12 @@ impl App {
             Kind::Jvm => self.jvm_hits(a, hits),
             _ => hits,
         }
+    }
+
+    fn lua_key_elsewhere(&self, h: &Hit, word: &str) -> bool {
+        let start = h.text.len() - h.text.trim_start().len();
+        std::fs::read_to_string(self.root.join(&h.path))
+            .is_ok_and(|text| search::table_key(&text, h.line1, &(start..start + word.len())))
     }
 
     fn own_hit(&self, a: &Asked) -> Hit {

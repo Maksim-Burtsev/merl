@@ -11,6 +11,7 @@ pub(super) fn indent(s: &str) -> usize {
 pub(super) fn comment(kind: Kind, t: &str) -> bool {
     match kind {
         Kind::Python | Kind::Gdscript | Kind::Starlark => t.starts_with('#'),
+        Kind::Lua => t.starts_with("--"),
         _ => ["//", "/*", "*"].iter().any(|c| t.starts_with(c)),
     }
 }
