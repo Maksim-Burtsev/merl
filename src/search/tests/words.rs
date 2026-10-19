@@ -380,6 +380,20 @@ fn a_call_that_starts_a_line_keeps_its_receiver() {
         assert_eq!(line(Kind::Swift, &implicit, 1, 3), None, "{implicit:?}");
         assert_eq!(line(Kind::Dart, &implicit, 1, 3), None, "{implicit:?}");
     }
+    for word in [
+        "in", "case", "try", "await", "throw", "else", "is", "as", "some", "any", "yield", "where",
+    ] {
+        let implicit = [&format!("  x {word}"), "    .fast"];
+        assert_eq!(line(Kind::Swift, &implicit, 1, 5), None, "{word}");
+    }
+    let optional = ["val n = user", "    ?.name"];
+    for kind in [Kind::Jvm, Kind::Dart] {
+        assert_eq!(
+            line(kind, &optional, 1, 6).as_deref(),
+            Some("val n = user?.name"),
+            "{kind:?}"
+        );
+    }
     let go = ["\tsess := x.Where(a).", "\t\tAnd(b).", "\t\tAnd(c)"];
     assert_eq!(
         line(Kind::Go, &go, 2, 2).as_deref(),

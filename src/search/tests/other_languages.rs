@@ -1294,6 +1294,12 @@ fn sql_local_reads_from_aliases_and_no_keyword_as_one() {
     let t = "SELECT a.x FROM t a\nUNION ALL\nSELECT a.x FROM u a;";
     assert_eq!(at(t, "a", 2), [3], "an alias holds for its UNION branch");
     assert_eq!(at(t, "a", 0), [1]);
+    let t = "SELECT a.x FROM t a WHERE a.y IN (SELECT 1 UNION SELECT 2) AND a.z = 1";
+    assert_eq!(
+        at(t, "a", 3),
+        [1],
+        "a UNION inside parentheses splits nothing"
+    );
     let t = "SELECT u.x,\n(SELECT u.y FROM v u WHERE u.z = w.z)\nFROM t u JOIN s w ON true;";
     assert_eq!(at(t, "u", 0), [3], "a subquery's alias stays inside it");
     assert_eq!(at(t, "u", 1), [2], "and shadows the outer one");
