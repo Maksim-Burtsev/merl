@@ -45,3 +45,5 @@ pub fn yarded(y: Wagon) -> u32 {
     y.roll()
     //^ d: src/hauls/yard.rs:4
 }
+
+mod reels;
