@@ -26,9 +26,8 @@ impl App {
             return Some(found);
         }
         let qualifier = self
-            .line_str()
-            .get(before.len()..)
-            .and_then(|r| r.strip_prefix(word))
+            .word_here(Some(Kind::Dart))
+            .and_then(|(range, _)| self.line_str().get(range.end..))
             .is_some_and(|r| r.starts_with('.') && !r.starts_with(".."));
         let member = || {
             let declares = Regex::new(&search::def_patterns(Kind::Dart, word).join("|")).ok();
@@ -283,7 +282,7 @@ impl App {
                     let found = self.dart_member_of(&file, r, word);
                     return (file.is_absolute() && !found.is_empty()).then_some(found);
                 }
-                None => return None,
+                None => self.dart_field_type(here, text, r)?,
             },
             _ => return None,
         };
@@ -301,7 +300,54 @@ impl App {
         if found.is_empty() {
             found = self.dart_inherited(&file, class, word, 0);
         }
+        self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_accessor_side(&self, before: &str, word: &str, found: &mut Vec<Candidate>) {
+        static ASSIGNED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*=(?:[^=>]|$)").expect("the regex is a literal")
+        });
+        static READ: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*(?:$|[),;\]}.]|[!=]=|&&|\|\|)")
+                .expect("the regex is a literal")
+        });
+        let Some(tail) = self
+            .word_here(Some(Kind::Dart))
+            .and_then(|(range, _)| self.line_str().get(range.end..))
+        else {
+            return;
+        };
+        let accessor = |c: &Candidate, side: &str| {
+            Regex::new(&format!(r"\b{side}\s+{}(?:[^\w$]|$)", regex::escape(word)))
+                .is_ok_and(|r| r.is_match(&c.hit.text))
+        };
+        let [a, b] = found.as_slice() else {
+            return;
+        };
+        let pair = a.hit.path == b.hit.path
+            && ((accessor(a, "get") && accessor(b, "set"))
+                || (accessor(a, "set") && accessor(b, "get")));
+        let prefixed = before.trim_end().ends_with("++") || before.trim_end().ends_with("--");
+        let side = if ASSIGNED.is_match(tail) {
+            "set"
+        } else if READ.is_match(tail) {
+            "get"
+        } else {
+            return;
+        };
+        if pair && !prefixed {
+            found.retain(|c| accessor(c, side));
+        }
+    }
+
+    fn dart_field_type(&self, here: &Path, text: &str, field: &str) -> Option<search::DartType> {
+        if !search::bindings(Kind::Dart, text, self.line + 1, field).is_empty() {
+            return None;
+        }
+        let class = search::dart_this_super(text, self.line, false)?.class;
+        let [c] = self.dart_member_of(here, &class, field).try_into().ok()?;
+        search::dart_typed(&c.hit.text, field)
     }
 
     fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {

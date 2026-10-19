@@ -44,3 +44,38 @@ void serve(Jug jug, Spout spout, _Tray tray) {
 // A conditional import no longer turns off the class-versus-constructor filter (#1085).
 void bake(Kiln kiln) {}
 //        ^ d: lib/kiln.dart:1
+
+// A field as the receiver, typed in the class body (#1085).
+class Pantry {
+  Pantry(this._bowl);
+
+  final Bowl _bowl;
+  Jug? spare;
+  int volume = 3;
+
+  void stock() {
+    print(_bowl.volume);
+    //          ^ d: lib/jug.dart:21
+    print(spare?.volume);
+    //           ^ d: lib/jug.dart:4
+  }
+
+  void shadow(Jug _bowl) {
+    print(_bowl.volume);
+    //          ^ d: lib/jug.dart:4
+  }
+}
+
+// A getter and its setter: an assignment lands on the setter, a read on the getter (#1085).
+class Lid {
+  String get tone => '';
+  set tone(String value) {}
+}
+
+void paint(Lid lid) {
+  lid.tone = lid.tone;
+  //  ^ d: lib/jug.dart:72
+  //             ^ d: lib/jug.dart:71
+  lid.tone += 'x';
+  //  ^ d: picker lib/jug.dart:71, lib/jug.dart:72
+}

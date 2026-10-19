@@ -513,7 +513,7 @@ pub struct LineAsRead {
 }
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
     let (before, after) = match (kind, line.split_at_checked(start)) {
-        (Kind::TsJs | Kind::Swift, Some((head, tail))) => {
+        (Kind::TsJs | Kind::Swift | Kind::Dart, Some((head, tail))) => {
             (head.replace("?.", ".").replace("!.", "."), tail)
         }
         (Kind::Php, Some((head, tail))) => (
