@@ -598,7 +598,17 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         Some(Kind::Dart) => line.as_bytes().get(i) == Some(&b'$'),
         _ => false,
     };
-    let past_sigil = col + usize::from(sigil_of_the_word_behind(col));
+    let past_sigil = match kind {
+        Some(Kind::Ruby) => {
+            let rest = line.as_bytes().get(col..).unwrap_or_default();
+            let ats = rest.iter().take(2).take_while(|&&b| b == b'@').count();
+            let named = rest
+                .get(ats)
+                .is_some_and(|b| b.is_ascii_alphabetic() || *b == b'_');
+            col + if named { ats } else { 0 }
+        }
+        _ => col + usize::from(sigil_of_the_word_behind(col)),
+    };
     let (range, _) = word_at(line, past_sigil, extra)?;
     let stands_where_a_private_name_can = |i: usize| {
         line.get(..i).map(str::trim_end).is_some_and(|before| {

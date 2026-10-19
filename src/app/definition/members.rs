@@ -175,7 +175,7 @@ impl App {
             self.truncated.set(false);
         }
         if lower
-            && chain.is_empty()
+            && chain.last().is_none_or(|l| l == "new" || l == "instance")
             && let Some(made) = search::ruby_constructed_receiver(before)
         {
             let found = self.ruby_constructed(&a.here, &made, word);

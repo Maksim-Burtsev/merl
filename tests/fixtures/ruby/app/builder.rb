@@ -7,7 +7,7 @@ class Builder
     logger&.info
     #       ^ d: picker app/worker_batch.rb:2
     WorkerBatch.new.info
-    #               ^ d: picker app/worker_batch.rb:2
+    #               ^ d: app/worker_batch.rb:2
     WorkerBatch.drain
     #           ^ d: app/worker_batch.rb:6
   end

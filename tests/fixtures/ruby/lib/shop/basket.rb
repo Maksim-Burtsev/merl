@@ -100,7 +100,7 @@ module Shop
 
     def ledger
       Ledger.new.prepare!
-      #          ^ d: picker lib/shop/order.rb:19
+      #          ^ d: lib/shop/order.rb:19
     end
 
     def rated(courier)

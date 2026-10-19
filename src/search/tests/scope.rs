@@ -107,6 +107,15 @@ fn ruby_classes_are_read_by_their_nesting() {
     );
     assert_eq!(ruby_class_path(text, 19), "Shop::Order");
     assert_eq!(ruby_class_path(text, 1), "");
+    assert_eq!(
+        ruby_nesting_innermost_first(text, 6),
+        ["Shop::Basket", "Shop"]
+    );
+    assert_eq!(
+        ruby_nesting_innermost_first(text, 19),
+        ["Shop::Order"],
+        "`class Shop::Order` opens one level, not `Shop`"
+    );
     assert_eq!(ruby_declared_path(text, 2).as_deref(), Some("Shop::Basket"));
     assert_eq!(ruby_declared_path(text, 18).as_deref(), Some("Shop::Order"));
     assert_eq!(
