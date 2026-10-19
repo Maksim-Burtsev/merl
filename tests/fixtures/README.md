@@ -525,7 +525,10 @@ field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayNam
 a type outside the project, a chain off a call that is no getter (a picker of the explicit
 getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
-parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/arity/`
+parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
+(#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
+annotation with arguments the rules cannot read (a `Ledger` namesake must not be jumped to),
+and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
 text block, and a Kotlin extension called through its file class (`LoudKt.holler`);

@@ -165,14 +165,27 @@ impl App {
             (named, Some(types)) if named.is_empty() => self.cpp_path_named(a, q, types),
             (named, _) => named,
         };
-        let named = self.named_kept(a, named);
+        let mut named = self.named_kept(a, named);
+        let owner = match (kind, chain.as_slice()) {
+            (Kind::Jvm, [owner]) => self.jvm_owner_type(&a.here, &a.text, owner),
+            _ => None,
+        };
+        if let Some(decl) = &owner {
+            named.retain(|c| self.jvm_owns(decl, &c.hit, word));
+        }
         if !named.is_empty() {
             return self.show_found(a, named);
         }
-        if let (Kind::Jvm, [owner]) = (kind, chain.as_slice()) {
-            let found = self.enum_constant(kind, &a.here, owner, word);
+        if let (Kind::Jvm, [name]) = (kind, chain.as_slice()) {
+            let found = self.enum_constant(kind, &a.here, name, word);
             if !found.is_empty() {
                 return self.show_found(a, found);
+            }
+            if let Some(decl) = owner {
+                if let Some(found) = self.jvm_owner_member(&a.here, decl, name, word) {
+                    return self.show_found(a, found);
+                }
+                self.offer_only = true;
             }
         }
         if q.class_method {
