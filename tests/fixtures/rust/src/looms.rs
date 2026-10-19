@@ -173,3 +173,17 @@ mod spooled {
         }
     }
 }
+
+pub fn rewoven() -> usize {
+    LoomBuilder::new()
+        .weave(
+            7,
+        )
+        .shuttle();
+        //^ d: src/looms.rs:41
+    let held = (
+        LoomBuilder::new(),
+    );
+    held.0.build().shuttle()
+    //             ^ d: picker src/looms.rs:35, src/looms.rs:41
+}
