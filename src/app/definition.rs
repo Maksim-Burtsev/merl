@@ -430,6 +430,9 @@ impl App {
             self.python_implementation(word, here, &mut found);
         }
         let all = found.len();
+        let own = (found.iter())
+            .find(|c| c.hit.line1 == self.line + 1 && c.hit.path == here)
+            .map(|c| c.hit.clone());
         if all > 1 {
             found.retain(|c| c.hit.line1 != self.line + 1 || c.hit.path != here);
         }
@@ -457,12 +460,21 @@ impl App {
                 .iter()
                 .any(|c| c.hit.line1 != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word, false);
+        let counterpart = match (own, found.as_slice()) {
+            (Some(own), [other]) if namesakes && kind == Kind::C && all == 2 => {
+                let pair = [own, other.hit.clone()];
+                search::c_one_definition(word, &pair, |p| self.text_of(p)).is_some()
+            }
+            _ => false,
+        };
+        let namesakes = namesakes && !counterpart;
         let word_chars = search::word_chars(Some(kind), true);
         let form = |t: &str| {
             t.get(..word_col(t, word, word_chars))
                 .map(|h| h.trim().to_owned())
         };
         let copy = found.len() < all
+            && !counterpart
             && !namesakes
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {

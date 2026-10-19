@@ -1639,6 +1639,40 @@ fn a_member_of_a_std_class_is_looked_up_in_its_libcxx_class() {
 }
 
 #[test]
+fn on_a_prototype_or_a_definition_its_one_counterpart_is_jumped_to() {
+    let (dir, mut a) = project_app(
+        "c-counterpart",
+        &[
+            ("list.h", "int find_cb(int n, const char *s);\nint twice(int n);\n"),
+            (
+                "list.c",
+                "#include \"list.h\"\nint find_cb(int n, const char *s) {\n  return n;\n}\n#ifdef FAST\nint twice(int n) { return n; }\n#else\nint twice(int n) { return 2 * n; }\n#endif\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "list.h", "int find_cb");
+    assert_eq!(
+        shown(&mut a),
+        jump("find_cb: by name, 1 match", "list.c:2")
+    );
+    d_on(&mut a, "list.c", "int find_cb");
+    assert_eq!(
+        shown(&mut a),
+        jump("find_cb: by name, 1 match", "list.h:1")
+    );
+    d_on(&mut a, "list.h", "int twice");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "twice: at a declaration, 2 others by name",
+            &[("twice", "list.c:6"), ("twice", "list.c:8")]
+        ),
+        "a prototype with a definition under each branch of an `#ifdef` stays a picker"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn c_includes_narrow_no_further_than_they_should() {
     let (dir, mut a) = project_app(
         "c-includes-review",
