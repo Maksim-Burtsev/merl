@@ -67,6 +67,10 @@ impl App {
                     plain = receiver;
                 }
                 safe = search::qualifier(&plain, plain.len());
+                if let ([], true, Some(c)) = (&safe[..], kt, search::kotlin_call_chain(&plain)) {
+                    let (ty, links) = self.kotlin_chain_type(here, text, Some(before), &c)?;
+                    return self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word);
+                }
                 &safe[..]
             }
             [] => {
@@ -128,6 +132,60 @@ impl App {
             });
         }
         Some((ty, links))
+    }
+
+    fn kotlin_chain_type(
+        &self,
+        here: &Path,
+        text: &str,
+        before: Option<&str>,
+        c: &search::KotlinCallChain,
+    ) -> Option<(JvmType, Vec<String>)> {
+        if c.links.len() > 6 {
+            return None;
+        }
+        let (ty, links) = match before {
+            _ if c.constructed => (
+                self.jvm_made(here, text, &c.head, true),
+                vec![format!("{}()", c.head)],
+            ),
+            Some(before) => self.jvm_chain_head(here, text, before, &c.head, None)?,
+            None => return None,
+        };
+        self.jvm_follow(ty, links, &c.head, &c.links)
+    }
+
+    fn kotlin_initialized(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let at = text.lines().nth(line1.checked_sub(1)?)?;
+        if let Some(d) = search::kotlin_destructured(at, name) {
+            let source = if d.in_loop {
+                let element = Self::jvm_element(text, line1, &d.source, false)?;
+                self.jvm_type_at(file, text, &element)
+            } else {
+                self.jvm_value(file, text, line1, &d.source, true, 0)?
+                    .resolved
+            };
+            let JvmType::Project(decl) = source else {
+                return None;
+            };
+            let t = self.text_of(&decl.path)?;
+            let written = search::kotlin_component_type(&t, decl.line1, d.index)?;
+            return Some(WrittenType {
+                resolved: self.jvm_type_at(&decl.path, &t, &written),
+                written,
+            });
+        }
+        let init = search::kotlin_initializer(text, line1, name)?;
+        let chain = search::kotlin_call_chain(&format!("{init}."))?;
+        let (resolved, links) = self.kotlin_chain_type(file, text, None, &chain)?;
+        let written = links.last()?.rsplit(": ").next()?.to_owned();
+        Some(WrittenType { resolved, written })
     }
 
     fn jvm_chain_head(
@@ -424,13 +482,16 @@ impl App {
                     resolved: self.jvm_type_at(file, text, &t),
                     written: t,
                 },
-                (None, None) if hops > 0 => {
-                    let search::JvmAssignedCall {
+                (None, None) if hops > 0 => match search::jvm_assigned_call(at, name) {
+                    Some(search::JvmAssignedCall {
                         receiver: recv,
                         method: call,
-                    } = search::jvm_assigned_call(at, name)?;
-                    self.jvm_returned(file, text, l, recv.as_deref(), &call, kotlin)?
-                }
+                    }) => self.jvm_returned(file, text, l, recv.as_deref(), &call, kotlin)?,
+                    None if literal_typed && kotlin => {
+                        self.kotlin_initialized(file, text, l, name)?
+                    }
+                    None => return None,
+                },
                 (None, None) => return None,
             };
             if found.as_ref().is_some_and(|f| f.written != this.written) {

@@ -230,6 +230,47 @@ fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
 }
 
 #[test]
+fn a_kotlin_call_chain_is_read_back_to_its_head() {
+    let chain = |b: &str| kotlin_call_chain(b).map(|c| (c.head, c.constructed, c.links));
+    assert_eq!(
+        chain("    return built.grounds + Recipe.Builder().grounds(1).finish()."),
+        Some((
+            "Recipe.Builder".into(),
+            true,
+            vec!["grounds()".into(), "finish()".into()]
+        ))
+    );
+    assert_eq!(
+        chain("    val x = carafe.pour(f(2), \"a\").brim."),
+        Some(("carafe".into(), false, vec!["pour()".into(), "brim".into()]))
+    );
+    assert_eq!(
+        chain("    val x = carafe.brim."),
+        None,
+        "no call: a qualifier"
+    );
+    assert_eq!(chain("    val x = pour().brim."), None, "a bare call");
+    assert_eq!(chain("    val x = xs[0].pour()."), None);
+    assert_eq!(chain("    val x = \"a\".pour()."), None);
+    let text =
+        "val built = Recipe.Builder()\n    .grounds(2)\n    // .x()\n    ?.water(3)\nval y = 1\n";
+    assert_eq!(
+        kotlin_initializer(text, 1, "built").as_deref(),
+        Some("Recipe.Builder().grounds(2).water(3)")
+    );
+    let d = kotlin_destructured("    for ((stroke, mesh) in plungers) total += 1", "mesh")
+        .map(|d| (d.index, d.source, d.in_loop));
+    assert_eq!(d, Some((1, "plungers".into(), true)));
+    let d = kotlin_destructured("    val (stroke, mesh) = plunger", "stroke")
+        .map(|d| (d.index, d.source, d.in_loop));
+    assert_eq!(d, Some((0, "plunger".into(), false)));
+    let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
+    assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
+    assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");
+    assert_eq!(kotlin_component_type("class P(val a: Int)\n", 1, 0), None);
+}
+
+#[test]
 fn a_java_element_comes_out_of_a_written_collection() {
     assert_eq!(
         java_element_access("        total += stones.get(0).").as_deref(),

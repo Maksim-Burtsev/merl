@@ -34,13 +34,13 @@ class Cafetiere(private val carafe: Carafe) : Carafe(), Lever {
             .grounds(2)
         //   ^ d: src/main/kotlin/press/Recipe.kt:7
             .water(3)
-        //   ^ d: picker src/main/kotlin/press/Recipe.kt:3, src/main/kotlin/press/Recipe.kt:12; want src/main/kotlin/press/Recipe.kt:12 (#1133)
+        //   ^ d: src/main/kotlin/press/Recipe.kt:12
             .finish()
         //   ^ d: src/main/kotlin/press/Recipe.kt:14
         return built.grounds + Recipe.Builder().grounds(1).finish().water
-        //           ^ d: picker src/main/kotlin/press/Recipe.kt:3, src/main/kotlin/press/Recipe.kt:7; want src/main/kotlin/press/Recipe.kt:3 (#1133)
+        //           ^ d: src/main/kotlin/press/Recipe.kt:3
         //                                      ^ d: src/main/kotlin/press/Recipe.kt:7
-        //                                                          ^ d: picker src/main/kotlin/press/Recipe.kt:3, src/main/kotlin/press/Recipe.kt:12; want src/main/kotlin/press/Recipe.kt:3 (#1133)
+        //                                                          ^ d: src/main/kotlin/press/Recipe.kt:3
     }
 
     fun scoped(): Int {
@@ -69,7 +69,7 @@ class Cafetiere(private val carafe: Carafe) : Carafe(), Lever {
         //                                 ^ d: src/main/kotlin/press/Cafetiere.kt:68
         for ((stroke, mesh) in plungers) total += stroke + mesh.sieve()
         //                                        ^ d: src/main/kotlin/press/Cafetiere.kt:70
-        //                                                      ^ d: picker src/main/kotlin/press/Mesh.kt:4, src/main/kotlin/press/parts/Mesh.kt:4; want src/main/kotlin/press/Mesh.kt:4 (#1133)
+        //                                                      ^ d: src/main/kotlin/press/Mesh.kt:4
         val (stroke, mesh) = plunger
         return total + stroke + mesh.sieve() + push(3) + Gasket().seal()
         //             ^ d: src/main/kotlin/press/Cafetiere.kt:73
