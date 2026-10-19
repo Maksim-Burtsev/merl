@@ -415,3 +415,13 @@ fn a_bare_ruby_loop_keyword_is_no_name() {
     assert!(!ruby_loop_keyword("next", "  link(", ": 1)"));
     assert!(!ruby_loop_keyword("nextt", "  ", ""));
 }
+
+#[test]
+fn the_at_of_a_ruby_variable_reads_the_variable() {
+    let word =
+        |line, col| definition_word(Some(Kind::Ruby), line, col).map(|(r, w)| (r, w.to_owned()));
+    assert_eq!(word("  @rows.size", 2), Some((3..7, "rows".to_owned())));
+    assert_eq!(word("@@beads", 0), Some((2..7, "beads".to_owned())));
+    assert_eq!(word("@@beads", 1), Some((2..7, "beads".to_owned())));
+    assert_eq!(word("@rows", 1), Some((1..5, "rows".to_owned())));
+}
