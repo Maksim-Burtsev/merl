@@ -39,17 +39,17 @@ int chain() {
                  .build();
   //              ^ d: include/tea/cup.hh:37
   return mug.sip() + taste::Maker{}.leaf("black").build().sip() + taste::pour_mug().sip();
-  //         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:20 (#1138)
+  //         ^ d: include/tea/cup.hh:20
   //                                ^ d: include/tea/cup.hh:35
-  //                                                      ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:20 (#1138)
-  //                                                                                  ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:20 (#1138)
+  //                                                      ^ d: include/tea/cup.hh:20
+  //                                                                                  ^ d: include/tea/cup.hh:20
 }
 
 int arrow() {
   taste::Stove* s = taste::stove_at(1);
   return s->sip() + taste::stove_at(2)->sip();
   //        ^ d: include/tea/cup.hh:29
-  //                                    ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:29 (#1138)
+  //                                    ^ d: include/tea/cup.hh:29
 }
 
 int shadows(std::vector<taste::Mug>& mugs, taste::Cup* cup) {
@@ -132,4 +132,32 @@ int corners(std::map<int, taste::Mug>& cups, std::vector<taste::Stove>& stoves, 
   auto k = [one = taste::Mug{}, two = taste::Stove{}.sip()]() { return one.sip() + two; };
   //                                                                       ^ d: include/tea/cup.hh:20
   return total + k();
+}
+
+struct Percolator {
+  taste::Mug siphon(int ml);
+  taste::Stove siphon();
+  taste::Maker maker;
+};
+
+namespace east { taste::Mug percolate(); }
+namespace west { taste::Stove percolate(); }
+
+int calls(Percolator perc, int n) {
+  int total = perc.siphon().sip() + Percolator{}.siphon(1).sip();
+  //                        ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  //                                                       ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  total += east::percolate().sip();
+  //                         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  total += perc.maker.build().sip();
+  //                          ^ d: include/tea/cup.hh:20
+  auto made = perc.maker.build();
+  auto sum = n + perc.maker.build();
+  {
+    taste::Stove perc;
+    total += made.sip() + sum.sip();
+    //            ^ d: include/tea/cup.hh:20
+    //                        ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  }
+  return total;
 }

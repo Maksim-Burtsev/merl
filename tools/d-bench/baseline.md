@@ -12,6 +12,7 @@ The go row with #1072's chains of calls: over `72304a83`, 2026-10-20, release bu
 The go row with #1116's element of a named slice type: over `278338c8`, 2026-10-20, release build, `vm.loadavg` { 16.44 16.00 15.35 } before the run, { 32.60 21.85 17.71 } after (the times read high under that load).
 The `not scored, jumps elsewhere` column (#1092): every row but julia's played over `a7e01566`, 2026-10-20, release build, `vm.loadavg` { 10.33 15.89 16.80 } before the run; only the verdicts of the rows not scored moved, the times and the scored rows are as they were. julia's 0 is unmeasured.
 The ruby row with the fixes of #1093 and #1114: over `1db99ebe`, 2026-10-20, release build, `vm.loadavg` { 12.75 11.33 13.33 } before the run.
+The c, cpp and objc rows with the fixes of #1140 and #1138: over `c7694294`, 2026-10-20, release build, `vm.loadavg` { 5.58 6.33 7.33 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -20,15 +21,15 @@ The ruby row with the fixes of #1093 and #1114: over `1db99ebe`, 2026-10-20, rel
 | js (eslint, uptime-kuma) | 217 | 174 (80%) | 33 (15%) | 1 (0%) | 9 (4%) | 177 | 11 | 40.1 | 174.0 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
 | rust (ripgrep) | 231 | 208 (90%) | 19 (8%) | 0 (0%) | 4 (2%) | 69 | 5 | 5.8 | 61.0 |
-| c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 24.6 | 34.5 |
-| cpp (leveldb) | 232 | 197 (85%) | 34 (15%) | 0 (0%) | 1 (0%) | 68 | 15 | 17.0 | 63.1 |
+| c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
+| cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 238 (61%) | 132 (34%) | 0 (0%) | 22 (6%) | 88 | 3 | 31.4 | 244.8 |
 | swift (Alamofire) | 448 | 420 (94%) | 27 (6%) | 0 (0%) | 1 (0%) | 281 | 32 | 10.1 | 40.0 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 61 (72%) | 12 (14%) | 0 (0%) | 12 (14%) | 130 | 1 | 20.9 | 37.7 |
 | ruby (mastodon) | 140 | 126 (90%) | 13 (9%) | 0 (0%) | 1 (1%) | 179 | 72 | 72.0 | 638.9 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 22.4 | 88.3 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 22.0 | 92.5 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |

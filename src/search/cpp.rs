@@ -622,6 +622,31 @@ pub fn cpp_value_type(
     }
 }
 
+pub fn cpp_auto_init(text: &str, line1: usize, name: &str) -> Option<(String, usize)> {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let [p] = c_bindings_at(text, line1, None, name)[..] else {
+        return None;
+    };
+    let at = starts[p.line1 - 1] + p.byte_col;
+    if cpp_class_path(code.get(cpp_decl_start(&code, at)?..at)?)? != ["auto"] {
+        return None;
+    }
+    let rest = code
+        .get(at + name.len()..)?
+        .trim_start()
+        .strip_prefix('=')?;
+    let expr = rest.get(..bracket_contents_blanked(rest).find(';')?)?;
+    let r = super::cpp_receiver(&format!("{expr}."))?;
+    (!rest.starts_with('=') && expr.get(..r.start)?.trim().is_empty())
+        .then(|| (expr.to_owned(), p.line1 - 1))
+}
+
+pub fn cpp_method_at(code: &str, at: usize, len: usize) -> bool {
+    code.get(at + len..)
+        .is_some_and(|r| r.trim_start().starts_with('('))
+}
+
 pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
     static CAST: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*=\s*(?:dynamic|static|reinterpret|const)_cast\s*<([^;(){}]*)>\s*\(")

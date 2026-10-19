@@ -1000,15 +1000,20 @@ pub struct CReceiver {
     pub head: String,
     pub head_called: bool,
     pub fields: Vec<String>,
+    pub calls: Vec<bool>,
+    pub braced: bool,
+    pub start: usize,
 }
 pub fn cpp_receiver(before: &str) -> Option<CReceiver> {
-    receiver(before, true).filter(|r| !r.head_called)
+    receiver(before, true)
 }
 fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
+    static QUALIFIER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:\w*\s*::\s*)*$").expect("the regex is a literal"));
     let code = c_code(before);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut rest = code.trim_end();
-    let mut fields = Vec::new();
+    let (mut fields, mut calls) = (Vec::new(), Vec::new());
     loop {
         rest = match rest.strip_suffix("->") {
             Some(r) => r,
@@ -1022,7 +1027,8 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
             rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let called = rest.ends_with(')');
-        if called {
+        let braced = cpp && rest.ends_with('}');
+        if called || braced {
             rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let start = rest.trim_end_matches(is_name).len();
@@ -1036,16 +1042,28 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         rest = before.trim_end();
         let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
-        match (member, called) {
-            (true, false) => fields.insert(0, name.to_owned()),
-            (false, _) => {
+        match (member, called, braced) {
+            (true, _, false) if cpp || !called => {
+                fields.insert(0, name.to_owned());
+                calls.insert(0, called);
+            }
+            (false, _, _) => {
+                let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
+                let head = if braced {
+                    format!("{}{name}", rest.get(start..)?).replace(char::is_whitespace, "")
+                } else {
+                    name.to_owned()
+                };
                 return Some(CReceiver {
-                    head: name.to_owned(),
+                    head,
                     head_called: called,
                     fields,
+                    calls,
+                    braced,
+                    start,
                 });
             }
-            (true, true) => return None,
+            (true, _, _) => return None,
         }
     }
 }
@@ -1053,8 +1071,8 @@ fn opening_of_last_bracket(s: &str) -> Option<usize> {
     let mut depth = 0usize;
     for (i, c) in s.bytes().enumerate().rev() {
         match c {
-            b')' | b']' => depth += 1,
-            b'(' | b'[' => {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(i);
@@ -1806,24 +1824,35 @@ mod tests {
 
     #[test]
     fn a_receiver_is_read_back_through_fields_indexes_and_a_call() {
+        let parts = |r: Option<CReceiver>| r.map(|r| (r.head, r.head_called, r.fields));
         let r = |head: &str, called: bool, fields: &[&str]| {
-            Some(CReceiver {
-                head: head.to_owned(),
-                head_called: called,
-                fields: fields.iter().map(ToString::to_string).collect(),
-            })
+            Some((
+                head.to_owned(),
+                called,
+                fields.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            ))
         };
-        assert_eq!(c_receiver("x = a->b.c->"), r("a", false, &["b", "c"]));
-        assert_eq!(c_receiver("c->argv[j]->"), r("c", false, &["argv"]));
         assert_eq!(
-            c_receiver("lookupClient(x)->"),
+            parts(c_receiver("x = a->b.c->")),
+            r("a", false, &["b", "c"])
+        );
+        assert_eq!(parts(c_receiver("c->argv[j]->")), r("c", false, &["argv"]));
+        assert_eq!(
+            parts(c_receiver("lookupClient(x)->")),
             r("lookupClient", true, &[])
         );
-        for before in ["((client *)p)->", "this->", "a->f(x)->", "1."] {
+        for before in ["((client *)p)->", "this->", "a->f(x)->", "1.", "A{}."] {
             assert_eq!(c_receiver(before), None, "{before}");
         }
         assert_eq!(cpp_receiver("a[0]."), None);
-        assert_eq!(cpp_receiver("this->"), r("this", false, &[]));
+        assert_eq!(parts(cpp_receiver("this->")), r("this", false, &[]));
+        let chain = cpp_receiver("x = ::ns::A{1}.f(2).g->")
+            .map(|r| (r.head, r.braced, r.fields, r.calls, r.start));
+        let fields = vec!["f".to_owned(), "g".to_owned()];
+        let want = ("::ns::A".to_owned(), true, fields, vec![true, false], 3);
+        assert_eq!(chain, Some(want));
+        let call = cpp_receiver("ns::f(a).g().").map(|r| (r.head, r.head_called, r.start));
+        assert_eq!(call, Some(("f".to_owned(), true, 0)));
     }
 
     #[test]
