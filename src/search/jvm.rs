@@ -312,7 +312,7 @@ fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> 
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let ret = super::jvm_return_type!();
     let clause = rule(format!(
-        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\binstanceof\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b"
+        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\binstanceof\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\(.*\b(?:var|{ret})\s+{n}\s*[,)]"
     ));
     let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
         .into_iter()

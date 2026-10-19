@@ -113,6 +113,10 @@ impl App {
         let key = key
             || a.elixir_call()
             || (kind == Kind::Ruby && after.starts_with('('))
+            || (a.here.extension().is_some_and(|e| e == "java")
+                && !dotted
+                && after.trim_start().starts_with('(')
+                && !before.trim_end().ends_with("new"))
             || search::erlang(&a.here)
             || (kind == Kind::Elixir
                 && !dotted
