@@ -9,6 +9,7 @@ The dart row with the fixes of #1084, #1085 and #1086: over `76c2d351`, 2026-10-
 The rust row with the fixes of #1044 and #1045 (a `use` inside an inline `mod`, a crate handed on by `pub extern crate`, a receiver whose call's arguments span lines): over `da06cd37`, 2026-10-20, release build, `vm.loadavg` { 8.81 9.06 8.23 } before the run.
 The swift row with #1047: over `06a28815`, 2026-10-19, release build, `vm.loadavg` { 6.95 10.10 9.35 } before the run.
 The go row with #1072's chains of calls: over `72304a83`, 2026-10-20, release build, `vm.loadavg` { 5.32 4.55 4.67 } before the run, { 6.51 4.92 4.79 } after.
+The go row with #1116's element of a named slice type: over `278338c8`, 2026-10-20, release build, `vm.loadavg` { 16.44 16.00 15.35 } before the run, { 32.60 21.85 17.71 } after (the times read high under that load).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -16,7 +17,7 @@ The go row with #1072's chains of calls: over `72304a83`, 2026-10-20, release bu
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 42.8 | 97.7 |
 | js (eslint, uptime-kuma) | 217 | 174 (80%) | 33 (15%) | 1 (0%) | 9 (4%) | 177 | 40.1 | 174.0 |
 | rust (ripgrep) | 231 | 208 (90%) | 19 (8%) | 0 (0%) | 4 (2%) | 69 | 5.8 | 61.0 |
-| go (caddy, gitea) | 318 | 311 (98%) | 6 (2%) | 0 (0%) | 1 (0%) | 51 | 5.8 | 17.1 |
+| go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 9.6 | 26.6 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 24.6 | 34.5 |
 | cpp (leveldb) | 232 | 197 (85%) | 34 (15%) | 0 (0%) | 1 (0%) | 68 | 17.0 | 63.1 |
 | php (koel) | 392 | 238 (61%) | 132 (34%) | 0 (0%) | 22 (6%) | 88 | 31.4 | 244.8 |

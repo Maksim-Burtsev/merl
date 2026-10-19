@@ -5,7 +5,7 @@ use regex::Regex;
 use super::{
     Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
     element_type, group, in_method, indent, jsdoc_owner, jsdoc_properties, literal_lines,
-    python_statements, returns, split_top, ts_header, uncommented, value_of,
+    python_statements, returns, split_top, ts_header, type_path, uncommented, value_of,
 };
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
@@ -417,6 +417,7 @@ pub fn cs_usings(text: &str) -> Vec<String> {
 pub enum GoKey {
     No,
     Of(String),
+    ElementOf(String),
     Unknown,
     Value,
     Struct(usize),
@@ -451,7 +452,10 @@ pub fn go_key(text: &str, line: usize, start: usize, end: usize) -> GoKey {
             .strip_prefix("struct@")
             .and_then(|n| n.parse().ok())
             .map_or(GoKey::Unknown, GoKey::Struct),
-        Some(Ok(t)) => GoKey::Of(t.trim_start_matches('*').to_owned()),
+        Some(Ok(t)) => t.strip_prefix("elem@").map_or_else(
+            || GoKey::Of(t.trim_start_matches('*').to_owned()),
+            |named| GoKey::ElementOf(named.to_owned()),
+        ),
         Some(Err(())) => GoKey::Unknown,
         None => GoKey::No,
     }
@@ -537,8 +541,14 @@ fn go_literal_type(
             return Some(Err(()));
         }
         return Some(
-            go_literal_type(lines, literal, pj, pi, depth + 1)?
-                .and_then(|p| element_type(Kind::Go, &p).ok_or(())),
+            go_literal_type(lines, literal, pj, pi, depth + 1)?.and_then(|p| {
+                element_type(Kind::Go, &p)
+                    .or_else(|| {
+                        (!p.contains('[') && type_path(Kind::Go, &p).is_some())
+                            .then(|| format!("elem@{p}"))
+                    })
+                    .ok_or(())
+            }),
         );
     }
     if pre.ends_with('}') {

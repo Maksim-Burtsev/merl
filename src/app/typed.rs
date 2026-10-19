@@ -679,22 +679,9 @@ impl App {
                 }
                 _ => return None,
             };
-            let named = |written: &str| {
-                let list = self
-                    .type_decl(kind, &at, written)
-                    .filter(|_| kind == Kind::Go)?;
-                let text = self.text_of(&list.path)?;
-                let decl = text
-                    .lines()
-                    .nth(list.line - 1)?
-                    .trim()
-                    .strip_prefix("type ")?;
-                let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
-                Some((search::element_type(kind, holds)?, list.path))
-            };
             let (element, at) = match search::element_type(kind, &written) {
                 Some(element) => (element, at.clone()),
-                None => named(&written)?,
+                None => self.named_element(kind, &at, &written)?,
             };
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
                 (anonymous(&at, c.line1), None)
@@ -718,6 +705,25 @@ impl App {
             }
         }
         found
+    }
+
+    pub(super) fn named_element(
+        &self,
+        kind: Kind,
+        at: &Path,
+        written: &str,
+    ) -> Option<(String, PathBuf)> {
+        let list = self
+            .type_decl(kind, at, written)
+            .filter(|_| kind == Kind::Go)?;
+        let text = self.text_of(&list.path)?;
+        let decl = text
+            .lines()
+            .nth(list.line - 1)?
+            .trim()
+            .strip_prefix("type ")?;
+        let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
+        Some((search::element_type(kind, holds)?, list.path))
     }
 
     fn call_type(
