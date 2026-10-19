@@ -743,7 +743,11 @@ impl App {
         }
         let package = std::fs::read_to_string(self.root.join("Package.swift")).unwrap_or_default();
         let module = self.root.file_name().is_some_and(|d| d == name.as_str())
-            || package.contains(&format!("\"{name}\""));
+            || package.contains(&format!("\"{name}\""))
+            || (self.files.iter()).any(|f| {
+                f.parent()
+                    .is_some_and(|d| d.iter().any(|c| c == name.as_str()))
+            });
         let pattern = search::def_patterns(Kind::Swift, name).join("|");
         if module
             || !self

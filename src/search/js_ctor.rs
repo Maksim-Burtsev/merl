@@ -36,6 +36,23 @@ pub fn prototype_members(text: &str, name: &str, word: &str) -> Vec<usize> {
         .map(|(n, _)| n)
         .collect()
 }
+pub fn prototype_mixed(text: &str, line1: usize, name: &str) -> bool {
+    let mixin = Regex::new(&format!(
+        r"^\s*Object\.assign\(\s*{}\.prototype\s*,\s*\{{\s*$",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let depth = indent(lines[at]);
+    lines[..at]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)
+        .is_some_and(|l| mixin.is_match(l))
+}
 pub fn constructor_field(text: &str, decl: usize, word: &str) -> Option<usize> {
     let assigned = Regex::new(&format!(r"^this\.{}\s*=[^=]", regex::escape(word)))
         .expect("an escaped name keeps the pattern valid");

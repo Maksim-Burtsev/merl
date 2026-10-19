@@ -11,6 +11,7 @@ impl App {
         text: &str,
         name: &str,
         inline_mod: Option<usize>,
+        line0: usize,
     ) -> Option<Typed> {
         static DECL: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")
@@ -18,12 +19,15 @@ impl App {
         });
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Rust, text);
+        let around = search::rust_around(&lines, line0, &literal);
         let in_scope = |u: &search::RustUse| {
             inline_mod.is_none_or(|m| {
-                let line0 = text
+                let at = text
                     .get(..u.start_byte)
                     .map_or(0, |t| t.matches('\n').count());
-                search::rust_inline_mod_past(&lines, &literal, line0) == Some(m)
+                search::rust_around(&lines, at, &literal)
+                    .first()
+                    .is_some_and(|p| *p >= m && around.contains(p))
             })
         };
         let mut bound = search::rust_uses(text)

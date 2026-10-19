@@ -961,11 +961,11 @@ impl App {
         if path.is_empty() {
             let literal = search::literal_lines(Kind::Rust, &text);
             let used = search::rust_inline_mod_past(&lines, &literal, line0)
-                .and_then(|m| self.rust_used_type(file, &text, &name, Some(m)))
+                .and_then(|m| self.rust_used_type(file, &text, &name, Some(m), line0))
                 .or_else(|| {
                     search::rust_inline_mod(&lines, line0)
                         .is_none()
-                        .then(|| self.rust_used_type(file, &text, &name, None))?
+                        .then(|| self.rust_used_type(file, &text, &name, None, line0))?
                 });
             if used.is_some() {
                 return used;
