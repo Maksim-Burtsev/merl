@@ -48,6 +48,9 @@ pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
     let start = rest.start() + rest.as_str().find(word)?;
     let unquoted = word.replace(['"', '\''], "");
     let mut path = unquoted.as_str();
+    if path.starts_with('~') {
+        return None;
+    }
     while let Some(after) = path.strip_prefix('$') {
         let at = match after.as_bytes().first() {
             Some(b'(') => after.find(')')? + 1,
@@ -55,6 +58,9 @@ pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
             _ => (after.find(|c: char| !c.is_ascii_alphanumeric() && c != '_'))
                 .unwrap_or(after.len()),
         };
+        if after.get(..at)?.trim_matches(['{', '}']) == "HOME" {
+            return None;
+        }
         path = after.get(at..)?.strip_prefix('/')?;
     }
     if path.is_empty() || path.starts_with('/') || path.contains(['$', '`', '*']) {

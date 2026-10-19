@@ -228,8 +228,9 @@ the function, a heredoc line shaped like an assignment, and a variable named lik
 (#1057). `shell/test/shop.bats` loads `lib/warehouse.bash` and reads a variable another
 `@test` assigns (#1058); `shell/lib/loader.sh` defines a `load` of its own and calls it beside
 `lib/warehouse.bash`, so outside a `.bats` file, and on the word `load` in one, the call is
-looked up. The end of `shell/bin/brew.sh` sources paths behind `$VAR/`,
-`${VAR}/` and `$(dirname "$0")/`, a path a variable builds, and the variable in front (#1059).
+looked up. The end of `shell/bin/brew.sh` sources paths behind `$VAR/`, `${VAR}/` and
+`$(dirname "$0")/`, a path a variable builds, the variable in front, and paths behind `$HOME`,
+`${HOME}` and `~`, which share their tail with project files and must not open them (#1059).
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by

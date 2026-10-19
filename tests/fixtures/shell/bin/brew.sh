@@ -41,3 +41,10 @@ source "$(dirname "$0")/../lib/banner.sh"
 #                              ^ d: lib/banner.sh:1
 source "$TEA_HOME/lib/$flavour.sh"
 #                       ^ d: none
+# $HOME and ~ lead outside the project: no file there shares the tail.
+source "$HOME/lib/tea.sh"
+#                 ^ d: none
+. "${HOME}/lib/offers.sh"
+#              ^ d: none
+source ~/lib/tea.sh
+#            ^ d: none
