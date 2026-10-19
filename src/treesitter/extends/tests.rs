@@ -4,12 +4,16 @@ use crate::treesitter::{Parsed, QUERIES, Styles, compile_text, grammar, lang, so
 
 #[test]
 fn every_theme_s_query_compiles_with_what_it_uses() {
-    for theme in theme::names().map(Some) {
+    let mut compiled = std::collections::HashSet::new();
+    for theme in theme::names() {
         for (name, _, _) in QUERIES {
-            let (Some(grammar), Ok(text)) = (grammar(name), source(name, |r| r.1, theme)) else {
+            let (Some(grammar), Ok(text)) = (grammar(name), source(name, |r| r.1, Some(theme)))
+            else {
                 continue;
             };
-            compile_text(name, grammar, &text).unwrap();
+            if compiled.insert((*name, text.clone())) {
+                compile_text(name, grammar, &text).unwrap_or_else(|e| panic!("{theme}: {e}"));
+            }
         }
     }
 }
