@@ -175,3 +175,49 @@ func Cosy() int {
 	//     ^ d: rival/rival.go:27
 	//                            ^ d: rival/rival.go:25
 }
+
+type Kettles []Kettle
+
+func (ks Kettles) Pour() int { return len(ks) }
+
+func Rack(ks []Kettle, ts []*Teapot, byName map[string]Kettle, pair [2]Teapot) int {
+	i := 0
+	return ks[i].Pour() + ts[i+1].Pour() + byName["a"].Spout + pair[0].Pour()
+	//           ^ d: rival/rival.go:25
+	//                            ^ d: rival/rival.go:31
+	//                                                 ^ d: rival/rival.go:21
+	//                                                                 ^ d: rival/rival.go:31
+}
+
+func Shelf(cups []any, all Kettles, ks []Kettle) int {
+	return cups[0].(Kettle).Pour() + all[1:].Pour() + all[0].Pour() + ks[1:2][0].Pour()
+	//                      ^ d: !jump
+	//                                       ^ d: !jump
+	//                                                       ^ d: rival/rival.go:25
+	//                                                                           ^ d: !jump
+}
+
+type Pantry struct {
+	shelf []*Teapot
+	cups  []any
+}
+
+func (p Pantry) Stock() int {
+	return p.shelf[0].Pour() + p.cups[0].Pour()
+	//                ^ d: rival/rival.go:31
+	//                                   ^ d: !jump
+}
+
+func Pots(pots ...*Teapot) int {
+	return pots[0].Pour()
+	//             ^ d: rival/rival.go:31
+}
+
+func Cups(cups ...Kettle) int {
+	for _, cup := range cups {
+		_ = cup.Pour()
+		//      ^ d: rival/rival.go:25
+	}
+	return cups.Pour()
+	//          ^ d: !jump
+}

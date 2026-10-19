@@ -1079,8 +1079,11 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
         };
         if pname == name {
             let value = match ty {
-                Some(t) if !t.starts_with("...") => Value::Type(t.to_owned()),
-                _ => Value::Unknown,
+                Some(t) => match t.strip_prefix("...") {
+                    Some(element) => Value::Type(format!("[]{element}")),
+                    None => Value::Type(t.to_owned()),
+                },
+                None => Value::Unknown,
             };
             out.push(Binding { line1: line, value });
         }

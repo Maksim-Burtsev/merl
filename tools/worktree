@@ -11,9 +11,10 @@ if [ "${1-}" != --locked ]; then
 fi
 dir=$2
 
-want="$(git show origin/master:Cargo.lock | shasum) $(rustc -V)"
+profiles=$(git show origin/master:Cargo.toml | awk '/^\[/{p=/^\[profile/} p' | shasum)
+want="$(git show origin/master:Cargo.lock | shasum) $profiles $(rustc -V)"
 if [ "$(cat "$seed.stamp" 2>/dev/null)" != "$want" ]; then
-  echo "tools/worktree: building the seed, once per Cargo.lock (~7 min)" >&2
+  echo "tools/worktree: building the seed, once per Cargo.lock and profiles (~7 min)" >&2
   [ -d "$seed" ] || git worktree add -q --detach "$seed" origin/master
   git -C "$seed" checkout -q --detach origin/master
   rm -rf "$seed/target"

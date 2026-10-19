@@ -313,13 +313,13 @@ impl App {
         depth: usize,
     ) -> Result<Option<Typed>, GoTypeUnread> {
         static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)")
+            Regex::new(r"^(?:type\s+)?[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)")
                 .expect("the regex is a literal")
         });
         let ty = self.type_decl(kind, file, written).ok_or(GoTypeUnread)?;
         let text = self.text_of(&ty.path).ok_or(GoTypeUnread)?;
         let line = text.lines().nth(ty.line - 1).ok_or(GoTypeUnread)?;
-        let over = DEFINED.captures(line).ok_or(GoTypeUnread)?[1]
+        let over = DEFINED.captures(line.trim_start()).ok_or(GoTypeUnread)?[1]
             .trim()
             .to_owned();
         if over.starts_with("struct") {
@@ -744,8 +744,14 @@ impl App {
                 }
             }
         }
-        if kind == Kind::Sql
-            && let Some((range, _)) = self.word_here(Some(kind)).filter(|(_, w)| *w == word)
+        if kind == Kind::Sql {
+            self.sql_hits(here, word, &mut hits);
+        }
+        hits
+    }
+
+    fn sql_hits(&self, here: &Path, word: &str, hits: &mut Vec<Hit>) {
+        if let Some((range, _)) = self.word_here(Some(Kind::Sql)).filter(|(_, w)| *w == word)
             && let Some(lead) = self.line_str().get(..range.start)
             && hits
                 .iter()
@@ -753,10 +759,9 @@ impl App {
         {
             hits.retain(|h| search::sql_same_schema(lead, &h.text) == Some(true));
         }
-        if kind == Kind::Sql
-            && !hits
-                .iter()
-                .any(|h| h.path == here && h.line1 == self.line + 1)
+        if !hits
+            .iter()
+            .any(|h| h.path == here && h.line1 == self.line + 1)
         {
             let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
             let text = self.text_of(here).unwrap_or_default();
@@ -780,7 +785,9 @@ impl App {
                 }
             });
         }
-        hits
+        if hits.iter().any(|h| !search::sql_renames(&h.text)) {
+            hits.retain(|h| !search::sql_renames(&h.text));
+        }
     }
 }
 

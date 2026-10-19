@@ -87,6 +87,9 @@ two-face = "0.5"
 unicase = "2.6"
 unicode-segmentation = "1"
 
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.dev.package."*"]
 opt-level = 2
 

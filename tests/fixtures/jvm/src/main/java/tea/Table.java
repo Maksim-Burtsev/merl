@@ -30,4 +30,10 @@ public class Table {
         //     ^ d: src/main/java/tea/Teapot.java:3
         return new Teapot();
     }
+
+    public int chained(Kettle kettle) {
+        return kettle
+            .pour(3);
+        //   ^ d: src/main/java/tea/Kettle.java:22
+    }
 }
