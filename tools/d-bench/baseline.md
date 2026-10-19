@@ -6,6 +6,7 @@ The swift row (#1053, #1052, #1055, branch `b1019/swift`): 2026-10-19, release b
 The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, release build, `vm.loadavg` { 8.08 7.25 6.44 } before the run, { 6.75 6.94 6.39 } after.
 The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
 The ts, js, vue, svelte and astro rows: merl at `168369f0` with the `d` fix of #1078 on branch `b1019/jsts`, 2026-10-19, release build, `vm.loadavg` { 5.60 7.28 6.96 } before the run and after.
+The cpp row: merl at `290bfdc6` with the fix of #1049 on branch `b1019/cpp`, 2026-10-19, release build, `vm.loadavg` { 4.56 5.39 5.97 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -15,7 +16,7 @@ The ts, js, vue, svelte and astro rows: merl at `168369f0` with the `d` fix of #
 | go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
 | rust (ripgrep) | 231 | 203 (88%) | 24 (10%) | 0 (0%) | 4 (2%) | 69 | 6.5 | 77.2 |
 | c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 24.7 | 33.3 |
-| cpp (leveldb) | 232 | 182 (78%) | 48 (21%) | 0 (0%) | 2 (1%) | 68 | 22.8 | 94.6 |
+| cpp (leveldb) | 232 | 188 (81%) | 43 (19%) | 0 (0%) | 1 (0%) | 68 | 16.7 | 63.0 |
 | php (koel) | 104 | 99 (95%) | 5 (5%) | 0 (0%) | 0 (0%) | 196 | 13.8 | 25.9 |
 | swift (Alamofire) | 154 | 125 (81%) | 28 (18%) | 0 (0%) | 1 (1%) | 116 | 18.4 | 40.2 |
 | java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |

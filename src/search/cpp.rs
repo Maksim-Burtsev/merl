@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 
 use super::c::{
     Head, c_code, c_head, c_head_start, c_innermost_open_brace, c_struct_head, c_words_on_line,
-    close_or_end,
+    close_or_end, cpp_decl_start,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -485,6 +485,76 @@ pub fn cpp_plain_class_namespace(code: &str, open: usize) -> Option<Vec<String>>
         at = o;
     }
     Some(out)
+}
+
+pub struct CppWritten {
+    pub pointer: bool,
+    pub first_arg: Option<String>,
+}
+
+pub fn cpp_written(code: &str, at: usize, class: &str) -> Option<CppWritten> {
+    let written = code.get(cpp_decl_start(code, at)?..at)?;
+    let mut depth = 0usize;
+    let outer: String = (written.chars())
+        .filter(|&c| match c {
+            '<' => {
+                depth += 1;
+                false
+            }
+            '>' => {
+                depth = depth.saturating_sub(1);
+                false
+            }
+            _ => depth == 0,
+        })
+        .collect();
+    let w = regex::escape(class);
+    Regex::new(&format!(r"\b{w}\b"))
+        .ok()?
+        .is_match(&outer)
+        .then_some(())?;
+    let opened = Regex::new(&format!(r"\b{w}\s*<")).ok()?.find(written);
+    Some(CppWritten {
+        pointer: outer.trim_end().ends_with('*'),
+        first_arg: opened.and_then(|m| first_arg(written.get(m.end()..)?)),
+    })
+}
+
+pub fn cpp_std_class_body(code: &str, line1: usize, name: &str) -> Option<(usize, Option<String>)> {
+    let w = regex::escape(name);
+    let re = Regex::new(&format!(
+        r"^\s*(?:struct|class)\s+(?:[A-Z_][A-Z0-9_]*\s+)*{w}\b\s*(<)?"
+    ))
+    .ok()?;
+    c_words_on_line(code, line1, name, None)
+        .into_iter()
+        .find_map(|at| {
+            let start = code.get(..at)?.rfind('\n').map_or(0, |n| n + 1);
+            let open = at + code.get(at..)?.find([';', '{', '(', '='])?;
+            let head = code.get(start..open)?;
+            let special = re.captures(head)?.get(1).map(|lt| {
+                (head.get(lt.end()..))
+                    .and_then(first_arg)
+                    .unwrap_or_else(|| "_".to_owned())
+            });
+            (code.as_bytes()[open] == b'{' && c_struct_head(head).as_deref() == Some(name))
+                .then_some((open, special))
+        })
+}
+
+fn first_arg(s: &str) -> Option<String> {
+    let mut depth = 0usize;
+    for (i, c) in s.char_indices() {
+        match c {
+            '<' | '(' => depth += 1,
+            '>' | ')' if depth > 0 => depth -= 1,
+            ',' | '>' if depth == 0 => {
+                return Some(s.get(..i)?.split_whitespace().collect::<Vec<_>>().join(" "));
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 #[cfg(test)]

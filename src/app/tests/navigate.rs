@@ -1557,6 +1557,88 @@ fn c_outside_reads_what_the_file_includes() {
 }
 
 #[test]
+fn a_member_of_a_std_class_is_looked_up_in_its_libcxx_class() {
+    let (dir, mut a) = project_app(
+        "cpp-std-member",
+        &[
+            (
+                "box.h",
+                "struct Box {\n  int size() const;\n  int load();\n};\n",
+            ),
+            (
+                "m.cc",
+                "#include <vector>\n#include <atomic>\n#include <string>\n#include \"box.h\"\nint f(std::vector<int>* px) {\n  std::vector<int> xs;\n  std::vector<bool> bits;\n  std::atomic<bool> flag;\n  std::string name;\n  return xs.size() + bits.size() + flag.load() + px->size() + name.c_str()[0];\n}\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "cpp-std-member",
+        &[
+            (
+                "c++/v1/vector",
+                "#include <__vector/vector.h>\n#include <__vector/vector_bool.h>\n",
+            ),
+            (
+                "c++/v1/__vector/vector.h",
+                "_LIBCPP_BEGIN_NAMESPACE_STD\ntemplate <class _Tp, class _Allocator /* = allocator<_Tp> */>\nclass vector {\npublic:\n  _LIBCPP_HIDE_FROM_ABI size_type size() const _NOEXCEPT { return 0; }\n};\n",
+            ),
+            (
+                "c++/v1/__vector/vector_bool.h",
+                "template <class _Allocator>\nclass vector<bool, _Allocator> {\npublic:\n  _LIBCPP_HIDE_FROM_ABI size_type size() const _NOEXCEPT { return 0; }\n};\n",
+            ),
+            (
+                "c++/v1/atomic",
+                "template <class _Tp, bool = is_integral<_Tp>::value>\nstruct __atomic_base // false\n{\n  _Tp load() const _NOEXCEPT;\n};\ntemplate <class _Tp>\nstruct atomic : public __atomic_base<_Tp> {\n};\n",
+            ),
+            (
+                "c++/v1/string",
+                "template <class _CharT>\nclass basic_string {\npublic:\n  const value_type* c_str() const _NOEXCEPT;\n};\nusing string = basic_string<char>;\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let at = |f: &str, n: usize| format!("{}:{n}", root.join(f).display());
+    d_on(&mut a, "m.cc", "xs.size");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "size → vector::size (via xs: vector)",
+            &at("c++/v1/__vector/vector.h", 5)
+        )
+    );
+    d_on(&mut a, "m.cc", "px->size");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "size → vector::size (via px: vector)",
+            &at("c++/v1/__vector/vector.h", 5)
+        )
+    );
+    d_on(&mut a, "m.cc", "flag.load");
+    assert_eq!(
+        shown(&mut a),
+        jump("load: via flag: atomic", &at("c++/v1/atomic", 4)),
+        "a member a std class inherits is its base's"
+    );
+    d_on(&mut a, "m.cc", "name.c_str");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "c_str → basic_string::c_str (via name: string)",
+            &at("c++/v1/string", 4)
+        ),
+        "`std::string` is the class its alias names"
+    );
+    d_on(&mut a, "m.cc", "bits.size");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("`vector<bool>` is a specialization, not the class");
+    };
+    assert!(rows.iter().all(|(_, _, place)| !place.starts_with("box.h")));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
 fn c_includes_narrow_no_further_than_they_should() {
     let (dir, mut a) = project_app(
         "c-includes-review",
