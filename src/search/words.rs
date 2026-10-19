@@ -457,36 +457,54 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     let led = |l: &str| {
         let t = l.trim_start();
         match kind {
-            Kind::TsJs | Kind::Rust => t.starts_with('.') && !t.starts_with(".."),
+            Kind::TsJs | Kind::Rust | Kind::Swift => t.starts_with('.') && !t.starts_with(".."),
+            Kind::Jvm | Kind::Dart => {
+                t.strip_prefix('?').unwrap_or(t).starts_with('.') && !t.starts_with("..")
+            }
             Kind::Php => t.starts_with("->") || t.starts_with("?->"),
             _ => false,
         }
     };
-    if !led(&lines[at]) {
-        return None;
-    }
+    let held = |above: &str, below: &str| match kind {
+        Kind::Go => above.ends_with('.') && !above.ends_with(".."),
+        Kind::Jvm | Kind::Swift | Kind::Dart => led(below) && ends_a_receiver(above),
+        _ => led(below),
+    };
     let mut joined = lines[at].trim_start().to_owned();
     let mut start = word_start - indent(&lines[at]);
+    let mut below = lines[at].clone();
+    let mut links = 0;
     for above in lines[at.saturating_sub(40)..at].iter().rev() {
         let code = uncommented(kind, above);
-        let code = if led(&code) {
-            code.trim()
-        } else {
-            code.trim_end()
-        };
+        let code = code.trim_end();
         if code.is_empty() {
             continue;
         }
-        start += code.len();
-        joined.insert_str(0, code);
-        if !led(code) {
-            return Some(LineAsRead {
-                line: joined,
-                word_start: start,
-            });
+        if !held(code, &below) {
+            break;
         }
+        let head = joined.len() - joined.trim_start().len();
+        joined.drain(..head);
+        start = start + code.len() - head;
+        joined.insert_str(0, code);
+        code.clone_into(&mut below);
+        links += 1;
     }
-    None
+    (links > 0 && !led(&below)).then_some(LineAsRead {
+        line: joined,
+        word_start: start,
+    })
+}
+fn ends_a_receiver(code: &str) -> bool {
+    const STARTS_AN_EXPRESSION: [&str; 13] = [
+        "return", "in", "case", "try", "await", "throw", "else", "is", "as", "some", "any",
+        "yield", "where",
+    ];
+    let word = code
+        .get(name_start(code, |c| c.is_alphanumeric() || c == '_')..)
+        .unwrap_or_default();
+    code.ends_with(|c: char| c.is_alphanumeric() || "_)]}!".contains(c))
+        && !STARTS_AN_EXPRESSION.contains(&word)
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct LineAsRead {

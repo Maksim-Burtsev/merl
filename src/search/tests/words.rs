@@ -358,6 +358,37 @@ fn a_chain_broken_over_lines_reads_as_one() {
 }
 
 #[test]
+fn a_call_that_starts_a_line_keeps_its_receiver() {
+    let lines = |ls: &[&str]| ls.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let line = |kind, ls: &[&str], at, col| unbroken(kind, &lines(ls), at, col).map(|l| l.line);
+    let java = ["  return service", "    .listReply(name)", "    .map(x)"];
+    assert_eq!(
+        line(Kind::Jvm, &java, 2, 5).as_deref(),
+        Some("  return service.listReply(name).map(x)")
+    );
+    let swift = ["  AF.request(url)", "    .validate()"];
+    assert_eq!(
+        line(Kind::Swift, &swift, 1, 5).as_deref(),
+        Some("  AF.request(url).validate()")
+    );
+    for implicit in [
+        ["completion(", "  .success(x))"],
+        ["f(a,", "  .none)"],
+        ["let x: Mode =", "  .fast"],
+        ["return", "  .fast"],
+    ] {
+        assert_eq!(line(Kind::Swift, &implicit, 1, 3), None, "{implicit:?}");
+        assert_eq!(line(Kind::Dart, &implicit, 1, 3), None, "{implicit:?}");
+    }
+    let go = ["\tsess := x.Where(a).", "\t\tAnd(b).", "\t\tAnd(c)"];
+    assert_eq!(
+        line(Kind::Go, &go, 2, 2).as_deref(),
+        Some("\tsess := x.Where(a).And(b).And(c)")
+    );
+    assert_eq!(line(Kind::Go, &["\tx := 1", "\tf()"], 1, 1), None);
+}
+
+#[test]
 fn a_member_access_reads_as_a_plain_dot() {
     let plain = |kind, line: &str, start| plain_access(kind, line, start).line;
     assert_eq!(plain(Kind::Swift, "user?.name", 6), "user.name");
