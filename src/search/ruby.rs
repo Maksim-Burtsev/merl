@@ -390,6 +390,33 @@ pub fn ruby_instance_of_class(text: &str, line1: usize) -> bool {
             .is_some_and(|l| !l.starts_with("module ") && !l.starts_with("class <<"))
 }
 
+pub fn ruby_in_module(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .map(|&(i, _)| lines[i].trim_start())
+        .find(|l| l.starts_with("module ") || (l.starts_with("class ") && !l.starts_with("class <<")))
+        .is_some_and(|l| l.starts_with("module "))
+}
+
+pub fn ruby_in_block(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .find(|(_, o)| *o != Opens::Nothing)
+        .is_some_and(|(_, o)| *o == Opens::Block)
+}
+
 pub fn ruby_on_class(text: &str, line1: usize) -> bool {
     static ON: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:(?:[a-z_]+\s+)?def\s+(?:self|[A-Z]\w*)\.|scope\s*\(?\s*:)")

@@ -108,6 +108,30 @@ impl App {
         self.ruby_methods_from(here, word, class, on_class)
     }
 
+    pub(super) fn ruby_all_unrelated(&self, here: &Path, text: &str, found: &[Candidate]) -> bool {
+        let class = search::ruby_class_path(text, self.line + 1);
+        if class.is_empty() || found.is_empty() {
+            return false;
+        }
+        let in_module = search::ruby_in_module(text, self.line + 1);
+        let ancestors: Vec<String> = self.ruby_ancestors(here, &class).collect();
+        found.iter().all(|c| {
+            let Some(t) = self.text_of(&c.hit.path) else {
+                return false;
+            };
+            let owner = search::ruby_class_path(&t, c.hit.line1);
+            if owner.is_empty() || owner == class {
+                return false;
+            }
+            if search::ruby_in_module(&t, c.hit.line1) {
+                return search::ruby_on_class(&t, c.hit.line1)
+                    && !search::ruby_in_block(&t, c.hit.line1);
+            }
+            !ancestors.contains(&owner)
+                && !(in_module && self.ruby_ancestors(here, &owner).any(|a| a == class))
+        })
+    }
+
     fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
         self.ruby_class_named(here, &chain.join("::"))
             .map(|class| self.ruby_methods_from(here, word, class, true))
