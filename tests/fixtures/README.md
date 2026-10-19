@@ -444,7 +444,9 @@ named like a top-level function and a class of the file (#1079); `cut.ts` reads 
 like a local of another function. `migrate.ts` calls `changed()` on a `Revision` of `record.ts`,
 whose base comes from the uninstalled `sequelize-typescript`, beside a type's `changed`, and reads
 `isDevelopment` off the default export of `settings.ts`, typed `Record<…> & { … }` over several
-lines, beside a class's getter of that name (#1079). `crate.js` reads `hinge` off an untyped parameter, declared only
+lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
+mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
+another class. `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078).
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
@@ -492,6 +494,12 @@ top-level `Lid`, computed properties, `pour` overloaded by argument label beside
 self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter, `if let` over a
 property, a one-line closure whose parameter is named like a property, and declaration-shaped
 lines in a multi-line and a raw string.
+`swift/Sources/Shop/KeepLog.swift` calls free functions through a module `Package.swift` does not
+name, only its folder `Sources/Kit/` (#1068): `Kit.record` jumps, `Kit.jot` offers its namesake
+in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `.x` from functions
+returning `Self` (in a struct and in an extension of an outside type) and a generic `T`, which
+the expected type must not read (#1069): each jumps by name, and says "no definition" with its
+guard removed.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -536,7 +544,11 @@ calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
 (#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
 annotation with arguments the rules cannot read (a `Ledger` namesake must not be jumped to),
-and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/src/main/java/arity/`
+and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/src/main/kotlin/ladle/`
+calls through a type's name the extensions declared in another file: on its `Companion`
+(`Ladle.dollop()`, `Ladle.brim`), on an `object`, and on an `object` written with its package
+(`fun ladle.Spoon.scoop()`), which only the extension test of the owner's hits keeps a jump.
+`jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
 text block, and a Kotlin extension called through its file class (`LoudKt.holler`);
