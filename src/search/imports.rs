@@ -934,7 +934,7 @@ fn go_module_files(root: &Path, files: &[PathBuf], module: &[String]) -> Vec<Pat
         .cloned()
         .collect()
 }
-pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
+pub fn file_import(kind: Kind, here: &Path, line: &str, col: usize) -> Option<String> {
     match kind {
         Kind::Graphql => graphql_import(line, col).map(str::to_owned),
         Kind::PowerShell => powershell_import(line, col),
@@ -944,7 +944,7 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::Haskell => haskell_import_module(line, col),
         Kind::Julia => julia_include(line, col),
         Kind::R => r_source(line, col),
-        Kind::Shell => shell_source(line, col),
+        Kind::Shell => shell_source(line, col, here.extension().is_some_and(|e| e == "bats")),
         Kind::Lua => lua_require_path(line, col),
         Kind::Gdscript => gdscript_path(line, col),
         Kind::Solidity => solidity_import_path(line, col),

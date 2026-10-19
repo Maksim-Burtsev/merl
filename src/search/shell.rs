@@ -34,12 +34,16 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
         })
         .map(|i| i + 1)
 }
-pub fn shell_source(line: &str, col: usize) -> Option<String> {
+pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
     static SOURCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(load|source|\.)\s+(.*)").expect("the regex is a literal")
     });
     let c = SOURCE.captures(line)?;
     let (keyword, rest) = (c.get(1)?, c.get(2)?);
+    let load = keyword.as_str() == "load";
+    if load && !bats {
+        return None;
+    }
     let word = *shell_words(rest.as_str()).first()?;
     let start = rest.start() + rest.as_str().find(word)?;
     let unquoted = word.replace(['"', '\''], "");
@@ -57,10 +61,11 @@ pub fn shell_source(line: &str, col: usize) -> Option<String> {
         return None;
     }
     let literal = start + word.rfind(path)?;
-    if !(keyword.range().contains(&col) || (literal..=start + word.len()).contains(&col)) {
+    let on_keyword = !load && keyword.range().contains(&col);
+    if !(on_keyword || (literal..=start + word.len()).contains(&col)) {
         return None;
     }
-    if keyword.as_str() != "load" {
+    if !load {
         return Some(path.to_owned());
     }
     let bash = if Path::new(path).extension().is_some_and(|e| e == "bash") {
