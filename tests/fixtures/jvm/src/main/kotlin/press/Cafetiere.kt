@@ -23,7 +23,7 @@ class Cafetiere(private val carafe: Carafe) : Carafe(), Lever {
         val note = " fun slosh(): Int = 0 "
         val mesh = Mesh()
         return note.trimIndent().length + mesh.trimIndent() + note.steepness()
-        //          ^ d: src/main/kotlin/press/Mesh.kt:6; want none (#1131)
+        //          ^ d: none
         //                       ^ d: none
         //                                     ^ d: src/main/kotlin/press/Mesh.kt:6
         //                                                         ^ d: src/main/kotlin/press/Brewing.kt:3

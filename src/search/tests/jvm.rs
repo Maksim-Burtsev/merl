@@ -209,6 +209,24 @@ fn jvm_assigned_calls_are_of_a_lowercase_name() {
 }
 
 #[test]
+fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
+    let kt = |line: &str| jvm_literal_type(line, "s", false);
+    assert_eq!(kt(r#"    val s = " fun slosh(): Int = 0 ""#), Some("String"));
+    assert_eq!(kt(r#"    val s = "a \" $b""#), Some("String"));
+    assert_eq!(kt("    var s = 'c'"), Some("Char"));
+    assert_eq!(kt("    val s = 1_000"), Some("Int"));
+    assert_eq!(kt("    val s = 3L"), Some("Long"));
+    assert_eq!(kt("    val s = 2.5"), Some("Double"));
+    assert_eq!(kt("    val s = true"), Some("Boolean"));
+    assert_eq!(kt(r#"    val s = "a" + b"#), None);
+    assert_eq!(kt(r#"    val s = "a".length"#), None);
+    assert_eq!(kt(r#"    val s = "a${f("b")}""#), None);
+    let java = |line: &str| jvm_literal_type(line, "s", true);
+    assert_eq!(java(r#"        var s = "x";"#), Some("String"));
+    assert_eq!(java("        var s = 1;"), None);
+}
+
+#[test]
 fn a_kotlin_when_subject_keeps_its_type_in_else_and_casts_when_bound_by_val() {
     let text = "fun f(v: Urn, x: Any) {\n    when (v) {\n        is Glass -> v.dose()\n        else -> v.scald()\n    }\n    when (val g = x) {\n        is Samovar -> g.mint()\n    }\n}\n";
     assert_eq!(jvm_when_else(text, 4, "v"), Some(2));

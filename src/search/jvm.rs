@@ -804,6 +804,35 @@ pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
     })
 }
 
+pub fn jvm_literal_type(line: &str, name: &str, java: bool) -> Option<&'static str> {
+    let re = Regex::new(&format!(
+        r"\b(?:var|val)\s+{}\s*=\s*(.+?)\s*;?\s*$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let code = uncommented(Kind::Jvm, line);
+    let c = re.captures(code.trim_end())?;
+    let value = &c[1];
+    let string = Regex::new(r#"^"(?:[^"\\]|\\.)*"$"#).ok()?;
+    if string.is_match(value) {
+        return Some("String");
+    }
+    if java {
+        return None;
+    }
+    [
+        (r"^'(?:[^'\\]|\\.[^']*)'$", "Char"),
+        (r"^(?:true|false)$", "Boolean"),
+        (r"^-?(?:0[xX][0-9a-fA-F_]+|[0-9][0-9_]*)$", "Int"),
+        (r"^-?(?:0[xX][0-9a-fA-F_]+|[0-9][0-9_]*)L$", "Long"),
+        (r"^-?[0-9][0-9_]*\.[0-9][0-9_]*$", "Double"),
+        (r"^-?[0-9][0-9_]*(?:\.[0-9][0-9_]*)?[fF]$", "Float"),
+    ]
+    .into_iter()
+    .find(|(r, _)| Regex::new(r).is_ok_and(|re| re.is_match(value)))
+    .map(|(_, ty)| ty)
+}
+
 pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
     let n = regex::escape(name);
     let rule = if kotlin {

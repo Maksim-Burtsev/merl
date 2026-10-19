@@ -306,6 +306,8 @@ impl App {
             return None;
         }
         let lines: Vec<&str> = text.lines().collect();
+        let ext = file.extension().and_then(|e| e.to_str());
+        let literal_typed = matches!(ext, Some("java" | "kt" | "kts"));
         let bindings: Vec<usize> = search::bindings(Kind::Jvm, text, line1, name)
             .iter()
             .map(|b| b.line1)
@@ -321,19 +323,27 @@ impl App {
         let mut found: Option<WrittenType> = None;
         for l in declared {
             let at = lines.get(l - 1)?;
-            let this = match search::jvm_declared_type(at, name, kotlin) {
-                Some(t) => WrittenType {
+            let literal = literal_typed
+                .then(|| search::jvm_literal_type(at, name, ext == Some("java")))
+                .flatten();
+            let declared = search::jvm_declared_type(at, name, kotlin);
+            let this = match (declared, literal) {
+                (None, Some(t)) => WrittenType {
+                    resolved: JvmType::Outside(t.to_owned()),
+                    written: t.to_owned(),
+                },
+                (Some(t), _) => WrittenType {
                     resolved: self.jvm_type_at(file, text, &t),
                     written: t,
                 },
-                None if hops > 0 => {
+                (None, None) if hops > 0 => {
                     let search::JvmAssignedCall {
                         receiver: recv,
                         method: call,
                     } = search::jvm_assigned_call(at, name)?;
                     self.jvm_returned(file, text, l, recv.as_deref(), &call, kotlin)?
                 }
-                None => return None,
+                (None, None) => return None,
             };
             if found.as_ref().is_some_and(|f| f.written != this.written) {
                 return None;
