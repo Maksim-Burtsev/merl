@@ -131,6 +131,20 @@ impl App {
         }
         if kind == Kind::Swift
             && dotted
+            && chain.is_empty()
+            && !matches!(word.as_str(), "init" | "none" | "some")
+            && let Some(lead) = a.lead.strip_suffix('.')
+            && let Some(found) = self.swift_expected_rows(&a.here, &a.text, lead, word)
+        {
+            if found.is_empty() {
+                self.message = resolution(word, None, &[], None, false);
+            } else {
+                self.show_found(a, found);
+            }
+            return true;
+        }
+        if kind == Kind::Swift
+            && dotted
             && !chain.is_empty()
             && chain[0] != "super"
             && word != "init"

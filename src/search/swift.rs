@@ -33,7 +33,8 @@ static SWIFT_LOCAL_DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|
 });
 pub fn swift_right_of_binding(lead: &str) -> bool {
     static RIGHT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\b(?:let|var)\s[^=;]*[^=!<>;]=(?:[^=]|$)[^;]*$").expect("the regex is a literal")
+        Regex::new(r"\b(?:let|var)\s[^=;]*[^=!<>;]=(?:[^=]|$)[^;]*$")
+            .expect("the regex is a literal")
     });
     RIGHT.is_match(&uncommented(Kind::Swift, lead))
 }
@@ -1091,4 +1092,98 @@ pub fn swift_may_bind(line: &str, name: &str) -> bool {
     ))
     .expect("an escaped name keeps the pattern valid")
     .is_match(&uncommented(Kind::Swift, line))
+}
+pub fn swift_called_closure(lead: &str) -> Option<String> {
+    static CALLED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.?!`])([a-z_]\w*)\(\s*$").expect("the regex is a literal")
+    });
+    CALLED.captures(lead).map(|c| c[1].to_owned())
+}
+pub fn swift_closure_takes(written: &str) -> Option<String> {
+    let mut t = written.trim();
+    while let Some(rest) = t.strip_prefix('@') {
+        let name_end = rest.find(|c: char| !c.is_alphanumeric() && c != '_')?;
+        t = rest.get(name_end..)?.trim_start();
+    }
+    let t = t.strip_prefix('(').unwrap_or("");
+    let close = t.find(')')?;
+    let (inner, rest) = (t.get(..close)?.trim(), t.get(close + 1..)?.trim_start());
+    let rest = rest.strip_prefix("async").map_or(rest, str::trim_start);
+    let rest = rest.strip_prefix("throws").map_or(rest, str::trim_start);
+    (rest.starts_with("->") && !inner.is_empty() && !inner.contains([',', '(', ':']))
+        .then(|| inner.to_owned())
+}
+pub fn swift_expected(
+    lines: &[&str],
+    literal: &[bool],
+    line1: usize,
+    lead: &str,
+) -> Option<String> {
+    static ANNOTATED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[(,\s])`?\w+`?\s*:\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\s*[?!]?\s*=\s*$")
+            .expect("the regex is a literal")
+    });
+    static RETURN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:guard\s[^{]*\selse\s*\{\s*)?return\s*$")
+            .expect("the regex is a literal")
+    });
+    static ARM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:case\s.*|default)\s*:\s*$").expect("the regex is a literal")
+    });
+    static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{}var\s+`?\w+`?\s*:\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\s*\{{\s*$",
+            swift_mods!()
+        ))
+        .expect("the regex is a literal")
+    });
+    let lead = uncommented(Kind::Swift, lead);
+    if let Some(c) = ANNOTATED.captures(&lead) {
+        return Some(c[1].to_owned());
+    }
+    let switch = |t: &str| t.starts_with("switch ") || t.starts_with("return switch ");
+    let mut i = line1.checked_sub(1)?;
+    if ARM.is_match(&lead) {
+        let depth = indent(lines[i]);
+        i = (0..i).rev().find(|&j| {
+            swift_code(lines, literal, j) && indent(lines[j]) <= depth && {
+                let t = swift_text(lines, j);
+                !(indent(lines[j]) == depth && (t.starts_with("case ") || t.starts_with("default")))
+            }
+        })?;
+        if !switch(&swift_text(lines, i)) {
+            return None;
+        }
+    } else if !RETURN.is_match(&lead) {
+        return None;
+    }
+    loop {
+        let depth = indent(lines[i]);
+        let j = (0..i)
+            .rev()
+            .find(|&j| swift_code(lines, literal, j) && indent(lines[j]) < depth)?;
+        i = swift_header_start(lines, literal, j);
+        let t = swift_text(lines, i);
+        let flow = [
+            "if ", "guard ", "else", "} else", "for ", "while ", "do ", "do {", "catch", "} catch",
+            "repeat", "case ", "default", "get {", "get{",
+        ];
+        if switch(&t) || flow.iter().any(|f| t.starts_with(f)) {
+            continue;
+        }
+        if let Some(c) = VAR.captures(&t) {
+            return Some(c[1].to_owned());
+        }
+        let text = lines.get(i..)?.join("\n");
+        return (SWIFT_FUNC.is_match(&t) && t.contains("func "))
+            .then(|| swift_returns(&text, 1))
+            .flatten()
+            .filter(|r| {
+                r.trim_end_matches(['?', '!']).split('.').all(|p| {
+                    p.starts_with(char::is_uppercase)
+                        && p.chars().all(|c| c.is_alphanumeric() || c == '_')
+                })
+            })
+            .map(|r| r.trim_end_matches(['?', '!']).to_owned());
+    }
 }

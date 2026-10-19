@@ -605,3 +605,95 @@ impl App {
         Some(rows)
     }
 }
+
+impl App {
+    pub(super) fn swift_expected_rows(
+        &self,
+        here: &Path,
+        text: &str,
+        lead: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        if self.root.join(".build/checkouts").exists() {
+            return None;
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let line1 = self.line + 1;
+        let written = match search::swift_called_closure(lead) {
+            Some(callee) => {
+                let bound = search::bindings(Kind::Swift, text, line1, &callee);
+                let [b] = bound.as_slice() else {
+                    return None;
+                };
+                let search::SwiftGiven::Type(t) =
+                    search::swift_given(lines.get(b.line1 - 1)?, &callee)?
+                else {
+                    return None;
+                };
+                search::swift_closure_takes(&t)?
+            }
+            None => search::swift_expected(&lines, &literal, line1, lead)?,
+        };
+        let written = written.trim_end_matches(['?', '!']).to_owned();
+        let first = written.split('.').next()?.to_owned();
+        let mut scope = search::swift_scope(&lines, &literal, line1).header_line1;
+        while scope > 0 {
+            if first == "Self" || search::swift_generics(lines[scope - 1]).contains(&first) {
+                return None;
+            }
+            scope = search::swift_scope(&lines, &literal, scope).header_line1;
+        }
+        let implicit = |h: &Hit| {
+            search::swift_case(&h.text)
+                || search::swift_member_kind(&h.text) == Some(search::SwiftMember::StaticOrClass)
+        };
+        let cut = self.truncated.get();
+        let rows = (|| {
+            if written == first {
+                let mut rows = match self.swift_type(here, &written) {
+                    Some(ty) if ty.keyword.is_some() => {
+                        let rows = self.swift_member_rows(here, &ty, word)?;
+                        (!rows.is_empty()).then_some(rows)?
+                    }
+                    _ => self.swift_outside_rows(here, &written, word)?,
+                };
+                rows.retain(|h| implicit(h));
+                return Some(rows);
+            }
+            let full = format!("{written}.{word}");
+            let pattern = search::def_patterns(Kind::Swift, word).join("|");
+            let rows: Vec<Hit> = self
+                .project_definitions(Kind::Swift, here, word, &pattern)
+                .into_iter()
+                .filter(|h| {
+                    implicit(h)
+                        && self.in_code(Kind::Swift, h)
+                        && self
+                            .text_of(&h.path)
+                            .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, word))
+                            .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")))
+                })
+                .collect();
+            if !rows.is_empty() {
+                return Some(rows);
+            }
+            let pattern = search::def_patterns(Kind::Swift, &first).join("|");
+            self.project_definitions(Kind::Swift, here, &first, &pattern)
+                .iter()
+                .all(|h| search::swift_extension(&h.text))
+                .then(Vec::new)
+        })();
+        self.truncated.set(cut);
+        let label = format!(".{word}: {written}");
+        Some(
+            rows?
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        )
+    }
+}

@@ -171,3 +171,51 @@ final class Ward {
         //     ^ d: Sources/Shop/Outcomes.swift:167
     }
 }
+
+// An implicit `.x` reads the type written next to it: a closure parameter's, the declared type of
+// a returning func or property, an annotation; a type from outside the project answers none (#1069).
+final class Gate {
+    enum ResponseDisposition {
+        case allow, cancel
+    }
+}
+
+func respond(completion: @escaping @Sendable (URLSession.ResponseDisposition) -> Void) {
+    completion(.allow)
+    //          ^ d: none
+}
+
+func disposed() -> URLSession.ResponseDisposition {
+    let pick = { () -> Gate.ResponseDisposition in
+        return .allow
+        //      ^ d: Sources/Shop/Outcomes.swift:179
+    }
+    _ = pick
+    return .cancel
+    //      ^ d: none
+}
+
+func gated() -> Gate.ResponseDisposition {
+    return .cancel
+    //      ^ d: Sources/Shop/Outcomes.swift:179
+}
+
+extension Gate.ResponseDisposition {
+    var outward: URLSession.ResponseDisposition {
+        switch self {
+        case .allow: .allow
+        //            ^ d: none
+        case .cancel: .cancel
+        //    ^ d: Sources/Shop/Outcomes.swift:179
+        }
+    }
+}
+
+func annotated() -> Roast {
+    let posted: URLSession.ResponseDisposition = .cancel
+    //                                            ^ d: none
+    _ = posted
+    let roast: Roast = .dark
+    //                  ^ d: Sources/Shop/Outcomes.swift:144
+    return roast
+}
