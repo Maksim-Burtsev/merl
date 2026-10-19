@@ -7,13 +7,14 @@ The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, rel
 The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
 The ts, js, vue, svelte and astro rows: merl at `168369f0` with the `d` fix of #1078 on branch `b1019/jsts`, 2026-10-19, release build, `vm.loadavg` { 5.60 7.28 6.96 } before the run and after.
 The ruby row with the fixes of branch `b1019/ruby` (#1095, #1094, #1096, #1097, #1098), 2026-10-19, release build, `vm.loadavg` { 5.64 7.46 7.01 } before the run.
+The go row with the fix of #1101 (branch `b1019/go`), 2026-10-19, release build, `vm.loadavg` { 5.17 5.50 5.90 } before the run, { 4.99 5.45 5.89 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 213 | 199 (93%) | 8 (4%) | 0 (0%) | 6 (3%) | 57 | 13.6 | 258.1 |
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 43.2 | 91.7 |
 | js (eslint) | 147 | 119 (81%) | 23 (16%) | 0 (0%) | 5 (3%) | 123 | 45.9 | 208.8 |
-| go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
+| go (caddy) | 229 | 225 (98%) | 2 (1%) | 0 (0%) | 2 (1%) | 41 | 5.8 | 14.1 |
 | rust (ripgrep) | 231 | 203 (88%) | 24 (10%) | 0 (0%) | 4 (2%) | 69 | 6.5 | 77.2 |
 | c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 24.7 | 33.3 |
 | cpp (leveldb) | 232 | 182 (78%) | 48 (21%) | 0 (0%) | 2 (1%) | 68 | 22.8 | 94.6 |

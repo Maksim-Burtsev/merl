@@ -7,8 +7,8 @@ use super::{
     enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
     julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp, lisp_name,
     literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_impl_type,
-    rust_let_declares, separator, shared_symbols, symbol_name, ts_declarators, type_name,
-    uncommented, value_of, word_chars,
+    rust_let_declares, separator, shared_symbols, split_top, symbol_name, ts_declarators,
+    type_name, uncommented, value_of, word_chars,
 };
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
@@ -520,7 +520,7 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
     let mut before = line.get(..word_start)?.strip_suffix('.')?;
     let mut fields = Vec::new();
-    let indexed = |b: &str| kind == Kind::TsJs && b.ends_with(']');
+    let indexed = |b: &str| matches!(kind, Kind::TsJs | Kind::Go) && b.ends_with(']');
     while !before.ends_with(')') && !indexed(before) {
         let start = name_start(before, is_name);
         if start == before.len() {
@@ -535,6 +535,10 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
             .filter(|(_, c)| *c == b'[')
             .map(|(i, _)| i)
             .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
+        let index = before.get(open + 1..before.len() - 1)?;
+        if kind == Kind::Go && split_top(kind, index, b':').len() > 1 {
+            return None;
+        }
         let head = before.get(..open)?;
         let start = name_start(head, |c| is_name(c) || c == '.');
         let list = head.get(start..)?;
