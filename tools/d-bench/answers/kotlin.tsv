@@ -79,3 +79,74 @@ kotlin0076	core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/
 kotlin0077			outside the project: runTest
 kotlin0078			outside the project: flow first
 kotlin0079		a package segment of an import or package line	
+kotlin0080	feature/bookmarks/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/bookmarks/impl/BookmarksScreen.kt:107		read the code: checked at the line
+kotlin0081			outside the project: compose mutableStateOf
+kotlin0082			outside the project: compose RoundedCornerShape
+kotlin0083			outside the project: compose Size.width
+kotlin0084			outside the project: compose Color.Black
+kotlin0085	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/icon/NiaIcons.kt:42		read the code: checked at the line
+kotlin0086		the cursor is on a declaration	
+kotlin0087			outside the project: compose stringResource
+kotlin0088			outside the project: compose CompositionLocal.current
+kotlin0089			outside the project: compose tween
+kotlin0090			outside the project: compose ColorScheme.onPrimaryContainer
+kotlin0091	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/theme/Gradient.kt:32		read the code: checked at the line
+kotlin0092			outside the project: compose LocalInspectionMode
+kotlin0093			outside the project: Gradle VersionConstraint.requiredVersion
+kotlin0094			outside the project: compose LazyStaggeredGridScope.item
+kotlin0095			outside the project: kotlinx.datetime TimeZone
+kotlin0096			outside the project: compose sp
+kotlin0097	core/model/src/main/kotlin/com/google/samples/apps/nowinandroid/core/model/data/Topic.kt:28		read the code: checked at the line
+kotlin0098	build-logic/convention/src/main/kotlin/com/google/samples/apps/nowinandroid/NiaFlavor.kt:34		read the code: niaFlavor iterates NiaFlavor.values(), constructor property
+kotlin0099			outside the project: stdlib sortedWith
+kotlin0100			outside the project: compose LazyListLayoutInfo.reverseLayout
+kotlin0101	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Button.kt:51		read the code: named argument contentPadding exists only in this overload
+kotlin0102	core/datastore/src/main/kotlin/com/google/samples/apps/nowinandroid/core/datastore/ChangeListVersions.kt:22		read the code: checked at the line
+kotlin0103			outside the project: Hilt SingletonComponent
+kotlin0104	core/data/src/main/kotlin/com/google/samples/apps/nowinandroid/core/data/repository/UserNewsResourceRepository.kt:25		read the code: checked at the line
+kotlin0105			outside the project: compose dp
+kotlin0106	feature/settings/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/settings/impl/SettingsViewModel.kt:78		read the code: checked at the line
+kotlin0107			outside the project: lint API IssueRegistry
+kotlin0108	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/scrollbar/Scrollbar.kt:213		read the code: checked at the line
+kotlin0109	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Navigation.kt:67		read the code: checked at the line
+kotlin0110			outside the project: compose LineHeightStyle.Trim
+kotlin0111	core/data/src/main/kotlin/com/google/samples/apps/nowinandroid/core/data/repository/UserDataRepository.kt:49		read the code: checked at the line
+kotlin0112			outside the project: compose unit max
+kotlin0113			outside the project: kotlinx.datetime Instant
+kotlin0114	core/model/src/main/kotlin/com/google/samples/apps/nowinandroid/core/model/data/FollowableTopic.kt:24		read the code
+kotlin0115			outside the project: compose Arrangement.spacedBy
+kotlin0116			outside the project: compose Modifier
+kotlin0117	feature/topic/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/topic/impl/TopicViewModel.kt:161		read the code: checked at the line
+kotlin0118			outside the project: androidx NotificationCompat.Builder.setContentTitle
+kotlin0119			outside the project: androidx WorkManager
+kotlin0120	core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/JankStatsExtensions.kt:81		read the code: checked at the line
+kotlin0121			outside the project: stdlib distinctBy
+kotlin0122			outside the project: androidx.metrics PerformanceMetricsState.removeState (apply receiver)
+kotlin0123			outside the project: stdlib lowercase
+kotlin0124	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/Tag.kt:77		read the code: checked at the line
+kotlin0125			outside the project: stdlib StringBuilder.appendLine (buildString)
+kotlin0126	core/datastore-proto/src/main/proto/com/google/samples/apps/nowinandroid/data/user_preferences.proto:42	protobuf accessor, generated	proto field bookmarked_news_resource_ids, as kotlin0065
+kotlin0127			outside the project: compose sp
+kotlin0128	feature/settings/impl/src/main/res/values/strings.xml:28		string resource feature_settings_impl_brand_android (#385); reviewed: was skip as a generated R resource, answered with its strings.xml entry as kotlin0024
+kotlin0129	feature/settings/impl/src/main/kotlin/com/google/samples/apps/nowinandroid/feature/settings/impl/SettingsDialog.kt:93		read the code: checked at the line
+kotlin0130			outside the project: Room databaseBuilder
+kotlin0131			outside the project: stdlib listOf
+kotlin0132			outside the project: compose LazyStaggeredGridScope.item
+kotlin0133			outside the project: stdlib Map.Entry.key
+kotlin0134	core/ui/src/main/kotlin/com/google/samples/apps/nowinandroid/core/ui/NewsResourceCard.kt:300		read the code: checked at the line
+kotlin0135			outside the project: OkHttp addInterceptor
+kotlin0136			outside the project: compose dp
+kotlin0137			outside the project: stdlib emptyList
+kotlin0138			outside the project: compose Modifier
+kotlin0139			outside the project: compose Color.Transparent
+kotlin0140		the cursor is on a declaration	
+kotlin0141			outside the project: compose RowScope
+kotlin0142		the cursor is on a declaration	
+kotlin0143		the cursor is on a declaration	
+kotlin0144			outside the project: compose Modifier
+kotlin0145			outside the project: Room AutoMigration
+kotlin0146	core/designsystem/src/main/kotlin/com/google/samples/apps/nowinandroid/core/designsystem/component/scrollbar/ThumbExt.kt:78		read the code: checked at the line
+kotlin0147			outside the project: Gradle RegularFile.asFile
+kotlin0148	core/database/src/main/kotlin/com/google/samples/apps/nowinandroid/core/database/model/TopicEntity.kt:44		read the code: topics is List<TopicEntity> from topicDao.getTopicEntities
+kotlin0149			outside the project: compose LazyListScope.item
+kotlin0150	core/data/src/main/kotlin/com/google/samples/apps/nowinandroid/core/data/util/SyncManager.kt:25		read the code: syncManager is a constructor parameter of type SyncManager

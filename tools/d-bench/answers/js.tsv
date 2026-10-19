@@ -269,3 +269,127 @@ js0266	lib/linter/code-path-analysis/fork-context.js:164
 js0267		builtin: the server's own stub	
 js0268	lib/types/index.d.ts:674		
 js0269		types the server fetched; not installed in the project	
+js0270	server/util-server.js:26		
+js0271		builtin: the server's own stub	
+js0272	node_modules/redbean-node/dist/bean.d.ts:9	a column of a redbean-node bean: the oracle gives Bean's index signature [key: string]: any	
+js0273	src/util.ts:42		
+js0274	src/util.ts:43		
+js0275	server/modules/axios-ntlm/lib/ntlmClient.js:93		
+js0276	src/util.ts:41		
+js0277	server/uptime-kuma-server.js:484		
+js0278			
+js0279			
+js0280	server/monitor-conditions/operators.js:40		
+js0281			
+js0282	server/socket-handlers/status-page-socket-handler.js:124		
+js0283	server/modules/axios-ntlm/lib/ntlm.js:8		
+js0284	server/model/status_page.js:24		
+js0285			
+js0286	src/util.ts:388		
+js0287			
+js0288	src/util.ts:66		
+js0289		builtin: the server's own stub	
+js0290	src/util.ts:41		
+js0291			
+js0292			
+js0293			
+js0294	server/database.js:22		
+js0295			
+js0296	server/routers/api-router.js:374		
+js0297			
+js0298	server/monitor-types/mqtt.js:24		
+js0299			
+js0300	server/uptime-kuma-server.js:23		
+js0301	node_modules/redbean-node/dist/bean-model.d.ts:2		
+js0302	server/model/monitor.js:32	destructured require binding: the oracle stops at the binding, merl follows the require to exports.checkCertificate (#328)	
+js0303	~/.cache/merl-d-bench/servers/node_modules/typescript/lib/lib.dom.d.ts:44123;node_modules/@types/node/web-globals/timers.d.ts:27;node_modules/@types/node/web-globals/timers.d.ts:32;~/Library/Caches/typescript/6.0/node_modules/@types/node/web-globals/timers.d.ts:32;~/Library/Caches/typescript/6.0/node_modules/@types/node/web-globals/timers.d.ts:27		
+js0304	server/uptime-calculator.js:425		
+js0305			
+js0306	server/monitor-types/mysql.js:19		
+js0307	server/monitor-types/ntp.js:72		
+js0308	server/notification-providers/clickup.js:4		
+js0309	server/modules/axios-ntlm/lib/ntlmClient.js:41		
+js0310	server/util-server.js:436		
+js0311	extra/release/lib.mjs:18		
+js0312	server/modules/apicache/apicache.js:186		
+js0313	server/database.js:257		
+js0314			
+js0315	src/mixins/socket.js:51		
+js0316	node_modules/@types/node/net.d.ts:114		
+js0317	src/components/notifications/index.js:183		
+js0318	server/socket-handlers/cloudflared-socket-handler.js:104		
+js0319		builtin: the server's own stub	
+js0320	server/notification-providers/fluxer.js:228		
+js0321	node_modules/croner/types/croner.d.cts:12;node_modules/croner/types/croner.d.cts:22		
+js0322	src/util.ts:40		
+js0323		builtin: the server's own stub	
+js0324		builtin: the server's own stub	
+js0325	server/uptime-calculator.js:576		
+js0326			
+js0327			
+js0328	server/model/maintenance.js:146		
+js0329	server/modules/apicache/apicache.js:342		
+js0330	node_modules/axios/index.d.ts:2	a require of an npm package: the oracle points at the top of axios's index.d.ts, the module, not a declaration	
+js0331	src/util-frontend.js:42		
+js0332	src/modules/dayjs/constant.js:11		
+js0333	node_modules/tldts-core/dist/types/src/factory.d.ts:13		
+js0334	src/util.ts:427		
+js0335		builtin: the server's own stub	
+js0336	node_modules/@types/node/dns/promises.d.ts:452;node_modules/@types/node/dns/promises.d.ts:453		
+js0337		builtin: the server's own stub	
+js0338	src/util.ts:40		
+js0339	src/util.ts:41		
+js0340	src/mixins/socket.js:319		
+js0341		builtin: the server's own stub	
+js0342	node_modules/@vitejs/plugin-vue/dist/index.d.mts:125		
+js0343	src/util.ts:41		
+js0344			
+js0345	server/database.js:218		
+js0346	server/settings.js:4		
+js0347	server/monitor-conditions/operators.js:1		
+js0348	node_modules/vite-plugin-compression/dist/index.d.ts:52		
+js0349	server/modules/apicache/apicache.js:579		
+js0350	server/modules/axios-ntlm/lib/ntlmClient.js:18		
+js0351	server/monitor-conditions/variables.js:8;server/monitor-conditions/variables.js:23		
+js0352	server/util-server.js:146		
+js0353	extra/release/lib.mjs:122		
+js0354	src/mixins/mobile.js:18		
+js0355			
+js0356			
+js0357	server/notification-providers/smseagle.js:51		
+js0358		builtin: the server's own stub	
+js0359			
+js0360		builtin: the server's own stub	
+js0361	db/knex_migrations/2026-01-02-0713-gamedig-v4-to-v5.js:35		
+js0362	server/uptime-kuma-server.js:23		
+js0363	server/model/monitor.js:115		
+js0364	node_modules/@types/ws/index.d.ts:75		
+js0365	server/socket-handlers/docker-socket-handler.js:33		
+js0366	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		
+js0367	src/util.ts:368		
+js0368	db/knex_init_db.js:66		
+js0369			
+js0370	server/monitor-types/snmp.js:42		
+js0371		builtin: the server's own stub	
+js0372	extra/release/update-version.mjs:11		
+js0373	db/knex_migrations/2026-08-18-0000-sqlite-only-drop-analytics-type-check.js:25		
+js0374	server/monitor-types/tcp.js:246		
+js0375	server/uptime-kuma-server.js:34		
+js0376	db/knex_migrations/2024-08-24-000-add-cache-bust.js:7		
+js0377	src/util.ts:42		
+js0378			
+js0379	src/util.ts:40		
+js0380	src/util.ts:41		
+js0381			
+js0382	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		
+js0383	server/monitor-types/globalping.js:168		
+js0384	node_modules/@types/node/process.d.ts:1193;~/Library/Caches/typescript/6.0/node_modules/@types/node/process.d.ts:1194		
+js0385	server/model/domain_expiry.js:170		
+js0386	node_modules/redbean-node/dist/bean.d.ts:9	a column of a redbean-node bean: the oracle gives Bean's index signature [key: string]: any	
+js0387	server/radius-client.js:17;server/radius-client.js:26		
+js0388	db/knex_migrations/2024-04-26-0000-snmp-monitor.js:9		
+js0389	server/notification-providers/promosms.js:4		
+js0390			
+js0391	node_modules/dayjs/index.d.ts:303		
+js0392	extra/release/lib.mjs:465		
+js0393	node_modules/redbean-node/dist/bean.d.ts:9	a column of a redbean-node bean: the oracle gives Bean's index signature [key: string]: any	

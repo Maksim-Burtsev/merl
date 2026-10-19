@@ -140,7 +140,7 @@ python0137		builtin: the server's own stub
 python0138	src/documents/models.py:767		
 python0139	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1599		
 python0140			
-python0141	.venv/lib/python3.11/site-packages/django/test/client.py:1141		
+python0141	.venv/lib/python3.11/site-packages/rest_framework/test.py:300		reviewed: in an APITestCase self.client is DRF's APIClient, whose post overrides Django's Client.post
 python0142	.venv/lib/python3.11/site-packages/django/db/models/base.py:665		
 python0143	src/paperless_ai/vector_store.py:202		
 python0144	src/paperless_testing/permissions.py:40		
@@ -180,7 +180,7 @@ python0177	src/documents/models.py:1678
 python0178	src/documents/serialisers.py:3216		
 python0179	src/documents/tests/test_workflows.py:87		
 python0180	src/documents/consumer.py:90		
-python0181	.venv/lib/python3.11/site-packages/django/test/client.py:1309		
+python0181	.venv/lib/python3.11/site-packages/rest_framework/test.py:324		reviewed: in an APITestCase self.client is DRF's APIClient, whose delete overrides Django's Client.delete
 python0182	src/paperless_testing/factories.py:74		
 python0183	src/documents/models.py:1991		
 python0184	src/documents/consumer.py:125		
@@ -205,7 +205,7 @@ python0202	.venv/lib/python3.11/site-packages/whoosh_compat/ast.py:88
 python0203	src/documents/data_models.py:165		
 python0204	src/documents/file_handling.py:156		
 python0205	src/documents/models.py:550		
-python0206	.venv/lib/python3.11/site-packages/django/test/client.py:1274		
+python0206	.venv/lib/python3.11/site-packages/rest_framework/test.py:316		reviewed: in an APITestCase self.client is DRF's APIClient, whose patch overrides Django's Client.patch
 python0207	src/paperless_ai/exceptions.py:1		
 python0208	src/documents/models.py:1207		
 python0209	src/paperless_ai/indexing.py:300		
@@ -269,3 +269,58 @@ python0266	.venv/lib/python3.11/site-packages/django/contrib/__init__.py:1
 python0267			
 python0268	src/documents/models.py:755		
 python0269	.venv/lib/python3.11/site-packages/celery/schedules.py:323		
+python0270	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1467		
+python0271	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1491		
+python0272	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1479		
+python0273	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1467		
+python0274	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1479		
+python0275	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1520		
+python0276	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1467		
+python0277	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1491		
+python0278	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1491		
+python0279	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1491		
+python0280	.venv/lib/python3.11/site-packages/rest_framework/test.py:300		reviewed: in an APITestCase self.client is DRF's APIClient, whose post overrides Django's Client.post
+python0281	.venv/lib/python3.11/site-packages/rest_framework/test.py:279		judged: APITestCase.client_class is APIClient, whose method this is
+python0282	.venv/lib/python3.11/site-packages/rest_framework/test.py:316		reviewed: in an APITestCase self.client is DRF's APIClient, whose patch overrides Django's Client.patch
+python0283	.venv/lib/python3.11/site-packages/rest_framework/test.py:300		reviewed: in an APITestCase self.client is DRF's APIClient, whose post overrides Django's Client.post
+python0284	.venv/lib/python3.11/site-packages/rest_framework/test.py:294		reviewed: in an APITestCase self.client is DRF's APIClient, whose get overrides Django's Client.get
+python0285	.venv/lib/python3.11/site-packages/rest_framework/test.py:294		reviewed: in an APITestCase self.client is DRF's APIClient, whose get overrides Django's Client.get
+python0286	.venv/lib/python3.11/site-packages/rest_framework/test.py:300		reviewed: in an APITestCase self.client is DRF's APIClient, whose post overrides Django's Client.post
+python0287	.venv/lib/python3.11/site-packages/rest_framework/test.py:300		reviewed: in an APITestCase self.client is DRF's APIClient, whose post overrides Django's Client.post
+python0288	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+python0289	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+python0290	.venv/lib/python3.11/site-packages/django/test/testcases.py:393		
+python0291			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0292			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0293			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0294			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0295			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0296			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0297			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0298			outside pyright's reach: a manager method Django builds from QuerySet at runtime (from_queryset)
+python0299	.venv/lib/python3.11/site-packages/django_softdelete/models.py:49		
+python0300	.venv/lib/python3.11/site-packages/django_softdelete/models.py:49		
+python0301	.venv/lib/python3.11/site-packages/auditlog/models.py:394		
+python0302			a historical model from apps.get_model
+python0303	.venv/lib/python3.11/site-packages/time_machine/__init__.py:298		
+python0304	src/documents/search/_backend.py:878		
+python0305	src/documents/regex.py:53		
+python0306			a Django field lookup (id__in) that Q takes as **kwargs: no definition
+python0307	src/paperless_testing/factories.py:87		judged: the trait in UserFactory's Params (factory_boy)
+python0308	src/documents/tests/test_api_document_versions.py:51		
+python0309		in the module's docstring: a sampler miss	
+python0310	src/documents/models.py:954		judged: create(**kwargs) sets the model's field Note.user
+python0311	src/documents/models.py:217		judged: create(**kwargs) sets the model's field Document.checksum
+python0312	src/documents/models.py:66		judged: create(**kwargs) sets the model's field name, which StoragePath takes from MatchingModel
+python0313	src/paperless/settings/__init__.py:93		judged: django.conf.settings reads paperless.settings (DJANGO_SETTINGS_MODULE), which assigns it once
+python0314	src/paperless/settings/__init__.py:432		judged: django.conf.settings reads paperless.settings (DJANGO_SETTINGS_MODULE), which assigns it once
+python0315	src/paperless/settings/__init__.py:93		judged: django.conf.settings reads paperless.settings (DJANGO_SETTINGS_MODULE), which assigns it once
+python0316	src/paperless/settings/__init__.py:1159		judged: pytest-django's settings fixture overrides the setting paperless.settings assigns
+python0317	src/paperless/settings/__init__.py:126		judged: django.conf.settings reads paperless.settings (DJANGO_SETTINGS_MODULE), which assigns it once
+python0318	src/paperless/settings/__init__.py:1183		judged: django.conf.settings reads paperless.settings (DJANGO_SETTINGS_MODULE), which assigns it once
+python0319	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:557;~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:545		
+python0320	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:569;~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:605		
+python0321	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:557		judged: @patch passes a MagicMock: NonCallableMock.return_value
+python0322	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:569;~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:605		
+python0323	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:902		judged: @mock.patch passes a MagicMock: NonCallableMock.assert_called
+python0324	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:902		judged: @mock.patch passes a MagicMock: NonCallableMock.assert_called

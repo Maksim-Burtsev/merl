@@ -79,3 +79,126 @@ java0076	application/src/main/java/run/halo/app/theme/finders/vo/ListedPostVo.ja
 java0077		a package segment of an import or package line	
 java0078		a package segment of an import or package line	
 java0079	api/src/main/java/run/halo/app/core/extension/content/Comment.java:92		Lombok @Data field BaseCommentSpec.creationTime
+java0080		the cursor is on a declaration	
+java0081	application/src/main/java/run/halo/app/infra/ExtensionInitializedEvent.java:12		read the code: constructor
+java0082			outside the project: JDK Instant.now
+java0083		the cursor is on a declaration	
+java0084			outside the project: JDK Objects
+java0085			outside the project: Reactor Mono.filter
+java0086	application/src/main/java/run/halo/app/theme/finders/CommentPublicQueryService.java:28		read the code: receiver commentPublicQueryService on the line before, interface method
+java0087	api/src/main/java/run/halo/app/core/extension/User.java:39		read the code
+java0088			outside the project: JDK File
+java0089			outside the project: Spring Data Sort
+java0090		the cursor is on a declaration	
+java0091			outside the project: Stream.sorted
+java0092			outside the project: Spring Security
+java0093		the cursor is on a declaration	
+java0094		the cursor is on a declaration	
+java0095	api/src/main/java/run/halo/app/core/extension/content/SinglePage.java:34		read the code
+java0096	api/src/main/java/run/halo/app/notification/ReasonPayload.java:18		read the code: no explicit constructor, Lombok/implicit; class line
+java0097			outside the project: Reactor map
+java0098	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:13		read the code
+java0099		the cursor is on a declaration	
+java0100		the cursor is on a declaration	
+java0101			outside the project: springdoc builder
+java0102			outside the project: pf4j ExtensionPoint
+java0103			outside the project: Spring ServerRequest
+java0104		the cursor is on a declaration	
+java0105	api/src/main/java/run/halo/app/content/ContentWrapper.java:19		read the code
+java0106			outside the project: Stream.sorted
+java0107			outside the project: JDK Clock.instant
+java0108			outside the project: Stream.toList
+java0109		the cursor is on a declaration	
+java0110	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: static generic method
+java0111			outside the project: springdoc builder
+java0112	api/src/main/java/run/halo/app/notification/ReasonPayload.java:41		read the code: lambda builder of emit(String, Consumer<ReasonPayloadBuilder>)
+java0113			outside the project: array length
+java0114			outside the project: JDK HashSet
+java0115			outside the project: Spring ServerRequest
+java0116	api/src/main/java/run/halo/app/extension/index/query/Queries.java:258		read the code
+java0117	api/src/main/java/run/halo/app/core/extension/notification/Subscription.java:29		read the code
+java0118	application/src/main/java/run/halo/app/core/counter/MeterUtils.java:92		read the code: local or parameter, checked at the line
+java0119			outside the project: JDK Class
+java0120	application/src/main/java/run/halo/app/security/preauth/SystemSetupEndpoint.java:113		lambda parameter builder, declared on the cursor's own line (scores on-decl); reviewed: the cursor is on a use, not on the declaration
+java0121			outside the project: Spring UriComponentsBuilder
+java0122	api/src/main/java/run/halo/app/extension/index/query/Queries.java:38		read the code: import static Queries.or
+java0123	application/src/main/java/run/halo/app/theme/message/ThemeMessageResolver.java:25		own field resourceLoader (this.resourceLoader); reviewed: the note said local or parameter
+java0124		the cursor is on a declaration	
+java0125		the cursor is on a declaration	
+java0126			outside the project: Reactor switchIfEmpty
+java0127	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:13		read the code
+java0128	application/src/main/java/run/halo/app/core/extension/migration/CategoryHierarchyMigration.java:247		read the code
+java0129			outside the project: JDK Path.resolve
+java0130			outside the project: Reactor Mono.filter
+java0131	application/src/main/java/run/halo/app/core/endpoint/uc/UcUserPreferenceEndpoint.java:90		read the code: local or parameter, checked at the line
+java0132	application/src/main/java/run/halo/app/core/counter/MeterUtils.java:84		read the code: local or parameter, checked at the line
+java0133	application/src/main/java/run/halo/app/migration/MigrationEndpoint.java:54		read the code: local or parameter, checked at the line
+java0134	application/src/main/java/run/halo/app/migration/impl/MigrationServiceImpl.java:245		read the code
+java0135		the cursor is on a declaration	
+java0136			outside the project: Spring CollectionUtils
+java0137		the cursor is on a declaration	
+java0138			outside the project: JDK ObjectInputStream
+java0139	api/src/main/java/run/halo/app/extension/ReactiveExtensionClient.java:40		read the code: 5-argument overload
+java0140		the cursor is on a declaration	
+java0141	api/src/main/java/run/halo/app/core/extension/content/Reply.java:24		read the code
+java0142			outside the project: Spring ServerResponse
+java0143	api/src/main/java/run/halo/app/core/extension/content/Comment.java:80		read the code: getSpec() CommentSpec, Lombok field owner
+java0144			outside the project: Reactor collectList
+java0145	api/src/main/java/run/halo/app/core/extension/Plugin.java:112		read the code: var plugin = pluginGetter.getPlugin(...), PluginSpec Lombok field
+java0146	application/src/main/java/run/halo/app/infra/utils/IpAddressUtils.java:11		read the code
+java0147		the cursor is on a declaration	
+java0148	api/src/main/java/run/halo/app/core/extension/content/Post.java:68		read the code: Flux<Post> filter lambda, Lombok field spec
+java0149	application/src/main/java/run/halo/app/theme/dialect/HaloSpringSecurityDialect.java:95		read the code: local or parameter, checked at the line
+java0150	api/src/main/java/run/halo/app/extension/ReactiveExtensionClient.java:79		read the code
+java0151	api/src/main/java/run/halo/app/core/extension/AuthProvider.java:58		read the code: AuthProvider getter chain, Lombok field
+java0152	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0153	api/src/main/java/run/halo/app/core/extension/User.java:58		read the code: User getter chain, Lombok field
+java0154	api/src/main/java/run/halo/app/core/extension/AuthProvider.java:75		read the code: AuthProvider getter chain, Lombok field
+java0155	api/src/main/java/run/halo/app/core/extension/content/Comment.java:76		read the code: Comment getter chain, Lombok field
+java0156	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0157	api/src/main/java/run/halo/app/extension/MetadataOperator.java:43		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0158	api/src/main/java/run/halo/app/core/extension/content/Post.java:141		read the code: Post getter chain, Lombok field
+java0159	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0160	api/src/main/java/run/halo/app/core/extension/content/Post.java:167		reviewed: answered from the code: client.fetch(Post.class, ...) gives the lambda's post, Lombok @Data field PostSpec.categories
+java0161	api/src/main/java/run/halo/app/core/extension/Theme.java:80		read the code: Theme getter chain, Lombok field
+java0162	api/src/main/java/run/halo/app/core/extension/content/Comment.java:76		reviewed: answered from the code: parameter Reply reply, ReplySpec extends Comment.BaseCommentSpec, Lombok @Data field content
+java0163	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		reviewed: answered from the code: the lambda's categoryVo is a CategoryTreeVo (map(CategoryTreeVo::from)), its metadata a MetadataOperator, interface method
+java0164	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0165	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0166	api/src/main/java/run/halo/app/core/extension/notification/Subscription.java:41		reviewed: answered from the code: listByPerPage gives Flux<Subscription>, Lombok @Data field Spec.subscriber
+java0167	api/src/main/java/run/halo/app/core/extension/content/Comment.java:80		read the code: Comment getter chain, Lombok field
+java0168	api/src/main/java/run/halo/app/core/extension/content/Comment.java:76		reviewed: answered from the code: parameter Reply reply, ReplySpec extends Comment.BaseCommentSpec, Lombok @Data field content
+java0169	api/src/main/java/run/halo/app/core/extension/AuthProvider.java:62		reviewed: answered from the code: getEnabledProviders() gives Flux<AuthProvider>, Lombok @Data field AuthProviderSpec.authenticationUrl
+java0170	api/src/main/java/run/halo/app/core/extension/content/Post.java:144		read the code: Post getter chain, Lombok field
+java0171	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0172	api/src/main/java/run/halo/app/core/extension/content/Comment.java:100		reviewed: answered from the code: parameter Reply reply, ReplySpec extends Comment.BaseCommentSpec, Lombok @Data field top
+java0173	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0174	api/src/main/java/run/halo/app/core/extension/User.java:88		read the code: User getter chain, Lombok field
+java0175	api/src/main/java/run/halo/app/core/extension/content/SinglePage.java:73		reviewed: answered from the code: getByName gives Mono<SinglePageVo>, whose spec (ListedSinglePageVo) is a SinglePageSpec, Lombok @Data field title
+java0176	api/src/main/java/run/halo/app/core/extension/content/Comment.java:80		read the code: Comment getter chain, Lombok field
+java0177	api/src/main/java/run/halo/app/core/extension/content/Post.java:127		read the code: Post getter chain, Lombok field
+java0178	api/src/main/java/run/halo/app/core/extension/Theme.java:73		reviewed: answered from the code: client.fetch(Theme.class, ...), Lombok @Data field ThemeSpec.version (with an initializer)
+java0179	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0180	api/src/main/java/run/halo/app/core/extension/content/Post.java:167		read the code: Post getter chain, Lombok field
+java0181	api/src/main/java/run/halo/app/core/extension/notification/Subscription.java:45		read the code: Subscription getter chain, Lombok field
+java0182	api/src/main/java/run/halo/app/core/extension/content/Snapshot.java:65		reviewed: answered from the code: the lambda's baseSnapshot is a Snapshot, Lombok @Data field SnapShotSpec.contentPatch
+java0183	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0184	api/src/main/java/run/halo/app/core/extension/content/SinglePage.java:80		reviewed: answered from the code: client.fetch(SinglePage.class, ...), Lombok @Data field SinglePageSpec.releaseSnapshot
+java0185	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		read the code: getMetadata() is MetadataOperator (AbstractExtension.metadata), interface method
+java0186	api/src/main/java/run/halo/app/core/extension/UserConnection.java:39		reviewed: answered from the code: listMyConnections() gives Flux<UserConnection>, Lombok @Data field UserConnectionSpec.registrationId
+java0187	api/src/main/java/run/halo/app/core/extension/attachment/Attachment.java:72		read the code: Attachment getter chain, Lombok field
+java0188	api/src/main/java/run/halo/app/extension/MetadataOperator.java:26		reviewed: answered from the code: the lambda's epd is an ExtensionPointDefinition (an AbstractExtension), interface method
+java0189	api/src/main/java/run/halo/app/core/extension/Theme.java:80		reviewed: answered from the code: client.fetch(Theme.class, ...), Lombok @Data field ThemeSpec.settingName
+java0190	api/src/main/java/run/halo/app/core/extension/Theme.java:83		reviewed: answered from the code: client.fetch(Theme.class, ...), Lombok @Data field ThemeSpec.configMapName
+java0191	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0192	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:47		read the code: IndexSpecs.<E, K>multi(...)
+java0193			outside the project: Reactor Mono.<T>error
+java0194	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0195	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0196	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0197	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0198	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0199	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0200			outside the project: Reactor Mono.<T>create
+java0201	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method
+java0202	api/src/main/java/run/halo/app/extension/index/IndexSpecs.java:61		read the code: IndexSpecs.<E, K>single(...), static generic method

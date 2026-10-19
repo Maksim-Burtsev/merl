@@ -1,30 +1,25 @@
 # `d` bench baseline
 
 merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the csharp row with the fixes of #935, `vm.loadavg` { 5.00 5.48 5.37 }; the other rows as in the night's second epic.
-The rust row: merl at `20ac5110` with the `d` fixes of branch `b1019/rust`, 2026-10-19, release build, `vm.loadavg` { 6.98 6.29 6.45 } before the run and after.
-The swift row (#1053, #1052, #1055, branch `b1019/swift`): 2026-10-19, release build, `vm.loadavg` { 5.07 5.68 5.67 } before the run.
-The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, release build, `vm.loadavg` { 8.08 7.25 6.44 } before the run, { 6.75 6.94 6.39 } after.
-The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
-The ts, js, vue, svelte and astro rows: merl at `168369f0` with the `d` fix of #1078 on branch `b1019/jsts`, 2026-10-19, release build, `vm.loadavg` { 5.60 7.28 6.96 } before the run and after.
-The ruby row with the fixes of branch `b1019/ruby` (#1095, #1094, #1096, #1097, #1098), 2026-10-19, release build, `vm.loadavg` { 5.64 7.46 7.01 } before the run.
-The c, cpp and objc rows: merl at `290bfdc6` with the `d` fixes of #1049, #1050 and #1051 on branch `b1019/cpp`, 2026-10-19, release build, `vm.loadavg` { 4.90 5.40 5.85 } before the run.
+The bash and lua rows (#1091): merl at `0e47807c`, 2026-10-18, release build, `vm.loadavg` { 4.68 5.99 6.51 } before the run and after.
+The python, js, go, php, swift, java, kotlin, csharp, ruby, dart and sql rows (#1091): merl at `c812fbcc` (its code as master's `33396ebe`), 2026-10-19, release build, koel with `vendor/` installed, `vm.loadavg` { 5.54 6.66 6.89 } before the run, { 9.16 7.85 7.34 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 213 | 199 (93%) | 8 (4%) | 0 (0%) | 6 (3%) | 57 | 13.6 | 258.1 |
-| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 43.2 | 91.7 |
-| js (eslint) | 147 | 119 (81%) | 23 (16%) | 0 (0%) | 5 (3%) | 123 | 45.9 | 208.8 |
-| go (caddy) | 229 | 224 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 41 | 5.3 | 15.3 |
-| rust (ripgrep) | 231 | 203 (88%) | 24 (10%) | 0 (0%) | 4 (2%) | 69 | 6.5 | 77.2 |
-| c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 26.4 | 36.4 |
-| cpp (leveldb) | 232 | 197 (85%) | 34 (15%) | 0 (0%) | 1 (0%) | 68 | 18.8 | 66.9 |
-| php (koel) | 104 | 99 (95%) | 5 (5%) | 0 (0%) | 0 (0%) | 196 | 13.8 | 25.9 |
-| swift (Alamofire) | 154 | 125 (81%) | 28 (18%) | 0 (0%) | 1 (1%) | 116 | 18.4 | 40.2 |
-| java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |
-| kotlin (nowinandroid) | 34 | 34 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 46 | 26.5 | 55.9 |
-| csharp (eShop) | 27 | 25 (93%) | 2 (7%) | 0 (0%) | 0 (0%) | 53 | 18.0 | 28.9 |
-| ruby (mastodon) | 28 | 23 (82%) | 4 (14%) | 0 (0%) | 1 (4%) | 52 | 57.0 | 166.5 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 23.0 | 101.4 |
+| python (paperless-ngx) | 257 | 214 (83%) | 25 (10%) | 0 (0%) | 18 (7%) | 68 | 16.5 | 300.5 |
+| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 46.2 | 99.5 |
+| js (eslint, uptime-kuma) | 217 | 174 (80%) | 30 (14%) | 2 (1%) | 11 (5%) | 177 | 38.6 | 157.0 |
+| go (caddy, gitea) | 318 | 286 (90%) | 18 (6%) | 0 (0%) | 14 (4%) | 51 | 6.1 | 26.5 |
+| rust (ripgrep) | 231 | 183 (79%) | 44 (19%) | 0 (0%) | 4 (2%) | 69 | 5.7 | 67.7 |
+| c (redis) | 250 | 232 (93%) | 18 (7%) | 0 (0%) | 0 (0%) | 20 | 24.7 | 33.3 |
+| cpp (leveldb) | 232 | 182 (78%) | 48 (21%) | 0 (0%) | 2 (1%) | 68 | 22.8 | 94.6 |
+| php (koel) | 392 | 185 (47%) | 143 (36%) | 0 (0%) | 64 (16%) | 88 | 53.4 | 246.6 |
+| swift (Alamofire) | 448 | 409 (91%) | 37 (8%) | 0 (0%) | 2 (0%) | 281 | 8.1 | 32.5 |
+| java (halo) | 115 | 57 (50%) | 42 (37%) | 0 (0%) | 16 (14%) | 88 | 59.9 | 135.8 |
+| kotlin (nowinandroid) | 56 | 50 (89%) | 5 (9%) | 0 (0%) | 1 (2%) | 95 | 28.4 | 61.2 |
+| csharp (eShop) | 85 | 55 (65%) | 13 (15%) | 0 (0%) | 17 (20%) | 130 | 18.6 | 32.7 |
+| ruby (mastodon) | 140 | 96 (69%) | 33 (24%) | 0 (0%) | 11 (8%) | 179 | 71.4 | 629.6 |
+| objc (SDWebImage) | 229 | 92 (40%) | 122 (53%) | 0 (0%) | 15 (7%) | 41 | 26.3 | 110.1 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 73.4 | 164.6 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 59.0 | 91.8 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 7.6 | 9.2 |
@@ -32,13 +27,15 @@ The c, cpp and objc rows: merl at `290bfdc6` with the `d` fixes of #1049, #1050 
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 8.1 | 24.4 |
 | css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 4.9 | 36.1 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 50.4 | 170.4 |
-| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 34.8 | 179.2 |
-| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 35.7 | 107.0 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 3 (1%) | 50 (23%) | 52 | 52.4 | 441.4 |
+| svelte (immich) | 182 | 115 (63%) | 42 (23%) | 5 (3%) | 20 (11%) | 88 | 76.2 | 500.0 |
+| astro (starlight) | 167 | 112 (67%) | 13 (8%) | 1 (1%) | 41 (25%) | 103 | 83.2 | 358.9 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 5.0 | 14.0 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 4.1 | 5.1 |
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 13.2 | 16.1 |
 | scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 8.0 | 9.7 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 7.2 | 8.1 |
-| bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 4.8 | 7.1 |
-| lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 2.5 | 15.4 |
+| bash (bats-core, acme.sh) | 97 | 34 (35%) | 17 (18%) | 0 (0%) | 46 (47%) | 12 | 3.3 | 11.4 |
+| lua (nvim-treesitter, kong) | 63 | 44 (70%) | 3 (5%) | 1 (2%) | 15 (24%) | 47 | 4.3 | 24.4 |
+| dart (dio) | 97 | 46 (47%) | 33 (34%) | 8 (8%) | 10 (10%) | 17 | 26.9 | 87.6 |
+| sql (lemmy) | 79 | 22 (28%) | 13 (16%) | 0 (0%) | 44 (56%) | 31 | 10.7 | 14.9 |
