@@ -393,6 +393,12 @@ fn a_go_key_is_read_from_the_literal_it_stands_in() {
         of("Tariff"),
         "a `{{` alone on its line reads the line in front of it"
     );
+    let named = "var all = Tariffs{\n\t{Rate: 1},\n}\nvar g = Tariffs[int]{\n\t{Rate: 1},\n}\n";
+    assert_eq!(
+        key(named, 2, "Rate"),
+        GoKey::ElementOf("Tariffs".to_owned())
+    );
+    assert_eq!(key(named, 5, "Rate"), GoKey::Unknown);
     let anonymous = "var t = struct {\n\tRate int\n}{\n\tRate: 1,\n}\n";
     assert_eq!(key(anonymous, 4, "Rate"), GoKey::Struct(1));
     let raw = "var t = Tariff{\n\tNote: `\n{\n`,\n\tRate: 1,\n}\n";

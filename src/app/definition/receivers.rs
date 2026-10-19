@@ -82,6 +82,9 @@ impl App {
     }
 
     pub(super) fn declares_here(&self, a: &Asked) -> bool {
+        if a.kind == Kind::Swift && search::swift_right_of_binding(&a.lead) {
+            return false;
+        }
         let mut declaring = search::def_patterns(a.kind, &a.word);
         declaring.extend(search::member_or_signature(a.kind, &a.word).unwrap_or_default());
         Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()))
@@ -125,6 +128,20 @@ impl App {
         {
             self.swift_by_labels(word, a.range.end, &mut found);
             return self.show_found(a, found);
+        }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && !matches!(word.as_str(), "init" | "none" | "some")
+            && let Some(lead) = a.lead.strip_suffix('.')
+            && let Some(found) = self.swift_expected_rows(&a.here, &a.text, lead, word)
+        {
+            if found.is_empty() {
+                self.message = resolution(word, None, &[], None, false);
+            } else {
+                self.show_found(a, found);
+            }
+            return true;
         }
         if kind == Kind::Swift
             && dotted
@@ -195,6 +212,23 @@ impl App {
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();
+        if kind == Kind::Go
+            && head.is_none()
+            && dotted
+            && chain.is_empty()
+            && let Some(answer) = self.go_call_chain(&a.here, &a.written, a.start, word)
+        {
+            match answer {
+                Ok(found) if !found.is_empty() => return self.show_found(a, found),
+                Ok(_) => {}
+                Err(via) => {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
+                }
+            }
+        }
         if !(dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
             && (head.is_some()

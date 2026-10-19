@@ -89,6 +89,60 @@ impl App {
             .collect())
     }
 
+    pub(super) fn go_call_chain(
+        &self,
+        here: &Path,
+        line: &str,
+        word_start: usize,
+        word: &str,
+    ) -> Option<Result<Vec<Candidate>, String>> {
+        let kind = Kind::Go;
+        let (end, methods) = search::go_method_calls(line, word_start)?;
+        let head = search::call_head(kind, line, end)?;
+        let ProvenType { mut ty, mut links } = self.receiver(kind, here, &[], Some(&head)).ok()?;
+        for method in &methods {
+            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                let members = self.members_of(kind, t, method);
+                (!members.is_empty()).then_some(members)
+            })?;
+            let [decl] = <[Hit; 1]>::try_from(found).ok()?;
+            let text = self.text_of(&decl.path)?;
+            let search::Value::Type(written) =
+                self.returns_of(kind, &decl.path, &text, decl.line1)?
+            else {
+                return None;
+            };
+            links.push(signature(kind, method, &written));
+            match self.annotated_type(kind, &decl.path, &text, 0, &written) {
+                Some(next) => ty = next,
+                None if self.go_outside(&decl.path, &text, &written) => {
+                    return Some(Err(links.join(" \u{2192} ")));
+                }
+                None => return None,
+            }
+        }
+        let label = links.join(" \u{2192} ");
+        let hits = self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word));
+        Some(Ok(hits
+            .unwrap_or_default()
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Receiver(label.clone()),
+            })
+            .collect()))
+    }
+
+    fn go_outside(&self, file: &Path, text: &str, written: &str) -> bool {
+        let parts = search::type_path(Kind::Go, written).unwrap_or_default();
+        let [package, _] = parts.as_slice() else {
+            return false;
+        };
+        bound(&search::imports(Kind::Go, text), package).is_some_and(|path| {
+            search::module_files(Kind::Go, &self.root, &self.files, file, &path).is_empty()
+        })
+    }
+
     fn scope(&self, here: &Path, first: Option<&String>) -> Result<(String, usize), String> {
         if let Some(scope) = self.script_scope(here, first.map(String::as_str)) {
             return Ok(scope);
@@ -255,15 +309,15 @@ impl App {
         chain: &[String],
         head: Option<&search::CallHead>,
     ) -> Option<Typed> {
-        if kind != Kind::Python || chain.first().is_some_and(|f| f == "super") {
+        if !matches!(kind, Kind::Python | Kind::TsJs) || chain.first().is_some_and(|f| f == "super")
+        {
             return None;
         }
         let ProvenType { ty, .. } = self.receiver(kind, here, chain, head).ok()?;
-        (self.python_ancestry(&ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
+        (self.ancestry(kind, &ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
     }
 
-    fn python_ancestry(&self, ty: &Typed, depth: usize) -> Option<Ancestry> {
-        let kind = Kind::Python;
+    fn ancestry(&self, kind: Kind, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
         let imports = search::imports(kind, &text);
         let mut outside = false;
@@ -275,8 +329,7 @@ impl App {
             }
             if let Some(base) = self.type_decl(kind, &ty.path, &base) {
                 outside |= base.path.is_absolute()
-                    || self.python_ancestry(&base, depth + 1)?
-                        == Ancestry::ReachesOutsideTheProject;
+                    || self.ancestry(kind, &base, depth + 1)? == Ancestry::ReachesOutsideTheProject;
                 continue;
             }
             let path = bound(&imports, &parts[0])?;
@@ -626,22 +679,9 @@ impl App {
                 }
                 _ => return None,
             };
-            let named = |written: &str| {
-                let list = self
-                    .type_decl(kind, &at, written)
-                    .filter(|_| kind == Kind::Go)?;
-                let text = self.text_of(&list.path)?;
-                let decl = text
-                    .lines()
-                    .nth(list.line - 1)?
-                    .trim()
-                    .strip_prefix("type ")?;
-                let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
-                Some((search::element_type(kind, holds)?, list.path))
-            };
             let (element, at) = match search::element_type(kind, &written) {
                 Some(element) => (element, at.clone()),
-                None => named(&written)?,
+                None => self.named_element(kind, &at, &written)?,
             };
             let (ty, call_signature) = if kind == Kind::Go && element == "struct" {
                 (anonymous(&at, c.line1), None)
@@ -665,6 +705,25 @@ impl App {
             }
         }
         found
+    }
+
+    pub(super) fn named_element(
+        &self,
+        kind: Kind,
+        at: &Path,
+        written: &str,
+    ) -> Option<(String, PathBuf)> {
+        let list = self
+            .type_decl(kind, at, written)
+            .filter(|_| kind == Kind::Go)?;
+        let text = self.text_of(&list.path)?;
+        let decl = text
+            .lines()
+            .nth(list.line - 1)?
+            .trim()
+            .strip_prefix("type ")?;
+        let holds = decl.trim_start().strip_prefix(list.name.as_str())?;
+        Some((search::element_type(kind, holds)?, list.path))
     }
 
     fn call_type(

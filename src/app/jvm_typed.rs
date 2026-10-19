@@ -184,6 +184,42 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
+    pub(super) fn jvm_owner_type(&self, here: &Path, text: &str, owner: &str) -> Option<Hit> {
+        if !owner.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return None;
+        }
+        match self.jvm_type_at(here, text, owner) {
+            JvmType::Project(decl) => Some(decl),
+            _ => None,
+        }
+    }
+
+    pub(super) fn jvm_owns(&self, decl: &Hit, hit: &Hit, word: &str) -> bool {
+        hit.path == decl.path || self.jvm_receiver_of(hit, word).is_some()
+    }
+
+    pub(super) fn jvm_owner_member(
+        &self,
+        here: &Path,
+        decl: Hit,
+        owner: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let companion = search::jvm_type_name(&decl.text).map(|n| format!("{n}.Companion"));
+        self.jvm_typed_member(here, JvmType::Project(decl), owner, word)
+            .or_else(|| {
+                let companion = companion?;
+                let found: Vec<Candidate> = (self.jvm_extensions(here, word).into_iter())
+                    .filter(|h| self.jvm_receiver_of(h, word).as_ref() == Some(&companion))
+                    .map(|hit| Candidate {
+                        hit,
+                        reason: Reason::Receiver(owner.to_owned()),
+                    })
+                    .collect();
+                (!found.is_empty()).then_some(found)
+            })
+    }
+
     fn jvm_typed_member(
         &self,
         here: &Path,

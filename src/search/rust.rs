@@ -341,9 +341,12 @@ static MOD_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{")
         .expect("the regex is a literal")
 });
-fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
+pub fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
     let mut around = Vec::new();
-    let mut depth = indent(lines[k]);
+    let Some(line) = lines.get(k) else {
+        return around;
+    };
+    let mut depth = indent(line);
     for i in (0..k).rev() {
         if depth == 0 {
             break;
@@ -1200,6 +1203,9 @@ pub fn rust_bounds(lines: &[&str], at: usize, param: &str) -> Vec<String> {
         .collect()
 }
 pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
+    rust_inline_mod_past(lines, &[], line0)
+}
+pub fn rust_inline_mod_past(lines: &[&str], literal: &[bool], line0: usize) -> Option<usize> {
     static MOD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{").expect("the regex is a literal")
     });
@@ -1209,7 +1215,11 @@ pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
             break;
         }
         let t = l.trim();
-        if t.is_empty() || comment(Kind::Rust, t) || indent(l) >= depth {
+        if t.is_empty()
+            || comment(Kind::Rust, t)
+            || literal.get(i) == Some(&true)
+            || indent(l) >= depth
+        {
             continue;
         }
         depth = indent(l);

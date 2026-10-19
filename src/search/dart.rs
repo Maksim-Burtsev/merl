@@ -456,6 +456,10 @@ static OPTIONAL_PARAMS_CLOSE: std::sync::LazyLock<Regex> = std::sync::LazyLock::
     Regex::new(r"^[}\]]\)\s*(?:async\*?|sync\*)?\s*(?:\{|=>)").expect("the regex is a literal")
 });
 
+static INITIALIZERS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^[}\]]?\)\s*:(?:[^:]|$)").expect("the regex is a literal")
+});
+
 static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(&format!(
         r"^\s*{ANNOTATIONS}(?:(?:abstract|sealed|base|final|interface|mixin)\s+)*(?:class|enum|mixin|extension)\b"
@@ -496,12 +500,17 @@ pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
             continue;
         }
         let end = i;
-        if t.starts_with(')') || OPTIONAL_PARAMS_CLOSE.is_match(t) {
+        let initializers = INITIALIZERS.is_match(t);
+        if t.starts_with(')') || OPTIONAL_PARAMS_CLOSE.is_match(t) || initializers {
             i = (0..i)
                 .rev()
                 .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= ind)
                 .unwrap_or(i);
         }
+        let from_body = code(end).trim_end().ends_with('{')
+            || (end + 1..at)
+                .find(|&k| !code(k).trim().is_empty() && !literal[k])
+                .is_some_and(|k| indent(lines[k]) > depth);
         depth = indent(lines[i]);
         if TYPE_BODY.is_match(lines[i]) {
             return Vec::new();
@@ -509,7 +518,21 @@ pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
         if let Some(h) = hit {
             return found(h);
         }
-        let head: Vec<String> = (i..=end).map(code).collect();
+        let mut head: Vec<String> = (i..=end).map(code).collect();
+        if initializers {
+            let in_class = (0..i)
+                .rev()
+                .find(|&j| !literal[j] && !code(j).trim().is_empty() && indent(lines[j]) < depth)
+                .is_some_and(|j| TYPE_BODY.is_match(lines[j]));
+            let constructor = SHAPES[Shape::Constructor as usize].is_match(&head.join(" "));
+            let params = head.pop().unwrap_or_default();
+            match params.split_once(':') {
+                Some((close, _)) if from_body && in_class && constructor => {
+                    head.push(format!("{close} {{"));
+                }
+                _ => head.clear(),
+            }
+        }
         if dart_header_binds(head.join(" ").trim(), name) {
             let w = Regex::new(&format!(
                 r"(?:^|[^\w$]){}{NAME_END_PAST_DOLLAR}",

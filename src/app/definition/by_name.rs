@@ -59,6 +59,9 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
+        if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
+            self.dart_outside_constructor(&a.word, &a.tail, &mut found);
+        }
         self.found_last(a, p, walk, fallbacks, &mut found);
         if kind == Kind::Jvm && a.dotted {
             self.jvm_by_arguments(&a.here, &a.word, a.range.end, &mut found);
@@ -68,6 +71,15 @@ impl App {
         }
         if kind == Kind::Ruby && p.on_value {
             self.ruby_member_outside(&a.word, &p.pattern, &mut found);
+        }
+        if kind == Kind::Ruby
+            && !a.dotted
+            && a.chain.is_empty()
+            && !a.before.ends_with("::")
+            && a.word
+                .starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
+        {
+            self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {

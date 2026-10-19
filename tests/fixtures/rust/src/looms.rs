@@ -148,3 +148,42 @@ pub fn reeled(reel: &Reel) -> u32 {
     reel.wind()
     //   ^ d: other/src/lib.rs:24
 }
+
+#[cfg(test)]
+mod spooled {
+    use other::Spool;
+
+    fn wound() -> u32 {
+        Spool::new().wind()
+        //           ^ d: other/src/lib.rs:36
+    }
+
+    mod deeper {
+        pub struct Spool;
+
+        impl Spool {
+            pub fn new() -> Spool {
+                Spool
+            }
+        }
+
+        fn wound() {
+            Spool::new().wind();
+            //           ^ d: !jump
+        }
+    }
+}
+
+pub fn rewoven() -> usize {
+    LoomBuilder::new()
+        .weave(
+            7,
+        )
+        .shuttle();
+        //^ d: src/looms.rs:41
+    let held = (
+        LoomBuilder::new(),
+    );
+    held.0.build().shuttle()
+    //             ^ d: picker src/looms.rs:35, src/looms.rs:41
+}

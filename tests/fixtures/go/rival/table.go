@@ -62,6 +62,6 @@ type Bundle struct {
 
 var _ = Bough{
 	{Leaf: nil, Knot: 1},
-	//^ d: picker rival/table.go:5; want rival/table.go:58 (#1116)
-	//          ^ d: none; want rival/table.go:59 (#1116)
+	//^ d: rival/table.go:59
+	//          ^ d: rival/table.go:60
 }

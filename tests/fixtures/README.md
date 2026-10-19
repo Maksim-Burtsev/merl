@@ -210,7 +210,9 @@ has a `Kettle` and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle
 `Shop\Tea\Stale` imported under an alias, `use function` of a `steep` the file's own namespace
 also declares, a function `pour` beside the methods, `static::` and `parent::`, a trait's method,
 a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
-block comment declaring what the files declare. `lua/lua/tea/` has `local function pour` beside
+block comment declaring what the files declare; `Kettle::card` names its members in the prose
+of a heredoc and a nowdoc, which declares nothing, beside interpolated `{$this->…}`, `$var` and
+`${var}`, and an escaped `\$var` that is text (#1113). `lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
@@ -247,7 +249,10 @@ local or parameter named like an import or a field, and declaration-shaped lines
 a comment. `go/rival/` adds `:=` redeclaring `err` and a `var`, method values and expressions, an
 `if` header and a closure re-declaring a local, a promoted method and one an embedding type
 overrides, an interface method, a function-typed field and a generic method, and its `twin`
-package imported plainly and under an alias. `csharp/src/Shop/Tea/` adds a partial class over
+package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
+`GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
+package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the
+project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
 `Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
@@ -436,7 +441,12 @@ generic call, typed by its argument rather than the constraint, and a generic ca
 callback, which declares no type parameter. `packaged.ts` types receivers by packages that are not
 installed (`yjs`, `markdown-it`) beside project members of the same names, and calls a member
 named like a top-level function and a class of the file (#1079); `cut.ts` reads a member named
-like a local of another function. `crate.js` reads `hinge` off an untyped parameter, declared only
+like a local of another function. `migrate.ts` calls `changed()` on a `Revision` of `record.ts`,
+whose base comes from the uninstalled `sequelize-typescript`, beside a type's `changed`, and reads
+`isDevelopment` off the default export of `settings.ts`, typed `Record<…> & { … }` over several
+lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
+mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
+another class. `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078).
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
@@ -484,6 +494,12 @@ top-level `Lid`, computed properties, `pour` overloaded by argument label beside
 self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter, `if let` over a
 property, a one-line closure whose parameter is named like a property, and declaration-shaped
 lines in a multi-line and a raw string.
+`swift/Sources/Shop/KeepLog.swift` calls free functions through a module `Package.swift` does not
+name, only its folder `Sources/Kit/` (#1068): `Kit.record` jumps, `Kit.jot` offers its namesake
+in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `.x` from functions
+returning `Self` (in a struct and in an extension of an outside type) and a generic `T`, which
+the expected type must not read (#1069): each jumps by name, and says "no definition" with its
+guard removed.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -525,7 +541,14 @@ field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayNam
 a type outside the project, a chain off a call that is no getter (a picker of the explicit
 getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
-parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/arity/`
+parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
+(#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
+annotation with arguments the rules cannot read (a `Ledger` namesake must not be jumped to),
+and a `Specs.single` named like the one of `typeargs`, in another package. `jvm/src/main/kotlin/ladle/`
+calls through a type's name the extensions declared in another file: on its `Companion`
+(`Ladle.dollop()`, `Ladle.brim`), on an `object`, and on an `object` written with its package
+(`fun ladle.Spoon.scoop()`), which only the extension test of the owner's hits keeps a jump.
+`jvm/src/main/java/arity/`
 calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
 are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
 text block, and a Kotlin extension called through its file class (`LoudKt.holler`);

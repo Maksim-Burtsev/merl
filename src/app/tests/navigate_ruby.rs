@@ -311,3 +311,52 @@ fn a_member_on_new_is_the_class_s_unless_the_class_defines_new_or_is_not_declare
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn one_press_searches_a_ruby_class_name_once() {
+    let (dir, mut a) = project_app(
+        "ruby-once",
+        &[
+            (
+                "app/models/account.rb",
+                "class Account < Base\n  def go\n    ping\n  end\nend\n",
+            ),
+            ("app/models/base.rb", "class Base\nend\n"),
+            (
+                "app/models/other.rb",
+                "class Other\n  def ping\n  end\nend\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "app/models/account.rb", "    ping");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "ping: by name, 1 match",
+            &[("Other.ping", "app/models/other.rb:2")]
+        ),
+        "a bare call only an unrelated class declares is offered (#1093)"
+    );
+    std::fs::write(
+        dir.join("app/models/base_ext.rb"),
+        "class Base < Other\nend\n",
+    )
+    .unwrap();
+    a.files.push("app/models/base_ext.rb".into());
+    let text = std::fs::read_to_string(dir.join("app/models/account.rb")).unwrap();
+    assert!(
+        a.ruby_self_methods(Path::new("app/models/account.rb"), &text, "ping")
+            .is_empty(),
+        "the ancestor walks of one press reuse its search for `Base`, so a declaration that appeared after it is not read"
+    );
+    d_on(&mut a, "app/models/account.rb", "    ping");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "ping \u{2192} Other.ping (via Other)",
+            "app/models/other.rb:2"
+        ),
+        "the next press searches again"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

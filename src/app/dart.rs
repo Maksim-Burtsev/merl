@@ -26,9 +26,8 @@ impl App {
             return Some(found);
         }
         let qualifier = self
-            .line_str()
-            .get(before.len()..)
-            .and_then(|r| r.strip_prefix(word))
+            .word_here(Some(Kind::Dart))
+            .and_then(|(range, _)| self.line_str().get(range.end..))
             .is_some_and(|r| r.starts_with('.') && !r.starts_with(".."));
         let member = || {
             let declares = Regex::new(&search::def_patterns(Kind::Dart, word).join("|")).ok();
@@ -183,6 +182,34 @@ impl App {
         });
     }
 
+    pub(super) fn dart_outside_constructor(
+        &self,
+        word: &str,
+        tail: &str,
+        found: &mut Vec<Candidate>,
+    ) {
+        let built = format!("{word}.{word}");
+        let constructor = |c: &Candidate| {
+            self.text_of(&c.hit.path).is_some_and(|t| {
+                search::qualified(Kind::Dart, &t, c.hit.line1, word).as_ref() == Some(&built)
+            })
+        };
+        let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
+        let paired = |c: &Candidate| {
+            let mut file = found.iter().filter(|o| o.hit.path == c.hit.path);
+            let (Some(a), Some(b), None) = (file.next(), file.next(), file.next()) else {
+                return false;
+            };
+            let (class, made) = if top(a) { (a, b) } else { (b, a) };
+            top(class) && !top(made) && constructor(made)
+        };
+        if found.is_empty() || !found.iter().all(|c| c.hit.path.is_absolute() && paired(c)) {
+            return;
+        }
+        let called = search::dart_called(tail);
+        found.retain(|c| top(c) != called);
+    }
+
     fn dart_library(
         &self,
         file: PathBuf,
@@ -283,7 +310,7 @@ impl App {
                     let found = self.dart_member_of(&file, r, word);
                     return (file.is_absolute() && !found.is_empty()).then_some(found);
                 }
-                None => return None,
+                None => self.dart_field_type(here, text, r)?,
             },
             _ => return None,
         };
@@ -301,7 +328,56 @@ impl App {
         if found.is_empty() {
             found = self.dart_inherited(&file, class, word, 0);
         }
+        self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_accessor_side(&self, before: &str, word: &str, found: &mut Vec<Candidate>) {
+        static ASSIGNED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*=(?:[^=>]|$)").expect("the regex is a literal")
+        });
+        static READ: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+            Regex::new(r"^\s*(?:$|[),;\]}.]|[!=]=|&&|\|\|)").expect("the regex is a literal")
+        });
+        let Some(tail) = self
+            .word_here(Some(Kind::Dart))
+            .and_then(|(range, _)| self.line_str().get(range.end..))
+        else {
+            return;
+        };
+        let accessor = |c: &Candidate, side: &str| {
+            Regex::new(&format!(r"\b{side}\s+{}(?:[^\w$]|$)", regex::escape(word)))
+                .is_ok_and(|r| r.is_match(&c.hit.text))
+        };
+        let [a, b] = found.as_slice() else {
+            return;
+        };
+        let pair = a.hit.path == b.hit.path
+            && ((accessor(a, "get") && accessor(b, "set"))
+                || (accessor(a, "set") && accessor(b, "get")));
+        let operand = before
+            .trim_end_matches(|c: char| c.is_alphanumeric() || "_$.?!".contains(c))
+            .trim_end();
+        let prefixed = operand.ends_with("++") || operand.ends_with("--");
+        let side = if ASSIGNED.is_match(tail) {
+            "set"
+        } else if READ.is_match(tail) {
+            "get"
+        } else {
+            return;
+        };
+        if pair && !prefixed {
+            found.retain(|c| accessor(c, side));
+        }
+    }
+
+    fn dart_field_type(&self, here: &Path, text: &str, field: &str) -> Option<search::DartType> {
+        if !search::bindings(Kind::Dart, text, self.line + 1, field).is_empty() {
+            return None;
+        }
+        let class = search::dart_this_super(text, self.line, false)?.class;
+        let [c] = self.dart_member_of(here, &class, field).try_into().ok()?;
+        search::dart_typed(&c.hit.text, field)
     }
 
     fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {

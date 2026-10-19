@@ -470,30 +470,55 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
         Kind::Jvm | Kind::Swift | Kind::Dart => led(below) && ends_a_receiver(above),
         _ => led(below),
     };
-    let mut joined = lines[at].trim_start().to_owned();
-    let mut start = word_start - indent(&lines[at]);
-    let mut below = lines[at].clone();
-    let mut links = 0;
-    for above in lines[at.saturating_sub(40)..at].iter().rev() {
-        let code = uncommented(kind, above);
-        let code = code.trim_end();
-        if code.is_empty() {
-            continue;
+    let unclosed = |joined: &str, start: usize| joined.get(..start).map_or(0, unclosed_parens);
+    let join = |through_parens: bool| {
+        let mut joined = lines[at].trim_start().to_owned();
+        let mut start = word_start - indent(&lines[at]);
+        let mut below = lines[at].clone();
+        let mut links = 0;
+        for above in lines[at.saturating_sub(40)..at].iter().rev() {
+            let code = uncommented(kind, above);
+            let code = code.trim_end();
+            if code.is_empty() {
+                continue;
+            }
+            if !(held(code, &below) || (through_parens && unclosed(&joined, start) > 0)) {
+                break;
+            }
+            let head = joined.len() - joined.trim_start().len();
+            joined.drain(..head);
+            start = start + code.len() - head;
+            joined.insert_str(0, code);
+            code.clone_into(&mut below);
+            links += 1;
         }
-        if !held(code, &below) {
-            break;
-        }
-        let head = joined.len() - joined.trim_start().len();
-        joined.drain(..head);
-        start = start + code.len() - head;
-        joined.insert_str(0, code);
-        code.clone_into(&mut below);
-        links += 1;
+        (joined, start, below, links)
+    };
+    let mut joined = join(kind == Kind::Rust);
+    if unclosed(&joined.0, joined.1) > 0 {
+        joined = join(false);
     }
+    let (joined, start, below, links) = joined;
     (links > 0 && !led(&below)).then_some(LineAsRead {
         line: joined,
         word_start: start,
     })
+}
+fn unclosed_parens(code: &str) -> i32 {
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut depth = 0;
+    for c in code.chars() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' if quoted => escaped = true,
+            '"' => quoted = !quoted,
+            ')' if !quoted => depth += 1,
+            '(' if !quoted => depth -= 1,
+            _ => {}
+        }
+    }
+    depth
 }
 fn ends_a_receiver(code: &str) -> bool {
     const STARTS_AN_EXPRESSION: [&str; 13] = [
@@ -513,7 +538,7 @@ pub struct LineAsRead {
 }
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
     let (before, after) = match (kind, line.split_at_checked(start)) {
-        (Kind::TsJs | Kind::Swift, Some((head, tail))) => {
+        (Kind::TsJs | Kind::Swift | Kind::Dart, Some((head, tail))) => {
             (head.replace("?.", ".").replace("!.", "."), tail)
         }
         (Kind::Php, Some((head, tail))) => (
@@ -629,6 +654,33 @@ pub struct CallHead {
     pub call_without_arguments: String,
     pub value: Value,
     pub fields_to_word: Vec<String>,
+}
+pub fn go_method_calls(line: &str, word_start: usize) -> Option<(usize, Vec<String>)> {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut dot = word_start
+        .checked_sub(1)
+        .filter(|&d| line.get(d..word_start) == Some("."))?;
+    let mut methods = Vec::new();
+    loop {
+        let before = line.get(..dot)?;
+        if !before.ends_with(')') {
+            break;
+        }
+        let open = code(Kind::Go, before)
+            .filter(|(_, c)| *c == b'(')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(Kind::Go, before, i) == Some(before.len()))?;
+        let start = name_start(before.get(..open)?, is_name);
+        let Some(head) = before.get(..start).and_then(|h| h.strip_suffix('.')) else {
+            break;
+        };
+        if start == open || !head.ends_with(')') {
+            break;
+        }
+        methods.insert(0, before.get(start..open)?.to_owned());
+        dot = head.len();
+    }
+    (!methods.is_empty()).then_some((dot + 1, methods))
 }
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);

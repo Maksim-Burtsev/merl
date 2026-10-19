@@ -48,6 +48,7 @@ impl App {
 
     pub(super) fn goto_definition(&mut self) {
         self.anonymous_named.set(None);
+        self.ruby_declared.get_mut().clear();
         let kind = self.kind();
         if self.answered_without_word(kind) {
             return;

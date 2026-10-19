@@ -129,3 +129,15 @@ fn a_header_lists_what_it_inherits() {
     assert_eq!(swift_inherited("extension Teapot: Brewing {}"), ["Brewing"]);
     assert_eq!(swift_inherited("struct Teapot {"), Vec::<String>::new());
 }
+
+#[test]
+fn a_binding_starts_right_of_its_equals_sign() {
+    assert!(swift_right_of_binding("        let validators = "));
+    assert!(swift_right_of_binding("if let x = "));
+    assert!(swift_right_of_binding("var n: [Int]="));
+    assert!(!swift_right_of_binding("        let "));
+    assert!(!swift_right_of_binding("let a = 1; let "));
+    assert!(!swift_right_of_binding("guard let == "));
+    assert!(!swift_right_of_binding("let x: Set<Int>>= "));
+    assert!(!swift_right_of_binding("x = "));
+}
