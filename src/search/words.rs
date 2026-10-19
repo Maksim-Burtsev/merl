@@ -470,30 +470,55 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
         Kind::Jvm | Kind::Swift | Kind::Dart => led(below) && ends_a_receiver(above),
         _ => led(below),
     };
-    let mut joined = lines[at].trim_start().to_owned();
-    let mut start = word_start - indent(&lines[at]);
-    let mut below = lines[at].clone();
-    let mut links = 0;
-    for above in lines[at.saturating_sub(40)..at].iter().rev() {
-        let code = uncommented(kind, above);
-        let code = code.trim_end();
-        if code.is_empty() {
-            continue;
+    let unclosed = |joined: &str, start: usize| joined.get(..start).map_or(0, unclosed_parens);
+    let join = |through_parens: bool| {
+        let mut joined = lines[at].trim_start().to_owned();
+        let mut start = word_start - indent(&lines[at]);
+        let mut below = lines[at].clone();
+        let mut links = 0;
+        for above in lines[at.saturating_sub(40)..at].iter().rev() {
+            let code = uncommented(kind, above);
+            let code = code.trim_end();
+            if code.is_empty() {
+                continue;
+            }
+            if !(held(code, &below) || (through_parens && unclosed(&joined, start) > 0)) {
+                break;
+            }
+            let head = joined.len() - joined.trim_start().len();
+            joined.drain(..head);
+            start = start + code.len() - head;
+            joined.insert_str(0, code);
+            code.clone_into(&mut below);
+            links += 1;
         }
-        if !held(code, &below) {
-            break;
-        }
-        let head = joined.len() - joined.trim_start().len();
-        joined.drain(..head);
-        start = start + code.len() - head;
-        joined.insert_str(0, code);
-        code.clone_into(&mut below);
-        links += 1;
+        (joined, start, below, links)
+    };
+    let mut joined = join(kind == Kind::Rust);
+    if unclosed(&joined.0, joined.1) > 0 {
+        joined = join(false);
     }
+    let (joined, start, below, links) = joined;
     (links > 0 && !led(&below)).then_some(LineAsRead {
         line: joined,
         word_start: start,
     })
+}
+fn unclosed_parens(code: &str) -> i32 {
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut depth = 0;
+    for c in code.chars() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' if quoted => escaped = true,
+            '"' => quoted = !quoted,
+            ')' if !quoted => depth += 1,
+            '(' if !quoted => depth -= 1,
+            _ => {}
+        }
+    }
+    depth
 }
 fn ends_a_receiver(code: &str) -> bool {
     const STARTS_AN_EXPRESSION: [&str; 13] = [
