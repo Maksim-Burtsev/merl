@@ -148,3 +148,28 @@ pub fn reeled(reel: &Reel) -> u32 {
     reel.wind()
     //   ^ d: other/src/lib.rs:24
 }
+
+#[cfg(test)]
+mod spooled {
+    use other::Spool;
+
+    fn wound() -> u32 {
+        Spool::new().wind()
+        //           ^ d: other/src/lib.rs:36
+    }
+
+    mod deeper {
+        pub struct Spool;
+
+        impl Spool {
+            pub fn new() -> Spool {
+                Spool
+            }
+        }
+
+        fn wound() {
+            Spool::new().wind();
+            //           ^ d: !jump
+        }
+    }
+}
