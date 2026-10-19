@@ -359,7 +359,7 @@ pub fn ruby_loop_keyword(word: &str, lead: &str, tail: &str) -> bool {
 
 pub fn ruby_constructed_receiver(before: &str) -> Option<String> {
     static NEW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.new\s*\([^()]*\)\.$")
+        Regex::new(r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.new(?:\s*\([^()]*\))?\.$")
             .expect("the regex is a literal")
     });
     NEW.captures(before.trim_end()).map(|c| c[1].to_owned())
