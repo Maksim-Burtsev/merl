@@ -42,28 +42,19 @@ the page never asks for a file that is not there yet.
 
 The id is the issue with the question: `i635`, `i635-q2`. Write the file whole; to change a
 card, read it, change it, write it back. `keys` and `options` are always arrays: a card the page
-cannot read, or one missing `problem`, `stakes`, or an option's `ux`, `pros` or `cons`, is listed
-in red under the queue and not shown.
+cannot read is listed in red under the queue and not shown.
 
-**A card is read cold.** The owner opens it on a phone, between other things, without the issue,
-the chat or the bench in their head, and decides from the card alone. So it answers, in order:
-what is broken, what the thing even is, who runs into it and how much it matters, and for each
-option what the owner will press and see afterwards, what it gains and what it costs. A card that
-leaves one of these to the issue comes back as "I don't get what this is about, how big a
-problem it is, or the trade-offs" (the owner on #1064, #1088 and #1099, 2026-10-19, cards
-written to the old two-sentence rule).
+A card is a control panel, not a write-up: the problem, today's screen, the options each with
+its demo, the recommendation and the trade-off, top level only. The owner decides from the
+pictures and a line or two of text; a longer card goes unread (owner, 2026-10-19, after every
+card was rewritten into paragraphs). Three things a card needs and some lacked:
 
-- Name a thing before using it: Blazor, DRF, Alembic, a bench, a cursor. `context` says what it
-  is in a sentence or two, the way you'd tell a Python developer who never touched it.
-- A file path, a `FILE:LINE:COL` or a shell command is not a key the owner presses. `now.keys`
-  holds the keys a user presses in merl; where the cursor stands goes into the caption in words
-  (`on GetBasketItemsAsync in CartPage.razor`).
-- An option's `ux` is never "nothing new". For `d` it is where the cursor lands, with the line
-  it lands on, or the status line it shows; for a key, what the screen does when you press it.
-- An option that is not built yet still shows its end screen when one exists: for `d`, merl
-  opened at the line it would land on (`merl FILE:LINE`, recorded as below), captioned as such.
-- Numbers come from the issue or the bench (`12 of 12 cursors in eShop's .razor files`), never
-  guessed; when nobody measured, say so.
+- A thing the owner may not know (Blazor, DRF, SQL migrations) gets a few words in `problem`,
+  no more.
+- `keys` are keys pressed in merl. A shell command or a `FILE:LINE:COL` is not one; where the
+  cursor stands goes into the caption.
+- An option whose whole change is where `d` lands shows it: merl opened at that line, captioned
+  so, instead of `adds` "nothing new".
 
 | Field | What |
 |---|---|
@@ -71,21 +62,18 @@ written to the old two-sentence rule).
 | `tag`, `link` | `#635` and the issue's URL |
 | `problem` | the card's first line: what goes wrong or is missing for the user today, in their keys and screen ("`c` walks past the files the agent left out of the review, so you never see them"). Without it the page lists the card in red and does not show it |
 | `title` | the question as the user feels it, a few words |
-| `context` | what the thing the card names is, for someone who never used it; left out only when every term is merl's own |
-| `stakes` | who runs into this, how often, and what it affects: the languages and projects, the bench's numbers, the 1.0 bar. Required |
-| `today` | what the user presses and sees today |
+| `today` | one sentence: what the user presses and sees today |
 | `visible` | what changes on screen, a few words; left out when nothing does |
 | `now` | `{keys, caption, img, video, dur}`: the screen today |
 | `result` | `{title, caption, img}`: the shared end screen, when there is one |
 | `multi` | `true` when options combine (`A + C`) |
-| `options` | `[{key, name, rec, rule, keys, ux, pros, cons, img, video, dur}]`; `rec: true` on the recommended; `rule` what merl does under it; `ux` what the owner presses and sees with it, step by step; `pros` what it wins; `cons` what it costs, the work and the risk of a wrong answer included. `ux`, `pros` and `cons` are required |
+| `options` | `[{key, name, rec, rule, keys, adds, cons, img, video, dur}]`; `rec: true` on the recommended; `adds` is what it adds to the screen (`ничего нового` when nothing); `cons` its cost |
 | `why`, `elsewhere`, `unchanged` | why the recommendation; what GitHub, GitLab, VS Code do; what stays as is |
 | `diff` | the recommended option's share of changed pixels from `desk-diff`, a number; the page marks a card under 1 |
 | `status` | `archived` hides the card once its decision is in the issue; the file stays |
 
 Every text is in plain English, whatever language the chat is in (the owner moved to English on
-2026-10-15): short sentences, as many as the reader needs and no more. `code` in backticks shows
-as code.
+2026-10-15), one or two short sentences each.
 
 ## `answers/<id>.json`
 
