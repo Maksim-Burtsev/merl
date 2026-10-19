@@ -142,6 +142,11 @@ html.js .h-run .h-ed::after { transition: transform .45s cubic-bezier(.6, 0, .2,
 
 .hero-title { display: grid; gap: 14px; min-width: 0; }
 .h-big { margin: 0; font: 700 clamp(22px, 2.15vw, 31px)/1.15 var(--display); letter-spacing: -.025em; color: var(--accent); text-wrap: balance; }
-.take { display: none; border: 0; cursor: pointer; white-space: nowrap; font: 650 14.5px/1 var(--body); color: var(--bg); background: var(--ink); border-radius: 999px; padding: 10px 16px; }
-.stage.demo .take { display: inline-flex; }
+.take-hint { display: none; }
+.stage.demo .take-hint { display: block; position: absolute; left: 50%; bottom: 42px; transform: translateX(-50%); z-index: 2; pointer-events: none; white-space: nowrap; font: 600 15px/1 var(--body); color: #e8ebf7; background: rgba(16, 17, 26, .82); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; padding: 12px 20px; animation: hint 2.4s ease-in-out infinite; }
+@keyframes hint { 50% { opacity: .72; } }
+.stage.demo .screen { cursor: pointer; }
+.hint-tap { display: none; }
+@media (hover: none) { .hint-key { display: none; } .hint-tap { display: inline; } }
+@media (max-width: 700px) { .stage.demo .take-hint { font-size: 13px; white-space: normal; text-align: center; width: 80%; } }
 .stage.demo .tk-coach [data-show] { display: none; }

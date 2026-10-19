@@ -48,8 +48,7 @@ function renderTask(st) {
   const shown = cur.answer.length > 1 && cur.answer.every(k => k === cur.answer[0]) ? cur.keys : cur.answer;
   const keys = done ? "" : `<div class="tk-keys">${shown.map(k => `<kbd>${keyCap(k)}</kbd>`).join("")}</div>`;
   const dots = `<ol class="tk-dots">${steps.map((_, i) => `<li class="${i < step ? "done" : i === step ? "cur" : ""}"></li>`).join("")}</ol>`;
-  const show = (done ? `<button type="button" class="tk-btn" data-again>Start again</button>` : `<button type="button" class="tk-btn" data-show>Show me</button>`)
-    + `<button type="button" class="tk-btn take" data-take>Try it yourself</button>`;
+  const show = (done ? `<button type="button" class="tk-btn" data-again>Start again</button>` : `<button type="button" class="tk-btn" data-show>Show me</button>`);
   const num = done ? `<div class="tk-n done"><b>✓</b><span>done</span></div>` : `<div class="tk-n"><b>${step + 1}</b><span>of ${n}</span></div>`;
   coachEl.innerHTML = `${num}<div class="tk-body">${saidHtml}<p class="tk-ask">${done ? review.done : cur.ask}</p>${keys}</div><div class="tk-foot">${dots}${show}</div>`;
   coachEl.classList.toggle("is-said", !!said);
@@ -96,8 +95,7 @@ async function watchAll() {
 const stopWatching = () => { watching++; stage.classList.remove("showing", "demo"); };
 const takeOver = () => { stopWatching(); merl.open(merl.project()); stage.querySelector("[data-screen]").focus({ preventScroll: true }); };
 stage.addEventListener("click", e => {
-  if (e.target.closest("[data-take]")) takeOver();
-  else if (e.target.closest("[data-show]")) { show(); stage.querySelector("[data-screen]").focus({ preventScroll: true }); }
+  if (e.target.closest("[data-show]")) { show(); stage.querySelector("[data-screen]").focus({ preventScroll: true }); }
   else if (e.target.closest("[data-again]")) { stopWatching(); merl.open(merl.project()); stage.querySelector("[data-screen]").focus({ preventScroll: true }); }
   else if (e.target.closest("[data-k]")) merl.press(e.target.closest("[data-k]").dataset.k, 0);
 });
@@ -108,7 +106,7 @@ addEventListener("keydown", e => {
   else if (stage.classList.contains("showing") && stage.contains(e.target)) stopWatching();
 }, true);
 stage.addEventListener("pointerdown", e => {
-  if (e.target.closest("[data-take], .tk-coach")) return;
+  if (e.target.closest(".tk-coach")) return;
   if (stage.classList.contains("demo") && e.target.closest("[data-screen]")) takeOver();
   else if (stage.classList.contains("showing") && e.target.closest("[data-screen]")) stopWatching();
 }, true);
