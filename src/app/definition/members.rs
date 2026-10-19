@@ -1,4 +1,5 @@
 use super::{App, Asked, Candidate, Kind, Near, Reason, bound, is_word, names_itself, search};
+use crate::app::jvm_typed::java_shaped;
 
 pub(super) struct Patterns {
     pub(super) pattern: String,
@@ -118,6 +119,11 @@ impl App {
                 self.jvm_typed(&a.here, &a.text, before, chain, &a.word)
             };
             if let Some(found) = found {
+                let call = a.tail.trim_start().starts_with('(') || before.ends_with("::");
+                let found = match a.here.extension() {
+                    Some(e) if e == "java" => java_shaped(found, |c| &c.hit, &a.word, call),
+                    _ => found,
+                };
                 let found =
                     self.jvm_fit_candidates(&a.here, &a.word, a.range.clone(), chain, found);
                 return self.show_found(a, found);

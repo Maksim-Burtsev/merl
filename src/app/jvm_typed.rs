@@ -69,6 +69,12 @@ impl App {
             }
             _ => chain,
         };
+        let upper = |n: &str| n.starts_with(|c: char| c.is_ascii_uppercase());
+        let outer = match chain {
+            [o, t, ..] if !kotlin && t == "this" && upper(o) => Some(o.as_str()),
+            _ => None,
+        };
+        let chain = if outer.is_some() { &chain[1..] } else { chain };
         let (first, rest) = chain.split_first()?;
         if chain.len() > 6 {
             return None;
@@ -115,7 +121,7 @@ impl App {
                         self.jvm_value(here, text, line, &receiver, kotlin, 1)?;
                     (resolved, vec![format!("this: {written}")])
                 }
-                None => (own(None)?, Vec::new()),
+                None => (own(outer)?, Vec::new()),
             },
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
                 let WrittenType {
@@ -452,10 +458,8 @@ impl App {
     }
 
     fn jvm_call_type(&self, decl: &Hit, call: &str) -> Option<TypedField> {
-        let [hit] = self
-            .jvm_hierarchy_member(decl, call, 0, &mut Vec::new())
-            .try_into()
-            .ok()?;
+        let found = self.jvm_hierarchy_member(decl, call, 0, &mut Vec::new());
+        let [hit] = java_shaped(found, |h| h, call, true).try_into().ok()?;
         let mk = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_return_type(&hit.text, call, mk).or_else(|| {
             let names = search::jvm_accessor(call)?.fields_it_may_read;
@@ -468,10 +472,8 @@ impl App {
 
     fn jvm_field_type(&self, decl: &Hit, field: &str) -> Option<TypedField> {
         let mut names = Vec::new();
-        let [hit] = self
-            .jvm_hierarchy_member(decl, field, 0, &mut names)
-            .try_into()
-            .ok()?;
+        let found = self.jvm_hierarchy_member(decl, field, 0, &mut names);
+        let [hit] = java_shaped(found, |h| h, field, false).try_into().ok()?;
         let kotlin = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_declared_type(&hit.text, field, kotlin)?;
         Some(TypedField { hit, written })
@@ -698,6 +700,23 @@ impl App {
         self.offer_only |= !found.is_empty();
         found
     }
+}
+
+pub(super) fn java_shaped<T>(
+    items: Vec<T>,
+    hit: impl Fn(&T) -> &Hit,
+    word: &str,
+    call: bool,
+) -> Vec<T> {
+    let java = |t: &T| hit(t).path.extension().is_some_and(|e| e == "java");
+    if !items.iter().all(java) {
+        return items;
+    }
+    let shaped = |t: &T| search::java_declares_method(&hit(t).text, word) == call;
+    if !items.iter().any(shaped) {
+        return items;
+    }
+    items.into_iter().filter(shaped).collect()
 }
 
 fn one_type(mut hits: Vec<Hit>) -> JvmType {

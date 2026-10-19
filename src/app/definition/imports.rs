@@ -2,6 +2,7 @@ use super::{
     App, Asked, Candidate, Hit, Kind, Near, Path, Patterns, Reason, Regex, bound, imported, python,
     search,
 };
+use crate::app::jvm_typed::java_shaped;
 
 pub(super) struct Imported {
     pub(super) value: Option<Vec<String>>,
@@ -192,6 +193,13 @@ impl App {
             }
         }
         let found = self.jvm_this(a, &p.pattern);
+        let found = match a.here.extension() {
+            Some(e) if e == "java" => {
+                let call = a.tail.trim_start().starts_with('(') || a.before.ends_with("::");
+                java_shaped(found, |c| &c.hit, &a.word, call)
+            }
+            _ => found,
+        };
         if !found.is_empty() {
             return self.show_found(a, found);
         }

@@ -227,6 +227,13 @@ fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
 }
 
 #[test]
+fn a_java_member_is_a_method_when_its_name_opens_a_parameter_list() {
+    assert!(java_declares_method("    public Hopper hopper() {", "hopper"));
+    assert!(!java_declares_method("    private Hopper hopper = hopper();", "hopper"));
+    assert!(!java_declares_method("    private int burr = 3;", "burr"));
+}
+
+#[test]
 fn a_kotlin_scope_function_hands_on_its_receiver() {
     let returned = |b: &str| kotlin_scope_returned(b);
     assert_eq!(

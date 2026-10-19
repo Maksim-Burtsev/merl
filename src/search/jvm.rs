@@ -804,6 +804,14 @@ pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
     })
 }
 
+pub fn java_declares_method(line: &str, name: &str) -> bool {
+    let code = uncommented(Kind::Jvm, line);
+    Regex::new(&format!(r"\b{}\b\s*(.)", regex::escape(name)))
+        .ok()
+        .and_then(|re| re.captures(&code).map(|c| &c[1] == "("))
+        .unwrap_or(false)
+}
+
 pub fn jvm_literal_type(line: &str, name: &str, java: bool) -> Option<&'static str> {
     let re = Regex::new(&format!(
         r"\b(?:var|val)\s+{}\s*=\s*(.+?)\s*;?\s*$",
