@@ -444,7 +444,9 @@ named like a top-level function and a class of the file (#1079); `cut.ts` reads 
 like a local of another function. `migrate.ts` calls `changed()` on a `Revision` of `record.ts`,
 whose base comes from the uninstalled `sequelize-typescript`, beside a type's `changed`, and reads
 `isDevelopment` off the default export of `settings.ts`, typed `Record<…> & { … }` over several
-lines, beside a class's getter of that name (#1079). `crate.js` reads `hinge` off an untyped parameter, declared only
+lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
+mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
+another class. `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078).
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
