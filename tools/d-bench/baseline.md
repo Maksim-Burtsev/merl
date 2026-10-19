@@ -2,6 +2,7 @@
 
 merl at `75ae4ef7`, 2026-10-19, release build, `vm.loadavg` { 6.62 8.01 7.63 } before the run, { 6.73 7.45 7.50 } after. The julia row and its cursors are kept from master: this machine has no Julia, so its standard library is not found and 54 cursors read worse with master's build too.
 The go row with the fixes of #1101 and #1102: `fd32efdb`, 2026-10-19, release build, `vm.loadavg` { 10.63 9.74 8.39 } before the run, { 10.42 9.77 8.50 } after.
+The csharp row with the fixes of #1089 and #1090: `b81c63d9`, 2026-10-19, release build, `vm.loadavg` { 8.59 7.21 7.29 } before the run, { 6.82 6.94 7.18 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -16,7 +17,7 @@ The go row with the fixes of #1101 and #1102: `fd32efdb`, 2026-10-19, release bu
 | swift (Alamofire) | 448 | 419 (94%) | 28 (6%) | 0 (0%) | 1 (0%) | 281 | 9.0 | 34.1 |
 | java (halo) | 115 | 92 (80%) | 23 (20%) | 0 (0%) | 0 (0%) | 88 | 64.8 | 181.4 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 27.5 | 57.9 |
-| csharp (eShop) | 85 | 55 (65%) | 13 (15%) | 0 (0%) | 17 (20%) | 130 | 18.3 | 32.4 |
+| csharp (eShop) | 85 | 61 (72%) | 12 (14%) | 0 (0%) | 12 (14%) | 130 | 20.9 | 37.7 |
 | ruby (mastodon) | 140 | 126 (90%) | 13 (9%) | 0 (0%) | 1 (1%) | 179 | 72.0 | 638.9 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 22.4 | 88.3 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 83.6 | 160.7 |
