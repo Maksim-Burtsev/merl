@@ -518,8 +518,9 @@ a type outside the project, a chain off a call that is no getter (a picker of th
 getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/arity/`
-calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take, two
-that fit, one of two by count, a varargs one, and one on the line that closes a text block;
+calls methods on receivers `d` cannot type (#1075): one no namesake's parameters can take (all
+are offered), two that fit, one of two by count, a varargs one, one on the line that closes a
+text block, and a Kotlin extension called through its file class (`LoudKt.holler`);
 `jvm/src/main/kotlin/named/` has two `Knob` overloads told apart by a named argument.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
