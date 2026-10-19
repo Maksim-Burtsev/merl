@@ -60,6 +60,9 @@ impl App {
         }
         self.found_outside(a, near, p, imported, &mut found);
         self.found_last(a, p, walk, fallbacks, &mut found);
+        if kind == Kind::Jvm && a.dotted {
+            self.jvm_by_arguments(&a.here, &a.word, a.range.end, &mut found);
+        }
         if kind == Kind::Rust && found.is_empty() {
             found = self.rust_macro_declared(&a.word);
         }
@@ -121,6 +124,10 @@ impl App {
                     reason: Reason::ByName,
                 })
                 .collect();
+        }
+        if kind == Kind::Jvm && a.dotted && !found.is_empty() && a.chain.is_empty() {
+            let fields = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);
+            found.extend(fields);
         }
         if kind == Kind::Jvm && found.is_empty() {
             *found = self.jvm_lombok(&a.here, &a.text, &a.chain, &a.word);

@@ -504,6 +504,10 @@ pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
                 .replace("->", "."),
             tail,
         ),
+        (Kind::Jvm, Some((head, tail))) if head.ends_with('>') => (
+            without_type_arguments(head).unwrap_or(head).to_owned(),
+            tail,
+        ),
         _ => {
             return LineAsRead {
                 line: line.to_owned(),
@@ -515,6 +519,24 @@ pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
         line: format!("{before}{after}"),
         word_start: before.len(),
     }
+}
+fn without_type_arguments(head: &str) -> Option<&str> {
+    let mut depth = 0;
+    for (i, c) in head.char_indices().rev() {
+        match c {
+            '>' => depth += 1,
+            '<' => depth -= 1,
+            c if c.is_ascii_alphanumeric() || " _.,?&[]".contains(c) => {}
+            _ => return None,
+        }
+        if depth == 0 {
+            return head
+                .get(..i)
+                .map(str::trim_end)
+                .filter(|h| h.ends_with('.'));
+        }
+    }
+    None
 }
 pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> {
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';

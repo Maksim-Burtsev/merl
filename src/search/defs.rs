@@ -210,7 +210,7 @@ fn jvm_patterns(word: &str) -> Vec<String> {
         format!(
             r"{mods}(?:enum\s+|data\s+|value\s+)?class\s+\w+[^(]*\((?:.*[(,])?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:private|public|protected|internal|override|open|final)\s+)*(?:val|var)\s+{w}\s*:"
         ),
-        format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
+        format!(r"{mods}(?:<(?:[^<>]|<[^<>]*>)*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
     ];
     patterns.extend(scala_patterns(word));
     patterns.extend(groovy_patterns(word));
