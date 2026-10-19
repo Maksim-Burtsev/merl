@@ -355,7 +355,10 @@ impl App {
         let pair = a.hit.path == b.hit.path
             && ((accessor(a, "get") && accessor(b, "set"))
                 || (accessor(a, "set") && accessor(b, "get")));
-        let prefixed = before.trim_end().ends_with("++") || before.trim_end().ends_with("--");
+        let operand = before
+            .trim_end_matches(|c: char| c.is_alphanumeric() || "_$.?!".contains(c))
+            .trim_end();
+        let prefixed = operand.ends_with("++") || operand.ends_with("--");
         let side = if ASSIGNED.is_match(tail) {
             "set"
         } else if READ.is_match(tail) {
