@@ -1243,6 +1243,22 @@ pub fn jvm_takes(parameters: &[String], count: usize) -> bool {
     }
 }
 
+pub fn jvm_takes_call(parameters: &[String], call: &JvmCall, kotlin: bool) -> bool {
+    static NAMED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(\w+)\s*=(?:[^=]|$)").expect("the regex is a literal")
+    });
+    let named = |a: &String| NAMED.captures(a).map(|c| c[1].to_owned());
+    let declares = |name: String| {
+        parameters.iter().any(|p| {
+            let head = p.split([':', '=']).next().unwrap_or_default();
+            head.split_whitespace().last() == Some(name.as_str())
+        })
+    };
+    let count = call.arguments.len() + usize::from(call.trailing_lambda);
+    jvm_takes(parameters, count)
+        && (!kotlin || call.arguments.iter().filter_map(named).all(declares))
+}
+
 pub fn jvm_literal_parameter(parameter: &str) -> Option<&'static str> {
     static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:final\s+)?(int|String)\s+\w+$").expect("the regex is a literal")
