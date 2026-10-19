@@ -1,4 +1,4 @@
-import { play } from "./shared/play.js";
+import { play, NAMED } from "./shared/play.js";
 
 const html = document.documentElement;
 html.classList.add("js");
@@ -60,7 +60,7 @@ const typing = () => 55 + Math.random() * 95;
 async function playKeys(keys, my) {
   for (const k of keys) {
     if (my !== watching) return false;
-    if (k.length > 1 && !["Escape", "Enter", "ArrowDown", "ArrowUp"].includes(k)) {
+    if (k.length > 1 && !NAMED.includes(k)) {
       for (const c of k) { merl.press(c, 0); await sleep(typing()); }
     } else merl.press(k, 0);
     await sleep(k === "c" ? 650 : 420);

@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fmt::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use ratatui::Terminal;
 use ratatui::backend::{Backend, TestBackend};
@@ -84,27 +84,20 @@ fn grid<'a>(mut it: impl Iterator<Item = &'a str>) -> (u16, u16) {
 
 fn build(
     root: PathBuf,
-    file: Option<&Path>,
-    at: Option<(usize, usize)>,
-    review: Option<crate::git::Review>,
+    review: crate::git::Review,
     (cols, rows): (u16, u16),
 ) -> anyhow::Result<Web> {
-    let (walked, files) = crate::tree::build(&root, false);
-    let tree = match &review {
-        Some(r) => {
-            crate::tree::from_listing(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>())
-        }
-        None => walked,
-    };
-    let buf = match file {
-        Some(p) => Buffer::load(p)?,
-        None => Buffer::empty(),
-    };
-    let mut app = App::new(root, tree, files, buf, at);
+    let (_, files) = crate::tree::build(&root, false);
+    let tree = crate::tree::from_listing(
+        &review
+            .files
+            .iter()
+            .map(|f| f.path.clone())
+            .collect::<Vec<_>>(),
+    );
+    let mut app = App::new(root, tree, files, Buffer::empty(), None);
     app.no_external();
-    if let Some(r) = review {
-        app.start_review(r);
-    }
+    app.start_review(review);
     let config = theme::Config::default();
     crate::configure(&mut app, &config, config.theme.clone());
     app.config = None;
@@ -118,45 +111,13 @@ fn build(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn merl_open() -> *const u8 {
-    let arg = input();
-    let mut it = arg.split('\n');
-    let root = PathBuf::from(it.next().unwrap_or("/"));
-    let mut target = it.next().unwrap_or_default().splitn(3, ':');
-    let file = target
-        .next()
-        .filter(|f| !f.is_empty())
-        .map(|f| root.join(f));
-    let file = file.as_deref();
-    let line = target.next().and_then(|l| l.parse().ok());
-    let col = target.next().and_then(|c| c.parse().ok()).unwrap_or(1);
-    start(build(root, file, line.map(|l| (l, col)), None, grid(it)))
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn merl_review() -> *const u8 {
     let arg = input();
     let mut it = arg.split('\n');
     let root = PathBuf::from(it.next().unwrap_or("/"));
     let base = it.next().filter(|b| !b.is_empty()).map(str::to_owned);
     let size = grid(it);
-    start(
-        crate::git::Review::open(&root, None, base.as_deref())
-            .and_then(|r| build(root, None, None, Some(r), size)),
-    )
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn merl_tutor() -> *const u8 {
-    let arg = input();
-    let mut it = arg.split('\n');
-    let dir = PathBuf::from(it.next().unwrap_or("/tutor"));
-    let size = grid(it);
-    start(crate::tutor::unpack(&dir).and_then(|()| {
-        let mut w = build(dir.clone(), None, None, None, size)?;
-        crate::start_tutor(&mut w.app, None, dir)?;
-        Ok(w)
-    }))
+    start(crate::git::Review::open(&root, None, base.as_deref()).and_then(|r| build(root, r, size)))
 }
 
 #[unsafe(no_mangle)]

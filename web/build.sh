@@ -28,5 +28,6 @@ if command -v rustup >/dev/null; then
   PATH=$(dirname "$(rustup which cargo)"):$PATH
 fi
 export CC_wasm32_wasip1=$sdk/bin/clang AR_wasm32_wasip1=$sdk/bin/llvm-ar
-cargo build --locked --release --target wasm32-wasip1
+cp ../Cargo.lock Cargo.lock
+cargo build --release --target wasm32-wasip1
 cp "$target/wasm32-wasip1/release/merl_web.wasm" "$out"

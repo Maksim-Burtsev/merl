@@ -3,7 +3,7 @@ import { WASI, File, Directory, PreopenDirectory, ConsoleStdout } from "../wasi/
 const LANGS = [["python", "Python"], ["typescript", "TypeScript"], ["go", "Go"], ["rust", "Rust"]];
 const FG = "#c8d3f5", BG = "#222436", FONT = '"SF Mono", SFMono-Regular, ui-monospace, Menlo, "DejaVu Sans Mono", monospace';
 const ANSI = "1b1d2b ff757f c3e88d ffc777 82aaff c099ff 86e1fc 828bb8 444a73 ff757f c3e88d ffc777 82aaff c099ff 86e1fc c8d3f5".split(" ").map(h => "#" + h);
-const NAMED = ["Backspace", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown", "Tab", "BackTab", "Delete", "Insert", "Escape"];
+export const NAMED = ["Backspace", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown", "Tab", "BackTab", "Delete", "Insert", "Escape"];
 const CAPS = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", Escape: "Esc", Backspace: "⌫", " ": "Space", BackTab: "⇧Tab" };
 const SEG = { "│": "ud", "┃": "ud", "─": "lr", "━": "lr", "┌": "dr", "┐": "dl", "└": "ur", "┘": "ul",
   "├": "udr", "┤": "udl", "┬": "dlr", "┴": "ulr", "┼": "udlr", "╭": "dr", "╮": "dl", "╰": "ur", "╯": "ul" };
@@ -35,14 +35,15 @@ export async function play(root, opts = {}) {
     fsRoot.set(`review-${lang}`, new Directory(new Map([[review.slug, tree({ ...r.files, ".git/merl-replay": r.replay })]])));
   fsRoot.set("tmp", new Directory(new Map()));
   const log = ConsoleStdout.lineBuffered(m => console.log("[merl]", m));
-  const wasi = new WASI([], ["HOME=/home", `MERL_UTC_OFFSET=${-new Date().getTimezoneOffset() * 60}`], [new File([]), log, log, new PreopenDirectory("/", fsRoot)], { debug: false });
+  const wasi = new WASI([], [`MERL_UTC_OFFSET=${-new Date().getTimezoneOffset() * 60}`], [new File([]), log, log, new PreopenDirectory("/", fsRoot)], { debug: false });
   const inst = await WebAssembly.instantiate(await WebAssembly.compile(bytes), { wasi_snapshot_preview1: wasi.wasiImport });
   wasi.initialize(inst);
   const ex = inst.exports;
   const read = p => dec.decode(new Uint8Array(ex.memory.buffer, p, ex.merl_out_len()));
   const call = (fn, s) => {
     const b = enc.encode(s);
-    new Uint8Array(ex.memory.buffer, ex.merl_buf(b.length), b.length).set(b);
+    const at = ex.merl_buf(b.length);
+    new Uint8Array(ex.memory.buffer, at, b.length).set(b);
     return read(fn());
   };
 

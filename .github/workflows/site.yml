@@ -4,6 +4,9 @@ on:
   push:
     branches: [master]
     paths: ["src/**", "web/**", "Cargo.*", ".github/workflows/site.yml"]
+  pull_request:
+    branches: [master]
+    paths: ["src/**", "web/**", "Cargo.*", ".github/workflows/site.yml"]
   workflow_dispatch:
 
 permissions:
@@ -12,41 +15,34 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: site-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      ready: ${{ steps.site.outputs.ready }}
     steps:
       - uses: actions/checkout@v7
-      - id: site
-        run: echo "ready=$(test -f web/site/index.html && echo yes || echo no)" >> "$GITHUB_OUTPUT"
-      - if: steps.site.outputs.ready == 'yes'
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip1
-      - if: steps.site.outputs.ready == 'yes'
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: web
-      - if: steps.site.outputs.ready == 'yes'
-        run: |
+      - run: |
           mkdir -p _site
           cp -R web/site/. _site/
           web/build.sh _site/merl.wasm
-          if [ -f web/site/review.json ]; then node web/review/check.mjs _site/merl.wasm web/site/review.json; fi
+          node web/review/check.mjs _site/merl.wasm web/site/review.json
           gzip -9 _site/merl.wasm
-      - if: steps.site.outputs.ready == 'yes'
+      - if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: _site
 
   deploy:
     needs: build
-    if: needs.build.outputs.ready == 'yes'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -1,19 +1,26 @@
 import fs from "node:fs";
+import { NAMED } from "../site/shared/play.js";
 
 const [wasmPath, bundlePath, flag] = process.argv.slice(2);
 if (!bundlePath) {
   console.error("usage: node web/review/check.mjs MERL.wasm REVIEW.json [--write]\n\n" +
     "Plays each language's steps on the wasm build, as the site does, and fails on a step that does not\n" +
-    "end where it wants. --write fills the answers steps.json leaves to the run into REVIEW.json.\n" +
+    "end where it wants, on a git call the replay lacks, or on a clock that ignores MERL_UTC_OFFSET.\n" +
+    "--write fills the answers steps.json leaves to the run into REVIEW.json.\n" +
     "The WASI shim is the site's own (web/site/wasi), or the module WASI_SHIM names.");
   process.exit(2);
 }
 const shim = process.env.WASI_SHIM ?? new URL("../site/wasi/index.js", import.meta.url).href;
 const { WASI, File, Directory, PreopenDirectory, ConsoleStdout } = await import(shim);
 const B = JSON.parse(fs.readFileSync(bundlePath, "utf8"));
+const unfilled = Object.entries(B.langs).flatMap(([lang, L]) => L.steps.flatMap((st, i) =>
+  st.want === "auto" || st.answer === "until" || st.want?.viewed === "all" ? [`${lang} step ${i + 1}`] : []));
+if (unfilled.length && flag !== "--write") {
+  console.error(`${bundlePath} still leaves answers to the run (${unfilled.join(", ")}): web/review/bundle.py fills them`);
+  process.exit(1);
+}
+const OFFSET = 20700;
 const enc = new TextEncoder(), dec = new TextDecoder();
-const NAMED = ["Backspace", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End",
-  "PageUp", "PageDown", "Tab", "BackTab", "Delete", "Insert", "Escape"];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const module = await WebAssembly.compile(fs.readFileSync(wasmPath));
 
@@ -44,14 +51,15 @@ for (const [lang, L] of Object.entries(B.langs)) {
     ["tmp", new Directory(new Map())],
   ]);
   const log = ConsoleStdout.lineBuffered(m => console.log("[merl]", m));
-  const wasi = new WASI([], ["HOME=/home"], [new File([]), log, log, new PreopenDirectory("/", fsRoot)], { debug: false });
+  const wasi = new WASI([], [`MERL_UTC_OFFSET=${OFFSET}`], [new File([]), log, log, new PreopenDirectory("/", fsRoot)], { debug: false });
   const inst = await WebAssembly.instantiate(module, { wasi_snapshot_preview1: wasi.wasiImport });
   wasi.initialize(inst);
   const ex = inst.exports;
   const read = p => dec.decode(new Uint8Array(ex.memory.buffer, p, ex.merl_out_len()));
   const call = (fn, s) => {
     const b = enc.encode(s);
-    new Uint8Array(ex.memory.buffer, ex.merl_buf(b.length), b.length).set(b);
+    const at = ex.merl_buf(b.length);
+    new Uint8Array(ex.memory.buffer, at, b.length).set(b);
     return read(fn());
   };
   const err = call(ex.merl_review, `/review-${lang}/${B.slug}\n${B.base}\n110\n30`);
@@ -105,11 +113,20 @@ for (const [lang, L] of Object.entries(B.langs)) {
     console.log(`${i + 1} ${good ? "ok  " : "FAIL"} ${JSON.stringify(st.answer)} -> ${s.file}:${s.line} ${s.mode} ${JSON.stringify(s.review)} ${s.message}`);
   }
   table.push(row);
+  const clock = paint().rows.at(-1).map(r => r[0]).join("").match(/(\d\d):(\d\d)\s*$/);
+  const local = new Date(Date.now() + OFFSET * 1000), mins = local.getUTCHours() * 60 + local.getUTCMinutes();
+  if (!clock || Math.abs(clock[1] * 60 + +clock[2] - mins) % 1439 > 1) {
+    console.log(`${lang}: the clock reads ${clock?.[0]}, not UTC${OFFSET / 3600 >= 0 ? "+" : ""}${OFFSET / 3600}'s ${local.toISOString().slice(11, 16)}`);
+    bad++;
+  }
   const misses = read(ex.merl_git_misses());
-  if (misses) console.log(`${lang}: ${misses.split("\n").length} git calls not in the replay:\n${misses.slice(0, 600)}`);
+  if (misses) {
+    console.log(`${lang}: ${misses.split("\n").length} git calls not in the replay (web/review/record.py records them):\n${misses.slice(0, 600)}`);
+    bad++;
+  }
 }
 console.log(`\nlanguage   ${B.langs[Object.keys(B.langs)[0]].steps.map((_, i) => `step ${i + 1}`).join("  ")}`);
 for (const [lang, ...cells] of table) console.log(lang.padEnd(10), cells.map(c => c.padEnd(6)).join(" "));
 if (flag === "--write") fs.writeFileSync(bundlePath, JSON.stringify(B));
-console.log(bad ? `${bad} steps failed` : "every step passed");
+console.log(bad ? `${bad} checks failed` : "every check passed");
 process.exit(bad ? 1 : 0);

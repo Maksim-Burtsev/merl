@@ -210,7 +210,7 @@ fn chord(name: &str) -> (KeyCode, KeyModifiers) {
     (code, mods)
 }
 
-pub(crate) fn unpack(dir: &Path) -> Result<()> {
+fn unpack(dir: &Path) -> Result<()> {
     drop(std::fs::remove_dir_all(dir));
     std::fs::create_dir_all(dir.join("tests"))?;
     for (name, text) in SAMPLE_FILES {
