@@ -283,6 +283,12 @@ impl App {
         {
             return Some(vec![candidate(here, &lines, line, Reason::Local)]);
         }
+        if kotlin
+            && word.starts_with(|c: char| c.is_ascii_lowercase())
+            && let Some(found) = self.kotlin_scope_member(here, text, before, word)
+        {
+            return Some(found);
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for &decl in &types {

@@ -975,6 +975,57 @@ pub fn kotlin_lambda_collection(
         ))
         .expect("the regex is a literal")
     });
+    let (head, bound) = kotlin_lambda_head(text, line1, before)?;
+    (bound == name).then_some(())?;
+    Some(CALL.captures(&head)?[1].to_owned())
+}
+
+pub fn kotlin_lambda_subject(text: &str, line1: usize, before: &str, name: &str) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:let|also)\s*\{$")
+            .expect("the regex is a literal")
+    });
+    let (head, bound) = kotlin_lambda_head(text, line1, before)?;
+    (bound == name).then_some(())?;
+    Some(CALL.captures(&head)?[1].to_owned())
+}
+
+pub fn kotlin_lambda_receiver(text: &str, line1: usize, before: &str) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:(?:^|[^\w.])([a-z]\w*)\s*\.\s*(?:run|apply)|\bwith\s*\(\s*([a-z]\w*)\s*\))\s*\{$")
+            .expect("the regex is a literal")
+    });
+    let (head, bound) = kotlin_lambda_head(text, line1, before)?;
+    (bound == "it").then_some(())?;
+    let c = CALL.captures(&head)?;
+    Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
+}
+
+pub fn kotlin_scope_returned(before: &str) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\.\s*(?:apply|also)\s*$").expect("the regex is a literal")
+    });
+    let close = before.rfind("}.")?;
+    let tail = before.get(close + 1..)?;
+    if !tail.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.') {
+        return None;
+    }
+    let body = before.get(..close)?;
+    let mut depth = 1usize;
+    let open = body.char_indices().rev().find_map(|(i, c)| {
+        match c {
+            '}' => depth += 1,
+            '{' => depth -= 1,
+            _ => {}
+        }
+        (depth == 0).then_some(i)
+    })?;
+    let head = body.get(..open)?;
+    let m = CALL.find(head)?;
+    Some(format!("{}{tail}", head.get(..m.start())?))
+}
+
+fn kotlin_lambda_head(text: &str, line1: usize, before: &str) -> Option<(String, String)> {
     static PARAMETER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*([A-Za-z_]\w*)\s*->").expect("the regex is a literal")
     });
@@ -1015,8 +1066,7 @@ pub fn kotlin_lambda_collection(
         None if inside.contains("->") => return None,
         None => "it".to_owned(),
     };
-    (bound == name).then_some(())?;
-    Some(CALL.captures(code.get(..=brace)?)?[1].to_owned())
+    Some((code.get(..=brace)?.to_owned(), bound))
 }
 
 pub fn kotlin_element_type(line: &str, name: &str) -> Option<String> {

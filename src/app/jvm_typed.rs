@@ -52,10 +52,14 @@ impl App {
                 _ => None,
             };
         }
+        let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
         let safe: Vec<String>;
         let chain = match chain {
             [] if kotlin => {
-                let plain = before.replace("?.", ".").replace("!!.", ".");
+                let mut plain = before.replace("?.", ".").replace("!!.", ".");
+                if kt && let Some(receiver) = search::kotlin_scope_returned(&plain) {
+                    plain = receiver;
+                }
                 safe = search::qualifier(&plain, plain.len());
                 &safe[..]
             }
@@ -76,7 +80,6 @@ impl App {
                 .then(|| self.jvm_super(here, text, line, word))
                 .flatten();
         }
-        let kt = here.extension().is_some_and(|e| e == "kt" || e == "kts");
         let narrowed = || {
             let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, first));
             smart.flatten().or_else(|| {
@@ -103,7 +106,17 @@ impl App {
                     None => (own((f != "this").then_some(f))?, Vec::new()),
                 }
             }
-            "this" => (own(None)?, Vec::new()),
+            "this" => match kt
+                .then(|| search::kotlin_lambda_receiver(text, line, before))
+                .flatten()
+            {
+                Some(receiver) => {
+                    let WrittenType { resolved, written } =
+                        self.jvm_value(here, text, line, &receiver, kotlin, 1)?;
+                    (resolved, vec![format!("this: {written}")])
+                }
+                None => (own(None)?, Vec::new()),
+            },
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
                 let WrittenType {
                     resolved: ty,
@@ -113,7 +126,13 @@ impl App {
                         resolved: self.jvm_type_at(here, text, &t),
                         written: t,
                     },
-                    None => self.jvm_value(here, text, line, f, kotlin, 1)?,
+                    None => {
+                        let subject = kt
+                            .then(|| search::kotlin_lambda_subject(text, line, before, f))
+                            .flatten();
+                        let value = subject.as_deref().unwrap_or(f);
+                        self.jvm_value(here, text, line, value, kotlin, 1)?
+                    }
                 };
                 (ty, vec![format!("{f}: {written}")])
             }
@@ -137,7 +156,34 @@ impl App {
         self.jvm_typed_member(here, ty, &links.join(" \u{2192} "), word)
     }
 
-    fn jvm_made(&self, here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
+    pub(super) fn kotlin_scope_member(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let line = self.line + 1;
+        let receiver = search::kotlin_lambda_receiver(text, line, before)?;
+        let WrittenType {
+            resolved: JvmType::Project(decl),
+            written,
+        } = self.jvm_value(here, text, line, &receiver, true, 1)?
+        else {
+            return None;
+        };
+        let reason = Reason::Receiver(format!("this: {written}"));
+        let found: Vec<Candidate> = (self.jvm_hierarchy_member(&decl, word, 0, &mut Vec::new()))
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect();
+        (!found.is_empty()).then_some(found)
+    }
+
+    fn jvm_made(&self,here: &Path, text: &str, written: &str, kotlin: bool) -> JvmType {
         if !written.contains('.') {
             let found = self
                 .jvm_members(here, text, "", written)

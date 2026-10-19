@@ -97,7 +97,10 @@ impl App {
         }
         if kind == Kind::Jvm
             && (dotted || before.ends_with("::"))
-            && (!a.own() || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty())
+            && (!a.own()
+                || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty()
+                || (a.here.extension().is_some_and(|e| e == "kt" || e == "kts")
+                    && search::kotlin_lambda_receiver(&a.text, self.line + 1, before).is_some()))
         {
             let literal = dotted
                 && chain.is_empty()

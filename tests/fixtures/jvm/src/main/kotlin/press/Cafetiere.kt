@@ -45,14 +45,14 @@ class Cafetiere(private val carafe: Carafe) : Carafe(), Lever {
 
     fun scoped(): Int {
         val a = carafe.let { it.swirl() }
-        //                      ^ d: picker src/main/kotlin/press/Brewing.kt:5, src/main/kotlin/press/Carafe.kt:8; want src/main/kotlin/press/Carafe.kt:8 (#1132)
+        //                      ^ d: src/main/kotlin/press/Carafe.kt:8
         val b = with(carafe) { slosh() + brim }
-        //                     ^ d: src/main/kotlin/press/Cafetiere.kt:14; want src/main/kotlin/press/Carafe.kt:6 (#1132)
+        //                     ^ d: src/main/kotlin/press/Carafe.kt:6
         val c = carafe.apply { slosh() }.brim
-        //                               ^ d: picker src/main/kotlin/press/Cafetiere.kt:95, src/main/kotlin/press/Carafe.kt:4; want src/main/kotlin/press/Carafe.kt:4 (#1132)
+        //                               ^ d: src/main/kotlin/press/Carafe.kt:4
         val d = plunger.also { it.stroke }.mesh.sieve()
         //                        ^ d: src/main/kotlin/press/Plunger.kt:3
-        //                                      ^ d: picker src/main/kotlin/press/Mesh.kt:4, src/main/kotlin/press/parts/Mesh.kt:4; want src/main/kotlin/press/Mesh.kt:4 (#1132)
+        //                                      ^ d: src/main/kotlin/press/Mesh.kt:4
         return a + b + c + d
     }
 
@@ -99,4 +99,9 @@ class Cafetiere(private val carafe: Carafe) : Carafe(), Lever {
         //                                       ^ d: src/main/kotlin/press/Carafe.kt:4
         //                                              ^ d: src/main/kotlin/press/Lever.kt:4
     }
+
+    fun receivers(): Int = with(carafe) { this.slosh() + lower() + this@Cafetiere.slosh() }
+    //                                         ^ d: src/main/kotlin/press/Carafe.kt:6
+    //                                                   ^ d: src/main/kotlin/press/Cafetiere.kt:20
+    //                                                                            ^ d: src/main/kotlin/press/Cafetiere.kt:14
 }

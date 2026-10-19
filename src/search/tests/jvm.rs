@@ -227,6 +227,43 @@ fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
 }
 
 #[test]
+fn a_kotlin_scope_function_hands_on_its_receiver() {
+    let returned = |b: &str| kotlin_scope_returned(b);
+    assert_eq!(
+        returned("    val d = plunger.also { it.stroke }.mesh.").as_deref(),
+        Some("    val d = plunger.mesh.")
+    );
+    assert_eq!(
+        returned("    val c = carafe.apply { a { b() } }.").as_deref(),
+        Some("    val c = carafe.")
+    );
+    assert_eq!(returned("    val c = carafe.let { it }."), None);
+    assert_eq!(returned("    val c = carafe.apply { it }.f()."), None);
+    let text = "fun f() {\n    with(carafe) {\n        slosh()\n    }\n}\n";
+    assert_eq!(
+        kotlin_lambda_receiver(text, 3, "        ").as_deref(),
+        Some("carafe")
+    );
+    assert_eq!(
+        kotlin_lambda_receiver("", 1, "    x.run { y.let { ").as_deref(),
+        None
+    );
+    assert_eq!(
+        kotlin_lambda_receiver("", 1, "    x.apply { ").as_deref(),
+        Some("x")
+    );
+    assert_eq!(
+        kotlin_lambda_subject("", 1, "    x.also { it.", "it").as_deref(),
+        Some("x")
+    );
+    assert_eq!(
+        kotlin_lambda_subject("", 1, "    x.let { c -> c.", "c").as_deref(),
+        Some("x")
+    );
+    assert_eq!(kotlin_lambda_subject("", 1, "    x.let { c -> it.", "it"), None);
+}
+
+#[test]
 fn a_kotlin_when_subject_keeps_its_type_in_else_and_casts_when_bound_by_val() {
     let text = "fun f(v: Urn, x: Any) {\n    when (v) {\n        is Glass -> v.dose()\n        else -> v.scald()\n    }\n    when (val g = x) {\n        is Samovar -> g.mint()\n    }\n}\n";
     assert_eq!(jvm_when_else(text, 4, "v"), Some(2));
