@@ -304,13 +304,7 @@ impl App {
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
             let bare = !dotted && chain.is_empty();
-            let table = regex::Regex::new(&format!(
-                r"^\s*function\s+[\w.:]*[.:]{}\b",
-                regex::escape(word)
-            ));
-            let qualified =
-                |h: &Hit| h.path != a.here && table.as_ref().is_ok_and(|re| re.is_match(&h.text));
-            let narrow = bare && !hits.iter().any(qualified);
+            let narrow = bare && !lua_qualified_elsewhere(&a.here, word, &hits);
             hits.retain(|h| {
                 let t = h.text.trim_start();
                 !bare
@@ -609,4 +603,13 @@ impl App {
             })
             .collect()
     }
+}
+
+fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> bool {
+    let table = regex::Regex::new(&format!(
+        r"^\s*function\s+[\w.:]*[.:]{}\b",
+        regex::escape(word)
+    ));
+    hits.iter()
+        .any(|h| h.path != here && table.as_ref().is_ok_and(|re| re.is_match(&h.text)))
 }
