@@ -79,7 +79,7 @@ public class Tasting
         if (o is Mug cup)
         {
             return cup.Strength;
-            //         ^ d: picker src/Shop/Tea/Infuse/Cup.cs:7, src/Shop/Tea/Infuse/Cup.cs:27; want src/Shop/Tea/Infuse/Cup.cs:27 (#1136)
+            //         ^ d: src/Shop/Tea/Infuse/Cup.cs:27
         }
         return this.cup.Sip();
         //          ^ d: src/Shop/Tea/Infuse/Tasting.cs:21
@@ -106,7 +106,7 @@ public class Tasting
     public int Inherited(Mug mug, ISteeper steeper)
     {
         return mug.Count + mug.Add(mug) + steeper.Steep() + steeper.Strength;
-        //         ^ d: picker src/Shop/Tea/Infuse/Tasting.cs:15, src/Shop/Pricing/Pricing.cs:53, src/Shop/Rules/Crates.cs:32, src/Shop/Rules/Crates.cs:76, src/Shop/Tea/Infuse/Cup.cs:12; want src/Shop/Tea/Infuse/Cup.cs:12 (#1137)
+        //         ^ d: src/Shop/Tea/Infuse/Cup.cs:12
         //                     ^ d: src/Shop/Tea/Infuse/Cup.cs:18
         //                                        ^ d: src/Shop/Tea/Infuse/Cup.cs:5
         //                                                          ^ d: src/Shop/Tea/Infuse/Cup.cs:7
@@ -128,7 +128,7 @@ public class Tasting
             """;
         return text.Length + glass.Pour(1) + new Mug().Count;
         //                         ^ d: src/Shop/Tea/Infuse/Cup.cs:56
-        //                                       ^ d: picker src/Shop/Tea/Infuse/Tasting.cs:13, src/Shop/Tea/Infuse/Cup.cs:23; want src/Shop/Tea/Infuse/Cup.cs:23 (#1137)
+        //                                       ^ d: src/Shop/Tea/Infuse/Cup.cs:23
     }
 
     public int Beyond(string name, Brewer brewer)
