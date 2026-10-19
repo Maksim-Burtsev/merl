@@ -211,8 +211,8 @@ has a `Kettle` and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle
 also declares, a function `pour` beside the methods, `static::` and `parent::`, a trait's method,
 a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
 block comment declaring what the files declare; `Kettle::card` names its members in the prose
-of a heredoc and a nowdoc, which declares nothing, beside interpolated `{$this->…}` and `$var`
-(#1113). `lua/lua/tea/` has `local function pour` beside
+of a heredoc and a nowdoc, which declares nothing, beside interpolated `{$this->…}`, `$var` and
+`${var}`, and an escaped `\$var` that is text (#1113). `lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.

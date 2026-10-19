@@ -341,9 +341,12 @@ static MOD_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{")
         .expect("the regex is a literal")
 });
-fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
+pub fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
     let mut around = Vec::new();
-    let mut depth = indent(lines[k]);
+    let Some(line) = lines.get(k) else {
+        return around;
+    };
+    let mut depth = indent(line);
     for i in (0..k).rev() {
         if depth == 0 {
             break;
