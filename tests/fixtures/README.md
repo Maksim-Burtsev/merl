@@ -254,7 +254,9 @@ initializer list, overloads, ADL beside a global namesake, a qualified definitio
 `caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
 `leaf_alias.cc` passes an argument typed by a `using` alias named like `infuse::Leaf`, which
-must neither pick an overload nor add a namespace.
+must neither pick an overload nor add a namespace. `dripper.hh` declares a pure virtual whose one
+override is in `dripper.cc`'s other class: no prototype and definition of one function, so a
+picker both ways (#1050).
 `stale_again.cc` opens `namespace stale {` again and writes `using namespace stale;`, which
 must not turn `stale::Kettle` into a picker, and has a `tray` that is a namespace in one place and
 a class in another, where the picker stays (#1019); `wrap.cc` writes `tidy::Napkin` inside
