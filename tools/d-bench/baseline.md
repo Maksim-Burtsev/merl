@@ -1,12 +1,13 @@
 # `d` bench baseline
 
-merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the csharp row with the fixes of #935, `vm.loadavg` { 5.00 5.48 5.37 }; the other rows as in the night's second epic.
+merl at `f20c52b1` with the fix of #975 (ts rows), 2026-10-17, release build, `vm.loadavg` { 10.10 8.84 8.35 } before the run; the other rows as in the night's second epic.
 The rust row: merl at `20ac5110` with the `d` fixes of branch `b1019/rust`, 2026-10-19, release build, `vm.loadavg` { 6.98 6.29 6.45 } before the run and after.
 The swift row (#1053, #1052, #1055, branch `b1019/swift`): 2026-10-19, release build, `vm.loadavg` { 5.07 5.68 5.67 } before the run.
 The lua row with the fixes of branch `b1019/lua` (#1061, #1062), 2026-10-19, release build, `vm.loadavg` { 8.08 7.25 6.44 } before the run, { 6.75 6.94 6.39 } after.
 The bash row with the fixes of #1056 to #1059, 2026-10-19, release build, `vm.loadavg` { 4.86 5.49 5.61 } before the run.
 The ts, js, vue, svelte and astro rows: merl at `168369f0` with the `d` fix of #1078 on branch `b1019/jsts`, 2026-10-19, release build, `vm.loadavg` { 5.60 7.28 6.96 } before the run and after.
 The ruby row with the fixes of branch `b1019/ruby` (#1095, #1094, #1096, #1097, #1098), 2026-10-19, release build, `vm.loadavg` { 5.64 7.46 7.01 } before the run.
+The csharp row with the fixes of branch `b1019/csharp` (#1089, #1090), 2026-10-19, release build, `vm.loadavg` { 8.06 7.72 7.48 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -21,7 +22,7 @@ The ruby row with the fixes of branch `b1019/ruby` (#1095, #1094, #1096, #1097, 
 | swift (Alamofire) | 154 | 125 (81%) | 28 (18%) | 0 (0%) | 1 (1%) | 116 | 18.4 | 40.2 |
 | java (halo) | 37 | 35 (95%) | 2 (5%) | 0 (0%) | 0 (0%) | 43 | 51.2 | 97.0 |
 | kotlin (nowinandroid) | 34 | 34 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 46 | 26.5 | 55.9 |
-| csharp (eShop) | 27 | 25 (93%) | 2 (7%) | 0 (0%) | 0 (0%) | 53 | 18.0 | 28.9 |
+| csharp (eShop) | 27 | 26 (96%) | 1 (4%) | 0 (0%) | 0 (0%) | 53 | 24.6 | 38.2 |
 | ruby (mastodon) | 28 | 23 (82%) | 4 (14%) | 0 (0%) | 1 (4%) | 52 | 57.0 | 166.5 |
 | objc (SDWebImage) | 229 | 92 (40%) | 122 (53%) | 0 (0%) | 15 (7%) | 41 | 26.3 | 110.1 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 73.4 | 164.6 |

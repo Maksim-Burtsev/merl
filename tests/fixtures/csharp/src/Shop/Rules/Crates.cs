@@ -57,3 +57,10 @@ public class Docker
         //           ^ d: none
     }
 }
+
+// A file the project compiles from outside its directory is in sight.
+public class Belfry
+{
+    public Chime Bell() => new Chime();
+    //     ^ d: src/Shared/Chime.cs:4
+}
