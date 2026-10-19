@@ -492,6 +492,9 @@ top-level `Lid`, computed properties, `pour` overloaded by argument label beside
 self`, `[self]`), shorthand `guard let` and a capture list rebinding a parameter, `if let` over a
 property, a one-line closure whose parameter is named like a property, and declaration-shaped
 lines in a multi-line and a raw string.
+`swift/Sources/Shop/KeepLog.swift` calls free functions through a module `Package.swift` does not
+name, only its folder `Sources/Kit/` (#1068): `Kit.record` jumps, `Kit.jot` offers its namesake
+in `Diary` too, as the search by name does.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
