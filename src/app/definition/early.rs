@@ -414,17 +414,27 @@ impl App {
             search::GoKey::No
         };
         a.go_keyed = go_key != search::GoKey::No;
-        if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
+        if kind == Kind::Go
+            && (dotted || matches!(go_key, search::GoKey::Of(_) | search::GoKey::ElementOf(_)))
+        {
             self.external_files(kind);
         }
-        match go_key {
-            search::GoKey::Of(written) => {
-                match self.literal_field(kind, &a.here, &written, &a.word) {
-                    Ok(Some(found)) => return self.show_found(a, found),
-                    Ok(None) => {}
-                    Err(GoTypeUnread) => self.offer_only = true,
+        let (go_key, at) = match go_key {
+            search::GoKey::ElementOf(named) => match self.named_element(kind, &a.here, &named) {
+                Some((element, at)) => {
+                    let element = element.trim_start_matches('*').to_owned();
+                    (search::GoKey::Of(element), at)
                 }
-            }
+                None => (search::GoKey::Unknown, a.here.clone()),
+            },
+            key => (key, a.here.clone()),
+        };
+        match go_key {
+            search::GoKey::Of(written) => match self.literal_field(kind, &at, &written, &a.word) {
+                Ok(Some(found)) => return self.show_found(a, found),
+                Ok(None) => {}
+                Err(GoTypeUnread) => self.offer_only = true,
+            },
             search::GoKey::Struct(line) => {
                 let ty = super::typed::anonymous(&a.here, line);
                 let found = self
@@ -438,7 +448,7 @@ impl App {
                 return self.show_found(a, found);
             }
             search::GoKey::Unknown => self.offer_only = true,
-            search::GoKey::No | search::GoKey::Value => {}
+            search::GoKey::No | search::GoKey::Value | search::GoKey::ElementOf(_) => {}
         }
         false
     }
