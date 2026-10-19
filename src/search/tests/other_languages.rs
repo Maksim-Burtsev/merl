@@ -1291,6 +1291,15 @@ fn sql_local_reads_from_aliases_and_no_keyword_as_one() {
     );
     let t = "SELECT y.a FROM t y -- FROM u y\n/* FROM v y */;";
     assert_eq!(at(t, "y", 0), [1], "comments declare no alias");
+    let t = "SELECT a.x FROM t a\nUNION ALL\nSELECT a.x FROM u a;";
+    assert_eq!(at(t, "a", 2), [3], "an alias holds for its UNION branch");
+    assert_eq!(at(t, "a", 0), [1]);
+    let t = "SELECT u.x,\n(SELECT u.y FROM v u WHERE u.z = w.z)\nFROM t u JOIN s w ON true;";
+    assert_eq!(at(t, "u", 0), [3], "a subquery's alias stays inside it");
+    assert_eq!(at(t, "u", 1), [2], "and shadows the outer one");
+    assert_eq!(at(t, "w", 0), [3], "a correlated subquery looks outwards");
+    let t = "SELECT b.a FROM (SELECT 1 AS a FROM t b) d;";
+    assert!(at(t, "b", 0).is_empty(), "nor a derived table's");
 }
 
 #[test]

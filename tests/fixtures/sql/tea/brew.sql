@@ -52,3 +52,9 @@ SELECT decant(1) FROM platters, rims;
 --     ^ d: tea/schema.sql:55
 --                    ^ d: tea/schema.sql:53
 --                              ^ d: none
+
+SELECT k.id FROM kettles k
+UNION ALL
+SELECT k.id, (SELECT k.cups FROM tea.kettles k) FROM teapots k;
+--     ^ d: tea/brew.sql:58
+--                    ^ d: tea/brew.sql:58

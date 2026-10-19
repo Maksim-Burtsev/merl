@@ -277,9 +277,68 @@ fn sql_aliases(code: &str, at: usize, word: &str) -> Option<Vec<usize>> {
             stmt.get(r.clone())
                 .is_some_and(|t| t.trim_matches(['"', '`']).eq_ignore_ascii_case(word))
         };
-        found.extend(alias.filter(named).map(|a| s + a.start));
+        found.extend(
+            alias
+                .filter(named)
+                .and_then(|a| sql_scope_seen(stmt, a.start, at - s).map(|g| (g, s + a.start))),
+        );
     }
-    Some(found)
+    let inner = found.iter().map(|&(g, _)| g).max();
+    Some(
+        found
+            .into_iter()
+            .filter(|&(g, _)| Some(g) == inner)
+            .map(|(_, a)| a)
+            .collect(),
+    )
+}
+
+fn sql_scope_seen(stmt: &str, alias: usize, at: usize) -> Option<usize> {
+    let query = Regex::new(r"(?i)^\s*(?:SELECT|WITH|VALUES)\b").expect("a valid pattern");
+    let set = Regex::new(r"(?i)\b(?:UNION|EXCEPT|INTERSECT)\b").expect("a valid pattern");
+    let b = stmt.as_bytes();
+    let (mut depth, mut open) = (0_usize, None);
+    for i in (0..alias).rev() {
+        match b[i] {
+            b')' => depth += 1,
+            b'(' if depth > 0 => depth -= 1,
+            b'(' if stmt.get(i + 1..).is_some_and(|r| query.is_match(r)) => {
+                open = Some(i);
+                break;
+            }
+            _ => {}
+        }
+    }
+    let from = open.map_or(0, |o| o + 1);
+    let mut close = b.len();
+    depth = 0;
+    for (i, &c) in b.iter().enumerate().skip(from) {
+        match c {
+            b'(' => depth += 1,
+            b')' if depth == 0 => {
+                close = i;
+                break;
+            }
+            b')' => depth -= 1,
+            _ => {}
+        }
+    }
+    if !(from..close).contains(&at) {
+        return None;
+    }
+    let region = stmt.get(from..close)?;
+    let level = |i: usize| {
+        region.bytes().take(i).fold(0_isize, |d, c| match c {
+            b'(' => d + 1,
+            b')' => d - 1,
+            _ => d,
+        })
+    };
+    let (lo, hi) = (alias.min(at) - from, alias.max(at) - from);
+    let split = set
+        .find_iter(region)
+        .any(|m| (lo..hi).contains(&m.start()) && level(m.start()) == 0);
+    (!split).then_some(from)
 }
 
 fn sql_from_items(stmt: &str) -> Vec<SqlFromItem> {
