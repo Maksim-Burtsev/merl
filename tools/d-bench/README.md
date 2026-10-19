@@ -16,8 +16,9 @@ The runner clones each project into the cache (`--cache`, `$D_BENCH_CACHE`, defa
 `~/.cache/merl-d-bench`) at its pinned commit and runs its install command until it succeeds
 once (marked in the clone's `.git`); a clone already at that commit and installed is only read. It then plays every cursor through the `#[ignore]` test
 `src/app/tests/d_bench.rs` in release (one `App` per project: jump to the line, set the column,
-converted from code points to merl's bytes, press `d`), prints the table, and diffs every cursor
-against `baseline.tsv`: each cursor that got worse, new wrong jumps first, and exit 1 when there
+converted from code points to merl's bytes, press `d`), prints the table and under it every wrong
+jump on a row it does not score, and diffs every cursor against `baseline.tsv`: each cursor that
+got worse, new wrong jumps first (a new one on a row not scored among them), and exit 1 when there
 is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring, this
 gate and `record.py`'s tokenizer on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
 targets and the answer; `--merl <cache>/last-merl.tsv` scores the last run again without
@@ -50,6 +51,13 @@ same files in each: a file in one copy counts as the same file in another copy o
 | `WRONG` (wrong jump) | jumped elsewhere |
 | `pick-miss`, `none` (miss) | a picker without it, or "no definition" |
 | not scored | `skip` (the answer is debatable), `no-answer` (the oracle found nothing, or the definition is outside the project for a judged language), `on-decl` (the cursor is on the definition) |
+| `skip-WRONG`, `on-decl-WRONG` (not scored, jumps elsewhere) | jumped from a row not scored, away from its recorded answer: not within a line of it, nor into its file outside the project (an SDK's generated interface) |
+| `no-answer-jump`, `skip-jump` (not scored, jumps elsewhere) | jumped from a row not scored that has no answer recorded: nothing to check the jump against |
+
+The rows not scored are where most wrong jumps hid (#1092). These verdicts stay out of the rates,
+are counted in the table's `not scored, jumps elsewhere` column and listed under it, and a new one
+fails the gate as a new wrong jump does. A `-jump` row may be right (a builtin found in the
+project's own `lib.dom.d.ts`): the list is for reading, the gate for what changed.
 
 ## Recording, once
 
@@ -243,8 +251,8 @@ cursors, sampled, score 75 % direct; with the 459 picked ones the row scores 91 
   its `.proto` field kept as the target.
 - **swift** (Alamofire), picked: 350 member accesses in `Source/` where merl jumped "by name, 1
   match" and 109 implicit members (`.success(…)`, `.allow`), answered by sourcekit-lsp. The 165
-  in an SDK interface it generated are `skip`, as before; merl jumps from 112 of them, which the
-  table cannot see (#1092). Six implicit members in `Tests/` it left unanswered were read from
+  in an SDK interface it generated are `skip`, as before, with no target kept; merl jumped from 112
+  of them then, and the jumps left are its `skip-jump` rows (#1092). Six implicit members in `Tests/` it left unanswered were read from
   the code.
 - **ruby** (mastodon), judged: 118 picked partly for Rails idioms, among them ten instance
   variables twice, the cursor on the `@` and on the name (merl finds no word on the `@`: the

@@ -288,8 +288,9 @@ master.
   cursors in real projects pinned to a commit, one per language, merl's answer scored against a
   language server's (or a judgement read from the code, where the README says so) and diffed
   against `baseline.tsv`, master's. It prints per language the direct hits, pickers with the
-  answer, wrong jumps, misses and p50 / p90 ms, lists every cursor that got worse (a new wrong
-  jump first), and exits 1 when there is any. Run the languages the change touches, all of them
+  answer, wrong jumps, misses, wrong jumps on rows it does not score and p50 / p90 ms, lists every
+  cursor that got worse (a new wrong jump first, on a row not scored too), and exits 1 when there
+  is any. Run the languages the change touches, all of them
   when a shared path moves; the table goes into the commit message. A PR that changes the table
   commits the new baseline with it (`--update-baseline`), so the next PR compares against what
   master will be.
