@@ -2,8 +2,9 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use super::c::{
-    Head, bracket_contents_blanked, c_code, c_head, c_head_start, c_innermost_open_brace,
-    c_struct_head, c_words_on_line, close_or_end, cpp_decl_start,
+    ACCESS_LABELS, Head, bracket_contents_blanked, c_bindings_at, c_code, c_head, c_head_start,
+    c_innermost_open_brace, c_place, c_struct_head, c_words_on_line, close_or_end, cpp_class_path,
+    cpp_decl_start, line_starts,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -596,6 +597,176 @@ pub(super) fn init_capture(code: &str, span: std::ops::Range<usize>, name: &str)
         }
     }
     None
+}
+
+pub fn cpp_value_type(
+    text: &str,
+    line1: usize,
+    name: &str,
+) -> Result<Option<(Vec<String>, usize)>, ()> {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let at: Vec<usize> = c_bindings_at(text, line1, None, name)
+        .into_iter()
+        .map(|p| starts[p.line1 - 1] + p.byte_col)
+        .collect();
+    let mut types = at.iter().map(|&a| {
+        cpp_type_at(&code, a, name.len()).or_else(|| range_element(text, &code, a, name.len()))
+    });
+    let Some(first) = types.next() else {
+        return Ok(None);
+    };
+    match first {
+        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some((t, at[0]))),
+        _ => Err(()),
+    }
+}
+
+pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
+    static CAST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*=\s*(?:dynamic|static|reinterpret|const)_cast\s*<([^;(){}]*)>\s*\(")
+            .expect("the regex is a literal")
+    });
+    if let Some(open) = open_square(code, at) {
+        return bracketed(code, open, at, len);
+    }
+    let from = cpp_decl_start(code, at)?;
+    let segment = ACCESS_LABELS.replace(code.get(from..at)?, "");
+    let path = cpp_class_path(&segment)?;
+    if path != ["auto"] {
+        return Some(path);
+    }
+    if let Some(cast) = CAST.captures(code.get(at + len..)?) {
+        let open = at + len + cast.get(0)?.end() - 1;
+        return closed_before(code, open, &[';', ',', ')'])
+            .then(|| cpp_class_path(&cast[1]))
+            .flatten();
+    }
+    constructed(code, at + len, &[';', ','])
+}
+
+fn constructed(code: &str, from: usize, ends: &[char]) -> Option<Vec<String>> {
+    static AUTO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
+            .expect("the regex is a literal")
+    });
+    let init = AUTO.captures(code.get(from..)?)?;
+    let m = init.get(0)?;
+    let path = cpp_class_path(&init[1])?;
+    let last = path.last()?;
+    (closed_before(code, from + m.end() - 1, ends)
+        && (m.as_str().contains("new") || last.starts_with(|c: char| c.is_ascii_uppercase())))
+    .then_some(path)
+}
+
+fn closed_before(code: &str, open: usize, ends: &[char]) -> bool {
+    let close = close_or_end(code, open, code.len());
+    close < code.len()
+        && code
+            .get(close + 1..)
+            .is_some_and(|r| r.trim_start().starts_with(ends))
+}
+
+fn open_square(code: &str, at: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, c) in code.get(..at)?.bytes().enumerate().rev() {
+        match c {
+            b')' | b']' | b'}' => depth += 1,
+            b'[' if depth == 0 => return Some(i),
+            b'(' | b'{' | b';' if depth == 0 => return None,
+            b'(' | b'[' | b'{' => depth -= 1,
+            _ => {}
+        }
+    }
+    None
+}
+
+fn bracketed(code: &str, open: usize, at: usize, len: usize) -> Option<Vec<String>> {
+    static PAIR: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*=\s*(?:::\s*)?std\s*::\s*(?:pair|tuple)\s*<")
+            .expect("the regex is a literal")
+    });
+    let close = close_or_end(code, open, code.len());
+    let after = code.get(close + 1..)?;
+    let rest = code.get(at + len..)?.trim_start();
+    if rest.starts_with('=') && !rest.starts_with("==") {
+        return (after.trim_start().starts_with(['(', '{']))
+            .then(|| constructed(code, at + len, &[',', ']']))
+            .flatten();
+    }
+    let auto = code
+        .get(..open)?
+        .trim_end()
+        .trim_end_matches('&')
+        .trim_end();
+    let bare = auto.strip_suffix("auto")?;
+    if bare.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_') {
+        return None;
+    }
+    let names = code.get(open + 1..close)?.split(',').count();
+    let k = code.get(open + 1..at)?.matches(',').count();
+    let m = PAIR.find(after)?;
+    let (args, end) = template_args(after.get(m.end()..)?)?;
+    let init = close + 1 + m.end() + end;
+    let init = init + code.get(init..)?.len() - code.get(init..)?.trim_start().len();
+    (args.len() == names
+        && code.get(init..)?.starts_with(['(', '{'])
+        && closed_before(code, init, &[';']))
+    .then(|| cpp_class_path(&args[k]))
+    .flatten()
+}
+
+fn template_args(s: &str) -> Option<(Vec<String>, usize)> {
+    let (mut depth, mut from, mut out) = (0usize, 0, Vec::new());
+    for (i, c) in s.char_indices() {
+        match c {
+            '<' | '(' => depth += 1,
+            '>' | ')' if depth > 0 => depth -= 1,
+            ',' | '>' if depth == 0 => {
+                out.push(s.get(from..i)?.to_owned());
+                if c == '>' {
+                    return Some((out, i + 1));
+                }
+                from = i + 1;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn range_element(text: &str, code: &str, at: usize, len: usize) -> Option<Vec<String>> {
+    static CONTAINER: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:const\s+)?(?:::\s*)?std\s*::\s*(?:vector|list|forward_list|deque|array|span|set|multiset|unordered_set|unordered_multiset|initializer_list)\s*<").expect("the regex is a literal")
+    });
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let from = cpp_decl_start(code, at)?;
+    let head = code
+        .get(..from.checked_sub(1)?)?
+        .trim_end()
+        .strip_suffix("for")?;
+    if head.ends_with(is_name) || cpp_class_path(code.get(from..at)?)? != ["auto"] {
+        return None;
+    }
+    let rest = code.get(at + len..)?.trim_start().strip_prefix(':')?;
+    let rest = rest.trim_start();
+    let range = rest.get(..rest.find(|c: char| !is_name(c))?)?;
+    if range.is_empty() || !rest.get(range.len()..)?.trim_start().starts_with(')') {
+        return None;
+    }
+    let starts = line_starts(code);
+    let mut types = c_bindings_at(text, c_place(code, at).line1, None, range)
+        .into_iter()
+        .map(|p| {
+            let b = starts[p.line1 - 1] + p.byte_col;
+            let written = code.get(cpp_decl_start(code, b)?..b)?;
+            let m = CONTAINER.find(written)?;
+            let (args, _) = template_args(written.get(m.end()..)?)?;
+            Some(args.first()?.clone()).filter(|a| !a.contains('<'))
+        })
+        .map(|arg| cpp_class_path(&arg?).filter(|p| p[0] != "std"));
+    let first = types.next()??;
+    types.all(|t| t.as_ref() == Some(&first)).then_some(first)
 }
 #[cfg(test)]
 mod tests {

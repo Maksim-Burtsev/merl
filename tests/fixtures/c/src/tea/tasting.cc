@@ -56,14 +56,14 @@ int shadows(std::vector<taste::Mug>& mugs, taste::Cup* cup) {
   int total = 0;
   for (const auto& cup : mugs) {
     total += cup.sip();
-    //           ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:20 (#1140)
+    //           ^ d: include/tea/cup.hh:20
   }
   for (taste::Stove cup : std::vector<taste::Stove>{}) total += cup.sip();
   //                                                                ^ d: include/tea/cup.hh:29
   cup = cup->refill();
   //         ^ d: include/tea/cup.hh:14
   if (auto* mug = dynamic_cast<taste::Mug*>(cup)) total += mug->sip();
-  //                                                             ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:20 (#1140)
+  //                                                             ^ d: include/tea/cup.hh:20
   return total + cup->sip();
   //                  ^ d: include/tea/cup.hh:11
 }
@@ -71,8 +71,8 @@ int shadows(std::vector<taste::Mug>& mugs, taste::Cup* cup) {
 int binds() {
   auto [mug, stove] = std::pair<taste::Mug, taste::Stove>{};
   return mug.sip() + stove.sip();
-  //         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:20 (#1140)
-  //                       ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:29 (#1140)
+  //         ^ d: include/tea/cup.hh:20
+  //                       ^ d: include/tea/cup.hh:29
 }
 
 int aliases() {
@@ -93,7 +93,7 @@ int lambdas() {
   auto g = [cup]() { return cup.sip(); };
   //                            ^ d: include/tea/cup.hh:20
   auto h = [cup = taste::Stove{}]() { return cup.sip(); };
-  //                                             ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29; want include/tea/cup.hh:29 (#1140)
+  //                                             ^ d: include/tea/cup.hh:29
   //                                         ^ d: src/tea/tasting.cc:95
   return f(taste::Stove{}) + g() + h();
 }
@@ -107,4 +107,29 @@ int warmth() {
   //           ^ d: include/tea/cup.hh:30
   //                           ^ d: include/tea/cup.hh:21
   //                                      ^ d: src/tea/tasting.cc:22
+}
+
+int corners(std::map<int, taste::Mug>& cups, std::vector<taste::Stove>& stoves, taste::Cup* cup) {
+  int total = 0;
+  for (auto& kv : cups) total += kv.sip();
+  //                                ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  for (auto stove : stoves) total += stove.sip();
+  //                                       ^ d: include/tea/cup.hh:29
+  {
+    std::vector<taste::Mug> stoves;
+    for (const auto& s : stoves) total += s.sip();
+    //                                      ^ d: include/tea/cup.hh:20
+  }
+  auto* m = dynamic_cast<taste::Mug*>(cup)->refill();
+  total += m->sip();
+  //          ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  auto [a, b] = std::make_pair(taste::Mug{}, taste::Stove{});
+  total += a.sip();
+  //         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  auto [c, d, e] = std::pair<taste::Mug, taste::Stove>{};
+  total += c.sip();
+  //         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
+  auto k = [one = taste::Mug{}, two = taste::Stove{}.sip()]() { return one.sip() + two; };
+  //                                                                       ^ d: include/tea/cup.hh:20
+  return total + k();
 }

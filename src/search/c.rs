@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use super::{Binding, Value};
 
-static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
+pub(super) static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").expect("the regex is a literal")
 });
 
@@ -339,7 +339,7 @@ fn ctor_head_with_brackets_emptied(code: &str, at: usize) -> Option<String> {
     Some(s)
 }
 
-fn line_starts(code: &str) -> Vec<usize> {
+pub(super) fn line_starts(code: &str) -> Vec<usize> {
     std::iter::once(0)
         .chain(code.match_indices('\n').map(|(i, _)| i + 1))
         .collect()
@@ -1317,31 +1317,7 @@ pub(super) fn cpp_decl_start(code: &str, at: usize) -> Option<usize> {
         }
     }
 }
-pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
-    static AUTO: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
-            .expect("the regex is a literal")
-    });
-    let from = cpp_decl_start(code, at)?;
-    let segment = ACCESS_LABELS.replace(code.get(from..at)?, "");
-    let path = cpp_class_path(&segment)?;
-    if path != ["auto"] {
-        return Some(path);
-    }
-    let init = AUTO.captures(code.get(at + len..)?)?;
-    let m = init.get(0)?;
-    let open = at + len + m.end() - 1;
-    let close = close_or_end(code, open, code.len());
-    let path = cpp_class_path(&init[1])?;
-    let last = path.last()?;
-    (close < code.len()
-        && code
-            .get(close + 1..)
-            .is_some_and(|r| r.trim_start().starts_with([';', ',']))
-        && (m.as_str().contains("new") || last.starts_with(|c: char| c.is_ascii_uppercase())))
-    .then_some(path)
-}
-fn cpp_class_path(written: &str) -> Option<Vec<String>> {
+pub(super) fn cpp_class_path(written: &str) -> Option<Vec<String>> {
     const ARROW: &[&str] = &[
         "optional",
         "expected",
@@ -1399,26 +1375,6 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
         && !BUILTIN.contains(&path[path.len() - 1].as_str())
         && (path[0] != "std" || std_only()))
     .then_some(path)
-}
-pub fn cpp_value_type(
-    text: &str,
-    line1: usize,
-    name: &str,
-) -> Result<Option<(Vec<String>, usize)>, ()> {
-    let code = c_code(text);
-    let starts = line_starts(&code);
-    let at: Vec<usize> = c_bindings_at(text, line1, None, name)
-        .into_iter()
-        .map(|p| starts[p.line1 - 1] + p.byte_col)
-        .collect();
-    let mut types = at.iter().map(|&a| cpp_type_at(&code, a, name.len()));
-    let Some(first) = types.next() else {
-        return Ok(None);
-    };
-    match first {
-        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some((t, at[0]))),
-        _ => Err(()),
-    }
 }
 pub fn cpp_template_param(code: &str, name: &str) -> bool {
     Regex::new(&format!(
