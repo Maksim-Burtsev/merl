@@ -51,11 +51,13 @@ same files in each: a file in one copy counts as the same file in another copy o
 | `WRONG` (wrong jump) | jumped elsewhere |
 | `pick-miss`, `none` (miss) | a picker without it, or "no definition" |
 | not scored | `skip` (the answer is debatable), `no-answer` (the oracle found nothing, or the definition is outside the project for a judged language), `on-decl` (the cursor is on the definition) |
-| `skip-WRONG`, `no-answer-WRONG`, `on-decl-WRONG` (wrong jump, not scored) | jumped from a row not scored, away from its recorded answer: not within a line of it, nor into its file outside the project (an SDK's generated interface) |
+| `skip-WRONG`, `on-decl-WRONG` (not scored, jumps elsewhere) | jumped from a row not scored, away from its recorded answer: not within a line of it, nor into its file outside the project (an SDK's generated interface) |
+| `no-answer-jump`, `skip-jump` (not scored, jumps elsewhere) | jumped from a row not scored that has no answer recorded: nothing to check the jump against |
 
-The rows not scored are where most wrong jumps hid (#1092): a `-WRONG` one is out of the rates,
-counted in the table's own column, listed under it, and a new one fails the gate as a wrong jump
-does. A `no-answer` row has no answer to land near, so any jump from it counts.
+The rows not scored are where most wrong jumps hid (#1092). These verdicts stay out of the rates,
+are counted in the table's `not scored, jumps elsewhere` column and listed under it, and a new one
+fails the gate as a new wrong jump does. A `-jump` row may be right (a builtin found in the
+project's own `lib.dom.d.ts`): the list is for reading, the gate for what changed.
 
 ## Recording, once
 
@@ -249,8 +251,8 @@ cursors, sampled, score 75 % direct; with the 459 picked ones the row scores 91 
   its `.proto` field kept as the target.
 - **swift** (Alamofire), picked: 350 member accesses in `Source/` where merl jumped "by name, 1
   match" and 109 implicit members (`.success(…)`, `.allow`), answered by sourcekit-lsp. The 165
-  in an SDK interface it generated are `skip`, as before; merl jumps from 112 of them, which the
-  table cannot see (#1092). Six implicit members in `Tests/` it left unanswered were read from
+  in an SDK interface it generated are `skip`, as before, with no target kept; merl jumped from 112
+  of them then, and the jumps left are its `skip-jump` rows (#1092). Six implicit members in `Tests/` it left unanswered were read from
   the code.
 - **ruby** (mastodon), judged: 118 picked partly for Rails idioms, among them ten instance
   variables twice, the cursor on the `@` and on the name (merl finds no word on the `@`: the
