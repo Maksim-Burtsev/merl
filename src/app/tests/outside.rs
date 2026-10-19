@@ -332,6 +332,45 @@ fn a_called_dart_sdk_class_lands_on_its_constructor_and_a_written_one_on_the_cla
 }
 
 #[test]
+fn a_dart_sdk_class_written_through_an_import_prefix_keeps_its_class_and_constructor() {
+    let sdk = external_root(
+        "outside-dart-prefixed",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'errors.dart';\n",
+            ),
+            (
+                "lib/core/errors.dart",
+                "part of dart.core;\n\nclass StateError extends Error {\n  StateError(this.message);\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-prefixed-project",
+        &[(
+            "lib/main.dart",
+            "import 'dart:core' as core;\n\nfinal e = core.StateError('x');\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "core.|StateError(");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "StateError: by name, 2 declarations",
+            &[
+                ("StateError", "core/errors.dart:3"),
+                ("StateError.StateError", "core/errors.dart:4"),
+            ]
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_component_reads_as_its_script_with_the_rest_blank() {
     let (dir, a) = project_app(
         "outside-component",

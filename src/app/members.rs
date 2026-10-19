@@ -436,6 +436,7 @@ impl App {
                     let lines: Vec<&str> = t.lines().collect();
                     search::enclosing_type(kind, &lines, h.line1 - 1)
                         .is_some_and(|d| owners.iter().any(|o| o.path == h.path && o.line1 == d))
+                        || kind == Kind::TsJs && search::prototype_mixed(&t, h.line1, &ty.name)
                 })
             })
             .map(|hit| Candidate {

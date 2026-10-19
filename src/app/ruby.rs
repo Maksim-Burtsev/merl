@@ -114,7 +114,9 @@ impl App {
             return false;
         }
         let in_module = search::ruby_in_module(text, self.line + 1);
-        let ancestors: Vec<String> = self.ruby_ancestors(here, &class).collect();
+        let ancestors = std::cell::OnceCell::new();
+        let ancestors =
+            || ancestors.get_or_init(|| self.ruby_ancestors(here, &class).collect::<Vec<_>>());
         found.iter().all(|c| {
             let Some(t) = self.text_of(&c.hit.path) else {
                 return false;
@@ -127,7 +129,7 @@ impl App {
                 return search::ruby_on_class(&t, c.hit.line1)
                     && !search::ruby_in_block(&t, c.hit.line1);
             }
-            !(ancestors.contains(&owner)
+            !(ancestors().contains(&owner)
                 || in_module && self.ruby_ancestors(here, &owner).any(|a| a == class))
         })
     }
@@ -283,18 +285,31 @@ impl App {
     fn ruby_ancestors(&self, here: &Path, class: &str) -> impl Iterator<Item = String> {
         let mut seen = vec![class.to_owned()];
         let mut i = 0;
-        while let Some(c) = seen.get(i).cloned() {
-            i += 1;
-            let parents = self.ruby_parents(here, &c);
-            for name in parents.includes.into_iter().chain(parents.superclasses) {
-                if let Some(path) = self.ruby_resolve(here, &c, &name)
-                    && !seen.contains(&path)
-                {
-                    seen.push(path);
+        let mut pending: std::collections::VecDeque<(String, String)> =
+            std::collections::VecDeque::new();
+        std::iter::from_fn(move || {
+            loop {
+                if let Some((c, name)) = pending.pop_front() {
+                    if let Some(path) = self.ruby_resolve(here, &c, &name)
+                        && !seen.contains(&path)
+                    {
+                        seen.push(path.clone());
+                        return Some(path);
+                    }
+                    continue;
                 }
+                let c: String = seen.get(i)?.clone();
+                i += 1;
+                let parents = self.ruby_parents(here, &c);
+                pending.extend(
+                    parents
+                        .includes
+                        .into_iter()
+                        .chain(parents.superclasses)
+                        .map(|name| (c.clone(), name)),
+                );
             }
-        }
-        seen.into_iter().skip(1)
+        })
     }
 
     fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
@@ -308,13 +323,31 @@ impl App {
         out
     }
 
-    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
-        let last = path.rsplit("::").next().unwrap_or(path);
+    fn ruby_named_declarations(&self, here: &Path, last: &str) -> Vec<Hit> {
+        let key = (here.to_path_buf(), last.to_owned());
+        if let Some((hits, cut)) = self.ruby_declared.borrow().get(&key) {
+            if *cut {
+                self.truncated.set(true);
+            }
+            return hits.clone();
+        }
+        let before = self.truncated.replace(false);
         let pattern = format!(
             r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
             regex::escape(last)
         );
-        self.project_definitions(Kind::Ruby, here, last, &pattern)
+        let hits = self.project_definitions(Kind::Ruby, here, last, &pattern);
+        let cut = self.truncated.get();
+        self.truncated.set(before || cut);
+        self.ruby_declared
+            .borrow_mut()
+            .insert(key, (hits.clone(), cut));
+        hits
+    }
+
+    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
+        let last = path.rsplit("::").next().unwrap_or(path);
+        self.ruby_named_declarations(here, last)
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
@@ -329,12 +362,8 @@ impl App {
             None => (name, class),
         };
         let last = name.rsplit("::").next().unwrap_or(name);
-        let pattern = format!(
-            r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
-            regex::escape(last)
-        );
         let paths: HashSet<String> = self
-            .project_definitions(Kind::Ruby, here, last, &pattern)
+            .ruby_named_declarations(here, last)
             .into_iter()
             .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
             .collect();

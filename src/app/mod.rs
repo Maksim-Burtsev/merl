@@ -304,6 +304,7 @@ const HIST_MAX: usize = 50;
 
 type Paths = Arc<Vec<PathBuf>>;
 type CMode = (bool, bool);
+type RubyDeclared = HashMap<(PathBuf, String), (Vec<Hit>, bool)>;
 
 #[expect(
     clippy::struct_excessive_bools,
@@ -335,6 +336,7 @@ pub struct App {
     truncated: std::cell::Cell<bool>,
     anonymous_named: std::cell::Cell<Option<Typed>>,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
+    ruby_declared: std::cell::RefCell<RubyDeclared>,
     pub focus: Focus,
     pub show_tree: bool,
     pub tree_width: Option<u16>,
@@ -497,6 +499,7 @@ impl App {
             truncated: std::cell::Cell::default(),
             anonymous_named: std::cell::Cell::default(),
             reading: std::cell::RefCell::default(),
+            ruby_declared: std::cell::RefCell::default(),
             focus,
             show_tree: true,
             tree_width: None,

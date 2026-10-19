@@ -79,3 +79,16 @@ void paint(Lid lid) {
   lid.tone += 'x';
   //  ^ d: picker lib/jug.dart:71, lib/jug.dart:72
 }
+
+// `++` reads and writes: both accessors; a project class with its own constructor: the class and the constructor.
+class Pot {
+  final int brim;
+  Pot(this.brim);
+}
+
+void brew(Lid lid) {
+  ++lid.tone;
+  //    ^ d: picker lib/jug.dart:71, lib/jug.dart:72
+  Pot(1);
+  //^ d: picker lib/jug.dart:84, lib/jug.dart:86
+}
