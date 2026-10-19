@@ -424,6 +424,9 @@ impl App {
         if let Some(call) = self.jvm_call_here(here, end)
             && java
             && Self::plain_arguments(&call)
+            && found
+                .iter()
+                .any(|c| self.jvm_fits(here, &call, word, &c.hit))
         {
             found.retain(|c| self.jvm_fits(here, &call, word, &c.hit));
         }

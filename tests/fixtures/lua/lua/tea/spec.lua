@@ -10,4 +10,5 @@ if not pour_global then
   pour_global = function() return 1 end
 end
 steep_global = function() return 2 end
-return { assert = assert, brew_global = brew_global, sandbox = sandbox }
+local rinse = 3
+return { assert = assert, brew_global = brew_global, sandbox = sandbox, rinse = rinse }

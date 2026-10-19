@@ -460,13 +460,8 @@ impl App {
                 .iter()
                 .any(|c| c.hit.line1 != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word, false);
-        let counterpart = match (own, found.as_slice()) {
-            (Some(own), [other]) if namesakes && kind == Kind::C && all == 2 => {
-                let pair = [own, other.hit.clone()];
-                search::c_one_definition(word, &pair, |p| self.text_of(p)).is_some()
-            }
-            _ => false,
-        };
+        let counterpart =
+            namesakes && kind == Kind::C && all == 2 && self.c_counterpart(word, own, &found);
         let namesakes = namesakes && !counterpart;
         let word_chars = search::word_chars(Some(kind), true);
         let form = |t: &str| {
@@ -498,6 +493,19 @@ impl App {
             }
             _ => self.pick_definitions(kind, word, found, broke, namesakes, truncated),
         }
+    }
+
+    fn c_counterpart(&self, word: &str, own: Option<Hit>, found: &[Candidate]) -> bool {
+        let (Some(own), [other]) = (own, found) else {
+            return false;
+        };
+        let owner = |h: &Hit| {
+            self.text_of(&h.path)
+                .and_then(|t| search::cpp_owner(&t, h.line1, word))
+        };
+        let pair = [own, other.hit.clone()];
+        owner(&pair[0]).is_some_and(|o| owner(&pair[1]) == Some(o))
+            && search::c_one_definition(word, &pair, |p| self.text_of(p)).is_some()
     }
 
     fn keep_shown(&self, kind: Kind, word: &str, found: &mut Vec<Candidate>) {

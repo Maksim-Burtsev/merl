@@ -1670,6 +1670,64 @@ fn on_a_prototype_or_a_definition_its_one_counterpart_is_jumped_to() {
 }
 
 #[test]
+fn a_method_of_another_class_is_no_counterpart() {
+    let (dir, mut a) = project_app(
+        "cpp-counterpart-owner",
+        &[
+            (
+                "cache.h",
+                "namespace db {\nclass Cache {\n public:\n  virtual int NewId() = 0;\n  int Hits(int n);\n};\n}\n",
+            ),
+            (
+                "cache.cc",
+                "namespace db {\nclass Sharded : public Cache {\n public:\n  int NewId() override {\n    return 1;\n  }\n};\nint Sharded::Hits(int n) {\n  return n;\n}\n}\n",
+            ),
+            (
+                "pool.h",
+                "namespace db {\nclass Pool {\n public:\n  int Size(int n);\n};\n}\n",
+            ),
+            (
+                "pool.cc",
+                "namespace db {\nint Pool::Size(int n) {\n  return n;\n}\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "cache.h", "int NewId");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "NewId: at a declaration, 1 other by name",
+            &[("Sharded::NewId", "cache.cc:4")]
+        ),
+        "a pure virtual and its override in another class stay a picker"
+    );
+    d_on(&mut a, "cache.cc", "int NewId");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "NewId: at a declaration, 1 other by name",
+            &[("Cache::NewId", "cache.h:4")]
+        )
+    );
+    d_on(&mut a, "cache.h", "int Hits");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "Hits: at a declaration, 1 other by name",
+            &[("Sharded::Hits", "cache.cc:8")]
+        ),
+        "a method of one class and another class's definition stay a picker"
+    );
+    d_on(&mut a, "pool.h", "int Size");
+    assert_eq!(
+        shown(&mut a),
+        jump("Size → Pool::Size (by name, 1 match)", "pool.cc:2"),
+        "the same class's prototype and definition still jump"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn a_type_defined_in_another_source_file_is_no_namesake_of_this_file_s() {
     let (dir, mut a) = project_app(
         "cpp-file-types",

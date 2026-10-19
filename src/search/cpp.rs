@@ -60,6 +60,27 @@ pub fn cpp_scoped_name(text: &str, line1: usize, name: &str) -> Option<String> {
     (path.len() > 1).then(|| path.join("::"))
 }
 
+pub fn cpp_owner(text: &str, line1: usize, name: &str) -> Option<Vec<String>> {
+    static PURE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\)[^;=]*=\s*0\s*;").expect("the regex is a literal"));
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, name, None).first()?;
+    let line = code.get(at..)?.lines().next()?;
+    if PURE.is_match(line) {
+        return None;
+    }
+    let mut path = cpp_scope_path(&code, at);
+    let head = code.get(..at)?.trim_end();
+    if let Some(head) = head.strip_suffix("::") {
+        let start = head
+            .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == ':'))
+            .map_or(0, |i| i + 1);
+        let qualifier = head.get(start..)?.split("::").filter(|p| !p.is_empty());
+        path.extend(qualifier.map(str::to_owned));
+    }
+    Some(path)
+}
+
 pub fn cpp_alias_in_scope(text: &str, pos: usize, alias: &str) -> Option<Vec<String>> {
     let code = c_code(text);
     let re = Regex::new(&format!(
