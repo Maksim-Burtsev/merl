@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       part:
-        description: "Part of src/ to mutate, 1 to 21 (empty: this week's)"
+        description: "Part of src/ to mutate, 1 to 33 (empty: this week's)"
         required: false
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PARTS: 21
+  PARTS: 33
   SHARDS: 12
 
 jobs:
@@ -50,7 +50,7 @@ jobs:
           K: ${{ matrix.shard }}
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER: prlimit --as=8589934592 --
         run: |
-          timeout -s INT 320m cargo mutants --in-place --no-shuffle --timeout 300 \
+          timeout -s INT 320m cargo mutants --in-place --no-shuffle --timeout-multiplier 2 \
             --sharding slice --shard $(( (PART - 1) * SHARDS + K ))/$(( PARTS * SHARDS )) \
             -- -- --skip edit_fuzz --skip src_holds_no_comment && code=0 || code=$?
           case $code in 0|2|3|124) ;; *) echo "cargo mutants exited $code" && exit $code ;; esac

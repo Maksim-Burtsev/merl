@@ -1407,6 +1407,16 @@ b";
         }
     }
 
+    #[test]
+    fn mutants_time_the_unmutated_baseline_by_no_fixed_timeout() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let flow = std::fs::read_to_string(root.join(".github/workflows/mutants.yml")).unwrap();
+        assert!(
+            !flow.contains("--timeout ") && flow.contains("--timeout-multiplier "),
+            "cargo-mutants holds the unmutated baseline to a fixed --timeout too, and a suite past it tests no mutant (#868)"
+        );
+    }
+
     const USAGE: &str = "the program reads its docstring as `__doc__` and prints it as its usage, \
          so it is behaviour, not a comment; steps 1-6 kept to src/ and never read the tools; without \
          it the tool has no help, which no name or commit message can print";
