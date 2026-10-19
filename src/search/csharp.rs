@@ -1,8 +1,8 @@
 use regex::Regex;
 
 use super::{
-    Group, Kind, close_of, code, comment, cs_generics, cs_namespace, cs_type, cs_using, cs_usings,
-    def_patterns, group, indent, split_top, uncommented, written_line,
+    Group, Kind, close_of, code, comment, cs_generics, cs_mods, cs_namespace, cs_type, cs_using,
+    cs_usings, def_patterns, group, indent, split_top, uncommented, written_line,
 };
 
 pub struct CsTypeDecl {
@@ -53,7 +53,8 @@ pub fn cs_place(text: &str, line: usize, word: &str) -> CsPlace {
     {
         return CsPlace::Member {
             private: matches!(keyword.as_str(), "class" | "struct" | "record")
-                && cs_private(target, word),
+                && cs_private(target, word)
+                && !(keyword == "record" && cs_header_parameter_line(target)),
             owner,
         };
     }
@@ -1162,4 +1163,56 @@ fn cs_count(inner: &str) -> Option<usize> {
     }
     let n = split_top(Kind::CSharp, inner, b',').len();
     (cs_split(inner).len() == n).then_some(n)
+}
+
+const CS_RECORD_HEAD: &str = concat!(
+    cs_mods!(),
+    r"record(?:\s+class|\s+struct)?\s+@?\w+\s*",
+    cs_generics!(),
+    r"\s*\((?:[^)]*,)?\s*"
+);
+const CS_HEADER_PARAMETER: &str = concat!(r"^\s*(?:\[[^\]]*\]\s*)*", cs_type!(), r"\s+@?");
+
+pub fn cs_record_parameter_patterns(w: &str) -> [String; 2] {
+    [
+        format!(
+            r"{CS_RECORD_HEAD}(?:\[[^\]]*\]\s*)*{}\s+@?{w}\s*(?:=[^,)]*)?[,)]",
+            cs_type!()
+        ),
+        format!(r"{CS_HEADER_PARAMETER}{w}\s*(?:,|\)\s*(?::[^{{;]*)?(?:[;{{]|$))\s*$"),
+    ]
+}
+
+pub fn cs_header_parameter_line(line: &str) -> bool {
+    static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"{CS_HEADER_PARAMETER}\w+\s*(?:,|\)\s*(?::[^{{;]*)?(?:[;{{]|$))\s*$"
+        ))
+        .expect("the regex is a literal")
+    });
+    SHAPE.is_match(line)
+}
+
+pub fn cs_in_record_header<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!("{CS_RECORD_HEAD}$")).expect("the regex is a literal")
+    });
+    static BEFORE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"{CS_HEADER_PARAMETER}\w+\s*(?:=[^;]*)?,\s*$"))
+            .expect("the regex is a literal")
+    });
+    let above = lines[..line1.saturating_sub(1).min(lines.len())]
+        .iter()
+        .rev();
+    for l in above.take(40) {
+        let l = l.as_ref();
+        if HEAD.is_match(l) {
+            return true;
+        }
+        let t = l.trim();
+        if !(t.is_empty() || t.starts_with("//") || t.starts_with('[') || BEFORE.is_match(l)) {
+            return false;
+        }
+    }
+    false
 }

@@ -1494,6 +1494,7 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         "Shop.App/Page.cs",
         "Shop.App/Views/Home.cs",
         "Shop.Api/Address.cs",
+        "Shop.Api/Route.cs",
         "Shop.Core/Money.cs",
         "Shared/Clock.cs",
     ]
@@ -1557,7 +1558,10 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         "nor can a file outside every project"
     );
     for app in [
-        r#"<Compile Include="..\Shared\Clock.cs" Link="Clock.cs" />"#,
+        r#"<Compile Include="..\Shared\*.cs" />"#,
+        r#"<Compile Include="..\Shared\Gone.cs" />"#,
+        r#"<Compile Remove="..\Shared\Clock.cs" />"#,
+        r#"<Compile Include="..\Shared\Clock.cs;..\Shop.Api\Address.cs" />"#,
         r#"<Import Project="..\Shared\Shared.projitems" Label="Shared" />"#,
         r#"<ProjectReference Include="$(RepoRoot)\Shop.Api\Shop.Api.csproj" />"#,
         r#"<ProjectReference Include="..\Gone\Gone.csproj" />"#,
@@ -1571,7 +1575,7 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         ];
         assert!(
             cs_projects(&files, here, read(&manifests)).is_none(),
-            "{app}: a source file pulled in from outside the directory, a shared project, a \
+            "{app}: a source file from outside that is a pattern, a list, a removal or not here, a shared project, a \
              reference MSBuild has to evaluate or that names no project here cannot be told"
         );
     }
@@ -1602,10 +1606,15 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         ("Shop.App/Shop.App.csproj", PLAIN),
         (
             "Directory.Build.props",
-            r#"<Compile Include="..\Shared\Clock.cs" />"#,
+            r#"<Compile Include="..\Shop.Api\Address.cs" Link="Address.cs" />"#,
         ),
     ];
-    assert!(cs_projects(&files, here, read(&linked)).is_none());
+    let seen = cs_projects(&files, here, read(&linked)).unwrap();
+    assert!(
+        seen.sees(Path::new("Shop.Api/Address.cs")),
+        "a file another project holds, compiled into this one too"
+    );
+    assert!(!seen.sees(Path::new("Shop.Api/Route.cs")));
     let mut nested = files.clone();
     nested.push(PathBuf::from("Shop.App/Tests/Shop.App.Tests.csproj"));
     let inner = [
