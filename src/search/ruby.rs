@@ -357,12 +357,37 @@ pub fn ruby_loop_keyword(word: &str, lead: &str, tail: &str) -> bool {
         && (!tail.starts_with(':') || tail.starts_with("::"))
 }
 
-pub fn ruby_constructed_receiver(before: &str) -> Option<String> {
+pub struct RubyMade {
+    pub class: String,
+    pub by_singleton: bool,
+}
+
+pub fn ruby_constructed_receiver(before: &str) -> Option<RubyMade> {
     static NEW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.new(?:\s*\([^()]*\))?\.$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.(?:new(?:\s*\([^()]*\))?|(instance))\.$",
+        )
+        .expect("the regex is a literal")
     });
-    NEW.captures(before.trim_end()).map(|c| c[1].to_owned())
+    NEW.captures(before.trim_end()).map(|c| RubyMade {
+        class: c[1].to_owned(),
+        by_singleton: c.get(2).is_some(),
+    })
+}
+
+pub fn ruby_instance_of_class(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    !ruby_self_is_class(text, line1)
+        && around(&lines, &literal, at)
+            .openers_innermost_first
+            .iter()
+            .map(|&(i, _)| lines[i].trim_start())
+            .find(|l| l.starts_with("class ") || l.starts_with("module "))
+            .is_some_and(|l| !l.starts_with("module ") && !l.starts_with("class <<"))
 }
 
 pub fn ruby_on_class(text: &str, line1: usize) -> bool {

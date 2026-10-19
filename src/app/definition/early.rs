@@ -203,6 +203,14 @@ impl App {
         if a.kind == Kind::Elixir {
             a.chain = search::elixir_unalias(&a.text, self.line, std::mem::take(&mut a.chain));
         }
+        if a.kind == Kind::Ruby
+            && a.dotted
+            && a.chain == ["self", "class"]
+            && search::ruby_instance_of_class(&a.text, self.line + 1)
+        {
+            let class = search::ruby_class_path(&a.text, self.line + 1);
+            a.chain = class.split("::").map(str::to_owned).collect();
+        }
         self.answered_by_file(a)
             || self.answered_in_file(a)
             || self.answered_by_go_key(a)

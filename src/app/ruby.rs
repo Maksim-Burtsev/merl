@@ -114,14 +114,25 @@ impl App {
             .unwrap_or_default()
     }
 
-    pub(super) fn ruby_constructed(&self, here: &Path, made: &str, word: &str) -> Vec<Candidate> {
-        let Some(class) = self.ruby_class_named(here, made) else {
+    pub(super) fn ruby_constructed(
+        &self,
+        here: &Path,
+        made: &search::RubyMade,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let Some(class) = self.ruby_class_named(here, &made.class) else {
             return Vec::new();
         };
-        if !self
-            .ruby_methods_from(here, "new", class.clone(), true)
-            .is_empty()
-        {
+        let instance = if made.by_singleton {
+            self.ruby_parents(here, &class)
+                .includes
+                .iter()
+                .any(|m| m.trim_start_matches(':') == "Singleton")
+        } else {
+            self.ruby_methods_from(here, "new", class.clone(), true)
+                .is_empty()
+        };
+        if !instance {
             return Vec::new();
         }
         self.ruby_methods_from(here, word, class, false)
