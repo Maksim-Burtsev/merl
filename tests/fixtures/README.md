@@ -217,7 +217,8 @@ later()`, a loop variable hiding a local, and a long string and a block comment 
 `lua/lua/shop/requires.lua` puts the cursor on `require` paths (#1061): modules of the project,
 one whose last name is another directory's file, and one from outside. `lua/tea/spec.lua` binds
 `local assert` and `local brew_global` at its top level, which the bare names of `lua/tea/cup.lua`
-and `lua/tea/table.lua` must not reach (#1062).
+and `lua/tea/table.lua` must not reach (#1062); `lua/tea/tray.lua` calls a bare `rinse` whose
+namesakes are `function S.rinse` in `saucer.lua` and `spec.lua`'s `local rinse`, a picker of both.
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.

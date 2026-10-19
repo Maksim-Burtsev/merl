@@ -304,8 +304,15 @@ impl App {
         if kind == Kind::Lua {
             let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
             let bare = !dotted && chain.is_empty();
+            let table = regex::Regex::new(&format!(
+                r"^\s*function\s+[\w.:]*[.:]{}\b",
+                regex::escape(word)
+            ));
+            let qualified =
+                |h: &Hit| h.path != a.here && table.as_ref().is_ok_and(|re| re.is_match(&h.text));
+            let narrow = bare && !hits.iter().any(qualified);
             hits.retain(|h| {
-                !bare || h.path == a.here || !h.text.trim_start().starts_with("local ")
+                !narrow || h.path == a.here || !h.text.trim_start().starts_with("local ")
             });
             let all = hits.len();
             let unseen = bare
