@@ -1172,23 +1172,27 @@ const CS_RECORD_HEAD: &str = concat!(
     r"\s*\((?:[^)]*,)?\s*"
 );
 const CS_HEADER_PARAMETER: &str = concat!(r"^\s*(?:\[[^\]]*\]\s*)*", cs_type!(), r"\s+@?");
+const CS_PARAMETER_DEFAULT: &str = r"\s*(?:=[^,;()]*(?:\([^()]*\)\s*)?)?";
+
+fn cs_header_parameter_shape(w: &str) -> String {
+    format!(
+        r"{CS_HEADER_PARAMETER}{w}{CS_PARAMETER_DEFAULT}(?:,|\)\s*(?::[^{{;]*)?(?:[;{{]|$))\s*$"
+    )
+}
 
 pub fn cs_record_parameter_patterns(w: &str) -> [String; 2] {
     [
         format!(
-            r"{CS_RECORD_HEAD}(?:\[[^\]]*\]\s*)*{}\s+@?{w}\s*(?:=[^,)]*)?[,)]",
+            r"{CS_RECORD_HEAD}(?:\[[^\]]*\]\s*)*{}\s+@?{w}{CS_PARAMETER_DEFAULT}[,)]",
             cs_type!()
         ),
-        format!(r"{CS_HEADER_PARAMETER}{w}\s*(?:,|\)\s*(?::[^{{;]*)?(?:[;{{]|$))\s*$"),
+        cs_header_parameter_shape(w),
     ]
 }
 
 pub fn cs_header_parameter_line(line: &str) -> bool {
     static SHAPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(
-            r"{CS_HEADER_PARAMETER}\w+\s*(?:,|\)\s*(?::[^{{;]*)?(?:[;{{]|$))\s*$"
-        ))
-        .expect("the regex is a literal")
+        Regex::new(&cs_header_parameter_shape(r"\w+")).expect("the regex is a literal")
     });
     SHAPE.is_match(line)
 }
@@ -1198,8 +1202,10 @@ pub fn cs_in_record_header<S: AsRef<str>>(lines: &[S], line1: usize) -> bool {
         Regex::new(&format!("{CS_RECORD_HEAD}$")).expect("the regex is a literal")
     });
     static BEFORE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(r"{CS_HEADER_PARAMETER}\w+\s*(?:=[^;]*)?,\s*$"))
-            .expect("the regex is a literal")
+        Regex::new(&format!(
+            r"{CS_HEADER_PARAMETER}\w+{CS_PARAMETER_DEFAULT},\s*$"
+        ))
+        .expect("the regex is a literal")
     });
     let above = lines[..line1.saturating_sub(1).min(lines.len())]
         .iter()

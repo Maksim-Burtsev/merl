@@ -14,12 +14,12 @@ public class Barge(int Keel)
     public int Load(int Cargo, int Tare) => Cargo;
 
     public int Moor(
-        int Ballast,
+        int Ballast = 0,
         Crate Hold) => Ballast;
 }
 
 public class Hull(
-    int Rivets,
+    int Rivets = 0,
     Crate Plates) : Barge(Rivets)
 {
     public int Peer(dynamic other) => other.Rivets + other.Plates;
@@ -63,4 +63,19 @@ public class Belfry
 {
     public Chime Bell() => new Chime();
     //     ^ d: src/Shared/Chime.cs:4
+}
+
+// A header parameter with a default value, on a line of its own.
+public record Ticket(
+    int Seat = 1,
+    int Gate = default(int),
+    int Row = 2);
+
+public class Usher
+{
+    public int Count(Ticket t, dynamic d) => t.Seat + t.Row + d.Row + d.Gate;
+    //                                         ^ d: src/Shop/Rules/Crates.cs:70
+    //                                                  ^ d: src/Shop/Rules/Crates.cs:72
+    //                                                          ^ d: src/Shop/Rules/Crates.cs:72
+    //                                                                  ^ d: src/Shop/Rules/Crates.cs:71
 }
