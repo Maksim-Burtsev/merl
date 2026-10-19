@@ -122,11 +122,25 @@ pub fn hide_c_disabled(text: &str, out: &mut [bool]) {
     }
 }
 pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
-    kind == Kind::Rust && scan(kind, text, at).at_in_rust_string
+    match kind {
+        Kind::Rust => scan(kind, text, at).at_in_rust_string,
+        Kind::Php => {
+            let lead = text.get(..at).and_then(|t| t.rsplit('\n').next());
+            lead.is_some_and(|l| !php_interpolated(l)) && scan(kind, text, at).at_in_heredoc
+        }
+        _ => false,
+    }
+}
+fn php_interpolated(lead: &str) -> bool {
+    let open = lead.rfind("{$").max(lead.rfind("${"));
+    (lead.ends_with('$') && !lead.ends_with("\\$"))
+        || lead.ends_with("->")
+        || open.is_some_and(|o| lead.get(o..).is_some_and(|l| !l.contains('}')))
 }
 struct Scan {
     lines_in_literal: Vec<bool>,
     at_in_rust_string: bool,
+    at_in_heredoc: bool,
 }
 struct Heredoc {
     label: Vec<u8>,
@@ -201,6 +215,8 @@ struct Scanner<'a> {
     ruby_heredocs_from_next_line: Vec<Heredoc>,
     template_substitution_braces: Vec<usize>,
     rust_string: RustStringAt,
+    at_line: usize,
+    at_in_heredoc: bool,
 }
 struct RustStringAt {
     at: usize,
@@ -229,6 +245,10 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
             start: None,
             inside: false,
         },
+        at_line: text
+            .get(..at)
+            .map_or(usize::MAX, |t| t.bytes().filter(|&c| c == b'\n').count()),
+        at_in_heredoc: false,
     };
     while s.i < s.b.len() && s.step() {
         s.i += 1;
@@ -239,6 +259,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     Scan {
         lines_in_literal: s.out,
         at_in_rust_string: s.rust_string.inside,
+        at_in_heredoc: s.at_in_heredoc,
     }
 }
 impl<'a> Scanner<'a> {
@@ -354,6 +375,7 @@ impl<'a> Scanner<'a> {
             }
         }
         self.out.push(self.literal_closer.is_some());
+        self.at_in_heredoc |= self.heredoc.is_some() && self.out.len() - 1 == self.at_line;
     }
 
     fn in_literal(&mut self, end: Cow<'a, [u8]>, c: u8) {
