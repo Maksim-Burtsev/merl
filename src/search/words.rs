@@ -630,6 +630,33 @@ pub struct CallHead {
     pub value: Value,
     pub fields_to_word: Vec<String>,
 }
+pub fn go_method_calls(line: &str, word_start: usize) -> Option<(usize, Vec<String>)> {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut dot = word_start
+        .checked_sub(1)
+        .filter(|&d| line.get(d..word_start) == Some("."))?;
+    let mut methods = Vec::new();
+    loop {
+        let before = line.get(..dot)?;
+        if !before.ends_with(')') {
+            break;
+        }
+        let open = code(Kind::Go, before)
+            .filter(|(_, c)| *c == b'(')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(Kind::Go, before, i) == Some(before.len()))?;
+        let start = name_start(before.get(..open)?, is_name);
+        let Some(head) = before.get(..start).and_then(|h| h.strip_suffix('.')) else {
+            break;
+        };
+        if start == open || !head.ends_with(')') {
+            break;
+        }
+        methods.insert(0, before.get(start..open)?.to_owned());
+        dot = head.len();
+    }
+    (!methods.is_empty()).then_some((dot + 1, methods))
+}
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);
     if kind == Some(Kind::R)

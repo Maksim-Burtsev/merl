@@ -6,13 +6,14 @@ The csharp row with the fixes of #1089 and #1090: `b81c63d9`, 2026-10-19, releas
 The sql row with the fixes of #1065 and #1066: over `b81c63d9`, 2026-10-19, release build, `vm.loadavg` { 6.87 5.88 6.62 } before the run.
 The java, kotlin, swift and go rows with #1072: `9f4c7433`, 2026-10-19, release build, `vm.loadavg` { 4.76 5.68 6.38 } before the run, { 4.76 5.68 6.38 } after.
 The dart row with the fixes of #1084, #1085 and #1086: over `76c2d351`, 2026-10-19, release build, `vm.loadavg` { 6.98 6.92 7.40 } before the run.
+The go row with #1072's chains of calls: over `72304a83`, 2026-10-20, release build, `vm.loadavg` { 5.32 4.55 4.67 } before the run, { 6.51 4.92 4.79 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 257 | 214 (83%) | 25 (10%) | 0 (0%) | 18 (7%) | 68 | 19.5 | 386.8 |
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 42.8 | 97.7 |
 | js (eslint, uptime-kuma) | 217 | 174 (80%) | 33 (15%) | 1 (0%) | 9 (4%) | 177 | 40.1 | 174.0 |
-| go (caddy, gitea) | 318 | 310 (97%) | 6 (2%) | 0 (0%) | 2 (1%) | 51 | 5.8 | 17.3 |
+| go (caddy, gitea) | 318 | 311 (98%) | 6 (2%) | 0 (0%) | 1 (0%) | 51 | 5.8 | 17.1 |
 | rust (ripgrep) | 231 | 203 (88%) | 24 (10%) | 0 (0%) | 4 (2%) | 69 | 5.9 | 61.7 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 24.6 | 34.5 |
 | cpp (leveldb) | 232 | 197 (85%) | 34 (15%) | 0 (0%) | 1 (0%) | 68 | 17.0 | 63.1 |

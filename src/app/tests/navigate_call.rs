@@ -259,16 +259,13 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
-            "A call of a call, and a receiver that is the second name of a `:=`",
+            "Go follows a call of a call by each one's return type (#1072)",
             "go",
             "calls.go",
             "OpenDepot().PeopleRepo().DeleteUser",
-            picker(
-                "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+            jump(
+                "DeleteUser \u{2192} UserRepository.DeleteUser (via OpenDepot() *Depot \u{2192} PeopleRepo() *UserRepository)",
+                "repos.go:15",
             ),
         ),
         (
