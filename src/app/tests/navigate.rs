@@ -1643,7 +1643,10 @@ fn on_a_prototype_or_a_definition_its_one_counterpart_is_jumped_to() {
     let (dir, mut a) = project_app(
         "c-counterpart",
         &[
-            ("list.h", "int find_cb(int n, const char *s);\nint twice(int n);\n"),
+            (
+                "list.h",
+                "int find_cb(int n, const char *s);\nint twice(int n);\n",
+            ),
             (
                 "list.c",
                 "#include \"list.h\"\nint find_cb(int n, const char *s) {\n  return n;\n}\n#ifdef FAST\nint twice(int n) { return n; }\n#else\nint twice(int n) { return 2 * n; }\n#endif\n",
@@ -1651,15 +1654,9 @@ fn on_a_prototype_or_a_definition_its_one_counterpart_is_jumped_to() {
         ],
     );
     d_on(&mut a, "list.h", "int find_cb");
-    assert_eq!(
-        shown(&mut a),
-        jump("find_cb: by name, 1 match", "list.c:2")
-    );
+    assert_eq!(shown(&mut a), jump("find_cb: by name, 1 match", "list.c:2"));
     d_on(&mut a, "list.c", "int find_cb");
-    assert_eq!(
-        shown(&mut a),
-        jump("find_cb: by name, 1 match", "list.h:1")
-    );
+    assert_eq!(shown(&mut a), jump("find_cb: by name, 1 match", "list.h:1"));
     d_on(&mut a, "list.h", "int twice");
     assert_eq!(
         shown(&mut a),
