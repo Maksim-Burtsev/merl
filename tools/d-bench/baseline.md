@@ -7,6 +7,7 @@ The sql row with the fixes of #1065 and #1066: over `b81c63d9`, 2026-10-19, rele
 The java, kotlin, swift and go rows with #1072: `9f4c7433`, 2026-10-19, release build, `vm.loadavg` { 4.76 5.68 6.38 } before the run, { 4.76 5.68 6.38 } after.
 The dart row with the fixes of #1084, #1085 and #1086: over `76c2d351`, 2026-10-19, release build, `vm.loadavg` { 6.98 6.92 7.40 } before the run.
 The rust row with the fixes of #1044 and #1045 (a `use` inside an inline `mod`, a crate handed on by `pub extern crate`, a receiver whose call's arguments span lines): over `da06cd37`, 2026-10-20, release build, `vm.loadavg` { 8.81 9.06 8.23 } before the run.
+The ruby row with the fixes of #1093 and #1114: over `1db99ebe`, 2026-10-20, release build, `vm.loadavg` { 12.75 11.33 13.33 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|
@@ -22,7 +23,7 @@ The rust row with the fixes of #1044 and #1045 (a `use` inside an inline `mod`, 
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 61 (72%) | 12 (14%) | 0 (0%) | 12 (14%) | 130 | 20.9 | 37.7 |
-| ruby (mastodon) | 140 | 126 (90%) | 13 (9%) | 0 (0%) | 1 (1%) | 179 | 72.0 | 638.9 |
+| ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 67.7 | 1050.2 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 22.4 | 88.3 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 57.5 | 90.5 |

@@ -25,7 +25,7 @@ fn around(lines: &[&str], literal: &[bool], line0: usize) -> Around {
         Regex::new(r"^(?:[a-z_]+\s+)?def\s|^(?:class|module)\b").expect("the regex is a literal")
     });
     static HOLDS_NO_LINE_BELOW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:[a-z_]+\s+)?def\s+[^\s(]+(?:\([^)]*\))?\s*=(?:[^=~>]|$)|\bend\s*(?:#.*)?$")
+        Regex::new(r"^(?:[a-z_]+\s+)?def\s+[^\s(]+(?:\([^)]*\)\s*|\s+)=(?:[^=~>]|$)|\bend\s*(?:#.*)?$")
             .expect("the regex is a literal")
     });
     static BLOCK: LazyLock<Regex> = LazyLock::new(|| {
