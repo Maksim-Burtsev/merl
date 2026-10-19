@@ -36,6 +36,9 @@ class Kettle extends Vessel
             //                                      ^ d: src/Tea/Kettle.php:11
             //                                                                ^ d: src/Tea/Kettle.php:9
             //                                                                                  ^ d: src/Tea/Kettle.php:26
+            //                                                                         ^ d: src/Tea/Kettle.php:26
+            Escaped \$lid stays text.
+            //        ^ d: none
             CARD;
         return $card . <<<'NOTE'
             A note on the lid.

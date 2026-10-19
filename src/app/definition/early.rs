@@ -328,8 +328,7 @@ impl App {
         self.truncated.set(false);
         let sigil = a.lead.as_str();
         if kind == Kind::Php
-            && sigil.ends_with('$')
-            && !sigil.ends_with("::$")
+            && ((sigil.ends_with('$') && !sigil.ends_with("::$")) || sigil.ends_with("${"))
             && a.word != "this"
             && let Some(lines) = search::php_variable(&a.text, self.line + 1, &a.word)
         {
