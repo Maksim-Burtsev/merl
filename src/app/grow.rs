@@ -1,11 +1,14 @@
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use tree_sitter::{Node, Point};
 
 use super::{App, TextLine, is_word, next_char, prev_char, shown_str};
+use crate::buffer::PARSE_IDLE_STEP;
 
 type Pos = (usize, usize);
 type Span = (Pos, Pos);
 pub(super) type Place = (TextLine, usize);
-pub(super) type Grown = (Option<Place>, Place, Option<(Place, Place)>);
+pub(super) type Grown = (u64, Option<Place>, Place, Option<(Place, Place)>);
 
 const PAIRS: [(&str, &str); 3] = [("(", ")"), ("[", "]"), ("{", "}")];
 const QUOTES: [&str; 5] = ["\"\"\"", "'''", "\"", "'", "`"];
@@ -14,20 +17,20 @@ impl App {
     pub(super) fn grow(&mut self) {
         let before = (self.anchor, (self.at(), self.col));
         let sel = self.selection();
-        if self.grown.last().is_some_and(|g| g.2 != sel) {
+        let text = self.text_stamp();
+        if self.grown.last().is_some_and(|g| (g.0, g.3) != (text, sel)) {
             self.grown.clear();
         }
-        self.buf.parse_more(None);
-        let cur = match self.file_selection() {
-            Some(s) => Some(s),
-            None if self.on_deleted() => None,
-            None => match self.at() {
-                TextLine::File(l) => Some(((l, self.col), (l, self.col))),
-                TextLine::Deleted(..) => None,
-            },
+        self.buf.parse_more(Some(PARSE_IDLE_STEP));
+        let cur = match (sel, self.at()) {
+            (Some(((TextLine::File(a), ac), (TextLine::File(b), bc))), _) => {
+                Some(((a, ac), (b, bc)))
+            }
+            (None, TextLine::File(l)) => Some(((l, self.col), (l, self.col))),
+            _ => None,
         };
         let step = cur
-            .zip(self.buf.ts_tree())
+            .zip(self.buf.fresh_tree())
             .map(|(cur, tree)| next_step(&self.buf.lines, tree.root_node(), cur));
         match step {
             Some(Some((a, b))) => {
@@ -41,15 +44,15 @@ impl App {
         }
         let after = self.selection();
         if after != sel {
-            self.grown.push((before.0, before.1, after));
+            self.grown.push((text, before.0, before.1, after));
         }
     }
 
     pub(super) fn shrink(&mut self) {
-        let Some((anchor, at, after)) = self.grown.pop() else {
+        let Some((text, anchor, at, after)) = self.grown.pop() else {
             return;
         };
-        if after != self.selection() {
+        if (text, after) != (self.text_stamp(), self.selection()) {
             self.grown.clear();
             return;
         }
@@ -57,6 +60,12 @@ impl App {
         self.set_at(at.0);
         self.col = at.1;
         self.sync_want_x();
+    }
+
+    fn text_stamp(&self) -> u64 {
+        let mut h = DefaultHasher::new();
+        (&self.buf.path, &self.buf.lines).hash(&mut h);
+        h.finish()
     }
 }
 

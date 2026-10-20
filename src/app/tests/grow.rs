@@ -107,3 +107,38 @@ fn a_file_with_no_grammar_keeps_word_line_paragraph_file() {
     );
     assert_eq!(presses(&mut a, 'V', 1), ["(defn f [x]\n  (inc x))"]);
 }
+
+#[test]
+fn v_steps_back_nothing_once_the_text_changed_under_its_history() {
+    let mut a = code("edited.py", PY);
+    (a.line, a.col) = (4, 14);
+    presses(&mut a, 'v', 3);
+    let selected = a.selection();
+    a.buf.lines[4] = "            x,".to_owned();
+    a.buf.edited(4);
+    assert_eq!(presses(&mut a, 'V', 1).len(), 1);
+    assert_eq!(
+        a.selection(),
+        selected,
+        "the line `V` would restore is gone"
+    );
+}
+
+#[test]
+fn a_shift_run_the_watcher_judges_leaves_v_nothing_to_step_back() {
+    let mut a = code("watched.py", "x = foo(alpha, \"beta\") + 1\n");
+    a.col = 8;
+    let t = Instant::now();
+    for i in 0..13 {
+        a.key_at(
+            KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT),
+            t + Duration::from_millis(30) * i,
+        );
+    }
+    assert_eq!(a.selected_text().as_deref(), Some("alpha, \"beta\""));
+    a.key_at(
+        KeyEvent::new(KeyCode::Char('V'), KeyModifiers::NONE),
+        t + Duration::from_secs(2),
+    );
+    assert_eq!(a.selected_text().as_deref(), Some("alpha, \"beta\""));
+}

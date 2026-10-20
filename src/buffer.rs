@@ -278,8 +278,8 @@ impl Buffer {
         self.state_after_hl = None;
     }
 
-    pub fn ts_tree(&self) -> Option<&tree_sitter::Tree> {
-        self.ts.as_ref()?.tree()
+    pub fn fresh_tree(&self) -> Option<&tree_sitter::Tree> {
+        self.ts.as_ref().filter(|_| !self.ts_stale)?.fresh_tree()
     }
 
     pub fn parsing(&self) -> bool {
