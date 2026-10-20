@@ -425,12 +425,10 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
 pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
     let directive = |l: usize| {
         let t = lines.get(l - 1)?.trim_start();
-        ["#if", "#elseif", "#else", "#endif"]
-            .into_iter()
-            .find(|d| {
-                t.strip_prefix(d)
-                    .is_some_and(|r| !r.starts_with(char::is_alphanumeric))
-            })
+        ["#if", "#elseif", "#else", "#endif"].into_iter().find(|d| {
+            t.strip_prefix(d)
+                .is_some_and(|r| !r.starts_with(char::is_alphanumeric))
+        })
     };
     let mut at = line1s.to_vec();
     at.sort_unstable();
@@ -1067,7 +1065,14 @@ pub fn swift_tuple_item(written: &str, at: usize) -> Option<String> {
     let items = split_top(Kind::Swift, inner, b',');
     let item = items.get(at).filter(|_| items.len() > 1)?.trim();
     let item = match item.split_once(':') {
-        Some((label, t)) if label.trim().chars().all(|c| c.is_alphanumeric() || c == '_') => t,
+        Some((label, t))
+            if label
+                .trim()
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_') =>
+        {
+            t
+        }
         _ => item,
     };
     Some(item.trim().to_owned())

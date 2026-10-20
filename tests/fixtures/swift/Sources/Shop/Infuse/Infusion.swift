@@ -134,6 +134,61 @@ func neighbours(_ sencha: Sencha) -> Int {
 }
 
 func maybe(_ leaves: [Sencha]?) -> Int? {
-    leaves.map { $0.count }
+    leaves.map { $0.label() }
     //              ^ d: !jump
+}
+
+func kettle() -> Whisk { Whisk() }
+
+struct Hearth {
+    func kettle() -> Hearth { self }
+    var scoops = 0
+    func sift(_ n: Int) -> Hearth { self }
+    func pour() -> Int {
+        kettle().sift(1).scoops
+        //               ^ d: Sources/Shop/Infuse/Infusion.swift:145
+    }
+}
+
+struct Tray<Sencha> {
+    func top() -> String {
+        Sencha.make().label()
+        //            ^ d: !jump
+    }
+}
+
+extension Collection {
+    func brewed() -> Int { 0 }
+}
+
+extension Sequence {
+    func brewed() -> Int { 1 }
+}
+
+class Brewer: Collection {
+    func pour() -> Int { super.brewed() }
+    //                         ^ d: !jump
+}
+
+#if os(macOS)
+typealias Pot = Gyokuro
+#else
+final class Pot: Sencha {}
+#endif
+
+func potted(_ pot: Pot) -> String {
+    pot.label()
+    //  ^ d: !jump
+}
+
+struct Ladle {
+    func dip(_ s: String) -> Whisk { Whisk() }
+    func dip(_ n: Int) -> Hearth { Hearth() }
+}
+
+func ladle() -> Ladle { Ladle() }
+
+func dipped() -> Int {
+    ladle().dip(1).scoops
+    //             ^ d: !jump
 }

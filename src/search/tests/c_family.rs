@@ -1393,7 +1393,13 @@ fn swift_tuples_closures_chains_and_if_arms_are_read() {
     assert_eq!(swift_call_links("Bowl(froth: 1)."), None);
     assert_eq!(swift_call_links("w.sift(1).finish()."), None);
     assert_eq!(swift_call_links("    .sift(1).finish()."), None);
-    let lines = ["#if os(macOS)", "typealias K = A", "#else", "typealias K = B", "#endif"];
+    let lines = [
+        "#if os(macOS)",
+        "typealias K = A",
+        "#else",
+        "typealias K = B",
+        "#endif",
+    ];
     assert!(swift_if_arms(&lines, &[2, 4]));
     assert!(!swift_if_arms(&lines, &[2]));
     let flat = ["typealias K = A", "#if X", "#endif", "typealias K = B"];

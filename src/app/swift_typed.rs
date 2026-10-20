@@ -386,19 +386,23 @@ impl App {
                         })
                 })
                 .collect();
-            match <[Hit; 1]>::try_from(funcs) {
-                Ok([decl]) => (decl, None),
-                Err(funcs) if funcs.is_empty() => {
-                    let lines: Vec<&str> = text.lines().collect();
-                    let literal = search::literal_lines(Kind::Swift, text);
-                    let at = search::swift_enclosing_type(&lines, &literal, line1)?;
-                    let own = search::swift_type_header(lines[at - 1])?.name;
-                    let ty = self.swift_type(here, &own)?;
-                    let rows = self.swift_member_rows(here, &ty, method)?;
-                    let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
-                    (decl, Some(ty.name))
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, text);
+            let mut at = line1;
+            let mut own = None;
+            while let Some(up) = search::swift_enclosing_type(&lines, &literal, at) {
+                let ty = self.swift_type(here, &search::swift_type_header(lines[up - 1])?.name)?;
+                let rows = self.swift_member_rows(here, &ty, method)?;
+                if !rows.is_empty() {
+                    own = Some((<[Hit; 1]>::try_from(rows).ok()?, ty.name));
+                    break;
                 }
-                Err(_) => return None,
+                at = up;
+            }
+            match (own, <[Hit; 1]>::try_from(funcs)) {
+                (Some(([decl], owner)), _) => (decl, Some(owner)),
+                (None, Ok([decl])) => (decl, None),
+                (None, Err(_)) => return None,
             }
         } else {
             let hops = hops.checked_sub(1)?;
@@ -865,12 +869,17 @@ impl App {
         let literal = search::literal_lines(Kind::Swift, text);
         let mut scope = search::swift_scope(&lines, &literal, line1).header_line1;
         while scope > 0 {
-            if search::swift_generics(lines[scope - 1]).iter().any(|g| g == name) {
+            if search::swift_generics(lines[scope - 1])
+                .iter()
+                .any(|g| g == name)
+            {
                 return None;
             }
             scope = search::swift_scope(&lines, &literal, scope).header_line1;
         }
-        let ty = self.swift_type(here, name).filter(|t| t.keyword.is_some())?;
+        let ty = self
+            .swift_type(here, name)
+            .filter(|t| t.keyword.is_some())?;
         let mut rows = self.swift_member_rows(here, &ty, word)?;
         rows.retain(|h| {
             search::swift_member_kind(&h.text) == Some(search::SwiftMember::StaticOrClass)
