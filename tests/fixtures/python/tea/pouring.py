@@ -53,11 +53,11 @@ def brew() -> int:
     cup = (
         Brewer()
         .leaves(3)
-        #^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46; want tea/brewer.py:49 (#1152)
+        #^ d: tea/brewer.py:49
         .temperature(90)
-        #^ d: picker tea/brewer.py:53, tea/brewer.py:65; want tea/brewer.py:53 (#1152)
+        #^ d: tea/brewer.py:53
         .build()
-        #^ d: picker tea/brewer.py:57, tea/brewer.py:68; want tea/brewer.py:57 (#1152)
+        #^ d: tea/brewer.py:57
     )
     return cup.sip() + cup.strength
     #          ^ d: picker tea/brewer.py:37, tea/brewer.py:71; want tea/brewer.py:37 (#1152)
@@ -67,10 +67,10 @@ def brew() -> int:
 def quick() -> int:
     return make_brewer().leaves(1).build().size + Brewer.classic().build().sip()
     #                    ^ d: tea/brewer.py:49
-    #                              ^ d: picker tea/brewer.py:57, tea/brewer.py:68; want tea/brewer.py:57 (#1152)
-    #                                      ^ d: picker tea/brewer.py:30, tea/brewing.py:68; want tea/brewer.py:30 (#1152)
+    #                              ^ d: tea/brewer.py:57
+    #                                      ^ d: tea/brewer.py:30
     #                                                    ^ d: tea/brewer.py:46
-    #                                                                      ^ d: picker tea/brewer.py:37, tea/brewer.py:71; want tea/brewer.py:37 (#1152)
+    #                                                                      ^ d: tea/brewer.py:37
 
 
 def aliased(machine: Machine) -> int:

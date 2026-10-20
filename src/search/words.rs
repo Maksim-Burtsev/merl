@@ -457,7 +457,9 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     let led = |l: &str| {
         let t = l.trim_start();
         match kind {
-            Kind::TsJs | Kind::Rust | Kind::Swift => t.starts_with('.') && !t.starts_with(".."),
+            Kind::TsJs | Kind::Rust | Kind::Swift | Kind::Python => {
+                t.starts_with('.') && !t.starts_with("..")
+            }
             Kind::Jvm | Kind::Dart => {
                 t.strip_prefix('?').unwrap_or(t).starts_with('.') && !t.starts_with("..")
             }

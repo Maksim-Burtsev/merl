@@ -215,11 +215,11 @@ impl App {
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();
-        if kind == Kind::Go
+        if matches!(kind, Kind::Go | Kind::Python)
             && head.is_none()
             && dotted
             && chain.is_empty()
-            && let Some(answer) = self.go_call_chain(&a.here, &a.written, a.start, word)
+            && let Some(answer) = self.call_chain(kind, &a.here, &a.written, a.start, word)
         {
             match answer {
                 Ok(found) if !found.is_empty() => return self.show_found(a, found),
