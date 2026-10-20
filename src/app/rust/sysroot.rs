@@ -64,7 +64,10 @@ impl App {
         }
         let mut files = Vec::new();
         for krate in ["core", "alloc", "std"] {
-            files.extend(self.sysroot_crate(krate).map(|c| c.files).unwrap_or_default());
+            let Some(krate) = self.sysroot_crate(krate) else {
+                return Some(Vec::new());
+            };
+            files.extend(krate.files);
         }
         let hits = search::grep_project(
             &self.root,
