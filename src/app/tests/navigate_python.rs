@@ -1601,3 +1601,13 @@ fn a_class_an_outside_package_re_exports_by_star_is_its_class() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_python_member_set_from_outside_is_no_absence_of_its_class() {
+    py_rows(vec![(
+        "`lid.shout = shout` makes `shout` no proof that Lid lacks it",
+        "tea/guards.py",
+        "lid.shout|(\"x\")",
+        Shown::Jump("no definition for shout".into(), "tea/guards.py:59".into()),
+    )]);
+}

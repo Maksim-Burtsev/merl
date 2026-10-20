@@ -51,3 +51,15 @@ def guarded(path: str) -> int:
     #    ^ d: tea/guards.py:7
     return len(textwrap.ribbon("x"))
     #                   ^ d: textwrap.py:1
+
+
+def lidded() -> str:
+    lid = Lid()
+    lid.shout = shout
+    return lid.shout("x")
+
+
+def wrapped() -> str:
+    return textwrap.dedent("x")
+    #               ^ d: none
+    # status: no definition
