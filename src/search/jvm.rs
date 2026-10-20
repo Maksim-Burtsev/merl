@@ -846,10 +846,12 @@ pub fn jvm_literal_type(line: &str, name: &str, java: bool) -> Option<&'static s
     if java {
         return None;
     }
+    if Regex::new(r"^-?(?:0[xX][0-9a-fA-F_]+|[0-9][0-9_]*)$").is_ok_and(|re| re.is_match(value)) {
+        return kotlin_int_type(value);
+    }
     [
         (r"^'(?:[^'\\]|\\.[^']*)'$", "Char"),
         (r"^(?:true|false)$", "Boolean"),
-        (r"^-?(?:0[xX][0-9a-fA-F_]+|[0-9][0-9_]*)$", "Int"),
         (r"^-?(?:0[xX][0-9a-fA-F_]+|[0-9][0-9_]*)L$", "Long"),
         (r"^-?[0-9][0-9_]*\.[0-9][0-9_]*$", "Double"),
         (r"^-?[0-9][0-9_]*(?:\.[0-9][0-9_]*)?[fF]$", "Float"),
@@ -857,6 +859,24 @@ pub fn jvm_literal_type(line: &str, name: &str, java: bool) -> Option<&'static s
     .into_iter()
     .find(|(r, _)| Regex::new(r).is_ok_and(|re| re.is_match(value)))
     .map(|(_, ty)| ty)
+}
+
+fn kotlin_int_type(value: &str) -> Option<&'static str> {
+    let digits: String = value.trim_start_matches('-').replace('_', "");
+    let n = match digits
+        .strip_prefix("0x")
+        .or_else(|| digits.strip_prefix("0X"))
+    {
+        Some(hex) => u64::from_str_radix(hex, 16),
+        None => digits.parse::<u64>(),
+    }
+    .ok()?;
+    let int = u64::from(i32::MAX.unsigned_abs());
+    match n {
+        n if n <= int => Some("Int"),
+        n if n > int + 1 && n <= i64::MAX.unsigned_abs() => Some("Long"),
+        _ => None,
+    }
 }
 
 pub fn jvm_return_type(line: &str, name: &str, kotlin: bool) -> Option<String> {
