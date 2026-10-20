@@ -1014,6 +1014,9 @@ impl App {
                 .find(|h| (&h.path, h.line1) == (&hit.path, hit.line1))
                 .map(typed);
         }
+        if decls.is_empty() {
+            return self.rust_alias(&name);
+        }
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
     }
 
