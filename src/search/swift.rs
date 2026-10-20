@@ -586,7 +586,7 @@ pub fn swift_rebinds(line: &str, name: &str) -> bool {
     {
         return true;
     }
-    let t = KEYWORD.find(t).map_or(t, |m| &t[m.end()..]);
+    let t = KEYWORD.find(t).and_then(|m| t.get(m.end()..)).unwrap_or(t);
     let t = t.split(" else").next().unwrap_or(t);
     let t = t.trim_end().trim_end_matches('{');
     split_top(Kind::Swift, t, b',')
