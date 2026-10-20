@@ -633,6 +633,7 @@ pub enum PhpBinding {
     New(String),
     StaticCall { class: String, method: String },
     ThisCall(String),
+    VarCall { var: String, method: String },
     FunctionCall(String),
     ThisProperty(String),
     Captured,
@@ -806,6 +807,8 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         LazyLock::new(|| Regex::new(r"^([\w\\]+)::(\w+)\s*\(").expect("the regex is a literal"));
     static THIS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*\(").expect("the regex is a literal"));
+    static VAR_CALL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\$(\w+)->(\w+)\s*\(").expect("the regex is a literal"));
     static PROPERTY: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*;").expect("the regex is a literal"));
     static FUNCTION: LazyLock<Regex> =
@@ -859,6 +862,16 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     }
     if let Some(c) = THIS.captures(value) {
         return Some(PhpBinding::ThisCall(c[1].to_owned()));
+    }
+    if let Some(c) = VAR_CALL.captures(value)
+        && !value
+            .get(c.get_match().end()..)
+            .is_some_and(|r| r.trim_start().starts_with("..."))
+    {
+        return Some(PhpBinding::VarCall {
+            var: c[1].to_owned(),
+            method: c[2].to_owned(),
+        });
     }
     let c = FUNCTION.captures(value)?;
     let short = c[1]
@@ -921,16 +934,71 @@ pub fn php_anonymous_class(line: &str) -> Option<PhpClassHeader<'_>> {
     })
 }
 
-pub fn php_return_type(header: &str) -> Option<String> {
+pub fn php_return_written(header: &str) -> Option<&str> {
     static RETURNS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*:\s*\??([\w\\]+)\s*(?:\{|;|$)").expect("the regex is a literal")
     });
     let function = header.find("function")?;
     let open = function + header.get(function..)?.find('(')?;
     let close = close_of(Kind::Php, header, open)?;
-    let written = RETURNS.captures(header.get(close..)?)?.get(1)?.as_str();
+    Some(RETURNS.captures(header.get(close..)?)?.get(1)?.as_str())
+}
+
+pub fn php_return_type(header: &str) -> Option<String> {
+    let written = php_return_written(header)?;
     let short = written.rsplit('\\').next().unwrap_or(written);
     (!NO_CLASS.contains(&short.to_ascii_lowercase().as_str())).then(|| written.to_owned())
+}
+
+pub enum PhpCallHead {
+    This,
+    Var(String),
+    New(String),
+}
+
+pub fn php_call_chain(before: &str) -> Option<(PhpCallHead, Vec<String>)> {
+    static VAR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])\$(\w+)$").expect("the regex is a literal"));
+    let mut rest = before.strip_suffix('.')?;
+    let mut calls = Vec::new();
+    while let Some((head, name)) = php_call_segment(rest) {
+        calls.insert(0, name.to_owned());
+        rest = head;
+    }
+    if calls.is_empty() {
+        return None;
+    }
+    let head = match php_new_receiver(&format!("{rest}->")) {
+        Some(written) => PhpCallHead::New(written),
+        None => match &VAR.captures(rest)?[1] {
+            "this" => PhpCallHead::This,
+            v => PhpCallHead::Var(v.to_owned()),
+        },
+    };
+    Some((head, calls))
+}
+
+fn php_call_segment(rest: &str) -> Option<(&str, &str)> {
+    let inner = rest.strip_suffix(')')?;
+    let mut depth = 1;
+    let (open, _) = inner.char_indices().rev().find(|&(_, c)| {
+        match c {
+            ')' => depth += 1,
+            '(' => depth -= 1,
+            _ => {}
+        }
+        depth == 0
+    })?;
+    let (head, args) = inner.split_at_checked(open)?;
+    if args.contains(['\'', '"']) || args.trim() == "(..." {
+        return None;
+    }
+    let name_at = head
+        .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_')
+        .len();
+    let (head, name) = head.split_at_checked(name_at)?;
+    let head = head.strip_suffix('.')?;
+    (!name.is_empty() && !name.starts_with(|c: char| c.is_ascii_digit())).then_some((head, name))
 }
 
 pub(super) fn php_code(l: &str) -> String {

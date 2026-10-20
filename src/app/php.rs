@@ -76,6 +76,9 @@ impl App {
         {
             return Some(found);
         }
+        if dotted && let Some(found) = self.php_called(here, text, before, word, access) {
+            return Some(found);
+        }
         if let Some(written) = self
             .line_str()
             .get(..range.start)
@@ -633,6 +636,12 @@ impl App {
                     let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("{on}::{method}(): {written}")))
                 }
+                search::PhpBinding::VarCall { var, method } => {
+                    let ProvenClass { class, .. } =
+                        self.php_variable_type(here, text, &var, at.checked_sub(1)?, false)?;
+                    let Returned { class, written } = self.php_returns(&class, &method)?;
+                    (class, Some(format!("${var}->{method}(): {written}")))
+                }
                 search::PhpBinding::ThisCall(method) => {
                     let class = Self::php_self(here, text, at)?;
                     let Returned { class, written } = self.php_returns(&class, &method)?;
@@ -670,7 +679,7 @@ impl App {
         found
     }
 
-    fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
+    fn php_one_method(&mut self, class: &PhpClass, method: &str) -> Option<Hit> {
         let re =
             Regex::new(&search::php_access_patterns(method, search::PhpAccess::Call).join("|"))
                 .ok()?;
@@ -684,10 +693,85 @@ impl App {
         ) else {
             return None;
         };
-        let [hit] = hits.as_slice() else {
+        let [hit] = <[Hit; 1]>::try_from(hits).ok()?;
+        Some(hit)
+    }
+
+    fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
+        let hit = self.php_one_method(class, method)?;
+        self.php_declared_return(&hit.path, hit.line1 - 1)
+    }
+
+    fn php_returns_static(&self, hit: &Hit) -> bool {
+        let Some(text) = self.text_of(&hit.path) else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let at = hit.line1 - 1;
+        let Some(header) = lines.get(at..lines.len().min(at + 20)) else {
+            return false;
+        };
+        !header
+            .first()
+            .is_some_and(|l| l.trim_start().starts_with('*'))
+            && search::php_return_written(&header.join("\n"))
+                .is_some_and(|w| w.eq_ignore_ascii_case("static"))
+    }
+
+    fn php_called(
+        &mut self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+        access: search::PhpAccess,
+    ) -> Option<Vec<Candidate>> {
+        let (head, calls) = search::php_call_chain(before)?;
+        let (mut class, mut links) = match head {
+            search::PhpCallHead::This => (Self::php_self(here, text, self.line)?, Vec::new()),
+            search::PhpCallHead::New(written) => (
+                self.php_type(here, text, self.line, &written)?,
+                vec![format!("new {written}")],
+            ),
+            search::PhpCallHead::Var(name) => {
+                let ProvenClass { class, link } =
+                    self.php_variable_type(here, text, &name, self.line, true)?;
+                (class, vec![link])
+            }
+        };
+        for method in &calls {
+            let hit = self.php_one_method(&class, method)?;
+            let returned = if self.php_returns_static(&hit) {
+                Returned {
+                    class,
+                    written: "static".to_owned(),
+                }
+            } else {
+                self.php_declared_return(&hit.path, hit.line1 - 1)?
+            };
+            links.push(format!("{method}(): {}", returned.written));
+            class = returned.class;
+        }
+        let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
+        let Walk::Found(hits) = self.php_walk(
+            &class.path,
+            &class.text,
+            class.header0,
+            &re,
+            0,
+            &mut Vec::new(),
+        ) else {
             return None;
         };
-        self.php_declared_return(&hit.path, hit.line1 - 1)
+        let reason = Reason::Receiver(links.join(" \u{2192} "));
+        Some(
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
     }
 
     fn php_function_returns(&self, here: &Path, name: &str) -> Option<Returned> {

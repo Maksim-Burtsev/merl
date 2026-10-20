@@ -1128,6 +1128,52 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         Some(PhpBinding::ThisProperty("pot".into()))
     );
     assert_eq!(php_binding("$pot = $this->pot->x;", "pot"), None);
+    assert_eq!(php_binding("$pot = $leaf->steep(...);", "pot"), None);
+    assert_eq!(
+        php_binding("$pot = $pot->steep();", "pot"),
+        Some(PhpBinding::VarCall {
+            var: "pot".into(),
+            method: "steep".into()
+        })
+    );
+    for (before, head, want) in [
+        (
+            "return $leaf.steep().rinse(1, f($x)).",
+            "leaf",
+            vec!["steep", "rinse"],
+        ),
+        (
+            "return (new Leaf()).withWater(80).steep().",
+            "new Leaf",
+            vec!["withWater", "steep"],
+        ),
+        ("$this.items().", "this", vec!["items"]),
+    ] {
+        let Some((got_head, calls)) = php_call_chain(before) else {
+            panic!("{before}");
+        };
+        let got_head = match got_head {
+            PhpCallHead::This => "this".to_owned(),
+            PhpCallHead::Var(v) => v,
+            PhpCallHead::New(t) => format!("new {t}"),
+        };
+        assert_eq!(
+            (got_head.as_str(), calls),
+            (head, want.iter().map(|s| (*s).to_owned()).collect()),
+            "{before}"
+        );
+    }
+    for before in [
+        "Flush::from('x').",
+        "$pour().",
+        "$a.b.c().",
+        "$x.m(...).",
+        "$leaf.",
+        "make($a).steep().",
+        "$x.m(')').",
+    ] {
+        assert!(php_call_chain(before).is_none(), "{before}");
+    }
     for (line, want) in [
         ("[$a, $pot] = [new A(), new B($x)];", Some("B")),
         ("list(, $pot) = [new A(), new B];", Some("B")),
