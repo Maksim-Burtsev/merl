@@ -124,7 +124,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     {
         return Value::Type(ty.trim().to_owned());
     }
-    if NAME.is_match(e) && !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self") {
+    let this_alias = kind == Kind::TsJs && e == "this";
+    if NAME.is_match(e)
+        && (this_alias || !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self"))
+    {
         return Value::Name(e.to_owned());
     }
     Value::Unknown
@@ -642,6 +645,11 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
     }
     if let Some(owner) = super::prototype_owner(header) {
         return Some(Value::Type(owner.to_owned()));
+    }
+    if let Some(name) =
+        super::js_constructor(header).filter(|n| n.starts_with(|c: char| c.is_ascii_uppercase()))
+    {
+        return Some(Value::Type(name.to_owned()));
     }
     let before = header.strip_suffix('{').map(str::trim_end);
     let case = (header.starts_with("case ") || header.starts_with("default"))
