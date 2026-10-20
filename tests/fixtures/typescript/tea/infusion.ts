@@ -47,7 +47,7 @@ export function deepest(basket: Basket): Basket {
 export function measure(words: string[]): number[] {
   return words.map((clip) => clip.length + inner());
   //                         ^ d: tea/infusion.ts:48
-  //                                       ^ d: picker tea/infusion.ts:52, …; want tea/infusion.ts:52 (#1146)
+  //                                       ^ d: tea/infusion.ts:52
 
   function inner(): number {
     return clip("x").length;
@@ -112,4 +112,12 @@ export function tidy(text: string, cups: Map<string, Basket>): number {
   //          ^ d: none
   //                                ^ d: none
   //                                          ^ d: tea/strainer.ts:37
+}
+
+export function besideMeasure(): number {
+  if (besideMeasure.length) {
+    return inner();
+    //     ^ d: !jump
+  }
+  return 0;
 }

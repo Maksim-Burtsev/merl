@@ -37,7 +37,7 @@ export function eachShot(shot, shots) {
 export function weigh(names) {
   return names.map((pad) => pad.length + inner());
   //                        ^ d: coffee/pulling.mjs:38
-  //                                     ^ d: picker coffee/pulling.mjs:42, …; want coffee/pulling.mjs:42 (#1146)
+  //                                     ^ d: coffee/pulling.mjs:42
 
   function inner() {
     return pad("x").length;
