@@ -187,14 +187,14 @@ impl App {
         self.ruby_methods_from(here, word, class, false)
     }
 
-    fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
+    pub(super) fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
         let from = search::ruby_class_path(&self.text_of(here)?, self.line + 1);
         let own = from == name || from.ends_with(&format!("::{name}"));
         self.ruby_resolve(here, &from, name)
             .or_else(|| own.then_some(from))
     }
 
-    fn ruby_methods_from(
+    pub(super) fn ruby_methods_from(
         &self,
         here: &Path,
         word: &str,
@@ -379,7 +379,7 @@ impl App {
             .collect()
     }
 
-    fn ruby_resolve(&self, here: &Path, class: &str, name: &str) -> Option<String> {
+    pub(super) fn ruby_resolve(&self, here: &Path, class: &str, name: &str) -> Option<String> {
         let (name, mut scope) = match name.strip_prefix("::") {
             Some(top) => (top, ""),
             None => (name, class),

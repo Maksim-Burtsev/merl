@@ -132,6 +132,24 @@ impl App {
         false
     }
 
+    fn ruby_answered_on_value(&mut self, a: &Asked) -> bool {
+        let word = &a.word;
+        if !a.dotted || a.own() {
+            return false;
+        }
+        let found = self.ruby_receiver_methods(&a.here, &a.text, &a.before, word);
+        if !found.is_empty() {
+            return self.show_found(a, found);
+        }
+        self.truncated.set(false);
+        let Some(via) = self.ruby_core_receiver(&a.here, &a.text, &a.before, word) else {
+            return false;
+        };
+        self.offer_only = false;
+        self.message = format!("{word}: builtin, no source (via {via})");
+        true
+    }
+
     pub(super) fn patterns(&mut self, a: &Asked, near: &Near) -> Option<Patterns> {
         let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
         let before = a.before.as_str();
@@ -194,13 +212,7 @@ impl App {
             }
             self.truncated.set(false);
         }
-        if kind == Kind::Ruby
-            && dotted
-            && let Some(via) = self.ruby_core_receiver(&a.here, &a.text, before, word)
-        {
-            self.offer_only = false;
-            self.truncated.set(false);
-            self.message = format!("{word}: builtin, no source (via {via})");
+        if lower && self.ruby_answered_on_value(a) {
             return None;
         }
         if kind == Kind::Elixir && dotted {

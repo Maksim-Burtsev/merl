@@ -21,20 +21,20 @@ module Tea
     def brew
       cup = Brewer.new
         .leaves(3)
-        #^ d: picker lib/tea/samovar.rb:37, lib/tea/samovar.rb:53; want lib/tea/samovar.rb:37 (#1160)
+        #^ d: lib/tea/samovar.rb:37
         .temperature(90)
-        #^ d: picker lib/tea/samovar.rb:42, lib/tea/samovar.rb:57; want lib/tea/samovar.rb:42 (#1160)
+        #^ d: lib/tea/samovar.rb:42
         .build
-        #^ d: picker app/builder.rb:3, lib/tea/samovar.rb:47, lib/tea/samovar.rb:61; want lib/tea/samovar.rb:47 (#1160)
+        #^ d: lib/tea/samovar.rb:47
       cup.sip
-      #   ^ d: picker lib/tea/samovar.rb:31, lib/tea/samovar.rb:65; want lib/tea/samovar.rb:31 (#1160)
+      #   ^ d: lib/tea/samovar.rb:31
     end
 
     def quick
       Brewer.new.leaves(1).build.sip + Kit.make.leaves(2).build.size
       #          ^ d: lib/tea/samovar.rb:37
-      #                    ^ d: picker app/builder.rb:3, lib/tea/samovar.rb:47, lib/tea/samovar.rb:61; want lib/tea/samovar.rb:47 (#1160)
-      #                          ^ d: picker lib/tea/samovar.rb:31, lib/tea/samovar.rb:65; want lib/tea/samovar.rb:31 (#1160)
+      #                    ^ d: lib/tea/samovar.rb:47
+      #                          ^ d: lib/tea/samovar.rb:31
       #                                  ^ d: lib/tea/samovar.rb:91
       #                                       ^ d: lib/tea/samovar.rb:94
     end
@@ -43,7 +43,7 @@ module Tea
       cup = Cup.new(1)
       cup = cup.next_cup
       #     ^ d: lib/tea/pouring.rb:43
-      #         ^ d: picker lib/tea/samovar.rb:24; want lib/tea/samovar.rb:24 (#1161)
+      #         ^ d: lib/tea/samovar.rb:24
       cup.sip
       # ^ d: picker lib/tea/pouring.rb:43, lib/tea/pouring.rb:44
     end
@@ -69,8 +69,8 @@ module Tea
     def kin
       Samovar.new(1).decant(2) + Urn.new(1).pour(2) + Samovar.new(1).spill + Samovar.new(1).volume
       #              ^ d: lib/tea/samovar.rb:85
-      #                              ^ d: none; want lib/tea/samovar.rb:88 (#1161)
-      #                                     ^ d: picker lib/tea/kettle.rb:40, lib/tea/samovar.rb:81, lib/tea/vessel.rb:4; want lib/tea/samovar.rb:81 (#1161)
+      #                          ^ d: lib/tea/samovar.rb:88
+      #                                     ^ d: lib/tea/samovar.rb:81
       #                                                              ^ d: lib/tea/vessel.rb:8
       #                                                                                     ^ d: lib/tea/vessel.rb:20
     end
@@ -78,8 +78,8 @@ module Tea
     def taps
       kettle = Kettle.new(1)
       Kettle.new(1).tap { |k| k.cold } && kettle&.cold
-      #                         ^ d: picker lib/tea/kettle.rb:20, lib/tea/kettle.rb:24; want lib/tea/kettle.rb:24 (#1161)
-      #                                             ^ d: picker lib/tea/kettle.rb:20, lib/tea/kettle.rb:24; want lib/tea/kettle.rb:24 (#1161)
+      #                         ^ d: lib/tea/kettle.rb:24
+      #                                             ^ d: lib/tea/kettle.rb:24
       ::Tea::Cup.new(1).sip + Leaf.new("g").color.size
       #      ^ d: lib/tea/samovar.rb:23
       #                 ^ d: lib/tea/samovar.rb:31
