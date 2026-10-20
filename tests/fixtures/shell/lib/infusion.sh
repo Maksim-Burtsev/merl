@@ -10,7 +10,7 @@ whisk() {
 
 matcha() {
   local leaf=$leaf
-  #           ^ d: picker lib/infusion.sh:4; want lib/infusion.sh:4 (#1181)
+  #           ^ d: lib/infusion.sh:4
   echo "$leaf"
   #      ^ d: lib/infusion.sh:12
 }
@@ -24,4 +24,10 @@ fi
 declare -A tins=([green]=1 [black]=2)
 
 export -f whisk
-#         ^ d: picker lib/infusion.sh:7, bin/steeping.sh:6; want lib/infusion.sh:7 (#1180)
+#         ^ d: lib/infusion.sh:7
+
+oolong() {
+  local leaf="${leaf:-green}"
+  #     ^ d: !jump
+  #             ^ d: lib/infusion.sh:4
+}

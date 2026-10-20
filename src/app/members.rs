@@ -797,6 +797,11 @@ impl App {
         let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
             return true;
         };
+        if kind == Kind::Shell
+            && (line.get(..r.start)).is_some_and(|b| b.ends_with('$') || b.ends_with("${"))
+        {
+            return false;
+        }
         let part = |c: char| is_word(c) || search::word_chars(Some(kind), true).contains(c);
         let around = |i: usize| Some((line.get(..i)?, line.get(i + word.len()..)?));
         let at: Vec<usize> = line
