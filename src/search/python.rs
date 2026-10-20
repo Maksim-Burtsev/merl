@@ -221,6 +221,31 @@ pub fn python_opened(line: &str, name: &str) -> bool {
     ))
     .is_ok_and(|r| r.is_match(t.trim()))
 }
+pub fn python_comprehension_over(line: &str, name: &str) -> Option<String> {
+    let t = uncommented(Kind::Python, line);
+    Regex::new(&format!(
+        r"\bfor\s+{}\s+in\s+([A-Za-z_]\w*)\s*(?:[\])}}]|\bif\b)",
+        regex::escape(name)
+    ))
+    .ok()?
+    .captures(&t)
+    .map(|c| c[1].to_owned())
+}
+pub fn python_called(expr: &str) -> Option<String> {
+    match value_of(Kind::Python, expr) {
+        Value::Call(callee) => Some(callee),
+        _ => None,
+    }
+}
+pub fn python_sum_operands(line: &str, name: &str) -> Option<Vec<String>> {
+    let t = uncommented(Kind::Python, line);
+    let rest = t.trim().strip_prefix(name)?.trim_start().strip_prefix('=')?;
+    if rest.starts_with('=') {
+        return None;
+    }
+    let operands = split_top(Kind::Python, rest, b'+');
+    (operands.len() > 1).then(|| operands.iter().map(|o| o.trim().to_owned()).collect())
+}
 #[derive(Clone, Copy)]
 enum Scope {
     Def(usize),
