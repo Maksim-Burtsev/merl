@@ -218,7 +218,7 @@ pub fn ruby_reopens_core(opener: &str, class: &str) -> bool {
     })
 }
 
-fn receiver_split(before: &str) -> (&str, &str) {
+pub fn ruby_receiver_split(before: &str) -> (&str, &str) {
     let mut depth = 0usize;
     let mut quote = None;
     for (i, c) in before.char_indices().rev() {
@@ -241,7 +241,7 @@ fn receiver_split(before: &str) -> (&str, &str) {
     ("", before)
 }
 
-fn last_call(expr: &str) -> Option<(&str, &str)> {
+pub fn ruby_last_call(expr: &str) -> Option<(&str, &str)> {
     let callee = match expr.strip_suffix(')') {
         Some(inner) => {
             let mut depth = 0usize;
@@ -297,7 +297,7 @@ fn core_value(
         return None;
     }
     let expr = expr.trim();
-    if let Some((receiver, method)) = last_call(expr) {
+    if let Some((receiver, method)) = ruby_last_call(expr) {
         return match method {
             "to_s" | "inspect" => Some("String"),
             "to_a" => Some("Array"),
@@ -340,7 +340,7 @@ fn core_value(
         .strip_prefix('=')
         .filter(|v| !v.starts_with(['=', '~', '>']))?;
     let value = value.trim();
-    let (head, whole) = receiver_split(value);
+    let (head, whole) = ruby_receiver_split(value);
     if !head.trim().is_empty() {
         return None;
     }
@@ -355,6 +355,6 @@ pub fn ruby_core_receiver(
 ) -> Option<&'static str> {
     let receiver = before.strip_suffix('.')?;
     let receiver = receiver.strip_suffix('&').unwrap_or(receiver);
-    let (prefix, expr) = receiver_split(receiver);
+    let (prefix, expr) = ruby_receiver_split(receiver);
     core_value(text, line1, prefix, expr, constant, 0)
 }

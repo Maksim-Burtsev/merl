@@ -54,7 +54,7 @@ module Tea
 
     def quirk
       strength = strength.to_i
-      #          ^ d: picker lib/tea/pouring.rb:51; want lib/tea/pouring.rb:56 (#1162)
+      #          ^ d: lib/tea/pouring.rb:56
       [1].each { |c; strength| strength = c }
       #                        ^ d: lib/tea/pouring.rb:58
       strength

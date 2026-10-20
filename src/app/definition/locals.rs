@@ -80,6 +80,10 @@ impl App {
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
             || ruby_block
+            || (kind == Kind::Ruby
+                && !a.dotted
+                && locals == [self.line + 1]
+                && search::ruby_assigns_before(self.line_str(), word, range.start))
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));

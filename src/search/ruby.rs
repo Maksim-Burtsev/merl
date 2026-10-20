@@ -408,6 +408,13 @@ pub fn ruby_in_module(text: &str, line1: usize) -> bool {
         .is_some_and(|l| l.starts_with("module "))
 }
 
+pub fn ruby_assigns_before(line: &str, name: &str, at: usize) -> bool {
+    Regex::new(&ruby_assignment(name))
+        .ok()
+        .and_then(|re| re.find(line))
+        .is_some_and(|m| m.end() <= at)
+}
+
 pub fn ruby_inside_core(text: &str, line1: usize, class: &str) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
