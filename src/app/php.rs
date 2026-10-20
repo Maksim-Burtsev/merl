@@ -738,6 +738,26 @@ impl App {
                     self.php_variable_type(here, text, &name, self.line, true)?;
                 (class, vec![link])
             }
+            search::PhpCallHead::Callable(name) => {
+                let [b] = search::php_variable(text, self.line + 1, &name)?[..] else {
+                    return None;
+                };
+                let at = b.checked_sub(1).filter(|&at| at < self.line)?;
+                let line = text.lines().nth(at)?;
+                let (var, method) = search::php_first_class_callable(line, &name)?;
+                let class = match var.as_str() {
+                    "this" => Self::php_self(here, text, at)?,
+                    _ => {
+                        self.php_variable_type(here, text, &var, at.checked_sub(1)?, false)?
+                            .class
+                    }
+                };
+                let Returned { class, written } = self.php_returns(&class, &method)?;
+                (
+                    class,
+                    vec![format!("${name} = ${var}->{method}(...): {written}")],
+                )
+            }
         };
         for method in &calls {
             let hit = self.php_one_method(&class, method)?;

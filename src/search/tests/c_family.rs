@@ -1148,6 +1148,7 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
             vec!["withWater", "steep"],
         ),
         ("$this.items().", "this", vec!["items"]),
+        ("return $arrow()   $pour().", "$pour()", vec![]),
     ] {
         let Some((got_head, calls)) = php_call_chain(before) else {
             panic!("{before}");
@@ -1156,6 +1157,7 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
             PhpCallHead::This => "this".to_owned(),
             PhpCallHead::Var(v) => v,
             PhpCallHead::New(t) => format!("new {t}"),
+            PhpCallHead::Callable(v) => format!("${v}()"),
         };
         assert_eq!(
             (got_head.as_str(), calls),
@@ -1165,7 +1167,7 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
     }
     for before in [
         "Flush::from('x').",
-        "$pour().",
+        "$this().",
         "$a.b.c().",
         "$x.m(...).",
         "$leaf.",
@@ -1173,6 +1175,17 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         "$x.m(')').",
     ] {
         assert!(php_call_chain(before).is_none(), "{before}");
+    }
+    assert_eq!(
+        php_first_class_callable("    $pour = $leaf->steep(...);", "pour"),
+        Some(("leaf".to_owned(), "steep".to_owned()))
+    );
+    for line in [
+        "$pour = $leaf->steep(...)->x;",
+        "$pour = $leaf->steep();",
+        "$pour = $leaf->steep(...); $pour = 1;",
+    ] {
+        assert_eq!(php_first_class_callable(line, "pour"), None, "{line}");
     }
     for (line, want) in [
         ("[$a, $pot] = [new A(), new B($x)];", Some("B")),

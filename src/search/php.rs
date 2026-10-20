@@ -954,28 +954,42 @@ pub enum PhpCallHead {
     This,
     Var(String),
     New(String),
+    Callable(String),
 }
 
 pub fn php_call_chain(before: &str) -> Option<(PhpCallHead, Vec<String>)> {
-    static VAR: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"(?:^|[^\w$:>])\$(\w+)$").expect("the regex is a literal"));
+    static VAR: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$:>])\$(\w+)(\(\))?$").expect("the regex is a literal")
+    });
     let mut rest = before.strip_suffix('.')?;
     let mut calls = Vec::new();
     while let Some((head, name)) = php_call_segment(rest) {
         calls.insert(0, name.to_owned());
         rest = head;
     }
-    if calls.is_empty() {
-        return None;
-    }
     let head = match php_new_receiver(&format!("{rest}->")) {
         Some(written) => PhpCallHead::New(written),
-        None => match &VAR.captures(rest)?[1] {
-            "this" => PhpCallHead::This,
-            v => PhpCallHead::Var(v.to_owned()),
-        },
+        None => {
+            let c = VAR.captures(rest)?;
+            match (&c[1], c.get(2)) {
+                ("this", None) => PhpCallHead::This,
+                ("this", Some(_)) => return None,
+                (v, None) => PhpCallHead::Var(v.to_owned()),
+                (v, Some(_)) => PhpCallHead::Callable(v.to_owned()),
+            }
+        }
     };
-    Some((head, calls))
+    (!calls.is_empty() || matches!(head, PhpCallHead::Callable(_))).then_some((head, calls))
+}
+
+pub fn php_first_class_callable(line: &str, name: &str) -> Option<(String, String)> {
+    let re = Regex::new(&format!(
+        r"^\s*\${}\s*=\s*\$(\w+)->(\w+)\(\s*\.\.\.\s*\)\s*;\s*$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
 }
 
 fn php_call_segment(rest: &str) -> Option<(&str, &str)> {

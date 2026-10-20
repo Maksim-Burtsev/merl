@@ -98,7 +98,7 @@ final class Ceremony
         $pour = $leaf->steep(...);
         //             ^ d: src/Tea/Infuse/Leaf.php:27
         return $arrow() . $pour()->pour();
-        //                         ^ d: picker src/Tea/Infuse/Gaiwan.php:7, src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Infuse/Gaiwan.php:7 (#1174)
+        //                         ^ d: src/Tea/Infuse/Gaiwan.php:7
     }
 
     public function flush(): string
