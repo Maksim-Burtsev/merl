@@ -817,7 +817,7 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         return Some(PhpBinding::Type(t));
     }
     if let Some(made) = php_destructured(first, name) {
-        return made;
+        return Some(made);
     }
     let at = assign.captures(first)?.get(1)?.start();
     let value = statement.get(at..)?.trim_start();
@@ -869,7 +869,7 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     (!NO_CLASS.contains(&short.as_str())).then(|| PhpBinding::FunctionCall(c[1].to_owned()))
 }
 
-fn php_destructured(line: &str, name: &str) -> Option<Option<PhpBinding>> {
+fn php_destructured(line: &str, name: &str) -> Option<PhpBinding> {
     static LIST: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:\[|list\s*\()([^=\[\]()]*)[\])]\s*=\s*\[(.*)\]\s*;\s*$")
             .expect("the regex is a literal")
@@ -882,7 +882,7 @@ fn php_destructured(line: &str, name: &str) -> Option<Option<PhpBinding>> {
     let at = c[1].split(',').position(|v| v.trim() == var)?;
     let items = &c[2];
     if c[1].contains("=>") || items.contains(['\'', '"', '#']) || items.contains("//") {
-        return Some(None);
+        return None;
     }
     let mut depth = 0i32;
     let mut parts = vec![String::new()];
@@ -898,21 +898,27 @@ fn php_destructured(line: &str, name: &str) -> Option<Option<PhpBinding>> {
         }
         parts.last_mut()?.push(ch);
     }
-    let class = NEW
-        .captures(parts.get(at)?.trim())
+    NEW.captures(parts.get(at)?.trim())
         .map(|n| n[1].to_owned())
-        .filter(|t| !matches!(t.to_ascii_lowercase().as_str(), "static" | "class" | "parent"));
-    Some(class.map(PhpBinding::New))
+        .filter(|t| {
+            !matches!(
+                t.to_ascii_lowercase().as_str(),
+                "static" | "class" | "parent"
+            )
+        })
+        .map(PhpBinding::New)
 }
 
-pub fn php_anonymous_class(line: &str) -> Option<Option<&str>> {
+pub fn php_anonymous_class(line: &str) -> Option<PhpClassHeader<'_>> {
     static ANONYMOUS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"=\s*new\s+class\b(?:\s*\([^()]*\))?(?:\s+extends\s+([\w\\]+))?(?:\s+implements\s+[\w\\,\s]+)?\s*\{\s*$")
             .expect("the regex is a literal")
     });
-    ANONYMOUS
-        .captures(line)
-        .map(|c| c.get(1).map(|m| m.as_str()))
+    ANONYMOUS.captures(line).map(|c| PhpClassHeader {
+        keyword: "class",
+        name: "class",
+        extends: c.get(1).map(|m| m.as_str()),
+    })
 }
 
 pub fn php_return_type(header: &str) -> Option<String> {

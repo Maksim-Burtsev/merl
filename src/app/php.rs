@@ -341,10 +341,9 @@ impl App {
                 other => return other,
             }
         }
-        let parent = match search::php_class_header(lines[class]) {
-            Some(h) => h.extends,
-            None => search::php_anonymous_class(lines[class]).flatten(),
-        };
+        let parent = search::php_class_header(lines[class])
+            .or_else(|| search::php_anonymous_class(lines[class]))
+            .and_then(|h| h.extends);
         match parent {
             Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere,
