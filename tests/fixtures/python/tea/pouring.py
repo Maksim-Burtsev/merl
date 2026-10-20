@@ -156,3 +156,14 @@ def mixed(brewers: list[Brewer], raw: str) -> int:
     return len([b.leaves(1) for b in more]) + len([s.leaves(1) for s in both])
     #                  ^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46
     #                                                 ^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46
+
+
+class Lab:
+    @classmethod
+    def setup(cls) -> None:
+        cls.kit = Brewer()
+
+    def run(self) -> int:
+        return self.kit.leaves(1).build().sip()
+        #           ^ d: tea/pouring.py:164
+        #               ^ d: tea/brewer.py:49
