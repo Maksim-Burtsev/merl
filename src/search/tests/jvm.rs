@@ -264,6 +264,7 @@ fn a_kotlin_call_chain_is_read_back_to_its_head() {
     let d = kotlin_destructured("    val (stroke, mesh) = plunger", "stroke")
         .map(|d| (d.index, d.source, d.in_loop));
     assert_eq!(d, Some((0, "plunger".into(), false)));
+    assert!(kotlin_destructured("    val (a, b) = a", "b").is_none());
     let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
     assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
     assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");

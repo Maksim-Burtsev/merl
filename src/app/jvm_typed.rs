@@ -168,7 +168,7 @@ impl App {
                 let element = Self::jvm_element(text, line1, &d.source, false)?;
                 self.jvm_type_at(file, text, &element)
             } else {
-                self.jvm_value(file, text, line1, &d.source, true, 0)?
+                self.jvm_value(file, text, line1, &d.source, true, 1)?
                     .resolved
             };
             let JvmType::Project(decl) = source else {
@@ -182,6 +182,20 @@ impl App {
             });
         }
         let init = search::kotlin_initializer(text, line1, name)?;
+        if init.trim() == name
+            && search::bindings(Kind::Jvm, text, line1.checked_sub(1)?, name).is_empty()
+        {
+            let members = search::jvm_enclosing_types(text, line1)
+                .into_iter()
+                .map(|d| search::jvm_members_of(text, d, name))
+                .find(|m| !m.is_empty())?;
+            let [m] = members[..] else {
+                return None;
+            };
+            let written = search::jvm_declared_type(text.lines().nth(m - 1)?, name, true)?;
+            let resolved = self.jvm_type_at(file, text, &written);
+            return Some(WrittenType { resolved, written });
+        }
         let chain = search::kotlin_call_chain(&format!("{init}."))?;
         let (resolved, links) = self.kotlin_chain_type(file, text, None, &chain)?;
         let written = links.last()?.rsplit(": ").next()?.to_owned();

@@ -120,6 +120,9 @@ pub fn kotlin_destructured(line: &str, name: &str) -> Option<KotlinDestructured>
         Some(c) => (c, false),
         None => (FOR.captures(&code)?, true),
     };
+    if c[1].split(',').any(|e| e.trim() == &c[2]) {
+        return None;
+    }
     let index = c[1].split(',').position(|e| e.trim() == name)?;
     Some(KotlinDestructured {
         index,

@@ -73,7 +73,7 @@ class Cafetiere(private val carafe: Carafe) : Carafe(), Lever {
         val (stroke, mesh) = plunger
         return total + stroke + mesh.sieve() + push(3) + Gasket().seal()
         //             ^ d: src/main/kotlin/press/Cafetiere.kt:73
-        //                           ^ d: picker src/main/kotlin/press/Mesh.kt:4, src/main/kotlin/press/parts/Mesh.kt:4; want src/main/kotlin/press/Mesh.kt:4 (#1133)
+        //                           ^ d: src/main/kotlin/press/Mesh.kt:4
         //                                     ^ d: src/main/kotlin/press/Brewing.kt:7
         //                                                        ^ d: src/main/kotlin/press/parts/Gasket.kt:4
     }
