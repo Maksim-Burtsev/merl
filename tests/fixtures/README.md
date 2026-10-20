@@ -604,7 +604,10 @@ migration, and `1_init` beside `10_more`, whose order is unclear and keeps the p
 body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
 derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
 `audit_ladles` creates an `audit.ladles` after `ladles`: a column through `FROM ladles l` stays
-in `ladles`, and one only `audit.ladles` has answers nothing.
+in `ladles`, one only `audit.ladles` has answers nothing, and `ladles` itself offers both.
+`touch_ladles` and `touch_strainers` create a trigger `touch` on two tables and a function
+`scoop` with two signatures, one of them re-created: the two triggers and the two signatures
+in effect stay a picker.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one

@@ -5,3 +5,5 @@ SELECT l.depth, l.at FROM ladles l;
 --                ^ d: none
 SELECT a.at FROM audit.ladles a;
 --       ^ d: migrations/2024-05-01-000005_audit_ladles/up.sql:2
+SELECT * FROM ladles;
+--            ^ d: picker migrations/2024-04-01-000004_pour_strainers/up.sql:3, migrations/2024-05-01-000005_audit_ladles/up.sql:2

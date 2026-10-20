@@ -436,12 +436,54 @@ fn sql_runs_before(a: &str, b: &str) -> Option<bool> {
     (before == (numeric(&x) < numeric(&y))).then_some(before)
 }
 
+fn sql_identity(text: &str) -> Option<String> {
+    static OBJECT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?i)\b(TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|TYPE|SCHEMA|SEQUENCE|DOMAIN|EXTENSION|DATABASE|ROLE|USER|ENUM)\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?:(?:ONLY|CONCURRENTLY)\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+        ))
+        .expect("a valid pattern")
+    });
+    static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"(?i)\sON\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"))
+            .expect("a valid pattern")
+    });
+    let norm = |t: &str| {
+        t.chars()
+            .filter(|c| !c.is_whitespace() && !matches!(c, '"' | '`'))
+            .collect::<String>()
+            .to_ascii_lowercase()
+    };
+    let c = OBJECT.captures(text)?;
+    let (kind, named) = (c[1].to_ascii_lowercase(), c.get(2)?);
+    let qualified = norm(named.as_str());
+    let schema = qualified.rsplit_once('.').map_or("", |s| s.0);
+    let rest = text.get(named.end()..)?;
+    let of = match kind.as_str() {
+        "trigger" => norm(&ON.captures(rest)?[1]),
+        "function" | "procedure" => {
+            let args = rest.trim_start().strip_prefix('(')?;
+            let mut depth = 0_usize;
+            let end = args.char_indices().find_map(|(i, c)| match c {
+                '(' => {
+                    depth += 1;
+                    None
+                }
+                ')' if depth == 0 => Some(i),
+                ')' => {
+                    depth -= 1;
+                    None
+                }
+                _ => None,
+            })?;
+            norm(args.get(..end)?)
+        }
+        _ => String::new(),
+    };
+    Some(format!("{kind} {schema} {of}"))
+}
+
 pub fn sql_in_effect(here: &Path, line1: usize, hits: &[Hit]) -> Option<Vec<usize>> {
     let (dir, cursor, down) = sql_migration(here)?;
-    let object = Regex::new(
-        r"(?i)\b(TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|TYPE|SCHEMA|SEQUENCE|DOMAIN|EXTENSION|DATABASE|ROLE|USER|ENUM)\b",
-    )
-    .expect("a valid pattern");
     let mut best: Vec<(String, usize, &str, bool)> = Vec::new();
     for (i, h) in hits.iter().enumerate() {
         let Some((_, folder, h_down)) = sql_migration(&h.path).filter(|m| m.0 == dir) else {
@@ -459,7 +501,7 @@ pub fn sql_in_effect(here: &Path, line1: usize, hits: &[Hit]) -> Option<Vec<usiz
         if !earlier {
             continue;
         }
-        let kind = object.find(&h.text)?.as_str().to_ascii_lowercase();
+        let kind = sql_identity(&h.text)?;
         match best.iter_mut().find(|b| b.0 == kind) {
             None => best.push((kind, i, folder, h_down)),
             Some(b) => {
