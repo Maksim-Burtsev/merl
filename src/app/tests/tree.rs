@@ -251,10 +251,7 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
     std::os::unix::fs::symlink("src", dir.join("inside")).unwrap();
     let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
-    for (link, file, readonly) in [
-        ("inside", "src/a.py", None),
-        ("out", "out/far.txt", Some("outside the project")),
-    ] {
+    for (link, file) in [("inside", "src/a.py"), ("out", "out/far.txt")] {
         a.focus = Focus::Tree;
         a.tree.reveal(Path::new(link));
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
@@ -267,8 +264,8 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
             a.message
         );
         assert_eq!(
-            a.buf.readonly, readonly,
-            "{file}: behind a link out, read-only as a file `d` reaches out there"
+            a.buf.readonly, None,
+            "{file}: a file behind a link out opens editable, as the OS opens it (#500)"
         );
     }
     std::fs::remove_dir_all(&outside).unwrap();
@@ -277,7 +274,7 @@ fn the_files_behind_a_link_to_a_directory_open_from_the_tree() {
 
 #[cfg(unix)]
 #[test]
-fn a_link_to_a_file_outside_the_project_opens_read_only() {
+fn a_link_to_a_file_outside_the_project_opens_editable_and_saves_through() {
     let (dir, _) = new_file_project("filelink");
     let outside = dir.with_extension("outside");
     drop(std::fs::remove_dir_all(&outside));
@@ -287,7 +284,7 @@ fn a_link_to_a_file_outside_the_project_opens_read_only() {
     std::os::unix::fs::symlink("src/a.py", dir.join("in.py")).unwrap();
     let (tree, files) = crate::tree::build(&dir, false);
     let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
-    for (link, readonly) in [("in.py", None), ("out.py", Some("outside the project"))] {
+    for link in ["in.py", "out.py"] {
         a.focus = Focus::Tree;
         a.tree.reveal(Path::new(link));
         press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
@@ -297,8 +294,34 @@ fn a_link_to_a_file_outside_the_project_opens_read_only() {
             "{}",
             a.message
         );
-        assert_eq!(a.buf.readonly, readonly, "{link}");
+        assert_eq!(a.buf.readonly, None, "{link}");
     }
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    typed(&mut a, "#");
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
+    assert_eq!(
+        std::fs::read_to_string(outside.join("far.py")).unwrap(),
+        "#far = 1\n",
+        "a save writes into the file the link leads to (#500)"
+    );
+    assert!(
+        std::fs::symlink_metadata(dir.join("out.py"))
+            .unwrap()
+            .file_type()
+            .is_symlink(),
+        "and keeps the link"
+    );
+    std::fs::write(dir.join("README.md"), "[far](out.py)\n").unwrap();
+    a.jump_to(&dir.join("README.md"), 1);
+    a.col = 1;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.buf.readonly),
+        (Some(&*dir.join("out.py")), None),
+        "`d` on a markdown link to it opens it editable too: {}",
+        a.message
+    );
     std::fs::remove_dir_all(&outside).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
 }
