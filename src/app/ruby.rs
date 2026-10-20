@@ -60,8 +60,12 @@ impl App {
                 reason: Reason::Path(path.clone()),
             })
             .collect();
-        if found.is_empty() && word != "initialize" {
-            found = self.ruby_extended(here, chain, word);
+        if found.is_empty() {
+            found = if word == "initialize" {
+                self.ruby_inherited_initialize(here, chain)
+            } else {
+                self.ruby_extended(here, chain, word)
+            };
         }
         match (found.is_empty(), word == "initialize") {
             (true, true) => ("new".to_owned(), found),
@@ -163,6 +167,16 @@ impl App {
     fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
         self.ruby_class_named(here, &chain.join("::"))
             .map(|class| self.ruby_methods_from(here, word, class, true))
+            .unwrap_or_default()
+    }
+
+    fn ruby_inherited_initialize(&self, here: &Path, chain: &[String]) -> Vec<Candidate> {
+        self.ruby_constant_class(here, &chain.join("::"))
+            .filter(|class| {
+                self.ruby_methods_from(here, "new", class.clone(), true)
+                    .is_empty()
+            })
+            .map(|class| self.ruby_methods_from(here, "initialize", class, false))
             .unwrap_or_default()
     }
 
