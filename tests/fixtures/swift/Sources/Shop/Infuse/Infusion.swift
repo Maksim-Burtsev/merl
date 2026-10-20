@@ -63,7 +63,7 @@ func loopHeader(_ leaves: [Sencha]) -> Int {
     var total = 0
     for (grade, sencha) in leaves.enumerated() {
         total += sencha.grade + grade
-        //              ^ d: picker Sources/Shop/Infuse/Sencha.swift:2, Sources/Shop/Tea/Teapot.swift:2; want Sources/Shop/Infuse/Sencha.swift:2 (#1168)
+        //              ^ d: Sources/Shop/Infuse/Sencha.swift:2
         //                      ^ d: Sources/Shop/Infuse/Infusion.swift:64
     }
     return total
@@ -72,7 +72,7 @@ func loopHeader(_ leaves: [Sencha]) -> Int {
 func destructured(_ pair: (Sencha, Int)) -> Int {
     let (sencha, grade) = pair
     return sencha.grade + grade
-    //            ^ d: picker Sources/Shop/Infuse/Sencha.swift:2, Sources/Shop/Tea/Teapot.swift:2; want Sources/Shop/Infuse/Sencha.swift:2 (#1168)
+    //            ^ d: Sources/Shop/Infuse/Sencha.swift:2
     //                    ^ d: Sources/Shop/Infuse/Infusion.swift:73
 }
 
@@ -91,7 +91,7 @@ func closureParam() -> Int {
 
 func shorthand(_ leaves: [Sencha]) -> [String] {
     leaves.map { $0.label() }
-    //              ^ d: picker Sources/Shop/Basket.swift:152, Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18; want Sources/Shop/Infuse/Sencha.swift:12 (#1168)
+    //              ^ d: Sources/Shop/Infuse/Sencha.swift:12
 }
 
 extension Gyokuro {
@@ -131,4 +131,9 @@ func neighbours(_ sencha: Sencha) -> Int {
     //                     ^ d: Sources/Shop/Infuse/Sencha.swift:44
     //                             ^ d: Sources/Shop/Infuse/Sencha.swift:46
     //                                      ^ d: Sources/Shop/Infuse/Sencha.swift:51
+}
+
+func maybe(_ leaves: [Sencha]?) -> Int? {
+    leaves.map { $0.count }
+    //              ^ d: !jump
 }

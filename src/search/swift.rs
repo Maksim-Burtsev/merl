@@ -968,6 +968,7 @@ pub enum SwiftGiven {
     Type(String),
     Value(String),
     Element(String),
+    Item(String, usize),
 }
 pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     static INDEXED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -983,6 +984,19 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     ));
     if let Some(c) = each.captures(t) {
         return Some(SwiftGiven::Element(c[1].trim().to_owned()));
+    }
+    let enumerated = rule(format!(
+        r"^for\s+(?:case\s+)?(?:let\s+)?\(\s*\w+\s*,\s*`?{n}`?\s*\)\s+in\s+([A-Za-z_][\w.]*)\.enumerated\(\)\s*\{{?\s*$"
+    ));
+    if let Some(c) = enumerated.captures(t) {
+        return Some(SwiftGiven::Element(c[1].to_owned()));
+    }
+    let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*([A-Za-z_][\w.]*)$".to_owned());
+    if let Some(c) = tuple.captures(t) {
+        let at = c[1]
+            .split(',')
+            .position(|p| p.trim().trim_matches('`') == name)?;
+        return Some(SwiftGiven::Item(c[2].to_owned(), at));
     }
     let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
     let c = at.captures_iter(t).find(|c| {
@@ -1040,6 +1054,23 @@ pub fn swift_type_name(written: &str) -> Option<String> {
         && t.chars().all(|c| c.is_alphanumeric() || c == '_')
         && !matches!(t, "Self" | "Any" | "AnyObject" | "any" | "some"))
     .then(|| t.to_owned())
+}
+pub fn swift_closure_sequence(lead: &str) -> Option<String> {
+    static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|(?:sorted|min|max)\(\s*by:)\s*\{[^{}]*\$0\.[\w.]*$")
+            .expect("the regex is a literal")
+    });
+    Some(EACH.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
+}
+pub fn swift_tuple_item(written: &str, at: usize) -> Option<String> {
+    let inner = written.trim().strip_prefix('(')?.strip_suffix(')')?;
+    let items = split_top(Kind::Swift, inner, b',');
+    let item = items.get(at).filter(|_| items.len() > 1)?.trim();
+    let item = match item.split_once(':') {
+        Some((label, t)) if label.trim().chars().all(|c| c.is_alphanumeric() || c == '_') => t,
+        _ => item,
+    };
+    Some(item.trim().to_owned())
 }
 pub fn swift_element(written: &str) -> Option<String> {
     let t = written.trim().trim_end_matches(['?', '!']);

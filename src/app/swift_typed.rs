@@ -248,6 +248,18 @@ impl App {
             let own = search::swift_type_header(lines[around? - 1])?.name;
             return Some(WrittenVia::plain(own));
         }
+        if name == "0" {
+            let lead = (file == here && line1 == self.line + 1)
+                .then(|| lines[line1 - 1].get(..self.col))
+                .flatten()?;
+            let each = search::swift_closure_sequence(lead)?;
+            let seq = self.swift_expr(here, file, text, line1, &each, hops)?;
+            if seq.written.trim_end().ends_with(['?', '!']) {
+                return None;
+            }
+            let given = search::SwiftGiven::Element(each);
+            return self.swift_given_type(here, file, text, line1, given, hops);
+        }
         if name == "super" {
             let own = search::swift_type_header(lines[around? - 1])?.name;
             let ty = self.swift_type(here, &own)?;
@@ -301,6 +313,13 @@ impl App {
         let via = match given {
             search::SwiftGiven::Type(t) => WrittenVia::plain(t),
             search::SwiftGiven::Value(e) => self.swift_expr(here, file, text, line1, &e, hops)?,
+            search::SwiftGiven::Item(e, at) => {
+                let tuple = self.swift_expr(here, file, text, line1, &e, hops)?;
+                WrittenVia {
+                    written: search::swift_tuple_item(&tuple.written, at)?,
+                    call_signature: tuple.call_signature,
+                }
+            }
             search::SwiftGiven::Element(e) => {
                 let collection = self.swift_expr(here, file, text, line1, &e, hops)?;
                 WrittenVia {
