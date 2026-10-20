@@ -125,6 +125,22 @@ pub enum Ask<'a> {
 
 pub type Fit<'a> = &'a mut dyn FnMut(Ask, usize) -> Option<(u16, u16)>;
 
+fn options() -> Options {
+    Options::ENABLE_TABLES
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_GFM
+        | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
+}
+
+pub fn bare_url_in(src: &str, span: &Range<usize>) -> bool {
+    let events: Vec<_> = Parser::new_ext(src, options()).into_offset_iter().collect();
+    forge::bare_urls(src, &events)
+        .iter()
+        .any(|u| u.start < span.end && span.start < u.end)
+}
+
 pub fn layout(lines: &[String], width: usize, light: bool, fit: Fit) -> Doc {
     let src = lines.join("\n");
     let mut starts = vec![0];
@@ -137,13 +153,9 @@ pub fn layout(lines: &[String], width: usize, light: bool, fit: Fit) -> Doc {
         light,
         ..Default::default()
     };
-    let opts = Options::ENABLE_TABLES
-        | Options::ENABLE_TASKLISTS
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_FOOTNOTES
-        | Options::ENABLE_GFM
-        | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS;
-    let events: Vec<_> = Parser::new_ext(&src, opts).into_offset_iter().collect();
+    let events: Vec<_> = Parser::new_ext(&src, options())
+        .into_offset_iter()
+        .collect();
     lay.urls = forge::bare_urls(&src, &events);
     for (ev, r) in events {
         lay.event(ev, r);
@@ -640,7 +652,18 @@ impl Lay<'_> {
                 let lines = self.html.take().unwrap_or_default();
                 let gap_row = self.rows.len();
                 self.html_block(lines);
-                if self.rows.len() == gap_row {
+                let marker_waits = matches!(
+                    self.stack.last(),
+                    Some(Frame::Item {
+                        first_row_marker: Some(_),
+                        ..
+                    })
+                );
+                if self.rows.len() == gap_row && marker_waits {
+                    let at = self.line_and_byte_col(r.start);
+                    self.push("", Vec::new(), at, Kind::Text);
+                    self.gap_before_next_block = true;
+                } else if self.rows.len() == gap_row {
                     self.rows.truncate(self.html_from.0);
                     self.gap_before_next_block = self.html_from.1;
                 } else {
@@ -738,7 +761,15 @@ impl Lay<'_> {
             .map(|u| u.start.max(r.start)..u.end.min(r.end))
             .collect();
         if urls.is_empty() {
+            let in_url = self.link == 0
+                && self.image == 0
+                && self
+                    .urls
+                    .get(first)
+                    .is_some_and(|u| u.start <= r.start && r.end <= u.end);
+            self.link += usize::from(in_url);
             self.text(t, self.look(), r);
+            self.link -= usize::from(in_url);
             return;
         }
         let mut at = r.start;
@@ -1101,12 +1132,18 @@ impl Lay<'_> {
     }
 
     fn html_block(&mut self, lines: Vec<(String, (usize, usize))>) {
+        let raw_text = lines.first().is_some_and(|(l, _)| forge::holds_raw_text(l));
         let mut in_comment = false;
         let lines: Vec<_> = lines
             .into_iter()
-            .filter_map(|(line, at)| {
-                let kept = forge::without_comments(&line, &mut in_comment);
-                (kept == line || !kept.trim().is_empty()).then_some((kept, at))
+            .filter_map(|(line, (l, c))| {
+                if raw_text {
+                    return Some((line, (l, c)));
+                }
+                let was_in_comment = in_comment;
+                let (kept, lead) = forge::without_comments(&line, &mut in_comment);
+                let shown = !kept.trim().is_empty() || !was_in_comment && kept == line;
+                shown.then_some((kept, (l, c + lead)))
             })
             .collect();
         let mut all = String::new();

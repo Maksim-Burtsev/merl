@@ -4,20 +4,31 @@ use std::sync::LazyLock;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use regex::Regex;
 
-pub fn without_comments(line: &str, in_comment: &mut bool) -> String {
+pub fn holds_raw_text(first_line: &str) -> bool {
+    let start = first_line.trim_start().to_ascii_lowercase();
+    ["<script", "<pre", "<style", "<textarea"]
+        .iter()
+        .any(|tag| start.starts_with(tag))
+}
+
+pub fn without_comments(line: &str, in_comment: &mut bool) -> (String, usize) {
     let mut out = String::new();
+    let mut lead = 0;
     let mut rest = line;
     loop {
         if *in_comment {
             let Some((_, after)) = rest.split_once("-->") else {
-                return out;
+                return (out, lead);
             };
+            if out.is_empty() {
+                lead = line.len() - after.len();
+            }
             rest = after;
             *in_comment = false;
         }
         let Some((before, after)) = rest.split_once("<!--") else {
             out.push_str(rest);
-            return out;
+            return (out, lead);
         };
         out.push_str(before);
         rest = after;

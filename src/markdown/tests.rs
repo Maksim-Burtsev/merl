@@ -945,3 +945,43 @@ fn a_url_inside_a_link_or_a_word_is_not_a_bare_url() {
     let d = doc("[https://a.example](x) and nothttps://b.example", 200);
     assert_eq!(look_of(&d, "nothttps://b.example"), Ink::Text.plain());
 }
+
+#[test]
+fn an_item_holding_only_a_comment_keeps_its_marker_and_its_number() {
+    assert_eq!(
+        texts(&doc("1. one\n2. <!-- two -->\n3. three\n", 30)),
+        ["1. one", "2. ", "3. three"]
+    );
+}
+
+#[test]
+fn a_blank_line_inside_a_comment_vanishes_with_it() {
+    assert_eq!(
+        texts(&doc("Top\n\n<!--\nnote\n\nmore\n-->\n\nAfter\n", 30)),
+        ["Top", "", "After"]
+    );
+}
+
+#[test]
+fn a_script_block_keeps_a_comment_opener_as_written() {
+    assert_eq!(
+        texts(&doc("<script>\nvar s = \"<!--\";\n</script>\n", 30)),
+        ["<script>", "var s = \"<!--\";", "</script>"]
+    );
+}
+
+#[test]
+fn a_row_after_a_leading_comment_starts_where_its_text_does() {
+    let d = doc("<div>\n<!-- c --><a href=\"b.md\">bee</a>\n</div>\n", 40);
+    let row = d.rows.iter().find(|r| r.text.contains("bee")).unwrap();
+    assert_eq!(row.src, (1, 10));
+}
+
+#[test]
+fn an_entity_inside_a_bare_url_keeps_the_link_colour() {
+    let d = doc("Go to https://e.com/?a=1&amp;b=2 now.", 80);
+    assert_eq!(
+        look_of(&d, "https://e.com/?a=1&b=2"),
+        look(Ink::Link, Modifier::UNDERLINED)
+    );
+}

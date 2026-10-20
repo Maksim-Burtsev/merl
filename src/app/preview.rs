@@ -251,7 +251,9 @@ impl App {
                 self.start_edit();
                 return true;
             }
-            KeyCode::Char('d') if plain => {
+            KeyCode::Char('d')
+                if plain && self.buf.path.as_deref().is_some_and(markdown::is_markdown) =>
+            {
                 let from = p.doc.rows[row].src;
                 let to = p.doc.rows.get(row + 1).map(|r| r.src).filter(|&s| s > from);
                 self.follow_from_row(from, to);
@@ -294,8 +296,14 @@ impl App {
         };
         let to = to.unwrap_or((from.0, usize::MAX));
         let text = lines.join("\n");
-        let Some(at) = crate::search::first_link_in(&text, &(offset(from)..offset(to))) else {
-            self.message = "no link here".into();
+        let span = offset(from)..offset(to);
+        let Some(at) = crate::search::first_link_in(&text, &span) else {
+            self.message = if markdown::bare_url_in(&text, &span) {
+                "link outside the project"
+            } else {
+                "no link here"
+            }
+            .into();
             return;
         };
         let before = text.get(..at).unwrap_or_default();

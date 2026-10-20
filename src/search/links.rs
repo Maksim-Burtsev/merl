@@ -25,6 +25,25 @@ fn fenced_code_html_comment_or_front_matter(text: &str, ev: &Event, r: &Range<us
     }
 }
 
+fn in_html_comment(text: &str, r: &Range<usize>, at: usize) -> bool {
+    let Some(t) = text.get(r.clone()) else {
+        return false;
+    };
+    let mut from = 0;
+    while let Some(open) = t.get(from..).and_then(|s| s.find("<!--")) {
+        let start = from + open;
+        let end = t
+            .get(start + 4..)
+            .and_then(|s| s.find("-->"))
+            .map_or(t.len(), |e| start + 4 + e + 3);
+        if (r.start + start..r.start + end).contains(&at) {
+            return true;
+        }
+        from = end;
+    }
+    false
+}
+
 static HREF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#)
         .expect("the regex is a literal")
@@ -63,7 +82,13 @@ pub fn markdown_at(text: &str, at: usize) -> MdAt {
         if !r.contains(&at) {
             continue;
         }
-        if fenced_code_html_comment_or_front_matter(text, &ev, &r) {
+        let html = matches!(
+            ev,
+            Event::Start(Tag::HtmlBlock) | Event::InlineHtml(_) | Event::Html(_)
+        );
+        if html && in_html_comment(text, &r, at)
+            || !html && fenced_code_html_comment_or_front_matter(text, &ev, &r)
+        {
             return MdAt::Nothing;
         }
         match ev {
