@@ -558,8 +558,12 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let buf = terminal.backend().buffer();
     assert_eq!(
-        (buf[(0, 1)].bg, buf[(7, 1)].bg),
-        (theme.cursor_gutter_bg(), theme.del_bg_hl),
+        (buf[(0, 1)].fg, buf[(0, 1)].bg, buf[(7, 1)].bg),
+        (
+            theme.cursor_gutter_fg,
+            theme.cursor_gutter_bg(),
+            theme.del_bg_hl
+        ),
         "the cursor's deleted line is the cursor line on the deleted tint, its number off it (#913)"
     );
     assert_eq!(buf[(7, 2)].bg, theme.del_bg);
@@ -1140,7 +1144,15 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let y = app.cursor_cell.unwrap().y as usize;
-        let band = (4..30).all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
+        let band: String = (0..30)
+            .map(|x| {
+                if terminal.backend().buffer()[(x, 0)].bg == theme.line_hl {
+                    '-'
+                } else {
+                    '.'
+                }
+            })
+            .collect();
         (rows(&terminal), y, band)
     };
     let (screen, _, _) = press(&mut app, KeyCode::Null);
@@ -1150,10 +1162,15 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
             let (screen, y, band) = press(&mut app, code);
             let pinned = app.top_line > 0;
             assert_eq!(screen[0], "1 fn long() {");
+            let want = match (pinned, app.line) {
+                (true, _) => "-".repeat(30),
+                (false, 0) => format!("...{}", "-".repeat(27)),
+                _ => ".".repeat(30),
+            };
             assert_eq!(
-                band,
-                pinned || app.line == 0,
-                "unpinned, the top row is lit only as the cursor line"
+                band, want,
+                "pinned, the band runs under the number too; unpinned, the top row is lit only \
+                 as the cursor line, from its text on (#913)"
             );
             assert!(y >= usize::from(pinned), "the cursor is under the band");
             assert!(screen[y].starts_with(&format!("{} ", app.line + 1)));
@@ -1488,6 +1505,12 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_not_wrapped() {
     assert_eq!(
         screen[1], "2 \u{2039}bbbbbbbb\u{203a}",
         "the text reaching the right edge exactly: no room for the `…`, so `›` stands there"
+    );
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(2, 1)].bg, buf[(11, 1)].bg),
+        (theme.line_hl, theme.line_hl),
+        "`‹` and `›` sit in the text, on the cursor line's band, not on the number's (#913)"
     );
 }
 
