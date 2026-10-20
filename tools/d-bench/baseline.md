@@ -15,6 +15,7 @@ The ruby row with the fixes of #1093 and #1114: `2594316e`, 2026-10-20, release 
 The c, cpp and objc rows with the fixes of #1140 and #1138: over `c7694294`, 2026-10-20, release build, `vm.loadavg` { 5.58 6.33 7.33 } before the run.
 The php row with the fixes of #1177, #1176, #1175 and #1174: `85c29236`, 2026-10-20, release build, `vm.loadavg` { 8.74 7.48 6.93 } before the run, { 11.93 8.47 7.32 } after.
 The swift row with #1068's fields of a value from outside the project: over `d99cae84`, 2026-10-21, release build, `vm.loadavg` { 7.31 10.68 15.68 } before the run (the times read high under that load).
+The dart row with #1085's local set from a constructor call over several lines: over `88e116da`, 2026-10-21, release build, `vm.loadavg` { 5.24 7.89 11.31 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -49,5 +50,5 @@ The swift row with #1068's fields of a value from outside the project: over `d99
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
-| dart (dio) | 97 | 70 (72%) | 23 (24%) | 0 (0%) | 4 (4%) | 17 | 0 | 44.3 | 124.2 |
+| dart (dio) | 97 | 71 (73%) | 22 (23%) | 0 (0%) | 4 (4%) | 17 | 0 | 37.1 | 103.0 |
 | sql (lemmy) | 79 | 27 (34%) | 12 (15%) | 0 (0%) | 40 (51%) | 31 | 0 | 11.6 | 19.9 |

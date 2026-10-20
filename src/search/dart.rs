@@ -761,7 +761,7 @@ fn dart_new(s: &str, c: &regex::Captures, open: usize) -> Option<(DartType, usiz
     Some((ty, close))
 }
 
-pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
+pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
     let w = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name");
     let declared = rule(format!(
@@ -787,8 +787,16 @@ pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
         });
     }
     let c = assigned.captures(line)?;
-    let (ty, close) = dart_new(line, &c, c.get(0)?.end() - 1)?;
-    line.get(close..)?
+    let open = c.get(0)?.end() - 1;
+    let whole;
+    let s = if close_of(Kind::Dart, line, open).is_some() {
+        line
+    } else {
+        whole = format!("{line}\n{rest}");
+        &whole
+    };
+    let (ty, close) = dart_new(s, &c, open)?;
+    s.get(close..)?
         .trim_start()
         .starts_with(';')
         .then_some(ty)

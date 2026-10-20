@@ -286,7 +286,8 @@ impl App {
             let [b] = bindings.as_slice() else {
                 return None;
             };
-            search::dart_typed(lines.get(b.line1 - 1)?, name)
+            let next: usize = text.split_inclusive('\n').take(b.line1).map(str::len).sum();
+            search::dart_typed(lines.get(b.line1 - 1)?, text.get(next..)?, name)
         };
         let ty = match chain {
             [] if before.ends_with("..") => match search::dart_cascade(before)? {
@@ -377,7 +378,7 @@ impl App {
         }
         let class = search::dart_this_super(text, self.line, false)?.class;
         let [c] = self.dart_member_of(here, &class, field).try_into().ok()?;
-        search::dart_typed(&c.hit.text, field)
+        search::dart_typed(&c.hit.text, "", field)
     }
 
     fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {
