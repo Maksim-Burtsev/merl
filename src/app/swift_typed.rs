@@ -647,10 +647,15 @@ impl App {
             }
             None => {
                 let pattern = search::def_patterns(Kind::Swift, &name).join("|");
-                if !self
-                    .project_definitions(Kind::Swift, here, &name, &pattern)
-                    .is_empty()
+                let defs = self.project_definitions(Kind::Swift, here, &name, &pattern);
+                if let [h] = defs.as_slice()
+                    && self.in_code(Kind::Swift, h)
+                    && let Some(target) = search::swift_alias(&h.text, &name)
+                    && target.trim_start().starts_with('[')
                 {
+                    return self.swift_outside_rows(here, &target, word);
+                }
+                if !defs.is_empty() {
                     return None;
                 }
                 Vec::new()

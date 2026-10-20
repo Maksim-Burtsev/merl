@@ -325,3 +325,13 @@ func addressed(_ credential: URLCredential) -> String {
     credential.url.host
     //             ^ d: Sources/Shop/Outcomes.swift:271
 }
+
+// A typealias of a collection from outside is that collection: its members answer from the
+// project's extensions of it or none (#1068).
+typealias Tags = [String: Int]
+
+func tagged(_ tags: Tags?) -> Bool {
+    guard let tags else { return true }
+    return tags.isEmpty
+    //          ^ d: none
+}
