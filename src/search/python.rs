@@ -727,6 +727,46 @@ pub fn python_in_function(text: &str, line1: usize) -> bool {
     }
     false
 }
+pub fn python_rebinds_in_loop(text: &str, line1: usize, name: &str, col: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let line = uncommented(Kind::Python, lines[at]);
+    let start = indent(lines[at]);
+    let Some(eq) = line
+        .get(start..)
+        .and_then(|t| t.strip_prefix(name))
+        .map(|rest| (rest, rest.trim_start()))
+        .filter(|(_, r)| r.starts_with('=') && !r.starts_with("=="))
+        .map(|(rest, r)| start + name.len() + rest.len() - r.len())
+    else {
+        return false;
+    };
+    if col <= eq {
+        return false;
+    }
+    let literal = literal_lines(Kind::Python, text);
+    let mut depth = start;
+    for i in (0..at).rev() {
+        let t = lines[i].trim_start();
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || t.starts_with(['#', ')', ']']) || literal[i] || indent(lines[i]) >= depth
+        {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if ["while ", "for ", "async for "].iter().any(|k| t.starts_with(k)) {
+            return true;
+        }
+        if ["def ", "async def ", "class "].iter().any(|k| t.starts_with(k)) {
+            return false;
+        }
+    }
+    false
+}
 pub fn python_overload(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(d) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {

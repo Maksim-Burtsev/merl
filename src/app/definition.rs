@@ -435,7 +435,20 @@ impl App {
         let own = (found.iter())
             .find(|c| c.hit.line1 == self.line + 1 && c.hit.path == here)
             .map(|c| c.hit.clone());
-        if all > 1 {
+        let loop_back = kind == Kind::Python
+            && found.iter().all(|c| matches!(c.reason, Reason::Local))
+            && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
+                |(r, w)| {
+                    w == word
+                        && search::python_rebinds_in_loop(
+                            &self.buf.lines.join("\n"),
+                            self.line + 1,
+                            word,
+                            r.start,
+                        )
+                },
+            );
+        if all > 1 && !loop_back {
             found.retain(|c| c.hit.line1 != self.line + 1 || c.hit.path != here);
         }
         let offer_only = std::mem::take(&mut self.offer_only);

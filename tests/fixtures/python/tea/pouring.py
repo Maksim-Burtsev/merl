@@ -93,7 +93,7 @@ def again(brewer: Brewer) -> int:
 def walk(cup: Cup) -> int:
     while cup.next:
         cup = cup.next
-        #     ^ d: tea/pouring.py:93; want picker tea/pouring.py:93, tea/pouring.py:95 (#1154)
+        #     ^ d: picker tea/pouring.py:93, tea/pouring.py:95
         #         ^ d: tea/brewer.py:31
     return cup.size
 
