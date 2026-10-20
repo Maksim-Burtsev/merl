@@ -1,6 +1,8 @@
+use std::path::Path;
+
 use regex::Regex;
 
-use super::{SQL_NAME_PART, sql_create};
+use super::{Hit, SQL_NAME_PART, sql_create};
 
 pub fn sql_cte(word: &str) -> String {
     let w = regex::escape(word);
@@ -405,4 +407,72 @@ pub fn sql_renames(line: &str) -> bool {
     Regex::new(r"(?i)^\s*ALTER\s.*\sRENAME\s+TO\s")
         .expect("a valid pattern")
         .is_match(line)
+}
+
+fn sql_migration(path: &Path) -> Option<(&Path, &str, bool)> {
+    let down = match path.file_name()?.to_str()? {
+        "up.sql" => false,
+        "down.sql" => true,
+        _ => return None,
+    };
+    let folder = path.parent()?;
+    Some((folder.parent()?, folder.file_name()?.to_str()?, down))
+}
+
+fn sql_runs_before(a: &str, b: &str) -> Option<bool> {
+    let version = |f: &str| -> Option<String> {
+        let v: String = f.split('_').next()?.chars().filter(|&c| c != '-').collect();
+        (!v.is_empty() && v.bytes().all(|c| c.is_ascii_digit())).then_some(v)
+    };
+    let (x, y) = (version(a)?, version(b)?);
+    if x.starts_with(&y) || y.starts_with(&x) {
+        return None;
+    }
+    let numeric = |v: &str| {
+        let t = v.trim_start_matches('0');
+        (t.len(), t.to_owned())
+    };
+    let before = x < y;
+    (before == (numeric(&x) < numeric(&y))).then_some(before)
+}
+
+pub fn sql_in_effect(here: &Path, line1: usize, hits: &[Hit]) -> Option<Vec<usize>> {
+    let (dir, cursor, down) = sql_migration(here)?;
+    let object = Regex::new(
+        r"(?i)\b(TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|TYPE|SCHEMA|SEQUENCE|DOMAIN|EXTENSION|DATABASE|ROLE|USER|ENUM)\b",
+    )
+    .expect("a valid pattern");
+    let mut best: Vec<(String, usize, &str, bool)> = Vec::new();
+    for (i, h) in hits.iter().enumerate() {
+        let Some((_, folder, h_down)) = sql_migration(&h.path).filter(|m| m.0 == dir) else {
+            continue;
+        };
+        let earlier = if folder == cursor {
+            if h.path == here {
+                h.line1 < line1
+            } else {
+                down && !h_down
+            }
+        } else {
+            !h_down && sql_runs_before(folder, cursor)?
+        };
+        if !earlier {
+            continue;
+        }
+        let kind = object.find(&h.text)?.as_str().to_ascii_lowercase();
+        match best.iter_mut().find(|b| b.0 == kind) {
+            None => best.push((kind, i, folder, h_down)),
+            Some(b) => {
+                let later = if b.2 == folder {
+                    (h_down, h.line1) > (b.3, hits[b.1].line1)
+                } else {
+                    sql_runs_before(b.2, folder)?
+                };
+                if later {
+                    *b = (kind, i, folder, h_down);
+                }
+            }
+        }
+    }
+    Some(best.into_iter().map(|b| b.1).collect())
 }

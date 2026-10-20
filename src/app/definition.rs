@@ -789,6 +789,16 @@ impl App {
                     !known || !seen
                 }
             });
+            if !hits.iter().any(|h| cte.is_match(&h.text))
+                && let Some(keep) = search::sql_in_effect(here, self.line + 1, hits)
+                && !keep.is_empty()
+            {
+                let mut i = 0;
+                hits.retain(|_| {
+                    i += 1;
+                    keep.contains(&(i - 1))
+                });
+            }
         }
         if hits.iter().any(|h| !search::sql_renames(&h.text)) {
             hits.retain(|h| !search::sql_renames(&h.text));

@@ -584,6 +584,11 @@ another, a closure parameter named like a function, an alias re-exported through
 comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]` and
 `#[cfg(not(unix))]` from two modules: rust-analyzer answers the host's arm, merl offers both.
 
+`sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
+`strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
+function and a trigger sharing a name, the same table read from a plain file outside any
+migration, and `1_init` beside `10_more`, whose order is unclear and keeps the picker.
+
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after
