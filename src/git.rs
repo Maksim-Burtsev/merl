@@ -1035,6 +1035,10 @@ fn package_modules(folder: &Path) -> Vec<String> {
         .collect()
 }
 
+fn dependency_links(folder: &Path) -> impl Iterator<Item = String> {
+    (DEPENDENCIES.map(String::from).into_iter()).chain(package_modules(folder))
+}
+
 fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
     if !(Path::new(b).components()).all(|c| matches!(c, std::path::Component::Normal(_))) {
         bail!("no branch {b}");
@@ -1063,11 +1067,7 @@ fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
         );
     }
     #[cfg(unix)]
-    for name in DEPENDENCIES
-        .map(String::from)
-        .into_iter()
-        .chain(package_modules(&folder))
-    {
+    for name in dependency_links(&folder) {
         let (mine, there) = (root.join(&name), folder.join(&name));
         if mine.is_dir() && there.symlink_metadata().is_err() {
             drop(std::os::unix::fs::symlink(mine, there));
@@ -1167,7 +1167,16 @@ pub fn sweep_folders(root: &Path, now: SystemTime) {
         let Some(path) = folder.to_str() else {
             continue;
         };
-        if (aged || gone()) && git(root, &["worktree", "remove", "--force", path]).is_ok() {
+        if !(aged || gone()) {
+            continue;
+        }
+        for name in dependency_links(&folder) {
+            let link = folder.join(&name);
+            if std::fs::read_link(&link).is_ok_and(|l| l.is_absolute() && l.ends_with(&name)) {
+                drop(std::fs::remove_file(link));
+            }
+        }
+        if git(root, &["worktree", "remove", path]).is_ok() {
             for dir in folder.ancestors().skip(1).take_while(|d| *d != top) {
                 if std::fs::remove_dir(dir).is_err() {
                     break;
