@@ -146,7 +146,6 @@ impl App {
         if kind == Kind::Swift
             && dotted
             && !chain.is_empty()
-            && chain[0] != "super"
             && word != "init"
             && bound(&near.imports, &chain[0]).is_none()
             && let Some(mut found) = self.swift_typed(&a.here, &a.text, word, chain)
@@ -166,7 +165,25 @@ impl App {
             && let Some(head) = search::call_head(kind, &a.written, a.start)
             && head.fields_to_word.is_empty()
             && let Some(mut found) =
-                self.swift_on_call(&a.here, &a.text, word, &head.call_without_arguments)
+                self.swift_on_call(&a.here, &a.text, word, &head.call_without_arguments, &[])
+        {
+            self.swift_by_labels(word, a.range.end, &mut found);
+            if !found.is_empty() {
+                return self.show_found(a, found);
+            }
+        }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && word != "init"
+            && let Some(links) = a.written.get(..a.start).and_then(search::swift_call_links)
+            && let Some(mut found) = self.swift_on_call(
+                &a.here,
+                &a.text,
+                word,
+                &format!("{}()", links[0]),
+                &links[1..],
+            )
         {
             self.swift_by_labels(word, a.range.end, &mut found);
             if !found.is_empty() {

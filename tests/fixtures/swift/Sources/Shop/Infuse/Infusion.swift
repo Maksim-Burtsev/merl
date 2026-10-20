@@ -30,15 +30,15 @@ func builder() -> Int {
         .finish()
 //       ^ d: Sources/Shop/Infuse/Sencha.swift:46
         .taste()
-//       ^ d: picker Sources/Shop/Infuse/Sencha.swift:51, Sources/Shop/Tea/Kettle.swift:99; want Sources/Shop/Infuse/Sencha.swift:51 (#1072)
+//       ^ d: Sources/Shop/Infuse/Sencha.swift:51
 }
 
 func onAResult() -> Int {
     Gyokuro(grade: 2).veil() + Sencha(grade: 1).minutes() + Gyokuro.make().alarm()
     //                ^ d: Sources/Shop/Infuse/Sencha.swift:19
     //                                          ^ d: Sources/Shop/Infuse/Sencha.swift:28
-    //                                                              ^ d: picker Sources/Shop/Infuse/Sencha.swift:14, Sources/Shop/Receivers.swift:41; want Sources/Shop/Infuse/Sencha.swift:14 (#1169)
-    //                                                                     ^ d: picker Sources/Shop/Infuse/Sencha.swift:24, Sources/Shop/Infuse/Sencha.swift:29, Sources/Shop/Infuse/Sencha.swift:33; want Sources/Shop/Infuse/Sencha.swift:33 (#1169)
+    //                                                              ^ d: Sources/Shop/Infuse/Sencha.swift:14
+    //                                                                     ^ d: Sources/Shop/Infuse/Sencha.swift:33
 }
 
 func overridden(_ g: Gyokuro, _ s: Sencha) -> String {
@@ -63,7 +63,7 @@ func loopHeader(_ leaves: [Sencha]) -> Int {
     var total = 0
     for (grade, sencha) in leaves.enumerated() {
         total += sencha.grade + grade
-        //              ^ d: picker Sources/Shop/Infuse/Sencha.swift:2, Sources/Shop/Tea/Teapot.swift:2; want Sources/Shop/Infuse/Sencha.swift:2 (#1168)
+        //              ^ d: Sources/Shop/Infuse/Sencha.swift:2
         //                      ^ d: Sources/Shop/Infuse/Infusion.swift:64
     }
     return total
@@ -72,7 +72,7 @@ func loopHeader(_ leaves: [Sencha]) -> Int {
 func destructured(_ pair: (Sencha, Int)) -> Int {
     let (sencha, grade) = pair
     return sencha.grade + grade
-    //            ^ d: picker Sources/Shop/Infuse/Sencha.swift:2, Sources/Shop/Tea/Teapot.swift:2; want Sources/Shop/Infuse/Sencha.swift:2 (#1168)
+    //            ^ d: Sources/Shop/Infuse/Sencha.swift:2
     //                    ^ d: Sources/Shop/Infuse/Infusion.swift:73
 }
 
@@ -91,20 +91,20 @@ func closureParam() -> Int {
 
 func shorthand(_ leaves: [Sencha]) -> [String] {
     leaves.map { $0.label() }
-    //              ^ d: picker Sources/Shop/Basket.swift:152, Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18; want Sources/Shop/Infuse/Sencha.swift:12 (#1168)
+    //              ^ d: Sources/Shop/Infuse/Sencha.swift:12
 }
 
 extension Gyokuro {
     func again() -> String {
         super.label() + label()
-        //    ^ d: picker Sources/Shop/Basket.swift:152, Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18; want Sources/Shop/Infuse/Sencha.swift:12 (#1170)
+        //    ^ d: Sources/Shop/Infuse/Sencha.swift:12
         //              ^ d: Sources/Shop/Infuse/Sencha.swift:18
     }
 }
 
 func pot(_ kyusu: Kyusu) -> String {
     kyusu.label()
-    //    ^ d: picker Sources/Shop/Basket.swift:152, Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18; want picker Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18 (#1171)
+    //    ^ d: picker Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18
 }
 
 let recipe = """
@@ -130,5 +130,65 @@ func neighbours(_ sencha: Sencha) -> Int {
     return total + Whisk().sift(1).finish().taste()
     //                     ^ d: Sources/Shop/Infuse/Sencha.swift:44
     //                             ^ d: Sources/Shop/Infuse/Sencha.swift:46
-    //                                      ^ d: picker Sources/Shop/Infuse/Sencha.swift:51, Sources/Shop/Tea/Kettle.swift:99; want Sources/Shop/Infuse/Sencha.swift:51 (#1169)
+    //                                      ^ d: Sources/Shop/Infuse/Sencha.swift:51
+}
+
+func maybe(_ leaves: [Sencha]?) -> Int? {
+    leaves.map { $0.label() }
+    //              ^ d: !jump
+}
+
+func kettle() -> Whisk { Whisk() }
+
+struct Hearth {
+    func kettle() -> Hearth { self }
+    var scoops = 0
+    func sift(_ n: Int) -> Hearth { self }
+    func pour() -> Int {
+        kettle().sift(1).scoops
+        //               ^ d: Sources/Shop/Infuse/Infusion.swift:145
+    }
+}
+
+struct Tray<Sencha> {
+    func top() -> String {
+        Sencha.make().label()
+        //            ^ d: !jump
+    }
+}
+
+extension Collection {
+    func brewed() -> Int { 0 }
+}
+
+extension Sequence {
+    func brewed() -> Int { 1 }
+}
+
+class Brewer: Collection {
+    func pour() -> Int { super.brewed() }
+    //                         ^ d: !jump
+}
+
+#if os(macOS)
+typealias Pot = Gyokuro
+#else
+final class Pot: Sencha {}
+#endif
+
+func potted(_ pot: Pot) -> String {
+    pot.label()
+    //  ^ d: !jump
+}
+
+struct Ladle {
+    func dip(_ s: String) -> Whisk { Whisk() }
+    func dip(_ n: Int) -> Hearth { Hearth() }
+}
+
+func ladle() -> Ladle { Ladle() }
+
+func dipped() -> Int {
+    ladle().dip(1).scoops
+    //             ^ d: !jump
 }

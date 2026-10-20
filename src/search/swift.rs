@@ -395,6 +395,53 @@ pub fn swift_alias(line: &str, name: &str) -> Option<String> {
     let c = ALIAS.captures(&t)?;
     (&c[1] == name).then(|| c[2].to_owned())
 }
+pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
+    let mut rest = before.strip_suffix('.')?;
+    let mut links = Vec::new();
+    loop {
+        let open = code(Kind::Swift, rest)
+            .filter(|(_, c)| *c == b'(')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
+        let head = rest.get(..open)?;
+        let start = head
+            .char_indices()
+            .rev()
+            .find(|&(_, c)| !(c.is_alphanumeric() || c == '_'))
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        let name = head.get(start..)?;
+        if !name.starts_with(|c: char| c.is_alphabetic() || c == '_') {
+            return None;
+        }
+        links.insert(0, name.to_owned());
+        match head.get(..start)?.strip_suffix('.') {
+            Some(r) if r.ends_with(')') => rest = r,
+            Some(_) => return None,
+            None => break,
+        }
+    }
+    (links.len() > 1).then_some(links)
+}
+pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
+    let directive = |l: usize| {
+        let t = lines.get(l - 1)?.trim_start();
+        ["#if", "#elseif", "#else", "#endif"].into_iter().find(|d| {
+            t.strip_prefix(d)
+                .is_some_and(|r| !r.starts_with(char::is_alphanumeric))
+        })
+    };
+    let mut at = line1s.to_vec();
+    at.sort_unstable();
+    let [first, ..] = at.as_slice() else {
+        return false;
+    };
+    at.len() > 1
+        && (1..*first).rev().find_map(directive) == Some("#if")
+        && at.windows(2).all(|w| {
+            let between: Vec<&str> = (w[0] + 1..w[1]).filter_map(directive).collect();
+            matches!(between.as_slice(), ["#elseif" | "#else"])
+        })
+}
 pub fn swift_outside_name(written: &str) -> Option<String> {
     let t = written.trim().trim_end_matches(['?', '!']);
     if t.starts_with('[') && t.ends_with(']') {
@@ -919,6 +966,7 @@ pub enum SwiftGiven {
     Type(String),
     Value(String),
     Element(String),
+    Item(String, usize),
 }
 pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     static INDEXED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -934,6 +982,19 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     ));
     if let Some(c) = each.captures(t) {
         return Some(SwiftGiven::Element(c[1].trim().to_owned()));
+    }
+    let enumerated = rule(format!(
+        r"^for\s+(?:case\s+)?(?:let\s+)?\(\s*\w+\s*,\s*`?{n}`?\s*\)\s+in\s+([A-Za-z_][\w.]*)\.enumerated\(\)\s*\{{?\s*$"
+    ));
+    if let Some(c) = enumerated.captures(t) {
+        return Some(SwiftGiven::Element(c[1].to_owned()));
+    }
+    let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*([A-Za-z_][\w.]*)$".to_owned());
+    if let Some(c) = tuple.captures(t) {
+        let at = c[1]
+            .split(',')
+            .position(|p| p.trim().trim_matches('`') == name)?;
+        return Some(SwiftGiven::Item(c[2].to_owned(), at));
     }
     let at = rule(format!(r"(?:^|[^\w.])`?{n}`?\s*([:=])"));
     let c = at.captures_iter(t).find(|c| {
@@ -991,6 +1052,30 @@ pub fn swift_type_name(written: &str) -> Option<String> {
         && t.chars().all(|c| c.is_alphanumeric() || c == '_')
         && !matches!(t, "Self" | "Any" | "AnyObject" | "any" | "some"))
     .then(|| t.to_owned())
+}
+pub fn swift_closure_sequence(lead: &str) -> Option<String> {
+    static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|(?:sorted|min|max)\(\s*by:)\s*\{[^{}]*\$0\.[\w.]*$")
+            .expect("the regex is a literal")
+    });
+    Some(EACH.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
+}
+pub fn swift_tuple_item(written: &str, at: usize) -> Option<String> {
+    let inner = written.trim().strip_prefix('(')?.strip_suffix(')')?;
+    let items = split_top(Kind::Swift, inner, b',');
+    let item = items.get(at).filter(|_| items.len() > 1)?.trim();
+    let item = match item.split_once(':') {
+        Some((label, t))
+            if label
+                .trim()
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_') =>
+        {
+            t
+        }
+        _ => item,
+    };
+    Some(item.trim().to_owned())
 }
 pub fn swift_element(written: &str) -> Option<String> {
     let t = written.trim().trim_end_matches(['?', '!']);
