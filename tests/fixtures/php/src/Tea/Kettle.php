@@ -43,6 +43,25 @@ class Kettle extends Vessel
         return $card . <<<'NOTE'
             A note on the lid.
             //            ^ d: none
+            Not {$this->lid} nor $lid.
+            //          ^ d: none
+            //                    ^ d: none
             NOTE;
+    }
+
+    public function sign(Kettle $other): string
+    {
+        $lid = $this->lid;
+        $plain = 'Lift the lid, then pour {$this->lid}.';
+        //                 ^ d: none
+        //                                        ^ d: none
+        $said = "Pour the lid: $lid, {$this->lid}, $other->lid.";
+        //                ^ d: none
+        //                      ^ d: src/Tea/Kettle.php:54
+        //                                   ^ d: src/Tea/Kettle.php:9
+        //                                                 ^ d: src/Tea/Kettle.php:9
+        $call = [$other, 'pour'];
+        //                ^ d: picker src/Tea/Kettle.php:11, src/Tea/Infuse/Gaiwan.php:7, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12, src/Tea/brew.php:10
+        return $plain . $said . $call(1);
     }
 }
