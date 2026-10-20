@@ -595,8 +595,39 @@ fn mentioned_as_value(lines: &[&str], w: &str, right_of_let: bool) -> bool {
             Some(p) => code.get(p.end..).unwrap_or_default().to_owned(),
             None => code,
         };
+        let code = without_closures_binding(&code, w);
         mention.captures_iter(&code).any(|c| c.get(3).is_none())
     })
+}
+fn without_closures_binding(line: &str, w: &str) -> String {
+    static OPENS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:[(,={;]|\bmove)\s*(\|[^|]*\|)").expect("the regex is a literal")
+    });
+    let mut out = line.to_owned();
+    if !line.contains('|') {
+        return out;
+    }
+    let binds = Regex::new(&format!(r"\b{w}\b")).expect("an escaped name keeps the pattern valid");
+    for c in OPENS.captures_iter(line) {
+        let Some(params) = c.get(1).filter(|p| binds.is_match(p.as_str())) else {
+            continue;
+        };
+        let body = line.get(params.end()..).unwrap_or_default();
+        let mut depth = 0i32;
+        let stop = code(Kind::Rust, body)
+            .find(|&(_, b)| {
+                match b {
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ => {}
+                }
+                depth < 0 || (depth == 0 && matches!(b, b',' | b';'))
+            })
+            .map_or(body.len(), |(i, _)| i);
+        let end = params.end() + stop;
+        out.replace_range(params.start()..end, &" ".repeat(end - params.start()));
+    }
+    out
 }
 fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     let b = s.as_bytes();

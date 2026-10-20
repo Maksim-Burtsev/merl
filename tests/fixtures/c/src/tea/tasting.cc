@@ -171,5 +171,5 @@ int poured() {
   Cups cups;
   return pot.sip() + cups.size();
   //         ^ d: picker include/tea/cup.hh:11, include/tea/cup.hh:20, include/tea/cup.hh:29
-  //                      ^ d: src/rnd.cc:6; want none (#1144)
+  //                      ^ d: none
 }

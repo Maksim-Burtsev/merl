@@ -84,7 +84,7 @@ pub fn bound<T: Timed>(t: &T) -> u32 {
 
 pub fn extension() -> usize {
     "oolong".sniff()
-    //       ^ d: src/infusion.rs:18; want src/infusion.rs:22 (#1165)
+    //       ^ d: src/infusion.rs:22
 }
 
 pub fn loop_header(leaves: Vec<Leaf>) -> u32 {
@@ -105,7 +105,7 @@ pub fn destructured(leaf: Leaf) -> usize {
 
 pub fn alias(t: &Tin) -> u32 {
     let tin = Tin::new(1);
-    //             ^ d: !jump; want src/infusion/leaves.rs:9 (#1164)
+    //             ^ d: src/infusion/leaves.rs:9
     tin.label().len() as u32 + t.label().len() as u32
     //  ^ d: src/infusion/leaves.rs:43
     //                           ^ d: src/infusion/leaves.rs:43
@@ -131,7 +131,7 @@ pub fn closure_param() -> u32 {
     let sip = |gulp: u32| gulp + 1;
     sip(gulp())
 //  ^ d: src/infusion.rs:131
-    //  ^ d: picker src/infusion.rs:13, src/infusion.rs:122, src/infusion/leaves.rs:89; want src/infusion.rs:13 (#1166)
+    //  ^ d: src/infusion.rs:13
 }
 
 pub fn block_scope() -> u32 {
@@ -168,3 +168,15 @@ impl Infuser { pub fn finish(self) {} }
 
 /* pub fn sip() -> u32 { 1 }
    pub struct Liquor; */
+
+pub fn alias_paths(t: &Tin) -> usize {
+    Tin::label(t).len() + Kettle::new().len()
+    //   ^ d: src/infusion/leaves.rs:43
+    //                            ^ d: !jump
+}
+
+pub fn extension_bound() -> usize {
+    let s = "oolong";
+    s.sniff() + "oolong".len()
+    //^ d: src/infusion.rs:22
+}

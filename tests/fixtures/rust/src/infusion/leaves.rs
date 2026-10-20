@@ -91,3 +91,4 @@ pub fn gulp() -> u32 {
 }
 
 pub type Tin = Leaf;
+pub type Kettle = Vec<u32>;
