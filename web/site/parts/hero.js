@@ -5,6 +5,9 @@ const WORD = nav.textContent;
 async function strike() {
   nav.innerHTML = [...WORD].map(c => `<span class="ch hide">${c}</span>`).join("");
   const cs = [...nav.children];
+  const gap = document.createRange();
+  gap.setStart(nav.nextSibling, 0); gap.setEnd(nav.nextSibling, 1);
+  nav.style.setProperty("--cw", gap.getBoundingClientRect().width + "px");
   h.classList.add("h-pre");
   await sleep(700);
   h.classList.replace("h-pre", "h-run");

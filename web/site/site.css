@@ -79,7 +79,7 @@ html.js .h-run .h-ed::after { transition: transform .45s cubic-bezier(.6, 0, .2,
 .h-nav { white-space: nowrap; }
 .h-nav .ch { display: inline-block; position: relative; white-space: pre; }
 .h-nav .ch.hide { color: transparent; }
-.h-nav .ch.cur::after { content: ""; position: absolute; top: 6%; bottom: 6%; left: 100%; width: .46em; background: var(--accent); }
+.h-nav .ch.cur::after { content: ""; position: absolute; top: 6%; bottom: 6%; left: 100%; width: calc(var(--cw, .58em) * .8); background: var(--accent); }
 .h-nav .ch.cur.first::after { left: 0; }
 .h-nav.done .ch.cur::after { animation: h-blink 1.05s steps(1) infinite; }
 .h-nav.rest .ch.cur::after { animation: none; opacity: 0; transition: opacity .5s; }
