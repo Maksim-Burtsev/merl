@@ -182,6 +182,12 @@ impl App {
         {
             locals.extend(search::ts_var_again(&a.text, only, first));
         }
+        if bare
+            && locals.is_empty()
+            && let Some(hoisted) = search::ts_hoisted_function(&a.text, self.line + 1, first)
+        {
+            return vec![hoisted];
+        }
         if (bare || self.script_scope(&a.here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{}\n0", a.text), self.buf.lines.len() + 1);
             if module.is_empty() && bare && a.text.contains("namespace") {

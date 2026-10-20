@@ -4,9 +4,9 @@ import type { Sieve } from "./strainer";
 
 export function infuse(words: string[], basket: Basket): number {
   const line = words.join(" ").trim();
-  //                           ^ d: tea/strainer.ts:34; want none (#1145)
+  //                           ^ d: none
   const parts = line.split(",");
-  //                 ^ d: tea/strainer.ts:37; want none (#1145)
+  //                 ^ d: none
   const filter = new Filter();
   //                 ^ d: tea/strainer.ts:11
   const holes = filter
@@ -47,7 +47,7 @@ export function deepest(basket: Basket): Basket {
 export function measure(words: string[]): number[] {
   return words.map((clip) => clip.length + inner());
   //                         ^ d: tea/infusion.ts:48
-  //                                       ^ d: picker tea/infusion.ts:52, …; want tea/infusion.ts:52 (#1146)
+  //                                       ^ d: tea/infusion.ts:52
 
   function inner(): number {
     return clip("x").length;
@@ -56,12 +56,12 @@ export function measure(words: string[]): number[] {
 }
 
 export function unpack(strainer: mesh.Strainer): number {
-  //                                  ^ d: picker tea/strainer.ts:11; want tea/strainer.ts:11 (#1147)
+  //                                  ^ d: tea/strainer.ts:11
   const { holes, rinse } = strainer;
   return holes + rinse.call(strainer) + strainer.fineness();
   //     ^ d: tea/infusion.ts:60
   //             ^ d: tea/infusion.ts:60
-  //                                             ^ d: picker tea/strainer.ts:8, tea/strainer.ts:12; want tea/strainer.ts:12 (#1147)
+  //                                             ^ d: tea/strainer.ts:12
 }
 
 export function sieveOf(): number {
@@ -79,7 +79,7 @@ export async function late(): Promise<number> {
 export function settled(basket: Basket): Promise<number> {
   return Promise.resolve(basket.then()).then((n) => n);
   //                            ^ d: tea/strainer.ts:41
-  //                                    ^ d: picker coffee/lever.mjs:38, tea/strainer.ts:41; want none (#1145)
+  //                                    ^ d: none
 }
 
 export const recipe = `
@@ -95,7 +95,7 @@ export function strain(): Strainer {
   const Cup = class Mug {
     pour(): number {
       return this.size();
-      //          ^ d: picker tea/infusion.ts:101, …; want tea/infusion.ts:101 (#1148)
+      //          ^ d: tea/infusion.ts:101
     }
 
     size(): number {
@@ -109,7 +109,29 @@ export function strain(): Strainer {
 
 export function tidy(text: string, cups: Map<string, Basket>): number {
   return text.trim().length + (cups.get("a")?.split(1) ?? 0);
-  //          ^ d: tea/strainer.ts:34; want none (#1145)
-  //                                ^ d: picker coffee/cezve.js:74, coffee/cezve.js:76, shop/grades.ts:43; want none (#1145)
+  //          ^ d: none
+  //                                ^ d: none
   //                                          ^ d: tea/strainer.ts:37
+}
+
+export function besideMeasure(): number {
+  if (besideMeasure.length) {
+    return inner();
+    //     ^ d: !jump
+  }
+  return 0;
+}
+
+export function pot(): number {
+  const Pot = class {
+    pour(): number {
+      return this.size();
+      //          ^ d: tea/infusion.ts:132
+    }
+
+    size(): number {
+      return 2;
+    }
+  };
+  return new Pot().pour();
 }
