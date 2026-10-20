@@ -934,12 +934,17 @@ fn php_class_names_resolve_and_map_to_files() {
         ("App\\Models\\Song\\Part".into(), true)
     );
     assert_eq!(resolve("\\Other\\Song"), ("Other\\Song".into(), false));
+    assert_eq!(resolve("Kernel"), ("App\\Http\\Kernel".into(), true));
     assert_eq!(
-        php_resolve(text, "Kernel"),
-        None,
-        "a group `use` is not read"
+        resolve("Request\\Part"),
+        ("App\\Http\\Request\\Part".into(), true)
     );
-    assert_eq!(php_resolve(text, "Request\\Part"), None);
+    let group = "<?php\nnamespace App;\nuse \\App\\Http\\{Sub\\Kernel as Core, Request};\nuse function App\\fns\\{tag};\n";
+    assert_eq!(
+        php_resolve(group, "Core").map(|r| r.full),
+        Some("App\\Http\\Sub\\Kernel".into())
+    );
+    assert_eq!(php_resolve(group, "tag"), None, "a function group binds no class");
     assert_eq!(
         resolve("Tag"),
         ("App\\Repos\\Tag".into(), false),

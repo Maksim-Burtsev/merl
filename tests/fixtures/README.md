@@ -212,7 +212,15 @@ also declares, a function `pour` beside the methods, `static::` and `parent::`, 
 a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
 block comment declaring what the files declare; `Kettle::card` names its members in the prose
 of a heredoc and a nowdoc, which declares nothing, beside interpolated `{$this->…}`, `$var` and
-`${var}`, and an escaped `\$var` that is text (#1113). `lua/lua/tea/` has `local function pour` beside
+`${var}`, and an escaped `\$var` that is text (#1113). `php/src/Tea/Infuse/` is the third
+corner (#1126), its answers read from the code: `Ceremony` calls `format` and `count` on a
+`DateTimeImmutable` and an `ArrayObject` beside `Leaf`'s namesakes, a builder chain over lines, a
+call on a call's result, `$cup = $cup->steep()`, a destructured pair, a loop variable assigned
+again, a class imported under an alias by a group `use`, an inherited and an overridden method, a
+trait's method chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous
+class's method, an arrow function's capture, a first-class callable, an enum's case and method, a
+function declared inside `if (!function_exists(..))`, and a string, a `#` comment and a heredoc
+declaring what the corner declares. `lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
