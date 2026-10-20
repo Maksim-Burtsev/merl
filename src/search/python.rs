@@ -314,17 +314,21 @@ impl Rules {
     }
 }
 
-pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+pub(super) fn python_bindings_at(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    let in_class = python_class_body_above(lines, at, name);
+    if in_class.is_empty() {
+        python_bindings(lines, at, name)
+    } else {
+        in_class
+    }
+}
+fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let r = Rules::of(name);
     let scopes_innermost_first = python_scopes_innermost_first(lines, at);
 
     let literal = literal_lines(Kind::Python, &lines.join("\n"));
     if name == "super" {
         return python_super(lines, &scopes_innermost_first[0]);
-    }
-    let in_class = python_class_body_above(lines, at, name);
-    if !in_class.is_empty() {
-        return in_class;
     }
     let mut out = Vec::new();
     let mut module_only = false;
