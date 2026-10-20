@@ -217,9 +217,10 @@ corner (#1126), its answers read from the code: `Ceremony` calls `format` and `c
 `DateTimeImmutable` and an `ArrayObject` beside `Leaf`'s namesakes, a builder chain over lines, a
 call on a call's result, `$cup = $cup->steep()`, a destructured pair, and one behind a
 `...$spread`, which has no class, a loop variable assigned again, a class imported under an alias
-by a group `use`, an inherited and an overridden method, a trait's method chosen by `insteadof`
-and one renamed by `as`, an interface's method, an anonymous class's method, an arrow function's
-capture, a first-class callable, an enum's case and method, a function declared inside
+by a group `use`, an inherited and an overridden method, a `: self` step on a subclass, which is
+the owner's call and stops (#1186), a trait's method chosen by `insteadof` and one renamed by
+`as`, an interface's method, an anonymous class's method, an arrow function's capture, a
+first-class callable, an enum's case and method, a function declared inside
 `if (!function_exists(..))`, and a string, a `#` comment and a heredoc declaring what the corner
 declares. `lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,

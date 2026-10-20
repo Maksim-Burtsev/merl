@@ -639,7 +639,8 @@ impl App {
                 search::PhpBinding::VarCall { var, method } => {
                     let ProvenClass { class, .. } =
                         self.php_variable_type(here, text, &var, at.checked_sub(1)?, false)?;
-                    let Returned { class, written } = self.php_returns(&class, &method)?;
+                    let Returned { class, written } =
+                        Self::php_follows(&class, self.php_returns(&class, &method)?)?;
                     (class, Some(format!("${var}->{method}(): {written}")))
                 }
                 search::PhpBinding::ThisCall(method) => {
@@ -702,6 +703,12 @@ impl App {
         self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
+    fn php_follows(receiver: &PhpClass, returned: Returned) -> Option<Returned> {
+        let same =
+            (&returned.class.path, returned.class.header0) == (&receiver.path, receiver.header0);
+        (same || !returned.written.eq_ignore_ascii_case("self")).then_some(returned)
+    }
+
     fn php_returns_static(&self, hit: &Hit) -> bool {
         let Some(text) = self.text_of(&hit.path) else {
             return false;
@@ -752,7 +759,8 @@ impl App {
                             .class
                     }
                 };
-                let Returned { class, written } = self.php_returns(&class, &method)?;
+                let Returned { class, written } =
+                    Self::php_follows(&class, self.php_returns(&class, &method)?)?;
                 (
                     class,
                     vec![format!("${name} = ${var}->{method}(...): {written}")],
@@ -767,7 +775,7 @@ impl App {
                     written: "static".to_owned(),
                 }
             } else {
-                self.php_declared_return(&hit.path, hit.line1 - 1)?
+                Self::php_follows(&class, self.php_declared_return(&hit.path, hit.line1 - 1)?)?
             };
             links.push(format!("{method}(): {}", returned.written));
             class = returned.class;
