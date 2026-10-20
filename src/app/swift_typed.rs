@@ -37,7 +37,7 @@ impl App {
         let cut = self.truncated.get();
         let found = (|| {
             let Some(SwiftChain { written, links }) =
-                self.swift_chain(here, here, text, self.line + 1, chain, 1)
+                self.swift_chain(here, here, text, self.line + 1, chain, 2)
             else {
                 if let [name] = chain
                     && let Some((_, rows)) =
@@ -61,7 +61,7 @@ impl App {
             };
             let Some(ty) = arms.first() else {
                 if written == SDK_VALUE {
-                    return (!self.swift_extended_with(here, word)).then(Vec::new);
+                    return (!self.swift_extended_with(here, word, false)).then(Vec::new);
                 }
                 let w = written.trim();
                 let w = w
@@ -647,10 +647,15 @@ impl App {
             }
             None => {
                 let pattern = search::def_patterns(Kind::Swift, &name).join("|");
-                if !self
-                    .project_definitions(Kind::Swift, here, &name, &pattern)
-                    .is_empty()
+                let defs = self.project_definitions(Kind::Swift, here, &name, &pattern);
+                if let [h] = defs.as_slice()
+                    && self.in_code(Kind::Swift, h)
+                    && let Some(target) = search::swift_alias(&h.text, &name)
+                    && target.trim_start().starts_with('[')
                 {
+                    return self.swift_outside_rows(here, &target, word);
+                }
+                if !defs.is_empty() {
                     return None;
                 }
                 Vec::new()
@@ -691,17 +696,38 @@ impl App {
         Some(rows)
     }
 
-    fn swift_sdk_value(&self, here: &Path, written: &str, member: &str) -> bool {
-        let t = written.trim().trim_end_matches(['?', '!']);
-        let plain = t == SDK_VALUE
-            || (t.starts_with(|c: char| c.is_ascii_uppercase())
-                && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-                && self.swift_alias_arms(here, t).is_none()
-                && self.swift_outside_rows(here, t, member).is_some());
-        plain && !self.swift_extended_with(here, member)
+    pub(super) fn swift_cast_rows(
+        &self,
+        here: &Path,
+        cast: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let rows = self.swift_outside_rows(here, cast, word)?;
+        Some(
+            rows.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(cast.to_owned()),
+                })
+                .collect(),
+        )
     }
 
-    fn swift_extended_with(&self, here: &Path, word: &str) -> bool {
+    fn swift_sdk_value(&self, here: &Path, written: &str, member: &str) -> bool {
+        let t = written.trim().trim_end_matches(['?', '!']);
+        if t == SDK_VALUE {
+            return !self.swift_extended_with(here, member, false);
+        }
+        t.starts_with(|c: char| c.is_ascii_uppercase())
+            && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && self.swift_alias_arms(here, t).is_none()
+            && self
+                .swift_outside_rows(here, t, member)
+                .is_some_and(|rows| rows.is_empty())
+            && !self.swift_extended_with(here, member, true)
+    }
+
+    fn swift_extended_with(&self, here: &Path, word: &str, known: bool) -> bool {
         let pattern = search::def_patterns(Kind::Swift, word).join("|");
         self.project_definitions(Kind::Swift, here, word, &pattern)
             .iter()
@@ -710,7 +736,13 @@ impl App {
                     let lines: Vec<&str> = text.lines().collect();
                     let literal = search::literal_lines(Kind::Swift, &text);
                     let at = search::swift_scope(&lines, &literal, h.line1).header_line1;
-                    at > 0 && search::swift_extended(lines[at - 1]).is_some()
+                    at > 0
+                        && search::swift_extended(lines[at - 1]).is_some_and(|t| {
+                            let outer = t.split('.').next().unwrap_or_default();
+                            self.swift_type(here, outer)
+                                .is_none_or(|own| own.keyword.is_none())
+                                && !(known && self.swift_protocol(here, outer))
+                        })
                 })
             })
     }

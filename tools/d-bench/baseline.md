@@ -21,6 +21,9 @@ The dart row with #1085's local set from a constructor call over several lines a
 The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b6575`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed as its `@types/estree` interface): over `90cda9b1`, 2026-10-21, release build, `vm.loadavg` { 6.81 8.91 8.63 } before the run, { 5.88 8.08 8.34 } after.
 The swift and dart rows with #1072 (overloads that agree on a return type, chains of calls through declared return types): over `356e0f11`, 2026-10-21, release build, `vm.loadavg` { 6.41 6.89 7.68 } before the run, { 5.55 6.65 7.58 } after. swift0086 has an answer read from the code (sourcekit-lsp found none).
+The swift row with #1068's one more step of reading (`url.host` in `Request.cURLDescription`): over `dbb6879a`, 2026-10-21, release build, `vm.loadavg` { 8.58 7.22 6.10 } before the run, { 8.18 7.18 6.10 } after.
+The swift row with #1068's typealias of a collection (`parameters.isEmpty` in `URLEncoding.encode`): over `afba9659`, 2026-10-21, release build, `vm.loadavg` { 6.67 7.05 6.41 } before the run, { 6.10 6.92 6.37 } after.
+The swift row with #1068's value cast in parentheses (`(underlyingError as? URLError)?.userInfo` in `AFError`): over `e0f8e876`, 2026-10-21, release build, `vm.loadavg` { 7.44 7.83 7.19 } before the run, { 7.77 7.88 7.22 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -32,7 +35,7 @@ The swift and dart rows with #1072 (overloads that agree on a return type, chain
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 423 (94%) | 25 (6%) | 0 (0%) | 1 (0%) | 280 | 28 | 13.9 | 48.6 |
+| swift (Alamofire) | 449 | 423 (94%) | 25 (6%) | 0 (0%) | 1 (0%) | 280 | 25 | 14.8 | 47.4 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 61 (72%) | 12 (14%) | 0 (0%) | 12 (14%) | 130 | 1 | 20.9 | 37.7 |

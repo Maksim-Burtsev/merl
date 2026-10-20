@@ -164,6 +164,9 @@ impl App {
             }
             return true;
         }
+        if self.answered_by_swift_cast(a) {
+            return true;
+        }
         if kind == Kind::Swift
             && dotted
             && chain.is_empty()
@@ -197,6 +200,23 @@ impl App {
             }
         }
         false
+    }
+
+    fn answered_by_swift_cast(&mut self, a: &Asked) -> bool {
+        if a.kind != Kind::Swift || !a.dotted || !a.chain.is_empty() {
+            return false;
+        }
+        let Some(found) = search::swift_cast_receiver(&a.lead)
+            .and_then(|cast| self.swift_cast_rows(&a.here, &cast, &a.word))
+        else {
+            return false;
+        };
+        if found.is_empty() {
+            self.message = resolution(&a.word, None, &[], None, false);
+        } else {
+            self.show_found(a, found);
+        }
+        true
     }
 
     pub(super) fn answered_by_cs(

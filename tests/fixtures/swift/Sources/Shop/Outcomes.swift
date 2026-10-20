@@ -283,3 +283,71 @@ func outsideFields(_ fileURL: URL, _ request: URLRequest) -> Int {
     //          ^ d: Sources/Shop/Infuse/Sencha.swift:37
     //                                   ^ d: Sources/Shop/Infuse/Sencha.swift:37
 }
+
+// Two steps of reading before the value from outside: `request` from a field, `url` from it. The
+// `url` of the project's own types and protocols below is not one of `URLRequest` (#1068).
+final class Postman {
+    var lastRequest: URLRequest?
+}
+
+extension Postman {
+    func described() -> String {
+        guard
+            let request = lastRequest,
+            let url = request.url,
+            let host = url.host else { return "" }
+        //                 ^ d: none
+        return host
+    }
+}
+
+extension Gateway {
+    var url: String { host }
+}
+
+extension Postman {
+    struct Route {}
+}
+
+extension Postman.Route {
+    var url: String { "" }
+}
+
+protocol Addressed {}
+
+extension Addressed {
+    var url: Gateway { Gateway(host: "") }
+}
+
+extension URLCredential: Addressed {}
+
+func addressed(_ credential: URLCredential) -> String {
+    credential.url.host
+    //             ^ d: Sources/Shop/Outcomes.swift:271
+}
+
+// A typealias of a collection from outside is that collection: its members answer from the
+// project's extensions of it or none (#1068).
+typealias Tags = [String: Int]
+
+func tagged(_ tags: Tags?) -> Bool {
+    guard let tags else { return true }
+    return tags.isEmpty
+    //          ^ d: none
+}
+
+// A value cast to a type from outside the project in parentheses is that type; the result of a
+// call that takes a cast is not (#1068).
+final class Beacon {
+    var errorCode = 0
+}
+
+func beaconed(_ failure: URLError?) -> Beacon { Beacon() }
+
+func casted(_ failure: any Error, _ relay: Any) -> Int {
+    let code = (failure as? URLError)?.errorCode ?? (relay as? Beacon)?.errorCode ?? 0
+    //                                 ^ d: none
+    //                                                                  ^ d: Sources/Shop/Outcomes.swift:342
+    return code + beaconed(failure as? URLError).errorCode
+    //                                           ^ d: Sources/Shop/Outcomes.swift:342
+}
