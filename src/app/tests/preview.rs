@@ -507,7 +507,6 @@ fn keys_of_a_word_say_nothing_in_the_preview() {
     let (dir, mut a) = md_app("silent", PLAN);
     key(&mut a, KeyCode::Char('p'));
     for (code, m) in [
-        (KeyCode::Char('d'), KeyModifiers::NONE),
         (KeyCode::Char('n'), KeyModifiers::NONE),
         (KeyCode::Char('N'), KeyModifiers::SHIFT),
         (KeyCode::Char('f'), KeyModifiers::CONTROL),
@@ -944,5 +943,28 @@ fn p_with_the_pane_scrolled_onto_the_lines_deleted_at_the_end_puts_the_cursor_ro
     key(&mut a, KeyCode::Char('p'));
     let (row, top, text) = at_row(&a);
     assert_eq!((top, text.as_str()), (row, "p5"));
+    drop(std::fs::remove_dir_all(&dir));
+}
+
+#[test]
+fn d_on_a_preview_row_follows_the_first_link_on_it() {
+    let text = "# Plan\n\nRead [the notes](NOTES.md#setup) and [this](#plan).\n\nNo link here.\n";
+    let (dir, mut a) = md_app("follow", text);
+    std::fs::write(dir.join("NOTES.md"), "# Notes\n\n## Setup\n\nsteps\n").unwrap();
+    a.line = 4;
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Char('d'));
+    assert_eq!(
+        (a.message.as_str(), a.buf.path.clone()),
+        ("no link here", Some(dir.join("PLAN.md")))
+    );
+    key(&mut a, KeyCode::Up);
+    key(&mut a, KeyCode::Up);
+    assert_eq!(at_row(&a).2, "Read the notes and this.");
+    key(&mut a, KeyCode::Char('d'));
+    assert_eq!(
+        (a.message.as_str(), a.buf.path.clone(), a.line),
+        ("link NOTES.md#setup", Some(dir.join("NOTES.md")), 2)
+    );
     drop(std::fs::remove_dir_all(&dir));
 }

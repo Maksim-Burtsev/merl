@@ -15,6 +15,7 @@ use crate::theme::Theme;
 use crate::wrap;
 
 pub mod data;
+mod forge;
 pub mod images;
 
 pub fn is_markdown(path: &Path) -> bool {
@@ -142,7 +143,9 @@ pub fn layout(lines: &[String], width: usize, light: bool, fit: Fit) -> Doc {
         | Options::ENABLE_FOOTNOTES
         | Options::ENABLE_GFM
         | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS;
-    for (ev, r) in Parser::new_ext(&src, opts).into_offset_iter() {
+    let events: Vec<_> = Parser::new_ext(&src, opts).into_offset_iter().collect();
+    lay.urls = forge::bare_urls(&src, &events);
+    for (ev, r) in events {
         lay.event(ev, r);
     }
     lay.flush();
@@ -305,6 +308,8 @@ struct Lay<'a> {
     para_html: String,
     para_text: bool,
     html: Option<Vec<(String, (usize, usize))>>,
+    html_from: (usize, bool),
+    urls: Vec<Range<usize>>,
     heading: Option<HeadingLevel>,
     table: Option<Table>,
     block: Option<Block>,
@@ -349,7 +354,7 @@ impl Lay<'_> {
             }
             Event::Text(t) => {
                 self.para_text |= self.image == 0 && !t.trim().is_empty();
-                self.text(&t, self.look(), r);
+                self.text_with_urls(&t, r);
             }
             Event::Code(t) => {
                 self.para_text = true;
@@ -375,6 +380,7 @@ impl Lay<'_> {
                 let line = t.trim_end_matches(['\n', '\r']);
                 self.lines(line, Ink::Dim.plain(), at);
             }
+            Event::InlineHtml(t) if t.starts_with("<!--") => {}
             Event::InlineHtml(t) => {
                 self.para_html.push_str(&t);
                 self.text(&t, Ink::Dim.plain(), r);
@@ -436,6 +442,8 @@ impl Lay<'_> {
             Tag::BlockQuote(kind) => self.start_quote(kind, &r),
             Tag::CodeBlock(kind) => self.start_code_block(kind, &r),
             Tag::HtmlBlock => {
+                self.flush_implicit();
+                self.html_from = (self.rows.len(), self.gap_before_next_block);
                 self.block_start(r.start);
                 self.html = Some(Vec::new());
             }
@@ -630,8 +638,14 @@ impl Lay<'_> {
             }
             TagEnd::HtmlBlock => {
                 let lines = self.html.take().unwrap_or_default();
+                let gap_row = self.rows.len();
                 self.html_block(lines);
-                self.gap_before_next_block = true;
+                if self.rows.len() == gap_row {
+                    self.rows.truncate(self.html_from.0);
+                    self.gap_before_next_block = self.html_from.1;
+                } else {
+                    self.gap_before_next_block = true;
+                }
             }
             TagEnd::MetadataBlock(_) => {
                 self.in_front_matter = false;
@@ -712,6 +726,38 @@ impl Lay<'_> {
             Inline::default()
         });
         inline.push(s, look, raw, r.start);
+    }
+
+    fn text_with_urls(&mut self, t: &str, r: Range<usize>) {
+        let src = self.src;
+        let literal = self.link == 0 && self.image == 0 && src.get(r.clone()) == Some(t);
+        let first = self.urls.partition_point(|u| u.end <= r.start);
+        let urls: Vec<Range<usize>> = self.urls[first..]
+            .iter()
+            .take_while(|u| literal && u.start < r.end)
+            .map(|u| u.start.max(r.start)..u.end.min(r.end))
+            .collect();
+        if urls.is_empty() {
+            self.text(t, self.look(), r);
+            return;
+        }
+        let mut at = r.start;
+        for u in urls {
+            let end = u.end;
+            self.piece(src, at..u.start, 0);
+            self.piece(src, u, 1);
+            at = end;
+        }
+        self.piece(src, at..r.end, 0);
+    }
+
+    fn piece(&mut self, src: &str, r: Range<usize>, link: usize) {
+        let Some(s) = src.get(r.clone()).filter(|s| !s.is_empty()) else {
+            return;
+        };
+        self.link += link;
+        self.text(s, self.look(), r);
+        self.link -= link;
     }
 
     fn line_and_byte_col(&self, i: usize) -> (usize, usize) {
@@ -1055,6 +1101,14 @@ impl Lay<'_> {
     }
 
     fn html_block(&mut self, lines: Vec<(String, (usize, usize))>) {
+        let mut in_comment = false;
+        let lines: Vec<_> = lines
+            .into_iter()
+            .filter_map(|(line, at)| {
+                let kept = forge::without_comments(&line, &mut in_comment);
+                (kept == line || !kept.trim().is_empty()).then_some((kept, at))
+            })
+            .collect();
         let mut all = String::new();
         let mut starts = Vec::new();
         for (line, _) in &lines {

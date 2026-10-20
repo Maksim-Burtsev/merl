@@ -904,3 +904,44 @@ fn with_no_row_that_shows_a_line_the_first_row_owns_them_all() {
     let d = doc("[a]: https://example.com\n[b]: https://example.org", 20);
     assert_eq!(d.rows[0].owns, [0, 1]);
 }
+
+#[test]
+fn html_comments_vanish_with_the_blank_row_they_would_have_taken() {
+    let with = doc(
+        "<!-- lint: off -->\n# Title\n\nOne <!-- inline --> two.\n\n<!--\nmany\nlines\n-->\n\n\
+         Three.\n\n<div>kept</div> <!-- tail -->\n",
+        30,
+    );
+    let without = doc("# Title\n\nOne  two.\n\nThree.\n\n<div>kept</div> \n", 30);
+    assert_eq!(texts(&with), texts(&without));
+    assert_eq!(look_of(&with, "<div>kept</div>"), Ink::Dim.plain());
+}
+
+#[test]
+fn a_comment_inside_a_paragraph_over_two_lines_vanishes_whole() {
+    let d = doc("One <!-- a\nb --> two.", 30);
+    assert_eq!(texts(&d), ["One  two."]);
+}
+
+#[test]
+fn a_bare_url_takes_the_link_colour_without_its_trailing_punctuation() {
+    let link = look(Ink::Link, Modifier::UNDERLINED);
+    let d = doc(
+        "See https://example.com/a_b_c, then www.example.org/x. Also \
+         (https://en.wikipedia.org/wiki/Foo_(bar)) and `https://code.example`.",
+        200,
+    );
+    assert_eq!(look_of(&d, "https://example.com/a_b_c"), link);
+    assert_eq!(look_of(&d, "www.example.org/x"), link);
+    assert_eq!(look_of(&d, "https://en.wikipedia.org/wiki/Foo_(bar)"), link);
+    assert_eq!(look_of(&d, ", then"), Ink::Text.plain());
+    assert_eq!(look_of(&d, ". Also ("), Ink::Text.plain());
+    assert_eq!(look_of(&d, ") and"), Ink::Text.plain());
+    assert_eq!(look_of(&d, "https://code.example").ink, Ink::Code);
+}
+
+#[test]
+fn a_url_inside_a_link_or_a_word_is_not_a_bare_url() {
+    let d = doc("[https://a.example](x) and nothttps://b.example", 200);
+    assert_eq!(look_of(&d, "nothttps://b.example"), Ink::Text.plain());
+}

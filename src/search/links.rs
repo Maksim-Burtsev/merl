@@ -25,11 +25,29 @@ fn fenced_code_html_comment_or_front_matter(text: &str, ev: &Event, r: &Range<us
     }
 }
 
+static HREF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#)
+        .expect("the regex is a literal")
+});
+
+pub fn first_link_in(text: &str, span: &Range<usize>) -> Option<usize> {
+    let meets = |r: &Range<usize>| r.start < span.end && span.start < r.end;
+    let links = Parser::new_ext(text, options())
+        .into_offset_iter()
+        .filter(|(ev, r)| matches!(ev, Event::Start(Tag::Link { .. })) && meets(r))
+        .map(|(_, r)| r);
+    let hrefs = HREF.find_iter(text).map(|m| m.range()).filter(meets);
+    let mut starts: Vec<usize> = links
+        .chain(hrefs)
+        .map(|r| r.start.max(span.start))
+        .collect();
+    starts.sort_unstable();
+    starts
+        .into_iter()
+        .find(|&at| matches!(markdown_at(text, at), MdAt::Link(_)))
+}
+
 pub fn markdown_at(text: &str, at: usize) -> MdAt {
-    static HREF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?is)<a\s[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>.*?</a>"#)
-            .expect("the regex is a literal")
-    });
     let parser = Parser::new_ext(text, options());
     #[expect(
         clippy::needless_collect,
