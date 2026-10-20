@@ -671,7 +671,10 @@ parameter reassigned under `if`, a local assigned twice, a block's value before 
 `super` inside `define_method`, each answered as master does. `glaze.rb` patches `String` five
 ways (`String.include`, `String.prepend`, `String.class_eval`, `refine(String)` and a reopened
 `class String`): each patched core method is the project's, never "builtin", while a `chop` in an
-unrelated class leaves `raw.to_s.chop` builtin.
+unrelated class leaves `raw.to_s.chop` builtin. `new` lands on the `initialize` Ruby calls
+(#1185): `Samovar` and its alias `Urn` reach `Vessel`'s, `flask.rb`'s `Flask` an included
+module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermos` (its own
+`def self.new`) and `Jug` (a base outside the project) answer nothing.
 
 ### Adding a kind
 
