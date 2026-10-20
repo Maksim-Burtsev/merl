@@ -586,6 +586,14 @@ comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]`
 Since #1044 `shadow_back_to_leaf` rebinds `leaf` to a `Leaf` through `unwrap`, which keeps its
 jump, and `label_of` holds the `String` a `Leaf` method returns, which `Leaf::len` never answers.
 
+`sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
+`strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
+function and a trigger sharing a name, the same table read from a plain file outside any
+migration, and `1_init` beside `10_more`, whose order is unclear and keeps the picker.
+`pour_strainers` reads columns for #1063 through an alias and a table: one from a `CREATE TABLE`
+body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
+derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
+
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
 `AS MATERIALIZED` named like a table, a CTE inside a subquery whose name the table keeps after

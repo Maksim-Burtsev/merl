@@ -1,6 +1,8 @@
+use std::path::Path;
+
 use regex::Regex;
 
-use super::{SQL_NAME_PART, sql_create};
+use super::{Hit, SQL_NAME_PART, sql_create};
 
 pub fn sql_cte(word: &str) -> String {
     let w = regex::escape(word);
@@ -405,4 +407,155 @@ pub fn sql_renames(line: &str) -> bool {
     Regex::new(r"(?i)^\s*ALTER\s.*\sRENAME\s+TO\s")
         .expect("a valid pattern")
         .is_match(line)
+}
+
+fn sql_migration(path: &Path) -> Option<(&Path, &str, bool)> {
+    let down = match path.file_name()?.to_str()? {
+        "up.sql" => false,
+        "down.sql" => true,
+        _ => return None,
+    };
+    let folder = path.parent()?;
+    Some((folder.parent()?, folder.file_name()?.to_str()?, down))
+}
+
+fn sql_runs_before(a: &str, b: &str) -> Option<bool> {
+    let version = |f: &str| -> Option<String> {
+        let v: String = f.split('_').next()?.chars().filter(|&c| c != '-').collect();
+        (!v.is_empty() && v.bytes().all(|c| c.is_ascii_digit())).then_some(v)
+    };
+    let (x, y) = (version(a)?, version(b)?);
+    if x.starts_with(&y) || y.starts_with(&x) {
+        return None;
+    }
+    let numeric = |v: &str| {
+        let t = v.trim_start_matches('0');
+        (t.len(), t.to_owned())
+    };
+    let before = x < y;
+    (before == (numeric(&x) < numeric(&y))).then_some(before)
+}
+
+pub fn sql_in_effect(here: &Path, line1: usize, hits: &[Hit]) -> Option<Vec<usize>> {
+    let (dir, cursor, down) = sql_migration(here)?;
+    let object = Regex::new(
+        r"(?i)\b(TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|TYPE|SCHEMA|SEQUENCE|DOMAIN|EXTENSION|DATABASE|ROLE|USER|ENUM)\b",
+    )
+    .expect("a valid pattern");
+    let mut best: Vec<(String, usize, &str, bool)> = Vec::new();
+    for (i, h) in hits.iter().enumerate() {
+        let Some((_, folder, h_down)) = sql_migration(&h.path).filter(|m| m.0 == dir) else {
+            continue;
+        };
+        let earlier = if folder == cursor {
+            if h.path == here {
+                h.line1 < line1
+            } else {
+                down && !h_down
+            }
+        } else {
+            !h_down && sql_runs_before(folder, cursor)?
+        };
+        if !earlier {
+            continue;
+        }
+        let kind = object.find(&h.text)?.as_str().to_ascii_lowercase();
+        match best.iter_mut().find(|b| b.0 == kind) {
+            None => best.push((kind, i, folder, h_down)),
+            Some(b) => {
+                let later = if b.2 == folder {
+                    (h_down, h.line1) > (b.3, hits[b.1].line1)
+                } else {
+                    sql_runs_before(b.2, folder)?
+                };
+                if later {
+                    *b = (kind, i, folder, h_down);
+                }
+            }
+        }
+    }
+    Some(best.into_iter().map(|b| b.1).collect())
+}
+
+pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String> {
+    let (code, _) = sql_code(text);
+    let s = code.get(..at)?.rfind(';').map_or(0, |n| n + 1);
+    let e = code.get(at..)?.find(';').map_or(code.len(), |n| at + n);
+    let stmt = code.get(s..e)?;
+    let unquote = |t: &str| t.trim().trim_matches(['"', '`']).to_ascii_lowercase();
+    let q = unquote(qualifier);
+    let items = sql_from_items(stmt);
+    let table = |r: &std::ops::Range<usize>| stmt.get(r.clone())?.rsplit('.').next().map(unquote);
+    let aliased = |a: &Option<std::ops::Range<usize>>| {
+        a.as_ref().and_then(|a| stmt.get(a.clone())).map(unquote)
+    };
+    let mut tables: Vec<String> = items
+        .iter()
+        .filter(|(_, a)| aliased(a).as_ref() == Some(&q))
+        .filter_map(|(t, _)| table(t))
+        .collect();
+    if tables.is_empty() {
+        tables = items
+            .iter()
+            .filter(|(_, a)| a.is_none())
+            .filter_map(|(t, _)| table(t))
+            .filter(|t| *t == q)
+            .collect();
+    }
+    tables.sort();
+    tables.dedup();
+    let cte = Regex::new(&sql_cte(tables.first()?)).expect("an escaped name keeps it valid");
+    match tables.as_slice() {
+        [t] if !stmt.lines().any(|l| cte.is_match(l)) => Some(t.clone()),
+        _ => None,
+    }
+}
+
+pub fn sql_column_pattern(table: &str, column: &str) -> String {
+    let (t, c) = (regex::escape(table), regex::escape(column));
+    let table = format!(r#"(?:{SQL_NAME_PART}\.)?(?:"{t}"|{t}\b)"#);
+    let column = format!(r#"(?:"{c}"|{c}\b)"#);
+    let alter = format!(r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?{table}");
+    format!(
+        r"(?i)^\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNLOGGED)\s+)*TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}\s*(?:\(|$)|{alter}.*\sADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?{column}|{alter}\s+RENAME\s+(?:COLUMN\s+)?\S+\s+TO\s+{column}"
+    )
+}
+
+pub fn sql_table_column(text: &str, create: usize, column: &str) -> Option<usize> {
+    let (code, _) = sql_code(text);
+    let from: usize = code
+        .split_inclusive('\n')
+        .take(create - 1)
+        .map(str::len)
+        .sum();
+    let rest = code.get(from..)?;
+    let open = from + rest.find('(')?;
+    if code.get(from..open)?.contains(';') {
+        return None;
+    }
+    let item = Regex::new(&format!(
+        r#"(?i)^\s*(?:"{c}"|{c})\s+[A-Za-z]"#,
+        c = regex::escape(column)
+    ))
+    .expect("an escaped name keeps it valid");
+    let (b, mut depth, mut start) = (code.as_bytes(), 0_usize, open + 1);
+    for (i, &c) in b.iter().enumerate().skip(open) {
+        match c {
+            b'(' => depth += 1,
+            b')' | b',' if depth == 1 => {
+                if item.is_match(code.get(start..i)?) {
+                    let lead = code.get(start..i)?.len() - code.get(start..i)?.trim_start().len();
+                    return Some(code.get(..start + lead)?.matches('\n').count() + 1);
+                }
+                if c == b')' {
+                    return None;
+                }
+                start = i + 1;
+            }
+            b')' => depth = depth.saturating_sub(1),
+            b';' => return None,
+            _ => {}
+        }
+    }
+    None
 }

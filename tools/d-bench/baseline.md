@@ -15,6 +15,8 @@ The ruby row with the fixes of #1093 and #1114: `2594316e`, 2026-10-20, release 
 The c, cpp and objc rows with the fixes of #1140 and #1138: over `c7694294`, 2026-10-20, release build, `vm.loadavg` { 5.58 6.33 7.33 } before the run.
 The php row with the fixes of #1177, #1176, #1175 and #1174: `85c29236`, 2026-10-20, release build, `vm.loadavg` { 8.74 7.48 6.93 } before the run, { 11.93 8.47 7.32 } after.
 The swift row with #1068's fields of a value from outside the project: over `d99cae84`, 2026-10-21, release build, `vm.loadavg` { 7.31 10.68 15.68 } before the run (the times read high under that load).
+The sql row with #1064 (the `CREATE` in effect in a migration): over `d99cae84`, 2026-10-21, release build, `vm.loadavg` { 6.58 9.92 15.09 } before the run, { 6.18 9.23 14.47 } after.
+The sql row with #1063 (a column through its table or alias): over `2a700f71`, 2026-10-21, release build, `vm.loadavg` { 7.63 12.11 14.89 } before the run, { 5.95 10.78 14.19 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -50,4 +52,4 @@ The swift row with #1068's fields of a value from outside the project: over `d99
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
 | dart (dio) | 97 | 70 (72%) | 23 (24%) | 0 (0%) | 4 (4%) | 17 | 0 | 44.3 | 124.2 |
-| sql (lemmy) | 79 | 27 (34%) | 12 (15%) | 0 (0%) | 40 (51%) | 31 | 0 | 11.6 | 19.9 |
+| sql (lemmy) | 79 | 54 (68%) | 1 (1%) | 0 (0%) | 24 (30%) | 31 | 0 | 8.6 | 15.3 |
