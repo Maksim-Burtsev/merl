@@ -46,8 +46,8 @@ final class Ceremony
     {
         [$first, $second] = [new Leaf(), new Gaiwan()];
         return $second->pour() + $first->count();
-        //              ^ d: picker src/Tea/Infuse/Gaiwan.php:7, src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Infuse/Gaiwan.php:7 (#1175)
-        //                               ^ d: picker src/Rules/Meter.php:7, src/Tea/Infuse/Leaf.php:17; want src/Tea/Infuse/Leaf.php:17 (#1175)
+        //              ^ d: src/Tea/Infuse/Gaiwan.php:7
+        //                               ^ d: src/Tea/Infuse/Leaf.php:17
     }
 
     public function loop(array $leaves): string

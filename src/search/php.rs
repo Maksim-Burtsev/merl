@@ -816,6 +816,9 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     if let Some(t) = php_written_type(first, name) {
         return Some(PhpBinding::Type(t));
     }
+    if let Some(made) = php_destructured(first, name) {
+        return made;
+    }
     let at = assign.captures(first)?.get(1)?.start();
     let value = statement.get(at..)?.trim_start();
     let call_ends_statement = |open: usize| {
@@ -864,6 +867,42 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         .unwrap_or(&c[1])
         .to_ascii_lowercase();
     (!NO_CLASS.contains(&short.as_str())).then(|| PhpBinding::FunctionCall(c[1].to_owned()))
+}
+
+fn php_destructured(line: &str, name: &str) -> Option<Option<PhpBinding>> {
+    static LIST: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:\[|list\s*\()([^=\[\]()]*)[\])]\s*=\s*\[(.*)\]\s*;\s*$")
+            .expect("the regex is a literal")
+    });
+    static NEW: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^new\s+([\w\\]+)\s*(?:\([^()]*\))?$").expect("the regex is a literal")
+    });
+    let c = LIST.captures(line)?;
+    let var = format!("${name}");
+    let at = c[1].split(',').position(|v| v.trim() == var)?;
+    let items = &c[2];
+    if c[1].contains("=>") || items.contains(['\'', '"', '#']) || items.contains("//") {
+        return Some(None);
+    }
+    let mut depth = 0i32;
+    let mut parts = vec![String::new()];
+    for ch in items.chars() {
+        match ch {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            ',' if depth == 0 => {
+                parts.push(String::new());
+                continue;
+            }
+            _ => {}
+        }
+        parts.last_mut()?.push(ch);
+    }
+    let class = NEW
+        .captures(parts.get(at)?.trim())
+        .map(|n| n[1].to_owned())
+        .filter(|t| !matches!(t.to_ascii_lowercase().as_str(), "static" | "class" | "parent"));
+    Some(class.map(PhpBinding::New))
 }
 
 pub fn php_anonymous_class(line: &str) -> Option<Option<&str>> {

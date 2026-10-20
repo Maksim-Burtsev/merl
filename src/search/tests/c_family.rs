@@ -1128,6 +1128,17 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         Some(PhpBinding::ThisProperty("pot".into()))
     );
     assert_eq!(php_binding("$pot = $this->pot->x;", "pot"), None);
+    for (line, want) in [
+        ("[$a, $pot] = [new A(), new B($x)];", Some("B")),
+        ("list(, $pot) = [new A(), new B];", Some("B")),
+        ("[$a, $pot] = [$pot, $a];", None),
+        ("['k' => $pot] = [new A()];", None),
+        ("[$a, $pot, $c] = [new A('x,y'), new B(), new C()];", None),
+        ("[[$a], $pot] = [[new A()], new B()];", None),
+    ] {
+        let got = php_binding(line, "pot");
+        assert_eq!(got, want.map(|t| PhpBinding::New(t.into())), "{line}");
+    }
     let text = "<?php\n\
                 function f() {\n\
                 $v = new A();\n\
