@@ -282,8 +282,14 @@ impl App {
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             [b] => {
-                let given = search::swift_given(lines.get(b.line1 - 1)?, name)?;
-                self.swift_given_type(here, file, text, b.line1, given, hops)
+                let line = lines.get(b.line1 - 1)?;
+                match search::swift_given(line, name) {
+                    Some(given) => self.swift_given_type(here, file, text, b.line1, given, hops),
+                    None if b.line1 < line1 && search::swift_rebinds(line, name) => {
+                        self.swift_value(here, file, text, b.line1, name, hops)
+                    }
+                    None => None,
+                }
             }
             [] => {
                 let at = around?;

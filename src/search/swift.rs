@@ -545,11 +545,53 @@ fn swift_condition_binds(from_keyword: &str, name: &str) -> Binds {
                     None => return None,
                 };
                 let parts = split_top(Kind::Swift, pattern, b'=');
+                if bind_all && parts.len() == 1 {
+                    return Some(Binds::name_if(swift_shorthand(c, name)));
+                }
                 (parts.len() >= 2).then(|| {
                     swift_pattern_binds(split_top(Kind::Swift, parts[0], b':')[0], bind_all, name)
                 })
             }),
     )
+}
+fn swift_shorthand(clause: &str, name: &str) -> bool {
+    let c = clause.trim();
+    c.strip_prefix("let ")
+        .or_else(|| c.strip_prefix("var "))
+        .is_some_and(|n| n.trim().trim_matches('`') == name)
+}
+fn swift_captures(list: &str, name: &str) -> bool {
+    name != "self"
+        && list.split(',').any(|entry| {
+            let e = entry.trim();
+            let e = ["weak ", "unowned(safe) ", "unowned(unsafe) ", "unowned "]
+                .iter()
+                .find_map(|m| e.strip_prefix(m))
+                .unwrap_or(e);
+            e.split('=').next().unwrap_or(e).trim().trim_matches('`') == name
+        })
+}
+pub fn swift_rebinds(line: &str, name: &str) -> bool {
+    static CAPTURES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\{\s*\[([^\]]*)\][^{}]*?\bin\b").expect("the regex is a literal")
+    });
+    static KEYWORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\}\s*)?(?:else\s+)?(?:if|while|guard)\s+").expect("the regex is a literal")
+    });
+    let t = uncommented(Kind::Swift, line);
+    let t = t.trim();
+    if CAPTURES
+        .captures_iter(t)
+        .any(|c| !c[1].contains('=') && swift_captures(&c[1], name))
+    {
+        return true;
+    }
+    let t = KEYWORD.find(t).map_or(t, |m| &t[m.end()..]);
+    let t = t.split(" else").next().unwrap_or(t);
+    let t = t.trim_end().trim_end_matches('{');
+    split_top(Kind::Swift, t, b',')
+        .iter()
+        .any(|c| swift_shorthand(c, name))
 }
 fn swift_decl_binds(past_keyword: &str, name: &str) -> Binds {
     Binds::first_of(
@@ -758,7 +800,7 @@ fn swift_header_binds(first_line: &str, joined: &str, opening_line: &str, name: 
     });
     static CLOSURE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
-            r"\{\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
+            r"\{\s*(?:\[([^\]]*)\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin$",
         )
         .expect("the regex is a literal")
     });
@@ -784,7 +826,10 @@ fn swift_header_binds(first_line: &str, joined: &str, opening_line: &str, name: 
     } else if CONDITION.is_match(first_line) {
         swift_condition_binds(joined, name)
     } else if let Some(c) = CLOSURE.captures(opening_line) {
-        Binds::name_if(swift_closure_params_bind(&c[1], name))
+        Binds::name_if(
+            swift_closure_params_bind(&c[2], name)
+                || c.get(1).is_some_and(|l| swift_captures(l.as_str(), name)),
+        )
     } else {
         Binds::Nothing
     }
@@ -799,7 +844,7 @@ fn swift_closure_params_bind(params: &str, name: &str) -> bool {
 pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(
-            r"^\s*(?:\[[^\]]*\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\s",
+            r"^\s*(?:\[([^\]]*)\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\s",
         )
         .expect("the regex is a literal")
     });
@@ -816,7 +861,10 @@ pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
     open.iter().any(|&o| {
         line.get(o + 1..at)
             .and_then(|s| HEAD.captures(s))
-            .is_some_and(|c| swift_closure_params_bind(&c[1], name))
+            .is_some_and(|c| {
+                swift_closure_params_bind(&c[2], name)
+                    || c.get(1).is_some_and(|l| swift_captures(l.as_str(), name))
+            })
     })
 }
 pub fn swift_binds_on(line: &str, name: &str) -> bool {
