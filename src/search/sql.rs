@@ -485,7 +485,11 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     let unquote = |t: &str| t.trim().trim_matches(['"', '`']).to_ascii_lowercase();
     let q = unquote(qualifier);
     let items = sql_from_items(stmt);
-    let table = |r: &std::ops::Range<usize>| stmt.get(r.clone())?.rsplit('.').next().map(unquote);
+    let table = |r: &std::ops::Range<usize>| {
+        let parts: Vec<String> = stmt.get(r.clone())?.split('.').map(unquote).collect();
+        Some(parts.join("."))
+    };
+    let last = |t: &str| t.rsplit('.').next().unwrap_or(t).to_owned();
     let aliased = |a: &Option<std::ops::Range<usize>>| {
         a.as_ref().and_then(|a| stmt.get(a.clone())).map(unquote)
     };
@@ -499,12 +503,12 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
             .iter()
             .filter(|(_, a)| a.is_none())
             .filter_map(|(t, _)| table(t))
-            .filter(|t| *t == q)
+            .filter(|t| last(t) == q)
             .collect();
     }
     tables.sort();
     tables.dedup();
-    let cte = Regex::new(&sql_cte(tables.first()?)).expect("an escaped name keeps it valid");
+    let cte = Regex::new(&sql_cte(&last(tables.first()?))).expect("an escaped name keeps it valid");
     match tables.as_slice() {
         [t] if !stmt.lines().any(|l| cte.is_match(l)) => Some(t.clone()),
         _ => None,
@@ -512,9 +516,12 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
 }
 
 pub fn sql_column_pattern(table: &str, column: &str) -> String {
-    let (t, c) = (regex::escape(table), regex::escape(column));
-    let table = format!(r#"(?:{SQL_NAME_PART}\.)?(?:"{t}"|{t}\b)"#);
-    let column = format!(r#"(?:"{c}"|{c}\b)"#);
+    let name = |n: &str| {
+        let n = regex::escape(n);
+        format!(r#"(?:"{n}"|{n}\b)"#)
+    };
+    let table = table.split('.').map(name).collect::<Vec<_>>().join(r"\s*\.\s*");
+    let column = name(column);
     let alter = format!(r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?{table}");
     format!(
         r"(?i)^\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNLOGGED)\s+)*TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}\s*(?:\(|$)|{alter}.*\sADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?{column}|{alter}\s+RENAME\s+(?:COLUMN\s+)?\S+\s+TO\s+{column}"

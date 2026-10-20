@@ -603,6 +603,8 @@ migration, and `1_init` beside `10_more`, whose order is unclear and keeps the p
 `pour_strainers` reads columns for #1063 through an alias and a table: one from a `CREATE TABLE`
 body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
 derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
+`audit_ladles` creates an `audit.ladles` after `ladles`: a column through `FROM ladles l` stays
+in `ladles`, and one only `audit.ladles` has answers nothing.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
