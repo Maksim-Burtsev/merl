@@ -9,13 +9,13 @@ module Tea
 
     def names(raw)
       text = raw.to_s.strip
-      #               ^ d: picker lib/tea/samovar.rb:6; want none (#1159)
+      #               ^ d: none
       text.upcase + "tea".shine
-      #    ^ d: picker lib/tea/samovar.rb:18; want none (#1159)
+      #    ^ d: none
       #                   ^ d: picker lib/tea/samovar.rb:72
       { a: 1 }.dig(:a) + File.basename(raw).chomp.size
-      #        ^ d: picker lib/tea/samovar.rb:10; want none (#1159)
-      #                                     ^ d: picker lib/tea/samovar.rb:14; want none (#1159)
+      #        ^ d: none
+      #                                     ^ d: none
     end
 
     def brew

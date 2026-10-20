@@ -134,6 +134,29 @@ impl App {
         })
     }
 
+    pub(super) fn ruby_core_receiver(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> Option<&'static str> {
+        let constant = |name: &str| self.ruby_class_named(here, name).is_some();
+        let class = search::ruby_core_receiver(text, self.line + 1, before, &constant)?;
+        if !search::ruby_core_method(class, word) {
+            return None;
+        }
+        let pattern = search::def_patterns(Kind::Ruby, word).join("|");
+        let cut = self.truncated.get();
+        let declared = self.project_definitions(Kind::Ruby, here, word, &pattern);
+        self.truncated.set(cut);
+        let reopened = declared.iter().any(|h| {
+            self.text_of(&h.path)
+                .is_some_and(|t| search::ruby_inside_core(&t, h.line1, class))
+        });
+        (!reopened).then_some(class)
+    }
+
     fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
         self.ruby_class_named(here, &chain.join("::"))
             .map(|class| self.ruby_methods_from(here, word, class, true))

@@ -408,6 +408,18 @@ pub fn ruby_in_module(text: &str, line1: usize) -> bool {
         .is_some_and(|l| l.starts_with("module "))
 }
 
+pub fn ruby_inside_core(text: &str, line1: usize, class: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .any(|&(i, _)| super::ruby_reopens_core(lines[i], class))
+}
+
 pub fn ruby_in_block(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {

@@ -194,6 +194,15 @@ impl App {
             }
             self.truncated.set(false);
         }
+        if kind == Kind::Ruby
+            && dotted
+            && let Some(via) = self.ruby_core_receiver(&a.here, &a.text, before, word)
+        {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{word}: builtin, no source (via {via})");
+            return None;
+        }
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));
         }
