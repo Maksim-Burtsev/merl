@@ -288,15 +288,8 @@ impl App {
         chain: &[String],
         before: &str,
     ) -> Vec<Candidate> {
-        static STR_LITERAL: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r#"(?:^|[^\w"])"(?:[^"\\]|\\.)*"\.$"#).expect("the regex is a literal")
-        });
         let kind = Kind::Rust;
-        let receiver = match chain {
-            [name] => rust_written_type(text, self.line, name),
-            [] if STR_LITERAL.is_match(before) => Some("str".to_owned()),
-            _ => None,
-        };
+        let receiver = rust_receiver_type(text, self.line, chain, before);
         let pattern = search::rust_method_pattern(word);
         let mut hits = self.project_definitions(kind, here, word, &pattern);
         let files = self.external_files(kind);
@@ -379,36 +372,19 @@ impl App {
             }
             if visible && self.rust_reached(&h, reach.as_ref(), &workspace) {
                 if let search::RustOwner::ImplOf(t) = &owner
-                    && !inside
                     && receiver.is_some()
                     && search::rust_impl_type(lines[owner_line - 1]) == receiver
                 {
-                    receiver_impls.push(t.clone());
-                }
-                if let search::RustOwner::ImplOf(t) = &owner
-                    && inside
-                    && receiver.as_deref() == Some("str")
-                    && search::rust_impl_type(lines[owner_line - 1]) == receiver
-                {
-                    own_impls.push((h.clone(), t.clone()));
+                    if !inside {
+                        receiver_impls.push(t.clone());
+                    } else if receiver.as_deref() == Some("str") {
+                        own_impls.push((h.clone(), t.clone()));
+                    }
                 }
                 rows.push((h, owner));
             }
         }
-        let ranked = rust_ranked(rows, &hidden, &receiver_impls);
-        match (ranked.as_slice(), own_impls.as_slice()) {
-            (
-                [Candidate {
-                    reason: Reason::Trait(tr),
-                    ..
-                }],
-                [(hit, t)],
-            ) if t == tr => vec![Candidate {
-                hit: hit.clone(),
-                reason: Reason::Trait(tr.clone()),
-            }],
-            _ => ranked,
-        }
+        rust_ranked(rows, &hidden, &receiver_impls, &own_impls)
     }
 
     fn rust_bound(
@@ -1416,6 +1392,17 @@ fn rust_below(here: &Path, p: &Path) -> bool {
     here == p || here.starts_with(dir)
 }
 
+fn rust_receiver_type(text: &str, line0: usize, chain: &[String], before: &str) -> Option<String> {
+    static STR_LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"(?:^|[^\w"])"(?:[^"\\]|\\.)*"\.$"#).expect("the regex is a literal")
+    });
+    match chain {
+        [name] => rust_written_type(text, line0, name),
+        [] if STR_LITERAL.is_match(before) => Some("str".to_owned()),
+        _ => None,
+    }
+}
+
 fn rust_written_type(text: &str, line0: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
@@ -1448,6 +1435,7 @@ fn rust_ranked(
     mut rows: Vec<(Hit, search::RustOwner)>,
     hidden: &[String],
     receiver_impls: &[String],
+    own_impls: &[(Hit, String)],
 ) -> Vec<Candidate> {
     let kept: Vec<String> = rows
         .iter()
@@ -1475,10 +1463,11 @@ fn rust_ranked(
         })
     {
         let reason = Reason::Trait((*tr).clone());
-        return vec![Candidate {
-            hit: rows.swap_remove(0).0,
-            reason,
-        }];
+        let hit = match own_impls {
+            [(hit, t)] if t == *tr => hit.clone(),
+            _ => rows.swap_remove(0).0,
+        };
+        return vec![Candidate { hit, reason }];
     }
     rows.into_iter()
         .map(|(hit, _)| Candidate {
