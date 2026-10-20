@@ -387,7 +387,10 @@ impl App {
         };
         let global = |h: &Hit| h.path == a.here && !h.text.starts_with(char::is_whitespace);
         if kept.iter().any(global)
-            && !near.imports.iter().any(|i| i.name == a.word || i.name == "*")
+            && !near
+                .imports
+                .iter()
+                .any(|i| i.name == a.word || i.name == "*")
         {
             kept.retain(|h| h.path == a.here);
         }

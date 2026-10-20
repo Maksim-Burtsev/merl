@@ -80,7 +80,7 @@ module Tea
 
     def pour(cups)
       super(cups) + 1
-      # ^ d: none; want lib/tea/vessel.rb:4 (#1163)
+      # ^ d: lib/tea/vessel.rb:4
     end
     alias_method :decant, :pour
   end

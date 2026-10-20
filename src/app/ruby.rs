@@ -134,6 +134,29 @@ impl App {
         })
     }
 
+    pub(super) fn ruby_core_receiver(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> Option<&'static str> {
+        let constant = |name: &str| self.ruby_class_named(here, name).is_some();
+        let class = search::ruby_core_receiver(text, self.line + 1, before, &constant)?;
+        if !search::ruby_core_method(class, word) {
+            return None;
+        }
+        let pattern = search::def_patterns(Kind::Ruby, word).join("|");
+        let cut = self.truncated.get();
+        let declared = self.project_definitions(Kind::Ruby, here, word, &pattern);
+        self.truncated.set(cut);
+        let reopened = declared.iter().any(|h| {
+            self.text_of(&h.path)
+                .is_some_and(|t| search::ruby_inside_core(&t, h.line1, class))
+        });
+        (!reopened).then_some(class)
+    }
+
     fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
         self.ruby_class_named(here, &chain.join("::"))
             .map(|class| self.ruby_methods_from(here, word, class, true))
@@ -164,14 +187,14 @@ impl App {
         self.ruby_methods_from(here, word, class, false)
     }
 
-    fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
+    pub(super) fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
         let from = search::ruby_class_path(&self.text_of(here)?, self.line + 1);
         let own = from == name || from.ends_with(&format!("::{name}"));
         self.ruby_resolve(here, &from, name)
             .or_else(|| own.then_some(from))
     }
 
-    fn ruby_methods_from(
+    pub(super) fn ruby_methods_from(
         &self,
         here: &Path,
         word: &str,
@@ -312,7 +335,7 @@ impl App {
         })
     }
 
-    fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
+    pub(super) fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
         let mut out = search::RubyParents::default();
         for (h, t) in self.ruby_declarations(here, path) {
             let one = search::ruby_class_parents(&t, h.line1);
@@ -356,7 +379,7 @@ impl App {
             .collect()
     }
 
-    fn ruby_resolve(&self, here: &Path, class: &str, name: &str) -> Option<String> {
+    pub(super) fn ruby_resolve(&self, here: &Path, class: &str, name: &str) -> Option<String> {
         let (name, mut scope) = match name.strip_prefix("::") {
             Some(top) => (top, ""),
             None => (name, class),
