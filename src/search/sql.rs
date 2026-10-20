@@ -444,8 +444,10 @@ fn sql_identity(text: &str) -> Option<String> {
         .expect("a valid pattern")
     });
     static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(&format!(r"(?i)\sON\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"))
-            .expect("a valid pattern")
+        Regex::new(&format!(
+            r"(?i)\sON\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+        ))
+        .expect("a valid pattern")
     });
     let norm = |t: &str| {
         t.chars()
@@ -562,7 +564,11 @@ pub fn sql_column_pattern(table: &str, column: &str) -> String {
         let n = regex::escape(n);
         format!(r#"(?:"{n}"|{n}\b)"#)
     };
-    let table = table.split('.').map(name).collect::<Vec<_>>().join(r"\s*\.\s*");
+    let table = table
+        .split('.')
+        .map(name)
+        .collect::<Vec<_>>()
+        .join(r"\s*\.\s*");
     let column = name(column);
     let alter = format!(r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?{table}");
     format!(

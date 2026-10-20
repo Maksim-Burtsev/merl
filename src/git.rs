@@ -2073,7 +2073,16 @@ mod tests {
         );
         git("a", &["switch", "-q", "-c", "solo", "main"]);
         commit("a", "three");
-        git("a", &["push", "-q", "origin", "solo:upstream/solo", "solo:upstream/feat2"]);
+        git(
+            "a",
+            &[
+                "push",
+                "-q",
+                "origin",
+                "solo:upstream/solo",
+                "solo:upstream/feat2",
+            ],
+        );
         git("a", &["switch", "-q", "-c", "fork", "main"]);
         commit("a", "four");
         git("a", &["push", "-q", "../fork.git", "fork:feat2"]);
