@@ -583,6 +583,8 @@ another, a closure parameter named like a function, an alias re-exported through
 (`Leaf as Sheet`), a `type Tin = Leaf`, a `{gulp}` inside `format!`, and a string and a block
 comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]` and
 `#[cfg(not(unix))]` from two modules: rust-analyzer answers the host's arm, merl offers both.
+Since #1044 `shadow_back_to_leaf` rebinds `leaf` to a `Leaf` through `unwrap`, which keeps its
+jump, and `label_of` holds the `String` a `Leaf` method returns, which `Leaf::len` never answers.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
