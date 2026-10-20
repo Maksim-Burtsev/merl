@@ -4,6 +4,8 @@ use std::sync::LazyLock;
 use pulldown_cmark::{Event, Tag, TagEnd};
 use regex::Regex;
 
+use super::{Frame, Kind, Lay};
+
 pub fn holds_raw_text(first_line: &str) -> bool {
     let start = first_line.trim_start().to_ascii_lowercase();
     ["<script", "<pre", "<style", "<textarea"]
@@ -108,5 +110,99 @@ fn trimmed(mut url: &str) -> &str {
             return url;
         }
         url = cut;
+    }
+}
+
+impl Lay<'_> {
+    pub(super) fn text_with_urls(&mut self, t: &str, r: Range<usize>) {
+        let src = self.src;
+        let literal = self.link == 0 && self.image == 0 && src.get(r.clone()) == Some(t);
+        let first = self.urls.partition_point(|u| u.end <= r.start);
+        let urls: Vec<Range<usize>> = self.urls[first..]
+            .iter()
+            .take_while(|u| literal && u.start < r.end)
+            .map(|u| u.start.max(r.start)..u.end.min(r.end))
+            .collect();
+        if urls.is_empty() {
+            let in_url = self.link == 0
+                && self.image == 0
+                && self
+                    .urls
+                    .get(first)
+                    .is_some_and(|u| u.start <= r.start && r.end <= u.end);
+            self.link += usize::from(in_url);
+            self.text(t, self.look(), r);
+            self.link -= usize::from(in_url);
+            return;
+        }
+        let mut at = r.start;
+        for u in urls {
+            let end = u.end;
+            self.piece(src, at..u.start, 0);
+            self.piece(src, u, 1);
+            at = end;
+        }
+        self.piece(src, at..r.end, 0);
+    }
+
+    fn piece(&mut self, src: &str, r: Range<usize>, link: usize) {
+        let Some(s) = src.get(r.clone()).filter(|s| !s.is_empty()) else {
+            return;
+        };
+        self.link += link;
+        self.text(s, self.look(), r);
+        self.link -= link;
+    }
+
+    pub(super) fn end_html_block(&mut self, start: usize) {
+        let lines = self.html.take().unwrap_or_default();
+        let gap_row = self.rows.len();
+        self.html_block(lines);
+        let marker_waits = matches!(
+            self.stack.last(),
+            Some(Frame::Item {
+                first_row_marker: Some(_),
+                ..
+            })
+        );
+        if self.rows.len() == gap_row && marker_waits {
+            let at = self.line_and_byte_col(start);
+            self.push("", Vec::new(), at, Kind::Text);
+            self.gap_before_next_block = true;
+        } else if self.rows.len() == gap_row {
+            self.rows.truncate(self.html_from.0);
+            self.gap_before_next_block = self.html_from.1;
+        } else {
+            self.gap_before_next_block = true;
+        }
+    }
+
+    fn html_block(&mut self, lines: Vec<(String, (usize, usize))>) {
+        let raw_text = lines.first().is_some_and(|(l, _)| holds_raw_text(l));
+        let mut in_comment = false;
+        let mut cut_lines = Vec::new();
+        let lines: Vec<_> = lines
+            .into_iter()
+            .filter_map(|(line, at)| {
+                if raw_text {
+                    return Some((line, at));
+                }
+                let was_in_comment = in_comment;
+                let (kept, cuts) = without_comments(&line, &mut in_comment);
+                let shown = !kept.trim().is_empty() || !was_in_comment && kept == line;
+                if shown && !cuts.is_empty() {
+                    cut_lines.push((at, cuts));
+                }
+                shown.then_some((kept, at))
+            })
+            .collect();
+        let first = self.rows.len();
+        self.html_lines(lines);
+        for row in &mut self.rows[first..] {
+            if let Some(((_, c), cuts)) = cut_lines.iter().find(|((l, _), _)| *l == row.src.0) {
+                let kept = row.src.1.saturating_sub(*c);
+                row.src.1 += removed_before(cuts, kept);
+            }
+        }
     }
 }
