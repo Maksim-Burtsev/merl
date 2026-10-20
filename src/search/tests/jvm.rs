@@ -219,6 +219,11 @@ fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
     assert_eq!(kt("    var s = 'c'"), Some("Char"));
     assert_eq!(kt("    val s = 1_000"), Some("Int"));
     assert_eq!(kt("    val s = 3L"), Some("Long"));
+    assert_eq!(kt("    val s = 2_147_483_647"), Some("Int"));
+    assert_eq!(kt("    val s = 10000000000"), Some("Long"));
+    assert_eq!(kt("    val s = 0xFFFFFFFF"), Some("Long"));
+    assert_eq!(kt("    val s = -2147483648"), None);
+    assert_eq!(kt("    val s = 99999999999999999999"), None);
     assert_eq!(kt("    val s = 2.5"), Some("Double"));
     assert_eq!(kt("    val s = true"), Some("Boolean"));
     assert_eq!(kt(r#"    val s = "a" + b"#), None);
