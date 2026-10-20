@@ -733,15 +733,18 @@ impl App {
                     None => true,
                 }
             });
-            let lead = search::definition_word(Some(kind), self.line_str(), self.col)
-                .and_then(|(r, _)| self.line_str().get(..r.start));
+            let at = search::definition_word(Some(kind), self.line_str(), self.col).map(|(r, _)| r);
+            let lead = at.clone().and_then(|r| self.line_str().get(..r.start));
+            let assigns = at
+                .and_then(|r| self.line_str().get(r.end..))
+                .is_some_and(|t| t.starts_with(['=', '+', '[']));
             if let Some(command) = lead.and_then(search::shell_command_position) {
                 let sorted: Vec<Hit> = hits
                     .iter()
                     .filter(|h| search::shell_names_a_command(&h.text) == command)
                     .cloned()
                     .collect();
-                if !sorted.is_empty() {
+                if !sorted.is_empty() || (command && !assigns) {
                     hits = sorted;
                 }
             }

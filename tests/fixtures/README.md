@@ -244,6 +244,13 @@ the function, a heredoc line shaped like an assignment, and a variable named lik
 looked up. The end of `shell/bin/brew.sh` sources paths behind `$VAR/`, `${VAR}/` and
 `$(dirname "$0")/`, a path a variable builds, the variable in front, and paths behind `$HOME`,
 `${HOME}` and `~`, which share their tail with project files and must not open them (#1059).
+`shell/bin/steeping.sh` and `shell/lib/infusion.sh` are the third corner (#1126), their answers
+read from the code: the command `date` beside a variable `date=`, a function called in `$(..)`,
+in a pipeline over lines and in a heredoc, `whisk=$(whisk 2)`, a `for` variable named like a
+function, `read` in a `while` header, `read -ra`, `mapfile`, `printf -v`, `declare -n`, an
+associative array, `${leaf:-..}`, a function declared in both arms of an `if`, a function named
+in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `local leaf=$leaf`,
+`export -f`, and a `: '..'` block and a quoted heredoc declaring functions.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
