@@ -131,7 +131,7 @@ pub fn closure_param() -> u32 {
     let sip = |gulp: u32| gulp + 1;
     sip(gulp())
 //  ^ d: src/infusion.rs:131
-    //  ^ d: picker src/infusion.rs:13, src/infusion.rs:122, src/infusion/leaves.rs:89; want src/infusion.rs:13 (#1166)
+    //  ^ d: src/infusion.rs:13
 }
 
 pub fn block_scope() -> u32 {

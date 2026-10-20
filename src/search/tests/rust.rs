@@ -145,6 +145,22 @@ fn rust_scope_items_leaves_to_the_next_lookup_what_another_rule_may_answer() {
         [4],
         "a string's lines are no block"
     );
+    let closures = "fn gulp() -> u32 { 2 }\n\npub fn run() -> u32 {\n    let sip = |gulp: u32| gulp + 1;\n    sip(gulp())\n}\n\npub fn or(a: u32) -> u32 {\n    let x = a | gulp | 1;\n    x + gulp()\n}\n\npub fn after(v: Vec<u32>) -> usize {\n    v.iter().map(|gulp| gulp + 1).count(); let gulp = 3;\n    gulp() as usize\n}\n";
+    assert_eq!(
+        items(closures, "    sip(gulp())", "gulp"),
+        [1],
+        "a closure's parameter is bound only in the closure (#1166)"
+    );
+    assert_eq!(
+        items(closures, "    x + gulp()", "gulp"),
+        Vec::<usize>::new(),
+        "a bitwise or is no closure"
+    );
+    assert_eq!(
+        items(closures, "gulp() as usize", "gulp"),
+        Vec::<usize>::new(),
+        "the closure ends with its call"
+    );
 }
 
 #[test]
