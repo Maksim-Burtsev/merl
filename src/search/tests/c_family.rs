@@ -2052,6 +2052,22 @@ fn csharp_declarations_and_expressions_give_their_written_types() {
 }
 
 #[test]
+fn a_using_static_brings_in_static_members_and_nested_types_only() {
+    for (line, want) in [
+        ("    public static int Steam() => 4;", true),
+        ("    public const int Steam = 4;", true),
+        ("    public static int Steam { get; }", true),
+        ("    public delegate int Steam(int x);", true),
+        ("    public class Steam { }", true),
+        ("    public int Steam() => 4;", false),
+        ("    public static int Steam(this int x) => x;", false),
+        ("    public int Brew() => Steam(); // static", false),
+    ] {
+        assert_eq!(cs_static_member(line, "Steam"), want, "{line}");
+    }
+}
+
+#[test]
 fn csharp_type_names_and_awaited_types() {
     for (written, want) in [
         ("List<Item>", Some("List")),
