@@ -176,10 +176,8 @@ impl App {
             CsType::Project(t) => t,
             CsType::Outside(_) if !call || written.contains('<') => return None,
             CsType::Outside(_) => {
-                let n = regex::escape(name);
-                let pattern = format!(r"\bstatic\b.*\b{n}\s*(?:<[^>]*>)?\s*\(\s*this\s");
                 let cut = self.truncated.get();
-                let unextended = self.project_grep(Kind::CSharp, here, &pattern).is_empty();
+                let unextended = self.cs_extensions(here, name).is_empty();
                 self.truncated.set(cut);
                 return unextended.then(|| Proven {
                     ty: CsType::Outside(format!("{name}()")),
@@ -236,15 +234,14 @@ impl App {
                 Up::Unknown => return None,
             },
         };
-        let w = regex::escape(word);
-        let pattern = format!(r"\bstatic\b.*\b{w}\s*(?:<[^>]*>)?\s*\(\s*this\s");
-        let extensions = self.project_grep(Kind::CSharp, here, &pattern);
+        let extensions = self.cs_extensions(here, word);
         self.truncated.set(false);
-        let (of, other): (Vec<Hit>, Vec<Hit>) = extensions.into_iter().partition(|h| {
-            search::cs_extended(&h.text)
+        let (of, other): (Vec<_>, Vec<_>) = extensions.into_iter().partition(|(_, signature)| {
+            search::cs_extended(signature)
                 .and_then(|t| search::cs_type_name(&t))
                 .is_some_and(|t| walked.contains(&t))
         });
+        let of: Vec<Hit> = of.into_iter().map(|(h, _)| h).collect();
         match (of.is_empty(), other.is_empty()) {
             (false, _) => Some(CsAnswer::Found(receivers(of, label))),
             (true, true) if outside => Some(CsAnswer::Outside {
@@ -252,6 +249,27 @@ impl App {
             }),
             _ => None,
         }
+    }
+
+    fn cs_extensions(&self, here: &Path, name: &str) -> Vec<(Hit, String)> {
+        let n = regex::escape(name);
+        let pattern = format!(r"\bstatic\b.*\b{n}\s*(?:<[^>]*>)?\s*\(\s*(?:this\s|$)");
+        self.project_grep(Kind::CSharp, here, &pattern)
+            .into_iter()
+            .filter_map(|h| {
+                let line = h.text.trim_end();
+                if !line.ends_with('(') {
+                    let signature = line.to_owned();
+                    return Some((h, signature));
+                }
+                let text = self.text_of(&h.path)?;
+                let next = text.lines().skip(h.line1).find(|l| !l.trim().is_empty())?;
+                let next = next.trim();
+                let signature = format!("{line}{next}");
+                let this = next.strip_prefix("this")?;
+                this.starts_with(char::is_whitespace).then_some((h, signature))
+            })
+            .collect()
     }
 
     fn cs_up(&self, ty: &Typed, word: &str, depth: usize) -> Up {
