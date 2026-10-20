@@ -184,3 +184,36 @@ fn a_small_file_opens_on_the_press_with_no_parsing_shown() {
     assert!(a.previewing());
     drop(std::fs::remove_dir_all(&dir));
 }
+
+#[test]
+fn p_on_a_notebook_shows_its_cells_and_moves_the_cursor_through_its_json() {
+    let nb = "{\n \"cells\": [\n  {\n   \"cell_type\": \"code\",\n   \"outputs\": [],\n   \"source\": [\n    \"x = 1\\n\",\n    \"y = 2\"\n   ]\n  }\n ],\n \"metadata\": {},\n \"nbformat\": 4\n}\n";
+    let (dir, mut a) = file_app("ipynb", "a.ipynb", nb);
+    p(&mut a);
+    a.settle_parse();
+    assert!(a.previewing());
+    assert_eq!(row(&a).trim(), "x = 1");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    assert_eq!(row(&a).trim(), "y = 2");
+    assert_eq!((a.line, a.col), (7, 5), "on `y` in the JSON");
+    drop(std::fs::remove_dir_all(&dir));
+}
+
+#[test]
+fn p_on_an_old_notebook_stays_source_and_says_why() {
+    let (dir, mut a) = file_app("nb3", "a.ipynb", "{\"nbformat\": 3, \"worksheets\": []}\n");
+    p(&mut a);
+    a.settle_parse();
+    assert!(!a.previewing());
+    assert_eq!(a.message, "p: nbformat 3 is not 4");
+    drop(std::fs::remove_dir_all(&dir));
+}
+
+#[test]
+fn p_on_mdx_renders_it_as_markdown() {
+    let (dir, mut a) = file_app("mdx", "a.mdx", "import X from './x'\n\n# Title\n");
+    p(&mut a);
+    assert!(a.previewing());
+    assert_eq!(row(&a), "import X from './x'");
+    drop(std::fs::remove_dir_all(&dir));
+}
