@@ -60,6 +60,10 @@ impl App {
             };
         }
         let Some(class) = self.cpp_class(here, &ty, &scope, around.as_deref(), &ctx) else {
+            let std = self.cpp_alias(here, &ty, &scope, &ctx);
+            if std.is_some_and(|(t, ..)| t[0] == "std") {
+                return CppAnswer::Outside;
+            }
             return broke(&prev);
         };
         let Some((owner, ats)) = self.cpp_member(here, &class, word, 0) else {
@@ -372,6 +376,9 @@ impl App {
             return Some(class);
         }
         let (target, code, ctx) = self.cpp_alias(here, ty, scope, ctx)?;
+        if target[0] == "std" {
+            return None;
+        }
         self.cpp_class_of(here, &target, &code, None, &ctx)
     }
 
@@ -409,7 +416,7 @@ impl App {
         let mine = cpp_namesake(&paths, ty, scope, ctx)?;
         let mut mine = found.into_iter().zip(mine).filter(|(_, m)| *m);
         let ((_, target, code, ctx), _) = mine.next()?;
-        (mine.next().is_none() && target[0] != "std").then_some((target, code, ctx))
+        mine.next().is_none().then_some((target, code, ctx))
     }
 
     fn cpp_class_of(
