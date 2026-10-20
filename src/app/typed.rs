@@ -97,6 +97,39 @@ impl App {
         word_start: usize,
         word: &str,
     ) -> Option<Result<Vec<Candidate>, String>> {
+        let ProvenType { ty, links } = match self.calls_type(kind, here, line, word_start)? {
+            Ok(proven) => proven,
+            Err(via) => return Some(Err(via)),
+        };
+        let label = links.join(" \u{2192} ");
+        let hits = self
+            .hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word))
+            .or_else(|| {
+                (kind == Kind::Python)
+                    .then(|| {
+                        self.hierarchy(kind, &ty, 0, &mut |t| {
+                            self.field_of(kind, t, word, true).map(|h| vec![h])
+                        })
+                    })
+                    .flatten()
+            });
+        Some(Ok(hits
+            .unwrap_or_default()
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Receiver(label.clone()),
+            })
+            .collect()))
+    }
+
+    fn calls_type(
+        &self,
+        kind: Kind,
+        here: &Path,
+        line: &str,
+        word_start: usize,
+    ) -> Option<Result<ProvenType, String>> {
         let (end, methods) = search::go_method_calls(line, word_start)?;
         let head = search::call_head(kind, line, end)?;
         let ProvenType { mut ty, mut links } = self.receiver(kind, here, &[], Some(&head)).ok()?;
@@ -121,26 +154,23 @@ impl App {
                 None => return None,
             }
         }
-        let label = links.join(" \u{2192} ");
-        let hits = self
-            .hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word))
-            .or_else(|| {
-                (kind == Kind::Python)
-                    .then(|| {
-                        self.hierarchy(kind, &ty, 0, &mut |t| {
-                            self.field_of(kind, t, word, true).map(|h| vec![h])
-                        })
-                    })
-                    .flatten()
-            });
-        Some(Ok(hits
-            .unwrap_or_default()
-            .into_iter()
-            .map(|hit| Candidate {
-                hit,
-                reason: Reason::Receiver(label.clone()),
-            })
-            .collect()))
+        Some(Ok(ProvenType { ty, links }))
+    }
+
+    fn assigned_calls_type(&self, file: &Path, text: &str, line1: usize) -> Option<TypeVia> {
+        let kind = Kind::Python;
+        if self.rel_current().as_deref() != Some(file) {
+            return None;
+        }
+        let name = text.lines().nth(line1.checked_sub(1)?)?.trim_start();
+        let name = name.get(..name.find(|c: char| !(c.is_alphanumeric() || c == '_'))?)?;
+        let expr = search::python_assigned_call(text, line1, name)?;
+        let probe = format!("{expr}.x");
+        let ProvenType { ty, links } = self.calls_type(kind, file, &probe, expr.len() + 1)?.ok()?;
+        Some(TypeVia {
+            ty,
+            call_signature: Some(links.join(" \u{2192} ")),
+        })
     }
 
     fn go_outside(&self, file: &Path, text: &str, written: &str) -> bool {
@@ -717,6 +747,9 @@ impl App {
                     ty,
                     call_signature: None,
                 })
+            }
+            search::Value::Unknown if kind == Kind::Python && hops > 0 => {
+                self.assigned_calls_type(file, text, b.line1)
             }
             search::Value::Name(_)
             | search::Value::Element(_)

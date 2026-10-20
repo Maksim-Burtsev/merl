@@ -60,7 +60,7 @@ def brew() -> int:
         #^ d: tea/brewer.py:57
     )
     return cup.sip() + cup.strength
-    #          ^ d: picker tea/brewer.py:37, tea/brewer.py:71; want tea/brewer.py:37 (#1152)
+    #          ^ d: tea/brewer.py:37
     #                      ^ d: tea/brewer.py:34
 
 

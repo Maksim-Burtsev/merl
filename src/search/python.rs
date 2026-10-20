@@ -1,8 +1,8 @@
 use regex::Regex;
 
 use super::{
-    Binding, Group, Kind, Value, code, continued, group, indent, literal_lines, names, split_top,
-    uncommented, value_of,
+    Binding, Group, Kind, Value, close_of, code, continued, group, indent, literal_lines, names,
+    split_top, uncommented, value_of,
 };
 
 pub const PYTHON_BUILTINS: &[&str] = &[
@@ -799,4 +799,33 @@ pub fn python_self_derived(line: &str, name: &str) -> bool {
     let t = uncommented(Kind::Python, line);
     let n = regex::escape(name);
     Regex::new(&format!(r"^{n}\s*=\s*{n}(?:\.\w+)+$")).is_ok_and(|r| r.is_match(t.trim()))
+}
+pub fn python_assigned_call(text: &str, line1: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let first = uncommented(Kind::Python, lines.get(line1.checked_sub(1)?)?);
+    let rest = first.trim().strip_prefix(name)?.trim_start();
+    let rest = rest.strip_prefix('=').filter(|r| !r.starts_with('='))?;
+    let mut expr = rest.trim().to_owned();
+    let depth = |e: &str| {
+        code(Kind::Python, e).fold(0i32, |d, (_, c)| match c {
+            b'(' | b'[' | b'{' => d + 1,
+            b')' | b']' | b'}' => d - 1,
+            _ => d,
+        })
+    };
+    for l in lines.iter().skip(line1).take(40) {
+        if depth(&expr) <= 0 {
+            break;
+        }
+        expr.push_str(uncommented(Kind::Python, l).trim());
+    }
+    if depth(&expr) != 0 {
+        return None;
+    }
+    let inner = if expr.starts_with('(') && close_of(Kind::Python, &expr, 0) == Some(expr.len()) {
+        expr.get(1..expr.len() - 1)?.trim()
+    } else {
+        expr.as_str()
+    };
+    inner.ends_with(')').then(|| inner.to_owned())
 }
