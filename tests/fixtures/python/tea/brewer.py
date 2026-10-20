@@ -43,7 +43,7 @@ class Brewer:
         self.cups = 0
 
     @classmethod
-    def default(cls) -> Brewer:
+    def classic(cls) -> Brewer:
         return cls().leaves(2)
 
     def leaves(self, n: int) -> Brewer:

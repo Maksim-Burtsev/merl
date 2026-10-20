@@ -65,7 +65,7 @@ def brew() -> int:
 
 
 def quick() -> int:
-    return make_brewer().leaves(1).build().size + Brewer.default().build().sip()
+    return make_brewer().leaves(1).build().size + Brewer.classic().build().sip()
     #                    ^ d: tea/brewer.py:49
     #                              ^ d: picker tea/brewer.py:57, tea/brewer.py:68; want tea/brewer.py:57 (#1152)
     #                                      ^ d: picker tea/brewer.py:30, tea/brewing.py:68; want tea/brewer.py:30 (#1152)
