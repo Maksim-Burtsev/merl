@@ -80,6 +80,14 @@ final class Ceremony
         //                                           ^ d: src/Tea/Infuse/Leaf.php:7
     }
 
+    public function staticStep(): string
+    {
+        $dark = new Dark();
+        $wet = $dark->withWater(80);
+        return $wet->grade();
+        //           ^ d: src/Tea/Infuse/Oolong.php:12
+    }
+
     public function viaInterface(Graded $graded): string
     {
         return $graded->grade();
@@ -95,7 +103,7 @@ final class Ceremony
             }
         };
         return $anon->grade() . $anon->format();
-        //            ^ d: src/Tea/Infuse/Ceremony.php:92
+        //            ^ d: src/Tea/Infuse/Ceremony.php:100
         //                             ^ d: src/Tea/Infuse/Leaf.php:12
     }
 

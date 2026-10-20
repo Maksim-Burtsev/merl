@@ -1,6 +1,7 @@
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search};
 use std::ops::Range;
 
+#[derive(Clone)]
 struct PhpClass {
     path: PathBuf,
     text: String,
@@ -700,6 +701,12 @@ impl App {
 
     fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
         let hit = self.php_one_method(class, method)?;
+        if self.php_returns_static(&hit) {
+            return Some(Returned {
+                class: class.clone(),
+                written: "static".to_owned(),
+            });
+        }
         self.php_declared_return(&hit.path, hit.line1 - 1)
     }
 
@@ -768,15 +775,7 @@ impl App {
             }
         };
         for method in &calls {
-            let hit = self.php_one_method(&class, method)?;
-            let returned = if self.php_returns_static(&hit) {
-                Returned {
-                    class,
-                    written: "static".to_owned(),
-                }
-            } else {
-                Self::php_follows(&class, self.php_declared_return(&hit.path, hit.line1 - 1)?)?
-            };
+            let returned = Self::php_follows(&class, self.php_returns(&class, method)?)?;
             links.push(format!("{method}(): {}", returned.written));
             class = returned.class;
         }

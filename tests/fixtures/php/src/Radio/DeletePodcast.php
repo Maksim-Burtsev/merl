@@ -62,7 +62,7 @@ class DeletePodcast
         //     ^ d: picker src/Radio/Branding.php:7, src/Radio/ScanInformation.php:7
         $late = ScanInformation::fresh();
         $late->toArray();
-        //     ^ d: picker src/Radio/Branding.php:7, src/Radio/ScanInformation.php:7
+        //     ^ d: src/Radio/ScanInformation.php:7
         /** @var ScanInformation $doc */
         $doc = $infos[0];
         $doc->toArray();
