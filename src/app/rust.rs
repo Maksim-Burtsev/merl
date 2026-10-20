@@ -286,10 +286,15 @@ impl App {
         word: &str,
         text: &str,
         chain: &[String],
+        before: &str,
     ) -> Vec<Candidate> {
+        static STR_LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r#"(?:^|[^\w"])"(?:[^"\\]|\\.)*"\.$"#).expect("the regex is a literal")
+        });
         let kind = Kind::Rust;
         let receiver = match chain {
             [name] => rust_written_type(text, self.line, name),
+            [] if STR_LITERAL.is_match(before) => Some("str".to_owned()),
             _ => None,
         };
         let pattern = search::rust_method_pattern(word);
@@ -319,6 +324,7 @@ impl App {
         let mut rows: Vec<(Hit, search::RustOwner)> = Vec::new();
         let mut hidden: Vec<String> = Vec::new();
         let mut receiver_impls: Vec<String> = Vec::new();
+        let mut own_impls: Vec<(Hit, String)> = Vec::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
                 let text = self.text_of(&h.path).unwrap_or_default();
@@ -379,10 +385,30 @@ impl App {
                 {
                     receiver_impls.push(t.clone());
                 }
+                if let search::RustOwner::ImplOf(t) = &owner
+                    && inside
+                    && receiver.as_deref() == Some("str")
+                    && search::rust_impl_type(lines[owner_line - 1]) == receiver
+                {
+                    own_impls.push((h.clone(), t.clone()));
+                }
                 rows.push((h, owner));
             }
         }
-        rust_ranked(rows, &hidden, &receiver_impls)
+        let ranked = rust_ranked(rows, &hidden, &receiver_impls);
+        match (ranked.as_slice(), own_impls.as_slice()) {
+            (
+                [Candidate {
+                    reason: Reason::Trait(tr),
+                    ..
+                }],
+                [(hit, t)],
+            ) if t == tr => vec![Candidate {
+                hit: hit.clone(),
+                reason: Reason::Trait(tr.clone()),
+            }],
+            _ => ranked,
+        }
     }
 
     fn rust_bound(

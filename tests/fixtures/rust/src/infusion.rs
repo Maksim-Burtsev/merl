@@ -84,7 +84,7 @@ pub fn bound<T: Timed>(t: &T) -> u32 {
 
 pub fn extension() -> usize {
     "oolong".sniff()
-    //       ^ d: src/infusion.rs:18; want src/infusion.rs:22 (#1165)
+    //       ^ d: src/infusion.rs:22
 }
 
 pub fn loop_header(leaves: Vec<Leaf>) -> u32 {
@@ -173,4 +173,10 @@ pub fn alias_paths(t: &Tin) -> usize {
     Tin::label(t).len() + Kettle::new().len()
     //   ^ d: src/infusion/leaves.rs:43
     //                            ^ d: !jump
+}
+
+pub fn extension_bound() -> usize {
+    let s = "oolong";
+    s.sniff() + "oolong".len()
+    //^ d: src/infusion.rs:22
 }
