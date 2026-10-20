@@ -69,7 +69,7 @@ final class Ceremony
         //            ^ d: src/Tea/Infuse/Leaf.php:12
         //                              ^ d: src/Tea/Infuse/Oolong.php:12
         //                                               ^ d: src/Tea/Infuse/Rolled.php:7
-        //                                                                ^ d: none; want src/Tea/Infuse/Roasted.php:7 (#1176)
+        //                                                                ^ d: src/Tea/Infuse/Roasted.php:7
     }
 
     public function viaInterface(Graded $graded): string

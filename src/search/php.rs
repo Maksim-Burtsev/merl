@@ -246,6 +246,47 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
         .collect()
 }
 
+pub struct PhpTraitAlias {
+    pub from: String,
+    pub method: String,
+    pub alias: String,
+}
+
+pub fn php_trait_aliases<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<PhpTraitAlias> {
+    static USE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s+use\s+[\w\\,\s]+\{").expect("the regex is a literal"));
+    static ALIAS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"([\w\\]+)::(\w+)\s+as\s+(?:(?:public|protected|private)\s+)?(\w+)\s*;")
+            .expect("the regex is a literal")
+    });
+    let mut out = Vec::new();
+    for i in (class + 1..lines.len()).filter(|&i| php_outer_line(lines, i) == Some(class)) {
+        let first = php_code(lines[i].as_ref());
+        if !USE.is_match(&first) {
+            continue;
+        }
+        let mut block = String::new();
+        for l in lines[i..].iter().map(|l| php_code(l.as_ref())) {
+            block.push_str(&l);
+            block.push('\n');
+            if l.contains('}') {
+                break;
+            }
+        }
+        out.extend(
+            ALIAS
+                .captures_iter(&block)
+                .filter(|c| !matches!(&c[3], "public" | "protected" | "private"))
+                .map(|c| PhpTraitAlias {
+                    from: c[1].to_owned(),
+                    method: c[2].to_owned(),
+                    alias: c[3].to_owned(),
+                }),
+        );
+    }
+    out
+}
+
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(r"(?m){NAMESPACE_HEAD}([\w\\]+)\s*[;{{]")).expect("the regex is a literal")
 });

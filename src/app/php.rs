@@ -321,6 +321,20 @@ impl App {
             return Walk::Found(own);
         }
         let block = search::php_block(text, class);
+        for a in search::php_trait_aliases(&lines, class) {
+            if !re.is_match(&format!("function {}(", a.alias)) {
+                continue;
+            }
+            let Ok(method) = Regex::new(
+                &search::php_access_patterns(&a.method, search::PhpAccess::Call).join("|"),
+            ) else {
+                continue;
+            };
+            match self.php_walk_class(path, block, &a.from, &method, depth + 1, &mut seen.clone()) {
+                Walk::Nowhere | Walk::NowhereOutside => {}
+                other => return other,
+            }
+        }
         for t in search::php_class_traits(&lines, class) {
             match self.php_walk_class(path, block, &t, re, depth + 1, seen) {
                 Walk::Nowhere | Walk::NowhereOutside => {}
