@@ -396,6 +396,7 @@ impl App {
         here: &Path,
         chain: &[String],
         head: Option<&search::CallHead>,
+        word: &str,
     ) -> Option<String> {
         if kind != Kind::Python
             || chain
@@ -410,11 +411,12 @@ impl App {
         }
         let dynamic = self.hierarchy(kind, &ty, 0, &mut |t| {
             let open = self.text_of(&t.path).is_none_or(|text| {
-                search::bases(kind, &text, t.line).iter().any(|b| {
-                    let object = search::type_path(kind, b)
-                        .is_some_and(|p| p.last().is_some_and(|n| n == "object"));
-                    !object && self.type_decl(kind, &t.path, b).is_none()
-                })
+                search::python_class_defines(&text, t.line, word)
+                    || search::bases(kind, &text, t.line).iter().any(|b| {
+                        let object = search::type_path(kind, b)
+                            .is_some_and(|p| p.last().is_some_and(|n| n == "object"));
+                        !object && self.type_decl(kind, &t.path, b).is_none()
+                    })
             });
             open.then_some(()).or_else(|| {
                 ["__getattr__", "__getattribute__"]

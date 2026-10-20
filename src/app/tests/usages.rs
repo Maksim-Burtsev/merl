@@ -201,6 +201,16 @@ fn d_offers_the_test_copy_of_a_declaration_last() {
         ("spec/repo.py".to_owned(), 0),
         "read from inside `spec/`, the module's own top-level function is the one it calls (#1158)"
     );
+    a.jump_to(&dir.join("spec/repo.py"), 2);
+    a.buf.lines[1] = "    x.delete_user(id)".into();
+    a.col = 6;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        rows(&mut a),
+        ["spec/repo.py:1", "src/repo.py:1"],
+        "read from inside `spec/` and that file is not a test copy, it is what is on screen: its \
+         declaration stays first"
+    );
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
