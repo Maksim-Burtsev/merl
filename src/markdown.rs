@@ -648,28 +648,7 @@ impl Lay<'_> {
                 }
                 self.gap_before_next_block = true;
             }
-            TagEnd::HtmlBlock => {
-                let lines = self.html.take().unwrap_or_default();
-                let gap_row = self.rows.len();
-                self.html_block(lines);
-                let marker_waits = matches!(
-                    self.stack.last(),
-                    Some(Frame::Item {
-                        first_row_marker: Some(_),
-                        ..
-                    })
-                );
-                if self.rows.len() == gap_row && marker_waits {
-                    let at = self.line_and_byte_col(r.start);
-                    self.push("", Vec::new(), at, Kind::Text);
-                    self.gap_before_next_block = true;
-                } else if self.rows.len() == gap_row {
-                    self.rows.truncate(self.html_from.0);
-                    self.gap_before_next_block = self.html_from.1;
-                } else {
-                    self.gap_before_next_block = true;
-                }
-            }
+            TagEnd::HtmlBlock => self.end_html_block(r.start),
             TagEnd::MetadataBlock(_) => {
                 self.in_front_matter = false;
                 self.gap_before_next_block = true;
@@ -1129,6 +1108,29 @@ impl Lay<'_> {
             self.image_rows(dest, fit, at, false);
         }
         true
+    }
+
+    fn end_html_block(&mut self, start: usize) {
+        let lines = self.html.take().unwrap_or_default();
+        let gap_row = self.rows.len();
+        self.html_block(lines);
+        let marker_waits = matches!(
+            self.stack.last(),
+            Some(Frame::Item {
+                first_row_marker: Some(_),
+                ..
+            })
+        );
+        if self.rows.len() == gap_row && marker_waits {
+            let at = self.line_and_byte_col(start);
+            self.push("", Vec::new(), at, Kind::Text);
+            self.gap_before_next_block = true;
+        } else if self.rows.len() == gap_row {
+            self.rows.truncate(self.html_from.0);
+            self.gap_before_next_block = self.html_from.1;
+        } else {
+            self.gap_before_next_block = true;
+        }
     }
 
     fn html_block(&mut self, lines: Vec<(String, (usize, usize))>) {

@@ -993,7 +993,9 @@ fn every_html_row_starts_where_its_text_does_with_a_comment_cut_out_before_it() 
     assert!(d.rows.len() > 2, "{:?}", texts(&d));
     for r in &d.rows {
         assert!(
-            src[r.src.1..].starts_with(r.text.split_whitespace().next().unwrap_or_default()),
+            src.get(r.src.1..)
+                .unwrap_or_default()
+                .starts_with(r.text.split_whitespace().next().unwrap_or_default()),
             "{:?} at {}",
             r.text,
             r.src.1
