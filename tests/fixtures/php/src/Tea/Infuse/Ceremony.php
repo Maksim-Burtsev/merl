@@ -149,4 +149,14 @@ final class Ceremony
         return $second->pour();
         //              ^ d: !jump
     }
+
+    public function selfBound(): string
+    {
+        $dark = new Dark();
+        $dried = $dark->dry();
+        $later = $dark->dry(...);
+        return $dried->grade() . $later()->grade();
+        //             ^ d: src/Tea/Infuse/Leaf.php:7
+        //                                 ^ d: src/Tea/Infuse/Leaf.php:7
+    }
 }

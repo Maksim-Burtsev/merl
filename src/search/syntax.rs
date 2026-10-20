@@ -127,7 +127,8 @@ pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
         Kind::Php => {
             let lead = text.get(..at).and_then(|t| t.rsplit('\n').next());
             let s = scan(kind, text, at);
-            let prose = s.at_php_quote_from.is_none_or(|from| php_prose(text, from));
+            let prose = (s.at_php_quote_from)
+                .is_none_or(|from| php_prose(text, from) && !php_qualified_name(text, at));
             prose
                 && match s.at_in_php_literal {
                     Some(b'\'') => true,
@@ -154,6 +155,14 @@ fn php_prose(text: &str, from: usize) -> bool {
         i += if c == b'\\' { 2 } else { 1 };
     }
     false
+}
+fn php_qualified_name(text: &str, at: usize) -> bool {
+    let b = text.as_bytes();
+    let name = |c: &u8| ident(*c) || *c == b'\\';
+    let (head, tail) = (b.get(..at).unwrap_or(b), b.get(at..).unwrap_or_default());
+    let head = head.iter().rev().take_while(|c| name(c));
+    let tail = tail.iter().take_while(|c| name(c));
+    head.chain(tail).any(|&c| c == b'\\')
 }
 fn php_interpolated(lead: &str) -> bool {
     let open = lead.rfind("{$").max(lead.rfind("${"));
@@ -389,7 +398,9 @@ impl<'a> Scanner<'a> {
 
     fn newline(&mut self) {
         let (b, i) = (self.b, self.i);
-        self.line_quote = None;
+        if !(self.kind == Kind::Php && self.in_php_tags) {
+            self.line_quote = None;
+        }
         if self.heredoc.is_none() && !self.ruby_heredocs_from_next_line.is_empty() {
             self.heredoc = Some(self.ruby_heredocs_from_next_line.remove(0));
             self.literal_closer = Some(b"".into());

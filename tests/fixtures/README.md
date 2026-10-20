@@ -212,13 +212,13 @@ also declares, a function `pour` beside the methods, `static::` and `parent::`, 
 a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
 block comment declaring what the files declare; `Kettle::card` names its members in the prose
 of a heredoc and a nowdoc, which declares nothing, beside interpolated `{$this->…}`, `$var` and
-`${var}`, and an escaped `\$var` that is text; `Kettle::sign` does the same in one-line quoted strings, beside a callable `[$other, 'pour']` that is still looked up (#1113). `php/src/Tea/Infuse/` is the third
+`${var}`, and an escaped `\$var` that is text; `Kettle::sign` does the same in one-line quoted strings, beside a callable `[$other, 'pour']` that is still looked up (#1113); `Kettle::ledger` looks up the code after a string that closes a line below its quote, and a backslash-qualified class name in prose. `php/src/Tea/Infuse/` is the third
 corner (#1126), its answers read from the code: `Ceremony` calls `format` and `count` on a
 `DateTimeImmutable` and an `ArrayObject` beside `Leaf`'s namesakes, a builder chain over lines, a
 call on a call's result, `$cup = $cup->steep()`, a destructured pair, and one behind a
 `...$spread`, which has no class, a loop variable assigned again, a class imported under an alias
 by a group `use`, an inherited and an overridden method, a `: self` step on a subclass, which
-continues with the class declaring the method, as intelephense reads `self` (#1186), a `: static` result stored in a local, a trait's method
+continues with the class declaring the method, as intelephense reads `self` (#1186), in a chain and stored in a local or a first-class callable (`selfBound`), a `: static` result stored in a local, a trait's method
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
 function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
@@ -329,7 +329,10 @@ method that skip it, `this` for `self` over an abstract base, a nested `def` and
 hiding module names, and an import in both branches of an `if`, which pyright answers with the
 `else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
 function wins over another module's that it does not import. Its `mixed` loops over sums of lists:
-of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod` (#1099).
+of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod` (#1099). Its `clean` assigns
+a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
+a `while` inside a `for` of the same name, whose right side is either. Its `twice` calls a `str`
+method on a local set from one set from a `str` parameter (builtin, #1151).
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,

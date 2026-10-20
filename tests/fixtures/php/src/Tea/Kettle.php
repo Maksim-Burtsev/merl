@@ -64,4 +64,16 @@ class Kettle extends Vessel
         //                ^ d: picker src/Tea/Kettle.php:11, src/Tea/Infuse/Gaiwan.php:7, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12, src/Tea/brew.php:10
         return $plain . $said . $call(1);
     }
+
+    public function ledger(Kettle $other): string
+    {
+        $rows = 'SELECT lid
+            FROM kettles WHERE lid = ?' . $this->lid . $other->pour(1);
+        //       ^ d: none
+        //                                       ^ d: src/Tea/Kettle.php:9
+        //                                                     ^ d: src/Tea/Kettle.php:11
+        $event = 'brewed: Shop\Tea\Kettle';
+        //                         ^ d: picker src/Tea/Kettle.php:5, src/Tea/Stale/Kettle.php:5
+        return $rows . $event;
+    }
 }

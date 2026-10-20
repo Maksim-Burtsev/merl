@@ -762,11 +762,17 @@ pub fn python_rebinds_in_loop(text: &str, line1: usize, name: &str, col: usize) 
             continue;
         }
         depth = indent(lines[i]);
-        if ["while ", "for ", "async for "]
-            .iter()
-            .any(|k| t.starts_with(k))
-        {
+        if t.starts_with("while ") {
             return true;
+        }
+        if let Some(head) = t
+            .strip_prefix("for ")
+            .or_else(|| t.strip_prefix("async for "))
+        {
+            let targets = head.split(" in ").next().unwrap_or(head);
+            return !targets
+                .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .any(|w| w == name);
         }
         if ["def ", "async def ", "class "]
             .iter()
