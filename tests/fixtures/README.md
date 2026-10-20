@@ -303,6 +303,15 @@ star-import `infuse` where the later-wins rule must give up (#980): a later modu
 name, and a star import below the use or indented. `lamp.py` has a class attribute and a `def`
 below it of one name, the `def` the answer: JavaScript's rule that a field shadows its method
 (#1004) must stay out of Python.
+`pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
+members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
+lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under
+an alias and a class alias `Machine = Brewer`, `brewer = brewer.leaves(2)` and `cup = cup.next`, a
+loop over `dict.items()`, a walrus, a class body's own attribute beside a comprehension and a
+method that skip it, `this` for `self` over an abstract base, a nested `def` and an `except … as`
+hiding module names, and an import in both branches of an `if`, which pyright answers with the
+`else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
+function wins over another module's that it does not import.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
