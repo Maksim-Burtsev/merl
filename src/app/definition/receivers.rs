@@ -159,6 +159,20 @@ impl App {
             }
             return true;
         }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && word != "init"
+            && let Some(head) = search::call_head(kind, &a.written, a.start)
+            && head.fields_to_word.is_empty()
+            && let Some(mut found) =
+                self.swift_on_call(&a.here, &a.text, word, &head.call_without_arguments)
+        {
+            self.swift_by_labels(word, a.range.end, &mut found);
+            if !found.is_empty() {
+                return self.show_found(a, found);
+            }
+        }
         false
     }
 

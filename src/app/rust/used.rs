@@ -43,7 +43,9 @@ impl App {
                 "self" | "super" => return None,
                 _ => (root.as_str(), rest),
             },
-            Some((root, rest)) if root == "crate" || root == "super" => (root.as_str(), rest),
+            Some((root, rest)) if matches!(root.as_str(), "crate" | "super" | "self") => {
+                (root.as_str(), rest)
+            }
             Some((root, _)) if declares_mod(text, root) => ("self", used.path.as_slice()),
             Some((root, rest)) if root != "self" => (root.as_str(), rest),
             _ => return None,
@@ -81,6 +83,34 @@ impl App {
             path: hit.path,
             line: hit.line1,
         })
+    }
+
+    pub(super) fn rust_alias(&self, name: &str) -> Option<Typed> {
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        let pattern = format!(
+            r"^\s*(?:pub(?:\([^)]*\))?\s+)?type\s+{}\s*=",
+            regex::escape(name)
+        );
+        let aliases: Vec<Hit> = self
+            .grep(&pattern, false, false, rs)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
+                })
+            })
+            .collect();
+        let [hit] = <[Hit; 1]>::try_from(aliases).ok()?;
+        let target = hit.text.split_once('=')?.1.trim().trim_end_matches(';').trim();
+        let real = search::rust_type_name(target)?.name;
+        let declared = self
+            .grep(&search::rust_type_decl_pattern(&real), false, false, rs)
+            .unwrap_or_default();
+        if real == name || declared.is_empty() {
+            return None;
+        }
+        self.rust_resolve(&hit.path, target, hit.line1 - 1)
     }
 
     fn rust_crate_reexported(&self, krate: &CrateSrc, rest: &[String]) -> Option<CrateSrc> {

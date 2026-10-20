@@ -535,6 +535,16 @@ in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `
 returning `Self` (in a struct and in an extension of an outside type) and a generic `T`, which
 the expected type must not read (#1069): each jumps by name, and says "no definition" with its
 guard removed.
+`swift/Sources/Shop/Infuse/` is the third corner (#1126), its answers sourcekit-lsp's: `Sencha`
+declares `uppercased` and `append` beside a `String` and an `[Int]` local, a builder chain over
+lines, members of a constructor's and a method's result, an override in the subclass `Gyokuro`,
+a protocol extension's default beside a class's own, a class method reached through the subclass,
+an extension of `StringProtocol`, `let sencha = sencha.steeped()`, a tuple in a `for` header and in
+a `let`, `$0`, a `func` nested in another function beside a top-level namesake, a closure
+parameter named like that function, `super` in an extension, a `typealias` in both arms of `#if`,
+and a multi-line string and a block comment declaring what `Sencha.swift` declares. Where
+sourcekit-lsp offers a non-final class's method with its override, the annotation takes the
+declared type's method.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -544,6 +554,16 @@ guard removed.
 local and a parameter; a struct and its method declared by a `macro_rules!`; a closure parameter
 named like a field; an inherent `impl` in another module; and a doc comment and a raw string
 declaring what `cups.rs` declares.
+`rust/src/infusion.rs` (+ `infusion/leaves.rs`, `infusion/pantry.rs`) is the third corner (#1126),
+its answers rust-analyzer's: std methods (`len`, `push`, `trim`) on `String`, `Vec` and `str`
+values beside a project `Leaf` that declares them, a builder chain over lines, calls on a call's
+result, a trait default overridden by `impl Steeper for Leaf`, a supertrait's default reached
+through a bound, a trait implemented for `str`, `let leaf = leaf.trim()`, a loop header's tuple
+pattern and a struct pattern, a glob import beside the file's own `fn gulp`, a function nested in
+another, a closure parameter named like a function, an alias re-exported through `self::pantry`
+(`Leaf as Sheet`), a `type Tin = Leaf`, a `{gulp}` inside `format!`, and a string and a block
+comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]` and
+`#[cfg(not(unix))]` from two modules: rust-analyzer answers the host's arm, merl offers both.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
