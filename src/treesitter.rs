@@ -967,6 +967,10 @@ impl Parsed {
         self.repaint_from.is_some() || self.regroup.is_some()
     }
 
+    pub fn tree(&self) -> Option<&Tree> {
+        self.tree.as_ref()
+    }
+
     pub fn has_tree(&self) -> bool {
         self.tree.is_some()
     }

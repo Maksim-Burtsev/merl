@@ -32,6 +32,7 @@ mod erlang;
 mod external;
 mod find;
 mod gdscript;
+mod grow;
 mod haskell;
 mod imported;
 mod json_ref;
@@ -153,8 +154,8 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Editing",
     ),
     (
-        "v",
-        "Select the word, then the line, then the paragraph, then the whole file",
+        "v / V",
+        "Grow the selection: word, quotes, brackets, line, block, file / step back",
         "Selection",
     ),
     (
@@ -355,6 +356,7 @@ pub struct App {
     pub want_x: usize,
     pub deleted: Option<(usize, usize)>,
     anchor: Option<(TextLine, usize)>,
+    grown: Vec<grow::Grown>,
     pub top_line: usize,
     pub top_row: usize,
     pub left: usize,
@@ -518,6 +520,7 @@ impl App {
             deleted: None,
             want_x: 0,
             anchor: None,
+            grown: Vec::new(),
             top_line: 0,
             top_row: 0,
             left: 0,

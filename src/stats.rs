@@ -279,9 +279,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keys_split_into_75_actions() {
+    fn keys_split_into_76_actions() {
         let names: Vec<&str> = ACTIONS.iter().map(|a| a.name.as_str()).collect();
-        assert_eq!(names.len(), 75, "{names:?}");
+        assert_eq!(names.len(), 76, "{names:?}");
         assert_eq!(names.iter().collect::<HashSet<_>>().len(), names.len());
         for name in [
             "[",
@@ -370,11 +370,11 @@ mod tests {
                  under the cursor, or its implementations",
                 "}                      2       0    17  3 days ago   Previous / next paragraph \
                  (blank line)",
-                "v                      0       0     3  41 days ago  Select the word, then the line, \
-                 then the paragraph, then the whole file",
+                "v                      0       0     3  41 days ago  Grow the selection: word, \
+                 quotes, brackets, line, block, file / step back",
             ]
         );
-        assert_eq!(lines.len(), 1 + 75);
+        assert_eq!(lines.len(), 1 + 76);
         assert!(lines[4..].iter().all(|l| l.contains("  never  ")), "{out}");
         assert_eq!(
             lines[4],

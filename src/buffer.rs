@@ -278,6 +278,10 @@ impl Buffer {
         self.state_after_hl = None;
     }
 
+    pub fn ts_tree(&self) -> Option<&tree_sitter::Tree> {
+        self.ts.as_ref()?.tree()
+    }
+
     pub fn parsing(&self) -> bool {
         self.ts_stale || self.ts.as_ref().is_some_and(treesitter::Parsed::parsing)
     }
