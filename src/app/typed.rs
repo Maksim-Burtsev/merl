@@ -213,10 +213,43 @@ impl App {
                 && self.declaration(kind, &file, &parts).is_none())
             .then(|| name.clone())
         };
+        let builtin_open = || {
+            bound(&imports, "open").is_none()
+                && self
+                    .declaration(kind, &file, &["open".to_owned()])
+                    .is_none()
+        };
         let mut found: Option<(String, Option<String>)> = None;
         for b in &bindings {
             let this = match &b.value {
                 search::Value::Type(t) => (builtin(t)?, None),
+                search::Value::Unknown => {
+                    let line = text.lines().nth(b.line1 - 1)?;
+                    if !(search::python_opened(line, last) && builtin_open()) {
+                        return None;
+                    }
+                    ("file".to_owned(), Some(format!("{last} = open()")))
+                }
+                search::Value::Call(callee)
+                    if callee.matches('.').count() == 1 && !callee.starts_with('.') =>
+                {
+                    let (receiver, _) = callee.split_once('.')?;
+                    let typed = search::bindings(kind, &text, b.line1, receiver);
+                    let mut scalar = None;
+                    for t in &typed {
+                        let search::Value::Type(t) = &t.value else {
+                            return None;
+                        };
+                        let name = builtin(t)
+                            .filter(|n| search::PYTHON_SCALAR_TYPES.contains(&n.as_str()))?;
+                        if scalar.get_or_insert_with(|| name.clone()) != &name {
+                            return None;
+                        }
+                    }
+                    let name = scalar?;
+                    let link = format!("{callee}() on {receiver}: {name}");
+                    (name, Some(link))
+                }
                 search::Value::Call(callee) => {
                     let first = callee.split('.').next().unwrap_or(callee);
                     if hidden(kind, &file, &text, b.line1, first) {

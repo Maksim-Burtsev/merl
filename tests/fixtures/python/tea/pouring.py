@@ -23,8 +23,8 @@ def names(raw: str, words: list[str]) -> list[str]:
     text = raw.strip()
     #          ^ d: none
     parts = text.split(",") + " ".join(words).split()
-    #            ^ d: tea/brewer.py:12; want none (#1151)
-    #                                         ^ d: tea/brewer.py:12; want none (#1151)
+    #            ^ d: none
+    #                                         ^ d: none
     log.info("names")
     #   ^ d: tea/brewer.py:15; want none (#1100)
     return [p.strip() for p in parts]
@@ -34,8 +34,8 @@ def names(raw: str, words: list[str]) -> list[str]:
 def opened(path: str) -> str:
     with open(path) as handle:
         return handle.read() + os.path.join("a", "b")
-        #             ^ d: tea/brewer.py:21; want none (#1151)
-        #                              ^ d: tea/brewer.py:24; want none (#1151)
+        #             ^ d: none
+        #                              ^ d: none
 
 
 def counts(cups: dict[str, Strainer]) -> int:

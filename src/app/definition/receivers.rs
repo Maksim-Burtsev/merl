@@ -232,6 +232,15 @@ impl App {
                 }
             }
         }
+        if kind == Kind::Python
+            && dotted
+            && let Some(literal) = search::python_str_literal_receiver(&a.before)
+        {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{word}: builtin, no source (via {literal})");
+            return true;
+        }
         if !(dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
             && (head.is_some()

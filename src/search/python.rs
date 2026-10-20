@@ -178,6 +178,49 @@ pub const PYTHON_BUILTIN_TYPES: &[&str] = &[
     "memoryview",
     "slice",
 ];
+pub const PYTHON_SCALAR_TYPES: &[&str] = &[
+    "str",
+    "bytes",
+    "bytearray",
+    "int",
+    "float",
+    "complex",
+    "bool",
+];
+pub const PYTHON_STDLIB_MODULES: &[&str] = &[
+    "os",
+    "sys",
+    "re",
+    "json",
+    "math",
+    "time",
+    "shutil",
+    "subprocess",
+    "string",
+    "textwrap",
+    "base64",
+    "hashlib",
+];
+pub fn python_str_literal_receiver(before: &str) -> Option<&str> {
+    static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r#"(?:^|[^\w'"])((?i:[rbfu]{0,2})(?:"[^"\\]*"|'[^'\\]*'))(?:\.\w+\([^()'"]*\))*\.$"#,
+        )
+        .expect("the regex is a literal")
+    });
+    LITERAL
+        .captures(before)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str())
+}
+pub fn python_opened(line: &str, name: &str) -> bool {
+    let t = uncommented(Kind::Python, line);
+    Regex::new(&format!(
+        r"^(?:async\s+)?with\s+open\([^()]*\)\s+as\s+{}\s*:",
+        regex::escape(name)
+    ))
+    .is_ok_and(|r| r.is_match(t.trim()))
+}
 #[derive(Clone, Copy)]
 enum Scope {
     Def(usize),
