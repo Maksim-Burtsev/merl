@@ -489,9 +489,15 @@ pub fn ts_hoisted_function(text: &str, line1: usize, name: &str) -> Option<usize
             !t.is_empty() && !t.starts_with(['}', ')', ']', '/', '*']) && indent(lines[i]) < depth
         })?;
         let outer = indent(lines[header]);
-        let body = lines.get(header + 1..)?.iter().take_while(|l| {
-            indent(l) > outer || l.trim().is_empty() || !l.trim_start().starts_with('}')
-        });
+        let block = lines
+            .get(header + 1..)?
+            .iter()
+            .take_while(|l| indent(l) > outer || l.trim().is_empty())
+            .count();
+        if !lines[header].trim_end().ends_with('{') || header + block < at {
+            return None;
+        }
+        let body = lines.get(header + 1..=header + block)?.iter();
         let child = lines
             .get(header + 1..)?
             .iter()

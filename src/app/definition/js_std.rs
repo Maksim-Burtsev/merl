@@ -133,13 +133,38 @@ fn std_global_call(global: &str, method: &str) -> bool {
     }
 }
 
-fn std_type(written: &str) -> Option<String> {
-    let t = written.trim();
-    if t.ends_with("[]") {
-        return Some(t.to_owned());
+fn std_type(written: &str) -> Option<Vec<String>> {
+    let mut members = vec![String::new()];
+    let mut depth = 0i32;
+    let mut last = ' ';
+    for c in written.chars() {
+        match c {
+            '<' | '(' | '[' | '{' => depth += 1,
+            '>' if last == '=' => {}
+            '>' | ')' | ']' | '}' => depth -= 1,
+            '|' | '&' if depth == 0 => {
+                members.push(String::new());
+                last = c;
+                continue;
+            }
+            _ => {}
+        }
+        members.last_mut()?.push(c);
+        last = c;
     }
-    let base = t.split('<').next()?.trim();
-    STD_TYPES.contains(&base).then(|| base.to_owned())
+    let bases: Vec<String> = members
+        .iter()
+        .map(|m| m.trim())
+        .filter(|m| !m.is_empty() && *m != "null" && *m != "undefined")
+        .map(|t| {
+            if t.ends_with("[]") {
+                return Some(t.to_owned());
+            }
+            let base = t.split('<').next()?.trim();
+            STD_TYPES.contains(&base).then(|| base.to_owned())
+        })
+        .collect::<Option<_>>()?;
+    (depth == 0 && !bases.is_empty()).then_some(bases)
 }
 
 fn receiver_text(before: &str) -> &str {
@@ -258,9 +283,9 @@ impl App {
             return None;
         };
         if let search::Value::Type(written) = &b.value {
-            let ty = std_type(written)?;
-            let base = ty.split('<').next().unwrap_or(&ty);
-            if bound(&imports, base).is_some() || self.type_decl(kind, here, base).is_some() {
+            if std_type(written)?.iter().any(|base| {
+                bound(&imports, base).is_some() || self.type_decl(kind, here, base).is_some()
+            }) {
                 return None;
             }
             links.push(format!("{expr}: {}", written.trim()));

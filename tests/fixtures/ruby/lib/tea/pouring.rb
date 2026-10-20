@@ -70,6 +70,7 @@ module Tea
       Samovar.new(1).decant(2) + Urn.new(1).pour(2) + Samovar.new(1).spill + Samovar.new(1).volume
       #              ^ d: lib/tea/samovar.rb:85
       #                          ^ d: lib/tea/samovar.rb:88
+      #                              ^ d: none; want lib/tea/samovar.rb:88 (#1185)
       #                                     ^ d: lib/tea/samovar.rb:81
       #                                                              ^ d: lib/tea/vessel.rb:8
       #                                                                                     ^ d: lib/tea/vessel.rb:20
@@ -100,7 +101,7 @@ module Tea
   class Pot
     strength = 5
     define_method(:measure) { strength }
-    #                         ^ d: lib/tea/pouring.rb:101
+    #                         ^ d: lib/tea/pouring.rb:102
   end
 end
 

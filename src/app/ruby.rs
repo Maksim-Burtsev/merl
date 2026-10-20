@@ -151,8 +151,11 @@ impl App {
         let declared = self.project_definitions(Kind::Ruby, here, word, &pattern);
         self.truncated.set(cut);
         let reopened = declared.iter().any(|h| {
-            self.text_of(&h.path)
-                .is_some_and(|t| search::ruby_inside_core(&t, h.line1, class))
+            self.text_of(&h.path).is_some_and(|t| {
+                search::ruby_inside_core(&t, h.line1, class)
+                    || search::ruby_in_module(&t, h.line1)
+                    || search::ruby_in_block(&t, h.line1)
+            })
         });
         (!reopened).then_some(class)
     }

@@ -135,3 +135,32 @@ export function pot(): number {
   };
   return new Pot().pour();
 }
+
+const sprinkle = (n: number) =>
+  makeStrainer().shake() + n;
+//^ d: tea/strainer.ts:46
+
+if (sprinkle.length)
+  inner();
+//^ d: !jump
+
+export function hidesMaker(): number {
+  function makeStrainer(): number {
+    return 1;
+  }
+  function inner(): number {
+    return 2;
+  }
+  return makeStrainer() + inner();
+}
+
+export function blend(cups: Map<string, number> | Basket, jar: Promise<number> | Basket): number {
+  return cups.split(1) + jar.then();
+  //          ^ d: tea/strainer.ts:37
+  //                         ^ d: picker coffee/lever.mjs:38, tea/strainer.ts:41
+}
+
+export function pick(cups: Map<string, Basket> | null): number {
+  return cups?.get("a")?.split(1) ?? 0;
+  //           ^ d: none
+}
