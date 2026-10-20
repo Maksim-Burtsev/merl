@@ -43,10 +43,10 @@ def counts(cups: dict[str, Strainer]) -> int:
     for name, strainer in cups.items():
         total += strainer.get(name)
         #         ^ d: tea/pouring.py:43
-        #                 ^ d: picker shop/client.py:5, tea/brewer.py:18; want tea/brewer.py:18 (#1155)
+        #                 ^ d: tea/brewer.py:18
     return total + cups.get("a").get("b")
     #                   ^ d: none
-    #                            ^ d: picker shop/client.py:5, tea/brewer.py:18; want tea/brewer.py:18 (#1155)
+    #                            ^ d: tea/brewer.py:18
 
 
 def brew() -> int:

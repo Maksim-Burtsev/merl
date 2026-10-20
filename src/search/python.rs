@@ -308,12 +308,21 @@ impl Rules {
                 r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
             )),
             declared_outside: rule(format!(r"^(global|nonlocal)\s.*\b{n}\b")),
-            plain_loop_over_a_name: rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:")),
+            plain_loop_over_a_name: rule(format!(
+                r"^for\s+(?:\w+\s*,\s*{n}\s+in\s+([A-Za-z_]\w*)\.items\(\)|{n}\s+in\s+([A-Za-z_]\w*)(\.values\(\))?)\s*:"
+            )),
             chained_assignment: rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]")),
         }
     }
 }
 
+fn looped(c: &regex::Captures) -> String {
+    match (c.get(1), c.get(2)) {
+        (Some(items), _) => format!("{}.values()", items.as_str()),
+        (None, Some(over)) => format!("{}{}", over.as_str(), c.get(3).map_or("", |v| v.as_str())),
+        (None, None) => String::new(),
+    }
+}
 pub(super) fn python_bindings_at(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let in_class = python_class_body_above(lines, at, name);
     if in_class.is_empty() {
@@ -378,7 +387,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 continue;
             }
             let value = if let Some(c) = r.plain_loop_over_a_name.captures(t) {
-                Some(Value::Element(c[1].to_owned()))
+                Some(Value::Element(looped(&c)))
             } else if r.unknown.is_match(t)
                 || (i == at && python_inline(t, name))
                 || python_case_binds(t, name)

@@ -527,6 +527,25 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
 }
+pub fn python_dict_value(written: &str) -> Option<String> {
+    let t = written.trim().trim_matches(['"', '\'']);
+    let open = t.find('[').filter(|_| t.ends_with(']'))?;
+    let head = t.get(..open)?.trim_end();
+    let head = head.rsplit('.').next().unwrap_or(head);
+    let args = split_top(Kind::Python, t.get(open + 1..t.len() - 1)?, b',');
+    let mapping = matches!(
+        head,
+        "dict" | "Dict" | "Mapping" | "MutableMapping" | "defaultdict" | "OrderedDict"
+    );
+    let [_, value] = args.as_slice() else {
+        return None;
+    };
+    if !mapping {
+        return None;
+    }
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_owned())
+}
 pub struct EnumConstant {
     pub name: String,
     pub line1: usize,

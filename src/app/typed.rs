@@ -702,6 +702,36 @@ impl App {
         }
     }
 
+    fn dict_value(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        receiver: &str,
+        method: &str,
+    ) -> Option<TypeVia> {
+        let kind = Kind::Python;
+        let mut found: Option<TypeVia> = None;
+        for b in self.bindings_of(kind, file, text, line1, receiver) {
+            let search::Value::Type(written) = &b.value else {
+                return None;
+            };
+            let value = search::python_dict_value(written)?;
+            let ty = self.annotated_type(kind, file, text, b.line1, &value)?;
+            match &found {
+                Some(one) if (&one.ty.path, one.ty.line) != (&ty.path, ty.line) => return None,
+                Some(_) => {}
+                None => {
+                    found = Some(TypeVia {
+                        ty,
+                        call_signature: Some(format!("{receiver}.{method}() -> {value}")),
+                    });
+                }
+            }
+        }
+        found
+    }
+
     fn element_binding_type(
         &self,
         kind: Kind,
@@ -711,6 +741,9 @@ impl App {
         n: &str,
         hops: usize,
     ) -> Option<TypeVia> {
+        let (n, values) = n
+            .strip_suffix(".values()")
+            .map_or((n, false), |base| (base, true));
         let (file, text, bindings) = match n.rsplit_once('.') {
             None => (
                 file.to_path_buf(),
@@ -748,6 +781,7 @@ impl App {
                 _ => return None,
             };
             let (element, at) = match search::element_type(kind, &written) {
+                _ if values => (search::python_dict_value(&written)?, at.clone()),
                 Some(element) => (element, at.clone()),
                 None => self.named_element(kind, &at, &written)?,
             };
@@ -807,6 +841,13 @@ impl App {
         let (method, receiver) = parts.split_last()?;
         if receiver.first().is_some_and(|r| r == "super") {
             return None;
+        }
+        if kind == Kind::Python
+            && let [r] = receiver
+            && matches!(method.as_str(), "get" | "pop" | "setdefault")
+            && let Some(via) = self.dict_value(file, text, line1, r, method)
+        {
+            return Some(via);
         }
         let proven = (hops > 0 && !receiver.is_empty())
             .then(|| {
