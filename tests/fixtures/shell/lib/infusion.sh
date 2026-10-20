@@ -24,4 +24,4 @@ fi
 declare -A tins=([green]=1 [black]=2)
 
 export -f whisk
-#         ^ d: picker lib/infusion.sh:7, bin/steeping.sh:6; want lib/infusion.sh:7 (#1180)
+#         ^ d: lib/infusion.sh:7

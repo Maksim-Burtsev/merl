@@ -16,7 +16,7 @@ echo "$date"
 #      ^ d: lib/infusion.sh:5
 
 shout=$(whisk 1 | tr a-z A-Z)
-#       ^ d: picker bin/steeping.sh:6, lib/infusion.sh:7; want lib/infusion.sh:7 (#1180)
+#       ^ d: lib/infusion.sh:7
 echo "$shout"
 
 whisk 1 \
@@ -25,7 +25,7 @@ whisk 1 \
   # ^ d: lib/infusion.sh:11
 
 whisk=$(whisk 2)
-#       ^ d: picker bin/steeping.sh:6, lib/infusion.sh:7; want lib/infusion.sh:7 (#1180)
+#       ^ d: lib/infusion.sh:7
 echo "$whisk"
 #      ^ d: bin/steeping.sh:27
 
@@ -66,7 +66,7 @@ temper
 
 cat <<EOT
 $(whisk 3) and $leaf
-# ^ d: picker bin/steeping.sh:6, lib/infusion.sh:7; want lib/infusion.sh:7 (#1180)
+# ^ d: lib/infusion.sh:7
 #               ^ d: lib/infusion.sh:4
 EOT
 
@@ -85,3 +85,17 @@ outer_tray() {
 [[ -v leaf ]] && unset leaf
 #     ^ d: lib/infusion.sh:4
 #                      ^ d: lib/infusion.sh:4
+
+notice="it's
+  hot, isn't it"
+ladle() { echo; }
+ladle
+# ^ d: bin/steeping.sh:91
+echo it\'s
+saucer() { echo; }
+saucer
+# ^ d: bin/steeping.sh:95
+echo $'it\'s'
+strainer() { echo; }
+strainer
+# ^ d: bin/steeping.sh:99

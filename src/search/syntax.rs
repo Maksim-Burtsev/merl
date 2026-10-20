@@ -402,7 +402,7 @@ impl<'a> Scanner<'a> {
                 && !doubled
                 && b[i..].starts_with(&end)
                 && (end.len() > 1
-                    || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake)
+                    || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake | Kind::Shell)
                     || self.in_verbatim_string
                     || b[i - 1] != b'\\')
         };
@@ -610,6 +610,23 @@ impl<'a> Scanner<'a> {
         self.i == 0 || self.b[self.i - 1] == b'\n'
     }
 
+    fn shell_quote_leads_line(&self) -> bool {
+        let (b, i) = (self.b, self.i);
+        let from = b[..i]
+            .iter()
+            .rposition(|&c| c == b'\n')
+            .map_or(0, |n| n + 1);
+        let lead = b[from..i].trim_ascii_start();
+        let name = lead
+            .strip_suffix(b"=")
+            .map(|n| n.strip_suffix(b"+").unwrap_or(n));
+        name.is_some_and(|n| {
+            n.first().is_some_and(|c| !c.is_ascii_digit()) && n.iter().all(|&c| ident(c))
+        }) || lead.strip_prefix(b":").is_some_and(|s| {
+            s.first().is_some_and(|&c| c == b' ' || c == b'\t') && s.trim_ascii().is_empty()
+        })
+    }
+
     fn ruby_data_end(&mut self) -> bool {
         let (b, i) = (self.b, self.i);
         let ends = self.kind == Kind::Ruby
@@ -642,6 +659,8 @@ impl<'a> Scanner<'a> {
             self.out
                 .extend(b[i..end].iter().filter(|&&c| c == b'\n').map(|_| true));
             self.i = end - 1;
+        } else if kind == Kind::Shell && c == b'\'' && self.shell_quote_leads_line() {
+            self.literal_closer = Some(b"'".into());
         } else if (kind == Kind::Ruby && c == b'/' && ruby_literal_may_start(&b[..i]))
             || c == b'"'
             || (c == b'\'' && kind != Kind::Cmake)

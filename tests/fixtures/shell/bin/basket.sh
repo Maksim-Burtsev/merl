@@ -13,7 +13,7 @@ gross() {
 
 bonus() {
   echo $(($(coupon_rate) + $(gross)))
-  #          ^ d: picker lib/banner.sh:13, lib/pricing.sh:18; want lib/pricing.sh:18 (#436)
+  #          ^ d: lib/pricing.sh:18
   #                          ^ d: bin/basket.sh:8
 }
 
