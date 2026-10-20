@@ -967,16 +967,15 @@ pub fn php_call_chain(before: &str) -> Option<(PhpCallHead, Vec<String>)> {
         calls.insert(0, name.to_owned());
         rest = head;
     }
-    let head = match php_new_receiver(&format!("{rest}->")) {
-        Some(written) => PhpCallHead::New(written),
-        None => {
-            let c = VAR.captures(rest)?;
-            match (&c[1], c.get(2)) {
-                ("this", None) => PhpCallHead::This,
-                ("this", Some(_)) => return None,
-                (v, None) => PhpCallHead::Var(v.to_owned()),
-                (v, Some(_)) => PhpCallHead::Callable(v.to_owned()),
-            }
+    let head = if let Some(written) = php_new_receiver(&format!("{rest}->")) {
+        PhpCallHead::New(written)
+    } else {
+        let c = VAR.captures(rest)?;
+        match (&c[1], c.get(2)) {
+            ("this", None) => PhpCallHead::This,
+            ("this", Some(_)) => return None,
+            (v, None) => PhpCallHead::Var(v.to_owned()),
+            (v, Some(_)) => PhpCallHead::Callable(v.to_owned()),
         }
     };
     (!calls.is_empty() || matches!(head, PhpCallHead::Callable(_))).then_some((head, calls))
