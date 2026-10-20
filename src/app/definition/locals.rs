@@ -188,6 +188,7 @@ impl App {
         }
         if bare
             && locals.is_empty()
+            && required.is_empty()
             && let Some(hoisted) = search::ts_hoisted_function(&a.text, self.line + 1, first)
         {
             return vec![hoisted];
