@@ -8,7 +8,7 @@ function froth() {
   return steamer.vent() + steamer.purge().length + darken(1);
   //             ^ d: coffee/steamer.cjs:6
   //                              ^ d: coffee/steamer.cjs:12
-  //                                               ^ d: none; want coffee/roast.cjs:3 (#1150)
+  //                                               ^ d: coffee/roast.cjs:3
 }
 
 module.exports = froth;
