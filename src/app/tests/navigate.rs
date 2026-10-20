@@ -2302,8 +2302,11 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         ];
         assert_eq!(
             d(caller, "AlbumResource::make"),
-            picker("make: by name, 2 declarations", &makes),
-            "a name a group `use` binds: vendor: {vendor}"
+            jump(
+                "make \u{2192} AlbumResource::make (via import app/Http/Resources/AlbumResource.php)",
+                makes[0].1
+            ),
+            "a name a group `use` binds, over the namespace's namesake (#1178): vendor: {vendor}"
         );
         assert_eq!(
             d(caller, "Tune::play"),

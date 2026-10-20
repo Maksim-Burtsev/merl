@@ -208,7 +208,12 @@ pub fn shell_command_position(lead: &str) -> Option<bool> {
         return Some(false);
     }
     let last = l.rsplit(char::is_whitespace).next().unwrap_or("");
+    let function_flag = last == "-f"
+        && ["export", "unset", "declare", "typeset"]
+            .iter()
+            .any(|w| l.strip_suffix("-f").is_some_and(|r| r.trim_end().ends_with(w)));
     (l.is_empty()
+        || function_flag
         || l.ends_with([';', '&', '|', '(', '{', '!'])
         || matches!(
             last,

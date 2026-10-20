@@ -362,7 +362,7 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
         Regex::new(r"(?m)^use\s+([\w\\\s,]+?)\s*;").expect("the regex is a literal")
     });
     static GROUP: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?m)^use\s+[^;{]*\{([^}]*)\}").expect("the regex is a literal")
+        Regex::new(r"(?m)^use\s+([^;{]*)\{([^}]*)\}").expect("the regex is a literal")
     });
     if let Some(full) = written.strip_prefix('\\') {
         return Some(PhpResolved {
@@ -390,18 +390,24 @@ pub fn php_resolve(text: &str, written: &str) -> Option<PhpResolved> {
             (alias == first).then(|| path.trim_start_matches('\\').to_owned())
         });
     let grouped = || {
-        GROUP.captures_iter(text).any(|c| {
-            c[1].split(',').any(|item| {
+        GROUP.captures_iter(text).find_map(|c| {
+            let head = c[1].trim().trim_start_matches('\\');
+            c[2].split(',').find_map(|item| {
                 let item = item.trim();
-                let alias = item.split_once(" as ").map_or(item, |(_, a)| a.trim());
-                alias.rsplit('\\').next() == Some(first)
+                let (path, alias) = item
+                    .split_once(" as ")
+                    .map_or((item, item), |(p, a)| (p.trim(), a.trim()));
+                (alias.rsplit('\\').next() == Some(first)).then(|| {
+                    (!head.starts_with("function ") && !head.starts_with("const "))
+                        .then(|| format!("{head}{path}"))
+                })
             })
         })
     };
     let tail = rest.map_or(String::new(), |r| format!("\\{r}"));
-    let (full, imported) = match used {
-        Some(path) => (format!("{path}{tail}"), true),
-        None if grouped() => return None,
+    let (full, imported) = match used.map(Some).or_else(grouped) {
+        Some(None) => return None,
+        Some(Some(path)) => (format!("{path}{tail}"), true),
         None => match php_namespace(text) {
             Some(ns) => (format!("{ns}\\{written}"), false),
             None => (written.to_owned(), false),
