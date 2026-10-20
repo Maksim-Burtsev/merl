@@ -977,3 +977,13 @@ fn d_on_a_preview_row_with_a_bare_url_says_it_leads_outside() {
     assert_eq!(a.message, "link outside the project");
     drop(std::fs::remove_dir_all(&dir));
 }
+
+#[test]
+fn d_on_the_last_row_reads_every_line_it_shows() {
+    let (dir, mut a) = md_app("last", "Intro text\n[b](NOTES.md) here\n");
+    std::fs::write(dir.join("NOTES.md"), "# Notes\n").unwrap();
+    key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Char('d'));
+    assert_eq!(a.message, "link NOTES.md");
+    drop(std::fs::remove_dir_all(&dir));
+}

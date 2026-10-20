@@ -8,7 +8,11 @@ pub fn holds_raw_text(first_line: &str) -> bool {
     let start = first_line.trim_start().to_ascii_lowercase();
     ["<script", "<pre", "<style", "<textarea"]
         .iter()
-        .any(|tag| start.starts_with(tag))
+        .any(|tag| {
+            start
+                .strip_prefix(tag)
+                .is_some_and(|rest| rest.is_empty() || rest.starts_with(['>', ' ', '\t']))
+        })
 }
 
 pub fn without_comments(line: &str, in_comment: &mut bool) -> (String, Vec<(usize, usize)>) {

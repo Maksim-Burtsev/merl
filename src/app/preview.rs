@@ -254,9 +254,11 @@ impl App {
             KeyCode::Char('d')
                 if plain && self.buf.path.as_deref().is_some_and(markdown::is_markdown) =>
             {
-                let from = p.doc.rows[row].src;
+                let here = &p.doc.rows[row];
+                let from = here.src;
+                let last_line = here.lines.end.saturating_sub(1).max(from.0);
                 let to = p.doc.rows.get(row + 1).map(|r| r.src).filter(|&s| s > from);
-                self.follow_from_row(from, to);
+                self.follow_from_row(from, to.unwrap_or((last_line, usize::MAX)));
                 return true;
             }
             _ => return true,
@@ -288,13 +290,12 @@ impl App {
         true
     }
 
-    fn follow_from_row(&mut self, from: (usize, usize), to: Option<(usize, usize)>) {
+    fn follow_from_row(&mut self, from: (usize, usize), to: (usize, usize)) {
         let lines = &self.buf.lines;
         let offset = |(l, c): (usize, usize)| -> usize {
             let before: usize = lines.iter().take(l).map(|s| s.len() + 1).sum();
             before + c.min(lines.get(l).map_or(0, String::len))
         };
-        let to = to.unwrap_or((from.0, usize::MAX));
         let text = lines.join("\n");
         let span = offset(from)..offset(to);
         let Some(at) = crate::search::first_link_in(&text, &span) else {
