@@ -19,12 +19,13 @@ The sql row with #1064 (the `CREATE` in effect in a migration): over `d99cae84`,
 The sql row with #1063 (a column through its table or alias): over `2a700f71`, 2026-10-21, release build, `vm.loadavg` { 7.63 12.11 14.89 } before the run, { 5.95 10.78 14.19 } after.
 The dart row with #1085's local set from a constructor call over several lines and #1086's packages the library cannot see: over `f92a0410`, 2026-10-21, release build, `vm.loadavg` { 5.16 6.24 9.70 } before the run.
 The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b6575`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
+The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed as its `@types/estree` interface): over `90cda9b1`, 2026-10-21, release build, `vm.loadavg` { 6.81 8.91 8.63 } before the run, { 5.88 8.08 8.34 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 257 | 219 (85%) | 25 (10%) | 0 (0%) | 13 (5%) | 68 | 11 | 19.0 | 285.0 |
-| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.8 | 97.7 |
-| js (eslint, uptime-kuma) | 217 | 174 (80%) | 33 (15%) | 1 (0%) | 9 (4%) | 177 | 11 | 40.1 | 174.0 |
+| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.0 | 91.0 |
+| js (eslint, uptime-kuma) | 217 | 177 (82%) | 32 (15%) | 1 (0%) | 7 (3%) | 177 | 11 | 37.0 | 173.6 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
 | rust (ripgrep) | 231 | 208 (90%) | 19 (8%) | 0 (0%) | 4 (2%) | 69 | 5 | 5.8 | 61.0 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
@@ -43,9 +44,9 @@ The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b65
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 1 | 3.4 | 24.5 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 55.4 | 185.7 |
-| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 38.5 | 194.9 |
-| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 37.2 | 114.5 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 49.4 | 166.1 |
+| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 33.3 | 171.0 |
+| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 34.1 | 103.4 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |

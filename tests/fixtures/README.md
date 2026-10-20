@@ -486,7 +486,12 @@ whose base comes from the uninstalled `sequelize-typescript`, beside a type's `c
 lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
 another class. `crate.js` reads `hinge` off an untyped parameter, declared only
-as a plain property of an interface in `node_modules/parcel-kit` (#1078).
+as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
+rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
+member, an inherited one, one the interface lacks (offered by name, as untyped), a nested
+function's own `node` and a Babel-shaped `visitor` (both untyped), and a reassigned `node`, which
+keeps its type as tsserver's does. With `@types/estree` installed, `rules/q.js`'s `callee`
+answers as tsserver does too.
 `infusion.ts` is the third corner (#1126), its answers tsserver's: members of a string, a
 `Promise` and a `Map` beside project namesakes (`Basket.trim`, `Basket.then`), a builder chain
 over lines through a renaming re-export (`Strainer as Filter`), an inherited and an overridden
