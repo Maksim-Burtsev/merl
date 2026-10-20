@@ -546,7 +546,20 @@ impl App {
         name: &str,
         hops: usize,
     ) -> Option<TypeVia> {
-        let bindings = self.bindings_of(kind, file, text, line1, name);
+        let mut bindings = self.bindings_of(kind, file, text, line1, name);
+        if kind == Kind::Python
+            && bindings
+                .iter()
+                .any(|b| matches!(b.value, search::Value::Type(_)))
+        {
+            bindings.retain(|b| {
+                b.value != search::Value::Unknown
+                    || !text
+                        .lines()
+                        .nth(b.line1 - 1)
+                        .is_some_and(|l| search::python_self_derived(l, name))
+            });
+        }
         if !bindings.is_empty() || kind != Kind::Go {
             return self.agree(kind, file, text, &bindings, hops);
         }

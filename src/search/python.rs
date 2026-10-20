@@ -795,3 +795,8 @@ pub fn python_module_assignments(text: &str, name: &str) -> usize {
         })
         .count()
 }
+pub fn python_self_derived(line: &str, name: &str) -> bool {
+    let t = uncommented(Kind::Python, line);
+    let n = regex::escape(name);
+    Regex::new(&format!(r"^{n}\s*=\s*{n}(?:\.\w+)+$")).is_ok_and(|r| r.is_match(t.trim()))
+}
