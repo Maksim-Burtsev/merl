@@ -303,6 +303,15 @@ star-import `infuse` where the later-wins rule must give up (#980): a later modu
 name, and a star import below the use or indented. `lamp.py` has a class attribute and a `def`
 below it of one name, the `def` the answer: JavaScript's rule that a field shadows its method
 (#1004) must stay out of Python.
+`pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
+members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
+lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under
+an alias and a class alias `Machine = Brewer`, `brewer = brewer.leaves(2)` and `cup = cup.next`, a
+loop over `dict.items()`, a walrus, a class body's own attribute beside a comprehension and a
+method that skip it, `this` for `self` over an abstract base, a nested `def` and an `except … as`
+hiding module names, and an import in both branches of an `if`, which pyright answers with the
+`else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
+function wins over another module's that it does not import.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
@@ -602,6 +611,13 @@ and a `Fillable` one the `Kettle` extends, `def self.cold` beside an instance `c
 self`, `define_method(:whistle)`, `steep = steep() + 1` and `steep * steep()`, a block parameter
 hiding a method on its own line and one hiding a parameter over lines, and a heredoc declaring
 `descale`, `Teapot` and `whistle`.
+`pouring.rb` is the third corner (#1126), its answers read from the code, over `samovar.rb`:
+core methods of a `String` and a `Hash` beside `Strainer`'s namesakes, a refinement of `String`,
+a builder over lines and a chain on one line beside `Infuser`'s, `cup = cup.next_cup`, `strength
+= strength.to_i` beside a method `strength`, a block-local `|c; strength|`, `alias_method`, a
+constant alias `Urn = Samovar`, `tap`, `&.`, `::Tea::Cup`, a `Struct` member, `module_function`,
+`super` past an included module, interpolation in a string and a heredoc declaring `quick`, and a
+class body's local read by `define_method`.
 
 ### Adding a kind
 

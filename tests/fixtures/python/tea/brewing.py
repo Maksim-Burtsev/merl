@@ -146,7 +146,7 @@ def pot() -> int:
     #        ^ d: tea/kettle.py:35
     return teapot.pour() + teapot.strength
     #             ^ d: tea/kettle.py:36
-    #                             ^ d: none
+    #                             ^ d: tea/brewer.py:34; want none (#1157)
 
 
 def sweeten(cups: list[int]) -> list[int]:

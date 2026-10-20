@@ -275,7 +275,7 @@ impl App {
             && !walk.declares_here
             && !search::python_class_binds(&a.text, self.line + 1, word)
         {
-            self.python_reachable(a, &mut hits);
+            self.python_reachable(a, near, &mut hits);
         }
         self.swift_implicit(a, &mut hits);
         if kind == Kind::Swift
@@ -368,7 +368,7 @@ impl App {
         }
     }
 
-    fn python_reachable(&self, a: &Asked, hits: &mut Vec<Hit>) {
+    fn python_reachable(&self, a: &Asked, near: &Near, hits: &mut Vec<Hit>) {
         let all = hits.len();
         let mut kept = hits.clone();
         kept.retain(|h| {
@@ -385,6 +385,12 @@ impl App {
                 .and_then(|t| enclosing_def_lines1(&t, h.line1).first().copied());
             inside.is_some_and(|f| h.path != a.here || !around.contains(&f))
         };
+        let global = |h: &Hit| h.path == a.here && !h.text.starts_with(char::is_whitespace);
+        if kept.iter().any(global)
+            && !near.imports.iter().any(|i| i.name == a.word || i.name == "*")
+        {
+            kept.retain(|h| h.path == a.here);
+        }
         if !matches!(kept.as_slice(), [h] if all > 1 && unreachable(h)) {
             *hits = kept;
         }
