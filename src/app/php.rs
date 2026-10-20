@@ -327,7 +327,11 @@ impl App {
                 other => return other,
             }
         }
-        match search::php_class_header(lines[class]).and_then(|h| h.extends) {
+        let parent = match search::php_class_header(lines[class]) {
+            Some(h) => h.extends,
+            None => search::php_anonymous_class(lines[class]).flatten(),
+        };
+        match parent {
             Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere,
         }
@@ -620,6 +624,14 @@ impl App {
                     let class = Self::php_self(here, text, at)?;
                     let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("$this->{method}(): {written}")))
+                }
+                search::PhpBinding::Anonymous => {
+                    let class = PhpClass {
+                        path: here.to_path_buf(),
+                        text: text.to_owned(),
+                        header0: at,
+                    };
+                    (class, Some(format!("${name}: new class")))
                 }
                 search::PhpBinding::FunctionCall(f) => {
                     let Returned { class, written } = self.php_function_returns(here, &f)?;

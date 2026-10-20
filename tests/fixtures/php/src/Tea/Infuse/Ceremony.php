@@ -87,7 +87,7 @@ final class Ceremony
             }
         };
         return $anon->grade() . $anon->format();
-        //            ^ d: picker src/Tea/Infuse/Ceremony.php:84, src/Tea/Infuse/Graded.php:7, src/Tea/Infuse/Leaf.php:7, src/Tea/Infuse/Oolong.php:12; want src/Tea/Infuse/Ceremony.php:84 (#1177)
+        //            ^ d: src/Tea/Infuse/Ceremony.php:84
         //                             ^ d: src/Tea/Infuse/Leaf.php:12
     }
 

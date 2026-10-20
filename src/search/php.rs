@@ -595,6 +595,7 @@ pub enum PhpBinding {
     FunctionCall(String),
     ThisProperty(String),
     Captured,
+    Anonymous,
 }
 
 pub fn php_captures(line: &str, name: &str) -> bool {
@@ -784,6 +785,9 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
             .starts_with(';')
             .then_some(())
     };
+    if value.starts_with("new") && php_anonymous_class(first).is_some() {
+        return Some(PhpBinding::Anonymous);
+    }
     if let Some(c) = NEW.captures(value) {
         let class = c[1].to_owned();
         let end = c.get_match().end();
@@ -819,6 +823,16 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         .unwrap_or(&c[1])
         .to_ascii_lowercase();
     (!NO_CLASS.contains(&short.as_str())).then(|| PhpBinding::FunctionCall(c[1].to_owned()))
+}
+
+pub fn php_anonymous_class(line: &str) -> Option<Option<&str>> {
+    static ANONYMOUS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"=\s*new\s+class\b(?:\s*\([^()]*\))?(?:\s+extends\s+([\w\\]+))?(?:\s+implements\s+[\w\\,\s]+)?\s*\{\s*$")
+            .expect("the regex is a literal")
+    });
+    ANONYMOUS
+        .captures(line)
+        .map(|c| c.get(1).map(|m| m.as_str()))
 }
 
 pub fn php_return_type(header: &str) -> Option<String> {
