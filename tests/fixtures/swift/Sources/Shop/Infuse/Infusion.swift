@@ -97,7 +97,7 @@ func shorthand(_ leaves: [Sencha]) -> [String] {
 extension Gyokuro {
     func again() -> String {
         super.label() + label()
-        //    ^ d: picker Sources/Shop/Basket.swift:152, Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18; want Sources/Shop/Infuse/Sencha.swift:12 (#1170)
+        //    ^ d: Sources/Shop/Infuse/Sencha.swift:12
         //              ^ d: Sources/Shop/Infuse/Sencha.swift:18
     }
 }

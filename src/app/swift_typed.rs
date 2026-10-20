@@ -216,6 +216,13 @@ impl App {
             let own = search::swift_type_header(lines[around? - 1])?.name;
             return Some(WrittenVia::plain(own));
         }
+        if name == "super" {
+            let own = search::swift_type_header(lines[around? - 1])?.name;
+            let ty = self.swift_type(here, &own)?;
+            let base = ty.base.filter(|_| ty.keyword.as_deref() == Some("class"))?;
+            let up = self.swift_type(here, &base)?;
+            return (up.keyword.as_deref() == Some("class")).then(|| WrittenVia::plain(up.name));
+        }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             [b] => {
                 let given = search::swift_given(lines.get(b.line1 - 1)?, name)?;

@@ -146,7 +146,6 @@ impl App {
         if kind == Kind::Swift
             && dotted
             && !chain.is_empty()
-            && chain[0] != "super"
             && word != "init"
             && bound(&near.imports, &chain[0]).is_none()
             && let Some(mut found) = self.swift_typed(&a.here, &a.text, word, chain)
