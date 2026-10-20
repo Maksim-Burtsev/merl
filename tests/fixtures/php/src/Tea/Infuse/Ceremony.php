@@ -72,6 +72,22 @@ final class Ceremony
         //                                                                ^ d: src/Tea/Infuse/Roasted.php:7
     }
 
+    public function selfStep(Leaf $leaf): string
+    {
+        $dark = new Dark();
+        return $dark->dry()->grade() . $leaf->dry()->grade();
+        //                   ^ d: !jump
+        //                                           ^ d: src/Tea/Infuse/Leaf.php:7
+    }
+
+    public function staticStep(): string
+    {
+        $dark = new Dark();
+        $wet = $dark->withWater(80);
+        return $wet->grade();
+        //           ^ d: src/Tea/Infuse/Oolong.php:12
+    }
+
     public function viaInterface(Graded $graded): string
     {
         return $graded->grade();
@@ -87,7 +103,7 @@ final class Ceremony
             }
         };
         return $anon->grade() . $anon->format();
-        //            ^ d: src/Tea/Infuse/Ceremony.php:84
+        //            ^ d: src/Tea/Infuse/Ceremony.php:100
         //                             ^ d: src/Tea/Infuse/Leaf.php:12
     }
 
@@ -125,5 +141,12 @@ final class Ceremony
             public function shape(): string
             //              ^ d: none
             PHP;
+    }
+
+    public function spread(array $pre): int
+    {
+        [$first, $second] = [...$pre, new Gaiwan()];
+        return $second->pour();
+        //              ^ d: !jump
     }
 }

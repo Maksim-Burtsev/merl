@@ -28,4 +28,9 @@ class Leaf implements Graded
     {
         return new Gaiwan();
     }
+
+    public function dry(): self
+    {
+        return $this;
+    }
 }
