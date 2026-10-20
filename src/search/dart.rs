@@ -212,6 +212,7 @@ pub struct DartDirective {
     pub prefix: Option<String>,
     pub show: Option<Vec<String>>,
     pub hide: Vec<String>,
+    pub alternatives: Vec<String>,
     pub line1: usize,
 }
 
@@ -241,6 +242,11 @@ pub fn dart_directives(text: &str) -> Option<Vec<DartDirective>> {
                     "as" => d.prefix = Some(t.to_owned()),
                     "show" => d.show.get_or_insert_with(Vec::new).push(t.to_owned()),
                     "hide" => d.hide.push(t.to_owned()),
+                    "" => d.alternatives.extend(
+                        t.strip_prefix(['\'', '"'])
+                            .and_then(|u| u.strip_suffix(['\'', '"']))
+                            .map(str::to_owned),
+                    ),
                     _ => {}
                 },
             }
@@ -391,6 +397,14 @@ pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
     } else {
         bin.parent().map(Path::to_path_buf)
     }
+}
+
+pub fn dart_root_of(roots: &[PathBuf], path: &Path) -> Option<PathBuf> {
+    roots
+        .iter()
+        .filter(|r| path.starts_with(r))
+        .max_by_key(|r| r.as_os_str().len())
+        .cloned()
 }
 
 pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
@@ -761,7 +775,7 @@ fn dart_new(s: &str, c: &regex::Captures, open: usize) -> Option<(DartType, usiz
     Some((ty, close))
 }
 
-pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
+pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
     let w = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name");
     let declared = rule(format!(
@@ -787,8 +801,16 @@ pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
         });
     }
     let c = assigned.captures(line)?;
-    let (ty, close) = dart_new(line, &c, c.get(0)?.end() - 1)?;
-    line.get(close..)?
+    let open = c.get(0)?.end() - 1;
+    let whole;
+    let s = if close_of(Kind::Dart, line, open).is_some() {
+        line
+    } else {
+        whole = format!("{line}\n{rest}");
+        &whole
+    };
+    let (ty, close) = dart_new(s, &c, open)?;
+    s.get(close..)?
         .trim_start()
         .starts_with(';')
         .then_some(ty)

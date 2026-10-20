@@ -17,6 +17,7 @@ The php row with the fixes of #1177, #1176, #1175 and #1174: `85c29236`, 2026-10
 The swift row with #1068's fields of a value from outside the project: over `d99cae84`, 2026-10-21, release build, `vm.loadavg` { 7.31 10.68 15.68 } before the run (the times read high under that load).
 The sql row with #1064 (the `CREATE` in effect in a migration): over `d99cae84`, 2026-10-21, release build, `vm.loadavg` { 6.58 9.92 15.09 } before the run, { 6.18 9.23 14.47 } after.
 The sql row with #1063 (a column through its table or alias): over `2a700f71`, 2026-10-21, release build, `vm.loadavg` { 7.63 12.11 14.89 } before the run, { 5.95 10.78 14.19 } after.
+The dart row with #1085's local set from a constructor call over several lines and #1086's packages the library cannot see: over `f92a0410`, 2026-10-21, release build, `vm.loadavg` { 5.16 6.24 9.70 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -51,5 +52,5 @@ The sql row with #1063 (a column through its table or alias): over `2a700f71`, 2
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
-| dart (dio) | 97 | 70 (72%) | 23 (24%) | 0 (0%) | 4 (4%) | 17 | 0 | 44.3 | 124.2 |
+| dart (dio) | 97 | 72 (74%) | 21 (22%) | 0 (0%) | 4 (4%) | 17 | 0 | 37.1 | 110.0 |
 | sql (lemmy) | 79 | 54 (68%) | 1 (1%) | 0 (0%) | 24 (30%) | 31 | 0 | 8.6 | 15.3 |

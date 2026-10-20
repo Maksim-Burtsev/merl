@@ -182,6 +182,92 @@ impl App {
         });
     }
 
+    pub(super) fn dart_unimported(&self, here: &Path, word: &str, found: &mut Vec<Candidate>) {
+        let Some((roots, _)) = self.external.get(&Kind::Dart) else {
+            return;
+        };
+        let built = Some(format!("{word}.{word}"));
+        let named = |c: &Candidate| {
+            c.hit.path.is_absolute()
+                && self.text_of(&c.hit.path).is_some_and(|t| {
+                    let q = search::qualified(Kind::Dart, &t, c.hit.line1, word);
+                    (q.is_none() && !c.hit.text.starts_with(char::is_whitespace)) || q == built
+                })
+        };
+        let homes: Vec<Option<PathBuf>> = found
+            .iter()
+            .map(|c| search::dart_root_of(roots, &c.hit.path).filter(|_| named(c)))
+            .collect();
+        let mut wanted: Vec<PathBuf> = homes.iter().flatten().cloned().collect();
+        wanted.sort();
+        wanted.dedup();
+        let Some(reached) = self.dart_import_roots(here, roots, &wanted) else {
+            return;
+        };
+        let unreached: Vec<bool> = homes
+            .iter()
+            .map(|h| h.as_ref().is_some_and(|r| !reached.contains(r)))
+            .collect();
+        if unreached.iter().all(|u| *u) {
+            return;
+        }
+        let mut drop = unreached.into_iter();
+        found.retain(|_| !drop.next().unwrap_or(false));
+    }
+
+    fn dart_import_roots(
+        &self,
+        here: &Path,
+        roots: &[PathBuf],
+        wanted: &[PathBuf],
+    ) -> Option<Vec<PathBuf>> {
+        let sdk = self.dart_sdk();
+        let sdk = sdk.as_deref();
+        let mut reached: Vec<PathBuf> = roots
+            .iter()
+            .filter(|r| r.join("core/core.dart").is_file())
+            .cloned()
+            .collect();
+        if wanted.iter().all(|w| reached.contains(w)) {
+            return None;
+        }
+        let (library, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
+        let mut queue: Vec<(PathBuf, search::DartDirective)> = directives
+            .into_iter()
+            .filter(|d| d.keyword == "import")
+            .map(|d| (library[0].clone(), d))
+            .collect();
+        let mut seen = std::collections::HashSet::new();
+        while let Some((from, d)) = queue.pop() {
+            for uri in std::iter::once(&d.uri).chain(&d.alternatives) {
+                if uri.starts_with("dart:") && uri != "dart:ui" {
+                    continue;
+                }
+                let base = if uri.starts_with("package:") { here } else { &from };
+                let file = search::dart_uri_file(&self.root, base, uri, sdk)?;
+                if !seen.insert(file.clone()) {
+                    continue;
+                }
+                if let Some(r) = search::dart_root_of(roots, &file)
+                    && !reached.contains(&r)
+                {
+                    reached.push(r);
+                    if wanted.iter().all(|w| reached.contains(w)) {
+                        return None;
+                    }
+                }
+                let (library, directives) = self.dart_library(file, sdk, false)?;
+                queue.extend(
+                    directives
+                        .into_iter()
+                        .filter(|d| d.keyword == "export")
+                        .map(|d| (library[0].clone(), d)),
+                );
+            }
+        }
+        Some(reached)
+    }
+
     pub(super) fn dart_outside_constructor(
         &self,
         word: &str,
@@ -286,7 +372,8 @@ impl App {
             let [b] = bindings.as_slice() else {
                 return None;
             };
-            search::dart_typed(lines.get(b.line1 - 1)?, name)
+            let next: usize = text.split_inclusive('\n').take(b.line1).map(str::len).sum();
+            search::dart_typed(lines.get(b.line1 - 1)?, text.get(next..)?, name)
         };
         let ty = match chain {
             [] if before.ends_with("..") => match search::dart_cascade(before)? {
@@ -377,7 +464,7 @@ impl App {
         }
         let class = search::dart_this_super(text, self.line, false)?.class;
         let [c] = self.dart_member_of(here, &class, field).try_into().ok()?;
-        search::dart_typed(&c.hit.text, field)
+        search::dart_typed(&c.hit.text, "", field)
     }
 
     fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {
