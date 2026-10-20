@@ -238,7 +238,7 @@ struct Scanner<'a> {
     in_raw_string: bool,
     nested_comments: usize,
     heredoc: Option<Heredoc>,
-    php_nowdoc: bool,
+    php_heredoc_quote: u8,
     ruby_heredocs_from_next_line: Vec<Heredoc>,
     template_substitution_braces: Vec<usize>,
     cursor: Cursor,
@@ -268,7 +268,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         in_raw_string: false,
         nested_comments: 0,
         heredoc: None,
-        php_nowdoc: false,
+        php_heredoc_quote: b'"',
         ruby_heredocs_from_next_line: Vec::new(),
         template_substitution_braces: Vec::new(),
         cursor: Cursor {
@@ -417,7 +417,7 @@ impl<'a> Scanner<'a> {
         }
         self.out.push(self.literal_closer.is_some());
         if self.heredoc.is_some() && self.out.len() - 1 == self.cursor.line {
-            self.cursor.literal = Some(if self.php_nowdoc { b'\'' } else { b'"' });
+            self.cursor.literal = Some(self.php_heredoc_quote);
         }
     }
 
@@ -538,7 +538,11 @@ impl<'a> Scanner<'a> {
             .copied()
             .collect();
         if !word.is_empty() {
-            self.php_nowdoc = b.get(i + 3) == Some(&b'\'');
+            self.php_heredoc_quote = if b.get(i + 3) == Some(&b'\'') {
+                b'\''
+            } else {
+                b'"'
+            };
             self.i += 2;
             self.literal_closer = Some(b"".into());
             self.heredoc = Some(Heredoc {
