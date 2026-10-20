@@ -113,7 +113,12 @@ class Pot:
     hot = [heat for _ in range(2)]
     #      ^ d: tea/pouring.py:14
     warm = heat + 1
-    #      ^ d: tea/pouring.py:14; want tea/pouring.py:112 (#1156)
+    #      ^ d: tea/pouring.py:112
+    cold = [
+        heat
+        #^ d: tea/pouring.py:14
+        for _ in range(2)
+    ]
 
     def boil(self) -> int:
         return heat
@@ -134,8 +139,8 @@ def outer() -> int:
 
     try:
         return make_brewer() + steep(1)
-        #      ^ d: tea/pouring.py:132
+        #      ^ d: tea/pouring.py:137
         #                      ^ d: picker tea/stale.py:6, tea/kettle.py:40
     except ValueError as names:
         return len(str(names))
-        #              ^ d: tea/pouring.py:139
+        #              ^ d: tea/pouring.py:144

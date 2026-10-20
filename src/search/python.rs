@@ -322,6 +322,10 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
     if name == "super" {
         return python_super(lines, &scopes_innermost_first[0]);
     }
+    let in_class = python_class_body_above(lines, at, name);
+    if !in_class.is_empty() {
+        return in_class;
+    }
     let mut out = Vec::new();
     let mut module_only = false;
     for scope in scopes_innermost_first {
@@ -557,11 +561,7 @@ fn python_params(
         });
     }
 }
-pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
+fn python_class_header(lines: &[&str], at: usize) -> Option<usize> {
     let mut depth = indent(lines[at]);
     for i in (0..at).rev() {
         let t = lines[i].trim_start();
@@ -577,22 +577,53 @@ pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
         }
         depth = indent(lines[i]);
         if t.starts_with("def ") || t.starts_with("async def ") {
-            return false;
+            return None;
         }
         if t.starts_with("class ") {
-            let body_end = (i + 1..lines.len())
-                .find(|&j| {
-                    let t = lines[j].trim_start();
-                    !t.is_empty()
-                        && !t.starts_with('#')
-                        && !closes_a_wrapped_header(t)
-                        && indent(lines[j]) <= depth
-                })
-                .unwrap_or(lines.len());
-            return !python_bindings(&lines[i + 1..body_end], at - i - 1, name).is_empty();
+            return Some(i);
         }
     }
-    false
+    None
+}
+fn python_class_body_above(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static INNER_SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:for|lambda)\b").expect("the regex is a literal")
+    });
+    let Some(header) = python_class_header(lines, at) else {
+        return Vec::new();
+    };
+    let t = uncommented(Kind::Python, lines[at]);
+    if INNER_SCOPE.is_match(&t) || continued(Kind::Python, lines, at) {
+        return Vec::new();
+    }
+    python_bindings(&lines[header + 1..=at], at - header - 1, name)
+        .into_iter()
+        .filter(|b| b.line1 + header < at)
+        .map(|b| Binding {
+            line1: b.line1 + header + 1,
+            value: b.value,
+        })
+        .collect()
+}
+pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let Some(i) = python_class_header(&lines, at) else {
+        return false;
+    };
+    let depth = indent(lines[i]);
+    let body_end = (i + 1..lines.len())
+        .find(|&j| {
+            let t = lines[j].trim_start();
+            !t.is_empty()
+                && !t.starts_with('#')
+                && !closes_a_wrapped_header(t)
+                && indent(lines[j]) <= depth
+        })
+        .unwrap_or(lines.len());
+    !python_bindings(&lines[i + 1..body_end], at - i - 1, name).is_empty()
 }
 pub fn python_method(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
