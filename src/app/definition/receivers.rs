@@ -264,6 +264,22 @@ impl App {
                     let found = self.subclass_members(kind, &a.here, word, &p.pattern, &ty);
                     return self.show_found(a, found);
                 }
+                let set_from_outside = chain.last().is_some_and(|r| {
+                    Regex::new(&format!(
+                        r"\b{}\.{}\s*=[^=]",
+                        regex::escape(r),
+                        regex::escape(word)
+                    ))
+                    .is_ok_and(|re| re.is_match(&a.text))
+                });
+                if !set_from_outside
+                    && let Some(via) = self.closed_class(kind, &a.here, chain, head.as_ref())
+                {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
+                }
             }
             Err(at) => {
                 if let Some(via) = self.builtin_receiver(kind, &a.here, chain, head.as_ref()) {

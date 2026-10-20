@@ -350,6 +350,41 @@ impl App {
         (self.ancestry(kind, &ty, 0)? == Ancestry::ReachesOutsideTheProject).then_some(ty)
     }
 
+    pub(super) fn closed_class(
+        &self,
+        kind: Kind,
+        here: &Path,
+        chain: &[String],
+        head: Option<&search::CallHead>,
+    ) -> Option<String> {
+        if kind != Kind::Python
+            || chain
+                .first()
+                .is_some_and(|f| matches!(f.as_str(), "super" | "self" | "cls"))
+        {
+            return None;
+        }
+        let ProvenType { ty, links } = self.receiver(kind, here, chain, head).ok()?;
+        if self.ancestry(kind, &ty, 0)? != Ancestry::ProjectOnly {
+            return None;
+        }
+        let dynamic = self.hierarchy(kind, &ty, 0, &mut |t| {
+            let open = self.text_of(&t.path).is_none_or(|text| {
+                search::bases(kind, &text, t.line).iter().any(|b| {
+                    let object = search::type_path(kind, b)
+                        .is_some_and(|p| p.last().is_some_and(|n| n == "object"));
+                    !object && self.type_decl(kind, &t.path, b).is_none()
+                })
+            });
+            open.then_some(()).or_else(|| {
+                ["__getattr__", "__getattribute__"]
+                    .iter()
+                    .find_map(|m| self.instance_member(kind, t, m).map(|_| ()))
+            })
+        });
+        dynamic.is_none().then(|| links.join(" \u{2192} "))
+    }
+
     fn ancestry(&self, kind: Kind, ty: &Typed, depth: usize) -> Option<Ancestry> {
         let text = self.text_of(&ty.path).filter(|_| depth < 8)?;
         let imports = search::imports(kind, &text);
