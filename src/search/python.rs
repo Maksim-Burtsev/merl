@@ -239,7 +239,11 @@ pub fn python_called(expr: &str) -> Option<String> {
 }
 pub fn python_sum_operands(line: &str, name: &str) -> Option<Vec<String>> {
     let t = uncommented(Kind::Python, line);
-    let rest = t.trim().strip_prefix(name)?.trim_start().strip_prefix('=')?;
+    let rest = t
+        .trim()
+        .strip_prefix(name)?
+        .trim_start()
+        .strip_prefix('=')?;
     if rest.starts_with('=') {
         return None;
     }
@@ -758,10 +762,16 @@ pub fn python_rebinds_in_loop(text: &str, line1: usize, name: &str, col: usize) 
             continue;
         }
         depth = indent(lines[i]);
-        if ["while ", "for ", "async for "].iter().any(|k| t.starts_with(k)) {
+        if ["while ", "for ", "async for "]
+            .iter()
+            .any(|k| t.starts_with(k))
+        {
             return true;
         }
-        if ["def ", "async def ", "class "].iter().any(|k| t.starts_with(k)) {
+        if ["def ", "async def ", "class "]
+            .iter()
+            .any(|k| t.starts_with(k))
+        {
             return false;
         }
     }

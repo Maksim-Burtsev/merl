@@ -15,7 +15,7 @@ The ruby row with the fixes of #1093 and #1114: `2594316e`, 2026-10-20, release 
 The c, cpp and objc rows with the fixes of #1140 and #1138: over `c7694294`, 2026-10-20, release build, `vm.loadavg` { 5.58 6.33 7.33 } before the run.
 The php row with the fixes of #1177, #1176, #1175 and #1174: `85c29236`, 2026-10-20, release build, `vm.loadavg` { 8.74 7.48 6.93 } before the run, { 11.93 8.47 7.32 } after.
 The swift row with #1068's fields of a value from outside the project: over `d99cae84`, 2026-10-21, release build, `vm.loadavg` { 7.31 10.68 15.68 } before the run (the times read high under that load).
-The python row with #1099's `cls.client = ...` in a `@classmethod`: over `8d33e749`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
+The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b6575`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|

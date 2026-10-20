@@ -106,7 +106,11 @@ fn python_fields(
         decorated(
             i,
             ind,
-            &["@property", "@cached_property", "@functools.cached_property"],
+            &[
+                "@property",
+                "@cached_property",
+                "@functools.cached_property",
+            ],
         )
     };
     let mut skip: Option<usize> = None;

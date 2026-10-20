@@ -1,4 +1,6 @@
-use super::{App, Candidate, Hit, Kind, Path, Reason, bound, rust_bare_type, rust_written_type, search};
+use super::{
+    App, Candidate, Hit, Kind, Path, Reason, bound, rust_bare_type, rust_written_type, search,
+};
 
 impl App {
     pub(super) fn rust_std_written(&self, file: &Path, text: &str, name: &str) -> Option<String> {
@@ -17,7 +19,11 @@ impl App {
             Some(search::RustHolds::AssocCall {
                 written_type,
                 function,
-            }) if matches!(function.as_str(), "new" | "from" | "with_capacity" | "default") => {
+            }) if matches!(
+                function.as_str(),
+                "new" | "from" | "with_capacity" | "default"
+            ) =>
+            {
                 rust_bare_type(&written_type)
             }
             Some(_) => None,
@@ -103,16 +109,16 @@ impl App {
         let found: Vec<Hit> = levels
             .iter()
             .find_map(|level| {
-            let at: Vec<&(Hit, bool, String)> =
-                owned.iter().filter(|(_, _, t)| t == level).collect();
-            let inherent: Vec<Hit> = at.iter().filter(|o| o.1).map(|o| o.0.clone()).collect();
-            let found = if inherent.is_empty() {
-                at.into_iter().map(|o| o.0.clone()).collect()
-            } else {
-                inherent
-            };
-            (!found.is_empty()).then_some(found)
-        })
+                let at: Vec<&(Hit, bool, String)> =
+                    owned.iter().filter(|(_, _, t)| t == level).collect();
+                let inherent: Vec<Hit> = at.iter().filter(|o| o.1).map(|o| o.0.clone()).collect();
+                let found = if inherent.is_empty() {
+                    at.into_iter().map(|o| o.0.clone()).collect()
+                } else {
+                    inherent
+                };
+                (!found.is_empty()).then_some(found)
+            })
             .unwrap_or_default();
         let reason = Reason::Receiver(format!("{name}: {std}"));
         Some(
