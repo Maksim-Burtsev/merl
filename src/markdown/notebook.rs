@@ -32,7 +32,8 @@ struct Nb<'a> {
 
 #[derive(Deserialize)]
 struct Cell<'a> {
-    cell_type: String,
+    #[serde(rename = "cell_type")]
+    kind: String,
     #[serde(borrow)]
     source: &'a RawValue,
     #[serde(borrow, default)]
@@ -88,7 +89,7 @@ pub fn parse(lines: &[String]) -> Result<Parsed, String> {
     };
     for cell in &nb.cells {
         let src = b.text(cell.source, false);
-        match cell.cell_type.as_str() {
+        match cell.kind.as_str() {
             "markdown" if !src.is_empty() => b.nb.pieces.push(Piece::Markdown(src)),
             "markdown" => {}
             kind => {
