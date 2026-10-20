@@ -153,3 +153,14 @@ export function hidesMaker(): number {
   }
   return makeStrainer() + inner();
 }
+
+export function blend(cups: Map<string, number> | Basket, jar: Promise<number> | Basket): number {
+  return cups.split(1) + jar.then();
+  //          ^ d: tea/strainer.ts:37
+  //                         ^ d: picker coffee/lever.mjs:38, tea/strainer.ts:41
+}
+
+export function pick(cups: Map<string, Basket> | null): number {
+  return cups?.get("a")?.split(1) ?? 0;
+  //           ^ d: none
+}
