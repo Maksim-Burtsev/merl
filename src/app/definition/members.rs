@@ -1,4 +1,5 @@
 use super::{App, Asked, Candidate, Kind, Near, Reason, bound, is_word, names_itself, search};
+use crate::app::jvm_typed::java_shaped;
 
 pub(super) struct Patterns {
     pub(super) pattern: String,
@@ -97,7 +98,10 @@ impl App {
         }
         if kind == Kind::Jvm
             && (dotted || before.ends_with("::"))
-            && (!a.own() || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty())
+            && (!a.own()
+                || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty()
+                || (a.here.extension().is_some_and(|e| e == "kt" || e == "kts")
+                    && search::kotlin_lambda_receiver(&a.text, self.line + 1, before).is_some()))
         {
             let literal = dotted
                 && chain.is_empty()
@@ -115,12 +119,39 @@ impl App {
                 self.jvm_typed(&a.here, &a.text, before, chain, &a.word)
             };
             if let Some(found) = found {
+                let call = a.tail.trim_start().starts_with('(') || before.ends_with("::");
+                let found = match a.here.extension() {
+                    Some(e) if e == "java" => java_shaped(found, |c| &c.hit, &a.word, call),
+                    _ => found,
+                };
                 let found =
                     self.jvm_fit_candidates(&a.here, &a.word, a.range.clone(), chain, found);
                 return self.show_found(a, found);
             }
         }
         false
+    }
+
+    fn ruby_answered_on_value(&mut self, a: &Asked) -> bool {
+        let word = &a.word;
+        if word == "super" && !a.dotted && a.chain.is_empty() {
+            let found = self.ruby_super(&a.here, &a.text);
+            return !found.is_empty() && self.show_found(a, found);
+        }
+        if !a.dotted || a.own() {
+            return false;
+        }
+        let found = self.ruby_receiver_methods(&a.here, &a.text, &a.before, word);
+        if !found.is_empty() {
+            return self.show_found(a, found);
+        }
+        self.truncated.set(false);
+        let Some(via) = self.ruby_core_receiver(&a.here, &a.text, &a.before, word) else {
+            return false;
+        };
+        self.offer_only = false;
+        self.message = format!("{word}: builtin, no source (via {via})");
+        true
     }
 
     pub(super) fn patterns(&mut self, a: &Asked, near: &Near) -> Option<Patterns> {
@@ -184,6 +215,9 @@ impl App {
                 return None;
             }
             self.truncated.set(false);
+        }
+        if lower && self.ruby_answered_on_value(a) {
+            return None;
         }
         if kind == Kind::Elixir && dotted {
             patterns.retain(|p| !p.starts_with(r"^\s*@"));

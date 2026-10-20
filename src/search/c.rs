@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use super::{Binding, Value};
 
-static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
+pub(super) static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:(?:public|private|protected)\s*:\s*)+").expect("the regex is a literal")
 });
 
@@ -339,7 +339,7 @@ fn ctor_head_with_brackets_emptied(code: &str, at: usize) -> Option<String> {
     Some(s)
 }
 
-fn line_starts(code: &str) -> Vec<usize> {
+pub(super) fn line_starts(code: &str) -> Vec<usize> {
     std::iter::once(0)
         .chain(code.match_indices('\n').map(|(i, _)| i + 1))
         .collect()
@@ -367,7 +367,7 @@ pub(super) fn c_head_start(code: &str, open: usize) -> usize {
     }
     0
 }
-fn bracket_contents_blanked(s: &str) -> String {
+pub(super) fn bracket_contents_blanked(s: &str) -> String {
     let mut depth = 0usize;
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -759,6 +759,7 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
                 code.get(inner.clone())
                     .and_then(|p| parameter_at(p, name))
                     .map(|j| inner.start + j)
+                    .or_else(|| super::cpp::init_capture(&code, start..inner.start - 1, name))
             }
             Head::Control { parens } => {
                 let inner = start + parens.start + 1..start + parens.end - 1;
@@ -805,6 +806,15 @@ fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
             Some((at, s.get(at..at + part.len())?))
         })
         .collect()
+}
+pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    scope_pos(&code, &starts, line1, name).is_some_and(|pos| {
+        scopes_inside_out_to_type_or_namespace(&code, pos)
+            .iter()
+            .any(|s| matches!(s.head, Head::Function { .. } | Head::Lambda { .. }))
+    })
 }
 pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
@@ -999,15 +1009,20 @@ pub struct CReceiver {
     pub head: String,
     pub head_called: bool,
     pub fields: Vec<String>,
+    pub calls: Vec<bool>,
+    pub braced: bool,
+    pub start: usize,
 }
 pub fn cpp_receiver(before: &str) -> Option<CReceiver> {
-    receiver(before, true).filter(|r| !r.head_called)
+    receiver(before, true)
 }
 fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
+    static QUALIFIER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:\w*\s*::\s*)*$").expect("the regex is a literal"));
     let code = c_code(before);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut rest = code.trim_end();
-    let mut fields = Vec::new();
+    let (mut fields, mut calls) = (Vec::new(), Vec::new());
     loop {
         rest = match rest.strip_suffix("->") {
             Some(r) => r,
@@ -1021,7 +1036,8 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
             rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let called = rest.ends_with(')');
-        if called {
+        let braced = cpp && rest.ends_with('}');
+        if called || braced {
             rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let start = rest.trim_end_matches(is_name).len();
@@ -1035,16 +1051,28 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         rest = before.trim_end();
         let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
-        match (member, called) {
-            (true, false) => fields.insert(0, name.to_owned()),
-            (false, _) => {
+        match (member, called, braced) {
+            (true, _, false) if cpp || !called => {
+                fields.insert(0, name.to_owned());
+                calls.insert(0, called);
+            }
+            (false, _, _) => {
+                let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
+                let head = if braced {
+                    format!("{}{name}", rest.get(start..)?).replace(char::is_whitespace, "")
+                } else {
+                    name.to_owned()
+                };
                 return Some(CReceiver {
-                    head: name.to_owned(),
+                    head,
                     head_called: called,
                     fields,
+                    calls,
+                    braced,
+                    start,
                 });
             }
-            (true, true) => return None,
+            (true, _, _) => return None,
         }
     }
 }
@@ -1052,8 +1080,8 @@ fn opening_of_last_bracket(s: &str) -> Option<usize> {
     let mut depth = 0usize;
     for (i, c) in s.bytes().enumerate().rev() {
         match c {
-            b')' | b']' => depth += 1,
-            b'(' | b'[' => {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(i);
@@ -1316,31 +1344,7 @@ pub(super) fn cpp_decl_start(code: &str, at: usize) -> Option<usize> {
         }
     }
 }
-pub fn cpp_type_at(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
-    static AUTO: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*=\s*(?:new\s+)?((?:::)?\s*\w+(?:\s*::\s*\w+)*)\s*(?:<[^;(){}]*>)?\s*[({]")
-            .expect("the regex is a literal")
-    });
-    let from = cpp_decl_start(code, at)?;
-    let segment = ACCESS_LABELS.replace(code.get(from..at)?, "");
-    let path = cpp_class_path(&segment)?;
-    if path != ["auto"] {
-        return Some(path);
-    }
-    let init = AUTO.captures(code.get(at + len..)?)?;
-    let m = init.get(0)?;
-    let open = at + len + m.end() - 1;
-    let close = close_or_end(code, open, code.len());
-    let path = cpp_class_path(&init[1])?;
-    let last = path.last()?;
-    (close < code.len()
-        && code
-            .get(close + 1..)
-            .is_some_and(|r| r.trim_start().starts_with([';', ',']))
-        && (m.as_str().contains("new") || last.starts_with(|c: char| c.is_ascii_uppercase())))
-    .then_some(path)
-}
-fn cpp_class_path(written: &str) -> Option<Vec<String>> {
+pub(super) fn cpp_class_path(written: &str) -> Option<Vec<String>> {
     const ARROW: &[&str] = &[
         "optional",
         "expected",
@@ -1398,26 +1402,6 @@ fn cpp_class_path(written: &str) -> Option<Vec<String>> {
         && !BUILTIN.contains(&path[path.len() - 1].as_str())
         && (path[0] != "std" || std_only()))
     .then_some(path)
-}
-pub fn cpp_value_type(
-    text: &str,
-    line1: usize,
-    name: &str,
-) -> Result<Option<(Vec<String>, usize)>, ()> {
-    let code = c_code(text);
-    let starts = line_starts(&code);
-    let at: Vec<usize> = c_bindings_at(text, line1, None, name)
-        .into_iter()
-        .map(|p| starts[p.line1 - 1] + p.byte_col)
-        .collect();
-    let mut types = at.iter().map(|&a| cpp_type_at(&code, a, name.len()));
-    let Some(first) = types.next() else {
-        return Ok(None);
-    };
-    match first {
-        Some(t) if types.all(|o| o.as_ref() == Some(&t)) => Ok(Some((t, at[0]))),
-        _ => Err(()),
-    }
 }
 pub fn cpp_template_param(code: &str, name: &str) -> bool {
     Regex::new(&format!(
@@ -1849,24 +1833,35 @@ mod tests {
 
     #[test]
     fn a_receiver_is_read_back_through_fields_indexes_and_a_call() {
+        let parts = |r: Option<CReceiver>| r.map(|r| (r.head, r.head_called, r.fields));
         let r = |head: &str, called: bool, fields: &[&str]| {
-            Some(CReceiver {
-                head: head.to_owned(),
-                head_called: called,
-                fields: fields.iter().map(ToString::to_string).collect(),
-            })
+            Some((
+                head.to_owned(),
+                called,
+                fields.iter().map(ToString::to_string).collect::<Vec<_>>(),
+            ))
         };
-        assert_eq!(c_receiver("x = a->b.c->"), r("a", false, &["b", "c"]));
-        assert_eq!(c_receiver("c->argv[j]->"), r("c", false, &["argv"]));
         assert_eq!(
-            c_receiver("lookupClient(x)->"),
+            parts(c_receiver("x = a->b.c->")),
+            r("a", false, &["b", "c"])
+        );
+        assert_eq!(parts(c_receiver("c->argv[j]->")), r("c", false, &["argv"]));
+        assert_eq!(
+            parts(c_receiver("lookupClient(x)->")),
             r("lookupClient", true, &[])
         );
-        for before in ["((client *)p)->", "this->", "a->f(x)->", "1."] {
+        for before in ["((client *)p)->", "this->", "a->f(x)->", "1.", "A{}."] {
             assert_eq!(c_receiver(before), None, "{before}");
         }
         assert_eq!(cpp_receiver("a[0]."), None);
-        assert_eq!(cpp_receiver("this->"), r("this", false, &[]));
+        assert_eq!(parts(cpp_receiver("this->")), r("this", false, &[]));
+        let chain = cpp_receiver("x = ::ns::A{1}.f(2).g->")
+            .map(|r| (r.head, r.braced, r.fields, r.calls, r.start));
+        let fields = vec!["f".to_owned(), "g".to_owned()];
+        let want = ("::ns::A".to_owned(), true, fields, vec![true, false], 3);
+        assert_eq!(chain, Some(want));
+        let call = cpp_receiver("ns::f(a).g().").map(|r| (r.head, r.head_called, r.start));
+        assert_eq!(call, Some(("f".to_owned(), true, 0)));
     }
 
     #[test]

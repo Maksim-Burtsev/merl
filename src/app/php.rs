@@ -478,7 +478,9 @@ impl App {
             {
                 return None;
             }
-            let search::PhpBinding::Type(t) = search::php_binding(&statement, name)? else {
+            let (search::PhpBinding::Type(t) | search::PhpBinding::New(t)) =
+                search::php_binding(&statement, name)?
+            else {
                 return None;
             };
             if *written.get_or_insert_with(|| t.clone()) != t {

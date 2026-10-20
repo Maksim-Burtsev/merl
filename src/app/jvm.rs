@@ -283,6 +283,12 @@ impl App {
         {
             return Some(vec![candidate(here, &lines, line, Reason::Local)]);
         }
+        if kotlin
+            && word.starts_with(|c: char| c.is_ascii_lowercase())
+            && let Some(found) = self.kotlin_scope_member(here, text, before, word)
+        {
+            return Some(found);
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for &decl in &types {
@@ -304,29 +310,17 @@ impl App {
         if found.is_empty()
             && let Some(&decl) = inner
         {
+            let mut known = true;
             for base in search::jvm_bases(text, decl, search::scala(here)) {
-                let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
-                let cut = self.truncated.get();
-                let declared: Vec<Hit> = self
-                    .project_definitions(Kind::Jvm, here, &base, &pattern)
-                    .into_iter()
-                    .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base.as_str()))
-                    .collect();
-                self.truncated.set(cut);
-                let [hit] = declared.as_slice() else {
-                    continue;
-                };
-                let Some(t) = self.text_of(&hit.path) else {
-                    continue;
-                };
-                let base_lines: Vec<&str> = t.lines().collect();
-                found.extend(
-                    search::jvm_members_of(&t, hit.line1, word)
-                        .into_iter()
-                        .map(|line| {
-                            candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
-                        }),
-                );
+                match self.jvm_base_members(here, &base, word) {
+                    Some(f) => found.extend(f),
+                    None => known = false,
+                }
+            }
+            if found.is_empty() && known {
+                for base in search::java_implements(text, decl) {
+                    found.extend(self.jvm_base_members(here, &base, word).unwrap_or_default());
+                }
             }
         }
         if found.is_empty()
@@ -351,6 +345,37 @@ impl App {
             .iter()
             .any(|c| c.hit.path == here && c.hit.line1 == self.line + 1);
         (!found.is_empty() && !on_it).then_some(found)
+    }
+
+    fn jvm_base_members(&self, here: &Path, base: &str, word: &str) -> Option<Vec<Candidate>> {
+        let pattern = search::def_patterns(Kind::Jvm, base).join("|");
+        let cut = self.truncated.get();
+        let declared: Vec<Hit> = self
+            .project_definitions(Kind::Jvm, here, base, &pattern)
+            .into_iter()
+            .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base))
+            .collect();
+        self.truncated.set(cut);
+        let [hit] = declared.as_slice() else {
+            return None;
+        };
+        let t = self.text_of(&hit.path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        Some(
+            search::jvm_members_of(&t, hit.line1, word)
+                .into_iter()
+                .map(|line| Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: hit.path.clone(),
+                        line1: line,
+                        byte_col: None,
+                        text: lines[line - 1].to_owned(),
+                    },
+                    reason: Reason::Path(base.to_owned()),
+                })
+                .collect(),
+        )
     }
 
     fn jvm_overloads(&self, here: &Path, word: &str, end: usize, hits: Vec<Hit>) -> Vec<Hit> {

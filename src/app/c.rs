@@ -69,6 +69,7 @@ impl App {
             head,
             head_called: called,
             fields,
+            ..
         }) = c.then(|| search::c_receiver(before)).flatten()
         else {
             return Ok(None);
@@ -509,13 +510,13 @@ impl App {
         h: &Hit,
     ) -> bool {
         let lines = literal_lines.entry(h.path.clone()).or_insert_with(|| {
-            (self.text_of(&h.path)).map_or_else(Vec::new, |t| self.c_hidden(&h.path, &t))
+            (self.text_of(&h.path)).map_or_else(Vec::new, |t| self.c_hidden(Kind::C, &h.path, &t))
         });
         !lines.get(h.line1 - 1).copied().unwrap_or(false)
     }
 
-    pub(super) fn c_hidden(&self, path: &Path, text: &str) -> Vec<bool> {
-        let literal = search::literal_lines(Kind::C, text);
+    pub(super) fn c_hidden(&self, kind: Kind, path: &Path, text: &str) -> Vec<bool> {
+        let literal = search::literal_lines(kind, text);
         let mut dead = literal.clone();
         search::hide_c_disabled(text, &mut dead);
         let asked_in_dead = dead.get(self.line) == Some(&true)

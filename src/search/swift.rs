@@ -833,6 +833,9 @@ pub fn swift_test_dirs(root: &Path) -> Vec<PathBuf> {
 pub fn swift_type_decl(line: &str) -> bool {
     SWIFT_TYPE_DECL.is_match(&uncommented(Kind::Swift, line))
 }
+pub fn swift_func_decl(line: &str) -> bool {
+    SWIFT_FUNC.is_match(&uncommented(Kind::Swift, line))
+}
 #[derive(Debug, PartialEq, Eq)]
 pub enum SwiftTypePlace {
     FunctionBody { header_line1: usize },
@@ -840,7 +843,8 @@ pub enum SwiftTypePlace {
 }
 pub fn swift_type_place(text: &str, line1: usize) -> Option<SwiftTypePlace> {
     let lines: Vec<&str> = text.lines().collect();
-    if !swift_type_decl(lines.get(line1.checked_sub(1)?)?) {
+    let decl = lines.get(line1.checked_sub(1)?)?;
+    if !swift_type_decl(decl) && !swift_func_decl(decl) {
         return None;
     }
     let literal = literal_lines(Kind::Swift, text);

@@ -63,7 +63,7 @@ impl App {
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && word != "await"
         {
-            let found = self.rust_methods(&a.here, word, &a.text, chain);
+            let found = self.rust_methods(&a.here, word, &a.text, chain, &a.before);
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());
             return true;
         }
@@ -159,6 +159,20 @@ impl App {
             }
             return true;
         }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && word != "init"
+            && let Some(head) = search::call_head(kind, &a.written, a.start)
+            && head.fields_to_word.is_empty()
+            && let Some(mut found) =
+                self.swift_on_call(&a.here, &a.text, word, &head.call_without_arguments)
+        {
+            self.swift_by_labels(word, a.range.end, &mut found);
+            if !found.is_empty() {
+                return self.show_found(a, found);
+            }
+        }
         false
     }
 
@@ -178,7 +192,10 @@ impl App {
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
                 Some(self.cs_typed(&a.here, word, chain))
             }
-            true if chain.is_empty() => self.cs_constructed(&a.here, word, &a.before).map(Ok),
+            true if chain.is_empty() => self
+                .cs_constructed(&a.here, word, &a.before)
+                .or_else(|| self.cs_call_result(&a.here, word, a.range.start))
+                .map(Ok),
             true => None,
         };
         match answer {
@@ -212,11 +229,11 @@ impl App {
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();
-        if kind == Kind::Go
+        if matches!(kind, Kind::Go | Kind::Python)
             && head.is_none()
             && dotted
             && chain.is_empty()
-            && let Some(answer) = self.go_call_chain(&a.here, &a.written, a.start, word)
+            && let Some(answer) = self.call_chain(kind, &a.here, &a.written, a.start, word)
         {
             match answer {
                 Ok(found) if !found.is_empty() => return self.show_found(a, found),
@@ -228,6 +245,15 @@ impl App {
                     return true;
                 }
             }
+        }
+        if kind == Kind::Python
+            && dotted
+            && let Some(literal) = search::python_str_literal_receiver(&a.before)
+        {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{word}: builtin, no source (via {literal})");
+            return true;
         }
         if !(dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
@@ -252,9 +278,31 @@ impl App {
                     let found = self.subclass_members(kind, &a.here, word, &p.pattern, &ty);
                     return self.show_found(a, found);
                 }
+                let set_from_outside = chain.last().is_some_and(|r| {
+                    Regex::new(&format!(
+                        r"\b{}\.{}\s*=[^=]",
+                        regex::escape(r),
+                        regex::escape(word)
+                    ))
+                    .is_ok_and(|re| re.is_match(&a.text))
+                });
+                if !set_from_outside
+                    && let Some(via) = self.closed_class(kind, &a.here, chain, head.as_ref(), word)
+                {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
+                }
             }
             Err(at) => {
                 if let Some(via) = self.builtin_receiver(kind, &a.here, chain, head.as_ref()) {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("{word}: builtin, no source (via {via})");
+                    return true;
+                }
+                if let Some(via) = self.js_std_receiver(a) {
                     self.offer_only = false;
                     self.truncated.set(false);
                     self.message = format!("{word}: builtin, no source (via {via})");

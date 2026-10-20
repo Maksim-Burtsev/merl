@@ -101,6 +101,33 @@ impl App {
         found
     }
 
+    pub(super) fn swift_on_call(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        call: &str,
+    ) -> Option<Vec<Candidate>> {
+        let WrittenVia {
+            written,
+            call_signature,
+        } = self.swift_expr(here, here, text, self.line + 1, call, 2)?;
+        let ty = self.swift_type(here, &written)?;
+        let mut rows = self.swift_member_rows(here, &ty, word)?;
+        rows.retain(|h| {
+            search::swift_member_kind(&h.text) != Some(search::SwiftMember::StaticOrClass)
+        });
+        let label = call_signature.unwrap_or_else(|| format!("{call}: {}", ty.name));
+        Some(
+            rows.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        )
+    }
+
     fn swift_chain(
         &self,
         here: &Path,

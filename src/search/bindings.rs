@@ -4,7 +4,7 @@ use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
     cs_opener, cs_statement, cs_type_decl, dart_bindings, declares_type, gdscript_bindings,
     haskell_bindings, indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines,
-    lua_bindings, names, nix_bindings, powershell_params, python_bindings, ruby_bindings,
+    lua_bindings, names, nix_bindings, powershell_params, python_bindings_at, ruby_bindings,
     rust_bindings, shell_bindings, solidity_bindings, split_top, swift_bindings, ts_declarators,
     ts_destructured, ts_params, type_list, uncommented,
 };
@@ -124,7 +124,10 @@ pub(super) fn value_of(kind: Kind, expr: &str) -> Value {
     {
         return Value::Type(ty.trim().to_owned());
     }
-    if NAME.is_match(e) && !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self") {
+    let this_alias = kind == Kind::TsJs && e == "this";
+    if NAME.is_match(e)
+        && (this_alias || !matches!(e, "None" | "null" | "undefined" | "nil" | "this" | "self"))
+    {
         return Value::Name(e.to_owned());
     }
     Value::Unknown
@@ -167,7 +170,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         return Vec::new();
     };
     match kind {
-        Kind::Python | Kind::Starlark => python_bindings(&lines, at, name),
+        Kind::Python | Kind::Starlark => python_bindings_at(&lines, at, name),
         Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_bindings(&lines, at, name),
@@ -510,8 +513,8 @@ fn go_arm(header: &str, arm: Option<Vec<String>>) -> Option<Vec<String>> {
 fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let this = kind == Kind::TsJs && (name == "this" || name == "super");
     let mut out = Vec::new();
-    if !this {
-        opener_bindings(kind, &uncommented(kind, lines[at]), at + 1, name, &mut out);
+    if !this && own_line_hides(kind, lines[at], at, name, &mut out) {
+        return out;
     }
     let literal = literal_lines(kind, &lines.join("\n"));
     let mut depth = indent(lines[at]);
@@ -607,6 +610,15 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
     }
     out
 }
+fn own_line_hides(kind: Kind, line: &str, at: usize, name: &str, out: &mut Vec<Binding>) -> bool {
+    let own = uncommented(kind, line);
+    let own = if kind == Kind::CSharp {
+        own.trim()
+    } else {
+        &own
+    };
+    opener_bindings(kind, own, at + 1, name, out) && kind == Kind::CSharp
+}
 fn this_opener(header: &str, line: usize) -> Option<Value> {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:(?:export|default|declare|abstract)\s+)*class\b")
@@ -624,6 +636,7 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
         || ASSIGNED_CLASS
             .captures(header)
             .is_some_and(|c| &c[1] != "extends")
+        || super::ts_assigned_class(header).is_some()
     {
         return Some(Value::Class { decl_line1: line });
     }
@@ -632,6 +645,11 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
     }
     if let Some(owner) = super::prototype_owner(header) {
         return Some(Value::Type(owner.to_owned()));
+    }
+    if let Some(name) =
+        super::js_constructor(header).filter(|n| n.starts_with(|c: char| c.is_ascii_uppercase()))
+    {
+        return Some(Value::Type(name.to_owned()));
     }
     let before = header.strip_suffix('{').map(str::trim_end);
     let case = (header.starts_with("case ") || header.starts_with("default"))

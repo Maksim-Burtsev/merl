@@ -286,12 +286,10 @@ impl App {
         word: &str,
         text: &str,
         chain: &[String],
+        before: &str,
     ) -> Vec<Candidate> {
         let kind = Kind::Rust;
-        let receiver = match chain {
-            [name] => rust_written_type(text, self.line, name),
-            _ => None,
-        };
+        let receiver = rust_receiver_type(text, self.line, chain, before);
         let pattern = search::rust_method_pattern(word);
         let mut hits = self.project_definitions(kind, here, word, &pattern);
         let files = self.external_files(kind);
@@ -319,6 +317,7 @@ impl App {
         let mut rows: Vec<(Hit, search::RustOwner)> = Vec::new();
         let mut hidden: Vec<String> = Vec::new();
         let mut receiver_impls: Vec<String> = Vec::new();
+        let mut own_impls: Vec<(Hit, String)> = Vec::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
                 let text = self.text_of(&h.path).unwrap_or_default();
@@ -373,16 +372,19 @@ impl App {
             }
             if visible && self.rust_reached(&h, reach.as_ref(), &workspace) {
                 if let search::RustOwner::ImplOf(t) = &owner
-                    && !inside
                     && receiver.is_some()
                     && search::rust_impl_type(lines[owner_line - 1]) == receiver
                 {
-                    receiver_impls.push(t.clone());
+                    if !inside {
+                        receiver_impls.push(t.clone());
+                    } else if receiver.as_deref() == Some("str") {
+                        own_impls.push((h.clone(), t.clone()));
+                    }
                 }
                 rows.push((h, owner));
             }
         }
-        rust_ranked(rows, &hidden, &receiver_impls)
+        rust_ranked(rows, &hidden, &receiver_impls, &own_impls)
     }
 
     fn rust_bound(
@@ -1014,6 +1016,9 @@ impl App {
                 .find(|h| (&h.path, h.line1) == (&hit.path, hit.line1))
                 .map(typed);
         }
+        if decls.is_empty() {
+            return self.rust_alias(&name);
+        }
         <[Hit; 1]>::try_from(decls).ok().map(|[hit]| typed(hit))
     }
 
@@ -1279,6 +1284,20 @@ impl App {
             .collect()
     }
 
+    pub(super) fn rust_alias_members(&self, alias: &str, word: &str) -> Vec<Candidate> {
+        let Some(ty) = self.rust_alias(alias) else {
+            return Vec::new();
+        };
+        let reason = Reason::Path(format!("{alias} = {}", ty.name));
+        self.rust_members(&ty, word)
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect()
+    }
+
     fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
         let decl = search::rust_type_decl_pattern(&ty.name);
@@ -1373,6 +1392,17 @@ fn rust_below(here: &Path, p: &Path) -> bool {
     here == p || here.starts_with(dir)
 }
 
+fn rust_receiver_type(text: &str, line0: usize, chain: &[String], before: &str) -> Option<String> {
+    static STR_LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"(?:^|[^\w"])"(?:[^"\\]|\\.)*"\.$"#).expect("the regex is a literal")
+    });
+    match chain {
+        [name] => rust_written_type(text, line0, name),
+        [] if STR_LITERAL.is_match(before) => Some("str".to_owned()),
+        _ => None,
+    }
+}
+
 fn rust_written_type(text: &str, line0: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
@@ -1405,6 +1435,7 @@ fn rust_ranked(
     mut rows: Vec<(Hit, search::RustOwner)>,
     hidden: &[String],
     receiver_impls: &[String],
+    own_impls: &[(Hit, String)],
 ) -> Vec<Candidate> {
     let kept: Vec<String> = rows
         .iter()
@@ -1432,10 +1463,11 @@ fn rust_ranked(
         })
     {
         let reason = Reason::Trait((*tr).clone());
-        return vec![Candidate {
-            hit: rows.swap_remove(0).0,
-            reason,
-        }];
+        let hit = match own_impls {
+            [(hit, t)] if t == *tr => hit.clone(),
+            _ => rows.swap_remove(0).0,
+        };
+        return vec![Candidate { hit, reason }];
     }
     rows.into_iter()
         .map(|(hit, _)| Candidate {

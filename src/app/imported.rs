@@ -494,6 +494,9 @@ impl App {
                 name_in_module,
             } in search::reexported(&text, first)
             {
+                if name_in_module == "*" && chain.is_empty() {
+                    continue;
+                }
                 module.push(name_in_module);
                 let more = self
                     .imported_at(kind, f, &word, &chain, &module, depth + 1)

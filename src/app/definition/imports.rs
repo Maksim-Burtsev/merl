@@ -2,6 +2,7 @@ use super::{
     App, Asked, Candidate, Hit, Kind, Near, Path, Patterns, Reason, Regex, bound, imported, python,
     search,
 };
+use crate::app::jvm_typed::java_shaped;
 
 pub(super) struct Imported {
     pub(super) value: Option<Vec<String>>,
@@ -124,6 +125,13 @@ impl App {
                 None => {}
             }
         }
+        let stdlib = project.is_none()
+            && kind == Kind::Python
+            && dotted
+            && !chain.is_empty()
+            && path
+                .first()
+                .is_some_and(|m| search::PYTHON_STDLIB_MODULES.contains(&m.as_str()));
         let mut found = project.unwrap_or_else(|| {
             if imported.value.is_some() {
                 return Vec::new();
@@ -133,6 +141,19 @@ impl App {
             imported.linked = found.is_none();
             found.unwrap_or_default()
         });
+        if stdlib
+            && found.is_empty()
+            && imported.value.is_none()
+            && !self.python_assigned_attribute(&a.here, chain, word)
+        {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!(
+                "{word}: builtin, no source (via {}: standard library)",
+                path.join(".")
+            );
+            return None;
+        }
         let others: Vec<Vec<String>> = near
             .imports
             .iter()
@@ -192,6 +213,13 @@ impl App {
             }
         }
         let found = self.jvm_this(a, &p.pattern);
+        let found = match a.here.extension() {
+            Some(e) if e == "java" => {
+                let call = a.tail.trim_start().starts_with('(') || a.before.ends_with("::");
+                java_shaped(found, |c| &c.hit, &a.word, call)
+            }
+            _ => found,
+        };
         if !found.is_empty() {
             return self.show_found(a, found);
         }
@@ -228,5 +256,20 @@ impl App {
                 .collect();
         }
         Vec::new()
+    }
+
+    fn python_assigned_attribute(&self, here: &Path, chain: &[String], word: &str) -> bool {
+        let Some(module) = chain.last() else {
+            return false;
+        };
+        let pattern = format!(
+            r"\b{}\.{}\s*=[^=]",
+            regex::escape(module),
+            regex::escape(word)
+        );
+        let cut = self.truncated.get();
+        let assigned = !self.project_grep(Kind::Python, here, &pattern).is_empty();
+        self.truncated.set(cut);
+        assigned
     }
 }

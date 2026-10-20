@@ -14,6 +14,8 @@ impl App {
             search::lisp_bindings_at(kind, text, line, col, name)
         } else if kind == Kind::C && line == self.line + 1 {
             search::c_bindings(text, line, Some(col), name)
+        } else if kind == Kind::Dart && line == self.line + 1 {
+            search::dart_bindings_at(text, line, col, name)
         } else {
             search::bindings(kind, text, line, name)
         };

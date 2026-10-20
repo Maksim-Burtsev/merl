@@ -591,14 +591,32 @@ pub struct Reexport {
 }
 pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
+        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
             .expect("the regex is a literal")
+    });
+    static CJS_SPREADS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*module\.exports\s*=\s*\{([^}]*)\}").expect("the regex is a literal")
+    });
+    static SPREAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\.\.\.\s*require\(\s*['"]([^'"]+)['"]\s*\)"#).expect("the regex is a literal")
+    });
+    let spreads = CJS_SPREADS.captures_iter(text).flat_map(|c| {
+        SPREAD
+            .captures_iter(c.get(1).map_or("", |m| m.as_str()))
+            .map(|s| Reexport {
+                module: module_path(&s[1]),
+                name_in_module: name.to_owned(),
+            })
+            .collect::<Vec<_>>()
     });
     EXPORT
         .captures_iter(text)
         .filter_map(|c| {
             let taken = match &c[1] {
                 "*" => name.to_owned(),
+                star if star.starts_with('*') => (star.rsplit(char::is_whitespace).next()
+                    == Some(name))
+                .then(|| "*".to_owned())?,
                 items => items.trim_matches(['{', '}']).split(',').find_map(|i| {
                     let i = i.trim();
                     let i = i.strip_prefix("type ").unwrap_or(i);
@@ -610,20 +628,24 @@ pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
                     }
                 })?,
             };
-            let mut path: Vec<String> = c[2]
-                .split('/')
-                .filter(|p| !p.is_empty())
-                .map(str::to_owned)
-                .collect();
-            if c[2].starts_with('/') {
-                path.insert(0, ".".to_owned());
-            }
             Some(Reexport {
-                module: path,
+                module: module_path(&c[2]),
                 name_in_module: taken,
             })
         })
+        .chain(spreads)
         .collect()
+}
+fn module_path(spec: &str) -> Vec<String> {
+    let mut path: Vec<String> = spec
+        .split('/')
+        .filter(|p| !p.is_empty())
+        .map(str::to_owned)
+        .collect();
+    if spec.starts_with('/') {
+        path.insert(0, ".".to_owned());
+    }
+    path
 }
 pub fn go_import_line1(text: &str, name: &str) -> Option<usize> {
     let binds = |l: &str| imports(Kind::Go, l).iter().any(|i| i.name == name);

@@ -216,7 +216,9 @@ impl App {
             return Vec::new();
         }
         let named = search::type_name(kind, decl).filter(|_| kind == Kind::TsJs);
-        let anonymous = kind == Kind::TsJs && named.is_none() && search::declares_type(kind, decl);
+        let anonymous = kind == Kind::TsJs
+            && ((named.is_none() && search::declares_type(kind, decl))
+                || search::ts_assigned_class(decl).is_some());
         if anonymous {
             self.anonymous_named.set(Some(ty.clone()));
         }
@@ -795,6 +797,11 @@ impl App {
         let Some((r, _)) = search::definition_word(Some(kind), line, self.col) else {
             return true;
         };
+        if kind == Kind::Shell
+            && (line.get(..r.start)).is_some_and(|b| b.ends_with('$') || b.ends_with("${"))
+        {
+            return false;
+        }
         let part = |c: char| is_word(c) || search::word_chars(Some(kind), true).contains(c);
         let around = |i: usize| Some((line.get(..i)?, line.get(i + word.len()..)?));
         let at: Vec<usize> = line

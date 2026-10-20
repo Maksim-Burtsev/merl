@@ -408,6 +408,25 @@ pub fn ruby_in_module(text: &str, line1: usize) -> bool {
         .is_some_and(|l| l.starts_with("module "))
 }
 
+pub fn ruby_assigns_before(line: &str, name: &str, at: usize) -> bool {
+    Regex::new(&ruby_assignment(name))
+        .ok()
+        .and_then(|re| re.find(line))
+        .is_some_and(|m| m.end() <= at)
+}
+
+pub fn ruby_inside_core(text: &str, line1: usize, class: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .any(|&(i, _)| super::ruby_reopens_core(lines[i], class))
+}
+
 pub fn ruby_in_block(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
@@ -589,4 +608,30 @@ pub fn ruby_roots(
         .max()
         .map(|(_, p)| p.join("core"));
     core.into_iter().chain(stdlib).chain(found).collect()
+}
+pub fn ruby_enclosing_def(text: &str, line1: usize) -> Option<String> {
+    static DEF: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:[a-z_]+\s+)?def\s+([a-z_]\w*[?!=]?)(?:[\s(;]|$)")
+            .expect("the regex is a literal")
+    });
+    static REBINDS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"\bdefine_(?:singleton_)?method\b|_eval\b|_exec\b|\b(?:Class|Module|Struct)\.new\b",
+        )
+        .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let literal = literal_lines(Kind::Ruby, text);
+    let scopes = around(&lines, &literal, at).openers_innermost_first;
+    let gate = scopes.iter().position(|(_, o)| *o == Opens::Gate)?;
+    if scopes[..gate]
+        .iter()
+        .any(|&(i, _)| REBINDS.is_match(lines[i]))
+    {
+        return None;
+    }
+    let g = scopes[gate].0;
+    let name = DEF.captures(lines[g])?.get(1)?.as_str().to_owned();
+    (!ruby_on_class(text, g + 1)).then_some(name)
 }

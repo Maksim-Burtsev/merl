@@ -474,3 +474,44 @@ fn angle_list(s: &str) -> Option<(&str, &str)> {
     }
     None
 }
+pub fn ts_hoisted_function(text: &str, line1: usize, name: &str) -> Option<usize> {
+    let declares = Regex::new(&format!(
+        r"^\s+(?:export\s+)?(?:async\s+)?function\s*\*?\s*{}\s*[<(]",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let mut at = line1.checked_sub(1)?;
+    let mut depth = indent(lines.get(at)?);
+    while depth > 0 {
+        let header = (0..at).rev().find(|&i| {
+            let t = lines[i].trim_start();
+            !t.is_empty() && !t.starts_with(['}', ')', ']', '/', '*']) && indent(lines[i]) < depth
+        })?;
+        let outer = indent(lines[header]);
+        let block = lines
+            .get(header + 1..)?
+            .iter()
+            .take_while(|l| indent(l) > outer || l.trim().is_empty())
+            .count();
+        if !lines[header].trim_end().ends_with('{') || header + block < at {
+            return None;
+        }
+        let body = lines.get(header + 1..=header + block)?.iter();
+        let child = lines
+            .get(header + 1..)?
+            .iter()
+            .find(|l| !l.trim().is_empty())
+            .map_or(0, |l| indent(l));
+        if let Some(i) = body
+            .enumerate()
+            .find(|(_, l)| indent(l) == child && declares.is_match(l))
+            .map(|(i, _)| i)
+        {
+            return Some(header + i + 2);
+        }
+        at = header;
+        depth = outer;
+    }
+    None
+}

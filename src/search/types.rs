@@ -274,7 +274,9 @@ pub fn owner_decl(kind: Kind, text: &str, member_line1: usize) -> Option<usize> 
                 && !ends_a_wrapped_header
                 && indent(l) < depth
         })?;
-    declares_type(kind, above).then_some(i + 1)
+    (declares_type(kind, above)
+        || (kind == Kind::TsJs && super::ts_assigned_class(above).is_some()))
+    .then_some(i + 1)
 }
 pub fn type_name(kind: Kind, line: &str) -> Option<String> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -526,6 +528,25 @@ pub fn element_type(kind: Kind, written: &str) -> Option<String> {
     };
     let element = element.trim();
     (!element.is_empty()).then(|| element.to_owned())
+}
+pub fn python_dict_value(written: &str) -> Option<String> {
+    let t = written.trim().trim_matches(['"', '\'']);
+    let open = t.find('[').filter(|_| t.ends_with(']'))?;
+    let head = t.get(..open)?.trim_end();
+    let head = head.rsplit('.').next().unwrap_or(head);
+    let args = split_top(Kind::Python, t.get(open + 1..t.len() - 1)?, b',');
+    let mapping = matches!(
+        head,
+        "dict" | "Dict" | "Mapping" | "MutableMapping" | "defaultdict" | "OrderedDict"
+    );
+    let [_, value] = args.as_slice() else {
+        return None;
+    };
+    if !mapping {
+        return None;
+    }
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_owned())
 }
 pub struct EnumConstant {
     pub name: String,
