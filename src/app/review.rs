@@ -301,7 +301,7 @@ impl App {
         }
     }
 
-    pub(super) fn remember_hunk(&mut self) {
+    pub(crate) fn remember_hunk(&mut self) {
         let i = self.diff.hunks.iter().filter(|&&h| h < self.at()).count();
         self.last_hunk = self.rel_current().map(|rel| (rel, i));
     }

@@ -1,0 +1,57 @@
+wait Tutor 24/
+┌agent/find-by-tag ← HEAD────┐  ▎"""Command line entry point: add, remove, list and search notes."""
+│  ▾ tests                   │ 1▎"""Command line entry point: add, remove, list, search and count notes."""
+│    A test_cli.py     +43 −0│ 2
+│    M test_store.py   +34 −0│ 3 import argparse
+│  M cli.py            +25 −4│ 4 import sys
+│  M models.py         +5 −10│ 5
+│  M PLAN.md            +7 −4│ 6 from config import load_config
+│  M store.py          +24 −5│ 7 from models import Formatter, Note, PlainFormatter
+│                            │ 8 from store import NoteStore
+│                            │ 9
+│                            │10
+│                            │11 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+│                            │12     """Build the argument parser and read the command line."""
+│                            │13     parser = argparse.ArgumentParser(prog="notes", description="A tiny note keeper.")
+│                            │  ▎    parser.add_argument("command", choices=["add", "remove", "list", "find"])
+│                            │14▎    parser.add_argument("command", choices=["add", "remove", "list", "find", "tags"])
+│                            │15     parser.add_argument("words", nargs="*", help="note text, id, or search query")
+│                            │  ▎    parser.add_argument("--tag", action="append", default=[], help="tag a new note")
+│                            │16▎    parser.add_argument(
+│                            │17▎        "--tag",
+│                            │18▎        action="append",
+│                            │19▎        default=[],
+│                            │20▎        help="tag a new note, or keep only the notes with this tag",
+│                            │21▎    )
+│                            │22     return parser.parse_args(argv)
+│                            │23
+│                            │24
+│                            │25 def show(notes: list[Note], formatter: Formatter | None = None) -> None:
+│                            │26     """Print one line per note, the way the formatter renders it."""
+│                            │27     formatter = formatter or PlainFormatter()
+│                            │28     for note in notes:
+│                            │29         print(formatter.render(note))
+│                            │30
+│                            │31
+│                            │32▎def show_tags(counts: dict[str, int]) -> None:
+│                            │33▎    """Print every tag beside the number of notes that carry it."""
+│                            │34▎    width = max((len(tag) for tag in counts), default=0)
+│                            │35▎    for tag, count in counts.items():
+│                            │36▎        print(f"#{tag:<{width}}  {count}")
+│                            │37▎
+│                            │38▎
+│                            │39 def main(argv: list[str] | None = None) -> int:
+│                            │40     """Run one command and return the process exit code."""
+│                            │41     args = parse_args(argv)
+│                            │42     store = NoteStore(load_config())
+│                            │43     if args.command == "add":
+│                            │44▎        if not args.words:
+│                            │45▎            print("a note needs some text", file=sys.stderr)
+│                            │46▎            return 2
+│                            │47         note = store.add(" ".join(args.words), args.tag)
+└ 6 files · +138 −23 ────────┘48         print(f"added {note.id}")
+Tutor 24/26 · Next change
+A review: an agent built PLAN.md and left its work uncommitted, the files on the left. `c` goes to the next change, and past the last one into the next file, ticking the one you walked
+off. Press `c` until you are in models.py.
+cli.py  1:1  [code]  hunk 1/6  file 3/6  ✓ Close it  ✓ Keep or put back  ✓ Fold a function                                                                                         14:32
+cursor (x,y,shown) 33,1,0

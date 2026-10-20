@@ -308,7 +308,7 @@ pub fn next(app: &mut App) -> Result<()> {
 }
 
 fn run(app: &mut App, task: usize, named: bool) -> Result<()> {
-    let set = fresh(app).map(|()| set_up(app, &POOL[task]));
+    let set = fresh(app).and_then(|()| set_up(app, &POOL[task]));
     if let Some(d) = drill(app) {
         d.cur = Some(Cur {
             task,

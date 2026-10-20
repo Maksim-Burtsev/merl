@@ -1,0 +1,57 @@
+wait Usages
+ 1 """Configuration: where the notes live and how many are listed at once."""
+ 2
+ 3 import json
+ 4 from dataclasses import dataclass
+ 5 from pathlib import Path
+ 6
+ 7 DEFAULT_PATH = Path.home() / ".notes.json"
+ 8
+ 9
+10 @dataclass
+11 class Config:   ┌Usages of load_config: 1 declaration, 4 in code (5/5)─────────────────────────────────────────────────────────────────────────────────────────────┐
+12     """Runtime s│>                                                                                                                                                 │
+13                 │config.py                                                                                                                                         │
+14     path: Path =│  18  def load_config(path: Path | None = None) -> Config:                                                                                        │
+15     page_size: i│cli.py                                                                                                                                            │
+16                 │   6  from config import load_config                                                                                                              │
+17                 │  30  store = NoteStore(load_config())                                                                                                            │
+18 def load_config(│store.py                                                                                                                                          │
+19     """Read the │   5  from config import Config, load_config                                                                                                      │
+20     if path is N│  13  self.config = config or load_config()                                                                                                       │
+21         return C│                                                                                                                                                  │
+22     raw = json.l│                                                                                                                                                  │
+23     return Confi│                                                                                                                                                  │
+24         path=Pat│                                                                                                                                                  │
+25         page_siz│                                                                                                                                                  │
+26     )           │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   │                                                                                                                                                  │
+                   └──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+
+
+
+
+
+
+
+
+Tutor 7/26 · Usages
+`u` lists every use of the word under the cursor, the declaration first and the tests last. Press `u`, then pick the hit in cli.py with Down and Enter.
+
+config.py  18:5  [code]                                                                                                                                                            14:32
+cursor (x,y,shown) 22,11,0
