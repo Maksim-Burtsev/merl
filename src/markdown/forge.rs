@@ -11,29 +11,36 @@ pub fn holds_raw_text(first_line: &str) -> bool {
         .any(|tag| start.starts_with(tag))
 }
 
-pub fn without_comments(line: &str, in_comment: &mut bool) -> (String, usize) {
+pub fn without_comments(line: &str, in_comment: &mut bool) -> (String, Vec<(usize, usize)>) {
     let mut out = String::new();
-    let mut lead = 0;
+    let mut cuts = Vec::new();
     let mut rest = line;
     loop {
         if *in_comment {
-            let Some((_, after)) = rest.split_once("-->") else {
-                return (out, lead);
+            let Some((inside, after)) = rest.split_once("-->") else {
+                cuts.push((out.len(), rest.len()));
+                return (out, cuts);
             };
-            if out.is_empty() {
-                lead = line.len() - after.len();
-            }
+            cuts.push((out.len(), inside.len() + "-->".len()));
             rest = after;
             *in_comment = false;
         }
         let Some((before, after)) = rest.split_once("<!--") else {
             out.push_str(rest);
-            return (out, lead);
+            return (out, cuts);
         };
         out.push_str(before);
+        cuts.push((out.len(), "<!--".len()));
         rest = after;
         *in_comment = true;
     }
+}
+
+pub fn removed_before(cuts: &[(usize, usize)], kept: usize) -> usize {
+    cuts.iter()
+        .filter(|&&(at, _)| at <= kept)
+        .map(|&(_, n)| n)
+        .sum()
 }
 
 pub fn bare_urls(src: &str, events: &[(Event, Range<usize>)]) -> Vec<Range<usize>> {

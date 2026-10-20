@@ -1134,18 +1134,33 @@ impl Lay<'_> {
     fn html_block(&mut self, lines: Vec<(String, (usize, usize))>) {
         let raw_text = lines.first().is_some_and(|(l, _)| forge::holds_raw_text(l));
         let mut in_comment = false;
+        let mut cut_lines = Vec::new();
         let lines: Vec<_> = lines
             .into_iter()
-            .filter_map(|(line, (l, c))| {
+            .filter_map(|(line, at)| {
                 if raw_text {
-                    return Some((line, (l, c)));
+                    return Some((line, at));
                 }
                 let was_in_comment = in_comment;
-                let (kept, lead) = forge::without_comments(&line, &mut in_comment);
+                let (kept, cuts) = forge::without_comments(&line, &mut in_comment);
                 let shown = !kept.trim().is_empty() || !was_in_comment && kept == line;
-                shown.then_some((kept, (l, c + lead)))
+                if shown && !cuts.is_empty() {
+                    cut_lines.push((at, cuts));
+                }
+                shown.then_some((kept, at))
             })
             .collect();
+        let first = self.rows.len();
+        self.html_lines(lines);
+        for row in &mut self.rows[first..] {
+            if let Some(((_, c), cuts)) = cut_lines.iter().find(|((l, _), _)| *l == row.src.0) {
+                let kept = row.src.1.saturating_sub(*c);
+                row.src.1 += forge::removed_before(cuts, kept);
+            }
+        }
+    }
+
+    fn html_lines(&mut self, lines: Vec<(String, (usize, usize))>) {
         let mut all = String::new();
         let mut starts = Vec::new();
         for (line, _) in &lines {
