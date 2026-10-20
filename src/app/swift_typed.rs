@@ -17,6 +17,8 @@ impl WrittenVia {
     }
 }
 
+const SDK_VALUE: &str = "(SDK)";
+
 struct SwiftType {
     name: String,
     owner: String,
@@ -58,6 +60,9 @@ impl App {
                 None => self.swift_alias_arms(here, &written).unwrap_or_default(),
             };
             let Some(ty) = arms.first() else {
+                if written == SDK_VALUE {
+                    return (!self.swift_extended_with(here, word)).then(Vec::new);
+                }
                 let w = written.trim();
                 let w = w
                     .strip_prefix("any ")
@@ -183,7 +188,15 @@ impl App {
             if i == 5 {
                 return None;
             }
-            let ty = self.swift_type(here, &written)?;
+            let ty = self.swift_type(here, &written);
+            if ty.as_ref().is_none_or(|t| t.keyword.is_none())
+                && self.swift_sdk_value(here, &written, field)
+            {
+                links.push(format!("{field}: {SDK_VALUE}"));
+                SDK_VALUE.clone_into(&mut written);
+                continue;
+            }
+            let ty = ty?;
             let WrittenVia {
                 written: next,
                 call_signature: link,
@@ -269,8 +282,14 @@ impl App {
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             [b] => {
-                let given = search::swift_given(lines.get(b.line1 - 1)?, name)?;
-                self.swift_given_type(here, file, text, b.line1, given, hops)
+                let line = lines.get(b.line1 - 1)?;
+                match search::swift_given(line, name) {
+                    Some(given) => self.swift_given_type(here, file, text, b.line1, given, hops),
+                    None if b.line1 < line1 && search::swift_rebinds(line, name) => {
+                        self.swift_value(here, file, text, b.line1, name, hops)
+                    }
+                    None => None,
+                }
             }
             [] => {
                 let at = around?;
@@ -658,6 +677,30 @@ impl App {
             }
         }
         Some(rows)
+    }
+
+    fn swift_sdk_value(&self, here: &Path, written: &str, member: &str) -> bool {
+        let t = written.trim().trim_end_matches(['?', '!']);
+        let plain = t == SDK_VALUE
+            || (t.starts_with(|c: char| c.is_ascii_uppercase())
+                && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                && self.swift_alias_arms(here, t).is_none()
+                && self.swift_outside_rows(here, t, member).is_some());
+        plain && !self.swift_extended_with(here, member)
+    }
+
+    fn swift_extended_with(&self, here: &Path, word: &str) -> bool {
+        let pattern = search::def_patterns(Kind::Swift, word).join("|");
+        self.project_definitions(Kind::Swift, here, word, &pattern)
+            .iter()
+            .any(|h| {
+                self.text_of(&h.path).is_some_and(|text| {
+                    let lines: Vec<&str> = text.lines().collect();
+                    let literal = search::literal_lines(Kind::Swift, &text);
+                    let at = search::swift_scope(&lines, &literal, h.line1).header_line1;
+                    at > 0 && search::swift_extended(lines[at - 1]).is_some()
+                })
+            })
     }
 
     pub(super) fn swift_self_default(
