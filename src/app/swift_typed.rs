@@ -142,8 +142,7 @@ impl App {
         for method in then {
             let ty = self.swift_type(here, &via.written)?;
             let rows = self.swift_member_rows(here, &ty, method)?;
-            let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
-            via = self.swift_returning(&decl, Some(ty.name), method)?;
+            via = self.swift_overloads_returning(&rows, &ty.name, method)?;
         }
         let WrittenVia {
             written,
@@ -436,10 +435,23 @@ impl App {
                     _ => return None,
                 },
             };
-            let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
-            (decl, Some(ty.name))
+            return self.swift_overloads_returning(&rows, &ty.name, &callee);
         };
         self.swift_returning(&decl, owner, &callee)
+    }
+
+    fn swift_overloads_returning(
+        &self,
+        rows: &[Hit],
+        owner: &str,
+        callee: &str,
+    ) -> Option<WrittenVia> {
+        let mut vias = rows
+            .iter()
+            .map(|d| self.swift_returning(d, Some(owner.to_owned()), callee));
+        let first = vias.next()??;
+        vias.all(|v| v.is_some_and(|v| v.written == first.written))
+            .then_some(first)
     }
 
     fn swift_returning(
