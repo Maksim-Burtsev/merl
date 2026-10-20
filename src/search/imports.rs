@@ -591,7 +591,7 @@ pub struct Reexport {
 }
 pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
+        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
             .expect("the regex is a literal")
     });
     EXPORT
@@ -599,6 +599,9 @@ pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
         .filter_map(|c| {
             let taken = match &c[1] {
                 "*" => name.to_owned(),
+                star if star.starts_with('*') => (star.rsplit(char::is_whitespace).next()
+                    == Some(name))
+                .then(|| "*".to_owned())?,
                 items => items.trim_matches(['{', '}']).split(',').find_map(|i| {
                     let i = i.trim();
                     let i = i.strip_prefix("type ").unwrap_or(i);

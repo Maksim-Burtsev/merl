@@ -56,12 +56,12 @@ export function measure(words: string[]): number[] {
 }
 
 export function unpack(strainer: mesh.Strainer): number {
-  //                                  ^ d: picker tea/strainer.ts:11; want tea/strainer.ts:11 (#1147)
+  //                                  ^ d: tea/strainer.ts:11
   const { holes, rinse } = strainer;
   return holes + rinse.call(strainer) + strainer.fineness();
   //     ^ d: tea/infusion.ts:60
   //             ^ d: tea/infusion.ts:60
-  //                                             ^ d: picker tea/strainer.ts:8, tea/strainer.ts:12; want tea/strainer.ts:12 (#1147)
+  //                                             ^ d: tea/strainer.ts:12
 }
 
 export function sieveOf(): number {

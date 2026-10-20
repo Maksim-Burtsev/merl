@@ -54,7 +54,7 @@ export function unpack(lever) {
 
 export function viaParts() {
   return new parts.Shower().filter(1);
-  //               ^ d: picker coffee/lever.mjs:31; want coffee/lever.mjs:31 (#1147)
+  //               ^ d: coffee/lever.mjs:31
   //                        ^ d: coffee/lever.mjs:34
 }
 
