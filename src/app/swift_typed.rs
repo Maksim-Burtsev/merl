@@ -869,12 +869,17 @@ impl App {
         let literal = search::literal_lines(Kind::Swift, text);
         let mut scope = search::swift_scope(&lines, &literal, line1).header_line1;
         while scope > 0 {
-            if search::swift_generics(lines[scope - 1]).iter().any(|g| g == name) {
+            if search::swift_generics(lines[scope - 1])
+                .iter()
+                .any(|g| g == name)
+            {
                 return None;
             }
             scope = search::swift_scope(&lines, &literal, scope).header_line1;
         }
-        let ty = self.swift_type(here, name).filter(|t| t.keyword.is_some())?;
+        let ty = self
+            .swift_type(here, name)
+            .filter(|t| t.keyword.is_some())?;
         let mut rows = self.swift_member_rows(here, &ty, word)?;
         rows.retain(|h| {
             search::swift_member_kind(&h.text) == Some(search::SwiftMember::StaticOrClass)

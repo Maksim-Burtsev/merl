@@ -177,8 +177,13 @@ impl App {
             && chain.is_empty()
             && word != "init"
             && let Some(links) = a.written.get(..a.start).and_then(search::swift_call_links)
-            && let Some(mut found) =
-                self.swift_on_call(&a.here, &a.text, word, &format!("{}()", links[0]), &links[1..])
+            && let Some(mut found) = self.swift_on_call(
+                &a.here,
+                &a.text,
+                word,
+                &format!("{}()", links[0]),
+                &links[1..],
+            )
         {
             self.swift_by_labels(word, a.range.end, &mut found);
             if !found.is_empty() {
