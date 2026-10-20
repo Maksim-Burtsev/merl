@@ -1,0 +1,339 @@
+diff --git a/src/main.rs b/src/main.rs
+index 0e8e0626..0c9835b2 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -495,6 +495,9 @@ impl Watching {
+         app: &mut App,
+         k: ratatui::crossterm::event::KeyEvent,
+     ) -> ControlFlow<(), bool> {
++        if ui::intro::key(app, k) {
++            return ControlFlow::Continue(true);
++        }
+         if app.key(k) {
+             return ControlFlow::Break(());
+         }
+@@ -636,6 +639,8 @@ fn event_loop(
+         live.spawn_jobs(app, &diff_tx);
+         dirty |= restyle(app, &mut theme, &mut drawn_theme);
+         dirty |= app.tick_clock();
++        let sliding = ui::intro::animating();
++        dirty |= sliding;
+         if dirty {
+             terminal.draw(|f| ui::draw(f, app, &theme))?;
+             app.diagrams.flush(&mut stdout())?;
+@@ -657,6 +662,7 @@ fn event_loop(
+         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
+         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
+         let idle = if app.parsing() { Duration::ZERO } else { idle };
++        let idle = if sliding { idle.min(Duration::from_millis(15)) } else { idle };
+         match live.on_msg(app, rx.recv_timeout(idle)) {
+             ControlFlow::Continue(changed) => dirty |= changed,
+             ControlFlow::Break(()) => return Ok(()),
+diff --git a/src/ui/intro.rs b/src/ui/intro.rs
+new file mode 100644
+index 00000000..2ac95531
+--- /dev/null
++++ b/src/ui/intro.rs
+@@ -0,0 +1,247 @@
++use std::sync::Mutex;
++use std::time::{Duration, Instant};
++
++use ratatui::Frame;
++use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
++use ratatui::layout::Rect;
++use ratatui::style::{Color, Modifier, Style};
++use ratatui::text::{Line, Span};
++use ratatui::widgets::{Block, BorderType, Clear, Padding, Paragraph, Wrap};
++
++use crate::app::{App, Mode};
++use crate::theme::Theme;
++
++const SLIDE: Duration = Duration::from_millis(380);
++
++struct State {
++    seen: Option<usize>,
++    from: Option<(Instant, Rect)>,
++    last: Rect,
++}
++
++static STATE: Mutex<State> = Mutex::new(State {
++    seen: None,
++    from: None,
++    last: Rect::ZERO,
++});
++
++pub fn variant() -> String {
++    std::env::var("MERL_P501").unwrap_or_default()
++}
++
++fn lesson_step(app: &App) -> Option<usize> {
++    let t = app.tutor.as_ref().filter(|t| t.drill.is_none())?;
++    crate::tutor::lesson(t.step).map(|_| t.step)
++}
++
++pub fn on() -> bool {
++    matches!(variant().as_str(), "a" | "b" | "c" | "d")
++}
++
++pub fn card_up(app: &App) -> bool {
++    on() && lesson_step(app).is_some_and(|s| STATE.lock().is_ok_and(|st| st.seen != Some(s)))
++}
++
++pub fn animating() -> bool {
++    on() && STATE
++        .lock()
++        .is_ok_and(|st| st.from.is_some_and(|(t, _)| t.elapsed() < SLIDE + Duration::from_millis(120)))
++}
++
++pub fn key(app: &mut App, k: KeyEvent) -> bool {
++    if k.kind != KeyEventKind::Press || !on() || k.code == KeyCode::Esc {
++        return false;
++    }
++    let Some(step) = lesson_step(app) else {
++        return false;
++    };
++    let Ok(mut st) = STATE.lock() else {
++        return false;
++    };
++    if st.seen != Some(step) {
++        let close = variant() == "d" || k.code == KeyCode::Enter;
++        if !close {
++            return true;
++        }
++        st.seen = Some(step);
++        st.from = Some((Instant::now(), st.last));
++        return variant() != "d";
++    }
++    if k.code == KeyCode::Char('i')
++        && k.modifiers.is_empty()
++        && app.mode == Mode::Normal
++        && app.picker.is_none()
++    {
++        st.seen = None;
++        st.from = None;
++        return true;
++    }
++    false
++}
++
++fn float(theme: &Theme) -> Color {
++    theme
++        .groups
++        .get("NormalFloat")
++        .and_then(|s| s.bg)
++        .unwrap_or(theme.status_bg)
++}
++
++fn keys_of(task_key: &str) -> Vec<(&'static str, &'static str)> {
++    crate::app::KEYS
++        .iter()
++        .filter(|(k, _, _)| k.split(" / ").any(|p| p == task_key))
++        .map(|(k, what, _)| (*k, *what))
++        .collect()
++}
++
++pub fn box_block(theme: &Theme, base: Style, title: &str) -> (Block<'static>, Style) {
++    let style = base.bg(float(theme));
++    let block = Block::bordered()
++        .border_type(BorderType::Rounded)
++        .border_style(style.fg(theme.ghost_fg))
++        .title(Span::styled(
++            format!("{title} "),
++            style.add_modifier(Modifier::BOLD),
++        ))
++        .padding(Padding::horizontal(1))
++        .style(style);
++    (block, style)
++}
++
++fn card(app: &App, theme: &Theme, base: Style, t: f32) -> Option<Paragraph<'static>> {
++    let step = lesson_step(app)?;
++    let task = crate::tutor::lesson(step)?;
++    let title = format!(
++        " Tutor {}/{} \u{00b7} {}",
++        step + 1,
++        crate::tutor::TUTOR.len(),
++        task.title
++    );
++    let (block, style) = box_block(theme, base, &title);
++    let hint = style.fg(theme.ghost_fg);
++    let block = if t < 0.5 {
++        block
++            .padding(Padding::new(2, 2, 1, 1))
++            .title_bottom(Line::from(Span::styled(
++                if variant() == "d" {
++                    " any key starts \u{00b7} i shows this again ".to_owned()
++                } else {
++                    " Enter starts \u{00b7} i shows this again ".to_owned()
++                },
++                hint,
++            )).right_aligned())
++    } else {
++        block
++    };
++    let mut lines = vec![Line::from(Span::styled(task.tutor.to_owned(), style))];
++    if variant() == "c" && t < 0.5 {
++        let keys = keys_of(task.key);
++        if !keys.is_empty() {
++            lines.push(Line::from(""));
++            for (k, what) in keys {
++                lines.push(Line::from(vec![
++                    Span::styled(
++                        format!("{k:<14}"),
++                        style.fg(theme.accent).add_modifier(Modifier::BOLD),
++                    ),
++                    Span::styled(what.to_owned(), style),
++                ]));
++            }
++        }
++    }
++    Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(style).block(block))
++}
++
++pub fn centre(app: &App, theme: &Theme, base: Style, main: Rect) -> Rect {
++    let w = main.width.saturating_sub(8).min(84);
++    let h = card(app, theme, base, 0.0)
++        .map_or(5, |p| u16::try_from(p.line_count(w)).unwrap_or(5));
++    Rect {
++        x: main.x + (main.width.saturating_sub(w)) / 2,
++        y: main.y + (main.height.saturating_sub(h)) * 2 / 5,
++        width: w,
++        height: h.min(main.height),
++    }
++}
++
++fn lerp(a: u16, b: u16, t: f32) -> u16 {
++    let (a, b) = (f32::from(a), f32::from(b));
++    (a + (b - a) * t).round() as u16
++}
++
++pub fn draw_card(frame: &mut Frame, app: &App, theme: &Theme, base: Style, main: Rect) -> Rect {
++    let r = centre(app, theme, base, main);
++    if variant() == "b" {
++        dim_all(frame, theme, r);
++    }
++    if let Some(p) = card(app, theme, base, 0.0) {
++        frame.render_widget(Clear, r);
++        frame.render_widget(p, r);
++    }
++    if let Ok(mut st) = STATE.lock() {
++        st.last = r;
++    }
++    r
++}
++
++pub fn draw_slide(frame: &mut Frame, app: &App, theme: &Theme, base: Style, to: Rect) -> bool {
++    let Some((start, from)) = STATE.lock().ok().and_then(|st| st.from) else {
++        return false;
++    };
++    let e = start.elapsed();
++    if e >= SLIDE {
++        return false;
++    }
++    let x = e.as_secs_f32() / SLIDE.as_secs_f32();
++    let t = 1.0 - (1.0 - x).powi(3);
++    let r = if variant() == "a" {
++        let y = lerp(from.y, to.y, t);
++        Rect { y, height: from.height.min(frame.area().height.saturating_sub(y)), ..from }
++    } else {
++        Rect {
++            x: lerp(from.x, to.x, t),
++            y: lerp(from.y, to.y, t),
++            width: lerp(from.width, to.width, t),
++            height: lerp(from.height, to.height, t),
++        }
++    };
++    if variant() == "b" && t < 0.6 {
++        dim_all(frame, theme, r);
++    }
++    if let Some(p) = card(app, theme, base, t) {
++        frame.render_widget(Clear, r);
++        frame.render_widget(p, r);
++    }
++    true
++}
++
++fn dim_all(frame: &mut Frame, theme: &Theme, keep: Rect) {
++    let area = frame.area();
++    let buf = frame.buffer_mut();
++    for y in area.top()..area.bottom() {
++        for x in area.left()..area.right() {
++            if keep.contains((x, y).into()) {
++                continue;
++            }
++            if let Some(c) = buf.cell_mut((x, y)) {
++                let fg = if c.fg == Color::Reset { theme.fg } else { c.fg };
++                c.set_fg(mix(fg, theme.bg));
++                if c.bg != Color::Reset {
++                    c.set_bg(mix(c.bg, theme.bg));
++                }
++                c.modifier.remove(Modifier::BOLD);
++            }
++        }
++    }
++}
++
++fn mix(a: Color, b: Color) -> Color {
++    match (a, b) {
++        (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => {
++            let m = |x: u8, y: u8| ((u16::from(x) * 3 + u16::from(y) * 7) / 10) as u8;
++            Color::Rgb(m(r1, r2), m(g1, g2), m(b1, b2))
++        }
++        _ => b,
++    }
++}
+diff --git a/src/ui/mod.rs b/src/ui/mod.rs
+index 9cba9130..4886b0c4 100644
+--- a/src/ui/mod.rs
++++ b/src/ui/mod.rs
+@@ -13,6 +13,7 @@ use crate::wrap;
+ 
+ mod code;
+ mod fold;
++pub mod intro;
+ mod overlays;
+ pub mod picture;
+ mod preview;
+@@ -39,7 +40,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+     frame.render_widget(Block::new().style(base), area);
+ 
+     let panel = lesson_panel(app, theme, area.width, base);
+-    let lesson_h = panel.as_ref().map_or(0, |p| {
++    let card_up = intro::card_up(app);
++    let lesson_h = panel.as_ref().filter(|_| !card_up).map_or(0, |p| {
+         u16::try_from(p.line_count(area.width))
+             .unwrap_or(u16::MAX)
+             .max(3)
+@@ -83,10 +85,14 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
+     } else {
+         pane(app);
+     }
+-    if let Some(panel) = panel {
++    draw_status(frame, app, theme, status);
++    if card_up {
++        intro::draw_card(frame, app, theme, base, main);
++    } else if !intro::draw_slide(frame, app, theme, base, lesson)
++        && let Some(panel) = panel
++    {
+         frame.render_widget(panel, lesson);
+     }
+-    draw_status(frame, app, theme, status);
+     draw_overlays(frame, app, theme, (area, main), base);
+     force_emoji_widths(frame);
+     if let Some(cell) = app
+diff --git a/src/ui/overlays.rs b/src/ui/overlays.rs
+index 0a0c968b..5eae1427 100644
+--- a/src/ui/overlays.rs
++++ b/src/ui/overlays.rs
+@@ -743,6 +743,11 @@ pub(super) fn lesson_panel(
+         .bg(theme.status_bg)
+         .fg(theme.status_fg)
+         .add_modifier(Modifier::BOLD);
++    if super::intro::on() {
++        let (block, style) = super::intro::box_block(theme, base, &title);
++        let lines = vec![Line::from(Span::styled(text.to_owned(), style))];
++        return Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(style).block(block));
++    }
+     let lines = vec![
+         Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
+         Line::from(Span::styled(format!(" {text}"), base)),
