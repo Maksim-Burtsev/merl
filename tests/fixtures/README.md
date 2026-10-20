@@ -492,7 +492,9 @@ namesakes, `basket = basket.next`, a nested function called above its declaratio
 `export * as mesh`, a dynamic `import()`, a call inside a template literal holding a declaration,
 a commented-out declaration, and `this` in a class expression. One answer is read from the code:
 `sieve.sift` on `const sieve: Sieve = { sift: … }` is the literal's `sift`, where tsserver
-answers the interface's.
+answers the interface's. `caddy.ts` and `tins.ts` hold std names the project shadows: a project
+`Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
+whose member is "not installed", never "builtin".
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
