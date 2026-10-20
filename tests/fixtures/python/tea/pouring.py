@@ -182,3 +182,10 @@ def clean(lines: list[str], items: list[str]) -> int:
             cup = cup[1:]
             #     ^ d: picker tea/pouring.py:180, tea/pouring.py:182
     return len(lines) + n
+
+
+def twice(raw: str) -> int:
+    once = raw.strip()
+    again = once.strip()
+    return len(again.split())
+    #                ^ d: none
