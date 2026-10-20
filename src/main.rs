@@ -633,7 +633,7 @@ fn event_loop(
     let mut drawn_theme = app.theme.clone();
     let mut open_file_dir_watcher = watcher(fs);
     app.no_watch = open_file_dir_watcher.is_none();
-    let mut watched: Option<PathBuf> = None;
+    let mut watched: Option<(PathBuf, PathBuf)> = None;
     let mut live = Watching::start(app, project, &diff_tx);
 
     let mut dirty = true;
@@ -714,18 +714,24 @@ fn list_marks(tx: Sender<Msg>, root: PathBuf) {
     });
 }
 
-fn rewatch(watcher: Option<&mut RecommendedWatcher>, watched: &mut Option<PathBuf>, app: &App) {
-    let dir = app.buf.path.as_deref().and_then(Path::parent);
-    if dir == watched.as_deref() {
+fn rewatch(
+    watcher: Option<&mut RecommendedWatcher>,
+    watched: &mut Option<(PathBuf, PathBuf)>,
+    app: &App,
+) {
+    let open = app.buf.path.as_deref();
+    if open == watched.as_ref().map(|(p, _)| p.as_path()) {
         return;
     }
     let Some(watcher) = watcher else { return };
-    if let Some(old) = watched.take() {
+    if let Some((_, old)) = watched.take() {
         drop(watcher.unwatch(&old));
     }
-    if let Some(dir) = dir {
+    let Some(open) = open else { return };
+    let real = open.canonicalize().unwrap_or_else(|_| open.to_path_buf());
+    if let Some(dir) = real.parent() {
         drop(watcher.watch(dir, RecursiveMode::NonRecursive));
-        *watched = Some(dir.to_path_buf());
+        *watched = Some((open.to_path_buf(), dir.to_path_buf()));
     }
 }
 
@@ -737,7 +743,7 @@ fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
         return false;
     };
     let (name, dir) = (open.file_name(), open.parent());
-    let mut real = None;
+    let (mut real, mut target) = (None, None);
     ev.paths.iter().any(|p| {
         p.file_name() == name
             && (p.parent() == dir
@@ -745,6 +751,10 @@ fn concerns_open_file(app: &App, ev: &notify::Event) -> bool {
                     == real
                         .get_or_insert_with(|| dir?.canonicalize().ok())
                         .as_deref())
+            || Some(p.as_path())
+                == target
+                    .get_or_insert_with(|| open.canonicalize().ok())
+                    .as_deref()
     })
 }
 
@@ -1034,7 +1044,10 @@ mod tests {
         assert!(watcher.watch(&gone, RecursiveMode::NonRecursive).is_err());
         let mut watched = None;
         super::rewatch(Some(&mut watcher), &mut watched, &app);
-        assert_eq!(watched.as_deref(), Some(gone.as_path()));
+        assert_eq!(
+            watched.as_ref().map(|(_, dir)| dir.as_path()),
+            Some(gone.as_path())
+        );
     }
 
     #[test]
@@ -1059,6 +1072,44 @@ mod tests {
             (real.join("main.js"), false),
         ] {
             let ev = Event::new(EventKind::Create(CreateKind::File)).add_path(path.clone());
+            assert_eq!(super::concerns_open_file(&app, &ev), want, "{path:?}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_file_link_reloads_when_the_file_it_leads_to_changes() {
+        use notify::{Event, EventKind, event::ModifyKind};
+        let dir = std::env::temp_dir().join(format!("merl-link-watch-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&dir));
+        std::fs::create_dir_all(dir.join("proj")).unwrap();
+        std::fs::create_dir_all(dir.join("team-rules")).unwrap();
+        std::fs::write(dir.join("team-rules/AGENTS.md"), "x\n").unwrap();
+        std::os::unix::fs::symlink("../team-rules/AGENTS.md", dir.join("proj/team.md")).unwrap();
+        let buf = crate::buffer::Buffer::load(&dir.join("proj/team.md")).unwrap();
+        let app = crate::app::App::new(
+            dir.join("proj"),
+            crate::tree::Tree::default(),
+            Vec::new(),
+            buf,
+            None,
+        );
+        let mut watcher =
+            notify::recommended_watcher(|_: notify::Result<notify::Event>| {}).unwrap();
+        let mut watched = None;
+        super::rewatch(Some(&mut watcher), &mut watched, &app);
+        let real = dir.canonicalize().unwrap();
+        assert_eq!(
+            watched.map(|(_, d)| d),
+            Some(real.join("team-rules")),
+            "the folder of the file the link leads to is watched (#500)"
+        );
+        for (path, want) in [
+            (real.join("team-rules/AGENTS.md"), true),
+            (real.join("team-rules/README.md"), false),
+        ] {
+            let ev = Event::new(EventKind::Modify(ModifyKind::Any)).add_path(path.clone());
             assert_eq!(super::concerns_open_file(&app, &ev), want, "{path:?}");
         }
         std::fs::remove_dir_all(&dir).unwrap();

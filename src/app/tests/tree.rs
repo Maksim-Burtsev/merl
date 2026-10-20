@@ -322,6 +322,23 @@ fn a_link_to_a_file_outside_the_project_opens_editable_and_saves_through() {
         "`d` on a markdown link to it opens it editable too: {}",
         a.message
     );
+    std::fs::write(outside.join("far.py"), "far = 2\n").unwrap();
+    a.reload(false);
+    assert_eq!(
+        (a.buf.lines[0].as_str(), a.buf.readonly),
+        ("far = 2", None),
+        "another repo's change reloads it, still editable"
+    );
+    let escape = dir
+        .join("..")
+        .join(outside.file_name().unwrap())
+        .join("far.py");
+    a.jump_to(&escape, 1);
+    assert_eq!(
+        (a.buf.path.as_deref(), a.buf.readonly),
+        (Some(&*escape), Some("outside the project")),
+        "a `..` out of the root is outside, link or not"
+    );
     std::fs::remove_dir_all(&outside).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
 }
