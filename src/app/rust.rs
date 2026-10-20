@@ -361,8 +361,7 @@ impl App {
                             Some("tests" | "benches" | "examples")
                         )
                     }));
-            let visible = !internal
-                && !(std && inside && owner == search::RustOwner::Inherent)
+            let visible = !(internal || (std && inside && owner == search::RustOwner::Inherent))
                 && match (&owner, vis) {
                     (search::RustOwner::ImplOf(_), _) => true,
                     (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
