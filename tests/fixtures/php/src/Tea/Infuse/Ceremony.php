@@ -24,14 +24,14 @@ final class Ceremony
             ->steep()
             //^ d: src/Tea/Infuse/Leaf.php:27
             ->pour();
-            //^ d: picker src/Tea/Infuse/Gaiwan.php:7, src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Infuse/Gaiwan.php:7 (#1174)
+            //^ d: src/Tea/Infuse/Gaiwan.php:7
     }
 
     public function callOnCall(Leaf $leaf): int
     {
         return $leaf->steep()->rinse()->pour();
-        //                     ^ d: picker src/Tea/Infuse/Gaiwan.php:12, src/Tea/Vessel.php:14; want src/Tea/Infuse/Gaiwan.php:12 (#1174)
-        //                              ^ d: picker src/Tea/Infuse/Gaiwan.php:7, src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Infuse/Gaiwan.php:7 (#1174)
+        //                     ^ d: src/Tea/Infuse/Gaiwan.php:12
+        //                              ^ d: src/Tea/Infuse/Gaiwan.php:7
     }
 
     public function shadow(Leaf $cup): int
@@ -39,15 +39,15 @@ final class Ceremony
         $cup = $cup->steep();
         //           ^ d: src/Tea/Infuse/Leaf.php:27
         return $cup->pour();
-        //           ^ d: picker src/Tea/Infuse/Gaiwan.php:7, src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Infuse/Gaiwan.php:7 (#1174)
+        //           ^ d: src/Tea/Infuse/Gaiwan.php:7
     }
 
     public function destructure(): int
     {
         [$first, $second] = [new Leaf(), new Gaiwan()];
         return $second->pour() + $first->count();
-        //              ^ d: picker src/Tea/Infuse/Gaiwan.php:7, src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Infuse/Gaiwan.php:7 (#1175)
-        //                               ^ d: picker src/Rules/Meter.php:7, src/Tea/Infuse/Leaf.php:17; want src/Tea/Infuse/Leaf.php:17 (#1175)
+        //              ^ d: src/Tea/Infuse/Gaiwan.php:7
+        //                               ^ d: src/Tea/Infuse/Leaf.php:17
     }
 
     public function loop(array $leaves): string
@@ -69,7 +69,7 @@ final class Ceremony
         //            ^ d: src/Tea/Infuse/Leaf.php:12
         //                              ^ d: src/Tea/Infuse/Oolong.php:12
         //                                               ^ d: src/Tea/Infuse/Rolled.php:7
-        //                                                                ^ d: none; want src/Tea/Infuse/Roasted.php:7 (#1176)
+        //                                                                ^ d: src/Tea/Infuse/Roasted.php:7
     }
 
     public function viaInterface(Graded $graded): string
@@ -87,7 +87,7 @@ final class Ceremony
             }
         };
         return $anon->grade() . $anon->format();
-        //            ^ d: picker src/Tea/Infuse/Ceremony.php:84, src/Tea/Infuse/Graded.php:7, src/Tea/Infuse/Leaf.php:7, src/Tea/Infuse/Oolong.php:12; want src/Tea/Infuse/Ceremony.php:84 (#1177)
+        //            ^ d: src/Tea/Infuse/Ceremony.php:84
         //                             ^ d: src/Tea/Infuse/Leaf.php:12
     }
 
@@ -98,7 +98,7 @@ final class Ceremony
         $pour = $leaf->steep(...);
         //             ^ d: src/Tea/Infuse/Leaf.php:27
         return $arrow() . $pour()->pour();
-        //                         ^ d: picker src/Tea/Infuse/Gaiwan.php:7, src/Tea/Kettle.php:11, src/Tea/Stale/Kettle.php:7, src/Tea/Teapot.php:12; want src/Tea/Infuse/Gaiwan.php:7 (#1174)
+        //                         ^ d: src/Tea/Infuse/Gaiwan.php:7
     }
 
     public function flush(): string
