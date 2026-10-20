@@ -638,6 +638,26 @@ pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
         .unwrap_or(lines.len());
     !python_bindings(&lines[i + 1..body_end], at - i - 1, name).is_empty()
 }
+pub fn python_class_defines(text: &str, header1: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(i) = header1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let n = regex::escape(name);
+    let Ok(defines) = Regex::new(&format!(
+        r"^\s*(?:(?:async\s+)?def\s+{n}\b|class\s+{n}\b|{n}\s*(?::[^=]*)?=[^=])"
+    )) else {
+        return false;
+    };
+    let depth = indent(lines[i]);
+    lines[i + 1..]
+        .iter()
+        .take_while(|l| {
+            let t = l.trim_start();
+            t.is_empty() || t.starts_with('#') || closes_a_wrapped_header(t) || indent(l) > depth
+        })
+        .any(|l| defines.is_match(l))
+}
 pub fn python_method(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {

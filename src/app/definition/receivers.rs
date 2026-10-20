@@ -287,7 +287,7 @@ impl App {
                     .is_ok_and(|re| re.is_match(&a.text))
                 });
                 if !set_from_outside
-                    && let Some(via) = self.closed_class(kind, &a.here, chain, head.as_ref())
+                    && let Some(via) = self.closed_class(kind, &a.here, chain, head.as_ref(), word)
                 {
                     self.offer_only = false;
                     self.truncated.set(false);

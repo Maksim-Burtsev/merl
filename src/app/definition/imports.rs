@@ -141,7 +141,11 @@ impl App {
             imported.linked = found.is_none();
             found.unwrap_or_default()
         });
-        if stdlib && found.is_empty() && imported.value.is_none() {
+        if stdlib
+            && found.is_empty()
+            && imported.value.is_none()
+            && !self.python_assigned_attribute(&a.here, chain, word)
+        {
             self.offer_only = false;
             self.truncated.set(false);
             self.message = format!(
@@ -252,5 +256,20 @@ impl App {
                 .collect();
         }
         Vec::new()
+    }
+
+    fn python_assigned_attribute(&self, here: &Path, chain: &[String], word: &str) -> bool {
+        let Some(module) = chain.last() else {
+            return false;
+        };
+        let pattern = format!(
+            r"\b{}\.{}\s*=[^=]",
+            regex::escape(module),
+            regex::escape(word)
+        );
+        let cut = self.truncated.get();
+        let assigned = !self.project_grep(Kind::Python, here, &pattern).is_empty();
+        self.truncated.set(cut);
+        assigned
     }
 }
