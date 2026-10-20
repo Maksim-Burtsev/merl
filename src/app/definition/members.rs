@@ -1,4 +1,5 @@
 use super::{App, Asked, Candidate, Kind, Near, Reason, bound, is_word, names_itself, search};
+use crate::app::jvm_typed::java_shaped;
 
 pub(super) struct Patterns {
     pub(super) pattern: String,
@@ -97,7 +98,10 @@ impl App {
         }
         if kind == Kind::Jvm
             && (dotted || before.ends_with("::"))
-            && (!a.own() || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty())
+            && (!a.own()
+                || search::jvm_enclosing_types(&a.text, self.line + 1).is_empty()
+                || (a.here.extension().is_some_and(|e| e == "kt" || e == "kts")
+                    && search::kotlin_lambda_receiver(&a.text, self.line + 1, before).is_some()))
         {
             let literal = dotted
                 && chain.is_empty()
@@ -115,6 +119,11 @@ impl App {
                 self.jvm_typed(&a.here, &a.text, before, chain, &a.word)
             };
             if let Some(found) = found {
+                let call = a.tail.trim_start().starts_with('(') || before.ends_with("::");
+                let found = match a.here.extension() {
+                    Some(e) if e == "java" => java_shaped(found, |c| &c.hit, &a.word, call),
+                    _ => found,
+                };
                 let found =
                     self.jvm_fit_candidates(&a.here, &a.word, a.range.clone(), chain, found);
                 return self.show_found(a, found);

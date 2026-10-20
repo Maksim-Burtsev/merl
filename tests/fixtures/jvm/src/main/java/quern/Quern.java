@@ -20,8 +20,8 @@ public class Quern extends Stone implements Turnable {
         return super.turn() + wear() + crank() + Turnable.super.crank() + notch();
         //           ^ d: src/main/java/quern/Stone.java:4
         //                    ^ d: src/main/java/quern/Stone.java:8
-        //                             ^ d: picker src/main/java/quern/HandMill.java:5, src/main/java/quern/Turnable.java:4; want src/main/java/quern/Turnable.java:4 (#1128)
-        //                                                      ^ d: picker src/main/java/quern/HandMill.java:5, src/main/java/quern/Turnable.java:4; want src/main/java/quern/Turnable.java:4 (#1128)
+        //                             ^ d: src/main/java/quern/Turnable.java:4
+        //                                                      ^ d: src/main/java/quern/Turnable.java:4
         //                                                                ^ d: src/main/java/quern/Knobs.java:4
     }
 
@@ -62,11 +62,11 @@ public class Quern extends Stone implements Turnable {
         //              ^ d: src/main/java/quern/Hopper.java:8
         int total = hopper.charge() + this.hopper.charge() + new Runner().whirl();
         //          ^ d: src/main/java/quern/Quern.java:58
-        //                                 ^ d: picker src/main/java/quern/Quern.java:13, src/main/java/quern/Quern.java:28; want src/main/java/quern/Quern.java:13 (#1127)
+        //                                 ^ d: src/main/java/quern/Quern.java:13
         //                                                       ^ d: src/main/java/quern/parts/Runner.java:3
         //                                                                ^ d: src/main/java/quern/parts/Runner.java:4
         //                 ^ d: src/main/java/quern/Hopper.java:4
-        //                                        ^ d: picker src/main/java/quern/Hopper.java:4, src/main/java/quern/parts/Hopper.java:4; want src/main/java/quern/Hopper.java:4 (#1127)
+        //                                        ^ d: src/main/java/quern/Hopper.java:4
         for (Stone burr : stones) {
             total += burr.wear() + this.burr;
             //       ^ d: src/main/java/quern/Quern.java:70
@@ -74,7 +74,7 @@ public class Quern extends Stone implements Turnable {
             //                          ^ d: src/main/java/quern/Quern.java:15
         }
         total += stones.get(0).turn();
-        //                     ^ d: picker src/main/java/quern/Quern.java:18, src/main/java/quern/Stone.java:4; want src/main/java/quern/Stone.java:4 (#1129)
+        //                     ^ d: src/main/java/quern/Stone.java:4
         if (o instanceof HandMill mill) {
             total += mill.crank();
             //       ^ d: src/main/java/quern/Quern.java:78
@@ -112,7 +112,7 @@ public class Quern extends Stone implements Turnable {
         int grip() {
             return burr + Quern.this.burr + wear();
             //     ^ d: src/main/java/quern/Quern.java:110
-            //                       ^ d: picker src/main/java/quern/Quern.java:15, src/main/java/quern/Quern.java:110; want src/main/java/quern/Quern.java:15 (#1127)
+            //                       ^ d: src/main/java/quern/Quern.java:15
             //                              ^ d: src/main/java/quern/Stone.java:8
         }
     }
