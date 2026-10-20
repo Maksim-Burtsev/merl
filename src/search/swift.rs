@@ -1156,7 +1156,7 @@ pub fn swift_generics(line: &str) -> Vec<String> {
 }
 pub fn swift_returns(text: &str, line1: usize) -> Option<String> {
     let mut header = String::new();
-    for l in text.lines().skip(line1.checked_sub(1)?).take(8) {
+    for l in text.lines().skip(line1.checked_sub(1)?).take(16) {
         let l = uncommented(Kind::Swift, l);
         match l.split_once('{') {
             Some((head, _)) => {
