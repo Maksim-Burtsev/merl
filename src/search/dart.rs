@@ -816,6 +816,63 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
         .then_some(ty)
 }
 
+pub fn dart_returns(line: &str, name: &str) -> Option<DartType> {
+    let re = Regex::new(&format!(
+        concat!(
+            r"^\s*",
+            dart_annotations!(),
+            dart_mods!(),
+            r"(?:(?:external|final|late)\s+)*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)",
+            dart_generics!(),
+            r"\??\s+(?:get\s+)?{}\s*(?:<[^()]*>)?\s*(?:\(|;|=>|\{{)"
+        ),
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
+pub fn dart_call_links(before: &str) -> Option<Vec<String>> {
+    let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let mut rest = before.strip_suffix('.')?;
+    let mut any_call = false;
+    let mut links = Vec::new();
+    loop {
+        let called = rest.ends_with(')');
+        any_call |= called;
+        if called {
+            let open = super::code(Kind::Dart, rest)
+                .filter(|(_, c)| *c == b'(')
+                .map(|(i, _)| i)
+                .find(|&i| close_of(Kind::Dart, rest, i) == Some(rest.len()))?;
+            rest = rest.get(..open)?;
+        }
+        let start = rest
+            .char_indices()
+            .rev()
+            .find(|&(_, c)| !is_name(c))
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        let name = rest.get(start..)?;
+        if !name.starts_with(|c: char| c.is_alphabetic() || c == '_' || c == '$') {
+            return None;
+        }
+        links.insert(0, name.to_owned());
+        let head = rest.get(..start)?;
+        match head.strip_suffix('.') {
+            Some(r) if r.ends_with(is_name) || r.ends_with(')') => rest = r,
+            Some(_) => return None,
+            None if called || head.ends_with(['?', '!', ')', ']', '.']) => return None,
+            None => break,
+        }
+    }
+    (links.len() > 1 && any_call).then_some(links)
+}
+
 pub fn dart_cascade(before: &str) -> Option<Result<DartType, String>> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(&format!(r"^\s*{DART_NEW}")).expect("the regex is a literal")

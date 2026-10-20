@@ -564,6 +564,10 @@ parameter named like that function, `super` in an extension, a `typealias` in bo
 and a multi-line string and a block comment declaring what `Sencha.swift` declares. Where
 sourcekit-lsp offers a non-final class's method with its override, the annotation takes the
 declared type's method.
+`swift/Sources/Shop/Faucets.swift` (#1072) calls a method with two overloads, both returning
+`Faucet`, on a value an inherited method returns, and then `.pour` on the next line or the same
+one: it lands on `Faucet.pour`, not `Cistern.pour`. Overloads that return two types (`either`)
+keep the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -604,6 +608,9 @@ named like a table, a statement in a string over lines and in a comment, and tab
 behind an import prefix, a `Teapot` sharing `pour` and a static `cold`, a parameter hiding the
 prefix and one hiding a field, `super.` and a cascade, record and object patterns, a local
 function, and declaration-shaped lines in a raw string, a nested `/* */` and a `///` comment.
+`dart/lib/infuser.dart` (#1072) reaches `Leaf.unfurl` through a call and a getter of `Infuser`,
+over lines and on one, beside a namesake `Bag.unfurl`; a generic method's `T` is no type to
+follow, so `hold(Bag()).unfurl` does not jump.
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a

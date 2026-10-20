@@ -367,6 +367,7 @@ impl App {
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let lines: Vec<&str> = text.lines().collect();
+        let mut scope = here.to_path_buf();
         let bound = |name: &str| {
             let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
             let [b] = bindings.as_slice() else {
@@ -380,6 +381,26 @@ impl App {
                 Ok(ty) => ty,
                 Err(name) => bound(&name)?,
             },
+            [] if let Some(links) = search::dart_call_links(before) => {
+                let (head, rest) = links.split_first()?;
+                let mut ty = match bound(head) {
+                    Some(ty) => ty,
+                    None => self.dart_field_type(here, text, head)?,
+                };
+                for link in rest {
+                    let file = self.dart_class_file(&scope, &ty)?;
+                    let mut rows = self.dart_member_of(&file, &ty.class, link);
+                    if rows.is_empty() {
+                        rows = self.dart_inherited(&file, &ty.class, link, 0);
+                    }
+                    let [row] = rows.as_slice() else {
+                        return None;
+                    };
+                    ty = search::dart_returns(&row.hit.text, link)?;
+                    scope.clone_from(&row.hit.path);
+                }
+                ty
+            }
             [r] if r == "this" || r == "super" => {
                 search::dart_this_super(text, self.line, r == "super")?
             }
@@ -401,7 +422,7 @@ impl App {
             },
             _ => return None,
         };
-        let file = self.dart_class_file(here, &ty)?;
+        let file = self.dart_class_file(&scope, &ty)?;
         let class = &ty.class;
         if let Some(c) = &ty.constructor
             && !self
