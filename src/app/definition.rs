@@ -435,7 +435,7 @@ impl App {
         let own = (found.iter())
             .find(|c| c.hit.line1 == self.line + 1 && c.hit.path == here)
             .map(|c| c.hit.clone());
-        if all > 1 {
+        if all > 1 && !self.rebinds_in_loop(kind, word, &found) {
             found.retain(|c| c.hit.line1 != self.line + 1 || c.hit.path != here);
         }
         let offer_only = std::mem::take(&mut self.offer_only);
@@ -495,6 +495,22 @@ impl App {
             }
             _ => self.pick_definitions(kind, word, found, broke, namesakes, truncated),
         }
+    }
+
+    fn rebinds_in_loop(&self, kind: Kind, word: &str, found: &[Candidate]) -> bool {
+        kind == Kind::Python
+            && found.iter().all(|c| matches!(c.reason, Reason::Local))
+            && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
+                |(r, w)| {
+                    w == word
+                        && search::python_rebinds_in_loop(
+                            &self.buf.lines.join("\n"),
+                            self.line + 1,
+                            word,
+                            r.start,
+                        )
+                },
+            )
     }
 
     fn c_counterpart(&self, word: &str, own: Option<Hit>, found: &[Candidate]) -> bool {

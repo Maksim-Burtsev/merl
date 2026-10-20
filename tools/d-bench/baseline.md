@@ -18,10 +18,11 @@ The swift row with #1068's fields of a value from outside the project: over `d99
 The sql row with #1064 (the `CREATE` in effect in a migration): over `d99cae84`, 2026-10-21, release build, `vm.loadavg` { 6.58 9.92 15.09 } before the run, { 6.18 9.23 14.47 } after.
 The sql row with #1063 (a column through its table or alias): over `2a700f71`, 2026-10-21, release build, `vm.loadavg` { 7.63 12.11 14.89 } before the run, { 5.95 10.78 14.19 } after.
 The dart row with #1085's local set from a constructor call over several lines and #1086's packages the library cannot see: over `f92a0410`, 2026-10-21, release build, `vm.loadavg` { 5.16 6.24 9.70 } before the run.
+The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b6575`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 257 | 214 (83%) | 25 (10%) | 0 (0%) | 18 (7%) | 68 | 11 | 19.5 | 386.8 |
+| python (paperless-ngx) | 257 | 219 (85%) | 25 (10%) | 0 (0%) | 13 (5%) | 68 | 11 | 19.0 | 285.0 |
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.8 | 97.7 |
 | js (eslint, uptime-kuma) | 217 | 174 (80%) | 33 (15%) | 1 (0%) | 9 (4%) | 177 | 11 | 40.1 | 174.0 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |

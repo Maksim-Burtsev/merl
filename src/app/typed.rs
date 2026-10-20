@@ -265,28 +265,24 @@ impl App {
                 search::Value::Type(t) => (builtin(t)?, None),
                 search::Value::Unknown => {
                     let line = text.lines().nth(b.line1 - 1)?;
-                    if !(search::python_opened(line, last) && builtin_open()) {
+                    if let Some(over) = search::python_comprehension_over(line, last) {
+                        builtin_elements(&text, b.line1, &over, &builtin, last)?
+                    } else if search::python_opened(line, last) && builtin_open() {
+                        ("file".to_owned(), Some(format!("{last} = open()")))
+                    } else {
                         return None;
                     }
-                    ("file".to_owned(), Some(format!("{last} = open()")))
+                }
+                search::Value::Element(over)
+                    if over.chars().all(|c| c.is_alphanumeric() || c == '_') =>
+                {
+                    builtin_elements(&text, b.line1, over, &builtin, last)?
                 }
                 search::Value::Call(callee)
                     if callee.matches('.').count() == 1 && !callee.starts_with('.') =>
                 {
                     let (receiver, _) = callee.split_once('.')?;
-                    let typed = search::bindings(kind, &text, b.line1, receiver);
-                    let mut scalar = None;
-                    for t in &typed {
-                        let search::Value::Type(t) = &t.value else {
-                            return None;
-                        };
-                        let name = builtin(t)
-                            .filter(|n| search::PYTHON_SCALAR_TYPES.contains(&n.as_str()))?;
-                        if scalar.get_or_insert_with(|| name.clone()) != &name {
-                            return None;
-                        }
-                    }
-                    let name = scalar?;
+                    let name = scalar_of(&text, b.line1, receiver, &builtin, 0)?;
                     let link = format!("{callee}() on {receiver}: {name}");
                     (name, Some(link))
                 }
@@ -1163,6 +1159,67 @@ pub(super) fn anonymous(file: &Path, line: usize) -> Typed {
         path: file.to_path_buf(),
         line,
     }
+}
+
+fn scalar_of(
+    text: &str,
+    line1: usize,
+    name: &str,
+    builtin: &dyn Fn(&str) -> Option<String>,
+    depth: usize,
+) -> Option<String> {
+    let mut scalar = None;
+    for b in search::bindings(Kind::Python, text, line1, name) {
+        let found = match &b.value {
+            search::Value::Type(t) => {
+                builtin(t).filter(|n| search::PYTHON_SCALAR_TYPES.contains(&n.as_str()))?
+            }
+            search::Value::Call(callee)
+                if depth < 4 && callee.matches('.').count() == 1 && !callee.starts_with('.') =>
+            {
+                let (receiver, _) = callee.split_once('.')?;
+                scalar_of(text, b.line1, receiver, builtin, depth + 1)?
+            }
+            _ => return None,
+        };
+        if scalar.get_or_insert_with(|| found.clone()) != &found {
+            return None;
+        }
+    }
+    scalar
+}
+
+fn builtin_elements(
+    text: &str,
+    line1: usize,
+    over: &str,
+    builtin: &dyn Fn(&str) -> Option<String>,
+    last: &str,
+) -> Option<(String, Option<String>)> {
+    let derived = |expr: &str, at: usize| match search::python_called(expr) {
+        Some(callee) => callee
+            .split_once('.')
+            .filter(|_| callee.matches('.').count() == 1 && !callee.starts_with('.'))
+            .is_some_and(|(receiver, _)| scalar_of(text, at, receiver, builtin, 0).is_some()),
+        None => search::python_str_literal_receiver(&format!("{expr}.")).is_some(),
+    };
+    let bindings = search::bindings(Kind::Python, text, line1, over);
+    let all = !bindings.is_empty()
+        && bindings.iter().all(|b| match &b.value {
+            search::Value::Unknown => text
+                .lines()
+                .nth(b.line1 - 1)
+                .and_then(|l| search::python_sum_operands(l, over))
+                .is_some_and(|operands| operands.iter().all(|o| derived(o, b.line1))),
+            search::Value::Call(callee) => derived(&format!("{callee}()"), b.line1),
+            _ => false,
+        });
+    all.then(|| {
+        (
+            "builtin".to_owned(),
+            Some(format!("{last} in {over}: builtin")),
+        )
+    })
 }
 
 fn hidden(kind: Kind, file: &Path, text: &str, line1: usize, name: &str) -> bool {

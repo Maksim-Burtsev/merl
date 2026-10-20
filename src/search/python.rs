@@ -221,6 +221,35 @@ pub fn python_opened(line: &str, name: &str) -> bool {
     ))
     .is_ok_and(|r| r.is_match(t.trim()))
 }
+pub fn python_comprehension_over(line: &str, name: &str) -> Option<String> {
+    let t = uncommented(Kind::Python, line);
+    Regex::new(&format!(
+        r"\bfor\s+{}\s+in\s+([A-Za-z_]\w*)\s*(?:[\])}}]|\bif\b)",
+        regex::escape(name)
+    ))
+    .ok()?
+    .captures(&t)
+    .map(|c| c[1].to_owned())
+}
+pub fn python_called(expr: &str) -> Option<String> {
+    match value_of(Kind::Python, expr) {
+        Value::Call(callee) => Some(callee),
+        _ => None,
+    }
+}
+pub fn python_sum_operands(line: &str, name: &str) -> Option<Vec<String>> {
+    let t = uncommented(Kind::Python, line);
+    let rest = t
+        .trim()
+        .strip_prefix(name)?
+        .trim_start()
+        .strip_prefix('=')?;
+    if rest.starts_with('=') {
+        return None;
+    }
+    let operands = split_top(Kind::Python, rest, b'+');
+    (operands.len() > 1).then(|| operands.iter().map(|o| o.trim().to_owned()).collect())
+}
 #[derive(Clone, Copy)]
 enum Scope {
     Def(usize),
@@ -697,6 +726,52 @@ pub fn python_in_function(text: &str, line1: usize) -> bool {
             return true;
         }
         if t.starts_with("class ") {
+            return false;
+        }
+    }
+    false
+}
+pub fn python_rebinds_in_loop(text: &str, line1: usize, name: &str, col: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let line = uncommented(Kind::Python, lines[at]);
+    let start = indent(lines[at]);
+    let Some(eq) = line
+        .get(start..)
+        .and_then(|t| t.strip_prefix(name))
+        .map(|rest| (rest, rest.trim_start()))
+        .filter(|(_, r)| r.starts_with('=') && !r.starts_with("=="))
+        .map(|(rest, r)| start + name.len() + rest.len() - r.len())
+    else {
+        return false;
+    };
+    if col <= eq {
+        return false;
+    }
+    let literal = literal_lines(Kind::Python, text);
+    let mut depth = start;
+    for i in (0..at).rev() {
+        let t = lines[i].trim_start();
+        if depth == 0 {
+            break;
+        }
+        if t.is_empty() || t.starts_with(['#', ')', ']']) || literal[i] || indent(lines[i]) >= depth
+        {
+            continue;
+        }
+        depth = indent(lines[i]);
+        if ["while ", "for ", "async for "]
+            .iter()
+            .any(|k| t.starts_with(k))
+        {
+            return true;
+        }
+        if ["def ", "async def ", "class "]
+            .iter()
+            .any(|k| t.starts_with(k))
+        {
             return false;
         }
     }
