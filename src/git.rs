@@ -249,7 +249,9 @@ impl Review {
             Some(b) => b.to_owned(),
             None => detect_base(&git)?,
         };
-        if let Some((remote, name)) = other_remote(&git, b) {
+        if let Some((remote, name)) = other_remote(&git, b)
+            && git(&["fetch", "-q", "origin", b]).is_err()
+        {
             let fetched = git(&["fetch", "-q", &remote, name]).is_ok();
             if let Some(main) = base.strip_prefix("origin/") {
                 drop(git(&["fetch", "-q", "origin", main]));
@@ -2069,6 +2071,20 @@ mod tests {
             folder.is_dir(),
             "a branch of another remote is not gone because origin lacks it"
         );
+        git("a", &["switch", "-q", "-c", "solo", "main"]);
+        commit("a", "three");
+        git("a", &["push", "-q", "origin", "solo:upstream/solo", "solo:upstream/feat2"]);
+        git("a", &["switch", "-q", "-c", "fork", "main"]);
+        commit("a", "four");
+        git("a", &["push", "-q", "../fork.git", "fork:feat2"]);
+        for branch in ["upstream/solo", "upstream/feat2"] {
+            let r = open(branch).unwrap();
+            assert_eq!(
+                (r.branch.as_str(), r.files[0].path.to_str()),
+                (branch, Some("three")),
+                "origin's branch of the whole name wins over the remote `upstream`"
+            );
+        }
 
         git("b", &["branch", "mine"]);
         assert_eq!(
