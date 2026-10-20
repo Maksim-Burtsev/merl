@@ -94,16 +94,13 @@ fn a_call_is_one_more_hop() {
             ),
         ),
         (
-            "A call of a call hangs off a value nobody typed",
+            "A call of a call is followed through each declared return type (#1152)",
             "python",
             "calls.py",
             "open_depot().people_repo().delete_user",
-            picker(
-                "delete_user: by name, 2 declarations",
-                &[
-                    ("UserRepository.delete_user", "repos.py:8"),
-                    ("AuditLog.delete_user", "repos.py:13"),
-                ],
+            jump(
+                "delete_user \u{2192} UserRepository.delete_user (via open_depot() -> Depot \u{2192} people_repo() -> UserRepository)",
+                "repos.py:8",
             ),
         ),
         (

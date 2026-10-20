@@ -4,7 +4,7 @@ use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
     cs_opener, cs_statement, cs_type_decl, dart_bindings, declares_type, gdscript_bindings,
     haskell_bindings, indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines,
-    lua_bindings, names, nix_bindings, powershell_params, python_bindings, ruby_bindings,
+    lua_bindings, names, nix_bindings, powershell_params, python_bindings_at, ruby_bindings,
     rust_bindings, shell_bindings, solidity_bindings, split_top, swift_bindings, ts_declarators,
     ts_destructured, ts_params, type_list, uncommented,
 };
@@ -170,7 +170,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         return Vec::new();
     };
     match kind {
-        Kind::Python | Kind::Starlark => python_bindings(&lines, at, name),
+        Kind::Python | Kind::Starlark => python_bindings_at(&lines, at, name),
         Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_bindings(&lines, at, name),

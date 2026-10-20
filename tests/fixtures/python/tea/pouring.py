@@ -23,8 +23,8 @@ def names(raw: str, words: list[str]) -> list[str]:
     text = raw.strip()
     #          ^ d: none
     parts = text.split(",") + " ".join(words).split()
-    #            ^ d: tea/brewer.py:12; want none (#1151)
-    #                                         ^ d: tea/brewer.py:12; want none (#1151)
+    #            ^ d: none
+    #                                         ^ d: none
     log.info("names")
     #   ^ d: tea/brewer.py:15; want none (#1100)
     return [p.strip() for p in parts]
@@ -34,8 +34,8 @@ def names(raw: str, words: list[str]) -> list[str]:
 def opened(path: str) -> str:
     with open(path) as handle:
         return handle.read() + os.path.join("a", "b")
-        #             ^ d: tea/brewer.py:21; want none (#1151)
-        #                              ^ d: tea/brewer.py:24; want none (#1151)
+        #             ^ d: none
+        #                              ^ d: none
 
 
 def counts(cups: dict[str, Strainer]) -> int:
@@ -43,34 +43,34 @@ def counts(cups: dict[str, Strainer]) -> int:
     for name, strainer in cups.items():
         total += strainer.get(name)
         #         ^ d: tea/pouring.py:43
-        #                 ^ d: picker shop/client.py:5, tea/brewer.py:18; want tea/brewer.py:18 (#1155)
+        #                 ^ d: tea/brewer.py:18
     return total + cups.get("a").get("b")
     #                   ^ d: none
-    #                            ^ d: picker shop/client.py:5, tea/brewer.py:18; want tea/brewer.py:18 (#1155)
+    #                            ^ d: tea/brewer.py:18
 
 
 def brew() -> int:
     cup = (
         Brewer()
         .leaves(3)
-        #^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46; want tea/brewer.py:49 (#1152)
+        #^ d: tea/brewer.py:49
         .temperature(90)
-        #^ d: picker tea/brewer.py:53, tea/brewer.py:65; want tea/brewer.py:53 (#1152)
+        #^ d: tea/brewer.py:53
         .build()
-        #^ d: picker tea/brewer.py:57, tea/brewer.py:68; want tea/brewer.py:57 (#1152)
+        #^ d: tea/brewer.py:57
     )
     return cup.sip() + cup.strength
-    #          ^ d: picker tea/brewer.py:37, tea/brewer.py:71; want tea/brewer.py:37 (#1152)
+    #          ^ d: tea/brewer.py:37
     #                      ^ d: tea/brewer.py:34
 
 
 def quick() -> int:
     return make_brewer().leaves(1).build().size + Brewer.classic().build().sip()
     #                    ^ d: tea/brewer.py:49
-    #                              ^ d: picker tea/brewer.py:57, tea/brewer.py:68; want tea/brewer.py:57 (#1152)
-    #                                      ^ d: picker tea/brewer.py:30, tea/brewing.py:68; want tea/brewer.py:30 (#1152)
+    #                              ^ d: tea/brewer.py:57
+    #                                      ^ d: tea/brewer.py:30
     #                                                    ^ d: tea/brewer.py:46
-    #                                                                      ^ d: picker tea/brewer.py:37, tea/brewer.py:71; want tea/brewer.py:37 (#1152)
+    #                                                                      ^ d: tea/brewer.py:37
 
 
 def aliased(machine: Machine) -> int:
@@ -79,7 +79,7 @@ def aliased(machine: Machine) -> int:
     #              ^ d: tea/brewer.py:49
     #                                            ^ d: tea/brewer.py:75
     #                                                          ^ d: tea/brewer.py:57
-    #                                                                                  ^ d: picker tea/brewer.py:57, tea/brewer.py:68; want tea/brewer.py:57 (#1153)
+    #                                                                                  ^ d: tea/brewer.py:57
 
 
 def again(brewer: Brewer) -> int:
@@ -94,7 +94,7 @@ def walk(cup: Cup) -> int:
     while cup.next:
         cup = cup.next
         #     ^ d: tea/pouring.py:93; want picker tea/pouring.py:93, tea/pouring.py:95 (#1154)
-        #         ^ d: picker shop/warehouse.py:11, tea/brewer.py:31; want tea/brewer.py:31 (#1154)
+        #         ^ d: tea/brewer.py:31
     return cup.size
 
 
@@ -113,7 +113,12 @@ class Pot:
     hot = [heat for _ in range(2)]
     #      ^ d: tea/pouring.py:14
     warm = heat + 1
-    #      ^ d: tea/pouring.py:14; want tea/pouring.py:112 (#1156)
+    #      ^ d: tea/pouring.py:112
+    cold = [
+        heat
+        #^ d: tea/pouring.py:14
+        for _ in range(2)
+    ]
 
     def boil(self) -> int:
         return heat
@@ -134,8 +139,8 @@ def outer() -> int:
 
     try:
         return make_brewer() + steep(1)
-        #      ^ d: tea/pouring.py:132
+        #      ^ d: tea/pouring.py:137
         #                      ^ d: picker tea/stale.py:6, tea/kettle.py:40
     except ValueError as names:
         return len(str(names))
-        #              ^ d: tea/pouring.py:139
+        #              ^ d: tea/pouring.py:144

@@ -125,6 +125,13 @@ impl App {
                 None => {}
             }
         }
+        let stdlib = project.is_none()
+            && kind == Kind::Python
+            && dotted
+            && !chain.is_empty()
+            && path
+                .first()
+                .is_some_and(|m| search::PYTHON_STDLIB_MODULES.contains(&m.as_str()));
         let mut found = project.unwrap_or_else(|| {
             if imported.value.is_some() {
                 return Vec::new();
@@ -134,6 +141,15 @@ impl App {
             imported.linked = found.is_none();
             found.unwrap_or_default()
         });
+        if stdlib && found.is_empty() && imported.value.is_none() {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!(
+                "{word}: builtin, no source (via {}: standard library)",
+                path.join(".")
+            );
+            return None;
+        }
         let others: Vec<Vec<String>> = near
             .imports
             .iter()

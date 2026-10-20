@@ -229,11 +229,11 @@ impl App {
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();
-        if kind == Kind::Go
+        if matches!(kind, Kind::Go | Kind::Python)
             && head.is_none()
             && dotted
             && chain.is_empty()
-            && let Some(answer) = self.go_call_chain(&a.here, &a.written, a.start, word)
+            && let Some(answer) = self.call_chain(kind, &a.here, &a.written, a.start, word)
         {
             match answer {
                 Ok(found) if !found.is_empty() => return self.show_found(a, found),
@@ -245,6 +245,15 @@ impl App {
                     return true;
                 }
             }
+        }
+        if kind == Kind::Python
+            && dotted
+            && let Some(literal) = search::python_str_literal_receiver(&a.before)
+        {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{word}: builtin, no source (via {literal})");
+            return true;
         }
         if !(dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
@@ -268,6 +277,22 @@ impl App {
                 if let Some(ty) = self.inherited_outside(kind, &a.here, chain, head.as_ref()) {
                     let found = self.subclass_members(kind, &a.here, word, &p.pattern, &ty);
                     return self.show_found(a, found);
+                }
+                let set_from_outside = chain.last().is_some_and(|r| {
+                    Regex::new(&format!(
+                        r"\b{}\.{}\s*=[^=]",
+                        regex::escape(r),
+                        regex::escape(word)
+                    ))
+                    .is_ok_and(|re| re.is_match(&a.text))
+                });
+                if !set_from_outside
+                    && let Some(via) = self.closed_class(kind, &a.here, chain, head.as_ref())
+                {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
                 }
             }
             Err(at) => {
