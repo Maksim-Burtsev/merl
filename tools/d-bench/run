@@ -11,8 +11,9 @@ against the recorded one, print a table per language and diff it against the bas
                    running merl again.
 --update-baseline  write this run's rows into baseline.tsv and its table into baseline.md.
 
-Exits 1 when any cursor scores worse than in the baseline (ok < pick-hit < miss < WRONG): a gain
-elsewhere does not pay for it.
+Exits 1 when any cursor scores worse than in the baseline (ok < pick-hit < miss < WRONG), or a
+cursor that is not scored newly jumps away from its recorded answer (skip-WRONG, on-decl-WRONG) or
+from a row with none recorded (no-answer-jump, skip-jump): a gain elsewhere does not pay for it.
 """
 import argparse, datetime, importlib.util, os, re, subprocess, sys
 from collections import Counter, defaultdict
@@ -20,6 +21,7 @@ from collections import Counter, defaultdict
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 RANK = {"ok": 0, "pick-hit": 1, "pick-miss": 2, "none": 2, "WRONG": 3}
+STRAY = ("-WRONG", "-jump")
 SCORED = list(RANK)
 PNPM_PEERS = re.compile(r"(/node_modules/\.pnpm/(?:@[^/+]+\+)?[^/@]+@[^/_]+)_[^/]+")
 
@@ -78,19 +80,19 @@ def verdict(cur, ans, got, root):
     rel, line = cur[2], int(cur[3])
     want = targets(ans[1], root) if ans else []
     here = os.path.realpath(os.path.join(root, rel))
-    if ans and ans[2]:
-        return "skip"
-    if not want:
-        return "no-answer"
-    if any(p == here and ln == line for p, ln in want):
-        return "on-decl"
     external = not all(p.startswith(root + "/") for p, _ in want)
 
-    def hit(g):
-        return any(abs(g[1] - ln) <= 1 if same_file(g[0], p) else external and modkey(g[0]) == modkey(p)
-                   for p, ln in want)
+    def hit(g, any_line=False):
+        return any(abs(g[1] - ln) <= 1 or any_line and external if same_file(g[0], p)
+                   else external and modkey(g[0]) == modkey(p) for p, ln in want)
 
     outcome, found = got
+    unscored = ("skip" if ans and ans[2] else "no-answer" if not want
+                else "on-decl" if any(p == here and ln == line for p, ln in want) else "")
+    if unscored:
+        if outcome == "jump" and not hit(found[0], True):
+            return unscored + ("-WRONG" if want else "-jump")
+        return unscored
     if outcome == "jump":
         return "ok" if hit(found[0]) else "WRONG"
     if outcome == "picker":
@@ -102,9 +104,21 @@ def byte_col(line, col):
     return len(line[:col].encode())
 
 
+def kind(v):
+    return "scored" if v in RANK else re.sub(r"-(WRONG|jump)$", "", v)
+
+
+def rank(v):
+    return RANK.get(v, 3 * v.endswith(STRAY))
+
+
+def moved(base, now, sign):
+    return [(rank(now[i][1]) - rank(b[1]), rank(now[i][1]) == 3, i) for i, b in base.items()
+            if i in now and kind(b[1]) == kind(now[i][1]) and sign * (rank(now[i][1]) - rank(b[1])) > 0]
+
+
 def worse_rows(base, now):
-    return [(RANK[now[i][1]] - RANK[b[1]], now[i][1] == "WRONG", i) for i, b in base.items()
-            if i in now and b[1] in RANK and now[i][1] in RANK and RANK[now[i][1]] > RANK[b[1]]]
+    return moved(base, now, 1)
 
 
 def pct(n, tot):
@@ -121,15 +135,17 @@ def table(rows, projects):
     for r in rows:
         by[r[0]].append(r)
     out = ["| language (project) | scored | direct hit | picker with the answer | wrong jump "
-           "| miss | not scored | p50 ms | p90 ms |", "|---|---|---|---|---|---|---|---|---|"]
+           "| miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |",
+           "|---|---|---|---|---|---|---|---|---|---|"]
     for lang in sorted(by, key=lambda l: [p[1] for p in projects].index(l)):
         c = Counter(r[2] for r in by[lang])
         n = sum(c[k] for k in SCORED)
+        stray = sum(v for k, v in c.items() if k.endswith(STRAY))
         ms = [r[3] for r in by[lang]]
         name = ", ".join(p[0] for p in projects if p[1] == lang)
         out.append(f"| {lang} ({name}) | {n} | {pct(c['ok'], n)} | {pct(c['pick-hit'], n)} | "
                    f"{pct(c['WRONG'], n)} | {pct(c['pick-miss'] + c['none'], n)} | "
-                   f"{len(ms) - n} | {quantile(ms, .5):.1f} | {quantile(ms, .9):.1f} |")
+                   f"{len(ms) - n} | {stray} | {quantile(ms, .5):.1f} | {quantile(ms, .9):.1f} |")
     return out
 
 
@@ -159,6 +175,19 @@ def selftest():
     lost = {"go1": ["go1", "ok"], "go2": ["go2", "WRONG"], "go3": ["go3", "none"]}
     assert [w[2] for w in worse_rows(base, lost)] == ["go3"]
     assert worse_rows(base, base) == []
+    skip = lambda target: ["x0001", target, "debatable"]
+    assert verdict(cur, skip(f"{dep}:50"), jump(dep, 90), root) == "skip"
+    assert verdict(cur, skip(f"{dep}:50"), jump("/p/b.py", 50), root) == "skip-WRONG"
+    assert verdict(cur, skip("b.py:10"), jump("/p/b.py", 40), root) == "skip-WRONG"
+    assert verdict(cur, skip("b.py:10"), ("picker", targets("c.py:1", root)), root) == "skip"
+    assert verdict(cur, ans(""), jump("/p/b.py", 40), root) == "no-answer-jump"
+    assert verdict(cur, ans(""), ("none", []), root) == "no-answer"
+    assert verdict(cur, ans("a.py:3"), jump("/p/a.py", 3), root) == "on-decl"
+    assert verdict(cur, ans("a.py:3"), jump("/p/b.py", 3), root) == "on-decl-WRONG"
+    unscored = {"go1": ["go1", "skip"], "go2": ["go2", "no-answer-jump"], "go3": ["go3", "on-decl"]}
+    strays = {"go1": ["go1", "skip-WRONG"], "go2": ["go2", "no-answer"], "go3": ["go3", "ok"]}
+    assert worse_rows(unscored, strays) == [(3, True, "go1")]
+    assert [w[2] for w in moved(unscored, strays, -1)] == ["go2"]
     sys.dont_write_bytecode = True
     spec = importlib.util.spec_from_file_location("record", os.path.join(HERE, "record.py"))
     record = importlib.util.module_from_spec(spec)
@@ -201,6 +230,14 @@ def main():
         sys.exit("no project matches")
     cache = os.path.realpath(os.path.expanduser(a.cache))
     os.makedirs(cache, exist_ok=True)
+    servers = os.path.realpath(os.environ.get("D_BENCH_SERVERS", os.path.join(cache, "servers")))
+    os.environ["D_BENCH_SERVERS"] = servers
+    dart_bin = os.path.join(servers, "dart-sdk", "bin")
+    if os.path.isdir(dart_bin):
+        os.environ["PATH"] = dart_bin + os.pathsep + os.environ["PATH"]
+        os.environ["PUB_CACHE"] = os.path.join(servers, "dart-pub-cache")
+    elif any(p[1] == "dart" for p in pick):
+        sys.exit(f"the dart row needs the Dart SDK in {dart_bin}: tools/d-bench/install-servers.sh fetches it")
     roots, cursors, answers = {}, [], {}
     for name, lang, url, commit, install in pick:
         roots[name] = os.path.realpath(ensure(cache, name, url, commit, install))
@@ -241,24 +278,28 @@ def main():
         f.writelines("\t".join(d) + "\n" for d in detail)
     tab = table(rows, projects)
     print("\n".join(tab))
+    stray = [d for d in detail if d[1].endswith(STRAY)]
+    if stray:
+        print(f"\njumps on rows not scored, off the recorded answer (-WRONG) or with none recorded (-jump): {len(stray)}")
+        for d in stray:
+            print(f"  {d[0]} {d[4]} {d[5]}: {d[1]}  (jump {d[7]}, answer {d[8] or '-'})")
 
     base_path = os.path.join(HERE, "baseline.tsv")
     base = {r[0]: r for r in tsv(base_path)} if os.path.exists(base_path) else {}
     now = {d[0]: d for d in detail}
     worse = worse_rows(base, now)
-    better = sum(1 for i, b in base.items() if i in now and b[1] in RANK and now[i][1] in RANK
-                 and RANK[now[i][1]] < RANK[b[1]])
+    better = len(moved(base, now, -1))
     fail = False
     if base:
         print(f"\nagainst the baseline: {len(worse)} worse, {better} better")
         for lang in dict.fromkeys(r[0] for r in rows):
             ids = [r[1] for r in rows if r[0] == lang and r[1] in base]
-            cnt = lambda src, k: sum(1 for i in ids if src[i][1] == k)
-            ok, wr = (cnt(base, "ok"), cnt(now, "ok")), (cnt(base, "WRONG"), cnt(now, "WRONG"))
+            cnt = lambda src, k: sum(1 for i in ids if ("stray" if src[i][1].endswith(STRAY) else src[i][1]) == k)
+            ok, wr, st = [(cnt(base, k), cnt(now, k)) for k in ("ok", "WRONG", "stray")]
             flag = any(i in ids for _, _, i in worse)
             fail |= flag
             print(f"  {lang:7} direct hit {ok[0]}->{ok[1]}  wrong jump {wr[0]}->{wr[1]}"
-                  + ("  WORSE" if flag else ""))
+                  f"  not scored {st[0]}->{st[1]}" + ("  WORSE" if flag else ""))
         for _, _, i in sorted(worse, key=lambda w: (not w[1], -w[0], w[2])):
             b, n = base[i], now[i]
             print(f"  {i} {n[4]} {n[5]}: {b[1]} -> {n[1]}  ({n[2]} {n[7] or n[6]})")

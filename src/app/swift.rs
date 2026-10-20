@@ -11,7 +11,7 @@ impl App {
         let Some(call) = search::swift_call_labels(&lines, self.line, after) else {
             return false;
         };
-        let labels: Option<Vec<Vec<String>>> = found
+        let labels: Option<Vec<Vec<search::SwiftParam>>> = found
             .iter()
             .map(|c| {
                 let text = self.text_of(&c.hit.path)?;
@@ -22,12 +22,24 @@ impl App {
         let Some(labels) = labels else {
             return false;
         };
-        let fit = labels.contains(&call);
+        let fit = labels.iter().any(|l| search::swift_call_fits(&call, l));
         if fit {
-            let mut fits = labels.iter().map(|l| *l == call);
+            let mut fits = labels.iter().map(|l| search::swift_call_fits(&call, l));
             found.retain(|_| fits.next().unwrap_or(true));
         }
         fit
+    }
+
+    pub(super) fn swift_one_owner(&self, name: &str, found: &[Candidate]) -> bool {
+        let owners: Option<Vec<String>> = found
+            .iter()
+            .map(|c| {
+                let text = self.text_of(&c.hit.path)?;
+                let q = search::qualified(Kind::Swift, &text, c.hit.line1, name)?;
+                Some(q.strip_suffix(name)?.to_owned())
+            })
+            .collect();
+        owners.is_some_and(|o| o.len() > 1 && o.iter().all(|x| *x == o[0] && !x.is_empty()))
     }
 
     pub(super) fn swift_init_by_labels(
@@ -158,7 +170,7 @@ impl App {
             if (!testing && in_tests(&h.path)) || (!own && search::swift_file_private(&h.text)) {
                 return false;
             }
-            let place = search::swift_type_decl(&h.text)
+            let place = (search::swift_type_decl(&h.text) || search::swift_func_decl(&h.text))
                 .then(|| self.text_of(&h.path))
                 .flatten()
                 .and_then(|t| search::swift_type_place(&t, h.line1));

@@ -1,4 +1,6 @@
-use super::{App, Asked, Kind, Near, Patterns, Regex, bound, cs_typed, resolution, rust, search};
+use super::{
+    App, Asked, Kind, Near, Path, Patterns, Regex, bound, cs_typed, resolution, rust, search,
+};
 
 pub(super) struct Walk {
     pub(super) broke: Option<String>,
@@ -33,6 +35,24 @@ impl App {
             }
         }
         if kind == Kind::Rust
+            && dotted
+            && chain.is_empty()
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+            && let Some(receiver) = a
+                .before
+                .strip_suffix('.')
+                .filter(|r| r.ends_with([')', '?']))
+        {
+            let after = a.tail.as_str();
+            let call = after.starts_with('(') || after.starts_with("::<");
+            if let Some(found) = self.rust_call_chain(&a.here, &a.text, receiver, word, call)
+                && !found.is_empty()
+            {
+                return self.show_found(a, found);
+            }
+        }
+        if kind == Kind::Rust
             && let Some(found) = self.rust_early(&a.here, &a.text, word, a.range.clone(), dotted)
         {
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());
@@ -43,7 +63,7 @@ impl App {
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && word != "await"
         {
-            let found = self.rust_methods(&a.here, word, &a.text, chain);
+            let found = self.rust_methods(&a.here, word, &a.text, chain, &a.before);
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());
             return true;
         }
@@ -62,6 +82,9 @@ impl App {
     }
 
     pub(super) fn declares_here(&self, a: &Asked) -> bool {
+        if a.kind == Kind::Swift && search::swift_right_of_binding(&a.lead) {
+            return false;
+        }
         let mut declaring = search::def_patterns(a.kind, &a.word);
         declaring.extend(search::member_or_signature(a.kind, &a.word).unwrap_or_default());
         Regex::new(&declaring.join("|")).is_ok_and(|re| re.is_match(self.line_str()))
@@ -108,8 +131,21 @@ impl App {
         }
         if kind == Kind::Swift
             && dotted
+            && chain.is_empty()
+            && !matches!(word.as_str(), "init" | "none" | "some")
+            && let Some(lead) = a.lead.strip_suffix('.')
+            && let Some(found) = self.swift_expected_rows(&a.here, &a.text, lead, word)
+        {
+            if found.is_empty() {
+                self.message = resolution(word, None, &[], None, false);
+            } else {
+                self.show_found(a, found);
+            }
+            return true;
+        }
+        if kind == Kind::Swift
+            && dotted
             && !chain.is_empty()
-            && chain[0] != "super"
             && word != "init"
             && bound(&near.imports, &chain[0]).is_none()
             && let Some(mut found) = self.swift_typed(&a.here, &a.text, word, chain)
@@ -121,6 +157,38 @@ impl App {
                 self.show_found(a, found);
             }
             return true;
+        }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && word != "init"
+            && let Some(head) = search::call_head(kind, &a.written, a.start)
+            && head.fields_to_word.is_empty()
+            && let Some(mut found) =
+                self.swift_on_call(&a.here, &a.text, word, &head.call_without_arguments, &[])
+        {
+            self.swift_by_labels(word, a.range.end, &mut found);
+            if !found.is_empty() {
+                return self.show_found(a, found);
+            }
+        }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
+            && word != "init"
+            && let Some(links) = a.written.get(..a.start).and_then(search::swift_call_links)
+            && let Some(mut found) = self.swift_on_call(
+                &a.here,
+                &a.text,
+                word,
+                &format!("{}()", links[0]),
+                &links[1..],
+            )
+        {
+            self.swift_by_labels(word, a.range.end, &mut found);
+            if !found.is_empty() {
+                return self.show_found(a, found);
+            }
         }
         false
     }
@@ -141,7 +209,10 @@ impl App {
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
                 Some(self.cs_typed(&a.here, word, chain))
             }
-            true if chain.is_empty() => self.cs_constructed(&a.here, word, &a.before).map(Ok),
+            true if chain.is_empty() => self
+                .cs_constructed(&a.here, word, &a.before)
+                .or_else(|| self.cs_call_result(&a.here, word, a.range.start))
+                .map(Ok),
             true => None,
         };
         match answer {
@@ -175,6 +246,32 @@ impl App {
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();
+        if matches!(kind, Kind::Go | Kind::Python)
+            && head.is_none()
+            && dotted
+            && chain.is_empty()
+            && let Some(answer) = self.call_chain(kind, &a.here, &a.written, a.start, word)
+        {
+            match answer {
+                Ok(found) if !found.is_empty() => return self.show_found(a, found),
+                Ok(_) => {}
+                Err(via) => {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
+                }
+            }
+        }
+        if kind == Kind::Python
+            && dotted
+            && let Some(literal) = search::python_str_literal_receiver(&a.before)
+        {
+            self.offer_only = false;
+            self.truncated.set(false);
+            self.message = format!("{word}: builtin, no source (via {literal})");
+            return true;
+        }
         if !(dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
             && (head.is_some()
@@ -198,12 +295,43 @@ impl App {
                     let found = self.subclass_members(kind, &a.here, word, &p.pattern, &ty);
                     return self.show_found(a, found);
                 }
+                let set_from_outside = chain.last().is_some_and(|r| {
+                    Regex::new(&format!(
+                        r"\b{}\.{}\s*=[^=]",
+                        regex::escape(r),
+                        regex::escape(word)
+                    ))
+                    .is_ok_and(|re| re.is_match(&a.text))
+                });
+                if !set_from_outside
+                    && let Some(via) = self.closed_class(kind, &a.here, chain, head.as_ref(), word)
+                {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
+                }
             }
             Err(at) => {
                 if let Some(via) = self.builtin_receiver(kind, &a.here, chain, head.as_ref()) {
                     self.offer_only = false;
                     self.truncated.set(false);
                     self.message = format!("{word}: builtin, no source (via {via})");
+                    return true;
+                }
+                if let Some(via) = self.js_std_receiver(a) {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("{word}: builtin, no source (via {via})");
+                    return true;
+                }
+                if head.is_none()
+                    && kind == Kind::TsJs
+                    && let Some(via) = self.missing_package_receiver(&a.here, chain, &at)
+                {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
                     return true;
                 }
                 let names = head
@@ -213,6 +341,29 @@ impl App {
             }
         }
         false
+    }
+
+    fn missing_package_receiver(&self, here: &Path, chain: &[String], at: &str) -> Option<String> {
+        let kind = Kind::TsJs;
+        let upto = chain.iter().position(|l| l == at)?;
+        let (file, text, bindings, _) = self.last_bindings(kind, here, &chain[..=upto])?;
+        let imports = search::imports(kind, &text);
+        let dir = file.parent().unwrap_or_else(|| Path::new(""));
+        let mut via = None;
+        for b in &bindings {
+            let search::Value::Type(written) = &b.value else {
+                continue;
+            };
+            let parts = search::type_path(kind, written)?;
+            let path = bound(&imports, &parts[0])?;
+            if !search::package_missing(&self.root, &self.files, dir, &path) {
+                return None;
+            }
+            let parts_of_name = if path[0].starts_with('@') { 2 } else { 1 };
+            let package = path[..parts_of_name.min(path.len())].join("/");
+            via.get_or_insert_with(|| format!("{at}: {}, {package} not installed", written.trim()));
+        }
+        via
     }
 
     pub(super) fn answered_by_rust_crate(&mut self, a: &Asked, near: &Near) -> bool {

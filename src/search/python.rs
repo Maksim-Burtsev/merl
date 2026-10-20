@@ -1,8 +1,8 @@
 use regex::Regex;
 
 use super::{
-    Binding, Group, Kind, Value, code, continued, group, indent, literal_lines, names, split_top,
-    uncommented, value_of,
+    Binding, Group, Kind, Value, close_of, code, continued, group, indent, literal_lines, names,
+    split_top, uncommented, value_of,
 };
 
 pub const PYTHON_BUILTINS: &[&str] = &[
@@ -178,6 +178,49 @@ pub const PYTHON_BUILTIN_TYPES: &[&str] = &[
     "memoryview",
     "slice",
 ];
+pub const PYTHON_SCALAR_TYPES: &[&str] = &[
+    "str",
+    "bytes",
+    "bytearray",
+    "int",
+    "float",
+    "complex",
+    "bool",
+];
+pub const PYTHON_STDLIB_MODULES: &[&str] = &[
+    "os",
+    "sys",
+    "re",
+    "json",
+    "math",
+    "time",
+    "shutil",
+    "subprocess",
+    "string",
+    "textwrap",
+    "base64",
+    "hashlib",
+];
+pub fn python_str_literal_receiver(before: &str) -> Option<&str> {
+    static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r#"(?:^|[^\w'"])((?i:[rbfu]{0,2})(?:"[^"\\]*"|'[^'\\]*'))(?:\.\w+\([^()'"]*\))*\.$"#,
+        )
+        .expect("the regex is a literal")
+    });
+    LITERAL
+        .captures(before)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str())
+}
+pub fn python_opened(line: &str, name: &str) -> bool {
+    let t = uncommented(Kind::Python, line);
+    Regex::new(&format!(
+        r"^(?:async\s+)?with\s+open\([^()]*\)\s+as\s+{}\s*:",
+        regex::escape(name)
+    ))
+    .is_ok_and(|r| r.is_match(t.trim()))
+}
 #[derive(Clone, Copy)]
 enum Scope {
     Def(usize),
@@ -265,13 +308,30 @@ impl Rules {
                 r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
             )),
             declared_outside: rule(format!(r"^(global|nonlocal)\s.*\b{n}\b")),
-            plain_loop_over_a_name: rule(format!(r"^for\s+{n}\s+in\s+([A-Za-z_]\w*)\s*:")),
+            plain_loop_over_a_name: rule(format!(
+                r"^for\s+(?:\w+\s*,\s*{n}\s+in\s+([A-Za-z_]\w*)\.items\(\)|{n}\s+in\s+([A-Za-z_]\w*)(\.values\(\))?)\s*:"
+            )),
             chained_assignment: rule(format!(r"^(?:[\w.\[\]]+\s*=\s*)+{n}\s*=[^=]")),
         }
     }
 }
 
-pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+fn looped(c: &regex::Captures) -> String {
+    match (c.get(1), c.get(2)) {
+        (Some(items), _) => format!("{}.values()", items.as_str()),
+        (None, Some(over)) => format!("{}{}", over.as_str(), c.get(3).map_or("", |v| v.as_str())),
+        (None, None) => String::new(),
+    }
+}
+pub(super) fn python_bindings_at(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    let in_class = python_class_body_above(lines, at, name);
+    if in_class.is_empty() {
+        python_bindings(lines, at, name)
+    } else {
+        in_class
+    }
+}
+fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     let r = Rules::of(name);
     let scopes_innermost_first = python_scopes_innermost_first(lines, at);
 
@@ -327,7 +387,7 @@ pub(super) fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bind
                 continue;
             }
             let value = if let Some(c) = r.plain_loop_over_a_name.captures(t) {
-                Some(Value::Element(c[1].to_owned()))
+                Some(Value::Element(looped(&c)))
             } else if r.unknown.is_match(t)
                 || (i == at && python_inline(t, name))
                 || python_case_binds(t, name)
@@ -514,11 +574,7 @@ fn python_params(
         });
     }
 }
-pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
-    let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
+fn python_class_header(lines: &[&str], at: usize) -> Option<usize> {
     let mut depth = indent(lines[at]);
     for i in (0..at).rev() {
         let t = lines[i].trim_start();
@@ -534,22 +590,73 @@ pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
         }
         depth = indent(lines[i]);
         if t.starts_with("def ") || t.starts_with("async def ") {
-            return false;
+            return None;
         }
         if t.starts_with("class ") {
-            let body_end = (i + 1..lines.len())
-                .find(|&j| {
-                    let t = lines[j].trim_start();
-                    !t.is_empty()
-                        && !t.starts_with('#')
-                        && !closes_a_wrapped_header(t)
-                        && indent(lines[j]) <= depth
-                })
-                .unwrap_or(lines.len());
-            return !python_bindings(&lines[i + 1..body_end], at - i - 1, name).is_empty();
+            return Some(i);
         }
     }
-    false
+    None
+}
+fn python_class_body_above(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    static INNER_SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:for|lambda)\b").expect("the regex is a literal")
+    });
+    let Some(header) = python_class_header(lines, at) else {
+        return Vec::new();
+    };
+    let t = uncommented(Kind::Python, lines[at]);
+    if INNER_SCOPE.is_match(&t) || continued(Kind::Python, lines, at) {
+        return Vec::new();
+    }
+    python_bindings(&lines[header + 1..=at], at - header - 1, name)
+        .into_iter()
+        .filter(|b| b.line1 + header < at)
+        .map(|b| Binding {
+            line1: b.line1 + header + 1,
+            value: b.value,
+        })
+        .collect()
+}
+pub fn python_class_binds(text: &str, line1: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let Some(i) = python_class_header(&lines, at) else {
+        return false;
+    };
+    let depth = indent(lines[i]);
+    let body_end = (i + 1..lines.len())
+        .find(|&j| {
+            let t = lines[j].trim_start();
+            !t.is_empty()
+                && !t.starts_with('#')
+                && !closes_a_wrapped_header(t)
+                && indent(lines[j]) <= depth
+        })
+        .unwrap_or(lines.len());
+    !python_bindings(&lines[i + 1..body_end], at - i - 1, name).is_empty()
+}
+pub fn python_class_defines(text: &str, header1: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(i) = header1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let n = regex::escape(name);
+    let Ok(defines) = Regex::new(&format!(
+        r"^\s*(?:(?:async\s+)?def\s+{n}\b|class\s+{n}\b|{n}\s*(?::[^=]*)?=[^=])"
+    )) else {
+        return false;
+    };
+    let depth = indent(lines[i]);
+    lines[i + 1..]
+        .iter()
+        .take_while(|l| {
+            let t = l.trim_start();
+            t.is_empty() || t.starts_with('#') || closes_a_wrapped_header(t) || indent(l) > depth
+        })
+        .any(|l| defines.is_match(l))
 }
 pub fn python_method(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
@@ -685,4 +792,60 @@ pub fn keyword_argument(text: &str, line1: usize, range: &std::ops::Range<usize>
         && !after.starts_with("==")
         && (before.ends_with(['(', ','])
             || (before.is_empty() && continued(Kind::Python, &lines, line1 - 1)))
+}
+pub fn python_class_alias<'a>(decl: &'a str, name: &str) -> Option<&'a str> {
+    let rest = decl.strip_prefix(name)?.trim_start().strip_prefix('=')?;
+    let target = rest.split('#').next()?.trim();
+    (!rest.starts_with('=')
+        && target.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+        && target
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.'))
+    .then_some(target)
+}
+pub fn python_module_assignments(text: &str, name: &str) -> usize {
+    text.lines()
+        .filter(|l| {
+            l.strip_prefix(name).is_some_and(|rest| {
+                let rest = rest.trim_start();
+                (rest.starts_with('=') && !rest.starts_with("=="))
+                    || rest.starts_with(':')
+                    || rest.starts_with(',')
+            })
+        })
+        .count()
+}
+pub fn python_self_derived(line: &str, name: &str) -> bool {
+    let t = uncommented(Kind::Python, line);
+    let n = regex::escape(name);
+    Regex::new(&format!(r"^{n}\s*=\s*{n}(?:\.\w+)+$")).is_ok_and(|r| r.is_match(t.trim()))
+}
+pub fn python_assigned_call(text: &str, line1: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let first = uncommented(Kind::Python, lines.get(line1.checked_sub(1)?)?);
+    let rest = first.trim().strip_prefix(name)?.trim_start();
+    let rest = rest.strip_prefix('=').filter(|r| !r.starts_with('='))?;
+    let mut expr = rest.trim().to_owned();
+    let depth = |e: &str| {
+        code(Kind::Python, e).fold(0i32, |d, (_, c)| match c {
+            b'(' | b'[' | b'{' => d + 1,
+            b')' | b']' | b'}' => d - 1,
+            _ => d,
+        })
+    };
+    for l in lines.iter().skip(line1).take(40) {
+        if depth(&expr) <= 0 {
+            break;
+        }
+        expr.push_str(uncommented(Kind::Python, l).trim());
+    }
+    if depth(&expr) != 0 {
+        return None;
+    }
+    let inner = if expr.starts_with('(') && close_of(Kind::Python, &expr, 0) == Some(expr.len()) {
+        expr.get(1..expr.len() - 1)?.trim()
+    } else {
+        expr.as_str()
+    };
+    inner.ends_with(')').then(|| inner.to_owned())
 }

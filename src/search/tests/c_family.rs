@@ -1128,6 +1128,78 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         Some(PhpBinding::ThisProperty("pot".into()))
     );
     assert_eq!(php_binding("$pot = $this->pot->x;", "pot"), None);
+    assert_eq!(php_binding("$pot = $leaf->steep(...);", "pot"), None);
+    assert_eq!(
+        php_binding("$pot = $pot->steep();", "pot"),
+        Some(PhpBinding::VarCall {
+            var: "pot".into(),
+            method: "steep".into()
+        })
+    );
+    for (before, head, want) in [
+        (
+            "return $leaf.steep().rinse(1, f($x)).",
+            "leaf",
+            vec!["steep", "rinse"],
+        ),
+        (
+            "return (new Leaf()).withWater(80).steep().",
+            "new Leaf",
+            vec!["withWater", "steep"],
+        ),
+        ("$this.items().", "this", vec!["items"]),
+        ("return $arrow()   $pour().", "$pour()", vec![]),
+    ] {
+        let Some((got_head, calls)) = php_call_chain(before) else {
+            panic!("{before}");
+        };
+        let got_head = match got_head {
+            PhpCallHead::This => "this".to_owned(),
+            PhpCallHead::Var(v) => v,
+            PhpCallHead::New(t) => format!("new {t}"),
+            PhpCallHead::Callable(v) => format!("${v}()"),
+        };
+        assert_eq!(
+            (got_head.as_str(), calls),
+            (head, want.iter().map(|s| (*s).to_owned()).collect()),
+            "{before}"
+        );
+    }
+    for before in [
+        "Flush::from('x').",
+        "$this().",
+        "$a.b.c().",
+        "$x.m(...).",
+        "$leaf.",
+        "make($a).steep().",
+        "$x.m(')').",
+    ] {
+        assert!(php_call_chain(before).is_none(), "{before}");
+    }
+    assert_eq!(
+        php_first_class_callable("    $pour = $leaf->steep(...);", "pour"),
+        Some(("leaf".to_owned(), "steep".to_owned()))
+    );
+    for line in [
+        "$pour = $leaf->steep(...)->x;",
+        "$pour = $leaf->steep();",
+        "$pour = $leaf->steep(...); $pour = 1;",
+    ] {
+        assert_eq!(php_first_class_callable(line, "pour"), None, "{line}");
+    }
+    for (line, want) in [
+        ("[$a, $pot] = [new A(), new B($x)];", Some("B")),
+        ("list(, $pot) = [new A(), new B];", Some("B")),
+        ("[$a, $pot] = [$pot, $a];", None),
+        ("['k' => $pot] = [new A()];", None),
+        ("[$a, $pot, $c] = [new A('x,y'), new B(), new C()];", None),
+        ("[[$a], $pot] = [[new A()], new B()];", None),
+        ("[$a, $pot] = [...$pre, new B()];", None),
+        ("[$a, $pot] = [new A(), new B(), ...$rest];", Some("B")),
+    ] {
+        let got = php_binding(line, "pot");
+        assert_eq!(got, want.map(|t| PhpBinding::New(t.into())), "{line}");
+    }
     let text = "<?php\n\
                 function f() {\n\
                 $v = new A();\n\
@@ -1292,6 +1364,51 @@ fn swift_receiver_types_are_read_off_their_lines() {
 }
 
 #[test]
+fn swift_tuples_closures_chains_and_if_arms_are_read() {
+    assert_eq!(
+        swift_given("    for (i, sencha) in leaves.enumerated() {", "sencha"),
+        Some(SwiftGiven::Element("leaves".into()))
+    );
+    assert_eq!(
+        swift_given("    for (i, sencha) in leaves.enumerated() {", "i"),
+        None
+    );
+    assert_eq!(
+        swift_given("    let (sencha, grade) = pair", "sencha"),
+        Some(SwiftGiven::Item("pair".into(), 0))
+    );
+    assert_eq!(
+        swift_tuple_item("(name: Sencha, [String: Int])", 1),
+        Some("[String: Int]".into())
+    );
+    assert_eq!(swift_tuple_item("(Sencha)", 0), None);
+    assert_eq!(
+        swift_closure_sequence("    leaves.map { $0."),
+        Some("leaves".into())
+    );
+    assert_eq!(swift_closure_sequence("    a.b().map { $0."), None);
+    assert_eq!(swift_closure_sequence("    leaves.reduce(0) { $0."), None);
+    assert_eq!(
+        swift_call_links("Whisk().sift(1).finish()."),
+        Some(vec!["Whisk".into(), "sift".into(), "finish".into()])
+    );
+    assert_eq!(swift_call_links("Bowl(froth: 1)."), None);
+    assert_eq!(swift_call_links("w.sift(1).finish()."), None);
+    assert_eq!(swift_call_links("    .sift(1).finish()."), None);
+    let lines = [
+        "#if os(macOS)",
+        "typealias K = A",
+        "#else",
+        "typealias K = B",
+        "#endif",
+    ];
+    assert!(swift_if_arms(&lines, &[2, 4]));
+    assert!(!swift_if_arms(&lines, &[2]));
+    let flat = ["typealias K = A", "#if X", "#endif", "typealias K = B"];
+    assert!(!swift_if_arms(&flat, &[1, 4]));
+}
+
+#[test]
 fn c_bindings_read_a_head_with_non_ascii_names() {
     let text = "int (r *R\u{e9}po) M\u{e9}thode(int x)\n{\n    return x;\n}\n";
     assert_eq!(
@@ -1325,7 +1442,10 @@ fn c_receiver_cuts_at_a_character() {
         Some(CReceiver {
             head: "bar".to_owned(),
             head_called: false,
-            fields: vec![]
+            fields: vec![],
+            calls: vec![],
+            braced: false,
+            start: 4,
         })
     );
 }
@@ -1494,6 +1614,7 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         "Shop.App/Page.cs",
         "Shop.App/Views/Home.cs",
         "Shop.Api/Address.cs",
+        "Shop.Api/Route.cs",
         "Shop.Core/Money.cs",
         "Shared/Clock.cs",
     ]
@@ -1557,7 +1678,10 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         "nor can a file outside every project"
     );
     for app in [
-        r#"<Compile Include="..\Shared\Clock.cs" Link="Clock.cs" />"#,
+        r#"<Compile Include="..\Shared\*.cs" />"#,
+        r#"<Compile Include="..\Shared\Gone.cs" />"#,
+        r#"<Compile Remove="..\Shared\Clock.cs" />"#,
+        r#"<Compile Include="..\Shared\Clock.cs;..\Shop.Api\Address.cs" />"#,
         r#"<Import Project="..\Shared\Shared.projitems" Label="Shared" />"#,
         r#"<ProjectReference Include="$(RepoRoot)\Shop.Api\Shop.Api.csproj" />"#,
         r#"<ProjectReference Include="..\Gone\Gone.csproj" />"#,
@@ -1571,7 +1695,7 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         ];
         assert!(
             cs_projects(&files, here, read(&manifests)).is_none(),
-            "{app}: a source file pulled in from outside the directory, a shared project, a \
+            "{app}: a source file from outside that is a pattern, a list, a removal or not here, a shared project, a \
              reference MSBuild has to evaluate or that names no project here cannot be told"
         );
     }
@@ -1602,10 +1726,15 @@ fn a_csharp_file_sees_its_project_and_the_ones_it_references() {
         ("Shop.App/Shop.App.csproj", PLAIN),
         (
             "Directory.Build.props",
-            r#"<Compile Include="..\Shared\Clock.cs" />"#,
+            r#"<Compile Include="..\Shop.Api\Address.cs" Link="Address.cs" />"#,
         ),
     ];
-    assert!(cs_projects(&files, here, read(&linked)).is_none());
+    let seen = cs_projects(&files, here, read(&linked)).unwrap();
+    assert!(
+        seen.sees(Path::new("Shop.Api/Address.cs")),
+        "a file another project holds, compiled into this one too"
+    );
+    assert!(!seen.sees(Path::new("Shop.Api/Route.cs")));
     let mut nested = files.clone();
     nested.push(PathBuf::from("Shop.App/Tests/Shop.App.Tests.csproj"));
     let inner = [
@@ -1856,7 +1985,23 @@ fn csharp_declarations_and_expressions_give_their_written_types() {
             call("repo.LoadAsync", true),
         ),
         ("    var x = y;", "x", CsValue::Unknown),
-        ("    foreach (var item in items)", "item", CsValue::Unknown),
+        (
+            "    foreach (var item in items)",
+            "item",
+            CsValue::Element("items".into()),
+        ),
+        (
+            "    var (a, b) = (new A(), Make());",
+            "b",
+            call("Make", false),
+        ),
+        ("    var (a, b) = (new A(), Make());", "a", ty("A")),
+        (
+            "    var (a, b) = (new A(), b).Swap();",
+            "a",
+            CsValue::Unknown,
+        ),
+        ("    var (a, b) = (new A(), b, c);", "a", CsValue::Unknown),
         (
             "    items.Select(item => item.Id);",
             "item",

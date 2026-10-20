@@ -58,7 +58,7 @@ module Shop
       courier = Warehouse::Courier.new("post")
       #                    ^ d: lib/shop/warehouse.rb:5
       courier.name
-      #       ^ d: picker lib/shop/warehouse.rb:6
+      #       ^ d: lib/shop/warehouse.rb:6
     end
 
     def pick(couriers)
@@ -100,7 +100,7 @@ module Shop
 
     def ledger
       Ledger.new.prepare!
-      #          ^ d: picker lib/shop/order.rb:19
+      #          ^ d: lib/shop/order.rb:19
     end
 
     def rated(courier)

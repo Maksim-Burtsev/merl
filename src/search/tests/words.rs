@@ -46,6 +46,7 @@ fn kinds_come_from_the_file_name() {
         ("run.bash", Some(Kind::Shell)),
         ("run.zsh", Some(Kind::Shell)),
         ("run.ksh", Some(Kind::Shell)),
+        ("shop.bats", Some(Kind::Shell)),
         (".bashrc", Some(Kind::Shell)),
         (".bash_profile", Some(Kind::Shell)),
         (".bash_aliases", Some(Kind::Shell)),
@@ -357,6 +358,51 @@ fn a_chain_broken_over_lines_reads_as_one() {
 }
 
 #[test]
+fn a_call_that_starts_a_line_keeps_its_receiver() {
+    let lines = |ls: &[&str]| ls.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let line = |kind, ls: &[&str], at, col| unbroken(kind, &lines(ls), at, col).map(|l| l.line);
+    let java = ["  return service", "    .listReply(name)", "    .map(x)"];
+    assert_eq!(
+        line(Kind::Jvm, &java, 2, 5).as_deref(),
+        Some("  return service.listReply(name).map(x)")
+    );
+    let swift = ["  AF.request(url)", "    .validate()"];
+    assert_eq!(
+        line(Kind::Swift, &swift, 1, 5).as_deref(),
+        Some("  AF.request(url).validate()")
+    );
+    for implicit in [
+        ["completion(", "  .success(x))"],
+        ["f(a,", "  .none)"],
+        ["let x: Mode =", "  .fast"],
+        ["return", "  .fast"],
+    ] {
+        assert_eq!(line(Kind::Swift, &implicit, 1, 3), None, "{implicit:?}");
+        assert_eq!(line(Kind::Dart, &implicit, 1, 3), None, "{implicit:?}");
+    }
+    for word in [
+        "in", "case", "try", "await", "throw", "else", "is", "as", "some", "any", "yield", "where",
+    ] {
+        let implicit = [&format!("  x {word}"), "    .fast"];
+        assert_eq!(line(Kind::Swift, &implicit, 1, 5), None, "{word}");
+    }
+    let optional = ["val n = user", "    ?.name"];
+    for kind in [Kind::Jvm, Kind::Dart] {
+        assert_eq!(
+            line(kind, &optional, 1, 6).as_deref(),
+            Some("val n = user?.name"),
+            "{kind:?}"
+        );
+    }
+    let go = ["\tsess := x.Where(a).", "\t\tAnd(b).", "\t\tAnd(c)"];
+    assert_eq!(
+        line(Kind::Go, &go, 2, 2).as_deref(),
+        Some("\tsess := x.Where(a).And(b).And(c)")
+    );
+    assert_eq!(line(Kind::Go, &["\tx := 1", "\tf()"], 1, 1), None);
+}
+
+#[test]
 fn a_member_access_reads_as_a_plain_dot() {
     let plain = |kind, line: &str, start| plain_access(kind, line, start).line;
     assert_eq!(plain(Kind::Swift, "user?.name", 6), "user.name");
@@ -367,6 +413,10 @@ fn a_member_access_reads_as_a_plain_dot() {
         "$a foo()",
         "a PHP dot concatenates"
     );
+    let java = "IndexSpecs.<Post, Map<String, ?>>single(x)";
+    assert_eq!(plain(Kind::Jvm, java, 33), "IndexSpecs.single(x)");
+    assert_eq!(plain(Kind::Jvm, "if (a < b >c)", 11), "if (a < b >c)");
+    assert_eq!(plain(Kind::Jvm, "f(x->c)", 5), "f(x->c)");
 }
 
 #[test]
@@ -401,4 +451,26 @@ fn a_typescript_receiver_indexed_off_a_name_is_its_element() {
     assert_eq!(head("f()[0].lift"), None);
     assert_eq!(head("[a, b][0].lift"), None);
     assert_eq!(call_head(Kind::Python, "pots[0].lift", 8), None);
+}
+
+#[test]
+fn a_bare_ruby_loop_keyword_is_no_name() {
+    assert!(ruby_loop_keyword("next", "      ", " if done"));
+    assert!(ruby_loop_keyword("break", "  x = ", ""));
+    assert!(!ruby_loop_keyword("next", "  page.", ""));
+    assert!(!ruby_loop_keyword("next", "  page&.", ""));
+    assert!(!ruby_loop_keyword("next", "  attribute :", ""));
+    assert!(!ruby_loop_keyword("next", "  def ", "(page)"));
+    assert!(!ruby_loop_keyword("next", "  link(", ": 1)"));
+    assert!(!ruby_loop_keyword("nextt", "  ", ""));
+}
+
+#[test]
+fn the_at_of_a_ruby_variable_reads_the_variable() {
+    let word =
+        |line, col| definition_word(Some(Kind::Ruby), line, col).map(|(r, w)| (r, w.to_owned()));
+    assert_eq!(word("  @rows.size", 2), Some((3..7, "rows".to_owned())));
+    assert_eq!(word("@@beads", 0), Some((2..7, "beads".to_owned())));
+    assert_eq!(word("@@beads", 1), Some((2..7, "beads".to_owned())));
+    assert_eq!(word("@rows", 1), Some((1..5, "rows".to_owned())));
 }

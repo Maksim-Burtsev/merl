@@ -182,13 +182,11 @@ impl App {
             .rel_current()
             .filter(|rel| dir > 0 && r.file(rel).is_some());
         let (mut skipped, mut failed) = (0, None);
-        let ticked = |f: &&git::ReviewFile| {
-            dir > 0 && self.ticked(&f.path) && f.is_stop(&self.root, self.diagrams.on())
-        };
+        let walk_all = self.every_stop_ticked(&r);
         let ahead: Vec<_> = self
             .ahead(&r, dir)
             .into_iter()
-            .filter(|f| !ticked(f))
+            .filter(|f| walk_all || !self.passed_over(f, dir))
             .collect();
         for f in ahead {
             if !f.is_stop(&self.root, self.diagrams.on()) {
@@ -435,6 +433,7 @@ impl App {
         for rel in rels {
             let hash = self.disk_hash(&rel);
             self.hidden.remove(&rel);
+            self.ticked_this_round.insert(rel.clone());
             self.viewed.insert(rel, hash);
             any = true;
         }
@@ -445,6 +444,18 @@ impl App {
 
     fn ticked(&self, rel: &Path) -> bool {
         self.viewed.get(rel) == Some(&self.disk_hash(rel))
+    }
+
+    fn passed_over(&self, f: &git::ReviewFile, dir: isize) -> bool {
+        (dir > 0 || !self.ticked_this_round.contains(&f.path))
+            && f.is_stop(&self.root, self.diagrams.on())
+            && self.ticked(&f.path)
+    }
+
+    fn every_stop_ticked(&self, r: &git::Review) -> bool {
+        (r.files.iter())
+            .filter(|f| f.is_stop(&self.root, self.diagrams.on()))
+            .all(|f| self.ticked(&f.path))
     }
 
     fn disk_hash(&self, rel: &Path) -> u64 {
@@ -610,6 +621,7 @@ impl App {
         if switched {
             self.last_hunk = None;
             self.seen.clear();
+            self.ticked_this_round.clear();
         }
         let closed = if switched { self.session.take() } else { None };
         let reopen = closed.is_some();

@@ -94,13 +94,15 @@ impl App {
         }
         if let Some(kind) = kind
             && let Some(here) = self.rel_current()
-            && let Some(module) = search::file_import(kind, self.line_str(), self.col)
+            && let Some(module) = search::file_import(kind, &here, self.line_str(), self.col)
         {
             let module = [module];
             let files = self.import_files(kind, &here, &module);
-            let found = self.module_candidates(files);
-            self.show_definitions(kind, &module[0], &here, found, None);
-            return true;
+            if kind != Kind::Shell || !files.is_empty() {
+                let found = self.module_candidates(files);
+                self.show_definitions(kind, &module[0], &here, found, None);
+                return true;
+            }
         }
         false
     }
@@ -152,7 +154,10 @@ impl App {
             .map(|l| l.len() + 1)
             .sum::<usize>()
             + range.start;
-        let captured = lead.ends_with('{') && !lead.ends_with("{{") && tail.starts_with(['}', ':']);
+        let captured = kind == Kind::Rust
+            && lead.ends_with('{')
+            && !lead.ends_with("{{")
+            && tail.starts_with(['}', ':']);
         if !captured
             && search::in_string(kind, &text, at)
             && !search::rust_attribute_path(&self.buf.lines, self.line, range.start)
@@ -183,15 +188,31 @@ impl App {
             || (kind == Kind::Graphql && lead.ends_with('$'))
             || (kind == Kind::Jvm && word == "class" && lead.ends_with("::"))
             || (kind == Kind::PowerShell && search::powershell_argument(lead))
+            || (kind == Kind::Ruby
+                && search::ruby_loop_keyword(
+                    word,
+                    lead,
+                    self.line_str()
+                        .get(start + word.len()..)
+                        .unwrap_or_default(),
+                ))
             || (kind == Kind::R && search::r_foreign_package(self.line_str(), start, &self.root))
     }
 
     pub(super) fn answered_early(&mut self, a: &mut Asked) -> bool {
-        if self.answered_by_module(a) {
+        if self.answered_by_module(a) || self.answered_on_rust_field(a) {
             return true;
         }
         if a.kind == Kind::Elixir {
             a.chain = search::elixir_unalias(&a.text, self.line, std::mem::take(&mut a.chain));
+        }
+        if a.kind == Kind::Ruby
+            && a.dotted
+            && a.chain == ["self", "class"]
+            && search::ruby_instance_of_class(&a.text, self.line + 1)
+        {
+            let class = search::ruby_class_path(&a.text, self.line + 1);
+            a.chain = class.split("::").map(str::to_owned).collect();
         }
         self.answered_by_file(a)
             || self.answered_in_file(a)
@@ -224,6 +245,44 @@ impl App {
             return self.show_found(a, found);
         }
         false
+    }
+
+    fn answered_on_rust_field(&mut self, a: &Asked) -> bool {
+        static VISIBILITY: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?$").expect("the regex is a literal")
+        });
+        let line1 = self.line + 1;
+        let on_field = a.kind == Kind::Rust
+            && !a.dotted
+            && VISIBILITY.is_match(&a.lead)
+            && a.tail.trim_start().starts_with(':')
+            && !a.tail.trim_start().starts_with("::")
+            && search::rust_field_at(&a.text, line1);
+        if !on_field {
+            return false;
+        }
+        let methods = search::rust_method_pattern(&a.word);
+        let fields = search::rust_field_pattern(&a.word, false);
+        let mut hits = self.project_definitions(a.kind, &a.here, &a.word, &methods);
+        hits.extend(
+            self.project_definitions(a.kind, &a.here, &a.word, &fields)
+                .into_iter()
+                .filter(|h| {
+                    self.text_of(&h.path)
+                        .is_some_and(|t| search::rust_field_at(&t, h.line1))
+                }),
+        );
+        if !hits.iter().any(|h| h.path == a.here && h.line1 == line1) {
+            hits.push(self.line_hit(&a.here, line1));
+        }
+        let found = hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::ByName,
+            })
+            .collect();
+        self.show_found(a, found)
     }
 
     fn answered_by_file(&mut self, a: &Asked) -> bool {
@@ -269,8 +328,7 @@ impl App {
         self.truncated.set(false);
         let sigil = a.lead.as_str();
         if kind == Kind::Php
-            && sigil.ends_with('$')
-            && !sigil.ends_with("::$")
+            && ((sigil.ends_with('$') && !sigil.ends_with("::$")) || sigil.ends_with("${"))
             && a.word != "this"
             && let Some(lines) = search::php_variable(&a.text, self.line + 1, &a.word)
         {
@@ -355,17 +413,27 @@ impl App {
             search::GoKey::No
         };
         a.go_keyed = go_key != search::GoKey::No;
-        if kind == Kind::Go && (dotted || matches!(go_key, search::GoKey::Of(_))) {
+        if kind == Kind::Go
+            && (dotted || matches!(go_key, search::GoKey::Of(_) | search::GoKey::ElementOf(_)))
+        {
             self.external_files(kind);
         }
-        match go_key {
-            search::GoKey::Of(written) => {
-                match self.literal_field(kind, &a.here, &written, &a.word) {
-                    Ok(Some(found)) => return self.show_found(a, found),
-                    Ok(None) => {}
-                    Err(GoTypeUnread) => self.offer_only = true,
+        let (go_key, at) = match go_key {
+            search::GoKey::ElementOf(named) => match self.named_element(kind, &a.here, &named) {
+                Some((element, at)) => {
+                    let element = element.trim_start_matches('*').to_owned();
+                    (search::GoKey::Of(element), at)
                 }
-            }
+                None => (search::GoKey::Unknown, a.here.clone()),
+            },
+            key => (key, a.here.clone()),
+        };
+        match go_key {
+            search::GoKey::Of(written) => match self.literal_field(kind, &at, &written, &a.word) {
+                Ok(Some(found)) => return self.show_found(a, found),
+                Ok(None) => {}
+                Err(GoTypeUnread) => self.offer_only = true,
+            },
             search::GoKey::Struct(line) => {
                 let ty = super::typed::anonymous(&a.here, line);
                 let found = self
@@ -379,7 +447,7 @@ impl App {
                 return self.show_found(a, found);
             }
             search::GoKey::Unknown => self.offer_only = true,
-            search::GoKey::No | search::GoKey::Value => {}
+            search::GoKey::No | search::GoKey::Value | search::GoKey::ElementOf(_) => {}
         }
         false
     }

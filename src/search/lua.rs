@@ -1,4 +1,5 @@
 use std::ops::Range;
+use std::path::PathBuf;
 
 use regex::Regex;
 
@@ -139,6 +140,24 @@ pub fn lua_required(value: &str) -> Option<&str> {
         Regex::new(r#"^require\s*\(?\s*["']([\w./-]+)["']\s*\)?$"#).expect("the regex is a literal")
     });
     Some(REQUIRE.captures(value)?.get(1)?.as_str())
+}
+pub fn lua_require_path(line: &str, col: usize) -> Option<String> {
+    static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"(?:^|[^\w.:])require\s*\(?\s*(["'])([\w./-]+)["']"#)
+            .expect("the regex is a literal")
+    });
+    REQUIRE.captures_iter(line).find_map(|c| {
+        let path = c.get(2)?;
+        (c.get(1)?.start() <= col && col <= path.end()).then(|| path.as_str().to_owned())
+    })
+}
+pub fn lua_module_file(module: &str, files: &[PathBuf]) -> Option<PathBuf> {
+    let dir = module.replace('.', "/");
+    ["", "lua/"]
+        .iter()
+        .flat_map(|root| [format!("{root}{dir}.lua"), format!("{root}{dir}/init.lua")])
+        .map(PathBuf::from)
+        .find(|p| files.contains(p))
 }
 pub fn lua_returned(text: &str) -> Option<String> {
     let literal = literal_lines(Kind::Lua, text);

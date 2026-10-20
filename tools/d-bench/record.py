@@ -7,7 +7,7 @@
 The projects are LANG's rows of projects.tsv, N cursors from each, cloned into the cache by `run`
 first ($D_BENCH_CACHE or ~/.cache/merl-d-bench). The servers come from install-servers.sh
 ($D_BENCH_SERVERS or <cache>/servers). `oracle` resumes from the answers already written.
-Java, Kotlin, C#, Ruby, Nix, Groovy, Jenkins (a Groovy shared library, its own row), Emacs Lisp,
+Java, Kotlin, C#, Ruby, SQL, Nix, Groovy, Jenkins (a Groovy shared library, its own row), Emacs Lisp,
 Scheme and Common Lisp have no server here: their answers were judged by reading the code, as are
 the classes of CSS's Astro templates, which no server answers (`judge` in the note).
 """
@@ -162,6 +162,13 @@ CGFloat interface implementation end property protocol optional required synthes
 selector encode class import autoreleasepool synchronized nonatomic atomic strong weak copy assign
 readonly readwrite nullable nonnull null_resettable __block __weak __strong __kindof
 NS_ASSUME_NONNULL_BEGIN NS_ASSUME_NONNULL_END""".split()
+KW["dart"] = """abstract as assert async await base break case catch class const continue
+covariant default deferred do dynamic else enum export extends extension external factory false
+final finally for Function get hide if implements import in interface is late library mixin new
+null of on operator part required rethrow return sealed set show static super switch sync this
+throw true try type typedef var void when while with yield Object String int double num bool List
+Map Set Iterable Future Stream Duration DateTime Uri Exception Error Never Null Type Symbol print
+identical override""".split()
 DECL = set("""def class func fn function struct interface type let const var val fun enum trait impl
 mod namespace union typedef record object protocol extension typealias module macro_rules define
 package import use from""".split())
@@ -194,6 +201,8 @@ NIX_BINDS = re.compile(r"\s*(?:\.\s*[\w'-]*\s*)*=(?!=)")
 for _c in ("vue", "svelte", "astro"):
     SPEC[_c] = dict(SPEC["ts"], exts=(f".{_c}",), component=True)
 SPEC["jenkins"] = SPEC["groovy"]
+SPEC["dart"] = dict(exts=(".dart",), lc=("//",), bc=("/*", "*/"), triple=True,
+                    decl={"final", "late", "mixin", "get", "set", "typedef", "library", "part"})
 LISP_WORD = r"(?![0-9])[A-Za-z0-9_{0}]*[A-Za-z][A-Za-z0-9_{0}]*"
 SPEC["clojure"] = dict(exts=(".clj", ".cljs", ".cljc", ".bb"), lc=(";",), bc=None, lisp="\\",
                        word=LISP_WORD.format(r"?!*+<>=\-"))
@@ -751,7 +760,7 @@ LANG_ID = {".py": "python", ".ts": "typescript", ".tsx": "typescriptreact", ".js
            ".php": "php", ".swift": "swift", ".m": "objective-c", ".css": "css", ".scss": "scss",
            ".less": "less", ".vue": "vue", ".svelte": "svelte", ".astro": "astro", ".sol": "solidity",
            ".bzl": "starlark", ".bazel": "starlark", ".jl": "julia", ".clj": "clojure", ".cljs": "clojure",
-           ".cljc": "clojure", ".bb": "clojure", ".rkt": "racket"}
+           ".cljc": "clojure", ".bb": "clojure", ".rkt": "racket", ".dart": "dart"}
 
 
 def server(lang, root):
@@ -816,6 +825,10 @@ def server(lang, root):
     if lang == "julia":
         return Lsp(["julia", "--project=@ls", "-e", "using LanguageServer; runserver(stdin, stdout, pwd())"], root,
                    env={"HOME": os.path.join(LSP, "julia-home")})
+    if lang == "dart":
+        return Lsp([os.path.join(LSP, "dart-sdk", "bin", "dart"), "--suppress-analytics", "language-server",
+                    "--cache=" + os.path.join(LSP, "dart-server-cache"), "--client-id=merl-d-bench"], root,
+                   env={"PUB_CACHE": os.path.join(LSP, "dart-pub-cache")})
     raise SystemExit(f"no server for {lang}")
 
 

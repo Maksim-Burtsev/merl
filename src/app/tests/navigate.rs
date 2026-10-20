@@ -1557,6 +1557,207 @@ fn c_outside_reads_what_the_file_includes() {
 }
 
 #[test]
+fn a_member_of_a_std_class_is_looked_up_in_its_libcxx_class() {
+    let (dir, mut a) = project_app(
+        "cpp-std-member",
+        &[
+            (
+                "box.h",
+                "struct Box {\n  int size() const;\n  int load();\n};\n",
+            ),
+            (
+                "m.cc",
+                "#include <vector>\n#include <atomic>\n#include <string>\n#include \"box.h\"\nint f(std::vector<int>* px) {\n  std::vector<int> xs;\n  std::vector<bool> bits;\n  std::atomic<bool> flag;\n  std::string name;\n  return xs.size() + bits.size() + flag.load() + px->size() + name.c_str()[0];\n}\n",
+            ),
+        ],
+    );
+    let root = external_root(
+        "cpp-std-member",
+        &[
+            (
+                "c++/v1/vector",
+                "#include <__vector/vector.h>\n#include <__vector/vector_bool.h>\n",
+            ),
+            (
+                "c++/v1/__vector/vector.h",
+                "_LIBCPP_BEGIN_NAMESPACE_STD\ntemplate <class _Tp, class _Allocator /* = allocator<_Tp> */>\nclass vector {\npublic:\n  _LIBCPP_HIDE_FROM_ABI size_type size() const _NOEXCEPT { return 0; }\n};\n",
+            ),
+            (
+                "c++/v1/__vector/vector_bool.h",
+                "template <class _Allocator>\nclass vector<bool, _Allocator> {\npublic:\n  _LIBCPP_HIDE_FROM_ABI size_type size() const _NOEXCEPT { return 0; }\n};\n",
+            ),
+            (
+                "c++/v1/atomic",
+                "template <class _Tp, bool = is_integral<_Tp>::value>\nstruct __atomic_base // false\n{\n  _Tp load() const _NOEXCEPT;\n};\ntemplate <class _Tp>\nstruct atomic : public __atomic_base<_Tp> {\n};\n",
+            ),
+            (
+                "c++/v1/string",
+                "template <class _CharT>\nclass basic_string {\npublic:\n  const value_type* c_str() const _NOEXCEPT;\n};\nusing string = basic_string<char>;\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let at = |f: &str, n: usize| format!("{}:{n}", root.join(f).display());
+    d_on(&mut a, "m.cc", "xs.size");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "size → vector::size (via xs: vector)",
+            &at("c++/v1/__vector/vector.h", 5)
+        )
+    );
+    d_on(&mut a, "m.cc", "px->size");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "size → vector::size (via px: vector)",
+            &at("c++/v1/__vector/vector.h", 5)
+        )
+    );
+    d_on(&mut a, "m.cc", "flag.load");
+    assert_eq!(
+        shown(&mut a),
+        jump("load: via flag: atomic", &at("c++/v1/atomic", 4)),
+        "a member a std class inherits is its base's"
+    );
+    d_on(&mut a, "m.cc", "name.c_str");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "c_str → basic_string::c_str (via name: string)",
+            &at("c++/v1/string", 4)
+        ),
+        "`std::string` is the class its alias names"
+    );
+    d_on(&mut a, "m.cc", "bits.size");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("`vector<bool>` is a specialization, not the class");
+    };
+    assert!(rows.iter().all(|(_, _, place)| !place.starts_with("box.h")));
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
+fn on_a_prototype_or_a_definition_its_one_counterpart_is_jumped_to() {
+    let (dir, mut a) = project_app(
+        "c-counterpart",
+        &[
+            (
+                "list.h",
+                "int find_cb(int n, const char *s);\nint twice(int n);\n",
+            ),
+            (
+                "list.c",
+                "#include \"list.h\"\nint find_cb(int n, const char *s) {\n  return n;\n}\n#ifdef FAST\nint twice(int n) { return n; }\n#else\nint twice(int n) { return 2 * n; }\n#endif\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "list.h", "int find_cb");
+    assert_eq!(shown(&mut a), jump("find_cb: by name, 1 match", "list.c:2"));
+    d_on(&mut a, "list.c", "int find_cb");
+    assert_eq!(shown(&mut a), jump("find_cb: by name, 1 match", "list.h:1"));
+    d_on(&mut a, "list.h", "int twice");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "twice: at a declaration, 2 others by name",
+            &[("twice", "list.c:6"), ("twice", "list.c:8")]
+        ),
+        "a prototype with a definition under each branch of an `#ifdef` stays a picker"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_method_of_another_class_is_no_counterpart() {
+    let (dir, mut a) = project_app(
+        "cpp-counterpart-owner",
+        &[
+            (
+                "cache.h",
+                "namespace db {\nclass Cache {\n public:\n  virtual int NewId() = 0;\n  int Hits(int n);\n};\n}\n",
+            ),
+            (
+                "cache.cc",
+                "namespace db {\nclass Sharded : public Cache {\n public:\n  int NewId() override {\n    return 1;\n  }\n};\nint Sharded::Hits(int n) {\n  return n;\n}\n}\n",
+            ),
+            (
+                "pool.h",
+                "namespace db {\nclass Pool {\n public:\n  int Size(int n);\n};\n}\n",
+            ),
+            (
+                "pool.cc",
+                "namespace db {\nint Pool::Size(int n) {\n  return n;\n}\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "cache.h", "int NewId");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "NewId: at a declaration, 1 other by name",
+            &[("Sharded::NewId", "cache.cc:4")]
+        ),
+        "a pure virtual and its override in another class stay a picker"
+    );
+    d_on(&mut a, "cache.cc", "int NewId");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "NewId: at a declaration, 1 other by name",
+            &[("Cache::NewId", "cache.h:4")]
+        )
+    );
+    d_on(&mut a, "cache.h", "int Hits");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "Hits: at a declaration, 1 other by name",
+            &[("Sharded::Hits", "cache.cc:8")]
+        ),
+        "a method of one class and another class's definition stay a picker"
+    );
+    d_on(&mut a, "pool.h", "int Size");
+    assert_eq!(
+        shown(&mut a),
+        jump("Size → Pool::Size (by name, 1 match)", "pool.cc:2"),
+        "the same class's prototype and definition still jump"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_type_defined_in_another_source_file_is_no_namesake_of_this_file_s() {
+    let (dir, mut a) = project_app(
+        "cpp-file-types",
+        &[
+            (
+                "a.cc",
+                "struct FileState {\n  int n;\n};\nint use(FileState* s) { return s->n; }\nenum Order { SEQUENTIAL, RANDOM };\nint pick() { return RANDOM; }\n",
+            ),
+            (
+                "b.cc",
+                "class FileState {\n  int Order;\n};\nenum Mode { RANDOM, FIXED };\n",
+            ),
+            ("c.cc", "struct Hidden;\nint size_of(Hidden* h);\n"),
+            ("d.cc", "struct Hidden {\n  int x;\n};\n"),
+            ("e.cc", "struct Hidden {\n  long y;\n};\n"),
+        ],
+    );
+    d_on(&mut a, "a.cc", "int use(FileState");
+    assert_eq!(shown(&mut a), jump("FileState: by name, 1 match", "a.cc:1"));
+    d_on(&mut a, "a.cc", "return RANDOM");
+    assert_eq!(shown(&mut a), jump("RANDOM: by name, 1 match", "a.cc:5"));
+    d_on(&mut a, "c.cc", "size_of(Hidden");
+    assert!(
+        !matches!(shown(&mut a), Shown::Jump(_, at) if at == "c.cc:1"),
+        "a forward declaration defines no type of this file's own"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
 fn c_includes_narrow_no_further_than_they_should() {
     let (dir, mut a) = project_app(
         "c-includes-review",
@@ -2101,8 +2302,11 @@ fn php_names_fall_back_where_nothing_proves_the_class() {
         ];
         assert_eq!(
             d(caller, "AlbumResource::make"),
-            picker("make: by name, 2 declarations", &makes),
-            "a name a group `use` binds: vendor: {vendor}"
+            jump(
+                "make \u{2192} AlbumResource::make (via import app/Http/Resources/AlbumResource.php)",
+                makes[0].1
+            ),
+            "a name a group `use` binds, over the namespace's namesake (#1178): vendor: {vendor}"
         );
         assert_eq!(
             d(caller, "Tune::play"),

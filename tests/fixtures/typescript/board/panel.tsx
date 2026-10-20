@@ -27,6 +27,15 @@ function KeyLink(props: Omit<KeyProps, "document"> & { href: string }) {
   //           ^ d: board/panel.tsx:25
 }
 
+function WideLink(
+  props: Omit<KeyProps, "document"> & {
+    href: string;
+  }
+) {
+  return props.href.length;
+  //           ^ d: board/panel.tsx:32
+}
+
 const harness = getHarness();
 harness.submit("/api");
 //      ^ d: board/entities.ts:31

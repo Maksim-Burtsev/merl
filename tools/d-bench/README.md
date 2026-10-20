@@ -1,7 +1,7 @@
 # `d` bench
 
-How often `d` lands where a language server would, per language, in 33 real projects pinned to a
-commit: 6,288 cursors, each with an answer recorded once and reviewed, and the table master
+How often `d` lands where a language server would, per language, in 36 real projects pinned to a
+commit: 7,997 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
 (`AGENTS.md`, `## Changing d`).
 
@@ -16,8 +16,9 @@ The runner clones each project into the cache (`--cache`, `$D_BENCH_CACHE`, defa
 `~/.cache/merl-d-bench`) at its pinned commit and runs its install command until it succeeds
 once (marked in the clone's `.git`); a clone already at that commit and installed is only read. It then plays every cursor through the `#[ignore]` test
 `src/app/tests/d_bench.rs` in release (one `App` per project: jump to the line, set the column,
-converted from code points to merl's bytes, press `d`), prints the table, and diffs every cursor
-against `baseline.tsv`: each cursor that got worse, new wrong jumps first, and exit 1 when there
+converted from code points to merl's bytes, press `d`), prints the table and under it every wrong
+jump on a row it does not score, and diffs every cursor against `baseline.tsv`: each cursor that
+got worse, new wrong jumps first (a new one on a row not scored among them), and exit 1 when there
 is any (a fixed cursor does not pay for a broken one). `--selftest` checks the scoring, this
 gate and `record.py`'s tokenizer on made-up rows; CI runs it. `last-score.tsv` in the cache has every cursor's verdict, status line, merl's
 targets and the answer; `--merl <cache>/last-merl.tsv` scores the last run again without
@@ -29,7 +30,7 @@ Times mean something only with `sysctl -n vm.loadavg` under ~8; the baseline not
 
 | file | what |
 |---|---|
-| `projects.tsv` | name, language, git URL, pinned commit, install command (`uv sync`, `npm install --ignore-scripts`, `pnpm install --ignore-scripts`, `go mod download`, `cargo fetch`, `-`) |
+| `projects.tsv` | name, language, git URL, pinned commit, install command (`uv sync`, `npm install --ignore-scripts`, `pnpm install --ignore-scripts`, `go mod download`, `cargo fetch`, `dart pub get`, `composer install`, `-`) |
 | `cursors/LANG.tsv` | `id project file line col shape word`: identifiers outside comments and strings, 1-based line, 0-based column in code points; `shape` is `member` (after `.`, `?.`, `->`), `path` (after `::`), `call`, `type` (capitalised) or `name` |
 | `answers/LANG.tsv` | `id targets skip note`: the definition as `path:line`, project-relative, `~/` or absolute outside the project (a dependency or the toolchain's standard library); `skip` holds the reason a debatable answer is not scored |
 | `baseline.tsv`, `baseline.md` | master's verdict per cursor, and its table |
@@ -50,6 +51,13 @@ same files in each: a file in one copy counts as the same file in another copy o
 | `WRONG` (wrong jump) | jumped elsewhere |
 | `pick-miss`, `none` (miss) | a picker without it, or "no definition" |
 | not scored | `skip` (the answer is debatable), `no-answer` (the oracle found nothing, or the definition is outside the project for a judged language), `on-decl` (the cursor is on the definition) |
+| `skip-WRONG`, `on-decl-WRONG` (not scored, jumps elsewhere) | jumped from a row not scored, away from its recorded answer: not within a line of it, nor into its file outside the project (an SDK's generated interface) |
+| `no-answer-jump`, `skip-jump` (not scored, jumps elsewhere) | jumped from a row not scored that has no answer recorded: nothing to check the jump against |
+
+The rows not scored are where most wrong jumps hid (#1092). These verdicts stay out of the rates,
+are counted in the table's `not scored, jumps elsewhere` column and listed under it, and a new one
+fails the gate as a new wrong jump does. A `-jump` row may be right (a builtin found in the
+project's own `lib.dom.d.ts`): the list is for reading, the gate for what changed.
 
 ## Recording, once
 
@@ -61,7 +69,8 @@ tools/d-bench/install-servers.sh                # pyright, typescript-language-s
                                                 # intelephense, the Vue, Svelte and Astro servers,
                                                 # @nomicfoundation/solidity-language-server,
                                                 # bash-language-server, gopls, rust-analyzer, starpls,
-                                                # lua-language-server, LanguageServer.jl
+                                                # lua-language-server, LanguageServer.jl,
+                                                # the Dart SDK, a static PHP and composer
 tools/d-bench/record.py sample php 300          # -> cursors/php.tsv (seeded: the same cursors again)
 tools/d-bench/record.py oracle php              # -> answers/php.tsv, resumes where it stopped
 ```
@@ -199,6 +208,94 @@ variables, so no `path` cursor) and 55 in each Lua project.
   `reviewed:`). Two answers into kong's `spec/` mocks are `skip`. Its 26 empty answers, mostly
   members of Neovim's `vim` and OpenResty's `ngx` (no stubs for them here) and fields of tables
   built at runtime, are `no-answer`.
+
+## More rows, 2026-10-19
+
+The `d` pass of 2026-10-18 drew cursors where the bench had no row or few scored ones (#1091).
+They join the rows below at the projects' pinned commits, with four projects added (dio, lemmy,
+uptime-kuma, and gitea for Go) and koel's `vendor/` installed, and every answer was read once more
+before it went in. Several sets were
+picked rather than sampled, to show where merl jumps by name or has to infer a type: they say how
+merl does on that code, not on code at large, and they move a row's rate. Swift's first 270
+cursors, sampled, score 75 % direct; with the 459 picked ones the row scores 91 %.
+
+- **dart** (dio, `dio/lib` only): `record.py sample dart 115 --exclude
+  plugins,dio_test,example_dart,example_flutter_app,example,test,doc,scripts` draws the 104
+  sampled cursors again (Dart has no `path` cursor, so 115 asked gives 104); ten inside string
+  interpolation, which the sampler masks as strings, were picked by hand (`dart0104`–`dart0113`).
+  `dart language-server` from the Dart SDK 3.13.5 answered all 114, 24 in the SDK and 1 in the pub
+  cache; the 18 disagreements were read, and the server was right in all. merl reads the SDK's
+  `lib/` only when `dart` is on `PATH`, so `run` puts `<servers>/dart-sdk/bin` first on `PATH` and
+  `PUB_CACHE` at `<servers>/dart-pub-cache`, for dio's install and for merl, and stops when the
+  `dart` row is asked for without it; `install-servers.sh` fetches the SDK. dio installs with `dart --suppress-analytics pub get`, as a plain `dart pub`
+  writes `~/.dart-tool`.
+- **sql** (lemmy, Postgres), judged by reading: 80 cursors in `migrations/*/{up,down}.sql` and 30
+  in `crates/diesel_utils/replaceable_schema/`, drawn by the pass's own sampler (comments and
+  strings masked, keywords skipped; 30 % members, 20 % calls, 50 % names), as `record.py`'s skips
+  `migrations/`. An answer is the definition in effect where the cursor runs: migrations run in
+  their folders' order, a `down.sql` right after its own `up.sql`, the replaceable schema after
+  them all. A name answers with the latest `CREATE`, `ADD COLUMN` or `RENAME … TO` before that
+  point; a column with its `CREATE TABLE` line (or its item in a `CREATE TABLE … AS SELECT`), its
+  `ADD COLUMN` or its last `RENAME COLUMN`; `NEW` and `OLD` with the table the trigger is on. A
+  view's, a CTE's or a derived table's column, a field of a generic `record` parameter and a name
+  a `RENAME TO` gives are `skip` (10); a builtin (`lower`, `now`) is `no-answer` (7). The pass had
+  proposed the 47 column answers by name alone, from any table: read against their tables, 28
+  moved (`reviewed:`).
+- **java** (halo), **kotlin** (nowinandroid), **csharp** (eShop), judged as their first 80 rows
+  were: 71, 71 and 68 sampled, and picked ones besides. Java's are 40 getter chains
+  (`post.getSpec().getCategories()`, answered with the field Lombok's `@Data` reads) and 12 calls
+  with a type witness (`IndexSpecs.<Post, String>single(...)`); C#'s are 55 member accesses on
+  locals, fields and parameters, record properties and chains continued on the next line, and 12
+  cursors in `.razor` components, which merl has no rules for yet (#1088): misses until it does.
+  A string resource answers with its `strings.xml` entry; a protobuf or gRPC accessor is `skip`,
+  its `.proto` field kept as the target.
+- **swift** (Alamofire), picked: 350 member accesses in `Source/` where merl jumped "by name, 1
+  match" and 109 implicit members (`.success(…)`, `.allow`), answered by sourcekit-lsp. The 165
+  in an SDK interface it generated are `skip`, as before, with no target kept; merl jumped from 112
+  of them then, and the jumps left are its `skip-jump` rows (#1092). Six implicit members in `Tests/` it left unanswered were read from
+  the code.
+- **ruby** (mastodon), judged: 118 picked partly for Rails idioms, among them ten instance
+  variables twice, the cursor on the `@` and on the name (merl finds no word on the `@`: the
+  row's misses), and 121 bare calls where merl jumped by name. 27 of those land in the project;
+  the rest call a gem, Ruby's core or the keyword `next` and are `no-answer` or `skip`. As before,
+  a Rails macro's line (`has_many`, `delegate`, `scope`) answers the method it makes, and a
+  column's `db/schema.rb` line is `skip`. The gems are not installed: the gem names in the notes
+  were not read from their code.
+- **python** (paperless-ngx): 55 cursors picked around Django's dynamic parts (the test client,
+  managers, `settings`, mocks, keyword arguments). pyright answered 30; asked again after a 180 s
+  warm-up, it answered none of the other 25. Of those, 14 were read from the code (`judged`); a
+  manager method, which Django builds from `QuerySet` at runtime, a historical model from
+  `apps.get_model` and a field lookup are `no-answer`. In an `APITestCase`, `self.client` is DRF's
+  `APIClient`, whose `get`, `post`, `patch` and `delete` override the `Client` methods pyright
+  answers with: those rows point at DRF's, three of the first 270 included (`reviewed:`).
+- **go** (caddy, gitea): in gitea, 54 sampled and 16 members after an index (`m[k].Get()`); in
+  caddy, 14 keys of table-test literals whose type is left out (`[]Token{{Line: 1}}`) and 15
+  local names. gopls answered with `GOPROXY=off` and gitea's modules not downloaded, so in gitea it
+  knows the project and the standard library only. gitea's `go` line installs nothing; its `vue`
+  line stays as it was.
+- **js** (eslint, uptime-kuma): uptime-kuma joins, a plain CommonJS Node server with its Vue app's
+  helpers, mostly `.js`, beside eslint, whose misses sit in rule modules typed through JSDoc.
+  `sample("js", "uptime-kuma", root, 135, exclude)`, excluding `test`, `tests`, `examples`,
+  `example`, `benchmarks`, `docs`, `fixtures`, `dist`, `build`, `public` and `push-examples`, draws
+  124 (`js0270` on: only two `path` cursors exist, and the draw does not top up).
+  typescript-language-server answered, with `npm install --ignore-scripts` done. An answer in its
+  own `lib.*.d.ts` is `skip`, as for eslint (11); so are a redbean-node bean's column, which it
+  answers with `Bean`'s index signature (3), a destructured `require` it stops at (#328), and
+  `require("axios")`, answered with the top of the package's `index.d.ts`. Its 23 empty answers,
+  mostly fields of objects built at runtime and knex chains, and three words inside regex literals,
+  are `no-answer`.
+- **php** (koel): koel now installs `vendor/` (`composer install --no-scripts
+  --ignore-platform-reqs`: 196 MB, 201 packages), run by a static PHP 8.4.23 CLI (static-php-cli's
+  prebuilt `common` build) and composer 2.10.3, which `install-servers.sh` puts in
+  `<servers>/php`. So intelephense answers calls into Laravel, and merl's `vendor/` lookups run.
+  The 161 cursors it had answered with nothing were asked again: 131 now land in `vendor/`; the
+  rest (`<?php`, words in strings and command signatures, `namespace` lines, Eloquent builder
+  chains) stay `no-answer`. `php0300` on are picked: 159 Laravel calls (facades, helpers, Eloquent,
+  receivers typed with Illuminate classes) with intelephense's answers, and 21 Eloquent
+  `@property` chains read from the code, where intelephense agrees on all 21. A namespace segment
+  of a `use` line is `skip`, as before (13 more). With `vendor/` there, two direct hits became
+  pickers (`php0073`, `php0258`: a member name with namesakes in `vendor/`), and `d` takes 63 ms at
+  p50 instead of 14.
 
 ## History
 

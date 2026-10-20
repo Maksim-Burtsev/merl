@@ -5,8 +5,8 @@
 static int stock_seen = 0;
 
 int stock_level(int shelf)
-//  ^ d: picker include/shop/stock.h:13
-//  status: at a declaration, 1 other by name
+//  ^ d: include/shop/stock.h:13
+//  status: by name, 1 match
 {
     return stock_clamp(shelf) + stock_seen;
 }

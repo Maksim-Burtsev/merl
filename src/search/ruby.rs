@@ -25,8 +25,10 @@ fn around(lines: &[&str], literal: &[bool], line0: usize) -> Around {
         Regex::new(r"^(?:[a-z_]+\s+)?def\s|^(?:class|module)\b").expect("the regex is a literal")
     });
     static HOLDS_NO_LINE_BELOW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^(?:[a-z_]+\s+)?def\s+[^\s(]+(?:\([^)]*\))?\s*=(?:[^=~>]|$)|\bend\s*(?:#.*)?$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"^(?:[a-z_]+\s+)?def\s+[^\s(]+(?:\([^)]*\)\s*|\s+)=(?:[^=~>]|$)|\bend\s*(?:#.*)?$",
+        )
+        .expect("the regex is a literal")
     });
     static BLOCK: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:\bdo|\{)\s*(?:\|[^|]*\|)?\s*(?:#.*)?$").expect("the regex is a literal")
@@ -99,23 +101,48 @@ pub fn ruby_locals(text: &str, line1: usize, name: &str) -> Vec<usize> {
         .collect()
 }
 
-pub fn ruby_class_path(text: &str, line1: usize) -> String {
+fn openers_outermost_first(text: &str, line1: usize) -> Vec<&str> {
     static NAME: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:class|module)\s+((?:::)?[A-Z][\w:]*)").expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return String::new();
+        return Vec::new();
     };
     let literal = literal_lines(Kind::Ruby, text);
     let mut names: Vec<&str> = around(&lines, &literal, at)
         .openers_innermost_first
         .iter()
         .filter_map(|&(i, _)| NAME.captures(lines[i]))
-        .map(|c| c.get(1).map_or("", |m| m.as_str().trim_start_matches(':')))
+        .map(|c| c.get(1).map_or("", |m| m.as_str()))
         .collect();
     names.reverse();
-    names.join("::")
+    names
+}
+
+pub fn ruby_class_path(text: &str, line1: usize) -> String {
+    openers_outermost_first(text, line1)
+        .iter()
+        .map(|n| n.trim_start_matches(':'))
+        .collect::<Vec<_>>()
+        .join("::")
+}
+
+pub fn ruby_nesting_innermost_first(text: &str, line1: usize) -> Vec<String> {
+    let mut path = String::new();
+    let mut out: Vec<String> = openers_outermost_first(text, line1)
+        .into_iter()
+        .map(|n| {
+            path = match n.strip_prefix("::") {
+                Some(top) => top.to_owned(),
+                None if path.is_empty() => n.to_owned(),
+                None => format!("{path}::{n}"),
+            };
+            path.clone()
+        })
+        .collect();
+    out.reverse();
+    out
 }
 
 fn param_names(list: &str) -> Vec<String> {
@@ -325,12 +352,92 @@ pub struct RubyParents {
     pub extends: Vec<String>,
 }
 
-pub fn ruby_constructed_receiver(before: &str) -> Option<String> {
+pub fn ruby_loop_keyword(word: &str, lead: &str, tail: &str) -> bool {
+    matches!(word, "next" | "redo" | "retry" | "break")
+        && !lead.trim_end().ends_with(['.', ':'])
+        && lead.split_whitespace().last() != Some("def")
+        && (!tail.starts_with(':') || tail.starts_with("::"))
+}
+
+pub struct RubyMade {
+    pub class: String,
+    pub by_singleton: bool,
+}
+
+pub fn ruby_constructed_receiver(before: &str) -> Option<RubyMade> {
     static NEW: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.new\s*\([^()]*\)\.$")
-            .expect("the regex is a literal")
+        Regex::new(
+            r"(?:^|[^\w:.@$])((?:::)?[A-Z]\w*(?:::[A-Z]\w*)*)\.(?:new(?:\s*\([^()]*\))?|(instance))\.$",
+        )
+        .expect("the regex is a literal")
     });
-    NEW.captures(before.trim_end()).map(|c| c[1].to_owned())
+    NEW.captures(before.trim_end()).map(|c| RubyMade {
+        class: c[1].to_owned(),
+        by_singleton: c.get(2).is_some(),
+    })
+}
+
+pub fn ruby_instance_of_class(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    !ruby_self_is_class(text, line1)
+        && around(&lines, &literal, at)
+            .openers_innermost_first
+            .iter()
+            .map(|&(i, _)| lines[i].trim_start())
+            .find(|l| l.starts_with("class ") || l.starts_with("module "))
+            .is_some_and(|l| !l.starts_with("module ") && !l.starts_with("class <<"))
+}
+
+pub fn ruby_in_module(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .map(|&(i, _)| lines[i].trim_start())
+        .find(|l| {
+            l.starts_with("module ") || (l.starts_with("class ") && !l.starts_with("class <<"))
+        })
+        .is_some_and(|l| l.starts_with("module "))
+}
+
+pub fn ruby_assigns_before(line: &str, name: &str, at: usize) -> bool {
+    Regex::new(&ruby_assignment(name))
+        .ok()
+        .and_then(|re| re.find(line))
+        .is_some_and(|m| m.end() <= at)
+}
+
+pub fn ruby_inside_core(text: &str, line1: usize, class: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .any(|&(i, _)| super::ruby_reopens_core(lines[i], class))
+}
+
+pub fn ruby_in_block(text: &str, line1: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .find(|(_, o)| *o != Opens::Nothing)
+        .is_some_and(|(_, o)| *o == Opens::Block)
 }
 
 pub fn ruby_on_class(text: &str, line1: usize) -> bool {
@@ -501,4 +608,30 @@ pub fn ruby_roots(
         .max()
         .map(|(_, p)| p.join("core"));
     core.into_iter().chain(stdlib).chain(found).collect()
+}
+pub fn ruby_enclosing_def(text: &str, line1: usize) -> Option<String> {
+    static DEF: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:[a-z_]+\s+)?def\s+([a-z_]\w*[?!=]?)(?:[\s(;]|$)")
+            .expect("the regex is a literal")
+    });
+    static REBINDS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"\bdefine_(?:singleton_)?method\b|_eval\b|_exec\b|\b(?:Class|Module|Struct)\.new\b",
+        )
+        .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let literal = literal_lines(Kind::Ruby, text);
+    let scopes = around(&lines, &literal, at).openers_innermost_first;
+    let gate = scopes.iter().position(|(_, o)| *o == Opens::Gate)?;
+    if scopes[..gate]
+        .iter()
+        .any(|&(i, _)| REBINDS.is_match(lines[i]))
+    {
+        return None;
+    }
+    let g = scopes[gate].0;
+    let name = DEF.captures(lines[g])?.get(1)?.as_str().to_owned();
+    (!ruby_on_class(text, g + 1)).then_some(name)
 }

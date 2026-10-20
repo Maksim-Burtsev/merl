@@ -1446,8 +1446,17 @@ b";
         assert!(
             wrong.is_empty(),
             "web/Cargo.toml builds this code for the browser: give it these dependencies as \
-             Cargo.toml has them, then `cargo update --manifest-path web/Cargo.toml -p NAME`: \
-             {wrong:?}"
+             Cargo.toml has them: {wrong:?}"
+        );
+    }
+
+    #[test]
+    fn mutants_time_the_unmutated_baseline_by_no_fixed_timeout() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let flow = std::fs::read_to_string(root.join(".github/workflows/mutants.yml")).unwrap();
+        assert!(
+            !flow.contains("--timeout ") && flow.contains("--timeout-multiplier "),
+            "cargo-mutants holds the unmutated baseline to a fixed --timeout too, and a suite past it tests no mutant (#868)"
         );
     }
 

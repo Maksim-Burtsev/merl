@@ -264,8 +264,8 @@ binds tree-sitter 0.20 in its `Cargo.toml`, while crates.io's tree-sitter-scss 1
   LANG` (Neovim 0.12 in tmux, never in CI). `cargo test` compares every character and prints
   `file:line:col`, the token, want and got. All characters equal; a character that cannot be is
   listed with its cause in `tests/colors/LANG/NOTES.md` and skipped by name, never by a threshold.
-- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay`
-  (`edit_fuzz.rs`) plays random edits and compares the spans with a fresh parse after each, or,
+- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_N`
+  (`edit_fuzz.rs`, eight shards of `SESSIONS` that run in parallel) plays random edits and compares the spans with a fresh parse after each, or,
   when the incremental tree differs from the fresh one without an error in either, with the
   tree tree-sitter itself builds from the same edits (Neovim keeps the incremental tree too);
   run it with `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a
@@ -296,8 +296,9 @@ master.
   cursors in real projects pinned to a commit, one per language, merl's answer scored against a
   language server's (or a judgement read from the code, where the README says so) and diffed
   against `baseline.tsv`, master's. It prints per language the direct hits, pickers with the
-  answer, wrong jumps, misses and p50 / p90 ms, lists every cursor that got worse (a new wrong
-  jump first), and exits 1 when there is any. Run the languages the change touches, all of them
+  answer, wrong jumps, misses, wrong jumps on rows it does not score and p50 / p90 ms, lists every
+  cursor that got worse (a new wrong jump first, on a row not scored too), and exits 1 when there
+  is any. Run the languages the change touches, all of them
   when a shared path moves; the table goes into the commit message. A PR that changes the table
   commits the new baseline with it (`--update-baseline`), so the next PR compares against what
   master will be.

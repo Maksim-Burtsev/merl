@@ -101,3 +101,8 @@ class Brewer extends Samovar {
   int again() => steep(1);
   //             ^ d: picker lib/tea/kettle_parts.dart:3, lib/tea/table.dart:49
 }
+
+// A call that starts a line keeps the receiver of the line above (#1072).
+int chained(Teapot pot) => pot
+    .pour(1);
+//   ^ d: lib/tea/teapot.dart:6

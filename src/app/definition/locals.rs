@@ -80,6 +80,10 @@ impl App {
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
         let own_line = go_own
             || ruby_block
+            || (kind == Kind::Ruby
+                && !a.dotted
+                && locals == [self.line + 1]
+                && search::ruby_assigns_before(self.line_str(), word, range.start))
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
@@ -113,6 +117,10 @@ impl App {
         let key = key
             || a.elixir_call()
             || (kind == Kind::Ruby && after.starts_with('('))
+            || (a.here.extension().is_some_and(|e| e == "java")
+                && !dotted
+                && after.trim_start().starts_with('(')
+                && !before.trim_end().ends_with("new"))
             || search::erlang(&a.here)
             || (kind == Kind::Elixir
                 && !dotted
@@ -164,11 +172,26 @@ impl App {
                 .collect()
         };
         let mut locals = locals_at(&a.text, self.line + 1);
+        if kind == Kind::Shell
+            && locals.is_empty()
+            && search::shell_command_position(&a.lead) == Some(false)
+        {
+            let lines: Vec<&str> = a.text.lines().collect();
+            let literal = search::literal_lines(kind, &a.text);
+            locals.extend(search::shell_assigned(&lines, &literal, self.line, first));
+        }
         if let [only] = locals[..]
             && bare
             && only != self.line + 1
         {
             locals.extend(search::ts_var_again(&a.text, only, first));
+        }
+        if bare
+            && locals.is_empty()
+            && required.is_empty()
+            && let Some(hoisted) = search::ts_hoisted_function(&a.text, self.line + 1, first)
+        {
+            return vec![hoisted];
         }
         if (bare || self.script_scope(&a.here, Some(first)).is_some()) && locals.is_empty() {
             let module = locals_at(&format!("{}\n0", a.text), self.buf.lines.len() + 1);

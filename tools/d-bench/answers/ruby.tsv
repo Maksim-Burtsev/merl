@@ -79,3 +79,242 @@ ruby0076	app/workers/scheduler/scheduled_statuses_scheduler.rb:17		block paramet
 ruby0077			outside the project: aws-sdk-s3 keyword start_after (dyn)
 ruby0078			outside the project: ActiveRecord find (gem) (R4)
 ruby0079	db/schema.rb:406	ActiveRecord column, only in db/schema.rb	collections.language column
+ruby0080			outside the project: Rails.configuration (railties gem)
+ruby0081			outside the project: ActiveRecord find (gem)
+ruby0082	app/lib/rss/element.rb:4		RSS::MediaContent < RSS::Element, def self.with
+ruby0083	app/models/user_role.rb:125		def self.everyone
+ruby0084	app/models/domain_block.rb:32		scope :with_limitations
+ruby0085			outside the project: TermsOfService::Generator has no initialize; ActiveModel::Model (gem)
+ruby0086			outside the project: Sidekiq perform_async (gem)
+ruby0087			outside the project: Digest base64digest (stdlib)
+ruby0088	app/models/concerns/account/suspensions.rb:9		scope :without_suspended in an Account concern
+ruby0089			outside the project: Chewy BulkRequest.new (gem)
+ruby0090	app/models/preview_card_provider.rb:38		def self.matching_domain
+ruby0091			outside the project: I18n.t (gem)
+ruby0092			outside the project: ActiveRecord::RecordNotFound (gem)
+ruby0093	app/controllers/api/v1/statuses/quotes_controller.rb:3		cursor on the class declaration
+ruby0094	app/models/form/email_subscriptions_confirmation.rb:3		class Form::EmailSubscriptionsConfirmation
+ruby0095			outside the project: ActiveRecord::RecordInvalid (gem)
+ruby0096			outside the project: Elastic::Transport (gem)
+ruby0097			implicit Zeitwerk namespace Admin::Metrics: no declaration in code
+ruby0098	app/models/trends/status_filter.rb:3		class Trends::StatusFilter
+ruby0099	app/controllers/api/v1/trends/statuses_controller.rb:3		cursor on the class declaration
+ruby0100	app/controllers/concerns/authorization.rb:3		module Authorization
+ruby0101	app/models/concerns/lockable.rb:3		module Lockable
+ruby0102	app/models/concerns/expireable.rb:3		module Expireable
+ruby0103	app/controllers/concerns/admin/permissions_concern.rb:3		module Admin::PermissionsConcern
+ruby0104	app/services/concerns/payloadable.rb:3		module Payloadable
+ruby0105			outside the project: ActiveSupport::Concern (gem)
+ruby0106	app/lib/activitypub/parser/custom_emoji_parser.rb:7		cursor on the @ sigil; the only assignment in the class
+ruby0107	app/controllers/admin/webhooks_controller.rb:73		cursor on the @ sigil; before_action :set_webhook
+ruby0108	app/services/bulk_import_row_service.rb:8		cursor on the @ sigil; the only assignment in the class
+ruby0109	app/controllers/admin/roles_controller.rb:60		cursor on the @ sigil; before_action :set_role
+ruby0110	app/lib/activitypub/forwarder.rb:6		cursor on the @ sigil; the only assignment in the class
+ruby0111	app/controllers/admin/reports_controller.rb:63		cursor on the @ sigil; before_action :set_report
+ruby0112	app/controllers/api/v1/tags_controller.rb:42		cursor on the @ sigil; before_action :set_or_create_tag
+ruby0113	app/models/concerns/expireable.rb:21		cursor on the @ sigil; the only assignment in the class
+ruby0114	app/services/fan_out_on_write_service.rb:15		cursor on the @ sigil; the only assignment in the class
+ruby0115	app/controllers/application_controller.rb:128		cursor on the @ sigil; the only assignment in the class
+ruby0116	app/services/activitypub/process_status_update_service.rb:452		own private method
+ruby0117			outside the project: ActionController render (gem); picker = 4 unrelated project render methods
+ruby0118	app/services/revoke_collection_item_service.rb:18		own private method
+ruby0119			outside the project: ActionController redirect_to (gem)
+ruby0120	app/services/fetch_resource_service.rb:22		own method
+ruby0121	app/controllers/api/base_controller.rb:33		inherited from Api::BaseController
+ruby0122			outside the project: ActionController render (gem); picker = 4 unrelated project render methods
+ruby0123		not a name with a definition	keyword `next`; merl jumps to `attribute :next` of ActivityPub::CollectionSerializer (wrong)
+ruby0124		not a name with a definition	keyword `next`; merl jumps to `attribute :next` of ActivityPub::CollectionSerializer (wrong)
+ruby0125			outside the project: ActionController render (gem); picker = 4 unrelated project render methods
+ruby0126	app/lib/feed_manager.rb:535		own method
+ruby0127			outside the project: ActionController redirect_to (gem)
+ruby0128	app/services/after_block_domain_from_account_service.rb:52		own private method
+ruby0129	app/controllers/concerns/authorization.rb:12		Admin::BaseController includes Authorization
+ruby0130	app/models/user_settings/dsl.rb:29		self.class -> UserSettings; DSL.included extends ClassMethods
+ruby0131		self.class::CONST in a base class: each subclass defines its own	5 subclasses of Api::V1::Timelines::BaseController define PERMITTED_PARAMS
+ruby0132	app/models/user_settings/dsl.rb:29		self.class -> UserSettings; DSL.included extends ClassMethods
+ruby0133	app/lib/seo/adapter.rb:8		self.class -> SEO::Adapter, def self.transform_key_casing!
+ruby0134	app/models/concerns/account/associations.rb:55		@target_account is an Account: has_many :targeted_account_notes
+ruby0135	app/models/concerns/account/associations.rb:49		@account is an Account: has_one :user
+ruby0136	db/schema.rb:160	ActiveRecord column, only in db/schema.rb	reviewed: target added, implicit id of the accounts table
+ruby0137	db/schema.rb:160	ActiveRecord column, only in db/schema.rb	reviewed: target added, implicit id of the accounts table
+ruby0138	db/schema.rb:1418;app/models/concerns/user/has_settings.rb:7	ActiveRecord column, serialized in User::HasSettings	users.settings
+ruby0139	db/schema.rb:160	ActiveRecord column, only in db/schema.rb	reviewed: target added, implicit id of the accounts table
+ruby0140	db/schema.rb:1247	ActiveRecord column, only in db/schema.rb	reviewed: target added, statuses.created_at column
+ruby0141	app/models/concerns/account/associations.rb:49		target_account is an Account: has_one :user
+ruby0142	db/schema.rb:160	ActiveRecord column, only in db/schema.rb	reviewed: target added, implicit id of the accounts table
+ruby0143	db/schema.rb:160	ActiveRecord column, only in db/schema.rb	reviewed: target added, implicit id of the accounts table
+ruby0144	app/lib/activitypub/parser/custom_emoji_parser.rb:7		cursor on the name after @; the only assignment in the class
+ruby0145	app/controllers/admin/webhooks_controller.rb:73		cursor on the name after @; before_action :set_webhook
+ruby0146	app/services/bulk_import_row_service.rb:8		cursor on the name after @; the only assignment in the class
+ruby0147	app/controllers/admin/roles_controller.rb:60		cursor on the name after @; before_action :set_role
+ruby0148	app/lib/activitypub/forwarder.rb:6		cursor on the name after @; the only assignment in the class
+ruby0149	app/controllers/admin/reports_controller.rb:63		cursor on the name after @; before_action :set_report
+ruby0150	app/controllers/api/v1/tags_controller.rb:42		cursor on the name after @; before_action :set_or_create_tag
+ruby0151	app/models/concerns/expireable.rb:21		cursor on the name after @; the only assignment in the class
+ruby0152	app/services/fan_out_on_write_service.rb:15		cursor on the name after @; the only assignment in the class
+ruby0153	app/controllers/application_controller.rb:128		cursor on the name after @; the only assignment in the class
+ruby0154	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+ruby0155	app/models/user.rb:44		top-level model; migrations nest their own copies (Migration::User), unreachable from here
+ruby0156	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+ruby0157	app/models/user.rb:44		top-level model; migrations nest their own copies (Migration::User), unreachable from here
+ruby0158	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+ruby0159	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+ruby0160	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+ruby0161	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+ruby0162	app/models/setting.rb:43		top-level model; migrations nest their own copies (Migration::Setting), unreachable from here
+ruby0163	app/models/status.rb:34		top-level model; migrations nest their own copies (Migration::Status), unreachable from here
+ruby0164	app/models/account.rb:66		top-level model; migrations nest their own copies (Migration::Account), unreachable from here
+ruby0165	app/models/notification.rb:19		top-level model; migrations nest their own copies (Migration::Notification), unreachable from here
+ruby0166	app/presenters/account_relationships_presenter.rb:3		the only declaration
+ruby0167	app/services/notify_of_collection_update_service.rb:3		the only declaration
+ruby0168	app/models/async_refresh.rb:3		the only declaration
+ruby0169	app/models/worker_batch.rb:3		the only declaration
+ruby0170	app/services/suspend_account_service.rb:3		the only declaration
+ruby0171	app/models/instance.rb:11		the only declaration
+ruby0172	app/lib/hashtag_normalizer.rb:3		the only declaration
+ruby0173	app/models/custom_emoji.rb:24		top-level model; migrations nest their own copies (Migration::CustomEmoji), unreachable from here
+ruby0174	app/lib/activitypub/activity/create.rb:50		read the code: delegate/association line of the class
+ruby0175	app/models/collection_item.rb:31		read the code: delegate/association line of the class
+ruby0176	app/models/poll.rb:67		read the code: delegate/association line of the class
+ruby0177	app/lib/text_formatter.rb:159		read the code: delegate/association line of the class
+ruby0178	app/lib/activitypub/activity/create.rb:50		read the code: delegate/association line of the class
+ruby0179	app/lib/activitypub/activity/create.rb:50		read the code: delegate/association line of the class
+ruby0180	app/models/instance.rb:68		read the code: delegate/association line of the class
+ruby0181	app/models/collection_item.rb:31		read the code: delegate/association line of the class
+ruby0182	app/lib/feed_manager.rb:182		FeedManager includes Singleton; .instance is a FeedManager
+ruby0183	app/services/purge_domain_service.rb:4		PurgeDomainService.new.call: the class own def call
+ruby0184	app/lib/activitypub/tag_manager.rb:37		TagManager includes Singleton
+ruby0185			outside the project: Rails.logger (gem)
+ruby0186	app/services/unblock_domain_service.rb:6		UnblockDomainService.new.call
+ruby0187	app/lib/activitypub/tag_manager.rb:37		TagManager includes Singleton
+ruby0188			outside the project: Rails.logger (gem)
+ruby0189	app/services/translate_status_service.rb:9		TranslateStatusService.new.call
+ruby0190	app/models/concerns/account/counters.rb:47;app/models/concerns/account/counters.rb:9		def account_stat overrides has_one :account_stat, same concern
+ruby0191	app/models/featured_tag.rb:19		read the code: delegate/association line of the class
+ruby0192	app/models/featured_tag.rb:19		read the code: delegate/association line of the class
+ruby0193		debatable: ActiveModel::Serializer's own `object` (gem) or the `has_one :object` line	reviewed: every serializer reads `object` without declaring it; what AMS 0.10's has_one defines is in the gem, not installed
+ruby0194	app/models/account_migration.rb:22		read the code: delegate/association line of the class
+ruby0195	app/models/status.rb:80		read the code: delegate/association line of the class
+ruby0196	app/models/scheduled_status.rb:20		read the code: delegate/association line of the class
+ruby0197		debatable: ActiveModel::Serializer's own `object` (gem) or the `has_one :object` line	reviewed: every serializer reads `object` without declaring it; what AMS 0.10's has_one defines is in the gem, not installed
+ruby0198			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0199			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0200		not a name with a definition	keyword `next`
+ruby0201		not a name with a definition	SQL inside a heredoc
+ruby0202		not a name with a definition	SQL inside a heredoc
+ruby0203			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0204			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0205		not a name with a definition	keyword `next`
+ruby0206			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0207			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0208	db/schema.rb:291	ActiveRecord column, only in db/schema.rb	appeals.account_warning_id column
+ruby0209	db/schema.rb:363	ActiveRecord column, only in db/schema.rb	canonical_email_blocks.canonical_email_hash column
+ruby0210		not a name with a definition	SQL inside a heredoc
+ruby0211		not a name with a definition	SQL inside a heredoc
+ruby0212		not a name with a definition	SQL inside a heredoc
+ruby0213			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0214			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0215			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0216			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0217		not a name with a definition	keyword `next`
+ruby0218			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0219			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0220			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0221			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0222			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0223			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0224			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0225			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0226			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0227	db/schema.rb:1395	ActiveRecord column, only in db/schema.rb	users.approved column, its query method
+ruby0228		not a name with a definition	keyword `next`
+ruby0229			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0230			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0231			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0232		not a name with a definition	keyword `next`
+ruby0233		not a name with a definition	keyword `next`
+ruby0234		not a name with a definition	keyword `next`
+ruby0235		not a name with a definition	keyword `next`
+ruby0236		not a name with a definition	keyword `next`
+ruby0237		not a name with a definition	keyword `next`
+ruby0238		not a name with a definition	keyword `next`
+ruby0239		not a name with a definition	keyword `next`
+ruby0240		not a name with a definition	keyword `next`
+ruby0241		not a name with a definition	keyword `next`
+ruby0242			outside the project: Kernel#format (core)
+ruby0243			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0244			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0245	app/models/concerns/attachmentable.rb:40		Attachmentable's own private method
+ruby0246	app/models/concerns/redisable.rb:8		Redisable#with_redis: Lockable's includers include Redisable, the only def
+ruby0247			outside the project: Kernel#format (core)
+ruby0248	app/models/status.rb:425		Status#store_uri: Status includes Status::FaspConcern
+ruby0249	db/schema.rb:1258	ActiveRecord column, only in db/schema.rb	statuses.reblog_of_id column
+ruby0250			outside the project: ActiveSupport::Concern#included (gem)
+ruby0251	app/models/concerns/attachmentable.rb:25		Attachmentable defines it on the class in its included block; Account includes Attachmentable before this concern
+ruby0252	app/models/concerns/remotable.rb:7		Remotable's class method: ApplicationRecord includes Remotable
+ruby0253			outside the project: ActiveSupport::Concern#included (gem)
+ruby0254	app/models/concerns/attachmentable.rb:25		Attachmentable defines it on the class in its included block; Account includes Attachmentable before this concern
+ruby0255	app/models/concerns/remotable.rb:7		Remotable's class method: ApplicationRecord includes Remotable
+ruby0256	app/models/concerns/account/interactions.rb:138		Account::Interactions: both concerns are Account's
+ruby0257	app/models/concerns/account/interactions.rb:122		Account::Interactions: both concerns are Account's
+ruby0258	app/models/concerns/account/interactions.rb:138		Account::Interactions: both concerns are Account's
+ruby0259	app/models/concerns/account/interactions.rb:122		Account::Interactions: both concerns are Account's
+ruby0260		not a name with a definition	keyword `next`
+ruby0261			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0262			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0263			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0264			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0265			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0266	app/models/account.rb:578		Account's own method: Account includes Account::Suspensions
+ruby0267			outside the project: ActiveRecord::Persistence#update! (gem)
+ruby0268	app/models/account.rb:588		Account's own method: Account includes Account::Suspensions
+ruby0269	app/controllers/concerns/error_responses.rb:28		ErrorResponses#forbidden: ApplicationController includes ErrorResponses (Doorkeeper's base_controller)
+ruby0270		not a name with a definition	keyword `next`
+ruby0271			outside the project: ActionController::Head#head (gem)
+ruby0272			outside the project: ActionController::Head#head (gem)
+ruby0273			outside the project: ActionController::Head#head (gem)
+ruby0274			outside the project: ActionController::Head#head (gem)
+ruby0275			outside the project: ActionController::Head#head (gem)
+ruby0276			outside the project: ActionController::Head#head (gem)
+ruby0277			outside the project: ActionController::Head#head (gem)
+ruby0278			outside the project: ActionController::Head#head (gem)
+ruby0279			outside the project: ActionController::Head#head (gem)
+ruby0280			outside the project: ActionController::Head#head (gem)
+ruby0281			outside the project: ActionController::Head#head (gem)
+ruby0282			outside the project: ActionController::Head#head (gem)
+ruby0283			outside the project: ActionController::Head#head (gem)
+ruby0284			outside the project: ActionController::Head#head (gem)
+ruby0285			outside the project: ActionController::Head#head (gem)
+ruby0286			outside the project: ActionController::Head#head (gem)
+ruby0287			outside the project: ActionController::Head#head (gem)
+ruby0288			outside the project: ActionController::Head#head (gem)
+ruby0289			outside the project: ActionController::Head#head (gem)
+ruby0290			outside the project: ActionController::Head#head (gem)
+ruby0291			outside the project: ActionController::Head#head (gem)
+ruby0292			outside the project: ActionController::Head#head (gem)
+ruby0293	app/controllers/concerns/error_responses.rb:28		ErrorResponses#forbidden: ApplicationController includes ErrorResponses
+ruby0294		not a name with a definition	keyword `next`
+ruby0295	app/controllers/auth/sessions_controller.rb:111		Auth::SessionsController's method: the concern is included only there
+ruby0296	app/controllers/auth/sessions_controller.rb:139		Auth::SessionsController's method: the concern is included only there
+ruby0297	app/controllers/auth/sessions_controller.rb:163		Auth::SessionsController's method: the concern is included only there
+ruby0298	app/controllers/auth/sessions_controller.rb:130		Auth::SessionsController's method: the concern is included only there
+ruby0299	app/controllers/auth/sessions_controller.rb:163		Auth::SessionsController's method: the concern is included only there
+ruby0300	app/controllers/auth/sessions_controller.rb:116		Auth::SessionsController's method: the concern is included only there
+ruby0301	app/controllers/concerns/error_responses.rb:28		ErrorResponses#forbidden: ApplicationController includes ErrorResponses
+ruby0302		not a name with a definition	keyword `next`
+ruby0303		not a name with a definition	keyword `next`
+ruby0304		not a name with a definition	keyword `next`
+ruby0305		not a name with a definition	keyword `next`
+ruby0306		not a name with a definition	keyword `next`
+ruby0307			outside the project: Parslet::Transform.rule (gem)
+ruby0308	app/helpers/application_helper.rb:256		ApplicationHelper: Rails mixes every helper into the view
+ruby0309	app/helpers/statuses_helper.rb:86		StatusesHelper: Rails mixes every helper into the view
+ruby0310	app/helpers/application_helper.rb:256		ApplicationHelper: Rails mixes every helper into the view
+ruby0311	app/helpers/application_helper.rb:33		ApplicationHelper: Rails mixes every helper into the view
+ruby0312			outside the project: url_for of Rails' view helpers (gem)
+ruby0313	app/helpers/application_helper.rb:256		ApplicationHelper: Rails mixes every helper into the view
+ruby0314			outside the project: ActionMailer::Base#headers (gem)
+ruby0315			outside the project: ActionMailer::Base#headers (gem)
+ruby0316			outside the project: ActionMailer::Base#headers (gem)
+ruby0317			outside the project: ActionMailer::Base#headers (gem)
+ruby0318			outside the project: ActionMailer::Base#headers (gem)

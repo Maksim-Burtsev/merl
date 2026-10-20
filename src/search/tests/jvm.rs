@@ -209,6 +209,163 @@ fn jvm_assigned_calls_are_of_a_lowercase_name() {
 }
 
 #[test]
+fn a_local_initialized_by_a_literal_has_the_literal_s_type() {
+    let kt = |line: &str| jvm_literal_type(line, "s", false);
+    assert_eq!(
+        kt(r#"    val s = " fun slosh(): Int = 0 ""#),
+        Some("String")
+    );
+    assert_eq!(kt(r#"    val s = "a \" $b""#), Some("String"));
+    assert_eq!(kt("    var s = 'c'"), Some("Char"));
+    assert_eq!(kt("    val s = 1_000"), Some("Int"));
+    assert_eq!(kt("    val s = 3L"), Some("Long"));
+    assert_eq!(kt("    val s = 2_147_483_647"), Some("Int"));
+    assert_eq!(kt("    val s = 10000000000"), Some("Long"));
+    assert_eq!(kt("    val s = 0xFFFFFFFF"), Some("Long"));
+    assert_eq!(kt("    val s = -2147483648"), None);
+    assert_eq!(kt("    val s = 99999999999999999999"), None);
+    assert_eq!(kt("    val s = 2.5"), Some("Double"));
+    assert_eq!(kt("    val s = true"), Some("Boolean"));
+    assert_eq!(kt(r#"    val s = "a" + b"#), None);
+    assert_eq!(kt(r#"    val s = "a".length"#), None);
+    assert_eq!(kt(r#"    val s = "a${f("b")}""#), None);
+    let java = |line: &str| jvm_literal_type(line, "s", true);
+    assert_eq!(java(r#"        var s = "x";"#), Some("String"));
+    assert_eq!(java("        var s = 1;"), None);
+}
+
+#[test]
+fn a_kotlin_call_chain_is_read_back_to_its_head() {
+    let chain = |b: &str| kotlin_call_chain(b).map(|c| (c.head, c.constructed, c.links));
+    assert_eq!(
+        chain("    return built.grounds + Recipe.Builder().grounds(1).finish()."),
+        Some((
+            "Recipe.Builder".into(),
+            true,
+            vec!["grounds()".into(), "finish()".into()]
+        ))
+    );
+    assert_eq!(
+        chain("    val x = carafe.pour(f(2), \"a\").brim."),
+        Some(("carafe".into(), false, vec!["pour()".into(), "brim".into()]))
+    );
+    assert_eq!(
+        chain("    val x = carafe.brim."),
+        None,
+        "no call: a qualifier"
+    );
+    assert_eq!(chain("    val x = pour().brim."), None, "a bare call");
+    assert_eq!(chain("    val x = xs[0].pour()."), None);
+    assert_eq!(chain("    val x = \"a\".pour()."), None);
+    let text =
+        "val built = Recipe.Builder()\n    .grounds(2)\n    // .x()\n    ?.water(3)\nval y = 1\n";
+    assert_eq!(
+        kotlin_initializer(text, 1, "built").as_deref(),
+        Some("Recipe.Builder().grounds(2).water(3)")
+    );
+    let d = kotlin_destructured("    for ((stroke, mesh) in plungers) total += 1", "mesh")
+        .map(|d| (d.index, d.source, d.in_loop));
+    assert_eq!(d, Some((1, "plungers".into(), true)));
+    let d = kotlin_destructured("    val (stroke, mesh) = plunger", "stroke")
+        .map(|d| (d.index, d.source, d.in_loop));
+    assert_eq!(d, Some((0, "plunger".into(), false)));
+    assert!(kotlin_destructured("    val (a, b) = a", "b").is_none());
+    let data = "data class Plunger(\n    val stroke: Int,\n    val mesh: press.Mesh,\n)\n";
+    assert_eq!(kotlin_component_type(data, 1, 0).as_deref(), Some("Int"));
+    assert_eq!(kotlin_component_type(data, 1, 1), None, "a package path");
+    assert_eq!(kotlin_component_type("class P(val a: Int)\n", 1, 0), None);
+}
+
+#[test]
+fn a_java_element_comes_out_of_a_written_collection() {
+    assert_eq!(
+        java_element_access("        total += stones.get(0).").as_deref(),
+        Some("stones")
+    );
+    assert_eq!(
+        java_element_access("        x = q.peek()."),
+        Some("q".into())
+    );
+    assert_eq!(java_element_access("        x = q.size()."), None);
+    assert_eq!(java_element_access("        x = a.b.get(0)."), None);
+    let field = "    private final List<Stone> stones = new ArrayList<>();";
+    assert_eq!(java_element_type(field, "stones").as_deref(), Some("Stone"));
+    assert_eq!(
+        java_element_type("    Map<K, Stone> stones;", "stones"),
+        None
+    );
+    assert_eq!(
+        java_element_type("    Optional<? extends a.B> stones,", "stones"),
+        None
+    );
+}
+
+#[test]
+fn a_java_class_lists_its_interfaces_apart_from_its_superclass() {
+    let text =
+        "public class Quern extends Stone<A, B>\n        implements Turnable, x.Grind<C> {\n}\n";
+    assert_eq!(jvm_bases(text, 1, false), ["Stone"]);
+    assert_eq!(java_implements(text, 1), ["Turnable", "Grind"]);
+    assert_eq!(
+        java_implements("class K : Lever {\n}\n", 1),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn a_java_member_is_a_method_when_its_name_opens_a_parameter_list() {
+    assert!(java_declares_method(
+        "    public Hopper hopper() {",
+        "hopper"
+    ));
+    assert!(!java_declares_method(
+        "    private Hopper hopper = hopper();",
+        "hopper"
+    ));
+    assert!(!java_declares_method("    private int burr = 3;", "burr"));
+}
+
+#[test]
+fn a_kotlin_scope_function_hands_on_its_receiver() {
+    let returned = |b: &str| kotlin_scope_returned(b);
+    assert_eq!(
+        returned("    val d = plunger.also { it.stroke }.mesh.").as_deref(),
+        Some("    val d = plunger.mesh.")
+    );
+    assert_eq!(
+        returned("    val c = carafe.apply { a { b() } }.").as_deref(),
+        Some("    val c = carafe.")
+    );
+    assert_eq!(returned("    val c = carafe.let { it }."), None);
+    assert_eq!(returned("    val c = carafe.apply { it }.f()."), None);
+    let text = "fun f() {\n    with(carafe) {\n        slosh()\n    }\n}\n";
+    assert_eq!(
+        kotlin_lambda_receiver(text, 3, "        ").as_deref(),
+        Some("carafe")
+    );
+    assert_eq!(
+        kotlin_lambda_receiver("", 1, "    x.run { y.let { ").as_deref(),
+        None
+    );
+    assert_eq!(
+        kotlin_lambda_receiver("", 1, "    x.apply { ").as_deref(),
+        Some("x")
+    );
+    assert_eq!(
+        kotlin_lambda_subject("", 1, "    x.also { it.", "it").as_deref(),
+        Some("x")
+    );
+    assert_eq!(
+        kotlin_lambda_subject("", 1, "    x.let { c -> c.", "c").as_deref(),
+        Some("x")
+    );
+    assert_eq!(
+        kotlin_lambda_subject("", 1, "    x.let { c -> it.", "it"),
+        None
+    );
+}
+
+#[test]
 fn a_kotlin_when_subject_keeps_its_type_in_else_and_casts_when_bound_by_val() {
     let text = "fun f(v: Urn, x: Any) {\n    when (v) {\n        is Glass -> v.dose()\n        else -> v.scald()\n    }\n    when (val g = x) {\n        is Samovar -> g.mint()\n    }\n}\n";
     assert_eq!(jvm_when_else(text, 4, "v"), Some(2));
@@ -306,4 +463,30 @@ fn kotlin_arity_counts_defaults_varargs_and_a_trailing_lambda() {
     assert_eq!(jvm_literal_parameter("cups: Int = 1"), None);
     assert_eq!(jvm_literal_argument("\"two\""), Some("string"));
     assert_eq!(jvm_literal_argument("2L"), None);
+}
+
+#[test]
+fn a_getter_chain_is_read_up_to_the_name_it_starts_from() {
+    let chain = |before: &str| jvm_getter_chain(before).join(" ");
+    assert_eq!(chain("x = user.getSpec()."), "user getSpec()");
+    assert_eq!(
+        chain("this.post.getSpec().isPinned()."),
+        "this post getSpec() isPinned()"
+    );
+    assert_eq!(
+        chain("user.spec."),
+        "",
+        "a chain of fields is the qualifier's"
+    );
+    assert_eq!(
+        chain("getSpec()."),
+        "",
+        "a call on the own class is left alone"
+    );
+    assert_eq!(chain("user.find().getSpec()."), "");
+    assert_eq!(chain("user.getSpec(id)."), "");
+    assert_eq!(chain("user.setSpec()."), "");
+    assert_eq!(chain("new User().getSpec()."), "");
+    assert_eq!(chain("list.get(0).getSpec()."), "");
+    assert_eq!(chain("Foo::getSpec()."), "");
 }

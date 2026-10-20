@@ -341,9 +341,12 @@ static MOD_LINE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_]\w*\s*\{")
         .expect("the regex is a literal")
 });
-fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
+pub fn rust_around(lines: &[&str], k: usize, literal: &[bool]) -> Vec<usize> {
     let mut around = Vec::new();
-    let mut depth = indent(lines[k]);
+    let Some(line) = lines.get(k) else {
+        return around;
+    };
+    let mut depth = indent(line);
     for i in (0..k).rev() {
         if depth == 0 {
             break;
@@ -471,6 +474,23 @@ fn rust_use_in_a_block_around(lines: &[&str], literal: &[bool], around: &[usize]
     })
 }
 pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace) -> Vec<usize> {
+    scope_items(text, line1, word, ns, false)
+}
+pub fn rust_scope_items_right_of_let(
+    text: &str,
+    line1: usize,
+    word: &str,
+    ns: RustNamespace,
+) -> Vec<usize> {
+    scope_items(text, line1, word, ns, true)
+}
+fn scope_items(
+    text: &str,
+    line1: usize,
+    word: &str,
+    ns: RustNamespace,
+    right_of_let: bool,
+) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = line1.checked_sub(1).filter(|&k| k < lines.len()) else {
         return Vec::new();
@@ -513,16 +533,9 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
     }
     if let Some(&f) = functions.first()
         && word.starts_with(|c: char| c.is_lowercase() || c == '_')
+        && mentioned_as_value(&lines[f..=k], &w, right_of_let)
     {
-        let mention = rule(&format!(r"(^|[^.\w])({w})\b(\s*(?:\(|!|::))?"));
-        let mentioned = lines[f..=k].iter().any(|l| {
-            mention
-                .captures_iter(&uncommented(Kind::Rust, l))
-                .any(|c| c.get(3).is_none())
-        });
-        if mentioned {
-            return Vec::new();
-        }
+        return Vec::new();
     }
     let found = |scope: Option<usize>| -> Vec<usize> {
         rust_direct(&lines, scope, &literal)
@@ -571,6 +584,50 @@ pub fn rust_scope_items(text: &str, line1: usize, word: &str, ns: RustNamespace)
     } else {
         items.into_iter().map(|i| i + 1).collect()
     }
+}
+fn mentioned_as_value(lines: &[&str], w: &str, right_of_let: bool) -> bool {
+    let mention = Regex::new(&format!(r"(^|[^.\w])({w})\b(\s*(?:\(|!|::))?"))
+        .expect("an escaped name keeps the pattern valid");
+    let last = lines.len().saturating_sub(1);
+    lines.iter().enumerate().any(|(j, l)| {
+        let code = uncommented(Kind::Rust, l);
+        let code = match let_pattern(&code).filter(|_| right_of_let && j == last) {
+            Some(p) => code.get(p.end..).unwrap_or_default().to_owned(),
+            None => code,
+        };
+        let code = without_closures_binding(&code, w);
+        mention.captures_iter(&code).any(|c| c.get(3).is_none())
+    })
+}
+fn without_closures_binding(line: &str, w: &str) -> String {
+    static OPENS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:[(,={;]|\bmove)\s*(\|[^|]*\|)").expect("the regex is a literal")
+    });
+    let mut out = line.to_owned();
+    if !line.contains('|') {
+        return out;
+    }
+    let binds = Regex::new(&format!(r"\b{w}\b")).expect("an escaped name keeps the pattern valid");
+    for c in OPENS.captures_iter(line) {
+        let Some(params) = c.get(1).filter(|p| binds.is_match(p.as_str())) else {
+            continue;
+        };
+        let body = line.get(params.end()..).unwrap_or_default();
+        let mut depth = 0i32;
+        let stop = code(Kind::Rust, body)
+            .find(|&(_, b)| {
+                match b {
+                    b'(' | b'[' | b'{' => depth += 1,
+                    b')' | b']' | b'}' => depth -= 1,
+                    _ => {}
+                }
+                depth < 0 || (depth == 0 && matches!(b, b',' | b';'))
+            })
+            .map_or(body.len(), |(i, _)| i);
+        let end = params.end() + stop;
+        out.replace_range(params.start()..end, &" ".repeat(end - params.start()));
+    }
+    out
 }
 fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     let b = s.as_bytes();
@@ -1177,6 +1234,9 @@ pub fn rust_bounds(lines: &[&str], at: usize, param: &str) -> Vec<String> {
         .collect()
 }
 pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
+    rust_inline_mod_past(lines, &[], line0)
+}
+pub fn rust_inline_mod_past(lines: &[&str], literal: &[bool], line0: usize) -> Option<usize> {
     static MOD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{").expect("the regex is a literal")
     });
@@ -1186,7 +1246,11 @@ pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
             break;
         }
         let t = l.trim();
-        if t.is_empty() || comment(Kind::Rust, t) || indent(l) >= depth {
+        if t.is_empty()
+            || comment(Kind::Rust, t)
+            || literal.get(i) == Some(&true)
+            || indent(l) >= depth
+        {
             continue;
         }
         depth = indent(l);

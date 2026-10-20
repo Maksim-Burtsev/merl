@@ -1,6 +1,7 @@
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search};
 use std::ops::Range;
 
+#[derive(Clone)]
 struct PhpClass {
     path: PathBuf,
     text: String,
@@ -15,6 +16,12 @@ struct ProvenClass {
 struct Returned {
     class: PhpClass,
     written: String,
+}
+
+enum Link {
+    Class(PhpClass),
+    Outside(String),
+    Unread,
 }
 
 enum Walk {
@@ -68,6 +75,9 @@ impl App {
             && receiver.is_some_and(|b| !b.ends_with(|c: char| is_word(c) || c == ':' || c == '$'))
             && let Some(found) = self.php_typed(here, text, chain, word, access)
         {
+            return Some(found);
+        }
+        if dotted && let Some(found) = self.php_called(here, text, before, word, access) {
             return Some(found);
         }
         if let Some(written) = self
@@ -315,13 +325,30 @@ impl App {
             return Walk::Found(own);
         }
         let block = search::php_block(text, class);
+        for a in search::php_trait_aliases(&lines, class) {
+            if !re.is_match(&format!("function {}(", a.alias)) {
+                continue;
+            }
+            let Ok(method) = Regex::new(
+                &search::php_access_patterns(&a.method, search::PhpAccess::Call).join("|"),
+            ) else {
+                continue;
+            };
+            match self.php_walk_class(path, block, &a.from, &method, depth + 1, &mut seen.clone()) {
+                Walk::Nowhere | Walk::NowhereOutside => {}
+                other => return other,
+            }
+        }
         for t in search::php_class_traits(&lines, class) {
             match self.php_walk_class(path, block, &t, re, depth + 1, seen) {
                 Walk::Nowhere | Walk::NowhereOutside => {}
                 other => return other,
             }
         }
-        match search::php_class_header(lines[class]).and_then(|h| h.extends) {
+        let parent = search::php_class_header(lines[class])
+            .or_else(|| search::php_anonymous_class(lines[class]))
+            .and_then(|h| h.extends);
+        match parent {
             Some(parent) => self.php_walk_class(path, block, parent, re, depth + 1, seen),
             None => Walk::Nowhere,
         }
@@ -398,16 +425,38 @@ impl App {
         let (mut class, mut links, rest) = if head.as_str() == "this" {
             let (field, rest) = fields.split_first()?;
             let own = Self::php_self(here, text, self.line)?;
-            let class = self.php_property_type(&own, field)?;
+            let class = match self.php_property_link(&own, field) {
+                Link::Class(class) => class,
+                Link::Outside(full) if rest.is_empty() => {
+                    let short = full.rsplit('\\').next().unwrap_or(&full);
+                    let link = format!("$this->{field}: {short}");
+                    return self.php_outside_answer(&full, word, access, link);
+                }
+                Link::Outside(_) | Link::Unread => return None,
+            };
             let link = format!("$this->{field}: {}", Self::php_class_name(&class)?);
             (class, vec![link], rest)
         } else {
-            let ProvenClass { class, link } =
-                self.php_variable_type(here, text, head, self.line, true)?;
+            let Some(ProvenClass { class, link }) =
+                self.php_variable_type(here, text, head, self.line, true)
+            else {
+                return fields
+                    .is_empty()
+                    .then(|| self.php_outside_receiver(here, text, head, word, access))
+                    .flatten();
+            };
             (class, vec![link], fields)
         };
-        for field in rest {
-            class = self.php_property_type(&class, field)?;
+        for (i, field) in rest.iter().enumerate() {
+            class = match self.php_property_link(&class, field) {
+                Link::Class(class) => class,
+                Link::Outside(full) if i + 1 == rest.len() => {
+                    let short = full.rsplit('\\').next().unwrap_or(&full);
+                    links.push(format!("{field}: {short}"));
+                    return self.php_outside_answer(&full, word, access, links.join(" \u{2192} "));
+                }
+                Link::Outside(_) | Link::Unread => return None,
+            };
             links.push(format!("{field}: {}", Self::php_class_name(&class)?));
         }
         let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
@@ -430,6 +479,83 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    fn php_outside_receiver(
+        &mut self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        word: &str,
+        access: search::PhpAccess,
+    ) -> Option<Vec<Candidate>> {
+        let lines: Vec<&str> = text.lines().collect();
+        let mut written: Option<String> = None;
+        for b in search::php_variable(text, self.line + 1, name)? {
+            let at = b - 1;
+            let statement = lines[at..lines.len().min(at + 20)].join("\n");
+            if search::php_captures(lines[at], name)
+                || search::php_param_tag(&lines, at, name).is_some()
+            {
+                return None;
+            }
+            let (search::PhpBinding::Type(t) | search::PhpBinding::New(t)) =
+                search::php_binding(&statement, name)?
+            else {
+                return None;
+            };
+            if *written.get_or_insert_with(|| t.clone()) != t {
+                return None;
+            }
+        }
+        let written = written?;
+        let full = self.php_outside_type(here, text, self.line, &written)?;
+        let short = full.rsplit('\\').next().unwrap_or(&full).to_owned();
+        self.php_outside_answer(&full, word, access, format!("${name}: {short}"))
+    }
+
+    fn php_outside_type(
+        &self,
+        path: &Path,
+        text: &str,
+        line0: usize,
+        written: &str,
+    ) -> Option<String> {
+        let block = search::php_block(text, line0);
+        let search::PhpResolved { full, imported } = search::php_resolve(block, written)?;
+        let map = search::php_psr4(&self.root, path.parent().unwrap_or_else(|| Path::new("")));
+        let outside = matches!(
+            search::php_psr4_file(&map, &full, |f| self.files.iter().any(|p| p == f)),
+            search::Psr4File::OutsideProject
+        );
+        let proven = (imported || written.starts_with('\\')) && !map.is_empty() && outside;
+        (proven && self.php_class(path, block, written).1.is_empty()).then_some(full)
+    }
+
+    fn php_outside_answer(
+        &mut self,
+        full: &str,
+        word: &str,
+        access: search::PhpAccess,
+        links: String,
+    ) -> Option<Vec<Candidate>> {
+        let short = full.rsplit('\\').next().unwrap_or(full);
+        let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
+        let walk = match self.php_outside_classes(Some(full), short).as_slice() {
+            [one] => self.php_walk(&one.path, &one.text, one.header0, &re, 0, &mut Vec::new()),
+            _ => self.php_outside(Some(full), short, &re),
+        };
+        let reason = Reason::Receiver(links);
+        Some(match walk {
+            Walk::Found(hits) => hits
+                .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+            Walk::Nowhere | Walk::NowhereOutside | Walk::Unread => Vec::new(),
+        })
     }
 
     fn php_class_name(class: &PhpClass) -> Option<String> {
@@ -511,10 +637,25 @@ impl App {
                     let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("{on}::{method}(): {written}")))
                 }
+                search::PhpBinding::VarCall { var, method } => {
+                    let ProvenClass { class, .. } =
+                        self.php_variable_type(here, text, &var, at.checked_sub(1)?, false)?;
+                    let Returned { class, written } =
+                        Self::php_follows(&class, self.php_returns(&class, &method)?)?;
+                    (class, Some(format!("${var}->{method}(): {written}")))
+                }
                 search::PhpBinding::ThisCall(method) => {
                     let class = Self::php_self(here, text, at)?;
                     let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("$this->{method}(): {written}")))
+                }
+                search::PhpBinding::Anonymous => {
+                    let class = PhpClass {
+                        path: here.to_path_buf(),
+                        text: text.to_owned(),
+                        header0: at,
+                    };
+                    (class, Some(format!("${name}: new class")))
                 }
                 search::PhpBinding::FunctionCall(f) => {
                     let Returned { class, written } = self.php_function_returns(here, &f)?;
@@ -540,7 +681,7 @@ impl App {
         found
     }
 
-    fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
+    fn php_one_method(&mut self, class: &PhpClass, method: &str) -> Option<Hit> {
         let re =
             Regex::new(&search::php_access_patterns(method, search::PhpAccess::Call).join("|"))
                 .ok()?;
@@ -554,10 +695,110 @@ impl App {
         ) else {
             return None;
         };
-        let [hit] = hits.as_slice() else {
+        let [hit] = <[Hit; 1]>::try_from(hits).ok()?;
+        Some(hit)
+    }
+
+    fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
+        let hit = self.php_one_method(class, method)?;
+        if self.php_returns_static(&hit) {
+            return Some(Returned {
+                class: class.clone(),
+                written: "static".to_owned(),
+            });
+        }
+        self.php_declared_return(&hit.path, hit.line1 - 1)
+    }
+
+    fn php_follows(receiver: &PhpClass, returned: Returned) -> Option<Returned> {
+        let same =
+            (&returned.class.path, returned.class.header0) == (&receiver.path, receiver.header0);
+        (same || !returned.written.eq_ignore_ascii_case("self")).then_some(returned)
+    }
+
+    fn php_returns_static(&self, hit: &Hit) -> bool {
+        let Some(text) = self.text_of(&hit.path) else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let at = hit.line1 - 1;
+        let Some(header) = lines.get(at..lines.len().min(at + 20)) else {
+            return false;
+        };
+        !header
+            .first()
+            .is_some_and(|l| l.trim_start().starts_with('*'))
+            && search::php_return_written(&header.join("\n"))
+                .is_some_and(|w| w.eq_ignore_ascii_case("static"))
+    }
+
+    fn php_called(
+        &mut self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+        access: search::PhpAccess,
+    ) -> Option<Vec<Candidate>> {
+        let (head, calls) = search::php_call_chain(before)?;
+        let (mut class, mut links) = match head {
+            search::PhpCallHead::This => (Self::php_self(here, text, self.line)?, Vec::new()),
+            search::PhpCallHead::New(written) => (
+                self.php_type(here, text, self.line, &written)?,
+                vec![format!("new {written}")],
+            ),
+            search::PhpCallHead::Var(name) => {
+                let ProvenClass { class, link } =
+                    self.php_variable_type(here, text, &name, self.line, true)?;
+                (class, vec![link])
+            }
+            search::PhpCallHead::Callable(name) => {
+                let [b] = search::php_variable(text, self.line + 1, &name)?[..] else {
+                    return None;
+                };
+                let at = b.checked_sub(1).filter(|&at| at < self.line)?;
+                let line = text.lines().nth(at)?;
+                let (var, method) = search::php_first_class_callable(line, &name)?;
+                let class = match var.as_str() {
+                    "this" => Self::php_self(here, text, at)?,
+                    _ => {
+                        self.php_variable_type(here, text, &var, at.checked_sub(1)?, false)?
+                            .class
+                    }
+                };
+                let Returned { class, written } =
+                    Self::php_follows(&class, self.php_returns(&class, &method)?)?;
+                (
+                    class,
+                    vec![format!("${name} = ${var}->{method}(...): {written}")],
+                )
+            }
+        };
+        for method in &calls {
+            let returned = Self::php_follows(&class, self.php_returns(&class, method)?)?;
+            links.push(format!("{method}(): {}", returned.written));
+            class = returned.class;
+        }
+        let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
+        let Walk::Found(hits) = self.php_walk(
+            &class.path,
+            &class.text,
+            class.header0,
+            &re,
+            0,
+            &mut Vec::new(),
+        ) else {
             return None;
         };
-        self.php_declared_return(&hit.path, hit.line1 - 1)
+        let reason = Reason::Receiver(links.join(" \u{2192} "));
+        Some(
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
     }
 
     fn php_function_returns(&self, here: &Path, name: &str) -> Option<Returned> {
@@ -585,6 +826,34 @@ impl App {
     }
 
     fn php_property_type(&mut self, class: &PhpClass, field: &str) -> Option<PhpClass> {
+        match self.php_property_link(class, field) {
+            Link::Class(class) => Some(class),
+            Link::Outside(_) | Link::Unread => None,
+        }
+    }
+
+    fn php_property_link(&mut self, class: &PhpClass, field: &str) -> Link {
+        let Some((path, text, line0, written)) = self.php_property_written(class, field) else {
+            return Link::Unread;
+        };
+        if let Some(class) = self.php_type(&path, &text, line0, &written) {
+            return Link::Class(class);
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        if let Some(tag) = search::php_param_tag(&lines, line0, field) {
+            return search::php_one_class(&tag)
+                .and_then(|t| self.php_type(&path, &text, line0, &t))
+                .map_or(Link::Unread, Link::Class);
+        }
+        self.php_outside_type(&path, &text, line0, &written)
+            .map_or(Link::Unread, Link::Outside)
+    }
+
+    fn php_property_written(
+        &mut self,
+        class: &PhpClass,
+        field: &str,
+    ) -> Option<(PathBuf, String, usize, String)> {
         let re =
             Regex::new(&search::php_access_patterns(field, search::PhpAccess::Property).join("|"))
                 .ok()?;
@@ -601,47 +870,52 @@ impl App {
         let [hit] = hits.as_slice() else {
             return None;
         };
-        if hit.text.trim_start().starts_with('*') {
-            return None;
-        }
-        let written = search::php_written_type(&hit.text, field)?;
+        let written = if hit.text.trim_start().starts_with('*') {
+            search::php_tag_type(&hit.text, field)?
+        } else {
+            search::php_written_type(&hit.text, field)?
+        };
         let text = self.text_of(&hit.path)?;
-        self.php_type(&hit.path, &text, hit.line1 - 1, &written)
+        Some((hit.path.clone(), text, hit.line1 - 1, written))
+    }
+
+    fn php_outside_classes(&mut self, full: Option<&str>, short: &str) -> Vec<PhpClass> {
+        let file = format!("{short}.php");
+        self.external_files(Kind::Php)
+            .iter()
+            .filter(|p| p.file_name().is_some_and(|n| n == file.as_str()))
+            .filter_map(|path| {
+                let text = std::fs::read_to_string(path).ok()?;
+                let ns = search::php_namespace(&text).unwrap_or_default();
+                let named = match ns {
+                    "" => short.to_owned(),
+                    _ => format!("{ns}\\{short}"),
+                };
+                if full.is_some_and(|f| f != named) {
+                    return None;
+                }
+                let header0 = text
+                    .lines()
+                    .position(|l| search::php_class_header(l).is_some_and(|h| h.name == short))?;
+                Some(PhpClass {
+                    path: path.clone(),
+                    text,
+                    header0,
+                })
+            })
+            .collect()
     }
 
     fn php_outside(&mut self, full: Option<&str>, short: &str, re: &Regex) -> Walk {
-        let file = format!("{short}.php");
-        let files: Vec<PathBuf> = self
-            .external_files(Kind::Php)
-            .iter()
-            .filter(|p| p.file_name().is_some_and(|n| n == file.as_str()))
-            .cloned()
-            .collect();
         let mut hits = Vec::new();
-        for path in files {
-            let Ok(t) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            let ns = search::php_namespace(&t).unwrap_or_default();
-            let named = match ns {
-                "" => short.to_owned(),
-                _ => format!("{ns}\\{short}"),
-            };
-            if full.is_some_and(|f| f != named) {
-                continue;
-            }
-            let lines: Vec<&str> = t.lines().collect();
-            let Some(class) = (0..lines.len())
-                .find(|&i| search::php_class_header(lines[i]).is_some_and(|h| h.name == short))
-            else {
-                continue;
-            };
+        for class in self.php_outside_classes(full, short) {
+            let lines: Vec<&str> = class.text.lines().collect();
             hits.extend(
-                search::php_class_members(&lines, class, re)
+                search::php_class_members(&lines, class.header0, re)
                     .into_iter()
                     .map(|i| Hit {
                         deleted: None,
-                        path: path.clone(),
+                        path: class.path.clone(),
                         line1: i + 1,
                         byte_col: None,
                         text: lines[i].to_owned(),

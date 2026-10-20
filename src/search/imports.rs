@@ -5,8 +5,9 @@ use regex::Regex;
 use super::{
     Group, Kind, TsDeclarator, cmake_import, erlang_include, gdscript_files, gdscript_path, group,
     haskell_files, haskell_import_module, indent, julia_imports, julia_include, kind_of,
-    lisp_files, lisp_require, literal_lines, nix_files, nix_path, powershell_import, r_files,
-    r_source, solidity_file, solidity_import_path, split_top, ts_declarators,
+    lisp_files, lisp_require, literal_lines, lua_module_file, lua_require_path, nix_files,
+    nix_path, powershell_import, r_files, r_source, shell_files, shell_source, solidity_file,
+    solidity_import_path, split_top, ts_declarators,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -590,14 +591,32 @@ pub struct Reexport {
 }
 pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
     static EXPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
+        Regex::new(r#"(?m)^\s*export\s+(?:type\s+)?(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s*from\s*['"]([^'"]+)['"]"#)
             .expect("the regex is a literal")
+    });
+    static CJS_SPREADS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?m)^\s*module\.exports\s*=\s*\{([^}]*)\}").expect("the regex is a literal")
+    });
+    static SPREAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\.\.\.\s*require\(\s*['"]([^'"]+)['"]\s*\)"#).expect("the regex is a literal")
+    });
+    let spreads = CJS_SPREADS.captures_iter(text).flat_map(|c| {
+        SPREAD
+            .captures_iter(c.get(1).map_or("", |m| m.as_str()))
+            .map(|s| Reexport {
+                module: module_path(&s[1]),
+                name_in_module: name.to_owned(),
+            })
+            .collect::<Vec<_>>()
     });
     EXPORT
         .captures_iter(text)
         .filter_map(|c| {
             let taken = match &c[1] {
                 "*" => name.to_owned(),
+                star if star.starts_with('*') => (star.rsplit(char::is_whitespace).next()
+                    == Some(name))
+                .then(|| "*".to_owned())?,
                 items => items.trim_matches(['{', '}']).split(',').find_map(|i| {
                     let i = i.trim();
                     let i = i.strip_prefix("type ").unwrap_or(i);
@@ -609,20 +628,24 @@ pub fn reexported(text: &str, name: &str) -> Vec<Reexport> {
                     }
                 })?,
             };
-            let mut path: Vec<String> = c[2]
-                .split('/')
-                .filter(|p| !p.is_empty())
-                .map(str::to_owned)
-                .collect();
-            if c[2].starts_with('/') {
-                path.insert(0, ".".to_owned());
-            }
             Some(Reexport {
-                module: path,
+                module: module_path(&c[2]),
                 name_in_module: taken,
             })
         })
+        .chain(spreads)
         .collect()
+}
+fn module_path(spec: &str) -> Vec<String> {
+    let mut path: Vec<String> = spec
+        .split('/')
+        .filter(|p| !p.is_empty())
+        .map(str::to_owned)
+        .collect();
+    if spec.starts_with('/') {
+        path.insert(0, ".".to_owned());
+    }
+    path
 }
 pub fn go_import_line1(text: &str, name: &str) -> Option<usize> {
     let binds = |l: &str| imports(Kind::Go, l).iter().any(|i| i.name == name);
@@ -806,11 +829,9 @@ pub fn module_files(
         | Kind::CSharp
         | Kind::Swift
         | Kind::Php
-        | Kind::Lua
         | Kind::Elixir
         | Kind::Zig
         | Kind::Proto
-        | Kind::Shell
         | Kind::Dart
         | Kind::Cmake
         | Kind::Ocaml
@@ -828,6 +849,10 @@ pub fn module_files(
         Kind::Nix => nix_files(dir, &module.join("/"), files),
         Kind::Haskell => haskell_files(&module.join("."), files),
         Kind::R => r_files(dir, &module.join("/"), files),
+        Kind::Shell => shell_files(dir, &module.join("/"), files),
+        Kind::Lua => lua_module_file(&module.join("."), files)
+            .into_iter()
+            .collect(),
         Kind::Gdscript => gdscript_files(here, &module.join("/"), files),
         Kind::Solidity => solidity_file(root, files, here, &module.join("/"))
             .into_iter()
@@ -931,7 +956,7 @@ fn go_module_files(root: &Path, files: &[PathBuf], module: &[String]) -> Vec<Pat
         .cloned()
         .collect()
 }
-pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
+pub fn file_import(kind: Kind, here: &Path, line: &str, col: usize) -> Option<String> {
     match kind {
         Kind::Graphql => graphql_import(line, col).map(str::to_owned),
         Kind::PowerShell => powershell_import(line, col),
@@ -941,6 +966,8 @@ pub fn file_import(kind: Kind, line: &str, col: usize) -> Option<String> {
         Kind::Haskell => haskell_import_module(line, col),
         Kind::Julia => julia_include(line, col),
         Kind::R => r_source(line, col),
+        Kind::Shell => shell_source(line, col, here.extension().is_some_and(|e| e == "bats")),
+        Kind::Lua => lua_require_path(line, col),
         Kind::Gdscript => gdscript_path(line, col),
         Kind::Solidity => solidity_import_path(line, col),
         Kind::Clojure | Kind::EmacsLisp | Kind::Scheme => lisp_require(kind, line, col),

@@ -269,3 +269,462 @@ swift0266		builtin: an SDK interface the server generated
 swift0267	Tests/SessionTests.swift:212		
 swift0268		builtin: an SDK interface the server generated	
 swift0269	Source/Features/RetryPolicy.swift:29		
+swift0270	Source/Core/AFError.swift:142		
+swift0271	Source/Core/AFError.swift:144		
+swift0272		builtin: an SDK interface the server generated	
+swift0273	Source/Core/Request.swift:1138		
+swift0274	Source/Extensions/Result+Alamofire.swift:51		
+swift0275	Source/Features/RequestInterceptor.swift:86		
+swift0276	Source/Features/ResponseSerialization.swift:110		
+swift0277	Source/Features/ResponseSerialization.swift:114		
+swift0278	Source/Features/ResponseSerialization.swift:112		
+swift0279	Source/Features/ResponseSerialization.swift:110		
+swift0280	Source/Features/ResponseSerialization.swift:114		
+swift0281	Source/Features/ResponseSerialization.swift:112		
+swift0282	Source/Features/ResponseSerialization.swift:110		
+swift0283	Source/Features/ResponseSerialization.swift:114		
+swift0284	Source/Features/ResponseSerialization.swift:112		
+swift0285	Source/Core/DataStreamRequest.swift:91		
+swift0286	Source/Core/DataStreamRequest.swift:91		
+swift0287	Source/Core/DataStreamRequest.swift:96		
+swift0288	Source/Core/DataStreamRequest.swift:93		
+swift0289	Source/Core/DataStreamRequest.swift:93		
+swift0290	Source/Core/Request.swift:1138		
+swift0291	Source/Core/DataStreamRequest.swift:91		
+swift0292	Source/Core/DataStreamRequest.swift:91		
+swift0293	Source/Core/DataStreamRequest.swift:96		
+swift0294	Source/Core/DataStreamRequest.swift:98		
+swift0295	Source/Core/DataStreamRequest.swift:93		
+swift0296	Source/Extensions/Result+Alamofire.swift:40		
+swift0297	Source/Core/DataStreamRequest.swift:93		
+swift0298	Source/Core/DataStreamRequest.swift:93		
+swift0299	Source/Core/DataStreamRequest.swift:96		
+swift0300	Source/Core/DataStreamRequest.swift:96		
+swift0301	Source/Core/DataStreamRequest.swift:98		
+swift0302		builtin: an SDK interface the server generated	
+swift0303	Source/Core/DataStreamRequest.swift:98		
+swift0304	Source/Core/DataStreamRequest.swift:98		
+swift0305	Source/Core/Request.swift:50		
+swift0306	Source/Extensions/Result+Alamofire.swift:51		
+swift0307	Source/Features/RequestInterceptor.swift:86		
+swift0308	Source/Features/ResponseSerialization.swift:110		
+swift0309	Source/Features/ResponseSerialization.swift:114		
+swift0310	Source/Features/ResponseSerialization.swift:112		
+swift0311	Source/Features/ResponseSerialization.swift:110		
+swift0312	Source/Features/ResponseSerialization.swift:114		
+swift0313	Source/Features/ResponseSerialization.swift:112		
+swift0314	Source/Features/ResponseSerialization.swift:110		
+swift0315	Source/Features/ResponseSerialization.swift:114		
+swift0316	Source/Features/ResponseSerialization.swift:112		
+swift0317		builtin: an SDK interface the server generated	
+swift0318		builtin: an SDK interface the server generated	
+swift0319	Source/Core/HTTPHeaders.swift:190		
+swift0320		builtin: an SDK interface the server generated	
+swift0321	Source/Core/HTTPHeaders.swift:190		
+swift0322		builtin: an SDK interface the server generated	
+swift0323	Source/Core/HTTPHeaders.swift:190		
+swift0324		builtin: an SDK interface the server generated	
+swift0325		builtin: an SDK interface the server generated	
+swift0326		builtin: an SDK interface the server generated	
+swift0327	Source/Core/HTTPHeaders.swift:190		
+swift0328		builtin: an SDK interface the server generated	
+swift0329	Source/Core/HTTPHeaders.swift:436		
+swift0330	Source/Core/HTTPHeaders.swift:436		
+swift0331	Source/Core/HTTPHeaders.swift:135		
+swift0332	Source/Core/HTTPHeaders.swift:135		
+swift0333	Source/Core/Notifications.swift:71		
+swift0334	Source/Core/Notifications.swift:71		
+swift0335	Source/Core/Notifications.swift:71		
+swift0336	Source/Core/Notifications.swift:71		
+swift0337	Source/Core/Notifications.swift:71		
+swift0338	Source/Core/Notifications.swift:71		
+swift0339	Source/Core/Notifications.swift:71		
+swift0340	Source/Core/Notifications.swift:71		
+swift0341	Source/Features/URLEncodedFormEncoder.swift:1118		
+swift0342		builtin: an SDK interface the server generated	
+swift0343		builtin: an SDK interface the server generated	
+swift0344	Source/Core/ParameterEncoding.swift:344		
+swift0345		builtin: an SDK interface the server generated	
+swift0346	Source/Core/Request.swift:50		
+swift0347	Source/Core/Protected.swift:104		
+swift0348	Source/Core/Protected.swift:104		
+swift0349	Source/Core/Protected.swift:104		
+swift0350	Source/Core/Protected.swift:104		
+swift0351	Source/Core/Protected.swift:104		
+swift0352	Source/Core/Protected.swift:104		
+swift0353	Source/Core/Request.swift:107		
+swift0354	Source/Core/Request.swift:105		
+swift0355	Source/Core/Request.swift:105		
+swift0356	Source/Core/Request.swift:109		
+swift0357	Source/Core/Protected.swift:104		
+swift0358	Source/Features/RequestInterceptor.swift:86		
+swift0359	Source/Core/Request.swift:138		
+swift0360	Source/Core/Request.swift:138		
+swift0361	Source/Core/Request.swift:111		
+swift0362	Source/Core/Request.swift:118		
+swift0363	Source/Core/Request.swift:50		
+swift0364	Source/Core/Request.swift:114		
+swift0365	Source/Core/Request.swift:116		
+swift0366	Source/Core/Request.swift:111		
+swift0367	Source/Core/Request.swift:111		
+swift0368	Source/Core/Request.swift:114		
+swift0369	Source/Core/Request.swift:116		
+swift0370	Source/Core/Request.swift:111		
+swift0371	Source/Core/Request.swift:116		
+swift0372	Source/Core/Request.swift:50		
+swift0373	Source/Core/Request.swift:118		
+swift0374	Source/Core/Request.swift:138		
+swift0375	Source/Core/Request.swift:114		
+swift0376	Source/Core/Request.swift:116		
+swift0377	Source/Core/Request.swift:138		
+swift0378	Source/Core/Request.swift:116		
+swift0379	Source/Core/Request.swift:114		
+swift0380	Source/Core/Request.swift:50		
+swift0381	Source/Core/Request.swift:50		
+swift0382	Source/Core/Request.swift:50		
+swift0383	Source/Core/Request.swift:105		
+swift0384	Source/Core/Request.swift:107		
+swift0385	Source/Core/Request.swift:109		
+swift0386	Source/Core/Request.swift:140		
+swift0387	Source/Core/Request.swift:140		
+swift0388	Source/Core/Request.swift:140		
+swift0389		builtin: an SDK interface the server generated	
+swift0390		builtin: an SDK interface the server generated	
+swift0391	Source/Core/HTTPHeaders.swift:190		
+swift0392	Source/Core/HTTPHeaders.swift:190		
+swift0393		builtin: an SDK interface the server generated	
+swift0394		builtin: an SDK interface the server generated	
+swift0395		builtin: an SDK interface the server generated	
+swift0396		builtin: an SDK interface the server generated	
+swift0397	Source/Extensions/Result+Alamofire.swift:45		
+swift0398	Source/Extensions/Result+Alamofire.swift:51		
+swift0399	Source/Core/Response.swift:449		
+swift0400	Source/Extensions/Result+Alamofire.swift:45		
+swift0401	Source/Extensions/Result+Alamofire.swift:51		
+swift0402	Source/Core/Response.swift:449		
+swift0403	Source/Core/Response.swift:449		
+swift0404	Source/Core/Response.swift:449		
+swift0405		builtin: an SDK interface the server generated	
+swift0406		builtin: an SDK interface the server generated	
+swift0407	Source/Core/Request.swift:157		
+swift0408	Source/Core/Session.swift:93		
+swift0409		builtin: an SDK interface the server generated	
+swift0410	Source/Core/Session.swift:91		
+swift0411	Source/Core/Session.swift:91		
+swift0412		builtin: an SDK interface the server generated	
+swift0413	Source/Core/Session.swift:93		
+swift0414		builtin: an SDK interface the server generated	
+swift0415	Source/Core/Session.swift:91		
+swift0416	Source/Core/Session.swift:91		
+swift0417	Source/Core/RequestTaskMap.swift:115		
+swift0418	Source/Core/Session.swift:95		
+swift0419	Source/Core/Session.swift:95		
+swift0420	Source/Core/Session.swift:91		
+swift0421	Source/Core/RequestTaskMap.swift:131		
+swift0422	Source/Core/Session.swift:95		
+swift0423	Source/Core/Session.swift:91		
+swift0424		builtin: an SDK interface the server generated	
+swift0425	Source/Core/Request.swift:157		
+swift0426	Source/Core/Request.swift:498		
+swift0427		builtin: an SDK interface the server generated	
+swift0428	Source/Features/ServerTrustEvaluation.swift:65		
+swift0429	Source/Core/Request.swift:684		
+swift0430	Source/Core/UploadRequest.swift:134		
+swift0431	Source/Core/Request.swift:479		
+swift0432	Source/Core/WebSocketRequest.swift:262		
+swift0433		builtin: an SDK interface the server generated	
+swift0434	Source/Core/WebSocketRequest.swift:342		
+swift0435	Source/Core/DownloadRequest.swift:184		
+swift0436	Source/Core/DownloadRequest.swift:184		
+swift0437	Source/Core/WebSocketRequest.swift:55		
+swift0438		builtin: an SDK interface the server generated	
+swift0439		builtin: an SDK interface the server generated	
+swift0440	Source/Core/WebSocketRequest.swift:134		
+swift0441		builtin: an SDK interface the server generated	
+swift0442	Source/Core/WebSocketRequest.swift:134		
+swift0443	Source/Core/WebSocketRequest.swift:134		
+swift0444	Source/Core/Request.swift:50		
+swift0445	Source/Core/WebSocketRequest.swift:137		
+swift0446	Source/Core/WebSocketRequest.swift:138		
+swift0447	Source/Core/WebSocketRequest.swift:138		
+swift0448	Source/Core/WebSocketRequest.swift:138		
+swift0449	Source/Core/WebSocketRequest.swift:137		
+swift0450	Source/Core/WebSocketRequest.swift:137		
+swift0451	Source/Core/WebSocketRequest.swift:137		
+swift0452	Source/Core/WebSocketRequest.swift:134		
+swift0453	Source/Features/AuthenticationInterceptor.swift:227		
+swift0454	Source/Features/AuthenticationInterceptor.swift:222		
+swift0455	Source/Features/AuthenticationInterceptor.swift:219		
+swift0456		builtin: an SDK interface the server generated	
+swift0457	Source/Features/AuthenticationInterceptor.swift:219		
+swift0458	Source/Features/AuthenticationInterceptor.swift:40		
+swift0459	Source/Features/AuthenticationInterceptor.swift:222		
+swift0460	Source/Features/AuthenticationInterceptor.swift:219		
+swift0461	Source/Features/AuthenticationInterceptor.swift:215		
+swift0462	Source/Features/AuthenticationInterceptor.swift:215		
+swift0463	Source/Features/AuthenticationInterceptor.swift:109		
+swift0464	Source/Features/AuthenticationInterceptor.swift:213		
+swift0465	Source/Features/AuthenticationInterceptor.swift:141		
+swift0466	Source/Features/AuthenticationInterceptor.swift:213		
+swift0467	Source/Features/AuthenticationInterceptor.swift:215		
+swift0468	Source/Features/AuthenticationInterceptor.swift:220		
+swift0469	Source/Features/AuthenticationInterceptor.swift:220		
+swift0470	Source/Features/AuthenticationInterceptor.swift:216		
+swift0471	Source/Features/AuthenticationInterceptor.swift:217		
+swift0472	Source/Features/AuthenticationInterceptor.swift:177		
+swift0473	Source/Features/AuthenticationInterceptor.swift:216		
+swift0474	Source/Features/AuthenticationInterceptor.swift:180		
+swift0475	Source/Features/AuthenticationInterceptor.swift:227		
+swift0476	Source/Features/AuthenticationInterceptor.swift:219		
+swift0477	Source/Features/AuthenticationInterceptor.swift:220		
+swift0478	Source/Features/AuthenticationInterceptor.swift:219		
+swift0479	Source/Features/AuthenticationInterceptor.swift:220		
+swift0480	Source/Features/AuthenticationInterceptor.swift:219		
+swift0481	Source/Features/AuthenticationInterceptor.swift:220		
+swift0482	Source/Features/AuthenticationInterceptor.swift:219		
+swift0483	Source/Features/AuthenticationInterceptor.swift:220		
+swift0484	Source/Features/AuthenticationInterceptor.swift:215		
+swift0485	Source/Core/Protected.swift:104		
+swift0486	Source/Features/ResponseSerialization.swift:110		
+swift0487	Source/Features/ResponseSerialization.swift:114		
+swift0488	Source/Features/ResponseSerialization.swift:112		
+swift0489	Source/Features/ResponseSerialization.swift:110		
+swift0490	Source/Features/ResponseSerialization.swift:114		
+swift0491	Source/Features/ResponseSerialization.swift:112		
+swift0492	Source/Core/DataStreamRequest.swift:36		
+swift0493	Source/Core/Protected.swift:104		
+swift0494	Source/Core/DataStreamRequest.swift:36		
+swift0495	Source/Core/Protected.swift:104		
+swift0496	Source/Features/ResponseSerialization.swift:110		
+swift0497	Source/Features/ResponseSerialization.swift:114		
+swift0498	Source/Features/ResponseSerialization.swift:112		
+swift0499	Source/Features/ResponseSerialization.swift:110		
+swift0500	Source/Features/ResponseSerialization.swift:114		
+swift0501	Source/Features/ResponseSerialization.swift:112		
+swift0502		builtin: an SDK interface the server generated	
+swift0503	Source/Features/ResponseSerialization.swift:110		
+swift0504	Source/Features/ResponseSerialization.swift:114		
+swift0505	Source/Features/ResponseSerialization.swift:112		
+swift0506	Source/Features/ResponseSerialization.swift:110		
+swift0507	Source/Features/ResponseSerialization.swift:114		
+swift0508	Source/Features/ResponseSerialization.swift:112		
+swift0509		builtin: an SDK interface the server generated	
+swift0510		builtin: an SDK interface the server generated	
+swift0511	Source/Features/ResponseSerialization.swift:110		
+swift0512	Source/Features/ResponseSerialization.swift:114		
+swift0513	Source/Features/ResponseSerialization.swift:112		
+swift0514	Source/Features/ResponseSerialization.swift:110		
+swift0515	Source/Features/ResponseSerialization.swift:114		
+swift0516	Source/Features/ResponseSerialization.swift:112		
+swift0517		builtin: an SDK interface the server generated	
+swift0518	Source/Core/DataStreamRequest.swift:36		
+swift0519	Source/Core/WebSocketRequest.swift:55		
+swift0520		builtin: an SDK interface the server generated	
+swift0521		builtin: an SDK interface the server generated	
+swift0522	Source/Features/MultipartFormData.swift:81		
+swift0523		builtin: an SDK interface the server generated	
+swift0524		builtin: an SDK interface the server generated	
+swift0525	Source/Features/MultipartFormData.swift:82		
+swift0526	Source/Features/MultipartFormData.swift:83		
+swift0527	Source/Features/MultipartFormData.swift:82		
+swift0528	Source/Features/MultipartFormData.swift:83		
+swift0529		builtin: an SDK interface the server generated	
+swift0530		builtin: an SDK interface the server generated	
+swift0531	Source/Core/Protected.swift:104		
+swift0532	Source/Features/MultipartFormData.swift:345		
+swift0533		builtin: an SDK interface the server generated	
+swift0534	Source/Features/NetworkReachabilityManager.swift:112		
+swift0535	Source/Features/NetworkReachabilityManager.swift:110		
+swift0536	Source/Features/NetworkReachabilityManager.swift:256		
+swift0537	Source/Features/NetworkReachabilityManager.swift:242		
+swift0538	Source/Features/NetworkReachabilityManager.swift:110		
+swift0539	Source/Features/NetworkReachabilityManager.swift:112		
+swift0540	Source/Features/NetworkReachabilityManager.swift:114		
+swift0541	Source/Features/NetworkReachabilityManager.swift:114		
+swift0542	Source/Features/NetworkReachabilityManager.swift:114		
+swift0543	Source/Features/NetworkReachabilityManager.swift:110		
+swift0544	Source/Features/NetworkReachabilityManager.swift:112		
+swift0545	Source/Features/OfflineRetrier.swift:174		
+swift0546	Source/Features/OfflineRetrier.swift:53		
+swift0547	Source/Features/OfflineRetrier.swift:58		
+swift0548	Source/Features/OfflineRetrier.swift:57		
+swift0549	Source/Features/OfflineRetrier.swift:58		
+swift0550	Source/Features/OfflineRetrier.swift:174		
+swift0551	Source/Features/OfflineRetrier.swift:49		
+swift0552		builtin: an SDK interface the server generated	
+swift0553		builtin: an SDK interface the server generated	
+swift0554		builtin: an SDK interface the server generated	
+swift0555	Source/Features/ResponseSerialization.swift:110		
+swift0556	Source/Features/ResponseSerialization.swift:112		
+swift0557	Source/Features/ResponseSerialization.swift:114		
+swift0558	Source/Features/ResponseSerialization.swift:110		
+swift0559	Source/Features/ResponseSerialization.swift:114		
+swift0560	Source/Features/ResponseSerialization.swift:112		
+swift0561		builtin: an SDK interface the server generated	
+swift0562	Source/Features/ResponseSerialization.swift:110		
+swift0563	Source/Features/ResponseSerialization.swift:114		
+swift0564	Source/Features/ResponseSerialization.swift:112		
+swift0565	Source/Features/ResponseSerialization.swift:110		
+swift0566	Source/Features/ResponseSerialization.swift:114		
+swift0567	Source/Features/ResponseSerialization.swift:112		
+swift0568		builtin: an SDK interface the server generated	
+swift0569	Source/Features/ResponseSerialization.swift:110		
+swift0570	Source/Features/ResponseSerialization.swift:114		
+swift0571	Source/Features/ResponseSerialization.swift:112		
+swift0572	Source/Features/ResponseSerialization.swift:110		
+swift0573	Source/Features/ResponseSerialization.swift:114		
+swift0574	Source/Features/ResponseSerialization.swift:112		
+swift0575		builtin: an SDK interface the server generated	
+swift0576	Source/Features/ResponseSerialization.swift:110		
+swift0577	Source/Features/ResponseSerialization.swift:114		
+swift0578	Source/Features/ResponseSerialization.swift:112		
+swift0579		builtin: an SDK interface the server generated	
+swift0580	Source/Features/ServerTrustEvaluation.swift:635		
+swift0581	Source/Features/ServerTrustEvaluation.swift:635		
+swift0582	Source/Features/ServerTrustEvaluation.swift:667		
+swift0583	Source/Features/ServerTrustEvaluation.swift:667		
+swift0584		builtin: an SDK interface the server generated	
+swift0585	Source/Features/ServerTrustEvaluation.swift:579		
+swift0586	Source/Features/ServerTrustEvaluation.swift:635		
+swift0587	Source/Features/ServerTrustEvaluation.swift:612		
+swift0588		builtin: an SDK interface the server generated	
+swift0589	Source/Features/ServerTrustEvaluation.swift:635		
+swift0590		builtin: an SDK interface the server generated	
+swift0591	Source/Features/ServerTrustEvaluation.swift:656		
+swift0592	Source/Features/ServerTrustEvaluation.swift:656		
+swift0593	Source/Features/ServerTrustEvaluation.swift:695		
+swift0594	Source/Core/Protected.swift:104		
+swift0595		builtin: an SDK interface the server generated	
+swift0596		builtin: an SDK interface the server generated	
+swift0597		builtin: an SDK interface the server generated	
+swift0598		builtin: an SDK interface the server generated	
+swift0599		builtin: an SDK interface the server generated	
+swift0600		builtin: an SDK interface the server generated	
+swift0601		builtin: an SDK interface the server generated	
+swift0602		builtin: an SDK interface the server generated	
+swift0603		builtin: an SDK interface the server generated	
+swift0604		builtin: an SDK interface the server generated	
+swift0605		builtin: an SDK interface the server generated	
+swift0606	Source/Features/URLEncodedFormEncoder.swift:539		
+swift0607		builtin: an SDK interface the server generated	
+swift0608	Source/Features/URLEncodedFormEncoder.swift:1118		
+swift0609	Source/Features/URLEncodedFormEncoder.swift:311		
+swift0610		builtin: an SDK interface the server generated	
+swift0611	Source/Features/URLEncodedFormEncoder.swift:1118		
+swift0612		builtin: an SDK interface the server generated	
+swift0613	Source/Features/URLEncodedFormEncoder.swift:1118		
+swift0614	Source/Features/Validation.swift:39		
+swift0615		builtin: an SDK interface the server generated	
+swift0616	Source/Features/Validation.swift:57		
+swift0617		builtin: an SDK interface the server generated	
+swift0618		builtin: an SDK interface the server generated	
+swift0619		builtin: an SDK interface the server generated	
+swift0620		builtin: an SDK interface the server generated	
+swift0621	Source/Core/Request.swift:1136		
+swift0622	Source/Core/Request.swift:1134		
+swift0623		builtin: an SDK interface the server generated	
+swift0624	Source/Core/Request.swift:1136		
+swift0625	Source/Core/Request.swift:1134		
+swift0626		builtin: an SDK interface the server generated	
+swift0627		builtin: an SDK interface the server generated	
+swift0628		builtin: an SDK interface the server generated	
+swift0629	Source/Core/Request.swift:1134		
+swift0630		builtin: an SDK interface the server generated	
+swift0631	Source/Core/Request.swift:1136		
+swift0632		builtin: an SDK interface the server generated	
+swift0633		builtin: an SDK interface the server generated	
+swift0634		builtin: an SDK interface the server generated	
+swift0635		builtin: an SDK interface the server generated	
+swift0636		builtin: an SDK interface the server generated	
+swift0637		builtin: an SDK interface the server generated	
+swift0638		builtin: an SDK interface the server generated	
+swift0639		builtin: an SDK interface the server generated	
+swift0640		builtin: an SDK interface the server generated	
+swift0641	Source/Core/Request.swift:1134		
+swift0642	Source/Core/Request.swift:1134		
+swift0643		builtin: an SDK interface the server generated	
+swift0644		builtin: an SDK interface the server generated	
+swift0645		builtin: an SDK interface the server generated	
+swift0646		builtin: an SDK interface the server generated	
+swift0647		builtin: an SDK interface the server generated	
+swift0648		builtin: an SDK interface the server generated	
+swift0649		builtin: an SDK interface the server generated	
+swift0650		builtin: an SDK interface the server generated	
+swift0651		builtin: an SDK interface the server generated	
+swift0652		builtin: an SDK interface the server generated	
+swift0653		builtin: an SDK interface the server generated	
+swift0654		builtin: an SDK interface the server generated	
+swift0655		builtin: an SDK interface the server generated	
+swift0656		builtin: an SDK interface the server generated	
+swift0657		builtin: an SDK interface the server generated	
+swift0658		builtin: an SDK interface the server generated	
+swift0659		builtin: an SDK interface the server generated	
+swift0660		builtin: an SDK interface the server generated	
+swift0661		builtin: an SDK interface the server generated	
+swift0662		builtin: an SDK interface the server generated	
+swift0663		builtin: an SDK interface the server generated	
+swift0664		builtin: an SDK interface the server generated	
+swift0665		builtin: an SDK interface the server generated	
+swift0666		builtin: an SDK interface the server generated	
+swift0667		builtin: an SDK interface the server generated	
+swift0668		builtin: an SDK interface the server generated	
+swift0669		builtin: an SDK interface the server generated	
+swift0670		builtin: an SDK interface the server generated	
+swift0671		builtin: an SDK interface the server generated	
+swift0672		builtin: an SDK interface the server generated	
+swift0673		builtin: an SDK interface the server generated	
+swift0674		builtin: an SDK interface the server generated	
+swift0675		builtin: an SDK interface the server generated	
+swift0676		builtin: an SDK interface the server generated	
+swift0677		builtin: an SDK interface the server generated	
+swift0678		builtin: an SDK interface the server generated	
+swift0679		builtin: an SDK interface the server generated	
+swift0680	Source/Core/Request.swift:1134		
+swift0681	Source/Core/Request.swift:1136		
+swift0682	Source/Core/Request.swift:1134		reviewed: judged, the server found none in Tests/; onHTTPResponse's handler takes Request.ResponseDisposition
+swift0683	Source/Core/Request.swift:1136		reviewed: judged, the server found none in Tests/; onHTTPResponse's handler takes Request.ResponseDisposition
+swift0684		builtin: an SDK interface the server generated	reviewed: judged, the server found none; Result<URLRequest, any Error>.success is Swift's own
+swift0685		builtin: an SDK interface the server generated	reviewed: judged, the server found none; Result<URLRequest, any Error>.success is Swift's own
+swift0686		builtin: an SDK interface the server generated	
+swift0687		builtin: an SDK interface the server generated	
+swift0688		builtin: an SDK interface the server generated	
+swift0689		builtin: an SDK interface the server generated	
+swift0690		builtin: an SDK interface the server generated	
+swift0691		builtin: an SDK interface the server generated	
+swift0692		builtin: an SDK interface the server generated	
+swift0693		builtin: an SDK interface the server generated	
+swift0694		builtin: an SDK interface the server generated	
+swift0695		builtin: an SDK interface the server generated	
+swift0696		builtin: an SDK interface the server generated	
+swift0697		builtin: an SDK interface the server generated	
+swift0698		builtin: an SDK interface the server generated	
+swift0699		builtin: an SDK interface the server generated	
+swift0700		builtin: an SDK interface the server generated	
+swift0701		builtin: an SDK interface the server generated	
+swift0702		builtin: an SDK interface the server generated	
+swift0703		builtin: an SDK interface the server generated	
+swift0704	Source/Core/Request.swift:1134		reviewed: judged, the server found none in Tests/; onHTTPResponse's handler takes Request.ResponseDisposition
+swift0705	Source/Core/Request.swift:1136		reviewed: judged, the server found none in Tests/; onHTTPResponse's handler takes Request.ResponseDisposition
+swift0706		builtin: an SDK interface the server generated	
+swift0707		builtin: an SDK interface the server generated	
+swift0708		builtin: an SDK interface the server generated	
+swift0709		builtin: an SDK interface the server generated	
+swift0710		builtin: an SDK interface the server generated	
+swift0711		builtin: an SDK interface the server generated	
+swift0712		builtin: an SDK interface the server generated	
+swift0713		builtin: an SDK interface the server generated	
+swift0714		builtin: an SDK interface the server generated	
+swift0715		builtin: an SDK interface the server generated	
+swift0716		builtin: an SDK interface the server generated	
+swift0717		builtin: an SDK interface the server generated	
+swift0718		builtin: an SDK interface the server generated	
+swift0719		builtin: an SDK interface the server generated	
+swift0720		builtin: an SDK interface the server generated	
+swift0721		builtin: an SDK interface the server generated	
+swift0722		builtin: an SDK interface the server generated	
+swift0723		builtin: an SDK interface the server generated	
+swift0724		builtin: an SDK interface the server generated	
+swift0725		builtin: an SDK interface the server generated	
+swift0726		builtin: an SDK interface the server generated	
+swift0727		builtin: an SDK interface the server generated	
+swift0728		builtin: an SDK interface the server generated	

@@ -1,0 +1,111 @@
+# id	targets: path:line joined by ; (project-relative; empty: none in reach)	skip: why the row is not scored	note (judged by reading the code: no language server ran for this language)
+sql0000	migrations/2020-01-21-001001_create_private_message/up.sql:9		judged; reviewed: private_message.published
+sql0001	migrations/2019-02-27-170003_create_community/up.sql:58		judged; reviewed: community_follower.user_id
+sql0002	migrations/2019-02-27-170003_create_community/up.sql:37		judged; reviewed: community.name
+sql0003	migrations/2020-08-03-000110_add_preferred_usernames_banners_and_icons/up.sql:117		judged: the cursor is on the declaration
+sql0004	migrations/2021-03-09-171136_split_user_table_2/up.sql:6		judged: user_ RENAME TO person
+sql0005	migrations/2025-08-01-000016_smoosh-tables-together/down.sql:38		judged: a column of community_person_ban, which its own down.sql creates again, checked line by line
+sql0006	migrations/2020-12-03-035643_create_user_aggregates/up.sql:5		judged: a column of person_aggregates (made as user_aggregates), checked line by line
+sql0007	migrations/2020-08-03-000110_add_preferred_usernames_banners_and_icons/up.sql:509		judged: alias
+sql0008	migrations/2020-01-29-011901_create_reply_materialized_view/down.sql:9		judged; reviewed: the cursor is on the alias AS recipient_id it declares
+sql0009		a column of the view comment_view, which its select list defines	judged; reviewed: was migrations/2019-03-05-233828_create_comment/up.sql:6
+sql0010	migrations/2026-04-16-000000-0000_add_invitation_table/up.sql:7		judged: the cursor is on the column's own definition
+sql0011		the cursor is on the name a RENAME TO gives	judged
+sql0012	migrations/2021-03-09-171136_split_user_table_2/down.sql:232		judged: a column of user_, which its own down.sql adds again, checked line by line
+sql0013	migrations/2019-02-27-170003_create_community/up.sql:37		judged; reviewed: community.name, in SELECT name FROM community
+sql0014			judged: a builtin
+sql0015	migrations/2023-07-04-153335_add_optimized_indexes/up.sql:48		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0016	migrations/2020-02-08-145624_add_post_newest_activity_time/up.sql:78		judged; reviewed: the cursor is on the alias AS score it declares
+sql0017	migrations/2023-08-09-101305_user_instance_block/up.sql:10		judged: a column of post_aggregates, checked line by line
+sql0018	migrations/2019-03-03-163336_create_post/up.sql:6		judged; reviewed: post.creator_id
+sql0019	migrations/2019-03-03-163336_create_post/up.sql:7		judged: a column of post, checked line by line
+sql0020	migrations/2019-03-05-233828_create_comment/up.sql:4		judged; reviewed: comment.post_id
+sql0021	migrations/2019-02-26-002946_create_user/up.sql:2		judged; reviewed: user_.id
+sql0022		the cursor is on the name a RENAME TO gives	judged
+sql0023	migrations/2025-08-01-000022_instance-block-mod-log/up.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0024	migrations/2022-10-06-183632_move_blocklist_to_db/up.sql:3		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0025	migrations/2019-03-05-233828_create_comment/up.sql:4		judged; reviewed: comment.post_id
+sql0026	migrations/2019-03-03-163336_create_post/up.sql:23		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0027	migrations/2019-03-03-163336_create_post/up.sql:8		judged; reviewed: post.removed, the trigger is ON post
+sql0028	migrations/2019-03-05-233828_create_comment/up.sql:18		judged; reviewed: comment_like.score, OLD of the trigger ON comment_like
+sql0029	migrations/2025-08-01-000009_add_federation_vote_rejection/up.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0030	migrations/2019-04-07-003142_create_moderation_logs/up.sql:18		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0031	migrations/2019-03-03-163336_create_post/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0032	migrations/2020-01-13-025151_create_materialized_views/down.sql:280		judged: the cursor is on the declaration
+sql0033	migrations/2025-10-15-114811-0000_merge-modlog-tables/down.sql:121		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0034	migrations/2022-01-04-034553_add_hidden_column/up.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0035	migrations/2020-01-13-025151_create_materialized_views/up.sql:610		judged; reviewed: the function its own up.sql creates; the re-creations come later
+sql0036	migrations/2019-03-30-212058_create_post_view/up.sql:2		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0037	migrations/2019-02-26-002946_create_user/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0038			judged: a builtin
+sql0039	migrations/2025-10-09-101527-0000_community-follower-denied/down.sql:4		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0040	migrations/2022-10-06-183632_move_blocklist_to_db/up.sql:32		judged; reviewed: site.instance_id, which its own up.sql adds (the line was not pinned)
+sql0041	migrations/2019-02-26-002946_create_user/up.sql:2		judged; reviewed: user_.id
+sql0042	migrations/2019-03-05-233828_create_comment/up.sql:3		judged; reviewed: comment.creator_id
+sql0043	migrations/2019-02-26-002946_create_user/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0044	migrations/2019-04-29-175834_add_delete_columns/up.sql:13		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0045			judged: a builtin
+sql0046	migrations/2025-08-01-000063_post-or-comment-notification/up.sql:10		judged: comment_reply RENAME TO notification
+sql0047	migrations/2019-03-03-163336_create_post/up.sql:32		judged; reviewed: post_read.id
+sql0048	migrations/2019-04-07-003142_create_moderation_logs/up.sql:4		judged; reviewed: mod_remove_post.post_id
+sql0049	migrations/2021-10-01-141650_create_admin_purge/up.sql:24		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0050		a column of post_aggregates_fast, a table made AS SELECT * from a view	judged; reviewed: was migrations/2019-04-07-003142_create_moderation_logs/up.sql:63
+sql0051	migrations/2020-12-04-183345_create_community_aggregates/up.sql:5		judged; reviewed: community_aggregates.subscribers
+sql0052	migrations/2019-03-03-163336_create_post/up.sql:18		judged; reviewed: post_like.score
+sql0053	migrations/2025-10-15-114811-0000_merge-modlog-tables/down.sql:145		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0054	migrations/2021-03-09-171136_split_user_table_2/up.sql:12		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0055	migrations/2022-10-06-183632_move_blocklist_to_db/up.sql:3		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0056	migrations/2020-06-30-135809_remove_mat_views/down.sql:967		judged: alias on its own line, second UNION branch
+sql0057	migrations/2019-03-03-163336_create_post/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0058	migrations/2019-02-27-170003_create_community/up.sql:36		judged; reviewed: community.id
+sql0059	migrations/2021-03-09-171136_split_user_table_2/up.sql:6		judged: user_ RENAME TO person
+sql0060	migrations/2025-10-15-114811-0000_merge-modlog-tables/up.sql:36		judged: a column of modlog, checked line by line
+sql0061		a column of the view comment_view, which its select list defines	judged; reviewed: was migrations/2019-04-07-003142_create_moderation_logs/up.sql:73
+sql0062	migrations/2025-10-15-114811-0000_merge-modlog-tables/up.sql:26		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0063	migrations/2020-06-30-135809_remove_mat_views/down.sql:851		judged: alias
+sql0064		a field of the generic record parameter new: no one table	judged; reviewed: was migrations/2021-08-17-210508_create_mod_transfer_community/up.sql:7
+sql0065		a column of comment_aggregates_fast, a table made AS SELECT * from a view	judged; reviewed: was migrations/2020-03-26-192410_add_activitypub_tables/up.sql:4
+sql0066	migrations/2020-06-30-135809_remove_mat_views/down.sql:851		judged: alias
+sql0067	migrations/2025-10-15-114811-0000_merge-modlog-tables/up.sql:39		judged: a column of modlog, checked line by line
+sql0068			judged: a builtin
+sql0069	migrations/2019-12-29-164820_add_avatar/down.sql:281		judged: alias
+sql0070	migrations/2019-04-29-175834_add_delete_columns/down.sql:85		judged: CTE
+sql0071	migrations/2019-03-03-163336_create_post/up.sql:6		judged; reviewed: post.creator_id
+sql0072	migrations/2020-06-30-135809_remove_mat_views/down.sql:966		judged; reviewed: the alias of its own UNION branch, FROM all_comment ac
+sql0073			judged: a builtin
+sql0074	migrations/2025-08-01-000019_add_report_count/up.sql:4		judged; reviewed: post_aggregates.report_count
+sql0075			judged: a builtin
+sql0076		a column of comment_aggregates_fast, a table made AS SELECT * from a view	judged; reviewed: was migrations/2020-03-26-192410_add_activitypub_tables/up.sql:4
+sql0077	migrations/2019-04-03-155205_create_community_view/up.sql:52		judged: the cursor is on the declaration
+sql0078		a column of the CTE all_comment, which takes it from c.*	judged; reviewed: was migrations/2020-01-21-001001_create_private_message/up.sql:3
+sql0079	migrations/2023-12-19-210053_tolerable-batch-insert-speed/up.sql:159		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0080	migrations/2025-08-01-000024_add_person_content_combined_table/up.sql:36		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0081	migrations/2025-08-01-000055_rename_timestamp_add_at/up.sql:23		judged; reviewed: comment_actions.saved_at, NEW of the trigger ON comment_actions
+sql0082	crates/diesel_utils/replaceable_schema/triggers.sql:198		judged: the cursor is on the declaration
+sql0083	migrations/2025-08-01-000016_smoosh-tables-together/up.sql:69		judged; reviewed: post_actions.person_id, OLD of the trigger ON post_actions; CREATE TABLE AS names it
+sql0084	migrations/2025-08-01-000024_add_person_content_combined_table/up.sql:36		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0085	crates/diesel_utils/replaceable_schema/triggers.sql:321		judged; reviewed: the AS diff of its own UPDATE; the old target was the cursor line
+sql0086	migrations/2025-08-01-000049_add_liked_combined/up.sql:12		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0087	migrations/2025-08-01-000023_add_report_combined_table/up.sql:3		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0088	crates/diesel_utils/replaceable_schema/triggers.sql:175		judged; reviewed: the cursor is on the alias AS comments it declares
+sql0089	migrations/2025-08-01-000049_add_liked_combined/up.sql:12		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0090	crates/diesel_utils/replaceable_schema/utils.sql:82		judged: procedure
+sql0091	crates/diesel_utils/replaceable_schema/triggers.sql:290		judged: the cursor is on the declaration
+sql0092			judged: a builtin
+sql0093	migrations/2025-08-01-000016_smoosh-tables-together/up.sql:69		judged; reviewed: post_actions.person_id; CREATE TABLE AS names it
+sql0094	crates/diesel_utils/replaceable_schema/triggers.sql:70		judged; reviewed: the alias string_to_table (...) AS comment_id
+sql0095	crates/diesel_utils/replaceable_schema/utils.sql:135		judged: the cursor is on the declaration
+sql0096	crates/diesel_utils/replaceable_schema/triggers.sql:229		judged; reviewed: the derived table's AS posts
+sql0097	migrations/2021-03-09-171136_split_user_table_2/up.sql:6		judged: user_ RENAME TO person
+sql0098	migrations/2025-08-01-000016_smoosh-tables-together/up.sql:69		judged; reviewed: post_actions.person_id, NEW of the trigger ON post_actions; CREATE TABLE AS names it
+sql0099	migrations/2019-03-03-163336_create_post/up.sql:7		judged; reviewed: post.community_id, GROUP BY in SELECT ... FROM post
+sql0100	crates/diesel_utils/replaceable_schema/utils.sql:86		judged: the cursor is on the declaration
+sql0101	crates/diesel_utils/replaceable_schema/utils.sql:49		judged: the cursor is on the declaration
+sql0102	migrations/2019-03-03-163336_create_post/up.sql:6		judged; reviewed: post.creator_id
+sql0103	migrations/2019-02-27-170003_create_community/up.sql:35		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0104		a column of a derived table's select list	judged
+sql0105	crates/diesel_utils/replaceable_schema/utils.sql:242		judged; reviewed: the DECLARE count_ integer of its function
+sql0106	migrations/2021-03-31-105915_add_bot_account/up.sql:5		judged: a column of person, checked line by line
+sql0107	crates/diesel_utils/replaceable_schema/triggers.sql:132		judged: the cursor is on the declaration
+sql0108	crates/diesel_utils/replaceable_schema/utils.sql:127		judged: PL/pgSQL DECLARE
+sql0109	migrations/2020-04-03-194936_add_activitypub_for_posts_and_comments/up.sql:9		judged; reviewed: comment.ap_id, NEW of the trigger ON comment

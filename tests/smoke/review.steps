@@ -117,7 +117,7 @@ key o
 wait Files (
 type app/repos.py
 key Enter
-wait app/repos.py
+wait app/repos.py  1:1  [code]  hunk 0/1  file 2/8
 key /
 type orders.clear
 key Enter
@@ -136,7 +136,9 @@ wait [preview]
 key p
 wait [code]
 # C back from docs/paging.md: on config.py's hunk, which rewrites a line, c and C stand on the
-# line it added, the one it deleted above it (#690).
+# line it added, the one it deleted above it (#690). config.py was ticked in the first review of
+# agent/page-size above, and C passes over a file ticked before (#823): m in the panel takes it off.
+key Tab Up Up m Tab
 key C
 wait hunk 1/1  file 1/2
 caption merl -r agent/totp: a package eleven directories deep; the chain folds into one row (#399)
@@ -152,7 +154,9 @@ caption c in a hunk taller than the screen: its first row not drawn yet, then th
 size 185x12
 merl --review=agent/refund
 wait file 6/8
-key C C C C C C C
+# The files before it were ticked in the first review of agent/refund above, so C passes over
+# them (#823): the panel's Enter opens app/refunds.py.
+key Tab Up*10 Enter
 wait hunk 1/1  file 1/8
 key m
 wait not viewed

@@ -58,12 +58,14 @@ mod python;
 mod resolution;
 mod review;
 mod ruby;
+mod ruby_value;
 mod rust;
 mod scroll;
 mod search_job;
 mod solidity;
 mod starlark;
 mod swift;
+mod swift_typed;
 mod symbols;
 mod tree;
 mod typed;
@@ -303,6 +305,7 @@ const HIST_MAX: usize = 50;
 
 type Paths = Arc<Vec<PathBuf>>;
 type CMode = (bool, bool);
+type RubyDeclared = HashMap<(PathBuf, String), (Vec<Hit>, bool)>;
 
 #[expect(
     clippy::struct_excessive_bools,
@@ -334,6 +337,7 @@ pub struct App {
     truncated: std::cell::Cell<bool>,
     anonymous_named: std::cell::Cell<Option<Typed>>,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
+    ruby_declared: std::cell::RefCell<RubyDeclared>,
     pub focus: Focus,
     pub show_tree: bool,
     pub tree_width: Option<u16>,
@@ -404,6 +408,7 @@ pub struct App {
     pub viewed: HashMap<PathBuf, u64>,
     seen: HashMap<PathBuf, HashSet<TextLine>>,
     hidden: HashMap<PathBuf, u64>,
+    ticked_this_round: HashSet<PathBuf>,
     unfolded: HashSet<PathBuf>,
     viewed_branch: Option<String>,
     last_hunk: Option<(PathBuf, usize)>,
@@ -495,6 +500,7 @@ impl App {
             truncated: std::cell::Cell::default(),
             anonymous_named: std::cell::Cell::default(),
             reading: std::cell::RefCell::default(),
+            ruby_declared: std::cell::RefCell::default(),
             focus,
             show_tree: true,
             tree_width: None,
@@ -565,6 +571,7 @@ impl App {
             viewed: HashMap::new(),
             seen: HashMap::new(),
             hidden: HashMap::new(),
+            ticked_this_round: HashSet::new(),
             unfolded: HashSet::new(),
             viewed_branch: None,
             last_hunk: None,

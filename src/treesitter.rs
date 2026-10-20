@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-pub use filetype::for_syntax;
+pub use filetype::{for_syntax, hashbang};
 use pattern::{lua_pattern, lua_replacement, vim_pattern};
 use ratatui::style::Style;
 use syntect::highlighting::Highlighter;

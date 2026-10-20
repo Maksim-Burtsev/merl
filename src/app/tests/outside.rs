@@ -185,6 +185,192 @@ fn a_dart_qualifier_is_no_directory() {
 }
 
 #[test]
+fn a_dart_receiver_of_an_sdk_type_answers_from_the_sdk() {
+    let sdk = external_root(
+        "outside-dart-sdk",
+        &[
+            ("lib/core/core.dart", "library dart.core;\n"),
+            (
+                "lib/async/async.dart",
+                "library dart.async;\n\npart 'future.dart';\n",
+            ),
+            (
+                "lib/async/future.dart",
+                "part of dart.async;\n\nabstract interface class Completer<T> {\n  bool get isCompleted;\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-sdk-project",
+        &[(
+            "lib/main.dart",
+            "import 'dart:async';\n\nclass Handler {\n  bool get isCompleted => false;\n}\n\nvoid run() {\n  final Completer<int> completer = Completer<int>();\n  if (completer.isCompleted) {}\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "completer.isCompleted");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "isCompleted \u{2192} Completer.isCompleted (via Completer)",
+            &at(&sdk, "lib/async/future.dart", 4)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_dart_sdk_name_skips_the_patch_files_and_a_static_reads_its_class() {
+    let sdk = external_root(
+        "outside-dart-patch",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'uri.dart';\npart 'print.dart';\n",
+            ),
+            (
+                "lib/core/uri.dart",
+                "part of dart.core;\n\nabstract interface class Uri {\n  static Uri parse(String s) => throw 0;\n}\n",
+            ),
+            (
+                "lib/core/print.dart",
+                "part of dart.core;\n\nvoid print(Object? o) {}\n",
+            ),
+            (
+                "lib/_internal/vm/core_patch.dart",
+                "@patch\nclass Uri {\n  @patch\n  static Uri parse(String s) => throw 0;\n}\n\n@patch\nvoid print(Object? o) {}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-patch-project",
+        &[
+            (
+                "lib/main.dart",
+                "void main() {\n  Uri.parse('x');\n  print(1);\n}\n",
+            ),
+            (
+                "lib/other.dart",
+                "class Url {\n  static Url parse(String s) => Url();\n}\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "Uri.parse");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "parse \u{2192} Uri.parse (via Uri)",
+            &at(&sdk, "lib/core/uri.dart", 4)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "print");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "print: by name, 1 match",
+            &at(&sdk, "lib/core/print.dart", 3)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_called_dart_sdk_class_lands_on_its_constructor_and_a_written_one_on_the_class() {
+    let sdk = external_root(
+        "outside-dart-constructor",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'errors.dart';\n",
+            ),
+            (
+                "lib/core/errors.dart",
+                "part of dart.core;\n\nclass StateError extends Error {\n  final String message;\n  StateError(this.message);\n}\n\n@pragma(1)\nabstract interface class Completer<T> {\n  factory Completer() => throw 0;\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-constructor-project",
+        &[(
+            "lib/main.dart",
+            "StateError fail() {\n  throw StateError('x');\n}\n\nfinal c = Completer<int>();\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "throw |StateError(");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "StateError \u{2192} StateError.StateError (by name, 1 match)",
+            &at(&sdk, "lib/core/errors.dart", 5)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "^|StateError fail");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "StateError: by name, 1 match",
+            &at(&sdk, "lib/core/errors.dart", 3)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "c = |Completer<int>");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Completer \u{2192} Completer.Completer (by name, 1 match)",
+            &at(&sdk, "lib/core/errors.dart", 10)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_dart_sdk_class_written_through_an_import_prefix_keeps_its_class_and_constructor() {
+    let sdk = external_root(
+        "outside-dart-prefixed",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'errors.dart';\n",
+            ),
+            (
+                "lib/core/errors.dart",
+                "part of dart.core;\n\nclass StateError extends Error {\n  StateError(this.message);\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-prefixed-project",
+        &[(
+            "lib/main.dart",
+            "import 'dart:core' as core;\n\nfinal e = core.StateError('x');\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "core.|StateError(");
+    assert_eq!(
+        shown(&mut a),
+        picker(
+            "StateError: by name, 2 declarations",
+            &[
+                ("StateError", "core/errors.dart:3"),
+                ("StateError.StateError", "core/errors.dart:4"),
+            ]
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_component_reads_as_its_script_with_the_rest_blank() {
     let (dir, a) = project_app(
         "outside-component",
@@ -223,4 +409,73 @@ fn a_path_outside_is_shown_from_its_root() {
         Path::new("deps/jason/lib/jason.ex")
     );
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
+    let builder = "<?php\n\nnamespace App\\Builders;\n\nuse Illuminate\\Database\\Query\\JoinClause;\n\nclass ArtistBuilder\n{\n    public function joined(): void\n    {\n        $this->leftJoin('t', function (JoinClause $join): void {\n            $join->on('a', 'b');\n            $join->where('c', 1);\n        });\n    }\n\n    /**\n     * @param Scanner $user\n     */\n    public function __invoke(JoinClause $user): void\n    {\n        $user->on('x');\n    }\n}\n";
+    let scanner = "<?php\n\nnamespace App\\Services;\n\nclass Scanner\n{\n    public function on(string $event): void\n    {\n    }\n\n    public function where(): void\n    {\n    }\n}\n";
+    let join = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass JoinClause extends Builder\n{\n    public function on($first, $second)\n    {\n    }\n}\n";
+    let query = "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass Builder\n{\n    public function where($column, $value)\n    {\n    }\n}\n";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Builders/ArtistBuilder.php", builder),
+        ("app/Services/Scanner.php", scanner),
+        ("vendor/laravel/Query/JoinClause.php", join),
+        ("vendor/laravel/Query/Builder.php", query),
+    ];
+    for vendor in [false, true] {
+        let (dir, mut a) = project_app("php-outside-receiver", &files);
+        if !vendor {
+            a.no_external();
+        }
+        let mut d = |code: &str| {
+            d_on(&mut a, "app/Builders/ArtistBuilder.php", code);
+            shown(&mut a)
+        };
+        let scanner_on = ("Scanner::on", "app/Services/Scanner.php:7");
+        let by_name = if vendor {
+            picker(
+                "on: by name, 2 declarations",
+                &[
+                    scanner_on,
+                    ("JoinClause::on", "laravel/Query/JoinClause.php:7"),
+                ],
+            )
+        } else {
+            jump("on \u{2192} Scanner::on (by name, 1 match)", scanner_on.1)
+        };
+        let (on, where_) = if vendor {
+            (
+                jump(
+                    "on \u{2192} JoinClause::on (via $join: JoinClause)",
+                    "vendor/laravel/Query/JoinClause.php:7",
+                ),
+                jump(
+                    "where \u{2192} Builder::where (via $join: JoinClause)",
+                    "vendor/laravel/Query/Builder.php:7",
+                ),
+            )
+        } else {
+            (
+                jump("no definition for on", "app/Builders/ArtistBuilder.php:12"),
+                jump(
+                    "no definition for where",
+                    "app/Builders/ArtistBuilder.php:13",
+                ),
+            )
+        };
+        assert_eq!(d("$join->on"), on, "vendor: {vendor}");
+        assert_eq!(d("$join->where"), where_, "vendor: {vendor}");
+        assert_eq!(
+            d("$user->on"),
+            by_name,
+            "a docblock's @param keeps the search by name: vendor: {vendor}"
+        );
+        drop(std::fs::remove_dir_all(dir));
+    }
 }

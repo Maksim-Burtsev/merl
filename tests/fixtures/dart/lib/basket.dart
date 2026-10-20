@@ -69,10 +69,10 @@ class Basket {
     //                                       ^ d: lib/pricing.dart:52
     //                                                     ^ d: lib/pricing.dart:53
     print([tariff.describe(), Tariff.parse('1'), tariff.title]);
-    //            ^ d: picker lib/pricing.dart:55, lib/coupon.dart:6
+    //            ^ d: lib/pricing.dart:55
     //                               ^ d: lib/pricing.dart:56
     // status: via import pricing.dart
-    //                                                  ^ d: picker lib/pricing.dart:57, lib/pricing.dart:58
+    //                                                  ^ d: lib/pricing.dart:57
     print([first([1]), main(), _$TariffFromJson({}), $TariffCopyWith()]);
     //     ^ d: lib/pricing.dart:64
     //                 ^ d: lib/pricing.dart:66

@@ -15,3 +15,7 @@ pub mod tints;
 pub mod carts;
 pub mod hauls;
 pub mod tea;
+pub mod looms;
+pub mod heddles;
+pub mod bales;
+pub mod infusion;

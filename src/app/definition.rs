@@ -1,6 +1,7 @@
 mod by_name;
 mod early;
 mod imports;
+mod js_std;
 mod locals;
 mod members;
 mod pathed;
@@ -48,6 +49,7 @@ impl App {
 
     pub(super) fn goto_definition(&mut self) {
         self.anonymous_named.set(None);
+        self.ruby_declared.get_mut().clear();
         let kind = self.kind();
         if self.answered_without_word(kind) {
             return;
@@ -169,7 +171,12 @@ impl App {
             } else {
                 ", found by name"
             };
-            for (path, line, of) in at {
+            for (path, mut line, of) in at {
+                if kind == Kind::Swift && *owner == search::Owner::Args {
+                    line = self
+                        .text_of(&path)
+                        .map_or(line, |t| search::swift_signature_line(&t, line));
+                }
                 if out
                     .iter()
                     .any(|o| o.hit.path == path && o.hit.line1 == line)
@@ -308,13 +315,13 @@ impl App {
         depth: usize,
     ) -> Result<Option<Typed>, GoTypeUnread> {
         static DEFINED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r"^type\s+[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)")
+            Regex::new(r"^(?:type\s+)?[A-Za-z_]\w*(?:\[[^\]]*\])?\s+([^/{]*)")
                 .expect("the regex is a literal")
         });
         let ty = self.type_decl(kind, file, written).ok_or(GoTypeUnread)?;
         let text = self.text_of(&ty.path).ok_or(GoTypeUnread)?;
         let line = text.lines().nth(ty.line - 1).ok_or(GoTypeUnread)?;
-        let over = DEFINED.captures(line).ok_or(GoTypeUnread)?[1]
+        let over = DEFINED.captures(line.trim_start()).ok_or(GoTypeUnread)?[1]
             .trim()
             .to_owned();
         if over.starts_with("struct") {
@@ -425,6 +432,9 @@ impl App {
             self.python_implementation(word, here, &mut found);
         }
         let all = found.len();
+        let own = (found.iter())
+            .find(|c| c.hit.line1 == self.line + 1 && c.hit.path == here)
+            .map(|c| c.hit.clone());
         if all > 1 {
             found.retain(|c| c.hit.line1 != self.line + 1 || c.hit.path != here);
         }
@@ -452,12 +462,16 @@ impl App {
                 .iter()
                 .any(|c| c.hit.line1 != self.line + 1 || c.hit.path != here)
             && self.on_declared_name(kind, word, false);
+        let counterpart =
+            namesakes && kind == Kind::C && all == 2 && self.c_counterpart(word, own, &found);
+        let namesakes = namesakes && !counterpart;
         let word_chars = search::word_chars(Some(kind), true);
         let form = |t: &str| {
             t.get(..word_col(t, word, word_chars))
                 .map(|h| h.trim().to_owned())
         };
         let copy = found.len() < all
+            && !counterpart
             && !namesakes
             && search::definition_word(Some(kind), self.line_str(), self.col).is_some_and(
                 |(r, _)| {
@@ -481,6 +495,19 @@ impl App {
             }
             _ => self.pick_definitions(kind, word, found, broke, namesakes, truncated),
         }
+    }
+
+    fn c_counterpart(&self, word: &str, own: Option<Hit>, found: &[Candidate]) -> bool {
+        let (Some(own), [other]) = (own, found) else {
+            return false;
+        };
+        let owner = |h: &Hit| {
+            self.text_of(&h.path)
+                .and_then(|t| search::cpp_owner(&t, h.line1, word))
+        };
+        let pair = [own, other.hit.clone()];
+        owner(&pair[0]).is_some_and(|o| owner(&pair[1]) == Some(o))
+            && search::c_one_definition(word, &pair, |p| self.text_of(p)).is_some()
     }
 
     fn keep_shown(&self, kind: Kind, word: &str, found: &mut Vec<Candidate>) {
@@ -706,21 +733,30 @@ impl App {
                     None => true,
                 }
             });
-            let lead = search::definition_word(Some(kind), self.line_str(), self.col)
-                .and_then(|(r, _)| self.line_str().get(..r.start));
+            let at = search::definition_word(Some(kind), self.line_str(), self.col).map(|(r, _)| r);
+            let lead = at.clone().and_then(|r| self.line_str().get(..r.start));
+            let assigns = at
+                .and_then(|r| self.line_str().get(r.end..))
+                .is_some_and(|t| t.starts_with(['=', '+', '[']));
             if let Some(command) = lead.and_then(search::shell_command_position) {
                 let sorted: Vec<Hit> = hits
                     .iter()
                     .filter(|h| search::shell_names_a_command(&h.text) == command)
                     .cloned()
                     .collect();
-                if !sorted.is_empty() {
+                if !sorted.is_empty() || (command && !assigns) {
                     hits = sorted;
                 }
             }
         }
-        if kind == Kind::Sql
-            && let Some((range, _)) = self.word_here(Some(kind)).filter(|(_, w)| *w == word)
+        if kind == Kind::Sql {
+            self.sql_hits(here, word, &mut hits);
+        }
+        hits
+    }
+
+    fn sql_hits(&self, here: &Path, word: &str, hits: &mut Vec<Hit>) {
+        if let Some((range, _)) = self.word_here(Some(Kind::Sql)).filter(|(_, w)| *w == word)
             && let Some(lead) = self.line_str().get(..range.start)
             && hits
                 .iter()
@@ -728,10 +764,9 @@ impl App {
         {
             hits.retain(|h| search::sql_same_schema(lead, &h.text) == Some(true));
         }
-        if kind == Kind::Sql
-            && !hits
-                .iter()
-                .any(|h| h.path == here && h.line1 == self.line + 1)
+        if !hits
+            .iter()
+            .any(|h| h.path == here && h.line1 == self.line + 1)
         {
             let cte = Regex::new(&search::sql_cte(word)).expect("an escaped name keeps it valid");
             let text = self.text_of(here).unwrap_or_default();
@@ -755,7 +790,9 @@ impl App {
                 }
             });
         }
-        hits
+        if hits.iter().any(|h| !search::sql_renames(&h.text)) {
+            hits.retain(|h| !search::sql_renames(&h.text));
+        }
     }
 }
 

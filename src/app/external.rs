@@ -952,7 +952,7 @@ impl App {
             self.hidden_of(kind, h)
         } else {
             (self.hit_file_text(h)).map_or_else(Vec::new, |t| match kind {
-                Kind::C => self.c_hidden(&h.path, &t),
+                Kind::C | Kind::CSharp => self.c_hidden(kind, &h.path, &t),
                 _ => search::file_literal_lines(kind, &h.path, &t),
             })
         }

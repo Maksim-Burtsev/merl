@@ -7,8 +7,8 @@ use super::{
     enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
     julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp, lisp_name,
     literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_impl_type,
-    rust_let_declares, separator, shared_symbols, symbol_name, ts_declarators, type_name,
-    uncommented, value_of, word_chars,
+    rust_let_declares, separator, shared_symbols, split_top, symbol_name, ts_declarators,
+    type_name, uncommented, value_of, word_chars,
 };
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
@@ -457,36 +457,81 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
     let led = |l: &str| {
         let t = l.trim_start();
         match kind {
-            Kind::TsJs => t.starts_with('.') && !t.starts_with(".."),
+            Kind::TsJs | Kind::Rust | Kind::Swift | Kind::Python => {
+                t.starts_with('.') && !t.starts_with("..")
+            }
+            Kind::Jvm | Kind::Dart => {
+                t.strip_prefix('?').unwrap_or(t).starts_with('.') && !t.starts_with("..")
+            }
             Kind::Php => t.starts_with("->") || t.starts_with("?->"),
             _ => false,
         }
     };
-    if !led(&lines[at]) {
-        return None;
-    }
-    let mut joined = lines[at].trim_start().to_owned();
-    let mut start = word_start - indent(&lines[at]);
-    for above in lines[at.saturating_sub(40)..at].iter().rev() {
-        let code = uncommented(kind, above);
-        let code = if led(&code) {
-            code.trim()
-        } else {
-            code.trim_end()
-        };
-        if code.is_empty() {
-            continue;
+    let held = |above: &str, below: &str| match kind {
+        Kind::Go => above.ends_with('.') && !above.ends_with(".."),
+        Kind::Jvm | Kind::Swift | Kind::Dart => led(below) && ends_a_receiver(above),
+        _ => led(below),
+    };
+    let unclosed = |joined: &str, start: usize| joined.get(..start).map_or(0, unclosed_parens);
+    let join = |through_parens: bool| {
+        let mut joined = lines[at].trim_start().to_owned();
+        let mut start = word_start - indent(&lines[at]);
+        let mut below = lines[at].clone();
+        let mut links = 0;
+        for above in lines[at.saturating_sub(40)..at].iter().rev() {
+            let code = uncommented(kind, above);
+            let code = code.trim_end();
+            if code.is_empty() {
+                continue;
+            }
+            if !(held(code, &below) || (through_parens && unclosed(&joined, start) > 0)) {
+                break;
+            }
+            let head = joined.len() - joined.trim_start().len();
+            joined.drain(..head);
+            start = start + code.len() - head;
+            joined.insert_str(0, code);
+            code.clone_into(&mut below);
+            links += 1;
         }
-        start += code.len();
-        joined.insert_str(0, code);
-        if !led(code) {
-            return Some(LineAsRead {
-                line: joined,
-                word_start: start,
-            });
+        (joined, start, below, links)
+    };
+    let mut joined = join(kind == Kind::Rust);
+    if unclosed(&joined.0, joined.1) > 0 {
+        joined = join(false);
+    }
+    let (joined, start, below, links) = joined;
+    (links > 0 && !led(&below)).then_some(LineAsRead {
+        line: joined,
+        word_start: start,
+    })
+}
+fn unclosed_parens(code: &str) -> i32 {
+    let mut quoted = false;
+    let mut escaped = false;
+    let mut depth = 0;
+    for c in code.chars() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' if quoted => escaped = true,
+            '"' => quoted = !quoted,
+            ')' if !quoted => depth += 1,
+            '(' if !quoted => depth -= 1,
+            _ => {}
         }
     }
-    None
+    depth
+}
+fn ends_a_receiver(code: &str) -> bool {
+    const STARTS_AN_EXPRESSION: [&str; 13] = [
+        "return", "in", "case", "try", "await", "throw", "else", "is", "as", "some", "any",
+        "yield", "where",
+    ];
+    let word = code
+        .get(name_start(code, |c| c.is_alphanumeric() || c == '_')..)
+        .unwrap_or_default();
+    code.ends_with(|c: char| c.is_alphanumeric() || "_)]}!".contains(c))
+        && !STARTS_AN_EXPRESSION.contains(&word)
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct LineAsRead {
@@ -495,13 +540,17 @@ pub struct LineAsRead {
 }
 pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
     let (before, after) = match (kind, line.split_at_checked(start)) {
-        (Kind::TsJs | Kind::Swift, Some((head, tail))) => {
+        (Kind::TsJs | Kind::Swift | Kind::Dart, Some((head, tail))) => {
             (head.replace("?.", ".").replace("!.", "."), tail)
         }
         (Kind::Php, Some((head, tail))) => (
             head.replace('.', " ")
                 .replace("?->", ".")
                 .replace("->", "."),
+            tail,
+        ),
+        (Kind::Jvm, Some((head, tail))) if head.ends_with('>') => (
+            without_type_arguments(head).unwrap_or(head).to_owned(),
             tail,
         ),
         _ => {
@@ -516,11 +565,29 @@ pub fn plain_access(kind: Kind, line: &str, start: usize) -> LineAsRead {
         word_start: before.len(),
     }
 }
+fn without_type_arguments(head: &str) -> Option<&str> {
+    let mut depth = 0;
+    for (i, c) in head.char_indices().rev() {
+        match c {
+            '>' => depth += 1,
+            '<' => depth -= 1,
+            c if c.is_ascii_alphanumeric() || " _.,?&[]".contains(c) => {}
+            _ => return None,
+        }
+        if depth == 0 {
+            return head
+                .get(..i)
+                .map(str::trim_end)
+                .filter(|h| h.ends_with('.'));
+        }
+    }
+    None
+}
 pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> {
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_' || c == '$';
     let mut before = line.get(..word_start)?.strip_suffix('.')?;
     let mut fields = Vec::new();
-    let indexed = |b: &str| kind == Kind::TsJs && b.ends_with(']');
+    let indexed = |b: &str| matches!(kind, Kind::TsJs | Kind::Go) && b.ends_with(']');
     while !before.ends_with(')') && !indexed(before) {
         let start = name_start(before, is_name);
         if start == before.len() {
@@ -535,6 +602,10 @@ pub fn call_head(kind: Kind, line: &str, word_start: usize) -> Option<CallHead> 
             .filter(|(_, c)| *c == b'[')
             .map(|(i, _)| i)
             .find(|&i| close_of(kind, before, i) == Some(before.len()))?;
+        let index = before.get(open + 1..before.len() - 1)?;
+        if kind == Kind::Go && split_top(kind, index, b':').len() > 1 {
+            return None;
+        }
         let head = before.get(..open)?;
         let start = name_start(head, |c| is_name(c) || c == '.');
         let list = head.get(start..)?;
@@ -586,6 +657,33 @@ pub struct CallHead {
     pub value: Value,
     pub fields_to_word: Vec<String>,
 }
+pub fn go_method_calls(line: &str, word_start: usize) -> Option<(usize, Vec<String>)> {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut dot = word_start
+        .checked_sub(1)
+        .filter(|&d| line.get(d..word_start) == Some("."))?;
+    let mut methods = Vec::new();
+    loop {
+        let before = line.get(..dot)?;
+        if !before.ends_with(')') {
+            break;
+        }
+        let open = code(Kind::Go, before)
+            .filter(|(_, c)| *c == b'(')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(Kind::Go, before, i) == Some(before.len()))?;
+        let start = name_start(before.get(..open)?, is_name);
+        let Some(head) = before.get(..start).and_then(|h| h.strip_suffix('.')) else {
+            break;
+        };
+        if start == open || !head.ends_with(')') {
+            break;
+        }
+        methods.insert(0, before.get(start..open)?.to_owned());
+        dot = head.len();
+    }
+    (!methods.is_empty()).then_some((dot + 1, methods))
+}
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);
     if kind == Some(Kind::R)
@@ -598,7 +696,17 @@ pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Ra
         Some(Kind::Dart) => line.as_bytes().get(i) == Some(&b'$'),
         _ => false,
     };
-    let past_sigil = col + usize::from(sigil_of_the_word_behind(col));
+    let past_sigil = match kind {
+        Some(Kind::Ruby) => {
+            let rest = line.as_bytes().get(col..).unwrap_or_default();
+            let ats = rest.iter().take(2).take_while(|&&b| b == b'@').count();
+            let named = rest
+                .get(ats)
+                .is_some_and(|b| b.is_ascii_alphabetic() || *b == b'_');
+            col + if named { ats } else { 0 }
+        }
+        _ => col + usize::from(sigil_of_the_word_behind(col)),
+    };
     let (range, _) = word_at(line, past_sigil, extra)?;
     let stands_where_a_private_name_can = |i: usize| {
         line.get(..i).map(str::trim_end).is_some_and(|before| {

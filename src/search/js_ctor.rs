@@ -11,7 +11,7 @@ pub fn js_constructor(line: &str) -> Option<&str> {
 }
 pub fn js_exported_class(line: &str) -> bool {
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*(?:module\.)?exports\.[\w$]+\s*=\s*class\b")
+        Regex::new(r"^\s*(?:(?:module\.)?exports\.[\w$]+|module\.exports)\s*=\s*class\b")
             .expect("the regex is a literal")
     });
     CLASS.is_match(line)
@@ -36,6 +36,23 @@ pub fn prototype_members(text: &str, name: &str, word: &str) -> Vec<usize> {
         .map(|(n, _)| n)
         .collect()
 }
+pub fn prototype_mixed(text: &str, line1: usize, name: &str) -> bool {
+    let mixin = Regex::new(&format!(
+        r"^\s*Object\.assign\(\s*{}\.prototype\s*,\s*\{{\s*$",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    let depth = indent(lines[at]);
+    lines[..at]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && indent(l) < depth)
+        .is_some_and(|l| mixin.is_match(l))
+}
 pub fn constructor_field(text: &str, decl: usize, word: &str) -> Option<usize> {
     let assigned = Regex::new(&format!(r"^this\.{}\s*=[^=]", regex::escape(word)))
         .expect("an escaped name keeps the pattern valid");
@@ -52,4 +69,13 @@ pub fn constructor_field(text: &str, decl: usize, word: &str) -> Option<usize> {
     (0..end)
         .find(|&i| indent(body[i]) == level && assigned.is_match(body[i].trim_start()))
         .map(|i| decl + i + 1)
+}
+pub fn ts_assigned_class(line: &str) -> Option<&str> {
+    static ASSIGNED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*class\b",
+        )
+        .expect("the regex is a literal")
+    });
+    Some(ASSIGNED.captures(line)?.get(1)?.as_str())
 }

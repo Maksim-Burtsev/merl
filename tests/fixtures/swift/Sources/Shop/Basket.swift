@@ -210,3 +210,17 @@ func ringBell(_ bell: Bell) -> Int {
     //               ^ d: Sources/Shop/Basket.swift:205
     return chime
 }
+
+
+func offers() -> [Offer] {
+    [Offer.bundle(count: 2),
+     .cut(1)]
+    //^ d: Sources/Shop/Pricing.swift:44
+}
+
+func wrapped() -> Int {
+    let basket = Basket(tariff: Tariff(base: 1), coupon: nil)
+    return basket
+        .bonus()
+    //   ^ d: Sources/Shop/Basket.swift:26
+}

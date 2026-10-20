@@ -1,16 +1,21 @@
-use super::php::{php_constants, php_method, php_namespace_line, php_properties, php_tags};
+use super::php::{
+    php_assignment, php_bare_word_cut, php_constants, php_method, php_namespace_line,
+    php_properties, php_tags,
+};
 use super::{
     ELIXIR_DIRECTIVES, EXUNIT_AND_MIX_DIRECTIVES, Hit, Kind, SQL_NAME_PART, ZIG_FN_OR_TEST_HEAD,
-    c_declares_where, c_enum_line, c_enumerators, c_member_decl, c_mods, close_of, cmake_patterns,
-    code, component, cs_generics, cs_mods, cs_type, css_declares, css_patterns, dart_declares,
-    dart_narrow, dart_patterns, erlang_clause, erlang_head, erlang_patterns, gdscript_declares,
-    gdscript_patterns, groovy_declares, groovy_patterns, haskell_declares, haskell_patterns,
-    indent, julia_declares, julia_narrow, julia_patterns, jvm_mods, jvm_return_type, lisp_declares,
-    lisp_patterns, literal_lines, ml_declares, ml_patterns, names, nix_declares, nix_patterns,
-    objc_patterns, perl_declares, perl_patterns, php_block, php_mods, php_namespace_patterns,
-    powershell_declares, powershell_patterns, powershell_sigil, r_patterns, scala_patterns,
-    shape_matcher, solidity_declares, solidity_patterns, split_top, sql_create, sql_cte,
-    starlark_patterns, swift_mods, uncommented,
+    c_body_head, c_class_around, c_declares_where, c_enum_head, c_enum_line, c_enumerators,
+    c_member_decl, c_mods, close_of, cmake_patterns, code, component, cs_generics,
+    cs_header_parameter_line, cs_in_record_header, cs_mods, cs_record_parameter_patterns, cs_type,
+    css_declares, css_patterns, dart_declares, dart_narrow, dart_patterns, erlang_clause,
+    erlang_head, erlang_patterns, gdscript_declares, gdscript_patterns, groovy_declares,
+    groovy_patterns, haskell_declares, haskell_patterns, indent, julia_declares, julia_narrow,
+    julia_patterns, jvm_mods, jvm_return_type, lisp_declares, lisp_patterns, literal_lines,
+    ml_declares, ml_patterns, names, nix_declares, nix_patterns, objc_patterns, perl_declares,
+    perl_patterns, php_block, php_mods, php_namespace_patterns, powershell_declares,
+    powershell_patterns, powershell_sigil, r_patterns, scala_patterns, shape_matcher,
+    solidity_declares, solidity_patterns, split_top, sql_create, sql_cte, starlark_patterns,
+    swift_mods, uncommented,
 };
 use regex::Regex;
 use std::path::{Path, PathBuf};
@@ -97,6 +102,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 r"^\s*(export\s+|declare\s+(-\w+\s+)*|local\s+(-\w+\s+)*|readonly\s+|typeset\s+(-\w+\s+)*)?{w}\+?="
             ),
             format!(r"^\s*alias\s+{w}="),
+            format!(r"^\s*printf\s+-v\s+{w}\s"),
             format!(r"^\s*(?:for|select)\s+{w}\s*(?:\bin\b|;|$)"),
             format!(
                 r"^\s*(?:(?:while|until)\s+)?(?:\w+=\S*\s+)*(?:read|mapfile|readarray)\s.*\b{w}\b"
@@ -106,6 +112,9 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
             let create = sql_create!();
             vec![
                 format!(r#"{create}(?:{SQL_NAME_PART}\.)?(?:"{w}"|`{w}`|{w}\b)(?:[^.]|$)"#),
+                format!(
+                    r#"(?i)^\s*ALTER\s+(?:MATERIALIZED\s+)?(?:TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TYPE|SCHEMA|SEQUENCE|DOMAIN)(?:\s+IF\s+EXISTS)?(?:\s+ONLY)?\s+{SQL_NAME_PART}(?:\.{SQL_NAME_PART})?(?:\s*\([^)]*\))?\s+RENAME\s+TO\s+(?:"{w}"|`{w}`|{w}\b)"#
+                ),
                 sql_cte(word),
             ]
         }
@@ -207,7 +216,9 @@ fn jvm_patterns(word: &str) -> Vec<String> {
         format!(
             r"{mods}(?:enum\s+|data\s+|value\s+)?class\s+\w+[^(]*\((?:.*[(,])?\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:private|public|protected|internal|override|open|final)\s+)*(?:val|var)\s+{w}\s*:"
         ),
-        format!(r"{mods}(?:<[^>]*>\s*)?{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"),
+        format!(
+            r"{mods}(?:<(?:[^<>]|<[^<>]*>)*>\s*)?(?:@[\w.]+\s+)*{ret}(?:\.\.\.)?\s+{w}\s*[(;=]"
+        ),
     ];
     patterns.extend(scala_patterns(word));
     patterns.extend(groovy_patterns(word));
@@ -286,6 +297,7 @@ fn c_patterns(word: &str) -> Vec<String> {
 fn csharp_patterns(word: &str) -> Vec<String> {
     let w = regex::escape(word);
     let (mods, ty, access) = (cs_mods!(), cs_type!(), cs_mods!(access));
+    let [record_head, record_header] = cs_record_parameter_patterns(&w);
     vec![
         format!(
             r"{mods}(?:class|struct|interface|enum|record\s+class|record\s+struct|record)\s+{w}\s*(?:<[^>]*>)?\s*(?:[:{{;(]|where\b|$)"
@@ -297,6 +309,8 @@ fn csharp_patterns(word: &str) -> Vec<String> {
             r"{access}{w}\s*\((?:[^;]*\)\s*(?::\s*(?:base|this)\b.*)?[{{=]?|[^;{{}}]*\)\s*(?::\s*(?:base|this)\b[^{{]*)?\{{.*\}}|[^;)]*)\s*$"
         ),
         format!(r"{mods}{ty}\s+(?:[\w.]+\.)?{w}\s*(?:<[^>]*>\s*)?(?:[({{;=]|$)"),
+        record_head,
+        record_header,
     ]
 }
 
@@ -334,7 +348,7 @@ fn php_patterns(word: &str) -> Vec<String> {
         case,
         property,
         promoted,
-        format!(r"^\s*\${w}\s*(?:\.|\?\?|\+)?=(?:$|[^=>])"),
+        php_assignment(&w),
         property_tag,
         method_tag,
     ]
@@ -362,7 +376,10 @@ pub fn narrow_patterns(
     r: std::ops::Range<usize>,
 ) {
     match kind {
-        Kind::Php => php_namespace_patterns(p, php_block(text, row), line, r),
+        Kind::Php => {
+            php_bare_word_cut(p, line, r.clone());
+            php_namespace_patterns(p, php_block(text, row), line, r);
+        }
         Kind::PowerShell => {
             if let (Some(before), Some(after)) = (line.get(..r.start), line.get(r.end..)) {
                 powershell_sigil(p, before, after);
@@ -495,6 +512,22 @@ pub fn c_file_local(
         (STATIC.is_match(&h.text) || by_macro.contains(&(h.path.clone(), h.line1)))
             && !ty.is_match(&h.text)
     };
+    let re = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let (enum_line, enumerator) = (re(c_enum_line(word)), re(c_enumerators(Some(word))));
+    let a_type = |text: &str, h: &Hit| {
+        let lines: Vec<&str> = text.lines().collect();
+        ty.is_match(&h.text)
+            || enum_line.is_match(&h.text)
+            || enumerator.is_match(&h.text)
+                && c_body_head(&lines, h.line1).is_some_and(|head| c_enum_head(&head))
+    };
+    let here_type = hits.iter().any(|h| {
+        h.path == here && a_type(here_text, h) && !c_declaration_only(word, here_text, h.line1)
+    });
+    let file_scoped = |text: &str, h: &Hit| {
+        let lines: Vec<&str> = text.lines().collect();
+        a_type(text, h) || c_class_around(&lines, h.line1).is_some()
+    };
     if !cursor_on_candidate && hits.iter().any(|h| h.path == here && local(h)) {
         return hits
             .into_iter()
@@ -529,7 +562,9 @@ pub fn c_file_local(
             if text.as_deref().is_some_and(|t| includes_here(&h.path, t)) {
                 return true;
             }
-            if DEFINE.is_match(&h.text) {
+            if DEFINE.is_match(&h.text)
+                || here_type && text.as_deref().is_some_and(|t| file_scoped(t, h))
+            {
                 return false;
             }
             ty.is_match(&h.text)
@@ -960,6 +995,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
             }
         }
         Kind::Jvm if shaped_as_record_component(line_text) => in_record_header(lines(), line),
+        Kind::CSharp if cs_header_parameter_line(line_text) => cs_in_record_header(lines(), line),
         Kind::Jvm => groovy_declares(path, word, line, line_text, lines).unwrap_or(true),
         Kind::C => c_declares_where(line, line_text, lines),
         Kind::Ruby if ruby_column_elsewhere(path, line_text) => false,

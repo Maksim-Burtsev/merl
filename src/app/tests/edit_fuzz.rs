@@ -1679,11 +1679,27 @@ const SESSIONS: &[(&str, &[u8], &[&str])] = &[
     ),
 ];
 
-#[test]
-fn tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay() {
-    for (name, start, snippets) in SESSIONS {
-        fuzz_tree_sitter(name, start, snippets);
-    }
+macro_rules! tree_sitter_shards {
+    ($($test:ident: $shard:literal,)*) => {
+        const TREE_SITTER_SHARDS: usize = [$($shard),*].len();
+        $(#[test]
+        fn $test() {
+            for (name, start, snippets) in SESSIONS.iter().skip($shard).step_by(TREE_SITTER_SHARDS) {
+                fuzz_tree_sitter(name, start, snippets);
+            }
+        })*
+    };
+}
+
+tree_sitter_shards! {
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_0: 0,
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_1: 1,
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_2: 2,
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_3: 3,
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_4: 4,
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_5: 5,
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_6: 6,
+    tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_7: 7,
 }
 
 #[test]

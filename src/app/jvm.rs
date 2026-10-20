@@ -283,6 +283,12 @@ impl App {
         {
             return Some(vec![candidate(here, &lines, line, Reason::Local)]);
         }
+        if kotlin
+            && word.starts_with(|c: char| c.is_ascii_lowercase())
+            && let Some(found) = self.kotlin_scope_member(here, text, before, word)
+        {
+            return Some(found);
+        }
         let types = search::jvm_enclosing_types(text, self.line + 1);
         let mut found: Vec<Candidate> = Vec::new();
         for &decl in &types {
@@ -304,29 +310,17 @@ impl App {
         if found.is_empty()
             && let Some(&decl) = inner
         {
+            let mut known = true;
             for base in search::jvm_bases(text, decl, search::scala(here)) {
-                let pattern = search::def_patterns(Kind::Jvm, &base).join("|");
-                let cut = self.truncated.get();
-                let declared: Vec<Hit> = self
-                    .project_definitions(Kind::Jvm, here, &base, &pattern)
-                    .into_iter()
-                    .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base.as_str()))
-                    .collect();
-                self.truncated.set(cut);
-                let [hit] = declared.as_slice() else {
-                    continue;
-                };
-                let Some(t) = self.text_of(&hit.path) else {
-                    continue;
-                };
-                let base_lines: Vec<&str> = t.lines().collect();
-                found.extend(
-                    search::jvm_members_of(&t, hit.line1, word)
-                        .into_iter()
-                        .map(|line| {
-                            candidate(&hit.path, &base_lines, line, Reason::Path(base.clone()))
-                        }),
-                );
+                match self.jvm_base_members(here, &base, word) {
+                    Some(f) => found.extend(f),
+                    None => known = false,
+                }
+            }
+            if found.is_empty() && known {
+                for base in search::java_implements(text, decl) {
+                    found.extend(self.jvm_base_members(here, &base, word).unwrap_or_default());
+                }
             }
         }
         if found.is_empty()
@@ -353,32 +347,50 @@ impl App {
         (!found.is_empty() && !on_it).then_some(found)
     }
 
+    fn jvm_base_members(&self, here: &Path, base: &str, word: &str) -> Option<Vec<Candidate>> {
+        let pattern = search::def_patterns(Kind::Jvm, base).join("|");
+        let cut = self.truncated.get();
+        let declared: Vec<Hit> = self
+            .project_definitions(Kind::Jvm, here, base, &pattern)
+            .into_iter()
+            .filter(|h| search::jvm_type_name(&h.text).as_deref() == Some(base))
+            .collect();
+        self.truncated.set(cut);
+        let [hit] = declared.as_slice() else {
+            return None;
+        };
+        let t = self.text_of(&hit.path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        Some(
+            search::jvm_members_of(&t, hit.line1, word)
+                .into_iter()
+                .map(|line| Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: hit.path.clone(),
+                        line1: line,
+                        byte_col: None,
+                        text: lines[line - 1].to_owned(),
+                    },
+                    reason: Reason::Path(base.to_owned()),
+                })
+                .collect(),
+        )
+    }
+
     fn jvm_overloads(&self, here: &Path, word: &str, end: usize, hits: Vec<Hit>) -> Vec<Hit> {
-        let java = here.extension().is_some_and(|e| e == "java");
-        if hits.len() < 2
-            || search::groovy(here)
-            || !self
-                .line_str()
-                .get(end..)
-                .is_some_and(|a| a.starts_with('('))
-        {
+        if hits.len() < 2 {
             return hits;
         }
-        let Some(call) = search::jvm_call(&self.buf.lines, self.line, end) else {
+        let Some(call) = self.jvm_call_here(here, end) else {
             return hits;
         };
         let parts = |h: &Hit| search::jvm_parameter_parts(&self.text_of(&h.path)?, h.line1, word);
         let mut hits = hits;
-        if !java
-            && !call
-                .arguments
-                .iter()
-                .any(|a| a.starts_with('*') || a.contains('<'))
-        {
-            let n = call.arguments.len() + usize::from(call.trailing_lambda);
+        if Self::plain_arguments(&call) {
             let fit: Vec<Hit> = hits
                 .iter()
-                .filter(|h| parts(h).is_none_or(|p| search::jvm_takes(&p, n)))
+                .filter(|h| self.jvm_fits(here, &call, word, h))
                 .cloned()
                 .collect();
             if !fit.is_empty() {
@@ -401,6 +413,48 @@ impl App {
                     .collect(),
             )
         })
+    }
+
+    fn jvm_call_here(&self, here: &Path, end: usize) -> Option<search::JvmCall> {
+        let line = self.line_str();
+        let called = line.get(end..).is_some_and(|a| a.starts_with('('));
+        if search::groovy(here) || !called || line.contains("\"\"\"") {
+            return None;
+        }
+        search::jvm_call(&self.buf.lines, self.line, end)
+    }
+
+    fn plain_arguments(call: &search::JvmCall) -> bool {
+        !call
+            .arguments
+            .iter()
+            .any(|a| a.starts_with('*') || a.contains('<'))
+    }
+
+    fn jvm_fits(&self, here: &Path, call: &search::JvmCall, word: &str, h: &Hit) -> bool {
+        let kotlin = here.extension().is_none_or(|e| e != "java");
+        self.text_of(&h.path)
+            .and_then(|t| search::jvm_parameter_parts(&t, h.line1, word))
+            .is_none_or(|p| search::jvm_takes_call(&p, call, kotlin))
+    }
+
+    pub(super) fn jvm_by_arguments(
+        &self,
+        here: &Path,
+        word: &str,
+        end: usize,
+        found: &mut Vec<Candidate>,
+    ) {
+        let java = here.extension().is_some_and(|e| e == "java");
+        if let Some(call) = self.jvm_call_here(here, end)
+            && java
+            && Self::plain_arguments(&call)
+            && found
+                .iter()
+                .any(|c| self.jvm_fits(here, &call, word, &c.hit))
+        {
+            found.retain(|c| self.jvm_fits(here, &call, word, &c.hit));
+        }
     }
 
     pub(super) fn jvm_constructors(&self, types: &[Candidate], word: &str) -> Vec<Candidate> {

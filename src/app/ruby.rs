@@ -108,33 +108,96 @@ impl App {
         self.ruby_methods_from(here, word, class, on_class)
     }
 
+    pub(super) fn ruby_all_unrelated(&self, here: &Path, text: &str, found: &[Candidate]) -> bool {
+        let class = search::ruby_class_path(text, self.line + 1);
+        if class.is_empty() || found.is_empty() {
+            return false;
+        }
+        let in_module = search::ruby_in_module(text, self.line + 1);
+        let ancestors = std::cell::OnceCell::new();
+        let ancestors =
+            || ancestors.get_or_init(|| self.ruby_ancestors(here, &class).collect::<Vec<_>>());
+        found.iter().all(|c| {
+            let Some(t) = self.text_of(&c.hit.path) else {
+                return false;
+            };
+            let owner = search::ruby_class_path(&t, c.hit.line1);
+            if owner.is_empty() || owner == class {
+                return false;
+            }
+            if search::ruby_in_module(&t, c.hit.line1) {
+                return search::ruby_on_class(&t, c.hit.line1)
+                    && !search::ruby_in_block(&t, c.hit.line1);
+            }
+            !(ancestors().contains(&owner)
+                || in_module && self.ruby_ancestors(here, &owner).any(|a| a == class))
+        })
+    }
+
+    pub(super) fn ruby_core_receiver(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> Option<&'static str> {
+        let constant = |name: &str| self.ruby_class_named(here, name).is_some();
+        let class = search::ruby_core_receiver(text, self.line + 1, before, &constant)?;
+        if !search::ruby_core_method(class, word) {
+            return None;
+        }
+        let pattern = search::def_patterns(Kind::Ruby, word).join("|");
+        let cut = self.truncated.get();
+        let declared = self.project_definitions(Kind::Ruby, here, word, &pattern);
+        self.truncated.set(cut);
+        let reopened = declared.iter().any(|h| {
+            self.text_of(&h.path).is_some_and(|t| {
+                search::ruby_inside_core(&t, h.line1, class)
+                    || search::ruby_in_module(&t, h.line1)
+                    || search::ruby_in_block(&t, h.line1)
+            })
+        });
+        (!reopened).then_some(class)
+    }
+
     fn ruby_extended(&self, here: &Path, chain: &[String], word: &str) -> Vec<Candidate> {
         self.ruby_class_named(here, &chain.join("::"))
             .map(|class| self.ruby_methods_from(here, word, class, true))
             .unwrap_or_default()
     }
 
-    pub(super) fn ruby_constructed(&self, here: &Path, made: &str, word: &str) -> Vec<Candidate> {
-        let Some(class) = self.ruby_class_named(here, made) else {
+    pub(super) fn ruby_constructed(
+        &self,
+        here: &Path,
+        made: &search::RubyMade,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let Some(class) = self.ruby_class_named(here, &made.class) else {
             return Vec::new();
         };
-        if !self
-            .ruby_methods_from(here, "new", class.clone(), true)
-            .is_empty()
-        {
+        let instance = if made.by_singleton {
+            self.ruby_parents(here, &class)
+                .includes
+                .iter()
+                .any(|m| m.trim_start_matches(':') == "Singleton")
+        } else {
+            self.ruby_methods_from(here, "new", class.clone(), true)
+                .is_empty()
+        };
+        if !instance {
             return Vec::new();
         }
         self.ruby_methods_from(here, word, class, false)
     }
 
-    fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
+    pub(super) fn ruby_class_named(&self, here: &Path, name: &str) -> Option<String> {
         let from = search::ruby_class_path(&self.text_of(here)?, self.line + 1);
         let own = from == name || from.ends_with(&format!("::{name}"));
         self.ruby_resolve(here, &from, name)
             .or_else(|| own.then_some(from))
     }
 
-    fn ruby_methods_from(
+    pub(super) fn ruby_methods_from(
         &self,
         here: &Path,
         word: &str,
@@ -199,7 +262,83 @@ impl App {
         Vec::new()
     }
 
-    fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
+    pub(super) fn ruby_constant_in_scope(
+        &self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        hits: &mut Vec<Hit>,
+    ) {
+        if hits.len() < 2 {
+            return;
+        }
+        let declared: Vec<Option<String>> = hits
+            .iter()
+            .map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
+            .collect();
+        let declares = |scope: &str| {
+            let want = format!("{scope}::{word}");
+            declared
+                .iter()
+                .any(|d| d.as_deref() == Some(&want))
+                .then_some(want)
+        };
+        let nesting = search::ruby_nesting_innermost_first(text, self.line + 1);
+        let wanted = nesting
+            .iter()
+            .find_map(|n| declares(n))
+            .or_else(|| {
+                nesting
+                    .first()
+                    .and_then(|class| self.ruby_ancestors(here, class).find_map(|a| declares(&a)))
+            })
+            .or_else(|| {
+                declared
+                    .iter()
+                    .any(|d| d.as_deref() == Some(word))
+                    .then(|| word.to_owned())
+            });
+        let Some(wanted) = wanted else {
+            return;
+        };
+        let mut kept = declared.iter();
+        hits.retain(|_| {
+            kept.next()
+                .is_some_and(|d| d.as_ref().is_none_or(|d| *d == wanted))
+        });
+    }
+
+    fn ruby_ancestors(&self, here: &Path, class: &str) -> impl Iterator<Item = String> {
+        let mut seen = vec![class.to_owned()];
+        let mut i = 0;
+        let mut pending: std::collections::VecDeque<(String, String)> =
+            std::collections::VecDeque::new();
+        std::iter::from_fn(move || {
+            loop {
+                if let Some((c, name)) = pending.pop_front() {
+                    if let Some(path) = self.ruby_resolve(here, &c, &name)
+                        && !seen.contains(&path)
+                    {
+                        seen.push(path.clone());
+                        return Some(path);
+                    }
+                    continue;
+                }
+                let c: String = seen.get(i)?.clone();
+                i += 1;
+                let parents = self.ruby_parents(here, &c);
+                pending.extend(
+                    parents
+                        .includes
+                        .into_iter()
+                        .chain(parents.superclasses)
+                        .map(|name| (c.clone(), name)),
+                );
+            }
+        })
+    }
+
+    pub(super) fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
         let mut out = search::RubyParents::default();
         for (h, t) in self.ruby_declarations(here, path) {
             let one = search::ruby_class_parents(&t, h.line1);
@@ -210,13 +349,31 @@ impl App {
         out
     }
 
-    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
-        let last = path.rsplit("::").next().unwrap_or(path);
+    fn ruby_named_declarations(&self, here: &Path, last: &str) -> Vec<Hit> {
+        let key = (here.to_path_buf(), last.to_owned());
+        if let Some((hits, cut)) = self.ruby_declared.borrow().get(&key) {
+            if *cut {
+                self.truncated.set(true);
+            }
+            return hits.clone();
+        }
+        let before = self.truncated.replace(false);
         let pattern = format!(
             r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
             regex::escape(last)
         );
-        self.project_definitions(Kind::Ruby, here, last, &pattern)
+        let hits = self.project_definitions(Kind::Ruby, here, last, &pattern);
+        let cut = self.truncated.get();
+        self.truncated.set(before || cut);
+        self.ruby_declared
+            .borrow_mut()
+            .insert(key, (hits.clone(), cut));
+        hits
+    }
+
+    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
+        let last = path.rsplit("::").next().unwrap_or(path);
+        self.ruby_named_declarations(here, last)
             .into_iter()
             .filter_map(|h| {
                 let t = self.text_of(&h.path)?;
@@ -225,18 +382,14 @@ impl App {
             .collect()
     }
 
-    fn ruby_resolve(&self, here: &Path, class: &str, name: &str) -> Option<String> {
+    pub(super) fn ruby_resolve(&self, here: &Path, class: &str, name: &str) -> Option<String> {
         let (name, mut scope) = match name.strip_prefix("::") {
             Some(top) => (top, ""),
             None => (name, class),
         };
         let last = name.rsplit("::").next().unwrap_or(name);
-        let pattern = format!(
-            r"^\s*(?:class|module)\s+(?:[\w:]+::)?{}(?:[^\w:]|$)",
-            regex::escape(last)
-        );
         let paths: HashSet<String> = self
-            .project_definitions(Kind::Ruby, here, last, &pattern)
+            .ruby_named_declarations(here, last)
             .into_iter()
             .filter_map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
             .collect();
