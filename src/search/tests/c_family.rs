@@ -1362,6 +1362,45 @@ fn swift_receiver_types_are_read_off_their_lines() {
 }
 
 #[test]
+fn swift_tuples_closures_chains_and_if_arms_are_read() {
+    assert_eq!(
+        swift_given("    for (i, sencha) in leaves.enumerated() {", "sencha"),
+        Some(SwiftGiven::Element("leaves".into()))
+    );
+    assert_eq!(
+        swift_given("    for (i, sencha) in leaves.enumerated() {", "i"),
+        None
+    );
+    assert_eq!(
+        swift_given("    let (sencha, grade) = pair", "sencha"),
+        Some(SwiftGiven::Item("pair".into(), 0))
+    );
+    assert_eq!(
+        swift_tuple_item("(name: Sencha, [String: Int])", 1),
+        Some("[String: Int]".into())
+    );
+    assert_eq!(swift_tuple_item("(Sencha)", 0), None);
+    assert_eq!(
+        swift_closure_sequence("    leaves.map { $0."),
+        Some("leaves".into())
+    );
+    assert_eq!(swift_closure_sequence("    a.b().map { $0."), None);
+    assert_eq!(swift_closure_sequence("    leaves.reduce(0) { $0."), None);
+    assert_eq!(
+        swift_call_links("Whisk().sift(1).finish()."),
+        Some(vec!["Whisk".into(), "sift".into(), "finish".into()])
+    );
+    assert_eq!(swift_call_links("Bowl(froth: 1)."), None);
+    assert_eq!(swift_call_links("w.sift(1).finish()."), None);
+    assert_eq!(swift_call_links("    .sift(1).finish()."), None);
+    let lines = ["#if os(macOS)", "typealias K = A", "#else", "typealias K = B", "#endif"];
+    assert!(swift_if_arms(&lines, &[2, 4]));
+    assert!(!swift_if_arms(&lines, &[2]));
+    let flat = ["typealias K = A", "#if X", "#endif", "typealias K = B"];
+    assert!(!swift_if_arms(&flat, &[1, 4]));
+}
+
+#[test]
 fn c_bindings_read_a_head_with_non_ascii_names() {
     let text = "int (r *R\u{e9}po) M\u{e9}thode(int x)\n{\n    return x;\n}\n";
     assert_eq!(
