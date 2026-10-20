@@ -598,7 +598,10 @@ fn opening_at_a_column_past_the_cut_lands_on_it_and_draws_the_line_on() {
     };
     let b = open(30_001);
     assert_eq!((b.line, b.col), (0, 30_000), "on `THE END`, not on the `…`");
-    assert!(b.buf.shown(0).ends_with("THE END"), "the line drawn on to it");
+    assert!(
+        b.buf.shown(0).ends_with("THE END"),
+        "the line drawn on to it"
+    );
     assert_eq!(open(99_999).col, 30_007, "past the line's end: its end");
     assert_eq!(open(100).col, 99, "a drawn column: as before");
 }
