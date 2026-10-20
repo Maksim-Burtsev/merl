@@ -137,3 +137,15 @@ func maybe(_ leaves: [Sencha]?) -> Int? {
     leaves.map { $0.count }
     //              ^ d: !jump
 }
+
+func kettle() -> Whisk { Whisk() }
+
+struct Hearth {
+    func kettle() -> Hearth { self }
+    var scoops = 0
+    func sift(_ n: Int) -> Hearth { self }
+    func pour() -> Int {
+        kettle().sift(1).scoops
+        //               ^ d: Sources/Shop/Infuse/Infusion.swift:145
+    }
+}
