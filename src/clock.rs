@@ -1,6 +1,4 @@
-use std::sync::OnceLock;
-
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, de::Error};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,7 +60,10 @@ impl Clock {
     }
 }
 
-fn now() -> DateTime<Local> {
+#[cfg(not(target_family = "wasm"))]
+fn now() -> DateTime<chrono::Local> {
+    use chrono::Local;
+    use std::sync::OnceLock;
     static FIXED: OnceLock<Option<DateTime<Utc>>> = OnceLock::new();
     FIXED
         .get_or_init(|| {
@@ -72,6 +73,17 @@ fn now() -> DateTime<Local> {
                 .and_then(|secs| DateTime::from_timestamp(secs, 0))
         })
         .map_or_else(Local::now, |at| at.with_timezone(&Local))
+}
+
+#[cfg(target_family = "wasm")]
+fn now() -> DateTime<chrono::FixedOffset> {
+    use chrono::Offset;
+    let zone = std::env::var("MERL_UTC_OFFSET")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .and_then(chrono::FixedOffset::east_opt)
+        .unwrap_or_else(|| Utc.fix());
+    Utc::now().with_timezone(&zone)
 }
 
 #[cfg(test)]

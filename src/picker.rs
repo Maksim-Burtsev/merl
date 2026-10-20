@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::{Config, Item, Matcher, Nucleo, Snapshot, Utf32Str};
-use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 use crate::buffer::Buffer;
 use crate::git::Mark;
+use crate::key::{KeyCode, KeyEvent};
 use crate::line_edit::LineEdit;
 
 #[derive(Clone, Debug)]

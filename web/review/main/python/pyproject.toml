@@ -1,0 +1,12 @@
+[project]
+name = "ratelimit"
+version = "0.3.0"
+description = "Per-API-key token bucket rate limiting for Starlette services"
+requires-python = ">=3.12"
+dependencies = ["starlette>=0.37", "redis>=5.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "httpx>=0.27"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

@@ -3,12 +3,12 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use regex::{Regex, RegexBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::buffer::{self, Buffer, shown_str};
 use crate::git::{self, TextLine};
+use crate::key::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crate::line_edit::LineEdit;
 use crate::picker::{Pick, PickItem, Picker};
 use crate::search::{self, Candidate, Hit, Kind, Reason, Tier};

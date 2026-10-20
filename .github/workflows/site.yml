@@ -1,0 +1,52 @@
+name: Site
+
+on:
+  push:
+    branches: [master]
+    paths: ["src/**", "web/**", "Cargo.*", ".github/workflows/site.yml"]
+  pull_request:
+    branches: [master]
+    paths: ["src/**", "web/**", "Cargo.*", ".github/workflows/site.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: web
+      - run: |
+          mkdir -p _site
+          cp -R web/site/. _site/
+          web/build.sh _site/merl.wasm
+          node web/review/check.mjs _site/merl.wasm web/site/review.json
+          gzip -9 _site/merl.wasm
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5.0.1

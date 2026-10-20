@@ -2,6 +2,7 @@ use super::{
     App, Buffer, Edit, Focus, HIST_MAX, HIST_NEAR, Mode, Path, PathBuf, PickItem, TextLine, Tree,
     buffer, edit, git, lock_no_write,
 };
+use crate::real::canonicalize;
 
 impl App {
     pub(super) fn reveal(&mut self, path: &Path) {
@@ -100,16 +101,13 @@ impl App {
     }
 
     pub(super) fn in_project(&self, path: &Path) -> Option<PathBuf> {
-        let root = self.root.canonicalize().ok()?;
-        if path
-            .canonicalize()
-            .is_ok_and(|real| !real.starts_with(&root))
-        {
+        let root = canonicalize(&self.root).ok()?;
+        if canonicalize(path).is_ok_and(|real| !real.starts_with(&root)) {
             return None;
         }
         let dir = path.parent()?;
         let (real, rest) = (dir.ancestors())
-            .find_map(|a| Some((a.canonicalize().ok()?, dir.strip_prefix(a).ok()?)))?;
+            .find_map(|a| Some((canonicalize(a).ok()?, dir.strip_prefix(a).ok()?)))?;
         let resolved = real.join(rest).join(path.file_name()?);
         let rel = resolved.strip_prefix(root).ok()?;
         Some(rel.to_path_buf())

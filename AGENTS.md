@@ -65,6 +65,14 @@
   some lowers it. `unwrap()` and `&s[a..b]` on a `str` are not used outside tests. The
   `#![expect(…, reason = "#858")]` lines are the strict-lints epic's backlog: code the epic has
   not reached yet, never a place for new hits.
+- The site (#776) runs this same `src/` in the browser: `web/build.sh OUT.wasm` builds it for
+  `wasm32-wasip1` from `web/Cargo.toml`, whose dependencies match `Cargo.toml`'s
+  (`the_browser_build_has_merl_s_dependencies`), at the versions `Cargo.lock` holds. The browser
+  has no terminal, threads, processes or `canonicalize`: code that needs one stays out of it by
+  `#[cfg(not(target_family = "wasm"))]` or goes through `src/real.rs`, and git answers from a replay `web/review/bundle.py` records
+  from a native `--review`. A change to what `--review` asks git re-records it; `site.yml`, on
+  every PR that touches `src/` or `web/`, builds it and plays the quest, failing on a step that
+  no longer passes or a git call the replay lacks.
 
 ## Issues
 

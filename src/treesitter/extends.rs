@@ -1,4 +1,8 @@
+#[cfg(not(target_family = "wasm"))]
 use std::sync::OnceLock;
+
+#[cfg(target_family = "wasm")]
+use crate::web::WasmOnce as OnceLock;
 
 use super::{Lang, QUERIES, compile_text, source};
 

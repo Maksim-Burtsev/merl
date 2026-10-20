@@ -4,12 +4,14 @@ mod clock;
 mod for_agents;
 mod git;
 mod intraline;
+mod key;
 mod line_edit;
 mod live;
 mod markdown;
 mod mermaid;
 mod picker;
 mod picture;
+mod real;
 mod reviews;
 mod search;
 mod stats;
@@ -18,6 +20,8 @@ mod tree;
 mod treesitter;
 mod tutor;
 mod ui;
+#[cfg(target_family = "wasm")]
+mod web;
 mod wrap;
 
 use std::collections::{HashMap, HashSet};
@@ -33,21 +37,26 @@ use std::time::{Duration, Instant};
 use anyhow::{Context, Result};
 use clap::Parser;
 use notify::{EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+#[cfg(not(target_family = "wasm"))]
 use ratatui::crossterm::cursor::{MoveTo, Show};
+#[cfg(not(target_family = "wasm"))]
 use ratatui::crossterm::event::{
     DisableBracketedPaste, EnableBracketedPaste, Event, KeyboardEnhancementFlags,
     PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
+#[cfg(not(target_family = "wasm"))]
 use ratatui::crossterm::terminal::{Clear, ClearType};
+#[cfg(not(target_family = "wasm"))]
 use ratatui::crossterm::{execute, terminal};
 
 use crate::app::{App, Focus};
+#[cfg(not(target_family = "wasm"))]
 use crate::buffer::Buffer;
 use crate::picker::PickItem;
 use crate::tutor::{Drill, Tutor};
 
 enum Msg {
-    Key(ratatui::crossterm::event::KeyEvent),
+    Key(key::KeyEvent),
     Paste(String),
     Resize,
     Fs(notify::Event),
@@ -123,6 +132,7 @@ struct Cli {
     for_agents: bool,
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn main() {
     if let Err(e) = run() {
         eprintln!("merl: {e:#}");
@@ -209,6 +219,7 @@ fn start_tutor(app: &mut App, drill: Option<u16>, dir: PathBuf) -> Result<()> {
     tutor::begin(app)
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn run() -> Result<()> {
     let cli = Cli::parse();
     if let Some(text) = report(&cli)? {
@@ -309,6 +320,7 @@ struct KeyboardQueried {
     enhanced: bool,
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn enter_terminal() -> Result<(ratatui::DefaultTerminal, KeyboardQueried)> {
     let terminal = ratatui::try_init()?;
     drop(execute!(stdout(), EnableBracketedPaste));
@@ -326,6 +338,7 @@ fn enter_terminal() -> Result<(ratatui::DefaultTerminal, KeyboardQueried)> {
     Ok((terminal, KeyboardQueried { enhanced }))
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn restore_on_panic(enhanced: bool) {
     let ratatui_restore = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -337,6 +350,7 @@ fn restore_on_panic(enhanced: bool) {
     }));
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn spawn_key_reader(_after: &KeyboardQueried, keys: Sender<Msg>) {
     std::thread::spawn(move || {
         while let Ok(ev) = ratatui::crossterm::event::read() {
@@ -353,6 +367,7 @@ fn spawn_key_reader(_after: &KeyboardQueried, keys: Sender<Msg>) {
     });
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn quit_on_signals(quit: Sender<Msg>) {
     if let Ok(mut signals) = signal_hook::iterator::Signals::new([
         signal_hook::consts::SIGTERM,
@@ -367,6 +382,7 @@ fn quit_on_signals(quit: Sender<Msg>) {
     }
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn leave_terminal(keyboard: &KeyboardQueried) {
     undo_what_merl_set_while_still_on_the_alternate_screen(&mut stdout(), keyboard);
     ratatui::restore();
@@ -374,6 +390,7 @@ fn leave_terminal(keyboard: &KeyboardQueried) {
     drop(execute!(stdout(), show_cursor_the_last_frame_hid));
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn undo_what_merl_set_while_still_on_the_alternate_screen(
     out: &mut impl Write,
     keyboard: &KeyboardQueried,
@@ -490,11 +507,7 @@ impl Watching {
         }
     }
 
-    fn key(
-        &mut self,
-        app: &mut App,
-        k: ratatui::crossterm::event::KeyEvent,
-    ) -> ControlFlow<(), bool> {
+    fn key(&mut self, app: &mut App, k: key::KeyEvent) -> ControlFlow<(), bool> {
         if app.key(k) {
             return ControlFlow::Break(());
         }
@@ -607,6 +620,7 @@ fn restyle(app: &mut App, theme: &mut theme::Theme, drawn_theme: &mut String) ->
     true
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn event_loop(
     terminal: &mut ratatui::DefaultTerminal,
     app: &mut App,
@@ -1408,6 +1422,35 @@ b";
     }
 
     #[test]
+    fn the_browser_build_has_merl_s_dependencies() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let deps = |file: &str| {
+            let text = std::fs::read_to_string(root.join(file)).unwrap();
+            let manifest: toml::Table = text.parse().unwrap();
+            manifest["dependencies"].as_table().unwrap().clone()
+        };
+        let (merl, web) = (deps("Cargo.toml"), deps("web/Cargo.toml"));
+        let mut wrong: Vec<&String> = (web.keys())
+            .filter(|name| !merl.contains_key(*name))
+            .collect();
+        for (name, spec) in &merl {
+            let same = match (name.as_str(), web.get(name)) {
+                ("signal-hook", None) => true,
+                ("ratatui", Some(w)) => w.get("version") == spec.get("version"),
+                (_, w) => w == Some(spec),
+            };
+            if !same {
+                wrong.push(name);
+            }
+        }
+        assert!(
+            wrong.is_empty(),
+            "web/Cargo.toml builds this code for the browser: give it these dependencies as \
+             Cargo.toml has them: {wrong:?}"
+        );
+    }
+
+    #[test]
     fn mutants_time_the_unmutated_baseline_by_no_fixed_timeout() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"));
         let flow = std::fs::read_to_string(root.join(".github/workflows/mutants.yml")).unwrap();
@@ -1495,11 +1538,16 @@ b";
         ".github",
         "Cargo.toml",
         "deny.toml",
+        "web/build.sh",
+        "web/Cargo.toml",
+        "web/review",
     ];
     const SCRIPT_DATA: &[&str] = &[
         "tools/d-bench/answers",
         "tools/fold-bench/folds",
         "tools/themes-src",
+        "web/review/main",
+        "web/review/branch",
     ];
 
     fn script_files(root: &Path, name: &str, out: &mut Vec<String>) {

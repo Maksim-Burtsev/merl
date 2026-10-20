@@ -68,6 +68,9 @@ impl App {
     }
 
     fn open_session(&mut self) {
+        if cfg!(target_family = "wasm") {
+            return;
+        }
         if let Some(r) = &self.review {
             let (repo, branch) = (self.root_name(), r.branch_or_commit(&self.root));
             let (opened, root, unfolded) = (r.clone(), self.root.clone(), self.unfolded.clone());

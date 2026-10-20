@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{App, Focus};
 use crate::buffer::Buffer;
+use crate::key::{KeyCode, KeyEvent, KeyModifiers};
 
 pub mod drill;
 mod pool;

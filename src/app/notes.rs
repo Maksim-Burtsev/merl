@@ -3,10 +3,9 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
 use super::{App, Edit, Mode};
 use crate::git::{self, TextLine};
+use crate::key::{KeyCode, KeyEvent, KeyModifiers};
 use crate::line_edit::LineEdit;
 
 pub type SlotRow = (String, usize, Option<std::ops::Range<usize>>);

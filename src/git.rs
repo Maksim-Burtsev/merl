@@ -1,10 +1,14 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
+#[cfg(not(target_family = "wasm"))]
 use std::process::Command;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
+use crate::real::canonicalize;
 use crate::tree::Order;
+#[cfg(target_family = "wasm")]
+use crate::web::GitCommand as Command;
 use anyhow::{Context, Result, bail};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -425,7 +429,7 @@ impl Review {
             }
         }
         std::fs::create_dir_all(path.parent().context("no parent")?)?;
-        let tmp = path.with_file_name(format!(".{}", std::process::id()));
+        let tmp = path.with_file_name(format!(".{}", crate::real::pid()));
         let written = std::fs::write(&tmp, bytes).and_then(|()| std::fs::rename(&tmp, &path));
         if written.is_err() {
             drop(std::fs::remove_file(&tmp));
@@ -448,7 +452,7 @@ impl Review {
         if std::fs::read_to_string(dir.join(".merl-stamp")).is_ok_and(|s| s == stamp) {
             return Ok(dir);
         }
-        let tmp = parent.join(format!(".{}-{}", self.merge_base, std::process::id()));
+        let tmp = parent.join(format!(".{}-{}", self.merge_base, crate::real::pid()));
         drop(std::fs::remove_dir_all(&tmp));
         std::fs::create_dir_all(&tmp)?;
         let listing = git(
@@ -670,7 +674,7 @@ pub struct GitDirs {
 
 pub fn dirs(root: &Path) -> Option<GitDirs> {
     let out = git(root, &["rev-parse", "--git-dir", "--git-common-dir"]).ok()?;
-    let mut dirs = out.lines().map(|d| root.join(d).canonicalize().ok());
+    let mut dirs = out.lines().map(|d| canonicalize(&root.join(d)).ok());
     Some(GitDirs {
         worktree_head_dir: dirs.next()??,
         common_refs_dir: dirs.next()??,
@@ -1051,7 +1055,7 @@ impl Opened {
         folder_branch(&dirs)?;
         let admin = dirs.worktree_head_dir.join("merl");
         let open = admin.join("open");
-        let pid = open.join(std::process::id().to_string());
+        let pid = open.join(crate::real::pid().to_string());
         drop(std::fs::create_dir_all(&open).and_then(|()| {
             std::fs::write(admin.join("opened"), "")?;
             std::fs::write(&pid, "")

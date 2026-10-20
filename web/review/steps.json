@@ -1,0 +1,34 @@
+{
+  "slug": "ratelimit",
+  "base": "main",
+  "branch": "fix/early-429",
+  "title": "Size each bucket's burst from its plan",
+  "author": "agent",
+  "done": "That's a review in merl. Every key works now: <kbd>o</kbd> opens a file, <kbd>s</kbd> searches, <kbd>t</kbd> hides the panel, <kbd>?</kbd> lists the rest. On your own branch, run <code>merl --review</code>.",
+  "steps": [
+    { "ask": "This is an agent's branch. merl opens it on the first change: red lines are gone, green ones are new. Press <kbd>c</kbd> for the next change.",
+      "say": "The bucket now takes its burst from the plan.",
+      "keys": ["c"], "answer": ["c"], "want": "auto" },
+    { "ask": "The new code calls <code>{fn}</code>. Put the cursor on it: <kbd>/</kbd>, type <kbd>{fn}</kbd>, <kbd>Enter</kbd>. Then <kbd>d</kbd> opens it.",
+      "say": "<kbd>d</kbd> went to the definition, in a file this branch adds.",
+      "keys": ["/", "Enter", "d"], "answer": ["/", "{fn}", "Enter", "d"], "want": { "file": "{burst}" } },
+    { "ask": "Who else calls <code>{fn}</code>? Press <kbd>u</kbd>.",
+      "say": "<kbd>u</kbd> lists every use: only the bucket calls it.",
+      "keys": ["u"], "answer": ["u"], "want": { "mode": "Picker" } },
+    { "ask": "Press <kbd>Esc</kbd>, then <kbd>[</kbd> to go back to the review.",
+      "say": "<kbd>[</kbd> went back. Every jump is remembered.",
+      "keys": ["Escape", "["], "answer": ["Escape", "["], "want": { "file": "{bucket}" } },
+    { "ask": "Walk on with <kbd>c</kbd> until merl shows a renamed file. Each file you pass gets a tick in the panel.",
+      "say": "<code>{old}</code> became <code>{new}</code> and nothing else changed, so merl shows the move, not the file.",
+      "keys": ["c"], "answer": "until", "want": { "renamed": true } },
+    { "ask": "Press <kbd>c</kbd> on to the end of the review.",
+      "say": "Every file has a tick. That's the whole review.",
+      "keys": ["c"], "answer": "until", "want": { "viewed": "all" } }
+  ],
+  "langs": {
+    "python": { "fn": "burst_for", "burst": "burst.py", "bucket": "bucket.py", "old": "limits.py", "new": "plans.py" },
+    "typescript": { "fn": "burstFor", "burst": "src/burst.ts", "bucket": "src/bucket.ts", "old": "limits.ts", "new": "plans.ts" },
+    "go": { "fn": "BurstFor", "burst": "burst.go", "bucket": "bucket.go", "old": "limits.go", "new": "plans.go" },
+    "rust": { "fn": "burst_for", "burst": "src/burst.rs", "bucket": "src/bucket.rs", "old": "limits.rs", "new": "plans.rs" }
+  }
+}

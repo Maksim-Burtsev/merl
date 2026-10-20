@@ -1,0 +1,26 @@
+.install { margin-top: clamp(96px, 14vh, 160px); }
+.inst-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 40px 64px; align-items: center; }
+.inst-main { display: grid; gap: 22px; justify-items: start; min-width: 0; }
+.inst-cmd {
+  display: flex; align-items: center; gap: 14px; max-width: 100%; padding: 18px 18px 18px 22px; border: 0; border-radius: 14px; cursor: pointer; text-align: left;
+  font: 500 clamp(14px, 1.3vw, 19px)/1.3 var(--mono); color: var(--ink); background: var(--bg-2); box-shadow: inset 0 0 0 1px var(--line-2);
+  transition: box-shadow .2s;
+}
+.inst-cmd:hover { box-shadow: inset 0 0 0 1px var(--ink-3); }
+.inst-cmd code { min-width: 0; white-space: nowrap; }
+@media (max-width: 560px) { .inst-cmd code { white-space: normal; overflow-wrap: anywhere; } }
+.inst-p { color: var(--accent); }
+.inst-cmd em { flex: none; font: 600 14px/1 var(--body); font-style: normal; color: var(--ink-2); padding: 8px 12px; border-radius: 8px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line-2); }
+.inst-cmd.copied em { color: #fff; background: var(--accent); box-shadow: none; }
+.inst-alt { margin: 0; font-size: 17px; color: var(--ink-2); max-width: 52ch; }
+.inst-alt code { overflow-wrap: anywhere; }
+.inst-win { --term: #ffffff; --term-fg: #1f1f1f; --dim: #6e7781; }
+:root[data-theme="dark"] .inst-win { --term: #222436; --term-fg: #c8d3f5; --dim: #828bb8; }
+.inst-then { margin: 0; padding: 6px 24px 22px; font: clamp(14px, 1.2vw, 16px)/1.5 var(--mono); color: var(--term-fg); display: grid; gap: 14px; }
+.inst-then dt { font-weight: 600; }
+.inst-then dt span { color: var(--dim); font-weight: 400; }
+.inst-then dd { margin: 2px 0 0 2ch; color: var(--dim); }
+.inst-then dd::before { content: "# "; }
+@media (max-width: 900px) { .inst-grid { grid-template-columns: 1fr; } }
+.inst-alt a { color: var(--ink); font-weight: 550; text-decoration: none; }
+.inst-alt a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }

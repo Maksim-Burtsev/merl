@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>merl: code review in your terminal</title>
+<meta name="description" content="The one code navigator you need when agents write the code. Try it in your browser.">
+<link rel="icon" href="img/favicon.png">
+<link rel="preload" href="merl.wasm.gz" as="fetch" crossorigin>
+<link rel="stylesheet" href="shared/fonts.css">
+<link rel="stylesheet" href="shared/play.css">
+<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="parts/keys.css">
+<link rel="stylesheet" href="parts/work.css">
+<link rel="stylesheet" href="parts/not.css">
+<link rel="stylesheet" href="parts/why.css">
+<link rel="stylesheet" href="parts/install.css">
+<script>
+  try {
+    const t = localStorage.getItem("merl-theme");
+    if (t) document.documentElement.dataset.theme = t;
+  } catch {}
+</script>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top"><img src="img/icon.png" alt="" width="24" height="24">merl</a>
+    <nav>
+      <a href="#keys">Keys</a>
+      <a href="#top">Review</a>
+      <a href="#why">Why</a>
+      <a href="https://github.com/Maksim-Burtsev/merl">GitHub</a>
+      <button type="button" class="mode" data-mode aria-label="Light or dark page"><i></i></button>
+      <a class="nav-install" href="#install">Install</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <div class="hero-head">
+      <div class="hero-title">
+        <h1>The one code <s class="h-ed">editor</s> <span class="h-nav">navigator</span> you need when agents write the code.</h1>
+        <p class="h-big">The most comfortable and efficient way to review code.</p>
+      </div>
+      <div class="hero-side">
+        <button type="button" class="cmd" data-copy="brew install maksim-burtsev/tap/merl"><span>$</span><code>brew install maksim-burtsev/tap/merl</code><em>Copy</em></button>
+      </div>
+    </div>
+    <div class="stage rv" data-play>
+      <div class="rv-top">
+        <div class="pr">
+          <span class="pr-state"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/></svg>Open</span>
+          <div class="pr-text"><b data-pr-title></b><span data-pr-meta></span></div>
+        </div>
+        <div class="langs" data-lang role="group" aria-label="Language"></div>
+      </div>
+      <div class="window">
+        <div class="titlebar"><span class="lights" aria-hidden="true"><i></i><i></i><i></i></span><span data-where>merl</span></div>
+        <div class="screen" data-screen tabindex="0" aria-label="merl. Click and use the keyboard.">
+          <canvas></canvas>
+          <div class="cursor" data-cursor hidden></div>
+          <div class="keycap" data-keycap aria-hidden="true"></div>
+          <div class="loading" data-loading>starting merl</div>
+          <div class="tk-coach" data-task-coach></div>
+          <div class="take-hint"><span class="hint-key">Click or press any key</span><span class="hint-tap">Tap</span> to try it yourself</div>
+        </div>
+      </div>
+      <div class="touch" data-touch></div>
+    </div>
+  </section>
+
+  <div data-include="parts/keys.html"></div>
+  <div data-include="parts/work.html"></div>
+  <div data-include="parts/not.html"></div>
+  <div data-include="parts/why.html"></div>
+  <div data-include="parts/install.html"></div>
+</main>
+
+<footer class="wrap">
+  <a class="brand" href="#top"><img src="img/icon.png" alt="" width="20" height="20">merl</a>
+  <a href="https://github.com/Maksim-Burtsev/merl">github.com/Maksim-Burtsev/merl</a>
+  <span>MIT licence</span>
+</footer>
+
+<script type="module" src="site.js"></script>
+</body>
+</html>

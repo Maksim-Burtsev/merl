@@ -1,8 +1,7 @@
 use std::ops::{Deref, Range};
 
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
 use crate::app::{is_word, next_char, prev_char};
+use crate::key::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Default)]
 pub struct LineEdit {

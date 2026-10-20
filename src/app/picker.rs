@@ -82,7 +82,7 @@ impl App {
         for p in &self.recent {
             _ = writeln!(text, "{}", p.display());
         }
-        let tmp = file.with_file_name(format!(".recent-{}", std::process::id()));
+        let tmp = file.with_file_name(format!(".recent-{}", crate::real::pid()));
         let written = (file.parent().map_or(Ok(()), std::fs::create_dir_all))
             .and_then(|()| std::fs::write(&tmp, text))
             .and_then(|()| std::fs::rename(&tmp, file));
