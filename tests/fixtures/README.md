@@ -588,6 +588,9 @@ comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]`
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
 function and a trigger sharing a name, the same table read from a plain file outside any
 migration, and `1_init` beside `10_more`, whose order is unclear and keeps the picker.
+`pour_strainers` reads columns for #1063 through an alias and a table: one from a `CREATE TABLE`
+body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
+derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
