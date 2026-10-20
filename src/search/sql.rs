@@ -436,12 +436,56 @@ fn sql_runs_before(a: &str, b: &str) -> Option<bool> {
     (before == (numeric(&x) < numeric(&y))).then_some(before)
 }
 
+fn sql_identity(text: &str) -> Option<String> {
+    static OBJECT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?i)\b(TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|TYPE|SCHEMA|SEQUENCE|DOMAIN|EXTENSION|DATABASE|ROLE|USER|ENUM)\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?:(?:ONLY|CONCURRENTLY)\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+        ))
+        .expect("a valid pattern")
+    });
+    static ON: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(
+            r"(?i)\sON\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+        ))
+        .expect("a valid pattern")
+    });
+    let norm = |t: &str| {
+        t.chars()
+            .filter(|c| !c.is_whitespace() && !matches!(c, '"' | '`'))
+            .collect::<String>()
+            .to_ascii_lowercase()
+    };
+    let c = OBJECT.captures(text)?;
+    let (kind, named) = (c[1].to_ascii_lowercase(), c.get(2)?);
+    let qualified = norm(named.as_str());
+    let schema = qualified.rsplit_once('.').map_or("", |s| s.0);
+    let rest = text.get(named.end()..)?;
+    let of = match kind.as_str() {
+        "trigger" => norm(&ON.captures(rest)?[1]),
+        "function" | "procedure" => {
+            let args = rest.trim_start().strip_prefix('(')?;
+            let mut depth = 0_usize;
+            let end = args.char_indices().find_map(|(i, c)| match c {
+                '(' => {
+                    depth += 1;
+                    None
+                }
+                ')' if depth == 0 => Some(i),
+                ')' => {
+                    depth -= 1;
+                    None
+                }
+                _ => None,
+            })?;
+            norm(args.get(..end)?)
+        }
+        _ => String::new(),
+    };
+    Some(format!("{kind} {schema} {of}"))
+}
+
 pub fn sql_in_effect(here: &Path, line1: usize, hits: &[Hit]) -> Option<Vec<usize>> {
     let (dir, cursor, down) = sql_migration(here)?;
-    let object = Regex::new(
-        r"(?i)\b(TABLE|VIEW|INDEX|FUNCTION|PROCEDURE|TRIGGER|TYPE|SCHEMA|SEQUENCE|DOMAIN|EXTENSION|DATABASE|ROLE|USER|ENUM)\b",
-    )
-    .expect("a valid pattern");
     let mut best: Vec<(String, usize, &str, bool)> = Vec::new();
     for (i, h) in hits.iter().enumerate() {
         let Some((_, folder, h_down)) = sql_migration(&h.path).filter(|m| m.0 == dir) else {
@@ -459,7 +503,7 @@ pub fn sql_in_effect(here: &Path, line1: usize, hits: &[Hit]) -> Option<Vec<usiz
         if !earlier {
             continue;
         }
-        let kind = object.find(&h.text)?.as_str().to_ascii_lowercase();
+        let kind = sql_identity(&h.text)?;
         match best.iter_mut().find(|b| b.0 == kind) {
             None => best.push((kind, i, folder, h_down)),
             Some(b) => {
@@ -485,7 +529,11 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     let unquote = |t: &str| t.trim().trim_matches(['"', '`']).to_ascii_lowercase();
     let q = unquote(qualifier);
     let items = sql_from_items(stmt);
-    let table = |r: &std::ops::Range<usize>| stmt.get(r.clone())?.rsplit('.').next().map(unquote);
+    let table = |r: &std::ops::Range<usize>| {
+        let parts: Vec<String> = stmt.get(r.clone())?.split('.').map(unquote).collect();
+        Some(parts.join("."))
+    };
+    let last = |t: &str| t.rsplit('.').next().unwrap_or(t).to_owned();
     let aliased = |a: &Option<std::ops::Range<usize>>| {
         a.as_ref().and_then(|a| stmt.get(a.clone())).map(unquote)
     };
@@ -499,12 +547,12 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
             .iter()
             .filter(|(_, a)| a.is_none())
             .filter_map(|(t, _)| table(t))
-            .filter(|t| *t == q)
+            .filter(|t| last(t) == q)
             .collect();
     }
     tables.sort();
     tables.dedup();
-    let cte = Regex::new(&sql_cte(tables.first()?)).expect("an escaped name keeps it valid");
+    let cte = Regex::new(&sql_cte(&last(tables.first()?))).expect("an escaped name keeps it valid");
     match tables.as_slice() {
         [t] if !stmt.lines().any(|l| cte.is_match(l)) => Some(t.clone()),
         _ => None,
@@ -512,9 +560,16 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
 }
 
 pub fn sql_column_pattern(table: &str, column: &str) -> String {
-    let (t, c) = (regex::escape(table), regex::escape(column));
-    let table = format!(r#"(?:{SQL_NAME_PART}\.)?(?:"{t}"|{t}\b)"#);
-    let column = format!(r#"(?:"{c}"|{c}\b)"#);
+    let name = |n: &str| {
+        let n = regex::escape(n);
+        format!(r#"(?:"{n}"|{n}\b)"#)
+    };
+    let table = table
+        .split('.')
+        .map(name)
+        .collect::<Vec<_>>()
+        .join(r"\s*\.\s*");
+    let column = name(column);
     let alter = format!(r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?{table}");
     format!(
         r"(?i)^\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNLOGGED)\s+)*TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}\s*(?:\(|$)|{alter}.*\sADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?{column}|{alter}\s+RENAME\s+(?:COLUMN\s+)?\S+\s+TO\s+{column}"
