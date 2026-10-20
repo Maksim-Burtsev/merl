@@ -156,3 +156,101 @@ fn a_single_string_source_and_an_empty_code_cell_still_lay_out() {
     assert_eq!(texts, ["", "", "x = 1", "y = 2", "", "Done."]);
     assert_eq!(doc.code[1].lang, "julia");
 }
+
+fn row<'a>(doc: &'a Doc, text: &str) -> &'a Row {
+    doc.rows.iter().find(|r| r.text.trim() == text).unwrap()
+}
+
+#[test]
+fn a_row_s_column_counts_the_escapes_and_line_breaks_of_the_json_string() {
+    let nb = r#"{"nbformat": 4, "metadata": {}, "cells": [
+{"cell_type": "code", "outputs": [], "source": "x = \"ab\" + \"cd\" + \"ef\"\n\tyy = 2"}]}"#;
+    let lines = lines(nb);
+    let Ok(Parsed::Notebook(nb)) = parse(&lines) else {
+        panic!("not a notebook");
+    };
+    let doc = layout(&nb, lines.len(), 12, false, &mut |_, _| None);
+    let texts: Vec<&str> = doc.rows.iter().map(|r| r.text.trim()).collect();
+    assert_eq!(texts, ["x = \"ab\" +", "\"cd\" +", "\"ef\"", "yy = 2"]);
+    let at = |text: &str| {
+        let r = row(&doc, text);
+        lines[r.src.0].get(r.src.1..).unwrap()
+    };
+    assert!(at("x = \"ab\" +").starts_with("x = "));
+    assert!(at("\"cd\" +").starts_with("\\\"cd\\\""));
+    assert!(at("\"ef\"").starts_with("\\\"ef\\\""));
+    assert!(at("yy = 2").starts_with("\\tyy = 2"));
+}
+
+#[test]
+fn each_traceback_entry_and_each_of_its_lines_is_a_row_of_its_own() {
+    let nb = r#"{"nbformat": 4, "metadata": {}, "cells": [
+{"cell_type": "code", "source": "1/0", "outputs": [{"output_type": "error", "traceback": [
+"\u001b[31m---\u001b[0m",
+"Cell In[1]\n\u001b[1mline two\u001b[0m"]}]}]}"#;
+    let (lines, doc) = doc(nb);
+    let texts: Vec<&str> = doc.rows.iter().map(|r| r.text.trim()).collect();
+    assert_eq!(texts, ["1/0", "", "---", "Cell In[1]", "line two"]);
+    let r = row(&doc, "line two");
+    assert!(
+        lines[r.src.0]
+            .get(r.src.1..)
+            .unwrap()
+            .starts_with("line two")
+    );
+}
+
+#[test]
+fn the_notebook_s_language_wins_over_the_kernel_s_and_a_raw_cell_has_none() {
+    let nb = r#"{"nbformat": 4, "metadata": {"language_info": {"name": "r"}, "kernelspec": {"language": "python"}}, "cells": [
+{"cell_type": "markdown", "source": []},
+{"cell_type": "code", "source": "x <- 1", "outputs": []},
+{"cell_type": "raw", "source": "a: 1"}]}"#;
+    let (_, doc) = doc(nb);
+    let langs: Vec<&str> = doc.code.iter().map(|c| c.lang.as_str()).collect();
+    assert_eq!(langs, ["r", ""]);
+    let plain = r#"{"nbformat": 4, "metadata": {}, "cells": [{"cell_type": "code", "source": "x", "outputs": []}]}"#;
+    assert_eq!(self::doc(plain).1.code[0].lang, "python");
+}
+
+#[test]
+fn a_cell_s_own_lines_belong_to_its_first_row_though_its_outputs_come_first_in_the_json() {
+    let nb = r#"{
+ "cells": [
+  {
+   "cell_type": "code",
+   "outputs": [
+    {
+     "output_type": "stream",
+     "text": [
+      "printed\n"
+     ]
+    }
+   ],
+   "source": [
+    "x = 1"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "source": [
+    "Next"
+   ]
+  }
+ ],
+ "metadata": {},
+ "nbformat": 4
+}"#;
+    let (lines, doc) = doc(nb);
+    let line = |needle: &str| lines.iter().rposition(|l| l.contains(needle)).unwrap();
+    let at = |l: usize| doc.rows[doc.row_at((l, 0))].text.trim().to_owned();
+    assert_eq!(at(0), "x = 1");
+    assert_eq!(at(line("\"source\": [")), "Next");
+    assert_eq!(
+        at(line("\"source\": [") - 3),
+        "x = 1",
+        "the code's `\"source\": [`"
+    );
+    assert_eq!(at(line("\"cell_type\": \"markdown\"")), "Next");
+    assert_eq!(at(line("printed")), "printed");
+}
