@@ -126,4 +126,11 @@ final class Ceremony
             //              ^ d: none
             PHP;
     }
+
+    public function spread(array $pre): int
+    {
+        [$first, $second] = [...$pre, new Gaiwan()];
+        return $second->pour();
+        //              ^ d: !jump
+    }
 }

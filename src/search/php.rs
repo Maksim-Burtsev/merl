@@ -911,6 +911,9 @@ fn php_destructured(line: &str, name: &str) -> Option<PhpBinding> {
         }
         parts.last_mut()?.push(ch);
     }
+    if parts.get(..at)?.iter().any(|p| p.trim().starts_with("...")) {
+        return None;
+    }
     NEW.captures(parts.get(at)?.trim())
         .map(|n| n[1].to_owned())
         .filter(|t| {

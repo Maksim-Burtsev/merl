@@ -1194,6 +1194,8 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         ("['k' => $pot] = [new A()];", None),
         ("[$a, $pot, $c] = [new A('x,y'), new B(), new C()];", None),
         ("[[$a], $pot] = [[new A()], new B()];", None),
+        ("[$a, $pot] = [...$pre, new B()];", None),
+        ("[$a, $pot] = [new A(), new B(), ...$rest];", Some("B")),
     ] {
         let got = php_binding(line, "pot");
         assert_eq!(got, want.map(|t| PhpBinding::New(t.into())), "{line}");
