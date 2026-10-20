@@ -818,8 +818,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "m",
         title: "Mark viewed",
-        tutor: "`m` marks the file you are in as viewed: a tick beside it on the left, gone again \
-                if the file changes. Press `m` on store.py.",
+        tutor: "`m` marks the file you are in as viewed, a tick beside it on the left; `m` again \
+                takes it off. Press `m` on store.py.",
         drill: "Mark store.py as viewed.",
         start: Some(("store.py", 1, "")),
         keys: "",

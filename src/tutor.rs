@@ -65,7 +65,7 @@ pub const TUTOR: &[&str] = &[
     "m",
 ];
 
-const REVIEW_LESSONS: &[&str] = &["c", "C", "m"];
+pub(super) const REVIEW_LESSONS: &[&str] = &["c", "C", "m"];
 
 const AGENT_S_WORK: &[(&str, &str)] = &[
     ("PLAN.md", include_str!("../tutor/review/PLAN.md")),
@@ -190,25 +190,45 @@ pub fn set_up(a: &mut App, task: &Task) -> Result<()> {
     Ok(())
 }
 
+const REPO_REDIRECTS: &[&str] = &[
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+];
+
+fn redirect_set(is_set: impl Fn(&str) -> bool) -> Option<&'static str> {
+    REPO_REDIRECTS.iter().copied().find(|v| is_set(v))
+}
+
+fn sample_git(root: &Path, args: &[&str]) -> Result<String> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .args(["-c", "user.name=merl", "-c", "user.email=merl@localhost"])
+        .args(args)
+        .output()
+        .map_err(|_| anyhow::anyhow!("git not found"))?;
+    anyhow::ensure!(
+        out.status.success(),
+        "git {}: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&out.stderr).trim()
+    );
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
 fn open_sample_review(a: &mut App) -> Result<()> {
-    let git = |args: &[&str]| crate::git::git(&a.root, args);
+    if let Some(var) = redirect_set(|v| std::env::var_os(v).is_some()) {
+        anyhow::bail!("{var} is set");
+    }
+    let git = |args: &[&str]| sample_git(&a.root, args);
     git(&["-c", "init.defaultBranch=agent/find-by-tag", "init", "-q"])?;
     git(&["add", "-A"])?;
-    git(&[
-        "-c",
-        "user.name=merl",
-        "-c",
-        "user.email=merl@localhost",
-        "-c",
-        "commit.gpgsign=false",
-        "-c",
-        "core.hooksPath=/dev/null",
-        "commit",
-        "-q",
-        "--no-verify",
-        "-m",
-        "notes",
-    ])?;
+    git(&["commit", "-q", "--no-verify", "-m", "notes"])?;
     for (name, text) in AGENT_S_WORK {
         std::fs::write(a.root.join(name), text)?;
     }
@@ -513,5 +533,29 @@ mod tests {
             .map(|(_, t)| t.matches("TODO").count())
             .sum();
         assert_eq!(todos, 1, "the `s` task searches for the single TODO");
+    }
+
+    #[test]
+    fn the_sample_review_reads_no_git_config_of_the_user() {
+        let dir = dir("config-free");
+        std::fs::create_dir_all(&dir).unwrap();
+        let listed = sample_git(&dir, &["config", "--list", "--show-origin"]).unwrap();
+        let lines: Vec<&str> = listed.lines().collect();
+        assert_eq!(
+            lines,
+            [
+                "command line:\tuser.name=merl",
+                "command line:\tuser.email=merl@localhost"
+            ]
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_repository_named_by_the_environment_stops_the_sample_review() {
+        assert_eq!(redirect_set(|_| false), None);
+        for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
+            assert_eq!(redirect_set(|v| v == var), Some(var));
+        }
     }
 }

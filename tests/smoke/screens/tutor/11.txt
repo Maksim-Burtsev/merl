@@ -51,7 +51,7 @@ wait Tutor 26/
 │                            │48         if len(keep) == len(self.notes):
 └ 6 files · +138 −23 ────────┘49             return False
 Tutor 26/26 · Mark viewed
-`m` marks the file you are in as viewed: a tick beside it on the left, gone again if the file changes. Press `m` on store.py.
+`m` marks the file you are in as viewed, a tick beside it on the left; `m` again takes it off. Press `m` on store.py.
 
 store.py  1:1  [code]  hunk 0/4  file 6/6  ✓ Previous change                                                                                                                       14:32
 cursor (x,y,shown) 33,0,0

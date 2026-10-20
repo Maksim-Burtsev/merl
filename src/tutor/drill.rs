@@ -6,7 +6,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 
-use super::{POOL, fresh, set_up};
+use super::{POOL, REVIEW_LESSONS, fresh, set_up};
 use crate::app::{App, Mode, plural};
 use crate::stats;
 
@@ -33,6 +33,7 @@ pub struct Drill {
     rng: u64,
     started: Instant,
     cur: Option<Cur>,
+    no_review: bool,
 }
 
 struct Cur {
@@ -70,6 +71,7 @@ impl Drill {
             rng: seed,
             started: Instant::now(),
             cur: None,
+            no_review: false,
         })
     }
 
@@ -108,6 +110,10 @@ impl Drill {
             .is_some_and(|typical| f64::from(ms) > SLOW_TIMES_TYPICAL_HIT * f64::from(typical))
     }
 
+    fn can_set_up(&self, task: usize) -> bool {
+        !(self.no_review && REVIEW_LESSONS.contains(&POOL[task].key))
+    }
+
     fn pick(&mut self) -> Option<usize> {
         let slot = self.answers.len();
         if slot >= self.n {
@@ -116,13 +122,15 @@ impl Drill {
         if let Some(&(task, None)) = slot
             .checked_sub(MISSED_TASK_BACK_UNNAMED_AFTER)
             .map(|s| &self.answers[s])
+            .filter(|&&(t, _)| self.can_set_up(t))
         {
             return Some(task);
         }
         let unseen = stats::ACTIONS
             .iter()
             .filter(|a| !self.attempts.iter().any(|t| t.0 == a.name))
-            .find_map(|a| POOL.iter().position(|t| t.key == a.name));
+            .filter_map(|a| POOL.iter().position(|t| t.key == a.name))
+            .find(|&t| self.can_set_up(t));
         if unseen.is_some() {
             return unseen;
         }
@@ -132,7 +140,7 @@ impl Drill {
             .collect();
         let weights: Vec<u64> = (0..POOL.len())
             .map(|t| {
-                if recent.contains(&t) {
+                if recent.contains(&t) || !self.can_set_up(t) {
                     0
                 } else {
                     u64::from(self.weight(POOL[t].key))
@@ -309,6 +317,13 @@ pub fn next(app: &mut App) -> Result<()> {
 
 fn run(app: &mut App, task: usize, named: bool) -> Result<()> {
     let set = fresh(app).and_then(|()| set_up(app, &POOL[task]));
+    if set.is_err()
+        && REVIEW_LESSONS.contains(&POOL[task].key)
+        && let Some(d) = drill(app)
+    {
+        d.no_review = true;
+        return next(app);
+    }
     if let Some(d) = drill(app) {
         d.cur = Some(Cur {
             task,
@@ -451,6 +466,18 @@ mod tests {
             session(&mut drill(20), &[]),
             in_keys_order()[..20],
             "with nothing attempted, the first session is the start of the tour"
+        );
+    }
+
+    #[test]
+    fn with_no_sample_review_the_drill_asks_no_review_task() {
+        let mut d = drill(200);
+        d.no_review = true;
+        let asked = session(&mut d, &[0, 1, 2, 3]);
+        assert_eq!(asked.len(), 200);
+        assert!(
+            asked.iter().all(|k| !REVIEW_LESSONS.contains(k)),
+            "{asked:?}"
         );
     }
 
