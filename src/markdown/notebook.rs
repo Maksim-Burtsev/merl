@@ -93,7 +93,11 @@ pub fn parse(lines: &[String]) -> Result<Parsed, String> {
             "markdown" => {}
             kind => {
                 let src = b.non_empty(src, cell.source);
-                let lang = if kind == "code" { lang.clone() } else { String::new() };
+                let lang = if kind == "code" {
+                    lang.clone()
+                } else {
+                    String::new()
+                };
                 b.nb.pieces.push(Piece::Code(lang, src));
                 let first = b.nb.lines.len();
                 for o in &cell.outputs {
@@ -110,7 +114,10 @@ pub fn parse(lines: &[String]) -> Result<Parsed, String> {
 
 impl Build<'_> {
     fn pos(&self, raw: &str) -> (usize, usize) {
-        let off = raw.as_ptr().addr().saturating_sub(self.json.as_ptr().addr());
+        let off = raw
+            .as_ptr()
+            .addr()
+            .saturating_sub(self.json.as_ptr().addr());
         let l = self.starts.partition_point(|&s| s <= off).saturating_sub(1);
         (l, off - self.starts[l] + 1)
     }
@@ -238,7 +245,14 @@ pub fn layout(nb: &Notebook, n: usize, width: usize, light: bool, fit: Fit) -> D
     for row in &mut lay.rows {
         let (l, c) = row.src;
         let (jl, jc) = to(l);
-        row.src = (jl, if c == usize::MAX { c } else { jc.saturating_add(c) });
+        row.src = (
+            jl,
+            if c == usize::MAX {
+                c
+            } else {
+                jc.saturating_add(c)
+            },
+        );
         row.lines = if row.lines.is_empty() {
             to(row.lines.start).0..to(row.lines.start).0
         } else {

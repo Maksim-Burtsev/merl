@@ -122,14 +122,21 @@ fn every_row_points_at_the_line_of_the_json_it_came_from() {
     assert_eq!(line_of("print('hello')"), json_line("print('hello')\""));
     assert_eq!(line_of("world"), json_line("\"world"));
     assert_eq!(line_of("\u{25a3} image/png"), json_line("image/png"));
-    let r = doc.rows.iter().find(|r| r.text.trim() == "print('hello')").unwrap();
+    let r = doc
+        .rows
+        .iter()
+        .find(|r| r.text.trim() == "print('hello')")
+        .unwrap();
     assert_eq!(lines[r.src.0].get(r.src.1..r.src.1 + 5), Some("print"));
 }
 
 #[test]
 fn a_notebook_that_is_not_nbformat_4_or_not_json_says_why() {
     let err = |text: &str| parse(&lines(text)).unwrap_err();
-    assert_eq!(err("{\"nbformat\": 3, \"worksheets\": []}"), "nbformat 3 is not 4");
+    assert_eq!(
+        err("{\"nbformat\": 3, \"worksheets\": []}"),
+        "nbformat 3 is not 4"
+    );
     assert_eq!(err("{\"cells\": []}"), "no nbformat");
     assert_eq!(err("{\n\"nbformat\": 4,\n"), "line 2 is not JSON");
     assert_eq!(
