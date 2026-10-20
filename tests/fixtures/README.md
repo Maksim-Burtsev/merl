@@ -212,7 +212,7 @@ also declares, a function `pour` beside the methods, `static::` and `parent::`, 
 a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
 block comment declaring what the files declare; `Kettle::card` names its members in the prose
 of a heredoc and a nowdoc, which declares nothing, beside interpolated `{$this->…}`, `$var` and
-`${var}`, and an escaped `\$var` that is text; `Kettle::sign` does the same in one-line quoted strings, beside a callable `[$other, 'pour']` that is still looked up (#1113). `php/src/Tea/Infuse/` is the third
+`${var}`, and an escaped `\$var` that is text; `Kettle::sign` does the same in one-line quoted strings, beside a callable `[$other, 'pour']` that is still looked up (#1113); `Kettle::ledger` looks up the code after a string that closes a line below its quote, and a backslash-qualified class name in prose. `php/src/Tea/Infuse/` is the third
 corner (#1126), its answers read from the code: `Ceremony` calls `format` and `count` on a
 `DateTimeImmutable` and an `ArrayObject` beside `Leaf`'s namesakes, a builder chain over lines, a
 call on a call's result, `$cup = $cup->steep()`, a destructured pair, and one behind a
