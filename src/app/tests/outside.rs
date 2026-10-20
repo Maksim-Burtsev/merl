@@ -536,14 +536,19 @@ fn a_dart_name_skips_the_packages_the_library_cannot_see() {
     d_on(&mut a, "lib/main.dart", "^|Frame f()");
     assert_eq!(
         shown(&mut a),
-        jump("Frame: by name, 1 match", &at(&cache, "deep/lib/deep.dart", 1))
+        jump(
+            "Frame: by name, 1 match",
+            &at(&cache, "deep/lib/deep.dart", 1)
+        )
     );
     d_on(&mut a, "lib/main.dart", "|ping();");
     let Shown::Picker(_, rows) = shown(&mut a) else {
         panic!("an inherited member stays beside a top-level namesake");
     };
     assert_eq!(
-        rows.into_iter().map(|(_, _, place)| place).collect::<Vec<_>>(),
+        rows.into_iter()
+            .map(|(_, _, place)| place)
+            .collect::<Vec<_>>(),
         ["stack.dart:5", "noise.dart:8"]
     );
     for d in [dir, cache] {

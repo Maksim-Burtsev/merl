@@ -243,7 +243,11 @@ impl App {
                 if uri.starts_with("dart:") && uri != "dart:ui" {
                     continue;
                 }
-                let base = if uri.starts_with("package:") { here } else { &from };
+                let base = if uri.starts_with("package:") {
+                    here
+                } else {
+                    &from
+                };
                 let file = search::dart_uri_file(&self.root, base, uri, sdk)?;
                 if !seen.insert(file.clone()) {
                     continue;

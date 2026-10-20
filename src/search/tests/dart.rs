@@ -456,7 +456,10 @@ fn dart_receivers_read_a_written_type() {
         dart_typed("  final cold = stale.Kettle.cold();", "", "cold"),
         Some(ty(Some("stale"), "Kettle", Some("cold")))
     );
-    assert_eq!(dart_typed("  final n = Kettle.cold().pour(1);", "", "n"), None);
+    assert_eq!(
+        dart_typed("  final n = Kettle.cold().pour(1);", "", "n"),
+        None
+    );
     assert_eq!(dart_typed("  final n = make(1);", "", "n"), None);
     let rest = "    pot: 1,\n  );\n  ro.pour();\n";
     assert_eq!(
@@ -465,7 +468,10 @@ fn dart_receivers_read_a_written_type() {
     );
     let chained = "    pot: 1,\n  ).cold();\n";
     assert_eq!(dart_typed("  final ro = Kettle(", chained, "ro"), None);
-    assert_eq!(dart_typed("  final ro = Kettle(", "    pot: 1,\n", "ro"), None);
+    assert_eq!(
+        dart_typed("  final ro = Kettle(", "    pot: 1,\n", "ro"),
+        None
+    );
     assert_eq!(
         dart_cascade("  Kettle(1).."),
         Some(Ok(ty(None, "Kettle", None)))

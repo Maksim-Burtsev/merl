@@ -810,10 +810,7 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
         &whole
     };
     let (ty, close) = dart_new(s, &c, open)?;
-    s.get(close..)?
-        .trim_start()
-        .starts_with(';')
-        .then_some(ty)
+    s.get(close..)?.trim_start().starts_with(';').then_some(ty)
 }
 
 pub fn dart_cascade(before: &str) -> Option<Result<DartType, String>> {

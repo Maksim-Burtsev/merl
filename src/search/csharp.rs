@@ -1008,7 +1008,9 @@ pub fn cs_static_member(line: &str, word: &str) -> bool {
     else {
         return false;
     };
-    code.get(..at.start()).is_some_and(|head| MODS.is_match(head)) && cs_extended(&code).is_none()
+    code.get(..at.start())
+        .is_some_and(|head| MODS.is_match(head))
+        && cs_extended(&code).is_none()
 }
 
 pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {

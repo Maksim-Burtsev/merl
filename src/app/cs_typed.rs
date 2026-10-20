@@ -1155,7 +1155,11 @@ impl App {
             let Some(CsType::Project(t)) = self.cs_resolve(&path, &text, line1, &target) else {
                 return None;
             };
-            let decl = self.text_of(&t.path)?.lines().nth(t.line - 1).and_then(search::cs_type_decl)?;
+            let decl = self
+                .text_of(&t.path)?
+                .lines()
+                .nth(t.line - 1)
+                .and_then(search::cs_type_decl)?;
             if decl.keyword == "enum" {
                 return None;
             }
