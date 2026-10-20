@@ -142,9 +142,10 @@ fn a_notebook_that_is_not_nbformat_4_or_not_json_says_why() {
 fn a_single_string_source_and_an_empty_code_cell_still_lay_out() {
     let nb = r#"{"nbformat": 4, "metadata": {"kernelspec": {"language": "julia"}}, "cells": [
 {"cell_type": "code", "source": "", "outputs": []},
-{"cell_type": "code", "source": "x = 1\ny = 2", "outputs": []}]}"#;
+{"cell_type": "code", "source": "x = 1\ny = 2", "outputs": []},
+{"cell_type": "markdown", "source": "Done."}]}"#;
     let (_, doc) = doc(nb);
     let texts: Vec<&str> = doc.rows.iter().map(|r| r.text.trim()).collect();
-    assert_eq!(texts, ["", "", "x = 1", "y = 2"]);
+    assert_eq!(texts, ["", "", "x = 1", "y = 2", "", "Done."]);
     assert_eq!(doc.code[1].lang, "julia");
 }

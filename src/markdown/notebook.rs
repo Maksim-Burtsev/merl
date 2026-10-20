@@ -201,7 +201,8 @@ pub fn layout(nb: &Notebook, n: usize, width: usize, light: bool, fit: Fit) -> D
     for piece in &nb.pieces {
         match piece {
             Piece::Markdown(r) => {
-                let (a, b) = (start(r.start), start(r.end).saturating_sub(1).max(start(r.start)));
+                let a = start(r.start);
+                let b = starts.get(r.end).map_or(src.len(), |&s| s - 1);
                 let cell = src.get(a..b).unwrap_or_default();
                 for (ev, er) in Parser::new_ext(cell, super::options()).into_offset_iter() {
                     lay.event(ev, er.start + a..er.end + a);
