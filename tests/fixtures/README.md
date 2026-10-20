@@ -611,6 +611,13 @@ and a `Fillable` one the `Kettle` extends, `def self.cold` beside an instance `c
 self`, `define_method(:whistle)`, `steep = steep() + 1` and `steep * steep()`, a block parameter
 hiding a method on its own line and one hiding a parameter over lines, and a heredoc declaring
 `descale`, `Teapot` and `whistle`.
+`pouring.rb` is the third corner (#1126), its answers read from the code, over `samovar.rb`:
+core methods of a `String` and a `Hash` beside `Strainer`'s namesakes, a refinement of `String`,
+a builder over lines and a chain on one line beside `Infuser`'s, `cup = cup.next_cup`, `strength
+= strength.to_i` beside a method `strength`, a block-local `|c; strength|`, `alias_method`, a
+constant alias `Urn = Samovar`, `tap`, `&.`, `::Tea::Cup`, a `Struct` member, `module_function`,
+`super` past an included module, interpolation in a string and a heredoc declaring `quick`, and a
+class body's local read by `define_method`.
 
 ### Adding a kind
 
