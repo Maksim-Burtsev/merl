@@ -3,9 +3,9 @@ import { padStart as pad } from "./lever.mjs";
 
 export function pullAll(names) {
   const label = names.join(" ").padStart(4);
-  //                            ^ d: coffee/lever.mjs:32; want none (#1145)
+  //                            ^ d: none
   const cups = label.split(",").filter(Boolean);
-  //                            ^ d: coffee/lever.mjs:34; want none (#1145)
+  //                            ^ d: none
   const machine = new Machine();
   //                  ^ d: coffee/lever.mjs:17
   const time = machine
@@ -67,7 +67,7 @@ export async function late() {
 
 export function settled() {
   return Promise.resolve(1).then((n) => n);
-  //                        ^ d: picker coffee/lever.mjs:38, tea/strainer.ts:41; want none (#1145)
+  //                        ^ d: none
 }
 
 /** @param {import("./lever.mjs").Shower} shower */
@@ -98,4 +98,9 @@ export function brewShot() {
   return new Cup().sip() + makeLever().release().pull(1);
   //                       ^ d: coffee/lever.mjs:43
   //                                             ^ d: coffee/lever.mjs:22
+}
+
+export function sieved(lever) {
+  return lever.filter(1).padStart;
+  //                     ^ d: coffee/lever.mjs:32
 }

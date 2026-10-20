@@ -1,6 +1,7 @@
 mod by_name;
 mod early;
 mod imports;
+mod js_std;
 mod locals;
 mod members;
 mod pathed;

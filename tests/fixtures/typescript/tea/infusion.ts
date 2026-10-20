@@ -4,9 +4,9 @@ import type { Sieve } from "./strainer";
 
 export function infuse(words: string[], basket: Basket): number {
   const line = words.join(" ").trim();
-  //                           ^ d: tea/strainer.ts:34; want none (#1145)
+  //                           ^ d: none
   const parts = line.split(",");
-  //                 ^ d: tea/strainer.ts:37; want none (#1145)
+  //                 ^ d: none
   const filter = new Filter();
   //                 ^ d: tea/strainer.ts:11
   const holes = filter
@@ -79,7 +79,7 @@ export async function late(): Promise<number> {
 export function settled(basket: Basket): Promise<number> {
   return Promise.resolve(basket.then()).then((n) => n);
   //                            ^ d: tea/strainer.ts:41
-  //                                    ^ d: picker coffee/lever.mjs:38, tea/strainer.ts:41; want none (#1145)
+  //                                    ^ d: none
 }
 
 export const recipe = `
@@ -109,7 +109,7 @@ export function strain(): Strainer {
 
 export function tidy(text: string, cups: Map<string, Basket>): number {
   return text.trim().length + (cups.get("a")?.split(1) ?? 0);
-  //          ^ d: tea/strainer.ts:34; want none (#1145)
-  //                                ^ d: picker coffee/cezve.js:74, coffee/cezve.js:76, shop/grades.ts:43; want none (#1145)
+  //          ^ d: none
+  //                                ^ d: none
   //                                          ^ d: tea/strainer.ts:37
 }

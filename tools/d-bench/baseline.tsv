@@ -6463,7 +6463,7 @@ svelte0032	ok	jump	9.77
 svelte0033	ok	jump	19.26
 svelte0034	no-answer	picker	518.02
 svelte0035	none	stay	279.68
-svelte0036	skip	picker	92.95
+svelte0036	skip	stay	92.95
 svelte0037	ok	jump	25.89
 svelte0038	pick-hit	picker	34.09
 svelte0039	none	stay	114.43
@@ -6488,7 +6488,7 @@ svelte0057	no-answer	picker	147.82
 svelte0058	skip	picker	34.82
 svelte0059	no-answer	picker	224.39
 svelte0060	ok	jump	27.22
-svelte0061	skip	picker	148.17
+svelte0061	skip	stay	148.17
 svelte0062	skip	picker	207.68
 svelte0063	no-answer	picker	151.05
 svelte0064	ok	jump	68.49
@@ -6570,7 +6570,7 @@ svelte0139	skip	stay	23.01
 svelte0140	skip	picker	194.86
 svelte0141	ok	jump	6.98
 svelte0142	ok	jump	52.01
-svelte0143	no-answer	picker	160.30
+svelte0143	no-answer	stay	160.30
 svelte0144	ok	jump	18.71
 svelte0145	no-answer	picker	147.52
 svelte0146	pick-hit	picker	37.68
@@ -6612,7 +6612,7 @@ svelte0181	ok	jump	9.32
 svelte0182	ok	jump	17.88
 svelte0183	no-answer	picker	162.92
 svelte0184	skip	picker	54.89
-svelte0185	skip	picker	140.69
+svelte0185	skip	stay	140.69
 svelte0186	WRONG	jump	57.98
 svelte0187	ok	jump	28.13
 svelte0188	pick-hit	picker	59.15
@@ -6658,7 +6658,7 @@ svelte0227	no-answer	stay	214.78
 svelte0228	ok	jump	11.10
 svelte0229	no-answer	stay	200.15
 svelte0230	pick-hit	picker	149.32
-svelte0231	skip	picker	504.22
+svelte0231	skip	stay	504.22
 svelte0232	no-answer	picker	131.79
 svelte0233	skip	stay	162.27
 svelte0234	ok	jump	14.39
@@ -7954,7 +7954,7 @@ vue0224	WRONG	jump	95.10
 vue0225	ok	jump	19.68
 vue0226	skip	picker	152.39
 vue0227	skip	picker	76.24
-vue0228	skip	picker	89.14
+vue0228	skip	stay	89.14
 vue0229	none	stay	16.73
 vue0230	skip-jump	jump	44.93
 vue0231	skip	picker	115.35

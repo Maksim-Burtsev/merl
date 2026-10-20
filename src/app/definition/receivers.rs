@@ -263,6 +263,12 @@ impl App {
                     self.message = format!("{word}: builtin, no source (via {via})");
                     return true;
                 }
+                if let Some(via) = self.js_std_receiver(a) {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("{word}: builtin, no source (via {via})");
+                    return true;
+                }
                 if head.is_none()
                     && kind == Kind::TsJs
                     && let Some(via) = self.missing_package_receiver(&a.here, chain, &at)
