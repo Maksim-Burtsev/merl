@@ -176,6 +176,12 @@ impl App {
         if !named.is_empty() {
             return self.show_found(a, named);
         }
+        if let (Kind::Rust, [alias], None) = (kind, chain.as_slice(), &q.answer_files) {
+            let found = self.rust_alias_members(alias, word);
+            if !found.is_empty() {
+                return self.show_found(a, found);
+            }
+        }
         if let (Kind::Jvm, [name]) = (kind, chain.as_slice()) {
             let found = self.enum_constant(kind, &a.here, name, word);
             if !found.is_empty() {

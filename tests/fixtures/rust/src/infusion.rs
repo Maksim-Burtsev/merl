@@ -105,7 +105,7 @@ pub fn destructured(leaf: Leaf) -> usize {
 
 pub fn alias(t: &Tin) -> u32 {
     let tin = Tin::new(1);
-    //             ^ d: !jump; want src/infusion/leaves.rs:9 (#1164)
+    //             ^ d: src/infusion/leaves.rs:9
     tin.label().len() as u32 + t.label().len() as u32
     //  ^ d: src/infusion/leaves.rs:43
     //                           ^ d: src/infusion/leaves.rs:43
@@ -168,3 +168,9 @@ impl Infuser { pub fn finish(self) {} }
 
 /* pub fn sip() -> u32 { 1 }
    pub struct Liquor; */
+
+pub fn alias_paths(t: &Tin) -> usize {
+    Tin::label(t).len() + Kettle::new().len()
+    //   ^ d: src/infusion/leaves.rs:43
+    //                            ^ d: !jump
+}

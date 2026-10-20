@@ -1282,6 +1282,20 @@ impl App {
             .collect()
     }
 
+    pub(super) fn rust_alias_members(&self, alias: &str, word: &str) -> Vec<Candidate> {
+        let Some(ty) = self.rust_alias(alias) else {
+            return Vec::new();
+        };
+        let reason = Reason::Path(format!("{alias} = {}", ty.name));
+        self.rust_members(&ty, word)
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: reason.clone(),
+            })
+            .collect()
+    }
+
     fn rust_members(&self, ty: &Typed, word: &str) -> Vec<Hit> {
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
         let decl = search::rust_type_decl_pattern(&ty.name);
