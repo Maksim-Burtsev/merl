@@ -79,7 +79,7 @@ def aliased(machine: Machine) -> int:
     #              ^ d: tea/brewer.py:49
     #                                            ^ d: tea/brewer.py:75
     #                                                          ^ d: tea/brewer.py:57
-    #                                                                                  ^ d: picker tea/brewer.py:57, tea/brewer.py:68; want tea/brewer.py:57 (#1153)
+    #                                                                                  ^ d: tea/brewer.py:57
 
 
 def again(brewer: Brewer) -> int:

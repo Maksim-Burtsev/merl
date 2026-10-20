@@ -663,6 +663,34 @@ fn a_class_body_binds_for_itself_not_for_its_methods() {
 }
 
 #[test]
+fn a_class_alias_is_a_bare_name_assigned_once() {
+    assert_eq!(
+        python_class_alias("Machine = Brewer", "Machine"),
+        Some("Brewer")
+    );
+    assert_eq!(
+        python_class_alias("Machine = kit.Brewer  # x", "Machine"),
+        Some("kit.Brewer")
+    );
+    assert_eq!(python_class_alias("Machine = Brewer()", "Machine"), None);
+    assert_eq!(
+        python_class_alias("Machine = Brewer | None", "Machine"),
+        None
+    );
+    assert_eq!(
+        python_class_alias("Machine = list[Brewer]", "Machine"),
+        None
+    );
+    assert_eq!(python_class_alias("Machine == Brewer", "Machine"), None);
+    let twice = "Machine = Brewer\nif x:\n    pass\nMachine = Infuser\n";
+    assert_eq!(python_module_assignments(twice, "Machine"), 2);
+    assert_eq!(
+        python_module_assignments("Machine = Brewer\n", "Machine"),
+        1
+    );
+}
+
+#[test]
 fn a_keyword_argument_names_no_variable() {
     let at = |text: &str, line1: usize, word: &str| {
         let line = text.lines().nth(line1 - 1).unwrap();

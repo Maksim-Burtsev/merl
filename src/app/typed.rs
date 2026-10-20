@@ -926,6 +926,17 @@ impl App {
         {
             return Some(ty);
         }
+        if kind == Kind::Python
+            && depth < 8
+            && let [name] = parts.as_slice()
+            && let Some(target) = search::python_class_alias(&decl.text, name)
+            && self
+                .text_of(&decl.path)
+                .is_some_and(|t| search::python_module_assignments(&t, name) == 1)
+            && let Some(ty) = self.type_decl_at(kind, &decl.path, target, depth + 1)
+        {
+            return Some(ty);
+        }
         if !search::declares_type(kind, &written) && !js_type(kind, &decl.path, &decl.text) {
             return self.required(kind, file, &parts);
         }

@@ -760,3 +760,25 @@ pub fn keyword_argument(text: &str, line1: usize, range: &std::ops::Range<usize>
         && (before.ends_with(['(', ','])
             || (before.is_empty() && continued(Kind::Python, &lines, line1 - 1)))
 }
+pub fn python_class_alias<'a>(decl: &'a str, name: &str) -> Option<&'a str> {
+    let rest = decl.strip_prefix(name)?.trim_start().strip_prefix('=')?;
+    let target = rest.split('#').next()?.trim();
+    (!rest.starts_with('=')
+        && target.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+        && target
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.'))
+    .then_some(target)
+}
+pub fn python_module_assignments(text: &str, name: &str) -> usize {
+    text.lines()
+        .filter(|l| {
+            l.strip_prefix(name).is_some_and(|rest| {
+                let rest = rest.trim_start();
+                (rest.starts_with('=') && !rest.starts_with("=="))
+                    || rest.starts_with(':')
+                    || rest.starts_with(',')
+            })
+        })
+        .count()
+}
