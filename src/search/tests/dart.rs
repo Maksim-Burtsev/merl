@@ -424,6 +424,8 @@ fn dart_directives_read_combinators_and_parts() {
     assert_eq!(d[0].hide, ["A", "B"]);
     assert_eq!(d[1].show.as_deref(), Some(&["C".to_owned()][..]));
     assert_eq!(d[2].uri, "c.dart");
+    assert_eq!(d[2].alternatives, ["d.dart"]);
+    assert_eq!(d[0].alternatives, [""; 0]);
     assert_eq!(
         (d[3].keyword.as_str(), d[3].uri.as_str()),
         ("part", "e.dart")

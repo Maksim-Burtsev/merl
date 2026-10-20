@@ -212,6 +212,7 @@ pub struct DartDirective {
     pub prefix: Option<String>,
     pub show: Option<Vec<String>>,
     pub hide: Vec<String>,
+    pub alternatives: Vec<String>,
     pub line1: usize,
 }
 
@@ -241,6 +242,11 @@ pub fn dart_directives(text: &str) -> Option<Vec<DartDirective>> {
                     "as" => d.prefix = Some(t.to_owned()),
                     "show" => d.show.get_or_insert_with(Vec::new).push(t.to_owned()),
                     "hide" => d.hide.push(t.to_owned()),
+                    "" => d.alternatives.extend(
+                        t.strip_prefix(['\'', '"'])
+                            .and_then(|u| u.strip_suffix(['\'', '"']))
+                            .map(str::to_owned),
+                    ),
                     _ => {}
                 },
             }
@@ -391,6 +397,14 @@ pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
     } else {
         bin.parent().map(Path::to_path_buf)
     }
+}
+
+pub fn dart_root_of(roots: &[PathBuf], path: &Path) -> Option<PathBuf> {
+    roots
+        .iter()
+        .filter(|r| path.starts_with(r))
+        .max_by_key(|r| r.as_os_str().len())
+        .cloned()
 }
 
 pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
