@@ -8,7 +8,7 @@ module.exports = {
         return probe.callee;
         //     ^ d: rules/q.js:7
         // status: local
-        //           ^ d: none
+        //           ^ d: node_modules/@types/estree/index.d.ts:6
       },
       'Program:exit'(probe) {
         return probe;
@@ -21,7 +21,7 @@ module.exports = {
       CallExpression(probe) {
         return probe.callee;
         //     ^ d: rules/q.js:21
-        //           ^ d: none
+        //           ^ d: picker @types/estree/index.d.ts:6
       },
     };
   },

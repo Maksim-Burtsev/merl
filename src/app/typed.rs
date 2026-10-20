@@ -3,6 +3,11 @@ use super::{
     signature,
 };
 
+static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)$"#)
+        .expect("the regex is a literal")
+});
+
 struct TypeVia {
     ty: Typed,
     call_signature: Option<String>,
@@ -38,7 +43,7 @@ impl App {
         chain: &[String],
         head: Option<&search::CallHead>,
     ) -> Result<Vec<Candidate>, String> {
-        if kind == Kind::Python {
+        if kind == Kind::Python || search::reads_jsdoc(kind, here) {
             self.external_files(kind);
         }
         let (text, line) = self.scope(here, chain.first())?;
@@ -79,6 +84,15 @@ impl App {
                 assigned
             })
             .unwrap_or_default();
+        if hits.is_empty()
+            && search::reads_jsdoc(kind, here)
+            && ty
+                .path
+                .components()
+                .any(|c| c.as_os_str() == "node_modules")
+        {
+            return Err(chain.first().cloned().unwrap_or_default());
+        }
         let label = links.join(" \u{2192} ");
         Ok(hits
             .into_iter()
@@ -1000,6 +1014,9 @@ impl App {
     }
 
     fn type_decl_at(&self, kind: Kind, file: &Path, written: &str, depth: usize) -> Option<Typed> {
+        if depth < 8 && IMPORTED.is_match(written) {
+            return self.imported_type(kind, file, written, depth);
+        }
         let parts = search::type_path(kind, written)?;
         let Some(decl) = self.declaration(kind, file, &parts) else {
             return self.typedef(kind, file, &parts, depth);
@@ -1070,10 +1087,27 @@ impl App {
                     .filter(|t| self.jsdoc_resolves(kind, file, t))
                 {
                     b.value = search::Value::Type(t);
+                } else if let Some(node) = search::eslint_visited_node(text, b.line1, name) {
+                    let t = format!("import(\"estree\").{node}");
+                    if self.declares_interface(kind, file, &t) {
+                        b.value = search::Value::Type(t);
+                    }
                 }
             }
         }
         bindings
+    }
+
+    fn declares_interface(&self, kind: Kind, file: &Path, written: &str) -> bool {
+        self.type_decl(kind, file, written).is_some_and(|ty| {
+            self.text_of(&ty.path).is_some_and(|t| {
+                t.lines().nth(ty.line.saturating_sub(1)).is_some_and(|l| {
+                    l.trim_start()
+                        .trim_start_matches("export ")
+                        .starts_with("interface ")
+                })
+            })
+        })
     }
 
     fn returns_of(
@@ -1094,10 +1128,6 @@ impl App {
     }
 
     fn typedef(&self, kind: Kind, file: &Path, parts: &[String], depth: usize) -> Option<Typed> {
-        static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)$"#)
-                .expect("the regex is a literal")
-        });
         let [name] = parts else {
             return None;
         };
@@ -1121,11 +1151,24 @@ impl App {
                 line: *line,
             });
         }
+        self.imported_type(kind, file, written, depth)
+    }
+
+    fn imported_type(&self, kind: Kind, file: &Path, written: &str, depth: usize) -> Option<Typed> {
         let c = IMPORTED.captures(written)?;
         let import = format!("import {{ {} }} from \"{}\";", &c[2], &c[1]);
         let path = search::imports(kind, &import).pop()?.path;
         let (taken, module) = path.split_last()?;
-        let files = search::module_files(kind, &self.root, &self.files, file, module);
+        let mut files = search::module_files(kind, &self.root, &self.files, file, module);
+        if files.is_empty()
+            && module.first().is_some_and(|m| !m.starts_with(['.', '/']))
+            && let Some((roots, all)) = self.external.get(&Kind::TsJs)
+        {
+            files = search::package_copy(&self.root, roots, all, &self.files, module)
+                .map(|copy| copy.entries())
+                .unwrap_or_default();
+            files.retain(|f| search::declaration_file(f));
+        }
         let [module] = &files[..] else {
             return None;
         };
