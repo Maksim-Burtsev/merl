@@ -617,7 +617,9 @@ a builder over lines and a chain on one line beside `Infuser`'s, `cup = cup.next
 = strength.to_i` beside a method `strength`, a block-local `|c; strength|`, `alias_method`, a
 constant alias `Urn = Samovar`, `tap`, `&.`, `::Tea::Cup`, a `Struct` member, `module_function`,
 `super` past an included module, interpolation in a string and a heredoc declaring `quick`, and a
-class body's local read by `define_method`.
+class body's local read by `define_method`. Its `Guess` keeps the guesses out (#1159–#1163): a
+parameter reassigned under `if`, a local assigned twice, a block's value before `.dig`, and
+`super` inside `define_method`, each answered as master does.
 
 ### Adding a kind
 

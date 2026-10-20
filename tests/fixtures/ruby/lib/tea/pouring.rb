@@ -103,3 +103,23 @@ module Tea
     #                         ^ d: lib/tea/pouring.rb:101
   end
 end
+
+module Tea
+  class Guess
+    include Pourable
+
+    def maybe(cup)
+      cup = Cup.new(1) if cup.nil?
+      cup.sip
+      #   ^ d: picker lib/tea/samovar.rb:31, lib/tea/samovar.rb:65
+      pot = Brewer.new
+      pot = Infuser.new
+      pot.leaves(1) + names { 1 }.dig(:a)
+      #   ^ d: picker lib/tea/samovar.rb:37, lib/tea/samovar.rb:53
+      #                           ^ d: picker lib/tea/samovar.rb:10
+    end
+
+    define_method(:pour) { |cups| super(cups) }
+    #                             ^ d: none
+  end
+end
