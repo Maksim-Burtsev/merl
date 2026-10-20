@@ -656,7 +656,10 @@ constant alias `Urn = Samovar`, `tap`, `&.`, `::Tea::Cup`, a `Struct` member, `m
 `super` past an included module, interpolation in a string and a heredoc declaring `quick`, and a
 class body's local read by `define_method`. Its `Guess` keeps the guesses out (#1159–#1163): a
 parameter reassigned under `if`, a local assigned twice, a block's value before `.dig`, and
-`super` inside `define_method`, each answered as master does.
+`super` inside `define_method`, each answered as master does. `glaze.rb` patches `String` five
+ways (`String.include`, `String.prepend`, `String.class_eval`, `refine(String)` and a reopened
+`class String`): each patched core method is the project's, never "builtin", while a `chop` in an
+unrelated class leaves `raw.to_s.chop` builtin.
 
 ### Adding a kind
 
