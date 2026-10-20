@@ -37,6 +37,19 @@ impl App {
             let Some(SwiftChain { written, links }) =
                 self.swift_chain(here, here, text, self.line + 1, chain, 1)
             else {
+                if let [name] = chain
+                    && let Some((_, rows)) =
+                        self.swift_static_rows(here, text, self.line + 1, name, word)
+                {
+                    return Some(
+                        rows.into_iter()
+                            .map(|hit| Candidate {
+                                hit,
+                                reason: Reason::Receiver(name.clone()),
+                            })
+                            .collect(),
+                    );
+                }
                 return self.swift_outside_static(here, text, word, chain);
             };
             let label = links.join(" \u{2192} ");
@@ -118,11 +131,19 @@ impl App {
         text: &str,
         word: &str,
         call: &str,
+        then: &[String],
     ) -> Option<Vec<Candidate>> {
+        let mut via = self.swift_expr(here, here, text, self.line + 1, call, 2)?;
+        for method in then {
+            let ty = self.swift_type(here, &via.written)?;
+            let rows = self.swift_member_rows(here, &ty, method)?;
+            let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
+            via = self.swift_returning(&decl, Some(ty.name), method)?;
+        }
         let WrittenVia {
             written,
             call_signature,
-        } = self.swift_expr(here, here, text, self.line + 1, call, 2)?;
+        } = via;
         let ty = self.swift_type(here, &written)?;
         let mut rows = self.swift_member_rows(here, &ty, word)?;
         rows.retain(|h| {
@@ -361,13 +382,30 @@ impl App {
                 Err(_) => return None,
             }
         } else {
-            let chain =
-                self.swift_chain(here, file, text, line1, receiver, hops.checked_sub(1)?)?;
-            let ty = self.swift_type(here, &chain.written)?;
-            let rows = self.swift_member_rows(here, &ty, method)?;
+            let hops = hops.checked_sub(1)?;
+            let (ty, rows) = match self.swift_chain(here, file, text, line1, receiver, hops) {
+                Some(chain) => {
+                    let ty = self.swift_type(here, &chain.written)?;
+                    let rows = self.swift_member_rows(here, &ty, method)?;
+                    (ty, rows)
+                }
+                None => match receiver {
+                    [name] => self.swift_static_rows(here, text, line1, name, method)?,
+                    _ => return None,
+                },
+            };
             let [decl] = <[Hit; 1]>::try_from(rows).ok()?;
             (decl, Some(ty.name))
         };
+        self.swift_returning(&decl, owner, &callee)
+    }
+
+    fn swift_returning(
+        &self,
+        decl: &Hit,
+        owner: Option<String>,
+        callee: &str,
+    ) -> Option<WrittenVia> {
         if !decl.text.contains("func ") {
             return None;
         }
@@ -790,6 +828,37 @@ impl App {
 }
 
 impl App {
+    fn swift_static_rows(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        word: &str,
+    ) -> Option<(SwiftType, Vec<Hit>)> {
+        if !name.starts_with(char::is_uppercase)
+            || name == "Self"
+            || !search::bindings(Kind::Swift, text, line1, name).is_empty()
+        {
+            return None;
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let mut scope = search::swift_scope(&lines, &literal, line1).header_line1;
+        while scope > 0 {
+            if search::swift_generics(lines[scope - 1]).iter().any(|g| g == name) {
+                return None;
+            }
+            scope = search::swift_scope(&lines, &literal, scope).header_line1;
+        }
+        let ty = self.swift_type(here, name).filter(|t| t.keyword.is_some())?;
+        let mut rows = self.swift_member_rows(here, &ty, word)?;
+        rows.retain(|h| {
+            search::swift_member_kind(&h.text) == Some(search::SwiftMember::StaticOrClass)
+        });
+        (!rows.is_empty()).then_some((ty, rows))
+    }
+
     fn swift_outside_static(
         &self,
         here: &Path,

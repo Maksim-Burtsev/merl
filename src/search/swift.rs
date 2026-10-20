@@ -395,6 +395,33 @@ pub fn swift_alias(line: &str, name: &str) -> Option<String> {
     let c = ALIAS.captures(&t)?;
     (&c[1] == name).then(|| c[2].to_owned())
 }
+pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
+    let mut rest = before.strip_suffix('.')?;
+    let mut links = Vec::new();
+    loop {
+        let open = code(Kind::Swift, rest)
+            .filter(|(_, c)| *c == b'(')
+            .map(|(i, _)| i)
+            .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
+        let head = rest.get(..open)?;
+        let start = head
+            .char_indices()
+            .rev()
+            .find(|&(_, c)| !(c.is_alphanumeric() || c == '_'))
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        let name = head.get(start..)?;
+        if !name.starts_with(|c: char| c.is_alphabetic() || c == '_') {
+            return None;
+        }
+        links.insert(0, name.to_owned());
+        match head.get(..start)?.strip_suffix('.') {
+            Some(r) if r.ends_with(')') => rest = r,
+            Some(_) => return None,
+            None => break,
+        }
+    }
+    (links.len() > 1).then_some(links)
+}
 pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
     let directive = |l: usize| {
         let t = lines.get(l - 1)?.trim_start();

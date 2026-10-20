@@ -30,15 +30,15 @@ func builder() -> Int {
         .finish()
 //       ^ d: Sources/Shop/Infuse/Sencha.swift:46
         .taste()
-//       ^ d: picker Sources/Shop/Infuse/Sencha.swift:51, Sources/Shop/Tea/Kettle.swift:99; want Sources/Shop/Infuse/Sencha.swift:51 (#1072)
+//       ^ d: Sources/Shop/Infuse/Sencha.swift:51
 }
 
 func onAResult() -> Int {
     Gyokuro(grade: 2).veil() + Sencha(grade: 1).minutes() + Gyokuro.make().alarm()
     //                ^ d: Sources/Shop/Infuse/Sencha.swift:19
     //                                          ^ d: Sources/Shop/Infuse/Sencha.swift:28
-    //                                                              ^ d: picker Sources/Shop/Infuse/Sencha.swift:14, Sources/Shop/Receivers.swift:41; want Sources/Shop/Infuse/Sencha.swift:14 (#1169)
-    //                                                                     ^ d: picker Sources/Shop/Infuse/Sencha.swift:24, Sources/Shop/Infuse/Sencha.swift:29, Sources/Shop/Infuse/Sencha.swift:33; want Sources/Shop/Infuse/Sencha.swift:33 (#1169)
+    //                                                              ^ d: Sources/Shop/Infuse/Sencha.swift:14
+    //                                                                     ^ d: Sources/Shop/Infuse/Sencha.swift:33
 }
 
 func overridden(_ g: Gyokuro, _ s: Sencha) -> String {
@@ -130,5 +130,5 @@ func neighbours(_ sencha: Sencha) -> Int {
     return total + Whisk().sift(1).finish().taste()
     //                     ^ d: Sources/Shop/Infuse/Sencha.swift:44
     //                             ^ d: Sources/Shop/Infuse/Sencha.swift:46
-    //                                      ^ d: picker Sources/Shop/Infuse/Sencha.swift:51, Sources/Shop/Tea/Kettle.swift:99; want Sources/Shop/Infuse/Sencha.swift:51 (#1169)
+    //                                      ^ d: Sources/Shop/Infuse/Sencha.swift:51
 }
