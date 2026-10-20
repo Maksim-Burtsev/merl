@@ -1096,7 +1096,7 @@ mod tests {
             None,
         );
         let mut watcher =
-            notify::recommended_watcher(|_: notify::Result<notify::Event>| {}).unwrap();
+            notify::recommended_watcher(|_: notify::Result<Event>| {}).unwrap();
         let mut watched = None;
         super::rewatch(Some(&mut watcher), &mut watched, &app);
         let real = dir.canonicalize().unwrap();
