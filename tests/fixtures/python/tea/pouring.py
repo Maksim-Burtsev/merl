@@ -167,3 +167,18 @@ class Lab:
         return self.kit.leaves(1).build().sip()
         #           ^ d: tea/pouring.py:164
         #               ^ d: tea/brewer.py:49
+
+
+def clean(lines: list[str], items: list[str]) -> int:
+    for line in lines:
+        line = line.strip()
+        #      ^ d: tea/pouring.py:173
+    for n, item in enumerate(items):
+        if item:
+            item = item.lower()
+            #      ^ d: tea/pouring.py:176
+    for cup in lines:
+        while cup:
+            cup = cup[1:]
+            #     ^ d: picker tea/pouring.py:180, tea/pouring.py:182
+    return len(lines) + n

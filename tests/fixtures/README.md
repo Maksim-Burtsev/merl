@@ -329,7 +329,9 @@ method that skip it, `this` for `self` over an abstract base, a nested `def` and
 hiding module names, and an import in both branches of an `if`, which pyright answers with the
 `else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
 function wins over another module's that it does not import. Its `mixed` loops over sums of lists:
-of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod` (#1099).
+of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod` (#1099). Its `clean` assigns
+a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
+a `while` inside a `for` of the same name, whose right side is either.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
