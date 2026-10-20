@@ -88,7 +88,7 @@ export function brewShot() {
   const Cup = class Demitasse {
     sip() {
       return this.size();
-      //          ^ d: picker coffee/pulling.mjs:94, …; want coffee/pulling.mjs:94 (#1148)
+      //          ^ d: coffee/pulling.mjs:94
     }
 
     size() {

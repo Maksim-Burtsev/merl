@@ -70,3 +70,12 @@ pub fn constructor_field(text: &str, decl: usize, word: &str) -> Option<usize> {
         .find(|&i| indent(body[i]) == level && assigned.is_match(body[i].trim_start()))
         .map(|i| decl + i + 1)
 }
+pub fn ts_assigned_class(line: &str) -> Option<&str> {
+    static ASSIGNED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*class\b",
+        )
+        .expect("the regex is a literal")
+    });
+    Some(ASSIGNED.captures(line)?.get(1)?.as_str())
+}

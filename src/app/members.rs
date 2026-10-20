@@ -216,7 +216,9 @@ impl App {
             return Vec::new();
         }
         let named = search::type_name(kind, decl).filter(|_| kind == Kind::TsJs);
-        let anonymous = kind == Kind::TsJs && named.is_none() && search::declares_type(kind, decl);
+        let anonymous = kind == Kind::TsJs
+            && ((named.is_none() && search::declares_type(kind, decl))
+                || search::ts_assigned_class(decl).is_some());
         if anonymous {
             self.anonymous_named.set(Some(ty.clone()));
         }

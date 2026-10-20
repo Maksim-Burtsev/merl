@@ -95,7 +95,7 @@ export function strain(): Strainer {
   const Cup = class Mug {
     pour(): number {
       return this.size();
-      //          ^ d: picker tea/infusion.ts:101, …; want tea/infusion.ts:101 (#1148)
+      //          ^ d: tea/infusion.ts:101
     }
 
     size(): number {
@@ -120,4 +120,18 @@ export function besideMeasure(): number {
     //     ^ d: !jump
   }
   return 0;
+}
+
+export function pot(): number {
+  const Pot = class {
+    pour(): number {
+      return this.size();
+      //          ^ d: tea/infusion.ts:132
+    }
+
+    size(): number {
+      return 2;
+    }
+  };
+  return new Pot().pour();
 }

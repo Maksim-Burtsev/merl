@@ -274,7 +274,9 @@ pub fn owner_decl(kind: Kind, text: &str, member_line1: usize) -> Option<usize> 
                 && !ends_a_wrapped_header
                 && indent(l) < depth
         })?;
-    declares_type(kind, above).then_some(i + 1)
+    (declares_type(kind, above)
+        || (kind == Kind::TsJs && super::ts_assigned_class(above).is_some()))
+    .then_some(i + 1)
 }
 pub fn type_name(kind: Kind, line: &str) -> Option<String> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

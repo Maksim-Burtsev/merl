@@ -633,6 +633,7 @@ fn this_opener(header: &str, line: usize) -> Option<Value> {
         || ASSIGNED_CLASS
             .captures(header)
             .is_some_and(|c| &c[1] != "extends")
+        || super::ts_assigned_class(header).is_some()
     {
         return Some(Value::Class { decl_line1: line });
     }

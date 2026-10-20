@@ -560,13 +560,14 @@ impl App {
             }
             search::Value::Class { decl_line1: line } => {
                 let decl = text.lines().nth(line - 1)?;
-                let name = decl
-                    .split("class")
-                    .nth(1)?
-                    .trim_start()
-                    .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
-                    .next()
-                    .filter(|n| !n.is_empty())?;
+                let name = search::ts_assigned_class(decl).or_else(|| {
+                    decl.split("class")
+                        .nth(1)?
+                        .trim_start()
+                        .split(|c: char| !(c.is_alphanumeric() || c == '_' || c == '$'))
+                        .next()
+                        .filter(|n| !n.is_empty())
+                })?;
                 let ty = Typed {
                     name: name.to_owned(),
                     path: file.to_path_buf(),
