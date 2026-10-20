@@ -154,7 +154,10 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
 
 #[test]
 fn the_line_numbers_take_their_own_groups_and_the_band_starts_at_the_text() {
-    let rgb = |c: u32| Color::Rgb((c >> 16) as u8, (c >> 8) as u8, c as u8);
+    let rgb = |c: u32| {
+        let [_, r, g, b] = c.to_be_bytes();
+        Color::Rgb(r, g, b)
+    };
     for (name, bg, band, number, cursor_number) in [
         (
             "tokyonight-moon",
