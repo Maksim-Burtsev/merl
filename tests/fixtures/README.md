@@ -526,6 +526,16 @@ in `Diary` too, as the search by name does. `Larder.swift` returns an implicit `
 returning `Self` (in a struct and in an extension of an outside type) and a generic `T`, which
 the expected type must not read (#1069): each jumps by name, and says "no definition" with its
 guard removed.
+`swift/Sources/Shop/Infuse/` is the third corner (#1126), its answers sourcekit-lsp's: `Sencha`
+declares `uppercased` and `append` beside a `String` and an `[Int]` local, a builder chain over
+lines, members of a constructor's and a method's result, an override in the subclass `Gyokuro`,
+a protocol extension's default beside a class's own, a class method reached through the subclass,
+an extension of `StringProtocol`, `let sencha = sencha.steeped()`, a tuple in a `for` header and in
+a `let`, `$0`, a `func` nested in another function beside a top-level namesake, a closure
+parameter named like that function, `super` in an extension, a `typealias` in both arms of `#if`,
+and a multi-line string and a block comment declaring what `Sencha.swift` declares. Where
+sourcekit-lsp offers a non-final class's method with its override, the annotation takes the
+declared type's method.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which

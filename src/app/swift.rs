@@ -170,7 +170,7 @@ impl App {
             if (!testing && in_tests(&h.path)) || (!own && search::swift_file_private(&h.text)) {
                 return false;
             }
-            let place = search::swift_type_decl(&h.text)
+            let place = (search::swift_type_decl(&h.text) || search::swift_func_decl(&h.text))
                 .then(|| self.text_of(&h.path))
                 .flatten()
                 .and_then(|t| search::swift_type_place(&t, h.line1));
