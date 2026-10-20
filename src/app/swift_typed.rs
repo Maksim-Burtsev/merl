@@ -696,6 +696,23 @@ impl App {
         Some(rows)
     }
 
+    pub(super) fn swift_cast_rows(
+        &self,
+        here: &Path,
+        cast: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let rows = self.swift_outside_rows(here, cast, word)?;
+        Some(
+            rows.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(cast.to_owned()),
+                })
+                .collect(),
+        )
+    }
+
     fn swift_sdk_value(&self, here: &Path, written: &str, member: &str) -> bool {
         let t = written.trim().trim_end_matches(['?', '!']);
         if t == SDK_VALUE {

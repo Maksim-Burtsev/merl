@@ -335,3 +335,19 @@ func tagged(_ tags: Tags?) -> Bool {
     return tags.isEmpty
     //          ^ d: none
 }
+
+// A value cast to a type from outside the project in parentheses is that type; the result of a
+// call that takes a cast is not (#1068).
+final class Beacon {
+    var errorCode = 0
+}
+
+func beaconed(_ failure: URLError?) -> Beacon { Beacon() }
+
+func casted(_ failure: any Error, _ relay: Any) -> Int {
+    let code = (failure as? URLError)?.errorCode ?? (relay as? Beacon)?.errorCode ?? 0
+    //                                 ^ d: none
+    //                                                                  ^ d: Sources/Shop/Outcomes.swift:342
+    return code + beaconed(failure as? URLError).errorCode
+    //                                           ^ d: Sources/Shop/Outcomes.swift:342
+}
