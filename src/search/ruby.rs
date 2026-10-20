@@ -609,3 +609,29 @@ pub fn ruby_roots(
         .map(|(_, p)| p.join("core"));
     core.into_iter().chain(stdlib).chain(found).collect()
 }
+pub fn ruby_enclosing_def(text: &str, line1: usize) -> Option<String> {
+    static DEF: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:[a-z_]+\s+)?def\s+([a-z_]\w*[?!=]?)(?:[\s(;]|$)")
+            .expect("the regex is a literal")
+    });
+    static REBINDS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"\bdefine_(?:singleton_)?method\b|_eval\b|_exec\b|\b(?:Class|Module|Struct)\.new\b",
+        )
+        .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let literal = literal_lines(Kind::Ruby, text);
+    let scopes = around(&lines, &literal, at).openers_innermost_first;
+    let gate = scopes.iter().position(|(_, o)| *o == Opens::Gate)?;
+    if scopes[..gate]
+        .iter()
+        .any(|&(i, _)| REBINDS.is_match(lines[i]))
+    {
+        return None;
+    }
+    let g = scopes[gate].0;
+    let name = DEF.captures(lines[g])?.get(1)?.as_str().to_owned();
+    (!ruby_on_class(text, g + 1)).then_some(name)
+}

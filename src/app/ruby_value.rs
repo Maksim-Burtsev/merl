@@ -1,4 +1,4 @@
-use super::{App, Candidate, Kind, Path, search};
+use super::{App, Candidate, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn ruby_receiver_methods(
@@ -15,9 +15,10 @@ impl App {
         };
         let receiver = receiver.strip_suffix('&').unwrap_or(receiver);
         let (prefix, expr) = search::ruby_receiver_split(receiver);
-        self.ruby_value_class(here, text, line1, prefix, expr, 0)
-            .map(|class| self.ruby_methods_from(here, word, class, false))
-            .unwrap_or_default()
+        match self.ruby_value_class(here, text, line1, prefix, expr, 0) {
+            Some(class) => self.ruby_methods_from(here, word, class, false),
+            None => self.ruby_struct_member(here, text, line1, expr, word),
+        }
     }
 
     fn ruby_value_class(
@@ -95,6 +96,70 @@ impl App {
                     .is_empty()
                     .then_some(made)
             }
+        }
+    }
+
+    pub(super) fn ruby_super(&self, here: &Path, text: &str) -> Vec<Candidate> {
+        let line1 = self.line + 1;
+        let Some(method) = search::ruby_enclosing_def(text, line1) else {
+            return Vec::new();
+        };
+        let class = search::ruby_class_path(text, line1);
+        if class.is_empty() {
+            return Vec::new();
+        }
+        let parents = self.ruby_parents(here, &class);
+        for name in parents.includes.iter().rev().chain(&parents.superclasses) {
+            let Some(path) = self.ruby_resolve(here, &class, name) else {
+                return Vec::new();
+            };
+            let found = self.ruby_methods_from(here, &method, path, false);
+            if !found.is_empty() {
+                return found;
+            }
+        }
+        Vec::new()
+    }
+
+    fn ruby_struct_member(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        expr: &str,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let made = match search::ruby_last_call(expr.trim()) {
+            Some((made, "new")) => made.to_owned(),
+            None if search::ruby_local_name(expr.trim()) => {
+                let Some((_, value)) = search::ruby_assigned_once(text, line1, expr.trim()) else {
+                    return Vec::new();
+                };
+                match search::ruby_last_call(&value) {
+                    Some((made, "new")) => made.to_owned(),
+                    _ => return Vec::new(),
+                }
+            }
+            _ => return Vec::new(),
+        };
+        if !made
+            .trim_start_matches(':')
+            .starts_with(|c: char| c.is_ascii_uppercase())
+            || self.ruby_class_named(here, &made).is_some()
+        {
+            return Vec::new();
+        }
+        let last = made.rsplit("::").next().unwrap_or(&made);
+        let cut = self.truncated.get();
+        let hits =
+            self.project_definitions(Kind::Ruby, here, last, &search::ruby_struct_line(last));
+        self.truncated.set(cut);
+        match hits.as_slice() {
+            [hit] if search::ruby_struct_member(&hit.text, word) => vec![Candidate {
+                hit: hit.clone(),
+                reason: Reason::Receiver(last.to_owned()),
+            }],
+            _ => Vec::new(),
         }
     }
 }

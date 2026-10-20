@@ -134,3 +134,15 @@ pub fn ruby_last_value(text: &str, def_line1: usize) -> Option<RubyReturns> {
     NEW.captures(last)
         .map(|c| RubyReturns::New(c[1].to_owned()))
 }
+
+pub fn ruby_struct_line(name: &str) -> String {
+    format!(r"^\s*{}\s*=\s*(?:::)?Struct\.new\s*\(", regex::escape(name))
+}
+
+pub fn ruby_struct_member(line: &str, word: &str) -> bool {
+    Regex::new(&format!(
+        r"Struct\.new\s*\([^)]*:{}\s*[,)]",
+        regex::escape(word)
+    ))
+    .is_ok_and(|re| re.is_match(line))
+}

@@ -134,6 +134,10 @@ impl App {
 
     fn ruby_answered_on_value(&mut self, a: &Asked) -> bool {
         let word = &a.word;
+        if word == "super" && !a.dotted && a.chain.is_empty() {
+            let found = self.ruby_super(&a.here, &a.text);
+            return !found.is_empty() && self.show_found(a, found);
+        }
         if !a.dotted || a.own() {
             return false;
         }

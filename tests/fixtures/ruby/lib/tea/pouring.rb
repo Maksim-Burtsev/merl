@@ -83,7 +83,7 @@ module Tea
       ::Tea::Cup.new(1).sip + Leaf.new("g").color.size
       #      ^ d: lib/tea/samovar.rb:23
       #                 ^ d: lib/tea/samovar.rb:31
-      #                                     ^ d: none; want lib/tea/samovar.rb:89 (#1163)
+      #                                     ^ d: lib/tea/samovar.rb:89
     end
 
     def text

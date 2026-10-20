@@ -335,7 +335,7 @@ impl App {
         })
     }
 
-    fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
+    pub(super) fn ruby_parents(&self, here: &Path, path: &str) -> search::RubyParents {
         let mut out = search::RubyParents::default();
         for (h, t) in self.ruby_declarations(here, path) {
             let one = search::ruby_class_parents(&t, h.line1);
