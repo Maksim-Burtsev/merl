@@ -612,7 +612,7 @@ fn without_closures_binding(line: &str, w: &str) -> String {
         let Some(params) = c.get(1).filter(|p| binds.is_match(p.as_str())) else {
             continue;
         };
-        let body = &line[params.end()..];
+        let body = line.get(params.end()..).unwrap_or_default();
         let mut depth = 0i32;
         let stop = code(Kind::Rust, body)
             .find(|&(_, b)| {
