@@ -1325,7 +1325,10 @@ fn c_receiver_cuts_at_a_character() {
         Some(CReceiver {
             head: "bar".to_owned(),
             head_called: false,
-            fields: vec![]
+            fields: vec![],
+            calls: vec![],
+            braced: false,
+            start: 4,
         })
     );
 }

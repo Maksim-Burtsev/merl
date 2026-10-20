@@ -26,3 +26,13 @@ int stack() {
   //     ^ d: !jump
   return 0;
 }
+
+int local_pot() {
+  struct Pot {
+    int size;
+  };
+  Pot p;
+  //^ d: picker src/tea/shelf.cc:17, src/tea/shelf.cc:31, include/tea/shelf.hh:4, include/tea/shelf.hh:22
+  return p.size;
+  //       ^ d: src/tea/shelf.cc:32
+}

@@ -467,7 +467,21 @@ static TYPE_BODY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     .expect("the regex is a literal")
 });
 
+pub fn dart_bindings_at(text: &str, line1: usize, col: usize, name: &str) -> Vec<Binding> {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return Vec::new();
+    };
+    let after = (lines[at].get(col + name.len()..)).map_or("", str::trim_start);
+    let assigned = after.starts_with('=') && !after.starts_with("==") && !after.starts_with("=>");
+    dart_walk(&lines, at, name, !assigned)
+}
+
 pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    dart_walk(lines, at, name, false)
+}
+
+fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> {
     if matches!(name, "this" | "super") {
         return Vec::new();
     }
@@ -527,7 +541,7 @@ pub(super) fn dart_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
             let constructor = SHAPES[Shape::Constructor as usize].is_match(&head.join(" "));
             let params = head.pop().unwrap_or_default();
             match params.split_once(':') {
-                Some((close, _)) if from_body && in_class && constructor => {
+                Some((close, _)) if (from_body || read) && in_class && constructor => {
                     head.push(format!("{close} {{"));
                 }
                 _ => head.clear(),

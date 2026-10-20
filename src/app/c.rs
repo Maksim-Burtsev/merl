@@ -69,6 +69,7 @@ impl App {
             head,
             head_called: called,
             fields,
+            ..
         }) = c.then(|| search::c_receiver(before)).flatten()
         else {
             return Ok(None);

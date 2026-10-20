@@ -522,7 +522,14 @@ impl App {
                 struct_tag: tag,
             },
         );
-        let hits = self.c_reached_only(&a.here, word, hits);
+        let hits: Vec<Hit> = (self.c_reached_only(&a.here, word, hits).into_iter())
+            .filter(|h| {
+                h.path == a.here
+                    || !Self::c_type_line(word, h)
+                    || !(self.text_of(&h.path))
+                        .is_some_and(|t| search::c_inside_function(&t, h.line1, word))
+            })
+            .collect();
         let on = hits
             .iter()
             .any(|h| h.path == a.here && h.line1 == self.line + 1);

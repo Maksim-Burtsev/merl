@@ -70,7 +70,8 @@ class Cup {
     int? size,
   })  : assert(tint != 'x'),
         size = size ?? 0 {
-      //^ d: lib/saucer.dart:78
+      //^ d: lib/saucer.dart:79
+      //       ^ d: lib/saucer.dart:70
     print(tint);
     //    ^ d: lib/saucer.dart:69
   }
@@ -84,7 +85,7 @@ class Cup {
             tint: tint,
           ) : {
             'b': tint,
-            //   ^ d: picker lib/saucer.dart:20, lib/saucer.dart:79
+            //   ^ d: picker lib/saucer.dart:20, lib/saucer.dart:80
           };
     print(m);
   }
