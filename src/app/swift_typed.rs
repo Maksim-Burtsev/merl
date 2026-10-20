@@ -40,7 +40,11 @@ impl App {
                 return self.swift_outside_static(here, text, word, chain);
             };
             let label = links.join(" \u{2192} ");
-            let Some(ty) = self.swift_type(here, &written) else {
+            let arms = match self.swift_type(here, &written) {
+                Some(ty) => vec![ty],
+                None => self.swift_alias_arms(here, &written).unwrap_or_default(),
+            };
+            let Some(ty) = arms.first() else {
                 let w = written.trim();
                 let w = w
                     .strip_prefix("any ")
@@ -79,7 +83,14 @@ impl App {
                         .collect()
                 });
             };
-            let mut rows = self.swift_member_rows(here, &ty, word)?;
+            let mut rows = self.swift_member_rows(here, ty, word)?;
+            for arm in &arms[1..] {
+                for h in self.swift_member_rows(here, arm, word)? {
+                    if !rows.iter().any(|r| r.path == h.path && r.line1 == h.line1) {
+                        rows.push(h);
+                    }
+                }
+            }
             if rows
                 .iter()
                 .any(|h| search::swift_member_kind(&h.text) == Some(search::SwiftMember::Instance))
@@ -451,6 +462,37 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    fn swift_alias_arms(&self, here: &Path, written: &str) -> Option<Vec<SwiftType>> {
+        let name = search::swift_type_name(written)?;
+        let pattern = search::def_patterns(Kind::Swift, &name).join("|");
+        let hits: Vec<Hit> = self
+            .project_definitions(Kind::Swift, here, &name, &pattern)
+            .into_iter()
+            .filter(|h| self.in_code(Kind::Swift, h))
+            .collect();
+        let targets: Vec<String> = hits
+            .iter()
+            .filter_map(|h| search::swift_alias(&h.text, &name))
+            .collect();
+        let first = hits.first()?;
+        if targets.len() != hits.len() || hits.iter().any(|h| h.path != first.path) {
+            return None;
+        }
+        let text = self.text_of(&first.path)?;
+        let lines: Vec<&str> = text.lines().collect();
+        let at: Vec<usize> = hits.iter().map(|h| h.line1).collect();
+        if !search::swift_if_arms(&lines, &at) {
+            return None;
+        }
+        targets
+            .iter()
+            .map(|t| {
+                self.swift_type_through(here, t, false)
+                    .filter(|ty| ty.keyword.is_some())
+            })
+            .collect()
     }
 
     fn swift_member_rows(&self, here: &Path, ty: &SwiftType, word: &str) -> Option<Vec<Hit>> {

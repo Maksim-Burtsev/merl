@@ -104,7 +104,7 @@ extension Gyokuro {
 
 func pot(_ kyusu: Kyusu) -> String {
     kyusu.label()
-    //    ^ d: picker Sources/Shop/Basket.swift:152, Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18; want picker Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18 (#1171)
+    //    ^ d: picker Sources/Shop/Infuse/Sencha.swift:12, Sources/Shop/Infuse/Sencha.swift:18
 }
 
 let recipe = """

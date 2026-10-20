@@ -395,6 +395,28 @@ pub fn swift_alias(line: &str, name: &str) -> Option<String> {
     let c = ALIAS.captures(&t)?;
     (&c[1] == name).then(|| c[2].to_owned())
 }
+pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
+    let directive = |l: usize| {
+        let t = lines.get(l - 1)?.trim_start();
+        ["#if", "#elseif", "#else", "#endif"]
+            .into_iter()
+            .find(|d| {
+                t.strip_prefix(d)
+                    .is_some_and(|r| !r.starts_with(char::is_alphanumeric))
+            })
+    };
+    let mut at = line1s.to_vec();
+    at.sort_unstable();
+    let [first, ..] = at.as_slice() else {
+        return false;
+    };
+    at.len() > 1
+        && (1..*first).rev().find_map(directive) == Some("#if")
+        && at.windows(2).all(|w| {
+            let between: Vec<&str> = (w[0] + 1..w[1]).filter_map(directive).collect();
+            matches!(between.as_slice(), ["#elseif" | "#else"])
+        })
+}
 pub fn swift_outside_name(written: &str) -> Option<String> {
     let t = written.trim().trim_end_matches(['?', '!']);
     if t.starts_with('[') && t.ends_with(']') {
