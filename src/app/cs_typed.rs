@@ -267,7 +267,8 @@ impl App {
                 let next = next.trim();
                 let signature = format!("{line}{next}");
                 let this = next.strip_prefix("this")?;
-                this.starts_with(char::is_whitespace).then_some((h, signature))
+                this.starts_with(char::is_whitespace)
+                    .then_some((h, signature))
             })
             .collect()
     }

@@ -863,7 +863,10 @@ pub fn jvm_literal_type(line: &str, name: &str, java: bool) -> Option<&'static s
 
 fn kotlin_int_type(value: &str) -> Option<&'static str> {
     let digits: String = value.trim_start_matches('-').replace('_', "");
-    let n = match digits.strip_prefix("0x").or_else(|| digits.strip_prefix("0X")) {
+    let n = match digits
+        .strip_prefix("0x")
+        .or_else(|| digits.strip_prefix("0X"))
+    {
         Some(hex) => u64::from_str_radix(hex, 16),
         None => digits.parse::<u64>(),
     }
