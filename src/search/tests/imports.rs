@@ -944,7 +944,11 @@ fn php_class_names_resolve_and_map_to_files() {
         php_resolve(group, "Core").map(|r| r.full),
         Some("App\\Http\\Sub\\Kernel".into())
     );
-    assert_eq!(php_resolve(group, "tag"), None, "a function group binds no class");
+    assert_eq!(
+        php_resolve(group, "tag"),
+        None,
+        "a function group binds no class"
+    );
     assert_eq!(
         resolve("Tag"),
         ("App\\Repos\\Tag".into(), false),

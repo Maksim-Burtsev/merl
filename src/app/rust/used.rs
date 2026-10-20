@@ -102,7 +102,13 @@ impl App {
             })
             .collect();
         let [hit] = <[Hit; 1]>::try_from(aliases).ok()?;
-        let target = hit.text.split_once('=')?.1.trim().trim_end_matches(';').trim();
+        let target = hit
+            .text
+            .split_once('=')?
+            .1
+            .trim()
+            .trim_end_matches(';')
+            .trim();
         let real = search::rust_type_name(target)?.name;
         let declared = self
             .grep(&search::rust_type_decl_pattern(&real), false, false, rs)

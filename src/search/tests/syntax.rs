@@ -36,7 +36,11 @@ fn a_kind_runs_over_lines_only_the_literals_it_has() {
         ),
         (Kind::CSharp, "var s = $@\"\nclass Fake {}\n\";", vec![2, 3]),
         (Kind::Shell, ": 'a\nfake() {\n'\nreal() {", vec![2, 3]),
-        (Kind::Shell, "  usage+='\nfake() {\n' # it's\nreal() {", vec![2, 3]),
+        (
+            Kind::Shell,
+            "  usage+='\nfake() {\n' # it's\nreal() {",
+            vec![2, 3],
+        ),
         (
             Kind::Rust,
             "const S: &'static str = \"\nfn fake() {}\n\";",
