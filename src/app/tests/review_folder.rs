@@ -204,6 +204,23 @@ fn a_sweep_removes_aged_and_gone_folders_but_never_an_open_one() {
         "unopened for 15 days, but the open one stays"
     );
     drop(open);
+    std::fs::write(one.join("feat1.py"), "x = 2\n").unwrap();
+    std::fs::write(one.join("new.py"), "y = 1\n").unwrap();
+    git::sweep_folders(&c.b(), now + Duration::from_hours(15 * 24));
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("feat1.py")).ok(),
+            one.join("new.py").is_file(),
+            std::fs::read_link(one.join(".venv")).ok()
+        ),
+        (Some("x = 2\n".to_owned()), true, Some(c.b().join(".venv"))),
+        "an aged folder with your edits stays, edits and links and all"
+    );
+    c.git(
+        "b",
+        &["-C", one.to_str().unwrap(), "checkout", "--", "feat1.py"],
+    );
+    std::fs::remove_file(one.join("new.py")).unwrap();
     git::sweep_folders(&c.b(), now + Duration::from_hours(15 * 24));
     assert!(!one.exists());
     assert!(c.b().join(".venv/lib/pkg.py").is_file(), "your .venv stays");
@@ -214,6 +231,26 @@ fn a_sweep_removes_aged_and_gone_folders_but_never_an_open_one() {
             .matches("worktree ")
             .count(),
         1
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_sweep_takes_a_package_s_node_modules_link_but_not_what_it_points_to() {
+    let c = Clones::new("sweep-package");
+    c.git("a", &["switch", "-q", "feat1"]);
+    std::fs::create_dir_all(c.dir.join("a/packages/web")).unwrap();
+    c.commit("a", "packages/web/package.json", "{}\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let mine = c.b().join("packages/web/node_modules");
+    std::fs::create_dir_all(mine.join("lib")).unwrap();
+    let (folder, _) = c.open("feat1");
+    assert!(folder.join("packages/web/node_modules").is_symlink());
+    git::sweep_folders(&c.b(), SystemTime::now() + Duration::from_hours(15 * 24));
+    assert_eq!(
+        (folder.exists(), mine.join("lib").is_dir()),
+        (false, true),
+        "the link alone does not keep the folder, and your node_modules stays"
     );
 }
 
@@ -324,4 +361,58 @@ fn a_name_that_climbs_out_of_the_folders_deletes_nothing() {
         assert!(format!("{e:#}").contains("no branch"), "{name}: {e:#}");
         assert!(kept.is_file(), "{name} deleted the checkout's b/keep.py");
     }
+}
+
+#[test]
+fn opening_a_review_again_keeps_your_edits_in_its_folder_and_says_it_is_behind() {
+    let c = Clones::new("edits");
+    let (one, _) = c.open("feat1");
+    std::fs::write(one.join("feat1.py"), "x = 2\n").unwrap();
+    std::fs::write(one.join("new.py"), "y = 1\n").unwrap();
+    c.git("a", &["switch", "-q", "feat1"]);
+    c.commit("a", "fix.py", "y = 2\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let (again, r) = c.open("feat1");
+    assert_eq!(again, one);
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("feat1.py")).ok(),
+            one.join("new.py").is_file(),
+            one.join("fix.py").exists(),
+            r.note.as_deref()
+        ),
+        (
+            Some("x = 2\n".to_owned()),
+            true,
+            false,
+            Some("behind origin/feat1")
+        ),
+        "your edits stay, and the folder stays at its commit"
+    );
+
+    c.git(
+        "b",
+        &["-C", one.to_str().unwrap(), "checkout", "--", "feat1.py"],
+    );
+    std::fs::remove_file(one.join("new.py")).unwrap();
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (names(&r), r.note),
+        (vec!["feat1.py".to_owned(), "fix.py".to_owned()], None),
+        "with no edits, past the links merl made, it moves to what was pushed"
+    );
+
+    c.git("b", &["config", "status.showUntrackedFiles", "no"]);
+    std::fs::write(one.join("later.py"), "mine\n").unwrap();
+    c.commit("a", "later.py", "theirs\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("later.py")).ok(),
+            r.note.as_deref()
+        ),
+        (Some("mine\n".to_owned()), Some("behind origin/feat1")),
+        "a new file is an edit whatever status.showUntrackedFiles says"
+    );
 }

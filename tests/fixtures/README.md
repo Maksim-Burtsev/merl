@@ -233,6 +233,18 @@ and `lua/tea/table.lua` must not reach (#1062), nor the key `assert = function` 
 below a comment; its globals assigned in an `if` block and at the top level stay definitions (#1112).
 `lua/tea/tray.lua` calls a bare `rinse` whose namesakes are `function S.rinse` in `saucer.lua` and
 `spec.lua`'s `local rinse`, a picker of both.
+`lua/tea/infusion.lua` is the third corner (#1126), its answers read from the code, over
+`gaiwan.lua`: `string.format`, `table.insert` and `("cup"):upper()` beside the module's `format`,
+`insert` and `Gaiwan:upper`, which stay the standard library's (none) unless the project patches
+it (`function string.steeped`, `string.decanted = function`) or binds the name (a parameter `string`); `tostring(v):upper()`
+still jumps (#1207); a field of a required module, `pcall(require, ..)`, a builder over lines and
+through a local, whose `return self` is not followed (#1208), `local gaiwan = gaiwan.Gaiwan.new(1)`,
+whose receiver is read on its own line, `M.Gaiwan = Gaiwan` answered by the module's local,
+`local a, b = b, a`, a `for` header over a parameter of its name, a subclass made by
+`setmetatable({}, { __index = .. })` with an inherited and an overridden method, `self` in a
+closure and in a `function(self)`, a call above the `local function` of its name (a global, so
+none), a one-line string, a `--` comment and a `--[==[` block declaring names, and `goto continue`
+(#1209).
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
@@ -272,8 +284,12 @@ package outside the project, a `Filter.Or` namesake must not be jumped to; throu
 project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
-`Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
-initializer list, overloads, ADL beside a global namesake, a qualified definition of
+`Shop.Tea.Stale`. `csharp/src/Shop/Pages/Till.razor` (#1088) is a Blazor component, read as a
+class of its `@inject` fields, `@code` members and markup expressions: an injected `Kettle` that
+only `_Imports.razor`'s `@using Shop.Tea.Stale` tells apart, a method named in an `@onclick`, and
+an e-mail address, a text, a component tag, a `@formname` string and a Razor comment that name
+nothing, nor do the declaration-shaped lines of markup after the `@code` block.
+`c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's initializer list, overloads, ADL beside a global namesake, a qualified definition of
 `stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block;
 `caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
@@ -306,6 +322,19 @@ parameter hides, and declarations in a block comment, a raw interpolated string 
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
 local, `using` and `typedef` aliases, `using namespace` in a function and a macro.
+`go/infuse/tasting.go`, its answers gopls's, calls `strings.Builder`, `bytes.Buffer`, `os.File`
+and `time.Time` members named like `Cup`'s, a builder over lines and on one line, calls on
+calls' results, `cup := cup.Warm()` in a block, a `range` and a three-clause `for` binding a
+parameter's name, a type switch, a comma-ok assertion, a struct and an interface embedded two
+levels deep, an aliased import beside its `Cup` namesake, a dot import, a type parameter's
+constraint (one grouped with another; a union, an interface literal and `any` are not read, so no jump), a named result, and declarations in a raw string, a block comment and a struct tag.
+`c/src/lab/swirl.c` (over `c/include/lab/carafe.h` through `lab.h`, and `c/src/lab/funnel.c`)
+does the same in C, its answers clangd's: `struct tm`, `div_t` and `struct timeval` members named
+like a project struct's fields, `->` on a call and over lines, a function-pointer field beside a
+function of its name, an anonymous union, a `for` and a block each redeclaring a parameter, a
+local named like its struct tag, a macro declaring a function, designated initializers, a
+compound literal, a `struct` tag beside a function of its name, `goto` to a label named like a
+local, and declarations in a string, a comment and `#if 0`.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
@@ -329,7 +358,7 @@ method that skip it, `this` for `self` over an abstract base, a nested `def` and
 hiding module names, and an import in both branches of an `if`, which pyright answers with the
 `else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
 function wins over another module's that it does not import. Its `mixed` loops over sums of lists:
-of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod` (#1099). Its `clean` assigns
+of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod`, and `Rig` assigns `rig` from `cls.kit_class()`, a class attribute its subclasses override: `self.rig` is the `kit_class` nearest the class in its MRO, `Both` a diamond whose first base would pass the override in a walk by depth, and a `MakerRig` whose attribute holds a function, not a class; `SelfTrial` reaches it through `self.kit_class()` in a plain method (#1099). Its `clean` assigns
 a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
 a `while` inside a `for` of the same name, whose right side is either. Its `twice` calls a `str`
 method on a local set from one set from a `str` parameter (builtin, #1151).
@@ -493,8 +522,15 @@ as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
 member, an inherited one, one the interface lacks (offered by name, as untyped), a nested
 function's own `node` and a Babel-shaped `visitor` (both untyped), and a reassigned `node`, which
-keeps its type as tsserver's does. With `@types/estree` installed, `rules/q.js`'s `callee`
-answers as tsserver does too.
+keeps its type as tsserver's does. A `CallExpression` visitor's `node` is the union alias
+`SimpleCallExpression | NewExpression`: `callee`, which both declare from one base, jumps;
+`optional`, declared by one, and `type`, declared by each apart, stay pickers. With
+`@types/estree` installed, `rules/q.js`'s `callee` probes answer as tsserver does too.
+`patterns.js` narrows a JSDoc-typed `Pattern` union by its `type` tag (#1078), as tsserver does:
+inside `switch (pattern.type)`'s `case "ObjectPattern":` after a `return;`, and in the
+consequent of `property.type === "Property" ? property.value`, each of a `for…of` element's
+inline union `AssignmentProperty | RestElement`. A case fallen into, a switch on another
+member, a negated ternary, a callback inside the case and the code after the switch stay pickers.
 `infusion.ts` is the third corner (#1126), its answers tsserver's: members of a string, a
 `Promise` and a `Map` beside project namesakes (`Basket.trim`, `Basket.then`), a builder chain
 over lines through a renaming re-export (`Strainer as Filter`), an inherited and an overridden
@@ -605,12 +641,18 @@ function and a trigger sharing a name, the same table read from a plain file out
 migration, and `1_init` beside `10_more`, whose order is unclear and keeps the picker.
 `pour_strainers` reads columns for #1063 through an alias and a table: one from a `CREATE TABLE`
 body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
-derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
+derived table, a CTE named like a table, or an unknown alias.
 `audit_ladles` creates an `audit.ladles` after `ladles`: a column through `FROM ladles l` stays
-in `ladles`, one only `audit.ladles` has answers nothing, and `ladles` itself offers both.
+in `ladles`, one only `audit.ladles` has answers nothing, a bare one in `FROM audit.ladles` is
+`audit.ladles`'s, and `ladles` itself offers both.
 `touch_ladles` and `touch_strainers` create a trigger `touch` on two tables and a function
 `scoop` with two signatures, one of them re-created: the two triggers and the two signatures
-in effect stay a picker.
+in effect stay a picker. `fill_ladles` reads bare columns
+where SQL names one table: an `INSERT` column list, both sides of an `UPDATE`'s `SET`, a
+one-table `SELECT` and its subquery, `ALTER TABLE` (`RENAME`, `DROP`, a `CHECK`), a trigger's
+`UPDATE OF`, and `ADD COLUMN`s on the lines under their `ALTER TABLE`; and none where a second
+table, a derived table, a function in `FROM`, an `AS` of the same name or a `REFERENCES` could
+own the name.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
@@ -625,6 +667,29 @@ function, and declaration-shaped lines in a raw string, a nested `/* */` and a `
 `dart/lib/infuser.dart` (#1072) reaches `Leaf.unfurl` through a call and a getter of `Infuser`,
 over lines and on one, beside a namesake `Bag.unfurl`; a generic method's `T` is no type to
 follow, so `hold(Bag()).unfurl` does not jump.
+`dart/lib/brew/ceremony.dart` is the third corner (#1126), its answers read from the code, over
+`chawan.dart`, `old_chawan.dart` (a namesake `Chawan` behind a prefix) and `lib/brew.dart`, which
+re-exports: `String.trim` and `StringBuffer.write` beside `Chawan`'s namesakes, which say none with
+no SDK, while an `extension .. on String`, `on Iterable<T>` or `on Object` member is still found (one `on Duration` is not); `const Duration(..).inMinutes`
+(#1218), a chain in a local's value and a top-level function's result (#1218), a chain over lines,
+a cascade over lines (#1072), a loop variable named like a later local, a list pattern (#1219), an
+object pattern in an `if case`, a mixin's, an interface's, an inherited and an overridden method,
+named and unnamed extensions, a prefixed named constructor, a class through a re-exporting prefix
+(#1221), `${..}` in a string beside a `'''` string and a `//` comment declaring names, a local
+function, a class method that hides the top-level function of its name, an enum's value, field and
+method, `call()` on a field, and a type parameter's bound (#1220).
+
+`sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
+`cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
+`ORDER BY` (one without `AS` named like the table's `id` must not jump to it, nor one after a
+`CASE … END`, while `DISTINCT spout` still does), `FROM ONLY` and `TABLESAMPLE`, a column alias
+list, an `INSERT … ON CONFLICT … DO UPDATE SET … EXCLUDED. … RETURNING`, `CREATE INDEX ON` and
+`COMMENT ON COLUMN` (#1223), a CTE's column and a `WINDOW` name (none, as #1063's decision A
+says; #1228 asks whether they should jump), a `"Lid"` beside a `lid` (#1224), a `LANGUAGE sql`
+parameter named like a column (#1225), and `CREATE`s in a `$$` string inside a `$body$` (#1226)
+and inside a nested block comment (#1227). `steep/grades.sql` names a type like a column of its
+table: after `::`, after `TYPE` and as an added column's type the name is the type, and in a
+`CAST(.. AS ..)` too, while the column itself still jumps to the column.
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a

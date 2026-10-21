@@ -21,21 +21,36 @@ The dart row with #1085's local set from a constructor call over several lines a
 The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b6575`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed as its `@types/estree` interface): over `90cda9b1`, 2026-10-21, release build, `vm.loadavg` { 6.81 8.91 8.63 } before the run, { 5.88 8.08 8.34 } after.
 The swift and dart rows with #1072 (overloads that agree on a return type, chains of calls through declared return types): over `356e0f11`, 2026-10-21, release build, `vm.loadavg` { 6.41 6.89 7.68 } before the run, { 5.55 6.65 7.58 } after. swift0086 has an answer read from the code (sourcekit-lsp found none).
+The rust row with #1044's `vec![..]` held by a `let`, alone or in a tuple, and a method on an array literal (`[T; N]`, then `[T]`): over `b4571ee3`, 2026-10-21, release build, `vm.loadavg` { 6.47 5.69 5.01 } before the run.
+The swift row with #1068's one more step of reading (`url.host` in `Request.cURLDescription`): over `dbb6879a`, 2026-10-21, release build, `vm.loadavg` { 8.58 7.22 6.10 } before the run, { 8.18 7.18 6.10 } after.
+The swift row with #1068's typealias of a collection (`parameters.isEmpty` in `URLEncoding.encode`): over `afba9659`, 2026-10-21, release build, `vm.loadavg` { 6.67 7.05 6.41 } before the run, { 6.10 6.92 6.37 } after.
+The swift row with #1068's value cast in parentheses (`(underlyingError as? URLError)?.userInfo` in `AFError`): over `e0f8e876`, 2026-10-21, release build, `vm.loadavg` { 7.44 7.83 7.19 } before the run, { 7.77 7.88 7.22 } after.
+The dart row with #1216 and #1217 (a call to a method of the enclosing class): over `43e04d43`, 2026-10-21, release build, `vm.loadavg` { 4.27 4.71 5.60 } before the run.
+The rust row with #1044's indexed receivers (`lines[0].end`: the element of a `Vec`, a slice or an array, then a field of a std struct) and `Vec`'s `[T]` level: over `79823448`, 2026-10-22, release build, `vm.loadavg` { 5.38 7.78 7.34 } before the run.
+The sql row with the rest of #1063 (a bare column where SQL names one table, an `ADD COLUMN` under its `ALTER TABLE`) merged over #1197's fixes (a column only of its schema-qualified table): over `285f5464`, 2026-10-21, release build, `vm.loadavg` { 4.13 5.95 7.16 } before the run, { 4.13 5.95 7.16 } after.
+The swift row with #1068's closure parameter of a generic wrapper's method (`streamMutableState.write { state in`): over `ac98b053`, 2026-10-22, release build, `vm.loadavg` { 8.57 9.76 7.72 } before the run, { 8.44 9.66 7.72 } after.
+merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
+The csharp row with #1088 (Blazor `.razor` files read through a separate read-only C# view): over `d1c7ea21`, 2026-10-22, release build, `vm.loadavg` { 9.64 13.18 7.21 } before the run, { 11.53 13.27 7.77 } after (the times read high under that load).
+The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
+The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed through a union alias of `@types/estree` interfaces, `CallExpression`): over `3f360506`, 2026-10-22, release build, `vm.loadavg` { 10.99 8.50 7.82 } before the run.
+The ts, js, vue, svelte and astro rows with #1078 (a union narrowed by its `type` tag in a `switch` case and a ternary, `pattern.properties` and `property.value`): over `c742c2bf`, 2026-10-22, release build, `vm.loadavg` { 5.83 5.61 6.60 } before the run.
+The rust row with #1044's walk through std methods' declared return types (`got.lines().nth(1).unwrap()`, `out` from a `const &str`'s `.replace`, `map.get(k).unwrap().globs.clone()`): over `bcd43ff9`, 2026-10-22, release build, `vm.loadavg` { 15.06 10.43 8.20 } before the run, { 9.75 9.61 8.06 } after (the times read high under that load).
+The swift row with #1068's nested types through their enclosing type (`MutableState` of `Session` and of `AuthenticationInterceptor`) and a field typed over several lines (`SocketMutableState.enqueuedSends`): over `14080a16`, 2026-10-22, release build, `vm.loadavg` { 6.27 5.96 6.53 } before the run, { 5.60 5.87 6.44 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 257 | 219 (85%) | 25 (10%) | 0 (0%) | 13 (5%) | 68 | 11 | 19.0 | 285.0 |
-| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.0 | 91.0 |
-| js (eslint, uptime-kuma) | 217 | 177 (82%) | 32 (15%) | 1 (0%) | 7 (3%) | 177 | 11 | 37.0 | 173.6 |
+| python (paperless-ngx) | 257 | 229 (89%) | 15 (6%) | 0 (0%) | 13 (5%) | 68 | 11 | 20.8 | 324.9 |
+| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.9 | 93.8 |
+| js (eslint, uptime-kuma) | 217 | 179 (82%) | 31 (14%) | 1 (0%) | 6 (3%) | 177 | 11 | 38.0 | 170.3 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
-| rust (ripgrep) | 231 | 208 (90%) | 19 (8%) | 0 (0%) | 4 (2%) | 69 | 5 | 5.8 | 61.0 |
+| rust (ripgrep) | 231 | 215 (93%) | 14 (6%) | 0 (0%) | 2 (1%) | 69 | 5 | 8.3 | 70.0 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 423 (94%) | 25 (6%) | 0 (0%) | 1 (0%) | 280 | 28 | 13.9 | 48.6 |
+| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 21 | 20.7 | 49.0 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
-| csharp (eShop) | 85 | 61 (72%) | 12 (14%) | 0 (0%) | 12 (14%) | 130 | 1 | 20.9 | 37.7 |
+| csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |
 | ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 2 | 66.3 | 382.6 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 22.0 | 92.5 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
@@ -45,9 +60,9 @@ The swift and dart rows with #1072 (overloads that agree on a return type, chain
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 1 | 3.4 | 24.5 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 49.4 | 166.1 |
-| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 33.3 | 171.0 |
-| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 34.1 | 103.4 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 49.9 | 168.2 |
+| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 33.6 | 172.0 |
+| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 35.8 | 106.8 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |
@@ -55,5 +70,5 @@ The swift and dart rows with #1072 (overloads that agree on a return type, chain
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
-| dart (dio) | 97 | 73 (75%) | 20 (21%) | 0 (0%) | 4 (4%) | 17 | 0 | 35.3 | 99.8 |
-| sql (lemmy) | 79 | 54 (68%) | 1 (1%) | 0 (0%) | 24 (30%) | 31 | 0 | 8.6 | 15.3 |
+| dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
+| sql (lemmy) | 79 | 68 (86%) | 1 (1%) | 0 (0%) | 10 (13%) | 31 | 0 | 13.2 | 21.1 |
