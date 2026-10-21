@@ -38,6 +38,9 @@ impl App {
                 Ok(None) => None,
                 Err(at) => Some(at),
             };
+            if broke.is_none() && self.c_receiver_outside(here, text, &before) {
+                return Some((self.c_members(here, word, called, true), None));
+            }
             if !self.c_source() && !self.objc_file() {
                 match self.cpp_typed(here, text, &before, word) {
                     cpp::CppAnswer::Found(found) => return Some((found, None)),
@@ -144,6 +147,35 @@ impl App {
             prev.clone_from(name);
         }
         Ok(None)
+    }
+
+    fn c_receiver_outside(&self, here: &Path, text: &str, before: &str) -> bool {
+        let Some(search::CReceiver {
+            head,
+            head_called: false,
+            fields,
+            ..
+        }) = here
+            .extension()
+            .is_some_and(|e| e == "c")
+            .then(|| search::c_receiver(before))
+            .flatten()
+        else {
+            return false;
+        };
+        let Ok(Some(search::CType::Name(ty))) = search::c_value_type(text, self.line + 1, &head)
+        else {
+            return false;
+        };
+        fields.is_empty()
+            && self
+                .project_definitions(
+                    Kind::C,
+                    here,
+                    &ty,
+                    &search::def_patterns(Kind::C, &ty).join("|"),
+                )
+                .is_empty()
     }
 
     fn c_head_type(&self, here: &Path, text: &str, name: &str) -> Option<CTypeIn> {

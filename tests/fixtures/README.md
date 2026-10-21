@@ -306,6 +306,19 @@ parameter hides, and declarations in a block comment, a raw interpolated string 
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
 local, `using` and `typedef` aliases, `using namespace` in a function and a macro.
+`go/infuse/tasting.go`, its answers gopls's, calls `strings.Builder`, `bytes.Buffer`, `os.File`
+and `time.Time` members named like `Cup`'s, a builder over lines and on one line, calls on
+calls' results, `cup := cup.Warm()` in a block, a `range` and a three-clause `for` binding a
+parameter's name, a type switch, a comma-ok assertion, a struct and an interface embedded two
+levels deep, an aliased import beside its `Cup` namesake, a dot import, a type parameter's
+constraint, a named result, and declarations in a raw string, a block comment and a struct tag.
+`c/src/lab/swirl.c` (over `c/include/lab/carafe.h` through `lab.h`, and `c/src/lab/funnel.c`)
+does the same in C, its answers clangd's: `struct tm`, `div_t` and `struct timeval` members named
+like a project struct's fields, `->` on a call and over lines, a function-pointer field beside a
+function of its name, an anonymous union, a `for` and a block each redeclaring a parameter, a
+local named like its struct tag, a macro declaring a function, designated initializers, a
+compound literal, a `struct` tag beside a function of its name, `goto` to a label named like a
+local, and declarations in a string, a comment and `#if 0`.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,

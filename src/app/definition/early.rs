@@ -364,6 +364,17 @@ impl App {
             }
         }
         if kind == Kind::C
+            && self
+                .line_str()
+                .get(..a.range.start)
+                .and_then(|b| b.trim_end().strip_suffix("goto"))
+                .is_some_and(|h| !h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+        {
+            let lines = goto_labels(&self.buf.lines, self.line, &a.word);
+            let found = self.lines_here(a, lines, &Reason::Local);
+            return self.show_found(a, found);
+        }
+        if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
         {
             self.show_definitions(kind, &a.word, &a.here, found, broke.as_deref());
@@ -519,4 +530,16 @@ impl App {
             })
             .collect()
     }
+}
+
+fn goto_labels(lines: &[String], line0: usize, word: &str) -> Vec<usize> {
+    let label = regex::Regex::new(&format!(r"^\s*{}\s*:(?:[^:]|$)", regex::escape(word)))
+        .expect("an escaped name keeps the pattern valid");
+    let closes = |i: &usize| lines[*i].starts_with('}');
+    let from = (0..line0).rev().find(closes).map_or(0, |i| i + 1);
+    let to = (line0..lines.len()).find(closes).unwrap_or(lines.len());
+    (from..to)
+        .filter(|&i| label.is_match(&lines[i]))
+        .map(|i| i + 1)
+        .collect()
 }
