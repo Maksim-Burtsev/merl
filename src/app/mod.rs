@@ -55,6 +55,7 @@ mod preview_data;
 mod project_search;
 mod proto;
 mod python;
+mod razor;
 mod resolution;
 mod review;
 mod ruby;
@@ -336,6 +337,7 @@ pub struct App {
     at_base: Option<(String, Box<Self>)>,
     truncated: std::cell::Cell<bool>,
     anonymous_named: std::cell::Cell<Option<Typed>>,
+    razor_view: bool,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     ruby_declared: std::cell::RefCell<RubyDeclared>,
     pub focus: Focus,
@@ -499,6 +501,7 @@ impl App {
             at_base: None,
             truncated: std::cell::Cell::default(),
             anonymous_named: std::cell::Cell::default(),
+            razor_view: false,
             reading: std::cell::RefCell::default(),
             ruby_declared: std::cell::RefCell::default(),
             focus,
