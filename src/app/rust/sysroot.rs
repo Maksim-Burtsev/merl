@@ -1,7 +1,15 @@
+use std::sync::LazyLock;
+
 use super::chain::{let_initializer, opening};
 use super::{
-    App, Candidate, Hit, Kind, Path, Reason, bound, rust_bare_type, rust_written_type, search,
+    App, Candidate, Hit, Kind, Path, Reason, Regex, bound, rust_bare_type, rust_written_type,
+    search,
 };
+
+static SLICE_IMPL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\s*<[^{]*?>\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?(?:&(?:'\w+\s+)?(?:mut\s+)?)?(\[T(?:;\s*N)?\])\s*(?:\{|where\b|$)")
+        .expect("the regex is a literal")
+});
 
 impl App {
     pub(super) fn rust_std_written(&self, file: &Path, text: &str, name: &str) -> Option<String> {
@@ -46,6 +54,21 @@ impl App {
         }
     }
 
+    pub(in crate::app) fn rust_array_call(
+        &mut self,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let receiver = before.strip_suffix('.')?.trim_end();
+        let open = opening(receiver, b']', b'[')?;
+        let lead = receiver.get(..open)?.trim_end();
+        if !(lead.is_empty() || lead.ends_with(['(', ',', '=', '{', ';', '&', '[', '|'])) {
+            return None;
+        }
+        self.rust_std_call(text, "[..]", "[T; N]", word)
+    }
+
     pub(super) fn rust_std_call(
         &mut self,
         text: &str,
@@ -68,6 +91,7 @@ impl App {
             ("HashSet", &["HashSet"]),
             ("BTreeMap", &["BTreeMap"]),
             ("BTreeSet", &["BTreeSet"]),
+            ("[T; N]", &["[T; N]", "[T]"]),
         ];
         let (_, levels) = DEREF.iter().find(|(t, _)| *t == std)?;
         if bound(&search::imports(Kind::Rust, text), std).is_some_and(|p| {
@@ -112,12 +136,18 @@ impl App {
             let Some(m) = search::rust_method_at(&lines, h.line1) else {
                 continue;
             };
+            let owner = lines[m.owner_line1 - 1];
+            let slice = SLICE_IMPL
+                .captures(owner)
+                .map(|c| if c[1].contains(';') { "[T; N]" } else { "[T]" }.to_owned());
+            let stable = search::rust_stability(&lines, h.line1);
             let inherent = match m.owner {
-                search::RustOwner::Inherent if search::rust_stability(&lines, h.line1) => true,
+                search::RustOwner::Inherent if stable => true,
+                search::RustOwner::Unreadable if stable && slice.is_some() => true,
                 search::RustOwner::ImplOf(_) => false,
                 _ => continue,
             };
-            if let Some(ty) = search::rust_impl_type(lines[m.owner_line1 - 1]) {
+            if let Some(ty) = slice.or_else(|| search::rust_impl_type(owner)) {
                 owned.push((h, inherent, ty));
             }
         }

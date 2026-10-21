@@ -204,3 +204,13 @@ pub fn std_tuple(leaf: &mut Leaf) -> usize {
     //  ^ d: none
     //               ^ d: src/infusion/leaves.rs:13
 }
+
+pub fn std_array(leaves: Vec<Leaf>) -> usize {
+    let n = [1, 2].len() + leaves[0].len();
+    //             ^ d: none
+    //                               ^ d: src/infusion/leaves.rs:13
+    [Leaf::new(1), Leaf::new(2)]
+        .len()
+    //   ^ d: none
+        + n
+}
