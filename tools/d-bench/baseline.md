@@ -21,6 +21,7 @@ The dart row with #1085's local set from a constructor call over several lines a
 The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b6575`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed as its `@types/estree` interface): over `90cda9b1`, 2026-10-21, release build, `vm.loadavg` { 6.81 8.91 8.63 } before the run, { 5.88 8.08 8.34 } after.
 The swift and dart rows with #1072 (overloads that agree on a return type, chains of calls through declared return types): over `356e0f11`, 2026-10-21, release build, `vm.loadavg` { 6.41 6.89 7.68 } before the run, { 5.55 6.65 7.58 } after. swift0086 has an answer read from the code (sourcekit-lsp found none).
+The rust row with #1044's `vec![..]` held by a `let`, alone or in a tuple: over `c573d8b0`, 2026-10-21, release build, `vm.loadavg` { 3.99 4.22 4.00 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -28,7 +29,7 @@ The swift and dart rows with #1072 (overloads that agree on a return type, chain
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.0 | 91.0 |
 | js (eslint, uptime-kuma) | 217 | 177 (82%) | 32 (15%) | 1 (0%) | 7 (3%) | 177 | 11 | 37.0 | 173.6 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
-| rust (ripgrep) | 231 | 208 (90%) | 19 (8%) | 0 (0%) | 4 (2%) | 69 | 5 | 5.8 | 61.0 |
+| rust (ripgrep) | 231 | 209 (90%) | 18 (8%) | 0 (0%) | 4 (2%) | 69 | 5 | 6.0 | 66.4 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |

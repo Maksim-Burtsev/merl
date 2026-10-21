@@ -1380,10 +1380,17 @@ pub fn rust_tuple_element(lines: &[&str], at: usize, name: &str) -> Option<Strin
         })
     };
     let line = uncommented(Kind::Rust, lines.get(at)?);
-    let pattern = line.trim().strip_prefix("let ")?.trim_start().strip_prefix('(')?;
+    let pattern = line
+        .trim()
+        .strip_prefix("let ")?
+        .trim_start()
+        .strip_prefix('(')?;
     let end = close(pattern)?;
     let names = top_split(pattern.get(..end)?);
-    let bare = |p: &str| p.trim().strip_prefix("mut ").unwrap_or(p.trim()).trim() == name;
+    let bare = |p: &str| {
+        let p = p.trim();
+        p.strip_prefix("mut ").unwrap_or(p).trim() == name
+    };
     let i = names.iter().position(|p| bare(p))?;
     let rest = pattern.get(end + 1..)?.trim_start().strip_prefix('=')?;
     let mut statement = rest.to_owned();
@@ -1396,7 +1403,11 @@ pub fn rust_tuple_element(lines: &[&str], at: usize, name: &str) -> Option<Strin
         statement.push(' ');
         statement.push_str(uncommented(Kind::Rust, lines[j]).trim());
     }
-    let tuple = statement.trim().trim_end_matches(';').trim_end().strip_prefix('(')?;
+    let tuple = statement
+        .trim()
+        .trim_end_matches(';')
+        .trim_end()
+        .strip_prefix('(')?;
     let end = close(tuple)?;
     let values = top_split(tuple.get(..end)?);
     (tuple.get(end + 1..)?.trim().is_empty() && values.len() == names.len())
