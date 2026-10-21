@@ -204,6 +204,22 @@ fn a_sweep_removes_aged_and_gone_folders_but_never_an_open_one() {
         "unopened for 15 days, but the open one stays"
     );
     drop(open);
+    std::fs::write(one.join("feat1.py"), "x = 2\n").unwrap();
+    std::fs::write(one.join("new.py"), "y = 1\n").unwrap();
+    git::sweep_folders(&c.b(), now + Duration::from_hours(15 * 24));
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("feat1.py")).ok(),
+            one.join("new.py").is_file()
+        ),
+        (Some("x = 2\n".to_owned()), true),
+        "an aged folder with your edits stays, edits and all"
+    );
+    c.git(
+        "b",
+        &["-C", one.to_str().unwrap(), "checkout", "--", "feat1.py"],
+    );
+    std::fs::remove_file(one.join("new.py")).unwrap();
     git::sweep_folders(&c.b(), now + Duration::from_hours(15 * 24));
     assert!(!one.exists());
     assert!(c.b().join(".venv/lib/pkg.py").is_file(), "your .venv stays");
