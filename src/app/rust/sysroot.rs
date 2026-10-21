@@ -253,10 +253,28 @@ impl App {
             return true;
         };
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
-        self.grep(re.as_str(), false, false, rs)
+        let alias = |b: &str| {
+            let found = |p: &str| self.grep(p, false, false, rs).map_or(true, |h| !h.is_empty());
+            let pattern = format!(
+                r"^\s*(?:pub(?:\([^)]*\))?\s+)?type\s+{}\b",
+                regex::escape(b)
+            );
+            found(&pattern) && !found(&search::rust_type_decl_pattern(b))
+        };
+        let headers = format!(
+            r"^\s*(?:unsafe\s+)?impl\b(?:\s*<.*>)?\s*(?:\w+::)*{0}\b|^\s*>\s*(?:\w+::)*{0}\b",
+            regex::escape(tr)
+        );
+        self.grep(&headers, false, false, rs)
             .map_or(true, |hits| {
-                hits.iter().filter_map(|h| re.captures(&h.text)).any(|c| {
+                hits.iter().any(|h| {
+                    let Some(c) = re.captures(&h.text) else {
+                        return true;
+                    };
                     let ty = &c[2];
+                    if ty.contains('$') {
+                        return true;
+                    }
                     let generic = |b: &str| {
                         c.get(1).is_some_and(|g| {
                             g.as_str()
@@ -265,7 +283,7 @@ impl App {
                         })
                     };
                     match rust_bare_type(ty) {
-                        Some(b) => levels.contains(&b.as_str()) || generic(&b),
+                        Some(b) => levels.contains(&b.as_str()) || generic(&b) || alias(&b),
                         None => levels.contains(&if ty.contains(';') { "[T; N]" } else { "[T]" }),
                     }
                 })
