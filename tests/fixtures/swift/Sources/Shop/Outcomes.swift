@@ -490,3 +490,46 @@ final class Auditor<Witness> {
         }
     }
 }
+
+// The keys and the values of a dictionary of outside types are values from outside; of a
+// project type, they keep the search by name (#1068).
+final class Tally {
+    func sorted() -> Tally { self }
+}
+
+func tallied(_ table: [String: Int], _ shelf: [String: Logbook]) -> Bool {
+    _ = table.keys.sorted()
+    //             ^ d: none
+    _ = table.values.sorted()
+    //               ^ d: none
+    return shelf.values.first?.isEmpty ?? false
+    //                         ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+// A type nested in a generic outside type is from outside, though a project type names an alias
+// like it; one nested in a generic project type keeps the search by name (#1068).
+struct Drip<Element> {
+    typealias AsyncIterator = Iterator
+
+    struct Iterator {
+        private var iterator: AsyncStream<Element>.AsyncIterator
+        private var mine: Hopper<Element>.Slot
+
+        mutating func next() async -> Element? {
+            _ = mine.weight
+            //       ^ d: picker Sources/Shop/Outcomes.swift:529, Sources/Shop/Outcomes.swift:534
+            return await iterator.next()
+            //                    ^ d: none
+        }
+    }
+}
+
+struct Hopper<Item> {
+    struct Slot {
+        var weight: Int
+    }
+}
+
+struct Barrow {
+    var weight: Int
+}
