@@ -53,6 +53,7 @@ impl App {
         }
         self.anonymous_named.set(None);
         self.ruby_declared.get_mut().clear();
+        self.rootless.clear();
         let kind = self.kind();
         if self.answered_without_word(kind) {
             return;
