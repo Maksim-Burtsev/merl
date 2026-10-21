@@ -148,7 +148,7 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
             ),
             (
                 "src/lib.rs",
-                "mod extra;\n\npub struct Error {\n    msg: String,\n}\n\nimpl Clone for Error {\n    fn clone(&self) -> Error {\n        Error { msg: self.msg.clone() }\n    }\n}\n\nimpl Error {\n    fn describe(&self) -> u32 {\n        1\n    }\n}\n\npub fn first(v: Opaque) -> u32 {\n    v.unwrap()\n}\n\npub fn name(n: &String) -> String {\n    n.clone()\n}\n\npub fn text(s: &str) -> String {\n    s.to_string()\n}\n\npub fn told(e: &Error, x: &extra::Extra) -> u32 {\n    x.secret();\n    e.describe()\n}\n\npub fn peeked(v: Option<u32>) {\n    v.peek()\n}\n\npub fn drained(q: Vec<u32>) {\n    q.into_iter();\n}\n\npub fn opted(w: Option<u32>) -> u32 {\n    w.unwrap()\n}\n\npub struct Bag;\n\nimpl Bag {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn sized(m: &String) -> usize {\n    m.len()\n}\n\npub fn lit() -> usize {\n    let k = \"x\";\n    k.len()\n}\n\nimpl Bag {\n    pub fn frob(&self) {}\n}\n\npub fn frobbed(f: &String) {\n    f.frob()\n}\n",
+                "mod extra;\n\npub struct Error {\n    msg: String,\n}\n\nimpl Clone for Error {\n    fn clone(&self) -> Error {\n        Error { msg: self.msg.clone() }\n    }\n}\n\nimpl Error {\n    fn describe(&self) -> u32 {\n        1\n    }\n}\n\npub fn first(v: Opaque) -> u32 {\n    v.unwrap()\n}\n\npub fn name(n: &String) -> String {\n    n.clone()\n}\n\npub fn text(s: &str) -> String {\n    s.to_string()\n}\n\npub fn told(e: &Error, x: &extra::Extra) -> u32 {\n    x.secret();\n    e.describe()\n}\n\npub fn peeked(v: Option<u32>) {\n    v.peek()\n}\n\npub fn drained(q: Vec<u32>) {\n    q.into_iter();\n}\n\npub fn opted(w: Option<u32>) -> u32 {\n    w.unwrap()\n}\n\npub struct Bag;\n\nimpl Bag {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn sized(m: &String) -> usize {\n    m.len()\n}\n\npub fn lit() -> usize {\n    let k = \"x\";\n    k.len()\n}\n\nimpl Bag {\n    pub fn frob(&self) {}\n}\n\npub fn frobbed(f: &String) {\n    f.frob()\n}\n\npub fn arr() -> bool {\n    [1, 2].contains(&1)\n}\n\npub fn joined() -> usize {\n    [\"a\", \"b\"].concat().len()\n}\n",
             ),
             (
                 "src/extra.rs",
@@ -182,6 +182,10 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
             (
                 "lib/rustlib/src/rust/library/core/src/str/mod.rs",
                 "impl str {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/slice/mod.rs",
+                "impl<T> [T] {\n    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n    pub fn contains(&self, x: &T) -> bool {\n        false\n    }\n}\n",
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/iter/traits/collect.rs",
@@ -319,6 +323,20 @@ fn a_method_of_an_unknown_type_is_every_reachable_one() {
         (
             "f.frob",
             Shown::Jump("no definition for frob".into(), String::new()),
+        ),
+        (
+            "[1, 2].contains",
+            jump("contains: via [..]: [T; N]", "core/src/slice/mod.rs:3"),
+        ),
+        (
+            "concat().len",
+            Shown::Picker(
+                "len: by name, 2 declarations".into(),
+                vec![
+                    row("Bag::len", "src/lib.rs:51"),
+                    row("str::len", "core/src/str/mod.rs:3"),
+                ],
+            ),
         ),
     ] {
         d_on(&mut a, "src/lib.rs", code);
@@ -954,4 +972,29 @@ fn a_path_follows_the_modules_and_uses_of_its_crate() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_vec_macro_of_the_project_is_not_the_standard_vec() {
+    let (dir, mut a) = project_app(
+        "rust-vec-macro",
+        &[
+            (
+                "Cargo.toml",
+                "[package]\nname = \"m\"\nversion = \"0.1.0\"\n",
+            ),
+            (
+                "src/lib.rs",
+                "macro_rules! vec {\n    [] => { Bag };\n}\n\npub struct Bag;\n\nimpl Bag {\n    pub fn push(&self) {}\n}\n\npub fn f() {\n    let b = vec![];\n    b.push();\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "src/lib.rs", "b.push");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Jump(s, p) if s.contains("Bag::push") && p.ends_with("src/lib.rs:8"))
+            || matches!(&got, Shown::Picker(_, rows) if rows.iter().any(|r| r.0 == "Bag::push")),
+        "the project's own vec! makes a Bag: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
 }

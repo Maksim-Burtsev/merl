@@ -24,7 +24,7 @@ fn trailing_name(s: &str) -> &str {
     s.get(start..).unwrap_or_default()
 }
 
-fn opening(s: &str, close: u8, open: u8) -> Option<usize> {
+pub(super) fn opening(s: &str, close: u8, open: u8) -> Option<usize> {
     let b = s.as_bytes();
     let mut depth = 0i32;
     let mut quoted = false;

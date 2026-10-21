@@ -59,6 +59,19 @@ impl App {
             }
         }
         if kind == Kind::Rust
+            && dotted
+            && chain.is_empty()
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+            && a.tail.starts_with('(')
+            && let Some(found) = self.rust_array_call(&a.text, &a.before, word)
+        {
+            if !found.is_empty() {
+                return self.show_found(a, found);
+            }
+            std = true;
+        }
+        if kind == Kind::Rust
             && let Some(found) = self.rust_early(&a.here, &a.text, word, a.range.clone(), dotted)
         {
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());
