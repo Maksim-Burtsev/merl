@@ -31,6 +31,7 @@ The sql row with the rest of #1063 (a bare column where SQL names one table, an 
 The swift row with #1068's closure parameter of a generic wrapper's method (`streamMutableState.write { state in`): over `ac98b053`, 2026-10-22, release build, `vm.loadavg` { 8.57 9.76 7.72 } before the run, { 8.44 9.66 7.72 } after.
 merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
 The csharp row with #1088 (Blazor `.razor` files read through a separate read-only C# view): over `d1c7ea21`, 2026-10-22, release build, `vm.loadavg` { 9.64 13.18 7.21 } before the run, { 11.53 13.27 7.77 } after (the times read high under that load).
+The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -66,4 +67,4 @@ The csharp row with #1088 (Blazor `.razor` files read through a separate read-on
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
 | dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
-| sql (lemmy) | 79 | 66 (84%) | 1 (1%) | 0 (0%) | 12 (15%) | 31 | 0 | 12.1 | 20.1 |
+| sql (lemmy) | 79 | 68 (86%) | 1 (1%) | 0 (0%) | 10 (13%) | 31 | 0 | 13.2 | 21.1 |

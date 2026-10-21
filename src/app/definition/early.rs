@@ -500,6 +500,24 @@ impl App {
         (!found.is_empty()).then(|| self.show_found(a, found))
     }
 
+    fn sql_in_effect_of(&self, here: &Path, table: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        let tabled: Vec<Hit> = hits
+            .iter()
+            .map(|h| Hit {
+                text: format!("TABLE {table}"),
+                ..h.clone()
+            })
+            .collect();
+        let keep = search::sql_in_effect(here, self.line + 1, &tabled);
+        let mut i = 0;
+        hits.retain(|h| {
+            i += 1;
+            keep.as_ref()
+                .map_or_else(|| !h.path.ends_with("down.sql"), |k| k.contains(&(i - 1)))
+        });
+        hits
+    }
+
     fn sql_column(
         &self,
         here: &Path,
@@ -517,20 +535,7 @@ impl App {
                     .hit_text(h)
                     .is_some_and(|t| search::sql_alters(&t, h.line1, table))
         });
-        let tabled: Vec<Hit> = hits
-            .iter()
-            .map(|h| Hit {
-                text: format!("TABLE {table}"),
-                ..h.clone()
-            })
-            .collect();
-        let keep = search::sql_in_effect(here, self.line + 1, &tabled);
-        let mut i = 0;
-        hits.retain(|h| {
-            i += 1;
-            keep.as_ref()
-                .map_or_else(|| !h.path.ends_with("down.sql"), |k| k.contains(&(i - 1)))
-        });
+        let hits = self.sql_in_effect_of(here, table, hits);
         let create = regex::Regex::new(r"(?i)^\s*CREATE\s").expect("a valid pattern");
         let mut parents = Vec::new();
         let found: Vec<Candidate> = hits
@@ -560,6 +565,16 @@ impl App {
         if !found.is_empty() || depth == 0 {
             return found;
         }
+        let renames = self.sql_in_effect_of(
+            here,
+            table,
+            self.project_grep(Kind::Sql, here, &search::sql_renamed_to(table)),
+        );
+        parents.extend(
+            renames
+                .iter()
+                .filter_map(|h| search::sql_renamed_from(&h.text, table)),
+        );
         parents.sort();
         parents.dedup();
         parents
