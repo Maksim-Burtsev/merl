@@ -579,17 +579,18 @@ fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> 
 fn dart_local(t: &str, name: &str) -> bool {
     let w = regex::escape(name);
     let declares = Regex::new(&format!(
-        r"^(?:(?:(?:final|const|var|late)\s+)+(?:(?:{FN_TYPE}|{ANY_TYPE})\s+)?{w}\s*(?:[=;,]|$)|(?:{FN_TYPE}|{TYPE})\s+{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:<[^()]*>)?\s*\(.*(?:=>|\{{)|(?:final|var)\s*[\w$.]*\s*\((.*)\)\s*=[^=>])"
+        r"^(?:(?:(?:final|const|var|late)\s+)+(?:(?:{FN_TYPE}|{ANY_TYPE})\s+)?{w}\s*(?:[=;,]|$)|(?:{FN_TYPE}|{TYPE})\s+{w}\s*(?:[=;,]|$)|{TYPE}\s+{w}\s*(?:<[^()]*>)?\s*\(.*(?:=>|\{{)|(?:final|var)\s*[\w$.]*\s*\((.*)\)\s*=[^=>]|(?:final|var)\s*\[(.*)\]\s*=[^=>])"
     ))
     .expect("an escaped name");
     declares.captures(t).is_some_and(|c| {
         c.get(1)
+            .or_else(|| c.get(2))
             .is_none_or(|pattern| dart_pattern_names(pattern.as_str(), &w))
     })
 }
 
 fn dart_pattern_names(pattern: &str, w: &str) -> bool {
-    Regex::new(&format!(r"(?:^|[^\w$.]){w}\s*(?:[^\w$\s:]|$)"))
+    Regex::new(&format!(r"(?:^|[^\w$.]|\.\.\.){w}\s*(?:[^\w$\s:]|$)"))
         .expect("an escaped name")
         .is_match(pattern)
 }
@@ -859,12 +860,60 @@ pub fn dart_returns(line: &str, name: &str) -> Option<DartType> {
     })
 }
 
-pub fn dart_call_links(before: &str) -> Option<Vec<String>> {
+pub fn dart_list_element<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:final|var)\s*\[([^\[\](){}]*)\]\s*=\s*([a-z_$][\w$]*)\s*;")
+            .expect("the regex is a literal")
+    });
+    let c = PATTERN.captures(line)?;
+    c[1].split(',')
+        .any(|item| item.trim() == name)
+        .then(|| c.get(2).map(|m| m.as_str()))?
+}
+
+pub fn dart_element_typed(line: &str, name: &str) -> Option<DartType> {
+    let re = Regex::new(&format!(
+        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant)\s+)*List<(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)>\??\s+{}\s*(?:[,)=;}}\]]|$)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
+pub fn dart_type_bound(line: &str, ty: &DartType) -> Option<DartType> {
+    let re = Regex::new(&format!(
+        r"<(?:[^<>()]*,)?\s*{}\s+extends\s+(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\s*[,>]",
+        regex::escape(&ty.class)
+    ))
+    .ok()?;
+    let c = re.captures(line).filter(|_| ty.prefix.is_none())?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
+pub fn dart_value<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    let re = Regex::new(&format!(
+        r"^\s*(?:(?:final|var|late)\s+)+{}\s*=\s*([^;]+?)\s*;\s*(?://.*)?$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(re.captures(line)?.get(1)?.as_str())
+}
+
+pub fn dart_call_links(before: &str) -> Option<(Vec<String>, bool, usize)> {
     let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
     let mut rest = before.strip_suffix('.')?;
     let mut any_call = false;
     let mut links = Vec::new();
-    loop {
+    let (called, start) = loop {
         let called = rest.ends_with(')');
         any_call |= called;
         if called {
@@ -888,11 +937,11 @@ pub fn dart_call_links(before: &str) -> Option<Vec<String>> {
         match head.strip_suffix('.') {
             Some(r) if r.ends_with(is_name) || r.ends_with(')') => rest = r,
             Some(_) => return None,
-            None if called || head.ends_with(['?', '!', ')', ']', '.']) => return None,
-            None => break,
+            None if head.ends_with(['?', '!', ')', ']', '.']) => return None,
+            None => break (called, start),
         }
-    }
-    (links.len() > 1 && any_call).then_some(links)
+    };
+    (called || (links.len() > 1 && any_call)).then_some((links, called, start))
 }
 
 pub fn dart_cascade(before: &str) -> Option<Result<DartType, String>> {
