@@ -539,6 +539,11 @@ impl App {
             .filter(|h| !value || !Self::c_type_line(word, h))
             .filter(|h| self.c_code_line(&mut literal, h))
             .collect();
+        let hits = if self.c_source() {
+            c_namespace(word, hits, tag, after.starts_with('('))
+        } else {
+            hits
+        };
         let hits = search::c_type_rows(
             word,
             hits,
@@ -657,4 +662,30 @@ fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> 
     ));
     hits.iter()
         .any(|h| h.path != here && table.as_ref().is_ok_and(|re| re.is_match(&h.text)))
+}
+
+fn c_namespace(word: &str, hits: Vec<Hit>, after_tag_keyword: bool, called: bool) -> Vec<Hit> {
+    static RETURN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^\s*return\b").expect("the regex is a literal")
+    });
+    let Ok(tag_decl) = regex::Regex::new(&format!(
+        r"^\s*(?:typedef\s+)?(?:struct|union|enum)\s+{}\s*(?:\{{|;|$)",
+        regex::escape(word)
+    )) else {
+        return hits;
+    };
+    let hits: Vec<Hit> = hits.into_iter().filter(|h| !RETURN.is_match(&h.text)).collect();
+    let tag = |h: &Hit| tag_decl.is_match(&h.text);
+    let keep: fn(bool) -> bool = if after_tag_keyword {
+        |is_tag| is_tag
+    } else if called {
+        |is_tag| !is_tag
+    } else {
+        return hits;
+    };
+    if hits.iter().any(|h| keep(tag(h))) {
+        hits.into_iter().filter(|h| keep(tag(h))).collect()
+    } else {
+        hits
+    }
 }

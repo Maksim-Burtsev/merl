@@ -98,17 +98,17 @@ int aliases(carafe_t *k, Beaker bk)
 int tags(void)
 {
     struct burner b = { .flame = 3 };
-    //     ^ d: picker src/lab/swirl.c:106, include/lab/carafe.h:25, include/lab/carafe.h:36, src/lab/funnel.c:15; want include/lab/carafe.h:25 (#1205)
+    //     ^ d: include/lab/carafe.h:25
     //                   ^ d: include/lab/carafe.h:26
     struct carafe c = { .volume = 1, .next = 0 };
     //                   ^ d: include/lab/carafe.h:5
     //                                ^ d: picker include/lab/carafe.h:6, include/shop/buf.h:9; want include/lab/carafe.h:6 (#1206)
     return burner(b.flame) + (struct beaker){ .brim = 2 }.brim + c.volume + (int)sizeof(struct burner) + (int)(recipe != 0);
-    //     ^ d: picker include/lab/carafe.h:25, include/lab/carafe.h:36, src/lab/funnel.c:15; want src/lab/funnel.c:15 (#1205)
+    //     ^ d: src/lab/funnel.c:15
     //              ^ d: include/lab/carafe.h:26
     //                                         ^ d: include/lab/carafe.h:16
     //                                                    ^ d: include/lab/carafe.h:16
-    //                                                                                         ^ d: picker include/lab/carafe.h:25, include/lab/carafe.h:36, src/lab/funnel.c:15; want include/lab/carafe.h:25 (#1205)
+    //                                                                                         ^ d: include/lab/carafe.h:25
 }
 
 int labels(struct beaker *b)
