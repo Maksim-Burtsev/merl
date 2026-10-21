@@ -234,6 +234,29 @@ impl App {
         }
     }
 
+    fn rust_let_got(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        shadowing: bool,
+    ) -> Option<Got> {
+        let lines: Vec<&str> = text.lines().collect();
+        let init = let_initializer(&lines, at, name)?;
+        let w = walk_back(&init)?;
+        let shadows = !w.head_call && w.head.first().is_some_and(|h| h == name);
+        if w.rest != 0 || w.links.is_empty() || (shadows && !shadowing) {
+            return None;
+        }
+        let head_at = if shadows { at.checked_sub(1)? } else { at };
+        let mut got = self.rust_head(file, text, head_at, &w, Some(name))?;
+        for link in &w.links {
+            got = self.rust_step(got, link)?;
+        }
+        Some(got)
+    }
+
     pub(super) fn rust_let_chain(
         &self,
         file: &Path,
@@ -241,22 +264,22 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<Typed> {
-        let lines: Vec<&str> = text.lines().collect();
-        let init = let_initializer(&lines, at, name)?;
-        let w = walk_back(&init)?;
-        if w.rest != 0
-            || w.links.is_empty()
-            || (!w.head_call && w.head.first().is_some_and(|h| h == name))
-        {
-            return None;
-        }
-        let mut got = self.rust_head(file, text, at, &w, Some(name))?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
-        }
-        match got {
+        match self.rust_let_got(file, text, at, name, false)? {
             Got::Ty(ty) => Some(ty),
             Got::Written { .. } => None,
+        }
+    }
+
+    pub(super) fn rust_let_written(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<String> {
+        match self.rust_let_got(file, text, at, name, true)? {
+            Got::Written { written, .. } => rust_bare_type(&written),
+            Got::Ty(_) => None,
         }
     }
 

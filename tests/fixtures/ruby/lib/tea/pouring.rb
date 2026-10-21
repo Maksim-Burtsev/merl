@@ -32,6 +32,7 @@ module Tea
 
     def quick
       Brewer.new.leaves(1).build.sip + Kit.make.leaves(2).build.size
+      #      ^ d: none
       #          ^ d: lib/tea/samovar.rb:37
       #                    ^ d: lib/tea/samovar.rb:47
       #                          ^ d: lib/tea/samovar.rb:31
@@ -42,10 +43,10 @@ module Tea
     def shadow
       cup = Cup.new(1)
       cup = cup.next_cup
-      #     ^ d: lib/tea/pouring.rb:43
+      #     ^ d: lib/tea/pouring.rb:44
       #         ^ d: lib/tea/samovar.rb:24
       cup.sip
-      # ^ d: picker lib/tea/pouring.rb:43, lib/tea/pouring.rb:44
+      # ^ d: picker lib/tea/pouring.rb:44, lib/tea/pouring.rb:45
     end
 
     def strength
@@ -54,23 +55,24 @@ module Tea
 
     def quirk
       strength = strength.to_i
-      #          ^ d: lib/tea/pouring.rb:56
+      #          ^ d: lib/tea/pouring.rb:57
       [1].each { |c; strength| strength = c }
-      #                        ^ d: lib/tea/pouring.rb:58
+      #                        ^ d: lib/tea/pouring.rb:59
       strength
-      # ^ d: lib/tea/pouring.rb:56
+      # ^ d: lib/tea/pouring.rb:57
     end
 
     def later
       strength
-      # ^ d: lib/tea/pouring.rb:51
+      # ^ d: lib/tea/pouring.rb:52
     end
 
     def kin
       Samovar.new(1).decant(2) + Urn.new(1).pour(2) + Samovar.new(1).spill + Samovar.new(1).volume
+      #       ^ d: lib/tea/vessel.rb:22
       #              ^ d: lib/tea/samovar.rb:85
       #                          ^ d: lib/tea/samovar.rb:88
-      #                              ^ d: none; want lib/tea/samovar.rb:88 (#1185)
+      #                              ^ d: lib/tea/vessel.rb:22
       #                                     ^ d: lib/tea/samovar.rb:81
       #                                                              ^ d: lib/tea/vessel.rb:8
       #                                                                                     ^ d: lib/tea/vessel.rb:20
@@ -101,7 +103,7 @@ module Tea
   class Pot
     strength = 5
     define_method(:measure) { strength }
-    #                         ^ d: lib/tea/pouring.rb:102
+    #                         ^ d: lib/tea/pouring.rb:104
   end
 end
 
