@@ -2,7 +2,7 @@ import logging
 import os
 
 import tea.brewer as kit
-from tea.brewer import Brewer, Cup, Samovar, Strainer, Urn, make_brewer
+from tea.brewer import Brewer, Cup, Infuser, Samovar, Strainer, Urn, make_brewer
 from tea.spout import Maker
 
 if os.name == "nt":
@@ -189,3 +189,49 @@ def twice(raw: str) -> int:
     again = once.strip()
     return len(again.split())
     #                ^ d: none
+
+
+class Rig:
+    kit_class = Brewer
+
+    @classmethod
+    def setup(cls) -> None:
+        cls.rig = cls.kit_class()
+
+
+class InfuserRig(Rig):
+    kit_class = Infuser
+
+
+class LeftRig(Rig):
+    pass
+
+
+class Trial(InfuserRig):
+    def run(self) -> int:
+        return self.rig.leaves(1)
+        #               ^ d: tea/brewer.py:62
+
+
+class PlainTrial(Rig):
+    def run(self) -> int:
+        return self.rig.leaves(1).build().sip()
+        #               ^ d: tea/brewer.py:49
+
+
+class Both(LeftRig, InfuserRig):
+    def run(self) -> int:
+        return self.rig.leaves(1)
+        #               ^ d: tea/brewer.py:62
+
+
+class MakerRig:
+    maker = make_brewer
+
+    @classmethod
+    def setup(cls) -> None:
+        cls.made = cls.maker()
+
+    def run(self) -> int:
+        return self.made.leaves(1)
+        #                ^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46
