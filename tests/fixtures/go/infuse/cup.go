@@ -72,3 +72,9 @@ func Pair() (Mug, Stove) { return Mug{}, Stove{} }
 func Brew() int { return 5 }
 
 func First[T Sipper](xs []T) T { return xs[0] }
+
+func Last[T Sipper](xs ...T) *T { return &xs[len(xs)-1] }
+
+func ByName[K comparable, V Sipper](m map[K]V, k K) V { return m[k] }
+
+func Echo[Mug Sipper](m Mug) Mug { return m }
