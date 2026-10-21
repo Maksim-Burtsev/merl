@@ -479,3 +479,135 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
         drop(std::fs::remove_dir_all(dir));
     }
 }
+
+#[test]
+fn a_dart_name_skips_the_packages_the_library_cannot_see() {
+    let cache = external_root(
+        "outside-dart-unimported",
+        &[
+            (
+                "stack/lib/stack.dart",
+                "class Trace {}\n\nclass Base extends Root {}\n\nvoid ping() {}\n",
+            ),
+            (
+                "wrap/lib/wrap.dart",
+                "export 'src/stub.dart' if (dart.library.io) 'src/io.dart';\n",
+            ),
+            ("wrap/lib/src/stub.dart", "class Stub {}\n"),
+            ("wrap/lib/src/io.dart", "export 'package:deep/deep.dart';\n"),
+            ("deep/lib/deep.dart", "class Frame {}\n"),
+            (
+                "noise/lib/noise.dart",
+                "class Trace {}\n\nclass Frame {\n  Frame();\n}\n\nclass Root {\n  void ping() {}\n}\n\nclass Lost {}\n",
+            ),
+        ],
+    );
+    let packages = ["stack", "wrap", "deep", "noise"].map(|p| {
+        format!(
+            "{{\"name\": \"{p}\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}",
+            cache.join(p).display()
+        )
+    });
+    let config = format!(
+        "{{\"configVersion\": 2, \"packages\": [{}]}}\n",
+        packages.join(", ")
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-unimported-project",
+        &[
+            ("pubspec.yaml", "name: app\n"),
+            (".dart_tool/package_config.json", &config),
+            (
+                "lib/main.dart",
+                "import 'package:stack/stack.dart';\nimport 'package:wrap/wrap.dart';\n\nTrace t() => Trace();\nFrame f() => Frame();\n\nclass Mine extends Base {\n  void go() {\n    ping();\n  }\n}\n\nLost l() => Lost();\n",
+            ),
+        ],
+    );
+    let roots = ["stack", "wrap", "deep", "noise"].map(|p| cache.join(p).join("lib"));
+    use_roots(&mut a, Kind::Dart, &roots);
+    d_on(&mut a, "lib/main.dart", "^|Trace t()");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Trace: by name, 1 match",
+            &at(&cache, "stack/lib/stack.dart", 1)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "^|Frame f()");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Frame: by name, 1 match",
+            &at(&cache, "deep/lib/deep.dart", 1)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "|ping();");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("an inherited member stays beside a top-level namesake");
+    };
+    assert_eq!(
+        rows.into_iter()
+            .map(|(_, _, place)| place)
+            .collect::<Vec<_>>(),
+        ["stack.dart:5", "noise.dart:8"]
+    );
+    d_on(&mut a, "lib/main.dart", "^|Lost l()");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Lost: by name, 1 match",
+            &at(&cache, "noise/lib/noise.dart", 11)
+        ),
+        "a name no candidate of which is reached keeps them all"
+    );
+    for d in [dir, cache] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_dart_import_that_does_not_resolve_keeps_every_package() {
+    let cache = external_root(
+        "outside-dart-unresolved",
+        &[
+            ("stack/lib/stack.dart", "class Trace {}\n"),
+            ("noise/lib/noise.dart", "class Trace {}\n"),
+        ],
+    );
+    let packages = ["stack", "noise"].map(|p| {
+        format!(
+            "{{\"name\": \"{p}\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}",
+            cache.join(p).display()
+        )
+    });
+    let config = format!(
+        "{{\"configVersion\": 2, \"packages\": [{}]}}\n",
+        packages.join(", ")
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-unresolved-project",
+        &[
+            ("pubspec.yaml", "name: app\n"),
+            (".dart_tool/package_config.json", &config),
+            (
+                "lib/main.dart",
+                "import 'package:stack/stack.dart';\nimport 'gone.g.dart';\n\nTrace t() => Trace();\n",
+            ),
+        ],
+    );
+    let roots = ["stack", "noise"].map(|p| cache.join(p).join("lib"));
+    use_roots(&mut a, Kind::Dart, &roots);
+    d_on(&mut a, "lib/main.dart", "^|Trace t()");
+    let Shown::Picker(_, rows) = shown(&mut a) else {
+        panic!("an import that does not resolve leaves the walk undecided");
+    };
+    assert_eq!(
+        rows.into_iter()
+            .map(|(_, _, place)| place)
+            .collect::<Vec<_>>(),
+        ["stack.dart:1", "noise.dart:1"]
+    );
+    for d in [dir, cache] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

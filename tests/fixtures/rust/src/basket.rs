@@ -72,7 +72,7 @@ pub fn dispatch() -> String {
 
 pub fn first(v: Option<Courier>) -> Courier {
     v.unwrap()
-    //^ d: src/warehouse.rs:18; want !jump (#358)
+    //^ d: none
 }
 
 pub fn offer(o: Offer) -> u32 {

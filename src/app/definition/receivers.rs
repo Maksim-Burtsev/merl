@@ -17,6 +17,7 @@ impl App {
     ) -> bool {
         let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
         let mut rust_broke = None;
+        let mut std = false;
         if kind == Kind::Rust
             && dotted
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
@@ -29,8 +30,13 @@ impl App {
             let after = a.tail.as_str();
             let call = after.starts_with('(') || after.starts_with("::<");
             match self.rust_typed(&a.here, &a.text, word, chain, call) {
-                Ok(found) if !found.is_empty() => return self.show_found(a, found),
-                Ok(_) => {}
+                Ok(rust::Typing::Members(found) | rust::Typing::Std(found))
+                    if !found.is_empty() =>
+                {
+                    return self.show_found(a, found);
+                }
+                Ok(rust::Typing::Std(_)) => std = true,
+                Ok(rust::Typing::Members(_)) => {}
                 Err(at) => rust_broke = (chain.len() > 1).then_some(at),
             }
         }
@@ -59,11 +65,11 @@ impl App {
             return true;
         }
         if kind == Kind::Rust
-            && p.on_value
+            && (p.on_value || std)
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && word != "await"
         {
-            let found = self.rust_methods(&a.here, word, &a.text, chain, &a.before);
+            let found = self.rust_methods(&a.here, word, &a.text, chain, &a.before, std);
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());
             return true;
         }

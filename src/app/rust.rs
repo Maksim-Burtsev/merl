@@ -8,6 +8,11 @@ use super::{
     App, Candidate, HashMap, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, search,
 };
 
+pub(super) enum Typing {
+    Members(Vec<Candidate>),
+    Std(Vec<Candidate>),
+}
+
 #[derive(Clone, Copy)]
 pub(super) enum MacroUse {
     Macro,
@@ -287,6 +292,7 @@ impl App {
         text: &str,
         chain: &[String],
         before: &str,
+        std: bool,
     ) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let receiver = rust_receiver_type(text, self.line, chain, before);
@@ -355,7 +361,7 @@ impl App {
                             Some("tests" | "benches" | "examples")
                         )
                     }));
-            let visible = !internal
+            let visible = !(internal || (std && inside && owner == search::RustOwner::Inherent))
                 && match (&owner, vis) {
                     (search::RustOwner::ImplOf(_), _) => true,
                     (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
@@ -792,7 +798,7 @@ impl App {
         word: &str,
         chain: &[String],
         call: bool,
-    ) -> Result<Vec<Candidate>, String> {
+    ) -> Result<Typing, String> {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
@@ -801,12 +807,12 @@ impl App {
                 && call
             {
                 if let Some(found) = self.rust_trait_bound(here, text, word, name) {
-                    return Ok(found);
+                    return Ok(Typing::Members(found));
                 }
-                if let Some(written) = rust_written_type(text, self.line, name)
+                if let Some(written) = self.rust_std_written(here, text, name)
                     && let Some(found) = self.rust_std_call(text, name, &written, word)
                 {
-                    return Ok(found);
+                    return Ok(Typing::Std(found));
                 }
             }
             return Err(chain[0].clone());
@@ -821,7 +827,7 @@ impl App {
                     && let Some(owner) = self.text_of(&ty.path)
                     && let Some(found) = self.rust_std_call(&owner, field, &std, word)
                 {
-                    return Ok(found);
+                    return Ok(Typing::Std(found));
                 }
                 return Err(field.clone());
             };
@@ -839,13 +845,14 @@ impl App {
                 .unwrap_or_default()
         };
         let label = links.join(" \u{2192} ");
-        Ok(hits
-            .into_iter()
-            .map(|hit| Candidate {
-                hit,
-                reason: Reason::Receiver(label.clone()),
-            })
-            .collect())
+        Ok(Typing::Members(
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        ))
     }
 
     fn rust_value_type(

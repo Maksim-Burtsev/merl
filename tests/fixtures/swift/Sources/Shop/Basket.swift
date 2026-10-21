@@ -115,7 +115,7 @@ func entries(_ l: Ledger) async -> Int {
 func handle(_ o: Offer?, items: [Int]) {
     if let o {
         print(o)
-        //    ^ d: Sources/Shop/Basket.swift:115
+        //    ^ d: Sources/Shop/Basket.swift:116
     }
     for item in items {
         print(item)
