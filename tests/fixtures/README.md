@@ -233,6 +233,18 @@ and `lua/tea/table.lua` must not reach (#1062), nor the key `assert = function` 
 below a comment; its globals assigned in an `if` block and at the top level stay definitions (#1112).
 `lua/tea/tray.lua` calls a bare `rinse` whose namesakes are `function S.rinse` in `saucer.lua` and
 `spec.lua`'s `local rinse`, a picker of both.
+`lua/tea/infusion.lua` is the third corner (#1126), its answers read from the code, over
+`gaiwan.lua`: `string.format`, `table.insert` and `("cup"):upper()` beside the module's `format`,
+`insert` and `Gaiwan:upper`, which stay the standard library's (none) unless the project patches
+it (`function string.steeped`) or binds the name (a parameter `string`); `tostring(v):upper()`
+still jumps (#1207); a field of a required module, `pcall(require, ..)`, a builder over lines and
+through a local, whose `return self` is not followed (#1208), `local gaiwan = gaiwan.Gaiwan.new(1)`,
+whose receiver is read on its own line, `M.Gaiwan = Gaiwan` answered by the module's local,
+`local a, b = b, a`, a `for` header over a parameter of its name, a subclass made by
+`setmetatable({}, { __index = .. })` with an inherited and an overridden method, `self` in a
+closure and in a `function(self)`, a call above the `local function` of its name (a global, so
+none), a one-line string, a `--` comment and a `--[==[` block declaring names, and `goto continue`
+(#1209).
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
