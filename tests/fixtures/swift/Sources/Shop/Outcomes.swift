@@ -490,3 +490,94 @@ final class Auditor<Witness> {
         }
     }
 }
+
+// The keys and the values of a dictionary of outside types are values from outside; of a
+// project type, they keep the search by name (#1068).
+final class Tally {
+    func sorted() -> Tally { self }
+}
+
+func tallied(_ table: [String: Int], _ shelf: [String: Logbook]) -> Bool {
+    _ = table.keys.sorted()
+    //             ^ d: none
+    _ = table.values.sorted()
+    //               ^ d: none
+    return shelf.values.first?.isEmpty ?? false
+    //                         ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+// A type nested in a generic outside type is from outside, though a project type names an alias
+// like it; one nested in a generic project type is that type's (#1068).
+struct Drip<Element> {
+    typealias AsyncIterator = Iterator
+
+    struct Iterator {
+        private var iterator: AsyncStream<Element>.AsyncIterator
+        private var mine: Hopper<Element>.Slot
+
+        mutating func next() async -> Element? {
+            _ = mine.weight
+            //       ^ d: Sources/Shop/Outcomes.swift:529
+            return await iterator.next()
+            //                    ^ d: none
+        }
+    }
+}
+
+struct Hopper<Item> {
+    struct Slot {
+        var weight: Int
+    }
+}
+
+struct Barrow {
+    var weight: Int
+}
+
+// A nested name counts where Swift places it (#1068): an alias under a generic outer type or in an
+// extension of a nested type answers, and one written inside a namespace, where it may name the
+// namespace's own alias or a top-level namesake, asks. A type nested in an outside generic is no
+// Sequence, so a project's `extension Sequence` does not answer for it (`iterator.next()` above).
+struct Flask {
+    func tilt() {}
+}
+struct Beaker {
+    func tilt() {}
+}
+
+struct Vial<Dose> {
+    typealias Neck = Flask
+}
+
+enum Cellar {
+    struct Rack {
+        typealias Neck = Flask
+    }
+}
+extension Cellar.Rack {
+    typealias Spout = Beaker
+}
+
+struct Rack {
+    struct Neck {
+        func tilt() {}
+    }
+}
+
+func tilted(_ v: Vial<Int>.Neck, _ s: Cellar.Rack.Spout) {
+    v.tilt()
+    //^ d: Sources/Shop/Outcomes.swift:542
+    s.tilt()
+    //^ d: Sources/Shop/Outcomes.swift:545
+}
+
+extension Cellar {
+    static func tilted(_ n: Rack.Neck) {
+        n.tilt()
+        //^ d: picker Sources/Shop/Outcomes.swift:542, Sources/Shop/Outcomes.swift:545, Sources/Shop/Outcomes.swift:563
+    }
+}
+
+extension Sequence {
+    func next() -> Int? { nil }
+}

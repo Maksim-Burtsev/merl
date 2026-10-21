@@ -1245,3 +1245,57 @@ fn a_std_value_keeps_a_project_trait_whose_impl_merl_cannot_read() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_for_variable_and_an_as_ref_of_a_bound_take_their_std_type() {
+    let stable = "#[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "use std::{\n    ffi::OsString,\n    path::{Path, PathBuf},\n};\n\npub struct Leaf;\n\nimpl Leaf {\n    pub fn join(&self) {}\n\n    pub fn display(&self) {}\n}\n\npub fn find<P: AsRef<Path>>(\n    prog: P,\n    paths: OsString,\n) -> Option<PathBuf> {\n    use std::env;\n\n    fn is_exe(path: &Path) -> bool {\n        false\n    }\n\n    let prog = prog.as_ref();\n    for dir in env::split_paths(&paths) {\n        dir.join(prog);\n    }\n    prog.display();\n    None\n}\n\npub fn by_impl(q: impl AsRef<Path>) {\n    let q = q.as_ref();\n    q.display();\n}\n\npub fn by_where<W>(w: W)\nwhere\n    W: AsRef<Path>,\n{\n    let w = w.as_ref();\n    w.display();\n}\n\npub fn by_two<T: AsRef<Path> + AsRef<str>>(t: T) {\n    let t = t.as_ref();\n    t.display();\n}\n\npub struct Bag;\n\nimpl Iterator for Bag {\n    type Item = Leaf;\n    fn next(&mut self) -> Option<Leaf> {\n        None\n    }\n}\n\npub fn walk(bag: Bag) {\n    for leaf in bag {\n        leaf.join();\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-std-bound",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-std-bound-std",
+        &[
+            (
+                "lib/rustlib/src/rust/library/std/src/env.rs",
+                &format!(
+                    "use crate::path::PathBuf;\n\n{stable}pub fn split_paths<T: AsRef<OsStr> + ?Sized>(unparsed: &T) -> SplitPaths<'_> {{\n    loop {{}}\n}}\n\npub struct SplitPaths<'a> {{\n    inner: &'a str,\n}}\n\nimpl<'a> Iterator for SplitPaths<'a> {{\n    type Item = PathBuf;\n    fn next(&mut self) -> Option<PathBuf> {{\n        None\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/sys/paths.rs",
+                "pub struct SplitPaths<'a>(&'a str);\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/path.rs",
+                &format!(
+                    "pub struct PathBuf;\n\npub struct Path;\n\nimpl Path {{\n    {stable}    pub fn join<P: AsRef<Path>>(&self, path: P) -> PathBuf {{\n        loop {{}}\n    }}\n\n    {stable}    pub fn display(&self) -> Display<'_> {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for (code, want) in [
+        ("dir.join", "std/src/path.rs:7"),
+        ("    prog.display", "std/src/path.rs:12"),
+        ("    q.display", "std/src/path.rs:12"),
+        ("    w.display", "std/src/path.rs:12"),
+        ("    t.display", "picker"),
+        ("leaf.join", "picker"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            Shown::Picker(..) if want == "picker" => want.to_owned(),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
