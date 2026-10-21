@@ -102,7 +102,7 @@ int tags(void)
     //                   ^ d: include/lab/carafe.h:26
     struct carafe c = { .volume = 1, .next = 0 };
     //                   ^ d: include/lab/carafe.h:5
-    //                                ^ d: picker include/lab/carafe.h:6, include/shop/buf.h:9; want include/lab/carafe.h:6 (#1206)
+    //                                ^ d: include/lab/carafe.h:6
     return burner(b.flame) + (struct beaker){ .brim = 2 }.brim + c.volume + (int)sizeof(struct burner) + (int)(recipe != 0);
     //     ^ d: src/lab/funnel.c:15
     //              ^ d: include/lab/carafe.h:26
