@@ -72,6 +72,23 @@ impl App {
             std = true;
         }
         if kind == Kind::Rust
+            && dotted
+            && chain.is_empty()
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+        {
+            let call = a.tail.starts_with('(') || a.tail.starts_with("::<");
+            match self.rust_index_member(&a.here, &a.text, &a.before, word, call) {
+                Some(rust::Typing::Members(found) | rust::Typing::Std(found))
+                    if !found.is_empty() =>
+                {
+                    return self.show_found(a, found);
+                }
+                Some(rust::Typing::Std(_)) => std = true,
+                _ => {}
+            }
+        }
+        if kind == Kind::Rust
             && let Some(found) = self.rust_early(&a.here, &a.text, word, a.range.clone(), dotted)
         {
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());

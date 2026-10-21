@@ -998,3 +998,68 @@ fn a_vec_macro_of_the_project_is_not_the_standard_vec() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn an_indexed_value_is_its_element_and_a_vec_reaches_its_slice() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let range = "pub struct Range<Idx> {\n    pub start: Idx,\n    pub end: Idx,\n}\n";
+    let lib = "use std::ops::Range;\n\npub struct Bag {\n    pub end: usize,\n}\n\nimpl Bag {\n    pub fn len(&self) -> usize {\n        0\n    }\n\n    pub fn contains(&self) -> bool {\n        false\n    }\n}\n\nfn spans() -> Vec<Range<usize>> {\n    Vec::new()\n}\n\npub fn ends(v: &[std::ops::Range<usize>]) -> usize {\n    v[0].end\n}\n\npub fn last() -> usize {\n    let got = spans();\n    got[1].end\n}\n\npub fn bags(b: Vec<Bag>, i: usize) -> usize {\n    b[0].len() + b[i].end\n}\n\npub fn names(n: &[String]) -> usize {\n    n[0].len()\n}\n\npub fn has(w: Vec<u8>) -> bool {\n    w.contains(&1) && w.to_owned().is_empty()\n}\n\npub fn spans_len(s: Vec<Range<usize>>, i: usize) -> usize {\n    s[i].len() + s[1..].len()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-indexed",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-indexed-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/ops/range.rs", range),
+            ("lib/rustlib/src/rust/library/core/src/range.rs", range),
+            ("lib/rustlib/src/rust/library/std/src/lib.rs", "pub use core::ops;\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/borrow.rs",
+                "impl<T: Clone> ToOwned for T {\n    fn to_owned(&self) -> T {\n        loop {}\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/slice/mod.rs",
+                &format!("impl<T> [T] {{\n{stable}    pub fn contains(&self, x: &T) -> bool {{\n        false\n    }}\n}}\n\nimpl<T: Clone> ToOwned for [T] {{\n    fn to_owned(&self) -> Vec<T> {{\n        loop {{}}\n    }}\n}}\n"),
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                &format!("impl str {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n\n{stable}    pub fn contains(&self) -> bool {{\n        false\n    }}\n}}\n"),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+                &format!("pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for (code, want) in [
+        ("v[0].end", "core/src/ops/range.rs:3"),
+        ("got[1].end", "core/src/ops/range.rs:3"),
+        ("b[0].len", "src/lib.rs:8"),
+        ("b[i].end", "src/lib.rs:4"),
+        ("n[0].len", "core/src/str/mod.rs:3"),
+        ("w.contains", "core/src/slice/mod.rs:3"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    for code in ["s[i].len", "s[1..].len", "w.to_owned"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = shown(&mut a);
+        assert!(
+            !matches!(&got, Shown::Jump(s, p) if !s.starts_with("no definition") && !p.is_empty()),
+            "{code} is not typed by its index: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}

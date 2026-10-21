@@ -917,32 +917,7 @@ impl App {
                     (ty, link)
                 }
                 search::RustHolds::Call(parts) => {
-                    if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
-                        return None;
-                    }
-                    let decl = if let Some(decl) = self.declaration(Kind::Rust, file, &parts) {
-                        decl
-                    } else {
-                        let [f] = parts.as_slice() else { return None };
-                        let ns = search::RustNamespace::Other;
-                        let [l] = search::rust_scope_items_right_of_let(text, at + 1, f, ns)[..]
-                        else {
-                            return None;
-                        };
-                        Hit {
-                            path: file.to_path_buf(),
-                            line1: l,
-                            byte_col: None,
-                            text: lines[l - 1].to_owned(),
-                            deleted: None,
-                        }
-                    };
-                    if !decl.text.contains("fn ") {
-                        return None;
-                    }
-                    let t = self.text_of(&decl.path)?;
-                    let l: Vec<&str> = t.lines().collect();
-                    let returns = search::rust_return_type(&l, decl.line1 - 1)?;
+                    let (decl, returns) = self.rust_call_returns(file, text, at, &parts)?;
                     let ty = self.rust_resolve(&decl.path, &returns, decl.line1 - 1)?;
                     let link = format!("{}() -> {}", parts.join("::"), ty.name);
                     (ty, link)
