@@ -351,3 +351,21 @@ func casted(_ failure: any Error, _ relay: Any) -> Int {
     return code + beaconed(failure as? URLError).errorCode
     //                                           ^ d: Sources/Shop/Outcomes.swift:342
 }
+
+// A cast to a type from outside keeps the project's extension of a type it may inherit from; an
+// extension of a class of the project is not one of its supertypes (#1068).
+extension NSResponder {
+    func nudged() -> Int { 0 }
+}
+
+extension Beacon {
+    func pinged() -> Int { 0 }
+}
+
+func lifted(_ relay: Any) -> Int {
+    let up = (relay as? NSView)?.nudged() ?? 0
+    //                           ^ d: Sources/Shop/Outcomes.swift:358
+    let down = (relay as? URLError)?.pinged() ?? 0
+    //                               ^ d: none
+    return up + down
+}

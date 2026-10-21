@@ -236,6 +236,26 @@ fn a_sweep_removes_aged_and_gone_folders_but_never_an_open_one() {
 
 #[cfg(unix)]
 #[test]
+fn a_sweep_takes_a_package_s_node_modules_link_but_not_what_it_points_to() {
+    let c = Clones::new("sweep-package");
+    c.git("a", &["switch", "-q", "feat1"]);
+    std::fs::create_dir_all(c.dir.join("a/packages/web")).unwrap();
+    c.commit("a", "packages/web/package.json", "{}\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let mine = c.b().join("packages/web/node_modules");
+    std::fs::create_dir_all(mine.join("lib")).unwrap();
+    let (folder, _) = c.open("feat1");
+    assert!(folder.join("packages/web/node_modules").is_symlink());
+    git::sweep_folders(&c.b(), SystemTime::now() + Duration::from_hours(15 * 24));
+    assert_eq!(
+        (folder.exists(), mine.join("lib").is_dir()),
+        (false, true),
+        "the link alone does not keep the folder, and your node_modules stays"
+    );
+}
+
+#[cfg(unix)]
+#[test]
 fn d_through_a_folder_s_node_modules_lands_in_its_own_workspace_package() {
     let c = Clones::new("workspace");
     let write = |at: &Path, f: &str, text: &str| {

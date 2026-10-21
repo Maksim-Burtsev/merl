@@ -610,24 +610,31 @@ impl App {
 
     fn dart_core_unreached(&self, here: &Path, ty: &search::DartType, word: &str) -> bool {
         let class = ty.class.as_str();
-        let on = Regex::new(&format!(
-            r"^extension(?:\s+(\w+))?(?:\s*<[^>]*>)?\s+on\s+{}\b",
-            regex::escape(class)
-        ));
+        let on = Regex::new(r"^extension(?:\s+(\w+))?(?:\s*<[^>]*>)?\s+on\s+(\w+)");
         let declares = Regex::new(&search::def_patterns(Kind::Dart, word).join("|"));
         let (Ok(on), Ok(declares)) = (on, declares) else {
             return false;
         };
+        let reaches = |target: &str| {
+            target == class
+                || target == "Object"
+                || !search::DART_CORE_TYPES.contains(&target)
+                || (target == "Iterable" && matches!(class, "List" | "Set"))
+                || (target == "num" && matches!(class, "int" | "double"))
+        };
         let extends = |t: &str| {
-            t.lines().filter_map(|l| on.captures(l)).any(|c| {
-                let within = c.get(1).map(|n| format!("{}.{word}", n.as_str()));
-                t.lines().enumerate().any(|(i, l)| {
-                    declares.is_match(l)
-                        && within.as_ref().is_none_or(|w| {
-                            search::qualified(Kind::Dart, t, i + 1, word).as_ref() == Some(w)
-                        })
+            t.lines()
+                .filter_map(|l| on.captures(l))
+                .filter(|c| reaches(&c[2]))
+                .any(|c| {
+                    let within = c.get(1).map(|n| format!("{}.{word}", n.as_str()));
+                    t.lines().enumerate().any(|(i, l)| {
+                        declares.is_match(l)
+                            && within.as_ref().is_none_or(|w| {
+                                search::qualified(Kind::Dart, t, i + 1, word).as_ref() == Some(w)
+                            })
+                    })
                 })
-            })
         };
         ty.prefix.is_none()
             && search::DART_CORE_TYPES.contains(&class)

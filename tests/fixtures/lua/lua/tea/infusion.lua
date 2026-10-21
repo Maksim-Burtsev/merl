@@ -180,4 +180,9 @@ function I.retry(list)
   return f
 end
 
+function I.decant(s)
+  return string.decanted(s)
+  --            ^ d: lua/tea/gaiwan.lua:51
+end
+
 return I

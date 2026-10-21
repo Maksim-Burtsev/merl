@@ -48,6 +48,10 @@ function string.steeped(s)
   return s .. "!"
 end
 
+string.decanted = function(s)
+  return s .. "~"
+end
+
 M.Gaiwan = Gaiwan
 M.Sencha = Sencha
 return M

@@ -150,3 +150,11 @@ int barrelled() {
   return bowl.tilt();
   //          ^ d: lib/brew/chawan.dart:16
 }
+
+int supered(List<int> xs, String name) {
+  final first = xs.firstSwirl() ?? 0;
+  //               ^ d: lib/brew/chawan.dart:64
+  return first + name.stamp().length + name.dust();
+  //                  ^ d: lib/brew/chawan.dart:68
+  //                                        ^ d: none
+}

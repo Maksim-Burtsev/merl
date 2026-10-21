@@ -59,3 +59,15 @@ enum Grade {
   final int score;
   int doubled() => score * 2;
 }
+
+extension Swirled<T> on Iterable<T> {
+  T? firstSwirl() => isEmpty ? null : first;
+}
+
+extension Stamped on Object {
+  String stamp() => '$this';
+}
+
+extension Dusted on Duration {
+  int dust() => inSeconds;
+}
