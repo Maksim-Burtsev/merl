@@ -685,6 +685,13 @@ impl App {
                 }
                 continue;
             }
+            let placed = || {
+                !nested
+                    || self
+                        .text_of(&h.path)
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, &name))
+                        .is_some_and(|q| q == full)
+            };
             match search::swift_type_header(&h.text) {
                 Some(t) if t.keyword == "extension" => extended |= t.name == full,
                 Some(t) if t.name == name && placed() => {
