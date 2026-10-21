@@ -30,14 +30,27 @@ impl App {
         };
         match (picked, jumped) {
             (Some((kind, title, items)), _) => {
+                let all = items.len();
                 let items: Vec<_> = items
                     .into_iter()
                     .filter(|it| real(&it.path, it.line))
                     .collect();
-                if items.is_empty() {
-                    self.message = "no definition".into();
-                    return true;
-                }
+                let count = |now: &str| message.replacen(&format!("{all} declarations"), now, 1);
+                let message = match items.len() {
+                    0 => {
+                        self.message = "no definition".into();
+                        return true;
+                    }
+                    n if n == all => message,
+                    1 => {
+                        self.jump_to_item(&items[0]);
+                        if self.buf.path.as_deref() == Some(&*root.join(&items[0].path)) {
+                            self.message = count("1 match");
+                        }
+                        return true;
+                    }
+                    n => count(&format!("{n} declarations")),
+                };
                 self.show_picker(kind, items);
                 if let Some(p) = &mut self.picker {
                     p.title = title;
