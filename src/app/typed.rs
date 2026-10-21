@@ -71,7 +71,10 @@ impl App {
             return Ok(found);
         }
         let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
-        let declared = self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word));
+        let declared = match self.union_arms(kind, &ty) {
+            Some(arms) => self.shared_member(kind, &arms, word),
+            None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
+        };
         let hits = declared
             .or_else(|| {
                 let mut assigned = None;
@@ -171,14 +174,22 @@ impl App {
         Some(Ok(ProvenType { ty, links }))
     }
 
-    fn assigned_calls_type(&self, file: &Path, text: &str, line1: usize) -> Option<TypeVia> {
-        let kind = Kind::Python;
+    fn assigned_calls_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+    ) -> Option<TypeVia> {
         if self.rel_current().as_deref() != Some(file) {
             return None;
         }
         let name = text.lines().nth(line1.checked_sub(1)?)?.trim_start();
         let name = name.get(..name.find(|c: char| !(c.is_alphanumeric() || c == '_'))?)?;
-        let expr = search::python_assigned_call(text, line1, name)?;
+        let expr = match kind {
+            Kind::Go => search::go_assigned_chain(text, line1, name)?,
+            _ => search::python_assigned_call(text, line1, name)?,
+        };
         let probe = format!("{expr}.x");
         let ProvenType { ty, links } = self.calls_type(kind, file, &probe, expr.len() + 1)?.ok()?;
         Some(TypeVia {
@@ -187,13 +198,18 @@ impl App {
         })
     }
 
-    fn go_outside(&self, file: &Path, text: &str, written: &str) -> bool {
+    pub(super) fn go_outside(&self, file: &Path, text: &str, written: &str) -> bool {
         let parts = search::type_path(Kind::Go, written).unwrap_or_default();
         let [package, _] = parts.as_slice() else {
             return false;
         };
         bound(&search::imports(Kind::Go, text), package).is_some_and(|path| {
+            let vendored = Path::new("vendor").join(path.join("/"));
             search::module_files(Kind::Go, &self.root, &self.files, file, &path).is_empty()
+                && !self
+                    .files
+                    .iter()
+                    .any(|f| f.parent().is_some_and(|d| d.ends_with(&vendored)))
         })
     }
 
@@ -561,6 +577,14 @@ impl App {
             } = self
                 .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
                 .and_then(DeclaredField::typed)
+                .or_else(|| {
+                    let made =
+                        (kind == Kind::Python).then(|| self.made_by_class_attribute(&ty, field));
+                    Some(TypeVia {
+                        ty: made??,
+                        call_signature: None,
+                    })
+                })
                 .ok_or_else(|| field.clone())?;
             let first = i == 0 && merge;
             let label = if first {
@@ -588,6 +612,14 @@ impl App {
         name: &str,
         hops: usize,
     ) -> Option<TypeVia> {
+        if kind == Kind::TsJs
+            && let Some(ty) = self.narrowed(kind, file, text, line1, name, hops)
+        {
+            return Some(TypeVia {
+                ty,
+                call_signature: None,
+            });
+        }
         let mut bindings = self.bindings_of(kind, file, text, line1, name);
         if kind == Kind::Python
             && bindings
@@ -761,8 +793,8 @@ impl App {
                     call_signature: None,
                 })
             }
-            search::Value::Unknown if kind == Kind::Python && hops > 0 => {
-                self.assigned_calls_type(file, text, b.line1)
+            search::Value::Unknown if matches!(kind, Kind::Python | Kind::Go) && hops > 0 => {
+                self.assigned_calls_type(kind, file, text, b.line1)
             }
             search::Value::Name(_)
             | search::Value::Element(_)
@@ -947,23 +979,77 @@ impl App {
                 call_signature: None,
             });
         }
-        let text = self.text_of(&decl.path)?;
-        let (written, signature) = match self.returns_of(kind, &decl.path, &text, decl.line1)? {
+        let at = self.text_of(&decl.path)?;
+        let (written, signature) = match self.returns_of(kind, &decl.path, &at, decl.line1)? {
             search::Value::New(t) if kind == Kind::Python => {
                 (t.clone(), format!("{callee}() returns {t}()"))
             }
             search::Value::New(t) => (t.clone(), format!("{callee}() returns new {t}()")),
             search::Value::Type(t) => {
+                if kind == Kind::Go
+                    && let Some((shape, type_param)) = search::go_result_type_param(&decl.text, &t)
+                {
+                    let params = search::go_signature(&at, decl.line1)?.param_types;
+                    let argument =
+                        self.go_type_argument(file, text, line1, callee, &params, type_param)?;
+                    let written = format!("{shape}{argument}");
+                    return Some(TypeVia {
+                        ty: self.annotated_type(kind, file, text, 0, &written)?,
+                        call_signature: Some(signature(kind, callee, &written)),
+                    });
+                }
                 let signature = signature(kind, callee, &t);
                 (t, signature)
             }
             _ => return None,
         };
-        let ty = self.annotated_type(kind, &decl.path, &text, 0, &written)?;
+        let ty = self.annotated_type(kind, &decl.path, &at, 0, &written)?;
         Some(TypeVia {
             ty,
             call_signature: Some(signature),
         })
+    }
+
+    fn go_type_argument(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        callee: &str,
+        params: &[String],
+        type_param: &str,
+    ) -> Option<String> {
+        let line = text.lines().nth(line1.checked_sub(1)?)?;
+        let args = search::go_call_arguments(line, callee)?;
+        let variadic = params.last().is_some_and(|p| p.starts_with("..."));
+        if args.len() != params.len() && !(variadic && args.len() + 1 >= params.len()) {
+            return None;
+        }
+        let mut found: Option<String> = None;
+        for (i, arg) in args.iter().enumerate() {
+            let param = params
+                .get(i)
+                .or_else(|| params.last().filter(|_| variadic))?;
+            if !arg.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                continue;
+            }
+            let bindings = self.bindings_of(Kind::Go, file, text, line1, arg);
+            let [
+                search::Binding {
+                    value: search::Value::Type(written),
+                    ..
+                },
+            ] = bindings.as_slice()
+            else {
+                continue;
+            };
+            if let Some(t) = search::go_type_argument(param, written, type_param)
+                && *found.get_or_insert_with(|| t.clone()) != t
+            {
+                return None;
+            }
+        }
+        found
     }
 
     fn annotated_type(
@@ -1096,14 +1182,101 @@ impl App {
 
     fn declares_interface(&self, kind: Kind, file: &Path, written: &str) -> bool {
         self.type_decl(kind, file, written).is_some_and(|ty| {
-            self.text_of(&ty.path).is_some_and(|t| {
-                t.lines().nth(ty.line.saturating_sub(1)).is_some_and(|l| {
-                    l.trim_start()
-                        .trim_start_matches("export ")
-                        .starts_with("interface ")
-                })
+            self.is_interface(&ty)
+                || self
+                    .union_arms(kind, &ty)
+                    .is_some_and(|arms| arms.iter().all(|a| self.is_interface(a)))
+        })
+    }
+
+    fn is_interface(&self, ty: &Typed) -> bool {
+        self.text_of(&ty.path).is_some_and(|t| {
+            t.lines().nth(ty.line.saturating_sub(1)).is_some_and(|l| {
+                l.trim_start()
+                    .trim_start_matches("export ")
+                    .starts_with("interface ")
             })
         })
+    }
+
+    fn union_arms(&self, kind: Kind, ty: &Typed) -> Option<Vec<Typed>> {
+        if kind != Kind::TsJs {
+            return None;
+        }
+        let text = self.text_of(&ty.path)?;
+        search::ts_union_alias(text.lines().nth(ty.line.checked_sub(1)?)?)?
+            .iter()
+            .map(|arm| self.type_decl(kind, &ty.path, arm))
+            .collect()
+    }
+
+    fn shared_member(&self, kind: Kind, arms: &[Typed], word: &str) -> Option<Vec<Hit>> {
+        let at = |hits: &[Hit]| -> Vec<(PathBuf, usize)> {
+            hits.iter().map(|h| (h.path.clone(), h.line1)).collect()
+        };
+        let mut each = arms
+            .iter()
+            .map(|t| self.hierarchy(kind, t, 0, &mut |t| self.instance_member(kind, t, word)));
+        let first = each.next()??;
+        each.all(|hits| hits.is_some_and(|h| at(&h) == at(&first)))
+            .then_some(first)
+    }
+
+    fn narrowed(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<Typed> {
+        let (tag, guard) = search::ts_narrowed_tag(text, line1, name)?;
+        let [b] = &self.bindings_of(kind, file, text, line1, name)[..] else {
+            return None;
+        };
+        if b.line1 >= guard {
+            return None;
+        }
+        let arms = match &b.value {
+            search::Value::Element(over) if hops > 0 => {
+                let (chain, last) = over.rsplit_once('.')?;
+                let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
+                let ProvenType { ty, .. } = self
+                    .chain_type(kind, file, text, b.line1, &chain, hops - 1)
+                    .ok()?;
+                let (at, written) = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let text = self.text_of(&t.path)?;
+                    match &search::field_bindings(kind, &text, t.line, last)[..] {
+                        [
+                            search::Binding {
+                                value: search::Value::Type(w),
+                                ..
+                            },
+                        ] => Some((t.path.clone(), w.clone())),
+                        _ => None,
+                    }
+                })?;
+                search::ts_union_names(&search::element_type(kind, &written)?)?
+                    .iter()
+                    .map(|arm| self.type_decl(kind, &at, arm))
+                    .collect::<Option<Vec<_>>>()?
+            }
+            _ => self.union_arms(kind, &self.binding_type(kind, file, text, b, hops)?.ty)?,
+        };
+        let mut tagged = None;
+        for arm in arms {
+            let hits = self.hierarchy(kind, &arm, 0, &mut |t| {
+                self.instance_member(kind, t, "type")
+            })?;
+            let [hit] = &hits[..] else {
+                return None;
+            };
+            if search::ts_type_tag(&hit.text)? == tag && tagged.replace(arm).is_some() {
+                return None;
+            }
+        }
+        tagged
     }
 
     fn returns_of(

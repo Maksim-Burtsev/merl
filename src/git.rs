@@ -260,9 +260,9 @@ impl Review {
             if git(&["rev-parse", "--verify", "-q", &at]).is_err() {
                 bail!("no branch {name} on {remote}");
             }
-            let folder = check_out_folder(root, b, &at)?;
+            let (folder, held) = check_out_folder(root, b, &at, b)?;
             let r = Self::open(&folder, None, Some(&base))?;
-            let note = (!fetched).then(|| format!("{b} not fetched"));
+            let note = held.or_else(|| (!fetched).then(|| format!("{b} not fetched")));
             return Ok((folder, Self { note, ..r }));
         }
         let (b, fetched) = fetch(&git, b, &base)?;
@@ -282,9 +282,15 @@ impl Review {
         } else {
             (tracked, None)
         };
-        let folder = check_out_folder(root, b, &at)?;
+        let (folder, held) = check_out_folder(root, b, &at, &remote)?;
         let r = Self::open(&folder, None, Some(&base))?;
-        Ok((folder, Self { note, ..r }))
+        Ok((
+            folder,
+            Self {
+                note: held.or(note),
+                ..r
+            },
+        ))
     }
 
     pub fn first_file(&self, root: &Path, pictures: bool) -> Option<PathBuf> {
@@ -1035,14 +1041,43 @@ fn package_modules(folder: &Path) -> Vec<String> {
         .collect()
 }
 
-fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
+fn dependency_links(folder: &Path) -> impl Iterator<Item = String> {
+    (DEPENDENCIES.map(String::from).into_iter()).chain(package_modules(folder))
+}
+
+fn has_edits(folder: &Path) -> bool {
+    let links: Vec<String> = dependency_links(folder).collect();
+    git(
+        folder,
+        &[
+            "status",
+            "--porcelain",
+            "-z",
+            "--untracked-files=all",
+            "--no-renames",
+        ],
+    )
+    .map_or(true, |out| {
+        (out.split('\0').filter_map(|e| e.get(3..))).any(|p| !links.iter().any(|l| l == p))
+    })
+}
+
+fn check_out_folder(
+    root: &Path,
+    b: &str,
+    at: &str,
+    remote: &str,
+) -> Result<(PathBuf, Option<String>)> {
     if !(Path::new(b).components()).all(|c| matches!(c, std::path::Component::Normal(_))) {
         bail!("no branch {b}");
     }
     let common = dirs(root).context("no git directory")?.common_refs_dir;
     let name = root.file_name().context("no repository name")?;
     let folder = common.join(FOLDERS).join(b).join(name);
-    if folder.join(".git").is_file() && dirs(&folder).is_some_and(|d| d.common_refs_dir == common) {
+    let reused =
+        folder.join(".git").is_file() && dirs(&folder).is_some_and(|d| d.common_refs_dir == common);
+    let edits = reused && has_edits(&folder);
+    if reused && !edits {
         for name in package_modules(&folder) {
             if std::fs::read_link(folder.join(&name)).is_ok_and(|l| l == root.join(&name)) {
                 drop(std::fs::remove_file(folder.join(&name)));
@@ -1050,12 +1085,15 @@ fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
         }
         git(&folder, &["checkout", "-q", "-f", "--detach", at])
             .with_context(|| format!("checking out {b}"))?;
-    } else {
+    } else if !reused {
         drop(std::fs::remove_dir_all(&folder));
         let path = folder.to_str().context("a folder name that is not UTF-8")?;
         git(root, &["worktree", "add", "-q", "-f", "--detach", path, at])
             .with_context(|| format!("checking out {b}"))?;
     }
+    let git = |args: &[&str]| git(&folder, args);
+    let held = (edits && git(&["merge-base", "--is-ancestor", at, "HEAD"]).is_err())
+        .then(|| lag(&git, remote, "HEAD"));
     if let Some(d) = dirs(&folder) {
         let admin = d.worktree_head_dir.join("merl");
         drop(
@@ -1063,17 +1101,13 @@ fn check_out_folder(root: &Path, b: &str, at: &str) -> Result<PathBuf> {
         );
     }
     #[cfg(unix)]
-    for name in DEPENDENCIES
-        .map(String::from)
-        .into_iter()
-        .chain(package_modules(&folder))
-    {
+    for name in dependency_links(&folder) {
         let (mine, there) = (root.join(&name), folder.join(&name));
         if mine.is_dir() && there.symlink_metadata().is_err() {
             drop(std::os::unix::fs::symlink(mine, there));
         }
     }
-    Ok(folder)
+    Ok((folder, held))
 }
 pub struct Opened(PathBuf);
 
@@ -1167,11 +1201,28 @@ pub fn sweep_folders(root: &Path, now: SystemTime) {
         let Some(path) = folder.to_str() else {
             continue;
         };
-        if (aged || gone()) && git(root, &["worktree", "remove", "--force", path]).is_ok() {
+        if !(aged || gone()) {
+            continue;
+        }
+        let links: Vec<(PathBuf, PathBuf)> = dependency_links(&folder)
+            .filter_map(|name| {
+                let link = folder.join(&name);
+                let to = std::fs::read_link(&link)
+                    .ok()
+                    .filter(|l| l.is_absolute() && l.ends_with(&name))?;
+                std::fs::remove_file(&link).is_ok().then_some((link, to))
+            })
+            .collect();
+        if git(root, &["worktree", "remove", path]).is_ok() {
             for dir in folder.ancestors().skip(1).take_while(|d| *d != top) {
                 if std::fs::remove_dir(dir).is_err() {
                     break;
                 }
+            }
+        } else {
+            #[cfg(unix)]
+            for (link, to) in links {
+                drop(std::os::unix::fs::symlink(to, link));
             }
         }
     }

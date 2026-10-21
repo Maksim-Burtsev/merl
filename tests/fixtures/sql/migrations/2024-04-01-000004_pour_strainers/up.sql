@@ -21,4 +21,4 @@ SELECT ladles.id FROM ladles;
 SELECT x.id FROM strainers s;
 --       ^ d: none
 INSERT INTO ladles (depth) VALUES (1);
---                  ^ d: none; want migrations/2024-04-01-000004_pour_strainers/up.sql:6 (#1063)
+--                  ^ d: migrations/2024-04-01-000004_pour_strainers/up.sql:6

@@ -283,3 +283,210 @@ func outsideFields(_ fileURL: URL, _ request: URLRequest) -> Int {
     //          ^ d: Sources/Shop/Infuse/Sencha.swift:37
     //                                   ^ d: Sources/Shop/Infuse/Sencha.swift:37
 }
+
+// Two steps of reading before the value from outside: `request` from a field, `url` from it. The
+// `url` of the project's own types and protocols below is not one of `URLRequest` (#1068).
+final class Postman {
+    var lastRequest: URLRequest?
+}
+
+extension Postman {
+    func described() -> String {
+        guard
+            let request = lastRequest,
+            let url = request.url,
+            let host = url.host else { return "" }
+        //                 ^ d: none
+        return host
+    }
+}
+
+extension Gateway {
+    var url: String { host }
+}
+
+extension Postman {
+    struct Route {}
+}
+
+extension Postman.Route {
+    var url: String { "" }
+}
+
+protocol Addressed {}
+
+extension Addressed {
+    var url: Gateway { Gateway(host: "") }
+}
+
+extension URLCredential: Addressed {}
+
+func addressed(_ credential: URLCredential) -> String {
+    credential.url.host
+    //             ^ d: Sources/Shop/Outcomes.swift:271
+}
+
+// A typealias of a collection from outside is that collection: its members answer from the
+// project's extensions of it or none (#1068).
+typealias Tags = [String: Int]
+
+func tagged(_ tags: Tags?) -> Bool {
+    guard let tags else { return true }
+    return tags.isEmpty
+    //          ^ d: none
+}
+
+// A value cast to a type from outside the project in parentheses is that type; the result of a
+// call that takes a cast is not (#1068).
+final class Beacon {
+    var errorCode = 0
+}
+
+func beaconed(_ failure: URLError?) -> Beacon { Beacon() }
+
+func casted(_ failure: any Error, _ relay: Any) -> Int {
+    let code = (failure as? URLError)?.errorCode ?? (relay as? Beacon)?.errorCode ?? 0
+    //                                 ^ d: none
+    //                                                                  ^ d: Sources/Shop/Outcomes.swift:342
+    return code + beaconed(failure as? URLError).errorCode
+    //                                           ^ d: Sources/Shop/Outcomes.swift:342
+}
+
+// A cast to a type from outside keeps the project's extension of a type it may inherit from; an
+// extension of a class of the project is not one of its supertypes (#1068).
+extension NSResponder {
+    func nudged() -> Int { 0 }
+}
+
+extension Beacon {
+    func pinged() -> Int { 0 }
+}
+
+func lifted(_ relay: Any) -> Int {
+    let up = (relay as? NSView)?.nudged() ?? 0
+    //                           ^ d: Sources/Shop/Outcomes.swift:358
+    let down = (relay as? URLError)?.pinged() ?? 0
+    //                               ^ d: none
+    return up + down
+}
+
+// A closure parameter of a generic wrapper's method that hands the closure the wrapped value is
+// that value; its fields from outside answer from the project's extensions or none (#1068).
+final class Strongbox<Value> {
+    private var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func read<U>(_ closure: (Value) throws -> U) rethrows -> U {
+        try closure(value)
+    }
+
+    func write<U>(_ closure: (inout Value) throws -> U) rethrows -> U {
+        try closure(&value)
+    }
+
+    func write(_ value: Value) {
+        self.value = value
+    }
+}
+
+struct Coffer {
+    var queued: [Int] = []
+    var seals: Set<String> = []
+}
+
+final class Vaultkeeper {
+    func remove(_ seal: String) {}
+
+    let coffer = Strongbox(Coffer())
+    let strongbox: Strongbox<Coffer>
+
+    init(_ strongbox: Strongbox<Coffer>) {
+        self.strongbox = strongbox
+    }
+
+    func drain() -> Bool {
+        coffer.write { $0.seals.remove("lead") }
+        //                      ^ d: none
+        let idle = coffer.read { state in state.queued.isEmpty }
+        //                                             ^ d: none
+        //                                      ^ d: Sources/Shop/Outcomes.swift:396
+        return strongbox.write { strongbox in
+            strongbox.queued.isEmpty && idle
+            //               ^ d: none
+            //        ^ d: Sources/Shop/Outcomes.swift:396
+        }
+    }
+}
+
+// A nested type that several types declare is the one the enclosing types declare, innermost
+// first, when a wrapper holds it by construction or by annotation, and a field typed over several
+// lines is read whole. Past a type that inherits (`Teller: Basis`, whose `Basis` may declare a
+// `Sheet` of its own), and for a type declared inside a function, the name stays ambiguous: a
+// picker, never a jump (#1068).
+final class Cashbook {
+    struct Sheet {
+        var seals: Set<String> = []
+        var pending: [Int] = []
+    }
+
+    let sheet = Strongbox(Sheet())
+
+    func settle(_ seal: String) {
+        sheet.write { $0.seals.remove(seal) }
+        //                     ^ d: none
+        //               ^ d: Sources/Shop/Outcomes.swift:431
+    }
+
+    final class Clerk {
+        let sheet = Strongbox(Sheet())
+
+        func idle() -> Bool {
+            sheet.read { $0.pending.isEmpty }
+            //                      ^ d: none
+        }
+    }
+
+    func tally() -> Bool {
+        struct Sheet {
+            var pending: [Int] = []
+        }
+        let sheet = Strongbox(Sheet())
+        return sheet.read { $0.pending.isEmpty }
+        //                     ^ d: picker Sources/Shop/Outcomes.swift:432, Sources/Shop/Outcomes.swift:454, Sources/Shop/Outcomes.swift:473; want Sources/Shop/Outcomes.swift:454 (#1068)
+    }
+
+    final class Teller: Basis {
+        let sheet = Strongbox(Sheet())
+
+        func idle() -> Bool {
+            sheet.read { $0.pending.isEmpty }
+            //              ^ d: picker Sources/Shop/Outcomes.swift:432, Sources/Shop/Outcomes.swift:454, Sources/Shop/Outcomes.swift:473
+        }
+    }
+}
+
+final class Auditor<Witness> {
+    private struct Sheet {
+        var pending: [Int] = []
+        var lines: [(entry: String,
+                     amount: Int)] = []
+    }
+
+    private let sheet: Strongbox<Sheet>
+
+    init() {
+        sheet = Strongbox(Sheet())
+    }
+
+    func check() -> Bool {
+        sheet.write { sheet in
+            sheet.pending.isEmpty && sheet.lines.isEmpty
+            //                                   ^ d: none
+            //            ^ d: none
+            //    ^ d: Sources/Shop/Outcomes.swift:473
+        }
+    }
+}

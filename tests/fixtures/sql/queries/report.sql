@@ -6,7 +6,7 @@ WITH heavy AS (
 ), cheap AS (
   SELECT * FROM coupons WHERE rate < 1
   --            ^ d: schema/001_tables.sql:17
-  --                          ^ d: none
+  --                          ^ d: schema/001_tables.sql:19
 )
 SELECT h.tariff_id, c.describe, discount(c.rate)
 --                    ^ d: none
