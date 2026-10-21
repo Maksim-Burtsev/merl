@@ -822,6 +822,10 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 comment = true;
                 Some((i, 0))
             }
+            b'-' if kind == Kind::Lua && b.get(i + 1) == Some(&b'-') => {
+                comment = true;
+                Some((i, 0))
+            }
             b'/' if !matches!(kind, Kind::Python | Kind::Gdscript | Kind::Ruby)
                 && b.get(i + 1) == Some(&b'/') =>
             {

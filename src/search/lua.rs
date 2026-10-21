@@ -367,6 +367,77 @@ pub fn lua_makes_instance(text: &str, line: usize, table: &str) -> bool {
         .any(|i| code(i).is_some_and(|c| set.is_match(&c)));
     sets && (0..lines.len()).any(|i| code(i).is_some_and(|c| index.is_match(c.trim_end())))
 }
+pub fn lua_returns_self(text: &str, line: usize) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Lua, text);
+    let Some(head) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return false;
+    };
+    (head + 1..lines.len())
+        .take_while(|&i| lines[i].trim().is_empty() || indent(lines[i]) > indent(lines[head]))
+        .filter(|&i| !literal[i])
+        .map(|i| uncommented(Kind::Lua, lines[i]))
+        .filter(|c| !c.trim().is_empty())
+        .last()
+        .is_some_and(|c| c.trim().trim_end_matches(';').trim_end() == "return self")
+}
+fn lua_name_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+pub fn lua_name_path(value: &str) -> Option<Vec<String>> {
+    let v = value.trim().trim_end_matches(';').trim_end();
+    (v.starts_with(|c: char| c.is_alphabetic() || c == '_')
+        && v.split('.').all(|p| !p.is_empty() && p.chars().all(lua_name_char)))
+    .then(|| v.split('.').map(str::to_owned).collect())
+}
+pub fn lua_method_step(value: &str) -> Option<(&str, &str)> {
+    let v = value.trim().trim_end_matches(';').trim_end();
+    if !v.ends_with(')') {
+        return None;
+    }
+    let head = v.get(..lua_open_paren(v)?)?.trim_end();
+    let receiver = head.trim_end_matches(lua_name_char);
+    let method = head.get(receiver.len()..)?;
+    let receiver = receiver.strip_suffix(':')?.trim_end();
+    (!method.is_empty() && !receiver.is_empty() && !receiver.ends_with(':'))
+        .then_some((receiver, method))
+}
+pub fn lua_called_receiver(before: &str) -> Option<&str> {
+    let path_start = |s: &str| {
+        let p = s.trim_end_matches(|c: char| lua_name_char(c) || c == '.').len();
+        p + s.get(p..).and_then(|r| r.rfind("..")).map_or(0, |i| i + 2)
+    };
+    let call = before.trim_end().strip_suffix(':')?.trim_end();
+    let mut end = call.len();
+    loop {
+        let part = call.get(..end)?;
+        if !part.ends_with(')') {
+            return None;
+        }
+        let head = part.get(..lua_open_paren(part)?)?.trim_end();
+        let mut start = path_start(head);
+        let named = head.get(start..)?;
+        if named.is_empty() || LUA_KEYWORDS.contains(&named) {
+            return None;
+        }
+        match head.get(..start)?.strip_suffix(':').map(str::trim_end) {
+            Some(r) if r.ends_with(')') => {
+                end = r.len();
+                continue;
+            }
+            Some(r) => start = path_start(r),
+            None => {}
+        }
+        let expr = call.get(start..)?;
+        return (!call.get(..start)?.ends_with([')', ']', ':', '"', '\''])
+            && expr.starts_with(|c: char| c.is_alphabetic() || c == '_'))
+        .then_some(expr);
+    }
+}
+const LUA_KEYWORDS: [&str; 13] = [
+    "return", "and", "or", "not", "if", "then", "elseif", "else", "while", "do", "until", "in",
+    "local",
+];
 pub fn lua_call(value: &str) -> Option<(Vec<String>, String)> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^([A-Za-z_][\w.]*)[.:](\w+)\s*\([^()]*\)$").expect("the regex is a literal")

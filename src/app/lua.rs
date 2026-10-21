@@ -13,9 +13,15 @@ impl App {
         here: &Path,
         text: &str,
         chain: &[String],
+        before: &str,
         word: &str,
     ) -> Vec<Candidate> {
-        let Some(o) = self.lua_owner(here, text, chain, self.line + 1, 0) else {
+        let line = self.line + 1;
+        let o = match search::lua_called_receiver(before) {
+            Some(call) if chain.is_empty() => self.lua_expr_owner(here, text, call, line, 0),
+            _ => self.lua_owner(here, text, chain, line, 0),
+        };
+        let Some(o) = o else {
             return Vec::new();
         };
         let Some(table) = o.table.as_deref() else {
@@ -87,7 +93,29 @@ impl App {
     ) -> Option<Owner> {
         let first = chain.first()?;
         let (bound, value) = search::lua_local_at(text, line, first)?;
-        if let Some(module) = search::lua_required(&value) {
+        if search::lua_table_value(&value) {
+            return Some(Owner {
+                path: here.to_path_buf(),
+                reason: Reason::Path(chain.join(".")),
+                source: self.text_of(here)?,
+                table: Some(first.clone()),
+            });
+        }
+        self.lua_expr_owner(here, text, &value, bound, hops)
+    }
+
+    fn lua_expr_owner(
+        &self,
+        here: &Path,
+        text: &str,
+        value: &str,
+        line: usize,
+        hops: usize,
+    ) -> Option<Owner> {
+        if hops > 4 {
+            return None;
+        }
+        if let Some(module) = search::lua_required(value) {
             let path = search::lua_module_file(module, &self.files)?;
             let source = self.text_of(&path)?;
             return Some(Owner {
@@ -97,16 +125,19 @@ impl App {
                 source,
             });
         }
-        if search::lua_table_value(&value) {
-            return Some(Owner {
-                path: here.to_path_buf(),
-                reason: Reason::Path(chain.join(".")),
-                source: self.text_of(here)?,
-                table: Some(first.clone()),
-            });
+        if let Some((receiver, method)) = search::lua_method_step(value)
+            && let Some(o) = self.lua_expr_owner(here, text, receiver, line, hops + 1)
+            && let Some(table) = o.table.as_deref()
+            && let [at] = search::lua_members(&o.source, table, method)[..]
+            && search::lua_returns_self(&o.source, at)
+        {
+            return Some(o);
         }
-        let (callee, made_by) = search::lua_call(&value)?;
-        let o = self.lua_owner(here, text, &callee, bound, hops + 1)?;
+        if let Some(parts) = search::lua_name_path(value) {
+            return self.lua_owner(here, text, &parts, line, hops + 1);
+        }
+        let (callee, made_by) = search::lua_call(value)?;
+        let o = self.lua_owner(here, text, &callee, line, hops + 1)?;
         let table = o.table.clone()?;
         let [line] = search::lua_members(&o.source, &table, &made_by)[..] else {
             return None;

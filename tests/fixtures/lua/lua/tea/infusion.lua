@@ -37,9 +37,9 @@ function I.chain()
     :soak(5)
    --^ d: lua/tea/gaiwan.lua:11
     :unfold()
-   --^ d: picker lua/tea/gaiwan.lua:16, lua/tea/gaiwan.lua:31; want lua/tea/gaiwan.lua:16 (#1208)
+   --^ d: lua/tea/gaiwan.lua:16
   return cup:unfold() + poured
-  --         ^ d: picker lua/tea/gaiwan.lua:16, lua/tea/gaiwan.lua:31; want lua/tea/gaiwan.lua:16 (#1208)
+  --         ^ d: lua/tea/gaiwan.lua:16
 end
 
 function I.shadow()
@@ -144,6 +144,14 @@ function I.strung(v, tostring)
   --                        ^ d: none
   --                                                        ^ d: none
   --                                                                               ^ d: lua/tea/gaiwan.lua:20
+end
+
+function I.brewed()
+  local s = gaiwan.Sencha.new(1):soak(2)
+  return Gaiwan.new(2):soak(5):unfold() + s:unfold() + Gaiwan.new(1):unfold()
+  --                           ^ d: lua/tea/gaiwan.lua:16
+  --                                        ^ d: picker lua/tea/gaiwan.lua:16, lua/tea/gaiwan.lua:31
+  --                                                                 ^ d: lua/tea/gaiwan.lua:16
 end
 
 return I
