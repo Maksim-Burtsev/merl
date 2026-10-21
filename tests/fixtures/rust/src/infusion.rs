@@ -243,3 +243,9 @@ pub fn std_slice_method() -> usize {
     cup.chunks(1).count()
     //  ^ d: none
 }
+
+pub fn as_ref_bound<P: AsRef<str>>(tea: P) -> usize {
+    let tea = tea.as_ref();
+    tea.len()
+    //  ^ d: none
+}

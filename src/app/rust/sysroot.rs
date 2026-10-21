@@ -73,6 +73,9 @@ impl App {
         let [b] = bindings.as_slice() else {
             return None;
         };
+        if let Some(item) = self.rust_for_item(file, text, b.line1 - 1, name) {
+            return Some(item);
+        }
         let held = search::rust_tuple_element(&lines, b.line1 - 1, name)
             .or_else(|| let_initializer(&lines, b.line1 - 1, name));
         if let Some(held) = held
