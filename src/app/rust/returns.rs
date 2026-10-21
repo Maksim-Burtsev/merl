@@ -348,7 +348,7 @@ pub(super) fn as_ref_head(file: &Path, text: &str, line0: usize, name: &str) -> 
     let lines: Vec<&str> = text.lines().collect();
     let line0 = (0..=line0)
         .rev()
-        .find(|&i| lines.get(i).is_some_and(|l| !l.trim().is_empty()))?;
+        .find(|&i| lines.get(i).is_some_and(|l| !matches!(l.trim(), "" | "{")))?;
     let [b] = &search::bindings(Kind::Rust, text, line0 + 1, name)[..] else {
         return None;
     };
