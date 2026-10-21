@@ -48,7 +48,7 @@ SELECT "Lid", lid FROM "Kettle";
 --            ^ d: steep/schema.sql:18
 SELECT * FROM phantoms, mirages;
 --            ^ d: steep/schema.sql:28; want none (#1227)
---                      ^ d: steep/schema.sql:33; want none (#1226)
+--                      ^ d: none
 SELECT id, nothere FROM cozies;
 --     ^ d: steep/schema.sql:3
 --         ^ d: none
