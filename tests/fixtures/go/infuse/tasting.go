@@ -138,7 +138,7 @@ func Generics(mugs []Mug) int {
 
 func Drink[T Sipper](t T) int {
 	return t.Sip()
-	//       ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49; want infuse/cup.go:4 (#1203)
+	//       ^ d: infuse/cup.go:4
 }
 
 func Named() (cup Stove) {

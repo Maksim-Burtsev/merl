@@ -892,7 +892,7 @@ fn go_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
             .expect("the regex is a literal")
     });
     static GO_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bfunc\b\s*(?:\(([^)]*)\)\s*)?(?:[A-Za-z_]\w*\s*)?(?:\[[^\]]*\]\s*)?\(")
+        Regex::new(r"\bfunc\b\s*(?:\(([^)]*)\)\s*)?(?:[A-Za-z_]\w*\s*)?(?:\[([^\]]*)\]\s*)?\(")
             .expect("the regex is a literal")
     });
     let n = regex::escape(name);
@@ -922,20 +922,22 @@ fn go_opener_bindings(header: &str, line: usize, name: &str, out: &mut Vec<Bindi
     if let Some(c) = GO_FUNC.captures_iter(header).last() {
         let count = out.len();
         if let Some(receiver) = c.get(1) {
-            go_params(receiver.as_str(), line, name, out);
+            go_params(receiver.as_str(), &[], line, name, out);
         }
+        let type_params = c.get(2).map(|m| go_type_params(m.as_str()));
+        let type_params = type_params.as_deref().unwrap_or_default();
         let open = c.get_match().end() - 1;
         if let Some(close) = close_of(Kind::Go, header, open)
             && let Some(params) = header.get(open + 1..close - 1)
             && let Some(results) = header.get(close..)
         {
-            go_params(params, line, name, out);
+            go_params(params, type_params, line, name, out);
             let results = results.trim_start();
             if results.starts_with('(')
                 && let Some(end) = close_of(Kind::Go, results, 0)
                 && let Some(inner) = results.get(1..end - 1)
             {
-                go_params(inner, line, name, out);
+                go_params(inner, type_params, line, name, out);
             }
             let body = results.trim_end().strip_suffix('{');
             binds_for_body |= out.len() > count && body.is_some_and(|r| !r.contains(['{', '}']));
@@ -1077,7 +1079,40 @@ fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
         _ => (at == 0).then_some(values),
     }
 }
-fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
+fn go_type_params(list: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut names = Vec::new();
+    for item in split_top(Kind::Go, list, b',') {
+        let item = item.trim();
+        match item.split_once(char::is_whitespace) {
+            Some((n, constraint)) => {
+                names.push(n);
+                for n in names.drain(..) {
+                    out.push((n.to_owned(), constraint.trim().to_owned()));
+                }
+            }
+            None => names.push(item),
+        }
+    }
+    out
+}
+fn go_constrained(t: &str, type_params: &[(String, String)]) -> String {
+    let base = t.trim_start_matches(['[', ']', '*', '.']);
+    let plain = |c: &str| c.chars().all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '.');
+    match type_params.iter().find(|(n, _)| n == base) {
+        Some((_, constraint)) if plain(constraint) => {
+            format!("{}{constraint}", t.get(..t.len() - base.len()).unwrap_or_default())
+        }
+        _ => t.to_owned(),
+    }
+}
+fn go_params(
+    params: &str,
+    type_params: &[(String, String)],
+    line: usize,
+    name: &str,
+    out: &mut Vec<Binding>,
+) {
     let items: Vec<&str> = split_top(Kind::Go, params, b',')
         .into_iter()
         .map(str::trim)
@@ -1097,10 +1132,13 @@ fn go_params(params: &str, line: usize, name: &str, out: &mut Vec<Binding>) {
         };
         if pname == name {
             let value = match ty {
-                Some(t) => match t.strip_prefix("...") {
-                    Some(element) => Value::Type(format!("[]{element}")),
-                    None => Value::Type(t.to_owned()),
-                },
+                Some(t) => {
+                    let t = go_constrained(t, type_params);
+                    match t.strip_prefix("...") {
+                        Some(element) => Value::Type(format!("[]{element}")),
+                        None => Value::Type(t),
+                    }
+                }
                 None => Value::Unknown,
             };
             out.push(Binding { line1: line, value });
