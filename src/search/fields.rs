@@ -87,25 +87,31 @@ fn python_fields(
             value,
         });
     };
-    let annotated = rule(format!(r"^(self\.)?{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
-    let assigned = rule(format!(r"^(self\.)?{n}\s*=\s*([^=].*)$"));
+    let annotated = rule(format!(r"^(self\.|cls\.)?{n}\s*:\s*([^=]+?)\s*(?:=.*)?$"));
+    let assigned = rule(format!(r"^(self\.|cls\.)?{n}\s*=\s*([^=].*)$"));
     let unknown = rule(format!(
         r"^\(?[\w\s,.*\[\]]*,[\w\s,.*\[\]]*\bself\.{n}\b[\w\s,.*\[\]]*\)?\s*=[^=]|^\(?[\w\s.*\[\]]*\bself\.{n}\s*,[\w\s,.*\[\]]*\)?\s*=[^=]|\bas\s+self\.{n}\b|^for\s+.*\bself\.{n}\b.*\sin\s"
     ));
     let def = rule(format!(r"^def\s+{n}\s*\("));
-    let property = |i: usize, ind: usize| {
+    let decorated = |i: usize, ind: usize, names: &[&str]| {
         lines[..i]
             .iter()
             .rev()
             .map(|l| uncommented(kind, l))
             .filter(|l| !l.trim().is_empty())
             .take_while(|l| indent(l) == ind && l.trim_start().starts_with('@'))
-            .any(|l| {
-                matches!(
-                    l.trim(),
-                    "@property" | "@cached_property" | "@functools.cached_property"
-                )
-            })
+            .any(|l| names.contains(&l.trim()))
+    };
+    let property = |i: usize, ind: usize| {
+        decorated(
+            i,
+            ind,
+            &[
+                "@property",
+                "@cached_property",
+                "@functools.cached_property",
+            ],
+        )
     };
     let mut skip: Option<usize> = None;
     for i in body {
@@ -118,7 +124,21 @@ fn python_fields(
         if skip.is_some() || continued(kind, lines, i) {
             continue;
         }
-        let right = |c: &regex::Captures| c.get(1).is_some() == (ind > base);
+        let in_classmethod = || {
+            lines[..i]
+                .iter()
+                .rposition(|l| !l.trim().is_empty() && indent(l) < ind)
+                .filter(|&d| {
+                    let t = lines[d].trim_start();
+                    t.starts_with("def ") || t.starts_with("async def ")
+                })
+                .is_some_and(|d| decorated(d, indent(lines[d]), &["@classmethod"]))
+        };
+        let right = |c: &regex::Captures| match c.get(1).map(|m| m.as_str()) {
+            None => ind <= base,
+            Some("self.") => ind > base,
+            Some(_) => ind > base && in_classmethod(),
+        };
         if ind == base && def.is_match(t) && property(i, ind) {
             push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
             continue;

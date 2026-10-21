@@ -21,22 +21,22 @@ pub trait Sniff {
 impl Sniff for str {
     fn sniff(&self) -> usize {
         self.len()
-        //   ^ d: src/infusion/leaves.rs:13; want none (#1044)
+        //   ^ d: none
     }
 }
 
 pub fn std_values(leaf: &Leaf) -> usize {
     let name = String::from("oolong");
     name.len() + leaf.name.len() + leaf.len()
-    //   ^ d: src/infusion/leaves.rs:13; want none (#1044)
-    //                     ^ d: src/infusion/leaves.rs:13; want none (#1044)
+    //   ^ d: none
+    //                     ^ d: none
     //                                  ^ d: src/infusion/leaves.rs:13
 }
 
 pub fn std_chain(leaf: &Leaf) -> usize {
     let mut cup = Vec::new();
     cup.push(leaf.trim().len());
-    //  ^ d: src/infusion/leaves.rs:21; want none (#1044)
+    //  ^ d: none
     //            ^ d: src/infusion/leaves.rs:17
     cup.len()
 }
@@ -46,7 +46,7 @@ pub fn shadow_on_own_line(leaf: &Leaf) -> usize {
     //         ^ d: src/infusion.rs:44
     //              ^ d: src/infusion/leaves.rs:17
     leaf.len()
-    //   ^ d: src/infusion/leaves.rs:13; want none (#1044)
+    //   ^ d: none
 }
 
 pub fn builder() -> u32 {
@@ -179,4 +179,16 @@ pub fn extension_bound() -> usize {
     let s = "oolong";
     s.sniff() + "oolong".len()
     //^ d: src/infusion.rs:22
+}
+
+pub fn shadow_back_to_leaf(leaf: Option<Leaf>) -> usize {
+    let leaf = leaf.unwrap();
+    leaf.len()
+    //   ^ d: src/infusion/leaves.rs:13
+}
+
+pub fn label_of(leaf: &Leaf) -> usize {
+    let label = leaf.label();
+    label.len()
+    //    ^ d: none
 }

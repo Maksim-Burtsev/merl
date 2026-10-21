@@ -4,7 +4,7 @@ namespace Shop.Orders;
 
 public class Register
 {
-    // A `using static` brings `Prices`'s members in: another type's member stays a candidate.
+    // A `using static` brings `Prices`'s static members in: `Cashbox.Discount`, an instance member of a type `Register` neither derives from nor sits in, is out of reach.
     public int Sum() => Discount(5);
     //                  ^ d: src/Shop/Pricing/Pricing.cs:46
 }
@@ -104,4 +104,16 @@ public class Stage
 public class PageBase
 {
     public void Show() { }
+}
+
+public class Cashbox
+{
+    public int Discount(int total) => total;
+}
+
+public class Refund : System.Exception
+{
+    // A base from outside the project may declare `Discount`: both namesakes stay.
+    public int Back() => Discount(2);
+    //                   ^ d: picker src/Shop/Orders/Statics.cs:111, src/Shop/Pricing/Pricing.cs:46
 }

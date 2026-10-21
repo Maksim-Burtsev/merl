@@ -994,6 +994,25 @@ pub fn cs_extended(line: &str) -> Option<String> {
     Some(THIS.captures(line)?[1].to_owned())
 }
 
+pub fn cs_static_member(line: &str, word: &str) -> bool {
+    static MODS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:static|const|delegate)\b").expect("the regex is a literal")
+    });
+    if cs_type_decl(line).is_some_and(|d| d.name == word) {
+        return true;
+    }
+    let code = uncommented(Kind::CSharp, line);
+    let Some(at) = Regex::new(&format!(r"@?\b{}\b", regex::escape(word)))
+        .ok()
+        .and_then(|re| re.find(&code))
+    else {
+        return false;
+    };
+    code.get(..at.start())
+        .is_some_and(|head| MODS.is_match(head))
+        && cs_extended(&code).is_none()
+}
+
 pub fn cs_type_position(line: &str, start: usize, end: usize) -> bool {
     let (Some(before), Some(after)) = (line.get(..start), line.get(end..)) else {
         return false;
