@@ -32,6 +32,7 @@ The swift row with #1068's closure parameter of a generic wrapper's method (`str
 merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
 The csharp row with #1088 (Blazor `.razor` files read through a separate read-only C# view): over `d1c7ea21`, 2026-10-22, release build, `vm.loadavg` { 9.64 13.18 7.21 } before the run, { 11.53 13.27 7.77 } after (the times read high under that load).
 The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
+The swift row with #1068's nested types through their enclosing type (`MutableState` of `Session` and of `AuthenticationInterceptor`) and a field typed over several lines (`SocketMutableState.enqueuedSends`): over `14080a16`, 2026-10-22, release build, `vm.loadavg` { 6.27 5.96 6.53 } before the run, { 5.60 5.87 6.44 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -43,7 +44,7 @@ The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 24 | 17.7 | 45.9 |
+| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 21 | 20.7 | 49.0 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |

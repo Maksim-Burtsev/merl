@@ -400,7 +400,10 @@ impl App {
         search::swift_renamed_types(written, |name| {
             let mut scope = line1;
             let (up, head) = loop {
-                if search::swift_generics(lines[scope - 1]).iter().any(|g| g == name) {
+                if search::swift_generics(lines[scope - 1])
+                    .iter()
+                    .any(|g| g == name)
+                {
                     return None;
                 }
                 let up = search::swift_scope(&lines, &literal, scope).header_line1;
@@ -657,7 +660,8 @@ impl App {
         reason = "a guarded arm sits between the two; merging them would move one past it"
     )]
     fn swift_type_through(&self, here: &Path, written: &str, alias: bool) -> Option<SwiftType> {
-        let full = search::swift_type_name(written).or_else(|| search::swift_nested_type_name(written))?;
+        let full =
+            search::swift_type_name(written).or_else(|| search::swift_nested_type_name(written))?;
         let name = full.rsplit('.').next()?.to_owned();
         let nested = full != name;
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
