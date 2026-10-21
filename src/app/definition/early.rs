@@ -472,22 +472,25 @@ impl App {
             .sum::<usize>()
             + a.range.start;
         let quoted = at > 0 && a.text.as_bytes().get(at - 1) == Some(&b'"');
-        let table = if a.dotted {
+        let (table, lines) = if a.dotted {
             let [qualifier] = a.chain.as_slice() else {
                 return None;
             };
-            search::sql_alias_table(&a.text, at, qualifier)
+            (search::sql_alias_table(&a.text, at, qualifier), Vec::new())
         } else {
-            let lines = search::sql_local(&a.text, at, &a.word);
-            if !lines.is_empty() {
-                let found = self.lines_here(a, lines, &Reason::Local);
-                return Some(self.show_found(a, found));
-            }
-            search::sql_bare_table(&a.text, at, &a.word)
+            let (lines, column_wins) = search::sql_local(&a.text, at, &a.word);
+            let table = (lines.is_empty() || column_wins)
+                .then(|| search::sql_bare_table(&a.text, at, &a.word))
+                .flatten();
+            (table, lines)
         };
         let found = table
             .map(|t| self.sql_column(&a.here, &t, (&a.word, quoted), 4))
             .unwrap_or_default();
+        if found.is_empty() && !lines.is_empty() {
+            let found = self.lines_here(a, lines, &Reason::Local);
+            return Some(self.show_found(a, found));
+        }
         (!found.is_empty()).then(|| self.show_found(a, found))
     }
 

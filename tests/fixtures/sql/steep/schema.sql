@@ -21,7 +21,7 @@ CREATE TABLE "Kettle" (
 -- In a function of LANGUAGE sql a column takes precedence over a parameter of its name.
 CREATE FUNCTION infuse(spout integer) RETURNS integer AS $$
   SELECT spout FROM samovars
-  --     ^ d: steep/schema.sql:22; want steep/schema.sql:4 (#1225)
+  --     ^ d: steep/schema.sql:4
 $$ LANGUAGE sql;
 
 /* A block comment nests: /* this one closes first */

@@ -80,17 +80,43 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
 
 const SQL_IDENT: &str = r#"(?:"[^"]+"|`[^`]+`|[A-Za-z_]\w*)"#;
 
-pub fn sql_local(text: &str, at: usize, word: &str) -> Vec<usize> {
+pub fn sql_local(text: &str, at: usize, word: &str) -> (Vec<usize>, bool) {
     let (code, bodies) = sql_code(text);
     let line1 = |i: usize| text.bytes().take(i).filter(|&c| c == b'\n').count() + 1;
     match sql_aliases(&code, at, word) {
-        None => Vec::new(),
-        Some(found) if !found.is_empty() => found.into_iter().map(line1).collect(),
-        Some(_) => sql_parameter(&code, &bodies, at, word)
-            .map(line1)
-            .into_iter()
-            .collect(),
+        None => (Vec::new(), false),
+        Some(found) if !found.is_empty() => (found.into_iter().map(line1).collect(), false),
+        Some(_) => {
+            let found = sql_parameter(&code, &bodies, at, word);
+            let yields = found.is_some() && sql_language_sql(text, &code, &bodies, at);
+            (found.map(line1).into_iter().collect(), yields)
+        }
     }
+}
+
+fn sql_language_sql(text: &str, code: &str, bodies: &[std::ops::Range<usize>], at: usize) -> bool {
+    let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
+        return false;
+    };
+    let head_end = code
+        .get(..body.start)
+        .unwrap_or_default()
+        .trim_end_matches(';')
+        .len();
+    let head_start = code
+        .get(..head_end)
+        .and_then(|h| h.rfind(';'))
+        .map_or(0, |n| n + 1);
+    let tail = code.get(body.end..).unwrap_or_default();
+    let tail_start = body.end + tail.len() - tail.trim_start_matches(';').len();
+    let tail_end = code
+        .get(tail_start..)
+        .and_then(|t| t.find(';'))
+        .map_or(code.len(), |n| tail_start + n);
+    let language = Regex::new(r"(?i)\bLANGUAGE\s+'?sql\b").expect("a valid pattern");
+    [head_start..head_end, tail_start..tail_end]
+        .into_iter()
+        .any(|r| text.get(r).is_some_and(|t| language.is_match(t)))
 }
 
 pub(super) fn sql_string_end(b: &[u8], open: usize) -> Option<usize> {

@@ -1,0 +1,12 @@
+-- #1225: in LANGUAGE sql a column wins over a parameter of its name; in plpgsql the parameter stays.
+CREATE FUNCTION simmer(spout integer, leaves integer) RETURNS integer LANGUAGE sql AS $$
+  SELECT spout + leaves FROM samovars
+  --     ^ d: steep/schema.sql:4
+  --             ^ d: steep/infuse.sql:2
+$$;
+CREATE FUNCTION stew(spout integer) RETURNS integer AS $$
+BEGIN
+  RETURN (SELECT spout FROM samovars);
+  --             ^ d: steep/infuse.sql:7
+END
+$$ LANGUAGE plpgsql;
