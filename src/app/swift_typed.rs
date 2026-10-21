@@ -702,7 +702,9 @@ impl App {
         cast: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
-        let rows = self.swift_outside_rows(here, cast, word)?;
+        let rows = self
+            .swift_outside_rows(here, cast, word)
+            .filter(|rows| !rows.is_empty() || !self.swift_extended_with(here, word, false))?;
         Some(
             rows.into_iter()
                 .map(|hit| Candidate {
