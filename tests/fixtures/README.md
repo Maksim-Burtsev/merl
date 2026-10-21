@@ -605,12 +605,18 @@ function and a trigger sharing a name, the same table read from a plain file out
 migration, and `1_init` beside `10_more`, whose order is unclear and keeps the picker.
 `pour_strainers` reads columns for #1063 through an alias and a table: one from a `CREATE TABLE`
 body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
-derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
+derived table, a CTE named like a table, or an unknown alias.
 `audit_ladles` creates an `audit.ladles` after `ladles`: a column through `FROM ladles l` stays
-in `ladles`, one only `audit.ladles` has answers nothing, and `ladles` itself offers both.
+in `ladles`, one only `audit.ladles` has answers nothing, a bare one in `FROM audit.ladles` is
+`audit.ladles`'s, and `ladles` itself offers both.
 `touch_ladles` and `touch_strainers` create a trigger `touch` on two tables and a function
 `scoop` with two signatures, one of them re-created: the two triggers and the two signatures
-in effect stay a picker.
+in effect stay a picker. `fill_ladles` reads bare columns
+where SQL names one table: an `INSERT` column list, both sides of an `UPDATE`'s `SET`, a
+one-table `SELECT` and its subquery, `ALTER TABLE` (`RENAME`, `DROP`, a `CHECK`), a trigger's
+`UPDATE OF`, and `ADD COLUMN`s on the lines under their `ALTER TABLE`; and none where a second
+table, a derived table, a function in `FROM`, an `AS` of the same name or a `REFERENCES` could
+own the name.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
