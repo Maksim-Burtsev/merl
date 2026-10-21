@@ -400,10 +400,11 @@ pub fn ts_union_alias(decl: &str) -> Option<Vec<String>> {
         .map(|a| a.trim().to_owned())
         .collect();
     (arms.len() > 1
-        && arms
-            .iter()
-            .all(|a| a.starts_with(|c: char| c.is_ascii_uppercase())
-                && a.chars().all(|c| c.is_alphanumeric() || matches!(c, '_' | '$'))))
+        && arms.iter().all(|a| {
+            a.starts_with(|c: char| c.is_ascii_uppercase())
+                && a.chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, '_' | '$'))
+        }))
     .then_some(arms)
 }
 
