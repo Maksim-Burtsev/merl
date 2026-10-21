@@ -1098,10 +1098,16 @@ fn go_type_params(list: &str) -> Vec<(String, String)> {
 }
 fn go_constrained(t: &str, type_params: &[(String, String)]) -> String {
     let base = t.trim_start_matches(['[', ']', '*', '.']);
-    let plain = |c: &str| c.chars().all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '.');
+    let plain = |c: &str| {
+        c.chars()
+            .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '.')
+    };
     match type_params.iter().find(|(n, _)| n == base) {
         Some((_, constraint)) if plain(constraint) => {
-            format!("{}{constraint}", t.get(..t.len() - base.len()).unwrap_or_default())
+            format!(
+                "{}{constraint}",
+                t.get(..t.len() - base.len()).unwrap_or_default()
+            )
         }
         _ => t.to_owned(),
     }

@@ -674,7 +674,10 @@ fn c_namespace(word: &str, hits: Vec<Hit>, after_tag_keyword: bool, called: bool
     )) else {
         return hits;
     };
-    let hits: Vec<Hit> = hits.into_iter().filter(|h| !RETURN.is_match(&h.text)).collect();
+    let hits: Vec<Hit> = hits
+        .into_iter()
+        .filter(|h| !RETURN.is_match(&h.text))
+        .collect();
     let tag = |h: &Hit| tag_decl.is_match(&h.text);
     let keep: fn(bool) -> bool = if after_tag_keyword {
         |is_tag| is_tag
