@@ -1108,6 +1108,13 @@ pub fn swift_closure_sequence(lead: &str) -> Option<String> {
     });
     Some(EACH.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
 }
+pub fn swift_cast_receiver(lead: &str) -> Option<String> {
+    static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!>])\(\s*[A-Za-z_][\w.]*\s+as[?!]\s+([A-Z]\w*)\s*\)[?!]?\.$")
+            .expect("the regex is a literal")
+    });
+    Some(CAST.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
+}
 pub fn swift_tuple_item(written: &str, at: usize) -> Option<String> {
     let inner = written.trim().strip_prefix('(')?.strip_suffix(')')?;
     let items = split_top(Kind::Swift, inner, b',');

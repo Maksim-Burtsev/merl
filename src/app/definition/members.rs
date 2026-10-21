@@ -76,7 +76,7 @@ impl App {
                 Some(b) if !b.ends_with(':') => search::qualifier(&format!("{b}."), a.start),
                 _ => chain.clone(),
             };
-            let found = self.lua_qualified(&a.here, &a.text, &chain, &a.word);
+            let found = self.lua_qualified(&a.here, &a.text, &chain, before, &a.word);
             let on = |c: &Candidate| c.hit.path == a.here && c.hit.line1 == self.line + 1;
             if !found.iter().all(on) {
                 return self.show_found(a, found);

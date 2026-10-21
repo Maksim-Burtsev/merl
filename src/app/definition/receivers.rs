@@ -164,6 +164,9 @@ impl App {
             }
             return true;
         }
+        if self.answered_by_swift_cast(a) {
+            return true;
+        }
         if kind == Kind::Swift
             && dotted
             && chain.is_empty()
@@ -197,6 +200,23 @@ impl App {
             }
         }
         false
+    }
+
+    fn answered_by_swift_cast(&mut self, a: &Asked) -> bool {
+        if a.kind != Kind::Swift || !a.dotted || !a.chain.is_empty() {
+            return false;
+        }
+        let Some(found) = search::swift_cast_receiver(&a.lead)
+            .and_then(|cast| self.swift_cast_rows(&a.here, &cast, &a.word))
+        else {
+            return false;
+        };
+        if found.is_empty() {
+            self.message = resolution(&a.word, None, &[], None, false);
+        } else {
+            self.show_found(a, found);
+        }
+        true
     }
 
     pub(super) fn answered_by_cs(
@@ -262,10 +282,9 @@ impl App {
                 Ok(found) if !found.is_empty() => return self.show_found(a, found),
                 Ok(_) => {}
                 Err(via) => {
-                    self.offer_only = false;
-                    self.truncated.set(false);
-                    self.message = format!("no definition for {word} in the project (via {via})");
-                    return true;
+                    return self.none_found(format!(
+                        "no definition for {word} in the project (via {via})"
+                    ));
                 }
             }
         }
@@ -273,10 +292,7 @@ impl App {
             && dotted
             && let Some(literal) = search::python_str_literal_receiver(&a.before)
         {
-            self.offer_only = false;
-            self.truncated.set(false);
-            self.message = format!("{word}: builtin, no source (via {literal})");
-            return true;
+            return self.none_found(format!("{word}: builtin, no source (via {literal})"));
         }
         if !(dotted
             && matches!(kind, Kind::Python | Kind::TsJs | Kind::Go)
@@ -312,33 +328,32 @@ impl App {
                 if !set_from_outside
                     && let Some(via) = self.closed_class(kind, &a.here, chain, head.as_ref(), word)
                 {
-                    self.offer_only = false;
-                    self.truncated.set(false);
-                    self.message = format!("no definition for {word} in the project (via {via})");
-                    return true;
+                    return self.none_found(format!(
+                        "no definition for {word} in the project (via {via})"
+                    ));
                 }
             }
             Err(at) => {
                 if let Some(via) = self.builtin_receiver(kind, &a.here, chain, head.as_ref()) {
-                    self.offer_only = false;
-                    self.truncated.set(false);
-                    self.message = format!("{word}: builtin, no source (via {via})");
-                    return true;
+                    return self.none_found(format!("{word}: builtin, no source (via {via})"));
+                }
+                if kind == Kind::Go
+                    && let Some(via) = self.go_outside_receiver(&a.here, chain, head.as_ref())
+                {
+                    return self.none_found(format!(
+                        "no definition for {word} in the project (via {via})"
+                    ));
                 }
                 if let Some(via) = self.js_std_receiver(a) {
-                    self.offer_only = false;
-                    self.truncated.set(false);
-                    self.message = format!("{word}: builtin, no source (via {via})");
-                    return true;
+                    return self.none_found(format!("{word}: builtin, no source (via {via})"));
                 }
                 if head.is_none()
                     && kind == Kind::TsJs
                     && let Some(via) = self.missing_package_receiver(&a.here, chain, &at)
                 {
-                    self.offer_only = false;
-                    self.truncated.set(false);
-                    self.message = format!("no definition for {word} in the project (via {via})");
-                    return true;
+                    return self.none_found(format!(
+                        "no definition for {word} in the project (via {via})"
+                    ));
                 }
                 let names = head
                     .as_ref()
@@ -347,6 +362,13 @@ impl App {
             }
         }
         false
+    }
+
+    fn none_found(&mut self, message: String) -> bool {
+        self.offer_only = false;
+        self.truncated.set(false);
+        self.message = message;
+        true
     }
 
     fn missing_package_receiver(&self, here: &Path, chain: &[String], at: &str) -> Option<String> {
