@@ -664,6 +664,7 @@ impl App {
             search::swift_type_name(written).or_else(|| search::swift_nested_type_name(written))?;
         let name = full.rsplit('.').next()?.to_owned();
         let nested = full != name;
+        let plain = search::swift_unspecialized(&full).unwrap_or_else(|| full.clone());
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
         let mut decls = Vec::new();
         let mut extended = false;
@@ -677,7 +678,7 @@ impl App {
                     || self
                         .text_of(&h.path)
                         .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, &name))
-                        .is_some_and(|q| q == full)
+                        .is_some_and(|q| q == plain || q.ends_with(&format!(".{plain}")))
             };
             if let Some(target) = search::swift_alias(&h.text, &name) {
                 if placed() {
@@ -685,13 +686,6 @@ impl App {
                 }
                 continue;
             }
-            let placed = || {
-                !nested
-                    || self
-                        .text_of(&h.path)
-                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, &name))
-                        .is_some_and(|q| q == full)
-            };
             match search::swift_type_header(&h.text) {
                 Some(t) if t.keyword == "extension" => extended |= t.name == full,
                 Some(t) if t.name == name && placed() => {
@@ -859,13 +853,14 @@ impl App {
             } else {
                 search::swift_outside_name(extended).is_some_and(|n| {
                     n == name
-                        || [
-                            "Sequence",
-                            "Collection",
-                            "BidirectionalCollection",
-                            "RandomAccessCollection",
-                        ]
-                        .contains(&n.as_str())
+                        || !name.contains('.')
+                            && [
+                                "Sequence",
+                                "Collection",
+                                "BidirectionalCollection",
+                                "RandomAccessCollection",
+                            ]
+                            .contains(&n.as_str())
                 })
             }
         };

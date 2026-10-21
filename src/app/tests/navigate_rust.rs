@@ -1249,7 +1249,7 @@ fn a_std_value_keeps_a_project_trait_whose_impl_merl_cannot_read() {
 #[test]
 fn a_for_variable_and_an_as_ref_of_a_bound_take_their_std_type() {
     let stable = "#[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "use std::{\n    ffi::OsString,\n    path::{Path, PathBuf},\n};\n\npub struct Leaf;\n\nimpl Leaf {\n    pub fn join(&self) {}\n\n    pub fn display(&self) {}\n}\n\npub fn find<P: AsRef<Path>>(\n    prog: P,\n    paths: OsString,\n) -> Option<PathBuf> {\n    use std::env;\n\n    fn is_exe(path: &Path) -> bool {\n        false\n    }\n\n    let prog = prog.as_ref();\n    for dir in env::split_paths(&paths) {\n        dir.join(prog);\n    }\n    prog.display();\n    None\n}\n";
+    let lib = "use std::{\n    ffi::OsString,\n    path::{Path, PathBuf},\n};\n\npub struct Leaf;\n\nimpl Leaf {\n    pub fn join(&self) {}\n\n    pub fn display(&self) {}\n}\n\npub fn find<P: AsRef<Path>>(\n    prog: P,\n    paths: OsString,\n) -> Option<PathBuf> {\n    use std::env;\n\n    fn is_exe(path: &Path) -> bool {\n        false\n    }\n\n    let prog = prog.as_ref();\n    for dir in env::split_paths(&paths) {\n        dir.join(prog);\n    }\n    prog.display();\n    None\n}\n\npub fn by_impl(q: impl AsRef<Path>) {\n    let q = q.as_ref();\n    q.display();\n}\n\npub fn by_where<W>(w: W)\nwhere\n    W: AsRef<Path>,\n{\n    let w = w.as_ref();\n    w.display();\n}\n\npub fn by_two<T: AsRef<Path> + AsRef<str>>(t: T) {\n    let t = t.as_ref();\n    t.display();\n}\n\npub struct Bag;\n\nimpl Iterator for Bag {\n    type Item = Leaf;\n    fn next(&mut self) -> Option<Leaf> {\n        None\n    }\n}\n\npub fn walk(bag: Bag) {\n    for leaf in bag {\n        leaf.join();\n    }\n}\n";
     let (dir, mut a) = project_app(
         "rust-std-bound",
         &[
@@ -1283,10 +1283,15 @@ fn a_for_variable_and_an_as_ref_of_a_bound_take_their_std_type() {
     for (code, want) in [
         ("dir.join", "std/src/path.rs:7"),
         ("    prog.display", "std/src/path.rs:12"),
+        ("    q.display", "std/src/path.rs:12"),
+        ("    w.display", "std/src/path.rs:12"),
+        ("    t.display", "picker"),
+        ("leaf.join", "picker"),
     ] {
         d_on(&mut a, "src/lib.rs", code);
         let got = match shown(&mut a) {
             Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            Shown::Picker(..) if want == "picker" => want.to_owned(),
             other @ Shown::Picker(..) => format!("{other:?}"),
         };
         assert_eq!(got, want, "{code}");

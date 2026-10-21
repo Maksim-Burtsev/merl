@@ -450,22 +450,25 @@ pub fn swift_outside_name(written: &str) -> Option<String> {
     }
     if let Some((head, _)) = t.split_once('.')
         && head.contains('<')
+        && let Some(plain) = swift_unspecialized(t)
+        && plain.contains('.')
     {
-        let mut depth = 0usize;
-        let mut plain = String::new();
-        for c in t.chars() {
-            match c {
-                '<' => depth += 1,
-                '>' => depth = depth.checked_sub(1)?,
-                _ if depth == 0 => plain.push(c),
-                _ => {}
-            }
-        }
-        if depth == 0 && plain.contains('.') {
-            return swift_nested_type_name(&plain);
-        }
+        return swift_nested_type_name(&plain);
     }
     swift_type_name(t).filter(|n| n.starts_with(char::is_uppercase))
+}
+pub fn swift_unspecialized(written: &str) -> Option<String> {
+    let mut depth = 0usize;
+    let mut plain = String::new();
+    for c in written.chars() {
+        match c {
+            '<' => depth += 1,
+            '>' => depth = depth.checked_sub(1)?,
+            _ if depth == 0 => plain.push(c),
+            _ => {}
+        }
+    }
+    (depth == 0).then_some(plain)
 }
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
