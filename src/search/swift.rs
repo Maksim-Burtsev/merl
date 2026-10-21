@@ -1101,6 +1101,34 @@ pub fn swift_type_name(written: &str) -> Option<String> {
         && !matches!(t, "Self" | "Any" | "AnyObject" | "any" | "some"))
     .then(|| t.to_owned())
 }
+pub fn swift_nested_type_name(written: &str) -> Option<String> {
+    let t = written.trim().trim_end_matches(['?', '!']);
+    let (outer, name) = t.rsplit_once('.')?;
+    outer
+        .split('.')
+        .chain([name])
+        .all(|p| swift_type_name(p).is_some_and(|n| n.starts_with(char::is_uppercase)))
+        .then(|| t.to_owned())
+}
+pub fn swift_renamed_types(written: &str, mut to: impl FnMut(&str) -> Option<String>) -> String {
+    static BARE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(^|[^\w.])([A-Z]\w*)").expect("the regex is a literal")
+    });
+    BARE.replace_all(written, |c: &regex::Captures| {
+        format!("{}{}", &c[1], to(&c[2]).unwrap_or_else(|| c[2].to_owned()))
+    })
+    .into_owned()
+}
+pub fn swift_opens_more(line: &str) -> bool {
+    let depth = uncommented(Kind::Swift, line)
+        .chars()
+        .fold(0i32, |d, c| match c {
+            '(' | '[' => d + 1,
+            ')' | ']' => d - 1,
+            _ => d,
+        });
+    depth > 0
+}
 pub fn swift_closure_sequence(lead: &str) -> Option<String> {
     static EACH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.(?:map|compactMap|flatMap|filter|forEach|allSatisfy|(?:contains|first|last)\(\s*where:|(?:sorted|min|max)\(\s*by:)\s*\{[^{}]*\$0\.[\w.]*$")

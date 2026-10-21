@@ -286,7 +286,10 @@ impl App {
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
                 match search::swift_given(line, name) {
-                    Some(given) => self.swift_given_type(here, file, text, b.line1, given, hops),
+                    Some(given) => {
+                        let given = self.swift_nested_given(here, text, b.line1, given);
+                        self.swift_given_type(here, file, text, b.line1, given, hops)
+                    }
                     None if b.line1 < line1 && search::swift_rebinds(line, name) => {
                         self.swift_value(here, file, text, b.line1, name, hops)
                     }
@@ -307,7 +310,10 @@ impl App {
             }
             [] => {
                 let at = around?;
-                let mut top = search::swift_scope(&lines, &literal, line1).header_line1;
+                let mut top = match search::swift_scope(&lines, &literal, line1 + 1).header_line1 {
+                    h if h == line1 && h > at && line1 < lines.len() => line1,
+                    _ => search::swift_scope(&lines, &literal, line1).header_line1,
+                };
                 while top > at {
                     match search::swift_scope(&lines, &literal, top).header_line1 {
                         up if up > at => top = up,
@@ -365,6 +371,63 @@ impl App {
             return None;
         }
         self.swift_given_type(here, file, text, line1, search::SwiftGiven::Type(arg), hops)
+    }
+
+    fn swift_nested_given(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        given: search::SwiftGiven,
+    ) -> search::SwiftGiven {
+        match given {
+            search::SwiftGiven::Type(t) => {
+                search::SwiftGiven::Type(self.swift_nested(here, text, line1, &t))
+            }
+            other => other,
+        }
+    }
+
+    fn swift_nested(&self, here: &Path, text: &str, line1: usize, written: &str) -> String {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let declared: Vec<(usize, String)> = (lines.iter().enumerate())
+            .filter(|&(i, _)| !literal.get(i).copied().unwrap_or(false))
+            .filter_map(|(i, l)| search::swift_type_header(l).map(|h| (i + 1, h)))
+            .filter(|(_, h)| h.keyword != "extension")
+            .map(|(at, h)| (at, h.name))
+            .collect();
+        search::swift_renamed_types(written, |name| {
+            let mut scope = line1;
+            let (up, head) = loop {
+                if search::swift_generics(lines[scope - 1])
+                    .iter()
+                    .any(|g| g == name)
+                {
+                    return None;
+                }
+                let up = search::swift_scope(&lines, &literal, scope).header_line1;
+                if up == 0 {
+                    return None;
+                }
+                let head = search::swift_type_header(lines[up - 1]);
+                if declared.iter().any(|(d, n)| {
+                    n == name && search::swift_scope(&lines, &literal, *d).header_line1 == up
+                }) {
+                    break (up, head?);
+                }
+                if head.is_some_and(|h| h.first_inherited.is_some()) {
+                    return None;
+                }
+                scope = up;
+            };
+            if self.swift_type(here, name).is_some() {
+                return None;
+            }
+            let outer = search::qualified(Kind::Swift, text, up, &head.name).unwrap_or(head.name);
+            let full = format!("{outer}.{name}");
+            self.swift_type(here, &full).map(|_| full)
+        })
     }
 
     fn swift_wraps(&self, here: &Path, ty: &SwiftType) -> bool {
@@ -455,7 +518,7 @@ impl App {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         if let [ty] | [ty, _] = parts.as_slice()
             && (parts.len() == 1 || parts[1] == "init")
-            && let Some(t) = self.swift_type(here, ty)
+            && let Some(t) = self.swift_type(here, &self.swift_nested(here, text, line1, ty))
         {
             t.keyword.as_ref()?;
             let held = search::swift_sole_argument(e)
@@ -463,7 +526,11 @@ impl App {
                 .and_then(|arg| {
                     self.swift_expr(here, file, text, line1, &arg, hops.checked_sub(1)?)
                 })
-                .filter(|arg| search::swift_type_name(&arg.written).is_some())
+                .filter(|arg| {
+                    search::swift_type_name(&arg.written)
+                        .or_else(|| search::swift_nested_type_name(&arg.written))
+                        .is_some()
+                })
                 .map(|arg| format!("{}<{}>", t.name, arg.written));
             return Some(WrittenVia::plain(held.unwrap_or(t.name)));
         }
@@ -568,7 +635,19 @@ impl App {
             return None;
         }
         let text = self.text_of(&row.path)?;
-        let given = search::swift_given(&row.text, name)?;
+        let mut decl = row.text.clone();
+        if matches!(search::swift_given(&decl, name)?, search::SwiftGiven::Type(t) if search::swift_opens_more(&t))
+        {
+            for more in text.lines().skip(row.line1).take(4) {
+                decl.push(' ');
+                decl.push_str(more.trim());
+                if !search::swift_opens_more(&decl) {
+                    break;
+                }
+            }
+        }
+        let given = search::swift_given(&decl, name)?;
+        let given = self.swift_nested_given(here, &text, row.line1, given);
         self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 
@@ -581,7 +660,10 @@ impl App {
         reason = "a guarded arm sits between the two; merging them would move one past it"
     )]
     fn swift_type_through(&self, here: &Path, written: &str, alias: bool) -> Option<SwiftType> {
-        let name = search::swift_type_name(written)?;
+        let full =
+            search::swift_type_name(written).or_else(|| search::swift_nested_type_name(written))?;
+        let name = full.rsplit('.').next()?.to_owned();
+        let nested = full != name;
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
         let mut decls = Vec::new();
         let mut extended = false;
@@ -594,9 +676,18 @@ impl App {
                 aliases.push(target);
                 continue;
             }
+            let placed = || {
+                !nested
+                    || self
+                        .text_of(&h.path)
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, &name))
+                        .is_some_and(|q| q == full)
+            };
             match search::swift_type_header(&h.text) {
-                Some(t) if t.keyword == "extension" => extended |= t.name == name,
-                Some(t) if t.name == name => decls.push((h, t.keyword, t.first_inherited)),
+                Some(t) if t.keyword == "extension" => extended |= t.name == full,
+                Some(t) if t.name == name && placed() => {
+                    decls.push((h, t.keyword, t.first_inherited));
+                }
                 Some(_) => {}
                 None if !h.text.contains("func ")
                     && search::swift_member_kind(&h.text).is_none()
@@ -617,8 +708,8 @@ impl App {
         }
         match decls.as_slice() {
             [] if extended => Some(SwiftType {
-                owner: name.clone(),
-                name,
+                owner: full.clone(),
+                name: full,
                 keyword: None,
                 base: None,
             }),
@@ -627,7 +718,7 @@ impl App {
                 Some(SwiftType {
                     owner: search::qualified(Kind::Swift, &text, h.line1, &name)
                         .unwrap_or_else(|| name.clone()),
-                    name,
+                    name: full,
                     keyword: Some(k.clone()),
                     base: b.clone(),
                 })
