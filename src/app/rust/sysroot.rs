@@ -7,7 +7,7 @@ use super::{
 };
 
 static SLICE_IMPL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\s*<[^{]*?>\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?(?:&(?:'\w+\s+)?(?:mut\s+)?)?(\[T(?:;\s*N)?\])\s*(?:\{|where\b|$)")
+    Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\s*<[^{]*?>\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?(\[T(?:;\s*N)?\])\s*(?:\{|where\b|$)")
         .expect("the regex is a literal")
 });
 
