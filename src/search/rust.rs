@@ -1367,6 +1367,41 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
     }
     None
 }
+pub fn rust_tuple_element(lines: &[&str], at: usize, name: &str) -> Option<String> {
+    let close = |s: &str| {
+        let mut depth = 1i32;
+        code(Kind::Rust, s).find_map(|(i, c)| {
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                _ => {}
+            }
+            (depth == 0).then_some(i)
+        })
+    };
+    let line = uncommented(Kind::Rust, lines.get(at)?);
+    let pattern = line.trim().strip_prefix("let ")?.trim_start().strip_prefix('(')?;
+    let end = close(pattern)?;
+    let names = top_split(pattern.get(..end)?);
+    let bare = |p: &str| p.trim().strip_prefix("mut ").unwrap_or(p.trim()).trim() == name;
+    let i = names.iter().position(|p| bare(p))?;
+    let rest = pattern.get(end + 1..)?.trim_start().strip_prefix('=')?;
+    let mut statement = rest.to_owned();
+    let mut j = at;
+    while !statement.trim_end().ends_with(';') {
+        j += 1;
+        if j >= lines.len() || j > at + 40 {
+            return None;
+        }
+        statement.push(' ');
+        statement.push_str(uncommented(Kind::Rust, lines[j]).trim());
+    }
+    let tuple = statement.trim().trim_end_matches(';').trim_end().strip_prefix('(')?;
+    let end = close(tuple)?;
+    let values = top_split(tuple.get(..end)?);
+    (tuple.get(end + 1..)?.trim().is_empty() && values.len() == names.len())
+        .then(|| values[i].trim().to_owned())
+}
 pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
     let mut signature = String::new();
     for l in lines.iter().skip(f).take(30) {

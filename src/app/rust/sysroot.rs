@@ -1,3 +1,4 @@
+use super::chain::{let_initializer, opening};
 use super::{
     App, Candidate, Hit, Kind, Path, Reason, bound, rust_bare_type, rust_written_type, search,
 };
@@ -15,6 +16,20 @@ impl App {
         let [b] = bindings.as_slice() else {
             return None;
         };
+        let held = search::rust_tuple_element(&lines, b.line1 - 1, name)
+            .or_else(|| let_initializer(&lines, b.line1 - 1, name));
+        if let Some(held) = held
+            && let Some(inner) = held.strip_prefix("vec!")
+            && inner.starts_with('[')
+            && opening(inner, b']', b'[') == Some(0)
+            && self
+                .grep(r"macro_rules!\s*vec\b", false, false, |p| {
+                    p.extension().is_some_and(|e| e == "rs")
+                })
+                .is_ok_and(|h| h.is_empty())
+        {
+            return Some("Vec".to_owned());
+        }
         match search::rust_holds(&lines, b.line1 - 1, name) {
             Some(search::RustHolds::AssocCall {
                 written_type,

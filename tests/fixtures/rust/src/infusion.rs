@@ -192,3 +192,15 @@ pub fn label_of(leaf: &Leaf) -> usize {
     label.len()
     //    ^ d: none
 }
+
+pub fn std_tuple(leaf: &mut Leaf) -> usize {
+    let (mut cup, mut pot, kept) = (vec![], vec!['x'], Leaf::new(1));
+    cup.push(leaf.len());
+    //  ^ d: none
+    let mut jar = vec![1];
+    jar.push(2);
+    //  ^ d: none
+    pot.len() + kept.len() + cup.len()
+    //  ^ d: none
+    //               ^ d: src/infusion/leaves.rs:13
+}
