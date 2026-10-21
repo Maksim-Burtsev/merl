@@ -203,6 +203,33 @@ fn sql_parameter(
     None
 }
 
+const SQL_EXPR_LEAD: &[&str] = &[
+    "select",
+    "distinct",
+    "all",
+    "by",
+    "and",
+    "or",
+    "not",
+    "on",
+    "where",
+    "when",
+    "then",
+    "else",
+    "in",
+    "is",
+    "case",
+    "having",
+    "returning",
+    "set",
+    "like",
+    "ilike",
+    "between",
+    "as",
+    "using",
+    "values",
+];
+
 const SQL_NOT_ALIAS: &[&str] = &[
     "and",
     "or",
@@ -688,7 +715,14 @@ fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<
         w = regex::escape(word)
     ))
     .expect("an escaped name keeps it valid");
-    if hidden.is_match(region) || named.is_match(region) {
+    let unnamed = Regex::new(&format!(
+        r#"(?i)([\w)'"]+)\s+(?:"{w}"|{w}\b)\s*(?:,|\bFROM\b)"#,
+        w = regex::escape(word)
+    ))
+    .expect("an escaped name keeps it valid");
+    let alias = |c: regex::Captures| !SQL_EXPR_LEAD.contains(&c[1].to_ascii_lowercase().as_str());
+    if hidden.is_match(region) || named.is_match(region) || unnamed.captures_iter(region).any(alias)
+    {
         return None;
     }
     let top = |i: usize| region.get(..i).is_some_and(|t| sql_level(t) == 0);

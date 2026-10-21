@@ -632,6 +632,16 @@ function, and declaration-shaped lines in a raw string, a nested `/* */` and a `
 over lines and on one, beside a namesake `Bag.unfurl`; a generic method's `T` is no type to
 follow, so `hold(Bag()).unfurl` does not jump.
 
+`sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
+`cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
+`ORDER BY` (one without `AS` named like the table's `id` must not jump to it, nor one after a
+`CASE … END`, while `DISTINCT spout` still does), `FROM ONLY` and `TABLESAMPLE`, a column alias
+list, an `INSERT … ON CONFLICT … DO UPDATE SET … EXCLUDED. … RETURNING`, `CREATE INDEX ON` and
+`COMMENT ON COLUMN` (#1223), a CTE's column and a `WINDOW` name (none, as #1063's decision A
+says; #1228 asks whether they should jump), a `"Lid"` beside a `lid` (#1224), a `LANGUAGE sql`
+parameter named like a column (#1225), and `CREATE`s in a `$$` string inside a `$body$` (#1226)
+and inside a nested block comment (#1227).
+
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a
 `Kettle` whose field, constructor parameter and local share a name with a field of its base
