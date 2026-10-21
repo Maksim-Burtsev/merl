@@ -292,7 +292,9 @@ impl App {
                     }
                     None => {
                         let call = search::swift_trailing_closure(line, name)?;
-                        self.swift_closure_value(here, file, text, b.line1.checked_sub(1)?, call, hops)
+                        let shadows = call.0.split('.').next() == Some(name);
+                        let at = b.line1.checked_sub(usize::from(shadows))?;
+                        self.swift_closure_value(here, file, text, at, call, hops)
                     }
                 }
             }
@@ -345,7 +347,9 @@ impl App {
         let held = self
             .swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?
             .written;
-        let ty = self.swift_type(here, &held).filter(|t| t.keyword.is_some())?;
+        let ty = self
+            .swift_type(here, &held)
+            .filter(|t| t.keyword.is_some())?;
         let [param] = self.swift_type_generics(here, &ty.name)?;
         let [arg] = <[String; 1]>::try_from(search::swift_generic_arguments(&held)).ok()?;
         let rows = self.swift_member_rows(here, &ty, &method)?;
@@ -456,7 +460,9 @@ impl App {
             t.keyword.as_ref()?;
             let held = search::swift_sole_argument(e)
                 .filter(|_| parts.len() == 1 && self.swift_wraps(here, &t))
-                .and_then(|arg| self.swift_expr(here, file, text, line1, &arg, hops.checked_sub(1)?))
+                .and_then(|arg| {
+                    self.swift_expr(here, file, text, line1, &arg, hops.checked_sub(1)?)
+                })
                 .filter(|arg| search::swift_type_name(&arg.written).is_some())
                 .map(|arg| format!("{}<{}>", t.name, arg.written));
             return Some(WrittenVia::plain(held.unwrap_or(t.name)));
