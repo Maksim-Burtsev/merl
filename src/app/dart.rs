@@ -373,46 +373,29 @@ impl App {
         chain: &[String],
         word: &str,
     ) -> Option<Vec<Candidate>> {
-        let lines: Vec<&str> = text.lines().collect();
         let mut scope = here.to_path_buf();
-        let bound = |name: &str| {
-            let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
-            let [b] = bindings.as_slice() else {
-                return None;
-            };
-            let next: usize = text.split_inclusive('\n').take(b.line1).map(str::len).sum();
-            search::dart_typed(lines.get(b.line1 - 1)?, text.get(next..)?, name)
-        };
         let ty = match chain {
             [] if before.ends_with("..") => match search::dart_cascade(before)? {
                 Ok(ty) => ty,
-                Err(name) => bound(&name)?,
-            },
-            [] if let Some(links) = search::dart_call_links(before) => {
-                let (head, rest) = links.split_first()?;
-                let mut ty = match bound(head) {
-                    Some(ty) => ty,
-                    None => self.dart_field_type(here, text, head)?,
-                };
-                for link in rest {
-                    let file = self.dart_class_file(&scope, &ty)?;
-                    let mut rows = self.dart_member_of(&file, &ty.class, link);
-                    if rows.is_empty() {
-                        rows = self.dart_inherited(&file, &ty.class, link, 0);
-                    }
-                    let [row] = rows.as_slice() else {
-                        return None;
-                    };
-                    ty = search::dart_returns(&row.hit.text, link)?;
-                    scope.clone_from(&row.hit.path);
+                Err(name) => {
+                    let (ty, s) = self.dart_bound(here, text, &name, 0)?;
+                    scope = s;
+                    ty
                 }
+            },
+            [] => {
+                let (ty, s) = self.dart_chain_type(here, text, before, 0)?;
+                scope = s;
                 ty
             }
             [r] if r == "this" || r == "super" => {
                 search::dart_this_super(text, self.line, r == "super")?
             }
-            [r] => match bound(r) {
-                Some(ty) => ty,
+            [r] => match self.dart_bound(here, text, r, 0) {
+                Some((ty, s)) => {
+                    scope = s;
+                    ty
+                }
                 None if r.trim_start_matches('_').starts_with(char::is_uppercase)
                     && search::bindings(Kind::Dart, text, self.line + 1, r).is_empty() =>
                 {
@@ -447,6 +430,96 @@ impl App {
         }
         self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_bound(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        depth: usize,
+    ) -> Option<(search::DartType, PathBuf)> {
+        let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
+        let [b] = bindings.as_slice() else {
+            return None;
+        };
+        let line = text.lines().nth(b.line1 - 1)?;
+        let next: usize = text.split_inclusive('\n').take(b.line1).map(str::len).sum();
+        if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
+            return Some((ty, here.to_path_buf()));
+        }
+        let value = search::dart_value(line, name).filter(|_| depth < 4)?;
+        let value = format!("{value}.");
+        let (links, _, start) = search::dart_call_links(&value)?;
+        let lead = value.get(..start)?.trim();
+        (links[0] != name && matches!(lead, "" | "new" | "const"))
+            .then(|| self.dart_chain_type(here, text, &value, depth + 1))?
+    }
+
+    fn dart_chain_type(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        depth: usize,
+    ) -> Option<(search::DartType, PathBuf)> {
+        let (links, called, _) = search::dart_call_links(before)?;
+        let (head, rest) = links.split_first()?;
+        let (mut ty, mut scope) = if called {
+            self.dart_call_type(here, text, head)?
+        } else {
+            match self.dart_bound(here, text, head, depth) {
+                Some(found) => found,
+                None => (self.dart_field_type(here, text, head)?, here.to_path_buf()),
+            }
+        };
+        for link in rest {
+            let file = self.dart_class_file(&scope, &ty)?;
+            let mut rows = self.dart_member_of(&file, &ty.class, link);
+            if rows.is_empty() {
+                rows = self.dart_inherited(&file, &ty.class, link, 0);
+            }
+            let [row] = rows.as_slice() else {
+                return None;
+            };
+            ty = search::dart_returns(&row.hit.text, link)?;
+            scope.clone_from(&row.hit.path);
+        }
+        Some((ty, scope))
+    }
+
+    fn dart_call_type(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+    ) -> Option<(search::DartType, PathBuf)> {
+        if !search::bindings(Kind::Dart, text, self.line + 1, name).is_empty() {
+            return None;
+        }
+        if name.trim_start_matches('_').starts_with(char::is_uppercase) {
+            let ty = search::DartType {
+                prefix: None,
+                class: name.to_owned(),
+                constructor: None,
+            };
+            return Some((ty, here.to_path_buf()));
+        }
+        if search::dart_body_at(text, self.line).is_none_or(|(body, _)| !body.is_empty()) {
+            return None;
+        }
+        let reason = Reason::Receiver(name.to_owned());
+        let found: Vec<Candidate> = self
+            .dart_visible_files(here, name)?
+            .iter()
+            .flat_map(|f| self.dart_declared_in(f, name, None, &[None], &reason))
+            .collect();
+        let [c] = found.as_slice() else {
+            return None;
+        };
+        let ty = search::dart_returns(&c.hit.text, name)
+            .filter(|_| !c.hit.text.starts_with(char::is_whitespace))?;
+        Some((ty, c.hit.path.clone()))
     }
 
     fn dart_accessor_side(&self, before: &str, word: &str, found: &mut Vec<Candidate>) {

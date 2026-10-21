@@ -10,7 +10,7 @@ int sdk(String name) {
   //     ^ d: none
   //                ^ d: none
   return const Duration(minutes: 1).inMinutes + name.padRight(2).length;
-  //                                ^ d: lib/brew/chawan.dart:25; want none (#1218)
+  //                                ^ d: none
 }
 
 int chain(Whisk w) {
@@ -18,8 +18,8 @@ int chain(Whisk w) {
   //                    ^ d: lib/brew/chawan.dart:38
   //                           ^ d: lib/brew/chawan.dart:39
   return made.tilt() + makeChawan().heft() + Whisk.bamboo().froth().glaze;
-  //          ^ d: picker lib/brew/chawan.dart:16, lib/brew/chawan.dart:34, lib/brew/old_chawan.dart:2; want lib/brew/chawan.dart:16 (#1218)
-  //                                ^ d: picker lib/brew/chawan.dart:18, lib/brew/old_chawan.dart:3; want lib/brew/chawan.dart:18 (#1218)
+  //          ^ d: lib/brew/chawan.dart:16
+  //                                ^ d: lib/brew/chawan.dart:18
   //                                                        ^ d: lib/brew/chawan.dart:39
   //                                                                ^ d: lib/brew/chawan.dart:14
 }
@@ -117,3 +117,19 @@ int bound<T extends Chawan>(T t) => t.heft() + (t + t).tilt();
 
 int extended(String name, List<Chawan> chawans) => name.frothed.length + chawans.length;
 //                                                      ^ d: lib/brew/chawan.dart:47
+
+int neighbours(Whisk w, Chawan? spare) {
+  Matcha local() => Matcha();
+  final either = spare ?? w.froth();
+  final built = Whisk().froth();
+  return either.tilt() + built.heft() + local().tilt();
+  //            ^ d: picker lib/brew/chawan.dart:16, lib/brew/chawan.dart:34, lib/brew/old_chawan.dart:2
+  //                           ^ d: lib/brew/chawan.dart:18
+  //                                            ^ d: picker lib/brew/chawan.dart:16, lib/brew/chawan.dart:34, lib/brew/old_chawan.dart:2
+}
+
+class Pourer {
+  Matcha makeChawan() => Matcha();
+  int pour() => makeChawan().tilt();
+  //                         ^ d: picker lib/brew/chawan.dart:16, lib/brew/chawan.dart:34, lib/brew/old_chawan.dart:2
+}

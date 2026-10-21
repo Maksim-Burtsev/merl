@@ -859,12 +859,21 @@ pub fn dart_returns(line: &str, name: &str) -> Option<DartType> {
     })
 }
 
-pub fn dart_call_links(before: &str) -> Option<Vec<String>> {
+pub fn dart_value<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    let re = Regex::new(&format!(
+        r"^\s*(?:(?:final|var|late)\s+)+{}\s*=\s*([^;]+?)\s*;\s*(?://.*)?$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(re.captures(line)?.get(1)?.as_str())
+}
+
+pub fn dart_call_links(before: &str) -> Option<(Vec<String>, bool, usize)> {
     let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
     let mut rest = before.strip_suffix('.')?;
     let mut any_call = false;
     let mut links = Vec::new();
-    loop {
+    let (called, start) = loop {
         let called = rest.ends_with(')');
         any_call |= called;
         if called {
@@ -888,11 +897,11 @@ pub fn dart_call_links(before: &str) -> Option<Vec<String>> {
         match head.strip_suffix('.') {
             Some(r) if r.ends_with(is_name) || r.ends_with(')') => rest = r,
             Some(_) => return None,
-            None if called || head.ends_with(['?', '!', ')', ']', '.']) => return None,
-            None => break,
+            None if head.ends_with(['?', '!', ')', ']', '.']) => return None,
+            None => break (called, start),
         }
-    }
-    (links.len() > 1 && any_call).then_some(links)
+    };
+    (called || (links.len() > 1 && any_call)).then_some((links, called, start))
 }
 
 pub fn dart_cascade(before: &str) -> Option<Result<DartType, String>> {
