@@ -1053,7 +1053,7 @@ static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 });
 fn go_header_init(header: &str, name: &str) -> Option<Value> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|\belse\s+)if\s+").expect("the regex is a literal")
+        Regex::new(r"^for\s+|(?:^|\belse\s+)if\s+").expect("the regex is a literal")
     });
     let (names, values, at) = HEAD.find_iter(header).find_map(|m| {
         let [init, _, ..] = split_top(Kind::Go, header.get(m.end()..)?, b';')[..] else {
