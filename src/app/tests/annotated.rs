@@ -107,8 +107,7 @@ fn cases() -> Vec<Case> {
             let path = root.join(&fixture).join(&file);
             let read = || std::fs::read_to_string(&path).unwrap_or_default();
             let classified = search::kind_read(&path, read).is_some()
-                || path.extension().is_some_and(|e| e == "json")
-                || search::razor(&path);
+                || path.extension().is_some_and(|e| e == "json");
             let Ok(text) = std::fs::read_to_string(&path) else {
                 continue;
             };

@@ -284,12 +284,8 @@ package outside the project, a `Filter.Or` namesake must not be jumped to; throu
 project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
-`Shop.Tea.Stale`. `csharp/src/Shop/Pages/Till.razor` (#1088) is a Blazor component, read as a
-class of its `@inject` fields, `@code` members and markup expressions: an injected `Kettle` that
-only `_Imports.razor`'s `@using Shop.Tea.Stale` tells apart, a method named in an `@onclick`, and
-an e-mail address, a text, a component tag, a `@formname` string and a Razor comment that name
-nothing, nor do the declaration-shaped lines of markup after the `@code` block.
-`c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's initializer list, overloads, ADL beside a global namesake, a qualified definition of
+`Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
+initializer list, overloads, ADL beside a global namesake, a qualified definition of
 `stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block;
 `caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).

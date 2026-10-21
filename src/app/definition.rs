@@ -48,34 +48,9 @@ impl App {
     }
 
     pub(super) fn goto_definition(&mut self) {
-        let razor = (self.buf.path.as_deref())
-            .filter(|p| search::razor(p))
-            .map(|p| {
-                let imports: String = (p.ancestors().skip(1))
-                    .take_while(|d| d.starts_with(&self.root))
-                    .filter_map(|d| std::fs::read_to_string(d.join("_Imports.razor")).ok())
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                search::razor_view(p, &self.buf.lines, self.line, &imports)
-            });
-        if let Some(view) = razor {
-            self.razor_raw = Some(std::mem::replace(&mut self.buf.lines, view));
-            self.definition_in(Some(Kind::CSharp));
-            self.razor_restore();
-        } else {
-            self.definition_in(self.kind());
-        }
-    }
-
-    pub(super) fn razor_restore(&mut self) {
-        if let Some(lines) = self.razor_raw.take() {
-            self.buf.lines = lines;
-        }
-    }
-
-    fn definition_in(&mut self, kind: Option<Kind>) {
         self.anonymous_named.set(None);
         self.ruby_declared.get_mut().clear();
+        let kind = self.kind();
         if self.answered_without_word(kind) {
             return;
         }

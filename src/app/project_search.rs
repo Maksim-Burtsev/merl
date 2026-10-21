@@ -74,9 +74,6 @@ impl App {
         if kind == Kind::Shell && path.extension().is_none() && search::kind_of(path).is_none() {
             return search::shell_script(&self.head_of(path));
         }
-        if self.razor_raw.is_some() && path == here {
-            return true;
-        }
         search::in_def_scope(kind, here, path) && (kind != Kind::C || self.kind_at(path).is_some())
     }
 
