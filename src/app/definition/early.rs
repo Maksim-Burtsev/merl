@@ -471,6 +471,7 @@ impl App {
             .map(|l| l.len() + 1)
             .sum::<usize>()
             + a.range.start;
+        let quoted = at > 0 && a.text.as_bytes().get(at - 1) == Some(&b'"');
         let table = if a.dotted {
             let [qualifier] = a.chain.as_slice() else {
                 return None;
@@ -485,12 +486,19 @@ impl App {
             search::sql_bare_table(&a.text, at, &a.word)
         };
         let found = table
-            .map(|t| self.sql_column(&a.here, &t, &a.word, 4))
+            .map(|t| self.sql_column(&a.here, &t, (&a.word, quoted), 4))
             .unwrap_or_default();
         (!found.is_empty()).then(|| self.show_found(a, found))
     }
 
-    fn sql_column(&self, here: &Path, table: &str, column: &str, depth: usize) -> Vec<Candidate> {
+    fn sql_column(
+        &self,
+        here: &Path,
+        table: &str,
+        asked: (&str, bool),
+        depth: usize,
+    ) -> Vec<Candidate> {
+        let (column, quoted) = asked;
         let mut hits =
             self.project_grep(Kind::Sql, here, &search::sql_column_pattern(table, column));
         let head = regex::Regex::new(r"(?i)^\s*(?:CREATE|ALTER)\s").expect("a valid pattern");
@@ -523,7 +531,7 @@ impl App {
                     return Some(h);
                 }
                 let whole = self.hit_text(&h)?;
-                let Some(line1) = search::sql_table_column(&whole, h.line1, column) else {
+                let Some(line1) = search::sql_table_column(&whole, h.line1, column, quoted) else {
                     parents.extend(search::sql_parents(&whole, h.line1));
                     return None;
                 };
@@ -548,7 +556,7 @@ impl App {
         parents
             .iter()
             .filter(|p| *p != table)
-            .flat_map(|p| self.sql_column(here, p, column, depth - 1))
+            .flat_map(|p| self.sql_column(here, p, asked, depth - 1))
             .collect()
     }
 }

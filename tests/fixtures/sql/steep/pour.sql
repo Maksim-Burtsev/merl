@@ -45,7 +45,7 @@ SELECT sum(spout) OVER w FROM samovars WINDOW w AS (ORDER BY id);
 --                                                           ^ d: steep/schema.sql:3
 SELECT "Lid", lid FROM "Kettle";
 --      ^ d: steep/schema.sql:17
---            ^ d: steep/schema.sql:17; want steep/schema.sql:18 (#1224)
+--            ^ d: steep/schema.sql:18
 SELECT * FROM phantoms, mirages;
 --            ^ d: steep/schema.sql:28; want none (#1227)
 --                      ^ d: steep/schema.sql:33; want none (#1226)
@@ -61,3 +61,7 @@ INSERT INTO urns (id) VALUES (1) RETURNING (SELECT max(handle) FROM samovars);
 CREATE UNIQUE INDEX spout_idx ON samovars USING btree (lower(brim));
 --                  ^ d: steep/pour.sql:61
 --                                                           ^ d: steep/schema.sql:5
+SELECT LID, "lid", k."Lid" FROM "Kettle" k;
+--     ^ d: steep/schema.sql:18
+--           ^ d: steep/schema.sql:18
+--                    ^ d: steep/schema.sql:17

@@ -830,7 +830,7 @@ pub fn sql_parents(text: &str, create: usize) -> Vec<String> {
     parents
 }
 
-pub fn sql_table_column(text: &str, create: usize, column: &str) -> Option<usize> {
+pub fn sql_table_column(text: &str, create: usize, column: &str, quoted: bool) -> Option<usize> {
     let (code, _) = sql_code(text);
     let from: usize = code
         .split_inclusive('\n')
@@ -843,28 +843,47 @@ pub fn sql_table_column(text: &str, create: usize, column: &str) -> Option<usize
         return None;
     }
     let item = Regex::new(&format!(
-        r#"(?i)^\s*(?:"{c}"|{c})\s+[A-Za-z]"#,
+        r#"(?i)^\s*("{c}"|{c})\s+[A-Za-z]"#,
         c = regex::escape(column)
     ))
     .expect("an escaped name keeps it valid");
+    let fold = |n: &str, q: bool| {
+        if q {
+            n.to_owned()
+        } else {
+            n.to_ascii_lowercase()
+        }
+    };
+    let wanted = fold(column, quoted);
     let (b, mut depth, mut start) = (code.as_bytes(), 0_usize, open + 1);
+    let mut found = Vec::new();
     for (i, &c) in b.iter().enumerate().skip(open) {
         match c {
             b'(' => depth += 1,
             b')' | b',' if depth == 1 => {
-                if item.is_match(code.get(start..i)?) {
-                    let lead = code.get(start..i)?.len() - code.get(start..i)?.trim_start().len();
-                    return Some(code.get(..start + lead)?.matches('\n').count() + 1);
+                let piece = code.get(start..i)?;
+                if let Some(m) = item.captures(piece).and_then(|m| m.get(1)) {
+                    let line1 = code.get(..start + m.start())?.matches('\n').count() + 1;
+                    let spelled = m.as_str();
+                    let unquoted = spelled.trim_matches('"');
+                    found.push((
+                        fold(unquoted, unquoted.len() < spelled.len()) == wanted,
+                        line1,
+                    ));
                 }
                 if c == b')' {
-                    return None;
+                    break;
                 }
                 start = i + 1;
             }
             b')' => depth = depth.saturating_sub(1),
-            b';' => return None,
+            b';' => break,
             _ => {}
         }
     }
-    None
+    found
+        .iter()
+        .find(|f| f.0)
+        .or_else(|| found.first())
+        .map(|f| f.1)
 }
