@@ -672,10 +672,6 @@ impl App {
             if !self.in_code(Kind::Swift, &h) {
                 continue;
             }
-            if let Some(target) = search::swift_alias(&h.text, &name) {
-                aliases.push(target);
-                continue;
-            }
             let placed = || {
                 !nested
                     || self
@@ -683,6 +679,12 @@ impl App {
                         .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, &name))
                         .is_some_and(|q| q == full)
             };
+            if let Some(target) = search::swift_alias(&h.text, &name) {
+                if placed() {
+                    aliases.push(target);
+                }
+                continue;
+            }
             match search::swift_type_header(&h.text) {
                 Some(t) if t.keyword == "extension" => extended |= t.name == full,
                 Some(t) if t.name == name && placed() => {
@@ -806,6 +808,16 @@ impl App {
             return None;
         }
         let name = search::swift_outside_name(written)?;
+        if let Some((outer, _)) = name.split_once('.') {
+            let pattern = search::def_patterns(Kind::Swift, outer).join("|");
+            if !self
+                .project_definitions(Kind::Swift, here, outer, &pattern)
+                .iter()
+                .all(|h| search::swift_extension(&h.text))
+            {
+                return None;
+            }
+        }
         let mut rows = match self.swift_type(here, &name) {
             Some(ty) if ty.keyword.is_some() => return self.swift_member_rows(here, &ty, word),
             Some(ty) => {
@@ -890,6 +902,17 @@ impl App {
         let t = written.trim().trim_end_matches(['?', '!']);
         if t == SDK_VALUE {
             return !self.swift_extended_with(here, member, false);
+        }
+        if let Some(item) = search::swift_dictionary_part(t, member) {
+            let pattern = search::def_patterns(Kind::Swift, &item).join("|");
+            return matches!(
+                item.as_str(),
+                "Any" | "AnyHashable" | "String" | "Substring" | "Int" | "Double" | "Bool"
+            ) && self
+                .project_definitions(Kind::Swift, here, &item, &pattern)
+                .iter()
+                .all(|h| search::swift_extension(&h.text))
+                && !self.swift_extended_with(here, member, true);
         }
         t.starts_with(|c: char| c.is_ascii_uppercase())
             && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
