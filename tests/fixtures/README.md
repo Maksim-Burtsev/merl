@@ -236,7 +236,7 @@ below a comment; its globals assigned in an `if` block and at the top level stay
 `lua/tea/infusion.lua` is the third corner (#1126), its answers read from the code, over
 `gaiwan.lua`: `string.format`, `table.insert` and `("cup"):upper()` beside the module's `format`,
 `insert` and `Gaiwan:upper`, which stay the standard library's (none) unless the project patches
-it (`function string.steeped`) or binds the name (a parameter `string`); `tostring(v):upper()`
+it (`function string.steeped`, `string.decanted = function`) or binds the name (a parameter `string`); `tostring(v):upper()`
 still jumps (#1207); a field of a required module, `pcall(require, ..)`, a builder over lines and
 through a local, whose `return self` is not followed (#1208), `local gaiwan = gaiwan.Gaiwan.new(1)`,
 whose receiver is read on its own line, `M.Gaiwan = Gaiwan` answered by the module's local,
@@ -323,7 +323,7 @@ and `time.Time` members named like `Cup`'s, a builder over lines and on one line
 calls' results, `cup := cup.Warm()` in a block, a `range` and a three-clause `for` binding a
 parameter's name, a type switch, a comma-ok assertion, a struct and an interface embedded two
 levels deep, an aliased import beside its `Cup` namesake, a dot import, a type parameter's
-constraint, a named result, and declarations in a raw string, a block comment and a struct tag.
+constraint (one grouped with another; a union, an interface literal and `any` are not read, so no jump), a named result, and declarations in a raw string, a block comment and a struct tag.
 `c/src/lab/swirl.c` (over `c/include/lab/carafe.h` through `lab.h`, and `c/src/lab/funnel.c`)
 does the same in C, its answers clangd's: `struct tm`, `div_t` and `struct timeval` members named
 like a project struct's fields, `->` on a call and over lines, a function-pointer field beside a
@@ -354,7 +354,7 @@ method that skip it, `this` for `self` over an abstract base, a nested `def` and
 hiding module names, and an import in both branches of an `if`, which pyright answers with the
 `else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
 function wins over another module's that it does not import. Its `mixed` loops over sums of lists:
-of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod`, and `Rig` assigns `rig` from `cls.kit_class()`, a class attribute its subclasses override: `self.rig` is the `kit_class` nearest the class in its MRO, `Both` a diamond whose first base would pass the override in a walk by depth, and a `MakerRig` whose attribute holds a function, not a class (#1099). Its `clean` assigns
+of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod`, and `Rig` assigns `rig` from `cls.kit_class()`, a class attribute its subclasses override: `self.rig` is the `kit_class` nearest the class in its MRO, `Both` a diamond whose first base would pass the override in a walk by depth, and a `MakerRig` whose attribute holds a function, not a class; `SelfTrial` reaches it through `self.kit_class()` in a plain method (#1099). Its `clean` assigns
 a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
 a `while` inside a `for` of the same name, whose right side is either. Its `twice` calls a `str`
 method on a local set from one set from a `str` parameter (builtin, #1151).
@@ -659,7 +659,7 @@ follow, so `hold(Bag()).unfurl` does not jump.
 `dart/lib/brew/ceremony.dart` is the third corner (#1126), its answers read from the code, over
 `chawan.dart`, `old_chawan.dart` (a namesake `Chawan` behind a prefix) and `lib/brew.dart`, which
 re-exports: `String.trim` and `StringBuffer.write` beside `Chawan`'s namesakes, which say none with
-no SDK, while an `extension .. on String` member is still found; `const Duration(..).inMinutes`
+no SDK, while an `extension .. on String`, `on Iterable<T>` or `on Object` member is still found (one `on Duration` is not); `const Duration(..).inMinutes`
 (#1218), a chain in a local's value and a top-level function's result (#1218), a chain over lines,
 a cascade over lines (#1072), a loop variable named like a later local, a list pattern (#1219), an
 object pattern in an `if case`, a mixin's, an interface's, an inherited and an overridden method,

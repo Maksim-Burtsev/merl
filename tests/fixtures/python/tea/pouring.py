@@ -235,3 +235,20 @@ class MakerRig:
     def run(self) -> int:
         return self.made.leaves(1)
         #                ^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46
+
+
+class SelfRig:
+    kit_class = Brewer
+
+    def setup(self) -> None:
+        self.tool = self.kit_class()
+
+
+class InfuserSelfRig(SelfRig):
+    kit_class = Infuser
+
+
+class SelfTrial(InfuserSelfRig):
+    def run(self) -> int:
+        return self.tool.leaves(1)
+        #                ^ d: tea/brewer.py:62

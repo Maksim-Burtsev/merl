@@ -158,3 +158,23 @@ func OneLine() int {
 	return mug.Sip()
 	//         ^ d: infuse/cup.go:33
 }
+
+func Grouped[K comparable, V Sipper](k K, v V) int {
+	return v.Sip()
+	//       ^ d: infuse/cup.go:4
+}
+
+func Union[T Stove | Mug](t T) int {
+	return t.Sip()
+	//       ^ d: !jump
+}
+
+func Literal[T interface{ Sip() int }](t T) int {
+	return t.Sip()
+	//       ^ d: !jump
+}
+
+func Anything[T any](t T) int {
+	return t.Sip()
+	//       ^ d: !jump
+}

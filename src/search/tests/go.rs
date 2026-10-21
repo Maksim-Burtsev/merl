@@ -486,3 +486,25 @@ fn a_go_parameter_type_named_like_its_method() {
         );
     }
 }
+
+#[test]
+fn a_go_parameter_typed_by_a_type_parameter_is_its_constraint_only_when_that_is_a_name() {
+    let typed = |header: &str| {
+        let go = format!("{header} {{\n\treturn t.Sip()\n}}\n");
+        bindings(Kind::Go, &go, 2, "t")
+            .into_iter()
+            .map(|b| b.value)
+            .collect::<Vec<_>>()
+    };
+    for (header, want) in [
+        ("func F[T Sipper](t T) int", "Sipper"),
+        ("func F[K comparable, T Sipper](k K, t []T) int", "[]Sipper"),
+        ("func F[A, T Sipper](a A, t *T) int", "*Sipper"),
+        ("func F[T any](t T) int", "any"),
+        ("func F[T Stove | Mug](t T) int", "T"),
+        ("func F[T ~int](t T) int", "T"),
+        ("func F[T interface{ Sip() int }](t T) int", "T"),
+    ] {
+        assert_eq!(typed(header), [Value::Type(want.into())], "{header}");
+    }
+}
