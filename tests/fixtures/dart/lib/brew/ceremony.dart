@@ -48,8 +48,8 @@ int shadow(List<Chawan> chawans) {
     //       ^ d: lib/brew/ceremony.dart:46
   }
   return total + one.heft() + rest.length;
-  //             ^ d: none; want lib/brew/ceremony.dart:45 (#1219)
-  //                 ^ d: picker lib/brew/chawan.dart:18, lib/brew/old_chawan.dart:3; want lib/brew/chawan.dart:18 (#1219)
+  //             ^ d: lib/brew/ceremony.dart:45
+  //                 ^ d: lib/brew/chawan.dart:18
 }
 
 int inherited(Matcha m, Chawan ch) {
@@ -132,4 +132,12 @@ class Pourer {
   Matcha makeChawan() => Matcha();
   int pour() => makeChawan().tilt();
   //                         ^ d: picker lib/brew/chawan.dart:16, lib/brew/chawan.dart:34, lib/brew/old_chawan.dart:2
+}
+
+int unpacked(List<Matcha> pair, List<List<Chawan>> nested) {
+  var [a, _] = pair;
+  final [[inner]] = nested;
+  return a.tilt() + inner.tilt();
+  //       ^ d: lib/brew/chawan.dart:34
+  //                      ^ d: picker lib/brew/chawan.dart:16, lib/brew/chawan.dart:34, lib/brew/old_chawan.dart:2
 }

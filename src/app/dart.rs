@@ -439,14 +439,21 @@ impl App {
         name: &str,
         depth: usize,
     ) -> Option<(search::DartType, PathBuf)> {
-        let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
-        let [b] = bindings.as_slice() else {
-            return None;
+        let line_of = |name: &str| {
+            let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
+            let [b] = bindings.as_slice() else {
+                return None;
+            };
+            text.lines().nth(b.line1 - 1).map(|l| (l, b.line1))
         };
-        let line = text.lines().nth(b.line1 - 1)?;
-        let next: usize = text.split_inclusive('\n').take(b.line1).map(str::len).sum();
+        let (line, line1) = line_of(name)?;
+        let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
         if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
             return Some((ty, here.to_path_buf()));
+        }
+        if let Some(list) = search::dart_list_element(line, name) {
+            let (line, _) = line_of(list).filter(|_| list != name)?;
+            return Some((search::dart_element_typed(line, list)?, here.to_path_buf()));
         }
         let value = search::dart_value(line, name).filter(|_| depth < 4)?;
         let value = format!("{value}.");
