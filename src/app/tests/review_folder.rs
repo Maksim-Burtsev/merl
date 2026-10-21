@@ -401,4 +401,18 @@ fn opening_a_review_again_keeps_your_edits_in_its_folder_and_says_it_is_behind()
         (vec!["feat1.py".to_owned(), "fix.py".to_owned()], None),
         "with no edits, past the links merl made, it moves to what was pushed"
     );
+
+    c.git("b", &["config", "status.showUntrackedFiles", "no"]);
+    std::fs::write(one.join("later.py"), "mine\n").unwrap();
+    c.commit("a", "later.py", "theirs\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("later.py")).ok(),
+            r.note.as_deref()
+        ),
+        (Some("mine\n".to_owned()), Some("behind origin/feat1")),
+        "a new file is an edit whatever status.showUntrackedFiles says"
+    );
 }

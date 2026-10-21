@@ -1201,7 +1201,10 @@ fn a_project_receiver_answers_before_the_toolchain_is_walked() {
         ),
         (
             "latest().line",
-            jump("line \u{2192} Payout::line (via latest(): Payout)", "src/lib.rs:6"),
+            jump(
+                "line \u{2192} Payout::line (via latest(): Payout)",
+                "src/lib.rs:6",
+            ),
         ),
     ] {
         let walk = std::thread::spawn(|| (Vec::new(), Vec::new()));

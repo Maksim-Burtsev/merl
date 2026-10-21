@@ -1047,7 +1047,17 @@ fn dependency_links(folder: &Path) -> impl Iterator<Item = String> {
 
 fn has_edits(folder: &Path) -> bool {
     let links: Vec<String> = dependency_links(folder).collect();
-    git(folder, &["status", "--porcelain", "-z", "--no-renames"]).map_or(true, |out| {
+    git(
+        folder,
+        &[
+            "status",
+            "--porcelain",
+            "-z",
+            "--untracked-files=all",
+            "--no-renames",
+        ],
+    )
+    .map_or(true, |out| {
         (out.split('\0').filter_map(|e| e.get(3..))).any(|p| !links.iter().any(|l| l == p))
     })
 }
