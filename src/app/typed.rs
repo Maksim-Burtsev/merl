@@ -171,14 +171,22 @@ impl App {
         Some(Ok(ProvenType { ty, links }))
     }
 
-    fn assigned_calls_type(&self, file: &Path, text: &str, line1: usize) -> Option<TypeVia> {
-        let kind = Kind::Python;
+    fn assigned_calls_type(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+    ) -> Option<TypeVia> {
         if self.rel_current().as_deref() != Some(file) {
             return None;
         }
         let name = text.lines().nth(line1.checked_sub(1)?)?.trim_start();
         let name = name.get(..name.find(|c: char| !(c.is_alphanumeric() || c == '_'))?)?;
-        let expr = search::python_assigned_call(text, line1, name)?;
+        let expr = match kind {
+            Kind::Go => search::go_assigned_chain(text, line1, name)?,
+            _ => search::python_assigned_call(text, line1, name)?,
+        };
         let probe = format!("{expr}.x");
         let ProvenType { ty, links } = self.calls_type(kind, file, &probe, expr.len() + 1)?.ok()?;
         Some(TypeVia {
@@ -794,8 +802,8 @@ impl App {
                     call_signature: None,
                 })
             }
-            search::Value::Unknown if kind == Kind::Python && hops > 0 => {
-                self.assigned_calls_type(file, text, b.line1)
+            search::Value::Unknown if matches!(kind, Kind::Python | Kind::Go) && hops > 0 => {
+                self.assigned_calls_type(kind, file, text, b.line1)
             }
             search::Value::Name(_)
             | search::Value::Element(_)
