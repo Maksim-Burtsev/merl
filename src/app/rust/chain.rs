@@ -293,11 +293,44 @@ impl App {
             return None;
         }
         let head_at = if shadows { at.checked_sub(1)? } else { at };
+        if let ([head], false, [link]) = (w.head.as_slice(), w.head_call, w.links.as_slice())
+            && link.call
+            && link.name == "as_ref"
+            && let Some(got) = super::returns::as_ref_head(file, text, head_at, head)
+        {
+            return Some(got);
+        }
         let mut got = self.rust_head(file, text, head_at, &w, Some(name))?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
         }
         Some(got)
+    }
+
+    pub(super) fn rust_for_item(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<String> {
+        let line = text.lines().nth(at)?.trim();
+        let rest = line.strip_prefix("for ")?.trim_start();
+        let rest = rest.strip_prefix("mut ").unwrap_or(rest);
+        let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
+        let w = walk_back(expr.strip_suffix('{')?.trim())?;
+        if w.rest != 0 || (!w.head_call && w.links.is_empty()) {
+            return None;
+        }
+        let mut got = match self.rust_head(file, text, at, &w, None) {
+            Some(got) => got,
+            None if w.head_call => self.rust_std_fn_returns(text, at, &w.head)?,
+            None => return None,
+        };
+        for link in &w.links {
+            got = self.rust_step(got, link)?;
+        }
+        self.rust_std_item(got)
     }
 
     pub(super) fn rust_let_chain(
