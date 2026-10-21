@@ -809,8 +809,12 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
-        self.external_files(Kind::Rust);
-        let Some((mut ty, link)) = self.rust_value_type(here, text, self.line, &chain[0]) else {
+        let mut typed = self.rust_value_type(here, text, self.line, &chain[0]);
+        if typed.is_none() {
+            self.external_files(Kind::Rust);
+            typed = self.rust_value_type(here, text, self.line, &chain[0]);
+        }
+        let Some((mut ty, link)) = typed else {
             if let [name] = chain
                 && call
             {
