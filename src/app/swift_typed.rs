@@ -264,7 +264,10 @@ impl App {
             let lead = (file == here && line1 == self.line + 1)
                 .then(|| lines[line1 - 1].get(..self.col))
                 .flatten()?;
-            let each = search::swift_closure_sequence(lead)?;
+            let Some(each) = search::swift_closure_sequence(lead) else {
+                let call = search::swift_trailing_closure(lead, name)?;
+                return self.swift_closure_value(here, file, text, line1, call, hops);
+            };
             let seq = self.swift_expr(here, file, text, line1, &each, hops)?;
             if seq.written.trim_end().ends_with(['?', '!']) {
                 return None;
@@ -287,7 +290,10 @@ impl App {
                     None if b.line1 < line1 && search::swift_rebinds(line, name) => {
                         self.swift_value(here, file, text, b.line1, name, hops)
                     }
-                    None => None,
+                    None => {
+                        let call = search::swift_trailing_closure(line, name)?;
+                        self.swift_closure_value(here, file, text, b.line1.checked_sub(1)?, call, hops)
+                    }
                 }
             }
             [] => {
@@ -317,6 +323,61 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    fn swift_closure_value(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        (receiver, method): (String, String),
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
+        let held = self
+            .swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?
+            .written;
+        let ty = self.swift_type(here, &held).filter(|t| t.keyword.is_some())?;
+        let [param] = self.swift_type_generics(here, &ty.name)?;
+        let [arg] = <[String; 1]>::try_from(search::swift_generic_arguments(&held)).ok()?;
+        let rows = self.swift_member_rows(here, &ty, &method)?;
+        let takes: Vec<String> = rows
+            .iter()
+            .filter(|h| h.text.contains("func "))
+            .filter_map(|h| search::swift_closure_input(&h.text))
+            .collect();
+        let shadowed = rows
+            .iter()
+            .any(|h| search::swift_generics(&h.text).contains(&param));
+        if takes.is_empty() || shadowed || takes.iter().any(|t| *t != param) {
+            return None;
+        }
+        self.swift_given_type(here, file, text, line1, search::SwiftGiven::Type(arg), hops)
+    }
+
+    fn swift_wraps(&self, here: &Path, ty: &SwiftType) -> bool {
+        let Some([param]) = self.swift_type_generics(here, &ty.name) else {
+            return false;
+        };
+        self.swift_member_rows(here, ty, "init")
+            .is_some_and(|inits| matches!(inits.as_slice(), [init] if search::swift_init_takes(&init.text, &param)))
+    }
+
+    fn swift_type_generics(&self, here: &Path, name: &str) -> Option<[String; 1]> {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let decls: Vec<Vec<String>> = self
+            .project_definitions(Kind::Swift, here, name, &pattern)
+            .iter()
+            .filter(|h| {
+                self.in_code(Kind::Swift, h)
+                    && search::swift_type_header(&h.text)
+                        .is_some_and(|t| t.name == name && t.keyword != "extension")
+            })
+            .map(|h| search::swift_generics(&h.text))
+            .collect();
+        let [generics] = <[Vec<String>; 1]>::try_from(decls).ok()?;
+        <[String; 1]>::try_from(generics).ok()
     }
 
     fn swift_given_type(
@@ -385,7 +446,13 @@ impl App {
             && (parts.len() == 1 || parts[1] == "init")
             && let Some(t) = self.swift_type(here, ty)
         {
-            return t.keyword.is_some().then_some(WrittenVia::plain(t.name));
+            t.keyword.as_ref()?;
+            let held = search::swift_sole_argument(e)
+                .filter(|_| parts.len() == 1 && self.swift_wraps(here, &t))
+                .and_then(|arg| self.swift_expr(here, file, text, line1, &arg, hops.checked_sub(1)?))
+                .filter(|arg| search::swift_type_name(&arg.written).is_some())
+                .map(|arg| format!("{}<{}>", t.name, arg.written));
+            return Some(WrittenVia::plain(held.unwrap_or(t.name)));
         }
         let (method, receiver) = parts.split_last()?;
         let (decl, owner) = if receiver.is_empty() {
