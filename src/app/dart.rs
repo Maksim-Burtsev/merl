@@ -153,7 +153,7 @@ impl App {
         if tail.trim_start().starts_with(':') {
             return;
         }
-        let Some(files) = self.dart_visible_files(here, word) else {
+        let Some(files) = self.dart_visible_files(here, word, None) else {
             return;
         };
         let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
@@ -327,14 +327,25 @@ impl App {
         Some((files, directives))
     }
 
-    fn dart_visible_files(&self, here: &Path, word: &str) -> Option<Vec<PathBuf>> {
+    fn dart_visible_files(
+        &self,
+        here: &Path,
+        word: &str,
+        prefix: Option<&str>,
+    ) -> Option<Vec<PathBuf>> {
         let sdk = search::dart_sdk();
         let sdk = sdk.as_deref();
-        let (mut files, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
+        let (library, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
+        let from = library[0].clone();
+        let mut files = if prefix.is_none() {
+            library
+        } else {
+            Vec::new()
+        };
         let mut queue: Vec<(PathBuf, search::DartDirective)> = directives
             .into_iter()
-            .filter(|d| d.keyword == "import" && d.prefix.is_none())
-            .map(|d| (files[0].clone(), d))
+            .filter(|d| d.keyword == "import" && d.prefix.as_deref() == prefix)
+            .map(|d| (from.clone(), d))
             .collect();
         while let Some((from, d)) = queue.pop() {
             if d.uri.starts_with("dart:")
@@ -518,7 +529,7 @@ impl App {
         }
         let reason = Reason::Receiver(name.to_owned());
         let found: Vec<Candidate> = self
-            .dart_visible_files(here, name)?
+            .dart_visible_files(here, name, None)?
             .iter()
             .flat_map(|f| self.dart_declared_in(f, name, None, &[None], &reason))
             .collect();
@@ -620,12 +631,14 @@ impl App {
         };
         ty.prefix.is_none()
             && search::DART_CORE_TYPES.contains(&class)
-            && self.dart_visible_files(here, class).is_some_and(|files| {
-                files.iter().filter(|f| !f.is_absolute()).all(|f| {
-                    !self.dart_declares_class(f, class)
-                        && self.text_of(f).is_none_or(|t| !extends(&t))
+            && self
+                .dart_visible_files(here, class, None)
+                .is_some_and(|files| {
+                    files.iter().filter(|f| !f.is_absolute()).all(|f| {
+                        !self.dart_declares_class(f, class)
+                            && self.text_of(f).is_none_or(|t| !extends(&t))
+                    })
                 })
-            })
     }
 
     fn dart_field_type(&self, here: &Path, text: &str, field: &str) -> Option<search::DartType> {
@@ -664,19 +677,7 @@ impl App {
     }
 
     fn dart_class_file(&self, here: &Path, ty: &search::DartType) -> Option<PathBuf> {
-        let sdk = search::dart_sdk();
-        let sdk = sdk.as_deref();
-        let files = match &ty.prefix {
-            Some(p) => {
-                let (library, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
-                let d = directives
-                    .iter()
-                    .find(|d| d.keyword == "import" && d.prefix.as_ref() == Some(p))?;
-                let file = search::dart_uri_file(&self.root, &library[0], &d.uri, sdk)?;
-                self.dart_library(file, sdk, false)?.0
-            }
-            None => self.dart_visible_files(here, &ty.class)?,
-        };
+        let files = self.dart_visible_files(here, &ty.class, ty.prefix.as_deref())?;
         let mut declaring = files
             .into_iter()
             .filter(|f| !f.is_absolute() && self.dart_declares_class(f, &ty.class));

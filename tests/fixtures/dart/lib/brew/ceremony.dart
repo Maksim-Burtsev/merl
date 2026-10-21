@@ -77,7 +77,7 @@ int prefixed() {
   return dried.heft() + aged.heft() + handed.froth().heft();
   //           ^ d: lib/brew/chawan.dart:18
   //                         ^ d: lib/brew/old_chawan.dart:3
-  //                                                 ^ d: picker lib/brew/chawan.dart:18, lib/brew/old_chawan.dart:3; want lib/brew/chawan.dart:18 (#1221)
+  //                                                 ^ d: lib/brew/chawan.dart:18
 }
 
 const ritual = '''
@@ -144,3 +144,9 @@ int unpacked(List<Matcha> pair, List<List<Chawan>> nested) {
 
 int bounded<K, T extends Matcha>(K k, T t) => t.tilt();
 //                                               ^ d: lib/brew/chawan.dart:34
+
+int barrelled() {
+  final bowl = barrel.Chawan();
+  return bowl.tilt();
+  //          ^ d: lib/brew/chawan.dart:16
+}
