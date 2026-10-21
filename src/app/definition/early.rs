@@ -335,33 +335,10 @@ impl App {
             let found = self.lines_here(a, lines, &Reason::Local);
             return self.show_found(a, found);
         }
-        if kind == Kind::Sql && !a.dotted {
-            let at = self.buf.lines[..self.line]
-                .iter()
-                .map(|l| l.len() + 1)
-                .sum::<usize>()
-                + a.range.start;
-            let lines = search::sql_local(&a.text, at, &a.word);
-            if !lines.is_empty() {
-                let found = self.lines_here(a, lines, &Reason::Local);
-                return self.show_found(a, found);
-            }
-        }
         if kind == Kind::Sql
-            && a.dotted
-            && let [qualifier] = a.chain.as_slice()
+            && let Some(shown) = self.sql_in_file(a)
         {
-            let at = self.buf.lines[..self.line]
-                .iter()
-                .map(|l| l.len() + 1)
-                .sum::<usize>()
-                + a.range.start;
-            if let Some(table) = search::sql_alias_table(&a.text, at, qualifier) {
-                let found = self.sql_column(&a.here, &table, &a.word);
-                if !found.is_empty() {
-                    return self.show_found(a, found);
-                }
-            }
+            return shown;
         }
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
@@ -488,10 +465,49 @@ impl App {
 }
 
 impl App {
+    fn sql_in_file(&mut self, a: &Asked) -> Option<bool> {
+        let at = self.buf.lines[..self.line]
+            .iter()
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + a.range.start;
+        let table = if a.dotted {
+            let [qualifier] = a.chain.as_slice() else {
+                return None;
+            };
+            search::sql_alias_table(&a.text, at, qualifier)
+        } else {
+            let lines = search::sql_local(&a.text, at, &a.word);
+            if !lines.is_empty() {
+                let found = self.lines_here(a, lines, &Reason::Local);
+                return Some(self.show_found(a, found));
+            }
+            search::sql_bare_table(&a.text, at, &a.word)
+        };
+        let found = table
+            .map(|t| self.sql_column(&a.here, &t, &a.word))
+            .unwrap_or_default();
+        (!found.is_empty()).then(|| self.show_found(a, found))
+    }
+
     fn sql_column(&self, here: &Path, table: &str, column: &str) -> Vec<Candidate> {
         let mut hits =
             self.project_grep(Kind::Sql, here, &search::sql_column_pattern(table, column));
-        let keep = search::sql_in_effect(here, self.line + 1, &hits);
+        let head = regex::Regex::new(r"(?i)^\s*(?:CREATE|ALTER)\s").expect("a valid pattern");
+        hits.retain(|h| {
+            head.is_match(&h.text)
+                || self
+                    .hit_text(h)
+                    .is_some_and(|t| search::sql_alters(&t, h.line1, table))
+        });
+        let tabled: Vec<Hit> = hits
+            .iter()
+            .map(|h| Hit {
+                text: format!("TABLE {table}"),
+                ..h.clone()
+            })
+            .collect();
+        let keep = search::sql_in_effect(here, self.line + 1, &tabled);
         let mut i = 0;
         hits.retain(|h| {
             i += 1;

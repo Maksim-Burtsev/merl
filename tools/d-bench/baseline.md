@@ -25,6 +25,7 @@ The swift row with #1068's one more step of reading (`url.host` in `Request.cURL
 The swift row with #1068's typealias of a collection (`parameters.isEmpty` in `URLEncoding.encode`): over `afba9659`, 2026-10-21, release build, `vm.loadavg` { 6.67 7.05 6.41 } before the run, { 6.10 6.92 6.37 } after.
 The swift row with #1068's value cast in parentheses (`(underlyingError as? URLError)?.userInfo` in `AFError`): over `e0f8e876`, 2026-10-21, release build, `vm.loadavg` { 7.44 7.83 7.19 } before the run, { 7.77 7.88 7.22 } after.
 The dart row with #1216 and #1217 (a call to a method of the enclosing class): over `43e04d43`, 2026-10-21, release build, `vm.loadavg` { 4.27 4.71 5.60 } before the run.
+The sql row with the rest of #1063 (a bare column where SQL names one table, an `ADD COLUMN` under its `ALTER TABLE`) merged over #1197's fixes (a column only of its schema-qualified table): over `285f5464`, 2026-10-21, release build, `vm.loadavg` { 4.13 5.95 7.16 } before the run, { 4.13 5.95 7.16 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -60,4 +61,4 @@ The dart row with #1216 and #1217 (a call to a method of the enclosing class): o
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
 | dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
-| sql (lemmy) | 79 | 54 (68%) | 1 (1%) | 0 (0%) | 24 (30%) | 31 | 0 | 8.6 | 15.3 |
+| sql (lemmy) | 79 | 66 (84%) | 1 (1%) | 0 (0%) | 12 (15%) | 31 | 0 | 12.1 | 20.1 |

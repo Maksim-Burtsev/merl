@@ -630,12 +630,18 @@ function and a trigger sharing a name, the same table read from a plain file out
 migration, and `1_init` beside `10_more`, whose order is unclear and keeps the picker.
 `pour_strainers` reads columns for #1063 through an alias and a table: one from a `CREATE TABLE`
 body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
-derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
+derived table, a CTE named like a table, or an unknown alias.
 `audit_ladles` creates an `audit.ladles` after `ladles`: a column through `FROM ladles l` stays
-in `ladles`, one only `audit.ladles` has answers nothing, and `ladles` itself offers both.
+in `ladles`, one only `audit.ladles` has answers nothing, a bare one in `FROM audit.ladles` is
+`audit.ladles`'s, and `ladles` itself offers both.
 `touch_ladles` and `touch_strainers` create a trigger `touch` on two tables and a function
 `scoop` with two signatures, one of them re-created: the two triggers and the two signatures
-in effect stay a picker.
+in effect stay a picker. `fill_ladles` reads bare columns
+where SQL names one table: an `INSERT` column list, both sides of an `UPDATE`'s `SET`, a
+one-table `SELECT` and its subquery, `ALTER TABLE` (`RENAME`, `DROP`, a `CHECK`), a trigger's
+`UPDATE OF`, and `ADD COLUMN`s on the lines under their `ALTER TABLE`; and none where a second
+table, a derived table, a function in `FROM`, an `AS` of the same name or a `REFERENCES` could
+own the name.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
@@ -661,6 +667,16 @@ named and unnamed extensions, a prefixed named constructor, a class through a re
 (#1221), `${..}` in a string beside a `'''` string and a `//` comment declaring names, a local
 function, a class method that hides the top-level function of its name, an enum's value, field and
 method, `call()` on a field, and a type parameter's bound (#1220).
+
+`sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
+`cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
+`ORDER BY` (one without `AS` named like the table's `id` must not jump to it, nor one after a
+`CASE … END`, while `DISTINCT spout` still does), `FROM ONLY` and `TABLESAMPLE`, a column alias
+list, an `INSERT … ON CONFLICT … DO UPDATE SET … EXCLUDED. … RETURNING`, `CREATE INDEX ON` and
+`COMMENT ON COLUMN` (#1223), a CTE's column and a `WINDOW` name (none, as #1063's decision A
+says; #1228 asks whether they should jump), a `"Lid"` beside a `lid` (#1224), a `LANGUAGE sql`
+parameter named like a column (#1225), and `CREATE`s in a `$$` string inside a `$body$` (#1226)
+and inside a nested block comment (#1227).
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a

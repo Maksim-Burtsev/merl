@@ -203,6 +203,33 @@ fn sql_parameter(
     None
 }
 
+const SQL_EXPR_LEAD: &[&str] = &[
+    "select",
+    "distinct",
+    "all",
+    "by",
+    "and",
+    "or",
+    "not",
+    "on",
+    "where",
+    "when",
+    "then",
+    "else",
+    "in",
+    "is",
+    "case",
+    "having",
+    "returning",
+    "set",
+    "like",
+    "ilike",
+    "between",
+    "as",
+    "using",
+    "values",
+];
+
 const SQL_NOT_ALIAS: &[&str] = &[
     "and",
     "or",
@@ -296,50 +323,19 @@ fn sql_aliases(code: &str, at: usize, word: &str) -> Option<Vec<usize>> {
 }
 
 fn sql_scope_seen(stmt: &str, alias: usize, at: usize) -> Option<usize> {
-    let query = Regex::new(r"(?i)^\s*(?:SELECT|WITH|VALUES)\b").expect("a valid pattern");
     let set = Regex::new(r"(?i)\b(?:UNION|EXCEPT|INTERSECT)\b").expect("a valid pattern");
-    let b = stmt.as_bytes();
-    let (mut depth, mut open) = (0_usize, None);
-    for i in (0..alias).rev() {
-        match b[i] {
-            b')' => depth += 1,
-            b'(' if depth > 0 => depth -= 1,
-            b'(' if stmt.get(i + 1..).is_some_and(|r| query.is_match(r)) => {
-                open = Some(i);
-                break;
-            }
-            _ => {}
-        }
-    }
-    let from = open.map_or(0, |o| o + 1);
-    let mut close = b.len();
-    depth = 0;
-    for (i, &c) in b.iter().enumerate().skip(from) {
-        match c {
-            b'(' => depth += 1,
-            b')' if depth == 0 => {
-                close = i;
-                break;
-            }
-            b')' => depth -= 1,
-            _ => {}
-        }
-    }
+    let std::ops::Range {
+        start: from,
+        end: close,
+    } = sql_query_region(stmt, alias);
     if !(from..close).contains(&at) {
         return None;
     }
     let region = stmt.get(from..close)?;
-    let level = |i: usize| {
-        region.bytes().take(i).fold(0_isize, |d, c| match c {
-            b'(' => d + 1,
-            b')' => d - 1,
-            _ => d,
-        })
-    };
     let (lo, hi) = (alias.min(at) - from, alias.max(at) - from);
-    let split = set
-        .find_iter(region)
-        .any(|m| (lo..hi).contains(&m.start()) && level(m.start()) == 0);
+    let split = set.find_iter(region).any(|m| {
+        (lo..hi).contains(&m.start()) && region.get(..m.start()).is_some_and(|t| sql_level(t) == 0)
+    });
     (!split).then_some(from)
 }
 
@@ -559,21 +555,208 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     }
 }
 
-pub fn sql_column_pattern(table: &str, column: &str) -> String {
-    let name = |n: &str| {
-        let n = regex::escape(n);
-        format!(r#"(?:"{n}"|{n}\b)"#)
-    };
-    let table = table
+fn sql_name_pattern(table: &str) -> String {
+    table
         .split('.')
-        .map(name)
+        .map(|n| {
+            let n = regex::escape(n);
+            format!(r#"(?:"{n}"|{n}\b)"#)
+        })
         .collect::<Vec<_>>()
-        .join(r"\s*\.\s*");
-    let column = name(column);
-    let alter = format!(r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?{table}");
+        .join(r"\s*\.\s*")
+}
+
+fn sql_alter_head(table: &str) -> String {
+    let table = sql_name_pattern(table);
+    format!(r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?{table}")
+}
+
+pub fn sql_column_pattern(table: &str, column: &str) -> String {
+    let alter = sql_alter_head(table);
+    let table = sql_name_pattern(table);
+    let column = sql_name_pattern(column);
+    let add = format!(r"ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?{column}");
+    let rename = format!(r"RENAME\s+(?:COLUMN\s+)?\S+\s+TO\s+{column}");
     format!(
-        r"(?i)^\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNLOGGED)\s+)*TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}\s*(?:\(|$)|{alter}.*\sADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?{column}|{alter}\s+RENAME\s+(?:COLUMN\s+)?\S+\s+TO\s+{column}"
+        r"(?i)^\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNLOGGED)\s+)*TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}\s*(?:\(|$)|{alter}.*\s{add}|{alter}\s+{rename}|^\s*(?:{add}|{rename})"
     )
+}
+
+pub fn sql_alters(text: &str, line1: usize, table: &str) -> bool {
+    let (code, _) = sql_code(text);
+    let at: usize = code
+        .split_inclusive('\n')
+        .take(line1 - 1)
+        .map(str::len)
+        .sum();
+    let head = code.get(..at).unwrap_or_default();
+    let s = head.rfind(';').map_or(0, |n| n + 1);
+    Regex::new(&sql_alter_head(table))
+        .expect("an escaped name keeps it valid")
+        .is_match(head.get(s..).unwrap_or_default())
+}
+
+fn sql_query_region(stmt: &str, at: usize) -> std::ops::Range<usize> {
+    let query = Regex::new(r"(?i)^\s*(?:SELECT|WITH|VALUES)\b").expect("a valid pattern");
+    let b = stmt.as_bytes();
+    let (mut depth, mut from) = (0_usize, 0);
+    for i in (0..at.min(b.len())).rev() {
+        match b[i] {
+            b')' => depth += 1,
+            b'(' if depth > 0 => depth -= 1,
+            b'(' if stmt.get(i + 1..).is_some_and(|r| query.is_match(r)) => {
+                from = i + 1;
+                break;
+            }
+            _ => {}
+        }
+    }
+    let mut to = b.len();
+    depth = 0;
+    for (i, &c) in b.iter().enumerate().skip(from) {
+        match c {
+            b'(' => depth += 1,
+            b')' if depth == 0 => {
+                to = i;
+                break;
+            }
+            b')' => depth -= 1,
+            _ => {}
+        }
+    }
+    from..to
+}
+
+fn sql_level(t: &str) -> isize {
+    t.bytes().fold(0, |d, c| match c {
+        b'(' => d + 1,
+        b')' => d - 1,
+        _ => d,
+    })
+}
+
+pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
+    let (code, _) = sql_code(text);
+    let s = code.get(..at)?.rfind(';').map_or(0, |n| n + 1);
+    let e = code.get(at..)?.find(';').map_or(code.len(), |n| at + n);
+    let (stmt, at) = (code.get(s..e)?, at - s);
+    let (before, after) = (stmt.get(..at)?, stmt.get(at + word.len()..)?);
+    let into = Regex::new(r"(?i)\bINTO\s*$").expect("a valid pattern");
+    if after.trim_start().starts_with(['(', '.']) || into.is_match(before) {
+        return None;
+    }
+    let name = format!(r"{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*");
+    let table = sql_qualified;
+    let alter = Regex::new(&format!(
+        r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?({name})\s"
+    ))
+    .expect("a valid pattern");
+    if let Some(c) = alter.captures(stmt) {
+        let declares =
+            Regex::new(r"(?i)\b(?:ADD(?:\s+COLUMN)?(?:\s+IF\s+NOT\s+EXISTS)?|TO|CONSTRAINT)\s+$")
+                .expect("a valid pattern");
+        let refers = Regex::new(r"(?i)\bREFERENCES\b").expect("a valid pattern");
+        let column = at > c.get(1)?.end() && !declares.is_match(before) && !refers.is_match(stmt);
+        return column.then(|| table(&c[1]));
+    }
+    let trigger = Regex::new(&format!(
+        r"(?is)^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\s.*?\bUPDATE\s+OF\s+(.*?)\s+ON\s+({name})"
+    ))
+    .expect("a valid pattern");
+    if let Some(c) = trigger.captures(stmt) {
+        return c.get(1)?.range().contains(&at).then(|| table(&c[2]));
+    }
+    let insert = Regex::new(&format!(
+        r"(?i)\bINSERT\s+INTO\s+({name})(?:\s+AS\s+{SQL_IDENT})?\s*\(([^()]*)\)"
+    ))
+    .expect("a valid pattern");
+    if let Some(c) = insert
+        .captures_iter(stmt)
+        .find(|c| c.get(2).is_some_and(|l| l.range().contains(&at)))
+    {
+        return Some(table(&c[1]));
+    }
+    let update = Regex::new(&format!(
+        r"(?i)\bUPDATE\s+(?:ONLY\s+)?({name})(?:\s+(?:AS\s+)?{SQL_IDENT})?\s+SET\s"
+    ))
+    .expect("a valid pattern");
+    let set_ends = Regex::new(r"(?i)\b(?:FROM|WHERE|RETURNING)\b").expect("a valid pattern");
+    let target = |c: &regex::Captures| {
+        let set = stmt.get(c.get(0)?.end()..at)?;
+        let lead = before.trim_end();
+        (sql_level(set) == 0
+            && !set_ends.is_match(set)
+            && after.trim_start().starts_with('=')
+            && (lead.ends_with(',') || lead.to_ascii_lowercase().ends_with("set")))
+        .then(|| table(&c[1]))
+    };
+    if let Some(t) = update.captures_iter(stmt).find_map(|c| target(&c)) {
+        return Some(t);
+    }
+    sql_scope_table(stmt, at, word, &update)
+}
+
+fn sql_qualified(t: &str) -> String {
+    let parts: Vec<String> = t
+        .split('.')
+        .map(|p| p.trim().trim_matches(['"', '`']).to_ascii_lowercase())
+        .collect();
+    parts.join(".")
+}
+
+fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<String> {
+    let table = sql_qualified;
+    let r = sql_query_region(stmt, at);
+    let (region, at) = (stmt.get(r.clone())?, at - r.start);
+    let hidden =
+        Regex::new(r"(?i)\bUSING\b|\bLATERAL\b|\b(?:FROM|JOIN)\s*\(").expect("a valid pattern");
+    let named = Regex::new(&format!(
+        r#"(?i)\bAS\s+(?:"{w}"|{w}\b)"#,
+        w = regex::escape(word)
+    ))
+    .expect("an escaped name keeps it valid");
+    let unnamed = Regex::new(&format!(
+        r#"(?i)([\w)'"]+)\s+(?:"{w}"|{w}\b)\s*(?:,|\bFROM\b)"#,
+        w = regex::escape(word)
+    ))
+    .expect("an escaped name keeps it valid");
+    let alias = |c: regex::Captures| !SQL_EXPR_LEAD.contains(&c[1].to_ascii_lowercase().as_str());
+    if hidden.is_match(region) || named.is_match(region) || unnamed.captures_iter(region).any(alias)
+    {
+        return None;
+    }
+    let top = |i: usize| region.get(..i).is_some_and(|t| sql_level(t) == 0);
+    let mut tables = Vec::new();
+    for (t, a) in sql_from_items(region)
+        .into_iter()
+        .filter(|(t, _)| top(t.start))
+    {
+        if t.contains(&at) || a.as_ref().is_some_and(|a| a.contains(&at)) {
+            return None;
+        }
+        let rest = region
+            .get(a.as_ref().map_or(t.end, |a| a.end)..)?
+            .trim_start();
+        let next = rest.strip_prefix(',').map(str::trim_start);
+        if rest.starts_with('(') || next.is_some_and(|n| n.starts_with('(')) {
+            return None;
+        }
+        tables.push(table(region.get(t)?));
+    }
+    tables.extend(
+        update
+            .captures_iter(region)
+            .filter(|c| c.get(0).is_some_and(|m| top(m.start())))
+            .map(|c| table(&c[1])),
+    );
+    tables.sort();
+    tables.dedup();
+    let [t] = tables.as_slice() else {
+        return None;
+    };
+    let last = t.rsplit('.').next().unwrap_or(t);
+    let cte = Regex::new(&sql_cte(last)).expect("an escaped name keeps it valid");
+    (!stmt.lines().any(|l| cte.is_match(l))).then(|| t.clone())
 }
 
 pub fn sql_table_column(text: &str, create: usize, column: &str) -> Option<usize> {
