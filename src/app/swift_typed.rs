@@ -399,30 +399,28 @@ impl App {
             .collect();
         search::swift_renamed_types(written, |name| {
             let mut scope = line1;
-            while scope > 0 {
+            let (up, head) = loop {
                 if search::swift_generics(lines[scope - 1]).iter().any(|g| g == name) {
                     return None;
                 }
-                scope = search::swift_scope(&lines, &literal, scope).header_line1;
-            }
-            let mut at = line1;
-            let up = loop {
-                let up = search::swift_enclosing_type(&lines, &literal, at)?;
-                if declared.iter().any(|(d, n)| {
-                    n == name && search::swift_enclosing_type(&lines, &literal, *d) == Some(up)
-                }) {
-                    break up;
+                let up = search::swift_scope(&lines, &literal, scope).header_line1;
+                if up == 0 {
+                    return None;
                 }
-                search::swift_type_header(lines[up - 1])?
-                    .first_inherited
-                    .is_none()
-                    .then_some(())?;
-                at = up;
+                let head = search::swift_type_header(lines[up - 1]);
+                if declared.iter().any(|(d, n)| {
+                    n == name && search::swift_scope(&lines, &literal, *d).header_line1 == up
+                }) {
+                    break (up, head?);
+                }
+                if head.is_some_and(|h| h.first_inherited.is_some()) {
+                    return None;
+                }
+                scope = up;
             };
             if self.swift_type(here, name).is_some() {
                 return None;
             }
-            let head = search::swift_type_header(lines[up - 1])?;
             let outer = search::qualified(Kind::Swift, text, up, &head.name).unwrap_or(head.name);
             let full = format!("{outer}.{name}");
             self.swift_type(here, &full).map(|_| full)
