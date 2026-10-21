@@ -151,9 +151,43 @@ pub fn lua_std_receiver(text: &str, line: usize, before: &str) -> Option<&'stati
     static LIB: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w.:])(\w+)\s*[.:]$").expect("the regex is a literal")
     });
+    const STRINGS: [(&str, &str); 11] = [
+        ("", "tostring"),
+        ("", "type"),
+        ("string", "format"),
+        ("string", "rep"),
+        ("string", "sub"),
+        ("string", "upper"),
+        ("string", "lower"),
+        ("string", "reverse"),
+        ("string", "char"),
+        ("string", "gsub"),
+        ("table", "concat"),
+    ];
+    let unbound = |name: &str| {
+        bindings(Kind::Lua, text, line, name).is_empty()
+            && lua_local_value(text, line, name).is_none()
+    };
     let before = before.trim_end();
     if LITERAL.is_match(before) {
         return Some("string");
+    }
+    if let Some(call) = before
+        .strip_suffix(':')
+        .map(str::trim_end)
+        .filter(|c| c.ends_with(')'))
+    {
+        let head = call.get(..lua_open_paren(call)?)?.trim_end();
+        let owner = head.trim_end_matches(|c: char| c.is_alphanumeric() || c == '_');
+        let callee = head.get(owner.len()..)?;
+        let lib = if owner.ends_with(['.', ':']) {
+            lua_std_receiver(text, line, owner)?
+        } else if unbound(callee) {
+            ""
+        } else {
+            return None;
+        };
+        return STRINGS.contains(&(lib, callee)).then_some("string");
     }
     let written = LIB.captures(before)?.get(1)?.as_str();
     let lib = [
@@ -168,8 +202,23 @@ pub fn lua_std_receiver(text: &str, line: usize, before: &str) -> Option<&'stati
     ]
     .into_iter()
     .find(|&l| l == written)?;
-    (bindings(Kind::Lua, text, line, lib).is_empty() && lua_local_value(text, line, lib).is_none())
-        .then_some(lib)
+    unbound(lib).then_some(lib)
+}
+fn lua_open_paren(call: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    for (i, c) in call.char_indices().rev() {
+        match c {
+            ')' => depth += 1,
+            '(' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 pub fn lua_required(value: &str) -> Option<&str> {
     static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

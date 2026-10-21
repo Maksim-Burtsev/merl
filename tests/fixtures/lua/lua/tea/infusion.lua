@@ -20,7 +20,7 @@ function I.collect(list, v)
   --^ d: lua/tea/gaiwan.lua:39
   return ("cup"):upper() .. tostring(v):upper()
   --             ^ d: none
-  --                                    ^ d: lua/tea/gaiwan.lua:20; want none (#1207)
+  --                                    ^ d: none
 end
 
 function I.whisked(n)
@@ -137,6 +137,13 @@ function I.own(string)
   return string.format(1) .. math.floor(1.5)
   --            ^ d: lua/tea/gaiwan.lua:35
   --                              ^ d: none
+end
+
+function I.strung(v, tostring)
+  return string.rep("a", 2):upper() .. ("a"):rep(2):lower():upper() .. tostring(v):upper()
+  --                        ^ d: none
+  --                                                        ^ d: none
+  --                                                                               ^ d: lua/tea/gaiwan.lua:20
 end
 
 return I
