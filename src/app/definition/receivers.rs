@@ -325,6 +325,14 @@ impl App {
                     self.message = format!("{word}: builtin, no source (via {via})");
                     return true;
                 }
+                if kind == Kind::Go
+                    && let Some(via) = self.go_outside_receiver(&a.here, chain, head.as_ref())
+                {
+                    self.offer_only = false;
+                    self.truncated.set(false);
+                    self.message = format!("no definition for {word} in the project (via {via})");
+                    return true;
+                }
                 if let Some(via) = self.js_std_receiver(a) {
                     self.offer_only = false;
                     self.truncated.set(false);

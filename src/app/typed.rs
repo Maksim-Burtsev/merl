@@ -197,6 +197,31 @@ impl App {
         })
     }
 
+    pub(super) fn go_outside_receiver(
+        &self,
+        here: &Path,
+        chain: &[String],
+        head: Option<&search::CallHead>,
+    ) -> Option<String> {
+        if head.is_some() {
+            return None;
+        }
+        let last = chain.last()?;
+        let (file, text, bindings, mut links) = self.last_bindings(Kind::Go, here, chain)?;
+        let mut written = None;
+        for b in &bindings {
+            let (search::Value::Type(t) | search::Value::New(t)) = &b.value else {
+                return None;
+            };
+            if !self.go_outside(&file, &text, t) {
+                return None;
+            }
+            written.get_or_insert_with(|| t.trim_start_matches('*').to_owned());
+        }
+        links.push(format!("{last}: {}", written?));
+        Some(links.join(" \u{2192} "))
+    }
+
     fn scope(&self, here: &Path, first: Option<&String>) -> Result<(String, usize), String> {
         if let Some(scope) = self.script_scope(here, first.map(String::as_str)) {
             return Ok(scope);
