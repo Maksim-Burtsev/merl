@@ -586,6 +586,14 @@ impl App {
             } = self
                 .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
                 .and_then(DeclaredField::typed)
+                .or_else(|| {
+                    let made =
+                        (kind == Kind::Python).then(|| self.made_by_class_attribute(&ty, field));
+                    Some(TypeVia {
+                        ty: made??,
+                        call_signature: None,
+                    })
+                })
                 .ok_or_else(|| field.clone())?;
             let first = i == 0 && merge;
             let label = if first {

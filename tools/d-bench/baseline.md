@@ -26,10 +26,11 @@ The swift row with #1068's typealias of a collection (`parameters.isEmpty` in `U
 The swift row with #1068's value cast in parentheses (`(underlyingError as? URLError)?.userInfo` in `AFError`): over `e0f8e876`, 2026-10-21, release build, `vm.loadavg` { 7.44 7.83 7.19 } before the run, { 7.77 7.88 7.22 } after.
 The dart row with #1216 and #1217 (a call to a method of the enclosing class): over `43e04d43`, 2026-10-21, release build, `vm.loadavg` { 4.27 4.71 5.60 } before the run.
 The sql row with the rest of #1063 (a bare column where SQL names one table, an `ADD COLUMN` under its `ALTER TABLE`) merged over #1197's fixes (a column only of its schema-qualified table): over `285f5464`, 2026-10-21, release build, `vm.loadavg` { 4.13 5.95 7.16 } before the run, { 4.13 5.95 7.16 } after.
+merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 257 | 219 (85%) | 25 (10%) | 0 (0%) | 13 (5%) | 68 | 11 | 19.0 | 285.0 |
+| python (paperless-ngx) | 257 | 229 (89%) | 15 (6%) | 0 (0%) | 13 (5%) | 68 | 11 | 20.8 | 324.9 |
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.0 | 91.0 |
 | js (eslint, uptime-kuma) | 217 | 177 (82%) | 32 (15%) | 1 (0%) | 7 (3%) | 177 | 11 | 37.0 | 173.6 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |

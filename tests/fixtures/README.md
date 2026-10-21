@@ -354,7 +354,7 @@ method that skip it, `this` for `self` over an abstract base, a nested `def` and
 hiding module names, and an import in both branches of an `if`, which pyright answers with the
 `else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
 function wins over another module's that it does not import. Its `mixed` loops over sums of lists:
-of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod` (#1099). Its `clean` assigns
+of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod`, and `Rig` assigns `rig` from `cls.kit_class()`, a class attribute its subclasses override: `self.rig` is the `kit_class` nearest the class in its MRO, `Both` a diamond whose first base would pass the override in a walk by depth, and a `MakerRig` whose attribute holds a function, not a class (#1099). Its `clean` assigns
 a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
 a `while` inside a `for` of the same name, whose right side is either. Its `twice` calls a `str`
 method on a local set from one set from a `str` parameter (builtin, #1151).
