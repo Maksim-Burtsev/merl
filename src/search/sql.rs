@@ -614,8 +614,29 @@ pub fn sql_column_pattern(table: &str, column: &str) -> String {
     let add = format!(r"ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?{column}");
     let rename = format!(r"RENAME\s+(?:COLUMN\s+)?\S+\s+TO\s+{column}");
     format!(
-        r"(?i)^\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNLOGGED)\s+)*TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}\s*(?:\(|$)|{alter}.*\s{add}|{alter}\s+{rename}|^\s*(?:{add}|{rename})"
+        r"(?i)^\s*CREATE\s+(?:(?:TEMP|TEMPORARY|UNLOGGED)\s+)*TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?{table}(?:\s*\(|\s*$|\s+AS\b)|{alter}.*\s{add}|{alter}\s+{rename}|^\s*(?:{add}|{rename})"
     )
+}
+
+pub fn sql_renamed_to(table: &str) -> String {
+    let last = sql_name_pattern(table.rsplit('.').next().unwrap_or(table));
+    format!(
+        r"(?i)^\s*ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)\s+RENAME\s+TO\s+{last}\s*(?:;|$)"
+    )
+}
+
+pub fn sql_renamed_from(line: &str, table: &str) -> Option<String> {
+    let old = sql_qualified(
+        Regex::new(&sql_renamed_to(table))
+            .expect("an escaped name keeps it valid")
+            .captures(line)?
+            .get(1)?
+            .as_str(),
+    );
+    match (table.rsplit_once('.'), old.rsplit_once('.')) {
+        (Some((a, _)), Some((b, _))) if a != b => None,
+        _ => Some(old),
+    }
 }
 
 pub fn sql_alters(text: &str, line1: usize, table: &str) -> bool {
@@ -869,15 +890,28 @@ pub fn sql_table_column(text: &str, create: usize, column: &str, quoted: bool) -
         .map(str::len)
         .sum();
     let rest = code.get(from..)?;
-    let open = from + rest.find('(')?;
-    if code.get(from..open)?.contains(';') {
-        return None;
-    }
-    let item = Regex::new(&format!(
-        r#"(?i)^\s*("{c}"|{c})\s+[A-Za-z]"#,
-        c = regex::escape(column)
-    ))
-    .expect("an escaped name keeps it valid");
+    let c = regex::escape(column);
+    let select = Regex::new(r"(?is)^[^;(]*?\sAS\s+SELECT\s")
+        .expect("a valid pattern")
+        .find(rest)
+        .map(|m| from + m.end());
+    let (item, mut depth, open, mut start) = if let Some(at) = select {
+        let item = format!(r#"(?is)(?:\bAS\s+|^\s*(?:{SQL_IDENT}\s*\.\s*)*)("{c}"|{c})\s*$"#);
+        (item, 1_usize, at, at)
+    } else {
+        let open = from + rest.find('(')?;
+        let head = code.get(from..open)?;
+        if head.contains(';')
+            || Regex::new(r"(?i)\sAS\b")
+                .expect("a valid pattern")
+                .is_match(head)
+        {
+            return None;
+        }
+        (format!(r#"(?i)^\s*("{c}"|{c})\s+[A-Za-z]"#), 0, open, open + 1)
+    };
+    let item = Regex::new(&item).expect("an escaped name keeps it valid");
+    let from_word = Regex::new(r"(?i)^FROM\b").expect("a valid pattern");
     let fold = |n: &str, q: bool| {
         if q {
             n.to_owned()
@@ -886,12 +920,20 @@ pub fn sql_table_column(text: &str, create: usize, column: &str, quoted: bool) -
         }
     };
     let wanted = fold(column, quoted);
-    let (b, mut depth, mut start) = (code.as_bytes(), 0_usize, open + 1);
+    let b = code.as_bytes();
     let mut found = Vec::new();
     for (i, &c) in b.iter().enumerate().skip(open) {
+        let ends = select.is_some()
+            && depth == 1
+            && (c == b';'
+                || matches!(c, b'f' | b'F')
+                    && from_word.is_match(code.get(i..)?)
+                    && !i
+                        .checked_sub(1)
+                        .and_then(|p| b.get(p))
+                        .is_some_and(|p| p.is_ascii_alphanumeric() || *p == b'_'));
         match c {
-            b'(' => depth += 1,
-            b')' | b',' if depth == 1 => {
+            _ if ends || matches!(c, b')' | b',') && depth == 1 => {
                 let piece = code.get(start..i)?;
                 if let Some(m) = item.captures(piece).and_then(|m| m.get(1)) {
                     let line1 = code.get(..start + m.start())?.matches('\n').count() + 1;
@@ -902,11 +944,12 @@ pub fn sql_table_column(text: &str, create: usize, column: &str, quoted: bool) -
                         line1,
                     ));
                 }
-                if c == b')' {
+                if c != b',' {
                     break;
                 }
                 start = i + 1;
             }
+            b'(' => depth += 1,
             b')' => depth = depth.saturating_sub(1),
             b';' => break,
             _ => {}
