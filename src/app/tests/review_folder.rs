@@ -213,11 +213,7 @@ fn a_sweep_removes_aged_and_gone_folders_but_never_an_open_one() {
             one.join("new.py").is_file(),
             std::fs::read_link(one.join(".venv")).ok()
         ),
-        (
-            Some("x = 2\n".to_owned()),
-            true,
-            Some(c.b().join(".venv"))
-        ),
+        (Some("x = 2\n".to_owned()), true, Some(c.b().join(".venv"))),
         "an aged folder with your edits stays, edits and links and all"
     );
     c.git(

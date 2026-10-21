@@ -441,7 +441,8 @@ fn lua_name_char(c: char) -> bool {
 pub fn lua_name_path(value: &str) -> Option<Vec<String>> {
     let v = value.trim().trim_end_matches(';').trim_end();
     (v.starts_with(|c: char| c.is_alphabetic() || c == '_')
-        && v.split('.').all(|p| !p.is_empty() && p.chars().all(lua_name_char)))
+        && v.split('.')
+            .all(|p| !p.is_empty() && p.chars().all(lua_name_char)))
     .then(|| v.split('.').map(str::to_owned).collect())
 }
 pub fn lua_method_step(value: &str) -> Option<(&str, &str)> {
@@ -458,7 +459,9 @@ pub fn lua_method_step(value: &str) -> Option<(&str, &str)> {
 }
 pub fn lua_called_receiver(before: &str) -> Option<&str> {
     let path_start = |s: &str| {
-        let p = s.trim_end_matches(|c: char| lua_name_char(c) || c == '.').len();
+        let p = s
+            .trim_end_matches(|c: char| lua_name_char(c) || c == '.')
+            .len();
         p + s.get(p..).and_then(|r| r.rfind("..")).map_or(0, |i| i + 2)
     };
     let call = before.trim_end().strip_suffix(':')?.trim_end();
