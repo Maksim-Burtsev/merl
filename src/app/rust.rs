@@ -10,7 +10,7 @@ use super::{
 
 pub(super) enum Typing {
     Members(Vec<Candidate>),
-    Std(Vec<Candidate>),
+    Std(Vec<Candidate>, String),
 }
 
 #[derive(Clone, Copy)]
@@ -292,7 +292,7 @@ impl App {
         text: &str,
         chain: &[String],
         before: &str,
-        std: bool,
+        std: Option<&str>,
     ) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let receiver = rust_receiver_type(text, self.line, chain, before);
@@ -324,6 +324,7 @@ impl App {
         let mut hidden: Vec<String> = Vec::new();
         let mut receiver_impls: Vec<String> = Vec::new();
         let mut own_impls: Vec<(Hit, String)> = Vec::new();
+        let mut matched: HashMap<String, bool> = HashMap::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
                 let text = self.text_of(&h.path).unwrap_or_default();
@@ -361,7 +362,8 @@ impl App {
                             Some("tests" | "benches" | "examples")
                         )
                     }));
-            let visible = !(internal || (std && inside && owner == search::RustOwner::Inherent))
+            let visible = !(internal
+                || (inside && std.is_some_and(|s| self.rust_std_hides(&owner, s, &mut matched))))
                 && match (&owner, vis) {
                     (search::RustOwner::ImplOf(_), _) => true,
                     (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
@@ -812,7 +814,7 @@ impl App {
                 if let Some(written) = self.rust_std_written(here, text, name)
                     && let Some(found) = self.rust_std_call(text, name, &written, word)
                 {
-                    return Ok(Typing::Std(found));
+                    return Ok(Typing::Std(found, written));
                 }
             }
             return Err(chain[0].clone());
@@ -827,7 +829,7 @@ impl App {
                     && let Some(owner) = self.text_of(&ty.path)
                     && let Some(found) = self.rust_std_call(&owner, field, &std, word)
                 {
-                    return Ok(Typing::Std(found));
+                    return Ok(Typing::Std(found, std));
                 }
                 return Err(field.clone());
             };
