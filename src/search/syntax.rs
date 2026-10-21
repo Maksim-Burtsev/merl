@@ -250,6 +250,7 @@ struct Scanner<'a> {
     php_heredoc_quote: u8,
     ruby_heredocs_from_next_line: Vec<Heredoc>,
     template_substitution_braces: Vec<usize>,
+    sql_body: Option<&'a [u8]>,
     cursor: Cursor,
 }
 struct Cursor {
@@ -280,6 +281,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         php_heredoc_quote: b'"',
         ruby_heredocs_from_next_line: Vec::new(),
         template_substitution_braces: Vec::new(),
+        sql_body: None,
         cursor: Cursor {
             at,
             line: text
@@ -699,8 +701,30 @@ impl<'a> Scanner<'a> {
         ends
     }
 
+    fn sql_dollar_quote(&mut self) -> bool {
+        let (b, i) = (self.b, self.i);
+        let len = b[i + 1..].iter().take_while(|&&c| ident(c)).count();
+        if (i > 0 && ident(b[i - 1]))
+            || b.get(i + 1).is_some_and(u8::is_ascii_digit)
+            || b.get(i + 1 + len) != Some(&b'$')
+        {
+            return false;
+        }
+        let tag = &b[i..i + len + 2];
+        match self.sql_body {
+            None => self.sql_body = Some(tag),
+            Some(open) if open == tag => self.sql_body = None,
+            Some(_) => self.literal_closer = Some(tag.into()),
+        }
+        self.i += tag.len() - 1;
+        true
+    }
+
     fn opens_rest(&mut self, c: u8) {
         let (b, i, kind) = (self.b, self.i, self.kind);
+        if kind == Kind::Sql && c == b'$' && self.sql_dollar_quote() {
+            return;
+        }
         if kind == Kind::Ruby
             && self.line_start()
             && b[i..].starts_with(b"=begin")
@@ -819,6 +843,10 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
                 None
             }
             b'#' if matches!(kind, Kind::Python | Kind::Gdscript | Kind::Ruby) => {
+                comment = true;
+                Some((i, 0))
+            }
+            b'-' if kind == Kind::Lua && b.get(i + 1) == Some(&b'-') => {
                 comment = true;
                 Some((i, 0))
             }

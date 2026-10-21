@@ -22,10 +22,16 @@ The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b65
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed as its `@types/estree` interface): over `90cda9b1`, 2026-10-21, release build, `vm.loadavg` { 6.81 8.91 8.63 } before the run, { 5.88 8.08 8.34 } after.
 The swift and dart rows with #1072 (overloads that agree on a return type, chains of calls through declared return types): over `356e0f11`, 2026-10-21, release build, `vm.loadavg` { 6.41 6.89 7.68 } before the run, { 5.55 6.65 7.58 } after. swift0086 has an answer read from the code (sourcekit-lsp found none).
 The rust row with #1044's `vec![..]` held by a `let`, alone or in a tuple, and a method on an array literal (`[T; N]`, then `[T]`): over `b4571ee3`, 2026-10-21, release build, `vm.loadavg` { 6.47 5.69 5.01 } before the run.
+The swift row with #1068's one more step of reading (`url.host` in `Request.cURLDescription`): over `dbb6879a`, 2026-10-21, release build, `vm.loadavg` { 8.58 7.22 6.10 } before the run, { 8.18 7.18 6.10 } after.
+The swift row with #1068's typealias of a collection (`parameters.isEmpty` in `URLEncoding.encode`): over `afba9659`, 2026-10-21, release build, `vm.loadavg` { 6.67 7.05 6.41 } before the run, { 6.10 6.92 6.37 } after.
+The swift row with #1068's value cast in parentheses (`(underlyingError as? URLError)?.userInfo` in `AFError`): over `e0f8e876`, 2026-10-21, release build, `vm.loadavg` { 7.44 7.83 7.19 } before the run, { 7.77 7.88 7.22 } after.
+The dart row with #1216 and #1217 (a call to a method of the enclosing class): over `43e04d43`, 2026-10-21, release build, `vm.loadavg` { 4.27 4.71 5.60 } before the run.
+The sql row with the rest of #1063 (a bare column where SQL names one table, an `ADD COLUMN` under its `ALTER TABLE`) merged over #1197's fixes (a column only of its schema-qualified table): over `285f5464`, 2026-10-21, release build, `vm.loadavg` { 4.13 5.95 7.16 } before the run, { 4.13 5.95 7.16 } after.
+merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 257 | 219 (85%) | 25 (10%) | 0 (0%) | 13 (5%) | 68 | 11 | 19.0 | 285.0 |
+| python (paperless-ngx) | 257 | 229 (89%) | 15 (6%) | 0 (0%) | 13 (5%) | 68 | 11 | 20.8 | 324.9 |
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.0 | 91.0 |
 | js (eslint, uptime-kuma) | 217 | 177 (82%) | 32 (15%) | 1 (0%) | 7 (3%) | 177 | 11 | 37.0 | 173.6 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
@@ -33,7 +39,7 @@ The rust row with #1044's `vec![..]` held by a `let`, alone or in a tuple, and a
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 423 (94%) | 25 (6%) | 0 (0%) | 1 (0%) | 280 | 28 | 13.9 | 48.6 |
+| swift (Alamofire) | 449 | 423 (94%) | 25 (6%) | 0 (0%) | 1 (0%) | 280 | 25 | 14.8 | 47.4 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 61 (72%) | 12 (14%) | 0 (0%) | 12 (14%) | 130 | 1 | 20.9 | 37.7 |
@@ -56,5 +62,5 @@ The rust row with #1044's `vec![..]` held by a `let`, alone or in a tuple, and a
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
-| dart (dio) | 97 | 73 (75%) | 20 (21%) | 0 (0%) | 4 (4%) | 17 | 0 | 35.3 | 99.8 |
-| sql (lemmy) | 79 | 54 (68%) | 1 (1%) | 0 (0%) | 24 (30%) | 31 | 0 | 8.6 | 15.3 |
+| dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
+| sql (lemmy) | 79 | 66 (84%) | 1 (1%) | 0 (0%) | 12 (15%) | 31 | 0 | 12.1 | 20.1 |

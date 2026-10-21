@@ -1265,7 +1265,7 @@ fn rust_attribute_reads_past_a_call_ending_in_a_combining_mark() {
 fn sql_local_reads_from_aliases_and_no_keyword_as_one() {
     let at = |t: &str, w: &str, n: usize| {
         let i = t.match_indices(w).nth(n).unwrap().0;
-        sql_local(t, i, w)
+        sql_local(t, i, w).0
     };
     let t = "SELECT x.a FROM t x WHERE a IS DISTINCT FROM b AND c;";
     assert_eq!(at(t, "x", 0), [1]);
