@@ -25,6 +25,9 @@ impl App {
         if let Some(found) = self.dart_member(here, text, before, chain, word) {
             return Some(found);
         }
+        if let Some(found) = self.dart_own_member(here, text, before, chain, word) {
+            return Some(found);
+        }
         let qualifier = self
             .word_here(Some(Kind::Dart))
             .and_then(|(range, _)| self.line_str().get(range.end..))
@@ -426,7 +429,9 @@ impl App {
             },
             _ => return None,
         };
-        let file = self.dart_class_file(&scope, &ty)?;
+        let Some(file) = self.dart_class_file(&scope, &ty) else {
+            return self.dart_core_unreached(&scope, &ty, word).then(Vec::new);
+        };
         let class = &ty.class;
         if let Some(c) = &ty.constructor
             && !self
@@ -481,6 +486,65 @@ impl App {
         if pair && !prefixed {
             found.retain(|c| accessor(c, side));
         }
+    }
+
+    fn dart_own_member(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        chain: &[String],
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let (range, _) = self.word_here(Some(Kind::Dart))?;
+        let called = self
+            .line_str()
+            .get(range.end..)
+            .is_some_and(|r| r.starts_with('('));
+        if !chain.is_empty()
+            || before.trim_end().ends_with('.')
+            || !called
+            || !search::dart_bindings_at(text, self.line + 1, range.start, word).is_empty()
+        {
+            return None;
+        }
+        let own = search::dart_this_super(text, self.line, false)?;
+        let found = self.dart_member_of(here, &own.class, word);
+        (own.class != word
+            && !found.is_empty()
+            && found.iter().all(|c| c.hit.line1 != self.line + 1))
+        .then_some(found)
+    }
+
+    fn dart_core_unreached(&self, here: &Path, ty: &search::DartType, word: &str) -> bool {
+        let class = ty.class.as_str();
+        let on = Regex::new(&format!(
+            r"^extension(?:\s+(\w+))?(?:\s*<[^>]*>)?\s+on\s+{}\b",
+            regex::escape(class)
+        ));
+        let declares = Regex::new(&search::def_patterns(Kind::Dart, word).join("|"));
+        let (Ok(on), Ok(declares)) = (on, declares) else {
+            return false;
+        };
+        let extends = |t: &str| {
+            t.lines().filter_map(|l| on.captures(l)).any(|c| {
+                let within = c.get(1).map(|n| format!("{}.{word}", n.as_str()));
+                t.lines().enumerate().any(|(i, l)| {
+                    declares.is_match(l)
+                        && within.as_ref().is_none_or(|w| {
+                            search::qualified(Kind::Dart, t, i + 1, word).as_ref() == Some(w)
+                        })
+                })
+            })
+        };
+        ty.prefix.is_none()
+            && search::DART_CORE_TYPES.contains(&class)
+            && self.dart_visible_files(here, class).is_some_and(|files| {
+                files.iter().filter(|f| !f.is_absolute()).all(|f| {
+                    !self.dart_declares_class(f, class)
+                        && self.text_of(f).is_none_or(|t| !extends(&t))
+                })
+            })
     }
 
     fn dart_field_type(&self, here: &Path, text: &str, field: &str) -> Option<search::DartType> {

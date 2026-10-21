@@ -114,6 +114,15 @@ pub fn table_key(text: &str, line: usize, range: &Range<usize>) -> bool {
             || (before.is_empty() && continued(Kind::Lua, &lines, line - 1)))
 }
 pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
+    lua_local_at(text, line, name).map(|(_, v)| v)
+}
+pub fn lua_table_value(value: &str) -> bool {
+    static MADE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\{|setmetatable\s*\(\s*\{)").expect("the regex is a literal")
+    });
+    MADE.is_match(value)
+}
+pub fn lua_local_at(text: &str, line: usize, name: &str) -> Option<(usize, String)> {
     let lines: Vec<&str> = text.lines().collect();
     let re = Regex::new(&format!(r"^\s*local\s+{}\s*=\s*(.+)", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
@@ -133,7 +142,34 @@ pub fn lua_local_value(text: &str, line: usize, name: &str) -> Option<String> {
             .find(|&i| !literal[i] && indent(lines[i]) == 0 && re.is_match(lines[i]))?
     };
     let code = uncommented(Kind::Lua, lines[at]);
-    Some(re.captures(&code)?[1].trim().to_owned())
+    Some((at + 1, re.captures(&code)?[1].trim().to_owned()))
+}
+pub fn lua_std_receiver(text: &str, line: usize, before: &str) -> Option<&'static str> {
+    static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"\(\s*(?:"[^"]*"|'[^']*')\s*\)\s*:$"#).expect("the regex is a literal")
+    });
+    static LIB: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.:])(\w+)\s*[.:]$").expect("the regex is a literal")
+    });
+    let before = before.trim_end();
+    if LITERAL.is_match(before) {
+        return Some("string");
+    }
+    let written = LIB.captures(before)?.get(1)?.as_str();
+    let lib = [
+        "string",
+        "table",
+        "math",
+        "os",
+        "io",
+        "coroutine",
+        "debug",
+        "utf8",
+    ]
+    .into_iter()
+    .find(|&l| l == written)?;
+    (bindings(Kind::Lua, text, line, lib).is_empty() && lua_local_value(text, line, lib).is_none())
+        .then_some(lib)
 }
 pub fn lua_required(value: &str) -> Option<&str> {
     static REQUIRE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -178,7 +214,7 @@ pub fn lua_returned(text: &str) -> Option<String> {
 }
 pub fn lua_table(text: &str, owner: Option<&str>, name: &str) -> Option<String> {
     let end = text.lines().count() + 1;
-    if lua_local_value(text, end, name).is_some_and(|v| v.starts_with('{')) {
+    if lua_local_value(text, end, name).is_some_and(|v| lua_table_value(&v)) {
         return Some(name.to_owned());
     }
     let path = format!("{}.{name}", owner?);
@@ -212,6 +248,22 @@ pub fn lua_members(text: &str, table: &str, word: &str) -> Vec<usize> {
         })
         .map(|(i, _)| i + 1)
         .collect()
+}
+pub fn lua_handed_on(text: &str, table: &str, word: &str) -> Option<usize> {
+    let (t, w) = (regex::escape(table), regex::escape(word));
+    let re = Regex::new(&format!(r"^{t}\.{w}\s*=\s*{w}\s*;?$"))
+        .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    let lines = text.lines().count();
+    text.lines()
+        .zip(literal)
+        .any(|(l, inside)| !inside && re.is_match(uncommented(Kind::Lua, l).trim_end()))
+        .then(|| {
+            bindings(Kind::Lua, text, lines, word)
+                .first()
+                .map(|b| b.line1)
+        })
+        .flatten()
 }
 pub fn lua_self_table(text: &str, line: usize) -> Option<String> {
     static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

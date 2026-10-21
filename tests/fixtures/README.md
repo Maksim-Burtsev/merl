@@ -233,6 +233,18 @@ and `lua/tea/table.lua` must not reach (#1062), nor the key `assert = function` 
 below a comment; its globals assigned in an `if` block and at the top level stay definitions (#1112).
 `lua/tea/tray.lua` calls a bare `rinse` whose namesakes are `function S.rinse` in `saucer.lua` and
 `spec.lua`'s `local rinse`, a picker of both.
+`lua/tea/infusion.lua` is the third corner (#1126), its answers read from the code, over
+`gaiwan.lua`: `string.format`, `table.insert` and `("cup"):upper()` beside the module's `format`,
+`insert` and `Gaiwan:upper`, which stay the standard library's (none) unless the project patches
+it (`function string.steeped`) or binds the name (a parameter `string`); `tostring(v):upper()`
+still jumps (#1207); a field of a required module, `pcall(require, ..)`, a builder over lines and
+through a local, whose `return self` is not followed (#1208), `local gaiwan = gaiwan.Gaiwan.new(1)`,
+whose receiver is read on its own line, `M.Gaiwan = Gaiwan` answered by the module's local,
+`local a, b = b, a`, a `for` header over a parameter of its name, a subclass made by
+`setmetatable({}, { __index = .. })` with an inherited and an overridden method, `self` in a
+closure and in a `function(self)`, a call above the `local function` of its name (a global, so
+none), a one-line string, a `--` comment and a `--[==[` block declaring names, and `goto continue`
+(#1209).
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
@@ -638,6 +650,17 @@ function, and declaration-shaped lines in a raw string, a nested `/* */` and a `
 `dart/lib/infuser.dart` (#1072) reaches `Leaf.unfurl` through a call and a getter of `Infuser`,
 over lines and on one, beside a namesake `Bag.unfurl`; a generic method's `T` is no type to
 follow, so `hold(Bag()).unfurl` does not jump.
+`dart/lib/brew/ceremony.dart` is the third corner (#1126), its answers read from the code, over
+`chawan.dart`, `old_chawan.dart` (a namesake `Chawan` behind a prefix) and `lib/brew.dart`, which
+re-exports: `String.trim` and `StringBuffer.write` beside `Chawan`'s namesakes, which say none with
+no SDK, while an `extension .. on String` member is still found; `const Duration(..).inMinutes`
+(#1218), a chain in a local's value and a top-level function's result (#1218), a chain over lines,
+a cascade over lines (#1072), a loop variable named like a later local, a list pattern (#1219), an
+object pattern in an `if case`, a mixin's, an interface's, an inherited and an overridden method,
+named and unnamed extensions, a prefixed named constructor, a class through a re-exporting prefix
+(#1221), `${..}` in a string beside a `'''` string and a `//` comment declaring names, a local
+function, a class method that hides the top-level function of its name, an enum's value, field and
+method, `call()` on a field, and a type parameter's bound (#1220).
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a

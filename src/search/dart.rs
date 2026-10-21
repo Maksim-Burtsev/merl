@@ -762,6 +762,31 @@ pub struct DartType {
     pub constructor: Option<String>,
 }
 
+pub const DART_CORE_TYPES: &[&str] = &[
+    "String",
+    "StringBuffer",
+    "int",
+    "double",
+    "num",
+    "bool",
+    "Object",
+    "List",
+    "Map",
+    "Set",
+    "Iterable",
+    "Iterator",
+    "Duration",
+    "DateTime",
+    "Uri",
+    "RegExp",
+    "BigInt",
+    "Stopwatch",
+    "Future",
+    "Stream",
+    "Completer",
+    "Timer",
+];
+
 const DART_NEW: &str = r"(?:const\s+|new\s+)?(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)(?:\.([A-Za-z_$][\w$]*))?\s*(?:<[^()]*>)?\s*\(";
 
 fn dart_new(s: &str, c: &regex::Captures, open: usize) -> Option<(DartType, usize)> {
