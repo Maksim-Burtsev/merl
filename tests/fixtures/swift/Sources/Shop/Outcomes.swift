@@ -369,3 +369,54 @@ func lifted(_ relay: Any) -> Int {
     //                               ^ d: none
     return up + down
 }
+
+// A closure parameter of a generic wrapper's method that hands the closure the wrapped value is
+// that value; its fields from outside answer from the project's extensions or none (#1068).
+final class Strongbox<Value> {
+    private var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func read<U>(_ closure: (Value) throws -> U) rethrows -> U {
+        try closure(value)
+    }
+
+    func write<U>(_ closure: (inout Value) throws -> U) rethrows -> U {
+        try closure(&value)
+    }
+
+    func write(_ value: Value) {
+        self.value = value
+    }
+}
+
+struct Coffer {
+    var queued: [Int] = []
+    var seals: Set<String> = []
+}
+
+final class Vaultkeeper {
+    func remove(_ seal: String) {}
+
+    let coffer = Strongbox(Coffer())
+    let strongbox: Strongbox<Coffer>
+
+    init(_ strongbox: Strongbox<Coffer>) {
+        self.strongbox = strongbox
+    }
+
+    func drain() -> Bool {
+        coffer.write { $0.seals.remove("lead") }
+        //                      ^ d: none
+        let idle = coffer.read { state in state.queued.isEmpty }
+        //                                             ^ d: none
+        //                                      ^ d: Sources/Shop/Outcomes.swift:396
+        return strongbox.write { strongbox in
+            strongbox.queued.isEmpty && idle
+            //               ^ d: none
+            //        ^ d: Sources/Shop/Outcomes.swift:396
+        }
+    }
+}

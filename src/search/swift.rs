@@ -1108,6 +1108,66 @@ pub fn swift_closure_sequence(lead: &str) -> Option<String> {
     });
     Some(EACH.captures(&uncommented(Kind::Swift, lead))?[1].to_owned())
 }
+pub fn swift_trailing_closure(line: &str, name: &str) -> Option<(String, String)> {
+    let call = r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.([A-Za-z_]\w*)\s*\{";
+    let pattern = if name == "0" {
+        format!(r"{call}[^{{}}]*\$0\.[\w.]*$")
+    } else {
+        let n = regex::escape(name);
+        format!(r"{call}\s*(?:\[[^\]]*\]\s*)?`?{n}`?\s+in\b")
+    };
+    let code = uncommented(Kind::Swift, line);
+    let c = Regex::new(&pattern)
+        .expect("an escaped name keeps the pattern valid")
+        .captures(&code)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
+}
+pub fn swift_closure_input(decl: &str) -> Option<String> {
+    static TAKES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r":\s*(?:@\w+\s+)*\(\s*(?:inout\s+)?([A-Za-z_]\w*)\s*\)\s*(?:async\s+)?(?:(?:re)?throws\s+)?->")
+            .expect("the regex is a literal")
+    });
+    let found: Vec<String> = TAKES
+        .captures_iter(&uncommented(Kind::Swift, decl))
+        .map(|c| c[1].to_owned())
+        .collect();
+    match found.as_slice() {
+        [one] => Some(one.clone()),
+        _ => None,
+    }
+}
+pub fn swift_sole_argument(e: &str) -> Option<String> {
+    let e = e.trim();
+    let open = e.find('(')?;
+    let close = close_of(Kind::Swift, e, open)?;
+    let inner = e.get(open + 1..close.checked_sub(1)?)?.trim();
+    let unlabeled = !Regex::new(r"^`?\w+`?\s*:")
+        .expect("the regex is a literal")
+        .is_match(inner);
+    (e.get(close..)?.trim().is_empty()
+        && !inner.is_empty()
+        && unlabeled
+        && split_top(Kind::Swift, inner, b',').len() == 1)
+        .then(|| inner.to_owned())
+}
+pub fn swift_init_takes(decl: &str, param: &str) -> bool {
+    let p = regex::escape(param);
+    Regex::new(&format!(r"\binit\s*\(\s*_\s+\w+\s*:\s*{p}\s*\)"))
+        .expect("an escaped name keeps the pattern valid")
+        .is_match(&uncommented(Kind::Swift, decl))
+}
+pub fn swift_generic_arguments(written: &str) -> Vec<String> {
+    let t = written.trim().trim_end_matches(['?', '!']);
+    t.find('<')
+        .and_then(|open| t.strip_suffix('>')?.get(open + 1..))
+        .map(|inner| {
+            split_top(Kind::Swift, inner, b',')
+                .into_iter()
+                .map(|a| a.trim().to_owned())
+                .collect()
+        })
+        .unwrap_or_default()
+}
 pub fn swift_cast_receiver(lead: &str) -> Option<String> {
     static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w.)\]?!>])\(\s*[A-Za-z_][\w.]*\s+as[?!]\s+([A-Z]\w*)\s*\)[?!]?\.$")
