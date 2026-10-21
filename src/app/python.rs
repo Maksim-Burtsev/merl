@@ -399,6 +399,56 @@ impl App {
             found.retain(plain);
         }
     }
+
+    fn python_mro(&self, ty: &Typed) -> Vec<Typed> {
+        let mut walk = Vec::new();
+        self.hierarchy(Kind::Python, ty, 0, &mut |t| {
+            walk.push(t.clone());
+            None::<()>
+        });
+        let at = |t: &Typed| (t.path.clone(), t.line);
+        (0..walk.len())
+            .filter(|&i| walk[i + 1..].iter().all(|u| at(u) != at(&walk[i])))
+            .map(|i| walk[i].clone())
+            .collect()
+    }
+
+    pub(super) fn made_by_class_attribute(&self, ty: &Typed, field: &str) -> Option<Typed> {
+        let kind = Kind::Python;
+        let mro = self.python_mro(ty);
+        let nearest = |name: &str| {
+            mro.iter().find_map(|t| {
+                let text = self.text_of(&t.path)?;
+                let found = search::field_bindings(kind, &text, t.line, name);
+                (!found.is_empty()).then(|| (t.path.clone(), found))
+            })
+        };
+        let (_, made) = nearest(field)?;
+        let [
+            search::Binding {
+                value: search::Value::Call(callee),
+                ..
+            },
+        ] = made.as_slice()
+        else {
+            return None;
+        };
+        let attribute = (callee
+            .strip_prefix("cls.")
+            .or_else(|| callee.strip_prefix("self.")))
+        .filter(|a| !a.contains('.'))?;
+        let (at, held) = nearest(attribute)?;
+        let [
+            search::Binding {
+                value: search::Value::Name(class),
+                ..
+            },
+        ] = held.as_slice()
+        else {
+            return None;
+        };
+        self.type_decl(kind, &at, class)
+    }
 }
 
 pub(super) fn enclosing_def_lines1(text: &str, line1: usize) -> Vec<usize> {

@@ -55,6 +55,7 @@ mod preview_data;
 mod project_search;
 mod proto;
 mod python;
+mod razor;
 mod resolution;
 mod review;
 mod ruby;
@@ -326,6 +327,7 @@ pub struct App {
     walked_roots: HashMap<PathBuf, Arc<Vec<PathBuf>>>,
     shaped: search::ShapedFiles,
     warming: HashMap<Kind, Option<std::thread::JoinHandle<Walked>>>,
+    rootless: HashSet<Kind>,
     node_modules_of: Option<PathBuf>,
     otp: Option<Vec<PathBuf>>,
     c_includes: HashMap<(PathBuf, CMode), Paths>,
@@ -336,6 +338,7 @@ pub struct App {
     at_base: Option<(String, Box<Self>)>,
     truncated: std::cell::Cell<bool>,
     anonymous_named: std::cell::Cell<Option<Typed>>,
+    razor_view: bool,
     reading: std::cell::RefCell<Vec<(PathBuf, usize)>>,
     ruby_declared: std::cell::RefCell<RubyDeclared>,
     pub focus: Focus,
@@ -486,6 +489,7 @@ impl App {
             walked_roots: HashMap::new(),
             shaped: search::ShapedFiles::default(),
             warming: HashMap::new(),
+            rootless: HashSet::new(),
             node_modules_of: None,
             otp: None,
             c_includes: HashMap::new(),
@@ -499,6 +503,7 @@ impl App {
             at_base: None,
             truncated: std::cell::Cell::default(),
             anonymous_named: std::cell::Cell::default(),
+            razor_view: false,
             reading: std::cell::RefCell::default(),
             ruby_declared: std::cell::RefCell::default(),
             focus,

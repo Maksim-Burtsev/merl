@@ -335,33 +335,16 @@ impl App {
             let found = self.lines_here(a, lines, &Reason::Local);
             return self.show_found(a, found);
         }
-        if kind == Kind::Sql && !a.dotted {
-            let at = self.buf.lines[..self.line]
-                .iter()
-                .map(|l| l.len() + 1)
-                .sum::<usize>()
-                + a.range.start;
-            let lines = search::sql_local(&a.text, at, &a.word);
-            if !lines.is_empty() {
-                let found = self.lines_here(a, lines, &Reason::Local);
-                return self.show_found(a, found);
-            }
+        if kind == Kind::Lua
+            && let Some(lines) = search::lua_goto_label(&a.text, self.line + 1, &a.lead, &a.word)
+        {
+            let found = self.lines_here(a, lines, &Reason::Local);
+            return self.show_found(a, found);
         }
         if kind == Kind::Sql
-            && a.dotted
-            && let [qualifier] = a.chain.as_slice()
+            && let Some(shown) = self.sql_in_file(a)
         {
-            let at = self.buf.lines[..self.line]
-                .iter()
-                .map(|l| l.len() + 1)
-                .sum::<usize>()
-                + a.range.start;
-            if let Some(table) = search::sql_alias_table(&a.text, at, qualifier) {
-                let found = self.sql_column(&a.here, &table, &a.word);
-                if !found.is_empty() {
-                    return self.show_found(a, found);
-                }
-            }
+            return shown;
         }
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
@@ -488,24 +471,85 @@ impl App {
 }
 
 impl App {
-    fn sql_column(&self, here: &Path, table: &str, column: &str) -> Vec<Candidate> {
-        let mut hits =
-            self.project_grep(Kind::Sql, here, &search::sql_column_pattern(table, column));
-        let keep = search::sql_in_effect(here, self.line + 1, &hits);
+    fn sql_in_file(&mut self, a: &Asked) -> Option<bool> {
+        let at = self.buf.lines[..self.line]
+            .iter()
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + a.range.start;
+        let quoted = at > 0 && a.text.as_bytes().get(at - 1) == Some(&b'"');
+        let (table, lines) = if a.dotted {
+            let [qualifier] = a.chain.as_slice() else {
+                return None;
+            };
+            (search::sql_alias_table(&a.text, at, qualifier), Vec::new())
+        } else {
+            let (lines, column_wins) = search::sql_local(&a.text, at, &a.word);
+            let table = (lines.is_empty() || column_wins)
+                .then(|| search::sql_bare_table(&a.text, at, &a.word))
+                .flatten();
+            (table, lines)
+        };
+        let found = table
+            .map(|t| self.sql_column(&a.here, &t, (&a.word, quoted), 4))
+            .unwrap_or_default();
+        if found.is_empty() && !lines.is_empty() {
+            let found = self.lines_here(a, lines, &Reason::Local);
+            return Some(self.show_found(a, found));
+        }
+        (!found.is_empty()).then(|| self.show_found(a, found))
+    }
+
+    fn sql_in_effect_of(&self, here: &Path, table: &str, mut hits: Vec<Hit>) -> Vec<Hit> {
+        let tabled: Vec<Hit> = hits
+            .iter()
+            .map(|h| Hit {
+                text: format!("TABLE {table}"),
+                ..h.clone()
+            })
+            .collect();
+        let keep = search::sql_in_effect(here, self.line + 1, &tabled);
         let mut i = 0;
         hits.retain(|h| {
             i += 1;
             keep.as_ref()
                 .map_or_else(|| !h.path.ends_with("down.sql"), |k| k.contains(&(i - 1)))
         });
+        hits
+    }
+
+    fn sql_column(
+        &self,
+        here: &Path,
+        table: &str,
+        asked: (&str, bool),
+        depth: usize,
+    ) -> Vec<Candidate> {
+        let (column, quoted) = asked;
+        let mut hits =
+            self.project_grep(Kind::Sql, here, &search::sql_column_pattern(table, column));
+        let head = regex::Regex::new(r"(?i)^\s*(?:CREATE|ALTER)\s").expect("a valid pattern");
+        hits.retain(|h| {
+            head.is_match(&h.text)
+                || self
+                    .hit_text(h)
+                    .is_some_and(|t| search::sql_alters(&t, h.line1, table))
+        });
+        let hits = self.sql_in_effect_of(here, table, hits);
         let create = regex::Regex::new(r"(?i)^\s*CREATE\s").expect("a valid pattern");
-        hits.into_iter()
+        let mut parents = Vec::new();
+        let found: Vec<Candidate> = hits
+            .into_iter()
             .filter_map(|h| {
                 if !create.is_match(&h.text) {
                     return Some(h);
                 }
-                let line1 = search::sql_table_column(&self.hit_text(&h)?, h.line1, column)?;
-                let text = self.hit_text(&h)?.lines().nth(line1 - 1)?.to_owned();
+                let whole = self.hit_text(&h)?;
+                let Some(line1) = search::sql_table_column(&whole, h.line1, column, quoted) else {
+                    parents.extend(search::sql_parents(&whole, h.line1));
+                    return None;
+                };
+                let text = whole.lines().nth(line1 - 1)?.to_owned();
                 Some(Hit {
                     line1,
                     text,
@@ -517,6 +561,26 @@ impl App {
                 hit,
                 reason: Reason::Receiver(table.to_owned()),
             })
+            .collect();
+        if !found.is_empty() || depth == 0 {
+            return found;
+        }
+        let renames = self.sql_in_effect_of(
+            here,
+            table,
+            self.project_grep(Kind::Sql, here, &search::sql_renamed_to(table)),
+        );
+        parents.extend(
+            renames
+                .iter()
+                .filter_map(|h| search::sql_renamed_from(&h.text, table)),
+        );
+        parents.sort();
+        parents.dedup();
+        parents
+            .iter()
+            .filter(|p| *p != table)
+            .flat_map(|p| self.sql_column(here, p, asked, depth - 1))
             .collect()
     }
 }

@@ -41,7 +41,7 @@ impl App {
             pattern: pattern.to_owned(),
             symbols: false,
             current,
-            unsaved: self.dirty.then(|| self.buf.to_bytes()),
+            unsaved: (self.dirty || self.razor_view).then(|| self.buf.to_bytes()),
             deleted: self.deleted_lines(),
         }
     }
@@ -62,6 +62,7 @@ impl App {
             None => self.buf.lines.first().cloned().unwrap_or_default(),
             Some(_) => self.buf.lines.join("\n"),
         })
+        .or_else(|| self.razor_view.then_some(Kind::CSharp))
     }
 
     pub(super) fn kind_at(&self, path: &Path) -> Option<Kind> {
@@ -74,7 +75,9 @@ impl App {
         if kind == Kind::Shell && path.extension().is_none() && search::kind_of(path).is_none() {
             return search::shell_script(&self.head_of(path));
         }
-        search::in_def_scope(kind, here, path) && (kind != Kind::C || self.kind_at(path).is_some())
+        self.razor_view && path == here
+            || search::in_def_scope(kind, here, path)
+                && (kind != Kind::C || self.kind_at(path).is_some())
     }
 
     fn head_of(&self, path: &Path) -> String {

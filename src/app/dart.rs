@@ -25,6 +25,9 @@ impl App {
         if let Some(found) = self.dart_member(here, text, before, chain, word) {
             return Some(found);
         }
+        if let Some(found) = self.dart_own_member(here, text, before, chain, word) {
+            return Some(found);
+        }
         let qualifier = self
             .word_here(Some(Kind::Dart))
             .and_then(|(range, _)| self.line_str().get(range.end..))
@@ -150,7 +153,7 @@ impl App {
         if tail.trim_start().starts_with(':') {
             return;
         }
-        let Some(files) = self.dart_visible_files(here, word) else {
+        let Some(files) = self.dart_visible_files(here, word, None) else {
             return;
         };
         let top = |c: &Candidate| !c.hit.text.starts_with(char::is_whitespace);
@@ -324,14 +327,25 @@ impl App {
         Some((files, directives))
     }
 
-    fn dart_visible_files(&self, here: &Path, word: &str) -> Option<Vec<PathBuf>> {
+    fn dart_visible_files(
+        &self,
+        here: &Path,
+        word: &str,
+        prefix: Option<&str>,
+    ) -> Option<Vec<PathBuf>> {
         let sdk = search::dart_sdk();
         let sdk = sdk.as_deref();
-        let (mut files, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
+        let (library, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
+        let from = library[0].clone();
+        let mut files = if prefix.is_none() {
+            library
+        } else {
+            Vec::new()
+        };
         let mut queue: Vec<(PathBuf, search::DartDirective)> = directives
             .into_iter()
-            .filter(|d| d.keyword == "import" && d.prefix.is_none())
-            .map(|d| (files[0].clone(), d))
+            .filter(|d| d.keyword == "import" && d.prefix.as_deref() == prefix)
+            .map(|d| (from.clone(), d))
             .collect();
         while let Some((from, d)) = queue.pop() {
             if d.uri.starts_with("dart:")
@@ -370,46 +384,29 @@ impl App {
         chain: &[String],
         word: &str,
     ) -> Option<Vec<Candidate>> {
-        let lines: Vec<&str> = text.lines().collect();
         let mut scope = here.to_path_buf();
-        let bound = |name: &str| {
-            let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
-            let [b] = bindings.as_slice() else {
-                return None;
-            };
-            let next: usize = text.split_inclusive('\n').take(b.line1).map(str::len).sum();
-            search::dart_typed(lines.get(b.line1 - 1)?, text.get(next..)?, name)
-        };
         let ty = match chain {
             [] if before.ends_with("..") => match search::dart_cascade(before)? {
                 Ok(ty) => ty,
-                Err(name) => bound(&name)?,
-            },
-            [] if let Some(links) = search::dart_call_links(before) => {
-                let (head, rest) = links.split_first()?;
-                let mut ty = match bound(head) {
-                    Some(ty) => ty,
-                    None => self.dart_field_type(here, text, head)?,
-                };
-                for link in rest {
-                    let file = self.dart_class_file(&scope, &ty)?;
-                    let mut rows = self.dart_member_of(&file, &ty.class, link);
-                    if rows.is_empty() {
-                        rows = self.dart_inherited(&file, &ty.class, link, 0);
-                    }
-                    let [row] = rows.as_slice() else {
-                        return None;
-                    };
-                    ty = search::dart_returns(&row.hit.text, link)?;
-                    scope.clone_from(&row.hit.path);
+                Err(name) => {
+                    let (ty, s) = self.dart_bound(here, text, &name, 0)?;
+                    scope = s;
+                    ty
                 }
+            },
+            [] => {
+                let (ty, s) = self.dart_chain_type(here, text, before, 0)?;
+                scope = s;
                 ty
             }
             [r] if r == "this" || r == "super" => {
                 search::dart_this_super(text, self.line, r == "super")?
             }
-            [r] => match bound(r) {
-                Some(ty) => ty,
+            [r] => match self.dart_bound(here, text, r, 0) {
+                Some((ty, s)) => {
+                    scope = s;
+                    ty
+                }
                 None if r.trim_start_matches('_').starts_with(char::is_uppercase)
                     && search::bindings(Kind::Dart, text, self.line + 1, r).is_empty() =>
                 {
@@ -426,7 +423,9 @@ impl App {
             },
             _ => return None,
         };
-        let file = self.dart_class_file(&scope, &ty)?;
+        let Some(file) = self.dart_class_file(&scope, &ty) else {
+            return self.dart_core_unreached(&scope, &ty, word).then(Vec::new);
+        };
         let class = &ty.class;
         if let Some(c) = &ty.constructor
             && !self
@@ -442,6 +441,104 @@ impl App {
         }
         self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_bound(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        depth: usize,
+    ) -> Option<(search::DartType, PathBuf)> {
+        let line_of = |name: &str| {
+            let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
+            let [b] = bindings.as_slice() else {
+                return None;
+            };
+            text.lines().nth(b.line1 - 1).map(|l| (l, b.line1))
+        };
+        let (line, line1) = line_of(name)?;
+        let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
+        if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
+            let ty = search::dart_type_bound(line, &ty).unwrap_or(ty);
+            return Some((ty, here.to_path_buf()));
+        }
+        if let Some(list) = search::dart_list_element(line, name) {
+            let (line, _) = line_of(list).filter(|_| list != name)?;
+            return Some((search::dart_element_typed(line, list)?, here.to_path_buf()));
+        }
+        let value = search::dart_value(line, name).filter(|_| depth < 4)?;
+        let value = format!("{value}.");
+        let (links, _, start) = search::dart_call_links(&value)?;
+        let lead = value.get(..start)?.trim();
+        (links[0] != name && matches!(lead, "" | "new" | "const"))
+            .then(|| self.dart_chain_type(here, text, &value, depth + 1))?
+    }
+
+    fn dart_chain_type(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        depth: usize,
+    ) -> Option<(search::DartType, PathBuf)> {
+        let (links, called, _) = search::dart_call_links(before)?;
+        let (head, rest) = links.split_first()?;
+        let (mut ty, mut scope) = if called {
+            self.dart_call_type(here, text, head)?
+        } else {
+            match self.dart_bound(here, text, head, depth) {
+                Some(found) => found,
+                None => (self.dart_field_type(here, text, head)?, here.to_path_buf()),
+            }
+        };
+        for link in rest {
+            let file = self.dart_class_file(&scope, &ty)?;
+            let mut rows = self.dart_member_of(&file, &ty.class, link);
+            if rows.is_empty() {
+                rows = self.dart_inherited(&file, &ty.class, link, 0);
+            }
+            let [row] = rows.as_slice() else {
+                return None;
+            };
+            ty = search::dart_returns(&row.hit.text, link)?;
+            scope.clone_from(&row.hit.path);
+        }
+        Some((ty, scope))
+    }
+
+    fn dart_call_type(
+        &self,
+        here: &Path,
+        text: &str,
+        name: &str,
+    ) -> Option<(search::DartType, PathBuf)> {
+        if !search::bindings(Kind::Dart, text, self.line + 1, name).is_empty() {
+            return None;
+        }
+        if name.trim_start_matches('_').starts_with(char::is_uppercase) {
+            let ty = search::DartType {
+                prefix: None,
+                class: name.to_owned(),
+                constructor: None,
+            };
+            return Some((ty, here.to_path_buf()));
+        }
+        if search::dart_body_at(text, self.line).is_none_or(|(body, _)| !body.is_empty()) {
+            return None;
+        }
+        let reason = Reason::Receiver(name.to_owned());
+        let found: Vec<Candidate> = self
+            .dart_visible_files(here, name, None)?
+            .iter()
+            .flat_map(|f| self.dart_declared_in(f, name, None, &[None], &reason))
+            .collect();
+        let [c] = found.as_slice() else {
+            return None;
+        };
+        let ty = search::dart_returns(&c.hit.text, name)
+            .filter(|_| !c.hit.text.starts_with(char::is_whitespace))?;
+        Some((ty, c.hit.path.clone()))
     }
 
     fn dart_accessor_side(&self, before: &str, word: &str, found: &mut Vec<Candidate>) {
@@ -483,6 +580,74 @@ impl App {
         }
     }
 
+    fn dart_own_member(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        chain: &[String],
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let (range, _) = self.word_here(Some(Kind::Dart))?;
+        let called = self
+            .line_str()
+            .get(range.end..)
+            .is_some_and(|r| r.starts_with('('));
+        if !chain.is_empty()
+            || before.trim_end().ends_with('.')
+            || !called
+            || !search::dart_bindings_at(text, self.line + 1, range.start, word).is_empty()
+        {
+            return None;
+        }
+        let own = search::dart_this_super(text, self.line, false)?;
+        let found = self.dart_member_of(here, &own.class, word);
+        (own.class != word
+            && !found.is_empty()
+            && found.iter().all(|c| c.hit.line1 != self.line + 1))
+        .then_some(found)
+    }
+
+    fn dart_core_unreached(&self, here: &Path, ty: &search::DartType, word: &str) -> bool {
+        let class = ty.class.as_str();
+        let on = Regex::new(r"^extension(?:\s+(\w+))?(?:\s*<[^>]*>)?\s+on\s+(\w+)");
+        let declares = Regex::new(&search::def_patterns(Kind::Dart, word).join("|"));
+        let (Ok(on), Ok(declares)) = (on, declares) else {
+            return false;
+        };
+        let reaches = |target: &str| {
+            target == class
+                || target == "Object"
+                || !search::DART_CORE_TYPES.contains(&target)
+                || (target == "Iterable" && matches!(class, "List" | "Set"))
+                || (target == "num" && matches!(class, "int" | "double"))
+        };
+        let extends = |t: &str| {
+            t.lines()
+                .filter_map(|l| on.captures(l))
+                .filter(|c| reaches(&c[2]))
+                .any(|c| {
+                    let within = c.get(1).map(|n| format!("{}.{word}", n.as_str()));
+                    t.lines().enumerate().any(|(i, l)| {
+                        declares.is_match(l)
+                            && within.as_ref().is_none_or(|w| {
+                                search::qualified(Kind::Dart, t, i + 1, word).as_ref() == Some(w)
+                            })
+                    })
+                })
+        };
+        ty.prefix.is_none()
+            && search::DART_CORE_TYPES.contains(&class)
+            && self
+                .dart_visible_files(here, class, None)
+                .is_some_and(|files| {
+                    files.iter().filter(|f| !f.is_absolute()).all(|f| {
+                        !self.dart_declares_class(f, class)
+                            && self.text_of(f).is_none_or(|t| !extends(&t))
+                    })
+                })
+    }
+
     fn dart_field_type(&self, here: &Path, text: &str, field: &str) -> Option<search::DartType> {
         if !search::bindings(Kind::Dart, text, self.line + 1, field).is_empty() {
             return None;
@@ -519,19 +684,7 @@ impl App {
     }
 
     fn dart_class_file(&self, here: &Path, ty: &search::DartType) -> Option<PathBuf> {
-        let sdk = search::dart_sdk();
-        let sdk = sdk.as_deref();
-        let files = match &ty.prefix {
-            Some(p) => {
-                let (library, directives) = self.dart_library(here.to_path_buf(), sdk, false)?;
-                let d = directives
-                    .iter()
-                    .find(|d| d.keyword == "import" && d.prefix.as_ref() == Some(p))?;
-                let file = search::dart_uri_file(&self.root, &library[0], &d.uri, sdk)?;
-                self.dart_library(file, sdk, false)?.0
-            }
-            None => self.dart_visible_files(here, &ty.class)?,
-        };
+        let files = self.dart_visible_files(here, &ty.class, ty.prefix.as_deref())?;
         let mut declaring = files
             .into_iter()
             .filter(|f| !f.is_absolute() && self.dart_declares_class(f, &ty.class));
