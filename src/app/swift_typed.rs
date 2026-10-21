@@ -296,6 +296,13 @@ impl App {
                     }
                 }
             }
+            [] if file == here
+                && line1 == self.line + 1
+                && search::swift_closure_param(lines[line1 - 1], name, self.col) =>
+            {
+                let call = search::swift_trailing_closure(lines[line1 - 1].get(..self.col)?, name)?;
+                self.swift_closure_value(here, file, text, line1, call, hops)
+            }
             [] => {
                 let at = around?;
                 let mut top = search::swift_scope(&lines, &literal, line1).header_line1;

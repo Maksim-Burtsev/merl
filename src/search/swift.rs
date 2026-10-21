@@ -1116,9 +1116,10 @@ pub fn swift_trailing_closure(line: &str, name: &str) -> Option<(String, String)
         let n = regex::escape(name);
         format!(r"{call}\s*(?:\[[^\]]*\]\s*)?`?{n}`?\s+in\b")
     };
+    let code = uncommented(Kind::Swift, line);
     let c = Regex::new(&pattern)
         .expect("an escaped name keeps the pattern valid")
-        .captures(&uncommented(Kind::Swift, line))?;
+        .captures(&code)?;
     Some((c[1].to_owned(), c[2].to_owned()))
 }
 pub fn swift_closure_input(decl: &str) -> Option<String> {
