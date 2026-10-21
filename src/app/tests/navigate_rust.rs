@@ -1016,22 +1016,31 @@ fn an_indexed_value_is_its_element_and_a_vec_reaches_its_slice() {
         &[
             ("lib/rustlib/src/rust/library/core/src/ops/range.rs", range),
             ("lib/rustlib/src/rust/library/core/src/range.rs", range),
-            ("lib/rustlib/src/rust/library/std/src/lib.rs", "pub use core::ops;\n"),
+            (
+                "lib/rustlib/src/rust/library/std/src/lib.rs",
+                "pub use core::ops;\n",
+            ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/borrow.rs",
                 "impl<T: Clone> ToOwned for T {\n    fn to_owned(&self) -> T {\n        loop {}\n    }\n}\n",
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/slice/mod.rs",
-                &format!("impl<T> [T] {{\n{stable}    pub fn contains(&self, x: &T) -> bool {{\n        false\n    }}\n}}\n\nimpl<T: Clone> ToOwned for [T] {{\n    fn to_owned(&self) -> Vec<T> {{\n        loop {{}}\n    }}\n}}\n"),
+                &format!(
+                    "impl<T> [T] {{\n{stable}    pub fn contains(&self, x: &T) -> bool {{\n        false\n    }}\n}}\n\nimpl<T: Clone> ToOwned for [T] {{\n    fn to_owned(&self) -> Vec<T> {{\n        loop {{}}\n    }}\n}}\n"
+                ),
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/str/mod.rs",
-                &format!("impl str {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n\n{stable}    pub fn contains(&self) -> bool {{\n        false\n    }}\n}}\n"),
+                &format!(
+                    "impl str {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n\n{stable}    pub fn contains(&self) -> bool {{\n        false\n    }}\n}}\n"
+                ),
             ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
-                &format!("pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"),
+                &format!(
+                    "pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
             ),
         ],
     );
@@ -1062,4 +1071,40 @@ fn an_indexed_value_is_its_element_and_a_vec_reaches_its_slice() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_std_value_keeps_only_project_traits_it_can_implement() {
+    let lib = "pub struct Rack;\n\npub trait Panes {\n    fn windows(&self) -> u32;\n}\n\nimpl Panes for Rack {\n    fn windows(&self) -> u32 {\n        0\n    }\n}\n\npub trait Sniff {\n    fn sniff(&self) -> u32;\n}\n\nimpl Sniff for str {\n    fn sniff(&self) -> u32 {\n        0\n    }\n}\n\npub trait Every {\n    fn every(&self) -> u32;\n}\n\nimpl<T: ?Sized> Every for T {\n    fn every(&self) -> u32 {\n        0\n    }\n}\n\npub trait Halves {\n    fn halves(&self) -> u32;\n}\n\nimpl<T> Halves for [T] {\n    fn halves(&self) -> u32 {\n        0\n    }\n}\n\npub fn used(s: &str, n: String) -> u32 {\n    let v = vec![1, 2, 3];\n    let a = v.windows(2);\n    let b = [1, 2].windows(1);\n    let c = s.sniff() + n.sniff();\n    let d = v.sniff();\n    let e = v.every() + v.halves();\n    let f = [1].halves();\n    a + b + c + d + e + f\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-std-traits",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    use_roots(&mut a, Kind::Rust, &[]);
+    for (code, want) in [
+        ("s.sniff", "src/lib.rs:18"),
+        ("n.sniff", "src/lib.rs:14"),
+        ("v.every", "src/lib.rs:24"),
+        ("v.halves", "src/lib.rs:34"),
+        ("[1].halves", "src/lib.rs:34"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place,
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    for code in ["v.windows", "[1, 2].windows", "v.sniff"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = shown(&mut a);
+        assert!(
+            matches!(&got, Shown::Jump(s, _) if s.starts_with("no definition")),
+            "{code}: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
 }

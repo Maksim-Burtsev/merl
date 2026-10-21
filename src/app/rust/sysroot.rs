@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use super::chain::{let_initializer, opening, trailing_name};
 use super::{
-    App, Candidate, Hit, Kind, Path, Reason, Regex, Typing, bound, rust_bare_type,
+    App, Candidate, HashMap, Hit, Kind, Path, Reason, Regex, Typing, bound, rust_bare_type,
     rust_written_type, search,
 };
 
@@ -10,6 +10,24 @@ static SLICE_IMPL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\s*<[^{]*?>\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?(\[T(?:;\s*N)?\])\s*(?:\{|where\b|$)")
         .expect("the regex is a literal")
 });
+
+const DEREF: &[(&str, &[&str])] = &[
+    ("String", &["String", "str"]),
+    ("str", &["str"]),
+    ("PathBuf", &["PathBuf", "Path"]),
+    ("Path", &["Path"]),
+    ("OsString", &["OsString", "OsStr"]),
+    ("OsStr", &["OsStr"]),
+    ("Vec", &["Vec", "[T]"]),
+    ("VecDeque", &["VecDeque"]),
+    ("Option", &["Option"]),
+    ("Result", &["Result"]),
+    ("HashMap", &["HashMap"]),
+    ("HashSet", &["HashSet"]),
+    ("BTreeMap", &["BTreeMap"]),
+    ("BTreeSet", &["BTreeSet"]),
+    ("[T; N]", &["[T; N]", "[T]"]),
+];
 
 static INDEXED: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)?(?:(?:(?:std|alloc)::(?:vec|collections)::)?(Vec|VecDeque)\s*<(.+)>|\[(.+)\])$")
@@ -111,23 +129,6 @@ impl App {
         std: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
-        const DEREF: &[(&str, &[&str])] = &[
-            ("String", &["String", "str"]),
-            ("str", &["str"]),
-            ("PathBuf", &["PathBuf", "Path"]),
-            ("Path", &["Path"]),
-            ("OsString", &["OsString", "OsStr"]),
-            ("OsStr", &["OsStr"]),
-            ("Vec", &["Vec", "[T]"]),
-            ("VecDeque", &["VecDeque"]),
-            ("Option", &["Option"]),
-            ("Result", &["Result"]),
-            ("HashMap", &["HashMap"]),
-            ("HashSet", &["HashSet"]),
-            ("BTreeMap", &["BTreeMap"]),
-            ("BTreeSet", &["BTreeSet"]),
-            ("[T; N]", &["[T; N]", "[T]"]),
-        ];
         let (_, levels) = DEREF.iter().find(|(t, _)| *t == std)?;
         if !self.rust_std_named(text, std) {
             return None;
@@ -214,6 +215,52 @@ impl App {
             .is_ok_and(|own| own.is_empty())
     }
 
+    pub(super) fn rust_std_hides(
+        &self,
+        owner: &search::RustOwner,
+        std: &str,
+        seen: &mut HashMap<String, bool>,
+    ) -> bool {
+        match owner {
+            search::RustOwner::Inherent => true,
+            search::RustOwner::Trait(t) | search::RustOwner::ImplOf(t) => !*seen
+                .entry(t.clone())
+                .or_insert_with(|| self.rust_std_impl(t, std)),
+            search::RustOwner::Unreadable => false,
+        }
+    }
+
+    fn rust_std_impl(&self, tr: &str, std: &str) -> bool {
+        let levels = DEREF
+            .iter()
+            .find(|(t, _)| *t == std)
+            .map_or(&[][..], |(_, l)| *l);
+        let Ok(re) = Regex::new(&format!(
+            r"^\s*(?:unsafe\s+)?impl\s*(?:<(.*?)>)?\s+(?:\w+::)*{}\b(?:<.*?>)?\s+for\s+([^{{]+?)\s*(?:\bwhere\b.*|\{{.*)?$",
+            regex::escape(tr)
+        )) else {
+            return true;
+        };
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        self.grep(re.as_str(), false, false, rs)
+            .map_or(true, |hits| {
+                hits.iter().filter_map(|h| re.captures(&h.text)).any(|c| {
+                    let ty = &c[2];
+                    let generic = |b: &str| {
+                        c.get(1).is_some_and(|g| {
+                            g.as_str()
+                                .split(',')
+                                .any(|p| p.split(':').next().map(str::trim) == Some(b))
+                        })
+                    };
+                    match rust_bare_type(ty) {
+                        Some(b) => levels.contains(&b.as_str()) || generic(&b),
+                        None => levels.contains(&if ty.contains(';') { "[T; N]" } else { "[T]" }),
+                    }
+                })
+            })
+    }
+
     pub(in crate::app) fn rust_index_member(
         &mut self,
         here: &Path,
@@ -268,7 +315,7 @@ impl App {
                 let std = rust_bare_type(&element)?;
                 return self
                     .rust_std_call(&owner, &via, &std, word)
-                    .map(Typing::Std);
+                    .map(|found| Typing::Std(found, std));
             }
             None => vec![self.rust_std_field(&owner, &element, word)?],
         };
@@ -302,7 +349,11 @@ impl App {
         let dir = modules.join("/");
         let file = format!("{dir}.rs");
         let mut files = Vec::new();
-        for src in ["core", "alloc", "std"].map(|k| self.sysroot_crate(k)).into_iter().flatten() {
+        for src in ["core", "alloc", "std"]
+            .map(|k| self.sysroot_crate(k))
+            .into_iter()
+            .flatten()
+        {
             files.extend(src.files.into_iter().filter(|f| {
                 f.strip_prefix(&src.src)
                     .is_ok_and(|r| r.starts_with(&dir) || r == Path::new(&file))

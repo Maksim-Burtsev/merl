@@ -227,3 +227,19 @@ pub fn std_index(leaves: &[Leaf], i: usize) -> usize {
     //        ^ d: src/infusion/leaves.rs:3
     //                                ^ d: src/infusion/leaves.rs:2
 }
+
+pub trait Pour {
+    fn chunks(&self) -> usize;
+}
+
+impl Pour for Leaf {
+    fn chunks(&self) -> usize {
+        1
+    }
+}
+
+pub fn std_slice_method() -> usize {
+    let cup = vec![1, 2];
+    cup.chunks(1).count()
+    //  ^ d: none
+}
