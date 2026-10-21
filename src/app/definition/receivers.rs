@@ -17,7 +17,7 @@ impl App {
     ) -> bool {
         let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
         let mut rust_broke = None;
-        let mut std = false;
+        let mut std = None;
         if kind == Kind::Rust
             && dotted
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
@@ -30,12 +30,12 @@ impl App {
             let after = a.tail.as_str();
             let call = after.starts_with('(') || after.starts_with("::<");
             match self.rust_typed(&a.here, &a.text, word, chain, call) {
-                Ok(rust::Typing::Members(found) | rust::Typing::Std(found))
+                Ok(rust::Typing::Members(found) | rust::Typing::Std(found, _))
                     if !found.is_empty() =>
                 {
                     return self.show_found(a, found);
                 }
-                Ok(rust::Typing::Std(_)) => std = true,
+                Ok(rust::Typing::Std(_, t)) => std = Some(t),
                 Ok(rust::Typing::Members(_)) => {}
                 Err(at) => rust_broke = (chain.len() > 1).then_some(at),
             }
@@ -48,7 +48,7 @@ impl App {
             && let Some(receiver) = a
                 .before
                 .strip_suffix('.')
-                .filter(|r| r.ends_with([')', '?']))
+                .filter(|r| r.ends_with([')', '?']) || r.contains(").") || r.contains("?."))
         {
             let after = a.tail.as_str();
             let call = after.starts_with('(') || after.starts_with("::<");
@@ -69,7 +69,24 @@ impl App {
             if !found.is_empty() {
                 return self.show_found(a, found);
             }
-            std = true;
+            std = Some("[T; N]".to_owned());
+        }
+        if kind == Kind::Rust
+            && dotted
+            && chain.is_empty()
+            && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            && word != "await"
+        {
+            let call = a.tail.starts_with('(') || a.tail.starts_with("::<");
+            match self.rust_index_member(&a.here, &a.text, &a.before, word, call) {
+                Some(rust::Typing::Members(found) | rust::Typing::Std(found, _))
+                    if !found.is_empty() =>
+                {
+                    return self.show_found(a, found);
+                }
+                Some(rust::Typing::Std(_, t)) => std = Some(t),
+                _ => {}
+            }
         }
         if kind == Kind::Rust
             && let Some(found) = self.rust_early(&a.here, &a.text, word, a.range.clone(), dotted)
@@ -78,11 +95,11 @@ impl App {
             return true;
         }
         if kind == Kind::Rust
-            && (p.on_value || std)
+            && (p.on_value || std.is_some())
             && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
             && word != "await"
         {
-            let found = self.rust_methods(&a.here, word, &a.text, chain, &a.before, std);
+            let found = self.rust_methods(&a.here, word, &a.text, chain, &a.before, std.as_deref());
             self.show_definitions(kind, word, &a.here, found, rust_broke.as_deref());
             return true;
         }
@@ -375,6 +392,85 @@ impl App {
             }
         }
         false
+    }
+
+    fn go_outside_receiver(
+        &self,
+        here: &Path,
+        chain: &[String],
+        head: Option<&search::CallHead>,
+    ) -> Option<String> {
+        if let Some(head) = head {
+            let search::Value::Call(callee) = &head.value else {
+                return None;
+            };
+            let text = self.buf.lines.join("\n");
+            return (head.fields_to_word.is_empty()
+                && self.go_outside_call(here, &text, self.line + 1, callee))
+            .then(|| format!("{callee}()"));
+        }
+        let last = chain.last()?;
+        let (file, text, bindings, mut links) = self.last_bindings(Kind::Go, here, chain)?;
+        let mut written = None;
+        for b in &bindings {
+            let this = match &b.value {
+                search::Value::Type(t) | search::Value::New(t)
+                    if self.go_outside(&file, &text, t) =>
+                {
+                    t.trim_start_matches('*').to_owned()
+                }
+                search::Value::Call(callee)
+                    if self.go_outside_call(&file, &text, b.line1, callee) =>
+                {
+                    format!("{callee}()")
+                }
+                _ => return None,
+            };
+            written.get_or_insert(this);
+        }
+        links.push(format!("{last}: {}", written?));
+        Some(links.join(" \u{2192} "))
+    }
+
+    fn go_outside_call(&self, file: &Path, text: &str, line1: usize, callee: &str) -> bool {
+        let Some((package, _)) = callee.split_once('.') else {
+            return false;
+        };
+        let args = text
+            .lines()
+            .nth(line1.saturating_sub(1))
+            .and_then(|line| search::go_call_arguments(line, callee));
+        args.is_some_and(|args| {
+            search::bindings(Kind::Go, text, line1, package).is_empty()
+                && self.go_outside(file, text, callee)
+                && args
+                    .iter()
+                    .all(|arg| self.go_outside_value(file, text, line1, arg))
+        })
+    }
+
+    fn go_outside_value(&self, file: &Path, text: &str, line1: usize, arg: &str) -> bool {
+        const PREDECLARED: &str = "any bool byte complex64 complex128 error float32 float64 int \
+            int8 int16 int32 int64 rune string uint uint8 uint16 uint32 uint64 uintptr";
+        let number = arg.strip_prefix('-').unwrap_or(arg);
+        if arg.starts_with(['"', '`', '\''])
+            || number.starts_with(|c: char| c.is_ascii_digit())
+            || matches!(arg, "true" | "false" | "nil")
+        {
+            return true;
+        }
+        let bindings = search::bindings(Kind::Go, text, line1, arg);
+        let [
+            search::Binding {
+                value: search::Value::Type(t),
+                ..
+            },
+        ] = bindings.as_slice()
+        else {
+            return false;
+        };
+        let base = t.trim_start_matches(['[', ']', '*', '.']);
+        PREDECLARED.split(' ').any(|p| p == base) || self.go_outside(file, text, base)
     }
 
     fn none_found(&mut self, message: String) -> bool {

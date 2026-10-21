@@ -123,6 +123,11 @@ fn empty_external_roots_are_asked_again() {
     );
     std::fs::create_dir_all(dir.join("vendor/acme")).unwrap();
     std::fs::write(dir.join("vendor/acme/Client.php"), "<?php\n").unwrap();
+    assert!(
+        a.external_files(Kind::Php).is_empty(),
+        "one d asks for empty roots once, not on every lookup"
+    );
+    a.goto_definition();
     assert_eq!(
         *a.external_files(Kind::Php),
         [dir.join("vendor/acme/Client.php")],

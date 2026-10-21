@@ -386,6 +386,91 @@ pub fn ts_alias_literal_member(decl: &str, word: &str) -> bool {
         .is_some()
 }
 
+pub fn ts_union_alias(decl: &str) -> Option<Vec<String>> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:export|declare)\s+)*type\s+[\w$]+\s*=\s*([^<>{}()\[\]&]+?)\s*;?\s*$")
+            .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::TsJs, decl);
+    ts_union_names(ALIAS.captures(&code)?.get(1)?.as_str())
+}
+
+pub fn ts_union_names(union: &str) -> Option<Vec<String>> {
+    let arms: Vec<String> = union.split('|').map(|a| a.trim().to_owned()).collect();
+    (arms.len() > 1
+        && arms.iter().all(|a| {
+            a.starts_with(|c: char| c.is_ascii_uppercase())
+                && a.chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, '_' | '$'))
+        }))
+    .then_some(arms)
+}
+
+pub fn ts_type_tag(decl: &str) -> Option<String> {
+    static TAG: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*(?:readonly\s+)?type\s*:\s*(?:"([^"\\]*)"|'([^'\\]*)')\s*[;,]?\s*$"#)
+            .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::TsJs, decl);
+    let c = TAG.captures(&code)?;
+    Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned())
+}
+
+pub fn ts_narrowed_tag(text: &str, line1: usize, name: &str) -> Option<(String, usize)> {
+    const TAG: &str = r#"(?:"([^"\\]*)"|'([^'\\]*)')"#;
+    let lines: Vec<String> = text.lines().map(|l| uncommented(Kind::TsJs, l)).collect();
+    let n = regex::escape(name);
+    let pattern = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let tag = |c: regex::Captures| Some(c.get(1).or_else(|| c.get(2))?.as_str().to_owned());
+    let here = lines.get(line1.checked_sub(1)?)?;
+    let ternary = pattern(format!(r"\b{n}\.type\s*===\s*{TAG}\s*\?\s*{n}\s*\."));
+    if let Some(c) = ternary.captures(here) {
+        let accesses = pattern(format!(r"(?:^|[^\w$.]){n}\s*\."))
+            .find_iter(here)
+            .count();
+        return (accesses == 2)
+            .then(|| tag(c))
+            .flatten()
+            .map(|t| (t, line1));
+    }
+    let label = pattern(format!(r"^\s*case\s+{TAG}\s*:\s*$"));
+    let exits = pattern(r"^\s*(?:return\b[^;]*|break|continue|throw\b[^;]*);\s*$".to_owned());
+    let opens = pattern(format!(r"^\s*switch\s*\(\s*{n}\.type\s*\)\s*\{{\s*$"));
+    let filled = |j: &usize| !lines[*j].trim().is_empty();
+    let mut within = indent(here);
+    for k in (0..line1 - 1).rev().filter(filled) {
+        let l = &lines[k];
+        if indent(l) >= within {
+            continue;
+        }
+        within = indent(l);
+        let Some(c) = label.captures(l) else {
+            let t = l.trim_start();
+            if ["case ", "default", "switch"]
+                .iter()
+                .any(|w| t.starts_with(w))
+                || t.contains("function")
+                || t.contains("=>")
+            {
+                return None;
+            }
+            continue;
+        };
+        let body = indent(lines.get(k + 1)?);
+        let prev = (0..k).rev().find(filled)?;
+        let switch = (0..k)
+            .rev()
+            .filter(filled)
+            .find(|&j| indent(&lines[j]) < within)?;
+        let closed = prev == switch || indent(&lines[prev]) == body && exits.is_match(&lines[prev]);
+        return (opens.is_match(&lines[switch]) && body > within && closed)
+            .then(|| tag(c))
+            .flatten()
+            .map(|t| (t, switch + 1));
+    }
+    None
+}
+
 pub struct TsTypeParam {
     pub line1: usize,
     pub constraint: Option<String>,

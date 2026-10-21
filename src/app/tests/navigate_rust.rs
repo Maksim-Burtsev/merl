@@ -998,3 +998,250 @@ fn a_vec_macro_of_the_project_is_not_the_standard_vec() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn an_indexed_value_is_its_element_and_a_vec_reaches_its_slice() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let range = "pub struct Range<Idx> {\n    pub start: Idx,\n    pub end: Idx,\n}\n";
+    let lib = "use std::ops::Range;\n\npub struct Bag {\n    pub end: usize,\n}\n\nimpl Bag {\n    pub fn len(&self) -> usize {\n        0\n    }\n\n    pub fn contains(&self) -> bool {\n        false\n    }\n}\n\nfn spans() -> Vec<Range<usize>> {\n    Vec::new()\n}\n\npub fn ends(v: &[std::ops::Range<usize>]) -> usize {\n    v[0].end\n}\n\npub fn last() -> usize {\n    let got = spans();\n    got[1].end\n}\n\npub fn bags(b: Vec<Bag>, i: usize) -> usize {\n    b[0].len() + b[i].end\n}\n\npub fn names(n: &[String]) -> usize {\n    n[0].len()\n}\n\npub fn has(w: Vec<u8>) -> bool {\n    w.contains(&1) && w.to_owned().is_empty()\n}\n\npub fn spans_len(s: Vec<Range<usize>>, i: usize) -> usize {\n    s[i].len() + s[1..].len()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-indexed",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-indexed-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/ops/range.rs", range),
+            ("lib/rustlib/src/rust/library/core/src/range.rs", range),
+            (
+                "lib/rustlib/src/rust/library/std/src/lib.rs",
+                "pub use core::ops;\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/borrow.rs",
+                "impl<T: Clone> ToOwned for T {\n    fn to_owned(&self) -> T {\n        loop {}\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/slice/mod.rs",
+                &format!(
+                    "impl<T> [T] {{\n{stable}    pub fn contains(&self, x: &T) -> bool {{\n        false\n    }}\n}}\n\nimpl<T: Clone> ToOwned for [T] {{\n    fn to_owned(&self) -> Vec<T> {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n\n{stable}    pub fn contains(&self) -> bool {{\n        false\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+                &format!(
+                    "pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for (code, want) in [
+        ("v[0].end", "core/src/ops/range.rs:3"),
+        ("got[1].end", "core/src/ops/range.rs:3"),
+        ("b[0].len", "src/lib.rs:8"),
+        ("b[i].end", "src/lib.rs:4"),
+        ("n[0].len", "core/src/str/mod.rs:3"),
+        ("w.contains", "core/src/slice/mod.rs:3"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    for code in ["s[i].len", "s[1..].len", "w.to_owned"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = shown(&mut a);
+        assert!(
+            !matches!(&got, Shown::Jump(s, p) if !s.starts_with("no definition") && !p.is_empty()),
+            "{code} is not typed by its index: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_std_value_keeps_only_project_traits_it_can_implement() {
+    let lib = "pub struct Rack;\n\npub trait Panes {\n    fn windows(&self) -> u32;\n}\n\nimpl Panes for Rack {\n    fn windows(&self) -> u32 {\n        0\n    }\n}\n\npub trait Sniff {\n    fn sniff(&self) -> u32;\n}\n\nimpl Sniff for str {\n    fn sniff(&self) -> u32 {\n        0\n    }\n}\n\npub trait Every {\n    fn every(&self) -> u32;\n}\n\nimpl<T: ?Sized> Every for T {\n    fn every(&self) -> u32 {\n        0\n    }\n}\n\npub trait Halves {\n    fn halves(&self) -> u32;\n}\n\nimpl<T> Halves for [T] {\n    fn halves(&self) -> u32 {\n        0\n    }\n}\n\npub fn used(s: &str, n: String) -> u32 {\n    let v = vec![1, 2, 3];\n    let a = v.windows(2);\n    let b = [1, 2].windows(1);\n    let c = s.sniff() + n.sniff();\n    let d = v.sniff();\n    let e = v.every() + v.halves();\n    let f = [1].halves();\n    a + b + c + d + e + f\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-std-traits",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    use_roots(&mut a, Kind::Rust, &[]);
+    for (code, want) in [
+        ("s.sniff", "src/lib.rs:18"),
+        ("n.sniff", "src/lib.rs:14"),
+        ("v.every", "src/lib.rs:24"),
+        ("v.halves", "src/lib.rs:34"),
+        ("[1].halves", "src/lib.rs:34"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place,
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    for code in ["v.windows", "[1, 2].windows", "v.sniff"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = shown(&mut a);
+        assert!(
+            matches!(&got, Shown::Jump(s, _) if s.starts_with("no definition")),
+            "{code}: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_std_method_s_declared_return_type_types_the_next_link() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "use std::collections::HashMap;\n\nconst TEMPLATE: &'static str = \"a\";\n\npub struct Lines {\n    pub n: usize,\n}\n\nimpl Lines {\n    pub fn nth(&self) -> usize {\n        0\n    }\n}\n\npub struct Def {\n    pub globs: Vec<String>,\n}\n\nimpl Def {\n    pub fn clone(&self) -> usize {\n        0\n    }\n\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub struct Bag {\n    pub types: HashMap<String, Def>,\n}\n\nfn contents() -> String {\n    String::new()\n}\n\npub fn second() -> bool {\n    let got = contents();\n    got.lines().nth(1).unwrap().is_empty()\n}\n\npub fn help() -> String {\n    let mut out =\n        TEMPLATE.replace(\"a\", \"b\");\n    out = out.replace(\"b\", \"c\");\n    out\n}\n\nimpl Bag {\n    pub fn globs(&self, name: &str) -> Vec<String> {\n        self.types.get(name).unwrap().globs.clone()\n    }\n\n    pub fn size(&self, name: &str) -> usize {\n        self.types.get(name).unwrap().len()\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-std-returns",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-std-returns-std",
+        &[
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn lines(&self) -> Lines<'_> {{\n        loop {{}}\n    }}\n\n{stable}    pub fn is_empty(&self) -> bool {{\n        false\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/iter.rs",
+                "pub struct Lines<'a>(&'a str);\n\nimpl<'a> Iterator for Lines<'a> {\n    type Item = &'a str;\n\n    fn next(&mut self) -> Option<&'a str> {\n        None\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/iter/traits/iterator.rs",
+                "pub trait Iterator {\n    type Item;\n\n    fn next(&mut self) -> Option<Self::Item>;\n\n    fn nth(&mut self, n: usize) -> Option<Self::Item> {\n        None\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/option.rs",
+                &format!(
+                    "pub enum Option<T> {{\n    None,\n    Some(T),\n}}\n\nimpl<T> Option<T> {{\n{stable}    pub fn unwrap(self) -> T {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/str.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn replace(&self, from: &str, to: &str) -> String {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+                "pub struct Vec<T>;\n\nimpl<T: Clone> Clone for Vec<T> {\n    fn clone(&self) -> Self {\n        loop {}\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/collections/hash/map.rs",
+                &format!(
+                    "pub struct HashMap<K, V, S = RandomState>;\n\nimpl<K, V, S> HashMap<K, V, S> {{\n{stable}    pub fn get(&self, k: &K) -> Option<&V> {{\n        None\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for (code, want) in [
+        ("got.lines().nth(1).unwrap", "core/src/option.rs:8"),
+        ("got.lines().nth", "core/src/iter/traits/iterator.rs:6"),
+        ("out.replace", "alloc/src/str.rs:3"),
+        ("unwrap().globs.clone", "alloc/src/vec/mod.rs:4"),
+        ("unwrap().len", "src/lib.rs:24"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_project_receiver_answers_before_the_toolchain_is_walked() {
+    let lib = "pub struct Payout {\n    pub amount: u64,\n}\n\nimpl Payout {\n    pub fn line(&self) -> String {\n        String::new()\n    }\n}\n\npub fn latest() -> Payout {\n    Payout { amount: 1250 }\n}\n\npub fn print_latest() -> String {\n    let payout = latest();\n    payout.line()\n}\n\npub fn chained() -> String {\n    latest().line()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-project-first",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    for (code, want) in [
+        (
+            "payout.line",
+            jump(
+                "line \u{2192} Payout::line (via latest() -> Payout)",
+                "src/lib.rs:6",
+            ),
+        ),
+        (
+            "latest().line",
+            jump(
+                "line \u{2192} Payout::line (via latest(): Payout)",
+                "src/lib.rs:6",
+            ),
+        ),
+    ] {
+        let walk = std::thread::spawn(|| (Vec::new(), Vec::new()));
+        a.warming.insert(Kind::Rust, Some(walk));
+        d_on(&mut a, "src/lib.rs", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+        assert!(
+            a.warming[&Kind::Rust].is_some(),
+            "{code} waited for the walk outside the project"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_std_value_keeps_a_project_trait_whose_impl_merl_cannot_read() {
+    let lib = "pub trait Shout {\n    fn shout(&self) -> u32;\n}\n\ntype Name = String;\n\nimpl Shout for Name {\n    fn shout(&self) -> u32 {\n        0\n    }\n}\n\npub trait Whisper {\n    fn whisper(&self) -> u32;\n}\n\nmacro_rules! whisper_for {\n    ($t:ty) => {\n        impl Whisper for $t {\n            fn whisper(&self) -> u32 {\n                0\n            }\n        }\n    };\n}\n\nwhisper_for!(String);\n\npub trait Murmur {\n    fn murmur(&self) -> u32;\n}\n\nimpl<\n    T: std::fmt::Display + std::fmt::Debug + Clone + Send + Sync + PartialEq + 'static,\n> Murmur for Vec<T>\n{\n    fn murmur(&self) -> u32 {\n        0\n    }\n}\n\npub fn used(s: String, w: Vec<String>) -> u32 {\n    let v = vec![1, 2, 3];\n    s.shout() + s.whisper() + w[0].shout() + v.murmur()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-std-unread-impls",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    use_roots(&mut a, Kind::Rust, &[]);
+    for (code, want) in [
+        ("s.shout", "src/lib.rs:2"),
+        ("s.whisper", "src/lib.rs:14"),
+        ("w[0].shout", "src/lib.rs:2"),
+        ("v.murmur", "src/lib.rs:30"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place,
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -362,3 +362,57 @@ fn a_name_that_climbs_out_of_the_folders_deletes_nothing() {
         assert!(kept.is_file(), "{name} deleted the checkout's b/keep.py");
     }
 }
+
+#[test]
+fn opening_a_review_again_keeps_your_edits_in_its_folder_and_says_it_is_behind() {
+    let c = Clones::new("edits");
+    let (one, _) = c.open("feat1");
+    std::fs::write(one.join("feat1.py"), "x = 2\n").unwrap();
+    std::fs::write(one.join("new.py"), "y = 1\n").unwrap();
+    c.git("a", &["switch", "-q", "feat1"]);
+    c.commit("a", "fix.py", "y = 2\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let (again, r) = c.open("feat1");
+    assert_eq!(again, one);
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("feat1.py")).ok(),
+            one.join("new.py").is_file(),
+            one.join("fix.py").exists(),
+            r.note.as_deref()
+        ),
+        (
+            Some("x = 2\n".to_owned()),
+            true,
+            false,
+            Some("behind origin/feat1")
+        ),
+        "your edits stay, and the folder stays at its commit"
+    );
+
+    c.git(
+        "b",
+        &["-C", one.to_str().unwrap(), "checkout", "--", "feat1.py"],
+    );
+    std::fs::remove_file(one.join("new.py")).unwrap();
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (names(&r), r.note),
+        (vec!["feat1.py".to_owned(), "fix.py".to_owned()], None),
+        "with no edits, past the links merl made, it moves to what was pushed"
+    );
+
+    c.git("b", &["config", "status.showUntrackedFiles", "no"]);
+    std::fs::write(one.join("later.py"), "mine\n").unwrap();
+    c.commit("a", "later.py", "theirs\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("later.py")).ok(),
+            r.note.as_deref()
+        ),
+        (Some("mine\n".to_owned()), Some("behind origin/feat1")),
+        "a new file is an edit whatever status.showUntrackedFiles says"
+    );
+}

@@ -1079,7 +1079,7 @@ fn go_assigned<'a>(names: &str, values: &'a str, at: usize) -> Option<&'a str> {
         _ => (at == 0).then_some(values),
     }
 }
-fn go_type_params(list: &str) -> Vec<(String, String)> {
+pub(super) fn go_type_params(list: &str) -> Vec<(String, String)> {
     let mut out = Vec::new();
     let mut names = Vec::new();
     for item in split_top(Kind::Go, list, b',') {

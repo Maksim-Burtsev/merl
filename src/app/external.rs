@@ -824,6 +824,8 @@ impl App {
         }
         let files = if let Some((_, files)) = self.external.get(&kind) {
             Arc::clone(files)
+        } else if self.rootless.contains(&kind) {
+            Arc::new(Vec::new())
         } else {
             let roots = search::external_roots(kind, &self.root);
             let warm = self.warming.insert(kind, None).flatten();
@@ -832,7 +834,9 @@ impl App {
                 _ => search::external_files(kind, &roots),
             };
             let files = Arc::new(files);
-            if !roots.is_empty() {
+            if roots.is_empty() {
+                self.rootless.insert(kind);
+            } else {
                 self.external.insert(kind, (roots, Arc::clone(&files)));
             }
             files

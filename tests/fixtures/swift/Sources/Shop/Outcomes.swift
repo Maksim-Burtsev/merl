@@ -369,3 +369,124 @@ func lifted(_ relay: Any) -> Int {
     //                               ^ d: none
     return up + down
 }
+
+// A closure parameter of a generic wrapper's method that hands the closure the wrapped value is
+// that value; its fields from outside answer from the project's extensions or none (#1068).
+final class Strongbox<Value> {
+    private var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func read<U>(_ closure: (Value) throws -> U) rethrows -> U {
+        try closure(value)
+    }
+
+    func write<U>(_ closure: (inout Value) throws -> U) rethrows -> U {
+        try closure(&value)
+    }
+
+    func write(_ value: Value) {
+        self.value = value
+    }
+}
+
+struct Coffer {
+    var queued: [Int] = []
+    var seals: Set<String> = []
+}
+
+final class Vaultkeeper {
+    func remove(_ seal: String) {}
+
+    let coffer = Strongbox(Coffer())
+    let strongbox: Strongbox<Coffer>
+
+    init(_ strongbox: Strongbox<Coffer>) {
+        self.strongbox = strongbox
+    }
+
+    func drain() -> Bool {
+        coffer.write { $0.seals.remove("lead") }
+        //                      ^ d: none
+        let idle = coffer.read { state in state.queued.isEmpty }
+        //                                             ^ d: none
+        //                                      ^ d: Sources/Shop/Outcomes.swift:396
+        return strongbox.write { strongbox in
+            strongbox.queued.isEmpty && idle
+            //               ^ d: none
+            //        ^ d: Sources/Shop/Outcomes.swift:396
+        }
+    }
+}
+
+// A nested type that several types declare is the one the enclosing types declare, innermost
+// first, when a wrapper holds it by construction or by annotation, and a field typed over several
+// lines is read whole. Past a type that inherits (`Teller: Basis`, whose `Basis` may declare a
+// `Sheet` of its own), and for a type declared inside a function, the name stays ambiguous: a
+// picker, never a jump (#1068).
+final class Cashbook {
+    struct Sheet {
+        var seals: Set<String> = []
+        var pending: [Int] = []
+    }
+
+    let sheet = Strongbox(Sheet())
+
+    func settle(_ seal: String) {
+        sheet.write { $0.seals.remove(seal) }
+        //                     ^ d: none
+        //               ^ d: Sources/Shop/Outcomes.swift:431
+    }
+
+    final class Clerk {
+        let sheet = Strongbox(Sheet())
+
+        func idle() -> Bool {
+            sheet.read { $0.pending.isEmpty }
+            //                      ^ d: none
+        }
+    }
+
+    func tally() -> Bool {
+        struct Sheet {
+            var pending: [Int] = []
+        }
+        let sheet = Strongbox(Sheet())
+        return sheet.read { $0.pending.isEmpty }
+        //                     ^ d: picker Sources/Shop/Outcomes.swift:432, Sources/Shop/Outcomes.swift:454, Sources/Shop/Outcomes.swift:473; want Sources/Shop/Outcomes.swift:454 (#1068)
+    }
+
+    final class Teller: Basis {
+        let sheet = Strongbox(Sheet())
+
+        func idle() -> Bool {
+            sheet.read { $0.pending.isEmpty }
+            //              ^ d: picker Sources/Shop/Outcomes.swift:432, Sources/Shop/Outcomes.swift:454, Sources/Shop/Outcomes.swift:473
+        }
+    }
+}
+
+final class Auditor<Witness> {
+    private struct Sheet {
+        var pending: [Int] = []
+        var lines: [(entry: String,
+                     amount: Int)] = []
+    }
+
+    private let sheet: Strongbox<Sheet>
+
+    init() {
+        sheet = Strongbox(Sheet())
+    }
+
+    func check() -> Bool {
+        sheet.write { sheet in
+            sheet.pending.isEmpty && sheet.lines.isEmpty
+            //                                   ^ d: none
+            //            ^ d: none
+            //    ^ d: Sources/Shop/Outcomes.swift:473
+        }
+    }
+}

@@ -284,8 +284,12 @@ package outside the project, a `Filter.Or` namesake must not be jumped to; throu
 project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
-`Shop.Tea.Stale`. `c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's
-initializer list, overloads, ADL beside a global namesake, a qualified definition of
+`Shop.Tea.Stale`. `csharp/src/Shop/Pages/Till.razor` (#1088) is a Blazor component, read as a
+class of its `@inject` fields, `@code` members and markup expressions: an injected `Kettle` that
+only `_Imports.razor`'s `@using Shop.Tea.Stale` tells apart, a method named in an `@onclick`, and
+an e-mail address, a text, a component tag, a `@formname` string and a Razor comment that name
+nothing, nor do the declaration-shaped lines of markup after the `@code` block.
+`c/include/tea/` and `c/src/tea/` add out-of-class definitions, a constructor's initializer list, overloads, ADL beside a global namesake, a qualified definition of
 `stale::steep`, a `using` declaration, a namespace alias, a template and an `#if 0` block;
 `caddy.cc` calls `scoop` from inside its namespace and from global code, each hiding the other,
 and `caddy_use.cc` behind `using namespace caddy;`, where the picker stays (#944).
@@ -518,8 +522,15 @@ as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
 member, an inherited one, one the interface lacks (offered by name, as untyped), a nested
 function's own `node` and a Babel-shaped `visitor` (both untyped), and a reassigned `node`, which
-keeps its type as tsserver's does. With `@types/estree` installed, `rules/q.js`'s `callee`
-answers as tsserver does too.
+keeps its type as tsserver's does. A `CallExpression` visitor's `node` is the union alias
+`SimpleCallExpression | NewExpression`: `callee`, which both declare from one base, jumps;
+`optional`, declared by one, and `type`, declared by each apart, stay pickers. With
+`@types/estree` installed, `rules/q.js`'s `callee` probes answer as tsserver does too.
+`patterns.js` narrows a JSDoc-typed `Pattern` union by its `type` tag (#1078), as tsserver does:
+inside `switch (pattern.type)`'s `case "ObjectPattern":` after a `return;`, and in the
+consequent of `property.type === "Property" ? property.value`, each of a `for…of` element's
+inline union `AssignmentProperty | RestElement`. A case fallen into, a switch on another
+member, a negated ternary, a callback inside the case and the code after the switch stay pickers.
 `infusion.ts` is the third corner (#1126), its answers tsserver's: members of a string, a
 `Promise` and a `Map` beside project namesakes (`Basket.trim`, `Basket.then`), a builder chain
 over lines through a renaming re-export (`Strainer as Filter`), an inherited and an overridden
