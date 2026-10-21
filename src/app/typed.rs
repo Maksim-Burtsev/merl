@@ -201,7 +201,12 @@ impl App {
             return false;
         };
         bound(&search::imports(Kind::Go, text), package).is_some_and(|path| {
+            let vendored = Path::new("vendor").join(path.join("/"));
             search::module_files(Kind::Go, &self.root, &self.files, file, &path).is_empty()
+                && !self
+                    .files
+                    .iter()
+                    .any(|f| f.parent().is_some_and(|d| d.ends_with(&vendored)))
         })
     }
 
