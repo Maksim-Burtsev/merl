@@ -1,11 +1,11 @@
 -- #1126: a column inherited or copied, an output name, a quoted name, a conflict's target.
 SELECT handle, spout, brim FROM urns;
 --     ^ d: steep/schema.sql:9
---             ^ d: none; want steep/schema.sql:4 (#1222)
---                    ^ d: none; want steep/schema.sql:5 (#1222)
+--             ^ d: steep/schema.sql:4
+--                    ^ d: steep/schema.sql:5
 SELECT knit, brim FROM cozies;
 --     ^ d: steep/schema.sql:12
---           ^ d: none; want steep/schema.sql:5 (#1222)
+--           ^ d: steep/schema.sql:5
 SELECT strength FROM brewings;
 --     ^ d: none
 SELECT spout * 2 doubled FROM samovars ORDER BY doubled;
@@ -49,3 +49,6 @@ SELECT "Lid", lid FROM "Kettle";
 SELECT * FROM phantoms, mirages;
 --            ^ d: steep/schema.sql:28; want none (#1227)
 --                      ^ d: steep/schema.sql:33; want none (#1226)
+SELECT id, nothere FROM cozies;
+--     ^ d: steep/schema.sql:3
+--         ^ d: none

@@ -759,6 +759,32 @@ fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<
     (!stmt.lines().any(|l| cte.is_match(l))).then(|| t.clone())
 }
 
+pub fn sql_parents(text: &str, create: usize) -> Vec<String> {
+    let (code, _) = sql_code(text);
+    let from: usize = code
+        .split_inclusive('\n')
+        .take(create - 1)
+        .map(str::len)
+        .sum();
+    let rest = code.get(from..).unwrap_or_default();
+    let stmt = rest
+        .get(..rest.find(';').unwrap_or(rest.len()))
+        .unwrap_or_default();
+    let name = format!(r"{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*");
+    let like = Regex::new(&format!(r"(?i)[(,]\s*LIKE\s+({name})")).expect("a valid pattern");
+    let inherits = Regex::new(r"(?i)\)\s*INHERITS\s*\(([^()]*)\)").expect("a valid pattern");
+    let mut parents: Vec<String> = like
+        .captures_iter(stmt)
+        .map(|c| sql_qualified(&c[1]))
+        .collect();
+    parents.extend(
+        inherits
+            .captures_iter(stmt)
+            .flat_map(|c| c[1].split(',').map(sql_qualified).collect::<Vec<_>>()),
+    );
+    parents
+}
+
 pub fn sql_table_column(text: &str, create: usize, column: &str) -> Option<usize> {
     let (code, _) = sql_code(text);
     let from: usize = code
