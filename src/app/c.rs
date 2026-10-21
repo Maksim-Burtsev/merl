@@ -45,6 +45,12 @@ impl App {
                 .collect();
             return Some((found, None));
         }
+        if let Some(tag) = designated_struct(before) {
+            let found = self.c_class_fields(here, word, &tag, false);
+            if !found.is_empty() {
+                return Some((found, None));
+            }
+        }
         let called = after.starts_with('(');
         let member = (before.ends_with("->") && !TRAILING.is_match(before))
             || (before.ends_with('.') && !before.ends_with(".."));
@@ -758,6 +764,20 @@ fn normal(path: &Path) -> PathBuf {
         }
     }
     out
+}
+
+fn designated_struct(before: &str) -> Option<String> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:(?:static|const|extern)\s+)*struct\s+([A-Za-z_]\w*)\s+[A-Za-z_]\w*\s*=\s*\{(.*)\.$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = HEAD.captures(before)?;
+    let inside = c[2].trim_end();
+    let flat = !inside.contains(['{', '}', '"', '\''])
+        && inside.matches('(').count() == inside.matches(')').count();
+    (flat && (inside.is_empty() || inside.ends_with(','))).then(|| c[1].to_owned())
 }
 
 pub(super) fn c_header(path: &Path) -> bool {

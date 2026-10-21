@@ -51,7 +51,7 @@ func Chain() int {
 		Build()
 //^ d: infuse/cup.go:64
 	return mug.Sip() + NewBlend().Leaf("black").Build().Sip() + PourMug().Sip() + StoveAt(1).Sip()
-	//         ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49; want infuse/cup.go:33 (#1201)
+	//         ^ d: infuse/cup.go:33
 	//                            ^ d: infuse/cup.go:60
 	//                                                  ^ d: infuse/cup.go:33
 	//                                                                    ^ d: infuse/cup.go:33
@@ -79,7 +79,7 @@ func Shadows(cup Mug, stoves []Stove) int {
 	}
 	for i, cup := 0, (Stove{}); i < 1; i++ {
 		total += cup.Sip()
-		//           ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49; want infuse/cup.go:49 (#1202)
+		//           ^ d: infuse/cup.go:49
 	}
 	mug, stove := Pair()
 	total += mug.Sip() + stove.Gulp()
@@ -138,7 +138,7 @@ func Generics(mugs []Mug) int {
 
 func Drink[T Sipper](t T) int {
 	return t.Sip()
-	//       ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49; want infuse/cup.go:4 (#1203)
+	//       ^ d: infuse/cup.go:4
 }
 
 func Named() (cup Stove) {
@@ -156,5 +156,5 @@ func Strings(o Order) int {
 func OneLine() int {
 	mug := NewBlend().Leaf("green").Build()
 	return mug.Sip()
-	//         ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49; want infuse/cup.go:33 (#1201)
+	//         ^ d: infuse/cup.go:33
 }

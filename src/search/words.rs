@@ -684,6 +684,32 @@ pub fn go_method_calls(line: &str, word_start: usize) -> Option<(usize, Vec<Stri
     }
     (!methods.is_empty()).then_some((dot + 1, methods))
 }
+pub fn go_assigned_chain(text: &str, line1: usize, name: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().collect();
+    let first = uncommented(Kind::Go, lines.get(line1.checked_sub(1)?)?);
+    let rest = first.trim().strip_prefix(name)?.trim_start();
+    let mut expr = rest.strip_prefix(":=")?.trim().to_owned();
+    for l in lines.iter().skip(line1).take(40) {
+        if !expr.ends_with('.') {
+            break;
+        }
+        expr.push_str(uncommented(Kind::Go, l).trim());
+    }
+    let mut depth = 0i32;
+    let primary = code(Kind::Go, &expr).all(|(_, c)| {
+        match c {
+            b'(' => depth += 1,
+            b')' => depth -= 1,
+            _ => {}
+        }
+        depth > 0 || c.is_ascii_alphanumeric() || matches!(c, b'_' | b'.' | b')')
+    });
+    (primary
+        && depth == 0
+        && expr.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+        && expr.ends_with(')'))
+    .then_some(expr)
+}
 pub fn definition_word(kind: Option<Kind>, line: &str, col: usize) -> Option<(Range<usize>, &str)> {
     let extra = word_chars(kind, true);
     if kind == Some(Kind::R)
