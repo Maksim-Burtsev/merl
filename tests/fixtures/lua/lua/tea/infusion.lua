@@ -118,7 +118,7 @@ end
 function I.skip(list)
   for _, v in ipairs(list) do
     if v then goto continue end
-    --             ^ d: none; want lua/tea/infusion.lua:123 (#1209)
+    --             ^ d: lua/tea/infusion.lua:123
     print(v)
     ::continue::
   end
@@ -152,6 +152,32 @@ function I.brewed()
   --                           ^ d: lua/tea/gaiwan.lua:16
   --                                        ^ d: picker lua/tea/gaiwan.lua:16, lua/tea/gaiwan.lua:31
   --                                                                 ^ d: lua/tea/gaiwan.lua:16
+end
+
+function I.retry(list)
+  ::again::
+  for _, v in ipairs(list) do
+    if v then goto again end
+    --             ^ d: lua/tea/infusion.lua:158
+  end
+  for _, v in ipairs(list) do
+    if v then goto continue end
+    --             ^ d: lua/tea/infusion.lua:167
+    print(v)
+    ::continue::
+  end
+  local f = function()
+    goto again
+    --   ^ d: none
+  end
+  for _, v in ipairs(list) do
+    goto done
+    --   ^ d: none
+  end
+  for _, v in ipairs(list) do
+    ::done::
+  end
+  return f
 end
 
 return I

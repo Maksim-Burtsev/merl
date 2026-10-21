@@ -367,6 +367,60 @@ pub fn lua_makes_instance(text: &str, line: usize, table: &str) -> bool {
         .any(|i| code(i).is_some_and(|c| set.is_match(&c)));
     sets && (0..lines.len()).any(|i| code(i).is_some_and(|c| index.is_match(c.trim_end())))
 }
+pub fn lua_goto_label(text: &str, line: usize, before: &str, name: &str) -> Option<Vec<usize>> {
+    static GOTO: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.:])goto\s+$").expect("the regex is a literal")
+    });
+    static FUNCTION: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\bfunction\b").expect("the regex is a literal"));
+    if !GOTO.is_match(&uncommented(Kind::Lua, before)) {
+        return None;
+    }
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
+    let literal = literal_lines(Kind::Lua, text);
+    let code: Vec<String> = lines
+        .iter()
+        .zip(&literal)
+        .map(|(l, inside)| {
+            if *inside {
+                String::new()
+            } else {
+                uncommented(Kind::Lua, l).trim_end().to_owned()
+            }
+        })
+        .collect();
+    let mut low = indent(lines[at]);
+    let mut head = None;
+    for i in (0..at).rev().filter(|&i| !code[i].trim().is_empty()) {
+        if indent(lines[i]) < low {
+            low = indent(lines[i]);
+            if FUNCTION.is_match(&code[i]) {
+                head = Some(i);
+                break;
+            }
+        }
+    }
+    let start = head.map_or(0, |h| h + 1);
+    let end = head.map_or(lines.len(), |h| {
+        (h + 1..lines.len())
+            .find(|&i| !code[i].trim().is_empty() && indent(lines[i]) <= indent(lines[h]))
+            .unwrap_or(lines.len())
+    });
+    let label = format!("::{name}::");
+    let visible = |j: usize| {
+        let depth = indent(lines[j]);
+        let (from, to) = if j < at { (j + 1, at) } else { (at + 1, j) };
+        depth <= indent(lines[at])
+            && (from..to).all(|i| code[i].trim().is_empty() || indent(lines[i]) >= depth)
+    };
+    Some(
+        (start..end)
+            .filter(|&j| j != at && code[j].trim() == label && visible(j))
+            .map(|j| j + 1)
+            .collect(),
+    )
+}
 pub fn lua_returns_self(text: &str, line: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
     let literal = literal_lines(Kind::Lua, text);
