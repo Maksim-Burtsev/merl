@@ -23,7 +23,7 @@ func (c Cup) Len() int { return c.Level }
 
 func (c Cup) Close() error { return nil }
 
-func (c Cup) String() string { return "cup" }
+func (c Cup) Weekday() int { return c.Level }
 
 type Mug struct {
 	Cup

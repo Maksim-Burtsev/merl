@@ -39,9 +39,9 @@ func Outside() int {
 		//    ^ d: picker fields.go:25, infuse/cup.go:24, store/store.go:15; want none (#1204)
 	}
 	now := time.Now()
-	return n + len(now.String()) + strings.NewReader("x").Len()
+	return n + int(now.Weekday()) + strings.NewReader("x").Len()
 	//                 ^ d: infuse/cup.go:26; want none (#1204)
-	//                                                    ^ d: infuse/cup.go:22; want none (#1204)
+	//                                                     ^ d: infuse/cup.go:22; want none (#1204)
 }
 
 func Chain() int {

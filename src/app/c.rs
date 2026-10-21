@@ -25,6 +25,26 @@ impl App {
             line.get(..range.start)?.trim_end(),
             line.get(range.end..)?.trim_start(),
         );
+        if before
+            .strip_suffix("goto")
+            .is_some_and(|h| !h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+        {
+            let lines = &self.buf.lines;
+            let found = goto_labels(lines, self.line, word)
+                .into_iter()
+                .map(|line1| Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: here.to_path_buf(),
+                        line1,
+                        byte_col: None,
+                        text: lines[line1 - 1].clone(),
+                    },
+                    reason: Reason::Local,
+                })
+                .collect();
+            return Some((found, None));
+        }
         let called = after.starts_with('(');
         let member = (before.ends_with("->") && !TRAILING.is_match(before))
             || (before.ends_with('.') && !before.ends_with(".."));
@@ -748,4 +768,16 @@ pub(super) fn c_header(path: &Path) -> bool {
 pub(super) fn method_pattern(word: &str) -> String {
     let w = regex::escape(word);
     format!(r"^\s+[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{|^\w[^;(){{}}=]*::{w}\s*\(")
+}
+
+fn goto_labels(lines: &[String], line0: usize, word: &str) -> Vec<usize> {
+    let label = Regex::new(&format!(r"^\s*{}\s*:(?:[^:]|$)", regex::escape(word)))
+        .expect("an escaped name keeps the pattern valid");
+    let closes = |i: &usize| lines[*i].starts_with('}');
+    let from = (0..line0).rev().find(closes).map_or(0, |i| i + 1);
+    let to = (line0..lines.len()).find(closes).unwrap_or(lines.len());
+    (from..to)
+        .filter(|&i| label.is_match(&lines[i]))
+        .map(|i| i + 1)
+        .collect()
 }
