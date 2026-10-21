@@ -2,7 +2,9 @@ package infuse
 
 import (
 	"bytes"
+	"cmp"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,7 +27,7 @@ type Order struct {
 	Note string `json:"type Mug struct {"`
 }
 
-func Outside() int {
+func Outside(leaf string) int {
 	var sb strings.Builder
 	sb.WriteString("green")
 	// ^ d: none
@@ -36,12 +38,20 @@ func Outside() int {
 	f, err := os.Open("leaves")
 	if err == nil {
 		_ = f.Close()
-		//    ^ d: picker fields.go:25, infuse/cup.go:24, store/store.go:15; want none (#1204)
+		//    ^ d: none
 	}
+	n += strings.NewReader(leaf).Len()
+	//                           ^ d: none
 	now := time.Now()
 	return n + int(now.Weekday()) + strings.NewReader("x").Len()
-	//                 ^ d: infuse/cup.go:26; want none (#1204)
-	//                                                     ^ d: infuse/cup.go:22; want none (#1204)
+	//                 ^ d: none
+	//                                                     ^ d: none
+}
+
+func Outsiders(mugs []Mug, cup Cup) int {
+	return slices.Max(mugs).Sip() + cmp.Or(cup).Sip()
+	//                      ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49
+	//                                          ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49
 }
 
 func Chain() int {
@@ -88,7 +98,7 @@ func Shadows(cup Mug, stoves []Stove) int {
 	brew := Brew()
 	//      ^ d: infuse/cup.go:72
 	return total + brew + cup.Sip()
-	//             ^ d: infuse/tasting.go:88
+	//             ^ d: infuse/tasting.go:98
 	//                        ^ d: infuse/cup.go:33
 }
 
@@ -164,7 +174,7 @@ func Named() (cup Stove) {
 
 func Strings(o Order) int {
 	return o.Cup.Sip() + len(menu)
-	//       ^ d: infuse/tasting.go:24
+	//       ^ d: infuse/tasting.go:26
 	//           ^ d: infuse/cup.go:16
 }
 
