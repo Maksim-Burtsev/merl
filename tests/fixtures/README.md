@@ -522,8 +522,10 @@ as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
 member, an inherited one, one the interface lacks (offered by name, as untyped), a nested
 function's own `node` and a Babel-shaped `visitor` (both untyped), and a reassigned `node`, which
-keeps its type as tsserver's does. With `@types/estree` installed, `rules/q.js`'s `callee`
-answers as tsserver does too.
+keeps its type as tsserver's does. A `CallExpression` visitor's `node` is the union alias
+`SimpleCallExpression | NewExpression`: `callee`, which both declare from one base, jumps;
+`optional`, declared by one, and `type`, declared by each apart, stay pickers. With
+`@types/estree` installed, `rules/q.js`'s `callee` probes answer as tsserver does too.
 `infusion.ts` is the third corner (#1126), its answers tsserver's: members of a string, a
 `Promise` and a `Map` beside project namesakes (`Basket.trim`, `Basket.then`), a builder chain
 over lines through a renaming re-export (`Strainer as Filter`), an inherited and an overridden

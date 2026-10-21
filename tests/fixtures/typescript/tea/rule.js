@@ -41,3 +41,18 @@ exports.rule = {
     };
   },
 };
+
+exports.calls = {
+  create(context) {
+    return {
+      CallExpression(node) {
+        node.optional;
+        //   ^ d: picker @types/estree/index.d.ts:27
+        node.type;
+        //   ^ d: !jump
+        return node.callee;
+        //          ^ d: node_modules/@types/estree/index.d.ts:6
+      },
+    };
+  },
+};
