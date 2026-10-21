@@ -34,6 +34,7 @@ The csharp row with #1088 (Blazor `.razor` files read through a separate read-on
 The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed through a union alias of `@types/estree` interfaces, `CallExpression`): over `3f360506`, 2026-10-22, release build, `vm.loadavg` { 10.99 8.50 7.82 } before the run.
 The ts, js, vue, svelte and astro rows with #1078 (a union narrowed by its `type` tag in a `switch` case and a ternary, `pattern.properties` and `property.value`): over `c742c2bf`, 2026-10-22, release build, `vm.loadavg` { 5.83 5.61 6.60 } before the run.
+The rust row with #1044's walk through std methods' declared return types (`got.lines().nth(1).unwrap()`, `out` from a `const &str`'s `.replace`, `map.get(k).unwrap().globs.clone()`): over `bcd43ff9`, 2026-10-22, release build, `vm.loadavg` { 15.06 10.43 8.20 } before the run, { 9.75 9.61 8.06 } after (the times read high under that load).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -41,7 +42,7 @@ The ts, js, vue, svelte and astro rows with #1078 (a union narrowed by its `type
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.9 | 93.8 |
 | js (eslint, uptime-kuma) | 217 | 179 (82%) | 31 (14%) | 1 (0%) | 6 (3%) | 177 | 11 | 38.0 | 170.3 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
-| rust (ripgrep) | 231 | 212 (92%) | 17 (7%) | 0 (0%) | 2 (1%) | 69 | 5 | 6.0 | 58.0 |
+| rust (ripgrep) | 231 | 215 (93%) | 14 (6%) | 0 (0%) | 2 (1%) | 69 | 5 | 8.3 | 70.0 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |

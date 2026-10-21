@@ -145,7 +145,7 @@ fn unwrapped(written: &str) -> Option<String> {
     Some(args.trim().to_owned())
 }
 
-enum Got {
+pub(super) enum Got {
     Ty(Typed),
     Written {
         file: PathBuf,
@@ -155,7 +155,7 @@ enum Got {
 }
 
 impl App {
-    fn rust_got(&self, file: &Path, written: String, line0: usize) -> Got {
+    pub(super) fn rust_got(&self, file: &Path, written: String, line0: usize) -> Got {
         match self.rust_resolve(file, &written, line0) {
             Some(ty) => Got::Ty(ty),
             None => Got::Written {
@@ -225,6 +225,11 @@ impl App {
                 written,
                 line0,
             } if unwraps => Some(self.rust_got(&file, unwrapped(&written)?, line0)),
+            Got::Written {
+                file,
+                written,
+                line0,
+            } if link.call => self.rust_std_returns(&file, &written, line0, &link.name),
             _ => None,
         }
     }
@@ -238,7 +243,10 @@ impl App {
         own: Option<&str>,
     ) -> Option<Got> {
         match (w.head.as_slice(), w.head_call) {
-            ([name], false) => Some(Got::Ty(self.rust_value_type(file, text, line0, name)?.0)),
+            ([name], false) => self
+                .rust_value_type(file, text, line0, name)
+                .map(|(ty, _)| Got::Ty(ty))
+                .or_else(|| self.rust_std_head(file, text, line0, name)),
             ([.., ty, f], true) if ty.starts_with(|c: char| c.is_ascii_uppercase()) => {
                 let owner = w.head[..w.head.len() - 1].join("::");
                 let ty = self.rust_resolve(file, &owner, line0)?;
@@ -330,6 +338,7 @@ impl App {
         if !w.head_call && w.links.is_empty() {
             return None;
         }
+        self.external_files(Kind::Rust);
         let mut got = self.rust_head(here, text, self.line, &w, None)?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
@@ -343,6 +352,10 @@ impl App {
         let ty = match got {
             Got::Ty(ty) => ty,
             Got::Written { file, written, .. } if call => {
+                if let Some(hit) = self.rust_std_marked(&written, word) {
+                    let reason = Reason::Receiver(format!("{via}(): {written}"));
+                    return Some(vec![Candidate { hit, reason }]);
+                }
                 let std = rust_bare_type(&written)?;
                 let owner = self.text_of(&file)?;
                 return self.rust_std_call(&owner, via, &std, word);

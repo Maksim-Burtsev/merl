@@ -11,7 +11,7 @@ static SLICE_IMPL: LazyLock<Regex> = LazyLock::new(|| {
         .expect("the regex is a literal")
 });
 
-const DEREF: &[(&str, &[&str])] = &[
+pub(super) const DEREF: &[(&str, &[&str])] = &[
     ("String", &["String", "str"]),
     ("str", &["str"]),
     ("PathBuf", &["PathBuf", "Path"]),
@@ -129,13 +129,24 @@ impl App {
         std: &str,
         word: &str,
     ) -> Option<Vec<Candidate>> {
+        self.external_files(Kind::Rust);
+        self.rust_std_found(text, name, std, word)
+    }
+
+    pub(super) fn rust_std_found(
+        &self,
+        text: &str,
+        name: &str,
+        std: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
         let (_, levels) = DEREF.iter().find(|(t, _)| *t == std)?;
         if !self.rust_std_named(text, std) {
             return None;
         }
         let mut files = Vec::new();
         for krate in ["core", "alloc", "std"] {
-            let Some(krate) = self.sysroot_crate(krate) else {
+            let Some(krate) = self.sysroot_src(krate) else {
                 return Some(Vec::new());
             };
             files.extend(krate.files);
@@ -203,7 +214,7 @@ impl App {
         )
     }
 
-    fn rust_std_named(&self, text: &str, std: &str) -> bool {
+    pub(super) fn rust_std_named(&self, text: &str, std: &str) -> bool {
         if bound(&search::imports(Kind::Rust, text), std).is_some_and(|p| {
             p.first()
                 .is_none_or(|f| !matches!(f.as_str(), "std" | "core" | "alloc"))
