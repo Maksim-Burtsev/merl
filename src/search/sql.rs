@@ -524,6 +524,16 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     let stmt = code.get(s..e)?;
     let unquote = |t: &str| t.trim().trim_matches(['"', '`']).to_ascii_lowercase();
     let q = unquote(qualifier);
+    let comment = Regex::new(&format!(
+        r"(?i)^\s*COMMENT\s+ON\s+COLUMN\s+{SQL_IDENT}\s*\.\s*$"
+    ))
+    .expect("a valid pattern");
+    if comment.is_match(code.get(s..at)?) {
+        return Some(q);
+    }
+    if q == "excluded" {
+        return sql_insert_target(stmt, at - s);
+    }
     let items = sql_from_items(stmt);
     let table = |r: &std::ops::Range<usize>| {
         let parts: Vec<String> = stmt.get(r.clone())?.split('.').map(unquote).collect();
@@ -666,6 +676,27 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
     if let Some(c) = trigger.captures(stmt) {
         return c.get(1)?.range().contains(&at).then(|| table(&c[2]));
     }
+    let index = Regex::new(&format!(
+        r"(?is)^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\b.*?\bON\s+(?:ONLY\s+)?({name})(?:\s+USING\s+\w+)?\s*\("
+    ))
+    .expect("a valid pattern");
+    if let Some(c) = index.captures(stmt) {
+        let open = c.get(0)?.end();
+        let inside = at >= open
+            && stmt
+                .get(open..at)?
+                .bytes()
+                .try_fold(0_isize, |d, b| {
+                    let d = d + isize::from(b == b'(') - isize::from(b == b')');
+                    (d >= 0).then_some(d)
+                })
+                .is_some();
+        return inside.then(|| table(&c[1]));
+    }
+    let output = Regex::new(r"(?i)\b(?:AS|CONSTRAINT)\s*$").expect("a valid pattern");
+    if let Some(t) = sql_insert_target(stmt, at).filter(|_| !output.is_match(before)) {
+        return Some(t);
+    }
     let insert = Regex::new(&format!(
         r"(?i)\bINSERT\s+INTO\s+({name})(?:\s+AS\s+{SQL_IDENT})?\s*\(([^()]*)\)"
     ))
@@ -694,6 +725,20 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
         return Some(t);
     }
     sql_scope_table(stmt, at, word, &update)
+}
+
+fn sql_insert_target(stmt: &str, at: usize) -> Option<String> {
+    let head = Regex::new(&format!(
+        r"(?i)\bINSERT\s+INTO\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+    ))
+    .expect("a valid pattern");
+    let tail = Regex::new(r"(?i)\bON\s+CONFLICT\b|\bRETURNING\b").expect("a valid pattern");
+    let c = head.captures(stmt)?;
+    let from = c.get(0)?.end();
+    let owned = tail
+        .find_iter(stmt.get(..at)?)
+        .any(|m| m.start() >= from && stmt.get(..m.start()).is_some_and(|t| sql_level(t) == 0));
+    (owned && sql_query_region(stmt, at).start == 0).then(|| sql_qualified(&c[1]))
 }
 
 fn sql_qualified(t: &str) -> String {

@@ -29,15 +29,15 @@ SELECT x FROM samovars AS s (x, y);
 --     ^ d: none
 INSERT INTO samovars (id, spout) VALUES (1, 2)
 ON CONFLICT (id) DO UPDATE SET spout = EXCLUDED.spout
---           ^ d: none; want steep/schema.sql:3 (#1223)
---                             ^ d: none; want steep/schema.sql:4 (#1223)
---                                              ^ d: none; want steep/schema.sql:4 (#1223)
+--           ^ d: steep/schema.sql:3
+--                             ^ d: steep/schema.sql:4
+--                                              ^ d: steep/schema.sql:4
 RETURNING brim;
---        ^ d: none; want steep/schema.sql:5 (#1223)
+--        ^ d: steep/schema.sql:5
 CREATE INDEX ON urns (handle);
---                    ^ d: none; want steep/schema.sql:9 (#1223)
+--                    ^ d: steep/schema.sql:9
 COMMENT ON COLUMN samovars.brim IS 'the top';
---                         ^ d: none; want steep/schema.sql:5 (#1223)
+--                         ^ d: steep/schema.sql:5
 WITH samovars AS (SELECT 1 AS spout) SELECT spout FROM samovars;
 --                                          ^ d: none
 SELECT sum(spout) OVER w FROM samovars WINDOW w AS (ORDER BY id);
@@ -52,3 +52,12 @@ SELECT * FROM phantoms, mirages;
 SELECT id, nothere FROM cozies;
 --     ^ d: steep/schema.sql:3
 --         ^ d: none
+INSERT INTO samovars (id) VALUES (1) ON CONFLICT ON CONSTRAINT brim DO NOTHING RETURNING spout AS handle;
+--                                                             ^ d: none
+--                                                                                       ^ d: steep/schema.sql:4
+--                                                                                                ^ d: none
+INSERT INTO urns (id) VALUES (1) RETURNING (SELECT max(handle) FROM samovars);
+--                                                     ^ d: none
+CREATE UNIQUE INDEX spout_idx ON samovars USING btree (lower(brim));
+--                  ^ d: steep/pour.sql:61
+--                                                           ^ d: steep/schema.sql:5
