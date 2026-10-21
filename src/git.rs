@@ -1170,17 +1170,25 @@ pub fn sweep_folders(root: &Path, now: SystemTime) {
         if !(aged || gone()) {
             continue;
         }
-        for name in dependency_links(&folder) {
-            let link = folder.join(&name);
-            if std::fs::read_link(&link).is_ok_and(|l| l.is_absolute() && l.ends_with(&name)) {
-                drop(std::fs::remove_file(link));
-            }
-        }
+        let links: Vec<(PathBuf, PathBuf)> = dependency_links(&folder)
+            .filter_map(|name| {
+                let link = folder.join(&name);
+                let to = std::fs::read_link(&link)
+                    .ok()
+                    .filter(|l| l.is_absolute() && l.ends_with(&name))?;
+                std::fs::remove_file(&link).is_ok().then_some((link, to))
+            })
+            .collect();
         if git(root, &["worktree", "remove", path]).is_ok() {
             for dir in folder.ancestors().skip(1).take_while(|d| *d != top) {
                 if std::fs::remove_dir(dir).is_err() {
                     break;
                 }
+            }
+        } else {
+            #[cfg(unix)]
+            for (link, to) in links {
+                drop(std::os::unix::fs::symlink(to, link));
             }
         }
     }
