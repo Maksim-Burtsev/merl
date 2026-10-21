@@ -31,12 +31,8 @@ The sql row with the rest of #1063 (a bare column where SQL names one table, an 
 The swift row with #1068's closure parameter of a generic wrapper's method (`streamMutableState.write { state in`): over `ac98b053`, 2026-10-22, release build, `vm.loadavg` { 8.57 9.76 7.72 } before the run, { 8.44 9.66 7.72 } after.
 merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
 The csharp row with #1088 (Blazor `.razor` files read through a separate read-only C# view): over `d1c7ea21`, 2026-10-22, release build, `vm.loadavg` { 9.64 13.18 7.21 } before the run, { 11.53 13.27 7.77 } after (the times read high under that load).
-<<<<<<< HEAD
 The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
-||||||| 3f3605067
-=======
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed through a union alias of `@types/estree` interfaces, `CallExpression`): over `3f360506`, 2026-10-22, release build, `vm.loadavg` { 10.99 8.50 7.82 } before the run.
->>>>>>> origin/b1022/js
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
