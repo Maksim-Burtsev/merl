@@ -20,7 +20,7 @@ function I.collect(list, v)
   --^ d: lua/tea/gaiwan.lua:39
   return ("cup"):upper() .. tostring(v):upper()
   --             ^ d: none
-  --                                    ^ d: lua/tea/gaiwan.lua:20; want none (#1207)
+  --                                    ^ d: none
 end
 
 function I.whisked(n)
@@ -37,9 +37,9 @@ function I.chain()
     :soak(5)
    --^ d: lua/tea/gaiwan.lua:11
     :unfold()
-   --^ d: picker lua/tea/gaiwan.lua:16, lua/tea/gaiwan.lua:31; want lua/tea/gaiwan.lua:16 (#1208)
+   --^ d: lua/tea/gaiwan.lua:16
   return cup:unfold() + poured
-  --         ^ d: picker lua/tea/gaiwan.lua:16, lua/tea/gaiwan.lua:31; want lua/tea/gaiwan.lua:16 (#1208)
+  --         ^ d: lua/tea/gaiwan.lua:16
 end
 
 function I.shadow()
@@ -118,7 +118,7 @@ end
 function I.skip(list)
   for _, v in ipairs(list) do
     if v then goto continue end
-    --             ^ d: none; want lua/tea/infusion.lua:123 (#1209)
+    --             ^ d: lua/tea/infusion.lua:123
     print(v)
     ::continue::
   end
@@ -137,6 +137,47 @@ function I.own(string)
   return string.format(1) .. math.floor(1.5)
   --            ^ d: lua/tea/gaiwan.lua:35
   --                              ^ d: none
+end
+
+function I.strung(v, tostring)
+  return string.rep("a", 2):upper() .. ("a"):rep(2):lower():upper() .. tostring(v):upper()
+  --                        ^ d: none
+  --                                                        ^ d: none
+  --                                                                               ^ d: lua/tea/gaiwan.lua:20
+end
+
+function I.brewed()
+  local s = gaiwan.Sencha.new(1):soak(2)
+  return Gaiwan.new(2):soak(5):unfold() + s:unfold() + Gaiwan.new(1):unfold()
+  --                           ^ d: lua/tea/gaiwan.lua:16
+  --                                        ^ d: picker lua/tea/gaiwan.lua:16, lua/tea/gaiwan.lua:31
+  --                                                                 ^ d: lua/tea/gaiwan.lua:16
+end
+
+function I.retry(list)
+  ::again::
+  for _, v in ipairs(list) do
+    if v then goto again end
+    --             ^ d: lua/tea/infusion.lua:158
+  end
+  for _, v in ipairs(list) do
+    if v then goto continue end
+    --             ^ d: lua/tea/infusion.lua:167
+    print(v)
+    ::continue::
+  end
+  local f = function()
+    goto again
+    --   ^ d: none
+  end
+  for _, v in ipairs(list) do
+    goto done
+    --   ^ d: none
+  end
+  for _, v in ipairs(list) do
+    ::done::
+  end
+  return f
 end
 
 return I

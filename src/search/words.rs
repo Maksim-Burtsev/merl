@@ -464,6 +464,7 @@ pub fn unbroken(kind: Kind, lines: &[String], at: usize, word_start: usize) -> O
                 t.strip_prefix('?').unwrap_or(t).starts_with('.') && !t.starts_with("..")
             }
             Kind::Php => t.starts_with("->") || t.starts_with("?->"),
+            Kind::Lua => t.starts_with(':') && !t.starts_with("::"),
             _ => false,
         }
     };

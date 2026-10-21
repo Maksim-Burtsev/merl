@@ -335,6 +335,12 @@ impl App {
             let found = self.lines_here(a, lines, &Reason::Local);
             return self.show_found(a, found);
         }
+        if kind == Kind::Lua
+            && let Some(lines) = search::lua_goto_label(&a.text, self.line + 1, &a.lead, &a.word)
+        {
+            let found = self.lines_here(a, lines, &Reason::Local);
+            return self.show_found(a, found);
+        }
         if kind == Kind::Sql
             && let Some(shown) = self.sql_in_file(a)
         {
