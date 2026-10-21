@@ -80,17 +80,43 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
 
 const SQL_IDENT: &str = r#"(?:"[^"]+"|`[^`]+`|[A-Za-z_]\w*)"#;
 
-pub fn sql_local(text: &str, at: usize, word: &str) -> Vec<usize> {
+pub fn sql_local(text: &str, at: usize, word: &str) -> (Vec<usize>, bool) {
     let (code, bodies) = sql_code(text);
     let line1 = |i: usize| text.bytes().take(i).filter(|&c| c == b'\n').count() + 1;
     match sql_aliases(&code, at, word) {
-        None => Vec::new(),
-        Some(found) if !found.is_empty() => found.into_iter().map(line1).collect(),
-        Some(_) => sql_parameter(&code, &bodies, at, word)
-            .map(line1)
-            .into_iter()
-            .collect(),
+        None => (Vec::new(), false),
+        Some(found) if !found.is_empty() => (found.into_iter().map(line1).collect(), false),
+        Some(_) => {
+            let found = sql_parameter(&code, &bodies, at, word);
+            let yields = found.is_some() && sql_language_sql(text, &code, &bodies, at);
+            (found.map(line1).into_iter().collect(), yields)
+        }
     }
+}
+
+fn sql_language_sql(text: &str, code: &str, bodies: &[std::ops::Range<usize>], at: usize) -> bool {
+    let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
+        return false;
+    };
+    let head_end = code
+        .get(..body.start)
+        .unwrap_or_default()
+        .trim_end_matches(';')
+        .len();
+    let head_start = code
+        .get(..head_end)
+        .and_then(|h| h.rfind(';'))
+        .map_or(0, |n| n + 1);
+    let tail = code.get(body.end..).unwrap_or_default();
+    let tail_start = body.end + tail.len() - tail.trim_start_matches(';').len();
+    let tail_end = code
+        .get(tail_start..)
+        .and_then(|t| t.find(';'))
+        .map_or(code.len(), |n| tail_start + n);
+    let language = Regex::new(r"(?i)\bLANGUAGE\s+'?sql\b").expect("a valid pattern");
+    [head_start..head_end, tail_start..tail_end]
+        .into_iter()
+        .any(|r| text.get(r).is_some_and(|t| language.is_match(t)))
 }
 
 pub(super) fn sql_string_end(b: &[u8], open: usize) -> Option<usize> {
@@ -524,6 +550,16 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     let stmt = code.get(s..e)?;
     let unquote = |t: &str| t.trim().trim_matches(['"', '`']).to_ascii_lowercase();
     let q = unquote(qualifier);
+    let comment = Regex::new(&format!(
+        r"(?i)^\s*COMMENT\s+ON\s+COLUMN\s+{SQL_IDENT}\s*\.\s*$"
+    ))
+    .expect("a valid pattern");
+    if comment.is_match(code.get(s..at)?) {
+        return Some(q);
+    }
+    if q == "excluded" {
+        return sql_insert_target(stmt, at - s);
+    }
     let items = sql_from_items(stmt);
     let table = |r: &std::ops::Range<usize>| {
         let parts: Vec<String> = stmt.get(r.clone())?.split('.').map(unquote).collect();
@@ -666,6 +702,27 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
     if let Some(c) = trigger.captures(stmt) {
         return c.get(1)?.range().contains(&at).then(|| table(&c[2]));
     }
+    let index = Regex::new(&format!(
+        r"(?is)^\s*CREATE\s+(?:UNIQUE\s+)?INDEX\b.*?\bON\s+(?:ONLY\s+)?({name})(?:\s+USING\s+\w+)?\s*\("
+    ))
+    .expect("a valid pattern");
+    if let Some(c) = index.captures(stmt) {
+        let open = c.get(0)?.end();
+        let inside = at >= open
+            && stmt
+                .get(open..at)?
+                .bytes()
+                .try_fold(0_isize, |d, b| {
+                    let d = d + isize::from(b == b'(') - isize::from(b == b')');
+                    (d >= 0).then_some(d)
+                })
+                .is_some();
+        return inside.then(|| table(&c[1]));
+    }
+    let output = Regex::new(r"(?i)\b(?:AS|CONSTRAINT)\s*$").expect("a valid pattern");
+    if let Some(t) = sql_insert_target(stmt, at).filter(|_| !output.is_match(before)) {
+        return Some(t);
+    }
     let insert = Regex::new(&format!(
         r"(?i)\bINSERT\s+INTO\s+({name})(?:\s+AS\s+{SQL_IDENT})?\s*\(([^()]*)\)"
     ))
@@ -694,6 +751,20 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
         return Some(t);
     }
     sql_scope_table(stmt, at, word, &update)
+}
+
+fn sql_insert_target(stmt: &str, at: usize) -> Option<String> {
+    let head = Regex::new(&format!(
+        r"(?i)\bINSERT\s+INTO\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+    ))
+    .expect("a valid pattern");
+    let tail = Regex::new(r"(?i)\bON\s+CONFLICT\b|\bRETURNING\b").expect("a valid pattern");
+    let c = head.captures(stmt)?;
+    let from = c.get(0)?.end();
+    let owned = tail
+        .find_iter(stmt.get(..at)?)
+        .any(|m| m.start() >= from && stmt.get(..m.start()).is_some_and(|t| sql_level(t) == 0));
+    (owned && sql_query_region(stmt, at).start == 0).then(|| sql_qualified(&c[1]))
 }
 
 fn sql_qualified(t: &str) -> String {
@@ -759,7 +830,33 @@ fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<
     (!stmt.lines().any(|l| cte.is_match(l))).then(|| t.clone())
 }
 
-pub fn sql_table_column(text: &str, create: usize, column: &str) -> Option<usize> {
+pub fn sql_parents(text: &str, create: usize) -> Vec<String> {
+    let (code, _) = sql_code(text);
+    let from: usize = code
+        .split_inclusive('\n')
+        .take(create - 1)
+        .map(str::len)
+        .sum();
+    let rest = code.get(from..).unwrap_or_default();
+    let stmt = rest
+        .get(..rest.find(';').unwrap_or(rest.len()))
+        .unwrap_or_default();
+    let name = format!(r"{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*");
+    let like = Regex::new(&format!(r"(?i)[(,]\s*LIKE\s+({name})")).expect("a valid pattern");
+    let inherits = Regex::new(r"(?i)\)\s*INHERITS\s*\(([^()]*)\)").expect("a valid pattern");
+    let mut parents: Vec<String> = like
+        .captures_iter(stmt)
+        .map(|c| sql_qualified(&c[1]))
+        .collect();
+    parents.extend(
+        inherits
+            .captures_iter(stmt)
+            .flat_map(|c| c[1].split(',').map(sql_qualified).collect::<Vec<_>>()),
+    );
+    parents
+}
+
+pub fn sql_table_column(text: &str, create: usize, column: &str, quoted: bool) -> Option<usize> {
     let (code, _) = sql_code(text);
     let from: usize = code
         .split_inclusive('\n')
@@ -772,28 +869,47 @@ pub fn sql_table_column(text: &str, create: usize, column: &str) -> Option<usize
         return None;
     }
     let item = Regex::new(&format!(
-        r#"(?i)^\s*(?:"{c}"|{c})\s+[A-Za-z]"#,
+        r#"(?i)^\s*("{c}"|{c})\s+[A-Za-z]"#,
         c = regex::escape(column)
     ))
     .expect("an escaped name keeps it valid");
+    let fold = |n: &str, q: bool| {
+        if q {
+            n.to_owned()
+        } else {
+            n.to_ascii_lowercase()
+        }
+    };
+    let wanted = fold(column, quoted);
     let (b, mut depth, mut start) = (code.as_bytes(), 0_usize, open + 1);
+    let mut found = Vec::new();
     for (i, &c) in b.iter().enumerate().skip(open) {
         match c {
             b'(' => depth += 1,
             b')' | b',' if depth == 1 => {
-                if item.is_match(code.get(start..i)?) {
-                    let lead = code.get(start..i)?.len() - code.get(start..i)?.trim_start().len();
-                    return Some(code.get(..start + lead)?.matches('\n').count() + 1);
+                let piece = code.get(start..i)?;
+                if let Some(m) = item.captures(piece).and_then(|m| m.get(1)) {
+                    let line1 = code.get(..start + m.start())?.matches('\n').count() + 1;
+                    let spelled = m.as_str();
+                    let unquoted = spelled.trim_matches('"');
+                    found.push((
+                        fold(unquoted, unquoted.len() < spelled.len()) == wanted,
+                        line1,
+                    ));
                 }
                 if c == b')' {
-                    return None;
+                    break;
                 }
                 start = i + 1;
             }
             b')' => depth = depth.saturating_sub(1),
-            b';' => return None,
+            b';' => break,
             _ => {}
         }
     }
-    None
+    found
+        .iter()
+        .find(|f| f.0)
+        .or_else(|| found.first())
+        .map(|f| f.1)
 }
