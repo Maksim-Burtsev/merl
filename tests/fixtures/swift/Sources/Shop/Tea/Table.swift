@@ -53,13 +53,26 @@ func pour(into cup: Cup) {}
 func lay(_ kettle: Kettle?) {
     kettle?.boil { [kettle] in
         kettle?.whistle()
-        //^ d: Sources/Shop/Tea/Table.swift:53; want Sources/Shop/Tea/Table.swift:54 (#986)
+        //^ d: Sources/Shop/Tea/Table.swift:54
     }
     guard let kettle else { return }
     kettle.whistle()
-    // ^ d: Sources/Shop/Tea/Table.swift:53; want Sources/Shop/Tea/Table.swift:58 (#986)
+    // ^ d: Sources/Shop/Tea/Table.swift:58
     pour(into: Cup(ounces: 3))
     // ^ d: Sources/Shop/Tea/Table.swift:51
     kettle.pour(into: Cup(ounces: 4))
     //     ^ d: Sources/Shop/Tea/Kettle.swift:33
+}
+
+func pourLater(_ kettle: Kettle?) {
+    kettle?.boil { [weak kettle] in
+        kettle?.whistle()
+        //^ d: Sources/Shop/Tea/Table.swift:68
+        //      ^ d: Sources/Shop/Tea/Kettle.swift:41
+    }
+    if let kettle {
+        kettle.whistle()
+        //^ d: Sources/Shop/Tea/Table.swift:73
+        //     ^ d: Sources/Shop/Tea/Kettle.swift:41
+    }
 }

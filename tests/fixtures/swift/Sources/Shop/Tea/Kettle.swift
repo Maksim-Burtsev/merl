@@ -86,7 +86,7 @@ extension Kettle {
     func sip(leaf: Leaf?) {
         guard let leaf else { return }
         _ = leaf.grade
-        //  ^ d: Sources/Shop/Tea/Kettle.swift:86; want Sources/Shop/Tea/Kettle.swift:87 (#986)
+        //  ^ d: Sources/Shop/Tea/Kettle.swift:87
         //       ^ d: Sources/Shop/Tea/Teapot.swift:2
         if let leaf = self.leaf {
             _ = leaf

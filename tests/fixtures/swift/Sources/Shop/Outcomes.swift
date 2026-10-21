@@ -264,3 +264,22 @@ func indexed(_ keys: [any CodingKey], _ ledgers: [Logbook]) -> Bool {
     return Task.isCancelled
     //          ^ d: none
 }
+
+// A field of a type from outside the project, which no extension of the project declares, is a
+// value from outside too: its members answer from the project's extensions or none (#1068).
+struct Gateway {
+    var host: String
+}
+
+func outsideFields(_ fileURL: URL, _ request: URLRequest) -> Int {
+    let fileName = fileURL.lastPathComponent
+    _ = fileName.isEmpty
+    //           ^ d: none
+    guard
+        let url = request.url,
+        let host = url.host else { return 0 }
+    //                 ^ d: none
+    return host.sniffed() + fileURL.path.sniffed()
+    //          ^ d: Sources/Shop/Infuse/Sencha.swift:37
+    //                                   ^ d: Sources/Shop/Infuse/Sencha.swift:37
+}

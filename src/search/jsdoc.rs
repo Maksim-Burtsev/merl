@@ -237,3 +237,32 @@ pub fn jsdoc_braced_at(line: &str, word: Range<usize>, in_comment: bool) -> bool
 pub fn jsdoc_typedef_line(line: &str) -> bool {
     typedef(line).is_some()
 }
+
+pub fn eslint_visited_node(text: &str, line1: usize, name: &str) -> Option<String> {
+    static VISITOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^(\s*)(?:([A-Z][A-Za-z]*)|"([A-Z][A-Za-z]*)(?::exit)?"|'([A-Z][A-Za-z]*)(?::exit)?')\s*\(\s*([A-Za-z_$][\w$]*)\s*\)\s*\{\s*$"#)
+            .expect("the regex is a literal")
+    });
+    static CREATE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*create\s*(?::\s*function\s*)?\(\s*[A-Za-z_$][\w$]*\s*\)\s*\{\s*$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let k = line1.checked_sub(1)?;
+    let c = VISITOR.captures(lines.get(k)?)?;
+    if &c[5] != name {
+        return None;
+    }
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let outer = |below: usize, than: usize| {
+        (0..below)
+            .rev()
+            .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) < than)
+    };
+    let opener = outer(k, c[1].len())?;
+    let create = outer(opener, indent(lines[opener]))?;
+    (lines[opener].trim() == "return {" && CREATE.is_match(lines[create]))
+        .then(|| (2..=4).find_map(|i| c.get(i)))
+        .flatten()
+        .map(|m| m.as_str().to_owned())
+}
