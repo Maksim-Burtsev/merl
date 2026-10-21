@@ -212,16 +212,16 @@ also declares, a function `pour` beside the methods, `static::` and `parent::`, 
 a parameter named like a field, a local assigned twice, a closure's `use`, and a heredoc and a
 block comment declaring what the files declare; `Kettle::card` names its members in the prose
 of a heredoc and a nowdoc, which declares nothing, beside interpolated `{$this->…}`, `$var` and
-`${var}`, and an escaped `\$var` that is text (#1113). `php/src/Tea/Infuse/` is the third
+`${var}`, and an escaped `\$var` that is text; `Kettle::sign` does the same in one-line quoted strings, beside a callable `[$other, 'pour']` that is still looked up (#1113); `Kettle::ledger` looks up the code after a string that closes a line below its quote, and a backslash-qualified class name in prose. `php/src/Tea/Infuse/` is the third
 corner (#1126), its answers read from the code: `Ceremony` calls `format` and `count` on a
 `DateTimeImmutable` and an `ArrayObject` beside `Leaf`'s namesakes, a builder chain over lines, a
 call on a call's result, `$cup = $cup->steep()`, a destructured pair, and one behind a
 `...$spread`, which has no class, a loop variable assigned again, a class imported under an alias
-by a group `use`, an inherited and an overridden method, a `: self` step on a subclass, which is
-the owner's call and stops (#1186), a `: static` result stored in a local, a trait's method
+by a group `use`, an inherited and an overridden method, a `: self` step on a subclass, which
+continues with the class declaring the method, as intelephense reads `self` (#1186), in a chain and stored in a local or a first-class callable (`selfBound`), a `: static` result stored in a local, a trait's method
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
-function declared inside `if (!function_exists(..))`, and a string, a `#` comment and a heredoc
+function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
 declaring what the corner declares. `lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
@@ -328,7 +328,11 @@ loop over `dict.items()`, a walrus, a class body's own attribute beside a compre
 method that skip it, `this` for `self` over an abstract base, a nested `def` and an `except … as`
 hiding module names, and an import in both branches of an `if`, which pyright answers with the
 `else` one and the code with both. Its `brew` beside `brewing.py`'s: a module's own top-level
-function wins over another module's that it does not import.
+function wins over another module's that it does not import. Its `mixed` loops over sums of lists:
+of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not). Its `Lab` assigns `kit` through `cls` in a `@classmethod` (#1099). Its `clean` assigns
+a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
+a `while` inside a `for` of the same name, whose right side is either. Its `twice` calls a `str`
+method on a local set from one set from a `str` parameter (builtin, #1151).
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
@@ -485,7 +489,12 @@ whose base comes from the uninstalled `sequelize-typescript`, beside a type's `c
 lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
 another class. `crate.js` reads `hinge` off an untyped parameter, declared only
-as a plain property of an interface in `node_modules/parcel-kit` (#1078).
+as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
+rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
+member, an inherited one, one the interface lacks (offered by name, as untyped), a nested
+function's own `node` and a Babel-shaped `visitor` (both untyped), and a reassigned `node`, which
+keeps its type as tsserver's does. With `@types/estree` installed, `rules/q.js`'s `callee`
+answers as tsserver does too.
 `infusion.ts` is the third corner (#1126), its answers tsserver's: members of a string, a
 `Promise` and a `Map` beside project namesakes (`Basket.trim`, `Basket.then`), a builder chain
 over lines through a renaming re-export (`Strainer as Filter`), an inherited and an overridden
@@ -564,6 +573,10 @@ parameter named like that function, `super` in an extension, a `typealias` in bo
 and a multi-line string and a block comment declaring what `Sencha.swift` declares. Where
 sourcekit-lsp offers a non-final class's method with its override, the annotation takes the
 declared type's method.
+`swift/Sources/Shop/Faucets.swift` (#1072) calls a method with two overloads, both returning
+`Faucet`, on a value an inherited method returns, and then `.pour` on the next line or the same
+one: it lands on `Faucet.pour`, not `Cistern.pour`. Overloads that return two types (`either`)
+keep the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -583,6 +596,21 @@ another, a closure parameter named like a function, an alias re-exported through
 (`Leaf as Sheet`), a `type Tin = Leaf`, a `{gulp}` inside `format!`, and a string and a block
 comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]` and
 `#[cfg(not(unix))]` from two modules: rust-analyzer answers the host's arm, merl offers both.
+Since #1044 `shadow_back_to_leaf` rebinds `leaf` to a `Leaf` through `unwrap`, which keeps its
+jump, and `label_of` holds the `String` a `Leaf` method returns, which `Leaf::len` never answers.
+
+`sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
+`strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
+function and a trigger sharing a name, the same table read from a plain file outside any
+migration, and `1_init` beside `10_more`, whose order is unclear and keeps the picker.
+`pour_strainers` reads columns for #1063 through an alias and a table: one from a `CREATE TABLE`
+body, one a quoted name, one an `ADD COLUMN`, one a `RENAME COLUMN … TO`, and none through a
+derived table, a CTE named like a table, an unknown alias, or bare in an `INSERT` (still a miss).
+`audit_ladles` creates an `audit.ladles` after `ladles`: a column through `FROM ladles l` stays
+in `ladles`, one only `audit.ladles` has answers nothing, and `ladles` itself offers both.
+`touch_ladles` and `touch_strainers` create a trigger `touch` on two tables and a function
+`scoop` with two signatures, one of them re-created: the two triggers and the two signatures
+in effect stay a picker.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
@@ -594,6 +622,9 @@ named like a table, a statement in a string over lines and in a comment, and tab
 behind an import prefix, a `Teapot` sharing `pour` and a static `cold`, a parameter hiding the
 prefix and one hiding a field, `super.` and a cascade, record and object patterns, a local
 function, and declaration-shaped lines in a raw string, a nested `/* */` and a `///` comment.
+`dart/lib/infuser.dart` (#1072) reaches `Leaf.unfurl` through a call and a getter of `Infuser`,
+over lines and on one, beside a namesake `Bag.unfurl`; a generic method's `T` is no type to
+follow, so `hold(Bag()).unfurl` does not jump.
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a
@@ -661,7 +692,10 @@ parameter reassigned under `if`, a local assigned twice, a block's value before 
 `super` inside `define_method`, each answered as master does. `glaze.rb` patches `String` five
 ways (`String.include`, `String.prepend`, `String.class_eval`, `refine(String)` and a reopened
 `class String`): each patched core method is the project's, never "builtin", while a `chop` in an
-unrelated class leaves `raw.to_s.chop` builtin.
+unrelated class leaves `raw.to_s.chop` builtin. `new` lands on the `initialize` Ruby calls
+(#1185): `Samovar` and its alias `Urn` reach `Vessel`'s, `flask.rb`'s `Flask` an included
+module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermos` (its own
+`def self.new`) and `Jug` (a base outside the project) answer nothing.
 
 ### Adding a kind
 

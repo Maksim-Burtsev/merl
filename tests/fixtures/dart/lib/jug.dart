@@ -92,3 +92,23 @@ void brew(Lid lid) {
   Pot(1);
   //^ d: picker lib/jug.dart:84, lib/jug.dart:86
 }
+
+// A local set from a constructor call over several lines is typed by it; one more call after it, not (#1085).
+class Spout {
+  final int brim;
+  Spout({required this.brim});
+  Pot pot() => Pot(brim);
+}
+
+void tip() {
+  final spout = Spout(
+    brim: 1,
+  );
+  spout.brim;
+  //    ^ d: lib/jug.dart:98
+  final pot = Spout(
+    brim: 2,
+  ).pot();
+  pot.brim;
+  //  ^ d: picker lib/jug.dart:85, lib/jug.dart:98
+}

@@ -61,7 +61,7 @@ impl App {
         self.ruby_value_class(here, text, at, "", whole, depth + 1)
     }
 
-    fn ruby_constant_class(&self, here: &Path, name: &str) -> Option<String> {
+    pub(super) fn ruby_constant_class(&self, here: &Path, name: &str) -> Option<String> {
         if let Some(class) = self.ruby_class_named(here, name) {
             return Some(class);
         }

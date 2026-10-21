@@ -14,7 +14,7 @@ sql0011		the cursor is on the name a RENAME TO gives	judged
 sql0012	migrations/2021-03-09-171136_split_user_table_2/down.sql:232		judged: a column of user_, which its own down.sql adds again, checked line by line
 sql0013	migrations/2019-02-27-170003_create_community/up.sql:37		judged; reviewed: community.name, in SELECT name FROM community
 sql0014			judged: a builtin
-sql0015	migrations/2023-07-04-153335_add_optimized_indexes/up.sql:48		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0015	migrations/2023-09-07-215546_post-queries-efficient/up.sql:56		judged; reviewed (#1064): a down.sql runs right after its own up.sql, whose line 56 re-creates the index this DROP undoes
 sql0016	migrations/2020-02-08-145624_add_post_newest_activity_time/up.sql:78		judged; reviewed: the cursor is on the alias AS score it declares
 sql0017	migrations/2023-08-09-101305_user_instance_block/up.sql:10		judged: a column of post_aggregates, checked line by line
 sql0018	migrations/2019-03-03-163336_create_post/up.sql:6		judged; reviewed: post.creator_id
@@ -43,7 +43,7 @@ sql0040	migrations/2022-10-06-183632_move_blocklist_to_db/up.sql:32		judged; rev
 sql0041	migrations/2019-02-26-002946_create_user/up.sql:2		judged; reviewed: user_.id
 sql0042	migrations/2019-03-05-233828_create_comment/up.sql:3		judged; reviewed: comment.creator_id
 sql0043	migrations/2019-02-26-002946_create_user/up.sql:1		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
-sql0044	migrations/2019-04-29-175834_add_delete_columns/up.sql:13		judged: the CREATE in effect (latest up.sql before, or earlier in the file)
+sql0044	migrations/2019-05-02-051656_community_view_hot_rank/up.sql:3		judged; reviewed (#1064): a down.sql runs right after its own up.sql, whose line 3 creates the view this DROP undoes
 sql0045			judged: a builtin
 sql0046	migrations/2025-08-01-000063_post-or-comment-notification/up.sql:10		judged: comment_reply RENAME TO notification
 sql0047	migrations/2019-03-03-163336_create_post/up.sql:32		judged; reviewed: post_read.id

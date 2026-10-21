@@ -28,7 +28,7 @@ def names(raw: str, words: list[str]) -> list[str]:
     log.info("names")
     #   ^ d: tea/brewer.py:15; want none (#1100)
     return [p.strip() for p in parts]
-    #         ^ d: tea/brewer.py:9; want none (#1151)
+    #         ^ d: none
 
 
 def opened(path: str) -> str:
@@ -93,7 +93,7 @@ def again(brewer: Brewer) -> int:
 def walk(cup: Cup) -> int:
     while cup.next:
         cup = cup.next
-        #     ^ d: tea/pouring.py:93; want picker tea/pouring.py:93, tea/pouring.py:95 (#1154)
+        #     ^ d: picker tea/pouring.py:93, tea/pouring.py:95
         #         ^ d: tea/brewer.py:31
     return cup.size
 
@@ -144,3 +144,48 @@ def outer() -> int:
     except ValueError as names:
         return len(str(names))
         #              ^ d: tea/pouring.py:144
+
+
+def mixed(brewers: list[Brewer], raw: str) -> int:
+    more = brewers + brewers
+    both = raw.split() + brewers
+    pieces = raw.split() + " a b".split()
+    for piece in pieces:
+        piece.strip()
+        #     ^ d: none
+    return len([b.leaves(1) for b in more]) + len([s.leaves(1) for s in both])
+    #                  ^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46
+    #                                                 ^ d: picker tea/brewer.py:49, tea/brewer.py:62, tea/kettle.py:46
+
+
+class Lab:
+    @classmethod
+    def setup(cls) -> None:
+        cls.kit = Brewer()
+
+    def run(self) -> int:
+        return self.kit.leaves(1).build().sip()
+        #           ^ d: tea/pouring.py:164
+        #               ^ d: tea/brewer.py:49
+
+
+def clean(lines: list[str], items: list[str]) -> int:
+    for line in lines:
+        line = line.strip()
+        #      ^ d: tea/pouring.py:173
+    for n, item in enumerate(items):
+        if item:
+            item = item.lower()
+            #      ^ d: tea/pouring.py:176
+    for cup in lines:
+        while cup:
+            cup = cup[1:]
+            #     ^ d: picker tea/pouring.py:180, tea/pouring.py:182
+    return len(lines) + n
+
+
+def twice(raw: str) -> int:
+    once = raw.strip()
+    again = once.strip()
+    return len(again.split())
+    #                ^ d: none

@@ -76,7 +76,7 @@ final class Ceremony
     {
         $dark = new Dark();
         return $dark->dry()->grade() . $leaf->dry()->grade();
-        //                   ^ d: !jump
+        //                   ^ d: src/Tea/Infuse/Leaf.php:7
         //                                           ^ d: src/Tea/Infuse/Leaf.php:7
     }
 
@@ -135,7 +135,7 @@ final class Ceremony
     public function strings(): string
     {
         $code = "class Leaf {} function warm_cup() {}";
-        //             ^ d: src/Tea/Infuse/Leaf.php:5
+        //             ^ d: none
         # function pour(): int
         return $code . <<<PHP
             public function shape(): string
@@ -148,5 +148,15 @@ final class Ceremony
         [$first, $second] = [...$pre, new Gaiwan()];
         return $second->pour();
         //              ^ d: !jump
+    }
+
+    public function selfBound(): string
+    {
+        $dark = new Dark();
+        $dried = $dark->dry();
+        $later = $dark->dry(...);
+        return $dried->grade() . $later()->grade();
+        //             ^ d: src/Tea/Infuse/Leaf.php:7
+        //                                 ^ d: src/Tea/Infuse/Leaf.php:7
     }
 }

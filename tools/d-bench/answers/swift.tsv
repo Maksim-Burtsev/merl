@@ -85,7 +85,7 @@ swift0082	Source/Core/Session.swift:30;Source/Core/Session.swift:201
 swift0083			
 swift0084			
 swift0085		builtin: an SDK interface the server generated	
-swift0086			
+swift0086	Source/Core/UploadRequest.swift:52		reviewed: judged, the server found none in Tests/; every Session.upload returns UploadRequest
 swift0087	Source/Core/DataRequest.swift:28		
 swift0088	Source/Features/URLEncodedFormEncoder.swift:450		
 swift0089			
