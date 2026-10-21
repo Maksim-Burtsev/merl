@@ -97,6 +97,9 @@ VOLATILE = re.compile(r"(?<=merl-tutor-)\d+")
 AGENT = {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_AUTHOR_NAME": "agent", "GIT_COMMITTER_NAME": "agent",
          "GIT_AUTHOR_EMAIL": "agent@example.com", "GIT_COMMITTER_EMAIL": "agent@example.com",
          "GIT_AUTHOR_DATE": "2026-09-03T10:00:00Z", "GIT_COMMITTER_DATE": "2026-09-03T10:00:00Z"}
+RUST_HOMES = {k: p for k, p in ((k, os.environ.get(k) or os.path.expanduser(d))
+                                 for k, d in (("RUSTUP_HOME", "~/.rustup"), ("CARGO_HOME", "~/.cargo")))
+              if os.path.isdir(p)}
 SCREENS = os.path.join(HERE, "screens")
 RELEASE_ONLY = {
     "scale": "gitea's checkout, a 59 MB fetch, and its timed steps mean nothing on a shared runner",
@@ -153,8 +156,9 @@ class Merl(cast.Pane):
 
     def command(self, args):
         unset = " ".join("-u " + v for v in os.environ if v.startswith("XDG_"))
-        return "exec env %s HOME=%s COLORTERM=truecolor GOTOOLCHAIN=local TZ=UTC MERL_CLOCK_AT=%d %s 2>>%s" % (
-            unset, shlex.quote(self.home), CLOCK_AT, shlex.join([os.path.abspath(self.binary)] + args),
+        homes = " ".join(f"{k}={shlex.quote(p)}" for k, p in RUST_HOMES.items())
+        return "exec env %s HOME=%s %s COLORTERM=truecolor GOTOOLCHAIN=local TZ=UTC MERL_CLOCK_AT=%d %s 2>>%s" % (
+            unset, shlex.quote(self.home), homes, CLOCK_AT, shlex.join([os.path.abspath(self.binary)] + args),
             shlex.quote(self.err))
 
     def restart(self, args):
@@ -374,7 +378,7 @@ def play(binary, path, work, timed_only=False, rec=None, theme=None, slot=0, met
             elif verb in ("run", "check"):
                 if rec:
                     rec.step = f"{verb} {arg[:90]}"
-                env = {**os.environ, **AGENT, "HOME": home,
+                env = {**os.environ, **AGENT, **RUST_HOMES, "HOME": home,
                        "SMOKE_TMUX": f"tmux -L {pane.sock} -f /dev/null"}
                 end = time.monotonic() + (TIMEOUT if verb == "check" else 0)
                 while (out := subprocess.run(arg, shell=True, cwd=cwd, env=env, capture_output=True,
