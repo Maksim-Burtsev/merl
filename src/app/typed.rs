@@ -637,6 +637,14 @@ impl App {
         name: &str,
         hops: usize,
     ) -> Option<TypeVia> {
+        if kind == Kind::TsJs
+            && let Some(ty) = self.narrowed(kind, file, text, line1, name, hops)
+        {
+            return Some(TypeVia {
+                ty,
+                call_signature: None,
+            });
+        }
         let mut bindings = self.bindings_of(kind, file, text, line1, name);
         if kind == Kind::Python
             && bindings
@@ -1237,6 +1245,63 @@ impl App {
         let first = each.next()??;
         each.all(|hits| hits.is_some_and(|h| at(&h) == at(&first)))
             .then_some(first)
+    }
+
+    fn narrowed(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<Typed> {
+        let (tag, guard) = search::ts_narrowed_tag(text, line1, name)?;
+        let [b] = &self.bindings_of(kind, file, text, line1, name)[..] else {
+            return None;
+        };
+        if b.line1 >= guard {
+            return None;
+        }
+        let arms = match &b.value {
+            search::Value::Element(over) if hops > 0 => {
+                let (chain, last) = over.rsplit_once('.')?;
+                let chain: Vec<String> = chain.split('.').map(str::to_owned).collect();
+                let ProvenType { ty, .. } = self
+                    .chain_type(kind, file, text, b.line1, &chain, hops - 1)
+                    .ok()?;
+                let (at, written) = self.hierarchy(kind, &ty, 0, &mut |t| {
+                    let text = self.text_of(&t.path)?;
+                    match &search::field_bindings(kind, &text, t.line, last)[..] {
+                        [
+                            search::Binding {
+                                value: search::Value::Type(w),
+                                ..
+                            },
+                        ] => Some((t.path.clone(), w.clone())),
+                        _ => None,
+                    }
+                })?;
+                search::ts_union_names(&search::element_type(kind, &written)?)?
+                    .iter()
+                    .map(|arm| self.type_decl(kind, &at, arm))
+                    .collect::<Option<Vec<_>>>()?
+            }
+            _ => self.union_arms(kind, &self.binding_type(kind, file, text, b, hops)?.ty)?,
+        };
+        let mut tagged = None;
+        for arm in arms {
+            let hits = self.hierarchy(kind, &arm, 0, &mut |t| {
+                self.instance_member(kind, t, "type")
+            })?;
+            let [hit] = &hits[..] else {
+                return None;
+            };
+            if search::ts_type_tag(&hit.text)? == tag && tagged.replace(arm).is_some() {
+                return None;
+            }
+        }
+        tagged
     }
 
     fn returns_of(
