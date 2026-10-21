@@ -885,6 +885,20 @@ pub fn dart_element_typed(line: &str, name: &str) -> Option<DartType> {
     })
 }
 
+pub fn dart_type_bound(line: &str, ty: &DartType) -> Option<DartType> {
+    let re = Regex::new(&format!(
+        r"<(?:[^<>()]*,)?\s*{}\s+extends\s+(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\s*[,>]",
+        regex::escape(&ty.class)
+    ))
+    .ok()?;
+    let c = re.captures(line).filter(|_| ty.prefix.is_none())?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
 pub fn dart_value<'a>(line: &'a str, name: &str) -> Option<&'a str> {
     let re = Regex::new(&format!(
         r"^\s*(?:(?:final|var|late)\s+)+{}\s*=\s*([^;]+?)\s*;\s*(?://.*)?$",

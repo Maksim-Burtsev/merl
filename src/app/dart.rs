@@ -449,6 +449,7 @@ impl App {
         let (line, line1) = line_of(name)?;
         let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
         if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
+            let ty = search::dart_type_bound(line, &ty).unwrap_or(ty);
             return Some((ty, here.to_path_buf()));
         }
         if let Some(list) = search::dart_list_element(line, name) {

@@ -113,7 +113,7 @@ class Host {
 }
 
 int bound<T extends Chawan>(T t) => t.heft() + (t + t).tilt();
-//                                    ^ d: picker lib/brew/chawan.dart:18, lib/brew/old_chawan.dart:3; want lib/brew/chawan.dart:18 (#1220)
+//                                    ^ d: lib/brew/chawan.dart:18
 
 int extended(String name, List<Chawan> chawans) => name.frothed.length + chawans.length;
 //                                                      ^ d: lib/brew/chawan.dart:47
@@ -141,3 +141,6 @@ int unpacked(List<Matcha> pair, List<List<Chawan>> nested) {
   //       ^ d: lib/brew/chawan.dart:34
   //                      ^ d: picker lib/brew/chawan.dart:16, lib/brew/chawan.dart:34, lib/brew/old_chawan.dart:2
 }
+
+int bounded<K, T extends Matcha>(K k, T t) => t.tilt();
+//                                               ^ d: lib/brew/chawan.dart:34
