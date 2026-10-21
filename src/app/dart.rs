@@ -623,15 +623,18 @@ impl App {
                 || (target == "num" && matches!(class, "int" | "double"))
         };
         let extends = |t: &str| {
-            t.lines().filter_map(|l| on.captures(l)).filter(|c| reaches(&c[2])).any(|c| {
-                let within = c.get(1).map(|n| format!("{}.{word}", n.as_str()));
-                t.lines().enumerate().any(|(i, l)| {
-                    declares.is_match(l)
-                        && within.as_ref().is_none_or(|w| {
-                            search::qualified(Kind::Dart, t, i + 1, word).as_ref() == Some(w)
-                        })
+            t.lines()
+                .filter_map(|l| on.captures(l))
+                .filter(|c| reaches(&c[2]))
+                .any(|c| {
+                    let within = c.get(1).map(|n| format!("{}.{word}", n.as_str()));
+                    t.lines().enumerate().any(|(i, l)| {
+                        declares.is_match(l)
+                            && within.as_ref().is_none_or(|w| {
+                                search::qualified(Kind::Dart, t, i + 1, word).as_ref() == Some(w)
+                            })
+                    })
                 })
-            })
         };
         ty.prefix.is_none()
             && search::DART_CORE_TYPES.contains(&class)
