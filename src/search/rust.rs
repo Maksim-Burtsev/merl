@@ -1299,16 +1299,7 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         if c[1].starts_with(':') {
             return Some(RustHolds::Type(type_at(rest).to_owned()));
         }
-        let mut statement = rest.to_owned();
-        let mut i = at;
-        while !statement.trim_end().ends_with(';') {
-            i += 1;
-            if i >= lines.len() || i > at + 40 {
-                return None;
-            }
-            statement.push(' ');
-            statement.push_str(uncommented(Kind::Rust, lines[i]).trim());
-        }
+        let statement = rust_statement(lines, at, rest)?;
         let e = statement.trim().trim_end_matches(';').trim_end();
         let closes_at_the_end = |open: usize| {
             let mut depth = 0i32;
@@ -1367,6 +1358,19 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
     }
     None
 }
+fn rust_statement(lines: &[&str], at: usize, rest: &str) -> Option<String> {
+    let mut statement = rest.to_owned();
+    let mut i = at;
+    while !statement.trim_end().ends_with(';') {
+        i += 1;
+        if i >= lines.len() || i > at + 40 {
+            return None;
+        }
+        statement.push(' ');
+        statement.push_str(uncommented(Kind::Rust, lines[i]).trim());
+    }
+    Some(statement)
+}
 pub fn rust_tuple_element(lines: &[&str], at: usize, name: &str) -> Option<String> {
     let close = |s: &str| {
         let mut depth = 1i32;
@@ -1393,16 +1397,7 @@ pub fn rust_tuple_element(lines: &[&str], at: usize, name: &str) -> Option<Strin
     };
     let i = names.iter().position(|p| bare(p))?;
     let rest = pattern.get(end + 1..)?.trim_start().strip_prefix('=')?;
-    let mut statement = rest.to_owned();
-    let mut j = at;
-    while !statement.trim_end().ends_with(';') {
-        j += 1;
-        if j >= lines.len() || j > at + 40 {
-            return None;
-        }
-        statement.push(' ');
-        statement.push_str(uncommented(Kind::Rust, lines[j]).trim());
-    }
+    let statement = rust_statement(lines, at, rest)?;
     let tuple = statement
         .trim()
         .trim_end_matches(';')
