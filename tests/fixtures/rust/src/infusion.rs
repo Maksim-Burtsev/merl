@@ -221,3 +221,9 @@ pub fn std_literal_then_more() -> usize {
     //^ d: src/infusion/leaves.rs:13
     //                                                   ^ d: src/infusion/leaves.rs:13
 }
+
+pub fn std_index(leaves: &[Leaf], i: usize) -> usize {
+    leaves[i].name.len() + leaves[0].grade as usize
+    //        ^ d: src/infusion/leaves.rs:3
+    //                                ^ d: src/infusion/leaves.rs:2
+}

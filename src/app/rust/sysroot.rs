@@ -1,15 +1,46 @@
 use std::sync::LazyLock;
 
-use super::chain::{let_initializer, opening};
+use super::chain::{let_initializer, opening, trailing_name};
 use super::{
-    App, Candidate, Hit, Kind, Path, Reason, Regex, bound, rust_bare_type, rust_written_type,
-    search,
+    App, Candidate, Hit, Kind, Path, Reason, Regex, Typing, bound, rust_bare_type,
+    rust_written_type, search,
 };
 
 static SLICE_IMPL: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*(?:(?:unsafe|const)\s+)*impl\s*<[^{]*?>\s+(?:[\w:]+(?:<[^{]*?>)?\s+for\s+)?(\[T(?:;\s*N)?\])\s*(?:\{|where\b|$)")
         .expect("the regex is a literal")
 });
+
+static INDEXED: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)?(?:(?:(?:std|alloc)::(?:vec|collections)::)?(Vec|VecDeque)\s*<(.+)>|\[(.+)\])$")
+        .expect("the regex is a literal")
+});
+
+static STD_PATH: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)*((?:\w+::)*)([A-Z]\w*)")
+        .expect("the regex is a literal")
+});
+
+fn rust_element(written: &str) -> Option<(Option<String>, String)> {
+    let c = INDEXED.captures(written.trim())?;
+    let (container, args, stop) = match c.get(1) {
+        Some(m) => (Some(m.as_str().to_owned()), c.get(2)?.as_str(), b','),
+        None => (None, c.get(3)?.as_str(), b';'),
+    };
+    let mut depth = 0i32;
+    let end = args
+        .bytes()
+        .position(|b| {
+            match b {
+                b'<' | b'(' | b'[' => depth += 1,
+                b'>' | b')' | b']' => depth -= 1,
+                _ => {}
+            }
+            depth == 0 && b == stop
+        })
+        .unwrap_or(args.len());
+    Some((container, args.get(..end)?.trim().to_owned()))
+}
 
 impl App {
     pub(super) fn rust_std_written(&self, file: &Path, text: &str, name: &str) -> Option<String> {
@@ -87,7 +118,7 @@ impl App {
             ("Path", &["Path"]),
             ("OsString", &["OsString", "OsStr"]),
             ("OsStr", &["OsStr"]),
-            ("Vec", &["Vec"]),
+            ("Vec", &["Vec", "[T]"]),
             ("VecDeque", &["VecDeque"]),
             ("Option", &["Option"]),
             ("Result", &["Result"]),
@@ -98,17 +129,7 @@ impl App {
             ("[T; N]", &["[T; N]", "[T]"]),
         ];
         let (_, levels) = DEREF.iter().find(|(t, _)| *t == std)?;
-        if bound(&search::imports(Kind::Rust, text), std).is_some_and(|p| {
-            p.first()
-                .is_none_or(|f| !matches!(f.as_str(), "std" | "core" | "alloc"))
-        }) {
-            return None;
-        }
-        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
-        let own = self
-            .grep(&search::rust_type_decl_pattern(std), false, false, rs)
-            .unwrap_or_default();
-        if !own.is_empty() {
+        if !self.rust_std_named(text, std) {
             return None;
         }
         let mut files = Vec::new();
@@ -161,7 +182,7 @@ impl App {
                 let at: Vec<&(Hit, bool, String)> =
                     owned.iter().filter(|(_, _, t)| t == level).collect();
                 let inherent: Vec<Hit> = at.iter().filter(|o| o.1).map(|o| o.0.clone()).collect();
-                let found = if inherent.is_empty() {
+                let found = if inherent.is_empty() && (std, *level) != ("Vec", "[T]") {
                     at.into_iter().map(|o| o.0.clone()).collect()
                 } else {
                     inherent
@@ -179,5 +200,141 @@ impl App {
                 })
                 .collect(),
         )
+    }
+
+    fn rust_std_named(&self, text: &str, std: &str) -> bool {
+        if bound(&search::imports(Kind::Rust, text), std).is_some_and(|p| {
+            p.first()
+                .is_none_or(|f| !matches!(f.as_str(), "std" | "core" | "alloc"))
+        }) {
+            return false;
+        }
+        let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
+        self.grep(&search::rust_type_decl_pattern(std), false, false, rs)
+            .is_ok_and(|own| own.is_empty())
+    }
+
+    pub(in crate::app) fn rust_index_member(
+        &mut self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+        call: bool,
+    ) -> Option<Typing> {
+        let receiver = before.strip_suffix('.')?.trim_end();
+        let inner = receiver.strip_suffix(']')?;
+        let open = opening(receiver, b']', b'[')?;
+        let index = inner.get(open + 1..)?.trim();
+        let head = receiver.get(..open)?;
+        let name = trailing_name(head);
+        let lead = head.get(..head.len() - name.len())?.trim_end();
+        if name.is_empty()
+            || name.starts_with(|c: char| c.is_ascii_digit())
+            || lead.ends_with(['.', ':', '!', '#'])
+            || index.is_empty()
+            || index.contains("..")
+            || (call && !index.bytes().all(|b| b.is_ascii_digit()))
+        {
+            return None;
+        }
+        let lines: Vec<&str> = text.lines().collect();
+        let bindings = search::bindings(Kind::Rust, text, self.line + 1, name);
+        let [b] = bindings.as_slice() else {
+            return None;
+        };
+        let at = b.line1 - 1;
+        let (file, written, line0) = match search::rust_holds(&lines, at, name)? {
+            search::RustHolds::Type(w) => (here.to_path_buf(), w, at),
+            search::RustHolds::Call(parts) => {
+                let (decl, returns) = self.rust_call_returns(here, text, at, &parts)?;
+                (decl.path, returns, decl.line1 - 1)
+            }
+            _ => return None,
+        };
+        let owner = self.text_of(&file)?;
+        let (container, element) = rust_element(&written)?;
+        if container.is_some_and(|c| !self.rust_std_named(&owner, &c)) {
+            return None;
+        }
+        let via = format!("{name}[{index}]");
+        let hits = match self.rust_resolve(&file, &element, line0) {
+            Some(ty) if call => self.rust_members(&ty, word),
+            Some(ty) => self
+                .rust_field(&ty, word)
+                .map(|(hit, _)| vec![hit])
+                .unwrap_or_default(),
+            None if call => {
+                let std = rust_bare_type(&element)?;
+                return self
+                    .rust_std_call(&owner, &via, &std, word)
+                    .map(Typing::Std);
+            }
+            None => vec![self.rust_std_field(&owner, &element, word)?],
+        };
+        let reason = Reason::Receiver(format!("{via}: {element}"));
+        Some(Typing::Members(
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        ))
+    }
+
+    fn rust_std_field(&mut self, text: &str, written: &str, word: &str) -> Option<Hit> {
+        let c = STD_PATH.captures(written.trim())?;
+        let mut path: Vec<String> = c[1]
+            .split("::")
+            .filter(|p| !p.is_empty())
+            .map(str::to_owned)
+            .collect();
+        path.push(c[2].to_owned());
+        if let Some(full) = bound(&search::imports(Kind::Rust, text), &path[0]) {
+            path.splice(..1, full);
+        }
+        let (name, modules) = path.split_last()?;
+        let (krate, modules) = modules.split_first()?;
+        if !matches!(krate.as_str(), "std" | "core" | "alloc") || modules.is_empty() {
+            return None;
+        }
+        let dir = modules.join("/");
+        let file = format!("{dir}.rs");
+        let mut files = Vec::new();
+        for src in ["core", "alloc", "std"].map(|k| self.sysroot_crate(k)).into_iter().flatten() {
+            files.extend(src.files.into_iter().filter(|f| {
+                f.strip_prefix(&src.src)
+                    .is_ok_and(|r| r.starts_with(&dir) || r == Path::new(&file))
+            }));
+        }
+        let decls: Vec<Hit> = search::grep_project(
+            &self.root,
+            &files,
+            &search::rust_type_decl_pattern(name),
+            false,
+            false,
+            None,
+            None,
+        )
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|h| {
+            self.text_of(&h.path).is_some_and(|t| {
+                search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
+            })
+        })
+        .collect();
+        let [decl] = <[Hit; 1]>::try_from(decls).ok()?;
+        let t = self.text_of(&decl.path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        let field = search::rust_struct_field(&lines, decl.line1 - 1, word)?;
+        Some(Hit {
+            path: decl.path,
+            line1: field.line0 + 1,
+            byte_col: None,
+            text: lines[field.line0].to_owned(),
+            deleted: None,
+        })
     }
 }
