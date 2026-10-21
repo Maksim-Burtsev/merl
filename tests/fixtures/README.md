@@ -676,7 +676,9 @@ list, an `INSERT … ON CONFLICT … DO UPDATE SET … EXCLUDED. … RETURNING`,
 `COMMENT ON COLUMN` (#1223), a CTE's column and a `WINDOW` name (none, as #1063's decision A
 says; #1228 asks whether they should jump), a `"Lid"` beside a `lid` (#1224), a `LANGUAGE sql`
 parameter named like a column (#1225), and `CREATE`s in a `$$` string inside a `$body$` (#1226)
-and inside a nested block comment (#1227).
+and inside a nested block comment (#1227). `steep/grades.sql` names a type like a column of its
+table: after `::`, after `TYPE` and as an added column's type the name is the type, and in a
+`CAST(.. AS ..)` too, while the column itself still jumps to the column.
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a
