@@ -29,6 +29,7 @@ impl App {
         if let Some(held) = held
             && let Some(inner) = held.strip_prefix("vec!")
             && inner.starts_with('[')
+            && inner.ends_with(']')
             && opening(inner, b']', b'[') == Some(0)
             && self
                 .grep(r"macro_rules!\s*vec\b", false, false, |p| {
@@ -61,6 +62,9 @@ impl App {
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let receiver = before.strip_suffix('.')?.trim_end();
+        if !receiver.ends_with(']') {
+            return None;
+        }
         let open = opening(receiver, b']', b'[')?;
         let lead = receiver.get(..open)?.trim_end();
         if !(lead.is_empty() || lead.ends_with(['(', ',', '=', '{', ';', '&', '[', '|'])) {

@@ -214,3 +214,10 @@ pub fn std_array(leaves: Vec<Leaf>) -> usize {
     //   ^ d: none
         + n
 }
+
+pub fn std_literal_then_more() -> usize {
+    let w = vec![Leaf::new(1)].remove(0);
+    w.len() + [Leaf::new(2)].into_iter().next().unwrap().len()
+    //^ d: src/infusion/leaves.rs:13
+    //                                                   ^ d: src/infusion/leaves.rs:13
+}
