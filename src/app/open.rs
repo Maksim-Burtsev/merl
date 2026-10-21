@@ -12,6 +12,7 @@ impl App {
     }
 
     fn open(&mut self, path: &Path, line: usize) -> bool {
+        self.razor_restore();
         let same = self.buf.path.as_deref() == Some(path);
         if !same {
             if !self.flush() {

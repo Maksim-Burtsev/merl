@@ -2584,3 +2584,41 @@ fn a_dot_m_is_told_matlab_or_objective_c_by_its_text() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn d_in_a_razor_file_reads_it_as_csharp_and_leaves_its_text_alone() {
+    let razor = "@page \"/till\"\n@inject Tariff Tariffs\n\n<p>@Tariffs.Rate()</p>\n\n@code {\n    private int Settle() => Tariffs.Rate();\n}\n";
+    let (dir, mut a) = project_app(
+        "razor",
+        &[
+            (
+                "Tariff.cs",
+                "public class Tariff\n{\n    public int Rate() => 1;\n}\n",
+            ),
+            ("Till.razor", razor),
+        ],
+    );
+    let till = dir.join("Till.razor");
+    a.jump_to(&till, 4);
+    a.col = 13;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("Tariff.cs"), 2), "{}", a.message);
+    a.jump_to(&till, 4);
+    a.buf.lines[0] = "@page \"/till/{id}\"".into();
+    a.dirty = true;
+    a.col = 13;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("Tariff.cs"), 2), "{}", a.message);
+    let saved = std::fs::read_to_string(&till).unwrap();
+    assert_eq!(saved, razor.replacen("/till", "/till/{id}", 1));
+    a.jump_to(&till, 7);
+    a.col = 36;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (dir.join("Tariff.cs"), 2), "{}", a.message);
+    a.jump_to(&till, 2);
+    a.col = 4;
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(at(&a), (till.clone(), 1));
+    assert_eq!(a.buf.lines.join("\n") + "\n", saved);
+    std::fs::remove_dir_all(&dir).unwrap();
+}
