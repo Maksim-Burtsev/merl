@@ -254,7 +254,10 @@ impl App {
         };
         let rs = |p: &Path| p.extension().is_some_and(|e| e == "rs");
         let alias = |b: &str| {
-            let found = |p: &str| self.grep(p, false, false, rs).map_or(true, |h| !h.is_empty());
+            let found = |p: &str| {
+                self.grep(p, false, false, rs)
+                    .map_or(true, |h| !h.is_empty())
+            };
             let pattern = format!(
                 r"^\s*(?:pub(?:\([^)]*\))?\s+)?type\s+{}\b",
                 regex::escape(b)
@@ -265,29 +268,28 @@ impl App {
             r"^\s*(?:unsafe\s+)?impl\b(?:\s*<.*>)?\s*(?:\w+::)*{0}\b|^\s*>\s*(?:\w+::)*{0}\b",
             regex::escape(tr)
         );
-        self.grep(&headers, false, false, rs)
-            .map_or(true, |hits| {
-                hits.iter().any(|h| {
-                    let Some(c) = re.captures(&h.text) else {
-                        return true;
-                    };
-                    let ty = &c[2];
-                    if ty.contains('$') {
-                        return true;
-                    }
-                    let generic = |b: &str| {
-                        c.get(1).is_some_and(|g| {
-                            g.as_str()
-                                .split(',')
-                                .any(|p| p.split(':').next().map(str::trim) == Some(b))
-                        })
-                    };
-                    match rust_bare_type(ty) {
-                        Some(b) => levels.contains(&b.as_str()) || generic(&b) || alias(&b),
-                        None => levels.contains(&if ty.contains(';') { "[T; N]" } else { "[T]" }),
-                    }
-                })
+        self.grep(&headers, false, false, rs).map_or(true, |hits| {
+            hits.iter().any(|h| {
+                let Some(c) = re.captures(&h.text) else {
+                    return true;
+                };
+                let ty = &c[2];
+                if ty.contains('$') {
+                    return true;
+                }
+                let generic = |b: &str| {
+                    c.get(1).is_some_and(|g| {
+                        g.as_str()
+                            .split(',')
+                            .any(|p| p.split(':').next().map(str::trim) == Some(b))
+                    })
+                };
+                match rust_bare_type(ty) {
+                    Some(b) => levels.contains(&b.as_str()) || generic(&b) || alias(&b),
+                    None => levels.contains(&if ty.contains(';') { "[T; N]" } else { "[T]" }),
+                }
             })
+        })
     }
 
     pub(in crate::app) fn rust_index_member(
