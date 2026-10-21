@@ -420,3 +420,63 @@ final class Vaultkeeper {
         }
     }
 }
+
+// A nested type that several types declare is the one the enclosing types declare, innermost
+// first, when a wrapper holds it by construction or by annotation, and a field typed over several
+// lines is read whole. Past a type that inherits (`Teller: Basis`, whose `Basis` may declare a
+// `Sheet` of its own) the name stays ambiguous: a picker, never a jump (#1068).
+final class Cashbook {
+    struct Sheet {
+        var seals: Set<String> = []
+        var pending: [Int] = []
+    }
+
+    let sheet = Strongbox(Sheet())
+
+    func settle(_ seal: String) {
+        sheet.write { $0.seals.remove(seal) }
+        //                     ^ d: none
+        //               ^ d: Sources/Shop/Outcomes.swift:430
+    }
+
+    final class Clerk {
+        let sheet = Strongbox(Sheet())
+
+        func idle() -> Bool {
+            sheet.read { $0.pending.isEmpty }
+            //                      ^ d: none
+        }
+    }
+
+    final class Teller: Basis {
+        let sheet = Strongbox(Sheet())
+
+        func idle() -> Bool {
+            sheet.read { $0.pending.isEmpty }
+            //              ^ d: picker Sources/Shop/Outcomes.swift:431, Sources/Shop/Outcomes.swift:463
+        }
+    }
+}
+
+final class Auditor<Witness> {
+    private struct Sheet {
+        var pending: [Int] = []
+        var lines: [(entry: String,
+                     amount: Int)] = []
+    }
+
+    private let sheet: Strongbox<Sheet>
+
+    init() {
+        sheet = Strongbox(Sheet())
+    }
+
+    func check() -> Bool {
+        sheet.write { sheet in
+            sheet.pending.isEmpty && sheet.lines.isEmpty
+            //                                   ^ d: none
+            //            ^ d: none
+            //    ^ d: Sources/Shop/Outcomes.swift:463
+        }
+    }
+}
