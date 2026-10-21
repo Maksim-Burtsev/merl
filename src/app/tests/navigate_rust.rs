@@ -1180,3 +1180,38 @@ fn a_std_method_s_declared_return_type_types_the_next_link() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn a_project_receiver_answers_before_the_toolchain_is_walked() {
+    let lib = "pub struct Payout {\n    pub amount: u64,\n}\n\nimpl Payout {\n    pub fn line(&self) -> String {\n        String::new()\n    }\n}\n\npub fn latest() -> Payout {\n    Payout { amount: 1250 }\n}\n\npub fn print_latest() -> String {\n    let payout = latest();\n    payout.line()\n}\n\npub fn chained() -> String {\n    latest().line()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-project-first",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    for (code, want) in [
+        (
+            "payout.line",
+            jump(
+                "line \u{2192} Payout::line (via latest() -> Payout)",
+                "src/lib.rs:6",
+            ),
+        ),
+        (
+            "latest().line",
+            jump("line \u{2192} Payout::line (via latest(): Payout)", "src/lib.rs:6"),
+        ),
+    ] {
+        let walk = std::thread::spawn(|| (Vec::new(), Vec::new()));
+        a.warming.insert(Kind::Rust, Some(walk));
+        d_on(&mut a, "src/lib.rs", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+        assert!(
+            a.warming[&Kind::Rust].is_some(),
+            "{code} waited for the walk outside the project"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

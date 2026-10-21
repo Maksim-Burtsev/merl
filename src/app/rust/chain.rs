@@ -338,11 +338,20 @@ impl App {
         if !w.head_call && w.links.is_empty() {
             return None;
         }
-        self.external_files(Kind::Rust);
-        let mut got = self.rust_head(here, text, self.line, &w, None)?;
-        for link in &w.links {
-            got = self.rust_step(got, link)?;
+        let line = self.line;
+        let walked = |a: &Self| {
+            let mut got = a.rust_head(here, text, line, &w, None)?;
+            for link in &w.links {
+                got = a.rust_step(got, link)?;
+            }
+            Some(got)
+        };
+        let mut got = walked(self);
+        if got.is_none() {
+            self.external_files(Kind::Rust);
+            got = walked(self);
         }
+        let got = got?;
         let via = w
             .links
             .iter()
@@ -352,6 +361,7 @@ impl App {
         let ty = match got {
             Got::Ty(ty) => ty,
             Got::Written { file, written, .. } if call => {
+                self.external_files(Kind::Rust);
                 if let Some(hit) = self.rust_std_marked(&written, word) {
                     let reason = Reason::Receiver(format!("{via}(): {written}"));
                     return Some(vec![Candidate { hit, reason }]);
