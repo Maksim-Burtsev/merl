@@ -1218,3 +1218,30 @@ fn a_project_receiver_answers_before_the_toolchain_is_walked() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_std_value_keeps_a_project_trait_whose_impl_merl_cannot_read() {
+    let lib = "pub trait Shout {\n    fn shout(&self) -> u32;\n}\n\ntype Name = String;\n\nimpl Shout for Name {\n    fn shout(&self) -> u32 {\n        0\n    }\n}\n\npub trait Whisper {\n    fn whisper(&self) -> u32;\n}\n\nmacro_rules! whisper_for {\n    ($t:ty) => {\n        impl Whisper for $t {\n            fn whisper(&self) -> u32 {\n                0\n            }\n        }\n    };\n}\n\nwhisper_for!(String);\n\npub trait Murmur {\n    fn murmur(&self) -> u32;\n}\n\nimpl<\n    T: std::fmt::Display + std::fmt::Debug + Clone + Send + Sync + PartialEq + 'static,\n> Murmur for Vec<T>\n{\n    fn murmur(&self) -> u32 {\n        0\n    }\n}\n\npub fn used(s: String, w: Vec<String>) -> u32 {\n    let v = vec![1, 2, 3];\n    s.shout() + s.whisper() + w[0].shout() + v.murmur()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-std-unread-impls",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    use_roots(&mut a, Kind::Rust, &[]);
+    for (code, want) in [
+        ("s.shout", "src/lib.rs:2"),
+        ("s.whisper", "src/lib.rs:14"),
+        ("w[0].shout", "src/lib.rs:2"),
+        ("v.murmur", "src/lib.rs:30"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place,
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
