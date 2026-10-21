@@ -591,11 +591,12 @@ impl App {
         app.buf = buf;
         if let Some((n, char_col1)) = at {
             app.goto_line(n);
-            let s = app.buf.shown(app.line);
+            let s = app.line_str();
             app.col = s
                 .char_indices()
                 .nth(char_col1.saturating_sub(1))
                 .map_or(s.len(), |(i, _)| i);
+            app.reach((app.at(), app.col));
             app.sync_want_x();
         }
         if let Some(path) = app.buf.path.clone() {

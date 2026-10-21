@@ -347,6 +347,22 @@ impl App {
                 return self.show_found(a, found);
             }
         }
+        if kind == Kind::Sql
+            && a.dotted
+            && let [qualifier] = a.chain.as_slice()
+        {
+            let at = self.buf.lines[..self.line]
+                .iter()
+                .map(|l| l.len() + 1)
+                .sum::<usize>()
+                + a.range.start;
+            if let Some(table) = search::sql_alias_table(&a.text, at, qualifier) {
+                let found = self.sql_column(&a.here, &table, &a.word);
+                if !found.is_empty() {
+                    return self.show_found(a, found);
+                }
+            }
+        }
         if kind == Kind::C
             && let Some((found, broke)) = self.c_early(&a.here, &a.text, &a.word, a.range.clone())
         {
@@ -468,5 +484,39 @@ impl App {
             return self.show_found(a, found);
         }
         false
+    }
+}
+
+impl App {
+    fn sql_column(&self, here: &Path, table: &str, column: &str) -> Vec<Candidate> {
+        let mut hits =
+            self.project_grep(Kind::Sql, here, &search::sql_column_pattern(table, column));
+        let keep = search::sql_in_effect(here, self.line + 1, &hits);
+        let mut i = 0;
+        hits.retain(|h| {
+            i += 1;
+            keep.as_ref()
+                .map_or_else(|| !h.path.ends_with("down.sql"), |k| k.contains(&(i - 1)))
+        });
+        let create = regex::Regex::new(r"(?i)^\s*CREATE\s").expect("a valid pattern");
+        hits.into_iter()
+            .filter_map(|h| {
+                if !create.is_match(&h.text) {
+                    return Some(h);
+                }
+                let line1 = search::sql_table_column(&self.hit_text(&h)?, h.line1, column)?;
+                let text = self.hit_text(&h)?.lines().nth(line1 - 1)?.to_owned();
+                Some(Hit {
+                    line1,
+                    text,
+                    byte_col: None,
+                    ..h
+                })
+            })
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Receiver(table.to_owned()),
+            })
+            .collect()
     }
 }

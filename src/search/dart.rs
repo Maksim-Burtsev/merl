@@ -212,6 +212,7 @@ pub struct DartDirective {
     pub prefix: Option<String>,
     pub show: Option<Vec<String>>,
     pub hide: Vec<String>,
+    pub alternatives: Vec<String>,
     pub line1: usize,
 }
 
@@ -241,6 +242,11 @@ pub fn dart_directives(text: &str) -> Option<Vec<DartDirective>> {
                     "as" => d.prefix = Some(t.to_owned()),
                     "show" => d.show.get_or_insert_with(Vec::new).push(t.to_owned()),
                     "hide" => d.hide.push(t.to_owned()),
+                    "" => d.alternatives.extend(
+                        t.strip_prefix(['\'', '"'])
+                            .and_then(|u| u.strip_suffix(['\'', '"']))
+                            .map(str::to_owned),
+                    ),
                     _ => {}
                 },
             }
@@ -391,6 +397,14 @@ pub(super) fn dart_sdk_of(dart: &Path) -> Option<PathBuf> {
     } else {
         bin.parent().map(Path::to_path_buf)
     }
+}
+
+pub fn dart_root_of(roots: &[PathBuf], path: &Path) -> Option<PathBuf> {
+    roots
+        .iter()
+        .filter(|r| path.starts_with(r))
+        .max_by_key(|r| r.as_os_str().len())
+        .cloned()
 }
 
 pub(super) fn dart_roots(root: &Path, sdk: Option<PathBuf>) -> Vec<PathBuf> {
@@ -761,7 +775,7 @@ fn dart_new(s: &str, c: &regex::Captures, open: usize) -> Option<(DartType, usiz
     Some((ty, close))
 }
 
-pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
+pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
     let w = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name");
     let declared = rule(format!(
@@ -787,11 +801,73 @@ pub fn dart_typed(line: &str, name: &str) -> Option<DartType> {
         });
     }
     let c = assigned.captures(line)?;
-    let (ty, close) = dart_new(line, &c, c.get(0)?.end() - 1)?;
-    line.get(close..)?
-        .trim_start()
-        .starts_with(';')
-        .then_some(ty)
+    let open = c.get(0)?.end() - 1;
+    let whole;
+    let s = if close_of(Kind::Dart, line, open).is_some() {
+        line
+    } else {
+        whole = format!("{line}\n{rest}");
+        &whole
+    };
+    let (ty, close) = dart_new(s, &c, open)?;
+    s.get(close..)?.trim_start().starts_with(';').then_some(ty)
+}
+
+pub fn dart_returns(line: &str, name: &str) -> Option<DartType> {
+    let re = Regex::new(&format!(
+        concat!(
+            r"^\s*",
+            dart_annotations!(),
+            dart_mods!(),
+            r"(?:(?:external|final|late)\s+)*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)",
+            dart_generics!(),
+            r"\??\s+(?:get\s+)?{}\s*(?:<[^()]*>)?\s*(?:\(|;|=>|\{{)"
+        ),
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
+pub fn dart_call_links(before: &str) -> Option<Vec<String>> {
+    let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let mut rest = before.strip_suffix('.')?;
+    let mut any_call = false;
+    let mut links = Vec::new();
+    loop {
+        let called = rest.ends_with(')');
+        any_call |= called;
+        if called {
+            let open = super::code(Kind::Dart, rest)
+                .filter(|(_, c)| *c == b'(')
+                .map(|(i, _)| i)
+                .find(|&i| close_of(Kind::Dart, rest, i) == Some(rest.len()))?;
+            rest = rest.get(..open)?;
+        }
+        let start = rest
+            .char_indices()
+            .rev()
+            .find(|&(_, c)| !is_name(c))
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        let name = rest.get(start..)?;
+        if !name.starts_with(|c: char| c.is_alphabetic() || c == '_' || c == '$') {
+            return None;
+        }
+        links.insert(0, name.to_owned());
+        let head = rest.get(..start)?;
+        match head.strip_suffix('.') {
+            Some(r) if r.ends_with(is_name) || r.ends_with(')') => rest = r,
+            Some(_) => return None,
+            None if called || head.ends_with(['?', '!', ')', ']', '.']) => return None,
+            None => break,
+        }
+    }
+    (links.len() > 1 && any_call).then_some(links)
 }
 
 pub fn dart_cascade(before: &str) -> Option<Result<DartType, String>> {

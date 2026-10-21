@@ -126,10 +126,43 @@ pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
         Kind::Rust => scan(kind, text, at).at_in_rust_string,
         Kind::Php => {
             let lead = text.get(..at).and_then(|t| t.rsplit('\n').next());
-            lead.is_some_and(|l| !php_interpolated(l)) && scan(kind, text, at).at_in_heredoc
+            let s = scan(kind, text, at);
+            let prose = (s.at_php_quote_from)
+                .is_none_or(|from| php_prose(text, from) && !php_qualified_name(text, at));
+            prose
+                && match s.at_in_php_literal {
+                    Some(b'\'') => true,
+                    Some(_) => lead.is_some_and(|l| !php_interpolated(l)),
+                    None => false,
+                }
         }
         _ => false,
     }
+}
+fn php_prose(text: &str, from: usize) -> bool {
+    let b = text.as_bytes();
+    let Some(&q) = b.get(from) else {
+        return false;
+    };
+    let mut i = from + 1;
+    while let Some(&c) = b.get(i) {
+        if c == q || c == b'\n' {
+            return false;
+        }
+        if c == b' ' || c == b'\t' {
+            return true;
+        }
+        i += if c == b'\\' { 2 } else { 1 };
+    }
+    false
+}
+fn php_qualified_name(text: &str, at: usize) -> bool {
+    let b = text.as_bytes();
+    let name = |c: &u8| ident(*c) || *c == b'\\';
+    let (head, tail) = (b.get(..at).unwrap_or(b), b.get(at..).unwrap_or_default());
+    let head = head.iter().rev().take_while(|c| name(c));
+    let tail = tail.iter().take_while(|c| name(c));
+    head.chain(tail).any(|&c| c == b'\\')
 }
 fn php_interpolated(lead: &str) -> bool {
     let open = lead.rfind("{$").max(lead.rfind("${"));
@@ -140,7 +173,8 @@ fn php_interpolated(lead: &str) -> bool {
 struct Scan {
     lines_in_literal: Vec<bool>,
     at_in_rust_string: bool,
-    at_in_heredoc: bool,
+    at_in_php_literal: Option<u8>,
+    at_php_quote_from: Option<usize>,
 }
 struct Heredoc {
     label: Vec<u8>,
@@ -207,11 +241,13 @@ struct Scanner<'a> {
     literal_closer: Option<Cow<'a, [u8]>>,
     long_bracket_level: usize,
     line_quote: Option<u8>,
+    line_quote_from: usize,
     i: usize,
     in_verbatim_string: bool,
     in_raw_string: bool,
     nested_comments: usize,
     heredoc: Option<Heredoc>,
+    php_heredoc_quote: u8,
     ruby_heredocs_from_next_line: Vec<Heredoc>,
     template_substitution_braces: Vec<usize>,
     cursor: Cursor,
@@ -221,7 +257,9 @@ struct Cursor {
     line: usize,
     rust_string_start: Option<usize>,
     in_rust_string: bool,
-    in_heredoc: bool,
+    literal: Option<u8>,
+    line_quote_unread: bool,
+    quote_from: Option<usize>,
 }
 fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     let mut s = Scanner {
@@ -233,11 +271,13 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         literal_closer: None,
         long_bracket_level: 0,
         line_quote: None,
+        line_quote_from: 0,
         i: 0,
         in_verbatim_string: false,
         in_raw_string: false,
         nested_comments: 0,
         heredoc: None,
+        php_heredoc_quote: b'"',
         ruby_heredocs_from_next_line: Vec::new(),
         template_substitution_braces: Vec::new(),
         cursor: Cursor {
@@ -247,7 +287,9 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
                 .map_or(usize::MAX, |t| t.bytes().filter(|&c| c == b'\n').count()),
             rust_string_start: None,
             in_rust_string: false,
-            in_heredoc: false,
+            literal: None,
+            line_quote_unread: kind == Kind::Php,
+            quote_from: None,
         },
     };
     while s.i < s.b.len() && s.step() {
@@ -259,7 +301,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
     Scan {
         lines_in_literal: s.out,
         at_in_rust_string: s.cursor.in_rust_string,
-        at_in_heredoc: s.cursor.in_heredoc,
+        at_in_php_literal: s.cursor.literal,
+        at_php_quote_from: s.cursor.quote_from,
     }
 }
 impl<'a> Scanner<'a> {
@@ -302,6 +345,13 @@ impl<'a> Scanner<'a> {
     fn step(&mut self) -> bool {
         let (b, i, kind) = (self.b, self.i, self.kind);
         let c = b[i];
+        if self.cursor.line_quote_unread && i >= self.cursor.at {
+            self.cursor.line_quote_unread = false;
+            if let Some(q) = self.line_quote.filter(|_| self.in_php_tags) {
+                self.cursor.literal = Some(q);
+                self.cursor.quote_from = Some(self.line_quote_from);
+            }
+        }
         if c == b'\n' {
             self.newline();
         } else if let Some(end) = self.literal_closer.take() {
@@ -348,7 +398,9 @@ impl<'a> Scanner<'a> {
 
     fn newline(&mut self) {
         let (b, i) = (self.b, self.i);
-        self.line_quote = None;
+        if !(self.kind == Kind::Php && self.in_php_tags) {
+            self.line_quote = None;
+        }
         if self.heredoc.is_none() && !self.ruby_heredocs_from_next_line.is_empty() {
             self.heredoc = Some(self.ruby_heredocs_from_next_line.remove(0));
             self.literal_closer = Some(b"".into());
@@ -375,7 +427,9 @@ impl<'a> Scanner<'a> {
             }
         }
         self.out.push(self.literal_closer.is_some());
-        self.cursor.in_heredoc |= self.heredoc.is_some() && self.out.len() - 1 == self.cursor.line;
+        if self.heredoc.is_some() && self.out.len() - 1 == self.cursor.line {
+            self.cursor.literal = Some(self.php_heredoc_quote);
+        }
     }
 
     fn in_literal(&mut self, end: Cow<'a, [u8]>, c: u8) {
@@ -495,6 +549,11 @@ impl<'a> Scanner<'a> {
             .copied()
             .collect();
         if !word.is_empty() {
+            self.php_heredoc_quote = if b.get(i + 3) == Some(&b'\'') {
+                b'\''
+            } else {
+                b'"'
+            };
             self.i += 2;
             self.literal_closer = Some(b"".into());
             self.heredoc = Some(Heredoc {
@@ -667,6 +726,7 @@ impl<'a> Scanner<'a> {
             || (matches!(kind, Kind::Sql | Kind::Ruby) && c == b'`')
         {
             self.line_quote = Some(c);
+            self.line_quote_from = i;
         } else if kind == Kind::Php && (b[i..].starts_with(b"<?") || b[i..].starts_with(b"?>")) {
             self.in_php_tags = c == b'<';
             self.i += 1;

@@ -9,3 +9,10 @@ wait hunk 1/1  file 1/8
 key Enter
 wait read-only: a pushed branch
 check test "$(git symbolic-ref --short HEAD)" = main
+
+# A branch of another remote, a pull request from a fork, opens from that remote in a folder of
+# its own: no local branch is made, and your checkout stays on main (#1188).
+run git remote add upstream ../origin.git
+merl -r upstream/agent/refund
+wait hunk 1/1  file 1/8
+check test -z "$(git branch --list agent/refund 'upstream/*')" && test "$(git symbolic-ref --short HEAD)" = main
