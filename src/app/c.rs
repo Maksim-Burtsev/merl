@@ -25,6 +25,32 @@ impl App {
             line.get(..range.start)?.trim_end(),
             line.get(range.end..)?.trim_start(),
         );
+        if before
+            .strip_suffix("goto")
+            .is_some_and(|h| !h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+        {
+            let lines = &self.buf.lines;
+            let found = goto_labels(lines, self.line, word)
+                .into_iter()
+                .map(|line1| Candidate {
+                    hit: Hit {
+                        deleted: None,
+                        path: here.to_path_buf(),
+                        line1,
+                        byte_col: None,
+                        text: lines[line1 - 1].clone(),
+                    },
+                    reason: Reason::Local,
+                })
+                .collect();
+            return Some((found, None));
+        }
+        if let Some(tag) = designated_struct(before) {
+            let found = self.c_class_fields(here, word, &tag, false);
+            if !found.is_empty() {
+                return Some((found, None));
+            }
+        }
         let called = after.starts_with('(');
         let member = (before.ends_with("->") && !TRAILING.is_match(before))
             || (before.ends_with('.') && !before.ends_with(".."));
@@ -38,6 +64,9 @@ impl App {
                 Ok(None) => None,
                 Err(at) => Some(at),
             };
+            if broke.is_none() && self.c_receiver_outside(here, text, &before) {
+                return Some((self.c_members(here, word, called, true), None));
+            }
             if !self.c_source() && !self.objc_file() {
                 match self.cpp_typed(here, text, &before, word) {
                     cpp::CppAnswer::Found(found) => return Some((found, None)),
@@ -144,6 +173,35 @@ impl App {
             prev.clone_from(name);
         }
         Ok(None)
+    }
+
+    fn c_receiver_outside(&self, here: &Path, text: &str, before: &str) -> bool {
+        let Some(search::CReceiver {
+            head,
+            head_called: false,
+            fields,
+            ..
+        }) = here
+            .extension()
+            .is_some_and(|e| e == "c")
+            .then(|| search::c_receiver(before))
+            .flatten()
+        else {
+            return false;
+        };
+        let Ok(Some(search::CType::Name(ty))) = search::c_value_type(text, self.line + 1, &head)
+        else {
+            return false;
+        };
+        fields.is_empty()
+            && self
+                .project_definitions(
+                    Kind::C,
+                    here,
+                    &ty,
+                    &search::def_patterns(Kind::C, &ty).join("|"),
+                )
+                .is_empty()
     }
 
     fn c_head_type(&self, here: &Path, text: &str, name: &str) -> Option<CTypeIn> {
@@ -708,6 +766,20 @@ fn normal(path: &Path) -> PathBuf {
     out
 }
 
+fn designated_struct(before: &str) -> Option<String> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^\s*(?:(?:static|const|extern)\s+)*struct\s+([A-Za-z_]\w*)\s+[A-Za-z_]\w*\s*=\s*\{(.*)\.$",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = HEAD.captures(before)?;
+    let inside = c[2].trim_end();
+    let flat = !inside.contains(['{', '}', '"', '\''])
+        && inside.matches('(').count() == inside.matches(')').count();
+    (flat && (inside.is_empty() || inside.ends_with(','))).then(|| c[1].to_owned())
+}
+
 pub(super) fn c_header(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| ["h", "hh", "hpp", "hxx"].iter().any(|h| e == *h))
@@ -716,4 +788,16 @@ pub(super) fn c_header(path: &Path) -> bool {
 pub(super) fn method_pattern(word: &str) -> String {
     let w = regex::escape(word);
     format!(r"^\s+[^;(){{}}=]*\w[\s*&]+{w}\s*\([^;{{}}]*\)[^;{{}}=]*\{{|^\w[^;(){{}}=]*::{w}\s*\(")
+}
+
+fn goto_labels(lines: &[String], line0: usize, word: &str) -> Vec<usize> {
+    let label = Regex::new(&format!(r"^\s*{}\s*:(?:[^:]|$)", regex::escape(word)))
+        .expect("an escaped name keeps the pattern valid");
+    let closes = |i: &usize| lines[*i].starts_with('}');
+    let from = (0..line0).rev().find(closes).map_or(0, |i| i + 1);
+    let to = (line0..lines.len()).find(closes).unwrap_or(lines.len());
+    (from..to)
+        .filter(|&i| label.is_match(&lines[i]))
+        .map(|i| i + 1)
+        .collect()
 }

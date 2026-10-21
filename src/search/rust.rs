@@ -1299,16 +1299,7 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         if c[1].starts_with(':') {
             return Some(RustHolds::Type(type_at(rest).to_owned()));
         }
-        let mut statement = rest.to_owned();
-        let mut i = at;
-        while !statement.trim_end().ends_with(';') {
-            i += 1;
-            if i >= lines.len() || i > at + 40 {
-                return None;
-            }
-            statement.push(' ');
-            statement.push_str(uncommented(Kind::Rust, lines[i]).trim());
-        }
+        let statement = rust_statement(lines, at, rest)?;
         let e = statement.trim().trim_end_matches(';').trim_end();
         let closes_at_the_end = |open: usize| {
             let mut depth = 0i32;
@@ -1366,6 +1357,56 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         return Some(RustHolds::Type(type_at(&c[1]).to_owned()));
     }
     None
+}
+fn rust_statement(lines: &[&str], at: usize, rest: &str) -> Option<String> {
+    let mut statement = rest.to_owned();
+    let mut i = at;
+    while !statement.trim_end().ends_with(';') {
+        i += 1;
+        if i >= lines.len() || i > at + 40 {
+            return None;
+        }
+        statement.push(' ');
+        statement.push_str(uncommented(Kind::Rust, lines[i]).trim());
+    }
+    Some(statement)
+}
+pub fn rust_tuple_element(lines: &[&str], at: usize, name: &str) -> Option<String> {
+    let close = |s: &str| {
+        let mut depth = 1i32;
+        code(Kind::Rust, s).find_map(|(i, c)| {
+            match c {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                _ => {}
+            }
+            (depth == 0).then_some(i)
+        })
+    };
+    let line = uncommented(Kind::Rust, lines.get(at)?);
+    let pattern = line
+        .trim()
+        .strip_prefix("let ")?
+        .trim_start()
+        .strip_prefix('(')?;
+    let end = close(pattern)?;
+    let names = top_split(pattern.get(..end)?);
+    let bare = |p: &str| {
+        let p = p.trim();
+        p.strip_prefix("mut ").unwrap_or(p).trim() == name
+    };
+    let i = names.iter().position(|p| bare(p))?;
+    let rest = pattern.get(end + 1..)?.trim_start().strip_prefix('=')?;
+    let statement = rust_statement(lines, at, rest)?;
+    let tuple = statement
+        .trim()
+        .trim_end_matches(';')
+        .trim_end()
+        .strip_prefix('(')?;
+    let end = close(tuple)?;
+    let values = top_split(tuple.get(..end)?);
+    (tuple.get(end + 1..)?.trim().is_empty() && values.len() == names.len())
+        .then(|| values[i].trim().to_owned())
 }
 pub fn rust_return_type(lines: &[&str], f: usize) -> Option<String> {
     let mut signature = String::new();

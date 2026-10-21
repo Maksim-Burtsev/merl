@@ -192,3 +192,54 @@ pub fn label_of(leaf: &Leaf) -> usize {
     label.len()
     //    ^ d: none
 }
+
+pub fn std_tuple(leaf: &mut Leaf) -> usize {
+    let (mut cup, mut pot, kept) = (vec![], vec!['x'], Leaf::new(1));
+    cup.push(leaf.len());
+    //  ^ d: none
+    let mut jar = vec![1];
+    jar.push(2);
+    //  ^ d: none
+    pot.len() + kept.len() + cup.len()
+    //  ^ d: none
+    //               ^ d: src/infusion/leaves.rs:13
+}
+
+pub fn std_array(leaves: Vec<Leaf>) -> usize {
+    let n = [1, 2].len() + leaves[0].len();
+    //             ^ d: none
+    //                               ^ d: src/infusion/leaves.rs:13
+    [Leaf::new(1), Leaf::new(2)]
+        .len()
+    //   ^ d: none
+        + n
+}
+
+pub fn std_literal_then_more() -> usize {
+    let w = vec![Leaf::new(1)].remove(0);
+    w.len() + [Leaf::new(2)].into_iter().next().unwrap().len()
+    //^ d: src/infusion/leaves.rs:13
+    //                                                   ^ d: src/infusion/leaves.rs:13
+}
+
+pub fn std_index(leaves: &[Leaf], i: usize) -> usize {
+    leaves[i].name.len() + leaves[0].grade as usize
+    //        ^ d: src/infusion/leaves.rs:3
+    //                                ^ d: src/infusion/leaves.rs:2
+}
+
+pub trait Pour {
+    fn chunks(&self) -> usize;
+}
+
+impl Pour for Leaf {
+    fn chunks(&self) -> usize {
+        1
+    }
+}
+
+pub fn std_slice_method() -> usize {
+    let cup = vec![1, 2];
+    cup.chunks(1).count()
+    //  ^ d: none
+}

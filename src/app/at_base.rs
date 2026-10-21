@@ -4,6 +4,12 @@ use super::{
 };
 use search_job::deleted_hits;
 
+pub(super) type AnswerOfD = (
+    String,
+    Option<(PickerKind, String, Vec<PickItem>)>,
+    Option<(Option<PathBuf>, usize, usize)>,
+);
+
 impl App {
     pub(super) fn base_place(&self) -> Option<FileLine> {
         let r = self.review.as_ref()?;
@@ -44,22 +50,8 @@ impl App {
         b.message.clear();
         b.jump_to(&b.root.join(path), line);
         b.col = col;
-        let before = (b.buf.path.clone(), b.line, b.col);
-        b.goto_definition();
-        let message = std::mem::take(&mut b.message);
+        let (message, picked, jumped) = b.answer_of_d();
         let base = b.root.clone();
-        let picked = b.picker.take().map(|mut p| {
-            p.settle();
-            let kind = match b.mode {
-                Mode::Picker(kind) => kind,
-                _ => PickerKind::Definitions,
-            };
-            let items: Vec<PickItem> = p.window(usize::MAX).0.into_iter().map(|r| r.item).collect();
-            (kind, p.title, items)
-        });
-        b.mode = Mode::Normal;
-        let jumped = (before != (b.buf.path.clone(), b.line, b.col))
-            .then(|| (b.buf.path.clone(), b.line + 1, b.col));
         match (picked, jumped) {
             (Some((kind, title, items)), _) => {
                 let items = items
@@ -93,6 +85,25 @@ impl App {
             }
             _ => self.message = message,
         }
+    }
+
+    pub(super) fn answer_of_d(&mut self) -> AnswerOfD {
+        let before = (self.buf.path.clone(), self.line, self.col);
+        self.goto_definition();
+        let message = std::mem::take(&mut self.message);
+        let picked = self.picker.take().map(|mut p| {
+            p.settle();
+            let kind = match self.mode {
+                Mode::Picker(kind) => kind,
+                _ => PickerKind::Definitions,
+            };
+            let items: Vec<PickItem> = p.window(usize::MAX).0.into_iter().map(|r| r.item).collect();
+            (kind, p.title, items)
+        });
+        self.mode = Mode::Normal;
+        let jumped = (before != (self.buf.path.clone(), self.line, self.col))
+            .then(|| (self.buf.path.clone(), self.line + 1, self.col));
+        (message, picked, jumped)
     }
 
     fn base_app(&mut self, r: &git::Review) -> Option<&mut Self> {

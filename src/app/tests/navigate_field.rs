@@ -397,7 +397,10 @@ fn a_field_is_a_target() {
             "go",
             "fields.go",
             "r.Host",
-            jump("no definition for Host", "fields.go:40"),
+            jump(
+                "no definition for Host in the project (via r: http.Request)",
+                "fields.go:40",
+            ),
         ),
         (
             "A field named like its type: on the type, `d` goes to the type",
