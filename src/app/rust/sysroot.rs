@@ -302,7 +302,11 @@ impl App {
         let dir = modules.join("/");
         let file = format!("{dir}.rs");
         let mut files = Vec::new();
-        for src in ["core", "alloc", "std"].map(|k| self.sysroot_crate(k)).into_iter().flatten() {
+        for src in ["core", "alloc", "std"]
+            .map(|k| self.sysroot_crate(k))
+            .into_iter()
+            .flatten()
+        {
             files.extend(src.files.into_iter().filter(|f| {
                 f.strip_prefix(&src.src)
                     .is_ok_and(|r| r.starts_with(&dir) || r == Path::new(&file))

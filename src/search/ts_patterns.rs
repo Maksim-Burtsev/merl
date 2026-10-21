@@ -386,6 +386,28 @@ pub fn ts_alias_literal_member(decl: &str, word: &str) -> bool {
         .is_some()
 }
 
+pub fn ts_union_alias(decl: &str) -> Option<Vec<String>> {
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:export|declare)\s+)*type\s+[\w$]+\s*=\s*([^<>{}()\[\]&]+?)\s*;?\s*$")
+            .expect("the regex is a literal")
+    });
+    let code = uncommented(Kind::TsJs, decl);
+    let arms: Vec<String> = ALIAS
+        .captures(&code)?
+        .get(1)?
+        .as_str()
+        .split('|')
+        .map(|a| a.trim().to_owned())
+        .collect();
+    (arms.len() > 1
+        && arms.iter().all(|a| {
+            a.starts_with(|c: char| c.is_ascii_uppercase())
+                && a.chars()
+                    .all(|c| c.is_alphanumeric() || matches!(c, '_' | '$'))
+        }))
+    .then_some(arms)
+}
+
 pub struct TsTypeParam {
     pub line1: usize,
     pub constraint: Option<String>,

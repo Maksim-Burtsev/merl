@@ -1016,22 +1016,31 @@ fn an_indexed_value_is_its_element_and_a_vec_reaches_its_slice() {
         &[
             ("lib/rustlib/src/rust/library/core/src/ops/range.rs", range),
             ("lib/rustlib/src/rust/library/core/src/range.rs", range),
-            ("lib/rustlib/src/rust/library/std/src/lib.rs", "pub use core::ops;\n"),
+            (
+                "lib/rustlib/src/rust/library/std/src/lib.rs",
+                "pub use core::ops;\n",
+            ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/borrow.rs",
                 "impl<T: Clone> ToOwned for T {\n    fn to_owned(&self) -> T {\n        loop {}\n    }\n}\n",
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/slice/mod.rs",
-                &format!("impl<T> [T] {{\n{stable}    pub fn contains(&self, x: &T) -> bool {{\n        false\n    }}\n}}\n\nimpl<T: Clone> ToOwned for [T] {{\n    fn to_owned(&self) -> Vec<T> {{\n        loop {{}}\n    }}\n}}\n"),
+                &format!(
+                    "impl<T> [T] {{\n{stable}    pub fn contains(&self, x: &T) -> bool {{\n        false\n    }}\n}}\n\nimpl<T: Clone> ToOwned for [T] {{\n    fn to_owned(&self) -> Vec<T> {{\n        loop {{}}\n    }}\n}}\n"
+                ),
             ),
             (
                 "lib/rustlib/src/rust/library/core/src/str/mod.rs",
-                &format!("impl str {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n\n{stable}    pub fn contains(&self) -> bool {{\n        false\n    }}\n}}\n"),
+                &format!(
+                    "impl str {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n\n{stable}    pub fn contains(&self) -> bool {{\n        false\n    }}\n}}\n"
+                ),
             ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
-                &format!("pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"),
+                &format!(
+                    "pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
             ),
         ],
     );

@@ -416,7 +416,8 @@ pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
 }
 pub fn go_result_type_param<'a>(decl: &str, written: &'a str) -> Option<(&'a str, &'a str)> {
     static GENERIC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*func\s+[A-Za-z_]\w*\s*\[([^\]()]*)\]\s*\(").expect("the regex is a literal")
+        Regex::new(r"^\s*func\s+[A-Za-z_]\w*\s*\[([^\]()]*)\]\s*\(")
+            .expect("the regex is a literal")
     });
     let list = GENERIC.captures(decl)?.get(1)?.as_str();
     let base = written.trim_start_matches(['[', ']', '*']);

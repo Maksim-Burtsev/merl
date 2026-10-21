@@ -908,7 +908,12 @@ pub fn sql_table_column(text: &str, create: usize, column: &str, quoted: bool) -
         {
             return None;
         }
-        (format!(r#"(?i)^\s*("{c}"|{c})\s+[A-Za-z]"#), 0, open, open + 1)
+        (
+            format!(r#"(?i)^\s*("{c}"|{c})\s+[A-Za-z]"#),
+            0,
+            open,
+            open + 1,
+        )
     };
     let item = Regex::new(&item).expect("an escaped name keeps it valid");
     let from_word = Regex::new(r"(?i)^FROM\b").expect("a valid pattern");

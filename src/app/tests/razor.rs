@@ -50,7 +50,10 @@ fn d_in_a_razor_file_reads_it_as_csharp_and_leaves_its_text_alone() {
 
 #[test]
 fn d_on_a_named_argument_of_an_edited_razor_file_leaves_the_file_its_own() {
-    let (dir, mut a) = project_app("razor-named", &[("Tariff.cs", TARIFF), ("Till.razor", TILL)]);
+    let (dir, mut a) = project_app(
+        "razor-named",
+        &[("Tariff.cs", TARIFF), ("Till.razor", TILL)],
+    );
     let till = dir.join("Till.razor");
     a.jump_to(&till, 1);
     let want = edited(&mut a);
@@ -68,7 +71,10 @@ fn d_on_a_named_argument_of_an_edited_razor_file_leaves_the_file_its_own() {
 
 #[test]
 fn d_in_an_edited_razor_file_never_lands_on_a_line_the_view_made_up() {
-    let (dir, mut a) = project_app("razor-made-up", &[("Tariff.cs", TARIFF), ("Till.razor", TILL)]);
+    let (dir, mut a) = project_app(
+        "razor-made-up",
+        &[("Tariff.cs", TARIFF), ("Till.razor", TILL)],
+    );
     let till = dir.join("Till.razor");
     a.jump_to(&till, 1);
     let want = edited(&mut a);
@@ -81,7 +87,10 @@ fn d_in_an_edited_razor_file_never_lands_on_a_line_the_view_made_up() {
 
 #[test]
 fn d_from_a_deleted_razor_line_of_an_edited_file_in_a_review_saves_only_its_text() {
-    let (dir, mut a) = project_app("razor-review", &[("Tariff.cs", TARIFF), ("Till.razor", TILL)]);
+    let (dir, mut a) = project_app(
+        "razor-review",
+        &[("Tariff.cs", TARIFF), ("Till.razor", TILL)],
+    );
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
             .arg("-C")

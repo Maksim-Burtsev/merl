@@ -30,7 +30,10 @@ impl App {
         };
         match (picked, jumped) {
             (Some((kind, title, items)), _) => {
-                let items: Vec<_> = items.into_iter().filter(|it| real(&it.path, it.line)).collect();
+                let items: Vec<_> = items
+                    .into_iter()
+                    .filter(|it| real(&it.path, it.line))
+                    .collect();
                 if items.is_empty() {
                     self.message = "no definition".into();
                     return true;

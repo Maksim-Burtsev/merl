@@ -71,7 +71,10 @@ impl App {
             return Ok(found);
         }
         let ProvenType { ty, links } = self.receiver(kind, here, chain, head)?;
-        let declared = self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word));
+        let declared = match self.union_arms(kind, &ty) {
+            Some(arms) => self.shared_member(kind, &arms, word),
+            None => self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word)),
+        };
         let hits = declared
             .or_else(|| {
                 let mut assigned = None;
@@ -1001,8 +1004,7 @@ impl App {
             search::Value::New(t) => (t.clone(), format!("{callee}() returns new {t}()")),
             search::Value::Type(t) => {
                 if kind == Kind::Go
-                    && let Some((shape, type_param)) =
-                        search::go_result_type_param(&decl.text, &t)
+                    && let Some((shape, type_param)) = search::go_result_type_param(&decl.text, &t)
                 {
                     let params = search::go_signature(&at, decl.line1)?.param_types;
                     let argument =
@@ -1042,15 +1044,19 @@ impl App {
         }
         let mut found: Option<String> = None;
         for (i, arg) in args.iter().enumerate() {
-            let param = params.get(i).or_else(|| params.last().filter(|_| variadic))?;
+            let param = params
+                .get(i)
+                .or_else(|| params.last().filter(|_| variadic))?;
             if !arg.chars().all(|c| c.is_alphanumeric() || c == '_') {
                 continue;
             }
             let bindings = self.bindings_of(Kind::Go, file, text, line1, arg);
-            let [search::Binding {
-                value: search::Value::Type(written),
-                ..
-            }] = bindings.as_slice()
+            let [
+                search::Binding {
+                    value: search::Value::Type(written),
+                    ..
+                },
+            ] = bindings.as_slice()
             else {
                 continue;
             };
@@ -1193,14 +1199,44 @@ impl App {
 
     fn declares_interface(&self, kind: Kind, file: &Path, written: &str) -> bool {
         self.type_decl(kind, file, written).is_some_and(|ty| {
-            self.text_of(&ty.path).is_some_and(|t| {
-                t.lines().nth(ty.line.saturating_sub(1)).is_some_and(|l| {
-                    l.trim_start()
-                        .trim_start_matches("export ")
-                        .starts_with("interface ")
-                })
+            self.is_interface(&ty)
+                || self
+                    .union_arms(kind, &ty)
+                    .is_some_and(|arms| arms.iter().all(|a| self.is_interface(a)))
+        })
+    }
+
+    fn is_interface(&self, ty: &Typed) -> bool {
+        self.text_of(&ty.path).is_some_and(|t| {
+            t.lines().nth(ty.line.saturating_sub(1)).is_some_and(|l| {
+                l.trim_start()
+                    .trim_start_matches("export ")
+                    .starts_with("interface ")
             })
         })
+    }
+
+    fn union_arms(&self, kind: Kind, ty: &Typed) -> Option<Vec<Typed>> {
+        if kind != Kind::TsJs {
+            return None;
+        }
+        let text = self.text_of(&ty.path)?;
+        search::ts_union_alias(text.lines().nth(ty.line.checked_sub(1)?)?)?
+            .iter()
+            .map(|arm| self.type_decl(kind, &ty.path, arm))
+            .collect()
+    }
+
+    fn shared_member(&self, kind: Kind, arms: &[Typed], word: &str) -> Option<Vec<Hit>> {
+        let at = |hits: &[Hit]| -> Vec<(PathBuf, usize)> {
+            hits.iter().map(|h| (h.path.clone(), h.line1)).collect()
+        };
+        let mut each = arms
+            .iter()
+            .map(|t| self.hierarchy(kind, t, 0, &mut |t| self.instance_member(kind, t, word)));
+        let first = each.next()??;
+        each.all(|hits| hits.is_some_and(|h| at(&h) == at(&first)))
+            .then_some(first)
     }
 
     fn returns_of(
