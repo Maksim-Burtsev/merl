@@ -72,6 +72,12 @@ impl Buffer {
         Self::new(None, vec![String::new()], None)
     }
 
+    pub fn read_only_view(path: PathBuf, lines: Vec<String>) -> Self {
+        let mut b = Self::new(Some(path), lines, None);
+        b.readonly = Some("a view for d");
+        b
+    }
+
     pub fn binary(&self) -> bool {
         self.readonly == Some(BINARY)
     }

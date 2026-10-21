@@ -1,4 +1,5 @@
 mod chain;
+mod returns;
 mod sysroot;
 mod used;
 
@@ -10,7 +11,7 @@ use super::{
 
 pub(super) enum Typing {
     Members(Vec<Candidate>),
-    Std(Vec<Candidate>),
+    Std(Vec<Candidate>, String),
 }
 
 #[derive(Clone, Copy)]
@@ -292,7 +293,7 @@ impl App {
         text: &str,
         chain: &[String],
         before: &str,
-        std: bool,
+        std: Option<&str>,
     ) -> Vec<Candidate> {
         let kind = Kind::Rust;
         let receiver = rust_receiver_type(text, self.line, chain, before);
@@ -324,6 +325,7 @@ impl App {
         let mut hidden: Vec<String> = Vec::new();
         let mut receiver_impls: Vec<String> = Vec::new();
         let mut own_impls: Vec<(Hit, String)> = Vec::new();
+        let mut matched: HashMap<String, bool> = HashMap::new();
         for h in hits {
             if !texts.contains_key(&h.path) {
                 let text = self.text_of(&h.path).unwrap_or_default();
@@ -361,7 +363,8 @@ impl App {
                             Some("tests" | "benches" | "examples")
                         )
                     }));
-            let visible = !(internal || (std && inside && owner == search::RustOwner::Inherent))
+            let visible = !(internal
+                || (inside && std.is_some_and(|s| self.rust_std_hides(&owner, s, &mut matched))))
                 && match (&owner, vis) {
                     (search::RustOwner::ImplOf(_), _) => true,
                     (search::RustOwner::Trait(_), search::RustVis::Pub) => true,
@@ -725,8 +728,12 @@ impl App {
     }
 
     fn sysroot_crate(&mut self, name: &str) -> Option<CrateSrc> {
-        let all = self.external_files(Kind::Rust);
-        let roots = self.external.get(&Kind::Rust)?.0.clone();
+        self.external_files(Kind::Rust);
+        self.sysroot_src(name)
+    }
+
+    fn sysroot_src(&self, name: &str) -> Option<CrateSrc> {
+        let (roots, all) = self.external.get(&Kind::Rust)?;
         roots.iter().find_map(|r| {
             let src = r.join(name).join("src");
             let files: Vec<PathBuf> = all
@@ -802,7 +809,12 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
-        let Some((mut ty, link)) = self.rust_value_type(here, text, self.line, &chain[0]) else {
+        let mut typed = self.rust_value_type(here, text, self.line, &chain[0]);
+        if typed.is_none() {
+            self.external_files(Kind::Rust);
+            typed = self.rust_value_type(here, text, self.line, &chain[0]);
+        }
+        let Some((mut ty, link)) = typed else {
             if let [name] = chain
                 && call
             {
@@ -812,7 +824,7 @@ impl App {
                 if let Some(written) = self.rust_std_written(here, text, name)
                     && let Some(found) = self.rust_std_call(text, name, &written, word)
                 {
-                    return Ok(Typing::Std(found));
+                    return Ok(Typing::Std(found, written));
                 }
             }
             return Err(chain[0].clone());
@@ -827,7 +839,7 @@ impl App {
                     && let Some(owner) = self.text_of(&ty.path)
                     && let Some(found) = self.rust_std_call(&owner, field, &std, word)
                 {
-                    return Ok(Typing::Std(found));
+                    return Ok(Typing::Std(found, std));
                 }
                 return Err(field.clone());
             };
@@ -917,32 +929,7 @@ impl App {
                     (ty, link)
                 }
                 search::RustHolds::Call(parts) => {
-                    if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
-                        return None;
-                    }
-                    let decl = if let Some(decl) = self.declaration(Kind::Rust, file, &parts) {
-                        decl
-                    } else {
-                        let [f] = parts.as_slice() else { return None };
-                        let ns = search::RustNamespace::Other;
-                        let [l] = search::rust_scope_items_right_of_let(text, at + 1, f, ns)[..]
-                        else {
-                            return None;
-                        };
-                        Hit {
-                            path: file.to_path_buf(),
-                            line1: l,
-                            byte_col: None,
-                            text: lines[l - 1].to_owned(),
-                            deleted: None,
-                        }
-                    };
-                    if !decl.text.contains("fn ") {
-                        return None;
-                    }
-                    let t = self.text_of(&decl.path)?;
-                    let l: Vec<&str> = t.lines().collect();
-                    let returns = search::rust_return_type(&l, decl.line1 - 1)?;
+                    let (decl, returns) = self.rust_call_returns(file, text, at, &parts)?;
                     let ty = self.rust_resolve(&decl.path, &returns, decl.line1 - 1)?;
                     let link = format!("{}() -> {}", parts.join("::"), ty.name);
                     (ty, link)

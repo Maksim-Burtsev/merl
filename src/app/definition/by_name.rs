@@ -315,27 +315,7 @@ impl App {
             hits = self.cs_reachable(&a.here, word, chain, walk.cs_walked.as_deref(), hits);
         }
         if kind == Kind::Lua {
-            let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
-            let bare = !dotted && chain.is_empty();
-            let narrow = bare && !lua_qualified_elsewhere(&a.here, word, &hits);
-            hits.retain(|h| {
-                let t = h.text.trim_start();
-                !bare
-                    || h.path == a.here
-                    || !((narrow && t.starts_with("local "))
-                        || (t.starts_with(word.as_str()) && self.lua_key_elsewhere(h, word)))
-            });
-            let all = hits.len();
-            let unseen = bare
-                .then(|| search::lua_value_of_its_own(&a.text, self.line + 1, word))
-                .flatten();
-            hits.retain(|h| {
-                (!h.text.starts_with([' ', '\t'])
-                    || !h.text.trim_start().starts_with("local ")
-                    || at(h))
-                    && (h.path != a.here || Some(h.line1) != unseen)
-            });
-            self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
+            self.lua_hits(a, &mut hits);
         }
         if near.arrow_param
             && !hits
@@ -350,6 +330,42 @@ impl App {
         match kind {
             Kind::Jvm => self.jvm_hits(a, hits),
             _ => hits,
+        }
+    }
+
+    fn lua_hits(&mut self, a: &Asked, hits: &mut Vec<Hit>) {
+        let word = &a.word;
+        let at = |h: &Hit| h.path == a.here && h.line1 == self.line + 1;
+        let bare = !a.dotted && a.chain.is_empty();
+        let narrow = bare && !lua_qualified_elsewhere(&a.here, word, hits);
+        hits.retain(|h| {
+            let t = h.text.trim_start();
+            !bare
+                || h.path == a.here
+                || !((narrow && t.starts_with("local "))
+                    || (t.starts_with(word.as_str()) && self.lua_key_elsewhere(h, word)))
+        });
+        let all = hits.len();
+        let unseen = bare
+            .then(|| search::lua_value_of_its_own(&a.text, self.line + 1, word))
+            .flatten();
+        hits.retain(|h| {
+            (!h.text.starts_with([' ', '\t'])
+                || !h.text.trim_start().starts_with("local ")
+                || at(h))
+                && (h.path != a.here || Some(h.line1) != unseen)
+                && !(bare
+                    && h.path == a.here
+                    && h.line1 > self.line + 1
+                    && h.text.trim_start().starts_with("local "))
+        });
+        self.offer_only |= hits.len() < all && hits.iter().any(|h| !at(h));
+        if let Some(lib) = search::lua_std_receiver(&a.text, self.line + 1, &a.before) {
+            let (l, w) = (regex::escape(lib), regex::escape(word));
+            let patched = regex::Regex::new(&format!(
+                r"^\s*(?:function\s+{l}[.:]{w}\s*\(|{l}\.{w}\s*=[^=])"
+            ));
+            hits.retain(|h| patched.as_ref().is_ok_and(|re| re.is_match(&h.text)));
         }
     }
 
@@ -523,6 +539,11 @@ impl App {
             .filter(|h| !value || !Self::c_type_line(word, h))
             .filter(|h| self.c_code_line(&mut literal, h))
             .collect();
+        let hits = if self.c_source() {
+            c_namespace(word, hits, tag, after.starts_with('('))
+        } else {
+            hits
+        };
         let hits = search::c_type_rows(
             word,
             hits,
@@ -641,4 +662,33 @@ fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> 
     ));
     hits.iter()
         .any(|h| h.path != here && table.as_ref().is_ok_and(|re| re.is_match(&h.text)))
+}
+
+fn c_namespace(word: &str, hits: Vec<Hit>, after_tag_keyword: bool, called: bool) -> Vec<Hit> {
+    static RETURN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^\s*return\b").expect("the regex is a literal")
+    });
+    let Ok(tag_decl) = regex::Regex::new(&format!(
+        r"^\s*(?:typedef\s+)?(?:struct|union|enum)\s+{}\s*(?:\{{|;|$)",
+        regex::escape(word)
+    )) else {
+        return hits;
+    };
+    let hits: Vec<Hit> = hits
+        .into_iter()
+        .filter(|h| !RETURN.is_match(&h.text))
+        .collect();
+    let tag = |h: &Hit| tag_decl.is_match(&h.text);
+    let keep: fn(bool) -> bool = if after_tag_keyword {
+        |is_tag| is_tag
+    } else if called {
+        |is_tag| !is_tag
+    } else {
+        return hits;
+    };
+    if hits.iter().any(|h| keep(tag(h))) {
+        hits.into_iter().filter(|h| keep(tag(h))).collect()
+    } else {
+        hits
+    }
 }

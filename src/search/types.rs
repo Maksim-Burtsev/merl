@@ -414,6 +414,56 @@ pub fn go_signature(text: &str, line1: usize) -> Option<GoSignature> {
         result: plain(result),
     })
 }
+pub fn go_result_type_param<'a>(decl: &str, written: &'a str) -> Option<(&'a str, &'a str)> {
+    static GENERIC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*func\s+[A-Za-z_]\w*\s*\[([^\]()]*)\]\s*\(")
+            .expect("the regex is a literal")
+    });
+    let list = GENERIC.captures(decl)?.get(1)?.as_str();
+    let base = written.trim_start_matches(['[', ']', '*']);
+    let shape = written.get(..written.len() - base.len())?;
+    bindings::go_type_params(list)
+        .iter()
+        .any(|(n, _)| n == base)
+        .then_some((shape, base))
+}
+pub fn go_call_arguments(line: &str, callee: &str) -> Option<Vec<String>> {
+    let call = format!("{callee}(");
+    let mut found: Option<Vec<String>> = None;
+    for (at, _) in line.match_indices(&call) {
+        let before = line.get(..at)?;
+        if before.ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '.') {
+            continue;
+        }
+        let open = at + callee.len();
+        let close = close_of(Kind::Go, line, open)?;
+        let args: Vec<String> = split_top(Kind::Go, line.get(open + 1..close - 1)?, b',')
+            .into_iter()
+            .map(|a| a.trim().to_owned())
+            .filter(|a| !a.is_empty())
+            .collect();
+        if *found.get_or_insert_with(|| args.clone()) != args {
+            return None;
+        }
+    }
+    found
+}
+pub fn go_type_argument(param: &str, arg: &str, type_param: &str) -> Option<String> {
+    fn map_value(t: &str) -> Option<&str> {
+        let close = close_of(Kind::Go, t, 3).filter(|_| t.starts_with("map["))?;
+        t.get(close..)
+    }
+    let (param, arg) = match map_value(param) {
+        Some(value) => (value, map_value(arg)?),
+        None => (param, arg),
+    };
+    let found = match param.strip_suffix(type_param)? {
+        "" | "..." => Some(arg),
+        shape @ ("[]" | "*") => arg.strip_prefix(shape),
+        _ => None,
+    }?;
+    (!found.is_empty()).then(|| found.to_owned())
+}
 pub fn declares_type(kind: Kind, line: &str) -> bool {
     static TS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(

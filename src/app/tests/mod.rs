@@ -52,6 +52,7 @@ mod preview;
 mod preview_data;
 mod project_search;
 mod r;
+mod razor;
 mod reload_deleted;
 mod review;
 mod review_deleted;
