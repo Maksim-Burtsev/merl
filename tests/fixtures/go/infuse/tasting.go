@@ -133,7 +133,22 @@ func Imports() int {
 
 func Generics(mugs []Mug) int {
 	return First(mugs).Sip() + Drink(Stove{})
-	//                 ^ d: picker infuse/burner/burner.go:7, infuse/cup.go:16, infuse/cup.go:33, infuse/cup.go:49; want infuse/cup.go:33 (#1203)
+	//                 ^ d: infuse/cup.go:33
+}
+
+func Inferred(stoves []Stove, s Stove, m Mug, byName map[string]Stove, mugs []Mug) int {
+	a := First(stoves).Sip() + Last(m, m).Sip() + ByName(byName, "x").Sip()
+	//                 ^ d: infuse/cup.go:49
+	//                                    ^ d: infuse/cup.go:33
+	//                                                                ^ d: infuse/cup.go:49
+	b := First(mugs).Sip() + First(stoves).Sip() + First([]Mug{m}).Sip()
+	//               ^ d: !jump
+	//                                     ^ d: !jump
+	//                                                             ^ d: !jump
+	c := First(stoves)
+	return a + b + c.Sip() + Echo(s).Sip()
+	//               ^ d: infuse/cup.go:49
+	//                               ^ d: infuse/cup.go:49
 }
 
 func Drink[T Sipper](t T) int {
