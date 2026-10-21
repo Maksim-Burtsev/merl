@@ -637,6 +637,17 @@ function, and declaration-shaped lines in a raw string, a nested `/* */` and a `
 `dart/lib/infuser.dart` (#1072) reaches `Leaf.unfurl` through a call and a getter of `Infuser`,
 over lines and on one, beside a namesake `Bag.unfurl`; a generic method's `T` is no type to
 follow, so `hold(Bag()).unfurl` does not jump.
+`dart/lib/brew/ceremony.dart` is the third corner (#1126), its answers read from the code, over
+`chawan.dart`, `old_chawan.dart` (a namesake `Chawan` behind a prefix) and `lib/brew.dart`, which
+re-exports: `String.trim` and `StringBuffer.write` beside `Chawan`'s namesakes, which say none with
+no SDK, while an `extension .. on String` member is still found; `const Duration(..).inMinutes`
+(#1218), a chain in a local's value and a top-level function's result (#1218), a chain over lines,
+a cascade over lines (#1072), a loop variable named like a later local, a list pattern (#1219), an
+object pattern in an `if case`, a mixin's, an interface's, an inherited and an overridden method,
+named and unnamed extensions, a prefixed named constructor, a class through a re-exporting prefix
+(#1221), `${..}` in a string beside a `'''` string and a `//` comment declaring names, a local
+function, a class method that hides the top-level function of its name, an enum's value, field and
+method, `call()` on a field, and a type parameter's bound (#1220).
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a

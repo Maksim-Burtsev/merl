@@ -21,6 +21,7 @@ The dart row with #1085's local set from a constructor call over several lines a
 The python row with #1099's `cls.client = ...` in a `@classmethod`: over `a49b6575`, 2026-10-21, release build, `vm.loadavg` { 7.91 7.90 9.21 } before the run.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed as its `@types/estree` interface): over `90cda9b1`, 2026-10-21, release build, `vm.loadavg` { 6.81 8.91 8.63 } before the run, { 5.88 8.08 8.34 } after.
 The swift and dart rows with #1072 (overloads that agree on a return type, chains of calls through declared return types): over `356e0f11`, 2026-10-21, release build, `vm.loadavg` { 6.41 6.89 7.68 } before the run, { 5.55 6.65 7.58 } after. swift0086 has an answer read from the code (sourcekit-lsp found none).
+The dart row with #1216 and #1217 (a call to a method of the enclosing class): over `43e04d43`, 2026-10-21, release build, `vm.loadavg` { 4.27 4.71 5.60 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -55,5 +56,5 @@ The swift and dart rows with #1072 (overloads that agree on a return type, chain
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
-| dart (dio) | 97 | 73 (75%) | 20 (21%) | 0 (0%) | 4 (4%) | 17 | 0 | 35.3 | 99.8 |
+| dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
 | sql (lemmy) | 79 | 54 (68%) | 1 (1%) | 0 (0%) | 24 (30%) | 31 | 0 | 8.6 | 15.3 |
