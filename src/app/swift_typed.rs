@@ -37,7 +37,7 @@ impl App {
         let cut = self.truncated.get();
         let found = (|| {
             let Some(SwiftChain { written, links }) =
-                self.swift_chain(here, here, text, self.line + 1, chain, 1)
+                self.swift_chain(here, here, text, self.line + 1, chain, 2)
             else {
                 if let [name] = chain
                     && let Some((_, rows)) =
@@ -61,7 +61,7 @@ impl App {
             };
             let Some(ty) = arms.first() else {
                 if written == SDK_VALUE {
-                    return (!self.swift_extended_with(here, word)).then(Vec::new);
+                    return (!self.swift_extended_with(here, word, false)).then(Vec::new);
                 }
                 let w = written.trim();
                 let w = w
@@ -264,7 +264,10 @@ impl App {
             let lead = (file == here && line1 == self.line + 1)
                 .then(|| lines[line1 - 1].get(..self.col))
                 .flatten()?;
-            let each = search::swift_closure_sequence(lead)?;
+            let Some(each) = search::swift_closure_sequence(lead) else {
+                let call = search::swift_trailing_closure(lead, name)?;
+                return self.swift_closure_value(here, file, text, line1, call, hops);
+            };
             let seq = self.swift_expr(here, file, text, line1, &each, hops)?;
             if seq.written.trim_end().ends_with(['?', '!']) {
                 return None;
@@ -283,16 +286,34 @@ impl App {
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
                 match search::swift_given(line, name) {
-                    Some(given) => self.swift_given_type(here, file, text, b.line1, given, hops),
+                    Some(given) => {
+                        let given = self.swift_nested_given(here, text, b.line1, given);
+                        self.swift_given_type(here, file, text, b.line1, given, hops)
+                    }
                     None if b.line1 < line1 && search::swift_rebinds(line, name) => {
                         self.swift_value(here, file, text, b.line1, name, hops)
                     }
-                    None => None,
+                    None => {
+                        let call = search::swift_trailing_closure(line, name)?;
+                        let shadows = call.0.split('.').next() == Some(name);
+                        let at = b.line1.checked_sub(usize::from(shadows))?;
+                        self.swift_closure_value(here, file, text, at, call, hops)
+                    }
                 }
+            }
+            [] if file == here
+                && line1 == self.line + 1
+                && search::swift_closure_param(lines[line1 - 1], name, self.col) =>
+            {
+                let call = search::swift_trailing_closure(lines[line1 - 1].get(..self.col)?, name)?;
+                self.swift_closure_value(here, file, text, line1, call, hops)
             }
             [] => {
                 let at = around?;
-                let mut top = search::swift_scope(&lines, &literal, line1).header_line1;
+                let mut top = match search::swift_scope(&lines, &literal, line1 + 1).header_line1 {
+                    h if h == line1 && h > at && line1 < lines.len() => line1,
+                    _ => search::swift_scope(&lines, &literal, line1).header_line1,
+                };
                 while top > at {
                     match search::swift_scope(&lines, &literal, top).header_line1 {
                         up if up > at => top = up,
@@ -317,6 +338,120 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    fn swift_closure_value(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        (receiver, method): (String, String),
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
+        let held = self
+            .swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?
+            .written;
+        let ty = self
+            .swift_type(here, &held)
+            .filter(|t| t.keyword.is_some())?;
+        let [param] = self.swift_type_generics(here, &ty.name)?;
+        let [arg] = <[String; 1]>::try_from(search::swift_generic_arguments(&held)).ok()?;
+        let rows = self.swift_member_rows(here, &ty, &method)?;
+        let takes: Vec<String> = rows
+            .iter()
+            .filter(|h| h.text.contains("func "))
+            .filter_map(|h| search::swift_closure_input(&h.text))
+            .collect();
+        let shadowed = rows
+            .iter()
+            .any(|h| search::swift_generics(&h.text).contains(&param));
+        if takes.is_empty() || shadowed || takes.iter().any(|t| *t != param) {
+            return None;
+        }
+        self.swift_given_type(here, file, text, line1, search::SwiftGiven::Type(arg), hops)
+    }
+
+    fn swift_nested_given(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        given: search::SwiftGiven,
+    ) -> search::SwiftGiven {
+        match given {
+            search::SwiftGiven::Type(t) => {
+                search::SwiftGiven::Type(self.swift_nested(here, text, line1, &t))
+            }
+            other => other,
+        }
+    }
+
+    fn swift_nested(&self, here: &Path, text: &str, line1: usize, written: &str) -> String {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let declared: Vec<(usize, String)> = (lines.iter().enumerate())
+            .filter(|&(i, _)| !literal.get(i).copied().unwrap_or(false))
+            .filter_map(|(i, l)| search::swift_type_header(l).map(|h| (i + 1, h)))
+            .filter(|(_, h)| h.keyword != "extension")
+            .map(|(at, h)| (at, h.name))
+            .collect();
+        search::swift_renamed_types(written, |name| {
+            let mut scope = line1;
+            let (up, head) = loop {
+                if search::swift_generics(lines[scope - 1])
+                    .iter()
+                    .any(|g| g == name)
+                {
+                    return None;
+                }
+                let up = search::swift_scope(&lines, &literal, scope).header_line1;
+                if up == 0 {
+                    return None;
+                }
+                let head = search::swift_type_header(lines[up - 1]);
+                if declared.iter().any(|(d, n)| {
+                    n == name && search::swift_scope(&lines, &literal, *d).header_line1 == up
+                }) {
+                    break (up, head?);
+                }
+                if head.is_some_and(|h| h.first_inherited.is_some()) {
+                    return None;
+                }
+                scope = up;
+            };
+            if self.swift_type(here, name).is_some() {
+                return None;
+            }
+            let outer = search::qualified(Kind::Swift, text, up, &head.name).unwrap_or(head.name);
+            let full = format!("{outer}.{name}");
+            self.swift_type(here, &full).map(|_| full)
+        })
+    }
+
+    fn swift_wraps(&self, here: &Path, ty: &SwiftType) -> bool {
+        let Some([param]) = self.swift_type_generics(here, &ty.name) else {
+            return false;
+        };
+        self.swift_member_rows(here, ty, "init")
+            .is_some_and(|inits| matches!(inits.as_slice(), [init] if search::swift_init_takes(&init.text, &param)))
+    }
+
+    fn swift_type_generics(&self, here: &Path, name: &str) -> Option<[String; 1]> {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let decls: Vec<Vec<String>> = self
+            .project_definitions(Kind::Swift, here, name, &pattern)
+            .iter()
+            .filter(|h| {
+                self.in_code(Kind::Swift, h)
+                    && search::swift_type_header(&h.text)
+                        .is_some_and(|t| t.name == name && t.keyword != "extension")
+            })
+            .map(|h| search::swift_generics(&h.text))
+            .collect();
+        let [generics] = <[Vec<String>; 1]>::try_from(decls).ok()?;
+        <[String; 1]>::try_from(generics).ok()
     }
 
     fn swift_given_type(
@@ -383,9 +518,21 @@ impl App {
         let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
         if let [ty] | [ty, _] = parts.as_slice()
             && (parts.len() == 1 || parts[1] == "init")
-            && let Some(t) = self.swift_type(here, ty)
+            && let Some(t) = self.swift_type(here, &self.swift_nested(here, text, line1, ty))
         {
-            return t.keyword.is_some().then_some(WrittenVia::plain(t.name));
+            t.keyword.as_ref()?;
+            let held = search::swift_sole_argument(e)
+                .filter(|_| parts.len() == 1 && self.swift_wraps(here, &t))
+                .and_then(|arg| {
+                    self.swift_expr(here, file, text, line1, &arg, hops.checked_sub(1)?)
+                })
+                .filter(|arg| {
+                    search::swift_type_name(&arg.written)
+                        .or_else(|| search::swift_nested_type_name(&arg.written))
+                        .is_some()
+                })
+                .map(|arg| format!("{}<{}>", t.name, arg.written));
+            return Some(WrittenVia::plain(held.unwrap_or(t.name)));
         }
         let (method, receiver) = parts.split_last()?;
         let (decl, owner) = if receiver.is_empty() {
@@ -488,7 +635,19 @@ impl App {
             return None;
         }
         let text = self.text_of(&row.path)?;
-        let given = search::swift_given(&row.text, name)?;
+        let mut decl = row.text.clone();
+        if matches!(search::swift_given(&decl, name)?, search::SwiftGiven::Type(t) if search::swift_opens_more(&t))
+        {
+            for more in text.lines().skip(row.line1).take(4) {
+                decl.push(' ');
+                decl.push_str(more.trim());
+                if !search::swift_opens_more(&decl) {
+                    break;
+                }
+            }
+        }
+        let given = search::swift_given(&decl, name)?;
+        let given = self.swift_nested_given(here, &text, row.line1, given);
         self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 
@@ -501,7 +660,10 @@ impl App {
         reason = "a guarded arm sits between the two; merging them would move one past it"
     )]
     fn swift_type_through(&self, here: &Path, written: &str, alias: bool) -> Option<SwiftType> {
-        let name = search::swift_type_name(written)?;
+        let full =
+            search::swift_type_name(written).or_else(|| search::swift_nested_type_name(written))?;
+        let name = full.rsplit('.').next()?.to_owned();
+        let nested = full != name;
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
         let mut decls = Vec::new();
         let mut extended = false;
@@ -514,9 +676,18 @@ impl App {
                 aliases.push(target);
                 continue;
             }
+            let placed = || {
+                !nested
+                    || self
+                        .text_of(&h.path)
+                        .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, &name))
+                        .is_some_and(|q| q == full)
+            };
             match search::swift_type_header(&h.text) {
-                Some(t) if t.keyword == "extension" => extended |= t.name == name,
-                Some(t) if t.name == name => decls.push((h, t.keyword, t.first_inherited)),
+                Some(t) if t.keyword == "extension" => extended |= t.name == full,
+                Some(t) if t.name == name && placed() => {
+                    decls.push((h, t.keyword, t.first_inherited));
+                }
                 Some(_) => {}
                 None if !h.text.contains("func ")
                     && search::swift_member_kind(&h.text).is_none()
@@ -537,8 +708,8 @@ impl App {
         }
         match decls.as_slice() {
             [] if extended => Some(SwiftType {
-                owner: name.clone(),
-                name,
+                owner: full.clone(),
+                name: full,
                 keyword: None,
                 base: None,
             }),
@@ -547,7 +718,7 @@ impl App {
                 Some(SwiftType {
                     owner: search::qualified(Kind::Swift, &text, h.line1, &name)
                         .unwrap_or_else(|| name.clone()),
-                    name,
+                    name: full,
                     keyword: Some(k.clone()),
                     base: b.clone(),
                 })
@@ -647,10 +818,15 @@ impl App {
             }
             None => {
                 let pattern = search::def_patterns(Kind::Swift, &name).join("|");
-                if !self
-                    .project_definitions(Kind::Swift, here, &name, &pattern)
-                    .is_empty()
+                let defs = self.project_definitions(Kind::Swift, here, &name, &pattern);
+                if let [h] = defs.as_slice()
+                    && self.in_code(Kind::Swift, h)
+                    && let Some(target) = search::swift_alias(&h.text, &name)
+                    && target.trim_start().starts_with('[')
                 {
+                    return self.swift_outside_rows(here, &target, word);
+                }
+                if !defs.is_empty() {
                     return None;
                 }
                 Vec::new()
@@ -691,17 +867,40 @@ impl App {
         Some(rows)
     }
 
-    fn swift_sdk_value(&self, here: &Path, written: &str, member: &str) -> bool {
-        let t = written.trim().trim_end_matches(['?', '!']);
-        let plain = t == SDK_VALUE
-            || (t.starts_with(|c: char| c.is_ascii_uppercase())
-                && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-                && self.swift_alias_arms(here, t).is_none()
-                && self.swift_outside_rows(here, t, member).is_some());
-        plain && !self.swift_extended_with(here, member)
+    pub(super) fn swift_cast_rows(
+        &self,
+        here: &Path,
+        cast: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let rows = self
+            .swift_outside_rows(here, cast, word)
+            .filter(|rows| !rows.is_empty() || !self.swift_extended_with(here, word, false))?;
+        Some(
+            rows.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(cast.to_owned()),
+                })
+                .collect(),
+        )
     }
 
-    fn swift_extended_with(&self, here: &Path, word: &str) -> bool {
+    fn swift_sdk_value(&self, here: &Path, written: &str, member: &str) -> bool {
+        let t = written.trim().trim_end_matches(['?', '!']);
+        if t == SDK_VALUE {
+            return !self.swift_extended_with(here, member, false);
+        }
+        t.starts_with(|c: char| c.is_ascii_uppercase())
+            && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            && self.swift_alias_arms(here, t).is_none()
+            && self
+                .swift_outside_rows(here, t, member)
+                .is_some_and(|rows| rows.is_empty())
+            && !self.swift_extended_with(here, member, true)
+    }
+
+    fn swift_extended_with(&self, here: &Path, word: &str, known: bool) -> bool {
         let pattern = search::def_patterns(Kind::Swift, word).join("|");
         self.project_definitions(Kind::Swift, here, word, &pattern)
             .iter()
@@ -710,7 +909,13 @@ impl App {
                     let lines: Vec<&str> = text.lines().collect();
                     let literal = search::literal_lines(Kind::Swift, &text);
                     let at = search::swift_scope(&lines, &literal, h.line1).header_line1;
-                    at > 0 && search::swift_extended(lines[at - 1]).is_some()
+                    at > 0
+                        && search::swift_extended(lines[at - 1]).is_some_and(|t| {
+                            let outer = t.split('.').next().unwrap_or_default();
+                            self.swift_type(here, outer)
+                                .is_none_or(|own| own.keyword.is_none())
+                                && !(known && self.swift_protocol(here, outer))
+                        })
                 })
             })
     }
