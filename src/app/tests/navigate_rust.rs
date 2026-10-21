@@ -1108,3 +1108,75 @@ fn a_std_value_keeps_only_project_traits_it_can_implement() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_std_method_s_declared_return_type_types_the_next_link() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "use std::collections::HashMap;\n\nconst TEMPLATE: &'static str = \"a\";\n\npub struct Lines {\n    pub n: usize,\n}\n\nimpl Lines {\n    pub fn nth(&self) -> usize {\n        0\n    }\n}\n\npub struct Def {\n    pub globs: Vec<String>,\n}\n\nimpl Def {\n    pub fn clone(&self) -> usize {\n        0\n    }\n\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub struct Bag {\n    pub types: HashMap<String, Def>,\n}\n\nfn contents() -> String {\n    String::new()\n}\n\npub fn second() -> bool {\n    let got = contents();\n    got.lines().nth(1).unwrap().is_empty()\n}\n\npub fn help() -> String {\n    let mut out =\n        TEMPLATE.replace(\"a\", \"b\");\n    out = out.replace(\"b\", \"c\");\n    out\n}\n\nimpl Bag {\n    pub fn globs(&self, name: &str) -> Vec<String> {\n        self.types.get(name).unwrap().globs.clone()\n    }\n\n    pub fn size(&self, name: &str) -> usize {\n        self.types.get(name).unwrap().len()\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-std-returns",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-std-returns-std",
+        &[
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn lines(&self) -> Lines<'_> {{\n        loop {{}}\n    }}\n\n{stable}    pub fn is_empty(&self) -> bool {{\n        false\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/iter.rs",
+                "pub struct Lines<'a>(&'a str);\n\nimpl<'a> Iterator for Lines<'a> {\n    type Item = &'a str;\n\n    fn next(&mut self) -> Option<&'a str> {\n        None\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/iter/traits/iterator.rs",
+                "pub trait Iterator {\n    type Item;\n\n    fn next(&mut self) -> Option<Self::Item>;\n\n    fn nth(&mut self, n: usize) -> Option<Self::Item> {\n        None\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/option.rs",
+                &format!(
+                    "pub enum Option<T> {{\n    None,\n    Some(T),\n}}\n\nimpl<T> Option<T> {{\n{stable}    pub fn unwrap(self) -> T {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/str.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn replace(&self, from: &str, to: &str) -> String {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+                "pub struct Vec<T>;\n\nimpl<T: Clone> Clone for Vec<T> {\n    fn clone(&self) -> Self {\n        loop {}\n    }\n}\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/collections/hash/map.rs",
+                &format!(
+                    "pub struct HashMap<K, V, S = RandomState>;\n\nimpl<K, V, S> HashMap<K, V, S> {{\n{stable}    pub fn get(&self, k: &K) -> Option<&V> {{\n        None\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for (code, want) in [
+        ("got.lines().nth(1).unwrap", "core/src/option.rs:8"),
+        ("got.lines().nth", "core/src/iter/traits/iterator.rs:6"),
+        ("out.replace", "alloc/src/str.rs:3"),
+        ("unwrap().globs.clone", "alloc/src/vec/mod.rs:4"),
+        ("unwrap().len", "src/lib.rs:24"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}

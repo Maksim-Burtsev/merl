@@ -1,4 +1,5 @@
 mod chain;
+mod returns;
 mod sysroot;
 mod used;
 
@@ -727,8 +728,12 @@ impl App {
     }
 
     fn sysroot_crate(&mut self, name: &str) -> Option<CrateSrc> {
-        let all = self.external_files(Kind::Rust);
-        let roots = self.external.get(&Kind::Rust)?.0.clone();
+        self.external_files(Kind::Rust);
+        self.sysroot_src(name)
+    }
+
+    fn sysroot_src(&self, name: &str) -> Option<CrateSrc> {
+        let (roots, all) = self.external.get(&Kind::Rust)?;
         roots.iter().find_map(|r| {
             let src = r.join(name).join("src");
             let files: Vec<PathBuf> = all
@@ -804,6 +809,7 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
+        self.external_files(Kind::Rust);
         let Some((mut ty, link)) = self.rust_value_type(here, text, self.line, &chain[0]) else {
             if let [name] = chain
                 && call
