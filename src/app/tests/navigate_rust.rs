@@ -973,3 +973,28 @@ fn a_path_follows_the_modules_and_uses_of_its_crate() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn a_vec_macro_of_the_project_is_not_the_standard_vec() {
+    let (dir, mut a) = project_app(
+        "rust-vec-macro",
+        &[
+            (
+                "Cargo.toml",
+                "[package]\nname = \"m\"\nversion = \"0.1.0\"\n",
+            ),
+            (
+                "src/lib.rs",
+                "macro_rules! vec {\n    [] => { Bag };\n}\n\npub struct Bag;\n\nimpl Bag {\n    pub fn push(&self) {}\n}\n\npub fn f() {\n    let b = vec![];\n    b.push();\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "src/lib.rs", "b.push");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Jump(s, p) if s.contains("Bag::push") && p.ends_with("src/lib.rs:8"))
+            || matches!(&got, Shown::Picker(_, rows) if rows.iter().any(|r| r.0 == "Bag::push")),
+        "the project's own vec! makes a Bag: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
