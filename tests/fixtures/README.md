@@ -526,6 +526,11 @@ keeps its type as tsserver's does. A `CallExpression` visitor's `node` is the un
 `SimpleCallExpression | NewExpression`: `callee`, which both declare from one base, jumps;
 `optional`, declared by one, and `type`, declared by each apart, stay pickers. With
 `@types/estree` installed, `rules/q.js`'s `callee` probes answer as tsserver does too.
+`patterns.js` narrows a JSDoc-typed `Pattern` union by its `type` tag (#1078), as tsserver does:
+inside `switch (pattern.type)`'s `case "ObjectPattern":` after a `return;`, and in the
+consequent of `property.type === "Property" ? property.value`, each of a `for…of` element's
+inline union `AssignmentProperty | RestElement`. A case fallen into, a switch on another
+member, a negated ternary, a callback inside the case and the code after the switch stay pickers.
 `infusion.ts` is the third corner (#1126), its answers tsserver's: members of a string, a
 `Promise` and a `Map` beside project namesakes (`Basket.trim`, `Basket.then`), a builder chain
 over lines through a renaming re-export (`Strainer as Filter`), an inherited and an overridden

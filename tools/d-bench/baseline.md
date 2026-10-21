@@ -33,12 +33,13 @@ merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } 
 The csharp row with #1088 (Blazor `.razor` files read through a separate read-only C# view): over `d1c7ea21`, 2026-10-22, release build, `vm.loadavg` { 9.64 13.18 7.21 } before the run, { 11.53 13.27 7.77 } after (the times read high under that load).
 The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed through a union alias of `@types/estree` interfaces, `CallExpression`): over `3f360506`, 2026-10-22, release build, `vm.loadavg` { 10.99 8.50 7.82 } before the run.
+The ts, js, vue, svelte and astro rows with #1078 (a union narrowed by its `type` tag in a `switch` case and a ternary, `pattern.properties` and `property.value`): over `c742c2bf`, 2026-10-22, release build, `vm.loadavg` { 5.83 5.61 6.60 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 257 | 229 (89%) | 15 (6%) | 0 (0%) | 13 (5%) | 68 | 11 | 20.8 | 324.9 |
-| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 41.9 | 93.0 |
-| js (eslint, uptime-kuma) | 217 | 178 (82%) | 31 (14%) | 1 (0%) | 7 (3%) | 177 | 11 | 40.5 | 194.9 |
+| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.9 | 93.8 |
+| js (eslint, uptime-kuma) | 217 | 179 (82%) | 31 (14%) | 1 (0%) | 6 (3%) | 177 | 11 | 38.0 | 170.3 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
 | rust (ripgrep) | 231 | 212 (92%) | 17 (7%) | 0 (0%) | 2 (1%) | 69 | 5 | 6.0 | 58.0 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
@@ -57,9 +58,9 @@ The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` ty
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 1 | 3.4 | 24.5 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 52.8 | 178.3 |
-| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 36.4 | 198.5 |
-| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 37.9 | 111.7 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 49.9 | 168.2 |
+| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 33.6 | 172.0 |
+| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 35.8 | 106.8 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |

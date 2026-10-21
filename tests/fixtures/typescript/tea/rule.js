@@ -21,7 +21,7 @@ export const plugin = {
   visitor: {
     ObjectExpression(path) {
       return path.properties;
-      //          ^ d: picker @types/estree/index.d.ts:14
+      //          ^ d: picker @types/estree/index.d.ts:14, @types/estree/index.d.ts:39
     },
   },
 };
@@ -32,7 +32,7 @@ exports.rule = {
       ObjectExpression(node) {
         [context].forEach(function (node) {
           return node.properties;
-          //          ^ d: picker @types/estree/index.d.ts:14
+          //          ^ d: picker @types/estree/index.d.ts:14, @types/estree/index.d.ts:39
         });
         node = context.other;
         return node.properties;
