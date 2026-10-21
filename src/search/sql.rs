@@ -678,7 +678,12 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
     let (stmt, at) = (code.get(s..e)?, at - s);
     let (before, after) = (stmt.get(..at)?, stmt.get(at + word.len()..)?);
     let into = Regex::new(r"(?i)\bINTO\s*$").expect("a valid pattern");
-    if after.trim_start().starts_with(['(', '.']) || into.is_match(before) {
+    let typed = Regex::new(&format!(
+        r"(?is)(?:::|\bTYPE\s|\bADD(?:\s+COLUMN)?(?:\s+IF\s+NOT\s+EXISTS)?\s+{SQL_IDENT}\s)\s*$"
+    ))
+    .expect("a valid pattern");
+    if after.trim_start().starts_with(['(', '.']) || into.is_match(before) || typed.is_match(before)
+    {
         return None;
     }
     let name = format!(r"{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*");
