@@ -41,7 +41,7 @@ public partial class Kettle : Vessel, IPourer
 
     public override int Rinse() => base.Rinse() + Steam();
     //                                  ^ d: src/Shop/Tea/Teapot.cs:13
-    //                                            ^ d: picker src/Shop/Tea/Teapot.cs:27, src/Shop/Tea/Teapot.cs:70; want src/Shop/Tea/Teapot.cs:27 (#938)
+    //                                            ^ d: src/Shop/Tea/Teapot.cs:27
 
     int IPourer.Pour() => 0;
 }

@@ -249,22 +249,38 @@ impl Review {
             Some(b) => b.to_owned(),
             None => detect_base(&git)?,
         };
+        if let Some((remote, name)) = other_remote(&git, b)
+            && git(&["fetch", "-q", "origin", b]).is_err()
+        {
+            let fetched = git(&["fetch", "-q", &remote, name]).is_ok();
+            if let Some(main) = base.strip_prefix("origin/") {
+                drop(git(&["fetch", "-q", "origin", main]));
+            }
+            let at = format!("refs/remotes/{b}");
+            if git(&["rev-parse", "--verify", "-q", &at]).is_err() {
+                bail!("no branch {name} on {remote}");
+            }
+            let folder = check_out_folder(root, b, &at)?;
+            let r = Self::open(&folder, None, Some(&base))?;
+            let note = (!fetched).then(|| format!("{b} not fetched"));
+            return Ok((folder, Self { note, ..r }));
+        }
         let (b, fetched) = fetch(&git, b, &base)?;
         let (remote, local) = (format!("origin/{b}"), format!("refs/heads/{b}"));
         let has_local = git(&["rev-parse", "--verify", "-q", &local]).is_ok();
+        let tracked = format!("refs/remotes/{remote}");
+        if !fetched && !has_local && git(&["rev-parse", "--verify", "-q", &tracked]).is_err() {
+            bail!("no branch {b} on origin");
+        }
         let (at, note) = if !fetched {
-            let at = if has_local {
-                local
-            } else {
-                format!("refs/remotes/{remote}")
-            };
+            let at = if has_local { local } else { tracked };
             (at, Some(format!("{remote} not fetched")))
         } else if has_local && own_commits(&git, b) {
             let ahead = git(&["merge-base", "--is-ancestor", &remote, &local]).is_ok();
             let note = (!ahead).then(|| lag(&git, &remote, &local));
             (local, note)
         } else {
-            (format!("refs/remotes/{remote}"), None)
+            (tracked, None)
         };
         let folder = check_out_folder(root, b, &at)?;
         let r = Self::open(&folder, None, Some(&base))?;
@@ -935,6 +951,18 @@ fn parse_numstat(out: &str) -> Vec<(PathBuf, Option<(usize, usize)>)> {
     rows
 }
 
+fn other_remote<'a>(
+    git: &dyn Fn(&[&str]) -> Result<String>,
+    b: &'a str,
+) -> Option<(String, &'a str)> {
+    if git(&["rev-parse", "--verify", "-q", &format!("refs/heads/{b}")]).is_ok() {
+        return None;
+    }
+    (git(&["remote"]).ok()?.lines())
+        .filter(|r| *r != "origin")
+        .find_map(|r| Some((r.to_owned(), b.strip_prefix(r)?.strip_prefix('/')?)))
+}
+
 fn fetch<'a>(
     git: &dyn Fn(&[&str]) -> Result<String>,
     b: &'a str,
@@ -1130,10 +1158,11 @@ pub fn sweep_folders(root: &Path, now: SystemTime) {
         });
         let head = format!("\trefs/heads/{branch}");
         let mut gone = || {
-            (heads
-                .get_or_insert_with(|| heads_on_origin(root))
-                .as_deref())
-            .is_some_and(|h: &str| !h.lines().any(|l| l.ends_with(&head)))
+            other_remote(&|args| git(root, args), &branch).is_none()
+                && (heads
+                    .get_or_insert_with(|| heads_on_origin(root))
+                    .as_deref())
+                .is_some_and(|h: &str| !h.lines().any(|l| l.ends_with(&head)))
         };
         let Some(path) = folder.to_str() else {
             continue;
@@ -1980,10 +2009,11 @@ mod tests {
     }
 
     #[test]
-    fn a_review_of_origin_slash_branch_reads_the_pushed_branch() {
+    fn a_review_of_remote_slash_branch_reads_the_pushed_branch_and_moves_no_local_one() {
         let dir = std::env::temp_dir().join(format!("merl-origin-{}", std::process::id()));
         drop(std::fs::remove_dir_all(&dir));
         std::fs::create_dir_all(&dir).unwrap();
+        let dir = dir.canonicalize().unwrap();
         let git = |at: &str, args: &[&str]| {
             let out = Command::new("git")
                 .current_dir(dir.join(at))
@@ -2000,26 +2030,70 @@ mod tests {
             git(at, &["commit", "-q", "-m", file]);
         };
         let b = dir.join("b");
-        let open = |branch: &str| Review::open(&b, Some(branch), None);
+        let open = |branch: &str| Review::open_branch(&b, branch, None).map(|(_, r)| r);
         let error = |branch: &str| format!("{:#}", open(branch).unwrap_err());
+        let branches = || git("b", &["branch", "--format=%(refname:short) %(objectname)"]);
         git("", &["init", "-q", "--bare", "-b", "main", "remote.git"]);
+        git("", &["init", "-q", "--bare", "-b", "main", "fork.git"]);
         git("", &["clone", "-q", "remote.git", "a"]);
         git("a", &["switch", "-q", "-c", "main"]);
         commit("a", "README");
         git("a", &["push", "-q", "origin", "main"]);
         git("", &["clone", "-q", "remote.git", "b"]);
+        git("b", &["remote", "add", "upstream", "../fork.git"]);
         git("a", &["switch", "-q", "-c", "feat"]);
         commit("a", "one");
         git("a", &["push", "-q", "origin", "feat"]);
+        git("a", &["switch", "-q", "-c", "theirs", "main"]);
+        commit("a", "two");
+        git("a", &["push", "-q", "../fork.git", "theirs:feat"]);
+        let before = branches();
 
         let r = open("origin/feat").unwrap();
         assert_eq!(
-            (r.branch.as_str(), r.note),
-            ("feat", None),
-            "fetched, and the local `feat` made from it, as `-r feat` does"
+            (r.branch.as_str(), r.note, r.files[0].path.to_str()),
+            ("feat", None, Some("one")),
+            "fetched and read in its folder"
         );
-        assert_eq!(r.files[0].path, Path::new("one"));
-        git("b", &["switch", "-q", "main"]);
+        let (folder, r) = Review::open_branch(&b, "upstream/feat", None).unwrap();
+        assert_eq!(
+            (r.branch.as_str(), r.note, r.files[0].path.to_str()),
+            ("upstream/feat", None, Some("two")),
+            "another remote's branch, fetched from that remote and read against origin's base"
+        );
+        assert_eq!(
+            branches(),
+            before,
+            "no local branch made or moved by either"
+        );
+        sweep_folders(&b, SystemTime::now());
+        assert!(
+            folder.is_dir(),
+            "a branch of another remote is not gone because origin lacks it"
+        );
+        git("a", &["switch", "-q", "-c", "solo", "main"]);
+        commit("a", "three");
+        git(
+            "a",
+            &[
+                "push",
+                "-q",
+                "origin",
+                "solo:upstream/solo",
+                "solo:upstream/feat2",
+            ],
+        );
+        git("a", &["switch", "-q", "-c", "fork", "main"]);
+        commit("a", "four");
+        git("a", &["push", "-q", "../fork.git", "fork:feat2"]);
+        for branch in ["upstream/solo", "upstream/feat2"] {
+            let r = open(branch).unwrap();
+            assert_eq!(
+                (r.branch.as_str(), r.files[0].path.to_str()),
+                (branch, Some("three")),
+                "origin's branch of the whole name wins over the remote `upstream`"
+            );
+        }
 
         git("b", &["branch", "mine"]);
         assert_eq!(
@@ -2027,10 +2101,8 @@ mod tests {
             "no branch mine on origin",
             "not on origin: an error, though a local branch of that name exists"
         );
-        assert!(
-            error("upstream/feat").starts_with("switching to upstream/feat"),
-            "another remote's prefix is part of a local name, as before"
-        );
+        assert_eq!(error("nowhere"), "no branch nowhere on origin");
+        assert_eq!(error("upstream/nowhere"), "no branch nowhere on upstream");
 
         git("b", &["switch", "-q", "-c", "origin/lit"]);
         commit("b", "lit");
@@ -2040,15 +2112,18 @@ mod tests {
             "origin/lit",
             "a local branch literally named `origin/lit` is that branch"
         );
-        git("b", &["switch", "-q", "main"]);
 
         std::fs::remove_dir_all(dir.join("remote.git")).unwrap();
-        let r = open("origin/feat").unwrap();
+        std::fs::remove_dir_all(dir.join("fork.git")).unwrap();
+        let notes = ["origin/feat", "upstream/feat"].map(|b| open(b).unwrap().note);
         assert_eq!(
-            r.branch, "feat",
-            "origin unreachable: the local branch, and the review says it was not fetched"
+            notes,
+            [
+                Some("origin/feat not fetched".to_owned()),
+                Some("upstream/feat not fetched".to_owned())
+            ],
+            "unreachable: what was fetched last, and the review says so"
         );
-        assert_eq!(r.note.as_deref(), Some("origin/feat not fetched"));
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -1072,13 +1072,11 @@ impl App {
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
         let around = OnceCell::new();
-        let statics = r"^\u{feff}?\s*global\s+using\s+static\b";
-        let walked = walked.filter(|_| {
+        let walked = walked.and_then(|w| {
             let cut = self.truncated.get();
-            let none = self.project_grep(Kind::CSharp, here, statics).is_empty()
-                && !self.buf.lines.iter().any(|l| l.contains("using static "));
+            let statics = self.cs_using_statics(here, w);
             self.truncated.set(cut);
-            none
+            Some((w, statics?))
         });
         let mut hits = hits;
         hits.retain(|h| {
@@ -1089,7 +1087,10 @@ impl App {
                 return false;
             }
             match place {
-                search::CsPlace::Member { owner, .. } => walked.is_none_or(|w| w.contains(&owner)),
+                search::CsPlace::Member { owner, .. } => walked.as_ref().is_none_or(|(w, s)| {
+                    w.contains(&owner)
+                        || (s.contains(&owner) && search::cs_static_member(&h.text, word))
+                }),
                 search::CsPlace::Local { from, to } => {
                     chain.is_none()
                         && h.path == here
@@ -1116,6 +1117,55 @@ impl App {
         let hits = self.cs_type_namesakes(here, word, chain, hits);
         let receiver = chain.map(|c| c.last().map_or("", String::as_str));
         self.cs_fit(word, self.cs_args(), receiver, hits)
+    }
+
+    fn cs_using_statics(&self, here: &Path, walked: &[String]) -> Option<Vec<String>> {
+        let msbuild = r#"<Using\b[^>]*\bStatic\s*=\s*"(?i:true)""#;
+        let csproj = |p: &Path| p.extension().is_some_and(|e| e == "csproj");
+        if !self.grep(msbuild, false, false, csproj).ok()?.is_empty() {
+            return None;
+        }
+        let text = self.buf.lines.join("\n");
+        let global = r"^\u{feff}?\s*global\s+using\s+static\b";
+        let mut written: Vec<(PathBuf, String, usize, String)> = Vec::new();
+        for (k, line) in self.buf.lines.iter().enumerate() {
+            if line.contains("using static ") {
+                let u = search::cs_using(line).filter(|u| u.fixed)?;
+                written.push((here.to_path_buf(), text.clone(), k + 1, u.target));
+            }
+        }
+        for h in self.project_grep(Kind::CSharp, here, global) {
+            let u = search::cs_using(&h.text).filter(|u| u.fixed)?;
+            written.push((h.path.clone(), self.text_of(&h.path)?, h.line1, u.target));
+        }
+        if written.is_empty() {
+            return Some(Vec::new());
+        }
+        let around: Vec<String> = self.cs_around().into_iter().map(|(n, _)| n).collect();
+        for name in walked.iter().filter(|n| !around.contains(n)) {
+            let pattern = search::def_patterns(Kind::CSharp, name)[..4].join("|");
+            let mut hits = self.project_definitions(Kind::CSharp, here, name, &pattern);
+            hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
+            if hits.len() != 1 {
+                return None;
+            }
+        }
+        let mut types = Vec::new();
+        for (path, text, line1, target) in written {
+            let Some(CsType::Project(t)) = self.cs_resolve(&path, &text, line1, &target) else {
+                return None;
+            };
+            let decl = self
+                .text_of(&t.path)?
+                .lines()
+                .nth(t.line - 1)
+                .and_then(search::cs_type_decl)?;
+            if decl.keyword == "enum" {
+                return None;
+            }
+            types.push(t.name);
+        }
+        Some(types)
     }
 
     pub(super) fn cs_args(&self) -> Option<usize> {

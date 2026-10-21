@@ -1,6 +1,6 @@
 # review-live: the agent keeps working while you review. It force-pushes the branch you reviewed
-# before, from a clone of its own: the next --review=agent/refund moves to what was pushed, the
-# new test counted in the panel (#181). Then, in the next split, it writes a new file into the
+# before, from a clone of its own: the next --review=agent/refund opens what was pushed, the
+# new test counted in the panel, and moves no local branch (#181, #1188). Then, in the next split, it writes a new file into the
 # review's folder (your checkout before #215): the panel lists it. c walks past refunds.py, which
 # gets its tick, and the agent's next write to it takes the tick off (#162).
 merl --review=agent/refund
