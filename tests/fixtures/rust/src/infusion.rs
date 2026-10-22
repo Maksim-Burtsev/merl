@@ -249,3 +249,28 @@ pub fn as_ref_bound<P: AsRef<str>>(tea: P) -> usize {
     tea.len()
     //  ^ d: none
 }
+
+pub enum Brew {
+    Steeped {
+        note: String,
+        cups: Vec<u32>,
+    },
+    Cold(u32),
+}
+
+pub fn brew_note(brew: &Brew) -> usize {
+    match *brew {
+        Brew::Steeped { ref note, .. } => note.len(),
+        //                                     ^ d: none
+        Brew::Cold(n) => n as usize,
+    }
+}
+
+pub fn steeped_notes(notes: Vec<String>) -> usize {
+    let mut n = 0;
+    for note in &notes {
+        n += note.len();
+        //        ^ d: none
+    }
+    n
+}

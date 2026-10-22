@@ -38,6 +38,7 @@ The rust row with #1044's walk through std methods' declared return types (`got.
 The rust row with #1044's `for` variable over a std iterator's `Item` (`for p in env::split_paths(..)`) and `.as_ref()` of a parameter bound by one `AsRef<T>`: over `f03b3771`, 2026-10-22, release build, `vm.loadavg` { 8.31 5.60 5.18 } before the run, { 6.03 5.64 5.24 } after.
 The swift row with #1068's nested types through their enclosing type (`MutableState` of `Session` and of `AuthenticationInterceptor`) and a field typed over several lines (`SocketMutableState.enqueuedSends`): over `14080a16`, 2026-10-22, release build, `vm.loadavg` { 6.27 5.96 6.53 } before the run, { 5.60 5.87 6.44 } after.
 The swift row with #1068's keys of a dictionary (`parameters.keys.sorted` in `URLEncoding.query`) and a type nested in a generic outside type (`AsyncStream<Element>.AsyncIterator` in `StreamOf.Iterator`): over `5452f725`, 2026-10-22, release build, `vm.loadavg` { 4.51 4.44 4.87 } before the run.
+The rust row with #1044's name bound by an enum variant's struct pattern (`Error::Glob { ref err, .. }`) and a `for` over a `Vec`, a slice or an array: over `09804913`, 2026-10-22, release build, `vm.loadavg` { 5.58 6.29 6.05 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -45,7 +46,7 @@ The swift row with #1068's keys of a dictionary (`parameters.keys.sorted` in `UR
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.9 | 93.8 |
 | js (eslint, uptime-kuma) | 217 | 179 (82%) | 31 (14%) | 1 (0%) | 6 (3%) | 177 | 11 | 38.0 | 170.3 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
-| rust (ripgrep) | 231 | 217 (94%) | 12 (5%) | 0 (0%) | 2 (1%) | 69 | 5 | 5.9 | 55.5 |
+| rust (ripgrep) | 231 | 218 (94%) | 11 (5%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.2 | 66.1 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
