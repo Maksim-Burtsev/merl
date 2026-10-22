@@ -416,3 +416,67 @@ fn opening_a_review_again_keeps_your_edits_in_its_folder_and_says_it_is_behind()
         "a new file is an edit whatever status.showUntrackedFiles says"
     );
 }
+
+fn commit_in_a_folder(c: &Clones) -> (String, String) {
+    let (one, _) = c.open("feat1");
+    let at = one.to_str().unwrap().to_owned();
+    std::fs::write(one.join("mine.py"), "z = 3\n").unwrap();
+    c.git("b", &["-C", &at, "add", "mine.py"]);
+    c.git("b", &["-C", &at, "commit", "-q", "-m", "mine"]);
+    let mine = c.git("b", &["-C", &at, "rev-parse", "HEAD"]);
+    (at, mine)
+}
+
+#[test]
+fn a_commit_made_in_a_review_folder_stays_there_when_the_review_opens_again() {
+    let c = Clones::new("folder-commit");
+    let (at, mine) = commit_in_a_folder(&c);
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (c.git("b", &["-C", &at, "rev-parse", "HEAD"]), r.note),
+        (mine, None),
+        "with nothing new on origin, the folder stays at your commit"
+    );
+}
+
+#[test]
+fn a_commit_made_in_a_review_folder_stays_there_after_a_push_to_the_branch() {
+    let c = Clones::new("folder-commit-push");
+    let (at, mine) = commit_in_a_folder(&c);
+    c.git("a", &["switch", "-q", "feat1"]);
+    c.commit("a", "fix.py", "y = 2\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (
+            c.git("b", &["-C", &at, "rev-parse", "HEAD"]),
+            names(&r),
+            r.note.as_deref()
+        ),
+        (
+            mine,
+            vec!["feat1.py".to_owned(), "mine.py".to_owned()],
+            Some("diverged from origin/feat1")
+        ),
+        "your commit stays, and the review says origin moved on"
+    );
+}
+
+#[test]
+fn a_review_folder_at_a_tip_that_was_force_pushed_away_moves_to_the_new_one() {
+    let c = Clones::new("force-push");
+    let (one, _) = c.open("feat1");
+    c.git("a", &["switch", "-q", "feat1"]);
+    std::fs::write(c.dir.join("a/feat1.py"), "x = 2\n").unwrap();
+    c.git("a", &["commit", "-q", "-a", "--amend", "-m", "feat1"]);
+    c.git("a", &["push", "-q", "-f", "origin", "feat1"]);
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("feat1.py")).ok(),
+            r.note
+        ),
+        (Some("x = 2\n".to_owned()), None),
+        "a tip origin once had is not yours to keep"
+    );
+}
