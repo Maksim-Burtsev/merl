@@ -472,10 +472,7 @@ fn a_review_folder_at_a_tip_that_was_force_pushed_away_moves_to_the_new_one() {
     c.git("a", &["push", "-q", "-f", "origin", "feat1"]);
     let (_, r) = c.open("feat1");
     assert_eq!(
-        (
-            std::fs::read_to_string(one.join("feat1.py")).ok(),
-            r.note
-        ),
+        (std::fs::read_to_string(one.join("feat1.py")).ok(), r.note),
         (Some("x = 2\n".to_owned()), None),
         "a tip origin once had is not yours to keep"
     );

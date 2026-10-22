@@ -1001,7 +1001,11 @@ fn checkout(
     if !fetched {
         return Ok(Some(format!("{remote} not fetched")));
     }
-    let current = if own_commits(git, &format!("refs/heads/{b}"), &format!("refs/remotes/{remote}")) {
+    let current = if own_commits(
+        git,
+        &format!("refs/heads/{b}"),
+        &format!("refs/remotes/{remote}"),
+    ) {
         git(&["merge-base", "--is-ancestor", &remote, "HEAD"])
     } else {
         git(&["reset", "-q", "--keep", &remote])
