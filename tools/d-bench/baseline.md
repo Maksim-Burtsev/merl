@@ -38,6 +38,7 @@ The rust row with #1044's walk through std methods' declared return types (`got.
 The rust row with #1044's `for` variable over a std iterator's `Item` (`for p in env::split_paths(..)`) and `.as_ref()` of a parameter bound by one `AsRef<T>`: over `f03b3771`, 2026-10-22, release build, `vm.loadavg` { 8.31 5.60 5.18 } before the run, { 6.03 5.64 5.24 } after.
 The swift row with #1068's nested types through their enclosing type (`MutableState` of `Session` and of `AuthenticationInterceptor`) and a field typed over several lines (`SocketMutableState.enqueuedSends`): over `14080a16`, 2026-10-22, release build, `vm.loadavg` { 6.27 5.96 6.53 } before the run, { 5.60 5.87 6.44 } after.
 The swift row with #1068's keys of a dictionary (`parameters.keys.sorted` in `URLEncoding.query`) and a type nested in a generic outside type (`AsyncStream<Element>.AsyncIterator` in `StreamOf.Iterator`): over `5452f725`, 2026-10-22, release build, `vm.loadavg` { 4.51 4.44 4.87 } before the run.
+The sql row with #1239 and #1234 (plpgsql `DECLARE` variables, `RETURNS TABLE` names, a column-only position and `#variable_conflict use_column`): over `bb65cdc14`, 2026-10-22, release build, `vm.loadavg` { 6.18 6.70 5.26 } before the run, { 7.39 6.81 5.43 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -73,4 +74,4 @@ The swift row with #1068's keys of a dictionary (`parameters.keys.sorted` in `UR
 | bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
 | dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
-| sql (lemmy) | 79 | 68 (86%) | 1 (1%) | 0 (0%) | 10 (13%) | 31 | 0 | 13.2 | 21.1 |
+| sql (lemmy) | 79 | 70 (89%) | 1 (1%) | 0 (0%) | 8 (10%) | 31 | 0 | 14.1 | 25.3 |

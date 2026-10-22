@@ -87,17 +87,87 @@ pub fn sql_local(text: &str, at: usize, word: &str) -> (Vec<usize>, bool) {
         None => (Vec::new(), false),
         Some(found) if !found.is_empty() => (found.into_iter().map(line1).collect(), false),
         Some(_) => {
-            let found = sql_parameter(&code, &bodies, at, word);
-            let yields = found.is_some() && sql_language_sql(text, &code, &bodies, at);
-            (found.map(line1).into_iter().collect(), yields)
+            let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
+                return (Vec::new(), false);
+            };
+            let language_sql = sql_language_sql(text, &code, body);
+            let mut found: Vec<usize> = sql_parameter(&code, body, word).into_iter().collect();
+            if !language_sql {
+                found.extend(sql_declared(&code, body, at, word));
+            }
+            if found.is_empty() || sql_column_only(&code, at, word) {
+                return (Vec::new(), false);
+            }
+            let use_column = Regex::new(r"(?i)#variable_conflict\s+use_column\b")
+                .expect("a valid pattern")
+                .is_match(code.get(body.clone()).unwrap_or_default());
+            (
+                found.into_iter().map(line1).collect(),
+                language_sql || use_column,
+            )
         }
     }
 }
 
-fn sql_language_sql(text: &str, code: &str, bodies: &[std::ops::Range<usize>], at: usize) -> bool {
-    let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
-        return false;
-    };
+fn sql_declared(code: &str, body: &std::ops::Range<usize>, at: usize, word: &str) -> Vec<usize> {
+    let text = code.get(body.clone()).unwrap_or_default();
+    let declare = Regex::new(r"(?i)\bDECLARE\b").expect("a valid pattern");
+    let begin = Regex::new(r"(?i)\bBEGIN\b").expect("a valid pattern");
+    let edge =
+        Regex::new(r"(?i)\b(?:BEGIN|CASE|END(?:\s+(?:IF|LOOP|CASE))?)\b").expect("a valid pattern");
+    let name = Regex::new(&format!(r"(?:^|;)\s*({SQL_IDENT})\s+\S")).expect("a valid pattern");
+    let mut found = Vec::new();
+    for d in declare.find_iter(text) {
+        let Some(b) = begin.find_at(text, d.end()) else {
+            continue;
+        };
+        let mut depth = 0_usize;
+        let mut end = text.len();
+        for m in edge.find_iter(text.get(b.start()..).unwrap_or_default()) {
+            let w = m.as_str().to_ascii_lowercase();
+            if w == "begin" || w == "case" {
+                depth += 1;
+            } else if !w.ends_with("if") && !w.ends_with("loop") {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    end = b.start() + m.end();
+                    break;
+                }
+            }
+        }
+        if !(d.start()..end).contains(&(at - body.start)) {
+            continue;
+        }
+        let section = text.get(d.end()..b.start()).unwrap_or_default();
+        found.extend(
+            name.captures_iter(section)
+                .filter_map(|c| c.get(1))
+                .filter(|n| {
+                    n.as_str()
+                        .trim_matches(['"', '`'])
+                        .eq_ignore_ascii_case(word)
+                })
+                .map(|n| body.start + d.end() + n.start()),
+        );
+    }
+    found
+}
+
+fn sql_column_only(code: &str, at: usize, word: &str) -> bool {
+    let s = code
+        .get(..at)
+        .and_then(|c| c.rfind(';'))
+        .map_or(0, |n| n + 1);
+    let e = code
+        .get(at..)
+        .and_then(|c| c.find(';'))
+        .map_or(code.len(), |n| at + n);
+    code.get(s..e)
+        .and_then(|stmt| sql_target_table(stmt, at - s, word))
+        .is_some()
+}
+
+fn sql_language_sql(text: &str, code: &str, body: &std::ops::Range<usize>) -> bool {
     let head_end = code
         .get(..body.start)
         .unwrap_or_default()
@@ -186,13 +256,7 @@ fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
     (String::from_utf8_lossy(&out).into_owned(), bodies)
 }
 
-fn sql_parameter(
-    code: &str,
-    bodies: &[std::ops::Range<usize>],
-    at: usize,
-    word: &str,
-) -> Option<usize> {
-    let body = bodies.iter().find(|b| b.contains(&at))?;
+fn sql_parameter(code: &str, body: &std::ops::Range<usize>, word: &str) -> Option<usize> {
     let head_end = code.get(..body.start)?.trim_end_matches(';').len();
     let head_start = code.get(..head_end)?.rfind(';').map_or(0, |n| n + 1);
     let head = code.get(head_start..head_end)?;
@@ -200,11 +264,21 @@ fn sql_parameter(
         r"(?i)\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:FUNCTION|PROCEDURE)\s+{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*\s*\("
     ))
     .expect("a valid pattern");
+    let table = Regex::new(r"(?i)\bRETURNS\s+TABLE\s*\(").expect("a valid pattern");
+    let params = create.find(head)?.end();
+    [Some(params), table.find(head).map(|m| m.end())]
+        .into_iter()
+        .flatten()
+        .find_map(|from| sql_list_name(head, from, word))
+        .map(|n| head_start + n)
+}
+
+fn sql_list_name(head: &str, mut from: usize, word: &str) -> Option<usize> {
     let param = Regex::new(&format!(
         r"^\s*(?:(?i:IN|OUT|INOUT|VARIADIC)\s+)?({SQL_IDENT})\s+(\S+)"
     ))
     .expect("a valid pattern");
-    let (mut from, mut depth) = (create.find(head)?.end(), 0_usize);
+    let mut depth = 0_usize;
     for (i, c) in head.bytes().enumerate().skip(from) {
         if c == b'(' {
             depth += 1;
@@ -218,7 +292,7 @@ fn sql_parameter(
                     && name.trim_matches(['"', '`']).eq_ignore_ascii_case(word)
             });
             if let Some(n) = named.and_then(|p| p.get(1)) {
-                return Some(head_start + from + n.start());
+                return Some(from + n.start());
             }
             if c == b')' {
                 return None;
@@ -749,20 +823,28 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
     if let Some(t) = sql_insert_target(stmt, at).filter(|_| !output.is_match(before)) {
         return Some(t);
     }
+    sql_target_table(stmt, at, word).or_else(|| sql_scope_table(stmt, at, word, &sql_update()))
+}
+
+fn sql_update() -> Regex {
+    Regex::new(&format!(
+        r"(?i)\bUPDATE\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+(?:AS\s+)?{SQL_IDENT})?\s+SET\s"
+    ))
+    .expect("a valid pattern")
+}
+
+fn sql_target_table(stmt: &str, at: usize, word: &str) -> Option<String> {
+    let (before, after) = (stmt.get(..at)?, stmt.get(at + word.len()..)?);
     let insert = Regex::new(&format!(
-        r"(?i)\bINSERT\s+INTO\s+({name})(?:\s+AS\s+{SQL_IDENT})?\s*\(([^()]*)\)"
+        r"(?i)\bINSERT\s+INTO\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+AS\s+{SQL_IDENT})?\s*\(([^()]*)\)"
     ))
     .expect("a valid pattern");
     if let Some(c) = insert
         .captures_iter(stmt)
         .find(|c| c.get(2).is_some_and(|l| l.range().contains(&at)))
     {
-        return Some(table(&c[1]));
+        return Some(sql_qualified(&c[1]));
     }
-    let update = Regex::new(&format!(
-        r"(?i)\bUPDATE\s+(?:ONLY\s+)?({name})(?:\s+(?:AS\s+)?{SQL_IDENT})?\s+SET\s"
-    ))
-    .expect("a valid pattern");
     let set_ends = Regex::new(r"(?i)\b(?:FROM|WHERE|RETURNING)\b").expect("a valid pattern");
     let target = |c: &regex::Captures| {
         let set = stmt.get(c.get(0)?.end()..at)?;
@@ -771,12 +853,9 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
             && !set_ends.is_match(set)
             && after.trim_start().starts_with('=')
             && (lead.ends_with(',') || lead.to_ascii_lowercase().ends_with("set")))
-        .then(|| table(&c[1]))
+        .then(|| sql_qualified(&c[1]))
     };
-    if let Some(t) = update.captures_iter(stmt).find_map(|c| target(&c)) {
-        return Some(t);
-    }
-    sql_scope_table(stmt, at, word, &update)
+    sql_update().captures_iter(stmt).find_map(|c| target(&c))
 }
 
 fn sql_insert_target(stmt: &str, at: usize) -> Option<String> {
