@@ -67,3 +67,75 @@ BEGIN
   tea_left := 1;
   -- ^ d: steep/plpgsql.sql:65
 END $$;
+-- #1243's review: a utility statement, an output label and a conflict target name no variable;
+-- an INTO or loop target stays the variable under use_column; END LOOP, END CASE and a quoted "begin" keep scopes.
+CREATE FUNCTION refill(id integer) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+  brim text;
+  sips integer;
+BEGIN
+  INSERT INTO samovars (id, brim) VALUES (id, brim)
+  ON CONFLICT (brim) DO UPDATE SET brim = EXCLUDED.brim;
+  --           ^ d: steep/schema.sql:5
+  --                               ^ d: steep/schema.sql:5
+  CREATE INDEX ON samovars (brim);
+  --                        ^ d: steep/schema.sql:5
+  SELECT count(*) AS sips INTO sips FROM samovars;
+  --                 ^ d: !jump
+  --                           ^ d: steep/plpgsql.sql:75
+  FOR i IN 1..3 LOOP
+    sips := sips + i;
+  END LOOP;
+  RETURN sips;
+  --     ^ d: steep/plpgsql.sql:75
+END $$;
+CREATE FUNCTION topple(spout integer) RETURNS integer LANGUAGE plpgsql AS $$
+#variable_conflict use_column
+DECLARE
+  n integer;
+BEGIN
+  SELECT id, spout INTO n, spout FROM samovars;
+  --         ^ d: steep/schema.sql:4
+  --                       ^ d: steep/plpgsql.sql:92
+  FOR spout IN SELECT id FROM samovars LOOP
+  --  ^ d: steep/plpgsql.sql:92
+    n := spout;
+  END LOOP;
+  RETURN spout;
+  --     ^ d: steep/plpgsql.sql:92
+END $$;
+CREATE FUNCTION ladle(spout integer) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  INSERT INTO samovars (SELECT 1, spout, 'x');
+  --                              ^ d: steep/plpgsql.sql:107
+  UPDATE samovars SET brim = 'x', spout = spout + 1;
+  --                              ^ d: steep/schema.sql:4
+END $$;
+CREATE FUNCTION stamp_it() RETURNS integer LANGUAGE plpgsql AS $$
+BEGIN
+  DECLARE
+    stamp integer;
+  BEGIN
+    SELECT "begin" INTO stamp FROM samovars;
+  END;
+  DECLARE
+    froth integer;
+  BEGIN
+    CASE froth WHEN 0 THEN froth := 1; ELSE NULL; END CASE;
+  END;
+  RETURN stamp + froth;
+  --     ^ d: !jump
+  --             ^ d: !jump
+END $$;
+-- A plpgsql body followed by a LANGUAGE sql function keeps its language; RETURNS TABLE names are not seen in LANGUAGE sql.
+CREATE FUNCTION settle() RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+  silt integer;
+BEGIN
+  RETURN silt;
+  --     ^ d: steep/plpgsql.sql:133
+END $$;
+CREATE FUNCTION skim() RETURNS TABLE (dregs_out integer) LANGUAGE sql AS $$
+  SELECT s.spout FROM samovars s JOIN urns u ON u.id = s.id ORDER BY dregs_out;
+  --                                                                 ^ d: !jump
+$$;

@@ -90,23 +90,68 @@ pub fn sql_local(text: &str, at: usize, word: &str) -> (Vec<usize>, bool) {
             let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
                 return (Vec::new(), false);
             };
-            let language_sql = sql_language_sql(text, &code, body);
-            let mut found: Vec<usize> = sql_parameter(&code, body, word).into_iter().collect();
-            if !language_sql {
+            let language = sql_language(text, &code, body);
+            let plpgsql = language == "plpgsql";
+            let mut found: Vec<usize> = sql_parameter(&code, body, word, plpgsql)
+                .into_iter()
+                .collect();
+            if plpgsql {
                 found.extend(sql_declared(&code, body, at, word));
             }
-            if found.is_empty() || sql_column_only(&code, at, word) {
+            let Some((stmt, at)) = sql_statement(&code, at) else {
+                return (Vec::new(), false);
+            };
+            if found.is_empty() || sql_no_variable(stmt, at, word) {
                 return (Vec::new(), false);
             }
-            let use_column = Regex::new(r"(?i)#variable_conflict\s+use_column\b")
-                .expect("a valid pattern")
-                .is_match(code.get(body.clone()).unwrap_or_default());
+            let use_column = plpgsql
+                && sql_in_query(stmt, at, word)
+                && Regex::new(r"(?i)#variable_conflict\s+use_column\b")
+                    .expect("a valid pattern")
+                    .is_match(code.get(body.clone()).unwrap_or_default());
             (
                 found.into_iter().map(line1).collect(),
-                language_sql || use_column,
+                language == "sql" || use_column,
             )
         }
     }
+}
+
+fn sql_statement(code: &str, at: usize) -> Option<(&str, usize)> {
+    let s = code.get(..at)?.rfind(';').map_or(0, |n| n + 1);
+    let e = code.get(at..)?.find(';').map_or(code.len(), |n| at + n);
+    Some((code.get(s..e)?, at - s))
+}
+
+fn sql_no_variable(stmt: &str, at: usize, word: &str) -> bool {
+    let (Some(before), Some(after)) = (stmt.get(..at), stmt.get(at + word.len()..)) else {
+        return false;
+    };
+    let utility = Regex::new(
+        r"(?is)(?:^|\b(?:BEGIN|THEN|ELSE|LOOP)\b)\s*(?:CREATE|ALTER|DROP|COMMENT|GRANT|REVOKE|TRUNCATE)\b",
+    )
+    .expect("a valid pattern");
+    let named = Regex::new(r"(?is)\b(?:AS|CONSTRAINT)\s*$|\bON\s+CONFLICT\s*\([^()]*$")
+        .expect("a valid pattern");
+    let upsert = Regex::new(r"(?is)\bDO\s+UPDATE\s+SET\b").expect("a valid pattern");
+    let lead = before.trim_end().to_ascii_lowercase();
+    let upsert_target = upsert.is_match(before)
+        && after.trim_start().starts_with('=')
+        && (lead.ends_with(',') || lead.ends_with("set"));
+    utility.is_match(before)
+        || named.is_match(before)
+        || upsert_target
+        || sql_target_table(stmt, at, word).is_some()
+}
+
+fn sql_in_query(stmt: &str, at: usize, word: &str) -> bool {
+    let insert = Regex::new(r"(?i)\b(?:INSERT|MERGE)\s+INTO\b").expect("a valid pattern");
+    let plpgsql = Regex::new(r"(?i):=|\b(?:INTO|FOR|LOOP|THEN|ELSE)\b").expect("a valid pattern");
+    let before = insert.replace_all(stmt.get(..at).unwrap_or_default(), "");
+    let assigned = stmt
+        .get(at + word.len()..)
+        .is_some_and(|a| a.trim_start().starts_with(":="));
+    !assigned && !plpgsql.is_match(&before)
 }
 
 fn sql_declared(code: &str, body: &std::ops::Range<usize>, at: usize, word: &str) -> Vec<usize> {
@@ -116,14 +161,16 @@ fn sql_declared(code: &str, body: &std::ops::Range<usize>, at: usize, word: &str
     let edge =
         Regex::new(r"(?i)\b(?:BEGIN|CASE|END(?:\s+(?:IF|LOOP|CASE))?)\b").expect("a valid pattern");
     let name = Regex::new(&format!(r"(?:^|;)\s*({SQL_IDENT})\s+\S")).expect("a valid pattern");
+    let quoted = Regex::new(r#""[^"]*""#).expect("a valid pattern");
+    let bare = quoted.replace_all(text, |c: &regex::Captures| " ".repeat(c[0].len()));
     let mut found = Vec::new();
-    for d in declare.find_iter(text) {
-        let Some(b) = begin.find_at(text, d.end()) else {
+    for d in declare.find_iter(&bare) {
+        let Some(b) = begin.find_at(&bare, d.end()) else {
             continue;
         };
         let mut depth = 0_usize;
         let mut end = text.len();
-        for m in edge.find_iter(text.get(b.start()..).unwrap_or_default()) {
+        for m in edge.find_iter(bare.get(b.start()..).unwrap_or_default()) {
             let w = m.as_str().to_ascii_lowercase();
             if w == "begin" || w == "case" {
                 depth += 1;
@@ -153,21 +200,7 @@ fn sql_declared(code: &str, body: &std::ops::Range<usize>, at: usize, word: &str
     found
 }
 
-fn sql_column_only(code: &str, at: usize, word: &str) -> bool {
-    let s = code
-        .get(..at)
-        .and_then(|c| c.rfind(';'))
-        .map_or(0, |n| n + 1);
-    let e = code
-        .get(at..)
-        .and_then(|c| c.find(';'))
-        .map_or(code.len(), |n| at + n);
-    code.get(s..e)
-        .and_then(|stmt| sql_target_table(stmt, at - s, word))
-        .is_some()
-}
-
-fn sql_language_sql(text: &str, code: &str, body: &std::ops::Range<usize>) -> bool {
+fn sql_language(text: &str, code: &str, body: &std::ops::Range<usize>) -> String {
     let head_end = code
         .get(..body.start)
         .unwrap_or_default()
@@ -177,16 +210,36 @@ fn sql_language_sql(text: &str, code: &str, body: &std::ops::Range<usize>) -> bo
         .get(..head_end)
         .and_then(|h| h.rfind(';'))
         .map_or(0, |n| n + 1);
-    let tail = code.get(body.end..).unwrap_or_default();
-    let tail_start = body.end + tail.len() - tail.trim_start_matches(';').len();
+    let tag = Regex::new(r"^\$(?:[A-Za-z_]\w*)?\$").expect("a valid pattern");
+    let tail_start = body.end
+        + text
+            .get(body.end..)
+            .and_then(|t| tag.find(t))
+            .map_or(0, |m| m.end());
     let tail_end = code
         .get(tail_start..)
         .and_then(|t| t.find(';'))
         .map_or(code.len(), |n| tail_start + n);
-    let language = Regex::new(r"(?i)\bLANGUAGE\s+'?sql\b").expect("a valid pattern");
-    [head_start..head_end, tail_start..tail_end]
+    let keyword = Regex::new(r"(?i)\bLANGUAGE\s+").expect("a valid pattern");
+    let name = Regex::new(r"^'?(\w+)").expect("a valid pattern");
+    let named = [head_start..head_end, tail_start..tail_end]
         .into_iter()
-        .any(|r| text.get(r).is_some_and(|t| language.is_match(t)))
+        .find_map(|r| {
+            let m = keyword.find(code.get(r.clone())?)?;
+            let c = name.captures(text.get(r.start + m.end()..)?)?;
+            Some(c[1].to_ascii_lowercase())
+        });
+    let block = Regex::new(r"(?i)^\s*DO\b").expect("a valid pattern");
+    named.unwrap_or_else(|| {
+        if code
+            .get(head_start..head_end)
+            .is_some_and(|h| block.is_match(h))
+        {
+            "plpgsql".to_owned()
+        } else {
+            String::new()
+        }
+    })
 }
 
 pub(super) fn sql_string_end(b: &[u8], open: usize) -> Option<usize> {
@@ -256,7 +309,12 @@ fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
     (String::from_utf8_lossy(&out).into_owned(), bodies)
 }
 
-fn sql_parameter(code: &str, body: &std::ops::Range<usize>, word: &str) -> Option<usize> {
+fn sql_parameter(
+    code: &str,
+    body: &std::ops::Range<usize>,
+    word: &str,
+    outputs: bool,
+) -> Option<usize> {
     let head_end = code.get(..body.start)?.trim_end_matches(';').len();
     let head_start = code.get(..head_end)?.rfind(';').map_or(0, |n| n + 1);
     let head = code.get(head_start..head_end)?;
@@ -266,7 +324,8 @@ fn sql_parameter(code: &str, body: &std::ops::Range<usize>, word: &str) -> Optio
     .expect("a valid pattern");
     let table = Regex::new(r"(?i)\bRETURNS\s+TABLE\s*\(").expect("a valid pattern");
     let params = create.find(head)?.end();
-    [Some(params), table.find(head).map(|m| m.end())]
+    let returned = table.find(head).filter(|_| outputs).map(|m| m.end());
+    [Some(params), returned]
         .into_iter()
         .flatten()
         .find_map(|from| sql_list_name(head, from, word))
@@ -839,10 +898,11 @@ fn sql_target_table(stmt: &str, at: usize, word: &str) -> Option<String> {
         r"(?i)\bINSERT\s+INTO\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+AS\s+{SQL_IDENT})?\s*\(([^()]*)\)"
     ))
     .expect("a valid pattern");
-    if let Some(c) = insert
-        .captures_iter(stmt)
-        .find(|c| c.get(2).is_some_and(|l| l.range().contains(&at)))
-    {
+    let query = Regex::new(r"(?i)^\s*(?:SELECT|WITH|VALUES)\b").expect("a valid pattern");
+    if let Some(c) = insert.captures_iter(stmt).find(|c| {
+        c.get(2)
+            .is_some_and(|l| l.range().contains(&at) && !query.is_match(l.as_str()))
+    }) {
         return Some(sql_qualified(&c[1]));
     }
     let set_ends = Regex::new(r"(?i)\b(?:FROM|WHERE|RETURNING)\b").expect("a valid pattern");
