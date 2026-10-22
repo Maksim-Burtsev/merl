@@ -275,7 +275,7 @@ impl Review {
         let (at, note) = if !fetched {
             let at = if has_local { local } else { tracked };
             (at, Some(format!("{remote} not fetched")))
-        } else if has_local && own_commits(&git, &local, &tracked) {
+        } else if has_local && own_commits(&git, &local, &tracked, created) {
             let ahead = git(&["merge-base", "--is-ancestor", &remote, &local]).is_ok();
             let note = (!ahead).then(|| lag(&git, &remote, &local));
             (local, note)
@@ -1005,6 +1005,7 @@ fn checkout(
         git,
         &format!("refs/heads/{b}"),
         &format!("refs/remotes/{remote}"),
+        created,
     ) {
         git(&["merge-base", "--is-ancestor", &remote, "HEAD"])
     } else {
@@ -1084,7 +1085,7 @@ fn check_out_folder(
     let edits = reused
         && (has_edits(&folder)
             || (in_folder(&["merge-base", "--is-ancestor", "HEAD", at]).is_err()
-                && own_commits(&in_folder, "HEAD", &format!("refs/remotes/{remote}"))));
+                && own_commits(&in_folder, "HEAD", at, put_by_merl)));
     if reused && !edits {
         for name in package_modules(&folder) {
             if std::fs::read_link(folder.join(&name)).is_ok_and(|l| l == root.join(&name)) {
@@ -1235,20 +1236,31 @@ pub fn sweep_folders(root: &Path, now: SystemTime) {
     }
 }
 
-fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, local: &str, remote: &str) -> bool {
+fn created(subject: &str) -> bool {
+    subject.starts_with("branch: Created from")
+}
+
+fn put_by_merl(subject: &str) -> bool {
+    subject.is_empty()
+        || (subject.strip_prefix("checkout: moving from "))
+            .is_some_and(|to| to.contains(" to refs/"))
+}
+
+fn own_commits(
+    git: &dyn Fn(&[&str]) -> Result<String>,
+    local: &str,
+    remote: &str,
+    not_own: fn(&str) -> bool,
+) -> bool {
     let tips = git(&["reflog", "--format=%H", remote]).unwrap_or_default();
     let log = git(&["reflog", "--format=%H %gs", local]).unwrap_or_default();
-    let created = log
+    let placed = log
         .lines()
         .map(|l| l.split_once(' ').unwrap_or((l, "")))
-        .filter(|(_, subject)| {
-            subject.is_empty()
-                || subject.starts_with("branch: Created from")
-                || subject.starts_with("checkout: moving from")
-        })
+        .filter(|(_, subject)| not_own(subject))
         .map(|(sha, _)| sha);
     let mut args = vec!["rev-list", "--count", local, "--not", remote];
-    args.extend(tips.lines().chain(created));
+    args.extend(tips.lines().chain(placed));
     args.push("--");
     !git(&args).is_ok_and(|n| n == "0")
 }

@@ -431,6 +431,8 @@ fn commit_in_a_folder(c: &Clones) -> (String, String) {
 fn a_commit_made_in_a_review_folder_stays_there_when_the_review_opens_again() {
     let c = Clones::new("folder-commit");
     let (at, mine) = commit_in_a_folder(&c);
+    c.git("b", &["-C", &at, "checkout", "-q", "HEAD~1"]);
+    c.git("b", &["-C", &at, "checkout", "-q", "-"]);
     let (_, r) = c.open("feat1");
     assert_eq!(
         (c.git("b", &["-C", &at, "rev-parse", "HEAD"]), r.note),
@@ -476,4 +478,59 @@ fn a_review_folder_at_a_tip_that_was_force_pushed_away_moves_to_the_new_one() {
         (Some("x = 2\n".to_owned()), None),
         "a tip origin once had is not yours to keep"
     );
+}
+
+fn commit_on(c: &Clones, branch: &str, from: &str, file: &str) {
+    c.git("b", &["switch", "-q", "-c", branch, from]);
+    std::fs::write(c.b().join(file), "a = 1\n").unwrap();
+    c.git("b", &["add", file]);
+    c.git("b", &["commit", "-q", "-m", file]);
+    c.git("b", &["switch", "-q", "mine"]);
+}
+
+#[test]
+fn a_branch_tip_written_without_a_message_keeps_your_own_commits() {
+    let c = Clones::new("update-ref");
+    commit_on(&c, "feat2", "origin/feat2", "mine.py");
+    let tree = c.git("b", &["rev-parse", "feat2^{tree}"]);
+    let again = c.git(
+        "b",
+        &["commit-tree", tree.trim(), "-p", "feat2", "-m", "again"],
+    );
+    c.git("b", &["update-ref", "refs/heads/feat2", again.trim()]);
+    let (_, r) = c.open("feat2");
+    assert_eq!(names(&r), ["feat2.py", "mine.py"]);
+}
+
+#[test]
+fn a_review_folder_of_a_branch_never_pushed_follows_it_after_an_amend() {
+    let c = Clones::new("local-only");
+    commit_on(&c, "lfeat", "origin/main", "l.py");
+    let (one, _) = c.open("lfeat");
+    let tree = c.git("b", &["rev-parse", "lfeat^{tree}"]);
+    let amended = c.git(
+        "b",
+        &["commit-tree", tree.trim(), "-p", "main", "-m", "amended"],
+    );
+    c.git("b", &["branch", "-q", "-f", "lfeat", amended.trim()]);
+    let (_, r) = c.open("lfeat");
+    assert_eq!(
+        (
+            c.git("b", &["-C", one.to_str().unwrap(), "rev-parse", "HEAD"]),
+            r.note.as_deref()
+        ),
+        (amended, Some("origin/lfeat not fetched"))
+    );
+}
+
+#[test]
+fn a_review_folder_merl_moved_to_your_branch_follows_origin_once_that_branch_is_gone() {
+    let c = Clones::new("moved");
+    let (one, _) = c.open("feat1");
+    commit_on(&c, "feat1", "origin/feat1", "l.py");
+    c.open("feat1");
+    assert!(one.join("l.py").is_file(), "the folder shows your branch");
+    c.git("b", &["branch", "-q", "-D", "feat1"]);
+    let (_, r) = c.open("feat1");
+    assert_eq!((one.join("l.py").exists(), r.note), (false, None));
 }
