@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use super::chain::Got;
-use super::sysroot::DEREF;
+use super::sysroot::{DEREF, rust_element};
 use super::{
     App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, search,
 };
@@ -116,6 +116,7 @@ fn substitute(
     let self_ty = self_ty.split(" where").next().unwrap_or_default();
     let (ty_name, ty_args) = type_args(self_ty);
     let (w_name, w_args) = type_args(written);
+    let element = rust_element(written).map(|(_, e)| e);
     let mut bound: HashMap<&str, &str> = HashMap::new();
     if ty_name == w_name {
         for (a, w) in ty_args.iter().zip(&w_args) {
@@ -123,6 +124,13 @@ fn substitute(
                 bound.insert(a, w);
             }
         }
+    }
+    if let Some(slice) = self_ty.trim().strip_prefix('[')
+        && let Some(param) = slice.split([';', ']']).next().map(str::trim)
+        && impl_params.iter().any(|p| p == param)
+        && let Some(e) = element.as_deref().filter(|e| *e != "_")
+    {
+        bound.insert(param, e);
     }
     let fn_params = fn_line
         .split_once(&format!("fn {word}"))

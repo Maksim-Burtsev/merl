@@ -1,3 +1,4 @@
+use super::sysroot::rust_element;
 use super::{
     App, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Typed, rust_bare_type,
     search,
@@ -318,7 +319,28 @@ impl App {
         let rest = line.strip_prefix("for ")?.trim_start();
         let rest = rest.strip_prefix("mut ").unwrap_or(rest);
         let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
-        let w = walk_back(expr.strip_suffix('{')?.trim())?;
+        let expr = expr.strip_suffix('{')?.trim();
+        let place = expr.strip_prefix('&').map_or(expr, |s| {
+            let s = s.trim_start();
+            s.strip_prefix("mut ").unwrap_or(s).trim()
+        });
+        if !place.is_empty() && place.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            let bindings = search::bindings(Kind::Rust, text, at + 1, place);
+            let [b] = bindings.as_slice() else {
+                return None;
+            };
+            let lines: Vec<&str> = text.lines().collect();
+            let Some(search::RustHolds::Type(w)) = search::rust_holds(&lines, b.line1 - 1, place)
+            else {
+                return None;
+            };
+            let (container, element) = rust_element(&w)?;
+            if container.is_some_and(|c| !self.rust_std_named(text, &c)) {
+                return None;
+            }
+            return rust_bare_type(&element);
+        }
+        let w = walk_back(expr)?;
         if w.rest != 0 || (!w.head_call && w.links.is_empty()) {
             return None;
         }

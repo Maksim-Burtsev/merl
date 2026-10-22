@@ -1299,3 +1299,90 @@ fn a_for_variable_and_an_as_ref_of_a_bound_take_their_std_type() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn a_variant_pattern_or_a_for_over_a_vec_binds_the_field_or_element() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Glob {\n        glob: Option<String>,\n        err: String,\n    },\n    Io(u32),\n}\n\nimpl Error {\n    pub fn copy(&self) -> String {\n        match *self {\n            Error::Glob { ref glob, ref err } => err.clone(),\n            Error::Io(_) => String::new(),\n        }\n    }\n\n    pub fn size(&self) -> usize {\n        if let Self::Glob { err: ref text, .. } = *self {\n            return text.len();\n        }\n        0\n    }\n}\n\npub fn total(names: Vec<String>, more: &[String]) -> usize {\n    let mut n = 0;\n    for name in &names {\n        n += name.len();\n    }\n    for each in more {\n        n += each.clone().len();\n    }\n    n\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-variant-field",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-variant-field-std",
+        &[(
+            "lib/rustlib/src/rust/library/alloc/src/string.rs",
+            &format!(
+                "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl Clone for String {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+            ),
+        )],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for (code, want) in [
+        ("err.clone", "alloc/src/string.rs:11"),
+        ("text.len", "alloc/src/string.rs:5"),
+        ("name.len", "alloc/src/string.rs:5"),
+        ("each.clone", "alloc/src/string.rs:11"),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_slice_method_on_a_vec_binds_its_t_to_the_element() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Leaf {\n    pub name: u32,\n}\n\npub struct Cup {\n    pub name: u32,\n}\n\npub fn first_name(v: Vec<Leaf>) -> u32 {\n    v.first().unwrap().name\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-slice-t",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-slice-t-std",
+        &[
+            (
+                "lib/rustlib/src/rust/library/core/src/slice/mod.rs",
+                &format!(
+                    "impl<T> [T] {{\n{stable}    pub fn first(&self) -> Option<&T> {{\n        None\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/option.rs",
+                &format!(
+                    "pub enum Option<T> {{\n    None,\n    Some(T),\n}}\n\nimpl<T> Option<T> {{\n{stable}    pub fn unwrap(self) -> T {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+                "pub struct Vec<T>;\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/lib.rs",
+                "pub use core::*;\n",
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    d_on(&mut a, "src/lib.rs", "v.first().unwrap().name");
+    let got = match shown(&mut a) {
+        Shown::Jump(_, place) => place,
+        other @ Shown::Picker(..) => format!("{other:?}"),
+    };
+    assert_eq!(got, "src/lib.rs:2");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}

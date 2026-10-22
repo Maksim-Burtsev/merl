@@ -634,6 +634,8 @@ comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]`
 `#[cfg(not(unix))]` from two modules: rust-analyzer answers the host's arm, merl offers both.
 Since #1044 `shadow_back_to_leaf` rebinds `leaf` to a `Leaf` through `unwrap`, which keeps its
 jump, and `label_of` holds the `String` a `Leaf` method returns, which `Leaf::len` never answers.
+`brew_note` binds `ref note` in a `Brew::Steeped { .. }` pattern and `steeped_notes` loops `for
+note in &notes` over a `Vec<String>`: both hold a `String`, which `Leaf::len` never answers either.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
