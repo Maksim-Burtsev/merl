@@ -1386,3 +1386,41 @@ fn a_slice_method_on_a_vec_binds_its_t_to_the_element() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn a_variant_field_typed_elsewhere_or_rebound_keeps_master_s_answer() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub mod seen;\n\nuse seen::Seen;\n\npub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Glob {\n        glob: Option<String>,\n        err: String,\n    },\n    Io(u32),\n}\n\npub fn key_len(s: &Seen) -> u32 {\n    match *s {\n        Seen::Dup { ref key } => key.len(),\n    }\n}\n\npub fn rebound(e: &Error, names: &[Glob]) -> u32 {\n    let err = match *e { Error::Glob { ref err, .. } => 1, Error::Io(n) => n };\n    let a = err.clone();\n    match *e {\n        Error::Glob { ref glob, .. } => names.iter().map(|glob| glob.len()).sum::<u32>() + a,\n        Error::Io(_) => 0,\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-variant-neighbours",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+            (
+                "src/seen.rs",
+                "use hashbrown::String;\n\npub enum Seen {\n    Dup {\n        key: String,\n    },\n}\n",
+            ),
+        ],
+    );
+    let std = external_root(
+        "rust-variant-neighbours-std",
+        &[(
+            "lib/rustlib/src/rust/library/alloc/src/string.rs",
+            &format!(
+                "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl Clone for String {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+            ),
+        )],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for code in ["err.clone", "glob.len|()).sum", "key.len"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = shown(&mut a);
+        assert!(
+            matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+            "{code}: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
