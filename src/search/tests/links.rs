@@ -72,3 +72,14 @@ fn headings_get_githubs_anchors() {
     assert_eq!(anchor_line1(text, "End"), Some(3));
     assert_eq!(percent_decoded("my%20notes%2Emd%zz%"), "my notes.md%zz%");
 }
+
+#[test]
+fn an_anchor_beside_a_comment_is_a_link_and_one_inside_it_is_not() {
+    let text = "<div>\n<!-- c --><a href=\"b.md\">bee</a>\n</div>\n\n<span>x</span> <!-- <a href=\"old.md\">old</a> --> <a href=\"new.md\">new</a>\n";
+    assert_eq!(at(text, "bee"), MdAt::Link("b.md".into()));
+    assert_eq!(at(text, " c "), MdAt::Nothing);
+    assert_eq!(at(text, "old<"), MdAt::Nothing);
+    let row = text.find("<span>").unwrap()..text.len();
+    let first = first_link_in(text, &row).unwrap();
+    assert_eq!(markdown_at(text, first), MdAt::Link("new.md".into()));
+}

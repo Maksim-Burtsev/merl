@@ -41,9 +41,11 @@ keys in their order, numbers as typed.
 | tables | box drawing, each column aligned as its `:---`, `:---:` or `---:` says |
 | `---` | a rule across the pane |
 | `[text](url)` | the text, underlined in the link colour; the URL is in the source |
+| a bare `https://…` or `www.…` | underlined in the link colour, as GitHub links it |
+| `<!-- comment -->` | hidden, as GitHub and GitLab hide it |
 | `![alt](image.png)` | `▣` and the alt text |
 | footnotes | the reference as `[1]`; the note where it is written, beside its `[1]` |
-| YAML front matter, raw HTML | as written, dim |
+| YAML front matter, any other raw HTML | as written, dim |
 
 Images, heading sizes and math stay text.
 
@@ -72,9 +74,10 @@ lines a row stands for; Ctrl+Home, Ctrl+End and a far `{` / `}` go by the source
 one as in the source. A row that shows no line (a table's border, a heading's rule, a blank row
 with no blank line under it) stands before the block below: Enter there edits that block's first
 line. `[` and `]`, `:`, `o`, `s`, `D`, `t`, `T`, `?` and `q` work as everywhere, and Ctrl+C copies
-the source line, nothing on a row that shows none. What acts on a word, a column or a selection
-(`/`, `n`, `v`, `d`, `u`, Home / End, Shift or Alt with an arrow, `w`) has nothing to act on in the
-preview and does nothing; `p` or Enter take you to the source for it.
+the source line, nothing on a row that shows none. `d` on a row of a Markdown preview follows the
+first link on it, as `d` on that link in the source would. What else acts on a word, a column or
+a selection (`/`, `n`, `v`, `u`, Home / End, Shift or Alt with an arrow, `w`) has nothing to act
+on in the preview and does nothing; `p` or Enter take you to the source for it.
 
 In `--review` the diff lives on the source: `p` on a Markdown file of the review renders it as
 it stands now (a deleted one as it was) without the diff's marks, and `p` again shows the source

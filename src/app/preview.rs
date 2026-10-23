@@ -251,6 +251,16 @@ impl App {
                 self.start_edit();
                 return true;
             }
+            KeyCode::Char('d')
+                if plain && self.buf.path.as_deref().is_some_and(markdown::is_markdown) =>
+            {
+                let here = &p.doc.rows[row];
+                let from = here.src;
+                let last_line = here.lines.end.saturating_sub(1).max(from.0);
+                let to = p.doc.rows.get(row + 1).map(|r| r.src).filter(|&s| s > from);
+                self.follow_from_row(from, to.unwrap_or((last_line, usize::MAX)));
+                return true;
+            }
             _ => return true,
         };
         let moved = to.abs_diff(row);
@@ -278,6 +288,32 @@ impl App {
         }
         self.preview_clamp();
         true
+    }
+
+    fn follow_from_row(&mut self, from: (usize, usize), to: (usize, usize)) {
+        let lines = &self.buf.lines;
+        let offset = |(l, c): (usize, usize)| -> usize {
+            let before: usize = lines.iter().take(l).map(|s| s.len() + 1).sum();
+            before + c.min(lines.get(l).map_or(0, String::len))
+        };
+        let text = lines.join("\n");
+        let span = offset(from)..offset(to);
+        let Some(at) = crate::search::first_link_in(&text, &span) else {
+            self.message = if markdown::bare_url_in(&text, &span) {
+                "link outside the project"
+            } else {
+                "no link here"
+            }
+            .into();
+            return;
+        };
+        let before = text.get(..at).unwrap_or_default();
+        let line = before.matches('\n').count();
+        let col = at - before.rfind('\n').map_or(0, |n| n + 1);
+        self.go((line, col));
+        if let Some(here) = self.rel_current() {
+            self.follow_markdown(&here);
+        }
     }
 
     pub(super) fn preview_blank(&self) -> bool {
