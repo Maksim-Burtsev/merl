@@ -17,9 +17,23 @@ use crate::wrap;
 pub mod data;
 pub mod images;
 
+pub mod notebook;
+
 pub fn is_markdown(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
+    path.extension().is_some_and(|e| {
+        ["md", "markdown", "mdx"]
+            .iter()
+            .any(|m| e.eq_ignore_ascii_case(m))
+    })
+}
+
+fn options() -> Options {
+    Options::ENABLE_TABLES
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_FOOTNOTES
+        | Options::ENABLE_GFM
+        | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -136,13 +150,7 @@ pub fn layout(lines: &[String], width: usize, light: bool, fit: Fit) -> Doc {
         light,
         ..Default::default()
     };
-    let opts = Options::ENABLE_TABLES
-        | Options::ENABLE_TASKLISTS
-        | Options::ENABLE_STRIKETHROUGH
-        | Options::ENABLE_FOOTNOTES
-        | Options::ENABLE_GFM
-        | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS;
-    for (ev, r) in Parser::new_ext(&src, opts).into_offset_iter() {
+    for (ev, r) in Parser::new_ext(&src, options()).into_offset_iter() {
         lay.event(ev, r);
     }
     lay.flush();

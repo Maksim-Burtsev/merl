@@ -32,3 +32,20 @@ key Enter
 wait docs/notes.md  1:1
 key p
 wait [preview]
+# p on an MDX file renders it as Markdown, as GitHub does; on a Jupyter notebook, its cells with
+# their outputs dimmed and a picture as one line (#770).
+run printf 'import { Note } from "./note"\n\n# Refund policy\n\n<Note>Ask the payment team first.</Note>\n' > docs/policy.mdx && printf '{"nbformat": 4, "metadata": {}, "cells": [{"cell_type": "markdown", "source": ["## Refunds by week"]}, {"cell_type": "code", "source": ["print(len(refunds))"], "outputs": [{"output_type": "stream", "text": ["1042\\n"]}, {"output_type": "display_data", "data": {"image/png": "iVBO"}}]}]}\n' > data/weekly.ipynb
+wait A policy.mdx
+wait A weekly.ipynb
+key o
+type policy.mdx
+key Enter
+wait docs/policy.mdx  1:1
+key p
+wait [preview]
+key o
+type weekly.ipynb
+key Enter
+wait data/weekly.ipynb  1:1
+key p
+wait ▣ image/png
