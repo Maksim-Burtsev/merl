@@ -591,7 +591,7 @@ func calledOutside(_ key: String, _ sencha: Sencha, _ n: Int) -> String {
     _ = sencha.steeped().uppercased()
     //                   ^ d: Sources/Shop/Infuse/Sencha.swift:10
     _ = key.prefix(n).uppercased()
-    //                ^ d: Sources/Shop/Infuse/Sencha.swift:10; want none (#1068)
+    //                ^ d: none
     return key.prefix(1).uppercased() + key.dropFirst(2).uppercased()
     //                   ^ d: none
     //                                                   ^ d: none
@@ -615,4 +615,141 @@ func twigged(_ item: String, _ twigs: [Twig], _ key: String) -> String {
     //                                             ^ d: none
     return key.appending("s").uppercased()
     //                        ^ d: none
+}
+
+// An array literal of strings, through `compactMap(\.self)` or not, is a `[String]`: a method the
+// project's `extension [String]` declares types the value it returns (#1068).
+extension [String] {
+    func potted() -> Sencha { Sencha(grade: count) }
+}
+
+func ampersandedAll(_ query: String?, _ more: String) -> Bool {
+    let joined = [query, more].compactMap(\.self).ampersanded()
+    let plain = [more, more].potted()
+    _ = plain.grade
+    //        ^ d: Sources/Shop/Infuse/Sencha.swift:2
+    return joined.isEmpty
+    //            ^ d: none
+}
+
+// A closure passed to a method of the enclosing type takes its parameters' types from the
+// method's parameter, a typealias of that type; overloads that cannot take a closure (a
+// constrained generic, an autoclosure, none) step aside (#1068).
+final class Steamer {
+    typealias Check = (Int, String?, Sencha) -> Bool
+    func check(_ c: @escaping Check) -> Self { self }
+    func check<S: Sequence>(grades: S) -> Self { self }
+    func check(label: @autoclosure () -> String) -> Self { self }
+    func check() -> Self { self }
+}
+
+extension Steamer {
+    func boiled() -> Self {
+        check { [unowned self] _, note, sencha in
+            _ = sencha.grade
+            //         ^ d: Sources/Shop/Infuse/Sencha.swift:2
+            return note?.isEmpty == true
+            //           ^ d: none
+        }
+    }
+}
+
+// A call on a value from outside whose arguments are values of types from outside returns a
+// value from outside, through a binding too. An argument of a project type, or one a closure's
+// parameter on the line shadows, keeps its path (#1068).
+func calledWith(_ key: String, _ url: URL, _ sencha: Sencha, _ twigs: [Twig]) -> Bool {
+    let crumbs = key.components(separatedBy: key)
+    _ = key.appending(key).uppercased()
+    //                     ^ d: none
+    _ = key.padding(sencha).uppercased()
+    //                      ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    twigs.forEach { key in _ = url.appending(key).uppercased() }
+    //                                            ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    return crumbs.isEmpty
+    //            ^ d: none
+}
+
+// A closure passed to a method of the enclosing type takes its parameter's type from a function
+// type written in the method, and an `[Int]` literal is an `[Int]`. Where the closure may go to
+// another parameter (several closures, a defaulted one after it) or its type is a generic (the
+// callee's, the type's, a sequence's `Element`), the picker stays (#1068).
+struct Wick {
+    var lit = ""
+}
+
+struct Flint {
+    var lit = ""
+}
+
+protocol Lit {
+    var lit: String { get }
+    func describe(_ n: Int) -> Wick
+}
+
+extension [Int] {
+    func wicked() -> Wick { Wick() }
+}
+
+final class Lamp<Fuel: Lit> {
+    func pour(_ c: (Wick) -> Void) {}
+    func load(_ done: (Wick) -> Void, failed: (Flint) -> Void) {}
+    func trim(_ body: (Wick) -> Void, finally: (Flint) -> Void = { _ in }) {}
+    func each<T: Lit>(_ body: (T, Int) -> Void) {}
+    func burn(_ body: (Fuel) -> Void) {}
+}
+
+extension Lamp {
+    func lighted(_ n: Int, _ x: Fuel) {
+        pour { w in
+            _ = w.lit
+            //    ^ d: Sources/Shop/Outcomes.swift:677
+        }
+        load { w in
+            _ = w.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        } failed: { f in
+            _ = f.lit
+        }
+        trim { w in
+            _ = w.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+        each { t, n in
+            _ = t.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+        burn { f in
+            _ = f.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+        let shown = x.describe(1)
+        _ = shown.lit
+        //        ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        let w = [n, n].wicked()
+        _ = w.lit
+        //    ^ d: Sources/Shop/Outcomes.swift:677
+    }
+}
+
+struct WickRack: Sequence {
+    func makeIterator() -> IndexingIterator<[Wick]> { [Wick]().makeIterator() }
+    func each(_ body: (Element, Int) -> Void) {}
+    func run() {
+        each { e, n in
+            _ = e.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+    }
+}
+
+// An argument typed by the project's typealias of a function type is no value from outside: the
+// call may hand back what the closure returns (#1068).
+typealias Kindle = () -> Wick
+
+func kindled(_ q: DispatchQueue, _ k: Kindle) -> String {
+    let s = q.sync(execute: k)
+    _ = s.lit
+    //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+    return q.sync(execute: k).lit
+    //                        ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
 }
