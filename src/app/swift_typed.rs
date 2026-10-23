@@ -1172,6 +1172,32 @@ impl App {
         (!rows.is_empty()).then_some((ty, rows))
     }
 
+    pub(super) fn swift_outside_call(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> bool {
+        let Some((receiver, method)) = search::swift_literal_call(before) else {
+            return false;
+        };
+        let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
+        let line = text.lines().nth(self.line).unwrap_or_default();
+        if search::swift_closure_param(line, &names[0], self.col) {
+            return false;
+        }
+        let cut = self.truncated.get();
+        let chain = self.swift_chain(here, here, text, self.line + 1, &names, 2);
+        let outside = chain.is_some_and(|c| {
+            self.swift_type(here, &c.written)
+                .is_none_or(|t| t.keyword.is_none())
+                && self.swift_sdk_value(here, &c.written, &method)
+        }) && !self.swift_extended_with(here, word, false);
+        self.truncated.set(cut);
+        outside
+    }
+
     fn swift_outside_static(
         &self,
         here: &Path,

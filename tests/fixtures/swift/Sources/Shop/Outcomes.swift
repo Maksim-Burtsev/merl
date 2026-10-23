@@ -581,3 +581,38 @@ extension Cellar {
 extension Sequence {
     func next() -> Int? { nil }
 }
+
+// A call with only literal arguments on a value from outside, which no extension of the project
+// declares, returns a value from outside: its members answer from the project's extensions or
+// none. A call on a project value, or one whose argument is not a literal, keeps its path (#1068).
+func calledOutside(_ key: String, _ sencha: Sencha, _ n: Int) -> String {
+    _ = key.prefix(1).sniffed()
+    //                ^ d: Sources/Shop/Infuse/Sencha.swift:37
+    _ = sencha.steeped().uppercased()
+    //                   ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    _ = key.prefix(n).uppercased()
+    //                ^ d: Sources/Shop/Infuse/Sencha.swift:10; want none (#1068)
+    return key.prefix(1).uppercased() + key.dropFirst(2).uppercased()
+    //                   ^ d: none
+    //                                                   ^ d: none
+}
+
+// A closure's parameter shadows the outer value of its name, so a literal call on it keeps the
+// typed path. Labelled, negative, `true` and string arguments are literals too (#1068).
+struct Twig {
+    var budded: String
+    func child(_ i: Int) -> Twig { self }
+}
+
+func twigged(_ item: String, _ twigs: [Twig], _ key: String) -> String {
+    twigs.forEach { item in _ = item.child(1).budded }
+    //                                        ^ d: Sources/Shop/Outcomes.swift:603
+    _ = key.padding(toLength: 4).uppercased()
+    //                           ^ d: none
+    _ = key.dropLast(-1).uppercased()
+    //                   ^ d: none
+    _ = key.split(omittingEmptySubsequences: true).uppercased()
+    //                                             ^ d: none
+    return key.appending("s").uppercased()
+    //                        ^ d: none
+}

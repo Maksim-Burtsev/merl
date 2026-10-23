@@ -40,6 +40,7 @@ The swift row with #1068's nested types through their enclosing type (`MutableSt
 The swift row with #1068's keys of a dictionary (`parameters.keys.sorted` in `URLEncoding.query`) and a type nested in a generic outside type (`AsyncStream<Element>.AsyncIterator` in `StreamOf.Iterator`): over `5452f725`, 2026-10-22, release build, `vm.loadavg` { 4.51 4.44 4.87 } before the run.
 The rust row with #1044's name bound by an enum variant's struct pattern (`Error::Glob { ref err, .. }`) and a `for` over a `Vec`, a slice or an array: over `09804913`, 2026-10-22, release build, `vm.loadavg` { 5.58 6.29 6.05 } before the run.
 The sql row with #1239 and #1234 (plpgsql `DECLARE` variables, `RETURNS TABLE` names, a column-only position and `#variable_conflict use_column`): over `bb65cdc14`, 2026-10-22, release build, `vm.loadavg` { 6.18 6.70 5.26 } before the run, { 7.39 6.81 5.43 } after.
+The swift row with #1068's call with only literal arguments on a value from outside the project (`key.prefix(1).uppercased()` in `URLEncodedFormEncoder.KeyEncoding.encode`): over `35f9ac278`, 2026-10-23, release build, `vm.loadavg` { 7.07 8.28 7.10 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -51,7 +52,7 @@ The sql row with #1239 and #1234 (plpgsql `DECLARE` variables, `RETURNS TABLE` n
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 19 | 22.0 | 58.9 |
+| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 18 | 26.0 | 68.2 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |

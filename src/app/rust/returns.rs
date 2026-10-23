@@ -16,13 +16,14 @@ static TOKEN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"'\w+|\b(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*").expect("the regex is a literal")
 });
 
-fn top_level(args: &str) -> Vec<&str> {
+pub(super) fn top_level(args: &str) -> Vec<&str> {
     let mut depth = 0i32;
     let mut start = 0;
     let mut parts = Vec::new();
     for (i, c) in args.char_indices() {
         match c {
             '<' | '(' | '[' => depth += 1,
+            '>' if args.get(..i).is_some_and(|s| s.ends_with('-')) => {}
             '>' | ')' | ']' => depth -= 1,
             ',' if depth == 0 => {
                 parts.push(args.get(start..i).unwrap_or_default().trim());

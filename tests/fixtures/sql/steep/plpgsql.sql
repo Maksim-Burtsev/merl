@@ -8,7 +8,7 @@ BEGIN
   UPDATE samovars SET spout = spout + 1 WHERE samovars.id = id;
   --                  ^ d: steep/schema.sql:4
   --                          ^ d: steep/plpgsql.sql:3
-  --                                                   ^ d: none; want steep/schema.sql:3 (#1240)
+  --                                                   ^ d: steep/schema.sql:3
   --                                                        ^ d: steep/plpgsql.sql:3
   PERFORM samovars.spout FROM samovars;
   --               ^ d: steep/schema.sql:4
@@ -139,3 +139,60 @@ CREATE FUNCTION skim() RETURNS TABLE (dregs_out integer) LANGUAGE sql AS $$
   SELECT s.spout FROM samovars s JOIN urns u ON u.id = s.id ORDER BY dregs_out;
   --                                                                 ^ d: !jump
 $$;
+-- #1240: the UPDATE target and its alias qualify a column, as a FROM item does.
+CREATE FUNCTION steep_out(spout integer) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE samovars AS s SET brim = 'x' WHERE s.spout = spout;
+  --                                          ^ d: steep/schema.sql:4
+  --                                                  ^ d: steep/plpgsql.sql:143
+  UPDATE samovars s SET brim = 'x' FROM urns u WHERE s.id = u.handle;
+  --                                                   ^ d: steep/schema.sql:3
+  --                                                          ^ d: steep/schema.sql:9
+END $$;
+UPDATE samovars SET spout = 1 WHERE samovars.id = 1;
+--                                           ^ d: steep/schema.sql:3
+-- #1245: a parenthesised SET list, a subscripted or field target and MERGE's UPDATE SET and INSERT (…) name no variable.
+CREATE FUNCTION steep_more(spout integer, brim text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE samovars SET (id, spout) = (1, spout);
+  --                       ^ d: steep/schema.sql:4
+  --                                    ^ d: steep/plpgsql.sql:155
+  UPDATE samovars SET brim = 1, (id, spout) = ROW(2, spout) WHERE id = 3;
+  --                                 ^ d: steep/schema.sql:4
+  --                                                 ^ d: steep/plpgsql.sql:155
+  UPDATE samovars SET brim[1] = brim, brim.lid = brim;
+  --                  ^ d: steep/schema.sql:5
+  --                            ^ d: steep/plpgsql.sql:155
+  --                                  ^ d: steep/schema.sql:5
+  --                                             ^ d: steep/plpgsql.sql:155
+  MERGE INTO samovars s USING samovars t ON s.id = t.id
+    WHEN MATCHED THEN UPDATE SET spout = spout, (id, brim) = (1, brim)
+  --                               ^ d: steep/schema.sql:4
+  --                                       ^ d: steep/plpgsql.sql:155
+  --                                                   ^ d: steep/schema.sql:5
+  --                                                               ^ d: steep/plpgsql.sql:155
+    WHEN NOT MATCHED THEN INSERT (spout, brim) VALUES (t.spout, brim);
+  --                                ^ d: steep/schema.sql:4
+  --                                       ^ d: steep/schema.sql:5
+  --                                                              ^ d: steep/plpgsql.sql:155
+  UPDATE samovars SET brim = coalesce(brim, spout);
+  --                                  ^ d: steep/plpgsql.sql:155
+  --                                        ^ d: steep/plpgsql.sql:155
+END $$;
+-- Outside plpgsql: a field target, MERGE's lists, the table named before a SET field, and an alias a subquery or CTE binds again.
+UPDATE samovars SET brim.lid = 1;
+--                  ^ d: steep/schema.sql:5
+MERGE INTO samovars s USING urns u ON s.id = u.id WHEN NOT MATCHED THEN INSERT (spout) VALUES (u.handle);
+--                                                                              ^ d: steep/schema.sql:4
+MERGE INTO samovars s USING urns u ON s.id = u.id WHEN MATCHED THEN UPDATE SET brim = u.brim;
+--                                                                             ^ d: steep/schema.sql:5
+UPDATE tins SET tins.seal = 1;
+--              ^ d: steep/schema.sql:36
+UPDATE samovars s SET brim = 'x' RETURNING s.spout;
+--                                           ^ d: steep/schema.sql:4
+UPDATE samovars s SET brim = (SELECT u.brim FROM urns u WHERE u.id = s.id);
+--                                                                     ^ d: steep/schema.sql:3
+UPDATE samovars s SET spout = (SELECT max(s.handle) FROM urns s);
+--                                          ^ d: steep/schema.sql:9
+WITH moved AS (UPDATE samovars s SET spout = 0 RETURNING s.id) SELECT s.handle FROM urns s;
+--                                                                       ^ d: steep/schema.sql:9
