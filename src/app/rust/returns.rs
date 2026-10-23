@@ -16,7 +16,7 @@ static TOKEN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"'\w+|\b(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*").expect("the regex is a literal")
 });
 
-fn top_level(args: &str) -> Vec<&str> {
+pub(super) fn top_level(args: &str) -> Vec<&str> {
     let mut depth = 0i32;
     let mut start = 0;
     let mut parts = Vec::new();

@@ -636,6 +636,9 @@ Since #1044 `shadow_back_to_leaf` rebinds `leaf` to a `Leaf` through `unwrap`, w
 jump, and `label_of` holds the `String` a `Leaf` method returns, which `Leaf::len` never answers.
 `brew_note` binds `ref note` in a `Brew::Steeped { .. }` pattern and `steeped_notes` loops `for
 note in &notes` over a `Vec<String>`: both hold a `String`, which `Leaf::len` never answers either.
+`poured_note` binds `ref note` in an or-pattern of two `Pour` variants whose `note` is a `String`
+in each, and `drip_note` binds `ref note` at the `String` place of the tuple variant `Drip::Slow`;
+master jumped to `Leaf::len` on both.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
