@@ -1342,7 +1342,7 @@ fn a_variant_pattern_or_a_for_over_a_vec_binds_the_field_or_element() {
 #[test]
 fn a_slice_method_on_a_vec_a_slice_or_an_array_binds_its_t_to_the_element() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "pub struct Leaf {\n    pub name: u32,\n}\n\npub struct Cup {\n    pub name: u32,\n}\n\npub fn first_name(v: Vec<Leaf>) -> u32 {\n    v.first().unwrap().name\n}\n\npub fn sliced(s: &[Leaf]) -> u32 {\n    s.first().unwrap().name\n}\n\npub fn arrayed(r: [Leaf; 2]) -> u32 {\n    r.first().unwrap().name\n}\n";
+    let lib = "pub struct Leaf {\n    pub name: u32,\n}\n\npub struct Cup {\n    pub name: u32,\n}\n\npub fn first_name(v: Vec<Leaf>) -> u32 {\n    v.first().unwrap().name\n}\n\npub fn sliced(s: &[Leaf]) -> u32 {\n    s.first().unwrap().name\n}\n\npub fn arrayed(r: [Leaf; 2]) -> u32 {\n    r.first().unwrap().name\n}\n\npub static LEAVES: &[Leaf] = &[];\n\npub fn leaves() -> &'static [Leaf] {\n    LEAVES\n}\n\npub fn heads(v: Vec<Leaf>) -> u32 {\n    LEAVES.first().unwrap().name + leaves().first().unwrap().name + v.as_slice().first().unwrap().name\n}\n";
     let (dir, mut a) = project_app(
         "rust-slice-t",
         &[
@@ -1367,7 +1367,9 @@ fn a_slice_method_on_a_vec_a_slice_or_an_array_binds_its_t_to_the_element() {
             ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
-                "pub struct Vec<T>;\n",
+                &format!(
+                    "pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn as_slice(&self) -> &[T] {{\n        loop {{}}\n    }}\n}}\n"
+                ),
             ),
             (
                 "lib/rustlib/src/rust/library/std/src/lib.rs",
@@ -1381,6 +1383,9 @@ fn a_slice_method_on_a_vec_a_slice_or_an_array_binds_its_t_to_the_element() {
         "v.first().unwrap().name",
         "s.first().unwrap().name",
         "r.first().unwrap().name",
+        "LEAVES.first().unwrap().name",
+        "leaves().first().unwrap().name",
+        "v.as_slice().first().unwrap().name",
     ] {
         d_on(&mut a, "src/lib.rs", code);
         let got = match shown(&mut a) {

@@ -396,11 +396,20 @@ impl App {
         let ty = self.swift_type(here, &search::swift_type_header(lines[around - 1])?.name)?;
         ty.keyword.as_ref()?;
         let mut inputs = None;
+        let mut generics = self.swift_scope_generics(here, text, line1);
         for row in self.swift_member_rows(here, &ty, &method)? {
             if !row.text.contains("func ") {
                 return None;
             }
-            let last = search::swift_last_param(&row.text)?;
+            let params = search::swift_params(&row.text)?;
+            let (last, before) = params.split_last()?;
+            if before.iter().any(|p| {
+                p.contains("->")
+                    || search::swift_type_name(p).is_some_and(|n| self.swift_project_alias(here, &n))
+            }) {
+                return None;
+            }
+            generics.extend(search::swift_generics(&row.text));
             if last.is_empty() || last.contains("@autoclosure") {
                 continue;
             }
@@ -412,7 +421,7 @@ impl App {
             if search::swift_constrained_generic(&row.text, &bare) {
                 continue;
             }
-            let takes = if let Some(takes) = search::swift_function_inputs(&last) {
+            let takes = if let Some(takes) = search::swift_function_inputs(last) {
                 takes
             } else {
                 let [alias] =
@@ -425,8 +434,37 @@ impl App {
             inputs = Some(takes);
         }
         let inputs = inputs.filter(|i| i.len() == count)?;
-        let given = search::SwiftGiven::Type(inputs.get(at)?.clone());
+        let input = inputs.get(at)?;
+        let named = search::swift_type_name(input).or_else(|| search::swift_element(input))?;
+        if generics.contains(&named)
+            || ["Element", "Index", "Indices", "Iterator", "SubSequence"].contains(&named.as_str())
+        {
+            return None;
+        }
+        let given = search::SwiftGiven::Type(input.clone());
         self.swift_given_type(here, file, text, line1, given, hops)
+    }
+
+    fn swift_project_alias(&self, here: &Path, name: &str) -> bool {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        self.project_definitions(Kind::Swift, here, name, &pattern)
+            .iter()
+            .any(|h| search::swift_alias(&h.text, name).is_some())
+    }
+
+    fn swift_scope_generics(&self, here: &Path, text: &str, line1: usize) -> Vec<String> {
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, text);
+        let mut out = Vec::new();
+        let mut at = line1;
+        while let Some(line) = at.checked_sub(1).and_then(|i| lines.get(i)) {
+            out.extend(search::swift_generics(line));
+            if let Some(t) = search::swift_extended(line) {
+                out.extend(self.swift_decl_generics(here, &t).into_iter().flatten());
+            }
+            at = search::swift_scope(&lines, &literal, at).header_line1;
+        }
+        out
     }
 
     fn swift_nested_given(
@@ -495,9 +533,13 @@ impl App {
     }
 
     fn swift_type_generics(&self, here: &Path, name: &str) -> Option<[String; 1]> {
+        let [generics] = <[Vec<String>; 1]>::try_from(self.swift_decl_generics(here, name)).ok()?;
+        <[String; 1]>::try_from(generics).ok()
+    }
+
+    fn swift_decl_generics(&self, here: &Path, name: &str) -> Vec<Vec<String>> {
         let pattern = search::def_patterns(Kind::Swift, name).join("|");
-        let decls: Vec<Vec<String>> = self
-            .project_definitions(Kind::Swift, here, name, &pattern)
+        self.project_definitions(Kind::Swift, here, name, &pattern)
             .iter()
             .filter(|h| {
                 self.in_code(Kind::Swift, h)
@@ -505,9 +547,7 @@ impl App {
                         .is_some_and(|t| t.name == name && t.keyword != "extension")
             })
             .map(|h| search::swift_generics(&h.text))
-            .collect();
-        let [generics] = <[Vec<String>; 1]>::try_from(decls).ok()?;
-        <[String; 1]>::try_from(generics).ok()
+            .collect()
     }
 
     fn swift_given_type(
@@ -636,6 +676,9 @@ impl App {
                     if ty.as_ref().is_none_or(|t| t.keyword.is_none())
                         && let Some((_, _, args)) = search::swift_literal_call(&format!("{e}."))
                         && self.swift_sdk_value(here, &chain.written, method)
+                        && !self
+                            .swift_scope_generics(here, text, line1)
+                            .contains(&chain.written.trim().trim_end_matches(['?', '!']).to_owned())
                         && !self.swift_extended_with(here, method, false)
                         && self.swift_outside_args(here, file, text, line1, &args, hops)
                     {
@@ -1326,6 +1369,7 @@ impl App {
                                 .swift_type(here, t)
                                 .is_none_or(|ty| ty.keyword.is_none())
                             && self.swift_alias_arms(here, t).is_none()
+                            && !self.swift_project_alias(here, t)
                 })
         })
     }

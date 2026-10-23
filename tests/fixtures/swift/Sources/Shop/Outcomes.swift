@@ -668,3 +668,88 @@ func calledWith(_ key: String, _ url: URL, _ sencha: Sencha, _ twigs: [Twig]) ->
     return crumbs.isEmpty
     //            ^ d: none
 }
+
+// A closure passed to a method of the enclosing type takes its parameter's type from a function
+// type written in the method, and an `[Int]` literal is an `[Int]`. Where the closure may go to
+// another parameter (several closures, a defaulted one after it) or its type is a generic (the
+// callee's, the type's, a sequence's `Element`), the picker stays (#1068).
+struct Wick {
+    var lit = ""
+}
+
+struct Flint {
+    var lit = ""
+}
+
+protocol Lit {
+    var lit: String { get }
+    func describe(_ n: Int) -> Wick
+}
+
+extension [Int] {
+    func wicked() -> Wick { Wick() }
+}
+
+final class Lamp<Fuel: Lit> {
+    func pour(_ c: (Wick) -> Void) {}
+    func load(_ done: (Wick) -> Void, failed: (Flint) -> Void) {}
+    func trim(_ body: (Wick) -> Void, finally: (Flint) -> Void = { _ in }) {}
+    func each<T: Lit>(_ body: (T, Int) -> Void) {}
+    func burn(_ body: (Fuel) -> Void) {}
+}
+
+extension Lamp {
+    func lighted(_ n: Int, _ x: Fuel) {
+        pour { w in
+            _ = w.lit
+            //    ^ d: Sources/Shop/Outcomes.swift:677
+        }
+        load { w in
+            _ = w.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        } failed: { f in
+            _ = f.lit
+        }
+        trim { w in
+            _ = w.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+        each { t, n in
+            _ = t.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+        burn { f in
+            _ = f.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+        let shown = x.describe(1)
+        _ = shown.lit
+        //        ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        let w = [n, n].wicked()
+        _ = w.lit
+        //    ^ d: Sources/Shop/Outcomes.swift:677
+    }
+}
+
+struct WickRack: Sequence {
+    func makeIterator() -> IndexingIterator<[Wick]> { [Wick]().makeIterator() }
+    func each(_ body: (Element, Int) -> Void) {}
+    func run() {
+        each { e, n in
+            _ = e.lit
+            //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+        }
+    }
+}
+
+// An argument typed by the project's typealias of a function type is no value from outside: the
+// call may hand back what the closure returns (#1068).
+typealias Kindle = () -> Wick
+
+func kindled(_ q: DispatchQueue, _ k: Kindle) -> String {
+    let s = q.sync(execute: k)
+    _ = s.lit
+    //    ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+    return q.sync(execute: k).lit
+    //                        ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
+}
