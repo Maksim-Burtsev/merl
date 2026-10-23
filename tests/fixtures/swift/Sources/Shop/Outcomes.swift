@@ -631,3 +631,25 @@ func ampersandedAll(_ query: String?, _ more: String) -> Bool {
     return joined.isEmpty
     //            ^ d: none
 }
+
+// A closure passed to a method of the enclosing type takes its parameters' types from the
+// method's parameter, a typealias of that type; overloads that cannot take a closure (a
+// constrained generic, an autoclosure, none) step aside (#1068).
+final class Steamer {
+    typealias Check = (Int, String?, Sencha) -> Bool
+    func check(_ c: @escaping Check) -> Self { self }
+    func check<S: Sequence>(grades: S) -> Self { self }
+    func check(label: @autoclosure () -> String) -> Self { self }
+    func check() -> Self { self }
+}
+
+extension Steamer {
+    func boiled() -> Self {
+        check { [unowned self] _, note, sencha in
+            _ = sencha.grade
+            //         ^ d: Sources/Shop/Infuse/Sencha.swift:2
+            return note?.isEmpty == true
+            //           ^ d: none
+        }
+    }
+}

@@ -444,19 +444,6 @@ pub fn swift_literal_call(before: &str) -> Option<(String, String)> {
     let c = HEAD.captures(rest.get(..open)?).filter(|_| literal)?;
     Some((c[1].to_owned(), c[2].to_owned()))
 }
-pub fn swift_array_call(e: &str) -> Option<(Vec<String>, bool, String)> {
-    static TAIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(\.compactMap\(\\\.self\))?\.([A-Za-z_]\w*)\(\)$")
-            .expect("the regex is a literal")
-    });
-    let e = e.trim();
-    let end = close_of(Kind::Swift, e, 0).filter(|_| e.starts_with('['))?;
-    let c = TAIL.captures(e.get(end..)?)?;
-    let items = split_top(Kind::Swift, e.get(1..end - 1)?, b',');
-    let items: Vec<String> = items.iter().map(|i| i.trim().to_owned()).collect();
-    (!items.iter().any(|i| i.is_empty() || split_top(Kind::Swift, i, b':').len() > 1))
-        .then(|| (items, c.get(1).is_some(), c[2].to_owned()))
-}
 pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
     let directive = |l: usize| {
         let t = lines.get(l - 1)?.trim_start();
