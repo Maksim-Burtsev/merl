@@ -405,7 +405,8 @@ impl App {
             let (last, before) = params.split_last()?;
             if before.iter().any(|p| {
                 p.contains("->")
-                    || search::swift_type_name(p).is_some_and(|n| self.swift_project_alias(here, &n))
+                    || search::swift_type_name(p)
+                        .is_some_and(|n| self.swift_project_alias(here, &n))
             }) {
                 return None;
             }
