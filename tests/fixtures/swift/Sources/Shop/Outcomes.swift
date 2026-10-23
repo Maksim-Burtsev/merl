@@ -591,7 +591,7 @@ func calledOutside(_ key: String, _ sencha: Sencha, _ n: Int) -> String {
     _ = sencha.steeped().uppercased()
     //                   ^ d: Sources/Shop/Infuse/Sencha.swift:10
     _ = key.prefix(n).uppercased()
-    //                ^ d: Sources/Shop/Infuse/Sencha.swift:10; want none (#1068)
+    //                ^ d: none
     return key.prefix(1).uppercased() + key.dropFirst(2).uppercased()
     //                   ^ d: none
     //                                                   ^ d: none
@@ -652,4 +652,19 @@ extension Steamer {
             //           ^ d: none
         }
     }
+}
+
+// A call on a value from outside whose arguments are values of types from outside returns a
+// value from outside, through a binding too. An argument of a project type, or one a closure's
+// parameter on the line shadows, keeps its path (#1068).
+func calledWith(_ key: String, _ url: URL, _ sencha: Sencha, _ twigs: [Twig]) -> Bool {
+    let crumbs = key.components(separatedBy: key)
+    _ = key.appending(key).uppercased()
+    //                     ^ d: none
+    _ = key.padding(sencha).uppercased()
+    //                      ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    twigs.forEach { key in _ = url.appending(key).uppercased() }
+    //                                            ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    return crumbs.isEmpty
+    //            ^ d: none
 }
