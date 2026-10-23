@@ -1483,3 +1483,38 @@ fn a_deleted_row_of_a_renamed_file_is_named_from_its_old_text() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn v_on_a_deleted_line_grows_over_the_deleted_text() {
+    let (dir, mut a) = orders_review("v-deleted");
+    on_deleted(
+        &mut a,
+        &dir.join("app/services/orders.py"),
+        "self.total(",
+        "total",
+    );
+    let mut grown = Vec::new();
+    for _ in 0..2 {
+        press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+        grown.push(a.selected_text().unwrap_or_default());
+    }
+    assert_eq!(grown, ["total", "        self.total(order_id)"]);
+}
+
+#[test]
+fn v_over_a_function_with_deleted_lines_goes_on_to_the_class_body() {
+    let (dir, mut a) = orders_review("v-ghosts");
+    a.jump_to(&dir.join("app/services/orders.py"), 1);
+    while !a.line_str().contains("def show") {
+        press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    }
+    a.col = a.line_str().find("show").unwrap();
+    for _ in 0..4 {
+        press(&mut a, KeyCode::Char('v'), KeyModifiers::NONE);
+    }
+    let text = a.selected_text().unwrap_or_default();
+    assert!(
+        text.starts_with("    def __init__") && text.ends_with("return self.repo.get(order_id)"),
+        "{text}"
+    );
+}
