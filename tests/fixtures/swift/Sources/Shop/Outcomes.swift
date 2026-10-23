@@ -581,3 +581,18 @@ extension Cellar {
 extension Sequence {
     func next() -> Int? { nil }
 }
+
+// A call with only literal arguments on a value from outside, which no extension of the project
+// declares, returns a value from outside: its members answer from the project's extensions or
+// none. A call on a project value, or one whose argument is not a literal, keeps its path (#1068).
+func calledOutside(_ key: String, _ sencha: Sencha, _ n: Int) -> String {
+    _ = key.prefix(1).sniffed()
+    //                ^ d: Sources/Shop/Infuse/Sencha.swift:37
+    _ = sencha.steeped().uppercased()
+    //                   ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    _ = key.prefix(n).uppercased()
+    //                ^ d: Sources/Shop/Infuse/Sencha.swift:10; want none (#1068)
+    return key.prefix(1).uppercased() + key.dropFirst(2).uppercased()
+    //                   ^ d: none
+    //                                                   ^ d: none
+}
