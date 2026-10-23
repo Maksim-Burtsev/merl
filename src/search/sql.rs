@@ -693,26 +693,33 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     if q == "excluded" {
         return sql_insert_target(stmt, at - s);
     }
-    let items = sql_from_items(stmt);
-    let table = |r: &std::ops::Range<usize>| {
-        let parts: Vec<String> = stmt.get(r.clone())?.split('.').map(unquote).collect();
-        Some(parts.join("."))
-    };
     let last = |t: &str| t.rsplit('.').next().unwrap_or(t).to_owned();
-    let aliased = |a: &Option<std::ops::Range<usize>>| {
-        a.as_ref().and_then(|a| stmt.get(a.clone())).map(unquote)
-    };
+    let alias = |a: Option<&str>| a.map(unquote);
+    let items: Vec<(String, Option<String>)> = sql_from_items(stmt)
+        .into_iter()
+        .filter_map(|(t, a)| {
+            Some((
+                sql_qualified(stmt.get(t)?),
+                alias(a.and_then(|a| stmt.get(a))),
+            ))
+        })
+        .chain(sql_update().captures_iter(stmt).map(|c| {
+            (
+                sql_qualified(&c[1]),
+                alias(c.get(2).map(|a| a.as_str())),
+            )
+        }))
+        .collect();
     let mut tables: Vec<String> = items
         .iter()
-        .filter(|(_, a)| aliased(a).as_ref() == Some(&q))
-        .filter_map(|(t, _)| table(t))
+        .filter(|(_, a)| a.as_ref() == Some(&q))
+        .map(|(t, _)| t.clone())
         .collect();
     if tables.is_empty() {
         tables = items
             .iter()
-            .filter(|(_, a)| a.is_none())
-            .filter_map(|(t, _)| table(t))
-            .filter(|t| last(t) == q)
+            .filter(|(t, a)| a.is_none() && last(t) == q)
+            .map(|(t, _)| t.clone())
             .collect();
     }
     tables.sort();
@@ -887,7 +894,7 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
 
 fn sql_update() -> Regex {
     Regex::new(&format!(
-        r"(?i)\bUPDATE\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+(?:AS\s+)?{SQL_IDENT})?\s+SET\s"
+        r"(?i)\bUPDATE\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+(?:AS\s+)?({SQL_IDENT}))?\s+SET\s"
     ))
     .expect("a valid pattern")
 }
