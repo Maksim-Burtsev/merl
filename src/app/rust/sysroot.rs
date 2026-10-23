@@ -28,6 +28,7 @@ pub(super) const DEREF: &[(&str, &[&str])] = &[
     ("BTreeMap", &["BTreeMap"]),
     ("BTreeSet", &["BTreeSet"]),
     ("[T; N]", &["[T; N]", "[T]"]),
+    ("[T]", &["[T]"]),
 ];
 
 static INDEXED: LazyLock<Regex> = LazyLock::new(|| {

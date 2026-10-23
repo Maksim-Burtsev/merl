@@ -1340,9 +1340,9 @@ fn a_variant_pattern_or_a_for_over_a_vec_binds_the_field_or_element() {
 }
 
 #[test]
-fn a_slice_method_on_a_vec_binds_its_t_to_the_element() {
+fn a_slice_method_on_a_vec_a_slice_or_an_array_binds_its_t_to_the_element() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "pub struct Leaf {\n    pub name: u32,\n}\n\npub struct Cup {\n    pub name: u32,\n}\n\npub fn first_name(v: Vec<Leaf>) -> u32 {\n    v.first().unwrap().name\n}\n";
+    let lib = "pub struct Leaf {\n    pub name: u32,\n}\n\npub struct Cup {\n    pub name: u32,\n}\n\npub fn first_name(v: Vec<Leaf>) -> u32 {\n    v.first().unwrap().name\n}\n\npub fn sliced(s: &[Leaf]) -> u32 {\n    s.first().unwrap().name\n}\n\npub fn arrayed(r: [Leaf; 2]) -> u32 {\n    r.first().unwrap().name\n}\n";
     let (dir, mut a) = project_app(
         "rust-slice-t",
         &[
@@ -1377,12 +1377,18 @@ fn a_slice_method_on_a_vec_binds_its_t_to_the_element() {
     );
     let library = std.join("lib/rustlib/src/rust/library");
     use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
-    d_on(&mut a, "src/lib.rs", "v.first().unwrap().name");
-    let got = match shown(&mut a) {
-        Shown::Jump(_, place) => place,
-        other @ Shown::Picker(..) => format!("{other:?}"),
-    };
-    assert_eq!(got, "src/lib.rs:2");
+    for code in [
+        "v.first().unwrap().name",
+        "s.first().unwrap().name",
+        "r.first().unwrap().name",
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place,
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, "src/lib.rs:2", "{code}");
+    }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
