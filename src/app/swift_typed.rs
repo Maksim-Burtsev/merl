@@ -18,15 +18,6 @@ impl WrittenVia {
 }
 
 const SDK_VALUE: &str = "(SDK)";
-const SDK_NAMES: [&str; 7] = [
-    "Any",
-    "AnyHashable",
-    "String",
-    "Substring",
-    "Int",
-    "Double",
-    "Bool",
-];
 
 struct SwiftType {
     name: String,
@@ -430,7 +421,7 @@ impl App {
             if search::swift_constrained_generic(&row.text, &bare) {
                 continue;
             }
-            let takes = if let Some(takes) = search::swift_function_inputs(&last) {
+            let takes = if let Some(takes) = search::swift_function_inputs(last) {
                 takes
             } else {
                 let [alias] =
@@ -446,7 +437,7 @@ impl App {
         let input = inputs.get(at)?;
         let named = search::swift_type_name(input).or_else(|| search::swift_element(input))?;
         if generics.contains(&named)
-            || self.swift_type(here, &named).is_none() && !SDK_NAMES.contains(&named.as_str())
+            || ["Element", "Index", "Indices", "Iterator", "SubSequence"].contains(&named.as_str())
         {
             return None;
         }
@@ -1063,8 +1054,10 @@ impl App {
         }
         if let Some(item) = search::swift_dictionary_part(t, member) {
             let pattern = search::def_patterns(Kind::Swift, &item).join("|");
-            return SDK_NAMES.contains(&item.as_str())
-                && self
+            return matches!(
+                item.as_str(),
+                "Any" | "AnyHashable" | "String" | "Substring" | "Int" | "Double" | "Bool"
+            ) && self
                 .project_definitions(Kind::Swift, here, &item, &pattern)
                 .iter()
                 .all(|h| search::swift_extension(&h.text))
