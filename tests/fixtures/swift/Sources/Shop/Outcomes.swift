@@ -591,7 +591,7 @@ func calledOutside(_ key: String, _ sencha: Sencha, _ n: Int) -> String {
     _ = sencha.steeped().uppercased()
     //                   ^ d: Sources/Shop/Infuse/Sencha.swift:10
     _ = key.prefix(n).uppercased()
-    //                ^ d: Sources/Shop/Infuse/Sencha.swift:10; want none (#1068)
+    //                ^ d: none
     return key.prefix(1).uppercased() + key.dropFirst(2).uppercased()
     //                   ^ d: none
     //                                                   ^ d: none
@@ -615,4 +615,56 @@ func twigged(_ item: String, _ twigs: [Twig], _ key: String) -> String {
     //                                             ^ d: none
     return key.appending("s").uppercased()
     //                        ^ d: none
+}
+
+// An array literal of strings, through `compactMap(\.self)` or not, is a `[String]`: a method the
+// project's `extension [String]` declares types the value it returns (#1068).
+extension [String] {
+    func potted() -> Sencha { Sencha(grade: count) }
+}
+
+func ampersandedAll(_ query: String?, _ more: String) -> Bool {
+    let joined = [query, more].compactMap(\.self).ampersanded()
+    let plain = [more, more].potted()
+    _ = plain.grade
+    //        ^ d: Sources/Shop/Infuse/Sencha.swift:2
+    return joined.isEmpty
+    //            ^ d: none
+}
+
+// A closure passed to a method of the enclosing type takes its parameters' types from the
+// method's parameter, a typealias of that type; overloads that cannot take a closure (a
+// constrained generic, an autoclosure, none) step aside (#1068).
+final class Steamer {
+    typealias Check = (Int, String?, Sencha) -> Bool
+    func check(_ c: @escaping Check) -> Self { self }
+    func check<S: Sequence>(grades: S) -> Self { self }
+    func check(label: @autoclosure () -> String) -> Self { self }
+    func check() -> Self { self }
+}
+
+extension Steamer {
+    func boiled() -> Self {
+        check { [unowned self] _, note, sencha in
+            _ = sencha.grade
+            //         ^ d: Sources/Shop/Infuse/Sencha.swift:2
+            return note?.isEmpty == true
+            //           ^ d: none
+        }
+    }
+}
+
+// A call on a value from outside whose arguments are values of types from outside returns a
+// value from outside, through a binding too. An argument of a project type, or one a closure's
+// parameter on the line shadows, keeps its path (#1068).
+func calledWith(_ key: String, _ url: URL, _ sencha: Sencha, _ twigs: [Twig]) -> Bool {
+    let crumbs = key.components(separatedBy: key)
+    _ = key.appending(key).uppercased()
+    //                     ^ d: none
+    _ = key.padding(sencha).uppercased()
+    //                      ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    twigs.forEach { key in _ = url.appending(key).uppercased() }
+    //                                            ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    return crumbs.isEmpty
+    //            ^ d: none
 }

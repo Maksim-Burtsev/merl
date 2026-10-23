@@ -293,12 +293,16 @@ impl App {
                     None if b.line1 < line1 && search::swift_rebinds(line, name) => {
                         self.swift_value(here, file, text, b.line1, name, hops)
                     }
-                    None => {
-                        let call = search::swift_trailing_closure(line, name)?;
-                        let shadows = call.0.split('.').next() == Some(name);
-                        let at = b.line1.checked_sub(usize::from(shadows))?;
-                        self.swift_closure_value(here, file, text, at, call, hops)
-                    }
+                    None => match search::swift_trailing_closure(line, name) {
+                        Some(call) => {
+                            let shadows = call.0.split('.').next() == Some(name);
+                            let at = b.line1.checked_sub(usize::from(shadows))?;
+                            self.swift_closure_value(here, file, text, at, call, hops)
+                        }
+                        None => {
+                            self.swift_bare_closure_value(here, file, text, b.line1, name, hops)
+                        }
+                    },
                 }
             }
             [] if file == here
@@ -371,6 +375,58 @@ impl App {
             return None;
         }
         self.swift_given_type(here, file, text, line1, search::SwiftGiven::Type(arg), hops)
+    }
+
+    fn swift_bare_closure_value(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let lines: Vec<&str> = text.lines().collect();
+        let (method, at, count) = search::swift_bare_closure(lines.get(line1 - 1)?, name)?;
+        if !search::bindings(Kind::Swift, text, line1, &method).is_empty() {
+            return None;
+        }
+        let literal = search::literal_lines(Kind::Swift, text);
+        let around = search::swift_enclosing_type(&lines, &literal, line1)?;
+        let ty = self.swift_type(here, &search::swift_type_header(lines[around - 1])?.name)?;
+        ty.keyword.as_ref()?;
+        let mut inputs = None;
+        for row in self.swift_member_rows(here, &ty, &method)? {
+            if !row.text.contains("func ") {
+                return None;
+            }
+            let last = search::swift_last_param(&row.text)?;
+            if last.is_empty() || last.contains("@autoclosure") {
+                continue;
+            }
+            let bare = last
+                .split_whitespace()
+                .filter(|w| !w.starts_with('@'))
+                .collect::<Vec<_>>()
+                .join(" ");
+            if search::swift_constrained_generic(&row.text, &bare) {
+                continue;
+            }
+            let takes = if let Some(takes) = search::swift_function_inputs(&last) {
+                takes
+            } else {
+                let [alias] =
+                    <[Hit; 1]>::try_from(self.swift_member_rows(here, &ty, &bare)?).ok()?;
+                search::swift_function_inputs(&search::swift_alias(&alias.text, &bare)?)?
+            };
+            if inputs.as_ref().is_some_and(|i| *i != takes) {
+                return None;
+            }
+            inputs = Some(takes);
+        }
+        let inputs = inputs.filter(|i| i.len() == count)?;
+        let given = search::SwiftGiven::Type(inputs.get(at)?.clone());
+        self.swift_given_type(here, file, text, line1, given, hops)
     }
 
     fn swift_nested_given(
@@ -505,6 +561,9 @@ impl App {
         e: &str,
         hops: usize,
     ) -> Option<WrittenVia> {
+        if let Some(call) = search::swift_array_call(e) {
+            return self.swift_array_call(here, file, text, line1, call, hops);
+        }
         let callee = match search::swift_expr(e)? {
             search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
             search::SwiftExpr::Chain(c) => {
@@ -573,7 +632,16 @@ impl App {
             let hops = hops.checked_sub(1)?;
             let (ty, rows) = match self.swift_chain(here, file, text, line1, receiver, hops) {
                 Some(chain) => {
-                    let ty = self.swift_type(here, &chain.written)?;
+                    let ty = self.swift_type(here, &chain.written);
+                    if ty.as_ref().is_none_or(|t| t.keyword.is_none())
+                        && let Some((_, _, args)) = search::swift_literal_call(&format!("{e}."))
+                        && self.swift_sdk_value(here, &chain.written, method)
+                        && !self.swift_extended_with(here, method, false)
+                        && self.swift_outside_args(here, file, text, line1, &args, hops)
+                    {
+                        return Some(WrittenVia::plain(SDK_VALUE.to_owned()));
+                    }
+                    let ty = ty?;
                     let rows = self.swift_member_rows(here, &ty, method)?;
                     (ty, rows)
                 }
@@ -585,6 +653,42 @@ impl App {
             return self.swift_overloads_returning(&rows, &ty.name, &callee);
         };
         self.swift_returning(&decl, owner, &callee)
+    }
+
+    fn swift_array_call(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        (items, compact, method): (Vec<String>, bool, String),
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let hops = hops.checked_sub(1)?;
+        let typed: Vec<String> = items
+            .iter()
+            .filter_map(|i| self.swift_expr(here, file, text, line1, i, hops))
+            .map(|v| v.written.trim().to_owned())
+            .filter(|w| w != SDK_VALUE)
+            .map(|w| {
+                if compact {
+                    w.trim_end_matches('?').to_owned()
+                } else {
+                    w
+                }
+            })
+            .collect();
+        let element = typed.first()?;
+        if typed.iter().any(|t| t != element)
+            || !["String", "Int", "Double", "Bool"].contains(&element.as_str())
+        {
+            return None;
+        }
+        let array = format!("[{element}]");
+        let rows = self
+            .swift_outside_rows(here, &array, &method)
+            .filter(|r| !r.is_empty())?;
+        self.swift_overloads_returning(&rows, &array, &method)
     }
 
     fn swift_overloads_returning(
@@ -1179,12 +1283,14 @@ impl App {
         before: &str,
         word: &str,
     ) -> bool {
-        let Some((receiver, method)) = search::swift_literal_call(before) else {
+        let Some((receiver, method, args)) = search::swift_literal_call(before) else {
             return false;
         };
         let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
         let line = text.lines().nth(self.line).unwrap_or_default();
-        if search::swift_closure_param(line, &names[0], self.col) {
+        let shadowed =
+            |n: &str| search::swift_closure_param(line, n.split('.').next().unwrap_or(n), self.col);
+        if shadowed(&receiver) || args.iter().any(|a| shadowed(a)) {
             return false;
         }
         let cut = self.truncated.get();
@@ -1193,9 +1299,35 @@ impl App {
             self.swift_type(here, &c.written)
                 .is_none_or(|t| t.keyword.is_none())
                 && self.swift_sdk_value(here, &c.written, &method)
-        }) && !self.swift_extended_with(here, word, false);
+        }) && !self.swift_extended_with(here, word, false)
+            && self.swift_outside_args(here, here, text, self.line + 1, &args, 2);
         self.truncated.set(cut);
         outside
+    }
+
+    fn swift_outside_args(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        args: &[String],
+        hops: usize,
+    ) -> bool {
+        args.iter().all(|a| {
+            let names: Vec<String> = a.split('.').map(str::to_owned).collect();
+            self.swift_chain(here, file, text, line1, &names, hops)
+                .is_some_and(|c| {
+                    let t = c.written.trim().trim_end_matches(['?', '!']);
+                    t == SDK_VALUE
+                        || t.starts_with(|c: char| c.is_ascii_uppercase())
+                            && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                            && self
+                                .swift_type(here, t)
+                                .is_none_or(|ty| ty.keyword.is_none())
+                            && self.swift_alias_arms(here, t).is_none()
+                })
+        })
     }
 
     fn swift_outside_static(
