@@ -616,3 +616,18 @@ func twigged(_ item: String, _ twigs: [Twig], _ key: String) -> String {
     return key.appending("s").uppercased()
     //                        ^ d: none
 }
+
+// An array literal of strings, through `compactMap(\.self)` or not, is a `[String]`: a method the
+// project's `extension [String]` declares types the value it returns (#1068).
+extension [String] {
+    func potted() -> Sencha { Sencha(grade: count) }
+}
+
+func ampersandedAll(_ query: String?, _ more: String) -> Bool {
+    let joined = [query, more].compactMap(\.self).ampersanded()
+    let plain = [more, more].potted()
+    _ = plain.grade
+    //        ^ d: Sources/Shop/Infuse/Sencha.swift:2
+    return joined.isEmpty
+    //            ^ d: none
+}

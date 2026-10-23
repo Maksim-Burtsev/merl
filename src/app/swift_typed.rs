@@ -505,6 +505,9 @@ impl App {
         e: &str,
         hops: usize,
     ) -> Option<WrittenVia> {
+        if let Some(call) = search::swift_array_call(e) {
+            return self.swift_array_call(here, file, text, line1, call, hops);
+        }
         let callee = match search::swift_expr(e)? {
             search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
             search::SwiftExpr::Chain(c) => {
@@ -585,6 +588,39 @@ impl App {
             return self.swift_overloads_returning(&rows, &ty.name, &callee);
         };
         self.swift_returning(&decl, owner, &callee)
+    }
+
+    fn swift_array_call(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        (items, compact, method): (Vec<String>, bool, String),
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let hops = hops.checked_sub(1)?;
+        let typed: Vec<String> = items
+            .iter()
+            .filter_map(|i| self.swift_expr(here, file, text, line1, i, hops))
+            .map(|v| v.written.trim().to_owned())
+            .filter(|w| w != SDK_VALUE)
+            .map(|w| match compact {
+                true => w.trim_end_matches('?').to_owned(),
+                false => w,
+            })
+            .collect();
+        let element = typed.first()?;
+        if typed.iter().any(|t| t != element)
+            || !["String", "Int", "Double", "Bool"].contains(&element.as_str())
+        {
+            return None;
+        }
+        let array = format!("[{element}]");
+        let rows = self
+            .swift_outside_rows(here, &array, &method)
+            .filter(|r| !r.is_empty())?;
+        self.swift_overloads_returning(&rows, &array, &method)
     }
 
     fn swift_overloads_returning(
