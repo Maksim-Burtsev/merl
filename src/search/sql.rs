@@ -695,7 +695,7 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     }
     let last = |t: &str| t.rsplit('.').next().unwrap_or(t).to_owned();
     let alias = |a: Option<&str>| a.map(unquote);
-    let items: Vec<(String, Option<String>)> = sql_from_items(stmt)
+    let mut items: Vec<(String, Option<String>)> = sql_from_items(stmt)
         .into_iter()
         .filter_map(|(t, a)| {
             Some((
@@ -703,23 +703,35 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
                 alias(a.and_then(|a| stmt.get(a))),
             ))
         })
-        .chain(
-            sql_update()
-                .captures_iter(stmt)
-                .map(|c| (sql_qualified(&c[1]), alias(c.get(2).map(|a| a.as_str())))),
-        )
         .collect();
-    let mut tables: Vec<String> = items
-        .iter()
-        .filter(|(_, a)| a.as_ref() == Some(&q))
-        .map(|(t, _)| t.clone())
-        .collect();
-    if tables.is_empty() {
-        tables = items
+    let mut inner = Vec::new();
+    for c in sql_update().captures_iter(stmt) {
+        let item = (sql_qualified(&c[1]), alias(c.get(2).map(|a| a.as_str())));
+        match stmt.get(c.get(0)?.start()..at - s).and_then(sql_depth) {
+            Some(0) => items.push(item),
+            Some(_) => inner.push(item),
+            None => {}
+        }
+    }
+    let pick = |items: &[(String, Option<String>)]| {
+        let aliased: Vec<String> = items
             .iter()
-            .filter(|(t, a)| a.is_none() && last(t) == q)
+            .filter(|(_, a)| a.as_ref() == Some(&q))
             .map(|(t, _)| t.clone())
             .collect();
+        if aliased.is_empty() {
+            items
+                .iter()
+                .filter(|(t, a)| a.is_none() && last(t) == q)
+                .map(|(t, _)| t.clone())
+                .collect()
+        } else {
+            aliased
+        }
+    };
+    let mut tables = pick(&items);
+    if tables.is_empty() {
+        tables = pick(&inner);
     }
     tables.sort();
     tables.dedup();
@@ -823,6 +835,13 @@ fn sql_query_region(stmt: &str, at: usize) -> std::ops::Range<usize> {
     from..to
 }
 
+fn sql_depth(t: &str) -> Option<isize> {
+    t.bytes().try_fold(0_isize, |d, b| {
+        let d = d + isize::from(b == b'(') - isize::from(b == b')');
+        (d >= 0).then_some(d)
+    })
+}
+
 fn sql_level(t: &str) -> isize {
     t.bytes().fold(0, |d, c| match c {
         b'(' => d + 1,
@@ -843,7 +862,20 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
     ))
     .expect("a valid pattern");
     if after.trim_start().starts_with('.') {
-        return sql_target_table(stmt, at, word);
+        let w = sql_qualified(word);
+        let target = sql_update()
+            .captures_iter(stmt)
+            .chain(sql_merge().captures_iter(stmt))
+            .any(|c| {
+                let t = sql_qualified(&c[1]);
+                t.rsplit('.').next() == Some(w.as_str())
+                    || c.get(2).is_some_and(|a| sql_qualified(a.as_str()) == w)
+            });
+        return if target {
+            None
+        } else {
+            sql_target_table(stmt, at, word)
+        };
     }
     if after.trim_start().starts_with('(') || into.is_match(before) || typed.is_match(before) {
         return None;
@@ -875,15 +907,7 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
     .expect("a valid pattern");
     if let Some(c) = index.captures(stmt) {
         let open = c.get(0)?.end();
-        let inside = at >= open
-            && stmt
-                .get(open..at)?
-                .bytes()
-                .try_fold(0_isize, |d, b| {
-                    let d = d + isize::from(b == b'(') - isize::from(b == b')');
-                    (d >= 0).then_some(d)
-                })
-                .is_some();
+        let inside = at >= open && sql_depth(stmt.get(open..at)?).is_some();
         return inside.then(|| table(&c[1]));
     }
     let output = Regex::new(r"(?i)\b(?:AS|CONSTRAINT)\s*$").expect("a valid pattern");
@@ -896,6 +920,13 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
 fn sql_update() -> Regex {
     Regex::new(&format!(
         r"(?i)\bUPDATE\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+(?:AS\s+)?({SQL_IDENT}))?\s+SET\s"
+    ))
+    .expect("a valid pattern")
+}
+
+fn sql_merge() -> Regex {
+    Regex::new(&format!(
+        r"(?i)\bMERGE\s+INTO\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+(?:AS\s+)?({SQL_IDENT}))?"
     ))
     .expect("a valid pattern")
 }
@@ -913,10 +944,7 @@ fn sql_target_table(stmt: &str, at: usize, word: &str) -> Option<String> {
     }) {
         return Some(sql_qualified(&c[1]));
     }
-    let merge = Regex::new(&format!(
-        r"(?i)\bMERGE\s+INTO\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
-    ))
-    .expect("a valid pattern");
+    let merge = sql_merge();
     let clause =
         Regex::new(r"(?i)\bINSERT\s*\(([^()]*)\)|\bUPDATE\s+SET\s").expect("a valid pattern");
     if let Some(m) = merge.captures(stmt) {

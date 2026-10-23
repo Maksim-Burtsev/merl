@@ -179,3 +179,20 @@ BEGIN
   --                                  ^ d: steep/plpgsql.sql:155
   --                                        ^ d: steep/plpgsql.sql:155
 END $$;
+-- Outside plpgsql: a field target, MERGE's lists, the table named before a SET field, and an alias a subquery or CTE binds again.
+UPDATE samovars SET brim.lid = 1;
+--                  ^ d: steep/schema.sql:5
+MERGE INTO samovars s USING urns u ON s.id = u.id WHEN NOT MATCHED THEN INSERT (spout) VALUES (u.handle);
+--                                                                              ^ d: steep/schema.sql:4
+MERGE INTO samovars s USING urns u ON s.id = u.id WHEN MATCHED THEN UPDATE SET brim = u.brim;
+--                                                                             ^ d: steep/schema.sql:5
+UPDATE tins SET tins.seal = 1;
+--              ^ d: steep/schema.sql:36
+UPDATE samovars s SET brim = 'x' RETURNING s.spout;
+--                                           ^ d: steep/schema.sql:4
+UPDATE samovars s SET brim = (SELECT u.brim FROM urns u WHERE u.id = s.id);
+--                                                                     ^ d: steep/schema.sql:3
+UPDATE samovars s SET spout = (SELECT max(s.handle) FROM urns s);
+--                                          ^ d: steep/schema.sql:9
+WITH moved AS (UPDATE samovars s SET spout = 0 RETURNING s.id) SELECT s.handle FROM urns s;
+--                                                                       ^ d: steep/schema.sql:9
