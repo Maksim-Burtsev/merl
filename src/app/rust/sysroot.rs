@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use super::chain::{let_initializer, opening, trailing_name};
+use super::returns;
 use super::{
     App, Candidate, HashMap, Hit, Kind, Path, Reason, Regex, Typing, bound, rust_bare_type,
     rust_written_type, search,
@@ -39,7 +40,64 @@ static STD_PATH: LazyLock<Regex> = LazyLock::new(|| {
         .expect("the regex is a literal")
 });
 
-fn rust_element(written: &str) -> Option<(Option<String>, String)> {
+static VARIANT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^((?:\w+::)*[A-Z]\w*)::([A-Z]\w*)\s*(?:\{([^{}]*)\}|\(([^()]*)\))\s*")
+        .expect("the regex is a literal")
+});
+
+static PATTERN_END: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?:=>|=[^=]|if\s)").expect("the regex is a literal"));
+
+#[derive(PartialEq, Eq, Debug)]
+enum Field {
+    Named(String),
+    At(usize, usize),
+}
+
+fn rust_variant_bindings(line: &str, name: &str) -> Option<Vec<(String, String, Field)>> {
+    let bare = |s: &str| {
+        let s = s.trim();
+        let s = s.strip_prefix("ref ").unwrap_or(s).trim_start();
+        s.strip_prefix("mut ").unwrap_or(s).trim().to_owned()
+    };
+    let t = line.trim_start();
+    let mut t = ["} else if let ", "if let ", "while let ", "let "]
+        .iter()
+        .find_map(|p| t.strip_prefix(p))
+        .unwrap_or(t);
+    let mut found = Vec::new();
+    loop {
+        let c = VARIANT_PATTERN.captures(t)?;
+        let field = if let Some(named) = c.get(3) {
+            Field::Named(named.as_str().split(',').find_map(|p| {
+                let (field, bound) = p.split_once(':').unwrap_or((p, p));
+                (bare(bound) == name).then(|| bare(field))
+            })?)
+        } else {
+            let parts: Vec<String> = c.get(4)?.as_str().split(',').map(bare).collect();
+            if !parts
+                .iter()
+                .all(|p| !p.is_empty() && p.chars().all(|ch| ch.is_alphanumeric() || ch == '_'))
+            {
+                return None;
+            }
+            Field::At(parts.iter().position(|p| p == name)?, parts.len())
+        };
+        found.push((c[1].to_owned(), c[2].to_owned(), field));
+        t = t.get(c.get(0)?.end()..)?;
+        match t.strip_prefix('|') {
+            Some(next) if !next.starts_with('|') => t = next.trim_start(),
+            _ => break,
+        }
+    }
+    let rest = t.get(PATTERN_END.find(t)?.end()..)?;
+    if rest.contains('|') || ["let ", "for ", "=>"].iter().any(|k| rest.contains(k)) {
+        return None;
+    }
+    Some(found)
+}
+
+pub(super) fn rust_element(written: &str) -> Option<(Option<String>, String)> {
     let c = INDEXED.captures(written.trim())?;
     let (container, args, stop) = match c.get(1) {
         Some(m) => (Some(m.as_str().to_owned()), c.get(2)?.as_str(), b','),
@@ -73,6 +131,16 @@ impl App {
         let [b] = bindings.as_slice() else {
             return None;
         };
+        if let Some(item) = self.rust_for_item(file, text, b.line1 - 1, name) {
+            return Some(item);
+        }
+        if let Some(alternatives) = rust_variant_bindings(lines[b.line1 - 1], name) {
+            let mut types = alternatives
+                .iter()
+                .map(|(o, v, f)| self.rust_variant_field(file, o, v, f, b.line1 - 1));
+            let first = types.next()??;
+            return types.all(|t| t.as_ref() == Some(&first)).then_some(first);
+        }
         let held = search::rust_tuple_element(&lines, b.line1 - 1, name)
             .or_else(|| let_initializer(&lines, b.line1 - 1, name));
         if let Some(held) = held
@@ -102,6 +170,60 @@ impl App {
             Some(_) => None,
             None => self.rust_let_written(file, text, b.line1 - 1, name),
         }
+    }
+
+    fn rust_variant_field(
+        &self,
+        file: &Path,
+        owner: &str,
+        variant: &str,
+        field: &Field,
+        at: usize,
+    ) -> Option<String> {
+        let ty = self.rust_resolve(file, owner, at)?;
+        let text = self.text_of(&ty.path)?;
+        let lines: Vec<&str> = text.lines().collect();
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        let decl = lines.get(ty.line - 1)?;
+        if !decl.contains("enum ") {
+            return None;
+        }
+        let body = &lines[ty.line..];
+        let end = body
+            .iter()
+            .position(|l| !l.trim().is_empty() && indent(l) <= indent(decl))?;
+        let std_typed = |written: &str| {
+            rust_bare_type(written).filter(|b| {
+                STD_PATH.captures(written.trim()).is_none_or(|c| {
+                    matches!(c[1].split("::").next(), Some("" | "std" | "core" | "alloc"))
+                }) && self.rust_std_named(&text, b)
+            })
+        };
+        let field = match field {
+            Field::Named(field) => field,
+            Field::At(i, n) => {
+                let tuple =
+                    Regex::new(&format!(r"^\s+{}\s*\((.*)\),?\s*$", regex::escape(variant)))
+                        .ok()?;
+                let written = body[..end].iter().find_map(|l| tuple.captures(l))?;
+                let types = returns::top_level(written.get(1)?.as_str());
+                if types.len() != *n {
+                    return None;
+                }
+                return std_typed(types.get(*i)?);
+            }
+        };
+        let head = Regex::new(&format!(r"^\s+{}\s*\{{\s*$", regex::escape(variant))).ok()?;
+        let named = Regex::new(&format!(r"^\s+{}\s*:\s*(.+?),?\s*$", regex::escape(field))).ok()?;
+        let start = body[..end].iter().position(|l| head.is_match(l))?;
+        let close = start
+            + body[start..end]
+                .iter()
+                .position(|l| l.trim().starts_with('}'))?;
+        let written = body[start + 1..close]
+            .iter()
+            .find_map(|l| named.captures(l).map(|c| c[1].to_owned()))?;
+        std_typed(&written)
     }
 
     pub(in crate::app) fn rust_array_call(

@@ -33,3 +33,7 @@ CREATE FUNCTION decoct() RETURNS text AS $body$
 CREATE TABLE mirages (id integer);
 $$
 $body$ LANGUAGE sql;
+CREATE TABLE tins (
+  tins text,
+  seal integer
+);
