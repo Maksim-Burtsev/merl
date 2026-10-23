@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use super::chain::{let_initializer, opening, trailing_name};
+use super::returns;
 use super::{
     App, Candidate, HashMap, Hit, Kind, Path, Reason, Regex, Typing, bound, rust_bare_type,
     rust_written_type, search,
@@ -40,14 +41,20 @@ static STD_PATH: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static VARIANT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^((?:\w+::)*[A-Z]\w*)::([A-Z]\w*)\s*\{([^{}]*)\}\s*")
+    Regex::new(r"^((?:\w+::)*[A-Z]\w*)::([A-Z]\w*)\s*(?:\{([^{}]*)\}|\(([^()]*)\))\s*")
         .expect("the regex is a literal")
 });
 
 static PATTERN_END: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(?:=>|=[^=]|if\s)").expect("the regex is a literal"));
 
-fn rust_variant_bindings(line: &str, name: &str) -> Option<Vec<(String, String, String)>> {
+#[derive(PartialEq, Eq, Debug)]
+enum Field {
+    Named(String),
+    At(usize, usize),
+}
+
+fn rust_variant_bindings(line: &str, name: &str) -> Option<Vec<(String, String, Field)>> {
     let bare = |s: &str| {
         let s = s.trim();
         let s = s.strip_prefix("ref ").unwrap_or(s).trim_start();
@@ -61,10 +68,21 @@ fn rust_variant_bindings(line: &str, name: &str) -> Option<Vec<(String, String, 
     let mut found = Vec::new();
     loop {
         let c = VARIANT_PATTERN.captures(t)?;
-        let field = c[3].split(',').find_map(|p| {
-            let (field, bound) = p.split_once(':').unwrap_or((p, p));
-            (bare(bound) == name).then(|| bare(field))
-        })?;
+        let field = if let Some(named) = c.get(3) {
+            Field::Named(named.as_str().split(',').find_map(|p| {
+                let (field, bound) = p.split_once(':').unwrap_or((p, p));
+                (bare(bound) == name).then(|| bare(field))
+            })?)
+        } else {
+            let parts: Vec<String> = c.get(4)?.as_str().split(',').map(bare).collect();
+            if !parts
+                .iter()
+                .all(|p| !p.is_empty() && p.chars().all(|ch| ch.is_alphanumeric() || ch == '_'))
+            {
+                return None;
+            }
+            Field::At(parts.iter().position(|p| p == name)?, parts.len())
+        };
         found.push((c[1].to_owned(), c[2].to_owned(), field));
         t = t.get(c.get(0)?.end()..)?;
         match t.strip_prefix('|') {
@@ -159,7 +177,7 @@ impl App {
         file: &Path,
         owner: &str,
         variant: &str,
-        field: &str,
+        field: &Field,
         at: usize,
     ) -> Option<String> {
         let ty = self.rust_resolve(file, owner, at)?;
@@ -170,12 +188,26 @@ impl App {
         if !decl.contains("enum ") {
             return None;
         }
-        let head = Regex::new(&format!(r"^\s+{}\s*\{{\s*$", regex::escape(variant))).ok()?;
-        let named = Regex::new(&format!(r"^\s+{}\s*:\s*(.+?),?\s*$", regex::escape(field))).ok()?;
         let body = &lines[ty.line..];
         let end = body
             .iter()
             .position(|l| !l.trim().is_empty() && indent(l) <= indent(decl))?;
+        let field = match field {
+            Field::Named(field) => field,
+            Field::At(i, n) => {
+                let tuple =
+                    Regex::new(&format!(r"^\s+{}\s*\((.*)\),?\s*$", regex::escape(variant)))
+                        .ok()?;
+                let written = body[..end].iter().find_map(|l| tuple.captures(l))?;
+                let types = returns::top_level(written.get(1)?.as_str());
+                if types.len() != *n {
+                    return None;
+                }
+                return rust_bare_type(types.get(*i)?).filter(|b| self.rust_std_named(&text, b));
+            }
+        };
+        let head = Regex::new(&format!(r"^\s+{}\s*\{{\s*$", regex::escape(variant))).ok()?;
+        let named = Regex::new(&format!(r"^\s+{}\s*:\s*(.+?),?\s*$", regex::escape(field))).ok()?;
         let start = body[..end].iter().position(|l| head.is_match(l))?;
         let close = start
             + body[start..end]

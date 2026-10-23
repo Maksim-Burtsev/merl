@@ -291,3 +291,14 @@ pub fn poured_note(pour: &Pour) -> usize {
         //                                                           ^ d: none
     }
 }
+
+pub enum Drip {
+    Slow(u32, String),
+}
+
+pub fn drip_note(drip: &Drip) -> usize {
+    match *drip {
+        Drip::Slow(_, ref note) => note.len(),
+        //                              ^ d: none
+    }
+}
