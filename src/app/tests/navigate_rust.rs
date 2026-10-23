@@ -1472,9 +1472,9 @@ fn an_or_pattern_of_variants_binds_the_field_every_alternative_types_alike() {
 }
 
 #[test]
-fn a_tuple_variant_pattern_binds_the_type_at_its_place() {
+fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Io(String),\n    Pair(u32, Vec<(u8, u8)>, String),\n    Num(Glob),\n}\n\npub fn copy(e: &Error) -> String {\n    match *e {\n        Error::Io(ref err) => err.clone(),\n        Error::Pair(_, _, ref s) | Error::Io(ref s) => s.clone(),\n        Error::Num(ref g) => g.clone().to_string(),\n    }\n}\n\npub fn size(e: &Error) -> u32 {\n    if let Error::Pair(n, ref pairs, ref text) = *e {\n        return n + text.len() as u32;\n    }\n    match *e {\n        Error::Num(ref g) => g.len(),\n        Error::Pair(.., ref tail) => tail.len() as u32,\n        Error::Pair(_, ref p) => p.len() as u32,\n        _ => 0,\n    }\n}\n";
+    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Io(String),\n    Pair(u32, Vec<(u8, u8)>, String),\n    Num(Glob),\n    Line { cups: Vec<(u8, u8)>, note: String },\n    Flat { flat: Glob },\n}\n\npub fn copy(e: &Error) -> String {\n    match *e {\n        Error::Io(ref err) => err.clone(),\n        Error::Line { ref note, .. } => note.clone(),\n        Error::Pair(_, _, ref s) | Error::Io(ref s) => s.clone(),\n        Error::Num(ref g) => g.clone().to_string(),\n    }\n}\n\npub fn size(e: &Error) -> u32 {\n    if let Error::Pair(n, ref pairs, ref text) = *e {\n        return n + text.len() as u32;\n    }\n    match *e {\n        Error::Num(ref g) => g.len(),\n        Error::Flat { ref flat } => flat.len(),\n        Error::Pair(.., ref tail) => tail.len() as u32,\n        Error::Pair(_, ref p) => p.len() as u32,\n        _ => 0,\n    }\n}\n";
     let (dir, mut a) = project_app(
         "rust-variant-tuple",
         &[
@@ -1496,6 +1496,7 @@ fn a_tuple_variant_pattern_binds_the_type_at_its_place() {
     for (code, want) in [
         ("err.clone", "alloc/src/string.rs:11"),
         ("s.clone", "alloc/src/string.rs:11"),
+        ("note.clone", "alloc/src/string.rs:11"),
         ("text.len", "alloc/src/string.rs:5"),
     ] {
         d_on(&mut a, "src/lib.rs", code);
@@ -1505,7 +1506,7 @@ fn a_tuple_variant_pattern_binds_the_type_at_its_place() {
         };
         assert_eq!(got, want, "{code}");
     }
-    for code in ["g.len", "tail.len", "p.len"] {
+    for code in ["g.len", "flat.len", "tail.len", "p.len"] {
         d_on(&mut a, "src/lib.rs", code);
         let got = shown(&mut a);
         assert!(

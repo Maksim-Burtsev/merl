@@ -302,3 +302,16 @@ pub fn drip_note(drip: &Drip) -> usize {
         //                              ^ d: none
     }
 }
+
+pub enum Kettle {
+    Hot { note: String },
+    Cold(u32),
+}
+
+pub fn kettle_note(kettle: &Kettle) -> usize {
+    match *kettle {
+        Kettle::Hot { ref note } => note.len(),
+        //                               ^ d: none
+        Kettle::Cold(n) => n as usize,
+    }
+}

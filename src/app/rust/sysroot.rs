@@ -214,6 +214,19 @@ impl App {
                 return std_typed(types.get(*i)?);
             }
         };
+        let one_line =
+            Regex::new(&format!(r"^\s+{}\s*\{{([^{{}}]*)\}},?\s*$", regex::escape(variant)))
+                .ok()?;
+        if let Some(c) = body[..end].iter().find_map(|l| one_line.captures(l)) {
+            let mut written = returns::top_level(c.get(1)?.as_str())
+                .into_iter()
+                .filter_map(|p| p.split_once(':'))
+                .filter(|(f, _)| f.trim() == field.as_str());
+            let (Some((_, w)), None) = (written.next(), written.next()) else {
+                return None;
+            };
+            return std_typed(w.trim());
+        }
         let head = Regex::new(&format!(r"^\s+{}\s*\{{\s*$", regex::escape(variant))).ok()?;
         let named = Regex::new(&format!(r"^\s+{}\s*:\s*(.+?),?\s*$", regex::escape(field))).ok()?;
         let start = body[..end].iter().position(|l| head.is_match(l))?;
