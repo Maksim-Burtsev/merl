@@ -432,7 +432,8 @@ pub fn swift_literal_call(before: &str) -> Option<(String, String, Vec<String>)>
             .expect("the regex is a literal")
     });
     static VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:\w+\s*:\s*)?((?:self|[a-z_]\w*)(?:\.[a-z_]\w*)*)$").expect("the regex is a literal")
+        Regex::new(r"^(?:\w+\s*:\s*)?((?:self|[a-z_]\w*)(?:\.[a-z_]\w*)*)$")
+            .expect("the regex is a literal")
     });
     let rest = before.strip_suffix('.')?;
     let open = code(Kind::Swift, rest)
@@ -441,7 +442,10 @@ pub fn swift_literal_call(before: &str) -> Option<(String, String, Vec<String>)>
         .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
     let args = rest.get(open + 1..rest.len() - 1)?.trim();
     let mut values = Vec::new();
-    for a in split_top(Kind::Swift, args, b',').iter().filter(|_| !args.is_empty()) {
+    for a in split_top(Kind::Swift, args, b',')
+        .iter()
+        .filter(|_| !args.is_empty())
+    {
         let a = a.trim();
         if !LITERAL.is_match(a) {
             let v = VALUE.captures(a).map(|c| c[1].to_owned())?;

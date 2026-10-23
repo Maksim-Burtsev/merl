@@ -299,7 +299,9 @@ impl App {
                             let at = b.line1.checked_sub(usize::from(shadows))?;
                             self.swift_closure_value(here, file, text, at, call, hops)
                         }
-                        None => self.swift_bare_closure_value(here, file, text, b.line1, name, hops),
+                        None => {
+                            self.swift_bare_closure_value(here, file, text, b.line1, name, hops)
+                        }
                     },
                 }
             }
@@ -410,13 +412,12 @@ impl App {
             if search::swift_constrained_generic(&row.text, &bare) {
                 continue;
             }
-            let takes = match search::swift_function_inputs(&last) {
-                Some(takes) => takes,
-                None => {
-                    let [alias] = <[Hit; 1]>::try_from(self.swift_member_rows(here, &ty, &bare)?)
-                        .ok()?;
-                    search::swift_function_inputs(&search::swift_alias(&alias.text, &bare)?)?
-                }
+            let takes = if let Some(takes) = search::swift_function_inputs(&last) {
+                takes
+            } else {
+                let [alias] =
+                    <[Hit; 1]>::try_from(self.swift_member_rows(here, &ty, &bare)?).ok()?;
+                search::swift_function_inputs(&search::swift_alias(&alias.text, &bare)?)?
             };
             if inputs.as_ref().is_some_and(|i| *i != takes) {
                 return None;
@@ -669,9 +670,12 @@ impl App {
             .filter_map(|i| self.swift_expr(here, file, text, line1, i, hops))
             .map(|v| v.written.trim().to_owned())
             .filter(|w| w != SDK_VALUE)
-            .map(|w| match compact {
-                true => w.trim_end_matches('?').to_owned(),
-                false => w,
+            .map(|w| {
+                if compact {
+                    w.trim_end_matches('?').to_owned()
+                } else {
+                    w
+                }
             })
             .collect();
         let element = typed.first()?;
@@ -1284,7 +1288,8 @@ impl App {
         };
         let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
         let line = text.lines().nth(self.line).unwrap_or_default();
-        let shadowed = |n: &str| search::swift_closure_param(line, n.split('.').next().unwrap_or(n), self.col);
+        let shadowed =
+            |n: &str| search::swift_closure_param(line, n.split('.').next().unwrap_or(n), self.col);
         if shadowed(&receiver) || args.iter().any(|a| shadowed(a)) {
             return false;
         }
@@ -1317,7 +1322,9 @@ impl App {
                     t == SDK_VALUE
                         || t.starts_with(|c: char| c.is_ascii_uppercase())
                             && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-                            && self.swift_type(here, t).is_none_or(|ty| ty.keyword.is_none())
+                            && self
+                                .swift_type(here, t)
+                                .is_none_or(|ty| ty.keyword.is_none())
                             && self.swift_alias_arms(here, t).is_none()
                 })
         })
