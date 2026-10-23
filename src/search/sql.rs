@@ -703,12 +703,11 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
                 alias(a.and_then(|a| stmt.get(a))),
             ))
         })
-        .chain(sql_update().captures_iter(stmt).map(|c| {
-            (
-                sql_qualified(&c[1]),
-                alias(c.get(2).map(|a| a.as_str())),
-            )
-        }))
+        .chain(
+            sql_update()
+                .captures_iter(stmt)
+                .map(|c| (sql_qualified(&c[1]), alias(c.get(2).map(|a| a.as_str())))),
+        )
         .collect();
     let mut tables: Vec<String> = items
         .iter()
@@ -843,8 +842,10 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
         r"(?is)(?:::|\bTYPE\s|\bADD(?:\s+COLUMN)?(?:\s+IF\s+NOT\s+EXISTS)?\s+{SQL_IDENT}\s)\s*$"
     ))
     .expect("a valid pattern");
-    if after.trim_start().starts_with(['(', '.']) || into.is_match(before) || typed.is_match(before)
-    {
+    if after.trim_start().starts_with('.') {
+        return sql_target_table(stmt, at, word);
+    }
+    if after.trim_start().starts_with('(') || into.is_match(before) || typed.is_match(before) {
         return None;
     }
     let name = format!(r"{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*");
@@ -912,17 +913,53 @@ fn sql_target_table(stmt: &str, at: usize, word: &str) -> Option<String> {
     }) {
         return Some(sql_qualified(&c[1]));
     }
-    let set_ends = Regex::new(r"(?i)\b(?:FROM|WHERE|RETURNING)\b").expect("a valid pattern");
-    let target = |c: &regex::Captures| {
-        let set = stmt.get(c.get(0)?.end()..at)?;
-        let lead = before.trim_end();
-        (sql_level(set) == 0
-            && !set_ends.is_match(set)
-            && after.trim_start().starts_with('=')
-            && (lead.ends_with(',') || lead.to_ascii_lowercase().ends_with("set")))
-        .then(|| sql_qualified(&c[1]))
+    let merge = Regex::new(&format!(
+        r"(?i)\bMERGE\s+INTO\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+    ))
+    .expect("a valid pattern");
+    let clause =
+        Regex::new(r"(?i)\bINSERT\s*\(([^()]*)\)|\bUPDATE\s+SET\s").expect("a valid pattern");
+    if let Some(m) = merge.captures(stmt) {
+        let from = m.get(0)?.end();
+        let hit = clause
+            .captures_iter(stmt.get(from..)?)
+            .any(|c| match c.get(1) {
+                Some(l) => (from + l.start()..from + l.end()).contains(&at),
+                None => c
+                    .get(0)
+                    .and_then(|s| before.get(from + s.end()..))
+                    .is_some_and(|set| sql_set_target(set, after)),
+            });
+        return hit.then(|| sql_qualified(&m[1]));
+    }
+    sql_update().captures_iter(stmt).find_map(|c| {
+        let set = before.get(c.get(0)?.end()..)?;
+        sql_set_target(set, after).then(|| sql_qualified(&c[1]))
+    })
+}
+
+fn sql_set_target(set: &str, after: &str) -> bool {
+    let suffix = Regex::new(&format!(r"^(?:\s*\[[^\[\]]*\]|\s*\.\s*{SQL_IDENT})*\s*"))
+        .expect("a valid pattern");
+    let set_ends = Regex::new(r"(?i)\b(?:FROM|WHERE|RETURNING)\b|\bWHEN\s+(?:NOT\s+)?MATCHED\b")
+        .expect("a valid pattern");
+    let after = after
+        .get(suffix.find(after).map_or(0, |m| m.end())..)
+        .unwrap_or_default();
+    let listed = set.rfind('(').and_then(|open| {
+        let close = after.find(')')?;
+        let inside = set.get(open..)?.contains(')') || after.get(..close)?.contains('(');
+        (sql_level(set) == 1 && after.starts_with([',', ')']) && !inside)
+            .then(|| (set.get(..open), after.get(close + 1..)))
+    });
+    let (Some(lead), Some(tail)) = listed.unwrap_or((Some(set), Some(after))) else {
+        return false;
     };
-    sql_update().captures_iter(stmt).find_map(|c| target(&c))
+    let lead = lead.trim_end();
+    sql_level(lead) == 0
+        && !set_ends.is_match(set)
+        && tail.trim_start().starts_with('=')
+        && (lead.is_empty() || lead.ends_with(','))
 }
 
 fn sql_insert_target(stmt: &str, at: usize) -> Option<String> {
