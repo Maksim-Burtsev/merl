@@ -192,6 +192,13 @@ impl App {
         let end = body
             .iter()
             .position(|l| !l.trim().is_empty() && indent(l) <= indent(decl))?;
+        let std_typed = |written: &str| {
+            rust_bare_type(written).filter(|b| {
+                STD_PATH.captures(written.trim()).is_none_or(|c| {
+                    matches!(c[1].split("::").next(), Some("" | "std" | "core" | "alloc"))
+                }) && self.rust_std_named(&text, b)
+            })
+        };
         let field = match field {
             Field::Named(field) => field,
             Field::At(i, n) => {
@@ -203,7 +210,7 @@ impl App {
                 if types.len() != *n {
                     return None;
                 }
-                return rust_bare_type(types.get(*i)?).filter(|b| self.rust_std_named(&text, b));
+                return std_typed(types.get(*i)?);
             }
         };
         let head = Regex::new(&format!(r"^\s+{}\s*\{{\s*$", regex::escape(variant))).ok()?;
@@ -216,7 +223,7 @@ impl App {
         let written = body[start + 1..close]
             .iter()
             .find_map(|l| named.captures(l).map(|c| c[1].to_owned()))?;
-        rust_bare_type(&written).filter(|b| self.rust_std_named(&text, b))
+        std_typed(&written)
     }
 
     pub(in crate::app) fn rust_array_call(
