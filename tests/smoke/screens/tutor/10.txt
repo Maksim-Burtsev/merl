@@ -1,0 +1,57 @@
+wait Tutor 25/
+┌agent/find-by-tag ← HEAD────┐ 1 """The one thing this project stores: a note."""
+│  ▾ tests                   │ 2
+│    A test_cli.py     +43 −0│  ▎import json
+│    M test_store.py   +34 −0│ 3 from dataclasses import dataclass, field
+│  M cli.py            +25 −4│ 4 from datetime import date
+│  M models.py         +5 −10│ 5 from typing import Protocol
+│  M PLAN.md            +7 −4│ 6
+│  M store.py          +24 −5│ 7
+│                            │ 8 @dataclass
+│                            │ 9 class Note:
+│                            │10     """A single note, identified by an integer id."""
+│                            │11
+│                            │12     id: int
+│                            │13     text: str
+│                            │14     tags: list[str] = field(default_factory=list)
+│                            │15     created: date = field(default_factory=date.today)
+│                            │16
+│                            │17     def to_dict(self) -> dict:
+│                            │18         """The note as plain, JSON-friendly data."""
+│                            │19         return {
+│                            │20             "id": self.id,
+│                            │21             "text": self.text,
+│                            │22             "tags": self.tags,
+│                            │23             "created": self.created.isoformat(),
+│                            │24         }
+│                            │25
+│                            │26     @classmethod
+│                            │27     def from_dict(cls, raw: dict) -> "Note":
+│                            │28         """Rebuild a note from what `to_dict` wrote."""
+│                            │  ▎        # TODO: reject a note whose id is already taken.
+│                            │29         return cls(
+│                            │30             id=int(raw["id"]),
+│                            │31             text=raw["text"],
+│                            │32             tags=list(raw.get("tags", [])),
+│                            │33             created=date.fromisoformat(raw["created"]),
+│                            │34         )
+│                            │35
+│                            │36▎    def has_tags(self, wanted: set[str]) -> bool:
+│                            │37▎        """Whether the note carries every tag in `wanted`, as typed."""
+│                            │38▎        return wanted <= set(self.tags)
+│                            │39▎
+│                            │40     def summary(self, width: int = 40) -> str:
+│                            │41         """One line for a listing: the text, cut to `width` characters."""
+│                            │42         text = self.text if len(self.text) <= width else self.text[: width - 1] + "…"
+│                            │  ▎        tags = " ".join(f"#{tag}" for tag in self.tags)
+│                            │43▎        tags = " ".join(f"#{tag}" for tag in sorted(self.tags))
+│                            │44         return f"{self.id:>4}  {text}  {tags}".rstrip()
+│                            │45
+│                            │46
+│                            │47 class Formatter(Protocol):
+└ 6 files · +138 −23 ────────┘48     """How one note is turned into a line of output."""
+Tutor 25/26 · Previous change
+`C` walks back: to the change before, and from the first one into the file before. Press `C`: from the top of models.py back into cli.py.
+
+models.py  1:1  [code]  hunk 0/5  file 4/6  ✓ Next change                                                                                                                          14:32
+cursor (x,y,shown) 33,0,0

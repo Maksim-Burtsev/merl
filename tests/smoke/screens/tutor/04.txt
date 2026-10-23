@@ -1,0 +1,57 @@
+wait reject a note
+ 1 """Command line entry point: add, remove, list and search notes."""
+ 2
+ 3 import argparse
+ 4 import sys
+ 5
+ 6 from config import load_config
+ 7 from models import Formatter, Note, PlainFormatter
+ 8 from store import NoteStore
+ 9
+10
+11 def parse_args(a┌Search (1 hit)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+12     """Build the│s> TODO                                                                                                                                           │
+13     parser = arg│models.py                                                                                                                                         │
+14     parser.add_a│  30  # TODO: reject a note whose id is already taken.                                                                                            │
+15     parser.add_a│                                                                                                                                                  │
+16     parser.add_a│                                                                                                                                                  │
+17     return parse│                                                                                                                                                  │
+18                 │                                                                                                                                                  │
+19                 │                                                                                                                                                  │
+20 def show(notes: │                                                                                                                                                  │
+21     """Print one│                                                                                                                                                  │
+22     formatter = │                                                                                                                                                  │
+23     for note in │                                                                                                                                                  │
+24         print(fo│                                                                                                                                                  │
+25                 │                                                                                                                                                  │
+26                 │                                                                                                                                                  │
+27 def main(argv: l│                                                                                                                                                  │
+28     """Run one c│                                                                                                                                                  │
+29     args = parse│                                                                                                                                                  │
+30     store = Note│                                                                                                                                                  │
+31     if args.comm│                                                                                                                                                  │
+32         note = s│                                                                                                                                                  │
+33         print(f"│                                                                                                                                                  │
+34     elif args.co│                                                                                                                                                  │
+35         if not s│                                                                                                                                                  │
+36             prin│                                                                                                                                                  │
+37             retu│                                                                                                                                                  │
+38     elif args.co│                                                                                                                                                  │
+39         show(sto│                                                                                                                                                  │
+40     else:       │                                                                                                                                                  │
+41         show(sto└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+42     return 0
+43
+44
+45 if __name__ == "__main__":
+46     sys.exit(main())
+
+
+
+
+
+Tutor 8/26 · Search the project
+`s` searches every file as you type. Type `TODO`, then Enter on the result.
+
+cli.py  6:20  [code]                                                                                                                                                               14:32
+cursor (x,y,shown) 27,11,0

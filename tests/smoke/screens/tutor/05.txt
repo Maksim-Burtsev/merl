@@ -1,0 +1,57 @@
+wait Tutor 9/
+ 5 from datetime import date
+ 6 from typing import Protocol
+ 7
+ 8
+ 9 @dataclass
+10 class Note:
+11     """A single note, identified by an integer id."""
+12
+13     id: int
+14     text: str
+15     tags: list[str] = field(default_factory=list)
+16     created: date = field(default_factory=date.today)
+17
+18     def to_dict(self) -> dict:
+19         """The note as plain, JSON-friendly data."""
+20         return {
+21             "id": self.id,
+22             "text": self.text,
+23             "tags": self.tags,
+24             "created": self.created.isoformat(),
+25         }
+26
+27     @classmethod
+28     def from_dict(cls, raw: dict) -> "Note":
+29         """Rebuild a note from what `to_dict` wrote."""
+30         # TODO: reject a note whose id is already taken.
+31         return cls(
+32             id=int(raw["id"]),
+33             text=raw["text"],
+34             tags=list(raw.get("tags", [])),
+35             created=date.fromisoformat(raw["created"]),
+36         )
+37
+38     def summary(self, width: int = 40) -> str:
+39         """One line for a listing: the text, cut to `width` characters."""
+40         text = self.text if len(self.text) <= width else self.text[: width - 1] + "…"
+41         tags = " ".join(f"#{tag}" for tag in self.tags)
+42         return f"{self.id:>4}  {text}  {tags}".rstrip()
+43
+44
+45 class Formatter(Protocol):
+46     """How one note is turned into a line of output."""
+47
+48     def render(self, note: Note) -> str: ...
+49
+50
+51 class PlainFormatter:
+52     """The default: the note's own one-line summary."""
+53
+54     def render(self, note: Note) -> str:
+55         return note.summary()
+Tutor 9/26 · Project symbols
+`D` lists every class and function of the project. Type `NoteStore` and press Enter.
+
+models.py  30:11  [code]  ✓ Search the project                                                                                                                                     14:32
+cursor (x,y,shown) 13,25,0

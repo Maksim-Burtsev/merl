@@ -1,0 +1,57 @@
+wait Tutor 26/
+┌agent/find-by-tag ← HEAD────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+│  ▾ tests                   │ 2
+│    A test_cli.py     +43 −0│ 3 import json
+│    M test_store.py   +34 −0│ 4
+│  M cli.py            +25 −4│ 5 from config import Config, load_config
+│  M models.py         +5 −10│ 6 from models import Note
+│  M PLAN.md            +7 −4│ 7
+│  M store.py          +24 −5│ 8
+│                            │ 9 class NoteStore:
+│                            │10     """Reads and writes the notes of a single JSON file."""
+│                            │11
+│                            │12     def __init__(self, config: Config | None = None) -> None:
+│                            │13         self.config = config or load_config()
+│                            │14         self.notes: list[Note] = self._read()
+│                            │15
+│                            │16     def _read(self) -> list[Note]:
+│                            │17         """Load the notes from disk; a missing file means no notes yet."""
+│                            │18         if not self.config.path.exists():
+│                            │19             return []
+│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
+│                            │  ▎        return [Note.from_dict(item) for item in raw]
+│                            │21▎        notes = [Note.from_dict(item) for item in raw]
+│                            │22▎        seen: set[int] = set()
+│                            │23▎        for note in notes:
+│                            │24▎            if note.id in seen:
+│                            │25▎                raise ValueError(f"note id {note.id} is used twice")
+│                            │26▎            seen.add(note.id)
+│                            │27▎        return notes
+│                            │28
+│                            │29     def _write(self) -> None:
+│                            │30         """Write every note back to disk."""
+│                            │31         raw = [note.to_dict() for note in self.notes]
+│                            │32         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+│                            │33
+│                            │34     def next_id(self) -> int:
+│                            │35         """One past the highest id in use."""
+│                            │36         return max((note.id for note in self.notes), default=0) + 1
+│                            │37
+│                            │38     def add(self, text: str, tags: list[str] | None = None) -> Note:
+│                            │39         """Append a note and save the file."""
+│                            │  ▎        note = Note(id=self.next_id(), text=text, tags=tags or [])
+│                            │40▎        note = Note(id=self.next_id(), text=text, tags=sorted(set(tags or [])))
+│                            │41         self.notes.append(note)
+│                            │42         self._write()
+│                            │43         return note
+│                            │44
+│                            │45     def remove(self, note_id: int) -> bool:
+│                            │46         """Delete the note with this id and report whether it existed."""
+│                            │47         keep = [note for note in self.notes if note.id != note_id]
+│                            │48         if len(keep) == len(self.notes):
+└ 6 files · +138 −23 ────────┘49             return False
+Tutor 26/26 · Mark viewed
+`m` marks the file you are in as viewed, a tick beside it on the left; `m` again takes it off. Press `m` on store.py.
+
+store.py  1:1  [code]  hunk 0/4  file 6/6  ✓ Previous change                                                                                                                       14:32
+cursor (x,y,shown) 33,0,0

@@ -150,7 +150,7 @@ fn picker_overlay_renders_border_prompt_and_items() {
 
 #[test]
 fn search_title_hides_the_count_until_the_grep_answers() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tutor");
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tutor/notes");
     let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(60, 12)).unwrap();
