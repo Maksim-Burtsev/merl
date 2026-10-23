@@ -693,26 +693,32 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     if q == "excluded" {
         return sql_insert_target(stmt, at - s);
     }
-    let items = sql_from_items(stmt);
-    let table = |r: &std::ops::Range<usize>| {
-        let parts: Vec<String> = stmt.get(r.clone())?.split('.').map(unquote).collect();
-        Some(parts.join("."))
-    };
     let last = |t: &str| t.rsplit('.').next().unwrap_or(t).to_owned();
-    let aliased = |a: &Option<std::ops::Range<usize>>| {
-        a.as_ref().and_then(|a| stmt.get(a.clone())).map(unquote)
-    };
+    let alias = |a: Option<&str>| a.map(unquote);
+    let items: Vec<(String, Option<String>)> = sql_from_items(stmt)
+        .into_iter()
+        .filter_map(|(t, a)| {
+            Some((
+                sql_qualified(stmt.get(t)?),
+                alias(a.and_then(|a| stmt.get(a))),
+            ))
+        })
+        .chain(
+            sql_update()
+                .captures_iter(stmt)
+                .map(|c| (sql_qualified(&c[1]), alias(c.get(2).map(|a| a.as_str())))),
+        )
+        .collect();
     let mut tables: Vec<String> = items
         .iter()
-        .filter(|(_, a)| aliased(a).as_ref() == Some(&q))
-        .filter_map(|(t, _)| table(t))
+        .filter(|(_, a)| a.as_ref() == Some(&q))
+        .map(|(t, _)| t.clone())
         .collect();
     if tables.is_empty() {
         tables = items
             .iter()
-            .filter(|(_, a)| a.is_none())
-            .filter_map(|(t, _)| table(t))
-            .filter(|t| last(t) == q)
+            .filter(|(t, a)| a.is_none() && last(t) == q)
+            .map(|(t, _)| t.clone())
             .collect();
     }
     tables.sort();
@@ -836,8 +842,10 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
         r"(?is)(?:::|\bTYPE\s|\bADD(?:\s+COLUMN)?(?:\s+IF\s+NOT\s+EXISTS)?\s+{SQL_IDENT}\s)\s*$"
     ))
     .expect("a valid pattern");
-    if after.trim_start().starts_with(['(', '.']) || into.is_match(before) || typed.is_match(before)
-    {
+    if after.trim_start().starts_with('.') {
+        return sql_target_table(stmt, at, word);
+    }
+    if after.trim_start().starts_with('(') || into.is_match(before) || typed.is_match(before) {
         return None;
     }
     let name = format!(r"{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*");
@@ -887,7 +895,7 @@ pub fn sql_bare_table(text: &str, at: usize, word: &str) -> Option<String> {
 
 fn sql_update() -> Regex {
     Regex::new(&format!(
-        r"(?i)\bUPDATE\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+(?:AS\s+)?{SQL_IDENT})?\s+SET\s"
+        r"(?i)\bUPDATE\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)(?:\s+(?:AS\s+)?({SQL_IDENT}))?\s+SET\s"
     ))
     .expect("a valid pattern")
 }
@@ -905,17 +913,53 @@ fn sql_target_table(stmt: &str, at: usize, word: &str) -> Option<String> {
     }) {
         return Some(sql_qualified(&c[1]));
     }
-    let set_ends = Regex::new(r"(?i)\b(?:FROM|WHERE|RETURNING)\b").expect("a valid pattern");
-    let target = |c: &regex::Captures| {
-        let set = stmt.get(c.get(0)?.end()..at)?;
-        let lead = before.trim_end();
-        (sql_level(set) == 0
-            && !set_ends.is_match(set)
-            && after.trim_start().starts_with('=')
-            && (lead.ends_with(',') || lead.to_ascii_lowercase().ends_with("set")))
-        .then(|| sql_qualified(&c[1]))
+    let merge = Regex::new(&format!(
+        r"(?i)\bMERGE\s+INTO\s+(?:ONLY\s+)?({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)"
+    ))
+    .expect("a valid pattern");
+    let clause =
+        Regex::new(r"(?i)\bINSERT\s*\(([^()]*)\)|\bUPDATE\s+SET\s").expect("a valid pattern");
+    if let Some(m) = merge.captures(stmt) {
+        let from = m.get(0)?.end();
+        let hit = clause
+            .captures_iter(stmt.get(from..)?)
+            .any(|c| match c.get(1) {
+                Some(l) => (from + l.start()..from + l.end()).contains(&at),
+                None => c
+                    .get(0)
+                    .and_then(|s| before.get(from + s.end()..))
+                    .is_some_and(|set| sql_set_target(set, after)),
+            });
+        return hit.then(|| sql_qualified(&m[1]));
+    }
+    sql_update().captures_iter(stmt).find_map(|c| {
+        let set = before.get(c.get(0)?.end()..)?;
+        sql_set_target(set, after).then(|| sql_qualified(&c[1]))
+    })
+}
+
+fn sql_set_target(set: &str, after: &str) -> bool {
+    let suffix = Regex::new(&format!(r"^(?:\s*\[[^\[\]]*\]|\s*\.\s*{SQL_IDENT})*\s*"))
+        .expect("a valid pattern");
+    let set_ends = Regex::new(r"(?i)\b(?:FROM|WHERE|RETURNING)\b|\bWHEN\s+(?:NOT\s+)?MATCHED\b")
+        .expect("a valid pattern");
+    let after = after
+        .get(suffix.find(after).map_or(0, |m| m.end())..)
+        .unwrap_or_default();
+    let listed = set.rfind('(').and_then(|open| {
+        let close = after.find(')')?;
+        let inside = set.get(open..)?.contains(')') || after.get(..close)?.contains('(');
+        (sql_level(set) == 1 && after.starts_with([',', ')']) && !inside)
+            .then(|| (set.get(..open), after.get(close + 1..)))
+    });
+    let (Some(lead), Some(tail)) = listed.unwrap_or((Some(set), Some(after))) else {
+        return false;
     };
-    sql_update().captures_iter(stmt).find_map(|c| target(&c))
+    let lead = lead.trim_end();
+    sql_level(lead) == 0
+        && !set_ends.is_match(set)
+        && tail.trim_start().starts_with('=')
+        && (lead.is_empty() || lead.ends_with(','))
 }
 
 fn sql_insert_target(stmt: &str, at: usize) -> Option<String> {
