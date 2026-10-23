@@ -664,6 +664,7 @@ impl App {
             search::swift_type_name(written).or_else(|| search::swift_nested_type_name(written))?;
         let name = full.rsplit('.').next()?.to_owned();
         let nested = full != name;
+        let plain = search::swift_unspecialized(&full).unwrap_or_else(|| full.clone());
         let pattern = search::def_patterns(Kind::Swift, &name).join("|");
         let mut decls = Vec::new();
         let mut extended = false;
@@ -672,17 +673,19 @@ impl App {
             if !self.in_code(Kind::Swift, &h) {
                 continue;
             }
-            if let Some(target) = search::swift_alias(&h.text, &name) {
-                aliases.push(target);
-                continue;
-            }
             let placed = || {
                 !nested
                     || self
                         .text_of(&h.path)
                         .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, &name))
-                        .is_some_and(|q| q == full)
+                        .is_some_and(|q| q == plain || q.ends_with(&format!(".{plain}")))
             };
+            if let Some(target) = search::swift_alias(&h.text, &name) {
+                if placed() {
+                    aliases.push(target);
+                }
+                continue;
+            }
             match search::swift_type_header(&h.text) {
                 Some(t) if t.keyword == "extension" => extended |= t.name == full,
                 Some(t) if t.name == name && placed() => {
@@ -806,6 +809,16 @@ impl App {
             return None;
         }
         let name = search::swift_outside_name(written)?;
+        if let Some((outer, _)) = name.split_once('.') {
+            let pattern = search::def_patterns(Kind::Swift, outer).join("|");
+            if !self
+                .project_definitions(Kind::Swift, here, outer, &pattern)
+                .iter()
+                .all(|h| search::swift_extension(&h.text))
+            {
+                return None;
+            }
+        }
         let mut rows = match self.swift_type(here, &name) {
             Some(ty) if ty.keyword.is_some() => return self.swift_member_rows(here, &ty, word),
             Some(ty) => {
@@ -840,13 +853,14 @@ impl App {
             } else {
                 search::swift_outside_name(extended).is_some_and(|n| {
                     n == name
-                        || [
-                            "Sequence",
-                            "Collection",
-                            "BidirectionalCollection",
-                            "RandomAccessCollection",
-                        ]
-                        .contains(&n.as_str())
+                        || !name.contains('.')
+                            && [
+                                "Sequence",
+                                "Collection",
+                                "BidirectionalCollection",
+                                "RandomAccessCollection",
+                            ]
+                            .contains(&n.as_str())
                 })
             }
         };
@@ -890,6 +904,17 @@ impl App {
         let t = written.trim().trim_end_matches(['?', '!']);
         if t == SDK_VALUE {
             return !self.swift_extended_with(here, member, false);
+        }
+        if let Some(item) = search::swift_dictionary_part(t, member) {
+            let pattern = search::def_patterns(Kind::Swift, &item).join("|");
+            return matches!(
+                item.as_str(),
+                "Any" | "AnyHashable" | "String" | "Substring" | "Int" | "Double" | "Bool"
+            ) && self
+                .project_definitions(Kind::Swift, here, &item, &pattern)
+                .iter()
+                .all(|h| search::swift_extension(&h.text))
+                && !self.swift_extended_with(here, member, true);
         }
         t.starts_with(|c: char| c.is_ascii_uppercase())
             && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
@@ -1145,6 +1170,32 @@ impl App {
             search::swift_member_kind(&h.text) == Some(search::SwiftMember::StaticOrClass)
         });
         (!rows.is_empty()).then_some((ty, rows))
+    }
+
+    pub(super) fn swift_outside_call(
+        &self,
+        here: &Path,
+        text: &str,
+        before: &str,
+        word: &str,
+    ) -> bool {
+        let Some((receiver, method)) = search::swift_literal_call(before) else {
+            return false;
+        };
+        let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
+        let line = text.lines().nth(self.line).unwrap_or_default();
+        if search::swift_closure_param(line, &names[0], self.col) {
+            return false;
+        }
+        let cut = self.truncated.get();
+        let chain = self.swift_chain(here, here, text, self.line + 1, &names, 2);
+        let outside = chain.is_some_and(|c| {
+            self.swift_type(here, &c.written)
+                .is_none_or(|t| t.keyword.is_none())
+                && self.swift_sdk_value(here, &c.written, &method)
+        }) && !self.swift_extended_with(here, word, false);
+        self.truncated.set(cut);
+        outside
     }
 
     fn swift_outside_static(

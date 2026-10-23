@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use super::chain::Got;
-use super::sysroot::DEREF;
-use super::{App, Candidate, Hit, Kind, Path, PathBuf, Regex, rust_bare_type, search};
+use super::sysroot::{DEREF, rust_element};
+use super::{
+    App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, search,
+};
 
 static MARKED: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)*(core|alloc|std)::([A-Z]\w*)\s*(?:<|$)")
@@ -14,13 +16,14 @@ static TOKEN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"'\w+|\b(?:[A-Za-z_]\w*::)*[A-Za-z_]\w*").expect("the regex is a literal")
 });
 
-fn top_level(args: &str) -> Vec<&str> {
+pub(super) fn top_level(args: &str) -> Vec<&str> {
     let mut depth = 0i32;
     let mut start = 0;
     let mut parts = Vec::new();
     for (i, c) in args.char_indices() {
         match c {
             '<' | '(' | '[' => depth += 1,
+            '>' if args.get(..i).is_some_and(|s| s.ends_with('-')) => {}
             '>' | ')' | ']' => depth -= 1,
             ',' if depth == 0 => {
                 parts.push(args.get(start..i).unwrap_or_default().trim());
@@ -114,6 +117,7 @@ fn substitute(
     let self_ty = self_ty.split(" where").next().unwrap_or_default();
     let (ty_name, ty_args) = type_args(self_ty);
     let (w_name, w_args) = type_args(written);
+    let element = rust_element(written).map(|(_, e)| e);
     let mut bound: HashMap<&str, &str> = HashMap::new();
     if ty_name == w_name {
         for (a, w) in ty_args.iter().zip(&w_args) {
@@ -121,6 +125,13 @@ fn substitute(
                 bound.insert(a, w);
             }
         }
+    }
+    if let Some(slice) = self_ty.trim().strip_prefix('[')
+        && let Some(param) = slice.split([';', ']']).next().map(str::trim)
+        && impl_params.iter().any(|p| p == param)
+        && let Some(e) = element.as_deref().filter(|e| *e != "_")
+    {
+        bound.insert(param, e);
     }
     let fn_params = fn_line
         .split_once(&format!("fn {word}"))
@@ -292,5 +303,149 @@ impl App {
         };
         let [hit] = <[Hit; 1]>::try_from(found).ok()?;
         Some(hit)
+    }
+}
+
+static AS_REF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\bAsRef\s*<\s*([\w:]+)\s*>").expect("the regex is a literal"));
+
+fn bound_clause(s: &str) -> &str {
+    let mut depth = 0i32;
+    let end = s
+        .char_indices()
+        .find(|&(i, c)| {
+            match c {
+                '<' | '(' | '[' => depth += 1,
+                '>' | ')' | ']' => depth -= 1,
+                _ => {}
+            }
+            depth < 0
+                || (depth == 0 && matches!(c, ',' | '{'))
+                || s.get(i..).is_some_and(|r| r.starts_with("where "))
+        })
+        .map_or(s.len(), |(i, _)| i);
+    s.get(..end).unwrap_or_default()
+}
+
+fn as_ref_target(lines: &[&str], at: usize, written: &str) -> Option<String> {
+    let w = unreferenced(written);
+    if let Some(bounds) = w.strip_prefix("impl ") {
+        return one_target(std::iter::once(bounds));
+    }
+    let sig = search::rust_signature(lines, at)?;
+    let re = Regex::new(&format!(r"(?:<|,|\bwhere)\s*{}\s*:", regex::escape(w))).ok()?;
+    one_target(
+        re.find_iter(&sig)
+            .filter_map(|m| sig.get(m.end()..).map(bound_clause)),
+    )
+}
+
+fn one_target<'a>(clauses: impl Iterator<Item = &'a str>) -> Option<String> {
+    let mut found = clauses.flat_map(|c| {
+        AS_REF
+            .captures_iter(c)
+            .map(|m| m[1].to_owned())
+            .collect::<Vec<_>>()
+    });
+    match (found.next(), found.next()) {
+        (Some(t), None) => Some(t),
+        _ => None,
+    }
+}
+
+pub(super) fn as_ref_head(file: &Path, text: &str, line0: usize, name: &str) -> Option<Got> {
+    let lines: Vec<&str> = text.lines().collect();
+    let line0 = (0..=line0)
+        .rev()
+        .find(|&i| lines.get(i).is_some_and(|l| !matches!(l.trim(), "" | "{")))?;
+    let [b] = &search::bindings(Kind::Rust, text, line0 + 1, name)[..] else {
+        return None;
+    };
+    let search::RustHolds::Type(w) = search::rust_holds(&lines, b.line1 - 1, name)? else {
+        return None;
+    };
+    Some(Got::Written {
+        file: file.to_path_buf(),
+        written: as_ref_target(&lines, b.line1 - 1, &w)?,
+        line0: b.line1 - 1,
+    })
+}
+
+impl App {
+    pub(super) fn rust_std_item(&self, got: Got) -> Option<String> {
+        let (path, name) = match got {
+            Got::Ty(ty) => (ty.path, ty.name),
+            Got::Written { file, written, .. } => {
+                let c = MARKED.captures(written.trim())?;
+                let src = self.sysroot_src(&c[1])?;
+                let mut decls =
+                    self.rust_std_grep(&src.files, &search::rust_type_decl_pattern(&c[2]));
+                if decls.iter().any(|(d, ..)| d.path == file) {
+                    decls.retain(|(d, ..)| d.path == file);
+                }
+                let [(decl, ..)] = <[_; 1]>::try_from(decls).ok()?;
+                (decl.path, c[2].to_owned())
+            }
+        };
+        ["core", "alloc", "std"]
+            .into_iter()
+            .any(|k| {
+                self.sysroot_src(k)
+                    .is_some_and(|s| path.starts_with(&s.src))
+            })
+            .then_some(())?;
+        let t = self.text_of(&path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        let mut items = lines.iter().enumerate().filter_map(|(i, l)| {
+            (search::rust_impl_trait(l)? == "Iterator" && search::rust_impl_type(l)? == name).then(
+                || {
+                    lines
+                        .iter()
+                        .skip(i + 1)
+                        .take(4)
+                        .find_map(|l| l.trim().strip_prefix("type Item =")?.strip_suffix(';'))
+                },
+            )?
+        });
+        let item = items.next()?.trim();
+        if items.any(|other| other.trim() != item) {
+            return None;
+        }
+        rust_bare_type(item)
+    }
+}
+
+impl App {
+    pub(super) fn rust_std_fn_returns(
+        &self,
+        text: &str,
+        at: usize,
+        parts: &[String],
+    ) -> Option<Got> {
+        let (first, rest) = parts.split_first()?;
+        if !search::bindings(Kind::Rust, text, at + 1, first).is_empty() {
+            return None;
+        }
+        let mut full =
+            bound(&search::imports(Kind::Rust, text), first).unwrap_or_else(|| vec![first.clone()]);
+        full.extend(rest.iter().cloned());
+        let (krate, path) = full.split_first()?;
+        if !matches!(krate.as_str(), "std" | "core" | "alloc") {
+            return None;
+        }
+        let src = self.sysroot_src(krate)?;
+        let found = self.rust_in_crate(&src, &[], path, MacroUse::NotMacro, 0)?;
+        let [decl] = <[Hit; 1]>::try_from(found.hits).ok()?;
+        if !found.proven || !decl.text.contains("fn ") {
+            return None;
+        }
+        let t = self.text_of(&decl.path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        let ret = search::rust_return_type(&lines, decl.line1 - 1)?;
+        Some(Got::Written {
+            file: decl.path.clone(),
+            written: substitute(&ret, "", &decl.text, path.last()?, "", krate),
+            line0: decl.line1 - 1,
+        })
     }
 }

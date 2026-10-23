@@ -490,3 +490,129 @@ final class Auditor<Witness> {
         }
     }
 }
+
+// The keys and the values of a dictionary of outside types are values from outside; of a
+// project type, they keep the search by name (#1068).
+final class Tally {
+    func sorted() -> Tally { self }
+}
+
+func tallied(_ table: [String: Int], _ shelf: [String: Logbook]) -> Bool {
+    _ = table.keys.sorted()
+    //             ^ d: none
+    _ = table.values.sorted()
+    //               ^ d: none
+    return shelf.values.first?.isEmpty ?? false
+    //                         ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+// A type nested in a generic outside type is from outside, though a project type names an alias
+// like it; one nested in a generic project type is that type's (#1068).
+struct Drip<Element> {
+    typealias AsyncIterator = Iterator
+
+    struct Iterator {
+        private var iterator: AsyncStream<Element>.AsyncIterator
+        private var mine: Hopper<Element>.Slot
+
+        mutating func next() async -> Element? {
+            _ = mine.weight
+            //       ^ d: Sources/Shop/Outcomes.swift:529
+            return await iterator.next()
+            //                    ^ d: none
+        }
+    }
+}
+
+struct Hopper<Item> {
+    struct Slot {
+        var weight: Int
+    }
+}
+
+struct Barrow {
+    var weight: Int
+}
+
+// A nested name counts where Swift places it (#1068): an alias under a generic outer type or in an
+// extension of a nested type answers, and one written inside a namespace, where it may name the
+// namespace's own alias or a top-level namesake, asks. A type nested in an outside generic is no
+// Sequence, so a project's `extension Sequence` does not answer for it (`iterator.next()` above).
+struct Flask {
+    func tilt() {}
+}
+struct Beaker {
+    func tilt() {}
+}
+
+struct Vial<Dose> {
+    typealias Neck = Flask
+}
+
+enum Cellar {
+    struct Rack {
+        typealias Neck = Flask
+    }
+}
+extension Cellar.Rack {
+    typealias Spout = Beaker
+}
+
+struct Rack {
+    struct Neck {
+        func tilt() {}
+    }
+}
+
+func tilted(_ v: Vial<Int>.Neck, _ s: Cellar.Rack.Spout) {
+    v.tilt()
+    //^ d: Sources/Shop/Outcomes.swift:542
+    s.tilt()
+    //^ d: Sources/Shop/Outcomes.swift:545
+}
+
+extension Cellar {
+    static func tilted(_ n: Rack.Neck) {
+        n.tilt()
+        //^ d: picker Sources/Shop/Outcomes.swift:542, Sources/Shop/Outcomes.swift:545, Sources/Shop/Outcomes.swift:563
+    }
+}
+
+extension Sequence {
+    func next() -> Int? { nil }
+}
+
+// A call with only literal arguments on a value from outside, which no extension of the project
+// declares, returns a value from outside: its members answer from the project's extensions or
+// none. A call on a project value, or one whose argument is not a literal, keeps its path (#1068).
+func calledOutside(_ key: String, _ sencha: Sencha, _ n: Int) -> String {
+    _ = key.prefix(1).sniffed()
+    //                ^ d: Sources/Shop/Infuse/Sencha.swift:37
+    _ = sencha.steeped().uppercased()
+    //                   ^ d: Sources/Shop/Infuse/Sencha.swift:10
+    _ = key.prefix(n).uppercased()
+    //                ^ d: Sources/Shop/Infuse/Sencha.swift:10; want none (#1068)
+    return key.prefix(1).uppercased() + key.dropFirst(2).uppercased()
+    //                   ^ d: none
+    //                                                   ^ d: none
+}
+
+// A closure's parameter shadows the outer value of its name, so a literal call on it keeps the
+// typed path. Labelled, negative, `true` and string arguments are literals too (#1068).
+struct Twig {
+    var budded: String
+    func child(_ i: Int) -> Twig { self }
+}
+
+func twigged(_ item: String, _ twigs: [Twig], _ key: String) -> String {
+    twigs.forEach { item in _ = item.child(1).budded }
+    //                                        ^ d: Sources/Shop/Outcomes.swift:603
+    _ = key.padding(toLength: 4).uppercased()
+    //                           ^ d: none
+    _ = key.dropLast(-1).uppercased()
+    //                   ^ d: none
+    _ = key.split(omittingEmptySubsequences: true).uppercased()
+    //                                             ^ d: none
+    return key.appending("s").uppercased()
+    //                        ^ d: none
+}
