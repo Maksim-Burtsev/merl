@@ -422,7 +422,7 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
     }
     (links.len() > 1).then_some(links)
 }
-pub fn swift_literal_call(before: &str) -> Option<(String, String)> {
+pub fn swift_literal_call(before: &str) -> Option<(String, String, Vec<String>)> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w.)\]?!])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)\.([A-Za-z_]\w*)$")
             .expect("the regex is a literal")
@@ -431,18 +431,32 @@ pub fn swift_literal_call(before: &str) -> Option<(String, String)> {
         Regex::new(r#"^(?:\w+\s*:\s*)?(?:-?\d[\d_.]*|"[^"\\]*"|true|false)$"#)
             .expect("the regex is a literal")
     });
+    static VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\w+\s*:\s*)?((?:self|[a-z_]\w*)(?:\.[a-z_]\w*)*)$")
+            .expect("the regex is a literal")
+    });
     let rest = before.strip_suffix('.')?;
     let open = code(Kind::Swift, rest)
         .filter(|(_, c)| *c == b'(')
         .map(|(i, _)| i)
         .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
     let args = rest.get(open + 1..rest.len() - 1)?.trim();
-    let literal = args.is_empty()
-        || split_top(Kind::Swift, args, b',')
-            .iter()
-            .all(|a| LITERAL.is_match(a.trim()));
-    let c = HEAD.captures(rest.get(..open)?).filter(|_| literal)?;
-    Some((c[1].to_owned(), c[2].to_owned()))
+    let mut values = Vec::new();
+    for a in split_top(Kind::Swift, args, b',')
+        .iter()
+        .filter(|_| !args.is_empty())
+    {
+        let a = a.trim();
+        if !LITERAL.is_match(a) {
+            let v = VALUE.captures(a).map(|c| c[1].to_owned())?;
+            if v.split('.').skip(1).any(|s| s == "self") {
+                return None;
+            }
+            values.push(v);
+        }
+    }
+    let c = HEAD.captures(rest.get(..open)?)?;
+    Some((c[1].to_owned(), c[2].to_owned(), values))
 }
 pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
     let directive = |l: usize| {
