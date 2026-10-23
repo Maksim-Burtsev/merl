@@ -214,9 +214,11 @@ impl App {
                 return std_typed(types.get(*i)?);
             }
         };
-        let one_line =
-            Regex::new(&format!(r"^\s+{}\s*\{{([^{{}}]*)\}},?\s*$", regex::escape(variant)))
-                .ok()?;
+        let one_line = Regex::new(&format!(
+            r"^\s+{}\s*\{{([^{{}}]*)\}},?\s*$",
+            regex::escape(variant)
+        ))
+        .ok()?;
         if let Some(c) = body[..end].iter().find_map(|l| one_line.captures(l)) {
             let mut written = returns::top_level(c.get(1)?.as_str())
                 .into_iter()

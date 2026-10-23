@@ -77,7 +77,14 @@ fn std_kind(written: &str) -> Option<String> {
     let (None, element) = rust_element(t)? else {
         return None;
     };
-    Some(if inner.trim() == element { "[T]" } else { "[T; N]" }.to_owned())
+    Some(
+        if inner.trim() == element {
+            "[T]"
+        } else {
+            "[T; N]"
+        }
+        .to_owned(),
+    )
 }
 
 fn type_args(written: &str) -> (String, Vec<String>) {
