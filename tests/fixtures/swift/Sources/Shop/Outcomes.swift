@@ -596,3 +596,23 @@ func calledOutside(_ key: String, _ sencha: Sencha, _ n: Int) -> String {
     //                   ^ d: none
     //                                                   ^ d: none
 }
+
+// A closure's parameter shadows the outer value of its name, so a literal call on it keeps the
+// typed path. Labelled, negative, `true` and string arguments are literals too (#1068).
+struct Twig {
+    var budded: String
+    func child(_ i: Int) -> Twig { self }
+}
+
+func twigged(_ item: String, _ twigs: [Twig], _ key: String) -> String {
+    twigs.forEach { item in _ = item.child(1).budded }
+    //                                        ^ d: Sources/Shop/Outcomes.swift:603
+    _ = key.padding(toLength: 4).uppercased()
+    //                           ^ d: none
+    _ = key.dropLast(-1).uppercased()
+    //                   ^ d: none
+    _ = key.split(omittingEmptySubsequences: true).uppercased()
+    //                                             ^ d: none
+    return key.appending("s").uppercased()
+    //                        ^ d: none
+}

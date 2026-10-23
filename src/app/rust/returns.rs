@@ -23,6 +23,7 @@ pub(super) fn top_level(args: &str) -> Vec<&str> {
     for (i, c) in args.char_indices() {
         match c {
             '<' | '(' | '[' => depth += 1,
+            '>' if args.get(..i).is_some_and(|s| s.ends_with('-')) => {}
             '>' | ')' | ']' => depth -= 1,
             ',' if depth == 0 => {
                 parts.push(args.get(start..i).unwrap_or_default().trim());

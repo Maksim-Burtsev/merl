@@ -1183,6 +1183,10 @@ impl App {
             return false;
         };
         let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
+        let line = text.lines().nth(self.line).unwrap_or_default();
+        if search::swift_closure_param(line, &names[0], self.col) {
+            return false;
+        }
         let cut = self.truncated.get();
         let chain = self.swift_chain(here, here, text, self.line + 1, &names, 2);
         let outside = chain.is_some_and(|c| {
