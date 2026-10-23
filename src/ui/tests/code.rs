@@ -140,56 +140,73 @@ fn selection_background_covers_partial_edges_and_pads_inner_lines() {
     }
     assert_eq!(
         paint(&mut app)[1],
-        "------------",
+        "..----------",
         "back on the anchor nothing is selected, and the cursor line is highlighted again"
     );
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(app.selection(), None);
     assert_eq!(
         paint(&mut app)[1],
-        "------------",
+        "..----------",
         "with no selection at all, the cursor line is highlighted"
     );
 }
 
 #[test]
-fn under_a_selection_the_line_number_is_drawn_as_cursor_line_nr_alone() {
-    let mut app = App::new(
-        PathBuf::from("/demo"),
-        Tree::default(),
-        Vec::new(),
-        Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"abc\n"),
-        None,
-    );
-    app.show_tree = false;
-    let theme = crate::theme::load("iceberg").unwrap();
-    assert_eq!(
-        (theme.bg, theme.line_hl, theme.cursor_gutter_bg()),
-        (
-            Color::Rgb(0x16, 0x18, 0x21),
-            Color::Rgb(0x1e, 0x21, 0x32),
-            Color::Rgb(0x2a, 0x31, 0x58)
-        ),
-        "iceberg's CursorLineNr has a background of its own"
-    );
-    let mut terminal = Terminal::new(TestBackend::new(10, 3)).unwrap();
-    let mut gutter = |app: &mut App| {
-        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
-        let c = &terminal.backend().buffer()[(0, 0)];
-        (c.fg, c.bg)
+fn the_line_numbers_take_their_own_groups_and_the_band_starts_at_the_text() {
+    let rgb = |c: u32| {
+        let [_, r, g, b] = c.to_be_bytes();
+        Color::Rgb(r, g, b)
     };
-    app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
-    assert_eq!(
-        gutter(&mut app),
-        (theme.cursor_gutter_fg, theme.cursor_gutter_bg()),
-        "as Neovim draws it in Visual mode: CursorLineNr's own colours, not the band (#554)"
-    );
-    app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-    assert_eq!(
-        gutter(&mut app),
-        (theme.cursor_gutter_fg, theme.line_hl),
-        "the selection gone, the band is back under the number"
-    );
+    for (name, bg, band, number, cursor_number) in [
+        (
+            "tokyonight-moon",
+            0x22_2436,
+            0x2f_334d,
+            0x22_2436,
+            0x22_2436,
+        ),
+        ("kanagawa-wave", 0x1f_1f28, 0x36_3646, 0x2a_2a37, 0x2a_2a37),
+        ("iceberg", 0x16_1821, 0x1e_2132, 0x1e_2132, 0x2a_3158),
+    ] {
+        let mut app = App::new(
+            PathBuf::from("/demo"),
+            Tree::default(),
+            Vec::new(),
+            Buffer::from_bytes(PathBuf::from("/demo/f.txt"), b"abc\nd\n"),
+            None,
+        );
+        app.show_tree = false;
+        let theme = crate::theme::load(name).unwrap();
+        assert_eq!((theme.bg, theme.line_hl), (rgb(bg), rgb(band)), "{name}");
+        let mut terminal = Terminal::new(TestBackend::new(10, 4)).unwrap();
+        let mut cells = |app: &mut App| {
+            terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+            let buf = terminal.backend().buffer();
+            let a = (0..10).find(|&x| buf[(x, 0)].symbol() == "a").unwrap();
+            (
+                (buf[(0, 0)].fg, buf[(0, 0)].bg, buf[(a - 1, 0)].bg),
+                (buf[(0, 1)].bg, buf[(a + 1, 0)].bg),
+            )
+        };
+        let want = (
+            theme.cursor_gutter_fg,
+            rgb(cursor_number),
+            rgb(cursor_number),
+        );
+        assert_eq!(
+            cells(&mut app),
+            (want, (rgb(number), rgb(band))),
+            "{name}: CursorLineNr's and LineNr's own colours, the plain background where they \
+             set none, and the band from the text on, as LazyVim draws them (#913)"
+        );
+        app.key(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+        assert_eq!(
+            cells(&mut app).0,
+            want,
+            "{name}: a selection leaves the number as it is (#554)"
+        );
+    }
 }
 
 #[test]
@@ -231,7 +248,7 @@ z
     }
     assert_eq!(
         paint(&mut app)[..3],
-        ["----------", "----------", "----------"]
+        ["..--------", "..--------", "..--------"]
     );
     app.key(KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT));
     assert_eq!(
@@ -258,7 +275,7 @@ z
     app.key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert_eq!(
         paint(&mut app)[..3],
-        ["----------", "----------", "----------"],
+        ["..--------", "..--------", "..--------"],
         "the selection gone, the band is back"
     );
 }
@@ -541,9 +558,13 @@ fn ghost_lines_draw_above_their_line_and_the_cursor_walks_them() {
     terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
     let buf = terminal.backend().buffer();
     assert_eq!(
-        (buf[(0, 1)].bg, buf[(7, 1)].bg),
-        (theme.line_hl, theme.del_bg_hl),
-        "the cursor's deleted line is the cursor line, on the deleted tint: gutter and row"
+        (buf[(0, 1)].fg, buf[(0, 1)].bg, buf[(7, 1)].bg),
+        (
+            theme.cursor_gutter_fg,
+            theme.cursor_gutter_bg(),
+            theme.del_bg_hl
+        ),
+        "the cursor's deleted line is the cursor line on the deleted tint, its number off it (#913)"
     );
     assert_eq!(buf[(7, 2)].bg, theme.del_bg);
 }
@@ -1123,7 +1144,15 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
         app.key(KeyEvent::new(code, KeyModifiers::NONE));
         terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
         let y = app.cursor_cell.unwrap().y as usize;
-        let band = (0..30).all(|x| terminal.backend().buffer()[(x, 0)].bg == theme.line_hl);
+        let band: String = (0..30)
+            .map(|x| {
+                if terminal.backend().buffer()[(x, 0)].bg == theme.line_hl {
+                    '-'
+                } else {
+                    '.'
+                }
+            })
+            .collect();
         (rows(&terminal), y, band)
     };
     let (screen, _, _) = press(&mut app, KeyCode::Null);
@@ -1133,10 +1162,15 @@ fn the_enclosing_function_stays_pinned_above_the_code() {
             let (screen, y, band) = press(&mut app, code);
             let pinned = app.top_line > 0;
             assert_eq!(screen[0], "1 fn long() {");
+            let want = match (pinned, app.line) {
+                (true, _) => "-".repeat(30),
+                (false, 0) => format!("...{}", "-".repeat(27)),
+                _ => ".".repeat(30),
+            };
             assert_eq!(
-                band,
-                pinned || app.line == 0,
-                "unpinned, the top row is lit only as the cursor line"
+                band, want,
+                "pinned, the band runs under the number too; unpinned, the top row is lit only \
+                 as the cursor line, from its text on (#913)"
             );
             assert!(y >= usize::from(pinned), "the cursor is under the band");
             assert!(screen[y].starts_with(&format!("{} ", app.line + 1)));
@@ -1471,6 +1505,12 @@ fn a_cut_line_ends_in_a_dim_ellipsis_when_not_wrapped() {
     assert_eq!(
         screen[1], "2 \u{2039}bbbbbbbb\u{203a}",
         "the text reaching the right edge exactly: no room for the `…`, so `›` stands there"
+    );
+    let buf = terminal.backend().buffer();
+    assert_eq!(
+        (buf[(2, 1)].bg, buf[(11, 1)].bg),
+        (theme.line_hl, theme.line_hl),
+        "`‹` and `›` sit in the text, on the cursor line's band, not on the number's (#913)"
     );
 }
 

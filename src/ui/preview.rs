@@ -43,14 +43,13 @@ pub(super) fn draw_preview(
         let row = &p.doc.rows[i];
         let bg = (i == p.row).then_some(theme.line_hl);
         let t = bg.map_or(base, |c| base.bg(c));
-        let g = bg.map_or(gutter, |c| gutter.bg(c));
         let looks: Vec<(Style, Range<usize>)> = row
             .looks
             .iter()
             .map(|(look, r)| (pal.style(*look, bg.is_some()), r.clone()))
             .collect();
         let syntax = code_syntax_on_row(p, row);
-        let mut spans = vec![Span::styled(" ".repeat(gutter_w), g)];
+        let mut spans = vec![Span::styled(" ".repeat(gutter_w), gutter)];
         spans.extend(layered(
             &row.text,
             &[&looks, &syntax],

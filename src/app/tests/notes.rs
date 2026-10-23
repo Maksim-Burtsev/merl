@@ -465,3 +465,37 @@ fn notes_follow_the_branch_checked_out_and_need_one() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn a_note_row_keeps_its_plain_gutter_in_a_theme_with_a_number_strip() {
+    let (dir, mut a) = on_a_rs("notes-strip", 2);
+    note(&mut a, "keep b");
+    keys(&mut a, &[(KeyCode::Down, NONE)]);
+    let theme = crate::theme::load("kanagawa-wave").unwrap();
+    assert_ne!(
+        theme.gutter_bg(),
+        theme.bg,
+        "kanagawa-wave's LineNr has a strip"
+    );
+    let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
+    t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    drop(std::fs::remove_dir_all(dir));
+    let buf = t.backend().buffer();
+    let (x, y) = (0..16)
+        .find_map(|y| {
+            (0..70)
+                .find(|&x| buf[(x, y)].symbol() == "\u{270e}")
+                .map(|x| (x, y))
+        })
+        .expect("the note is on screen");
+    assert_eq!(
+        (0..=x).map(|x| buf[(x, y)].bg).collect::<Vec<_>>(),
+        vec![theme.bg; usize::from(x) + 1],
+        "the note row's gutter stays plain, as before #913: no strip cut short at the ✎"
+    );
+    assert_eq!(
+        buf[(0, y + 1)].bg,
+        theme.gutter_bg(),
+        "the file row under it has the strip"
+    );
+}
