@@ -68,6 +68,25 @@ fn unreferenced(written: &str) -> &str {
     t
 }
 
+fn std_kind(written: &str) -> Option<String> {
+    if let Some(bare) = rust_bare_type(written) {
+        return Some(bare);
+    }
+    let t = unreferenced(written);
+    let inner = t.strip_prefix('[')?.strip_suffix(']')?;
+    let (None, element) = rust_element(t)? else {
+        return None;
+    };
+    Some(
+        if inner.trim() == element {
+            "[T]"
+        } else {
+            "[T; N]"
+        }
+        .to_owned(),
+    )
+}
+
 fn type_args(written: &str) -> (String, Vec<String>) {
     let t = unreferenced(written);
     match t.find('<').and_then(|o| Some((t.get(..o)?, angled(t)?.0))) {
@@ -199,7 +218,7 @@ impl App {
             }
             _ => return None,
         };
-        let bare = rust_bare_type(&written)?;
+        let bare = std_kind(&written)?;
         let owner = self.text_of(&path)?;
         (DEREF.iter().any(|(t, _)| *t == bare) && self.rust_std_named(&owner, &bare)).then_some(
             Got::Written {
@@ -217,7 +236,7 @@ impl App {
         line0: usize,
         word: &str,
     ) -> Option<Got> {
-        let bare = rust_bare_type(written)?;
+        let bare = std_kind(written)?;
         let decl = if DEREF.iter().any(|(t, _)| *t == bare) {
             let owner = self.text_of(file)?;
             let found = self.rust_std_found(&owner, "", &bare, word)?;

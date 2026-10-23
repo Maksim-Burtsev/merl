@@ -1340,9 +1340,9 @@ fn a_variant_pattern_or_a_for_over_a_vec_binds_the_field_or_element() {
 }
 
 #[test]
-fn a_slice_method_on_a_vec_binds_its_t_to_the_element() {
+fn a_slice_method_on_a_vec_a_slice_or_an_array_binds_its_t_to_the_element() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "pub struct Leaf {\n    pub name: u32,\n}\n\npub struct Cup {\n    pub name: u32,\n}\n\npub fn first_name(v: Vec<Leaf>) -> u32 {\n    v.first().unwrap().name\n}\n";
+    let lib = "pub struct Leaf {\n    pub name: u32,\n}\n\npub struct Cup {\n    pub name: u32,\n}\n\npub fn first_name(v: Vec<Leaf>) -> u32 {\n    v.first().unwrap().name\n}\n\npub fn sliced(s: &[Leaf]) -> u32 {\n    s.first().unwrap().name\n}\n\npub fn arrayed(r: [Leaf; 2]) -> u32 {\n    r.first().unwrap().name\n}\n\npub static LEAVES: &[Leaf] = &[];\n\npub fn leaves() -> &'static [Leaf] {\n    LEAVES\n}\n\npub fn heads(v: Vec<Leaf>) -> u32 {\n    LEAVES.first().unwrap().name + leaves().first().unwrap().name + v.as_slice().first().unwrap().name\n}\n";
     let (dir, mut a) = project_app(
         "rust-slice-t",
         &[
@@ -1367,7 +1367,9 @@ fn a_slice_method_on_a_vec_binds_its_t_to_the_element() {
             ),
             (
                 "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
-                "pub struct Vec<T>;\n",
+                &format!(
+                    "pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn as_slice(&self) -> &[T] {{\n        loop {{}}\n    }}\n}}\n"
+                ),
             ),
             (
                 "lib/rustlib/src/rust/library/std/src/lib.rs",
@@ -1377,12 +1379,21 @@ fn a_slice_method_on_a_vec_binds_its_t_to_the_element() {
     );
     let library = std.join("lib/rustlib/src/rust/library");
     use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
-    d_on(&mut a, "src/lib.rs", "v.first().unwrap().name");
-    let got = match shown(&mut a) {
-        Shown::Jump(_, place) => place,
-        other @ Shown::Picker(..) => format!("{other:?}"),
-    };
-    assert_eq!(got, "src/lib.rs:2");
+    for code in [
+        "v.first().unwrap().name",
+        "s.first().unwrap().name",
+        "r.first().unwrap().name",
+        "LEAVES.first().unwrap().name",
+        "leaves().first().unwrap().name",
+        "v.as_slice().first().unwrap().name",
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place,
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, "src/lib.rs:2", "{code}");
+    }
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
@@ -1466,9 +1477,9 @@ fn an_or_pattern_of_variants_binds_the_field_every_alternative_types_alike() {
 }
 
 #[test]
-fn a_tuple_variant_pattern_binds_the_type_at_its_place() {
+fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Io(String),\n    Pair(u32, Vec<(u8, u8)>, String),\n    Num(Glob),\n}\n\npub fn copy(e: &Error) -> String {\n    match *e {\n        Error::Io(ref err) => err.clone(),\n        Error::Pair(_, _, ref s) | Error::Io(ref s) => s.clone(),\n        Error::Num(ref g) => g.clone().to_string(),\n    }\n}\n\npub fn size(e: &Error) -> u32 {\n    if let Error::Pair(n, ref pairs, ref text) = *e {\n        return n + text.len() as u32;\n    }\n    match *e {\n        Error::Num(ref g) => g.len(),\n        Error::Pair(.., ref tail) => tail.len() as u32,\n        Error::Pair(_, ref p) => p.len() as u32,\n        _ => 0,\n    }\n}\n";
+    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Io(String),\n    Pair(u32, Vec<(u8, u8)>, String),\n    Num(Glob),\n    Line { cups: Vec<(u8, u8)>, note: String },\n    Flat { flat: Glob },\n}\n\npub fn copy(e: &Error) -> String {\n    match *e {\n        Error::Io(ref err) => err.clone(),\n        Error::Line { ref note, .. } => note.clone(),\n        Error::Pair(_, _, ref s) | Error::Io(ref s) => s.clone(),\n        Error::Num(ref g) => g.clone().to_string(),\n    }\n}\n\npub fn size(e: &Error) -> u32 {\n    if let Error::Pair(n, ref pairs, ref text) = *e {\n        return n + text.len() as u32;\n    }\n    match *e {\n        Error::Num(ref g) => g.len(),\n        Error::Flat { ref flat } => flat.len(),\n        Error::Pair(.., ref tail) => tail.len() as u32,\n        Error::Pair(_, ref p) => p.len() as u32,\n        _ => 0,\n    }\n}\n";
     let (dir, mut a) = project_app(
         "rust-variant-tuple",
         &[
@@ -1490,6 +1501,7 @@ fn a_tuple_variant_pattern_binds_the_type_at_its_place() {
     for (code, want) in [
         ("err.clone", "alloc/src/string.rs:11"),
         ("s.clone", "alloc/src/string.rs:11"),
+        ("note.clone", "alloc/src/string.rs:11"),
         ("text.len", "alloc/src/string.rs:5"),
     ] {
         d_on(&mut a, "src/lib.rs", code);
@@ -1499,7 +1511,7 @@ fn a_tuple_variant_pattern_binds_the_type_at_its_place() {
         };
         assert_eq!(got, want, "{code}");
     }
-    for code in ["g.len", "tail.len", "p.len"] {
+    for code in ["g.len", "flat.len", "tail.len", "p.len"] {
         d_on(&mut a, "src/lib.rs", code);
         let got = shown(&mut a);
         assert!(
