@@ -422,6 +422,28 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
     }
     (links.len() > 1).then_some(links)
 }
+pub fn swift_literal_call(before: &str) -> Option<(String, String)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)\.([A-Za-z_]\w*)$")
+            .expect("the regex is a literal")
+    });
+    static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^(?:\w+\s*:\s*)?(?:-?\d[\d_.]*|"[^"\\]*"|true|false)$"#)
+            .expect("the regex is a literal")
+    });
+    let rest = before.strip_suffix('.')?;
+    let open = code(Kind::Swift, rest)
+        .filter(|(_, c)| *c == b'(')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
+    let args = rest.get(open + 1..rest.len() - 1)?.trim();
+    let literal = args.is_empty()
+        || split_top(Kind::Swift, args, b',')
+            .iter()
+            .all(|a| LITERAL.is_match(a.trim()));
+    let c = HEAD.captures(rest.get(..open)?).filter(|_| literal)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
+}
 pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
     let directive = |l: usize| {
         let t = lines.get(l - 1)?.trim_start();
@@ -448,7 +470,27 @@ pub fn swift_outside_name(written: &str) -> Option<String> {
         let array = swift_element(t).is_some();
         return Some(if array { "Array" } else { "Dictionary" }.to_owned());
     }
+    if let Some((head, _)) = t.split_once('.')
+        && head.contains('<')
+        && let Some(plain) = swift_unspecialized(t)
+        && plain.contains('.')
+    {
+        return swift_nested_type_name(&plain);
+    }
     swift_type_name(t).filter(|n| n.starts_with(char::is_uppercase))
+}
+pub fn swift_unspecialized(written: &str) -> Option<String> {
+    let mut depth = 0usize;
+    let mut plain = String::new();
+    for c in written.chars() {
+        match c {
+            '<' => depth += 1,
+            '>' => depth = depth.checked_sub(1)?,
+            _ if depth == 0 => plain.push(c),
+            _ => {}
+        }
+    }
+    (depth == 0).then_some(plain)
 }
 pub fn swift_extension(line: &str) -> bool {
     static EXTENSION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -1230,6 +1272,16 @@ pub fn swift_element(written: &str) -> Option<String> {
             .strip_suffix('>')?,
     };
     (split_top(Kind::Swift, inner, b':').len() == 1).then(|| inner.trim().to_owned())
+}
+pub fn swift_dictionary_part(written: &str, member: &str) -> Option<String> {
+    let t = written.trim().trim_end_matches(['?', '!']);
+    let inner = t.strip_prefix('[')?.strip_suffix(']')?;
+    let [key, value] = <[&str; 2]>::try_from(split_top(Kind::Swift, inner, b':')).ok()?;
+    match member {
+        "keys" => Some(key.trim().to_owned()),
+        "values" => Some(value.trim().to_owned()),
+        _ => None,
+    }
 }
 pub fn swift_generics(line: &str) -> Vec<String> {
     static GENERICS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

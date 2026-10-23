@@ -1197,14 +1197,12 @@ pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
 pub fn rust_self_trait(lines: &[&str], line0: usize) -> Option<usize> {
     self_owner(lines, line0).filter(|&i| TRAIT_LINE.is_match(lines[i]))
 }
-pub fn rust_bounds(lines: &[&str], at: usize, param: &str) -> Vec<String> {
+pub fn rust_signature(lines: &[&str], at: usize) -> Option<String> {
     static FN: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\bfn\s+\w+").expect("the regex is a literal"));
-    let Some(f) = (0..=at).rev().take(20).find(|&i| FN.is_match(lines[i])) else {
-        return Vec::new();
-    };
+    let f = (0..=at).rev().take(20).find(|&i| FN.is_match(lines[i]))?;
     if lines[f..at].iter().any(|l| l.contains(['{', ';'])) {
-        return Vec::new();
+        return None;
     }
     let mut sig = String::new();
     for l in &lines[f..] {
@@ -1214,6 +1212,12 @@ pub fn rust_bounds(lines: &[&str], at: usize, param: &str) -> Vec<String> {
             break;
         }
     }
+    Some(sig)
+}
+pub fn rust_bounds(lines: &[&str], at: usize, param: &str) -> Vec<String> {
+    let Some(sig) = rust_signature(lines, at) else {
+        return Vec::new();
+    };
     let Ok(re) = Regex::new(&format!(
         r"(?:<|,|\bwhere)\s*{}\s*:\s*([^,{{>]+)",
         regex::escape(param)

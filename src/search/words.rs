@@ -7,8 +7,8 @@ use super::{
     enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
     julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp, lisp_name,
     literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_impl_type,
-    rust_let_declares, separator, shared_symbols, split_top, symbol_name, ts_declarators,
-    type_name, uncommented, value_of, word_chars,
+    rust_let_declares, separator, shared_symbols, split_top, swift_type_header, symbol_name,
+    ts_declarators, type_name, uncommented, value_of, word_chars,
 };
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
@@ -204,6 +204,11 @@ fn qualified_by_nesting(
         }
         let named = rust_impl_type(l)
             .filter(|_| kind == Kind::Rust)
+            .or_else(|| {
+                swift_type_header(l)
+                    .filter(|h| kind == Kind::Swift && h.keyword == "extension")
+                    .map(|h| h.name)
+            })
             .or_else(|| {
                 EX_MODULE
                     .captures(l)

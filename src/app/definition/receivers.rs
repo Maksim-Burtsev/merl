@@ -229,7 +229,20 @@ impl App {
                 return self.show_found(a, found);
             }
         }
-        false
+        self.answered_by_swift_outside_call(a)
+    }
+
+    fn answered_by_swift_outside_call(&mut self, a: &Asked) -> bool {
+        let answered = a.kind == Kind::Swift
+            && a.dotted
+            && a.chain.is_empty()
+            && a.written
+                .get(..a.start)
+                .is_some_and(|before| self.swift_outside_call(&a.here, &a.text, before, &a.word));
+        if answered {
+            self.message = resolution(&a.word, None, &[], None, false);
+        }
+        answered
     }
 
     fn answered_by_swift_cast(&mut self, a: &Asked) -> bool {
