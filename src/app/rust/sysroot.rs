@@ -40,31 +40,43 @@ static STD_PATH: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 static VARIANT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^((?:\w+::)*[A-Z]\w*)::([A-Z]\w*)\s*\{([^{}]*)\}\s*(?:=>|=[^=]|if\s)")
+    Regex::new(r"^((?:\w+::)*[A-Z]\w*)::([A-Z]\w*)\s*\{([^{}]*)\}\s*")
         .expect("the regex is a literal")
 });
 
-fn rust_variant_binding(line: &str, name: &str) -> Option<(String, String, String)> {
+static PATTERN_END: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(?:=>|=[^=]|if\s)").expect("the regex is a literal"));
+
+fn rust_variant_bindings(line: &str, name: &str) -> Option<Vec<(String, String, String)>> {
     let bare = |s: &str| {
         let s = s.trim();
         let s = s.strip_prefix("ref ").unwrap_or(s).trim_start();
         s.strip_prefix("mut ").unwrap_or(s).trim().to_owned()
     };
     let t = line.trim_start();
-    let t = ["} else if let ", "if let ", "while let ", "let "]
+    let mut t = ["} else if let ", "if let ", "while let ", "let "]
         .iter()
         .find_map(|p| t.strip_prefix(p))
         .unwrap_or(t);
-    let c = VARIANT_PATTERN.captures(t)?;
-    let rest = t.get(c.get(0)?.end()..)?;
+    let mut found = Vec::new();
+    loop {
+        let c = VARIANT_PATTERN.captures(t)?;
+        let field = c[3].split(',').find_map(|p| {
+            let (field, bound) = p.split_once(':').unwrap_or((p, p));
+            (bare(bound) == name).then(|| bare(field))
+        })?;
+        found.push((c[1].to_owned(), c[2].to_owned(), field));
+        t = t.get(c.get(0)?.end()..)?;
+        match t.strip_prefix('|') {
+            Some(next) if !next.starts_with('|') => t = next.trim_start(),
+            _ => break,
+        }
+    }
+    let rest = t.get(PATTERN_END.find(t)?.end()..)?;
     if rest.contains('|') || ["let ", "for ", "=>"].iter().any(|k| rest.contains(k)) {
         return None;
     }
-    let field = c[3].split(',').find_map(|p| {
-        let (field, bound) = p.split_once(':').unwrap_or((p, p));
-        (bare(bound) == name).then(|| bare(field))
-    })?;
-    Some((c[1].to_owned(), c[2].to_owned(), field))
+    Some(found)
 }
 
 pub(super) fn rust_element(written: &str) -> Option<(Option<String>, String)> {
@@ -104,8 +116,12 @@ impl App {
         if let Some(item) = self.rust_for_item(file, text, b.line1 - 1, name) {
             return Some(item);
         }
-        if let Some((owner, variant, field)) = rust_variant_binding(lines[b.line1 - 1], name) {
-            return self.rust_variant_field(file, &owner, &variant, &field, b.line1 - 1);
+        if let Some(alternatives) = rust_variant_bindings(lines[b.line1 - 1], name) {
+            let mut types = alternatives
+                .iter()
+                .map(|(o, v, f)| self.rust_variant_field(file, o, v, f, b.line1 - 1));
+            let first = types.next()??;
+            return types.all(|t| t.as_ref() == Some(&first)).then_some(first);
         }
         let held = search::rust_tuple_element(&lines, b.line1 - 1, name)
             .or_else(|| let_initializer(&lines, b.line1 - 1, name));

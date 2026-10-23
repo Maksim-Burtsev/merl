@@ -1424,3 +1424,43 @@ fn a_variant_field_typed_elsewhere_or_rebound_keeps_master_s_answer() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn an_or_pattern_of_variants_binds_the_field_every_alternative_types_alike() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Glob {\n        glob: Option<String>,\n        err: String,\n    },\n    Parse {\n        err: String,\n    },\n    Wide {\n        err: Glob,\n    },\n    Io(u32),\n}\n\npub fn copy(e: &Error) -> String {\n    match *e {\n        Error::Glob { ref err, .. } | Error::Parse { ref err } => err.clone(),\n        _ => String::new(),\n    }\n}\n\npub fn mixed(e: &Error) -> u32 {\n    match *e {\n        Error::Parse { ref err } | Error::Wide { ref err } => err.len(),\n        Error::Glob { err: ref text, .. } | Error::Io(ref text) => text.len(),\n        _ => 0,\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-variant-or",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-variant-or-std",
+        &[(
+            "lib/rustlib/src/rust/library/alloc/src/string.rs",
+            &format!(
+                "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl Clone for String {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+            ),
+        )],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    d_on(&mut a, "src/lib.rs", "err.clone");
+    let got = match shown(&mut a) {
+        Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+        other @ Shown::Picker(..) => format!("{other:?}"),
+    };
+    assert_eq!(got, "alloc/src/string.rs:11");
+    for code in ["err.len", "text.len"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = shown(&mut a);
+        assert!(
+            matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+            "{code}: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}

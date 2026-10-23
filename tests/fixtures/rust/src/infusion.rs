@@ -274,3 +274,20 @@ pub fn steeped_notes(notes: Vec<String>) -> usize {
     }
     n
 }
+
+pub enum Pour {
+    Hot {
+        note: String,
+    },
+    Iced {
+        note: String,
+        cups: u32,
+    },
+}
+
+pub fn poured_note(pour: &Pour) -> usize {
+    match *pour {
+        Pour::Hot { ref note } | Pour::Iced { ref note, .. } => note.len(),
+        //                                                           ^ d: none
+    }
+}
