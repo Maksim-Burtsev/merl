@@ -634,6 +634,11 @@ comment declaring `gulp` and `finish`. `kind()` is imported under `#[cfg(unix)]`
 `#[cfg(not(unix))]` from two modules: rust-analyzer answers the host's arm, merl offers both.
 Since #1044 `shadow_back_to_leaf` rebinds `leaf` to a `Leaf` through `unwrap`, which keeps its
 jump, and `label_of` holds the `String` a `Leaf` method returns, which `Leaf::len` never answers.
+`brew_note` binds `ref note` in a `Brew::Steeped { .. }` pattern and `steeped_notes` loops `for
+note in &notes` over a `Vec<String>`: both hold a `String`, which `Leaf::len` never answers either.
+`poured_note` binds `ref note` in an or-pattern of two `Pour` variants whose `note` is a `String`
+in each, and `drip_note` binds `ref note` at the `String` place of the tuple variant `Drip::Slow`;
+master jumped to `Leaf::len` on both.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
@@ -689,7 +694,10 @@ says; #1228 asks whether they should jump), a `"Lid"` beside a `lid` (#1224), a 
 parameter named like a column (#1225), and `CREATE`s in a `$$` string inside a `$body$` (#1226)
 and inside a nested block comment (#1227). `steep/grades.sql` names a type like a column of its
 table: after `::`, after `TYPE` and as an added column's type the name is the type, and in a
-`CAST(.. AS ..)` too, while the column itself still jumps to the column.
+`CAST(.. AS ..)` too, while the column itself still jumps to the column. The end of
+`steep/plpgsql.sql` holds `SET` field targets and `MERGE` lists outside plpgsql, a `tins` with a
+column `tins` whose name before `SET tins.seal` is the table, and an UPDATE alias a subquery or a
+CTE's outer query binds again to `urns`.
 
 `jvm/src/main/java/tea/` and `jvm/src/main/kotlin/brew/` are the adversarial corners of #961 for
 Java and Kotlin, each in names of its own so the two do not answer for each other. `tea/` has a

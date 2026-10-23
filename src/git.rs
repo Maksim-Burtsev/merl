@@ -275,7 +275,7 @@ impl Review {
         let (at, note) = if !fetched {
             let at = if has_local { local } else { tracked };
             (at, Some(format!("{remote} not fetched")))
-        } else if has_local && own_commits(&git, b) {
+        } else if has_local && own_commits(&git, &local, &tracked, created) {
             let ahead = git(&["merge-base", "--is-ancestor", &remote, &local]).is_ok();
             let note = (!ahead).then(|| lag(&git, &remote, &local));
             (local, note)
@@ -1001,7 +1001,12 @@ fn checkout(
     if !fetched {
         return Ok(Some(format!("{remote} not fetched")));
     }
-    let current = if own_commits(git, b) {
+    let current = if own_commits(
+        git,
+        &format!("refs/heads/{b}"),
+        &format!("refs/remotes/{remote}"),
+        created,
+    ) {
         git(&["merge-base", "--is-ancestor", &remote, "HEAD"])
     } else {
         git(&["reset", "-q", "--keep", &remote])
@@ -1076,7 +1081,11 @@ fn check_out_folder(
     let folder = common.join(FOLDERS).join(b).join(name);
     let reused =
         folder.join(".git").is_file() && dirs(&folder).is_some_and(|d| d.common_refs_dir == common);
-    let edits = reused && has_edits(&folder);
+    let in_folder = |args: &[&str]| git(&folder, args);
+    let edits = reused
+        && (has_edits(&folder)
+            || (in_folder(&["merge-base", "--is-ancestor", "HEAD", at]).is_err()
+                && own_commits(&in_folder, "HEAD", at, put_by_merl)));
     if reused && !edits {
         for name in package_modules(&folder) {
             if std::fs::read_link(folder.join(&name)).is_ok_and(|l| l == root.join(&name)) {
@@ -1091,9 +1100,8 @@ fn check_out_folder(
         git(root, &["worktree", "add", "-q", "-f", "--detach", path, at])
             .with_context(|| format!("checking out {b}"))?;
     }
-    let git = |args: &[&str]| git(&folder, args);
-    let held = (edits && git(&["merge-base", "--is-ancestor", at, "HEAD"]).is_err())
-        .then(|| lag(&git, remote, "HEAD"));
+    let held = (edits && in_folder(&["merge-base", "--is-ancestor", at, "HEAD"]).is_err())
+        .then(|| lag(&in_folder, remote, "HEAD"));
     if let Some(d) = dirs(&folder) {
         let admin = d.worktree_head_dir.join("merl");
         drop(
@@ -1228,20 +1236,31 @@ pub fn sweep_folders(root: &Path, now: SystemTime) {
     }
 }
 
-fn own_commits(git: &dyn Fn(&[&str]) -> Result<String>, b: &str) -> bool {
-    let (remote, local) = (
-        format!("refs/remotes/origin/{b}"),
-        format!("refs/heads/{b}"),
-    );
-    let tips = git(&["reflog", "--format=%H", &remote]).unwrap_or_default();
-    let log = git(&["reflog", "--format=%H %gs", &local]).unwrap_or_default();
-    let created = log
+fn created(subject: &str) -> bool {
+    subject.starts_with("branch: Created from")
+}
+
+fn put_by_merl(subject: &str) -> bool {
+    subject.is_empty()
+        || (subject.strip_prefix("checkout: moving from "))
+            .is_some_and(|to| to.contains(" to refs/"))
+}
+
+fn own_commits(
+    git: &dyn Fn(&[&str]) -> Result<String>,
+    local: &str,
+    remote: &str,
+    not_own: fn(&str) -> bool,
+) -> bool {
+    let tips = git(&["reflog", "--format=%H", remote]).unwrap_or_default();
+    let log = git(&["reflog", "--format=%H %gs", local]).unwrap_or_default();
+    let placed = log
         .lines()
-        .filter_map(|l| l.split_once(' '))
-        .filter(|(_, subject)| subject.starts_with("branch: Created from"))
+        .map(|l| l.split_once(' ').unwrap_or((l, "")))
+        .filter(|(_, subject)| not_own(subject))
         .map(|(sha, _)| sha);
-    let mut args = vec!["rev-list", "--count", &local, "--not", &remote];
-    args.extend(tips.lines().chain(created));
+    let mut args = vec!["rev-list", "--count", local, "--not", remote];
+    args.extend(tips.lines().chain(placed));
     args.push("--");
     !git(&args).is_ok_and(|n| n == "0")
 }
