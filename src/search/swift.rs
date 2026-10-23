@@ -422,6 +422,28 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
     }
     (links.len() > 1).then_some(links)
 }
+pub fn swift_literal_call(before: &str) -> Option<(String, String)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)\.([A-Za-z_]\w*)$")
+            .expect("the regex is a literal")
+    });
+    static LITERAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^(?:\w+\s*:\s*)?(?:-?\d[\d_.]*|"[^"\\]*"|true|false)$"#)
+            .expect("the regex is a literal")
+    });
+    let rest = before.strip_suffix('.')?;
+    let open = code(Kind::Swift, rest)
+        .filter(|(_, c)| *c == b'(')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
+    let args = rest.get(open + 1..rest.len() - 1)?.trim();
+    let literal = args.is_empty()
+        || split_top(Kind::Swift, args, b',')
+            .iter()
+            .all(|a| LITERAL.is_match(a.trim()));
+    let c = HEAD.captures(rest.get(..open)?).filter(|_| literal)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
+}
 pub fn swift_if_arms(lines: &[&str], line1s: &[usize]) -> bool {
     let directive = |l: usize| {
         let t = lines.get(l - 1)?.trim_start();
