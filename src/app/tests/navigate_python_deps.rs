@@ -597,14 +597,21 @@ fn a_call_outside_types_its_value_by_the_stub_s_return_type() {
                 "app/x.py",
                 "import logging\nfrom logging import getLogger\n\nlog = logging.getLogger(__name__)\nlog.info(\"x\")\nother = getLogger()\nother.info(\"y\")\n\n\ndef shadowed(logging):\n    mine = logging.getLogger()\n    mine.info(\"z\")\n",
             ),
-            ("app/y.py", "class Other:\n    def info(self):\n        pass\n"),
+            (
+                "app/y.py",
+                "class Other:\n    def info(self):\n        pass\n",
+            ),
         ],
     );
     let via = "info \u{2192} Logger.info (via logging.getLogger() -> Logger)";
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&typed));
     d_on(&mut a, "app/x.py", "log.info");
     let place = format!("{}:2", typed.join("logging/__init__.pyi").display());
-    assert_eq!(shown(&mut a), jump(via, &place), "the environment's own stub");
+    assert_eq!(
+        shown(&mut a),
+        jump(via, &place),
+        "the environment's own stub"
+    );
     use_roots(&mut a, Kind::Python, std::slice::from_ref(&untyped));
     let place = format!("{}:6", untyped.join("logging/__init__.py").display());
     d_on(&mut a, "app/x.py", "log.info");
