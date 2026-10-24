@@ -1025,7 +1025,19 @@ fn lag(git: &dyn Fn(&[&str]) -> Result<String>, remote: &str, tip: &str) -> Stri
 
 const FOLDERS: &str = "merl/branches";
 const UNOPENED_FOR: Duration = Duration::from_hours(14 * 24);
-const DEPENDENCIES: [&str; 3] = [".venv", "node_modules", "target"];
+const DEPENDENCIES: [&str; 11] = [
+    ".venv",
+    "node_modules",
+    "target",
+    "vendor",
+    ".build",
+    "Pods",
+    "deps",
+    "_build",
+    "local",
+    ".dart_tool",
+    "Cargo.lock",
+];
 
 fn branch_of_folder(common: &Path, folder: &Path) -> Option<String> {
     let rel = folder.strip_prefix(common.join(FOLDERS)).ok()?.parent()?;
@@ -1111,7 +1123,7 @@ fn check_out_folder(
     #[cfg(unix)]
     for name in dependency_links(&folder) {
         let (mine, there) = (root.join(&name), folder.join(&name));
-        if mine.is_dir() && there.symlink_metadata().is_err() {
+        if mine.exists() && there.symlink_metadata().is_err() {
             drop(std::os::unix::fs::symlink(mine, there));
         }
     }
