@@ -1,6 +1,6 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use tree_sitter::{Node, Point};
+use tree_sitter::{Node, Point, Tree};
 
 use super::{App, TextLine, is_word, next_char, prev_char, shown_str};
 use crate::buffer::PARSE_IDLE_STEP;
@@ -29,9 +29,11 @@ impl App {
             (None, TextLine::File(l)) => Some(((l, self.col), (l, self.col))),
             _ => None,
         };
-        let step = cur
-            .zip(self.buf.fresh_tree())
-            .map(|(cur, tree)| next_step(&self.buf.lines, tree.root_node(), cur));
+        let step = cur.and_then(|cur| {
+            let point = |p: Pos| Point::new(p.0, p.1);
+            let trees = self.buf.trees_around(point(cur.0), point(cur.1));
+            (!trees.is_empty()).then(|| next_step(&self.buf.lines, &trees, cur))
+        });
         match step {
             Some(Some((a, b))) => {
                 self.anchor = Some((TextLine::File(a.0), a.1));
@@ -69,12 +71,11 @@ impl App {
     }
 }
 
-fn next_step(lines: &[String], root: Node, cur: Span) -> Option<Span> {
+fn next_step(lines: &[String], trees: &[Tree], cur: Span) -> Option<Span> {
     let line = |r: usize| shown_str(&lines[r]);
     let len = |r: usize| line(r).len();
     let lead = |r: usize| line(r).len() - line(r).trim_start().len();
     let tail = |r: usize| line(r).trim_end().len();
-    let point = |p: Pos| Point::new(p.0, p.1);
     let last = lines.len() - 1;
     let mut steps = vec![((0, 0), (last, len(last)))];
     let (l, col) = cur.1;
@@ -109,6 +110,49 @@ fn next_step(lines: &[String], root: Node, cur: Span) -> Option<Span> {
             (b, cur.1.1.min(tail(b)).max(lead(b))),
         )
     };
+    let within = |s: Span, e: Span| e.0 <= s.0 && s.1 <= e.1;
+    let extents: Vec<Span> = trees.iter().map(extent).collect();
+    for (tree, &e) in trees.iter().zip(&extents) {
+        let inner: Vec<Span> = extents
+            .iter()
+            .copied()
+            .filter(|&x| x != e && within(x, e))
+            .collect();
+        let mut own = Vec::new();
+        from_tree(lines, tree.root_node(), core, &mut own);
+        steps.extend(
+            own.into_iter()
+                .filter(|&s| !inner.iter().any(|&x| within(s, x))),
+        );
+    }
+    let mut starts = Vec::with_capacity(lines.len());
+    let mut acc = 0;
+    for s in lines {
+        starts.push(acc);
+        acc += s.len() + 1;
+    }
+    let off = |p: Pos| starts[p.0] + p.1;
+    steps
+        .into_iter()
+        .filter(|&(a, b)| a <= cur.0 && cur.1 <= b && (a, b) != cur)
+        .min_by_key(|&(a, b)| (off(b) - off(a), std::cmp::Reverse(off(a))))
+}
+
+fn extent(tree: &Tree) -> Span {
+    let r = tree.included_ranges();
+    let at = |p: Point| (p.row, p.column);
+    match (r.first(), r.last()) {
+        (Some(a), Some(b)) => (at(a.start_point), at(b.end_point)),
+        _ => ((0, 0), (usize::MAX, usize::MAX)),
+    }
+}
+
+fn from_tree(lines: &[String], root: Node, core: Span, steps: &mut Vec<Span>) {
+    let line = |r: usize| shown_str(&lines[r]);
+    let len = |r: usize| line(r).len();
+    let lead = |r: usize| line(r).len() - line(r).trim_start().len();
+    let point = |p: Pos| Point::new(p.0, p.1);
+    let last = lines.len() - 1;
     let end_of = |p: Point| {
         if p.row > last {
             (last, len(last))
@@ -158,17 +202,6 @@ fn next_step(lines: &[String], root: Node, cur: Span) -> Option<Span> {
         }
         node = n.parent();
     }
-    let mut starts = Vec::with_capacity(lines.len());
-    let mut acc = 0;
-    for s in lines {
-        starts.push(acc);
-        acc += s.len() + 1;
-    }
-    let off = |p: Pos| starts[p.0] + p.1;
-    steps
-        .into_iter()
-        .filter(|&(a, b)| a <= cur.0 && cur.1 <= b && (a, b) != cur)
-        .min_by_key(|&(a, b)| (off(b) - off(a), std::cmp::Reverse(off(a))))
 }
 
 fn leaf<'a>(lines: &'a [String], n: Node) -> &'a str {

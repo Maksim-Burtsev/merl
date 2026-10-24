@@ -133,6 +133,11 @@ impl<'a> Doc<'a> {
         out
     }
 
+    fn inside(&self, region: &[Range]) -> bool {
+        region.first().is_some_and(|r| r.start_byte <= self.start)
+            && region.last().is_some_and(|r| self.end <= r.end_byte)
+    }
+
     fn touches(&self, region: &[Range]) -> bool {
         region
             .iter()
@@ -334,6 +339,60 @@ pub fn region_start(injected: &[Injected], row: usize) -> usize {
         .filter(|&(first, last)| first <= row && row <= last)
         .map(|(first, _)| first)
         .fold(row, usize::min)
+}
+
+const HOSTS: [&str; 4] = ["html", "vue", "svelte", "markdown"];
+
+pub fn around(
+    lang: &'static Lang,
+    tree: &Tree,
+    groups: Option<&[Group]>,
+    parser: &mut Parser,
+    doc: &Doc,
+) -> Vec<Tree> {
+    let mut out = vec![tree.clone()];
+    if !HOSTS.contains(&lang.name) {
+        return out;
+    }
+    let grouped = lang.combined.is_some() && groups.is_some();
+    nest(lang, tree, false, grouped, parser, doc, &mut out);
+    for g in groups.into_iter().flatten() {
+        if let Some(t) = g.tree.as_ref().filter(|_| doc.inside(&g.ranges)) {
+            out.push(t.clone());
+            nest(g.lang, t, true, false, parser, doc, &mut out);
+        }
+    }
+    out
+}
+
+fn nest(
+    lang: &'static Lang,
+    tree: &Tree,
+    parent: bool,
+    grouped: bool,
+    parser: &mut Parser,
+    doc: &Doc,
+    out: &mut Vec<Tree>,
+) {
+    if out.len() > MAX_DEPTH || !HOSTS.contains(&lang.name) {
+        return;
+    }
+    let ranges = tree.included_ranges();
+    let clip_to = parent.then_some(&ranges[..]);
+    for inj in injections(lang, tree, clip_to, doc, grouped, true) {
+        let Target::Tree(child) = inj.target else {
+            continue;
+        };
+        if child.name == "markdown_inline" {
+            continue;
+        }
+        for r in inj.regions.iter().filter(|r| doc.inside(r)) {
+            if let Some(t) = parse(parser, child, r, doc.bytes) {
+                out.push(t.clone());
+                nest(child, &t, true, false, parser, doc, out);
+            }
+        }
+    }
 }
 
 fn parse(parser: &mut Parser, lang: &Lang, region: &[Range], bytes: &[u8]) -> Option<Tree> {

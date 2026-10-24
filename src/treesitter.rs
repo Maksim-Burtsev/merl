@@ -967,8 +967,22 @@ impl Parsed {
         self.repaint_from.is_some() || self.regroup.is_some()
     }
 
-    pub fn fresh_tree(&self) -> Option<&Tree> {
-        self.tree.as_ref().filter(|_| self.repaint_from.is_none())
+    pub fn trees_around(&mut self, from: Point, to: Point) -> Vec<Tree> {
+        let Some(tree) = self.tree.as_ref().filter(|_| self.repaint_from.is_none()) else {
+            return Vec::new();
+        };
+        let at = |p: Point| {
+            let row = p.row.min(self.starts.len() - 1);
+            (self.starts[row] + p.column).min(self.text.len())
+        };
+        let doc = layers::Doc::new(self.text.as_bytes(), &self.starts, at(from), at(to));
+        layers::around(
+            self.lang,
+            tree,
+            self.groups.as_deref(),
+            &mut self.inner,
+            &doc,
+        )
     }
 
     pub fn has_tree(&self) -> bool {
