@@ -62,3 +62,27 @@ fn a_split_skips_what_only_looks_like_its_separator() {
     }
     assert_eq!(split_top(Kind::Python, "a = b", b'='), ["a ", " b"]);
 }
+
+#[test]
+fn sql_block_comments_nest_only_in_a_file_written_for_it() {
+    for (text, want) in [
+        (
+            "/* a\n/* b */\nCREATE TABLE ghost (id int);\n*/\nSELECT 1;",
+            vec![2, 3, 4],
+        ),
+        (
+            "/* a /* b */\nCREATE TABLE muffin (id int);\nINSERT INTO muffin VALUES ('*/');",
+            vec![],
+        ),
+        (
+            "/* a /* b */\nCREATE TABLE muffin (id int); -- */\nSELECT 1;",
+            vec![],
+        ),
+        (
+            "SELECT '/*';\n/* a\nCREATE TABLE ghost (id int);\n*/",
+            vec![3, 4],
+        ),
+    ] {
+        assert_eq!(hidden(Kind::Sql, text), want, "{text}");
+    }
+}
