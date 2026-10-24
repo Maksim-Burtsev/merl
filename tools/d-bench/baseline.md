@@ -42,6 +42,7 @@ The rust row with #1044's name bound by an enum variant's struct pattern (`Error
 The sql row with #1239 and #1234 (plpgsql `DECLARE` variables, `RETURNS TABLE` names, a column-only position and `#variable_conflict use_column`): over `bb65cdc14`, 2026-10-22, release build, `vm.loadavg` { 6.18 6.70 5.26 } before the run, { 7.39 6.81 5.43 } after.
 The swift row with #1068's call with only literal arguments on a value from outside the project (`key.prefix(1).uppercased()` in `URLEncodedFormEncoder.KeyEncoding.encode`): over `35f9ac278`, 2026-10-23, release build, `vm.loadavg` { 7.07 8.28 7.10 } before the run.
 The swift row with #1068's sixth pass (an array literal of strings through `extension [String]` in `ParameterEncoder`, a closure's parameter through `DataRequest`'s `Validation` typealias, outside calls with arguments typed from outside): over `8aa66a16b`, 2026-10-24, release build, `vm.loadavg` { 3.53 3.59 3.71 } before the run, { 3.07 3.45 3.64 } after.
+The rust row with #1044's `self.0` of a tuple struct and a project alias of a std type (`self.0.entry` on `LiteralStrategy(fnv::HashMap<..>)`): over `8c2888175`, 2026-10-24, release build, `vm.loadavg` { 7.97 7.78 6.06 } before the run, { 8.45 7.99 6.31 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -49,7 +50,7 @@ The swift row with #1068's sixth pass (an array literal of strings through `exte
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.9 | 93.8 |
 | js (eslint, uptime-kuma) | 217 | 179 (82%) | 31 (14%) | 1 (0%) | 6 (3%) | 177 | 11 | 38.0 | 170.3 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
-| rust (ripgrep) | 231 | 218 (94%) | 11 (5%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.2 | 66.1 |
+| rust (ripgrep) | 231 | 219 (95%) | 10 (4%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.4 | 57.1 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
