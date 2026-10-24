@@ -976,13 +976,7 @@ impl Parsed {
             (self.starts[row] + p.column).min(self.text.len())
         };
         let doc = layers::Doc::new(self.text.as_bytes(), &self.starts, at(from), at(to));
-        layers::around(
-            self.lang,
-            tree,
-            self.groups.as_deref(),
-            &mut self.inner,
-            &doc,
-        )
+        layers::around(self.lang, tree, &mut self.inner, &doc)
     }
 
     pub fn has_tree(&self) -> bool {

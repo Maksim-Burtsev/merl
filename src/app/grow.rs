@@ -122,7 +122,7 @@ fn next_step(lines: &[String], trees: &[Tree], cur: Span) -> Option<Span> {
         from_tree(lines, tree.root_node(), core, &mut own);
         steps.extend(
             own.into_iter()
-                .filter(|&s| !inner.iter().any(|&x| within(s, x))),
+                .filter(|&s| !inner.iter().any(|&x| s != x && within(s, x))),
         );
     }
     let mut starts = Vec::with_capacity(lines.len());

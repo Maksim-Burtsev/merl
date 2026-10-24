@@ -343,25 +343,9 @@ pub fn region_start(injected: &[Injected], row: usize) -> usize {
 
 const HOSTS: [&str; 4] = ["html", "vue", "svelte", "markdown"];
 
-pub fn around(
-    lang: &'static Lang,
-    tree: &Tree,
-    groups: Option<&[Group]>,
-    parser: &mut Parser,
-    doc: &Doc,
-) -> Vec<Tree> {
+pub fn around(lang: &'static Lang, tree: &Tree, parser: &mut Parser, doc: &Doc) -> Vec<Tree> {
     let mut out = vec![tree.clone()];
-    if !HOSTS.contains(&lang.name) {
-        return out;
-    }
-    let grouped = lang.combined.is_some() && groups.is_some();
-    nest(lang, tree, false, grouped, parser, doc, &mut out);
-    for g in groups.into_iter().flatten() {
-        if let Some(t) = g.tree.as_ref().filter(|_| doc.inside(&g.ranges)) {
-            out.push(t.clone());
-            nest(g.lang, t, true, false, parser, doc, &mut out);
-        }
-    }
+    nest(lang, tree, false, parser, doc, &mut out);
     out
 }
 
@@ -369,7 +353,6 @@ fn nest(
     lang: &'static Lang,
     tree: &Tree,
     parent: bool,
-    grouped: bool,
     parser: &mut Parser,
     doc: &Doc,
     out: &mut Vec<Tree>,
@@ -379,7 +362,7 @@ fn nest(
     }
     let ranges = tree.included_ranges();
     let clip_to = parent.then_some(&ranges[..]);
-    for inj in injections(lang, tree, clip_to, doc, grouped, true) {
+    for inj in injections(lang, tree, clip_to, doc, true, true) {
         let Target::Tree(child) = inj.target else {
             continue;
         };
@@ -389,7 +372,7 @@ fn nest(
         for r in inj.regions.iter().filter(|r| doc.inside(r)) {
             if let Some(t) = parse(parser, child, r, doc.bytes) {
                 out.push(t.clone());
-                nest(child, &t, true, false, parser, doc, out);
+                nest(child, &t, true, parser, doc, out);
             }
         }
     }

@@ -236,3 +236,48 @@ fn v_in_markdown_prose_keeps_its_ladder() {
     (a.line, a.col) = (2, 34);
     assert_eq!(presses(&mut a, 'v', 2)[1], text.lines().nth(2).unwrap());
 }
+
+#[test]
+fn v_in_a_script_inside_an_html_fence_walks_both_layers() {
+    let top = "# Page\n\n```html\n<script>\n";
+    let grown = embedded("nested.md", "js", JS, top, "</script>\n```\n", (2, 17));
+    assert_eq!(
+        grown,
+        [
+            format!("<script>\n{JS}</script>"),
+            format!("```html\n<script>\n{JS}</script>\n```"),
+        ]
+    );
+}
+
+#[test]
+fn v_in_a_fence_between_two_html_blocks_still_takes_the_fence() {
+    let top = "<div>\na\n</div>\n\n```js\n";
+    let grown = embedded(
+        "blocks.md",
+        "js",
+        JS,
+        top,
+        "```\n\n<div>\nb\n</div>\n",
+        (2, 17),
+    );
+    assert_eq!(grown[0], format!("```js\n{JS}```"));
+}
+
+#[test]
+fn v_in_an_attribute_keeps_the_inside_of_its_quotes() {
+    let text = "<template>\n  <li v-for=\"item in items\">{{ item }}</li>\n</template>\n";
+    let mut a = code("list.vue", text);
+    (a.line, a.col) = (1, 19);
+    assert_eq!(
+        presses(&mut a, 'v', 3),
+        ["in", "item in items", "\"item in items\""]
+    );
+}
+
+#[test]
+fn v_in_a_file_that_hosts_no_block_keeps_its_ladder() {
+    let mut a = code("regex.py", "x = re.compile(r\"(a[bc])\")\n");
+    a.col = 21;
+    assert_eq!(presses(&mut a, 'v', 3), ["bc", "(a[bc])", "r\"(a[bc])\""]);
+}
