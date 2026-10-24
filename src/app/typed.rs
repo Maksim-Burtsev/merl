@@ -961,7 +961,11 @@ impl App {
         if hidden(kind, file, text, line1, &parts[0]) {
             return None;
         }
-        self.declaration(kind, file, &parts)
+        self.declaration(kind, file, &parts).or_else(|| {
+            (kind == Kind::Python)
+                .then(|| self.outside_callee(file, text, callee))
+                .flatten()
+        })
     }
 
     fn call_type(
@@ -1023,7 +1027,7 @@ impl App {
         };
         let ty = self.annotated_type(kind, &decl.path, &at, 0, &written)?;
         Some(TypeVia {
-            ty,
+            ty: self.runtime_class(ty),
             call_signature: Some(signature),
         })
     }
@@ -1297,7 +1301,7 @@ impl App {
         tagged
     }
 
-    fn returns_of(
+    pub(super) fn returns_of(
         &self,
         kind: Kind,
         file: &Path,

@@ -26,7 +26,7 @@ def names(raw: str, words: list[str]) -> list[str]:
     #            ^ d: none
     #                                         ^ d: none
     log.info("names")
-    #   ^ d: tea/brewer.py:15; want none (#1100)
+    #   ^ d: stdlib/logging/__init__.pyi:140
     return [p.strip() for p in parts]
     #         ^ d: none
 
