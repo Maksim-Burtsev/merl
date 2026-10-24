@@ -87,6 +87,9 @@ pub fn sql_local(text: &str, at: usize, word: &str) -> (Vec<usize>, bool) {
         None => (Vec::new(), false),
         Some(found) if !found.is_empty() => (found.into_iter().map(line1).collect(), false),
         Some(_) => {
+            if let Some(n) = sql_named_here(&code, at, word) {
+                return (vec![line1(n)], false);
+            }
             let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
                 return (Vec::new(), false);
             };
@@ -115,6 +118,151 @@ pub fn sql_local(text: &str, at: usize, word: &str) -> (Vec<usize>, bool) {
             )
         }
     }
+}
+
+fn sql_named_here(code: &str, at: usize, word: &str) -> Option<usize> {
+    let (stmt, rel) = sql_statement(code, at)?;
+    let r = sql_query_region(stmt, rel);
+    let region = stmt.get(r.clone())?;
+    let here = rel - r.start;
+    let (before, after) = (region.get(..here)?, region.get(here + word.len()..)?);
+    let found = sql_window_name(region, before, word)
+        .or_else(|| sql_order_alias(region, before, after, word))
+        .or_else(|| sql_list_column(region, here, word))
+        .map(|n| r.start + n)
+        .or_else(|| sql_cte_column(stmt, &r, rel, word))?;
+    (found != rel).then_some(at - rel + found)
+}
+
+fn sql_top(region: &str, i: usize) -> bool {
+    region.get(..i).is_some_and(|t| sql_level(t) == 0)
+}
+
+fn sql_name(word: &str) -> String {
+    let w = regex::escape(word);
+    format!(r#"(?:"{w}"|\b{w}\b)"#)
+}
+
+fn sql_window_name(region: &str, before: &str, word: &str) -> Option<usize> {
+    let over = Regex::new(r"(?i)\bOVER\s*(?:\(\s*)?$").expect("a valid pattern");
+    if !over.is_match(before) {
+        return None;
+    }
+    let window = Regex::new(r"(?i)\bWINDOW\s").expect("a valid pattern");
+    let from = window
+        .find_iter(region)
+        .find(|m| sql_top(region, m.start()))?
+        .start();
+    let named = Regex::new(&format!(
+        r"(?i)(?:\bWINDOW|,)\s*({})\s+AS\s*\(",
+        sql_name(word)
+    ))
+    .expect("an escaped name keeps it valid");
+    named
+        .captures_iter(region.get(from..)?)
+        .filter_map(|c| c.get(1))
+        .map(|m| from + m.start())
+        .find(|&n| sql_top(region, n))
+}
+
+fn sql_order_alias(region: &str, before: &str, after: &str, word: &str) -> Option<usize> {
+    let order = Regex::new(r"(?i)\bORDER\s+BY\b").expect("a valid pattern");
+    let ends = Regex::new(r"(?i)^\s*(?:$|[,;)]|(?:ASC|DESC|NULLS|LIMIT|OFFSET|FETCH|FOR)\b)")
+        .expect("a valid pattern");
+    let by = order
+        .find_iter(before)
+        .filter(|m| sql_top(region, m.start()))
+        .last()?;
+    let tail = before.get(by.end()..)?.trim_end();
+    let bare = (tail.is_empty() || tail.ends_with(',')) && sql_depth(tail) == Some(0);
+    if !bare || !sql_top(region, before.len()) || !ends.is_match(after) {
+        return None;
+    }
+    sql_output_name(region, word)
+}
+
+fn sql_output_name(query: &str, word: &str) -> Option<usize> {
+    let select = Regex::new(
+        r"(?i)\bSELECT(?:\s+ALL\b|\s+DISTINCT(?:\s+ON\s*\([^()]*\))?)?(?:\s+TOP\s*(?:\([^()]*\)|\w+)(?:\s+PERCENT\b)?)?",
+    )
+        .expect("a valid pattern");
+    let clause = Regex::new(
+        r"(?i)\b(?:FROM|INTO|WHERE|GROUP|HAVING|WINDOW|ORDER|LIMIT|OFFSET|FETCH|UNION|INTERSECT|EXCEPT)\b",
+    )
+    .expect("a valid pattern");
+    let from = select
+        .find_iter(query)
+        .find(|m| sql_top(query, m.start()))?
+        .end();
+    let to = clause
+        .find_iter(query.get(from..)?)
+        .map(|m| from + m.start())
+        .find(|&n| sql_top(query, n))
+        .unwrap_or(query.len());
+    let list = query.get(from..to)?;
+    let alias = Regex::new(&format!(
+        r#"(?i)(?:\bAS|([\w)'"]+))\s+({})\s*(?:,|$)"#,
+        sql_name(word)
+    ))
+    .expect("an escaped name keeps it valid");
+    alias
+        .captures_iter(list)
+        .filter(|c| {
+            c.get(1)
+                .is_none_or(|e| !SQL_EXPR_LEAD.contains(&e.as_str().to_ascii_lowercase().as_str()))
+        })
+        .filter_map(|c| c.get(2))
+        .map(|m| from + m.start())
+        .find(|&n| sql_top(query, n))
+}
+
+fn sql_list_column(region: &str, at: usize, word: &str) -> Option<usize> {
+    let name = Regex::new(&format!(r"^(?:.*,)?\s*({})\s*(?:,|$)", sql_name(word)))
+        .expect("an escaped name keeps it valid");
+    sql_from_items(region)
+        .into_iter()
+        .filter(|(t, _)| sql_top(region, t.start))
+        .find_map(|(_, a)| {
+            let a = a?;
+            let rest = region.get(a.end..)?;
+            let open = a.end + rest.len() - rest.trim_start().strip_prefix('(')?.len();
+            let close = open + region.get(open..)?.find(')')?;
+            let list = region.get(open..close)?;
+            let n = open + name.captures(list)?.get(1)?.start();
+            (!(open..close).contains(&at)).then_some(n)
+        })
+}
+
+fn sql_cte_column(stmt: &str, r: &std::ops::Range<usize>, at: usize, word: &str) -> Option<usize> {
+    let region = stmt.get(r.clone())?;
+    let name = Regex::new(&format!(r"^(?:.*,)?\s*({})\s*(?:,|$)", sql_name(word)))
+        .expect("an escaped name keeps it valid");
+    let mut found = sql_from_items(region)
+        .into_iter()
+        .filter(|(t, _)| sql_top(region, t.start))
+        .filter_map(|(t, _)| {
+            let table = region.get(t)?.trim_matches('"');
+            let head = Regex::new(&format!(
+                r"(?i)(?:\bWITH\s+(?:RECURSIVE\s+)?|,)\s*{}(?:\s*\(([^()]*)\))?\s+AS(?:\s+(?:NOT\s+)?MATERIALIZED)?\s*\(",
+                sql_name(table)
+            ))
+            .ok()?;
+            let seen = |c: &regex::Captures| {
+                c.get(0)
+                    .is_some_and(|m| sql_query_region(stmt, m.start()).contains(&at))
+            };
+            let c = head.captures_iter(stmt).find(seen)?;
+            let body = sql_query_region(stmt, c.get(0)?.end());
+            if body.contains(&at) {
+                return None;
+            }
+            if let Some(list) = c.get(1) {
+                return Some(list.start() + name.captures(list.as_str())?.get(1)?.start());
+            }
+            Some(body.start + sql_output_name(stmt.get(body)?, word)?)
+        });
+    let first = found.next();
+    found.next().is_none().then_some(first).flatten()
 }
 
 fn sql_statement(code: &str, at: usize) -> Option<(&str, usize)> {
