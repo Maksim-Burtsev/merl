@@ -829,3 +829,18 @@ fn a_library_s_file_d_reaches_opens_read_only() {
     assert_eq!(a.buf.readonly, Some("outside the project"));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_library_s_file_opens_read_only_from_the_command_line() {
+    let (dir, a) = libraries_app("lib-cli");
+    let file = dir.join("node_modules/lib.js");
+    let b = App::new(
+        dir.clone(),
+        a.tree,
+        a.files,
+        Buffer::load(&file).unwrap(),
+        None,
+    );
+    assert_eq!(b.buf.readonly, Some("outside the project"));
+    std::fs::remove_dir_all(dir).unwrap();
+}

@@ -79,7 +79,7 @@ impl App {
         true
     }
 
-    fn lock_unwritable(&self, buf: &mut Buffer) {
+    pub(super) fn lock_unwritable(&self, buf: &mut Buffer) {
         let Some(path) = buf.path.as_deref() else {
             return;
         };
