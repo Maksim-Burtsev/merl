@@ -225,6 +225,13 @@ impl App {
     }
 
     pub fn paste(&mut self, text: &str) {
+        if self
+            .tutor
+            .as_ref()
+            .is_some_and(crate::tutor::Tutor::card_up)
+        {
+            return;
+        }
         let text = text.replace("\r\n", "\n").replace('\r', "\n");
         let line = text.lines().next().unwrap_or_default();
         if self.mode == Mode::Edit && self.on_deleted() {

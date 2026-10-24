@@ -520,10 +520,12 @@ mod tests {
         begin(&mut a).unwrap();
         let up = |a: &App| a.tutor.as_ref().unwrap().card_up();
         let before = state(&a);
-        press(&mut a, "o<Esc>q<C-e>?");
+        press(&mut a, "o<Esc><C-e>?");
+        assert!(!a.key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)));
         assert!(up(&a) && a.picker.is_none(), "{}", state(&a));
         assert_eq!(state(&a), before);
         press(&mut a, "<Enter>");
+        assert!(matches!(a.tutor.as_ref().unwrap().card, Card::Sliding(_)));
         assert!(!up(&a) && a.mode == Mode::Normal, "{}", state(&a));
         press(&mut a, "i");
         assert!(up(&a), "i brings the card back");
@@ -537,6 +539,52 @@ mod tests {
         press(&mut a, "o");
         assert!(a.picker.is_some(), "the done screen has no card");
         std::fs::remove_dir_all(dir("card")).unwrap();
+    }
+
+    #[test]
+    fn a_paste_does_nothing_while_the_card_is_up() {
+        let mut a = app("card-paste", (80, 24));
+        a.tutor.as_mut().unwrap().step = 0;
+        a.tutor.as_mut().unwrap().card = Card::Up;
+        begin(&mut a).unwrap();
+        a.open_files_picker();
+        a.paste("cli");
+        assert_eq!(a.picker.as_ref().unwrap().query.cursor(), 0);
+        a.tutor.as_mut().unwrap().card = Card::Down;
+        a.paste("cli");
+        assert_eq!(a.picker.as_ref().unwrap().query.cursor(), 3);
+        std::fs::remove_dir_all(dir("card-paste")).unwrap();
+    }
+
+    #[test]
+    fn a_slide_that_has_ended_turns_into_the_box_once() {
+        let mut t = Tutor {
+            step: 0,
+            dir: PathBuf::new(),
+            drill: None,
+            card: Card::Sliding(Instant::now()),
+        };
+        assert!(t.tick() && matches!(t.card, Card::Sliding(_)));
+        t.card = Card::Sliding(Instant::now().checked_sub(SLIDE).unwrap());
+        assert!(t.tick(), "the frame the slide ends on is drawn");
+        assert_eq!(t.card, Card::Down);
+        assert!(!t.tick());
+        t.card = Card::Up;
+        assert!(!t.tick());
+    }
+
+    #[test]
+    fn the_drill_has_no_card() {
+        let mut a = app("card-drill", (80, 24));
+        let drill = Drill::new(3, None, None, crate::stats::utc_today()).unwrap();
+        let t = a.tutor.as_mut().unwrap();
+        (t.step, t.drill, t.card) = (0, Some(drill), Card::Up);
+        assert!(!t.card_up());
+        assert!(!card_key(
+            &mut a,
+            KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE)
+        ));
+        std::fs::remove_dir_all(dir("card-drill")).unwrap();
     }
 
     #[test]

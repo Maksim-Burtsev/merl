@@ -744,6 +744,48 @@ fn review_panel_puts_a_nested_file_counts_at_the_border() {
 }
 
 #[test]
+fn the_card_slides_from_the_middle_into_the_box() {
+    use crate::tutor::{Card, SLIDE, Tutor};
+    use std::time::{Duration, Instant};
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::empty(),
+        None,
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    let mut frame = |app: &mut App, card: Card| {
+        app.tutor = Some(Tutor {
+            step: 0,
+            dir: PathBuf::from("/demo"),
+            drill: None,
+            card,
+        });
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let top = rows(&terminal)
+            .iter()
+            .position(|l| l.contains("\u{256d} Tutor 1/"))
+            .unwrap();
+        (terminal.backend().buffer().clone(), top)
+    };
+    let (_, middle) = frame(&mut app, Card::Up);
+    let (boxed, bottom) = frame(&mut app, Card::Down);
+    let half = Instant::now().checked_sub(SLIDE / 2).unwrap();
+    let (_, sliding) = frame(&mut app, Card::Sliding(half));
+    assert!(
+        middle < sliding && sliding < bottom,
+        "{middle} < {sliding} < {bottom}"
+    );
+    let over = Instant::now()
+        .checked_sub(SLIDE + Duration::from_millis(1))
+        .unwrap();
+    let (ended, _) = frame(&mut app, Card::Sliding(over));
+    assert_eq!(ended, boxed, "the slide ends on the box, the code undimmed");
+}
+
+#[test]
 fn overlays_leave_the_tutor_panel_in_sight() {
     let files = ["src/app.rs", "src/wrap.rs"].map(PathBuf::from).to_vec();
     let mut app = App::new(

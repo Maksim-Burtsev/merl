@@ -46,7 +46,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let lesson_h = panel
         .as_ref()
         .filter(|_| !up)
-        .map_or(0, |p| p.height(theme, base, false, area.width).max(3));
+        .map_or(0, |p| p.height(theme, base, false, area.width));
     let [main, lesson, status] = Layout::vertical([
         Constraint::Min(1),
         Constraint::Length(lesson_h),
