@@ -47,7 +47,7 @@ SELECT "Lid", lid FROM "Kettle";
 --      ^ d: steep/schema.sql:17
 --            ^ d: steep/schema.sql:18
 SELECT * FROM phantoms, mirages;
---            ^ d: steep/schema.sql:28; want none (#1227)
+--            ^ d: none
 --                      ^ d: none
 SELECT id, nothere FROM cozies;
 --     ^ d: steep/schema.sql:3
@@ -65,3 +65,8 @@ SELECT LID, "lid", k."Lid" FROM "Kettle" k;
 --     ^ d: steep/schema.sql:18
 --           ^ d: steep/schema.sql:18
 --                    ^ d: steep/schema.sql:17
+SELECT * FROM crumbs, scones;
+--            ^ d: steep/seed.mysql:3
+--                    ^ d: steep/dump.sql:3
+SELECT lid FROM /* A block comment nests: /* this one closes first */ "Kettle", */ samovars;
+--     ^ d: none

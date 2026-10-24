@@ -246,6 +246,7 @@ struct Scanner<'a> {
     in_verbatim_string: bool,
     in_raw_string: bool,
     nested_comments: usize,
+    nests: bool,
     heredoc: Option<Heredoc>,
     php_heredoc_quote: u8,
     ruby_heredocs_from_next_line: Vec<Heredoc>,
@@ -277,6 +278,7 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         in_verbatim_string: false,
         in_raw_string: false,
         nested_comments: 0,
+        nests: kind == Kind::Dart || (kind == Kind::Sql && super::sql::sql_nests(text)),
         heredoc: None,
         php_heredoc_quote: b'"',
         ruby_heredocs_from_next_line: Vec::new(),
@@ -463,7 +465,7 @@ impl<'a> Scanner<'a> {
                     || b[i - 1] != b'\\')
         };
         let skip = end.len().saturating_sub(1);
-        let nests = kind == Kind::Dart && *end == *b"*/";
+        let nests = self.nests && *end == *b"*/";
         if nests && b[i..].starts_with(b"/*") {
             self.nested_comments += 1;
             self.i += 1;

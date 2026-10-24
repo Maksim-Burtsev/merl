@@ -258,16 +258,54 @@ pub(super) fn sql_string_end(b: &[u8], open: usize) -> Option<usize> {
     None
 }
 
+pub(super) fn sql_nests(text: &str) -> bool {
+    sql_lex(text, true).2
+}
+
+fn sql_comment_end(rest: &[u8], nests: bool) -> Option<usize> {
+    let (mut depth, mut i) = (0_usize, 0);
+    while i + 1 < rest.len() {
+        match &rest[i..i + 2] {
+            b"/*" if nests || depth == 0 => {
+                depth += 1;
+                i += 2;
+            }
+            b"*/" => {
+                depth -= 1;
+                i += 2;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => i += 1,
+        }
+    }
+    None
+}
+
 fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
+    let (code, bodies, nested) = sql_lex(text, true);
+    if nested {
+        (code, bodies)
+    } else {
+        let (code, bodies, _) = sql_lex(text, false);
+        (code, bodies)
+    }
+}
+
+fn sql_lex(text: &str, nests: bool) -> (String, Vec<std::ops::Range<usize>>, bool) {
     let tag = Regex::new(r"^\$(?:[A-Za-z_]\w*)?\$").expect("a valid pattern");
     let (b, mut out) = (text.as_bytes(), text.as_bytes().to_vec());
     let (mut bodies, mut open, mut i) = (Vec::new(), None::<(usize, &str)>, 0);
+    let mut closed = true;
     while i < b.len() {
         let rest = text.get(i..).unwrap_or_default();
         let skip = match b[i] {
             b'-' if rest.starts_with("--") => rest.find('\n'),
             b'/' if rest.starts_with("/*") => {
-                rest.get(2..).and_then(|r| r.find("*/")).map(|n| n + 4)
+                let end = sql_comment_end(rest.as_bytes(), nests);
+                closed &= end.is_some();
+                end
             }
             b'\'' => sql_string_end(b, i).map(|end| end - i),
             b'"' => {
@@ -306,7 +344,7 @@ fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
             .for_each(|c| *c = b' ');
         i = end;
     }
-    (String::from_utf8_lossy(&out).into_owned(), bodies)
+    (String::from_utf8_lossy(&out).into_owned(), bodies, closed)
 }
 
 fn sql_parameter(
