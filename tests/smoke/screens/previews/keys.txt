@@ -1,5 +1,7 @@
+Ctrl+End
 Esc
 Picker: Enter
+d
 o
 p
 q

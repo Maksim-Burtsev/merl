@@ -1,0 +1,57 @@
+wait A links.md
+┌orders──────────────────────┐1 # Links
+│▸ .github                   │2
+│▸ .venv                     │3 <!-- for the editors: keep this page short -->
+│▸ app                       │4
+│▸ data                      │5 The API answers at https://api.example.com/v2/orders, with a token.
+│▸ deploy                    │6
+│▾ docs                      │7 What changed: [the 1.7.0 notes](notes.md#170).
+│    architecture.png        │
+│  A links.md                │
+│    notes.md                │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+docs/links.md  1:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 32,0,0
