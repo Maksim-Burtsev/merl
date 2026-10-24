@@ -42,6 +42,7 @@ The rust row with #1044's name bound by an enum variant's struct pattern (`Error
 The sql row with #1239 and #1234 (plpgsql `DECLARE` variables, `RETURNS TABLE` names, a column-only position and `#variable_conflict use_column`): over `bb65cdc14`, 2026-10-22, release build, `vm.loadavg` { 6.18 6.70 5.26 } before the run, { 7.39 6.81 5.43 } after.
 The swift row with #1068's call with only literal arguments on a value from outside the project (`key.prefix(1).uppercased()` in `URLEncodedFormEncoder.KeyEncoding.encode`): over `35f9ac278`, 2026-10-23, release build, `vm.loadavg` { 7.07 8.28 7.10 } before the run.
 The swift row with #1068's sixth pass (an array literal of strings through `extension [String]` in `ParameterEncoder`, a closure's parameter through `DataRequest`'s `Validation` typealias, outside calls with arguments typed from outside): over `8aa66a16b`, 2026-10-24, release build, `vm.loadavg` { 3.53 3.59 3.71 } before the run, { 3.07 3.45 3.64 } after.
+The swift row with #1068's seventh pass (an optional chain off a field typed by a protocol, `delegate?.sessionConfiguration` in `Request.cURLDescription`): over `c7b6ad64c`, 2026-10-25, release build, `vm.loadavg` { 13.96 13.55 12.65 } before the run, { 13.80 13.52 12.65 } after (the times read high under that load).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -53,7 +54,7 @@ The swift row with #1068's sixth pass (an array literal of strings through `exte
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 16 | 18.9 | 45.0 |
+| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 15 | 21.4 | 47.7 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |
