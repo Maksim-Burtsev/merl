@@ -42,12 +42,13 @@ The rust row with #1044's name bound by an enum variant's struct pattern (`Error
 The sql row with #1239 and #1234 (plpgsql `DECLARE` variables, `RETURNS TABLE` names, a column-only position and `#variable_conflict use_column`): over `bb65cdc14`, 2026-10-22, release build, `vm.loadavg` { 6.18 6.70 5.26 } before the run, { 7.39 6.81 5.43 } after.
 The swift row with #1068's call with only literal arguments on a value from outside the project (`key.prefix(1).uppercased()` in `URLEncodedFormEncoder.KeyEncoding.encode`): over `35f9ac278`, 2026-10-23, release build, `vm.loadavg` { 7.07 8.28 7.10 } before the run.
 The swift row with #1068's sixth pass (an array literal of strings through `extension [String]` in `ParameterEncoder`, a closure's parameter through `DataRequest`'s `Validation` typealias, outside calls with arguments typed from outside): over `8aa66a16b`, 2026-10-24, release build, `vm.loadavg` { 3.53 3.59 3.71 } before the run, { 3.07 3.45 3.64 } after.
+The ts and js rows with #1249 (a member of a local returned under a JSDoc object type, `ts0092` marked `skip`): over `02ccdaa7c`, 2026-10-25, release build, `vm.loadavg` { 16.84 12.93 12.30 } before the run, { 12.47 13.26 12.58 } after (the times read high under that load).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 257 | 229 (89%) | 15 (6%) | 0 (0%) | 13 (5%) | 68 | 11 | 20.8 | 324.9 |
-| ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.9 | 93.8 |
-| js (eslint, uptime-kuma) | 217 | 179 (82%) | 31 (14%) | 1 (0%) | 6 (3%) | 177 | 11 | 38.0 | 170.3 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 48.2 | 115.7 |
+| js (eslint, uptime-kuma) | 217 | 180 (83%) | 31 (14%) | 0 (0%) | 6 (3%) | 177 | 11 | 39.6 | 184.4 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
 | rust (ripgrep) | 231 | 218 (94%) | 11 (5%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.2 | 66.1 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
