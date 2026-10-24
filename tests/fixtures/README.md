@@ -642,7 +642,11 @@ note in &notes` over a `Vec<String>`: both hold a `String`, which `Leaf::len` ne
 `poured_note` binds `ref note` in an or-pattern of two `Pour` variants whose `note` is a `String`
 in each, and `drip_note` binds `ref note` at the `String` place of the tuple variant `Drip::Slow`;
 master jumped to `Leaf::len` on both. `kettle_note` binds `ref note` in `Kettle::Hot { .. }`, a
-variant written on one line, where master jumped to `Leaf::len` too.
+variant written on one line, where master jumped to `Leaf::len` too. `Canister` is a tuple struct:
+`self.0` holds `leaves::Kettle`, a project alias of `Vec<u32>` named like the enum `Kettle`, so
+its `len` is `Vec`'s, where master jumped to `Leaf::len`, and `self.1` holds a `Leaf`.
+`poured_split` is `poured_note`'s or-pattern split over two lines, the second led by `|`, where
+master jumped to `Leaf::len`.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

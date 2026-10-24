@@ -3,8 +3,8 @@ use std::sync::LazyLock;
 use super::chain::{let_initializer, opening, trailing_name};
 use super::returns;
 use super::{
-    App, Candidate, HashMap, Hit, Kind, Path, Reason, Regex, Typing, bound, rust_bare_type,
-    rust_written_type, search,
+    App, Candidate, HashMap, Hit, InCrate, Kind, MacroUse, Path, Reason, Regex, Typing, bound,
+    declares_mod, rust_bare_type, rust_written_type, search,
 };
 
 static SLICE_IMPL: LazyLock<Regex> = LazyLock::new(|| {
@@ -98,6 +98,41 @@ fn rust_variant_bindings(line: &str, name: &str) -> Option<Vec<(String, String, 
     Some(found)
 }
 
+fn pattern_lines(lines: &[&str], at: usize) -> String {
+    let mut start = at;
+    while let Some(above) = start.checked_sub(1).map(|i| lines[i].trim_end()) {
+        let led = lines[start].trim_start().starts_with('|')
+            && !(above.ends_with(['{', ',']) || above.trim_start() == "}" || above.contains("=>"));
+        if !(led || above.ends_with('|') && !above.ends_with("||")) {
+            break;
+        }
+        start -= 1;
+    }
+    let joined = lines[start..=at]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    match joined.strip_prefix('|') {
+        Some(rest) if start < at => rest.trim_start().to_owned(),
+        _ => joined,
+    }
+}
+
+pub(super) fn tuple_element(decl: &str, name: &str, index: &str) -> Option<String> {
+    static ELEMENT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:pub(?:\([^)]*\))?\s+)?([^#]+)$").expect("the regex is a literal")
+    });
+    let tuple = Regex::new(&format!(
+        r"^\s*(?:pub(?:\([^)]*\))?\s+)?struct\s+{}\s*(?:<.*>)?\s*\((.*)\)\s*;\s*$",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let inner = tuple.captures(decl)?.get(1)?.as_str();
+    let part = *returns::top_level(inner).get(index.parse::<usize>().ok()?)?;
+    Some(ELEMENT.captures(part)?[1].trim().to_owned())
+}
+
 pub(super) fn rust_element(written: &str) -> Option<(Option<String>, String)> {
     let c = INDEXED.captures(written.trim())?;
     let (container, args, stop) = match c.get(1) {
@@ -135,7 +170,8 @@ impl App {
         if let Some(item) = self.rust_for_item(file, text, b.line1 - 1, name) {
             return Some(item);
         }
-        if let Some(alternatives) = rust_variant_bindings(lines[b.line1 - 1], name) {
+        if let Some(alternatives) = rust_variant_bindings(&pattern_lines(&lines, b.line1 - 1), name)
+        {
             let mut types = alternatives
                 .iter()
                 .map(|(o, v, f)| self.rust_variant_field(file, o, v, f, b.line1 - 1));
@@ -240,6 +276,64 @@ impl App {
             .iter()
             .find_map(|l| named.captures(l).map(|c| c[1].to_owned()))?;
         std_typed(&written)
+    }
+
+    pub(super) fn rust_std_typed(&self, file: &Path, written: &str) -> Option<(String, String)> {
+        let text = self.text_of(file)?;
+        let Some(c) = STD_PATH.captures(written.trim()) else {
+            return Some((text, rust_bare_type(written)?));
+        };
+        let mut path: Vec<String> = c[1]
+            .split("::")
+            .filter(|p| !p.is_empty())
+            .map(str::to_owned)
+            .collect();
+        if let Some(full) = path
+            .first()
+            .and_then(|f| bound(&search::imports(Kind::Rust, &text), f))
+        {
+            path.splice(..1, full);
+        }
+        if path
+            .first()
+            .is_none_or(|f| matches!(f.as_str(), "std" | "core" | "alloc"))
+        {
+            return Some((text, c[2].to_owned()));
+        }
+        path.push(c[2].to_owned());
+        let (root, rest) = match path[0].as_str() {
+            "crate" | "self" | "super" => (path[0].as_str(), &path[1..]),
+            first if declares_mod(&text, first) => ("self", &path[..]),
+            _ => return None,
+        };
+        let (krate, module) = self.rust_own_crate(file, root, rest)?;
+        let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
+        let InCrate {
+            hits, proven: true, ..
+        } = self.rust_in_crate(&krate, &module, &rest, MacroUse::NotMacro, 0)?
+        else {
+            return None;
+        };
+        let [alias] = <[Hit; 1]>::try_from(hits).ok()?;
+        let named = Regex::new(&format!(
+            r"^\s*(?:pub(?:\([^)]*\))?\s+)?type\s+{}\b",
+            regex::escape(&c[2])
+        ))
+        .ok()?;
+        if !named.is_match(&alias.text) {
+            return None;
+        }
+        let owner = self.text_of(&alias.path)?;
+        let statement = owner
+            .lines()
+            .skip(alias.line1 - 1)
+            .take(4)
+            .collect::<Vec<_>>()
+            .join(" ");
+        let (_, target) = statement.split_once(';')?.0.split_once('=')?;
+        let t = STD_PATH.captures(target.trim())?;
+        let std = matches!(t[1].split("::").next(), Some("" | "std" | "core" | "alloc"));
+        std.then(|| (owner, t[2].to_owned()))
     }
 
     pub(in crate::app) fn rust_array_call(

@@ -1477,6 +1477,46 @@ fn an_or_pattern_of_variants_binds_the_field_every_alternative_types_alike() {
 }
 
 #[test]
+fn an_or_pattern_split_over_lines_binds_the_field_as_on_one_line() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Glob {\n        glob: Option<String>,\n        err: String,\n    },\n    Parse {\n        err: String,\n    },\n    Wide {\n        err: Glob,\n    },\n}\n\npub fn lead(e: &Error) -> String {\n    match *e {\n        Error::Glob { err: ref one, .. }\n        | Error::Parse { err: ref one } => one.clone(),\n        _ => String::new(),\n    }\n}\n\npub fn trail(e: &Error) -> String {\n    match *e {\n        Error::Glob { err: ref two, .. } |\n        Error::Parse { err: ref two } => two.clone(),\n        _ => String::new(),\n    }\n}\n\npub fn block(e: &Error) -> String {\n    match *e {\n        Error::Glob { err: ref three, .. }\n        | Error::Parse { err: ref three } => {\n            three.clone()\n        }\n        _ => String::new(),\n    }\n}\n\npub fn mixed(e: &Error) -> u32 {\n    match *e {\n        Error::Parse { err: ref four }\n        | Error::Wide { err: ref four } => four.len(),\n        _ => 0,\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-variant-or-lines",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-variant-or-lines-std",
+        &[(
+            "lib/rustlib/src/rust/library/alloc/src/string.rs",
+            &format!(
+                "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl Clone for String {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+            ),
+        )],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for code in ["one.clone", "two.clone", "three.clone"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, "alloc/src/string.rs:11", "{code}");
+    }
+    d_on(&mut a, "src/lib.rs", "four.len");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+        "{got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
 fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
     let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Io(String),\n    Pair(u32, Vec<(u8, u8)>, String),\n    Num(Glob),\n    Line { cups: Vec<(u8, u8)>, note: String },\n    Flat { flat: Glob },\n}\n\npub fn copy(e: &Error) -> String {\n    match *e {\n        Error::Io(ref err) => err.clone(),\n        Error::Line { ref note, .. } => note.clone(),\n        Error::Pair(_, _, ref s) | Error::Io(ref s) => s.clone(),\n        Error::Num(ref g) => g.clone().to_string(),\n    }\n}\n\npub fn size(e: &Error) -> u32 {\n    if let Error::Pair(n, ref pairs, ref text) = *e {\n        return n + text.len() as u32;\n    }\n    match *e {\n        Error::Num(ref g) => g.len(),\n        Error::Flat { ref flat } => flat.len(),\n        Error::Pair(.., ref tail) => tail.len() as u32,\n        Error::Pair(_, ref p) => p.len() as u32,\n        _ => 0,\n    }\n}\n";
@@ -1578,6 +1618,69 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
         let got = shown(&mut a);
         assert!(
             matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+            "{code}: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_tuple_field_of_self_is_typed_and_a_project_alias_of_std_s_is_std_s() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "mod fnv;\n\npub struct Cache;\n\nimpl Cache {\n    pub fn entry(&self, _: u32) {}\n}\n\nstruct Lit(fnv::HashMap<u32, u32>);\n\nimpl Lit {\n    fn add(&mut self) {\n        self.0.entry(1);\n    }\n}\n\nstruct Dep(hashbrown::HashMap<u32, u32>);\n\nimpl Dep {\n    fn add(&mut self) {\n        self.0.entry(2);\n    }\n}\n\nstruct Named {\n    m: hashbrown::HashMap<u32, u32>,\n}\n\nimpl Named {\n    fn add(&mut self) {\n        self.m.entry(3);\n    }\n}\n\nstruct Own(pub Cache, u32);\n\nimpl Own {\n    fn add(&self) {\n        self.0.entry(4);\n    }\n}\n\nstruct Other(fnv::Map<u32, u32>);\n\nimpl Other {\n    fn add(&mut self) {\n        self.0.entry(5);\n    }\n}\n\nstruct Pair(u32, std::collections::HashMap<u32, u32>);\n\nimpl Pair {\n    fn add(&mut self) {\n        self.1.entry(6);\n    }\n}\n\nstruct Wrap<T>(T);\n\nimpl<T> Wrap<T> {\n    fn add(&self) {\n        self.0.entry(7);\n    }\n}\n\nstruct Full(crate::fnv::HashMap<u32, u32>);\n\nimpl Full {\n    fn add(&mut self) {\n        self.0.entry(8);\n    }\n}\n\nuse std::collections;\n\nstruct Coll(collections::HashMap<u32, u32>);\n\nimpl Coll {\n    fn add(&mut self) {\n        self.0.entry(9);\n    }\n}\n";
+    let fnv = "pub(crate) type HashMap<K, V> =\n    std::collections::HashMap<K, V, std::hash::BuildHasherDefault<Hasher>>;\n\npub(crate) type Map<K, V> = hashbrown::HashMap<K, V>;\n\npub(crate) struct Hasher(u64);\n";
+    let bare = "use hashbrown::HashMap;\n\nstruct Bare(HashMap<u32, u32>);\n\nimpl Bare {\n    fn add(&mut self) {\n        self.0.entry(10);\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-tuple-alias",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+            ("src/fnv.rs", fnv),
+            ("src/bare.rs", bare),
+        ],
+    );
+    let std = external_root(
+        "rust-tuple-alias-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            ("lib/rustlib/src/rust/library/alloc/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/std/src/collections/hash/map.rs",
+                &format!(
+                    "pub struct HashMap<K, V, S>;\n\nimpl<K, V, S> HashMap<K, V, S> {{\n{stable}    pub fn entry(&mut self, key: K) -> Entry<'_, K, V> {{\n        todo!()\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    let map = "std/src/collections/hash/map.rs:5";
+    for (code, want) in [
+        ("entry|(1)", map),
+        ("entry|(4)", "src/lib.rs:6"),
+        ("entry|(6)", map),
+        ("entry|(8)", map),
+        ("entry|(9)", map),
+    ] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, want, "{code}");
+    }
+    for (file, code) in [
+        ("src/lib.rs", "entry|(2)"),
+        ("src/lib.rs", "entry|(3)"),
+        ("src/lib.rs", "entry|(5)"),
+        ("src/lib.rs", "entry|(7)"),
+        ("src/bare.rs", "entry|(10)"),
+    ] {
+        d_on(&mut a, file, code);
+        let got = shown(&mut a);
+        assert!(
+            matches!(&got, Shown::Picker(s, rows) if s.contains("2 declarations") && rows.len() == 2),
             "{code}: {got:?}"
         );
     }

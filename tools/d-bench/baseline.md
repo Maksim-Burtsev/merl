@@ -44,6 +44,7 @@ The swift row with #1068's call with only literal arguments on a value from outs
 The swift row with #1068's sixth pass (an array literal of strings through `extension [String]` in `ParameterEncoder`, a closure's parameter through `DataRequest`'s `Validation` typealias, outside calls with arguments typed from outside): over `8aa66a16b`, 2026-10-24, release build, `vm.loadavg` { 3.53 3.59 3.71 } before the run, { 3.07 3.45 3.64 } after.
 The swift row with #1068's seventh pass (an optional chain off a field typed by a protocol, `delegate?.sessionConfiguration` in `Request.cURLDescription`): over `c7b6ad64c`, 2026-10-25, release build, `vm.loadavg` { 13.96 13.55 12.65 } before the run, { 13.80 13.52 12.65 } after (the times read high under that load).
 The cpp row with #1248 (a constructor or destructor defined in its class stays on itself): over `02ccdaa7c`, 2026-10-24, release build, `vm.loadavg` { 8.80 8.03 6.30 } before the run.
+The rust row with #1044's `self.0` of a tuple struct and a project alias of a std type (`self.0.entry` on `LiteralStrategy(fnv::HashMap<..>)`): over `8c2888175`, 2026-10-24, release build, `vm.loadavg` { 7.97 7.78 6.06 } before the run, { 8.45 7.99 6.31 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -51,7 +52,7 @@ The cpp row with #1248 (a constructor or destructor defined in its class stays o
 | ts (outline) | 122 | 116 (95%) | 3 (2%) | 1 (1%) | 2 (2%) | 178 | 4 | 42.9 | 93.8 |
 | js (eslint, uptime-kuma) | 217 | 179 (82%) | 31 (14%) | 1 (0%) | 6 (3%) | 177 | 11 | 38.0 | 170.3 |
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
-| rust (ripgrep) | 231 | 218 (94%) | 11 (5%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.2 | 66.1 |
+| rust (ripgrep) | 231 | 219 (95%) | 10 (4%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.4 | 57.1 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 12 | 22.4 | 74.0 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
