@@ -522,7 +522,9 @@ impl App {
         aside: &mut Option<String>,
     ) -> Option<Vec<Hit>> {
         let word = &a.word;
-        if search::cpp_constructor_defined_in_class(&a.text, self.line + 1, a.range.start, word) {
+        if a.tail.trim_start().starts_with('(')
+            && search::cpp_constructor_defined_in_class(&a.text, self.line + 1, a.range.start, word)
+        {
             return Some(vec![self.own_hit(a)]);
         }
         let (before, after) = (a.before.trim_end(), a.tail.as_str());
