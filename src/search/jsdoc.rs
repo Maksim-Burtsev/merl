@@ -149,8 +149,8 @@ pub fn js_assigned_calls(text: &str, decl_line1: usize, name: &str) -> Option<Ve
     let n = regex::escape(name);
     let bare = Regex::new(&format!(r"^\s*(?:let|var)\s+{n}\s*;?\s*$")).ok()?;
     let assigned = Regex::new(&format!(r"^\s*{n}\s*=([^=].*)$")).ok()?;
-    let call = Regex::new(r"^\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(")
-        .ok()?;
+    let call =
+        Regex::new(r"^\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(").ok()?;
     let lines: Vec<&str> = text.lines().collect();
     let decl = lines.get(decl_line1.checked_sub(1)?)?;
     if !bare.is_match(decl) {
