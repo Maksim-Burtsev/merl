@@ -10,6 +10,9 @@ impl App {
         let note = review.note.take();
         self.viewed_branch = review.branch_name().map(str::to_owned);
         self.review = Some(review);
+        if let Some(link) = (self.buf.path.as_deref()).and_then(|p| self.reviewed_link(p)) {
+            self.buf = link;
+        }
         self.refresh_diff();
         self.load_viewed();
         let marks_failed =
@@ -459,10 +462,13 @@ impl App {
     }
 
     fn disk_hash(&self, rel: &Path) -> u64 {
-        std::fs::read(self.root.join(rel)).map_or(0, |bytes| {
-            let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
-            bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv)
-        })
+        let path = self.root.join(rel);
+        let link = self.reviewed_link(&path).map(|b| b.to_bytes());
+        link.map_or_else(|| std::fs::read(&path), Ok)
+            .map_or(0, |bytes| {
+                let fnv = |h: u64, &b: &u8| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3);
+                bytes.iter().fold(0xcbf2_9ce4_8422_2325, fnv)
+            })
     }
 
     fn recheck_viewed(&mut self) -> bool {
@@ -615,7 +621,10 @@ impl App {
         let shown = rel.clone().filter(|_| self.folded_here().is_none());
         self.review = Some(fresh);
         self.refresh_tree(crate::tree::from_listing(&paths));
-        if stale {
+        let link_now = (self.buf.path.as_deref()).is_some_and(|p| self.reviewed_link(p).is_some());
+        if stale && link_now != self.shows_a_link() {
+            self.reload(true);
+        } else if stale {
             self.refresh_diff();
         }
         if switched {

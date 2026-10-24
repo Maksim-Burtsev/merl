@@ -789,19 +789,30 @@ fn resolve(target: Option<&str>) -> Result<Opened> {
     if !path.is_file() {
         anyhow::bail!("{}: not a regular file", path.display());
     }
-    let path = path
+    let real = path
         .canonicalize()
         .with_context(|| format!("{}", path.display()))?;
-    let dir = path
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .to_path_buf();
-    let (project_root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
-    Ok(Opened {
-        project_root,
-        shallow,
-        file: Some(path),
-        at: line,
+    let opened = |file: PathBuf| {
+        let dir = file
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        let (project_root, shallow) = git_toplevel(&dir).map_or((dir, true), |top| (top, false));
+        Opened {
+            project_root,
+            shallow,
+            file: Some(file),
+            at: line,
+        }
+    };
+    let named = (std::path::absolute(&path).ok())
+        .filter(|_| path.is_symlink())
+        .and_then(|p| Some(p.parent()?.canonicalize().ok()?.join(p.file_name()?)))
+        .map(opened);
+    let real = opened(real);
+    Ok(match named {
+        Some(o) if o.project_root == real.project_root => o,
+        _ => real,
     })
 }
 
@@ -1111,6 +1122,63 @@ mod tests {
             let ev = Event::new(EventKind::Modify(ModifyKind::Any)).add_path(path.clone());
             assert_eq!(super::concerns_open_file(&app, &ev), want, "{path:?}");
         }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_link_inside_the_project_opens_under_its_own_name_and_reloads_with_its_file() {
+        use notify::{Event, EventKind, event::ModifyKind};
+        let dir = std::env::temp_dir().join(format!("merl-link-in-{}", std::process::id()));
+        drop(std::fs::remove_dir_all(&dir));
+        std::fs::create_dir_all(dir.join("proj/.git")).unwrap();
+        std::fs::create_dir_all(dir.join("team-rules")).unwrap();
+        std::fs::write(dir.join("proj/AGENTS.md"), "x\n").unwrap();
+        std::fs::write(dir.join("team-rules/AGENTS.md"), "x\n").unwrap();
+        std::os::unix::fs::symlink("AGENTS.md", dir.join("proj/CLAUDE.md")).unwrap();
+        std::os::unix::fs::symlink("../team-rules/AGENTS.md", dir.join("proj/team.md")).unwrap();
+        std::fs::create_dir_all(dir.join("proj/vendor/.git")).unwrap();
+        std::fs::write(dir.join("proj/vendor/AGENTS.md"), "x\n").unwrap();
+        std::os::unix::fs::symlink("vendor/AGENTS.md", dir.join("proj/vendor.md")).unwrap();
+        let real = dir.canonicalize().unwrap();
+        let opened = |name: &str| {
+            let o = super::resolve(dir.join(name).to_str()).unwrap();
+            (o.project_root, o.file.unwrap())
+        };
+        assert_eq!(
+            opened("proj/CLAUDE.md"),
+            (real.join("proj"), real.join("proj/CLAUDE.md")),
+            "merl CLAUDE.md says CLAUDE.md (#767)"
+        );
+        assert_eq!(
+            opened("proj/team.md"),
+            (real.join("team-rules"), real.join("team-rules/AGENTS.md")),
+            "a link out of the project opens as before"
+        );
+        assert_eq!(
+            opened("proj/vendor.md"),
+            (real.join("proj/vendor"), real.join("proj/vendor/AGENTS.md")),
+            "so does a link into a repository nested in the project"
+        );
+        let case_blind = dir.join("proj/agents.md").exists();
+        assert!(
+            !case_blind || opened("proj/agents.md").1 == real.join("proj/AGENTS.md"),
+            "a file that is no link opens under its name on disk"
+        );
+        let buf = crate::buffer::Buffer::load(&real.join("proj/CLAUDE.md")).unwrap();
+        let app = crate::app::App::new(
+            real.join("proj"),
+            crate::tree::Tree::default(),
+            Vec::new(),
+            buf,
+            None,
+        );
+        let ev =
+            Event::new(EventKind::Modify(ModifyKind::Any)).add_path(real.join("proj/AGENTS.md"));
+        assert!(
+            super::concerns_open_file(&app, &ev),
+            "AGENTS.md changing reloads CLAUDE.md"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

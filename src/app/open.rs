@@ -4,6 +4,8 @@ use super::{
 };
 use crate::real::canonicalize;
 
+const A_LINK: &str = "a link";
+
 impl App {
     pub(super) fn reveal(&mut self, path: &Path) {
         if let Ok(rel) = path.strip_prefix(&self.root) {
@@ -124,7 +126,23 @@ impl App {
             buf.readonly = Some("deleted in this branch");
             return Ok(buf);
         }
-        Buffer::load(path)
+        match self.reviewed_link(path) {
+            Some(link) => Ok(link),
+            None => Buffer::load(path),
+        }
+    }
+
+    pub(super) fn reviewed_link(&self, path: &Path) -> Option<Buffer> {
+        let rel = path.strip_prefix(&self.root).ok()?;
+        (self.review.as_ref()?.file(rel)).filter(|f| !f.untracked)?;
+        let to = std::fs::read_link(path).ok()?;
+        let mut buf = Buffer::from_bytes(path.to_path_buf(), to.to_string_lossy().as_bytes());
+        buf.readonly = Some(A_LINK);
+        Some(buf)
+    }
+
+    pub(super) fn shows_a_link(&self) -> bool {
+        self.buf.readonly == Some(A_LINK)
     }
 
     pub(super) fn refresh_diff(&mut self) {
@@ -186,7 +204,9 @@ impl App {
         let Some(path) = self.buf.path.clone() else {
             return false;
         };
-        let Ok(bytes) = std::fs::read(&path) else {
+        let link = self.reviewed_link(&path);
+        let read = (link.as_ref()).map_or_else(|| std::fs::read(&path), |b| Ok(b.to_bytes()));
+        let Ok(bytes) = read else {
             if force {
                 (self.dirty, self.conflict) = (false, false);
             }
@@ -202,7 +222,7 @@ impl App {
                 return true;
             }
         }
-        let mut buf = Buffer::from_bytes(path.clone(), &bytes);
+        let mut buf = link.unwrap_or_else(|| Buffer::from_bytes(path.clone(), &bytes));
         self.lock_unwritable(&mut buf);
         let reading = self.deleted.map(|(_, i)| (self.line_str().to_owned(), i));
         let old = std::mem::replace(&mut self.buf, buf);
