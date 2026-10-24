@@ -17,7 +17,17 @@ impl App {
         let mut fallbacks = Vec::new();
         let mut aside = None;
         let hits = if kind == Kind::C && !a.dotted && !a.before.ends_with("->") {
-            let Some(hits) = self.c_hits(a, near, hits, &mut fallbacks, &mut aside) else {
+            let own = search::cpp_constructor_defined_in_class(
+                &a.text,
+                self.line + 1,
+                a.range.start,
+                &a.word,
+            );
+            let Some(hits) = (if own {
+                Some(vec![self.own_hit(a)])
+            } else {
+                self.c_hits(a, near, hits, &mut fallbacks, &mut aside)
+            }) else {
                 return;
             };
             hits
