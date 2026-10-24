@@ -43,6 +43,7 @@ The sql row with #1239 and #1234 (plpgsql `DECLARE` variables, `RETURNS TABLE` n
 The swift row with #1068's call with only literal arguments on a value from outside the project (`key.prefix(1).uppercased()` in `URLEncodedFormEncoder.KeyEncoding.encode`): over `35f9ac278`, 2026-10-23, release build, `vm.loadavg` { 7.07 8.28 7.10 } before the run.
 The swift row with #1068's sixth pass (an array literal of strings through `extension [String]` in `ParameterEncoder`, a closure's parameter through `DataRequest`'s `Validation` typealias, outside calls with arguments typed from outside): over `8aa66a16b`, 2026-10-24, release build, `vm.loadavg` { 3.53 3.59 3.71 } before the run, { 3.07 3.45 3.64 } after.
 The swift row with #1068's seventh pass (an optional chain off a field typed by a protocol, `delegate?.sessionConfiguration` in `Request.cURLDescription`): over `c7b6ad64c`, 2026-10-25, release build, `vm.loadavg` { 13.96 13.55 12.65 } before the run, { 13.80 13.52 12.65 } after (the times read high under that load).
+The cpp row with #1248 (a constructor or destructor defined in its class stays on itself): over `02ccdaa7c`, 2026-10-24, release build, `vm.loadavg` { 8.80 8.03 6.30 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -52,7 +53,7 @@ The swift row with #1068's seventh pass (an optional chain off a field typed by 
 | go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
 | rust (ripgrep) | 231 | 218 (94%) | 11 (5%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.2 | 66.1 |
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
-| cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 15 | 19.2 | 70.7 |
+| cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 12 | 22.4 | 74.0 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
 | swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 15 | 21.4 | 47.7 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
