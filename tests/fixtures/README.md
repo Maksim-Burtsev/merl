@@ -642,6 +642,8 @@ master jumped to `Leaf::len` on both. `kettle_note` binds `ref note` in `Kettle:
 variant written on one line, where master jumped to `Leaf::len` too. `Canister` is a tuple struct:
 `self.0` holds `leaves::Kettle`, a project alias of `Vec<u32>` named like the enum `Kettle`, so
 its `len` is `Vec`'s, where master jumped to `Leaf::len`, and `self.1` holds a `Leaf`.
+`poured_split` is `poured_note`'s or-pattern split over two lines, the second led by `|`, where
+master jumped to `Leaf::len`.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

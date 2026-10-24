@@ -325,3 +325,11 @@ impl Canister {
         //                    ^ d: src/infusion/leaves.rs:13
     }
 }
+
+pub fn poured_split(pour: &Pour) -> usize {
+    match *pour {
+        Pour::Hot { ref note }
+        | Pour::Iced { ref note, .. } => note.len(),
+        //                                    ^ d: none
+    }
+}

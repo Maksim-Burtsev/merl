@@ -1477,6 +1477,46 @@ fn an_or_pattern_of_variants_binds_the_field_every_alternative_types_alike() {
 }
 
 #[test]
+fn an_or_pattern_split_over_lines_binds_the_field_as_on_one_line() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Glob {\n        glob: Option<String>,\n        err: String,\n    },\n    Parse {\n        err: String,\n    },\n    Wide {\n        err: Glob,\n    },\n}\n\npub fn lead(e: &Error) -> String {\n    match *e {\n        Error::Glob { err: ref one, .. }\n        | Error::Parse { err: ref one } => one.clone(),\n        _ => String::new(),\n    }\n}\n\npub fn trail(e: &Error) -> String {\n    match *e {\n        Error::Glob { err: ref two, .. } |\n        Error::Parse { err: ref two } => two.clone(),\n        _ => String::new(),\n    }\n}\n\npub fn block(e: &Error) -> String {\n    match *e {\n        Error::Glob { err: ref three, .. }\n        | Error::Parse { err: ref three } => {\n            three.clone()\n        }\n        _ => String::new(),\n    }\n}\n\npub fn mixed(e: &Error) -> u32 {\n    match *e {\n        Error::Parse { err: ref four }\n        | Error::Wide { err: ref four } => four.len(),\n        _ => 0,\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-variant-or-lines",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-variant-or-lines-std",
+        &[(
+            "lib/rustlib/src/rust/library/alloc/src/string.rs",
+            &format!(
+                "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl Clone for String {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+            ),
+        )],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for code in ["one.clone", "two.clone", "three.clone"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, "alloc/src/string.rs:11", "{code}");
+    }
+    d_on(&mut a, "src/lib.rs", "four.len");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+        "{got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
 fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
     let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub enum Error {\n    Io(String),\n    Pair(u32, Vec<(u8, u8)>, String),\n    Num(Glob),\n    Line { cups: Vec<(u8, u8)>, note: String },\n    Flat { flat: Glob },\n}\n\npub fn copy(e: &Error) -> String {\n    match *e {\n        Error::Io(ref err) => err.clone(),\n        Error::Line { ref note, .. } => note.clone(),\n        Error::Pair(_, _, ref s) | Error::Io(ref s) => s.clone(),\n        Error::Num(ref g) => g.clone().to_string(),\n    }\n}\n\npub fn size(e: &Error) -> u32 {\n    if let Error::Pair(n, ref pairs, ref text) = *e {\n        return n + text.len() as u32;\n    }\n    match *e {\n        Error::Num(ref g) => g.len(),\n        Error::Flat { ref flat } => flat.len(),\n        Error::Pair(.., ref tail) => tail.len() as u32,\n        Error::Pair(_, ref p) => p.len() as u32,\n        _ => 0,\n    }\n}\n";

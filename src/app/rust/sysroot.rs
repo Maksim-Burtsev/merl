@@ -98,6 +98,27 @@ fn rust_variant_bindings(line: &str, name: &str) -> Option<Vec<(String, String, 
     Some(found)
 }
 
+fn pattern_lines(lines: &[&str], at: usize) -> String {
+    let mut start = at;
+    while let Some(above) = start.checked_sub(1).map(|i| lines[i].trim_end()) {
+        let led = lines[start].trim_start().starts_with('|')
+            && !(above.ends_with(['{', ',']) || above.trim_start() == "}" || above.contains("=>"));
+        if !(led || above.ends_with('|') && !above.ends_with("||")) {
+            break;
+        }
+        start -= 1;
+    }
+    let joined = lines[start..=at]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    match joined.strip_prefix('|') {
+        Some(rest) if start < at => rest.trim_start().to_owned(),
+        _ => joined,
+    }
+}
+
 pub(super) fn tuple_element(decl: &str, name: &str, index: &str) -> Option<String> {
     static ELEMENT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^(?:pub(?:\([^)]*\))?\s+)?([^#]+)$").expect("the regex is a literal")
@@ -149,7 +170,8 @@ impl App {
         if let Some(item) = self.rust_for_item(file, text, b.line1 - 1, name) {
             return Some(item);
         }
-        if let Some(alternatives) = rust_variant_bindings(lines[b.line1 - 1], name) {
+        if let Some(alternatives) = rust_variant_bindings(&pattern_lines(&lines, b.line1 - 1), name)
+        {
             let mut types = alternatives
                 .iter()
                 .map(|(o, v, f)| self.rust_variant_field(file, o, v, f, b.line1 - 1));
