@@ -37,6 +37,14 @@ fn tree_on(a: &App, path: &str) -> bool {
             .is_some_and(|n| n.path.as_os_str() == path)
 }
 
+fn tree_rows(a: &App, from: &str) -> Option<(usize, usize)> {
+    let vis = a.tree.visible();
+    let row = |p: &dyn Fn(usize) -> bool| vis.iter().position(|&i| p(i));
+    let at = row(&|i| i == a.tree.cursor)?;
+    let from = row(&|i| a.tree.nodes[i].path.as_os_str() == from)?;
+    (a.focus == Focus::Tree && a.show_tree).then_some((at, from))
+}
+
 fn folder_open(a: &App, path: &str) -> bool {
     a.tree
         .nodes
@@ -703,6 +711,92 @@ pub const POOL: &[Task] = &[
         keys: "t<Tab><Up>",
         answer: "<Right>",
         done: |a| tree_on(a, "tests") && folder_open(a, "tests"),
+    },
+    Task {
+        key: "Tree: PgDn",
+        title: "A page down the tree",
+        tutor: "In the tree, PgDn moves the cursor a page down, as it does in the code. Press it.",
+        drill: "Move the tree's cursor a whole page down.",
+        start: Some(("cli.py", 1, "")),
+        keys: "t<Tab>",
+        answer: "<PgDn>",
+        done: |a| tree_rows(a, "cli.py").is_some_and(|(at, from)| at >= from + 2),
+    },
+    Task {
+        key: "Tree: PgUp",
+        title: "A page up the tree",
+        tutor: "In the tree, PgUp moves the cursor a page up, as it does in the code. Press it.",
+        drill: "Move the tree's cursor a whole page up.",
+        start: Some(("store.py", 1, "")),
+        keys: "t<Tab>",
+        answer: "<PgUp>",
+        done: |a| tree_rows(a, "store.py").is_some_and(|(at, from)| at + 2 <= from),
+    },
+    Task {
+        key: "Tree: Ctrl+D",
+        title: "Half a page down the tree",
+        tutor: "In the tree, Ctrl+D moves the cursor half a page down, as it does in the code. \
+                Press it.",
+        drill: "Move the tree's cursor half a page down.",
+        start: Some(("cli.py", 1, "")),
+        keys: "t<Tab>",
+        answer: "<C-d>",
+        done: |a| tree_rows(a, "cli.py").is_some_and(|(at, from)| at >= from + 2),
+    },
+    Task {
+        key: "Tree: Ctrl+U",
+        title: "Half a page up the tree",
+        tutor: "In the tree, Ctrl+U moves the cursor half a page up, as it does in the code. \
+                Press it.",
+        drill: "Move the tree's cursor half a page up.",
+        start: Some(("store.py", 1, "")),
+        keys: "t<Tab>",
+        answer: "<C-u>",
+        done: |a| tree_rows(a, "store.py").is_some_and(|(at, from)| at + 2 <= from),
+    },
+    Task {
+        key: "Tree: Home",
+        title: "The tree's first row",
+        tutor: "In the tree, Home goes to the first row, with Ctrl or without. Press it to reach \
+                the `tests` folder.",
+        drill: "Move the tree's cursor to its first row.",
+        start: Some(("store.py", 1, "")),
+        keys: "t<Tab>",
+        answer: "<Home>",
+        done: |a| tree_on(a, "tests"),
+    },
+    Task {
+        key: "Tree: End",
+        title: "The tree's last row",
+        tutor: "In the tree, End goes to the last row, with Ctrl or without. Press it to reach \
+                store.py.",
+        drill: "Move the tree's cursor to its last row.",
+        start: Some(("cli.py", 1, "")),
+        keys: "t<Tab>",
+        answer: "<End>",
+        done: |a| tree_on(a, "store.py"),
+    },
+    Task {
+        key: "Tree: {",
+        title: "Up to a folder",
+        tutor: "In the tree, `{` goes up to the previous folder, as it goes up a paragraph in the \
+                code. Press it to reach the `tests` folder.",
+        drill: "Move the tree's cursor up to the folder above it, in one key.",
+        start: Some(("store.py", 1, "")),
+        keys: "t<Tab>",
+        answer: "{",
+        done: |a| tree_on(a, "tests"),
+    },
+    Task {
+        key: "Tree: }",
+        title: "Down to a folder",
+        tutor: "In the tree, `}` goes down to the next folder, and past the last one to the last \
+                row. No folder is below `tests`: press `}` to reach store.py.",
+        drill: "Move the tree's cursor down past the last folder, in one key.",
+        start: Some((TEST_FILE, 1, "")),
+        keys: "t<Tab><Up>",
+        answer: "}",
+        done: |a| tree_on(a, "store.py"),
     },
     Task {
         key: "Picker: Up",

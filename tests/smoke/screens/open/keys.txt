@@ -11,11 +11,19 @@ Picker: PgDn
 Picker: PgUp
 Picker: Up
 Tab
+Tree: Ctrl+D
+Tree: Ctrl+U
 Tree: Down
+Tree: End
 Tree: Enter
+Tree: Home
 Tree: Left
+Tree: PgDn
+Tree: PgUp
 Tree: Right
 Tree: Up
+Tree: {
+Tree: }
 n
 o
 p

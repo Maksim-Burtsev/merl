@@ -441,7 +441,7 @@ impl Tree {
         self.nodes.get(self.cursor)
     }
 
-    fn move_by(&mut self, delta: isize) {
+    pub fn move_by(&mut self, delta: isize) {
         let vis = self.visible();
         let Some(at) = vis.iter().position(|&i| i == self.cursor) else {
             self.cursor = vis.first().copied().unwrap_or(0);

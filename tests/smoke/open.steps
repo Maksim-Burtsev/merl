@@ -54,8 +54,8 @@ wait ▸ data
 key Up Enter
 wait app/uow.py  1:1  [code]
 key ?
-wait This help
-key Down Up Down Down Down Down Down Down
+wait Switch focus between tree and code
+key Down Up Down Down Down Down Down Down Down Down Down Down
 wait Close an overlay, leave edit mode
 key Escape o
 type notes.md
@@ -79,3 +79,14 @@ key o
 wait recently opened
 key Enter
 wait app/uow.py  1:1
+# With the focus in the tree, the keys that move up and down move the tree (#889): from uow.py `}`
+# goes to the next folder row, data, then deploy, and `{` back to data, which Right opens; Ctrl+D
+# goes half a page down, to the last row here, README.md, and Enter opens it; Ctrl+U, PgUp and
+# PgDn page, Shift+End goes to the last row as End does, Ctrl+Home to the first row, .github,
+# and Enter unfolds it.
+key Tab } } { Right
+wait refunds-2026-08.csv
+key C-d Enter
+wait README.md  1:1
+key Tab C-u PgUp PgDn S-End C-Home Enter
+wait ▸ workflows

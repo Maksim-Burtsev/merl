@@ -208,10 +208,6 @@ impl App {
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let plain = key.modifiers.is_empty();
-        let tree = matches!(
-            key.code,
-            KeyCode::Up | KeyCode::Down | KeyCode::Left | KeyCode::Right | KeyCode::Enter
-        );
         if self.review.is_some() && matches!(key.code, KeyCode::Char('c' | 'C')) {
             self.toggle_preview();
             return false;
@@ -222,7 +218,7 @@ impl App {
             KeyCode::Char(c) => "q?:sDotT[]cCmp".contains(c),
             _ => false,
         };
-        if elsewhere || tree && self.focus == Focus::Tree {
+        if elsewhere || self.focus == Focus::Tree && super::tree::moves_the_tree(key) {
             return false;
         }
         if self.buf.path.as_deref().is_some_and(crate::picture::is_svg) {
