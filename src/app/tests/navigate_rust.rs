@@ -1588,14 +1588,16 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
 #[test]
 fn a_tuple_field_of_self_is_typed_and_a_project_alias_of_std_s_is_std_s() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "mod fnv;\n\npub struct Cache;\n\nimpl Cache {\n    pub fn entry(&self, _: u32) {}\n}\n\nstruct Lit(fnv::HashMap<u32, u32>);\n\nimpl Lit {\n    fn add(&mut self) {\n        self.0.entry(1);\n    }\n}\n\nstruct Dep(hashbrown::HashMap<u32, u32>);\n\nimpl Dep {\n    fn add(&mut self) {\n        self.0.entry(2);\n    }\n}\n\nstruct Named {\n    m: hashbrown::HashMap<u32, u32>,\n}\n\nimpl Named {\n    fn add(&mut self) {\n        self.m.entry(3);\n    }\n}\n\nstruct Own(pub Cache, u32);\n\nimpl Own {\n    fn add(&self) {\n        self.0.entry(4);\n    }\n}\n\nstruct Other(fnv::Map<u32, u32>);\n\nimpl Other {\n    fn add(&mut self) {\n        self.0.entry(5);\n    }\n}\n\nstruct Pair(u32, std::collections::HashMap<u32, u32>);\n\nimpl Pair {\n    fn add(&mut self) {\n        self.1.entry(6);\n    }\n}\n\nstruct Wrap<T>(T);\n\nimpl<T> Wrap<T> {\n    fn add(&self) {\n        self.0.entry(7);\n    }\n}\n\nstruct Full(crate::fnv::HashMap<u32, u32>);\n\nimpl Full {\n    fn add(&mut self) {\n        self.0.entry(8);\n    }\n}\n";
+    let lib = "mod fnv;\n\npub struct Cache;\n\nimpl Cache {\n    pub fn entry(&self, _: u32) {}\n}\n\nstruct Lit(fnv::HashMap<u32, u32>);\n\nimpl Lit {\n    fn add(&mut self) {\n        self.0.entry(1);\n    }\n}\n\nstruct Dep(hashbrown::HashMap<u32, u32>);\n\nimpl Dep {\n    fn add(&mut self) {\n        self.0.entry(2);\n    }\n}\n\nstruct Named {\n    m: hashbrown::HashMap<u32, u32>,\n}\n\nimpl Named {\n    fn add(&mut self) {\n        self.m.entry(3);\n    }\n}\n\nstruct Own(pub Cache, u32);\n\nimpl Own {\n    fn add(&self) {\n        self.0.entry(4);\n    }\n}\n\nstruct Other(fnv::Map<u32, u32>);\n\nimpl Other {\n    fn add(&mut self) {\n        self.0.entry(5);\n    }\n}\n\nstruct Pair(u32, std::collections::HashMap<u32, u32>);\n\nimpl Pair {\n    fn add(&mut self) {\n        self.1.entry(6);\n    }\n}\n\nstruct Wrap<T>(T);\n\nimpl<T> Wrap<T> {\n    fn add(&self) {\n        self.0.entry(7);\n    }\n}\n\nstruct Full(crate::fnv::HashMap<u32, u32>);\n\nimpl Full {\n    fn add(&mut self) {\n        self.0.entry(8);\n    }\n}\n\nuse std::collections;\n\nstruct Coll(collections::HashMap<u32, u32>);\n\nimpl Coll {\n    fn add(&mut self) {\n        self.0.entry(9);\n    }\n}\n";
     let fnv = "pub(crate) type HashMap<K, V> =\n    std::collections::HashMap<K, V, std::hash::BuildHasherDefault<Hasher>>;\n\npub(crate) type Map<K, V> = hashbrown::HashMap<K, V>;\n\npub(crate) struct Hasher(u64);\n";
+    let bare = "use hashbrown::HashMap;\n\nstruct Bare(HashMap<u32, u32>);\n\nimpl Bare {\n    fn add(&mut self) {\n        self.0.entry(10);\n    }\n}\n";
     let (dir, mut a) = project_app(
         "rust-tuple-alias",
         &[
             ("Cargo.toml", "[package]\nname = \"m\"\n"),
             ("src/lib.rs", lib),
             ("src/fnv.rs", fnv),
+            ("src/bare.rs", bare),
         ],
     );
     let std = external_root(
@@ -1619,6 +1621,7 @@ fn a_tuple_field_of_self_is_typed_and_a_project_alias_of_std_s_is_std_s() {
         ("entry|(4)", "src/lib.rs:6"),
         ("entry|(6)", map),
         ("entry|(8)", map),
+        ("entry|(9)", map),
     ] {
         d_on(&mut a, "src/lib.rs", code);
         let got = match shown(&mut a) {
@@ -1627,8 +1630,14 @@ fn a_tuple_field_of_self_is_typed_and_a_project_alias_of_std_s_is_std_s() {
         };
         assert_eq!(got, want, "{code}");
     }
-    for code in ["entry|(2)", "entry|(3)", "entry|(5)", "entry|(7)"] {
-        d_on(&mut a, "src/lib.rs", code);
+    for (file, code) in [
+        ("src/lib.rs", "entry|(2)"),
+        ("src/lib.rs", "entry|(3)"),
+        ("src/lib.rs", "entry|(5)"),
+        ("src/lib.rs", "entry|(7)"),
+        ("src/bare.rs", "entry|(10)"),
+    ] {
+        d_on(&mut a, file, code);
         let got = shown(&mut a);
         assert!(
             matches!(&got, Shown::Picker(s, rows) if s.contains("2 declarations") && rows.len() == 2),

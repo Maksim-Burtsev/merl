@@ -266,6 +266,12 @@ impl App {
             .filter(|p| !p.is_empty())
             .map(str::to_owned)
             .collect();
+        if let Some(full) = path
+            .first()
+            .and_then(|f| bound(&search::imports(Kind::Rust, &text), f))
+        {
+            path.splice(..1, full);
+        }
         if path
             .first()
             .is_none_or(|f| matches!(f.as_str(), "std" | "core" | "alloc"))
