@@ -1,4 +1,4 @@
-use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
+use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, bound, search};
 
 pub(super) enum OutsideClassMember {
     Found(Vec<Candidate>),
@@ -168,11 +168,7 @@ impl App {
             return Vec::new();
         };
         let reason = Reason::Import(module.join("."));
-        let pattern = search::def_patterns(kind, name).join("|");
-        let hits = self.external_grep(kind, std::slice::from_ref(&file), &pattern);
-        let hits: Vec<Hit> = (self.declaring(kind, name, hits).into_iter())
-            .filter(|h| search::qualified(kind, &text, h.line1, name).is_none())
-            .collect();
+        let hits = self.module_level_defs(&file, &text, name);
         if !hits.is_empty() {
             return hits
                 .into_iter()
@@ -234,6 +230,67 @@ impl App {
             }
         }
         found
+    }
+
+    fn module_level_defs(&self, file: &Path, text: &str, name: &str) -> Vec<Hit> {
+        let kind = Kind::Python;
+        let pattern = search::def_patterns(kind, name).join("|");
+        let hits = self.external_grep(kind, &[file.to_path_buf()], &pattern);
+        (self.declaring(kind, name, hits).into_iter())
+            .filter(|h| search::qualified(kind, text, h.line1, name).is_none())
+            .collect()
+    }
+
+    pub(super) fn outside_callee(&self, file: &Path, text: &str, callee: &str) -> Option<Hit> {
+        let mut parts = callee.split('.').map(str::to_owned);
+        let mut path = bound(&search::imports(Kind::Python, text), &parts.next()?)?;
+        path.extend(parts);
+        let (name, module) = path.split_last()?;
+        if module.first().is_none_or(|m| m.starts_with('.'))
+            || !self.project_module(file, module).is_empty()
+        {
+            return None;
+        }
+        let returns = |hit: &Hit| {
+            let text = self.text_of(&hit.path)?;
+            self.returns_of(Kind::Python, &hit.path, &text, hit.line1)
+        };
+        if let [one] = self.outside_handed_on(module, name, 0).as_slice()
+            && let Some(search::Value::Type(_) | search::Value::New(_)) = returns(&one.hit)
+        {
+            return Some(one.hit.clone());
+        }
+        let dir = crate::typeshed::stdlib()?;
+        let base: PathBuf = module.iter().collect();
+        let stub = [base.join("__init__.pyi"), base.with_extension("pyi")]
+            .into_iter()
+            .map(|f| dir.join(f))
+            .find(|f| f.is_file())?;
+        let text = std::fs::read_to_string(&stub).ok()?;
+        let [hit] = <[Hit; 1]>::try_from(self.module_level_defs(&stub, &text, name)).ok()?;
+        Some(hit)
+    }
+
+    pub(super) fn runtime_class(&self, ty: Typed) -> Typed {
+        let Some(rel) = crate::typeshed::within(&ty.path) else {
+            return ty;
+        };
+        let mut path: Vec<String> = (rel.with_extension("").components())
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
+        if path.last().is_some_and(|l| l == "__init__") {
+            path.pop();
+        }
+        path.push(ty.name.clone());
+        self.outside_class(Path::new(""), &path, std::slice::from_ref(&ty.name))
+            .and_then(|class| {
+                Some(Typed {
+                    name: search::type_name(Kind::Python, &class.text)?,
+                    path: class.path,
+                    line: class.line1,
+                })
+            })
+            .unwrap_or(ty)
     }
 
     pub(super) fn outside_class(

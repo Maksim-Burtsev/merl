@@ -307,6 +307,11 @@ body holds no parameter (#1020); `brew.hh`'s prototype stays apart from the defi
 does; an out-of-class `operator()` keeps its parameters.
 `sieve.cc` reads the parameters of operators, in and out of their class, and a member of
 the class inside an operator before a global namesake; a call inside a free operator in a namespace keeps its picker (#1029).
+`infuser.cc` defines constructors inside their class, after `explicit`, over an initializer
+list and a function-pointer parameter, and a destructor, each the answer on its own name, while
+a construction with `new` inside a method and in a function still leads to the class (#1248).
+`Steeper() : Steeper(500)` delegates: the call after `:` is no definition of its own and keeps
+the picker of the class and its other constructor.
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -639,7 +644,11 @@ note in &notes` over a `Vec<String>`: both hold a `String`, which `Leaf::len` ne
 `poured_note` binds `ref note` in an or-pattern of two `Pour` variants whose `note` is a `String`
 in each, and `drip_note` binds `ref note` at the `String` place of the tuple variant `Drip::Slow`;
 master jumped to `Leaf::len` on both. `kettle_note` binds `ref note` in `Kettle::Hot { .. }`, a
-variant written on one line, where master jumped to `Leaf::len` too.
+variant written on one line, where master jumped to `Leaf::len` too. `Canister` is a tuple struct:
+`self.0` holds `leaves::Kettle`, a project alias of `Vec<u32>` named like the enum `Kettle`, so
+its `len` is `Vec`'s, where master jumped to `Leaf::len`, and `self.1` holds a `Leaf`.
+`poured_split` is `poured_note`'s or-pattern split over two lines, the second led by `|`, where
+master jumped to `Leaf::len`.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
@@ -781,4 +790,5 @@ module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermo
    `; want <right answer> (#N)`, `#N` the sub-issue of #305 that covers it, or a new issue under
    #305 when none does.
 3. No Rust code: the test finds the directory by itself, and `fixture_app` leaves every kind
-   without a standard library or dependencies, so nothing outside the fixture answers.
+   without a standard library or dependencies, so nothing outside the fixture answers but the
+   typeshed stubs merl carries for Python (#1100), written `stdlib/logging/__init__.pyi:140`.

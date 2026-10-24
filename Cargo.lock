@@ -1638,6 +1638,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "flate2",
  "grep-matcher",
  "grep-regex",
  "grep-searcher",

@@ -91,7 +91,7 @@ ts0088	server/queues/tasks/DuplicateCollectionDocumentsTask.ts:15
 ts0089			
 ts0090			
 ts0091		builtin: the server's own stub	
-ts0092	app/components/Table.tsx:626		
+ts0092	app/components/Table.tsx:626	a JSX prop of a component that destructures it in its header: the oracle answers the type member, merl the destructured parameter four lines above it; both declare the prop (#1249)	
 ts0093			
 ts0094	app/components/WebsocketProvider.tsx:4	package not installed: oracle stops at the import line	
 ts0095			

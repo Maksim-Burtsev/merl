@@ -707,7 +707,7 @@ fn swift_statement_binds(
     let t = swift_text(lines, i);
     if let Some(c) = SWIFT_DECL.captures(&t) {
         (swift_decl_binds(&c[1], name), i + 1)
-    } else if t.starts_with("guard ") {
+    } else if t == "guard" || t.starts_with("guard ") {
         let guard_end = (i..at)
             .find(|&j| swift_text(lines, j).contains("else"))
             .unwrap_or(i);
@@ -1353,7 +1353,7 @@ pub enum SwiftExpr {
 }
 pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
     static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*([({])?")
+        Regex::new(r"^([A-Za-z_]\w*(?:[?!]?\.[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*([({])?")
             .expect("the regex is a literal")
     });
     static CAST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -1373,7 +1373,7 @@ pub fn swift_expr(e: &str) -> Option<SwiftExpr> {
         return Some(SwiftExpr::Cast(c[1].to_owned()));
     }
     let c = CALL.captures(e)?;
-    let callee = c[1].to_owned();
+    let callee = c[1].replace(['?', '!'], "");
     let Some(open) = c.get(2) else {
         return (c.get_match().end() == e.len()).then_some(SwiftExpr::Chain(callee));
     };

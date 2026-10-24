@@ -835,8 +835,7 @@ impl App {
             let Some(next) = self.rust_resolve(&ty.path, &written, hit.line1 - 1) else {
                 if call
                     && i + 1 == chain.len()
-                    && let Some(std) = rust_bare_type(&written)
-                    && let Some(owner) = self.text_of(&ty.path)
+                    && let Some((owner, std)) = self.rust_std_typed(&ty.path, &written)
                     && let Some(found) = self.rust_std_call(&owner, field, &std, word)
                 {
                     return Ok(Typing::Std(found, std));
@@ -1019,10 +1018,13 @@ impl App {
     fn rust_field(&self, ty: &Typed, word: &str) -> Option<(Hit, String)> {
         let text = self.text_of(&ty.path)?;
         let lines: Vec<&str> = text.lines().collect();
-        let search::RustStructField {
-            line0: line,
-            written_type: written,
-        } = search::rust_struct_field(&lines, ty.line - 1, word)?;
+        let (line, written) = if tuple_field(word) {
+            let decl = lines.get(ty.line - 1)?;
+            (ty.line - 1, sysroot::tuple_element(decl, &ty.name, word)?)
+        } else {
+            let field = search::rust_struct_field(&lines, ty.line - 1, word)?;
+            (field.line0, field.written_type)
+        };
         let hit = Hit {
             path: ty.path.clone(),
             line1: line + 1,

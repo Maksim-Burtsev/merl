@@ -315,3 +315,21 @@ pub fn kettle_note(kettle: &Kettle) -> usize {
         Kettle::Cold(n) => n as usize,
     }
 }
+
+pub struct Canister(leaves::Kettle, pub Leaf);
+
+impl Canister {
+    pub fn count(&self) -> usize {
+        self.0.len() + self.1.len()
+        //     ^ d: none
+        //                    ^ d: src/infusion/leaves.rs:13
+    }
+}
+
+pub fn poured_split(pour: &Pour) -> usize {
+    match *pour {
+        Pour::Hot { ref note }
+        | Pour::Iced { ref note, .. } => note.len(),
+        //                                    ^ d: none
+    }
+}
