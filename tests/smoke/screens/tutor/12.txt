@@ -1,4 +1,4 @@
-wait That is all of merl
+wait Tutor 26/
 ┌agent/find-by-tag ← HEAD────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
 │  ▾ tests                   │ 2
 │    A test_cli.py     +43 −0│ 3 import json
@@ -6,7 +6,7 @@ wait That is all of merl
 │  M cli.py            +25 −4│ 5 from config import Config, load_config
 │  M models.py         +5 −10│ 6 from models import Note
 │  M PLAN.md            +7 −4│ 7
-│✓ M store.py          +24 −5│ 8
+│  M store.py          +24 −5│ 8
 │                            │ 9 class NoteStore:
 │                            │10     """Reads and writes the notes of a single JSON file."""
 │                            │11
@@ -18,12 +18,12 @@ wait That is all of merl
 │                            │17         """Load the notes from disk; a missing file means no notes yet."""
 │                            │18         if not self.config.path.exists():
 │                            │19             return []
-│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
-│                            │  ▎        return [Note.from_dict(item) for item in raw]
-│                            │21▎        notes = [Note.from_dict(item) for item in raw]
-│                            │22▎        seen: set[int] = set()
-│                            │23▎        for note in notes:
-│                            │24▎            if note.id in seen:
+│                            │20         raw = jso╭ Tutor 26/26 · Mark viewed ───────────────────────────────────────────────────────╮
+│                            │  ▎        return [N│                                                                                  │
+│                            │21▎        notes = [│  `m` marks the file you are in as viewed, a tick beside it on the left; `m`      │
+│                            │22▎        seen: set│  again takes it off. Press `m` on store.py.                                      │
+│                            │23▎        for note │                                                                                  │
+│                            │24▎            if no╰─────────────────────────────────────────────── Enter starts · i shows this again ╯
 │                            │25▎                raise ValueError(f"note id {note.id} is used twice")
 │                            │26▎            seen.add(note.id)
 │                            │27▎        return notes
@@ -49,9 +49,9 @@ wait That is all of merl
 │                            │46         """Delete the note with this id and report whether it existed."""
 │                            │47         keep = [note for note in self.notes if note.id != note_id]
 │                            │48         if len(keep) == len(self.notes):
-└ 6 files · +138 −23 ────────┘49             return False
-Tutor ✓ done
-That is all of merl. Everything else is a VS Code habit. `q` quits.
-
-store.py  1:1  [code]  hunk 0/4  file 6/6  ✓ Mark viewed  viewed                                                                                                                   14:32
+│                            │49             return False
+│                            │50         self.notes = keep
+│                            │51         self._write()
+└ 6 files · +138 −23 ────────┘52         return True
+store.py  1:1  [code]  hunk 0/4  file 6/6  ✓ Previous change                                                                                                                       14:32
 cursor (x,y,shown) 33,0,0

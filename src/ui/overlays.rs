@@ -5,7 +5,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
+use ratatui::widgets::{Block, Clear, Paragraph};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::app::{App, Focus, Mode, PickerKind};
@@ -713,39 +713,4 @@ fn code_hl<'a>(
     }
     buf.highlight_to(idx, theme);
     Some((buf.hl.get(idx)?, off))
-}
-
-pub(super) fn lesson_panel(
-    app: &App,
-    theme: &Theme,
-    width: u16,
-    base: Style,
-) -> Option<Paragraph<'static>> {
-    let tutor = app.tutor.as_ref()?;
-    let (title, text) = match (&tutor.drill, crate::tutor::lesson(tutor.step)) {
-        (Some(drill), _) => drill.panel(),
-        (None, Some(t)) => (
-            format!(
-                " Tutor {}/{} \u{00b7} {}",
-                tutor.step + 1,
-                crate::tutor::TUTOR.len(),
-                t.title
-            ),
-            t.tutor,
-        ),
-        (None, None) => (
-            " Tutor \u{2713} done".to_owned(),
-            crate::tutor::ALL_LESSONS_DONE,
-        ),
-    };
-    let pad = (width as usize).saturating_sub(wrap::width(&title));
-    let head = Style::new()
-        .bg(theme.status_bg)
-        .fg(theme.status_fg)
-        .add_modifier(Modifier::BOLD);
-    let lines = vec![
-        Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
-        Line::from(Span::styled(format!(" {text}"), base)),
-    ];
-    Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(base))
 }

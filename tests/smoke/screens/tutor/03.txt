@@ -50,8 +50,8 @@ wait Usages
 
 
 
-Tutor 7/26 · Usages
-`u` lists every use of the word under the cursor, the declaration first and the tests last. Press `u`, then pick the hit in cli.py with Down and Enter.
-
+╭ Tutor 7/26 · Usages ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ `u` lists every use of the word under the cursor, the declaration first and the tests last. Press `u`, then pick the hit in cli.py with Down and Enter.                               │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 config.py  18:5  [code]                                                                                                                                                            14:32
 cursor (x,y,shown) 22,11,0

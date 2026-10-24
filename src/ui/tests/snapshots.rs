@@ -156,6 +156,16 @@ const STATES: &[State] = &[
             step: 3,
             dir: a.root.clone(),
             drill: None,
+            card: crate::tutor::Card::Down,
+        });
+        crate::tutor::begin(a).unwrap();
+    }),
+    ("tutor-card", |a| {
+        a.tutor = Some(Tutor {
+            step: 3,
+            dir: a.root.clone(),
+            drill: None,
+            card: crate::tutor::Card::Up,
         });
         crate::tutor::begin(a).unwrap();
     }),
@@ -165,6 +175,7 @@ const STATES: &[State] = &[
             step: 0,
             dir: a.root.clone(),
             drill: Some(drill),
+            card: crate::tutor::Card::Down,
         });
         crate::tutor::begin(a).unwrap();
     }),
@@ -462,5 +473,6 @@ snapshots! {
     snapshot_review_rename: "review-rename",
     snapshot_review_rename_edited: "review-rename-edited",
     snapshot_tutor: "tutor",
+    snapshot_tutor_card: "tutor-card",
     snapshot_drill: "drill",
 }

@@ -757,6 +757,7 @@ fn overlays_leave_the_tutor_panel_in_sight() {
         step: 0,
         dir: PathBuf::from("/demo"),
         drill: None,
+        card: crate::tutor::Card::Down,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
@@ -794,11 +795,19 @@ fn the_lesson_panel_grows_to_its_text() {
             step,
             dir: PathBuf::from("/demo"),
             drill: None,
+            card: crate::tutor::Card::Down,
         });
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         let r = rows(&terminal);
-        let top = r.iter().position(|l| l.starts_with("Tutor ")).unwrap();
-        let panel = r[top + 1..r.len() - 1].join(" ").trim_end().to_owned();
+        let top = r
+            .iter()
+            .position(|l| l.starts_with("\u{256d} Tutor "))
+            .unwrap();
+        let panel = r[top + 1..r.len() - 2]
+            .iter()
+            .map(|l| l.trim_matches(['\u{2502}', ' ']))
+            .collect::<Vec<_>>()
+            .join(" ");
         let last = crate::tutor::lesson(step)
             .unwrap()
             .tutor
@@ -817,7 +826,7 @@ fn the_lesson_panel_grows_to_its_text() {
         );
         tallest = tallest.max(r.len() - 1 - top);
     }
-    assert!(tallest > 3, "no lesson wraps past two rows at 80 columns");
+    assert!(tallest > 4, "no lesson wraps past two rows at 80 columns");
 }
 
 fn hits_app(name: &str, hits: &[(&str, usize, &str)]) -> App {

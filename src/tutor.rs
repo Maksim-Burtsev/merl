@@ -1,10 +1,11 @@
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 
-use crate::app::{App, Focus};
+use crate::app::{App, Focus, Mode};
 use crate::buffer::Buffer;
-use crate::key::{KeyCode, KeyEvent, KeyModifiers};
+use crate::key::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 pub mod drill;
 mod pool;
@@ -34,6 +35,65 @@ pub struct Tutor {
     pub step: usize,
     pub dir: PathBuf,
     pub drill: Option<Drill>,
+    pub card: Card,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Card {
+    Up,
+    Sliding(Instant),
+    Down,
+}
+
+pub const SLIDE: Duration = Duration::from_millis(400);
+
+impl Tutor {
+    fn has_card(&self) -> bool {
+        self.drill.is_none() && lesson(self.step).is_some()
+    }
+
+    pub fn card_up(&self) -> bool {
+        self.has_card() && self.card == Card::Up
+    }
+
+    pub fn slide(&self) -> Option<u32> {
+        match self.card {
+            Card::Sliding(at) if self.has_card() => {
+                let done = at.elapsed().min(SLIDE).as_millis() * 1000 / SLIDE.as_millis();
+                Some(u32::try_from(done).unwrap_or(1000))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn tick(&mut self) -> bool {
+        let Card::Sliding(at) = self.card else {
+            return false;
+        };
+        if at.elapsed() >= SLIDE {
+            self.card = Card::Down;
+        }
+        true
+    }
+}
+
+pub fn card_key(app: &mut App, key: KeyEvent) -> bool {
+    let free = app.mode == Mode::Normal && app.picker.is_none();
+    let Some(t) = app.tutor.as_mut().filter(|t| t.has_card()) else {
+        return false;
+    };
+    let press = key.kind == KeyEventKind::Press;
+    if t.card == Card::Up {
+        if press && key.code == KeyCode::Enter {
+            t.card = Card::Sliding(Instant::now());
+        }
+        return true;
+    }
+    let i = press && key.code == KeyCode::Char('i') && key.modifiers.is_empty();
+    if i && free {
+        t.card = Card::Up;
+    }
+    i && free
 }
 
 pub const TUTOR: &[&str] = &[
@@ -125,6 +185,7 @@ pub fn check(app: &mut App, action: Option<&str>) {
     };
     if let Some(tutor) = &mut app.tutor {
         tutor.step = step + 1;
+        tutor.card = Card::Up;
     }
     app.message = match begin(app) {
         Ok(()) => tick,
@@ -356,6 +417,7 @@ mod tests {
             step: TUTOR.len(),
             dir,
             drill: None,
+            card: Card::Down,
         });
         a
     }
@@ -418,6 +480,7 @@ mod tests {
     fn the_tutor_sets_up_each_lesson_it_moves_on_to() {
         let mut a = app("tutor", (80, 24));
         a.tutor.as_mut().unwrap().step = 0;
+        a.tutor.as_mut().unwrap().card = Card::Up;
         begin(&mut a).unwrap();
         for (i, key) in TUTOR.iter().enumerate() {
             let before = state(&a);
@@ -427,6 +490,8 @@ mod tests {
                     "{key}: no review on screen"
                 );
             }
+            assert!(a.tutor.as_ref().unwrap().card_up(), "{key}: no card");
+            press(&mut a, "<Enter>");
             press(&mut a, lesson(i).unwrap().answer);
             assert!(a.session.is_none(), "{key}: the tutor's review is logged");
             a.settle_search();
@@ -448,6 +513,33 @@ mod tests {
     }
 
     #[test]
+    fn a_lesson_s_card_takes_only_enter_and_i_brings_it_back() {
+        let mut a = app("card", (80, 24));
+        a.tutor.as_mut().unwrap().step = 0;
+        a.tutor.as_mut().unwrap().card = Card::Up;
+        begin(&mut a).unwrap();
+        let up = |a: &App| a.tutor.as_ref().unwrap().card_up();
+        let before = state(&a);
+        press(&mut a, "o<Esc>q<C-e>?");
+        assert!(up(&a) && a.picker.is_none(), "{}", state(&a));
+        assert_eq!(state(&a), before);
+        press(&mut a, "<Enter>");
+        assert!(!up(&a) && a.mode == Mode::Normal, "{}", state(&a));
+        press(&mut a, "i");
+        assert!(up(&a), "i brings the card back");
+        press(&mut a, "<Enter>o");
+        assert!(a.picker.is_some(), "{}", state(&a));
+        press(&mut a, "i");
+        assert!(!up(&a), "i types into the picker");
+        press(&mut a, "<Esc>");
+        a.tutor.as_mut().unwrap().step = TUTOR.len();
+        a.tutor.as_mut().unwrap().card = Card::Up;
+        press(&mut a, "o");
+        assert!(a.picker.is_some(), "the done screen has no card");
+        std::fs::remove_dir_all(dir("card")).unwrap();
+    }
+
+    #[test]
     fn a_start_is_pressed_silently() {
         let mut a = app("silent", (80, 24));
         for t in POOL.iter().filter(|t| !t.keys.is_empty()) {
@@ -462,10 +554,7 @@ mod tests {
     #[test]
     fn a_fresh_app_keeps_what_main_set() {
         let mut a = app("carried", (99, 33));
-        (a.autosave, a.no_watch) = (
-            a.autosave * 3 + std::time::Duration::from_millis(7),
-            !a.no_watch,
-        );
+        (a.autosave, a.no_watch) = (a.autosave * 3 + Duration::from_millis(7), !a.no_watch);
         let (autosave, no_watch) = (a.autosave, a.no_watch);
         fresh(&mut a).unwrap();
         assert_eq!(

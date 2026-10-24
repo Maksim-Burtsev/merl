@@ -125,6 +125,7 @@ fn a_press_under_the_tutor_writes_nothing() {
         step: 0,
         dir: PathBuf::from("/nonexistent"),
         drill: None,
+        card: tutor::Card::Down,
     });
     let keys = ["d", "]", "[", "v", "Ctrl+D", "Down", "Enter", "Esc"]
         .into_iter()
@@ -222,6 +223,7 @@ fn a_review_under_the_tutor_has_no_line() {
         step: 0,
         dir: PathBuf::from("/nonexistent"),
         drill: None,
+        card: tutor::Card::Down,
     });
     for key in ["c", "c", "[", "q"] {
         a.key(read(key));
