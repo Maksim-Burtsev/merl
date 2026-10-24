@@ -513,6 +513,12 @@ fn a_theme_without_groups_colours_markdown_by_its_markup_scopes() {
 #[test]
 fn a_block_label_resolves_as_neovim_s_resolve_lang_and_in_the_preview_by_its_extension_too() {
     for (alias, neovim, preview) in [
+        ("py", Some("python"), Some("python")),
+        ("ts", Some("typescript"), Some("typescript")),
+        ("js", Some("javascript"), Some("javascript")),
+        ("gitdiff", Some("diff"), Some("diff")),
+        ("sbt", Some("scala"), Some("scala")),
+        ("typescript.tsx", None, None),
         ("rs", None, Some("rust")),
         ("md", None, Some("markdown")),
         ("rust", Some("rust"), Some("rust")),
@@ -547,7 +553,7 @@ fn a_block_label_resolves_as_neovim_s_resolve_lang_and_in_the_preview_by_its_ext
         ("hcl", Some("hcl"), Some("hcl")),
         ("terraform", Some("terraform"), Some("terraform")),
         ("tfvars", None, Some("terraform")),
-        ("terraform-vars", None, None),
+        ("terraform-vars", None, Some("terraform")),
         ("tf", None, None),
         ("ini", Some("ini"), Some("ini")),
         ("dosini", Some("ini"), Some("ini")),
@@ -908,7 +914,10 @@ fn a_label_neovim_does_not_resolve_draws_its_block_plain_as_lazyvim() {
     let heredoc = |label: &str| fg_at("ruby", [&format!("x = <<~{label}"), "def a; end", label]);
     assert_ne!(heredoc("RUBY"), heredoc("TEXT"));
     assert_eq!(heredoc("RB"), heredoc("TEXT"));
-    let fence = |info: &str| fg_at("markdown", [&format!("```{info}"), "fn a() {}", "```"]);
+    let fence = |info: &str| fg_at("markdown", [&format!("```{info}"), "def a; end", "```"]);
+    for info in ["foo.rb", "12:15:src/a.rb", "RB", "c++", "C#"] {
+        assert_eq!(fence(info), fence("nothing"), "{info}");
+    }
     assert_ne!(fence("fish"), fence("nothing"));
 }
 

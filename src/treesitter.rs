@@ -319,6 +319,7 @@ const ALIASES: &[(&str, &str)] = &[
     ("gitconfig", "git_config"),
     ("gitrebase", "git_rebase"),
     ("handlebars", "glimmer"),
+    ("html.handlebars", "glimmer"),
     ("gdresource", "godot_resource"),
     ("hs", "haskell"),
     ("haskellpersistent", "haskell_persistent"),
@@ -332,8 +333,10 @@ const ALIASES: &[(&str, &str)] = &[
     ("jsx", "javascript"),
     ("js", "javascript"),
     ("jsonc", "json"),
+    ("javascript.glimmer", "glimmer_javascript"),
     ("tex", "latex"),
     ("ld", "linkerscript"),
+    ("asm68k", "m68k"),
     ("automake", "make"),
     ("pandoc", "markdown"),
     ("neomuttrc", "muttrc"),
@@ -353,11 +356,15 @@ const ALIASES: &[(&str, &str)] = &[
     ("bzl", "starlark"),
     ("sface", "surface"),
     ("verilog", "systemverilog"),
+    ("trace32", "t32"),
     ("expect", "tcl"),
+    ("terraform-vars", "terraform"),
     ("pbtxt", "textproto"),
     ("tla", "tlaplus"),
     ("typescriptreact", "tsx"),
+    ("typescript.tsx", "tsx"),
     ("ts", "typescript"),
+    ("typescript.glimmer", "glimmer_typescript"),
     ("typ", "typst"),
     ("udevrules", "udev"),
     ("tal", "uxntal"),
@@ -598,9 +605,13 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
 
 pub fn resolve_by_extension(alias: &str) -> Option<&'static Lang> {
     resolve(alias).or_else(|| {
-        let alias = normalized(alias)?;
-        let syntax = crate::buffer::syntax_for_info(&alias, false)?;
-        for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
+        let normal = normalized(alias)?;
+        let hyphened = normal.replace('_', "-");
+        if let Some((_, name)) = ALIASES.iter().find(|(a, _)| *a == hyphened) {
+            return lang(name);
+        }
+        let syntax = crate::buffer::syntax_for_info(&normal, false)?;
+        for_syntax(&syntax.name, Some(Path::new(&format!("a.{normal}"))), &[])
     })
 }
 

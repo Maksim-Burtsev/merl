@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use ratatui::style::Style;
 use syntect::highlighting::{HighlightIterator, HighlightState};
 use syntect::parsing::{ParseState, ScopeStack, SyntaxReference};
@@ -5,7 +7,7 @@ use tree_sitter::{Node, Parser, Point, QueryCursor, Range, StreamingIterator, Tr
 
 use super::combined::Group;
 use super::{
-    Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, heads, point, resolve, resolve_by_extension,
+    Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, for_syntax, heads, point, resolve,
 };
 
 const MAX_DEPTH: usize = 8;
@@ -19,9 +21,11 @@ pub enum Target {
 impl Target {
     fn of(name: &str, syntect: bool) -> Option<Self> {
         resolve(name).map(Target::Tree).or_else(|| {
-            (syntect && resolve_by_extension(name).is_none())
+            let path = format!("a.{}", name.trim().to_ascii_lowercase());
+            syntect
                 .then(|| crate::buffer::syntax_for_info(name, false))
                 .flatten()
+                .filter(|s| for_syntax(&s.name, Some(Path::new(&path)), &[]).is_none())
                 .map(Target::Syntect)
         })
     }
