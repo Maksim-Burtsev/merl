@@ -182,6 +182,13 @@ pub fn cpp_constructor_defined_in_class(
     byte_col: usize,
     word: &str,
 ) -> bool {
+    let called = text.lines().nth(line1.saturating_sub(1)).is_some_and(|l| {
+        l.get(byte_col + word.len()..)
+            .is_some_and(|r| r.trim_start().starts_with('('))
+    });
+    if !called {
+        return false;
+    }
     let code = c_code(text);
     let Some(at) = c_words_on_line(&code, line1, word, Some('('))
         .into_iter()
