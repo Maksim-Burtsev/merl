@@ -2,7 +2,8 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use super::c::{
-    ACCESS_LABELS, Head, bracket_contents_blanked, c_bindings_at, c_code, c_head, c_head_start,
+    ACCESS_LABELS, Head, bracket_contents_blanked, c_bindings_at, c_body_name, c_code, c_head,
+    c_head_start,
     c_innermost_open_brace, c_place, c_struct_head, c_words_on_line, close_or_end, cpp_class_path,
     cpp_decl_start, line_starts,
 };
@@ -174,6 +175,29 @@ pub fn cpp_defined_signature(text: &str, line1: usize, word: &str) -> Option<Vec
         return None;
     }
     signature(code.get(start + params.start..open)?)
+}
+
+pub fn cpp_constructor_defined_in_class(
+    text: &str,
+    line1: usize,
+    byte_col: usize,
+    word: &str,
+) -> bool {
+    let code = c_code(text);
+    let Some(at) = c_words_on_line(&code, line1, word, Some('('))
+        .into_iter()
+        .find(|&i| c_place(&code, i).byte_col == byte_col)
+    else {
+        return false;
+    };
+    let Some(open) = code.get(at..).and_then(|r| r.find(['{', ';'])) else {
+        return false;
+    };
+    let open = at + open;
+    let head = code.get(c_head_start(&code, open)..open).unwrap_or_default();
+    code.as_bytes()[open] == b'{'
+        && matches!(c_head(head), Head::Function { name, .. } if name.trim_start_matches('~') == word)
+        && c_innermost_open_brace(code.as_bytes(), at).is_some_and(|o| c_body_name(&code, o) == word)
 }
 
 pub fn cpp_declared_signature(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
