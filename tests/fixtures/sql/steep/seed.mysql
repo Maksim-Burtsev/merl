@@ -1,0 +1,3 @@
+-- #1227: a lone /* inside a comment; MySQL ends the comment at its first */.
+/* Nightly backups go to /var/backups/* on the host. */
+CREATE TABLE crumbs (id int);

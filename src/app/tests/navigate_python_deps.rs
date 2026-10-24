@@ -573,3 +573,92 @@ fn a_python_module_outside_is_the_file_python_imports() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_call_outside_types_its_value_by_the_stub_s_return_type() {
+    let typed = external_root(
+        "py-1100-typed",
+        &[(
+            "logging/__init__.pyi",
+            "class Logger:\n    def info(self, msg: object) -> None: ...\n\ndef getLogger(name: str | None = None) -> Logger: ...\n",
+        )],
+    );
+    let untyped = external_root(
+        "py-1100-untyped",
+        &[(
+            "logging/__init__.py",
+            "class Filterer:\n    pass\n\n\nclass Logger(Filterer):\n    def info(self, msg, *args):\n        pass\n\n\ndef getLogger(name=None):\n    return root\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-1100",
+        &[
+            (
+                "app/x.py",
+                "import logging\nfrom logging import getLogger\n\nlog = logging.getLogger(__name__)\nlog.info(\"x\")\nother = getLogger()\nother.info(\"y\")\n\n\ndef shadowed(logging):\n    mine = logging.getLogger()\n    mine.info(\"z\")\n",
+            ),
+            (
+                "app/y.py",
+                "class Other:\n    def info(self):\n        pass\n",
+            ),
+        ],
+    );
+    let via = "info \u{2192} Logger.info (via logging.getLogger() -> Logger)";
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&typed));
+    d_on(&mut a, "app/x.py", "log.info");
+    let place = format!("{}:2", typed.join("logging/__init__.pyi").display());
+    assert_eq!(
+        shown(&mut a),
+        jump(via, &place),
+        "the environment's own stub"
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&untyped));
+    let place = format!("{}:6", untyped.join("logging/__init__.py").display());
+    d_on(&mut a, "app/x.py", "log.info");
+    assert_eq!(
+        shown(&mut a),
+        jump(via, &place),
+        "typeshed's return type, landing in the interpreter's source"
+    );
+    d_on(&mut a, "app/x.py", "other.info");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "info \u{2192} Logger.info (via getLogger() -> Logger)",
+            &place
+        ),
+        "a name imported from the module"
+    );
+    d_on(&mut a, "app/x.py", "mine.info");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "a parameter hiding the module"
+    );
+    for d in [dir, typed, untyped] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_project_s_own_logging_wins_over_typeshed_s() {
+    let (dir, mut a) = project_app(
+        "py-1100-own",
+        &[
+            (
+                "logging.py",
+                "from vendored_log import *\n\n\nclass Mine:\n    def info(self, msg):\n        pass\n",
+            ),
+            (
+                "x.py",
+                "import logging\n\nlog = logging.getLogger(__name__)\nlog.info(\"x\")\n",
+            ),
+            ("y.py", "class Other:\n    def info(self):\n        pass\n"),
+        ],
+    );
+    d_on(&mut a, "x.py", "log.info");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "the project's module, as Python imports it, and not typeshed's"
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}

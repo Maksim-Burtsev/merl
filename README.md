@@ -323,4 +323,6 @@ build. If something in a PR is off, we'll fix it together.
 
 MIT. Syntax definitions come from [bat](https://github.com/sharkdp/bat) via
 [two-face](https://github.com/CosmicHorrorDev/two-face); the themes keep
-[their authors' licences](docs/themes.md#licences).
+[their authors' licences](docs/themes.md#licences). Python's standard-library stubs come from
+[typeshed](https://github.com/python/typeshed) under its Apache-2.0 and MIT licences
+([`typeshed/LICENSE`](typeshed/LICENSE)), bundled by `tools/typeshed.py`.

@@ -753,3 +753,45 @@ func kindled(_ q: DispatchQueue, _ k: Kindle) -> String {
     return q.sync(execute: k).lit
     //                        ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
 }
+
+// A value read through an optional chain in a binding (`delegate?.sessionConfiguration`), off a
+// field typed by one of the project's protocols, takes the type of the protocol's requirement: a
+// value from outside a few steps on answers from the project's extensions or none (#1068).
+protocol Percolating: AnyObject {
+    var sessionConfiguration: URLSessionConfiguration { get }
+}
+
+final class Percolator {
+    weak var delegate: (any Percolating)?
+    var lastRequest: URLRequest?
+}
+
+extension Percolator {
+    func cookied() -> Bool {
+        guard
+            let request = lastRequest,
+            let url = request.url,
+            let method = request.httpMethod else { return false }
+        if let configuration = delegate?.sessionConfiguration, configuration.httpShouldSetCookies {
+            if
+                let cookieStorage = configuration.httpCookieStorage,
+                let cookies = cookieStorage.cookies(for: url), !cookies.isEmpty {
+                //                                                      ^ d: none
+                return true
+            }
+        }
+        return false
+    }
+}
+
+// A `guard` alone on its line binds its conditions for the lines after it: `request` is the
+// field's `URLRequest`, so its `url` is not one of the project's namesakes (#1068).
+extension Postman {
+    func routed() -> Bool {
+        guard
+            let request = lastRequest
+        else { return false }
+        return request.url == nil
+        //             ^ d: none
+    }
+}

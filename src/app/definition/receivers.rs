@@ -24,9 +24,9 @@ impl App {
             && word != "await"
             && chain
                 .first()
-                .is_some_and(|f| bound(&near.imports, f).is_none())
-            && !chain.iter().any(|n| rust::tuple_field(n))
+                .is_some_and(|f| bound(&near.imports, f).is_none() && !rust::tuple_field(f))
         {
+            let tupled = chain.iter().any(|n| rust::tuple_field(n));
             let after = a.tail.as_str();
             let call = after.starts_with('(') || after.starts_with("::<");
             match self.rust_typed(&a.here, &a.text, word, chain, call) {
@@ -37,7 +37,7 @@ impl App {
                 }
                 Ok(rust::Typing::Std(_, t)) => std = Some(t),
                 Ok(rust::Typing::Members(_)) => {}
-                Err(at) => rust_broke = (chain.len() > 1).then_some(at),
+                Err(at) => rust_broke = (chain.len() > 1 && !tupled).then_some(at),
             }
         }
         if kind == Kind::Rust
