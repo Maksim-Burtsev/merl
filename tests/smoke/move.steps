@@ -70,14 +70,15 @@ key o
 type READMEmd
 key Enter f
 wait README.md  1:1  [code]
-# A fourth `v` selects the whole file, the cursor at its end (#635).
+# `v` grows on to the whole file, the cursor at its end (#635): in code through the block, the
+# function and the class body (#924).
 key o
 type appservice
 key Enter :
 type 13
 key Enter M-Right v v v
 wait app/service.py  15:33  [code]
-key v
+key v v
 wait app/service.py  36:21  [code]
 # Shift extends End, PgDn, Home, Ctrl+Home, PgUp and Ctrl+End as it does an arrow: the selection
 # grows over all the cursor passes, from where it started (#687).
@@ -115,3 +116,19 @@ key ? C-M-q
 wait This help
 key Escape
 wait app/service.py  36:21  [code]
+# In code `v` takes the word, inside the quotes, the string, inside the brackets, the brackets,
+# the line and the block, from the syntax tree, and `V` steps back (#924).
+key Escape :
+type 32
+key Enter M-Right M-Right M-Right M-Right
+wait app/service.py  32:37  [code]
+key v
+wait app/service.py  32:37  [code]
+key v v
+wait app/service.py  32:73  [code]
+key v v v
+wait app/service.py  32:74  [code]
+key v v
+wait app/service.py  36:21  [code]
+key V V
+wait app/service.py  32:74  [code]

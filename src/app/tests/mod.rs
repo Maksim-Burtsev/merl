@@ -19,6 +19,7 @@ mod edit;
 mod edit_fuzz;
 mod find;
 mod fold_bench;
+mod grow;
 mod haskell;
 mod julia;
 mod keys;

@@ -514,13 +514,25 @@ pub const POOL: &[Task] = &[
     Task {
         key: "v",
         title: "Select",
-        tutor: "`v` selects the word under the cursor, again the line, again the paragraph: in \
-                code, a whole function. Press `v` three times to select `remove`.",
+        tutor: "`v` selects the word under the cursor, and each press grows it: inside the \
+                brackets or quotes, with them, the line, the block, the function. Press `v` three \
+                times to select `remove`.",
         drill: "Select the whole function `remove`.",
         start: Some(("store.py", REMOVE_LINE, "remove")),
         keys: "",
         answer: "vvv",
         done: |a| lines_selected(a, REMOVE_LINE, REMOVE_END),
+    },
+    Task {
+        key: "V",
+        title: "Select less",
+        tutor: "`v` grew the selection to the whole function `remove`. `V` steps it back to what \
+                the press before had: the line. Press it.",
+        drill: "Take the selection back to the line it held before.",
+        start: Some(("store.py", REMOVE_LINE, "remove")),
+        keys: "vvv",
+        answer: "V",
+        done: |a| lines_selected(a, REMOVE_LINE, REMOVE_LINE),
     },
     Task {
         key: "Ctrl+D",
