@@ -19,6 +19,7 @@ mod theme;
 mod tree;
 mod treesitter;
 mod tutor;
+mod typeshed;
 mod ui;
 #[cfg(target_family = "wasm")]
 mod web;

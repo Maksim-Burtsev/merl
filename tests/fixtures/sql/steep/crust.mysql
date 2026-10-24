@@ -1,0 +1,3 @@
+-- #1255's review: a */ inside a -- comment ends no comment, so this file reads as MySQL.
+/* a /* b */
+CREATE TABLE crusts (id int); -- */

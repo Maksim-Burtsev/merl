@@ -23,7 +23,7 @@ SELECT id, (SELECT weave FROM strainers) FROM ladles;
 --     ^ d: migrations/2024-04-01-000004_pour_strainers/up.sql:4
 --                 ^ d: migrations/2024-04-01-000004_pour_strainers/up.sql:13
 SELECT rim AS depth FROM ladles ORDER BY depth;
---                                       ^ d: none
+--                                       ^ d: migrations/2024-08-01-000008_fill_ladles/up.sql:25
 SELECT spout FROM (SELECT spout FROM ladles) d;
 --     ^ d: none
 SELECT depth FROM ladles, generate_series(1, 2) g;
