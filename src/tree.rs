@@ -213,7 +213,8 @@ impl Order {
 pub fn skipped_in(file: &Path) -> HashSet<PathBuf> {
     let text = std::fs::read_to_string(file).unwrap_or_default();
     order_lines(&text)
-        .filter_map(|(skip, p)| skip.then(|| p.to_path_buf()))
+        .filter(|&(skip, _)| skip)
+        .map(|(_, p)| p.to_path_buf())
         .collect()
 }
 

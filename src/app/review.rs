@@ -43,7 +43,7 @@ impl App {
                     .find(|f| f.is_stop(&self.root, self.diagrams.on()))
                     .cloned()
             };
-            if let Some(f) = first.clone().or_else(skipped_stop) {
+            if let Some(f) = first.or_else(skipped_stop) {
                 self.open_review_file(&f, false);
                 self.remember_hunk();
             } else if let Some(p) =
