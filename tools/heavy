@@ -7,9 +7,10 @@ jobs=${MERL_HEAVY_JOBS:-$jobs}
 minutes=${MERL_HEAVY_MINUTES:-45}
 export CARGO_BUILD_JOBS=$jobs RUST_TEST_THREADS=$jobs
 kill_tree() {
-  local child
-  for child in $(pgrep -P "$1"); do kill_tree "$child"; done
+  local child children
+  children=$(pgrep -P "$1")
   kill "$1" 2>/dev/null
+  for child in $children; do kill_tree "$child"; done
 }
 run= watchdog=
 stop() {

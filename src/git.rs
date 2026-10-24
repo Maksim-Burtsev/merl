@@ -1025,7 +1025,19 @@ fn lag(git: &dyn Fn(&[&str]) -> Result<String>, remote: &str, tip: &str) -> Stri
 
 const FOLDERS: &str = "merl/branches";
 const UNOPENED_FOR: Duration = Duration::from_hours(14 * 24);
-const DEPENDENCIES: [&str; 3] = [".venv", "node_modules", "target"];
+const DEPENDENCIES: [&str; 11] = [
+    ".venv",
+    "node_modules",
+    "target",
+    "vendor",
+    ".build",
+    "Pods",
+    "deps",
+    "_build",
+    "local",
+    ".dart_tool",
+    "Cargo.lock",
+];
 
 fn branch_of_folder(common: &Path, folder: &Path) -> Option<String> {
     let rel = folder.strip_prefix(common.join(FOLDERS)).ok()?.parent()?;
@@ -1050,7 +1062,7 @@ fn dependency_links(folder: &Path) -> impl Iterator<Item = String> {
     (DEPENDENCIES.map(String::from).into_iter()).chain(package_modules(folder))
 }
 
-fn has_edits(folder: &Path) -> bool {
+fn has_edits(folder: &Path, root: &Path) -> bool {
     let links: Vec<String> = dependency_links(folder).collect();
     git(
         folder,
@@ -1063,7 +1075,9 @@ fn has_edits(folder: &Path) -> bool {
         ],
     )
     .map_or(true, |out| {
-        (out.split('\0').filter_map(|e| e.get(3..))).any(|p| !links.iter().any(|l| l == p))
+        let linked = |p: &str| std::fs::read_link(folder.join(p)).is_ok_and(|l| l == root.join(p));
+        (out.split('\0').filter_map(|e| e.get(3..)))
+            .any(|p| !(links.iter().any(|l| l == p) && linked(p)))
     })
 }
 
@@ -1083,7 +1097,7 @@ fn check_out_folder(
         folder.join(".git").is_file() && dirs(&folder).is_some_and(|d| d.common_refs_dir == common);
     let in_folder = |args: &[&str]| git(&folder, args);
     let edits = reused
-        && (has_edits(&folder)
+        && (has_edits(&folder, root)
             || (in_folder(&["merge-base", "--is-ancestor", "HEAD", at]).is_err()
                 && own_commits(&in_folder, "HEAD", at, put_by_merl)));
     if reused && !edits {
@@ -1111,7 +1125,7 @@ fn check_out_folder(
     #[cfg(unix)]
     for name in dependency_links(&folder) {
         let (mine, there) = (root.join(&name), folder.join(&name));
-        if mine.is_dir() && there.symlink_metadata().is_err() {
+        if mine.exists() && there.symlink_metadata().is_err() {
             drop(std::os::unix::fs::symlink(mine, there));
         }
     }

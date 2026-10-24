@@ -138,7 +138,8 @@ impl App {
             Kind::TsJs => {
                 search::reads_jsdoc(kind, &hit.path)
                     && (search::jsdoc_owner(&lines, hit.line1 - 1).is_some()
-                        || search::jsdoc_typedef_line(lines[hit.line1 - 1]))
+                        || search::jsdoc_typedef_line(lines[hit.line1 - 1])
+                        || search::jsdoc_returned_literal(lines[hit.line1 - 1]).is_some())
             }
             _ => false,
         }
