@@ -66,7 +66,9 @@ impl App {
         }
         if kind == Kind::TsJs
             && head.is_none()
-            && let Some(found) = self.literal_member(kind, here, chain, word)
+            && let Some(found) = self
+                .literal_member(kind, here, chain, word)
+                .or_else(|| self.returned_key(kind, here, chain, word))
         {
             return Ok(found);
         }
@@ -929,6 +931,39 @@ impl App {
         Some((search::element_type(kind, holds)?, list.path))
     }
 
+    pub(super) fn callee_decl(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        callee: &str,
+        hops: usize,
+    ) -> Option<Hit> {
+        let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
+        let (method, receiver) = parts.split_last()?;
+        if receiver.first().is_some_and(|r| r == "super") {
+            return None;
+        }
+        let proven = (hops > 0 && !receiver.is_empty())
+            .then(|| {
+                self.chain_type(kind, file, text, line1, receiver, hops - 1)
+                    .ok()
+            })
+            .flatten();
+        if let Some(ProvenType { ty, .. }) = proven {
+            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
+                let members = self.members_of(kind, t, method);
+                (!members.is_empty()).then_some(members)
+            })?;
+            return <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit);
+        }
+        if hidden(kind, file, text, line1, &parts[0]) {
+            return None;
+        }
+        self.declaration(kind, file, &parts)
+    }
+
     fn call_type(
         &self,
         kind: Kind,
@@ -950,24 +985,7 @@ impl App {
         {
             return Some(via);
         }
-        let proven = (hops > 0 && !receiver.is_empty())
-            .then(|| {
-                self.chain_type(kind, file, text, line1, receiver, hops - 1)
-                    .ok()
-            })
-            .flatten();
-        let decl = if let Some(ProvenType { ty, .. }) = proven {
-            let found = self.hierarchy(kind, &ty, 0, &mut |t| {
-                let members = self.members_of(kind, t, method);
-                (!members.is_empty()).then_some(members)
-            })?;
-            <[Hit; 1]>::try_from(found).ok().map(|[hit]| hit)?
-        } else {
-            if hidden(kind, file, text, line1, &parts[0]) {
-                return None;
-            }
-            self.declaration(kind, file, &parts)?
-        };
+        let decl = self.callee_decl(kind, file, text, line1, callee, hops)?;
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
                 name: declared_name(kind, &decl.text, &parts),
