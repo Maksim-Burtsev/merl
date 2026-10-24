@@ -37,7 +37,7 @@ impl App {
         let cut = self.truncated.get();
         let found = (|| {
             let Some(SwiftChain { written, links }) =
-                self.swift_chain(here, here, text, self.line + 1, chain, 2)
+                self.swift_chain(here, here, text, self.line + 1, chain, 3)
             else {
                 if let [name] = chain
                     && let Some((_, rows)) =
@@ -195,11 +195,13 @@ impl App {
                 SDK_VALUE.clone_into(&mut written);
                 continue;
             }
-            let ty = ty?;
             let WrittenVia {
                 written: next,
                 call_signature: link,
-            } = self.swift_field(here, &ty, field, hops)?;
+            } = match ty {
+                Some(ty) => self.swift_field(here, &ty, field, hops)?,
+                None => self.swift_requirement(here, &written, field, hops)?,
+            };
             let link = link.unwrap_or_else(|| {
                 if i == 0 && names[0] == "self" {
                     format!("self.{field}: {}", shown(&next))
@@ -311,6 +313,15 @@ impl App {
             {
                 let call = search::swift_trailing_closure(lines[line1 - 1].get(..self.col)?, name)?;
                 self.swift_closure_value(here, file, text, line1, call, hops)
+            }
+            [] if file == here
+                && line1 == self.line + 1
+                && let Some(value) = lines[line1 - 1]
+                    .get(..self.col)
+                    .and_then(|lead| search::swift_bound_before(lead, name)) =>
+            {
+                let given = search::SwiftGiven::Value(value);
+                self.swift_given_type(here, file, text, line1, given, hops)
             }
             [] => {
                 let at = around?;
@@ -796,6 +807,31 @@ impl App {
         }
         let given = search::swift_given(&decl, name)?;
         let given = self.swift_nested_given(here, &text, row.line1, given);
+        self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
+    }
+
+    fn swift_requirement(
+        &self,
+        here: &Path,
+        written: &str,
+        field: &str,
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let t = written.trim().trim_end_matches(['?', '!']);
+        let t = t
+            .strip_prefix('(')
+            .and_then(|t| t.strip_suffix(')'))
+            .unwrap_or(t)
+            .trim();
+        let t = t.strip_prefix("any ").unwrap_or(t);
+        let p = search::swift_type_name(t).filter(|p| self.swift_protocol(here, p))?;
+        let rows = self.swift_protocol_rows(here, &p, field, true)?;
+        let [row] = <[Hit; 1]>::try_from(rows).ok()?;
+        if !search::swift_instance_member(&row.text) || row.text.contains("func ") {
+            return None;
+        }
+        let text = self.text_of(&row.path)?;
+        let given = search::swift_given(&row.text, field)?;
         self.swift_given_type(here, &row.path, &text, row.line1, given, hops)
     }
 

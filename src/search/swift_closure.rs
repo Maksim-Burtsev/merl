@@ -99,3 +99,22 @@ pub fn swift_function_inputs(ty: &str) -> Option<Vec<String>> {
             .collect(),
     )
 }
+
+pub fn swift_bound_before(lead: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let bound = Regex::new(&format!(
+        r"^(?:(?:\}}\s*)?(?:else\s+)?(?:if|guard|while)\s+)?(?:let|var)\s+`?{n}`?\s*=\s*(.+)$"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let used = Regex::new(&format!(r"(?:^|[^\w.])`?{n}\b"))
+        .expect("an escaped name keeps the pattern valid");
+    let code = uncommented(Kind::Swift, lead);
+    let parts = split_top(Kind::Swift, &code, b',');
+    let (_, before) = parts.split_last()?;
+    let last = before
+        .iter()
+        .rev()
+        .find(|p| super::swift_may_bind(p, name))?;
+    let value = bound.captures(last.trim())?[1].trim().to_owned();
+    (!used.is_match(&value)).then_some(value)
+}

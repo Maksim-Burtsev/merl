@@ -160,7 +160,10 @@ fn play(case: &Case) -> (Got, String) {
         None if at(&a) == before && says_nothing_found(&status) => Got::None,
         None => {
             let (path, line) = at(&a);
-            let place = path.strip_prefix(&a.root).unwrap_or(&path);
+            let place = match crate::typeshed::within(&path) {
+                Some(stub) => Path::new("stdlib").join(stub),
+                None => path.strip_prefix(&a.root).unwrap_or(&path).to_path_buf(),
+            };
             Got::Jump(format!("{}:{}", place.display(), line + 1))
         }
     };
