@@ -788,4 +788,5 @@ module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermo
    `; want <right answer> (#N)`, `#N` the sub-issue of #305 that covers it, or a new issue under
    #305 when none does.
 3. No Rust code: the test finds the directory by itself, and `fixture_app` leaves every kind
-   without a standard library or dependencies, so nothing outside the fixture answers.
+   without a standard library or dependencies, so nothing outside the fixture answers but the
+   typeshed stubs merl carries for Python (#1100), written `stdlib/logging/__init__.pyi:140`.
