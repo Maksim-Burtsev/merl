@@ -574,7 +574,11 @@ fn a_block_label_resolves_as_neovim_s_resolve_lang_and_in_the_preview_by_its_ext
         ("svelte", Some("svelte"), Some("svelte")),
     ] {
         assert_eq!(resolve(alias).map(|l| l.name), neovim, "{alias}");
-        assert_eq!(resolve_by_extension(alias).map(|l| l.name), preview, "{alias}");
+        assert_eq!(
+            resolve_by_extension(alias).map(|l| l.name),
+            preview,
+            "{alias}"
+        );
     }
 }
 

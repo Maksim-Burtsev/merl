@@ -4,7 +4,9 @@ use syntect::parsing::{ParseState, ScopeStack, SyntaxReference};
 use tree_sitter::{Node, Parser, Point, QueryCursor, Range, StreamingIterator, Tree};
 
 use super::combined::Group;
-use super::{Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, heads, point, resolve, resolve_by_extension};
+use super::{
+    Lang, NEOVIM_TREESITTER_PRIORITY, Patterns, Styles, heads, point, resolve, resolve_by_extension,
+};
 
 const MAX_DEPTH: usize = 8;
 const ANCHOR_ROWS: usize = 64;
