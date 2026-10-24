@@ -595,7 +595,7 @@ fn a_call_outside_types_its_value_by_the_stub_s_return_type() {
         &[
             (
                 "app/x.py",
-                "import logging\nfrom logging import getLogger\n\nlog = logging.getLogger(__name__)\nlog.info(\"x\")\nother = getLogger()\nother.info(\"y\")\n",
+                "import logging\nfrom logging import getLogger\n\nlog = logging.getLogger(__name__)\nlog.info(\"x\")\nother = getLogger()\nother.info(\"y\")\n\n\ndef shadowed(logging):\n    mine = logging.getLogger()\n    mine.info(\"z\")\n",
             ),
             ("app/y.py", "class Other:\n    def info(self):\n        pass\n"),
         ],
@@ -621,6 +621,11 @@ fn a_call_outside_types_its_value_by_the_stub_s_return_type() {
             &place
         ),
         "a name imported from the module"
+    );
+    d_on(&mut a, "app/x.py", "mine.info");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "a parameter hiding the module"
     );
     for d in [dir, typed, untyped] {
         std::fs::remove_dir_all(d).unwrap();
