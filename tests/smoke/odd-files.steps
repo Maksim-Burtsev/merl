@@ -82,3 +82,17 @@ key /
 type "id":3000,
 key Enter
 wait data/orders.min.json  1:503785
+# The project's AGENTS.md is a link to the team's shared rules in a repo of their own, next to
+# it: it opens editable, and a save writes into that repo and keeps the link (#500).
+run git init -q ../team-rules && printf '# Team rules\n\nRun the tests before a push.\n' > ../team-rules/AGENTS.md && git -C ../team-rules add AGENTS.md && git -C ../team-rules commit -qm rules && ln -s ../team-rules/AGENTS.md AGENTS.md
+merl docs/notes.md
+wait A AGENTS.md
+key o
+type AGENTS
+key Enter
+wait # Team rules
+key Enter End
+type  for everyone
+key Escape
+wait # Team rules for everyone
+check python3 -c "import os; d = open('../team-rules/AGENTS.md').read(); assert os.path.islink('AGENTS.md') and d.startswith('# Team rules for everyone\n'), d"

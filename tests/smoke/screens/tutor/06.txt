@@ -1,0 +1,57 @@
+wait store.py:9
+ 5 from datetime import date
+ 6 from typing import Protocol
+ 7
+ 8
+ 9 @dataclass
+10 class Note:
+11     """A single note, identified by an integer id."""
+12
+13     id: int
+14     text: str
+15     tags: list[s┌Symbols (3/31)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+16     created: dat│> NoteStore                                                                                                                                       │
+17                 │NoteStore                         store.py:9                                                                                                      │
+18     def to_dict(│test_notes_survive_a_reload       tests/test_store.py:23                                                                                          │
+19         """The n│test_find_ignores_case            tests/test_store.py:37                                                                                          │
+20         return {│                                                                                                                                                  │
+21             "id"│                                                                                                                                                  │
+22             "tex│                                                                                                                                                  │
+23             "tag│                                                                                                                                                  │
+24             "cre│                                                                                                                                                  │
+25         }       │                                                                                                                                                  │
+26                 │                                                                                                                                                  │
+27     @classmethod│                                                                                                                                                  │
+28     def from_dic│                                                                                                                                                  │
+29         """Rebui│                                                                                                                                                  │
+30         # TODO: │                                                                                                                                                  │
+31         return c│                                                                                                                                                  │
+32             id=i│                                                                                                                                                  │
+33             text│                                                                                                                                                  │
+34             tags│                                                                                                                                                  │
+35             crea│                                                                                                                                                  │
+36         )       │                                                                                                                                                  │
+37                 │                                                                                                                                                  │
+38     def summary(│                                                                                                                                                  │
+39         """One l│                                                                                                                                                  │
+40         text = s│                                                                                                                                                  │
+41         tags = "│                                                                                                                                                  │
+42         return f│                                                                                                                                                  │
+43                 │                                                                                                                                                  │
+44                 │                                                                                                                                                  │
+45 class Formatter(└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+46     """How one note is turned into a line of output."""
+47
+48     def render(self, note: Note) -> str: ...
+49
+50
+51 class PlainFormatter:
+52     """The default: the note's own one-line summary."""
+53
+54     def render(self, note: Note) -> str:
+55         return note.summary()
+Tutor 9/26 · Project symbols
+`D` lists every class and function of the project. Type `NoteStore` and press Enter.
+
+models.py  30:11  [code]                                                                                                                                                           14:32
+cursor (x,y,shown) 31,11,0

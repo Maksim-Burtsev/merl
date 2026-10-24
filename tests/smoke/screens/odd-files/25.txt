@@ -1,0 +1,57 @@
+wait # Team rules
+┌orders──────────────────────┐1 # Team rules
+│▸ .github                   │2
+│▸ .venv                     │3 Run the tests before a push.
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▾ docs                      │
+│    architecture.png        │
+│    notes.md                │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│A AGENTS.md                 │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+AGENTS.md  1:1  [code]                                                                                                                                                             14:32
+cursor (x,y,shown) 32,0,0

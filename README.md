@@ -169,7 +169,7 @@ counts stay on your machine.
 
 | Key | Action |
 |---|---|
-| v | Select the word, then the line, then the paragraph, then the whole file |
+| v / V | Grow the selection: word, quotes, brackets, line, block, file / step back |
 | Shift+Up / Shift+Down | Extend the selection by a screen row |
 | Shift+Left / Shift+Right | Extend the selection by a char |
 | Alt+Shift+Left / Right | Extend the selection by a word |

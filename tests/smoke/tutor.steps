@@ -1,0 +1,38 @@
+# tutor: the whole of `merl --tutor`, each lesson's answer as the tutor's tests press it, to the
+# three review lessons at its end (#158): the sample project becomes an agent's uncommitted work
+# over one commit, the review panel takes the left, `c` walks cli.py on into models.py, `C` walks
+# back, and `m` ticks store.py
+merl --tutor
+wait Tutor 1/
+key o
+type store
+key Enter
+wait Tutor 2/
+key /
+type load_config
+key Enter n d [ ] u
+wait Usages
+key Down Enter s
+type TODO
+wait reject a note
+key Enter
+wait Tutor 9/
+key D
+type NoteStore
+wait store.py:9
+key Enter
+wait Tutor 10/
+key :
+type 42
+key Enter } { v v v t Tab Enter Enter
+type #hi
+key Escape C-z w p f Escape
+wait Tutor 23/
+key Escape
+wait Tutor 24/
+key c*6
+wait Tutor 25/
+key C
+wait Tutor 26/
+key m
+wait That is all of merl

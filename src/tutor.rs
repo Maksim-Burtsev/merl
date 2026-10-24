@@ -60,6 +60,26 @@ pub const TUTOR: &[&str] = &[
     "f",
     "Picker: Esc",
     "Esc",
+    "c",
+    "C",
+    "m",
+];
+
+pub(super) const REVIEW_LESSONS: &[&str] = &["c", "C", "m"];
+
+const AGENT_S_WORK: &[(&str, &str)] = &[
+    ("PLAN.md", include_str!("../tutor/review/PLAN.md")),
+    ("cli.py", include_str!("../tutor/review/cli.py")),
+    ("models.py", include_str!("../tutor/review/models.py")),
+    ("store.py", include_str!("../tutor/review/store.py")),
+    (
+        "tests/test_cli.py",
+        include_str!("../tutor/review/tests/test_cli.py"),
+    ),
+    (
+        "tests/test_store.py",
+        include_str!("../tutor/review/tests/test_store.py"),
+    ),
 ];
 
 pub const SAMPLE_FILES: &[(&str, &str)] = &[
@@ -121,8 +141,15 @@ pub fn begin(app: &mut App) -> Result<()> {
         return Ok(());
     };
     fresh(app)?;
-    set_up(app, task);
-    Ok(())
+    set_up(app, task).inspect_err(|_| {
+        if let Some(t) = app
+            .tutor
+            .as_mut()
+            .filter(|_| REVIEW_LESSONS.contains(&task.key))
+        {
+            t.step = TUTOR.len();
+        }
+    })
 }
 
 pub fn fresh(a: &mut App) -> Result<()> {
@@ -144,18 +171,74 @@ pub fn fresh(a: &mut App) -> Result<()> {
     Ok(())
 }
 
-pub fn set_up(a: &mut App, task: &Task) {
+pub fn set_up(a: &mut App, task: &Task) -> Result<()> {
+    if REVIEW_LESSONS.contains(&task.key) {
+        open_sample_review(a).context("review lessons skipped")?;
+    }
     let tutor = a.tutor.take();
     if let Some((file, line, word)) = task.start {
         a.jump_to(&a.root.join(file), line);
         a.col = a.line_str().find(word).unwrap_or(0);
         a.sync_want_x();
         a.hist_note(false);
+        a.remember_hunk();
     }
     press(a, task.keys);
     a.pressed.clear();
     a.message.clear();
     a.tutor = tutor;
+    Ok(())
+}
+
+const REPO_REDIRECTS: &[&str] = &[
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR",
+];
+
+fn redirect_set(is_set: impl Fn(&str) -> bool) -> Option<&'static str> {
+    REPO_REDIRECTS.iter().copied().find(|v| is_set(v))
+}
+
+fn sample_git(root: &Path, args: &[&str]) -> Result<String> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .args(["-c", "user.name=merl", "-c", "user.email=merl@localhost"])
+        .args(args)
+        .output()
+        .map_err(|_| anyhow::anyhow!("git not found"))?;
+    anyhow::ensure!(
+        out.status.success(),
+        "git {}: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&out.stderr).trim()
+    );
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+fn open_sample_review(a: &mut App) -> Result<()> {
+    if let Some(var) = redirect_set(|v| std::env::var_os(v).is_some()) {
+        anyhow::bail!("{var} is set");
+    }
+    let git = |args: &[&str]| sample_git(&a.root, args);
+    git(&["-c", "init.defaultBranch=agent/find-by-tag", "init", "-q"])?;
+    git(&["add", "-A"])?;
+    git(&["commit", "-q", "--no-verify", "-m", "notes"])?;
+    for (name, text) in AGENT_S_WORK {
+        std::fs::write(a.root.join(name), text)?;
+    }
+    let r = crate::git::Review::open(&a.root, None, Some("HEAD"))?;
+    a.tree = crate::tree::from_listing(&r.files.iter().map(|f| f.path.clone()).collect::<Vec<_>>());
+    a.show_tree = true;
+    a.start_review(r);
+    a.session = None;
+    a.message.clear();
+    Ok(())
 }
 
 pub fn press(a: &mut App, notation: &str) {
@@ -252,14 +335,11 @@ mod tests {
         ("T", "nothing to train"),
         ("?", "nothing to train"),
         ("q", "nothing to train"),
-        ("c", REVIEW_ONLY),
-        ("C", REVIEW_ONLY),
-        ("m", REVIEW_ONLY),
         ("Fold: Enter", REVIEW_ONLY),
         ("Shift+Home", REVIEW_ONLY),
         ("Shift+End", REVIEW_ONLY),
     ];
-    const REVIEW_ONLY: &str = "review mode only: the sample project has no branch to walk";
+    const REVIEW_ONLY: &str = "review mode only: the tutor's review lessons teach c, C and m";
 
     pub(super) fn dir(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("merl-tutor-{}-{name}", std::process::id()))
@@ -298,7 +378,7 @@ mod tests {
 
     fn run(a: &mut App, t: &Task) {
         fresh(a).unwrap();
-        set_up(a, t);
+        set_up(a, t).unwrap();
         let before = state(a);
         assert!(!(t.done)(a), "{}: done before a key: {before}", t.key);
         let tutor = a.tutor.take();
@@ -341,7 +421,14 @@ mod tests {
         begin(&mut a).unwrap();
         for (i, key) in TUTOR.iter().enumerate() {
             let before = state(&a);
+            if REVIEW_LESSONS.contains(key) {
+                assert!(
+                    a.review.is_some() && a.show_tree,
+                    "{key}: no review on screen"
+                );
+            }
             press(&mut a, lesson(i).unwrap().answer);
+            assert!(a.session.is_none(), "{key}: the tutor's review is logged");
             a.settle_search();
             assert_eq!(
                 a.tutor.as_ref().unwrap().step,
@@ -365,7 +452,7 @@ mod tests {
         let mut a = app("silent", (80, 24));
         for t in POOL.iter().filter(|t| !t.keys.is_empty()) {
             fresh(&mut a).unwrap();
-            set_up(&mut a, t);
+            set_up(&mut a, t).unwrap();
             assert!(a.pressed.is_empty(), "{}: {:?}", t.key, a.pressed);
             assert_eq!(a.message, "", "{}", t.key);
         }
@@ -446,5 +533,29 @@ mod tests {
             .map(|(_, t)| t.matches("TODO").count())
             .sum();
         assert_eq!(todos, 1, "the `s` task searches for the single TODO");
+    }
+
+    #[test]
+    fn the_sample_review_reads_no_git_config_of_the_user() {
+        let dir = dir("config-free");
+        std::fs::create_dir_all(&dir).unwrap();
+        let listed = sample_git(&dir, &["config", "--list", "--show-origin"]).unwrap();
+        let lines: Vec<&str> = listed.lines().collect();
+        assert_eq!(
+            lines,
+            [
+                "command line:\tuser.name=merl",
+                "command line:\tuser.email=merl@localhost"
+            ]
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_repository_named_by_the_environment_stops_the_sample_review() {
+        assert_eq!(redirect_set(|_| false), None);
+        for var in ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"] {
+            assert_eq!(redirect_set(|v| v == var), Some(var));
+        }
     }
 }

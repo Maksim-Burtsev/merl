@@ -904,3 +904,147 @@ fn with_no_row_that_shows_a_line_the_first_row_owns_them_all() {
     let d = doc("[a]: https://example.com\n[b]: https://example.org", 20);
     assert_eq!(d.rows[0].owns, [0, 1]);
 }
+
+#[test]
+fn html_comments_vanish_with_the_blank_row_they_would_have_taken() {
+    let with = doc(
+        "<!-- lint: off -->\n# Title\n\nOne <!-- inline --> two.\n\n<!--\nmany\nlines\n-->\n\n\
+         Three.\n\n<div>kept</div> <!-- tail -->\n",
+        30,
+    );
+    let without = doc("# Title\n\nOne  two.\n\nThree.\n\n<div>kept</div> \n", 30);
+    assert_eq!(texts(&with), texts(&without));
+    assert_eq!(look_of(&with, "<div>kept</div>"), Ink::Dim.plain());
+}
+
+#[test]
+fn a_comment_inside_a_paragraph_over_two_lines_vanishes_whole() {
+    let d = doc("One <!-- a\nb --> two.", 30);
+    assert_eq!(texts(&d), ["One  two."]);
+}
+
+#[test]
+fn a_bare_url_takes_the_link_colour_without_its_trailing_punctuation() {
+    let link = look(Ink::Link, Modifier::UNDERLINED);
+    let d = doc(
+        "See https://example.com/a_b_c, then www.example.org/x. Also \
+         (https://en.wikipedia.org/wiki/Foo_(bar)) and `https://code.example`.",
+        200,
+    );
+    assert_eq!(look_of(&d, "https://example.com/a_b_c"), link);
+    assert_eq!(look_of(&d, "www.example.org/x"), link);
+    assert_eq!(look_of(&d, "https://en.wikipedia.org/wiki/Foo_(bar)"), link);
+    assert_eq!(look_of(&d, ", then"), Ink::Text.plain());
+    assert_eq!(look_of(&d, ". Also ("), Ink::Text.plain());
+    assert_eq!(look_of(&d, ") and"), Ink::Text.plain());
+    assert_eq!(look_of(&d, "https://code.example").ink, Ink::Code);
+}
+
+#[test]
+fn a_url_inside_a_link_or_a_word_is_not_a_bare_url() {
+    let d = doc("[https://a.example](x) and nothttps://b.example", 200);
+    assert_eq!(look_of(&d, "nothttps://b.example"), Ink::Text.plain());
+}
+
+#[test]
+fn an_item_holding_only_a_comment_keeps_its_marker_and_its_number() {
+    assert_eq!(
+        texts(&doc("1. one\n2. <!-- two -->\n3. three\n", 30)),
+        ["1. one", "2. ", "3. three"]
+    );
+}
+
+#[test]
+fn a_blank_line_inside_a_comment_vanishes_with_it() {
+    assert_eq!(
+        texts(&doc("Top\n\n<!--\nnote\n\nmore\n-->\n\nAfter\n", 30)),
+        ["Top", "", "After"]
+    );
+}
+
+#[test]
+fn a_script_block_keeps_a_comment_opener_as_written() {
+    assert_eq!(
+        texts(&doc("<script>\nvar s = \"<!--\";\n</script>\n", 30)),
+        ["<script>", "var s = \"<!--\";", "</script>"]
+    );
+}
+
+#[test]
+fn a_row_after_a_leading_comment_starts_where_its_text_does() {
+    let d = doc("<div>\n<!-- c --><a href=\"b.md\">bee</a>\n</div>\n", 40);
+    let row = d.rows.iter().find(|r| r.text.contains("bee")).unwrap();
+    assert_eq!(row.src, (1, 10));
+}
+
+#[test]
+fn an_entity_inside_a_bare_url_keeps_the_link_colour() {
+    let d = doc("Go to https://e.com/?a=1&amp;b=2 now.", 80);
+    assert_eq!(
+        look_of(&d, "https://e.com/?a=1&b=2"),
+        look(Ink::Link, Modifier::UNDERLINED)
+    );
+}
+
+#[test]
+fn every_html_row_starts_where_its_text_does_with_a_comment_cut_out_before_it() {
+    let src = "<p>aa <!-- zz --> bb cc dd ee ff gg <!-- yy --> hh ii jj kk</p>";
+    let d = doc(src, 20);
+    assert!(d.rows.len() > 2, "{:?}", texts(&d));
+    for r in &d.rows {
+        assert!(
+            src.get(r.src.1..)
+                .unwrap_or_default()
+                .starts_with(r.text.split_whitespace().next().unwrap_or_default()),
+            "{:?} at {}",
+            r.text,
+            r.src.1
+        );
+    }
+}
+
+#[test]
+fn a_comment_after_an_item_s_text_leaves_the_text() {
+    assert_eq!(
+        texts(&doc("- one\n  <!-- c -->\n- two\n", 30)),
+        ["\u{2022} one", "\u{2022} two"]
+    );
+}
+
+#[test]
+fn raw_text_blocks_are_named_whole_and_in_any_case() {
+    assert_eq!(
+        texts(&doc("  <PRE>\n<!-- kept -->\n</PRE>\n", 30)),
+        ["<PRE>", "<!-- kept -->", "</PRE>"]
+    );
+    assert_eq!(
+        texts(&doc("<preview>\n<!-- gone -->\n</preview>\n", 30)),
+        ["<preview>", "</preview>"]
+    );
+}
+
+#[test]
+fn a_blank_line_of_an_html_block_outside_a_comment_stays() {
+    assert_eq!(texts(&doc("<?x\n\n?>\n", 30)), ["<?x", "", "?>"]);
+}
+
+#[test]
+fn a_comment_closed_mid_line_keeps_the_columns_after_it() {
+    let d = doc("<div>\n<!-- a\nb --><a href=\"b.md\">bee</a>\n</div>\n", 40);
+    let row = d.rows.iter().find(|r| r.text.contains("bee")).unwrap();
+    assert_eq!(row.src, (2, 5));
+}
+
+#[test]
+fn bare_urls_by_gfm_s_edges() {
+    let link = look(Ink::Link, Modifier::UNDERLINED);
+    let d = doc(
+        "see http://a.example and https://x.example/a.) and https:// now and https://y.example!",
+        200,
+    );
+    assert_eq!(look_of(&d, "http://a.example"), link);
+    assert_eq!(look_of(&d, "https://x.example/a"), link);
+    assert_eq!(look_of(&d, ".) and https:// now and "), Ink::Text.plain());
+    assert_eq!(look_of(&d, "https://y.example"), link);
+    assert_eq!(look_of(&d, "!"), Ink::Text.plain());
+}

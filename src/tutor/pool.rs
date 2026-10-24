@@ -514,13 +514,25 @@ pub const POOL: &[Task] = &[
     Task {
         key: "v",
         title: "Select",
-        tutor: "`v` selects the word under the cursor, again the line, again the paragraph: in \
-                code, a whole function. Press `v` three times to select `remove`.",
+        tutor: "`v` selects the word under the cursor, and each press grows it: inside the \
+                brackets or quotes, with them, the line, the block, the function. Press `v` three \
+                times to select `remove`.",
         drill: "Select the whole function `remove`.",
         start: Some(("store.py", REMOVE_LINE, "remove")),
         keys: "",
         answer: "vvv",
         done: |a| lines_selected(a, REMOVE_LINE, REMOVE_END),
+    },
+    Task {
+        key: "V",
+        title: "Select less",
+        tutor: "`v` grew the selection to the whole function `remove`. `V` steps it back to what \
+                the press before had: the line. Press it.",
+        drill: "Take the selection back to the line it held before.",
+        start: Some(("store.py", REMOVE_LINE, "remove")),
+        keys: "vvv",
+        answer: "V",
+        done: |a| lines_selected(a, REMOVE_LINE, REMOVE_LINE),
     },
     Task {
         key: "Ctrl+D",
@@ -791,6 +803,40 @@ pub const POOL: &[Task] = &[
         keys: "?",
         answer: "<Down>",
         done: |a| a.mode == Mode::Help && a.help_top > 0,
+    },
+    Task {
+        key: "c",
+        title: "Next change",
+        tutor: "A review: an agent built PLAN.md and left its work uncommitted, the files on the \
+                left. `c` goes to the next change, and past the last one into the next file, \
+                ticking the one you walked off. Press `c` until you are in models.py.",
+        drill: "Walk the changes of cli.py on into models.py.",
+        start: Some(("cli.py", 1, "")),
+        keys: "",
+        answer: "cccccc",
+        done: |a| at(a, "models.py"),
+    },
+    Task {
+        key: "C",
+        title: "Previous change",
+        tutor: "`C` walks back: to the change before, and from the first one into the file \
+                before. Press `C`: from the top of models.py back into cli.py.",
+        drill: "Go back to the change before this one, in cli.py.",
+        start: Some(("models.py", 1, "")),
+        keys: "",
+        answer: "C",
+        done: |a| at(a, "cli.py"),
+    },
+    Task {
+        key: "m",
+        title: "Mark viewed",
+        tutor: "`m` marks the file you are in as viewed, a tick beside it on the left; `m` again \
+                takes it off. Press `m` on store.py.",
+        drill: "Mark store.py as viewed.",
+        start: Some(("store.py", 1, "")),
+        keys: "",
+        answer: "m",
+        done: |a| a.viewed.contains_key(std::path::Path::new("store.py")),
     },
 ];
 

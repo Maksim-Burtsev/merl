@@ -913,7 +913,8 @@ is silent again, and read anew when it next opens. `o` offers the ignored files 
 sit in a directory the walk went into, `.env` or `config/local.yml`, dim and after the rest, but
 nothing from inside `node_modules/`. `s`, `u` and `d` search only what is not ignored.
 A symbolic link to a directory is such a row too: the walk does not follow it, so a link to `..`
-or `/` pulls nothing in, and a file behind it that lies outside the project opens read-only.
+or `/` pulls nothing in. A file behind it opens editable wherever it leads, as through a link to
+a file: a save writes into the file the link leads to and keeps the link.
 
 The open file itself is watched and reloads on every change on disk, keeping the cursor, the
 scroll position, the jump history and the undo history, where the change is one more step.

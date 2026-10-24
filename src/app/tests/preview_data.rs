@@ -217,3 +217,19 @@ fn p_on_mdx_renders_it_as_markdown() {
     assert_eq!(row(&a), "import X from './x'");
     drop(std::fs::remove_dir_all(&dir));
 }
+
+#[test]
+fn d_in_a_csv_preview_follows_no_markdown_link() {
+    let (dir, mut a) = file_app("csv-d", "t.csv", "id,see\n1,[b](b.md)\n");
+    std::fs::write(dir.join("b.md"), "# B\n").unwrap();
+    a.line = 1;
+    p(&mut a);
+    a.settle_parse();
+    assert!(a.previewing());
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.message.as_str(), a.buf.path.clone()),
+        ("", Some(dir.join("t.csv")))
+    );
+    drop(std::fs::remove_dir_all(&dir));
+}

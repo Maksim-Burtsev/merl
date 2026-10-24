@@ -1,0 +1,57 @@
+wait Tutor 10/
+ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+ 2
+ 3 import json
+ 4
+ 5 from config import Config, load_config
+ 6 from models import Note
+ 7
+ 8
+ 9 class NoteStore:
+10     """Reads and writes the notes of a single JSON file."""
+11
+12     def __init__(self, config: Config | None = None) -> None:
+13         self.config = config or load_config()
+14         self.notes: list[Note] = self._read()
+15
+16     def _read(self) -> list[Note]:
+17         """Load the notes from disk; a missing file means no notes yet."""
+18         if not self.config.path.exists():
+19             return []
+20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
+21         return [Note.from_dict(item) for item in raw]
+22
+23     def _write(self) -> None:
+24         """Write every note back to disk."""
+25         raw = [note.to_dict() for note in self.notes]
+26         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+27
+28     def next_id(self) -> int:
+29         """One past the highest id in use."""
+30         return max((note.id for note in self.notes), default=0) + 1
+31
+32     def add(self, text: str, tags: list[str] | None = None) -> Note:
+33         """Append a note and save the file."""
+34         note = Note(id=self.next_id(), text=text, tags=tags or [])
+35         self.notes.append(note)
+36         self._write()
+37         return note
+38
+39     def remove(self, note_id: int) -> bool:
+40         """Delete the note with this id and report whether it existed."""
+41         keep = [note for note in self.notes if note.id != note_id]
+42         if len(keep) == len(self.notes):
+43             return False
+44         self.notes = keep
+45         self._write()
+46         return True
+47
+48     def find(self, needle: str) -> list[Note]:
+49         """Every note whose text contains `needle`, case-insensitively."""
+50         lowered = needle.lower()
+51         return [note for note in self.notes if lowered in note.text.lower()]
+Tutor 10/26 · Go to line
+`:` (or Ctrl+G), then a number: type `42` and press Enter.
+
+store.py  9:1  [code]  ✓ Project symbols                                                                                                                                           14:32
+cursor (x,y,shown) 3,8,0

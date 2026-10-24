@@ -24,6 +24,7 @@ Shift+PgDn
 Shift+PgUp
 Shift+Right
 Shift+Up
+V
 f
 o
 q

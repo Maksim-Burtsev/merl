@@ -86,14 +86,16 @@ impl App {
         let listed = path
             .strip_prefix(&self.root)
             .is_ok_and(|rel| self.files.iter().any(|f| f == rel));
-        let external = !path.starts_with(&self.root)
+        let inside = path.strip_prefix(&self.root).is_ok_and(|rel| {
+            super::links::in_project(Path::new(""), &rel.to_string_lossy()).is_some()
+        });
+        let external = !inside
             || !listed
                 && self
                     .external
                     .values()
                     .any(|(roots, _)| roots.iter().any(|r| path.starts_with(r)))
-            || !listed && self.walked_roots.keys().any(|r| path.starts_with(r))
-            || self.in_project(path).is_none();
+            || !listed && self.walked_roots.keys().any(|r| path.starts_with(r));
         if external {
             buf.readonly.get_or_insert("outside the project");
         }
