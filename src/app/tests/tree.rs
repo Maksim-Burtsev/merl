@@ -395,8 +395,10 @@ fn the_page_keys_and_braces_move_the_focused_tree_and_leave_the_code() {
     assert_eq!(go(&mut a, KeyCode::Char('d'), ctrl), ("f2.rs".into(), 4));
     assert_eq!(go(&mut a, KeyCode::Char('u'), ctrl), ("f1.rs".into(), 3));
     assert_eq!(go(&mut a, KeyCode::PageUp, shift), ("a/b/c".into(), 0));
-    assert_eq!(go(&mut a, KeyCode::End, none).0, "f6.rs");
-    assert_eq!(go(&mut a, KeyCode::Home, none).0, "a/b/c");
+    assert_eq!(go(&mut a, KeyCode::End, none), ("f6.rs".into(), 6));
+    a.pressed.clear();
+    assert_eq!(go(&mut a, KeyCode::Home, ctrl), ("a/b/c".into(), 0));
+    assert_eq!(a.pressed, HashMap::from([("Tree: Home", 1)]));
     let braces: Vec<String> = "}}{{{}"
         .chars()
         .map(|c| go(&mut a, KeyCode::Char(c), none).0)
@@ -411,6 +413,16 @@ fn the_page_keys_and_braces_move_the_focused_tree_and_leave_the_code() {
         "a collapsed folder stays collapsed"
     );
     assert_eq!((a.line, a.focus), (0, Focus::Tree), "the code never moved");
+
+    let (_, mut b) = project_app("tree-files", &[("a.rs", "x\n"), ("b.rs", "x\n")]);
+    b.focus = Focus::Tree;
+    b.tree.reveal(Path::new("b.rs"));
+    press(&mut b, KeyCode::Char('{'), none);
+    assert_eq!(
+        row(&b),
+        "a.rs",
+        "with no folder above, `{{` goes to the first row"
+    );
 }
 
 fn folder_open(a: &App, path: &str) -> bool {

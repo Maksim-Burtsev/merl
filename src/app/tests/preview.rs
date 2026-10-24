@@ -414,12 +414,12 @@ fn from_the_tree_the_preview_still_refuses_what_it_refuses() {
         "what the preview refuses stays refused"
     );
     let row = at_row(&a).0;
-    key(&mut a, KeyCode::Char('}'));
-    key(&mut a, KeyCode::Char('{'));
-    key(&mut a, KeyCode::End);
-    assert_eq!(at_row(&a).0, row, "`}}`, `{{` and End move the tree");
-    key(&mut a, KeyCode::Down);
-    assert_eq!(at_row(&a).0, row, "Down moves the tree");
+    for k in [KeyCode::Char('}'), KeyCode::PageDown, KeyCode::Down] {
+        key(&mut a, k);
+        assert_eq!(at_row(&a).0, row, "{k:?} moves the tree, not the preview");
+    }
+    press(&mut a, KeyCode::Char('d'), KeyModifiers::CONTROL);
+    assert_eq!(at_row(&a).0, row, "Ctrl+D moves the tree, not the preview");
     drop(std::fs::remove_dir_all(&dir));
 }
 
