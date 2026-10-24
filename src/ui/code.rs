@@ -160,15 +160,12 @@ impl<'a> Painter<'a> {
                 .add_modifier(theme.modifiers(groups))
         };
         let text_hl = app.selection().is_none();
-        let hl_gutter = base
-            .fg(theme.cursor_gutter_fg)
-            .add_modifier(theme.modifiers(&["CursorLineNr"]));
         Self {
             app,
             theme,
             base,
             gutter_w,
-            gutter_style: base.fg(theme.gutter_fg),
+            gutter_style: base.fg(theme.gutter_fg).bg(theme.gutter_bg()),
             find_styles: (
                 find_style(theme.find_fg, theme.find_bg, &["Search"]),
                 find_style(
@@ -179,11 +176,10 @@ impl<'a> Painter<'a> {
             ),
             tag: Style::new().bg(theme.tag_bg).fg(theme.tag_fg),
             hl: base.bg(theme.line_hl),
-            hl_gutter: hl_gutter.bg(if text_hl {
-                theme.line_hl
-            } else {
-                theme.cursor_gutter_bg()
-            }),
+            hl_gutter: base
+                .fg(theme.cursor_gutter_fg)
+                .bg(theme.cursor_gutter_bg())
+                .add_modifier(theme.modifiers(&["CursorLineNr"])),
             sel: theme
                 .selected(base)
                 .add_modifier(theme.modifiers(&["Visual"])),
@@ -282,7 +278,7 @@ impl<'a> Painter<'a> {
             .enumerate()
             .map(|(i, (r, lab, mark))| {
                 let mut row = vec![
-                    Span::styled(" ".repeat(self.gutter_w - 1), self.gutter_style),
+                    Span::styled(" ".repeat(self.gutter_w - 1), base.fg(theme.gutter_fg)),
                     Span::styled(if i == 0 { "\u{270e}" } else { " " }, mark_style),
                     Span::styled(" ", bg),
                 ];
@@ -592,7 +588,7 @@ impl<'a> Painter<'a> {
         };
         let mut row = vec![Span::styled(num, g), mark];
         if before {
-            row.push(Span::styled("\u{2039}", g));
+            row.push(Span::styled("\u{2039}", Style { bg: t.bg, ..g }));
         }
         let lead = match (self.nowrap, i) {
             (true, _) => f.leads.0,
@@ -647,7 +643,13 @@ impl<'a> Painter<'a> {
             row.push(Span::styled(" ".repeat(pad), pad_style));
         }
         if after {
-            row.push(Span::styled("\u{203a}", g));
+            row.push(Span::styled(
+                "\u{203a}",
+                Style {
+                    bg: pad_style.bg,
+                    ..g
+                },
+            ));
         }
         Line::from(row)
     }

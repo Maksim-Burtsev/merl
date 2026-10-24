@@ -75,8 +75,8 @@ u fg #589ed7 bg #222436
 v fg #65bcff bg #222436
 w fg #4fd6be bg #222436
 x fg #fca7ea bg #222436 ITALIC
-y fg #ff966c bg #2f334d BOLD
-z fg green bg #2f334d BOLD
+y fg #ff966c bg #222436 BOLD
+z fg green bg #222436 BOLD
 A fg #222436 bg #c8d3f5
 B fg #c8d3f5 bg #2e434b
 C fg #c099ff bg #2e434b
@@ -110,9 +110,9 @@ ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmppppmmmmmmmaaaaaammmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmppppmaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmoooooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-ammmmmmmmmmmmmmmmmmmmmmmmmmmmaccstuuuvvvuwwwwwuxxxxuuxxuxxxuuuuuuuuuuuuuuuuuuuuu
-ammmmmmmmmmmmmmmmmmmmmmmmmmmmallyzzzzzzzzAAAAAAzBBBzCCCCzzzzzzzzzzzzzzzzzzzzzzzz
-ammmmmmmmmmmmmmmmmmmmmmmmmmmmallyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmammstuuuvvvuwwwwwuxxxxuuxxuxxxuuuuuuuuuuuuuuuuuuuuu
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmallsyyyyyyyyzzzzzzyAAAyBBBByyyyyyyyyyyyyyyyyyyyyyyy
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmallsyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmooomaaaaaamppppmmmmmmmmmmmpppmmppmppppmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmrrrrrrrrrrrrrrrrrrrrrrrrrrrrrmmmmmmmmmm
@@ -121,7 +121,7 @@ ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmmmmmppmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmoomaaammmmmmmppmaaamppppmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmalllmmmmmmmmmmmmoooooompppppmmmmmmmmmmmmmmmmmmmmmmm
 annnnnnnnnnnnnnnnnaaaaaaaaaaaalllmmmmmmmmppppmmmmmmmpmmmmmmmmmmmmmmmmmmmmmmmmmmm
-DDDDDDDDDDDDEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
+CCCCCCCCCCCCDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #e7eaf0
@@ -140,19 +140,18 @@ o fg #cf222e bg #ffffff
 p fg #0550ae bg #ffffff
 q fg #953800 bg #ffffff
 r fg #0a3069 bg #ffffff
-s fg green bg #e7eaf0
+s fg green bg #ffffff
 t fg #ffffff bg #1f2328
 u fg #1f2328 bg #c7e6d5
 v fg #cf222e bg #c7e6d5
 w fg #6639ba bg #c7e6d5
 x fg #0550ae bg #c7e6d5
-y fg green bg #ffffff
-z fg #1f2328 bg #dbf7e2
-A fg #cf222e bg #dbf7e2
-B fg #6639ba bg #dbf7e2
-C fg #0550ae bg #dbf7e2
-D fg #f6f8fa bg #5094e4 BOLD
-E fg #f6f8fa bg #5094e4
+y fg #1f2328 bg #dbf7e2
+z fg #cf222e bg #dbf7e2
+A fg #6639ba bg #dbf7e2
+B fg #0550ae bg #dbf7e2
+C fg #f6f8fa bg #5094e4 BOLD
+D fg #f6f8fa bg #5094e4
 
 ==== 120x33 tokyonight-moon text, cursor 33,17
 ┌feature ← main──────────────┐ store.py  →  app/store.py
@@ -253,8 +252,8 @@ A fg #c3e88d bg #222436
 B fg #589ed7 bg #222436
 C fg #fca7ea bg #222436 ITALIC
 D fg #65bcff bg #222436
-E fg #ff966c bg #2f334d BOLD
-F fg green bg #2f334d BOLD
+E fg #ff966c bg #222436 BOLD
+F fg green bg #222436 BOLD
 G fg #222436 bg #c8d3f5
 H fg #c8d3f5 bg #2e434b
 I fg #c099ff bg #2e434b
@@ -292,9 +291,9 @@ annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnqqqqnnnnnnnaaaaaannnnnnnnnnnnnnnnnnnnnn
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnqqqqnaaaaaannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnrrrrrrnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-annnnnnnnnnnnnnnnnnnnnnnnnnnnaccuvwwwxxxwyyyyywzzzzwwzzwzzzwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
-annnnnnnnnnnnnnnnnnnnnnnnnnnnappABBBBBBBBCCCCCCBDDDBEEEEBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
-annnnnnnnnnnnnnnnnnnnnnnnnnnnappABBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+annnnnnnnnnnnnnnnnnnnnnnnnnnnannuvwwwxxxwyyyyywzzzzwwzzwzzzwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+annnnnnnnnnnnnnnnnnnnnnnnnnnnappuAAAAAAAABBBBBBACCCADDDDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+annnnnnnnnnnnnnnnnnnnnnnnnnnnappuAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnrrrnaaaaaanqqqqnnnnnnnnnnnqqqnnqqnqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnnn
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnqnnnnnnnrrrnnnnnnrrnqqqqnnnnnnnrrnnnnnnnnnqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
@@ -307,7 +306,7 @@ annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnrrrnaaaanqqqqnnnnnnnnnnqqqnnqqnqqqqnttttnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 annnnnnnnnnnnnnnnnnnnnnnnnnnnapppnnnnnnnnssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssnnnnnnnnnnnnn
 aoooooooooooooooooaaaaaaaaaaaapppnnnnnnnnnnnnnnnnqnnnnnnnnaaaaannnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
-FFFFFFFFFFFFGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+EEEEEEEEEEEEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #e7eaf0
@@ -328,19 +327,18 @@ q fg #0550ae bg #ffffff
 r fg #cf222e bg #ffffff
 s fg #0a3069 bg #ffffff
 t fg #953800 bg #ffffff
-u fg green bg #e7eaf0
+u fg green bg #ffffff
 v fg #ffffff bg #1f2328
 w fg #1f2328 bg #c7e6d5
 x fg #cf222e bg #c7e6d5
 y fg #6639ba bg #c7e6d5
 z fg #0550ae bg #c7e6d5
-A fg green bg #ffffff
-B fg #1f2328 bg #dbf7e2
-C fg #cf222e bg #dbf7e2
-D fg #6639ba bg #dbf7e2
-E fg #0550ae bg #dbf7e2
-F fg #f6f8fa bg #5094e4 BOLD
-G fg #f6f8fa bg #5094e4
+A fg #1f2328 bg #dbf7e2
+B fg #cf222e bg #dbf7e2
+C fg #6639ba bg #dbf7e2
+D fg #0550ae bg #dbf7e2
+E fg #f6f8fa bg #5094e4 BOLD
+F fg #f6f8fa bg #5094e4
 
 ==== 185x55 tokyonight-moon text, cursor 33,28
 ┌feature ← main──────────────┐ store.py  →  app/store.py
@@ -485,8 +483,8 @@ A fg #ffc777 bg #222436
 B fg #fca7ea bg #222436 ITALIC
 C fg #c3e88d bg #222436
 D fg #ff966c bg #222436
-E fg #ff966c bg #2f334d BOLD
-F fg green bg #2f334d BOLD
+E fg #ff966c bg #222436 BOLD
+F fg green bg #222436 BOLD
 G fg #222436 bg #c8d3f5
 H fg #c8d3f5 bg #2e434b
 I fg #c099ff bg #2e434b
@@ -535,9 +533,9 @@ ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmppppmmmmmmmaaaaaammmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmppppmaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmrrrrrrmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-ammmmmmmmmmmmmmmmmmmmmmmmmmmmacctuvvvwwwvxxxxxvyyyyvvyyvyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-ammmmmmmmmmmmmmmmmmmmmmmmmmmmaoozAAAAAAAABBBBBBACCCADDDDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-ammmmmmmmmmmmmmmmmmmmmmmmmmmmaoozAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmammtuvvvwwwvxxxxxvyyyyvvyyvyyyvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaootzzzzzzzzAAAAAAzBBBzCCCCzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+ammmmmmmmmmmmmmmmmmmmmmmmmmmmaootzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmrrrmaaaaaamppppmmmmmmmmmmmpppmmppmppppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmsssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmaooommmmmmmmmmmmmpmmmmmmmrrrmmmmmmrrmppppmmmmmmmrrmmmmmmmmmppmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
@@ -561,7 +559,7 @@ ammmmmmmmmmmmmmmmmmmmmmmmmmmmammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 ammmmmmmmmmmmmmmmmmmmmmmmmmmmammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
 annnnnnnnnnnnnnnnnaaaaaaaaaaaammmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
-EEEEEEEEEEEEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+DDDDDDDDDDDDEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
 c fg #1f2328 bg #e7eaf0
@@ -581,16 +579,15 @@ p fg #0550ae bg #ffffff
 q fg #953800 bg #ffffff
 r fg #cf222e bg #ffffff
 s fg #0a3069 bg #ffffff
-t fg green bg #e7eaf0
+t fg green bg #ffffff
 u fg #ffffff bg #1f2328
 v fg #1f2328 bg #c7e6d5
 w fg #cf222e bg #c7e6d5
 x fg #6639ba bg #c7e6d5
 y fg #0550ae bg #c7e6d5
-z fg green bg #ffffff
-A fg #1f2328 bg #dbf7e2
-B fg #cf222e bg #dbf7e2
-C fg #6639ba bg #dbf7e2
-D fg #0550ae bg #dbf7e2
-E fg #f6f8fa bg #5094e4 BOLD
-F fg #f6f8fa bg #5094e4
+z fg #1f2328 bg #dbf7e2
+A fg #cf222e bg #dbf7e2
+B fg #6639ba bg #dbf7e2
+C fg #0550ae bg #dbf7e2
+D fg #f6f8fa bg #5094e4 BOLD
+E fg #f6f8fa bg #5094e4

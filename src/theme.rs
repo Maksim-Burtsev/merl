@@ -234,8 +234,16 @@ impl Theme {
             .map_or(Modifier::empty(), |s| s.add_modifier - Modifier::REVERSED)
     }
 
+    pub fn gutter_bg(&self) -> Color {
+        self.own_bg("LineNr")
+    }
+
     pub fn cursor_gutter_bg(&self) -> Color {
-        drawn(&self.groups, "CursorLineNr", (self.fg, self.bg)).map_or(self.bg, |(_, bg)| bg)
+        self.own_bg("CursorLineNr")
+    }
+
+    fn own_bg(&self, name: &str) -> Color {
+        drawn(&self.groups, name, (self.fg, self.bg)).map_or(self.bg, |(_, bg)| bg)
     }
 
     pub fn selected(&self, style: Style) -> Style {
@@ -878,6 +886,7 @@ mod tests {
                 ("Search", t.find_bg, 1),
                 ("CurSearch", t.current_find_bg, 1),
                 ("LineNr", t.gutter_fg, 0),
+                ("LineNr", t.gutter_bg(), 1),
                 ("CursorLineNr", t.cursor_gutter_fg, 0),
                 ("CursorLineNr", t.cursor_gutter_bg(), 1),
                 ("StatusLine", t.status_bg, 1),
