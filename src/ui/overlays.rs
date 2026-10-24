@@ -97,9 +97,10 @@ pub(super) fn draw_tree(
     let focused = app.focus == Focus::Tree;
     let width = inner.width as usize;
     let review = app.review.as_ref();
+    let viewed = &app.viewed;
     app.tree.fold(|n, depth| {
         let need = wrap::width(&n.name()).min(NAME_ROOM);
-        (need + used(review, n, depth)).saturating_sub(width)
+        (need + used(review, viewed, n, depth)).saturating_sub(width)
     });
     let visible = app.tree.visible();
     let height = inner.height as usize;
@@ -117,15 +118,16 @@ pub(super) fn draw_tree(
             let n = &app.tree.nodes[i];
             let depth = app.tree.drawn_depth(i);
             let full = app.tree.row_name(i);
-            let room = width.saturating_sub(used(app.review.as_ref(), n, depth));
+            let room = width.saturating_sub(used(review, &app.viewed, n, depth));
             let cut = wrap::width(&full) > room;
             let joined = full.contains('/');
             cut_any |= cut;
             for j in app.tree.row_nodes(i) {
                 let m = &app.tree.nodes[j];
-                need = need.max(used(app.review.as_ref(), m, m.depth) + wrap::width(&m.name()));
+                need = need.max(used(review, &app.viewed, m, m.depth) + wrap::width(&m.name()));
             }
-            let row = if n.ignored {
+            let skipped = agent_skipped(review, &app.viewed, &n.path);
+            let row = if n.ignored || skipped {
                 base.fg(theme.ghost_fg)
             } else if n.is_dir {
                 accent
@@ -140,7 +142,7 @@ pub(super) fn draw_tree(
                 row.bg(theme.line_hl_dim)
             };
             let noted = !n.is_dir && app.notes_in(&n.path) > 0;
-            let tick = tree_tick(app, &n.path, noted);
+            let tick = tree_tick(app, &n.path, noted, skipped.then_some(depth));
             let width = width.saturating_sub(wrap::width(tick));
             let mut spans = vec![
                 Span::styled(tick, style.fg(theme.accent)),
@@ -220,10 +222,12 @@ fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'stati
     block
 }
 
-fn tree_tick(app: &App, path: &Path, noted: bool) -> &'static str {
+fn tree_tick(app: &App, path: &Path, noted: bool, skipped_at: Option<usize>) -> &'static str {
     match (&app.review, app.viewed.contains_key(path)) {
         (Some(_), _) if noted => "\u{270e} ",
         (None, _) => "",
+        _ if skipped_at == Some(0) => "\u{1f916} ",
+        _ if skipped_at.is_some() => "\u{1f916}",
         (Some(_), false) => "  ",
         (Some(_), true) => "\u{2713} ",
     }
@@ -239,11 +243,24 @@ fn counts(f: &crate::git::ReviewFile) -> String {
     }
 }
 
-fn used(review: Option<&Review>, n: &crate::tree::Node, depth: usize) -> usize {
+fn used(
+    review: Option<&Review>,
+    viewed: &HashMap<PathBuf, u64>,
+    n: &crate::tree::Node,
+    depth: usize,
+) -> usize {
+    let pad = usize::from(depth == 0 && agent_skipped(review, viewed, &n.path));
     match review {
         None => 2 * depth + 2,
-        Some(r) => 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1),
+        Some(r) => {
+            pad + 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1)
+        }
     }
+}
+
+fn agent_skipped(review: Option<&Review>, viewed: &HashMap<PathBuf, u64>, path: &Path) -> bool {
+    (review.and_then(|r| r.file(path)))
+        .is_some_and(|f| f.agent_skipped && !viewed.contains_key(path))
 }
 
 fn cut_at_slash(path: &str, room: usize) -> String {

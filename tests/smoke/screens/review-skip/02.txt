@@ -1,0 +1,57 @@
+wait hunk 1/1  file 1/6
+┌agent/skip ← origin/main────┐ 1 from dataclasses import dataclass, field
+│  ▾ app                     │ 2 from datetime import datetime, timezone
+│    M models.py        +2 −0│ 3 from decimal import Decimal
+│    M service.py       +2 −0│ 4 from enum import Enum
+│  ▾ tests                   │ 5
+│🤖  M test_service.py  +2 −0│ 6
+│  ▾ docs                    │ 7 class OrderStatus(Enum):
+│🤖  M notes.md         +2 −0│ 8     PENDING = "pending"
+│  ▾ worker                  │ 9     PAID = "paid"
+│    M main.go          +2 −0│10     SHIPPED = "shipped"
+│🤖 M README.md         +2 −0│11     CANCELLED = "cancelled"
+│                            │12     REFUNDED = "refunded"
+│                            │13
+│                            │14
+│                            │15 @dataclass
+│                            │16 class Order:
+│                            │17     id: int
+│                            │18     customer_id: int
+│                            │19     total: Decimal
+│                            │20     status: OrderStatus = OrderStatus.PENDING
+│                            │21     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+│                            │22
+│                            │23     def can_cancel(self) -> bool:
+│                            │24         return self.status in (OrderStatus.PENDING, OrderStatus.PAID)
+│                            │25▎
+│                            │26▎# models
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 6 files · +12 −0 ──────────┘
+app/models.py  25:1  [code]  hunk 1/1  file 1/6                                                                                                                                    14:32
+cursor (x,y,shown) 33,24,0

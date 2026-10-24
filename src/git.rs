@@ -192,6 +192,7 @@ pub struct ReviewFile {
     pub untracked: bool,
     pub generated: bool,
     pub same_bytes: bool,
+    pub agent_skipped: bool,
 }
 
 impl ReviewFile {
@@ -351,14 +352,17 @@ impl Review {
                 None => generated(root, f),
             };
         }
-        let order = match (branch.as_str(), dirs(root)) {
-            _ if !crate::tree::orders_on() => Order::default(),
-            ("HEAD", _) | (_, None) => Order::default(),
-            (b, Some(dirs)) => Order::read(
-                &dirs.common_refs_dir.join("merl").join("review").join(b),
-                Path::new(""),
-            ),
+        let order_file = match (branch.as_str(), dirs(root)) {
+            _ if !crate::tree::orders_on() => None,
+            ("HEAD", _) | (_, None) => None,
+            (b, Some(dirs)) => Some(dirs.common_refs_dir.join("merl").join("review").join(b)),
         };
+        let order =
+            (order_file.as_deref()).map_or_else(Order::default, |o| Order::read(o, Path::new("")));
+        let skipped = order_file.as_deref().map(crate::tree::skipped_in);
+        for f in &mut files {
+            f.agent_skipped = skipped.as_ref().is_some_and(|s| s.contains(&f.path));
+        }
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
         let patch = git(&[
             "-c",
@@ -784,6 +788,7 @@ fn untracked(root: &Path, path: &Path) -> ReviewFile {
         untracked: true,
         generated: false,
         same_bytes: false,
+        agent_skipped: false,
     }
 }
 
@@ -933,6 +938,7 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
             untracked: false,
             generated: false,
             same_bytes,
+            agent_skipped: false,
         });
     }
     files
@@ -1469,6 +1475,7 @@ mod tests {
             untracked: false,
             generated: false,
             same_bytes: false,
+            agent_skipped: false,
         };
         let (deleted, added) = changed_lines(Path::new("/nonexistent"), patch, &[file]);
         let rows: Vec<_> = (deleted.iter())

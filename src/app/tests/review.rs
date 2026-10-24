@@ -479,6 +479,66 @@ fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
 }
 
 #[test]
+fn c_walks_past_the_files_the_agent_skipped_and_enter_opens_one() {
+    let (dir, _) = review_app("agentskip");
+    let order = dir.join(".git/merl/review/feature");
+    std::fs::create_dir_all(order.parent().unwrap()).unwrap();
+    std::fs::write(
+        &order,
+        "# commit 1\nskip src/a.rs\ncrlf.txt\n  skip ./gone\nnew\ntail\n",
+    )
+    .unwrap();
+    let review = git::Review::open(&dir, None, None).unwrap();
+    let tree = crate::tree::from_listing(
+        &review
+            .files
+            .iter()
+            .map(|f| f.path.clone())
+            .collect::<Vec<_>>(),
+    );
+    let (_, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    a.start_review(review);
+    let c = |a: &mut App, key: char| press(a, KeyCode::Char(key), KeyModifiers::NONE);
+    assert_eq!(
+        panel_rows(&a),
+        ["M src/a.rs", "M crlf.txt", "D gone", "A new", "M tail"]
+    );
+    let skipped: Vec<_> = (a.review.as_ref().unwrap().files.iter())
+        .filter(|f| f.agent_skipped)
+        .map(|f| f.path.display().to_string())
+        .collect();
+    assert_eq!(skipped, ["src/a.rs", "gone"]);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    c(&mut a, 'c');
+    assert_eq!(at(&a), (dir.join("new"), 0));
+    c(&mut a, 'c');
+    assert_eq!(at(&a), (dir.join("tail"), 0));
+    c(&mut a, 'C');
+    assert_eq!(at(&a), (dir.join("new"), 0));
+    c(&mut a, 'C');
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    c(&mut a, 'C');
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    assert_eq!(a.message, "first hunk of the review");
+
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("src/a.rs"));
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(at(&a).0, dir.join("src/a.rs"));
+    a.focus = Focus::Code;
+    c(&mut a, 'c');
+    assert_eq!(at(&a), (dir.join("src/a.rs"), 5));
+    c(&mut a, 'c');
+    assert_eq!(
+        at(&a),
+        (dir.join("tail"), 0),
+        "crlf.txt and new are ticked, gone skipped"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
 fn viewed_marks_are_the_branch_s_through_a_detached_head_and_a_namesake_tag() {
     let (dir, mut a) = review_app("viewedhead");
     let git = |args: &[&str]| {

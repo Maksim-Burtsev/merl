@@ -23,7 +23,8 @@ impl App {
                 self.hist_note(true);
             }
         }
-        let stop = |f: &&git::ReviewFile| f.is_stop(&self.root, self.diagrams.on());
+        let stop =
+            |f: &&git::ReviewFile| !f.agent_skipped && f.is_stop(&self.root, self.diagrams.on());
         let unread = (self.review.as_ref()).and_then(|r| {
             r.files
                 .iter()
@@ -293,11 +294,16 @@ impl App {
         let at = self
             .rel_current()
             .and_then(|rel| r.files.iter().position(|f| f.path == rel));
-        match (at, dir > 0) {
-            (Some(i), true) => r.files[i + 1..].iter().collect(),
-            (Some(i), false) => r.files[..i].iter().rev().collect(),
-            (None, true) => r.files.iter().collect(),
-            (None, false) => r.files.iter().rev().collect(),
+        let span = match (at, dir > 0) {
+            (Some(i), true) => &r.files[i + 1..],
+            (Some(i), false) => &r.files[..i],
+            (None, _) => &r.files[..],
+        };
+        let walked = span.iter().filter(|f| !f.agent_skipped);
+        if dir > 0 {
+            walked.collect()
+        } else {
+            walked.rev().collect()
         }
     }
 
@@ -454,7 +460,7 @@ impl App {
 
     fn every_stop_ticked(&self, r: &git::Review) -> bool {
         (r.files.iter())
-            .filter(|f| f.is_stop(&self.root, self.diagrams.on()))
+            .filter(|f| !f.agent_skipped && f.is_stop(&self.root, self.diagrams.on()))
             .all(|f| self.ticked(&f.path))
     }
 

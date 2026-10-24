@@ -1,0 +1,57 @@
+wait tests/test_service.py
+┌agent/skip ← origin/main────┐36 def make_service(*orders):
+│  ▾ app                     │37     repo = FakeOrderRepo(*orders)
+│✓   M models.py        +2 −0│38     return OrderService(repo, FakeUow(repo), settings=None), repo
+│✓   M service.py       +2 −0│39
+│  ▾ tests                   │40
+│🤖  M test_service.py  +2 −0│41 def test_cancel_pending_order():
+│  ▾ docs                    │42     service, repo = make_service(Order(id=1, customer_id=7, total=Decimal("12.50")))
+│🤖  M notes.md         +2 −0│43     assert service.cancel(1).status is OrderStatus.CANCELLED
+│  ▾ worker                  │44     assert repo.saved[0].id == 1
+│✓   M main.go          +2 −0│45
+│🤖 M README.md         +2 −0│46
+│                            │47 def test_missing_order():
+│                            │48     service, _ = make_service()
+│                            │49     with pytest.raises(OrderNotFound):
+│                            │50         service.get(404)
+│                            │51
+│                            │52
+│                            │53 def test_first_of_many():
+│                            │54     assert next(iter([3, 4])) == 3
+│                            │55
+│                            │56
+│                            │57 import unittest  # noqa: E402
+│                            │58
+│                            │59
+│                            │60 class LegacyServiceTest(unittest.TestCase):
+│                            │61     def test_nothing_saved(self):
+│                            │62         self.assertEqual(1 + 1, 2)
+│                            │63▎
+│                            │64▎# test
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 6 files · +12 −0 ──────────┘
+tests/test_service.py  63:1  [code]  hunk 1/1  file 3/6                                                                                                                            14:32
+cursor (x,y,shown) 33,27,0
