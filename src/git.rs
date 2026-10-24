@@ -1062,7 +1062,7 @@ fn dependency_links(folder: &Path) -> impl Iterator<Item = String> {
     (DEPENDENCIES.map(String::from).into_iter()).chain(package_modules(folder))
 }
 
-fn has_edits(folder: &Path) -> bool {
+fn has_edits(folder: &Path, root: &Path) -> bool {
     let links: Vec<String> = dependency_links(folder).collect();
     git(
         folder,
@@ -1075,7 +1075,9 @@ fn has_edits(folder: &Path) -> bool {
         ],
     )
     .map_or(true, |out| {
-        (out.split('\0').filter_map(|e| e.get(3..))).any(|p| !links.iter().any(|l| l == p))
+        let linked = |p: &str| std::fs::read_link(folder.join(p)).is_ok_and(|l| l == root.join(p));
+        (out.split('\0').filter_map(|e| e.get(3..)))
+            .any(|p| !(links.iter().any(|l| l == p) && linked(p)))
     })
 }
 
@@ -1095,7 +1097,7 @@ fn check_out_folder(
         folder.join(".git").is_file() && dirs(&folder).is_some_and(|d| d.common_refs_dir == common);
     let in_folder = |args: &[&str]| git(&folder, args);
     let edits = reused
-        && (has_edits(&folder)
+        && (has_edits(&folder, root)
             || (in_folder(&["merge-base", "--is-ancestor", "HEAD", at]).is_err()
                 && own_commits(&in_folder, "HEAD", at, put_by_merl)));
     if reused && !edits {

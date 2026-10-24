@@ -29,3 +29,11 @@ Infuser* fill() {
   //^ d: src/tea/infuser.cc:7
   return i;
 }
+
+struct Steeper {
+  explicit Steeper(int ml) : ml(ml) {}
+  Steeper() : Steeper(500) {}
+  //          ^ d: picker src/tea/infuser.cc:33, src/tea/infuser.cc:34
+  //^ d: src/tea/infuser.cc:35
+  int ml;
+};

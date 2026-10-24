@@ -783,3 +783,15 @@ extension Percolator {
         return false
     }
 }
+
+// A `guard` alone on its line binds its conditions for the lines after it: `request` is the
+// field's `URLRequest`, so its `url` is not one of the project's namesakes (#1068).
+extension Postman {
+    func routed() -> Bool {
+        guard
+            let request = lastRequest
+        else { return false }
+        return request.url == nil
+        //             ^ d: none
+    }
+}

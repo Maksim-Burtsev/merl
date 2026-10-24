@@ -614,3 +614,29 @@ fn d_into_a_php_vendor_lib_from_a_folder_lands_as_in_your_checkout_and_a_sweep_k
         "the sweep takes the links, not your vendor/ and Cargo.lock"
     );
 }
+
+#[test]
+fn a_tracked_cargo_lock_changed_in_a_review_folder_is_an_edit_it_keeps() {
+    let c = Clones::new("lock");
+    c.git("a", &["switch", "-q", "feat1"]);
+    c.commit("a", "Cargo.lock", "# theirs\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    std::fs::write(c.b().join("Cargo.lock"), "# mine\n").unwrap();
+    let (one, _) = c.open("feat1");
+    assert!(
+        !one.join("Cargo.lock").is_symlink(),
+        "a tracked file is never linked"
+    );
+    std::fs::write(one.join("Cargo.lock"), "# rebuilt\n").unwrap();
+    c.commit("a", "fix.py", "y = 2\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    let (_, r) = c.open("feat1");
+    assert_eq!(
+        (
+            std::fs::read_to_string(one.join("Cargo.lock")).ok(),
+            r.note.as_deref()
+        ),
+        (Some("# rebuilt\n".to_owned()), Some("behind origin/feat1")),
+        "the changed Cargo.lock holds the folder at its commit"
+    );
+}

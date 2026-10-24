@@ -638,3 +638,27 @@ fn a_call_outside_types_its_value_by_the_stub_s_return_type() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_project_s_own_logging_wins_over_typeshed_s() {
+    let (dir, mut a) = project_app(
+        "py-1100-own",
+        &[
+            (
+                "logging.py",
+                "from vendored_log import *\n\n\nclass Mine:\n    def info(self, msg):\n        pass\n",
+            ),
+            (
+                "x.py",
+                "import logging\n\nlog = logging.getLogger(__name__)\nlog.info(\"x\")\n",
+            ),
+            ("y.py", "class Other:\n    def info(self):\n        pass\n"),
+        ],
+    );
+    d_on(&mut a, "x.py", "log.info");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "the project's module, as Python imports it, and not typeshed's"
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}

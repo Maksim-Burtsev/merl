@@ -200,11 +200,12 @@ pub fn cpp_constructor_defined_in_class(
         return false;
     };
     let open = at + open;
-    let head = code
-        .get(c_head_start(&code, open)..open)
-        .unwrap_or_default();
+    let start = c_head_start(&code, open);
+    let head = code.get(start..open).unwrap_or_default();
     code.as_bytes()[open] == b'{'
-        && matches!(c_head(head), Head::Function { name, .. } if name.trim_start_matches('~') == word)
+        && matches!(c_head(head), Head::Function { name, params }
+            if name.trim_start_matches('~') == word
+                && code.get(at + word.len()..start + params.start).is_some_and(|g| g.trim().is_empty()))
         && c_innermost_open_brace(code.as_bytes(), at)
             .is_some_and(|o| c_body_name(&code, o) == word)
 }

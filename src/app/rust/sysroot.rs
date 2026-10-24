@@ -330,7 +330,13 @@ impl App {
             .take(4)
             .collect::<Vec<_>>()
             .join(" ");
-        let (_, target) = statement.split_once(';')?.0.split_once('=')?;
+        let alias = statement.split_once(';')?.0;
+        let mut depth = 0_i32;
+        let eq = alias.find(|c| {
+            depth += i32::from(c == '<') - i32::from(c == '>');
+            c == '=' && depth == 0
+        })?;
+        let target = alias.get(eq + 1..)?;
         let t = STD_PATH.captures(target.trim())?;
         let std = matches!(t[1].split("::").next(), Some("" | "std" | "core" | "alloc"));
         std.then(|| (owner, t[2].to_owned()))
