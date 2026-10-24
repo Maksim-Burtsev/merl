@@ -534,3 +534,74 @@ fn a_review_folder_merl_moved_to_your_branch_follows_origin_once_that_branch_is_
     let (_, r) = c.open("feat1");
     assert_eq!((one.join("l.py").exists(), r.note), (false, None));
 }
+
+#[cfg(unix)]
+#[test]
+fn d_into_a_php_vendor_lib_from_a_folder_lands_as_in_your_checkout_and_a_sweep_keeps_your_libs() {
+    let c = Clones::new("vendor");
+    let user = "<?php\n\nuse Acme\\Client;\n\nfunction run()\n{\n    return new Client();\n}\n";
+    let write = |at: &Path, f: &str, text: &str| {
+        std::fs::create_dir_all(at.join(f).parent().unwrap()).unwrap();
+        std::fs::write(at.join(f), text).unwrap();
+    };
+    let a = c.dir.join("a");
+    c.git("a", &["switch", "-q", "feat1"]);
+    write(&a, "app/Use.php", user);
+    c.commit("a", ".gitignore", ".venv/\nvendor/\n");
+    c.git("a", &["push", "-q", "origin", "feat1"]);
+    c.git("a", &["switch", "-q", "feat2"]);
+    write(&a, "vendor/acme/Client.php", "<?php\n\nclass Theirs\n{\n}\n");
+    c.commit("a", "Cargo.lock", "theirs\n");
+    c.git("a", &["push", "-q", "origin", "feat2"]);
+    let b = c.b();
+    let lib = "<?php\n\nnamespace Acme;\n\nclass Client\n{\n}\n";
+    write(&b, "vendor/acme/Client.php", lib);
+    write(&b, "Cargo.lock", "mine\n");
+    write(&b, ".gitignore", ".venv/\nvendor/\n");
+    write(&b, "app/Use.php", user);
+    let land = |root: &Path| {
+        let (tree, files) = crate::tree::build(root, false);
+        let mut a = App::new(root.to_path_buf(), tree, files, Buffer::empty(), None);
+        d_on(&mut a, "app/Use.php", "new Client");
+        shown(&mut a)
+    };
+    let (folder, _) = c.open("feat1");
+    let (tracked, _) = c.open("feat2");
+    let yours = land(&b);
+    assert!(
+        matches!(&yours, Shown::Jump(_, at) if at == "vendor/acme/Client.php:5"),
+        "{yours:?}"
+    );
+    assert_eq!(
+        (
+            land(&folder),
+            std::fs::read_to_string(folder.join("Cargo.lock")).ok()
+        ),
+        (yours, Some("mine\n".to_owned())),
+        "a review folder reads your checkout's vendor/ and untracked Cargo.lock"
+    );
+    assert_eq!(
+        (
+            tracked.join("vendor").is_symlink(),
+            std::fs::read_to_string(tracked.join("vendor/acme/Client.php")).ok(),
+            std::fs::read_to_string(tracked.join("Cargo.lock")).ok()
+        ),
+        (
+            false,
+            Some("<?php\n\nclass Theirs\n{\n}\n".to_owned()),
+            Some("theirs\n".to_owned())
+        ),
+        "a vendor/ and a Cargo.lock the branch tracks are its own"
+    );
+    git::sweep_folders(&b, SystemTime::now() + Duration::from_hours(15 * 24));
+    assert_eq!(
+        (
+            folder.exists(),
+            tracked.exists(),
+            std::fs::read_to_string(b.join("vendor/acme/Client.php")).ok(),
+            std::fs::read_to_string(b.join("Cargo.lock")).ok()
+        ),
+        (false, false, Some(lib.to_owned()), Some("mine\n".to_owned())),
+        "the sweep takes the links, not your vendor/ and Cargo.lock"
+    );
+}
