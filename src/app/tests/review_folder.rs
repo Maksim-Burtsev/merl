@@ -550,7 +550,11 @@ fn d_into_a_php_vendor_lib_from_a_folder_lands_as_in_your_checkout_and_a_sweep_k
     c.commit("a", ".gitignore", ".venv/\nvendor/\n");
     c.git("a", &["push", "-q", "origin", "feat1"]);
     c.git("a", &["switch", "-q", "feat2"]);
-    write(&a, "vendor/acme/Client.php", "<?php\n\nclass Theirs\n{\n}\n");
+    write(
+        &a,
+        "vendor/acme/Client.php",
+        "<?php\n\nclass Theirs\n{\n}\n",
+    );
     c.commit("a", "Cargo.lock", "theirs\n");
     c.git("a", &["push", "-q", "origin", "feat2"]);
     let b = c.b();
@@ -601,7 +605,12 @@ fn d_into_a_php_vendor_lib_from_a_folder_lands_as_in_your_checkout_and_a_sweep_k
             std::fs::read_to_string(b.join("vendor/acme/Client.php")).ok(),
             std::fs::read_to_string(b.join("Cargo.lock")).ok()
         ),
-        (false, false, Some(lib.to_owned()), Some("mine\n".to_owned())),
+        (
+            false,
+            false,
+            Some(lib.to_owned()),
+            Some("mine\n".to_owned())
+        ),
         "the sweep takes the links, not your vendor/ and Cargo.lock"
     );
 }
