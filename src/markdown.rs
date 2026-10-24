@@ -18,9 +18,14 @@ pub mod data;
 mod forge;
 pub mod images;
 
+pub mod notebook;
+
 pub fn is_markdown(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|e| e.eq_ignore_ascii_case("md") || e.eq_ignore_ascii_case("markdown"))
+    path.extension().is_some_and(|e| {
+        ["md", "markdown", "mdx"]
+            .iter()
+            .any(|m| e.eq_ignore_ascii_case(m))
+    })
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

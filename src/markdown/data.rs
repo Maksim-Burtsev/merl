@@ -10,6 +10,7 @@ pub enum Data {
     Tsv,
     Jsonl,
     Mermaid,
+    Notebook,
 }
 
 pub fn data(path: &Path) -> Option<Data> {
@@ -19,6 +20,7 @@ pub fn data(path: &Path) -> Option<Data> {
         "tsv" => Data::Tsv,
         "jsonl" | "ndjson" => Data::Jsonl,
         "mmd" | "mermaid" => Data::Mermaid,
+        "ipynb" => Data::Notebook,
         _ => return None,
     })
 }
@@ -31,6 +33,7 @@ pub fn parses(path: &Path) -> bool {
 pub enum Parsed {
     Table(Vec<(usize, Vec<String>)>),
     Records(Vec<Vec<(String, (usize, usize))>>),
+    Notebook(super::notebook::Notebook),
 }
 
 pub fn parse(data: Data, lines: &[String]) -> Result<Parsed, String> {
@@ -39,6 +42,7 @@ pub fn parse(data: Data, lines: &[String]) -> Result<Parsed, String> {
         Data::Tsv => same_width(tsv(lines)),
         Data::Jsonl => jsonl(lines),
         Data::Mermaid => Err("nothing to parse".into()),
+        Data::Notebook => super::notebook::parse(lines),
     }
 }
 
@@ -229,7 +233,7 @@ impl Data {
                     });
                 }
             }
-            (_, None) => {}
+            (_, None | Some(Parsed::Notebook(_))) => {}
         }
         lay.done(lines.len())
     }

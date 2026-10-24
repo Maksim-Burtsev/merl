@@ -1,0 +1,57 @@
+wait ▣ image/png
+┌orders──────────────────────┐  ## Refunds by week
+│▸ .github                   │  ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+│▸ .venv                     │
+│▸ app                       │   print(len(refunds))
+│▾ data                      │
+│  A broken.jsonl            │  1042
+│  A events.jsonl            │  ▣ image/png
+│    orders.min.json         │
+│    refunds-2026-08.csv     │
+│  A refunds.csv             │
+│  A weekly.ipynb            │
+│▸ deploy                    │
+│▾ docs                      │
+│    architecture.png        │
+│    notes.md                │
+│  A policy.mdx              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+data/weekly.ipynb  1:1  [preview]                                                                                                                                                  14:32
+cursor (x,y,shown) 33,54,0
