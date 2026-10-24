@@ -77,12 +77,42 @@ SELECT sum(spout) OVER (w ORDER BY spout) FROM samovars WINDOW w AS (PARTITION B
 --                      ^ d: steep/pour.sql:76
 --                                 ^ d: steep/schema.sql:4
 WITH samovars AS (SELECT spout AS spout FROM samovars) SELECT spout FROM samovars;
---                       ^ d: !jump
+--                       ^ d: none; want steep/schema.sql:4 (#1260)
 --                                                            ^ d: steep/pour.sql:79
 WITH cups (sip) AS (SELECT spout FROM samovars) SELECT sip FROM cups ORDER BY sip;
 --                                                     ^ d: steep/pour.sql:82
 SELECT TOP 5 spout FROM samovars ORDER BY spout;
---                                        ^ d: !jump
+--                                        ^ d: steep/schema.sql:4
 SELECT spout FROM samovars WHERE id IN (WITH samovars AS (SELECT 1 AS spout) SELECT spout FROM samovars);
---     ^ d: !jump
+--     ^ d: none; want steep/schema.sql:4 (#1260)
 --                                                                                  ^ d: steep/pour.sql:86
+-- #1255's review: a CTE or a column alias list answers only in the SELECT that reads it; a select modifier is no expression.
+WITH mugs AS (SELECT 1 AS spout) INSERT INTO samovars (spout) SELECT spout FROM mugs;
+--                                                     ^ d: steep/schema.sql:4
+--                                                                   ^ d: steep/pour.sql:90
+INSERT INTO samovars (spout) SELECT spout FROM urns AS u (spout);
+--                    ^ d: steep/schema.sql:4
+--                                  ^ d: steep/pour.sql:93
+WITH mugs AS (SELECT 1 AS brim) SELECT brim FROM mugs UNION SELECT brim FROM samovars;
+--                                     ^ d: steep/pour.sql:96
+--                                                                 ^ d: none; want steep/schema.sql:5 (#1260)
+SELECT SQL_NO_CACHE spout FROM samovars ORDER BY spout;
+--                  ^ d: steep/schema.sql:4
+--                                               ^ d: steep/schema.sql:4
+SELECT HIGH_PRIORITY STRAIGHT_JOIN SQL_CALC_FOUND_ROWS spout FROM samovars ORDER BY spout;
+--                                                                                  ^ d: steep/schema.sql:4
+SELECT DISTINCT ON (brim) spout FROM samovars ORDER BY spout;
+--                                                     ^ d: steep/schema.sql:4
+SELECT ALL spout FROM samovars ORDER BY spout;
+--                                      ^ d: steep/schema.sql:4
+SELECT TOP 5 WITH TIES spout FROM samovars ORDER BY spout;
+--                                                  ^ d: steep/schema.sql:4
+SELECT SQL_NO_CACHE spout * 2 doubled FROM samovars ORDER BY doubled;
+--                                                           ^ d: steep/pour.sql:110
+WITH infusions AS (SELECT 1 AS spout)
+/* a nested comment: /* ( */ ; */
+SELECT spout FROM infusions;
+--                ^ d: steep/pour.sql:112
+SELECT * FROM muffins, crusts;
+--            ^ d: steep/bake.mysql:3
+--                     ^ d: steep/crust.mysql:3

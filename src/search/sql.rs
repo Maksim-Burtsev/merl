@@ -16,57 +16,38 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
     let Some(m) = text.lines().nth(cte - 1).and_then(|l| head.find(l)) else {
         return Some(false);
     };
-    let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, text.as_bytes());
+    let code = sql_code(text).0;
+    let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, code.as_bytes());
     let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
     let (mut ended, mut after) = (false, 0_usize);
     while i < b.len() {
-        let skip = match &b[i..] {
-            [b'-', b'-', ..] => "\n",
-            [b'/', b'*', ..] => "*/",
-            [b'\'', ..] => "'",
-            [b'(', ..] if close.is_some() => {
-                after += 1;
-                ""
-            }
-            [b')', ..] if close.is_some() => {
+        match b[i] {
+            b'(' if close.is_some() => after += 1,
+            b')' if close.is_some() => {
                 if after == 0 {
                     ended = true;
                     break;
                 }
                 after -= 1;
-                ""
             }
-            [b'(', ..] if i >= open => {
-                depth = Some(depth.map_or(1, |d| d + 1));
-                ""
-            }
-            [b')', ..] if close.is_none() => {
+            b'(' if i >= open => depth = Some(depth.map_or(1, |d| d + 1)),
+            b')' if close.is_none() => {
                 depth = depth.map(|d| d - 1);
                 if depth == Some(0) {
                     close = Some(i);
                 }
-                ""
             }
-            [b';', ..] if i < open => {
-                first = i + 1;
-                ""
-            }
-            [b';', ..] => {
+            b';' if i < open => first = i + 1,
+            b';' => {
                 ended = true;
                 break;
             }
-            _ => "",
-        };
-        i += match skip {
-            "" => 1,
-            s => text
-                .get(i + 1..)
-                .and_then(|t| t.find(s))
-                .map_or(b.len(), |n| n + 1 + s.len()),
-        };
+            _ => {}
+        }
+        i += 1;
     }
     let recursive = Regex::new(r"(?i)\bWITH\s+RECURSIVE\b").expect("a valid pattern");
-    let from = if text.get(first..open).is_some_and(|t| recursive.is_match(t)) {
+    let from = if code.get(first..open).is_some_and(|t| recursive.is_match(t)) {
         open
     } else {
         close.unwrap_or(i)
@@ -80,44 +61,57 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
 
 const SQL_IDENT: &str = r#"(?:"[^"]+"|`[^`]+`|[A-Za-z_]\w*)"#;
 
+const SQL_SELECT_HEAD: &str = r"(?i)\bSELECT(?:\s+(?:(?:ALL|DISTINCTROW|HIGH_PRIORITY|STRAIGHT_JOIN|SQL_(?:SMALL_RESULT|BIG_RESULT|BUFFER_RESULT|NO_CACHE|CACHE|CALC_FOUND_ROWS))\b|DISTINCT\b(?:\s+ON\s*\([^()]*\))?))*(?:\s+TOP\s*(?:\([^()]*\)|\w+)(?:\s+PERCENT\b)?(?:\s+WITH\s+TIES\b)?)?";
+
 pub fn sql_local(text: &str, at: usize, word: &str) -> (Vec<usize>, bool) {
     let (code, bodies) = sql_code(text);
     let line1 = |i: usize| text.bytes().take(i).filter(|&c| c == b'\n').count() + 1;
     match sql_aliases(&code, at, word) {
         None => (Vec::new(), false),
         Some(found) if !found.is_empty() => (found.into_iter().map(line1).collect(), false),
-        Some(_) => {
-            if let Some(n) = sql_named_here(&code, at, word) {
-                return (vec![line1(n)], false);
-            }
-            let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
-                return (Vec::new(), false);
-            };
-            let language = sql_language(text, &code, body);
-            let plpgsql = language == "plpgsql";
-            let mut found: Vec<usize> = sql_parameter(&code, body, word, plpgsql)
-                .into_iter()
-                .collect();
-            if plpgsql {
-                found.extend(sql_declared(&code, body, at, word));
-            }
-            let Some((stmt, at)) = sql_statement(&code, at) else {
-                return (Vec::new(), false);
-            };
-            if found.is_empty() || sql_no_variable(stmt, at, word) {
-                return (Vec::new(), false);
-            }
-            let use_column = plpgsql
-                && sql_in_query(stmt, at, word)
-                && Regex::new(r"(?i)#variable_conflict\s+use_column\b")
-                    .expect("a valid pattern")
-                    .is_match(code.get(body.clone()).unwrap_or_default());
-            (
-                found.into_iter().map(line1).collect(),
-                language == "sql" || use_column,
-            )
-        }
+        Some(_) => match sql_variable(text, &code, &bodies, at, word) {
+            (found, _) if found.is_empty() => (
+                sql_named_here(&code, at, word)
+                    .into_iter()
+                    .map(line1)
+                    .collect(),
+                false,
+            ),
+            (found, column) => (found.into_iter().map(line1).collect(), column),
+        },
     }
+}
+
+fn sql_variable(
+    text: &str,
+    code: &str,
+    bodies: &[std::ops::Range<usize>],
+    at: usize,
+    word: &str,
+) -> (Vec<usize>, bool) {
+    let Some(body) = bodies.iter().find(|b| b.contains(&at)) else {
+        return (Vec::new(), false);
+    };
+    let language = sql_language(text, code, body);
+    let plpgsql = language == "plpgsql";
+    let mut found: Vec<usize> = sql_parameter(code, body, word, plpgsql)
+        .into_iter()
+        .collect();
+    if plpgsql {
+        found.extend(sql_declared(code, body, at, word));
+    }
+    let Some((stmt, at)) = sql_statement(code, at) else {
+        return (Vec::new(), false);
+    };
+    if found.is_empty() || sql_no_variable(stmt, at, word) {
+        return (Vec::new(), false);
+    }
+    let use_column = plpgsql
+        && sql_in_query(stmt, at, word)
+        && Regex::new(r"(?i)#variable_conflict\s+use_column\b")
+            .expect("a valid pattern")
+            .is_match(code.get(body.clone()).unwrap_or_default());
+    (found, language == "sql" || use_column)
 }
 
 fn sql_named_here(code: &str, at: usize, word: &str) -> Option<usize> {
@@ -126,12 +120,31 @@ fn sql_named_here(code: &str, at: usize, word: &str) -> Option<usize> {
     let region = stmt.get(r.clone())?;
     let here = rel - r.start;
     let (before, after) = (region.get(..here)?, region.get(here + word.len()..)?);
+    let branch = sql_branch(region, here);
     let found = sql_window_name(region, before, word)
         .or_else(|| sql_order_alias(region, before, after, word))
-        .or_else(|| sql_list_column(region, here, word))
+        .or_else(|| sql_list_column(region, here, word, branch.as_ref()?))
         .map(|n| r.start + n)
-        .or_else(|| sql_cte_column(stmt, &r, rel, word))?;
+        .or_else(|| sql_cte_column(stmt, &r, rel, word, branch.as_ref()?))?;
     (found != rel).then_some(at - rel + found)
+}
+
+fn sql_branch(region: &str, here: usize) -> Option<std::ops::Range<usize>> {
+    let select = Regex::new(r"(?i)\bSELECT\b").expect("a valid pattern");
+    let stop =
+        Regex::new(r"(?i)\b(?:UNION|INTERSECT|EXCEPT|RETURNING|ON\s+(?:CONFLICT|DUPLICATE))\b")
+            .expect("a valid pattern");
+    let from = select
+        .find_iter(region.get(..here)?)
+        .filter(|m| sql_top(region, m.start()))
+        .last()?
+        .start();
+    let to = stop
+        .find_iter(region.get(from..)?)
+        .map(|m| from + m.start())
+        .find(|&n| sql_top(region, n))
+        .unwrap_or(region.len());
+    (here < to).then_some(from..to)
 }
 
 fn sql_top(region: &str, i: usize) -> bool {
@@ -182,10 +195,7 @@ fn sql_order_alias(region: &str, before: &str, after: &str, word: &str) -> Optio
 }
 
 fn sql_output_name(query: &str, word: &str) -> Option<usize> {
-    let select = Regex::new(
-        r"(?i)\bSELECT(?:\s+ALL\b|\s+DISTINCT(?:\s+ON\s*\([^()]*\))?)?(?:\s+TOP\s*(?:\([^()]*\)|\w+)(?:\s+PERCENT\b)?)?",
-    )
-        .expect("a valid pattern");
+    let select = Regex::new(SQL_SELECT_HEAD).expect("a valid pattern");
     let clause = Regex::new(
         r"(?i)\b(?:FROM|INTO|WHERE|GROUP|HAVING|WINDOW|ORDER|LIMIT|OFFSET|FETCH|UNION|INTERSECT|EXCEPT)\b",
     )
@@ -216,12 +226,17 @@ fn sql_output_name(query: &str, word: &str) -> Option<usize> {
         .find(|&n| sql_top(query, n))
 }
 
-fn sql_list_column(region: &str, at: usize, word: &str) -> Option<usize> {
+fn sql_list_column(
+    region: &str,
+    at: usize,
+    word: &str,
+    branch: &std::ops::Range<usize>,
+) -> Option<usize> {
     let name = Regex::new(&format!(r"^(?:.*,)?\s*({})\s*(?:,|$)", sql_name(word)))
         .expect("an escaped name keeps it valid");
     sql_from_items(region)
         .into_iter()
-        .filter(|(t, _)| sql_top(region, t.start))
+        .filter(|(t, _)| sql_top(region, t.start) && branch.contains(&t.start))
         .find_map(|(_, a)| {
             let a = a?;
             let rest = region.get(a.end..)?;
@@ -233,13 +248,19 @@ fn sql_list_column(region: &str, at: usize, word: &str) -> Option<usize> {
         })
 }
 
-fn sql_cte_column(stmt: &str, r: &std::ops::Range<usize>, at: usize, word: &str) -> Option<usize> {
+fn sql_cte_column(
+    stmt: &str,
+    r: &std::ops::Range<usize>,
+    at: usize,
+    word: &str,
+    branch: &std::ops::Range<usize>,
+) -> Option<usize> {
     let region = stmt.get(r.clone())?;
     let name = Regex::new(&format!(r"^(?:.*,)?\s*({})\s*(?:,|$)", sql_name(word)))
         .expect("an escaped name keeps it valid");
     let mut found = sql_from_items(region)
         .into_iter()
-        .filter(|(t, _)| sql_top(region, t.start))
+        .filter(|(t, _)| sql_top(region, t.start) && branch.contains(&t.start))
         .filter_map(|(t, _)| {
             let table = region.get(t)?.trim_matches('"');
             let head = Regex::new(&format!(
@@ -407,7 +428,7 @@ pub(super) fn sql_string_end(b: &[u8], open: usize) -> Option<usize> {
 }
 
 pub(super) fn sql_nests(text: &str) -> bool {
-    sql_lex(text, true).2
+    sql_lex(text, false).2
 }
 
 fn sql_comment_end(rest: &[u8], nests: bool) -> Option<usize> {
@@ -432,11 +453,11 @@ fn sql_comment_end(rest: &[u8], nests: bool) -> Option<usize> {
 }
 
 fn sql_code(text: &str) -> (String, Vec<std::ops::Range<usize>>) {
-    let (code, bodies, nested) = sql_lex(text, true);
-    if nested {
+    let (code, bodies, nests) = sql_lex(text, false);
+    if nests {
+        let (code, bodies, _) = sql_lex(text, true);
         (code, bodies)
     } else {
-        let (code, bodies, _) = sql_lex(text, false);
         (code, bodies)
     }
 }
@@ -445,15 +466,16 @@ fn sql_lex(text: &str, nests: bool) -> (String, Vec<std::ops::Range<usize>>, boo
     let tag = Regex::new(r"^\$(?:[A-Za-z_]\w*)?\$").expect("a valid pattern");
     let (b, mut out) = (text.as_bytes(), text.as_bytes().to_vec());
     let (mut bodies, mut open, mut i) = (Vec::new(), None::<(usize, &str)>, 0);
-    let mut closed = true;
+    let mut stray = false;
     while i < b.len() {
         let rest = text.get(i..).unwrap_or_default();
         let skip = match b[i] {
             b'-' if rest.starts_with("--") => rest.find('\n'),
-            b'/' if rest.starts_with("/*") => {
-                let end = sql_comment_end(rest.as_bytes(), nests);
-                closed &= end.is_some();
-                end
+            b'/' if rest.starts_with("/*") => sql_comment_end(rest.as_bytes(), nests),
+            b'*' if rest.starts_with("*/") => {
+                stray = true;
+                i += 1;
+                continue;
             }
             b'\'' => sql_string_end(b, i).map(|end| end - i),
             b'"' => {
@@ -492,7 +514,7 @@ fn sql_lex(text: &str, nests: bool) -> (String, Vec<std::ops::Range<usize>>, boo
             .for_each(|c| *c = b' ');
         i = end;
     }
-    (String::from_utf8_lossy(&out).into_owned(), bodies, closed)
+    (String::from_utf8_lossy(&out).into_owned(), bodies, stray)
 }
 
 fn sql_parameter(
@@ -1215,7 +1237,10 @@ fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<
     ))
     .expect("an escaped name keeps it valid");
     let alias = |c: regex::Captures| !SQL_EXPR_LEAD.contains(&c[1].to_ascii_lowercase().as_str());
-    if hidden.is_match(region) || named.is_match(region) || unnamed.captures_iter(region).any(alias)
+    let bare = Regex::new(SQL_SELECT_HEAD)
+        .expect("a valid pattern")
+        .replace_all(region, "SELECT");
+    if hidden.is_match(region) || named.is_match(region) || unnamed.captures_iter(&bare).any(alias)
     {
         return None;
     }
