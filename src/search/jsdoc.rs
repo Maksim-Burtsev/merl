@@ -3,7 +3,7 @@ use std::path::Path;
 
 use regex::Regex;
 
-use super::{Binding, Kind, Value, split_top};
+use super::{Binding, Kind, Value, indent, split_top};
 
 pub fn reads_jsdoc(kind: Kind, path: &Path) -> bool {
     kind == Kind::TsJs
@@ -143,6 +143,56 @@ pub fn jsdoc_returns(text: &str, decl_line1: usize) -> Option<String> {
         .iter()
         .find(|t| t.name == "returns" || t.name == "return")?;
     jsdoc_type(&tag.braced_type)
+}
+
+pub fn js_assigned_calls(text: &str, decl_line1: usize, name: &str) -> Option<Vec<String>> {
+    let n = regex::escape(name);
+    let bare = Regex::new(&format!(r"^\s*(?:let|var)\s+{n}\s*;?\s*$")).ok()?;
+    let assigned = Regex::new(&format!(r"^\s*{n}\s*=([^=].*)$")).ok()?;
+    let call = Regex::new(r"^\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\(")
+        .ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let decl = lines.get(decl_line1.checked_sub(1)?)?;
+    if !bare.is_match(decl) {
+        return None;
+    }
+    let depth = indent(decl);
+    let mut out = Vec::new();
+    for l in lines.iter().skip(decl_line1) {
+        if !l.trim().is_empty() && indent(l) < depth {
+            break;
+        }
+        let Some(c) = assigned.captures(l) else {
+            continue;
+        };
+        let expr = c[1].trim_start();
+        match call.captures(expr) {
+            Some(callee) => out.push(callee[1].to_owned()),
+            None if expr.starts_with('{') => {}
+            None => return None,
+        }
+    }
+    Some(out)
+}
+
+pub fn jsdoc_returned_key(text: &str, decl_line1: usize, word: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let block = block_above(&lines, decl_line1.checked_sub(1)?)?;
+    let key = Regex::new(&format!(r"[{{,]\s*{}\s*\??\s*:", regex::escape(word))).ok()?;
+    block
+        .into_iter()
+        .find(|&i| jsdoc_returned_literal(lines[i]).is_some_and(|t| key.is_match(&t)))
+        .map(|i| i + 1)
+}
+
+pub fn jsdoc_returned_literal(line: &str) -> Option<String> {
+    tags(&[line])
+        .into_iter()
+        .find(|t| {
+            matches!(t.name.as_str(), "returns" | "return")
+                && t.braced_type.trim_start().starts_with('{')
+        })
+        .map(|t| t.braced_type)
 }
 
 fn typedef(line: &str) -> Option<(&str, &str)> {

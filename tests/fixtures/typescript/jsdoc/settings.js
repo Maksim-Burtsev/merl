@@ -25,6 +25,17 @@ class Settings {
 		return settings.socketPath;
 		//              ^ d: jsdoc/settings.js:12
 	}
+
+	static either(cold) {
+		let held;
+		if (cold) {
+			held = this.readSettings();
+		} else {
+			held = new Socket();
+		}
+		return held.socketPath;
+		//          ^ d: jsdoc/settings.js:5
+	}
 }
 
 module.exports = { Socket, Settings };
