@@ -196,3 +196,13 @@ UPDATE samovars s SET spout = (SELECT max(s.handle) FROM urns s);
 --                                          ^ d: steep/schema.sql:9
 WITH moved AS (UPDATE samovars s SET spout = 0 RETURNING s.id) SELECT s.handle FROM urns s;
 --                                                                       ^ d: steep/schema.sql:9
+-- #1255's review: under use_variable an ORDER BY name a variable claims stays the variable.
+CREATE FUNCTION totals() RETURNS SETOF integer AS $$
+#variable_conflict use_variable
+DECLARE
+  total integer;
+BEGIN
+  RETURN QUERY SELECT sum(spout) AS total FROM samovars ORDER BY total;
+  --                                                             ^ d: steep/plpgsql.sql:203
+END
+$$ LANGUAGE plpgsql;
