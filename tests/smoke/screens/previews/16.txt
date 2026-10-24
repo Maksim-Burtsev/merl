@@ -1,0 +1,57 @@
+wait data/weekly.ipynb  1:1
+┌orders──────────────────────┐1 {"nbformat": 4, "metadata": {}, "cells": [{"cell_type": "markdown", "source": ["## Refunds by week"]}, {"cell_type": "code", "source":
+│▸ .github                   │  ["print(len(refunds))"], "outputs": [{"output_type": "stream", "text": ["1042\n"]}, {"output_type": "display_data", "data": {"image/png": "iVBO"}}]}]}
+│▸ .venv                     │
+│▸ app                       │
+│▾ data                      │
+│  A broken.jsonl            │
+│  A events.jsonl            │
+│    orders.min.json         │
+│    refunds-2026-08.csv     │
+│  A refunds.csv             │
+│  A weekly.ipynb            │
+│▸ deploy                    │
+│▾ docs                      │
+│    architecture.png        │
+│    notes.md                │
+│  A policy.mdx              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+data/weekly.ipynb  1:1  [code]                                                                                                                                                     14:32
+cursor (x,y,shown) 32,0,0

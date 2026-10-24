@@ -1,0 +1,57 @@
+wait [preview]
+┌orders──────────────────────┐  # Links
+│▸ .github                   │  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+│▸ .venv                     │  The API answers at https://api.example.com/v2/orders, with a token.
+│▸ app                       │
+│▸ data                      │  What changed: the 1.7.0 notes.
+│▸ deploy                    │
+│▾ docs                      │
+│    architecture.png        │
+│  A links.md                │
+│    notes.md                │
+│  A policy.mdx              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+docs/links.md  1:1  [preview]                                                                                                                                                      14:32
+cursor (x,y,shown) 29,54,0

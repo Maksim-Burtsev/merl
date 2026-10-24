@@ -1,5 +1,6 @@
 use super::{App, Buffer, Focus, KeyCode, KeyEvent, KeyModifiers, Path, PathBuf};
-use crate::markdown::{self, Ask, Doc, Kind, data::data};
+use crate::markdown::data::{Data, Parsed, data};
+use crate::markdown::{self, Ask, Doc, Kind};
 
 use super::preview_data::{lines_hash, no_preview};
 
@@ -136,9 +137,13 @@ impl App {
                     }
                 };
                 let lines = &self.buf.lines;
-                let doc = match kind {
-                    Some(k) => k.layout(parsed, lines, self.view_w, &mut fit),
-                    None => markdown::layout(lines, self.view_w, input.light, &mut fit),
+                let w = self.view_w;
+                let doc = match (kind, parsed) {
+                    (Some(Data::Notebook), Some(Parsed::Notebook(nb))) => {
+                        markdown::notebook::layout(nb, lines.len(), w, input.light, &mut fit)
+                    }
+                    (Some(k), _) => k.layout(parsed, lines, w, &mut fit),
+                    (None, _) => markdown::layout(lines, w, input.light, &mut fit),
                 };
                 let row = match &old {
                     Some(p) if p.at == Some(pos) => doc.same_row(&p.doc, p.row, pos),
