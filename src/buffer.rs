@@ -262,7 +262,7 @@ impl Buffer {
 
     fn start_block_tree_sitter(&mut self, token: &str) {
         self.ts =
-            treesitter::resolve(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
+            treesitter::resolve_by_extension(token).and_then(|lang| treesitter::Parsed::new(lang, &self.lines));
         self.clear_hl();
     }
 

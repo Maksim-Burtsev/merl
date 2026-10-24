@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use ratatui::style::{Color, Modifier};
 
-use super::resolve;
+use super::{resolve, resolve_by_extension};
 use crate::buffer::Buffer;
 use crate::theme;
 
@@ -511,69 +511,70 @@ fn a_theme_without_groups_colours_markdown_by_its_markup_scopes() {
 }
 
 #[test]
-fn a_block_language_resolves_by_its_file_extension_as_neovim_does() {
-    for (alias, want) in [
-        ("rs", Some("rust")),
-        ("md", Some("markdown")),
-        ("rust", Some("rust")),
-        ("pandoc", Some("markdown")),
-        ("astro", None),
-        ("yml", Some("yaml")),
-        ("sh", Some("bash")),
-        ("jsonc", Some("json")),
-        ("zsh", None),
-        ("cpp", Some("cpp")),
-        ("hpp", Some("cpp")),
-        ("java", Some("java")),
-        ("cs", Some("c_sharp")),
-        ("csharp", Some("c_sharp")),
-        ("kotlin", Some("kotlin")),
-        ("kt", Some("kotlin")),
-        ("dockerfile", Some("dockerfile")),
-        ("cmake", Some("cmake")),
-        ("proto", Some("proto")),
-        ("graphql", Some("graphql")),
-        ("gql", Some("graphql")),
-        ("nginx", Some("nginx")),
-        ("conf", None),
-        ("gdscript", Some("gdscript")),
-        ("gd", Some("gdscript")),
-        ("starlark", Some("starlark")),
-        ("bzl", Some("starlark")),
-        ("star", Some("starlark")),
-        ("python", Some("python")),
-        ("solidity", Some("solidity")),
-        ("sol", Some("solidity")),
-        ("hcl", Some("hcl")),
-        ("terraform", Some("terraform")),
-        ("tfvars", Some("terraform")),
-        ("terraform-vars", Some("terraform")),
-        ("tf", None),
-        ("ini", Some("ini")),
-        ("dosini", Some("ini")),
-        ("sql", Some("sql")),
-        ("swift", Some("swift")),
-        ("ruby", Some("ruby")),
-        ("rb", Some("ruby")),
-        ("php", Some("php")),
-        ("elixir", Some("elixir")),
-        ("ex", Some("elixir")),
-        ("scala", Some("scala")),
-        ("zig", Some("zig")),
-        ("nix", Some("nix")),
-        ("scheme", Some("scheme")),
-        ("scm", Some("scheme")),
-        ("r", Some("r")),
-        ("erlang", Some("erlang")),
-        ("erl", Some("erlang")),
-        ("racket", Some("racket")),
-        ("rkt", Some("racket")),
-        ("lisp", Some("commonlisp")),
-        ("commonlisp", Some("commonlisp")),
-        ("vue", Some("vue")),
-        ("svelte", Some("svelte")),
+fn a_block_label_resolves_as_neovim_s_resolve_lang_and_in_the_preview_by_its_extension_too() {
+    for (alias, neovim, preview) in [
+        ("rs", None, Some("rust")),
+        ("md", None, Some("markdown")),
+        ("rust", Some("rust"), Some("rust")),
+        ("pandoc", Some("markdown"), Some("markdown")),
+        ("astro", None, None),
+        ("yml", None, Some("yaml")),
+        ("sh", Some("bash"), Some("bash")),
+        ("jsonc", Some("json"), Some("json")),
+        ("zsh", None, None),
+        ("cpp", Some("cpp"), Some("cpp")),
+        ("hpp", None, Some("cpp")),
+        ("java", Some("java"), Some("java")),
+        ("cs", Some("c_sharp"), Some("c_sharp")),
+        ("csharp", Some("c_sharp"), Some("c_sharp")),
+        ("kotlin", Some("kotlin"), Some("kotlin")),
+        ("kt", None, Some("kotlin")),
+        ("dockerfile", Some("dockerfile"), Some("dockerfile")),
+        ("cmake", Some("cmake"), Some("cmake")),
+        ("proto", Some("proto"), Some("proto")),
+        ("graphql", Some("graphql"), Some("graphql")),
+        ("gql", None, Some("graphql")),
+        ("nginx", Some("nginx"), Some("nginx")),
+        ("conf", None, None),
+        ("gdscript", Some("gdscript"), Some("gdscript")),
+        ("gd", None, Some("gdscript")),
+        ("starlark", Some("starlark"), Some("starlark")),
+        ("bzl", Some("starlark"), Some("starlark")),
+        ("star", None, Some("starlark")),
+        ("python", Some("python"), Some("python")),
+        ("solidity", Some("solidity"), Some("solidity")),
+        ("sol", None, Some("solidity")),
+        ("hcl", Some("hcl"), Some("hcl")),
+        ("terraform", Some("terraform"), Some("terraform")),
+        ("tfvars", None, Some("terraform")),
+        ("terraform-vars", None, None),
+        ("tf", None, None),
+        ("ini", Some("ini"), Some("ini")),
+        ("dosini", Some("ini"), Some("ini")),
+        ("sql", Some("sql"), Some("sql")),
+        ("swift", Some("swift"), Some("swift")),
+        ("ruby", Some("ruby"), Some("ruby")),
+        ("rb", None, Some("ruby")),
+        ("php", Some("php"), Some("php")),
+        ("elixir", Some("elixir"), Some("elixir")),
+        ("ex", Some("elixir"), Some("elixir")),
+        ("scala", Some("scala"), Some("scala")),
+        ("zig", Some("zig"), Some("zig")),
+        ("nix", Some("nix"), Some("nix")),
+        ("scheme", Some("scheme"), Some("scheme")),
+        ("scm", None, Some("scheme")),
+        ("r", Some("r"), Some("r")),
+        ("erlang", Some("erlang"), Some("erlang")),
+        ("erl", Some("erlang"), Some("erlang")),
+        ("racket", Some("racket"), Some("racket")),
+        ("rkt", None, Some("racket")),
+        ("lisp", Some("commonlisp"), Some("commonlisp")),
+        ("commonlisp", Some("commonlisp"), Some("commonlisp")),
+        ("vue", Some("vue"), Some("vue")),
+        ("svelte", Some("svelte"), Some("svelte")),
     ] {
-        assert_eq!(resolve(alias).map(|l| l.name), want, "{alias}");
+        assert_eq!(resolve(alias).map(|l| l.name), neovim, "{alias}");
+        assert_eq!(resolve_by_extension(alias).map(|l| l.name), preview, "{alias}");
     }
 }
 
@@ -876,6 +877,35 @@ fn a_block_neovim_finds_no_parser_for_stays_plain() {
     for info in ["console", "shell", "objc"] {
         assert_eq!(fg_at(info), fg_at("nothing"), "{info}");
     }
+}
+
+#[test]
+fn a_label_neovim_does_not_resolve_draws_its_block_plain_as_lazyvim() {
+    let theme = theme::load("tokyonight-moon").unwrap();
+    let fg_at = |host: &str, lines: [&str; 3]| {
+        let lines: Vec<String> = lines.map(str::to_owned).into();
+        let mut parsed = super::Parsed::new(super::lang(host).unwrap(), &lines).unwrap();
+        parsed.parse(None);
+        let mut styles = super::Styles::new(&theme);
+        parsed.spans(&lines, 0, 2, &mut styles)[1]
+            .iter()
+            .find(|(_, r)| r.contains(&0))
+            .map(|(s, _)| s.fg)
+    };
+    for (name, short, code) in [
+        ("ruby", "rb", "def a; end"),
+        ("rust", "rs", "fn a() {}"),
+        ("yaml", "yml", "a: 1"),
+    ] {
+        let fence = |info: &str| fg_at("markdown", [&format!("```{info}"), code, "```"]);
+        assert_ne!(fence(name), fence("nothing"), "{name}");
+        assert_eq!(fence(short), fence("nothing"), "{short}");
+    }
+    let heredoc = |label: &str| fg_at("ruby", [&format!("x = <<~{label}"), "def a; end", label]);
+    assert_ne!(heredoc("RUBY"), heredoc("TEXT"));
+    assert_eq!(heredoc("RB"), heredoc("TEXT"));
+    let fence = |info: &str| fg_at("markdown", [&format!("```{info}"), "fn a() {}", "```"]);
+    assert_ne!(fence("fish"), fence("nothing"));
 }
 
 #[test]
