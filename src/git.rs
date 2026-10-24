@@ -204,6 +204,10 @@ impl ReviewFile {
         self.binary && !self.same_bytes && crate::picture::raster_name(&self.path).is_some()
     }
 
+    pub fn left_out(&self, viewed: &HashMap<PathBuf, u64>) -> bool {
+        self.agent_skipped && !viewed.contains_key(&self.path)
+    }
+
     pub fn is_stop(&self, root: &Path, pictures: bool) -> bool {
         self.has_hunks()
             || pictures && self.is_picture()
@@ -361,7 +365,8 @@ impl Review {
             (order_file.as_deref()).map_or_else(Order::default, |o| Order::read(o, Path::new("")));
         let skipped = order_file.as_deref().map(crate::tree::skipped_in);
         for f in &mut files {
-            f.agent_skipped = skipped.as_ref().is_some_and(|s| s.contains(&f.path));
+            f.agent_skipped =
+                (skipped.as_ref()).is_some_and(|s| f.path.ancestors().any(|a| s.contains(a)));
         }
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
         let patch = git(&[

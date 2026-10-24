@@ -1293,3 +1293,22 @@ fn the_selected_hit_row_paints_its_selection_over_a_capture_s_background() {
     assert_eq!(buf[(x + 4, y)].bg, theme.selection, "the selected row");
     assert_eq!(buf[(x2 + 4, y2)].bg, plus, "a row under it");
 }
+
+#[test]
+fn a_skipped_top_level_file_keeps_a_gap_before_its_counts_and_a_tick_takes_its_robot() {
+    let name = "a-top-level-name-that-is-long.rs";
+    let mut app = review_app(&[(name, 'M', 1, 0)]);
+    app.review.as_mut().unwrap().files[0].agent_skipped = true;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(r[1].starts_with("\u{2502}\u{1f916}"), "{}", r[1]);
+    assert!(r[1].contains("\u{2026} +1 \u{2212}0\u{2502}"), "{}", r[1]);
+    assert_eq!(at(&terminal, "+1 \u{2212}0"), theme.ghost_fg);
+    app.viewed.insert(name.into(), 0);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(r[1].starts_with("\u{2502}\u{2713} M a-top"), "{}", r[1]);
+    assert_eq!(at(&terminal, "a-top"), theme.fg);
+}

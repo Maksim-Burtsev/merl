@@ -224,6 +224,7 @@ fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'stati
 
 fn tree_tick(app: &App, path: &Path, noted: bool, skipped_at: Option<usize>) -> &'static str {
     match (&app.review, app.viewed.contains_key(path)) {
+        (Some(_), _) if noted && skipped_at == Some(0) => "\u{270e}  ",
         (Some(_), _) if noted => "\u{270e} ",
         (None, _) => "",
         _ if skipped_at == Some(0) => "\u{1f916} ",
@@ -259,8 +260,7 @@ fn used(
 }
 
 fn agent_skipped(review: Option<&Review>, viewed: &HashMap<PathBuf, u64>, path: &Path) -> bool {
-    (review.and_then(|r| r.file(path)))
-        .is_some_and(|f| f.agent_skipped && !viewed.contains_key(path))
+    (review.and_then(|r| r.file(path))).is_some_and(|f| f.left_out(viewed))
 }
 
 fn cut_at_slash(path: &str, room: usize) -> String {

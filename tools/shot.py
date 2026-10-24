@@ -17,7 +17,8 @@ import cast
 
 
 def shot(text):
-    width = max(len(cast.SGR.sub("", line)) for line in text.split("\n"))
+    blank = (None, None, False, False, False)
+    width = max(len(cast.styled(cast.SGR.sub("", line), blank)) for line in text.split("\n"))
     grid = cast.parse(text, width, text.count("\n") + 1)
     fonts, cell = cast.load_fonts("menlo", cast.FONT_SIZE)
     return cast.render(grid, None, fonts, cell), cell

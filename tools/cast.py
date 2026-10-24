@@ -398,6 +398,10 @@ def main():
         assert g[1][0][2] == (1, 2, 3), "the second line lost the background it carries on"
         assert g[0][0][1] == (0xc8, 0xd3, 0xf5), "the default text is not Moon's"
         assert g[2][0][1] == (0x82, 0xaa, 0xff), "the blue is not Moon's"
+        g = parse("a\U0001f916b", 4, 1)
+        assert [c[0] for c in g[0]] == ["a", "\U0001f916", " ", "b"], "a wide character is not two cells"
+        robot = render(g, None, *load_fonts("menlo", FONT_SIZE))
+        assert robot.getpixel((cell[0] * 2, cell[1] // 2)) != DEFAULT_BG, "the emoji is not drawn"
         theme = os.path.join(tempfile.mkdtemp(prefix="cast-theme-"), "day")
         with open(theme, "w") as f:
             f.write("background = #e1e2e7\nforeground = #3760bf\npalette = 4=#2e7de9\n")

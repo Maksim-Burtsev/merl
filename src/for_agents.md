@@ -92,9 +92,9 @@ how it works.
 ### What the user need not read
 
 When the user asks you to leave out what they need not read, write `skip ` before each such
-path, in its place in the order (`skip CHANGELOG.md`), and put those paths last. merl keeps the
-file in its panel with a mark, `c` / `C` walk past it, and the user can still open it from the
-panel.
+path, in its place in the order (`skip CHANGELOG.md`; `skip docs/` skips every file under it),
+and put those paths last. merl keeps the file in its panel with a mark, `c` / `C` walk past it,
+and the user can still open it from the panel.
 
 Read a file's diff before you skip it, and skip only what is not production code:
 

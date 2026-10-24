@@ -23,8 +23,9 @@ impl App {
                 self.hist_note(true);
             }
         }
-        let stop =
-            |f: &&git::ReviewFile| !f.agent_skipped && f.is_stop(&self.root, self.diagrams.on());
+        let stop = |f: &&git::ReviewFile| {
+            !f.left_out(&self.viewed) && f.is_stop(&self.root, self.diagrams.on())
+        };
         let unread = (self.review.as_ref()).and_then(|r| {
             r.files
                 .iter()
@@ -36,8 +37,14 @@ impl App {
         let first = unread.or_else(|| (self.review.as_ref())?.files.iter().find(stop).cloned());
         let first_stop = first.as_ref().map(|f| f.path.clone());
         if self.buf.path.is_none() {
-            if let Some(f) = &first {
-                self.open_review_file(f, false);
+            let skipped_stop = || {
+                let mut files = (self.review.as_ref())?.files.iter();
+                files
+                    .find(|f| f.is_stop(&self.root, self.diagrams.on()))
+                    .cloned()
+            };
+            if let Some(f) = first.clone().or_else(skipped_stop) {
+                self.open_review_file(&f, false);
                 self.remember_hunk();
             } else if let Some(p) =
                 (self.review.as_ref()).and_then(|r| r.first_file(&self.root, self.diagrams.on()))
@@ -47,12 +54,13 @@ impl App {
         }
         self.walked_here = first_stop.is_some() && self.rel_current() == first_stop;
         if let (Some(r), Some(rel)) = (&self.review, self.rel_current()) {
-            let skipped = r
-                .files
-                .iter()
+            let walked: Vec<_> = (r.files.iter())
+                .filter(|f| !f.left_out(&self.viewed))
+                .collect();
+            let skipped = (walked.iter())
                 .take_while(|f| !f.is_stop(&self.root, self.diagrams.on()))
                 .count();
-            if r.files.get(skipped).is_some_and(|f| f.path == rel) {
+            if walked.get(skipped).is_some_and(|f| f.path == rel) {
                 self.say_skipped(skipped);
             }
         }
@@ -299,7 +307,7 @@ impl App {
             (Some(i), false) => &r.files[..i],
             (None, _) => &r.files[..],
         };
-        let walked = span.iter().filter(|f| !f.agent_skipped);
+        let walked = span.iter().filter(|f| !f.left_out(&self.viewed));
         if dir > 0 {
             walked.collect()
         } else {
@@ -460,7 +468,7 @@ impl App {
 
     fn every_stop_ticked(&self, r: &git::Review) -> bool {
         (r.files.iter())
-            .filter(|f| !f.agent_skipped && f.is_stop(&self.root, self.diagrams.on()))
+            .filter(|f| !f.left_out(&self.viewed) && f.is_stop(&self.root, self.diagrams.on()))
             .all(|f| self.ticked(&f.path))
     }
 

@@ -481,24 +481,7 @@ fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
 #[test]
 fn c_walks_past_the_files_the_agent_skipped_and_enter_opens_one() {
     let (dir, _) = review_app("agentskip");
-    let order = dir.join(".git/merl/review/feature");
-    std::fs::create_dir_all(order.parent().unwrap()).unwrap();
-    std::fs::write(
-        &order,
-        "# commit 1\nskip src/a.rs\ncrlf.txt\n  skip ./gone\nnew\ntail\n",
-    )
-    .unwrap();
-    let review = git::Review::open(&dir, None, None).unwrap();
-    let tree = crate::tree::from_listing(
-        &review
-            .files
-            .iter()
-            .map(|f| f.path.clone())
-            .collect::<Vec<_>>(),
-    );
-    let (_, files) = crate::tree::build(&dir, false);
-    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
-    a.start_review(review);
+    let mut a = skipping_review(&dir, "skip src/a.rs\ncrlf.txt\n  skip ./gone\nnew\ntail\n");
     let c = |a: &mut App, key: char| press(a, KeyCode::Char(key), KeyModifiers::NONE);
     assert_eq!(
         panel_rows(&a),
@@ -536,6 +519,65 @@ fn c_walks_past_the_files_the_agent_skipped_and_enter_opens_one() {
         "crlf.txt and new are ticked, gone skipped"
     );
     drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn the_files_the_agent_kept_ticked_the_review_is_read_and_a_ticked_skipped_file_walks_again() {
+    let (dir, _) = review_app("agentskipread");
+    let order = "skip src/\ncrlf.txt\nskip gone\nnew\ntail\n";
+    let mut a = skipping_review(&dir, order);
+    let c = |a: &mut App, key: char| press(a, KeyCode::Char(key), KeyModifiers::NONE);
+    let skipped: Vec<_> = (a.review.as_ref().unwrap().files.iter())
+        .filter(|f| f.agent_skipped)
+        .map(|f| f.path.display().to_string())
+        .collect();
+    assert_eq!(skipped, ["src/a.rs", "gone"], "skip src/ covers src/a.rs");
+    a.focus = Focus::Tree;
+    for f in ["crlf.txt", "new", "tail"] {
+        a.tree.reveal(Path::new(f));
+        c(&mut a, 'm');
+    }
+    let mut a = skipping_review(&dir, order);
+    assert_eq!(at(&a), (dir.join("crlf.txt"), 1));
+    assert_eq!(a.message, "all files viewed");
+    c(&mut a, 'c');
+    assert_eq!(
+        at(&a),
+        (dir.join("new"), 0),
+        "every kept file is ticked: c walks them again"
+    );
+    c(&mut a, 'C');
+    c(&mut a, 'C');
+    assert_eq!(
+        at(&a),
+        (dir.join("crlf.txt"), 1),
+        "src/a.rs is still left out"
+    );
+
+    a.focus = Focus::Tree;
+    a.tree.reveal(Path::new("src/a.rs"));
+    c(&mut a, 'm');
+    a.focus = Focus::Code;
+    c(&mut a, 'C');
+    assert_eq!(
+        at(&a),
+        (dir.join("src/a.rs"), 5),
+        "ticked, src/a.rs is walked like any file"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+fn skipping_review(dir: &Path, order: &str) -> App {
+    let file = dir.join(".git/merl/review/feature");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, format!("# commit 1\n{order}")).unwrap();
+    let review = git::Review::open(dir, None, None).unwrap();
+    let paths: Vec<_> = review.files.iter().map(|f| f.path.clone()).collect();
+    let (_, files) = crate::tree::build(dir, false);
+    let tree = crate::tree::from_listing(&paths);
+    let mut a = App::new(dir.to_path_buf(), tree, files, Buffer::empty(), None);
+    a.start_review(review);
+    a
 }
 
 #[test]

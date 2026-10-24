@@ -188,17 +188,7 @@ pub fn orders_on() -> bool {
 impl Order {
     pub fn read(file: &Path, under: &Path) -> Self {
         let text = std::fs::read_to_string(file).unwrap_or_default();
-        Self::of(
-            text.lines()
-                .map(str::trim)
-                .filter(|l| !l.is_empty() && !l.starts_with('#'))
-                .map(|l| l.strip_prefix("skip ").map_or(l, str::trim))
-                .filter_map(|l| {
-                    Path::new(l.trim_start_matches("./"))
-                        .strip_prefix(under)
-                        .ok()
-                }),
-        )
+        Self::of(order_lines(&text).filter_map(|(_, p)| p.strip_prefix(under).ok()))
     }
 
     pub fn of<P: AsRef<Path>>(paths: impl IntoIterator<Item = P>) -> Self {
@@ -222,10 +212,20 @@ impl Order {
 
 pub fn skipped_in(file: &Path) -> HashSet<PathBuf> {
     let text = std::fs::read_to_string(file).unwrap_or_default();
-    text.lines()
-        .filter_map(|l| l.trim().strip_prefix("skip "))
-        .map(|l| PathBuf::from(l.trim().trim_start_matches("./")))
+    order_lines(&text)
+        .filter_map(|(skip, p)| skip.then(|| p.to_path_buf()))
         .collect()
+}
+
+fn order_lines(text: &str) -> impl Iterator<Item = (bool, &Path)> {
+    text.lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .map(|l| match l.strip_prefix("skip ") {
+            Some(path) => (true, path.trim()),
+            None => (false, l),
+        })
+        .map(|(skip, l)| (skip, Path::new(l.trim_start_matches("./"))))
 }
 
 #[derive(Clone)]
