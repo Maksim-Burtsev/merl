@@ -1,0 +1,28 @@
+# review-skip: the files the agent left out (#1041). The branch touches app/, tests/, docs/,
+# worker/ and the README; the agent's order file writes `skip ` before the test, the docs page
+# and the README. They stay in the panel, each with a robot and a dim row; c walks past tests/
+# and docs/ from app/service.py to worker/main.go and stops there at the last hunk, C walks back
+# past them, and Enter in the panel opens a skipped file.
+merl README.md
+wait # orders
+run git switch -q -c agent/skip && printf '\n# models\n' >> app/models.py && printf '\n# service\n' >> app/service.py && printf '\n# test\n' >> tests/test_service.py && printf '\nMore notes.\n' >> docs/notes.md && printf '\n// worker\n' >> worker/main.go && printf '\nMore.\n' >> README.md && git commit -qam 'agent: a change in five folders'
+run mkdir -p .git/merl/review/agent && printf '# commit x\napp/models.py\napp/service.py\nskip tests/test_service.py\nskip docs/notes.md\nworker/main.go\nskip README.md\n' > .git/merl/review/agent/skip
+caption merl --review: the files the agent left out carry a robot and a dim row (#1041)
+merl --review
+wait hunk 1/1  file 1/6
+key Escape
+caption c: on to app/service.py
+key c
+wait hunk 1/1  file 2/6
+caption c walks past the skipped test and docs page, on to worker/main.go
+key c
+wait hunk 1/1  file 5/6
+caption the README is skipped too: worker/main.go holds the review's last hunk
+key c
+wait last hunk of the review
+caption C walks back past them to app/service.py
+key C
+wait hunk 1/1  file 2/6
+caption Enter in the panel opens a skipped file
+key Tab Down Down Enter
+wait tests/test_service.py

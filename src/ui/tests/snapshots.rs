@@ -141,6 +141,14 @@ const STATES: &[State] = &[
             "<S-Down><S-Down>aa test for count?<Enter>and one for an empty store<Esc>",
         );
     }),
+    ("review-skipped", |a| {
+        review_branch(a, &["tests/__init__.py"], None);
+        let order = a.root.join(".git/merl/review/feature");
+        std::fs::create_dir_all(order.parent().unwrap()).unwrap();
+        let skips = "store.py\nskip tests/__init__.py\ntags.py\nskip Makefile\n";
+        std::fs::write(order, skips).unwrap();
+        review_open(a, None);
+    }),
     ("review-empty", |a| {
         review(a, &["tests/__init__.py"], None, None);
     }),
@@ -177,11 +185,16 @@ fn at(a: &mut App, file: &str, line: usize, word: &str) {
 }
 
 fn review(a: &mut App, empty: &[&str], moved: Option<(&str, &str)>, open: Option<&str>) {
-    let dir = a.root.clone();
+    review_branch(a, empty, moved);
+    review_open(a, open);
+}
+
+fn review_branch(a: &App, empty: &[&str], moved: Option<(&str, &str)>) {
+    let dir = &a.root;
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
             .arg("-C")
-            .arg(&dir)
+            .arg(dir)
             .args(args)
             .output()
             .unwrap();
@@ -210,13 +223,16 @@ fn review(a: &mut App, empty: &[&str], moved: Option<(&str, &str)>, open: Option
     }
     git(&["add", "-A"]);
     git(&["commit", "-q", "-m", "work"]);
+}
 
+fn review_open(a: &mut App, open: Option<&str>) {
+    let dir = a.root.clone();
     let review = crate::git::Review::open(&dir, None, None).unwrap();
     let (_, files) = crate::tree::build(&dir, false);
     let paths: Vec<PathBuf> = review.files.iter().map(|f| f.path.clone()).collect();
     let mut new = App::new(
         dir.clone(),
-        crate::tree::from_files(&paths),
+        crate::tree::from_listing(&paths),
         files,
         open.map_or_else(Buffer::empty, |f| Buffer::load(&dir.join(f)).unwrap()),
         None,
@@ -458,6 +474,7 @@ snapshots! {
     snapshot_image: "image",
     snapshot_review: "review",
     snapshot_review_notes: "review-notes",
+    snapshot_review_skipped: "review-skipped",
     snapshot_review_empty: "review-empty",
     snapshot_review_rename: "review-rename",
     snapshot_review_rename_edited: "review-rename-edited",

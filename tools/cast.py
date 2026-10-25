@@ -30,10 +30,11 @@ macOS only: the renderer reads Menlo out of /System/Library/Fonts/Menlo.ttc, or 
 sf-mono` the SF Mono that Terminal.app ships. The decision desk's settings are in
 .claude/skills/groom/desk.md.
 """
-import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, threading, time
+import argparse, os, re, shlex, shutil, subprocess, sys, tempfile, threading, time, unicodedata
 from PIL import Image, ImageDraw, ImageFont
 
 FONT = "/System/Library/Fonts/Menlo.ttc"
+EMOJI = "/System/Library/Fonts/Apple Color Emoji.ttc"
 SF_MONO = "/System/Applications/Utilities/Terminal.app/Contents/Resources/Fonts/SF-Mono-{}.otf"
 FONT_SIZE = 18
 DEFAULT_FG, DEFAULT_BG = (0xc8, 0xd3, 0xf5), (0x22, 0x24, 0x36)
@@ -122,6 +123,15 @@ def apply_sgr(params, st, palette):
     return fg, bg, bold, italic, rev
 
 
+def styled(text, st):
+    fg, bg, bold, italic, rev = st
+    cell = lambda ch: (ch, bg, fg, bold, italic) if rev else (ch, fg, bg, bold, italic)
+    cells = []
+    for ch in text:
+        cells += [cell(ch)] + [cell(" ")] * (unicodedata.east_asian_width(ch) in "WF")
+    return cells
+
+
 def parse(capture, cols, rows, palette=None):
     palette = palette or (DEFAULT_FG, DEFAULT_BG, ANSI)
     st = (palette[0], palette[1], False, False, False)
@@ -130,13 +140,10 @@ def parse(capture, cols, rows, palette=None):
         cells = []
         pos = 0
         for m in SGR.finditer(raw):
-            fg, bg, bold, italic, rev = st
-            cells += [(ch, bg, fg, bold, italic) if rev else (ch, fg, bg, bold, italic)
-                      for ch in raw[pos:m.start()]]
+            cells += styled(raw[pos:m.start()], st)
             st, pos = apply_sgr(m.group(1), st, palette), m.end()
-        fg, bg, bold, italic, rev = st
-        cells += [(ch, bg, fg, bold, italic) if rev else (ch, fg, bg, bold, italic)
-                  for ch in raw[pos:]]
+        cells += styled(raw[pos:], st)
+        fg, bg = st[:2]
         grid.append((cells + [(" ", fg, bg, False, False)] * cols)[:cols])
     blank = [(" ", palette[0], palette[1], False, False)] * cols
     return (grid + [blank] * rows)[:rows]
@@ -151,10 +158,22 @@ def block(char, x, y, cw, ch):
     return None
 
 
+def emoji(char, side, cache={}):
+    if (char, side) not in cache:
+        glyph = Image.new("RGBA", (200, 200))
+        font = ImageFont.truetype(EMOJI, 160)
+        ImageDraw.Draw(glyph).text((0, 0), char, font=font, embedded_color=True)
+        glyph = glyph.crop(glyph.getbbox())
+        cache[char, side] = glyph.resize((side, side), Image.LANCZOS)
+    return cache[char, side]
+
+
 def render(grid, cursor, fonts, cell):
     cw, ch = cell
     img = Image.new("RGB", (len(grid[0]) * cw, len(grid) * ch), DEFAULT_BG)
     draw = ImageDraw.Draw(img)
+    side = min(2 * cw, ch) - 2
+    emojis = []
     for row, cells in enumerate(grid):
         for col, (char, fg, bg, bold, italic) in enumerate(cells):
             x, y = col * cw, row * ch
@@ -170,8 +189,12 @@ def render(grid, cursor, fonts, cell):
                 if "r" in seg: draw.line([(mx, my), (x + cw, my)], fill=fg)
             elif rect := block(char, x, y, cw, ch):
                 draw.rectangle(rect, fill=fg)
+            elif ord(char) >= 0x1F000:
+                emojis.append((emoji(char, side), (x + cw - side // 2, y + (ch - side) // 2)))
             elif char not in (" ", "️"):
                 draw.text((x, y), char, font=fonts[bold + 2 * italic], fill=fg)
+    for glyph, at in emojis:
+        img.paste(glyph, at, glyph)
     return img
 
 
@@ -375,6 +398,10 @@ def main():
         assert g[1][0][2] == (1, 2, 3), "the second line lost the background it carries on"
         assert g[0][0][1] == (0xc8, 0xd3, 0xf5), "the default text is not Moon's"
         assert g[2][0][1] == (0x82, 0xaa, 0xff), "the blue is not Moon's"
+        g = parse("a\U0001f916b", 4, 1)
+        assert [c[0] for c in g[0]] == ["a", "\U0001f916", " ", "b"], "a wide character is not two cells"
+        robot = render(g, None, *load_fonts("menlo", FONT_SIZE))
+        assert robot.getpixel((cell[0] * 2, cell[1] // 2)) != DEFAULT_BG, "the emoji is not drawn"
         theme = os.path.join(tempfile.mkdtemp(prefix="cast-theme-"), "day")
         with open(theme, "w") as f:
             f.write("background = #e1e2e7\nforeground = #3760bf\npalette = 4=#2e7de9\n")
