@@ -740,6 +740,10 @@ named and unnamed extensions, a prefixed named constructor, a class through a re
 (#1221), `${..}` in a string beside a `'''` string and a `//` comment declaring names, a local
 function, a class method that hides the top-level function of its name, an enum's value, field and
 method, `call()` on a field, and a type parameter's bound (#1220).
+`dart/lib/caddy.dart` (#1280) walks chains of names with no call (`shelf.caddy.scoop.heap()`,
+`spare?.caddy.scoop`, one inside `${..}`) to the `heap` of `Scoop` or of `Spoon`; a method
+named in the chain without a call is a tear-off, so `shelf.caddy.pick.call()` does not jump to
+`Scoop.call`.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
