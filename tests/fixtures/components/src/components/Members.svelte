@@ -17,3 +17,11 @@
 //              ^ d: src/components/Members.svelte:4
 <span>{user.name}</span>
 //          ^ d: picker src/user.ts:2, src/user.ts:10
+{#each team as member (member.name)}
+//             ^ d: src/components/Members.svelte:20
+  <span>{member.name}</span>
+{/each}
+{#each team as member (member.name)}
+  <span>{member.name}</span>
+  //     ^ d: src/components/Members.svelte:24
+{/each}

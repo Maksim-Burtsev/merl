@@ -107,6 +107,7 @@ impl App {
             && !a.dotted
             && a.chain.is_empty()
             && self.on_template(&a.here)
+            && near.imports.iter().all(|i| i.name != a.word)
             && found.iter().all(|c| {
                 c.reason == Reason::ByName
                     && c.hit.path != a.here
