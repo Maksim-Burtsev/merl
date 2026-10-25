@@ -31,6 +31,7 @@ The sql row with the rest of #1063 (a bare column where SQL names one table, an 
 The swift row with #1068's closure parameter of a generic wrapper's method (`streamMutableState.write { state in`): over `ac98b053`, 2026-10-22, release build, `vm.loadavg` { 8.57 9.76 7.72 } before the run, { 8.44 9.66 7.72 } after.
 merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
 The csharp row with #1088 (Blazor `.razor` files read through a separate read-only C# view): over `d1c7ea21`, 2026-10-22, release build, `vm.loadavg` { 9.64 13.18 7.21 } before the run, { 11.53 13.27 7.77 } after (the times read high under that load).
+The csharp row with #1282 (the element of a framework collection: a `foreach` over a call, a LINQ lambda's parameter, `FirstOrDefault()`): over `11008e95`, 2026-10-26, release build, `vm.loadavg` { 7.47 9.34 8.84 } after the run.
 The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed through a union alias of `@types/estree` interfaces, `CallExpression`): over `3f360506`, 2026-10-22, release build, `vm.loadavg` { 10.99 8.50 7.82 } before the run.
 The ts, js, vue, svelte and astro rows with #1078 (a union narrowed by its `type` tag in a `switch` case and a ternary, `pattern.properties` and `property.value`): over `c742c2bf`, 2026-10-22, release build, `vm.loadavg` { 5.83 5.61 6.60 } before the run.
@@ -73,7 +74,7 @@ The java row with #1278's lambda parameter typed by its chain: over `c271c460`, 
 | swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
-| csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |
+| csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |
 | ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 2 | 66.3 | 382.6 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
