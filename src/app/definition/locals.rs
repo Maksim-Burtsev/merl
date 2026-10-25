@@ -87,14 +87,14 @@ impl App {
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
-        let python_inline = kind == Kind::Python
-            && !declared
+        let python_own = kind == Kind::Python
             && locals == [self.line + 1]
-            && search::python_inline_binds(self.line_str(), word);
+            && ((!declared && search::python_inline_binds(self.line_str(), word))
+                || (!a.dotted && search::python_in_function_body(&a.text, self.line + 1)));
         if self.answered_by_locals(
             a,
             &locals,
-            same_line || own_line || own_arrow || python_inline || type_param.is_some(),
+            same_line || own_line || own_arrow || python_own || type_param.is_some(),
         ) {
             return None;
         }

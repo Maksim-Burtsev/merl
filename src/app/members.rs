@@ -159,6 +159,7 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.in_code(kind, h)
+                    && !(kind == Kind::Go && search::go_short_var(&h.text, name))
                     && self.text_of(&h.path).is_some_and(|text| {
                         search::qualified(kind, &text, h.line1, name).as_deref() == within
                     })

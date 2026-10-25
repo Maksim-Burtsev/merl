@@ -983,11 +983,7 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
                 .join("\n")
         }),
         Kind::Go if line_text.starts_with([' ', '\t']) => {
-            let local = line_text
-                .trim_start()
-                .strip_prefix(word)
-                .is_some_and(|rest| rest.trim_start().starts_with(":="));
-            local || {
+            go_short_var(line_text, word) || {
                 let lines = lines();
                 ["const (", "var (", "type ("]
                     .iter()
@@ -1012,6 +1008,12 @@ fn declares_by_kind<'a, S: AsRef<str> + 'a>(
         Kind::Clojure => lisp_declares(kind, lines(), line, line_text),
         _ => def_block(kind, word).is_none_or(|block| directly_inside(lines(), line, block)),
     }
+}
+pub fn go_short_var(line_text: &str, word: &str) -> bool {
+    line_text
+        .trim_start()
+        .strip_prefix(word)
+        .is_some_and(|rest| rest.trim_start().starts_with(":="))
 }
 const RECORD_COMPONENT_ANNOTATIONS: &str = r"^\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*";
 fn shaped_as_record_component(line: &str) -> bool {
