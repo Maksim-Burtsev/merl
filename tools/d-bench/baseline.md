@@ -65,6 +65,7 @@ The dart row with #1280 (a chain of names without a call, `err.requestOptions.ur
 The php row with #1279's second pass (a method a class inherits from a `vendor/` class, its parents and traits read, lands on its one declaration; a `use A,` trait list over several lines is read): over `4ce560fb3`, 2026-10-26, release build, `vm.loadavg` { 6.67 7.28 7.80 } before the run, { 9.23 7.65 7.85 } after.
 The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, called on a plain object, lands on the overload C++ calls: `data()`, `back()`, `load()`): over `0a55ada19`, 2026-10-26, release build, `vm.loadavg` { 9.99 8.27 8.27 } before the run, { 10.18 8.36 8.30 } after.
 The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the function, in effect at the cursor): over `affcd2f55`, 2026-10-26, release build, `vm.loadavg` { 4.99 7.13 7.67 } before the run, { 5.12 6.68 7.46 } after.
+The swift row with #1286 (an implicit member passed as an argument, through the type of the callee's parameter: `URLEncodedFormEncoder(arrayEncoding: .indexInBrackets)`, `BoundaryGenerator.boundary(forBoundaryType: .initial, ..)`): over `6e782ad49`, 2026-10-26, release build, `vm.loadavg` { 6.63 7.48 7.15 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -76,7 +77,7 @@ The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the 
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 232 | 204 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 68 | 12 | 19.3 | 68.6 |
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
-| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
+| swift (Alamofire) | 449 | 427 (95%) | 21 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 45.9 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |

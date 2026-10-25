@@ -233,6 +233,7 @@ pub struct SwiftParam {
     pub defaulted: bool,
     pub variadic: bool,
     pub closure: bool,
+    pub ty: String,
 }
 pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Vec<SwiftParam>> {
     let line = lines.get(line0)?;
@@ -271,6 +272,7 @@ pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Ve
                 defaulted: parts.len() > 1,
                 variadic: ty.ends_with("..."),
                 closure: top_level_arrow(bare),
+                ty,
             })
         })
         .collect()
