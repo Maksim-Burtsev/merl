@@ -357,7 +357,7 @@ impl App {
                 file,
                 written,
                 line0,
-            } = self.rust_walked_got(file, text, at, name, shadowing, &w)?
+            } = self.rust_walked_got(file, text, at, name, true, &w)?
             else {
                 return None;
             };
@@ -387,15 +387,14 @@ impl App {
         if w.rest != 0 || (shadows && !shadowing) {
             return None;
         }
-        let head_at = if shadows { at.checked_sub(1)? } else { at };
         if let ([head], false, [link]) = (w.head.as_slice(), w.head_call, w.links.as_slice())
             && link.call
             && link.name == "as_ref"
-            && let Some(got) = super::returns::as_ref_head(file, text, head_at, head)
+            && let Some(got) = super::returns::as_ref_head(file, text, at, head)
         {
             return Some(got);
         }
-        let mut got = self.rust_head(file, text, head_at, w, Some(name))?;
+        let mut got = self.rust_head(file, text, at, w, Some(name))?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
         }
