@@ -666,6 +666,8 @@ with `Dipper`'s; `restrung` calls `to_string` on a `String`, not a `str` (#1044)
 `split_heap` binds `kept` in `let (kept, dipper) = spoons.split()`, a method returning a tuple, so
 `heap` is `Scoop`'s; a tuple pattern that rebinds its head (`split_again`) or nests a tuple
 (`split_nested`) keeps the picker (#1044).
+`rebuilt` and `recupped` start a `let` chain at a `String::from(..)`, a `Vec::<u32>::new()` and a
+`Vec::with_capacity(2)`, so `len` is std's, where master jumped to `Leaf::len` (#1044).
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

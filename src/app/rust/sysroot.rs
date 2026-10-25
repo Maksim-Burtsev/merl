@@ -235,10 +235,15 @@ impl App {
         let end = body
             .iter()
             .position(|l| !l.trim().is_empty() && indent(l) <= indent(decl))?;
+        let imports = search::imports(Kind::Rust, &text);
         let std_typed = |written: &str| {
             rust_bare_type(written).filter(|b| {
                 STD_PATH.captures(written.trim()).is_none_or(|c| {
-                    matches!(c[1].split("::").next(), Some("" | "std" | "core" | "alloc"))
+                    let first = c[1].split("::").next().unwrap_or_default();
+                    let root = bound(&imports, first)
+                        .and_then(|p| p.into_iter().next())
+                        .unwrap_or_else(|| first.to_owned());
+                    matches!(root.as_str(), "" | "std" | "core" | "alloc")
                 }) && self.rust_std_named(&text, b)
             })
         };

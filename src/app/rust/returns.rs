@@ -199,6 +199,16 @@ impl App {
                     let (decl, w) = self.rust_call_returns(file, text, b.line1 - 1, &parts)?;
                     (decl.path, w, decl.line1 - 1)
                 }
+                search::RustHolds::AssocCall {
+                    written_type,
+                    function,
+                } if matches!(
+                    function.as_str(),
+                    "new" | "from" | "with_capacity" | "default"
+                ) =>
+                {
+                    (file.to_path_buf(), written_type, b.line1 - 1)
+                }
                 _ => return None,
             },
             [] => {

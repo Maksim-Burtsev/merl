@@ -404,3 +404,21 @@ pub fn split_nested(spoons: Spoons) -> usize {
     kept.sugar.heap() + dipper.heap()
     //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359; want src/infusion.rs:351 (#1044)
 }
+
+pub fn rebuilt(leaf: &Leaf) -> usize {
+    let name = String::from("oolong");
+    let text = name.to_string();
+    text.len() + leaf.len()
+    //   ^ d: none
+}
+
+pub fn recupped(leaf: &Leaf) -> usize {
+    let cup = Vec::<u32>::new();
+    let more = cup.clone();
+    let mut jug = Vec::with_capacity(2);
+    jug.push(leaf.len());
+    let poured = jug.clone();
+    more.len() + poured.len()
+    //   ^ d: none
+    //                  ^ d: none
+}
