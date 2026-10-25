@@ -23,12 +23,7 @@ impl App {
             && line.get(range.clone()) == Some(word.as_str())
             && search::swift_binds_on(line, word)
             && !search::swift_binds_on(&format!("{}_{}", a.lead, a.tail), word);
-        let ts_key = kind == Kind::TsJs
-            && !a.dotted
-            && a.chain.is_empty()
-            && a.lead.trim().is_empty()
-            && a.tail.trim_start().trim_start_matches('?').starts_with(':')
-            && !a.tail.trim_start().starts_with("::");
+        let ts_key = ts_key(a);
         let declared = swift_binds_here
             || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
@@ -243,4 +238,14 @@ impl App {
         }
         false
     }
+}
+
+fn ts_key(a: &Asked) -> bool {
+    let tail = a.tail.trim_start();
+    a.kind == Kind::TsJs
+        && !a.dotted
+        && a.chain.is_empty()
+        && a.lead.trim().is_empty()
+        && tail.trim_start_matches('?').starts_with(':')
+        && !tail.starts_with("::")
 }

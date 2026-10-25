@@ -103,7 +103,15 @@ impl App {
         {
             self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
-        if kind == Kind::TsJs
+        self.offer_only |= self.template_name_elsewhere(a, near, &found);
+        self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
+        if let Some(note) = aside {
+            self.message = self.message.replacen("1 match", &note, 1);
+        }
+    }
+
+    fn template_name_elsewhere(&self, a: &Asked, near: &Near, found: &[Candidate]) -> bool {
+        a.kind == Kind::TsJs
             && !a.dotted
             && a.chain.is_empty()
             && self.on_template(&a.here)
@@ -113,13 +121,6 @@ impl App {
                     && c.hit.path != a.here
                     && !c.hit.path.to_string_lossy().ends_with(".d.ts")
             })
-        {
-            self.offer_only = true;
-        }
-        self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
-        if let Some(note) = aside {
-            self.message = self.message.replacen("1 match", &note, 1);
-        }
     }
 
     fn ts_member_namesakes(&mut self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
