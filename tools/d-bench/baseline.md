@@ -62,12 +62,13 @@ The java row with #1278's lambda parameter typed by its chain: over `c271c460`, 
 The php row with #1279 (a call of a Composer helper such as `env(..)` lands on the one global function a file `autoload_files.php` lists declares; a call after `=>` or `?:` is a call): over `6c42b3142`, 2026-10-26, release build, `vm.loadavg` { 6.85 8.04 8.18 } before the run, { 11.90 8.87 8.44 } after.
 The dart row with #1280 (a chain of names without a call, `err.requestOptions.uri`, follows each link's declared type): over `4742745b8`, 2026-10-26, release build, `vm.loadavg` { 4.85 7.23 7.93 } before the run.
 The php row with #1279's second pass (a method a class inherits from a `vendor/` class, its parents and traits read, lands on its one declaration; a `use A,` trait list over several lines is read): over `4ce560fb3`, 2026-10-26, release build, `vm.loadavg` { 6.67 7.28 7.80 } before the run, { 9.23 7.65 7.85 } after.
+The js row with #1283 (an ESLint rule's `context` typed by the `create` of the JSDoc `@type` over `module.exports = {`, its members through an aliased `@eslint/core` base, and `sourceCode` through `Options["Code"]` of that base): over `c55729c57`, 2026-10-26, release build, `vm.loadavg` { 5.57 5.85 6.56 } before the run, { 6.31 5.83 6.46 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 259 | 243 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 66 | 8 | 16.7 | 237.6 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 42.8 | 93.2 |
-| js (eslint, uptime-kuma) | 217 | 180 (83%) | 31 (14%) | 0 (0%) | 6 (3%) | 177 | 11 | 37.7 | 170.4 |
+| js (eslint, uptime-kuma) | 217 | 191 (88%) | 20 (9%) | 0 (0%) | 6 (3%) | 177 | 11 | 40.0 | 207.2 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
