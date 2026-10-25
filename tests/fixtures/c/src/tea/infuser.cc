@@ -127,3 +127,54 @@ struct Gourd {
   //        ^ d: picker src/tea/infuser.cc:119, src/tea/infuser.cc:124
   int n;
 };
+
+struct Spout {
+  explicit Spout(int ml);
+  Spout();
+};
+
+Spout::Spout(int ml) {}
+Spout::Spout() : Spout(500) {}
+//               ^ d: src/tea/infuser.cc:136
+
+struct Cruet {
+  Cruet(int x);
+  Cruet(const Cruet& u, int extra);
+  Cruet();
+};
+
+Cruet::Cruet() : Cruet(1) {}
+//                 ^ d: src/tea/infuser.cc:141
+Cruet::Cruet(const Cruet& u, int extra) : Cruet(u) {}
+//                                        ^ d: !jump
+
+struct Flask {
+  Flask(int a);
+  Flask(const char* s);
+  Flask();
+};
+
+Flask::Flask() : Flask(250) {}
+//               ^ d: !jump
+Flask::Flask(int a) : Flask("x") {}
+//                    ^ d: !jump
+
+struct Beaker {
+  Beaker(int a);
+  Beaker();
+};
+
+namespace pot {
+struct Beaker {
+  Beaker(const char* s);
+  Beaker(int a, int b);
+  Beaker();
+};
+}
+
+pot::Beaker::Beaker() : Beaker("x") {}
+//                      ^ d: src/tea/infuser.cc:169
+namespace pot {
+Beaker::Beaker(int a, int b) : Beaker() {}
+//                             ^ d: src/tea/infuser.cc:171
+}

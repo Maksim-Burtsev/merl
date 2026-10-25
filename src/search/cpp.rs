@@ -226,17 +226,22 @@ pub fn cpp_delegated_constructor(
     });
     let code = c_code(text);
     let at = line_starts(&code).get(line1.checked_sub(1)?)? + byte_col;
-    let class = c_innermost_open_brace(code.as_bytes(), at)?;
-    let own = init_list_call(&code, at, word)?;
-    if c_body_name(&code, class) != word {
-        return None;
-    }
+    let (own, owner) = init_list_call(&code, at, word)?;
     let (_, args) = bracket_items(&code, text, at + word.len(), false)?;
     if let [arg] = &args[..]
         && !LITERAL.is_match(text.get(arg.clone())?.trim())
     {
         return None;
     }
+    let class = if owner.is_empty() {
+        c_innermost_open_brace(code.as_bytes(), at).filter(|&o| c_body_name(&code, o) == word)?
+    } else {
+        let (_, params) = bracket_items(&code, text, own, true)?;
+        if params.len() == args.len() {
+            return None;
+        }
+        class_written(&code, at, owner, word)?
+    };
     let end = close_or_end(&code, class, code.len());
     let name = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
     let mut fits = Vec::new();
@@ -269,17 +274,36 @@ pub fn cpp_delegated_constructor(
     }
 }
 
-fn init_list_call(code: &str, at: usize, word: &str) -> Option<usize> {
+fn init_list_call(code: &str, at: usize, word: &str) -> Option<(usize, Vec<String>)> {
     let (paren, _) = bracket_items(code, code, at + word.len(), false)?;
     let close = close_or_end(code, paren, code.len());
     let body = close + code.get(close..)?.find(['{', ';'])?;
     let start = c_head_start(code, body);
-    match c_head(code.get(start..body)?) {
-        Head::Function { name, params }
-            if name == word && start + params.end <= at && code.as_bytes()[body] == b'{' =>
-        {
-            Some(start + params.start)
-        }
+    let Head::Function { name, params } = c_head(code.get(start..body)?) else {
+        return None;
+    };
+    let mut owner: Vec<String> = name.split("::").map(|p| p.trim().to_owned()).collect();
+    let own = owner.pop().is_some_and(|n| n == word);
+    let fits = owner.last().is_none_or(|o| o == word);
+    (own && fits && start + params.end <= at && code.as_bytes()[body] == b'{')
+        .then_some((start + params.start, owner))
+}
+
+fn class_written(code: &str, at: usize, owner: Vec<String>, word: &str) -> Option<usize> {
+    let mut path = cpp_scope_path(code, at);
+    path.extend(owner);
+    let head = Regex::new(&format!(r"\b(?:struct|class)\s+{}\b", regex::escape(word))).ok()?;
+    let classes: Vec<usize> = (head.find_iter(code))
+        .filter_map(|m| {
+            let open = m.end() + code.get(m.end()..)?.find(['{', ';'])?;
+            (code.as_bytes()[open] == b'{'
+                && c_body_name(code, open) == word
+                && cpp_scope_path(code, open + 1) == path)
+                .then_some(open)
+        })
+        .collect();
+    match classes[..] {
+        [open] => Some(open),
         _ => None,
     }
 }

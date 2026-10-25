@@ -318,6 +318,10 @@ declaration of its own overload (#1248). `Taper(Gills n)` is declared in another
 declaration. `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
 lacks. `Wisp(1, 2)` fits only its own constructor, `Pail("x")` a default parameter and `Gourd`'s
 arguments hold a `<`: each keeps master's picker of the namesake classes (#1248).
+Out of the class, `Spout::Spout() : Spout(500)` and `Cruet(1)` delegate the same way, and
+`pot::Beaker::Beaker()` to the constructor of `pot`'s `Beaker`, not of the global namesake;
+`Cruet(u)` may be the copy, `Flask(250)` fits two and `Flask("x")` from `Flask(int a)` could be
+itself, so those keep master's answer (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
