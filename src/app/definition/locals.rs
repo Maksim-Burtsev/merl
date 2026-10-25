@@ -18,11 +18,13 @@ impl App {
             search::imports(kind, &a.text)
         };
         let line = self.line_str();
+        let wrapped = kind == Kind::Swift && search::swift_wrapped_params(&a.text, self.line + 1);
+        let signature = |l: String| if wrapped { format!("func f({l})") } else { l };
         let swift_binds_here = kind == Kind::Swift
             && !a.dotted
             && line.get(range.clone()) == Some(word.as_str())
-            && search::swift_binds_on(line, word)
-            && !search::swift_binds_on(&format!("{}_{}", a.lead, a.tail), word);
+            && search::swift_binds_on(&signature(line.to_owned()), word)
+            && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word);
         let declared = swift_binds_here
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
         let mut locals = self.locals_of(a, declared);
