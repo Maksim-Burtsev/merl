@@ -47,8 +47,8 @@ wait Tutor 23/
                                   │   Tree: Up / Down                   Move                                                                          │
                                   │   Tree: Enter                       Open the file, or expand the directory                                        │
                                   │   Tree: Left / Right                Collapse / expand                                                             │
-                                  │   Picker: Up / Down                 Move                                                                          │
-                                  │   Picker: PgUp / PgDn               Move one page                                                                 │
+                                  │   Tree: PgUp / PgDn                 Move one page                                                                 │
+                                  │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
                                   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 Tutor 23/26 · Close it
 `?` lists every key merl knows, and it is open now. Esc closes any overlay, and clears the selection and the find pattern. Press Esc.

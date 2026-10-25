@@ -1,33 +1,29 @@
 wait Close an overlay, leave edit mode
 ┌orders──────────────────────┐ 1 f┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
-│▸ .github                   │ 2  │   [ / ]                             Back / forward in the jump history                                            │
-│▸ .venv                     │ 3  │   : / Ctrl+G                        Go to line                                                                    │
-│▾ app                       │ 4 c│ Search                                                                                                            │
-│    __init__.py             │ 5  │   / / Ctrl+F                        Find in the open file                                                         │
-│    api.py                  │ 6  │   n / N                             Next / previous match                                                         │
-│    config.py               │ 7  │   s                                 Search the project                                                            │
-│    models.py               │ 8  │ Review                                                                                                            │
-│    repos.py                │ 9  │   c / C                             Review: next / previous hunk, on to the next file                             │
-│    service.py              │10  │   m                                 Review: mark the file as viewed, or take the mark off                         │
-│    uow.py                  │11  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
-│▸ data                      │12  │ Editing                                                                                                           │
-│▸ deploy                    │13  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-│▸ docs                      │14  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
-│▸ scripts                   │15  │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
-│▸ tests                     │16  │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
-│▸ web                       │17  │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
-│▸ worker                    │18  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
-│  .env                      │19  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
-│  .gitignore                │20  │ Selection                                                                                                         │
-│  docker-compose.yml        │    │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
-│  Dockerfile                │    │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
-│  Makefile                  │    │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
-│  pyproject.toml            │    │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
-│  README.md                 │    │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
-│                            │    │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
-│                            │    │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
-│                            │    │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
-│                            │    │ Movement                                                                                                          │
+│▸ .github                   │ 2  │   n / N                             Next / previous match                                                         │
+│▸ .venv                     │ 3  │   s                                 Search the project                                                            │
+│▾ app                       │ 4 c│ Review                                                                                                            │
+│    __init__.py             │ 5  │   c / C                             Review: next / previous hunk, on to the next file                             │
+│    api.py                  │ 6  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│    config.py               │ 7  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+│    models.py               │ 8  │ Editing                                                                                                           │
+│    repos.py                │ 9  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+│    service.py              │10  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+│    uow.py                  │11  │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+│▸ data                      │12  │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+│▸ deploy                    │13  │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+│▸ docs                      │14  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+│▸ scripts                   │15  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+│▸ tests                     │16  │ Selection                                                                                                         │
+│▸ web                       │17  │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
+│▸ worker                    │18  │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+│  .env                      │19  │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+│  .gitignore                │20  │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+│  docker-compose.yml        │    │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+│  Dockerfile                │    │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+│  Makefile                  │    │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+│  pyproject.toml            │    │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
+│  README.md                 │    │ Movement                                                                                                          │
 │                            │    │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
 │                            │    │   Alt+Left / Alt+Right              Move one word                                                                 │
 │                            │    │   Home / End                        Start / end of the screen row, then of the line                               │
@@ -41,6 +37,10 @@ wait Close an overlay, leave edit mode
 │                            │    │   Tree: Up / Down                   Move                                                                          │
 │                            │    │   Tree: Enter                       Open the file, or expand the directory                                        │
 │                            │    │   Tree: Left / Right                Collapse / expand                                                             │
+│                            │    │   Tree: PgUp / PgDn                 Move one page                                                                 │
+│                            │    │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
+│                            │    │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
+│                            │    │   Tree: { / }                       Previous / next folder                                                        │
 │                            │    │   Picker: Up / Down                 Move                                                                          │
 │                            │    │   Picker: PgUp / PgDn               Move one page                                                                 │
 │                            │    │   Picker: Enter                     Accept                                                                        │

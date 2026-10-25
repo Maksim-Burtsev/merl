@@ -199,6 +199,10 @@ counts stay on your machine.
 | Tree: Up / Down | Move |
 | Tree: Enter | Open the file, or expand the directory |
 | Tree: Left / Right | Collapse / expand |
+| Tree: PgUp / PgDn | Move one page |
+| Tree: Home / End | First / last row, with Ctrl or without |
+| Tree: Ctrl+D / Ctrl+U | Move half a page down / up |
+| Tree: { / } | Previous / next folder |
 | Picker: Up / Down | Move |
 | Picker: PgUp / PgDn | Move one page |
 | Picker: Enter | Accept |

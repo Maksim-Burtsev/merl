@@ -113,7 +113,7 @@ run $SMOKE_TMUX send-keys -t 0 -H 1b 5b 31 31 31 3b 39 75
 key End
 wait app/service.py  36:21  [code]
 key ? C-M-q
-wait This help
+wait Switch focus between tree and code
 key Escape
 wait app/service.py  36:21  [code]
 # In code `v` takes the word, inside the quotes, the string, inside the brackets, the brackets,

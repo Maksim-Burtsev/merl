@@ -165,7 +165,7 @@ pub fn fresh(a: &mut App) -> Result<()> {
     new.config = a.config.take();
     new.autosave = a.autosave;
     new.no_watch = a.no_watch;
-    (new.view_w, new.view_h) = (a.view_w, a.view_h);
+    (new.view_w, new.view_h, new.tree_h) = (a.view_w, a.view_h, a.tree_h);
     new.tutor = tutor;
     *a = new;
     Ok(())
@@ -351,7 +351,7 @@ mod tests {
         let (tree, files) = crate::tree::build(&dir, false);
         let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
         (a.show_tree, a.focus) = (false, Focus::Code);
-        (a.view_w, a.view_h) = (w, h);
+        (a.view_w, a.view_h, a.tree_h) = (w, h, h);
         a.tutor = Some(Tutor {
             step: TUTOR.len(),
             dir,

@@ -185,7 +185,7 @@ impl App {
             self.tree.settle();
         }
         self.keys_action_of_key_in_hand = (self.focus == Focus::Tree)
-            .then(|| named("Tree: ", key))
+            .then(|| named("Tree: ", key).or_else(|| named("Tree: ", key.code.into())))
             .flatten()
             .or_else(|| fold.then(|| named("Fold: ", key)).flatten())
             .or_else(|| named("", key));
@@ -220,6 +220,9 @@ impl App {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         match key.code {
             _ if self.preview_key(key) => {}
+            _ if self.focus == Focus::Tree && super::tree::moves_the_tree(key) => {
+                self.tree_key(key);
+            }
             KeyCode::Char('q') => return true,
             KeyCode::Char('?') => {
                 self.mode = Mode::Help;
@@ -301,7 +304,7 @@ impl App {
             KeyCode::Char('v') if self.notes.focus.is_some() => self.notes.selected = true,
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow(),
             KeyCode::Char('V') if self.focus == Focus::Code => self.shrink(),
-            _ if self.focus == Focus::Tree => self.tree_key(key.code),
+            _ if self.focus == Focus::Tree => {}
             KeyCode::Enter if self.notes.focus.is_some() => self.start_note(),
             KeyCode::Enter => self.start_edit(),
             _ => self.cursor_key(key),
