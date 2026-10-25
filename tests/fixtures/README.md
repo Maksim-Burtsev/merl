@@ -675,6 +675,10 @@ that nests a tuple (`split_nested`) keeps the picker (#1044). `split_dipped` reb
 binding, so it keeps the picker where reading the parameter jumped to `Scoop::heap`.
 `rebuilt` and `recupped` start a `let` chain at a `String::from(..)`, a `Vec::<u32>::new()` and a
 `Vec::with_capacity(2)`, so `len` is std's, where master jumped to `Leaf::len` (#1044).
+`sifted` rebinds `spoons` in a tuple whose line holds a closure taking a `spoons` of its own: the
+head is read among the bindings above the line, so `heap` is `Scoop`'s and the lookup ends.
+`hashed` heads its chain at `hashbrown::HashMap::new()`: the path's root is not std's, so `len`
+is not std's either and `d` answers by name, as master did.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

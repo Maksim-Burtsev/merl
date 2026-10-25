@@ -429,3 +429,22 @@ pub fn split_dipped(spoons: Spoons) -> usize {
     spoons.tea.heap()
     //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359
 }
+
+impl Spoons {
+    pub fn sift<F: Fn(u32) -> bool>(&self, _: F) -> (Spoons, Option<Dipper>) {
+        (Spoons { tea: Scoop, sugar: Scoop }, Some(Dipper))
+    }
+}
+
+pub fn sifted(spoons: Spoons) -> usize {
+    let (spoons, _) = spoons.sift(|spoons| spoons > 0);
+    spoons.tea.heap()
+    //         ^ d: src/infusion.rs:351
+}
+
+pub fn hashed() -> usize {
+    let m = hashbrown::HashMap::new();
+    let k = m.clone();
+    k.len()
+    //^ d: src/infusion/leaves.rs:13
+}
