@@ -21,3 +21,7 @@ const title = "Welcome";
     //^ d: none
   }
 </style>
+<ul>{["a"].map((color) =>
+  <li>{color}</li>
+  //   ^ d: picker src/names.ts:7; want src/components/Hero.astro:24 (#1273)
+)}</ul>

@@ -25,7 +25,9 @@ impl App {
             && line.get(range.clone()) == Some(word.as_str())
             && search::swift_binds_on(&signature(line.to_owned()), word)
             && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word);
+        let ts_key = ts_key(a);
         let declared = swift_binds_here
+            || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
         let mut locals = self.locals_of(a, declared);
         let go_own = kind == Kind::Go
@@ -96,7 +98,7 @@ impl App {
         if self.answered_by_locals(
             a,
             &locals,
-            same_line || own_line || own_arrow || python_own || type_param.is_some(),
+            same_line || own_line || own_arrow || ts_key || python_own || type_param.is_some(),
         ) {
             return None;
         }
@@ -238,4 +240,15 @@ impl App {
         }
         false
     }
+}
+
+fn ts_key(a: &Asked) -> bool {
+    let tail = a.tail.trim_start();
+    a.kind == Kind::TsJs
+        && !a.dotted
+        && a.chain.is_empty()
+        && a.lead.trim().is_empty()
+        && tail.trim_start_matches('?').starts_with(':')
+        && !tail.starts_with("::")
+        && tail.trim_end().ends_with(';')
 }

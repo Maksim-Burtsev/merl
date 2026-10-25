@@ -547,7 +547,10 @@ whose base comes from the uninstalled `sequelize-typescript`, beside a type's `c
 `isDevelopment` off the default export of `settings.ts`, typed `Record<…> & { … }` over several
 lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
-another class. `crate.js` reads `hinge` off an untyped parameter, declared only
+another class. `keys.ts` puts keys of a type literal and of an object literal, at the start of
+their lines, above a module-level `const` of each key's name: a type literal's key (`name: T;`) is its own
+definition, an object literal's stays a key (#1273).
+`crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
 member, an inherited one, one the interface lacks (offered by name, as untyped), a nested
