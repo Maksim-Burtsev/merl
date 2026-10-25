@@ -380,3 +380,27 @@ pub fn restrung(name: String) -> usize {
     text.len()
     //   ^ d: none
 }
+
+impl Spoons {
+    pub fn split(&self) -> (Spoons, Option<Dipper>) {
+        (Spoons { tea: Scoop, sugar: Scoop }, Some(Dipper))
+    }
+}
+
+pub fn split_heap(spoons: Spoons) -> usize {
+    let (kept, dipper) = spoons.split();
+    kept.tea.heap() + dipper.map_or(0, |d| d.heap())
+    //       ^ d: src/infusion.rs:351
+}
+
+pub fn split_again(spoons: Spoons) -> usize {
+    let (spoons, _) = spoons.split();
+    spoons.tea.heap()
+    //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359; want src/infusion.rs:351 (#1044)
+}
+
+pub fn split_nested(spoons: Spoons) -> usize {
+    let (kept, (dipper, _)) = (spoons, (Dipper, 1));
+    kept.sugar.heap() + dipper.heap()
+    //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359; want src/infusion.rs:351 (#1044)
+}

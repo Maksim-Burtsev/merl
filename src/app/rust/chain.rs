@@ -111,6 +111,31 @@ pub(super) fn let_initializer(lines: &[&str], at: usize, name: &str) -> Option<S
     let rest = t.strip_prefix("let ")?.trim_start();
     let rest = rest.strip_prefix("mut ").unwrap_or(rest).trim_start();
     let rest = rest.strip_prefix(name)?.trim_start().strip_prefix('=')?;
+    statement(lines, at, rest)
+}
+
+fn tuple_initializer(lines: &[&str], at: usize, name: &str) -> Option<(usize, usize, String)> {
+    let t = lines.get(at)?.trim().strip_prefix("let ")?.trim_start();
+    let (names, rest) = t.strip_prefix('(')?.split_once(')')?;
+    let names: Vec<&str> = names
+        .split(',')
+        .map(|p| {
+            let p = p.trim();
+            p.strip_prefix("mut ").unwrap_or(p).trim()
+        })
+        .collect();
+    if names
+        .iter()
+        .any(|p| p.is_empty() || !p.chars().all(|c| c.is_alphanumeric() || c == '_'))
+    {
+        return None;
+    }
+    let i = names.iter().position(|p| *p == name)?;
+    let init = statement(lines, at, rest.trim_start().strip_prefix('=')?)?;
+    Some((i, names.len(), init))
+}
+
+fn statement(lines: &[&str], at: usize, rest: &str) -> Option<String> {
     if rest.starts_with('=') {
         return None;
     }
@@ -322,13 +347,44 @@ impl App {
         shadowing: bool,
     ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
-        let init = let_initializer(&lines, at, name)?;
+        let Some(init) = let_initializer(&lines, at, name) else {
+            let (i, n, init) = tuple_initializer(&lines, at, name)?;
+            let w = walk_back(&init)?;
+            if w.links.is_empty() && !w.head_call {
+                return None;
+            }
+            let Got::Written {
+                file,
+                written,
+                line0,
+            } = self.rust_walked_got(file, text, at, name, shadowing, &w)?
+            else {
+                return None;
+            };
+            let parts = super::returns::top_level(written.trim().strip_prefix('(')?.strip_suffix(')')?);
+            return (parts.len() == n).then(|| self.rust_got(&file, parts[i].to_owned(), line0));
+        };
         if init.starts_with("match ") {
             return self.rust_match_got(file, text, &match_arms(&lines, at)?, name);
         }
         let w = walk_back(&init)?;
+        if w.links.is_empty() {
+            return None;
+        }
+        self.rust_walked_got(file, text, at, name, shadowing, &w)
+    }
+
+    fn rust_walked_got(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        shadowing: bool,
+        w: &Walked,
+    ) -> Option<Got> {
         let shadows = !w.head_call && w.head.first().is_some_and(|h| h == name);
-        if w.rest != 0 || w.links.is_empty() || (shadows && !shadowing) {
+        if w.rest != 0 || (shadows && !shadowing) {
             return None;
         }
         let head_at = if shadows { at.checked_sub(1)? } else { at };
@@ -339,7 +395,7 @@ impl App {
         {
             return Some(got);
         }
-        let mut got = self.rust_head(file, text, head_at, &w, Some(name))?;
+        let mut got = self.rust_head(file, text, head_at, w, Some(name))?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
         }

@@ -659,6 +659,9 @@ master jumped to `Leaf::len`.
 and `n.to_string()` in `label`: both are a `String`, where master jumped to `Leaf::len`.
 `heaped` matches into two fields of the same project struct, so `heap` is `Scoop`'s, not a picker
 with `Dipper`'s; `restrung` calls `to_string` on a `String`, not a `str` (#1044).
+`split_heap` binds `kept` in `let (kept, dipper) = spoons.split()`, a method returning a tuple, so
+`heap` is `Scoop`'s; a tuple pattern that rebinds its head (`split_again`) or nests a tuple
+(`split_nested`) keeps the picker (#1044).
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
