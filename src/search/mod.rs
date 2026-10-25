@@ -1,3 +1,4 @@
+mod ambient;
 mod android;
 mod bindings;
 mod c;
@@ -54,6 +55,7 @@ mod ts_patterns;
 mod types;
 mod words;
 
+pub use ambient::*;
 pub use android::*;
 pub use bindings::*;
 pub use c::*;
