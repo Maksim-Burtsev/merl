@@ -610,7 +610,7 @@ impl App {
             missed: HashMap::new(),
             watch: missed::Watch::default(),
         };
-        lock_no_write(&mut buf);
+        app.lock_unwritable(&mut buf);
         app.buf = buf;
         if let Some((n, char_col1)) = at {
             app.goto_line(n);
