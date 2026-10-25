@@ -348,6 +348,9 @@ project's, a builder chained on one line and over lines, a call on a call's resu
 cup.Refill()`, an inherited property, an interface default method, an extension method beside an
 instance namesake, a local function, a primary constructor whose parameter a method's own
 parameter hides, and declarations in a block comment, a raw interpolated string and `#if false`.
+Its `Rounds.cs` (#1282) reads the element of a framework collection: a `foreach` over an awaited
+call, a LINQ lambda's parameter and `FirstOrDefault()`; a `Dictionary`, `Aggregate`'s two
+parameters, overloads returning two element types and a project extension named `Last` stay pickers.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a

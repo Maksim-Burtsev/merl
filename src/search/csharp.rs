@@ -491,6 +491,99 @@ pub fn cs_one_argument(written: &str) -> Option<String> {
     (!inner.contains(',') && !inner.is_empty()).then(|| inner.to_owned())
 }
 
+pub fn cs_collection(name: &str) -> bool {
+    matches!(
+        name,
+        "IEnumerable"
+            | "IQueryable"
+            | "IOrderedEnumerable"
+            | "IOrderedQueryable"
+            | "IAsyncEnumerable"
+            | "ICollection"
+            | "IList"
+            | "IReadOnlyCollection"
+            | "IReadOnlyList"
+            | "ISet"
+            | "IReadOnlySet"
+            | "List"
+            | "HashSet"
+            | "SortedSet"
+            | "LinkedList"
+            | "Queue"
+            | "Stack"
+            | "Collection"
+            | "ReadOnlyCollection"
+            | "ObservableCollection"
+            | "ImmutableArray"
+            | "ImmutableList"
+            | "ImmutableHashSet"
+            | "DbSet"
+    )
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum CsLinq {
+    Same,
+    Element,
+}
+
+pub fn cs_linq(method: &str) -> Option<CsLinq> {
+    match method {
+        "Where" | "OrderBy" | "OrderByDescending" | "ThenBy" | "ThenByDescending" | "Distinct"
+        | "DistinctBy" | "Skip" | "Take" | "SkipWhile" | "TakeWhile" | "Reverse" | "ToList"
+        | "ToArray" | "ToHashSet" | "AsEnumerable" | "AsQueryable" | "AsNoTracking" => {
+            Some(CsLinq::Same)
+        }
+        "First" | "FirstOrDefault" | "Single" | "SingleOrDefault" | "Last" | "LastOrDefault"
+        | "ElementAt" | "ElementAtOrDefault" | "MinBy" | "MaxBy" | "Find" => Some(CsLinq::Element),
+        _ => None,
+    }
+}
+
+fn cs_element_lambda(method: &str) -> bool {
+    cs_linq(method).is_some()
+        || matches!(
+            method,
+            "Select"
+                | "SelectMany"
+                | "Any"
+                | "All"
+                | "Count"
+                | "LongCount"
+                | "Sum"
+                | "Min"
+                | "Max"
+                | "Average"
+                | "GroupBy"
+                | "ToDictionary"
+                | "ToLookup"
+                | "ForEach"
+                | "FindAll"
+                | "Exists"
+                | "RemoveAll"
+        )
+}
+
+pub fn cs_lambda_call<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option<String> {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let re = Regex::new(&format!(
+        r"\.\s*(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>"
+    ))
+    .ok()?;
+    let line = lines.get(at)?.as_ref();
+    let code = uncommented(Kind::CSharp, line);
+    let mut found = re.captures_iter(&code);
+    let c = found.next()?;
+    let method = c.get(1)?;
+    if found.next().is_some() || !cs_element_lambda(method.as_str()) {
+        return None;
+    }
+    let receiver = cs_receiver(lines, at, method.start())?;
+    let steps = cs_steps(&receiver)?;
+    let first = steps.parts.first().map(|(p, _)| p.as_str());
+    (steps.new.is_none() && first != Some(name.trim_start_matches('@'))).then_some(receiver)
+}
+
 fn cs_deconstructed<'a>(code: &'a str, name: &str) -> Option<&'a str> {
     static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bvar\s*\(([\w@\s,]+)\)\s*=\s*\(").expect("the regex is a literal")

@@ -48,7 +48,7 @@ public class Basket
         }
         return items.Sum(priced => priced.Price());
         //                         ^ d: src/Shop/Basket.cs:49
-        //                                ^ d: picker src/Shop/Pricing/Pricing.cs:9, src/Shop/Pricing/Pricing.cs:21, src/Shop/Pricing/Pricing.cs:28, src/Shop/Startup.cs:32; want src/Shop/Pricing/Pricing.cs:9 (#352)
+        //                                ^ d: src/Shop/Pricing/Pricing.cs:9
     }
 
     public Receipt Close(Stamp stamp, Voucher voucher, Money money, RateFn fn)
