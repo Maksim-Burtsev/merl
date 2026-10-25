@@ -610,6 +610,100 @@ pub fn ruby_roots(
     core.into_iter().chain(stdlib).chain(found).collect()
 }
 pub fn ruby_enclosing_def(text: &str, line1: usize) -> Option<String> {
+    enclosing_def(text, line1).map(|(_, name)| name)
+}
+
+pub fn ruby_public_def(text: &str, line1: usize) -> Option<String> {
+    static HIDES: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(private|protected|public)\b(.*)$").expect("the regex is a literal")
+    });
+    let (g, name) = enclosing_def(text, line1)?;
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Ruby, text);
+    let symbol = Regex::new(&format!(r":{}(?:[\s,)]|$)", regex::escape(&name)))
+        .expect("an escaped name keeps it valid");
+    let hidden_by_name = lines.iter().zip(&literal).any(|(l, &lit)| {
+        !lit && HIDES
+            .captures(l.trim())
+            .is_some_and(|c| &c[1] != "public" && symbol.is_match(&c[2]))
+    });
+    if hidden_by_name
+        || HIDES
+            .captures(lines[g].trim())
+            .is_some_and(|c| &c[1] != "public")
+    {
+        return None;
+    }
+    let depth = indent(lines[g]);
+    for i in (0..g).rev() {
+        let t = lines[i].trim();
+        if literal[i] || t.is_empty() || t.starts_with('#') || indent(lines[i]) > depth {
+            continue;
+        }
+        if indent(lines[i]) < depth || t == "public" {
+            break;
+        }
+        if t == "private" || t == "protected" {
+            return None;
+        }
+    }
+    Some(name)
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct RubyCallbacks {
+    pub run: Vec<String>,
+    pub idle: Vec<String>,
+    pub skipped: Vec<String>,
+}
+
+pub fn ruby_callbacks_before(text: &str, class: &str, action: &str) -> RubyCallbacks {
+    static CALLBACK: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(skip_)?(?:prepend_|append_)?(?:before|around)_action\b\s*\(?(.*)$")
+            .expect("the regex is a literal")
+    });
+    static SYMBOL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*:([a-z_]\w*[?!]?)\s*$").expect("the regex is a literal"));
+    static LIMIT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(only|except):\s*(\[[^\]]*\]|%i\[[^\]]*\]|:\w+[?!]?)")
+            .expect("the regex is a literal")
+    });
+    static NAME: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"[a-z_]\w*[?!]?").expect("the regex is a literal"));
+    let literal = literal_lines(Kind::Ruby, text);
+    let mut out = RubyCallbacks::default();
+    for (i, line) in text.lines().enumerate() {
+        let Some(c) = CALLBACK.captures(line).filter(|_| !literal[i]) else {
+            continue;
+        };
+        if ruby_class_path(text, i + 1) != class {
+            continue;
+        }
+        let names = c[2].split(',').map_while(|part| {
+            SYMBOL
+                .captures(part.trim_end_matches(')'))
+                .map(|s| s[1].to_owned())
+        });
+        if c.get(1).is_some() {
+            out.skipped.extend(names);
+            continue;
+        }
+        let applies = LIMIT.captures_iter(&c[2]).all(|l| {
+            let listed = NAME
+                .find_iter(l[2].trim_start_matches("%i"))
+                .any(|n| n.as_str() == action);
+            listed == (&l[1] == "only")
+        });
+        if applies {
+            out.run.extend(names);
+        } else {
+            out.idle.extend(names);
+        }
+    }
+    out
+}
+
+fn enclosing_def(text: &str, line1: usize) -> Option<(usize, String)> {
     static DEF: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:[a-z_]+\s+)?def\s+([a-z_]\w*[?!=]?)(?:[\s(;]|$)")
             .expect("the regex is a literal")
@@ -633,5 +727,5 @@ pub fn ruby_enclosing_def(text: &str, line1: usize) -> Option<String> {
     }
     let g = scopes[gate].0;
     let name = DEF.captures(lines[g])?.get(1)?.as_str().to_owned();
-    (!ruby_on_class(text, g + 1)).then_some(name)
+    (!ruby_on_class(text, g + 1)).then_some((g, name))
 }
