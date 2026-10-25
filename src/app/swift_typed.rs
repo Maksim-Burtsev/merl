@@ -597,11 +597,69 @@ impl App {
         let mut at = line1;
         while at > 0 {
             if search::swift_generics(lines[at - 1]).contains(&name) {
-                return None;
+                if via.written.trim().trim_end_matches(['?', '!']) != name {
+                    return None;
+                }
+                return self
+                    .swift_generic_outside(here, &lines, at, &name)
+                    .map(WrittenVia::plain);
             }
             at = search::swift_scope(&lines, &literal, at).header_line1;
         }
         Some(via)
+    }
+
+    fn swift_generic_outside(
+        &self,
+        here: &Path,
+        lines: &[&str],
+        at: usize,
+        name: &str,
+    ) -> Option<String> {
+        let mode = std::env::var("MERL_1068").ok()?;
+        let bound = regex::Regex::new(&format!(r"\b{name}\s*:\s*([\w.]+(?:\s*&\s*[\w.]+)*)")).ok()?;
+        let bounds_in = |head: &str| -> Vec<String> {
+            bound
+                .captures_iter(head)
+                .map(|c| c[1].to_owned())
+                .filter(|b| b != "Sendable")
+                .collect()
+        };
+        let mut head = String::new();
+        for l in lines.iter().skip(at - 1).take(8) {
+            head.push_str(l);
+            head.push(' ');
+            if l.contains('{') {
+                break;
+            }
+        }
+        let mut bounds = bounds_in(&head);
+        if bounds.is_empty() {
+            let text = self.text_of(here)?;
+            let mine: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, &text);
+            let mut s = search::swift_scope(&mine, &literal, self.line + 1).header_line1;
+            while s > 0 && bounds.is_empty() {
+                if mine[s - 1].contains("extension ") && mine[s - 1].contains(" where ") {
+                    bounds = bounds_in(mine[s - 1]);
+                }
+                s = search::swift_scope(&mine, &literal, s).header_line1;
+            }
+        }
+        let [b] = <[String; 1]>::try_from(bounds).ok()?;
+        if b.contains('&')
+            || self.swift_protocol(here, &b)
+            || self.swift_type(here, &b).is_some_and(|t| t.keyword.is_some())
+        {
+            return None;
+        }
+        if mode == "B" {
+            let pattern = format!(r"(class|struct|enum|actor|extension)\s+\w+(<[^>]*>)?\s*:[^{{]*\b{b}\b");
+            if !self.project_grep(Kind::Swift, here, &pattern).is_empty() {
+                return None;
+            }
+        }
+        Some(b)
     }
 
     fn swift_expr(
