@@ -320,9 +320,9 @@ impl App {
     ) -> Option<Got> {
         match (w.head.as_slice(), w.head_call) {
             ([name], false) => self
-                .rust_value_type(file, text, line0, name)
+                .rust_value_type(file, text, line0, name, own.is_some())
                 .map(|(ty, _)| Got::Ty(ty))
-                .or_else(|| self.rust_std_head(file, text, line0, name)),
+                .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some())),
             ([.., ty, f], true) if ty.starts_with(|c: char| c.is_ascii_uppercase()) => {
                 let owner = w.head[..w.head.len() - 1].join("::");
                 let ty = self.rust_resolve(file, &owner, line0)?;

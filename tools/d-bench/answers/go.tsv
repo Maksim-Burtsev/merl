@@ -298,7 +298,7 @@ go0295	modules/structs/repo.go:200
 go0296	services/context/context_response.go:79		
 go0297	routers/api/packages/container/container.go:90		
 go0298	modules/htmlutil/html.go:96		
-go0299			outside the project: xorm's Session.And (gitea's modules are not downloaded)
+go0299	~/go/pkg/mod/xorm.io/xorm@v1.4.3/session_cond.go:22		reviewed: xorm's Session.And, now that gitea's modules are downloaded (#1269)
 go0300	services/websocket/events.go:26		
 go0301	models/user/user.go:95		
 go0302	modules/avatar/identicon/identicon.go:94		

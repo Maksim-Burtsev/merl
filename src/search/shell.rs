@@ -21,9 +21,25 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
         regex::escape(name)
     ))
     .ok()?;
+    let branch = |l: &str| {
+        let t = l.trim_start();
+        t == "else" || t.starts_with("else ") || t.starts_with("elif ")
+    };
+    let sibling = |i: usize| {
+        (i + 1..at).any(|j| {
+            branch(lines[j])
+                && indent(lines[j]) < indent(lines[i])
+                && !lines[j + 1..=at].iter().any(|l| {
+                    let t = l.trim();
+                    indent(l) == indent(lines[j])
+                        && (t == "fi" || t.starts_with("fi ") || t.starts_with("fi;"))
+                })
+        })
+    };
     let assigns = |i: usize| {
         literal.get(i) != Some(&true)
             && (assign.is_match(lines[i]) || shell_loop_binds(lines[i], name) == Some(true))
+            && !sibling(i)
     };
     let mine = shell_function_at(lines, at);
     mine.and_then(|f| (f + 1..at).rev().find(|&i| assigns(i)))

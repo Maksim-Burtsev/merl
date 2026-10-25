@@ -1640,7 +1640,7 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
 #[test]
 fn a_std_value_built_by_an_associated_call_heads_a_let_chain() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let chains = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn named() -> usize {\n    let n = String::from(\"a\");\n    let t = n.to_string();\n    t.len()\n}\n\npub fn hashed() -> usize {\n    let m = HashMap::new();\n    let k = m.clone();\n    k.len()\n}\n";
+    let chains = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn named() -> usize {\n    let n = String::from(\"a\");\n    let t = n.to_string();\n    t.len()\n}\n\npub fn hashed() -> usize {\n    let m = HashMap::new();\n    let k = m.clone();\n    k.len()\n}\n\npub fn qualified() -> usize {\n    let q = hashbrown::HashMap::new();\n    let r = q.clone();\n    r.len()\n}\n";
     let std = external_root(
         "rust-assoc-head-std",
         &[
@@ -1665,13 +1665,17 @@ fn a_std_value_built_by_an_associated_call_heads_a_let_chain() {
             "rust-assoc-head",
             "use std::collections::HashMap;\n\n",
             "\n",
-            ["alloc/src/string.rs:5", "std/src/collections/hash/map.rs:5"],
+            [
+                "alloc/src/string.rs:5",
+                "std/src/collections/hash/map.rs:5",
+                "not std",
+            ],
         ),
         (
             "rust-assoc-head-namesakes",
             "mod own;\n\nuse crate::own::String;\nuse hashbrown::HashMap;\n\n",
             "pub struct String;\n",
-            ["not std", "not std"],
+            ["not std", "not std", "not std"],
         ),
     ] {
         let lib = format!("{head}{chains}");
@@ -1684,7 +1688,7 @@ fn a_std_value_built_by_an_associated_call_heads_a_let_chain() {
             ],
         );
         use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
-        for (code, want) in [("t.len", want[0]), ("k.len", want[1])] {
+        for (code, want) in [("t.len", want[0]), ("k.len", want[1]), ("r.len", want[2])] {
             d_on(&mut a, "src/lib.rs", code);
             let got = match shown(&mut a) {
                 Shown::Jump(_, place) if place.starts_with(&*library.to_string_lossy()) => {
@@ -1932,4 +1936,44 @@ fn a_for_item_over_a_vec_takes_its_element_or_the_map_it_collects() {
         std::fs::remove_dir_all(&dir).unwrap();
     }
     std::fs::remove_dir_all(&reg).unwrap();
+}
+
+#[test]
+fn a_closure_on_a_shadowing_let_s_line_does_not_bind_its_head() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn trimmed(s: String) -> usize {\n    let s = s.trim_matches(|s: char| s == '-');\n    s.len()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-shadow-closure",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-shadow-closure-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            ("lib/rustlib/src/rust/library/std/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                "pub struct String;\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn trim_matches<P>(&self, pat: P) -> &str {{\n        self\n    }}\n\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    d_on(&mut a, "src/lib.rs", "s.len");
+    let got = match shown(&mut a) {
+        Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+        other @ Shown::Picker(..) => format!("{other:?}"),
+    };
+    assert_eq!(got, "core/src/str/mod.rs:8");
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
 }

@@ -264,7 +264,9 @@ in a pipeline over lines and in a heredoc, `whisk=$(whisk 2)`, a `for` variable 
 function, `read` in a `while` header, `read -ra`, `mapfile`, `printf -v`, `declare -n`, an
 associative array, `${leaf:-..}`, a function declared in both arms of an `if`, a function named
 in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `local leaf=$leaf`,
-`export -f`, and a `: '..'` block and a quoted heredoc declaring functions.
+`export -f`, and a `: '..'` block and a quoted heredoc declaring functions. Its `glaze` reads a
+variable in the `elif` and `else` branches of an `if` whose earlier branch assigns it, and after
+the `fi` (#1270): inside the `if`, the assignment above it answers.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
@@ -327,6 +329,14 @@ definition spelled `pot::Beaker::Beaker()` outside it.
 its definition beside it, `Carafe(1, 2)` and `Urn(1, 2)` to the global class's declarations, not
 to `pot::Urn`'s definition; `Carafe(ml)`, `Decanter(250)`, `Jug(1)` and `Flagon(1)`, whose class
 `carafe_twin.hh` writes again, keep master's answer (#1248).
+`c/src/tea/gaiwan.cc` calls `ext::Gaiwan(a, 0)`, a base class outside the project, from
+`Gaiwan::Gaiwan(int a)` and `ext::Kyusu(a, 0)` from a constructor inside `Kyusu`: a qualified call
+names another class, so neither is a delegation and neither lands on the derived class's own
+two-argument constructor; they keep the lookup by name (#1248). `Tureen(1)` in a template class
+lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::Chawan::Chawan`
+as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
+`sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside
+it, where master jumped (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -538,7 +548,8 @@ whose base comes from the uninstalled `sequelize-typescript`, beside a type's `c
 lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
 another class. `keys.ts` puts keys of a type literal and of an object literal, at the start of
-their lines, above a module-level `const` of each key's name: a key is its own definition (#1273).
+their lines, above a module-level `const` of each key's name: a type literal's key (`name: T;`) is its own
+definition, an object literal's stays a key (#1273).
 `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
@@ -631,6 +642,10 @@ parameter named like that function, `super` in an extension, a `typealias` in bo
 and a multi-line string and a block comment declaring what `Sencha.swift` declares. Where
 sourcekit-lsp offers a non-final class's method with its override, the annotation takes the
 declared type's method.
+`swift/Sources/Shop/Glazing.swift` (#1272) puts the cursor on declarations named like a property
+or a type of the project: a parameter on a continuation line of a wrapped signature (one behind a
+closure default too), and a generic parameter of a class and of a function. Each answers as at a
+declaration; a label on a wrapped call's continuation line still lands on its signature.
 `swift/Sources/Shop/Faucets.swift` (#1072) calls a method with two overloads, both returning
 `Faucet`, on a value an inherited method returns, and then `.pour` on the next line or the same
 one: it lands on `Faucet.pour`, not `Cistern.pour`. Overloads that return two types (`either`)
@@ -677,6 +692,10 @@ that nests a tuple (`split_nested`) keeps the picker (#1044). `split_dipped` reb
 binding, so it keeps the picker where reading the parameter jumped to `Scoop::heap`.
 `rebuilt` and `recupped` start a `let` chain at a `String::from(..)`, a `Vec::<u32>::new()` and a
 `Vec::with_capacity(2)`, so `len` is std's, where master jumped to `Leaf::len` (#1044).
+`sifted` rebinds `spoons` in a tuple whose line holds a closure taking a `spoons` of its own: the
+head is read among the bindings above the line, so `heap` is `Scoop`'s and the lookup ends.
+`hashed` heads its chain at `hashbrown::HashMap::new()`: the path's root is not std's, so `len`
+is not std's either and `d` answers by name, as master did.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
