@@ -661,6 +661,11 @@ declaration; a label on a wrapped call's continuation line still lands on its si
 `Faucet`, on a value an inherited method returns, and then `.pour` on the next line or the same
 one: it lands on `Faucet.pour`, not `Cistern.pour`. Overloads that return two types (`either`)
 keep the picker.
+`swift/Sources/Shop/Arguments.swift` (#1286) passes an implicit member `.indexed` to an
+initializer and a static method whose parameter is typed `Layout`, a type nested in two types:
+each lands on its own callee's `Layout`. A generic parameter named `Layout`, two overloads whose
+parameters take two types, and a ternary keep the picker; a parameter typed from outside the
+project answers none, not the project's namesake.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which

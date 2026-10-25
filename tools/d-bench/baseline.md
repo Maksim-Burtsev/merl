@@ -67,6 +67,7 @@ The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, ca
 The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the function, in effect at the cursor): over `affcd2f55`, 2026-10-26, release build, `vm.loadavg` { 4.99 7.13 7.67 } before the run, { 5.12 6.68 7.46 } after.
 The ruby row with #1285 (an `@ivar` an action reads, set by the one `before_action` that assigns it): over `37599741`, 2026-10-26, release build, `vm.loadavg` { 11.36 7.89 7.44 } before the run, { 7.93 7.92 7.52 } after.
 The js row with #1283 (an ESLint rule's `context` typed by the `create` of the JSDoc `@type` over `module.exports = {`, its members through an aliased `@eslint/core` base, and `sourceCode` through `Options["Code"]` of that base): over `c55729c57`, 2026-10-26, release build, `vm.loadavg` { 5.57 5.85 6.56 } before the run, { 6.31 5.83 6.46 } after.
+The swift row with #1286 (an implicit member passed as an argument, through the type of the callee's parameter: `URLEncodedFormEncoder(arrayEncoding: .indexInBrackets)`, `BoundaryGenerator.boundary(forBoundaryType: .initial, ..)`): over `6e782ad49`, 2026-10-26, release build, `vm.loadavg` { 6.63 7.48 7.15 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -78,7 +79,7 @@ The js row with #1283 (an ESLint rule's `context` typed by the `create` of the J
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 232 | 204 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 68 | 12 | 19.3 | 68.6 |
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
-| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
+| swift (Alamofire) | 449 | 427 (95%) | 21 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 45.9 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |
