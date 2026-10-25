@@ -210,6 +210,117 @@ pub fn cpp_constructor_defined_in_class(
             .is_some_and(|o| c_body_name(&code, o) == word)
 }
 
+pub fn cpp_delegated_constructor(
+    text: &str,
+    line1: usize,
+    byte_col: usize,
+    word: &str,
+) -> Option<usize> {
+    static SPECIFIERS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:public|protected|private)\s*:)?(?:\s*(?:explicit|constexpr|consteval|inline)\b)*\s*$")
+            .expect("the regex is a literal")
+    });
+    static LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"^(?:[-+]?\.?\d[\w.']*|true|false|nullptr|(?:u8|[uUL])?["'].*["'])$"#)
+            .expect("the regex is a literal")
+    });
+    let code = c_code(text);
+    let at = line_starts(&code).get(line1.checked_sub(1)?)? + byte_col;
+    let class = c_innermost_open_brace(code.as_bytes(), at)?;
+    let own = init_list_call(&code, at, word)?;
+    if c_body_name(&code, class) != word {
+        return None;
+    }
+    let (_, args) = bracket_items(&code, text, at + word.len(), false)?;
+    if let [arg] = &args[..]
+        && !LITERAL.is_match(text.get(arg.clone())?.trim())
+    {
+        return None;
+    }
+    let end = close_or_end(&code, class, code.len());
+    let name = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
+    let mut fits = Vec::new();
+    for m in name.find_iter(code.get(class + 1..end)?) {
+        let pos = class + 1 + m.start();
+        if c_innermost_open_brace(code.as_bytes(), pos) != Some(class)
+            || init_list_call(&code, pos, word).is_some()
+        {
+            continue;
+        }
+        let prefix = code.get(c_head_start(&code, pos)..pos)?;
+        if prefix.trim_end().ends_with('~') {
+            continue;
+        }
+        let (paren, params) = bracket_items(&code, text, pos + word.len(), true)?;
+        let plain = |p: &std::ops::Range<usize>| {
+            code.get(p.clone())
+                .is_some_and(|p| !p.contains('=') && !p.contains("..."))
+        };
+        if !SPECIFIERS.is_match(prefix) || !params.iter().all(plain) {
+            return None;
+        }
+        if params.len() == args.len() {
+            fits.push((pos, paren));
+        }
+    }
+    match fits[..] {
+        [(pos, paren)] if paren != own => Some(c_place(&code, pos).line1),
+        _ => None,
+    }
+}
+
+fn init_list_call(code: &str, at: usize, word: &str) -> Option<usize> {
+    let (paren, _) = bracket_items(code, code, at + word.len(), false)?;
+    let close = close_or_end(code, paren, code.len());
+    let body = close + code.get(close..)?.find(['{', ';'])?;
+    let start = c_head_start(code, body);
+    match c_head(code.get(start..body)?) {
+        Head::Function { name, params }
+            if name == word && start + params.end <= at && code.as_bytes()[body] == b'{' =>
+        {
+            Some(start + params.start)
+        }
+        _ => None,
+    }
+}
+
+fn bracket_items(
+    code: &str,
+    text: &str,
+    from: usize,
+    angles: bool,
+) -> Option<(usize, Vec<std::ops::Range<usize>>)> {
+    let rest = code.get(from..)?;
+    let paren = from + rest.len() - rest.trim_start().len();
+    if code.as_bytes().get(paren) != Some(&b'(') {
+        return None;
+    }
+    let (mut depth, mut item, mut items) = (0usize, paren + 1, Vec::new());
+    for (i, c) in code.bytes().enumerate().skip(paren) {
+        match c {
+            b'<' if !angles => return None,
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b'>' if !angles => {}
+            b')' | b']' | b'}' | b'>' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    items.push(item..i);
+                    let inner = text.get(paren + 1..i)?.trim();
+                    let empty =
+                        items.len() == 1 && (inner.is_empty() || (angles && inner == "void"));
+                    return Some((paren, if empty { Vec::new() } else { items }));
+                }
+            }
+            b',' if depth == 1 => {
+                items.push(item..i);
+                item = i + 1;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 pub fn cpp_declared_signature(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
     let code = c_code(text);
     c_words_on_line(&code, line1, word, Some('('))
