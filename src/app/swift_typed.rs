@@ -1363,7 +1363,9 @@ impl App {
         before: &str,
         word: &str,
     ) -> bool {
-        let Some((receiver, method, args)) = search::swift_literal_call(before) else {
+        let Some((receiver, method, args)) = search::swift_literal_call(before).or_else(|| {
+            search::swift_subscript_receiver(before).map(|r| (r, "subscript".to_owned(), vec![]))
+        }) else {
             return false;
         };
         let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
@@ -1379,6 +1381,9 @@ impl App {
             self.swift_type(here, &c.written)
                 .is_none_or(|t| t.keyword.is_none())
                 && self.swift_sdk_value(here, &c.written, &method)
+                && (method != "subscript"
+                    || !self
+                        .swift_project_alias(here, c.written.trim().trim_end_matches(['?', '!'])))
         }) && !self.swift_extended_with(here, word, false)
             && self.swift_outside_args(here, here, text, self.line + 1, &args, 2);
         self.truncated.set(cut);

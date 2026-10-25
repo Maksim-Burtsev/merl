@@ -333,3 +333,50 @@ pub fn poured_split(pour: &Pour) -> usize {
         //                                    ^ d: none
     }
 }
+
+pub fn steeped_label(name: &str, note: Option<&str>) -> usize {
+    let text = name.to_string();
+    let label = match note {
+        None => text.clone(),
+        Some(n) => n.to_string(),
+    };
+    label.len() + text.len()
+    //    ^ d: none
+    //                 ^ d: none
+}
+
+pub struct Scoop;
+
+impl Scoop {
+    pub fn heap(&self) -> usize {
+        1
+    }
+}
+
+pub struct Dipper;
+
+impl Dipper {
+    pub fn heap(&self) -> usize {
+        2
+    }
+}
+
+pub struct Spoons {
+    pub tea: Scoop,
+    pub sugar: Scoop,
+}
+
+pub fn heaped(spoons: Spoons, sweet: bool) -> usize {
+    let scoop = match sweet {
+        true => spoons.sugar,
+        false => spoons.tea,
+    };
+    scoop.heap()
+    //    ^ d: src/infusion.rs:351
+}
+
+pub fn restrung(name: String) -> usize {
+    let text = name.to_string();
+    text.len()
+    //   ^ d: none
+}
