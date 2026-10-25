@@ -240,8 +240,20 @@ impl App {
         let decl = if DEREF.iter().any(|(t, _)| *t == bare) {
             let owner = self.text_of(file)?;
             let found = self.rust_std_found(&owner, "", &bare, word)?;
-            let [Candidate { hit, .. }] = <[Candidate; 1]>::try_from(found).ok()?;
-            hit
+            match <[Candidate; 1]>::try_from(found) {
+                Ok([Candidate { hit, .. }]) => hit,
+                Err(none) if none.is_empty() => {
+                    let ret = match word {
+                        "clone" => unreferenced(written).to_owned(),
+                        "to_string" if ["String", "str"].contains(&bare.as_str()) => {
+                            "alloc::String".to_owned()
+                        }
+                        _ => return None,
+                    };
+                    return Some(self.rust_got(file, ret, line0));
+                }
+                Err(_) => return None,
+            }
         } else {
             self.rust_std_marked(written, word)?
         };

@@ -155,15 +155,21 @@ pub(super) fn rust_element(written: &str) -> Option<(Option<String>, String)> {
 }
 
 impl App {
-    pub(super) fn rust_std_written(&self, file: &Path, text: &str, name: &str) -> Option<String> {
+    pub(super) fn rust_std_written(
+        &self,
+        file: &Path,
+        text: &str,
+        line0: usize,
+        name: &str,
+    ) -> Option<String> {
         let lines: Vec<&str> = text.lines().collect();
         if name == "self" {
-            return rust_bare_type(&search::rust_self_type(&lines, self.line)?.written);
+            return rust_bare_type(&search::rust_self_type(&lines, line0)?.written);
         }
-        if let Some(written) = rust_written_type(text, self.line, name) {
+        if let Some(written) = rust_written_type(text, line0, name) {
             return Some(written);
         }
-        let bindings = search::bindings(Kind::Rust, text, self.line + 1, name);
+        let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
         let [b] = bindings.as_slice() else {
             return None;
         };
