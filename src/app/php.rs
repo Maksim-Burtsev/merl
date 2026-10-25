@@ -406,8 +406,25 @@ impl App {
                 let class = matching.remove(0);
                 self.php_walk(&class.path, &class.text, class.header0, re, depth, seen)
             }
-            0 => self.php_outside(full.as_deref(), short, re),
+            0 => self.php_outside_walk(full.as_deref(), short, re, depth, seen),
             _ => Walk::Unread,
+        }
+    }
+
+    fn php_outside_walk(
+        &mut self,
+        full: Option<&str>,
+        short: &str,
+        re: &Regex,
+        depth: usize,
+        seen: &mut Vec<(PathBuf, usize)>,
+    ) -> Walk {
+        match self.php_outside_classes(full, short).as_slice() {
+            [one] => match self.php_walk(&one.path, &one.text, one.header0, re, depth, seen) {
+                Walk::Nowhere => Walk::NowhereOutside,
+                other => other,
+            },
+            _ => self.php_outside(full, short, re),
         }
     }
 
@@ -576,10 +593,7 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let short = full.rsplit('\\').next().unwrap_or(full);
         let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
-        let walk = match self.php_outside_classes(Some(full), short).as_slice() {
-            [one] => self.php_walk(&one.path, &one.text, one.header0, &re, 0, &mut Vec::new()),
-            _ => self.php_outside(Some(full), short, &re),
-        };
+        let walk = self.php_outside_walk(Some(full), short, &re, 0, &mut Vec::new());
         let reason = Reason::Receiver(links);
         Some(match walk {
             Walk::Found(hits) => hits

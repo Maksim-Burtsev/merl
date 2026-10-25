@@ -753,3 +753,97 @@ fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
          never loads keep the picker"
     );
 }
+
+#[test]
+fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaration() {
+    let user = "<?php\n\nnamespace App\\Models;\n\nuse Illuminate\\Foundation\\Auth\\User as Authenticatable;\n\nclass User extends Authenticatable\n{\n}\n";
+    let song =
+        "<?php\n\nnamespace App\\Models;\n\nuse Twice\\Base;\n\nclass Song extends Base\n{\n}\n";
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Models\\Song;\nuse App\\Models\\User;\n\nclass Ctl\n{\n    public function __invoke(User $user, Song $song): void\n    {\n        $user->refresh();\n        $user->getAttribute('a');\n        $user->getKey();\n        $user->where('a', 1);\n        $song->fresh();\n    }\n}\n";
+    let auth = "<?php\n\nnamespace Illuminate\\Foundation\\Auth;\n\nuse Illuminate\\Database\\Eloquent\\Model;\n\nclass User extends Model\n{\n    use \\Illuminate\\Auth\\Authenticatable;\n}\n";
+    let authenticatable = "<?php\n\nnamespace Illuminate\\Auth;\n\ntrait Authenticatable\n{\n    public function getKey()\n    {\n    }\n}\n";
+    let model = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nabstract class Model\n{\n    use Concerns\\HasEvents,\n        Concerns\\HasAttributes;\n\n    public function refresh()\n    {\n    }\n\n    public function getKey()\n    {\n    }\n\n    public function __call($method, $parameters)\n    {\n    }\n}\n";
+    let attributes = "<?php\n\nnamespace Illuminate\\Database\\Eloquent\\Concerns;\n\ntrait HasAttributes\n{\n    public function getAttribute($key)\n    {\n    }\n}\n";
+    let events =
+        "<?php\n\nnamespace Illuminate\\Database\\Eloquent\\Concerns;\n\ntrait HasEvents\n{\n}\n";
+    let builder = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nclass Builder\n{\n    public function where($column, $value)\n    {\n    }\n\n    public function refresh()\n    {\n    }\n}\n";
+    let base = "<?php\n\nnamespace Twice;\n\nclass Base\n{\n    public function fresh()\n    {\n    }\n}\n";
+    let e = "vendor/laravel/framework/src/Illuminate/Database/Eloquent";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Models/User.php", user),
+        ("app/Models/Song.php", song),
+        ("app/Http/Ctl.php", ctl),
+        (
+            "vendor/laravel/framework/src/Illuminate/Foundation/Auth/User.php",
+            auth,
+        ),
+        (&format!("{e}/Model.php"), model),
+        (&format!("{e}/Builder.php"), builder),
+        (
+            "vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php",
+            "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass Builder\n{\n    public function where($column)\n    {\n    }\n}\n",
+        ),
+        (
+            "vendor/laravel/framework/src/Illuminate/Auth/Authenticatable.php",
+            authenticatable,
+        ),
+        (&format!("{e}/Concerns/HasAttributes.php"), attributes),
+        (&format!("{e}/Concerns/HasEvents.php"), events),
+        ("vendor/a/src/Base.php", base),
+        ("vendor/b/src/Base.php", base),
+    ];
+    let (dir, mut a) = project_app("php-vendor-parent", &files);
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    };
+    let got = [
+        d("$user->refresh"),
+        d("$user->getAttribute"),
+        d("$user->getKey"),
+        d("$user->where"),
+        d("$song->fresh"),
+    ];
+    drop(std::fs::remove_dir_all(dir));
+    let f = "laravel/framework/src/Illuminate/Database";
+    let song = |place: &str| {
+        let why = "via $song: Song".to_owned();
+        ("Base::fresh".to_owned(), why, place.to_owned())
+    };
+    assert_eq!(
+        got,
+        [
+            jump(
+                "refresh \u{2192} Model::refresh (via $user: User)",
+                &format!("vendor/{f}/Eloquent/Model.php:10"),
+            ),
+            jump(
+                "getAttribute \u{2192} HasAttributes::getAttribute (via $user: User)",
+                &format!("vendor/{f}/Eloquent/Concerns/HasAttributes.php:7"),
+            ),
+            jump(
+                "getKey \u{2192} Authenticatable::getKey (via $user: User)",
+                "vendor/laravel/framework/src/Illuminate/Auth/Authenticatable.php:7",
+            ),
+            picker(
+                "where: by name, 2 declarations",
+                &[
+                    ("Builder::where", &format!("{f}/Eloquent/Builder.php:7")),
+                    ("Builder::where", &format!("{f}/Query/Builder.php:7"))
+                ]
+            ),
+            Shown::Picker(
+                "fresh: via $song: Song, 2 declarations".to_owned(),
+                vec![song("a/src/Base.php:7"), song("b/src/Base.php:7")]
+            ),
+        ],
+        "a method declared up a vendor parent chain, traits included and a trait before the \
+         parent, is the one PHP calls; a method only __call answers, and a parent two vendor \
+         files declare, keep the picker"
+    );
+}

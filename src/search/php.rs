@@ -237,9 +237,21 @@ pub fn php_class_traits<S: AsRef<str>>(lines: &[S], class: usize) -> Vec<String>
     });
     (class + 1..lines.len())
         .filter(|&i| php_outer_line(lines, i) == Some(class))
-        .filter_map(|i| USE.captures(lines[i].as_ref()))
+        .filter(|&i| lines[i].as_ref().trim_start().starts_with("use"))
+        .filter_map(|i| {
+            let mut statement = String::new();
+            for l in &lines[i..lines.len().min(i + 64)] {
+                let l = php_code(l.as_ref());
+                statement.push_str(&l);
+                statement.push('\n');
+                if l.contains([';', '{']) {
+                    break;
+                }
+            }
+            USE.captures(&statement).map(|c| c[1].to_owned())
+        })
         .flat_map(|c| {
-            c[1].split(',')
+            c.split(',')
                 .map(|t| t.trim().to_owned())
                 .collect::<Vec<_>>()
         })
