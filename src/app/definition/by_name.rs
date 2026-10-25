@@ -35,7 +35,7 @@ impl App {
                 .flatten();
             let Some(hits) = (match delegated {
                 _ if own => Some(vec![self.own_hit(a)]),
-                Some(line) => Some(vec![self.line_hit(&a.here, line)]),
+                Some(line) => Some(vec![self.c_delegated_hit(a, line)]),
                 None => self.c_hits(a, near, hits, &mut fallbacks, &mut aside),
             }) else {
                 return;
@@ -641,10 +641,41 @@ impl App {
         })
     }
 
-    pub(super) fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {
-        let Some(mine) = search::cpp_defined_signature(&a.text, self.line + 1, &a.word) else {
-            return found;
+    fn c_delegated_hit(&self, a: &Asked, line1: usize) -> Hit {
+        let (kind, word) = (Kind::C, &a.word);
+        let declared = self.line_hit(&a.here, line1);
+        let (Some(own), Some(sig)) = (
+            search::qualified(kind, &a.text, line1, word),
+            search::cpp_declared_signature(&a.text, line1, word),
+        ) else {
+            return declared;
         };
+        let pattern = format!(r"\b{0}\s*::\s*{0}\s*\(", regex::escape(word));
+        let defined: Vec<Hit> = (self.project_definitions(kind, &a.here, word, &pattern))
+            .into_iter()
+            .filter(|h| {
+                self.text_of(&h.path).is_some_and(|t| {
+                    search::qualified(kind, &t, h.line1, word).as_ref() == Some(&own)
+                        && search::cpp_defined_signature(&t, h.line1, word).as_ref() == Some(&sig)
+                })
+            })
+            .collect();
+        match <[Hit; 1]>::try_from(defined) {
+            Ok([h]) => h,
+            Err(_) => declared,
+        }
+    }
+
+    fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {
+        self.c_same_overload_of(a, &found).unwrap_or(found)
+    }
+
+    pub(super) fn c_same_overload_of(
+        &self,
+        a: &Asked,
+        found: &[Candidate],
+    ) -> Option<Vec<Candidate>> {
+        let mine = search::cpp_defined_signature(&a.text, self.line + 1, &a.word)?;
         let same: Vec<Candidate> = (found.iter())
             .filter(|c| {
                 self.text_of(&c.hit.path)
@@ -655,7 +686,7 @@ impl App {
             .cloned()
             .collect();
         let other = |c: &Candidate| c.hit.path != a.here || c.hit.line1 != self.line + 1;
-        if same.iter().any(other) { same } else { found }
+        same.iter().any(other).then_some(same)
     }
 
     fn c_member_owners(&self, a: &Asked, hits: &[Hit], on: bool) -> Vec<Option<String>> {
