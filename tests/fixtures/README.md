@@ -264,7 +264,9 @@ in a pipeline over lines and in a heredoc, `whisk=$(whisk 2)`, a `for` variable 
 function, `read` in a `while` header, `read -ra`, `mapfile`, `printf -v`, `declare -n`, an
 associative array, `${leaf:-..}`, a function declared in both arms of an `if`, a function named
 in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `local leaf=$leaf`,
-`export -f`, and a `: '..'` block and a quoted heredoc declaring functions.
+`export -f`, and a `: '..'` block and a quoted heredoc declaring functions. Its `glaze` reads a
+variable in the `elif` and `else` branches of an `if` whose earlier branch assigns it, and after
+the `fi` (#1270): inside the `if`, the assignment above it answers.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
@@ -629,6 +631,10 @@ parameter named like that function, `super` in an extension, a `typealias` in bo
 and a multi-line string and a block comment declaring what `Sencha.swift` declares. Where
 sourcekit-lsp offers a non-final class's method with its override, the annotation takes the
 declared type's method.
+`swift/Sources/Shop/Glazing.swift` (#1272) puts the cursor on declarations named like a property
+or a type of the project: a parameter on a continuation line of a wrapped signature (one behind a
+closure default too), and a generic parameter of a class and of a function. Each answers as at a
+declaration; a label on a wrapped call's continuation line still lands on its signature.
 `swift/Sources/Shop/Faucets.swift` (#1072) calls a method with two overloads, both returning
 `Faucet`, on a value an inherited method returns, and then `.pour` on the next line or the same
 one: it lands on `Faucet.pour`, not `Cistern.pour`. Overloads that return two types (`either`)

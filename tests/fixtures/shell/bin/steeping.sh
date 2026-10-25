@@ -99,3 +99,19 @@ echo $'it\'s'
 strainer() { echo; }
 strainer
 # ^ d: bin/steeping.sh:99
+
+glaze() {
+  coat="$1"
+  if [ -n "$coat" ]; then
+    coat="thin $coat"
+    #           ^ d: bin/steeping.sh:104
+  elif [ "$coat" = x ]; then
+    coat="x $coat"
+    #        ^ d: bin/steeping.sh:104
+  else
+    echo "$coat"
+    #      ^ d: bin/steeping.sh:104
+  fi
+  echo "$coat"
+  #      ^ d: bin/steeping.sh:109
+}

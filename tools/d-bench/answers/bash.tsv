@@ -84,7 +84,7 @@ bash0081	acme.sh:3065		judged: acme.sh sources the plugin, its function
 bash0082	acme.sh:297		judged: acme.sh sources the plugin, its function
 bash0083	acme.sh:395		judged: acme.sh sources the plugin, its function
 bash0084	acme.sh:297		judged: acme.sh sources the plugin, its function
-bash0085	acme.sh:2928		
+bash0085	acme.sh:2892		judged: the elif branch reads the __val="$4" of _setopt; the server answered the cursor's own assignment, and the if branch's at 2925 never runs before it
 bash0086	acme.sh:484		judged: acme.sh sources the plugin, its function
 bash0087		inside a multi-line string	
 bash0088	acme.sh:8827		
