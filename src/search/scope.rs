@@ -322,6 +322,56 @@ pub(super) fn c_roots(sdk: Option<&Path>, root: &Path) -> Vec<PathBuf> {
     dirs.push(root.join("Pods"));
     dirs
 }
+pub fn clang_include() -> Option<PathBuf> {
+    let clang = PathBuf::from(toolchain_output("xcrun", &["--find", "clang"])?.trim());
+    clang_resource_include(&clang)
+}
+pub fn clang_resource_include(clang: &Path) -> Option<PathBuf> {
+    let lib = clang.parent()?.parent()?.join("lib/clang");
+    let mut dirs: Vec<PathBuf> = (std::fs::read_dir(lib).ok()?.flatten())
+        .filter_map(|e| e.path().join("include").canonicalize().ok())
+        .collect();
+    dirs.sort();
+    dirs.dedup();
+    match dirs.as_slice() {
+        [one] => Some(one.clone()),
+        _ => None,
+    }
+}
+pub fn clang_redefinition(include: &Path, header: &str, word: &str) -> Option<Hit> {
+    let directive = |d: &str| Regex::new(&format!(r"^\s*#\s*{d}\s+{}\b", regex::escape(word))).ok();
+    let (undef, define) = (directive("undef")?, directive("define")?);
+    let mut seen = std::collections::HashSet::new();
+    let mut queue = vec![include.join(header)];
+    while let Some(file) = queue.pop() {
+        if !seen.insert(file.clone()) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        if let Some(u) = lines.iter().position(|l| undef.is_match(l))
+            && let Some(d) = lines[u..].iter().position(|l| define.is_match(l))
+        {
+            let line = lines[u + d];
+            return Some(Hit {
+                path: file,
+                line1: u + d + 1,
+                byte_col: line.find(word),
+                text: line.trim_end().to_owned(),
+                deleted: None,
+            });
+        }
+        queue.extend(
+            (super::c_includes(&text).into_iter())
+                .filter(|i| !i.as_written.contains(".."))
+                .map(|i| include.join(i.as_written))
+                .filter(|p| p.is_file()),
+        );
+    }
+    None
+}
 pub(super) fn zig_roots(env: &str) -> Vec<PathBuf> {
     let value = |key: &str| {
         let rest = env.split_once(key)?.1.trim_start_matches('"');

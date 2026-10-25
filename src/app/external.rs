@@ -158,12 +158,15 @@ impl App {
         let Some(module) = module else {
             return Some(by_name(
                 match self.rel_current().filter(|_| kind == Kind::C) {
-                    Some(here) => self.c_outside(
-                        &here,
-                        &all,
-                        |h| h,
-                        |this, files| this.declarations_among(kind, word, pattern, files),
-                    ),
+                    Some(here) => {
+                        let hits = self.c_outside(
+                            &here,
+                            &all,
+                            |h| h,
+                            |this, files| this.declarations_among(kind, word, pattern, files),
+                        );
+                        self.c_clang_redefinition(&here, word, hits)
+                    }
                     None => self.declarations_among(kind, word, pattern, &all),
                 },
             ));
