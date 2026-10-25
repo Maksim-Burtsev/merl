@@ -1,7 +1,8 @@
 use std::sync::LazyLock;
 
 use super::{
-    App, CrateSrc, Hit, InCrate, Kind, MacroUse, Path, Regex, Typed, declares_mod, search,
+    App, CrateSrc, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Regex, Typed, bound, declares_mod,
+    search,
 };
 
 impl App {
@@ -13,10 +14,6 @@ impl App {
         inline_mod: Option<usize>,
         line0: usize,
     ) -> Option<Typed> {
-        static DECL: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")
-                .expect("the regex is a literal")
-        });
         let lines: Vec<&str> = text.lines().collect();
         let literal = search::literal_lines(Kind::Rust, text);
         let around = search::rust_around(&lines, line0, &literal);
@@ -56,17 +53,43 @@ impl App {
                 (krate, module, rest)
             }
             _ => {
-                let krate = self.workspace_crate(root)?;
+                let krate = self
+                    .workspace_crate(root)
+                    .or_else(|| self.locked_registry_crate(root))?;
                 match self.rust_crate_reexported(&krate, rest) {
                     Some(inner) => (inner, Vec::new(), rest.get(1..)?),
                     None => (krate, Vec::new(), rest),
                 }
             }
         };
+        self.rust_type_in(&krate, &module, rest)
+    }
+
+    pub(super) fn rust_registry_path(
+        &self,
+        text: &str,
+        path: &[String],
+        name: &str,
+    ) -> Option<Typed> {
+        let (root, rest) = path.split_first()?;
+        if bound(&search::imports(Kind::Rust, text), root).is_some() || declares_mod(text, root) {
+            return None;
+        }
+        let krate = self.locked_registry_crate(root)?;
+        let mut rest = rest.to_vec();
+        rest.push(name.to_owned());
+        self.rust_type_in(&krate, &[], &rest)
+    }
+
+    fn rust_type_in(&self, krate: &CrateSrc, module: &[String], rest: &[String]) -> Option<Typed> {
+        static DECL: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")
+                .expect("the regex is a literal")
+        });
         let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
         let InCrate {
             hits, proven: true, ..
-        } = self.rust_in_crate(&krate, &module, &rest, MacroUse::NotMacro, 0)?
+        } = self.rust_in_crate(krate, module, &rest, MacroUse::NotMacro, 0)?
         else {
             return None;
         };
@@ -138,5 +161,59 @@ impl App {
             return None;
         }
         self.workspace_crate(&target)
+    }
+}
+
+pub(super) fn registry_src(r: &Path, all: &[PathBuf], name: &str) -> Option<CrateSrc> {
+    let dir = r.file_name()?.to_string_lossy().into_owned();
+    let (i, _) = dir.rmatch_indices('-').find(|(i, _)| {
+        dir.get(i + 1..)
+            .is_some_and(|v| v.starts_with(|c: char| c.is_ascii_digit()))
+    })?;
+    if dir.get(..i)?.replace('-', "_") != name {
+        return None;
+    }
+    let src = r.join("src");
+    let files: Vec<PathBuf> = all
+        .iter()
+        .filter(|f| f.starts_with(&src))
+        .cloned()
+        .collect();
+    (!files.is_empty()).then_some(CrateSrc { src, files })
+}
+
+impl App {
+    pub(super) fn locked_registry_crate(&self, name: &str) -> Option<CrateSrc> {
+        let (roots, all) = self.external.get(&Kind::Rust)?;
+        let key = regex::escape(name).replace('_', "[-_]");
+        let renamed = Regex::new(&format!(
+            r"(?m)^\s*(?:{key}\s*=[^\n]*\bpackage\s*=|\[[^\]\n]*dependencies\.{key}\][^\[]*\bpackage\s*=)"
+        ))
+        .ok()?;
+        if self.files.iter().any(|f| {
+            f.file_name().is_some_and(|n| n == "Cargo.toml")
+                && self.text_of(f).is_some_and(|t| renamed.is_match(&t))
+        }) {
+            return None;
+        }
+        let mut found = roots.iter().filter_map(|r| registry_src(r, all, name));
+        match (found.next(), found.next()) {
+            (Some(one), None) => Some(one),
+            _ => None,
+        }
+    }
+
+    pub(super) fn registry_home(&self, file: &Path) -> Option<CrateSrc> {
+        let (roots, all) = self.external.get(&Kind::Rust)?;
+        let src = roots
+            .iter()
+            .map(|r| r.join("src"))
+            .find(|s| file.starts_with(s))?;
+        let files = all
+            .iter()
+            .filter(|f| f.starts_with(&src))
+            .cloned()
+            .collect();
+        Some(CrateSrc { src, files })
     }
 }
