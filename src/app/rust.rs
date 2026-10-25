@@ -821,7 +821,7 @@ impl App {
                 if let Some(found) = self.rust_trait_bound(here, text, word, name) {
                     return Ok(Typing::Members(found));
                 }
-                if let Some(written) = self.rust_std_written(here, text, name)
+                if let Some(written) = self.rust_std_written(here, text, self.line, name)
                     && let Some(found) = self.rust_std_call(text, name, &written, word)
                 {
                     return Ok(Typing::Std(found, written));

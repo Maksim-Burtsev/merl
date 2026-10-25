@@ -649,6 +649,8 @@ variant written on one line, where master jumped to `Leaf::len` too. `Canister` 
 its `len` is `Vec`'s, where master jumped to `Leaf::len`, and `self.1` holds a `Leaf`.
 `poured_split` is `poured_note`'s or-pattern split over two lines, the second led by `|`, where
 master jumped to `Leaf::len`.
+`steeped_label` holds a `name.to_string()` in `text` and a `match` whose arms are `text.clone()`
+and `n.to_string()` in `label`: both are a `String`, where master jumped to `Leaf::len`.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
