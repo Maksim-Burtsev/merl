@@ -1694,3 +1694,52 @@ fn a_tuple_field_of_self_is_typed_and_a_project_alias_of_std_s_is_std_s() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn a_match_s_value_takes_the_std_type_its_typed_arms_agree_on() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Glob;\n\nimpl Glob {\n    pub fn clone(&self) -> u32 {\n        0\n    }\n\n    pub fn len(&self) -> u32 {\n        0\n    }\n}\n\npub fn label(note: Option<&str>) -> usize {\n    let name = String::from(\"oolong\");\n    let label = match note {\n        None => name.clone(),\n        Some(ref n) => n.to_string(),\n    };\n    label.len()\n}\n\npub fn mixed(flag: bool) -> usize {\n    let name = String::from(\"a\");\n    let list = Vec::new();\n    let both = match flag {\n        true => name.clone(),\n        false => list.clone(),\n    };\n    both.len()\n}\n\npub fn caught(note: Option<String>) -> usize {\n    let name = Vec::new();\n    let got = match note {\n        Some(name) => name.clone(),\n        None => String::new(),\n    };\n    got.len()\n}\n\npub fn blocked(note: Option<&str>) -> usize {\n    let name = String::from(\"a\");\n    let block = match note {\n        None => {\n            name.clone()\n        }\n        Some(n) => n.to_string(),\n    };\n    block.len()\n}\n\npub fn spelled(name: &str, note: Option<&str>) -> usize {\n    let text = name.to_string();\n    let spelled = match note {\n        None => text.clone(),\n        Some(n) => n.to_string(),\n    };\n    spelled.len()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-match-arms",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-match-arms-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            ("lib/rustlib/src/rust/library/std/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                &format!(
+                    "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl Clone for String {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n\nimpl<T: fmt::Display + ?Sized> ToString for T {{\n    fn to_string(&self) -> String {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/vec/mod.rs",
+                &format!(
+                    "pub struct Vec<T>;\n\nimpl<T> Vec<T> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl<T: Clone> Clone for Vec<T> {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    for code in ["label.len", "spelled.len"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = match shown(&mut a) {
+            Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+            other @ Shown::Picker(..) => format!("{other:?}"),
+        };
+        assert_eq!(got, "alloc/src/string.rs:5", "{code}");
+    }
+    for code in ["both.len", "got.len", "block.len"] {
+        d_on(&mut a, "src/lib.rs", code);
+        let got = shown(&mut a);
+        assert!(matches!(&got, Shown::Picker(..)), "{code}: {got:?}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
