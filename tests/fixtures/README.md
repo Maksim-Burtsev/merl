@@ -669,8 +669,10 @@ and `n.to_string()` in `label`: both are a `String`, where master jumped to `Lea
 `heaped` matches into two fields of the same project struct, so `heap` is `Scoop`'s, not a picker
 with `Dipper`'s; `restrung` calls `to_string` on a `String`, not a `str` (#1044).
 `split_heap` binds `kept` in `let (kept, dipper) = spoons.split()`, a method returning a tuple, so
-`heap` is `Scoop`'s; a tuple pattern that rebinds its head (`split_again`) or nests a tuple
-(`split_nested`) keeps the picker (#1044).
+`heap` is `Scoop`'s, as it is when the pattern rebinds its head (`split_again`); a tuple pattern
+that nests a tuple (`split_nested`) keeps the picker (#1044). `split_dipped` rebinds `spoons` to a
+`Dipper`, which has no `split`, before the tuple rebinds it again: the head is the nearest
+binding, so it keeps the picker where reading the parameter jumped to `Scoop::heap`.
 `rebuilt` and `recupped` start a `let` chain at a `String::from(..)`, a `Vec::<u32>::new()` and a
 `Vec::with_capacity(2)`, so `len` is std's, where master jumped to `Leaf::len` (#1044).
 

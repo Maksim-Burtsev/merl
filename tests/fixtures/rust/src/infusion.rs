@@ -396,7 +396,7 @@ pub fn split_heap(spoons: Spoons) -> usize {
 pub fn split_again(spoons: Spoons) -> usize {
     let (spoons, _) = spoons.split();
     spoons.tea.heap()
-    //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359; want src/infusion.rs:351 (#1044)
+    //         ^ d: src/infusion.rs:351
 }
 
 pub fn split_nested(spoons: Spoons) -> usize {
@@ -421,4 +421,11 @@ pub fn recupped(leaf: &Leaf) -> usize {
     more.len() + poured.len()
     //   ^ d: none
     //                  ^ d: none
+}
+
+pub fn split_dipped(spoons: Spoons) -> usize {
+    let spoons = Dipper;
+    let (spoons, _) = spoons.split();
+    spoons.tea.heap()
+    //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359
 }
