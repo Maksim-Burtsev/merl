@@ -23,10 +23,20 @@ impl App {
                 a.range.start,
                 &a.word,
             );
-            let Some(hits) = (if own {
-                Some(vec![self.own_hit(a)])
-            } else {
-                self.c_hits(a, near, hits, &mut fallbacks, &mut aside)
+            let delegated = (!own && a.tail.trim_start().starts_with('('))
+                .then(|| {
+                    search::cpp_delegated_constructor(
+                        &a.text,
+                        self.line + 1,
+                        a.range.start,
+                        &a.word,
+                    )
+                })
+                .flatten();
+            let Some(hits) = (match delegated {
+                _ if own => Some(vec![self.own_hit(a)]),
+                Some(line) => Some(vec![self.line_hit(&a.here, line)]),
+                None => self.c_hits(a, near, hits, &mut fallbacks, &mut aside),
             }) else {
                 return;
             };
@@ -631,7 +641,7 @@ impl App {
         })
     }
 
-    fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {
+    pub(super) fn c_same_overload(&self, a: &Asked, found: Vec<Candidate>) -> Vec<Candidate> {
         let Some(mine) = search::cpp_defined_signature(&a.text, self.line + 1, &a.word) else {
             return found;
         };

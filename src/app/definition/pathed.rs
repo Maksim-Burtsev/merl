@@ -158,6 +158,20 @@ impl App {
                     .is_none_or(|files| files.contains(&v.path))
             }));
         }
+        let constructor = kind == Kind::C
+            && chain.last() == Some(word)
+            && search::cpp_defined_signature(&a.text, self.line + 1, word).is_some();
+        if constructor {
+            let pattern = format!(
+                r"^\s+(?:(?:explicit|constexpr|consteval|inline)\s+)*{}\s*\(",
+                regex::escape(word)
+            );
+            let declared: Vec<Hit> = (self.project_definitions(kind, &a.here, word, &pattern))
+                .into_iter()
+                .filter(|h| !hits.iter().any(|o| o.path == h.path && o.line1 == h.line1))
+                .collect();
+            hits.extend(declared);
+        }
         let singleton = q.class_method && word != "initialize";
         let concerns = singleton.then(|| hits.clone());
         let types = (kind == Kind::C).then(|| hits.clone());
@@ -166,6 +180,9 @@ impl App {
             (named, _) => named,
         };
         let mut named = self.named_kept(a, named);
+        if constructor {
+            named = self.c_same_overload(a, named);
+        }
         let owner = match (kind, chain.as_slice()) {
             (Kind::Jvm, [owner]) => self.jvm_owner_type(&a.here, &a.text, owner),
             _ => None,
