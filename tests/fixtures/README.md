@@ -579,6 +579,14 @@ answers the interface's. `caddy.ts` and `tins.ts` hold std names the project sha
 `Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
 whose member is "not installed", never "builtin".
 
+`typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
+`@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,
+whose members come from an aliased `@lint/core` base, and whose `sourceCode` is `Options["Code"]`
+of that base, filled by the `{ Code: SourceCode }` of the extends clause; `SourceCode` is a class
+beside a namespace of its name. `rules/loud.js` holds what stays a picker: a rule with no `@type`,
+a parameter `create` does not declare, and a union `@type`. `token_store.js` declares the
+namesakes.
+
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,

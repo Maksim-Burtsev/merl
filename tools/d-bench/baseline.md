@@ -66,12 +66,13 @@ The php row with #1279's second pass (a method a class inherits from a `vendor/`
 The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, called on a plain object, lands on the overload C++ calls: `data()`, `back()`, `load()`): over `0a55ada19`, 2026-10-26, release build, `vm.loadavg` { 9.99 8.27 8.27 } before the run, { 10.18 8.36 8.30 } after.
 The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the function, in effect at the cursor): over `affcd2f55`, 2026-10-26, release build, `vm.loadavg` { 4.99 7.13 7.67 } before the run, { 5.12 6.68 7.46 } after.
 The ruby row with #1285 (an `@ivar` an action reads, set by the one `before_action` that assigns it): over `37599741`, 2026-10-26, release build, `vm.loadavg` { 11.36 7.89 7.44 } before the run, { 7.93 7.92 7.52 } after.
+The js row with #1283 (an ESLint rule's `context` typed by the `create` of the JSDoc `@type` over `module.exports = {`, its members through an aliased `@eslint/core` base, and `sourceCode` through `Options["Code"]` of that base): over `c55729c57`, 2026-10-26, release build, `vm.loadavg` { 5.57 5.85 6.56 } before the run, { 6.31 5.83 6.46 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 259 | 243 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 66 | 8 | 16.7 | 237.6 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 42.8 | 93.2 |
-| js (eslint, uptime-kuma) | 217 | 180 (83%) | 31 (14%) | 0 (0%) | 6 (3%) | 177 | 11 | 37.7 | 170.4 |
+| js (eslint, uptime-kuma) | 217 | 191 (88%) | 20 (9%) | 0 (0%) | 6 (3%) | 177 | 11 | 40.0 | 207.2 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |

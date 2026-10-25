@@ -3,8 +3,10 @@ use super::{
     signature,
 };
 
+mod declared;
+
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)$"#)
+    Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$"#)
         .expect("the regex is a literal")
 });
 
@@ -667,6 +669,14 @@ impl App {
     fn field_type(&self, kind: Kind, ty: &Typed, field: &str) -> Option<DeclaredField> {
         let text = self.text_of(&ty.path)?;
         let bindings = search::field_bindings(kind, &text, ty.line, field);
+        if bindings.is_empty() && kind == Kind::TsJs {
+            return self.indexed_field(kind, ty, &text, field).map(|ty| {
+                DeclaredField::Typed(TypeVia {
+                    ty,
+                    call_signature: None,
+                })
+            });
+        }
         (!bindings.is_empty()).then(|| match self.agree(kind, &ty.path, &text, &bindings, 1) {
             Some(via) => DeclaredField::Typed(via),
             None => DeclaredField::UnreadableOrDisagreeing,
@@ -1123,7 +1133,11 @@ impl App {
         }
         let parts = search::type_path(kind, written)?;
         let Some(decl) = self.declaration(kind, file, &parts) else {
-            return self.typedef(kind, file, &parts, depth);
+            return self.typedef(kind, file, &parts, depth).or_else(|| {
+                (depth < 8)
+                    .then(|| self.package_alias(kind, file, &parts, depth))
+                    .flatten()
+            });
         };
         let receiver = |alias: &str| {
             let files = self.package_files(kind, &decl.path);
@@ -1191,17 +1205,24 @@ impl App {
                     .filter(|t| self.jsdoc_resolves(kind, file, t))
                 {
                     b.value = search::Value::Type(t);
+                } else if let Some(t) = search::jsdoc_typed_object_parameter(text, b.line1, name)
+                    .and_then(|p| self.object_parameter_type(kind, file, &p))
+                {
+                    b.value = search::Value::Type(t);
                 } else if let Some(node) = search::eslint_visited_node(text, b.line1, name) {
                     let t = format!("import(\"estree\").{node}");
                     if self.declares_interface(kind, file, &t) {
                         b.value = search::Value::Type(t);
                     }
+                } else if b.value == search::Value::Unknown
+                    && let Some(read) = search::js_field_read(text, b.line1, name)
+                {
+                    b.value = read;
                 }
             }
         }
         bindings
     }
-
     fn declares_interface(&self, kind: Kind, file: &Path, written: &str) -> bool {
         self.type_decl(kind, file, written).is_some_and(|ty| {
             self.is_interface(&ty)
@@ -1343,27 +1364,6 @@ impl App {
             });
         }
         self.imported_type(kind, file, written, depth)
-    }
-
-    fn imported_type(&self, kind: Kind, file: &Path, written: &str, depth: usize) -> Option<Typed> {
-        let c = IMPORTED.captures(written)?;
-        let import = format!("import {{ {} }} from \"{}\";", &c[2], &c[1]);
-        let path = search::imports(kind, &import).pop()?.path;
-        let (taken, module) = path.split_last()?;
-        let mut files = search::module_files(kind, &self.root, &self.files, file, module);
-        if files.is_empty()
-            && module.first().is_some_and(|m| !m.starts_with(['.', '/']))
-            && let Some((roots, all)) = self.external.get(&Kind::TsJs)
-        {
-            files = search::package_copy(&self.root, roots, all, &self.files, module)
-                .map(|copy| copy.entries())
-                .unwrap_or_default();
-            files.retain(|f| search::declaration_file(f));
-        }
-        let [module] = &files[..] else {
-            return None;
-        };
-        self.type_decl_at(kind, module, taken, depth + 1)
     }
 }
 
