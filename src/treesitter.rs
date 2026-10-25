@@ -300,25 +300,81 @@ const QUERIES: &[(&str, &str, &str)] = &[
 ];
 
 const ALIASES: &[(&str, &str)] = &[
+    ("htmlangular", "angular"),
     ("sh", "bash"),
-    ("jsonc", "json"),
+    ("bib", "bibtex"),
+    ("cs", "c_sharp"),
     ("csharp", "c_sharp"),
-    ("py", "python"),
-    ("gyp", "python"),
-    ("pandoc", "markdown"),
+    ("lisp", "commonlisp"),
+    ("cook", "cooklang"),
+    ("dts", "devicetree"),
+    ("gitdiff", "diff"),
+    ("eelixir", "eex"),
+    ("ex", "elixir"),
+    ("eruby", "embedded_template"),
+    ("erl", "erlang"),
+    ("fsd", "facility"),
+    ("dsp", "faust"),
+    ("gdshaderinc", "gdshader"),
+    ("gitconfig", "git_config"),
+    ("gitrebase", "git_rebase"),
+    ("handlebars", "glimmer"),
+    ("html.handlebars", "glimmer"),
+    ("gdresource", "godot_resource"),
+    ("hs", "haskell"),
+    ("haskellpersistent", "haskell_persistent"),
+    ("idris2", "idris"),
+    ("confini", "ini"),
+    ("dosini", "ini"),
+    ("janet", "janet_simple"),
     ("javascriptreact", "javascript"),
     ("ecma", "javascript"),
     ("ecmascript", "javascript"),
     ("jsx", "javascript"),
     ("js", "javascript"),
+    ("jsonc", "json"),
+    ("javascript.glimmer", "glimmer_javascript"),
+    ("tex", "latex"),
+    ("ld", "linkerscript"),
+    ("asm68k", "m68k"),
+    ("automake", "make"),
+    ("pandoc", "markdown"),
+    ("neomuttrc", "muttrc"),
+    ("ocamlinterface", "ocaml_interface"),
+    ("pl", "perl"),
+    ("poefilter", "poe_filter"),
+    ("ps1", "powershell"),
+    ("jproperties", "properties"),
+    ("py", "python"),
+    ("gyp", "python"),
+    ("qml", "qmljs"),
+    ("clientscript", "runescript"),
+    ("sbt", "scala"),
+    ("shaderslang", "slang"),
+    ("mysqp", "sqp"),
+    ("sshconfig", "ssh_config"),
+    ("bzl", "starlark"),
+    ("sface", "surface"),
+    ("verilog", "systemverilog"),
+    ("trace32", "t32"),
+    ("expect", "tcl"),
+    ("terraform-vars", "terraform"),
+    ("pbtxt", "textproto"),
+    ("tla", "tlaplus"),
     ("typescriptreact", "tsx"),
+    ("typescript.tsx", "tsx"),
     ("ts", "typescript"),
+    ("typescript.glimmer", "glimmer_typescript"),
+    ("typ", "typst"),
+    ("udevrules", "udev"),
+    ("tal", "uxntal"),
+    ("uxn", "uxntal"),
+    ("vlang", "v"),
+    ("tape", "vhs"),
     ("xsd", "xml"),
     ("xslt", "xml"),
     ("svg", "xml"),
-    ("terraform_vars", "terraform"),
-    ("confini", "ini"),
-    ("dosini", "ini"),
+    ("xdefaults", "xresources"),
 ];
 
 const PREDICATES: &[&str] = &[
@@ -522,7 +578,7 @@ pub fn lang(name: &str) -> Option<&'static Lang> {
         .as_ref()
 }
 
-pub fn resolve(alias: &str) -> Option<&'static Lang> {
+fn normalized(alias: &str) -> Option<String> {
     let alias: String = alias
         .chars()
         .filter(|c| !c.is_whitespace())
@@ -531,20 +587,31 @@ pub fn resolve(alias: &str) -> Option<&'static Lang> {
             c => c.to_ascii_lowercase(),
         })
         .collect();
-    if alias.is_empty()
-        || !alias
+    (!alias.is_empty()
+        && alias
             .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'_')
-    {
-        return None;
-    }
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_'))
+    .then_some(alias)
+}
+
+pub fn resolve(alias: &str) -> Option<&'static Lang> {
+    let alias = normalized(alias)?;
     let name = ALIASES
         .iter()
         .find(|(a, _)| *a == alias)
         .map_or(alias.as_str(), |(_, n)| n);
-    lang(name).or_else(|| {
-        let syntax = crate::buffer::syntax_for_info(&alias, false)?;
-        for_syntax(&syntax.name, Some(Path::new(&format!("a.{alias}"))), &[])
+    lang(name)
+}
+
+pub fn resolve_by_extension(alias: &str) -> Option<&'static Lang> {
+    resolve(alias).or_else(|| {
+        let normal = normalized(alias)?;
+        let hyphened = normal.replace('_', "-");
+        if let Some((_, name)) = ALIASES.iter().find(|(a, _)| *a == hyphened) {
+            return lang(name);
+        }
+        let syntax = crate::buffer::syntax_for_info(&normal, false)?;
+        for_syntax(&syntax.name, Some(Path::new(&format!("a.{normal}"))), &[])
     })
 }
 
