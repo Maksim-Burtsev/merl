@@ -718,6 +718,9 @@ one-table `SELECT` and its subquery, `ALTER TABLE` (`RENAME`, `DROP`, a `CHECK`)
 `UPDATE OF`, and `ADD COLUMN`s on the lines under their `ALTER TABLE`; and none where a second
 table, a derived table, a function in `FROM`, an `AS` of the same name or a `REFERENCES` could
 own the name.
+`scrub_sifters` reads `NEW.` and `OLD.` columns for #1284 through the trigger below the function,
+a statement's own CTE named `new` keeps them out, `drain` behind triggers on two tables answers
+nothing, and `rinse`, whose trigger only `rinse_sifters` creates later, answers nothing either.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one

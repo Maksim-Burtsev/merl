@@ -950,6 +950,57 @@ pub fn sql_alias_table(text: &str, at: usize, qualifier: &str) -> Option<String>
     }
 }
 
+pub const SQL_TRIGGER: &str = r"(?i)^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\b";
+
+pub fn sql_trigger_function(text: &str, at: usize, qualifier: &str) -> Option<String> {
+    let q = qualifier.to_ascii_lowercase();
+    if q != "new" && q != "old" {
+        return None;
+    }
+    let (code, bodies) = sql_code(text);
+    let (stmt, _) = sql_statement(&code, at)?;
+    let named = Regex::new(&format!(r"(?i)\b{q}\b\s*(.?)")).expect("a valid pattern");
+    if named.captures_iter(stmt).any(|c| &c[1] != ".") {
+        return None;
+    }
+    let body = bodies.iter().find(|b| b.contains(&at))?;
+    let head_end = code.get(..body.start)?.trim_end_matches(';').len();
+    let head_start = code.get(..head_end)?.rfind(';').map_or(0, |n| n + 1);
+    let create = Regex::new(&format!(
+        r"(?i)^\s*CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+({SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*)\s*\("
+    ))
+    .expect("a valid pattern");
+    Some(sql_qualified(
+        &create.captures(code.get(head_start..head_end)?)?[1],
+    ))
+}
+
+pub fn sql_trigger_on(text: &str, line1: usize, function: &str) -> Option<String> {
+    static TRIGGER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        let name = format!(r"{SQL_IDENT}(?:\s*\.\s*{SQL_IDENT})*");
+        Regex::new(&format!(
+            r"(?is)^\s*CREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\s+{SQL_IDENT}\s.*?\sON\s+({name})\s.*?\bEXECUTE\s+(?:FUNCTION|PROCEDURE)\s+({name})\s*\("
+        ))
+        .expect("a valid pattern")
+    });
+    let (code, _) = sql_code(text);
+    let start: usize = code
+        .split_inclusive('\n')
+        .take(line1.saturating_sub(1))
+        .map(str::len)
+        .sum();
+    let rest = code.get(start..)?;
+    let c = TRIGGER.captures(rest.get(..rest.find(';').unwrap_or(rest.len()))?)?;
+    let runs = sql_qualified(&c[2]);
+    let same = runs == function
+        || match (runs.rsplit_once('.'), function.rsplit_once('.')) {
+            (Some((_, r)), None) => r == function,
+            (None, Some((_, f))) => f == runs,
+            _ => false,
+        };
+    same.then(|| sql_qualified(&c[1]))
+}
+
 fn sql_name_pattern(table: &str) -> String {
     table
         .split('.')
