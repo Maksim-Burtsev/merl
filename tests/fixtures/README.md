@@ -310,8 +310,10 @@ the class inside an operator before a global namesake; a call inside a free oper
 `infuser.cc` defines constructors inside their class, after `explicit`, over an initializer
 list and a function-pointer parameter, and a destructor, each the answer on its own name, while
 a construction with `new` inside a method and in a function still leads to the class (#1248).
-`Steeper() : Steeper(500)` delegates: the call after `:` is no definition of its own and keeps
-the picker of the class and its other constructor.
+`Steeper() : Steeper(500)` and `Ladle(ml, 1)` delegate to the one constructor taking that many
+arguments; `Ladle(250)` has two, `Ladle(ml[0])` and `Tray(t)` pass one argument that may be the
+implicit copy, so those keep master's answer. `Key::Key` defined out of class lands on the
+declaration of its own overload (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
