@@ -1122,7 +1122,7 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     } else {
         rest
     };
-    let value = split_top(Kind::Swift, rest, b',')[0].trim();
+    let value = split_top(Kind::Swift, super::swift_before_else(rest), b',')[0].trim();
     if let Some(c) = INDEXED.captures(value) {
         return Some(SwiftGiven::Element(c[1].to_owned()));
     }
