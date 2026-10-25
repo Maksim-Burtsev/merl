@@ -210,48 +210,90 @@ pub fn cpp_constructor_defined_in_class(
             .is_some_and(|o| c_body_name(&code, o) == word)
 }
 
-pub fn cpp_delegated_constructor(
+pub fn cpp_delegated_constructor<T>(
     text: &str,
     line1: usize,
     byte_col: usize,
     word: &str,
-) -> Option<usize> {
-    static SPECIFIERS: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:(?:public|protected|private)\s*:)?(?:\s*(?:explicit|constexpr|consteval|inline)\b)*\s*$")
-            .expect("the regex is a literal")
-    });
+    headers: impl FnOnce() -> Vec<(T, String)>,
+) -> Option<(Option<T>, usize)> {
     static LITERAL: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r#"^(?:[-+]?\.?\d[\w.']*|true|false|nullptr|(?:u8|[uUL])?["'].*["'])$"#)
             .expect("the regex is a literal")
     });
     let code = c_code(text);
     let at = line_starts(&code).get(line1.checked_sub(1)?)? + byte_col;
-    let class = c_innermost_open_brace(code.as_bytes(), at)?;
-    let own = init_list_call(&code, at, word)?;
-    if c_body_name(&code, class) != word {
+    if code.get(..at)?.trim_end().ends_with("::") {
         return None;
     }
+    let (own, owner) = init_list_call(&code, at, word)?;
     let (_, args) = bracket_items(&code, text, at + word.len(), false)?;
     if let [arg] = &args[..]
         && !LITERAL.is_match(text.get(arg.clone())?.trim())
     {
         return None;
     }
-    let end = close_or_end(&code, class, code.len());
+    if owner.is_empty() {
+        let class = c_innermost_open_brace(code.as_bytes(), at)
+            .filter(|&o| c_body_name(&code, o) == word)?;
+        return fitting_constructor(&code, text, class, word, args.len(), Some(own))
+            .map(|line| (None, line));
+    }
+    let (_, params) = bracket_items(&code, text, own, true)?;
+    if params.len() == args.len() {
+        return None;
+    }
+    let mut path = cpp_scope_path(&code, at);
+    path.extend(owner);
+    match classes_written(&code, &path, word)[..] {
+        [class] => {
+            return fitting_constructor(&code, text, class, word, args.len(), None)
+                .map(|line| (None, line));
+        }
+        [] => {}
+        _ => return None,
+    }
+    let mut found = (headers().into_iter()).filter_map(|(file, text)| {
+        let code = c_code(&text);
+        let classes = classes_written(&code, &path, word);
+        (!classes.is_empty()).then_some((classes, code, text, file))
+    });
+    let (Some((classes, code, text, file)), None) = (found.next(), found.next()) else {
+        return None;
+    };
+    let [class] = classes[..] else {
+        return None;
+    };
+    fitting_constructor(&code, &text, class, word, args.len(), None).map(|line| (Some(file), line))
+}
+
+fn fitting_constructor(
+    code: &str,
+    text: &str,
+    class: usize,
+    word: &str,
+    args: usize,
+    own: Option<usize>,
+) -> Option<usize> {
+    static SPECIFIERS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:public|protected|private)\s*:)?(?:\s*(?:explicit|constexpr|consteval|inline)\b)*\s*$")
+            .expect("the regex is a literal")
+    });
+    let end = close_or_end(code, class, code.len());
     let name = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
     let mut fits = Vec::new();
     for m in name.find_iter(code.get(class + 1..end)?) {
         let pos = class + 1 + m.start();
         if c_innermost_open_brace(code.as_bytes(), pos) != Some(class)
-            || init_list_call(&code, pos, word).is_some()
+            || init_list_call(code, pos, word).is_some()
         {
             continue;
         }
-        let prefix = code.get(c_head_start(&code, pos)..pos)?;
+        let prefix = code.get(c_head_start(code, pos)..pos)?;
         if prefix.trim_end().ends_with('~') {
             continue;
         }
-        let (paren, params) = bracket_items(&code, text, pos + word.len(), true)?;
+        let (paren, params) = bracket_items(code, text, pos + word.len(), true)?;
         let plain = |p: &std::ops::Range<usize>| {
             code.get(p.clone())
                 .is_some_and(|p| !p.contains('=') && !p.contains("..."))
@@ -259,29 +301,77 @@ pub fn cpp_delegated_constructor(
         if !SPECIFIERS.is_match(prefix) || !params.iter().all(plain) {
             return None;
         }
-        if params.len() == args.len() {
+        if params.len() == args {
             fits.push((pos, paren));
         }
     }
     match fits[..] {
-        [(pos, paren)] if paren != own => Some(c_place(&code, pos).line1),
+        [(pos, paren)] if Some(paren) != own => Some(c_place(code, pos).line1),
         _ => None,
     }
 }
 
-fn init_list_call(code: &str, at: usize, word: &str) -> Option<usize> {
+fn init_list_call(code: &str, at: usize, word: &str) -> Option<(usize, Vec<String>)> {
     let (paren, _) = bracket_items(code, code, at + word.len(), false)?;
     let close = close_or_end(code, paren, code.len());
     let body = close + code.get(close..)?.find(['{', ';'])?;
     let start = c_head_start(code, body);
-    match c_head(code.get(start..body)?) {
-        Head::Function { name, params }
-            if name == word && start + params.end <= at && code.as_bytes()[body] == b'{' =>
-        {
-            Some(start + params.start)
-        }
-        _ => None,
-    }
+    let Head::Function { name, params } = c_head(code.get(start..body)?) else {
+        return None;
+    };
+    let mut owner: Vec<String> = name.split("::").map(|p| p.trim().to_owned()).collect();
+    let own = owner.pop().is_some_and(|n| n == word);
+    let fits = owner.last().is_none_or(|o| o == word);
+    (own && fits && start + params.end <= at && code.as_bytes()[body] == b'{')
+        .then_some((start + params.start, owner))
+}
+
+fn classes_written(code: &str, path: &[String], word: &str) -> Vec<usize> {
+    let Ok(head) = Regex::new(&format!(r"\b(?:struct|class)\s+{}\b", regex::escape(word))) else {
+        return Vec::new();
+    };
+    (head.find_iter(code))
+        .filter_map(|m| {
+            let open = m.end() + code.get(m.end()..)?.find(['{', ';'])?;
+            (code.as_bytes()[open] == b'{'
+                && c_body_name(code, open) == word
+                && cpp_scope_path(code, open + 1) == path)
+                .then_some(open)
+        })
+        .collect()
+}
+
+pub fn cpp_used_namespaces(text: &str, line1: usize) -> Vec<Vec<String>> {
+    static DIRECTIVE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\busing\s+namespace\s+((?:\w+\s*::\s*)*\w+)\s*;")
+            .expect("the regex is a literal")
+    });
+    let code = c_code(text);
+    let end = (line_starts(&code).get(line1.saturating_sub(1)).copied()).unwrap_or(code.len());
+    (DIRECTIVE.captures_iter(code.get(..end).unwrap_or_default()))
+        .filter(|c| {
+            (c.get(0)).is_some_and(|m| c_innermost_open_brace(code.as_bytes(), m.start()).is_none())
+        })
+        .map(|c| c[1].split("::").map(|p| p.trim().to_owned()).collect())
+        .collect()
+}
+
+pub fn cpp_member_scope(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
+    static QUALIFIER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:\w+\s*::\s*)*$").expect("the regex is a literal"));
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, word, Some('(')).first()?;
+    let before = code.get(*line_starts(&code).get(line1.checked_sub(1)?)?..at)?;
+    let mut path = cpp_scope_path(&code, at);
+    let qualifier = QUALIFIER.find(before)?.as_str();
+    path.extend(
+        qualifier
+            .split("::")
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(str::to_owned),
+    );
+    Some(path)
 }
 
 fn bracket_items(

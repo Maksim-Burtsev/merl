@@ -41,6 +41,18 @@ static STD_PATH: LazyLock<Regex> = LazyLock::new(|| {
         .expect("the regex is a literal")
 });
 
+pub(super) const CONSTRUCTORS: &[&str] = &["new", "from", "with_capacity", "default"];
+
+pub(super) fn std_rooted(text: &str, written: &str) -> bool {
+    STD_PATH.captures(written.trim()).is_none_or(|c| {
+        let first = c[1].split("::").next().unwrap_or_default();
+        let root = bound(&search::imports(Kind::Rust, text), first)
+            .and_then(|p| p.into_iter().next())
+            .unwrap_or_else(|| first.to_owned());
+        matches!(root.as_str(), "" | "std" | "core" | "alloc")
+    })
+}
+
 static VARIANT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^((?:\w+::)*[A-Z]\w*)::([A-Z]\w*)\s*(?:\{([^{}]*)\}|\(([^()]*)\))\s*")
         .expect("the regex is a literal")
@@ -203,11 +215,7 @@ impl App {
             Some(search::RustHolds::AssocCall {
                 written_type,
                 function,
-            }) if matches!(
-                function.as_str(),
-                "new" | "from" | "with_capacity" | "default"
-            ) =>
-            {
+            }) if CONSTRUCTORS.contains(&function.as_str()) && std_rooted(text, &written_type) => {
                 rust_bare_type(&written_type)
             }
             Some(_) => None,
@@ -236,11 +244,8 @@ impl App {
             .iter()
             .position(|l| !l.trim().is_empty() && indent(l) <= indent(decl))?;
         let std_typed = |written: &str| {
-            rust_bare_type(written).filter(|b| {
-                STD_PATH.captures(written.trim()).is_none_or(|c| {
-                    matches!(c[1].split("::").next(), Some("" | "std" | "core" | "alloc"))
-                }) && self.rust_std_named(&text, b)
-            })
+            rust_bare_type(written)
+                .filter(|b| std_rooted(&text, written) && self.rust_std_named(&text, b))
         };
         let field = match field {
             Field::Named(field) => field,

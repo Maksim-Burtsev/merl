@@ -1566,12 +1566,16 @@ fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
 #[test]
 fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "pub struct Cache;\n\nimpl Cache {\n    pub fn get(&self, _: &u32) -> Option<&u32> {\n        None\n    }\n\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub enum Store {\n    Map(hashbrown::HashMap<u32, u32>),\n    Named {\n        m: hashbrown::HashMap<u32, u32>,\n    },\n    Std(std::collections::HashMap<u32, u32>),\n    Pair(HashMap<fn() -> u8, String>, Vec<u8>),\n    List(u32, Vec<String>),\n    Note {\n        text: String,\n    },\n    Tag(String),\n}\n\npub fn crate_map(s: Store) {\n    if let Store::Map(m) = s {\n        let _ = m.get(&1);\n    }\n}\n\npub fn crate_named(s: Store) {\n    if let Store::Named { m } = s {\n        let _ = m.get(&2);\n    }\n}\n\npub fn std_map(s: Store) {\n    if let Store::Std(m) = s {\n        let _ = m.get(&3);\n    }\n}\n\npub fn size(s: &Store) -> usize {\n    match *s {\n        Store::Pair(_, ref b) => b.len(),\n        Store::List(_, ref v) => v.len(),\n        Store::Note { ref text } | Store::Tag(ref text) => text.len(),\n        _ => 0,\n    }\n}\n";
+    let lib = "mod hb;\nuse std::collections;\n\npub struct Cache;\n\nimpl Cache {\n    pub fn get(&self, _: &u32) -> Option<&u32> {\n        None\n    }\n\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub enum Store {\n    Map(hashbrown::HashMap<u32, u32>),\n    Named {\n        m: hashbrown::HashMap<u32, u32>,\n    },\n    Std(std::collections::HashMap<u32, u32>),\n    Pair(HashMap<fn() -> u8, String>, Vec<u8>),\n    List(u32, Vec<String>),\n    Note {\n        text: String,\n    },\n    Tag(String),\n    Coll(collections::HashMap<u32, u32>),\n}\n\npub fn crate_map(s: Store) {\n    if let Store::Map(m) = s {\n        let _ = m.get(&1);\n    }\n}\n\npub fn crate_named(s: Store) {\n    if let Store::Named { m } = s {\n        let _ = m.get(&2);\n    }\n}\n\npub fn std_map(s: Store) {\n    if let Store::Std(m) = s {\n        let _ = m.get(&3);\n    }\n}\n\npub fn coll_map(s: Store) {\n    if let Store::Coll(m) = s {\n        let _ = m.get(&4);\n    }\n}\n\npub fn size(s: &Store) -> usize {\n    match *s {\n        Store::Pair(_, ref b) => b.len(),\n        Store::List(_, ref v) => v.len(),\n        Store::Note { ref text } | Store::Tag(ref text) => text.len(),\n        _ => 0,\n    }\n}\n";
     let (dir, mut a) = project_app(
         "rust-variant-path",
         &[
             ("Cargo.toml", "[package]\nname = \"m\"\n"),
             ("src/lib.rs", lib),
+            (
+                "src/hb.rs",
+                "use hashbrown::HashMap;\nuse hashbrown as collections;\n\npub enum Hb {\n    Bare(HashMap<u32, u32>),\n    Path(collections::HashMap<u32, u32>),\n}\n\npub fn bare(h: Hb) {\n    if let Hb::Bare(m) = h {\n        let _ = m.get(&5);\n    }\n}\n\npub fn path(h: Hb) {\n    if let Hb::Path(m) = h {\n        let _ = m.get(&6);\n    }\n}\n",
+            ),
         ],
     );
     let std = external_root(
@@ -1602,6 +1606,7 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
     use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
     for (code, want) in [
         ("m.get|(&3)", "std/src/collections/hash/map.rs:5"),
+        ("m.get|(&4)", "std/src/collections/hash/map.rs:5"),
         ("b.len", "alloc/src/vec/mod.rs:5"),
         ("v.len", "alloc/src/vec/mod.rs:5"),
         ("text.len", "alloc/src/string.rs:5"),
@@ -1613,8 +1618,13 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
         };
         assert_eq!(got, want, "{code}");
     }
-    for code in ["m.get|(&1)", "m.get|(&2)"] {
-        d_on(&mut a, "src/lib.rs", code);
+    for (file, code) in [
+        ("src/lib.rs", "m.get|(&1)"),
+        ("src/lib.rs", "m.get|(&2)"),
+        ("src/hb.rs", "m.get|(&5)"),
+        ("src/hb.rs", "m.get|(&6)"),
+    ] {
+        d_on(&mut a, file, code);
         let got = shown(&mut a);
         assert!(
             matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
@@ -1622,6 +1632,72 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
         );
     }
     std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_std_value_built_by_an_associated_call_heads_a_let_chain() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let chains = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn named() -> usize {\n    let n = String::from(\"a\");\n    let t = n.to_string();\n    t.len()\n}\n\npub fn hashed() -> usize {\n    let m = HashMap::new();\n    let k = m.clone();\n    k.len()\n}\n\npub fn qualified() -> usize {\n    let q = hashbrown::HashMap::new();\n    let r = q.clone();\n    r.len()\n}\n";
+    let std = external_root(
+        "rust-assoc-head-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                &format!(
+                    "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/collections/hash/map.rs",
+                &format!(
+                    "pub struct HashMap<K, V>;\n\nimpl<K, V> HashMap<K, V> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl<K: Clone, V: Clone> Clone for HashMap<K, V> {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    for (name, head, own, want) in [
+        (
+            "rust-assoc-head",
+            "use std::collections::HashMap;\n\n",
+            "\n",
+            [
+                "alloc/src/string.rs:5",
+                "std/src/collections/hash/map.rs:5",
+                "not std",
+            ],
+        ),
+        (
+            "rust-assoc-head-namesakes",
+            "mod own;\n\nuse crate::own::String;\nuse hashbrown::HashMap;\n\n",
+            "pub struct String;\n",
+            ["not std", "not std", "not std"],
+        ),
+    ] {
+        let lib = format!("{head}{chains}");
+        let (dir, mut a) = project_app(
+            name,
+            &[
+                ("Cargo.toml", "[package]\nname = \"m\"\n"),
+                ("src/lib.rs", &lib),
+                ("src/own.rs", own),
+            ],
+        );
+        use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+        for (code, want) in [("t.len", want[0]), ("k.len", want[1]), ("r.len", want[2])] {
+            d_on(&mut a, "src/lib.rs", code);
+            let got = match shown(&mut a) {
+                Shown::Jump(_, place) if place.starts_with(&*library.to_string_lossy()) => {
+                    place.replace(&format!("{}/", library.display()), "")
+                }
+                _ => "not std".to_owned(),
+            };
+            assert_eq!(got, want, "{name}: {code}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
     std::fs::remove_dir_all(&std).unwrap();
 }
 
@@ -1740,6 +1816,46 @@ fn a_match_s_value_takes_the_std_type_its_typed_arms_agree_on() {
         let got = shown(&mut a);
         assert!(matches!(&got, Shown::Picker(..)), "{code}: {got:?}");
     }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_closure_on_a_shadowing_let_s_line_does_not_bind_its_head() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn trimmed(s: String) -> usize {\n    let s = s.trim_matches(|s: char| s == '-');\n    s.len()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-shadow-closure",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-shadow-closure-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            ("lib/rustlib/src/rust/library/std/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                "pub struct String;\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn trim_matches<P>(&self, pat: P) -> &str {{\n        self\n    }}\n\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    d_on(&mut a, "src/lib.rs", "s.len");
+    let got = match shown(&mut a) {
+        Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+        other @ Shown::Picker(..) => format!("{other:?}"),
+    };
+    assert_eq!(got, "core/src/str/mod.rs:8");
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }
