@@ -795,10 +795,10 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
-        let mut typed = self.rust_value_type(here, text, self.line, &chain[0]);
+        let mut typed = self.rust_value_type(here, text, self.line, &chain[0], false);
         if typed.is_none() {
             self.external_files(Kind::Rust);
-            typed = self.rust_value_type(here, text, self.line, &chain[0]);
+            typed = self.rust_value_type(here, text, self.line, &chain[0], false);
         }
         let Some((mut ty, link)) = typed else {
             if let [name] = chain
@@ -858,6 +858,7 @@ impl App {
         text: &str,
         line0: usize,
         name: &str,
+        above: bool,
     ) -> Option<(Typed, String)> {
         let lines: Vec<&str> = text.lines().collect();
         if name == "self" {
@@ -869,7 +870,7 @@ impl App {
             let link = format!("self: {}", ty.name);
             return Some((ty, link));
         }
-        let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
+        let bindings = rust_seen(text, line0, name, above);
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
@@ -1092,7 +1093,8 @@ impl App {
             let tr = PATH.captures(before)?[1].to_owned();
             let arg = ARG.captures(line.get(range.end..)?)?;
             (
-                self.rust_value_type(here, text, self.line, &arg[1])?.0,
+                self.rust_value_type(here, text, self.line, &arg[1], false)?
+                    .0,
                 tr,
                 true,
             )
@@ -1403,6 +1405,14 @@ fn rust_receiver_type(text: &str, line0: usize, chain: &[String], before: &str) 
         [] if STR_LITERAL.is_match(before) => Some("str".to_owned()),
         _ => None,
     }
+}
+
+fn rust_seen(text: &str, line0: usize, name: &str, above: bool) -> Vec<search::Binding> {
+    let mut seen = search::bindings(Kind::Rust, text, line0 + 1, name);
+    if above {
+        seen.retain(|b| b.line1 <= line0);
+    }
+    seen
 }
 
 fn rust_written_type(text: &str, line0: usize, name: &str) -> Option<String> {

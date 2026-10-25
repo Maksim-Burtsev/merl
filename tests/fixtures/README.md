@@ -327,6 +327,14 @@ definition spelled `pot::Beaker::Beaker()` outside it.
 its definition beside it, `Carafe(1, 2)` and `Urn(1, 2)` to the global class's declarations, not
 to `pot::Urn`'s definition; `Carafe(ml)`, `Decanter(250)`, `Jug(1)` and `Flagon(1)`, whose class
 `carafe_twin.hh` writes again, keep master's answer (#1248).
+`c/src/tea/gaiwan.cc` calls `ext::Gaiwan(a, 0)`, a base class outside the project, from
+`Gaiwan::Gaiwan(int a)` and `ext::Kyusu(a, 0)` from a constructor inside `Kyusu`: a qualified call
+names another class, so neither is a delegation and neither lands on the derived class's own
+two-argument constructor; they keep the lookup by name (#1248). `Tureen(1)` in a template class
+lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::Chawan::Chawan`
+as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
+`sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside
+it, where master jumped (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -675,6 +683,10 @@ that nests a tuple (`split_nested`) keeps the picker (#1044). `split_dipped` reb
 binding, so it keeps the picker where reading the parameter jumped to `Scoop::heap`.
 `rebuilt` and `recupped` start a `let` chain at a `String::from(..)`, a `Vec::<u32>::new()` and a
 `Vec::with_capacity(2)`, so `len` is std's, where master jumped to `Leaf::len` (#1044).
+`sifted` rebinds `spoons` in a tuple whose line holds a closure taking a `spoons` of its own: the
+head is read among the bindings above the line, so `heap` is `Scoop`'s and the lookup ends.
+`hashed` heads its chain at `hashbrown::HashMap::new()`: the path's root is not std's, so `len`
+is not std's either and `d` answers by name, as master did.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

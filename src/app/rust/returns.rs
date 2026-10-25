@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use super::chain::Got;
-use super::sysroot::{DEREF, rust_element};
+use super::sysroot::{CONSTRUCTORS, DEREF, rust_element, std_rooted};
 use super::{
-    App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, search,
+    App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, rust_seen,
+    search,
 };
 
 static MARKED: LazyLock<Regex> = LazyLock::new(|| {
@@ -189,9 +190,10 @@ impl App {
         text: &str,
         line0: usize,
         name: &str,
+        above: bool,
     ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
-        let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
+        let bindings = rust_seen(text, line0, name, above);
         let (path, written, at) = match bindings.as_slice() {
             [b] => match search::rust_holds(&lines, b.line1 - 1, name)? {
                 search::RustHolds::Type(w) => (file.to_path_buf(), w, b.line1 - 1),
@@ -202,11 +204,7 @@ impl App {
                 search::RustHolds::AssocCall {
                     written_type,
                     function,
-                } if matches!(
-                    function.as_str(),
-                    "new" | "from" | "with_capacity" | "default"
-                ) =>
-                {
+                } if CONSTRUCTORS.contains(&function.as_str()) => {
                     (file.to_path_buf(), written_type, b.line1 - 1)
                 }
                 _ => return None,
@@ -230,13 +228,14 @@ impl App {
         };
         let bare = std_kind(&written)?;
         let owner = self.text_of(&path)?;
-        (DEREF.iter().any(|(t, _)| *t == bare) && self.rust_std_named(&owner, &bare)).then_some(
-            Got::Written {
-                file: path,
-                written,
-                line0: at,
-            },
-        )
+        (DEREF.iter().any(|(t, _)| *t == bare)
+            && std_rooted(&owner, &written)
+            && self.rust_std_named(&owner, &bare))
+        .then_some(Got::Written {
+            file: path,
+            written,
+            line0: at,
+        })
     }
 
     pub(super) fn rust_std_returns(
