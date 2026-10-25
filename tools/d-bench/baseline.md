@@ -53,6 +53,7 @@ The cpp row with #1248's next pass (an out-of-class constructor lands on its own
 The rust row with #1044's tenth pass (a name bound by a tuple pattern from a call returning a tuple, `let (alpha, err) = alpha_parents.add_child(..)` in `crates/ignore/src/dir.rs`): over `25c27eede`, 2026-10-25, release build, `vm.loadavg` { 8.28 10.23 6.82 } before the run.
 The rust row with #1044's thirteenth pass (a dependency's type read in its one locked version: `HirKind::Repetition(mut x) => x.sub` in `crates/regex/src/strip.rs`, `for pat in &pats` over a `Vec<_>` collected from `.map(|&s| new_glob(s))` in `crates/globset/benches/bench.rs`): over `95b217983`, 2026-10-26, release build, `vm.loadavg` { 15.66 12.03 8.84 } before the run, { 8.98 10.75 8.64 } after (the times read high under that load).
 The python and go rows with #1268 and #1269 (a local assigned in a function body stays on itself; a `:=` is never a package-level declaration; python0019, python0190 and go0299 answers reviewed): over `8c8749637`, 2026-10-26, release build, `vm.loadavg` { 5.35 5.73 7.10 } before the run.
+The objc and css rows with #1276 and #1277 (an Objective-C method's or a typedef's parameter stays on itself; a Sass variable reads the `@each`, `@for`, `@mixin` or `@function` that binds it; objc0041, objc0084 and objc0119 answers reviewed, css0063, css0092, css0163, css0213 and css0277 judged): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.18 6.20 6.99 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -69,14 +70,14 @@ The python and go rows with #1268 and #1269 (a local assigned in a function body
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |
 | ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 2 | 66.3 | 382.6 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 22.0 | 92.5 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
-| css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 1 | 3.4 | 24.5 |
+| css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 49.9 | 168.2 |
 | svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 33.6 | 172.0 |
 | astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 35.8 | 106.8 |

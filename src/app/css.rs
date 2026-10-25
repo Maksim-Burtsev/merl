@@ -198,6 +198,37 @@ impl App {
         self.show_definitions(Kind::Css, name, here, found, None);
     }
 
+    fn scss_bound_in_block(&mut self, here: &Path, sheet: &Sheet) -> bool {
+        let Sheet::Var(None, name) = sheet else {
+            return false;
+        };
+        let text = self.buf.lines.join("\n");
+        let Some(line1) = here
+            .extension()
+            .is_some_and(|e| e == "scss")
+            .then(|| search::scss_block_binding(&text, self.line + 1, self.col, name))
+            .flatten()
+        else {
+            return false;
+        };
+        let Some(text) = self.buf.lines.get(line1 - 1).cloned() else {
+            return false;
+        };
+        let hit = Hit {
+            deleted: None,
+            path: here.to_path_buf(),
+            line1,
+            byte_col: None,
+            text,
+        };
+        let found = vec![Candidate {
+            hit,
+            reason: Reason::Local,
+        }];
+        self.show_definitions(Kind::Css, name, here, found, None);
+        true
+    }
+
     fn sheet_declarations(&mut self, here: &Path, sheet: &Sheet) {
         let (word, ns) = match sheet {
             Sheet::Var(ns, n) | Sheet::Mixin(ns, n) | Sheet::Function(ns, n) => (n, ns.as_deref()),
@@ -206,6 +237,9 @@ impl App {
             }
             Sheet::Class(n) | Sheet::Id(n) | Sheet::Import(n) => (n, None),
         };
+        if self.scss_bound_in_block(here, sheet) {
+            return;
+        }
         let Ok(re) = Regex::new(&search::sheet_patterns(sheet).join("|")) else {
             return;
         };

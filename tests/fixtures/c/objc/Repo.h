@@ -68,3 +68,6 @@ typedef NSString * Mode NS_TYPED_EXTENSIBLE_ENUM;
 
 @interface Base : NSObject <Base>
 @end
+
+typedef void (^Then)(BOOL ok, Done completion);
+//                                 ^ d: objc/Repo.h:72
