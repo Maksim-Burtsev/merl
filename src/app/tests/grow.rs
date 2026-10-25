@@ -142,3 +142,142 @@ fn a_shift_run_the_watcher_judges_leaves_v_nothing_to_step_back() {
     );
     assert_eq!(a.selected_text().as_deref(), Some("alpha, \"beta\""));
 }
+
+const JS: &str = "\
+function add(a, b) {
+  if (a) {
+    return total(a, [b, \")\"]);
+  }
+}
+";
+
+const CSS: &str = "\
+a {
+  color: rgb(1, 2, 3);
+}
+";
+
+fn embedded(
+    name: &str,
+    own: &str,
+    body: &str,
+    before: &str,
+    after: &str,
+    at: (usize, usize),
+) -> Vec<String> {
+    let mut alone = code(&format!("{name}.{own}"), body);
+    (alone.line, alone.col) = at;
+    let mut steps = Vec::new();
+    while steps.last().map(String::as_str) != Some(body.trim_end()) {
+        steps.extend(presses(&mut alone, 'v', 1));
+    }
+    let mut host = code(name, &format!("{before}{body}{after}"));
+    (host.line, host.col) = (before.lines().count() + at.0, at.1);
+    let mut ours = presses(&mut host, 'v', steps.len() + 2);
+    assert_eq!(ours[..steps.len()], steps, "{name}: the block's own ladder");
+    let back: Vec<String> = ours[..=steps.len()].iter().rev().cloned().collect();
+    assert_eq!(presses(&mut host, 'V', back.len()), back, "{name}: V");
+    ours.split_off(steps.len())
+}
+
+#[test]
+fn v_in_an_html_script_walks_its_javascript_then_the_script_and_the_body() {
+    let (top, end) = (
+        "<html>\n<body>\n<script>\n",
+        "</script>\n</body>\n</html>\n",
+    );
+    assert_eq!(
+        embedded("index.html", "js", JS, top, end, (2, 17)),
+        [
+            format!("<script>\n{JS}</script>"),
+            format!("<body>\n<script>\n{JS}</script>\n</body>"),
+        ]
+    );
+}
+
+#[test]
+fn v_in_an_html_style_walks_its_css_then_the_style() {
+    let (top, end) = ("<head>\n<style>\n", "</style>\n</head>\n");
+    assert_eq!(
+        embedded("page.html", "css", CSS, top, end, (1, 16)),
+        [
+            format!("<style>\n{CSS}</style>"),
+            format!("{top}{CSS}</style>\n</head>"),
+        ]
+    );
+}
+
+#[test]
+fn v_in_a_vue_or_svelte_script_walks_its_javascript_then_the_block() {
+    let end = "</script>\n\n<p>{x}</p>\n";
+    for name in ["app.vue", "app.svelte"] {
+        let grown = embedded(name, "js", JS, "<script>\n", end, (2, 17));
+        assert_eq!(grown[0], format!("<script>\n{JS}</script>"), "{name}");
+    }
+}
+
+#[test]
+fn v_in_a_markdown_fence_walks_its_language_then_the_fence() {
+    let grown = embedded(
+        "notes.md",
+        "js",
+        JS,
+        "# Add\n\n```js\n",
+        "```\n\nMore.\n",
+        (2, 17),
+    );
+    assert_eq!(grown[0], format!("```js\n{JS}```"));
+}
+
+#[test]
+fn v_in_markdown_prose_keeps_its_ladder() {
+    let text = "# Notes\n\nSee [the link](https://a.b) and `code` here.\n";
+    let mut a = code("prose.md", text);
+    (a.line, a.col) = (2, 34);
+    assert_eq!(presses(&mut a, 'v', 2)[1], text.lines().nth(2).unwrap());
+}
+
+#[test]
+fn v_in_a_script_inside_an_html_fence_walks_both_layers() {
+    let top = "# Page\n\n```html\n<script>\n";
+    let grown = embedded("nested.md", "js", JS, top, "</script>\n```\n", (2, 17));
+    assert_eq!(
+        grown,
+        [
+            format!("<script>\n{JS}</script>"),
+            format!("```html\n<script>\n{JS}</script>\n```"),
+        ]
+    );
+}
+
+#[test]
+fn v_in_a_fence_between_two_html_blocks_still_takes_the_fence() {
+    let top = "<div>\na\n</div>\n\n```js\n";
+    let grown = embedded(
+        "blocks.md",
+        "js",
+        JS,
+        top,
+        "```\n\n<div>\nb\n</div>\n",
+        (2, 17),
+    );
+    assert_eq!(grown[0], format!("```js\n{JS}```"));
+}
+
+#[test]
+fn v_in_an_attribute_keeps_the_inside_of_its_quotes() {
+    let text = "<template>\n  <li v-for=\"item in items\">{{ item }}</li>\n</template>\n";
+    let mut a = code("list.vue", text);
+    (a.line, a.col) = (1, 19);
+    assert_eq!(
+        presses(&mut a, 'v', 3),
+        ["in", "item in items", "\"item in items\""]
+    );
+}
+
+#[test]
+fn v_in_a_file_that_hosts_no_block_keeps_its_ladder() {
+    let mut a = code("regex.py", "x = re.compile(r\"(a[bc])\")\n");
+    a.col = 21;
+    assert_eq!(presses(&mut a, 'v', 3), ["bc", "(a[bc])", "r\"(a[bc])\""]);
+}

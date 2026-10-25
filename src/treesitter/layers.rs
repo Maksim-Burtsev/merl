@@ -139,6 +139,11 @@ impl<'a> Doc<'a> {
         out
     }
 
+    fn inside(&self, region: &[Range]) -> bool {
+        region.first().is_some_and(|r| r.start_byte <= self.start)
+            && region.last().is_some_and(|r| self.end <= r.end_byte)
+    }
+
     fn touches(&self, region: &[Range]) -> bool {
         region
             .iter()
@@ -340,6 +345,43 @@ pub fn region_start(injected: &[Injected], row: usize) -> usize {
         .filter(|&(first, last)| first <= row && row <= last)
         .map(|(first, _)| first)
         .fold(row, usize::min)
+}
+
+const HOSTS: [&str; 4] = ["html", "vue", "svelte", "markdown"];
+
+pub fn around(lang: &'static Lang, tree: &Tree, parser: &mut Parser, doc: &Doc) -> Vec<Tree> {
+    let mut out = vec![tree.clone()];
+    nest(lang, tree, false, parser, doc, &mut out);
+    out
+}
+
+fn nest(
+    lang: &'static Lang,
+    tree: &Tree,
+    parent: bool,
+    parser: &mut Parser,
+    doc: &Doc,
+    out: &mut Vec<Tree>,
+) {
+    if out.len() > MAX_DEPTH || !HOSTS.contains(&lang.name) {
+        return;
+    }
+    let ranges = tree.included_ranges();
+    let clip_to = parent.then_some(&ranges[..]);
+    for inj in injections(lang, tree, clip_to, doc, true, true) {
+        let Target::Tree(child) = inj.target else {
+            continue;
+        };
+        if child.name == "markdown_inline" {
+            continue;
+        }
+        for r in inj.regions.iter().filter(|r| doc.inside(r)) {
+            if let Some(t) = parse(parser, child, r, doc.bytes) {
+                out.push(t.clone());
+                nest(child, &t, true, parser, doc, out);
+            }
+        }
+    }
 }
 
 fn parse(parser: &mut Parser, lang: &Lang, region: &[Range], bytes: &[u8]) -> Option<Tree> {

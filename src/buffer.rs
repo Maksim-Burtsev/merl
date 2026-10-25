@@ -284,8 +284,15 @@ impl Buffer {
         self.state_after_hl = None;
     }
 
-    pub fn fresh_tree(&self) -> Option<&tree_sitter::Tree> {
-        self.ts.as_ref().filter(|_| !self.ts_stale)?.fresh_tree()
+    pub fn trees_around(
+        &mut self,
+        from: tree_sitter::Point,
+        to: tree_sitter::Point,
+    ) -> Vec<tree_sitter::Tree> {
+        match &mut self.ts {
+            Some(ts) if !self.ts_stale => ts.trees_around(from, to),
+            _ => Vec::new(),
+        }
     }
 
     pub fn parsing(&self) -> bool {
