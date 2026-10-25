@@ -321,7 +321,12 @@ arguments hold a `<`: each keeps master's picker of the namesake classes (#1248)
 Out of the class, `Spout::Spout() : Spout(500)` and `Cruet(1)` delegate the same way, and
 `pot::Beaker::Beaker()` to the constructor of `pot`'s `Beaker`, not of the global namesake;
 `Cruet(u)` may be the copy, `Flask(250)` fits two and `Flask("x")` from `Flask(int a)` could be
-itself, so those keep master's answer (#1248).
+itself, so those keep master's answer (#1248). `Beaker()` inside `namespace pot` lands on the
+definition spelled `pot::Beaker::Beaker()` outside it.
+`c/src/tea/carafe.cc` delegates to classes of `c/include/tea/carafe.hh`: `Carafe(500)` in `pot` to
+its definition beside it, `Carafe(1, 2)` and `Urn(1, 2)` to the global class's declarations, not
+to `pot::Urn`'s definition; `Carafe(ml)`, `Decanter(250)`, `Jug(1)` and `Flagon(1)`, whose class
+`carafe_twin.hh` writes again, keep master's answer (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
