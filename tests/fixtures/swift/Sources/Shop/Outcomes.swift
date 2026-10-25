@@ -795,3 +795,46 @@ extension Postman {
         //             ^ d: none
     }
 }
+
+// The last condition of a `guard` on its `else` line binds as the ones above it: `url` is the
+// request's `URL`, an argument from outside the project (#1068).
+extension Percolator {
+    func cookiedOnElse() -> Bool {
+        guard
+            let request = lastRequest,
+            let url = request.url else { return false }
+        if let configuration = delegate?.sessionConfiguration, configuration.httpShouldSetCookies {
+            if
+                let cookieStorage = configuration.httpCookieStorage,
+                let cookies = cookieStorage.cookies(for: url), !cookies.isEmpty {
+                //                                                      ^ d: none
+                return true
+            }
+        }
+        return false
+    }
+}
+
+// A subscript on a value from outside the project, with no subscript of the project's extensions
+// of outside types, is outside too, whatever its argument (#1068).
+func snaked(_ key: String, _ words: [Range<String.Index>]) -> [String] {
+    words.map { range in
+        key[range].lowercased()
+        //         ^ d: none
+    }
+}
+
+// A generic parameter is no type from outside: its subscript may be the project's (#1068).
+protocol Racked {
+    subscript(i: Int) -> Logbook { get }
+}
+
+func racked<C: Racked>(_ c: C) -> Bool {
+    c[0].isEmpty
+    //   ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+func shelved<C: Collection>(_ c: C) -> Bool where C.Element == Logbook {
+    c[c.startIndex].isEmpty
+    //              ^ d: Sources/Shop/Outcomes.swift:29
+}
