@@ -17,14 +17,7 @@ impl App {
         } else {
             search::imports(kind, &a.text)
         };
-        let line = self.line_str();
-        let wrapped = kind == Kind::Swift && search::swift_wrapped_params(&a.text, self.line + 1);
-        let signature = |l: String| if wrapped { format!("func f({l})") } else { l };
-        let swift_binds_here = kind == Kind::Swift
-            && !a.dotted
-            && line.get(range.clone()) == Some(word.as_str())
-            && search::swift_binds_on(&signature(line.to_owned()), word)
-            && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word);
+        let swift_binds_here = self.swift_binds_here(a);
         let ts_key = ts_key(a);
         let declared = swift_binds_here
             || ts_key
@@ -94,10 +87,7 @@ impl App {
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
-        let python_own = kind == Kind::Python
-            && locals == [self.line + 1]
-            && ((!declared && search::python_inline_binds(self.line_str(), word))
-                || (!a.dotted && search::python_in_function_body(&a.text, self.line + 1)));
+        let python_own = self.python_own(a, &locals, declared);
         if self.answered_by_locals(
             a,
             &locals,
@@ -118,6 +108,24 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn swift_binds_here(&self, a: &Asked) -> bool {
+        let (word, range, line) = (&a.word, &a.range, self.line_str());
+        let wrapped = a.kind == Kind::Swift && search::swift_wrapped_params(&a.text, self.line + 1);
+        let signature = |l: String| if wrapped { format!("func f({l})") } else { l };
+        a.kind == Kind::Swift
+            && !a.dotted
+            && line.get(range.clone()) == Some(word.as_str())
+            && search::swift_binds_on(&signature(line.to_owned()), word)
+            && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word)
+    }
+
+    fn python_own(&self, a: &Asked, locals: &[usize], declared: bool) -> bool {
+        a.kind == Kind::Python
+            && locals == [self.line + 1]
+            && ((!declared && search::python_inline_binds(self.line_str(), &a.word))
+                || (!a.dotted && search::python_in_function_body(&a.text, self.line + 1)))
     }
 
     fn locals_of(&self, a: &Asked, declared: bool) -> Vec<usize> {
