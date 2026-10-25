@@ -64,6 +64,7 @@ The php row with #1279 (a call of a Composer helper such as `env(..)` lands on t
 The dart row with #1280 (a chain of names without a call, `err.requestOptions.uri`, follows each link's declared type): over `4742745b8`, 2026-10-26, release build, `vm.loadavg` { 4.85 7.23 7.93 } before the run.
 The php row with #1279's second pass (a method a class inherits from a `vendor/` class, its parents and traits read, lands on its one declaration; a `use A,` trait list over several lines is read): over `4ce560fb3`, 2026-10-26, release build, `vm.loadavg` { 6.67 7.28 7.80 } before the run, { 9.23 7.65 7.85 } after.
 The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, called on a plain object, lands on the overload C++ calls: `data()`, `back()`, `load()`): over `0a55ada19`, 2026-10-26, release build, `vm.loadavg` { 9.99 8.27 8.27 } before the run, { 10.18 8.36 8.30 } after.
+The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the function, in effect at the cursor): over `affcd2f55`, 2026-10-26, release build, `vm.loadavg` { 4.99 7.13 7.67 } before the run, { 5.12 6.68 7.46 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -99,4 +100,4 @@ The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, ca
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
 | dart (dio) | 97 | 79 (81%) | 14 (14%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
-| sql (lemmy) | 79 | 70 (89%) | 1 (1%) | 0 (0%) | 8 (10%) | 31 | 0 | 14.1 | 25.3 |
+| sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
