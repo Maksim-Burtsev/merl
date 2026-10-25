@@ -58,6 +58,7 @@ The ts, js, vue, svelte and astro rows with #1273 (a template loop variable answ
 The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and defines again after the SDK's `math.h`, `INFINITY` in c0090, now scored): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.55 6.36 7.19 } before the run, { 7.01 6.39 7.10 } after.
 The objc and css rows with #1276 and #1277 (an Objective-C method's or a typedef's parameter stays on itself; a Sass variable reads the `@each`, `@for`, `@mixin` or `@function` that binds it; objc0041, objc0084 and objc0119 answers reviewed, css0063, css0092, css0163, css0213 and css0277 judged): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.18 6.20 6.99 } before the run.
 The ts, js, vue, svelte and astro rows with #1275 (a name a dependency's ambient `declare module '$app/…'` exports lands on the source line its declaration map names; a member of it says no definition): over `7920ff73a`, 2026-10-26, release build, `vm.loadavg` { 5.87 8.55 9.02 } before the run.
+The dart row with #1280 (a chain of names without a call, `err.requestOptions.uri`, follows each link's declared type): over `4742745b8`, 2026-10-26, release build, `vm.loadavg` { 4.85 7.23 7.93 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -92,5 +93,5 @@ The ts, js, vue, svelte and astro rows with #1275 (a name a dependency's ambient
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
-| dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
+| dart (dio) | 97 | 79 (81%) | 14 (14%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
 | sql (lemmy) | 79 | 70 (89%) | 1 (1%) | 0 (0%) | 8 (10%) | 31 | 0 | 14.1 | 25.3 |
