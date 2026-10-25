@@ -223,6 +223,9 @@ pub fn cpp_delegated_constructor<T>(
     });
     let code = c_code(text);
     let at = line_starts(&code).get(line1.checked_sub(1)?)? + byte_col;
+    if code.get(..at)?.trim_end().ends_with("::") {
+        return None;
+    }
     let (own, owner) = init_list_call(&code, at, word)?;
     let (_, args) = bracket_items(&code, text, at + word.len(), false)?;
     if let [arg] = &args[..]
@@ -335,6 +338,21 @@ fn classes_written(code: &str, path: &[String], word: &str) -> Vec<usize> {
                 && cpp_scope_path(code, open + 1) == path)
                 .then_some(open)
         })
+        .collect()
+}
+
+pub fn cpp_used_namespaces(text: &str, line1: usize) -> Vec<Vec<String>> {
+    static DIRECTIVE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\busing\s+namespace\s+((?:\w+\s*::\s*)*\w+)\s*;")
+            .expect("the regex is a literal")
+    });
+    let code = c_code(text);
+    let end = (line_starts(&code).get(line1.saturating_sub(1)).copied()).unwrap_or(code.len());
+    (DIRECTIVE.captures_iter(code.get(..end).unwrap_or_default()))
+        .filter(|c| {
+            (c.get(0)).is_some_and(|m| c_innermost_open_brace(code.as_bytes(), m.start()).is_none())
+        })
+        .map(|c| c[1].split("::").map(|p| p.trim().to_owned()).collect())
         .collect()
 }
 

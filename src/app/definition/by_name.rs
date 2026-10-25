@@ -680,8 +680,11 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path).is_some_and(|t| {
-                    search::cpp_member_scope(&t, h.line1, word).as_ref() == Some(&own)
-                        && search::cpp_defined_signature(&t, h.line1, word).as_ref() == Some(&sig)
+                    search::cpp_member_scope(&t, h.line1, word).is_some_and(|s| {
+                        (std::iter::once(Vec::new()))
+                            .chain(search::cpp_used_namespaces(&t, h.line1))
+                            .any(|n| [n, s.clone()].concat() == own)
+                    }) && search::cpp_defined_signature(&t, h.line1, word).as_ref() == Some(&sig)
                 })
             })
             .collect();
