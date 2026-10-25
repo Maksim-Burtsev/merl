@@ -1,0 +1,25 @@
+$state: "none";
+@each $state, $tone in $theme-colors {
+  .alert-#{$state} {
+//           ^ d: scss/loops.scss:2
+    color: $tone;
+//          ^ d: scss/loops.scss:2
+    --a: var(--#{$state}-bg);
+//                ^ d: scss/loops.scss:2
+  }
+}
+@mixin tint($state, $amount: 10%) {
+  @if $amount > 0 {
+    color: mix(white, $state, $amount);
+//                     ^ d: scss/loops.scss:11
+  }
+}
+@for $i from 1 through 3 {
+  .gap-#{$i} { margin: $i * 1px; }
+//                      ^ d: scss/loops.scss:17
+}
+.after { content: $state; }
+//                 ^ d: scss/loops.scss:1
+/* @each $tone in $x { */
+.x { color: $tone; }
+//           ^ d: none

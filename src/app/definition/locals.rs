@@ -49,7 +49,10 @@ impl App {
         let ruby_block = kind == Kind::Ruby
             && !a.dotted
             && search::ruby_block_param(self.line_str(), word, range.start);
-        if own_arrow || arrow_param || swift_closure || ruby_block {
+        let c_parameter = kind == Kind::C
+            && !a.dotted
+            && search::c_names_a_parameter(&a.text, self.line + 1, range.start, word);
+        if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter {
             locals = vec![self.line + 1];
         }
         let type_param = (kind == Kind::TsJs
@@ -98,7 +101,13 @@ impl App {
         if self.answered_by_locals(
             a,
             &locals,
-            same_line || own_line || own_arrow || ts_key || python_own || type_param.is_some(),
+            same_line
+                || own_line
+                || own_arrow
+                || ts_key
+                || python_own
+                || c_parameter
+                || type_param.is_some(),
         ) {
             return None;
         }

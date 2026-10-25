@@ -385,7 +385,7 @@ pub(super) fn bracket_contents_blanked(s: &str) -> String {
     }
     out
 }
-fn top_level_paren_groups(s: &str) -> Vec<Range<usize>> {
+pub(super) fn top_level_paren_groups(s: &str) -> Vec<Range<usize>> {
     let (mut depth, mut from, mut out) = (0usize, 0, Vec::new());
     for (i, c) in s.bytes().enumerate() {
         match c {
@@ -551,7 +551,7 @@ fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
             .then_some(j)
     })
 }
-fn parameter_at(params: &str, name: &str) -> Option<usize> {
+pub(super) fn parameter_at(params: &str, name: &str) -> Option<usize> {
     static POINTER: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^[^(]*\(\s*[*&^]+\s*(\w+)\s*(?:\[[^\]]*\]\s*)?\)")
             .expect("the regex is a literal")

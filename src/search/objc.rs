@@ -133,6 +133,30 @@ pub fn objc_parameter(head: &str, name: &str) -> Option<usize> {
     Some(at + m.start())
 }
 
+pub fn c_names_a_parameter(text: &str, line1: usize, byte_col: usize, name: &str) -> bool {
+    let code = super::c_code(text);
+    let starts = super::c::line_starts(&code);
+    let pos = line1.checked_sub(1).and_then(|l| starts.get(l));
+    pos.is_some_and(|s| parameter_written_here(&code, s + byte_col, name).is_some())
+}
+fn parameter_written_here(code: &str, pos: usize, name: &str) -> Option<usize> {
+    let end = pos + code.get(pos..)?.find(['{', ';', '}'])?;
+    let start = super::c::c_head_start(code, end);
+    let head = code.get(start..end)?;
+    let typedef = || {
+        let group = super::c::top_level_paren_groups(head).pop()?;
+        let inner = group.start + 1..group.end - 1;
+        let typedef_line = head.lines().any(|l| l.trim_start().starts_with("typedef "));
+        (code.as_bytes()[end] == b';' && typedef_line)
+            .then(|| super::c::parameter_at(head.get(inner.clone())?, name))?
+            .map(|j| start + inner.start + j)
+    };
+    objc_parameter(head, name)
+        .map(|j| start + j)
+        .or_else(typedef)
+        .filter(|&at| at == pos)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

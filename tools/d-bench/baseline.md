@@ -56,6 +56,7 @@ The python and go rows with #1268 and #1269 (a local assigned in a function body
 The bash, c and swift rows with #1270 (a read in an `elif` / `else` branch skips the assignment of an earlier branch; bash0085's answer judged as `acme.sh:2892`) and #1272 (a wrapped parameter and a generic parameter at their declaration): over `38c0bef1b`, 2026-10-26, release build, `vm.loadavg` { 9.66 9.13 8.01 } before the run, { 12.32 9.49 8.23 } after.
 The ts, js, vue, svelte and astro rows with #1273 (a template loop variable answers from its own block; a type key ending in `;` is its own definition; an Astro template name no import declares opens a one-row picker): over `83641823a`, 2026-10-26, release build, `vm.loadavg` { 5.21 6.39 7.32 } before the run, { 6.50 6.29 7.08 } after.
 The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and defines again after the SDK's `math.h`, `INFINITY` in c0090, now scored): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.55 6.36 7.19 } before the run, { 7.01 6.39 7.10 } after.
+The objc and css rows with #1276 and #1277 (an Objective-C method's or a typedef's parameter stays on itself; a Sass variable reads the `@each`, `@for`, `@mixin` or `@function` that binds it; objc0041, objc0084 and objc0119 answers reviewed, css0063, css0092, css0163, css0213 and css0277 judged): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.18 6.20 6.99 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -72,14 +73,14 @@ The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |
 | ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 2 | 66.3 | 382.6 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 23.2 | 119.7 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
-| css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 1 | 3.4 | 24.5 |
+| css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 2 | 50.1 | 173.7 |
 | svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 2 | 32.2 | 181.0 |
 | astro (starlight) | 167 | 112 (67%) | 14 (8%) | 0 (0%) | 41 (25%) | 103 | 8 | 36.4 | 120.3 |

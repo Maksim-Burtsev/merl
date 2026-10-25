@@ -26,3 +26,9 @@
 //              ^ d: objc/Repo.m:20
 }
 @end
+
+@implementation Timer
+- (void)waitFor:(NSInteger)ticks then:(Done)completion {
+//                                          ^ d: objc/Repo.m:31
+}
+@end
