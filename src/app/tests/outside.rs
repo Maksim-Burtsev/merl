@@ -158,6 +158,69 @@ fn c_reads_no_cpp_header_and_only_objective_c_reads_the_pods() {
 }
 
 #[test]
+fn a_macro_clang_s_float_h_undefines_and_defines_again_is_clang_s_after_it() {
+    let sdk = external_root(
+        "outside-clang-sdk",
+        &[
+            ("math.h", "#define INFINITY HUGE_VALF\n"),
+            ("float.h", "#define FLT_MAX 1e38\n"),
+            ("stddef.h", "#include <_null.h>\n"),
+            ("_null.h", "#define NULL ((void *)0)\n"),
+        ],
+    );
+    let clang = external_root(
+        "outside-clang-include",
+        &[
+            (
+                "float.h",
+                "#include <__inf.h>\n#undef FLT_MAX\n#define FLT_MAX 2\n",
+            ),
+            (
+                "__inf.h",
+                "#undef INFINITY\n#define INFINITY (__builtin_inff())\n",
+            ),
+            ("stddef.h", "#undef NULL\n#define NULL ((void*)0)\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-clang",
+        &[
+            (
+                "a.c",
+                "#include <math.h>\n#include <float.h>\ndouble a = INFINITY;\n",
+            ),
+            (
+                "b.c",
+                "#include <float.h>\n#include <math.h>\ndouble b = INFINITY;\n",
+            ),
+            (
+                "c.c",
+                "#include <math.h>\ndouble c = INFINITY;\n#include <float.h>\n",
+            ),
+            ("d.c", "#include <float.h>\nfloat d = FLT_MAX;\n"),
+            ("e.c", "#include <stddef.h>\nvoid *e = NULL;\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&sdk));
+    a.clang_include = std::sync::OnceLock::from(Some(clang.clone()));
+    let place = |a: &mut App, file: &str, code: &str| {
+        d_on(a, file, code);
+        match shown(a) {
+            Shown::Jump(_, place) => place,
+            picker @ Shown::Picker(..) => format!("{picker:?}"),
+        }
+    };
+    assert_eq!(place(&mut a, "a.c", "= INFINITY"), at(&clang, "__inf.h", 2));
+    assert_eq!(place(&mut a, "b.c", "= INFINITY"), at(&sdk, "math.h", 1));
+    assert_eq!(place(&mut a, "c.c", "= INFINITY"), at(&sdk, "math.h", 1));
+    assert_eq!(place(&mut a, "d.c", "= FLT_MAX"), at(&sdk, "float.h", 1));
+    assert_eq!(place(&mut a, "e.c", "= NULL"), at(&sdk, "_null.h", 1));
+    for d in [dir, sdk, clang] {
+        drop(std::fs::remove_dir_all(d));
+    }
+}
+
+#[test]
 fn a_dart_qualifier_is_no_directory() {
     let pub_cache = external_root(
         "outside-dart",

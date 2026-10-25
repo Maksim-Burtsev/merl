@@ -55,6 +55,7 @@ The rust row with #1044's thirteenth pass (a dependency's type read in its one l
 The python and go rows with #1268 and #1269 (a local assigned in a function body stays on itself; a `:=` is never a package-level declaration; python0019, python0190 and go0299 answers reviewed): over `8c8749637`, 2026-10-26, release build, `vm.loadavg` { 5.35 5.73 7.10 } before the run.
 The bash, c and swift rows with #1270 (a read in an `elif` / `else` branch skips the assignment of an earlier branch; bash0085's answer judged as `acme.sh:2892`) and #1272 (a wrapped parameter and a generic parameter at their declaration): over `38c0bef1b`, 2026-10-26, release build, `vm.loadavg` { 9.66 9.13 8.01 } before the run, { 12.32 9.49 8.23 } after.
 The ts, js, vue, svelte and astro rows with #1273 (a template loop variable answers from its own block; a type key ending in `;` is its own definition; an Astro template name no import declares opens a one-row picker): over `83641823a`, 2026-10-26, release build, `vm.loadavg` { 5.21 6.39 7.32 } before the run, { 6.50 6.29 7.08 } after.
+The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and defines again after the SDK's `math.h`, `INFINITY` in c0090, now scored): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.55 6.36 7.19 } before the run, { 7.01 6.39 7.10 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -63,15 +64,15 @@ The ts, js, vue, svelte and astro rows with #1273 (a template loop variable answ
 | js (eslint, uptime-kuma) | 217 | 180 (83%) | 31 (14%) | 0 (0%) | 6 (3%) | 177 | 11 | 38.5 | 181.1 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
-| c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 26.3 | 41.5 |
-| cpp (leveldb) | 232 | 200 (86%) | 32 (14%) | 0 (0%) | 0 (0%) | 68 | 12 | 22.1 | 70.7 |
+| c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
+| cpp (leveldb) | 232 | 200 (86%) | 32 (14%) | 0 (0%) | 0 (0%) | 68 | 12 | 17.3 | 64.4 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
 | swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |
 | ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 2 | 66.3 | 382.6 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 22.0 | 92.5 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 23.2 | 119.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
