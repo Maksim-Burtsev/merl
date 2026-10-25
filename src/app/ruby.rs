@@ -515,7 +515,11 @@ impl App {
                 callbacks.run.extend(more.run);
                 callbacks.idle.extend(more.idle);
                 callbacks.skipped.extend(more.skipped);
+                callbacks.unnamed |= more.unnamed;
             }
+        }
+        if callbacks.unnamed {
+            return None;
         }
         let mut set = None;
         for (c, (_, t)) in found.iter().zip(&texts) {

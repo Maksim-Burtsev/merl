@@ -655,6 +655,7 @@ pub struct RubyCallbacks {
     pub run: Vec<String>,
     pub idle: Vec<String>,
     pub skipped: Vec<String>,
+    pub unnamed: bool,
 }
 
 pub fn ruby_callbacks_before(text: &str, class: &str, action: &str) -> RubyCallbacks {
@@ -679,15 +680,19 @@ pub fn ruby_callbacks_before(text: &str, class: &str, action: &str) -> RubyCallb
         if ruby_class_path(text, i + 1) != class {
             continue;
         }
-        let names = c[2].split(',').map_while(|part| {
-            SYMBOL
-                .captures(part.trim_end_matches(')'))
-                .map(|s| s[1].to_owned())
-        });
+        let names: Vec<String> = c[2]
+            .split(',')
+            .map_while(|part| {
+                SYMBOL
+                    .captures(part.trim_end_matches(')'))
+                    .map(|s| s[1].to_owned())
+            })
+            .collect();
         if c.get(1).is_some() {
             out.skipped.extend(names);
             continue;
         }
+        out.unnamed |= names.is_empty();
         let applies = LIMIT.captures_iter(&c[2]).all(|l| {
             let listed = NAME
                 .find_iter(l[2].trim_start_matches("%i"))

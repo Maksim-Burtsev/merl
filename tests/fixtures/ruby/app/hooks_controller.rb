@@ -117,3 +117,23 @@ class ShelvesController < BaseController
     @shelf = Shelf.find(params[:id])
   end
 end
+
+class CupsController < BaseController
+  before_action { @cup = Cup.first }
+  before_action :set_cup
+
+  def show
+    @cup
+    #^ d: picker app/hooks_controller.rb:131, app/hooks_controller.rb:137
+  end
+
+  def new
+    @cup = Cup.new
+  end
+
+  private
+
+  def set_cup
+    @cup = Cup.find(params[:id])
+  end
+end
