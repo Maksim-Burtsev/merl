@@ -674,3 +674,82 @@ fn a_dart_import_that_does_not_resolve_keeps_every_package() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nclass Ctl\n{\n    public function __invoke(?string $n): array\n    {\n        return [\n            'a' => env('X'),\n            'b' => $n ?: config('k'),\n            'c' => str_contains($n, 'x'),\n            'd' => dupe(),\n            'e' => stray(),\n        ];\n    }\n}\n";
+    let helpers = "<?php\n\nif (! function_exists('env')) {\n    function env($key, $default = null)\n    {\n    }\n}\n\nif (! function_exists('config')) {\n    function config($key = null)\n    {\n    }\n}\n\nfunction dupe()\n{\n}\n";
+    let di = "<?php\n\nnamespace DI;\n\nfunction env(string $name)\n{\n}\n";
+    let repo = "<?php\n\nnamespace Illuminate\\Config;\n\nclass Repository\n{\n    public function config()\n    {\n    }\n\n    public function str_contains()\n    {\n    }\n\n    public function stray()\n    {\n    }\n}\n";
+    let polyfill = "<?php\n\nif (! function_exists('str_contains')) {\n    function str_contains($h, $n)\n    {\n    }\n}\n";
+    let listing = "<?php\n\n$vendorDir = dirname(__DIR__);\n$baseDir = dirname($vendorDir);\n\nreturn array(\n    'a1' => $vendorDir . '/laravel/src/helpers.php',\n    'b2' => $vendorDir . '/php-di/src/functions.php',\n    'c3' => $vendorDir . '/symfony/polyfill-php80/bootstrap.php',\n    'd4' => $vendorDir . '/other/dupe.php',\n);\n";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Ctl.php", ctl),
+        ("vendor/composer/autoload_files.php", listing),
+        ("vendor/laravel/src/helpers.php", helpers),
+        ("vendor/laravel/src/Config/Repository.php", repo),
+        ("vendor/php-di/src/functions.php", di),
+        ("vendor/symfony/polyfill-php80/bootstrap.php", polyfill),
+        ("vendor/other/dupe.php", "<?php\n\nfunction dupe()\n{\n}\n"),
+        (
+            "vendor/other/tests/stray.php",
+            "<?php\n\nfunction stray()\n{\n}\n",
+        ),
+    ];
+    let (dir, mut a) = project_app("php-helper-call", &files);
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    };
+    let got = [
+        d("env"),
+        d("?: config"),
+        d("dupe"),
+        d("str_contains"),
+        d("stray"),
+    ];
+    drop(std::fs::remove_dir_all(dir));
+    let repo_row = |name: &'static str, line: usize| {
+        (name, format!("laravel/src/Config/Repository.php:{line}"))
+    };
+    let (contains, stray) = (repo_row("str_contains", 11), repo_row("stray", 15));
+    assert_eq!(
+        got,
+        [
+            jump("env: by name, 1 match", "vendor/laravel/src/helpers.php:4"),
+            jump(
+                "config: by name, 1 match",
+                "vendor/laravel/src/helpers.php:10"
+            ),
+            picker(
+                "dupe: by name, 2 declarations",
+                &[
+                    ("dupe", "laravel/src/helpers.php:15"),
+                    ("dupe", "other/dupe.php:3")
+                ]
+            ),
+            picker(
+                "str_contains: by name, 2 declarations",
+                &[
+                    ("Repository::str_contains", contains.1.as_str()),
+                    ("str_contains", "symfony/polyfill-php80/bootstrap.php:4")
+                ]
+            ),
+            picker(
+                "stray: by name, 2 declarations",
+                &[
+                    ("Repository::stray", stray.1.as_str()),
+                    ("stray", "other/tests/stray.php:3")
+                ]
+            ),
+        ],
+        "after `=>` and `?:` a call is a call; DI\\env and a config() method are no namesakes of \
+         the global functions; two global dupe()s, a polyfill of a builtin and a file composer \
+         never loads keep the picker"
+    );
+}

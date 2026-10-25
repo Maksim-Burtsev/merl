@@ -56,6 +56,7 @@ The python and go rows with #1268 and #1269 (a local assigned in a function body
 The bash, c and swift rows with #1270 (a read in an `elif` / `else` branch skips the assignment of an earlier branch; bash0085's answer judged as `acme.sh:2892`) and #1272 (a wrapped parameter and a generic parameter at their declaration): over `38c0bef1b`, 2026-10-26, release build, `vm.loadavg` { 9.66 9.13 8.01 } before the run, { 12.32 9.49 8.23 } after.
 The ts, js, vue, svelte and astro rows with #1273 (a template loop variable answers from its own block; a type key ending in `;` is its own definition; an Astro template name no import declares opens a one-row picker): over `83641823a`, 2026-10-26, release build, `vm.loadavg` { 5.21 6.39 7.32 } before the run, { 6.50 6.29 7.08 } after.
 The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and defines again after the SDK's `math.h`, `INFINITY` in c0090, now scored): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.55 6.36 7.19 } before the run, { 7.01 6.39 7.10 } after.
+The php row with #1279 (a call of a Composer helper such as `env(..)` lands on the one global function a file `autoload_files.php` lists declares; a call after `=>` or `?:` is a call): over `6c42b3142`, 2026-10-26, release build, `vm.loadavg` { 6.85 8.04 8.18 } before the run, { 11.90 8.87 8.44 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -66,7 +67,7 @@ The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 232 | 200 (86%) | 32 (14%) | 0 (0%) | 0 (0%) | 68 | 12 | 17.3 | 64.4 |
-| php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
+| php (koel) | 392 | 315 (80%) | 55 (14%) | 0 (0%) | 22 (6%) | 88 | 3 | 29.1 | 218.9 |
 | swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
