@@ -103,6 +103,18 @@ impl App {
         {
             self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
+        if kind == Kind::TsJs
+            && !a.dotted
+            && a.chain.is_empty()
+            && self.on_template(&a.here)
+            && found.iter().all(|c| {
+                c.reason == Reason::ByName
+                    && c.hit.path != a.here
+                    && !c.hit.path.to_string_lossy().ends_with(".d.ts")
+            })
+        {
+            self.offer_only = true;
+        }
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);

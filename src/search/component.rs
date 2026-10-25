@@ -135,10 +135,19 @@ pub fn template_reaches<S: AsRef<str>>(
     word: &str,
     line: usize,
 ) -> bool {
+    !template_reaching(lines, code, word, line).is_empty()
+}
+pub fn template_reaching<S: AsRef<str>>(
+    lines: &[S],
+    code: &[bool],
+    word: &str,
+    line: usize,
+) -> Vec<usize> {
     let text = |i: usize| lines[i].as_ref();
     let indent = |i: usize| text(i).len() - text(i).trim_start().len();
     let opens = |i: usize| text(i).trim_start().starts_with(['<', '{']);
-    template_binds(lines, code, word).into_iter().any(|b| {
+    let mut bound = template_binds(lines, code, word);
+    bound.retain(|&b| {
         let at = b - 1;
         let start = (0..=at)
             .rev()
@@ -152,7 +161,8 @@ pub fn template_reaches<S: AsRef<str>>(
             t.is_empty() || t == ">" || indent(i) > base || sibling && indent(i) == base
         };
         start <= line && (line <= at || (at + 1..=line).all(within))
-    })
+    });
+    bound
 }
 fn pattern_names(pattern: &str) -> Vec<&str> {
     static TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {

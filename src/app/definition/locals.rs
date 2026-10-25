@@ -137,6 +137,10 @@ impl App {
         let rust_field =
             kind == Kind::Rust && after.starts_with(':') && !after.starts_with("::") && !a.captured;
         let bare = kind == Kind::TsJs && !dotted && chain.is_empty();
+        let ts_key = bare
+            && a.lead.trim().is_empty()
+            && (after.starts_with(':') || after.starts_with("?:"))
+            && !after.starts_with("::");
         let required = match kind {
             Kind::TsJs => search::ts_import_lines1(&a.text, first),
             _ => Vec::new(),
@@ -162,6 +166,7 @@ impl App {
                         && !import_line(kind, l)
                         && !rust_path
                         && (!rust_field || n == self.line + 1)
+                        && (!ts_key || n == self.line + 1)
                 })
                 .map(|n| match kind {
                     Kind::TsJs => search::written_line(&self.buf.lines, n, first),
@@ -187,6 +192,7 @@ impl App {
             locals.extend(search::ts_var_again(&a.text, only, first));
         }
         if bare
+            && !ts_key
             && locals.is_empty()
             && required.is_empty()
             && let Some(hoisted) = search::ts_hoisted_function(&a.text, self.line + 1, first)
