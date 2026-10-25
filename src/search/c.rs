@@ -667,12 +667,12 @@ pub(super) fn close_or_end(code: &str, open: usize, end: usize) -> usize {
     }
     end
 }
-struct Scope {
-    open: usize,
-    head_start: usize,
-    head: Head,
+pub(super) struct Scope {
+    pub(super) open: usize,
+    pub(super) head_start: usize,
+    pub(super) head: Head,
 }
-fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> {
+pub(super) fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> {
     let mut out = Vec::new();
     let mut at = pos;
     while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
@@ -692,7 +692,7 @@ fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> 
     }
     out
 }
-fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<usize> {
+pub(super) fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<usize> {
     let from = *starts.get(line1.checked_sub(1)?)?;
     let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
     let is_name = |c: char| c.is_alphanumeric() || c == '_';

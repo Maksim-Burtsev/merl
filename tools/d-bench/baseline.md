@@ -61,6 +61,7 @@ The ts, js, vue, svelte and astro rows with #1275 (a name a dependency's ambient
 The java row with #1278's lambda parameter typed by its chain: over `c271c460`, 2026-10-26, release build, `vm.loadavg` { 10.93 8.40 8.32 } before the run.
 The php row with #1279 (a call of a Composer helper such as `env(..)` lands on the one global function a file `autoload_files.php` lists declares; a call after `=>` or `?:` is a call): over `6c42b3142`, 2026-10-26, release build, `vm.loadavg` { 6.85 8.04 8.18 } before the run, { 11.90 8.87 8.44 } after.
 The dart row with #1280 (a chain of names without a call, `err.requestOptions.uri`, follows each link's declared type): over `4742745b8`, 2026-10-26, release build, `vm.loadavg` { 4.85 7.23 7.93 } before the run.
+The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, called on a plain object, lands on the overload C++ calls: `data()`, `back()`, `load()`): over `0a55ada19`, 2026-10-26, release build, `vm.loadavg` { 9.99 8.27 8.27 } before the run, { 10.18 8.36 8.30 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -70,7 +71,7 @@ The dart row with #1280 (a chain of names without a call, `err.requestOptions.ur
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
-| cpp (leveldb) | 232 | 200 (86%) | 32 (14%) | 0 (0%) | 0 (0%) | 68 | 12 | 17.3 | 64.4 |
+| cpp (leveldb) | 232 | 204 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 68 | 12 | 19.3 | 68.6 |
 | php (koel) | 392 | 315 (80%) | 55 (14%) | 0 (0%) | 22 (6%) | 88 | 3 | 29.1 | 218.9 |
 | swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
