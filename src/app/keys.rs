@@ -170,6 +170,7 @@ impl App {
         self.settle_notes(key);
         let far = is_far(key.code);
         let extending = matches!(key.code, KeyCode::Char('v' | 'V'))
+            || selects_all(key)
             || shift
                 && (far
                     || matches!(
@@ -300,6 +301,7 @@ impl App {
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
             KeyCode::Char('m') => self.toggle_viewed(),
+            _ if self.focus == Focus::Code && selects_all(key) => self.select_all(),
             KeyCode::Char('a') if self.notes.on => self.add_note(),
             KeyCode::Char('v') if self.notes.focus.is_some() => self.notes.selected = true,
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow(),
@@ -374,6 +376,13 @@ impl App {
         }
     }
 
+    fn select_all(&mut self) {
+        self.anchor = Some((self.first_line(), 0));
+        self.set_at(self.last_line());
+        self.col = self.shown_len();
+        self.sync_want_x();
+    }
+
     fn does_nothing(&self, key: KeyEvent) -> bool {
         let KeyCode::Char(c) = key.code else {
             return false;
@@ -397,6 +406,7 @@ impl App {
 
     fn binds(&self, key: KeyEvent) -> bool {
         named("", key).is_some()
+            || selects_all(key)
             || matches!(self.mode, Mode::Edit | Mode::Note) && named("Edit: ", key).is_some()
     }
 
@@ -423,6 +433,15 @@ impl App {
                 self.prompt.key(key);
             }
         }
+    }
+}
+
+fn selects_all(key: KeyEvent) -> bool {
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    match std::env::var("MERL_SELECT_ALL").as_deref() {
+        Ok("a") => ctrl && key.code == KeyCode::Char('a'),
+        Ok("b") => !ctrl && key.code == KeyCode::Char('%'),
+        _ => false,
     }
 }
 
