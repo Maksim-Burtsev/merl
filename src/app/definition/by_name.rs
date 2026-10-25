@@ -655,7 +655,11 @@ impl App {
             Some(path) => {
                 let text = self.text_of(&path).unwrap_or_default();
                 let hit = Hit {
-                    text: text.lines().nth(line1.saturating_sub(1)).unwrap_or_default().to_owned(),
+                    text: text
+                        .lines()
+                        .nth(line1.saturating_sub(1))
+                        .unwrap_or_default()
+                        .to_owned(),
                     path,
                     line1,
                     byte_col: None,

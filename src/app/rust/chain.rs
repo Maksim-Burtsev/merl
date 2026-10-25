@@ -361,7 +361,8 @@ impl App {
             else {
                 return None;
             };
-            let parts = super::returns::top_level(written.trim().strip_prefix('(')?.strip_suffix(')')?);
+            let parts =
+                super::returns::top_level(written.trim().strip_prefix('(')?.strip_suffix(')')?);
             return (parts.len() == n).then(|| self.rust_got(&file, parts[i].to_owned(), line0));
         };
         if init.starts_with("match ") {

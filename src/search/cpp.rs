@@ -346,7 +346,13 @@ pub fn cpp_member_scope(text: &str, line1: usize, word: &str) -> Option<Vec<Stri
     let before = code.get(*line_starts(&code).get(line1.checked_sub(1)?)?..at)?;
     let mut path = cpp_scope_path(&code, at);
     let qualifier = QUALIFIER.find(before)?.as_str();
-    path.extend(qualifier.split("::").map(str::trim).filter(|p| !p.is_empty()).map(str::to_owned));
+    path.extend(
+        qualifier
+            .split("::")
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(str::to_owned),
+    );
     Some(path)
 }
 
