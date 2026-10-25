@@ -1,0 +1,4 @@
+-- #1255's review: a */ inside a string ends no comment, so this file reads as MySQL.
+/* a /* b */
+CREATE TABLE muffins (id int);
+INSERT INTO muffins VALUES ('*/');

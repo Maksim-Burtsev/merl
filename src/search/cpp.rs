@@ -2,9 +2,9 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use super::c::{
-    ACCESS_LABELS, Head, bracket_contents_blanked, c_bindings_at, c_code, c_head, c_head_start,
-    c_innermost_open_brace, c_place, c_struct_head, c_words_on_line, close_or_end, cpp_class_path,
-    cpp_decl_start, line_starts,
+    ACCESS_LABELS, Head, bracket_contents_blanked, c_bindings_at, c_body_name, c_code, c_head,
+    c_head_start, c_innermost_open_brace, c_place, c_struct_head, c_words_on_line, close_or_end,
+    cpp_class_path, cpp_decl_start, line_starts,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -174,6 +174,151 @@ pub fn cpp_defined_signature(text: &str, line1: usize, word: &str) -> Option<Vec
         return None;
     }
     signature(code.get(start + params.start..open)?)
+}
+
+pub fn cpp_constructor_defined_in_class(
+    text: &str,
+    line1: usize,
+    byte_col: usize,
+    word: &str,
+) -> bool {
+    let called = text.lines().nth(line1.saturating_sub(1)).is_some_and(|l| {
+        l.get(byte_col + word.len()..)
+            .is_some_and(|r| r.trim_start().starts_with('('))
+    });
+    if !called {
+        return false;
+    }
+    let code = c_code(text);
+    let Some(at) = c_words_on_line(&code, line1, word, Some('('))
+        .into_iter()
+        .find(|&i| c_place(&code, i).byte_col == byte_col)
+    else {
+        return false;
+    };
+    let Some(open) = code.get(at..).and_then(|r| r.find(['{', ';'])) else {
+        return false;
+    };
+    let open = at + open;
+    let start = c_head_start(&code, open);
+    let head = code.get(start..open).unwrap_or_default();
+    code.as_bytes()[open] == b'{'
+        && matches!(c_head(head), Head::Function { name, params }
+            if name.trim_start_matches('~') == word
+                && code.get(at + word.len()..start + params.start).is_some_and(|g| g.trim().is_empty()))
+        && c_innermost_open_brace(code.as_bytes(), at)
+            .is_some_and(|o| c_body_name(&code, o) == word)
+}
+
+pub fn cpp_delegated_constructor(
+    text: &str,
+    line1: usize,
+    byte_col: usize,
+    word: &str,
+) -> Option<usize> {
+    static SPECIFIERS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:public|protected|private)\s*:)?(?:\s*(?:explicit|constexpr|consteval|inline)\b)*\s*$")
+            .expect("the regex is a literal")
+    });
+    static LITERAL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"^(?:[-+]?\.?\d[\w.']*|true|false|nullptr|(?:u8|[uUL])?["'].*["'])$"#)
+            .expect("the regex is a literal")
+    });
+    let code = c_code(text);
+    let at = line_starts(&code).get(line1.checked_sub(1)?)? + byte_col;
+    let class = c_innermost_open_brace(code.as_bytes(), at)?;
+    let own = init_list_call(&code, at, word)?;
+    if c_body_name(&code, class) != word {
+        return None;
+    }
+    let (_, args) = bracket_items(&code, text, at + word.len(), false)?;
+    if let [arg] = &args[..]
+        && !LITERAL.is_match(text.get(arg.clone())?.trim())
+    {
+        return None;
+    }
+    let end = close_or_end(&code, class, code.len());
+    let name = Regex::new(&format!(r"\b{}\s*\(", regex::escape(word))).ok()?;
+    let mut fits = Vec::new();
+    for m in name.find_iter(code.get(class + 1..end)?) {
+        let pos = class + 1 + m.start();
+        if c_innermost_open_brace(code.as_bytes(), pos) != Some(class)
+            || init_list_call(&code, pos, word).is_some()
+        {
+            continue;
+        }
+        let prefix = code.get(c_head_start(&code, pos)..pos)?;
+        if prefix.trim_end().ends_with('~') {
+            continue;
+        }
+        let (paren, params) = bracket_items(&code, text, pos + word.len(), true)?;
+        let plain = |p: &std::ops::Range<usize>| {
+            code.get(p.clone())
+                .is_some_and(|p| !p.contains('=') && !p.contains("..."))
+        };
+        if !SPECIFIERS.is_match(prefix) || !params.iter().all(plain) {
+            return None;
+        }
+        if params.len() == args.len() {
+            fits.push((pos, paren));
+        }
+    }
+    match fits[..] {
+        [(pos, paren)] if paren != own => Some(c_place(&code, pos).line1),
+        _ => None,
+    }
+}
+
+fn init_list_call(code: &str, at: usize, word: &str) -> Option<usize> {
+    let (paren, _) = bracket_items(code, code, at + word.len(), false)?;
+    let close = close_or_end(code, paren, code.len());
+    let body = close + code.get(close..)?.find(['{', ';'])?;
+    let start = c_head_start(code, body);
+    match c_head(code.get(start..body)?) {
+        Head::Function { name, params }
+            if name == word && start + params.end <= at && code.as_bytes()[body] == b'{' =>
+        {
+            Some(start + params.start)
+        }
+        _ => None,
+    }
+}
+
+fn bracket_items(
+    code: &str,
+    text: &str,
+    from: usize,
+    angles: bool,
+) -> Option<(usize, Vec<std::ops::Range<usize>>)> {
+    let rest = code.get(from..)?;
+    let paren = from + rest.len() - rest.trim_start().len();
+    if code.as_bytes().get(paren) != Some(&b'(') {
+        return None;
+    }
+    let (mut depth, mut item, mut items) = (0usize, paren + 1, Vec::new());
+    for (i, c) in code.bytes().enumerate().skip(paren) {
+        match c {
+            b'<' if !angles => return None,
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b'>' if !angles => {}
+            b')' | b']' | b'}' | b'>' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    items.push(item..i);
+                    let inner = text.get(paren + 1..i)?.trim();
+                    let empty =
+                        items.len() == 1 && (inner.is_empty() || (angles && inner == "void"));
+                    return Some((paren, if empty { Vec::new() } else { items }));
+                }
+            }
+            b',' if depth == 1 => {
+                items.push(item..i);
+                item = i + 1;
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 pub fn cpp_declared_signature(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {

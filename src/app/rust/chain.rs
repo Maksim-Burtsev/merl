@@ -126,6 +126,41 @@ pub(super) fn let_initializer(lines: &[&str], at: usize, name: &str) -> Option<S
     Some(statement.trim_end_matches(';').trim().to_owned())
 }
 
+struct Arm {
+    line0: usize,
+    pattern: String,
+    expr: String,
+}
+
+fn match_arms(lines: &[&str], at: usize) -> Option<Vec<Arm>> {
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let head = lines.get(at)?;
+    if !head.trim_end().ends_with('{') {
+        return None;
+    }
+    let mut arms = Vec::new();
+    for (i, l) in lines.iter().enumerate().skip(at + 1).take(40) {
+        let t = l.trim();
+        if t.is_empty() || t.starts_with("//") {
+            continue;
+        }
+        if t == "};" && indent(l) == indent(head) {
+            return (!arms.is_empty()).then_some(arms);
+        }
+        let (pattern, expr) = t.split_once(" => ")?;
+        let expr = expr.strip_suffix(',')?.trim();
+        if indent(l) <= indent(head) || expr.contains(['{', '}']) || pattern.contains(['{', '}']) {
+            return None;
+        }
+        arms.push(Arm {
+            line0: i,
+            pattern: pattern.to_owned(),
+            expr: expr.to_owned(),
+        });
+    }
+    None
+}
+
 fn unwrapped(written: &str) -> Option<String> {
     let t = written.trim();
     let open = t.find('<')?;
@@ -288,6 +323,9 @@ impl App {
     ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
         let init = let_initializer(&lines, at, name)?;
+        if init.starts_with("match ") {
+            return self.rust_match_got(file, text, &match_arms(&lines, at)?, name);
+        }
         let w = walk_back(&init)?;
         let shadows = !w.head_call && w.head.first().is_some_and(|h| h == name);
         if w.rest != 0 || w.links.is_empty() || (shadows && !shadowing) {
@@ -306,6 +344,52 @@ impl App {
             got = self.rust_step(got, link)?;
         }
         Some(got)
+    }
+
+    fn rust_match_got(&self, file: &Path, text: &str, arms: &[Arm], name: &str) -> Option<Got> {
+        let bound: Vec<&str> = arms
+            .iter()
+            .flat_map(|a| a.pattern.split(|c: char| !c.is_alphanumeric() && c != '_'))
+            .collect();
+        let mut agreed: Option<Got> = None;
+        for arm in arms {
+            let Some(w) = walk_back(&arm.expr) else {
+                continue;
+            };
+            let [head, ..] = w.head.as_slice() else {
+                continue;
+            };
+            if w.rest != 0 || w.links.is_empty() || head == name || bound.contains(&head.as_str()) {
+                continue;
+            }
+            let got = self.rust_head(file, text, arm.line0, &w, None).or_else(|| {
+                match (w.head.as_slice(), w.head_call) {
+                    ([one], false) => {
+                        self.rust_std_written(file, text, arm.line0, one)
+                            .map(|written| Got::Written {
+                                file: file.to_path_buf(),
+                                written,
+                                line0: arm.line0,
+                            })
+                    }
+                    _ => None,
+                }
+            });
+            let Some(mut got) = got else {
+                continue;
+            };
+            for link in &w.links {
+                got = self.rust_step(got, link)?;
+            }
+            match (&agreed, &got) {
+                (None, _) => agreed = Some(got),
+                (Some(Got::Ty(a)), Got::Ty(b)) if (&a.path, a.line) == (&b.path, b.line) => {}
+                (Some(Got::Written { written: a, .. }), Got::Written { written: b, .. })
+                    if rust_bare_type(a).is_some() && rust_bare_type(a) == rust_bare_type(b) => {}
+                _ => return None,
+            }
+        }
+        agreed
     }
 
     pub(super) fn rust_for_item(

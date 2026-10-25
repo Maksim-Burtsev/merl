@@ -307,6 +307,17 @@ body holds no parameter (#1020); `brew.hh`'s prototype stays apart from the defi
 does; an out-of-class `operator()` keeps its parameters.
 `sieve.cc` reads the parameters of operators, in and out of their class, and a member of
 the class inside an operator before a global namesake; a call inside a free operator in a namespace keeps its picker (#1029).
+`infuser.cc` defines constructors inside their class, after `explicit`, over an initializer
+list and a function-pointer parameter, and a destructor, each the answer on its own name, while
+a construction with `new` inside a method and in a function still leads to the class (#1248).
+`Steeper() : Steeper(500)` and `Ladle(ml, 1)` delegate to the one constructor taking that many
+arguments; `Ladle(250)` has two, `Ladle(ml[0])` and `Tray(t)` pass one argument that may be the
+implicit copy, so those keep master's answer. `Key::Key` defined out of class lands on the
+declaration of its own overload (#1248). `Taper(Gills n)` is declared in another spelling than
+`Taper::Taper(int n)` defines it, so that keeps master's answer, not a picker of every
+declaration. `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
+lacks. `Wisp(1, 2)` fits only its own constructor, `Pail("x")` a default parameter and `Gourd`'s
+arguments hold a `<`: each keeps master's picker of the namesake classes (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -639,7 +650,15 @@ note in &notes` over a `Vec<String>`: both hold a `String`, which `Leaf::len` ne
 `poured_note` binds `ref note` in an or-pattern of two `Pour` variants whose `note` is a `String`
 in each, and `drip_note` binds `ref note` at the `String` place of the tuple variant `Drip::Slow`;
 master jumped to `Leaf::len` on both. `kettle_note` binds `ref note` in `Kettle::Hot { .. }`, a
-variant written on one line, where master jumped to `Leaf::len` too.
+variant written on one line, where master jumped to `Leaf::len` too. `Canister` is a tuple struct:
+`self.0` holds `leaves::Kettle`, a project alias of `Vec<u32>` named like the enum `Kettle`, so
+its `len` is `Vec`'s, where master jumped to `Leaf::len`, and `self.1` holds a `Leaf`.
+`poured_split` is `poured_note`'s or-pattern split over two lines, the second led by `|`, where
+master jumped to `Leaf::len`.
+`steeped_label` holds a `name.to_string()` in `text` and a `match` whose arms are `text.clone()`
+and `n.to_string()` in `label`: both are a `String`, where master jumped to `Leaf::len`.
+`heaped` matches into two fields of the same project struct, so `heap` is `Scoop`'s, not a picker
+with `Dipper`'s; `restrung` calls `to_string` on a `String`, not a `str` (#1044).
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
@@ -781,4 +800,5 @@ module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermo
    `; want <right answer> (#N)`, `#N` the sub-issue of #305 that covers it, or a new issue under
    #305 when none does.
 3. No Rust code: the test finds the directory by itself, and `fixture_app` leaves every kind
-   without a standard library or dependencies, so nothing outside the fixture answers.
+   without a standard library or dependencies, so nothing outside the fixture answers but the
+   typeshed stubs merl carries for Python (#1100), written `stdlib/logging/__init__.pyi:140`.

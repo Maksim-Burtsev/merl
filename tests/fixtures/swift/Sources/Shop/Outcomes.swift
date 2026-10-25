@@ -753,3 +753,96 @@ func kindled(_ q: DispatchQueue, _ k: Kindle) -> String {
     return q.sync(execute: k).lit
     //                        ^ d: picker Sources/Shop/Outcomes.swift:677, Sources/Shop/Outcomes.swift:681, Sources/Shop/Outcomes.swift:685
 }
+
+// A value read through an optional chain in a binding (`delegate?.sessionConfiguration`), off a
+// field typed by one of the project's protocols, takes the type of the protocol's requirement: a
+// value from outside a few steps on answers from the project's extensions or none (#1068).
+protocol Percolating: AnyObject {
+    var sessionConfiguration: URLSessionConfiguration { get }
+}
+
+final class Percolator {
+    weak var delegate: (any Percolating)?
+    var lastRequest: URLRequest?
+}
+
+extension Percolator {
+    func cookied() -> Bool {
+        guard
+            let request = lastRequest,
+            let url = request.url,
+            let method = request.httpMethod else { return false }
+        if let configuration = delegate?.sessionConfiguration, configuration.httpShouldSetCookies {
+            if
+                let cookieStorage = configuration.httpCookieStorage,
+                let cookies = cookieStorage.cookies(for: url), !cookies.isEmpty {
+                //                                                      ^ d: none
+                return true
+            }
+        }
+        return false
+    }
+}
+
+// A `guard` alone on its line binds its conditions for the lines after it: `request` is the
+// field's `URLRequest`, so its `url` is not one of the project's namesakes (#1068).
+extension Postman {
+    func routed() -> Bool {
+        guard
+            let request = lastRequest
+        else { return false }
+        return request.url == nil
+        //             ^ d: none
+    }
+}
+
+// The last condition of a `guard` on its `else` line binds as the ones above it: `url` is the
+// request's `URL`, an argument from outside the project (#1068).
+extension Percolator {
+    func cookiedOnElse() -> Bool {
+        guard
+            let request = lastRequest,
+            let url = request.url else { return false }
+        if let configuration = delegate?.sessionConfiguration, configuration.httpShouldSetCookies {
+            if
+                let cookieStorage = configuration.httpCookieStorage,
+                let cookies = cookieStorage.cookies(for: url), !cookies.isEmpty {
+                //                                                      ^ d: none
+                return true
+            }
+        }
+        return false
+    }
+}
+
+// A subscript on a value from outside the project, with no subscript of the project's extensions
+// of outside types, is outside too, whatever its argument (#1068).
+func snaked(_ key: String, _ words: [Range<String.Index>]) -> [String] {
+    words.map { range in
+        key[range].lowercased()
+        //         ^ d: none
+    }
+}
+
+// A generic parameter is no type from outside: its subscript may be the project's (#1068).
+protocol Racked {
+    subscript(i: Int) -> Logbook { get }
+}
+
+func racked<C: Racked>(_ c: C) -> Bool {
+    c[0].isEmpty
+    //   ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+func shelved<C: Collection>(_ c: C) -> Bool where C.Element == Logbook {
+    c[c.startIndex].isEmpty
+    //              ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+// A project alias of an array is the project's: its subscript gives the element (#1068).
+typealias Logs = [Logbook]
+
+func logged(_ logs: Logs) -> Bool {
+    logs[0].isEmpty
+    //      ^ d: Sources/Shop/Outcomes.swift:29
+}

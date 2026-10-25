@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::{Kind, close_of, split_top, uncommented};
+use super::{Kind, close_of, code, split_top, uncommented};
 
 pub fn swift_array_call(e: &str) -> Option<(Vec<String>, bool, String)> {
     static TAIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -98,4 +98,62 @@ pub fn swift_function_inputs(ty: &str) -> Option<Vec<String>> {
             })
             .collect(),
     )
+}
+
+pub fn swift_bound_before(lead: &str, name: &str) -> Option<String> {
+    let n = regex::escape(name);
+    let bound = Regex::new(&format!(
+        r"^(?:(?:\}}\s*)?(?:else\s+)?(?:if|guard|while)\s+)?(?:let|var)\s+`?{n}`?\s*=\s*(.+)$"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let used = Regex::new(&format!(r"(?:^|[^\w.])`?{n}\b"))
+        .expect("an escaped name keeps the pattern valid");
+    let code = uncommented(Kind::Swift, lead);
+    let parts = split_top(Kind::Swift, &code, b',');
+    let (_, before) = parts.split_last()?;
+    let last = before
+        .iter()
+        .rev()
+        .find(|p| super::swift_may_bind(p, name))?;
+    let value = bound.captures(last.trim())?[1].trim().to_owned();
+    (!used.is_match(&value)).then_some(value)
+}
+
+pub fn swift_subscript_receiver(before: &str) -> Option<String> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
+            .expect("the regex is a literal")
+    });
+    let rest = before.strip_suffix('.')?;
+    let open = code(Kind::Swift, rest)
+        .filter(|(_, c)| *c == b'[')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::Swift, rest, i) == Some(rest.len()))?;
+    let args = rest.get(open + 1..rest.len() - 1)?;
+    if args.trim().is_empty() || args.contains([':', '\\']) {
+        return None;
+    }
+    Some(HEAD.captures(rest.get(..open)?)?[1].to_owned())
+}
+
+pub fn swift_before_else(rest: &str) -> &str {
+    let mut depth = 0i32;
+    for (i, c) in code(Kind::Swift, rest) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            b'e' if depth == 0 => {
+                if let (Some(head), Some(tail)) = (rest.get(..i), rest.get(i..))
+                    && head.ends_with(char::is_whitespace)
+                    && tail
+                        .strip_prefix("else")
+                        .is_some_and(|t| t.trim_start().starts_with('{'))
+                {
+                    return head.trim_end();
+                }
+            }
+            _ => {}
+        }
+    }
+    rest
 }
