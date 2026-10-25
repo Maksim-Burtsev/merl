@@ -113,7 +113,12 @@ impl App {
         self.php_named(here, text, range, access)
     }
 
-    fn php_function(&self, here: &Path, text: &str, range: Range<usize>) -> Option<Vec<Candidate>> {
+    fn php_function(
+        &mut self,
+        here: &Path,
+        text: &str,
+        range: Range<usize>,
+    ) -> Option<Vec<Candidate>> {
         let written = search::php_function_at(self.line_str(), range)?;
         let short = written.rsplit('\\').next().unwrap_or(&written);
         let pattern = format!(r"^\s*function\s+&?\s*{}\s*\(", regex::escape(short));
@@ -125,35 +130,65 @@ impl App {
             if i > 0 && truncated {
                 return None;
             }
-            let ns = name.full.rsplit_once('\\').map_or("", |(ns, _)| ns);
-            let reason = match (name.imported, ns) {
-                (true, _) => Reason::Import(name.full.clone()),
-                (false, "") => Reason::ByName,
-                (false, ns) => Reason::Path(ns.to_owned()),
-            };
-            let found: Vec<Candidate> = hits
-                .iter()
-                .filter(|h| {
-                    let Some(t) = self.text_of(&h.path) else {
-                        return false;
-                    };
-                    let at = h.line1 - 1;
-                    let lines: Vec<&str> = t.lines().collect();
-                    search::literal_lines(Kind::Php, &t).get(at) != Some(&true)
-                        && search::php_enclosing_class(&lines, at).is_none()
-                        && search::php_namespace(search::php_block(&t, at)).unwrap_or_default()
-                            == ns
-                })
-                .map(|h| Candidate {
-                    hit: h.clone(),
-                    reason: reason.clone(),
-                })
-                .collect();
+            let found = self.php_functions_in(&hits, name);
             if !found.is_empty() {
                 return Some(found);
             }
         }
+        if truncated {
+            return None;
+        }
+        let vendor = self.root.join("vendor");
+        let listing = std::fs::read_to_string(vendor.join("composer/autoload_files.php")).ok()?;
+        let loaded = search::php_autoload_files(&listing, &vendor);
+        let hits = self.outside_grep(Kind::Php, &loaded, &pattern, None);
+        self.truncated.set(cut);
+        if hits.iter().any(|h| search::php_polyfill(&h.path))
+            || names
+                .iter()
+                .all(|n| self.php_functions_in(&hits, n).is_empty())
+        {
+            return None;
+        }
+        let files = self.external_files(Kind::Php);
+        let hits = self.outside_grep(Kind::Php, &files, &pattern, None);
+        if self.truncated.replace(cut) || hits.iter().any(|h| search::php_polyfill(&h.path)) {
+            return None;
+        }
+        for name in &names {
+            let found = self.php_functions_in(&hits, name);
+            match found.len() {
+                0 => {}
+                1 => return Some(found),
+                _ => return None,
+            }
+        }
         None
+    }
+
+    fn php_functions_in(&self, hits: &[Hit], name: &search::PhpResolved) -> Vec<Candidate> {
+        let ns = name.full.rsplit_once('\\').map_or("", |(ns, _)| ns);
+        let reason = match (name.imported, ns) {
+            (true, _) => Reason::Import(name.full.clone()),
+            (false, "") => Reason::ByName,
+            (false, ns) => Reason::Path(ns.to_owned()),
+        };
+        hits.iter()
+            .filter(|h| {
+                let Some(t) = self.text_of(&h.path) else {
+                    return false;
+                };
+                let at = h.line1 - 1;
+                let lines: Vec<&str> = t.lines().collect();
+                search::literal_lines(Kind::Php, &t).get(at) != Some(&true)
+                    && search::php_enclosing_class(&lines, at).is_none()
+                    && search::php_namespace(search::php_block(&t, at)).unwrap_or_default() == ns
+            })
+            .map(|h| Candidate {
+                hit: h.clone(),
+                reason: reason.clone(),
+            })
+            .collect()
     }
 
     fn php_named(

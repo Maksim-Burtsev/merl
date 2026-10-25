@@ -487,10 +487,29 @@ pub fn php_function_at(line: &str, range: Range<usize>) -> Option<String> {
         .next()
         .unwrap_or_default()
         .to_ascii_lowercase();
-    let not_a_call = pre.ends_with(['$', '>', ':'])
+    let not_a_call = pre.ends_with('$')
+        || pre.ends_with("->")
+        || pre.ends_with("::")
         || pre.ends_with("#[")
         || matches!(last.as_str(), "function" | "fn" | "new" | "use" | "const");
     (!not_a_call && !written.ends_with('\\')).then_some(written)
+}
+
+pub fn php_autoload_files(listing: &str, vendor: &Path) -> Vec<PathBuf> {
+    static FILE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\$vendorDir\s*\.\s*'(/[^']+)'").expect("the regex is a literal")
+    });
+    FILE.captures_iter(listing)
+        .map(|c| vendor.join(c[1].trim_start_matches('/')))
+        .collect()
+}
+
+pub fn php_polyfill(path: &Path) -> bool {
+    path.components().any(|c| {
+        c.as_os_str()
+            .to_str()
+            .is_some_and(|c| c.starts_with("polyfill"))
+    })
 }
 
 pub fn php_function_names(text: &str, written: &str) -> Vec<PhpResolved> {

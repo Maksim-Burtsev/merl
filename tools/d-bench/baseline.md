@@ -59,6 +59,7 @@ The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and
 The objc and css rows with #1276 and #1277 (an Objective-C method's or a typedef's parameter stays on itself; a Sass variable reads the `@each`, `@for`, `@mixin` or `@function` that binds it; objc0041, objc0084 and objc0119 answers reviewed, css0063, css0092, css0163, css0213 and css0277 judged): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.18 6.20 6.99 } before the run.
 The ts, js, vue, svelte and astro rows with #1275 (a name a dependency's ambient `declare module '$app/…'` exports lands on the source line its declaration map names; a member of it says no definition): over `7920ff73a`, 2026-10-26, release build, `vm.loadavg` { 5.87 8.55 9.02 } before the run.
 The java row with #1278's lambda parameter typed by its chain: over `c271c460`, 2026-10-26, release build, `vm.loadavg` { 10.93 8.40 8.32 } before the run.
+The php row with #1279 (a call of a Composer helper such as `env(..)` lands on the one global function a file `autoload_files.php` lists declares; a call after `=>` or `?:` is a call): over `6c42b3142`, 2026-10-26, release build, `vm.loadavg` { 6.85 8.04 8.18 } before the run, { 11.90 8.87 8.44 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -69,7 +70,7 @@ The java row with #1278's lambda parameter typed by its chain: over `c271c460`, 
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 232 | 200 (86%) | 32 (14%) | 0 (0%) | 0 (0%) | 68 | 12 | 17.3 | 64.4 |
-| php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
+| php (koel) | 392 | 315 (80%) | 55 (14%) | 0 (0%) | 22 (6%) | 88 | 3 | 29.1 | 218.9 |
 | swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
