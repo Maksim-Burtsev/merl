@@ -47,6 +47,7 @@ The cpp row with #1248 (a constructor or destructor defined in its class stays o
 The rust row with #1044's `self.0` of a tuple struct and a project alias of a std type (`self.0.entry` on `LiteralStrategy(fnv::HashMap<..>)`): over `8c2888175`, 2026-10-24, release build, `vm.loadavg` { 7.97 7.78 6.06 } before the run, { 8.45 7.99 6.31 } after.
 The ts and js rows with #1249 (a member of a local returned under a JSDoc object type, `ts0092` marked `skip`): over `02ccdaa7c`, 2026-10-25, release build, `vm.loadavg` { 16.84 12.93 12.30 } before the run, { 12.47 13.26 12.58 } after (the times read high under that load).
 The python row with #1100 (a value an outside call returns, typed by the return type in the environment's stub or typeshed's bundled stdlib stubs: `log = logging.getLogger(..)`, then `log.info`): over `2158f959b`, 2026-10-25, release build, `vm.loadavg` { 6.86 6.37 7.45 } before the run, { 9.66 7.13 7.60 } after.
+The swift row with #1068's eighth pass (a subscript on a value from outside the project, `key[range].lowercased()` in `URLEncodedFormEncoder.KeyEncoding.convert`, and a `guard` condition on its `else` line): over `8966297b8`, 2026-10-25, release build, `vm.loadavg` { 4.81 4.62 5.07 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -58,7 +59,7 @@ The python row with #1100 (a value an outside call returns, typed by the return 
 | c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
 | cpp (leveldb) | 232 | 199 (86%) | 32 (14%) | 0 (0%) | 1 (0%) | 68 | 12 | 22.4 | 74.0 |
 | php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 15 | 21.4 | 47.7 |
+| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 14 | 22.7 | 51.1 |
 | java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
 | csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |

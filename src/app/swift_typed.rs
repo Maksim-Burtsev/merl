@@ -1363,7 +1363,9 @@ impl App {
         before: &str,
         word: &str,
     ) -> bool {
-        let Some((receiver, method, args)) = search::swift_literal_call(before) else {
+        let Some((receiver, method, args)) = search::swift_literal_call(before).or_else(|| {
+            search::swift_subscript_receiver(before).map(|r| (r, "subscript".to_owned(), vec![]))
+        }) else {
             return false;
         };
         let names: Vec<String> = receiver.split('.').map(str::to_owned).collect();
