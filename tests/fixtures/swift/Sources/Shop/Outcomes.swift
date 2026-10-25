@@ -838,3 +838,11 @@ func shelved<C: Collection>(_ c: C) -> Bool where C.Element == Logbook {
     c[c.startIndex].isEmpty
     //              ^ d: Sources/Shop/Outcomes.swift:29
 }
+
+// A project alias of an array is the project's: its subscript gives the element (#1068).
+typealias Logs = [Logbook]
+
+func logged(_ logs: Logs) -> Bool {
+    logs[0].isEmpty
+    //      ^ d: Sources/Shop/Outcomes.swift:29
+}

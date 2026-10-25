@@ -161,17 +161,25 @@ impl App {
         let constructor = kind == Kind::C
             && chain.last() == Some(word)
             && search::cpp_defined_signature(&a.text, self.line + 1, word).is_some();
-        if constructor {
+        let own = constructor
+            .then(|| search::qualified(kind, &a.text, self.line + 1, word))
+            .flatten();
+        let widened = own.map(|own| {
             let pattern = format!(
                 r"^\s+(?:(?:explicit|constexpr|consteval|inline)\s+)*{}\s*\(",
                 regex::escape(word)
             );
-            let declared: Vec<Hit> = (self.project_definitions(kind, &a.here, word, &pattern))
+            let declared = (self.project_definitions(kind, &a.here, word, &pattern))
                 .into_iter()
-                .filter(|h| !hits.iter().any(|o| o.path == h.path && o.line1 == h.line1))
-                .collect();
-            hits.extend(declared);
-        }
+                .filter(|h| {
+                    !hits.iter().any(|o| o.path == h.path && o.line1 == h.line1)
+                        && self
+                            .text_of(&h.path)
+                            .and_then(|t| search::qualified(kind, &t, h.line1, word))
+                            .is_some_and(|q| q == own)
+                });
+            hits.iter().cloned().chain(declared).collect::<Vec<Hit>>()
+        });
         let singleton = q.class_method && word != "initialize";
         let concerns = singleton.then(|| hits.clone());
         let types = (kind == Kind::C).then(|| hits.clone());
@@ -180,8 +188,11 @@ impl App {
             (named, _) => named,
         };
         let mut named = self.named_kept(a, named);
-        if constructor {
-            named = self.c_same_overload(a, named);
+        if let Some(wide) = widened {
+            let wide = self.named_kept(a, self.path_named(a, q, wide, singleton));
+            if let Some(same) = self.c_same_overload_of(a, &wide) {
+                named = same;
+            }
         }
         let owner = match (kind, chain.as_slice()) {
             (Kind::Jvm, [owner]) => self.jvm_owner_type(&a.here, &a.text, owner),

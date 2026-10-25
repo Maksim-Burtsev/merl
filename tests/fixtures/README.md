@@ -313,7 +313,11 @@ a construction with `new` inside a method and in a function still leads to the c
 `Steeper() : Steeper(500)` and `Ladle(ml, 1)` delegate to the one constructor taking that many
 arguments; `Ladle(250)` has two, `Ladle(ml[0])` and `Tray(t)` pass one argument that may be the
 implicit copy, so those keep master's answer. `Key::Key` defined out of class lands on the
-declaration of its own overload (#1248).
+declaration of its own overload (#1248). `Taper(Gills n)` is declared in another spelling than
+`Taper::Taper(int n)` defines it, so that keeps master's answer, not a picker of every
+declaration. `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
+lacks. `Wisp(1, 2)` fits only its own constructor, `Pail("x")` a default parameter and `Gourd`'s
+arguments hold a `<`: each keeps master's picker of the namesake classes (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -653,6 +657,8 @@ its `len` is `Vec`'s, where master jumped to `Leaf::len`, and `self.1` holds a `
 master jumped to `Leaf::len`.
 `steeped_label` holds a `name.to_string()` in `text` and a `match` whose arms are `text.clone()`
 and `n.to_string()` in `label`: both are a `String`, where master jumped to `Leaf::len`.
+`heaped` matches into two fields of the same project struct, so `heap` is `Scoop`'s, not a picker
+with `Dipper`'s; `restrung` calls `to_string` on a `String`, not a `str` (#1044).
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

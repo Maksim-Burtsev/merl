@@ -71,3 +71,59 @@ struct Tray {
   //                               ^ d: !jump
   int n;
 };
+
+typedef int Gills;
+
+struct Taper {
+  Taper(Gills n);
+  Taper(const char* name);
+};
+
+Taper::Taper(int n) {}
+//     ^ d: src/tea/infuser.cc:84; want src/tea/infuser.cc:78 (#1248)
+Taper::Taper(const char* name) {}
+
+struct Nozzle {
+  Nozzle(int x);
+  Nozzle() : Nozzle(1) {}
+  //         ^ d: src/tea/infuser.cc:92
+};
+
+Nozzle::Nozzle(int x) {}
+
+struct Ewer {
+  Ewer(int x);
+  Ewer() : Ewer(1) {}
+  //       ^ d: src/tea/infuser.cc:95
+};
+
+namespace pot {
+struct Wisp {
+  Wisp(int a, int b) {}
+};
+}
+
+struct Wisp {
+  Wisp(int a, int b) : Wisp(1, 2) {}
+  //                   ^ d: picker src/tea/infuser.cc:101, src/tea/infuser.cc:106
+};
+
+struct Pail {
+  explicit Pail(int a) {}
+  explicit Pail(const char* s, int n = 0) {}
+  Pail() : Pail("x") {}
+  //       ^ d: picker src/tea/infuser.cc:111, src/tea/infuser.cc:112, src/tea/infuser.cc:113
+};
+
+namespace pot {
+struct Gourd {
+  Gourd(int a, int b) {}
+};
+}
+
+struct Gourd {
+  Gourd(int a, int b) : n(a) {}
+  Gourd() : Gourd(std::max<int>(1, 2), 1) {}
+  //        ^ d: picker src/tea/infuser.cc:119, src/tea/infuser.cc:124
+  int n;
+};
