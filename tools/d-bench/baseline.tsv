@@ -1048,7 +1048,7 @@ cpp0048	ok	jump	14.84
 cpp0049	ok	jump	22.00
 cpp0050	ok	jump	13.94
 cpp0051	ok	jump	12.48
-cpp0052	skip-WRONG	jump	34.70
+cpp0052	ok	jump	66.78
 cpp0053	ok	jump	14.66
 cpp0054	no-answer	picker	14.66
 cpp0055	ok	jump	15.09
@@ -1106,7 +1106,7 @@ cpp0106	ok	jump	13.18
 cpp0107	ok	jump	13.25
 cpp0108	on-decl	stay	11.84
 cpp0109	ok	jump	14.21
-cpp0110	skip-WRONG	jump	19.95
+cpp0110	ok	jump	30.61
 cpp0111	ok	jump	0.67
 cpp0112	on-decl	picker	494.99
 cpp0113	ok	jump	5.17
@@ -1137,7 +1137,7 @@ cpp0137	no-answer	picker	8.67
 cpp0138	ok	jump	16.47
 cpp0139	ok	jump	33.96
 cpp0140	ok	jump	14.09
-cpp0141	skip-WRONG	jump	18.90
+cpp0141	ok	jump	29.44
 cpp0142	ok	jump	13.33
 cpp0143	ok	jump	15.40
 cpp0144	ok	jump	14.64
@@ -1262,7 +1262,7 @@ cpp0262	ok	jump	12.68
 cpp0263	ok	jump	34.18
 cpp0264	pick-hit	picker	40.78
 cpp0265	pick-hit	picker	32.34
-cpp0266	on-decl-WRONG	jump	11.62
+cpp0266	ok	jump	26.58
 cpp0267	ok	jump	1.28
 cpp0268	ok	jump	25.13
 cpp0269	ok	jump	0.72

@@ -75,6 +75,7 @@ The js row with #1291 (a key of an object literal nested under another key is a 
 The swift row with #1286's second pass (an implicit member passed to a method of a typed receiver, `session.webSocketRequest(.websocket(), ..)`, and to a memberwise init whose property is typed by its value, `var path = Path.method(.get)`): over `88886d35`, 2026-10-27, on a Linux container (no Swift SDK) against master played there, only the moved cursors (swift0005, swift0136) written.
 The dart row with #1280's second pass (a class of `dart:io` the SDK declares in `dart:_http` and exports, `responseStream.redirects.isNotEmpty` of dart0018, and a field read through its initializer, `final Opts options = Opts();`): over `88886d35`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursor (dart0018) written.
 The csharp row with #1282's next pass (the element `Select` makes through a project extension method or `new`, of a `foreach` and of `items[i]` after `.ToList()`, and of an array that `Deserialize<T[]>(…) ?? Array.Empty<T>()` gives on both sides: csharp0161, csharp0165, csharp0191, csharp0193): over `ab0da00a`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors written.
+The cpp row with #1248's remainder (four answers reviewed, the oracle's mistakes: cpp0266's use of `BackgroundWorkItem` on its definition, cpp0052's and cpp0141's call on the prototype plus its definition, cpp0110's `iter->SeekToFirst()` inside `#if 0` on `Iterator::SeekToFirst`; no code change): over `57566a0b`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors written.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -84,7 +85,7 @@ The csharp row with #1282's next pass (the element `Select` makes through a proj
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
-| cpp (leveldb) | 232 | 204 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 68 | 12 | 19.3 | 68.6 |
+| cpp (leveldb) | 236 | 208 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 64 | 8 | 19.4 | 68.6 |
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 46.0 |
 | java (halo) | 115 | 112 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 184.3 |

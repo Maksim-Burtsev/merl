@@ -370,6 +370,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     let mut out = Vec::new();
     let mut module_only = false;
+    let mut under_global = Vec::new();
     for scope in scopes_innermost_first {
         if module_only && matches!(scope, Scope::Def(_)) {
             continue;
@@ -423,26 +424,15 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             {
                 Some(Value::Unknown)
             } else {
-                for s in python_statements(t, continued(Kind::Python, lines, i)) {
-                    let value = if r.unknown.is_match(s) || r.chained_assignment.is_match(s) {
-                        Some(Value::Unknown)
-                    } else if let Some(c) = r.annotated.captures(s) {
-                        Some(Value::Type(c[1].to_owned()))
-                    } else if let Some(c) = r.assigned.captures(s) {
-                        Some(value_of(Kind::Python, &c[1]))
-                    } else {
-                        TUPLE_TARGET
-                            .captures(s)
-                            .filter(|c| c[1].contains(',') && names(&c[1], name))
-                            .map(|_| Value::Unknown)
-                    };
-                    if let Some(value) = value {
-                        out.push(Binding {
+                out.extend(
+                    python_statements(t, continued(Kind::Python, lines, i))
+                        .into_iter()
+                        .filter_map(|s| statement_binds(&r, s, name))
+                        .map(|value| Binding {
                             line1: i + 1,
                             value,
-                        });
-                    }
-                }
+                        }),
+                );
                 None
             };
             if let Some(value) = value {
@@ -453,6 +443,9 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
         }
         if let Some(global) = outside {
+            if global && !module_only {
+                under_global = std::mem::take(&mut out);
+            }
             out.clear();
             module_only |= global;
             continue;
@@ -461,7 +454,21 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             break;
         }
     }
-    out
+    if out.is_empty() { under_global } else { out }
+}
+fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
+    if r.unknown.is_match(s) || r.chained_assignment.is_match(s) {
+        Some(Value::Unknown)
+    } else if let Some(c) = r.annotated.captures(s) {
+        Some(Value::Type(c[1].to_owned()))
+    } else if let Some(c) = r.assigned.captures(s) {
+        Some(value_of(Kind::Python, &c[1]))
+    } else {
+        TUPLE_TARGET
+            .captures(s)
+            .filter(|c| c[1].contains(',') && names(&c[1], name))
+            .map(|_| Value::Unknown)
+    }
 }
 fn python_inline(t: &str, name: &str) -> bool {
     static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
