@@ -71,6 +71,7 @@ The swift row with #1286 (an implicit member passed as an argument, through the 
 The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entries.forEach { flavor -> }`'s parameter, an outer lambda's parameter inside a nested lambda, a constructor parameter without `val` in a property initializer, `string.name` after `import <pkg>.R.string`): over `615178b25`, 2026-10-26, release build, `vm.loadavg` { 8.58 6.36 6.33 } before the run.
 The lua row with #1290 (a member of a LuaLS `---@class` read from its `---@field` through a `---@param`, a local function's `---@return` or the class above a required module's table; a module function returning `setmetatable({..}, { __index = _M })`; a module member made by a call, `typedefs.uuid = Schema.define {`): over `89ccf77d`, 2026-10-26, release build, `vm.loadavg` { 7.64 8.98 9.33 } before the run.
 The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` over `module.exports = {`: `create`, `meta: { docs`, through the unaliased `@eslint/core` base `RuleDefinition`, and a listener method of the object `create` returns, typed by its declared `RuleListener`): over `779701a14`, 2026-10-26, release build, `vm.loadavg` { 7.61 9.34 9.27 } before the run, { 8.53 9.90 9.45 } after.
+The swift row with #1286's second pass (an implicit member passed to a method of a typed receiver, `session.webSocketRequest(.websocket(), ..)`, and to a memberwise init whose property is typed by its value, `var path = Path.method(.get)`): over `88886d35`, 2026-10-27, on a Linux container (no Swift SDK) against master played there, only the moved cursors (swift0005, swift0136) written.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -82,7 +83,7 @@ The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` ov
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 232 | 204 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 68 | 12 | 19.3 | 68.6 |
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
-| swift (Alamofire) | 449 | 427 (95%) | 21 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 45.9 |
+| swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 46.0 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |
