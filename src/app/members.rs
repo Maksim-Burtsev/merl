@@ -314,9 +314,12 @@ impl App {
         if kind == Kind::Python {
             hits.retain(|h| !self.python_nested_def(h));
         }
-        let Some(fields) = search::field_patterns(kind, word) else {
+        let Some(mut fields) = search::field_patterns(kind, word) else {
             return hits;
         };
+        if kind == Kind::TsJs {
+            fields.push(search::inline_type_key(word));
+        }
         let raw = self.project_grep(kind, here, &fields.join("|"));
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {

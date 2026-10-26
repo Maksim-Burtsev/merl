@@ -165,9 +165,13 @@ impl App {
             let call = a.tail.trim_start().starts_with('(');
             search::php_member_patterns(word, call).join("|")
         });
+        let store = kind == Kind::TsJs
+            && a.here.extension().is_some_and(|e| e == "svelte")
+            && matches!(&chain[..], [head] if before.ends_with(&format!("${head}.")));
         let on_value = (dotted || referenced)
             && !own
             && (kind == Kind::Php
+                || store
                 || chain
                     .first()
                     .is_none_or(|f| bound(&near.imports, f).is_none()));

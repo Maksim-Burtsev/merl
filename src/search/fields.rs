@@ -314,10 +314,19 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
     let mut types: HashMap<usize, Vec<Binding>> = HashMap::new();
     let mut out = Vec::new();
     let mut levels_of = None;
+    let inline = (kind == Kind::TsJs)
+        .then(|| Regex::new(&inline_type_key(name)).ok())
+        .flatten();
     for &line in hits {
         let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
             continue;
         };
+        if inline.as_ref().is_some_and(|re| re.is_match(lines[k])) {
+            if !out.contains(&line) {
+                out.push(line);
+            }
+            continue;
+        }
         let owner = jsdoc
             .then(|| jsdoc_owner(&lines, k))
             .flatten()
@@ -336,10 +345,42 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
             && !out.contains(&first)
         {
             out.push(first);
+        } else if kind == Kind::TsJs && nested_type_key(&lines, decl - 1, k, name) {
+            out.push(line);
         }
     }
     out.sort_unstable();
     out
+}
+pub fn inline_type_key(name: &str) -> String {
+    format!(r"<\{{\s*(?:[^{{}}]*[,;]\s*)?{}\??\s*:", regex::escape(name))
+}
+fn nested_type_key(lines: &[&str], decl: usize, k: usize, name: &str) -> bool {
+    static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^\s*(?:readonly\s+)?(?:[\w$]+|'[^']*'|"[^"]*")\??\s*:\s*[^=;(){}]*\{\s*$"#)
+            .expect("the regex is a literal")
+    });
+    let key = |l: &str| {
+        let l = l.trim_start();
+        let rest = l.strip_prefix("readonly ").unwrap_or(l);
+        rest.strip_prefix(name)
+            .is_some_and(|r| r.trim_start_matches('?').trim_start().starts_with(':'))
+    };
+    if decl >= k || !key(lines[k]) {
+        return false;
+    }
+    let (mut depth, mut openers) = (indent(lines[k]), 0);
+    for l in lines[decl + 1..k].iter().rev() {
+        let t = l.trim();
+        if t.is_empty() || comment(Kind::TsJs, t) || indent(l) >= depth {
+            continue;
+        }
+        if !OPENER.is_match(l) {
+            return false;
+        }
+        (depth, openers) = (indent(l), openers + 1);
+    }
+    openers > 0 && depth > indent(lines[decl])
 }
 pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &str) -> bool {
     let Some(l) = line.checked_sub(1).and_then(|k| text.lines().nth(k)) else {
