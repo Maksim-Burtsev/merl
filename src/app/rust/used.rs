@@ -81,6 +81,82 @@ impl App {
         self.rust_type_in(&krate, &[], &rest)
     }
 
+    pub(super) fn rust_registry_elsewhere(
+        &self,
+        file: &Path,
+        text: &str,
+        name: &str,
+    ) -> Option<Typed> {
+        static GLOB: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+(?:::)?(\w+)[^;]*\*[^;]*;")
+                .expect("the regex is a literal")
+        });
+        let home = self.registry_home(file)?;
+        let ours = |root: &str| matches!(root, "crate" | "self" | "super");
+        let mut used = search::rust_uses(text)
+            .into_iter()
+            .filter(|u| u.name == name);
+        match (used.next(), used.next()) {
+            (Some(u), None) => {
+                let (root, rest) = match u.path.split_first()? {
+                    (root, rest) if ours(root) => (root.as_str(), rest),
+                    (root, _) if declares_mod(text, root) => ("self", u.path.as_slice()),
+                    _ => return None,
+                };
+                if !u.in_column_zero {
+                    return None;
+                }
+                let mut module: Vec<String> = file
+                    .strip_prefix(&home.src)
+                    .ok()?
+                    .with_extension("")
+                    .iter()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .collect();
+                if matches!(module.as_slice(), [m] if m == "lib" || m == "main")
+                    || module.last().is_some_and(|m| m == "mod")
+                {
+                    module.pop();
+                }
+                match root {
+                    "crate" => module.clear(),
+                    "super" => {
+                        let supers = 1 + rest.iter().take_while(|p| *p == "super").count();
+                        module.truncate(module.len().checked_sub(supers)?);
+                    }
+                    _ => {}
+                }
+                self.rust_type_in(&home, &module, rest)
+            }
+            (None, _) => {
+                let roots: Vec<&str> = GLOB
+                    .captures_iter(text)
+                    .filter_map(|c| c.get(1))
+                    .map(|m| m.as_str())
+                    .collect();
+                if roots.is_empty() || !roots.iter().all(|r| ours(r)) {
+                    return None;
+                }
+                let decls: Vec<Hit> = self
+                    .grep_in(&search::rust_type_decl_pattern(name), &home.files)
+                    .into_iter()
+                    .filter(|h| {
+                        self.text_of(&h.path).is_some_and(|t| {
+                            search::literal_lines(Kind::Rust, &t).get(h.line1 - 1) != Some(&true)
+                        })
+                    })
+                    .collect();
+                let [hit] = <[Hit; 1]>::try_from(decls).ok()?;
+                Some(Typed {
+                    name: name.to_owned(),
+                    path: hit.path,
+                    line: hit.line1,
+                })
+            }
+            _ => None,
+        }
+    }
+
     fn rust_type_in(&self, krate: &CrateSrc, module: &[String], rest: &[String]) -> Option<Typed> {
         static DECL: LazyLock<Regex> = LazyLock::new(|| {
             Regex::new(r"^\s*(?:pub(?:\([^)]*\))?\s+)?(?:struct|enum|union)\s+([A-Za-z_]\w*)")

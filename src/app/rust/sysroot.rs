@@ -218,8 +218,10 @@ impl App {
             }) if CONSTRUCTORS.contains(&function.as_str()) && std_rooted(text, &written_type) => {
                 rust_bare_type(&written_type)
             }
+            Some(search::RustHolds::AssocCall { .. }) | None => {
+                self.rust_let_written(file, text, b.line1 - 1, name)
+            }
             Some(_) => None,
-            None => self.rust_let_written(file, text, b.line1 - 1, name),
         }
     }
 
