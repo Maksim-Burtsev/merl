@@ -21,3 +21,35 @@ const either = {
     //      ^ d: picker linter/token_store.js:6, @lint/core/index.d.ts:4
   },
 };
+
+module.exports.untyped = {
+  docs: {},
+//^ d: none
+  create(context) {
+    return {
+      onCodePathStart() {
+    //^ d: picker linter/rules/loud.js:48, linter/token_store.js:16, linter/types/index.d.ts:27
+      },
+    };
+  },
+};
+
+/** @type {import('../types').Rule.RuleModule} */
+const nested = {
+  meta: {
+    schema: {
+      docs: {},
+    //^ d: none
+    },
+  },
+  create(context) {
+    function inner() {
+      return {
+        onCodePathStart() {
+      //^ d: picker linter/rules/loud.js:30, linter/token_store.js:16, linter/types/index.d.ts:27
+        },
+      };
+    }
+    return inner();
+  },
+};

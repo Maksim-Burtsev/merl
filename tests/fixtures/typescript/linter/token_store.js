@@ -6,4 +6,12 @@ module.exports = class TokenStore {
   report(problem) {
     return problem;
   }
+
+  docs = {};
+
+  create(context) {
+    return context;
+  }
+
+  onCodePathStart() {}
 };

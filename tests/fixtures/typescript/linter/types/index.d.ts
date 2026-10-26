@@ -16,10 +16,14 @@ export namespace Rule {
   interface RuleModule extends RuleDefinition<{
     Code: SourceCode;
   }> {
-    create(context: RuleContext): object;
+    create(context: RuleContext): RuleListener;
   }
 
   interface RuleContext extends CoreRuleContext<{
     Code: SourceCode;
   }> {}
+
+  interface RuleListener {
+    onCodePathStart?(codePath: object): void;
+  }
 }
