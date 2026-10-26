@@ -249,9 +249,22 @@ impl App {
         here: &Path,
         arg: &search::SwiftArgument,
     ) -> Option<Vec<(String, String)>> {
-        let full = format!("{}.{}", arg.owner, arg.callee);
-        let mut decls: Vec<Candidate> = self
-            .swift_defs(here, &arg.callee, &full, false)
+        let hits = if arg.on_value {
+            let chain: Vec<String> = arg.owner.split('.').map(str::to_owned).collect();
+            let text = self.buf.lines.join("\n");
+            let rows = self.swift_receiver_rows(here, &text, &chain, &arg.callee)?;
+            if rows
+                .iter()
+                .any(|h| !h.text.contains("func ") || !search::swift_instance_member(&h.text))
+            {
+                return None;
+            }
+            rows
+        } else {
+            let full = format!("{}.{}", arg.owner, arg.callee);
+            self.swift_defs(here, &arg.callee, &full, false)
+        };
+        let mut decls: Vec<Candidate> = hits
             .into_iter()
             .map(|hit| Candidate {
                 hit,
@@ -259,7 +272,9 @@ impl App {
             })
             .collect();
         if decls.is_empty() {
-            return self.swift_memberwise_type(here, arg).map(|t| vec![t]);
+            return (!arg.on_value)
+                .then(|| self.swift_memberwise_type(here, arg))?
+                .map(|t| vec![t]);
         }
         if !self.swift_by_labels(&arg.callee, arg.open, &mut decls) {
             return None;
@@ -314,10 +329,17 @@ impl App {
         let [p] = props.as_slice() else {
             return None;
         };
-        let search::SwiftGiven::Type(ty) = search::swift_given(&p.text, &arg.label)? else {
-            return None;
+        let ty = match search::swift_given(&p.text, &arg.label)? {
+            search::SwiftGiven::Type(ty) => ty.trim_end_matches(['?', '!']).to_owned(),
+            search::SwiftGiven::Value(v) if search::swift_var(&p.text, &arg.label) => {
+                let (ty, case) = search::swift_case_value(&v)?;
+                let rows = self.swift_implicit_members(here, &owner, &ty, &case)?;
+                rows.iter()
+                    .all(|h| search::swift_case(&h.text))
+                    .then_some(ty)?
+            }
+            _ => return None,
         };
-        let ty = ty.trim_end_matches(['?', '!']).to_owned();
         (search::swift_instance_member(&p.text)).then_some((owner, ty))
     }
 
@@ -341,9 +363,12 @@ impl App {
             };
             let types = self.swift_defs(here, last, &full, true);
             if !types.is_empty() {
-                let declared = types.iter().all(|h| {
-                    search::swift_type_header(&h.text)
-                        .is_some_and(|t| !matches!(t.keyword.as_str(), "extension" | "protocol"))
+                let keywords: Option<Vec<String>> = types
+                    .iter()
+                    .map(|h| search::swift_type_header(&h.text).map(|t| t.keyword))
+                    .collect();
+                let declared = keywords.is_some_and(|k| {
+                    k.iter().all(|k| k != "protocol") && k.iter().any(|k| k != "extension")
                 });
                 let rows: Vec<Hit> = self
                     .swift_defs(here, word, &format!("{full}.{word}"), true)

@@ -682,7 +682,12 @@ keep the picker.
 initializer and a static method whose parameter is typed `Layout`, a type nested in two types:
 each lands on its own callee's `Layout`. A generic parameter named `Layout`, two overloads whose
 parameters take two types, and a ternary keep the picker; a parameter typed from outside the
-project answers none, not the project's namesake.
+project answers none, not the project's namesake. A memberwise init's `var lane = Lane.standard`
+reads `Lane` from the struct's scope, the nested `Ticket.Lane`; a property whose value is a static
+func's call (`Rush.make()`) keeps the picker. A method of a value whose type merl knows
+(`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
+also opens; two overloads taking
+two types, or a receiver merl cannot type, keep the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which

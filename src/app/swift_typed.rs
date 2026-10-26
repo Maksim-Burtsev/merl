@@ -219,6 +219,21 @@ impl App {
         Some(SwiftChain { written, links })
     }
 
+    pub(super) fn swift_receiver_rows(
+        &self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+        method: &str,
+    ) -> Option<Vec<Hit>> {
+        let SwiftChain { written, .. } =
+            self.swift_chain(here, here, text, self.line + 1, chain, 3)?;
+        let ty = self
+            .swift_type(here, &written)
+            .filter(|t| t.keyword.is_some())?;
+        self.swift_member_rows(here, &ty, method)
+    }
+
     fn swift_enum_case(
         &self,
         here: &Path,
