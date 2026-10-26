@@ -20,9 +20,15 @@ console.log(locale, count);
 const keyedNest = {
   inner: {
     locale: given.locale } };
-    //^ d: keys.ts:15; want none (#1291)
+    //^ d: none
 
 interface KeyedShape {
   locale: string;
   //^ d: keys.ts:26
 }
+
+const deepNest = {
+  "outer": {
+    inner: {
+      locale: given.locale } } };
+      //^ d: none

@@ -14,6 +14,7 @@ pub enum Owner {
 pub struct Label {
     pub what: &'static str,
     pub owner: Option<LabelOwner>,
+    pub nested: bool,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LabelOwner {
@@ -85,6 +86,7 @@ pub fn label_at(
             (!block).then_some(Label {
                 what: "key",
                 owner: None,
+                nested: false,
             })
         }
         (Kind::Python | Kind::Jvm | Kind::Swift | Kind::CSharp | Kind::Php | Kind::Ruby, b'(') => {
@@ -124,6 +126,7 @@ pub fn label_at(
             Some(Label {
                 what: "argument label",
                 owner,
+                nested: false,
             })
         }
         _ => None,
@@ -137,7 +140,13 @@ fn ts_object_key(
     at: usize,
     open: usize,
 ) -> Option<Label> {
-    let key = |owner| Some(Label { what: "key", owner });
+    let key = |owner| {
+        Some(Label {
+            what: "key",
+            owner,
+            nested: false,
+        })
+    };
     let CodeByte {
         line0: bl,
         index: bi,
@@ -184,6 +193,11 @@ fn ts_object_key(
             key(owner)
         }
         b'[' | b'?' => key(None),
+        b':' if ts_key_of_an_object(kind, lines, literal, bl, before) => Some(Label {
+            what: "key",
+            owner: None,
+            nested: true,
+        }),
         b'&' | b'|' if before.ends_with(b as char) => key(None),
         _ if ["return", "yield"].iter().any(|k| {
             lines[bl]
@@ -196,6 +210,27 @@ fn ts_object_key(
         }
         _ => None,
     }
+}
+
+fn ts_key_of_an_object(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    line0: usize,
+    before: &str,
+) -> bool {
+    static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"(?:^|[^\w$])([A-Za-z_$][\w$]*|"[^"\\]*"|'[^'\\]*')\s*$"#)
+            .expect("the regex is a literal")
+    });
+    let Some(name) = KEY.captures(before).and_then(|c| c.get(1)) else {
+        return false;
+    };
+    open_bracket(kind, lines, literal, line0, name.start()).is_some_and(|o| {
+        o.bracket == b'{'
+            && matches!(o.first_met, Some(b'{' | b','))
+            && ts_object_key(kind, lines, literal, o.line0, o.byte).is_some()
+    })
 }
 
 fn rust_struct_key(
@@ -215,7 +250,13 @@ fn rust_struct_key(
     static DECLARES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\b(?:struct|enum|union|impl|trait)\b").expect("the regex is a literal")
     });
-    let key = |owner| Some(Label { what: "key", owner });
+    let key = |owner| {
+        Some(Label {
+            what: "key",
+            owner,
+            nested: false,
+        })
+    };
     let before = lines[at].get(..open)?;
     let ty = LITERAL.captures(before)?.get(1)?;
     if DECLARES.is_match(before.get(..ty.start())?) {
@@ -452,6 +493,7 @@ fn jsx(kind: Kind, lines: &[&str], literal: &[bool], line0: usize, start: usize)
                 return Some(Label {
                     what: "argument label",
                     owner,
+                    nested: false,
                 });
             }
             c if c.is_ascii_alphanumeric()
@@ -794,6 +836,21 @@ mod tests {
         );
         assert_eq!(label(Kind::TsJs, ts, "value").map(|l| l.owner), Some(None));
         assert_eq!(label(Kind::TsJs, ts, "T ="), None);
+    }
+
+    #[test]
+    fn a_typescript_key_under_a_key_is_one_of_the_nested_literal() {
+        let ts = "const o = {\n  inner: {\n    locale: x } };\nconst q = { 'out': { mid: { deep: 1 } } };\nlet t: { inner: { size: number } };\nfunction f(p: { inner: { depth: number } }) {}\ninterface I { inner: { field: string } }\nclass A { inner: { member: string } }\nconst h = { pick: (arg: { width: number }) => arg };\nconst c = { inner: y ? z : { other: 1 } };\nswitch (k) { case 'a': { label: while (1) {} } }\n";
+        let nested = |probe| label(Kind::TsJs, ts, probe).map(|l| (l.what, l.owner, l.nested));
+        assert_eq!(nested("locale"), Some(("key", None, true)));
+        assert_eq!(nested("deep"), Some(("key", None, true)));
+        assert_eq!(nested("mid"), Some(("key", None, true)));
+        assert_eq!(nested("inner: {"), Some(("key", None, false)));
+        for typed in [
+            "size", "depth", "field", "member", "width", "other", "label:",
+        ] {
+            assert_eq!(label(Kind::TsJs, ts, typed), None, "{typed}");
+        }
     }
 
     #[test]

@@ -2739,7 +2739,7 @@ js0014	skip	picker	133.50
 js0015	no-answer	picker	82.67
 js0016	ok	jump	22.83
 js0017	on-decl	stay	94.83
-js0018	skip-WRONG	jump	45.16
+js0018	skip	stay	46.51
 js0019	ok	jump	42.36
 js0020	no-answer	picker	81.97
 js0021	skip	jump	14.07

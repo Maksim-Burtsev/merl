@@ -327,6 +327,9 @@ impl App {
             && let java = a.here.extension().is_some_and(|e| e == "java")
             && let Some(label) = search::label_at(kind, java, &a.text, self.line, a.range.clone())
         {
+            if label.nested && self.answered_by_typed_key(a) {
+                return true;
+            }
             let found = label
                 .owner
                 .map(|o| self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, &o.how))
