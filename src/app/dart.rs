@@ -521,7 +521,8 @@ impl App {
             if plain && method.is_ok_and(|m| m.is_match(&row.hit.text)) {
                 return None;
             }
-            ty = search::dart_returns(&row.hit.text, link)?;
+            ty = search::dart_returns(&row.hit.text, link)
+                .or_else(|| search::dart_typed(&row.hit.text, "", link))?;
             scope.clone_from(&row.hit.path);
         }
         Some((ty, scope))
@@ -752,19 +753,36 @@ impl App {
                 d.keyword == "import"
                     && d.prefix.is_none()
                     && d.uri.starts_with("dart:")
-                    && d.show.as_ref().is_none_or(|s| s.iter().any(|n| n == class))
-                    && !d.hide.iter().any(|n| n == class)
+                    && dart_names(d, class)
             })
             .map(|d| d.uri.as_str())
             .chain(implicit_core.then_some("dart:core"));
-        let mut declaring = uris.filter_map(|uri| {
-            let file = search::dart_uri_file(&self.root, &library[0], uri, Some(&sdk))?;
-            let (files, _) = self.dart_library(file, Some(&sdk), false)?;
-            files
-                .into_iter()
-                .find(|f| self.dart_declares_class(f, class))
-        });
+        let mut declaring =
+            uris.filter_map(|uri| self.dart_sdk_exported(&library[0], uri, class, &sdk, 0));
         let file = declaring.next()?;
-        declaring.next().is_none().then_some(file)
+        declaring.all(|f| f == file).then_some(file)
     }
+
+    fn dart_sdk_exported(
+        &self,
+        from: &Path,
+        uri: &str,
+        class: &str,
+        sdk: &Path,
+        depth: usize,
+    ) -> Option<PathBuf> {
+        let file = search::dart_uri_file(&self.root, from, uri, Some(sdk))?;
+        let (files, directives) = self.dart_library(file, Some(sdk), false)?;
+        if let Some(f) = files.iter().find(|f| self.dart_declares_class(f, class)) {
+            return Some(f.clone());
+        }
+        directives
+            .iter()
+            .filter(|d| depth < 4 && d.keyword == "export" && dart_names(d, class))
+            .find_map(|d| self.dart_sdk_exported(&files[0], &d.uri, class, sdk, depth + 1))
+    }
+}
+
+fn dart_names(d: &search::DartDirective, name: &str) -> bool {
+    d.show.as_ref().is_none_or(|s| s.iter().any(|n| n == name)) && !d.hide.iter().any(|n| n == name)
 }

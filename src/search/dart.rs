@@ -303,7 +303,9 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
             let sky = packages().into_iter().find(|p| p.name == "sky_engine")?;
             return found(sky.package_uri_dir.join("ui/ui.dart"));
         }
-        return found(sdk?.join("lib").join(lib).join(format!("{lib}.dart")));
+        let sdk = sdk?.join("lib");
+        return found(sdk.join(lib).join(format!("{lib}.dart")))
+            .or_else(|| found(sdk.join(dart_sdk_library(&sdk, lib)?)));
     }
     let Some(rest) = uri.strip_prefix("package:") else {
         return found(lexical(&here.parent()?.join(uri))?);
@@ -321,6 +323,16 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
     }
     let package = packages().into_iter().find(|p| p.name == name)?;
     found(package.package_uri_dir.join(path))
+}
+
+fn dart_sdk_library(lib_dir: &Path, lib: &str) -> Option<String> {
+    let json = std::fs::read_to_string(lib_dir.join("libraries.json")).ok()?;
+    let entry = Regex::new(&format!(
+        r#""{}"\s*:\s*\{{\s*"uri"\s*:\s*"([^"]+)""#,
+        regex::escape(lib)
+    ))
+    .ok()?;
+    Some(entry.captures(&json)?[1].to_owned())
 }
 
 pub(super) struct DartPackage {
