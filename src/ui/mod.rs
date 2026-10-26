@@ -9,10 +9,12 @@ use ratatui::widgets::Block;
 
 use crate::app::{App, Focus, Mode};
 use crate::theme::Theme;
+use crate::tutor::Tutor;
 use crate::wrap;
 
 mod code;
 mod fold;
+mod lesson;
 mod overlays;
 pub mod picture;
 mod preview;
@@ -20,7 +22,7 @@ mod status;
 mod welcome;
 
 use code::{draw_binary, draw_code, draw_empty, draw_renamed};
-use overlays::{draw_help, draw_picker, draw_tree, lesson_panel};
+use overlays::{draw_help, draw_picker, draw_tree};
 use preview::draw_preview;
 use status::draw_status;
 use welcome::draw_welcome;
@@ -38,12 +40,13 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     let base = Style::new().bg(theme.bg).fg(theme.fg);
     frame.render_widget(Block::new().style(base), area);
 
-    let panel = lesson_panel(app, theme, area.width, base);
-    let lesson_h = panel.as_ref().map_or(0, |p| {
-        u16::try_from(p.line_count(area.width))
-            .unwrap_or(u16::MAX)
-            .max(3)
-    });
+    let panel = lesson::of(app);
+    let up = app.tutor.as_ref().is_some_and(Tutor::card_up);
+    let slide = app.tutor.as_ref().and_then(Tutor::slide);
+    let lesson_h = panel
+        .as_ref()
+        .filter(|_| !up)
+        .map_or(0, |p| p.height(theme, base, false, area.width));
     let [main, lesson, status] = Layout::vertical([
         Constraint::Min(1),
         Constraint::Length(lesson_h),
@@ -83,8 +86,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
     } else {
         pane(app);
     }
-    if let Some(panel) = panel {
-        frame.render_widget(panel, lesson);
+    if let Some(panel) = panel.as_ref().filter(|_| !up && slide.is_none()) {
+        panel.draw_box(frame, theme, base, lesson);
     }
     draw_status(frame, app, theme, status);
     draw_overlays(frame, app, theme, (area, main), base);
@@ -98,6 +101,13 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         } else {
             theme.typing_cursor
         });
+    }
+    if let Some(panel) = panel.as_ref().filter(|_| up || slide.is_some()) {
+        let above = Rect {
+            height: area.height.saturating_sub(1),
+            ..area
+        };
+        panel.draw_card(frame, (theme, base), (above, lesson), slide.unwrap_or(0));
     }
 }
 

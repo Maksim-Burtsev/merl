@@ -1,7 +1,9 @@
 # start: the other ways merl starts, each on an empty HOME. --tutor opens on its first lesson,
-# --drill 3 on its first task, and --keys prints the table of keys and exits 0.
+# --drill 3 on its first task, and --keys prints the table of keys and exits 0. The tutor's first
+# lesson opens as a card that takes only Enter, so Enter goes before the quit (#501).
 merl --tutor
 wait Tutor 1/
+key Enter
 merl --drill 3
 wait Drill 1/3
 merl --keys
@@ -13,20 +15,7 @@ wait Open a file (fuzzy)
 # --help prints the flags and exits 0 (#310).
 merl --help
 wait merl exited: 0
-# #261: at 80x24 the tutor's lesson 3 wraps to three rows, and the panel grows to them: the key
-# it asks for, on the third row, is drawn
 size 80x24
-merl --tutor
-wait Tutor 1/
-key o
-type store
-key Enter
-wait Tutor 2/
-key /
-type load_config
-key Enter
-wait Tutor 3/
-wait the call inside NoteStore.
 # #761, #857: the status bar ends with the clock, no `? help` before it; the runner fixes the time
 # at 14:32 UTC. A `:` prompt takes the right edge, and the clock is back after Enter.
 merl app/config.py
@@ -40,3 +29,18 @@ wait 14:32
 run mkdir -p "$HOME/.config/merl" && printf 'clock = "%%I:%%M %%p"\n' >> "$HOME/.config/merl/config.toml"
 merl app/config.py
 wait 02:32 PM
+# #261: at 80x24 the tutor's lesson 3 wraps to three rows, and the panel grows to them: the key
+# it asks for, on the third row, is drawn. Each lesson opens as a card that Enter sends into the
+# panel (#501), so these steps come last: the last release stops at the card's first wait.
+merl --tutor
+wait Enter starts
+key Enter o
+type store
+key Enter
+wait Tutor 2/
+key Enter /
+type load_config
+key Enter
+wait Tutor 3/
+key Enter
+wait the call inside NoteStore.

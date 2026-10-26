@@ -8,6 +8,9 @@ impl App {
     }
 
     pub(crate) fn key_at(&mut self, key: KeyEvent, at: Instant) -> bool {
+        if tutor::card_key(self, key) {
+            return false;
+        }
         let was = self.mode;
         let work = self.tutor.is_none() && key.kind == KeyEventKind::Press;
         let had_picker = self.picker.is_some();

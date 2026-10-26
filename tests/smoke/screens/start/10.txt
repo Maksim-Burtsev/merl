@@ -1,26 +1,26 @@
-wait 14:32
-┌orders──────────────────────┐ 1 """Settings, read from the environment once at
-│▸ .github                   │   startup."""
-│▸ .venv                     │ 2 import os
-│▾ app                       │ 3 from dataclasses import dataclass
-│    __init__.py             │ 4
-│    api.py                  │ 5
-│    config.py               │ 6 @dataclass(frozen=True)
-│    models.py               │ 7 class Settings:
-│    repos.py                │ 8     database_url: str
-│    service.py              │ 9     api_token: str
-│    uow.py                  │10     page_size: int = 50
-│▸ data                      │11     refund_window_days: int = 30
-│▸ deploy                    │12
-│▸ docs                      │13
-│▸ scripts                   │14 def load() -> Settings:
-│▸ tests                     │15     return Settings(
-│▸ web                       │16         database_url=os.environ.
-│▸ worker                    │           get("DATABASE_URL", "postgresql://
-│  .env                      │           orders@localhost/orders"),
-│  .gitignore                │17         api_token=os.environ["API_TOKEN"],
-│  docker-compose.yml        │18         page_size=int(os.environ.
-│  Dockerfile                │           get("PAGE_SIZE", "50")),
-└────────────────────────────┘19     )
-app/config.py  1:1  [code]                                                14:32
-cursor (x,y,shown) 33,0,0
+wait Enter starts
+
+
+
+
+                      ███╗   ███╗███████╗██████╗ ██╗
+                      ████╗ ████║██╔════╝██╔══██╗██║
+    ╭ Tutor 1/26 · Open a file ────────────────────────────────────────────╮
+    │                                                                      │
+    │  Press `o` (or Ctrl+E), type `store`, and press Enter to open        │
+    │  store.py.                                                           │
+    │                                                                      │
+    ╰─────────────────────────────────── Enter starts · i shows this again ╯
+                      s            Search the project
+                      D            Project symbols (fuzzy)
+                      ?            This help
+                      q            Quit
+
+
+
+
+
+
+
+merl-tutor-NNNNN/  [code]                                                 14:32
+cursor (x,y,shown) 80,23,0

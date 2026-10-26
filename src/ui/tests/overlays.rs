@@ -747,6 +747,48 @@ fn review_panel_puts_a_nested_file_counts_at_the_border() {
 }
 
 #[test]
+fn the_card_slides_from_the_middle_into_the_box() {
+    use crate::tutor::{Card, SLIDE, Tutor};
+    use std::time::{Duration, Instant};
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::empty(),
+        None,
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    let mut frame = |app: &mut App, card: Card| {
+        app.tutor = Some(Tutor {
+            step: 0,
+            dir: PathBuf::from("/demo"),
+            drill: None,
+            card,
+        });
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let top = rows(&terminal)
+            .iter()
+            .position(|l| l.contains("\u{256d} Tutor 1/"))
+            .unwrap();
+        (terminal.backend().buffer().clone(), top)
+    };
+    let (_, middle) = frame(&mut app, Card::Up);
+    let (boxed, bottom) = frame(&mut app, Card::Down);
+    let half = Instant::now().checked_sub(SLIDE / 2).unwrap();
+    let (_, sliding) = frame(&mut app, Card::Sliding(half));
+    assert!(
+        middle < sliding && sliding < bottom,
+        "{middle} < {sliding} < {bottom}"
+    );
+    let over = Instant::now()
+        .checked_sub(SLIDE + Duration::from_millis(1))
+        .unwrap();
+    let (ended, _) = frame(&mut app, Card::Sliding(over));
+    assert_eq!(ended, boxed, "the slide ends on the box, the code undimmed");
+}
+
+#[test]
 fn overlays_leave_the_tutor_panel_in_sight() {
     let files = ["src/app.rs", "src/wrap.rs"].map(PathBuf::from).to_vec();
     let mut app = App::new(
@@ -760,6 +802,7 @@ fn overlays_leave_the_tutor_panel_in_sight() {
         step: 0,
         dir: PathBuf::from("/demo"),
         drill: None,
+        card: crate::tutor::Card::Down,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
@@ -797,11 +840,19 @@ fn the_lesson_panel_grows_to_its_text() {
             step,
             dir: PathBuf::from("/demo"),
             drill: None,
+            card: crate::tutor::Card::Down,
         });
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         let r = rows(&terminal);
-        let top = r.iter().position(|l| l.starts_with("Tutor ")).unwrap();
-        let panel = r[top + 1..r.len() - 1].join(" ").trim_end().to_owned();
+        let top = r
+            .iter()
+            .position(|l| l.starts_with("\u{256d} Tutor "))
+            .unwrap();
+        let panel = r[top + 1..r.len() - 2]
+            .iter()
+            .map(|l| l.trim_matches(['\u{2502}', ' ']))
+            .collect::<Vec<_>>()
+            .join(" ");
         let last = crate::tutor::lesson(step)
             .unwrap()
             .tutor
@@ -820,7 +871,7 @@ fn the_lesson_panel_grows_to_its_text() {
         );
         tallest = tallest.max(r.len() - 1 - top);
     }
-    assert!(tallest > 3, "no lesson wraps past two rows at 80 columns");
+    assert!(tallest > 4, "no lesson wraps past two rows at 80 columns");
 }
 
 fn hits_app(name: &str, hits: &[(&str, usize, &str)]) -> App {

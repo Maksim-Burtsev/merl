@@ -1,57 +1,57 @@
-wait Tutor 25/
-┌agent/find-by-tag ← HEAD────┐ 1 """The one thing this project stores: a note."""
-│  ▾ tests                   │ 2
-│    A test_cli.py     +43 −0│  ▎import json
-│    M test_store.py   +34 −0│ 3 from dataclasses import dataclass, field
-│  M cli.py            +25 −4│ 4 from datetime import date
-│  M models.py         +5 −10│ 5 from typing import Protocol
-│  M PLAN.md            +7 −4│ 6
-│  M store.py          +24 −5│ 7
-│                            │ 8 @dataclass
-│                            │ 9 class Note:
-│                            │10     """A single note, identified by an integer id."""
-│                            │11
-│                            │12     id: int
-│                            │13     text: str
-│                            │14     tags: list[str] = field(default_factory=list)
-│                            │15     created: date = field(default_factory=date.today)
-│                            │16
-│                            │17     def to_dict(self) -> dict:
-│                            │18         """The note as plain, JSON-friendly data."""
-│                            │19         return {
-│                            │20             "id": self.id,
-│                            │21             "text": self.text,
-│                            │22             "tags": self.tags,
-│                            │23             "created": self.created.isoformat(),
-│                            │24         }
-│                            │25
-│                            │26     @classmethod
-│                            │27     def from_dict(cls, raw: dict) -> "Note":
-│                            │28         """Rebuild a note from what `to_dict` wrote."""
-│                            │  ▎        # TODO: reject a note whose id is already taken.
-│                            │29         return cls(
-│                            │30             id=int(raw["id"]),
-│                            │31             text=raw["text"],
-│                            │32             tags=list(raw.get("tags", [])),
-│                            │33             created=date.fromisoformat(raw["created"]),
-│                            │34         )
-│                            │35
-│                            │36▎    def has_tags(self, wanted: set[str]) -> bool:
-│                            │37▎        """Whether the note carries every tag in `wanted`, as typed."""
-│                            │38▎        return wanted <= set(self.tags)
-│                            │39▎
-│                            │40     def summary(self, width: int = 40) -> str:
-│                            │41         """One line for a listing: the text, cut to `width` characters."""
-│                            │42         text = self.text if len(self.text) <= width else self.text[: width - 1] + "…"
-│                            │  ▎        tags = " ".join(f"#{tag}" for tag in self.tags)
-│                            │43▎        tags = " ".join(f"#{tag}" for tag in sorted(self.tags))
-│                            │44         return f"{self.id:>4}  {text}  {tags}".rstrip()
-│                            │45
-│                            │46
-│                            │47 class Formatter(Protocol):
-└ 6 files · +138 −23 ────────┘48     """How one note is turned into a line of output."""
-Tutor 25/26 · Previous change
-`C` walks back: to the change before, and from the first one into the file before. Press `C`: from the top of models.py back into cli.py.
-
-models.py  1:1  [code]  hunk 0/5  file 4/6  ✓ Next change                                                                                                                          14:32
-cursor (x,y,shown) 33,0,0
+wait Tutor 24/
+┌agent/find-by-tag ← HEAD────┐  ▎"""Command line entry point: add, remove, list and search notes."""
+│  ▾ tests                   │ 1▎"""Command line entry point: add, remove, list, search and count notes."""
+│    A test_cli.py     +43 −0│ 2
+│    M test_store.py   +34 −0│ 3 import argparse
+│  M cli.py            +25 −4│ 4 import sys
+│  M models.py         +5 −10│ 5
+│  M PLAN.md            +7 −4│ 6 from config import load_config
+│  M store.py          +24 −5│ 7 from models import Formatter, Note, PlainFormatter
+│                            │ 8 from store import NoteStore
+│                            │ 9
+│                            │10
+│                            │11 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+│                            │12     """Build the argument parser and read the command line."""
+│                            │13     parser = argparse.ArgumentParser(prog="notes", description="A tiny note keeper.")
+│                            │  ▎    parser.add_argument("command", choices=["add", "remove", "list", "find"])
+│                            │14▎    parser.add_argument("command", choices=["add", "remove", "list", "find", "tags"])
+│                            │15     parser.add_argument("words", nargs="*", help="note text, id, or search query")
+│                            │  ▎    parser.add_argument("--tag", action="append", default=[], help="tag a new note")
+│                            │16▎    parser.add_ar╭ Tutor 24/26 · Next change ───────────────────────────────────────────────────────╮
+│                            │17▎        "--tag", │                                                                                  │
+│                            │18▎        action="a│  A review: an agent built PLAN.md and left its work uncommitted, the files on    │
+│                            │19▎        default=[│  the left. `c` goes to the next change, and past the last one into the next      │
+│                            │20▎        help="tag│  file, ticking the one you walked off. Press `c` until you are in models.py.     │
+│                            │21▎    )            │                                                                                  │
+│                            │22     return parser╰─────────────────────────────────────────────── Enter starts · i shows this again ╯
+│                            │23
+│                            │24
+│                            │25 def show(notes: list[Note], formatter: Formatter | None = None) -> None:
+│                            │26     """Print one line per note, the way the formatter renders it."""
+│                            │27     formatter = formatter or PlainFormatter()
+│                            │28     for note in notes:
+│                            │29         print(formatter.render(note))
+│                            │30
+│                            │31
+│                            │32▎def show_tags(counts: dict[str, int]) -> None:
+│                            │33▎    """Print every tag beside the number of notes that carry it."""
+│                            │34▎    width = max((len(tag) for tag in counts), default=0)
+│                            │35▎    for tag, count in counts.items():
+│                            │36▎        print(f"#{tag:<{width}}  {count}")
+│                            │37▎
+│                            │38▎
+│                            │39 def main(argv: list[str] | None = None) -> int:
+│                            │40     """Run one command and return the process exit code."""
+│                            │41     args = parse_args(argv)
+│                            │42     store = NoteStore(load_config())
+│                            │43     if args.command == "add":
+│                            │44▎        if not args.words:
+│                            │45▎            print("a note needs some text", file=sys.stderr)
+│                            │46▎            return 2
+│                            │47         note = store.add(" ".join(args.words), args.tag)
+│                            │48         print(f"added {note.id}")
+│                            │49     elif args.command == "remove":
+│                            │50         if not store.remove(int(args.words[0])):
+└ 6 files · +138 −23 ────────┘51             print("no such note", file=sys.stderr)
+cli.py  1:1  [code]  hunk 1/6  file 3/6  ✓ Close it  ✓ Keep or put back  ✓ Fold a function                                                                                         14:32
+cursor (x,y,shown) 33,1,0

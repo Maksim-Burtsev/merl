@@ -1,4 +1,6 @@
 wait Tutor 9/
+ 3 import json
+ 4 from dataclasses import dataclass, field
  5 from datetime import date
  6 from typing import Protocol
  7
@@ -16,12 +18,12 @@ wait Tutor 9/
 19         """The note as plain, JSON-friendly data."""
 20         return {
 21             "id": self.id,
-22             "text": self.text,
-23             "tags": self.tags,
-24             "created": self.created.isoformat(),
-25         }
-26
-27     @classmethod
+22             "text": self.text,                 ╭ Tutor 9/26 · Project symbols ────────────────────────────────────────────────────╮
+23             "tags": self.tags,                 │                                                                                  │
+24             "created": self.created.isoformat()│  `D` lists every class and function of the project. Type `NoteStore` and press   │
+25         }                                      │  Enter.                                                                          │
+26                                                │                                                                                  │
+27     @classmethod                               ╰─────────────────────────────────────────────── Enter starts · i shows this again ╯
 28     def from_dict(cls, raw: dict) -> "Note":
 29         """Rebuild a note from what `to_dict` wrote."""
 30         # TODO: reject a note whose id is already taken.
@@ -50,8 +52,6 @@ wait Tutor 9/
 53
 54     def render(self, note: Note) -> str:
 55         return note.summary()
-Tutor 9/26 · Project symbols
-`D` lists every class and function of the project. Type `NoteStore` and press Enter.
-
+56
 models.py  30:11  [code]  ✓ Search the project                                                                                                                                     14:32
-cursor (x,y,shown) 13,25,0
+cursor (x,y,shown) 13,27,0

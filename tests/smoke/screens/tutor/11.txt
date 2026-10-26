@@ -1,57 +1,57 @@
-wait Tutor 26/
-┌agent/find-by-tag ← HEAD────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+wait Tutor 25/
+┌agent/find-by-tag ← HEAD────┐ 1 """The one thing this project stores: a note."""
 │  ▾ tests                   │ 2
-│    A test_cli.py     +43 −0│ 3 import json
-│    M test_store.py   +34 −0│ 4
-│  M cli.py            +25 −4│ 5 from config import Config, load_config
-│  M models.py         +5 −10│ 6 from models import Note
-│  M PLAN.md            +7 −4│ 7
-│  M store.py          +24 −5│ 8
-│                            │ 9 class NoteStore:
-│                            │10     """Reads and writes the notes of a single JSON file."""
+│    A test_cli.py     +43 −0│  ▎import json
+│    M test_store.py   +34 −0│ 3 from dataclasses import dataclass, field
+│  M cli.py            +25 −4│ 4 from datetime import date
+│  M models.py         +5 −10│ 5 from typing import Protocol
+│  M PLAN.md            +7 −4│ 6
+│  M store.py          +24 −5│ 7
+│                            │ 8 @dataclass
+│                            │ 9 class Note:
+│                            │10     """A single note, identified by an integer id."""
 │                            │11
-│                            │12     def __init__(self, config: Config | None = None) -> None:
-│                            │13         self.config = config or load_config()
-│                            │14         self.notes: list[Note] = self._read()
-│                            │15
-│                            │16     def _read(self) -> list[Note]:
-│                            │17         """Load the notes from disk; a missing file means no notes yet."""
-│                            │18         if not self.config.path.exists():
-│                            │19             return []
-│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
-│                            │  ▎        return [Note.from_dict(item) for item in raw]
-│                            │21▎        notes = [Note.from_dict(item) for item in raw]
-│                            │22▎        seen: set[int] = set()
-│                            │23▎        for note in notes:
-│                            │24▎            if note.id in seen:
-│                            │25▎                raise ValueError(f"note id {note.id} is used twice")
-│                            │26▎            seen.add(note.id)
-│                            │27▎        return notes
-│                            │28
-│                            │29     def _write(self) -> None:
-│                            │30         """Write every note back to disk."""
-│                            │31         raw = [note.to_dict() for note in self.notes]
-│                            │32         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
-│                            │33
-│                            │34     def next_id(self) -> int:
-│                            │35         """One past the highest id in use."""
-│                            │36         return max((note.id for note in self.notes), default=0) + 1
-│                            │37
-│                            │38     def add(self, text: str, tags: list[str] | None = None) -> Note:
-│                            │39         """Append a note and save the file."""
-│                            │  ▎        note = Note(id=self.next_id(), text=text, tags=tags or [])
-│                            │40▎        note = Note(id=self.next_id(), text=text, tags=sorted(set(tags or [])))
-│                            │41         self.notes.append(note)
-│                            │42         self._write()
-│                            │43         return note
-│                            │44
-│                            │45     def remove(self, note_id: int) -> bool:
-│                            │46         """Delete the note with this id and report whether it existed."""
-│                            │47         keep = [note for note in self.notes if note.id != note_id]
-│                            │48         if len(keep) == len(self.notes):
-└ 6 files · +138 −23 ────────┘49             return False
-Tutor 26/26 · Mark viewed
-`m` marks the file you are in as viewed, a tick beside it on the left; `m` again takes it off. Press `m` on store.py.
-
-store.py  1:1  [code]  hunk 0/4  file 6/6  ✓ Previous change                                                                                                                       14:32
+│                            │12     id: int
+│                            │13     text: str
+│                            │14     tags: list[str] = field(default_factory=list)
+│                            │15     created: date = field(default_factory=date.today)
+│                            │16
+│                            │17     def to_dict(self) -> dict:
+│                            │18         """The note as plain, JSON-friendly data."""
+│                            │19         return { ╭ Tutor 25/26 · Previous change ───────────────────────────────────────────────────╮
+│                            │20             "id":│                                                                                  │
+│                            │21             "text│  `C` walks back: to the change before, and from the first one into the file      │
+│                            │22             "tags│  before. Press `C`: from the top of models.py back into cli.py.                  │
+│                            │23             "crea│                                                                                  │
+│                            │24         }        ╰─────────────────────────────────────────────── Enter starts · i shows this again ╯
+│                            │25
+│                            │26     @classmethod
+│                            │27     def from_dict(cls, raw: dict) -> "Note":
+│                            │28         """Rebuild a note from what `to_dict` wrote."""
+│                            │  ▎        # TODO: reject a note whose id is already taken.
+│                            │29         return cls(
+│                            │30             id=int(raw["id"]),
+│                            │31             text=raw["text"],
+│                            │32             tags=list(raw.get("tags", [])),
+│                            │33             created=date.fromisoformat(raw["created"]),
+│                            │34         )
+│                            │35
+│                            │36▎    def has_tags(self, wanted: set[str]) -> bool:
+│                            │37▎        """Whether the note carries every tag in `wanted`, as typed."""
+│                            │38▎        return wanted <= set(self.tags)
+│                            │39▎
+│                            │40     def summary(self, width: int = 40) -> str:
+│                            │41         """One line for a listing: the text, cut to `width` characters."""
+│                            │42         text = self.text if len(self.text) <= width else self.text[: width - 1] + "…"
+│                            │  ▎        tags = " ".join(f"#{tag}" for tag in self.tags)
+│                            │43▎        tags = " ".join(f"#{tag}" for tag in sorted(self.tags))
+│                            │44         return f"{self.id:>4}  {text}  {tags}".rstrip()
+│                            │45
+│                            │46
+│                            │47 class Formatter(Protocol):
+│                            │48     """How one note is turned into a line of output."""
+│                            │49
+│                            │50     def render(self, note: Note) -> str: ...
+└ 6 files · +138 −23 ────────┘51
+models.py  1:1  [code]  hunk 0/5  file 4/6  ✓ Next change                                                                                                                          14:32
 cursor (x,y,shown) 33,0,0
