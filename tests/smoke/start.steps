@@ -43,4 +43,8 @@ type load_config
 key Enter
 wait Tutor 3/
 key Enter
+# The card holds the text the wait names: sleep out the 0.4 s slide, or a slow runner's screen
+# is taken with the card still up
+sleep 0.3
+sleep 0.2
 wait the call inside NoteStore.
