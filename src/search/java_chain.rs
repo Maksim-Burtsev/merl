@@ -26,6 +26,7 @@ const KEEPS_ELEMENT: &[&str] = &[
     "limit",
     "peek",
     "delayUntil",
+    "next",
     "stream",
 ];
 
@@ -34,13 +35,14 @@ const WRAPPERS: &str = r"(?:Mono|Flux|Optional|Stream|List|ArrayList|LinkedList|
 pub struct JavaChainSource {
     pub receiver: Option<String>,
     pub call: Option<(String, String)>,
+    pub reference: Option<(String, String)>,
 }
 
 pub fn java_lambda_source(text: &str, line1: usize, name: &str) -> Option<JavaChainSource> {
     let lines: Vec<&str> = text.lines().collect();
     let at = uncommented(Kind::Jvm, lines.get(line1.checked_sub(1)?)?);
     let lambda = Regex::new(&format!(
-        r"\.\s*(?:map|mapNotNull|filter|filterWhen|flatMap|flatMapMany|flatMapIterable|concatMap|doOnNext|doOnSuccess|delayUntil|forEach|anyMatch|allMatch|noneMatch|ifPresent|peek)\s*\(\s*(?:\(\s*{0}\s*\)|{0})\s*->",
+        r"\.\s*(?:(?:map|mapNotNull|filter|filterWhen|flatMap|flatMapMany|flatMapIterable|concatMap|doOnNext|doOnSuccess|delayUntil|forEach|anyMatch|allMatch|noneMatch|ifPresent|peek)\s*\(|collect\s*\(\s*(?:Collectors\s*\.\s*)?(?:toMap|groupingBy)\s*\()\s*(?:\(\s*{0}\s*\)|{0})\s*->",
         regex::escape(name)
     ))
     .ok()?;
@@ -78,6 +80,7 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
             return Some(JavaChainSource {
                 receiver: Some(receiver),
                 call: None,
+                reference: None,
             });
         }
         let open = matching_open(rest)?;
@@ -98,8 +101,16 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
             return Some(JavaChainSource {
                 receiver: None,
                 call: Some((method, args)),
+                reference: None,
             });
         };
+        if let ("map", Some(reference)) = (method.as_str(), method_reference(&args)) {
+            return Some(JavaChainSource {
+                receiver: None,
+                call: None,
+                reference: Some(reference),
+            });
+        }
         if KEEPS_ELEMENT.contains(&method.as_str()) {
             rest = dot;
             continue;
@@ -116,8 +127,18 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
         return Some(JavaChainSource {
             receiver: Some(receiver),
             call: Some((method, args)),
+            reference: None,
         });
     }
+}
+
+fn method_reference(args: &str) -> Option<(String, String)> {
+    static REFERENCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\s*::\s*([a-z]\w*)\s*$")
+            .expect("the regex is a literal")
+    });
+    let c = REFERENCE.captures(args)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
 }
 
 fn trim_end(s: &[char]) -> &[char] {

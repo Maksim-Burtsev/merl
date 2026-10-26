@@ -763,15 +763,29 @@ pub fn jvm_lombok_fields(text: &str, decl_line1: usize, word: &str) -> Vec<usize
     }
     let lines: Vec<&str> = text.lines().collect();
     let with_annotations_above = |at: usize| {
-        let mut out = String::from(lines[at]);
+        let mut above: Vec<&str> = Vec::new();
+        let mut kept = 0;
+        let mut open = 0usize;
         for l in lines[..at].iter().rev() {
-            if l.trim_start().starts_with('@') {
-                out.push_str(l);
-            } else {
+            let closes = l.matches(')').count();
+            let opens = l.matches('(').count();
+            let annotation = l.trim_start().starts_with('@');
+            if open == 0 && !annotation && closes <= opens {
                 break;
             }
+            above.push(l);
+            open = (open + closes).saturating_sub(opens);
+            if open == 0 {
+                if !annotation {
+                    break;
+                }
+                kept = above.len();
+            }
         }
-        out
+        above.truncate(kept);
+        above.reverse();
+        above.push(lines[at]);
+        above.join("\n")
     };
     let (own, class) = if setter {
         ("Setter", "Data|Setter")
@@ -810,7 +824,7 @@ pub struct JvmAssignedCall {
 }
 pub fn jvm_assigned_call(line: &str, name: &str) -> Option<JvmAssignedCall> {
     let re = Regex::new(&format!(
-        r"\b(?:var|val)\s+{}\s*=\s*(?:([a-z]\w*)\.)?([a-z]\w*)\s*\([^()]*\)\s*;?\s*$",
+        r"\b(?:var|val)\s+{}\s*=\s*(?:([a-z]\w*)\.)?([a-z]\w*)\s*\((?:[^()]|\([^()]*\))*\)\s*;?\s*$",
         regex::escape(name)
     ))
     .ok()?;
