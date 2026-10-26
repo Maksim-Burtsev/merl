@@ -576,6 +576,12 @@ pub(super) fn parameter_at(params: &str, name: &str) -> Option<usize> {
             None => LAST
                 .captures(entry.trim())
                 .and_then(|c| c.get(1))
+                .filter(|m| {
+                    !entry.trim().get(..m.start()).is_some_and(|b| {
+                        b.split_whitespace()
+                            .all(|w| ["const", "volatile", "struct", "enum", "union"].contains(&w))
+                    })
+                })
                 .map(|m| (lead + m.start(), m.as_str())),
         };
         if let Some((j, _)) = found.filter(|(_, n)| *n == name && !BUILTIN.contains(n)) {

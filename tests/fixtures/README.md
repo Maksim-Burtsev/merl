@@ -266,13 +266,15 @@ associative array, `${leaf:-..}`, a function declared in both arms of an `if`, a
 in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `local leaf=$leaf`,
 `export -f`, and a `: '..'` block and a quoted heredoc declaring functions. Its `glaze` reads a
 variable in the `elif` and `else` branches of an `if` whose earlier branch assigns it, and after
-the `fi` (#1270): inside the `if`, the assignment above it answers.
+the `fi` (#1270): inside the `if`, the assignment above it answers. `rinse` and `drain` read one in
+the `else` of an `if` that follows an `if` or a loop already closed, whose assignment answers.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
 each part of its selector, a property, a block property, the four `NS_ENUM` macros, a category, a
 class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
-the refusals included, from `Profile.mm`.
+the refusals included, from `Profile.mm`. Its `Order` and `include/shop/warehouse.h`'s
+`courier_cmp` take unnamed `const T` and `struct T` parameters, whose `T` is a type (#1276).
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
@@ -733,7 +735,8 @@ table, a derived table, a function in `FROM`, an `AS` of the same name or a `REF
 own the name.
 `scrub_sifters` reads `NEW.` and `OLD.` columns for #1284 through the trigger below the function,
 a statement's own CTE named `new` keeps them out, `drain` behind triggers on two tables answers
-nothing, and `rinse`, whose trigger only `rinse_sifters` creates later, answers nothing either.
+nothing, and `rinse`, whose trigger only `rinse_sifters` creates later, answers nothing either;
+a trigger on `meshes` running `audit.scrub ()` is not `scrub`'s.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one

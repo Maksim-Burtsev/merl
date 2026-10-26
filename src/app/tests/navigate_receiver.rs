@@ -659,7 +659,7 @@ fn a_std_member_overloaded_by_const_alone_is_the_one_a_plain_object_calls() {
         "cpp-std-cv",
         &[(
             "m.cc",
-            "#include <string>\n#include <atomic>\nstruct Log {\n  std::string buf_;\n  std::atomic<bool> on_;\n  char* Raw() { return buf_.data(); }\n  const char* View() const { return buf_.data(); }\n  bool On() { return on_.load(); }\n};\nint f(const std::string& in, std::string* p) {\n  std::string out;\n  const std::string fixed;\n  out.data();\n  p->data();\n  in.data();\n  fixed.data();\n  auto g = [&]() { return out.data(); };\n  out.find('x');\n  out.tag();\n  return 0;\n}\n",
+            "#include <string>\n#include <atomic>\nstruct Log {\n  std::string buf_;\n  std::atomic<bool> on_;\n  char* Raw() { return buf_.data(); }\n  const char* View() const { return buf_.data(); }\n  bool On() { return on_.load(); }\n};\nint f(const std::string& in, std::string* p) {\n  std::string out;\n  const std::string fixed;\n  constexpr std::string kept;\n  std::string const back;\n  out.data();\n  p->data();\n  in.data();\n  fixed.data();\n  kept.data();\n  back.data();\n  auto g = [&]() { return out.data(); };\n  out.find('x');\n  out.tag();\n  return 0;\n}\n",
         )],
     );
     let root = external_root(
@@ -703,6 +703,8 @@ fn a_std_member_overloaded_by_const_alone_is_the_one_a_plain_object_calls() {
         "const { return buf_.data",
         "in.data",
         "fixed.data",
+        "kept.data",
+        "back.data",
         "return out.data",
         "out.find",
         "out.tag",

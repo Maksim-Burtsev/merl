@@ -1056,7 +1056,10 @@ fn has_cv(s: &str) -> (bool, bool) {
     let words: Vec<&str> = s
         .split(|c: char| !(c.is_alphanumeric() || c == '_'))
         .collect();
-    (words.contains(&"const"), words.contains(&"volatile"))
+    (
+        words.contains(&"const") || words.contains(&"constexpr"),
+        words.contains(&"volatile"),
+    )
 }
 
 fn method_tail(code: &str, at: usize, len: usize) -> Option<(String, (bool, bool))> {

@@ -25,15 +25,22 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
         let t = l.trim_start();
         t == "else" || t.starts_with("else ") || t.starts_with("elif ")
     };
+    let fi_at = |l: &str, depth: usize| {
+        let t = l.trim();
+        indent(l) == depth && (t == "fi" || t.starts_with("fi ") || t.starts_with("fi;"))
+    };
     let sibling = |i: usize| {
         (i + 1..at).any(|j| {
+            let depth = indent(lines[j]);
             branch(lines[j])
-                && indent(lines[j]) < indent(lines[i])
-                && !lines[j + 1..=at].iter().any(|l| {
-                    let t = l.trim();
-                    indent(l) == indent(lines[j])
-                        && (t == "fi" || t.starts_with("fi ") || t.starts_with("fi;"))
-                })
+                && depth < indent(lines[i])
+                && (0..i)
+                    .rev()
+                    .find(|&k| {
+                        indent(lines[k]) == depth && lines[k].trim_start().starts_with("if ")
+                    })
+                    .is_some_and(|k| !lines[k + 1..j].iter().any(|l| fi_at(l, depth)))
+                && !lines[j + 1..=at].iter().any(|l| fi_at(l, depth))
         })
     };
     let assigns = |i: usize| {
