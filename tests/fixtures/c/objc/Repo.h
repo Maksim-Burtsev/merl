@@ -71,3 +71,6 @@ typedef NSString * Mode NS_TYPED_EXTENSIBLE_ENUM;
 
 typedef void (^Then)(BOOL ok, Done completion);
 //                                 ^ d: objc/Repo.h:72
+
+typedef int (^Order)(const Done, const Done);
+//                         ^ d: objc/Repo.h:54

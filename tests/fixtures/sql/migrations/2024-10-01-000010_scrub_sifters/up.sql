@@ -25,3 +25,4 @@ BEGIN
     RETURN NEW;
 END
 $$;
+CREATE TRIGGER scrub_meshes BEFORE UPDATE ON meshes FOR EACH ROW EXECUTE FUNCTION audit.scrub ();

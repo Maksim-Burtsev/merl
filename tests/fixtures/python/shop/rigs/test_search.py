@@ -24,3 +24,12 @@ class TestSearch:
 
 def make(backend=None):
     return backend
+
+
+class TestWrapped:
+    def test_wrapped(
+        self,
+        backend,
+        #^ d: picker shop/rigs/conftest.py:5
+    ):
+        return backend

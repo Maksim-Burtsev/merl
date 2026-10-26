@@ -672,14 +672,19 @@ pub fn ruby_callbacks_before(text: &str, class: &str, action: &str) -> RubyCallb
     static NAME: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"[a-z_]\w*[?!]?").expect("the regex is a literal"));
     let literal = literal_lines(Kind::Ruby, text);
+    let lines: Vec<&str> = text.lines().collect();
     let mut out = RubyCallbacks::default();
-    for (i, line) in text.lines().enumerate() {
-        let Some(c) = CALLBACK.captures(line).filter(|_| !literal[i]) else {
-            continue;
-        };
-        if ruby_class_path(text, i + 1) != class {
+    for (i, line) in lines.iter().enumerate() {
+        if literal[i] || !CALLBACK.is_match(line) || ruby_class_path(text, i + 1) != class {
             continue;
         }
+        let Some(call) = ruby_call_whole(&lines, i) else {
+            out.unnamed = true;
+            continue;
+        };
+        let Some(c) = CALLBACK.captures(&call) else {
+            continue;
+        };
         let names: Vec<String> = c[2]
             .split(',')
             .map_while(|part| {
@@ -706,6 +711,24 @@ pub fn ruby_callbacks_before(text: &str, class: &str, action: &str) -> RubyCallb
         }
     }
     out
+}
+
+fn ruby_call_whole(lines: &[&str], at: usize) -> Option<String> {
+    let mut call = String::new();
+    for line in lines.iter().skip(at).take(50) {
+        call.push_str(&uncommented(Kind::Ruby, line));
+        call.push(' ');
+        let depth = code(Kind::Ruby, &call).fold(0i32, |d, (_, c)| match c {
+            b'(' | b'[' | b'{' => d + 1,
+            b')' | b']' | b'}' => d - 1,
+            _ => d,
+        });
+        let end = call.trim_end();
+        if depth <= 0 && !end.ends_with(',') && !end.ends_with('\\') {
+            return Some(call);
+        }
+    }
+    None
 }
 
 fn enclosing_def(text: &str, line1: usize) -> Option<(usize, String)> {

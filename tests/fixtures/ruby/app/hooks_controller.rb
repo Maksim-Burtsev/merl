@@ -137,3 +137,55 @@ class CupsController < BaseController
     @cup = Cup.find(params[:id])
   end
 end
+
+class LeavesController < BaseController
+  before_action :set_leaf,
+    only: %i[show edit]
+
+  def show
+    @leaf
+    #^ d: app/hooks_controller.rb:162
+  end
+
+  def destroy
+    @leaf
+    #^ d: picker app/hooks_controller.rb:156, app/hooks_controller.rb:162
+  end
+
+  def new
+    @leaf = Leaf.new
+  end
+
+  private
+
+  def set_leaf
+    @leaf = Leaf.find(params[:id])
+  end
+end
+
+class TwigsController < BaseController
+  before_action(
+    :set_twig,
+    except: :index,
+  )
+
+  def index
+    @twig
+    #^ d: picker app/hooks_controller.rb:183, app/hooks_controller.rb:189
+  end
+
+  def show
+    @twig
+    #^ d: app/hooks_controller.rb:189
+  end
+
+  def new
+    @twig = Twig.new
+  end
+
+  private
+
+  def set_twig
+    @twig = Twig.find(params[:id])
+  end
+end

@@ -115,3 +115,27 @@ glaze() {
   echo "$coat"
   #      ^ d: bin/steeping.sh:109
 }
+rinse() {
+  water=0
+  if [ -n "$1" ]; then
+    water=1
+  fi
+  if [ -n "$2" ]; then
+    :
+  else
+    echo "$water"
+    #      ^ d: bin/steeping.sh:121
+  fi
+}
+drain() {
+  dregs=0
+  while read -r drip; do
+    dregs="$drip"
+  done
+  if [ -n "$1" ]; then
+    :
+  else
+    echo "$dregs"
+    #      ^ d: bin/steeping.sh:133
+  fi
+}

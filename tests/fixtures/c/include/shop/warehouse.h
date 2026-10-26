@@ -15,4 +15,9 @@ typedef struct route {
     int start, end;
 } route;
 
+typedef int (*courier_cmp)(const courier_t, struct courier);
+//                               ^ d: include/shop/warehouse.h:9
+typedef int (*courier_eq)(const courier_t, struct courier);
+//                                                ^ d: include/shop/warehouse.h:4
+
 #endif

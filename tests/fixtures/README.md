@@ -274,13 +274,15 @@ associative array, `${leaf:-..}`, a function declared in both arms of an `if`, a
 in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `local leaf=$leaf`,
 `export -f`, and a `: '..'` block and a quoted heredoc declaring functions. Its `glaze` reads a
 variable in the `elif` and `else` branches of an `if` whose earlier branch assigns it, and after
-the `fi` (#1270): inside the `if`, the assignment above it answers.
+the `fi` (#1270): inside the `if`, the assignment above it answers. `rinse` and `drain` read one in
+the `else` of an `if` that follows an `if` or a loop already closed, whose assignment answers.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
 each part of its selector, a property, a block property, the four `NS_ENUM` macros, a category, a
 class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
-the refusals included, from `Profile.mm`.
+the refusals included, from `Profile.mm`. Its `Order` and `include/shop/warehouse.h`'s
+`courier_cmp` take unnamed `const T` and `struct T` parameters, whose `T` is a type (#1276).
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
@@ -560,7 +562,9 @@ lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
 another class. `keys.ts` puts keys of a type literal and of an object literal, at the start of
 their lines, above a module-level `const` of each key's name: a type literal's key (`name: T;`) is its own
-definition, an object literal's stays a key (#1273).
+definition, an object literal's stays a key (#1273). The last key of a nested object literal
+closed on its line (`locale: given.locale } };`) is no type key, though it still falls through
+to the module-level `const` (#1291); an `interface`'s key is its own definition.
 `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
@@ -592,8 +596,9 @@ whose member is "not installed", never "builtin".
 whose members come from an aliased `@lint/core` base, and whose `sourceCode` is `Options["Code"]`
 of that base, filled by the `{ Code: SourceCode }` of the extends clause; `SourceCode` is a class
 beside a namespace of its name. `rules/loud.js` holds what stays a picker: a rule with no `@type`,
-a parameter `create` does not declare, and a union `@type`. `token_store.js` declares the
-namesakes. `rules/keyed.js` holds the rule's own keys (#1288): `create`, the `docs` of `meta`
+a parameter `create` does not declare, a union `@type`, and a `const x = a.b` whose statement
+goes on with `.getFirstToken(..)` on the next line, so `x` is no field. `token_store.js` declares
+the namesakes. `rules/keyed.js` holds the rule's own keys (#1288): `create`, the `docs` of `meta`
 (declared on `@lint/core`'s `RulesMeta`, through the unaliased `RuleDefinition` base) and the
 listener `onCodePathStart` of the object `create` returns (its declared `RuleListener`); a key of
 an untyped object, a key under a member typed by no interface, and a `return {` of a function
@@ -745,7 +750,8 @@ table, a derived table, a function in `FROM`, an `AS` of the same name or a `REF
 own the name.
 `scrub_sifters` reads `NEW.` and `OLD.` columns for #1284 through the trigger below the function,
 a statement's own CTE named `new` keeps them out, `drain` behind triggers on two tables answers
-nothing, and `rinse`, whose trigger only `rinse_sifters` creates later, answers nothing either.
+nothing, and `rinse`, whose trigger only `rinse_sifters` creates later, answers nothing either;
+a trigger on `meshes` running `audit.scrub ()` is not `scrub`'s.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one

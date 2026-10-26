@@ -993,11 +993,7 @@ pub fn sql_trigger_on(text: &str, line1: usize, function: &str) -> Option<String
     let c = TRIGGER.captures(rest.get(..rest.find(';').unwrap_or(rest.len()))?)?;
     let runs = sql_qualified(&c[2]);
     let same = runs == function
-        || match (runs.rsplit_once('.'), function.rsplit_once('.')) {
-            (Some((_, r)), None) => r == function,
-            (None, Some((_, f))) => f == runs,
-            _ => false,
-        };
+        || (!runs.contains('.') && function.rsplit_once('.').is_some_and(|(_, f)| f == runs));
     same.then(|| sql_qualified(&c[1]))
 }
 
