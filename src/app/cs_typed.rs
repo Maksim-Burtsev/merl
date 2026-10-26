@@ -2,6 +2,8 @@ use std::cell::OnceCell;
 
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
+mod elements;
+
 #[derive(Debug, Clone)]
 enum CsType {
     Project(Typed),
@@ -132,7 +134,33 @@ impl App {
         expr: &str,
         hops: usize,
     ) -> Option<Proven> {
-        let search::CsSteps { new, parts } = search::cs_steps(expr)?;
+        if let Some((left, right)) = search::cs_coalesced(expr) {
+            let l = self.cs_chain_type(file, text, line1, left, hops)?;
+            let r = self.cs_chain_type(file, text, line1, right, hops)?;
+            let (a, b) = (self.cs_element(&l, true)?, self.cs_element(&r, true)?);
+            return same(&a.ty, &b.ty).then_some(l);
+        }
+        if let Some((class, written)) = search::cs_framework_value(expr) {
+            let CsType::Outside(_) = self.cs_resolve(file, text, line1, &class)? else {
+                return None;
+            };
+            let ty = match written.strip_suffix("[]") {
+                Some(_) => CsType::Outside("Array".to_owned()),
+                None => self.cs_resolve(file, text, line1, &written)?,
+            };
+            return Some(Proven {
+                ty,
+                link: format!("{class}: {written}"),
+                written,
+                from: (file.to_path_buf(), line1),
+            });
+        }
+        let search::CsSteps {
+            new,
+            parts,
+            args,
+            awaited,
+        } = search::cs_steps(expr)?;
         let here = (file.to_path_buf(), line1);
         let (mut p, rest) = match (new, parts.split_first()) {
             (Some(w), _) => {
@@ -165,9 +193,27 @@ impl App {
             }
             _ => return None,
         };
+        if awaited == 1 {
+            p = self.cs_await(p)?;
+        }
         let mut links = vec![p.link.clone()];
-        for (name, call) in rest {
-            p = self.cs_step(file, &p, name, *call)?;
+        let skipped = parts.len() - rest.len();
+        for (i, (name, call)) in rest.iter().enumerate() {
+            let arg = args.get(skipped + i).map_or("", String::as_str);
+            p = match &p.ty {
+                CsType::Outside(outer)
+                    if *call
+                        && name == "Select"
+                        && search::cs_collection(outer)
+                        && generic(&p.written) =>
+                {
+                    self.cs_select(file, text, line1, &p, arg)?
+                }
+                _ => self.cs_step(file, &p, name, *call)?,
+            };
+            if skipped + i + 1 == awaited {
+                p = self.cs_await(p)?;
+            }
             links.push(p.link.clone());
         }
         p.link = links.join(" \u{2192} ");
@@ -178,7 +224,7 @@ impl App {
         let t = match &from.ty {
             CsType::Project(t) if !call => return self.cs_field_type(t, name),
             CsType::Project(t) => t,
-            CsType::Outside(outer) if call && from.written.contains('<') => {
+            CsType::Outside(outer) if call && generic(&from.written) => {
                 let linq = search::cs_linq(name).filter(|_| search::cs_collection(outer))?;
                 let cut = self.truncated.get();
                 let unextended = self.cs_extensions(here, name).is_empty();
@@ -205,7 +251,7 @@ impl App {
                     }
                 };
             }
-            CsType::Outside(_) if !call || from.written.contains('<') => return None,
+            CsType::Outside(_) if !call || generic(&from.written) => return None,
             CsType::Outside(_) => {
                 let cut = self.truncated.get();
                 let unextended = self.cs_extensions(here, name).is_empty();
@@ -218,8 +264,10 @@ impl App {
                 });
             }
         };
-        let Up::Found(hits) = self.cs_up(t, name, 0) else {
-            return None;
+        let hits = match self.cs_up(t, name, 0) {
+            Up::Found(hits) => hits,
+            Up::Missing { .. } | Up::Outside { .. } => return self.cs_extended_step(here, t, name),
+            Up::Unknown => return None,
         };
         let mut found: Option<Proven> = None;
         for hit in hits {
@@ -494,44 +542,13 @@ impl App {
         name: &str,
         hops: usize,
     ) -> Option<Proven> {
-        let owner = || {
-            let decl = search::cs_owner(text, line1)?;
-            let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
-            Some(Typed {
-                name: n,
-                path: file.to_path_buf(),
-                line: decl,
-            })
-        };
-        match name {
-            "this" => {
-                let t = owner()?;
-                let link = format!("this: {}", t.name);
-                return Some(Proven {
-                    written: t.name.clone(),
-                    from: (file.to_path_buf(), t.line),
-                    ty: CsType::Project(t),
-                    link,
-                });
-            }
-            "base" => {
-                let t = owner()?;
-                let base = search::cs_bases(text, t.line).into_iter().next()?;
-                let ty = self.cs_resolve(file, text, t.line, &base)?;
-                let link = format!("base: {}", search::cs_type_name(&base)?);
-                return Some(Proven {
-                    ty,
-                    link,
-                    written: base,
-                    from: (file.to_path_buf(), t.line),
-                });
-            }
-            _ => {}
+        if matches!(name, "this" | "base") {
+            return self.cs_this(file, text, line1, name);
         }
         let lines: Vec<&str> = text.lines().collect();
         let bindings = search::bindings(Kind::CSharp, text, line1, name);
         if bindings.is_empty() {
-            return self.cs_field_type(&owner()?, name);
+            return self.cs_field_type(&owner_of(file, text, line1)?, name);
         }
         if bindings.first().is_some_and(|b| b.line1 == line1)
             && let Some(w) = search::cs_lambda_delegate(lines.get(line1 - 1)?, name)
@@ -549,9 +566,16 @@ impl App {
         for b in bindings {
             let at = search::cs_written_line(&lines, b.line1, name);
             let value = search::cs_declared(lines.get(at - 1)?, name);
+            let deep = matches!(&value, search::CsValue::Call { callee, awaited: false }
+                if callee.matches('.').count() > 1);
             let chain = search::cs_var_chain(&lines, at - 1, name)
-                .filter(|(_, continued)| *continued || value == search::CsValue::Unknown);
+                .filter(|(_, continued)| *continued || deep || value == search::CsValue::Unknown);
             let here = (file.to_path_buf(), at);
+            let spent = if at < line1 {
+                hops
+            } else {
+                hops.saturating_sub(1)
+            };
             let CsWrittenType { ty, written, from } = match (chain, value) {
                 (Some((expr, _)), _) if hops > 0 => {
                     let p = self.cs_chain_type(file, text, at, &expr, hops - 1)?;
@@ -570,13 +594,16 @@ impl App {
                     self.cs_call_type(file, text, at, &callee, awaited, hops - 1)?
                 }
                 (None, search::CsValue::Element(items)) if hops > 0 => {
-                    let spent = if at < line1 { hops } else { hops - 1 };
                     let p = self.cs_name_type(file, text, at, &items, spent)?;
                     self.cs_element(&p, false)?
                 }
+                (None, search::CsValue::Indexed(items)) if hops > 0 => {
+                    let p = self.cs_name_type(file, text, at, &items, spent)?;
+                    self.cs_element(&p, true)?
+                }
                 (None, search::CsValue::Unknown) if hops > 0 => {
                     let receiver = search::cs_lambda_call(&lines, at - 1, name)?;
-                    let p = self.cs_chain_type(file, text, at, &receiver, hops - 1)?;
+                    let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
                     self.cs_element(&p, true)?
                 }
                 _ => return None,
@@ -594,20 +621,25 @@ impl App {
         found
     }
 
-    fn cs_element(&self, of: &Proven, collection: bool) -> Option<CsWrittenType> {
-        let CsType::Outside(outer) = &of.ty else {
-            return None;
-        };
-        if collection && !search::cs_collection(outer) {
-            return None;
+    fn cs_this(&self, file: &Path, text: &str, line1: usize, name: &str) -> Option<Proven> {
+        let t = owner_of(file, text, line1)?;
+        if name == "this" {
+            let link = format!("this: {}", t.name);
+            return Some(Proven {
+                written: t.name.clone(),
+                from: (file.to_path_buf(), t.line),
+                ty: CsType::Project(t),
+                link,
+            });
         }
-        let written = search::cs_one_argument(&of.written)?;
-        let (path, line1) = &of.from;
-        let text = self.text_of(path)?;
-        Some(CsWrittenType {
-            ty: self.cs_resolve(path, &text, *line1, &written)?,
-            written,
-            from: of.from.clone(),
+        let base = search::cs_bases(text, t.line).into_iter().next()?;
+        let ty = self.cs_resolve(file, text, t.line, &base)?;
+        let link = format!("base: {}", search::cs_type_name(&base)?);
+        Some(Proven {
+            ty,
+            link,
+            written: base,
+            from: (file.to_path_buf(), t.line),
         })
     }
 
@@ -623,15 +655,7 @@ impl App {
         let parts: Vec<&str> = callee.split('.').collect();
         let (method, receiver) = parts.split_last()?;
         let owner = match receiver {
-            [] => {
-                let decl = search::cs_owner(text, line1)?;
-                let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
-                Typed {
-                    name: n,
-                    path: file.to_path_buf(),
-                    line: decl,
-                }
-            }
+            [] => owner_of(file, text, line1)?,
             [one] => match self.cs_name_type(file, text, line1, one, hops) {
                 Some(Proven {
                     ty: CsType::Project(t),
@@ -1291,6 +1315,20 @@ struct Level {
     args: Option<usize>,
     cursor_file: PathBuf,
     cursor_line1: usize,
+}
+
+fn owner_of(file: &Path, text: &str, line1: usize) -> Option<Typed> {
+    let decl = search::cs_owner(text, line1)?;
+    let name = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
+    Some(Typed {
+        name,
+        path: file.to_path_buf(),
+        line: decl,
+    })
+}
+
+fn generic(written: &str) -> bool {
+    written.contains('<') || written.trim_end_matches('?').ends_with("[]")
 }
 
 fn same(a: &CsType, b: &CsType) -> bool {

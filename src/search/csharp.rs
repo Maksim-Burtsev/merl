@@ -400,10 +400,11 @@ pub enum CsValue {
     Type(String),
     Call { callee: String, awaited: bool },
     Element(String),
+    Indexed(String),
     Unknown,
 }
 
-const CS_TYPE: &str = concat!(r"(?:global::)?", cs_type!());
+pub(super) const CS_TYPE: &str = concat!(r"(?:global::)?", cs_type!());
 
 fn cs_names_no_type(t: &str) -> bool {
     matches!(
@@ -485,105 +486,6 @@ pub fn cs_var_chain<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option
     expr.ends_with(')').then(|| (expr.to_owned(), continued))
 }
 
-pub fn cs_one_argument(written: &str) -> Option<String> {
-    let t = written.trim().strip_suffix('>')?;
-    let inner = t.get(t.find('<')? + 1..)?.trim();
-    (!inner.contains(',') && !inner.is_empty()).then(|| inner.to_owned())
-}
-
-pub fn cs_collection(name: &str) -> bool {
-    matches!(
-        name,
-        "IEnumerable"
-            | "IQueryable"
-            | "IOrderedEnumerable"
-            | "IOrderedQueryable"
-            | "IAsyncEnumerable"
-            | "ICollection"
-            | "IList"
-            | "IReadOnlyCollection"
-            | "IReadOnlyList"
-            | "ISet"
-            | "IReadOnlySet"
-            | "List"
-            | "HashSet"
-            | "SortedSet"
-            | "LinkedList"
-            | "Queue"
-            | "Stack"
-            | "Collection"
-            | "ReadOnlyCollection"
-            | "ObservableCollection"
-            | "ImmutableArray"
-            | "ImmutableList"
-            | "ImmutableHashSet"
-            | "DbSet"
-    )
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum CsLinq {
-    Same,
-    Element,
-}
-
-pub fn cs_linq(method: &str) -> Option<CsLinq> {
-    match method {
-        "Where" | "OrderBy" | "OrderByDescending" | "ThenBy" | "ThenByDescending" | "Distinct"
-        | "DistinctBy" | "Skip" | "Take" | "SkipWhile" | "TakeWhile" | "Reverse" | "ToList"
-        | "ToArray" | "ToHashSet" | "AsEnumerable" | "AsQueryable" | "AsNoTracking" => {
-            Some(CsLinq::Same)
-        }
-        "First" | "FirstOrDefault" | "Single" | "SingleOrDefault" | "Last" | "LastOrDefault"
-        | "ElementAt" | "ElementAtOrDefault" | "MinBy" | "MaxBy" | "Find" => Some(CsLinq::Element),
-        _ => None,
-    }
-}
-
-fn cs_element_lambda(method: &str) -> bool {
-    cs_linq(method).is_some()
-        || matches!(
-            method,
-            "Select"
-                | "SelectMany"
-                | "Any"
-                | "All"
-                | "Count"
-                | "LongCount"
-                | "Sum"
-                | "Min"
-                | "Max"
-                | "Average"
-                | "GroupBy"
-                | "ToDictionary"
-                | "ToLookup"
-                | "ForEach"
-                | "FindAll"
-                | "Exists"
-                | "RemoveAll"
-        )
-}
-
-pub fn cs_lambda_call<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Option<String> {
-    let n = regex::escape(name.trim_start_matches('@'));
-    let re = Regex::new(&format!(
-        r"\.\s*(\w+)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>"
-    ))
-    .ok()?;
-    let line = lines.get(at)?.as_ref();
-    let code = uncommented(Kind::CSharp, line);
-    let mut found = re.captures_iter(&code);
-    let c = found.next()?;
-    let method = c.get(1)?;
-    if found.next().is_some() || !cs_element_lambda(method.as_str()) {
-        return None;
-    }
-    let receiver = cs_receiver(lines, at, method.start())?;
-    let steps = cs_steps(&receiver)?;
-    let first = steps.parts.first().map(|(p, _)| p.as_str());
-    (steps.new.is_none() && first != Some(name.trim_start_matches('@'))).then_some(receiver)
-}
-
 fn cs_deconstructed<'a>(code: &'a str, name: &str) -> Option<&'a str> {
     static VAR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bvar\s*\(([\w@\s,]+)\)\s*=\s*\(").expect("the regex is a literal")
@@ -617,6 +519,9 @@ pub fn cs_expr(expr: &str) -> CsValue {
         Regex::new(r"^(await\s+)?(@?[A-Za-z_]\w*(?:\.@?[A-Za-z_]\w*)*)\s*(?:<[^()]*>)?\s*\(")
             .expect("the regex is a literal")
     });
+    static INDEXED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^@?([A-Za-z_]\w*)\s*\[[^\[\]]+\]$").expect("the regex is a literal")
+    });
     let e = uncommented(Kind::CSharp, expr);
     let e = e.trim().trim_end_matches(';').trim_end();
     let after_bracket = |open: usize| {
@@ -639,6 +544,9 @@ pub fn cs_expr(expr: &str) -> CsValue {
         } else {
             CsValue::Unknown
         };
+    }
+    if let Some(c) = INDEXED.captures(e) {
+        return CsValue::Indexed(c[1].to_owned());
     }
     if let Some(c) = CAST.captures(e).or_else(|| AS.captures(e)) {
         return CsValue::Type(c[1].to_owned());
@@ -862,6 +770,11 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
         return false;
     };
     let declares = |l: &str| {
+        let b = l.as_bytes();
+        let assigned = code(Kind::CSharp, l).find(|&(i, c)| {
+            c == b'=' && b.get(i + 1) != Some(&b'=') && !(i > 0 && b"=!<>".contains(&b[i - 1]))
+        });
+        let l = assigned.and_then(|(i, _)| l.get(..i)).unwrap_or(l);
         PARAMS.captures_iter(l).any(|c| {
             cs_split(&c[1]).iter().any(|p| {
                 let p = p.trim();
@@ -1019,6 +932,8 @@ pub fn cs_initialized(lines: &[String], at: usize, start: usize, end: usize) -> 
 pub struct CsSteps {
     pub new: Option<String>,
     pub parts: Vec<(String, bool)>,
+    pub args: Vec<String>,
+    pub awaited: usize,
 }
 
 pub fn cs_receiver<S: AsRef<str>>(lines: &[S], at: usize, start: usize) -> Option<String> {
@@ -1039,14 +954,32 @@ pub fn cs_steps(expr: &str) -> Option<CsSteps> {
     let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@';
     let mut s = expr.trim_end();
     let mut parts: Vec<(String, bool)> = Vec::new();
+    let mut args: Vec<String> = Vec::new();
     loop {
         let call = s.ends_with(')');
+        let mut arg = String::new();
         if call {
             let open = code(Kind::CSharp, s)
                 .filter(|(_, c)| *c == b'(')
                 .map(|(i, _)| i)
                 .find(|&i| close_of(Kind::CSharp, s, i) == Some(s.len()))?;
-            s = s.get(..open)?.trim_end();
+            let inner = s.get(open + 1..s.len() - 1)?.trim();
+            let before = s.get(..open)?.trim_end();
+            let grouped = !before.ends_with(|c: char| ident(c) || ".>?!".contains(c));
+            if let Some(awaited) = inner.strip_prefix("await").filter(|_| grouped)
+                && awaited.starts_with(char::is_whitespace)
+            {
+                let mut head = cs_steps(awaited)?;
+                if head.new.is_some() || head.awaited > 0 {
+                    return None;
+                }
+                head.awaited = head.parts.len();
+                head.parts.extend(parts);
+                head.args.extend(args);
+                return Some(head);
+            }
+            inner.clone_into(&mut arg);
+            s = before;
         }
         let start = s
             .char_indices()
@@ -1058,6 +991,7 @@ pub fn cs_steps(expr: &str) -> Option<CsSteps> {
             return None;
         }
         parts.insert(0, (name.to_owned(), call));
+        args.insert(0, arg);
         let head = s.get(..start)?.trim_end();
         if let Some(h) = head.strip_suffix('.') {
             let h = h.trim_end();
@@ -1068,7 +1002,12 @@ pub fn cs_steps(expr: &str) -> Option<CsSteps> {
             .strip_suffix("new")
             .is_some_and(|r| !r.ends_with(|c: char| ident(c) || c == '.'));
         if !new {
-            return Some(CsSteps { new: None, parts });
+            return Some(CsSteps {
+                new: None,
+                parts,
+                args,
+                awaited: 0,
+            });
         }
         let ctor = parts.iter().position(|(_, call)| *call)?;
         let rest = parts.split_off(ctor + 1);
@@ -1076,6 +1015,8 @@ pub fn cs_steps(expr: &str) -> Option<CsSteps> {
         return Some(CsSteps {
             new: Some(written.join(".")),
             parts: rest,
+            args: args.split_off(ctor + 1),
+            awaited: 0,
         });
     }
 }
