@@ -593,7 +593,11 @@ whose members come from an aliased `@lint/core` base, and whose `sourceCode` is 
 of that base, filled by the `{ Code: SourceCode }` of the extends clause; `SourceCode` is a class
 beside a namespace of its name. `rules/loud.js` holds what stays a picker: a rule with no `@type`,
 a parameter `create` does not declare, and a union `@type`. `token_store.js` declares the
-namesakes.
+namesakes. `rules/keyed.js` holds the rule's own keys (#1288): `create`, the `docs` of `meta`
+(declared on `@lint/core`'s `RulesMeta`, through the unaliased `RuleDefinition` base) and the
+listener `onCodePathStart` of the object `create` returns (its declared `RuleListener`); a key of
+an untyped object, a key under a member typed by no interface, and a `return {` of a function
+nested in `create` keep their answer of today in `rules/loud.js`.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on

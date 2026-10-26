@@ -216,8 +216,28 @@ impl App {
         }
         self.answered_by_file(a)
             || self.answered_in_file(a)
+            || self.answered_by_typed_key(a)
             || self.answered_by_go_key(a)
             || self.answered_by_sigil(a)
+    }
+
+    fn answered_by_typed_key(&mut self, a: &Asked) -> bool {
+        if a.dotted || !a.lead.trim().is_empty() || !search::reads_jsdoc(a.kind, &a.here) {
+            return false;
+        }
+        let line1 = self.line + 1;
+        if search::jsdoc_typed_key(&a.text, line1, &a.word).is_none() {
+            return false;
+        }
+        self.external_files(a.kind);
+        let Some((hit, owner)) = self.typed_key(a.kind, &a.here, &a.text, line1, &a.word) else {
+            return false;
+        };
+        let found = vec![Candidate {
+            hit,
+            reason: Reason::Receiver(owner),
+        }];
+        self.show_found(a, found)
     }
 
     fn answered_by_module(&mut self, a: &Asked) -> bool {
