@@ -381,8 +381,15 @@ pub fn js_field_read(text: &str, line1: usize, name: &str) -> Option<Value> {
         regex::escape(name)
     ))
     .ok()?;
-    let c = read.captures(text.lines().nth(line1.checked_sub(1)?)?)?;
-    (&c[1] != "this").then(|| Value::Field {
+    let mut lines = text.lines().skip(line1.checked_sub(1)?);
+    let line = lines.next()?;
+    let c = read.captures(line)?;
+    let continues = !line.trim_end().ends_with(';')
+        && lines
+            .map(str::trim_start)
+            .find(|l| !l.is_empty() && !l.starts_with("//"))
+            .is_some_and(|l| l.starts_with(|c: char| ".?|&([+-*/%<>=,`".contains(c)));
+    (&c[1] != "this" && !continues).then(|| Value::Field {
         chain: vec![c[1].to_owned()],
         field: c[2].to_owned(),
     })

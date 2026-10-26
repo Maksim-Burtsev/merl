@@ -554,7 +554,9 @@ lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
 another class. `keys.ts` puts keys of a type literal and of an object literal, at the start of
 their lines, above a module-level `const` of each key's name: a type literal's key (`name: T;`) is its own
-definition, an object literal's stays a key (#1273).
+definition, an object literal's stays a key (#1273). The last key of a nested object literal
+closed on its line (`locale: given.locale } };`) is no type key, though it still falls through
+to the module-level `const` (#1291); an `interface`'s key is its own definition.
 `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
@@ -586,8 +588,9 @@ whose member is "not installed", never "builtin".
 whose members come from an aliased `@lint/core` base, and whose `sourceCode` is `Options["Code"]`
 of that base, filled by the `{ Code: SourceCode }` of the extends clause; `SourceCode` is a class
 beside a namespace of its name. `rules/loud.js` holds what stays a picker: a rule with no `@type`,
-a parameter `create` does not declare, and a union `@type`. `token_store.js` declares the
-namesakes.
+a parameter `create` does not declare, a union `@type`, and a `const x = a.b` whose statement
+goes on with `.getFirstToken(..)` on the next line, so `x` is no field. `token_store.js` declares
+the namesakes.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
