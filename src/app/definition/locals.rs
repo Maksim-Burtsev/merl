@@ -18,7 +18,7 @@ impl App {
             search::imports(kind, &a.text)
         };
         let swift_binds_here = self.swift_binds_here(a);
-        let ts_key = ts_key(a);
+        let ts_key = ts_key(a, self.line + 1);
         let declared = swift_binds_here
             || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
@@ -259,7 +259,7 @@ impl App {
     }
 }
 
-fn ts_key(a: &Asked) -> bool {
+fn ts_key(a: &Asked, line1: usize) -> bool {
     let tail = a.tail.trim_start();
     a.kind == Kind::TsJs
         && !a.dotted
@@ -267,5 +267,5 @@ fn ts_key(a: &Asked) -> bool {
         && a.lead.trim().is_empty()
         && tail.trim_start_matches('?').starts_with(':')
         && !tail.starts_with("::")
-        && tail.trim_end().ends_with(';')
+        && search::ts_type_key(&a.text, line1, tail)
 }

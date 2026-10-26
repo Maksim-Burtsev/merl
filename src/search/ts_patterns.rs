@@ -600,3 +600,51 @@ pub fn ts_hoisted_function(text: &str, line1: usize, name: &str) -> Option<usize
     }
     None
 }
+
+pub fn ts_type_key(text: &str, line1: usize, tail: &str) -> bool {
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?(?:interface|type)\s")
+            .expect("the regex is a literal")
+    });
+    let Some(ty) = (tail.trim_start().trim_start_matches('?').strip_prefix(':'))
+        .and_then(|t| t.trim_end().strip_suffix(';'))
+    else {
+        return false;
+    };
+    let mut depth = 0i32;
+    for (_, c) in code(Kind::TsJs, ty) {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' if depth == 0 => return false,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+    }
+    if ty.trim().is_empty() || depth != 0 {
+        return false;
+    }
+    let before = text
+        .lines()
+        .take(line1.saturating_sub(1))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut opens = Vec::new();
+    for (i, c) in code(Kind::TsJs, &before) {
+        match c {
+            b'(' | b'[' | b'{' => opens.push((i, c)),
+            b')' | b']' | b'}' => {
+                opens.pop();
+            }
+            _ => {}
+        }
+    }
+    let Some(head) = opens
+        .last()
+        .filter(|(_, c)| *c == b'{')
+        .and_then(|&(at, _)| before.get(..at))
+    else {
+        return false;
+    };
+    head.trim_end().ends_with(['<', ':', '|', '&'])
+        || head.rsplit('\n').next().is_some_and(|l| HEADER.is_match(l))
+}
