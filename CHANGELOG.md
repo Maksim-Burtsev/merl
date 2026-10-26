@@ -7,6 +7,498 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-26
+
+### Added
+
+- `merl --tutor` ends with three review lessons: the sample project becomes an agent's uncommitted work in six files, the review panel takes the left, and `c`, `C` and `m` are taught on it; `merl --drill` asks them too. Without git the three are skipped with one line (#158)
+- `p` previews MDX files as Markdown, the way GitHub shows them, and Jupyter notebooks as their cells: Markdown rendered, code highlighted in the notebook's language, each cell's output below it dimmed (printed text, a result's text form, a traceback, `▣ image/png` for a picture); a notebook that is not nbformat 4 stays as source and says why (#770)
+- With the tree or the review panel focused, `PgUp` / `PgDn` move its cursor a page, `Home` /
+  `End` (with `Ctrl` or without) to the first and the last row, `Ctrl+D` / `Ctrl+U` half a page,
+  and `{` / `}` to the previous and the next folder row, past the last folder to the last row;
+  `Ctrl+D` / `Ctrl+U` and `{` / `}` used to move the code behind it (#889)
+- In `--review`, the files your agent left out of the reading order (`skip PATH` in its order file) stay in the panel with a 🤖 and a dim row, and `c` / `C` walk past them; `Enter` in the panel still opens one. `merl --for-agents` tells the agent what it may leave out: tests, docs, the changelog, media, generated and lock files (#1041)
+- `merl -r upstream/feat` reviews the branch `feat` of the remote `upstream`, a pull request from a fork: merl fetches it from that remote and opens it in its own folder, against origin's base, as it does a branch of origin. No local branch is made or moved. A name on no remote now says `no branch feat on origin` instead of git's `fatal: invalid reference` (#1188)
+
+### Changed
+
+- A file reached through a link that leads out of the project, to a file or to a folder (a
+  team's shared `AGENTS.md` linked into each repo), opens editable from the tree, `o` and `d`, as
+  it does from the command line: a save writes into the file the link leads to and keeps the
+  link (#500)
+- `merl --tutor` opens each lesson as a card in the middle of the screen, the code dimmed behind it; Enter sends the card down into a rounded box at the bottom and the lesson starts, and `i` brings the card back. The drill's task sits in the same box (#501)
+- `p` on a Markdown file hides HTML comments, as GitHub and GitLab do, and draws a bare `https://…` or `www.…` address in the link colour; `d` on a row of the preview follows the first link on it (#728)
+- A second round of `--review` keeps to what changed since your ticks: `C` passes over the files ticked in an earlier round as `c` does, and with every file ticked, `c` walks them all from the first (#823)
+- `v` grows the selection through what the syntax tree holds: the word, inside the quotes, the string, inside the brackets, the brackets, the line, then the statement, block and function as whole lines, then the file; `V` steps back one press. A file with no grammar keeps word, line, paragraph, file (#924)
+- `v` inside code of another language embedded in a file (an HTML `<script>` or `<style>`, a Vue or Svelte block, a Markdown code fence) grows through that language's own steps, as in a file of it: the word, inside the brackets, the brackets, the line, the block, the function; at the block's edge the next `v` takes the host's element, then `<body>` (#1194)
+
+### Fixed
+
+- A Markdown code block whose label Neovim does not know as a language (`rb`, `rs`, `yml`, `md`, `kt` …) and a heredoc named that way (`<<~RB`) are drawn as plain code, as in LazyVim; a block labelled `ruby`, `py`, `sh`, `ts` and the other names Neovim knows keeps its colours, a `bzl` block is coloured as Starlark, and the `p` preview still colours every block by its label (#879)
+- The line numbers are drawn as LazyVim draws them: the cursor line's number takes `CursorLineNr`'s own background, the plain one in most themes, and the cursor line's band starts at the text; in the 17 themes whose `LineNr` has a background of its own (kanagawa, solarized, iceberg and others) a strip of it runs down the number column (#913)
+- `d` in C# on a bare call that a `using static` brings in (`Steam()` under `using static Shop.Tea.Spices;`) jumps to that static member when the class and every base it names are in the project and none declares the name, instead of a picker with another type's namesake (#938)
+- `d` in the review folder of another branch (`merl -r feature/x`) finds the libraries of PHP, Swift, CocoaPods, Elixir, Erlang, Perl, Dart and Rust as in your checkout: beside `.venv` and `node_modules`, the folder links your `vendor/`, `.build/`, `Pods/`, `deps/`, `_build/`, `local/`, `.dart_tool/` and `Cargo.lock`, each only when the branch does not track it. The libraries are your checkout's versions, not the branch's (#972)
+- `d` in Swift on a name rebound by the shorthand `guard let x else` / `if let x {` / `while let x {`
+  or captured by a closure's `[x]` / `[weak x]` lands on that rebinding, as sourcekit-lsp does,
+  instead of the outer declaration (#986)
+- `merl FILE:LINE:COL` with a column past the dim `…` of a line longer than 20 KB opens on that column, as an `s` hit does, and draws the line on to it, instead of landing on the `…`; a column past the line's end lands on its end (#1031)
+- `d` in Rust on a method of a standard library value whose type is written (`s: &str`, `let s = "…"`, a `String` field, `v: Vec<T>`) jumps to that method in the toolchain's sources, through `Deref` from `String` to `str` and `PathBuf` to `Path`, instead of a picker of every namesake in the project (#1044)
+- `d` in Rust on a method of a standard library value no longer jumps to a project method of the same name (`name.len()` landing on a `Leaf::len`): it goes into the toolchain's sources, or says there is no definition when they do not have it. This covers `self` in `impl … for str`, `let v = Vec::new()`, `let s = String::from(…)`, `Option<T>` parameters and a `let` holding what a project method returns (`let s = leaf.trim()`) (#1044)
+- `d` in Rust on a method of a `vec![…]` value, held by a `let` alone or by its place in a tuple (`let (mut a, mut b) = (vec![], vec![]);`), goes into `Vec` in the toolchain's sources instead of a project method of the same name (#1044)
+- `d` in Rust on a method of an array literal (`[a, b].contains(&x)`) goes into the array's, then the slice's methods in the toolchain's sources instead of a project method of the same name (#1044)
+- `d` in Rust on a slice method of a `Vec` (`v.windows(2)`, `v.contains(&x)`) goes into the slice's methods in the toolchain's sources, as Rust derefs a `Vec` to `[T]` (#1044)
+- `d` in Rust on a field or method of an indexed value (`lines[0].end` with `lines: Vec<Range<usize>>`, `leaves[i].name`) goes to the element type's field or method, in the project or in the toolchain's sources, instead of a picker of every namesake (#1044)
+- `d` in Rust on a method or field after a chain of standard library calls (`got.lines().nth(1).unwrap()`, `out` from a `const &str`'s `.replace(..)`, `map.get(k).unwrap().field.clone()`) follows each call's declared return type in the toolchain's sources, `Iterator`'s methods included, instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a method of a `for` loop variable over a standard library iterator (`for dir in env::split_paths(&paths)`) takes the iterator's `Item` type, and on a value from `.as_ref()` of a parameter bound by one `AsRef<T>` (`fn f<P: AsRef<Path>>(p: P)`, `let p = p.as_ref();`) takes `T`, so `dir.join(..)` and `p.display()` land in the toolchain's `Path` instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a method of a name bound by an enum variant's pattern (`Error::Glob { ref err, .. } => err.clone()`, with `err: String` in the variant) or by a `for` over a `Vec`, a slice or an array (`for name in &names` with `names: Vec<String>`) takes the field's or the element's type, so it lands in the toolchain's `String` instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a field or method after a slice method of a `Vec` (`v.first().unwrap().name` with `v: Vec<Leaf>`) reads the slice's `T` as the `Vec`'s element and lands on `Leaf::name` instead of a picker of every namesake (#1044)
+- `d` in Rust on a method of a name bound by an or-pattern of enum variants (`Error::Glob { ref err, .. } | Error::Parse { ref err } => err.clone()`) takes the field's type when every alternative writes the same one, instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a method of a name bound by a tuple variant's pattern (`Error::Io(ref err) => err.clone()`, with `Io(String)` in the enum) takes the type written at its place, so it lands in the toolchain's `String` instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a field or method after a slice method of a slice or an array (`s.first().unwrap().name` with `s: &[Leaf]` or `s: [Leaf; 2]`) reads the slice's `T` as the element and lands on `Leaf::name` instead of a picker of every namesake (#1044)
+- `d` in Rust on a method of a name bound by a pattern of an enum variant written on one line (`Hot { note: String },`) takes the field's type as for a variant over several lines, instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a field or method of a tuple struct's place (`self.0.entry(..)` with `struct LiteralStrategy(fnv::HashMap<..>)`) takes the type written at that place, following a project type alias to the std type it names (`type HashMap<K, V> = std::collections::HashMap<..>`) and a path whose first name a `use` brings in (`collections::HashMap` under `use std::collections;`), instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a method of a field whose type is written with another crate's path (`m: hashbrown::HashMap<..>`) no longer jumps to the standard library's type of the same name: it keeps the picker (#1044)
+- `d` in Rust on a method of a name bound by an or-pattern split over lines (`Pour::Hot { ref note }` above `| Pour::Iced { ref note, .. } => note.len()`) reads the pattern as on one line: it lands in the toolchain's `String` instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a method of a value a `match` gives (`let s = match o { None => r.clone(), Some(ref e) => e.to_string() };`) takes the standard library type its typed arms agree on, and `.to_string()` and `.clone()` on a standard library value keep its type for the next call: `s.clone()` lands in the toolchain's `String` instead of a picker of every namesake or a project method of the same name (#1044)
+- `d` in Rust on a field or method of a name bound by a tuple pattern from a call that returns a tuple (`let (alpha, err) = parents.add_child(&root);`, then `alpha.absolute_base.as_ref().unwrap()`) takes the type at the name's place in the returned tuple, instead of a picker of every namesake (#1044)
+- `d` in Rust on a method of a value a `let` chain takes from a standard library value built by an associated call (`let n = String::from(..); let t = n.to_string(); t.len()`, `let v = Vec::with_capacity(2); let w = v.clone();`) lands in the toolchain's sources instead of a project method of the same name (#1044)
+- `d` in Rust on a method of a name bound by an enum variant's pattern whose field's path starts with a name a `use` brings in (`collections::HashMap<..>` under `use std::collections;`) lands in the toolchain's `HashMap`, as it does for `std::collections::HashMap<..>`, instead of a picker of every namesake (#1044)
+- `d` in Rust on a field or method of a name a tuple pattern rebinds from its own value (`let (spoons, _) = spoons.split();`, then `spoons.tea.heap()`) takes the type at the name's place in the returned tuple, instead of a picker of every namesake; a `let` that rebinds a name already rebound above reads the nearest binding, not the one before it (#1044)
+- `d` in Rust on a field or method of a name bound by an enum variant's pattern whose place holds a project type (`Ladle::Deep(ref scoop) => scoop.heap()`), or by a `for` over a `Vec`, a slice or an array of one (`for scoop in &scoops`), lands on that type's field or method instead of a picker of every namesake (#1044)
+- `d` in Rust follows a type into a dependency's sources when `Cargo.lock` holds one version of it: a variant pattern of a dependency's enum (`HirKind::Repetition(mut x) => x.sub`), a path through the dependency's name (`fn new_glob(..) -> glob::Pattern`) and a `for` over a `Vec<_>` collected from a `.map(|s| new_glob(s))` land on the dependency's field or method; two locked versions, a renamed dependency or a missing source keep the picker (#1044)
+- `d` in Rust on a method of a place written with the standard library's path (`std::collections::HashMap<..>`) in a file that also has `use hashbrown::HashMap;` lands in the toolchain's `HashMap` instead of a picker: the written path, not the file's import, names the type (#1044)
+- `d` in Rust on a method called on the result of another call (`cmd.arg("x").stdout()`, `Builder::new().build()`, a builder written one call per line, a `let` bound to such a chain) jumps to the method of the type the calls return, instead of a picker of every namesake (#1045)
+- `d` in Rust on a member of a value bound by `let x = f(..)?`, `let x = f(..).unwrap()` or `.expect(..)` jumps to the member of the type inside the function's `Result` or `Option`, instead of a picker of every namesake (#1046)
+- `d` in Rust on the call in `let x = x(..)` jumps to the function `x` rather than offering the `let` being written beside it, and a member of that `x` is looked up on the function's return type (#1047)
+- `d` in Swift on the name right of the `=` in `let x = x.read(..)` jumps to the property or method `x` rather than offering the `let` being written as a declaration (#1047)
+- `d` in Rust on a member of a value whose type is imported from another crate of the workspace (`sunk: &SinkMatch` with `use grep_searcher::SinkMatch`) jumps to that member in the other crate, instead of a picker of every namesake (#1048)
+- `d` in C++ on a member of a `std::vector`, `std::string`, `std::atomic` or another standard
+  class (`tables_.size()`, `r.clear()`) jumps to that class's member in the libc++ headers, or
+  offers only its overloads, instead of every standard class's namesake (#1049)
+- `d` in C, C++ and Objective-C on a function's prototype jumps to its definition, and on the
+  definition to the prototype, when that is the only other declaration of the name, instead of
+  offering a picker of one (#1050)
+- `d` in C and C++ on a type, an enum constant or a member the current file defines no longer
+  offers a namesake defined in another `.c`, `.cc` or `.cpp` file, which only that file sees (#1051)
+- `d` in Swift on a call whose overloads differ by a defaulted parameter or a trailing closure
+  (`.authenticate(username: u, password: p)`, `state.write { … }`) jumps to the one overload the
+  call fits, and `d` on an argument label of a function declared over several lines lands on its
+  `func` line (#1052)
+- `d` in Swift on a member of a value typed through a `typealias` (`var response:
+  AFDataResponse<Data?>`) follows the alias to the type it names and jumps to the member, not to
+  a picker of every namesake (#1053)
+- `d` in Swift on a member of `let session = stored(Session())`, where `stored` is a method of
+  the enclosing type reached through the implicit `self`, looks the member up on that method's
+  declared return type rather than by name across the project (#1054)
+- `d` in Swift on a member of an enum case (`TestTrusts.leafExpired.trust`) reads the case as a
+  value of its enum and jumps to the enum's member, not to a picker of namesakes (#1055)
+- `d` reads a Bash script with no extension by its `#!` line (`#!/usr/bin/env bash`), where it
+  said "no rules for this file", and finds the functions such scripts declare from the other
+  shell files of the project (#1056)
+- `d` in Bash on `$name` assigned with a plain `name=` jumps to the nearest assignment above in
+  the same function, or at the top level of the file, where it offered a picker of every
+  namesake in the project (#1057)
+- `d` works in bats test files (`.bats`), where it said "no rules for .bats", and on the
+  `NAME` of a `load NAME` line opens `NAME.bash` (#1058)
+- `d` in Bash on the path of a `source` or `.` line opens the file, also behind a leading
+  `$VAR/`, where it said "no definition" (#1059)
+- `d` in Lua on the path of a `require "a.b.c"` opens the module, `a/b/c.lua` or `a/b/c/init.lua`
+  (also under `lua/`), where it offered namesakes or jumped to another file; a module from outside
+  the project says "no definition" (#1061)
+- `d` in Lua on a bare name no longer offers another file's top-level `local`, which only that
+  file sees: a builtin such as `assert` or `type` says "no definition" where it jumped into a test
+  file or offered other files' `local type = type`; beside another file's `function M.name`, which
+  a bare name cannot reach either, both are still offered (#1062)
+- `d` in SQL on a column written through its table or alias (`c.content`, `comment.content`) jumps to the column's line in that table's `CREATE TABLE`, `ADD COLUMN` or `RENAME COLUMN … TO`, the version in effect at the cursor in a migrations folder, instead of saying "no definition"; so does a bare column where SQL names one table (`INSERT INTO t (col)`, `UPDATE t SET col`, `ALTER TABLE t … col`, `UPDATE OF col ON t` in a trigger, a `SELECT` from one table), and an `ADD COLUMN` on the line under its `ALTER TABLE` is found (#1063)
+- `d` in SQL on a column of a table renamed by `ALTER TABLE old RENAME TO new` finds it in the old table's `CREATE TABLE`, and a column of a table made by `CREATE TABLE t AS SELECT …` lands on its item in the select list, instead of saying "no definition" (#1063)
+- `d` in an SQL migration (`up.sql` / `down.sql` in dated folders) jumps to the `CREATE` in effect where the cursor runs, the latest in an earlier migration's `up.sql`, earlier in the same file, or a `down.sql`'s own `up.sql`, instead of a picker of every version a later migration or `down.sql` re-creates (#1064)
+- `d` in SQL on a table, view, function or type that only an `ALTER … RENAME TO` names, such as a
+  table made by `ALTER TABLE user_ RENAME TO person`, jumps to that line, where it said "no
+  definition"; a name some `CREATE` declares still jumps to the `CREATE` (#1065)
+- `d` in SQL on a table alias reads it in its own `UNION` branch or subquery, where it could jump
+  to the same alias in another branch; an alias in a subquery shadows the outer one, and a
+  correlated subquery still sees the outer query's (#1066)
+- `d` in Swift on an implicit member, `.success(x)` or `.failure(e)`, no longer lands on an
+  instance property the project adds to the type in an extension: with no enum case or static
+  member of that name in the project, it says "no definition" (#1067)
+- `d` in Swift on a member of a value whose type comes from outside the project (`[CodingKey]`,
+  `Substring`, `URLSession`) no longer lands on a namesake in one of the project's own types: it
+  answers from the project's extensions of that type, or says "no definition"; and a member of a
+  value never lands on an enum case or a static member (#1068)
+- `d` in Swift on a member of an array element taken by index (`let end = path[0]`) and on a
+  static member of a type from outside the project (`Task.isCancelled`,
+  `URLProtocol.property(forKey:in:)`) no longer lands on a namesake of the project's own types
+  either (#1068)
+- `d` in Swift on a member of a field read off a value from outside the project
+  (`fileURL.lastPathComponent.isEmpty`, `challenge.protectionSpace.host`) says "no definition"
+  unless one of the project's extensions declares it, instead of landing on a namesake (#1068)
+- `d` in Swift follows such a value one more step back (`let request = lastRequest`, then
+  `let url = request.url`: `url.host` says "no definition"), and no longer takes an extension of
+  one of the project's own types for one of that value's type (#1068)
+- `d` in Swift on a member of a typealias of a collection (`typealias Parameters = [String: Any]`,
+  then `parameters.isEmpty`) answers from the project's extensions of the collection or says
+  "no definition", instead of landing on a namesake (#1068)
+- `d` in Swift on a member of a value cast in parentheses to a type from outside the project
+  (`(error as? URLError)?.userInfo`) answers from the project's extensions of that type, or of a
+  type it may inherit from, or says "no definition", instead of landing on a namesake (#1068)
+- `d` in Swift on a closure's parameter that a generic wrapper hands its wrapped value
+  (`let box = Protected(State())`, then `box.write { state in state.queue.isEmpty }`) reads the
+  parameter as that value: its fields lead to their declarations, and a member of a field from
+  outside the project answers from the project's extensions or says "no definition", instead of
+  landing on a namesake (#1068)
+- `d` in Swift reads a nested type that several types declare (`struct MutableState` inside
+  `Session` and inside another class) as the enclosing type's own, and a field whose type is
+  written over several lines, so a member of such a value no longer lands on a namesake; where
+  the nested type stays ambiguous (a type declared inside a function, or one past a type that
+  inherits), `d` keeps the picker (#1068)
+- `d` in Swift on a member of a dictionary's `keys` or `values` (`parameters.keys.sorted`) and of
+  a value whose type is nested in a generic type from outside the project
+  (`AsyncStream<Element>.AsyncIterator`) answers from the project's extensions or says "no
+  definition", instead of landing on a namesake; a typealias inside one of the project's types no
+  longer stands for an outside type's nested type of the same name (#1068)
+- `d` in Swift on a member of a value whose type is nested in one of the project's generic types
+  (`mine: Hopper<Element>.Slot`) or declared in an extension of a nested type (`extension R.Bag {
+  struct Inner }`) lands on that type's member, instead of a picker or a namesake's; a nested name
+  written inside a namespace (`Box.Lid` in `extension NS`), which may mean the namespace's own
+  type or a top-level one, keeps the picker (#1068)
+- `d` in Swift on a member of a call's result, the call made on a value from outside the project
+  with only literal arguments (`key.prefix(1).uppercased()`), answers from the project's
+  extensions or says "no definition", instead of landing on a namesake (#1068)
+- `d` in Swift on a member of a value built from an array literal of strings
+  (`[a, b].compactMap(\.self).joinedWithAmpersands()`) types it through the project's
+  `extension [String]`, so a member of the `String` it returns says "no definition" instead of
+  landing on a namesake (#1068)
+- `d` in Swift on a member of a closure's parameter, the closure passed to a method of the
+  enclosing type whose parameter is a typealias of a function type (`validate { _, response, data
+  in data?.isEmpty }`), types the parameter from that typealias, instead of landing on a namesake;
+  where the closure may go to another of the method's closures, or the parameter's type is a
+  generic, `d` keeps the picker (#1068)
+- `d` in Swift on a member of a call's result, the call made on a value from outside the project
+  with arguments that are literals or values of types from outside (`key.prefix(n).uppercased()`,
+  `let parts = key.components(separatedBy: other)`), answers from the project's extensions or
+  says "no definition", instead of landing on a namesake; an argument of a project type, or one a
+  closure's parameter on the line shadows, keeps today's answer (#1068)
+- `d` in Swift on a member of a value read through an optional chain in a binding, off a field
+  typed by one of the project's protocols (`if let configuration = delegate?.sessionConfiguration`,
+  then `configuration.httpCookieStorage`), types it from the protocol's requirement, so a member
+  of a value from outside the project a few steps on (`!cookies.isEmpty`) says "no definition"
+  instead of landing on a namesake (#1068)
+- `d` in Swift on a member of a subscript of a value from outside the project
+  (`key[range].lowercased()`, `key` a `String`) says "no definition" unless one of the project's
+  extensions declares the member or a subscript of an outside type, and a value bound by a
+  `guard` condition on the `else` line (`let url = request.url else { return }`) is read like the
+  conditions above it, instead of landing on a namesake (#1068)
+- `d` in Swift on an implicit member such as `completionHandler(.allow)`, `return .allow` or
+  `fileManager: FileManager = .default` reads the type written next to it (the closure
+  parameter's, the function's or property's declared type, the annotation): it lands on that
+  type's case or static member, and says "no definition" for a type from outside the project
+  rather than jumping to a namesake of the project's own (#1069)
+- `d` in Rust on a field where its struct declares it no longer jumps to a namesake (a module the file imports, a method of the same name): it offers them as at other declarations, or stays on the field (#1070)
+- `d` in Java on a getter called on another getter, `user.getSpec().getDisplayName()`, follows the
+  return type of each getter (or the type of the Lombok field it reads) and lands on the method or
+  the field, where it offered every namesake in the project or jumped to another class's (#1071)
+- `d` in Java, Kotlin, Swift and Dart on a call that starts a line of a chain (`.listReply(…)` under `return service`) keeps the receiver of the line above, as in TypeScript, instead of a picker of every namesake; a Swift or Dart implicit member on its own line (`.success(x)` after `(` or `,`) still stands alone. In Go, where the dot ends the line above, `d` no longer jumps to an unrelated namesake (#1072)
+- `d` in Go on a method behind a chain of calls (`db.GetEngine(ctx).Join(…).Where(…).And`) follows each call's return type: it lands on the project's method, or says "no definition" when a call returns a type of a package outside the project, instead of a picker of every namesake or a jump to one (#1072)
+- `d` in Swift on a method behind a call with several overloads (`session.streamRequest(.default).publishDecodable`) lands on the method of the type all the overloads return, a signature wrapped over up to 16 lines included, instead of a picker of every namesake (#1072)
+- `d` in Dart on a method behind a chain of calls and getters (`headers.keys.map(…).contains`) follows each one's declared return type, into the Dart SDK too, instead of a picker of every namesake (#1072)
+- `d` in Java on a call with explicit type arguments, `IndexSpecs.<Post, String>single(..)`, jumps
+  to the method, also when its own type parameters nest (`<K extends Comparable<K>>`), where it
+  said "no definition" or jumped to a namesake (#1074)
+- `d` in Java on a call whose receiver it cannot type leaves out the namesakes whose parameters
+  cannot take the call's arguments, keeping them all when none can, as on a typed call; in
+  Kotlin it leaves out the overloads that lack a named argument the call passes (#1075)
+- `d` in JavaScript on `this.x` inside `module.exports = class X`, `exports.X = class X` or `const X = class X` lands on the class's field, its own or its base's, instead of an unrelated namesake or nothing (#1076)
+- `d` in JavaScript and TypeScript on a name declared in a list, `let a, b, c;` or `let a = f(x, y), b = 2;`, lands on that line, instead of a namesake elsewhere or nothing (#1077)
+- `d` in JavaScript and TypeScript on a member found nowhere else offers the plain property signatures of the installed type declarations (`callee: Expression | Super;` in `@types/estree`), instead of "no definition" (#1078)
+- `d` in an ESLint rule on a member of a visitor's node (`ObjectExpression(node) { node.properties }`, `"NewExpression:exit"(node)`) jumps to its declaration in `@types/estree`, through the interfaces it extends, instead of offering every namesake in `node_modules` (#1078)
+- `d` in an ESLint rule on a member of a visitor's node whose `@types/estree` type is a union (`CallExpression(node) { node.callee }`, `SimpleCallExpression | NewExpression`) jumps to the declaration every member of the union shares, instead of offering every namesake; a member only some of them declare, or each declares apart, stays a picker (#1078)
+- `d` in JavaScript and TypeScript on a member of a value whose type is a union jumps to the member of the one type its `type` tag picks, inside a `case` of `switch (pattern.type)` that nothing falls into (`case "ObjectPattern": pattern.properties`) and after `property.type === "Property" ?` (`property.value`), instead of offering every namesake (#1078)
+- `d` in JavaScript and TypeScript on a member no longer jumps to an unrelated name of the project: when the receiver's type comes from a package that is not installed it says so, a local variable of another function is never a member, and a top-level function or class found only by name is offered, not jumped to; a member of a project class whose base comes from a package (a Sequelize model's `changed()`) is no longer a namesake's, and a member of a default-imported value typed `A & { … }` over several lines jumps to its line in the type (#1079)
+- `d` in PHP on a name written without `$`, such as a function call `config(...)` or a static
+  call `File::copy(...)`, no longer offers or jumps to `$config = ...` assignments, nor to a
+  property when the name is called (#1080)
+- `d` in PHP on a member of a receiver typed with a class from outside the project
+  (`function (JoinClause $join) { $join->on(...) }`, a property typed `ChannelMetadata`) looks in
+  `vendor/` and says "no definition" when the class is not there, instead of jumping to a project
+  method of the same name; a constructor's `/** @param User $user */` wins over the
+  `Authenticatable` it declares (#1081)
+- `d` in PHP follows a type written in a class's `@property` or `@property-read` docblock line,
+  so `$song->artist->name` jumps to `Artist`'s `name` instead of offering every `name` (#1082)
+- `d` in Dart on a member of a list, map, `Completer` or another SDK type no longer jumps to a
+  project name: never to a function's local variable, never from `lib/` into the package's
+  `test/`, and a receiver whose written type is an SDK class opens that class's member in the SDK
+  (#1083)
+- `d` in Dart finds a named or optional parameter whose list `dart format` closes with `})` or
+  `])`, before a body or a constructor's initializer list, where a field of the same name used to
+  win (#1084)
+- `d` in Dart on a member behind a typed receiver finds it in the class's base, mixins and
+  interfaces, behind a `_Private` type, a field typed in the class body, a `?.` and a local set
+  from a constructor call written over several lines, and in a file with a conditional import,
+  and picks the getter on a read and the setter on an assignment, where it opened a picker (#1085)
+- `d` in Dart on an SDK name no longer offers the SDK's platform patch files, `Uri.parse`,
+  `Map.from` and other statics of an SDK class open that class's member instead of a picker of
+  hundreds or a project namesake, a called SDK class (`StateError(…)`, `Completer<T>()`)
+  lands on its constructor, a written one on the class, and a class or function of a package the
+  library neither imports nor gets through an export is no longer offered beside the one it
+  sees (#1086)
+- `d` in Dart finds a field or a local declared with a function type, as
+  `void Function(Object object) logPrint;`, where it said "no definition" (#1087)
+- `d` reads a Blazor `.razor` file as C#: its `@inject` fields, `@code` members and `@expr` / `@(...)` in the markup jump to their definitions, with the `@using` lines of `_Imports.razor` above it, instead of saying "no rules for .razor" (#1088)
+- `d` in C# on a property of a positional record, such as `Quantity` of
+  `record BasketQuantity(int ProductId, int Quantity)`, offers the record's header among the
+  declarations, where it offered every other `Quantity` but that one; a header split over several
+  lines counts too (#1089)
+- `d` in C# keeps to the project and the projects it references when its `.csproj` compiles a
+  file from outside its directory with `<Compile Include="..\Shared\…">`, where it offered the
+  namesakes of every other project; that file now counts as the project's own (#1090)
+- `d` in Ruby on a bare call the class and its ancestors do not define (a Rails `update!` in a
+  model, `head` in a controller) offers the methods of that name in a picker when every one sits in
+  an unrelated class, where it jumped to one of them; top-level methods, schema columns, module
+  methods and a concern's call into its host class still jump (#1093)
+- `d` in Ruby on a bare `next`, `redo`, `retry` or `break` says "no definition", where `next` jumped
+  to a serializer's `attribute :next` (#1094)
+- `d` in Ruby on a bare constant such as `Account` resolves it through the cursor's nesting, its
+  ancestors and then the top level, and jumps, where it offered every class of that name, the
+  copies migrations nest inside themselves included (#1095)
+- `d` in Ruby on the method of `PurgeDomainService.new.call(domain)`, with no parentheses on `new`,
+  jumps to the class's own method, as it already did after `new(...)`, where it offered every
+  method of that name (#1096)
+- `d` in Ruby on the method of `self.class.m` in an instance method jumps to the class's own class
+  method, and of `Const.instance.m` to the instance method when `Const` includes `Singleton`, where
+  both offered a picker (#1097)
+- `d` in Ruby with the cursor on the `@` of `@account` or `@@count` reads the variable, as it does
+  from its name, where it said "no word" (#1098)
+- `d` in Python on a field a `@classmethod` assigns through `cls` (`cls.client = cls.client_class()`), such as `client` in `self.client` of a Django or DRF test, lands on that assignment instead of saying "no definition" (#1099)
+- `d` in Python on `post`, `get`, `patch` or `delete` in `self.client.post(...)` of a Django or DRF test jumps to the method of the test client the class uses, DRF's `APIClient` in an `APITestCase` and Django's `Client` in a plain `TestCase`, instead of opening a picker of every `post` (#1099)
+- `d` in Python on a method of a value a standard-library call returns (`log = logging.getLogger(__name__)`, then `info` in `log.info(…)`) reads the call's return type from typeshed's stubs, which merl now carries, and jumps to `Logger.info` in the interpreter's `logging` (in the stub when no interpreter is found) instead of a picker of every namesake or a project method of the same name. A return type a dependency's own stub or annotation declares is followed the same way (#1100)
+- `d` in Go on a member behind an index, `pools[k].Get()` or `xs[i].F`, jumps to it through the
+  declared `[]T`, `[N]T`, `map[K]V` or variadic `...T`, where it offered a picker by name (#1101)
+- `d` in Go on a field of a struct declared inside a `type ( … )` group jumps to the field, from a
+  receiver (`t.Line`) or a key of its literal (`{Line: 1}` in a `[]Token{…}` table), where it
+  jumped to a method of the same name or offered a picker (#1102)
+- `d` in Lua on a bare name no longer jumps to a key of a table literal in another file: Kong's
+  builtin `require` says "no definition" where it jumped to a sandbox's `require = function` (#1112)
+- `d` in PHP on a word in the prose of a heredoc or nowdoc, `{name}` placeholders included, says there is no definition instead of jumping to a property or method of that name; an interpolated `$var`, `$var->prop` or `{$…}` is still followed, and `${var}` now jumps to the variable `$var` as `$var` does (#1113)
+- `d` in PHP on a word in the prose of a quoted string (`'…'` or `"…"` holding a space), or on interpolation-shaped text in a nowdoc or a single-quoted string, says there is no definition too; a string holding just a name, such as the callable `[$obj, 'method']` or `'App\Models\User'`, is still looked up (#1113)
+- `d` in Ruby inside a setter `def name=(value)` or `def []=(key, value)` reads the cursor as in an
+  instance method: `self.class.m` there jumps to the class method, and a local of the setter no
+  longer joins the candidates of a namesake in another method (#1114)
+- `d` in Java on a member of a project type (`Registry.lookup(...)`) reads a method
+  whose return type carries a type-use annotation (`<T> @Nullable T`), and no longer jumps to a
+  namesake of another class, or of a class of the same name in another package, when the type's
+  own declaration cannot be read (#1115)
+- `d` in Go on a key of an element literal of a named slice or map type (`Host:` in
+  `UpstreamPool{ {Host: …} }`, `type UpstreamPool []*Upstream`) jumps to the element's field,
+  an embedded one included, where it offered a picker of every namesake or found nothing (#1116)
+- `d` in Java on a method call named like a parameter or local (`notch()` beside a parameter `notch`) jumps to the method instead of the variable, and on a name bound by a record pattern (`instanceof Notch(int depth)`, `case Notch(int depth) ->`) jumps to that binding instead of the record's component (#1126)
+- `d` in Kotlin on a call to a local function named like a member (`fun swirl()` inside a function, then `swirl()`) jumps to the local function instead of the member (#1126)
+- `d` in Java on a member reached through `this.` or `Outer.this.` jumps to the one the shape
+  names: a name with no `(` after it to the field, not a method of the same name, and
+  `Outer.this.x` inside an inner class to the outer class's field, not the inner class's
+  namesake; `this.hopper.charge()` then follows the field's type (#1127)
+- `d` in Java on a default method of an implemented interface jumps to it: `crank()` inside a
+  class that implements `Turnable` without overriding `crank`, and `Turnable.super.crank()`,
+  where it offered every override in the project (#1128)
+- `d` in Java on a member of an element taken out of a collection written with its element type
+  (`stones.get(0).turn()`, `stones` a `List<Stone>`; also `getFirst`, `peek`, `pop`,
+  `orElseThrow` and the like on a `Deque`, `Queue` or `Optional`) jumps to the element type's
+  member, where it offered every namesake (#1129)
+- `d` in Kotlin on a member of a local initialized by a literal (`val note = "…"`, then
+  `note.trimIndent()`) says there is no definition in the project instead of jumping to a
+  project method of that name, and still jumps to the project's own extension on the literal's
+  type (`fun String.steepness()`); a Java `var` initialized by a string reads the same (#1131)
+- `d` in Kotlin inside a scope function follows the receiver it works on: a bare call or
+  `this.` inside `with(x) { }`, `x.run { }` and `x.apply { }` jumps to the member of `x`'s type
+  instead of the enclosing class's namesake, `it` inside `x.let { }` and `x.also { }` is `x`, and
+  a member after `x.apply { }.` or `x.also { }.` is one of `x`'s type, where it offered a
+  picker of every namesake (#1132)
+- `d` in Kotlin follows a chain of project calls past its first call: `.water(3)` after
+  `Recipe.Builder().grounds(2)` on the lines above, a local initialized by such a chain
+  (`built.grounds`), and `Recipe.Builder().grounds(1).finish().water` jump to the member of the
+  type each call returns, and a name destructured from a data class
+  (`val (stroke, mesh) = plunger`, `for ((stroke, mesh) in plungers)`) has the type of the property at its position, where each
+  offered a picker of every namesake (#1133)
+- `d` in C# on a member called on another call's result of a .NET type, `sb.Append(name).Append("!")` on one line or over several, says there is no definition in the project instead of jumping to a project method of that name; a call's result of a project type leads to the member of the type the method returns, and a project extension method of that name is still found, also when its parameter list wraps after `(` (#1134)
+- `d` in C# on a member of a local built by a chain of calls, `var made = new Brewer().Leaf("green").Build();` on one line or over several, or through a `using` alias of the type, jumps to the member of the type the last method returns instead of a picker of every namesake (#1135)
+- `d` in C# on a member of a name bound by `foreach (var x in items)` over a list of one type, or by a deconstruction `var (a, b) = (new A(), new B())`, jumps to the member of that type instead of a picker of every namesake (#1136)
+- `d` in C# reads nothing declared inside `#if false … #endif`, so a class there no longer makes `new Mug()` or a member of the real `Mug` a picker (#1137)
+- `d` in C++ on a member called on another call's result, `maker.leaf("x").build().sip()`,
+  `Maker{}.build().sip()`, `pour_mug().sip()`, or on a name declared `auto x = ` such a chain,
+  jumps to the member of the type the call returns instead of opening a picker of every
+  namesake (#1138)
+- `d` in Dart on a name in a constructor's initializer list other than the field being assigned,
+  as the right-hand `size` of `size = size ?? 0`, jumps to the constructor's parameter instead of
+  the field (#1139)
+- `d` in C++ on a member of a name bound by a range `for` over a `std::` container,
+  `if (auto* x = dynamic_cast<T*>(..))`, a structured binding of a `std::pair` or `std::tuple`, or
+  a lambda's init-capture `[x = T{}]` jumps to the member of its type instead of opening a picker
+  of every namesake (#1140)
+- `d` in C++ on a member of a name whose type is a `using` or `typedef` alias of a project class
+  jumps to the member of that class, and `d` on a qualified alias name no longer offers a struct
+  declared inside a function of another file (#1141)
+- `d` in C# on a parameter of a member written on one line, `int Pour(int size) => size`, in a class with a primary constructor that has a parameter of that name, jumps to the member's parameter instead of the constructor's (#1142)
+- `d` in C++ inside a lambda on a name its init-capture binds, `[cup = Stove{}]() { return cup.sip(); }`, jumps to the capture instead of an outer local of that name, and no longer to a member of that local's type (#1143)
+- `d` in C++ on a member of a name whose type is a `using` or `typedef` alias of a `std::` type
+  (`using Cups = std::vector<int>; cups.size()`) says it is outside the project, rather than
+  jumping to a project method of that name (#1144)
+- `d` in TypeScript and JavaScript on a member of a string, an array, a `Map` or a `Promise` (`words.join(" ").trim()`, `text.trim()` on `text: string`, `cups.get(…)` on a `Map`, `Promise.resolve(…).then(…)`) says it is a builtin with no source instead of jumping to a project member of that name (#1145)
+- `d` in TypeScript and JavaScript on a call of a function declared further down inside the calling function (`function inner()` below its use) jumps to that declaration instead of offering it beside every other file's function of that name (#1146)
+- `d` in TypeScript and JavaScript on a name reached through a namespace re-export (`export * as parts from "./lever.mjs"`, then `parts.Shower` or a parameter typed `mesh.Strainer`) jumps to its declaration instead of a picker of everything of that name (#1147)
+- `d` in TypeScript and JavaScript on `this.member` inside a class expression (`const Cup = class Mug { … }`, or `= class { … }`) jumps to the class expression's own member instead of a picker of every member of that name (#1148)
+- `d` in JavaScript and TypeScript on a member of `self` or `that` bound by `const self = this;` (`self.bar` in a nested `function`) jumps to the member `this` has there, a constructor function's `this.bar = bar;` included, instead of finding nothing (#1149)
+- `d` in JavaScript on a name taken from a module whose `module.exports = { …, ...require("./roast.cjs") }` re-exports another module jumps to its export there (`exports.darken = function`) instead of finding nothing (#1150)
+- `d` in Python on a member of a value the standard library holds says "builtin, no source" instead of jumping to a project method of that name: a name assigned from a method of a `str` (`text = raw.strip()` then `text.split()`), a string literal and calls on it (`" ".join(words).split()`), the file of `with open(...) as handle`, and a module of the standard library (`os.path.join`), and an element of a list summed from such values (`parts = text.split(",") + words.split()`, then `[p.strip() for p in parts]`) (#1151)
+- `d` in Python follows a chain of calls through each call's declared return type (`make_brewer().leaves(1).build().size`), a builder written one call per line (`.leaves(3)` under `Brewer()`), and a name assigned such a chain, instead of a picker of every namesake (#1152)
+- `d` in Python follows a receiver typed through a module-level alias of a class (`Machine = Brewer`, `machine: Machine`) to the class's member, instead of a picker of every namesake (#1153)
+- `d` in Python on a member of a name with a declared type that is reassigned from its own member (`cup = cup.next` in a loop) lands on the declared type's member, instead of a picker of every namesake; on the `cup` to the right of that `=` it offers both the parameter and the assignment, which reaches it on the next turn of the loop (#1154)
+- `d` in Python on a member of a value taken out of a typed `dict`, by `.items()`, `.values()` or `.get()`, lands on the value type's member, instead of a picker of every namesake (#1155)
+- `d` in Python on a name read in a class body (`warm = heat + 1` under `heat = 80`) lands on the class attribute above it, not on a module-level namesake (#1156)
+- `d` in Python on a member that the receiver's class and its bases, all in the project, do not declare says "no definition" instead of jumping to another class's member of that name (#1157)
+- `d` in Python on a call of a function the module declares at top level jumps to it, no longer a picker beside another module's function of that name that this one does not import (#1158)
+- `d` in Ruby on a core method of a string, a hash or an array whose class is plain from the code
+  (`raw.to_s.strip`, `text.upcase` on `text = raw.to_s.strip`, `{ a: 1 }.dig(:a)`,
+  `File.basename(raw).chomp`) says it is a builtin with no source instead of offering a project
+  method of that name; a method the project adds to `String` by `refine` or a reopened class still
+  jumps (#1159)
+- `d` in Ruby follows a chain of calls whose methods end in `self` or `Cup.new(..)`, written on
+  one line (`Brewer.new.leaves(1).build.sip`) or one call per line (`.leaves(3)`, `.build` on lines
+  of their own), and a local assigned from such a chain, instead of a picker of namesakes (#1160)
+- `d` in Ruby on a method of a local assigned once from `Const.new(..)` jumps to that class's
+  method, through `kettle&.cold`, a `tap { |k| k.cold }` block parameter, a constant alias
+  (`Urn = Samovar`, then `Urn.new(1).pour`) and `cup = cup.next_cup`, instead of a picker of
+  namesakes (#1161)
+- `d` in Ruby on the right-hand name of `x = x.y` jumps to the local that line assigns, not to a
+  method of that name; `x = x() + 1` still goes to the method (#1162)
+- `d` in Ruby on `super` jumps to the method it calls, in the class's included modules (the last
+  included first) and then its superclass, and on a member of a `Struct.new(:color)` value
+  (`Leaf.new("g").color`) to the `:color` of that `Struct.new` line (#1163)
+- `d` in Rust on `Alias::new(..)` through a `type Alias = Type;` goes to `Type::new`, rather than
+  opening a picker of every `new` in the project (#1164)
+- `d` in Rust on a method of a project trait called on a string (`"oolong".sniff()`, or a local
+  holding a string literal) goes to the trait's `impl … for str`, rather than to the trait's
+  declaration (#1165)
+- `d` in Rust on a call of a function goes to it when a closure earlier in the function has a
+  parameter of the same name (`|gulp: u32| gulp + 1`), rather than opening a picker (#1166)
+- `d` in Rust on a method of a value whose type is named through an alias, `use self::pantry::Sheet` re-exporting `Leaf as Sheet` or `type Tin = Leaf`, jumps to the type's own method, not to the trait default it overrides (#1167)
+- `d` in Swift on a member of a name bound by `for (i, x) in xs.enumerated()`, by `let (a, b) =
+  pair` or of `$0` in `xs.map { $0.member }` jumps to the member of the element or tuple item's
+  type rather than offering every namesake (#1168)
+- `d` in Swift on a class method reached through a subclass (`Gyokuro.make()`), on a member of
+  its result, and on a member past the second call of a chain (`Whisk().sift(1).finish().taste()`)
+  jumps to the declaration rather than offering every namesake (#1169)
+- `d` in Swift on `super.member` in an extension of a subclass jumps to the superclass's member
+  rather than offering every namesake (#1170)
+- `d` in Swift on a member of a value typed through a `typealias` declared in each arm of `#if`
+  offers the member of every arm's type, not every namesake in the project (#1171)
+- `d` in Swift on a call outside a function no longer offers a `func` nested inside that function, which is not visible there (#1172)
+- `d` in Swift on a member of a constructor's or a method's result, `Bowl(froth: 1).taste()`, jumps to that type's member instead of a picker of every namesake (#1173)
+- `d` in PHP on a member of a method call's result (`$leaf->steep()->pour()`, a builder chain, `$cup = $cup->steep()`) follows the declared return type instead of offering every namesake (#1174)
+- `d` in PHP on a variable bound by array destructuring of `new` (`[$a, $b] = [new A(), new B()]`) takes its element's class (#1175)
+- `d` in PHP on a trait method renamed by `as` in a `use` block jumps to the trait's method instead of saying "no definition" (#1176)
+- `d` in PHP on a method of an anonymous class (`new class extends Leaf { … }`) jumps to its own method instead of a picker of every namesake (#1177)
+- `d` in PHP on a class imported by a group `use`, `use Shop\Tea\{Leaf, Oolong as Dark};`, jumps to the class, and a method of a variable it constructs to that class's method, not to a picker of every namesake (#1178)
+- `d` in PHP on a method of a variable constructed from a class outside the project, `$when = new DateTimeImmutable()`, looks in `vendor/` as for a typed parameter, and says "no definition" when the class is not there, instead of jumping to a project method of that name (#1179)
+- `d` in Bash no longer offers a function-shaped line inside a multi-line single-quoted string, the `: '…'` block comment or a `usage='…'` value, as a declaration (#1180)
+- `d` in Bash on the `$leaf` of `local leaf=$leaf` (or `${leaf}`) jumps to the outer `leaf` instead of offering a picker of one row as if the cursor sat on the declaration (#1181)
+- `d` in Bash on a command named like a project variable, `date +%s` beside `date=monday`, says "no definition" instead of jumping to the variable, and on the name after `export -f` offers functions only (#1182)
+- `d` in Bash on a variable assigned by `printf -v stamp …` jumps to that line instead of saying "no definition" (#1183)
+- `d` in Ruby on `new` of a class with no `initialize` of its own (`Samovar.new(1)`, or its alias `Urn.new(1)`) lands on the `initialize` Ruby calls, from an included module or a superclass, instead of saying "no definition" (#1185)
+- `d` in PHP on a member called after a method declared `: self`, on an object of a subclass, jumps to the member of the class declaring that method, as intelephense does, instead of a picker of every namesake; a `: static` step still follows the object's own class (#1186)
+- A library's file, under `.venv`, `site-packages`, `node_modules` or a `bazel-*` folder, opens
+  read-only (`outside the project`) from the command line, the tree, `o` and `d` alike, before
+  any `d` has looked for libraries: a stray key no longer autosaves into an installed package. A
+  package linked in with `npm link` is read-only too; open its own folder to edit it (#1199)
+- A review folder with a file you edited or added in it is no longer deleted, edits and all, by the sweep of folders no merl has opened for 14 days or whose branch is gone: the sweep leaves it until it is clean (#1200)
+- `d` in Go on a member of a local assigned from a chain of method calls, `mug := NewBlend().Leaf("green").Build()`
+  on one line or over lines ending in `.`, lands on the method of the chain's last result type, as gopls does,
+  instead of a picker of every namesake (#1201)
+- `d` in Go on a member of a name bound by a three-clause `for` header, `for i, cup := 0, (Stove{}); i < 1; i++ {`,
+  lands on the method of the bound value's type, as gopls does, instead of a picker of every namesake (#1202)
+- `d` in Go on a member of a parameter typed by a type parameter, `t T` under `[T Sipper]`, lands on the member of
+  its constraint, as gopls does, instead of a picker of every namesake (#1203)
+- `d` in Go on a member of a generic function's result, `First(mugs).Sip()` under `func First[T Sipper](xs []T) T`,
+  lands on the member of the type the arguments give `T` (`Mug.Sip`), as gopls does, instead of a picker of every
+  namesake (#1203)
+- `d` in Go on a member of a value returned by a package whose source merl does not read, `f, _ := os.Open(name)`
+  then `f.Close()`, `time.Now().Weekday()`, `strings.NewReader("x").Len()`, says there is no definition in the
+  project instead of jumping to a project method of the same name; a call given an argument of a project type,
+  `slices.Max(mugs).Sip()`, still offers the project's namesakes, since a generic function may return that type
+  (#1204)
+- `d` in C on a name that is both a `struct` tag and a function lands on the tag after `struct`, `union` or `enum`
+  and on the function before `(`, as clangd does, instead of a picker of both (#1205)
+- `d` in C on a designator in the initializer of a declared struct, `.next` in `struct carafe c = { .next = 0 };`,
+  lands on the field of that struct, as clangd does, instead of a picker of every field of that name (#1206)
+- `d` in Lua on a method called on a string a standard library call returns, `tostring(v):upper()` or `string.format(..):lower()`, no longer jumps to a project namesake of that method (#1207)
+- `d` in Lua on a method called down a chain of methods that `return self`, `Gaiwan.new(2):soak(5):unfold()` on one line or over several, or through a local set from such a chain, jumps to that table's method instead of opening a picker of every namesake (#1208)
+- `d` in Lua on the label of `goto continue` jumps to its `::continue::` in the enclosing blocks of the same function, instead of saying there is no definition (#1209)
+- `d` in Go on a member of a local typed by a package outside the project, `var sb strings.Builder` or `new(bytes.Buffer)`, no longer jumps to a project method of that name when the package is not read (#1210)
+- `d` in C on a member of a value whose struct the project never declares, `struct tm *t` or `div_t d`, no longer jumps to a project struct's field of that name (#1211)
+- `d` in C on the label of `goto` lands on the label, not on a local of its name (#1212)
+- `d` in Lua on a member of the standard library, `string.format`, `table.insert` or `("cup"):upper()`, says "no definition" instead of jumping to a project function of that name, unless the project patches the library itself (#1213)
+- `d` in Lua on a call written above the `local function` of its name no longer jumps to that local, which does not reach back (#1214)
+- `d` in Lua jumps to the method through a class a module hands on as `M.Gaiwan = Gaiwan`, through a subclass made by `setmetatable({}, { __index = Base })`, and through a local that shadows its module on its own line, `local gaiwan = gaiwan.Gaiwan.new(1)`, instead of a picker (#1215)
+- `d` in Dart on a member of a `String`, `StringBuffer` or other `dart:core` value, `name.trim()`, says "no definition" when the SDK is not found, instead of jumping to a project method of that name; a project extension on the type or one of its supertypes (`on Iterable<T>`, `on Object`) still answers (#1216)
+- `d` in Dart on a call inside a class whose body declares that method jumps to the method, not to a picker with top-level functions of its name (#1217)
+- `d` in Dart on a member of a call's result types it by a top-level function's written return
+  type, a constructor call at the head of a chain, and a local set from a chain of calls, where it
+  opened a picker of every namesake or jumped to an unrelated one (#1218)
+- `d` in Dart finds a name bound by a list pattern, `final [one, ...rest] = chawans;`, and types
+  `one` by the list's written element type, where it said "no definition" and a member of it
+  opened a picker (#1219)
+- `d` in Dart types a parameter written as a bounded type parameter, `<T extends Chawan>(T t)`, by
+  its bound, where a member of it opened a picker of every namesake (#1220)
+- `d` in Dart types a local made from a class reached through a prefixed import of a library that
+  re-exports it, `barrel.Whisk()`, where a member of it opened a picker of every namesake (#1221)
+- `d` in SQL on a column a table takes from another through `INHERITS (parent)` or `LIKE parent` jumps to the column in the parent's `CREATE TABLE`, instead of saying "no definition"; a column the table declares itself still wins (#1222)
+- `d` in SQL on a column in an `INSERT`'s `ON CONFLICT (…)`, its `DO UPDATE SET col =`, `EXCLUDED.col`, a `RETURNING` list, `CREATE INDEX … ON t (col)` and `COMMENT ON COLUMN t.col` jumps to the column in that table, instead of saying "no definition"; a subquery there keeps its own tables (#1223)
+- `d` in SQL on an unquoted column takes the unquoted column of its name, and a quoted one its exact spelling, where a table declares both `"Lid"` and `lid`: `lid` no longer lands on `"Lid"` (#1224)
+- `d` in SQL on a name inside a `LANGUAGE sql` function body jumps to the column of the statement's table where it has one, as PostgreSQL resolves it, instead of to the function's parameter of that name; a `plpgsql` body keeps the parameter (#1225)
+- `d` in SQL no longer jumps to a `CREATE` that only a dollar-quoted string holds inside a function's dollar-quoted body (`$body$ … $$ CREATE TABLE … $$ … $body$`): a dollar quote of another tag inside a body is read as a string up to its own tag (#1226)
+- `d` in SQL reads block comments as nesting, as PostgreSQL does, so a `CREATE TABLE` inside a nested `/* /* */ … */` is no longer a definition; a file with no `*/` left over once each comment ends at its first `*/` (as MySQL and SQLite read it) keeps reading them so, and a `*/` inside a string or a `--` comment counts for neither (#1227)
+- `d` in SQL on a name the statement itself declares lands on that declaration instead of saying "no definition": an output alias in `ORDER BY` (with or without `AS`), a name in a column alias list (`FROM samovars AS s (x, y)`), a `WINDOW` name after `OVER`, and a column of a CTE in the `SELECT` that reads it; a table's column still lands on the table, and so does an `INSERT` target column, and a PL/pgSQL variable keeps its name (#1228)
+- `d` in SQL reads a column after a select modifier (`SQL_NO_CACHE`, `HIGH_PRIORITY`, `STRAIGHT_JOIN`, `DISTINCT ON (…)`, `TOP 5 WITH TIES`) as the table's, not as an alias of the modifier (#1228)
+- Opening a review again no longer throws away the edits you made in its folder: a folder with edits stays at its commit, edits and all, and the review says `behind origin/BRANCH` (or `diverged from`), as your own checkout does; a folder with no edits moves to what was pushed, as before (#1229)
+- `d` in Rust on a method of a standard library value that the toolchain's sources do not answer (`v.windows(2)` on a `vec![…]` with no sources installed) no longer jumps to a project trait of the same name that has no impl for that type: it says there is no definition. A project trait implemented for the type (`impl Sniff for str`, `impl<T> Panes for [T]`, a blanket `impl<T> Panes for T`) still answers (#1232)
+- `d` in SQL finds a plpgsql variable declared under `DECLARE`, in a function or a `DO` block, and an output name of `RETURNS TABLE (…)`; the same name declared in two nested blocks gives the picker (#1234)
+- A commit you made inside a review's folder (`merl -r feat`) stays there when you open that review again, as an edit does, instead of being left on no branch; if `feat` moved on meanwhile, the review says `diverged from origin/feat`. A folder at a tip that was force-pushed away still moves to the new one (#1237)
+- `d` in a plpgsql function lands on the column, not on a parameter of its name, in an `INSERT INTO t (x)` column list, an `UPDATE … SET x =` target and a body under `#variable_conflict use_column`, as PostgreSQL reads the name (#1239)
+- `d` in SQL finds a column qualified by the table an `UPDATE` targets, or by its alias (`UPDATE t SET … WHERE t.x`), as it does for a `FROM` item (#1240)
+- `d` in a plpgsql function lands on the column, not on a parameter or variable of its name, in an `UPDATE … SET (a, b) =` list, a `SET x[1] =` or `SET x.f =` target, and a `MERGE`'s `UPDATE SET` and `INSERT (…)` column list (#1245)
+- `d` in C++ on the name of a constructor or destructor defined inside its class (`Harness() : constructor_(nullptr) {}`) stays on that definition, as on a method defined in its class, instead of jumping to the `class` line (#1248)
+- `d` in C++ on the name of a constructor defined out of its class (`Key::Key(int a, int b) {}`) lands on the declaration of that overload in the class instead of another overload's definition, and on a delegating call (`Steeper() : Steeper(500) {}`) on the one constructor taking that many arguments, at its definition out of the class when the project has exactly one (as clangd does); where more than one could take them, or no declaration has the definition's spelling, it answers as before (#1248)
+- `d` in C++ on a delegating call in a constructor defined out of its class (`Spout::Spout() : Spout(500) {}`) lands on the one constructor of that class taking that many arguments, as it already did inside the class, when the class is written in the same file or in a header the file includes; where more than one could take them, it answers as before (#1248)
+- `d` in C++ on a delegating call lands on the constructor's definition when it is written with its namespace spelled out (`pot::Beaker::Beaker() {}` outside `namespace pot`) instead of stopping at its declaration in the class, and no longer takes a namesake class's definition in another namespace for it (#1248)
+- `d` in C++ on a base class's constructor called with its namespace in an initializer list (`Widget(int a) : ext::Widget(a, 0) {}`) no longer jumps to the derived class's own constructor of that many arguments (#1248)
+- `d` in JavaScript on a member of a value a function returns under a JSDoc object type
+  (`@returns {{socketPath: string}}`) lands on that key, as tsserver does, instead of a namesake
+  field of an unrelated class found by name (#1249)
+- `d` in Python on a local assigned in a function body stays on its line instead of jumping to a namesake elsewhere in the project, such as a pytest fixture of the same name (#1268)
+- `d` in Go on a `:=` declaration no longer jumps to a namesake `:=` local of a function literal in another function, as if it were declared at package level (#1269)
+- `d` in Bash on a variable read inside an `elif` or `else` branch no longer jumps to an
+  assignment in an earlier branch of the same `if`, which never ran: it lands on the assignment
+  above the `if` (#1270)
+- `d` in C, C++ and Objective-C on `INFINITY` or `NAN` below `#include <math.h>` and `#include <float.h>` jumps to the definition clang's own `float.h` undefines and writes again, which is the one the compiler uses, instead of the SDK's `math.h` it replaces; a `math.h` included after `float.h` keeps its own (#1271)
+- `d` in Swift on a parameter of a signature wrapped over several lines, or on a generic
+  parameter (`class Kiln<Glaze: Sendable>`), answers as at a declaration, instead of jumping to
+  a property or a type of the same name (#1272)
+- `d` in Svelte, Vue and Astro no longer jumps to a namesake out of scope: a `{#each}` binding answers from its own block, not a sibling block's; a key at the start of a line in a TypeScript type literal (`locale: string;`, also in `.ts` and `.js` files) is its own definition, not a use of a later local of its name; and a bare name in a template that only a file the component does not import declares is offered in a picker rather than jumped to (#1273)
+- `d` on a name imported from a module an installed dependency declares ambiently, such as SvelteKit's `$app/navigation` or `$app/state`, no longer lands on its import line as if the package were not installed: it opens the declaration in the dependency's `.d.ts`, or the source line its declaration map names (`goto` opens SvelteKit's `client.js`); a member of such an import (`page.data`) says "no definition" instead of jumping to the import (#1275)
+- `d` on an Objective-C method's parameter, or on a parameter of a block or function-pointer typedef, stays on it instead of jumping to a namesake found by name in another file (#1276)
+- `d` on a Sass variable lands on the `@each`, `@for`, `@mixin` or `@function` that binds it, instead of a namesake found by name in another file or "no definition" (#1277)
+- `d` in Java on a member of a lambda parameter jumps when the chain the lambda is passed to says its type: `client.fetch(Post.class, name).map(post -> post.getSpec()…)`, a call declared to return `Mono<T>` / `Flux<T>` / `List<T>` …, or a name declared so, through `filter`, `doOnNext`, `switchIfEmpty`, `stream` and the like, instead of a picker of every namesake (#1278)
+- `d` in PHP on a call of a Composer package's helper function, such as Laravel's `env(..)`, `config(..)` or `app(..)`, lands on the one global function a file Composer loads declares, instead of offering every `env` in `vendor/`; a call after `=>` or `?:` (`'queue' => env('DB_QUEUE')`) is read as a call (#1279)
+- `d` in PHP on a method a class inherits from a package in `vendor/`, such as `$user->refresh()` on a Laravel model or `$this->error(..)` in a console command, lands on its one declaration up the package's parents and traits, instead of offering every `refresh` in `vendor/` or finding none; a trait listed on the second line of a `use A,` list is read, so its method is no longer passed over for the parent's (#1279)
+- `d` in Dart on a member reached through a chain of fields or getters with no call in it, such as `uri` in `err.requestOptions.uri`, lands on the one declaration the chain's types lead to instead of offering every member of that name (#1280)
+- `d` in C++ on a standard member overloaded only by `const` or `volatile`, such as `data()` of a `std::string`, `back()` of a `std::vector` or `load()` of a `std::atomic`, called on an object that is neither, lands on the overload C++ calls instead of offering both (#1281)
+- `d` in C# lands on the member of a collection's element: a `foreach` variable over a call's result, the parameter of a LINQ lambda (`.Where(o => o.Buyer)`) and what `First()` / `FirstOrDefault()` return, where it offered a picker (#1282)
+- `d` in an ESLint rule typed `/** @type {import('../types').Rule.RuleModule} */` on a member of its `context` (`context.report`, `context.sourceCode`) or of the `sourceCode` read from it (`sourceCode.getTokenAfter(node)`) jumps to its one declaration in the rule types or in `@eslint/core`, instead of offering every namesake in the project and `node_modules` (#1283)
+- `d` in SQL on `NEW.col` or `OLD.col` in a trigger function jumps to the column of the table the function's trigger is on (`CREATE TRIGGER … ON t … EXECUTE FUNCTION f ()`), the trigger in effect at the cursor in a migrations folder, instead of saying "no definition"; a function run by triggers on several tables still says "no definition" (#1284)
+- `d` in Ruby on an instance variable a controller action reads but never assigns, such as `@webhook` in `disable`, lands on the one `before_action` method that assigns it (`set_webhook`) instead of offering every assignment in the class (#1285)
+- `d` in Swift on an implicit member passed as an argument (`Encoder(arrays: .indexed)`, `Boundary.mark(kind: .first)`) reads the type of the callee's parameter and jumps to its member, instead of a picker of every namesake, and answers none for a type from outside the project instead of jumping to a namesake of the project (#1286)
+- `d` in an ESLint rule typed `/** @type {import('../types').Rule.RuleModule} */` on one of its own keys (`create`, `meta: { docs`) or on a listener method of the object its `create` returns (`onCodePathStart`) jumps to the one interface member that declares it, instead of offering every namesake in the project and `node_modules` (#1288)
+- `d` in Kotlin lands on the member itself where it offered a picker of namesakes: a member of an `enum class` value, of the parameter of `Flavor.entries.forEach { flavor -> }`, of an outer lambda's parameter read inside a nested lambda or a call's arguments, and of a constructor parameter without `val` read in a property initializer; `string.name` after `import <pkg>.R.string` opens the resource (#1289)
+- `d` in Lua lands on the member where it offered namesakes or found nothing: a field of a LuaLS `---@class`, through a `---@param`, a local function's `---@return` or the `---@class` above a required module's table; a method of the table a module function returns as `setmetatable({..}, { __index = _M })`; and a module member made by a call, `typedefs.uuid = Schema.define {` (#1290)
+
 ## [0.9.0] - 2026-10-18
 
 ### Added
@@ -2553,7 +3045,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scroll position, the jump history and the find pattern.
 - Help overlay on `?`, listing every binding; Esc in normal mode clears the find highlights.
 
-[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Maksim-Burtsev/merl/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.10.0
 [0.9.0]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.9.0
 [0.8.5]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.5
 [0.8.4]: https://github.com/Maksim-Burtsev/merl/releases/tag/v0.8.4

@@ -1631,7 +1631,7 @@ dependencies = [
 
 [[package]]
 name = "merl"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "arborium-graphql",
