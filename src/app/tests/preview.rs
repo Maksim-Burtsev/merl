@@ -557,7 +557,7 @@ fn a_held_arrow_in_the_preview_misses_nothing() {
     }
     a.key_at(
         KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE),
-        t0 + Duration::from_millis(2000),
+        t0 + Duration::from_secs(2),
     );
     assert!(
         a.missed.is_empty(),

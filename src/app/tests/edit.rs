@@ -609,7 +609,7 @@ fn autosave_esc_and_quit_reach_the_disk() {
         b"xa\r\nb\r\n",
         "CRLF survives"
     );
-    a.autosave = Duration::from_secs(60);
+    a.autosave = Duration::from_mins(1);
     typed(&mut a, "y");
     press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert_eq!(std::fs::read(&path).unwrap(), b"xya\r\nb\r\n");
