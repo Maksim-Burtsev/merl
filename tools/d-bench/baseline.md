@@ -100,8 +100,8 @@ The cpp row with #1248's remainder (four answers reviewed, the oracle's mistakes
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 2 | 50.0 | 174.7 |
-| svelte (immich) | 182 | 118 (65%) | 43 (24%) | 1 (1%) | 20 (11%) | 88 | 2 | 32.4 | 181.1 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 2 | 50.0 | 174.3 |
+| svelte (immich) | 182 | 119 (65%) | 43 (24%) | 1 (1%) | 19 (10%) | 88 | 2 | 32.4 | 184.1 |
 | astro (starlight) | 167 | 112 (67%) | 14 (8%) | 0 (0%) | 41 (25%) | 103 | 8 | 36.4 | 112.2 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
@@ -113,3 +113,4 @@ The cpp row with #1248's remainder (four answers reviewed, the oracle's mistakes
 | dart (dio) | 97 | 80 (82%) | 13 (13%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
 The java row with #1278's second pass (a Lombok `@Data` class read above a multi-line annotation such as `@GVK(…)`, a chain's `.next()` step, a `.map(Type::method)` step typed by the method's return, a `Collectors.toMap(x -> …)` lambda, and a `var` assigned from a call with a nested call in its arguments): over `88886d35`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors (java0145, java0151, java0154, java0163, java0166, java0169, java0181, java0182, java0184, java0186) written.
+The svelte row with #1275's second pass (`page.data` with `page` from SvelteKit's ambient `declare module '$app/state'`: the export's declared type `import("@sveltejs/kit").Page` followed to the `data` member of that interface in the same `.d.ts`): over `38aca47a`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors (svelte0052; js0018 and vue0209 are #1291's, already on the epic, its vue row not played before) written.

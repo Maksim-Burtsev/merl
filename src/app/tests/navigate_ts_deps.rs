@@ -335,8 +335,8 @@ fn a_review_folder_reads_its_workspace_packages_as_your_checkout_reads_its_own()
 
 #[test]
 fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
-    let main = "import { goto, missing } from '$app/navigation';\nimport { page, navigating } from '$app/state';\nimport { enhance } from '$app/forms';\nimport { browser } from '$app/environment';\nimport { base } from '$app/paths';\n\ngoto('/');\npage.data;\nnavigating;\nenhance;\nbrowser;\nbase;\nmissing;\n";
-    let kit = "declare module '$app/navigation' {\n\texport function goto(url: string): Promise<void>;\n\texport {};\n}\n\ndeclare module '$app/state' {\n\texport const page: { data: object };\n\texport const navigating: boolean;\n\texport {};\n}\n";
+    let main = "import { goto, missing } from '$app/navigation';\nimport { page, navigating } from '$app/state';\nimport { enhance } from '$app/forms';\nimport { browser } from '$app/environment';\nimport { base } from '$app/paths';\n\ngoto('/');\npage.data;\nnavigating;\nenhance;\nbrowser;\nbase;\nmissing;\npage.pathname;\nnavigating.from;\npage.state;\n";
+    let kit = "declare module '$app/navigation' {\n\texport function goto(url: string): Promise<void>;\n\texport {};\n}\n\ndeclare module '$app/state' {\n\texport const page: import(\"@sveltejs/kit\").Page;\n\texport const navigating: boolean;\n\texport {};\n}\n\ndeclare module '@sveltejs/kit' {\n\texport interface PageData {}\n\texport interface Page<\n\t\tP extends string = string\n\t> {\n\t\turl: URL & { pathname: P };\n\t\t/**\n\t\t * The merged {@link data}.\n\t\t */\n\t\tdata: PageData & Record<string, any>;\n\t}\n\texport interface Other {\n\t\tstate: object;\n\t}\n}\n";
     let map = r#"{"version":3,"file":"index.d.ts","sources":["../src/client.js","../src/state.js"],"mappings":";CAEgB,KAAI;;;;;CCFA;CAGA,KAEA"}"#;
     let ambient = |m: &str, name: &str| {
         format!("declare module '{m}' {{\n\texport const {name}: boolean;\n}}\n")
@@ -390,8 +390,23 @@ fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
         ),
         (
             "page.data",
-            jump("no definition for data", "src/main.ts:8"),
-            "a member of the export is not the export's line",
+            jump("data → Page.data (via page)", &at("types/index.d.ts:21")),
+            "a member of the export is its declared type's member",
+        ),
+        (
+            "page.pathname",
+            jump("no definition for pathname", "src/main.ts:14"),
+            "a key nested in a member is not the type's member",
+        ),
+        (
+            "navigating.from",
+            jump("no definition for from", "src/main.ts:15"),
+            "an export typed without an import keeps no definition",
+        ),
+        (
+            "page.state",
+            jump("no definition for state", "src/main.ts:16"),
+            "another interface's member is not the type's",
         ),
         (
             "^navigating",

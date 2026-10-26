@@ -127,6 +127,73 @@ pub fn ambient_target(dts: &Path, module: &str, name: &str) -> Option<Hit> {
     })
 }
 
+pub fn ambient_member(dts: &Path, module: &str, name: &str, member: &str) -> Option<Hit> {
+    let text = std::fs::read_to_string(dts).ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let export = lines.get(ambient_export(&text, module, name)? - 1)?;
+    let typed = Regex::new(r#":\s*import\(\s*['"]([^'"]+)['"]\s*\)\.(\w+)\s*;\s*$"#).ok()?;
+    let caps = typed.captures(export)?;
+    let interface = Regex::new(&format!(
+        r"^\s+export\s+interface\s+{}\b",
+        regex::escape(&caps[2])
+    ))
+    .ok()?;
+    let open = Regex::new(&ambient_module_pattern(&caps[1])).ok()?;
+    let mut blocks = (lines.iter().enumerate()).filter(|(_, l)| open.is_match(l));
+    let (start, _) = blocks.next()?;
+    if blocks.next().is_some() {
+        return None;
+    }
+    let end = start
+        + 1
+        + lines
+            .get(start + 1..)?
+            .iter()
+            .position(|l| l.starts_with('}'))?;
+    let mut heads = (start + 1..end).filter(|&i| interface.is_match(lines[i]));
+    let head = heads.next()?;
+    if heads.next().is_some() {
+        return None;
+    }
+    let key = Regex::new(&format!(
+        r"^\s*(?:readonly\s+)?{}\??\s*[:(<]",
+        regex::escape(member)
+    ))
+    .ok()?;
+    let (mut depth, mut opened) = (0_usize, false);
+    let mut found = None;
+    for (i, line) in lines.iter().enumerate().take(end).skip(head) {
+        let code = line.trim_start();
+        if code.starts_with('*') || code.starts_with("/*") || code.starts_with("//") {
+            continue;
+        }
+        if depth == 1 && key.is_match(line) {
+            if found.is_some() {
+                return None;
+            }
+            found = Some(i);
+        }
+        for c in code.chars() {
+            match c {
+                '{' => (depth, opened) = (depth + 1, true),
+                '}' => depth = depth.checked_sub(1)?,
+                _ => {}
+            }
+        }
+        if opened && depth == 0 {
+            break;
+        }
+    }
+    let line1 = found? + 1;
+    Some(Hit {
+        deleted: None,
+        path: dts.to_path_buf(),
+        line1,
+        byte_col: None,
+        text: lines[line1 - 1].to_owned(),
+    })
+}
+
 pub fn package_of(path: &Path) -> Option<PathBuf> {
     let parts: Vec<_> = path.components().collect();
     let at = parts

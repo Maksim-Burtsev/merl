@@ -2739,7 +2739,7 @@ js0014	skip	picker	133.50
 js0015	no-answer	picker	82.67
 js0016	ok	jump	22.83
 js0017	on-decl	stay	94.83
-js0018	skip	stay	46.51
+js0018	skip	stay	45.55
 js0019	ok	jump	42.36
 js0020	no-answer	picker	81.97
 js0021	skip	jump	14.07
@@ -6479,7 +6479,7 @@ svelte0048	no-answer	picker	111.72
 svelte0049	ok	jump	10.22
 svelte0050	ok	jump	13.53
 svelte0051	ok	jump	19.26
-svelte0052	none	stay	111.14
+svelte0052	ok	jump	186.29
 svelte0053	ok	jump	100.26
 svelte0054	ok	jump	7.91
 svelte0055	ok	jump	3.94
@@ -7935,7 +7935,7 @@ vue0205	ok	jump	84.54
 vue0206	skip	picker	183.65
 vue0207	pick-miss	picker	69.67
 vue0208	pick-miss	picker	54.86
-vue0209	pick-miss	picker	932.26
+vue0209	none	stay	9.26
 vue0210	ok	jump	40.42
 vue0211	ok	jump	15.43
 vue0212	pick-miss	picker	38.35
