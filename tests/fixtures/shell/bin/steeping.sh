@@ -139,3 +139,31 @@ drain() {
     #      ^ d: bin/steeping.sh:133
   fi
 }
+sieve() {
+  mesh="$1"
+  case "$mesh" in
+    fine)
+      mesh="fine $mesh"
+      ;;
+    hot)
+      mesh="hot"
+      ;&
+    warm)
+      echo "$mesh"
+      #      ^ d: bin/steeping.sh:149
+      ;;
+    coarse)
+      echo "$mesh"
+      #      ^ d: bin/steeping.sh:143
+      case "$2" in
+        a)
+          mesh=a
+          ;;
+      esac
+      echo "$mesh"
+      #      ^ d: bin/steeping.sh:160
+      ;;
+  esac
+  echo "$mesh"
+  #      ^ d: bin/steeping.sh:160
+}

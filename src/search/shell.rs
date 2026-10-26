@@ -43,10 +43,32 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
                 && !lines[j + 1..=at].iter().any(|l| fi_at(l, depth))
         })
     };
+    let arm_closed = |i: usize| {
+        let (mut depth, mut closed) = (0, false);
+        for (j, l) in lines.iter().enumerate().take(at).skip(i) {
+            let t = l.trim();
+            if literal.get(j) == Some(&true) {
+                continue;
+            }
+            if j > i && t.starts_with("case ") && !t.ends_with("esac") {
+                depth += 1;
+            } else if t == "esac" || t.starts_with("esac ") || t.starts_with("esac;") {
+                if depth == 0 {
+                    closed = false;
+                } else {
+                    depth -= 1;
+                }
+            } else if depth == 0 && t.ends_with(";;") {
+                closed = true;
+            }
+        }
+        closed
+    };
     let assigns = |i: usize| {
         literal.get(i) != Some(&true)
             && (assign.is_match(lines[i]) || shell_loop_binds(lines[i], name) == Some(true))
             && !sibling(i)
+            && !arm_closed(i)
     };
     let mine = shell_function_at(lines, at);
     mine.and_then(|f| (f + 1..at).rev().find(|&i| assigns(i)))
