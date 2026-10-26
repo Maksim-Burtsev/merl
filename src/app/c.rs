@@ -440,6 +440,48 @@ impl App {
     }
 
     pub(super) fn c_reached(&mut self, here: &Path) -> HashSet<PathBuf> {
+        self.c_reached_from(here, None)
+    }
+
+    pub(super) fn c_clang_redefinition(
+        &mut self,
+        here: &Path,
+        word: &str,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        if hits.is_empty() {
+            return hits;
+        }
+        let include = self
+            .clang_include
+            .get_or_init(search::clang_include)
+            .clone();
+        let (Some(include), Some(text)) = (include, self.text_of(here)) else {
+            return hits;
+        };
+        let lines: Vec<&str> = text.lines().take(self.line).collect();
+        let last = (lines.iter().enumerate().rev()).find_map(|(i, l)| {
+            let inc = search::c_includes(l)
+                .pop()
+                .filter(|c| !c.quoted_not_angled)?;
+            Some((
+                i,
+                search::clang_redefinition(&include, &inc.as_written, word)?,
+            ))
+        });
+        let Some((at, clang)) = last else {
+            return hits;
+        };
+        let after = lines[at..].join("\n");
+        let reached = self.c_reached_from(here, Some(&after));
+        if hits.iter().any(|h| reached.contains(&h.path)) {
+            hits
+        } else {
+            vec![clang]
+        }
+    }
+
+    fn c_reached_from(&mut self, here: &Path, mut first: Option<&str>) -> HashSet<PathBuf> {
         self.external_files(Kind::C);
         let mode = (self.c_source(), self.objc_file());
         let source = mode.0;
@@ -518,6 +560,7 @@ impl App {
         let mut queue = vec![here.to_path_buf()];
         while let Some(file) = queue.pop() {
             let next = match self.c_includes.get(&(file.clone(), mode)) {
+                _ if first.is_some() => Arc::new(edges(first.take().unwrap_or_default(), &file)),
                 Some(next) if file.is_absolute() => Arc::clone(next),
                 _ => {
                     let text = if file.is_absolute() {

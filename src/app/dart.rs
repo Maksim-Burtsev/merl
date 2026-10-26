@@ -402,6 +402,11 @@ impl App {
             [r] if r == "this" || r == "super" => {
                 search::dart_this_super(text, self.line, r == "super")?
             }
+            [_, _, ..] => {
+                let (ty, s) = self.dart_links_type(here, text, chain, false, true, 0)?;
+                scope = s;
+                ty
+            }
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -421,7 +426,6 @@ impl App {
                 }
                 None => self.dart_field_type(here, text, r)?,
             },
-            _ => return None,
         };
         let Some(file) = self.dart_class_file(&scope, &ty) else {
             return self.dart_core_unreached(&scope, &ty, word).then(Vec::new);
@@ -483,6 +487,18 @@ impl App {
         depth: usize,
     ) -> Option<(search::DartType, PathBuf)> {
         let (links, called, _) = search::dart_call_links(before)?;
+        self.dart_links_type(here, text, &links, called, false, depth)
+    }
+
+    fn dart_links_type(
+        &self,
+        here: &Path,
+        text: &str,
+        links: &[String],
+        called: bool,
+        plain: bool,
+        depth: usize,
+    ) -> Option<(search::DartType, PathBuf)> {
         let (head, rest) = links.split_first()?;
         let (mut ty, mut scope) = if called {
             self.dart_call_type(here, text, head)?
@@ -501,6 +517,10 @@ impl App {
             let [row] = rows.as_slice() else {
                 return None;
             };
+            let method = Regex::new(&format!(r"\b{}\s*(?:<[^()]*>)?\s*\(", regex::escape(link)));
+            if plain && method.is_ok_and(|m| m.is_match(&row.hit.text)) {
+                return None;
+            }
             ty = search::dart_returns(&row.hit.text, link)?;
             scope.clone_from(&row.hit.path);
         }

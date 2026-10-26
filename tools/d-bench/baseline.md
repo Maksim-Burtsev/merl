@@ -31,6 +31,7 @@ The sql row with the rest of #1063 (a bare column where SQL names one table, an 
 The swift row with #1068's closure parameter of a generic wrapper's method (`streamMutableState.write { state in`): over `ac98b053`, 2026-10-22, release build, `vm.loadavg` { 8.57 9.76 7.72 } before the run, { 8.44 9.66 7.72 } after.
 merl at `68f76ad31`, 2026-10-21, release build, `vm.loadavg` { 8.74 6.36 6.03 } before the run, { 8.74 6.36 6.03 } after.
 The csharp row with #1088 (Blazor `.razor` files read through a separate read-only C# view): over `d1c7ea21`, 2026-10-22, release build, `vm.loadavg` { 9.64 13.18 7.21 } before the run, { 11.53 13.27 7.77 } after (the times read high under that load).
+The csharp row with #1282 (the element of a framework collection: a `foreach` over a call, a LINQ lambda's parameter, `FirstOrDefault()`): over `11008e95`, 2026-10-26, release build, `vm.loadavg` { 7.47 9.34 8.84 } after the run.
 The sql row with #1063's column of a renamed table and of a `CREATE TABLE … AS SELECT`: over `96b9cb65`, 2026-10-22, release build, `vm.loadavg` { 9.63 8.12 7.67 } before the run, { 8.38 8.22 7.75 } after.
 The ts, js, vue, svelte and astro rows with #1078 (an ESLint visitor's `node` typed through a union alias of `@types/estree` interfaces, `CallExpression`): over `3f360506`, 2026-10-22, release build, `vm.loadavg` { 10.99 8.50 7.82 } before the run.
 The ts, js, vue, svelte and astro rows with #1078 (a union narrowed by its `type` tag in a `switch` case and a ternary, `pattern.properties` and `property.value`): over `c742c2bf`, 2026-10-22, release build, `vm.loadavg` { 5.83 5.61 6.60 } before the run.
@@ -51,39 +52,55 @@ The swift row with #1068's eighth pass (a subscript on a value from outside the 
 The rust row with #1044's `match` whose typed arms agree on one std type, and `.to_string()` / `.clone()` on a std value (`expected_slice` in `crates/searcher/src/testutil.rs`): over `8d5db1a10`, 2026-10-25, release build, `vm.loadavg` { 4.97 4.65 5.08 } before the run.
 The cpp row with #1248's next pass (an out-of-class constructor lands on its own overload's declaration, `VersionSet::VersionSet`; a delegating call on the one constructor its arguments fit): over `c513a1dba`, 2026-10-25, release build, `vm.loadavg` { 5.76 5.91 5.55 } before the run, { 6.47 6.06 5.61 } after.
 The rust row with #1044's tenth pass (a name bound by a tuple pattern from a call returning a tuple, `let (alpha, err) = alpha_parents.add_child(..)` in `crates/ignore/src/dir.rs`): over `25c27eede`, 2026-10-25, release build, `vm.loadavg` { 8.28 10.23 6.82 } before the run.
+The rust row with #1044's thirteenth pass (a dependency's type read in its one locked version: `HirKind::Repetition(mut x) => x.sub` in `crates/regex/src/strip.rs`, `for pat in &pats` over a `Vec<_>` collected from `.map(|&s| new_glob(s))` in `crates/globset/benches/bench.rs`): over `95b217983`, 2026-10-26, release build, `vm.loadavg` { 15.66 12.03 8.84 } before the run, { 8.98 10.75 8.64 } after (the times read high under that load).
+The python and go rows with #1268 and #1269 (a local assigned in a function body stays on itself; a `:=` is never a package-level declaration; python0019, python0190 and go0299 answers reviewed): over `8c8749637`, 2026-10-26, release build, `vm.loadavg` { 5.35 5.73 7.10 } before the run.
+The bash, c and swift rows with #1270 (a read in an `elif` / `else` branch skips the assignment of an earlier branch; bash0085's answer judged as `acme.sh:2892`) and #1272 (a wrapped parameter and a generic parameter at their declaration): over `38c0bef1b`, 2026-10-26, release build, `vm.loadavg` { 9.66 9.13 8.01 } before the run, { 12.32 9.49 8.23 } after.
+The ts, js, vue, svelte and astro rows with #1273 (a template loop variable answers from its own block; a type key ending in `;` is its own definition; an Astro template name no import declares opens a one-row picker): over `83641823a`, 2026-10-26, release build, `vm.loadavg` { 5.21 6.39 7.32 } before the run, { 6.50 6.29 7.08 } after.
+The c, cpp and objc rows with #1271 (a macro clang's own `float.h` undefines and defines again after the SDK's `math.h`, `INFINITY` in c0090, now scored): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.55 6.36 7.19 } before the run, { 7.01 6.39 7.10 } after.
+The objc and css rows with #1276 and #1277 (an Objective-C method's or a typedef's parameter stays on itself; a Sass variable reads the `@each`, `@for`, `@mixin` or `@function` that binds it; objc0041, objc0084 and objc0119 answers reviewed, css0063, css0092, css0163, css0213 and css0277 judged): over `c0c9a0ebc`, 2026-10-26, release build, `vm.loadavg` { 6.18 6.20 6.99 } before the run.
+The ts, js, vue, svelte and astro rows with #1275 (a name a dependency's ambient `declare module '$app/…'` exports lands on the source line its declaration map names; a member of it says no definition): over `7920ff73a`, 2026-10-26, release build, `vm.loadavg` { 5.87 8.55 9.02 } before the run.
+The java row with #1278's lambda parameter typed by its chain: over `c271c460`, 2026-10-26, release build, `vm.loadavg` { 10.93 8.40 8.32 } before the run.
+The php row with #1279 (a call of a Composer helper such as `env(..)` lands on the one global function a file `autoload_files.php` lists declares; a call after `=>` or `?:` is a call): over `6c42b3142`, 2026-10-26, release build, `vm.loadavg` { 6.85 8.04 8.18 } before the run, { 11.90 8.87 8.44 } after.
+The dart row with #1280 (a chain of names without a call, `err.requestOptions.uri`, follows each link's declared type): over `4742745b8`, 2026-10-26, release build, `vm.loadavg` { 4.85 7.23 7.93 } before the run.
+The php row with #1279's second pass (a method a class inherits from a `vendor/` class, its parents and traits read, lands on its one declaration; a `use A,` trait list over several lines is read): over `4ce560fb3`, 2026-10-26, release build, `vm.loadavg` { 6.67 7.28 7.80 } before the run, { 9.23 7.65 7.85 } after.
+The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, called on a plain object, lands on the overload C++ calls: `data()`, `back()`, `load()`): over `0a55ada19`, 2026-10-26, release build, `vm.loadavg` { 9.99 8.27 8.27 } before the run, { 10.18 8.36 8.30 } after.
+The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the function, in effect at the cursor): over `affcd2f55`, 2026-10-26, release build, `vm.loadavg` { 4.99 7.13 7.67 } before the run, { 5.12 6.68 7.46 } after.
+The ruby row with #1285 (an `@ivar` an action reads, set by the one `before_action` that assigns it): over `37599741`, 2026-10-26, release build, `vm.loadavg` { 11.36 7.89 7.44 } before the run, { 7.93 7.92 7.52 } after.
+The js row with #1283 (an ESLint rule's `context` typed by the `create` of the JSDoc `@type` over `module.exports = {`, its members through an aliased `@eslint/core` base, and `sourceCode` through `Options["Code"]` of that base): over `c55729c57`, 2026-10-26, release build, `vm.loadavg` { 5.57 5.85 6.56 } before the run, { 6.31 5.83 6.46 } after.
+The swift row with #1286 (an implicit member passed as an argument, through the type of the callee's parameter: `URLEncodedFormEncoder(arrayEncoding: .indexInBrackets)`, `BoundaryGenerator.boundary(forBoundaryType: .initial, ..)`): over `6e782ad49`, 2026-10-26, release build, `vm.loadavg` { 6.63 7.48 7.15 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 257 | 241 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 68 | 11 | 21.8 | 326.4 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 48.2 | 115.7 |
-| js (eslint, uptime-kuma) | 217 | 180 (83%) | 31 (14%) | 0 (0%) | 6 (3%) | 177 | 11 | 39.6 | 184.4 |
-| go (caddy, gitea) | 318 | 312 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 51 | 1 | 9.6 | 26.6 |
-| rust (ripgrep) | 231 | 221 (96%) | 8 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 6.2 | 62.1 |
-| c (redis) | 250 | 239 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 20 | 8 | 25.0 | 35.2 |
-| cpp (leveldb) | 232 | 200 (86%) | 32 (14%) | 0 (0%) | 0 (0%) | 68 | 12 | 22.1 | 70.7 |
-| php (koel) | 392 | 239 (61%) | 131 (33%) | 0 (0%) | 22 (6%) | 88 | 3 | 28.0 | 249.3 |
-| swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 14 | 22.7 | 51.1 |
-| java (halo) | 115 | 93 (81%) | 22 (19%) | 0 (0%) | 0 (0%) | 88 | 2 | 59.0 | 161.1 |
+| python (paperless-ngx) | 259 | 243 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 66 | 8 | 16.7 | 237.6 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 42.8 | 93.2 |
+| js (eslint, uptime-kuma) | 217 | 191 (88%) | 20 (9%) | 0 (0%) | 6 (3%) | 177 | 11 | 40.0 | 207.2 |
+| go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
+| rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
+| c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
+| cpp (leveldb) | 232 | 204 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 68 | 12 | 19.3 | 68.6 |
+| php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
+| swift (Alamofire) | 449 | 427 (95%) | 21 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 45.9 |
+| java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
 | kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
-| csharp (eShop) | 85 | 71 (84%) | 14 (16%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.3 |
-| ruby (mastodon) | 140 | 127 (91%) | 12 (9%) | 0 (0%) | 1 (1%) | 179 | 2 | 66.3 | 382.6 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 13 | 22.0 | 92.5 |
+| csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |
+| ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
-| css (bootstrap) | 230 | 164 (71%) | 56 (24%) | 1 (0%) | 9 (4%) | 70 | 1 | 3.4 | 24.5 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 3 | 49.9 | 168.2 |
-| svelte (immich) | 182 | 115 (63%) | 43 (24%) | 5 (3%) | 19 (10%) | 88 | 3 | 33.6 | 172.0 |
-| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 1 (1%) | 40 (24%) | 103 | 9 | 35.8 | 106.8 |
+| css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 2 | 49.9 | 171.9 |
+| svelte (immich) | 182 | 118 (65%) | 43 (24%) | 1 (1%) | 20 (11%) | 88 | 2 | 32.6 | 179.8 |
+| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 0 (0%) | 41 (25%) | 103 | 8 | 34.6 | 107.4 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |
 | scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 2 | 8.0 | 9.6 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
-| bash (bats-core, acme.sh) | 97 | 84 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 12 | 2 | 5.2 | 6.6 |
+| bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
-| dart (dio) | 97 | 76 (78%) | 17 (18%) | 0 (0%) | 4 (4%) | 17 | 0 | 40.5 | 113.0 |
-| sql (lemmy) | 79 | 70 (89%) | 1 (1%) | 0 (0%) | 8 (10%) | 31 | 0 | 14.1 | 25.3 |
+| dart (dio) | 97 | 79 (81%) | 14 (14%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
+| sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

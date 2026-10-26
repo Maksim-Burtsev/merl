@@ -47,8 +47,11 @@ impl App {
                 .collect()
         };
         let bound = search::template_binds(&self.buf.lines, &code, word);
+        let reaching = search::template_reaching(&self.buf.lines, &code, word, self.line);
         let tag = search::tag_at(self.line_str(), range.start);
-        let lines = if !bound.is_empty() {
+        let lines = if !reaching.is_empty() {
+            reaching
+        } else if !bound.is_empty() {
             let mut lines = script_binds(word);
             lines.extend(bound);
             lines

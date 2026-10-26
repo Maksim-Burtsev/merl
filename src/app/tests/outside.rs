@@ -158,6 +158,69 @@ fn c_reads_no_cpp_header_and_only_objective_c_reads_the_pods() {
 }
 
 #[test]
+fn a_macro_clang_s_float_h_undefines_and_defines_again_is_clang_s_after_it() {
+    let sdk = external_root(
+        "outside-clang-sdk",
+        &[
+            ("math.h", "#define INFINITY HUGE_VALF\n"),
+            ("float.h", "#define FLT_MAX 1e38\n"),
+            ("stddef.h", "#include <_null.h>\n"),
+            ("_null.h", "#define NULL ((void *)0)\n"),
+        ],
+    );
+    let clang = external_root(
+        "outside-clang-include",
+        &[
+            (
+                "float.h",
+                "#include <__inf.h>\n#undef FLT_MAX\n#define FLT_MAX 2\n",
+            ),
+            (
+                "__inf.h",
+                "#undef INFINITY\n#define INFINITY (__builtin_inff())\n",
+            ),
+            ("stddef.h", "#undef NULL\n#define NULL ((void*)0)\n"),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-clang",
+        &[
+            (
+                "a.c",
+                "#include <math.h>\n#include <float.h>\ndouble a = INFINITY;\n",
+            ),
+            (
+                "b.c",
+                "#include <float.h>\n#include <math.h>\ndouble b = INFINITY;\n",
+            ),
+            (
+                "c.c",
+                "#include <math.h>\ndouble c = INFINITY;\n#include <float.h>\n",
+            ),
+            ("d.c", "#include <float.h>\nfloat d = FLT_MAX;\n"),
+            ("e.c", "#include <stddef.h>\nvoid *e = NULL;\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&sdk));
+    a.clang_include = std::sync::OnceLock::from(Some(clang.clone()));
+    let place = |a: &mut App, file: &str, code: &str| {
+        d_on(a, file, code);
+        match shown(a) {
+            Shown::Jump(_, place) => place,
+            picker @ Shown::Picker(..) => format!("{picker:?}"),
+        }
+    };
+    assert_eq!(place(&mut a, "a.c", "= INFINITY"), at(&clang, "__inf.h", 2));
+    assert_eq!(place(&mut a, "b.c", "= INFINITY"), at(&sdk, "math.h", 1));
+    assert_eq!(place(&mut a, "c.c", "= INFINITY"), at(&sdk, "math.h", 1));
+    assert_eq!(place(&mut a, "d.c", "= FLT_MAX"), at(&sdk, "float.h", 1));
+    assert_eq!(place(&mut a, "e.c", "= NULL"), at(&sdk, "_null.h", 1));
+    for d in [dir, sdk, clang] {
+        drop(std::fs::remove_dir_all(d));
+    }
+}
+
+#[test]
 fn a_dart_qualifier_is_no_directory() {
     let pub_cache = external_root(
         "outside-dart",
@@ -610,4 +673,177 @@ fn a_dart_import_that_does_not_resolve_keeps_every_package() {
     for d in [dir, cache] {
         std::fs::remove_dir_all(d).unwrap();
     }
+}
+
+#[test]
+fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nclass Ctl\n{\n    public function __invoke(?string $n): array\n    {\n        return [\n            'a' => env('X'),\n            'b' => $n ?: config('k'),\n            'c' => str_contains($n, 'x'),\n            'd' => dupe(),\n            'e' => stray(),\n        ];\n    }\n}\n";
+    let helpers = "<?php\n\nif (! function_exists('env')) {\n    function env($key, $default = null)\n    {\n    }\n}\n\nif (! function_exists('config')) {\n    function config($key = null)\n    {\n    }\n}\n\nfunction dupe()\n{\n}\n";
+    let di = "<?php\n\nnamespace DI;\n\nfunction env(string $name)\n{\n}\n";
+    let repo = "<?php\n\nnamespace Illuminate\\Config;\n\nclass Repository\n{\n    public function config()\n    {\n    }\n\n    public function str_contains()\n    {\n    }\n\n    public function stray()\n    {\n    }\n}\n";
+    let polyfill = "<?php\n\nif (! function_exists('str_contains')) {\n    function str_contains($h, $n)\n    {\n    }\n}\n";
+    let listing = "<?php\n\n$vendorDir = dirname(__DIR__);\n$baseDir = dirname($vendorDir);\n\nreturn array(\n    'a1' => $vendorDir . '/laravel/src/helpers.php',\n    'b2' => $vendorDir . '/php-di/src/functions.php',\n    'c3' => $vendorDir . '/symfony/polyfill-php80/bootstrap.php',\n    'd4' => $vendorDir . '/other/dupe.php',\n);\n";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Ctl.php", ctl),
+        ("vendor/composer/autoload_files.php", listing),
+        ("vendor/laravel/src/helpers.php", helpers),
+        ("vendor/laravel/src/Config/Repository.php", repo),
+        ("vendor/php-di/src/functions.php", di),
+        ("vendor/symfony/polyfill-php80/bootstrap.php", polyfill),
+        ("vendor/other/dupe.php", "<?php\n\nfunction dupe()\n{\n}\n"),
+        (
+            "vendor/other/tests/stray.php",
+            "<?php\n\nfunction stray()\n{\n}\n",
+        ),
+    ];
+    let (dir, mut a) = project_app("php-helper-call", &files);
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    };
+    let got = [
+        d("env"),
+        d("?: config"),
+        d("dupe"),
+        d("str_contains"),
+        d("stray"),
+    ];
+    drop(std::fs::remove_dir_all(dir));
+    let repo_row = |name: &'static str, line: usize| {
+        (name, format!("laravel/src/Config/Repository.php:{line}"))
+    };
+    let (contains, stray) = (repo_row("str_contains", 11), repo_row("stray", 15));
+    assert_eq!(
+        got,
+        [
+            jump("env: by name, 1 match", "vendor/laravel/src/helpers.php:4"),
+            jump(
+                "config: by name, 1 match",
+                "vendor/laravel/src/helpers.php:10"
+            ),
+            picker(
+                "dupe: by name, 2 declarations",
+                &[
+                    ("dupe", "laravel/src/helpers.php:15"),
+                    ("dupe", "other/dupe.php:3")
+                ]
+            ),
+            picker(
+                "str_contains: by name, 2 declarations",
+                &[
+                    ("Repository::str_contains", contains.1.as_str()),
+                    ("str_contains", "symfony/polyfill-php80/bootstrap.php:4")
+                ]
+            ),
+            picker(
+                "stray: by name, 2 declarations",
+                &[
+                    ("Repository::stray", stray.1.as_str()),
+                    ("stray", "other/tests/stray.php:3")
+                ]
+            ),
+        ],
+        "after `=>` and `?:` a call is a call; DI\\env and a config() method are no namesakes of \
+         the global functions; two global dupe()s, a polyfill of a builtin and a file composer \
+         never loads keep the picker"
+    );
+}
+
+#[test]
+fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaration() {
+    let user = "<?php\n\nnamespace App\\Models;\n\nuse Illuminate\\Foundation\\Auth\\User as Authenticatable;\n\nclass User extends Authenticatable\n{\n}\n";
+    let song =
+        "<?php\n\nnamespace App\\Models;\n\nuse Twice\\Base;\n\nclass Song extends Base\n{\n}\n";
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Models\\Song;\nuse App\\Models\\User;\n\nclass Ctl\n{\n    public function __invoke(User $user, Song $song): void\n    {\n        $user->refresh();\n        $user->getAttribute('a');\n        $user->getKey();\n        $user->where('a', 1);\n        $song->fresh();\n    }\n}\n";
+    let auth = "<?php\n\nnamespace Illuminate\\Foundation\\Auth;\n\nuse Illuminate\\Database\\Eloquent\\Model;\n\nclass User extends Model\n{\n    use \\Illuminate\\Auth\\Authenticatable;\n}\n";
+    let authenticatable = "<?php\n\nnamespace Illuminate\\Auth;\n\ntrait Authenticatable\n{\n    public function getKey()\n    {\n    }\n}\n";
+    let model = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nabstract class Model\n{\n    use Concerns\\HasEvents,\n        Concerns\\HasAttributes;\n\n    public function refresh()\n    {\n    }\n\n    public function getKey()\n    {\n    }\n\n    public function __call($method, $parameters)\n    {\n    }\n}\n";
+    let attributes = "<?php\n\nnamespace Illuminate\\Database\\Eloquent\\Concerns;\n\ntrait HasAttributes\n{\n    public function getAttribute($key)\n    {\n    }\n}\n";
+    let events =
+        "<?php\n\nnamespace Illuminate\\Database\\Eloquent\\Concerns;\n\ntrait HasEvents\n{\n}\n";
+    let builder = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nclass Builder\n{\n    public function where($column, $value)\n    {\n    }\n\n    public function refresh()\n    {\n    }\n}\n";
+    let base = "<?php\n\nnamespace Twice;\n\nclass Base\n{\n    public function fresh()\n    {\n    }\n}\n";
+    let e = "vendor/laravel/framework/src/Illuminate/Database/Eloquent";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Models/User.php", user),
+        ("app/Models/Song.php", song),
+        ("app/Http/Ctl.php", ctl),
+        (
+            "vendor/laravel/framework/src/Illuminate/Foundation/Auth/User.php",
+            auth,
+        ),
+        (&format!("{e}/Model.php"), model),
+        (&format!("{e}/Builder.php"), builder),
+        (
+            "vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php",
+            "<?php\n\nnamespace Illuminate\\Database\\Query;\n\nclass Builder\n{\n    public function where($column)\n    {\n    }\n}\n",
+        ),
+        (
+            "vendor/laravel/framework/src/Illuminate/Auth/Authenticatable.php",
+            authenticatable,
+        ),
+        (&format!("{e}/Concerns/HasAttributes.php"), attributes),
+        (&format!("{e}/Concerns/HasEvents.php"), events),
+        ("vendor/a/src/Base.php", base),
+        ("vendor/b/src/Base.php", base),
+    ];
+    let (dir, mut a) = project_app("php-vendor-parent", &files);
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    };
+    let got = [
+        d("$user->refresh"),
+        d("$user->getAttribute"),
+        d("$user->getKey"),
+        d("$user->where"),
+        d("$song->fresh"),
+    ];
+    drop(std::fs::remove_dir_all(dir));
+    let f = "laravel/framework/src/Illuminate/Database";
+    let song = |place: &str| {
+        let why = "via $song: Song".to_owned();
+        ("Base::fresh".to_owned(), why, place.to_owned())
+    };
+    assert_eq!(
+        got,
+        [
+            jump(
+                "refresh \u{2192} Model::refresh (via $user: User)",
+                &format!("vendor/{f}/Eloquent/Model.php:10"),
+            ),
+            jump(
+                "getAttribute \u{2192} HasAttributes::getAttribute (via $user: User)",
+                &format!("vendor/{f}/Eloquent/Concerns/HasAttributes.php:7"),
+            ),
+            jump(
+                "getKey \u{2192} Authenticatable::getKey (via $user: User)",
+                "vendor/laravel/framework/src/Illuminate/Auth/Authenticatable.php:7",
+            ),
+            picker(
+                "where: by name, 2 declarations",
+                &[
+                    ("Builder::where", &format!("{f}/Eloquent/Builder.php:7")),
+                    ("Builder::where", &format!("{f}/Query/Builder.php:7"))
+                ]
+            ),
+            Shown::Picker(
+                "fresh: via $song: Song, 2 declarations".to_owned(),
+                vec![song("a/src/Base.php:7"), song("b/src/Base.php:7")]
+            ),
+        ],
+        "a method declared up a vendor parent chain, traits included and a trait before the \
+         parent, is the one PHP calls; a method only __call answers, and a parent two vendor \
+         files declare, keep the picker"
+    );
 }

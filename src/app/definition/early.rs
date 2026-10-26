@@ -482,7 +482,9 @@ impl App {
             let [qualifier] = a.chain.as_slice() else {
                 return None;
             };
-            (search::sql_alias_table(&a.text, at, qualifier), Vec::new())
+            let table = search::sql_alias_table(&a.text, at, qualifier)
+                .or_else(|| self.sql_trigger_table(a, at, qualifier));
+            (table, Vec::new())
         } else {
             let (lines, column_wins) = search::sql_local(&a.text, at, &a.word);
             let table = (lines.is_empty() || column_wins)
@@ -498,6 +500,38 @@ impl App {
             return Some(self.show_found(a, found));
         }
         (!found.is_empty()).then(|| self.show_found(a, found))
+    }
+
+    fn sql_trigger_table(&self, a: &Asked, at: usize, qualifier: &str) -> Option<String> {
+        let function = search::sql_trigger_function(&a.text, at, qualifier)?;
+        let (hits, tables): (Vec<Hit>, Vec<String>) = self
+            .project_grep(Kind::Sql, &a.here, search::SQL_TRIGGER)
+            .into_iter()
+            .filter_map(|h| {
+                let table = search::sql_trigger_on(&self.hit_text(&h)?, h.line1, &function)?;
+                let text = format!("TRIGGER {table} ON {table}");
+                Some((Hit { text, ..h }, table))
+            })
+            .unzip();
+        let keep = search::sql_in_effect(&a.here, self.line + 1, &hits);
+        let mut tables: Vec<String> = tables
+            .into_iter()
+            .zip(&hits)
+            .enumerate()
+            .filter(|(i, (_, h))| {
+                h.path == a.here
+                    || keep
+                        .as_ref()
+                        .map_or_else(|| !h.path.ends_with("down.sql"), |k| k.contains(i))
+            })
+            .map(|(_, (t, _))| t)
+            .collect();
+        tables.sort();
+        tables.dedup();
+        match tables.as_slice() {
+            [t] => Some(t.clone()),
+            _ => None,
+        }
     }
 
     fn sql_in_effect_of(&self, here: &Path, table: &str, mut hits: Vec<Hit>) -> Vec<Hit> {

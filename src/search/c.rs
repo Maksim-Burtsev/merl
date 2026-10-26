@@ -385,7 +385,7 @@ pub(super) fn bracket_contents_blanked(s: &str) -> String {
     }
     out
 }
-fn top_level_paren_groups(s: &str) -> Vec<Range<usize>> {
+pub(super) fn top_level_paren_groups(s: &str) -> Vec<Range<usize>> {
     let (mut depth, mut from, mut out) = (0usize, 0, Vec::new());
     for (i, c) in s.bytes().enumerate() {
         match c {
@@ -551,7 +551,7 @@ fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
             .then_some(j)
     })
 }
-fn parameter_at(params: &str, name: &str) -> Option<usize> {
+pub(super) fn parameter_at(params: &str, name: &str) -> Option<usize> {
     static POINTER: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^[^(]*\(\s*[*&^]+\s*(\w+)\s*(?:\[[^\]]*\]\s*)?\)")
             .expect("the regex is a literal")
@@ -576,6 +576,12 @@ fn parameter_at(params: &str, name: &str) -> Option<usize> {
             None => LAST
                 .captures(entry.trim())
                 .and_then(|c| c.get(1))
+                .filter(|m| {
+                    !entry.trim().get(..m.start()).is_some_and(|b| {
+                        b.split_whitespace()
+                            .all(|w| ["const", "volatile", "struct", "enum", "union"].contains(&w))
+                    })
+                })
                 .map(|m| (lead + m.start(), m.as_str())),
         };
         if let Some((j, _)) = found.filter(|(_, n)| *n == name && !BUILTIN.contains(n)) {
@@ -667,12 +673,12 @@ pub(super) fn close_or_end(code: &str, open: usize, end: usize) -> usize {
     }
     end
 }
-struct Scope {
-    open: usize,
-    head_start: usize,
-    head: Head,
+pub(super) struct Scope {
+    pub(super) open: usize,
+    pub(super) head_start: usize,
+    pub(super) head: Head,
 }
-fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> {
+pub(super) fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> {
     let mut out = Vec::new();
     let mut at = pos;
     while let Some(open) = c_innermost_open_brace(code.as_bytes(), at) {
@@ -692,7 +698,7 @@ fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> Vec<Scope> 
     }
     out
 }
-fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<usize> {
+pub(super) fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<usize> {
     let from = *starts.get(line1.checked_sub(1)?)?;
     let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
     let is_name = |c: char| c.is_alphanumeric() || c == '_';

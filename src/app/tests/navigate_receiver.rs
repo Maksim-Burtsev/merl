@@ -652,3 +652,69 @@ fn a_chain_is_followed_link_by_link() {
         assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
 }
+
+#[test]
+fn a_std_member_overloaded_by_const_alone_is_the_one_a_plain_object_calls() {
+    let (dir, mut a) = project_app(
+        "cpp-std-cv",
+        &[(
+            "m.cc",
+            "#include <string>\n#include <atomic>\nstruct Log {\n  std::string buf_;\n  std::atomic<bool> on_;\n  char* Raw() { return buf_.data(); }\n  const char* View() const { return buf_.data(); }\n  bool On() { return on_.load(); }\n};\nint f(const std::string& in, std::string* p) {\n  std::string out;\n  const std::string fixed;\n  constexpr std::string kept;\n  std::string const back;\n  out.data();\n  p->data();\n  in.data();\n  fixed.data();\n  kept.data();\n  back.data();\n  auto g = [&]() { return out.data(); };\n  out.find('x');\n  out.tag();\n  return 0;\n}\n",
+        )],
+    );
+    let root = external_root(
+        "cpp-std-cv",
+        &[
+            (
+                "c++/v1/string",
+                "template <class _CharT>\nclass basic_string {\npublic:\n  const value_type* data() const _NOEXCEPT { return 0; }\n  value_type* data() _NOEXCEPT { return 0; }\n  size_type find(char __c) const;\n  size_type find(const char* __s) const;\n  void tag() &;\n  void tag() const &;\n};\nusing string = basic_string<char>;\n",
+            ),
+            (
+                "c++/v1/atomic",
+                "template <class _Tp>\nstruct atomic {\n  _Tp load(memory_order __m = memory_order_seq_cst) const volatile _NOEXCEPT;\n  _Tp load(memory_order __m = memory_order_seq_cst) const _NOEXCEPT;\n};\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::C, std::slice::from_ref(&root));
+    let at = |n: usize| format!("{}:{n}", root.join("c++/v1/string").display());
+    let data = "data \u{2192} basic_string::data (via ";
+    for (on, via) in [
+        ("{ return buf_.data", "buf_"),
+        ("out.data", "out"),
+        ("p->data", "p"),
+    ] {
+        d_on(&mut a, "m.cc", on);
+        assert_eq!(
+            shown(&mut a),
+            jump(&format!("{data}{via}: string)"), &at(5)),
+            "a plain object calls the overload without `const`: {on}"
+        );
+    }
+    d_on(&mut a, "m.cc", "on_.load");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "load \u{2192} atomic::load (via on_: atomic)",
+            &format!("{}:4", root.join("c++/v1/atomic").display())
+        ),
+        "a plain object calls `const` over `const volatile`"
+    );
+    for on in [
+        "const { return buf_.data",
+        "in.data",
+        "fixed.data",
+        "kept.data",
+        "back.data",
+        "return out.data",
+        "out.find",
+        "out.tag",
+    ] {
+        d_on(&mut a, "m.cc", on);
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(_, rows) if rows.len() == 2),
+            "a const object, a lambda, other parameters or a ref-qualifier keep the picker: {on}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}

@@ -48,12 +48,28 @@ impl App {
         links.push(format!("{prev}: {}", ty[ty.len() - 1]));
         if ty[0] == "std" {
             let written = decl.and_then(|at| search::cpp_written(&scope, at, &ty[ty.len() - 1]));
+            let plain = written.as_ref().is_some_and(|w| !w.cv)
+                && r.fields.is_empty()
+                && !calls
+                && r.head != "this"
+                && match search::cpp_value_type(text, self.line + 1, &r.head) {
+                    Ok(local) => {
+                        search::cpp_plain_object(text, self.line + 1, &r.head, local.is_none())
+                    }
+                    Err(()) => false,
+                };
             let found = match written {
                 Some(w) if w.pointer == before.ends_with("->") => {
                     self.cpp_std_member(here, &ty, word, w.first_arg.as_deref())
                 }
                 _ => None,
-            };
+            }
+            .map(|(owner, ats)| {
+                match search::cpp_least_qualified(&owner.code, &ats, word.len()) {
+                    Some(i) if plain => (owner, vec![ats[i]]),
+                    _ => (owner, ats),
+                }
+            });
             return match found {
                 Some((owner, ats)) => self.cpp_found(here, text, &owner, &ats, word, &links),
                 None => CppAnswer::Outside,

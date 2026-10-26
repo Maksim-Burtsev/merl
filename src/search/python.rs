@@ -706,10 +706,19 @@ pub fn python_method(text: &str, line1: usize) -> bool {
         .is_some_and(|i| lines[i].trim_start().starts_with("class "))
 }
 pub fn python_in_function(text: &str, line1: usize) -> bool {
+    python_enclosing_def(text, line1).is_some()
+}
+pub fn python_in_function_body(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
+    python_enclosing_def(text, line1).is_some_and(|d| {
+        lines[d].find('(').is_some_and(|open| {
+            group(Kind::Python, &lines, d, open).is_some_and(|g| g.close_line + 1 < line1)
+        })
+    })
+}
+fn python_enclosing_def(text: &str, line1: usize) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     let literal = literal_lines(Kind::Python, text);
     let mut depth = indent(lines[at]);
     for i in (0..at).rev() {
@@ -723,13 +732,13 @@ pub fn python_in_function(text: &str, line1: usize) -> bool {
         }
         depth = indent(lines[i]);
         if t.starts_with("def ") || t.starts_with("async def ") {
-            return true;
+            return Some(i);
         }
         if t.starts_with("class ") {
-            return false;
+            return None;
         }
     }
-    false
+    None
 }
 pub fn python_rebinds_in_loop(text: &str, line1: usize, name: &str, col: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();

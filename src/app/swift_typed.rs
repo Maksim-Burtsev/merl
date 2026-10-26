@@ -1254,7 +1254,13 @@ impl App {
                 };
                 search::swift_closure_takes(&t)?
             }
-            None => search::swift_expected(&lines, &literal, line1, lead)?,
+            None => match search::swift_expected(&lines, &literal, line1, lead) {
+                Some(w) => w,
+                None => match self.swift_argument_rows(here, lead, word)? {
+                    Ok(rows) => return Some(rows),
+                    Err(outside) => outside,
+                },
+            },
         };
         let written = written.trim_end_matches(['?', '!']).to_owned();
         let first = written.split('.').next()?.to_owned();

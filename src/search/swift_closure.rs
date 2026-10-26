@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::{Kind, close_of, code, split_top, uncommented};
+use super::{Kind, close_of, code, split_top, swift_func_decl, swift_signature_line, uncommented};
 
 pub fn swift_array_call(e: &str) -> Option<(Vec<String>, bool, String)> {
     static TAIL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -156,4 +156,15 @@ pub fn swift_before_else(rest: &str) -> &str {
         }
     }
     rest
+}
+pub fn swift_wrapped_params(text: &str, line1: usize) -> bool {
+    let head = swift_signature_line(text, line1);
+    let lines: Vec<&str> = text.lines().collect();
+    head < line1
+        && lines.get(head - 1).is_some_and(|h| swift_func_decl(h))
+        && lines.get(head - 1..line1 - 1).is_some_and(|ls| {
+            let head = ls.join("\n");
+            let braces = |b| code(Kind::Swift, &head).filter(|&(_, c)| c == b).count();
+            braces(b'{') == braces(b'}')
+        })
 }

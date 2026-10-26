@@ -40,7 +40,7 @@ objc0037	SDWebImage/Private/SDDisplayLink.m:34
 objc0038	SDWebImage/Core/SDAnimatedImageView.m:93		
 objc0039	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/Frameworks/AppKit.framework/Versions/C/Headers/NSImageRep.h:39		
 objc0040	SDWebImage/Core/SDWebImageDownloaderOperation.m:51		
-objc0041	SDWebImage/Core/SDWebImageDownloaderOperation.m:20	clangd names another file's completedBlock; the cursor reads the parameter of the method it stands in (line 129)	reviewed
+objc0041	SDWebImage/Core/UIButton+WebCache.m:129		reviewed: the method's own parameter (line 129); clangd named another file's completedBlock
 objc0042	SDWebImage/Core/SDImageIOAnimatedCoder.m:709		
 objc0043	SDWebImage/Private/SDmetamacros.h:138		
 objc0044	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/Frameworks/Foundation.framework/Versions/C/Headers/NSKeyedArchiver.h:184		
@@ -83,7 +83,7 @@ objc0080	SDWebImage/Core/SDImageCoderHelper.h:61
 objc0081			
 objc0082	SDWebImage/Private/SDInternalMacros.h:67		
 objc0083	SDWebImage/Core/UIImage+Metadata.h:71		
-objc0084	SDWebImage/Core/SDWebImageCompat.h:60	platform: the oracle compiled for macOS, where SDWebImageCompat.h defines UIImage as NSImage; on iOS it is UIKit's UIImage	reviewed
+objc0084	SDWebImage/Core/SDWebImageCompat.h:60;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/iOSSupport/System/Library/Frameworks/UIKit.framework/Versions/A/Headers/UIImage.h:77	platform: the oracle compiled for macOS, where SDWebImageCompat.h defines UIImage as NSImage; on iOS it is UIKit's UIImage	reviewed
 objc0085	SDWebImage/Core/SDImageCodersManager.h:42		
 objc0086			
 objc0087	SDWebImage/Core/SDWebImageTransition.m:31;SDWebImage/Private/SDWebImageTransitionInternal.h:17		
@@ -118,7 +118,7 @@ objc0115	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/
 objc0116	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/Frameworks/CoreGraphics.framework/Versions/A/Headers/CGGeometry.h:157		
 objc0117	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/Frameworks/CoreFoundation.framework/Versions/A/Headers/CFCGTypes.h:60		
 objc0118	SDWebImage/Core/SDImageCoderHelper.h:60		
-objc0119	SDWebImage/Core/SDWebImageDownloaderOperation.m:20		
+objc0119	SDWebImage/Core/UIButton+WebCache.m:51		reviewed: the cursor is the method's own parameter; clangd named another file's completedBlock
 objc0120	SDWebImage/Core/SDWebImageDownloader.m:29		
 objc0121	SDWebImage/Private/SDmetamacros.h:108		
 objc0122	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/System/Library/Frameworks/Foundation.framework/Versions/C/Headers/NSURL.h:108		

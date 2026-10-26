@@ -430,6 +430,53 @@ pub fn split_dipped(spoons: Spoons) -> usize {
     //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359
 }
 
+pub enum Ladle {
+    Deep(Scoop),
+    Wide { dipper: Dipper },
+}
+
+pub fn ladled(ladle: &Ladle) -> usize {
+    match *ladle {
+        Ladle::Deep(ref scoop) => scoop.heap(),
+        //                              ^ d: src/infusion.rs:351
+        Ladle::Wide { ref dipper } => dipper.heap(),
+        //                                   ^ d: src/infusion.rs:359
+    }
+}
+
+pub enum Pail<T> {
+    Full(T),
+}
+
+pub fn pailed(pail: Pail<Scoop>) -> usize {
+    match pail {
+        Pail::Full(scoop) => scoop.heap(),
+        //                         ^ d: picker src/infusion.rs:351, src/infusion.rs:359
+    }
+}
+
+pub fn heaped_all(scoops: Vec<Scoop>, dippers: &[Dipper]) -> usize {
+    let mut n = 0;
+    for scoop in &scoops {
+        n += scoop.heap();
+        //         ^ d: src/infusion.rs:351
+    }
+    for dipper in dippers {
+        n += dipper.heap();
+        //          ^ d: src/infusion.rs:359
+    }
+    n
+}
+
+pub fn heaped_any<T>(items: Vec<T>) -> usize {
+    let mut n = 0;
+    for item in &items {
+        n += item.heap();
+        //        ^ d: picker src/infusion.rs:351, src/infusion.rs:359
+    }
+    n
+}
+
 impl Spoons {
     pub fn sift<F: Fn(u32) -> bool>(&self, _: F) -> (Spoons, Option<Dipper>) {
         (Spoons { tea: Scoop, sugar: Scoop }, Some(Dipper))

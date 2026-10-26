@@ -2,9 +2,10 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use super::c::{
-    ACCESS_LABELS, Head, bracket_contents_blanked, c_bindings_at, c_body_name, c_code, c_head,
-    c_head_start, c_innermost_open_brace, c_place, c_struct_head, c_words_on_line, close_or_end,
-    cpp_class_path, cpp_decl_start, line_starts,
+    ACCESS_LABELS, Head, Scope, bracket_contents_blanked, c_bindings_at, c_body_name, c_code,
+    c_head, c_head_start, c_innermost_open_brace, c_place, c_struct_head, c_words_on_line,
+    close_or_end, cpp_class_path, cpp_decl_start, line_starts, scope_pos,
+    scopes_inside_out_to_type_or_namespace,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -746,6 +747,7 @@ pub fn cpp_plain_class_namespace(code: &str, open: usize) -> Option<Vec<String>>
 }
 
 pub struct CppWritten {
+    pub cv: bool,
     pub pointer: bool,
     pub first_arg: Option<String>,
 }
@@ -773,6 +775,7 @@ pub fn cpp_written(code: &str, at: usize, class: &str) -> Option<CppWritten> {
         .then_some(())?;
     let opened = Regex::new(&format!(r"\b{w}\s*<")).ok()?.find(written);
     Some(CppWritten {
+        cv: has_cv(&outer) != (false, false),
         pointer: outer.trim_end().ends_with('*'),
         first_arg: opened.and_then(|m| first_arg(written.get(m.end()..)?)),
     })
@@ -1047,6 +1050,73 @@ fn range_element(text: &str, code: &str, at: usize, len: usize) -> Option<Vec<St
         .map(|arg| cpp_class_path(&arg?).filter(|p| p[0] != "std"));
     let first = types.next()??;
     types.all(|t| t.as_ref() == Some(&first)).then_some(first)
+}
+
+fn has_cv(s: &str) -> (bool, bool) {
+    let words: Vec<&str> = s
+        .split(|c: char| !(c.is_alphanumeric() || c == '_'))
+        .collect();
+    (
+        words.contains(&"const") || words.contains(&"constexpr"),
+        words.contains(&"volatile"),
+    )
+}
+
+fn method_tail(code: &str, at: usize, len: usize) -> Option<(String, (bool, bool))> {
+    let rest = code.get(at + len..)?;
+    let open = at + len + rest.len() - rest.trim_start().len();
+    if code.as_bytes().get(open) != Some(&b'(') {
+        return None;
+    }
+    let close = close_or_end(code, open, code.len());
+    let params = code.get(open + 1..close)?.split_whitespace().collect();
+    let tail = code.get(close + 1..)?;
+    let quals = tail.get(..tail.find(['{', ';', '=', ':', '-']).unwrap_or(tail.len()))?;
+    (!quals.contains('&')).then(|| (params, has_cv(quals)))
+}
+
+pub fn cpp_least_qualified(code: &str, ats: &[usize], len: usize) -> Option<usize> {
+    let tails = (ats.iter())
+        .map(|&at| method_tail(code, at, len))
+        .collect::<Option<Vec<_>>>()?;
+    if tails.len() < 2 || tails.iter().any(|t| t.0 != tails[0].0) {
+        return None;
+    }
+    let below = |(c, v): (bool, bool), (oc, ov): (bool, bool)| (!c || oc) && (!v || ov);
+    let least: Vec<usize> = (0..tails.len())
+        .filter(|&i| tails.iter().all(|t| below(tails[i].1, t.1)))
+        .collect();
+    match least[..] {
+        [one] => Some(one),
+        _ => None,
+    }
+}
+
+pub fn cpp_plain_object(text: &str, line1: usize, name: &str, member: bool) -> bool {
+    let code = c_code(text);
+    let Some(pos) = scope_pos(&code, &line_starts(&code), line1, name) else {
+        return false;
+    };
+    let scopes = scopes_inside_out_to_type_or_namespace(&code, pos);
+    let head = |s: &Scope| code.get(s.head_start..s.open).unwrap_or_default();
+    if scopes.iter().any(|s| match s.head {
+        Head::Lambda { .. } => true,
+        Head::Block => head(s).contains(']'),
+        _ => false,
+    }) {
+        return false;
+    }
+    if !member {
+        return true;
+    }
+    scopes.iter().find_map(|s| match &s.head {
+        Head::Function { params, .. } => {
+            let tail = head(s).get(params.end..)?;
+            let quals = tail.get(..tail.find(['-', ':']).unwrap_or(tail.len()))?;
+            Some(has_cv(quals) == (false, false))
+        }
+        _ => None,
+    }) == Some(true)
 }
 #[cfg(test)]
 mod tests {
