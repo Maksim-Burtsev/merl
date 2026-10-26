@@ -70,6 +70,20 @@ pub fn resource_at<'a>(
     segments: &[&'a str],
     at: usize,
 ) -> Option<(&'a str, &'a str, &'a str)> {
+    if let [ty, name] = segments
+        && at == 1
+        && (value_tags(ty).is_some() || *ty == "id" || FILE_TYPES.contains(ty))
+    {
+        let imported = Regex::new(&format!(
+            r"(?m)^\s*import\s+([\w.]+)\.R\.{}\s*;?\s*$",
+            regex::escape(ty)
+        ))
+        .ok()?;
+        return imported
+            .captures_iter(text)
+            .any(|c| &c[1] != "android")
+            .then_some((ty, ty, name));
+    }
     let [prefix @ .., receiver, ty, name] = segments else {
         return None;
     };
@@ -171,6 +185,14 @@ mod tests {
             Some("CoreUiR dimen gap")
         );
         assert_eq!(at("", "CoreUiR.dimen.gap", "gap"), None);
+        let nested = "import app.feature.R.string\n";
+        assert_eq!(
+            at(nested, "stringResource(string.title)", "title").as_deref(),
+            Some("string string title")
+        );
+        assert_eq!(at("", "string.title", "title"), None);
+        assert_eq!(at("import android.R.string\n", "string.ok", "ok"), None);
+        assert_eq!(at(nested, "string.title", "string"), None);
         assert!(in_res(Path::new("a/res/values-de/strings.xml"), "values"));
         assert!(!in_res(Path::new("a/res/valuesx/strings.xml"), "values"));
         assert!(res_file(

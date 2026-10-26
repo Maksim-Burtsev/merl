@@ -68,12 +68,15 @@ The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the 
 The ruby row with #1285 (an `@ivar` an action reads, set by the one `before_action` that assigns it): over `37599741`, 2026-10-26, release build, `vm.loadavg` { 11.36 7.89 7.44 } before the run, { 7.93 7.92 7.52 } after.
 The js row with #1283 (an ESLint rule's `context` typed by the `create` of the JSDoc `@type` over `module.exports = {`, its members through an aliased `@eslint/core` base, and `sourceCode` through `Options["Code"]` of that base): over `c55729c57`, 2026-10-26, release build, `vm.loadavg` { 5.57 5.85 6.56 } before the run, { 6.31 5.83 6.46 } after.
 The swift row with #1286 (an implicit member passed as an argument, through the type of the callee's parameter: `URLEncodedFormEncoder(arrayEncoding: .indexInBrackets)`, `BoundaryGenerator.boundary(forBoundaryType: .initial, ..)`): over `6e782ad49`, 2026-10-26, release build, `vm.loadavg` { 6.63 7.48 7.15 } before the run.
+The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entries.forEach { flavor -> }`'s parameter, an outer lambda's parameter inside a nested lambda, a constructor parameter without `val` in a property initializer, `string.name` after `import <pkg>.R.string`): over `615178b25`, 2026-10-26, release build, `vm.loadavg` { 8.58 6.36 6.33 } before the run.
+The lua row with #1290 (a member of a LuaLS `---@class` read from its `---@field` through a `---@param`, a local function's `---@return` or the class above a required module's table; a module function returning `setmetatable({..}, { __index = _M })`; a module member made by a call, `typedefs.uuid = Schema.define {`): over `89ccf77d`, 2026-10-26, release build, `vm.loadavg` { 7.64 8.98 9.33 } before the run.
+The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` over `module.exports = {`: `create`, `meta: { docs`, through the unaliased `@eslint/core` base `RuleDefinition`, and a listener method of the object `create` returns, typed by its declared `RuleListener`): over `779701a14`, 2026-10-26, release build, `vm.loadavg` { 7.61 9.34 9.27 } before the run, { 8.53 9.90 9.45 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 259 | 243 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 66 | 8 | 16.7 | 237.6 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 42.8 | 93.2 |
-| js (eslint, uptime-kuma) | 217 | 191 (88%) | 20 (9%) | 0 (0%) | 6 (3%) | 177 | 11 | 40.0 | 207.2 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 43.8 | 94.1 |
+| js (eslint, uptime-kuma) | 217 | 195 (90%) | 16 (7%) | 0 (0%) | 6 (3%) | 177 | 11 | 35.2 | 175.1 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
@@ -81,7 +84,7 @@ The swift row with #1286 (an implicit member passed as an argument, through the 
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
 | swift (Alamofire) | 449 | 427 (95%) | 21 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 45.9 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
-| kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
+| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |
 | ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
@@ -92,15 +95,15 @@ The swift row with #1286 (an implicit member passed as an argument, through the 
 | julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
-| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 2 | 49.9 | 171.9 |
-| svelte (immich) | 182 | 118 (65%) | 43 (24%) | 1 (1%) | 20 (11%) | 88 | 2 | 32.6 | 179.8 |
-| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 0 (0%) | 41 (25%) | 103 | 8 | 34.6 | 107.4 |
+| vue (gitea) | 218 | 123 (56%) | 42 (19%) | 2 (1%) | 51 (23%) | 52 | 2 | 50.0 | 174.7 |
+| svelte (immich) | 182 | 118 (65%) | 43 (24%) | 1 (1%) | 20 (11%) | 88 | 2 | 32.4 | 181.1 |
+| astro (starlight) | 167 | 112 (67%) | 14 (8%) | 0 (0%) | 41 (25%) | 103 | 8 | 36.4 | 112.2 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |
 | scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 2 | 8.0 | 9.6 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
-| lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
+| lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 79 (81%) | 14 (14%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

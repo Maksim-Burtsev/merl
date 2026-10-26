@@ -1,4 +1,4 @@
-use super::{App, IMPORTED, Kind, Path, Typed, bound, search};
+use super::{App, Hit, IMPORTED, Kind, Path, Typed, bound, search};
 
 impl App {
     pub(super) fn imported_type(
@@ -28,8 +28,10 @@ impl App {
             return None;
         }
         let path = bound(&search::imports(kind, &self.text_of(file)?), name)?;
-        let (taken, module) = path.split_last()?;
-        (taken != name && module.first().is_some_and(|m| !m.starts_with(['.', '/'])))
+        let (_, module) = path.split_last()?;
+        module
+            .first()
+            .is_some_and(|m| !m.starts_with(['.', '/']))
             .then(|| self.type_from_module(kind, file, &path, "", depth))
             .flatten()
     }
@@ -101,5 +103,43 @@ impl App {
             .to_owned();
         let key = search::ts_indexed_parameter(&header, &member.text, field)?;
         self.type_decl(kind, &ty.path, &search::ts_object_type_key(object, &key)?)
+    }
+
+    pub(in crate::app) fn typed_key(
+        &self,
+        kind: Kind,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        word: &str,
+    ) -> Option<(Hit, String)> {
+        let key = search::jsdoc_typed_key(text, line1, word)?;
+        let mut ty = self
+            .type_decl(kind, file, &key.object_type)
+            .filter(|t| self.is_interface(t))?;
+        for step in &key.steps {
+            let (name, returned) = match step {
+                search::KeyStep::Key(name) => (name, false),
+                search::KeyStep::Returned(name) => (name, true),
+            };
+            let member = self.one_member(kind, &ty, name)?;
+            let written = search::ts_member_type(&member.text, name, returned)?;
+            let beside = || {
+                let (head, _) = key.object_type.rsplit_once('.')?;
+                self.type_decl(kind, file, &format!("{head}.{written}"))
+                    .filter(|t| t.path == member.path)
+            };
+            ty = self
+                .type_decl(kind, &member.path, &written)
+                .or_else(beside)
+                .filter(|t| self.is_interface(t))?;
+        }
+        self.one_member(kind, &ty, word).map(|hit| (hit, ty.name))
+    }
+
+    fn one_member(&self, kind: Kind, ty: &Typed, word: &str) -> Option<Hit> {
+        let hits = self.hierarchy(kind, ty, 0, &mut |t| self.instance_member(kind, t, word))?;
+        let [hit] = <[Hit; 1]>::try_from(hits).ok()?;
+        Some(hit)
     }
 }

@@ -317,6 +317,39 @@ pub fn eslint_visited_node(text: &str, line1: usize, name: &str) -> Option<Strin
         .map(|m| m.as_str().to_owned())
 }
 
+static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\s*([A-Za-z_$][\w$]*)\s*(?::\s*function\s*)?\(([\w$,\s]*)\)\s*\{\s*$")
+        .expect("the regex is a literal")
+});
+
+fn enclosing(lines: &[&str], k: usize) -> Option<usize> {
+    let depth = indent(lines.get(k)?);
+    (0..k).rev().find(|&i| {
+        let t = lines[i].trim();
+        !t.is_empty() && !t.starts_with("//") && indent(lines[i]) < depth
+    })
+}
+
+fn typed_opener(lines: &[&str], k: usize) -> Option<String> {
+    static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:module\.exports|(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*)\s*=\s*\{\s*$|^export\s+default\s+\{\s*$")
+            .expect("the regex is a literal")
+    });
+    static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r#"^import\(\s*["'][^"']+["']\s*\)(?:\.[A-Za-z_$][\w$]*)+$"#)
+            .expect("the regex is a literal")
+    });
+    let opener = enclosing(lines, k)?;
+    if indent(lines[opener]) != 0 || !OPENER.is_match(lines[opener]) {
+        return None;
+    }
+    let tags = tags(&lines[block_above(lines, opener)?]);
+    let [tag] = &tags[..] else { return None };
+    let object_type = tag.braced_type.trim();
+    (tag.name == "type" && (TYPE.is_match(object_type) || jsdoc_type(object_type).is_some()))
+        .then(|| object_type.to_owned())
+}
+
 pub struct TypedParameter {
     pub object_type: String,
     pub method: String,
@@ -327,39 +360,79 @@ pub fn jsdoc_typed_object_parameter(
     line1: usize,
     name: &str,
 ) -> Option<TypedParameter> {
-    static METHOD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*([A-Za-z_$][\w$]*)\s*(?::\s*function\s*)?\(([\w$,\s]*)\)\s*\{\s*$")
-            .expect("the regex is a literal")
-    });
-    static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^(?:module\.exports|(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*)\s*=\s*\{\s*$|^export\s+default\s+\{\s*$")
-            .expect("the regex is a literal")
-    });
-    static TYPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"^import\(\s*["'][^"']+["']\s*\)(?:\.[A-Za-z_$][\w$]*)+$"#)
-            .expect("the regex is a literal")
-    });
     let lines: Vec<&str> = text.lines().collect();
     let k = line1.checked_sub(1)?;
     let c = METHOD.captures(lines.get(k)?)?;
     let index = c[2].split(',').position(|p| p.trim() == name)?;
-    let depth = indent(lines[k]);
-    let opener = (0..k)
-        .rev()
-        .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) < depth)?;
-    if indent(lines[opener]) != 0 || !OPENER.is_match(lines[opener]) {
+    Some(TypedParameter {
+        object_type: typed_opener(&lines, k)?,
+        method: c[1].to_owned(),
+        index,
+    })
+}
+
+pub enum KeyStep {
+    Key(String),
+    Returned(String),
+}
+
+pub struct TypedKey {
+    pub object_type: String,
+    pub steps: Vec<KeyStep>,
+}
+
+pub fn jsdoc_typed_key(text: &str, line1: usize, word: &str) -> Option<TypedKey> {
+    static NESTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([A-Za-z_$][\w$]*)\s*:\s*\{\s*$").expect("the regex is a literal")
+    });
+    static RETURN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*return\s*\{\s*$").expect("the regex is a literal")
+    });
+    let key = Regex::new(&format!(r"^\s*{}\s*(?:\(|:[^:])", regex::escape(word))).ok()?;
+    let lines: Vec<&str> = text.lines().collect();
+    let mut k = line1.checked_sub(1)?;
+    if !key.is_match(&format!("{} ", lines.get(k)?)) {
         return None;
     }
-    let tags = tags(&lines[block_above(&lines, opener)?]);
-    let [tag] = &tags[..] else { return None };
-    let object_type = tag.braced_type.trim();
-    (tag.name == "type" && (TYPE.is_match(object_type) || jsdoc_type(object_type).is_some())).then(
-        || TypedParameter {
-            object_type: object_type.to_owned(),
-            method: c[1].to_owned(),
-            index,
-        },
-    )
+    let mut steps = Vec::new();
+    loop {
+        if let Some(object_type) = typed_opener(&lines, k) {
+            steps.reverse();
+            return Some(TypedKey { object_type, steps });
+        }
+        let opener = enclosing(&lines, k)?;
+        if let Some(c) = NESTED.captures(lines[opener]) {
+            steps.push(KeyStep::Key(c[1].to_owned()));
+            k = opener;
+        } else if RETURN.is_match(lines[opener]) {
+            k = enclosing(&lines, opener)?;
+            steps.push(KeyStep::Returned(METHOD.captures(lines[k])?[1].to_owned()));
+        } else {
+            return None;
+        }
+    }
+}
+
+pub fn ts_member_type(line: &str, member: &str, returned: bool) -> Option<String> {
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$").expect("the regex is a literal")
+    });
+    let rest = line.trim_start().strip_prefix(member)?.trim_start();
+    let rest = rest.strip_prefix('?').unwrap_or(rest).trim_start();
+    let rest = if returned {
+        let (_, after) = rest.strip_prefix('(')?.rsplit_once(')')?;
+        after
+    } else {
+        rest
+    };
+    let ty = rest.trim_start().strip_prefix(':')?.trim();
+    let ty = ty.strip_suffix(';').unwrap_or(ty).trim_end();
+    let name = match ty.split_once('<') {
+        Some((name, _)) if ty.ends_with('>') => name.trim_end(),
+        Some(_) => return None,
+        None => ty,
+    };
+    NAME.is_match(name).then(|| name.to_owned())
 }
 
 pub fn ts_method_parameter_type(line: &str, method: &str, index: usize) -> Option<String> {
