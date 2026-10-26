@@ -425,6 +425,7 @@ mod tests {
             untracked: false,
             generated: false,
             same_bytes: false,
+            agent_skipped: false,
         };
         let review = git::Review {
             branch: "feat/x".into(),

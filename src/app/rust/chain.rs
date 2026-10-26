@@ -1,7 +1,9 @@
+use std::sync::LazyLock;
+
 use super::sysroot::rust_element;
 use super::{
-    App, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Typed, rust_bare_type,
-    search,
+    App, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
+    rust_bare_type, search,
 };
 
 struct Link {
@@ -111,6 +113,44 @@ pub(super) fn let_initializer(lines: &[&str], at: usize, name: &str) -> Option<S
     let rest = t.strip_prefix("let ")?.trim_start();
     let rest = rest.strip_prefix("mut ").unwrap_or(rest).trim_start();
     let rest = rest.strip_prefix(name)?.trim_start().strip_prefix('=')?;
+    statement(lines, at, rest)
+}
+
+fn tuple_initializer(lines: &[&str], at: usize, name: &str) -> Option<(usize, usize, String)> {
+    let t = lines.get(at)?.trim().strip_prefix("let ")?.trim_start();
+    let (names, rest) = t.strip_prefix('(')?.split_once(')')?;
+    let names: Vec<&str> = names
+        .split(',')
+        .map(|p| {
+            let p = p.trim();
+            p.strip_prefix("mut ").unwrap_or(p).trim()
+        })
+        .collect();
+    if names
+        .iter()
+        .any(|p| p.is_empty() || !p.chars().all(|c| c.is_alphanumeric() || c == '_'))
+    {
+        return None;
+    }
+    let i = names.iter().position(|p| *p == name)?;
+    let init = statement(lines, at, rest.trim_start().strip_prefix('=')?)?;
+    Some((i, names.len(), init))
+}
+
+fn for_iterated<'a>(text: &'a str, at: usize, name: &str) -> Option<(&'a str, &'a str)> {
+    let line = text.lines().nth(at)?.trim();
+    let rest = line.strip_prefix("for ")?.trim_start();
+    let rest = rest.strip_prefix("mut ").unwrap_or(rest);
+    let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
+    let expr = expr.strip_suffix('{')?.trim();
+    let place = expr.strip_prefix('&').map_or(expr, |s| {
+        let s = s.trim_start();
+        s.strip_prefix("mut ").unwrap_or(s).trim()
+    });
+    Some((expr, place))
+}
+
+fn statement(lines: &[&str], at: usize, rest: &str) -> Option<String> {
     if rest.starts_with('=') {
         return None;
     }
@@ -280,9 +320,9 @@ impl App {
     ) -> Option<Got> {
         match (w.head.as_slice(), w.head_call) {
             ([name], false) => self
-                .rust_value_type(file, text, line0, name)
+                .rust_value_type(file, text, line0, name, own.is_some())
                 .map(|(ty, _)| Got::Ty(ty))
-                .or_else(|| self.rust_std_head(file, text, line0, name)),
+                .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some())),
             ([.., ty, f], true) if ty.starts_with(|c: char| c.is_ascii_uppercase()) => {
                 let owner = w.head[..w.head.len() - 1].join("::");
                 let ty = self.rust_resolve(file, &owner, line0)?;
@@ -322,24 +362,55 @@ impl App {
         shadowing: bool,
     ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
-        let init = let_initializer(&lines, at, name)?;
+        let Some(init) = let_initializer(&lines, at, name) else {
+            let (i, n, init) = tuple_initializer(&lines, at, name)?;
+            let w = walk_back(&init)?;
+            if w.links.is_empty() && !w.head_call {
+                return None;
+            }
+            let Got::Written {
+                file,
+                written,
+                line0,
+            } = self.rust_walked_got(file, text, at, name, true, &w)?
+            else {
+                return None;
+            };
+            let parts =
+                super::returns::top_level(written.trim().strip_prefix('(')?.strip_suffix(')')?);
+            return (parts.len() == n).then(|| self.rust_got(&file, parts[i].to_owned(), line0));
+        };
         if init.starts_with("match ") {
             return self.rust_match_got(file, text, &match_arms(&lines, at)?, name);
         }
         let w = walk_back(&init)?;
-        let shadows = !w.head_call && w.head.first().is_some_and(|h| h == name);
-        if w.rest != 0 || w.links.is_empty() || (shadows && !shadowing) {
+        if w.links.is_empty() {
             return None;
         }
-        let head_at = if shadows { at.checked_sub(1)? } else { at };
+        self.rust_walked_got(file, text, at, name, shadowing, &w)
+    }
+
+    fn rust_walked_got(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        shadowing: bool,
+        w: &Walked,
+    ) -> Option<Got> {
+        let shadows = !w.head_call && w.head.first().is_some_and(|h| h == name);
+        if w.rest != 0 || (shadows && !shadowing) {
+            return None;
+        }
         if let ([head], false, [link]) = (w.head.as_slice(), w.head_call, w.links.as_slice())
             && link.call
             && link.name == "as_ref"
-            && let Some(got) = super::returns::as_ref_head(file, text, head_at, head)
+            && let Some(got) = super::returns::as_ref_head(file, text, at, head)
         {
             return Some(got);
         }
-        let mut got = self.rust_head(file, text, head_at, &w, Some(name))?;
+        let mut got = self.rust_head(file, text, at, w, Some(name))?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
         }
@@ -399,15 +470,7 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<String> {
-        let line = text.lines().nth(at)?.trim();
-        let rest = line.strip_prefix("for ")?.trim_start();
-        let rest = rest.strip_prefix("mut ").unwrap_or(rest);
-        let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
-        let expr = expr.strip_suffix('{')?.trim();
-        let place = expr.strip_prefix('&').map_or(expr, |s| {
-            let s = s.trim_start();
-            s.strip_prefix("mut ").unwrap_or(s).trim()
-        });
+        let (expr, place) = for_iterated(text, at, name)?;
         if !place.is_empty() && place.chars().all(|c| c.is_alphanumeric() || c == '_') {
             let bindings = search::bindings(Kind::Rust, text, at + 1, place);
             let [b] = bindings.as_slice() else {
@@ -437,6 +500,56 @@ impl App {
             got = self.rust_step(got, link)?;
         }
         self.rust_std_item(got)
+    }
+
+    pub(super) fn rust_for_typed(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<Typed> {
+        static MAP_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"\.map\(\s*\|[^|]*\|\s*((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*\([^()]*\)\s*\)\s*\.collect\(\s*\)$")
+                .expect("the regex is a literal")
+        });
+        let (_, place) = for_iterated(text, at, name)?;
+        if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return None;
+        }
+        let bindings = search::bindings(Kind::Rust, text, at + 1, place);
+        let [b] = bindings.as_slice() else {
+            return None;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let let_at = b.line1 - 1;
+        let Some(search::RustHolds::Type(w)) = search::rust_holds(&lines, let_at, place) else {
+            return None;
+        };
+        let (container, element) = rust_element(&w)?;
+        if container.is_some_and(|c| !self.rust_std_named(text, &c)) {
+            return None;
+        }
+        if element != "_" {
+            return self.rust_resolve(file, &element, let_at);
+        }
+        let t = lines.get(let_at)?.trim().strip_prefix("let ")?.trim_start();
+        let t = t.strip_prefix("mut ").unwrap_or(t).trim_start();
+        let (written, rest) = t
+            .strip_prefix(place)?
+            .trim_start()
+            .strip_prefix(':')?
+            .split_once('=')?;
+        if written.trim() != w.trim() {
+            return None;
+        }
+        let init = statement(&lines, let_at, rest)?;
+        let parts: Vec<String> = MAP_COLLECT.captures(&init)?[1]
+            .split("::")
+            .map(str::to_owned)
+            .collect();
+        let (decl, returns) = self.rust_call_returns(file, text, let_at, &parts)?;
+        self.rust_resolve(&decl.path, &returns, decl.line1 - 1)
     }
 
     pub(super) fn rust_let_chain(

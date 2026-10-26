@@ -247,7 +247,16 @@ impl App {
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =
                         kt.then(|| search::kotlin_lambda_collection(text, line, before, f));
-                    Self::jvm_element(text, line, &lambda.flatten()?, false)
+                    let lambda = lambda.flatten()?;
+                    match lambda.strip_suffix(".entries") {
+                        Some(e) => match self.jvm_type_at(here, text, e) {
+                            JvmType::Project(h) if h.text.contains("enum class") => {
+                                Some(e.to_owned())
+                            }
+                            _ => None,
+                        },
+                        None => Self::jvm_element(text, line, &lambda, false),
+                    }
                 });
                 let WrittenType {
                     resolved: ty,
@@ -473,10 +482,17 @@ impl App {
             .map(|b| b.line1)
             .collect();
         let declared = if bindings.is_empty() {
-            search::jvm_enclosing_types(text, line1)
+            let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
                 .map(|d| search::jvm_members_of(text, d, name))
-                .find(|m| !m.is_empty())?
+                .find(|m| !m.is_empty());
+            match members {
+                Some(m) => m,
+                None if matches!(ext, Some("kt" | "kts")) => {
+                    vec![search::kotlin_constructor_parameter(text, line1, name)?]
+                }
+                None => return None,
+            }
         } else {
             bindings
         };
@@ -504,6 +520,7 @@ impl App {
                     None if literal_typed && kotlin => {
                         self.kotlin_initialized(file, text, l, name)?
                     }
+                    None if ext == Some("java") => self.java_lambda_element(file, text, l, name)?,
                     None => return None,
                 },
                 (None, None) => return None,
@@ -514,6 +531,59 @@ impl App {
             found = Some(this);
         }
         found
+    }
+
+    fn java_lambda_element(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let source = search::java_lambda_source(text, line1, name)?;
+        let (in_file, written) = match (source.receiver, source.call) {
+            (Some(r), None) => {
+                let [l] = search::bindings(Kind::Jvm, text, line1, &r)
+                    .iter()
+                    .map(|b| b.line1)
+                    .collect::<Vec<_>>()[..]
+                else {
+                    return None;
+                };
+                let at = text.lines().nth(l.checked_sub(1)?)?;
+                (file.to_path_buf(), search::java_declared_element(at, &r)?)
+            }
+            (recv, Some((method, args))) => {
+                let owner = match recv.as_deref() {
+                    None | Some("this") => Self::jvm_own_type(file, text, line1, None)?,
+                    Some(r) => self.jvm_value(file, text, line1, r, false, 0)?.resolved,
+                };
+                let JvmType::Project(decl) = owner else {
+                    return None;
+                };
+                let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new());
+                let found = java_shaped(found, |h| h, &method, true);
+                if let Some(class) = search::java_class_argument(&args) {
+                    let taking: Vec<&Hit> = (found.iter())
+                        .filter(|h| search::java_takes_class(&h.text, &method))
+                        .collect();
+                    let exact = !taking.is_empty()
+                        && (taking.iter())
+                            .all(|h| search::java_returns_class_element(&h.text, &method));
+                    exact.then_some((file.to_path_buf(), class))?
+                } else {
+                    let [hit] = &found[..] else {
+                        return None;
+                    };
+                    let element = search::java_returned_element(&hit.text, &method)?;
+                    (hit.path.clone(), element)
+                }
+            }
+            (None, None) => return None,
+        };
+        let t = self.text_of(&in_file)?;
+        let resolved = self.jvm_type_at(&in_file, &t, &written);
+        matches!(resolved, JvmType::Project(_)).then_some(WrittenType { resolved, written })
     }
 
     fn jvm_element(text: &str, line1: usize, name: &str, java: bool) -> Option<String> {

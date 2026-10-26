@@ -6,6 +6,8 @@
 
 <p align="center"><b>The one code navigator you need when agents write the code.</b></p>
 
+<p align="center"><a href="https://maksim-burtsev.github.io/merl/">Try it in your browser</a></p>
+
 <p align="center">
   <a href="https://github.com/Maksim-Burtsev/merl/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Maksim-Burtsev/merl/ci.yml?branch=master&label=ci" alt="CI"></a>
   <a href="https://github.com/Maksim-Burtsev/merl/releases"><img src="https://img.shields.io/github/v/release/Maksim-Burtsev/merl" alt="Release"></a>
@@ -199,6 +201,10 @@ counts stay on your machine.
 | Tree: Up / Down | Move |
 | Tree: Enter | Open the file, or expand the directory |
 | Tree: Left / Right | Collapse / expand |
+| Tree: PgUp / PgDn | Move one page |
+| Tree: Home / End | First / last row, with Ctrl or without |
+| Tree: Ctrl+D / Ctrl+U | Move half a page down / up |
+| Tree: { / } | Previous / next folder |
 | Picker: Up / Down | Move |
 | Picker: PgUp / PgDn | Move one page |
 | Picker: Enter | Accept |

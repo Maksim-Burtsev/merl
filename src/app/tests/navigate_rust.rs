@@ -1543,6 +1543,8 @@ fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
         ("s.clone", "alloc/src/string.rs:11"),
         ("note.clone", "alloc/src/string.rs:11"),
         ("text.len", "alloc/src/string.rs:5"),
+        ("g.len", "src/lib.rs:8"),
+        ("flat.len", "src/lib.rs:8"),
     ] {
         d_on(&mut a, "src/lib.rs", code);
         let got = match shown(&mut a) {
@@ -1551,7 +1553,7 @@ fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
         };
         assert_eq!(got, want, "{code}");
     }
-    for code in ["g.len", "flat.len", "tail.len", "p.len"] {
+    for code in ["tail.len", "p.len"] {
         d_on(&mut a, "src/lib.rs", code);
         let got = shown(&mut a);
         assert!(
@@ -1566,12 +1568,16 @@ fn a_tuple_or_one_line_variant_pattern_binds_the_type_at_its_place() {
 #[test]
 fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
-    let lib = "pub struct Cache;\n\nimpl Cache {\n    pub fn get(&self, _: &u32) -> Option<&u32> {\n        None\n    }\n\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub enum Store {\n    Map(hashbrown::HashMap<u32, u32>),\n    Named {\n        m: hashbrown::HashMap<u32, u32>,\n    },\n    Std(std::collections::HashMap<u32, u32>),\n    Pair(HashMap<fn() -> u8, String>, Vec<u8>),\n    List(u32, Vec<String>),\n    Note {\n        text: String,\n    },\n    Tag(String),\n}\n\npub fn crate_map(s: Store) {\n    if let Store::Map(m) = s {\n        let _ = m.get(&1);\n    }\n}\n\npub fn crate_named(s: Store) {\n    if let Store::Named { m } = s {\n        let _ = m.get(&2);\n    }\n}\n\npub fn std_map(s: Store) {\n    if let Store::Std(m) = s {\n        let _ = m.get(&3);\n    }\n}\n\npub fn size(s: &Store) -> usize {\n    match *s {\n        Store::Pair(_, ref b) => b.len(),\n        Store::List(_, ref v) => v.len(),\n        Store::Note { ref text } | Store::Tag(ref text) => text.len(),\n        _ => 0,\n    }\n}\n";
+    let lib = "mod hb;\nuse std::collections;\n\npub struct Cache;\n\nimpl Cache {\n    pub fn get(&self, _: &u32) -> Option<&u32> {\n        None\n    }\n\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub enum Store {\n    Map(hashbrown::HashMap<u32, u32>),\n    Named {\n        m: hashbrown::HashMap<u32, u32>,\n    },\n    Std(std::collections::HashMap<u32, u32>),\n    Pair(HashMap<fn() -> u8, String>, Vec<u8>),\n    List(u32, Vec<String>),\n    Note {\n        text: String,\n    },\n    Tag(String),\n    Coll(collections::HashMap<u32, u32>),\n}\n\npub fn crate_map(s: Store) {\n    if let Store::Map(m) = s {\n        let _ = m.get(&1);\n    }\n}\n\npub fn crate_named(s: Store) {\n    if let Store::Named { m } = s {\n        let _ = m.get(&2);\n    }\n}\n\npub fn std_map(s: Store) {\n    if let Store::Std(m) = s {\n        let _ = m.get(&3);\n    }\n}\n\npub fn coll_map(s: Store) {\n    if let Store::Coll(m) = s {\n        let _ = m.get(&4);\n    }\n}\n\npub fn size(s: &Store) -> usize {\n    match *s {\n        Store::Pair(_, ref b) => b.len(),\n        Store::List(_, ref v) => v.len(),\n        Store::Note { ref text } | Store::Tag(ref text) => text.len(),\n        _ => 0,\n    }\n}\n";
     let (dir, mut a) = project_app(
         "rust-variant-path",
         &[
             ("Cargo.toml", "[package]\nname = \"m\"\n"),
             ("src/lib.rs", lib),
+            (
+                "src/hb.rs",
+                "use hashbrown::HashMap;\nuse hashbrown as collections;\n\npub enum Hb {\n    Bare(HashMap<u32, u32>),\n    Path(collections::HashMap<u32, u32>),\n}\n\npub fn bare(h: Hb) {\n    if let Hb::Bare(m) = h {\n        let _ = m.get(&5);\n    }\n}\n\npub fn path(h: Hb) {\n    if let Hb::Path(m) = h {\n        let _ = m.get(&6);\n    }\n}\n",
+            ),
         ],
     );
     let std = external_root(
@@ -1602,6 +1608,7 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
     use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
     for (code, want) in [
         ("m.get|(&3)", "std/src/collections/hash/map.rs:5"),
+        ("m.get|(&4)", "std/src/collections/hash/map.rs:5"),
         ("b.len", "alloc/src/vec/mod.rs:5"),
         ("v.len", "alloc/src/vec/mod.rs:5"),
         ("text.len", "alloc/src/string.rs:5"),
@@ -1613,8 +1620,13 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
         };
         assert_eq!(got, want, "{code}");
     }
-    for code in ["m.get|(&1)", "m.get|(&2)"] {
-        d_on(&mut a, "src/lib.rs", code);
+    for (file, code) in [
+        ("src/lib.rs", "m.get|(&1)"),
+        ("src/lib.rs", "m.get|(&2)"),
+        ("src/hb.rs", "m.get|(&5)"),
+        ("src/hb.rs", "m.get|(&6)"),
+    ] {
+        d_on(&mut a, file, code);
         let got = shown(&mut a);
         assert!(
             matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
@@ -1626,11 +1638,77 @@ fn a_variant_place_is_std_s_only_when_its_written_path_is_std_s() {
 }
 
 #[test]
+fn a_std_value_built_by_an_associated_call_heads_a_let_chain() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let chains = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn named() -> usize {\n    let n = String::from(\"a\");\n    let t = n.to_string();\n    t.len()\n}\n\npub fn hashed() -> usize {\n    let m = HashMap::new();\n    let k = m.clone();\n    k.len()\n}\n\npub fn qualified() -> usize {\n    let q = hashbrown::HashMap::new();\n    let r = q.clone();\n    r.len()\n}\n";
+    let std = external_root(
+        "rust-assoc-head-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                &format!(
+                    "pub struct String;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/collections/hash/map.rs",
+                &format!(
+                    "pub struct HashMap<K, V>;\n\nimpl<K, V> HashMap<K, V> {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n\nimpl<K: Clone, V: Clone> Clone for HashMap<K, V> {{\n    fn clone(&self) -> Self {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    for (name, head, own, want) in [
+        (
+            "rust-assoc-head",
+            "use std::collections::HashMap;\n\n",
+            "\n",
+            [
+                "alloc/src/string.rs:5",
+                "std/src/collections/hash/map.rs:5",
+                "not std",
+            ],
+        ),
+        (
+            "rust-assoc-head-namesakes",
+            "mod own;\n\nuse crate::own::String;\nuse hashbrown::HashMap;\n\n",
+            "pub struct String;\n",
+            ["not std", "not std", "not std"],
+        ),
+    ] {
+        let lib = format!("{head}{chains}");
+        let (dir, mut a) = project_app(
+            name,
+            &[
+                ("Cargo.toml", "[package]\nname = \"m\"\n"),
+                ("src/lib.rs", &lib),
+                ("src/own.rs", own),
+            ],
+        );
+        use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+        for (code, want) in [("t.len", want[0]), ("k.len", want[1]), ("r.len", want[2])] {
+            d_on(&mut a, "src/lib.rs", code);
+            let got = match shown(&mut a) {
+                Shown::Jump(_, place) if place.starts_with(&*library.to_string_lossy()) => {
+                    place.replace(&format!("{}/", library.display()), "")
+                }
+                _ => "not std".to_owned(),
+            };
+            assert_eq!(got, want, "{name}: {code}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
 fn a_tuple_field_of_self_is_typed_and_a_project_alias_of_std_s_is_std_s() {
     let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
     let lib = "mod fnv;\n\npub struct Cache;\n\nimpl Cache {\n    pub fn entry(&self, _: u32) {}\n}\n\nstruct Lit(fnv::HashMap<u32, u32>);\n\nimpl Lit {\n    fn add(&mut self) {\n        self.0.entry(1);\n    }\n}\n\nstruct Dep(hashbrown::HashMap<u32, u32>);\n\nimpl Dep {\n    fn add(&mut self) {\n        self.0.entry(2);\n    }\n}\n\nstruct Named {\n    m: hashbrown::HashMap<u32, u32>,\n}\n\nimpl Named {\n    fn add(&mut self) {\n        self.m.entry(3);\n    }\n}\n\nstruct Own(pub Cache, u32);\n\nimpl Own {\n    fn add(&self) {\n        self.0.entry(4);\n    }\n}\n\nstruct Other(fnv::Map<u32, u32>);\n\nimpl Other {\n    fn add(&mut self) {\n        self.0.entry(5);\n    }\n}\n\nstruct Pair(u32, std::collections::HashMap<u32, u32>);\n\nimpl Pair {\n    fn add(&mut self) {\n        self.1.entry(6);\n    }\n}\n\nstruct Wrap<T>(T);\n\nimpl<T> Wrap<T> {\n    fn add(&self) {\n        self.0.entry(7);\n    }\n}\n\nstruct Full(crate::fnv::HashMap<u32, u32>);\n\nimpl Full {\n    fn add(&mut self) {\n        self.0.entry(8);\n    }\n}\n\nuse std::collections;\n\nstruct Coll(collections::HashMap<u32, u32>);\n\nimpl Coll {\n    fn add(&mut self) {\n        self.0.entry(9);\n    }\n}\n\nstruct Dflt(fnv::Dflt);\n\nimpl Dflt {\n    fn add(&mut self) {\n        self.0.reserve(11);\n    }\n}\n";
     let fnv = "pub(crate) type HashMap<K, V> =\n    std::collections::HashMap<K, V, std::hash::BuildHasherDefault<Hasher>>;\n\npub(crate) type Map<K, V> = hashbrown::HashMap<K, V>;\n\npub(crate) struct Hasher(u64);\n\npub(crate) type Dflt<V = String> = std::collections::HashMap<String, V>;\n";
-    let bare = "use hashbrown::HashMap;\n\nstruct Bare(HashMap<u32, u32>);\n\nimpl Bare {\n    fn add(&mut self) {\n        self.0.entry(10);\n    }\n}\n";
+    let bare = "use hashbrown::HashMap;\n\nstruct Bare(HashMap<u32, u32>);\n\nimpl Bare {\n    fn add(&mut self) {\n        self.0.entry(10);\n    }\n}\n\nstruct Spelled(std::collections::HashMap<u32, u32>);\n\nimpl Spelled {\n    fn add(&mut self) {\n        self.0.entry(12);\n    }\n}\n";
     let (dir, mut a) = project_app(
         "rust-tuple-alias",
         &[
@@ -1677,6 +1755,12 @@ fn a_tuple_field_of_self_is_typed_and_a_project_alias_of_std_s_is_std_s() {
         };
         assert_eq!(got, want, "{code}");
     }
+    d_on(&mut a, "src/bare.rs", "entry|(12)");
+    let got = match shown(&mut a) {
+        Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+        other @ Shown::Picker(..) => format!("{other:?}"),
+    };
+    assert_eq!(got, map, "entry(12) under use hashbrown::HashMap");
     for (file, code) in [
         ("src/lib.rs", "entry|(2)"),
         ("src/lib.rs", "entry|(3)"),
@@ -1740,6 +1824,156 @@ fn a_match_s_value_takes_the_std_type_its_typed_arms_agree_on() {
         let got = shown(&mut a);
         assert!(matches!(&got, Shown::Picker(..)), "{code}: {got:?}");
     }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_variant_binding_of_a_registry_enum_is_typed_in_its_one_locked_version() {
+    let lib = "use {\n    regex_syntax::hir::{self, Hir, HirKind},\n};\n\npub struct Near {\n    pub sub: u32,\n    pub bits: u32,\n}\n\npub struct Far {\n    pub sub: u32,\n    pub bits: u32,\n}\n\npub fn strip(h: Hir) -> u32 {\n    match h.into_kind() {\n        HirKind::Repetition(mut x) => x.sub.len(),\n        HirKind::Look(y) => y.bits,\n        _ => 0,\n    }\n}\n";
+    let hir = "mod look;\n\nuse self::look::Look;\n\npub enum HirKind {\n    Empty,\n    Look(Look),\n    Repetition(Repetition),\n}\n\npub struct Repetition {\n    pub min: u32,\n    pub sub: Box<Hir>,\n}\n\npub struct Hir;\n";
+    let look = "pub struct Look {\n    pub bits: u32,\n}\n";
+    let reg = external_root(
+        "rust-registry-variant",
+        &[
+            ("registry/regex-syntax-0.8.0/src/lib.rs", "pub mod hir;\n"),
+            ("registry/regex-syntax-0.8.0/src/hir/mod.rs", hir),
+            ("registry/regex-syntax-0.8.0/src/hir/look.rs", look),
+            ("registry/regex-syntax-0.6.0/src/lib.rs", "pub mod hir;\n"),
+            ("registry/regex-syntax-0.6.0/src/hir/mod.rs", hir),
+            ("registry/regex-syntax-0.6.0/src/hir/look.rs", look),
+        ],
+    );
+    let (one, two, missing) = (
+        reg.join("registry/regex-syntax-0.8.0"),
+        reg.join("registry/regex-syntax-0.6.0"),
+        reg.join("registry/regex-syntax-0.9.0"),
+    );
+    let plain = "[package]\nname = \"m\"\n\n[dependencies]\nregex-syntax = \"0.8\"\n";
+    let renamed = "[package]\nname = \"m\"\n\n[dependencies]\nregex-syntax = { version = \"0.8\", package = \"regex-syntax-ng\" }\n";
+    for (tag, toml, roots, jumps) in [
+        ("one", plain, vec![one.clone()], true),
+        ("two", plain, vec![one.clone(), two], false),
+        ("missing", plain, vec![missing], false),
+        ("renamed", renamed, vec![one.clone()], false),
+    ] {
+        let (dir, mut a) = project_app(
+            &format!("rust-registry-variant-{tag}"),
+            &[("Cargo.toml", toml), ("src/lib.rs", lib)],
+        );
+        use_roots(&mut a, Kind::Rust, &roots);
+        d_on(&mut a, "src/lib.rs", "x.sub");
+        let got = shown(&mut a);
+        if jumps {
+            assert!(
+                matches!(&got, Shown::Jump(s, place) if s.contains("via x: Repetition") && *place == format!("{}/src/hir/mod.rs:13", one.display())),
+                "{tag}: {got:?}"
+            );
+        } else {
+            assert!(
+                matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+                "{tag}: {got:?}"
+            );
+        }
+        d_on(&mut a, "src/lib.rs", "y.bits");
+        let got = shown(&mut a);
+        assert!(
+            matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+            "{tag} y.bits: {got:?}"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+    std::fs::remove_dir_all(&reg).unwrap();
+}
+
+#[test]
+fn a_for_item_over_a_vec_takes_its_element_or_the_map_it_collects() {
+    let lib = "pub struct Near;\n\nimpl Near {\n    pub fn matches(&self, s: &str) -> bool {\n        true\n    }\n}\n\npub struct Far;\n\nimpl Far {\n    pub fn matches(&self, s: &str) -> bool {\n        true\n    }\n}\n\nfn new_glob(pat: &str) -> glob::Pattern {\n    glob::Pattern::new(pat)\n}\n\nfn near(pat: glob::Pattern) -> Near {\n    Near\n}\n\npub fn count(globs: &[&str], nears: Vec<Near>) -> usize {\n    let pats: Vec<_> = globs.iter().map(|&s| new_glob(s)).collect();\n    let neared: Vec<_> = globs.iter().map(|&s| new_glob(s)).map(|p| near(p)).collect();\n    let kept: Vec<_> = globs.iter().map(|&s| new_glob(s)).filter(|p| true).collect();\n    let mut n = 0;\n    for pat in &pats {\n        n += usize::from(pat.matches(\"a\"));\n    }\n    for one in &nears {\n        n += usize::from(one.matches(\"b\"));\n    }\n    for last in neared {\n        n += usize::from(last.matches(\"c\"));\n    }\n    for k in &kept {\n        n += usize::from(k.matches(\"d\"));\n    }\n    n\n}\n";
+    let glob = "pub struct Pattern {\n    original: String,\n}\n\nimpl Pattern {\n    pub fn new(p: &str) -> Pattern {\n        Pattern { original: p.to_owned() }\n    }\n\n    pub fn matches(&self, s: &str) -> bool {\n        true\n    }\n}\n";
+    let reg = external_root(
+        "rust-registry-for",
+        &[
+            ("registry/glob-0.3.4/src/lib.rs", glob),
+            ("registry/glob-0.2.0/src/lib.rs", glob),
+        ],
+    );
+    let (one, two) = (
+        reg.join("registry/glob-0.3.4"),
+        reg.join("registry/glob-0.2.0"),
+    );
+    let pattern = format!("{}/src/lib.rs:10", one.display());
+    for (tag, roots, pat) in [
+        ("one", vec![one.clone()], Some(pattern.as_str())),
+        ("two", vec![one, two], None),
+    ] {
+        let (dir, mut a) = project_app(
+            &format!("rust-registry-for-{tag}"),
+            &[
+                (
+                    "Cargo.toml",
+                    "[package]\nname = \"m\"\n\n[dependencies]\nglob = \"0.3\"\n",
+                ),
+                ("src/lib.rs", lib),
+            ],
+        );
+        use_roots(&mut a, Kind::Rust, &roots);
+        for (code, want) in [
+            ("pat.matches", pat),
+            ("one.matches", Some("src/lib.rs:4")),
+            ("last.matches", Some("src/lib.rs:4")),
+            ("k.matches", None),
+        ] {
+            d_on(&mut a, "src/lib.rs", code);
+            let got = shown(&mut a);
+            match want {
+                Some(want) => assert!(
+                    matches!(&got, Shown::Jump(_, place) if place == want),
+                    "{tag} {code}: {got:?}"
+                ),
+                None => assert!(matches!(&got, Shown::Picker(..)), "{tag} {code}: {got:?}"),
+            }
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+    std::fs::remove_dir_all(&reg).unwrap();
+}
+
+#[test]
+fn a_closure_on_a_shadowing_let_s_line_does_not_bind_its_head() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let lib = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n}\n\npub fn trimmed(s: String) -> usize {\n    let s = s.trim_matches(|s: char| s == '-');\n    s.len()\n}\n";
+    let (dir, mut a) = project_app(
+        "rust-shadow-closure",
+        &[
+            ("Cargo.toml", "[package]\nname = \"m\"\n"),
+            ("src/lib.rs", lib),
+        ],
+    );
+    let std = external_root(
+        "rust-shadow-closure-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            ("lib/rustlib/src/rust/library/std/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                "pub struct String;\n",
+            ),
+            (
+                "lib/rustlib/src/rust/library/core/src/str/mod.rs",
+                &format!(
+                    "impl str {{\n{stable}    pub fn trim_matches<P>(&self, pat: P) -> &str {{\n        self\n    }}\n\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+    d_on(&mut a, "src/lib.rs", "s.len");
+    let got = match shown(&mut a) {
+        Shown::Jump(_, place) => place.replace(&format!("{}/", library.display()), ""),
+        other @ Shown::Picker(..) => format!("{other:?}"),
+    };
+    assert_eq!(got, "core/src/str/mod.rs:8");
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&std).unwrap();
 }

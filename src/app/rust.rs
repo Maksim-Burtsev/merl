@@ -3,6 +3,8 @@ mod returns;
 mod sysroot;
 mod used;
 
+use used::registry_src;
+
 use std::sync::LazyLock;
 
 use super::{
@@ -748,23 +750,7 @@ impl App {
     fn registry_crate(&mut self, name: &str) -> Option<CrateSrc> {
         let all = self.external_files(Kind::Rust);
         let roots = self.external.get(&Kind::Rust)?.0.clone();
-        roots.iter().find_map(|r| {
-            let dir = r.file_name()?.to_string_lossy().into_owned();
-            let (i, _) = dir.rmatch_indices('-').find(|(i, _)| {
-                dir.get(i + 1..)
-                    .is_some_and(|v| v.starts_with(|c: char| c.is_ascii_digit()))
-            })?;
-            if dir.get(..i)?.replace('-', "_") != name {
-                return None;
-            }
-            let src = r.join("src");
-            let files: Vec<PathBuf> = all
-                .iter()
-                .filter(|f| f.starts_with(&src))
-                .cloned()
-                .collect();
-            (!files.is_empty()).then_some(CrateSrc { src, files })
-        })
+        roots.iter().find_map(|r| registry_src(r, &all, name))
     }
 
     fn workspace_crate(&self, name: &str) -> Option<CrateSrc> {
@@ -809,10 +795,10 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
-        let mut typed = self.rust_value_type(here, text, self.line, &chain[0]);
+        let mut typed = self.rust_value_type(here, text, self.line, &chain[0], false);
         if typed.is_none() {
             self.external_files(Kind::Rust);
-            typed = self.rust_value_type(here, text, self.line, &chain[0]);
+            typed = self.rust_value_type(here, text, self.line, &chain[0], false);
         }
         let Some((mut ty, link)) = typed else {
             if let [name] = chain
@@ -872,6 +858,7 @@ impl App {
         text: &str,
         line0: usize,
         name: &str,
+        above: bool,
     ) -> Option<(Typed, String)> {
         let lines: Vec<&str> = text.lines().collect();
         if name == "self" {
@@ -883,12 +870,18 @@ impl App {
             let link = format!("self: {}", ty.name);
             return Some((ty, link));
         }
-        let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
+        let bindings = rust_seen(text, line0, name, above);
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
             let Some(holds) = search::rust_holds(&lines, at, name) else {
-                let ty = self.rust_let_chain(file, text, at, name)?;
+                let ty = match self
+                    .rust_variant_typed(file, &lines, at, name)
+                    .or_else(|| self.rust_for_typed(file, text, at, name))
+                {
+                    Some(ty) => ty,
+                    None => self.rust_let_chain(file, text, at, name)?,
+                };
                 let this = (ty.clone(), format!("{name}: {}", ty.name));
                 match &found {
                     Some((t, _)) if (&t.path, t.line) != (&ty.path, ty.line) => return None,
@@ -975,7 +968,7 @@ impl App {
             && !ours(&path)
             && !bound(&imports, first).is_some_and(|p| ours(&p))
         {
-            return None;
+            return self.rust_registry_path(&text, &path, &name);
         }
         let pattern = search::rust_type_decl_pattern(&name);
         let typed = |hit: Hit| Typed {
@@ -983,6 +976,18 @@ impl App {
             path: hit.path,
             line: hit.line1,
         };
+        if self.registry_home(file).is_some() {
+            let literal = search::literal_lines(Kind::Rust, &text);
+            let mine: Vec<Hit> = self
+                .grep_in(&pattern, &[file.to_path_buf()])
+                .into_iter()
+                .filter(|h| literal.get(h.line1 - 1) != Some(&true))
+                .collect();
+            return match <[Hit; 1]>::try_from(mine) {
+                Ok([hit]) if path.is_empty() => Some(typed(hit)),
+                _ => None,
+            };
+        }
         let decls = self
             .grep(&pattern, false, false, |p| {
                 p.extension().is_some_and(|e| e == "rs")
@@ -1045,7 +1050,9 @@ impl App {
     }
 
     fn rust_type_files(&self, ty: &Typed) -> Vec<PathBuf> {
-        let files = self.rust_crate_rs(&ty.path);
+        let files = self
+            .registry_home(&ty.path)
+            .map_or_else(|| self.rust_crate_rs(&ty.path), |k| k.files);
         let decl = search::rust_type_decl_pattern(&ty.name);
         match self.grep_in(&decl, &files).len() {
             0 | 1 => files,
@@ -1086,7 +1093,8 @@ impl App {
             let tr = PATH.captures(before)?[1].to_owned();
             let arg = ARG.captures(line.get(range.end..)?)?;
             (
-                self.rust_value_type(here, text, self.line, &arg[1])?.0,
+                self.rust_value_type(here, text, self.line, &arg[1], false)?
+                    .0,
                 tr,
                 true,
             )
@@ -1397,6 +1405,14 @@ fn rust_receiver_type(text: &str, line0: usize, chain: &[String], before: &str) 
         [] if STR_LITERAL.is_match(before) => Some("str".to_owned()),
         _ => None,
     }
+}
+
+fn rust_seen(text: &str, line0: usize, name: &str, above: bool) -> Vec<search::Binding> {
+    let mut seen = search::bindings(Kind::Rust, text, line0 + 1, name);
+    if above {
+        seen.retain(|b| b.line1 <= line0);
+    }
+    seen
 }
 
 fn rust_written_type(text: &str, line0: usize, name: &str) -> Option<String> {

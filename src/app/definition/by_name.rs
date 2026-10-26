@@ -30,12 +30,13 @@ impl App {
                         self.line + 1,
                         a.range.start,
                         &a.word,
+                        || self.c_included_texts(&a.here),
                     )
                 })
                 .flatten();
             let Some(hits) = (match delegated {
                 _ if own => Some(vec![self.own_hit(a)]),
-                Some(line) => Some(vec![self.c_delegated_hit(a, line)]),
+                Some((file, line)) => Some(vec![self.c_delegated_hit(a, file, line)]),
                 None => self.c_hits(a, near, hits, &mut fallbacks, &mut aside),
             }) else {
                 return;
@@ -102,10 +103,24 @@ impl App {
         {
             self.offer_only |= self.ruby_all_unrelated(&a.here, &a.text, &found);
         }
+        self.offer_only |= self.template_name_elsewhere(a, near, &found);
         self.show_definitions(kind, &a.word, &a.here, found, walk.broke.as_deref());
         if let Some(note) = aside {
             self.message = self.message.replacen("1 match", &note, 1);
         }
+    }
+
+    fn template_name_elsewhere(&self, a: &Asked, near: &Near, found: &[Candidate]) -> bool {
+        a.kind == Kind::TsJs
+            && !a.dotted
+            && a.chain.is_empty()
+            && self.on_template(&a.here)
+            && near.imports.iter().all(|i| i.name != a.word)
+            && found.iter().all(|c| {
+                c.reason == Reason::ByName
+                    && c.hit.path != a.here
+                    && !c.hit.path.to_string_lossy().ends_with(".d.ts")
+            })
     }
 
     fn ts_member_namesakes(&mut self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
@@ -641,12 +656,36 @@ impl App {
         })
     }
 
-    fn c_delegated_hit(&self, a: &Asked, line1: usize) -> Hit {
+    fn c_included_texts(&mut self, here: &std::path::Path) -> Vec<(PathBuf, String)> {
+        (self.c_reached(here).into_iter())
+            .filter(|f| f.is_relative() && f != here)
+            .filter_map(|f| Some((f.clone(), self.text_of(&f)?)))
+            .collect()
+    }
+
+    fn c_delegated_hit(&self, a: &Asked, file: Option<PathBuf>, line1: usize) -> Hit {
         let (kind, word) = (Kind::C, &a.word);
-        let declared = self.line_hit(&a.here, line1);
+        let (declared, text) = match file {
+            Some(path) => {
+                let text = self.text_of(&path).unwrap_or_default();
+                let hit = Hit {
+                    text: text
+                        .lines()
+                        .nth(line1.saturating_sub(1))
+                        .unwrap_or_default()
+                        .to_owned(),
+                    path,
+                    line1,
+                    byte_col: None,
+                    deleted: None,
+                };
+                (hit, text)
+            }
+            None => (self.line_hit(&a.here, line1), a.text.clone()),
+        };
         let (Some(own), Some(sig)) = (
-            search::qualified(kind, &a.text, line1, word),
-            search::cpp_declared_signature(&a.text, line1, word),
+            search::cpp_member_scope(&text, line1, word),
+            search::cpp_declared_signature(&text, line1, word),
         ) else {
             return declared;
         };
@@ -655,8 +694,11 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.text_of(&h.path).is_some_and(|t| {
-                    search::qualified(kind, &t, h.line1, word).as_ref() == Some(&own)
-                        && search::cpp_defined_signature(&t, h.line1, word).as_ref() == Some(&sig)
+                    search::cpp_member_scope(&t, h.line1, word).is_some_and(|s| {
+                        (std::iter::once(Vec::new()))
+                            .chain(search::cpp_used_namespaces(&t, h.line1))
+                            .any(|n| [n, s.clone()].concat() == own)
+                    }) && search::cpp_defined_signature(&t, h.line1, word).as_ref() == Some(&sig)
                 })
             })
             .collect();

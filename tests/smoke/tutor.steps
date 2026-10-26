@@ -3,7 +3,8 @@
 # over one commit, the review panel takes the left, `c` walks cli.py on into models.py, `C` walks
 # back, and `m` ticks store.py. Each lesson opens as a card in the middle, the code dimmed behind
 # it, and Enter sends it into the box at the bottom before the answer; on lesson 9, `i` brings the
-# card back (#501)
+# card back (#501). The slide takes 0.4 s, so a lesson whose answer opens a picker sleeps it out
+# first: the picker's checkpoint would otherwise catch the box half way down
 merl --tutor
 wait Enter starts
 key Enter o
@@ -12,16 +13,25 @@ key Enter
 wait Tutor 2/
 key Enter /
 type load_config
-key Enter Enter n Enter d Enter [ Enter ] Enter u
+key Enter Enter n Enter d Enter [ Enter ] Enter
+sleep 0.3
+sleep 0.2
+key u
 wait Usages
-key Down Enter Enter s
+key Down Enter Enter
+sleep 0.3
+sleep 0.2
+key s
 type TODO
 wait reject a note
 key Enter
 wait Tutor 9/
 key Enter i
 wait Enter starts
-key Enter D
+key Enter
+sleep 0.3
+sleep 0.2
+key D
 type NoteStore
 wait store.py:9
 key Enter

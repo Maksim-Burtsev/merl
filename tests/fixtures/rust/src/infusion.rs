@@ -380,3 +380,118 @@ pub fn restrung(name: String) -> usize {
     text.len()
     //   ^ d: none
 }
+
+impl Spoons {
+    pub fn split(&self) -> (Spoons, Option<Dipper>) {
+        (Spoons { tea: Scoop, sugar: Scoop }, Some(Dipper))
+    }
+}
+
+pub fn split_heap(spoons: Spoons) -> usize {
+    let (kept, dipper) = spoons.split();
+    kept.tea.heap() + dipper.map_or(0, |d| d.heap())
+    //       ^ d: src/infusion.rs:351
+}
+
+pub fn split_again(spoons: Spoons) -> usize {
+    let (spoons, _) = spoons.split();
+    spoons.tea.heap()
+    //         ^ d: src/infusion.rs:351
+}
+
+pub fn split_nested(spoons: Spoons) -> usize {
+    let (kept, (dipper, _)) = (spoons, (Dipper, 1));
+    kept.sugar.heap() + dipper.heap()
+    //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359; want src/infusion.rs:351 (#1044)
+}
+
+pub fn rebuilt(leaf: &Leaf) -> usize {
+    let name = String::from("oolong");
+    let text = name.to_string();
+    text.len() + leaf.len()
+    //   ^ d: none
+}
+
+pub fn recupped(leaf: &Leaf) -> usize {
+    let cup = Vec::<u32>::new();
+    let more = cup.clone();
+    let mut jug = Vec::with_capacity(2);
+    jug.push(leaf.len());
+    let poured = jug.clone();
+    more.len() + poured.len()
+    //   ^ d: none
+    //                  ^ d: none
+}
+
+pub fn split_dipped(spoons: Spoons) -> usize {
+    let spoons = Dipper;
+    let (spoons, _) = spoons.split();
+    spoons.tea.heap()
+    //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359
+}
+
+pub enum Ladle {
+    Deep(Scoop),
+    Wide { dipper: Dipper },
+}
+
+pub fn ladled(ladle: &Ladle) -> usize {
+    match *ladle {
+        Ladle::Deep(ref scoop) => scoop.heap(),
+        //                              ^ d: src/infusion.rs:351
+        Ladle::Wide { ref dipper } => dipper.heap(),
+        //                                   ^ d: src/infusion.rs:359
+    }
+}
+
+pub enum Pail<T> {
+    Full(T),
+}
+
+pub fn pailed(pail: Pail<Scoop>) -> usize {
+    match pail {
+        Pail::Full(scoop) => scoop.heap(),
+        //                         ^ d: picker src/infusion.rs:351, src/infusion.rs:359
+    }
+}
+
+pub fn heaped_all(scoops: Vec<Scoop>, dippers: &[Dipper]) -> usize {
+    let mut n = 0;
+    for scoop in &scoops {
+        n += scoop.heap();
+        //         ^ d: src/infusion.rs:351
+    }
+    for dipper in dippers {
+        n += dipper.heap();
+        //          ^ d: src/infusion.rs:359
+    }
+    n
+}
+
+pub fn heaped_any<T>(items: Vec<T>) -> usize {
+    let mut n = 0;
+    for item in &items {
+        n += item.heap();
+        //        ^ d: picker src/infusion.rs:351, src/infusion.rs:359
+    }
+    n
+}
+
+impl Spoons {
+    pub fn sift<F: Fn(u32) -> bool>(&self, _: F) -> (Spoons, Option<Dipper>) {
+        (Spoons { tea: Scoop, sugar: Scoop }, Some(Dipper))
+    }
+}
+
+pub fn sifted(spoons: Spoons) -> usize {
+    let (spoons, _) = spoons.sift(|spoons| spoons > 0);
+    spoons.tea.heap()
+    //         ^ d: src/infusion.rs:351
+}
+
+pub fn hashed() -> usize {
+    let m = hashbrown::HashMap::new();
+    let k = m.clone();
+    k.len()
+    //^ d: src/infusion/leaves.rs:13
+}

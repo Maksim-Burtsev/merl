@@ -17,13 +17,10 @@ impl App {
         } else {
             search::imports(kind, &a.text)
         };
-        let line = self.line_str();
-        let swift_binds_here = kind == Kind::Swift
-            && !a.dotted
-            && line.get(range.clone()) == Some(word.as_str())
-            && search::swift_binds_on(line, word)
-            && !search::swift_binds_on(&format!("{}_{}", a.lead, a.tail), word);
+        let swift_binds_here = self.swift_binds_here(a);
+        let ts_key = ts_key(a, self.line + 1);
         let declared = swift_binds_here
+            || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
         let mut locals = self.locals_of(a, declared);
         let go_own = kind == Kind::Go
@@ -45,7 +42,10 @@ impl App {
         let ruby_block = kind == Kind::Ruby
             && !a.dotted
             && search::ruby_block_param(self.line_str(), word, range.start);
-        if own_arrow || arrow_param || swift_closure || ruby_block {
+        let c_parameter = kind == Kind::C
+            && !a.dotted
+            && search::c_names_a_parameter(&a.text, self.line + 1, range.start, word);
+        if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter {
             locals = vec![self.line + 1];
         }
         let type_param = (kind == Kind::TsJs
@@ -87,14 +87,17 @@ impl App {
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
-        let python_inline = kind == Kind::Python
-            && !declared
-            && locals == [self.line + 1]
-            && search::python_inline_binds(self.line_str(), word);
+        let python_own = self.python_own(a, &locals, declared);
         if self.answered_by_locals(
             a,
             &locals,
-            same_line || own_line || own_arrow || python_inline || type_param.is_some(),
+            same_line
+                || own_line
+                || own_arrow
+                || ts_key
+                || python_own
+                || c_parameter
+                || type_param.is_some(),
         ) {
             return None;
         }
@@ -105,6 +108,24 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn swift_binds_here(&self, a: &Asked) -> bool {
+        let (word, range, line) = (&a.word, &a.range, self.line_str());
+        let wrapped = a.kind == Kind::Swift && search::swift_wrapped_params(&a.text, self.line + 1);
+        let signature = |l: String| if wrapped { format!("func f({l})") } else { l };
+        a.kind == Kind::Swift
+            && !a.dotted
+            && line.get(range.clone()) == Some(word.as_str())
+            && search::swift_binds_on(&signature(line.to_owned()), word)
+            && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word)
+    }
+
+    fn python_own(&self, a: &Asked, locals: &[usize], declared: bool) -> bool {
+        a.kind == Kind::Python
+            && locals == [self.line + 1]
+            && ((!declared && search::python_inline_binds(self.line_str(), &a.word))
+                || (!a.dotted && search::python_in_function_body(&a.text, self.line + 1)))
     }
 
     fn locals_of(&self, a: &Asked, declared: bool) -> Vec<usize> {
@@ -236,4 +257,15 @@ impl App {
         }
         false
     }
+}
+
+fn ts_key(a: &Asked, line1: usize) -> bool {
+    let tail = a.tail.trim_start();
+    a.kind == Kind::TsJs
+        && !a.dotted
+        && a.chain.is_empty()
+        && a.lead.trim().is_empty()
+        && tail.trim_start_matches('?').starts_with(':')
+        && !tail.starts_with("::")
+        && search::ts_type_key(&a.text, line1, tail)
 }

@@ -1061,8 +1061,18 @@ fn php_function_call_resolves_as_php_does() {
         Some("\\Shop\\Tea\\steep")
     );
     assert_eq!(at("$a && pour($k);", "pour").as_deref(), Some("pour"));
+    for line in [
+        "'cup' => pour('k'),",
+        "fn () => pour(),",
+        "name: $n ?: pour(),",
+        "$a ? $b : pour(),",
+    ] {
+        assert_eq!(at(line, "pour").as_deref(), Some("pour"), "{line}");
+    }
     for (line, word) in [
         ("$k->pour(1);", "pour"),
+        ("$k?->pour(1);", "pour"),
+        ("$k -> pour(1);", "pour"),
         ("Kettle::pour(1);", "pour"),
         ("new Kettle();", "Kettle"),
         ("function &pour(int $c)", "pour"),

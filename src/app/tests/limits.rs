@@ -540,7 +540,7 @@ fn a_php_assignment_is_read_over_twenty_lines() {
 }
 
 #[test]
-fn what_a_php_class_outside_the_project_inherits_is_not_read() {
+fn what_a_php_class_outside_the_project_inherits_is_read() {
     let (dir, mut a) = project_app(
         "php-vendor",
         &[
@@ -576,8 +576,10 @@ fn what_a_php_class_outside_the_project_inherits_is_not_read() {
         jump("fill \u{2192} Model::fill (via $song: Song)", &model)
     );
     d_on(&mut a, "app/Song.php", "$song->save");
-    assert!(
-        matches!(shown(&mut a), Shown::Picker(s, rows) if s == "save: by name, 2 declarations" && rows.len() == 2)
+    let base = vendor.join("lib/Base.php:7").display().to_string();
+    assert_eq!(
+        shown(&mut a),
+        jump("save \u{2192} Base::save (via $song: Song)", &base)
     );
     drop(std::fs::remove_dir_all(dir));
     drop(std::fs::remove_dir_all(vendor));

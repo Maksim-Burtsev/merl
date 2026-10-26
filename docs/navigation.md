@@ -914,7 +914,9 @@ sit in a directory the walk went into, `.env` or `config/local.yml`, dim and aft
 nothing from inside `node_modules/`. `s`, `u` and `d` search only what is not ignored.
 A symbolic link to a directory is such a row too: the walk does not follow it, so a link to `..`
 or `/` pulls nothing in. A file behind it opens editable wherever it leads, as through a link to
-a file: a save writes into the file the link leads to and keeps the link.
+a file: a save writes into the file the link leads to and keeps the link. A file the walk does
+not list under `.venv`, `site-packages`, `node_modules` or a `bazel-*` folder is a library's and
+opens read-only however it is reached, a package linked in with `npm link` included.
 
 The open file itself is watched and reloads on every change on disk, keeping the cursor, the
 scroll position, the jump history and the undo history, where the change is one more step.

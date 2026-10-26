@@ -113,7 +113,7 @@ run $SMOKE_TMUX send-keys -t 0 -H 1b 5b 31 31 31 3b 39 75
 key End
 wait app/service.py  36:21  [code]
 key ? C-M-q
-wait This help
+wait Switch focus between tree and code
 key Escape
 wait app/service.py  36:21  [code]
 # In code `v` takes the word, inside the quotes, the string, inside the brackets, the brackets,
@@ -132,3 +132,21 @@ key v v
 wait app/service.py  36:21  [code]
 key V V
 wait app/service.py  32:74  [code]
+# In a Vue block `v` walks the block's own language, TypeScript here: the string, the brackets,
+# the line, the script's body, then the host's <script>…</script> and the file (#1194).
+key Escape o
+type StatusPill
+key Enter :
+type 4
+key Enter M-Right M-Right M-Right M-Right M-Right
+wait web/src/components/StatusPill.vue  4:32  [code]
+key v v v
+wait web/src/components/StatusPill.vue  4:33  [code]
+key v v
+wait web/src/components/StatusPill.vue  4:35  [code]
+key v
+wait web/src/components/StatusPill.vue  5:22  [code]
+key v
+wait web/src/components/StatusPill.vue  6:10  [code]
+key V V
+wait web/src/components/StatusPill.vue  4:35  [code]

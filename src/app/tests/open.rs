@@ -747,3 +747,100 @@ fn a_dependency_root_locks_only_the_files_the_walk_did_not_list() {
     assert_eq!(a.buf.readonly, Some("outside the project"));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+fn libraries_app(tag: &str) -> (PathBuf, App) {
+    project_app(
+        tag,
+        &[
+            (".gitignore", "node_modules/\nbazel-out/\nsite-packages/\n"),
+            ("main.py", "import pkg\n\npkg.f()\n"),
+            (".venv/.gitignore", "*\n"),
+            (".venv/pyvenv.cfg", "home = /usr/bin\n"),
+            (
+                ".venv/lib/python3.99/site-packages/pkg/__init__.py",
+                "def f():\n    pass\n",
+            ),
+            ("node_modules/lib.js", "x\n"),
+            ("bazel-out/gen.py", "x = 1\n"),
+            ("site-packages/mod.py", "x = 1\n"),
+        ],
+    )
+}
+
+#[test]
+fn a_library_s_file_opens_read_only_from_the_tree_before_any_d() {
+    let (dir, mut a) = libraries_app("lib-tree");
+    for (folder, file) in [
+        ("node_modules", "node_modules/lib.js"),
+        ("bazel-out", "bazel-out/gen.py"),
+        ("site-packages", "site-packages/mod.py"),
+        (".venv", ".venv/pyvenv.cfg"),
+    ] {
+        a.focus = Focus::Tree;
+        a.tree.reveal(Path::new(folder));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        a.tree.reveal(Path::new(file));
+        press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(
+            a.buf.path.as_deref(),
+            Some(&*dir.join(file)),
+            "{}",
+            a.message
+        );
+        assert_eq!(
+            a.buf.readonly,
+            Some("outside the project"),
+            "{file}: a library is read-only before `d` has looked for libraries (#1199)"
+        );
+    }
+    a.jump_to(&dir.join("main.py"), 1);
+    assert_eq!(a.buf.readonly, None, "the project's own file");
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_library_s_file_opens_read_only_from_o_before_any_d() {
+    let (dir, mut a) = libraries_app("lib-o");
+    press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
+    typed(&mut a, "pyvenv");
+    a.picker.as_mut().unwrap().settle();
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(
+        a.buf.path.as_deref(),
+        Some(&*dir.join(".venv/pyvenv.cfg")),
+        "{}",
+        a.message
+    );
+    assert_eq!(a.buf.readonly, Some("outside the project"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_library_s_file_d_reaches_opens_read_only() {
+    let (dir, mut a) = libraries_app("lib-d");
+    d_on(&mut a, "main.py", "pkg.f");
+    let (path, _) = at(&a);
+    assert!(
+        path.ends_with("site-packages/pkg/__init__.py"),
+        "{} {}",
+        path.display(),
+        a.message
+    );
+    assert_eq!(a.buf.readonly, Some("outside the project"));
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_library_s_file_opens_read_only_from_the_command_line() {
+    let (dir, a) = libraries_app("lib-cli");
+    let file = dir.join("node_modules/lib.js");
+    let b = App::new(
+        dir.clone(),
+        a.tree,
+        a.files,
+        Buffer::load(&file).unwrap(),
+        None,
+    );
+    assert_eq!(b.buf.readonly, Some("outside the project"));
+    std::fs::remove_dir_all(dir).unwrap();
+}

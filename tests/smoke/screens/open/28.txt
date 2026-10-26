@@ -1,0 +1,57 @@
+wait ▸ workflows
+┌orders──────────────────────┐ 1 # orders
+│▾ .github                   │ 2
+│  ▸ workflows               │ 3 The orders API (Python, `app/`), the worker that ships and syncs orders (Go, `worker/`) and the
+│▸ .venv                     │ 4 support team's web page (TypeScript, `web/`).
+│▾ app                       │ 5
+│    __init__.py             │ 6     make serve     # the API on :8000, reads .env
+│    api.py                  │ 7     make test      # Python and Go tests
+│    config.py               │ 8     make worker    # the queue worker
+│    models.py               │ 9
+│    repos.py                │10 Deployed with the Helm chart in `deploy/helm/orders`; `docker compose up` runs it all locally.
+│    service.py              │
+│    uow.py                  │
+│▾ data                      │
+│    orders.min.json         │
+│    refunds-2026-08.csv     │
+│▸ deploy                    │
+│▾ docs                      │
+│    architecture.png        │
+│    notes.md                │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+README.md  1:1  [tree]                                                                                                                                                             14:32
+cursor (x,y,shown) 33,0,0
