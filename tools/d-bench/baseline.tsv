@@ -211,7 +211,7 @@ astro0208	none	stay	40.89
 astro0209	no-answer	picker	211.65
 astro0210	ok	jump	19.70
 astro0211	ok	jump	10.41
-astro0212	pick-miss	picker	15.23
+astro0212	ok	jump	7.99
 astro0213	ok	jump	9.20
 astro0214	none	stay	37.97
 astro0215	pick-miss	picker	565.52
@@ -233,7 +233,7 @@ astro0230	ok	jump	12.29
 astro0231	skip	picker	75.36
 astro0232	skip	stay	14.40
 astro0233	skip	picker	81.65
-astro0234	pick-miss	picker	14.36
+astro0234	ok	jump	7.24
 astro0235	skip-jump	jump	80.59
 astro0236	ok	jump	4.37
 astro0237	skip	picker	45.70
