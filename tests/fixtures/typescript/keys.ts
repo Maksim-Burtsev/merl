@@ -32,3 +32,29 @@ const deepNest = {
     inner: {
       locale: given.locale } } };
       //^ d: none
+
+let typedNest: {
+  size: number;
+  inner: {
+    locale: string } };
+    //^ d: keys.ts:39
+
+const paramNest = {
+  pick: (arg: {
+    locale: string }) => arg };
+    //^ d: keys.ts:44
+
+const ternaryNest = {
+  inner: count ? options : {
+    locale: given.locale } };
+    //^ d: none
+
+interface NestedShape {
+  inner: {
+    locale: string } }
+    //^ d: keys.ts:54
+
+const defaulted = {
+  inner: count ?? {
+    locale: given.locale } };
+    //^ d: none

@@ -193,11 +193,15 @@ fn ts_object_key(
             key(owner)
         }
         b'[' | b'?' => key(None),
-        b':' if ts_key_of_an_object(kind, lines, literal, bl, before) => Some(Label {
-            what: "key",
-            owner: None,
-            nested: true,
-        }),
+        b':' if ts_key_of_an_object(kind, lines, literal, bl, before)
+            || ts_ternary_in_an_object(kind, lines, literal, bl, bi) =>
+        {
+            Some(Label {
+                what: "key",
+                owner: None,
+                nested: true,
+            })
+        }
         b'&' | b'|' if before.ends_with(b as char) => key(None),
         _ if ["return", "yield"].iter().any(|k| {
             lines[bl]
@@ -231,6 +235,105 @@ fn ts_key_of_an_object(
             && matches!(o.first_met, Some(b'{' | b','))
             && ts_object_key(kind, lines, literal, o.line0, o.byte).is_some()
     })
+}
+
+fn ts_ternary_in_an_object(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    line0: usize,
+    colon: usize,
+) -> bool {
+    let mut walk = back(kind, lines, literal, line0, colon).peekable();
+    if walk.peek().is_none_or(|c| c.byte == b'?') {
+        return false;
+    }
+    let (mut depth, mut question) = (0usize, false);
+    for CodeByte {
+        line0: li,
+        index: i,
+        byte: c,
+    } in walk
+    {
+        match c {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
+            _ if depth > 0 => {}
+            b'?' => {
+                let l = lines[li];
+                let operator = l.get(i + 1..).is_some_and(|t| t.starts_with(['.', '?']))
+                    || l.get(..i).is_some_and(|h| h.ends_with('?'));
+                if !operator && std::mem::replace(&mut question, true) {
+                    return false;
+                }
+            }
+            b':' if question => {
+                return lines[li]
+                    .get(..i)
+                    .is_some_and(|before| ts_key_of_an_object(kind, lines, literal, li, before));
+            }
+            b'(' | b'[' | b'{' | b',' | b';' | b':' => return false,
+            _ => {}
+        }
+    }
+    false
+}
+
+pub fn ts_type_literal_key(text: &str, line0: usize, start: usize) -> bool {
+    let kind = Kind::TsJs;
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(kind, text);
+    enclosing(kind, &lines, &literal, line0, start, false).is_some_and(|o| {
+        o.bracket == b'{'
+            && matches!(o.first_met, Some(b'{' | b',' | b';'))
+            && ts_type_literal(kind, &lines, &literal, o.line0, o.byte)
+    })
+}
+
+fn ts_type_literal(kind: Kind, lines: &[&str], literal: &[bool], at: usize, open: usize) -> bool {
+    static ANNOTATED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])(?:let|const|var)\s+[A-Za-z_$][\w$]*\s*[?!]?\s*$")
+            .expect("the regex is a literal")
+    });
+    static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])([A-Za-z_$][\w$]*)\s*\??\s*$").expect("the regex is a literal")
+    });
+    static ALIAS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?type\s+[A-Za-z_$][\w$]*\s*(?:<[^=]*>)?\s*$")
+            .expect("the regex is a literal")
+    });
+    static INTERFACE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:default\s+)?(?:declare\s+)?interface\s+[A-Za-z_$][\w$]*[^{}=;]*$")
+            .expect("the regex is a literal")
+    });
+    let Some(CodeByte {
+        line0: bl,
+        index: bi,
+        byte: b,
+    }) = back(kind, lines, literal, at, open).next()
+    else {
+        return false;
+    };
+    let (Some(before), Some(through)) = (lines[bl].get(..bi), lines[bl].get(..=bi)) else {
+        return false;
+    };
+    match b {
+        b':' if ANNOTATED.is_match(before) => true,
+        b':' => NAME
+            .captures(before)
+            .and_then(|c| c.get(1))
+            .and_then(|name| enclosing(kind, lines, literal, bl, name.start(), false))
+            .is_some_and(|o| match o.bracket {
+                b'(' => matches!(o.first_met, Some(b'(' | b',')),
+                b'{' => {
+                    matches!(o.first_met, Some(b'{' | b',' | b';'))
+                        && ts_type_literal(kind, lines, literal, o.line0, o.byte)
+                }
+                _ => false,
+            }),
+        b'=' => ALIAS.is_match(before),
+        _ => INTERFACE.is_match(through),
+    }
 }
 
 fn rust_struct_key(
@@ -428,6 +531,17 @@ fn open_bracket(
     line0: usize,
     end: usize,
 ) -> Option<OpenBracket> {
+    enclosing(kind, lines, literal, line0, end, true)
+}
+
+fn enclosing(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    line0: usize,
+    end: usize,
+    stops_at_a_semicolon: bool,
+) -> Option<OpenBracket> {
     let (mut depth, mut first_met, mut commas) = (0usize, None, 0);
     for CodeByte {
         line0: li,
@@ -449,7 +563,7 @@ fn open_bracket(
                 });
             }
             b',' if depth == 0 => commas += 1,
-            b';' if depth == 0 => return None,
+            b';' if depth == 0 && stops_at_a_semicolon => return None,
             _ => {}
         }
     }
@@ -846,10 +960,42 @@ mod tests {
         assert_eq!(nested("deep"), Some(("key", None, true)));
         assert_eq!(nested("mid"), Some(("key", None, true)));
         assert_eq!(nested("inner: {"), Some(("key", None, false)));
-        for typed in [
-            "size", "depth", "field", "member", "width", "other", "label:",
-        ] {
+        assert_eq!(nested("other"), Some(("key", None, true)));
+        for typed in ["size", "depth", "field", "member", "width", "label:"] {
             assert_eq!(label(Kind::TsJs, ts, typed), None, "{typed}");
+        }
+        let ternaries = "const a = { inner: c ? b : { kept: 1 } };\nlet v = c ? y : { bare: 1 };\ntype C<T> = { inner: T extends U ? A : { cond: string } };\nconst n = { inner: c ? d ? e : f : { twice: 1 } };\nfunction g(p?: { optional: string }) {}\n";
+        assert_eq!(
+            label(Kind::TsJs, ternaries, "kept").map(|l| l.nested),
+            Some(true)
+        );
+        for not_in_an_object in ["bare", "cond", "twice", "optional"] {
+            assert_eq!(
+                label(Kind::TsJs, ternaries, not_in_an_object),
+                None,
+                "{not_in_an_object}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_typescript_key_of_a_nested_type_literal_is_a_type_key() {
+        let ts = "let t: {\n  size: number;\n  inner: {\n    locale: string } };\nconst o = {\n  pick: (arg: {\n    width: number }) => arg };\ntype A = {\n  deep: {\n    depth: number } };\ninterface I extends J {\n  nest: {\n    field: string } }\nconst v = {\n  inner: {\n    value: 1 } };\nclass K {\n  inner: {\n    member: string } }\nlet w = c ? y : {\n  ternary: 1 };\nlet x: Array<{\n  element: string }>;\n";
+        let type_key = |probe: &str| {
+            let (line, l) = ts
+                .lines()
+                .enumerate()
+                .find(|(_, l)| l.contains(probe))
+                .expect("the probe is in the text");
+            ts_type_literal_key(ts, line, l.find(probe).unwrap())
+        };
+        for typed in [
+            "size", "inner", "locale", "width", "deep", "depth", "nest", "field",
+        ] {
+            assert!(type_key(typed), "{typed}");
+        }
+        for not_typed in ["value", "member", "ternary", "element", "pick"] {
+            assert!(!type_key(not_typed), "{not_typed}");
         }
     }
 
