@@ -15,7 +15,7 @@ fn hold(a: &mut App, code: KeyCode, m: KeyModifiers, n: u32, gap: Duration) {
 }
 
 fn missed(of: &[(&'static str, u64)]) -> HashMap<&'static str, u64> {
-    HashMap::from_iter(of.iter().copied())
+    of.iter().copied().collect::<HashMap<_, _>>()
 }
 
 fn open_by_name(a: &mut App, query: &str) {
