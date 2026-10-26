@@ -541,6 +541,23 @@ impl App {
         name: &str,
     ) -> Option<WrittenType> {
         let source = search::java_lambda_source(text, line1, name)?;
+        if let Some((owner, method)) = source.reference {
+            let JvmType::Project(decl) = self.jvm_type_at(file, text, &owner) else {
+                return None;
+            };
+            let TypedField { hit, written } = self.jvm_call_type(&decl, &method)?;
+            if !written.starts_with(|c: char| c.is_ascii_uppercase())
+                || !written
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+            {
+                return None;
+            }
+            let t = self.text_of(&hit.path)?;
+            let resolved = self.jvm_type_at(&hit.path, &t, &written);
+            return matches!(resolved, JvmType::Project(_))
+                .then_some(WrittenType { resolved, written });
+        }
         let (in_file, written) = match (source.receiver, source.call) {
             (Some(r), None) => {
                 let [l] = search::bindings(Kind::Jvm, text, line1, &r)

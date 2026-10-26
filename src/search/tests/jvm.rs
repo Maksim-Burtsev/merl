@@ -210,6 +210,11 @@ fn jvm_assigned_calls_are_of_a_lowercase_name() {
     );
     assert_eq!(call("    val s = make()"), Some((None, "make".to_owned())));
     assert_eq!(call("    val s = Make()"), None);
+    assert_eq!(
+        call("    var s = getter.find(wrapper.id(), \"a\");"),
+        Some((Some("getter".to_owned()), "find".to_owned()))
+    );
+    assert_eq!(call("    var s = getter.find(wrapper.id(x()));"), None);
 }
 
 #[test]

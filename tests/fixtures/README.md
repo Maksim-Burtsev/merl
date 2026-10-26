@@ -825,7 +825,12 @@ declaration-shaped lines in a KDoc, a raw string and a string template.
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
 field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayName()` that returns
 a type outside the project, a chain off a call that is no getter (a picker of the explicit
-getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
+getter and the Lombok fields) and a getter returning a type parameter. Its `Flow` (#1278) types
+lambda parameters by their chain, and `Ticket`, a `@Data` class under a `@Deprecated(` over
+several lines, is reached through a `.map(Ticket::from)` step, a `Collectors.toMap` lambda and a
+`var` assigned from a call with a call in its arguments, beside an overloaded `Ticket::of`, a
+`Ticket::label` returning an `Optional` and a `Draft` with no Lombok under a multi-line
+annotation, whose field after a `@Getter` one over two lines is no getter. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
 (#1115) calls static methods of project types: one returning `@Nullable T`, one behind an

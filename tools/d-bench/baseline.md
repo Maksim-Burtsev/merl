@@ -87,7 +87,7 @@ The csharp row with #1282's next pass (the element `Select` makes through a proj
 | cpp (leveldb) | 232 | 204 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 68 | 12 | 19.3 | 68.6 |
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 46.0 |
-| java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
+| java (halo) | 115 | 112 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 184.3 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 78 (92%) | 7 (8%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.9 |
 | ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
@@ -111,3 +111,4 @@ The csharp row with #1282's next pass (the element `Select` makes through a proj
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 80 (82%) | 13 (13%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
+The java row with #1278's second pass (a Lombok `@Data` class read above a multi-line annotation such as `@GVK(…)`, a chain's `.next()` step, a `.map(Type::method)` step typed by the method's return, a `Collectors.toMap(x -> …)` lambda, and a `var` assigned from a call with a nested call in its arguments): over `88886d35`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors (java0145, java0151, java0154, java0163, java0166, java0169, java0181, java0182, java0184, java0186) written.
