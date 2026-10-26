@@ -73,6 +73,7 @@ The lua row with #1290 (a member of a LuaLS `---@class` read from its `---@field
 The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` over `module.exports = {`: `create`, `meta: { docs`, through the unaliased `@eslint/core` base `RuleDefinition`, and a listener method of the object `create` returns, typed by its declared `RuleListener`): over `779701a14`, 2026-10-26, release build, `vm.loadavg` { 7.61 9.34 9.27 } before the run, { 8.53 9.90 9.45 } after.
 The js row with #1291 (a key of an object literal nested under another key is a key, `recommended` in `meta: { docs: {` of js0018): over `88886d35`, 2026-10-26, release build, on a Linux container against master played there, only the moved cursors written.
 The swift row with #1286's second pass (an implicit member passed to a method of a typed receiver, `session.webSocketRequest(.websocket(), ..)`, and to a memberwise init whose property is typed by its value, `var path = Path.method(.get)`): over `88886d35`, 2026-10-27, on a Linux container (no Swift SDK) against master played there, only the moved cursors (swift0005, swift0136) written.
+The dart row with #1280's second pass (a class of `dart:io` the SDK declares in `dart:_http` and exports, `responseStream.redirects.isNotEmpty` of dart0018, and a field read through its initializer, `final Opts options = Opts();`): over `88886d35`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursor (dart0018) written.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -107,5 +108,5 @@ The swift row with #1286's second pass (an implicit member passed to a method of
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 79 (81%) | 14 (14%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
+| dart (dio) | 97 | 80 (82%) | 13 (13%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

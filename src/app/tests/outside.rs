@@ -285,6 +285,66 @@ fn a_dart_receiver_of_an_sdk_type_answers_from_the_sdk() {
 }
 
 #[test]
+fn a_dart_sdk_class_another_library_exports_types_a_chain_however_it_is_reached() {
+    let sdk = external_root(
+        "outside-dart-export",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\nexport 'dart:async' show Future;\n\npart 'iterable.dart';\n",
+            ),
+            (
+                "lib/async/async.dart",
+                "library dart.async;\n\nabstract interface class Future<T> {\n  Future<T> whenComplete(void action());\n}\n",
+            ),
+            (
+                "lib/core/iterable.dart",
+                "part of \"dart:core\";\n\nabstract mixin class Iterable<E> {\n  bool get isNotEmpty => true;\n}\n",
+            ),
+            (
+                "lib/libraries.json",
+                "{\"vm\": {\"libraries\": {\"_http\": {\"uri\": \"_http/http.dart\"}}}}\n",
+            ),
+            (
+                "lib/io/io.dart",
+                "library dart.io;\n\nexport 'dart:_http' show HttpClientResponse;\n",
+            ),
+            (
+                "lib/_http/http.dart",
+                "library dart._http;\n\nabstract interface class HttpClientResponse {\n  Iterable<int> get redirects;\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-export-project",
+        &[(
+            "lib/main.dart",
+            "import 'dart:async';\nimport 'dart:io';\n\nclass Hops {\n  bool get isNotEmpty => false;\n  void whenComplete() {}\n}\n\nFuture<bool> fetch(Future<HttpClientResponse> future) async {\n  late final HttpClientResponse response;\n  try {\n    response = await future;\n  } catch (_) {\n    future.whenComplete(() {});\n    rethrow;\n  }\n  return response.redirects.isNotEmpty;\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "response.redirects.isNotEmpty");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "isNotEmpty \u{2192} Iterable.isNotEmpty (via Iterable)",
+            &at(&sdk, "lib/core/iterable.dart", 4)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "future.whenComplete");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "whenComplete \u{2192} Future.whenComplete (via Future)",
+            &at(&sdk, "lib/async/async.dart", 4)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_dart_sdk_name_skips_the_patch_files_and_a_static_reads_its_class() {
     let sdk = external_root(
         "outside-dart-patch",
