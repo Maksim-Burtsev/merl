@@ -124,6 +124,10 @@ fn jvm_anonymous_classes_enclose_but_name_nothing() {
     assert_eq!(jvm_type_name("    val r = object : Runnable {"), None);
     assert_eq!(jvm_type_name("    companion object {"), None);
     assert_eq!(
+        jvm_type_name("enum class Flavor(val suffix: String) {").as_deref(),
+        Some("Flavor")
+    );
+    assert_eq!(
         jvm_type_name("    companion object Factory {").as_deref(),
         Some("Factory")
     );
@@ -440,6 +444,23 @@ fn a_kotlin_lambda_over_a_written_collection_binds_its_element() {
         kotlin_element_type(text.lines().next().unwrap(), "n"),
         None,
         "a map"
+    );
+}
+
+#[test]
+fn a_kotlin_lambda_parameter_is_read_through_inner_lambdas_and_enum_entries() {
+    let text = "fun f(items: List<Wrapped>) {\n    items.forEach { w ->\n        item(key = 1) {\n            Show(\n                name = w.topic,\n            )\n            val w = 2\n            w.x\n        }\n    }\n    Flavor.entries.forEach { flavor ->\n        flavor.suffix\n    }\n}\n";
+    let at = |line1: usize, before: &str, name: &str| {
+        kotlin_lambda_collection(text, line1, before, name)
+    };
+    assert_eq!(
+        at(5, "                name = w.", "w").as_deref(),
+        Some("items")
+    );
+    assert_eq!(at(8, "            w.", "w"), None, "a `val` shadows it");
+    assert_eq!(
+        at(12, "        flavor.", "flavor").as_deref(),
+        Some("Flavor.entries")
     );
 }
 
