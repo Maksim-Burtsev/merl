@@ -66,6 +66,7 @@ The php row with #1279's second pass (a method a class inherits from a `vendor/`
 The cpp row with #1281 (a std member overloaded only by `const` / `volatile`, called on a plain object, lands on the overload C++ calls: `data()`, `back()`, `load()`): over `0a55ada19`, 2026-10-26, release build, `vm.loadavg` { 9.99 8.27 8.27 } before the run, { 10.18 8.36 8.30 } after.
 The sql row with #1284 (`NEW.`/`OLD.` columns through the trigger that runs the function, in effect at the cursor): over `affcd2f55`, 2026-10-26, release build, `vm.loadavg` { 4.99 7.13 7.67 } before the run, { 5.12 6.68 7.46 } after.
 The ruby row with #1285 (an `@ivar` an action reads, set by the one `before_action` that assigns it): over `37599741`, 2026-10-26, release build, `vm.loadavg` { 11.36 7.89 7.44 } before the run, { 7.93 7.92 7.52 } after.
+The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entries.forEach { flavor -> }`'s parameter, an outer lambda's parameter inside a nested lambda, a constructor parameter without `val` in a property initializer, `string.name` after `import <pkg>.R.string`): over `615178b25`, 2026-10-26, release build, `vm.loadavg` { 8.58 6.36 6.33 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -79,7 +80,7 @@ The ruby row with #1285 (an `@ivar` an action reads, set by the one `before_acti
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
 | swift (Alamofire) | 449 | 424 (94%) | 24 (5%) | 0 (0%) | 1 (0%) | 280 | 12 | 20.7 | 50.0 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
-| kotlin (nowinandroid) | 56 | 51 (91%) | 4 (7%) | 0 (0%) | 1 (2%) | 95 | 0 | 28.0 | 63.9 |
+| kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |
 | ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |

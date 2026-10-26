@@ -247,7 +247,16 @@ impl App {
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =
                         kt.then(|| search::kotlin_lambda_collection(text, line, before, f));
-                    Self::jvm_element(text, line, &lambda.flatten()?, false)
+                    let lambda = lambda.flatten()?;
+                    match lambda.strip_suffix(".entries") {
+                        Some(e) => match self.jvm_type_at(here, text, e) {
+                            JvmType::Project(h) if h.text.contains("enum class") => {
+                                Some(e.to_owned())
+                            }
+                            _ => None,
+                        },
+                        None => Self::jvm_element(text, line, &lambda, false),
+                    }
                 });
                 let WrittenType {
                     resolved: ty,
@@ -473,10 +482,17 @@ impl App {
             .map(|b| b.line1)
             .collect();
         let declared = if bindings.is_empty() {
-            search::jvm_enclosing_types(text, line1)
+            let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
                 .map(|d| search::jvm_members_of(text, d, name))
-                .find(|m| !m.is_empty())?
+                .find(|m| !m.is_empty());
+            match members {
+                Some(m) => m,
+                None if matches!(ext, Some("kt" | "kts")) => {
+                    vec![search::kotlin_constructor_parameter(text, line1, name)?]
+                }
+                None => return None,
+            }
         } else {
             bindings
         };
