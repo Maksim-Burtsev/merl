@@ -78,4 +78,47 @@ M.fields = {
   --                 ^ d: none
 }
 
+---@class Pot
+---@field spout string
+---@class Lid
+---@field knob string
+
+---@param p Pot
+function M.stacked(p)
+  local s = p.spout
+  --          ^ d: lua/tea/annotated.lua:82
+  return s, p.knob
+  --          ^ d: none
+end
+
+---@param leaf Leaf<string>
+function M.generic(leaf)
+  return leaf.origin
+  --          ^ d: none
+end
+
+---@return Leaf
+function pick_global()
+  return nil
+end
+
+function M.global_picked()
+  local g = pick_global()
+  return g.grade
+  --       ^ d: none
+end
+
+---@class Config
+---@field verbose boolean
+local opts = {}
+
+function M.configure()
+  local opts = {}
+  return opts.verbose
+  --          ^ d: none
+end
+
+M.loud = opts.verbose
+--            ^ d: lua/tea/annotated.lua:112
+
 return M

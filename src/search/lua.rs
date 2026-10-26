@@ -538,8 +538,8 @@ fn lua_doc_class(doc: &[&str], head: &str) -> Option<String> {
     };
     Some(class.captures(only)?[1].to_owned())
 }
-pub fn lua_table_class(text: &str, table: &str) -> Option<String> {
-    let (line, _) = lua_local_at(text, text.lines().count() + 1, table)?;
+pub fn lua_table_class(text: &str, at: usize, table: &str) -> Option<String> {
+    let (line, _) = lua_local_at(text, at, table)?;
     let lines: Vec<&str> = text.lines().collect();
     lua_doc_class(&lua_doc_above(&lines, line - 1), r"class\s+")
 }
@@ -574,6 +574,9 @@ pub fn lua_return_class(text: &str, line: usize, value: &str) -> Option<String> 
     lua_doc_class(&lua_doc_above(&lines, at), r"return\s+")
 }
 pub fn lua_class_members(text: &str, class: &str, word: &str) -> Option<Vec<usize>> {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^---\s*@class\s").expect("the regex is a literal")
+    });
     let head = Regex::new(&format!(
         r"^---\s*@class\s+(?:\(exact\)\s+)?{}\s*(?::.*)?$",
         regex::escape(class)
@@ -595,7 +598,10 @@ pub fn lua_class_members(text: &str, class: &str, word: &str) -> Option<Vec<usiz
         .into_iter()
         .flat_map(|h| {
             (h + 1..lines.len())
-                .take_while(|&i| lines[i].trim().starts_with("---"))
+                .take_while(|&i| {
+                    let l = lines[i].trim();
+                    l.starts_with("---") && !CLASS.is_match(l)
+                })
                 .filter(|&i| field.is_match(lines[i].trim()))
         })
         .map(|i| i + 1)

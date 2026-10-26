@@ -63,3 +63,13 @@ const chained = {
     //                ^ d: picker linter/token_store.js:2, linter/types/index.d.ts:6
   },
 };
+
+/** @type {import('../types').Rule.RuleModule} */
+const documented = {
+  meta: {
+    docs: {
+      description: "",
+    //^ d: none
+    },
+  },
+};
