@@ -33,3 +33,11 @@ class TestWrapped:
         #^ d: picker shop/rigs/conftest.py:5
     ):
         return backend
+
+
+def install():
+    global backend
+    backend = get_backend()
+    #^ d: shop/rigs/test_search.py:40
+    return backend
+    #      ^ d: shop/rigs/test_search.py:40
