@@ -69,6 +69,7 @@ The ruby row with #1285 (an `@ivar` an action reads, set by the one `before_acti
 The js row with #1283 (an ESLint rule's `context` typed by the `create` of the JSDoc `@type` over `module.exports = {`, its members through an aliased `@eslint/core` base, and `sourceCode` through `Options["Code"]` of that base): over `c55729c57`, 2026-10-26, release build, `vm.loadavg` { 5.57 5.85 6.56 } before the run, { 6.31 5.83 6.46 } after.
 The swift row with #1286 (an implicit member passed as an argument, through the type of the callee's parameter: `URLEncodedFormEncoder(arrayEncoding: .indexInBrackets)`, `BoundaryGenerator.boundary(forBoundaryType: .initial, ..)`): over `6e782ad49`, 2026-10-26, release build, `vm.loadavg` { 6.63 7.48 7.15 } before the run.
 The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entries.forEach { flavor -> }`'s parameter, an outer lambda's parameter inside a nested lambda, a constructor parameter without `val` in a property initializer, `string.name` after `import <pkg>.R.string`): over `615178b25`, 2026-10-26, release build, `vm.loadavg` { 8.58 6.36 6.33 } before the run.
+The lua row with #1290 (a member of a LuaLS `---@class` read from its `---@field` through a `---@param`, a local function's `---@return` or the class above a required module's table; a module function returning `setmetatable({..}, { __index = _M })`; a module member made by a call, `typedefs.uuid = Schema.define {`): over `89ccf77d`, 2026-10-26, release build, `vm.loadavg` { 7.64 8.98 9.33 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -102,6 +103,6 @@ The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entr
 | scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 2 | 8.0 | 9.6 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
-| lua (nvim-treesitter, kong) | 63 | 57 (90%) | 2 (3%) | 0 (0%) | 4 (6%) | 47 | 1 | 1.4 | 14.8 |
+| lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 79 (81%) | 14 (14%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

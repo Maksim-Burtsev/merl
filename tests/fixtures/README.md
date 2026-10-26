@@ -245,6 +245,14 @@ whose receiver is read on its own line, `M.Gaiwan = Gaiwan` answered by the modu
 closure and in a `function(self)`, a call above the `local function` of its name (a global, so
 none), a one-line string, a `--` comment and a `--[==[` block declaring names, and `goto continue`
 (#1209).
+`lua/tea/annotated.lua` reads LuaLS annotations (#1290): a field of the `Leaf` of `_meta/leaf.lua`
+through a `---@param leaf? Leaf` and a local function's one `---@return Leaf?`, and the
+`---@class` above `caddy.lua`'s module table, whose members an `__index` function makes; a
+`Leaf[]`, a `Leaf|nil`, a `---@param` of another name, a parameter shadowed by a local, a
+function passed as an argument and a second `---@return` answer nothing. `brand.lua`'s `define`
+returns `setmetatable({..}, { __index = _M })`, so its result's `enable` is `_M`'s, while a
+second value returned beside it and an `__index` of another table stay a picker; `typedefs.lua`
+makes members by calls (`Schema.define {`, `Schema.define(`), and `x = x or 0` is none.
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.

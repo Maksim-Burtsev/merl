@@ -360,12 +360,29 @@ pub fn lua_makes_instance(text: &str, line: usize, table: &str) -> bool {
     let Some(head) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
         return false;
     };
-    let body = (head + 1..lines.len())
-        .take_while(|&i| lines[i].trim().is_empty() || indent(lines[i]) > indent(lines[head]));
+    let body: Vec<usize> = (head + 1..lines.len())
+        .take_while(|&i| lines[i].trim().is_empty() || indent(lines[i]) > indent(lines[head]))
+        .collect();
     let sets = std::iter::once(head)
-        .chain(body)
+        .chain(body.iter().copied())
         .any(|i| code(i).is_some_and(|c| set.is_match(&c)));
-    sets && (0..lines.len()).any(|i| code(i).is_some_and(|c| index.is_match(c.trim_end())))
+    let indexed = Regex::new(&format!(
+        r"^return\s+setmetatable\s*\((?s:.*),\s*\{{\s*__index\s*=\s*{t}\s*\}}\s*\)\s*;?$"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let step = body
+        .iter()
+        .find(|&&i| !lines[i].trim().is_empty())
+        .map(|&i| indent(lines[i]));
+    let returned = body
+        .iter()
+        .rposition(|&i| Some(indent(lines[i])) == step && lines[i].trim().starts_with("return"))
+        .is_some_and(|last| {
+            let tail: Vec<String> = body[last..].iter().filter_map(|&i| code(i)).collect();
+            indexed.is_match(tail.join("\n").trim())
+        });
+    returned
+        || (sets && (0..lines.len()).any(|i| code(i).is_some_and(|c| index.is_match(c.trim_end()))))
 }
 pub fn lua_goto_label(text: &str, line: usize, before: &str, name: &str) -> Option<Vec<usize>> {
     static GOTO: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -502,4 +519,104 @@ pub fn lua_call(value: &str) -> Option<(Vec<String>, String)> {
     let c = CALL.captures(value.trim().trim_end_matches(';'))?;
     let chain = c[1].split('.').map(str::to_owned).collect();
     Some((chain, c[2].to_owned()))
+}
+fn lua_doc_above<'a>(lines: &[&'a str], at: usize) -> Vec<&'a str> {
+    lines[..at]
+        .iter()
+        .rev()
+        .map(|l| l.trim())
+        .take_while(|l| l.starts_with("---"))
+        .collect()
+}
+fn lua_doc_class(doc: &[&str], head: &str) -> Option<String> {
+    let tag = Regex::new(&format!(r"^---\s*@{head}")).expect("the head is a valid pattern");
+    let class = Regex::new(&format!(r"^---\s*@{head}([A-Za-z_][\w.]*)\??(?:\s|$)"))
+        .expect("the head is a valid pattern");
+    let mut tagged = doc.iter().filter(|l| tag.is_match(l));
+    let (Some(only), None) = (tagged.next(), tagged.next()) else {
+        return None;
+    };
+    Some(class.captures(only)?[1].to_owned())
+}
+pub fn lua_table_class(text: &str, table: &str) -> Option<String> {
+    let (line, _) = lua_local_at(text, text.lines().count() + 1, table)?;
+    let lines: Vec<&str> = text.lines().collect();
+    lua_doc_class(&lua_doc_above(&lines, line - 1), r"class\s+")
+}
+pub fn lua_param_class(text: &str, line: usize, name: &str) -> Option<String> {
+    static PARAMS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\b[^(]*\(([^)]*)\)").expect("the regex is a literal")
+    });
+    let at = bindings(Kind::Lua, text, line, name).first()?.line1 - 1;
+    let lines: Vec<&str> = text.lines().collect();
+    let header = uncommented(Kind::Lua, lines[at]);
+    let mut lists = PARAMS.captures_iter(&header);
+    let (Some(only), None) = (lists.next(), lists.next()) else {
+        return None;
+    };
+    only[1].split(',').any(|p| p.trim() == name).then_some(())?;
+    let head = format!(r"param\s+{}\??\s+", regex::escape(name));
+    lua_doc_class(&lua_doc_above(&lines, at), &head)
+}
+pub fn lua_return_class(text: &str, line: usize, value: &str) -> Option<String> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_]\w*)\s*\([^()]*\)$").expect("the regex is a literal")
+    });
+    let callee = CALL.captures(value.trim().trim_end_matches(';'))?[1].to_owned();
+    let at = bindings(Kind::Lua, text, line, &callee).first()?.line1 - 1;
+    let lines: Vec<&str> = text.lines().collect();
+    let own = Regex::new(&format!(
+        r"^\s*local\s+function\s+{}\s*\(",
+        regex::escape(&callee)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    own.is_match(lines[at]).then_some(())?;
+    lua_doc_class(&lua_doc_above(&lines, at), r"return\s+")
+}
+pub fn lua_class_members(text: &str, class: &str, word: &str) -> Option<Vec<usize>> {
+    let head = Regex::new(&format!(
+        r"^---\s*@class\s+(?:\(exact\)\s+)?{}\s*(?::.*)?$",
+        regex::escape(class)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let field = Regex::new(&format!(
+        r"^---\s*@field\s+(?:(?:public|protected|private|package)\s+)?{}\??\s",
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let lines: Vec<&str> = text.lines().collect();
+    let heads: Vec<usize> = (0..lines.len())
+        .filter(|&i| head.is_match(lines[i].trim()))
+        .collect();
+    if heads.is_empty() {
+        return None;
+    }
+    let mut found: Vec<usize> = heads
+        .into_iter()
+        .flat_map(|h| {
+            (h + 1..lines.len())
+                .take_while(|&i| lines[i].trim().starts_with("---"))
+                .filter(|&i| field.is_match(lines[i].trim()))
+        })
+        .map(|i| i + 1)
+        .collect();
+    if class.chars().all(lua_name_char) {
+        found.extend(lua_members(text, class, word));
+    }
+    Some(found)
+}
+pub fn lua_made_member(text: &str, table: &str, word: &str) -> Vec<usize> {
+    let re = Regex::new(&format!(
+        r#"^{}\.{}\s*=\s*[A-Za-z_][\w.:]*\s*[({{"']"#,
+        regex::escape(table),
+        regex::escape(word)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let literal = literal_lines(Kind::Lua, text);
+    text.lines()
+        .zip(literal)
+        .enumerate()
+        .filter(|(_, (l, inside))| !inside && re.is_match(l))
+        .map(|(i, _)| i + 1)
+        .collect()
 }

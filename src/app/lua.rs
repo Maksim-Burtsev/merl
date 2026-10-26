@@ -7,6 +7,22 @@ struct Owner {
     table: Option<String>,
 }
 
+fn candidates(path: &Path, source: &str, lines: Vec<usize>, reason: &Reason) -> Vec<Candidate> {
+    lines
+        .into_iter()
+        .map(|line| Candidate {
+            hit: Hit {
+                deleted: None,
+                path: path.to_path_buf(),
+                line1: line,
+                byte_col: None,
+                text: source.lines().nth(line - 1).unwrap_or_default().to_owned(),
+            },
+            reason: reason.clone(),
+        })
+        .collect()
+}
+
 impl App {
     pub(super) fn lua_qualified(
         &self,
@@ -22,7 +38,7 @@ impl App {
             _ => self.lua_owner(here, text, chain, line, 0),
         };
         let Some(o) = o else {
-            return Vec::new();
+            return self.lua_annotated(text, chain, line, word);
         };
         let Some(table) = o.table.as_deref() else {
             return Vec::new();
@@ -31,22 +47,43 @@ impl App {
         if lines.is_empty() {
             lines.extend(search::lua_handed_on(&o.source, table, word));
         }
-        lines
-            .into_iter()
-            .map(|line| Candidate {
-                hit: Hit {
-                    deleted: None,
-                    path: o.path.clone(),
-                    line1: line,
-                    byte_col: None,
-                    text: o
-                        .source
-                        .lines()
-                        .nth(line - 1)
-                        .unwrap_or_default()
-                        .to_owned(),
-                },
-                reason: o.reason.clone(),
+        if lines.is_empty() {
+            lines = search::lua_made_member(&o.source, table, word);
+        }
+        if lines.is_empty()
+            && let Some(class) = search::lua_table_class(&o.source, table)
+        {
+            return self.lua_class_members(&class, word);
+        }
+        candidates(&o.path, &o.source, lines, &o.reason)
+    }
+
+    fn lua_annotated(
+        &self,
+        text: &str,
+        chain: &[String],
+        line: usize,
+        word: &str,
+    ) -> Vec<Candidate> {
+        let [name] = chain else {
+            return Vec::new();
+        };
+        let class = search::lua_param_class(text, line, name).or_else(|| {
+            let (bound, value) = search::lua_local_at(text, line, name)?;
+            search::lua_return_class(text, bound, &value)
+        });
+        class.map_or_else(Vec::new, |c| self.lua_class_members(&c, word))
+    }
+
+    fn lua_class_members(&self, class: &str, word: &str) -> Vec<Candidate> {
+        let reason = Reason::Receiver(class.to_owned());
+        self.files
+            .iter()
+            .filter(|p| p.extension().is_some_and(|e| e == "lua"))
+            .filter_map(|p| Some((p, self.file_text(p).filter(|t| t.contains("@class"))?)))
+            .flat_map(|(p, source)| {
+                let lines = search::lua_class_members(&source, class, word).unwrap_or_default();
+                candidates(p, &source, lines, &reason)
             })
             .collect()
     }
