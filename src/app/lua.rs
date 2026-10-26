@@ -5,6 +5,7 @@ struct Owner {
     reason: Reason,
     source: String,
     table: Option<String>,
+    at: usize,
 }
 
 fn candidates(path: &Path, source: &str, lines: Vec<usize>, reason: &Reason) -> Vec<Candidate> {
@@ -51,7 +52,7 @@ impl App {
             lines = search::lua_made_member(&o.source, table, word);
         }
         if lines.is_empty()
-            && let Some(class) = search::lua_table_class(&o.source, table)
+            && let Some(class) = search::lua_table_class(&o.source, o.at, table)
         {
             return self.lua_class_members(&class, word);
         }
@@ -116,6 +117,7 @@ impl App {
                 owner.table.as_deref(),
                 name,
             )?);
+            owner.at = owner.source.lines().count() + 1;
         }
         Some(owner)
     }
@@ -136,6 +138,7 @@ impl App {
                 reason: Reason::Path(chain.join(".")),
                 source: self.text_of(here)?,
                 table: Some(first.clone()),
+                at: line,
             });
         }
         self.lua_expr_owner(here, text, &value, bound, hops)
@@ -157,6 +160,7 @@ impl App {
             let source = self.text_of(&path)?;
             return Some(Owner {
                 table: search::lua_returned(&source),
+                at: source.lines().count() + 1,
                 reason: Reason::Import(module.to_owned()),
                 path,
                 source,
