@@ -333,8 +333,7 @@ fn a_review_folder_reads_its_workspace_packages_as_your_checkout_reads_its_own()
     }
 }
 
-#[test]
-fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
+fn sveltekit_project() -> (PathBuf, App) {
     let main = "import { goto, missing } from '$app/navigation';\nimport { page, navigating } from '$app/state';\nimport { enhance } from '$app/forms';\nimport { browser } from '$app/environment';\nimport { base } from '$app/paths';\n\ngoto('/');\npage.data;\nnavigating;\nenhance;\nbrowser;\nbase;\nmissing;\npage.pathname;\nnavigating.from;\npage.state;\n";
     let kit = "declare module '$app/navigation' {\n\texport function goto(url: string): Promise<void>;\n\texport {};\n}\n\ndeclare module '$app/state' {\n\texport const page: import(\"@sveltejs/kit\").Page;\n\texport const navigating: boolean;\n\texport {};\n}\n\ndeclare module '@sveltejs/kit' {\n\texport interface PageData {}\n\texport interface Page<\n\t\tP extends string = string\n\t> {\n\t\turl: URL & { pathname: P };\n\t\t/**\n\t\t * The merged {@link data}.\n\t\t */\n\t\tdata: PageData & Record<string, any>;\n\t}\n\texport interface Other {\n\t\tstate: object;\n\t}\n}\n";
     let map = r#"{"version":3,"file":"index.d.ts","sources":["../src/client.js","../src/state.js"],"mappings":";CAEgB,KAAI;;;;;CCFA;CAGA,KAEA"}"#;
@@ -342,7 +341,7 @@ fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
         format!("declare module '{m}' {{\n\texport const {name}: boolean;\n}}\n")
     };
     let package = r#"{"devDependencies":{"@sveltejs/kit":"2","dupe-a":"1","dupe-b":"1"}}"#;
-    let (dir, mut a) = project_app(
+    let (dir, a) = project_app(
         "ts-ambient",
         &[("src/main.ts", main), ("package.json", package)],
     );
@@ -381,6 +380,12 @@ fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
             ),
         ],
     );
+    (dir, a)
+}
+
+#[test]
+fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
+    let (dir, mut a) = sveltekit_project();
     let at = |p: &str| format!("node_modules/@sveltejs/kit/{p}");
     for (code, want, why) in [
         (
