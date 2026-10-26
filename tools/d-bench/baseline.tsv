@@ -1457,11 +1457,11 @@ csharp0157	ok	jump	21.94
 csharp0158	ok	jump	27.56
 csharp0159	no-answer	stay	29.44
 csharp0160	no-answer	stay	32.67
-csharp0161	pick-hit	picker	16.81
+csharp0161	ok	jump	103.45
 csharp0162	pick-hit	picker	20.02
 csharp0163	no-answer	stay	27.42
 csharp0164	no-answer	stay	37.87
-csharp0165	pick-hit	picker	59.39
+csharp0165	ok	jump	172.37
 csharp0166	no-answer	stay	21.29
 csharp0167	no-answer	stay	24.03
 csharp0168	no-answer	stay	15.24
@@ -1487,9 +1487,9 @@ csharp0187	no-answer	stay	33.59
 csharp0188	ok	jump	15.40
 csharp0189	no-answer	stay	20.81
 csharp0190	no-answer	stay	17.88
-csharp0191	pick-hit	picker	16.64
+csharp0191	ok	jump	92.57
 csharp0192	ok	jump	14.76
-csharp0193	pick-hit	picker	14.54
+csharp0193	ok	jump	74.42
 csharp0194	ok	jump	23.11
 csharp0195	ok	jump	15.73
 csharp0196	ok	jump	17.19

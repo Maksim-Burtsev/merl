@@ -74,6 +74,7 @@ The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` ov
 The js row with #1291 (a key of an object literal nested under another key is a key, `recommended` in `meta: { docs: {` of js0018): over `88886d35`, 2026-10-26, release build, on a Linux container against master played there, only the moved cursors written.
 The swift row with #1286's second pass (an implicit member passed to a method of a typed receiver, `session.webSocketRequest(.websocket(), ..)`, and to a memberwise init whose property is typed by its value, `var path = Path.method(.get)`): over `88886d35`, 2026-10-27, on a Linux container (no Swift SDK) against master played there, only the moved cursors (swift0005, swift0136) written.
 The dart row with #1280's second pass (a class of `dart:io` the SDK declares in `dart:_http` and exports, `responseStream.redirects.isNotEmpty` of dart0018, and a field read through its initializer, `final Opts options = Opts();`): over `88886d35`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursor (dart0018) written.
+The csharp row with #1282's next pass (the element `Select` makes through a project extension method or `new`, of a `foreach` and of `items[i]` after `.ToList()`, and of an array that `Deserialize<T[]>(…) ?? Array.Empty<T>()` gives on both sides: csharp0161, csharp0165, csharp0191, csharp0193): over `ab0da00a`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors written.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -88,7 +89,7 @@ The dart row with #1280's second pass (a class of `dart:io` the SDK declares in 
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 46.0 |
 | java (halo) | 115 | 102 (89%) | 13 (11%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 183.4 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
-| csharp (eShop) | 85 | 74 (87%) | 11 (13%) | 0 (0%) | 0 (0%) | 130 | 1 | 21.9 | 37.9 |
+| csharp (eShop) | 85 | 78 (92%) | 7 (8%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.9 |
 | ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
