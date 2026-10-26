@@ -154,7 +154,7 @@ pub(super) fn scala_patterns(word: &str) -> Vec<String> {
     ]
 }
 
-fn param_names(entry: &str, groovy: bool) -> Vec<String> {
+pub(super) fn param_names(entry: &str, groovy: bool) -> Vec<String> {
     static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^(?:@[\w.]+(?:\([^)]*\))?\s+)*(?:(?:vararg|noinline|crossinline|private|public|protected|internal|override|open|val|var|using|implicit)\s+)*([A-Za-z_]\w*)\s*:").expect("the regex is a literal")
     });
@@ -1028,15 +1028,11 @@ pub fn kotlin_lambda_collection(
         return source(&head);
     }
     let lines: Vec<&str> = text.lines().collect();
-    let shadow = Regex::new(&format!(
-        r"\b(?:val|var)\s+{0}\b|\b{0}\s*\)?\s*(?:,[^>]*)?->",
-        regex::escape(name)
-    ))
-    .ok()?;
-    if shadow.is_match(before) {
-        return None;
-    }
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let nearest: Vec<usize> = jvm_bindings(&lines, at, name)
+        .iter()
+        .map(|b| b.line1)
+        .collect();
     for _ in 0..6 {
         let s = scope_of(&lines, at)?;
         let code = uncommented(Kind::Jvm, lines[s]);
@@ -1052,8 +1048,7 @@ pub fn kotlin_lambda_collection(
             && let Some((head, bound)) = kotlin_lambda_head(text, s + 1, &code)
             && bound == name
         {
-            let between = lines.get(s + 1..line1.checked_sub(1)?)?;
-            return (!between.iter().any(|l| shadow.is_match(l)))
+            return (name == "it" || nearest == [s + 1])
                 .then(|| source(&head))
                 .flatten();
         }

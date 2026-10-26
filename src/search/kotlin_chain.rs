@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::jvm::{anonymous, opens_type, scope_of};
+use super::jvm::{anonymous, jvm_declared_type, opens_type, param_names, scope_of};
 use super::{Group, Kind, group, split_top, uncommented};
 
 pub struct KotlinCallChain {
@@ -157,16 +157,12 @@ pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Opt
     static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bclass\s+\w+[^(:{]*\(").expect("the regex is a literal")
     });
+    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])(?:get|set)\s*\(|\b(?:fun|constructor)\b")
+            .expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
-    let in_function = |l: &str| {
-        let code = uncommented(Kind::Jvm, l);
-        let t = code.trim_start();
-        t.starts_with("get(")
-            || t.starts_with("set(")
-            || code
-                .split(|c: char| !c.is_alphanumeric())
-                .any(|w| w == "fun")
-    };
+    let in_function = |l: &str| FUNCTION.is_match(&uncommented(Kind::Jvm, l));
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     if in_function(lines[at]) {
         return None;
@@ -183,12 +179,11 @@ pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Opt
     };
     let open = CLASS.find(lines[decl])?.end() - 1;
     let g = group(Kind::Jvm, &lines, decl, open)?;
-    let param = Regex::new(&format!(
-        r"(?:^|[(,])\s*(?:@[\w.]+(?:\([^)]*\))?\s+)*{}\s*:",
-        regex::escape(name)
-    ))
-    .ok()?;
+    let entry = split_top(Kind::Jvm, &g.inner_uncommented, b',')
+        .into_iter()
+        .find(|e| param_names(e, false).iter().any(|p| p == name))?;
+    let declared = jvm_declared_type(entry, name, true)?;
     (decl..=g.close_line)
-        .find(|&i| param.is_match(&uncommented(Kind::Jvm, lines[i])))
+        .find(|&i| jvm_declared_type(lines[i], name, true).as_ref() == Some(&declared))
         .map(|i| i + 1)
 }
