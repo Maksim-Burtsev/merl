@@ -601,6 +601,13 @@ impl App {
                     let p = self.cs_name_type(file, text, at, &items, spent)?;
                     self.cs_element(&p, true)?
                 }
+                (None, search::CsValue::Unknown)
+                    if lines
+                        .get(at - 1)
+                        .is_some_and(|l| search::cs_rule_lambda(l, name)) =>
+                {
+                    self.cs_validated(file, text, at)?
+                }
                 (None, search::CsValue::Unknown) if hops > 0 => {
                     let receiver = search::cs_lambda_call(&lines, at - 1, name)?;
                     let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
@@ -619,6 +626,20 @@ impl App {
             one_more(&mut found, next)?;
         }
         found
+    }
+
+    fn cs_validated(&self, file: &Path, text: &str, line1: usize) -> Option<CsWrittenType> {
+        let owner = owner_of(file, text, line1)?;
+        let [base] = search::cs_bases(text, owner.line).try_into().ok()?;
+        let written = search::cs_validated(&base)?;
+        let CsType::Outside(_) = self.cs_resolve(file, text, owner.line, &base)? else {
+            return None;
+        };
+        Some(CsWrittenType {
+            ty: self.cs_resolve(file, text, owner.line, &written)?,
+            written,
+            from: (file.to_path_buf(), owner.line),
+        })
     }
 
     fn cs_this(&self, file: &Path, text: &str, line1: usize, name: &str) -> Option<Proven> {
