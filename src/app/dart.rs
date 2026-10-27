@@ -610,19 +610,28 @@ impl App {
         word: &str,
     ) -> Option<Vec<Candidate>> {
         let (range, _) = self.word_here(Some(Kind::Dart))?;
-        let called = self
-            .line_str()
-            .get(range.end..)
-            .is_some_and(|r| r.starts_with('('));
+        let tail = self.line_str().get(range.end..)?;
+        let called = tail.starts_with('(');
         if !chain.is_empty()
             || before.trim_end().ends_with('.')
-            || !called
+            || (tail.starts_with(':') && search::dart_label(text, self.line + 1, range.start))
             || !search::dart_bindings_at(text, self.line + 1, range.start, word).is_empty()
         {
             return None;
         }
         let own = search::dart_this_super(text, self.line, false)?;
-        let found = self.dart_member_of(here, &own.class, word);
+        let mut found = self.dart_member_of(here, &own.class, word);
+        if !called {
+            let declares = Regex::new(&search::def_patterns(Kind::Dart, word).join("|"))
+                .is_ok_and(|d| d.is_match(self.line_str()));
+            if declares {
+                return None;
+            }
+            self.dart_accessor_side(before, word, &mut found);
+            if found.len() != 1 {
+                return None;
+            }
+        }
         (own.class != word
             && !found.is_empty()
             && found.iter().all(|c| c.hit.line1 != self.line + 1))
