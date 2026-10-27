@@ -203,6 +203,13 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
                 reference: Some(reference),
             });
         }
+        if let Some(reference) = wrapped_static_call(trim_end(dot), &method, &args) {
+            return Some(JavaChainSource {
+                receiver: None,
+                call: None,
+                reference: Some(reference),
+            });
+        }
         if KEEPS_ELEMENT.contains(&method.as_str()) {
             rest = dot;
             continue;
@@ -222,6 +229,31 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
             reference: None,
         });
     }
+}
+
+fn wrapped_static_call(dot: &[char], method: &str, args: &str) -> Option<(String, String)> {
+    static STATIC_CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\s*\.\s*([a-z]\w*)\s*$")
+            .expect("the regex is a literal")
+    });
+    let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let start = dot.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
+    let wrapper: String = dot.get(start..)?.iter().collect();
+    let head = trim_end(dot.get(..start)?);
+    if !["just", "of", "ofNullable"].contains(&method)
+        || !["Mono", "Flux", "Optional", "Stream"].contains(&wrapper.as_str())
+        || head.last() == Some(&'.')
+    {
+        return None;
+    }
+    let args: Vec<char> = args.chars().collect();
+    let args = trim_end(&args);
+    if args.last() != Some(&')') {
+        return None;
+    }
+    let named: String = args.get(..matching_open(args)?)?.iter().collect();
+    let c = STATIC_CALL.captures(&named)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
 }
 
 fn method_reference(args: &str) -> Option<(String, String)> {
