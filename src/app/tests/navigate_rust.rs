@@ -1900,6 +1900,103 @@ fn a_variant_binding_of_a_registry_enum_is_typed_in_its_one_locked_version() {
 }
 
 #[test]
+fn a_registry_glob_types_a_name_only_when_no_globbed_module_imports_it() {
+    let lib = "use regex_syntax::hir::kind::HirKind;\n\npub struct Near {\n    pub ranges: u32,\n}\n\npub struct Far {\n    pub ranges: u32,\n}\n\npub fn strip(k: HirKind) -> u32 {\n    match k {\n        HirKind::Value(z) => z.ranges,\n        _ => 0,\n    }\n}\n";
+    let kind = "pub enum HirKind {\n    Empty,\n    Value(Value),\n}\n";
+    let with_prelude = "pub mod kind;\npub mod prelude;\n";
+    for (tag, hir, prelude, globs, jumps) in [
+        (
+            "crate",
+            "pub mod kind;\n",
+            "",
+            "use crate::json::*;\n\n",
+            true,
+        ),
+        (
+            "parent-import",
+            "pub mod kind;\n\nuse serde_json::Value;\n",
+            "",
+            "use super::*;\n\n",
+            false,
+        ),
+        (
+            "prelude-reexport",
+            with_prelude,
+            "pub use serde_json::Value;\n",
+            "use super::prelude::*;\n\n",
+            false,
+        ),
+        (
+            "prelude-own-glob",
+            with_prelude,
+            "pub use crate::json::*;\n",
+            "use super::prelude::*;\n\n",
+            true,
+        ),
+        (
+            "prelude-foreign-glob",
+            with_prelude,
+            "pub use serde_json::*;\n",
+            "use super::prelude::*;\n\n",
+            false,
+        ),
+        (
+            "indented",
+            "pub mod kind;\n",
+            "",
+            "mod tests {\n    use crate::json::*;\n}\n\n",
+            false,
+        ),
+    ] {
+        let kind = format!("{globs}{kind}");
+        let reg = external_root(
+            &format!("rust-registry-glob-{tag}"),
+            &[
+                (
+                    "registry/regex-syntax-0.8.0/src/lib.rs",
+                    "pub mod hir;\npub mod json;\n",
+                ),
+                (
+                    "registry/regex-syntax-0.8.0/src/json.rs",
+                    "pub struct Value {\n    pub ranges: u32,\n}\n",
+                ),
+                ("registry/regex-syntax-0.8.0/src/hir/mod.rs", hir),
+                ("registry/regex-syntax-0.8.0/src/hir/kind.rs", &kind),
+                ("registry/regex-syntax-0.8.0/src/hir/prelude.rs", prelude),
+            ],
+        );
+        let one = reg.join("registry/regex-syntax-0.8.0");
+        let (dir, mut a) = project_app(
+            &format!("rust-registry-glob-{tag}"),
+            &[
+                (
+                    "Cargo.toml",
+                    "[package]\nname = \"m\"\n\n[dependencies]\nregex-syntax = \"0.8\"\n",
+                ),
+                ("src/lib.rs", lib),
+            ],
+        );
+        use_roots(&mut a, Kind::Rust, std::slice::from_ref(&one));
+        d_on(&mut a, "src/lib.rs", "z.ranges");
+        let got = shown(&mut a);
+        if jumps {
+            let want = format!("{}/src/json.rs:2", one.display());
+            assert!(
+                matches!(&got, Shown::Jump(_, place) if *place == want),
+                "{tag}: {got:?}"
+            );
+        } else {
+            assert!(
+                matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+                "{tag}: {got:?}"
+            );
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&reg).unwrap();
+    }
+}
+
+#[test]
 fn a_for_item_over_a_vec_takes_its_element_or_the_map_it_collects() {
     let lib = "pub struct Near;\n\nimpl Near {\n    pub fn matches(&self, s: &str) -> bool {\n        true\n    }\n}\n\npub struct Far;\n\nimpl Far {\n    pub fn matches(&self, s: &str) -> bool {\n        true\n    }\n}\n\nfn new_glob(pat: &str) -> glob::Pattern {\n    glob::Pattern::new(pat)\n}\n\nfn near(pat: glob::Pattern) -> Near {\n    Near\n}\n\npub fn count(globs: &[&str], nears: Vec<Near>) -> usize {\n    let pats: Vec<_> = globs.iter().map(|&s| new_glob(s)).collect();\n    let neared: Vec<_> = globs.iter().map(|&s| new_glob(s)).map(|p| near(p)).collect();\n    let kept: Vec<_> = globs.iter().map(|&s| new_glob(s)).filter(|p| true).collect();\n    let mut n = 0;\n    for pat in &pats {\n        n += usize::from(pat.matches(\"a\"));\n    }\n    for one in &nears {\n        n += usize::from(one.matches(\"b\"));\n    }\n    for last in neared {\n        n += usize::from(last.matches(\"c\"));\n    }\n    for k in &kept {\n        n += usize::from(k.matches(\"d\"));\n    }\n    n\n}\n";
     let glob = "pub struct Pattern {\n    original: String,\n}\n\nimpl Pattern {\n    pub fn new(p: &str) -> Pattern {\n        Pattern { original: p.to_owned() }\n    }\n\n    pub fn matches(&self, s: &str) -> bool {\n        true\n    }\n}\n";

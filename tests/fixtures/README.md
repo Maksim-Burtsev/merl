@@ -276,6 +276,10 @@ in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `
 variable in the `elif` and `else` branches of an `if` whose earlier branch assigns it, and after
 the `fi` (#1270): inside the `if`, the assignment above it answers. `rinse` and `drain` read one in
 the `else` of an `if` that follows an `if` or a loop already closed, whose assignment answers.
+`sieve` reads one in a later arm of a `case` whose earlier arm `;;` ended: the assignment above
+the `case` answers. `simmer` reads one after a `case` inside `$(..)`, and `decoct` in an arm of a
+`case` inside a `while` loop, where an earlier pass ran the earlier arm: the nearest assignment
+answers, as on master.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by

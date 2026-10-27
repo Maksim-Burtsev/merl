@@ -86,13 +86,22 @@ impl App {
         file: &Path,
         text: &str,
         name: &str,
+        line0: usize,
     ) -> Option<Typed> {
-        static GLOB: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+(?:::)?(\w+)[^;]*\*[^;]*;")
-                .expect("the regex is a literal")
-        });
         let home = self.registry_home(file)?;
         let ours = |root: &str| matches!(root, "crate" | "self" | "super");
+        let mut module: Vec<String> = file
+            .strip_prefix(&home.src)
+            .ok()?
+            .with_extension("")
+            .iter()
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect();
+        if matches!(module.as_slice(), [m] if m == "lib" || m == "main")
+            || module.last().is_some_and(|m| m == "mod")
+        {
+            module.pop();
+        }
         let mut used = search::rust_uses(text)
             .into_iter()
             .filter(|u| u.name == name);
@@ -106,18 +115,6 @@ impl App {
                 if !u.in_column_zero {
                     return None;
                 }
-                let mut module: Vec<String> = file
-                    .strip_prefix(&home.src)
-                    .ok()?
-                    .with_extension("")
-                    .iter()
-                    .map(|p| p.to_string_lossy().into_owned())
-                    .collect();
-                if matches!(module.as_slice(), [m] if m == "lib" || m == "main")
-                    || module.last().is_some_and(|m| m == "mod")
-                {
-                    module.pop();
-                }
                 match root {
                     "crate" => module.clear(),
                     "super" => {
@@ -129,12 +126,11 @@ impl App {
                 self.rust_type_in(&home, &module, rest)
             }
             (None, _) => {
-                let roots: Vec<&str> = GLOB
-                    .captures_iter(text)
-                    .filter_map(|c| c.get(1))
-                    .map(|m| m.as_str())
-                    .collect();
-                if roots.is_empty() || !roots.iter().all(|r| ours(r)) {
+                let lines: Vec<&str> = text.lines().collect();
+                if !GLOB.is_match(text)
+                    || search::rust_inline_mod(&lines, line0).is_some()
+                    || !self.rust_globs_lack(&home, &module, text, name, &mut Vec::new())
+                {
                     return None;
                 }
                 let decls: Vec<Hit> = self
@@ -155,6 +151,38 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    fn rust_globs_lack(
+        &self,
+        home: &CrateSrc,
+        module: &[String],
+        text: &str,
+        name: &str,
+        seen: &mut Vec<Vec<String>>,
+    ) -> bool {
+        GLOB.captures_iter(text).all(|c| {
+            let Some(target) = glob_module(module, &c[1]) else {
+                return false;
+            };
+            if seen.contains(&target) {
+                return true;
+            }
+            seen.push(target.clone());
+            let file = if target.is_empty() {
+                vec![home.src.join("lib.rs"), home.src.join("main.rs")]
+            } else {
+                let at = target.iter().fold(home.src.clone(), |p, m| p.join(m));
+                vec![at.with_extension("rs"), at.join("mod.rs")]
+            }
+            .into_iter()
+            .find(|f| home.files.contains(f));
+            let Some(globbed) = file.and_then(|f| self.text_of(&f)) else {
+                return false;
+            };
+            !search::rust_uses(&globbed).iter().any(|u| u.name == name)
+                && self.rust_globs_lack(home, &target, &globbed, name, seen)
+        })
     }
 
     fn rust_type_in(&self, krate: &CrateSrc, module: &[String], rest: &[String]) -> Option<Typed> {
@@ -238,6 +266,44 @@ impl App {
         }
         self.workspace_crate(&target)
     }
+}
+
+static GLOB: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?m)^(?:pub(?:\([^)]*\))?\s+)?use\s+([^;]*\*[^;]*);")
+        .expect("the regex is a literal")
+});
+
+fn glob_module(module: &[String], written: &str) -> Option<Vec<String>> {
+    let written: String = written.split_whitespace().collect();
+    let parts: Vec<&str> = written
+        .trim_start_matches("::")
+        .strip_suffix("::*")?
+        .split("::")
+        .collect();
+    if !parts
+        .iter()
+        .all(|p| !p.is_empty() && p.chars().all(|c| c.is_alphanumeric() || c == '_'))
+    {
+        return None;
+    }
+    let supers = parts.iter().take_while(|p| **p == "super").count();
+    let (mut at, rest) = match *parts.first()? {
+        "crate" => (Vec::new(), parts.get(1..)?),
+        "self" => (module.to_vec(), parts.get(1..)?),
+        "super" => (
+            module.get(..module.len().checked_sub(supers)?)?.to_vec(),
+            parts.get(supers..)?,
+        ),
+        _ => return None,
+    };
+    if rest
+        .iter()
+        .any(|p| matches!(*p, "crate" | "self" | "super"))
+    {
+        return None;
+    }
+    at.extend(rest.iter().map(|p| (*p).to_owned()));
+    Some(at)
 }
 
 pub(super) fn registry_src(r: &Path, all: &[PathBuf], name: &str) -> Option<CrateSrc> {
