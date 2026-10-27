@@ -4,7 +4,7 @@ astro0001	ok	jump	8.55
 astro0002	skip-jump	jump	738.03
 astro0003	pick-miss	picker	24.75
 astro0004	skip	picker	304.90
-astro0005	none	stay	141.22
+astro0005	ok	jump	163.04
 astro0006	pick-hit	picker	16.95
 astro0007	skip	picker	423.71
 astro0008	skip	stay	13.82
@@ -211,7 +211,7 @@ astro0208	none	stay	40.89
 astro0209	no-answer	picker	211.65
 astro0210	ok	jump	19.70
 astro0211	ok	jump	10.41
-astro0212	pick-miss	picker	15.23
+astro0212	ok	jump	7.99
 astro0213	ok	jump	9.20
 astro0214	none	stay	37.97
 astro0215	pick-miss	picker	565.52
@@ -233,7 +233,7 @@ astro0230	ok	jump	12.29
 astro0231	skip	picker	75.36
 astro0232	skip	stay	14.40
 astro0233	skip	picker	81.65
-astro0234	pick-miss	picker	14.36
+astro0234	ok	jump	7.24
 astro0235	skip-jump	jump	80.59
 astro0236	ok	jump	4.37
 astro0237	skip	picker	45.70
@@ -241,7 +241,7 @@ astro0238	ok	jump	10.67
 astro0239	ok	jump	8.45
 astro0240	no-answer	picker	65.75
 astro0241	skip	picker	70.30
-astro0242	pick-miss	picker	171.49
+astro0242	pick-hit	picker	350.85
 astro0243	ok	jump	10.56
 astro0244	ok	jump	103.70
 astro0245	skip	picker	433.05
@@ -251,7 +251,7 @@ astro0248	ok	jump	22.56
 astro0249	pick-miss	picker	48.26
 astro0250	skip	picker	57.02
 astro0251	skip	picker	85.94
-astro0252	none	stay	139.08
+astro0252	ok	jump	180.01
 astro0253	ok	jump	6.41
 astro0254	pick-hit	picker	65.07
 astro0255	ok	jump	8.56
@@ -2739,7 +2739,7 @@ js0014	skip	picker	133.50
 js0015	no-answer	picker	82.67
 js0016	ok	jump	22.83
 js0017	on-decl	stay	94.83
-js0018	skip	stay	46.51
+js0018	skip	stay	45.55
 js0019	ok	jump	42.36
 js0020	no-answer	picker	81.97
 js0021	skip	jump	14.07
@@ -6451,7 +6451,7 @@ svelte0020	skip	picker	155.96
 svelte0021	ok	jump	28.03
 svelte0022	ok	jump	8.32
 svelte0023	ok	jump	21.20
-svelte0024	pick-miss	picker	671.64
+svelte0024	pick-hit	picker	1502.41
 svelte0025	ok	jump	14.31
 svelte0026	no-answer	picker	98.33
 svelte0027	ok	jump	9.93
@@ -6479,7 +6479,7 @@ svelte0048	no-answer	picker	111.72
 svelte0049	ok	jump	10.22
 svelte0050	ok	jump	13.53
 svelte0051	ok	jump	19.26
-svelte0052	none	stay	111.14
+svelte0052	ok	jump	186.29
 svelte0053	ok	jump	100.26
 svelte0054	ok	jump	7.91
 svelte0055	ok	jump	3.94
@@ -6677,7 +6677,7 @@ svelte0246	ok	jump	21.35
 svelte0247	no-answer-jump	jump	129.91
 svelte0248	ok	jump	11.08
 svelte0249	none	stay	150.51
-svelte0250	WRONG	jump	32.23
+svelte0250	pick-hit	picker	221.74
 svelte0251	ok	jump	12.45
 svelte0252	ok	jump	14.29
 svelte0253	on-decl	stay	20.73
@@ -7883,10 +7883,10 @@ vue0153	pick-hit	picker	220.32
 vue0154	ok	jump	22.44
 vue0155	skip	picker	114.58
 vue0156	ok	jump	14.61
-vue0157	pick-miss	picker	74.22
+vue0157	pick-hit	picker	205.83
 vue0158	skip	picker	111.12
 vue0159	pick-miss	picker	41.56
-vue0160	pick-miss	picker	72.60
+vue0160	pick-hit	picker	194.89
 vue0161	pick-hit	picker	154.26
 vue0162	ok	jump	33.55
 vue0163	pick-hit	picker	207.19
@@ -7921,7 +7921,7 @@ vue0191	skip	picker	136.83
 vue0192	ok	jump	67.20
 vue0193	pick-hit	picker	212.43
 vue0194	pick-miss	picker	41.17
-vue0195	WRONG	jump	61.33
+vue0195	pick-hit	picker	136.63
 vue0196	pick-miss	picker	36.76
 vue0197	ok	jump	32.80
 vue0198	pick-miss	picker	33.68
@@ -7933,9 +7933,9 @@ vue0203	ok	jump	50.90
 vue0204	pick-miss	picker	47.26
 vue0205	ok	jump	84.54
 vue0206	skip	picker	183.65
-vue0207	pick-miss	picker	69.67
+vue0207	pick-hit	picker	175.64
 vue0208	pick-miss	picker	54.86
-vue0209	pick-miss	picker	932.26
+vue0209	none	stay	9.26
 vue0210	ok	jump	40.42
 vue0211	ok	jump	15.43
 vue0212	pick-miss	picker	38.35
@@ -7950,7 +7950,7 @@ vue0220	ok	jump	15.58
 vue0221	ok	jump	28.95
 vue0222	pick-miss	picker	63.58
 vue0223	ok	jump	25.10
-vue0224	WRONG	jump	83.46
+vue0224	pick-hit	picker	224.82
 vue0225	ok	jump	13.82
 vue0226	skip	picker	142.93
 vue0227	skip	picker	73.97
