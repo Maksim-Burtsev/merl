@@ -42,3 +42,7 @@ export const defaults = {
 export type Repo = {
   full_slug: string,
 };
+
+export interface Link {
+  url: string;
+}
