@@ -368,7 +368,8 @@ parameters, overloads returning two element types and a project extension named 
 Its `Served` (#1282) reads the element `Select` makes, through a project extension method or `new`,
 of a `foreach` and of an indexer over `.ToList()`, and of an array that `Deserialize<T[]>(…) ??
 Array.Empty<T>()` gives on both sides; `Doubtful`'s `??` with two element types and a `Select`
-with a block body stay pickers.
+with a block body stay pickers. Its `Stacked` (#1301) calls `TrueForAll` on `Saucers : List<Cup>`,
+which `List<T>` declares before the project's extension of `Saucers`: none.
 Its `Checks.cs` (#1298) holds FluentValidation validators: the lambda of `RuleFor`, `RuleForEach`
 and `When` in a class whose one base is `AbstractValidator<T>` takes `T` (`Cup`, and `Stove`
 through `FluentValidation.AbstractValidator`), on one line or over two; a second lambda binding the
