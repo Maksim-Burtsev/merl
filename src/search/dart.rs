@@ -519,7 +519,18 @@ fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> 
             value: Value::Unknown,
         }]
     };
-    if dart_header_binds(code(at).trim(), name) {
+    let in_class = |from: usize, below: usize| {
+        (0..from)
+            .rev()
+            .find(|&j| !literal[j] && !code(j).trim().is_empty() && indent(lines[j]) < below)
+            .is_some_and(|j| TYPE_BODY.is_match(lines[j]))
+    };
+    let listed = |line: &str, list_follows: bool| {
+        dart_initializer_header(line, list_follows).is_some_and(|h| dart_header_binds(&h, name))
+    };
+    if dart_header_binds(code(at).trim(), name)
+        || (read && in_class(at, indent(lines[at])) && listed(&code(at), false))
+    {
         return found(at);
     }
     let mut depth = indent(lines[at]);
@@ -559,21 +570,25 @@ fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> 
             return found(h);
         }
         let mut head: Vec<String> = (i..=end).map(code).collect();
+        let in_class_body = in_class(i, depth);
         if initializers {
-            let in_class = (0..i)
-                .rev()
-                .find(|&j| !literal[j] && !code(j).trim().is_empty() && indent(lines[j]) < depth)
-                .is_some_and(|j| TYPE_BODY.is_match(lines[j]));
             let constructor = SHAPES[Shape::Constructor as usize].is_match(&head.join(" "));
             let params = head.pop().unwrap_or_default();
             match params.split_once(':') {
-                Some((close, _)) if (from_body || read) && in_class && constructor => {
+                Some((close, _)) if (from_body || read) && in_class_body && constructor => {
                     head.push(format!("{close} {{"));
                 }
                 _ => head.clear(),
             }
         }
-        if dart_header_binds(head.join(" ").trim(), name) {
+        let list_follows = (end + 1..=at)
+            .find(|&k| !code(k).trim().is_empty() && !literal[k])
+            .is_some_and(|k| code(k).trim_start().starts_with(':'));
+        let lists = !initializers
+            && (from_body || read)
+            && in_class_body
+            && listed(&head.join(" "), list_follows);
+        if lists || dart_header_binds(head.join(" ").trim(), name) {
             let w = Regex::new(&format!(
                 r"(?:^|[^\w$]){}{NAME_END_PAST_DOLLAR}",
                 regex::escape(name)
@@ -586,6 +601,19 @@ fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> 
         }
     }
     Vec::new()
+}
+
+fn dart_initializer_header(line: &str, list_follows: bool) -> Option<String> {
+    let open = line.find('(')?;
+    let end = close_of(Kind::Dart, line, open)?;
+    let (params, rest) = line.split_at_checked(end)?;
+    let rest = rest.trim_start();
+    let list = match rest.strip_prefix(':') {
+        Some(r) => !r.starts_with(':'),
+        None => rest.is_empty() && list_follows,
+    };
+    (list && SHAPES[Shape::Constructor as usize].is_match(line))
+        .then(|| format!("{} {{", params.trim()))
 }
 
 fn dart_local(t: &str, name: &str) -> bool {
@@ -618,7 +646,7 @@ fn dart_header_binds(head: &str, name: &str) -> bool {
     let w = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name");
     let pattern = rule(format!(
-        r"[:(,]\s*(?:final|var)\s+(?:{ANY_TYPE}\s+)?{w}{NAME_END_PAST_DOLLAR}"
+        r"(?:[:(,]|\bcase)\s*(?:final|var)\s+(?:{ANY_TYPE}\s+)?{w}{NAME_END_PAST_DOLLAR}"
     ));
     let before_arrow = head.split("=>").next().unwrap_or_default();
     if CONTROL.is_match(head) {
