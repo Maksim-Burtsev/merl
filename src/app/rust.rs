@@ -986,7 +986,7 @@ impl App {
             return match <[Hit; 1]>::try_from(mine) {
                 Ok([hit]) if path.is_empty() => Some(typed(hit)),
                 Err(none) if none.is_empty() && path.is_empty() => {
-                    self.rust_registry_elsewhere(file, &text, &name)
+                    self.rust_registry_elsewhere(file, &text, &name, line0)
                 }
                 _ => None,
             };

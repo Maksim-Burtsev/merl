@@ -45,10 +45,31 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
     };
     let arm_closed = |i: usize| {
         let (mut depth, mut closed) = (0, false);
+        let mut loops = (0..i)
+            .filter(|&j| literal.get(j) != Some(&true))
+            .fold(0_usize, |d, j| {
+                (d + DO.find_iter(lines[j]).count())
+                    .saturating_sub(DONE.find_iter(lines[j]).count())
+            });
         for (j, l) in lines.iter().enumerate().take(at).skip(i) {
             let t = l.trim();
             if literal.get(j) == Some(&true) {
                 continue;
+            }
+            loops = (loops + DO.find_iter(l).count()).saturating_sub(DONE.find_iter(l).count());
+            let words = CASE_ESAC.find_iter(l).count();
+            let exact = match words {
+                0 => true,
+                1 => {
+                    (j > i && t.starts_with("case "))
+                        || t == "esac"
+                        || t.starts_with("esac ")
+                        || t.starts_with("esac;")
+                }
+                _ => j > i && t.starts_with("case ") && t.ends_with("esac") && words == 2,
+            };
+            if !exact {
+                return false;
             }
             if j > i && t.starts_with("case ") && !t.ends_with("esac") {
                 depth += 1;
@@ -62,7 +83,7 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
                 closed = true;
             }
         }
-        closed
+        closed && loops == 0
     };
     let assigns = |i: usize| {
         literal.get(i) != Some(&true)
@@ -79,6 +100,12 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
         })
         .map(|i| i + 1)
 }
+static CASE_ESAC: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"\b(?:case|esac)\b").expect("the regex is a literal"));
+static DO: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(?:^|;)\s*do\b").expect("the regex is a literal"));
+static DONE: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(?:^|;)\s*done\b").expect("the regex is a literal"));
 pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
     static SOURCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(load|source|\.)\s+(.*)").expect("the regex is a literal")

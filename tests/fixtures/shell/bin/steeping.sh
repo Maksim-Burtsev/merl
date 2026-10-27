@@ -167,3 +167,26 @@ sieve() {
   echo "$mesh"
   #      ^ d: bin/steeping.sh:160
 }
+simmer() {
+  os="$1"
+  os=$(case "$(uname)" in
+    Darwin) echo mac ;;
+    *) echo linux ;;
+  esac)
+  echo "$os"
+  #      ^ d: bin/steeping.sh:172
+}
+decoct() {
+  out=""
+  while getopts "o:p" opt; do
+    case "$opt" in
+      o)
+        out="$OPTARG"
+        ;;
+      p)
+        echo "$out"
+        #      ^ d: bin/steeping.sh:184
+        ;;
+    esac
+  done
+}
