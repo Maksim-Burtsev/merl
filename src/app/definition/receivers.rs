@@ -298,7 +298,14 @@ impl App {
         if !dotted && chain.is_empty() && near.locals.is_empty() && !a.before.ends_with("::") {
             match self.cs_class_first(&a.here, word, p.cs_type) {
                 Ok(found) => return self.show_found(a, found),
-                Err(walked) => walk.cs_walked = walked.filter(|_| !walk.declares_here),
+                Err(walked) => {
+                    if walked.is_some()
+                        && let Some(found) = self.cs_aliased(&a.here, word, &a.range)
+                    {
+                        return self.show_found(a, found);
+                    }
+                    walk.cs_walked = walked.filter(|_| !walk.declares_here);
+                }
             }
         }
         false

@@ -90,7 +90,7 @@ The cpp row with #1248's remainder (four answers reviewed, the oracle's mistakes
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 46.0 |
 | java (halo) | 115 | 112 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 184.3 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
-| csharp (eShop) | 85 | 78 (92%) | 7 (8%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.0 | 38.9 |
+| csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.1 | 39.3 |
 | ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
@@ -113,3 +113,4 @@ The cpp row with #1248's remainder (four answers reviewed, the oracle's mistakes
 | dart (dio) | 97 | 80 (82%) | 13 (13%) | 0 (0%) | 4 (4%) | 17 | 0 | 39.7 | 111.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
 The java row with #1278's second pass (a Lombok `@Data` class read above a multi-line annotation such as `@GVK(…)`, a chain's `.next()` step, a `.map(Type::method)` step typed by the method's return, a `Collectors.toMap(x -> …)` lambda, and a `var` assigned from a call with a nested call in its arguments): over `88886d35`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors (java0145, java0151, java0154, java0163, java0166, java0169, java0181, java0182, java0184, java0186) written.
+The csharp row with #1298 (a FluentValidation `RuleFor` / `RuleForEach` / `When` lambda in a class whose one base is `AbstractValidator<T>` takes `T`, a base list's type argument is no type parameter, and a type a `using X = …;` alias of the file names resolves to the alias's target: csharp0118, csharp0146, csharp0162, csharp0169): over `43f09f1e`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors written.

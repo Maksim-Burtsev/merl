@@ -1,4 +1,5 @@
 using FluentValidation;
+using Jar = Shop.Pantry.Old.Jar;
 
 namespace Shop.Tea.Infuse;
 
@@ -19,6 +20,18 @@ public class CupValidator : AbstractValidator<Cup>
         //                                           ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48
         Include(cup => cup.Sip());
         //                 ^ d: picker src/Shop/Tea/Infuse/Cup.cs:14, src/Shop/Tea/Infuse/Cup.cs:25, src/Shop/Tea/Infuse/Cup.cs:48
+    }
+}
+
+public class JarValidator : AbstractValidator<Jar>
+{
+    public Jar Shelf() => null!;
+    //     ^ d: src/Shop/Pantry/Old/Jar.cs:3
+
+    public JarValidator()
+    {
+        RuleFor(jar => jar.Seal());
+        //                 ^ d: picker src/Shop/Pantry/Jar.cs:5, src/Shop/Pantry/Old/Jar.cs:5, src/Shop/Rules/Rules.cs:17, src/Shop/Rules/Rules.cs:22
     }
 }
 

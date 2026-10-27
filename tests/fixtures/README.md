@@ -369,7 +369,13 @@ Its `Checks.cs` (#1298) holds FluentValidation validators: the lambda of `RuleFo
 and `When` in a class whose one base is `AbstractValidator<T>` takes `T` (`Cup`, and `Stove`
 through `FluentValidation.AbstractValidator`), on one line or over two; a second lambda binding the
 name on the line, `Include`, a qualified `platter.RuleFor`, a second base, a generic `T` and a class
-of another base stay pickers.
+of another base stay pickers. `JarValidator`'s `T` is a type the file's alias names, which that rule
+does not read: a picker.
+`csharp/src/Shop/Pantry/` (#1298) declares `Jar` in `Shop.Pantry` and `Shop.Pantry.Old`; a
+`using Jar = Shop.Pantry.Old.Jar;` of the file sends `Jar` in a type's place to the old one, in
+`Aliased.cs` with no namespace and in `Checks.cs` in `Shop.Tea.Infuse`. `Shadowed.cs` in
+`Shop.Pantry`, whose own `Jar` comes before the alias, and `Boxed<Jar>`'s type parameter keep
+master's picker.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a

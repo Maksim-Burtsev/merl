@@ -992,6 +992,61 @@ impl App {
         Some(named)
     }
 
+    pub(super) fn cs_aliased(
+        &self,
+        here: &Path,
+        word: &str,
+        range: &std::ops::Range<usize>,
+    ) -> Option<Vec<Candidate>> {
+        let line = self.line_str();
+        let typed = search::cs_type_position(line, range.start, range.end)
+            && !search::cs_constant_may_stand(line, range.start, range.end)
+            && !line.get(range.end..)?.trim_start().starts_with(':');
+        let text = self.buf.lines.join("\n");
+        if !typed || search::cs_generic_param(&text, self.line + 1, word) {
+            return None;
+        }
+        let mut aliases = text.lines().enumerate().filter_map(|(k, l)| {
+            let u = search::cs_using(l).filter(|u| !u.fixed && u.alias.as_deref() == Some(word))?;
+            Some((k + 1, u.target))
+        });
+        let (at, target) = aliases.next()?;
+        let first_namespace = text.lines().position(search::cs_namespace_line);
+        if aliases.next().is_some()
+            || first_namespace.is_some_and(|n| n < at)
+            || !target.contains('.')
+            || search::cs_type_name(&target).as_deref() != Some(word)
+        {
+            return None;
+        }
+        let pattern = search::def_patterns(Kind::CSharp, word)[..2].join("|");
+        let mut hits = self.project_definitions(Kind::CSharp, here, word, &pattern);
+        hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
+        let types: Vec<&Hit> = (hits.iter())
+            .filter(|h| search::cs_type_decl(&h.text).is_some_and(|d| d.name == word))
+            .collect();
+        let [one] = self.cs_namespace_hits(&text, at, &target, &types)?[..] else {
+            return None;
+        };
+        let mut levels = vec![String::new()];
+        let inside = search::cs_namespace(&text, self.line + 1);
+        let mut level = inside.as_str();
+        while !level.is_empty() {
+            levels.push(level.to_owned());
+            level = level.rsplit_once('.').map_or("", |(outer, _)| outer);
+        }
+        for (i, h) in types.iter().enumerate() {
+            let other = self.text_of(&h.path)?;
+            if i != one && levels.contains(&search::cs_namespace(&other, h.line1)) {
+                return None;
+            }
+        }
+        Some(vec![Candidate {
+            hit: types[one].clone(),
+            reason: Reason::Path(format!("using {word} = {target}")),
+        }])
+    }
+
     pub(super) fn cs_namespace_segment(
         &self,
         here: &Path,

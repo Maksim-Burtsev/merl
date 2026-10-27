@@ -482,3 +482,41 @@ fn a_validator_s_rule_lambda_takes_the_type_its_base_validates() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+const ALIASED: &[(&str, &str)] = &[
+    (
+        "Queries/Card.cs",
+        "namespace Shop.Queries;\n\npublic record Card\n{\n    public int Id { get; init; }\n}\n",
+    ),
+    (
+        "Domain/Card.cs",
+        "namespace Shop.Domain;\n\npublic class Card\n{\n}\n",
+    ),
+    (
+        "Apis/CardsApi.cs",
+        "using Card = Shop.Queries.Card;\n\npublic static class CardsApi\n{\n    public static Task<List<Card>> GetCardsAsync() => null!;\n}\n",
+    ),
+    (
+        "Domain/Use.cs",
+        "using Card = Shop.Queries.Card;\n\nnamespace Shop.Domain;\n\npublic static class Use\n{\n    public static Card Make() => null!;\n}\n",
+    ),
+];
+
+#[test]
+fn a_using_alias_of_the_file_names_its_target() {
+    let (dir, mut a) = cs_app("cs-1298-aliased", ALIASED);
+    d_on(&mut a, "Apis/CardsApi.cs", "List<|Card>");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Card: via using Card = Shop.Queries.Card",
+            "Queries/Card.cs:3"
+        )
+    );
+    d_on(&mut a, "Domain/Use.cs", "static |Card Make");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "Shop.Domain's own Card comes before the file's alias"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
