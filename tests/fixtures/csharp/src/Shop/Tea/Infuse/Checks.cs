@@ -26,7 +26,7 @@ public class CupValidator : AbstractValidator<Cup>
 public class JarValidator : AbstractValidator<Jar>
 {
     public Jar Shelf() => null!;
-    //     ^ d: src/Shop/Pantry/Old/Jar.cs:3
+    //     ^ d: picker src/Shop/Tea/Infuse/Checks.cs:2, src/Shop/Pantry/Aliased.cs:2, src/Shop/Pantry/Jar.cs:3, src/Shop/Pantry/Old/Jar.cs:3, src/Shop/Pantry/Shadowed.cs:1
 
     public JarValidator()
     {

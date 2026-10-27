@@ -2479,3 +2479,45 @@ fn csharp_initializers_take_the_type_they_construct() {
         "a `<` after a space is a comparison"
     );
 }
+
+#[test]
+fn csharp_slices_grouped_awaits_and_attributes_read_as_csharp_does() {
+    for expr in ["items[1..]", "items[a..b]", "items[..^1]"] {
+        assert_eq!(cs_expr(expr), CsValue::Unknown, "{expr} is a slice");
+    }
+    for expr in [
+        "(IShape)(await shapes.GetCircleAsync())",
+        "prefix + (await repo.GetOrderAsync())",
+    ] {
+        assert!(
+            cs_steps(expr).is_none(),
+            "{expr}: a grouped await heads a chain only at the start"
+        );
+    }
+    assert!(
+        cs_steps("o.Note + o.Buyer").is_some_and(|s| !s.whole),
+        "an operator stands before the chain"
+    );
+    assert!(cs_steps("o.Buyer.Name").is_some_and(|s| s.whole));
+    assert!(cs_steps("(await o.LoadAsync()).Buyer").is_some_and(|s| s.whole));
+    assert!(
+        cs_generic_param(
+            "    [Foo(Name = \"x\")] public TModel Get<TModel>()",
+            1,
+            "TModel"
+        ),
+        "an attribute's named argument is no assignment"
+    );
+    assert!(
+        cs_generic_param(
+            "    [Foo(Kind: 1)][Bar] public TModel Get<TModel>() => default;",
+            1,
+            "TModel"
+        ),
+        "nor its colon"
+    );
+    assert!(
+        !cs_generic_param("    [Route<TModel>(\"x\")] public void Go()", 1, "TModel"),
+        "an attribute's type argument is no parameter"
+    );
+}

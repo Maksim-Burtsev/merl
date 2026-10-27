@@ -520,3 +520,221 @@ fn a_using_alias_of_the_file_names_its_target() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+const BASKET: &[(&str, &str)] = &[
+    (
+        "Item.cs",
+        "public class Item\n{\n    public decimal Price { get; }\n}\n",
+    ),
+    (
+        "Receipt.cs",
+        "public class Receipt\n{\n    public decimal Price { get; }\n}\n",
+    ),
+    (
+        "Basket.cs",
+        "using System.Collections.Generic;\n\npublic class Basket : List<Item>\n{\n}\n",
+    ),
+    (
+        "BasketExtensions.cs",
+        "public static class BasketExtensions\n{\n    public static Receipt Find(this Basket b, Predicate<Item> p) => null!;\n}\n",
+    ),
+    (
+        "Till.cs",
+        "public class Till\n{\n    public decimal Ring(Basket basket)\n    {\n        return basket.Find(i => i.Price > 0).Price;\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn an_extension_method_does_not_shadow_a_method_a_base_outside_the_project_may_declare() {
+    let (dir, mut a) = cs_app("cs-instance-first", BASKET);
+    d_on(&mut a, "Till.cs", "> 0).|Price");
+    let got = shown(&mut a);
+    assert!(
+        matches!(got, Shown::Picker(..)),
+        "List<Item>.Find, an instance method, beats the extension Find of Basket: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const COALESCED: &[(&str, &str)] = &[
+    (
+        "Order.cs",
+        "public class Order\n{\n    public decimal Total { get; }\n}\n",
+    ),
+    (
+        "Invoice.cs",
+        "public class Invoice\n{\n    public decimal Total { get; }\n}\n",
+    ),
+    (
+        "Cache.cs",
+        "public class Cache\n{\n    public Order Find(int id) => null!;\n}\n",
+    ),
+    (
+        "Repo.cs",
+        "public class Repo\n{\n    public Order Load(int id) => null!;\n}\n",
+    ),
+    (
+        "Checkout.cs",
+        "public class Checkout\n{\n    private readonly Cache cache = new Cache();\n    private readonly Repo repo = new Repo();\n\n    public decimal Sum(int id)\n    {\n        var order = cache.Find(id) ?? repo.Load(id);\n        return order.Total;\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn a_coalesce_of_two_values_keeps_the_type_its_right_hand_chain_gives() {
+    let (dir, mut a) = cs_app("cs-coalesced", COALESCED);
+    d_on(&mut a, "Checkout.cs", "order.|Total");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Jump(_, place) if place == "Order.cs:3"),
+        "`cache.Find(id) ?? repo.Load(id)` is an Order: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const SLICED: &[(&str, &str)] = &[
+    (
+        "Cup.cs",
+        "public class Cup\n{\n    public int Sip() => 0;\n}\n",
+    ),
+    (
+        "Mug.cs",
+        "public class Mug\n{\n    public int Sip() => 0;\n}\n",
+    ),
+    (
+        "Tray.cs",
+        "using System.Collections.Immutable;\n\npublic class Tray\n{\n    public int Pour(ImmutableArray<Cup> cups, int a, int b)\n    {\n        var rest = cups[1..];\n        var middle = cups[a..b];\n        var one = cups[a];\n        return rest.Sip() + middle.Sip() + one.Sip();\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn a_range_slice_is_the_collection_not_one_element() {
+    let (dir, mut a) = cs_app("cs-sliced", SLICED);
+    for probe in ["rest.|Sip", "middle.|Sip"] {
+        d_on(&mut a, "Tray.cs", probe);
+        let got = shown(&mut a);
+        assert!(
+            matches!(got, Shown::Picker(..)),
+            "{probe}: a slice is the collection: {got:?}"
+        );
+    }
+    d_on(&mut a, "Tray.cs", "one.|Sip");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Jump(_, place) if place == "Cup.cs:3"),
+        "an index is one element: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const AWAITED: &[(&str, &str)] = &[
+    (
+        "Order.cs",
+        "public class Order\n{\n    public int Length { get; }\n}\n",
+    ),
+    (
+        "Ribbon.cs",
+        "public class Ribbon\n{\n    public int Length { get; }\n}\n",
+    ),
+    (
+        "Repo.cs",
+        "using System.Threading.Tasks;\n\npublic class Repo\n{\n    public Task<Order> GetOrderAsync() => null!;\n}\n",
+    ),
+    (
+        "Label.cs",
+        "using System.Threading.Tasks;\n\npublic class Label\n{\n    private readonly Repo repo = new Repo();\n\n    public async Task<int> Print(string prefix)\n    {\n        var text = prefix + (await repo.GetOrderAsync());\n        var order = (await repo.GetOrderAsync());\n        return text.Length + order.Length;\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn only_an_await_that_opens_the_expression_heads_its_chain() {
+    let (dir, mut a) = cs_app("cs-awaited-head", AWAITED);
+    d_on(&mut a, "Label.cs", "text.|Length");
+    let got = shown(&mut a);
+    assert!(
+        matches!(got, Shown::Picker(..)),
+        "`prefix + (await …)` is no Order: {got:?}"
+    );
+    d_on(&mut a, "Label.cs", "order.|Length");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Jump(_, place) if place == "Order.cs:3"),
+        "a grouped await alone is the awaited Order: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const SELECTED: &[(&str, &str)] = &[
+    (
+        "Order.cs",
+        "public class Order\n{\n    public string Note { get; }\n    public Buyer Buyer { get; }\n}\n",
+    ),
+    (
+        "Buyer.cs",
+        "public class Buyer\n{\n    public string Name { get; }\n}\n",
+    ),
+    (
+        "Seller.cs",
+        "public class Seller\n{\n    public string Name { get; }\n}\n",
+    ),
+    (
+        "Report.cs",
+        "using System.Collections.Generic;\nusing System.Linq;\n\npublic class Shop\n{\n    public List<Order> Orders { get; } = new();\n}\n\npublic class Report\n{\n    public void Show(Shop shop)\n    {\n        var labels = shop.Orders.Select(o => o.Note + o.Buyer);\n        foreach (var label in labels)\n        {\n            _ = label.Name;\n        }\n        var buyers = shop.Orders.Select(o => o.Buyer);\n        foreach (var buyer in buyers)\n        {\n            _ = buyer.Name;\n        }\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn select_reads_a_lambda_body_only_when_it_is_one_member_chain() {
+    let (dir, mut a) = cs_app("cs-select-body", SELECTED);
+    d_on(&mut a, "Report.cs", "label.|Name");
+    let got = shown(&mut a);
+    assert!(
+        matches!(got, Shown::Picker(..)),
+        "`o.Note + o.Buyer` is no Buyer: {got:?}"
+    );
+    d_on(&mut a, "Report.cs", "buyer.|Name");
+    let got = shown(&mut a);
+    assert!(
+        matches!(&got, Shown::Jump(_, place) if place == "Buyer.cs:3"),
+        "`o => o.Buyer` makes Buyers: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const INHERITED: &[(&str, &str)] = &[
+    (
+        "UI/ControlCollection.cs",
+        "namespace MyApp.UI;\n\npublic class ControlCollection\n{\n}\n",
+    ),
+    (
+        "Other/ControlCollection.cs",
+        "namespace MyApp.Other;\n\npublic class ControlCollection\n{\n}\n",
+    ),
+    (
+        "Views/Box.cs",
+        "namespace MyApp.Views;\n\npublic class Box\n{\n}\n",
+    ),
+    (
+        "Views/Panel2.cs",
+        "using ControlCollection = MyApp.UI.ControlCollection;\n\nnamespace MyApp.Views;\n\npublic class Panel2 : System.Windows.Forms.Control\n{\n    ControlCollection outer;\n}\n\npublic class Panel3 : Box\n{\n    ControlCollection inner;\n}\n",
+    ),
+];
+
+#[test]
+fn a_using_alias_answers_only_when_no_base_outside_the_project_may_nest_the_type() {
+    let (dir, mut a) = cs_app("cs-alias-inherited", INHERITED);
+    d_on(&mut a, "Views/Panel2.cs", "|ControlCollection outer");
+    let got = shown(&mut a);
+    assert!(
+        !matches!(&got, Shown::Jump(status, _) if status.contains("using ControlCollection")),
+        "Control's nested ControlCollection comes before the file's alias: {got:?}"
+    );
+    d_on(&mut a, "Views/Panel2.cs", "|ControlCollection inner");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "ControlCollection: via using ControlCollection = MyApp.UI.ControlCollection",
+            "UI/ControlCollection.cs:3"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
