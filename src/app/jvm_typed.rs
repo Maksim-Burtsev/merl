@@ -714,8 +714,9 @@ impl App {
         let [hit] = java_shaped(found, |h| h, call, true).try_into().ok()?;
         let mk = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_return_type(&hit.text, call, mk).or_else(|| {
-            let names = search::jvm_accessor(call)?.fields_it_may_read;
-            names
+            let getter = search::jvm_accessor(call).filter(|a| !a.setter)?;
+            getter
+                .fields_it_may_read
                 .iter()
                 .find_map(|n| search::jvm_declared_type(&hit.text, n, mk))
         })?;

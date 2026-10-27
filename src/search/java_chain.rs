@@ -101,8 +101,24 @@ pub fn java_lambda_argument(text: &str, line1: usize, name: &str) -> Option<Java
     if !method.starts_with(|c: char| c.is_ascii_lowercase()) {
         return None;
     }
-    let before = trim_end(named.get(..start)?);
+    let mut before = trim_end(named.get(..start)?);
+    let typed = before.ends_with(&['>']) && !before.ends_with(&['-', '>']);
+    if typed {
+        let mut depth = 0usize;
+        let open = before.iter().rposition(|&c| {
+            match c {
+                '>' => depth += 1,
+                '<' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+            depth == 0
+        })?;
+        before = trim_end(before.get(..open)?);
+    }
     let Some(dot) = before.strip_suffix(&['.']) else {
+        if typed {
+            return None;
+        }
         let word = before.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
         let word: String = before.get(word..)?.iter().collect();
         let plain = before.last() != Some(&')') && (word.is_empty() || word == "return");

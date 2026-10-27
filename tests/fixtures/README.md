@@ -813,7 +813,12 @@ type and one a constructor call.
 name keeps it, and a parameter declared on a line of its own stays where it is. `Caddie` loops
 over a field made by a typed list literal, a field typed `List<Sprig>` and a parameter typed
 `List<Weed>` to the element's `swirl`, while a loop over an untyped `[]` does not jump; `Urn`
-reads a field `_Urn` makes with a constructor call.
+reads a field `_Urn` makes with a constructor call. `dart/lib/lid.dart` (#1299) reads a constructor
+parameter in its own initializer list, on the constructor's line and on the next, and a
+`case final value?` binding, each beside a getter of that name the bare field rule must not take.
+`dart/lib/vat/` (#1299) reads fields a `Child` inherits from a `Base` of another library: one
+a top-level `pen` of `child.dart` shadows, a private `_ink` the child cannot see, and a `nib`
+that types its receiver.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
@@ -853,7 +858,12 @@ lambda parameters by their chain, and `Ticket`, a `@Data` class under a `@Deprec
 several lines, is reached through a `.map(Ticket::from)` step, a `Collectors.toMap` lambda and a
 `var` assigned from a call with a call in its arguments, beside an overloaded `Ticket::of`, a
 `Ticket::label` returning an `Optional` and a `Draft` with no Lombok under a multi-line
-annotation, whose field after a `@Getter` one over two lines is no getter. `jvm/src/main/java/typeargs/`
+annotation, whose field after a `@Getter` one over two lines is no getter. `jvm/src/main/java/chained/` (#1278)
+chains the setters of two Lombok `@Accessors(chain = true)` classes: `setName` after
+`setAddress(a)` is not `Address.name`, as if the setter returned its field's type, while
+`getName` after `getAddress()` is. `getters/Town.java` passes a lambda to
+`herald.<Notice>emit(..)`, whose receiver is read past its type arguments, beside an `emit` of
+its own. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
 (#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
