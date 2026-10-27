@@ -29,15 +29,6 @@ public static class PlatterExtensions
     public static Stove Heat(this Cup cup) => new Stove();
 }
 
-public class Saucers : List<Cup>
-{
-}
-
-public static class SaucersExtensions
-{
-    public static bool TrueForAll(this Saucers saucers, Predicate<Cup> match) => false;
-}
-
 public class Rounds(Platter platter)
 {
     public async Task<int> Pour()
@@ -108,11 +99,5 @@ public class Rounds(Platter platter)
             //             ^ d: picker src/Shop/Tea/Infuse/Cup.cs:41, src/Shop/Tea/Infuse/Cup.cs:46
         }
         return total;
-    }
-
-    public bool Stacked(Saucers saucers)
-    {
-        return saucers.TrueForAll(c => c.Count > 0);
-        //             ^ d: none
     }
 }
