@@ -2275,7 +2275,10 @@ public class AnyValidator<T> : AbstractValidator<T> where T : Order
         assert_eq!(cs_validated(base).as_deref(), want, "{base}");
     }
     for (line, want) in [
-        ("        RuleFor(command => command.Street).NotEmpty();", true),
+        (
+            "        RuleFor(command => command.Street).NotEmpty();",
+            true,
+        ),
         ("        RuleForEach((command) => command.Items);", true),
         ("        When(command => command.Paid, () => { });", true),
         ("        rules.RuleFor(command => command.Street);", false),
@@ -2284,7 +2287,10 @@ public class AnyValidator<T> : AbstractValidator<T> where T : Order
             "        RuleFor(command => command.Street).Must(command => command != null);",
             false,
         ),
-        ("        RuleFor((command, other) => command.Street);", false),
+        (
+            "        RuleFor((command, other) => command.Street);",
+            false,
+        ),
     ] {
         assert_eq!(cs_rule_lambda(line, "command"), want, "{line}");
     }
