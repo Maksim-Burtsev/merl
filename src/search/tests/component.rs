@@ -175,5 +175,8 @@ fn an_arrow_parameter_of_a_template_expression_reaches_the_lines_of_its_body() {
         "a bare parameter, the body on the next line"
     );
     let script = [true; 14];
-    assert!(template_reaching(&lines, &script, "code", 3).is_empty());
+    assert!(
+        template_reaching(&lines, &script, "code", 3).is_empty(),
+        "a script line reaches no template binding"
+    );
 }
