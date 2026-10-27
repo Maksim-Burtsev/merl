@@ -74,7 +74,15 @@ impl App {
                 &safe[..]
             }
             [] => {
-                safe = search::jvm_getter_chain(before);
+                safe = match search::jvm_getter_chain(before) {
+                    c if c.is_empty() => search::java_fluent_chain(before)
+                        .map(|(head, calls)| {
+                            let calls = calls.into_iter().map(|c| format!("{c}()"));
+                            std::iter::once(head).chain(calls).collect()
+                        })
+                        .unwrap_or_default(),
+                    c => c,
+                };
                 &safe[..]
             }
             _ => chain,
@@ -540,7 +548,9 @@ impl App {
         line1: usize,
         name: &str,
     ) -> Option<WrittenType> {
-        let source = search::java_lambda_source(text, line1, name)?;
+        let Some(source) = search::java_lambda_source(text, line1, name) else {
+            return self.java_lambda_parameter(file, text, line1, name);
+        };
         if let Some((owner, method)) = source.reference {
             let JvmType::Project(decl) = self.jvm_type_at(file, text, &owner) else {
                 return None;
@@ -600,6 +610,36 @@ impl App {
         };
         let t = self.text_of(&in_file)?;
         let resolved = self.jvm_type_at(&in_file, &t, &written);
+        matches!(resolved, JvmType::Project(_)).then_some(WrittenType { resolved, written })
+    }
+
+    fn java_lambda_parameter(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let search::JavaLambdaArgument {
+            receiver,
+            method,
+            index,
+        } = search::java_lambda_argument(text, line1, name)?;
+        let owner = match receiver.as_deref() {
+            None | Some("this") => Self::jvm_own_type(file, text, line1, None)?,
+            Some(r) => self.jvm_value(file, text, line1, r, false, 0)?.resolved,
+        };
+        let JvmType::Project(decl) = owner else {
+            return None;
+        };
+        let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new());
+        let [hit] = &java_shaped(found, |h| h, &method, true)[..] else {
+            return None;
+        };
+        let t = self.text_of(&hit.path)?;
+        let parameters = search::jvm_parameter_parts(&t, hit.line1, &method)?;
+        let written = search::java_functional_parameter(parameters.get(index)?)?;
+        let resolved = self.jvm_type_at(&hit.path, &t, &written);
         matches!(resolved, JvmType::Project(_)).then_some(WrittenType { resolved, written })
     }
 

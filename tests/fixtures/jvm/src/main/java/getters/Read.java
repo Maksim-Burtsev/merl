@@ -11,7 +11,7 @@ public class Read {
         account.getSpec().getDisplayName().trim();
 //                                         ^ d: none
         this.account().getSpec().getDisplayName();
-//                               ^ d: picker src/main/java/getters/Sender.java:4, src/main/java/getters/Owner.java:7, src/main/java/getters/Spec.java:7
+//                               ^ d: src/main/java/getters/Spec.java:7
         box.getItem().getName();
 //                    ^ d: !jump
     }
