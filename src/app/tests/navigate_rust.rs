@@ -1830,18 +1830,21 @@ fn a_match_s_value_takes_the_std_type_its_typed_arms_agree_on() {
 
 #[test]
 fn a_variant_binding_of_a_registry_enum_is_typed_in_its_one_locked_version() {
-    let lib = "use {\n    regex_syntax::hir::{self, Hir, HirKind},\n};\n\npub struct Near {\n    pub sub: u32,\n    pub bits: u32,\n}\n\npub struct Far {\n    pub sub: u32,\n    pub bits: u32,\n}\n\npub fn strip(h: Hir) -> u32 {\n    match h.into_kind() {\n        HirKind::Repetition(mut x) => x.sub.len(),\n        HirKind::Look(y) => y.bits,\n        _ => 0,\n    }\n}\n";
-    let hir = "mod look;\n\nuse self::look::Look;\n\npub enum HirKind {\n    Empty,\n    Look(Look),\n    Repetition(Repetition),\n}\n\npub struct Repetition {\n    pub min: u32,\n    pub sub: Box<Hir>,\n}\n\npub struct Hir;\n";
+    let lib = "use {\n    regex_syntax::hir::{self, Hir, HirKind},\n};\n\npub struct Near {\n    pub sub: u32,\n    pub bits: u32,\n    pub ranges: u32,\n}\n\npub struct Far {\n    pub sub: u32,\n    pub bits: u32,\n    pub ranges: u32,\n}\n\npub fn strip(h: Hir) -> u32 {\n    match h.into_kind() {\n        HirKind::Repetition(mut x) => x.sub.len(),\n        HirKind::Look(y) => y.bits,\n        HirKind::Class(z) => z.ranges,\n        _ => 0,\n    }\n}\n";
+    let hir = "mod look;\nmod class;\n\nuse self::look::Look;\nuse self::class::*;\n\npub enum HirKind {\n    Empty,\n    Look(Look),\n    Repetition(Repetition),\n    Class(Class),\n}\n\npub struct Repetition {\n    pub min: u32,\n    pub sub: Box<Hir>,\n}\n\npub struct Hir;\n";
     let look = "pub struct Look {\n    pub bits: u32,\n}\n";
+    let class = "pub struct Class {\n    pub ranges: u32,\n}\n";
     let reg = external_root(
         "rust-registry-variant",
         &[
             ("registry/regex-syntax-0.8.0/src/lib.rs", "pub mod hir;\n"),
             ("registry/regex-syntax-0.8.0/src/hir/mod.rs", hir),
             ("registry/regex-syntax-0.8.0/src/hir/look.rs", look),
+            ("registry/regex-syntax-0.8.0/src/hir/class.rs", class),
             ("registry/regex-syntax-0.6.0/src/lib.rs", "pub mod hir;\n"),
             ("registry/regex-syntax-0.6.0/src/hir/mod.rs", hir),
             ("registry/regex-syntax-0.6.0/src/hir/look.rs", look),
+            ("registry/regex-syntax-0.6.0/src/hir/class.rs", class),
         ],
     );
     let (one, two, missing) = (
@@ -1866,7 +1869,7 @@ fn a_variant_binding_of_a_registry_enum_is_typed_in_its_one_locked_version() {
         let got = shown(&mut a);
         if jumps {
             assert!(
-                matches!(&got, Shown::Jump(s, place) if s.contains("via x: Repetition") && *place == format!("{}/src/hir/mod.rs:13", one.display())),
+                matches!(&got, Shown::Jump(s, place) if s.contains("via x: Repetition") && *place == format!("{}/src/hir/mod.rs:16", one.display())),
                 "{tag}: {got:?}"
             );
         } else {
@@ -1875,15 +1878,122 @@ fn a_variant_binding_of_a_registry_enum_is_typed_in_its_one_locked_version() {
                 "{tag}: {got:?}"
             );
         }
-        d_on(&mut a, "src/lib.rs", "y.bits");
-        let got = shown(&mut a);
-        assert!(
-            matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
-            "{tag} y.bits: {got:?}"
-        );
+        for (code, file) in [("y.bits", "look.rs"), ("z.ranges", "class.rs")] {
+            d_on(&mut a, "src/lib.rs", code);
+            let got = shown(&mut a);
+            if jumps {
+                let want = format!("{}/src/hir/{file}:2", one.display());
+                assert!(
+                    matches!(&got, Shown::Jump(_, place) if *place == want),
+                    "{tag} {code}: {got:?}"
+                );
+            } else {
+                assert!(
+                    matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+                    "{tag} {code}: {got:?}"
+                );
+            }
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
     std::fs::remove_dir_all(&reg).unwrap();
+}
+
+#[test]
+fn a_registry_glob_types_a_name_only_when_no_globbed_module_imports_it() {
+    let lib = "use regex_syntax::hir::kind::HirKind;\n\npub struct Near {\n    pub ranges: u32,\n}\n\npub struct Far {\n    pub ranges: u32,\n}\n\npub fn strip(k: HirKind) -> u32 {\n    match k {\n        HirKind::Value(z) => z.ranges,\n        _ => 0,\n    }\n}\n";
+    let kind = "pub enum HirKind {\n    Empty,\n    Value(Value),\n}\n";
+    let with_prelude = "pub mod kind;\npub mod prelude;\n";
+    for (tag, hir, prelude, globs, jumps) in [
+        (
+            "crate",
+            "pub mod kind;\n",
+            "",
+            "use crate::json::*;\n\n",
+            true,
+        ),
+        (
+            "parent-import",
+            "pub mod kind;\n\nuse serde_json::Value;\n",
+            "",
+            "use super::*;\n\n",
+            false,
+        ),
+        (
+            "prelude-reexport",
+            with_prelude,
+            "pub use serde_json::Value;\n",
+            "use super::prelude::*;\n\n",
+            false,
+        ),
+        (
+            "prelude-own-glob",
+            with_prelude,
+            "pub use crate::json::*;\n",
+            "use super::prelude::*;\n\n",
+            true,
+        ),
+        (
+            "prelude-foreign-glob",
+            with_prelude,
+            "pub use serde_json::*;\n",
+            "use super::prelude::*;\n\n",
+            false,
+        ),
+        (
+            "indented",
+            "pub mod kind;\n",
+            "",
+            "mod tests {\n    use crate::json::*;\n}\n\n",
+            false,
+        ),
+    ] {
+        let kind = format!("{globs}{kind}");
+        let reg = external_root(
+            &format!("rust-registry-glob-{tag}"),
+            &[
+                (
+                    "registry/regex-syntax-0.8.0/src/lib.rs",
+                    "pub mod hir;\npub mod json;\n",
+                ),
+                (
+                    "registry/regex-syntax-0.8.0/src/json.rs",
+                    "pub struct Value {\n    pub ranges: u32,\n}\n",
+                ),
+                ("registry/regex-syntax-0.8.0/src/hir/mod.rs", hir),
+                ("registry/regex-syntax-0.8.0/src/hir/kind.rs", &kind),
+                ("registry/regex-syntax-0.8.0/src/hir/prelude.rs", prelude),
+            ],
+        );
+        let one = reg.join("registry/regex-syntax-0.8.0");
+        let (dir, mut a) = project_app(
+            &format!("rust-registry-glob-{tag}"),
+            &[
+                (
+                    "Cargo.toml",
+                    "[package]\nname = \"m\"\n\n[dependencies]\nregex-syntax = \"0.8\"\n",
+                ),
+                ("src/lib.rs", lib),
+            ],
+        );
+        use_roots(&mut a, Kind::Rust, std::slice::from_ref(&one));
+        d_on(&mut a, "src/lib.rs", "z.ranges");
+        let got = shown(&mut a);
+        if jumps {
+            let want = format!("{}/src/json.rs:2", one.display());
+            assert!(
+                matches!(&got, Shown::Jump(_, place) if *place == want),
+                "{tag}: {got:?}"
+            );
+        } else {
+            assert!(
+                matches!(&got, Shown::Picker(s, rows) if s.ends_with("2 declarations") && rows.len() == 2),
+                "{tag}: {got:?}"
+            );
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+        std::fs::remove_dir_all(&reg).unwrap();
+    }
 }
 
 #[test]
@@ -1975,5 +2085,73 @@ fn a_closure_on_a_shadowing_let_s_line_does_not_bind_its_head() {
     };
     assert_eq!(got, "core/src/str/mod.rs:8");
     std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&std).unwrap();
+}
+
+#[test]
+fn a_std_associated_call_heads_a_chain_by_its_declared_return_type() {
+    let stable = "    #[stable(feature = \"rust1\", since = \"1.0.0\")]\n";
+    let chains = "pub struct Cache;\n\nimpl Cache {\n    pub fn len(&self) -> usize {\n        0\n    }\n\n    pub fn display(&self) {}\n}\n\npub fn decoded(b: Vec<u8>) -> Result<usize, FromUtf8Error> {\n    let s = String::from_utf8(b)?;\n    Ok(s.len())\n}\n\npub fn joined(p: &str) {\n    let full = PathBuf::from(p).join(\"x\");\n    full.display();\n}\n\npub fn direct(b: Vec<u8>) -> usize {\n    String::from_utf8(b).unwrap().len()\n}\n\npub fn lossy(w: &[u16]) -> usize {\n    let t = String::from_utf16_lossy(w);\n    t.len()\n}\n";
+    let std = external_root(
+        "rust-assoc-chain-std",
+        &[
+            ("lib/rustlib/src/rust/library/core/src/lib.rs", "\n"),
+            (
+                "lib/rustlib/src/rust/library/alloc/src/string.rs",
+                &format!(
+                    "pub struct String;\n\npub struct FromUtf8Error;\n\nimpl String {{\n{stable}    pub fn len(&self) -> usize {{\n        0\n    }}\n{stable}    pub fn from_utf8(vec: Vec<u8>) -> Result<String, FromUtf8Error> {{\n        loop {{}}\n    }}\n{stable}    pub fn from_utf16_lossy(v: &[u16]) -> String {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+            (
+                "lib/rustlib/src/rust/library/std/src/path.rs",
+                &format!(
+                    "pub struct PathBuf;\n\npub struct Path;\n\nimpl Path {{\n{stable}    pub fn join<P: AsRef<Path>>(&self, path: P) -> PathBuf {{\n        loop {{}}\n    }}\n{stable}    pub fn display(&self) -> Display<'_> {{\n        loop {{}}\n    }}\n}}\n"
+                ),
+            ),
+        ],
+    );
+    let library = std.join("lib/rustlib/src/rust/library");
+    let len = "alloc/src/string.rs:7";
+    for (name, head, own, want) in [
+        (
+            "rust-assoc-chain",
+            "use std::path::PathBuf;\nuse std::string::FromUtf8Error;\n\n",
+            "\n",
+            [len, "std/src/path.rs:11", len, len],
+        ),
+        (
+            "rust-assoc-chain-namesakes",
+            "mod own;\n\nuse camino::Utf8PathBuf as PathBuf;\nuse crate::own::{FromUtf8Error, String};\n\n",
+            "pub struct String;\n\npub struct FromUtf8Error;\n",
+            ["not std"; 4],
+        ),
+    ] {
+        let lib = format!("{head}{chains}");
+        let (dir, mut a) = project_app(
+            name,
+            &[
+                ("Cargo.toml", "[package]\nname = \"m\"\n"),
+                ("src/lib.rs", &lib),
+                ("src/own.rs", own),
+            ],
+        );
+        use_roots(&mut a, Kind::Rust, std::slice::from_ref(&library));
+        for (code, want) in [
+            ("s.len", want[0]),
+            ("full.display", want[1]),
+            ("unwrap().len", want[2]),
+            ("t.len", want[3]),
+        ] {
+            d_on(&mut a, "src/lib.rs", code);
+            let got = match shown(&mut a) {
+                Shown::Jump(_, place) if place.starts_with(&*library.to_string_lossy()) => {
+                    place.replace(&format!("{}/", library.display()), "")
+                }
+                _ => "not std".to_owned(),
+            };
+            assert_eq!(got, want, "{name}: {code}");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
     std::fs::remove_dir_all(&std).unwrap();
 }

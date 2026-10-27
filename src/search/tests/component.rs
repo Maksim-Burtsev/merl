@@ -140,3 +140,61 @@ fn a_script_tag_is_read_by_its_name_and_its_end() {
     );
     assert!(!in_style(&["<style>.a {}</style>", ".b {"], 1));
 }
+
+#[test]
+fn an_arrow_parameter_of_a_template_expression_reaches_the_lines_of_its_body() {
+    let lines = [
+        "{",
+        "\t<Select",
+        "\t\toptions={entries.map(([code, locale]) => ({",
+        "\t\t\tvalue: code,",
+        "\t\t\tlabel: locale,",
+        "\t\t}))}",
+        "\t\tother={code}",
+        "\t/>",
+        "\t<ul>{xs.map((x) => go(x))}",
+        "\t\t<li>{x}</li>",
+        "\t<ul>{ys.map(y =>",
+        "\t\t<li>{y}</li>",
+        "\t)}</ul>",
+        "}",
+    ];
+    let code = [false; 14];
+    let reach = |word: &str, line: usize| {
+        let col = lines[line].find(word).unwrap();
+        template_reaching(&lines, &code, word, line, col)
+    };
+    assert_eq!(
+        reach("code", 3),
+        [3],
+        "a destructured parameter, the body below"
+    );
+    assert_eq!(reach("locale", 4), [3]);
+    assert!(reach("code", 6).is_empty(), "past the body's indentation");
+    assert!(reach("x", 9).is_empty(), "an arrow closed on its own line");
+    assert_eq!(
+        reach("y", 11),
+        [11],
+        "a bare parameter, the body on the next line"
+    );
+    let closed = [
+        "{tags.map((label) =>",
+        "  label.trim()).join(', ')} {label}",
+    ];
+    let code = [false; 2];
+    let col = closed[1].rfind("label").unwrap();
+    assert!(
+        template_reaching(&closed, &code, "label", 1, col).is_empty(),
+        "past the bracket that closes the body"
+    );
+    assert_eq!(
+        template_reaching(&closed, &code, "label", 1, 2),
+        [1],
+        "inside the body, before it closes"
+    );
+    let script = [true; 14];
+    assert!(
+        template_reaching(&lines, &script, "code", 3, 0).is_empty(),
+        "a script line reaches no template binding"
+    );
+}

@@ -402,7 +402,7 @@ pub fn split_again(spoons: Spoons) -> usize {
 pub fn split_nested(spoons: Spoons) -> usize {
     let (kept, (dipper, _)) = (spoons, (Dipper, 1));
     kept.sugar.heap() + dipper.heap()
-    //         ^ d: picker src/infusion.rs:351, src/infusion.rs:359; want src/infusion.rs:351 (#1044)
+    //         ^ d: src/infusion.rs:351
 }
 
 pub fn rebuilt(leaf: &Leaf) -> usize {
@@ -494,4 +494,23 @@ pub fn hashed() -> usize {
     let k = m.clone();
     k.len()
     //^ d: src/infusion/leaves.rs:13
+}
+
+impl Spoons {
+    pub fn nest(&self) -> (Spoons, (Dipper, u8)) {
+        (Spoons { tea: Scoop, sugar: Scoop }, (Dipper, 1))
+    }
+}
+
+pub fn split_deep(spoons: Spoons) -> usize {
+    let (kept, (dipper, _)) = spoons.nest();
+    kept.tea.heap() + dipper.heap()
+    //       ^ d: src/infusion.rs:351
+    //                       ^ d: src/infusion.rs:359
+}
+
+pub fn split_swapped(spoons: Spoons) -> usize {
+    let (spoons, (kept, _)) = (Dipper, (spoons, 1));
+    kept.tea.heap() + spoons.heap()
+    //       ^ d: src/infusion.rs:351
 }

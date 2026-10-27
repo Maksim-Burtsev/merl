@@ -10,6 +10,8 @@ class Spoon {
 class Caddy {
   final Scoop scoop;
   final Spoon spoon;
+  final Spoon ladle = Spoon();
+  final tongs = Scoop();
   Scoop pick() => scoop;
   Caddy(this.scoop, this.spoon);
 }
@@ -27,8 +29,12 @@ int measure(Shelf shelf, Shelf? spare) {
   //                             ^ d: lib/caddy.dart:7
   final spared = spare?.caddy.scoop.heap() ?? 0;
   //                                ^ d: lib/caddy.dart:2
+  final ladled = shelf.caddy.ladle.heap();
+  //                               ^ d: lib/caddy.dart:7
+  final tonged = shelf.caddy.tongs.heap();
+  //                               ^ d: lib/caddy.dart:2
   final torn = shelf.caddy.pick.call();
   //                            ^ d: !jump
-  return heaped + flat + spared + torn + 'tin: ${shelf.caddy.spoon.heap()}'.length;
-  //                                                               ^ d: lib/caddy.dart:7
+  return heaped + flat + spared + ladled + tonged + torn + 'tin: ${shelf.caddy.spoon.heap()}'.length;
+  //                                                                                 ^ d: lib/caddy.dart:7
 }

@@ -93,9 +93,20 @@ impl App {
         let [_] = packages[..] else {
             return None;
         };
-        let hit = search::ambient_target(&hits.first()?.path, &name, item)?;
+        let dts = &hits.first()?.path;
+        let hit = search::ambient_target(dts, &name, item)?;
         if !a.chain.is_empty() {
-            return Some(Vec::new());
+            let member = match &a.chain[..] {
+                [only] if only == item => search::ambient_member(dts, &name, item, &a.word),
+                _ => None,
+            };
+            let reason = Reason::Receiver(item.to_owned());
+            return Some(
+                member
+                    .map(|hit| Candidate { hit, reason })
+                    .into_iter()
+                    .collect(),
+            );
         }
         let reason = Reason::Import(name);
         Some(vec![Candidate { hit, reason }])

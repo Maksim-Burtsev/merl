@@ -2034,6 +2034,9 @@ fn csharp_declarations_and_expressions_give_their_written_types() {
         ),
         ("repo.LoadAsync(id).ConfigureAwait(false)", CsValue::Unknown),
         ("Load(id).Value", CsValue::Unknown),
+        ("items[i]", CsValue::Indexed("items".into())),
+        ("items[i].Value", CsValue::Unknown),
+        ("Load(id)[0]", CsValue::Unknown),
     ] {
         assert_eq!(cs_expr(expr), want, "{expr}");
     }
@@ -2106,6 +2109,102 @@ fn csharp_type_names_and_awaited_types() {
 }
 
 #[test]
+fn csharp_collection_values_select_and_coalesce() {
+    let steps = cs_steps("(await FetchAsync(id)).Select(i => new Quantity(i.Id)).ToList()")
+        .expect("a grouped await opens the chain");
+    assert_eq!(
+        (steps.parts.len(), steps.awaited),
+        (3, 1),
+        "the await covers the first part"
+    );
+    assert_eq!(steps.args[1], "i => new Quantity(i.Id)");
+    assert_eq!(
+        cs_steps("(await shop.Basket.LoadAsync()).First()").map(|s| s.awaited),
+        Some(3)
+    );
+    assert_eq!(
+        cs_steps("Wrap(await LoadAsync()).First()").map(|s| s.awaited),
+        Some(0),
+        "an await inside a call's arguments"
+    );
+    for (args, want) in [
+        ("i => i.ToDto()", Some(("i", "i.ToDto()"))),
+        ("(i) => new Dto(i)", Some(("i", "new Dto(i)"))),
+        ("i => { return i.ToDto(); }", None),
+        ("(i, n) => i.ToDto()", None),
+        ("ToDto", None),
+    ] {
+        let got = cs_select_lambda(args);
+        let got = got.as_ref().map(|(p, b)| (p.as_str(), b.as_str()));
+        assert_eq!(got, want, "{args}");
+    }
+    for (expr, want) in [
+        (
+            "JsonSerializer.Deserialize<Entry[]>(json) ?? Array.Empty<Entry>()",
+            Some((
+                "JsonSerializer.Deserialize<Entry[]>(json)",
+                "Array.Empty<Entry>()",
+            )),
+        ),
+        ("a ?? b ?? c", None),
+        ("Load(a ?? b)", None),
+        ("a?.b ?? \"??\"", Some(("a?.b", "\"??\""))),
+        ("a ??= b", None),
+    ] {
+        assert_eq!(cs_coalesced(expr), want, "{expr}");
+    }
+    for (expr, want) in [
+        (
+            "JsonSerializer.Deserialize<Entry[]>(json)",
+            Some(("JsonSerializer", "Entry[]")),
+        ),
+        (
+            "System.Text.Json.JsonSerializer.Deserialize<Entry>(json, options)",
+            Some(("JsonSerializer", "Entry")),
+        ),
+        ("Array.Empty<Entry>()", Some(("Array", "Entry[]"))),
+        ("Array.Empty<Entry>(1)", None),
+        ("JsonSerializer.Deserialize<Entry>(json).Id", None),
+        ("Serializer.Deserialize<Entry>(json)", None),
+    ] {
+        let got = cs_framework_value(expr);
+        let got = got.as_ref().map(|(c, w)| (c.as_str(), w.as_str()));
+        assert_eq!(got, want, "{expr}");
+    }
+    for (written, want) in [
+        ("Entry[]", Some("Entry")),
+        ("Entry[]?", Some("Entry")),
+        ("Entry[][]", None),
+        ("List<Entry>[]", None),
+        ("List<Entry>", Some("Entry")),
+    ] {
+        assert_eq!(cs_one_argument(written).as_deref(), want, "{written}");
+    }
+    let text = "\
+class Shop
+{
+    T Make<T>() => Factory.Create<T>();
+    void Run()
+    {
+        var items = Load<Entry[]>(json) ?? Array.Empty<Entry>();
+    }
+}
+";
+    assert!(
+        cs_generic_param(text, 3, "T"),
+        "a method's own, before its arrow"
+    );
+    assert!(
+        !cs_generic_param(text, 6, "Entry"),
+        "a call's type argument past an assignment"
+    );
+    assert!(
+        !cs_generic_param("    List<Cup> Fill() => new List<Cup>();", 1, "Cup"),
+        "a type argument in an expression body"
+    );
+}
+
+#[test]
 fn csharp_bases_owners_and_type_parameters() {
     let page = "\
 public class OrderPage<T>(Order order)
@@ -2145,6 +2244,56 @@ namespace Shop
         generic(11, "TIn") && generic(11, "TOut"),
         "past `in` and `out`"
     );
+    let validated = "\
+public class OrderValidator : AbstractValidator<Order>
+{
+    public OrderValidator() { }
+}
+public class AnyValidator<T> : AbstractValidator<T> where T : Order
+{
+}
+";
+    assert!(
+        !cs_generic_param(validated, 3, "Order"),
+        "a base's type argument is no parameter"
+    );
+    assert!(
+        cs_generic_param(validated, 5, "T"),
+        "the type's own, before its bases"
+    );
+    for (base, want) in [
+        ("AbstractValidator<Order>", Some("Order")),
+        (
+            "FluentValidation.AbstractValidator<Wrapped<Order, bool>>",
+            Some("Wrapped<Order, bool>"),
+        ),
+        ("AbstractValidator<Order, Item>", None),
+        ("AbstractValidator<Order[]>", None),
+        ("Validator<Order>", None),
+        ("AbstractValidator", None),
+    ] {
+        assert_eq!(cs_validated(base).as_deref(), want, "{base}");
+    }
+    for (line, want) in [
+        (
+            "        RuleFor(command => command.Street).NotEmpty();",
+            true,
+        ),
+        ("        RuleForEach((command) => command.Items);", true),
+        ("        When(command => command.Paid, () => { });", true),
+        ("        rules.RuleFor(command => command.Street);", false),
+        ("        Include(command => command.Street);", false),
+        (
+            "        RuleFor(command => command.Street).Must(command => command != null);",
+            false,
+        ),
+        (
+            "        RuleFor((command, other) => command.Street);",
+            false,
+        ),
+    ] {
+        assert_eq!(cs_rule_lambda(line, "command"), want, "{line}");
+    }
 }
 
 #[test]
@@ -2328,5 +2477,47 @@ fn csharp_initializers_take_the_type_they_construct() {
     assert!(
         !cs_type_position(line, start, start + 3),
         "a `<` after a space is a comparison"
+    );
+}
+
+#[test]
+fn csharp_slices_grouped_awaits_and_attributes_read_as_csharp_does() {
+    for expr in ["items[1..]", "items[a..b]", "items[..^1]"] {
+        assert_eq!(cs_expr(expr), CsValue::Unknown, "{expr} is a slice");
+    }
+    for expr in [
+        "(IShape)(await shapes.GetCircleAsync())",
+        "prefix + (await repo.GetOrderAsync())",
+    ] {
+        assert!(
+            cs_steps(expr).is_none(),
+            "{expr}: a grouped await heads a chain only at the start"
+        );
+    }
+    assert!(
+        cs_steps("o.Note + o.Buyer").is_some_and(|s| !s.whole),
+        "an operator stands before the chain"
+    );
+    assert!(cs_steps("o.Buyer.Name").is_some_and(|s| s.whole));
+    assert!(cs_steps("(await o.LoadAsync()).Buyer").is_some_and(|s| s.whole));
+    assert!(
+        cs_generic_param(
+            "    [Foo(Name = \"x\")] public TModel Get<TModel>()",
+            1,
+            "TModel"
+        ),
+        "an attribute's named argument is no assignment"
+    );
+    assert!(
+        cs_generic_param(
+            "    [Foo(Kind: 1)][Bar] public TModel Get<TModel>() => default;",
+            1,
+            "TModel"
+        ),
+        "nor its colon"
+    );
+    assert!(
+        !cs_generic_param("    [Route<TModel>(\"x\")] public void Go()", 1, "TModel"),
+        "an attribute's type argument is no parameter"
     );
 }

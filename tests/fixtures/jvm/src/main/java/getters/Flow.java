@@ -1,6 +1,7 @@
 package getters;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import reactor.core.publisher.Mono;
 
 public class Flow {
@@ -35,5 +36,33 @@ public class Flow {
 //                                                                 ^ d: !jump
         store.fetch(Account.class, "a").map(account -> account.getSpec()).map(account -> account.getSpec().getDisplayName());
 //                                                                                                          ^ d: !jump
+    }
+
+    void tickets(Ticket ticket, Draft draft) {
+        ticket.getSpec().getDisplayName();
+//             ^ d: src/main/java/getters/Ticket.java:13
+        draft.getSpec();
+//            ^ d: !jump
+        draft.getCopy();
+//            ^ d: !jump
+    }
+
+    void references(List<Account> accounts) {
+        accounts.stream().map(Account::getSpec).map(spec -> spec.getDisplayName());
+//                                                               ^ d: src/main/java/getters/Spec.java:7
+        accounts.stream().map(Ticket::from).collect(Collectors.toMap(ticket -> ticket.getSpec(), t -> t));
+//                                                                                    ^ d: src/main/java/getters/Ticket.java:13
+        accounts.stream().map(Ticket::of).map(ticket -> ticket.getSpec());
+//                                                             ^ d: !jump
+        accounts.stream().map(Ticket::label).map(ticket -> ticket.getSpec());
+//                                                                ^ d: !jump
+        store.all().filter(a -> a != null).next().map(account -> account.getSpec().getDisplayName());
+//                                                                                 ^ d: src/main/java/getters/Spec.java:7
+    }
+
+    void assigned(Account account) {
+        var issued = store.ticketFor(account.getSpec().getDisplayName());
+        issued.getSpec();
+//             ^ d: src/main/java/getters/Ticket.java:13
     }
 }

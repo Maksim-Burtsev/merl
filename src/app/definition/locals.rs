@@ -267,5 +267,6 @@ fn ts_key(a: &Asked, line1: usize) -> bool {
         && a.lead.trim().is_empty()
         && tail.trim_start_matches('?').starts_with(':')
         && !tail.starts_with("::")
-        && search::ts_type_key(&a.text, line1, tail)
+        && (search::ts_type_key(&a.text, line1, tail)
+            || search::ts_type_literal_key(&a.text, line1 - 1, a.range.start))
 }

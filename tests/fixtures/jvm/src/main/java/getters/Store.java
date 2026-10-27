@@ -17,4 +17,6 @@ public interface Store {
     Flux<Account> pages();
 
     Flux<Owner> pages(int size);
+
+    Ticket ticketFor(String name);
 }

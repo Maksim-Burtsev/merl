@@ -66,3 +66,50 @@ func outside() {
     Porter.send(.allow)
     //           ^ d: none
 }
+
+// A memberwise init's property typed by its value, a case of a nested type, and a method of a
+// value whose type merl knows read the parameter's type the same way (#1286).
+enum Lane {
+    case express, standard
+}
+
+struct Ticket {
+    enum Lane {
+        case express, standard
+    }
+
+    var lane = Lane.standard
+    var rush = Rush.make()
+}
+
+enum Rush {
+    case express
+
+    static func make() -> Lane { .express }
+}
+
+final class Cashier {
+    func file(_ lane: Lane, rush: Bool = false) {}
+    func stamp(_ lane: Lane) {}
+    func stamp(_ lane: Ticket.Lane) {}
+}
+
+func tickets(cashier: Cashier) {
+    _ = Ticket(lane: .express)
+    //                ^ d: Sources/Shop/Arguments.swift:78
+    _ = Ticket(rush: .express)
+    //                ^ d: !jump
+    let desk = Cashier()
+    desk.file(.express, rush: true)
+    //         ^ d: Sources/Shop/Arguments.swift:73
+    cashier.file(.express)
+    //            ^ d: Sources/Shop/Arguments.swift:73
+    cashier.stamp(.express)
+    //             ^ d: !jump
+    stranger.file(.express)
+    //             ^ d: !jump
+}
+
+extension Lane {
+    static var fallback: Lane { .standard }
+}

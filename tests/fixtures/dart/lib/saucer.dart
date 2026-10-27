@@ -85,7 +85,7 @@ class Cup {
             tint: tint,
           ) : {
             'b': tint,
-            //   ^ d: picker lib/saucer.dart:20, lib/saucer.dart:80
+            //   ^ d: lib/saucer.dart:80
           };
     print(m);
   }

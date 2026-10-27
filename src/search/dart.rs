@@ -303,7 +303,9 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
             let sky = packages().into_iter().find(|p| p.name == "sky_engine")?;
             return found(sky.package_uri_dir.join("ui/ui.dart"));
         }
-        return found(sdk?.join("lib").join(lib).join(format!("{lib}.dart")));
+        let sdk = sdk?.join("lib");
+        return found(sdk.join(lib).join(format!("{lib}.dart")))
+            .or_else(|| found(sdk.join(dart_sdk_library(&sdk, lib)?)));
     }
     let Some(rest) = uri.strip_prefix("package:") else {
         return found(lexical(&here.parent()?.join(uri))?);
@@ -321,6 +323,16 @@ pub fn dart_uri_file(root: &Path, here: &Path, uri: &str, sdk: Option<&Path>) ->
     }
     let package = packages().into_iter().find(|p| p.name == name)?;
     found(package.package_uri_dir.join(path))
+}
+
+fn dart_sdk_library(lib_dir: &Path, lib: &str) -> Option<String> {
+    let json = std::fs::read_to_string(lib_dir.join("libraries.json")).ok()?;
+    let entry = Regex::new(&format!(
+        r#""{}"\s*:\s*\{{\s*"uri"\s*:\s*"([^"]+)""#,
+        regex::escape(lib)
+    ))
+    .ok()?;
+    Some(entry.captures(&json)?[1].to_owned())
 }
 
 pub(super) struct DartPackage {
@@ -507,7 +519,18 @@ fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> 
             value: Value::Unknown,
         }]
     };
-    if dart_header_binds(code(at).trim(), name) {
+    let in_class = |from: usize, below: usize| {
+        (0..from)
+            .rev()
+            .find(|&j| !literal[j] && !code(j).trim().is_empty() && indent(lines[j]) < below)
+            .is_some_and(|j| TYPE_BODY.is_match(lines[j]))
+    };
+    let listed = |line: &str, list_follows: bool| {
+        dart_initializer_header(line, list_follows).is_some_and(|h| dart_header_binds(&h, name))
+    };
+    if dart_header_binds(code(at).trim(), name)
+        || (read && in_class(at, indent(lines[at])) && listed(&code(at), false))
+    {
         return found(at);
     }
     let mut depth = indent(lines[at]);
@@ -547,21 +570,25 @@ fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> 
             return found(h);
         }
         let mut head: Vec<String> = (i..=end).map(code).collect();
+        let in_class_body = in_class(i, depth);
         if initializers {
-            let in_class = (0..i)
-                .rev()
-                .find(|&j| !literal[j] && !code(j).trim().is_empty() && indent(lines[j]) < depth)
-                .is_some_and(|j| TYPE_BODY.is_match(lines[j]));
             let constructor = SHAPES[Shape::Constructor as usize].is_match(&head.join(" "));
             let params = head.pop().unwrap_or_default();
             match params.split_once(':') {
-                Some((close, _)) if (from_body || read) && in_class && constructor => {
+                Some((close, _)) if (from_body || read) && in_class_body && constructor => {
                     head.push(format!("{close} {{"));
                 }
                 _ => head.clear(),
             }
         }
-        if dart_header_binds(head.join(" ").trim(), name) {
+        let list_follows = (end + 1..=at)
+            .find(|&k| !code(k).trim().is_empty() && !literal[k])
+            .is_some_and(|k| code(k).trim_start().starts_with(':'));
+        let lists = !initializers
+            && (from_body || read)
+            && in_class_body
+            && listed(&head.join(" "), list_follows);
+        if lists || dart_header_binds(head.join(" ").trim(), name) {
             let w = Regex::new(&format!(
                 r"(?:^|[^\w$]){}{NAME_END_PAST_DOLLAR}",
                 regex::escape(name)
@@ -574,6 +601,19 @@ fn dart_walk(lines: &[&str], at: usize, name: &str, read: bool) -> Vec<Binding> 
         }
     }
     Vec::new()
+}
+
+fn dart_initializer_header(line: &str, list_follows: bool) -> Option<String> {
+    let open = line.find('(')?;
+    let end = close_of(Kind::Dart, line, open)?;
+    let (params, rest) = line.split_at_checked(end)?;
+    let rest = rest.trim_start();
+    let list = match rest.strip_prefix(':') {
+        Some(r) => !r.starts_with(':'),
+        None => rest.is_empty() && list_follows,
+    };
+    (list && SHAPES[Shape::Constructor as usize].is_match(line))
+        .then(|| format!("{} {{", params.trim()))
 }
 
 fn dart_local(t: &str, name: &str) -> bool {
@@ -606,7 +646,7 @@ fn dart_header_binds(head: &str, name: &str) -> bool {
     let w = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name");
     let pattern = rule(format!(
-        r"[:(,]\s*(?:final|var)\s+(?:{ANY_TYPE}\s+)?{w}{NAME_END_PAST_DOLLAR}"
+        r"(?:[:(,]|\bcase)\s*(?:final|var)\s+(?:{ANY_TYPE}\s+)?{w}{NAME_END_PAST_DOLLAR}"
     ));
     let before_arrow = head.split("=>").next().unwrap_or_default();
     if CONTROL.is_match(head) {
@@ -883,6 +923,58 @@ pub fn dart_element_typed(line: &str, name: &str) -> Option<DartType> {
         class: c[2].to_owned(),
         constructor: None,
     })
+}
+
+pub fn dart_for_in<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    let re = Regex::new(&format!(
+        r"\bfor\s*\(\s*(?:final|var)\s+{}\s+in\s+([A-Za-z_$][\w$]*)\s*\)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(re.captures(line)?.get(1)?.as_str())
+}
+
+pub fn dart_iterated(line: &str, name: &str) -> Option<DartType> {
+    let w = regex::escape(name);
+    let element = concat!(r"(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)", dart_generics!());
+    let typed = Regex::new(&format!(
+        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const|static)\s+)*(?:List|Iterable|Set)<{element}>\??\s+{w}\s*(?:[,)=;}}\]]|$)"
+    ))
+    .ok()?;
+    let literal = Regex::new(&format!(
+        r"(?:^|\s)(?:(?:final|var|late|static|const)\s+)+{w}\s*=\s*(?:const\s+)?<{element}>\s*[\[{{]"
+    ))
+    .ok()?;
+    let c = typed.captures(line).or_else(|| literal.captures(line))?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
+pub fn dart_list_literal(before: &str) -> bool {
+    static TYPE_ARGS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:const\s*)?(?:<[\w$.,?\s<>]*>)?\s*$").expect("the regex is a literal")
+    });
+    let Some(rest) = before.strip_suffix('.').filter(|r| r.ends_with(']')) else {
+        return false;
+    };
+    let Some(open) = super::code(Kind::Dart, rest)
+        .filter(|(_, c)| *c == b'[')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::Dart, rest, i) == Some(rest.len()))
+    else {
+        return false;
+    };
+    let head = rest.get(..open).unwrap_or_default();
+    let head = TYPE_ARGS
+        .find(head)
+        .map_or(head, |m| head.get(..m.start()).unwrap_or_default())
+        .trim_end();
+    head.is_empty()
+        || head.ends_with(['(', '=', ',', ':', '[', '{', '&', '|', ';', '>'])
+        || head.ends_with("return")
 }
 
 pub fn dart_type_bound(line: &str, ty: &DartType) -> Option<DartType> {

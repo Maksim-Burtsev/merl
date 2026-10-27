@@ -1951,7 +1951,7 @@ mod tests {
                 ),
             );
         });
-        let rows: Vec<(PathBuf, bool)> = rx.recv_timeout(Duration::from_secs(60)).unwrap();
+        let rows: Vec<(PathBuf, bool)> = rx.recv_timeout(Duration::from_mins(1)).unwrap();
         assert_eq!(rows, [(PathBuf::from("pipe.link"), false)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }

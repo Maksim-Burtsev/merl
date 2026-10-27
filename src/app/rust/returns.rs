@@ -266,6 +266,45 @@ impl App {
         } else {
             self.rust_std_marked(written, word)?
         };
+        self.rust_std_decl_returns(file, written, line0, word, &decl, None)
+    }
+
+    pub(super) fn rust_std_assoc(
+        &self,
+        file: &Path,
+        text: &str,
+        line0: usize,
+        owner: &str,
+        word: &str,
+    ) -> Option<Got> {
+        let bare = rust_bare_type(owner)?;
+        if !DEREF.iter().any(|(t, _)| *t == bare)
+            || !std_rooted(text, owner)
+            || !self.rust_std_named(text, &bare)
+        {
+            return None;
+        }
+        if CONSTRUCTORS.contains(&word) {
+            return Some(Got::Written {
+                file: file.to_path_buf(),
+                written: owner.to_owned(),
+                line0,
+            });
+        }
+        let found = self.rust_std_found(text, "", &bare, word)?;
+        let [Candidate { hit, .. }] = <[Candidate; 1]>::try_from(found).ok()?;
+        self.rust_std_decl_returns(file, owner, line0, word, &hit, Some(&bare))
+    }
+
+    fn rust_std_decl_returns(
+        &self,
+        file: &Path,
+        written: &str,
+        line0: usize,
+        word: &str,
+        decl: &Hit,
+        on: Option<&str>,
+    ) -> Option<Got> {
         let krate = ["core", "alloc", "std"].into_iter().find(|k| {
             self.sysroot_src(k)
                 .is_some_and(|s| decl.path.starts_with(&s.src))
@@ -275,6 +314,9 @@ impl App {
         let m = search::rust_method_at(&lines, decl.line1)?;
         let ret = search::rust_return_type(&lines, decl.line1 - 1)?;
         let impl_line = lines.get(m.owner_line1 - 1)?;
+        if on.is_some_and(|on| search::rust_impl_type(impl_line).as_deref() != Some(on)) {
+            return None;
+        }
         let sub = substitute(&ret, impl_line, &decl.text, word, written, krate);
         Some(self.rust_got(file, sub, line0))
     }

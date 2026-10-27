@@ -276,6 +276,10 @@ in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `
 variable in the `elif` and `else` branches of an `if` whose earlier branch assigns it, and after
 the `fi` (#1270): inside the `if`, the assignment above it answers. `rinse` and `drain` read one in
 the `else` of an `if` that follows an `if` or a loop already closed, whose assignment answers.
+`sieve` reads one in a later arm of a `case` whose earlier arm `;;` ended: the assignment above
+the `case` answers. `simmer` reads one after a `case` inside `$(..)`, and `decoct` in an arm of a
+`case` inside a `while` loop, where an earlier pass ran the earlier arm: the nearest assignment
+answers, as on master.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
@@ -361,6 +365,21 @@ parameter hides, and declarations in a block comment, a raw interpolated string 
 Its `Rounds.cs` (#1282) reads the element of a framework collection: a `foreach` over an awaited
 call, a LINQ lambda's parameter and `FirstOrDefault()`; a `Dictionary`, `Aggregate`'s two
 parameters, overloads returning two element types and a project extension named `Last` stay pickers.
+Its `Served` (#1282) reads the element `Select` makes, through a project extension method or `new`,
+of a `foreach` and of an indexer over `.ToList()`, and of an array that `Deserialize<T[]>(…) ??
+Array.Empty<T>()` gives on both sides; `Doubtful`'s `??` with two element types and a `Select`
+with a block body stay pickers.
+Its `Checks.cs` (#1298) holds FluentValidation validators: the lambda of `RuleFor`, `RuleForEach`
+and `When` in a class whose one base is `AbstractValidator<T>` takes `T` (`Cup`, and `Stove`
+through `FluentValidation.AbstractValidator`), on one line or over two; a second lambda binding the
+name on the line, `Include`, a qualified `platter.RuleFor`, a second base, a generic `T` and a class
+of another base stay pickers. `JarValidator`'s `T` is a type the file's alias names, which that rule
+does not read: a picker.
+`csharp/src/Shop/Pantry/` (#1298) declares `Jar` in `Shop.Pantry` and `Shop.Pantry.Old`; a
+`using Jar = Shop.Pantry.Old.Jar;` of the file sends `Jar` in a type's place to the old one, in
+`Aliased.cs` with no namespace and in `Checks.cs` in `Shop.Tea.Infuse`. `Shadowed.cs` in
+`Shop.Pantry`, whose own `Jar` comes before the alias, and `Boxed<Jar>`'s type parameter keep
+master's picker.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -563,8 +582,8 @@ mixes into the prototype of a class whose bases reach that package, beside a nam
 another class. `keys.ts` puts keys of a type literal and of an object literal, at the start of
 their lines, above a module-level `const` of each key's name: a type literal's key (`name: T;`) is its own
 definition, an object literal's stays a key (#1273). The last key of a nested object literal
-closed on its line (`locale: given.locale } };`) is no type key, though it still falls through
-to the module-level `const` (#1291); an `interface`'s key is its own definition.
+closed on its line (`locale: given.locale } };`) is a key too, two levels down under a quoted
+key as well (#1291); an `interface`'s key is its own definition.
 `crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
@@ -682,7 +701,12 @@ keep the picker.
 initializer and a static method whose parameter is typed `Layout`, a type nested in two types:
 each lands on its own callee's `Layout`. A generic parameter named `Layout`, two overloads whose
 parameters take two types, and a ternary keep the picker; a parameter typed from outside the
-project answers none, not the project's namesake.
+project answers none, not the project's namesake. A memberwise init's `var lane = Lane.standard`
+reads `Lane` from the struct's scope, the nested `Ticket.Lane`; a property whose value is a static
+func's call (`Rush.make()`) keeps the picker. A method of a value whose type merl knows
+(`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
+also opens; two overloads taking
+two types, or a receiver merl cannot type, keep the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -719,8 +743,10 @@ and `n.to_string()` in `label`: both are a `String`, where master jumped to `Lea
 `heaped` matches into two fields of the same project struct, so `heap` is `Scoop`'s, not a picker
 with `Dipper`'s; `restrung` calls `to_string` on a `String`, not a `str` (#1044).
 `split_heap` binds `kept` in `let (kept, dipper) = spoons.split()`, a method returning a tuple, so
-`heap` is `Scoop`'s, as it is when the pattern rebinds its head (`split_again`); a tuple pattern
-that nests a tuple (`split_nested`) keeps the picker (#1044). `split_dipped` rebinds `spoons` to a
+`heap` is `Scoop`'s, as it is when the pattern rebinds its head (`split_again`), when it nests a
+tuple over a tuple literal (`split_nested`) or over a method returning a nested tuple
+(`split_deep`), and when the literal hands the pattern's own name to another one
+(`split_swapped`, read among the bindings above the line) (#1044). `split_dipped` rebinds `spoons` to a
 `Dipper`, which has no `split`, before the tuple rebinds it again: the head is the nearest
 binding, so it keeps the picker where reading the parameter jumped to `Scoop::heap`.
 `rebuilt` and `recupped` start a `let` chain at a `String::from(..)`, a `Vec::<u32>::new()` and a
@@ -780,7 +806,19 @@ method, `call()` on a field, and a type parameter's bound (#1220).
 `dart/lib/caddy.dart` (#1280) walks chains of names with no call (`shelf.caddy.scoop.heap()`,
 `spare?.caddy.scoop`, one inside `${..}`) to the `heap` of `Scoop` or of `Spoon`; a method
 named in the chain without a call is a tear-off, so `shelf.caddy.pick.call()` does not jump to
-`Scoop.call`.
+`Scoop.call`. `ladle` and `tongs` are fields read through their initializers, one with a declared
+type and one a constructor call.
+`dart/lib/tin.dart` (#1299) reads a field of the enclosing class by its bare name, in `$name` and
+`${..}` interpolation and outside a string, beside a namesake in `Label`; a parameter of the field's
+name keeps it, and a parameter declared on a line of its own stays where it is. `Caddie` loops
+over a field made by a typed list literal, a field typed `List<Sprig>` and a parameter typed
+`List<Weed>` to the element's `swirl`, while a loop over an untyped `[]` does not jump; `Urn`
+reads a field `_Urn` makes with a constructor call. `dart/lib/lid.dart` (#1299) reads a constructor
+parameter in its own initializer list, on the constructor's line and on the next, and a
+`case final value?` binding, each beside a getter of that name the bare field rule must not take.
+`dart/lib/vat/` (#1299) reads fields a `Child` inherits from a `Base` of another library: one
+a top-level `pen` of `child.dart` shadows, a private `_ink` the child cannot see, and a `nib`
+that types its receiver.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
@@ -815,7 +853,17 @@ declaration-shaped lines in a KDoc, a raw string and a string template.
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
 field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayName()` that returns
 a type outside the project, a chain off a call that is no getter (a picker of the explicit
-getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
+getter and the Lombok fields) and a getter returning a type parameter. Its `Flow` (#1278) types
+lambda parameters by their chain, and `Ticket`, a `@Data` class under a `@Deprecated(` over
+several lines, is reached through a `.map(Ticket::from)` step, a `Collectors.toMap` lambda and a
+`var` assigned from a call with a call in its arguments, beside an overloaded `Ticket::of`, a
+`Ticket::label` returning an `Optional` and a `Draft` with no Lombok under a multi-line
+annotation, whose field after a `@Getter` one over two lines is no getter. `jvm/src/main/java/chained/` (#1278)
+chains the setters of two Lombok `@Accessors(chain = true)` classes: `setName` after
+`setAddress(a)` is not `Address.name`, as if the setter returned its field's type, while
+`getName` after `getAddress()` is. `getters/Town.java` passes a lambda to
+`herald.<Notice>emit(..)`, whose receiver is read past its type arguments, beside an `emit` of
+its own. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
 (#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
