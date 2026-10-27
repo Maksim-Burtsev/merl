@@ -490,3 +490,22 @@ fn an_exports_map_is_a_top_level_key_that_is_not_null() {
         "a string is read whole, an escaped quote and all"
     );
 }
+
+#[test]
+fn files_outside_the_project_come_in_name_order() {
+    let names: Vec<String> = (0..40)
+        .rev()
+        .map(|i| format!("p{i:02}/src/Base.php"))
+        .collect();
+    let files: Vec<(&str, &str)> = names.iter().map(|n| (n.as_str(), "<?php\n")).collect();
+    let (dir, _) = scratch("outside-order", &files);
+    let walked = external_files(Kind::Php, std::slice::from_ref(&dir));
+    let mut sorted = walked.clone();
+    sorted.sort();
+    assert_eq!(walked.len(), 40);
+    assert_eq!(
+        walked, sorted,
+        "a picker of namesakes outside lists them in the file system's order (#1303)"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

@@ -72,6 +72,10 @@ The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entr
 The lua row with #1290 (a member of a LuaLS `---@class` read from its `---@field` through a `---@param`, a local function's `---@return` or the class above a required module's table; a module function returning `setmetatable({..}, { __index = _M })`; a module member made by a call, `typedefs.uuid = Schema.define {`): over `89ccf77d`, 2026-10-26, release build, `vm.loadavg` { 7.64 8.98 9.33 } before the run.
 The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` over `module.exports = {`: `create`, `meta: { docs`, through the unaliased `@eslint/core` base `RuleDefinition`, and a listener method of the object `create` returns, typed by its declared `RuleListener`): over `779701a14`, 2026-10-26, release build, `vm.loadavg` { 7.61 9.34 9.27 } before the run, { 8.53 9.90 9.45 } after.
 The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the night batch of 2026-10-27 (#1300: #1278, #1282, #1298, #1280, #1299, #1273, #1275, #1274, #1286, #1248, #1291, #1297): `8fc4cebd`, 2026-10-28, release build, `vm.loadavg` { 7.04 7.77 6.74 } after the run (js timed again on its own at { 6.97 7.35 6.71 }, 37.5 / 189.0 ms against master's 34.7 / 173.2 back to back), played on the Mac against master's rows; julia kept from master.
+The php row with #1279's third pass (a chain from a static call such as `Album::query()` through each link's declared return type, a lone `@return $this` / `static` docblock counted; quoted arguments no longer break a chain): over `1ecd1aa29`, 2026-10-28, release build, `vm.loadavg` { 6.52 8.30 6.79 } before the run.
+The svelte row with #1274's store value (`$name.member` of a `writable` / `readable<T>` of `svelte/store` or a `persisted<T>` of `svelte-persisted-store`, declared once, typed as `T`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.53 7.29 7.38 } before the run; only svelte0250 moved (pick-hit -> ok), the other rows kept.
+The dart row with #1299's awaited getter (`final responseBody = await operation.value;`, its `Future<T>` read through the `Future<ResponseBody>` handed to `CancelableOperation.fromFuture`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.23 4.97 6.01 } before the run.
+The rust row with #1302 (a call of a local closure read through its written `-> T` or its one-expression body, `m("ROOT/file_root_00").is_ignore()` in `crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs`): over `5cd1f02aa` with this change, 2026-10-28, release build, `vm.loadavg` { 4.94 5.04 5.43 } before the run, { 6.47 5.68 5.66 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -79,10 +83,10 @@ The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the nigh
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 43.8 | 94.1 |
 | js (eslint, uptime-kuma) | 217 | 195 (90%) | 16 (7%) | 0 (0%) | 6 (3%) | 177 | 10 | 37.5 | 189.0 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
+| rust (ripgrep) | 231 | 225 (97%) | 4 (2%) | 0 (0%) | 2 (1%) | 69 | 5 | 5.9 | 52.6 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 236 | 208 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 64 | 8 | 19.4 | 71.1 |
-| php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
+| php (koel) | 392 | 339 (86%) | 44 (11%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.6 | 216.1 |
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.8 | 47.2 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
@@ -97,7 +101,7 @@ The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the nigh
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 49.2 | 172.2 |
-| svelte (immich) | 182 | 119 (65%) | 45 (25%) | 0 (0%) | 18 (10%) | 88 | 2 | 32.2 | 178.9 |
+| svelte (immich) | 182 | 120 (66%) | 44 (24%) | 0 (0%) | 18 (10%) | 88 | 2 | 39.8 | 218.5 |
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 37.2 | 105.8 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
@@ -106,5 +110,5 @@ The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the nigh
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 86 (89%) | 7 (7%) | 0 (0%) | 4 (4%) | 17 | 0 | 50.3 | 140.1 |
+| dart (dio) | 97 | 88 (91%) | 5 (5%) | 0 (0%) | 4 (4%) | 17 | 0 | 48.1 | 140.7 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

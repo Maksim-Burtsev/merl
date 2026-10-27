@@ -807,6 +807,7 @@ pub fn external_files(kind: Kind, dirs: &[PathBuf]) -> Vec<PathBuf> {
             .git_exclude(false)
             .ignore(false)
             .parents(false)
+            .sort_by_file_name(std::ffi::OsStr::cmp)
             .build();
         files.extend(
             walk.filter_map(Result::ok)

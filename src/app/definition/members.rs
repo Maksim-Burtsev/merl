@@ -154,6 +154,19 @@ impl App {
         true
     }
 
+    pub(super) fn store_read(&self, a: &Asked, near: &Near) -> bool {
+        let chain = &a.chain;
+        a.kind == Kind::TsJs
+            && a.here.extension().is_some_and(|e| e == "svelte")
+            && matches!(&chain[..], [head] if a.before.ends_with(&format!("${head}.")))
+            && bound(&near.imports, &chain[0]).is_none_or(|path| {
+                path.split_last().is_some_and(|(_, module)| {
+                    !search::module_files(a.kind, &self.root, &self.files, &a.here, module)
+                        .is_empty()
+                })
+            })
+    }
+
     pub(super) fn patterns(&mut self, a: &Asked, near: &Near) -> Option<Patterns> {
         let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
         let before = a.before.as_str();
@@ -165,14 +178,7 @@ impl App {
             let call = a.tail.trim_start().starts_with('(');
             search::php_member_patterns(word, call).join("|")
         });
-        let store = kind == Kind::TsJs
-            && a.here.extension().is_some_and(|e| e == "svelte")
-            && matches!(&chain[..], [head] if before.ends_with(&format!("${head}.")))
-            && bound(&near.imports, &chain[0]).is_none_or(|path| {
-                path.split_last().is_some_and(|(_, module)| {
-                    !search::module_files(kind, &self.root, &self.files, &a.here, module).is_empty()
-                })
-            });
+        let store = self.store_read(a, near);
         let on_value = (dotted || referenced)
             && !own
             && (kind == Kind::Php

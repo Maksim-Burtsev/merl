@@ -355,10 +355,15 @@ impl App {
             (parts, true) => {
                 let own_let =
                     |b: &search::Binding| own == Some(parts[0].as_str()) && b.line1 == line0 + 1;
-                if search::bindings(Kind::Rust, text, line0 + 1, &parts[0])
-                    .iter()
-                    .any(|b| !own_let(b))
-                {
+                let seen: Vec<search::Binding> =
+                    search::bindings(Kind::Rust, text, line0 + 1, &parts[0])
+                        .into_iter()
+                        .filter(|b| !own_let(b))
+                        .collect();
+                if let ([name], [b]) = (parts, seen.as_slice()) {
+                    return self.rust_closure_returns(file, text, b.line1 - 1, name);
+                }
+                if !seen.is_empty() {
                     return None;
                 }
                 let decl = self
@@ -374,6 +379,34 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    fn rust_closure_returns(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
+        let lines: Vec<&str> = text.lines().collect();
+        let init = let_initializer(&lines, at, name)?;
+        let init = init.strip_prefix("move ").unwrap_or(&init);
+        let (params, body) = init.strip_prefix('|')?.split_once('|')?;
+        let body = body.trim();
+        if let Some(returns) = body.strip_prefix("->") {
+            let (written, _) = returns.split_once('{')?;
+            return Some(self.rust_got(file, written.trim().to_owned(), at));
+        }
+        let body = match body.strip_prefix('{') {
+            Some(inner) => inner.strip_suffix('}')?.trim(),
+            None => body,
+        };
+        if body.contains(';') {
+            return None;
+        }
+        let w = walk_back(body)?;
+        let head = w.head.first()?;
+        let param = params
+            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .any(|p| p == head);
+        if head == name || param || (w.links.is_empty() && !w.head_call) {
+            return None;
+        }
+        self.rust_walked_got(file, text, at, name, false, &w)
     }
 
     fn rust_let_got(

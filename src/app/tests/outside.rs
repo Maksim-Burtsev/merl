@@ -796,6 +796,52 @@ fn a_dart_import_that_does_not_resolve_keeps_every_package() {
 }
 
 #[test]
+fn a_dart_awaited_getter_of_a_package_class_reads_the_future_its_factory_wraps() {
+    let cache = external_root(
+        "outside-dart-awaited",
+        &[
+            ("sdk/lib/core/core.dart", "library dart.core;\n"),
+            ("async/lib/async.dart", "export 'src/op.dart';\n"),
+            (
+                "async/lib/src/op.dart",
+                "class Op<T> {\n  factory Op.fromFuture(\n    Future<T> result, {\n    Object? onCancel,\n  }) =>\n      throw 0;\n\n  Future<T> get value => throw 0;\n}\n",
+            ),
+        ],
+    );
+    let config = format!(
+        "{{\"configVersion\": 2, \"packages\": [{{\"name\": \"async\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}]}}\n",
+        cache.join("async").display()
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-awaited-project",
+        &[
+            ("pubspec.yaml", "name: app\n"),
+            (".dart_tool/package_config.json", &config),
+            (
+                "lib/main.dart",
+                "import 'package:async/async.dart';\n\nclass Body {\n  int get headers => 0;\n}\n\nclass Options {\n  int get headers => 1;\n}\n\nabstract class Adapter {\n  Future<Body> fetch(int n);\n}\n\nmixin Client {\n  late Adapter adapter;\n\n  Future<int> send() async {\n    final operation = Op.fromFuture(\n      adapter.fetch(\n        1,\n      ),\n    );\n    final body = await operation.value;\n    return body.headers;\n  }\n}\n",
+            ),
+        ],
+    );
+    use_roots(
+        &mut a,
+        Kind::Dart,
+        &[cache.join("sdk/lib"), cache.join("async/lib")],
+    );
+    d_on(&mut a, "lib/main.dart", "body.headers");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "headers \u{2192} Body.headers (via Body)",
+            "lib/main.dart:4"
+        )
+    );
+    for d in [dir, cache] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
     let ctl = "<?php\n\nnamespace App\\Http;\n\nclass Ctl\n{\n    public function __invoke(?string $n): array\n    {\n        return [\n            'a' => env('X'),\n            'b' => $n ?: config('k'),\n            'c' => str_contains($n, 'x'),\n            'd' => dupe(),\n            'e' => stray(),\n        ];\n    }\n}\n";
     let helpers = "<?php\n\nif (! function_exists('env')) {\n    function env($key, $default = null)\n    {\n    }\n}\n\nif (! function_exists('config')) {\n    function config($key = null)\n    {\n    }\n}\n\nfunction dupe()\n{\n}\n";
@@ -965,5 +1011,98 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
         "a method declared up a vendor parent chain, traits included and a trait before the \
          parent, is the one PHP calls; a method only __call answers, and a parent two vendor \
          files declare, keep the picker"
+    );
+}
+
+#[test]
+fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
+    let e = "vendor/laravel/framework/src/Illuminate/Database/Eloquent";
+    let model = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nabstract class Model\n{\n    /**\n     * @return \\Illuminate\\Database\\Eloquent\\Builder<static>\n     */\n    public static function query()\n    {\n    }\n\n    public static function __callStatic($method, $parameters)\n    {\n    }\n}\n";
+    let builder = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nclass Builder\n{\n    /**\n     * @param  string  $column\n     * @return $this\n     */\n    public function where($column, $value)\n    {\n    }\n\n    /**\n     * @return $this|null\n     */\n    public function maybe()\n    {\n    }\n\n    /** @return $this */\n    public function oneLine()\n    {\n    }\n\n    public function find($id)\n    {\n    }\n\n    public function __call($method, $parameters)\n    {\n    }\n\n    /** @return static */\n    public static function make()\n    {\n    }\n}\n";
+    let album = "<?php\n\nnamespace App\\Models;\n\nuse App\\Builders\\AlbumBuilder;\nuse Illuminate\\Database\\Eloquent\\Model;\n\nclass Album extends Model\n{\n    public static function query(): AlbumBuilder\n    {\n    }\n}\n";
+    let song = "<?php\n\nnamespace App\\Models;\n\nuse App\\Builders\\SongBuilder;\nuse Illuminate\\Database\\Eloquent\\Attributes\\UseEloquentBuilder;\nuse Illuminate\\Database\\Eloquent\\Model;\n\n#[UseEloquentBuilder(SongBuilder::class)]\nclass Song extends Model\n{\n}\n";
+    let album_builder = "<?php\n\nnamespace App\\Builders;\n\nuse Illuminate\\Database\\Eloquent\\Builder;\n\nclass AlbumBuilder extends Builder\n{\n    public function onlyStandard(): self\n    {\n    }\n\n    /** @return $this */\n    public function toSong(): SongBuilder\n    {\n    }\n}\n";
+    let song_builder = "<?php\n\nnamespace App\\Builders;\n\nuse Illuminate\\Database\\Eloquent\\Builder;\n\nclass SongBuilder extends Builder\n{\n    public function where($column, $value)\n    {\n    }\n\n    public function find($id)\n    {\n    }\n\n    public function onlyStandard(): self\n    {\n    }\n}\n";
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Builders\\AlbumBuilder;\nuse App\\Models\\Album;\nuse App\\Models\\Song;\n\nclass Ctl\n{\n    public function __invoke(): void\n    {\n        Album::query()->find(1);\n        Album::query()\n            ->where('a.b', \"c\")\n            ->onlyStandard();\n        Song::query()->find(2);\n        Album::query()->maybe()->find(3);\n        Album::query()->oneLine()->find(4);\n        Album::magic()->find(5);\n        Album::query()->where(')', 1)->find(6);\n    }\n\n    public function more(AlbumBuilder $b): void\n    {\n        $q = $b->oneLine();\n        $q->onlyStandard();\n        $m = AlbumBuilder::make();\n        $m->onlyStandard();\n        Album::query()->toSong()->find(9);\n    }\n}\n";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Models/Album.php", album),
+        ("app/Models/Song.php", song),
+        ("app/Builders/AlbumBuilder.php", album_builder),
+        ("app/Builders/SongBuilder.php", song_builder),
+        ("app/Http/Ctl.php", ctl),
+        (&format!("{e}/Model.php"), model),
+        (&format!("{e}/Builder.php"), builder),
+    ];
+    let (dir, mut a) = project_app("php-chain", &files);
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    };
+    let got = [
+        d("Album::query()->find"),
+        d("->onlyStandard"),
+        d("Song::query()->find"),
+        d("maybe()->find"),
+        d("oneLine()->find"),
+        d("magic()->find"),
+        d("1)->find"),
+        d("$q->onlyStandard"),
+        d("$m->onlyStandard"),
+        d("toSong()->find"),
+    ];
+    drop(std::fs::remove_dir_all(dir));
+    let finds = || {
+        picker(
+            "find: by name, 2 declarations",
+            &[
+                ("SongBuilder::find", "app/Builders/SongBuilder.php:13"),
+                (
+                    "Builder::find",
+                    "laravel/framework/src/Illuminate/Database/Eloquent/Builder.php:27",
+                ),
+            ],
+        )
+    };
+    assert_eq!(
+        got,
+        [
+            jump(
+                "find \u{2192} Builder::find (via Album::query(): AlbumBuilder)",
+                &format!("{e}/Builder.php:27"),
+            ),
+            jump(
+                "onlyStandard \u{2192} AlbumBuilder::onlyStandard (via Album::query(): AlbumBuilder \u{2192} where(): static)",
+                "app/Builders/AlbumBuilder.php:9",
+            ),
+            finds(),
+            finds(),
+            jump(
+                "find \u{2192} Builder::find (via Album::query(): AlbumBuilder \u{2192} oneLine(): static)",
+                &format!("{e}/Builder.php:27"),
+            ),
+            finds(),
+            finds(),
+            jump(
+                "onlyStandard \u{2192} AlbumBuilder::onlyStandard (via $b->oneLine(): static)",
+                "app/Builders/AlbumBuilder.php:9",
+            ),
+            jump(
+                "onlyStandard \u{2192} AlbumBuilder::onlyStandard (via AlbumBuilder::make(): static)",
+                "app/Builders/AlbumBuilder.php:9",
+            ),
+            jump(
+                "find \u{2192} SongBuilder::find (via Album::query(): AlbumBuilder \u{2192} toSong(): SongBuilder)",
+                "app/Builders/SongBuilder.php:13",
+            ),
+        ],
+        "a chain from a static call answers when each link's return type is declared natively or \
+         as a lone `@return $this` / `static`, quoted arguments included; Model::query()'s \
+         documented Builder<static>, which a custom builder replaces, a `$this|null`, \
+         __callStatic magic and a paren in a string keep the picker"
     );
 }
