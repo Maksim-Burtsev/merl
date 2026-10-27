@@ -978,6 +978,46 @@ pub fn php_return_written(header: &str) -> Option<&str> {
     Some(RETURNS.captures(header.get(close..)?)?.get(1)?.as_str())
 }
 
+pub fn php_return_untyped(header: &str) -> bool {
+    let Some(function) = header.find("function") else {
+        return false;
+    };
+    let Some(open) = header.get(function..).and_then(|h| h.find('(')) else {
+        return false;
+    };
+    close_of(Kind::Php, header, function + open)
+        .and_then(|close| header.get(close..))
+        .and_then(|after| after.trim_start().chars().next())
+        .is_some_and(|c| c == '{' || c == ';')
+}
+
+pub fn php_doc_returns_self<S: AsRef<str>>(lines: &[S], function: usize) -> bool {
+    let mut returns = None;
+    for line in lines.get(..function).unwrap_or_default().iter().rev() {
+        let t = line.as_ref().trim();
+        if t.starts_with("#[") {
+            continue;
+        }
+        if returns.is_none()
+            && let Some(one) = t.strip_prefix("/**").and_then(|t| t.strip_suffix("*/"))
+        {
+            let mut tag = one.split_whitespace();
+            return tag.next() == Some("@return") && matches!(tag.next(), Some("$this" | "static"));
+        }
+        if let Some(tag) = t.strip_prefix('*').map(str::trim_start) {
+            if let Some(written) = tag.strip_prefix("@return") {
+                if returns.is_some() {
+                    return false;
+                }
+                returns = written.split_whitespace().next();
+            }
+            continue;
+        }
+        return t == "/**" && matches!(returns, Some("$this" | "static"));
+    }
+    false
+}
+
 pub fn php_return_type(header: &str) -> Option<String> {
     let written = php_return_written(header)?;
     let short = written.rsplit('\\').next().unwrap_or(written);
@@ -989,20 +1029,40 @@ pub enum PhpCallHead {
     Var(String),
     New(String),
     Callable(String),
+    Static { class: String, method: String },
 }
 
 pub fn php_call_chain(before: &str) -> Option<(PhpCallHead, Vec<String>)> {
     static VAR: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w$:>])\$(\w+)(\(\))?$").expect("the regex is a literal")
     });
+    static CLASS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$\\:.>])(\\?[A-Za-z_][\w\\]*)::$").expect("the regex is a literal")
+    });
     let mut rest = before.strip_suffix('.')?;
     let mut calls = Vec::new();
-    while let Some((head, name)) = php_call_segment(rest) {
+    while let Some((head, name)) = php_call_segment(rest)
+        && let Some(head) = head.strip_suffix('.')
+    {
         calls.insert(0, name.to_owned());
         rest = head;
     }
     let head = if let Some(written) = php_new_receiver(&format!("{rest}->")) {
         PhpCallHead::New(written)
+    } else if let Some((head, method)) = php_call_segment(rest)
+        && let Some(c) = CLASS.captures(head)
+    {
+        let class = c[1].to_owned();
+        if matches!(
+            class.to_ascii_lowercase().as_str(),
+            "self" | "static" | "parent"
+        ) {
+            return None;
+        }
+        PhpCallHead::Static {
+            class,
+            method: method.to_owned(),
+        }
     } else {
         let c = VAR.captures(rest)?;
         match (&c[1], c.get(2)) {
@@ -1012,7 +1072,8 @@ pub fn php_call_chain(before: &str) -> Option<(PhpCallHead, Vec<String>)> {
             (v, Some(_)) => PhpCallHead::Callable(v.to_owned()),
         }
     };
-    (!calls.is_empty() || matches!(head, PhpCallHead::Callable(_))).then_some((head, calls))
+    let alone = matches!(head, PhpCallHead::Callable(_) | PhpCallHead::Static { .. });
+    (!calls.is_empty() || alone).then_some((head, calls))
 }
 
 pub fn php_first_class_callable(line: &str, name: &str) -> Option<(String, String)> {
@@ -1037,15 +1098,27 @@ fn php_call_segment(rest: &str) -> Option<(&str, &str)> {
         depth == 0
     })?;
     let (head, args) = inner.split_at_checked(open)?;
-    if args.contains(['\'', '"']) || args.trim() == "(..." {
+    if !php_plain_strings(args) || args.trim() == "(..." {
         return None;
     }
     let name_at = head
         .trim_end_matches(|c: char| c.is_ascii_alphanumeric() || c == '_')
         .len();
     let (head, name) = head.split_at_checked(name_at)?;
-    let head = head.strip_suffix('.')?;
     (!name.is_empty() && !name.starts_with(|c: char| c.is_ascii_digit())).then_some((head, name))
+}
+
+fn php_plain_strings(args: &str) -> bool {
+    let mut quote = None;
+    for c in args.chars() {
+        match (quote, c) {
+            (Some(_), '(' | ')' | '\\' | '$' | '{') => return false,
+            (Some(q), c) if c == q => quote = None,
+            (None, '\'' | '"') => quote = Some(c),
+            _ => {}
+        }
+    }
+    quote.is_none()
 }
 
 pub(super) fn php_code(l: &str) -> String {

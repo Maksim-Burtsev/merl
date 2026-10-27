@@ -1159,6 +1159,13 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         ),
         ("$this.items().", "this", vec!["items"]),
         ("return $arrow()   $pour().", "$pour()", vec![]),
+        ("Flush::from('x').", "Flush::from", vec![]),
+        (
+            "return \\Tea\\Pot::brew().steep('a b', \"c\").",
+            "\\Tea\\Pot::brew",
+            vec!["steep"],
+        ),
+        ("$q.where('a', 'b').", "q", vec!["where"]),
     ] {
         let Some((got_head, calls)) = php_call_chain(before) else {
             panic!("{before}");
@@ -1168,6 +1175,7 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
             PhpCallHead::Var(v) => v,
             PhpCallHead::New(t) => format!("new {t}"),
             PhpCallHead::Callable(v) => format!("${v}()"),
+            PhpCallHead::Static { class, method } => format!("{class}::{method}"),
         };
         assert_eq!(
             (got_head.as_str(), calls),
@@ -1176,7 +1184,14 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         );
     }
     for before in [
-        "Flush::from('x').",
+        "self::make().",
+        "static::make().",
+        "parent::make().",
+        "$pot::make().",
+        "Flush::$from().",
+        "$x.m('a(b').",
+        "$x.m(\"{$y}\").",
+        "$x.m('a\\'b').",
         "$this().",
         "$a.b.c().",
         "$x.m(...).",
