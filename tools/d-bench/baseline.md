@@ -72,6 +72,7 @@ The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entr
 The lua row with #1290 (a member of a LuaLS `---@class` read from its `---@field` through a `---@param`, a local function's `---@return` or the class above a required module's table; a module function returning `setmetatable({..}, { __index = _M })`; a module member made by a call, `typedefs.uuid = Schema.define {`): over `89ccf77d`, 2026-10-26, release build, `vm.loadavg` { 7.64 8.98 9.33 } before the run.
 The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` over `module.exports = {`: `create`, `meta: { docs`, through the unaliased `@eslint/core` base `RuleDefinition`, and a listener method of the object `create` returns, typed by its declared `RuleListener`): over `779701a14`, 2026-10-26, release build, `vm.loadavg` { 7.61 9.34 9.27 } before the run, { 8.53 9.90 9.45 } after.
 The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the night batch of 2026-10-27 (#1300: #1278, #1282, #1298, #1280, #1299, #1273, #1275, #1274, #1286, #1248, #1291, #1297): `8fc4cebd`, 2026-10-28, release build, `vm.loadavg` { 7.04 7.77 6.74 } after the run (js timed again on its own at { 6.97 7.35 6.71 }, 37.5 / 189.0 ms against master's 34.7 / 173.2 back to back), played on the Mac against master's rows; julia kept from master.
+The php row with #1279's third pass (a chain from a static call such as `Album::query()` through each link's declared return type, a lone `@return $this` / `static` docblock counted; quoted arguments no longer break a chain): over `1ecd1aa29`, 2026-10-28, release build, `vm.loadavg` { 6.52 8.30 6.79 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -82,7 +83,7 @@ The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the nigh
 | rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 236 | 208 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 64 | 8 | 19.4 | 71.1 |
-| php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
+| php (koel) | 392 | 339 (86%) | 44 (11%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.6 | 216.1 |
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.8 | 47.2 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |

@@ -749,7 +749,7 @@ impl App {
 
     fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
         let hit = self.php_one_method(class, method)?;
-        if self.php_returns_static(&hit) {
+        if self.php_returns_static(&hit) || self.php_documented_self(&hit) {
             return Some(Returned {
                 class: class.clone(),
                 written: "static".to_owned(),
@@ -774,6 +774,20 @@ impl App {
                 .is_some_and(|w| w.eq_ignore_ascii_case("static"))
     }
 
+    fn php_documented_self(&self, hit: &Hit) -> bool {
+        let Some(text) = self.text_of(&hit.path) else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let at = hit.line1 - 1;
+        let header = lines.get(at..lines.len().min(at + 20)).unwrap_or_default();
+        !header
+            .first()
+            .is_some_and(|l| l.trim_start().starts_with('*'))
+            && search::php_return_untyped(&header.join("\n"))
+            && search::php_doc_returns_self(&lines, at)
+    }
+
     fn php_called(
         &mut self,
         here: &Path,
@@ -793,6 +807,11 @@ impl App {
                 let ProvenClass { class, link } =
                     self.php_variable_type(here, text, &name, self.line, true)?;
                 (class, vec![link])
+            }
+            search::PhpCallHead::Static { class, method } => {
+                let on = self.php_type(here, text, self.line, &class)?;
+                let Returned { class: to, written } = self.php_returns(&on, &method)?;
+                (to, vec![format!("{class}::{method}(): {written}")])
             }
             search::PhpCallHead::Callable(name) => {
                 let [b] = search::php_variable(text, self.line + 1, &name)?[..] else {
