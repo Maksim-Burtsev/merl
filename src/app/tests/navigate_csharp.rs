@@ -556,6 +556,22 @@ fn an_extension_method_does_not_shadow_a_method_a_base_outside_the_project_may_d
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn an_extension_method_does_not_answer_a_call_a_base_outside_the_project_may_declare() {
+    let (dir, mut a) = cs_app("cs-instance-first-member", BASKET);
+    d_on(&mut a, "Till.cs", "basket.|Find");
+    let got = shown(&mut a);
+    assert_eq!(
+        got,
+        jump(
+            "no definition for Find in the project (via basket: Basket)",
+            "Till.cs:5"
+        ),
+        "List<Item>.Find, an instance method, beats the extension Find of Basket"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 const COALESCED: &[(&str, &str)] = &[
     (
         "Order.cs",

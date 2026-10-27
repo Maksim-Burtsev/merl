@@ -298,8 +298,8 @@ impl App {
         word: &str,
         label: &str,
     ) -> Option<CsAnswer> {
-        let (walked, outside) = match ty {
-            CsType::Outside(name) => (vec![name.clone()], true),
+        let (walked, outside, extends) = match ty {
+            CsType::Outside(name) => (vec![name.clone()], true, true),
             CsType::Project(t) => match self.cs_up(t, word, 0) {
                 Up::Found(hits) => {
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
@@ -310,8 +310,8 @@ impl App {
                     };
                     return Some(CsAnswer::Found(receivers(hits, label)));
                 }
-                Up::Outside { walked } => (walked, true),
-                Up::Missing { walked } => (walked, false),
+                Up::Outside { walked } => (walked, true, false),
+                Up::Missing { walked } => (walked, false, true),
                 Up::Unknown => return None,
             },
         };
@@ -323,7 +323,7 @@ impl App {
                 .is_some_and(|t| walked.contains(&t))
         });
         let of: Vec<Hit> = of.into_iter().map(|(h, _)| h).collect();
-        match (of.is_empty(), other.is_empty()) {
+        match (of.is_empty() || !extends, other.is_empty()) {
             (false, _) => Some(CsAnswer::Found(receivers(of, label))),
             (true, true) if outside => Some(CsAnswer::Outside {
                 links: label.to_owned(),
