@@ -804,6 +804,12 @@ method, `call()` on a field, and a type parameter's bound (#1220).
 named in the chain without a call is a tear-off, so `shelf.caddy.pick.call()` does not jump to
 `Scoop.call`. `ladle` and `tongs` are fields read through their initializers, one with a declared
 type and one a constructor call.
+`dart/lib/tin.dart` (#1299) reads a field of the enclosing class by its bare name, in `$name` and
+`${..}` interpolation and outside a string, beside a namesake in `Label`; a parameter of the field's
+name keeps it, and a parameter declared on a line of its own stays where it is. `Caddie` loops
+over a field made by a typed list literal, a field typed `List<Sprig>` and a parameter typed
+`List<Weed>` to the element's `swirl`, while a loop over an untyped `[]` does not jump; `Urn`
+reads a field `_Urn` makes with a constructor call.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an

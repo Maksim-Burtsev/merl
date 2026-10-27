@@ -489,3 +489,41 @@ fn dart_receivers_read_a_written_type() {
     );
     assert_eq!(dart_this_super(text, 4, true), None);
 }
+
+#[test]
+fn dart_loops_over_a_written_element_type_and_a_list_literal_is_a_list() {
+    let ty = |prefix: Option<&str>, class: &str, constructor: Option<&str>| DartType {
+        prefix: prefix.map(str::to_owned),
+        class: class.to_owned(),
+        constructor: constructor.map(str::to_owned),
+    };
+    assert_eq!(
+        dart_for_in("    for (final entry in fields) {", "entry"),
+        Some("fields")
+    );
+    assert_eq!(dart_for_in("    for (var e in a.b) {", "e"), None);
+    assert_eq!(
+        dart_iterated("  final fields = <MapEntry<String, String>>[];", "fields"),
+        Some(ty(None, "MapEntry", None))
+    );
+    assert_eq!(
+        dart_iterated("  final Set<io.File>? files;", "files"),
+        Some(ty(Some("io"), "File", None))
+    );
+    assert_eq!(
+        dart_iterated("  final pairs = <String, int>{};", "pairs"),
+        None
+    );
+    assert_eq!(dart_iterated("  final loose = [];", "loose"), None);
+    for before in [
+        "  ok = ['a', 'b'].",
+        "  return const <String>['a'].",
+        "  f(x, [1, 2].",
+        "  final n = [[1], [2]].",
+    ] {
+        assert!(dart_list_literal(before), "{before}");
+    }
+    for before in ["  rows[0].", "  rows?[0].", "  load()[1].", "  ['a']"] {
+        assert!(!dart_list_literal(before), "{before}");
+    }
+}

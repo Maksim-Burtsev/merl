@@ -1829,7 +1829,7 @@ dart0014	ok	jump	6.47
 dart0015	ok	jump	67.60
 dart0016	ok	jump	57.23
 dart0017	pick-hit	picker	142.09
-dart0018	ok	jump	341.34
+dart0018	ok	jump	473.02
 dart0019	ok	jump	29.46
 dart0020	ok	jump	22.47
 dart0021	ok	jump	53.51
@@ -1843,7 +1843,7 @@ dart0028	pick-hit	picker	19.90
 dart0029	ok	jump	23.06
 dart0030	on-decl	picker	42.19
 dart0031	ok	jump	69.79
-dart0032	pick-hit	picker	94.52
+dart0032	ok	jump	197.69
 dart0033	on-decl	stay	58.53
 dart0034	ok	jump	65.23
 dart0035	ok	jump	28.32
@@ -1867,7 +1867,7 @@ dart0052	ok	jump	28.78
 dart0053	ok	jump	13.33
 dart0054	ok	jump	480.94
 dart0055	ok	jump	30.34
-dart0056	pick-hit	picker	205.96
+dart0056	ok	jump	252.69
 dart0057	ok	jump	48.28
 dart0058	on-decl	picker	18.47
 dart0059	ok	jump	47.21
@@ -1897,12 +1897,12 @@ dart0082	pick-miss	picker	477.91
 dart0083	ok	jump	17.71
 dart0084	ok	jump	56.80
 dart0085	ok	jump	85.10
-dart0086	pick-hit	picker	128.60
+dart0086	ok	jump	252.08
 dart0087	ok	jump	51.51
 dart0088	ok	jump	16.10
 dart0089	ok	jump	145.51
 dart0090	ok	jump	20.52
-dart0091	pick-hit	picker	106.84
+dart0091	ok	jump	142.21
 dart0092	ok	jump	75.60
 dart0093	ok	jump	6.91
 dart0094	ok	jump	11.86
@@ -1921,8 +1921,8 @@ dart0106	ok	jump	19.86
 dart0107	ok	jump	10.32
 dart0108	ok	jump	13.49
 dart0109	ok	jump	40.32
-dart0110	pick-hit	picker	20.27
-dart0111	pick-hit	picker	18.05
+dart0110	ok	jump	56.13
+dart0111	ok	jump	42.16
 dart0112	ok	jump	23.99
 dart0113	ok	jump	37.98
 elisp0000	ok	jump	11.65
