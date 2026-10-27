@@ -1000,6 +1000,114 @@ pub fn dart_value<'a>(line: &'a str, name: &str) -> Option<&'a str> {
     Some(re.captures(line)?.get(1)?.as_str())
 }
 
+pub fn dart_awaited(value: &str) -> Option<(&str, &str)> {
+    static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^await\s+([a-z_$][\w$]*)\.([a-z_$][\w$]*)$").expect("the regex is a literal")
+    });
+    let c = PATTERN.captures(value)?;
+    Some((c.get(1)?.as_str(), c.get(2)?.as_str()))
+}
+
+pub fn dart_future_of(line: &str, name: &str, called: bool) -> Option<DartType> {
+    let (get, end) = if called {
+        ("", r"\(")
+    } else {
+        (r"(?:get\s+)?", "[;={]")
+    };
+    let re = Regex::new(&format!(
+        concat!(
+            r"^\s*",
+            dart_annotations!(),
+            dart_mods!(),
+            r"(?:(?:external|final|late)\s+)*Future(?:Or)?<(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\??>\??\s+{}{}\s*{}"
+        ),
+        get,
+        regex::escape(name),
+        end
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
+pub fn dart_type_params(text: &str, class: &str) -> Option<Vec<String>> {
+    let re = Regex::new(&format!(
+        r"^(?:\w+\s+)*(?:class|mixin)\s+{}\b",
+        regex::escape(class)
+    ))
+    .ok()?;
+    let literal = literal_lines(Kind::Dart, text);
+    let rest = text
+        .lines()
+        .enumerate()
+        .filter(|&(i, _)| !literal[i])
+        .find_map(|(_, l)| Some(l.get(re.find(l)?.end()..)?.trim_start()))?;
+    let Some(inner) = rest.strip_prefix('<') else {
+        return Some(Vec::new());
+    };
+    let mut depth = 1;
+    let (end, _) = inner.char_indices().find(|&(_, c)| {
+        depth += match c {
+            '<' => 1,
+            '>' => -1,
+            _ => 0,
+        };
+        depth == 0
+    })?;
+    Some(
+        split_top(Kind::Dart, inner.get(..end)?, b',')
+            .iter()
+            .filter_map(|p| p.split_whitespace().next().map(str::to_owned))
+            .collect(),
+    )
+}
+
+pub fn dart_first_arg(s: &str, open: usize) -> Option<&str> {
+    let close = close_of(Kind::Dart, s, open)?;
+    let first = split_top(Kind::Dart, s.get(open + 1..close - 1)?, b',')
+        .into_iter()
+        .next()?
+        .trim();
+    (!first.is_empty()).then_some(first)
+}
+
+pub fn dart_constructed_arg<'a>(s: &'a str, name: &str, ty: &DartType) -> Option<&'a str> {
+    let prefix = ty
+        .prefix
+        .as_ref()
+        .map_or(String::new(), |p| format!(r"{}\.", regex::escape(p)));
+    let re = Regex::new(&format!(
+        r"^\s*(?:final|var)\s+{}\s*=\s*(?:new\s+)?{prefix}{}\.{}\s*\(",
+        regex::escape(name),
+        regex::escape(&ty.class),
+        regex::escape(ty.constructor.as_deref()?)
+    ))
+    .ok()?;
+    dart_first_arg(s, re.find(s)?.end() - 1)
+}
+
+pub fn dart_future_param(s: &str, open: usize, param: &str) -> bool {
+    Regex::new(&format!(
+        r"^Future<{}>\s+[a-z_$][\w$]*$",
+        regex::escape(param)
+    ))
+    .is_ok_and(|re| dart_first_arg(s, open).is_some_and(|p| re.is_match(p)))
+}
+
+pub fn dart_method_call(arg: &str) -> Option<(&str, &str)> {
+    static PATTERN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^([a-z_$][\w$]*)\.([a-z_$][\w$]*)\s*\(").expect("the regex is a literal")
+    });
+    let c = PATTERN.captures(arg)?;
+    let open = c.get(0)?.end() - 1;
+    (close_of(Kind::Dart, arg, open) == Some(arg.len()))
+        .then(|| Some((c.get(1)?.as_str(), c.get(2)?.as_str())))?
+}
+
 pub fn dart_call_links(before: &str) -> Option<(Vec<String>, bool, usize)> {
     let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
     let mut rest = before.strip_suffix('.')?;

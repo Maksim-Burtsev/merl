@@ -819,6 +819,10 @@ parameter in its own initializer list, on the constructor's line and on the next
 `dart/lib/vat/` (#1299) reads fields a `Child` inherits from a `Base` of another library: one
 a top-level `pen` of `child.dart` shadows, a private `_ink` the child cannot see, and a `nib`
 that types its receiver.
+`dart/lib/flask.dart` (#1299) reads a local set from an awaited getter of `Pod<T>`, beside a
+namesake `petal` in `Bloom` and `Thorn`: `Future<Bloom>`, `FutureOr<Thorn>`, and `Future<T>` /
+`Future<T?>` whose `T` the `Future<Thorn>` handed to `Pod.of` decides. A getter returning
+`dynamic`, a `T` from `Pod.wrap(T)` and one from a generic method's `Future<S>` do not jump.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an

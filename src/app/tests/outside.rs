@@ -796,6 +796,52 @@ fn a_dart_import_that_does_not_resolve_keeps_every_package() {
 }
 
 #[test]
+fn a_dart_awaited_getter_of_a_package_class_reads_the_future_its_factory_wraps() {
+    let cache = external_root(
+        "outside-dart-awaited",
+        &[
+            ("sdk/lib/core/core.dart", "library dart.core;\n"),
+            ("async/lib/async.dart", "export 'src/op.dart';\n"),
+            (
+                "async/lib/src/op.dart",
+                "class Op<T> {\n  factory Op.fromFuture(\n    Future<T> result, {\n    Object? onCancel,\n  }) =>\n      throw 0;\n\n  Future<T> get value => throw 0;\n}\n",
+            ),
+        ],
+    );
+    let config = format!(
+        "{{\"configVersion\": 2, \"packages\": [{{\"name\": \"async\", \"rootUri\": \"file://{}\", \"packageUri\": \"lib/\"}}]}}\n",
+        cache.join("async").display()
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-awaited-project",
+        &[
+            ("pubspec.yaml", "name: app\n"),
+            (".dart_tool/package_config.json", &config),
+            (
+                "lib/main.dart",
+                "import 'package:async/async.dart';\n\nclass Body {\n  int get headers => 0;\n}\n\nclass Options {\n  int get headers => 1;\n}\n\nabstract class Adapter {\n  Future<Body> fetch(int n);\n}\n\nmixin Client {\n  late Adapter adapter;\n\n  Future<int> send() async {\n    final operation = Op.fromFuture(\n      adapter.fetch(\n        1,\n      ),\n    );\n    final body = await operation.value;\n    return body.headers;\n  }\n}\n",
+            ),
+        ],
+    );
+    use_roots(
+        &mut a,
+        Kind::Dart,
+        &[cache.join("sdk/lib"), cache.join("async/lib")],
+    );
+    d_on(&mut a, "lib/main.dart", "body.headers");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "headers \u{2192} Body.headers (via Body)",
+            "lib/main.dart:4"
+        )
+    );
+    for d in [dir, cache] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
     let ctl = "<?php\n\nnamespace App\\Http;\n\nclass Ctl\n{\n    public function __invoke(?string $n): array\n    {\n        return [\n            'a' => env('X'),\n            'b' => $n ?: config('k'),\n            'c' => str_contains($n, 'x'),\n            'd' => dupe(),\n            'e' => stray(),\n        ];\n    }\n}\n";
     let helpers = "<?php\n\nif (! function_exists('env')) {\n    function env($key, $default = null)\n    {\n    }\n}\n\nif (! function_exists('config')) {\n    function config($key = null)\n    {\n    }\n}\n\nfunction dupe()\n{\n}\n";
