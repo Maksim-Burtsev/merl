@@ -897,6 +897,58 @@ pub fn dart_element_typed(line: &str, name: &str) -> Option<DartType> {
     })
 }
 
+pub fn dart_for_in<'a>(line: &'a str, name: &str) -> Option<&'a str> {
+    let re = Regex::new(&format!(
+        r"\bfor\s*\(\s*(?:final|var)\s+{}\s+in\s+([A-Za-z_$][\w$]*)\s*\)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(re.captures(line)?.get(1)?.as_str())
+}
+
+pub fn dart_iterated(line: &str, name: &str) -> Option<DartType> {
+    let w = regex::escape(name);
+    let element = concat!(r"(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)", dart_generics!());
+    let typed = Regex::new(&format!(
+        r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const|static)\s+)*(?:List|Iterable|Set)<{element}>\??\s+{w}\s*(?:[,)=;}}\]]|$)"
+    ))
+    .ok()?;
+    let literal = Regex::new(&format!(
+        r"(?:^|\s)(?:(?:final|var|late|static|const)\s+)+{w}\s*=\s*(?:const\s+)?<{element}>\s*[\[{{]"
+    ))
+    .ok()?;
+    let c = typed.captures(line).or_else(|| literal.captures(line))?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
+pub fn dart_list_literal(before: &str) -> bool {
+    static TYPE_ARGS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:const\s*)?(?:<[\w$.,?\s<>]*>)?\s*$").expect("the regex is a literal")
+    });
+    let Some(rest) = before.strip_suffix('.').filter(|r| r.ends_with(']')) else {
+        return false;
+    };
+    let Some(open) = super::code(Kind::Dart, rest)
+        .filter(|(_, c)| *c == b'[')
+        .map(|(i, _)| i)
+        .find(|&i| close_of(Kind::Dart, rest, i) == Some(rest.len()))
+    else {
+        return false;
+    };
+    let head = rest.get(..open).unwrap_or_default();
+    let head = TYPE_ARGS
+        .find(head)
+        .map_or(head, |m| head.get(..m.start()).unwrap_or_default())
+        .trim_end();
+    head.is_empty()
+        || head.ends_with(['(', '=', ',', ':', '[', '{', '&', '|', ';', '>'])
+        || head.ends_with("return")
+}
+
 pub fn dart_type_bound(line: &str, ty: &DartType) -> Option<DartType> {
     let re = Regex::new(&format!(
         r"<(?:[^<>()]*,)?\s*{}\s+extends\s+(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)\s*[,>]",

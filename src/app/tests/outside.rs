@@ -345,6 +345,66 @@ fn a_dart_sdk_class_another_library_exports_types_a_chain_however_it_is_reached(
 }
 
 #[test]
+fn a_dart_sdk_class_reads_a_parent_of_its_own_library_and_a_list_literal_is_a_list() {
+    let sdk = external_root(
+        "outside-dart-own-library",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'list.dart';\npart 'iterable.dart';\n",
+            ),
+            (
+                "lib/core/list.dart",
+                "part of \"dart:core\";\n\nabstract interface class List<E> implements Iterable<E> {\n  void add(E value);\n}\n",
+            ),
+            (
+                "lib/core/iterable.dart",
+                "part of \"dart:core\";\n\nabstract mixin class Iterable<E> {\n  bool contains(Object? element) => false;\n}\n",
+            ),
+            (
+                "lib/io/io.dart",
+                "library dart.io;\n\npart 'file.dart';\npart 'file_system_entity.dart';\n",
+            ),
+            (
+                "lib/io/file.dart",
+                "part of \"dart:io\";\n\nabstract interface class File implements FileSystemEntity {\n  factory File(String path) => throw 0;\n}\n",
+            ),
+            (
+                "lib/io/file_system_entity.dart",
+                "part of \"dart:io\";\n\nabstract class FileSystemEntity {\n  bool existsSync();\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-own-library-project",
+        &[(
+            "lib/main.dart",
+            "import 'dart:io';\n\nclass Disk {\n  bool existsSync() => false;\n  bool contains(Object? o) => false;\n}\n\nbool check(String path, String word) {\n  final File file;\n  if (path.isEmpty) {\n    file = File('a');\n  } else {\n    file = File(path);\n  }\n  return file.existsSync() && ['a', 'b'].contains(word);\n}\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "file.existsSync");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "existsSync \u{2192} FileSystemEntity.existsSync (via FileSystemEntity)",
+            &at(&sdk, "lib/io/file_system_entity.dart", 4)
+        )
+    );
+    d_on(&mut a, "lib/main.dart", "'b'].contains");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "contains \u{2192} Iterable.contains (via Iterable)",
+            &at(&sdk, "lib/core/iterable.dart", 4)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_dart_sdk_name_skips_the_patch_files_and_a_static_reads_its_class() {
     let sdk = external_root(
         "outside-dart-patch",
