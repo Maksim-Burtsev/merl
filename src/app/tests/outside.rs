@@ -1018,12 +1018,12 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
 fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
     let e = "vendor/laravel/framework/src/Illuminate/Database/Eloquent";
     let model = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nabstract class Model\n{\n    /**\n     * @return \\Illuminate\\Database\\Eloquent\\Builder<static>\n     */\n    public static function query()\n    {\n    }\n\n    public static function __callStatic($method, $parameters)\n    {\n    }\n}\n";
-    let builder = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nclass Builder\n{\n    /**\n     * @param  string  $column\n     * @return $this\n     */\n    public function where($column, $value)\n    {\n    }\n\n    /**\n     * @return $this|null\n     */\n    public function maybe()\n    {\n    }\n\n    /** @return $this */\n    public function oneLine()\n    {\n    }\n\n    public function find($id)\n    {\n    }\n\n    public function __call($method, $parameters)\n    {\n    }\n}\n";
+    let builder = "<?php\n\nnamespace Illuminate\\Database\\Eloquent;\n\nclass Builder\n{\n    /**\n     * @param  string  $column\n     * @return $this\n     */\n    public function where($column, $value)\n    {\n    }\n\n    /**\n     * @return $this|null\n     */\n    public function maybe()\n    {\n    }\n\n    /** @return $this */\n    public function oneLine()\n    {\n    }\n\n    public function find($id)\n    {\n    }\n\n    public function __call($method, $parameters)\n    {\n    }\n\n    /** @return static */\n    public static function make()\n    {\n    }\n}\n";
     let album = "<?php\n\nnamespace App\\Models;\n\nuse App\\Builders\\AlbumBuilder;\nuse Illuminate\\Database\\Eloquent\\Model;\n\nclass Album extends Model\n{\n    public static function query(): AlbumBuilder\n    {\n    }\n}\n";
     let song = "<?php\n\nnamespace App\\Models;\n\nuse App\\Builders\\SongBuilder;\nuse Illuminate\\Database\\Eloquent\\Attributes\\UseEloquentBuilder;\nuse Illuminate\\Database\\Eloquent\\Model;\n\n#[UseEloquentBuilder(SongBuilder::class)]\nclass Song extends Model\n{\n}\n";
-    let album_builder = "<?php\n\nnamespace App\\Builders;\n\nuse Illuminate\\Database\\Eloquent\\Builder;\n\nclass AlbumBuilder extends Builder\n{\n    public function onlyStandard(): self\n    {\n    }\n}\n";
+    let album_builder = "<?php\n\nnamespace App\\Builders;\n\nuse Illuminate\\Database\\Eloquent\\Builder;\n\nclass AlbumBuilder extends Builder\n{\n    public function onlyStandard(): self\n    {\n    }\n\n    /** @return $this */\n    public function toSong(): SongBuilder\n    {\n    }\n}\n";
     let song_builder = "<?php\n\nnamespace App\\Builders;\n\nuse Illuminate\\Database\\Eloquent\\Builder;\n\nclass SongBuilder extends Builder\n{\n    public function where($column, $value)\n    {\n    }\n\n    public function find($id)\n    {\n    }\n\n    public function onlyStandard(): self\n    {\n    }\n}\n";
-    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Models\\Album;\nuse App\\Models\\Song;\n\nclass Ctl\n{\n    public function __invoke(): void\n    {\n        Album::query()->find(1);\n        Album::query()\n            ->where('a.b', \"c\")\n            ->onlyStandard();\n        Song::query()->find(2);\n        Album::query()->maybe()->find(3);\n        Album::query()->oneLine()->find(4);\n        Album::magic()->find(5);\n        Album::query()->where(')', 1)->find(6);\n    }\n}\n";
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Builders\\AlbumBuilder;\nuse App\\Models\\Album;\nuse App\\Models\\Song;\n\nclass Ctl\n{\n    public function __invoke(): void\n    {\n        Album::query()->find(1);\n        Album::query()\n            ->where('a.b', \"c\")\n            ->onlyStandard();\n        Song::query()->find(2);\n        Album::query()->maybe()->find(3);\n        Album::query()->oneLine()->find(4);\n        Album::magic()->find(5);\n        Album::query()->where(')', 1)->find(6);\n    }\n\n    public function more(AlbumBuilder $b): void\n    {\n        $q = $b->oneLine();\n        $q->onlyStandard();\n        $m = AlbumBuilder::make();\n        $m->onlyStandard();\n        Album::query()->toSong()->find(9);\n    }\n}\n";
     let files = [
         (
             "composer.json",
@@ -1051,6 +1051,9 @@ fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
         d("oneLine()->find"),
         d("magic()->find"),
         d("1)->find"),
+        d("$q->onlyStandard"),
+        d("$m->onlyStandard"),
+        d("toSong()->find"),
     ];
     drop(std::fs::remove_dir_all(dir));
     let finds = || {
@@ -1084,6 +1087,18 @@ fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
             ),
             finds(),
             finds(),
+            jump(
+                "onlyStandard \u{2192} AlbumBuilder::onlyStandard (via $b->oneLine(): static)",
+                "app/Builders/AlbumBuilder.php:9",
+            ),
+            jump(
+                "onlyStandard \u{2192} AlbumBuilder::onlyStandard (via AlbumBuilder::make(): static)",
+                "app/Builders/AlbumBuilder.php:9",
+            ),
+            jump(
+                "find \u{2192} SongBuilder::find (via Album::query(): AlbumBuilder \u{2192} toSong(): SongBuilder)",
+                "app/Builders/SongBuilder.php:13",
+            ),
         ],
         "a chain from a static call answers when each link's return type is declared natively or \
          as a lone `@return $this` / `static`, quoted arguments included; Model::query()'s \

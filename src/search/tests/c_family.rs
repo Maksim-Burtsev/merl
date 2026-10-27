@@ -1198,6 +1198,7 @@ fn php_receivers_of_a_parenthesised_new_a_last_assignment_and_a_capture() {
         "$leaf.",
         "make($a).steep().",
         "$x.m(')').",
+        "$x.a('(').b(')').",
     ] {
         assert!(php_call_chain(before).is_none(), "{before}");
     }
