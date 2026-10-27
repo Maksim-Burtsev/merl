@@ -545,7 +545,7 @@ pub fn cs_expr(expr: &str) -> CsValue {
             CsValue::Unknown
         };
     }
-    if let Some(c) = INDEXED.captures(e) {
+    if let Some(c) = INDEXED.captures(e).filter(|_| !e.contains("..")) {
         return CsValue::Indexed(c[1].to_owned());
     }
     if let Some(c) = CAST.captures(e).or_else(|| AS.captures(e)) {
@@ -770,6 +770,14 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
         return false;
     };
     let declares = |l: &str| {
+        let mut l = l.trim_start();
+        while let Some(end) = l
+            .starts_with('[')
+            .then(|| close_of(Kind::CSharp, l, 0))
+            .flatten()
+        {
+            l = l.get(end..).unwrap_or_default().trim_start();
+        }
         let b = l.as_bytes();
         let assigned = code(Kind::CSharp, l).find(|&(i, c)| {
             c == b'=' && b.get(i + 1) != Some(&b'=') && !(i > 0 && b"=!<>".contains(&b[i - 1]))
@@ -945,6 +953,7 @@ pub struct CsSteps {
     pub parts: Vec<(String, bool)>,
     pub args: Vec<String>,
     pub awaited: usize,
+    pub whole: bool,
 }
 
 pub fn cs_receiver<S: AsRef<str>>(lines: &[S], at: usize, start: usize) -> Option<String> {
@@ -981,7 +990,7 @@ pub fn cs_steps(expr: &str) -> Option<CsSteps> {
                 && awaited.starts_with(char::is_whitespace)
             {
                 let mut head = cs_steps(awaited)?;
-                if head.new.is_some() || head.awaited > 0 {
+                if !before.is_empty() || head.new.is_some() || head.awaited > 0 {
                     return None;
                 }
                 head.awaited = head.parts.len();
@@ -1018,6 +1027,7 @@ pub fn cs_steps(expr: &str) -> Option<CsSteps> {
                 parts,
                 args,
                 awaited: 0,
+                whole: head.is_empty(),
             });
         }
         let ctor = parts.iter().position(|(_, call)| *call)?;
@@ -1028,6 +1038,9 @@ pub fn cs_steps(expr: &str) -> Option<CsSteps> {
             parts: rest,
             args: args.split_off(ctor + 1),
             awaited: 0,
+            whole: head
+                .strip_suffix("new")
+                .is_some_and(|r| r.trim().is_empty()),
         });
     }
 }

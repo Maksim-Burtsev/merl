@@ -134,11 +134,15 @@ impl App {
         expr: &str,
         hops: usize,
     ) -> Option<Proven> {
-        if let Some((left, right)) = search::cs_coalesced(expr) {
+        let coalesced = || {
+            let (left, right) = search::cs_coalesced(expr)?;
             let l = self.cs_chain_type(file, text, line1, left, hops)?;
             let r = self.cs_chain_type(file, text, line1, right, hops)?;
             let (a, b) = (self.cs_element(&l, true)?, self.cs_element(&r, true)?);
-            return same(&a.ty, &b.ty).then_some(l);
+            same(&a.ty, &b.ty).then_some(l)
+        };
+        if let Some(l) = coalesced() {
+            return Some(l);
         }
         if let Some((class, written)) = search::cs_framework_value(expr) {
             let CsType::Outside(_) = self.cs_resolve(file, text, line1, &class)? else {
@@ -160,6 +164,7 @@ impl App {
             parts,
             args,
             awaited,
+            ..
         } = search::cs_steps(expr)?;
         let here = (file.to_path_buf(), line1);
         let (mut p, rest) = match (new, parts.split_first()) {
@@ -1011,6 +1016,9 @@ impl App {
             Some((k + 1, u.target))
         });
         let (at, target) = aliases.next()?;
+        if !self.cs_bases_in_project(here) {
+            return None;
+        }
         let first_namespace = text.lines().position(search::cs_namespace_line);
         if aliases.next().is_some()
             || first_namespace.is_some_and(|n| n < at)

@@ -41,7 +41,11 @@ impl App {
         } else {
             let steps = search::cs_steps(&body)?;
             let (first, rest) = steps.parts.split_first()?;
-            if steps.new.is_some() || steps.awaited > 0 || *first != (param.clone(), false) {
+            if !steps.whole
+                || steps.new.is_some()
+                || steps.awaited > 0
+                || *first != (param.clone(), false)
+            {
                 return None;
             }
             let e = self.cs_element(from, true)?;
@@ -95,6 +99,33 @@ impl App {
             one_more(&mut found, next)?;
         }
         found
+    }
+
+    pub(super) fn cs_bases_in_project(&self, here: &Path) -> bool {
+        self.cs_around().into_iter().all(|(name, line)| {
+            let ty = Typed {
+                name,
+                path: here.to_path_buf(),
+                line,
+            };
+            self.cs_in_project(&ty, 0)
+        })
+    }
+
+    fn cs_in_project(&self, ty: &Typed, depth: usize) -> bool {
+        let Some(text) = self.text_of(&ty.path) else {
+            return false;
+        };
+        let (parts, _) = self.cs_parts(ty, &text);
+        depth < 8
+            && parts.iter().all(|part| {
+                self.text_of(&part.path).is_some_and(|text| {
+                    search::cs_bases(&text, part.line).iter().all(|base| {
+                        matches!(self.cs_resolve(&part.path, &text, part.line, base),
+                            Some(CsType::Project(b)) if self.cs_in_project(&b, depth + 1))
+                    })
+                })
+            })
     }
 
     pub(super) fn cs_element(&self, of: &Proven, collection: bool) -> Option<CsWrittenType> {
