@@ -319,6 +319,12 @@ impl App {
         walk: &mut Walk,
     ) -> bool {
         let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
+        if self.store_read(a, near)
+            && let [name] = chain.as_slice()
+            && let Some(found) = self.store_member(&a.here, &near.imports, name, word)
+        {
+            return self.show_found(a, found);
+        }
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();

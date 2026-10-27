@@ -6677,7 +6677,7 @@ svelte0246	ok	jump	21.55
 svelte0247	no-answer-jump	jump	133.07
 svelte0248	ok	jump	11.27
 svelte0249	none	stay	152.45
-svelte0250	pick-hit	picker	102.66
+svelte0250	ok	jump	17.70
 svelte0251	ok	jump	12.56
 svelte0252	ok	jump	14.53
 svelte0253	on-decl	stay	20.64
