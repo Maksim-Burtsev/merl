@@ -72,6 +72,7 @@ The kotlin row with #1289 (a member of an `enum class` value and of `Flavor.entr
 The lua row with #1290 (a member of a LuaLS `---@class` read from its `---@field` through a `---@param`, a local function's `---@return` or the class above a required module's table; a module function returning `setmetatable({..}, { __index = _M })`; a module member made by a call, `typedefs.uuid = Schema.define {`): over `89ccf77d`, 2026-10-26, release build, `vm.loadavg` { 7.64 8.98 9.33 } before the run.
 The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` over `module.exports = {`: `create`, `meta: { docs`, through the unaliased `@eslint/core` base `RuleDefinition`, and a listener method of the object `create` returns, typed by its declared `RuleListener`): over `779701a14`, 2026-10-26, release build, `vm.loadavg` { 7.61 9.34 9.27 } before the run, { 8.53 9.90 9.45 } after.
 The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the night batch of 2026-10-27 (#1300: #1278, #1282, #1298, #1280, #1299, #1273, #1275, #1274, #1286, #1248, #1291, #1297): `8fc4cebd`, 2026-10-28, release build, `vm.loadavg` { 7.04 7.77 6.74 } after the run (js timed again on its own at { 6.97 7.35 6.71 }, 37.5 / 189.0 ms against master's 34.7 / 173.2 back to back), played on the Mac against master's rows; julia kept from master.
+The svelte row with #1274's store value (`$name.member` of a `writable` / `readable<T>` of `svelte/store` or a `persisted<T>` of `svelte-persisted-store`, declared once, typed as `T`): over `e165f42d3`, 2026-10-28, release build, `vm.loadavg` { 5.53 7.29 7.38 } before the run; only svelte0250 moved (pick-hit -> ok), the other rows kept.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -97,7 +98,7 @@ The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the nigh
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 49.2 | 172.2 |
-| svelte (immich) | 182 | 119 (65%) | 45 (25%) | 0 (0%) | 18 (10%) | 88 | 2 | 32.2 | 178.9 |
+| svelte (immich) | 182 | 120 (66%) | 44 (24%) | 0 (0%) | 18 (10%) | 88 | 2 | 39.8 | 218.5 |
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 37.2 | 105.8 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |

@@ -1,4 +1,4 @@
-use super::{App, Hit, IMPORTED, Kind, Path, Typed, bound, search};
+use super::{App, Candidate, Hit, IMPORTED, Kind, Path, Reason, Regex, Typed, bound, search};
 
 impl App {
     pub(super) fn imported_type(
@@ -135,6 +135,61 @@ impl App {
                 .filter(|t| self.is_interface(t))?;
         }
         self.one_member(kind, &ty, word).map(|hit| (hit, ty.name))
+    }
+
+    pub(in crate::app) fn store_member(
+        &self,
+        here: &Path,
+        imports: &[search::Import],
+        name: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let kind = Kind::TsJs;
+        let (file, taken) = match bound(imports, name) {
+            Some(path) => {
+                let (taken, module) = path.split_last()?;
+                let [file] = &search::module_files(kind, &self.root, &self.files, here, module)[..]
+                else {
+                    return None;
+                };
+                (file.clone(), taken.clone())
+            }
+            None => (here.to_path_buf(), name.to_owned()),
+        };
+        let text = self.text_of(&file)?;
+        let taken = regex::escape(&taken);
+        let declared = Regex::new(&format!(r"\b(?:const|let|var)\s+{taken}\b")).ok()?;
+        let made = Regex::new(&format!(
+            r"^\s*(?:export\s+)?const\s+{taken}\s*=\s*([A-Za-z_$][\w$]*)<\s*([A-Za-z_$][\w$]*)\s*>\s*\("
+        ))
+        .ok()?;
+        let mut declarations = text
+            .lines()
+            .enumerate()
+            .filter(|(_, l)| declared.is_match(l));
+        let (Some((at, line)), None) = (declarations.next(), declarations.next()) else {
+            return None;
+        };
+        let c = made.captures(line)?;
+        let store = bound(&search::imports(kind, &text), &c[1])?;
+        let store: Vec<&str> = store.iter().map(String::as_str).collect();
+        if !matches!(
+            store[..],
+            ["svelte", "store", "writable" | "readable"] | ["svelte-persisted-store", "persisted"]
+        ) {
+            return None;
+        }
+        let ty = self.annotated_type(kind, &file, &text, at + 1, &c[2])?;
+        let label = format!("${name}: {}", ty.name);
+        let hits = self.hierarchy(kind, &ty, 0, &mut |t| self.instance_member(kind, t, word))?;
+        Some(
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: Reason::Receiver(label.clone()),
+                })
+                .collect(),
+        )
     }
 
     fn one_member(&self, kind: Kind, ty: &Typed, word: &str) -> Option<Hit> {
