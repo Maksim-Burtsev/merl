@@ -715,10 +715,27 @@ impl App {
         let class = search::dart_this_super(text, self.line, false)?.class;
         let mut found = self.dart_member_of(here, &class, field);
         if found.is_empty() {
+            if Self::dart_top_level(text, field) {
+                return None;
+            }
             found = self.dart_inherited(here, &class, field, 0);
+            if field.starts_with('_') {
+                let (library, _) = self.dart_library(here.to_path_buf(), None, false)?;
+                found.retain(|c| library.contains(&c.hit.path));
+            }
         }
         let [c] = found.try_into().ok()?;
         Some(c)
+    }
+
+    fn dart_top_level(text: &str, name: &str) -> bool {
+        let Ok(declares) = Regex::new(&search::def_patterns(Kind::Dart, name).join("|")) else {
+            return false;
+        };
+        let literal = search::literal_lines(Kind::Dart, text);
+        text.lines().enumerate().any(|(i, l)| {
+            !literal[i] && !l.starts_with(char::is_whitespace) && declares.is_match(l)
+        })
     }
 
     fn dart_member_of(&self, file: &Path, class: &str, word: &str) -> Vec<Candidate> {

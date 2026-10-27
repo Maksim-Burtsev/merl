@@ -812,6 +812,9 @@ over a field made by a typed list literal, a field typed `List<Sprig>` and a par
 reads a field `_Urn` makes with a constructor call. `dart/lib/lid.dart` (#1299) reads a constructor
 parameter in its own initializer list, on the constructor's line and on the next, and a
 `case final value?` binding, each beside a getter of that name the bare field rule must not take.
+`dart/lib/vat/` (#1299) reads fields a `Child` inherits from a `Base` of another library: one
+a top-level `pen` of `child.dart` shadows, a private `_ink` the child cannot see, and a `nib`
+that types its receiver.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
