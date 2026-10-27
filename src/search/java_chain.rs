@@ -375,3 +375,16 @@ pub fn java_fluent_chain(before: &str) -> Option<(String, Vec<String>)> {
         && (arrow || !left.last().is_some_and(|c| ".)]>:\"$".contains(*c)));
     plain.then_some((head, calls))
 }
+
+pub fn java_spring_body(text: &str, owner: &str, method: &str, args: &str) -> Option<String> {
+    let package = match owner {
+        "ServerRequest" => "server",
+        "ClientResponse" => "client",
+        _ => return None,
+    };
+    let import = format!("import org.springframework.web.reactive.function.{package}.{owner};");
+    let imported = text.lines().any(|l| l.trim() == import);
+    (imported && matches!(method, "bodyToMono" | "bodyToFlux"))
+        .then(|| java_class_argument(args))
+        .flatten()
+}

@@ -585,8 +585,17 @@ impl App {
                     None | Some("this") => Self::jvm_own_type(file, text, line1, None)?,
                     Some(r) => self.jvm_value(file, text, line1, r, false, 0)?.resolved,
                 };
-                let JvmType::Project(decl) = owner else {
-                    return None;
+                let decl = match owner {
+                    JvmType::Project(decl) => decl,
+                    JvmType::Outside(t) => {
+                        let class = search::java_spring_body(text, &t, &method, &args)?;
+                        let resolved = self.jvm_type_at(file, text, &class);
+                        return matches!(resolved, JvmType::Project(_)).then_some(WrittenType {
+                            resolved,
+                            written: class,
+                        });
+                    }
+                    JvmType::Unknown => return None,
                 };
                 let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new());
                 let found = java_shaped(found, |h| h, &method, true);
