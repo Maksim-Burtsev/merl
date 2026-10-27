@@ -417,3 +417,106 @@ fn d_keeps_the_picker_where_csharp_s_choice_is_not_proven() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+const VALIDATED: &[(&str, &str)] = &[
+    (
+        "Commands/Order.cs",
+        "namespace Shop.Commands;\n\npublic class Order\n{\n    public string Street { get; set; }\n}\n",
+    ),
+    (
+        "Commands/Wrapped.cs",
+        "namespace Shop.Commands;\n\npublic class Wrapped<T, R>\n{\n    public int Id { get; }\n}\n",
+    ),
+    (
+        "Other/Address.cs",
+        "namespace Shop.Other;\n\npublic class Address\n{\n    public string Street { get; set; }\n    public int Id { get; }\n}\n",
+    ),
+    (
+        "Validations/OrderValidator.cs",
+        "using Shop.Commands;\n\nnamespace Shop.Validations;\n\npublic class OrderValidator : AbstractValidator<Order>\n{\n    public OrderValidator()\n    {\n        RuleFor(command => command.Street).NotEmpty();\n    }\n}\n\npublic class WrappedValidator : AbstractValidator<Wrapped<Order, bool>>\n{\n    public WrappedValidator()\n    {\n        RuleFor(command => command.Id).NotEmpty();\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn a_validator_s_rule_lambda_takes_the_type_its_base_validates() {
+    let (dir, mut a) = cs_app("cs-1298-validated", VALIDATED);
+    d_on(
+        &mut a,
+        "Validations/OrderValidator.cs",
+        "command => command.|Street",
+    );
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Street \u{2192} Order.Street (via command: Order)",
+            "Commands/Order.cs:5"
+        )
+    );
+    d_on(
+        &mut a,
+        "Validations/OrderValidator.cs",
+        "command => command.|Id",
+    );
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Id \u{2192} Wrapped.Id (via command: Wrapped)",
+            "Commands/Wrapped.cs:5"
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    let mut files = VALIDATED.to_vec();
+    files.push((
+        "Validations/AbstractValidator.cs",
+        "namespace Shop.Validations;\n\npublic class AbstractValidator<T>\n{\n    public void RuleFor(Func<Address, object> f) { }\n}\n",
+    ));
+    let (dir, mut a) = cs_app("cs-1298-namesake", &files);
+    d_on(
+        &mut a,
+        "Validations/OrderValidator.cs",
+        "command => command.|Street",
+    );
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "the project's own AbstractValidator is not FluentValidation's"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const ALIASED: &[(&str, &str)] = &[
+    (
+        "Queries/Card.cs",
+        "namespace Shop.Queries;\n\npublic record Card\n{\n    public int Id { get; init; }\n}\n",
+    ),
+    (
+        "Domain/Card.cs",
+        "namespace Shop.Domain;\n\npublic class Card\n{\n}\n",
+    ),
+    (
+        "Apis/CardsApi.cs",
+        "using Card = Shop.Queries.Card;\n\npublic static class CardsApi\n{\n    public static Task<List<Card>> GetCardsAsync() => null!;\n}\n",
+    ),
+    (
+        "Domain/Use.cs",
+        "using Card = Shop.Queries.Card;\n\nnamespace Shop.Domain;\n\npublic static class Use\n{\n    public static Card Make() => null!;\n}\n",
+    ),
+];
+
+#[test]
+fn a_using_alias_of_the_file_names_its_target() {
+    let (dir, mut a) = cs_app("cs-1298-aliased", ALIASED);
+    d_on(&mut a, "Apis/CardsApi.cs", "List<|Card>");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Card: via using Card = Shop.Queries.Card",
+            "Queries/Card.cs:3"
+        )
+    );
+    d_on(&mut a, "Domain/Use.cs", "static |Card Make");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "Shop.Domain's own Card comes before the file's alias"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

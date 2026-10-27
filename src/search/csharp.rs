@@ -675,7 +675,7 @@ pub fn cs_lambda_delegate(line: &str, name: &str) -> Option<String> {
     clippy::string_slice,
     reason = "every cut is at or right after an ASCII comma code() yielded"
 )]
-fn cs_split(s: &str) -> Vec<&str> {
+pub(super) fn cs_split(s: &str) -> Vec<&str> {
     let (mut depth, mut start, mut out) = (0i32, 0, Vec::new());
     for (i, c) in code(Kind::CSharp, s) {
         match c {
@@ -775,6 +775,10 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
             c == b'=' && b.get(i + 1) != Some(&b'=') && !(i > 0 && b"=!<>".contains(&b[i - 1]))
         });
         let l = assigned.and_then(|(i, _)| l.get(..i)).unwrap_or(l);
+        let l = match cs_type_decl(l) {
+            Some(_) => cs_base_colon(l).and_then(|i| l.get(..i)).unwrap_or(l),
+            None => l,
+        };
         PARAMS.captures_iter(l).any(|c| {
             cs_split(&c[1]).iter().any(|p| {
                 let p = p.trim();
@@ -795,6 +799,13 @@ pub fn cs_generic_param(text: &str, line: usize, name: &str) -> bool {
             None => return false,
         }
     }
+}
+
+fn cs_base_colon(l: &str) -> Option<usize> {
+    let b = l.as_bytes();
+    code(Kind::CSharp, l)
+        .find(|&(i, c)| c == b':' && b.get(i + 1) != Some(&b':') && !(i > 0 && b[i - 1] == b':'))
+        .map(|(i, _)| i)
 }
 
 fn cs_returned(lines: &[String], k: usize) -> Option<String> {

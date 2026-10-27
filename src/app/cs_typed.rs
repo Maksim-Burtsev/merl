@@ -601,6 +601,13 @@ impl App {
                     let p = self.cs_name_type(file, text, at, &items, spent)?;
                     self.cs_element(&p, true)?
                 }
+                (None, search::CsValue::Unknown)
+                    if lines
+                        .get(at - 1)
+                        .is_some_and(|l| search::cs_rule_lambda(l, name)) =>
+                {
+                    self.cs_validated(file, text, at)?
+                }
                 (None, search::CsValue::Unknown) if hops > 0 => {
                     let receiver = search::cs_lambda_call(&lines, at - 1, name)?;
                     let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
@@ -619,6 +626,20 @@ impl App {
             one_more(&mut found, next)?;
         }
         found
+    }
+
+    fn cs_validated(&self, file: &Path, text: &str, line1: usize) -> Option<CsWrittenType> {
+        let owner = owner_of(file, text, line1)?;
+        let [base] = search::cs_bases(text, owner.line).try_into().ok()?;
+        let written = search::cs_validated(&base)?;
+        let CsType::Outside(_) = self.cs_resolve(file, text, owner.line, &base)? else {
+            return None;
+        };
+        Some(CsWrittenType {
+            ty: self.cs_resolve(file, text, owner.line, &written)?,
+            written,
+            from: (file.to_path_buf(), owner.line),
+        })
     }
 
     fn cs_this(&self, file: &Path, text: &str, line1: usize, name: &str) -> Option<Proven> {
@@ -969,6 +990,61 @@ impl App {
             return None;
         }
         Some(named)
+    }
+
+    pub(super) fn cs_aliased(
+        &self,
+        here: &Path,
+        word: &str,
+        range: &std::ops::Range<usize>,
+    ) -> Option<Vec<Candidate>> {
+        let line = self.line_str();
+        let typed = search::cs_type_position(line, range.start, range.end)
+            && !search::cs_constant_may_stand(line, range.start, range.end)
+            && !line.get(range.end..)?.trim_start().starts_with(':');
+        let text = self.buf.lines.join("\n");
+        if !typed || search::cs_generic_param(&text, self.line + 1, word) {
+            return None;
+        }
+        let mut aliases = text.lines().enumerate().filter_map(|(k, l)| {
+            let u = search::cs_using(l).filter(|u| !u.fixed && u.alias.as_deref() == Some(word))?;
+            Some((k + 1, u.target))
+        });
+        let (at, target) = aliases.next()?;
+        let first_namespace = text.lines().position(search::cs_namespace_line);
+        if aliases.next().is_some()
+            || first_namespace.is_some_and(|n| n < at)
+            || !target.contains('.')
+            || search::cs_type_name(&target).as_deref() != Some(word)
+        {
+            return None;
+        }
+        let pattern = search::def_patterns(Kind::CSharp, word)[..2].join("|");
+        let mut hits = self.project_definitions(Kind::CSharp, here, word, &pattern);
+        hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
+        let types: Vec<&Hit> = (hits.iter())
+            .filter(|h| search::cs_type_decl(&h.text).is_some_and(|d| d.name == word))
+            .collect();
+        let [one] = self.cs_namespace_hits(&text, at, &target, &types)?[..] else {
+            return None;
+        };
+        let mut levels = vec![String::new()];
+        let inside = search::cs_namespace(&text, self.line + 1);
+        let mut level = inside.as_str();
+        while !level.is_empty() {
+            levels.push(level.to_owned());
+            level = level.rsplit_once('.').map_or("", |(outer, _)| outer);
+        }
+        for (i, h) in types.iter().enumerate() {
+            let other = self.text_of(&h.path)?;
+            if i != one && levels.contains(&search::cs_namespace(&other, h.line1)) {
+                return None;
+            }
+        }
+        Some(vec![Candidate {
+            hit: types[one].clone(),
+            reason: Reason::Path(format!("using {word} = {target}")),
+        }])
     }
 
     pub(super) fn cs_namespace_segment(

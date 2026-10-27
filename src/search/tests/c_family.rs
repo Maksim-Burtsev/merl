@@ -2244,6 +2244,56 @@ namespace Shop
         generic(11, "TIn") && generic(11, "TOut"),
         "past `in` and `out`"
     );
+    let validated = "\
+public class OrderValidator : AbstractValidator<Order>
+{
+    public OrderValidator() { }
+}
+public class AnyValidator<T> : AbstractValidator<T> where T : Order
+{
+}
+";
+    assert!(
+        !cs_generic_param(validated, 3, "Order"),
+        "a base's type argument is no parameter"
+    );
+    assert!(
+        cs_generic_param(validated, 5, "T"),
+        "the type's own, before its bases"
+    );
+    for (base, want) in [
+        ("AbstractValidator<Order>", Some("Order")),
+        (
+            "FluentValidation.AbstractValidator<Wrapped<Order, bool>>",
+            Some("Wrapped<Order, bool>"),
+        ),
+        ("AbstractValidator<Order, Item>", None),
+        ("AbstractValidator<Order[]>", None),
+        ("Validator<Order>", None),
+        ("AbstractValidator", None),
+    ] {
+        assert_eq!(cs_validated(base).as_deref(), want, "{base}");
+    }
+    for (line, want) in [
+        (
+            "        RuleFor(command => command.Street).NotEmpty();",
+            true,
+        ),
+        ("        RuleForEach((command) => command.Items);", true),
+        ("        When(command => command.Paid, () => { });", true),
+        ("        rules.RuleFor(command => command.Street);", false),
+        ("        Include(command => command.Street);", false),
+        (
+            "        RuleFor(command => command.Street).Must(command => command != null);",
+            false,
+        ),
+        (
+            "        RuleFor((command, other) => command.Street);",
+            false,
+        ),
+    ] {
+        assert_eq!(cs_rule_lambda(line, "command"), want, "{line}");
+    }
 }
 
 #[test]

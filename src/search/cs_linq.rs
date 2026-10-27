@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::csharp::CS_TYPE;
+use super::csharp::{CS_TYPE, cs_split};
 use super::{Kind, close_of, code, cs_receiver, cs_steps, cs_type_name, uncommented};
 
 pub fn cs_one_argument(written: &str) -> Option<String> {
@@ -157,4 +157,34 @@ pub fn cs_lambda_call<S: AsRef<str>>(lines: &[S], at: usize, name: &str) -> Opti
     let steps = cs_steps(&receiver)?;
     let first = steps.parts.first().map(|(p, _)| p.as_str());
     (steps.new.is_none() && first != Some(name.trim_start_matches('@'))).then_some(receiver)
+}
+
+pub fn cs_rule_lambda(line: &str, name: &str) -> bool {
+    let n = regex::escape(name.trim_start_matches('@'));
+    let (Ok(rule), Ok(bound)) = (
+        Regex::new(&format!(
+            r"\b(?:RuleFor|RuleForEach|When)\s*\(\s*(?:@?{n}|\(\s*@?{n}\s*\))\s*=>"
+        )),
+        Regex::new(&format!(r"(?:^|[^\w@])@?{n}\s*\)?\s*=>")),
+    ) else {
+        return false;
+    };
+    let code = uncommented(Kind::CSharp, line);
+    let mut found = rule.find_iter(&code);
+    let Some(m) = found.next() else {
+        return false;
+    };
+    let unqualified = code
+        .get(..m.start())
+        .is_some_and(|b| !b.trim_end().ends_with('.'));
+    unqualified && found.next().is_none() && bound.find_iter(&code).count() == 1
+}
+
+pub fn cs_validated(base: &str) -> Option<String> {
+    let t = base.trim();
+    let t = t.strip_prefix("global::").unwrap_or(t);
+    let t = t.strip_prefix("FluentValidation.").unwrap_or(t);
+    let inner = t.strip_prefix("AbstractValidator")?.trim_start();
+    let inner = inner.strip_prefix('<')?.strip_suffix('>')?.trim();
+    (cs_split(inner).len() == 1 && cs_type_name(inner).is_some()).then(|| inner.to_owned())
 }
