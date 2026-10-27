@@ -160,7 +160,10 @@ fn an_arrow_parameter_of_a_template_expression_reaches_the_lines_of_its_body() {
         "}",
     ];
     let code = [false; 14];
-    let reach = |word: &str, line: usize| template_reaching(&lines, &code, word, line);
+    let reach = |word: &str, line: usize| {
+        let col = lines[line].find(word).unwrap();
+        template_reaching(&lines, &code, word, line, col)
+    };
     assert_eq!(
         reach("code", 3),
         [3],
@@ -174,9 +177,24 @@ fn an_arrow_parameter_of_a_template_expression_reaches_the_lines_of_its_body() {
         [11],
         "a bare parameter, the body on the next line"
     );
+    let closed = [
+        "{tags.map((label) =>",
+        "  label.trim()).join(', ')} {label}",
+    ];
+    let code = [false; 2];
+    let col = closed[1].rfind("label").unwrap();
+    assert!(
+        template_reaching(&closed, &code, "label", 1, col).is_empty(),
+        "past the bracket that closes the body"
+    );
+    assert_eq!(
+        template_reaching(&closed, &code, "label", 1, 2),
+        [1],
+        "inside the body, before it closes"
+    );
     let script = [true; 14];
     assert!(
-        template_reaching(&lines, &script, "code", 3).is_empty(),
+        template_reaching(&lines, &script, "code", 3, 0).is_empty(),
         "a script line reaches no template binding"
     );
 }

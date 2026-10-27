@@ -310,6 +310,16 @@ pub fn field_line(kind: Kind, text: &str, decl: usize, name: &str) -> Option<Fie
     declaring(&lines, &field_bindings(kind, text, decl, name), name)
 }
 pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: bool) -> Vec<usize> {
+    field_rows_at(kind, text, hits, name, jsdoc, None)
+}
+fn field_rows_at(
+    kind: Kind,
+    text: &str,
+    hits: &[usize],
+    name: &str,
+    jsdoc: bool,
+    at: Option<usize>,
+) -> Vec<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let mut types: HashMap<usize, Vec<Binding>> = HashMap::new();
     let mut out = Vec::new();
@@ -321,7 +331,12 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
         let Some(k) = line.checked_sub(1).filter(|&k| k < lines.len()) else {
             continue;
         };
-        if inline.as_ref().is_some_and(|re| re.is_match(lines[k])) {
+        let key_at =
+            |c: regex::Captures| at.is_none_or(|at| c.get(1).is_some_and(|m| m.start() == at));
+        if inline
+            .as_ref()
+            .is_some_and(|re| re.captures_iter(lines[k]).any(key_at))
+        {
             if !out.contains(&line) {
                 out.push(line);
             }
@@ -353,7 +368,10 @@ pub fn field_rows(kind: Kind, text: &str, hits: &[usize], name: &str, jsdoc: boo
     out
 }
 pub fn inline_type_key(name: &str) -> String {
-    format!(r"<\{{\s*(?:[^{{}}]*[,;]\s*)?{}\??\s*:", regex::escape(name))
+    format!(
+        r"<\{{\s*(?:[^{{}}]*[,;]\s*)?({})\??\s*:",
+        regex::escape(name)
+    )
 }
 fn nested_type_key(lines: &[&str], decl: usize, k: usize, name: &str) -> bool {
     static OPENER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -398,7 +416,9 @@ pub fn field_decl_at(kind: Kind, text: &str, line: usize, start: usize, name: &s
     let bare = l.split("//").next().unwrap_or("");
     let embedded =
         kind == Kind::Go && go_embedded(bare.split('`').next().unwrap_or("").trim()).is_some();
-    first == Some(start) && !embedded && field_rows(kind, text, &[line], name, false) == [line]
+    first == Some(start)
+        && !embedded
+        && field_rows_at(kind, text, &[line], name, false, Some(start)) == [line]
 }
 pub fn enum_member(kind: Kind, text: &str, decl: usize, word: &str) -> Option<(usize, usize)> {
     static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

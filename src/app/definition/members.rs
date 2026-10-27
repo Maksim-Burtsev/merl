@@ -167,7 +167,12 @@ impl App {
         });
         let store = kind == Kind::TsJs
             && a.here.extension().is_some_and(|e| e == "svelte")
-            && matches!(&chain[..], [head] if before.ends_with(&format!("${head}.")));
+            && matches!(&chain[..], [head] if before.ends_with(&format!("${head}.")))
+            && bound(&near.imports, &chain[0]).is_none_or(|path| {
+                path.split_last().is_some_and(|(_, module)| {
+                    !search::module_files(kind, &self.root, &self.files, &a.here, module).is_empty()
+                })
+            });
         let on_value = (dotted || referenced)
             && !own
             && (kind == Kind::Php

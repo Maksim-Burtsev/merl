@@ -427,3 +427,26 @@ fn a_jsdoc_property_is_no_field_declaration_under_the_cursor() {
     let start = text.lines().nth(2).unwrap().find("rate").unwrap();
     assert!(!field_decl_at(Kind::TsJs, text, 3, start, "rate"));
 }
+
+#[test]
+fn an_inline_type_key_is_a_field_declaration_only_under_the_cursor() {
+    let at = |text: &str, line: usize, name: &str, nth: usize| {
+        let l = text.lines().nth(line - 1).unwrap();
+        let start = l.match_indices(name).nth(nth).unwrap().0;
+        field_decl_at(Kind::TsJs, text, line, start, name)
+    };
+    let call = "import { label } from './x';\nexport const out = show(label, [] as Array<{ label: string }>);\n";
+    assert!(
+        !at(call, 2, "label", 0),
+        "an argument beside an inline type's namesake key"
+    );
+    let params = "function pick(name: string, rows: Array<{ name: string }>) {}\n";
+    assert!(
+        !at(params, 1, "name", 0),
+        "a parameter beside an inline type's namesake key"
+    );
+    let typed = "export interface Tag {\n  label: Array<{ label: string }>;\n}\n";
+    assert!(at(typed, 2, "label", 0), "a member typed by an inline type");
+    let key = "const xs = [] as Array<{ label: string }>;\n";
+    assert!(at(key, 1, "label", 0), "the inline key under the cursor");
+}
