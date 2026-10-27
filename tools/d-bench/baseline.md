@@ -75,6 +75,7 @@ The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the nigh
 The php row with #1279's third pass (a chain from a static call such as `Album::query()` through each link's declared return type, a lone `@return $this` / `static` docblock counted; quoted arguments no longer break a chain): over `1ecd1aa29`, 2026-10-28, release build, `vm.loadavg` { 6.52 8.30 6.79 } before the run.
 The svelte row with #1274's store value (`$name.member` of a `writable` / `readable<T>` of `svelte/store` or a `persisted<T>` of `svelte-persisted-store`, declared once, typed as `T`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.53 7.29 7.38 } before the run; only svelte0250 moved (pick-hit -> ok), the other rows kept.
 The dart row with #1299's awaited getter (`final responseBody = await operation.value;`, its `Future<T>` read through the `Future<ResponseBody>` handed to `CancelableOperation.fromFuture`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.23 4.97 6.01 } before the run.
+The rust row with #1302 (a call of a local closure read through its written `-> T` or its one-expression body, `m("ROOT/file_root_00").is_ignore()` in `crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs`): over `5cd1f02aa` with this change, 2026-10-28, release build, `vm.loadavg` { 4.94 5.04 5.43 } before the run, { 6.47 5.68 5.66 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -82,7 +83,7 @@ The dart row with #1299's awaited getter (`final responseBody = await operation.
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 43.8 | 94.1 |
 | js (eslint, uptime-kuma) | 217 | 195 (90%) | 16 (7%) | 0 (0%) | 6 (3%) | 177 | 10 | 37.5 | 189.0 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 223 (97%) | 6 (3%) | 0 (0%) | 2 (1%) | 69 | 5 | 7.1 | 65.1 |
+| rust (ripgrep) | 231 | 225 (97%) | 4 (2%) | 0 (0%) | 2 (1%) | 69 | 5 | 5.9 | 52.6 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 236 | 208 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 64 | 8 | 19.4 | 71.1 |
 | php (koel) | 392 | 339 (86%) | 44 (11%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.6 | 216.1 |
