@@ -266,8 +266,8 @@ impl App {
         };
         let hits = match self.cs_up(t, name, 0) {
             Up::Found(hits) => hits,
-            Up::Missing { .. } | Up::Outside { .. } => return self.cs_extended_step(here, t, name),
-            Up::Unknown => return None,
+            Up::Missing { .. } => return self.cs_extended_step(here, t, name),
+            Up::Outside { .. } | Up::Unknown => return None,
         };
         let mut found: Option<Proven> = None;
         for hit in hits {

@@ -520,3 +520,38 @@ fn a_using_alias_of_the_file_names_its_target() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+const BASKET: &[(&str, &str)] = &[
+    (
+        "Item.cs",
+        "public class Item\n{\n    public decimal Price { get; }\n}\n",
+    ),
+    (
+        "Receipt.cs",
+        "public class Receipt\n{\n    public decimal Price { get; }\n}\n",
+    ),
+    (
+        "Basket.cs",
+        "using System.Collections.Generic;\n\npublic class Basket : List<Item>\n{\n}\n",
+    ),
+    (
+        "BasketExtensions.cs",
+        "public static class BasketExtensions\n{\n    public static Receipt Find(this Basket b, Predicate<Item> p) => null!;\n}\n",
+    ),
+    (
+        "Till.cs",
+        "public class Till\n{\n    public decimal Ring(Basket basket)\n    {\n        return basket.Find(i => i.Price > 0).Price;\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn an_extension_method_does_not_shadow_a_method_a_base_outside_the_project_may_declare() {
+    let (dir, mut a) = cs_app("cs-instance-first", BASKET);
+    d_on(&mut a, "Till.cs", "> 0).|Price");
+    let got = shown(&mut a);
+    assert!(
+        matches!(got, Shown::Picker(..)),
+        "List<Item>.Find, an instance method, beats the extension Find of Basket: {got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
