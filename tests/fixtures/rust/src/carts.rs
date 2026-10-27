@@ -79,3 +79,57 @@ pub fn bounded() -> u32 {
     cart.roll()
     //   ^ d: src/carts.rs:7
 }
+
+impl Wagon {
+    pub fn hitched(&self) -> Sled {
+        Sled
+    }
+}
+
+impl Sled {
+    pub fn hitched(&self) -> Wagon {
+        Wagon
+    }
+}
+
+pub fn closure_called() -> u32 {
+    let pull = |_n: u32| {
+        wagon()
+    };
+    pull(1).roll()
+    //      ^ d: src/carts.rs:7
+}
+
+pub fn closure_written() -> u32 {
+    let pull = move |_n: u32| -> Sled { Sled };
+    pull(1).roll()
+    //      ^ d: src/carts.rs:19
+}
+
+pub fn closure_chained(shed: Wagon) -> u32 {
+    let pull = |_n: u32| shed.hitched();
+    pull(1).roll()
+    //      ^ d: src/carts.rs:19
+}
+
+pub fn closure_param_shadows(shed: Wagon) -> u32 {
+    let pull = |shed: Sled| shed.hitched();
+    pull(Sled).roll()
+    //         ^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4
+}
+
+pub fn closure_shadowed(shed: Wagon) -> u32 {
+    let pull = |_n: u32| shed.hitched();
+    let pull = wagon;
+    pull().roll()
+    //     ^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4
+}
+
+pub fn closure_with_statements(shed: Wagon) -> u32 {
+    let pull = |_n: u32| {
+        let s = shed.hitched();
+        s
+    };
+    pull(1).roll()
+    //      ^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4
+}
