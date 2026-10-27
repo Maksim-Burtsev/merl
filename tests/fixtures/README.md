@@ -857,7 +857,9 @@ several lines, is reached through a `.map(Ticket::from)` step, a `Collectors.toM
 annotation, whose field after a `@Getter` one over two lines is no getter. `jvm/src/main/java/chained/` (#1278)
 chains the setters of two Lombok `@Accessors(chain = true)` classes: `setName` after
 `setAddress(a)` is not `Address.name`, as if the setter returned its field's type, while
-`getName` after `getAddress()` is. `jvm/src/main/java/typeargs/`
+`getName` after `getAddress()` is. `getters/Town.java` passes a lambda to
+`herald.<Notice>emit(..)`, whose receiver is read past its type arguments, beside an `emit` of
+its own. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
 (#1115) calls static methods of project types: one returning `@Nullable T`, one behind an
