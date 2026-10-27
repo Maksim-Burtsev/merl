@@ -74,6 +74,7 @@ The js row with #1288 (a key of an ESLint rule object under the JSDoc `@type` ov
 The java, csharp, dart, astro, svelte, vue, swift, cpp and js rows with the night batch of 2026-10-27 (#1300: #1278, #1282, #1298, #1280, #1299, #1273, #1275, #1274, #1286, #1248, #1291, #1297): `8fc4cebd`, 2026-10-28, release build, `vm.loadavg` { 7.04 7.77 6.74 } after the run (js timed again on its own at { 6.97 7.35 6.71 }, 37.5 / 189.0 ms against master's 34.7 / 173.2 back to back), played on the Mac against master's rows; julia kept from master.
 The php row with #1279's third pass (a chain from a static call such as `Album::query()` through each link's declared return type, a lone `@return $this` / `static` docblock counted; quoted arguments no longer break a chain): over `1ecd1aa29`, 2026-10-28, release build, `vm.loadavg` { 6.52 8.30 6.79 } before the run.
 The svelte row with #1274's store value (`$name.member` of a `writable` / `readable<T>` of `svelte/store` or a `persisted<T>` of `svelte-persisted-store`, declared once, typed as `T`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.53 7.29 7.38 } before the run; only svelte0250 moved (pick-hit -> ok), the other rows kept.
+The dart row with #1299's awaited getter (`final responseBody = await operation.value;`, its `Future<T>` read through the `Future<ResponseBody>` handed to `CancelableOperation.fromFuture`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.23 4.97 6.01 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -108,5 +109,5 @@ The svelte row with #1274's store value (`$name.member` of a `writable` / `reada
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 86 (89%) | 7 (7%) | 0 (0%) | 4 (4%) | 17 | 0 | 50.3 | 140.1 |
+| dart (dio) | 97 | 88 (91%) | 5 (5%) | 0 (0%) | 4 (4%) | 17 | 0 | 48.1 | 140.7 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

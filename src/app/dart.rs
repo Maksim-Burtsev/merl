@@ -491,11 +491,98 @@ impl App {
             return Some((search::dart_iterated(&c.hit.text, items)?, c.hit.path));
         }
         let value = search::dart_value(line, name).filter(|_| depth < 4)?;
+        if let Some((receiver, getter)) = search::dart_awaited(value) {
+            return self.dart_awaited(here, text, receiver, getter, depth + 1);
+        }
         let value = format!("{value}.");
         let (links, _, start) = search::dart_call_links(&value)?;
         let lead = value.get(..start)?.trim();
         (links[0] != name && matches!(lead, "" | "new" | "const"))
             .then(|| self.dart_chain_type(here, text, &value, depth + 1))?
+    }
+
+    fn dart_awaited(
+        &self,
+        here: &Path,
+        text: &str,
+        receiver: &str,
+        getter: &str,
+        depth: usize,
+    ) -> Option<(search::DartType, PathBuf)> {
+        let (ty, scope) = self.dart_bound(here, text, receiver, depth)?;
+        let file = self
+            .dart_class_file(&scope, &ty)
+            .or_else(|| self.dart_package_class_file(&scope, &ty))?;
+        let [row] = self
+            .dart_member_of(&file, &ty.class, getter)
+            .try_into()
+            .ok()?;
+        let awaited = search::dart_future_of(&row.hit.text, getter, false)?;
+        let class_text = self.text_of(&file)?;
+        let params = search::dart_type_params(&class_text, &ty.class)?;
+        if awaited.prefix.is_some() || !params.contains(&awaited.class) {
+            return Some((awaited, row.hit.path));
+        }
+        let ctor = ty.constructor.as_deref()?;
+        let named = format!("{}.{ctor}", ty.class);
+        let made: Vec<Candidate> = self
+            .dart_member_of(&file, &ty.class, ctor)
+            .into_iter()
+            .filter(|c| c.hit.text.contains(&named))
+            .collect();
+        let [made] = made.as_slice() else {
+            return None;
+        };
+        let decl = class_text.get(line_offset(&class_text, made.hit.line1)..)?;
+        let open = Regex::new(&format!(r"{}\s*\(", regex::escape(&named)))
+            .ok()?
+            .find(decl)?
+            .end()
+            - 1;
+        if !search::dart_future_param(decl, open, &awaited.class) {
+            return None;
+        }
+        let [b] = search::bindings(Kind::Dart, text, self.line + 1, receiver)
+            .try_into()
+            .ok()?;
+        let arg =
+            search::dart_constructed_arg(text.get(line_offset(text, b.line1)..)?, receiver, &ty)?;
+        let (on, method) = search::dart_method_call(arg)?;
+        let (on_ty, on_scope) =
+            self.dart_links_type(here, text, &[on.to_owned()], false, false, depth)?;
+        let on_file = self.dart_class_file(&on_scope, &on_ty)?;
+        let [call] = self
+            .dart_member_of(&on_file, &on_ty.class, method)
+            .try_into()
+            .ok()?;
+        let result = search::dart_future_of(&call.hit.text, method, true)?;
+        let on_params = search::dart_type_params(&self.text_of(&on_file)?, &on_ty.class)?;
+        (result.prefix.is_some() || !on_params.contains(&result.class))
+            .then_some((result, call.hit.path))
+    }
+
+    fn dart_package_class_file(&self, here: &Path, ty: &search::DartType) -> Option<PathBuf> {
+        let sdk = self.dart_sdk()?;
+        let files = self.dart_visible_files(here, &ty.class, ty.prefix.as_deref())?;
+        if files
+            .iter()
+            .any(|f| !f.is_absolute() && self.dart_declares_class(f, &ty.class))
+        {
+            return None;
+        }
+        let (library, directives) = self.dart_library(here.to_path_buf(), Some(&sdk), false)?;
+        let mut declaring = directives
+            .iter()
+            .filter(|d| {
+                d.keyword == "import"
+                    && d.prefix == ty.prefix
+                    && d.uri.starts_with("package:")
+                    && dart_names(d, &ty.class)
+            })
+            .filter_map(|d| self.dart_sdk_exported(&library[0], &d.uri, &ty.class, &sdk, 0))
+            .filter(|f| f.is_absolute());
+        let file = declaring.next()?;
+        declaring.all(|f| f == file).then_some(file)
     }
 
     fn dart_chain_type(
@@ -850,4 +937,11 @@ impl App {
 
 fn dart_names(d: &search::DartDirective, name: &str) -> bool {
     d.show.as_ref().is_none_or(|s| s.iter().any(|n| n == name)) && !d.hide.iter().any(|n| n == name)
+}
+
+fn line_offset(text: &str, line1: usize) -> usize {
+    text.split_inclusive('\n')
+        .take(line1.saturating_sub(1))
+        .map(str::len)
+        .sum()
 }
