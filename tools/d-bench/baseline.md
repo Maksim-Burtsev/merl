@@ -81,6 +81,7 @@ The svelte row with #1275's second pass (`page.data` with `page` from SvelteKit'
 The astro row with #1273's remainder (a parameter of an arrow function a template expression opens on a line above, `.map(([code, locale]) => ({`, read for the lines of its body): over `e15a7755`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors (astro0212, astro0234) written.
 The vue, svelte and astro rows with #1274 (the by-name search for a member counts a key of an inline object type, `Array<{a: T}>` or a key nested in a member's `{…}` of a named type, and a Svelte store's `$value.member` is read as a member of a value merl cannot type): over `e15a7755` with #1273's remainder, 2026-10-27, release build, on a Linux container against master played there, ts and js unmoved, only the moved cursors (astro0005, astro0242, astro0252, svelte0024, svelte0250, vue0157, vue0160, vue0195, vue0207, vue0224) written.
 The csharp row with #1298 (a FluentValidation `RuleFor` / `RuleForEach` / `When` lambda in a class whose one base is `AbstractValidator<T>` takes `T`, a base list's type argument is no type parameter, and a type a `using X = …;` alias of the file names resolves to the alias's target: csharp0118, csharp0146, csharp0162, csharp0169): over `43f09f1e`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors written.
+The java row with #1278's other groups (a builder lambda's parameter takes its `Consumer<T>` parameter's type and a fluent chain follows each call's return type, a lambda over `Mono.just(Type.from(..))` takes the static call's return type, and one over Spring's `request.bodyToMono(Type.class)` takes `Type`: java0021, java0048, java0112): over `ef7e77bc`, 2026-10-27, release build, on a Linux container against master played there, only the moved cursors written (the ten of the epic's first #1278 pass with them).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -93,7 +94,7 @@ The csharp row with #1298 (a FluentValidation `RuleFor` / `RuleForEach` / `When`
 | cpp (leveldb) | 236 | 208 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 64 | 8 | 19.4 | 68.6 |
 | php (koel) | 392 | 335 (85%) | 48 (12%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.4 | 221.4 |
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.0 | 46.0 |
-| java (halo) | 115 | 112 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 88 | 2 | 86.0 | 184.3 |
+| java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 87.8 | 187.2 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.1 | 39.3 |
 | ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |

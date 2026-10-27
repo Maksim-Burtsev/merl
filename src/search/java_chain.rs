@@ -64,6 +64,98 @@ pub fn java_lambda_source(text: &str, line1: usize, name: &str) -> Option<JavaCh
     chain_source(&prefix)
 }
 
+pub struct JavaLambdaArgument {
+    pub receiver: Option<String>,
+    pub method: String,
+    pub index: usize,
+}
+
+pub fn java_lambda_argument(text: &str, line1: usize, name: &str) -> Option<JavaLambdaArgument> {
+    let lines: Vec<&str> = text.lines().collect();
+    let at = uncommented(Kind::Jvm, lines.get(line1.checked_sub(1)?)?);
+    let lambda = Regex::new(&format!(
+        r"(?:^|[(,\s])((?:\(\s*{0}\s*\)|{0})\s*->)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let mut found = lambda.captures_iter(&at);
+    let m = found.next()?.get(1)?;
+    if found.next().is_some() {
+        return None;
+    }
+    let mut prefix: Vec<char> = lines[..line1 - 1]
+        .iter()
+        .flat_map(|l| {
+            uncommented(Kind::Jvm, l)
+                .chars()
+                .chain(['\n'])
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    prefix.extend(at.get(..m.start())?.chars());
+    let (open, index) = enclosing_call(trim_end(&prefix))?;
+    let named = trim_end(prefix.get(..open)?);
+    let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let start = named.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
+    let method: String = named.get(start..)?.iter().collect();
+    if !method.starts_with(|c: char| c.is_ascii_lowercase()) {
+        return None;
+    }
+    let before = trim_end(named.get(..start)?);
+    let Some(dot) = before.strip_suffix(&['.']) else {
+        let word = before.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
+        let word: String = before.get(word..)?.iter().collect();
+        let plain = before.last() != Some(&')') && (word.is_empty() || word == "return");
+        return plain.then_some(JavaLambdaArgument {
+            receiver: None,
+            method,
+            index,
+        });
+    };
+    let dot = trim_end(dot);
+    let start = dot.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
+    let receiver: String = dot.get(start..)?.iter().collect();
+    let head = trim_end(dot.get(..start)?);
+    let plain = receiver.starts_with(|c: char| c.is_ascii_lowercase())
+        && !head.last().is_some_and(|&c| c == '.' || c == ')');
+    plain.then_some(JavaLambdaArgument {
+        receiver: Some(receiver),
+        method,
+        index,
+    })
+}
+
+fn enclosing_call(s: &[char]) -> Option<(usize, usize)> {
+    let (mut depth, mut commas) = (0usize, 0usize);
+    let mut i = s.len();
+    while i > 0 {
+        i -= 1;
+        match s[i] {
+            ')' | ']' | '}' => depth += 1,
+            '(' if depth == 0 => return Some((i, commas)),
+            '(' | '[' | '{' => depth = depth.checked_sub(1)?,
+            ',' if depth == 0 => commas += 1,
+            ';' if depth == 0 => return None,
+            '"' | '\'' => {
+                let quote = s[i];
+                i = (0..i)
+                    .rev()
+                    .find(|&j| s[j] == quote && (j == 0 || s[j - 1] != '\\'))?;
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+pub fn java_functional_parameter(parameter: &str) -> Option<String> {
+    static FUNCTIONAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:final\s+)?(?:Consumer|Predicate|UnaryOperator|Function)\s*<\s*(?:\?\s+super\s+)?([A-Z]\w*(?:\.[A-Z]\w*)*)\s*(?:,[^<>]*(?:<[^<>]*>[^<>]*)*)?>\s+\w+$")
+            .expect("the regex is a literal")
+    });
+    Some(FUNCTIONAL.captures(parameter.trim())?[1].to_owned())
+}
+
 fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
     let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
     loop {
@@ -111,6 +203,13 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
                 reference: Some(reference),
             });
         }
+        if let Some(reference) = wrapped_static_call(trim_end(dot), &method, &args) {
+            return Some(JavaChainSource {
+                receiver: None,
+                call: None,
+                reference: Some(reference),
+            });
+        }
         if KEEPS_ELEMENT.contains(&method.as_str()) {
             rest = dot;
             continue;
@@ -130,6 +229,31 @@ fn chain_source(mut rest: &[char]) -> Option<JavaChainSource> {
             reference: None,
         });
     }
+}
+
+fn wrapped_static_call(dot: &[char], method: &str, args: &str) -> Option<(String, String)> {
+    static STATIC_CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([A-Z]\w*(?:\.[A-Z]\w*)*)\s*\.\s*([a-z]\w*)\s*$")
+            .expect("the regex is a literal")
+    });
+    let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let start = dot.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
+    let wrapper: String = dot.get(start..)?.iter().collect();
+    let head = trim_end(dot.get(..start)?);
+    if !["just", "of", "ofNullable"].contains(&method)
+        || !["Mono", "Flux", "Optional", "Stream"].contains(&wrapper.as_str())
+        || head.last() == Some(&'.')
+    {
+        return None;
+    }
+    let args: Vec<char> = args.chars().collect();
+    let args = trim_end(&args);
+    if args.last() != Some(&')') {
+        return None;
+    }
+    let named: String = args.get(..matching_open(args)?)?.iter().collect();
+    let c = STATIC_CALL.captures(&named)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
 }
 
 fn method_reference(args: &str) -> Option<(String, String)> {
@@ -220,4 +344,47 @@ pub fn java_declared_element(line: &str, name: &str) -> Option<String> {
     ))
     .ok()?;
     Some(re.captures(&uncommented(Kind::Jvm, line))?[1].to_owned())
+}
+
+pub fn java_fluent_chain(before: &str) -> Option<(String, Vec<String>)> {
+    let chars: Vec<char> = before.chars().collect();
+    let ident = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut rest = chars.strip_suffix(&['.'])?;
+    let mut calls = Vec::new();
+    loop {
+        rest = trim_end(rest);
+        if rest.last() != Some(&')') {
+            break;
+        }
+        let open = matching_open(rest)?;
+        let named = trim_end(rest.get(..open)?);
+        let start = named.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
+        let method: String = named.get(start..)?.iter().collect();
+        if !method.starts_with(|c: char| c.is_ascii_lowercase()) {
+            return None;
+        }
+        calls.insert(0, method);
+        rest = trim_end(named.get(..start)?).strip_suffix(&['.'])?;
+    }
+    let start = rest.iter().rposition(|&c| !ident(c)).map_or(0, |p| p + 1);
+    let head: String = rest.get(start..)?.iter().collect();
+    let left = trim_end(rest.get(..start)?);
+    let arrow = left.ends_with(&['-', '>']);
+    let plain = head.starts_with(|c: char| c.is_ascii_lowercase())
+        && !calls.is_empty()
+        && (arrow || !left.last().is_some_and(|c| ".)]>:\"$".contains(*c)));
+    plain.then_some((head, calls))
+}
+
+pub fn java_spring_body(text: &str, owner: &str, method: &str, args: &str) -> Option<String> {
+    let package = match owner {
+        "ServerRequest" => "server",
+        "ClientResponse" => "client",
+        _ => return None,
+    };
+    let import = format!("import org.springframework.web.reactive.function.{package}.{owner};");
+    let imported = text.lines().any(|l| l.trim() == import);
+    (imported && matches!(method, "bodyToMono" | "bodyToFlux"))
+        .then(|| java_class_argument(args))
+        .flatten()
 }
