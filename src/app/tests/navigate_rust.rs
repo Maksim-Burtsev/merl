@@ -2193,12 +2193,7 @@ fn a_variant_brought_by_a_glob_over_a_dependency_s_enum_opens_in_the_dependency(
         a.message
     );
     d_on(&mut a, "src/lib.rs", "Empty| => 0");
-    assert_eq!(
-        at(&a),
-        (hir.clone(), 1),
-        "a unit variant: {}",
-        a.message
-    );
+    assert_eq!(at(&a), (hir.clone(), 1), "a unit variant: {}", a.message);
     d_on(&mut a, "src/other.rs", "^    Group|");
     assert_ne!(
         at(&a),
