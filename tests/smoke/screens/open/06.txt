@@ -15,10 +15,11 @@ wait Go to definition of the word under the cursor
 14                                │ Review                                                                                                            │
 15     def __exit__(self, exc_type│   c / C                             Review: next / previous hunk, on to the next file                             │
 16         if exc_type is None:   │   m                                 Review: mark the file as viewed, or take the mark off                         │
-17             self.db.commit()   │   Fold: Enter                       Review: load the diff of a folded generated file                              │
-18         else:                  │ Editing                                                                                                           │
-19             self.db.rollback() │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-20         return False           │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+17             self.db.commit()   │   a                                 Review: note for the agent on the line or the selection                       │
+18         else:                  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+19             self.db.rollback() │ Editing                                                                                                           │
+20         return False           │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+                                  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
                                   │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
                                   │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
                                   │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
@@ -52,6 +53,5 @@ wait Go to definition of the word under the cursor
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
                                   │   Tree: { / }                       Previous / next folder                                                        │
                                   │   Picker: Up / Down                 Move                                                                          │
-                                  │   Picker: PgUp / PgDn               Move one page                                                                 │
 app/uow.py  15:1  [code]          └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 151,54,0
