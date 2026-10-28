@@ -481,7 +481,10 @@ fn the_agents_order_moves_the_files_and_leaves_the_viewed_marks_alone() {
 #[test]
 fn c_walks_past_the_files_the_agent_skipped_and_enter_opens_one() {
     let (dir, _) = review_app("agentskip");
-    let mut a = skipping_review(&dir, "skip src/a.rs\ncrlf.txt\n  skip ./gone\nnew\ntail\n");
+    let mut a = skipping_review(
+        &dir,
+        "# commit 1\nskip src/a.rs\ncrlf.txt\n  skip ./gone\nnew\ntail\n",
+    );
     let c = |a: &mut App, key: char| press(a, KeyCode::Char(key), KeyModifiers::NONE);
     assert_eq!(
         panel_rows(&a),
@@ -524,7 +527,7 @@ fn c_walks_past_the_files_the_agent_skipped_and_enter_opens_one() {
 #[test]
 fn the_files_the_agent_kept_ticked_the_review_is_read_and_a_ticked_skipped_file_walks_again() {
     let (dir, _) = review_app("agentskipread");
-    let order = "skip src/\ncrlf.txt\nskip gone\nnew\ntail\n";
+    let order = "# commit 1\nskip src/\ncrlf.txt\nskip gone\nnew\ntail\n";
     let mut a = skipping_review(&dir, order);
     let c = |a: &mut App, key: char| press(a, KeyCode::Char(key), KeyModifiers::NONE);
     let skipped: Vec<_> = (a.review.as_ref().unwrap().files.iter())
@@ -567,10 +570,43 @@ fn the_files_the_agent_kept_ticked_the_review_is_read_and_a_ticked_skipped_file_
     drop(std::fs::remove_dir_all(dir));
 }
 
+#[test]
+fn a_skipped_file_changed_since_the_order_s_commit_loses_its_robot() {
+    let (dir, _) = review_app("agentskipchanged");
+    let read = git::git(&dir, &["rev-parse", "HEAD"]).unwrap();
+    std::fs::write(dir.join("tail"), "t1\nfixed\n").unwrap();
+    git::git(&dir, &["commit", "-qam", "fix"]).unwrap();
+    let skipped = |order: &str| {
+        let a = skipping_review(&dir, order);
+        let files = &a.review.as_ref().unwrap().files;
+        let left: Vec<_> = (files.iter().filter(|f| f.agent_skipped))
+            .map(|f| f.path.display().to_string())
+            .collect();
+        (left, at(&a).0)
+    };
+    let order = "skip src/\nskip tail\ncrlf.txt\nnew\n";
+    assert_eq!(
+        skipped(&format!("# commit {read}\n{order}")),
+        (vec!["src/a.rs".to_owned()], dir.join("tail")),
+        "tail changed since the order's commit, src/a.rs did not"
+    );
+    let kept = (
+        vec!["src/a.rs".to_owned(), "tail".to_owned()],
+        dir.join("crlf.txt"),
+    );
+    assert_eq!(skipped(order), kept, "no # commit line");
+    assert_eq!(
+        skipped(&format!("# commit 0123abc\n{order}")),
+        kept,
+        "unknown commit"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
 fn skipping_review(dir: &Path, order: &str) -> App {
     let file = dir.join(".git/merl/review/feature");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-    std::fs::write(&file, format!("# commit 1\n{order}")).unwrap();
+    std::fs::write(&file, order).unwrap();
     let review = git::Review::open(dir, None, None).unwrap();
     let paths: Vec<_> = review.files.iter().map(|f| f.path.clone()).collect();
     let (_, files) = crate::tree::build(dir, false);
