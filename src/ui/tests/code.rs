@@ -471,6 +471,7 @@ fn merl_paints_the_cursor_cell_in_the_theme_s_colours_and_hides_the_terminal_s()
         "github-light's Cursor group"
     );
     app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert_eq!(app.mode, crate::app::Mode::Edit);
     assert_eq!(
         cell(&mut app),
         ("f".to_owned(), hex("#ffffff"), hex("#1f2328")),
