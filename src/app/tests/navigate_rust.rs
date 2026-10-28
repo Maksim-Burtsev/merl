@@ -2170,6 +2170,10 @@ fn a_variant_brought_by_a_glob_over_a_dependency_s_enum_opens_in_the_dependency(
                 "src/other.rs",
                 "use dep::hir::*;\n\npub fn made() -> Group {\n    Group\n}\n",
             ),
+            (
+                "src/nested.rs",
+                "use dep::hir::Kind::*;\n\npub fn local() -> u32 {\n    struct Group(u32);\n    let Group(n) = Group(1);\n    n\n}\n\nmod inner {\n    use dep::hir::Kind::*;\n\n    pub struct Group(pub u32);\n\n    pub fn made() -> u32 {\n        Group(2).0\n    }\n}\n",
+            ),
         ],
     );
     let registry = external_root(
@@ -2195,10 +2199,44 @@ fn a_variant_brought_by_a_glob_over_a_dependency_s_enum_opens_in_the_dependency(
     d_on(&mut a, "src/lib.rs", "Empty| => 0");
     assert_eq!(at(&a), (hir.clone(), 1), "a unit variant: {}", a.message);
     d_on(&mut a, "src/other.rs", "^    Group|");
-    assert_ne!(
+    let Shown::Picker(message, rows) = shown(&mut a) else {
+        panic!(
+            "a glob over a module keeps the picker by name: {}",
+            a.message
+        );
+    };
+    assert_eq!(
+        (message.as_str(), rows),
+        (
+            "Group: by name, 2 declarations",
+            vec![
+                (
+                    "local::Group".into(),
+                    "by name".into(),
+                    "src/nested.rs:4".into()
+                ),
+                (
+                    "inner::Group".into(),
+                    "by name".into(),
+                    "src/nested.rs:12".into()
+                ),
+            ]
+        ),
+        "a glob over a module brings its items, not an enum's variants"
+    );
+    let nested = dir.join("src/nested.rs");
+    d_on(&mut a, "src/nested.rs", "= Group|(1)");
+    assert_eq!(
         at(&a),
-        (hir, 2),
-        "a glob over a module brings its items, not an enum's variants: {}",
+        (nested.clone(), 3),
+        "a struct declared in the function shadows the file's glob: {}",
+        a.message
+    );
+    d_on(&mut a, "src/nested.rs", "Group|(2)");
+    assert_eq!(
+        at(&a),
+        (nested, 11),
+        "a struct declared in the module shadows its glob: {}",
         a.message
     );
     std::fs::remove_dir_all(&dir).unwrap();

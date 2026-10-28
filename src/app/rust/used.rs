@@ -416,7 +416,16 @@ impl App {
                 }
             }
         }
-        if found.is_empty() && bound(imports, word).is_none() {
+        let nested_item = || {
+            search::rust_scope_items(text, self.line + 1, word, search::RustNamespace::Other)
+                .iter()
+                .any(|&l| {
+                    text.lines()
+                        .nth(l - 1)
+                        .is_some_and(|l| l.starts_with([' ', '\t']))
+                })
+        };
+        if found.is_empty() && bound(imports, word).is_none() && !nested_item() {
             for glob in &globs {
                 found.extend(self.rust_dependency_variant(here, text, word, glob));
             }
