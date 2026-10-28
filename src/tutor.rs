@@ -123,9 +123,10 @@ pub const TUTOR: &[&str] = &[
     "c",
     "C",
     "m",
+    "a",
 ];
 
-pub(super) const REVIEW_LESSONS: &[&str] = &["c", "C", "m"];
+pub(super) const REVIEW_LESSONS: &[&str] = &["c", "C", "m", "a"];
 
 const AGENT_S_WORK: &[(&str, &str)] = &[
     ("PLAN.md", include_str!("../tutor/review/PLAN.md")),
@@ -400,7 +401,7 @@ mod tests {
         ("Shift+Home", REVIEW_ONLY),
         ("Shift+End", REVIEW_ONLY),
     ];
-    const REVIEW_ONLY: &str = "review mode only: the tutor's review lessons teach c, C and m";
+    const REVIEW_ONLY: &str = "review mode only: the tutor's review lessons teach c, C, m and a";
 
     pub(super) fn dir(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("merl-tutor-{}-{name}", std::process::id()))

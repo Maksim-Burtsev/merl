@@ -44,7 +44,7 @@ impl App {
                     self.edit_kind = edit::Kind::Other;
                     self.anchor = None;
                     self.preview = None;
-                    if self.notes.on {
+                    if self.review.is_some() {
                         self.notes_resolve();
                     }
                     let rel = path.strip_prefix(&self.root).ok();

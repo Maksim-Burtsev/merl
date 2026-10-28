@@ -1,11 +1,9 @@
-# review-notes: notes for the agent, behind `review_notes = true` (#768). On agent/refund, a types
-# a note in place under the line, Esc keeps it, and the file in the git dir holds it; Enter on the
-# note edits it, Enter there starts a second line; Ctrl+X cuts it whole and the file goes, Ctrl+Z
-# brings it back. c onto the lines repos.py deleted: they take a note too, quoted with `-`.
-# The agent deletes the file while merl is open: the notes go.
-merl --review=agent/refund
-wait hunk 1/1  file 1/8
-run mkdir -p "$HOME/.config/merl" && printf 'review_notes = true\n' >> "$HOME/.config/merl/config.toml"
+# review-notes: notes for the agent (#768), on in a review without a setting (#836). On
+# agent/refund, a types a note in place under the line, Esc keeps it, and the file in the git dir
+# holds it; Enter on the note edits it, Enter there starts a second line; Ctrl+X cuts it whole and
+# the file goes, Ctrl+Z brings it back. c onto the lines repos.py deleted: they take a note too,
+# quoted with `-`. The agent deletes the file while merl is open: the notes go. Read without a
+# review, the same file takes no note: a does nothing
 merl --review=agent/refund
 wait hunk 1/1  file 1/8
 key a
@@ -35,3 +33,9 @@ check grep -qx -- '- .*' "$(git rev-parse --git-common-dir)/merl/notes/agent/ref
 run rm "$(git rev-parse --git-common-dir)/merl/notes/agent/refund"
 key Down
 check ! $SMOKE_TMUX capture-pane -p -t 0 | grep -q 'why delete these'
+merl app/models.py
+wait app/models.py  1:1
+key a
+sleep 0.3
+check ! $SMOKE_TMUX capture-pane -p -t 0 | grep -q '\[edit\]'
+wait app/models.py  1:1  [code]

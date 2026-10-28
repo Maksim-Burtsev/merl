@@ -932,6 +932,18 @@ pub const POOL: &[Task] = &[
         answer: "m",
         done: |a| a.viewed.contains_key(std::path::Path::new("store.py")),
     },
+    Task {
+        key: "a",
+        title: "Note for the agent",
+        tutor: "`a` leaves the agent a note on the line, or on the selected lines: type it, and \
+                Esc keeps it under the line. Enter on a note edits it, and a note you empty is \
+                gone. Press `a` on store.py, type a note, then Esc.",
+        drill: "Leave the agent your note on this line of store.py.",
+        start: Some(("store.py", 1, "")),
+        keys: "",
+        answer: "acheck this<Esc>",
+        done: |a| a.notes.editing.is_none() && !a.notes.list.is_empty(),
+    },
 ];
 
 #[cfg(test)]

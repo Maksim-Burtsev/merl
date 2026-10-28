@@ -303,7 +303,7 @@ impl App {
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
             KeyCode::Char('m') => self.toggle_viewed(),
-            KeyCode::Char('a') if self.notes.on => self.add_note(),
+            KeyCode::Char('a') if self.review.is_some() => self.add_note(),
             KeyCode::Char('v') if self.notes.focus.is_some() => self.notes.selected = true,
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow(),
             KeyCode::Char('V') if self.focus == Focus::Code => self.shrink(),
