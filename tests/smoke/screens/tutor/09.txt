@@ -1,4 +1,4 @@
-wait Tutor 23/
+wait Tutor 24/
  1 id,created,updated,due,done,pin┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
  2 1,2026-01-08,2026-01-08,,yes,no│ Files and jumps                                                                                                   │erwise skip the oat milk and get ›
  3 3,2026-01-18,2026-02-02,2026-02│   o / Ctrl+E                        Open a file (fuzzy)                                                           │n Tuesday. Ask whether they can s›
@@ -18,7 +18,7 @@ wait Tutor 23/
                                   │   Fold: Enter                       Review: load the diff of a folded generated file                              │
                                   │ Editing                                                                                                           │
                                   │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-                                  │   Ctrl+S      ╭ Tutor 23/26 · Close it ──────────────────────────────────────────────────────────╮                │
+                                  │   Ctrl+S      ╭ Tutor 24/27 · Close it ──────────────────────────────────────────────────────────╮                │
                                   │   Ctrl+R      │                                                                                  │                │
                                   │   Ctrl+Z / Ctr│  `?` lists every key merl knows, and it is open now. Esc closes any overlay,     │                │
                                   │   Ctrl+C      │  and clears the selection and the find pattern. Press Esc.                       │                │

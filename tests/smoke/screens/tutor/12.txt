@@ -1,4 +1,4 @@
-wait Tutor 26/
+wait Tutor 27/
 ┌agent/find-by-tag ← HEAD────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
 │  ▾ tests                   │ 2
 │    A test_cli.py     +43 −0│ 3 import json
@@ -18,7 +18,7 @@ wait Tutor 26/
 │                            │17         """Load the notes from disk; a missing file means no notes yet."""
 │                            │18         if not self.config.path.exists():
 │                            │19             return []
-│                            │20         raw = jso╭ Tutor 26/26 · Mark viewed ───────────────────────────────────────────────────────╮
+│                            │20         raw = jso╭ Tutor 27/27 · Mark viewed ───────────────────────────────────────────────────────╮
 │                            │  ▎        return [N│                                                                                  │
 │                            │21▎        notes = [│  `m` marks the file you are in as viewed, a tick beside it on the left; `m`      │
 │                            │22▎        seen: set│  again takes it off. Press `m` on store.py.                                      │
