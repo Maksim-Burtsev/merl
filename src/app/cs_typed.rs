@@ -384,13 +384,18 @@ impl App {
             let Some(text) = self.text_of(&part.path) else {
                 return Up::Unknown;
             };
+            let decl = text.lines().nth(part.line - 1).unwrap_or_default();
+            let derives = search::cs_type_decl(decl).is_some_and(|d| {
+                d.keyword == "class"
+                    || d.keyword == "record" && !decl.split_whitespace().any(|w| w == "struct")
+            });
             for (i, entry) in search::cs_bases(&text, part.line).into_iter().enumerate() {
                 match self.cs_resolve(&part.path, &text, part.line, &entry) {
                     Some(CsType::Project(b)) => match self.cs_up(&b, word, depth + 1) {
                         Up::Found(hits) => return Up::Found(hits),
                         Up::Outside { walked: more, base } => {
                             outside = true;
-                            class |= i == 0 && base;
+                            class |= derives && i == 0 && base;
                             walked.extend(more);
                         }
                         Up::Missing { walked: more } => walked.extend(more),
@@ -398,7 +403,7 @@ impl App {
                     },
                     Some(CsType::Outside(name)) => {
                         outside = true;
-                        class |= i == 0 && !interface_named(&name);
+                        class |= derives && i == 0 && !interface_named(&name);
                         walked.push(name);
                     }
                     None => return Up::Unknown,

@@ -48,6 +48,22 @@ public static class TrayExtensions
     public static int Tip(this Tray tray) => 0;
 }
 
+public class Tower : Saucers
+{
+}
+
+public enum Grade : byte
+{
+    Green = 1,
+}
+
+public static class TowerExtensions
+{
+    public static bool Topple(this Tower tower) => false;
+
+    public static int Rank(this Grade grade) => 0;
+}
+
 public class Rounds(Platter platter)
 {
     public async Task<int> Pour()
@@ -130,5 +146,12 @@ public class Rounds(Platter platter)
     {
         return tray.Tip();
         //          ^ d: src/Shop/Tea/Infuse/Rounds.cs:48
+    }
+
+    public bool Towered(Tower tower, Grade grade)
+    {
+        return tower.Topple() && grade.Rank() > 0;
+        //           ^ d: picker src/Shop/Tea/Infuse/Rounds.cs:62
+        //                             ^ d: src/Shop/Tea/Infuse/Rounds.cs:64
     }
 }
