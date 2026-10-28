@@ -1186,3 +1186,51 @@ fn a_php_static_call_on_a_vendor_class_lands_on_what_that_one_class_declares() {
          the class"
     );
 }
+
+#[test]
+fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answer() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse Illuminate\\Support\\Arr;\n\nclass Ctl\n{\n    public function __invoke(array $a): void\n    {\n        Arr::get($a, 'k');\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key)\n    {\n    }\n}\n";
+    let stub = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key, $default = null)\n    {\n    }\n}\n";
+    let mine = "<?php\n\nnamespace App\\Support;\n\nclass Arr\n{\n    public static function get($key)\n    {\n    }\n}\n";
+    let s = "vendor/laravel/framework/src/Illuminate";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Ctl.php", ctl),
+        ("app/Support/Arr.php", mine),
+        (&format!("{s}/Collections/Arr.php"), arr),
+    ];
+    let (dir, mut a) = project_app("php-vendor-static-mine", &files);
+    d_on(&mut a, "app/Http/Ctl.php", "Arr::get");
+    let only_vendor = shown(&mut a);
+    let (dir2, mut a) = project_app(
+        "php-vendor-static-stub",
+        &[files.as_slice(), &[("ide_helper.php", stub)]].concat(),
+    );
+    d_on(&mut a, "app/Http/Ctl.php", "Arr::get");
+    let stubbed = shown(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    drop(std::fs::remove_dir_all(dir2));
+    assert_eq!(
+        [only_vendor, stubbed],
+        [
+            jump(
+                "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
+                &format!("{s}/Collections/Arr.php:7"),
+            ),
+            picker(
+                "get: by name, 2 declarations",
+                &[
+                    ("Arr::get", "app/Support/Arr.php:7"),
+                    ("Arr::get", "ide_helper.php:7"),
+                ],
+            ),
+        ],
+        "a project class sharing only the short name leaves the vendor class's answer; one \
+         declaring the vendor class itself keeps the search it had"
+    );
+}
