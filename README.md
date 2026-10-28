@@ -145,6 +145,7 @@ counts stay on your machine.
 |---|---|
 | / / Ctrl+F | Find in the open file |
 | n / N | Next / previous match |
+| * | Find the word under the cursor as a whole word, or the selection |
 | s | Search the project |
 
 **Review**

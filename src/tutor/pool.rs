@@ -1,6 +1,7 @@
 use super::{Task, at, edited_since_unpacked, selected_on_one_line};
 use crate::app::{App, Focus, Mode, PickerKind};
 
+const INIT_LINE: usize = 12;
 const CALL_LINE: usize = 13;
 const CLASS_LINE: usize = 9;
 const IMPORT_LINE: usize = 5;
@@ -115,6 +116,25 @@ pub const POOL: &[Task] = &[
         keys: "/load_config<Enter>",
         answer: "N",
         done: |a| at(a, "store.py") && a.line + 1 == IMPORT_LINE && a.find_re.is_some(),
+    },
+    Task {
+        key: "*",
+        title: "Find the word under the cursor",
+        tutor: "`*` finds the word under the cursor as a whole word, in the same case, and goes \
+                to the next one; `n` and `N` walk the rest. Press it on `config`: it skips \
+                `Config` and `load_config` and stops on `self.config` below.",
+        drill: "Find `config` as a whole word, in the same case, and go to its next use: \
+                `self.config` below.",
+        start: Some(("store.py", INIT_LINE, "config")),
+        keys: "",
+        answer: "*",
+        done: |a| {
+            at(a, "store.py")
+                && a.line + 1 == CALL_LINE
+                && a.find_re
+                    .as_ref()
+                    .is_some_and(|r| r.as_str() == r"(?-u:\b)config(?-u:\b)")
+        },
     },
     Task {
         key: "s",

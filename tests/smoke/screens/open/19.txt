@@ -1,6 +1,6 @@
 wait Close an overlay, leave edit mode
 ┌orders──────────────────────┐ 1 f┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
-│▸ .github                   │ 2  │   n / N                             Next / previous match                                                         │
+│▸ .github                   │ 2  │   *                                 Find the word under the cursor as a whole word, or the selection              │
 │▸ .venv                     │ 3  │   s                                 Search the project                                                            │
 │▾ app                       │ 4 c│ Review                                                                                                            │
 │    __init__.py             │ 5  │   c / C                             Review: next / previous hunk, on to the next file                             │
