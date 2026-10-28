@@ -204,6 +204,9 @@ impl App {
                 Some(ty) => self.swift_field(here, &ty, field, hops)?,
                 None => self.swift_requirement(here, &written, field, hops)?,
             };
+            if generic::bound(&next) && !(i == 0 && names[0] == "self") {
+                return None;
+            }
             let link = link.unwrap_or_else(|| {
                 if i == 0 && names[0] == "self" {
                     format!("self.{field}: {}", shown(&next))

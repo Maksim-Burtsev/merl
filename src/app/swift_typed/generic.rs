@@ -6,6 +6,10 @@ pub(super) fn unbound(written: &str) -> &str {
     written.strip_prefix(BOUND).unwrap_or(written)
 }
 
+pub(super) fn bound(written: &str) -> bool {
+    written.starts_with(BOUND)
+}
+
 pub(super) fn shown(written: &str) -> String {
     let w = unbound(written);
     search::swift_type_name(w).unwrap_or_else(|| w.to_owned())

@@ -877,6 +877,7 @@ func countedOut<S: Sequence>(_ items: S) -> Int where S.Element == String {
 func sortedOut<S>(_ items: S) -> Int where S: Sequence {
     items.restocked()
     //    ^ d: Sources/Shop/Outcomes.swift:861
+    //      status: items: Sequence
 }
 
 func composed<T: Hashable & Codable>(_ value: T) -> Bool {
@@ -918,6 +919,33 @@ func headed<C: Collection>(_ c: C) -> Bool? where C.Element == Logbook {
 }
 
 func mapped<T>(_ value: T, _ names: [T: String]) -> Bool {
+    value.isEmpty
+    //    ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+// A field typed by a generic parameter, read through a receiver of a concrete type, is that type
+// argument, not the bound: it keeps the search by name, as does a bound of `Sendable` (#1068).
+struct Invoice: Codable {
+    func total() -> Int { 0 }
+}
+
+struct Holder<T: Codable> {
+    let item: T
+}
+
+func held(_ h: Holder<Invoice>) -> Int {
+    h.item.total()
+    //     ^ d: Sources/Shop/Outcomes.swift:929
+}
+
+extension Wrapped where Base: Bundle {
+    func reckoned(_ o: Wrapped<Invoice>) -> Int {
+        o.base.total()
+        //     ^ d: Sources/Shop/Outcomes.swift:929
+    }
+}
+
+func sent<T: Sendable>(_ value: T) -> Bool {
     value.isEmpty
     //    ^ d: Sources/Shop/Outcomes.swift:29
 }
