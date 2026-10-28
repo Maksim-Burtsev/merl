@@ -216,12 +216,20 @@ impl App {
             search::Psr4File::Missing => return None,
             search::Psr4File::OutsideProject => {
                 let block = search::php_block(text, self.line);
-                let re = Regex::new(&search::php_access_patterns(&word, access).join("|")).ok()?;
-                let declares = |c: &PhpClass| {
-                    let lines: Vec<&str> = c.text.lines().collect();
-                    !member || !search::php_class_members(&lines, c.header0, &re).is_empty()
-                };
-                if !self.php_class(here, block, &written).1.iter().any(declares)
+                let mut patterns = search::php_access_patterns(&word, access);
+                if access == search::PhpAccess::Call {
+                    patterns.extend(search::php_access_patterns("__callStatic", access));
+                }
+                let re = Regex::new(&patterns.join("|")).ok()?;
+                let declared = self.php_class(here, block, &written).1;
+                let declares = declared.iter().any(|c| {
+                    !member
+                        || !matches!(
+                            self.php_walk(&c.path, &c.text, c.header0, &re, 0, &mut Vec::new()),
+                            Walk::Nowhere | Walk::NowhereOutside
+                        )
+                });
+                if !declares
                     && let Some(found) =
                         self.php_outside_named(&full, short, &word, (member, imported), access)
                 {

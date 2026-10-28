@@ -1247,3 +1247,66 @@ fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answe
          member"
     );
 }
+
+#[test]
+fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_member() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse Illuminate\\Support\\Arr;\n\nclass Ctl\n{\n    public function __invoke(array $a): void\n    {\n        Arr::get($a, 'k');\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key)\n    {\n    }\n}\n";
+    let mine = "<?php\n\nnamespace App\\Support;\n\nclass Arr\n{\n    public static function get($key)\n    {\n    }\n}\n";
+    let has_get = "<?php\n\nnamespace App\\Concerns;\n\ntrait HasGet\n{\n    public static function get($key)\n    {\n    }\n}\n";
+    let empty = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n}\n";
+    let used = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    use \\App\\Concerns\\HasGet;\n}\n";
+    let magic = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function __callStatic($method, $args)\n    {\n    }\n}\n";
+    let tagged = "<?php\n\nnamespace Illuminate\\Support;\n\n/**\n * @method static mixed get($array, $key)\n */\nclass Arr\n{\n}\n";
+    let s = "vendor/laravel/framework/src/Illuminate";
+    let vendor = format!("{s}/Collections/Arr.php");
+    let run = |tag: &str, stub: &str, code: &str| {
+        let files = [
+            (
+                "composer.json",
+                r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+            ),
+            (".gitignore", "vendor/\n"),
+            ("app/Http/Ctl.php", ctl),
+            ("app/Support/Arr.php", mine),
+            ("app/Concerns/HasGet.php", has_get),
+            (vendor.as_str(), arr),
+            ("ide_helper.php", stub),
+        ];
+        let (dir, mut a) = project_app(&format!("php-vendor-stub-{tag}"), &files);
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        let got = shown(&mut a);
+        drop(std::fs::remove_dir_all(dir));
+        got
+    };
+    let by_name: &[(&str, &str)] = &[
+        ("HasGet::get", "app/Concerns/HasGet.php:7"),
+        ("Arr::get", "app/Support/Arr.php:7"),
+    ];
+    assert_eq!(
+        [
+            run("used", used, "Arr::get"),
+            run("magic", magic, "Arr::get"),
+            run("tagged", tagged, "Arr::get"),
+            run("class", empty, "Arr|::get"),
+        ],
+        [
+            picker("get: by name, 2 declarations", by_name),
+            picker("get: by name, 2 declarations", by_name),
+            picker(
+                "get: by name, 3 declarations",
+                &[by_name, &[("Arr::get", "ide_helper.php:6")]].concat(),
+            ),
+            picker(
+                "Arr: by name, 2 declarations",
+                &[
+                    ("Arr", "app/Support/Arr.php:5"),
+                    ("Arr", "ide_helper.php:5")
+                ],
+            ),
+        ],
+        "a project class of the vendor class's name that takes the member from a trait, answers \
+         it through __callStatic or tags it with @method keeps the search it had, and so does a \
+         class name on an empty stub"
+    );
+}
