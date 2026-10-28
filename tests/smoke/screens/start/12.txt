@@ -1,26 +1,26 @@
-wait 14:32
-┌orders──────────────────────┐ 1 """Settings, read from the environment once at
-│▸ .github                   │   startup."""
-│▸ .venv                     │ 2 import os
-│▾ app                       │ 3 from dataclasses import dataclass
-│    __init__.py             │ 4
-│    api.py                  │ 5
-│    config.py               │ 6 @dataclass(frozen=True)
-│    models.py               │ 7 class Settings:
-│    repos.py                │ 8     database_url: str
-│    service.py              │ 9     api_token: str
-│    uow.py                  │10     page_size: int = 50
-│▸ data                      │11     refund_window_days: int = 30
-│▸ deploy                    │12
-│▸ docs                      │13
-│▸ scripts                   │14 def load() -> Settings:
-│▸ tests                     │15     return Settings(
-│▸ web                       │16         database_url=os.environ.
-│▸ worker                    │           get("DATABASE_URL", "postgresql://
-│  .env                      │           orders@localhost/orders"),
-│  .gitignore                │17         api_token=os.environ["API_TOKEN"],
-│  docker-compose.yml        │18         page_size=int(os.environ.
-│  Dockerfile                │           get("PAGE_SIZE", "50")),
-└────────────────────────────┘19     )
-app/config.py  10:1  [code]                                               14:32
-cursor (x,y,shown) 33,10,0
+wait Tutor 3/
+ 1 """Storage: every note lives in one JSON file, read and written as a
+   whole."""
+ 2
+ 3 import json
+ 4
+ 5 from config import Config, load_config
+ 6 f╭ Tutor 3/26 · Next match ─────────────────────────────────────────────╮
+ 7  │                                                                      │
+ 8  │  The file is searched for `load_config`. `n` goes to the next        │
+ 9 c│  match, `N` to the previous one; `/` again brings the query back,    │
+10  │  selected, to refine it. Press `n`: the call inside NoteStore.       │
+11  │                                                                      │
+12  ╰─────────────────────────────────── Enter starts · i shows this again ╯
+13         self.config = config or load_config()
+14         self.notes: list[Note] = self._read()
+15
+16     def _read(self) -> list[Note]:
+17         """Load the notes from disk; a missing file means no notes yet."""
+18         if not self.config.path.exists():
+19             return []
+20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
+21         return [Note.from_dict(item) for item in raw]
+22
+store.py  5:28  [code]  ✓ Find in the file  1/2                           14:32
+cursor (x,y,shown) 30,5,0

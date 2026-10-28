@@ -1,6 +1,6 @@
 use super::{
-    App, Asked, Candidate, Hit, Kind, Near, Path, Patterns, Reason, Regex, bound, imported, python,
-    search,
+    App, Asked, Candidate, Hit, Kind, Near, Path, PathBuf, Patterns, Reason, Regex, bound,
+    imported, python, search,
 };
 use crate::app::jvm_typed::java_shaped;
 
@@ -42,7 +42,7 @@ impl App {
         import: Option<&[String]>,
     ) -> bool {
         if a.kind == Kind::TsJs
-            && let Some((_, module)) = import.and_then(<[String]>::split_last)
+            && let Some((item, module)) = import.and_then(<[String]>::split_last)
             && search::package_missing(
                 &self.root,
                 &self.files,
@@ -55,11 +55,61 @@ impl App {
             })
             && let Some(line) = search::ts_import_line1(&a.text, a.first())
         {
+            if let Some(found) = self.ambient_declared(a, item, module) {
+                return self.show_found(a, found);
+            }
             let hit = self.line_hit(&a.here, line);
             let reason = Reason::Import(format!("{} (not installed)", module.join("/")));
             return self.show_found(a, vec![Candidate { hit, reason }]);
         }
         false
+    }
+
+    fn ambient_declared(
+        &mut self,
+        a: &Asked,
+        item: &str,
+        module: &[String],
+    ) -> Option<Vec<Candidate>> {
+        if matches!(item, "*" | "default") {
+            return None;
+        }
+        let name = module.join("/");
+        let here = a.here.parent().unwrap_or_else(|| Path::new(""));
+        let deps = search::manifest_dependencies(&self.root, here);
+        let files: Vec<PathBuf> = (self.external_files(a.kind).iter())
+            .filter(|f| f.to_string_lossy().ends_with(".d.ts"))
+            .filter(|f| search::package_of(f).is_some_and(|p| deps.contains(&p)))
+            .cloned()
+            .collect();
+        let pattern = search::ambient_module_pattern(&name);
+        let hits = self.outside_grep(a.kind, &files, &pattern, None);
+        let mut packages: Vec<PathBuf> = hits
+            .iter()
+            .filter_map(|h| search::package_of(&h.path))
+            .collect();
+        packages.sort();
+        packages.dedup();
+        let [_] = packages[..] else {
+            return None;
+        };
+        let dts = &hits.first()?.path;
+        let hit = search::ambient_target(dts, &name, item)?;
+        if !a.chain.is_empty() {
+            let member = match &a.chain[..] {
+                [only] if only == item => search::ambient_member(dts, &name, item, &a.word),
+                _ => None,
+            };
+            let reason = Reason::Receiver(item.to_owned());
+            return Some(
+                member
+                    .map(|hit| Candidate { hit, reason })
+                    .into_iter()
+                    .collect(),
+            );
+        }
+        let reason = Reason::Import(name);
+        Some(vec![Candidate { hit, reason }])
     }
 
     pub(super) fn imported(

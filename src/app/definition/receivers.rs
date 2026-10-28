@@ -286,6 +286,10 @@ impl App {
         };
         match answer {
             Some(Ok(cs_typed::CsAnswer::Found(found))) => return self.show_found(a, found),
+            Some(Ok(cs_typed::CsAnswer::Offered(found))) => {
+                self.offer_only = true;
+                return self.show_found(a, found);
+            }
             Some(Ok(cs_typed::CsAnswer::Outside { links: via })) => {
                 self.offer_only = false;
                 self.truncated.set(false);
@@ -298,7 +302,14 @@ impl App {
         if !dotted && chain.is_empty() && near.locals.is_empty() && !a.before.ends_with("::") {
             match self.cs_class_first(&a.here, word, p.cs_type) {
                 Ok(found) => return self.show_found(a, found),
-                Err(walked) => walk.cs_walked = walked.filter(|_| !walk.declares_here),
+                Err(walked) => {
+                    if walked.is_some()
+                        && let Some(found) = self.cs_aliased(&a.here, word, &a.range)
+                    {
+                        return self.show_found(a, found);
+                    }
+                    walk.cs_walked = walked.filter(|_| !walk.declares_here);
+                }
             }
         }
         false
@@ -312,6 +323,12 @@ impl App {
         walk: &mut Walk,
     ) -> bool {
         let (kind, dotted, chain, word) = (a.kind, a.dotted, &a.chain, &a.word);
+        if self.store_read(a, near)
+            && let [name] = chain.as_slice()
+            && let Some(found) = self.store_member(&a.here, &near.imports, name, word)
+        {
+            return self.show_found(a, found);
+        }
         let head = (dotted && chain.is_empty())
             .then(|| search::call_head(kind, &a.written, a.start))
             .flatten();

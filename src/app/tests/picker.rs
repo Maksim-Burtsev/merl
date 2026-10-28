@@ -642,6 +642,7 @@ fn the_tutor_lists_every_file_as_its_tasks_expect() {
         step: 0,
         dir: dir.clone(),
         drill: None,
+        card: tutor::Card::Down,
     });
     a.jump_to(&dir.join("dd.txt"), 1);
     assert_eq!(

@@ -74,7 +74,15 @@ impl App {
                 &safe[..]
             }
             [] => {
-                safe = search::jvm_getter_chain(before);
+                safe = match search::jvm_getter_chain(before) {
+                    c if c.is_empty() => search::java_fluent_chain(before)
+                        .map(|(head, calls)| {
+                            let calls = calls.into_iter().map(|c| format!("{c}()"));
+                            std::iter::once(head).chain(calls).collect()
+                        })
+                        .unwrap_or_default(),
+                    c => c,
+                };
                 &safe[..]
             }
             _ => chain,
@@ -247,7 +255,16 @@ impl App {
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =
                         kt.then(|| search::kotlin_lambda_collection(text, line, before, f));
-                    Self::jvm_element(text, line, &lambda.flatten()?, false)
+                    let lambda = lambda.flatten()?;
+                    match lambda.strip_suffix(".entries") {
+                        Some(e) => match self.jvm_type_at(here, text, e) {
+                            JvmType::Project(h) if h.text.contains("enum class") => {
+                                Some(e.to_owned())
+                            }
+                            _ => None,
+                        },
+                        None => Self::jvm_element(text, line, &lambda, false),
+                    }
                 });
                 let WrittenType {
                     resolved: ty,
@@ -473,10 +490,17 @@ impl App {
             .map(|b| b.line1)
             .collect();
         let declared = if bindings.is_empty() {
-            search::jvm_enclosing_types(text, line1)
+            let members = search::jvm_enclosing_types(text, line1)
                 .into_iter()
                 .map(|d| search::jvm_members_of(text, d, name))
-                .find(|m| !m.is_empty())?
+                .find(|m| !m.is_empty());
+            match members {
+                Some(m) => m,
+                None if matches!(ext, Some("kt" | "kts")) => {
+                    vec![search::kotlin_constructor_parameter(text, line1, name)?]
+                }
+                None => return None,
+            }
         } else {
             bindings
         };
@@ -504,6 +528,7 @@ impl App {
                     None if literal_typed && kotlin => {
                         self.kotlin_initialized(file, text, l, name)?
                     }
+                    None if ext == Some("java") => self.java_lambda_element(file, text, l, name)?,
                     None => return None,
                 },
                 (None, None) => return None,
@@ -514,6 +539,117 @@ impl App {
             found = Some(this);
         }
         found
+    }
+
+    fn java_lambda_element(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let Some(source) = search::java_lambda_source(text, line1, name) else {
+            return self.java_lambda_parameter(file, text, line1, name);
+        };
+        if let Some((owner, method)) = source.reference {
+            let JvmType::Project(decl) = self.jvm_type_at(file, text, &owner) else {
+                return None;
+            };
+            let TypedField { hit, written } = self.jvm_call_type(&decl, &method)?;
+            if !written.starts_with(|c: char| c.is_ascii_uppercase())
+                || !written
+                    .chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
+            {
+                return None;
+            }
+            let t = self.text_of(&hit.path)?;
+            let resolved = self.jvm_type_at(&hit.path, &t, &written);
+            return matches!(resolved, JvmType::Project(_))
+                .then_some(WrittenType { resolved, written });
+        }
+        let (in_file, written) = match (source.receiver, source.call) {
+            (Some(r), None) => {
+                let [l] = search::bindings(Kind::Jvm, text, line1, &r)
+                    .iter()
+                    .map(|b| b.line1)
+                    .collect::<Vec<_>>()[..]
+                else {
+                    return None;
+                };
+                let at = text.lines().nth(l.checked_sub(1)?)?;
+                (file.to_path_buf(), search::java_declared_element(at, &r)?)
+            }
+            (recv, Some((method, args))) => {
+                let owner = match recv.as_deref() {
+                    None | Some("this") => Self::jvm_own_type(file, text, line1, None)?,
+                    Some(r) => self.jvm_value(file, text, line1, r, false, 0)?.resolved,
+                };
+                let decl = match owner {
+                    JvmType::Project(decl) => decl,
+                    JvmType::Outside(t) => {
+                        let class = search::java_spring_body(text, &t, &method, &args)?;
+                        let resolved = self.jvm_type_at(file, text, &class);
+                        return matches!(resolved, JvmType::Project(_)).then_some(WrittenType {
+                            resolved,
+                            written: class,
+                        });
+                    }
+                    JvmType::Unknown => return None,
+                };
+                let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new());
+                let found = java_shaped(found, |h| h, &method, true);
+                if let Some(class) = search::java_class_argument(&args) {
+                    let taking: Vec<&Hit> = (found.iter())
+                        .filter(|h| search::java_takes_class(&h.text, &method))
+                        .collect();
+                    let exact = !taking.is_empty()
+                        && (taking.iter())
+                            .all(|h| search::java_returns_class_element(&h.text, &method));
+                    exact.then_some((file.to_path_buf(), class))?
+                } else {
+                    let [hit] = &found[..] else {
+                        return None;
+                    };
+                    let element = search::java_returned_element(&hit.text, &method)?;
+                    (hit.path.clone(), element)
+                }
+            }
+            (None, None) => return None,
+        };
+        let t = self.text_of(&in_file)?;
+        let resolved = self.jvm_type_at(&in_file, &t, &written);
+        matches!(resolved, JvmType::Project(_)).then_some(WrittenType { resolved, written })
+    }
+
+    fn java_lambda_parameter(
+        &self,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+    ) -> Option<WrittenType> {
+        let search::JavaLambdaArgument {
+            receiver,
+            method,
+            index,
+        } = search::java_lambda_argument(text, line1, name)?;
+        let owner = match receiver.as_deref() {
+            None | Some("this") => Self::jvm_own_type(file, text, line1, None)?,
+            Some(r) => self.jvm_value(file, text, line1, r, false, 0)?.resolved,
+        };
+        let JvmType::Project(decl) = owner else {
+            return None;
+        };
+        let found = self.jvm_hierarchy_member(&decl, &method, 0, &mut Vec::new());
+        let [hit] = &java_shaped(found, |h| h, &method, true)[..] else {
+            return None;
+        };
+        let t = self.text_of(&hit.path)?;
+        let parameters = search::jvm_parameter_parts(&t, hit.line1, &method)?;
+        let written = search::java_functional_parameter(parameters.get(index)?)?;
+        let resolved = self.jvm_type_at(&hit.path, &t, &written);
+        matches!(resolved, JvmType::Project(_)).then_some(WrittenType { resolved, written })
     }
 
     fn jvm_element(text: &str, line1: usize, name: &str, java: bool) -> Option<String> {
@@ -578,8 +714,9 @@ impl App {
         let [hit] = java_shaped(found, |h| h, call, true).try_into().ok()?;
         let mk = hit.path.extension().is_none_or(|e| e != "java");
         let written = search::jvm_return_type(&hit.text, call, mk).or_else(|| {
-            let names = search::jvm_accessor(call)?.fields_it_may_read;
-            names
+            let getter = search::jvm_accessor(call).filter(|a| !a.setter)?;
+            getter
+                .fields_it_may_read
                 .iter()
                 .find_map(|n| search::jvm_declared_type(&hit.text, n, mk))
         })?;

@@ -183,6 +183,211 @@ impl App {
         });
     }
 
+    fn swift_qualified(&self, h: &Hit, name: &str) -> String {
+        self.text_of(&h.path)
+            .and_then(|t| search::qualified(Kind::Swift, &t, h.line1, name))
+            .unwrap_or_else(|| name.to_owned())
+    }
+
+    fn swift_defs(&self, here: &Path, name: &str, full: &str, exact: bool) -> Vec<Hit> {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let suffix = format!(".{full}");
+        self.project_definitions(Kind::Swift, here, name, &pattern)
+            .into_iter()
+            .filter(|h| {
+                self.in_code(Kind::Swift, h) && {
+                    let q = self.swift_qualified(h, name);
+                    q == full || (!exact && q.ends_with(&suffix))
+                }
+            })
+            .collect()
+    }
+
+    pub(super) fn swift_argument_rows(
+        &self,
+        here: &Path,
+        lead: &str,
+        word: &str,
+    ) -> Option<Result<Vec<Candidate>, String>> {
+        let arg = search::swift_argument(lead)?;
+        let cut = self.truncated.get();
+        let types = self.swift_argument_types(here, &arg);
+        let rows = types.as_ref().and_then(|types| {
+            let mut rows: Vec<Hit> = Vec::new();
+            for (scope, ty) in types {
+                for h in self.swift_implicit_members(here, scope, ty, word)? {
+                    if !rows.iter().any(|r| r.path == h.path && r.line1 == h.line1) {
+                        rows.push(h);
+                    }
+                }
+            }
+            (!rows.is_empty()).then_some(rows)
+        });
+        let outside = match types.as_deref() {
+            Some([(_, ty), rest @ ..]) if rows.is_none() && rest.iter().all(|(_, t)| t == ty) => ty
+                .rsplit_once('.')
+                .filter(|(_, last)| self.swift_defs(here, last, ty, false).is_empty())
+                .map(|_| ty.clone()),
+            _ => None,
+        };
+        self.truncated.set(cut);
+        if let Some(ty) = outside {
+            return Some(Err(ty));
+        }
+        let label = format!(".{word}: {}.{}({}:)", arg.owner, arg.callee, arg.label);
+        Some(Ok(rows?
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Receiver(label.clone()),
+            })
+            .collect()))
+    }
+
+    fn swift_argument_types(
+        &self,
+        here: &Path,
+        arg: &search::SwiftArgument,
+    ) -> Option<Vec<(String, String)>> {
+        let hits = if arg.on_value {
+            let chain: Vec<String> = arg.owner.split('.').map(str::to_owned).collect();
+            let text = self.buf.lines.join("\n");
+            let rows = self.swift_receiver_rows(here, &text, &chain, &arg.callee)?;
+            if rows
+                .iter()
+                .any(|h| !h.text.contains("func ") || !search::swift_instance_member(&h.text))
+            {
+                return None;
+            }
+            rows
+        } else {
+            let full = format!("{}.{}", arg.owner, arg.callee);
+            self.swift_defs(here, &arg.callee, &full, false)
+        };
+        let mut decls: Vec<Candidate> = hits
+            .into_iter()
+            .map(|hit| Candidate {
+                hit,
+                reason: Reason::Local,
+            })
+            .collect();
+        if decls.is_empty() {
+            return (!arg.on_value)
+                .then(|| self.swift_memberwise_type(here, arg))?
+                .map(|t| vec![t]);
+        }
+        if !self.swift_by_labels(&arg.callee, arg.open, &mut decls) {
+            return None;
+        }
+        decls
+            .iter()
+            .map(|c| {
+                let text = self.text_of(&c.hit.path)?;
+                let lines: Vec<&str> = text.lines().collect();
+                let params = search::swift_param_labels(&lines, c.hit.line1 - 1, &arg.callee)?;
+                let mut named = params.iter().filter(|p| p.label == arg.label);
+                let p = match (arg.label.as_str(), named.next(), named.next()) {
+                    ("_", ..) => params.first().filter(|p| p.label == "_")?,
+                    (_, Some(p), None) => p,
+                    _ => return None,
+                };
+                let ty = p.ty.trim_end_matches(['?', '!']).to_owned();
+                let first = ty.split('.').next()?.to_owned();
+                let literal = search::literal_lines(Kind::Swift, &text);
+                let mut at = c.hit.line1;
+                while at > 0 {
+                    if search::swift_generics(lines.get(at - 1)?).contains(&first) {
+                        return None;
+                    }
+                    at = search::swift_scope(&lines, &literal, at).header_line1;
+                }
+                let scope = self.swift_qualified(&c.hit, &arg.callee);
+                let scope = scope.strip_suffix(&arg.callee)?.trim_end_matches('.');
+                Some((scope.to_owned(), ty))
+            })
+            .collect()
+    }
+
+    fn swift_memberwise_type(
+        &self,
+        here: &Path,
+        arg: &search::SwiftArgument,
+    ) -> Option<(String, String)> {
+        let last = arg.owner.rsplit('.').next()?;
+        let mut structs = self.swift_defs(here, last, &arg.owner, false);
+        structs.retain(|h| {
+            search::swift_type_header(&h.text).is_some_and(|t| t.keyword != "extension")
+        });
+        let [s] = structs.as_slice() else {
+            return None;
+        };
+        if search::swift_type_header(&s.text)?.keyword != "struct" || arg.callee != "init" {
+            return None;
+        }
+        let owner = self.swift_qualified(s, last);
+        let props = self.swift_defs(here, &arg.label, &format!("{owner}.{}", arg.label), true);
+        let [p] = props.as_slice() else {
+            return None;
+        };
+        let ty = match search::swift_given(&p.text, &arg.label)? {
+            search::SwiftGiven::Type(ty) => ty.trim_end_matches(['?', '!']).to_owned(),
+            search::SwiftGiven::Value(v) if search::swift_var(&p.text, &arg.label) => {
+                let (ty, case) = search::swift_case_value(&v)?;
+                let rows = self.swift_implicit_members(here, &owner, &ty, &case)?;
+                rows.iter()
+                    .all(|h| search::swift_case(&h.text))
+                    .then_some(ty)?
+            }
+            _ => return None,
+        };
+        (search::swift_instance_member(&p.text)).then_some((owner, ty))
+    }
+
+    fn swift_implicit_members(
+        &self,
+        here: &Path,
+        scope: &str,
+        ty: &str,
+        word: &str,
+    ) -> Option<Vec<Hit>> {
+        let plain = ty.split('.').all(|p| {
+            p.starts_with(char::is_uppercase) && p.chars().all(|c| c.is_alphanumeric() || c == '_')
+        });
+        let last = ty.rsplit('.').next().filter(|_| plain)?;
+        let mut scope = scope.to_owned();
+        loop {
+            let full = if scope.is_empty() {
+                ty.to_owned()
+            } else {
+                format!("{scope}.{ty}")
+            };
+            let types = self.swift_defs(here, last, &full, true);
+            if !types.is_empty() {
+                let keywords: Option<Vec<String>> = types
+                    .iter()
+                    .map(|h| search::swift_type_header(&h.text).map(|t| t.keyword))
+                    .collect();
+                let declared = keywords.is_some_and(|k| {
+                    k.iter().all(|k| k != "protocol") && k.iter().any(|k| k != "extension")
+                });
+                let rows: Vec<Hit> = self
+                    .swift_defs(here, word, &format!("{full}.{word}"), true)
+                    .into_iter()
+                    .filter(|h| {
+                        search::swift_case(&h.text)
+                            || search::swift_member_kind(&h.text)
+                                == Some(search::SwiftMember::StaticOrClass)
+                    })
+                    .collect();
+                return (declared && !rows.is_empty()).then_some(rows);
+            }
+            if scope.is_empty() {
+                return None;
+            }
+            scope = scope.rsplit_once('.').map_or("", |(a, _)| a).to_owned();
+        }
+    }
+
     pub(super) fn swift_nested_unseen(&self, hits: &mut Vec<Hit>) {
         let literal = search::literal_lines(Kind::Swift, &self.buf.lines.join("\n"));
         hits.retain(|h| {

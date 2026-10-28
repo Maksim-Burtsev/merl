@@ -1,0 +1,57 @@
+wait refunds-2026-08.csv
+┌orders──────────────────────┐ 1 from app.repos import OrderRepo
+│▸ .github                   │ 2
+│▸ .venv                     │ 3
+│▾ app                       │ 4 class UnitOfWork:
+│    __init__.py             │ 5     """One transaction: `with uow:` commits on success and rolls back on an error."""
+│    api.py                  │ 6
+│    config.py               │ 7     def __init__(self, db):
+│    models.py               │ 8         self.db = db
+│    repos.py                │ 9         self.orders = OrderRepo(db)
+│    service.py              │10
+│    uow.py                  │11     def __enter__(self):
+│▾ data                      │12         self.db.begin()
+│    orders.min.json         │13         return self
+│    refunds-2026-08.csv     │14
+│▸ deploy                    │15     def __exit__(self, exc_type, exc, tb):
+│▾ docs                      │16         if exc_type is None:
+│    architecture.png        │17             self.db.commit()
+│    notes.md                │18         else:
+│▸ scripts                   │19             self.db.rollback()
+│▸ tests                     │20         return False
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/uow.py  1:1  [tree]                                                                                                                                                            14:32
+cursor (x,y,shown) 33,0,0

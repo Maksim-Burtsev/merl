@@ -216,6 +216,7 @@ fn start_tutor(app: &mut App, drill: Option<u16>, dir: PathBuf) -> Result<()> {
         step: 0,
         dir,
         drill,
+        card: tutor::Card::Up,
     });
     tutor::begin(app)
 }
@@ -651,6 +652,8 @@ fn event_loop(
         live.spawn_jobs(app, &diff_tx);
         dirty |= restyle(app, &mut theme, &mut drawn_theme);
         dirty |= app.tick_clock();
+        let sliding = app.tutor.as_mut().is_some_and(Tutor::tick);
+        dirty |= sliding;
         if dirty {
             terminal.draw(|f| ui::draw(f, app, &theme))?;
             app.diagrams.flush(&mut stdout())?;
@@ -672,6 +675,11 @@ fn event_loop(
         let idle = Duration::from_millis(if app.picker.is_some() { 10 } else { 100 });
         let idle = app.diagrams.wake.map_or(idle, |w| w.min(idle));
         let idle = if app.parsing() { Duration::ZERO } else { idle };
+        let idle = if sliding {
+            idle.min(Duration::from_millis(15))
+        } else {
+            idle
+        };
         match live.on_msg(app, rx.recv_timeout(idle)) {
             ControlFlow::Continue(changed) => dirty |= changed,
             ControlFlow::Break(()) => return Ok(()),

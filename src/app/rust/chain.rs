@@ -1,7 +1,9 @@
+use std::sync::LazyLock;
+
 use super::sysroot::rust_element;
 use super::{
-    App, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Typed, rust_bare_type,
-    search,
+    App, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
+    rust_bare_type, search,
 };
 
 struct Link {
@@ -111,6 +113,65 @@ pub(super) fn let_initializer(lines: &[&str], at: usize, name: &str) -> Option<S
     let rest = t.strip_prefix("let ")?.trim_start();
     let rest = rest.strip_prefix("mut ").unwrap_or(rest).trim_start();
     let rest = rest.strip_prefix(name)?.trim_start().strip_prefix('=')?;
+    statement(lines, at, rest)
+}
+
+fn nested(part: &str) -> Option<&str> {
+    let inner = part.strip_prefix('(')?.strip_suffix(')')?;
+    (opening(part, b')', b'(') == Some(0)).then_some(inner)
+}
+
+fn plain_name(part: &str) -> Option<&str> {
+    let bare = part.strip_prefix("mut ").unwrap_or(part).trim();
+    (!bare.is_empty() && bare.chars().all(|c| c.is_alphanumeric() || c == '_')).then_some(bare)
+}
+
+fn tuple_names(pattern: &str) -> bool {
+    super::returns::top_level(pattern)
+        .iter()
+        .all(|p| nested(p).map_or_else(|| plain_name(p).is_some(), tuple_names))
+}
+
+fn tuple_path(pattern: &str, name: &str) -> Option<Vec<(usize, usize)>> {
+    let parts = super::returns::top_level(pattern);
+    parts.iter().enumerate().find_map(|(i, p)| {
+        let mut below = match nested(p) {
+            Some(inner) => tuple_path(inner, name)?,
+            None => (plain_name(p)? == name).then(Vec::new)?,
+        };
+        below.insert(0, (i, parts.len()));
+        Some(below)
+    })
+}
+
+fn tuple_initializer(
+    lines: &[&str],
+    at: usize,
+    name: &str,
+) -> Option<(Vec<(usize, usize)>, String)> {
+    let t = lines.get(at)?.trim().strip_prefix("let ")?.trim_start();
+    let (pattern, rest) = t.split_once('=')?;
+    let pattern = pattern.trim_end();
+    let names = nested(pattern).filter(|n| tuple_names(n))?;
+    let path = tuple_path(names, name)?;
+    let init = statement(lines, at, rest)?;
+    Some((path, init))
+}
+
+fn for_iterated<'a>(text: &'a str, at: usize, name: &str) -> Option<(&'a str, &'a str)> {
+    let line = text.lines().nth(at)?.trim();
+    let rest = line.strip_prefix("for ")?.trim_start();
+    let rest = rest.strip_prefix("mut ").unwrap_or(rest);
+    let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
+    let expr = expr.strip_suffix('{')?.trim();
+    let place = expr.strip_prefix('&').map_or(expr, |s| {
+        let s = s.trim_start();
+        s.strip_prefix("mut ").unwrap_or(s).trim()
+    });
+    Some((expr, place))
+}
+
+fn statement(lines: &[&str], at: usize, rest: &str) -> Option<String> {
     if rest.starts_with('=') {
         return None;
     }
@@ -280,22 +341,29 @@ impl App {
     ) -> Option<Got> {
         match (w.head.as_slice(), w.head_call) {
             ([name], false) => self
-                .rust_value_type(file, text, line0, name)
+                .rust_value_type(file, text, line0, name, own.is_some())
                 .map(|(ty, _)| Got::Ty(ty))
-                .or_else(|| self.rust_std_head(file, text, line0, name)),
+                .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some())),
             ([.., ty, f], true) if ty.starts_with(|c: char| c.is_ascii_uppercase()) => {
                 let owner = w.head[..w.head.len() - 1].join("::");
-                let ty = self.rust_resolve(file, &owner, line0)?;
+                let Some(ty) = self.rust_resolve(file, &owner, line0) else {
+                    return self.rust_std_assoc(file, text, line0, &owner, f);
+                };
                 let [decl] = <[Hit; 1]>::try_from(self.rust_members(&ty, f)).ok()?;
                 self.rust_fn_returns(&decl)
             }
             (parts, true) => {
                 let own_let =
                     |b: &search::Binding| own == Some(parts[0].as_str()) && b.line1 == line0 + 1;
-                if search::bindings(Kind::Rust, text, line0 + 1, &parts[0])
-                    .iter()
-                    .any(|b| !own_let(b))
-                {
+                let seen: Vec<search::Binding> =
+                    search::bindings(Kind::Rust, text, line0 + 1, &parts[0])
+                        .into_iter()
+                        .filter(|b| !own_let(b))
+                        .collect();
+                if let ([name], [b]) = (parts, seen.as_slice()) {
+                    return self.rust_closure_returns(file, text, b.line1 - 1, name);
+                }
+                if !seen.is_empty() {
                     return None;
                 }
                 let decl = self
@@ -313,6 +381,34 @@ impl App {
         }
     }
 
+    fn rust_closure_returns(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
+        let lines: Vec<&str> = text.lines().collect();
+        let init = let_initializer(&lines, at, name)?;
+        let init = init.strip_prefix("move ").unwrap_or(&init);
+        let (params, body) = init.strip_prefix('|')?.split_once('|')?;
+        let body = body.trim();
+        if let Some(returns) = body.strip_prefix("->") {
+            let (written, _) = returns.split_once('{')?;
+            return Some(self.rust_got(file, written.trim().to_owned(), at));
+        }
+        let body = match body.strip_prefix('{') {
+            Some(inner) => inner.strip_suffix('}')?.trim(),
+            None => body,
+        };
+        if body.contains(';') {
+            return None;
+        }
+        let w = walk_back(body)?;
+        let head = w.head.first()?;
+        let param = params
+            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .any(|p| p == head);
+        if head == name || param || (w.links.is_empty() && !w.head_call) {
+            return None;
+        }
+        self.rust_walked_got(file, text, at, name, false, &w)
+    }
+
     fn rust_let_got(
         &self,
         file: &Path,
@@ -322,24 +418,85 @@ impl App {
         shadowing: bool,
     ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
-        let init = let_initializer(&lines, at, name)?;
+        let Some(init) = let_initializer(&lines, at, name) else {
+            let (path, init) = tuple_initializer(&lines, at, name)?;
+            return self.rust_tuple_got(file, text, at, name, &path, &init);
+        };
         if init.starts_with("match ") {
             return self.rust_match_got(file, text, &match_arms(&lines, at)?, name);
         }
         let w = walk_back(&init)?;
-        let shadows = !w.head_call && w.head.first().is_some_and(|h| h == name);
-        if w.rest != 0 || w.links.is_empty() || (shadows && !shadowing) {
+        let assoc = w.head_call
+            && w.head
+                .iter()
+                .rev()
+                .nth(1)
+                .is_some_and(|t| t.starts_with(|c: char| c.is_ascii_uppercase()));
+        if w.links.is_empty() && !assoc {
             return None;
         }
-        let head_at = if shadows { at.checked_sub(1)? } else { at };
+        self.rust_walked_got(file, text, at, name, shadowing, &w)
+    }
+
+    fn rust_tuple_got(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        path: &[(usize, usize)],
+        init: &str,
+    ) -> Option<Got> {
+        let mut expr = init.trim();
+        for (k, &(i, n)) in path.iter().enumerate() {
+            if let Some(inner) = nested(expr) {
+                let parts = super::returns::top_level(inner);
+                expr = parts.get(i).filter(|_| parts.len() == n)?;
+                continue;
+            }
+            let w = walk_back(expr)?;
+            if w.links.is_empty() && !w.head_call {
+                return None;
+            }
+            let Got::Written {
+                file,
+                written,
+                line0,
+            } = self.rust_walked_got(file, text, at, name, true, &w)?
+            else {
+                return None;
+            };
+            let mut element = written.trim();
+            for &(i, n) in &path[k..] {
+                let parts = super::returns::top_level(nested(element.trim())?);
+                element = parts.get(i).filter(|_| parts.len() == n)?;
+            }
+            return Some(self.rust_got(&file, element.to_owned(), line0));
+        }
+        self.rust_walked_got(file, text, at, name, true, &walk_back(expr)?)
+    }
+
+    fn rust_walked_got(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+        shadowing: bool,
+        w: &Walked,
+    ) -> Option<Got> {
+        let shadows = !w.head_call && w.head.first().is_some_and(|h| h == name);
+        if w.rest != 0 || (shadows && !shadowing) {
+            return None;
+        }
         if let ([head], false, [link]) = (w.head.as_slice(), w.head_call, w.links.as_slice())
             && link.call
             && link.name == "as_ref"
-            && let Some(got) = super::returns::as_ref_head(file, text, head_at, head)
+            && let Some(got) = super::returns::as_ref_head(file, text, at, head)
         {
             return Some(got);
         }
-        let mut got = self.rust_head(file, text, head_at, &w, Some(name))?;
+        let mut got = self.rust_head(file, text, at, w, Some(name))?;
         for link in &w.links {
             got = self.rust_step(got, link)?;
         }
@@ -399,15 +556,7 @@ impl App {
         at: usize,
         name: &str,
     ) -> Option<String> {
-        let line = text.lines().nth(at)?.trim();
-        let rest = line.strip_prefix("for ")?.trim_start();
-        let rest = rest.strip_prefix("mut ").unwrap_or(rest);
-        let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
-        let expr = expr.strip_suffix('{')?.trim();
-        let place = expr.strip_prefix('&').map_or(expr, |s| {
-            let s = s.trim_start();
-            s.strip_prefix("mut ").unwrap_or(s).trim()
-        });
+        let (expr, place) = for_iterated(text, at, name)?;
         if !place.is_empty() && place.chars().all(|c| c.is_alphanumeric() || c == '_') {
             let bindings = search::bindings(Kind::Rust, text, at + 1, place);
             let [b] = bindings.as_slice() else {
@@ -437,6 +586,56 @@ impl App {
             got = self.rust_step(got, link)?;
         }
         self.rust_std_item(got)
+    }
+
+    pub(super) fn rust_for_typed(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<Typed> {
+        static MAP_COLLECT: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"\.map\(\s*\|[^|]*\|\s*((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*\([^()]*\)\s*\)\s*\.collect\(\s*\)$")
+                .expect("the regex is a literal")
+        });
+        let (_, place) = for_iterated(text, at, name)?;
+        if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
+            return None;
+        }
+        let bindings = search::bindings(Kind::Rust, text, at + 1, place);
+        let [b] = bindings.as_slice() else {
+            return None;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let let_at = b.line1 - 1;
+        let Some(search::RustHolds::Type(w)) = search::rust_holds(&lines, let_at, place) else {
+            return None;
+        };
+        let (container, element) = rust_element(&w)?;
+        if container.is_some_and(|c| !self.rust_std_named(text, &c)) {
+            return None;
+        }
+        if element != "_" {
+            return self.rust_resolve(file, &element, let_at);
+        }
+        let t = lines.get(let_at)?.trim().strip_prefix("let ")?.trim_start();
+        let t = t.strip_prefix("mut ").unwrap_or(t).trim_start();
+        let (written, rest) = t
+            .strip_prefix(place)?
+            .trim_start()
+            .strip_prefix(':')?
+            .split_once('=')?;
+        if written.trim() != w.trim() {
+            return None;
+        }
+        let init = statement(&lines, let_at, rest)?;
+        let parts: Vec<String> = MAP_COLLECT.captures(&init)?[1]
+            .split("::")
+            .map(str::to_owned)
+            .collect();
+        let (decl, returns) = self.rust_call_returns(file, text, let_at, &parts)?;
+        self.rust_resolve(&decl.path, &returns, decl.line1 - 1)
     }
 
     pub(super) fn rust_let_chain(

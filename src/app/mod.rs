@@ -231,6 +231,18 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Panels",
     ),
     ("Tree: Left / Right", "Collapse / expand", "Panels"),
+    ("Tree: PgUp / PgDn", "Move one page", "Panels"),
+    (
+        "Tree: Home / End",
+        "First / last row, with Ctrl or without",
+        "Panels",
+    ),
+    (
+        "Tree: Ctrl+D / Ctrl+U",
+        "Move half a page down / up",
+        "Panels",
+    ),
+    ("Tree: { / }", "Previous / next folder", "Panels"),
     ("Picker: Up / Down", "Move", "Panels"),
     ("Picker: PgUp / PgDn", "Move one page", "Panels"),
     ("Picker: Enter", "Accept", "Panels"),
@@ -333,6 +345,7 @@ pub struct App {
     node_modules_of: Option<PathBuf>,
     otp: Option<Vec<PathBuf>>,
     c_includes: HashMap<(PathBuf, CMode), Paths>,
+    clang_include: std::sync::OnceLock<Option<PathBuf>>,
     c_files: HashMap<CMode, (Paths, Paths)>,
     go_build: search::GoBuild,
     offer_only: bool,
@@ -347,6 +360,7 @@ pub struct App {
     pub show_tree: bool,
     pub tree_width: Option<u16>,
     pub tree_top: usize,
+    pub tree_h: usize,
     pub picker: Option<Picker>,
     search_seq: u64,
     search_due: Option<Instant>,
@@ -496,6 +510,7 @@ impl App {
             node_modules_of: None,
             otp: None,
             c_includes: HashMap::new(),
+            clang_include: std::sync::OnceLock::new(),
             c_files: HashMap::new(),
             go_build: search::GoBuild::host().env(
                 std::env::var("CGO_ENABLED").ok().as_deref(),
@@ -513,6 +528,7 @@ impl App {
             show_tree: true,
             tree_width: None,
             tree_top: 0,
+            tree_h: 0,
             picker: None,
             search_seq: 0,
             search_due: None,
@@ -596,7 +612,7 @@ impl App {
             missed: HashMap::new(),
             watch: missed::Watch::default(),
         };
-        lock_no_write(&mut buf);
+        app.lock_unwritable(&mut buf);
         app.buf = buf;
         if let Some((n, char_col1)) = at {
             app.goto_line(n);

@@ -80,7 +80,7 @@ fn app(text: &str) -> App {
     let path = std::env::temp_dir().join(format!("merl-{name}.txt"));
     std::fs::write(&path, text).unwrap();
     let mut a = App::new(
-        PathBuf::from("/tmp"),
+        std::env::temp_dir(),
         Tree::default(),
         Vec::new(),
         Buffer::from_bytes(path, text.as_bytes()),

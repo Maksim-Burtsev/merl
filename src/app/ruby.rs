@@ -457,6 +457,12 @@ impl App {
                     reason: Reason::Receiver(c.clone()),
                 })
                 .collect();
+            if found.len() > 1
+                && !ivar.starts_with("@@")
+                && let Some(set) = self.ruby_ivar_set_before_action(here, text, &c, &found)
+            {
+                return vec![set];
+            }
             if !found.is_empty() {
                 return found;
             }
@@ -487,6 +493,50 @@ impl App {
         } else {
             Vec::new()
         }
+    }
+
+    fn ruby_ivar_set_before_action(
+        &self,
+        here: &Path,
+        text: &str,
+        class: &str,
+        found: &[Candidate],
+    ) -> Option<Candidate> {
+        let action = search::ruby_public_def(text, self.line + 1)?;
+        let texts: Vec<(&Path, String)> = found
+            .iter()
+            .map(|c| Some((c.hit.path.as_path(), self.text_of(&c.hit.path)?)))
+            .collect::<Option<_>>()?;
+        let mut callbacks = search::ruby_callbacks_before(text, class, &action);
+        let mut read = HashSet::from([here]);
+        for (path, t) in &texts {
+            if read.insert(*path) {
+                let more = search::ruby_callbacks_before(t, class, &action);
+                callbacks.run.extend(more.run);
+                callbacks.idle.extend(more.idle);
+                callbacks.skipped.extend(more.skipped);
+                callbacks.unnamed |= more.unnamed;
+            }
+        }
+        if callbacks.unnamed {
+            return None;
+        }
+        let mut set = None;
+        for (c, (_, t)) in found.iter().zip(&texts) {
+            let method = search::ruby_enclosing_def(t, c.hit.line1)?;
+            if method == action {
+                return None;
+            }
+            if callbacks.run.contains(&method) {
+                if set.is_some() || callbacks.skipped.contains(&method) {
+                    return None;
+                }
+                set = Some(c.clone());
+            } else if !callbacks.idle.contains(&method) {
+                search::ruby_public_def(t, c.hit.line1)?;
+            }
+        }
+        set
     }
 }
 

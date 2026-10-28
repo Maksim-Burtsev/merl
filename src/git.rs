@@ -192,6 +192,7 @@ pub struct ReviewFile {
     pub untracked: bool,
     pub generated: bool,
     pub same_bytes: bool,
+    pub agent_skipped: bool,
 }
 
 impl ReviewFile {
@@ -201,6 +202,10 @@ impl ReviewFile {
 
     pub fn is_picture(&self) -> bool {
         self.binary && !self.same_bytes && crate::picture::raster_name(&self.path).is_some()
+    }
+
+    pub fn left_out(&self, viewed: &HashMap<PathBuf, u64>) -> bool {
+        self.agent_skipped && !viewed.contains_key(&self.path)
     }
 
     pub fn is_stop(&self, root: &Path, pictures: bool) -> bool {
@@ -351,14 +356,18 @@ impl Review {
                 None => generated(root, f),
             };
         }
-        let order = match (branch.as_str(), dirs(root)) {
-            _ if !crate::tree::orders_on() => Order::default(),
-            ("HEAD", _) | (_, None) => Order::default(),
-            (b, Some(dirs)) => Order::read(
-                &dirs.common_refs_dir.join("merl").join("review").join(b),
-                Path::new(""),
-            ),
+        let order_file = match (branch.as_str(), dirs(root)) {
+            _ if !crate::tree::orders_on() => None,
+            ("HEAD", _) | (_, None) => None,
+            (b, Some(dirs)) => Some(dirs.common_refs_dir.join("merl").join("review").join(b)),
         };
+        let order =
+            (order_file.as_deref()).map_or_else(Order::default, |o| Order::read(o, Path::new("")));
+        let skipped = order_file.as_deref().map(crate::tree::skipped_in);
+        for f in &mut files {
+            f.agent_skipped =
+                (skipped.as_ref()).is_some_and(|s| f.path.ancestors().any(|a| s.contains(a)));
+        }
         files.sort_by_cached_key(|f| crate::tree::sort_key(&f.path, false, &order));
         let patch = git(&[
             "-c",
@@ -784,6 +793,7 @@ fn untracked(root: &Path, path: &Path) -> ReviewFile {
         untracked: true,
         generated: false,
         same_bytes: false,
+        agent_skipped: false,
     }
 }
 
@@ -933,6 +943,7 @@ fn parse_name_status(out: &str) -> Vec<ReviewFile> {
             untracked: false,
             generated: false,
             same_bytes,
+            agent_skipped: false,
         });
     }
     files
@@ -1483,6 +1494,7 @@ mod tests {
             untracked: false,
             generated: false,
             same_bytes: false,
+            agent_skipped: false,
         };
         let (deleted, added) = changed_lines(Path::new("/nonexistent"), patch, &[file]);
         let rows: Vec<_> = (deleted.iter())
@@ -1939,7 +1951,7 @@ mod tests {
                 ),
             );
         });
-        let rows: Vec<(PathBuf, bool)> = rx.recv_timeout(Duration::from_secs(60)).unwrap();
+        let rows: Vec<(PathBuf, bool)> = rx.recv_timeout(Duration::from_mins(1)).unwrap();
         assert_eq!(rows, [(PathBuf::from("pipe.link"), false)]);
         std::fs::remove_dir_all(&dir).unwrap();
     }

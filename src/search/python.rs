@@ -370,6 +370,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     let mut out = Vec::new();
     let mut module_only = false;
+    let mut under_global = Vec::new();
     for scope in scopes_innermost_first {
         if module_only && matches!(scope, Scope::Def(_)) {
             continue;
@@ -423,26 +424,15 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             {
                 Some(Value::Unknown)
             } else {
-                for s in python_statements(t, continued(Kind::Python, lines, i)) {
-                    let value = if r.unknown.is_match(s) || r.chained_assignment.is_match(s) {
-                        Some(Value::Unknown)
-                    } else if let Some(c) = r.annotated.captures(s) {
-                        Some(Value::Type(c[1].to_owned()))
-                    } else if let Some(c) = r.assigned.captures(s) {
-                        Some(value_of(Kind::Python, &c[1]))
-                    } else {
-                        TUPLE_TARGET
-                            .captures(s)
-                            .filter(|c| c[1].contains(',') && names(&c[1], name))
-                            .map(|_| Value::Unknown)
-                    };
-                    if let Some(value) = value {
-                        out.push(Binding {
+                out.extend(
+                    python_statements(t, continued(Kind::Python, lines, i))
+                        .into_iter()
+                        .filter_map(|s| statement_binds(&r, s, name))
+                        .map(|value| Binding {
                             line1: i + 1,
                             value,
-                        });
-                    }
-                }
+                        }),
+                );
                 None
             };
             if let Some(value) = value {
@@ -453,6 +443,9 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
         }
         if let Some(global) = outside {
+            if global && !module_only {
+                under_global = std::mem::take(&mut out);
+            }
             out.clear();
             module_only |= global;
             continue;
@@ -461,7 +454,21 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             break;
         }
     }
-    out
+    if out.is_empty() { under_global } else { out }
+}
+fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
+    if r.unknown.is_match(s) || r.chained_assignment.is_match(s) {
+        Some(Value::Unknown)
+    } else if let Some(c) = r.annotated.captures(s) {
+        Some(Value::Type(c[1].to_owned()))
+    } else if let Some(c) = r.assigned.captures(s) {
+        Some(value_of(Kind::Python, &c[1]))
+    } else {
+        TUPLE_TARGET
+            .captures(s)
+            .filter(|c| c[1].contains(',') && names(&c[1], name))
+            .map(|_| Value::Unknown)
+    }
 }
 fn python_inline(t: &str, name: &str) -> bool {
     static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -706,10 +713,19 @@ pub fn python_method(text: &str, line1: usize) -> bool {
         .is_some_and(|i| lines[i].trim_start().starts_with("class "))
 }
 pub fn python_in_function(text: &str, line1: usize) -> bool {
+    python_enclosing_def(text, line1).is_some()
+}
+pub fn python_in_function_body(text: &str, line1: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();
-    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
-        return false;
-    };
+    python_enclosing_def(text, line1).is_some_and(|d| {
+        lines[d].find('(').is_some_and(|open| {
+            group(Kind::Python, &lines, d, open).is_some_and(|g| g.close_line + 1 < line1)
+        })
+    })
+}
+fn python_enclosing_def(text: &str, line1: usize) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     let literal = literal_lines(Kind::Python, text);
     let mut depth = indent(lines[at]);
     for i in (0..at).rev() {
@@ -723,13 +739,13 @@ pub fn python_in_function(text: &str, line1: usize) -> bool {
         }
         depth = indent(lines[i]);
         if t.starts_with("def ") || t.starts_with("async def ") {
-            return true;
+            return Some(i);
         }
         if t.starts_with("class ") {
-            return false;
+            return None;
         }
     }
-    false
+    None
 }
 pub fn python_rebinds_in_loop(text: &str, line1: usize, name: &str, col: usize) -> bool {
     let lines: Vec<&str> = text.lines().collect();

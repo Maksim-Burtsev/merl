@@ -81,7 +81,7 @@ impl App {
         true
     }
 
-    fn lock_unwritable(&self, buf: &mut Buffer) {
+    pub(super) fn lock_unwritable(&self, buf: &mut Buffer) {
         let Some(path) = buf.path.as_deref() else {
             return;
         };
@@ -91,7 +91,16 @@ impl App {
         let inside = path.strip_prefix(&self.root).is_ok_and(|rel| {
             super::links::in_project(Path::new(""), &rel.to_string_lossy()).is_some()
         });
+        let library = path.strip_prefix(&self.root).is_ok_and(|rel| {
+            rel.components().any(|c| {
+                c.as_os_str().to_str().is_some_and(|n| {
+                    matches!(n, ".venv" | "site-packages" | "node_modules")
+                        || n.starts_with("bazel-")
+                })
+            })
+        });
         let external = !inside
+            || !listed && library
             || !listed
                 && self
                     .external

@@ -14,7 +14,9 @@ impl App {
 
     pub(super) fn template_shadows(&self, here: &Path, first: &str) -> bool {
         let code = search::script_lines(here, &self.buf.lines.join("\n"));
-        code.is_some_and(|c| search::template_reaches(&self.buf.lines, &c, first, self.line))
+        code.is_some_and(|c| {
+            search::template_reaches(&self.buf.lines, &c, first, self.line, self.col)
+        })
     }
 
     pub(super) fn script_scope(&self, here: &Path, first: Option<&str>) -> Option<(String, usize)> {
@@ -47,8 +49,12 @@ impl App {
                 .collect()
         };
         let bound = search::template_binds(&self.buf.lines, &code, word);
+        let reaching =
+            search::template_reaching(&self.buf.lines, &code, word, self.line, range.start);
         let tag = search::tag_at(self.line_str(), range.start);
-        let lines = if !bound.is_empty() {
+        let lines = if !reaching.is_empty() {
+            reaching
+        } else if !bound.is_empty() {
             let mut lines = script_binds(word);
             lines.extend(bound);
             lines

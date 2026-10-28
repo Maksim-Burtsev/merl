@@ -105,7 +105,7 @@ fn a_fifo_in_the_project_stalls_no_search() {
         "D: 1",
         "s: 2",
     ] {
-        let got = rx.recv_timeout(Duration::from_secs(60));
+        let got = rx.recv_timeout(Duration::from_mins(1));
         assert_eq!(
             got.as_deref(),
             Ok(want),

@@ -201,7 +201,8 @@ pub(super) fn type_list(kind: Kind, s: &str) -> Vec<String> {
 }
 pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
     static TS_EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bextends\s+(.+?)\s*(?:\bimplements\b|\{|$)").expect("the regex is a literal")
+        Regex::new(r"\bextends\s+((?:<[^<>]*>|[^{])+?)\s*(?:\bimplements\b|\{|$)")
+            .expect("the regex is a literal")
     });
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl_line1.checked_sub(1).filter(|&i| i < lines.len()) else {

@@ -693,6 +693,91 @@ pub fn css_declares(
             .any(|r| r.line == line1 && r.classes.iter().chain(&r.ids).any(|n| n == word))
 }
 
+pub fn scss_block_binding(text: &str, line1: usize, byte_col: usize, name: &str) -> Option<usize> {
+    let starts = super::c::line_starts(text);
+    let cursor = starts.get(line1.checked_sub(1)?)? + byte_col;
+    let mut code = text.as_bytes().to_vec();
+    let (mut i, mut paren, mut head, mut heads) = (0, 0usize, 0, Vec::new());
+    while i < cursor.min(code.len()) {
+        let skip = match (code[i], code.get(i + 1)) {
+            (b'/', Some(b'*')) => text
+                .get(i + 2..)?
+                .find("*/")
+                .map_or(code.len(), |n| i + n + 4),
+            (b'/', Some(b'/')) if paren == 0 => {
+                text.get(i..)?.find('\n').map_or(code.len(), |n| i + n)
+            }
+            (q @ (b'"' | b'\''), _) => text
+                .get(i + 1..)?
+                .find([q as char, '\n'])
+                .map_or(code.len(), |n| i + n + 2),
+            (b'#', Some(b'{')) => text.get(i..)?.find('}').map_or(code.len(), |n| i + n + 1),
+            _ => i,
+        };
+        if skip > i {
+            let end = skip.min(code.len());
+            code[i..end]
+                .iter_mut()
+                .filter(|c| **c != b'\n')
+                .for_each(|c| *c = b' ');
+            i = end;
+            continue;
+        }
+        match code[i] {
+            b'(' => paren += 1,
+            b')' => paren = paren.saturating_sub(1),
+            b'{' => {
+                heads.push(head..i);
+                head = i + 1;
+            }
+            b'}' => {
+                heads.pop();
+                head = i + 1;
+            }
+            b';' => head = i + 1,
+            _ => {}
+        }
+        i += 1;
+    }
+    let code = String::from_utf8_lossy(&code);
+    let at = heads.iter().rev().find_map(|h| {
+        let at = h.start + code.get(h.clone())?.find('@')?;
+        scss_header_binds(code.get(at..h.end)?, name).map(|j| at + j)
+    })?;
+    Some(starts.partition_point(|&s| s <= at))
+}
+
+fn scss_header_binds(head: &str, name: &str) -> Option<usize> {
+    static EACH: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"^@each\s+(.*?)\s+in\b|^@for\s+(\$[\w-]+)\s+from\b|^@(?:mixin|function)\s+[\w-]+\s*\(",
+        )
+        .expect("the regex is a literal")
+    });
+    let c = EACH.captures(head)?;
+    let (from, to) = c
+        .get(1)
+        .or_else(|| c.get(2))
+        .map_or((c.get(0)?.end(), head.len()), |m| (m.start(), m.end()));
+    let mut depth = 0usize;
+    let mut names = vec![from];
+    for (j, ch) in head.get(from..to)?.char_indices() {
+        match ch {
+            '(' | '[' => depth += 1,
+            ')' | ']' if depth == 0 => break,
+            ')' | ']' => depth -= 1,
+            ',' if depth == 0 => names.push(from + j + 1),
+            _ => {}
+        }
+    }
+    names.into_iter().find_map(|j| {
+        let rest = head.get(j..)?;
+        let j = j + rest.len() - rest.trim_start().len();
+        let after = head.get(j..)?.strip_prefix('$')?.strip_prefix(name)?;
+        (!after.starts_with(|c: char| c.is_alphanumeric() || c == '_' || c == '-')).then_some(j)
+    })
+}
+
 pub fn css_code(line: &str) -> String {
     let (mut out, mut depth, mut rest) = (String::new(), 0usize, line);
     loop {

@@ -30,9 +30,19 @@ impl App {
                     .iter()
                     .all(|h| h.path == hits[0].path && interface.is_match(&h.text))
         };
+        let namespace = |h: &Hit| {
+            let t = h.text.trim_start().trim_start_matches("export ");
+            t.trim_start_matches("declare ").starts_with("namespace ")
+        };
+        let beside_its_namespaces = |hits: &[Hit]| {
+            kind == Kind::TsJs
+                && hits.iter().all(|h| h.path == hits[0].path)
+                && hits.iter().filter(|h| !namespace(h)).count() == 1
+        };
         let one = |hits: Vec<Hit>| match <[Hit; 1]>::try_from(hits) {
             Ok([hit]) => Some(hit),
             Err(hits) if merged(&hits) => hits.into_iter().min_by_key(|h| h.line1),
+            Err(hits) if beside_its_namespaces(&hits) => hits.into_iter().find(|h| !namespace(h)),
             Err(hits) if types_only => {
                 let types = hits
                     .into_iter()
@@ -159,6 +169,7 @@ impl App {
             .into_iter()
             .filter(|h| {
                 self.in_code(kind, h)
+                    && !(kind == Kind::Go && search::go_short_var(&h.text, name))
                     && self.text_of(&h.path).is_some_and(|text| {
                         search::qualified(kind, &text, h.line1, name).as_deref() == within
                     })
@@ -303,9 +314,12 @@ impl App {
         if kind == Kind::Python {
             hits.retain(|h| !self.python_nested_def(h));
         }
-        let Some(fields) = search::field_patterns(kind, word) else {
+        let Some(mut fields) = search::field_patterns(kind, word) else {
             return hits;
         };
+        if kind == Kind::TsJs {
+            fields.push(search::inline_type_key(word));
+        }
         let raw = self.project_grep(kind, here, &fields.join("|"));
         let mut by_file: Vec<(PathBuf, Vec<usize>)> = Vec::new();
         for h in raw {

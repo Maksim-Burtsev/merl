@@ -279,9 +279,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keys_split_into_76_actions() {
+    fn keys_split_into_84_actions() {
         let names: Vec<&str> = ACTIONS.iter().map(|a| a.name.as_str()).collect();
-        assert_eq!(names.len(), 76, "{names:?}");
+        assert_eq!(names.len(), 84, "{names:?}");
         assert_eq!(names.iter().collect::<HashSet<_>>().len(), names.len());
         for name in [
             "[",
@@ -374,7 +374,7 @@ mod tests {
                  quotes, brackets, line, block, file / step back",
             ]
         );
-        assert_eq!(lines.len(), 1 + 76);
+        assert_eq!(lines.len(), 1 + 84);
         assert!(lines[4..].iter().all(|l| l.contains("  never  ")), "{out}");
         assert_eq!(
             lines[4],

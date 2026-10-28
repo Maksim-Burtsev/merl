@@ -5,7 +5,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
+use ratatui::widgets::{Block, Clear, Paragraph};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::app::{App, Focus, Mode, PickerKind};
@@ -97,12 +97,14 @@ pub(super) fn draw_tree(
     let focused = app.focus == Focus::Tree;
     let width = inner.width as usize;
     let review = app.review.as_ref();
+    let viewed = &app.viewed;
     app.tree.fold(|n, depth| {
         let need = wrap::width(&n.name()).min(NAME_ROOM);
-        (need + used(review, n, depth)).saturating_sub(width)
+        (need + used(review, viewed, n, depth)).saturating_sub(width)
     });
     let visible = app.tree.visible();
     let height = inner.height as usize;
+    app.tree_h = height;
     let shown = app.tree.shown();
     let at = visible.iter().position(|&i| i == shown).unwrap_or(0);
     app.tree_top = app.tree_top.min(at).max((at + 1).saturating_sub(height));
@@ -117,15 +119,16 @@ pub(super) fn draw_tree(
             let n = &app.tree.nodes[i];
             let depth = app.tree.drawn_depth(i);
             let full = app.tree.row_name(i);
-            let room = width.saturating_sub(used(app.review.as_ref(), n, depth));
+            let room = width.saturating_sub(used(review, &app.viewed, n, depth));
             let cut = wrap::width(&full) > room;
             let joined = full.contains('/');
             cut_any |= cut;
             for j in app.tree.row_nodes(i) {
                 let m = &app.tree.nodes[j];
-                need = need.max(used(app.review.as_ref(), m, m.depth) + wrap::width(&m.name()));
+                need = need.max(used(review, &app.viewed, m, m.depth) + wrap::width(&m.name()));
             }
-            let row = if n.ignored {
+            let skipped = agent_skipped(review, &app.viewed, &n.path);
+            let row = if n.ignored || skipped {
                 base.fg(theme.ghost_fg)
             } else if n.is_dir {
                 accent
@@ -140,7 +143,7 @@ pub(super) fn draw_tree(
                 row.bg(theme.line_hl_dim)
             };
             let noted = !n.is_dir && app.notes_in(&n.path) > 0;
-            let tick = tree_tick(app, &n.path, noted);
+            let tick = tree_tick(app, &n.path, noted, skipped.then_some(depth));
             let width = width.saturating_sub(wrap::width(tick));
             let mut spans = vec![
                 Span::styled(tick, style.fg(theme.accent)),
@@ -220,10 +223,13 @@ fn tree_block(app: &App, theme: &Theme, area: Rect, base: Style) -> Block<'stati
     block
 }
 
-fn tree_tick(app: &App, path: &Path, noted: bool) -> &'static str {
+fn tree_tick(app: &App, path: &Path, noted: bool, skipped_at: Option<usize>) -> &'static str {
     match (&app.review, app.viewed.contains_key(path)) {
+        (Some(_), _) if noted && skipped_at == Some(0) => "\u{270e}  ",
         (Some(_), _) if noted => "\u{270e} ",
         (None, _) => "",
+        _ if skipped_at == Some(0) => "\u{1f916} ",
+        _ if skipped_at.is_some() => "\u{1f916}",
         (Some(_), false) => "  ",
         (Some(_), true) => "\u{2713} ",
     }
@@ -239,11 +245,23 @@ fn counts(f: &crate::git::ReviewFile) -> String {
     }
 }
 
-fn used(review: Option<&Review>, n: &crate::tree::Node, depth: usize) -> usize {
+fn used(
+    review: Option<&Review>,
+    viewed: &HashMap<PathBuf, u64>,
+    n: &crate::tree::Node,
+    depth: usize,
+) -> usize {
+    let pad = usize::from(depth == 0 && agent_skipped(review, viewed, &n.path));
     match review {
         None => 2 * depth + 2,
-        Some(r) => 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1),
+        Some(r) => {
+            pad + 2 + 2 * depth + 2 + r.file(&n.path).map_or(0, |f| wrap::width(&counts(f)) + 1)
+        }
     }
+}
+
+fn agent_skipped(review: Option<&Review>, viewed: &HashMap<PathBuf, u64>, path: &Path) -> bool {
+    (review.and_then(|r| r.file(path))).is_some_and(|f| f.left_out(viewed))
 }
 
 fn cut_at_slash(path: &str, room: usize) -> String {
@@ -713,39 +731,4 @@ fn code_hl<'a>(
     }
     buf.highlight_to(idx, theme);
     Some((buf.hl.get(idx)?, off))
-}
-
-pub(super) fn lesson_panel(
-    app: &App,
-    theme: &Theme,
-    width: u16,
-    base: Style,
-) -> Option<Paragraph<'static>> {
-    let tutor = app.tutor.as_ref()?;
-    let (title, text) = match (&tutor.drill, crate::tutor::lesson(tutor.step)) {
-        (Some(drill), _) => drill.panel(),
-        (None, Some(t)) => (
-            format!(
-                " Tutor {}/{} \u{00b7} {}",
-                tutor.step + 1,
-                crate::tutor::TUTOR.len(),
-                t.title
-            ),
-            t.tutor,
-        ),
-        (None, None) => (
-            " Tutor \u{2713} done".to_owned(),
-            crate::tutor::ALL_LESSONS_DONE,
-        ),
-    };
-    let pad = (width as usize).saturating_sub(wrap::width(&title));
-    let head = Style::new()
-        .bg(theme.status_bg)
-        .fg(theme.status_fg)
-        .add_modifier(Modifier::BOLD);
-    let lines = vec![
-        Line::from(Span::styled(format!("{title}{}", " ".repeat(pad)), head)),
-        Line::from(Span::styled(format!(" {text}"), base)),
-    ];
-    Some(Paragraph::new(lines).wrap(Wrap { trim: true }).style(base))
 }

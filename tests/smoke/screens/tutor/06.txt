@@ -1,4 +1,6 @@
-wait store.py:9
+wait Enter starts
+ 3 import json
+ 4 from dataclasses import dataclass, field
  5 from datetime import date
  6 from typing import Protocol
  7
@@ -9,37 +11,37 @@ wait store.py:9
 12
 13     id: int
 14     text: str
-15     tags: list[s┌Symbols (3/31)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-16     created: dat│> NoteStore                                                                                                                                       │
-17                 │NoteStore                         store.py:9                                                                                                      │
-18     def to_dict(│test_notes_survive_a_reload       tests/test_store.py:23                                                                                          │
-19         """The n│test_find_ignores_case            tests/test_store.py:37                                                                                          │
-20         return {│                                                                                                                                                  │
-21             "id"│                                                                                                                                                  │
-22             "tex│                                                                                                                                                  │
-23             "tag│                                                                                                                                                  │
-24             "cre│                                                                                                                                                  │
-25         }       │                                                                                                                                                  │
-26                 │                                                                                                                                                  │
-27     @classmethod│                                                                                                                                                  │
-28     def from_dic│                                                                                                                                                  │
-29         """Rebui│                                                                                                                                                  │
-30         # TODO: │                                                                                                                                                  │
-31         return c│                                                                                                                                                  │
-32             id=i│                                                                                                                                                  │
-33             text│                                                                                                                                                  │
-34             tags│                                                                                                                                                  │
-35             crea│                                                                                                                                                  │
-36         )       │                                                                                                                                                  │
-37                 │                                                                                                                                                  │
-38     def summary(│                                                                                                                                                  │
-39         """One l│                                                                                                                                                  │
-40         text = s│                                                                                                                                                  │
-41         tags = "│                                                                                                                                                  │
-42         return f│                                                                                                                                                  │
-43                 │                                                                                                                                                  │
-44                 │                                                                                                                                                  │
-45 class Formatter(└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+15     tags: list[str] = field(default_factory=list)
+16     created: date = field(default_factory=date.today)
+17
+18     def to_dict(self) -> dict:
+19         """The note as plain, JSON-friendly data."""
+20         return {
+21             "id": self.id,
+22             "text": self.text,                 ╭ Tutor 9/26 · Project symbols ────────────────────────────────────────────────────╮
+23             "tags": self.tags,                 │                                                                                  │
+24             "created": self.created.isoformat()│  `D` lists every class and function of the project. Type `NoteStore` and press   │
+25         }                                      │  Enter.                                                                          │
+26                                                │                                                                                  │
+27     @classmethod                               ╰─────────────────────────────────────────────── Enter starts · i shows this again ╯
+28     def from_dict(cls, raw: dict) -> "Note":
+29         """Rebuild a note from what `to_dict` wrote."""
+30         # TODO: reject a note whose id is already taken.
+31         return cls(
+32             id=int(raw["id"]),
+33             text=raw["text"],
+34             tags=list(raw.get("tags", [])),
+35             created=date.fromisoformat(raw["created"]),
+36         )
+37
+38     def summary(self, width: int = 40) -> str:
+39         """One line for a listing: the text, cut to `width` characters."""
+40         text = self.text if len(self.text) <= width else self.text[: width - 1] + "…"
+41         tags = " ".join(f"#{tag}" for tag in self.tags)
+42         return f"{self.id:>4}  {text}  {tags}".rstrip()
+43
+44
+45 class Formatter(Protocol):
 46     """How one note is turned into a line of output."""
 47
 48     def render(self, note: Note) -> str: ...
@@ -50,8 +52,6 @@ wait store.py:9
 53
 54     def render(self, note: Note) -> str:
 55         return note.summary()
-Tutor 9/26 · Project symbols
-`D` lists every class and function of the project. Type `NoteStore` and press Enter.
-
-models.py  30:11  [code]                                                                                                                                                           14:32
-cursor (x,y,shown) 31,11,0
+56
+models.py  30:11  [code]  ✓ Search the project                                                                                                                                     14:32
+cursor (x,y,shown) 13,27,0

@@ -21,9 +21,75 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
         regex::escape(name)
     ))
     .ok()?;
+    let branch = |l: &str| {
+        let t = l.trim_start();
+        t == "else" || t.starts_with("else ") || t.starts_with("elif ")
+    };
+    let fi_at = |l: &str, depth: usize| {
+        let t = l.trim();
+        indent(l) == depth && (t == "fi" || t.starts_with("fi ") || t.starts_with("fi;"))
+    };
+    let sibling = |i: usize| {
+        (i + 1..at).any(|j| {
+            let depth = indent(lines[j]);
+            branch(lines[j])
+                && depth < indent(lines[i])
+                && (0..i)
+                    .rev()
+                    .find(|&k| {
+                        indent(lines[k]) == depth && lines[k].trim_start().starts_with("if ")
+                    })
+                    .is_some_and(|k| !lines[k + 1..j].iter().any(|l| fi_at(l, depth)))
+                && !lines[j + 1..=at].iter().any(|l| fi_at(l, depth))
+        })
+    };
+    let arm_closed = |i: usize| {
+        let (mut depth, mut closed) = (0, false);
+        let mut loops = (0..i)
+            .filter(|&j| literal.get(j) != Some(&true))
+            .fold(0_usize, |d, j| {
+                (d + DO.find_iter(lines[j]).count())
+                    .saturating_sub(DONE.find_iter(lines[j]).count())
+            });
+        for (j, l) in lines.iter().enumerate().take(at).skip(i) {
+            let t = l.trim();
+            if literal.get(j) == Some(&true) {
+                continue;
+            }
+            loops = (loops + DO.find_iter(l).count()).saturating_sub(DONE.find_iter(l).count());
+            let words = CASE_ESAC.find_iter(l).count();
+            let exact = match words {
+                0 => true,
+                1 => {
+                    (j > i && t.starts_with("case "))
+                        || t == "esac"
+                        || t.starts_with("esac ")
+                        || t.starts_with("esac;")
+                }
+                _ => j > i && t.starts_with("case ") && t.ends_with("esac") && words == 2,
+            };
+            if !exact {
+                return false;
+            }
+            if j > i && t.starts_with("case ") && !t.ends_with("esac") {
+                depth += 1;
+            } else if t == "esac" || t.starts_with("esac ") || t.starts_with("esac;") {
+                if depth == 0 {
+                    closed = false;
+                } else {
+                    depth -= 1;
+                }
+            } else if depth == 0 && t.ends_with(";;") {
+                closed = true;
+            }
+        }
+        closed && loops == 0
+    };
     let assigns = |i: usize| {
         literal.get(i) != Some(&true)
             && (assign.is_match(lines[i]) || shell_loop_binds(lines[i], name) == Some(true))
+            && !sibling(i)
+            && !arm_closed(i)
     };
     let mine = shell_function_at(lines, at);
     mine.and_then(|f| (f + 1..at).rev().find(|&i| assigns(i)))
@@ -34,6 +100,12 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
         })
         .map(|i| i + 1)
 }
+static CASE_ESAC: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"\b(?:case|esac)\b").expect("the regex is a literal"));
+static DO: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(?:^|;)\s*do\b").expect("the regex is a literal"));
+static DONE: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"(?:^|;)\s*done\b").expect("the regex is a literal"));
 pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
     static SOURCE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(load|source|\.)\s+(.*)").expect("the regex is a literal")

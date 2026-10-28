@@ -351,7 +351,8 @@ pub(super) fn steps_over(kind: Option<Kind>, t: &str) -> bool {
     let opens_a_wrapped_body = t == "{";
     let cpp_access_specifier =
         kind == Some(Kind::C) && matches!(t, "public:" | "private:" | "protected:");
-    let closes_ts_type_parameters = kind == Some(Kind::TsJs) && t.starts_with('>');
+    let closes_ts_type_parameters =
+        kind == Some(Kind::TsJs) && (t.starts_with('>') || t.starts_with("}>"));
     let closes_a_wrapped_python_header = kind == Some(Kind::Python) && t.starts_with([')', ']']);
     aside(t)
         || opens_a_wrapped_body

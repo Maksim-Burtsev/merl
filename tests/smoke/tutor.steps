@@ -1,38 +1,52 @@
 # tutor: the whole of `merl --tutor`, each lesson's answer as the tutor's tests press it, to the
 # three review lessons at its end (#158): the sample project becomes an agent's uncommitted work
 # over one commit, the review panel takes the left, `c` walks cli.py on into models.py, `C` walks
-# back, and `m` ticks store.py
+# back, and `m` ticks store.py. Each lesson opens as a card in the middle, the code dimmed behind
+# it, and Enter sends it into the box at the bottom before the answer; on lesson 9, `i` brings the
+# card back (#501). The slide takes 0.4 s, so a lesson whose answer opens a picker sleeps it out
+# first: the picker's checkpoint would otherwise catch the box half way down
 merl --tutor
-wait Tutor 1/
-key o
+wait Enter starts
+key Enter o
 type store
 key Enter
 wait Tutor 2/
-key /
+key Enter /
 type load_config
-key Enter n d [ ] u
+key Enter Enter n Enter d Enter [ Enter ] Enter
+sleep 0.3
+sleep 0.2
+key u
 wait Usages
-key Down Enter s
+key Down Enter Enter
+sleep 0.3
+sleep 0.2
+key s
 type TODO
 wait reject a note
 key Enter
 wait Tutor 9/
+key Enter i
+wait Enter starts
+key Enter
+sleep 0.3
+sleep 0.2
 key D
 type NoteStore
 wait store.py:9
 key Enter
 wait Tutor 10/
-key :
+key Enter :
 type 42
-key Enter } { v v v t Tab Enter Enter
+key Enter Enter } Enter { Enter v v v Enter t Enter Tab Enter Enter Enter Enter
 type #hi
-key Escape C-z w p f Escape
+key Escape Enter C-z Enter w Enter p Enter f Enter Escape
 wait Tutor 23/
-key Escape
+key Enter Escape
 wait Tutor 24/
-key c*6
+key Enter c*6
 wait Tutor 25/
-key C
+key Enter C
 wait Tutor 26/
-key m
+key Enter m
 wait That is all of merl

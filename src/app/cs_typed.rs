@@ -2,6 +2,8 @@ use std::cell::OnceCell;
 
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, Typed, search};
 
+mod elements;
+
 #[derive(Debug, Clone)]
 enum CsType {
     Project(Typed),
@@ -10,12 +12,13 @@ enum CsType {
 
 pub(super) enum CsAnswer {
     Found(Vec<Candidate>),
+    Offered(Vec<Candidate>),
     Outside { links: String },
 }
 
 enum Up {
     Found(Vec<Hit>),
-    Outside { walked: Vec<String> },
+    Outside { walked: Vec<String>, base: bool },
     Missing { walked: Vec<String> },
     Unknown,
 }
@@ -24,11 +27,13 @@ struct Proven {
     ty: CsType,
     link: String,
     written: String,
+    from: (PathBuf, usize),
 }
 
 struct CsWrittenType {
     ty: CsType,
     written: String,
+    from: (PathBuf, usize),
 }
 
 impl App {
@@ -130,51 +135,129 @@ impl App {
         expr: &str,
         hops: usize,
     ) -> Option<Proven> {
-        let search::CsSteps { new, parts } = search::cs_steps(expr)?;
-        let (mut ty, mut written, mut links, rest) = match (new, parts.split_first()) {
+        let coalesced = || {
+            let (left, right) = search::cs_coalesced(expr)?;
+            let l = self.cs_chain_type(file, text, line1, left, hops)?;
+            let r = self.cs_chain_type(file, text, line1, right, hops)?;
+            let (a, b) = (self.cs_element(&l, true)?, self.cs_element(&r, true)?);
+            same(&a.ty, &b.ty).then_some(l)
+        };
+        if let Some(l) = coalesced() {
+            return Some(l);
+        }
+        if let Some((class, written)) = search::cs_framework_value(expr) {
+            let CsType::Outside(_) = self.cs_resolve(file, text, line1, &class)? else {
+                return None;
+            };
+            let ty = match written.strip_suffix("[]") {
+                Some(_) => CsType::Outside("Array".to_owned()),
+                None => self.cs_resolve(file, text, line1, &written)?,
+            };
+            return Some(Proven {
+                ty,
+                link: format!("{class}: {written}"),
+                written,
+                from: (file.to_path_buf(), line1),
+            });
+        }
+        let search::CsSteps {
+            new,
+            parts,
+            args,
+            awaited,
+            ..
+        } = search::cs_steps(expr)?;
+        let here = (file.to_path_buf(), line1);
+        let (mut p, rest) = match (new, parts.split_first()) {
             (Some(w), _) => {
                 let link = format!("new {}", search::cs_type_name(&w)?);
                 let alias = (text.lines().filter_map(search::cs_using))
                     .find(|u| !u.fixed && u.alias.as_deref() == Some(w.as_str()));
                 let w = alias.map_or(w, |u| u.target);
                 let ty = self.cs_new_type(file, text, line1, &w)?;
-                (ty, w, vec![link], parts.as_slice())
+                let p = Proven {
+                    ty,
+                    link,
+                    written: w,
+                    from: here,
+                };
+                (p, parts.as_slice())
             }
             (None, Some(((name, false), rest))) => {
-                let p = self.cs_name_type(file, text, line1, name, hops)?;
-                (p.ty, p.written, vec![p.link], rest)
+                (self.cs_name_type(file, text, line1, name, hops)?, rest)
             }
             (None, Some(((name, true), rest))) => {
                 let w = self.cs_call_type(file, text, line1, name, false, hops)?;
                 let link = format!("{name}(): {}", search::cs_type_name(&w.written)?);
-                (w.ty, w.written, vec![link], rest)
+                let p = Proven {
+                    ty: w.ty,
+                    link,
+                    written: w.written,
+                    from: w.from,
+                };
+                (p, rest)
             }
             _ => return None,
         };
-        for (name, call) in rest {
-            let p = self.cs_step(file, &ty, &written, name, *call)?;
-            (ty, written) = (p.ty, p.written);
-            links.push(p.link);
+        if awaited == 1 {
+            p = self.cs_await(p)?;
         }
-        Some(Proven {
-            ty,
-            link: links.join(" \u{2192} "),
-            written,
-        })
+        let mut links = vec![p.link.clone()];
+        let skipped = parts.len() - rest.len();
+        for (i, (name, call)) in rest.iter().enumerate() {
+            let arg = args.get(skipped + i).map_or("", String::as_str);
+            p = match &p.ty {
+                CsType::Outside(outer)
+                    if *call
+                        && name == "Select"
+                        && search::cs_collection(outer)
+                        && generic(&p.written) =>
+                {
+                    self.cs_select(file, text, line1, &p, arg)?
+                }
+                _ => self.cs_step(file, &p, name, *call)?,
+            };
+            if skipped + i + 1 == awaited {
+                p = self.cs_await(p)?;
+            }
+            links.push(p.link.clone());
+        }
+        p.link = links.join(" \u{2192} ");
+        Some(p)
     }
 
-    fn cs_step(
-        &self,
-        here: &Path,
-        ty: &CsType,
-        written: &str,
-        name: &str,
-        call: bool,
-    ) -> Option<Proven> {
-        let t = match ty {
+    fn cs_step(&self, here: &Path, from: &Proven, name: &str, call: bool) -> Option<Proven> {
+        let t = match &from.ty {
             CsType::Project(t) if !call => return self.cs_field_type(t, name),
             CsType::Project(t) => t,
-            CsType::Outside(_) if !call || written.contains('<') => return None,
+            CsType::Outside(outer) if call && generic(&from.written) => {
+                let linq = search::cs_linq(name).filter(|_| search::cs_collection(outer))?;
+                let cut = self.truncated.get();
+                let unextended = self.cs_extensions(here, name).is_empty();
+                self.truncated.set(cut);
+                if !unextended {
+                    return None;
+                }
+                return match linq {
+                    search::CsLinq::Same => Some(Proven {
+                        ty: from.ty.clone(),
+                        link: format!("{name}()"),
+                        written: from.written.clone(),
+                        from: from.from.clone(),
+                    }),
+                    search::CsLinq::Element => {
+                        let e = self.cs_element(from, true)?;
+                        let link = format!("{name}(): {}", search::cs_type_name(&e.written)?);
+                        Some(Proven {
+                            ty: e.ty,
+                            link,
+                            written: e.written,
+                            from: e.from,
+                        })
+                    }
+                };
+            }
+            CsType::Outside(_) if !call || generic(&from.written) => return None,
             CsType::Outside(_) => {
                 let cut = self.truncated.get();
                 let unextended = self.cs_extensions(here, name).is_empty();
@@ -183,29 +266,28 @@ impl App {
                     ty: CsType::Outside(format!("{name}()")),
                     link: format!("{name}()"),
                     written: format!("{name}()"),
+                    from: from.from.clone(),
                 });
             }
         };
-        let Up::Found(hits) = self.cs_up(t, name, 0) else {
-            return None;
+        let hits = match self.cs_up(t, name, 0) {
+            Up::Found(hits) => hits,
+            Up::Missing { .. } => return self.cs_extended_step(here, t, name),
+            Up::Outside { .. } | Up::Unknown => return None,
         };
         let mut found: Option<Proven> = None;
         for hit in hits {
             let w = search::cs_returns(&hit.text, name)?;
             let at = self.text_of(&hit.path)?;
             let ty = self.cs_resolve(&hit.path, &at, hit.line1, &w)?;
-            match &found {
-                Some(one) if !same(&one.ty, &ty) => return None,
-                Some(_) => {}
-                None => {
-                    let link = format!("{name}(): {}", search::cs_type_name(&w)?);
-                    found = Some(Proven {
-                        ty,
-                        link,
-                        written: w,
-                    });
-                }
-            }
+            let link = format!("{name}(): {}", search::cs_type_name(&w)?);
+            let next = Proven {
+                ty,
+                link,
+                written: w,
+                from: (hit.path.clone(), hit.line1),
+            };
+            one_more(&mut found, next)?;
         }
         found
     }
@@ -217,8 +299,8 @@ impl App {
         word: &str,
         label: &str,
     ) -> Option<CsAnswer> {
-        let (walked, outside) = match ty {
-            CsType::Outside(name) => (vec![name.clone()], true),
+        let (walked, outside, class) = match ty {
+            CsType::Outside(name) => (vec![name.clone()], true, false),
             CsType::Project(t) => match self.cs_up(t, word, 0) {
                 Up::Found(hits) => {
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
@@ -229,8 +311,8 @@ impl App {
                     };
                     return Some(CsAnswer::Found(receivers(hits, label)));
                 }
-                Up::Outside { walked } => (walked, true),
-                Up::Missing { walked } => (walked, false),
+                Up::Outside { walked, base } => (walked, true, base),
+                Up::Missing { walked } => (walked, false, false),
                 Up::Unknown => return None,
             },
         };
@@ -243,6 +325,7 @@ impl App {
         });
         let of: Vec<Hit> = of.into_iter().map(|(h, _)| h).collect();
         match (of.is_empty(), other.is_empty()) {
+            (false, _) if class => Some(CsAnswer::Offered(receivers(of, label))),
             (false, _) => Some(CsAnswer::Found(receivers(of, label))),
             (true, true) if outside => Some(CsAnswer::Outside {
                 links: label.to_owned(),
@@ -276,7 +359,7 @@ impl App {
     fn cs_up(&self, ty: &Typed, word: &str, depth: usize) -> Up {
         let mut walked = vec![ty.name.clone()];
         let Some(text) = self.text_of(&ty.path) else {
-            return Up::Outside { walked };
+            return Up::Outside { walked, base: true };
         };
         let (parts, partial) = self.cs_parts(ty, &text);
         let around = OnceCell::new();
@@ -294,19 +377,25 @@ impl App {
             return Up::Found(own);
         }
         if depth >= 8 {
-            return Up::Outside { walked };
+            return Up::Outside { walked, base: true };
         }
-        let mut outside = false;
+        let (mut outside, mut class) = (false, false);
         for part in &parts {
             let Some(text) = self.text_of(&part.path) else {
                 return Up::Unknown;
             };
-            for base in search::cs_bases(&text, part.line) {
-                match self.cs_resolve(&part.path, &text, part.line, &base) {
+            let decl = text.lines().nth(part.line - 1).unwrap_or_default();
+            let derives = search::cs_type_decl(decl).is_some_and(|d| {
+                d.keyword == "class"
+                    || d.keyword == "record" && !decl.split_whitespace().any(|w| w == "struct")
+            });
+            for (i, entry) in search::cs_bases(&text, part.line).into_iter().enumerate() {
+                match self.cs_resolve(&part.path, &text, part.line, &entry) {
                     Some(CsType::Project(b)) => match self.cs_up(&b, word, depth + 1) {
                         Up::Found(hits) => return Up::Found(hits),
-                        Up::Outside { walked: more } => {
+                        Up::Outside { walked: more, base } => {
                             outside = true;
+                            class |= derives && i == 0 && base;
                             walked.extend(more);
                         }
                         Up::Missing { walked: more } => walked.extend(more),
@@ -314,6 +403,7 @@ impl App {
                     },
                     Some(CsType::Outside(name)) => {
                         outside = true;
+                        class |= derives && i == 0 && !interface_named(&name);
                         walked.push(name);
                     }
                     None => return Up::Unknown,
@@ -322,7 +412,10 @@ impl App {
         }
         match (partial, outside) {
             (true, _) => Up::Unknown,
-            (false, true) => Up::Outside { walked },
+            (false, true) => Up::Outside {
+                walked,
+                base: class,
+            },
             (false, false) => Up::Missing { walked },
         }
     }
@@ -450,7 +543,12 @@ impl App {
         let text = self.text_of(&hit.path)?;
         let ty = self.cs_resolve(&hit.path, &text, hit.line1, &written)?;
         let link = format!("{field}: {}", search::cs_type_name(&written)?);
-        Some(Proven { ty, link, written })
+        Some(Proven {
+            ty,
+            link,
+            written,
+            from: (hit.path.clone(), hit.line1),
+        })
     }
 
     fn cs_name_type(
@@ -461,42 +559,13 @@ impl App {
         name: &str,
         hops: usize,
     ) -> Option<Proven> {
-        let owner = || {
-            let decl = search::cs_owner(text, line1)?;
-            let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
-            Some(Typed {
-                name: n,
-                path: file.to_path_buf(),
-                line: decl,
-            })
-        };
-        match name {
-            "this" => {
-                let t = owner()?;
-                let link = format!("this: {}", t.name);
-                return Some(Proven {
-                    written: t.name.clone(),
-                    ty: CsType::Project(t),
-                    link,
-                });
-            }
-            "base" => {
-                let t = owner()?;
-                let base = search::cs_bases(text, t.line).into_iter().next()?;
-                let ty = self.cs_resolve(file, text, t.line, &base)?;
-                let link = format!("base: {}", search::cs_type_name(&base)?);
-                return Some(Proven {
-                    ty,
-                    link,
-                    written: base,
-                });
-            }
-            _ => {}
+        if matches!(name, "this" | "base") {
+            return self.cs_this(file, text, line1, name);
         }
         let lines: Vec<&str> = text.lines().collect();
         let bindings = search::bindings(Kind::CSharp, text, line1, name);
         if bindings.is_empty() {
-            return self.cs_field_type(&owner()?, name);
+            return self.cs_field_type(&owner_of(file, text, line1)?, name);
         }
         if bindings.first().is_some_and(|b| b.line1 == line1)
             && let Some(w) = search::cs_lambda_delegate(lines.get(line1 - 1)?, name)
@@ -507,51 +576,109 @@ impl App {
                 ty,
                 link,
                 written: w,
+                from: (file.to_path_buf(), line1),
             });
         }
         let mut found: Option<Proven> = None;
         for b in bindings {
             let at = search::cs_written_line(&lines, b.line1, name);
             let value = search::cs_declared(lines.get(at - 1)?, name);
+            let deep = matches!(&value, search::CsValue::Call { callee, awaited: false }
+                if callee.matches('.').count() > 1);
             let chain = search::cs_var_chain(&lines, at - 1, name)
-                .filter(|(_, continued)| *continued || value == search::CsValue::Unknown);
-            let CsWrittenType { ty, written } = match (chain, value) {
+                .filter(|(_, continued)| *continued || deep || value == search::CsValue::Unknown);
+            let here = (file.to_path_buf(), at);
+            let spent = if at < line1 {
+                hops
+            } else {
+                hops.saturating_sub(1)
+            };
+            let CsWrittenType { ty, written, from } = match (chain, value) {
                 (Some((expr, _)), _) if hops > 0 => {
                     let p = self.cs_chain_type(file, text, at, &expr, hops - 1)?;
                     CsWrittenType {
                         ty: p.ty,
                         written: p.written,
+                        from: p.from,
                     }
                 }
                 (None, search::CsValue::Type(w)) => CsWrittenType {
                     ty: self.cs_resolve(file, text, at, &w)?,
                     written: w,
+                    from: here,
                 },
                 (None, search::CsValue::Call { callee, awaited }) if hops > 0 => {
                     self.cs_call_type(file, text, at, &callee, awaited, hops - 1)?
                 }
                 (None, search::CsValue::Element(items)) if hops > 0 => {
-                    let p = self.cs_name_type(file, text, at, &items, hops - 1)?;
-                    let CsType::Outside(_) = p.ty else {
-                        return None;
-                    };
-                    let w = search::cs_one_argument(&p.written)?;
-                    CsWrittenType {
-                        ty: self.cs_resolve(file, text, at, &w)?,
-                        written: w,
-                    }
+                    let p = self.cs_name_type(file, text, at, &items, spent)?;
+                    self.cs_element(&p, false)?
+                }
+                (None, search::CsValue::Indexed(items)) if hops > 0 => {
+                    let p = self.cs_name_type(file, text, at, &items, spent)?;
+                    self.cs_element(&p, true)?
+                }
+                (None, search::CsValue::Unknown)
+                    if lines
+                        .get(at - 1)
+                        .is_some_and(|l| search::cs_rule_lambda(l, name)) =>
+                {
+                    self.cs_validated(file, text, at)?
+                }
+                (None, search::CsValue::Unknown) if hops > 0 => {
+                    let receiver = search::cs_lambda_call(&lines, at - 1, name)?;
+                    let p = self.cs_chain_type(file, text, at, &receiver, spent)?;
+                    self.cs_element(&p, true)?
                 }
                 _ => return None,
             };
             let shown = search::cs_type_name(&written).unwrap_or_else(|| written.clone());
             let link = format!("{name}: {shown}");
-            match &found {
-                Some(one) if !same(&one.ty, &ty) => return None,
-                Some(_) => {}
-                None => found = Some(Proven { ty, link, written }),
-            }
+            let next = Proven {
+                ty,
+                link,
+                written,
+                from,
+            };
+            one_more(&mut found, next)?;
         }
         found
+    }
+
+    fn cs_validated(&self, file: &Path, text: &str, line1: usize) -> Option<CsWrittenType> {
+        let owner = owner_of(file, text, line1)?;
+        let [base] = search::cs_bases(text, owner.line).try_into().ok()?;
+        let written = search::cs_validated(&base)?;
+        let CsType::Outside(_) = self.cs_resolve(file, text, owner.line, &base)? else {
+            return None;
+        };
+        Some(CsWrittenType {
+            ty: self.cs_resolve(file, text, owner.line, &written)?,
+            written,
+            from: (file.to_path_buf(), owner.line),
+        })
+    }
+
+    fn cs_this(&self, file: &Path, text: &str, line1: usize, name: &str) -> Option<Proven> {
+        let t = owner_of(file, text, line1)?;
+        if name == "this" {
+            let link = format!("this: {}", t.name);
+            return Some(Proven {
+                written: t.name.clone(),
+                from: (file.to_path_buf(), t.line),
+                ty: CsType::Project(t),
+                link,
+            });
+        }
+        let base = search::cs_bases(text, t.line).into_iter().next()?;
+        let ty = self.cs_resolve(file, text, t.line, &base)?;
+        let link = format!("base: {}", search::cs_type_name(&base)?);
+        Some(Proven {
+            ty,
+            link,
+            written: base,
+            from: (file.to_path_buf(), t.line),
+        })
     }
 
     fn cs_call_type(
@@ -566,15 +693,7 @@ impl App {
         let parts: Vec<&str> = callee.split('.').collect();
         let (method, receiver) = parts.split_last()?;
         let owner = match receiver {
-            [] => {
-                let decl = search::cs_owner(text, line1)?;
-                let n = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
-                Typed {
-                    name: n,
-                    path: file.to_path_buf(),
-                    line: decl,
-                }
-            }
+            [] => owner_of(file, text, line1)?,
             [one] => match self.cs_name_type(file, text, line1, one, hops) {
                 Some(Proven {
                     ty: CsType::Project(t),
@@ -605,7 +724,11 @@ impl App {
         };
         let at = self.text_of(&hit.path)?;
         let ty = self.cs_resolve(&hit.path, &at, hit.line1, &written)?;
-        Some(CsWrittenType { ty, written })
+        Some(CsWrittenType {
+            ty,
+            written,
+            from: (hit.path.clone(), hit.line1),
+        })
     }
 
     fn cs_resolve(&self, file: &Path, text: &str, line1: usize, written: &str) -> Option<CsType> {
@@ -884,6 +1007,64 @@ impl App {
             return None;
         }
         Some(named)
+    }
+
+    pub(super) fn cs_aliased(
+        &self,
+        here: &Path,
+        word: &str,
+        range: &std::ops::Range<usize>,
+    ) -> Option<Vec<Candidate>> {
+        let line = self.line_str();
+        let typed = search::cs_type_position(line, range.start, range.end)
+            && !search::cs_constant_may_stand(line, range.start, range.end)
+            && !line.get(range.end..)?.trim_start().starts_with(':');
+        let text = self.buf.lines.join("\n");
+        if !typed || search::cs_generic_param(&text, self.line + 1, word) {
+            return None;
+        }
+        let mut aliases = text.lines().enumerate().filter_map(|(k, l)| {
+            let u = search::cs_using(l).filter(|u| !u.fixed && u.alias.as_deref() == Some(word))?;
+            Some((k + 1, u.target))
+        });
+        let (at, target) = aliases.next()?;
+        if !self.cs_bases_in_project(here) {
+            return None;
+        }
+        let first_namespace = text.lines().position(search::cs_namespace_line);
+        if aliases.next().is_some()
+            || first_namespace.is_some_and(|n| n < at)
+            || !target.contains('.')
+            || search::cs_type_name(&target).as_deref() != Some(word)
+        {
+            return None;
+        }
+        let pattern = search::def_patterns(Kind::CSharp, word)[..2].join("|");
+        let mut hits = self.project_definitions(Kind::CSharp, here, word, &pattern);
+        hits.retain(|h| self.hidden_now(Kind::CSharp, h).get(h.line1 - 1) != Some(&true));
+        let types: Vec<&Hit> = (hits.iter())
+            .filter(|h| search::cs_type_decl(&h.text).is_some_and(|d| d.name == word))
+            .collect();
+        let [one] = self.cs_namespace_hits(&text, at, &target, &types)?[..] else {
+            return None;
+        };
+        let mut levels = vec![String::new()];
+        let inside = search::cs_namespace(&text, self.line + 1);
+        let mut level = inside.as_str();
+        while !level.is_empty() {
+            levels.push(level.to_owned());
+            level = level.rsplit_once('.').map_or("", |(outer, _)| outer);
+        }
+        for (i, h) in types.iter().enumerate() {
+            let other = self.text_of(&h.path)?;
+            if i != one && levels.contains(&search::cs_namespace(&other, h.line1)) {
+                return None;
+            }
+        }
+        Some(vec![Candidate {
+            hit: types[one].clone(),
+            reason: Reason::Path(format!("using {word} = {target}")),
+        }])
     }
 
     pub(super) fn cs_namespace_segment(
@@ -1232,12 +1413,48 @@ struct Level {
     cursor_line1: usize,
 }
 
+fn owner_of(file: &Path, text: &str, line1: usize) -> Option<Typed> {
+    let decl = search::cs_owner(text, line1)?;
+    let name = search::cs_type_decl(text.lines().nth(decl - 1)?)?.name;
+    Some(Typed {
+        name,
+        path: file.to_path_buf(),
+        line: decl,
+    })
+}
+
+fn generic(written: &str) -> bool {
+    written.contains('<') || written.trim_end_matches('?').ends_with("[]")
+}
+
 fn same(a: &CsType, b: &CsType) -> bool {
     match (a, b) {
         (CsType::Project(a), CsType::Project(b)) => a.path == b.path && a.line == b.line,
         (CsType::Outside(a), CsType::Outside(b)) => a == b,
         _ => false,
     }
+}
+
+fn one_more(found: &mut Option<Proven>, next: Proven) -> Option<()> {
+    match found {
+        Some(one) if !same(&one.ty, &next.ty) => return None,
+        Some(one)
+            if search::cs_one_argument(&one.written) != search::cs_one_argument(&next.written) =>
+        {
+            one.written = format!(
+                "{}<?>",
+                search::cs_type_name(&one.written).unwrap_or_default()
+            );
+        }
+        Some(_) => {}
+        None => *found = Some(next),
+    }
+    Some(())
+}
+
+fn interface_named(name: &str) -> bool {
+    let mut c = name.chars();
+    c.next() == Some('I') && c.next().is_some_and(char::is_uppercase)
 }
 
 fn receivers(hits: Vec<Hit>, label: &str) -> Vec<Candidate> {

@@ -3,8 +3,8 @@ use std::sync::LazyLock;
 use super::chain::{let_initializer, opening, trailing_name};
 use super::returns;
 use super::{
-    App, Candidate, HashMap, Hit, InCrate, Kind, MacroUse, Path, Reason, Regex, Typing, bound,
-    declares_mod, rust_bare_type, rust_written_type, search,
+    App, Candidate, HashMap, Hit, InCrate, Kind, MacroUse, Path, Reason, Regex, Typed, Typing,
+    bound, declares_mod, rust_bare_type, rust_written_type, search,
 };
 
 static SLICE_IMPL: LazyLock<Regex> = LazyLock::new(|| {
@@ -40,6 +40,18 @@ static STD_PATH: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(?:&\s*(?:'\w+\s+)?(?:mut\s+)?)*((?:\w+::)*)([A-Z]\w*)")
         .expect("the regex is a literal")
 });
+
+pub(super) const CONSTRUCTORS: &[&str] = &["new", "from", "with_capacity", "default"];
+
+pub(super) fn std_rooted(text: &str, written: &str) -> bool {
+    STD_PATH.captures(written.trim()).is_none_or(|c| {
+        let first = c[1].split("::").next().unwrap_or_default();
+        let root = bound(&search::imports(Kind::Rust, text), first)
+            .and_then(|p| p.into_iter().next())
+            .unwrap_or_else(|| first.to_owned());
+        matches!(root.as_str(), "" | "std" | "core" | "alloc")
+    })
+}
 
 static VARIANT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^((?:\w+::)*[A-Z]\w*)::([A-Z]\w*)\s*(?:\{([^{}]*)\}|\(([^()]*)\))\s*")
@@ -203,16 +215,32 @@ impl App {
             Some(search::RustHolds::AssocCall {
                 written_type,
                 function,
-            }) if matches!(
-                function.as_str(),
-                "new" | "from" | "with_capacity" | "default"
-            ) =>
-            {
+            }) if CONSTRUCTORS.contains(&function.as_str()) && std_rooted(text, &written_type) => {
                 rust_bare_type(&written_type)
             }
+            Some(search::RustHolds::AssocCall { .. }) | None => {
+                self.rust_let_written(file, text, b.line1 - 1, name)
+            }
             Some(_) => None,
-            None => self.rust_let_written(file, text, b.line1 - 1, name),
         }
+    }
+
+    pub(super) fn rust_variant_typed(
+        &self,
+        file: &Path,
+        lines: &[&str],
+        at: usize,
+        name: &str,
+    ) -> Option<Typed> {
+        let alternatives = rust_variant_bindings(&pattern_lines(lines, at), name)?;
+        let mut types = alternatives.iter().map(|(o, v, f)| {
+            let (owner, written) = self.rust_variant_written(file, o, v, f, at)?;
+            self.rust_resolve(&owner.path, &written, owner.line - 1)
+        });
+        let first = types.next()??;
+        types
+            .all(|t| t.is_some_and(|t| (&t.path, t.line) == (&first.path, first.line)))
+            .then_some(first)
     }
 
     fn rust_variant_field(
@@ -223,6 +251,20 @@ impl App {
         field: &Field,
         at: usize,
     ) -> Option<String> {
+        let (ty, written) = self.rust_variant_written(file, owner, variant, field, at)?;
+        let text = self.text_of(&ty.path)?;
+        rust_bare_type(&written)
+            .filter(|b| std_rooted(&text, &written) && self.rust_std_named(&text, b))
+    }
+
+    fn rust_variant_written(
+        &self,
+        file: &Path,
+        owner: &str,
+        variant: &str,
+        field: &Field,
+        at: usize,
+    ) -> Option<(Typed, String)> {
         let ty = self.rust_resolve(file, owner, at)?;
         let text = self.text_of(&ty.path)?;
         let lines: Vec<&str> = text.lines().collect();
@@ -235,13 +277,6 @@ impl App {
         let end = body
             .iter()
             .position(|l| !l.trim().is_empty() && indent(l) <= indent(decl))?;
-        let std_typed = |written: &str| {
-            rust_bare_type(written).filter(|b| {
-                STD_PATH.captures(written.trim()).is_none_or(|c| {
-                    matches!(c[1].split("::").next(), Some("" | "std" | "core" | "alloc"))
-                }) && self.rust_std_named(&text, b)
-            })
-        };
         let field = match field {
             Field::Named(field) => field,
             Field::At(i, n) => {
@@ -253,7 +288,8 @@ impl App {
                 if types.len() != *n {
                     return None;
                 }
-                return std_typed(types.get(*i)?);
+                let written = types.get(*i)?.trim().to_owned();
+                return Some((ty, written));
             }
         };
         let one_line = Regex::new(&format!(
@@ -269,7 +305,8 @@ impl App {
             let (Some((_, w)), None) = (written.next(), written.next()) else {
                 return None;
             };
-            return std_typed(w.trim());
+            let written = w.trim().to_owned();
+            return Some((ty, written));
         }
         let head = Regex::new(&format!(r"^\s+{}\s*\{{\s*$", regex::escape(variant))).ok()?;
         let named = Regex::new(&format!(r"^\s+{}\s*:\s*(.+?),?\s*$", regex::escape(field))).ok()?;
@@ -281,7 +318,7 @@ impl App {
         let written = body[start + 1..close]
             .iter()
             .find_map(|l| named.captures(l).map(|c| c[1].to_owned()))?;
-        std_typed(&written)
+        Some((ty, written))
     }
 
     pub(super) fn rust_std_typed(&self, file: &Path, written: &str) -> Option<(String, String)> {
@@ -300,11 +337,10 @@ impl App {
         {
             path.splice(..1, full);
         }
-        if path
-            .first()
-            .is_none_or(|f| matches!(f.as_str(), "std" | "core" | "alloc"))
-        {
-            return Some((text, c[2].to_owned()));
+        match path.first().map(String::as_str) {
+            None => return Some((text, c[2].to_owned())),
+            Some("std" | "core" | "alloc") => return Some((String::new(), c[2].to_owned())),
+            Some(_) => {}
         }
         path.push(c[2].to_owned());
         let (root, rest) = match path[0].as_str() {

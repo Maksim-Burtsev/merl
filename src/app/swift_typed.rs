@@ -1,5 +1,7 @@
 use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
+mod generic;
+
 struct SwiftChain {
     written: String,
     links: Vec<String>,
@@ -63,7 +65,7 @@ impl App {
                 if written == SDK_VALUE {
                     return (!self.swift_extended_with(here, word, false)).then(Vec::new);
                 }
-                let w = written.trim();
+                let w = generic::unbound(&written).trim();
                 let w = w
                     .strip_prefix("any ")
                     .or_else(|| w.strip_prefix("some "))
@@ -181,7 +183,7 @@ impl App {
             mut written,
             call_signature: link,
         } = first;
-        let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
+        let shown = generic::shown;
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
         for (i, field) in names[skip..].iter().enumerate() {
             if i == 5 {
@@ -199,9 +201,10 @@ impl App {
                 written: next,
                 call_signature: link,
             } = match ty {
-                Some(ty) => self.swift_field(here, &ty, field, hops)?,
-                None => self.swift_requirement(here, &written, field, hops)?,
-            };
+                Some(ty) => self.swift_field(here, &ty, field, hops),
+                None => self.swift_requirement(here, &written, field, hops),
+            }
+            .filter(|v| (i == 0 && names[0] == "self") || !generic::bound(&v.written))?;
             let link = link.unwrap_or_else(|| {
                 if i == 0 && names[0] == "self" {
                     format!("self.{field}: {}", shown(&next))
@@ -217,6 +220,21 @@ impl App {
             written = next;
         }
         Some(SwiftChain { written, links })
+    }
+
+    pub(super) fn swift_receiver_rows(
+        &self,
+        here: &Path,
+        text: &str,
+        chain: &[String],
+        method: &str,
+    ) -> Option<Vec<Hit>> {
+        let SwiftChain { written, .. } =
+            self.swift_chain(here, here, text, self.line + 1, chain, 3)?;
+        let ty = self
+            .swift_type(here, &written)
+            .filter(|t| t.keyword.is_some())?;
+        self.swift_member_rows(here, &ty, method)
     }
 
     fn swift_enum_case(
@@ -597,7 +615,9 @@ impl App {
         let mut at = line1;
         while at > 0 {
             if search::swift_generics(lines[at - 1]).contains(&name) {
-                return None;
+                return self
+                    .swift_generic_outside(here, &lines, at, &name, &via.written)
+                    .map(WrittenVia::plain);
             }
             at = search::swift_scope(&lines, &literal, at).header_line1;
         }
@@ -1254,7 +1274,13 @@ impl App {
                 };
                 search::swift_closure_takes(&t)?
             }
-            None => search::swift_expected(&lines, &literal, line1, lead)?,
+            None => match search::swift_expected(&lines, &literal, line1, lead) {
+                Some(w) => w,
+                None => match self.swift_argument_rows(here, lead, word)? {
+                    Ok(rows) => return Some(rows),
+                    Err(outside) => outside,
+                },
+            },
         };
         let written = written.trim_end_matches(['?', '!']).to_owned();
         let first = written.split('.').next()?.to_owned();

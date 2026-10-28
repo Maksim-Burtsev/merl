@@ -1,10 +1,40 @@
-use super::{App, Component, Focus, KeyCode, KeyEvent, LineEdit, Mode, Path, PathBuf, open};
+use super::{
+    App, Component, Focus, KeyCode, KeyEvent, KeyModifiers, LineEdit, Mode, Path, PathBuf, open,
+};
+
+pub(super) fn moves_the_tree(key: KeyEvent) -> bool {
+    match key.code {
+        KeyCode::Up
+        | KeyCode::Down
+        | KeyCode::Left
+        | KeyCode::Right
+        | KeyCode::Enter
+        | KeyCode::PageUp
+        | KeyCode::PageDown
+        | KeyCode::Home
+        | KeyCode::End
+        | KeyCode::Char('{' | '}') => true,
+        KeyCode::Char('d' | 'u') => key.modifiers.contains(KeyModifiers::CONTROL),
+        _ => false,
+    }
+}
 
 impl App {
-    pub(super) fn tree_key(&mut self, code: KeyCode) {
-        match code {
+    pub(super) fn tree_key(&mut self, key: KeyEvent) {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let page = isize::try_from(self.tree_h.max(1)).unwrap_or(isize::MAX);
+        let half = (page / 2).max(1);
+        match key.code {
             KeyCode::Up => self.tree.up(),
             KeyCode::Down => self.tree.down(),
+            KeyCode::PageUp => self.tree_scroll(-page),
+            KeyCode::PageDown => self.tree_scroll(page),
+            KeyCode::Char('u') if ctrl => self.tree_scroll(-half),
+            KeyCode::Char('d') if ctrl => self.tree_scroll(half),
+            KeyCode::Home => self.tree_scroll(isize::MIN),
+            KeyCode::End => self.tree_scroll(isize::MAX),
+            KeyCode::Char('{') => self.tree_folder(false),
+            KeyCode::Char('}') => self.tree_folder(true),
             KeyCode::Right => self.tree.expand(),
             KeyCode::Left => self.tree.collapse(),
             KeyCode::Enter => match self.tree.selected() {
@@ -30,6 +60,29 @@ impl App {
             },
             _ => {}
         }
+    }
+
+    fn tree_scroll(&mut self, rows: isize) {
+        let len = self.tree.visible().len();
+        self.tree.move_by(rows);
+        self.tree_top = self
+            .tree_top
+            .saturating_add_signed(rows)
+            .min(len.saturating_sub(self.tree_h));
+    }
+
+    fn tree_folder(&mut self, down: bool) {
+        let vis = self.tree.visible();
+        let Some(at) = vis.iter().position(|&i| i == self.tree.cursor) else {
+            return;
+        };
+        let folder = |j: &usize| self.tree.nodes[vis[*j]].is_dir;
+        let to = if down {
+            (at + 1..vis.len()).find(folder).unwrap_or(vis.len() - 1)
+        } else {
+            (0..at).rev().find(folder).unwrap_or(0)
+        };
+        self.tree.cursor = vis[to];
     }
 
     pub(super) fn start_new(&mut self) {

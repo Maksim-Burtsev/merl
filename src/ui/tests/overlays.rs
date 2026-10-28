@@ -466,6 +466,7 @@ fn review_panel_counts_end_at_the_border() {
             untracked: false,
             generated: false,
             same_bytes: false,
+            agent_skipped: false,
         }],
         deleted: Arc::default(),
         added: Arc::default(),
@@ -520,6 +521,7 @@ fn review_panel_cuts_a_long_name_and_keeps_the_counts() {
             untracked: false,
             generated: false,
             same_bytes: false,
+            agent_skipped: false,
         }],
         deleted: Arc::default(),
         added: Arc::default(),
@@ -558,6 +560,7 @@ fn review_app(files: &[(&str, char, usize, usize)]) -> App {
                 untracked: false,
                 generated: false,
                 same_bytes: false,
+                agent_skipped: false,
             })
             .collect(),
         deleted: Arc::default(),
@@ -744,6 +747,48 @@ fn review_panel_puts_a_nested_file_counts_at_the_border() {
 }
 
 #[test]
+fn the_card_slides_from_the_middle_into_the_box() {
+    use crate::tutor::{Card, SLIDE, Tutor};
+    use std::time::{Duration, Instant};
+    let mut app = App::new(
+        PathBuf::from("/demo"),
+        Tree::default(),
+        Vec::new(),
+        Buffer::empty(),
+        None,
+    );
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    let mut frame = |app: &mut App, card: Card| {
+        app.tutor = Some(Tutor {
+            step: 0,
+            dir: PathBuf::from("/demo"),
+            drill: None,
+            card,
+        });
+        terminal.draw(|f| super::draw(f, app, &theme)).unwrap();
+        let top = rows(&terminal)
+            .iter()
+            .position(|l| l.contains("\u{256d} Tutor 1/"))
+            .unwrap();
+        (terminal.backend().buffer().clone(), top)
+    };
+    let (_, middle) = frame(&mut app, Card::Up);
+    let (boxed, bottom) = frame(&mut app, Card::Down);
+    let half = Instant::now().checked_sub(SLIDE / 2).unwrap();
+    let (_, sliding) = frame(&mut app, Card::Sliding(half));
+    assert!(
+        middle < sliding && sliding < bottom,
+        "{middle} < {sliding} < {bottom}"
+    );
+    let over = Instant::now()
+        .checked_sub(SLIDE + Duration::from_millis(1))
+        .unwrap();
+    let (ended, _) = frame(&mut app, Card::Sliding(over));
+    assert_eq!(ended, boxed, "the slide ends on the box, the code undimmed");
+}
+
+#[test]
 fn overlays_leave_the_tutor_panel_in_sight() {
     let files = ["src/app.rs", "src/wrap.rs"].map(PathBuf::from).to_vec();
     let mut app = App::new(
@@ -757,6 +802,7 @@ fn overlays_leave_the_tutor_panel_in_sight() {
         step: 0,
         dir: PathBuf::from("/demo"),
         drill: None,
+        card: crate::tutor::Card::Down,
     });
     let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
@@ -794,11 +840,19 @@ fn the_lesson_panel_grows_to_its_text() {
             step,
             dir: PathBuf::from("/demo"),
             drill: None,
+            card: crate::tutor::Card::Down,
         });
         terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
         let r = rows(&terminal);
-        let top = r.iter().position(|l| l.starts_with("Tutor ")).unwrap();
-        let panel = r[top + 1..r.len() - 1].join(" ").trim_end().to_owned();
+        let top = r
+            .iter()
+            .position(|l| l.starts_with("\u{256d} Tutor "))
+            .unwrap();
+        let panel = r[top + 1..r.len() - 2]
+            .iter()
+            .map(|l| l.trim_matches(['\u{2502}', ' ']))
+            .collect::<Vec<_>>()
+            .join(" ");
         let last = crate::tutor::lesson(step)
             .unwrap()
             .tutor
@@ -817,7 +871,7 @@ fn the_lesson_panel_grows_to_its_text() {
         );
         tallest = tallest.max(r.len() - 1 - top);
     }
-    assert!(tallest > 3, "no lesson wraps past two rows at 80 columns");
+    assert!(tallest > 4, "no lesson wraps past two rows at 80 columns");
 }
 
 fn hits_app(name: &str, hits: &[(&str, usize, &str)]) -> App {
@@ -1289,4 +1343,23 @@ fn the_selected_hit_row_paints_its_selection_over_a_capture_s_background() {
     let (x2, y2) = cell_at(&terminal, "5  +cc");
     assert_eq!(buf[(x + 4, y)].bg, theme.selection, "the selected row");
     assert_eq!(buf[(x2 + 4, y2)].bg, plus, "a row under it");
+}
+
+#[test]
+fn a_skipped_top_level_file_keeps_a_gap_before_its_counts_and_a_tick_takes_its_robot() {
+    let name = "a-top-level-name-that-is-long.rs";
+    let mut app = review_app(&[(name, 'M', 1, 0)]);
+    app.review.as_mut().unwrap().files[0].agent_skipped = true;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(40, 4)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(r[1].starts_with("\u{2502}\u{1f916}"), "{}", r[1]);
+    assert!(r[1].contains("\u{2026} +1 \u{2212}0\u{2502}"), "{}", r[1]);
+    assert_eq!(at(&terminal, "+1 \u{2212}0"), theme.ghost_fg);
+    app.viewed.insert(name.into(), 0);
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let r = rows(&terminal);
+    assert!(r[1].starts_with("\u{2502}\u{2713} M a-top"), "{}", r[1]);
+    assert_eq!(at(&terminal, "a-top"), theme.fg);
 }

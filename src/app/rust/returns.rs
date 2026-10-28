@@ -2,9 +2,10 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use super::chain::Got;
-use super::sysroot::{DEREF, rust_element};
+use super::sysroot::{CONSTRUCTORS, DEREF, rust_element, std_rooted};
 use super::{
-    App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, search,
+    App, Candidate, Hit, Kind, MacroUse, Path, PathBuf, Regex, bound, rust_bare_type, rust_seen,
+    search,
 };
 
 static MARKED: LazyLock<Regex> = LazyLock::new(|| {
@@ -189,15 +190,22 @@ impl App {
         text: &str,
         line0: usize,
         name: &str,
+        above: bool,
     ) -> Option<Got> {
         let lines: Vec<&str> = text.lines().collect();
-        let bindings = search::bindings(Kind::Rust, text, line0 + 1, name);
+        let bindings = rust_seen(text, line0, name, above);
         let (path, written, at) = match bindings.as_slice() {
             [b] => match search::rust_holds(&lines, b.line1 - 1, name)? {
                 search::RustHolds::Type(w) => (file.to_path_buf(), w, b.line1 - 1),
                 search::RustHolds::Call(parts) => {
                     let (decl, w) = self.rust_call_returns(file, text, b.line1 - 1, &parts)?;
                     (decl.path, w, decl.line1 - 1)
+                }
+                search::RustHolds::AssocCall {
+                    written_type,
+                    function,
+                } if CONSTRUCTORS.contains(&function.as_str()) => {
+                    (file.to_path_buf(), written_type, b.line1 - 1)
                 }
                 _ => return None,
             },
@@ -220,13 +228,14 @@ impl App {
         };
         let bare = std_kind(&written)?;
         let owner = self.text_of(&path)?;
-        (DEREF.iter().any(|(t, _)| *t == bare) && self.rust_std_named(&owner, &bare)).then_some(
-            Got::Written {
-                file: path,
-                written,
-                line0: at,
-            },
-        )
+        (DEREF.iter().any(|(t, _)| *t == bare)
+            && std_rooted(&owner, &written)
+            && self.rust_std_named(&owner, &bare))
+        .then_some(Got::Written {
+            file: path,
+            written,
+            line0: at,
+        })
     }
 
     pub(super) fn rust_std_returns(
@@ -257,6 +266,45 @@ impl App {
         } else {
             self.rust_std_marked(written, word)?
         };
+        self.rust_std_decl_returns(file, written, line0, word, &decl, None)
+    }
+
+    pub(super) fn rust_std_assoc(
+        &self,
+        file: &Path,
+        text: &str,
+        line0: usize,
+        owner: &str,
+        word: &str,
+    ) -> Option<Got> {
+        let bare = rust_bare_type(owner)?;
+        if !DEREF.iter().any(|(t, _)| *t == bare)
+            || !std_rooted(text, owner)
+            || !self.rust_std_named(text, &bare)
+        {
+            return None;
+        }
+        if CONSTRUCTORS.contains(&word) {
+            return Some(Got::Written {
+                file: file.to_path_buf(),
+                written: owner.to_owned(),
+                line0,
+            });
+        }
+        let found = self.rust_std_found(text, "", &bare, word)?;
+        let [Candidate { hit, .. }] = <[Candidate; 1]>::try_from(found).ok()?;
+        self.rust_std_decl_returns(file, owner, line0, word, &hit, Some(&bare))
+    }
+
+    fn rust_std_decl_returns(
+        &self,
+        file: &Path,
+        written: &str,
+        line0: usize,
+        word: &str,
+        decl: &Hit,
+        on: Option<&str>,
+    ) -> Option<Got> {
         let krate = ["core", "alloc", "std"].into_iter().find(|k| {
             self.sysroot_src(k)
                 .is_some_and(|s| decl.path.starts_with(&s.src))
@@ -266,6 +314,9 @@ impl App {
         let m = search::rust_method_at(&lines, decl.line1)?;
         let ret = search::rust_return_type(&lines, decl.line1 - 1)?;
         let impl_line = lines.get(m.owner_line1 - 1)?;
+        if on.is_some_and(|on| search::rust_impl_type(impl_line).as_deref() != Some(on)) {
+            return None;
+        }
         let sub = substitute(&ret, impl_line, &decl.text, word, written, krate);
         Some(self.rust_got(file, sub, line0))
     }

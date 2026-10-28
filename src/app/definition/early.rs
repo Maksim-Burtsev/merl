@@ -216,8 +216,28 @@ impl App {
         }
         self.answered_by_file(a)
             || self.answered_in_file(a)
+            || self.answered_by_typed_key(a)
             || self.answered_by_go_key(a)
             || self.answered_by_sigil(a)
+    }
+
+    fn answered_by_typed_key(&mut self, a: &Asked) -> bool {
+        if a.dotted || !a.lead.trim().is_empty() || !search::reads_jsdoc(a.kind, &a.here) {
+            return false;
+        }
+        let line1 = self.line + 1;
+        if search::jsdoc_typed_key(&a.text, line1, &a.word).is_none() {
+            return false;
+        }
+        self.external_files(a.kind);
+        let Some((hit, owner)) = self.typed_key(a.kind, &a.here, &a.text, line1, &a.word) else {
+            return false;
+        };
+        let found = vec![Candidate {
+            hit,
+            reason: Reason::Receiver(owner),
+        }];
+        self.show_found(a, found)
     }
 
     fn answered_by_module(&mut self, a: &Asked) -> bool {
@@ -307,6 +327,9 @@ impl App {
             && let java = a.here.extension().is_some_and(|e| e == "java")
             && let Some(label) = search::label_at(kind, java, &a.text, self.line, a.range.clone())
         {
+            if label.nested && self.answered_by_typed_key(a) {
+                return true;
+            }
             let found = label
                 .owner
                 .map(|o| self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, &o.how))
@@ -482,7 +505,9 @@ impl App {
             let [qualifier] = a.chain.as_slice() else {
                 return None;
             };
-            (search::sql_alias_table(&a.text, at, qualifier), Vec::new())
+            let table = search::sql_alias_table(&a.text, at, qualifier)
+                .or_else(|| self.sql_trigger_table(a, at, qualifier));
+            (table, Vec::new())
         } else {
             let (lines, column_wins) = search::sql_local(&a.text, at, &a.word);
             let table = (lines.is_empty() || column_wins)
@@ -498,6 +523,38 @@ impl App {
             return Some(self.show_found(a, found));
         }
         (!found.is_empty()).then(|| self.show_found(a, found))
+    }
+
+    fn sql_trigger_table(&self, a: &Asked, at: usize, qualifier: &str) -> Option<String> {
+        let function = search::sql_trigger_function(&a.text, at, qualifier)?;
+        let (hits, tables): (Vec<Hit>, Vec<String>) = self
+            .project_grep(Kind::Sql, &a.here, search::SQL_TRIGGER)
+            .into_iter()
+            .filter_map(|h| {
+                let table = search::sql_trigger_on(&self.hit_text(&h)?, h.line1, &function)?;
+                let text = format!("TRIGGER {table} ON {table}");
+                Some((Hit { text, ..h }, table))
+            })
+            .unzip();
+        let keep = search::sql_in_effect(&a.here, self.line + 1, &hits);
+        let mut tables: Vec<String> = tables
+            .into_iter()
+            .zip(&hits)
+            .enumerate()
+            .filter(|(i, (_, h))| {
+                h.path == a.here
+                    || keep
+                        .as_ref()
+                        .map_or_else(|| !h.path.ends_with("down.sql"), |k| k.contains(i))
+            })
+            .map(|(_, (t, _))| t)
+            .collect();
+        tables.sort();
+        tables.dedup();
+        match tables.as_slice() {
+            [t] => Some(t.clone()),
+            _ => None,
+        }
     }
 
     fn sql_in_effect_of(&self, here: &Path, table: &str, mut hits: Vec<Hit>) -> Vec<Hit> {

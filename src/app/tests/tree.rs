@@ -233,7 +233,7 @@ fn ctrl_n_on_a_fifo_does_not_read_it() {
         std::fs::remove_dir_all(&dir).unwrap();
     });
     let (message, open) = rx
-        .recv_timeout(Duration::from_secs(60))
+        .recv_timeout(Duration::from_mins(1))
         .expect("reading a FIFO waits for a writer forever");
     assert_eq!(message, "pipe: not a regular file");
     assert!(open.is_some_and(|p| p.ends_with("src/a.py")));
@@ -366,4 +366,68 @@ fn ctrl_n_over_edits_that_cannot_be_saved_creates_nothing() {
     assert!(!dir.join("src/b.py").exists());
     assert_eq!(a.buf.path.as_deref(), Some(&*dir.join("src/a.py")));
     std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn the_page_keys_and_braces_move_the_focused_tree_and_leave_the_code() {
+    let files: Vec<(String, &str)> = ["a/b/c/x.rs", "docs/d.md"]
+        .into_iter()
+        .map(String::from)
+        .chain((1..=6).map(|i| format!("f{i}.rs")))
+        .map(|f| (f, "x\n"))
+        .collect();
+    let files: Vec<(&str, &str)> = files.iter().map(|(f, t)| (f.as_str(), *t)).collect();
+    let (_, mut a) = project_app("tree-keys", &files);
+    a.focus = Focus::Tree;
+    a.tree_h = 3;
+    a.tree.reveal(Path::new("a/b/c/x.rs"));
+    a.tree.fold(|_, _| 99);
+    let row = |a: &App| a.tree.row_name(a.tree.cursor);
+    let go = |a: &mut App, code: KeyCode, m: KeyModifiers| {
+        press(a, code, m);
+        (row(a), a.tree_top)
+    };
+    let none = KeyModifiers::NONE;
+    let ctrl = KeyModifiers::CONTROL;
+    let shift = KeyModifiers::SHIFT;
+    assert_eq!(go(&mut a, KeyCode::Home, ctrl | shift), ("a/b/c".into(), 0));
+    assert_eq!(go(&mut a, KeyCode::PageDown, none), ("f1.rs".into(), 3));
+    assert_eq!(go(&mut a, KeyCode::Char('d'), ctrl), ("f2.rs".into(), 4));
+    assert_eq!(go(&mut a, KeyCode::Char('u'), ctrl), ("f1.rs".into(), 3));
+    assert_eq!(go(&mut a, KeyCode::PageUp, shift), ("a/b/c".into(), 0));
+    assert_eq!(go(&mut a, KeyCode::End, none), ("f6.rs".into(), 6));
+    a.pressed.clear();
+    assert_eq!(go(&mut a, KeyCode::Home, ctrl), ("a/b/c".into(), 0));
+    assert_eq!(a.pressed, HashMap::from([("Tree: Home", 1)]));
+    let braces: Vec<String> = "}}{{{}"
+        .chars()
+        .map(|c| go(&mut a, KeyCode::Char(c), none).0)
+        .collect();
+    assert_eq!(
+        braces,
+        ["docs", "f6.rs", "docs", "a/b/c", "a/b/c", "docs"],
+        "folder rows one per press, the last row past the last, a joined row one stop"
+    );
+    assert!(
+        !folder_open(&a, "docs"),
+        "a collapsed folder stays collapsed"
+    );
+    assert_eq!((a.line, a.focus), (0, Focus::Tree), "the code never moved");
+
+    let (_, mut b) = project_app("tree-files", &[("a.rs", "x\n"), ("b.rs", "x\n")]);
+    b.focus = Focus::Tree;
+    b.tree.reveal(Path::new("b.rs"));
+    press(&mut b, KeyCode::Char('{'), none);
+    assert_eq!(
+        row(&b),
+        "a.rs",
+        "with no folder above, `{{` goes to the first row"
+    );
+}
+
+fn folder_open(a: &App, path: &str) -> bool {
+    a.tree
+        .nodes
+        .iter()
+        .any(|n| n.path == Path::new(path) && n.expanded)
 }

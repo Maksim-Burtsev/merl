@@ -113,7 +113,12 @@ impl App {
         self.php_named(here, text, range, access)
     }
 
-    fn php_function(&self, here: &Path, text: &str, range: Range<usize>) -> Option<Vec<Candidate>> {
+    fn php_function(
+        &mut self,
+        here: &Path,
+        text: &str,
+        range: Range<usize>,
+    ) -> Option<Vec<Candidate>> {
         let written = search::php_function_at(self.line_str(), range)?;
         let short = written.rsplit('\\').next().unwrap_or(&written);
         let pattern = format!(r"^\s*function\s+&?\s*{}\s*\(", regex::escape(short));
@@ -125,35 +130,65 @@ impl App {
             if i > 0 && truncated {
                 return None;
             }
-            let ns = name.full.rsplit_once('\\').map_or("", |(ns, _)| ns);
-            let reason = match (name.imported, ns) {
-                (true, _) => Reason::Import(name.full.clone()),
-                (false, "") => Reason::ByName,
-                (false, ns) => Reason::Path(ns.to_owned()),
-            };
-            let found: Vec<Candidate> = hits
-                .iter()
-                .filter(|h| {
-                    let Some(t) = self.text_of(&h.path) else {
-                        return false;
-                    };
-                    let at = h.line1 - 1;
-                    let lines: Vec<&str> = t.lines().collect();
-                    search::literal_lines(Kind::Php, &t).get(at) != Some(&true)
-                        && search::php_enclosing_class(&lines, at).is_none()
-                        && search::php_namespace(search::php_block(&t, at)).unwrap_or_default()
-                            == ns
-                })
-                .map(|h| Candidate {
-                    hit: h.clone(),
-                    reason: reason.clone(),
-                })
-                .collect();
+            let found = self.php_functions_in(&hits, name);
             if !found.is_empty() {
                 return Some(found);
             }
         }
+        if truncated {
+            return None;
+        }
+        let vendor = self.root.join("vendor");
+        let listing = std::fs::read_to_string(vendor.join("composer/autoload_files.php")).ok()?;
+        let loaded = search::php_autoload_files(&listing, &vendor);
+        let hits = self.outside_grep(Kind::Php, &loaded, &pattern, None);
+        self.truncated.set(cut);
+        if hits.iter().any(|h| search::php_polyfill(&h.path))
+            || names
+                .iter()
+                .all(|n| self.php_functions_in(&hits, n).is_empty())
+        {
+            return None;
+        }
+        let files = self.external_files(Kind::Php);
+        let hits = self.outside_grep(Kind::Php, &files, &pattern, None);
+        if self.truncated.replace(cut) || hits.iter().any(|h| search::php_polyfill(&h.path)) {
+            return None;
+        }
+        for name in &names {
+            let found = self.php_functions_in(&hits, name);
+            match found.len() {
+                0 => {}
+                1 => return Some(found),
+                _ => return None,
+            }
+        }
         None
+    }
+
+    fn php_functions_in(&self, hits: &[Hit], name: &search::PhpResolved) -> Vec<Candidate> {
+        let ns = name.full.rsplit_once('\\').map_or("", |(ns, _)| ns);
+        let reason = match (name.imported, ns) {
+            (true, _) => Reason::Import(name.full.clone()),
+            (false, "") => Reason::ByName,
+            (false, ns) => Reason::Path(ns.to_owned()),
+        };
+        hits.iter()
+            .filter(|h| {
+                let Some(t) = self.text_of(&h.path) else {
+                    return false;
+                };
+                let at = h.line1 - 1;
+                let lines: Vec<&str> = t.lines().collect();
+                search::literal_lines(Kind::Php, &t).get(at) != Some(&true)
+                    && search::php_enclosing_class(&lines, at).is_none()
+                    && search::php_namespace(search::php_block(&t, at)).unwrap_or_default() == ns
+            })
+            .map(|h| Candidate {
+                hit: h.clone(),
+                reason: reason.clone(),
+            })
+            .collect()
     }
 
     fn php_named(
@@ -180,6 +215,13 @@ impl App {
             search::Psr4File::Found(path) => path,
             search::Psr4File::Missing => return None,
             search::Psr4File::OutsideProject => {
+                let block = search::php_block(text, self.line);
+                if self.php_class(here, block, &written).1.is_empty()
+                    && let Some(found) =
+                        self.php_outside_named(&full, short, &word, (member, imported), access)
+                {
+                    return Some(found);
+                }
                 let imports = [search::Import {
                     name: short.to_owned(),
                     path: full.split('\\').map(str::to_owned).collect(),
@@ -234,6 +276,53 @@ impl App {
         Some(
             found
                 .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
+    }
+
+    fn php_outside_named(
+        &mut self,
+        full: &str,
+        short: &str,
+        word: &str,
+        (member, imported): (bool, bool),
+        access: search::PhpAccess,
+    ) -> Option<Vec<Candidate>> {
+        let [class] =
+            <[PhpClass; 1]>::try_from(self.php_outside_classes(Some(full), short)).ok()?;
+        let hits = if member {
+            let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
+            match self.php_walk(
+                &class.path,
+                &class.text,
+                class.header0,
+                &re,
+                0,
+                &mut Vec::new(),
+            ) {
+                Walk::Found(hits) => hits,
+                Walk::Nowhere | Walk::NowhereOutside | Walk::Unread => return None,
+            }
+        } else {
+            vec![Hit {
+                deleted: None,
+                path: class.path.clone(),
+                line1: class.header0 + 1,
+                byte_col: None,
+                text: class.text.lines().nth(class.header0)?.to_owned(),
+            }]
+        };
+        let reason = if imported {
+            Reason::Import(full.replace('\\', "/"))
+        } else {
+            Reason::Path(short.to_owned())
+        };
+        Some(
+            hits.into_iter()
                 .map(|hit| Candidate {
                     hit,
                     reason: reason.clone(),
@@ -371,8 +460,25 @@ impl App {
                 let class = matching.remove(0);
                 self.php_walk(&class.path, &class.text, class.header0, re, depth, seen)
             }
-            0 => self.php_outside(full.as_deref(), short, re),
+            0 => self.php_outside_walk(full.as_deref(), short, re, depth, seen),
             _ => Walk::Unread,
+        }
+    }
+
+    fn php_outside_walk(
+        &mut self,
+        full: Option<&str>,
+        short: &str,
+        re: &Regex,
+        depth: usize,
+        seen: &mut Vec<(PathBuf, usize)>,
+    ) -> Walk {
+        match self.php_outside_classes(full, short).as_slice() {
+            [one] => match self.php_walk(&one.path, &one.text, one.header0, re, depth, seen) {
+                Walk::Nowhere => Walk::NowhereOutside,
+                other => other,
+            },
+            _ => self.php_outside(full, short, re),
         }
     }
 
@@ -541,10 +647,7 @@ impl App {
     ) -> Option<Vec<Candidate>> {
         let short = full.rsplit('\\').next().unwrap_or(full);
         let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
-        let walk = match self.php_outside_classes(Some(full), short).as_slice() {
-            [one] => self.php_walk(&one.path, &one.text, one.header0, &re, 0, &mut Vec::new()),
-            _ => self.php_outside(Some(full), short, &re),
-        };
+        let walk = self.php_outside_walk(Some(full), short, &re, 0, &mut Vec::new());
         let reason = Reason::Receiver(links);
         Some(match walk {
             Walk::Found(hits) => hits
@@ -700,7 +803,7 @@ impl App {
 
     fn php_returns(&mut self, class: &PhpClass, method: &str) -> Option<Returned> {
         let hit = self.php_one_method(class, method)?;
-        if self.php_returns_static(&hit) {
+        if self.php_returns_static(&hit) || self.php_documented_self(&hit) {
             return Some(Returned {
                 class: class.clone(),
                 written: "static".to_owned(),
@@ -725,6 +828,20 @@ impl App {
                 .is_some_and(|w| w.eq_ignore_ascii_case("static"))
     }
 
+    fn php_documented_self(&self, hit: &Hit) -> bool {
+        let Some(text) = self.text_of(&hit.path) else {
+            return false;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let at = hit.line1 - 1;
+        let header = lines.get(at..lines.len().min(at + 20)).unwrap_or_default();
+        !header
+            .first()
+            .is_some_and(|l| l.trim_start().starts_with('*'))
+            && search::php_return_untyped(&header.join("\n"))
+            && search::php_doc_returns_self(&lines, at)
+    }
+
     fn php_called(
         &mut self,
         here: &Path,
@@ -744,6 +861,11 @@ impl App {
                 let ProvenClass { class, link } =
                     self.php_variable_type(here, text, &name, self.line, true)?;
                 (class, vec![link])
+            }
+            search::PhpCallHead::Static { class, method } => {
+                let on = self.php_type(here, text, self.line, &class)?;
+                let Returned { class: to, written } = self.php_returns(&on, &method)?;
+                (to, vec![format!("{class}::{method}(): {written}")])
             }
             search::PhpCallHead::Callable(name) => {
                 let [b] = search::php_variable(text, self.line + 1, &name)?[..] else {

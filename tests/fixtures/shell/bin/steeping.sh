@@ -99,3 +99,94 @@ echo $'it\'s'
 strainer() { echo; }
 strainer
 # ^ d: bin/steeping.sh:99
+
+glaze() {
+  coat="$1"
+  if [ -n "$coat" ]; then
+    coat="thin $coat"
+    #           ^ d: bin/steeping.sh:104
+  elif [ "$coat" = x ]; then
+    coat="x $coat"
+    #        ^ d: bin/steeping.sh:104
+  else
+    echo "$coat"
+    #      ^ d: bin/steeping.sh:104
+  fi
+  echo "$coat"
+  #      ^ d: bin/steeping.sh:109
+}
+rinse() {
+  water=0
+  if [ -n "$1" ]; then
+    water=1
+  fi
+  if [ -n "$2" ]; then
+    :
+  else
+    echo "$water"
+    #      ^ d: bin/steeping.sh:121
+  fi
+}
+drain() {
+  dregs=0
+  while read -r drip; do
+    dregs="$drip"
+  done
+  if [ -n "$1" ]; then
+    :
+  else
+    echo "$dregs"
+    #      ^ d: bin/steeping.sh:133
+  fi
+}
+sieve() {
+  mesh="$1"
+  case "$mesh" in
+    fine)
+      mesh="fine $mesh"
+      ;;
+    hot)
+      mesh="hot"
+      ;&
+    warm)
+      echo "$mesh"
+      #      ^ d: bin/steeping.sh:149
+      ;;
+    coarse)
+      echo "$mesh"
+      #      ^ d: bin/steeping.sh:143
+      case "$2" in
+        a)
+          mesh=a
+          ;;
+      esac
+      echo "$mesh"
+      #      ^ d: bin/steeping.sh:160
+      ;;
+  esac
+  echo "$mesh"
+  #      ^ d: bin/steeping.sh:160
+}
+simmer() {
+  os="$1"
+  os=$(case "$(uname)" in
+    Darwin) echo mac ;;
+    *) echo linux ;;
+  esac)
+  echo "$os"
+  #      ^ d: bin/steeping.sh:172
+}
+decoct() {
+  out=""
+  while getopts "o:p" opt; do
+    case "$opt" in
+      o)
+        out="$OPTARG"
+        ;;
+      p)
+        echo "$out"
+        #      ^ d: bin/steeping.sh:184
+        ;;
+    esac
+  done
+}

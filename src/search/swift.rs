@@ -233,6 +233,7 @@ pub struct SwiftParam {
     pub defaulted: bool,
     pub variadic: bool,
     pub closure: bool,
+    pub ty: String,
 }
 pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Vec<SwiftParam>> {
     let line = lines.get(line0)?;
@@ -271,6 +272,7 @@ pub fn swift_param_labels(lines: &[&str], line0: usize, name: &str) -> Option<Ve
                 defaulted: parts.len() > 1,
                 variadic: ty.ends_with("..."),
                 closure: top_level_arrow(bare),
+                ty,
             })
         })
         .collect()
@@ -925,7 +927,9 @@ pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
 }
 pub fn swift_binds_on(line: &str, name: &str) -> bool {
     let t = uncommented(Kind::Swift, line).trim().to_owned();
-    if SWIFT_FUNC.is_match(&t) && swift_params_bind(&t, name) {
+    if (SWIFT_FUNC.is_match(&t) && swift_params_bind(&t, name))
+        || swift_generics(&t).iter().any(|g| g == name)
+    {
         return true;
     }
     let binds = if t.starts_with("guard ") {

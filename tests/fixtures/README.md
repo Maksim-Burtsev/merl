@@ -245,6 +245,14 @@ whose receiver is read on its own line, `M.Gaiwan = Gaiwan` answered by the modu
 closure and in a `function(self)`, a call above the `local function` of its name (a global, so
 none), a one-line string, a `--` comment and a `--[==[` block declaring names, and `goto continue`
 (#1209).
+`lua/tea/annotated.lua` reads LuaLS annotations (#1290): a field of the `Leaf` of `_meta/leaf.lua`
+through a `---@param leaf? Leaf` and a local function's one `---@return Leaf?`, and the
+`---@class` above `caddy.lua`'s module table, whose members an `__index` function makes; a
+`Leaf[]`, a `Leaf|nil`, a `---@param` of another name, a parameter shadowed by a local, a
+function passed as an argument and a second `---@return` answer nothing. `brand.lua`'s `define`
+returns `setmetatable({..}, { __index = _M })`, so its result's `enable` is `_M`'s, while a
+second value returned beside it and an `__index` of another table stay a picker; `typedefs.lua`
+makes members by calls (`Schema.define {`, `Schema.define(`), and `x = x or 0` is none.
 `shell/lib/tea.sh` and `shell/bin/tea.sh` have a variable and a function both named `pour`, used
 as `$pour`, `${#pour}`, `(( pour++ ))` and as a command, `command steep`, case patterns named like functions, a
 function declared twice, `for` and `read` variables, and two heredocs declaring functions.
@@ -264,13 +272,21 @@ in a pipeline over lines and in a heredoc, `whisk=$(whisk 2)`, a `for` variable 
 function, `read` in a `while` header, `read -ra`, `mapfile`, `printf -v`, `declare -n`, an
 associative array, `${leaf:-..}`, a function declared in both arms of an `if`, a function named
 in a `trap` string, a function declared in a function, `[[ -v ]]` and `unset`, `local leaf=$leaf`,
-`export -f`, and a `: '..'` block and a quoted heredoc declaring functions.
+`export -f`, and a `: '..'` block and a quoted heredoc declaring functions. Its `glaze` reads a
+variable in the `elif` and `else` branches of an `if` whose earlier branch assigns it, and after
+the `fi` (#1270): inside the `if`, the assignment above it answers. `rinse` and `drain` read one in
+the `else` of an `if` that follows an `if` or a loop already closed, whose assignment answers.
+`sieve` reads one in a later arm of a `case` whose earlier arm `;;` ended: the assignment above
+the `case` answers. `simmer` reads one after a `case` inside `$(..)`, and `decoct` in an arm of a
+`case` inside a `while` loop, where an earlier pass ran the earlier arm: the nearest assignment
+answers, as on master.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
 each part of its selector, a property, a block property, the four `NS_ENUM` macros, a category, a
 class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
-the refusals included, from `Profile.mm`.
+the refusals included, from `Profile.mm`. Its `Order` and `include/shop/warehouse.h`'s
+`courier_cmp` take unnamed `const T` and `struct T` parameters, whose `T` is a type (#1276).
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
@@ -318,6 +334,23 @@ declaration of its own overload (#1248). `Taper(Gills n)` is declared in another
 declaration. `Nozzle(1)` lands on the one definition out of class, `Ewer(1)` on the declaration it
 lacks. `Wisp(1, 2)` fits only its own constructor, `Pail("x")` a default parameter and `Gourd`'s
 arguments hold a `<`: each keeps master's picker of the namesake classes (#1248).
+Out of the class, `Spout::Spout() : Spout(500)` and `Cruet(1)` delegate the same way, and
+`pot::Beaker::Beaker()` to the constructor of `pot`'s `Beaker`, not of the global namesake;
+`Cruet(u)` may be the copy, `Flask(250)` fits two and `Flask("x")` from `Flask(int a)` could be
+itself, so those keep master's answer (#1248). `Beaker()` inside `namespace pot` lands on the
+definition spelled `pot::Beaker::Beaker()` outside it.
+`c/src/tea/carafe.cc` delegates to classes of `c/include/tea/carafe.hh`: `Carafe(500)` in `pot` to
+its definition beside it, `Carafe(1, 2)` and `Urn(1, 2)` to the global class's declarations, not
+to `pot::Urn`'s definition; `Carafe(ml)`, `Decanter(250)`, `Jug(1)` and `Flagon(1)`, whose class
+`carafe_twin.hh` writes again, keep master's answer (#1248).
+`c/src/tea/gaiwan.cc` calls `ext::Gaiwan(a, 0)`, a base class outside the project, from
+`Gaiwan::Gaiwan(int a)` and `ext::Kyusu(a, 0)` from a constructor inside `Kyusu`: a qualified call
+names another class, so neither is a delegation and neither lands on the derived class's own
+two-argument constructor; they keep the lookup by name (#1248). `Tureen(1)` in a template class
+lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::Chawan::Chawan`
+as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
+`sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside
+it, where master jumped (#1248).
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -329,6 +362,29 @@ project's, a builder chained on one line and over lines, a call on a call's resu
 cup.Refill()`, an inherited property, an interface default method, an extension method beside an
 instance namesake, a local function, a primary constructor whose parameter a method's own
 parameter hides, and declarations in a block comment, a raw interpolated string and `#if false`.
+Its `Rounds.cs` (#1282) reads the element of a framework collection: a `foreach` over an awaited
+call, a LINQ lambda's parameter and `FirstOrDefault()`; a `Dictionary`, `Aggregate`'s two
+parameters, overloads returning two element types and a project extension named `Last` stay pickers.
+Its `Served` (#1282) reads the element `Select` makes, through a project extension method or `new`,
+of a `foreach` and of an indexer over `.ToList()`, and of an array that `Deserialize<T[]>(…) ??
+Array.Empty<T>()` gives on both sides; `Doubtful`'s `??` with two element types and a `Select`
+with a block body stay pickers. Its `Stacked` (#1301) calls `TrueForAll` on `Saucers : List<Cup>`,
+which `List<T>` may declare before the project's extension of `Saucers`: a picker of the
+extension; `Equated` calls `Tip` on `Tray : IEquatable<Tray>`, an interface, which declares nothing
+that beats the extension: a jump. `Towered` calls `Topple` on `Tower : Saucers`, a project class
+whose own base is `List<Cup>`: a picker; and `Rank` on `Grade : byte`, an enum, whose underlying type
+is no base class: a jump.
+Its `Checks.cs` (#1298) holds FluentValidation validators: the lambda of `RuleFor`, `RuleForEach`
+and `When` in a class whose one base is `AbstractValidator<T>` takes `T` (`Cup`, and `Stove`
+through `FluentValidation.AbstractValidator`), on one line or over two; a second lambda binding the
+name on the line, `Include`, a qualified `platter.RuleFor`, a second base, a generic `T` and a class
+of another base stay pickers. `JarValidator`'s `T` is a type the file's alias names, which that rule
+does not read: a picker.
+`csharp/src/Shop/Pantry/` (#1298) declares `Jar` in `Shop.Pantry` and `Shop.Pantry.Old`; a
+`using Jar = Shop.Pantry.Old.Jar;` of the file sends `Jar` in a type's place to the old one, in
+`Aliased.cs` with no namespace and in `Checks.cs` in `Shop.Tea.Infuse`. `Shadowed.cs` in
+`Shop.Pantry`, whose own `Jar` comes before the alias, and `Boxed<Jar>`'s type parameter keep
+master's picker.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -528,7 +584,12 @@ whose base comes from the uninstalled `sequelize-typescript`, beside a type's `c
 `isDevelopment` off the default export of `settings.ts`, typed `Record<…> & { … }` over several
 lines, beside a class's getter of that name (#1079); `grown.ts` calls a member `Object.assign`
 mixes into the prototype of a class whose bases reach that package, beside a namesake mixed into
-another class. `crate.js` reads `hinge` off an untyped parameter, declared only
+another class. `keys.ts` puts keys of a type literal and of an object literal, at the start of
+their lines, above a module-level `const` of each key's name: a type literal's key (`name: T;`) is its own
+definition, an object literal's stays a key (#1273). The last key of a nested object literal
+closed on its line (`locale: given.locale } };`) is a key too, two levels down under a quoted
+key as well (#1291); an `interface`'s key is its own definition.
+`crate.js` reads `hinge` off an untyped parameter, declared only
 as a plain property of an interface in `node_modules/parcel-kit` (#1078). `rule.js` is an ESLint
 rule whose visitors' `node` is the `@types/estree` interface the method names (#1078): an own
 member, an inherited one, one the interface lacks (offered by name, as untyped), a nested
@@ -553,6 +614,19 @@ a commented-out declaration, and `this` in a class expression. One answer is rea
 answers the interface's. `caddy.ts` and `tins.ts` hold std names the project shadows: a project
 `Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
 whose member is "not installed", never "builtin".
+
+`typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
+`@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,
+whose members come from an aliased `@lint/core` base, and whose `sourceCode` is `Options["Code"]`
+of that base, filled by the `{ Code: SourceCode }` of the extends clause; `SourceCode` is a class
+beside a namespace of its name. `rules/loud.js` holds what stays a picker: a rule with no `@type`,
+a parameter `create` does not declare, a union `@type`, and a `const x = a.b` whose statement
+goes on with `.getFirstToken(..)` on the next line, so `x` is no field. `token_store.js` declares
+the namesakes. `rules/keyed.js` holds the rule's own keys (#1288): `create`, the `docs` of `meta`
+(declared on `@lint/core`'s `RulesMeta`, through the unaliased `RuleDefinition` base) and the
+listener `onCodePathStart` of the object `create` returns (its declared `RuleListener`); a key of
+an untyped object, a key under a member typed by no interface, and a `return {` of a function
+nested in `create` keep their answer of today in `rules/loud.js`.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -620,10 +694,24 @@ parameter named like that function, `super` in an extension, a `typealias` in bo
 and a multi-line string and a block comment declaring what `Sencha.swift` declares. Where
 sourcekit-lsp offers a non-final class's method with its override, the annotation takes the
 declared type's method.
+`swift/Sources/Shop/Glazing.swift` (#1272) puts the cursor on declarations named like a property
+or a type of the project: a parameter on a continuation line of a wrapped signature (one behind a
+closure default too), and a generic parameter of a class and of a function. Each answers as at a
+declaration; a label on a wrapped call's continuation line still lands on its signature.
 `swift/Sources/Shop/Faucets.swift` (#1072) calls a method with two overloads, both returning
 `Faucet`, on a value an inherited method returns, and then `.pour` on the next line or the same
 one: it lands on `Faucet.pour`, not `Cistern.pour`. Overloads that return two types (`either`)
 keep the picker.
+`swift/Sources/Shop/Arguments.swift` (#1286) passes an implicit member `.indexed` to an
+initializer and a static method whose parameter is typed `Layout`, a type nested in two types:
+each lands on its own callee's `Layout`. A generic parameter named `Layout`, two overloads whose
+parameters take two types, and a ternary keep the picker; a parameter typed from outside the
+project answers none, not the project's namesake. A memberwise init's `var lane = Lane.standard`
+reads `Lane` from the struct's scope, the nested `Ticket.Lane`; a property whose value is a static
+func's call (`Rush.make()`) keeps the picker. A method of a value whose type merl knows
+(`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
+also opens; two overloads taking
+two types, or a receiver merl cannot type, keep the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -659,6 +747,19 @@ master jumped to `Leaf::len`.
 and `n.to_string()` in `label`: both are a `String`, where master jumped to `Leaf::len`.
 `heaped` matches into two fields of the same project struct, so `heap` is `Scoop`'s, not a picker
 with `Dipper`'s; `restrung` calls `to_string` on a `String`, not a `str` (#1044).
+`split_heap` binds `kept` in `let (kept, dipper) = spoons.split()`, a method returning a tuple, so
+`heap` is `Scoop`'s, as it is when the pattern rebinds its head (`split_again`), when it nests a
+tuple over a tuple literal (`split_nested`) or over a method returning a nested tuple
+(`split_deep`), and when the literal hands the pattern's own name to another one
+(`split_swapped`, read among the bindings above the line) (#1044). `split_dipped` rebinds `spoons` to a
+`Dipper`, which has no `split`, before the tuple rebinds it again: the head is the nearest
+binding, so it keeps the picker where reading the parameter jumped to `Scoop::heap`.
+`rebuilt` and `recupped` start a `let` chain at a `String::from(..)`, a `Vec::<u32>::new()` and a
+`Vec::with_capacity(2)`, so `len` is std's, where master jumped to `Leaf::len` (#1044).
+`sifted` rebinds `spoons` in a tuple whose line holds a closure taking a `spoons` of its own: the
+head is read among the bindings above the line, so `heap` is `Scoop`'s and the lookup ends.
+`hashed` heads its chain at `hashbrown::HashMap::new()`: the path's root is not std's, so `len`
+is not std's either and `d` answers by name, as master did.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
@@ -678,6 +779,10 @@ one-table `SELECT` and its subquery, `ALTER TABLE` (`RENAME`, `DROP`, a `CHECK`)
 `UPDATE OF`, and `ADD COLUMN`s on the lines under their `ALTER TABLE`; and none where a second
 table, a derived table, a function in `FROM`, an `AS` of the same name or a `REFERENCES` could
 own the name.
+`scrub_sifters` reads `NEW.` and `OLD.` columns for #1284 through the trigger below the function,
+a statement's own CTE named `new` keeps them out, `drain` behind triggers on two tables answers
+nothing, and `rinse`, whose trigger only `rinse_sifters` creates later, answers nothing either;
+a trigger on `meshes` running `audit.scrub ()` is not `scrub`'s.
 
 `sql/tea/` and `dart/lib/tea/` are the adversarial corners of #931 for SQL and Dart, in a tea
 set's names. `sql/tea/` has a `kettles` in two schemas, a CTE with a column list and one
@@ -703,6 +808,26 @@ named and unnamed extensions, a prefixed named constructor, a class through a re
 (#1221), `${..}` in a string beside a `'''` string and a `//` comment declaring names, a local
 function, a class method that hides the top-level function of its name, an enum's value, field and
 method, `call()` on a field, and a type parameter's bound (#1220).
+`dart/lib/caddy.dart` (#1280) walks chains of names with no call (`shelf.caddy.scoop.heap()`,
+`spare?.caddy.scoop`, one inside `${..}`) to the `heap` of `Scoop` or of `Spoon`; a method
+named in the chain without a call is a tear-off, so `shelf.caddy.pick.call()` does not jump to
+`Scoop.call`. `ladle` and `tongs` are fields read through their initializers, one with a declared
+type and one a constructor call.
+`dart/lib/tin.dart` (#1299) reads a field of the enclosing class by its bare name, in `$name` and
+`${..}` interpolation and outside a string, beside a namesake in `Label`; a parameter of the field's
+name keeps it, and a parameter declared on a line of its own stays where it is. `Caddie` loops
+over a field made by a typed list literal, a field typed `List<Sprig>` and a parameter typed
+`List<Weed>` to the element's `swirl`, while a loop over an untyped `[]` does not jump; `Urn`
+reads a field `_Urn` makes with a constructor call. `dart/lib/lid.dart` (#1299) reads a constructor
+parameter in its own initializer list, on the constructor's line and on the next, and a
+`case final value?` binding, each beside a getter of that name the bare field rule must not take.
+`dart/lib/vat/` (#1299) reads fields a `Child` inherits from a `Base` of another library: one
+a top-level `pen` of `child.dart` shadows, a private `_ink` the child cannot see, and a `nib`
+that types its receiver.
+`dart/lib/flask.dart` (#1299) reads a local set from an awaited getter of `Pod<T>`, beside a
+namesake `petal` in `Bloom` and `Thorn`: `Future<Bloom>`, `FutureOr<Thorn>`, and `Future<T>` /
+`Future<T?>` whose `T` the `Future<Thorn>` handed to `Pod.of` decides. A getter returning
+`dynamic`, a `T` from `Pod.wrap(T)` and one from a generic method's `Future<S>` do not jump.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
@@ -737,7 +862,17 @@ declaration-shaped lines in a KDoc, a raw string and a string template.
 and explicit `getMetadata()` lead to a `@Data` `Spec`, an interface `Meta` and a `@Getter`
 field of `Owner`, beside a `Sender` declaring the same getters, a `getDisplayName()` that returns
 a type outside the project, a chain off a call that is no getter (a picker of the explicit
-getter and the Lombok fields) and a getter returning a type parameter. `jvm/src/main/java/typeargs/`
+getter and the Lombok fields) and a getter returning a type parameter. Its `Flow` (#1278) types
+lambda parameters by their chain, and `Ticket`, a `@Data` class under a `@Deprecated(` over
+several lines, is reached through a `.map(Ticket::from)` step, a `Collectors.toMap` lambda and a
+`var` assigned from a call with a call in its arguments, beside an overloaded `Ticket::of`, a
+`Ticket::label` returning an `Optional` and a `Draft` with no Lombok under a multi-line
+annotation, whose field after a `@Getter` one over two lines is no getter. `jvm/src/main/java/chained/` (#1278)
+chains the setters of two Lombok `@Accessors(chain = true)` classes: `setName` after
+`setAddress(a)` is not `Address.name`, as if the setter returned its field's type, while
+`getName` after `getAddress()` is. `getters/Town.java` passes a lambda to
+`herald.<Notice>emit(..)`, whose receiver is read past its type arguments, beside an `emit` of
+its own. `jvm/src/main/java/typeargs/`
 calls `Specs.<Build, Map<String, ?>>single(..)` (#1074), whose declaration nests its type
 parameters, beside an `Other.single` that a read by name would offer. `jvm/src/main/java/typeuse/`
 (#1115) calls static methods of project types: one returning `@Nullable T`, one behind an

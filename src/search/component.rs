@@ -134,11 +134,22 @@ pub fn template_reaches<S: AsRef<str>>(
     code: &[bool],
     word: &str,
     line: usize,
+    col: usize,
 ) -> bool {
+    !template_reaching(lines, code, word, line, col).is_empty()
+}
+pub fn template_reaching<S: AsRef<str>>(
+    lines: &[S],
+    code: &[bool],
+    word: &str,
+    line: usize,
+    col: usize,
+) -> Vec<usize> {
     let text = |i: usize| lines[i].as_ref();
     let indent = |i: usize| text(i).len() - text(i).trim_start().len();
     let opens = |i: usize| text(i).trim_start().starts_with(['<', '{']);
-    template_binds(lines, code, word).into_iter().any(|b| {
+    let mut bound = template_binds(lines, code, word);
+    bound.retain(|&b| {
         let at = b - 1;
         let start = (0..=at)
             .rev()
@@ -152,7 +163,60 @@ pub fn template_reaches<S: AsRef<str>>(
             t.is_empty() || t == ">" || indent(i) > base || sibling && indent(i) == base
         };
         start <= line && (line <= at || (at + 1..=line).all(within))
-    })
+    });
+    bound.extend(arrow_reaching(lines, code, word, line, col));
+    bound
+}
+fn arrow_reaching<S: AsRef<str>>(
+    lines: &[S],
+    code: &[bool],
+    word: &str,
+    line: usize,
+    col: usize,
+) -> Vec<usize> {
+    static ARROW: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?:\(([^()]*)\)|([A-Za-z_$][\w$]*))\s*=>(.*)$")
+            .expect("the regex is a literal")
+    });
+    let text = |i: usize| lines[i].as_ref();
+    let indent = |i: usize| text(i).len() - text(i).trim_start().len();
+    let open = |rest: &str| {
+        let opens = rest.matches(['(', '[', '{']).count();
+        rest.trim().is_empty() || opens > rest.matches([')', ']', '}']).count()
+    };
+    let closes_before_cursor = |at: usize, from: usize| {
+        let cursor = text(line).get(..col).unwrap_or_else(|| text(line));
+        let body = (at + 1..line).map(text).chain([cursor]);
+        let mut depth = 0i32;
+        std::iter::once(text(at).get(from..).unwrap_or(""))
+            .chain(body)
+            .flat_map(str::chars)
+            .any(|c| {
+                depth += match c {
+                    '(' | '[' | '{' => 1,
+                    ')' | ']' | '}' => -1,
+                    _ => 0,
+                };
+                depth < 0
+            })
+    };
+    if code.get(line).copied().unwrap_or(true) {
+        return Vec::new();
+    }
+    (0..line)
+        .rev()
+        .take_while(|&i| !code.get(i).copied().unwrap_or(true))
+        .filter(|&at| {
+            ARROW.captures_iter(text(at)).any(|c| {
+                let params = c.get(1).or_else(|| c.get(2)).map_or("", |m| m.as_str());
+                pattern_names(params).contains(&word)
+                    && c.get(3)
+                        .is_some_and(|r| open(r.as_str()) && !closes_before_cursor(at, r.start()))
+            }) && (at + 1..=line).all(|i| text(i).trim().is_empty() || indent(i) > indent(at))
+        })
+        .take(1)
+        .map(|at| at + 1)
+        .collect()
 }
 fn pattern_names(pattern: &str) -> Vec<&str> {
     static TOKEN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {

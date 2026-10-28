@@ -1,0 +1,558 @@
+merl snapshot: review-skipped
+
+==== 80x24 tokyonight-moon text, cursor 33,11
+┌feature ← main──────────────┐ 5 from config import Config, load_config
+│  M store.py           +4 −1│ 6 from models import Note
+│  ▾ tests                   │ 7
+│🤖  A __init__.py      +0 −0│ 8
+│  A tags.py            +1 −0│ 9 class NoteStore:
+│🤖 D Makefile          +0 −7│10     """Reads and writes the notes of a single
+│                            │       JSON file."""
+│                            │11
+│                            │12     def __init__(self, config: Config | None =
+│                            │       None) -> None:
+│                            │  ▎        self.config = config or load_config()
+│                            │13▎        self.config = config or load_settings()
+│                            │14         self.notes: list[Note] = self._read()
+│                            │15
+│                            │16     def _read(self) -> list[Note]:
+│                            │17         """Load the notes from disk; a missing
+│                            │           file means no notes yet."""
+│                            │18         if not self.config.path.exists():
+│                            │19             return []
+│                            │20         raw = json.loads(self.config.path.
+│                            │           read_text(encoding="utf-8"))
+│                            │21         return [Note.from_dict(item) for item
+└ 4 files · +5 −8 ───────────┘           in raw]
+store.py  13:1  [code]  hunk 1/2  file 1/4
+
+==== 80x24 tokyonight-moon styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddeddddddeddddddeffffffgeeeeeeeeeeeeeeeeeeeee
+ahhiiiiiiiiiiiiiiiiiiiiijjjjjacccddddeddddddeddddddeffffeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaekkkkkkkkkkkkkkkkkkkkkkkkkkaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaeeeeeeeeeeeeeeeeeeeeekkkkkaccclllllefffffffffgeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaeakkkkkkkkkkkkkkkkkkkkkkkkkaccceeeemmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmme
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeemmmmmmmmmmmmmeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennnennnnnnnnoppppgemmmmmmgeffffffegeffffege
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeffffoeggeffffgeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccqrrrrrrrrsssstuuuuuurtrrrrrrrrttrvvvvvvvvvvvwwrr
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaxxyzAAAAAAABBBBCDDDDDDACAAAAAAAACCAEEEEEEEEEEEEEFF
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeppppgGGGGGgeHHHHoffffoegeppppgaaaaaooee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaoppppoeggeHHHHoffffogeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmmmmmmmmmmmmmmmmmmmmmmeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeennegggeppppgGGGGGGgGGGGgaaaaaaoogeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeelllllleooeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeegeeeeegaaaaaoppppgGGGGGGgGGGGgeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeaaaaaaaaaommmmmmmmgIIIIIIIooeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllllleoffffgaaaaaaaaaoeeeeoennneeeeeee
+akkkkkkkkkkkkkkkkkaaaaaaaaaaaaccceeeeeeeeggeeeeoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+JJJJJJJJKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #86e1fc bg #222436
+e fg #c8d3f5 bg #222436
+f fg #65bcff bg #222436
+g fg #89ddff bg #222436
+h fg #82aaff bg #2d3f76
+i fg #c8d3f5 bg #2d3f76
+j fg #7d849f bg #2d3f76
+k fg #7d849f bg #222436
+l fg #fca7ea bg #222436 ITALIC
+m fg #ffc777 bg #222436
+n fg #c099ff bg #222436
+o fg #828bb8 bg #222436
+p fg #ff757f bg #222436
+q fg red bg #222436
+r fg #c8d3f5 bg #372837
+s fg #ff757f bg #372837
+t fg #89ddff bg #372837
+u fg #4fd6be bg #372837
+v fg #c8d3f5 bg #77363d
+w fg #828bb8 bg #372837
+x fg #ff966c bg #222436 BOLD
+y fg green bg #222436 BOLD
+z fg #222436 bg #c8d3f5
+A fg #c8d3f5 bg #2e434b
+B fg #ff757f bg #2e434b
+C fg #89ddff bg #2e434b
+D fg #4fd6be bg #2e434b
+E fg #c8d3f5 bg #2e5e49
+F fg #828bb8 bg #2e434b
+G fg #4fd6be bg #222436
+H fg #589ed7 bg #222436
+I fg #c3e88d bg #222436
+J fg #828bb8 bg #1e2030 BOLD
+K fg #828bb8 bg #1e2030
+
+==== 80x24 github-light styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddeeeeeeeeddddddeffffffeeeeeeeeeeeeeeeeeeeeee
+agghhhhhhhhhhhhhhhhhhhhhiiiiiacccddddeeeeeeeeddddddeffffeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaejjjjjjjjjjjjjjjjjjjjjjjjjjaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaeeeeeeeeeeeeeeeeeeeeejjjjjacccdddddefffffffffeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaeajjjjjjjjjjjjjjjjjjjjjjjjjaccceeeekkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkke
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeekkkkkkkkkkkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedddeffffffffelllleeeeeeeeeeffffffelellllele
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeelllleellelllleeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccmnnnnnnnnoooonnnnnnnnonnnnnnnnppnqqqqqqqqqqqnnnn
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeerstttttttuuuuttttttttuttttttttvvtwwwwwwwwwwwwwtt
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleeeeeeeelllleffffeelelllleaaaaaeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedddeaaaaaelllleellelllleffffeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeekkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeekkkkkkkkkkkkkkkkkkkkkkkkkkkeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddedddelllleeeeeeeeeeeeeaaaaaaeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleeeeeeaaaaaelllleeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeaaaaaaaaaeeeeeeeeelkkkkkkkeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddeeffffeaaaaaaaaaeeeeeeedddeeeeeee
+ajjjjjjjjjjjjjjjjjaaaaaaaaaaaaccceeeeeeeeddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+xxxxxxxxyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #cf222e bg #ffffff
+e fg #1f2328 bg #ffffff
+f fg #953800 bg #ffffff
+g fg #6639ba bg #dae9f9
+h fg #1f2328 bg #dae9f9
+i fg #787b7e bg #dae9f9
+j fg #787b7e bg #ffffff
+k fg #0a3069 bg #ffffff
+l fg #0550ae bg #ffffff
+m fg red bg #ffffff
+n fg #1f2328 bg #feeae9
+o fg #0550ae bg #feeae9
+p fg #cf222e bg #feeae9
+q fg #1f2328 bg #fdcecc
+r fg green bg #ffffff
+s fg #ffffff bg #1f2328
+t fg #1f2328 bg #c7e6d5
+u fg #0550ae bg #c7e6d5
+v fg #cf222e bg #c7e6d5
+w fg #1f2328 bg #9de1b2
+x fg #f6f8fa bg #5094e4 BOLD
+y fg #f6f8fa bg #5094e4
+
+==== 120x33 tokyonight-moon text, cursor 33,13
+┌feature ← main──────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+│  M store.py           +4 −1│ 2
+│  ▾ tests                   │ 3 import json
+│🤖  A __init__.py      +0 −0│ 4
+│  A tags.py            +1 −0│ 5 from config import Config, load_config
+│🤖 D Makefile          +0 −7│ 6 from models import Note
+│                            │ 7
+│                            │ 8
+│                            │ 9 class NoteStore:
+│                            │10     """Reads and writes the notes of a single JSON file."""
+│                            │11
+│                            │12     def __init__(self, config: Config | None = None) -> None:
+│                            │  ▎        self.config = config or load_config()
+│                            │13▎        self.config = config or load_settings()
+│                            │14         self.notes: list[Note] = self._read()
+│                            │15
+│                            │16     def _read(self) -> list[Note]:
+│                            │17         """Load the notes from disk; a missing file means no notes yet."""
+│                            │18         if not self.config.path.exists():
+│                            │19             return []
+│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
+│                            │21         return [Note.from_dict(item) for item in raw]
+│                            │22
+│                            │23     def _write(self) -> None:
+│                            │24         """Write every note back to disk."""
+│                            │25         raw = [note.to_dict() for note in self.notes]
+│                            │26         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+│                            │27
+│                            │28     def next_id(self) -> int:
+│                            │29         """One past the highest id in use."""
+│                            │30         return max((note.id for note in self.notes), default=0) + 1
+└ 4 files · +5 −8 ───────────┘31
+store.py  13:1  [code]  hunk 1/2  file 1/4
+
+==== 120x33 tokyonight-moon styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeee
+affggggggggggggggggggggghhhhhaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccciiiiiieiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaejjjjjjjjjjjjjjjjjjjjjjjjjjaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaeeeeeeeeeeeeeeeeeeeeejjjjjaccciiiieiiiiiieiiiiiiekkkkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaeajjjjjjjjjjjjjjjjjjjjjjjjjaccciiiieiiiiiieiiiiiiekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccmmmmmekkkkkkkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennnennnnnnnnoppppleddddddlekkkkkkelekkkkelekkkkoellekkkkleeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccqrrrrrrrrsssstuuuuuurtrrrrrrrrttrvvvvvvvvvvvwwrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaxxyzAAAAAAABBBBCDDDDDDACAAAAAAAACCAEEEEEEEEEEEEEFFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplGGGGGleHHHHokkkkoelepppplaaaaaooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaoppppoelleHHHHokkkkoleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeennelllepppplGGGGGGlGGGGlaaaaaaooleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeemmmmmmeooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleeeeelaaaaaopppplGGGGGGlGGGGlaaaaaaaaaoddddddddlIIIIIIIooeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmeokkkklaaaaaaaaaoeeeeoennneeeeeelleeeeoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaaoppppoellekkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleoeeeelaaaaaaaooennneeeeeellepppplGGGGGoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplGGGGGGlGGGGlaaaaaaaaaaoeeeelaaaaaoeeeleddddddlJoleddddddddlIIIIIIIoeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaaaoppppoelleHHHleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeedddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmekkkooeeeelGGennneeeeeellepppplGGGGGoledddddddlJoeleJeeeeeeeeeeeeeeeeeeee
+ajjjjjjjjjjjjjjjjjaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+KKKKKKKKLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #ffc777 bg #222436
+e fg #c8d3f5 bg #222436
+f fg #82aaff bg #2d3f76
+g fg #c8d3f5 bg #2d3f76
+h fg #7d849f bg #2d3f76
+i fg #86e1fc bg #222436
+j fg #7d849f bg #222436
+k fg #65bcff bg #222436
+l fg #89ddff bg #222436
+m fg #fca7ea bg #222436 ITALIC
+n fg #c099ff bg #222436
+o fg #828bb8 bg #222436
+p fg #ff757f bg #222436
+q fg red bg #222436
+r fg #c8d3f5 bg #372837
+s fg #ff757f bg #372837
+t fg #89ddff bg #372837
+u fg #4fd6be bg #372837
+v fg #c8d3f5 bg #77363d
+w fg #828bb8 bg #372837
+x fg #ff966c bg #222436 BOLD
+y fg green bg #222436 BOLD
+z fg #222436 bg #c8d3f5
+A fg #c8d3f5 bg #2e434b
+B fg #ff757f bg #2e434b
+C fg #89ddff bg #2e434b
+D fg #4fd6be bg #2e434b
+E fg #c8d3f5 bg #2e5e49
+F fg #828bb8 bg #2e434b
+G fg #4fd6be bg #222436
+H fg #589ed7 bg #222436
+I fg #c3e88d bg #222436
+J fg #ff966c bg #222436
+K fg #828bb8 bg #1e2030 BOLD
+L fg #828bb8 bg #1e2030
+
+==== 120x33 github-light styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeee
+affggggggggggggggggggggghhhhhaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccciiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaejjjjjjjjjjjjjjjjjjjjjjjjjjaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaeeeeeeeeeeeeeeeeeeeeejjjjjaccciiiieeeeeeeeiiiiiiekkkkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaeajjjjjjjjjjjjjjjjjjjjjjjjjaccciiiieeeeeeeeiiiiiiekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccciiiiiekkkkkkkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiiekkkkkkkkelllleeeeeeeeeekkkkkkelellllelelllleellelllleeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccmnnnnnnnnoooonnnnnnnnonnnnnnnnppnqqqqqqqqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeerstttttttuuuuttttttttuttttttttvvtwwwwwwwwwwwwwtttttttttttttttttttttttttttttttttttttttttt
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleeeeeeeellllekkkkeelelllleaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaaelllleellellllekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiieiiielllleeeeeeeeeeeeeaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeiiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleeeeeeaaaaaelllleeeeeeeeeeeeeaaaaaaaaaeeeeeeeeeldddddddeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiiiiiieekkkkeaaaaaaaaaeeeeeeeiiieeeeeeiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaaaelllleellelllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleeeeeeeaaaaaaaeeeiiieeeeeeiielllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleeeeeeeeeeeeeaaaaaaaaaaeeeeeeaaaaaeeeeeeeeeeeelleeeeeeeeeeeldddddddeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaaaaelllleellellleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeedddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiiiiiieaaaeeeeeeeeeeiiieeeeeeiielllleeeeeeeeeeeeeeeelleeleleeeeeeeeeeeeeeeeeeee
+ajjjjjjjjjjjjjjjjjaaaaaaaaaaaaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+xxxxxxxxyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #0a3069 bg #ffffff
+e fg #1f2328 bg #ffffff
+f fg #6639ba bg #dae9f9
+g fg #1f2328 bg #dae9f9
+h fg #787b7e bg #dae9f9
+i fg #cf222e bg #ffffff
+j fg #787b7e bg #ffffff
+k fg #953800 bg #ffffff
+l fg #0550ae bg #ffffff
+m fg red bg #ffffff
+n fg #1f2328 bg #feeae9
+o fg #0550ae bg #feeae9
+p fg #cf222e bg #feeae9
+q fg #1f2328 bg #fdcecc
+r fg green bg #ffffff
+s fg #ffffff bg #1f2328
+t fg #1f2328 bg #c7e6d5
+u fg #0550ae bg #c7e6d5
+v fg #cf222e bg #c7e6d5
+w fg #1f2328 bg #9de1b2
+x fg #f6f8fa bg #5094e4 BOLD
+y fg #f6f8fa bg #5094e4
+
+==== 185x55 tokyonight-moon text, cursor 33,13
+┌feature ← main──────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
+│  M store.py           +4 −1│ 2
+│  ▾ tests                   │ 3 import json
+│🤖  A __init__.py      +0 −0│ 4
+│  A tags.py            +1 −0│ 5 from config import Config, load_config
+│🤖 D Makefile          +0 −7│ 6 from models import Note
+│                            │ 7
+│                            │ 8
+│                            │ 9 class NoteStore:
+│                            │10     """Reads and writes the notes of a single JSON file."""
+│                            │11
+│                            │12     def __init__(self, config: Config | None = None) -> None:
+│                            │  ▎        self.config = config or load_config()
+│                            │13▎        self.config = config or load_settings()
+│                            │14         self.notes: list[Note] = self._read()
+│                            │15
+│                            │16     def _read(self) -> list[Note]:
+│                            │17         """Load the notes from disk; a missing file means no notes yet."""
+│                            │18         if not self.config.path.exists():
+│                            │19             return []
+│                            │20         raw = json.loads(self.config.path.read_text(encoding="utf-8"))
+│                            │21         return [Note.from_dict(item) for item in raw]
+│                            │22
+│                            │23     def _write(self) -> None:
+│                            │24         """Write every note back to disk."""
+│                            │25         raw = [note.to_dict() for note in self.notes]
+│                            │26         self.config.path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+│                            │27
+│                            │28     def next_id(self) -> int:
+│                            │29         """One past the highest id in use."""
+│                            │30         return max((note.id for note in self.notes), default=0) + 1
+│                            │31
+│                            │32     def add(self, text: str, tags: list[str] | None = None) -> Note:
+│                            │33         """Append a note and save the file."""
+│                            │34         note = Note(id=self.next_id(), text=text, tags=tags or [])
+│                            │35         self.notes.append(note)
+│                            │36         self._write()
+│                            │37         return note
+│                            │38
+│                            │39▎    def count(self) -> int:
+│                            │40▎        return len(self.notes)
+│                            │41▎
+│                            │42     def remove(self, note_id: int) -> bool:
+│                            │43         """Delete the note with this id and report whether it existed."""
+│                            │44         keep = [note for note in self.notes if note.id != note_id]
+│                            │45         if len(keep) == len(self.notes):
+│                            │46             return False
+│                            │47         self.notes = keep
+│                            │48         self._write()
+│                            │49         return True
+│                            │50
+│                            │51     def find(self, needle: str) -> list[Note]:
+│                            │52         """Every note whose text contains `needle`, case-insensitively."""
+└ 4 files · +5 −8 ───────────┘53         lowered = needle.lower()
+store.py  13:1  [code]  hunk 1/2  file 1/4
+
+==== 185x55 tokyonight-moon styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+affggggggggggggggggggggghhhhhaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccciiiiiieiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaejjjjjjjjjjjjjjjjjjjjjjjjjjaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaeeeeeeeeeeeeeeeeeeeeejjjjjaccciiiieiiiiiieiiiiiiekkkkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaeajjjjjjjjjjjjjjjjjjjjjjjjjaccciiiieiiiiiieiiiiiiekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccmmmmmekkkkkkkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennnennnnnnnnoppppleddddddlekkkkkkelekkkkelekkkkoellekkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccqrrrrrrrrsssstuuuuuurtrrrrrrrrttrvvvvvvvvvvvwwrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaxxyzAAAAAAABBBBCDDDDDDACAAAAAAAACCAEEEEEEEEEEEEEFFAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplGGGGGleHHHHokkkkoelepppplaaaaaooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaoppppoelleHHHHokkkkoleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeennelllepppplGGGGGGlGGGGlaaaaaaooleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeemmmmmmeooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleeeeelaaaaaopppplGGGGGGlGGGGlaaaaaaaaaoddddddddlIIIIIIIooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmeokkkklaaaaaaaaaoeeeeoennneeeeeelleeeeoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaaoppppoellekkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleoeeeelaaaaaaaooennneeeeeellepppplGGGGGoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplGGGGGGlGGGGlaaaaaaaaaaoeeeelaaaaaoeeeleddddddlJoleddddddddlIIIIIIIoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaaaoppppoelleHHHleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeedddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmekkkooeeeelGGennneeeeeellepppplGGGGGoledddddddlJoeleJeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaoppppleddddleHHHleddddleHHHHoHHHoelekkkkelekkkkoellekkkkleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeelennnnoddlpppplaaaaaaaooleddddleeeeleddddleeeeelleoooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplGGGGGlaaaaaaoeeeeoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplaaaaaaooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccKLLLLMMMLNNNNNOPPPPOLQQLRRRQLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccKLLLLLLLLSSSSSSLTTTOPPPPQUUUUUOLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccKLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaaaoppppledddddddleHHHoelleHHHHleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeleoeeeeennneeeeeellepppplGGGGGenneeeeelGGelleeeeeeeeoeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeennekkkoeeeeoellekkkopppplGGGGGoleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeemmmmmmeJJJJJeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplGGGGGeleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeepppplaaaaaaooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeemmmmmmeJJJJeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeennneaaaaoppppleddddddleHHHoelleHHHHokkkkoleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ajjjjjjjjjjjjjjjjjaaaaaaaaaaaaccceeeeeeeeeeeeeeeeleeeeeeelaaaaaooeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+VVVVVVVVWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+a fg #82aaff bg #222436
+b fg #82aaff bg #222436 BOLD
+c fg #3b4261 bg #222436
+d fg #ffc777 bg #222436
+e fg #c8d3f5 bg #222436
+f fg #82aaff bg #2d3f76
+g fg #c8d3f5 bg #2d3f76
+h fg #7d849f bg #2d3f76
+i fg #86e1fc bg #222436
+j fg #7d849f bg #222436
+k fg #65bcff bg #222436
+l fg #89ddff bg #222436
+m fg #fca7ea bg #222436 ITALIC
+n fg #c099ff bg #222436
+o fg #828bb8 bg #222436
+p fg #ff757f bg #222436
+q fg red bg #222436
+r fg #c8d3f5 bg #372837
+s fg #ff757f bg #372837
+t fg #89ddff bg #372837
+u fg #4fd6be bg #372837
+v fg #c8d3f5 bg #77363d
+w fg #828bb8 bg #372837
+x fg #ff966c bg #222436 BOLD
+y fg green bg #222436 BOLD
+z fg #222436 bg #c8d3f5
+A fg #c8d3f5 bg #2e434b
+B fg #ff757f bg #2e434b
+C fg #89ddff bg #2e434b
+D fg #4fd6be bg #2e434b
+E fg #c8d3f5 bg #2e5e49
+F fg #828bb8 bg #2e434b
+G fg #4fd6be bg #222436
+H fg #589ed7 bg #222436
+I fg #c3e88d bg #222436
+J fg #ff966c bg #222436
+K fg green bg #222436
+L fg #c8d3f5 bg #233637
+M fg #c099ff bg #233637
+N fg #82aaff bg #233637
+O fg #828bb8 bg #233637
+P fg #ff757f bg #233637
+Q fg #89ddff bg #233637
+R fg #589ed7 bg #233637
+S fg #fca7ea bg #233637 ITALIC
+T fg #65bcff bg #233637
+U fg #4fd6be bg #233637
+V fg #828bb8 bg #1e2030 BOLD
+W fg #828bb8 bg #1e2030
+
+==== 185x55 github-light styles
+abbbbbbbbbbbbbbaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+affggggggggggggggggggggghhhhhaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccciiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaejjjjjjjjjjjjjjjjjjjjjjjjjjaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaeeeeeeeeeeeeeeeeeeeeejjjjjaccciiiieeeeeeeeiiiiiiekkkkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaeajjjjjjjjjjjjjjjjjjjjjjjjjaccciiiieeeeeeeeiiiiiiekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccciiiiiekkkkkkkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiiekkkkkkkkelllleeeeeeeeeekkkkkkelellllelelllleellelllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccmnnnnnnnnoooonnnnnnnnonnnnnnnnppnqqqqqqqqqqqnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeerstttttttuuuuttttttttuttttttttvvtwwwwwwwwwwwwwttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleeeeeeeellllekkkkeelelllleaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaaelllleellellllekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiieiiielllleeeeeeeeeeeeeaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeiiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleeeeeeaaaaaelllleeeeeeeeeeeeeaaaaaaaaaeeeeeeeeeldddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiiiiiieekkkkeaaaaaaaaaeeeeeeeiiieeeeeeiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaaaelllleellelllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeleeeeeeeaaaaaaaeeeiiieeeeeeiielllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleeeeeeeeeeeeeaaaaaaaaaaeeeeeeaaaaaeeeeeeeeeeeelleeeeeeeeeeeldddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaaaaelllleellellleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeedddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiiiiiieaaaeeeeeeeeeeiiieeeeeeiielllleeeeeeeeeeeeeeeelleeleleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaelllleeeeeeeellleeeeeeeellllellleelellllelelllleellekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeelekkkkeeellllleaaaaaaaeeeeeeeeleeeeeeeeeeleeeeeiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleeeeeeeaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiiiiiieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccrxxxxyyyxzzzzzxAAAAxxAAxAAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccrxxxxxxxxyyyyyyxzzzxAAAAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccrxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaaaelllleeeeeeeeeeellleellelllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeedddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeleeeeeeeiiieeeeeeiielllleeeeeeeiieeeeeeeeelleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiieaaaeeeeeeelleaaaelllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeiiiiiiellllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleeeeeeeleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeelllleaaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeiiiiiielllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeiiieaaaaelllleeeeeeeeeellleellellllekkkkeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeeeeeeeddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+ajjjjjjjjjjjjjjjjjaaaaaaaaaaaaccceeeeeeeeeeeeeeeeleeeeeeeeaaaaaeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+BBBBBBBBCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+a fg #6639ba bg #ffffff
+b fg #6639ba bg #ffffff BOLD
+c fg #6e7781 bg #ffffff
+d fg #0a3069 bg #ffffff
+e fg #1f2328 bg #ffffff
+f fg #6639ba bg #dae9f9
+g fg #1f2328 bg #dae9f9
+h fg #787b7e bg #dae9f9
+i fg #cf222e bg #ffffff
+j fg #787b7e bg #ffffff
+k fg #953800 bg #ffffff
+l fg #0550ae bg #ffffff
+m fg red bg #ffffff
+n fg #1f2328 bg #feeae9
+o fg #0550ae bg #feeae9
+p fg #cf222e bg #feeae9
+q fg #1f2328 bg #fdcecc
+r fg green bg #ffffff
+s fg #ffffff bg #1f2328
+t fg #1f2328 bg #c7e6d5
+u fg #0550ae bg #c7e6d5
+v fg #cf222e bg #c7e6d5
+w fg #1f2328 bg #9de1b2
+x fg #1f2328 bg #dbf7e2
+y fg #cf222e bg #dbf7e2
+z fg #6639ba bg #dbf7e2
+A fg #0550ae bg #dbf7e2
+B fg #f6f8fa bg #5094e4 BOLD
+C fg #f6f8fa bg #5094e4

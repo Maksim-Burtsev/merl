@@ -10,7 +10,7 @@
 //                                            ^ d: src/components/UserBadge.svelte:3
 {#each items as item, i (item)}
   <span>{item} {i}</span>
-  //     ^ d: picker src/components/UserBadge.svelte:11, src/components/UserBadge.svelte:16
+  //     ^ d: src/components/UserBadge.svelte:11
   //            ^ d: src/components/UserBadge.svelte:11
 {/each}
 {#each items as item}

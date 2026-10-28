@@ -1,5 +1,6 @@
 use regex::Regex;
 
+use super::jvm::{anonymous, jvm_declared_type, opens_type, param_names, scope_of};
 use super::{Group, Kind, group, split_top, uncommented};
 
 pub struct KotlinCallChain {
@@ -150,4 +151,39 @@ pub fn kotlin_component_type(text: &str, decl_line1: usize, index: usize) -> Opt
     let parameters = split_top(Kind::Jvm, &inner, b',');
     let parameter = parameters.get(index)?;
     Some(PROPERTY.captures(parameter)?[1].to_owned())
+}
+
+pub fn kotlin_constructor_parameter(text: &str, line1: usize, name: &str) -> Option<usize> {
+    static CLASS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bclass\s+\w+[^(:{]*\(").expect("the regex is a literal")
+    });
+    static FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.])(?:get|set)\s*\(|\b(?:fun|constructor)\b")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let in_function = |l: &str| FUNCTION.is_match(&uncommented(Kind::Jvm, l));
+    let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    if in_function(lines[at]) {
+        return None;
+    }
+    let decl = loop {
+        let s = scope_of(&lines, at)?;
+        if opens_type(lines[s]) {
+            break s;
+        }
+        if anonymous(lines[s]) || in_function(lines[s]) {
+            return None;
+        }
+        at = s;
+    };
+    let open = CLASS.find(lines[decl])?.end() - 1;
+    let g = group(Kind::Jvm, &lines, decl, open)?;
+    let entry = split_top(Kind::Jvm, &g.inner_uncommented, b',')
+        .into_iter()
+        .find(|e| param_names(e, false).iter().any(|p| p == name))?;
+    let declared = jvm_declared_type(entry, name, true)?;
+    (decl..=g.close_line)
+        .find(|&i| jvm_declared_type(lines[i], name, true).as_ref() == Some(&declared))
+        .map(|i| i + 1)
 }

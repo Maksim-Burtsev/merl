@@ -332,3 +332,127 @@ fn a_review_folder_reads_its_workspace_packages_as_your_checkout_reads_its_own()
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
+
+fn sveltekit_project() -> (PathBuf, App) {
+    let main = "import { goto, missing } from '$app/navigation';\nimport { page, navigating } from '$app/state';\nimport { enhance } from '$app/forms';\nimport { browser } from '$app/environment';\nimport { base } from '$app/paths';\n\ngoto('/');\npage.data;\nnavigating;\nenhance;\nbrowser;\nbase;\nmissing;\npage.pathname;\nnavigating.from;\npage.state;\n";
+    let kit = "declare module '$app/navigation' {\n\texport function goto(url: string): Promise<void>;\n\texport {};\n}\n\ndeclare module '$app/state' {\n\texport const page: import(\"@sveltejs/kit\").Page;\n\texport const navigating: boolean;\n\texport {};\n}\n\ndeclare module '@sveltejs/kit' {\n\texport interface PageData {}\n\texport interface Page<\n\t\tP extends string = string\n\t> {\n\t\turl: URL & { pathname: P };\n\t\t/**\n\t\t * The merged {@link data}.\n\t\t */\n\t\tdata: PageData & Record<string, any>;\n\t}\n\texport interface Other {\n\t\tstate: object;\n\t}\n}\n";
+    let map = r#"{"version":3,"file":"index.d.ts","sources":["../src/client.js","../src/state.js"],"mappings":";CAEgB,KAAI;;;;;CCFA;CAGA,KAEA"}"#;
+    let ambient = |m: &str, name: &str| {
+        format!("declare module '{m}' {{\n\texport const {name}: boolean;\n}}\n")
+    };
+    let package = r#"{"devDependencies":{"@sveltejs/kit":"2","dupe-a":"1","dupe-b":"1"}}"#;
+    let (dir, a) = project_app(
+        "ts-ambient",
+        &[("src/main.ts", main), ("package.json", package)],
+    );
+    write_outside(
+        &dir,
+        &[
+            ("node_modules/@sveltejs/kit/types/index.d.ts", kit),
+            ("node_modules/@sveltejs/kit/types/index.d.ts.map", map),
+            (
+                "node_modules/@sveltejs/kit/src/client.js",
+                "import x from 'x';\n\nexport function goto(url) {}\n",
+            ),
+            (
+                "node_modules/@sveltejs/kit/src/state.js",
+                "export const page = {};\n",
+            ),
+            (
+                "node_modules/@sveltejs/kit/types/forms.d.ts",
+                &ambient("$app/forms", "enhance"),
+            ),
+            (
+                "node_modules/@sveltejs/kit/types/forms.d.ts.map",
+                "{\"version\": 3,",
+            ),
+            (
+                "node_modules/dupe-a/index.d.ts",
+                &ambient("$app/environment", "browser"),
+            ),
+            (
+                "node_modules/dupe-b/index.d.ts",
+                &ambient("$app/environment", "browser"),
+            ),
+            (
+                "node_modules/stray/index.d.ts",
+                &ambient("$app/paths", "base"),
+            ),
+        ],
+    );
+    (dir, a)
+}
+
+#[test]
+fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
+    let (dir, mut a) = sveltekit_project();
+    let at = |p: &str| format!("node_modules/@sveltejs/kit/{p}");
+    for (code, want, why) in [
+        (
+            "^goto",
+            jump("goto: via import $app/navigation", &at("src/client.js:3")),
+            "the declaration map names one source line",
+        ),
+        (
+            "page.data",
+            jump("data → Page.data (via page)", &at("types/index.d.ts:21")),
+            "a member of the export is its declared type's member",
+        ),
+        (
+            "page.pathname",
+            jump("no definition for pathname", "src/main.ts:14"),
+            "a key nested in a member is not the type's member",
+        ),
+        (
+            "navigating.from",
+            jump("no definition for from", "src/main.ts:15"),
+            "an export typed without an import keeps no definition",
+        ),
+        (
+            "page.state",
+            jump("no definition for state", "src/main.ts:16"),
+            "another interface's member is not the type's",
+        ),
+        (
+            "^navigating",
+            jump(
+                "navigating: via import $app/state",
+                &at("types/index.d.ts:8"),
+            ),
+            "a map naming two source lines keeps the declaration",
+        ),
+        (
+            "^enhance",
+            jump("enhance: via import $app/forms", &at("types/forms.d.ts:2")),
+            "a map that does not parse keeps the declaration",
+        ),
+        (
+            "^browser",
+            jump(
+                "browser: via import $app/environment (not installed)",
+                "src/main.ts:4",
+            ),
+            "two packages declare the module",
+        ),
+        (
+            "^base",
+            jump(
+                "base: via import $app/paths (not installed)",
+                "src/main.ts:5",
+            ),
+            "a package the project does not depend on",
+        ),
+        (
+            "^missing",
+            jump(
+                "missing: via import $app/navigation (not installed)",
+                "src/main.ts:1",
+            ),
+            "the block does not export the name",
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{why}");
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
