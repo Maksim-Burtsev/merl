@@ -193,7 +193,6 @@ pub struct Theme {
     pub tag_bg: Color,
     pub tag_fg: Color,
     pub cursor: Style,
-    pub typing_cursor: Style,
     pub light: bool,
     pub syntect: syntect::highlighting::Theme,
     pub groups: HashMap<String, Style>,
@@ -374,7 +373,7 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
     let find_fg = find_fg(s, find_bg, bg, fg);
     let gutter_fg = gutter_fg(own_gutter, bg, comment_color(&syntect), toward);
     let accent = rgb(accent_color(&syntect).unwrap_or(fg));
-    let (cursor, typing_cursor) = cursors(&groups, normal, accent);
+    let cursor = cursor(&groups, normal);
     let own = Theme {
         bg: rgb(bg),
         fg: rgb(fg),
@@ -403,7 +402,6 @@ pub fn load_from(dir: Option<&Path>, name: &str) -> Result<Theme> {
         tag_bg,
         tag_fg,
         cursor,
-        typing_cursor,
         accent,
         light,
         syntect,
@@ -481,32 +479,22 @@ fn apart(a: Color, b: Color) -> bool {
     r1.abs_diff(r2) >= 12 || g1.abs_diff(g2) >= 12 || b1.abs_diff(b2) >= 12
 }
 
-fn cursors(
-    groups: &HashMap<String, Style>,
-    normal: (Color, Color),
-    accent: Color,
-) -> (Style, Style) {
-    let readable = |bg: Color| (more_readable([normal.0, normal.1], bg), bg);
-    let block = |name: &str| {
-        let (fg, bg) = drawn(groups, name, normal).filter(|&(_, bg)| apart(bg, normal.1))?;
-        Some(
-            fg.filter(|&fg| apart(fg, bg))
-                .map_or_else(|| readable(bg), |fg| (Some(fg), bg)),
-        )
-    };
-    let cursor = block("Cursor").unwrap_or((Some(normal.1), normal.0));
-    let typing = [block("lCursor"), Some(readable(accent))]
-        .into_iter()
-        .flatten()
-        .find(|&(_, bg)| apart(bg, cursor.1))
-        .unwrap_or_else(|| readable(blend(syn(cursor.1), syn(normal.1), 50)));
-    let style = |(fg, bg): (Option<Color>, Color)| Style {
+fn cursor(groups: &HashMap<String, Style>, normal: (Color, Color)) -> Style {
+    let (fg, bg) = drawn(groups, "Cursor", normal)
+        .filter(|&(_, bg)| apart(bg, normal.1))
+        .map_or((Some(normal.1), normal.0), |(fg, bg)| {
+            (
+                fg.filter(|&fg| apart(fg, bg))
+                    .or_else(|| more_readable([normal.0, normal.1], bg)),
+                bg,
+            )
+        });
+    Style {
         fg,
         bg: Some(bg),
         sub_modifier: Modifier::REVERSED,
         ..Style::new()
-    };
-    (style(cursor), style(typing))
+    }
 }
 
 #[derive(Deserialize)]
@@ -780,23 +768,17 @@ mod tests {
     use crate::buffer::Buffer;
 
     #[test]
-    fn every_theme_draws_a_cursor_apart_from_its_background_and_a_typing_one_apart_from_both() {
+    fn every_theme_draws_a_cursor_apart_from_its_background() {
         for name in names() {
             let t = load_from(None, name).unwrap();
-            let (cursor, typing) = (t.cursor.bg.unwrap(), t.typing_cursor.bg.unwrap());
+            let cursor = t.cursor.bg.unwrap();
             assert!(apart(cursor, t.bg) && apart(cursor, t.line_hl), "{name}");
-            assert!(apart(typing, t.line_hl) && apart(typing, cursor), "{name}");
         }
         let hex = |h: &str| h.parse::<Color>().unwrap();
         let github = load_from(None, "github-light").unwrap();
         assert_eq!(github.cursor.bg, Some(hex("#1f2328")), "its Cursor group");
         let rose = load_from(None, "rose-pine").unwrap();
         assert_eq!(rose.cursor.bg, Some(hex("#524f67")), "not Neovim's default");
-        assert_eq!(
-            (rose.typing_cursor.fg, rose.typing_cursor.bg),
-            (Some(hex("#191724")), Some(hex("#e0def4"))),
-            "its lCursor, apart from Cursor"
-        );
         let koda = load_from(None, "koda-dark").unwrap();
         assert_eq!(
             (koda.cursor.fg, koda.cursor.bg),

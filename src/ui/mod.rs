@@ -96,11 +96,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, theme: &Theme) {
         .cursor_cell
         .and_then(|at| frame.buffer_mut().cell_mut(at))
     {
-        cell.set_style(if matches!(app.mode, Mode::Normal | Mode::Help) {
-            theme.cursor
-        } else {
-            theme.typing_cursor
-        });
+        cell.set_style(theme.cursor);
     }
     if let Some(panel) = panel.as_ref().filter(|_| up || slide.is_some()) {
         let above = Rect {
