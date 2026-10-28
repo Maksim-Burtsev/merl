@@ -1,5 +1,7 @@
 use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
+mod generic;
+
 struct SwiftChain {
     written: String,
     links: Vec<String>,
@@ -63,7 +65,7 @@ impl App {
                 if written == SDK_VALUE {
                     return (!self.swift_extended_with(here, word, false)).then(Vec::new);
                 }
-                let w = written.trim();
+                let w = generic::unbound(&written).trim();
                 let w = w
                     .strip_prefix("any ")
                     .or_else(|| w.strip_prefix("some "))
@@ -181,7 +183,7 @@ impl App {
             mut written,
             call_signature: link,
         } = first;
-        let shown = |w: &str| search::swift_type_name(w).unwrap_or_else(|| w.to_owned());
+        let shown = generic::shown;
         let mut links = vec![link.unwrap_or_else(|| format!("{}: {}", names[0], shown(&written)))];
         for (i, field) in names[skip..].iter().enumerate() {
             if i == 5 {
@@ -612,7 +614,9 @@ impl App {
         let mut at = line1;
         while at > 0 {
             if search::swift_generics(lines[at - 1]).contains(&name) {
-                return None;
+                return self
+                    .swift_generic_outside(here, &lines, at, &name, &via.written)
+                    .map(WrittenVia::plain);
             }
             at = search::swift_scope(&lines, &literal, at).header_line1;
         }

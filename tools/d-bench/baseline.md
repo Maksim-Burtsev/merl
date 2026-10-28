@@ -76,6 +76,7 @@ The php row with #1279's third pass (a chain from a static call such as `Album::
 The svelte row with #1274's store value (`$name.member` of a `writable` / `readable<T>` of `svelte/store` or a `persisted<T>` of `svelte-persisted-store`, declared once, typed as `T`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.53 7.29 7.38 } before the run; only svelte0250 moved (pick-hit -> ok), the other rows kept.
 The dart row with #1299's awaited getter (`final responseBody = await operation.value;`, its `Future<T>` read through the `Future<ResponseBody>` handed to `CancelableOperation.fromFuture`): over `8a3ec8bf4` with this change, 2026-10-28, release build, `vm.loadavg` { 5.23 4.97 6.01 } before the run.
 The rust row with #1302 (a call of a local closure read through its written `-> T` or its one-expression body, `m("ROOT/file_root_00").is_ignore()` in `crates/ignore/tests/gitignore_matched_path_or_any_parents_tests.rs`): over `5cd1f02aa` with this change, 2026-10-28, release build, `vm.loadavg` { 4.94 5.04 5.43 } before the run, { 6.47 5.68 5.66 } after.
+The swift row with #1068's generic parameter bound by a protocol or class from outside the project (`Key: CodingKey` in `URLEncodedFormEncoder`, `S: Sequence` in `Validation`, `where ExtendedType: Bundle` in `ServerTrustEvaluation`): over `e72665e87` with this change, 2026-10-29, release build, `vm.loadavg` { 4.15 5.02 6.05 } before the run, { 5.03 5.22 6.00 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -87,7 +88,7 @@ The rust row with #1302 (a call of a local closure read through its written `-> 
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 236 | 208 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 64 | 8 | 19.4 | 71.1 |
 | php (koel) | 392 | 339 (86%) | 44 (11%) | 0 (0%) | 9 (2%) | 88 | 3 | 29.6 | 216.1 |
-| swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 12 | 21.8 | 47.2 |
+| swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 7 | 21.4 | 45.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
