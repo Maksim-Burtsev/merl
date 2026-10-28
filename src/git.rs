@@ -365,7 +365,7 @@ impl Review {
             (order_file.as_deref()).map_or_else(Order::default, |o| Order::read(o, Path::new("")));
         let skipped = order_file.as_deref().map(crate::tree::skipped_in);
         let changed = (order_file.as_deref().and_then(crate::tree::order_commit))
-            .and_then(|sha| git(&["diff", "--name-only", "-z", &sha, "HEAD", "--"]).ok())
+            .and_then(|sha| git(&["diff", "--name-only", "--no-renames", "-z", &sha, "--"]).ok())
             .unwrap_or_default();
         let changed: Vec<&Path> = changed.split('\0').map(Path::new).collect();
         for f in &mut files {

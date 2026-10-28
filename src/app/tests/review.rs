@@ -600,6 +600,22 @@ fn a_skipped_file_changed_since_the_order_s_commit_loses_its_robot() {
         kept,
         "unknown commit"
     );
+    assert_eq!(
+        skipped(&format!("# commit --output=out\n{order}")),
+        kept,
+        "not a commit"
+    );
+    assert!(!dir.join("out").exists(), "the line never reaches git");
+
+    let fixed = git::git(&dir, &["rev-parse", "HEAD"]).unwrap();
+    git::git(&dir, &["mv", "tail", "tail2"]).unwrap();
+    git::git(&dir, &["commit", "-qm", "move"]).unwrap();
+    std::fs::write(dir.join("src/a.rs"), "edited\n").unwrap();
+    assert_eq!(
+        skipped(&format!("# commit {fixed}\nskip src/\nskip tail\n")),
+        (vec![], dir.join("src/a.rs")),
+        "src/a.rs is edited on disk, tail moved away"
+    );
     drop(std::fs::remove_dir_all(dir));
 }
 
