@@ -179,66 +179,6 @@ impl App {
         hits
     }
 
-    pub(super) fn rust_glob_variant(
-        &self,
-        here: &Path,
-        text: &str,
-        word: &str,
-        imports: &[search::Import],
-    ) -> Vec<Candidate> {
-        let kind = Kind::Rust;
-        let search::RustGlobUses {
-            paths_before_star: globs,
-            own_to_function: own,
-        } = search::rust_glob_uses(text, self.line + 1);
-        if globs.is_empty() {
-            return Vec::new();
-        }
-        let top_level = || {
-            let item = Regex::new(&search::def_patterns(kind, word)[..2].join("|"))
-                .expect("an escaped name keeps the pattern valid");
-            text.lines()
-                .any(|l| !l.starts_with([' ', '\t']) && item.is_match(l))
-        };
-        if !own && (bound(imports, word).is_some() || top_level()) {
-            return Vec::new();
-        }
-        let variants = self.rust_variants(here, word);
-        let mut found = Vec::new();
-        for glob in globs {
-            let Some(owner) = glob.last() else { continue };
-            let enums = self
-                .project_definitions(kind, here, owner, &search::def_patterns(kind, owner)[0])
-                .into_iter()
-                .filter(|h| h.text.contains("enum"))
-                .collect::<Vec<_>>();
-            let mine = enums.iter().any(|h| h.path == here);
-            for v in &variants {
-                let Some(t) = self.text_of(&v.path) else {
-                    continue;
-                };
-                let full = format!("{owner}::{word}");
-                let of = search::qualified(kind, &t, v.line1, word)
-                    .is_some_and(|q| q == full || q.ends_with(&format!("::{full}")));
-                let in_enum = of
-                    && enums.iter().any(|e| {
-                        e.path == v.path && (!mine || e.path == here) && e.line1 < v.line1
-                    });
-                if in_enum
-                    && !found
-                        .iter()
-                        .any(|c: &Candidate| (&c.hit.path, c.hit.line1) == (&v.path, v.line1))
-                {
-                    found.push(Candidate {
-                        hit: v.clone(),
-                        reason: Reason::Import(format!("{}::*", glob.join("::"))),
-                    });
-                }
-            }
-        }
-        found
-    }
-
     pub(super) fn rust_file_items(
         &self,
         here: &Path,
