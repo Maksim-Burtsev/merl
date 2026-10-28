@@ -122,7 +122,7 @@ pub const POOL: &[Task] = &[
         title: "Find the word under the cursor",
         tutor: "`*` finds the word under the cursor as a whole word, in the same case, and goes \
                 to the next one; `n` and `N` walk the rest. Press it on `config`: it skips \
-                `Config` and `load_config` and stops on `self.config` below.",
+                `Config` and stops on `self.config` below.",
         drill: "Find `config` as a whole word, in the same case, and go to its next use: \
                 `self.config` below.",
         start: Some(("store.py", INIT_LINE, "config")),

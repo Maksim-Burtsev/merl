@@ -584,8 +584,42 @@ fn star_on_a_one_line_selection_finds_it_as_find_does() {
     );
     press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
     assert_eq!(
-        (a.line, a.col, &*a.message, a.anchor),
-        (1, 0, "2/3", None),
+        (a.line, a.col, &*a.message, a.anchor, a.mode),
+        (1, 0, "2/3", None, Mode::Normal),
         "the next match in any case, the selection dropped as `/` Enter drops it"
+    );
+}
+
+#[test]
+fn star_wraps_from_the_last_or_only_use_and_back_returns_to_the_word() {
+    let mut a = app("def f(key):\n    Key = keys(key)\n    return key_of(key)\nonly\n");
+    a.view_w = 80;
+    press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+    typed(&mut a, "3");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, &*a.message), (0, 6, "1/3"));
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (2, 21), "a near `*` is a jump of its own");
+    (a.line, a.col) = (3, 2);
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, &*a.message), (3, 0, "1/1"));
+}
+
+#[test]
+fn star_stops_inside_names_joined_by_the_language_s_word_chars() {
+    let text = ".btn {}\n.btn-primary {}\n.btn {}\n";
+    let mut a = app(text);
+    let path = a.buf.path.clone().unwrap().with_extension("css");
+    std::fs::write(&path, text).unwrap();
+    a.buf = Buffer::from_bytes(path, text.as_bytes());
+    a.col = 1;
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, &*a.message),
+        (1, 1, "2/3"),
+        "today; want (2, 1, \"2/2\") (#1321)"
     );
 }
