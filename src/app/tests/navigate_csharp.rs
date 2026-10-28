@@ -556,6 +556,49 @@ fn an_extension_method_does_not_shadow_a_method_a_base_outside_the_project_may_d
     std::fs::remove_dir_all(&dir).unwrap();
 }
 
+#[test]
+fn an_extension_method_is_offered_where_a_base_class_outside_the_project_may_declare_it() {
+    let (dir, mut a) = cs_app("cs-instance-first-member", BASKET);
+    d_on(&mut a, "Till.cs", "basket.|Find");
+    match shown(&mut a) {
+        Shown::Picker(_, rows) => assert_eq!(
+            rows.into_iter()
+                .map(|(_, _, place)| place)
+                .collect::<Vec<_>>(),
+            ["BasketExtensions.cs:3"],
+            "List<Item> may declare Find, which C# binds before the extension"
+        ),
+        got @ Shown::Jump(..) => panic!("a picker of the extension, not {got:?}"),
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+const EQUATED: &[(&str, &str)] = &[
+    (
+        "Order.cs",
+        "using System;\n\npublic class Order : IEquatable<Order>\n{\n    public bool Equals(Order? o) => true;\n}\n",
+    ),
+    (
+        "OrderExtensions.cs",
+        "public static class OrderExtensions\n{\n    public static decimal Tax(this Order o) => 0;\n}\n",
+    ),
+    (
+        "Till.cs",
+        "public class Till\n{\n    public decimal Ring(Order order)\n    {\n        return order.Tax();\n    }\n}\n",
+    ),
+];
+
+#[test]
+fn an_interface_outside_the_project_does_not_hide_an_extension_method() {
+    let (dir, mut a) = cs_app("cs-1301-equated", EQUATED);
+    d_on(&mut a, "Till.cs", "order.|Tax");
+    assert!(
+        matches!(shown(&mut a), Shown::Jump(_, place) if place == "OrderExtensions.cs:3"),
+        "an interface declares no member that beats the extension"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
 const COALESCED: &[(&str, &str)] = &[
     (
         "Order.cs",

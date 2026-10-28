@@ -12,12 +12,13 @@ enum CsType {
 
 pub(super) enum CsAnswer {
     Found(Vec<Candidate>),
+    Offered(Vec<Candidate>),
     Outside { links: String },
 }
 
 enum Up {
     Found(Vec<Hit>),
-    Outside { walked: Vec<String> },
+    Outside { walked: Vec<String>, base: bool },
     Missing { walked: Vec<String> },
     Unknown,
 }
@@ -298,8 +299,8 @@ impl App {
         word: &str,
         label: &str,
     ) -> Option<CsAnswer> {
-        let (walked, outside) = match ty {
-            CsType::Outside(name) => (vec![name.clone()], true),
+        let (walked, outside, class) = match ty {
+            CsType::Outside(name) => (vec![name.clone()], true, false),
             CsType::Project(t) => match self.cs_up(t, word, 0) {
                 Up::Found(hits) => {
                     let fit = self.cs_fit(word, self.cs_args(), Some(""), hits.clone());
@@ -310,8 +311,8 @@ impl App {
                     };
                     return Some(CsAnswer::Found(receivers(hits, label)));
                 }
-                Up::Outside { walked } => (walked, true),
-                Up::Missing { walked } => (walked, false),
+                Up::Outside { walked, base } => (walked, true, base),
+                Up::Missing { walked } => (walked, false, false),
                 Up::Unknown => return None,
             },
         };
@@ -324,6 +325,7 @@ impl App {
         });
         let of: Vec<Hit> = of.into_iter().map(|(h, _)| h).collect();
         match (of.is_empty(), other.is_empty()) {
+            (false, _) if class => Some(CsAnswer::Offered(receivers(of, label))),
             (false, _) => Some(CsAnswer::Found(receivers(of, label))),
             (true, true) if outside => Some(CsAnswer::Outside {
                 links: label.to_owned(),
@@ -357,7 +359,7 @@ impl App {
     fn cs_up(&self, ty: &Typed, word: &str, depth: usize) -> Up {
         let mut walked = vec![ty.name.clone()];
         let Some(text) = self.text_of(&ty.path) else {
-            return Up::Outside { walked };
+            return Up::Outside { walked, base: true };
         };
         let (parts, partial) = self.cs_parts(ty, &text);
         let around = OnceCell::new();
@@ -375,19 +377,20 @@ impl App {
             return Up::Found(own);
         }
         if depth >= 8 {
-            return Up::Outside { walked };
+            return Up::Outside { walked, base: true };
         }
-        let mut outside = false;
+        let (mut outside, mut class) = (false, false);
         for part in &parts {
             let Some(text) = self.text_of(&part.path) else {
                 return Up::Unknown;
             };
-            for base in search::cs_bases(&text, part.line) {
-                match self.cs_resolve(&part.path, &text, part.line, &base) {
+            for (i, entry) in search::cs_bases(&text, part.line).into_iter().enumerate() {
+                match self.cs_resolve(&part.path, &text, part.line, &entry) {
                     Some(CsType::Project(b)) => match self.cs_up(&b, word, depth + 1) {
                         Up::Found(hits) => return Up::Found(hits),
-                        Up::Outside { walked: more } => {
+                        Up::Outside { walked: more, base } => {
                             outside = true;
+                            class |= i == 0 && base;
                             walked.extend(more);
                         }
                         Up::Missing { walked: more } => walked.extend(more),
@@ -395,6 +398,7 @@ impl App {
                     },
                     Some(CsType::Outside(name)) => {
                         outside = true;
+                        class |= i == 0 && !interface_named(&name);
                         walked.push(name);
                     }
                     None => return Up::Unknown,
@@ -403,7 +407,10 @@ impl App {
         }
         match (partial, outside) {
             (true, _) => Up::Unknown,
-            (false, true) => Up::Outside { walked },
+            (false, true) => Up::Outside {
+                walked,
+                base: class,
+            },
             (false, false) => Up::Missing { walked },
         }
     }
@@ -1438,6 +1445,11 @@ fn one_more(found: &mut Option<Proven>, next: Proven) -> Option<()> {
         None => *found = Some(next),
     }
     Some(())
+}
+
+fn interface_named(name: &str) -> bool {
+    let mut c = name.chars();
+    c.next() == Some('I') && c.next().is_some_and(char::is_uppercase)
 }
 
 fn receivers(hits: Vec<Hit>, label: &str) -> Vec<Candidate> {
