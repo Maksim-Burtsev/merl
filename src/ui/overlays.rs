@@ -560,6 +560,12 @@ fn place_rows<'a>(
         .chain(in_row(&place.code_rows[0]))
         .collect();
     if place.head_w > 0 {
+        let keep = width.saturating_sub(place.head_w + 2);
+        let mut taken = 0;
+        first.retain(|s| {
+            taken += wrap::width(&s.content);
+            taken <= keep
+        });
         let used: usize = first.iter().map(|s| wrap::width(&s.content)).sum();
         let gap = width.saturating_sub(used + place.head_w).max(2);
         first.push(Span::styled(" ".repeat(gap), style));

@@ -986,8 +986,8 @@ fn a_member_of_a_value_is_looked_for_outside_the_project_too() {
         picker(
             "findUser: by name, 2 declarations",
             &[
-                ("UserRepository.findUser", "repos.ts:6"),
-                ("Client.findUser", "client/index.d.ts:2"),
+                ("findUser", "repos.ts:6"),
+                ("findUser", "client/index.d.ts:2"),
             ],
         ),
         "TypeScript outside the project is read from its declarations, not the bundle"

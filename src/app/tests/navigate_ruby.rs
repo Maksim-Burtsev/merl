@@ -118,8 +118,8 @@ fn the_core_signatures_and_the_standard_library_come_first() {
         picker(
             "fetch: by name, 2 declarations",
             &[
-                ("Settings.fetch", "app/models/settings.rb:2"),
-                ("Hash.fetch", "hash.rbs:2"),
+                ("fetch", "app/models/settings.rb:2"),
+                ("fetch", "hash.rbs:2"),
             ]
         ),
         "the core's `def name: …` in a `class` is read from the `rbs` gem's signatures; a member found by name in the project gets the ones outside beside it, so the project's one namesake is offered, never jumped to"
@@ -130,9 +130,9 @@ fn the_core_signatures_and_the_standard_library_come_first() {
         picker(
             "info: by name, 2 declarations",
             &[
-                ("Logger.info", "logger.rb:2"),
+                ("info", "logger.rb:2"),
                 (
-                    "SemanticLogger.Base.info",
+                    "info",
                     "semantic_logger-4.15.0/lib/semantic_logger/base.rb:3"
                 ),
             ]
@@ -142,10 +142,7 @@ fn the_core_signatures_and_the_standard_library_come_first() {
     d_on(&mut a, "app/lib/run.rb", "Errno::ENOENT");
     assert_eq!(
         shown(&mut a),
-        picker(
-            "ENOENT: by name, 1 match",
-            &[("Errno.ENOENT", "errno.rbs:2")]
-        ),
+        picker("ENOENT: by name, 1 match", &[("ENOENT", "errno.rbs:2")]),
         "A constant's path names no file: `Errno` is no directory of the core, and the name is looked for by name, offered as any `::` path no declaration of the project spells"
     );
     d_on(&mut a, "app/lib/run.rb", "Account.find");
@@ -163,7 +160,7 @@ fn the_core_signatures_and_the_standard_library_come_first() {
         picker(
             "send_email_changed_notification: by name, 1 match",
             &[(
-                "Devise.send_email_changed_notification",
+                "send_email_changed_notification",
                 "devise-4.9.4/lib/devise.rb:2"
             )]
         ),
@@ -297,10 +294,7 @@ fn a_member_on_new_is_the_class_s_unless_the_class_defines_new_or_is_not_declare
         shown(&mut a),
         jump("fill \u{2192} Cup.fill (via Cup)", "app/pots.rb:11")
     );
-    let both = [
-        ("Pot.fill", "app/pots.rb:6"),
-        ("Cup.fill", "app/pots.rb:11"),
-    ];
+    let both = [("fill", "app/pots.rb:6"), ("fill", "app/pots.rb:11")];
     for code in ["Pot.new(1).|fill", "Jar.new(1).|fill"] {
         d_on(&mut a, "app/run.rb", code);
         assert_eq!(
@@ -333,7 +327,7 @@ fn one_press_searches_a_ruby_class_name_once() {
         shown(&mut a),
         picker(
             "ping: by name, 1 match",
-            &[("Other.ping", "app/models/other.rb:2")]
+            &[("ping", "app/models/other.rb:2")]
         ),
         "a bare call only an unrelated class declares is offered (#1093)"
     );

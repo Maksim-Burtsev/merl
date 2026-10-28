@@ -252,10 +252,7 @@ fn a_field_is_a_target() {
             "`${this.posterId",
             picker(
                 "posterId: by name, 2 declarations",
-                &[
-                    ("Issue.posterId", "fields.ts:9"),
-                    ("Comment.posterId", "fields.ts:47"),
-                ],
+                &[("posterId", "fields.ts:9"), ("posterId", "fields.ts:47")],
             ),
         ),
         (
@@ -275,10 +272,7 @@ fn a_field_is_a_target() {
             "comment.posterId",
             picker(
                 "posterId: by name, 2 declarations",
-                &[
-                    ("Issue.posterId", "fields.ts:9"),
-                    ("Comment.posterId", "fields.ts:47"),
-                ],
+                &[("posterId", "fields.ts:9"), ("posterId", "fields.ts:47")],
             ),
         ),
         (
@@ -303,7 +297,7 @@ fn a_field_is_a_target() {
             "typescript",
             "fields.ts",
             "^  posterId",
-            namesakes("posterId", ("Comment.posterId", "fields.ts:47")),
+            namesakes("posterId", ("posterId", "fields.ts:47")),
         ),
         (
             "",
@@ -376,10 +370,7 @@ fn a_field_is_a_target() {
             "c.PosterID",
             picker(
                 "PosterID: by name, 2 declarations",
-                &[
-                    ("Issue.PosterID", "fields.go:14"),
-                    ("Comment.PosterID", "fields.go:20"),
-                ],
+                &[("PosterID", "fields.go:14"), ("PosterID", "fields.go:20")],
             ),
         ),
         (
@@ -421,7 +412,7 @@ fn a_field_is_a_target() {
             "go",
             "fields.go",
             "^\tPosterID",
-            namesakes("PosterID", ("Comment.PosterID", "fields.go:20")),
+            namesakes("PosterID", ("PosterID", "fields.go:20")),
         ),
     ];
     for (name, fixture, file, code, want) in cases {
@@ -638,10 +629,7 @@ fn super_starts_one_level_up() {
             "super.toString",
             picker(
                 "toString: by name, 2 declarations",
-                &[
-                    ("Archive.toString", "supers.ts:12"),
-                    ("toString", "supers.ts:32"),
-                ],
+                &[("toString", "supers.ts:12"), ("toString", "supers.ts:32")],
             ),
         ),
         (
@@ -720,9 +708,9 @@ fn super_starts_one_level_up() {
             picker(
                 "store: by name, 3 declarations",
                 &[
-                    ("Archive.store", "supers.ts:8"),
-                    ("ColdArchive.store", "supers.ts:18"),
-                    ("GlacierArchive.store", "supers.ts:24"),
+                    ("store", "supers.ts:8"),
+                    ("store", "supers.ts:18"),
+                    ("store", "supers.ts:24"),
                 ],
             ),
         ),
@@ -734,9 +722,9 @@ fn super_starts_one_level_up() {
             picker(
                 "store: by name, 3 declarations",
                 &[
-                    ("Archive.store", "supers.ts:8"),
-                    ("ColdArchive.store", "supers.ts:18"),
-                    ("GlacierArchive.store", "supers.ts:24"),
+                    ("store", "supers.ts:8"),
+                    ("store", "supers.ts:18"),
+                    ("store", "supers.ts:24"),
                 ],
             ),
         ),

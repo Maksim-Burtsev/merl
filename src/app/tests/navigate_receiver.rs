@@ -44,8 +44,8 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
             "void repo.deleteUser",
             two(
                 "deleteUser: by name, 2 declarations",
-                ("UserRepository.deleteUser", "repos.ts:10"),
-                ("AuditLog.deleteUser", "repos.ts:16"),
+                ("deleteUser", "repos.ts:10"),
+                ("deleteUser", "repos.ts:16"),
             ),
         ),
         (
@@ -65,8 +65,8 @@ fn a_member_of_a_value_is_found_by_name_and_says_so() {
             "^\t\trepo.DeleteUser",
             two(
                 "DeleteUser: by name, 2 declarations",
-                ("UserRepository.DeleteUser", "repos.go:15"),
-                ("AuditLog.DeleteUser", "repos.go:21"),
+                ("DeleteUser", "repos.go:15"),
+                ("DeleteUser", "repos.go:21"),
             ),
         ),
     ];
@@ -100,7 +100,7 @@ fn a_declaration_does_not_jump_to_its_namesake() {
             "repos.ts",
             "async deleteUser",
             "deleteUser",
-            "AuditLog.deleteUser",
+            "deleteUser",
             "",
         ),
         (
@@ -108,7 +108,7 @@ fn a_declaration_does_not_jump_to_its_namesake() {
             "repos.go",
             ") DeleteUser",
             "DeleteUser",
-            "AuditLog.DeleteUser",
+            "DeleteUser",
             "repos.go:21",
         ),
     ];
@@ -395,14 +395,8 @@ fn a_chain_is_followed_link_by_link() {
         ("UserRepository.delete_user", "repos.py:8"),
         ("AuditLog.delete_user", "repos.py:13"),
     ];
-    let ts_both = [
-        ("UserRepository.deleteUser", "repos.ts:10"),
-        ("AuditLog.deleteUser", "repos.ts:16"),
-    ];
-    let go_both = [
-        ("UserRepository.DeleteUser", "repos.go:15"),
-        ("AuditLog.DeleteUser", "repos.go:21"),
-    ];
+    let ts_both = [("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")];
+    let go_both = [("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")];
     let cases: Vec<(&str, &str, &str, &str, Shown)> = vec![
         (
             "A parameter, then a field handed on from a constructor parameter, twice",

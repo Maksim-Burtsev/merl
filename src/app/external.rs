@@ -1014,7 +1014,7 @@ impl App {
         found: Vec<Candidate>,
     ) -> Vec<PickItem> {
         let mut texts: HashMap<(PathBuf, bool), Option<String>> = HashMap::new();
-        let mixed = found.windows(2).any(|w| w[0].reason != w[1].reason);
+        let mixed = !super::resolution::one_reason(&found);
         found
             .into_iter()
             .map(|c| {

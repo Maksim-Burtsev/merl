@@ -544,7 +544,7 @@ fn a_dart_sdk_class_written_through_an_import_prefix_keeps_its_class_and_constru
             "StateError: by name, 2 declarations",
             &[
                 ("StateError", "core/errors.dart:3"),
-                ("StateError.StateError", "core/errors.dart:4"),
+                ("StateError", "core/errors.dart:4"),
             ]
         )
     );
@@ -620,14 +620,11 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
             d_on(&mut a, "app/Builders/ArtistBuilder.php", code);
             shown(&mut a)
         };
-        let scanner_on = ("Scanner::on", "app/Services/Scanner.php:7");
+        let scanner_on = ("on", "app/Services/Scanner.php:7");
         let by_name = if vendor {
             picker(
                 "on: by name, 2 declarations",
-                &[
-                    scanner_on,
-                    ("JoinClause::on", "laravel/Query/JoinClause.php:7"),
-                ],
+                &[scanner_on, ("on", "laravel/Query/JoinClause.php:7")],
             )
         } else {
             jump("on \u{2192} Scanner::on (by name, 1 match)", scanner_on.1)
@@ -902,14 +899,14 @@ fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
             picker(
                 "str_contains: by name, 2 declarations",
                 &[
-                    ("Repository::str_contains", contains.1.as_str()),
+                    ("str_contains", contains.1.as_str()),
                     ("str_contains", "symfony/polyfill-php80/bootstrap.php:4")
                 ]
             ),
             picker(
                 "stray: by name, 2 declarations",
                 &[
-                    ("Repository::stray", stray.1.as_str()),
+                    ("stray", stray.1.as_str()),
                     ("stray", "other/tests/stray.php:3")
                 ]
             ),
@@ -979,7 +976,7 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
     let f = "laravel/framework/src/Illuminate/Database";
     let song = |place: &str| {
         let why = "via $song: Song".to_owned();
-        ("Base::fresh".to_owned(), why, place.to_owned())
+        ("fresh".to_owned(), why, place.to_owned())
     };
     assert_eq!(
         got,
@@ -999,8 +996,8 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
             picker(
                 "where: by name, 2 declarations",
                 &[
-                    ("Builder::where", &format!("{f}/Eloquent/Builder.php:7")),
-                    ("Builder::where", &format!("{f}/Query/Builder.php:7"))
+                    ("where", &format!("{f}/Eloquent/Builder.php:7")),
+                    ("where", &format!("{f}/Query/Builder.php:7"))
                 ]
             ),
             Shown::Picker(
@@ -1060,9 +1057,9 @@ fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
         picker(
             "find: by name, 2 declarations",
             &[
-                ("SongBuilder::find", "app/Builders/SongBuilder.php:13"),
+                ("find", "app/Builders/SongBuilder.php:13"),
                 (
-                    "Builder::find",
+                    "find",
                     "laravel/framework/src/Illuminate/Database/Eloquent/Builder.php:27",
                 ),
             ],

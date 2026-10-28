@@ -264,7 +264,6 @@ fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
     };
     let rows = picker.window(50).0;
     let here = a.buf.path.as_deref().and_then(search::kind_of);
-    let root = a.root.clone();
     rows.into_iter()
         .map(|r| {
             let at = r.item.code_at.unwrap();
@@ -281,19 +280,9 @@ fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
             };
             let kind = search::kind_of(&r.item.path).or(here);
             let sep = kind.map_or(".", search::separator);
-            let name = match (&cols[..], kind) {
-                ([class], _) => format!("{class}{sep}{word}"),
-                ([], Some(kind)) if !search::shows_class(&r.item.path) => {
-                    std::fs::read_to_string(root.join(&r.item.path))
-                        .ok()
-                        .and_then(|text| {
-                            let line = text.lines().nth(r.item.line.checked_sub(1)?)?;
-                            let name = jvm::declared_as(kind, word, line);
-                            search::qualified(kind, &text, r.item.line, &name)
-                        })
-                        .unwrap_or_else(|| word.to_owned())
-                }
-                ([], _) => word.to_owned(),
+            let name = match &cols[..] {
+                [class] => format!("{class}{sep}{word}"),
+                [] => word.to_owned(),
                 _ => panic!("{head}"),
             };
             (name, why, place.into())
