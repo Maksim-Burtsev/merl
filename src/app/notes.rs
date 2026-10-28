@@ -848,9 +848,7 @@ impl App {
     }
 
     pub fn notes_farewell(&mut self) -> Option<String> {
-        if self.review.is_none() {
-            return None;
-        }
+        self.review.as_ref()?;
         let (path, _) = self.notes_store()?;
         let n = std::fs::read_to_string(&path)
             .map(|t| parse(&t).len())
