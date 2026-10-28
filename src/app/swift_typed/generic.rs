@@ -31,8 +31,8 @@ impl App {
                 .split_once('<')
                 .and_then(|(_, r)| r.split_once('>'))
                 .map_or("", |(l, _)| l);
-            let wheres = head.split_once(" where ").map_or("", |(_, w)| w);
-            [list, wheres]
+            let where_clause = head.split_once(" where ").map_or("", |(_, w)| w);
+            [list, where_clause]
                 .into_iter()
                 .flat_map(|r| bound.captures_iter(r))
                 .map(|c| c[1].to_owned())
