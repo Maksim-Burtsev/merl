@@ -1106,3 +1106,131 @@ fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
          __callStatic magic and a paren in a string keep the picker"
     );
 }
+
+#[test]
+fn a_php_static_call_on_a_vendor_class_lands_on_what_that_one_class_declares() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse Illuminate\\Support\\Arr;\nuse Illuminate\\Support\\Collection;\nuse Illuminate\\Support\\Facades\\File;\nuse Twice\\Base;\n\nclass Ctl\n{\n    public function __invoke(array $a): void\n    {\n        Arr::get($a, 'k');\n        Collection::wrap($a);\n        File::fake();\n        File::exists('x');\n        Base::make();\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key)\n    {\n    }\n}\n";
+    let env = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Env\n{\n    public static function get($key)\n    {\n    }\n}\n";
+    let collection = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Collection\n{\n    use Traits\\EnumeratesValues;\n}\n";
+    let values = "<?php\n\nnamespace Illuminate\\Support\\Traits;\n\ntrait EnumeratesValues\n{\n    public static function wrap($value)\n    {\n    }\n}\n";
+    let file =
+        "<?php\n\nnamespace Illuminate\\Support\\Facades;\n\nclass File extends Facade\n{\n}\n";
+    let facade = "<?php\n\nnamespace Illuminate\\Support\\Facades;\n\nabstract class Facade\n{\n    public static function fake()\n    {\n    }\n\n    public static function __callStatic($method, $args)\n    {\n    }\n}\n";
+    let filesystem = "<?php\n\nnamespace Illuminate\\Filesystem;\n\nclass Filesystem\n{\n    public function exists($path)\n    {\n    }\n}\n";
+    let base = "<?php\n\nnamespace Twice;\n\nclass Base\n{\n    public static function make()\n    {\n    }\n}\n";
+    let s = "vendor/laravel/framework/src/Illuminate";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Ctl.php", ctl),
+        (&format!("{s}/Collections/Arr.php"), arr),
+        (&format!("{s}/Support/Env.php"), env),
+        (&format!("{s}/Collections/Collection.php"), collection),
+        (
+            &format!("{s}/Collections/Traits/EnumeratesValues.php"),
+            values,
+        ),
+        (&format!("{s}/Support/Facades/File.php"), file),
+        (&format!("{s}/Support/Facades/Facade.php"), facade),
+        (&format!("{s}/Filesystem/Filesystem.php"), filesystem),
+        ("vendor/a/src/Base.php", base),
+        ("vendor/b/src/Base.php", base),
+    ];
+    let (dir, mut a) = project_app("php-vendor-static", &files);
+    let mut d = |code: &str| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    };
+    let got = [
+        d("Arr::get"),
+        d("Collection::wrap"),
+        d("File::fake"),
+        d("File::exists"),
+        d("Base::make"),
+        d("^use Illuminate\\Support\\Arr"),
+    ];
+    drop(std::fs::remove_dir_all(dir));
+    let via = |class: &str| format!("via import Illuminate/Support/{class}");
+    assert_eq!(
+        got,
+        [
+            jump(
+                &format!("get \u{2192} Arr::get ({})", via("Arr")),
+                &format!("{s}/Collections/Arr.php:7"),
+            ),
+            jump(
+                &format!(
+                    "wrap \u{2192} EnumeratesValues::wrap ({})",
+                    via("Collection")
+                ),
+                &format!("{s}/Collections/Traits/EnumeratesValues.php:7"),
+            ),
+            jump(
+                &format!("fake \u{2192} Facade::fake ({})", via("Facades/File")),
+                &format!("{s}/Support/Facades/Facade.php:7"),
+            ),
+            jump(
+                "exists \u{2192} Filesystem::exists (by name, 1 match)",
+                &format!("{s}/Filesystem/Filesystem.php:7"),
+            ),
+            jump("no definition for make", "app/Http/Ctl.php:18"),
+            jump("Arr: via Arr", &format!("{s}/Collections/Arr.php:5")),
+        ],
+        "a static call on the one vendor class its import names lands on what that class, its \
+         traits and its parents declare, wherever its file lives; a method only __callStatic \
+         answers, and a class two vendor files declare, stay as they were; a class name lands on \
+         the class"
+    );
+}
+
+#[test]
+fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answer() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse Illuminate\\Support\\Arr;\n\nclass Ctl\n{\n    public function __invoke(array $a): void\n    {\n        Arr::get($a, 'k');\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key)\n    {\n    }\n}\n";
+    let stub = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public static function get($array, $key, $default = null)\n    {\n    }\n}\n";
+    let mine = "<?php\n\nnamespace App\\Support;\n\nclass Arr\n{\n    public static function get($key)\n    {\n    }\n}\n";
+    let s = "vendor/laravel/framework/src/Illuminate";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Ctl.php", ctl),
+        ("app/Support/Arr.php", mine),
+        (&format!("{s}/Collections/Arr.php"), arr),
+    ];
+    let (dir, mut a) = project_app("php-vendor-static-mine", &files);
+    d_on(&mut a, "app/Http/Ctl.php", "Arr::get");
+    let only_vendor = shown(&mut a);
+    let (dir2, mut a) = project_app(
+        "php-vendor-static-stub",
+        &[files.as_slice(), &[("ide_helper.php", stub)]].concat(),
+    );
+    d_on(&mut a, "app/Http/Ctl.php", "Arr::get");
+    let stubbed = shown(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    drop(std::fs::remove_dir_all(dir2));
+    assert_eq!(
+        [only_vendor, stubbed],
+        [
+            jump(
+                "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
+                &format!("{s}/Collections/Arr.php:7"),
+            ),
+            picker(
+                "get: by name, 2 declarations",
+                &[
+                    ("Arr::get", "app/Support/Arr.php:7"),
+                    ("Arr::get", "ide_helper.php:7"),
+                ],
+            ),
+        ],
+        "a project class sharing only the short name leaves the vendor class's answer; one \
+         declaring the vendor class itself keeps the search it had"
+    );
+}
