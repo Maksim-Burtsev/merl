@@ -286,6 +286,10 @@ impl App {
         };
         match answer {
             Some(Ok(cs_typed::CsAnswer::Found(found))) => return self.show_found(a, found),
+            Some(Ok(cs_typed::CsAnswer::Offered(found))) => {
+                self.offer_only = true;
+                return self.show_found(a, found);
+            }
             Some(Ok(cs_typed::CsAnswer::Outside { links: via })) => {
                 self.offer_only = false;
                 self.truncated.set(false);
