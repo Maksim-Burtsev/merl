@@ -651,3 +651,66 @@ fn the_tutor_lists_every_file_as_its_tasks_expect() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn a_definition_row_is_its_place_and_code_with_the_class_and_only_a_differing_reason_before_it() {
+    let heads = |a: &mut App| -> Vec<String> {
+        let p = a.picker.as_mut().expect("a picker");
+        p.settle();
+        let rows = p.window(50).0;
+        rows.iter()
+            .map(|r| {
+                r.item
+                    .label
+                    .get(..r.item.code_at.unwrap())
+                    .unwrap()
+                    .to_owned()
+            })
+            .collect()
+    };
+    let (dir, mut a) = project_app(
+        "rows",
+        &[
+            ("a.py", "class A:\n    def run(self):\n        pass\n"),
+            ("b.py", "def run():\n    pass\n"),
+            ("c.ts", "class C {\n  run() {}\n}\n"),
+            ("d.ts", "class D {\n  run() {}\n}\n"),
+            ("main.ts", "export function go(x) {\n  x.run();\n}\n"),
+            ("pkg/__init__.py", ""),
+            ("pkg/one.py", "def pick(x):\n    return x\n"),
+            ("pkg/two.py", "def pick(x):\n    return x\n"),
+            (
+                "use.py",
+                "try:\n    from pkg.one import pick\nexcept ImportError:\n    from pkg.two import pick\n\n\ndef run():\n    return pick(1)\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Python, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "b.py", "^def run");
+    assert_eq!(a.message, "run: at a declaration, 2 others by name");
+    assert_eq!(
+        heads(&mut a),
+        ["A  a.py:2: ", "use.py:7: "],
+        "a method's class, nothing for a function at the top level, and no `by name` the title says"
+    );
+    a.picker = None;
+    d_on(&mut a, "main.ts", "x.run");
+    assert_eq!(
+        heads(&mut a),
+        ["c.ts:2: ", "d.ts:2: "],
+        "TypeScript's class is not proven on the bench yet, so it is not shown"
+    );
+    a.picker = None;
+    d_on(&mut a, "use.py", "return pick");
+    assert_eq!(a.message, "pick: 2 declarations");
+    assert_eq!(
+        heads(&mut a),
+        [
+            "via import pkg/one.py  pkg/one.py:1: ",
+            "via import pkg/two.py  pkg/two.py:1: "
+        ],
+        "rows found in different ways keep their reason"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

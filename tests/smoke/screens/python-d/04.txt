@@ -12,11 +12,11 @@ wait find_by_customer: by name, 3 declarations (3/3)
 11         sort_keys=True,
 12     )           ┌find_by_customer: by name, 3 declarations (3/3)───────────────────────────────────────────────────────────────────────────────────────────────────┐
 13                 │>                                                                                                                                                 │
-14                 │                                             app/repos.py                                                                                         │
-15 def get_order(se│OrderRepo.find_by_customer          by name    14  def find_by_customer(self, customer_id: int) -> list[Order]:                                   │
-16     try:        │InMemoryOrderRepo.find_by_customer  by name    43  def find_by_customer(self, customer_id: int) -> list[Order]:                                   │
-17         return H│                                             tests/test_service.py                                                                                │
-18     except Order│FakeOrderRepo.find_by_customer      by name    18  def find_by_customer(self, customer_id):                                                       │
+14                 │app/repos.py                                                                                                                                      │
+15 def get_order(se│  14  def find_by_customer(self, customer_id: int) -> list[Order]:                                                                       OrderRepo│
+16     try:        │  43  def find_by_customer(self, customer_id: int) -> list[Order]:                                                               InMemoryOrderRepo│
+17         return H│tests/test_service.py                                                                                                                             │
+18     except Order│  18  def find_by_customer(self, customer_id):                                                                                       FakeOrderRepo│
 19         return H│                                                                                                                                                  │
 20                 │                                                                                                                                                  │
 21                 │                                                                                                                                                  │

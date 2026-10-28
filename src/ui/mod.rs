@@ -151,13 +151,14 @@ fn draw_overlays(
     if app.picker.is_some() {
         let home = main.width.saturating_sub(TREE_W);
         let (list, share) = if app.show_tree && home >= 80 {
+            let gutter = u16::try_from(code::digits(app.buf.lines.len()) + 1).unwrap_or(0);
             (
                 Rect {
-                    x: main.x + TREE_W,
-                    width: home,
+                    x: main.x + TREE_W + gutter,
+                    width: (home * 9 / 10).min(home.saturating_sub(gutter)),
                     ..over
                 },
-                90,
+                100,
             )
         } else {
             (over, 80)

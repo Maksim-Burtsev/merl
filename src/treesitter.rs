@@ -1271,6 +1271,11 @@ impl Parsed {
 
 impl Parsed {
     #[cfg(test)]
+    pub fn tree(&self) -> Option<&Tree> {
+        self.tree.as_ref()
+    }
+
+    #[cfg(test)]
     pub fn sexp(&self) -> String {
         self.tree
             .as_ref()

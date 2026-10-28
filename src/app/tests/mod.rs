@@ -10,6 +10,7 @@ mod android;
 mod annotated;
 mod batch_tools;
 mod budgets;
+mod class_bench;
 mod cmake;
 mod collapse;
 mod cursor;
@@ -246,22 +247,56 @@ fn d_on(a: &mut App, file: &str, code: &str) {
 fn definition_rows(a: &mut App) -> Vec<(String, String, String)> {
     let picker = a.picker.as_mut().expect("a picker");
     picker.settle();
-    picker
-        .window(50)
-        .0
-        .into_iter()
+    let (word, said) = a.message.split_once(": ").unwrap_or((&a.message, ""));
+    let said = said.split(" (chain broke").next().unwrap_or(said);
+    let said = said.trim_end_matches(", 1 match");
+    let uniform = match said
+        .split_once(" others ")
+        .or_else(|| said.split_once(" other "))
+    {
+        Some((_, why)) => Some(why),
+        None if said.starts_with(char::is_numeric) => None,
+        None => Some(
+            said.rsplit_once(", ")
+                .filter(|(_, n)| n.ends_with("declarations"))
+                .map_or(said, |(why, _)| why),
+        ),
+    };
+    let rows = picker.window(50).0;
+    let here = a.buf.path.as_deref().and_then(search::kind_of);
+    let root = a.root.clone();
+    rows.into_iter()
         .map(|r| {
             let at = r.item.code_at.unwrap();
             let head = r.item.label.get(..at).unwrap();
-            let cols: Vec<&str> = head
+            let mut cols: Vec<&str> = head
                 .split("  ")
                 .map(str::trim)
                 .filter(|c| !c.is_empty())
                 .collect();
-            let [name, why, place] = cols[..] else {
-                panic!("{head}");
+            let place = cols.pop().expect(head).trim_end_matches(':');
+            let why = match uniform {
+                Some(why) => why.to_owned(),
+                None => cols.pop().unwrap_or_default().to_owned(),
             };
-            (name.into(), why.into(), place.trim_end_matches(':').into())
+            let kind = search::kind_of(&r.item.path).or(here);
+            let sep = kind.map_or(".", search::separator);
+            let name = match (&cols[..], kind) {
+                ([class], _) => format!("{class}{sep}{word}"),
+                ([], Some(kind)) if !search::shows_class(&r.item.path) => {
+                    std::fs::read_to_string(root.join(&r.item.path))
+                        .ok()
+                        .and_then(|text| {
+                            let line = text.lines().nth(r.item.line.checked_sub(1)?)?;
+                            let name = jvm::declared_as(kind, word, line);
+                            search::qualified(kind, &text, r.item.line, &name)
+                        })
+                        .unwrap_or_else(|| word.to_owned())
+                }
+                ([], _) => word.to_owned(),
+                _ => panic!("{head}"),
+            };
+            (name, why, place.into())
         })
         .collect()
 }

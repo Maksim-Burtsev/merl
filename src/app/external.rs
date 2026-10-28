@@ -1,6 +1,6 @@
 use super::{
-    App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, MAX_NAME_PAD, Path, PathBuf,
-    PickItem, Reason, Regex, at_label, bound, clip, git, jvm, search, word_col, wrap,
+    App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, Path, PathBuf, PickItem,
+    Reason, Regex, at_label, bound, clip, git, jvm, search, word_col,
 };
 
 pub(super) struct OutsideMembers {
@@ -1014,39 +1014,24 @@ impl App {
         found: Vec<Candidate>,
     ) -> Vec<PickItem> {
         let mut texts: HashMap<(PathBuf, bool), Option<String>> = HashMap::new();
-        let named: Vec<(String, String, Candidate)> = found
+        let mixed = found.windows(2).any(|w| w[0].reason != w[1].reason);
+        found
             .into_iter()
             .map(|c| {
                 let text = texts
                     .entry((c.hit.path.clone(), c.hit.deleted.is_some()))
                     .or_insert_with(|| self.hit_text(&c.hit));
-                let name = text
+                let class = text
                     .as_deref()
-                    .filter(|_| !matches!(c.reason, Reason::Module(_)))
+                    .filter(|_| {
+                        !matches!(c.reason, Reason::Module(_)) && search::shows_class(&c.hit.path)
+                    })
                     .and_then(|text| {
                         let word = jvm::declared_as(kind, word, &c.hit.text);
-                        search::qualified(kind, text, c.hit.line1, &word)
-                    })
-                    .unwrap_or_else(|| word.to_owned());
-                (name, c.reason.to_string(), c)
-            })
-            .collect();
-        let pad = |width: usize, s: &str| " ".repeat(width.saturating_sub(wrap::width(s)));
-        let name_w = named
-            .iter()
-            .map(|(n, ..)| wrap::width(n))
-            .max()
-            .unwrap_or(0);
-        let name_w = name_w.min(MAX_NAME_PAD);
-        let why_w = named
-            .iter()
-            .map(|(_, r, _)| wrap::width(r))
-            .max()
-            .unwrap_or(0);
-        named
-            .into_iter()
-            .map(|(name, why, c)| {
-                let lead = format!("{name}{}  {why}{}  ", pad(name_w, &name), pad(why_w, &why));
+                        search::container(kind, text, c.hit.line1, &word)
+                    });
+                let why = mixed.then(|| c.reason.to_string());
+                let lead: String = class.into_iter().chain(why).map(|t| t + "  ").collect();
                 let shown = self.rel_to_its_root(kind, &c.hit.path);
                 let head = format!("{lead}{}: ", at_label(shown, c.hit.line1));
                 let path_at = lead.len()..lead.len() + shown.display().to_string().len();
