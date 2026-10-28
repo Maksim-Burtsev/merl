@@ -844,3 +844,42 @@ fn a_library_s_file_opens_read_only_from_the_command_line() {
     assert_eq!(b.buf.readonly, Some("outside the project"));
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn every_ignored_library_folder_opens_read_only_before_any_d() {
+    let folders = [
+        "dist-packages",
+        "vendor",
+        "Pods",
+        "deps",
+        "_build",
+        ".build",
+        "local",
+        ".dart_tool",
+    ];
+    let ignore: String = folders.iter().map(|f| format!("/{f}/\n")).collect();
+    let mut files = vec![
+        (".gitignore", ignore.as_str()),
+        ("web/vendor/x.php", "<?php\n"),
+    ];
+    let paths: Vec<String> = folders.iter().map(|f| format!("{f}/lib/x.txt")).collect();
+    files.extend(paths.iter().map(|p| (p.as_str(), "x\n")));
+    let (dir, mut a) = project_app("lib-more", &files);
+    for file in &paths {
+        a.jump_to(&dir.join(file), 1);
+        assert_eq!(
+            a.buf.path.as_deref(),
+            Some(&*dir.join(file)),
+            "{}",
+            a.message
+        );
+        assert_eq!(
+            a.buf.readonly,
+            Some("outside the project"),
+            "{file}: an ignored library folder is read-only before `d` (#1254)"
+        );
+    }
+    a.jump_to(&dir.join("web/vendor/x.php"), 1);
+    assert_eq!(a.buf.readonly, None, "a committed `vendor/` stays editable");
+    std::fs::remove_dir_all(dir).unwrap();
+}

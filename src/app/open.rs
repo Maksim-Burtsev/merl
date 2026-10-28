@@ -92,8 +92,20 @@ impl App {
         let library = path.strip_prefix(&self.root).is_ok_and(|rel| {
             rel.components().any(|c| {
                 c.as_os_str().to_str().is_some_and(|n| {
-                    matches!(n, ".venv" | "site-packages" | "node_modules")
-                        || n.starts_with("bazel-")
+                    matches!(
+                        n,
+                        ".venv"
+                            | "site-packages"
+                            | "dist-packages"
+                            | "node_modules"
+                            | "vendor"
+                            | "Pods"
+                            | "deps"
+                            | "_build"
+                            | ".build"
+                            | "local"
+                            | ".dart_tool"
+                    ) || n.starts_with("bazel-")
                 })
             })
         });
