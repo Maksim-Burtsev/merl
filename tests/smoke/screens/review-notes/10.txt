@@ -1,57 +1,57 @@
-wait app/repos.py  -32:1  [code]
-┌agent/refund ← origin/main──┐ 4 class OrderRepo:
-│  ▾ app                     │ 9
-│✎   A refunds.py      +18 −0│10     def get(self, order_id: int) -> Order | None:
-│✎   M repos.py        +0 −28│11         row = self.db.fetch_one("SELECT * FROM orders WHERE id = %s", order_id)
-│    M service.py      +13 −1│12         return Order(**row) if row else None
-│  ▾ deploy                  │13
-│    ▾ helm                  │14     def find_by_customer(self, customer_id: int) -> list[Order]:
-│      ▾ orders              │15         rows = self.db.fetch_all(
-│        M values.yaml  +1 −0│16             "SELECT * FROM orders WHERE customer_id = %s ORDER BY id", customer_id
-│  ▾ docs                    │17         )
-│    M architecture.png   bin│18         return [Order(**row) for row in rows]
-│  ▾ scripts                 │19
-│    D refund_by_hand.… +0 −9│20     def save(self, order: Order) -> None:
-│  ▾ tests                   │21         self.db.execute(
-│    A test_refunds.py +23 −0│22             "INSERT INTO orders (id, customer_id, total, status) VALUES (%s, %s, %s, %s) "
-│  ▾ worker                  │23             "ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status",
-│    M main.go          +4 −1│24             order.id,
-│                            │25             order.customer_id,
-│                            │26             order.total,
-│                            │27             order.status.value,
-│                            │28         )
-│                            │29
-│                            │30     def delete(self, order_id: int) -> None:
-│                            │31         self.db.execute("DELETE FROM orders WHERE id = %s", order_id)
-│                            │  ▎
-│                            │  ✎ why delete these
-│                            │  ▎
-│                            │  ▎class InMemoryOrderRepo:
-│                            │  ▎    """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
-│                            │  ▎
-│                            │  ▎    def __init__(self):
-│                            │  ▎        self.orders: dict[int, Order] = {}
-│                            │  ▎
-│                            │  ▎    def get(self, order_id: int) -> Order | None:
-│                            │  ▎        return self.orders.get(order_id)
-│                            │  ▎
-│                            │  ▎    def find_by_customer(self, customer_id: int) -> list[Order]:
-│                            │  ▎        return sorted(
-│                            │  ▎            (o for o in self.orders.values() if o.customer_id == customer_id),
-│                            │  ▎            key=lambda o: o.id,
-│                            │  ▎        )
-│                            │  ▎
-│                            │  ▎    def find_by_status(self, status: OrderStatus) -> list[Order]:
-│                            │  ▎        return [o for o in self.orders.values() if o.status is status]
-│                            │  ▎
-│                            │  ▎    def save(self, order: Order) -> None:
-│                            │  ▎        self.orders[order.id] = order
-│                            │  ▎
-│                            │  ▎    def delete(self, order_id: int) -> None:
-│                            │  ▎        self.orders.pop(order_id, None)
-│                            │  ▎
-│                            │  ▎    def clear(self) -> None:
-│                            │  ▎        self.orders.clear()
+wait app/models.py  1:1
+┌orders──────────────────────┐ 1 from dataclasses import dataclass, field
+│▸ .github                   │ 2 from datetime import datetime, timezone
+│▸ .venv                     │ 3 from decimal import Decimal
+│▾ app                       │ 4 from enum import Enum
+│    __init__.py             │ 5
+│    api.py                  │ 6
+│    config.py               │ 7 class OrderStatus(Enum):
+│    models.py               │ 8     PENDING = "pending"
+│    repos.py                │ 9     PAID = "paid"
+│    service.py              │10     SHIPPED = "shipped"
+│    uow.py                  │11     CANCELLED = "cancelled"
+│▸ data                      │12     REFUNDED = "refunded"
+│▸ deploy                    │13
+│▸ docs                      │14
+│▸ scripts                   │15 @dataclass
+│▸ tests                     │16 class Order:
+│▸ web                       │17     id: int
+│▸ worker                    │18     customer_id: int
+│  .env                      │19     total: Decimal
+│  .gitignore                │20     status: OrderStatus = OrderStatus.PENDING
+│  docker-compose.yml        │21     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+│  Dockerfile                │22
+│  Makefile                  │23     def can_cancel(self) -> bool:
+│  pyproject.toml            │24         return self.status in (OrderStatus.PENDING, OrderStatus.PAID)
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
 └────────────────────────────┘
-app/repos.py  -32:1  [code]  hunk 1/1  file 2/8                                                                                                                                    14:32
-cursor (x,y,shown) 32,25,0
+app/models.py  1:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 33,0,0
