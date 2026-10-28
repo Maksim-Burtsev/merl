@@ -2155,3 +2155,90 @@ fn a_std_associated_call_heads_a_chain_by_its_declared_return_type() {
     }
     std::fs::remove_dir_all(&std).unwrap();
 }
+
+#[test]
+fn a_variant_brought_by_a_glob_over_a_dependency_s_enum_opens_in_the_dependency() {
+    let (dir, mut a) = project_app(
+        "rust-dep-glob",
+        &[
+            ("Cargo.toml", "[package]\nname = \"shop\"\n"),
+            (
+                "src/lib.rs",
+                "mod other;\n\npub enum Shape {\n    Group(u32),\n}\n\npub fn walk(k: dep::hir::Kind) -> u32 {\n    use dep::hir::Kind::*;\n    match k {\n        Group(n) => n,\n        Empty => 0,\n    }\n}\n",
+            ),
+            (
+                "src/other.rs",
+                "use dep::hir::*;\n\npub fn made() -> Group {\n    Group\n}\n",
+            ),
+            (
+                "src/nested.rs",
+                "use dep::hir::Kind::*;\n\npub fn local() -> u32 {\n    struct Group(u32);\n    let Group(n) = Group(1);\n    n\n}\n\nmod inner {\n    use dep::hir::Kind::*;\n\n    pub struct Group(pub u32);\n\n    pub fn made() -> u32 {\n        Group(2).0\n    }\n}\n",
+            ),
+        ],
+    );
+    let registry = external_root(
+        "rust-dep-glob",
+        &[
+            ("dep-1.0.0/src/lib.rs", "pub mod hir;\n"),
+            (
+                "dep-1.0.0/src/hir/mod.rs",
+                "pub enum Kind {\n    Empty,\n    Group(u32),\n}\n\npub struct Group;\n\nimpl Kind {\n    pub fn new() -> u32 {\n        0\n    }\n}\n",
+            ),
+        ],
+    );
+    let dep = registry.join("dep-1.0.0");
+    use_roots(&mut a, Kind::Rust, std::slice::from_ref(&dep));
+    let hir = dep.join("src/hir/mod.rs");
+    d_on(&mut a, "src/lib.rs", "        Group|(n) => n");
+    assert_eq!(
+        at(&a),
+        (hir.clone(), 2),
+        "the variant of the dependency's enum the glob brings, not the project's namesake: {}",
+        a.message
+    );
+    d_on(&mut a, "src/lib.rs", "Empty| => 0");
+    assert_eq!(at(&a), (hir, 1), "a unit variant: {}", a.message);
+    d_on(&mut a, "src/other.rs", "^    Group|");
+    let Shown::Picker(message, rows) = shown(&mut a) else {
+        panic!(
+            "a glob over a module keeps the picker by name: {}",
+            a.message
+        );
+    };
+    assert_eq!(
+        (message.as_str(), rows),
+        (
+            "Group: by name, 2 declarations",
+            vec![
+                (
+                    "local::Group".into(),
+                    "by name".into(),
+                    "src/nested.rs:4".into()
+                ),
+                (
+                    "inner::Group".into(),
+                    "by name".into(),
+                    "src/nested.rs:12".into()
+                ),
+            ]
+        ),
+        "a glob over a module brings its items, not an enum's variants"
+    );
+    let nested = dir.join("src/nested.rs");
+    d_on(&mut a, "src/nested.rs", "= Group|(1)");
+    assert_eq!(
+        at(&a),
+        (nested.clone(), 3),
+        "a struct declared in the function shadows the file's glob: {}",
+        a.message
+    );
+    d_on(&mut a, "src/nested.rs", "Group|(2)");
+    assert_eq!(
+        at(&a),
+        (nested, 11),
+        "a struct declared in the module shadows its glob: {}",
+        a.message
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&registry).unwrap();
+}
