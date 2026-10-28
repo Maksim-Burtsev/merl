@@ -846,3 +846,78 @@ func logged(_ logs: Logs) -> Bool {
     logs[0].isEmpty
     //      ^ d: Sources/Shop/Outcomes.swift:29
 }
+
+// A generic bound by one protocol or class from outside the project is that outside type: its
+// members answer from the project's extensions of it or none, never from a project type that
+// conforms to the bound. A project bound, `A & B` or no bound keep the search by name (#1068).
+struct Tag: CodingKey {
+    var stringValue: String
+    var intValue: Int?
+    init?(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { return nil }
+}
+
+extension Sequence {
+    func restocked() -> Int { 0 }
+}
+
+func keyed<K: CodingKey>(_ key: K, _ maybe: K?) -> Int? {
+    _ = maybe?.stringValue
+    //         ^ d: none
+    return key.intValue
+    //         ^ d: none
+}
+
+func countedOut<S: Sequence>(_ items: S) -> Int where S.Element == String {
+    items.restocked()
+    //    ^ d: Sources/Shop/Outcomes.swift:861
+    //      status: items: Sequence
+}
+
+func sortedOut<S>(_ items: S) -> Int where S: Sequence {
+    items.restocked()
+    //    ^ d: Sources/Shop/Outcomes.swift:861
+}
+
+func composed<T: Hashable & Codable>(_ value: T) -> Bool {
+    value.isEmpty
+    //    ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+func unbound<T>(_ value: T) -> Bool {
+    value.isEmpty
+    //    ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+func ledgered<T: Logbook>(_ value: T) -> Bool {
+    value.isEmpty
+    //    ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+struct Wrapped<Base> {
+    let base: Base
+}
+
+extension Wrapped where Base: Bundle {
+    func paths(_ kind: String) -> [String] {
+        base.paths(forResourcesOfType: kind, inDirectory: nil)
+        //   ^ d: none
+    }
+}
+
+extension Wrapped where Base: Logbook {
+    var hollow: Bool {
+        base.isEmpty
+        //   ^ d: Sources/Shop/Outcomes.swift:29
+    }
+}
+
+func headed<C: Collection>(_ c: C) -> Bool? where C.Element == Logbook {
+    c.first?.isEmpty
+    //       ^ d: Sources/Shop/Outcomes.swift:29
+}
+
+func mapped<T>(_ value: T, _ names: [T: String]) -> Bool {
+    value.isEmpty
+    //    ^ d: Sources/Shop/Outcomes.swift:29
+}
