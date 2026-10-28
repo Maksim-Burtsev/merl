@@ -216,7 +216,12 @@ impl App {
             search::Psr4File::Missing => return None,
             search::Psr4File::OutsideProject => {
                 let block = search::php_block(text, self.line);
-                if self.php_class(here, block, &written).1.is_empty()
+                let re = Regex::new(&search::php_access_patterns(&word, access).join("|")).ok()?;
+                let declares = |c: &PhpClass| {
+                    let lines: Vec<&str> = c.text.lines().collect();
+                    !member || !search::php_class_members(&lines, c.header0, &re).is_empty()
+                };
+                if !self.php_class(here, block, &written).1.iter().any(declares)
                     && let Some(found) =
                         self.php_outside_named(&full, short, &word, (member, imported), access)
                 {

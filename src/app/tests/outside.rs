@@ -1213,10 +1213,18 @@ fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answe
     );
     d_on(&mut a, "app/Http/Ctl.php", "Arr::get");
     let stubbed = shown(&mut a);
+    let empty = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n}\n";
+    let (dir3, mut a) = project_app(
+        "php-vendor-static-empty-stub",
+        &[files.as_slice(), &[("ide_helper.php", empty)]].concat(),
+    );
+    d_on(&mut a, "app/Http/Ctl.php", "Arr::get");
+    let empty_stub = shown(&mut a);
     drop(std::fs::remove_dir_all(dir));
     drop(std::fs::remove_dir_all(dir2));
+    drop(std::fs::remove_dir_all(dir3));
     assert_eq!(
-        [only_vendor, stubbed],
+        [only_vendor, stubbed, empty_stub],
         [
             jump(
                 "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
@@ -1229,8 +1237,13 @@ fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answe
                     ("Arr::get", "ide_helper.php:7"),
                 ],
             ),
+            jump(
+                "get \u{2192} Arr::get (via import Illuminate/Support/Arr)",
+                &format!("{s}/Collections/Arr.php:7"),
+            ),
         ],
         "a project class sharing only the short name leaves the vendor class's answer; one \
-         declaring the vendor class itself keeps the search it had"
+         declaring the vendor class itself keeps the search it had, unless it declares no such \
+         member"
     );
 }
