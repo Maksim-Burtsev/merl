@@ -2815,3 +2815,40 @@ fn c_walks_the_deleted_rows_of_a_tall_replaced_block_and_a_tall_deleted_file() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn after_the_last_hunk_c_sweeps_the_changed_rows_never_drawn() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let (dir, mut a) = review_app_with_lock("sweep");
+    a.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
+    let mut draw = |a: &mut App| t.draw(|f| crate::ui::draw(f, a, &theme)).map(drop);
+    draw(&mut a).unwrap();
+    assert_eq!(at(&a).0, dir.join("new"));
+    let mut stops = Vec::new();
+    for _ in 0..8 {
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        draw(&mut a).unwrap();
+        let now = (at(&a), a.message.clone());
+        let end = now.1 == "last hunk of the review";
+        stops.push(now);
+        if end {
+            break;
+        }
+    }
+    let file = |rel: &str, l| ((dir.join(rel), l), String::new());
+    assert_eq!(
+        stops,
+        [
+            file("poetry.lock", 0),
+            file("tail", 0),
+            file("src/a.rs", 1),
+            file("crlf.txt", 1),
+            ((dir.join("crlf.txt"), 1), "last hunk of the review".into()),
+        ],
+        "the walk, then back to the files it never drew; the folded lock file is not swept"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}

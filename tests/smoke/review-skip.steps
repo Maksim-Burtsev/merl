@@ -2,7 +2,9 @@
 # worker/ and the README; the agent's order file writes `skip ` before the test, the docs page
 # and the README. They stay in the panel, each with a robot and a dim row; c walks past tests/
 # and docs/ from app/service.py to worker/main.go and stops there at the last hunk, C walks back
-# past them, and Enter in the panel opens a skipped file.
+# past them, and Enter in the panel opens a skipped file. Last, a branch of three files: o jumps
+# from the first over the second to the third, and c after its last hunk goes back to the second,
+# never drawn, before the review ends (#910).
 merl README.md
 wait # orders
 run git switch -q -c agent/skip && printf '\n# models\n' >> app/models.py && printf '\n# service\n' >> app/service.py && printf '\n# test\n' >> tests/test_service.py && printf '\nMore notes.\n' >> docs/notes.md && printf '\n// worker\n' >> worker/main.go && printf '\nMore.\n' >> README.md && git commit -qam 'agent: a change in five folders'
@@ -26,3 +28,16 @@ wait hunk 1/1  file 2/6
 caption Enter in the panel opens a skipped file
 key Tab Down Down Enter
 wait tests/test_service.py
+caption after the last hunk, c goes back to the file o jumped over, never drawn; then the review ends (#910)
+run git switch -q main && git switch -q -c agent/sweep && printf '\n# sweep models\n' >> app/models.py && printf '\n# sweep service\n' >> app/service.py && printf '\n// sweep worker\n' >> worker/main.go && git commit -qam 'agent: three files'
+merl --review
+wait hunk 1/1  file 1/3
+key o
+wait Files (
+type worker/main.go
+key Enter
+wait worker/main.go
+key c
+wait hunk 1/1  file 2/3
+key c
+wait last hunk of the review

@@ -159,6 +159,11 @@ impl App {
         let Some(r) = self.review.clone() else {
             return;
         };
+        if dir > 0 && self.sweeping {
+            self.sweep(&r);
+            return;
+        }
+        self.sweeping = false;
         if dir > 0
             && self.hunk_left(&r).is_none()
             && let Some(t) = self.unseen_in_hunk()
@@ -215,11 +220,56 @@ impl App {
                 failed = Some(std::mem::take(&mut self.message));
             }
         }
+        if dir > 0 && failed.is_none() && self.unseen(&r).is_some() {
+            self.mark_viewed(read.take());
+            self.sweeping = true;
+            self.sweep(&r);
+            return;
+        }
         self.message = failed.unwrap_or_else(|| {
             let end = if dir > 0 { "last" } else { "first" };
             format!("{end} hunk of the review")
         });
         self.mark_viewed(read.take());
+    }
+
+    fn sweep(&mut self, r: &git::Review) {
+        let Some((rel, l)) = self.unseen(r) else {
+            self.sweeping = false;
+            self.message = "last hunk of the review".into();
+            return;
+        };
+        let path = self.root.join(&rel);
+        self.jump_to_hunk(&path, TextLine::File(l));
+        if self.buf.path.as_deref() == Some(&*path) {
+            self.remember_hunk();
+            self.seen.entry(rel).or_default().insert(TextLine::File(l));
+        }
+    }
+
+    fn unseen(&self, r: &git::Review) -> Option<(PathBuf, usize)> {
+        r.files
+            .iter()
+            .filter(|f| f.has_hunks() && f.status != 'D' && !folded(f, &self.unfolded))
+            .filter(|f| !f.left_out(&self.viewed) && f.is_stop(&self.root, self.diagrams.on()))
+            .filter(|f| self.ticked_this_round.contains(&f.path) || !self.ticked(&f.path))
+            .find_map(|f| Some((f.path.clone(), self.unseen_in(r, f)?)))
+    }
+
+    fn unseen_in(&self, r: &git::Review, f: &git::ReviewFile) -> Option<usize> {
+        let rows: Vec<usize> = if self.rel_current().as_deref() == Some(&*f.path) {
+            self.diff.marks.keys().copied().collect()
+        } else {
+            let path = self.root.join(&f.path);
+            r.diff(&self.root, &path, Some(f))
+                .marks
+                .into_keys()
+                .collect()
+        };
+        let seen = self.seen.get(&f.path);
+        rows.into_iter()
+            .filter(|&l| !seen.is_some_and(|s| s.contains(&TextLine::File(l))))
+            .min()
     }
 
     pub fn note_seen(&mut self) {
@@ -635,6 +685,7 @@ impl App {
         if switched {
             self.last_hunk = None;
             self.seen.clear();
+            self.sweeping = false;
             self.ticked_this_round.clear();
         }
         let closed = if switched { self.session.take() } else { None };
