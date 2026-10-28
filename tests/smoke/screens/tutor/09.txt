@@ -26,6 +26,7 @@ wait Tutor 23/
                                   │   Edit: Alt+Ba╰─────────────────────────────────────────────── Enter starts · i shows this again ╯                │
                                   │ Selection                                                                                                         │
                                   │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
+                                  │   Ctrl+A                            Select the whole file                                                         │
                                   │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
                                   │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
                                   │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
@@ -51,7 +52,6 @@ wait Tutor 23/
                                   │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
                                   │   Tree: { / }                       Previous / next folder                                                        │
-                                  │   Picker: Up / Down                 Move                                                                          │
                                   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 export.csv  1:1  [code]  nowrap  ✓ Keep or put back  ✓ Fold a function                                                                                                             14:32
 cursor (x,y,shown) 185,54,0

@@ -543,6 +543,20 @@ pub const POOL: &[Task] = &[
         done: |a| lines_selected(a, REMOVE_LINE, REMOVE_LINE),
     },
     Task {
+        key: "Ctrl+A",
+        title: "Select the whole file",
+        tutor: "Ctrl+A selects the whole file. Press it, then Ctrl+C to copy the file.",
+        drill: "Copy the whole file to the clipboard.",
+        start: Some(("store.py", REMOVE_LINE, "remove")),
+        keys: "",
+        answer: "<C-a><C-c>",
+        done: |a| {
+            at(a, "store.py")
+                && a.clipboard.as_deref().map(|c| c.trim_end_matches('\n'))
+                    == Some(a.buf.lines.join("\n").trim_end_matches('\n'))
+        },
+    },
+    Task {
         key: "Ctrl+D",
         title: "Half a screen down",
         tutor: "Ctrl+D moves the cursor and the view half a screen down, so half of what you read \

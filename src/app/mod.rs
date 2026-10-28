@@ -160,6 +160,7 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Grow the selection: word, quotes, brackets, line, block, file / step back",
         "Selection",
     ),
+    ("Ctrl+A", "Select the whole file", "Selection"),
     (
         "Shift+Up / Shift+Down",
         "Extend the selection by a screen row",

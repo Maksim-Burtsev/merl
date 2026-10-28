@@ -172,6 +172,7 @@ counts stay on your machine.
 | Key | Action |
 |---|---|
 | v / V | Grow the selection: word, quotes, brackets, line, block, file / step back |
+| Ctrl+A | Select the whole file |
 | Shift+Up / Shift+Down | Extend the selection by a screen row |
 | Shift+Left / Shift+Right | Extend the selection by a char |
 | Alt+Shift+Left / Right | Extend the selection by a word |

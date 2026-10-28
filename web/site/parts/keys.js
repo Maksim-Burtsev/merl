@@ -22,6 +22,7 @@ const KEYS = [
   ["Edit: Ctrl+X", "Cut the selection, or the line", "Editing"],
   ["Edit: Alt+Backspace / Alt+Delete", "Delete the word before / after the cursor", "Editing"],
   ["v / V", "Grow the selection: word, quotes, brackets, line, block, file / step back", "Selection"],
+  ["Ctrl+A", "Select the whole file", "Selection"],
   ["Shift+Up / Shift+Down", "Extend the selection by a screen row", "Selection"],
   ["Shift+Left / Shift+Right", "Extend the selection by a char", "Selection"],
   ["Alt+Shift+Left / Right", "Extend the selection by a word", "Selection"],

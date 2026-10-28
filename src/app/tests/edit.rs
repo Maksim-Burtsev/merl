@@ -1123,3 +1123,27 @@ fn leaving_a_read_only_file_keeps_no_history_to_come_back_to() {
     );
     std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
+
+#[test]
+fn ctrl_a_selects_the_whole_file_to_copy_or_replace_it() {
+    let (path, mut a) = temp_file("select-all", "one\ntwo\nthree\n");
+    press(&mut a, KeyCode::Down, KeyModifiers::NONE);
+    ctrl(&mut a, 'a');
+    ctrl(&mut a, 'c');
+    assert_eq!(a.clipboard.take().as_deref(), Some("one\ntwo\nthree"));
+    assert_eq!(a.message, "copied 3 lines");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    ctrl(&mut a, 'a');
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!(a.buf.lines, [""], "edit mode: Backspace takes the file");
+    ctrl(&mut a, 'z');
+    assert_eq!(a.buf.lines, ["one", "two", "three"]);
+    press(&mut a, KeyCode::Esc, KeyModifiers::NONE);
+    a.anchor = None;
+    (a.show_tree, a.focus) = (true, Focus::Tree);
+    ctrl(&mut a, 'a');
+    assert_eq!(a.selection(), None, "the tree ignores it, as it does `v`");
+    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
+}
