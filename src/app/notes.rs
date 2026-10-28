@@ -210,7 +210,7 @@ impl App {
     }
 
     pub fn notes_sync(&mut self) {
-        if !self.review.is_some() {
+        if self.review.is_none() {
             return;
         }
         self.notes_reload();
@@ -514,7 +514,7 @@ impl App {
     }
 
     pub(super) fn start_note(&mut self) {
-        if !self.review.is_some() {
+        if self.review.is_none() {
             return;
         }
         if self.rel_current().is_none() {
@@ -848,7 +848,7 @@ impl App {
     }
 
     pub fn notes_farewell(&mut self) -> Option<String> {
-        if !self.review.is_some() {
+        if self.review.is_none() {
             return None;
         }
         let (path, _) = self.notes_store()?;
