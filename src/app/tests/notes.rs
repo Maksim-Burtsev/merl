@@ -309,6 +309,7 @@ fn reading_the_branch_draws_no_note_and_leaves_a_alone() {
     keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
     assert_eq!(a.mode, Mode::Normal);
     assert_eq!(a.notes.list.len(), 0);
+    assert_eq!(a.notes_farewell(), None);
     drop(std::fs::remove_dir_all(dir));
 }
 

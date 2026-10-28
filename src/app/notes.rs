@@ -53,6 +53,7 @@ pub struct NoteEdit {
     reason = "`dirs` is None until looked up, then the lookup's own Option"
 )]
 pub struct Notes {
+    pub on: bool,
     pub list: Vec<Note>,
     pub here: Vec<Here>,
     pub editing: Option<Editing>,
@@ -210,7 +211,7 @@ impl App {
     }
 
     pub fn notes_sync(&mut self) {
-        if self.review.is_none() {
+        if !self.notes.on {
             return;
         }
         self.notes_reload();
@@ -514,7 +515,7 @@ impl App {
     }
 
     pub(super) fn start_note(&mut self) {
-        if self.review.is_none() {
+        if !self.notes.on {
             return;
         }
         if self.rel_current().is_none() {
@@ -848,7 +849,9 @@ impl App {
     }
 
     pub fn notes_farewell(&mut self) -> Option<String> {
-        self.review.as_ref()?;
+        if !self.notes.on {
+            return None;
+        }
         let (path, _) = self.notes_store()?;
         let n = std::fs::read_to_string(&path)
             .map(|t| parse(&t).len())
