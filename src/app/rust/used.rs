@@ -1,8 +1,8 @@
 use std::sync::LazyLock;
 
 use super::{
-    App, CrateSrc, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Regex, Typed, bound, declares_mod,
-    search,
+    App, Candidate, CrateSrc, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
+    bound, declares_mod, search,
 };
 
 impl App {
@@ -357,5 +357,122 @@ impl App {
             .cloned()
             .collect();
         Some(CrateSrc { src, files })
+    }
+
+    pub(in crate::app) fn rust_glob_variant(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        imports: &[search::Import],
+    ) -> Vec<Candidate> {
+        let kind = Kind::Rust;
+        let search::RustGlobUses {
+            paths_before_star: globs,
+            own_to_function: own,
+        } = search::rust_glob_uses(text, self.line + 1);
+        if globs.is_empty() {
+            return Vec::new();
+        }
+        let top_level = || {
+            let item = Regex::new(&search::def_patterns(kind, word)[..2].join("|"))
+                .expect("an escaped name keeps the pattern valid");
+            text.lines()
+                .any(|l| !l.starts_with([' ', '\t']) && item.is_match(l))
+        };
+        if !own && (bound(imports, word).is_some() || top_level()) {
+            return Vec::new();
+        }
+        let variants = self.rust_variants(here, word);
+        let mut found = Vec::new();
+        for glob in &globs {
+            let Some(owner) = glob.last() else { continue };
+            let enums = self
+                .project_definitions(kind, here, owner, &search::def_patterns(kind, owner)[0])
+                .into_iter()
+                .filter(|h| h.text.contains("enum"))
+                .collect::<Vec<_>>();
+            let mine = enums.iter().any(|h| h.path == here);
+            for v in &variants {
+                let Some(t) = self.text_of(&v.path) else {
+                    continue;
+                };
+                let full = format!("{owner}::{word}");
+                let of = search::qualified(kind, &t, v.line1, word)
+                    .is_some_and(|q| q == full || q.ends_with(&format!("::{full}")));
+                let in_enum = of
+                    && enums.iter().any(|e| {
+                        e.path == v.path && (!mine || e.path == here) && e.line1 < v.line1
+                    });
+                if in_enum
+                    && !found
+                        .iter()
+                        .any(|c: &Candidate| (&c.hit.path, c.hit.line1) == (&v.path, v.line1))
+                {
+                    found.push(Candidate {
+                        hit: v.clone(),
+                        reason: Reason::Import(format!("{}::*", glob.join("::"))),
+                    });
+                }
+            }
+        }
+        let nested_item = || {
+            search::rust_scope_items(text, self.line + 1, word, search::RustNamespace::Other)
+                .iter()
+                .any(|&l| {
+                    text.lines()
+                        .nth(l - 1)
+                        .is_some_and(|l| l.starts_with([' ', '\t']))
+                })
+        };
+        if found.is_empty() && bound(imports, word).is_none() && !nested_item() {
+            for glob in &globs {
+                found.extend(self.rust_dependency_variant(here, text, word, glob));
+            }
+        }
+        found
+    }
+
+    fn rust_dependency_variant(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        glob: &[String],
+    ) -> Option<Candidate> {
+        let (owner, path) = glob.split_last()?;
+        if path
+            .first()
+            .is_some_and(|r| matches!(r.as_str(), "crate" | "self" | "super"))
+        {
+            return None;
+        }
+        let enums = self.rust_crate_path(here, text, owner, path, MacroUse::NotMacro)?;
+        let [e] = enums.as_slice() else { return None };
+        if matches!(e.reason, Reason::ByName) {
+            return None;
+        }
+        let t = self.text_of(&e.hit.path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        let indent = |l: &str| l.len() - l.trim_start().len();
+        let decl = lines.get(e.hit.line1.checked_sub(1)?)?;
+        if !decl.contains("enum ") {
+            return None;
+        }
+        let variant = Regex::new(&search::rust_variant_pattern(word))
+            .expect("an escaped name keeps the pattern valid");
+        let k = (e.hit.line1..lines.len())
+            .take_while(|&k| lines[k].trim().is_empty() || indent(lines[k]) > indent(decl))
+            .find(|&k| variant.is_match(lines[k]) && search::rust_variant_at(&t, k + 1))?;
+        Some(Candidate {
+            hit: Hit {
+                deleted: None,
+                path: e.hit.path.clone(),
+                line1: k + 1,
+                byte_col: None,
+                text: lines[k].to_owned(),
+            },
+            reason: Reason::Import(format!("{}::*", glob.join("::"))),
+        })
     }
 }
