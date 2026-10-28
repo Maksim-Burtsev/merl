@@ -857,12 +857,20 @@ fn every_ignored_library_folder_opens_read_only_before_any_d() {
         "local",
         ".dart_tool",
     ];
-    let ignore: String = folders.iter().map(|f| format!("/{f}/\n")).collect();
+    let ignore: String = folders
+        .iter()
+        .map(|f| format!("/app/{f}/\n"))
+        .chain(["*.log\n".to_owned()])
+        .collect();
     let mut files = vec![
         (".gitignore", ignore.as_str()),
         ("web/vendor/x.php", "<?php\n"),
+        ("web/vendor/debug.log", "x\n"),
     ];
-    let paths: Vec<String> = folders.iter().map(|f| format!("{f}/lib/x.txt")).collect();
+    let paths: Vec<String> = folders
+        .iter()
+        .map(|f| format!("app/{f}/lib/x.txt"))
+        .collect();
     files.extend(paths.iter().map(|p| (p.as_str(), "x\n")));
     let (dir, mut a) = project_app("lib-more", &files);
     for file in &paths {
@@ -879,7 +887,18 @@ fn every_ignored_library_folder_opens_read_only_before_any_d() {
             "{file}: an ignored library folder is read-only before `d` (#1254)"
         );
     }
-    a.jump_to(&dir.join("web/vendor/x.php"), 1);
-    assert_eq!(a.buf.readonly, None, "a committed `vendor/` stays editable");
+    for file in ["web/vendor/x.php", "web/vendor/debug.log"] {
+        a.jump_to(&dir.join(file), 1);
+        assert_eq!(
+            a.buf.path.as_deref(),
+            Some(&*dir.join(file)),
+            "{}",
+            a.message
+        );
+        assert_eq!(
+            a.buf.readonly, None,
+            "{file}: a committed `vendor/` stays editable"
+        );
+    }
     std::fs::remove_dir_all(dir).unwrap();
 }

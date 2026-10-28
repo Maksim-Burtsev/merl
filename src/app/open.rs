@@ -90,8 +90,8 @@ impl App {
             super::links::in_project(Path::new(""), &rel.to_string_lossy()).is_some()
         });
         let library = path.strip_prefix(&self.root).is_ok_and(|rel| {
-            rel.components().any(|c| {
-                c.as_os_str().to_str().is_some_and(|n| {
+            rel.ancestors().skip(1).any(|dir| {
+                dir.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
                     matches!(
                         n,
                         ".venv"
@@ -106,11 +106,11 @@ impl App {
                             | "local"
                             | ".dart_tool"
                     ) || n.starts_with("bazel-")
-                })
+                }) && !self.files.iter().any(|f| f.starts_with(dir))
             })
         });
         let external = !inside
-            || !listed && library
+            || library
             || !listed
                 && self
                     .external
