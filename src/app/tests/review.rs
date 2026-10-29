@@ -2857,5 +2857,38 @@ fn after_the_last_hunk_c_sweeps_the_changed_rows_never_drawn() {
         ],
         "the walk, then back to the files it never drew; the folded lock file is not swept"
     );
+    assert!(
+        ["src/a.rs", "crlf.txt"].map(|p| a.viewed.contains_key(Path::new(p))) == [true, true],
+        "the sweep ticks the files it walks, as the walk does"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn the_sweep_stands_on_a_row_once_and_c_back_ends_it() {
+    let (dir, mut a) = review_app("sweeptwice");
+    let mut key = |a: &mut App, ch| {
+        press(a, KeyCode::Char(ch), KeyModifiers::NONE);
+        (at(a), a.message.clone())
+    };
+    let stop = |rel: &str, l| ((dir.join(rel), l), String::new());
+    assert_eq!(at(&a), (dir.join("new"), 0));
+    let walk: Vec<_> = (0..4).map(|_| key(&mut a, 'c')).collect();
+    assert_eq!(
+        walk,
+        [
+            stop("tail", 0),
+            stop("src/a.rs", 1),
+            stop("src/a.rs", 5),
+            stop("crlf.txt", 1)
+        ],
+        "no frame is drawn: the sweep moves on from each row it stood on all the same"
+    );
+    assert_eq!(key(&mut a, 'C').0, (dir.join("src/a.rs"), 5));
+    assert_eq!(
+        key(&mut a, 'c'),
+        stop("crlf.txt", 1),
+        "`C` ended the sweep: `c` walks on to the next hunk, not to `new`, never drawn"
+    );
     drop(std::fs::remove_dir_all(dir));
 }

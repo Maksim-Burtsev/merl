@@ -220,10 +220,12 @@ impl App {
                 failed = Some(std::mem::take(&mut self.message));
             }
         }
-        if dir > 0 && failed.is_none() && self.unseen(&r).is_some() {
-            self.mark_viewed(read.take());
+        if dir > 0
+            && failed.is_none()
+            && let Some(to) = self.unseen(&r)
+        {
             self.sweeping = true;
-            self.sweep(&r);
+            self.sweep_to(&r, to);
             return;
         }
         self.message = failed.unwrap_or_else(|| {
@@ -234,16 +236,23 @@ impl App {
     }
 
     fn sweep(&mut self, r: &git::Review) {
-        let Some((rel, l)) = self.unseen(r) else {
-            self.sweeping = false;
-            self.message = "last hunk of the review".into();
+        if let Some(to) = self.unseen(r) {
+            self.sweep_to(r, to);
             return;
-        };
+        }
+        self.sweeping = false;
+        self.message = "last hunk of the review".into();
+        self.mark_viewed(self.rel_current().filter(|rel| r.file(rel).is_some()));
+    }
+
+    fn sweep_to(&mut self, r: &git::Review, (rel, l): (PathBuf, usize)) {
+        let left = (self.rel_current()).filter(|here| *here != rel && r.file(here).is_some());
         let path = self.root.join(&rel);
         self.jump_to_hunk(&path, TextLine::File(l));
         if self.buf.path.as_deref() == Some(&*path) {
             self.remember_hunk();
             self.seen.entry(rel).or_default().insert(TextLine::File(l));
+            self.mark_viewed(left);
         }
     }
 
