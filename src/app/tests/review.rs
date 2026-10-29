@@ -2867,7 +2867,7 @@ fn after_the_last_hunk_c_sweeps_the_changed_rows_never_drawn() {
 #[test]
 fn the_sweep_stands_on_a_row_once_and_c_back_ends_it() {
     let (dir, mut a) = review_app("sweeptwice");
-    let mut key = |a: &mut App, ch| {
+    let key = |a: &mut App, ch| {
         press(a, KeyCode::Char(ch), KeyModifiers::NONE);
         (at(a), a.message.clone())
     };
