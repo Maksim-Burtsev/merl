@@ -153,6 +153,7 @@ fn a_press_under_the_tutor_writes_nothing() {
 #[test]
 fn a_review_session_counts_its_presses() {
     let (dir, mut a) = review_app("reviewstats");
+    all_seen(&mut a);
     assert_eq!(a.review_row(), None, "a session without a press is none");
     let t0 = Instant::now();
     let mut secs = 0;
@@ -240,6 +241,7 @@ fn columns(a: &mut App) -> Vec<usize> {
 #[test]
 fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
     let (dir, mut a) = review_app("reviewstats-stops");
+    all_seen(&mut a);
     press(&mut a, KeyCode::Char('o'), KeyModifiers::NONE);
     typed(&mut a, "a.rs");
     a.picker.as_mut().unwrap().settle();
@@ -267,6 +269,7 @@ fn a_stop_is_a_hunk_reached_by_c_or_c_back() {
     assert_eq!(columns(&mut a)[9], 6);
     std::fs::write(dir.join("tail"), "x\ny\nt1\n").unwrap();
     a.reload(false);
+    all_seen(&mut a);
     assert_eq!(
         at(&a),
         (dir.join("tail"), 2),
@@ -314,6 +317,7 @@ fn a_hunk_the_panel_opens_on_is_a_stop() {
 #[test]
 fn only_the_walk_makes_stops() {
     let (dir, mut a) = review_app("reviewstats-walk");
+    all_seen(&mut a);
     let open = |a: &mut App, name: &str| {
         press(a, KeyCode::Char('o'), KeyModifiers::NONE);
         typed(a, name);

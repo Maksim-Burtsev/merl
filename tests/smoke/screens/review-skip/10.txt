@@ -1,0 +1,57 @@
+wait app/limits.py  68:1  [code]  hunk 1/1  file 1/2
+┌agent/sweep ← origin/main───┐41▎LIMIT_41 = 1
+│  ▾ app                     │42▎LIMIT_42 = 1
+│✓   M limits.py       +40 −0│43▎LIMIT_43 = 1
+│  ▾ worker                  │44▎LIMIT_44 = 1
+│✓   M main.go          +2 −0│45▎LIMIT_45 = 1
+│                            │46▎LIMIT_46 = 1
+│                            │47▎LIMIT_47 = 1
+│                            │48▎LIMIT_48 = 1
+│                            │49▎LIMIT_49 = 1
+│                            │50▎LIMIT_50 = 1
+│                            │51▎LIMIT_51 = 1
+│                            │52▎LIMIT_52 = 1
+│                            │53▎LIMIT_53 = 1
+│                            │54▎LIMIT_54 = 1
+│                            │55▎LIMIT_55 = 1
+│                            │56▎LIMIT_56 = 1
+│                            │57▎LIMIT_57 = 1
+│                            │58▎LIMIT_58 = 1
+│                            │59▎LIMIT_59 = 1
+│                            │60▎LIMIT_60 = 1
+│                            │61▎LIMIT_61 = 1
+│                            │62▎LIMIT_62 = 1
+│                            │63▎LIMIT_63 = 1
+│                            │64▎LIMIT_64 = 1
+│                            │65▎LIMIT_65 = 1
+│                            │66▎LIMIT_66 = 1
+│                            │67▎LIMIT_67 = 1
+│                            │68▎LIMIT_68 = 1
+│                            │69▎LIMIT_69 = 1
+│                            │70▎LIMIT_70 = 1
+│                            │71▎LIMIT_71 = 1
+│                            │72▎LIMIT_72 = 1
+│                            │73▎LIMIT_73 = 1
+│                            │74▎LIMIT_74 = 1
+│                            │75▎LIMIT_75 = 1
+│                            │76▎LIMIT_76 = 1
+│                            │77▎LIMIT_77 = 1
+│                            │78▎LIMIT_78 = 1
+│                            │79▎LIMIT_79 = 1
+│                            │80▎LIMIT_80 = 1
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 2 files · +42 −0 ──────────┘
+app/limits.py  68:1  [code]  hunk 1/1  file 1/2                                                                                                                                    14:32
+cursor (x,y,shown) 33,27,0

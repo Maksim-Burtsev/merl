@@ -9,6 +9,7 @@ use super::*;
 fn review_walks_past_files_without_hunks() {
     let png: &[u8] = b"\x89PNG\0\0";
     let (dir, mut a) = review_app_with("reviewbin", &[("a.png", png), ("z.png", png)]);
+    all_seen(&mut a);
     assert_eq!(
         panel_rows(&a),
         [
@@ -48,6 +49,7 @@ fn review_walks_past_files_without_hunks() {
 fn review_stops_on_an_image_where_the_terminal_draws_pictures() {
     let png: &[u8] = b"\x89PNG\0\0";
     let (dir, mut a) = review_app_with("reviewpics", &[("a.png", png), ("z.png", png)]);
+    all_seen(&mut a);
     a.diagrams = crate::mermaid::Diagrams::with_cell(Some((10, 20)));
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     c(&mut a);
@@ -70,6 +72,7 @@ fn review_stops_on_an_image_where_the_terminal_draws_pictures() {
 #[test]
 fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let (dir, mut a) = review_app("viewed");
+    all_seen(&mut a);
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let viewed = |a: &App| {
         let mut v: Vec<_> = a.viewed.keys().cloned().collect();
@@ -281,6 +284,7 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
         let (_, files) = crate::tree::build(&dir, false);
         let mut a = App::new(dir.clone(), tree, files, buf, None);
         a.start_review(review);
+        all_seen(&mut a);
         a
     };
     let open = || open_on(Buffer::empty());
@@ -1344,6 +1348,7 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
             None,
         );
         a.start_review(r);
+        all_seen(&mut a);
         let mut walk = |key: char, end: &str| {
             let mut stops = vec![a.rel_current().unwrap()];
             loop {
@@ -1408,6 +1413,7 @@ fn enter_on_a_link_to_a_directory_in_the_review_panel_opens_nothing() {
 #[test]
 fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     let (dir, mut a) = review_app("reviewapp");
+    all_seen(&mut a);
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
     assert_eq!(
@@ -2300,6 +2306,7 @@ fn review_stops_on_every_empty_file_and_walks_past_a_binary_one() {
     let png: &[u8] = b"\x89PNG\0\0";
     let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zy", b""), ("zz", b"")];
     let (dir, mut a) = review_app_with("reviewempty", extra);
+    all_seen(&mut a);
     let order = |a: &App| -> Vec<_> {
         let r = a.review.as_ref().unwrap();
         r.files.iter().map(|f| f.path.clone()).collect()
@@ -2842,7 +2849,7 @@ fn after_the_last_hunk_c_sweeps_the_changed_rows_never_drawn() {
     assert_eq!(
         stops,
         [
-            file("poetry.lock", 0),
+            file("poetry.lock", 1),
             file("tail", 0),
             file("src/a.rs", 1),
             file("crlf.txt", 1),

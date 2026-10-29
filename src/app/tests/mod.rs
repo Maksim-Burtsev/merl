@@ -92,6 +92,14 @@ fn app(text: &str) -> App {
 fn press(a: &mut App, code: KeyCode, m: KeyModifiers) -> bool {
     a.key(KeyEvent::new(code, m))
 }
+fn all_seen(a: &mut App) {
+    let r = a.review.clone().unwrap();
+    for f in &r.files {
+        let marks = r.diff(&a.root, &a.root.join(&f.path), Some(f)).marks;
+        let rows = marks.into_keys().map(TextLine::File).collect();
+        a.seen.insert(f.path.clone(), rows);
+    }
+}
 fn files_app(tag: &str) -> (PathBuf, App) {
     let dir = std::env::temp_dir().join(format!("merl-hist-{}-{tag}", std::process::id()));
     drop(std::fs::remove_dir_all(&dir));
