@@ -732,6 +732,7 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             ("view.ts", "class C {\n  run() {}\n}\n"),
             ("view.rb", "class C\n  def run\n  end\nend\n"),
             ("view.dart", "class C {\n  void run() {}\n}\n"),
+            ("view.lua", "M.set = function(k)\n  _G.kong = k\nend\n"),
         ],
     );
     let found = |path: &str, line1: usize, reason: Reason| Candidate {
@@ -754,6 +755,9 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             .into_iter()
             .map(|i| i.label.get(..i.code_at.unwrap()).unwrap().to_owned())
             .collect()
+    };
+    let one = |kind: Kind, word: &str, path: &str, line1: usize| {
+        heads(kind, word, vec![found(path, line1, Reason::ByName)])
     };
     assert_eq!(
         heads(
@@ -802,13 +806,14 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
         "Ruby's class is measured (#1329)"
     );
     assert_eq!(
-        heads(
-            Kind::Dart,
-            "run",
-            vec![found("view.dart", 2, Reason::ByName)]
-        ),
+        one(Kind::Dart, "run", "view.dart", 2),
         ["view.dart:2: "],
         "no class where it is not proven"
+    );
+    assert_eq!(
+        one(Kind::Lua, "kong", "view.lua", 2),
+        ["set  view.lua:2: "],
+        "Lua's class is measured (#1332)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }

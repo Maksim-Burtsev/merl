@@ -87,13 +87,27 @@ fn innermost_declarator(mut n: Node) -> Node {
     n
 }
 
+fn assigned_to(n: Node) -> Option<Node> {
+    let values = n.parent().filter(|p| p.kind() == "expression_list")?;
+    let at = values
+        .children_by_field_name("value", &mut values.walk())
+        .position(|v| v == n)?;
+    let names = values
+        .prev_named_sibling()
+        .filter(|p| p.kind() == "variable_list")?;
+    names
+        .children_by_field_name("name", &mut names.walk())
+        .nth(at)
+}
+
 fn name_of<'a>(n: Node<'a>, src: &'a str) -> Option<Node<'a>> {
     match n.kind() {
         "impl_item" => n.child_by_field_name("type"),
         "function_declarator" => n.child_by_field_name("declarator"),
         "function_definition" if n.child_by_field_name("name").is_none() => n
             .child_by_field_name("declarator")
-            .map(innermost_declarator),
+            .map(innermost_declarator)
+            .or_else(|| assigned_to(n)),
         "companion_object" => None,
         _ => n.child_by_field_name("name").or_else(|| {
             let mut c = n.walk();
