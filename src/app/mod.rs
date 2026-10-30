@@ -124,6 +124,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
         "Review",
     ),
     (
+        "a",
+        "Review: note for the agent on the line or the selection",
+        "Review",
+    ),
+    (
         "Fold: Enter",
         "Review: load the diff of a folded generated file",
         "Review",

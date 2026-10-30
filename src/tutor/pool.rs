@@ -255,8 +255,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Enter",
         title: "Edit",
-        tutor: "Enter starts editing at the cursor and the cursor becomes a bar: type `#hi` and \
-                press Esc, the block is back. merl saves a second after you stop typing; Ctrl+S \
+        tutor: "Enter starts editing at the cursor and the status bar shows `[edit]`: type `#hi` \
+                and press Esc to move around again. merl saves a second after you stop typing; Ctrl+S \
                 saves now, Ctrl+R reloads the file from disk.",
         drill: "Type `#hi` at the top of this file, then go back to moving around it.",
         start: Some((TEST_FILE, 1, "")),
@@ -931,6 +931,18 @@ pub const POOL: &[Task] = &[
         keys: "",
         answer: "m",
         done: |a| a.viewed.contains_key(std::path::Path::new("store.py")),
+    },
+    Task {
+        key: "a",
+        title: "Note for the agent",
+        tutor: "`a` leaves the agent a note on the line, or on the selected lines: type it, and \
+                Esc keeps it under the line. Enter on a note edits it, and a note you empty is \
+                gone. Press `a` on store.py, type a note, then Esc.",
+        drill: "Leave the agent your note on this line of store.py.",
+        start: Some(("store.py", 1, "")),
+        keys: "",
+        answer: "acheck this<Esc>",
+        done: |a| a.notes.editing.is_none() && !a.notes.list.is_empty(),
     },
 ];
 

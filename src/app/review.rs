@@ -10,6 +10,7 @@ impl App {
         let note = review.note.take();
         self.viewed_branch = review.branch_name().map(str::to_owned);
         self.review = Some(review);
+        self.notes.on = true;
         self.refresh_diff();
         self.load_viewed();
         let marks_failed =

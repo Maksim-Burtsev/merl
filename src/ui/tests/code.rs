@@ -17,7 +17,6 @@ use super::rows;
 fn no_cursor(name: &str) -> crate::theme::Theme {
     crate::theme::Theme {
         cursor: ratatui::style::Style::new(),
-        typing_cursor: ratatui::style::Style::new(),
         ..crate::theme::load(name).unwrap()
     }
 }
@@ -472,10 +471,12 @@ fn merl_paints_the_cursor_cell_in_the_theme_s_colours_and_hides_the_terminal_s()
         "github-light's Cursor group"
     );
     app.key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    let (symbol, _, typing) = cell(&mut app);
-    assert_eq!(symbol, "f");
-    assert_eq!(Some(typing), theme.typing_cursor.bg);
-    assert_ne!(typing, hex("#1f2328"), "typing is told apart by colour");
+    assert_eq!(app.mode, crate::app::Mode::Edit);
+    assert_eq!(
+        cell(&mut app),
+        ("f".to_owned(), hex("#ffffff"), hex("#1f2328")),
+        "typing draws the same cursor, told apart only by [edit]"
+    );
 }
 
 #[test]

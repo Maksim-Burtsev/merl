@@ -131,7 +131,6 @@ const STATES: &[State] = &[
     ("review", |a| review(a, &[], None, Some("store.py"))),
     ("review-notes", |a| {
         review(a, &[], None, Some("store.py"));
-        a.notes.on = true;
         a.jump_to(&a.root.join("store.py"), 13);
         press(a, "arename the call in config.py too<Esc>");
         a.jump_to(&a.root.join("store.py"), 39);

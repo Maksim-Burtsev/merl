@@ -13,6 +13,7 @@ const KEYS = [
   ["s", "Search the project", "Search"],
   ["c / C", "Review: next / previous hunk, on to the next file", "Review"],
   ["m", "Review: mark the file as viewed, or take the mark off", "Review"],
+  ["a", "Review: note for the agent on the line or the selection", "Review"],
   ["Fold: Enter", "Review: load the diff of a folded generated file", "Review"],
   ["Enter", "Edit at the cursor (Esc returns to navigation)", "Editing"],
   ["Ctrl+S", "Save now (edits are saved on their own after a pause)", "Editing"],
