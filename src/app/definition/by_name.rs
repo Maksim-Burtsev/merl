@@ -588,13 +588,27 @@ impl App {
                 struct_tag: tag,
             },
         );
-        let hits: Vec<Hit> = (self.c_reached_only(&a.here, word, hits).into_iter())
+        let from1 = self.line + 1;
+        let reach = |h: &Hit| {
+            (h.path == a.here && Self::c_type_line(word, h))
+                .then(|| search::c_function_local_reach(&a.text, h.line1, word, from1))
+                .flatten()
+        };
+        let hits: Vec<(Hit, _)> = (self.c_reached_only(&a.here, word, hits).into_iter())
             .filter(|h| {
                 h.path == a.here
                     || !Self::c_type_line(word, h)
                     || !(self.text_of(&h.path))
                         .is_some_and(|t| search::c_inside_function(&t, h.line1, word))
             })
+            .map(|h| (reach(&h), h))
+            .filter(|(r, _)| *r != Some(None))
+            .map(|(r, h)| (h, r.flatten()))
+            .collect();
+        let inner = hits.iter().filter_map(|(_, open)| *open).max();
+        let hits: Vec<Hit> = (hits.into_iter())
+            .filter(|(_, open)| inner.is_none() || *open == inner)
+            .map(|(h, _)| h)
             .collect();
         let on = hits
             .iter()

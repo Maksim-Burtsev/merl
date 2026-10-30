@@ -822,6 +822,28 @@ pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
             .any(|s| matches!(s.head, Head::Function { .. } | Head::Lambda { .. }))
     })
 }
+pub fn c_function_local_reach(
+    text: &str,
+    line1: usize,
+    name: &str,
+    from1: usize,
+) -> Option<Option<usize>> {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let open = scope_pos(&code, &starts, line1, name).and_then(|pos| {
+        scopes_inside_out_to_type_or_namespace(&code, pos)
+            .into_iter()
+            .find(|s| matches!(s.head, Head::Function { .. } | Head::Lambda { .. }))
+            .map(|s| s.open)
+    })?;
+    let at = scope_pos(&code, &starts, from1, name)?;
+    let inside = open < at && at <= close_or_end(&code, open, code.len());
+    match line1.cmp(&from1) {
+        std::cmp::Ordering::Equal => None,
+        std::cmp::Ordering::Less if inside => Some(Some(open)),
+        _ => Some(None),
+    }
+}
 pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
     let starts = line_starts(&code);
