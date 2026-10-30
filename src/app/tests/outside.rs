@@ -620,11 +620,14 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
             d_on(&mut a, "app/Builders/ArtistBuilder.php", code);
             shown(&mut a)
         };
-        let scanner_on = ("on", "app/Services/Scanner.php:7");
+        let scanner_on = ("Scanner::on", "app/Services/Scanner.php:7");
         let by_name = if vendor {
             picker(
                 "on: by name, 2 declarations",
-                &[scanner_on, ("on", "laravel/Query/JoinClause.php:7")],
+                &[
+                    scanner_on,
+                    ("JoinClause::on", "laravel/Query/JoinClause.php:7"),
+                ],
             )
         } else {
             jump("on \u{2192} Scanner::on (by name, 1 match)", scanner_on.1)
@@ -899,14 +902,14 @@ fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
             picker(
                 "str_contains: by name, 2 declarations",
                 &[
-                    ("str_contains", contains.1.as_str()),
+                    ("Repository::str_contains", contains.1.as_str()),
                     ("str_contains", "symfony/polyfill-php80/bootstrap.php:4")
                 ]
             ),
             picker(
                 "stray: by name, 2 declarations",
                 &[
-                    ("stray", stray.1.as_str()),
+                    ("Repository::stray", stray.1.as_str()),
                     ("stray", "other/tests/stray.php:3")
                 ]
             ),
@@ -976,7 +979,7 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
     let f = "laravel/framework/src/Illuminate/Database";
     let song = |place: &str| {
         let why = "via $song: Song".to_owned();
-        ("fresh".to_owned(), why, place.to_owned())
+        ("Base::fresh".to_owned(), why, place.to_owned())
     };
     assert_eq!(
         got,
@@ -996,8 +999,8 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
             picker(
                 "where: by name, 2 declarations",
                 &[
-                    ("where", &format!("{f}/Eloquent/Builder.php:7")),
-                    ("where", &format!("{f}/Query/Builder.php:7"))
+                    ("Builder::where", &format!("{f}/Eloquent/Builder.php:7")),
+                    ("Builder::where", &format!("{f}/Query/Builder.php:7"))
                 ]
             ),
             Shown::Picker(
@@ -1057,9 +1060,9 @@ fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
         picker(
             "find: by name, 2 declarations",
             &[
-                ("find", "app/Builders/SongBuilder.php:13"),
+                ("SongBuilder::find", "app/Builders/SongBuilder.php:13"),
                 (
-                    "find",
+                    "Builder::find",
                     "laravel/framework/src/Illuminate/Database/Eloquent/Builder.php:27",
                 ),
             ],
@@ -1230,8 +1233,8 @@ fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answe
             picker(
                 "get: by name, 2 declarations",
                 &[
-                    ("get", "app/Support/Arr.php:7"),
-                    ("get", "ide_helper.php:7"),
+                    ("Arr::get", "app/Support/Arr.php:7"),
+                    ("Arr::get", "ide_helper.php:7"),
                 ],
             ),
             jump(
@@ -1277,8 +1280,8 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
         got
     };
     let by_name: &[(&str, &str)] = &[
-        ("get", "app/Concerns/HasGet.php:7"),
-        ("get", "app/Support/Arr.php:7"),
+        ("HasGet::get", "app/Concerns/HasGet.php:7"),
+        ("Arr::get", "app/Support/Arr.php:7"),
     ];
     assert_eq!(
         [
@@ -1292,7 +1295,7 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
             picker("get: by name, 2 declarations", by_name),
             picker(
                 "get: by name, 3 declarations",
-                &[by_name, &[("get", "ide_helper.php:6")]].concat(),
+                &[by_name, &[("Arr::get", "ide_helper.php:6")]].concat(),
             ),
             picker(
                 "Arr: by name, 2 declarations",
@@ -1373,9 +1376,9 @@ fn a_php_instance_member_of_a_vendor_class_an_empty_project_stub_declares_lands_
         picker(
             "get: by name, 2 declarations",
             &[
-                ("get", "app/Support/Arr.php:7"),
+                ("Arr::get", "app/Support/Arr.php:7"),
                 (
-                    "get",
+                    "Arr::get",
                     "laravel/framework/src/Illuminate/Collections/Arr.php:7"
                 ),
             ],
@@ -1418,7 +1421,10 @@ fn a_php_variable_bound_from_a_method_on_a_typed_property_reads_its_native_retur
     let by_name = |word: &str, info: &str, noise: &str| {
         picker(
             &format!("{word}: by name, 2 declarations"),
-            &[(word, info), (word, noise)],
+            &[
+                (&format!("Info::{word}"), info),
+                (&format!("Noise::{word}"), noise),
+            ],
         )
     };
     assert_eq!(

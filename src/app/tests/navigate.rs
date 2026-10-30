@@ -1935,9 +1935,9 @@ fn php_arrow_reaches_members_only() {
                 &format!("app/Services/Repo.php:{line}"),
             )
         };
-        let on = ("on", "app/Services/Other.php:13");
+        let on = ("Other::on", "app/Services/Other.php:13");
         let vendor_on = (
-            "on",
+            "JoinClause::on",
             "laravel/framework/src/Illuminate/Database/Query/JoinClause.php:7",
         );
         let (where_, on) = if vendor {

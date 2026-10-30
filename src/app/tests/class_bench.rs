@@ -140,10 +140,38 @@ fn go_receiver(n: Node, src: &str) -> Option<String> {
     segments(text).last().cloned()
 }
 
+fn php_tag_reference(
+    root: Node,
+    comment: Node,
+    src: &str,
+    row: usize,
+    col: usize,
+) -> Option<Vec<String>> {
+    let tag = src.lines().nth(row)?.get(..col)?;
+    let class = comment.next_named_sibling().filter(|c| {
+        matches!(
+            c.kind(),
+            "class_declaration"
+                | "interface_declaration"
+                | "trait_declaration"
+                | "enum_declaration"
+        )
+    })?;
+    let name = class.child_by_field_name("name")?;
+    let text = src.get(name.byte_range())?;
+    let p = name.start_position();
+    let mut chain = reference(root, src, p.row, p.column, text)?;
+    chain.push(text.to_owned());
+    (tag.contains("@method") || tag.contains("@property")).then_some(chain)
+}
+
 fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Option<Vec<String>> {
     let at = Point::new(row, col);
     let end = Point::new(row, col + word.len());
     let leaf = root.descendant_for_point_range(at, end)?;
+    if leaf.kind() == "comment" {
+        return php_tag_reference(root, leaf, src, row, col);
+    }
     if src.get(leaf.byte_range())? != word {
         return None;
     }
@@ -151,7 +179,11 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
     let mut found_def = false;
     let before = src.get(..leaf.start_byte())?;
     let member_of_self = ["self.", "this.", "@"].iter().any(|s| before.ends_with(s))
-        || matches!(leaf.kind(), "instance_variable" | "class_variable");
+        || matches!(leaf.kind(), "instance_variable" | "class_variable")
+        || leaf
+            .parent()
+            .and_then(|p| p.parent())
+            .is_some_and(|p| p.kind() == "property_promotion_parameter");
     let mut n = leaf;
     while let Some(p) = n.parent() {
         if after_an_error_in_a_cpp_body(n, root) {
