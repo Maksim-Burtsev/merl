@@ -1,57 +1,57 @@
-wait ⋯ end
-┌orders──────────────────────┐1 class Checkout
-│▸ .bundle                   │2   def call(user)
-│▸ .github                   │3     if user.admin?  1 line ⋯ end
-│▸ .venv                     │6     charge(user)
-│▾ app                       │7   end
-│  ▾ ruby                    │8 end
-│    A attack.rb             │
-│    A checkout.rb           │
-│    A feed.rb               │
-│    A sessions.rb           │
-│    __init__.py             │
-│    api.py                  │
-│    config.py               │
-│    models.py               │
-│    repos.py                │
-│    service.py              │
-│    uow.py                  │
-│▸ data                      │
-│▸ deploy                    │
-│▸ docs                      │
-│▸ scripts                   │
-│▸ tests                     │
-│▸ web                       │
-│▸ worker                    │
-│  .env                      │
-│  .gitignore                │
-│  docker-compose.yml        │
-│  Dockerfile                │
-│A Gemfile.lock              │
-│  Makefile                  │
-│  pyproject.toml            │
-│  README.md                 │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-└────────────────────────────┘
-app/ruby/checkout.rb  3:1  [code]                                                                                                                                                  14:32
-cursor (x,y,shown) 32,2,0
+wait read-only
+1 module Rack
+2   class Attack
+3     def self.throttle(name, options)
+4     end
+5   end
+6 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+rack-attack-6.7.0/lib/rack/attack.rb  3:14  [code]  read-only  throttle → Rack.Attack.throttle (by name, 1 match)                                                                  14:32
+cursor (x,y,shown) 15,2,0

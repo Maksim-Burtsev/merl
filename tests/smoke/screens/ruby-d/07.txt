@@ -1,15 +1,13 @@
-wait A attack.rb
-┌orders──────────────────────┐1 class Rack::Attack
-│▸ .bundle                   │2   throttle('logins/ip', limit: 5)
-│▸ .github                   │3 end
-│▸ .venv                     │
-│▾ app                       │
-│  ▾ ruby                    │
-│    A attack.rb             │
-│    A feed.rb               │
-│    A sessions.rb           │
-│    __init__.py             │
-│    api.py                  │
+wait A feed.rb
+┌orders──────────────────────┐1 class Feed
+│▸ .github                   │2   def call
+│▸ .venv                     │3     Account.recent
+│▾ app                       │4   end
+│  ▾ ruby                    │5 end
+│    A feed.rb               │6
+│    A sessions.rb           │7 class Account < ApplicationRecord
+│    __init__.py             │8   scope :recent, -> { all }
+│    api.py                  │9 end
 │    config.py               │
 │    models.py               │
 │    repos.py                │
@@ -26,7 +24,6 @@ wait A attack.rb
 │  .gitignore                │
 │  docker-compose.yml        │
 │  Dockerfile                │
-│A Gemfile.lock              │
 │  Makefile                  │
 │  pyproject.toml            │
 │  README.md                 │
@@ -52,6 +49,9 @@ wait A attack.rb
 │                            │
 │                            │
 │                            │
+│                            │
+│                            │
+│                            │
 └────────────────────────────┘
-app/ruby/attack.rb  1:1  [code]                                                                                                                                                    14:32
+app/ruby/feed.rb  1:1  [code]                                                                                                                                                      14:32
 cursor (x,y,shown) 32,0,0

@@ -1,57 +1,57 @@
-wait A feed.rb
-┌orders──────────────────────┐1 class Feed
-│▸ .github                   │2   def call
-│▸ .venv                     │3     Account.recent
-│▾ app                       │4   end
-│  ▾ ruby                    │5 end
-│    A feed.rb               │6
-│    A sessions.rb           │7 class Account < ApplicationRecord
-│    __init__.py             │8   scope :recent, -> { all }
-│    api.py                  │9 end
-│    config.py               │
-│    models.py               │
-│    repos.py                │
-│    service.py              │
-│    uow.py                  │
-│▸ data                      │
-│▸ deploy                    │
-│▸ docs                      │
-│▸ scripts                   │
-│▸ tests                     │
-│▸ web                       │
-│▸ worker                    │
-│  .env                      │
-│  .gitignore                │
-│  docker-compose.yml        │
-│  Dockerfile                │
-│  Makefile                  │
-│  pyproject.toml            │
-│  README.md                 │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-└────────────────────────────┘
-app/ruby/feed.rb  1:1  [code]                                                                                                                                                      14:32
-cursor (x,y,shown) 32,0,0
+wait track → AdminController.track
+ 1 class SessionsController
+ 2   def on_success(user)
+ 3     track(user)
+ 4   end
+ 5
+ 6   def track(user)
+ 7     user
+ 8   end
+ 9 end
+10
+11 class AdminController
+12   def show
+13     user = User.find(1)
+14     track(user)
+15   end
+16
+17   def track(user)
+18     nil
+19   end
+20 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+app/ruby/sessions.rb  17:7  [code]  track → AdminController.track (via AdminController)                                                                                            14:32
+cursor (x,y,shown) 9,16,0

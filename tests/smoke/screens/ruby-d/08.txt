@@ -1,10 +1,13 @@
-wait read-only
-1 module Rack
-2   class Attack
-3     def self.throttle(name, options)
-4     end
-5   end
-6 end
+wait recent → Account.recent
+1 class Feed
+2   def call
+3     Account.recent
+4   end
+5 end
+6
+7 class Account < ApplicationRecord
+8   scope :recent, -> { all }
+9 end
 
 
 
@@ -50,8 +53,5 @@ wait read-only
 
 
 
-
-
-
-rack-attack-6.7.0/lib/rack/attack.rb  3:14  [code]  read-only  throttle → Rack.Attack.throttle (by name, 1 match)                                                                  14:32
-cursor (x,y,shown) 15,2,0
+app/ruby/feed.rb  8:10  [code]  recent → Account.recent (via Account)                                                                                                              14:32
+cursor (x,y,shown) 11,7,0

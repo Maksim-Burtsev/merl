@@ -121,10 +121,24 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
     let mut found_def = false;
     let before = src.get(..leaf.start_byte())?;
     let member_of_self = ["self.", "this.", "@"].iter().any(|s| before.ends_with(s))
-        || leaf.kind() == "instance_variable";
+        || matches!(leaf.kind(), "instance_variable" | "class_variable");
     let mut n = leaf;
     while let Some(p) = n.parent() {
         n = p;
+        if p.kind() == "call"
+            && p.child_by_field_name("method")
+                .and_then(|m| src.get(m.byte_range()))
+                == Some("create_table")
+            && let Some(table) = p
+                .child_by_field_name("arguments")
+                .and_then(|a| a.named_child(0))
+                .and_then(|t| src.get(t.byte_range()))
+        {
+            let mut seg = segments(table);
+            seg.append(&mut chain);
+            chain = seg;
+            continue;
+        }
         if !CONTAINERS.contains(&p.kind()) {
             continue;
         }

@@ -63,7 +63,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
         "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
-        "c", "sh", "bzl", "go",
+        "c", "sh", "bzl", "go", "rb",
     ];
     path.extension()
         .and_then(|e| e.to_str())
@@ -78,6 +78,19 @@ pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     });
     if !named {
         return None;
+    }
+    if kind == Kind::Ruby && name.starts_with('@') {
+        let lines: Vec<&str> = text.lines().collect();
+        let around = (0..line1 - 1)
+            .rev()
+            .filter(|&j| !steps_over(Some(kind), lines[j].trim_start()))
+            .find(|&j| indent(lines[j]) < indent(line));
+        let def = std::iter::once(line1 - 1)
+            .chain(around)
+            .find_map(|j| RB_DEF.captures(lines[j]).map(|c| (j, c[1].to_owned())));
+        if let Some((j, def)) = def {
+            return container(kind, text, j + 1, &def);
+        }
     }
     let q = qualified(kind, text, line1, name)?;
     let sep = separator(kind);
@@ -110,6 +123,10 @@ fn ts_call_result_around(text: &str, line1: usize) -> Option<String> {
         .filter(|c| !matches!(&c[2], "function" | "async"))
         .map(|c| c[1].to_owned())
 }
+static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)")
+        .expect("the regex is a literal")
+});
 fn qualified_by_owner(
     kind: Kind,
     text: &str,
@@ -125,10 +142,6 @@ fn qualified_by_owner(
     });
     static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)")
-            .expect("the regex is a literal")
-    });
-    static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)")
             .expect("the regex is a literal")
     });
     static COLUMN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -272,6 +285,7 @@ fn qualified_by_nesting(
                     .filter(|_| kind == Kind::Elixir)
                     .map(|c| c[1].to_owned())
             })
+            .or_else(|| RB_DEF.captures(l).filter(|_| ruby).map(|c| c[1].to_owned()))
             .or_else(|| declared_name(Some(kind), l));
         if named.is_none() && kind == Kind::Go && GO_STRUCT_WRITTEN_IN_PLACE.is_match(l) {
             names.push("struct{\u{2026}}".to_owned());
