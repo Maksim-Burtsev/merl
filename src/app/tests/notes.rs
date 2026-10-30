@@ -34,7 +34,6 @@ fn read(dir: &Path) -> String {
 
 fn on_a_rs(tag: &str, line: usize) -> (PathBuf, App) {
     let (dir, mut a) = review_app(tag);
-    a.notes.on = true;
     a.show_tree = false;
     a.jump_to(&dir.join("src/a.rs"), line);
     screen(&mut a);
@@ -286,7 +285,6 @@ fn a_branch_with_slashes_keeps_its_notes_in_folders() {
         .output()
         .unwrap();
     assert!(out.status.success());
-    a.notes.on = true;
     a.jump_to(&dir.join("src/a.rs"), 1);
     screen(&mut a);
     note(&mut a, "first");
@@ -299,11 +297,19 @@ fn a_branch_with_slashes_keeps_its_notes_in_folders() {
 }
 
 #[test]
-fn notes_off_leave_a_alone() {
+fn reading_the_branch_draws_no_note_and_leaves_a_alone() {
     let (dir, mut a) = on_a_rs("notes-off", 3);
-    a.notes.on = false;
+    note(&mut a, "kept for the agent");
+    assert!(screen(&mut a).contains("kept for the agent"));
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    a.show_tree = false;
+    a.jump_to(&dir.join("src/a.rs"), 3);
+    assert!(!screen(&mut a).contains("kept for the agent"));
     keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
     assert_eq!(a.mode, Mode::Normal);
+    assert_eq!(a.notes.list.len(), 0);
+    assert_eq!(a.notes_farewell(), None);
     drop(std::fs::remove_dir_all(dir));
 }
 

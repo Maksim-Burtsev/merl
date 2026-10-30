@@ -684,10 +684,6 @@ fn mix(fg: SynColor, bg: SynColor, percent: u32) -> SynColor {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "each flag is a setting of its own in the config file"
-)]
 pub struct Config {
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -699,8 +695,8 @@ pub struct Config {
     pub review_list_marks: bool,
     #[serde(default = "default_true")]
     pub review_open_files_first: bool,
-    #[serde(default)]
-    pub review_notes: bool,
+    #[serde(default, rename = "review_notes")]
+    _review_notes: serde::de::IgnoredAny,
     #[serde(default)]
     pub clock: crate::clock::Clock,
 }
@@ -725,7 +721,7 @@ impl Default for Config {
             review_panel_colours: true,
             review_list_marks: true,
             review_open_files_first: true,
-            review_notes: false,
+            _review_notes: serde::de::IgnoredAny,
             clock: crate::clock::Clock::default(),
         }
     }
@@ -1116,10 +1112,9 @@ mod tests {
         std::fs::write(&path, "theme = ").unwrap();
         let e = format!("{:#}", config_from(Some(&path)).unwrap_err());
         assert!(e.contains("config.toml"), "{e}");
-        std::fs::write(&path, "theme = \"tokyonight-moon\"\n").unwrap();
-        assert!(!config_from(Some(&path)).unwrap().review_notes);
-        std::fs::write(&path, "review_notes = true\n").unwrap();
-        assert!(config_from(Some(&path)).unwrap().review_notes);
+        std::fs::write(&path, "theme = \"tokyonight-moon\"\nreview_notes = true\n").unwrap();
+        let old_setting_let_be = config_from(Some(&path)).unwrap();
+        assert_eq!(old_setting_let_be.theme, "tokyonight-moon");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
