@@ -313,6 +313,25 @@ fn a_later_declarator_is_declared_where_its_statement_is() {
 }
 
 #[test]
+fn a_typescript_key_passed_to_a_call_shows_no_class_and_a_dotted_namespace_is_whole() {
+    let call = "export const unpublish = createAction({\n  visible: (c) => true,\n});\n";
+    assert_eq!(container(Kind::TsJs, call, 2, "visible"), None);
+    let schema = "const UserConfigSchema = z.object({\n\tlogo: LogoConfigSchema(),\n});\n";
+    assert_eq!(container(Kind::TsJs, schema, 2, "logo").as_deref(), None);
+    let object = "export const tariff = {\n  rate: 1,\n};\n";
+    assert_eq!(
+        container(Kind::TsJs, object, 2, "rate").as_deref(),
+        Some("tariff")
+    );
+    let ns =
+        "declare namespace astroHTML.JSX {\n  interface Anchor {\n    href?: string;\n  }\n}\n";
+    assert_eq!(
+        qualified(Kind::TsJs, ns, 3, "href").as_deref(),
+        Some("astroHTML.JSX.Anchor.href")
+    );
+}
+
+#[test]
 fn a_wrapped_header_still_names_its_members() {
     let ts = "export class Tariff<\n  T,\n> {\n  rate = 1;\n}\n";
     assert_eq!(

@@ -878,20 +878,20 @@ fn an_implementation_of_a_namesake_interface_is_not_one_of_ours() {
             "everything of `a` through a barrel",
             "a.ts",
             [
-                ("send", "barrel.ts:4"),
-                ("send", "impl.ts:4"),
-                ("send", "looped.ts:4"),
-                ("send", "loose.ts:4"),
+                ("SmsNotifier.send", "barrel.ts:4"),
+                ("MailNotifier.send", "impl.ts:4"),
+                ("LoopedNotifier.send", "looped.ts:4"),
+                ("LooseNotifier.send", "loose.ts:4"),
             ],
         ),
         (
             "the name out of `b`, a barrel of a barrel, and `type Notifier,` on a line of a wrapped list, which declares no alias, in the class's file and in the barrel alike",
             "b.ts",
             [
-                ("send", "deep_impl.ts:4"),
-                ("send", "looped.ts:4"),
-                ("send", "loose.ts:4"),
-                ("send", "named_impl.ts:6"),
+                ("DeepNotifier.send", "deep_impl.ts:4"),
+                ("LoopedNotifier.send", "looped.ts:4"),
+                ("LooseNotifier.send", "loose.ts:4"),
+                ("PushNotifier.send", "named_impl.ts:6"),
             ],
         ),
     ] {

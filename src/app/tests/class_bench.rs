@@ -18,6 +18,7 @@ const CONTAINERS: &[&str] = &[
     "function_definition",
     "function_declaration",
     "generator_function_declaration",
+    "function_signature",
     "function_item",
     "impl_item",
     "trait_item",
