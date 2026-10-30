@@ -731,6 +731,7 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             ("two.py", "def slugify(x):\n    return x\n"),
             ("view.ts", "class C {\n  run() {}\n}\n"),
             ("view.rb", "class C\n  def run\n  end\nend\n"),
+            ("view.dart", "class C {\n  void run() {}\n}\n"),
             (
                 "view.lua",
                 "local M = {}\nM.set = function(k)\n  _G.kong = k\nend\n",
@@ -803,6 +804,15 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
         heads(Kind::Ruby, "run", vec![found("view.rb", 2, Reason::ByName)]),
         ["C  view.rb:2: "],
         "Ruby's class is measured (#1329)"
+    );
+    assert_eq!(
+        heads(
+            Kind::Dart,
+            "run",
+            vec![found("view.dart", 2, Reason::ByName)]
+        ),
+        ["view.dart:2: "],
+        "no class where it is not proven"
     );
     assert_eq!(
         heads(

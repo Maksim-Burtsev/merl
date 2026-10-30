@@ -63,7 +63,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
         "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
-        "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb", "lua",
+        "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb", "php", "lua",
     ];
     path.extension()
         .and_then(|e| e.to_str())
@@ -97,6 +97,16 @@ pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         if let Some((j, def)) = def {
             return container(kind, text, j + 1, &def);
         }
+    }
+    if kind == Kind::Php
+        && let Some(f) = php_parameter_of(line, name)
+    {
+        return Some(qualified(kind, text, line1, &f).unwrap_or(f));
+    }
+    if kind == Kind::Php
+        && let Some(j) = php_constructor_promoting(text, line1, name)
+    {
+        return container(kind, text, j, "__construct");
     }
     let q = qualified(kind, text, line1, name)?;
     let sep = separator(kind);
@@ -165,6 +175,46 @@ fn c_owner_on_line(line: &str, name: &str) -> Option<String> {
         && !head.split_whitespace().any(|w| not_a_function.contains(&w))
         && parameter.is_match(&c[3]))
     .then(|| function.to_owned())
+}
+static PHP_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"\bfunction\s+&?\s*([A-Za-z_]\w*)\s*\(([^)]*)").expect("the regex is a literal")
+});
+fn php_promotes(params: &str, name: &str) -> Option<bool> {
+    let variable = format!("${name}");
+    params.split(',').find_map(|p| {
+        let words: Vec<&str> = p.split(['=', ' ', '\t']).collect();
+        words
+            .iter()
+            .any(|w| w.trim_start_matches(['&', '.']) == variable)
+            .then(|| {
+                words.iter().any(|w| {
+                    let w = w.split('(').next().unwrap_or(w).to_ascii_lowercase();
+                    matches!(w.as_str(), "public" | "private" | "protected" | "readonly")
+                })
+            })
+    })
+}
+fn php_parameter_of(line: &str, name: &str) -> Option<String> {
+    let c = PHP_FUNCTION.captures(line).filter(|c| &c[1] != name)?;
+    (php_promotes(&c[2], name) == Some(false)).then(|| c[1].to_owned())
+}
+fn php_constructor_promoting(text: &str, line1: usize, name: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    if PHP_FUNCTION.is_match(lines[line1 - 1])
+        || lines[line1 - 1].contains(';')
+        || php_promotes(lines[line1 - 1], name) != Some(true)
+    {
+        return None;
+    }
+    (0..line1 - 1)
+        .rev()
+        .take_while(|&j| !lines[j].contains(['{', ';']))
+        .find_map(|j| {
+            PHP_FUNCTION
+                .captures(lines[j])
+                .map(|c| (j + 1, c[1].to_owned()))
+        })
+        .and_then(|(j, f)| (f == "__construct").then_some(j))
 }
 fn ts_call_result_around(text: &str, line1: usize) -> Option<String> {
     static CALL_RESULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

@@ -565,3 +565,41 @@ fn a_ruby_row_s_class_is_the_class_an_instance_variable_belongs_to_and_a_method_
         "@@count=Admin.ReportsController @per_page=Admin.ReportsController @report=Admin.ReportsController @cache=Admin.ReportsController @built=Admin.ReportsController @@count=Admin.ReportsController row=Admin.ReportsController.publish! @last= count=Admin.ReportsController.publish! rate==Admin.ReportsController @rate=Admin.ReportsController @expires_in="
     );
 }
+
+#[test]
+fn a_php_row_s_class_is_the_function_of_a_parameter_and_the_class_of_a_promoted_property() {
+    let php = "<?php\n\nnamespace App\\Models;\n\nclass Song extends Model\n{\n    public function __construct(public readonly string $value, bool $plain, private(set) int $set)\n    {\n    }\n\n    public function __construct(\n        #[SensitiveParameter] private readonly Result $result,\n        readonly int $ro,\n        string $plain2,\n    ) {\n    }\n\n    public static function query(?PlayableType $type = null, array $ids = [1, 2], &$ref, ...$rest): Builder\n    {\n        $local = 1;\n        $f = function ($arg) use ($local) { return $arg; };\n    }\n\n    public function value(int $value): int\n    {\n    }\n\n    public $prop = 1;\n    private static ?int $sprop;\n}\n\nfunction helper(int $count): int\n{\n}\n\ninterface Playable\n{\n    public function play(int $at);\n}\n";
+    let got: Vec<_> = [
+        (7, "value"),
+        (7, "plain"),
+        (7, "set"),
+        (12, "result"),
+        (13, "ro"),
+        (14, "plain2"),
+        (18, "type"),
+        (18, "ids"),
+        (18, "ref"),
+        (18, "rest"),
+        (18, "query"),
+        (20, "local"),
+        (21, "arg"),
+        (24, "value"),
+        (28, "prop"),
+        (29, "sprop"),
+        (32, "count"),
+        (32, "helper"),
+        (38, "at"),
+    ]
+    .into_iter()
+    .map(|(l, n)| {
+        format!(
+            "{n}={}",
+            container(Kind::Php, php, l, n).unwrap_or_default()
+        )
+    })
+    .collect();
+    assert_eq!(
+        got.join(" "),
+        "value=Song plain=Song::__construct set=Song result=Song ro=Song plain2= type=Song::query ids=Song::query ref=Song::query rest=Song::query query=Song local=Song::query arg=Song::query value=Song prop=Song sprop=Song count=helper helper= at=Playable::play"
+    );
+}
