@@ -588,28 +588,7 @@ impl App {
                 struct_tag: tag,
             },
         );
-        let from1 = self.line + 1;
-        let reach = |h: &Hit| {
-            (h.path == a.here && Self::c_type_line(word, h))
-                .then(|| search::c_function_local_reach(&a.text, h.line1, word, from1))
-                .flatten()
-        };
-        let hits: Vec<(Hit, _)> = (self.c_reached_only(&a.here, word, hits).into_iter())
-            .filter(|h| {
-                h.path == a.here
-                    || !Self::c_type_line(word, h)
-                    || !(self.text_of(&h.path))
-                        .is_some_and(|t| search::c_inside_function(&t, h.line1, word))
-            })
-            .map(|h| (reach(&h), h))
-            .filter(|(r, _)| *r != Some(None))
-            .map(|(r, h)| (h, r.flatten()))
-            .collect();
-        let inner = hits.iter().filter_map(|(_, open)| *open).max();
-        let hits: Vec<Hit> = (hits.into_iter())
-            .filter(|(_, open)| inner.is_none() || *open == inner)
-            .map(|(h, _)| h)
-            .collect();
+        let hits = self.c_visible_types(a, hits);
         let on = hits
             .iter()
             .any(|h| h.path == a.here && h.line1 == self.line + 1);
@@ -667,6 +646,21 @@ impl App {
                 vec![hits[one.hit_index].clone()]
             }
             None => hits,
+        })
+    }
+
+    fn c_visible_types(&mut self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
+        let word = &a.word;
+        let hits: Vec<Hit> = (self.c_reached_only(&a.here, word, hits).into_iter())
+            .filter(|h| {
+                h.path == a.here
+                    || !Self::c_type_line(word, h)
+                    || !(self.text_of(&h.path))
+                        .is_some_and(|t| search::c_inside_function(&t, h.line1, word))
+            })
+            .collect();
+        search::c_block_scoped(&a.text, word, self.line + 1, hits, |h| {
+            (h.path == a.here && Self::c_type_line(word, h)).then_some(h.line1)
         })
     }
 
