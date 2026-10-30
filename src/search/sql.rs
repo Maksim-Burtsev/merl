@@ -17,7 +17,17 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
         return Some(false);
     };
     let code = sql_code(text).0;
-    let (open, at, b) = (start(cte) + m.end() - 1, start(line) + col, code.as_bytes());
+    let (from, end, ended) = sql_cte_reach(&code, start(cte) + m.end() - 1);
+    let at = start(line) + col;
+    if at <= from {
+        Some(false)
+    } else {
+        ended.then_some(at <= end)
+    }
+}
+
+fn sql_cte_reach(code: &str, open: usize) -> (usize, usize, bool) {
+    let b = code.as_bytes();
     let (mut first, mut depth, mut close, mut i) = (0, None::<usize>, None, 0);
     let (mut ended, mut after) = (false, 0_usize);
     while i < b.len() {
@@ -52,11 +62,7 @@ pub fn sql_cte_sees(text: &str, cte: usize, word: &str, line: usize, col: usize)
     } else {
         close.unwrap_or(i)
     };
-    if at <= from {
-        Some(false)
-    } else {
-        ended.then_some(at <= i)
-    }
+    (from, i, ended)
 }
 
 const SQL_IDENT: &str = r#"(?:"[^"]+"|`[^`]+`|[A-Za-z_]\w*)"#;
@@ -268,10 +274,7 @@ fn sql_cte_column(
                 sql_name(table)
             ))
             .ok()?;
-            let seen = |c: &regex::Captures| {
-                c.get(0)
-                    .is_some_and(|m| sql_query_region(stmt, m.start()).contains(&at))
-            };
+            let seen = |c: &regex::Captures| c.get(0).is_some_and(|m| sql_cte_holds(stmt, m, at));
             let c = head.captures_iter(stmt).find(seen)?;
             let body = sql_query_region(stmt, c.get(0)?.end());
             if body.contains(&at) {
@@ -1267,10 +1270,10 @@ fn sql_qualified(t: &str) -> String {
     parts.join(".")
 }
 
-fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<String> {
+fn sql_scope_table(stmt: &str, whole_at: usize, word: &str, update: &Regex) -> Option<String> {
     let table = sql_qualified;
-    let r = sql_query_region(stmt, at);
-    let (region, at) = (stmt.get(r.clone())?, at - r.start);
+    let r = sql_query_region(stmt, whole_at);
+    let (region, at) = (stmt.get(r.clone())?, whole_at - r.start);
     let hidden =
         Regex::new(r"(?i)\bUSING\b|\bLATERAL\b|\b(?:FROM|JOIN)\s*\(").expect("a valid pattern");
     let named = Regex::new(&format!(
@@ -1287,15 +1290,36 @@ fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<
     let bare = Regex::new(SQL_SELECT_HEAD)
         .expect("a valid pattern")
         .replace_all(region, "SELECT");
-    if hidden.is_match(region) || named.is_match(region) || unnamed.captures_iter(&bare).any(alias)
+    let body =
+        Regex::new(r"(?i)\bAS(?:\s+(?:NOT\s+)?MATERIALIZED)?\s*\($").expect("a valid pattern");
+    let output = |m: regex::Match| {
+        let q = sql_query_region(region, m.start()).start;
+        let in_cte = q > 0 && region.get(..q).is_some_and(|t| body.is_match(t));
+        let own = region
+            .get(at + word.len()..m.start())
+            .is_some_and(|g| g.trim().is_empty());
+        !in_cte && !own
+    };
+    if hidden.is_match(region)
+        || named.find_iter(region).any(output)
+        || unnamed.captures_iter(&bare).any(alias)
     {
         return None;
     }
     let top = |i: usize| region.get(..i).is_some_and(|t| sql_level(t) == 0);
+    let order = Regex::new(r"(?i)\bORDER\s+BY\b").expect("a valid pattern");
+    let scope = sql_branch(region, at)
+        .filter(|b| {
+            !order
+                .find_iter(region.get(b.start..at).unwrap_or_default())
+                .any(|m| top(b.start + m.start()))
+        })
+        .unwrap_or(0..region.len());
+    let read = |i: usize| top(i) && scope.contains(&i);
     let mut tables = Vec::new();
     for (t, a) in sql_from_items(region)
         .into_iter()
-        .filter(|(t, _)| top(t.start))
+        .filter(|(t, _)| read(t.start))
     {
         if t.contains(&at) || a.as_ref().is_some_and(|a| a.contains(&at)) {
             return None;
@@ -1312,7 +1336,7 @@ fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<
     tables.extend(
         update
             .captures_iter(region)
-            .filter(|c| c.get(0).is_some_and(|m| top(m.start())))
+            .filter(|c| c.get(0).is_some_and(|m| read(m.start())))
             .map(|c| table(&c[1])),
     );
     tables.sort();
@@ -1320,9 +1344,21 @@ fn sql_scope_table(stmt: &str, at: usize, word: &str, update: &Regex) -> Option<
     let [t] = tables.as_slice() else {
         return None;
     };
-    let last = t.rsplit('.').next().unwrap_or(t);
-    let cte = Regex::new(&sql_cte(last)).expect("an escaped name keeps it valid");
-    (!stmt.lines().any(|l| cte.is_match(l))).then(|| t.clone())
+    let last = regex::escape(t.rsplit('.').next().unwrap_or(t));
+    let cte = Regex::new(&format!(
+        r"(?i)\b{last}(?:\s*\([^()]*\))?\s+AS(?:\s+(?:NOT\s+)?MATERIALIZED)?\s*\("
+    ))
+    .expect("an escaped name keeps it valid");
+    (!cte
+        .find_iter(stmt)
+        .any(|m| sql_cte_holds(stmt, m, whole_at)))
+    .then(|| t.clone())
+}
+
+fn sql_cte_holds(stmt: &str, head: regex::Match, at: usize) -> bool {
+    let open = head.end() - 1;
+    let (from, end, _) = sql_cte_reach(stmt, open);
+    (from == open || from < at) && at <= end && sql_query_region(stmt, head.start()).contains(&at)
 }
 
 pub fn sql_parents(text: &str, create: usize) -> Vec<String> {
