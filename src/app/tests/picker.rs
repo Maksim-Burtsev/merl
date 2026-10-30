@@ -797,8 +797,8 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
     );
     assert_eq!(
         heads(Kind::Ruby, "run", vec![found("view.rb", 2, Reason::ByName)]),
-        ["view.rb:2: "],
-        "no class where it is not proven"
+        ["C  view.rb:2: "],
+        "Ruby's class is measured (#1329)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
