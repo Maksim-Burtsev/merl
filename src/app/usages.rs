@@ -106,7 +106,9 @@ impl App {
         let word = word.trim_start_matches('@');
         let text = bare_name(word);
         let mut hits = self
-            .grep(&regex::escape(text), true, false, |_| true)
+            .grep_job(0, &regex::escape(text), |_| true)
+            .under_one_name()
+            .run(true, false)
             .unwrap_or_default();
         let cut = hits.len() >= search::MAX_HITS;
         let deleted = self.deleted_lines();
