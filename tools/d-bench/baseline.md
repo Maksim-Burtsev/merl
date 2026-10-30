@@ -79,12 +79,13 @@ The rust row with #1302 (a call of a local closure read through its written `-> 
 The swift row with #1068's generic parameter bound by a protocol or class from outside the project (`Key: CodingKey` in `URLEncodedFormEncoder`, `S: Sequence` in `Validation`, `where ExtendedType: Bundle` in `ServerTrustEvaluation`): over `e72665e87` with this change, 2026-10-29, release build, `vm.loadavg` { 4.15 5.02 6.05 } before the run, { 5.03 5.22 6.00 } after.
 The php row with #1279's fourth pass (a static call on a class outside the project, `Arr::get(..)`, `Collection::wrap(..)`, `File::partialMock()`, walks the one `vendor/` file that declares that class under its namespace, its traits and parents; a class name lands on its header): over `ca4d141d3`, 2026-10-29, release build, `vm.loadavg` { 4.53 4.93 5.83 } before the run, { 6.90 5.35 5.87 } after.
 The rust row with #1302's variant brought by a glob over a dependency's enum (`use regex_syntax::hir::HirKind::*;` then `Capture(..)` in `crates/regex/src/literal.rs`): over `d8fc507de` with this change, 2026-10-29, release build, `vm.loadavg` { 9.63 8.03 7.19 } before the run.
+The js and ts rows with #1342 (a declaration on its own line, a parameter of a signature over several lines or a name of a several-name `let`, stays put; a part of a hyphenated JSX attribute needs no lookup; three skip rows get merl's target beside the oracle's): over `564493936` with this change, 2026-10-31, release build, `vm.loadavg` { 4.73 5.63 5.86 } before the run, { 4.46 5.17 5.65 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 259 | 243 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 66 | 8 | 16.7 | 237.6 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 43.8 | 94.1 |
-| js (eslint, uptime-kuma) | 217 | 195 (90%) | 16 (7%) | 0 (0%) | 6 (3%) | 177 | 10 | 37.5 | 189.0 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
+| js (eslint, uptime-kuma) | 217 | 195 (90%) | 16 (7%) | 0 (0%) | 6 (3%) | 177 | 6 | 35.1 | 147.4 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 226 (98%) | 4 (2%) | 0 (0%) | 1 (0%) | 69 | 5 | 6.2 | 60.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
