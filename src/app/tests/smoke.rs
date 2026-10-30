@@ -59,6 +59,10 @@ const UNSMOKED: &[(u32, &str)] = &[
         1328,
         "TypeScript's class in d's list: every d of ts-d lands without a list; class_bench measures the class and a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_reason shows it",
     ),
+    (
+        1333,
+        "SQL's class in d's list: no smoke scenario plays d in SQL; class_bench measures the class and a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_reason shows it",
+    ),
 ];
 
 fn root() -> PathBuf {
