@@ -83,12 +83,13 @@ The php row with #1326's variable bound from a method called on a typed property
 The rust row with #1302's third pass (a variant through a workspace crate that hands another on, `grep::printer::SummaryKind::PathWithMatch` in `crates/core/flags/hiargs.rs`; a `use` inside `mod tests` past a multi-line string at column 0, `RegexMatcher::new` in `crates/printer/src/standard.rs`): over `3a5c430a2`, 2026-10-31, release build, `vm.loadavg` { 4.47 5.50 6.66 } before the run.
 The bash row with #1335 (`env NAME=…` hands NAME to a program, bats's `run` takes a command, a script that sources nothing calls the function it defines once): over `564493936` with this change, 2026-10-31, release build, `vm.loadavg` { 5.23 5.94 5.99 } before the run.
 The js and ts rows with #1342 (a declaration on its own line, a parameter of a signature over several lines or a name of a several-name `let`, stays put; a part of a hyphenated JSX attribute needs no lookup; three skip rows get merl's target beside the oracle's): over `564493936` with this change, 2026-10-31, release build, `vm.loadavg` { 4.73 5.63 5.86 } before the run, { 4.46 5.17 5.65 } after.
+The js row with #1337 (a default import through `export { local as default }`, a `require` of a file inside a package read for that file's declarations, the key of a renamed `require`): over `9dddebb41`, 2026-10-31, release build, `vm.loadavg` { 4.46 4.47 4.91 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 259 | 243 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 66 | 8 | 16.7 | 237.6 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
-| js (eslint, uptime-kuma) | 217 | 195 (90%) | 16 (7%) | 0 (0%) | 6 (3%) | 177 | 6 | 35.1 | 147.4 |
+| js (eslint, uptime-kuma) | 217 | 199 (92%) | 15 (7%) | 0 (0%) | 3 (1%) | 177 | 6 | 34.1 | 184.8 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
