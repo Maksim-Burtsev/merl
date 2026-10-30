@@ -1310,3 +1310,79 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
          class name on an empty stub"
     );
 }
+
+#[test]
+fn a_php_instance_member_of_a_vendor_class_an_empty_project_stub_declares_lands_in_vendor() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse Illuminate\\Support\\Arr;\nuse Illuminate\\Support\\Str;\n\nclass Ctl\n{\n    private Arr $arr;\n\n    public function __invoke(Arr $p, array $a): void\n    {\n        $p->get($a, 'k');\n        $n = new Arr();\n        $n->get($a, 'k');\n        $this->arr->get($a, 'k');\n        $s = new Str();\n        $s->upper('x');\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public function get($array, $key)\n    {\n    }\n}\n";
+    let str = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Str extends Base\n{\n}\n";
+    let base = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Base\n{\n    public function upper($value)\n    {\n    }\n}\n";
+    let mine = "<?php\n\nnamespace App\\Support;\n\nclass Arr\n{\n    public function get($key)\n    {\n    }\n\n    public function upper($value)\n    {\n    }\n}\n";
+    let stub = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n}\n\nclass Base\n{\n}\n";
+    let s = "vendor/laravel/framework/src/Illuminate";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Ctl.php", ctl),
+        ("app/Support/Arr.php", mine),
+        (&format!("{s}/Collections/Arr.php"), arr),
+        (&format!("{s}/Support/Str.php"), str),
+        (&format!("{s}/Support/Base.php"), base),
+    ];
+    let get = format!("{s}/Collections/Arr.php:7");
+    let upper = format!("{s}/Support/Base.php:7");
+    let want = [
+        jump("get \u{2192} Arr::get (via $p: Arr)", &get),
+        jump("get \u{2192} Arr::get (via $n: Arr)", &get),
+        jump("get \u{2192} Arr::get (via $this->arr: Arr)", &get),
+        jump("upper \u{2192} Base::upper (via $s: Str)", &upper),
+    ];
+    let twice = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n}\n";
+    for stubs in [
+        &[][..],
+        &[("ide_helper.php", stub)],
+        &[("ide_helper.php", stub), ("ide_helper_more.php", twice)],
+    ] {
+        let (dir, mut a) = project_app(
+            &format!("php-vendor-instance-stub-{}", stubs.len()),
+            &[files.as_slice(), stubs].concat(),
+        );
+        let got = ["$p->get", "$n->get", "$this->arr->get", "$s->upper"].map(|code| {
+            d_on(&mut a, "app/Http/Ctl.php", code);
+            shown(&mut a)
+        });
+        drop(std::fs::remove_dir_all(dir));
+        assert_eq!(
+            got,
+            want,
+            "an empty project stub of a vendor class or of its parent leaves the vendor class's \
+             answer on instance access, and so do two: stubs: {}",
+            stubs.len()
+        );
+    }
+    let magic = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public function __call($method, $args)\n    {\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-vendor-instance-stub-magic",
+        &[files.as_slice(), &[("ide_helper.php", magic)]].concat(),
+    );
+    d_on(&mut a, "app/Http/Ctl.php", "$p->get");
+    let got = shown(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(
+        got,
+        picker(
+            "get: by name, 2 declarations",
+            &[
+                ("Arr::get", "app/Support/Arr.php:7"),
+                (
+                    "Arr::get",
+                    "laravel/framework/src/Illuminate/Collections/Arr.php:7"
+                ),
+            ],
+        ),
+        "a project class of the vendor name answering through __call keeps the search"
+    );
+}
