@@ -118,7 +118,9 @@ impl App {
 
     fn ts_declares_here(&self, a: &Asked) -> bool {
         let word = &a.word;
-        if whole_at(self.line_str(), word, "") != Some(a.range.start) {
+        if whole_at(self.line_str(), word, "") != Some(a.range.start)
+            || !search::ts_import_lines1(&a.text, word).is_empty()
+        {
             return false;
         }
         let Ok(bare) = Regex::new(&format!(
