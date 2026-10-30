@@ -18,7 +18,7 @@ wait Tutor 25/
 │                            │16
 │                            │17     def to_dict(self) -> dict:
 │                            │18         """The note as plain, JSON-friendly data."""
-│                            │19         return { ╭ Tutor 25/26 · Previous change ───────────────────────────────────────────────────╮
+│                            │19         return { ╭ Tutor 25/27 · Previous change ───────────────────────────────────────────────────╮
 │                            │20             "id":│                                                                                  │
 │                            │21             "text│  `C` walks back: to the change before, and from the first one into the file      │
 │                            │22             "tags│  before. Press `C`: from the top of models.py back into cli.py.                  │

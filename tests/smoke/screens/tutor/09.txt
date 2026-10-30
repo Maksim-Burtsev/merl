@@ -16,14 +16,15 @@ wait Tutor 23/
                                   │ Review                                                                                                            │
                                   │   c / C                             Review: next / previous hunk, on to the next file                             │
                                   │   m                                 Review: mark the file as viewed, or take the mark off                         │
+                                  │   a                                 Review: note for the agent on the line or the selection                       │
                                   │   Fold: Enter                       Review: load the diff of a folded generated file                              │
-                                  │ Editing                                                                                                           │
-                                  │   Enter       ╭ Tutor 23/26 · Close it ──────────────────────────────────────────────────────────╮                │
-                                  │   Ctrl+S      │                                                                                  │                │
-                                  │   Ctrl+R      │  `?` lists every key merl knows, and it is open now. Esc closes any overlay,     │                │
-                                  │   Ctrl+Z / Ctr│  and clears the selection and the find pattern. Press Esc.                       │                │
-                                  │   Ctrl+C      │                                                                                  │                │
-                                  │   Edit: Ctrl+X╰─────────────────────────────────────────────── Enter starts · i shows this again ╯                │
+                                  │ Editing       ╭ Tutor 23/27 · Close it ──────────────────────────────────────────────────────────╮                │
+                                  │   Enter       │                                                                                  │                │
+                                  │   Ctrl+S      │  `?` lists every key merl knows, and it is open now. Esc closes any overlay,     │                │
+                                  │   Ctrl+R      │  and clears the selection and the find pattern. Press Esc.                       │                │
+                                  │   Ctrl+Z / Ctr│                                                                                  │                │
+                                  │   Ctrl+C      ╰─────────────────────────────────────────────── Enter starts · i shows this again ╯                │
+                                  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
                                   │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
                                   │ Selection                                                                                                         │
                                   │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
@@ -51,7 +52,6 @@ wait Tutor 23/
                                   │   Tree: PgUp / PgDn                 Move one page                                                                 │
                                   │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
-                                  │   Tree: { / }                       Previous / next folder                                                        │
                                   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 export.csv  1:1  [code]  nowrap  ✓ Keep or put back  ✓ Fold a function                                                                                                             14:32
 cursor (x,y,shown) 185,54,0

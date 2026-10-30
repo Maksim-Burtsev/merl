@@ -49,8 +49,8 @@ wait A refund.patch
 key Down Down Down Down Down Down Down Down Down Down Down S-Down
 wait refund.patch  13:1
 # merl draws the cursor itself, in the theme's Cursor colours, and hides the terminal's: a light
-# theme's dark block reads in a dark terminal, over mosh too; typing, as in a picker's input, takes
-# a second colour (#558).
+# theme's dark block reads in a dark terminal, over mosh too (#558); typing, as in a picker's input,
+# draws the same block (#1060).
 merl --theme github-light app/models.py
 wait A refund.patch
 key T

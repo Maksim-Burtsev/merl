@@ -62,9 +62,7 @@
 - The lints live in `Cargo.toml` `[lints]` and `clippy.toml`, and `tools/ci-local clippy` denies
   every warning. `#[allow]` is banned: a lint is silenced only by `#[expect(lint, reason = "…")]`,
   and `expects_do_not_grow` (`src/main.rs`) keeps their number under `EXPECTS`; a PR that removes
-  some lowers it. `unwrap()` and `&s[a..b]` on a `str` are not used outside tests. The
-  `#![expect(…, reason = "#858")]` lines are the strict-lints epic's backlog: code the epic has
-  not reached yet, never a place for new hits.
+  some lowers it. `unwrap()` and `&s[a..b]` on a `str` are not used outside tests.
 - The site (#776) runs this same `src/` in the browser: `web/build.sh OUT.wasm` builds it for
   `wasm32-wasip1` from `web/Cargo.toml`, whose dependencies match `Cargo.toml`'s
   (`the_browser_build_has_merl_s_dependencies`), at the versions `Cargo.lock` holds. The browser

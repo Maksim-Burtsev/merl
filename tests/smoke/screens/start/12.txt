@@ -5,7 +5,7 @@ wait Tutor 3/
  3 import json
  4
  5 from config import Config, load_config
- 6 f╭ Tutor 3/26 · Next match ─────────────────────────────────────────────╮
+ 6 f╭ Tutor 3/27 · Next match ─────────────────────────────────────────────╮
  7  │                                                                      │
  8  │  The file is searched for `load_config`. `n` goes to the next        │
  9 c│  match, `N` to the previous one; `/` again brings the query back,    │

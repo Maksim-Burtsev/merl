@@ -215,6 +215,26 @@ impl App {
             search::Psr4File::Found(path) => path,
             search::Psr4File::Missing => return None,
             search::Psr4File::OutsideProject => {
+                let block = search::php_block(text, self.line);
+                let mut patterns = search::php_access_patterns(&word, access);
+                if access == search::PhpAccess::Call {
+                    patterns.extend(search::php_access_patterns("__callStatic", access));
+                }
+                let re = Regex::new(&patterns.join("|")).ok()?;
+                let declared = self.php_class(here, block, &written).1;
+                let declares = declared.iter().any(|c| {
+                    !member
+                        || !matches!(
+                            self.php_walk(&c.path, &c.text, c.header0, &re, 0, &mut Vec::new()),
+                            Walk::Nowhere | Walk::NowhereOutside
+                        )
+                });
+                if !declares
+                    && let Some(found) =
+                        self.php_outside_named(&full, short, &word, (member, imported), access)
+                {
+                    return Some(found);
+                }
                 let imports = [search::Import {
                     name: short.to_owned(),
                     path: full.split('\\').map(str::to_owned).collect(),
@@ -269,6 +289,53 @@ impl App {
         Some(
             found
                 .into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect(),
+        )
+    }
+
+    fn php_outside_named(
+        &mut self,
+        full: &str,
+        short: &str,
+        word: &str,
+        (member, imported): (bool, bool),
+        access: search::PhpAccess,
+    ) -> Option<Vec<Candidate>> {
+        let [class] =
+            <[PhpClass; 1]>::try_from(self.php_outside_classes(Some(full), short)).ok()?;
+        let hits = if member {
+            let re = Regex::new(&search::php_access_patterns(word, access).join("|")).ok()?;
+            match self.php_walk(
+                &class.path,
+                &class.text,
+                class.header0,
+                &re,
+                0,
+                &mut Vec::new(),
+            ) {
+                Walk::Found(hits) => hits,
+                Walk::Nowhere | Walk::NowhereOutside | Walk::Unread => return None,
+            }
+        } else {
+            vec![Hit {
+                deleted: None,
+                path: class.path.clone(),
+                line1: class.header0 + 1,
+                byte_col: None,
+                text: class.text.lines().nth(class.header0)?.to_owned(),
+            }]
+        };
+        let reason = if imported {
+            Reason::Import(full.replace('\\', "/"))
+        } else {
+            Reason::Path(short.to_owned())
+        };
+        Some(
+            hits.into_iter()
                 .map(|hit| Candidate {
                     hit,
                     reason: reason.clone(),

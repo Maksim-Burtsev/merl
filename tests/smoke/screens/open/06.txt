@@ -16,9 +16,10 @@ wait Go to definition of the word under the cursor
 15     def __exit__(self, exc_type│ Review                                                                                                            │
 16         if exc_type is None:   │   c / C                             Review: next / previous hunk, on to the next file                             │
 17             self.db.commit()   │   m                                 Review: mark the file as viewed, or take the mark off                         │
-18         else:                  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
-19             self.db.rollback() │ Editing                                                                                                           │
-20         return False           │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+18         else:                  │   a                                 Review: note for the agent on the line or the selection                       │
+19             self.db.rollback() │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+20         return False           │ Editing                                                                                                           │
+                                  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
                                   │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
                                   │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
                                   │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
@@ -52,6 +53,5 @@ wait Go to definition of the word under the cursor
                                   │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
                                   │   Tree: { / }                       Previous / next folder                                                        │
-                                  │   Picker: Up / Down                 Move                                                                          │
 app/uow.py  15:1  [code]          └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 151,54,0

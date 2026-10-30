@@ -16,25 +16,26 @@ wait Switch focus between tree and code
 15         self.settings = setting│ Review                                                                                                            │
 16                                │   c / C                             Review: next / previous hunk, on to the next file                             │
 17     def get(self, order_id: int│   m                                 Review: mark the file as viewed, or take the mark off                         │
-18         order = self.repo.get(o│   Fold: Enter                       Review: load the diff of a folded generated file                              │
-19         if order is None:      │ Editing                                                                                                           │
-20             raise OrderNotFound│   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-21         return order           │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
-22                                │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
-23     def mark_paid(self, order_i│   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
-24         order = self.get(order_│   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
-25         order.status = OrderSta│   Edit: Ctrl+X                      Cut the selection, or the line                                                │
-26         self.repo.save(order)  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
-27         return order           │ Selection                                                                                                         │
-28                                │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
-29     def cancel(self, order_id: │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
-30         order = self.get(order_│   Shift+Left / Shift+Right          Extend the selection by a char                                                │
-31         if not order.can_cancel│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
-32             raise ValueError(f"│   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
-33         order.status = OrderSta│   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
-34         with self.uow:         │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
-35             self.uow.orders.sav│   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
-36         return order           │ Movement                                                                                                          │
+18         order = self.repo.get(o│   a                                 Review: note for the agent on the line or the selection                       │
+19         if order is None:      │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+20             raise OrderNotFound│ Editing                                                                                                           │
+21         return order           │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+22                                │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+23     def mark_paid(self, order_i│   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+24         order = self.get(order_│   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+25         order.status = OrderSta│   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+26         self.repo.save(order)  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+27         return order           │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+28                                │ Selection                                                                                                         │
+29     def cancel(self, order_id: │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
+30         order = self.get(order_│   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+31         if not order.can_cancel│   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+32             raise ValueError(f"│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+33         order.status = OrderSta│   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+34         with self.uow:         │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+35             self.uow.orders.sav│   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+36         return order           │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
+                                  │ Movement                                                                                                          │
                                   │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
                                   │   Alt+Left / Alt+Right              Move one word                                                                 │
                                   │   Home / End                        Start / end of the screen row, then of the line                               │
@@ -52,6 +53,5 @@ wait Switch focus between tree and code
                                   │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
                                   │   Tree: { / }                       Previous / next folder                                                        │
-                                  │   Picker: Up / Down                 Move                                                                          │
 app/service.py  36:21  [code]     └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 151,54,0
