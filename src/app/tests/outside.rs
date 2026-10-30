@@ -1230,8 +1230,8 @@ fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answe
             picker(
                 "get: by name, 2 declarations",
                 &[
-                    ("Arr::get", "app/Support/Arr.php:7"),
-                    ("Arr::get", "ide_helper.php:7"),
+                    ("get", "app/Support/Arr.php:7"),
+                    ("get", "ide_helper.php:7"),
                 ],
             ),
             jump(
@@ -1277,8 +1277,8 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
         got
     };
     let by_name: &[(&str, &str)] = &[
-        ("HasGet::get", "app/Concerns/HasGet.php:7"),
-        ("Arr::get", "app/Support/Arr.php:7"),
+        ("get", "app/Concerns/HasGet.php:7"),
+        ("get", "app/Support/Arr.php:7"),
     ];
     assert_eq!(
         [
@@ -1292,7 +1292,7 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
             picker("get: by name, 2 declarations", by_name),
             picker(
                 "get: by name, 3 declarations",
-                &[by_name, &[("Arr::get", "ide_helper.php:6")]].concat(),
+                &[by_name, &[("get", "ide_helper.php:6")]].concat(),
             ),
             picker(
                 "Arr: by name, 2 declarations",
