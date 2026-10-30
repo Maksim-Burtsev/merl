@@ -529,18 +529,9 @@ impl App {
                 }
             }
         }
-        if chain.is_empty() || !word.starts_with(|c: char| c.is_ascii_uppercase()) {
-            return None;
-        }
-        let owner = &full[..full.len() - 1];
-        let mut variant = self.rust_dependency_variant(here, text, word, owner)?;
-        let spelled = owner.join(sep);
-        variant.reason = if imported {
-            Reason::Import(spelled)
-        } else {
-            Reason::Path(spelled)
-        };
-        Some(vec![variant])
+        let owner = full.split_last()?.1;
+        (!chain.is_empty()).then_some(())?;
+        self.rust_path_variant(here, text, word, owner, imported)
     }
 
     fn rust_own_crate(

@@ -437,7 +437,7 @@ impl App {
         found
     }
 
-    pub(super) fn rust_dependency_variant(
+    fn rust_dependency_variant(
         &mut self,
         here: &Path,
         text: &str,
@@ -478,5 +478,26 @@ impl App {
             },
             reason: Reason::Import(format!("{}::*", glob.join("::"))),
         })
+    }
+
+    pub(super) fn rust_path_variant(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        owner: &[String],
+        imported: bool,
+    ) -> Option<Vec<Candidate>> {
+        if !word.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return None;
+        }
+        let mut variant = self.rust_dependency_variant(here, text, word, owner)?;
+        let spelled = owner.join("::");
+        variant.reason = if imported {
+            Reason::Import(spelled)
+        } else {
+            Reason::Path(spelled)
+        };
+        Some(vec![variant])
     }
 }
