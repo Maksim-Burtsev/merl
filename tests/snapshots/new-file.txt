@@ -59,7 +59,7 @@ e fg #6c94fc bg #222436
 f fg #4e72fc bg #222436
 g fg #2439b5 bg #222436
 h fg #828bb8 bg #1e2030
-i fg #222436 bg #82aaff
+i fg #222436 bg #c8d3f5
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -94,7 +94,7 @@ e fg #6c94fc bg #ffffff
 f fg #4e72fc bg #ffffff
 g fg #2439b5 bg #ffffff
 h fg #f6f8fa bg #5094e4
-i fg #ffffff bg #6639ba
+i fg #ffffff bg #1f2328
 
 ==== 120x33 tokyonight-moon text, cursor 19,32
 ┌notes───────────────────────┐
@@ -173,7 +173,7 @@ e fg #6c94fc bg #222436
 f fg #4e72fc bg #222436
 g fg #2439b5 bg #222436
 h fg #828bb8 bg #1e2030
-i fg #222436 bg #82aaff
+i fg #222436 bg #c8d3f5
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -217,7 +217,7 @@ e fg #6c94fc bg #ffffff
 f fg #4e72fc bg #ffffff
 g fg #2439b5 bg #ffffff
 h fg #f6f8fa bg #5094e4
-i fg #ffffff bg #6639ba
+i fg #ffffff bg #1f2328
 
 ==== 185x55 tokyonight-moon text, cursor 19,54
 ┌notes───────────────────────┐
@@ -340,7 +340,7 @@ e fg #6c94fc bg #222436
 f fg #4e72fc bg #222436
 g fg #2439b5 bg #222436
 h fg #828bb8 bg #1e2030
-i fg #222436 bg #82aaff
+i fg #222436 bg #c8d3f5
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaaccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -406,4 +406,4 @@ e fg #6c94fc bg #ffffff
 f fg #4e72fc bg #ffffff
 g fg #2439b5 bg #ffffff
 h fg #f6f8fa bg #5094e4
-i fg #ffffff bg #6639ba
+i fg #ffffff bg #1f2328

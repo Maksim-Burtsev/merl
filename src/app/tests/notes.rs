@@ -505,3 +505,23 @@ fn a_note_row_keeps_its_plain_gutter_in_a_theme_with_a_number_strip() {
         "the file row under it has the strip"
     );
 }
+
+#[test]
+fn a_note_being_typed_draws_the_reading_cursor_on_its_band() {
+    let (dir, mut a) = on_a_rs("notes-cursor", 2);
+    keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
+    typed(&mut a, "check the window");
+    assert_eq!(a.mode, Mode::Note);
+    let theme = crate::theme::load("github-light").unwrap();
+    let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
+    t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    drop(std::fs::remove_dir_all(dir));
+    let at = a.cursor_cell.expect("the note's cursor");
+    let cell = &t.backend().buffer()[(at.x, at.y)];
+    let hex = |h: &str| h.parse::<ratatui::style::Color>().unwrap();
+    assert_eq!(
+        (cell.fg, cell.bg),
+        (hex("#ffffff"), hex("#1f2328")),
+        "github-light's Cursor, not the accent #6639ba at 2.34:1 on the note band"
+    );
+}

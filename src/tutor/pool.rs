@@ -255,8 +255,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Enter",
         title: "Edit",
-        tutor: "Enter starts editing at the cursor and the cursor becomes a bar: type `#hi` and \
-                press Esc, the block is back. merl saves a second after you stop typing; Ctrl+S \
+        tutor: "Enter starts editing at the cursor and the status bar shows `[edit]`: type `#hi` \
+                and press Esc to move around again. merl saves a second after you stop typing; Ctrl+S \
                 saves now, Ctrl+R reloads the file from disk.",
         drill: "Type `#hi` at the top of this file, then go back to moving around it.",
         start: Some((TEST_FILE, 1, "")),
