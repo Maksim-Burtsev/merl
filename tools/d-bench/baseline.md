@@ -80,6 +80,7 @@ The swift row with #1068's generic parameter bound by a protocol or class from o
 The php row with #1279's fourth pass (a static call on a class outside the project, `Arr::get(..)`, `Collection::wrap(..)`, `File::partialMock()`, walks the one `vendor/` file that declares that class under its namespace, its traits and parents; a class name lands on its header): over `ca4d141d3`, 2026-10-29, release build, `vm.loadavg` { 4.53 4.93 5.83 } before the run, { 6.90 5.35 5.87 } after.
 The rust row with #1302's variant brought by a glob over a dependency's enum (`use regex_syntax::hir::HirKind::*;` then `Capture(..)` in `crates/regex/src/literal.rs`): over `d8fc507de` with this change, 2026-10-29, release build, `vm.loadavg` { 9.63 8.03 7.19 } before the run.
 The cpp row with #1336's struct declared inside a function, seen only from its own block (`State` in `Version::Get`): over `f61ee8003`, 2026-10-31, release build, `vm.loadavg` { 5.66 6.54 6.46 } before the run.
+The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -89,7 +90,7 @@ The cpp row with #1336's struct declared inside a function, seen only from its o
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 226 (98%) | 4 (2%) | 0 (0%) | 1 (0%) | 69 | 5 | 6.2 | 60.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
-| cpp (leveldb) | 236 | 209 (89%) | 27 (11%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.1 | 65.8 |
+| cpp (leveldb) | 236 | 210 (89%) | 26 (11%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.3 | 65.7 |
 | php (koel) | 392 | 350 (89%) | 41 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 221.4 |
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 7 | 21.4 | 45.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
