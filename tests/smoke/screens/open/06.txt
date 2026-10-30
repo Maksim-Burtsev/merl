@@ -26,6 +26,7 @@ wait Go to definition of the word under the cursor
                                   │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
                                   │ Selection                                                                                                         │
                                   │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
+                                  │   Ctrl+A                            Select the whole file                                                         │
                                   │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
                                   │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
                                   │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
@@ -52,6 +53,5 @@ wait Go to definition of the word under the cursor
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
                                   │   Tree: { / }                       Previous / next folder                                                        │
                                   │   Picker: Up / Down                 Move                                                                          │
-                                  │   Picker: PgUp / PgDn               Move one page                                                                 │
 app/uow.py  15:1  [code]          └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 151,54,0

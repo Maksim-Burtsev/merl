@@ -157,7 +157,7 @@ impl App {
         let keeps_focus = matches!(
             key.code,
             KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown | KeyCode::Enter
-        ) || matches!(key.code, KeyCode::Char('a' | 'v'))
+        ) || !ctrl && matches!(key.code, KeyCode::Char('a' | 'v'))
             || ctrl && matches!(key.code, KeyCode::Char('d' | 'u' | 'z' | 'y'));
         if !keeps_focus || shift {
             self.notes.focus = None;
@@ -173,6 +173,7 @@ impl App {
         self.settle_notes(key);
         let far = is_far(key.code);
         let extending = matches!(key.code, KeyCode::Char('v' | 'V'))
+            || ctrl && key.code == KeyCode::Char('a')
             || shift
                 && (far
                     || matches!(
@@ -303,7 +304,8 @@ impl App {
             KeyCode::Char('c') if !ctrl => self.hunk(1),
             KeyCode::Char('C') => self.hunk(-1),
             KeyCode::Char('m') => self.toggle_viewed(),
-            KeyCode::Char('a') if self.notes.on => self.add_note(),
+            KeyCode::Char('a') if ctrl && self.focus == Focus::Code => self.select_all(),
+            KeyCode::Char('a') if !ctrl && self.notes.on => self.add_note(),
             KeyCode::Char('v') if self.notes.focus.is_some() => self.notes.selected = true,
             KeyCode::Char('v') if self.focus == Focus::Code => self.grow(),
             KeyCode::Char('V') if self.focus == Focus::Code => self.shrink(),
@@ -375,6 +377,13 @@ impl App {
             KeyCode::Home => self.line_start(),
             _ => self.line_end(),
         }
+    }
+
+    fn select_all(&mut self) {
+        self.anchor = Some((self.first_line(), 0));
+        self.set_at(self.last_line());
+        self.col = self.shown_len();
+        self.sync_want_x();
     }
 
     fn does_nothing(&self, key: KeyEvent) -> bool {

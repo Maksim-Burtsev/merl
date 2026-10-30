@@ -499,3 +499,38 @@ fn a_note_row_keeps_its_plain_gutter_in_a_theme_with_a_number_strip() {
         "the file row under it has the strip"
     );
 }
+
+#[test]
+fn ctrl_a_leaves_a_focused_note_for_the_file_and_does_nothing_in_a_note() {
+    let (dir, mut a) = review_app("notes-ctrl-a");
+    a.notes.on = true;
+    a.show_tree = false;
+    a.jump_to(&dir.join("src/keep.rs"), 2);
+    screen(&mut a);
+    note(&mut a, "why k2");
+    assert_eq!(a.notes.focus, Some(0));
+    keys(
+        &mut a,
+        &[(KeyCode::Char('a'), CTRL), (KeyCode::Char('c'), CTRL)],
+    );
+    assert_eq!(a.notes.focus, None, "Ctrl+A leaves the note");
+    assert_eq!(a.clipboard.as_deref(), Some("k1\nk2\nk3"));
+    keys(&mut a, &[(KeyCode::Esc, NONE), (KeyCode::Char('a'), NONE)]);
+    typed(&mut a, "xy");
+    keys(&mut a, &[(KeyCode::Char('a'), CTRL)]);
+    assert_eq!(
+        (a.mode, a.prompt.cursor()),
+        (Mode::Note, 2),
+        "inert in a note"
+    );
+    keys(&mut a, &[(KeyCode::Esc, NONE)]);
+    let notes = a.notes.list.len();
+    (a.show_tree, a.focus) = (true, Focus::Tree);
+    keys(&mut a, &[(KeyCode::Char('a'), CTRL)]);
+    assert_eq!(
+        (a.mode, a.notes.list.len()),
+        (Mode::Normal, notes),
+        "no note from the tree"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}

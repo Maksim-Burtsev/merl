@@ -26,15 +26,16 @@ wait Switch focus between tree and code
 25         order.status = OrderSta│   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 26         self.repo.save(order)  │ Selection                                                                                                         │
 27         return order           │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
-28                                │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
-29     def cancel(self, order_id: │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
-30         order = self.get(order_│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
-31         if not order.can_cancel│   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
-32             raise ValueError(f"│   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
-33         order.status = OrderSta│   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
-34         with self.uow:         │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
-35             self.uow.orders.sav│ Movement                                                                                                          │
-36         return order           │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
+28                                │   Ctrl+A                            Select the whole file                                                         │
+29     def cancel(self, order_id: │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+30         order = self.get(order_│   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+31         if not order.can_cancel│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+32             raise ValueError(f"│   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+33         order.status = OrderSta│   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+34         with self.uow:         │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+35             self.uow.orders.sav│   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
+36         return order           │ Movement                                                                                                          │
+                                  │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
                                   │   Alt+Left / Alt+Right              Move one word                                                                 │
                                   │   Home / End                        Start / end of the screen row, then of the line                               │
                                   │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
@@ -52,6 +53,5 @@ wait Switch focus between tree and code
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
                                   │   Tree: { / }                       Previous / next folder                                                        │
                                   │   Picker: Up / Down                 Move                                                                          │
-                                  │   Picker: PgUp / PgDn               Move one page                                                                 │
 app/service.py  36:21  [code]     └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 151,54,0

@@ -6,7 +6,7 @@ merl snapshot: tutor-card
  4
  5 from config import Config, load_config
  6 from models import Note
- 7  ╭ Tutor 4/26 · Go to definition ───────────────────────────────────────╮
+ 7  ╭ Tutor 4/27 · Go to definition ───────────────────────────────────────╮
  8  │                                                                      │
  9 c│  With the cursor on `load_config`, press `d` to jump to its          │
 10  │  definition. The status line says how it was found: via the import   │
@@ -120,7 +120,7 @@ l fg #fcfcfd bg #c4dbf6
  7
  8
  9 class NoteStore:
-10     """Reads an╭ Tutor 4/26 · Go to definition ───────────────────────────────────────────────────╮
+10     """Reads an╭ Tutor 4/27 · Go to definition ───────────────────────────────────────────────────╮
 11                │                                                                                  │
 12     def __init_│  With the cursor on `load_config`, press `d` to jump to its definition. The      │
 13         self.co│  status line says how it was found: via the import at the top, in config.py.     │
@@ -270,7 +270,7 @@ m fg #fcfcfd bg #c4dbf6
 16     def _read(self) -> list[Note]:
 17         """Load the notes from disk; a missing file means no notes yet."""
 18         if not self.config.path.exists():
-19             return []                          ╭ Tutor 4/26 · Go to definition ───────────────────────────────────────────────────╮
+19             return []                          ╭ Tutor 4/27 · Go to definition ───────────────────────────────────────────────────╮
 20         raw = json.loads(self.config.path.read_│                                                                                  │
 21         return [Note.from_dict(item) for item i│  With the cursor on `load_config`, press `d` to jump to its definition. The      │
 22                                                │  status line says how it was found: via the import at the top, in config.py.     │

@@ -5,6 +5,7 @@
 # it, and Enter sends it into the box at the bottom before the answer; on lesson 9, `i` brings the
 # card back (#501). The slide takes 0.4 s, so a lesson whose answer opens a picker sleeps it out
 # first: the picker's checkpoint would otherwise catch the box half way down
+# Ctrl+A then Ctrl+C after `v` copy the whole of store.py (#1263).
 merl --tutor
 wait Enter starts
 key Enter o
@@ -38,15 +39,15 @@ key Enter
 wait Tutor 10/
 key Enter :
 type 42
-key Enter Enter } Enter { Enter v v v Enter t Enter Tab Enter Enter Enter Enter
+key Enter Enter } Enter { Enter v v v Enter C-a C-c Enter t Enter Tab Enter Enter Enter Enter
 type #hi
 key Escape Enter C-z Enter w Enter p Enter f Enter Escape
-wait Tutor 23/
-key Enter Escape
 wait Tutor 24/
-key Enter c*6
+key Enter Escape
 wait Tutor 25/
-key Enter C
+key Enter c*6
 wait Tutor 26/
+key Enter C
+wait Tutor 27/
 key Enter m
 wait That is all of merl
