@@ -294,6 +294,35 @@ pub fn shell_command_position(lead: &str) -> Option<bool> {
         ))
     .then_some(true)
 }
+pub fn bats_runs(lead: &str) -> bool {
+    let mut l = lead.trim_end();
+    if l.len() == lead.len() {
+        return false;
+    }
+    loop {
+        let (rest, last) = l.rsplit_once([' ', '\t']).unwrap_or(("", l));
+        if last == "run" {
+            return shell_command_position(rest) == Some(true);
+        }
+        if !(last.starts_with('-') || last == "!") {
+            return false;
+        }
+        l = rest.trim_end();
+    }
+}
+pub fn shell_env_line(line: &str) -> bool {
+    static ENV: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:exec\s+)?env\s+[-\w]").expect("the regex is a literal")
+    });
+    ENV.is_match(line)
+}
+pub fn shell_reads_another_file(line: &str) -> bool {
+    static SOURCES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[\s;&|({])(?:source|\.|load|bats_load_library)\s+\S")
+            .expect("the regex is a literal")
+    });
+    SOURCES.is_match(line)
+}
 pub fn shell_no_name(lines: &[String], at: usize, lead: &str, tail: &str) -> bool {
     let quoted = !lead.contains('"')
         && lead.matches('\'').count() % 2 == 1
