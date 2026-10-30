@@ -25,6 +25,7 @@ struct ModuleLookup<'a> {
     files: Vec<PathBuf>,
     copy: &'a search::PackageCopy,
     word_is_export_name: bool,
+    default_import: bool,
     imported: bool,
     named: Option<Vec<String>>,
     package: Option<usize>,
@@ -180,6 +181,7 @@ impl App {
             files,
             copy: &copy,
             word_is_export_name,
+            default_import: chain.is_empty() && ts_import_item.as_deref() == Some("default"),
             imported,
             named,
             package,
@@ -218,6 +220,27 @@ impl App {
             patterns.retain(|p| *p != assignment);
         }
         patterns.join("|")
+    }
+
+    fn outside_default(&self, kind: Kind, files: &[PathBuf]) -> Vec<Hit> {
+        let named: Vec<(&PathBuf, String)> = files
+            .iter()
+            .filter_map(|f| Some((f, self.text_of(f)?.lines().find_map(search::default_name)?)))
+            .collect();
+        let typed: Vec<_> = named
+            .iter()
+            .filter(|(f, _)| search::declaration_file(f))
+            .collect();
+        let [(file, local)] = &typed[..] else {
+            return Vec::new();
+        };
+        let hits = self.declarations_among(
+            kind,
+            local,
+            &self.external_pattern(kind, local),
+            std::slice::from_ref(*file),
+        );
+        if hits.len() == 1 { hits } else { Vec::new() }
     }
 
     fn declarations_among(
@@ -262,6 +285,9 @@ impl App {
                 q.files.clone()
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
+        }
+        if hits.is_empty() && q.default_import {
+            hits = self.outside_default(kind, &q.files);
         }
         let walked = if hits.is_empty()
             && imported

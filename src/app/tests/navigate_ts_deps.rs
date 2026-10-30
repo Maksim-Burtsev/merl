@@ -456,3 +456,74 @@ fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_default_import_lands_on_the_local_a_module_exports_as_default() {
+    let main = "import vue from \"plug\";\nimport pack from \"pack\";\nimport relay from \"relay\";\nimport own from \"./own\";\n\nexport default [\n    vue(),\n    pack(),\n    relay(),\n    own(),\n];\n";
+    let own =
+        "function ownPlugin() {}\nfunction other() {}\nexport { other, ownPlugin as default };\n";
+    let (dir, mut a) = project_app(
+        "ts-as-default",
+        &[("vite.config.mjs", main), ("own.js", own)],
+    );
+    let vue = "interface Options {\n}\ndeclare function vuePlugin(o?: Options): void;\ndeclare function vueCjs(o: Options): void;\nexport { Options, vuePlugin as default, vueCjs as \"module.exports\" };\n";
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/plug/package.json",
+                "{\"name\": \"plug\", \"exports\": {\".\": \"./dist/index.mjs\"}}\n",
+            ),
+            ("node_modules/plug/dist/index.d.mts", vue),
+            (
+                "node_modules/plug/dist/index.mjs",
+                "function vuePlugin() {}\nexport { vuePlugin as default };\n",
+            ),
+            (
+                "node_modules/pack/package.json",
+                "{\"name\": \"pack\", \"types\": \"dist/index.d.ts\"}\n",
+            ),
+            (
+                "node_modules/pack/dist/index.d.ts",
+                "declare function export_default(): void;\n\nexport { export_default as default };\n",
+            ),
+            (
+                "node_modules/relay/index.d.ts",
+                "declare function relayPlugin(): void;\nexport { relayPlugin as default } from \"./impl\";\n",
+            ),
+        ],
+    );
+    for (code, want, why) in [
+        (
+            "    vue|()",
+            jump(
+                "vue: via import plug",
+                "node_modules/plug/dist/index.d.mts:3",
+            ),
+            "the declaration file, not the module beside it",
+        ),
+        (
+            "    pack|()",
+            jump(
+                "pack: via import pack",
+                "node_modules/pack/dist/index.d.ts:1",
+            ),
+            "a package's `types` entry",
+        ),
+        (
+            "    own|()",
+            jump("own: via import own.js", "own.js:1"),
+            "a module of the project",
+        ),
+    ] {
+        d_on(&mut a, "vite.config.mjs", code);
+        assert_eq!(shown(&mut a), want, "{why}");
+    }
+    d_on(&mut a, "vite.config.mjs", "    relay|()");
+    assert_ne!(
+        shown(&mut a),
+        jump("relay: via import relay", "node_modules/relay/index.d.ts:1"),
+        "a default handed on from another module is not the local namesake"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

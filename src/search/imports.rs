@@ -412,6 +412,16 @@ pub fn default_name(line: &str) -> Option<String> {
         Regex::new(r"^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$")
             .expect("the regex is a literal")
     });
+    static LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*export\s*\{([^}]*)\}\s*;?\s*$").expect("the regex is a literal")
+    });
+    if let Some(list) = LIST.captures(line) {
+        return list[1].split(',').find_map(|e| {
+            let (local, exported) = e.trim().split_once(" as ")?;
+            (exported.trim() == "default" && !local.trim().contains(' '))
+                .then(|| local.trim().to_owned())
+        });
+    }
     let name = DEFAULT.captures(line)?[1].to_owned();
     (!matches!(name.as_str(), "class" | "function" | "async" | "abstract")).then_some(name)
 }
