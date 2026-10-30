@@ -186,6 +186,13 @@ impl App {
     fn needs_no_lookup(&self, kind: Kind, word: &str, lead: &str, start: usize) -> bool {
         (kind == Kind::Go && word == "_")
             || (kind == Kind::Graphql && lead.ends_with('$'))
+            || (kind == Kind::TsJs
+                && search::jsx_hyphenated_attribute(
+                    lead,
+                    self.line_str()
+                        .get(start + word.len()..)
+                        .unwrap_or_default(),
+                ))
             || (kind == Kind::Jvm && word == "class" && lead.ends_with("::"))
             || (kind == Kind::PowerShell && search::powershell_argument(lead))
             || (kind == Kind::Ruby

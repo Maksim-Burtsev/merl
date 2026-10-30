@@ -648,3 +648,12 @@ pub fn ts_type_key(text: &str, line1: usize, tail: &str) -> bool {
     head.trim_end().ends_with(['<', ':', '|', '&'])
         || head.rsplit('\n').next().is_some_and(|l| HEADER.is_match(l))
 }
+pub fn jsx_hyphenated_attribute(lead: &str, tail: &str) -> bool {
+    let named = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let glued_before = lead
+        .strip_suffix('-')
+        .is_some_and(|l| l.ends_with(named));
+    let glued_after = tail.strip_prefix('-').is_some_and(|t| t.starts_with(named));
+    let rest = tail.trim_start_matches(|c: char| named(c) || c == '-');
+    (glued_before || glued_after) && rest.starts_with('=') && !rest.starts_with("==")
+}
