@@ -45,11 +45,7 @@ impl App {
         let c_parameter = kind == Kind::C
             && !a.dotted
             && search::c_names_a_parameter(&a.text, self.line + 1, range.start, word);
-        let ts_own = kind == Kind::TsJs
-            && !a.dotted
-            && a.chain.is_empty()
-            && !arrow_param
-            && self.ts_declares_here(a);
+        let ts_own = !arrow_param && self.ts_declares_here(a);
         if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
@@ -118,7 +114,11 @@ impl App {
 
     fn ts_declares_here(&self, a: &Asked) -> bool {
         let word = &a.word;
-        if whole_at(self.line_str(), word, "") != Some(a.range.start)
+        if a.kind != Kind::TsJs
+            || a.dotted
+            || !a.chain.is_empty()
+            || whole_at(self.line_str(), word, "") != Some(a.range.start)
+            || whole_at(&a.tail, word, "").is_some()
             || !search::ts_import_lines1(&a.text, word).is_empty()
         {
             return false;
