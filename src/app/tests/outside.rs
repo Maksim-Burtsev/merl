@@ -1386,3 +1386,61 @@ fn a_php_instance_member_of_a_vendor_class_an_empty_project_stub_declares_lands_
         "a project class of the vendor name answering through __call keeps the search"
     );
 }
+
+#[test]
+fn a_php_variable_bound_from_a_method_on_a_typed_property_reads_its_native_return() {
+    let info = "<?php\n\nnamespace App\\Values;\n\nfinal class Info\n{\n    public function __construct(\n        public ?string $url,\n        public string $status,\n    ) {\n    }\n}\n";
+    let noise = "<?php\n\nnamespace App\\Values;\n\nclass Noise\n{\n    public ?string $url;\n\n    public string $status;\n}\n";
+    let lookup = "<?php\n\nnamespace App\\Services\\Contracts;\n\nuse App\\Values\\Info;\nuse App\\Values\\Noise;\n\ninterface Lookup\n{\n    public function find(bool $fresh = true): Info;\n\n    public function either(): Info|Noise;\n}\n";
+    let encyclopedia = "<?php\n\nnamespace App\\Services;\n\nuse App\\Values\\Info;\n\nclass Encyclopedia\n{\n    public function info(): ?Info\n    {\n    }\n}\n";
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Services\\Contracts\\Lookup;\nuse App\\Services\\Encyclopedia;\n\nclass Ctl\n{\n    private $untyped;\n\n    public function __construct(\n        private readonly Encyclopedia $encyclopedia,\n        private readonly Lookup $lookup,\n    ) {\n    }\n\n    public function __invoke(): void\n    {\n        $info = $this->encyclopedia->info();\n        if ($info?->url) {\n        }\n        $status = $this->lookup->find(fresh: false);\n        echo $status->status;\n        $bound = $this->lookup->find(...);\n        echo $bound->status;\n        $either = $this->lookup->either();\n        echo $either->status;\n        $loose = $this->untyped->info();\n        echo $loose->url;\n    }\n}\n";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        ("app/Values/Info.php", info),
+        ("app/Values/Noise.php", noise),
+        ("app/Services/Contracts/Lookup.php", lookup),
+        ("app/Services/Encyclopedia.php", encyclopedia),
+        ("app/Http/Ctl.php", ctl),
+    ];
+    let (dir, mut a) = project_app("php-property-call-binding", &files);
+    let got = [
+        "$info?->url",
+        "$status->status",
+        "$bound->status",
+        "$either->status",
+        "$loose->url",
+    ]
+    .map(|code| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    });
+    drop(std::fs::remove_dir_all(dir));
+    let by_name = |word: &str, info: &str, noise: &str| {
+        picker(
+            &format!("{word}: by name, 2 declarations"),
+            &[(word, info), (&format!("Noise::{word}"), noise)],
+        )
+    };
+    assert_eq!(
+        got,
+        [
+            jump(
+                "url: via $this->encyclopedia->info(): Info",
+                "app/Values/Info.php:8",
+            ),
+            jump(
+                "status: via $this->lookup->find(): Info",
+                "app/Values/Info.php:9",
+            ),
+            by_name("status", "app/Values/Info.php:9", "app/Values/Noise.php:9"),
+            by_name("status", "app/Values/Info.php:9", "app/Values/Noise.php:9"),
+            by_name("url", "app/Values/Info.php:8", "app/Values/Noise.php:7"),
+        ],
+        "a variable bound from a method called on a typed property reads the method's native \
+         return type; a first-class callable, a union return and an untyped property keep the \
+         picker"
+    );
+}

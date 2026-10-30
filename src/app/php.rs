@@ -807,6 +807,15 @@ impl App {
                     let Returned { class, written } = self.php_returns(&class, &method)?;
                     (class, Some(format!("$this->{method}(): {written}")))
                 }
+                search::PhpBinding::ThisPropertyCall { field, method } => {
+                    let own = Self::php_self(here, text, at)?;
+                    let class = self.php_property_type(&own, &field)?;
+                    let Returned { class, written } = self.php_returns(&class, &method)?;
+                    (
+                        class,
+                        Some(format!("$this->{field}->{method}(): {written}")),
+                    )
+                }
                 search::PhpBinding::Anonymous => {
                     let class = PhpClass {
                         path: here.to_path_buf(),

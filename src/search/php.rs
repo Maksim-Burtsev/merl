@@ -664,6 +664,7 @@ pub enum PhpBinding {
     New(String),
     StaticCall { class: String, method: String },
     ThisCall(String),
+    ThisPropertyCall { field: String, method: String },
     VarCall { var: String, method: String },
     FunctionCall(String),
     ThisProperty(String),
@@ -838,6 +839,9 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
         LazyLock::new(|| Regex::new(r"^([\w\\]+)::(\w+)\s*\(").expect("the regex is a literal"));
     static THIS: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\$this->(\w+)\s*\(").expect("the regex is a literal"));
+    static THIS_PROPERTY_CALL: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\$this->(\w+)->(\w+)\s*\(").expect("the regex is a literal")
+    });
     static VAR_CALL: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"^\$(\w+)->(\w+)\s*\(").expect("the regex is a literal"));
     static PROPERTY: LazyLock<Regex> =
@@ -893,6 +897,16 @@ pub fn php_binding(statement: &str, name: &str) -> Option<PhpBinding> {
     }
     if let Some(c) = THIS.captures(value) {
         return Some(PhpBinding::ThisCall(c[1].to_owned()));
+    }
+    if let Some(c) = THIS_PROPERTY_CALL.captures(value)
+        && !value
+            .get(c.get_match().end()..)
+            .is_some_and(|r| r.trim_start().starts_with("..."))
+    {
+        return Some(PhpBinding::ThisPropertyCall {
+            field: c[1].to_owned(),
+            method: c[2].to_owned(),
+        });
     }
     if let Some(c) = VAR_CALL.captures(value)
         && !value
