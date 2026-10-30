@@ -456,10 +456,10 @@ fn a_path_in_front_of_the_word_is_joined_as_the_kind_qualifies() {
     }
     let rs = [("Depot::open", "depot.rs:4"), ("Shed::open", "depot.rs:16")];
     let cpp = [
-        ("open", "depot.cpp:2"),
-        ("open", "depot.cpp:8"),
-        ("open", "depot.cpp:16"),
-        ("open", "depot.cpp:20"),
+        ("Depot::open", "depot.cpp:2"),
+        ("Shed::open", "depot.cpp:8"),
+        ("crate::open", "depot.cpp:16"),
+        ("lid::open", "depot.cpp:20"),
     ];
     let cases = [
         (
@@ -1702,7 +1702,7 @@ fn a_method_of_another_class_is_no_counterpart() {
         shown(&mut a),
         picker(
             "NewId: at a declaration, 1 other by name",
-            &[("NewId", "cache.cc:4")]
+            &[("Sharded::NewId", "cache.cc:4")]
         ),
         "a pure virtual and its override in another class stay a picker"
     );
@@ -1711,7 +1711,7 @@ fn a_method_of_another_class_is_no_counterpart() {
         shown(&mut a),
         picker(
             "NewId: at a declaration, 1 other by name",
-            &[("NewId", "cache.h:4")]
+            &[("Cache::NewId", "cache.h:4")]
         )
     );
     d_on(&mut a, "cache.h", "int Hits");
@@ -1719,7 +1719,7 @@ fn a_method_of_another_class_is_no_counterpart() {
         shown(&mut a),
         picker(
             "Hits: at a declaration, 1 other by name",
-            &[("Hits", "cache.cc:8")]
+            &[("Sharded::Hits", "cache.cc:8")]
         ),
         "a method of one class and another class's definition stay a picker"
     );

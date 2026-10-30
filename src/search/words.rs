@@ -63,7 +63,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
         "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
-        "c", "sh", "bzl", "go", "rb",
+        "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb",
     ];
     path.extension()
         .and_then(|e| e.to_str())
@@ -78,6 +78,12 @@ pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     });
     if !named {
         return None;
+    }
+    if kind == Kind::C
+        && let Some(owner) = c_owner_on_line(line, name)
+    {
+        let owner = qualified(kind, text, line1, &owner).unwrap_or(owner);
+        return (!owner.contains('\u{2026}')).then_some(owner);
     }
     if kind == Kind::Ruby && name.starts_with('@') {
         let lines: Vec<&str> = text.lines().collect();
@@ -105,6 +111,60 @@ pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
             .unwrap_or("");
     }
     (!owner.is_empty() && !owner.contains('\u{2026}')).then(|| owner.to_owned())
+}
+fn c_owner_on_line(line: &str, name: &str) -> Option<String> {
+    static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\benum\s+(?:(?:class|struct)\s+)?([A-Za-z_]\w*)\s*(?::[^{]*)?\{([^}]*)")
+            .expect("the regex is a literal")
+    });
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([A-Za-z_~][\w:<>,*&\s]*?[\s*&])?(?:[A-Za-z_]\w*(?:<[^<>]*>)?::)*(~?[A-Za-z_]\w*)\s*\(\s*([^*&^\s].*)$")
+            .expect("the regex is a literal")
+    });
+    let n = regex::escape(name);
+    if let Some(c) = ENUM.captures(line)
+        && &c[1] != name
+        && Regex::new(&format!(r"(?:^|,)\s*{n}\s*(?:=|,|$)"))
+            .expect("an escaped name keeps the pattern valid")
+            .is_match(&c[2])
+    {
+        return Some(c[1].to_owned());
+    }
+    let c = HEADER.captures(line)?;
+    let head = c.get(1).map_or("", |m| m.as_str());
+    let not_a_function = [
+        "if",
+        "for",
+        "while",
+        "switch",
+        "return",
+        "sizeof",
+        "catch",
+        "decltype",
+        "alignof",
+        "static_assert",
+        "defined",
+        "throw",
+        "new",
+        "delete",
+        "else",
+        "case",
+        "co_return",
+        "co_await",
+        "co_yield",
+        "goto",
+        "typedef",
+    ];
+    let function = &c[2];
+    let declares = !head.is_empty() || !line.trim_end().ends_with(';');
+    let parameter = Regex::new(&format!(r"(?:^|[\s*&]){n}\s*(?:\[[^\]]*\]\s*)?(?:[,)=]|$)"))
+        .expect("an escaped name keeps the pattern valid");
+    (declares
+        && function != name
+        && !not_a_function.contains(&function)
+        && !head.split_whitespace().any(|w| not_a_function.contains(&w))
+        && parameter.is_match(&c[3]))
+    .then(|| function.to_owned())
 }
 fn ts_call_result_around(text: &str, line1: usize) -> Option<String> {
     static CALL_RESULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

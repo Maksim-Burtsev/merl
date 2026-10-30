@@ -13,8 +13,8 @@ wait Sum: by name, 2 declarations
 │  ▾ internal                │12 ┌Sum: by name, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │    ▾ crc                   │13 │>                                                                                                                                        │
 │      A crc.c               │14 │worker/internal/crc/mode.cc                                                                                                              │
-│      A crc.h               │15 │   7  virtual unsigned Sum() const = 0;                                                                                                  │
-│      A mode.cc             │16 │  11  unsigned Sum() const override { return 1; }                                                                                        │
+│      A crc.h               │15 │   7  virtual unsigned Sum() const = 0;                                                                                            Hasher│
+│      A mode.cc             │16 │  11  unsigned Sum() const override { return 1; }                                                                                    Fast│
 │    ▸ queue                 │   │                                                                                                                                         │
 │    go.mod                  │   │                                                                                                                                         │
 │    main.go                 │   │                                                                                                                                         │
