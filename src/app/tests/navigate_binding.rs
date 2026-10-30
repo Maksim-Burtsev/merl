@@ -211,7 +211,10 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(id + 4)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
+                &[
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
+                ],
             ),
         ),
         (
@@ -221,7 +224,10 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(id + 5)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
+                &[
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
+                ],
             ),
         ),
         (
@@ -241,7 +247,10 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(id + 6)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
+                &[
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
+                ],
             ),
         ),
         (
@@ -271,7 +280,10 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(9)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
+                &[
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
+                ],
             ),
         ),
         (
@@ -554,7 +566,10 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "repo.DeleteUser|(id + 3)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
+                &[
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
+                ],
             ),
         ),
         (
@@ -627,7 +642,10 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "repo.DeleteUser|(id + 8)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
+                &[
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
+                ],
             ),
         ),
     ];

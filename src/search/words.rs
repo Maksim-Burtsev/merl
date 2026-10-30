@@ -62,7 +62,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
 }
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
-        "py", "rs", "java", "kt", "cs", "js", "mjs", "sol", "swift", "c", "sh", "bzl",
+        "py", "rs", "java", "kt", "cs", "js", "mjs", "sol", "swift", "c", "sh", "bzl", "go",
     ];
     path.extension()
         .and_then(|e| e.to_str())
@@ -80,7 +80,7 @@ pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     }
     let q = qualified(kind, text, line1, name)?;
     let owner = q.strip_suffix(name)?.strip_suffix(separator(kind))?;
-    (!owner.is_empty()).then(|| owner.to_owned())
+    (!owner.is_empty() && !owner.contains('\u{2026}')).then(|| owner.to_owned())
 }
 fn qualified_by_owner(
     kind: Kind,

@@ -370,7 +370,10 @@ fn a_field_is_a_target() {
             "c.PosterID",
             picker(
                 "PosterID: by name, 2 declarations",
-                &[("PosterID", "fields.go:14"), ("PosterID", "fields.go:20")],
+                &[
+                    ("Issue.PosterID", "fields.go:14"),
+                    ("Comment.PosterID", "fields.go:20"),
+                ],
             ),
         ),
         (
@@ -412,7 +415,7 @@ fn a_field_is_a_target() {
             "go",
             "fields.go",
             "^\tPosterID",
-            namesakes("PosterID", ("PosterID", "fields.go:20")),
+            namesakes("PosterID", ("Comment.PosterID", "fields.go:20")),
         ),
     ];
     for (name, fixture, file, code, want) in cases {

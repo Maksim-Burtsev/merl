@@ -13,9 +13,9 @@ wait Pop: implementations of Queue.Pop, 2 declarations (2/2)
 12 // Queue is what┌Pop: implementations of Queue.Pop, 2 declarations (2/2)───────────────────────────────────────────────────────────────────────────────────────────┐
 13 type Queue inter│>                                                                                                                                                 │
 14     Push(job Job│worker/internal/queue/queue.go                                                                                                                    │
-15     Pop() (Job, │  34  func (q *memQueue) Pop() (Job, bool) {                                                                                                      │
+15     Pop() (Job, │  34  func (q *memQueue) Pop() (Job, bool) {                                                                                              memQueue│
 16 }               │worker/internal/queue/redis.go                                                                                                                    │
-17                 │  27  func (q *redisQueue) Pop() (Job, bool) {                                                                                                    │
+17                 │  27  func (q *redisQueue) Pop() (Job, bool) {                                                                                          redisQueue│
 18 type memQueue st│                                                                                                                                                  │
 19     mu   sync.Mu│                                                                                                                                                  │
 20     jobs []Job  │                                                                                                                                                  │
