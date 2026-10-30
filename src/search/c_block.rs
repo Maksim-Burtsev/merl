@@ -1,6 +1,7 @@
 use super::c::{
     Head, c_code, close_or_end, line_starts, scope_pos, scopes_inside_out_to_type_or_namespace,
 };
+use regex::Regex;
 
 enum Reach {
     Plain,
@@ -52,4 +53,11 @@ pub fn c_block_scoped<T>(
         .filter(|(_, r)| inner.is_none() || matches!(r, Reach::Block(o) if Some(*o) == inner))
         .map(|(h, _)| h)
         .collect()
+}
+pub fn c_heads_a_nested_class(word: &str, line: &str) -> bool {
+    Regex::new(&format!(
+        r"^[^:]*\b(?:struct|class|union)\s+(?:\w+\s+)*{}\s*<[^<>]*>\s*::\s*\w",
+        regex::escape(word)
+    ))
+    .is_ok_and(|re| re.is_match(line))
 }

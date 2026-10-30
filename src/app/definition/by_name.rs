@@ -658,6 +658,7 @@ impl App {
                     || !(self.text_of(&h.path))
                         .is_some_and(|t| search::c_inside_function(&t, h.line1, word))
             })
+            .filter(|h| !search::c_heads_a_nested_class(word, &h.text))
             .collect();
         search::c_block_scoped(&a.text, word, self.line + 1, hits, |h| {
             (h.path == a.here && Self::c_type_line(word, h)).then_some(h.line1)
