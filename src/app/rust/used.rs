@@ -246,7 +246,11 @@ impl App {
         self.rust_resolve(&hit.path, target, hit.line1 - 1)
     }
 
-    fn rust_crate_reexported(&self, krate: &CrateSrc, rest: &[String]) -> Option<CrateSrc> {
+    pub(super) fn rust_crate_reexported(
+        &self,
+        krate: &CrateSrc,
+        rest: &[String],
+    ) -> Option<CrateSrc> {
         let [alias, _, ..] = rest else {
             return None;
         };
@@ -433,7 +437,7 @@ impl App {
         found
     }
 
-    fn rust_dependency_variant(
+    pub(super) fn rust_dependency_variant(
         &mut self,
         here: &Path,
         text: &str,
