@@ -1161,6 +1161,11 @@ pub fn in_module(path: &Path, parts: &[String]) -> bool {
     }
     i == parts.len()
 }
+pub fn at_module_path(path: &Path, parts: &[String]) -> bool {
+    path.components()
+        .map(|c| normalized_module_part(&c.as_os_str().to_string_lossy()))
+        .eq(parts.iter().map(|p| normalized_module_part(p)))
+}
 fn normalized_module_part(s: &str) -> String {
     let s = s.split('@').next().unwrap_or(s);
     let s = s.split('.').next().unwrap_or(s);

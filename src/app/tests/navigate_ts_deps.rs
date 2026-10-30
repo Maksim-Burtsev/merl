@@ -527,3 +527,38 @@ fn a_default_import_lands_on_the_local_a_module_exports_as_default() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_file_a_require_names_inside_a_package_is_read_for_its_types() {
+    let main = "const { BeanModel } = require(\"bean/dist/bean-model\");\n\nclass Heartbeat extends BeanModel {}\n";
+    let (dir, mut a) = project_app("ts-package-file", &[("server/heartbeat.js", main)]);
+    let declared = "import { Bean } from \"./bean\";\nexport declare abstract class BeanModel extends Bean {\n    onOpen(): void;\n}\n";
+    let built = "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.BeanModel = void 0;\nclass BeanModel {\n}\nexports.BeanModel = BeanModel;\n";
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/bean/package.json",
+                "{\"name\": \"bean\", \"main\": \"dist/bean.js\", \"types\": \"dist/bean.d.ts\"}\n",
+            ),
+            (
+                "node_modules/bean/dist/bean.d.ts",
+                "export declare class Bean {\n}\n",
+            ),
+            ("node_modules/bean/dist/bean-model.d.ts", declared),
+            ("node_modules/bean/dist/bean-model.js", built),
+            ("node_modules/bean/dist/lib/bean-model.d.ts", declared),
+            ("node_modules/bean/dist/lib/bean-model.js", built),
+        ],
+    );
+    d_on(&mut a, "server/heartbeat.js", "extends BeanModel");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "BeanModel: via import bean/dist/bean-model",
+            "node_modules/bean/dist/bean-model.d.ts:2"
+        ),
+        "the file at the path the require names, its declaration file over the module beside it"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
