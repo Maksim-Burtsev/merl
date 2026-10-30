@@ -733,6 +733,7 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             ("view.rb", "class C\n  def run\n  end\nend\n"),
             ("view.dart", "class C {\n  void run() {}\n}\n"),
             ("view.lua", "M.set = function(k)\n  _G.kong = k\nend\n"),
+            ("view.sql", "CREATE TABLE post (\n    id serial\n);\n"),
         ],
     );
     let found = |path: &str, line1: usize, reason: Reason| Candidate {
@@ -795,25 +796,24 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
         ["Box  by name  one.py:2: ", "via import two.py  two.py:1: "],
         "the class first, then the reason of a list found in different ways"
     );
-    assert_eq!(
-        heads(Kind::TsJs, "run", vec![found("view.ts", 2, Reason::ByName)]),
-        ["C  view.ts:2: "],
-        "TypeScript's class is measured (#1328)"
-    );
-    assert_eq!(
-        heads(Kind::Ruby, "run", vec![found("view.rb", 2, Reason::ByName)]),
-        ["C  view.rb:2: "],
-        "Ruby's class is measured (#1329)"
-    );
-    assert_eq!(
-        one(Kind::Dart, "run", "view.dart", 2),
-        ["view.dart:2: "],
-        "no class where it is not proven"
-    );
-    assert_eq!(
-        one(Kind::Lua, "kong", "view.lua", 2),
-        ["set  view.lua:2: "],
-        "Lua's class is measured (#1332)"
-    );
+    for (kind, word, path, want, issue) in [
+        (Kind::TsJs, "run", "view.ts", "C  view.ts:2: ", "#1328"),
+        (Kind::Ruby, "run", "view.rb", "C  view.rb:2: ", "#1329"),
+        (Kind::Lua, "kong", "view.lua", "set  view.lua:2: ", "#1332"),
+        (Kind::Sql, "id", "view.sql", "post  view.sql:2: ", "#1333"),
+        (
+            Kind::Dart,
+            "run",
+            "view.dart",
+            "view.dart:2: ",
+            "Dart: not measured",
+        ),
+    ] {
+        assert_eq!(
+            one(kind, word, path, 2),
+            [want],
+            "the class where it is measured ({issue})"
+        );
+    }
     std::fs::remove_dir_all(&dir).unwrap();
 }

@@ -64,6 +64,7 @@ pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
         "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
         "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb", "php", "lua",
+        "sql",
     ];
     path.extension()
         .and_then(|e| e.to_str())
@@ -77,6 +78,11 @@ pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
             && !word(line.get(i + name.len()..).and_then(|s| s.chars().next()))
     });
     if !named {
+        return None;
+    }
+    if kind == Kind::Sql
+        && line.split(|c: char| !word(Some(c))).find(|w| !w.is_empty()) != Some(name)
+    {
         return None;
     }
     if kind == Kind::C

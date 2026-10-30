@@ -603,3 +603,43 @@ fn a_php_row_s_class_is_the_function_of_a_parameter_and_the_class_of_a_promoted_
         "value=Song plain=Song::__construct set=Song result=Song ro=Song plain2= type=Song::query ids=Song::query ref=Song::query rest=Song::query query=Song local=Song::query arg=Song::query value=Song prop=Song sprop=Song count=helper helper= at=Playable::play"
     );
 }
+
+#[test]
+fn a_sql_row_s_class_is_the_table_of_its_column_and_nothing_else() {
+    let sql = "CREATE TABLE user_ (\n    id serial PRIMARY KEY,\n    -- a comment\n    community_id int REFERENCES community ON DELETE CASCADE,\n    CONSTRAINT uq_name UNIQUE (id)\n);\n\nCREATE TABLE IF NOT EXISTS public.post (\n    title text\n);\n\nCREATE VIEW post_view AS\nSELECT\n    p.id,\n    p.title AS heading\nFROM\n    post p;\n\nCREATE OR REPLACE FUNCTION bump (target int)\n    RETURNS void\n    LANGUAGE plpgsql\n    AS $$\nDECLARE\n    counter int := 0;\nBEGIN\n    UPDATE post SET score = score + 1;\nEND\n$$;\n\nALTER TABLE post\n    ADD COLUMN score int;\n\nWITH recent AS (\n    SELECT\n        id\n    FROM\n        post\n)\nSELECT * FROM recent;\n\nCREATE TYPE mood AS ENUM (\n    'sad',\n    'happy'\n);\n\nCREATE INDEX idx_post ON post (\n    title\n);\n\nCREATE TRIGGER t_bump\n    AFTER INSERT ON post\n    FOR EACH ROW\n    EXECUTE FUNCTION bump ();\n";
+    let got: Vec<_> = [
+        (2, "id"),
+        (4, "community_id"),
+        (4, "community"),
+        (5, "uq_name"),
+        (9, "title"),
+        (14, "id"),
+        (15, "heading"),
+        (19, "bump"),
+        (19, "target"),
+        (24, "counter"),
+        (26, "score"),
+        (31, "score"),
+        (35, "id"),
+        (41, "sad"),
+        (46, "title"),
+        (51, "bump"),
+        (45, "idx_post"),
+        (8, "post"),
+        (8, "public"),
+        (1, "user_"),
+        (30, "post"),
+    ]
+    .into_iter()
+    .map(|(l, n)| {
+        format!(
+            "{l}:{n}={}",
+            container(Kind::Sql, sql, l, n).unwrap_or_default()
+        )
+    })
+    .collect();
+    assert_eq!(
+        got.join(" "),
+        "2:id=user_ 4:community_id=user_ 4:community= 5:uq_name= 9:title=public.post 14:id= 15:heading= 19:bump= 19:target= 24:counter= 26:score= 31:score= 35:id= 41:sad= 46:title= 51:bump= 45:idx_post= 8:post= 8:public= 1:user_= 30:post="
+    );
+}
