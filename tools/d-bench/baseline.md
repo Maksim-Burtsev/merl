@@ -79,6 +79,7 @@ The rust row with #1302 (a call of a local closure read through its written `-> 
 The swift row with #1068's generic parameter bound by a protocol or class from outside the project (`Key: CodingKey` in `URLEncodedFormEncoder`, `S: Sequence` in `Validation`, `where ExtendedType: Bundle` in `ServerTrustEvaluation`): over `e72665e87` with this change, 2026-10-29, release build, `vm.loadavg` { 4.15 5.02 6.05 } before the run, { 5.03 5.22 6.00 } after.
 The php row with #1279's fourth pass (a static call on a class outside the project, `Arr::get(..)`, `Collection::wrap(..)`, `File::partialMock()`, walks the one `vendor/` file that declares that class under its namespace, its traits and parents; a class name lands on its header): over `ca4d141d3`, 2026-10-29, release build, `vm.loadavg` { 4.53 4.93 5.83 } before the run, { 6.90 5.35 5.87 } after.
 The rust row with #1302's variant brought by a glob over a dependency's enum (`use regex_syntax::hir::HirKind::*;` then `Capture(..)` in `crates/regex/src/literal.rs`): over `d8fc507de` with this change, 2026-10-29, release build, `vm.loadavg` { 9.63 8.03 7.19 } before the run.
+The rust row with #1302's third pass (a variant through a workspace crate that hands another on, `grep::printer::SummaryKind::PathWithMatch` in `crates/core/flags/hiargs.rs`; a `use` inside `mod tests` past a multi-line string at column 0, `RegexMatcher::new` in `crates/printer/src/standard.rs`): over `3a5c430a2`, 2026-10-31, release build, `vm.loadavg` { 4.47 5.50 6.66 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -86,7 +87,7 @@ The rust row with #1302's variant brought by a glob over a dependency's enum (`u
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 5 | 43.8 | 94.1 |
 | js (eslint, uptime-kuma) | 217 | 195 (90%) | 16 (7%) | 0 (0%) | 6 (3%) | 177 | 10 | 37.5 | 189.0 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 226 (98%) | 4 (2%) | 0 (0%) | 1 (0%) | 69 | 5 | 6.2 | 60.3 |
+| rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | cpp (leveldb) | 236 | 208 (88%) | 28 (12%) | 0 (0%) | 0 (0%) | 64 | 8 | 19.4 | 71.1 |
 | php (koel) | 392 | 350 (89%) | 41 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 221.4 |
