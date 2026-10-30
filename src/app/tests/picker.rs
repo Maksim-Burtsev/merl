@@ -732,7 +732,7 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             ("view.ts", "class C {\n  run() {}\n}\n"),
             ("view.rb", "class C\n  def run\n  end\nend\n"),
             ("view.dart", "class C {\n  void run() {}\n}\n"),
-            ("schema.sql", "CREATE TABLE post (\n    title text\n);\n"),
+            ("view.sql", "CREATE TABLE post (\n    id serial\n);\n"),
         ],
     );
     let found = |path: &str, line1: usize, reason: Reason| Candidate {
@@ -803,12 +803,8 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
         "Ruby's class is measured (#1329)"
     );
     assert_eq!(
-        heads(
-            Kind::Sql,
-            "title",
-            vec![found("schema.sql", 2, Reason::ByName)]
-        ),
-        ["post  schema.sql:2: "],
+        heads(Kind::Sql, "id", vec![found("view.sql", 2, Reason::ByName)]),
+        ["post  view.sql:2: "],
         "SQL's class is measured (#1333)"
     );
     assert_eq!(

@@ -165,6 +165,28 @@ fn php_tag_reference(
     (tag.contains("@method") || tag.contains("@property")).then_some(chain)
 }
 
+fn table_of<'a>(p: Node, leaf: Node, src: &'a str) -> Option<&'a str> {
+    let table = if p.kind() == "call"
+        && p.child_by_field_name("method")
+            .and_then(|m| src.get(m.byte_range()))
+            == Some("create_table")
+    {
+        p.child_by_field_name("arguments")?.named_child(0)?
+    } else if p.kind() == "create_table"
+        && leaf
+            .parent()
+            .filter(|c| c.kind() == "column_definition")
+            .and_then(|c| c.child_by_field_name("name"))
+            .is_some_and(|m| m.id() == leaf.id())
+    {
+        p.named_children(&mut p.walk())
+            .find(|t| t.kind() == "object_reference")?
+    } else {
+        return None;
+    };
+    src.get(table.byte_range())
+}
+
 fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Option<Vec<String>> {
     let at = Point::new(row, col);
     let end = Point::new(row, col + word.len());
@@ -184,38 +206,13 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
             .parent()
             .and_then(|p| p.parent())
             .is_some_and(|p| p.kind() == "property_promotion_parameter");
-    let column = leaf
-        .parent()
-        .filter(|c| c.kind() == "column_definition")
-        .and_then(|c| c.child_by_field_name("name"))
-        .is_some_and(|m| m.id() == leaf.id());
     let mut n = leaf;
     while let Some(p) = n.parent() {
         if after_an_error_in_a_cpp_body(n, root) {
             return None;
         }
         n = p;
-        if p.kind() == "call"
-            && p.child_by_field_name("method")
-                .and_then(|m| src.get(m.byte_range()))
-                == Some("create_table")
-            && let Some(table) = p
-                .child_by_field_name("arguments")
-                .and_then(|a| a.named_child(0))
-                .and_then(|t| src.get(t.byte_range()))
-        {
-            let mut seg = segments(table);
-            seg.append(&mut chain);
-            chain = seg;
-            continue;
-        }
-        if column
-            && p.kind() == "create_table"
-            && let Some(table) = p
-                .named_children(&mut p.walk())
-                .find(|t| t.kind() == "object_reference")
-                .and_then(|t| src.get(t.byte_range()))
-        {
+        if let Some(table) = table_of(p, leaf, src) {
             let mut seg = segments(table);
             seg.append(&mut chain);
             chain = seg;
