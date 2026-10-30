@@ -51,6 +51,35 @@ const CONTAINERS: &[&str] = &[
     "library_declaration",
 ];
 
+fn after_an_error_in_a_cpp_body(n: Node, root: Node) -> bool {
+    let body = n
+        .parent()
+        .is_some_and(|p| matches!(p.kind(), "declaration_list" | "field_declaration_list"));
+    let class_read_as_a_function = |x: Node| {
+        x.kind() == "function_definition"
+            && x.child_by_field_name("type")
+                .is_some_and(|t| matches!(t.kind(), "class_specifier" | "struct_specifier"))
+    };
+    let mut s = n.prev_sibling();
+    while let Some(x) = s
+        && !x.is_error()
+        && !class_read_as_a_function(x)
+    {
+        s = x.prev_sibling();
+    }
+    root.kind() == "translation_unit" && body && s.is_some()
+}
+
+fn prototype(n: Node) -> bool {
+    let mut up = n.parent();
+    while let Some(p) = up
+        && p.kind().ends_with("declarator")
+    {
+        up = p.parent();
+    }
+    n.kind() == "function_declarator" && up.is_none_or(|p| p.kind() != "function_definition")
+}
+
 fn innermost_declarator(mut n: Node) -> Node {
     while let Some(d) = n.child_by_field_name("declarator") {
         n = d;
@@ -61,6 +90,7 @@ fn innermost_declarator(mut n: Node) -> Node {
 fn name_of<'a>(n: Node<'a>, src: &'a str) -> Option<Node<'a>> {
     match n.kind() {
         "impl_item" => n.child_by_field_name("type"),
+        "function_declarator" => n.child_by_field_name("declarator"),
         "function_definition" if n.child_by_field_name("name").is_none() => n
             .child_by_field_name("declarator")
             .map(innermost_declarator),
@@ -124,6 +154,9 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
         || matches!(leaf.kind(), "instance_variable" | "class_variable");
     let mut n = leaf;
     while let Some(p) = n.parent() {
+        if after_an_error_in_a_cpp_body(n, root) {
+            return None;
+        }
         n = p;
         if p.kind() == "call"
             && p.child_by_field_name("method")
@@ -139,7 +172,7 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
             chain = seg;
             continue;
         }
-        if !CONTAINERS.contains(&p.kind()) {
+        if !CONTAINERS.contains(&p.kind()) && !prototype(p) {
             continue;
         }
         let function = p.kind().contains("function")

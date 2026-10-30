@@ -313,6 +313,51 @@ fn a_later_declarator_is_declared_where_its_statement_is() {
 }
 
 #[test]
+fn a_cpp_parameter_s_class_is_its_function_and_an_enumerator_s_is_its_enum() {
+    let cpp = "\
+namespace leveldb {
+
+class Benchmark {
+ public:
+  enum Order { SEQUENTIAL, RANDOM };
+  enum class Mode : int { kFast = 1, kSlow };
+  Status Open(const std::string& fname,
+              Env* env) override {
+    for (int i = 0; i < 3; i++) {
+    }
+    Reset(fname);
+    return Status::OK();
+  }
+  void Clear();
+};
+
+Status DBImpl::Get(const ReadOptions& options, const Slice& key,
+                   std::string* value) {
+  return Status::OK();
+}
+
+void leveldb_iter_seek(leveldb_iterator_t* iter, const char* k, size_t klen) {
+}
+typedef NS_OPTIONS(NSUInteger, SDWebImageOptions) {
+};
+}
+";
+    let at = |line1: usize, name: &str| container(Kind::C, cpp, line1, name);
+    assert_eq!(at(5, "RANDOM").as_deref(), Some("Benchmark::Order"));
+    assert_eq!(at(6, "kSlow").as_deref(), Some("Benchmark::Mode"));
+    assert_eq!(at(6, "Mode").as_deref(), Some("Benchmark"));
+    assert_eq!(at(7, "fname").as_deref(), Some("Benchmark::Open"));
+    assert_eq!(at(8, "env"), None);
+    assert_eq!(at(7, "Open").as_deref(), Some("Benchmark"));
+    assert_eq!(at(9, "i"), None);
+    assert_eq!(at(11, "fname"), None);
+    assert_eq!(at(17, "options").as_deref(), Some("DBImpl::Get"));
+    assert_eq!(at(22, "klen").as_deref(), Some("leveldb_iter_seek"));
+    assert_eq!(at(22, "leveldb_iter_seek"), None);
+    assert_eq!(at(24, "SDWebImageOptions"), None);
+}
+
+#[test]
 fn a_typescript_key_passed_to_a_call_shows_no_class_and_a_dotted_namespace_is_whole() {
     let call = "export const unpublish = createAction({\n  visible: (c) => true,\n});\n";
     assert_eq!(container(Kind::TsJs, call, 2, "visible"), None);
