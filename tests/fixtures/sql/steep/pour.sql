@@ -77,14 +77,14 @@ SELECT sum(spout) OVER (w ORDER BY spout) FROM samovars WINDOW w AS (PARTITION B
 --                      ^ d: steep/pour.sql:76
 --                                 ^ d: steep/schema.sql:4
 WITH samovars AS (SELECT spout AS spout FROM samovars) SELECT spout FROM samovars;
---                       ^ d: none; want steep/schema.sql:4 (#1260)
+--                       ^ d: steep/schema.sql:4
 --                                                            ^ d: steep/pour.sql:79
 WITH cups (sip) AS (SELECT spout FROM samovars) SELECT sip FROM cups ORDER BY sip;
 --                                                     ^ d: steep/pour.sql:82
 SELECT TOP 5 spout FROM samovars ORDER BY spout;
 --                                        ^ d: steep/schema.sql:4
 SELECT spout FROM samovars WHERE id IN (WITH samovars AS (SELECT 1 AS spout) SELECT spout FROM samovars);
---     ^ d: none; want steep/schema.sql:4 (#1260)
+--     ^ d: steep/schema.sql:4
 --                                                                                  ^ d: steep/pour.sql:86
 -- #1255's review: a CTE or a column alias list answers only in the SELECT that reads it; a select modifier is no expression.
 WITH mugs AS (SELECT 1 AS spout) INSERT INTO samovars (spout) SELECT spout FROM mugs;
@@ -95,7 +95,7 @@ INSERT INTO samovars (spout) SELECT spout FROM urns AS u (spout);
 --                                  ^ d: steep/pour.sql:93
 WITH mugs AS (SELECT 1 AS brim) SELECT brim FROM mugs UNION SELECT brim FROM samovars;
 --                                     ^ d: steep/pour.sql:96
---                                                                 ^ d: none; want steep/schema.sql:5 (#1260)
+--                                                                 ^ d: steep/schema.sql:5
 SELECT SQL_NO_CACHE spout FROM samovars ORDER BY spout;
 --                  ^ d: steep/schema.sql:4
 --                                               ^ d: steep/schema.sql:4
@@ -116,3 +116,23 @@ SELECT spout FROM infusions;
 SELECT * FROM muffins, crusts;
 --            ^ d: steep/bake.mysql:3
 --                     ^ d: steep/crust.mysql:3
+-- #1260: a CTE answers only in its scope, a UNION branch reads only its own FROM; the shapes around them.
+WITH samovars AS (SELECT 1 AS brim) SELECT brim FROM urns UNION SELECT brim FROM samovars;
+--                                                                     ^ d: steep/pour.sql:120
+SELECT lid FROM "Kettle" UNION SELECT lid FROM samovars;
+--     ^ d: steep/schema.sql:18
+--                                    ^ d: none
+SELECT spout FROM urns UNION SELECT spout FROM samovars ORDER BY spout;
+--                                                               ^ d: none
+WITH RECURSIVE samovars AS (SELECT spout FROM samovars) SELECT 1;
+--                                 ^ d: none
+SELECT spout FROM samovars CROSS APPLY (SELECT 1 AS spout) a;
+--     ^ d: none
+WITH mugs AS (SELECT spout FROM samovars), samovars AS (SELECT 1 AS spout) SELECT spout FROM mugs;
+--                   ^ d: steep/schema.sql:4
+SELECT CAST(spout AS brim) FROM samovars;
+--                   ^ d: none
+SELECT spout FROM samovars WHERE id IN (SELECT 1 AS spout);
+--     ^ d: none
+SELECT spout FROM samovars WHERE id IN (WITH RECURSIVE samovars AS (SELECT 1 AS spout) SELECT spout FROM samovars);
+--     ^ d: steep/schema.sql:4
