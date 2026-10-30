@@ -63,7 +63,7 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
         "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
-        "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb",
+        "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb", "lua",
     ];
     path.extension()
         .and_then(|e| e.to_str())

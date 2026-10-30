@@ -731,6 +731,10 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             ("two.py", "def slugify(x):\n    return x\n"),
             ("view.ts", "class C {\n  run() {}\n}\n"),
             ("view.rb", "class C\n  def run\n  end\nend\n"),
+            (
+                "view.lua",
+                "local M = {}\nM.set = function(k)\n  _G.kong = k\nend\n",
+            ),
         ],
     );
     let found = |path: &str, line1: usize, reason: Reason| Candidate {
@@ -799,6 +803,15 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
         heads(Kind::Ruby, "run", vec![found("view.rb", 2, Reason::ByName)]),
         ["C  view.rb:2: "],
         "Ruby's class is measured (#1329)"
+    );
+    assert_eq!(
+        heads(
+            Kind::Lua,
+            "kong",
+            vec![found("view.lua", 3, Reason::ByName)]
+        ),
+        ["set  view.lua:3: "],
+        "Lua's class is measured (#1332)"
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
