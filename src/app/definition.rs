@@ -742,6 +742,9 @@ impl App {
                 if let Some(binds) = search::shell_loop_binds(&h.text, word) {
                     return binds && h.path == here;
                 }
+                if search::shell_env_line(&h.text) {
+                    return h.path != here;
+                }
                 let Some(text) = self.text_of(&h.path) else {
                     return true;
                 };
@@ -758,7 +761,12 @@ impl App {
             let assigns = at
                 .and_then(|r| self.line_str().get(r.end..))
                 .is_some_and(|t| t.starts_with(['=', '+', '[']));
-            if let Some(command) = lead.and_then(search::shell_command_position) {
+            let bats = here.extension().is_some_and(|e| e == "bats");
+            let command = lead.and_then(|l| {
+                search::shell_command_position(l)
+                    .or_else(|| (bats && search::bats_runs(l)).then_some(true))
+            });
+            if let Some(command) = command {
                 let sorted: Vec<Hit> = hits
                     .iter()
                     .filter(|h| search::shell_names_a_command(&h.text) == command)
@@ -767,6 +775,17 @@ impl App {
                 if !sorted.is_empty() || (command && !assigns) {
                     hits = sorted;
                 }
+            }
+            let own: Vec<&Hit> = hits.iter().filter(|h| h.path == here).collect();
+            if command == Some(true)
+                && let [only] = own[..]
+                && !self
+                    .buf
+                    .lines
+                    .iter()
+                    .any(|l| search::shell_reads_another_file(l))
+            {
+                hits = vec![only.clone()];
             }
         }
         if kind == Kind::Sql {
