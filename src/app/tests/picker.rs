@@ -651,3 +651,148 @@ fn the_tutor_lists_every_file_as_its_tasks_expect() {
     );
     drop(std::fs::remove_dir_all(dir));
 }
+
+#[test]
+fn a_definition_row_is_its_place_and_code_with_the_class_and_only_a_differing_reason_before_it() {
+    let heads = |a: &mut App| -> Vec<String> {
+        let p = a.picker.as_mut().expect("a picker");
+        p.settle();
+        let rows = p.window(50).0;
+        rows.iter()
+            .map(|r| {
+                r.item
+                    .label
+                    .get(..r.item.code_at.unwrap())
+                    .unwrap()
+                    .to_owned()
+            })
+            .collect()
+    };
+    let (dir, mut a) = project_app(
+        "rows",
+        &[
+            ("a.py", "class A:\n    def run(self):\n        pass\n"),
+            ("b.py", "def run():\n    pass\n"),
+            ("c.ts", "class C {\n  run() {}\n}\n"),
+            ("d.ts", "class D {\n  run() {}\n}\n"),
+            ("main.ts", "export function go(x) {\n  x.run();\n}\n"),
+            ("pkg/__init__.py", ""),
+            ("pkg/one.py", "def pick(x):\n    return x\n"),
+            ("pkg/two.py", "def pick(x):\n    return x\n"),
+            (
+                "use.py",
+                "try:\n    from pkg.one import pick\nexcept ImportError:\n    from pkg.two import pick\n\n\ndef run():\n    return pick(1)\n",
+            ),
+        ],
+    );
+    a.external
+        .insert(Kind::Python, (Vec::new(), Arc::new(Vec::new())));
+    d_on(&mut a, "b.py", "^def run");
+    assert_eq!(a.message, "run: at a declaration, 2 others by name");
+    assert_eq!(
+        heads(&mut a),
+        ["A  a.py:2: ", "use.py:7: "],
+        "a method's class, nothing for a function at the top level, and no `by name` the title says"
+    );
+    a.picker = None;
+    d_on(&mut a, "main.ts", "x.run");
+    assert_eq!(
+        heads(&mut a),
+        ["c.ts:2: ", "d.ts:2: "],
+        "TypeScript's class is not proven on the bench yet, so it is not shown"
+    );
+    a.picker = None;
+    d_on(&mut a, "use.py", "return pick");
+    assert_eq!(a.message, "pick: 2 declarations");
+    assert_eq!(
+        heads(&mut a),
+        [
+            "via import pkg/one.py  pkg/one.py:1: ",
+            "via import pkg/two.py  pkg/two.py:1: "
+        ],
+        "rows found in different ways keep their reason"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_reason() {
+    let (dir, a) = project_app(
+        "heads",
+        &[
+            (
+                "lib.rs",
+                "struct A;\nimpl A {\n    fn run(&self) {}\n}\nfn run() {}\n",
+            ),
+            (
+                "one.py",
+                "class Box:\n    def slugify(self):\n        pass\n",
+            ),
+            ("two.py", "def slugify(x):\n    return x\n"),
+            ("view.ts", "class C {\n  run() {}\n}\n"),
+        ],
+    );
+    let found = |path: &str, line1: usize, reason: Reason| Candidate {
+        hit: Hit {
+            path: PathBuf::from(path),
+            line1,
+            byte_col: None,
+            text: std::fs::read_to_string(dir.join(path))
+                .unwrap()
+                .lines()
+                .nth(line1 - 1)
+                .unwrap()
+                .to_owned(),
+            deleted: None,
+        },
+        reason,
+    };
+    let heads = |kind: Kind, word: &str, found: Vec<Candidate>| -> Vec<String> {
+        a.definition_items(kind, word, found)
+            .into_iter()
+            .map(|i| i.label.get(..i.code_at.unwrap()).unwrap().to_owned())
+            .collect()
+    };
+    assert_eq!(
+        heads(
+            Kind::Rust,
+            "run",
+            vec![
+                found("lib.rs", 3, Reason::ByName),
+                found("lib.rs", 5, Reason::ByName)
+            ]
+        ),
+        ["A  lib.rs:3: ", "lib.rs:5: "],
+        "a Rust method's impl, nothing for a free function"
+    );
+    assert_eq!(
+        heads(
+            Kind::Python,
+            "slug",
+            vec![
+                found("one.py", 2, Reason::ByName),
+                found("two.py", 1, Reason::Import("two.py".into()))
+            ]
+        ),
+        ["by name  one.py:2: ", "via import two.py  two.py:1: "],
+        "a name bound by an alias is no declaration of `slug`: its line names no class for it"
+    );
+    assert_eq!(
+        heads(
+            Kind::Python,
+            "slugify",
+            vec![
+                found("one.py", 2, Reason::ByName),
+                found("two.py", 1, Reason::Import("two.py".into()))
+            ]
+        ),
+        ["Box  by name  one.py:2: ", "via import two.py  two.py:1: "],
+        "the class first, then the reason of a list found in different ways"
+    );
+    assert_eq!(
+        heads(Kind::TsJs, "run", vec![found("view.ts", 2, Reason::ByName)]),
+        ["view.ts:2: "],
+        "no class where it is not proven"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

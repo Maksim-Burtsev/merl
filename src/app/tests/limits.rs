@@ -428,7 +428,7 @@ fn a_base_past_four_barrels_is_not_taken_for_the_one_implemented() {
             "  run",
         )
     };
-    let other = vec![("Sub.run".into(), "by name".into(), "sub.ts:4".into())];
+    let other = vec![("run".into(), "by name".into(), "sub.ts:4".into())];
     for n in [4, 5] {
         assert_eq!(
             at(n),

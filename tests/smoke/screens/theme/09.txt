@@ -10,39 +10,39 @@ wait github-light
 │    repos.py                │ 9     PAID = "paid"
 │    service.py              │10     SHIPPED = "shipped"
 │    uow.py                  │11     CANCELLED = "cancelled"
-│▸ data                      │12     R┌Themes (97/97)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│▸ deploy                    │13      │>                                                                                                                                        │
-│▸ docs                      │14      │lackluster                                                                                                                               │
-│▸ scripts                   │15 @data│lucerna                                                                                                                                  │
-│▸ tests                     │16 class│mellifluous                                                                                                                              │
-│▸ web                       │17     i│mellow                                                                                                                                   │
-│▸ worker                    │18     c│miasma                                                                                                                                   │
-│  .env                      │19     t│minischeme                                                                                                                               │
-│  .gitignore                │20     s│moonfly                                                                                                                                  │
-│  docker-compose.yml        │21     c│nightfly                                                                                                                                 │
-│  Dockerfile                │22      │papercolor                                                                                                                               │
-│  Makefile                  │23     d│pencil                                                                                                                                   │
-│  pyproject.toml            │24      │selenized                                                                                                                                │
-│  README.md                 │        │seneca                                                                                                                                   │
-│                            │        │soviet-dark                                                                                                                              │
-│                            │        │srcery                                                                                                                                   │
-│                            │        │token                                                                                                                                    │
-│                            │        │vague                                                                                                                                    │
-│                            │        │vesper                                                                                                                                   │
-│                            │        │rose-pine-dawn                                                                                                                           │
-│                            │        │kanagawa-lotus                                                                                                                           │
-│                            │        │everforest-light                                                                                                                         │
-│                            │        │flexoki-light                                                                                                                            │
-│                            │        │catppuccin-latte                                                                                                                         │
-│                            │        │gruvbox-material-light                                                                                                                   │
-│                            │        │gruvbox-light                                                                                                                            │
-│                            │        │melange-light                                                                                                                            │
-│                            │        │dawnfox                                                                                                                                  │
-│                            │        │dayfox                                                                                                                                   │
-│                            │        │tokyonight-day                                                                                                                           │
-│                            │        │onedark-light                                                                                                                            │
-│                            │        │github-light                                                                                                                             │
-│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│▸ data                      │12 ┌Themes (97/97)───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ deploy                    │13 │>                                                                                                                                        │
+│▸ docs                      │14 │lackluster                                                                                                                               │
+│▸ scripts                   │15 │lucerna                                                                                                                                  │
+│▸ tests                     │16 │mellifluous                                                                                                                              │
+│▸ web                       │17 │mellow                                                                                                                                   │
+│▸ worker                    │18 │miasma                                                                                                                                   │
+│  .env                      │19 │minischeme                                                                                                                               │
+│  .gitignore                │20 │moonfly                                                                                                                                  │
+│  docker-compose.yml        │21 │nightfly                                                                                                                                 │
+│  Dockerfile                │22 │papercolor                                                                                                                               │
+│  Makefile                  │23 │pencil                                                                                                                                   │
+│  pyproject.toml            │24 │selenized                                                                                                                                │
+│  README.md                 │   │seneca                                                                                                                                   │
+│                            │   │soviet-dark                                                                                                                              │
+│                            │   │srcery                                                                                                                                   │
+│                            │   │token                                                                                                                                    │
+│                            │   │vague                                                                                                                                    │
+│                            │   │vesper                                                                                                                                   │
+│                            │   │rose-pine-dawn                                                                                                                           │
+│                            │   │kanagawa-lotus                                                                                                                           │
+│                            │   │everforest-light                                                                                                                         │
+│                            │   │flexoki-light                                                                                                                            │
+│                            │   │catppuccin-latte                                                                                                                         │
+│                            │   │gruvbox-material-light                                                                                                                   │
+│                            │   │gruvbox-light                                                                                                                            │
+│                            │   │melange-light                                                                                                                            │
+│                            │   │dawnfox                                                                                                                                  │
+│                            │   │dayfox                                                                                                                                   │
+│                            │   │tokyonight-day                                                                                                                           │
+│                            │   │onedark-light                                                                                                                            │
+│                            │   │github-light                                                                                                                             │
+│                            │   └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -54,4 +54,4 @@ wait github-light
 │                            │
 └────────────────────────────┘
 app/models.py  1:1  [code]                                                                                                                                                         14:32
-cursor (x,y,shown) 41,12,0
+cursor (x,y,shown) 36,12,0

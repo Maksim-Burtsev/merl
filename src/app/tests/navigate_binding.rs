@@ -124,10 +124,7 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 3)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -137,10 +134,7 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(repos.map",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -150,10 +144,7 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 4)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -170,10 +161,7 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 5)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -223,10 +211,7 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(id + 4)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
             ),
         ),
         (
@@ -236,10 +221,7 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(id + 5)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
             ),
         ),
         (
@@ -259,10 +241,7 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(id + 6)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
             ),
         ),
         (
@@ -292,10 +271,7 @@ fn the_innermost_binding_wins() {
             "ledger.DeleteUser|(9)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
             ),
         ),
         (
@@ -325,10 +301,7 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 8)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -338,10 +311,7 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 9",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -524,10 +494,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "repos.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -537,10 +504,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "entry.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -550,10 +514,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "index.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -593,10 +554,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "repo.DeleteUser|(id + 3)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
             ),
         ),
         (
@@ -669,10 +627,7 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "repo.DeleteUser|(id + 8)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
             ),
         ),
     ];

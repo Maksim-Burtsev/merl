@@ -470,10 +470,7 @@ fn a_field_grep_cut_at_the_cap_keeps_the_methods_and_says_so() {
     d_on(&mut a, "main.ts", "u.id");
     assert_eq!(
         shown(&mut a),
-        picker(
-            "id: by name, 1+ declarations",
-            &[("Model.id", "z/model.ts:2")]
-        ),
+        picker("id: by name, 1+ declarations", &[("id", "z/model.ts:2")]),
         "a file of object-literal keys that fills the grep leaves the method a candidate, and the count says the field side was cut"
     );
     std::fs::remove_dir_all(&dir).unwrap();

@@ -173,10 +173,7 @@ fn a_call_is_one_more_hop() {
             "picked.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -186,10 +183,7 @@ fn a_call_is_one_more_hop() {
             "openDepot().peopleRepo().deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -199,10 +193,7 @@ fn a_call_is_one_more_hop() {
             "repo.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -272,10 +263,7 @@ fn a_call_is_one_more_hop() {
             "repo.DeleteUser|(id + 5)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.DeleteUser", "repos.go:15"),
-                    ("AuditLog.DeleteUser", "repos.go:21"),
-                ],
+                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
             ),
         ),
         (
@@ -380,10 +368,7 @@ fn a_call_is_one_more_hop() {
             "inline.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
     ];
@@ -490,10 +475,7 @@ fn a_cast_writes_the_type() {
             "loose.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -503,10 +485,7 @@ fn a_cast_writes_the_type() {
             "partial.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[
-                    ("UserRepository.deleteUser", "repos.ts:10"),
-                    ("AuditLog.deleteUser", "repos.ts:16"),
-                ],
+                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
             ),
         ),
         (
@@ -580,10 +559,7 @@ fn a_cast_writes_the_type() {
             "v.Area|() + 1",
             picker(
                 "Area: by name, 2 declarations",
-                &[
-                    ("Square.Area", "casts.go:11"),
-                    ("Circle.Area", "casts.go:15"),
-                ],
+                &[("Area", "casts.go:11"), ("Area", "casts.go:15")],
             ),
         ),
         (
@@ -593,10 +569,7 @@ fn a_cast_writes_the_type() {
             "v.Area|() + 2",
             picker(
                 "Area: by name, 2 declarations",
-                &[
-                    ("Square.Area", "casts.go:11"),
-                    ("Circle.Area", "casts.go:15"),
-                ],
+                &[("Area", "casts.go:11"), ("Area", "casts.go:15")],
             ),
         ),
         (
