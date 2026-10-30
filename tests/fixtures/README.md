@@ -663,7 +663,10 @@ behind a `require` (#1076): `this.x` reads the class's own fields and the base's
 field of `Roaster` stays out.
 `ledger.js` declares several names in one `let` (#1077), without initializers and with a comma
 inside one, beside a function `count` and another function's local `last` the later names must
-not reach.
+not reach. Its `weigh` probes the declarations themselves (#1342): a parameter of a signature
+over several lines and a name of a `let`, which stay where they are rather than reach those
+namesakes. `scope/Panel.tsx`'s `Field` puts a variable `label` beside the hyphenated JSX
+attributes `aria-label` and `data-label-for`, whose parts declare nothing.
 `pulling.mjs`, `steamer.cjs` and `wand.cjs` are the third corner (#1126), their answers
 tsserver's with `checkJs`: the shapes of `tea/infusion.ts` in JavaScript over `lever.mjs` and its
 re-exports in `espresso.mjs`, a JSDoc `import("…")` type, `const self = this` and `const that =

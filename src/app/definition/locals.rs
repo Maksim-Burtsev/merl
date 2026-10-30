@@ -1,4 +1,4 @@
-use super::{App, Asked, Kind, Reason, import_line, names_itself, search, whole_at};
+use super::{App, Asked, Kind, Reason, Regex, import_line, names_itself, search, whole_at};
 
 pub(super) struct Near {
     pub(super) imports: Vec<search::Import>,
@@ -45,7 +45,8 @@ impl App {
         let c_parameter = kind == Kind::C
             && !a.dotted
             && search::c_names_a_parameter(&a.text, self.line + 1, range.start, word);
-        if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter {
+        let ts_own = !arrow_param && self.ts_declares_here(a);
+        if own_arrow || arrow_param || swift_closure || ruby_block || c_parameter || ts_own {
             locals = vec![self.line + 1];
         }
         let type_param = (kind == Kind::TsJs
@@ -94,6 +95,7 @@ impl App {
             same_line
                 || own_line
                 || own_arrow
+                || ts_own
                 || ts_key
                 || python_own
                 || c_parameter
@@ -108,6 +110,39 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn ts_declares_here(&self, a: &Asked) -> bool {
+        let word = &a.word;
+        if a.kind != Kind::TsJs
+            || a.dotted
+            || !a.chain.is_empty()
+            || whole_at(self.line_str(), word, "") != Some(a.range.start)
+            || whole_at(&a.tail, word, "").is_some()
+            || !search::ts_import_lines1(&a.text, word).is_empty()
+        {
+            return false;
+        }
+        let Ok(bare) = Regex::new(&format!(
+            r"(?:^|[^\w$.]){}(?:[^\w$]|$)",
+            regex::escape(word)
+        )) else {
+            return false;
+        };
+        let literal = search::literal_lines(a.kind, &a.text);
+        let Some(used) = (self.line + 1..self.buf.lines.len()).find(|&k| {
+            let l = self.buf.lines[k].trim_start();
+            !literal.get(k).copied().unwrap_or(true)
+                && !l.starts_with("//")
+                && !l.starts_with('*')
+                && bare.is_match(l)
+        }) else {
+            return false;
+        };
+        self.binding_lines(a.kind, &a.text, used + 1, 0, true, word)
+            .into_iter()
+            .map(|n| search::written_line(&self.buf.lines, n, word))
+            .any(|n| n == self.line + 1)
     }
 
     fn swift_binds_here(&self, a: &Asked) -> bool {
