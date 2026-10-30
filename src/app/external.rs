@@ -24,14 +24,27 @@ struct ModuleLookup<'a> {
     all: &'a [PathBuf],
     files: Vec<PathBuf>,
     copy: &'a search::PackageCopy,
-    word_is_export_name: bool,
-    default_import: bool,
+    item: Option<String>,
     imported: bool,
     named: Option<Vec<String>>,
     package: Option<usize>,
     floor: usize,
     reason: Reason,
     narrow: bool,
+}
+
+impl ModuleLookup<'_> {
+    fn word_is_export_name(&self) -> bool {
+        match self.item.as_deref() {
+            Some("*") => self.chain.len() == 1,
+            Some("default") | None => false,
+            Some(_) => self.chain.is_empty(),
+        }
+    }
+
+    fn default_import(&self) -> bool {
+        self.chain.is_empty() && self.item.as_deref() == Some("default")
+    }
 }
 
 fn by_name(hits: Vec<Hit>) -> Vec<Candidate> {
@@ -94,11 +107,6 @@ impl App {
         let ts_import_item = match kind {
             Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
             _ => None,
-        };
-        let word_is_export_name = match ts_import_item.as_deref() {
-            Some("*") => chain.len() == 1,
-            Some("default") | None => false,
-            Some(_) => chain.is_empty(),
         };
         let imported = bound_path.is_some();
         if bound_path
@@ -180,8 +188,7 @@ impl App {
             all: &all,
             files,
             copy: &copy,
-            word_is_export_name,
-            default_import: chain.is_empty() && ts_import_item.as_deref() == Some("default"),
+            item: ts_import_item,
             imported,
             named,
             package,
@@ -278,7 +285,7 @@ impl App {
             self,
             self.declarations_among(kind, word, q.pattern, &q.files),
         );
-        if hits.is_empty() && narrowed_to_copy && q.word_is_export_name {
+        if hits.is_empty() && narrowed_to_copy && q.word_is_export_name() {
             let within = if module.len() <= q.copy.name_parts {
                 q.copy.entries()
             } else {
@@ -286,7 +293,7 @@ impl App {
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
-        if hits.is_empty() && q.default_import {
+        if hits.is_empty() && q.default_import() {
             hits = self.outside_default(kind, &q.files);
         }
         let walked = if hits.is_empty()
