@@ -60,6 +60,28 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     qualified_by_owner(kind, text, &lines, line1, name)
         .or_else(|| qualified_by_nesting(kind, text, &lines, line1, name))
 }
+pub fn shows_class(path: &std::path::Path) -> bool {
+    let measured = [
+        "py", "rs", "java", "kt", "cs", "js", "mjs", "sol", "swift", "c", "sh", "bzl", "go",
+    ];
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| measured.contains(&e))
+}
+pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
+    let line = text.lines().nth(line1.checked_sub(1)?)?;
+    let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+    let named = line.match_indices(name).any(|(i, _)| {
+        !word(line.get(..i).and_then(|s| s.chars().next_back()))
+            && !word(line.get(i + name.len()..).and_then(|s| s.chars().next()))
+    });
+    if !named {
+        return None;
+    }
+    let q = qualified(kind, text, line1, name)?;
+    let owner = q.strip_suffix(name)?.strip_suffix(separator(kind))?;
+    (!owner.is_empty() && !owner.contains('\u{2026}')).then(|| owner.to_owned())
+}
 fn qualified_by_owner(
     kind: Kind,
     text: &str,

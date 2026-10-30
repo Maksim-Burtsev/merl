@@ -11,19 +11,20 @@ wait Switch focus between tree and code
 │    service.py              │10  │ Search                                                                                                            │
 │    uow.py                  │11  │   / / Ctrl+F                        Find in the open file                                                         │
 │▸ data                      │12  │   n / N                             Next / previous match                                                         │
-│▸ deploy                    │13  │   s                                 Search the project                                                            │
-│▸ docs                      │14  │ Review                                                                                                            │
-│▸ scripts                   │15  │   c / C                             Review: next / previous hunk, on to the next file                             │
-│▸ tests                     │16  │   m                                 Review: mark the file as viewed, or take the mark off                         │
-│▸ web                       │17  │   a                                 Review: note for the agent on the line or the selection                       │
-│▸ worker                    │18  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
-│  .env                      │19  │ Editing                                                                                                           │
-│  .gitignore                │20  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-│  docker-compose.yml        │    │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
-│  Dockerfile                │    │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
-│  Makefile                  │    │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
-│  pyproject.toml            │    │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
-│  README.md                 │    │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+│▸ deploy                    │13  │   *                                 Find the word under the cursor as a whole word, or the selection              │
+│▸ docs                      │14  │   s                                 Search the project                                                            │
+│▸ scripts                   │15  │ Review                                                                                                            │
+│▸ tests                     │16  │   c / C                             Review: next / previous hunk, on to the next file                             │
+│▸ web                       │17  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│▸ worker                    │18  │   a                                 Review: note for the agent on the line or the selection                       │
+│  .env                      │19  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+│  .gitignore                │20  │ Editing                                                                                                           │
+│  docker-compose.yml        │    │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+│  Dockerfile                │    │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+│  Makefile                  │    │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+│  pyproject.toml            │    │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+│  README.md                 │    │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+│                            │    │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
 │                            │    │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │                            │    │ Selection                                                                                                         │
 │                            │    │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
@@ -51,7 +52,6 @@ wait Switch focus between tree and code
 │                            │    │   Tree: PgUp / PgDn                 Move one page                                                                 │
 │                            │    │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
 │                            │    │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
-│                            │    │   Tree: { / }                       Previous / next folder                                                        │
-└────────────────────────────┘    │   Picker: Up / Down                 Move                                                                          │
+└────────────────────────────┘    │   Tree: { / }                       Previous / next folder                                                        │
 app/uow.py  1:1  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 151,54,0

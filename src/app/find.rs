@@ -1,6 +1,6 @@
 use super::{
     App, Buffer, KeyCode, KeyEvent, LineEdit, Mode, Regex, RegexBuilder, TextLine, next_char,
-    shown_str,
+    search, shown_str,
 };
 
 const FIND_CAP: usize = 1_000;
@@ -36,14 +36,44 @@ impl App {
         Some(text.chars().take(FIND_CAP).collect())
     }
 
+    pub(super) fn star(&mut self) {
+        if self.one_line_selection().is_some() {
+            self.start_find();
+            self.accept_find();
+            return;
+        }
+        let extra = search::word_chars(self.kind(), false);
+        let Some((range, word)) = search::word_at(self.line_str(), self.col, extra) else {
+            self.message = "no word under the cursor".into();
+            return;
+        };
+        let re = Regex::new(&format!(r"(?-u:\b){}(?-u:\b)", regex::escape(word)))
+            .expect("an escaped word between word boundaries compiles");
+        let query = word.to_owned();
+        let before = (self.at(), self.col);
+        let hit = self
+            .match_at_or_after(&re, (self.at(), range.end))
+            .or_else(|| self.match_at_or_after(&re, (self.first_line(), 0)));
+        if let Some(at) = hit {
+            self.go_to_match(at);
+        }
+        self.drop_selection_if_moved(before);
+        self.message = self.match_count(&re);
+        self.find_re = Some(re);
+        self.find_query = query;
+        self.hist_note(true);
+    }
+
+    fn accept_find(&mut self) {
+        self.close_overlay();
+        self.anchor = self.find_sel.take();
+        self.drop_selection_if_moved(self.clamp_place(self.find_anchor));
+        self.hist_note(true);
+    }
+
     pub(super) fn find_key(&mut self, key: KeyEvent) {
         match key.code {
-            KeyCode::Enter => {
-                self.close_overlay();
-                self.anchor = self.find_sel.take();
-                self.drop_selection_if_moved(self.clamp_place(self.find_anchor));
-                self.hist_note(true);
-            }
+            KeyCode::Enter => self.accept_find(),
             KeyCode::Esc => {
                 self.close_overlay();
                 self.message.clear();

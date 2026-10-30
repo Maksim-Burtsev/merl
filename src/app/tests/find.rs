@@ -507,3 +507,119 @@ fn a_line_drawn_whole_by_a_find_gets_its_colour() {
     a.buf.paint_to(1, &theme);
     assert_ne!(a.buf.hl[0], Vec::new());
 }
+
+#[test]
+fn star_finds_the_word_under_the_cursor_whole_and_in_its_case() {
+    let mut a = app("def f(key):\n    Key = keys(key)\n    return key_of(key)\n");
+    a.col = 7;
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, &*a.message),
+        (1, 15, "2/3"),
+        "past `Key` and `keys` to the next whole `key`"
+    );
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (2, 18), "`n` skips `key_of`");
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (0, 6), "and wraps to the first");
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    assert_eq!(
+        (&*a.prompt, &*a.message),
+        ("key", "1/3"),
+        "`/` recalls the word with its whole-word count"
+    );
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('n'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (1, 15), "Enter keeps the whole word");
+    press(&mut a, KeyCode::Char('/'), KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    typed(&mut a, "s");
+    press(&mut a, KeyCode::Backspace, KeyModifiers::NONE);
+    assert_eq!(
+        a.message, "4/6",
+        "an edit makes it an ordinary find, any case, inside words"
+    );
+}
+
+#[test]
+fn star_off_a_word_says_so_and_moves_nothing() {
+    let mut a = app("x = 1\n\n    *,\n");
+    find(&mut a, "x");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    for (line, col) in [(1, 0), (2, 4)] {
+        (a.line, a.col) = (line, col);
+        press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+        assert_eq!(
+            (a.line, a.col, &*a.message),
+            (line, col, "no word under the cursor")
+        );
+        assert_eq!(a.find_re.as_ref().map(Regex::as_str), Some("x"));
+    }
+    (a.line, a.col, a.focus) = (0, 0, Focus::Tree);
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!(
+        a.find_re.as_ref().map(Regex::as_str),
+        Some("x"),
+        "the tree's"
+    );
+    a.focus = Focus::Code;
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!(a.buf.lines[0], "*x = 1", "typed in edit mode");
+}
+
+#[test]
+fn star_on_a_one_line_selection_finds_it_as_find_does() {
+    let mut a = app("a.id\nA.ID x\na.id\n");
+    press(
+        &mut a,
+        KeyCode::Right,
+        KeyModifiers::SHIFT | KeyModifiers::ALT,
+    );
+    press(&mut a, KeyCode::Right, KeyModifiers::SHIFT);
+    press(
+        &mut a,
+        KeyCode::Right,
+        KeyModifiers::SHIFT | KeyModifiers::ALT,
+    );
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, &*a.message, a.anchor, a.mode),
+        (1, 0, "2/3", None, Mode::Normal),
+        "the next match in any case, the selection dropped as `/` Enter drops it"
+    );
+}
+
+#[test]
+fn star_wraps_from_the_last_or_only_use_and_back_returns_to_the_word() {
+    let mut a = app("def f(key):\n    Key = keys(key)\n    return key_of(key)\nonly\n");
+    a.view_w = 80;
+    press(&mut a, KeyCode::Char(':'), KeyModifiers::NONE);
+    typed(&mut a, "3");
+    press(&mut a, KeyCode::Enter, KeyModifiers::NONE);
+    press(&mut a, KeyCode::End, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Left, KeyModifiers::NONE);
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, &*a.message), (0, 6, "1/3"));
+    press(&mut a, KeyCode::Char('['), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col), (2, 21), "a near `*` is a jump of its own");
+    (a.line, a.col) = (3, 2);
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!((a.line, a.col, &*a.message), (3, 0, "1/1"));
+}
+
+#[test]
+fn star_stops_inside_names_joined_by_the_language_s_word_chars() {
+    let text = ".btn {}\n.btn-primary {}\n.btn {}\n";
+    let mut a = app(text);
+    let path = a.buf.path.clone().unwrap().with_extension("css");
+    std::fs::write(&path, text).unwrap();
+    a.buf = Buffer::from_bytes(path, text.as_bytes());
+    a.col = 1;
+    press(&mut a, KeyCode::Char('*'), KeyModifiers::NONE);
+    assert_eq!(
+        (a.line, a.col, &*a.message),
+        (1, 1, "2/3"),
+        "today; want (2, 1, \"2/2\") (#1321)"
+    );
+}

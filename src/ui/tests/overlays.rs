@@ -1363,3 +1363,42 @@ fn a_skipped_top_level_file_keeps_a_gap_before_its_counts_and_a_tick_takes_its_r
     assert!(r[1].starts_with("\u{2502}\u{2713} M a-top"), "{}", r[1]);
     assert_eq!(at(&terminal, "a-top"), theme.fg);
 }
+
+#[test]
+fn a_definition_row_too_long_to_wrap_clips_its_code_and_keeps_its_class_and_reason() {
+    let root = rust_file_opening_on_a_doc_comment();
+    let mut app = App::new(root, Tree::default(), Vec::new(), Buffer::empty(), None);
+    let tail = "InvoiceService  via import src/app/services/billing/invoices.py";
+    let head = format!("{tail}  src/wrap.rs:1: ");
+    let code = "def render_the_whole_invoice(self, invoice, customer, currency, locale):";
+    let item = crate::picker::PickItem {
+        label: format!("{head}{code}"),
+        path: PathBuf::from("src/wrap.rs"),
+        line: 1,
+        col: 0,
+        code_at: Some(head.len()),
+        path_at: Some(tail.len() + 2..tail.len() + 2 + "src/wrap.rs".len()),
+        deleted: false,
+    };
+    app.show_picker(crate::app::PickerKind::Definitions, vec![item]);
+    app.picker.as_mut().unwrap().settle();
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut terminal = Terminal::new(TestBackend::new(120, 12)).unwrap();
+    terminal.draw(|f| super::draw(f, &mut app, &theme)).unwrap();
+    let (x, y) = cell_at(&terminal, tail);
+    let buf = terminal.backend().buffer();
+    let after = u16::try_from(tail.chars().count()).unwrap();
+    assert_eq!(
+        buf[(x + after, y)].symbol(),
+        "\u{2502}",
+        "the reason ends at the row's last column, the code clipped before it"
+    );
+    assert!(
+        (0..x)
+            .map(|c| buf[(c, y)].symbol())
+            .collect::<String>()
+            .contains("1  def"),
+        "the code still opens the row: {:?}",
+        (0..120).map(|c| buf[(c, y)].symbol()).collect::<String>()
+    );
+}

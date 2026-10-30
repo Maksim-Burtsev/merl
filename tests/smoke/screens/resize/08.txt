@@ -13,6 +13,8 @@ wait Go to definition of the word under the
 │ Search                                                                       │
 │   / / Ctrl+F                        Find in the open file                    │
 │   n / N                             Next / previous match                    │
+│   *                                 Find the word under the cursor as a      │
+│                                     whole word, or the selection             │
 │   s                                 Search the project                       │
 │ Review                                                                       │
 │   c / C                             Review: next / previous hunk, on to the  │
@@ -20,7 +22,5 @@ wait Go to definition of the word under the
 │   m                                 Review: mark the file as viewed, or take │
 │                                     the mark off                             │
 │   a                                 Review: note for the agent on the line   │
-│                                     or the selection                         │
-│   Fold: Enter                       Review: load the diff of a folded        │
 └──────────────────────────────────────────────────────────────────────────────┘
 cursor (x,y,shown) 80,23,0
