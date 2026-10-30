@@ -562,3 +562,27 @@ fn a_file_a_require_names_inside_a_package_is_read_for_its_types() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn the_key_of_a_renamed_require_is_the_module_s_export() {
+    let server = "const {\n    handler,\n    autoStart: cloudflaredAutoStart,\n} = require(\"./handlers/cf\");\nconst { autoStart: localStart } = settings;\n\ncloudflaredAutoStart(handler, localStart);\nmodule.exports = { autoStart: cloudflaredAutoStart };\n";
+    let cf =
+        "module.exports.handler = () => {};\n\nmodule.exports.autoStart = async (token) => {\n};\n";
+    let (_, mut a) = project_app(
+        "ts-require-key",
+        &[("server.js", server), ("handlers/cf.js", cf)],
+    );
+    d_on(&mut a, "server.js", "    autoStart");
+    assert_eq!(
+        shown(&mut a),
+        jump("autoStart: via import handlers/cf.js", "handlers/cf.js:3")
+    );
+    let wrong = jump("autoStart: via import handlers/cf.js", "handlers/cf.js:3");
+    for (code, why) in [
+        ("const { autoStart", "a key of a value, not of a require"),
+        ("= { autoStart", "a key of an object literal"),
+    ] {
+        d_on(&mut a, "server.js", code);
+        assert_ne!(shown(&mut a), wrong, "{why}");
+    }
+}
