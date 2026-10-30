@@ -234,7 +234,7 @@ impl App {
                     | KeyCode::PageDown
             )
             || m == KeyModifiers::CONTROL && matches!(code, KeyCode::Char('d' | 'u'));
-        if self.review.is_none() || run.mode != Mode::Normal || !plain {
+        if self.review.is_none() || self.sweeping || run.mode != Mode::Normal || !plain {
             return None;
         }
         let hunks = &self.diff.hunks;
@@ -403,6 +403,7 @@ impl App {
         let next = self
             .review
             .as_ref()
+            .filter(|_| !self.sweeping)
             .and_then(|r| match self.next_hunk(r, 1) {
                 Next::Back(rel, _) => Some(rel),
                 Next::Here(_) => None,

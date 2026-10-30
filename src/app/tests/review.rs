@@ -9,6 +9,7 @@ use super::*;
 fn review_walks_past_files_without_hunks() {
     let png: &[u8] = b"\x89PNG\0\0";
     let (dir, mut a) = review_app_with("reviewbin", &[("a.png", png), ("z.png", png)]);
+    all_seen(&mut a);
     assert_eq!(
         panel_rows(&a),
         [
@@ -48,6 +49,7 @@ fn review_walks_past_files_without_hunks() {
 fn review_stops_on_an_image_where_the_terminal_draws_pictures() {
     let png: &[u8] = b"\x89PNG\0\0";
     let (dir, mut a) = review_app_with("reviewpics", &[("a.png", png), ("z.png", png)]);
+    all_seen(&mut a);
     a.diagrams = crate::mermaid::Diagrams::with_cell(Some((10, 20)));
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     c(&mut a);
@@ -70,6 +72,7 @@ fn review_stops_on_an_image_where_the_terminal_draws_pictures() {
 #[test]
 fn viewed_marks_follow_the_walk_the_key_and_the_disk() {
     let (dir, mut a) = review_app("viewed");
+    all_seen(&mut a);
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let viewed = |a: &App| {
         let mut v: Vec<_> = a.viewed.keys().cloned().collect();
@@ -281,6 +284,7 @@ fn a_second_round_walks_past_the_files_ticked_in_the_first() {
         let (_, files) = crate::tree::build(&dir, false);
         let mut a = App::new(dir.clone(), tree, files, buf, None);
         a.start_review(review);
+        all_seen(&mut a);
         a
     };
     let open = || open_on(Buffer::empty());
@@ -1344,6 +1348,7 @@ fn review_walks_past_a_link_to_a_directory_wherever_it_is() {
             None,
         );
         a.start_review(r);
+        all_seen(&mut a);
         let mut walk = |key: char, end: &str| {
             let mut stops = vec![a.rel_current().unwrap()];
             loop {
@@ -1408,6 +1413,7 @@ fn enter_on_a_link_to_a_directory_in_the_review_panel_opens_nothing() {
 #[test]
 fn review_walks_hunks_across_files_and_opens_deleted_files_from_the_base() {
     let (dir, mut a) = review_app("reviewapp");
+    all_seen(&mut a);
     let c = |a: &mut App| press(a, KeyCode::Char('c'), KeyModifiers::NONE);
     let big_c = |a: &mut App| press(a, KeyCode::Char('C'), KeyModifiers::NONE);
     assert_eq!(
@@ -2300,6 +2306,7 @@ fn review_stops_on_every_empty_file_and_walks_past_a_binary_one() {
     let png: &[u8] = b"\x89PNG\0\0";
     let extra: &[(&str, &[u8])] = &[("e", b""), ("z.png", png), ("zy", b""), ("zz", b"")];
     let (dir, mut a) = review_app_with("reviewempty", extra);
+    all_seen(&mut a);
     let order = |a: &App| -> Vec<_> {
         let r = a.review.as_ref().unwrap();
         r.files.iter().map(|f| f.path.clone()).collect()
@@ -2812,6 +2819,76 @@ fn c_walks_the_deleted_rows_of_a_tall_replaced_block_and_a_tall_deleted_file() {
     assert!(
         !a.seen.contains_key(Path::new("big")),
         "a file changed on disk is read again"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn after_the_last_hunk_c_sweeps_the_changed_rows_never_drawn() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    let (dir, mut a) = review_app_with_lock("sweep");
+    a.show_tree = false;
+    let theme = crate::theme::load(crate::theme::DEFAULT).unwrap();
+    let mut t = Terminal::new(TestBackend::new(40, 22)).unwrap();
+    let mut draw = |a: &mut App| t.draw(|f| crate::ui::draw(f, a, &theme)).map(drop);
+    draw(&mut a).unwrap();
+    assert_eq!(at(&a).0, dir.join("new"));
+    let mut stops = Vec::new();
+    for _ in 0..8 {
+        press(&mut a, KeyCode::Char('c'), KeyModifiers::NONE);
+        draw(&mut a).unwrap();
+        let now = (at(&a), a.message.clone());
+        let end = now.1 == "last hunk of the review";
+        stops.push(now);
+        if end {
+            break;
+        }
+    }
+    let file = |rel: &str, l| ((dir.join(rel), l), String::new());
+    assert_eq!(
+        stops,
+        [
+            file("poetry.lock", 1),
+            file("tail", 0),
+            file("src/a.rs", 1),
+            file("crlf.txt", 1),
+            ((dir.join("crlf.txt"), 1), "last hunk of the review".into()),
+        ],
+        "the walk, then back to the files it never drew; the folded lock file is not swept"
+    );
+    assert!(
+        ["src/a.rs", "crlf.txt"].map(|p| a.viewed.contains_key(Path::new(p))) == [true, true],
+        "the sweep ticks the files it walks, as the walk does"
+    );
+    drop(std::fs::remove_dir_all(dir));
+}
+
+#[test]
+fn the_sweep_stands_on_a_row_once_and_c_back_ends_it() {
+    let (dir, mut a) = review_app("sweeptwice");
+    let key = |a: &mut App, ch| {
+        press(a, KeyCode::Char(ch), KeyModifiers::NONE);
+        (at(a), a.message.clone())
+    };
+    let stop = |rel: &str, l| ((dir.join(rel), l), String::new());
+    assert_eq!(at(&a), (dir.join("new"), 0));
+    let walk: Vec<_> = (0..4).map(|_| key(&mut a, 'c')).collect();
+    assert_eq!(
+        walk,
+        [
+            stop("tail", 0),
+            stop("src/a.rs", 1),
+            stop("src/a.rs", 5),
+            stop("crlf.txt", 1)
+        ],
+        "no frame is drawn: the sweep moves on from each row it stood on all the same"
+    );
+    assert_eq!(key(&mut a, 'C').0, (dir.join("src/a.rs"), 5));
+    assert_eq!(
+        key(&mut a, 'c'),
+        stop("crlf.txt", 1),
+        "`C` ended the sweep: `c` walks on to the next hunk, not to `new`, never drawn"
     );
     drop(std::fs::remove_dir_all(dir));
 }
