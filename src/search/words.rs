@@ -62,7 +62,8 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
 }
 pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
-        "py", "rs", "java", "kt", "cs", "js", "mjs", "sol", "swift", "c", "sh", "bzl", "go",
+        "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
+        "c", "sh", "bzl", "go",
     ];
     path.extension()
         .and_then(|e| e.to_str())
@@ -79,8 +80,35 @@ pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
         return None;
     }
     let q = qualified(kind, text, line1, name)?;
-    let owner = q.strip_suffix(name)?.strip_suffix(separator(kind))?;
+    let sep = separator(kind);
+    let mut owner = q.strip_suffix(name)?.strip_suffix(sep)?;
+    if kind == Kind::TsJs
+        && let Some(result) = ts_call_result_around(text, line1)
+        && (owner == result || owner.ends_with(&format!("{sep}{result}")))
+    {
+        owner = owner
+            .strip_suffix(result.as_str())?
+            .strip_suffix(sep)
+            .unwrap_or("");
+    }
     (!owner.is_empty() && !owner.contains('\u{2026}')).then(|| owner.to_owned())
+}
+fn ts_call_result_around(text: &str, line1: usize) -> Option<String> {
+    static CALL_RESULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*(?:await\s+)?([A-Za-z_$][\w$.]*)\s*(?:<[^=]*>)?\(")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let indent = |s: &str| s.len() - s.trim_start().len();
+    let depth = indent(lines.get(line1.checked_sub(1)?)?);
+    let around = lines[..line1 - 1]
+        .iter()
+        .rev()
+        .find(|l| indent(l) < depth && !steps_over(Some(Kind::TsJs), l.trim_start()))?;
+    CALL_RESULT
+        .captures(around)
+        .filter(|c| !matches!(&c[2], "function" | "async"))
+        .map(|c| c[1].to_owned())
 }
 fn qualified_by_owner(
     kind: Kind,
@@ -186,6 +214,10 @@ fn qualified_by_nesting(
         Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)"))
             .expect("the regex is a literal")
     });
+    static TS_DOTTED_NAMESPACE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:namespace|module)\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+)\s*\{")
+            .expect("the regex is a literal")
+    });
     let sep = separator(kind);
     let target = lines[line1 - 1];
     let indent = |s: &str| s.len() - s.trim_start().len();
@@ -224,8 +256,11 @@ fn qualified_by_nesting(
         if ruby && l.trim_start().starts_with("class << self") {
             continue;
         }
-        let named = rust_impl_type(l)
-            .filter(|_| kind == Kind::Rust)
+        let named = TS_DOTTED_NAMESPACE
+            .captures(l)
+            .filter(|_| kind == Kind::TsJs)
+            .map(|c| c[1].to_owned())
+            .or_else(|| rust_impl_type(l).filter(|_| kind == Kind::Rust))
             .or_else(|| {
                 swift_type_header(l)
                     .filter(|h| kind == Kind::Swift && h.keyword == "extension")

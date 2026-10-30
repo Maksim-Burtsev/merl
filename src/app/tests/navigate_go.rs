@@ -509,10 +509,10 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 "run: implementations of BaseJob.run, 4 declarations",
                 "BaseJob.run",
                 &[
-                    ("run", "impls.ts:8"),
-                    ("run", "impls.ts:12"),
-                    ("run", "impls.ts:39"),
-                    ("run", "impls.ts:18"),
+                    ("ImportJob.run", "impls.ts:8"),
+                    ("ExportJob.run", "impls.ts:12"),
+                    ("WrappedJob.run", "impls.ts:39"),
+                    ("NightlyJob.run", "impls.ts:18"),
                 ],
             ),
         ),
@@ -525,10 +525,10 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 "send: implementations of Notifier.send, 4 declarations",
                 "Notifier.send",
                 &[
-                    ("send", "repos.ts:26"),
-                    ("send", "repos.ts:32"),
-                    ("send", "impls.ts:22"),
-                    ("send", "impls.ts:41"),
+                    ("EmailNotifier.send", "repos.ts:26"),
+                    ("SmsNotifier.send", "repos.ts:32"),
+                    ("LoudNotifier.send", "impls.ts:22"),
+                    ("WrappedJob.send", "impls.ts:41"),
                 ],
             ),
         ),
@@ -640,7 +640,7 @@ fn implementations_answer_only_on_the_declared_name() {
             "(run",
             picker(
                 "run: at a declaration, 1 other by name",
-                &[("run", "jobs.ts:8")],
+                &[("ImportJob.run", "jobs.ts:8")],
             ),
         ),
         (

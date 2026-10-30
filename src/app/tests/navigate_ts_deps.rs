@@ -33,10 +33,10 @@ fn a_package_installed_twice_is_read_from_the_copy_node_loads() {
             "getText: by name, 2 declarations",
             &[
                 (
-                    "getText",
+                    "Solo.getText",
                     "@arethetypeswrong/core/node_modules/solo/index.d.ts:2"
                 ),
-                ("getText", "typescript/lib/typescript.d.ts:2"),
+                ("Node.getText", "typescript/lib/typescript.d.ts:2"),
             ]
         ),
         "the copy another package keeps of typescript is not read; a package only it has is"
@@ -77,9 +77,12 @@ fn a_pnpm_store_keeps_the_version_the_project_links_to() {
         picker(
             "getText: by name, 2 declarations",
             &[
-                ("getText", ".pnpm/lib@2.0.0/node_modules/lib/index.d.ts:2"),
                 (
-                    "getText",
+                    "Two.getText",
+                    ".pnpm/lib@2.0.0/node_modules/lib/index.d.ts:2"
+                ),
+                (
+                    "Other.getText",
                     ".pnpm/other@1.0.0/node_modules/other/index.d.ts:2"
                 ),
             ]
@@ -115,8 +118,8 @@ fn a_member_outside_is_looked_for_in_the_imported_packages_first() {
         picker(
             "getText: by name, 2 declarations",
             &[
-                ("getText", "typescript/lib/typescript.d.ts:2"),
-                ("getText", "typescript/lib/typescript.d.ts:6"),
+                ("Node.getText", "typescript/lib/typescript.d.ts:2"),
+                ("Token.getText", "typescript/lib/typescript.d.ts:6"),
             ]
         ),
         "the imported package declares it twice: no namesake of another package is offered"
@@ -127,8 +130,8 @@ fn a_member_outside_is_looked_for_in_the_imported_packages_first() {
         picker(
             "lonely: by name, 2 declarations",
             &[
-                ("lonely", "typescript/lib/typescript.d.ts:3"),
-                ("lonely", "unrelated/index.d.ts:3"),
+                ("Node.lonely", "typescript/lib/typescript.d.ts:3"),
+                ("Doc.lonely", "unrelated/index.d.ts:3"),
             ]
         ),
         "one declaration in the imported package is no proof: every package is read, as before"
@@ -167,8 +170,8 @@ fn a_member_only_a_nested_copy_declares_is_still_offered() {
         picker(
             "onlyV2: by name, 2 declarations",
             &[
-                ("onlyV2", "a/node_modules/b/index.d.ts:3"),
-                ("onlyV2", "unrelated/index.d.ts:2"),
+                ("B.onlyV2", "a/node_modules/b/index.d.ts:3"),
+                ("U.onlyV2", "unrelated/index.d.ts:2"),
             ]
         ),
         "the version of b that a returns declares it: it stays offered beside the namesake"

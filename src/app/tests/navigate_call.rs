@@ -173,7 +173,10 @@ fn a_call_is_one_more_hop() {
             "picked.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -183,7 +186,10 @@ fn a_call_is_one_more_hop() {
             "openDepot().peopleRepo().deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -193,7 +199,10 @@ fn a_call_is_one_more_hop() {
             "repo.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -371,7 +380,10 @@ fn a_call_is_one_more_hop() {
             "inline.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
     ];
@@ -478,7 +490,10 @@ fn a_cast_writes_the_type() {
             "loose.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -488,7 +503,10 @@ fn a_cast_writes_the_type() {
             "partial.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (

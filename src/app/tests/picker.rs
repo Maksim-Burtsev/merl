@@ -698,8 +698,8 @@ fn a_definition_row_is_its_place_and_code_with_the_class_and_only_a_differing_re
     d_on(&mut a, "main.ts", "x.run");
     assert_eq!(
         heads(&mut a),
-        ["c.ts:2: ", "d.ts:2: "],
-        "TypeScript's class is not proven on the bench yet, so it is not shown"
+        ["C  c.ts:2: ", "D  d.ts:2: "],
+        "TypeScript's class too (#1328)"
     );
     a.picker = None;
     d_on(&mut a, "use.py", "return pick");
@@ -730,6 +730,7 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             ),
             ("two.py", "def slugify(x):\n    return x\n"),
             ("view.ts", "class C {\n  run() {}\n}\n"),
+            ("view.rb", "class C\n  def run\n  end\nend\n"),
         ],
     );
     let found = |path: &str, line1: usize, reason: Reason| Candidate {
@@ -791,7 +792,12 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
     );
     assert_eq!(
         heads(Kind::TsJs, "run", vec![found("view.ts", 2, Reason::ByName)]),
-        ["view.ts:2: "],
+        ["C  view.ts:2: "],
+        "TypeScript's class is measured (#1328)"
+    );
+    assert_eq!(
+        heads(Kind::Ruby, "run", vec![found("view.rb", 2, Reason::ByName)]),
+        ["view.rb:2: "],
         "no class where it is not proven"
     );
     std::fs::remove_dir_all(&dir).unwrap();

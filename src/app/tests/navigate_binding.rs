@@ -124,7 +124,10 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 3)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -134,7 +137,10 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(repos.map",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -144,7 +150,10 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 4)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -161,7 +170,10 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 5)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -313,7 +325,10 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 8)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -323,7 +338,10 @@ fn the_innermost_binding_wins() {
             "ledger.deleteUser|(id + 9",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -506,7 +524,10 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "repos.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -516,7 +537,10 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "entry.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -526,7 +550,10 @@ fn a_loop_variable_is_an_element_of_a_written_collection() {
             "index.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
