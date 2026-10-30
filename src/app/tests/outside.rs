@@ -1373,9 +1373,9 @@ fn a_php_instance_member_of_a_vendor_class_an_empty_project_stub_declares_lands_
         picker(
             "get: by name, 2 declarations",
             &[
-                ("Arr::get", "app/Support/Arr.php:7"),
+                ("get", "app/Support/Arr.php:7"),
                 (
-                    "Arr::get",
+                    "get",
                     "laravel/framework/src/Illuminate/Collections/Arr.php:7"
                 ),
             ],
@@ -1418,7 +1418,7 @@ fn a_php_variable_bound_from_a_method_on_a_typed_property_reads_its_native_retur
     let by_name = |word: &str, info: &str, noise: &str| {
         picker(
             &format!("{word}: by name, 2 declarations"),
-            &[(word, info), (&format!("Noise::{word}"), noise)],
+            &[(word, info), (word, noise)],
         )
     };
     assert_eq!(
