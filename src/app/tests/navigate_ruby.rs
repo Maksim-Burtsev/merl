@@ -118,7 +118,7 @@ fn the_core_signatures_and_the_standard_library_come_first() {
         picker(
             "fetch: by name, 2 declarations",
             &[
-                ("fetch", "app/models/settings.rb:2"),
+                ("Settings.fetch", "app/models/settings.rb:2"),
                 ("fetch", "hash.rbs:2"),
             ]
         ),
@@ -130,9 +130,9 @@ fn the_core_signatures_and_the_standard_library_come_first() {
         picker(
             "info: by name, 2 declarations",
             &[
-                ("info", "logger.rb:2"),
+                ("Logger.info", "logger.rb:2"),
                 (
-                    "info",
+                    "SemanticLogger.Base.info",
                     "semantic_logger-4.15.0/lib/semantic_logger/base.rb:3"
                 ),
             ]
@@ -160,7 +160,7 @@ fn the_core_signatures_and_the_standard_library_come_first() {
         picker(
             "send_email_changed_notification: by name, 1 match",
             &[(
-                "send_email_changed_notification",
+                "Devise.send_email_changed_notification",
                 "devise-4.9.4/lib/devise.rb:2"
             )]
         ),
@@ -294,7 +294,10 @@ fn a_member_on_new_is_the_class_s_unless_the_class_defines_new_or_is_not_declare
         shown(&mut a),
         jump("fill \u{2192} Cup.fill (via Cup)", "app/pots.rb:11")
     );
-    let both = [("fill", "app/pots.rb:6"), ("fill", "app/pots.rb:11")];
+    let both = [
+        ("Pot.fill", "app/pots.rb:6"),
+        ("Cup.fill", "app/pots.rb:11"),
+    ];
     for code in ["Pot.new(1).|fill", "Jar.new(1).|fill"] {
         d_on(&mut a, "app/run.rb", code);
         assert_eq!(
@@ -327,7 +330,7 @@ fn one_press_searches_a_ruby_class_name_once() {
         shown(&mut a),
         picker(
             "ping: by name, 1 match",
-            &[("ping", "app/models/other.rb:2")]
+            &[("Other.ping", "app/models/other.rb:2")]
         ),
         "a bare call only an unrelated class declares is offered (#1093)"
     );

@@ -474,3 +474,30 @@ fn the_at_of_a_ruby_variable_reads_the_variable() {
     assert_eq!(word("@@beads", 1), Some((2..7, "beads".to_owned())));
     assert_eq!(word("@rows", 1), Some((1..5, "rows".to_owned())));
 }
+
+#[test]
+fn a_ruby_row_s_class_is_the_class_an_instance_variable_belongs_to_and_a_method_keeps_its_bang() {
+    let rb = "module Admin\n  class ReportsController\n    @@count = 0\n    @per_page = 20\n\n    def set_report\n      @report = Report.find(1)\n    end\n\n    def self.cached\n      @cache = {}\n    end\n\n    class << self\n      def built\n        @built = true\n      end\n    end\n\n    def bump; @@count += 1; end\n\n    def publish!\n      due.each do |row|\n        @last = row\n      end\n      count = 1\n    end\n\n    def rate=(value)\n      @rate = value\n    end\n  end\nend\n\nmodule Expireable\n  included do\n    def expires_in=(interval)\n      @expires_in = interval\n    end\n  end\nend\n";
+    let class = |line, name| container(Kind::Ruby, rb, line, name);
+    let got: Vec<_> = [
+        (3, "@@count"),
+        (4, "@per_page"),
+        (7, "@report"),
+        (11, "@cache"),
+        (16, "@built"),
+        (20, "@@count"),
+        (23, "row"),
+        (24, "@last"),
+        (26, "count"),
+        (29, "rate="),
+        (30, "@rate"),
+        (38, "@expires_in"),
+    ]
+    .into_iter()
+    .map(|(l, n)| format!("{n}={}", class(l, n).unwrap_or_default()))
+    .collect();
+    assert_eq!(
+        got.join(" "),
+        "@@count=Admin.ReportsController @per_page=Admin.ReportsController @report=Admin.ReportsController @cache=Admin.ReportsController @built=Admin.ReportsController @@count=Admin.ReportsController row=Admin.ReportsController.publish! @last= count=Admin.ReportsController.publish! rate==Admin.ReportsController @rate=Admin.ReportsController @expires_in="
+    );
+}
