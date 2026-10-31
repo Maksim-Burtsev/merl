@@ -118,3 +118,16 @@ class Urn extends Kettle with Lid {
 }
 
 mixin Lid {}
+
+// A positional `super.` parameter is the parent's by position, not by name (#1357's review).
+class Pot {
+  Pot(
+    int leaves, {
+    int? cups,
+  });
+}
+
+class Jug extends Pot {
+  Jug(super.cups);
+  //        ^ d: lib/tea/table.dart:125
+}

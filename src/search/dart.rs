@@ -1187,7 +1187,11 @@ fn dart_class_header(text: &str, line0: usize) -> Option<String> {
     Some(all[head..=open].join(" ").split('{').next()?.to_owned())
 }
 
-pub fn dart_super_param(text: &str, line0: usize, at: usize) -> Option<(DartType, Option<String>)> {
+pub fn dart_super_param(
+    text: &str,
+    line0: usize,
+    at: usize,
+) -> Option<(DartType, Option<String>, Option<usize>)> {
     static OWNER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*(?:const\s+)?(_?[A-Z][\w$]*)(?:\.[A-Za-z_$][\w$]*)?\s*$")
             .expect("the regex is a literal")
@@ -1210,6 +1214,7 @@ pub fn dart_super_param(text: &str, line0: usize, at: usize) -> Option<(DartType
         }
         _ => None,
     })?;
+    let slot = dart_super_slot(head.get(open + 1..)?)?;
     let line_start = head.get(..open)?.rfind('\n').map_or(0, |i| i + 1);
     let class = OWNER.captures(head.get(line_start..open)?)?[1].to_owned();
     let header = dart_class_header(text, line0)?;
@@ -1244,7 +1249,35 @@ pub fn dart_super_param(text: &str, line0: usize, at: usize) -> Option<(DartType
     let named = INIT
         .captures(text.get(close + 1..)?)
         .and_then(|c| c.get(1).map(|m| m.as_str().to_owned()));
-    Some((ty, named))
+    Some((ty, named, slot))
+}
+
+fn dart_super_slot(params: &str) -> Option<Option<usize>> {
+    if params.contains(['\'', '"', '/']) {
+        return None;
+    }
+    let (mut parens, mut groups, mut named) = (0usize, 0usize, false);
+    let mut segments = vec![String::new()];
+    for c in params.chars() {
+        match c {
+            '(' | '<' => parens += 1,
+            ')' | '>' => parens = parens.saturating_sub(1),
+            '{' if parens == 0 && groups == 0 => {
+                named = true;
+                groups += 1;
+            }
+            '{' | '[' => groups += 1,
+            '}' | ']' => groups = groups.saturating_sub(1),
+            ',' if parens == 0 && groups <= 1 => {
+                segments.push(String::new());
+                continue;
+            }
+            _ => {}
+        }
+        segments.last_mut()?.push(c);
+    }
+    segments.pop();
+    Some((!named).then(|| segments.iter().filter(|s| s.contains("super.")).count()))
 }
 
 pub fn dart_constructor_param(
@@ -1252,6 +1285,7 @@ pub fn dart_constructor_param(
     class: &str,
     named: Option<&str>,
     word: &str,
+    slot: Option<usize>,
 ) -> Option<usize> {
     static NAME: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"([A-Za-z_$][\w$]*)\s*[}\]]?\s*$").expect("the regex is a literal")
@@ -1319,12 +1353,17 @@ pub fn dart_constructor_param(
         }
     }
     cuts.push(start + masked.len());
-    cuts.windows(2).find_map(|w| {
+    let mut braced = false;
+    cuts.windows(2).enumerate().find_map(|(i, w)| {
         let segment = masked.get(w[0] - start..w[1] - start)?;
+        braced |= segment.contains('{');
         let segment = segment.trim_end_matches([',', ')']);
         let head = segment.split(['=', ':']).next()?;
         let name = NAME.captures(head)?.get(1)?;
-        (name.as_str() == word).then_some(())?;
+        match slot {
+            Some(k) => (!braced && i == k).then_some(())?,
+            None => (braced && name.as_str() == word).then_some(())?,
+        }
         Some(text.get(..w[0] + name.start())?.matches('\n').count() + 1)
     })
 }

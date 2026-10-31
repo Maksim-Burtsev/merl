@@ -465,10 +465,11 @@ impl App {
     fn dart_super_param(&self, here: &Path, text: &str, word: &str) -> Option<Candidate> {
         let (range, _) = self.word_here(Some(Kind::Dart))?;
         let at = line_offset(text, self.line + 1) + range.start;
-        let (ty, named) = search::dart_super_param(text, self.line, at)?;
+        let (ty, named, slot) = search::dart_super_param(text, self.line, at)?;
         let file = self.dart_class_file(here, &ty)?;
         let source = self.text_of(&file)?;
-        let line1 = search::dart_constructor_param(&source, &ty.class, named.as_deref(), word)?;
+        let line1 =
+            search::dart_constructor_param(&source, &ty.class, named.as_deref(), word, slot)?;
         let hit = Hit {
             deleted: None,
             path: file,
