@@ -620,11 +620,14 @@ fn a_php_receiver_typed_with_a_class_outside_the_project_reads_vendor_only() {
             d_on(&mut a, "app/Builders/ArtistBuilder.php", code);
             shown(&mut a)
         };
-        let scanner_on = ("on", "app/Services/Scanner.php:7");
+        let scanner_on = ("Scanner::on", "app/Services/Scanner.php:7");
         let by_name = if vendor {
             picker(
                 "on: by name, 2 declarations",
-                &[scanner_on, ("on", "laravel/Query/JoinClause.php:7")],
+                &[
+                    scanner_on,
+                    ("JoinClause::on", "laravel/Query/JoinClause.php:7"),
+                ],
             )
         } else {
             jump("on \u{2192} Scanner::on (by name, 1 match)", scanner_on.1)
@@ -899,14 +902,14 @@ fn a_php_helper_call_lands_on_the_one_global_function_composer_loads() {
             picker(
                 "str_contains: by name, 2 declarations",
                 &[
-                    ("str_contains", contains.1.as_str()),
+                    ("Repository::str_contains", contains.1.as_str()),
                     ("str_contains", "symfony/polyfill-php80/bootstrap.php:4")
                 ]
             ),
             picker(
                 "stray: by name, 2 declarations",
                 &[
-                    ("stray", stray.1.as_str()),
+                    ("Repository::stray", stray.1.as_str()),
                     ("stray", "other/tests/stray.php:3")
                 ]
             ),
@@ -976,7 +979,7 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
     let f = "laravel/framework/src/Illuminate/Database";
     let song = |place: &str| {
         let why = "via $song: Song".to_owned();
-        ("fresh".to_owned(), why, place.to_owned())
+        ("Base::fresh".to_owned(), why, place.to_owned())
     };
     assert_eq!(
         got,
@@ -996,8 +999,8 @@ fn a_php_method_a_project_class_inherits_from_vendor_lands_on_its_one_declaratio
             picker(
                 "where: by name, 2 declarations",
                 &[
-                    ("where", &format!("{f}/Eloquent/Builder.php:7")),
-                    ("where", &format!("{f}/Query/Builder.php:7"))
+                    ("Builder::where", &format!("{f}/Eloquent/Builder.php:7")),
+                    ("Builder::where", &format!("{f}/Query/Builder.php:7"))
                 ]
             ),
             Shown::Picker(
@@ -1057,9 +1060,9 @@ fn a_php_chain_answers_only_when_every_link_declares_what_it_returns() {
         picker(
             "find: by name, 2 declarations",
             &[
-                ("find", "app/Builders/SongBuilder.php:13"),
+                ("SongBuilder::find", "app/Builders/SongBuilder.php:13"),
                 (
-                    "find",
+                    "Builder::find",
                     "laravel/framework/src/Illuminate/Database/Eloquent/Builder.php:27",
                 ),
             ],
@@ -1230,8 +1233,8 @@ fn a_php_static_call_on_a_vendor_class_the_project_also_declares_keeps_its_answe
             picker(
                 "get: by name, 2 declarations",
                 &[
-                    ("get", "app/Support/Arr.php:7"),
-                    ("get", "ide_helper.php:7"),
+                    ("Arr::get", "app/Support/Arr.php:7"),
+                    ("Arr::get", "ide_helper.php:7"),
                 ],
             ),
             jump(
@@ -1277,8 +1280,8 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
         got
     };
     let by_name: &[(&str, &str)] = &[
-        ("get", "app/Concerns/HasGet.php:7"),
-        ("get", "app/Support/Arr.php:7"),
+        ("HasGet::get", "app/Concerns/HasGet.php:7"),
+        ("Arr::get", "app/Support/Arr.php:7"),
     ];
     assert_eq!(
         [
@@ -1292,7 +1295,7 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
             picker("get: by name, 2 declarations", by_name),
             picker(
                 "get: by name, 3 declarations",
-                &[by_name, &[("get", "ide_helper.php:6")]].concat(),
+                &[by_name, &[("Arr::get", "ide_helper.php:6")]].concat(),
             ),
             picker(
                 "Arr: by name, 2 declarations",
@@ -1305,5 +1308,142 @@ fn a_php_project_class_of_a_vendor_name_keeps_the_search_when_it_supplies_the_me
         "a project class of the vendor class's name that takes the member from a trait, answers \
          it through __callStatic or tags it with @method keeps the search it had, and so does a \
          class name on an empty stub"
+    );
+}
+
+#[test]
+fn a_php_instance_member_of_a_vendor_class_an_empty_project_stub_declares_lands_in_vendor() {
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse Illuminate\\Support\\Arr;\nuse Illuminate\\Support\\Str;\n\nclass Ctl\n{\n    private Arr $arr;\n\n    public function __invoke(Arr $p, array $a): void\n    {\n        $p->get($a, 'k');\n        $n = new Arr();\n        $n->get($a, 'k');\n        $this->arr->get($a, 'k');\n        $s = new Str();\n        $s->upper('x');\n    }\n}\n";
+    let arr = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public function get($array, $key)\n    {\n    }\n}\n";
+    let str = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Str extends Base\n{\n}\n";
+    let base = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Base\n{\n    public function upper($value)\n    {\n    }\n}\n";
+    let mine = "<?php\n\nnamespace App\\Support;\n\nclass Arr\n{\n    public function get($key)\n    {\n    }\n\n    public function upper($value)\n    {\n    }\n}\n";
+    let stub = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n}\n\nclass Base\n{\n}\n";
+    let s = "vendor/laravel/framework/src/Illuminate";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        (".gitignore", "vendor/\n"),
+        ("app/Http/Ctl.php", ctl),
+        ("app/Support/Arr.php", mine),
+        (&format!("{s}/Collections/Arr.php"), arr),
+        (&format!("{s}/Support/Str.php"), str),
+        (&format!("{s}/Support/Base.php"), base),
+    ];
+    let get = format!("{s}/Collections/Arr.php:7");
+    let upper = format!("{s}/Support/Base.php:7");
+    let want = [
+        jump("get \u{2192} Arr::get (via $p: Arr)", &get),
+        jump("get \u{2192} Arr::get (via $n: Arr)", &get),
+        jump("get \u{2192} Arr::get (via $this->arr: Arr)", &get),
+        jump("upper \u{2192} Base::upper (via $s: Str)", &upper),
+    ];
+    let twice = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n}\n";
+    for stubs in [
+        &[][..],
+        &[("ide_helper.php", stub)],
+        &[("ide_helper.php", stub), ("ide_helper_more.php", twice)],
+    ] {
+        let (dir, mut a) = project_app(
+            &format!("php-vendor-instance-stub-{}", stubs.len()),
+            &[files.as_slice(), stubs].concat(),
+        );
+        let got = ["$p->get", "$n->get", "$this->arr->get", "$s->upper"].map(|code| {
+            d_on(&mut a, "app/Http/Ctl.php", code);
+            shown(&mut a)
+        });
+        drop(std::fs::remove_dir_all(dir));
+        assert_eq!(
+            got,
+            want,
+            "an empty project stub of a vendor class or of its parent leaves the vendor class's \
+             answer on instance access, and so do two: stubs: {}",
+            stubs.len()
+        );
+    }
+    let magic = "<?php\n\nnamespace Illuminate\\Support;\n\nclass Arr\n{\n    public function __call($method, $args)\n    {\n    }\n}\n";
+    let (dir, mut a) = project_app(
+        "php-vendor-instance-stub-magic",
+        &[files.as_slice(), &[("ide_helper.php", magic)]].concat(),
+    );
+    d_on(&mut a, "app/Http/Ctl.php", "$p->get");
+    let got = shown(&mut a);
+    drop(std::fs::remove_dir_all(dir));
+    assert_eq!(
+        got,
+        picker(
+            "get: by name, 2 declarations",
+            &[
+                ("Arr::get", "app/Support/Arr.php:7"),
+                (
+                    "Arr::get",
+                    "laravel/framework/src/Illuminate/Collections/Arr.php:7"
+                ),
+            ],
+        ),
+        "a project class of the vendor name answering through __call keeps the search"
+    );
+}
+
+#[test]
+fn a_php_variable_bound_from_a_method_on_a_typed_property_reads_its_native_return() {
+    let info = "<?php\n\nnamespace App\\Values;\n\nfinal class Info\n{\n    public function __construct(\n        public ?string $url,\n        public string $status,\n    ) {\n    }\n}\n";
+    let noise = "<?php\n\nnamespace App\\Values;\n\nclass Noise\n{\n    public ?string $url;\n\n    public string $status;\n}\n";
+    let lookup = "<?php\n\nnamespace App\\Services\\Contracts;\n\nuse App\\Values\\Info;\nuse App\\Values\\Noise;\n\ninterface Lookup\n{\n    public function find(bool $fresh = true): Info;\n\n    public function either(): Info|Noise;\n}\n";
+    let encyclopedia = "<?php\n\nnamespace App\\Services;\n\nuse App\\Values\\Info;\n\nclass Encyclopedia\n{\n    public function info(): ?Info\n    {\n    }\n}\n";
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Services\\Contracts\\Lookup;\nuse App\\Services\\Encyclopedia;\n\nclass Ctl\n{\n    private $untyped;\n\n    public function __construct(\n        private readonly Encyclopedia $encyclopedia,\n        private readonly Lookup $lookup,\n    ) {\n    }\n\n    public function __invoke(): void\n    {\n        $info = $this->encyclopedia->info();\n        if ($info?->url) {\n        }\n        $status = $this->lookup->find(fresh: false);\n        echo $status->status;\n        $bound = $this->lookup->find(...);\n        echo $bound->status;\n        $either = $this->lookup->either();\n        echo $either->status;\n        $loose = $this->untyped->info();\n        echo $loose->url;\n    }\n}\n";
+    let files = [
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        ("app/Values/Info.php", info),
+        ("app/Values/Noise.php", noise),
+        ("app/Services/Contracts/Lookup.php", lookup),
+        ("app/Services/Encyclopedia.php", encyclopedia),
+        ("app/Http/Ctl.php", ctl),
+    ];
+    let (dir, mut a) = project_app("php-property-call-binding", &files);
+    let got = [
+        "$info?->url",
+        "$status->status",
+        "$bound->status",
+        "$either->status",
+        "$loose->url",
+    ]
+    .map(|code| {
+        d_on(&mut a, "app/Http/Ctl.php", code);
+        shown(&mut a)
+    });
+    drop(std::fs::remove_dir_all(dir));
+    let by_name = |word: &str, info: &str, noise: &str| {
+        picker(
+            &format!("{word}: by name, 2 declarations"),
+            &[
+                (&format!("Info::{word}"), info),
+                (&format!("Noise::{word}"), noise),
+            ],
+        )
+    };
+    assert_eq!(
+        got,
+        [
+            jump(
+                "url: via $this->encyclopedia->info(): Info",
+                "app/Values/Info.php:8",
+            ),
+            jump(
+                "status: via $this->lookup->find(): Info",
+                "app/Values/Info.php:9",
+            ),
+            by_name("status", "app/Values/Info.php:9", "app/Values/Noise.php:9"),
+            by_name("status", "app/Values/Info.php:9", "app/Values/Noise.php:9"),
+            by_name("url", "app/Values/Info.php:8", "app/Values/Noise.php:7"),
+        ],
+        "a variable bound from a method called on a typed property reads the method's native \
+         return type; a first-class callable, a union return and an untyped property keep the \
+         picker"
     );
 }

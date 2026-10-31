@@ -26,3 +26,11 @@ interface Settings {
 namespace Settings {
   export const size = 1;
 }
+
+export function Field({ label }: { label: string }) {
+  return <input aria-label={label} data-label-for={label.length} />;
+  //                 ^ d: none
+  //            ^ d: none
+  //                                    ^ d: none
+  //                        ^ d: scope/Panel.tsx:30
+}

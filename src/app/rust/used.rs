@@ -246,7 +246,11 @@ impl App {
         self.rust_resolve(&hit.path, target, hit.line1 - 1)
     }
 
-    fn rust_crate_reexported(&self, krate: &CrateSrc, rest: &[String]) -> Option<CrateSrc> {
+    pub(super) fn rust_crate_reexported(
+        &self,
+        krate: &CrateSrc,
+        rest: &[String],
+    ) -> Option<CrateSrc> {
         let [alias, _, ..] = rest else {
             return None;
         };
@@ -260,7 +264,18 @@ impl App {
             regex::escape(alias)
         ))
         .ok()?;
-        let target = re.captures(&text)?[1].to_owned();
+        let mut lines = re.captures_iter(&text);
+        let found = lines.next()?;
+        let attribute = text
+            .get(..found.get(0)?.start())?
+            .trim_end()
+            .lines()
+            .next_back()
+            .is_some_and(|l| l.trim_start().starts_with("#[cfg"));
+        if lines.next().is_some() || attribute {
+            return None;
+        }
+        let target = found[1].to_owned();
         if matches!(target.as_str(), "crate" | "self" | "super") || declares_mod(&text, &target) {
             return None;
         }
@@ -474,5 +489,26 @@ impl App {
             },
             reason: Reason::Import(format!("{}::*", glob.join("::"))),
         })
+    }
+
+    pub(super) fn rust_path_variant(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        owner: &[String],
+        imported: bool,
+    ) -> Option<Vec<Candidate>> {
+        if !word.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return None;
+        }
+        let mut variant = self.rust_dependency_variant(here, text, word, owner)?;
+        let spelled = owner.join("::");
+        variant.reason = if imported {
+            Reason::Import(spelled)
+        } else {
+            Reason::Path(spelled)
+        };
+        Some(vec![variant])
     }
 }

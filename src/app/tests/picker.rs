@@ -698,8 +698,8 @@ fn a_definition_row_is_its_place_and_code_with_the_class_and_only_a_differing_re
     d_on(&mut a, "main.ts", "x.run");
     assert_eq!(
         heads(&mut a),
-        ["c.ts:2: ", "d.ts:2: "],
-        "TypeScript's class is not proven on the bench yet, so it is not shown"
+        ["C  c.ts:2: ", "D  d.ts:2: "],
+        "TypeScript's class too (#1328)"
     );
     a.picker = None;
     d_on(&mut a, "use.py", "return pick");
@@ -730,6 +730,10 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             ),
             ("two.py", "def slugify(x):\n    return x\n"),
             ("view.ts", "class C {\n  run() {}\n}\n"),
+            ("view.rb", "class C\n  def run\n  end\nend\n"),
+            ("view.dart", "class C {\n  void run() {}\n}\n"),
+            ("view.lua", "M.set = function(k)\n  _G.kong = k\nend\n"),
+            ("view.sql", "CREATE TABLE post (\n    id serial\n);\n"),
         ],
     );
     let found = |path: &str, line1: usize, reason: Reason| Candidate {
@@ -752,6 +756,9 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
             .into_iter()
             .map(|i| i.label.get(..i.code_at.unwrap()).unwrap().to_owned())
             .collect()
+    };
+    let one = |kind: Kind, word: &str, path: &str, line1: usize| {
+        heads(kind, word, vec![found(path, line1, Reason::ByName)])
     };
     assert_eq!(
         heads(
@@ -789,10 +796,24 @@ fn a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_re
         ["Box  by name  one.py:2: ", "via import two.py  two.py:1: "],
         "the class first, then the reason of a list found in different ways"
     );
-    assert_eq!(
-        heads(Kind::TsJs, "run", vec![found("view.ts", 2, Reason::ByName)]),
-        ["view.ts:2: "],
-        "no class where it is not proven"
-    );
+    for (kind, word, path, want, issue) in [
+        (Kind::TsJs, "run", "view.ts", "C  view.ts:2: ", "#1328"),
+        (Kind::Ruby, "run", "view.rb", "C  view.rb:2: ", "#1329"),
+        (Kind::Lua, "kong", "view.lua", "set  view.lua:2: ", "#1332"),
+        (Kind::Sql, "id", "view.sql", "post  view.sql:2: ", "#1333"),
+        (
+            Kind::Dart,
+            "run",
+            "view.dart",
+            "view.dart:2: ",
+            "Dart: not measured",
+        ),
+    ] {
+        assert_eq!(
+            one(kind, word, path, 2),
+            [want],
+            "the class where it is measured ({issue})"
+        );
+    }
     std::fs::remove_dir_all(&dir).unwrap();
 }

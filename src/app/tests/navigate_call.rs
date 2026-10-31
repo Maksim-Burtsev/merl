@@ -173,7 +173,10 @@ fn a_call_is_one_more_hop() {
             "picked.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -183,7 +186,10 @@ fn a_call_is_one_more_hop() {
             "openDepot().peopleRepo().deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -193,7 +199,10 @@ fn a_call_is_one_more_hop() {
             "repo.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -263,7 +272,10 @@ fn a_call_is_one_more_hop() {
             "repo.DeleteUser|(id + 5)",
             picker(
                 "DeleteUser: by name, 2 declarations",
-                &[("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")],
+                &[
+                    ("UserRepository.DeleteUser", "repos.go:15"),
+                    ("AuditLog.DeleteUser", "repos.go:21"),
+                ],
             ),
         ),
         (
@@ -368,7 +380,10 @@ fn a_call_is_one_more_hop() {
             "inline.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
     ];
@@ -475,7 +490,10 @@ fn a_cast_writes_the_type() {
             "loose.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -485,7 +503,10 @@ fn a_cast_writes_the_type() {
             "partial.deleteUser",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -559,7 +580,10 @@ fn a_cast_writes_the_type() {
             "v.Area|() + 1",
             picker(
                 "Area: by name, 2 declarations",
-                &[("Area", "casts.go:11"), ("Area", "casts.go:15")],
+                &[
+                    ("Square.Area", "casts.go:11"),
+                    ("Circle.Area", "casts.go:15"),
+                ],
             ),
         ),
         (
@@ -569,7 +593,10 @@ fn a_cast_writes_the_type() {
             "v.Area|() + 2",
             picker(
                 "Area: by name, 2 declarations",
-                &[("Area", "casts.go:11"), ("Area", "casts.go:15")],
+                &[
+                    ("Square.Area", "casts.go:11"),
+                    ("Circle.Area", "casts.go:15"),
+                ],
             ),
         ),
         (
@@ -588,4 +615,39 @@ fn a_cast_writes_the_type() {
         d_on(&mut a, file, code);
         assert_eq!(shown(&mut a), want, "{name}: {fixture}: {file}: {code}");
     }
+}
+
+#[test]
+fn a_php_member_no_project_parent_declares_reads_each_class_of_the_chain_once() {
+    let classes: Vec<(String, String)> = (0..8)
+        .map(|i| {
+            let parent = if i < 7 {
+                format!(" extends C{}", i + 1)
+            } else {
+                String::new()
+            };
+            (
+                format!("app/Models/C{i}.php"),
+                format!("<?php\n\nnamespace App\\Models;\n\nclass C{i}{parent}\n{{\n}}\n"),
+            )
+        })
+        .collect();
+    let ctl = "<?php\n\nnamespace App\\Http;\n\nuse App\\Models\\C0;\n\nfunction f(): void\n{\n    $c = new C0();\n    $c->missing();\n}\n";
+    let mut files = vec![
+        (
+            "composer.json",
+            r#"{"autoload": {"psr-4": {"App\\": "app/"}}}"#,
+        ),
+        ("app/Http/Ctl.php", ctl),
+    ];
+    files.extend(classes.iter().map(|(p, t)| (p.as_str(), t.as_str())));
+    let (dir, mut a) = project_app("php-chain-walks", &files);
+    php::PHP_WALKS.with(|w| w.set(0));
+    d_on(&mut a, "app/Http/Ctl.php", "$c->missing");
+    let walks = php::PHP_WALKS.with(std::cell::Cell::get);
+    drop(std::fs::remove_dir_all(dir));
+    assert!(
+        walks <= 16,
+        "a chain of 8 project classes is walked once, not again at every level: {walks} walks"
+    );
 }

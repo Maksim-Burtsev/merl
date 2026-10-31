@@ -27,3 +27,16 @@ function tally(beans, cups) {
   //                         ^ d: coffee/ledger.js:15
   //                                 ^ d: coffee/ledger.js:15
 }
+
+function weigh(
+    beans,
+    count,
+  //^ d: coffee/ledger.js:33
+) {
+  let total, last;
+  //         ^ d: coffee/ledger.js:36
+  total = beans + count;
+  //              ^ d: coffee/ledger.js:33
+  return total + last;
+  //             ^ d: coffee/ledger.js:36
+}

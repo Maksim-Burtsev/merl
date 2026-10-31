@@ -1,17 +1,25 @@
-wait ⋯ fi
-┌orders──────────────────────┐1 deploy() {
-│▸ .bundle                   │2   if [ -n "$1" ]; then  1 line ⋯ fi
-│▸ .github                   │5 }
-│▸ .venv                     │
-│▸ app                       │
+wait ⋯ end
+┌orders──────────────────────┐1 class Checkout
+│▸ .bundle                   │2   def call(user)
+│▸ .github                   │3     if user.admin?  1 line ⋯ end
+│▸ .venv                     │6     charge(user)
+│▾ app                       │7   end
+│  ▾ ruby                    │8 end
+│    A attack.rb             │
+│    A checkout.rb           │
+│    A feed.rb               │
+│    A sessions.rb           │
+│    __init__.py             │
+│    api.py                  │
+│    config.py               │
+│    models.py               │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
 │▸ data                      │
 │▸ deploy                    │
 │▸ docs                      │
-│▾ scripts                   │
-│  ▸ payouts                 │
-│  A deploy.sh               │
-│    invoices.php            │
-│    refund_by_hand.py       │
+│▸ scripts                   │
 │▸ tests                     │
 │▸ web                       │
 │▸ worker                    │
@@ -44,14 +52,6 @@ wait ⋯ fi
 │                            │
 │                            │
 │                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
 └────────────────────────────┘
-scripts/deploy.sh  2:1  [code]                                                                                                                                                     14:32
-cursor (x,y,shown) 32,1,0
+app/ruby/checkout.rb  3:1  [code]                                                                                                                                                  14:32
+cursor (x,y,shown) 32,2,0

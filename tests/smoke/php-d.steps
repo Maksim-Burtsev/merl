@@ -17,6 +17,11 @@ merl scripts/invoices.php:52:24
 wait send_receipt
 key d
 wait number → Receipt::number (via $receipt: Receipt)
+# A second d on the method's declaration lists its namesakes, each row ending in its class, dim
+# (#1331).
+key d
+wait at a declaration
+key Escape
 # `Ledger::total()` in a namespace beside another `Ledger` lands on the one of the file's own
 # namespace, where composer.json's PSR-4 map puts it, and `OldLedger::total()` on the one its
 # `use` imports; both were a picker of the two `total`s (#351). The files are made here, so the

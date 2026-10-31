@@ -9,8 +9,10 @@ fn go_rows(cases: Vec<(&str, &str, &str, Shown)>) {
     }
 }
 
-const BOTH_DELETE_USER: [(&str, &str); 2] =
-    [("DeleteUser", "repos.go:15"), ("DeleteUser", "repos.go:21")];
+const BOTH_DELETE_USER: [(&str, &str); 2] = [
+    ("UserRepository.DeleteUser", "repos.go:15"),
+    ("AuditLog.DeleteUser", "repos.go:21"),
+];
 
 #[test]
 fn a_go_package_level_name_is_read_in_every_file_of_the_package() {
@@ -269,7 +271,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             "c.Encode",
             both(
                 "Encode: by name, 2 declarations",
-                "Encode",
+                "Codec.Encode",
                 "platform/codec_fast.go:8",
                 "platform/codec_slow.go:7",
             ),
@@ -298,7 +300,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             "c.Now",
             both(
                 "Now: by name, 2 declarations",
-                "Now",
+                "Clock.Now",
                 &now(other),
                 &now(mine),
             ),
@@ -318,7 +320,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
     if !cfg!(windows) {
         let mut a = fixture_app("go");
         d_on(&mut a, "platform/timer_windows.go", "t.Tick");
-        let row = |place: &str| ("Tick".into(), "via t: Timer".into(), place.into());
+        let row = |place: &str| ("Timer.Tick".into(), "via t: Timer".into(), place.into());
         assert_eq!(
             shown(&mut a),
             Shown::Picker(
@@ -335,7 +337,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             shown(&mut a),
             both(
                 "Lift: by name, 2 declarations",
-                "Lift",
+                "Gate.Lift",
                 "platform/gate_plan9.go:5",
                 "platform/gate_windows.go:6",
             ),
@@ -349,7 +351,7 @@ fn a_go_declaration_per_platform_is_the_hosts() {
             shown(&mut a),
             both(
                 "Sample: by name, 2 declarations",
-                "Sample",
+                "Meter.Sample",
                 "platform/meter_fast.go:8",
                 "platform/meter_windows.go:5",
             ),
@@ -414,8 +416,8 @@ fn a_go_package_qualifier_is_its_import_line() {
                 "ledger: by name, 5 declarations",
                 &[
                     ("ledger", "scopes.go:3"),
-                    ("ledger", "scopes.go:10"),
-                    ("ledger", "scopes.go:15"),
+                    ("ScopedRotate.ledger", "scopes.go:10"),
+                    ("ScopedNested.ledger", "scopes.go:15"),
                     ("ledger", "scopes.go:17"),
                     ("ledger", "scopes.go:34"),
                 ],
@@ -507,10 +509,10 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 "run: implementations of BaseJob.run, 4 declarations",
                 "BaseJob.run",
                 &[
-                    ("run", "impls.ts:8"),
-                    ("run", "impls.ts:12"),
-                    ("run", "impls.ts:39"),
-                    ("run", "impls.ts:18"),
+                    ("ImportJob.run", "impls.ts:8"),
+                    ("ExportJob.run", "impls.ts:12"),
+                    ("WrappedJob.run", "impls.ts:39"),
+                    ("NightlyJob.run", "impls.ts:18"),
                 ],
             ),
         ),
@@ -523,10 +525,10 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 "send: implementations of Notifier.send, 4 declarations",
                 "Notifier.send",
                 &[
-                    ("send", "repos.ts:26"),
-                    ("send", "repos.ts:32"),
-                    ("send", "impls.ts:22"),
-                    ("send", "impls.ts:41"),
+                    ("EmailNotifier.send", "repos.ts:26"),
+                    ("SmsNotifier.send", "repos.ts:32"),
+                    ("LoudNotifier.send", "impls.ts:22"),
+                    ("WrappedJob.send", "impls.ts:41"),
                 ],
             ),
         ),
@@ -538,7 +540,10 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
             impls(
                 "Run: implementations of Job.Run, 2 declarations",
                 "Job.Run",
-                &[("Run", "impls.go:11"), ("Run", "impls.go:17")],
+                &[
+                    ("ImportJob.Run", "impls.go:11"),
+                    ("ExportJob.Run", "impls.go:17"),
+                ],
             ),
         ),
         (
@@ -550,9 +555,9 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
                 "Send: implementations of Notifier.Send, 3 declarations",
                 "Notifier.Send",
                 &[
-                    ("Send", "repos.go:31"),
-                    ("Send", "repos.go:37"),
-                    ("Send", "impls.go:29"),
+                    ("EmailNotifier.Send", "repos.go:31"),
+                    ("SmsNotifier.Send", "repos.go:37"),
+                    ("LoudNotifier.Send", "impls.go:29"),
                 ],
             ),
         ),
@@ -573,7 +578,10 @@ fn implementations_are_offered_on_the_declaration_they_implement() {
             "func (e *EmailNotifier) Send",
             picker(
                 "Send: at a declaration, 2 others by name",
-                &[("Send", "repos.go:37"), ("Send", "impls.go:29")],
+                &[
+                    ("SmsNotifier.Send", "repos.go:37"),
+                    ("LoudNotifier.Send", "impls.go:29"),
+                ],
             ),
         ),
         (
@@ -632,7 +640,7 @@ fn implementations_answer_only_on_the_declared_name() {
             "(run",
             picker(
                 "run: at a declaration, 1 other by name",
-                &[("run", "jobs.ts:8")],
+                &[("ImportJob.run", "jobs.ts:8")],
             ),
         ),
         (
@@ -649,7 +657,7 @@ fn implementations_answer_only_on_the_declared_name() {
             "(w Wave",
             picker(
                 "Wave: at a declaration, 1 other by name",
-                &[("Wave", "jobs.go:14")],
+                &[("Email.Wave", "jobs.go:14")],
             ),
         ),
     ];

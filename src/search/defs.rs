@@ -102,6 +102,7 @@ pub fn def_patterns(kind: Kind, word: &str) -> Vec<String> {
                 r"^\s*(export\s+|declare\s+(-\w+\s+)*|local\s+(-\w+\s+)*|readonly\s+|typeset\s+(-\w+\s+)*)?{w}\+?="
             ),
             format!(r"^\s*alias\s+{w}="),
+            format!(r"^\s*(?:exec\s+)?env\s+(?:-\w+\s+)*(?:\w+=\S*\s+)*{w}="),
             format!(r"^\s*printf\s+-v\s+{w}\s"),
             format!(r"^\s*(?:for|select)\s+{w}\s*(?:\bin\b|;|$)"),
             format!(

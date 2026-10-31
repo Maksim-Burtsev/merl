@@ -345,15 +345,18 @@ impl App {
         chain: &[String],
     ) -> Option<Vec<(Vec<String>, usize)>> {
         let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Rust, text);
         let indent = |l: &str| l.len() - l.trim_start().len();
         let use_reaches_cursor = |at: usize| {
             let from = text.bytes().take(at).filter(|&b| b == b'\n').count();
             let depth = indent(lines[from]);
             depth == 0
                 || (from < self.line
-                    && lines[from + 1..=self.line]
-                        .iter()
-                        .all(|l| l.trim().is_empty() || indent(l) >= depth))
+                    && (from + 1..=self.line).all(|k| {
+                        lines[k].trim().is_empty()
+                            || indent(lines[k]) >= depth
+                            || literal.get(k) == Some(&true)
+                    }))
         };
         let depth_at =
             |at: usize| indent(lines[text.bytes().take(at).filter(|&b| b == b'\n').count()]);
@@ -471,20 +474,26 @@ impl App {
             let hits = self.declaring(kind, name, hits);
             return (!hits.is_empty()).then(|| by(hits, Reason::ByName));
         }
-        let (krate, start_module, name) = match root.as_str() {
+        let (krate, start_module, name, skip) = match root.as_str() {
             "crate" | "self" | "super" => {
                 let (krate, module) = self.rust_own_crate(here, root, rest)?;
-                (krate, module, "crate".to_owned())
+                (krate, module, "crate".to_owned(), 0)
             }
             _ if own_mod => return None,
-            r if SYSROOT.contains(&r) => (self.sysroot_crate(r)?, Vec::new(), root.clone()),
-            r => (
-                self.workspace_crate(r).or_else(|| self.registry_crate(r))?,
-                Vec::new(),
-                root.clone(),
-            ),
+            r if SYSROOT.contains(&r) => (self.sysroot_crate(r)?, Vec::new(), root.clone(), 0),
+            r => match self.workspace_crate(r) {
+                Some(krate) => match self.rust_crate_reexported(&krate, rest) {
+                    Some(inner) => (inner, Vec::new(), format!("{root}::{}", rest[0]), 1),
+                    None => (krate, Vec::new(), root.clone(), 0),
+                },
+                None => (self.registry_crate(r)?, Vec::new(), root.clone(), 0),
+            },
         };
-        let rest: Vec<String> = rest.iter().filter(|p| *p != "super").cloned().collect();
+        let rest: Vec<String> = rest[skip..]
+            .iter()
+            .filter(|p| *p != "super")
+            .cloned()
+            .collect();
         let sep = "::";
         let reason = |crate_name: &str, module: Vec<String>, proven: bool| {
             let mut shown = vec![crate_name.to_owned()];
@@ -520,7 +529,9 @@ impl App {
                 }
             }
         }
-        None
+        let owner = full.split_last()?.1;
+        (!chain.is_empty()).then_some(())?;
+        self.rust_path_variant(here, text, word, owner, imported)
     }
 
     fn rust_own_crate(

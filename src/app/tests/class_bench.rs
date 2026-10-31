@@ -18,6 +18,7 @@ const CONTAINERS: &[&str] = &[
     "function_definition",
     "function_declaration",
     "generator_function_declaration",
+    "function_signature",
     "function_item",
     "impl_item",
     "trait_item",
@@ -50,6 +51,35 @@ const CONTAINERS: &[&str] = &[
     "library_declaration",
 ];
 
+fn after_an_error_in_a_cpp_body(n: Node, root: Node) -> bool {
+    let body = n
+        .parent()
+        .is_some_and(|p| matches!(p.kind(), "declaration_list" | "field_declaration_list"));
+    let class_read_as_a_function = |x: Node| {
+        x.kind() == "function_definition"
+            && x.child_by_field_name("type")
+                .is_some_and(|t| matches!(t.kind(), "class_specifier" | "struct_specifier"))
+    };
+    let mut s = n.prev_sibling();
+    while let Some(x) = s
+        && !x.is_error()
+        && !class_read_as_a_function(x)
+    {
+        s = x.prev_sibling();
+    }
+    root.kind() == "translation_unit" && body && s.is_some()
+}
+
+fn prototype(n: Node) -> bool {
+    let mut up = n.parent();
+    while let Some(p) = up
+        && p.kind().ends_with("declarator")
+    {
+        up = p.parent();
+    }
+    n.kind() == "function_declarator" && up.is_none_or(|p| p.kind() != "function_definition")
+}
+
 fn innermost_declarator(mut n: Node) -> Node {
     while let Some(d) = n.child_by_field_name("declarator") {
         n = d;
@@ -57,12 +87,27 @@ fn innermost_declarator(mut n: Node) -> Node {
     n
 }
 
+fn assigned_to(n: Node) -> Option<Node> {
+    let values = n.parent().filter(|p| p.kind() == "expression_list")?;
+    let at = values
+        .children_by_field_name("value", &mut values.walk())
+        .position(|v| v == n)?;
+    let names = values
+        .prev_named_sibling()
+        .filter(|p| p.kind() == "variable_list")?;
+    names
+        .children_by_field_name("name", &mut names.walk())
+        .nth(at)
+}
+
 fn name_of<'a>(n: Node<'a>, src: &'a str) -> Option<Node<'a>> {
     match n.kind() {
         "impl_item" => n.child_by_field_name("type"),
+        "function_declarator" => n.child_by_field_name("declarator"),
         "function_definition" if n.child_by_field_name("name").is_none() => n
             .child_by_field_name("declarator")
-            .map(innermost_declarator),
+            .map(innermost_declarator)
+            .or_else(|| assigned_to(n)),
         "companion_object" => None,
         _ => n.child_by_field_name("name").or_else(|| {
             let mut c = n.walk();
@@ -109,10 +154,60 @@ fn go_receiver(n: Node, src: &str) -> Option<String> {
     segments(text).last().cloned()
 }
 
+fn php_tag_reference(
+    root: Node,
+    comment: Node,
+    src: &str,
+    row: usize,
+    col: usize,
+) -> Option<Vec<String>> {
+    let tag = src.lines().nth(row)?.get(..col)?;
+    let class = comment.next_named_sibling().filter(|c| {
+        matches!(
+            c.kind(),
+            "class_declaration"
+                | "interface_declaration"
+                | "trait_declaration"
+                | "enum_declaration"
+        )
+    })?;
+    let name = class.child_by_field_name("name")?;
+    let text = src.get(name.byte_range())?;
+    let p = name.start_position();
+    let mut chain = reference(root, src, p.row, p.column, text)?;
+    chain.push(text.to_owned());
+    (tag.contains("@method") || tag.contains("@property")).then_some(chain)
+}
+
+fn table_of<'a>(p: Node, leaf: Node, src: &'a str) -> Option<&'a str> {
+    let table = if p.kind() == "call"
+        && p.child_by_field_name("method")
+            .and_then(|m| src.get(m.byte_range()))
+            == Some("create_table")
+    {
+        p.child_by_field_name("arguments")?.named_child(0)?
+    } else if p.kind() == "create_table"
+        && leaf
+            .parent()
+            .filter(|c| c.kind() == "column_definition")
+            .and_then(|c| c.child_by_field_name("name"))
+            .is_some_and(|m| m.id() == leaf.id())
+    {
+        p.named_children(&mut p.walk())
+            .find(|t| t.kind() == "object_reference")?
+    } else {
+        return None;
+    };
+    src.get(table.byte_range())
+}
+
 fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Option<Vec<String>> {
     let at = Point::new(row, col);
     let end = Point::new(row, col + word.len());
     let leaf = root.descendant_for_point_range(at, end)?;
+    if leaf.kind() == "comment" {
+        return php_tag_reference(root, leaf, src, row, col);
+    }
     if src.get(leaf.byte_range())? != word {
         return None;
     }
@@ -120,11 +215,24 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
     let mut found_def = false;
     let before = src.get(..leaf.start_byte())?;
     let member_of_self = ["self.", "this.", "@"].iter().any(|s| before.ends_with(s))
-        || leaf.kind() == "instance_variable";
+        || matches!(leaf.kind(), "instance_variable" | "class_variable")
+        || leaf
+            .parent()
+            .and_then(|p| p.parent())
+            .is_some_and(|p| p.kind() == "property_promotion_parameter");
     let mut n = leaf;
     while let Some(p) = n.parent() {
+        if after_an_error_in_a_cpp_body(n, root) {
+            return None;
+        }
         n = p;
-        if !CONTAINERS.contains(&p.kind()) {
+        if let Some(table) = table_of(p, leaf, src) {
+            let mut seg = segments(table);
+            seg.append(&mut chain);
+            chain = seg;
+            continue;
+        }
+        if !CONTAINERS.contains(&p.kind()) && !prototype(p) {
             continue;
         }
         let function = p.kind().contains("function")

@@ -100,10 +100,10 @@ fn a_wrapped_class_header_is_a_header() {
             picker(
                 "seal: by name, 4 declarations (chain broke at other)",
                 &[
-                    ("seal", "headers.ts:6"),
-                    ("seal", "headers.ts:12"),
-                    ("seal", "headers.ts:70"),
-                    ("seal", "headers.ts:85"),
+                    ("Sealable.seal", "headers.ts:6"),
+                    ("Crate.seal", "headers.ts:12"),
+                    ("LongNamedShelfOfStrings.seal", "headers.ts:70"),
+                    ("Bin.seal", "headers.ts:85"),
                 ],
             ),
         ),
@@ -112,7 +112,10 @@ fn a_wrapped_class_header_is_a_header() {
             "loose.audit.deleteUser|(id + 5)",
             picker(
                 "deleteUser: by name, 2 declarations (chain broke at audit)",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         (
@@ -155,7 +158,10 @@ fn a_member_access_broken_over_lines_is_one_chain() {
     let by_name = || {
         picker(
             "deleteUser: by name, 2 declarations",
-            &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+            &[
+                ("UserRepository.deleteUser", "repos.ts:10"),
+                ("AuditLog.deleteUser", "repos.ts:16"),
+            ],
         )
     };
     let cases: Vec<(&str, &str, Shown)> = vec![
@@ -282,7 +288,10 @@ fn a_non_null_or_optional_access_is_the_plain_one() {
             "found?.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         ("", "!note.deleteUser|.length", audit("note: AuditLog")),
@@ -375,7 +384,7 @@ fn a_private_name_keeps_its_hash() {
             "^  #addRoute|(path: string): void {",
             picker(
                 "#addRoute: at a declaration, 1 other by name",
-                &[("#addRoute", "privates.ts:37")],
+                &[("SubRouter.#addRoute", "privates.ts:37")],
             ),
         ),
     ];
@@ -455,7 +464,10 @@ fn a_nest_service_reads_its_dependencies() {
             "uow.audit.deleteUser|(id + 6)",
             picker(
                 "deleteUser: by name, 2 declarations (chain broke at uow)",
-                &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+                &[
+                    ("UserRepository.deleteUser", "repos.ts:10"),
+                    ("AuditLog.deleteUser", "repos.ts:16"),
+                ],
             ),
         ),
         ("", "^  repo.deleteUser|(id + 7)", audit("repo: AuditLog")),
@@ -520,7 +532,10 @@ fn a_wrapped_destructuring_binds_its_names() {
     let by_name = || {
         picker(
             "deleteUser: by name, 2 declarations",
-            &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+            &[
+                ("UserRepository.deleteUser", "repos.ts:10"),
+                ("AuditLog.deleteUser", "repos.ts:16"),
+            ],
         )
     };
     let cases: Vec<(&str, &str, Shown)> = vec![
@@ -1035,8 +1050,8 @@ fn an_imported_package_is_the_copy_node_loads() {
             "what a default import binds is its own name for the default export, whatever the module exports under that name otherwise",
             "^dparse",
             jump(
-                "no definition for dparse",
-                &format!("{file}:{}", line("dparse")),
+                "dparse: via import dflt",
+                "packages/api/node_modules/dflt/index.d.ts:3",
             ),
         ),
         (
@@ -1921,7 +1936,10 @@ fn what_the_review_of_the_typescript_items_found() {
     let by_name = || {
         picker(
             "deleteUser: by name, 2 declarations",
-            &[("deleteUser", "repos.ts:10"), ("deleteUser", "repos.ts:16")],
+            &[
+                ("UserRepository.deleteUser", "repos.ts:10"),
+                ("AuditLog.deleteUser", "repos.ts:16"),
+            ],
         )
     };
     let public = || {
@@ -1948,9 +1966,9 @@ fn what_the_review_of_the_typescript_items_found() {
             picker(
                 "turn: by name, 3 declarations",
                 &[
-                    ("turn", "shadowed.ts:10"),
-                    ("turn", "nest.ts:46"),
-                    ("turn", "nest.ts:53"),
+                    ("svc.Tool.turn", "shadowed.ts:10"),
+                    ("Local.Tool.turn", "nest.ts:46"),
+                    ("Tool.turn", "nest.ts:53"),
                 ],
             ),
         ),

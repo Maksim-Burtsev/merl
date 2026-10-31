@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Hit, Kind, ModuleFiles, cmake_roots, dart_roots, dart_sdk, erlang, julia_depot, julia_roots,
-    julia_share, kind_of, literal_lines, module_among, objc_frameworks, ocaml_roots, otp_roots,
-    perl_roots, powershell_roots, ruby_roots, ts_alias,
+    Hit, Kind, ModuleFiles, at_module_path, cmake_roots, dart_roots, dart_sdk, declaration_file,
+    erlang, julia_depot, julia_roots, julia_share, kind_of, literal_lines, module_among,
+    objc_frameworks, ocaml_roots, otp_roots, perl_roots, powershell_roots, ruby_roots, ts_alias,
 };
 
 #[expect(
@@ -670,7 +670,7 @@ pub struct PackageCopy {
 impl PackageCopy {
     pub fn entries(&self) -> Vec<PathBuf> {
         static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#""(types|typings|main|module)"\s*:\s*"([^"]*)""#)
+            Regex::new(r#""(types|typings|main|module|\.)"\s*:\s*"([^"]*)""#)
                 .expect("the regex is a literal")
         });
         let mut entries = Vec::new();
@@ -680,14 +680,23 @@ impl PackageCopy {
                 let mut found = Vec::new();
                 for c in KEY.captures_iter(&text).filter(|c| keys.contains(&&c[1])) {
                     let entry = c[2].trim_start_matches("./");
-                    let stem = [".js", ".mjs", ".cjs"]
+                    let (stem, typed) = [(".js", ".d.ts"), (".mjs", ".d.mts"), (".cjs", ".d.cts")]
                         .iter()
-                        .find_map(|e| entry.strip_suffix(e))
-                        .unwrap_or(entry);
-                    for f in [entry.to_owned(), format!("{stem}.d.ts")] {
-                        found.extend(self.files.iter().filter(|p| **p == dir.join(&f)).cloned());
-                    }
+                        .find_map(|(e, d)| Some((entry.strip_suffix(e)?, *d)))
+                        .unwrap_or((entry, ".d.ts"));
+                    found.extend(
+                        [
+                            entry.to_owned(),
+                            format!("{stem}.d.ts"),
+                            format!("{stem}{typed}"),
+                        ]
+                        .map(|f| dir.join(f))
+                        .into_iter()
+                        .filter(|f| self.files.contains(f)),
+                    );
                 }
+                let mut seen = std::collections::HashSet::new();
+                found.retain(|f| seen.insert(f.clone()));
                 found
             };
             let index = || -> Vec<PathBuf> {
@@ -707,7 +716,12 @@ impl PackageCopy {
                 .iter()
                 .map(|keys| named(keys))
                 .find(|found| !found.is_empty());
-            entries.extend(found.unwrap_or_else(index));
+            let found = found.unwrap_or_else(index);
+            entries.extend(if found.is_empty() {
+                named(&["."])
+            } else {
+                found
+            });
         }
         entries
     }
@@ -729,10 +743,24 @@ impl PackageCopy {
             .collect();
         let rest = module.get(self.name_parts..).unwrap_or_default();
         Some(match module_among(&below, rest, None) {
-            Some(found) => ModuleFiles {
-                matched_parts: self.name_parts + found.matched_parts,
-                files: found.files.iter().map(|b| b.file.clone()).collect(),
-            },
+            Some(found) => {
+                let exact: Vec<&PathBuf> = (found.files.iter())
+                    .filter(|b| at_module_path(b.below_dir, rest))
+                    .map(|b| b.file)
+                    .collect();
+                let typed: Vec<&PathBuf> = (exact.iter().copied())
+                    .filter(|f| declaration_file(f))
+                    .collect();
+                let files = match (typed.is_empty(), exact.is_empty()) {
+                    (false, _) => typed.into_iter().cloned().collect(),
+                    (true, false) => exact.into_iter().cloned().collect(),
+                    (true, true) => found.files.iter().map(|b| b.file.clone()).collect(),
+                };
+                ModuleFiles {
+                    matched_parts: self.name_parts + found.matched_parts,
+                    files,
+                }
+            }
             None => ModuleFiles {
                 matched_parts: self.name_parts,
                 files: self.files.clone(),

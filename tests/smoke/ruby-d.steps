@@ -14,6 +14,17 @@ key [ /
 type user)
 key Enter d
 wait (local)
+# A second d on a method's declaration lists its namesakes, each row ending in its class, dim
+# (#1329).
+key :
+type 14
+key Enter /
+type track
+key Enter d
+wait track → AdminController.track
+key d
+wait at a declaration
+key Escape
 # A Rails `scope` is a class method of its model (#374): `Account.recent` lands on it.
 run printf '%s\n' 'class Feed' '  def call' '    Account.recent' '  end' 'end' '' 'class Account < ApplicationRecord' '  scope :recent, -> { all }' 'end' > app/ruby/feed.rb
 merl app/ruby/feed.rb

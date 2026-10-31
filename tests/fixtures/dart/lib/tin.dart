@@ -74,3 +74,8 @@ class Urn extends _Urn {
   int pour() => _leaf.swirl();
   //                  ^ d: lib/tin.dart:35
 }
+
+// A type argument is no call, though a call follows on the line (#1338).
+Future<Tin<int>> packed<S>() async => Tin([1], 'green');
+//     ^ d: lib/tin.dart:1
+//                                    ^ d: picker lib/tin.dart:1, lib/tin.dart:2

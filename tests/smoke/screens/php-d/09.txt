@@ -1,15 +1,14 @@
-wait total → Ledger::total (via import scripts/billing/Legacy/Ledger.php)
-┌orders──────────────────────┐ 1 <?php
-│▸ .github                   │ 2 namespace Billing\Legacy;
-│▸ .venv                     │ 3
-│▸ app                       │ 4 class Ledger
-│▸ data                      │ 5 {
-│▸ deploy                    │ 6     public static function total(): int
-│▸ docs                      │ 7     {
-│▾ scripts                   │ 8         return -1;
-│  ▾ billing                 │ 9     }
-│    ▾ Legacy                │10 }
-│      A Ledger.php          │
+wait A Month.php
+┌orders──────────────────────┐1 <?php
+│▸ .github                   │2 namespace Billing;
+│▸ .venv                     │3
+│▸ app                       │4 use Billing\Legacy\Ledger as OldLedger;
+│▸ data                      │5
+│▸ deploy                    │6 function close(): int
+│▸ docs                      │7 {
+│▾ scripts                   │8     return Ledger::total() - OldLedger::total();
+│  ▾ billing                 │9 }
+│    ▸ Legacy                │
 │    A Ledger.php            │
 │    A Month.php             │
 │  ▸ payouts                 │
@@ -52,6 +51,7 @@ wait total → Ledger::total (via import scripts/billing/Legacy/Ledger.php)
 │                            │
 │                            │
 │                            │
+│                            │
 └────────────────────────────┘
-scripts/billing/Legacy/Ledger.php  6:28  [code]  total → Ledger::total (via import scripts/billing/Legacy/Ledger.php)                                                              14:32
-cursor (x,y,shown) 60,5,0
+scripts/billing/Month.php  8:42  [code]                                                                                                                                            14:32
+cursor (x,y,shown) 73,7,0

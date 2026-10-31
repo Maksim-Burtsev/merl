@@ -313,6 +313,75 @@ fn a_later_declarator_is_declared_where_its_statement_is() {
 }
 
 #[test]
+fn a_cpp_parameter_s_class_is_its_function_and_an_enumerator_s_is_its_enum() {
+    let cpp = "\
+namespace leveldb {
+
+class Benchmark {
+ public:
+  enum Order { SEQUENTIAL, RANDOM };
+  enum class Mode : int { kFast = 1, kSlow };
+  Status Open(const std::string& fname,
+              Env* env) override {
+    for (int i = 0; i < 3; i++) {
+    }
+    Reset(fname);
+    return Status::OK();
+  }
+  void Clear();
+};
+
+Status DBImpl::Get(const ReadOptions& options, const Slice& key,
+                   std::string* value) {
+  return Status::OK();
+}
+
+void leveldb_iter_seek(leveldb_iterator_t* iter, const char* k, size_t klen) {
+}
+typedef NS_OPTIONS(NSUInteger, SDWebImageOptions) {
+};
+}
+";
+    let at = |line1: usize, name: &str| container(Kind::C, cpp, line1, name);
+    assert_eq!(at(5, "RANDOM").as_deref(), Some("Benchmark::Order"));
+    assert_eq!(at(6, "kSlow").as_deref(), Some("Benchmark::Mode"));
+    assert_eq!(at(6, "Mode").as_deref(), Some("Benchmark"));
+    assert_eq!(at(7, "fname").as_deref(), Some("Benchmark::Open"));
+    assert_eq!(at(8, "env"), None);
+    assert_eq!(at(7, "Open").as_deref(), Some("Benchmark"));
+    assert_eq!(at(9, "i"), None);
+    assert_eq!(at(11, "fname"), None);
+    assert_eq!(at(17, "options").as_deref(), Some("DBImpl::Get"));
+    assert_eq!(at(22, "klen").as_deref(), Some("leveldb_iter_seek"));
+    assert_eq!(at(22, "leveldb_iter_seek"), None);
+    assert_eq!(at(24, "SDWebImageOptions"), None);
+    let call = "void f() {\n  Reset(fname,\n        1);\n  Reset(x, fname,\n        1);\n}\n";
+    let one = "void f() {\n  Reset(fname);\n}\n";
+    let caller = container(Kind::C, one, 2, "fname");
+    assert_eq!(container(Kind::C, call, 2, "fname"), caller);
+    assert_eq!(container(Kind::C, call, 4, "fname"), caller);
+}
+
+#[test]
+fn a_typescript_key_passed_to_a_call_shows_no_class_and_a_dotted_namespace_is_whole() {
+    let call = "export const unpublish = createAction({\n  visible: (c) => true,\n});\n";
+    assert_eq!(container(Kind::TsJs, call, 2, "visible"), None);
+    let schema = "const UserConfigSchema = z.object({\n\tlogo: LogoConfigSchema(),\n});\n";
+    assert_eq!(container(Kind::TsJs, schema, 2, "logo").as_deref(), None);
+    let object = "export const tariff = {\n  rate: 1,\n};\n";
+    assert_eq!(
+        container(Kind::TsJs, object, 2, "rate").as_deref(),
+        Some("tariff")
+    );
+    let ns =
+        "declare namespace astroHTML.JSX {\n  interface Anchor {\n    href?: string;\n  }\n}\n";
+    assert_eq!(
+        qualified(Kind::TsJs, ns, 3, "href").as_deref(),
+        Some("astroHTML.JSX.Anchor.href")
+    );
+}
+
+#[test]
 fn a_wrapped_header_still_names_its_members() {
     let ts = "export class Tariff<\n  T,\n> {\n  rate = 1;\n}\n";
     assert_eq!(
@@ -473,4 +542,109 @@ fn the_at_of_a_ruby_variable_reads_the_variable() {
     assert_eq!(word("@@beads", 0), Some((2..7, "beads".to_owned())));
     assert_eq!(word("@@beads", 1), Some((2..7, "beads".to_owned())));
     assert_eq!(word("@rows", 1), Some((1..5, "rows".to_owned())));
+}
+
+#[test]
+fn a_ruby_row_s_class_is_the_class_an_instance_variable_belongs_to_and_a_method_keeps_its_bang() {
+    let rb = "module Admin\n  class ReportsController\n    @@count = 0\n    @per_page = 20\n\n    def set_report\n      @report = Report.find(1)\n    end\n\n    def self.cached\n      @cache = {}\n    end\n\n    class << self\n      def built\n        @built = true\n      end\n    end\n\n    def bump; @@count += 1; end\n\n    def publish!\n      due.each do |row|\n        @last = row\n      end\n      count = 1\n    end\n\n    def rate=(value)\n      @rate = value\n    end\n  end\nend\n\nmodule Expireable\n  included do\n    def expires_in=(interval)\n      @expires_in = interval\n    end\n  end\nend\n";
+    let class = |line, name| container(Kind::Ruby, rb, line, name);
+    let got: Vec<_> = [
+        (3, "@@count"),
+        (4, "@per_page"),
+        (7, "@report"),
+        (11, "@cache"),
+        (16, "@built"),
+        (20, "@@count"),
+        (23, "row"),
+        (24, "@last"),
+        (26, "count"),
+        (29, "rate="),
+        (30, "@rate"),
+        (38, "@expires_in"),
+    ]
+    .into_iter()
+    .map(|(l, n)| format!("{n}={}", class(l, n).unwrap_or_default()))
+    .collect();
+    assert_eq!(
+        got.join(" "),
+        "@@count=Admin.ReportsController @per_page=Admin.ReportsController @report=Admin.ReportsController @cache=Admin.ReportsController @built=Admin.ReportsController @@count=Admin.ReportsController row=Admin.ReportsController.publish! @last= count=Admin.ReportsController.publish! rate==Admin.ReportsController @rate=Admin.ReportsController @expires_in="
+    );
+}
+
+#[test]
+fn a_php_row_s_class_is_the_function_of_a_parameter_and_the_class_of_a_promoted_property() {
+    let php = "<?php\n\nnamespace App\\Models;\n\nclass Song extends Model\n{\n    public function __construct(public readonly string $value, bool $plain, private(set) int $set)\n    {\n    }\n\n    public function __construct(\n        #[SensitiveParameter] private readonly Result $result,\n        readonly int $ro,\n        string $plain2,\n    ) {\n    }\n\n    public static function query(?PlayableType $type = null, array $ids = [1, 2], &$ref, ...$rest): Builder\n    {\n        $local = 1;\n        $f = function ($arg) use ($local) { return $arg; };\n    }\n\n    public function value(int $value): int\n    {\n    }\n\n    public $prop = 1;\n    private static ?int $sprop;\n}\n\nfunction helper(int $count): int\n{\n}\n\ninterface Playable\n{\n    public function play(int $at);\n}\n";
+    let got: Vec<_> = [
+        (7, "value"),
+        (7, "plain"),
+        (7, "set"),
+        (12, "result"),
+        (13, "ro"),
+        (14, "plain2"),
+        (18, "type"),
+        (18, "ids"),
+        (18, "ref"),
+        (18, "rest"),
+        (18, "query"),
+        (20, "local"),
+        (21, "arg"),
+        (24, "value"),
+        (28, "prop"),
+        (29, "sprop"),
+        (32, "count"),
+        (32, "helper"),
+        (38, "at"),
+    ]
+    .into_iter()
+    .map(|(l, n)| {
+        format!(
+            "{n}={}",
+            container(Kind::Php, php, l, n).unwrap_or_default()
+        )
+    })
+    .collect();
+    assert_eq!(
+        got.join(" "),
+        "value=Song plain=Song::__construct set=Song result=Song ro=Song plain2= type=Song::query ids=Song::query ref=Song::query rest=Song::query query=Song local=Song::query arg=Song::query value=Song prop=Song sprop=Song count=helper helper= at=Playable::play"
+    );
+}
+
+#[test]
+fn a_sql_row_s_class_is_the_table_of_its_column_and_nothing_else() {
+    let sql = "CREATE TABLE user_ (\n    id serial PRIMARY KEY,\n    -- a comment\n    community_id int REFERENCES community ON DELETE CASCADE,\n    CONSTRAINT uq_name UNIQUE (id)\n);\n\nCREATE TABLE IF NOT EXISTS public.post (\n    title text\n);\n\nCREATE VIEW post_view AS\nSELECT\n    p.id,\n    p.title AS heading\nFROM\n    post p;\n\nCREATE OR REPLACE FUNCTION bump (target int)\n    RETURNS void\n    LANGUAGE plpgsql\n    AS $$\nDECLARE\n    counter int := 0;\nBEGIN\n    UPDATE post SET score = score + 1;\nEND\n$$;\n\nALTER TABLE post\n    ADD COLUMN score int;\n\nWITH recent AS (\n    SELECT\n        id\n    FROM\n        post\n)\nSELECT * FROM recent;\n\nCREATE TYPE mood AS ENUM (\n    'sad',\n    'happy'\n);\n\nCREATE INDEX idx_post ON post (\n    title\n);\n\nCREATE TRIGGER t_bump\n    AFTER INSERT ON post\n    FOR EACH ROW\n    EXECUTE FUNCTION bump ();\n";
+    let got: Vec<_> = [
+        (2, "id"),
+        (4, "community_id"),
+        (4, "community"),
+        (5, "uq_name"),
+        (9, "title"),
+        (14, "id"),
+        (15, "heading"),
+        (19, "bump"),
+        (19, "target"),
+        (24, "counter"),
+        (26, "score"),
+        (31, "score"),
+        (35, "id"),
+        (41, "sad"),
+        (46, "title"),
+        (51, "bump"),
+        (45, "idx_post"),
+        (8, "post"),
+        (8, "public"),
+        (1, "user_"),
+        (30, "post"),
+    ]
+    .into_iter()
+    .map(|(l, n)| {
+        format!(
+            "{l}:{n}={}",
+            container(Kind::Sql, sql, l, n).unwrap_or_default()
+        )
+    })
+    .collect();
+    assert_eq!(
+        got.join(" "),
+        "2:id=user_ 4:community_id=user_ 4:community= 5:uq_name= 9:title=public.post 14:id= 15:heading= 19:bump= 19:target= 24:counter= 26:score= 31:score= 35:id= 41:sad= 46:title= 51:bump= 45:idx_post= 8:post= 8:public= 1:user_= 30:post="
+    );
 }
