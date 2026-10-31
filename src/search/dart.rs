@@ -1266,7 +1266,9 @@ pub fn dart_constructor_param(
     let starts: Vec<usize> = ctor
         .find_iter(text)
         .filter(|m| {
-            literal.get(text.get(..m.start()).map_or(0, |t| t.matches('\n').count())) != Some(&true)
+            let line0 = text.get(..m.start()).map_or(0, |t| t.matches('\n').count());
+            literal.get(line0) != Some(&true)
+                && dart_this_super(text, line0, false).is_some_and(|t| t.class == class)
         })
         .map(|m| m.end())
         .collect();
