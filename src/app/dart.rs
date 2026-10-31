@@ -384,6 +384,12 @@ impl App {
         chain: &[String],
         word: &str,
     ) -> Option<Vec<Candidate>> {
+        if let [r] = chain
+            && r == "super"
+            && let Some(found) = self.dart_super_param(here, text, word)
+        {
+            return Some(vec![found]);
+        }
         let mut scope = here.to_path_buf();
         let ty = match chain {
             [] if before.ends_with("..") => match search::dart_cascade(before)? {
@@ -454,6 +460,24 @@ impl App {
         }
         self.dart_accessor_side(before, word, &mut found);
         (!found.is_empty()).then_some(found)
+    }
+
+    fn dart_super_param(&self, here: &Path, text: &str, word: &str) -> Option<Candidate> {
+        let (range, _) = self.word_here(Some(Kind::Dart))?;
+        let at = line_offset(text, self.line + 1) + range.start;
+        let (ty, named) = search::dart_super_param(text, self.line, at)?;
+        let file = self.dart_class_file(here, &ty)?;
+        let source = self.text_of(&file)?;
+        let line1 = search::dart_constructor_param(&source, &ty.class, named.as_deref(), word)?;
+        let hit = Hit {
+            deleted: None,
+            path: file,
+            line1,
+            byte_col: None,
+            text: source.lines().nth(line1 - 1)?.to_owned(),
+        };
+        let reason = Reason::Receiver(ty.class);
+        Some(Candidate { hit, reason })
     }
 
     fn dart_bound(
