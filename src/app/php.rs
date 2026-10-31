@@ -1,6 +1,11 @@
 use super::{App, Candidate, Hit, Kind, Path, PathBuf, Reason, Regex, is_word, search};
 use std::ops::Range;
 
+#[cfg(test)]
+thread_local! {
+    pub(super) static PHP_WALKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 #[derive(Clone)]
 struct PhpClass {
     path: PathBuf,
@@ -389,6 +394,8 @@ impl App {
         depth: usize,
         seen: &mut Vec<(PathBuf, usize)>,
     ) -> Walk {
+        #[cfg(test)]
+        PHP_WALKS.with(|w| w.set(w.get() + 1));
         if depth > 8 || seen.contains(&(path.to_path_buf(), class)) {
             return Walk::Unread;
         }
@@ -644,6 +651,9 @@ impl App {
         let magic = ["__call", "__callStatic", "__get"]
             .map(|m| search::php_access_patterns(m, search::PhpAccess::Call).join("|"))
             .join("|");
+        if re.as_str().ends_with(&magic) {
+            return false;
+        }
         let Ok(re) = Regex::new(&format!("{}|{magic}", re.as_str())) else {
             return true;
         };
@@ -668,7 +678,7 @@ impl App {
         seen: &mut Vec<(PathBuf, usize)>,
     ) -> Walk {
         match self.php_walk(&class.path, &class.text, class.header0, re, depth, seen) {
-            Walk::Nowhere if !self.php_supplies(class, re) => {
+            Walk::Nowhere => {
                 let Some(name) = Self::php_class_name(class) else {
                     return Walk::Nowhere;
                 };
@@ -677,7 +687,7 @@ impl App {
                         Some(ns) if !ns.is_empty() => format!("{ns}\\{name}"),
                         _ => name.clone(),
                     };
-                if !self.php_maps_outside(&class.path, &full) {
+                if !self.php_maps_outside(&class.path, &full) || self.php_supplies(class, re) {
                     return Walk::Nowhere;
                 }
                 match self.php_outside_walk(Some(&full), &name, re, depth, seen) {

@@ -136,3 +136,10 @@ SELECT spout FROM samovars WHERE id IN (SELECT 1 AS spout);
 --     ^ d: none
 SELECT spout FROM samovars WHERE id IN (WITH RECURSIVE samovars AS (SELECT 1 AS spout) SELECT spout FROM samovars);
 --     ^ d: steep/schema.sql:4
+-- #1357's review: a CTE that reads its own name in a UNION branch is recursive without the keyword (SQLite, T-SQL).
+WITH samovars (spout) AS (SELECT 1 UNION ALL SELECT spout + 1 FROM samovars WHERE spout < 9) SELECT spout FROM samovars;
+--                                                  ^ d: none
+--                                                                                ^ d: none
+WITH samovars AS (SELECT 1 AS spout UNION ALL SELECT spout + 1 FROM samovars WHERE spout < 9) SELECT spout FROM samovars;
+--                                                   ^ d: none
+--                                                                                 ^ d: none

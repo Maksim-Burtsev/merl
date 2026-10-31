@@ -1358,7 +1358,18 @@ fn sql_scope_table(stmt: &str, whole_at: usize, word: &str, update: &Regex) -> O
 fn sql_cte_holds(stmt: &str, head: regex::Match, at: usize) -> bool {
     let open = head.end() - 1;
     let (from, end, _) = sql_cte_reach(stmt, open);
-    (from == open || from < at) && at <= end && sql_query_region(stmt, head.start()).contains(&at)
+    let name = Regex::new(&format!(
+        r"(?i)^(?:,|\bWITH\s+(?:RECURSIVE\s+)?)?\s*({SQL_IDENT})"
+    ))
+    .expect("a valid pattern");
+    let reads_itself = name.captures(head.as_str()).is_some_and(|c| {
+        let name = regex::escape(c[1].trim_matches(['"', '`']));
+        Regex::new(&format!(r"(?is)\bUNION\b.*\b{name}\b"))
+            .is_ok_and(|r| stmt.get(open..from).is_some_and(|body| r.is_match(body)))
+    });
+    (from == open || from < at || reads_itself)
+        && at <= end
+        && sql_query_region(stmt, head.start()).contains(&at)
 }
 
 pub fn sql_parents(text: &str, create: usize) -> Vec<String> {
