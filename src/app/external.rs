@@ -294,7 +294,12 @@ impl App {
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
         }
         if hits.is_empty() && q.default_import() {
-            hits = self.outside_default(kind, &q.files);
+            let within = if narrowed_to_copy && module.len() <= q.copy.name_parts {
+                q.copy.entries()
+            } else {
+                q.files.clone()
+            };
+            hits = self.outside_default(kind, &within);
         }
         let walked = if hits.is_empty()
             && imported

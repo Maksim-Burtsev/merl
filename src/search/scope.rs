@@ -670,7 +670,7 @@ pub struct PackageCopy {
 impl PackageCopy {
     pub fn entries(&self) -> Vec<PathBuf> {
         static KEY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-            Regex::new(r#""(types|typings|main|module)"\s*:\s*"([^"]*)""#)
+            Regex::new(r#""(types|typings|main|module|\.)"\s*:\s*"([^"]*)""#)
                 .expect("the regex is a literal")
         });
         let mut entries = Vec::new();
@@ -680,11 +680,17 @@ impl PackageCopy {
                 let mut found = Vec::new();
                 for c in KEY.captures_iter(&text).filter(|c| keys.contains(&&c[1])) {
                     let entry = c[2].trim_start_matches("./");
-                    let stem = [".js", ".mjs", ".cjs"]
+                    let (stem, typed) = [(".js", ".d.ts"), (".mjs", ".d.mts"), (".cjs", ".d.cts")]
                         .iter()
-                        .find_map(|e| entry.strip_suffix(e))
-                        .unwrap_or(entry);
-                    for f in [entry.to_owned(), format!("{stem}.d.ts")] {
+                        .find_map(|(e, d)| Some((entry.strip_suffix(e)?, *d)))
+                        .unwrap_or((entry, ".d.ts"));
+                    let mut names = vec![
+                        entry.to_owned(),
+                        format!("{stem}.d.ts"),
+                        format!("{stem}{typed}"),
+                    ];
+                    names.dedup();
+                    for f in names {
                         found.extend(self.files.iter().filter(|p| **p == dir.join(&f)).cloned());
                     }
                 }
@@ -707,7 +713,12 @@ impl PackageCopy {
                 .iter()
                 .map(|keys| named(keys))
                 .find(|found| !found.is_empty());
-            entries.extend(found.unwrap_or_else(index));
+            let found = found.unwrap_or_else(index);
+            entries.extend(if found.is_empty() {
+                named(&["."])
+            } else {
+                found
+            });
         }
         entries
     }
