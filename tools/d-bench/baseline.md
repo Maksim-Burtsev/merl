@@ -86,6 +86,7 @@ The js and ts rows with #1342 (a declaration on its own line, a parameter of a s
 The cpp row with #1336's struct declared inside a function, seen only from its own block (`State` in `Version::Get`): over `f61ee8003`, 2026-10-31, release build, `vm.loadavg` { 5.66 6.54 6.46 } before the run.
 The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
 The js row with #1337 (a default import through `export { local as default }`, a `require` of a file inside a package read for that file's declarations, the key of a renamed `require`): over `9dddebb41`, 2026-10-31, release build, `vm.loadavg` { 4.46 4.47 4.91 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
+The dart row with #1338 (a `super.` parameter lands on the superclass constructor's parameter; a generic type followed by a call on its line is no call): over `4aedb4735`, 2026-10-31, release build, `vm.loadavg` { 5.91 5.69 5.53 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -121,5 +122,5 @@ The js row with #1337 (a default import through `export { local as default }`, a
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 87 (89%) | 4 (4%) | 0 (0%) | 7 (7%) | 11 | 1 | 5.6 | 6.8 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 88 (91%) | 5 (5%) | 0 (0%) | 4 (4%) | 17 | 0 | 48.1 | 140.7 |
+| dart (dio) | 97 | 90 (93%) | 4 (4%) | 0 (0%) | 3 (3%) | 17 | 0 | 48.0 | 143.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

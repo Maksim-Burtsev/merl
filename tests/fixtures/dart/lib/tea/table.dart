@@ -106,3 +106,15 @@ class Brewer extends Samovar {
 int chained(Teapot pot) => pot
     .pour(1);
 //   ^ d: lib/tea/teapot.dart:6
+
+// A `super.` parameter is the superclass constructor's parameter (#1338).
+class Urn extends Kettle with Lid {
+  Urn(super.cups, {int lid = 0});
+  //        ^ d: lib/tea/kettle.dart:7
+  Urn.hot(int lid, super.cups) : super.boiled();
+  //                     ^ d: lib/tea/kettle.dart:9
+  int left() => super.cups;
+  //                  ^ d: lib/tea/kettle.dart:15
+}
+
+mixin Lid {}
