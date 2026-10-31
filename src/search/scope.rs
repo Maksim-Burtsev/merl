@@ -684,17 +684,19 @@ impl PackageCopy {
                         .iter()
                         .find_map(|(e, d)| Some((entry.strip_suffix(e)?, *d)))
                         .unwrap_or((entry, ".d.ts"));
-                    for f in [
-                        entry.to_owned(),
-                        format!("{stem}.d.ts"),
-                        format!("{stem}{typed}"),
-                    ] {
-                        let f = dir.join(f);
-                        if self.files.contains(&f) && !found.contains(&f) {
-                            found.push(f);
-                        }
-                    }
+                    found.extend(
+                        [
+                            entry.to_owned(),
+                            format!("{stem}.d.ts"),
+                            format!("{stem}{typed}"),
+                        ]
+                        .map(|f| dir.join(f))
+                        .into_iter()
+                        .filter(|f| self.files.contains(f)),
+                    );
                 }
+                let mut seen = std::collections::HashSet::new();
+                found.retain(|f| seen.insert(f.clone()));
                 found
             };
             let index = || -> Vec<PathBuf> {
