@@ -355,6 +355,11 @@ typedef NS_OPTIONS(NSUInteger, SDWebImageOptions) {
     assert_eq!(at(22, "klen").as_deref(), Some("leveldb_iter_seek"));
     assert_eq!(at(22, "leveldb_iter_seek"), None);
     assert_eq!(at(24, "SDWebImageOptions"), None);
+    let call = "void f() {\n  Reset(fname,\n        1);\n  Reset(x, fname,\n        1);\n}\n";
+    let one = "void f() {\n  Reset(fname);\n}\n";
+    let caller = container(Kind::C, one, 2, "fname");
+    assert_eq!(container(Kind::C, call, 2, "fname"), caller);
+    assert_eq!(container(Kind::C, call, 4, "fname"), caller);
 }
 
 #[test]

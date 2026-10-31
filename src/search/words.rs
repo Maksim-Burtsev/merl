@@ -173,8 +173,10 @@ fn c_owner_on_line(line: &str, name: &str) -> Option<String> {
     ];
     let function = &c[2];
     let declares = !head.is_empty() || !line.trim_end().ends_with(';');
-    let parameter = Regex::new(&format!(r"(?:^|[\s*&]){n}\s*(?:\[[^\]]*\]\s*)?(?:[,)=]|$)"))
-        .expect("an escaped name keeps the pattern valid");
+    let parameter = Regex::new(&format!(
+        r"(?:^|,)\s*[^,]*?[^,\s][\s*&]+{n}\s*(?:\[[^\]]*\]\s*)?(?:[,)=]|$)"
+    ))
+    .expect("an escaped name keeps the pattern valid");
     (declares
         && function != name
         && !not_a_function.contains(&function)
