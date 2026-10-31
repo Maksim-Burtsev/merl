@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Hit, Kind, ModuleFiles, cmake_roots, dart_roots, dart_sdk, erlang, julia_depot, julia_roots,
-    julia_share, kind_of, literal_lines, module_among, objc_frameworks, ocaml_roots, otp_roots,
-    perl_roots, powershell_roots, ruby_roots, ts_alias,
+    Hit, Kind, ModuleFiles, at_module_path, cmake_roots, dart_roots, dart_sdk, declaration_file,
+    erlang, julia_depot, julia_roots, julia_share, kind_of, literal_lines, module_among,
+    objc_frameworks, ocaml_roots, otp_roots, perl_roots, powershell_roots, ruby_roots, ts_alias,
 };
 
 #[expect(
@@ -729,10 +729,24 @@ impl PackageCopy {
             .collect();
         let rest = module.get(self.name_parts..).unwrap_or_default();
         Some(match module_among(&below, rest, None) {
-            Some(found) => ModuleFiles {
-                matched_parts: self.name_parts + found.matched_parts,
-                files: found.files.iter().map(|b| b.file.clone()).collect(),
-            },
+            Some(found) => {
+                let exact: Vec<&PathBuf> = (found.files.iter())
+                    .filter(|b| at_module_path(b.below_dir, rest))
+                    .map(|b| b.file)
+                    .collect();
+                let typed: Vec<&PathBuf> = (exact.iter().copied())
+                    .filter(|f| declaration_file(f))
+                    .collect();
+                let files = match (typed.is_empty(), exact.is_empty()) {
+                    (false, _) => typed.into_iter().cloned().collect(),
+                    (true, false) => exact.into_iter().cloned().collect(),
+                    (true, true) => found.files.iter().map(|b| b.file.clone()).collect(),
+                };
+                ModuleFiles {
+                    matched_parts: self.name_parts + found.matched_parts,
+                    files,
+                }
+            }
             None => ModuleFiles {
                 matched_parts: self.name_parts,
                 files: self.files.clone(),

@@ -1,5 +1,5 @@
 use super::{
-    App, Candidate, FileLine, GoTypeUnread, Hit, Kind, Path, PathBuf, Reason, import_line,
+    App, Candidate, FileLine, GoTypeUnread, Hit, Kind, Path, PathBuf, Reason, bound, import_line,
     resolution, search,
 };
 
@@ -224,8 +224,32 @@ impl App {
         self.answered_by_file(a)
             || self.answered_in_file(a)
             || self.answered_by_typed_key(a)
+            || self.answered_by_renamed_require(a)
             || self.answered_by_go_key(a)
             || self.answered_by_sigil(a)
+    }
+
+    fn answered_by_renamed_require(&mut self, a: &Asked) -> bool {
+        static RENAMED: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"^\s*:\s*([A-Za-z_$][\w$]*)").expect("the regex is a literal")
+        });
+        if a.kind != Kind::TsJs || a.dotted || !a.chain.is_empty() {
+            return false;
+        }
+        let Some(alias) = RENAMED.captures(&a.tail).map(|c| c[1].to_owned()) else {
+            return false;
+        };
+        let imports = search::imports(a.kind, &a.text);
+        let Some(path) = bound(&imports, &alias).filter(|p| p.last() == Some(&a.word)) else {
+            return false;
+        };
+        if !search::ts_import_lines1(&a.text, &alias).contains(&(self.line + 1)) {
+            return false;
+        }
+        match self.imported_definitions(a.kind, &a.here, &alias, &[], &path) {
+            Some(found) if !found.is_empty() => self.show_found(a, found),
+            _ => false,
+        }
     }
 
     fn answered_by_typed_key(&mut self, a: &Asked) -> bool {
