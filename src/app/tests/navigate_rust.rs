@@ -2316,3 +2316,59 @@ fn a_path_through_a_workspace_crate_that_hands_another_on_opens_in_that_crate() 
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_crate_alias_re_exported_under_cfg_is_not_followed() {
+    let backends = |lib: &str| {
+        vec![
+            (
+                "Cargo.toml",
+                "[package]\nname = \"rg\"\n\n[dependencies]\ngrep = { path = \"crates/grep\" }\n"
+                    .to_owned(),
+            ),
+            (
+                "src/main.rs",
+                "use grep::backend::Engine;\n\nfn engine() -> Engine {\n    Engine::new()\n}\n"
+                    .to_owned(),
+            ),
+            ("crates/grep/Cargo.toml", "[package]\nname = \"grep\"\n".to_owned()),
+            ("crates/grep/src/lib.rs", lib.to_owned()),
+            ("crates/a/Cargo.toml", "[package]\nname = \"impl-a\"\n".to_owned()),
+            (
+                "crates/a/src/lib.rs",
+                "pub struct Engine;\n\nimpl Engine {\n    pub fn new() -> Engine {\n        Engine\n    }\n}\n".to_owned(),
+            ),
+            ("crates/b/Cargo.toml", "[package]\nname = \"impl-b\"\n".to_owned()),
+            (
+                "crates/b/src/lib.rs",
+                "pub struct Engine;\n\nimpl Engine {\n    pub fn new() -> Engine {\n        Engine\n    }\n}\n".to_owned(),
+            ),
+        ]
+    };
+    for (name, lib) in [
+        (
+            "rust-cfg-two",
+            "#[cfg(feature = \"a\")]\npub use impl_a as backend;\n#[cfg(not(feature = \"a\"))]\npub use impl_b as backend;\n",
+        ),
+        (
+            "rust-cfg-one",
+            "#[cfg(feature = \"b\")]\npub use impl_b as backend;\n",
+        ),
+    ] {
+        let files = backends(lib);
+        let files: Vec<(&str, &str)> = files.iter().map(|(p, t)| (*p, t.as_str())).collect();
+        let (dir, mut a) = project_app(name, &files);
+        d_on(&mut a, "src/main.rs", "Engine::n|ew");
+        assert_eq!(
+            shown(&mut a),
+            Shown::Picker(
+                "new: by name, 2 declarations".into(),
+                ["crates/a/src/lib.rs:4", "crates/b/src/lib.rs:4"]
+                    .map(|p| ("Engine::new".into(), "by name".into(), p.into()))
+                    .to_vec()
+            ),
+            "{name}: a re-export under #[cfg] may not be the one built, so both namesakes are offered"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

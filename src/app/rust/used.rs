@@ -264,7 +264,18 @@ impl App {
             regex::escape(alias)
         ))
         .ok()?;
-        let target = re.captures(&text)?[1].to_owned();
+        let mut lines = re.captures_iter(&text);
+        let found = lines.next()?;
+        let attribute = text
+            .get(..found.get(0)?.start())?
+            .trim_end()
+            .lines()
+            .next_back()
+            .is_some_and(|l| l.trim_start().starts_with("#[cfg"));
+        if lines.next().is_some() || attribute {
+            return None;
+        }
+        let target = found[1].to_owned();
         if matches!(target.as_str(), "crate" | "self" | "super") || declares_mod(&text, &target) {
             return None;
         }
