@@ -1214,7 +1214,8 @@ pub fn dart_super_param(
         }
         _ => None,
     })?;
-    let slot = dart_super_slot(head.get(open + 1..)?)?;
+    let (named_slot, k) = dart_super_slot(head.get(open + 1..)?)?;
+    let slot = (!named_slot).then_some(k);
     let line_start = head.get(..open)?.rfind('\n').map_or(0, |i| i + 1);
     let class = OWNER.captures(head.get(line_start..open)?)?[1].to_owned();
     let header = dart_class_header(text, line0)?;
@@ -1252,7 +1253,7 @@ pub fn dart_super_param(
     Some((ty, named, slot))
 }
 
-fn dart_super_slot(params: &str) -> Option<Option<usize>> {
+fn dart_super_slot(params: &str) -> Option<(bool, usize)> {
     let (mut parens, mut groups, mut named) = (0usize, 0usize, false);
     let (mut quote, mut comment) = (None, false);
     let mut segments = vec![String::new()];
@@ -1297,7 +1298,10 @@ fn dart_super_slot(params: &str) -> Option<Option<usize>> {
         segments.last_mut()?.push(c);
     }
     segments.pop();
-    Some((!named).then(|| segments.iter().filter(|s| s.contains("super.")).count()))
+    Some((
+        named,
+        segments.iter().filter(|s| s.contains("super.")).count(),
+    ))
 }
 
 pub fn dart_constructor_param(
