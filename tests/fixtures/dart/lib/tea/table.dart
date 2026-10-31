@@ -130,4 +130,7 @@ class Pot {
 class Jug extends Pot {
   Jug(super.cups);
   //        ^ d: lib/tea/table.dart:125
+  Jug.full(super.leaves, {String tag = '', super.cups});
+  //             ^ d: lib/tea/table.dart:125
+  //                                             ^ d: lib/tea/table.dart:126
 }

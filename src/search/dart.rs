@@ -1253,13 +1253,33 @@ pub fn dart_super_param(
 }
 
 fn dart_super_slot(params: &str) -> Option<Option<usize>> {
-    if params.contains(['\'', '"', '/']) {
-        return None;
-    }
     let (mut parens, mut groups, mut named) = (0usize, 0usize, false);
+    let (mut quote, mut comment) = (None, false);
     let mut segments = vec![String::new()];
-    for c in params.chars() {
+    let mut chars = params.chars().peekable();
+    while let Some(c) = chars.next() {
+        if comment {
+            comment = c != '\n';
+            continue;
+        }
+        if let Some(q) = quote {
+            if c == '\\' {
+                chars.next();
+            } else if c == q {
+                quote = None;
+            }
+            continue;
+        }
         match c {
+            '\'' | '"' => {
+                quote = Some(c);
+                continue;
+            }
+            '/' if chars.peek() == Some(&'/') => {
+                comment = true;
+                continue;
+            }
+            '/' if chars.peek() == Some(&'*') => return None,
             '(' | '<' => parens += 1,
             ')' | '>' => parens = parens.saturating_sub(1),
             '{' if parens == 0 && groups == 0 => {
