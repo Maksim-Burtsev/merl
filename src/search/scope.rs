@@ -684,14 +684,15 @@ impl PackageCopy {
                         .iter()
                         .find_map(|(e, d)| Some((entry.strip_suffix(e)?, *d)))
                         .unwrap_or((entry, ".d.ts"));
-                    let mut names = vec![
+                    for f in [
                         entry.to_owned(),
                         format!("{stem}.d.ts"),
                         format!("{stem}{typed}"),
-                    ];
-                    names.dedup();
-                    for f in names {
-                        found.extend(self.files.iter().filter(|p| **p == dir.join(&f)).cloned());
+                    ] {
+                        let f = dir.join(f);
+                        if self.files.contains(&f) && !found.contains(&f) {
+                            found.push(f);
+                        }
                     }
                 }
                 found
