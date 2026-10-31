@@ -79,6 +79,7 @@ The rust row with #1302 (a call of a local closure read through its written `-> 
 The swift row with #1068's generic parameter bound by a protocol or class from outside the project (`Key: CodingKey` in `URLEncodedFormEncoder`, `S: Sequence` in `Validation`, `where ExtendedType: Bundle` in `ServerTrustEvaluation`): over `e72665e87` with this change, 2026-10-29, release build, `vm.loadavg` { 4.15 5.02 6.05 } before the run, { 5.03 5.22 6.00 } after.
 The php row with #1279's fourth pass (a static call on a class outside the project, `Arr::get(..)`, `Collection::wrap(..)`, `File::partialMock()`, walks the one `vendor/` file that declares that class under its namespace, its traits and parents; a class name lands on its header): over `ca4d141d3`, 2026-10-29, release build, `vm.loadavg` { 4.53 4.93 5.83 } before the run, { 6.90 5.35 5.87 } after.
 The rust row with #1302's variant brought by a glob over a dependency's enum (`use regex_syntax::hir::HirKind::*;` then `Capture(..)` in `crates/regex/src/literal.rs`): over `d8fc507de` with this change, 2026-10-29, release build, `vm.loadavg` { 9.63 8.03 7.19 } before the run.
+The dart row with #1338 (a `super.` parameter lands on the superclass constructor's parameter; a generic type followed by a call on its line is no call): over `4aedb4735`, 2026-10-31, release build, `vm.loadavg` { 5.91 5.69 5.53 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -113,5 +114,5 @@ The rust row with #1302's variant brought by a glob over a dependency's enum (`u
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 85 (87%) | 5 (5%) | 0 (0%) | 8 (8%) | 11 | 1 | 5.4 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 88 (91%) | 5 (5%) | 0 (0%) | 4 (4%) | 17 | 0 | 48.1 | 140.7 |
+| dart (dio) | 97 | 90 (93%) | 4 (4%) | 0 (0%) | 3 (3%) | 17 | 0 | 48.0 | 143.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
