@@ -524,6 +524,14 @@ pub fn julia_name(line: &str, r: std::ops::Range<usize>) -> std::ops::Range<usiz
     }
 }
 
+pub fn julia_extends(line: &str, word: &str) -> bool {
+    Regex::new(&format!(
+        r"^\s*{MACROS}(?:function\s+)?[\w.]+\.{}\s*{TYPE_PARAMS}\(",
+        regex::escape(word)
+    ))
+    .is_ok_and(|re| re.is_match(line))
+}
+
 pub fn julia_whole(line: &str, word: &str) -> bool {
     word.ends_with('!') || julia_col(line, word).is_some()
 }

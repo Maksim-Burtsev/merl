@@ -264,6 +264,20 @@ impl App {
                         reason: Reason::ByName,
                     }),
             );
+        } else if kind == Kind::Julia
+            && !a.dotted
+            && !found.is_empty()
+            && !imported.outside
+            && imported.value.is_none()
+            && let Some(here) = self.rel_current()
+            && found
+                .iter()
+                .all(|c| c.hit.path != here && search::julia_extends(&c.hit.text, word))
+        {
+            found.extend(
+                self.external_definitions(kind, word, &a.chain, false, &near.imports, false)
+                    .unwrap_or_default(),
+            );
         } else if found.is_empty()
             && !imported.outside
             && imported.value.is_none()

@@ -133,3 +133,41 @@ fn d_on_a_julia_call_outside_the_project_reads_no_field() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&base).unwrap();
 }
+
+#[test]
+fn d_on_a_julia_function_the_project_only_extends_offers_base_beside_the_extension() {
+    let (dir, mut a) = project_app(
+        "julia-extends",
+        &[
+            (
+                "src/frames.jl",
+                "Base.isempty(df::Frame) = true\nfunction g(df)\n    isempty(df)\nend\n",
+            ),
+            ("test/use.jl", "@test isempty(keys(df))\n"),
+        ],
+    );
+    let base = external_root(
+        "julia-extends",
+        &[("base/essentials.jl", "isempty(itr) = true\n")],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    d_on(&mut a, "test/use.jl", "@test isempty");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "isempty: by name, 2 declarations".into(),
+            vec![
+                ("isempty".into(), "by name".into(), "src/frames.jl:1".into()),
+                ("isempty".into(), "by name".into(), "essentials.jl:1".into()),
+            ]
+        )
+    );
+    a.jump_to(&dir.join("src/frames.jl"), 1);
+    d_on(&mut a, "src/frames.jl", "    isempty");
+    assert_eq!(
+        shown(&mut a),
+        jump("isempty: by name, 1 match", "src/frames.jl:1")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}

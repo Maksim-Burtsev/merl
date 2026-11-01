@@ -90,6 +90,7 @@ The dart row with #1338 (a `super.` parameter lands on the superclass constructo
 The python row with #1339 (a keyword of `Model.objects.create(...)` lands on the model's field; python0010, python0172 and python0267 answers judged, as python0310..0312 were): over `6cf9a2589`, 2026-11-01, release build, `vm.loadavg` { 4.42 4.89 4.42 } before the run, { 5.71 5.15 4.56 } after.
 The ruby row with #1340 (a record a model's `find` returned, through an `@ivar` assigned once or a memo method): over `0ff05d2b4`, 2026-11-01, release build, `vm.loadavg` { 2.72 3.99 4.52 } before the run, { 6.36 4.62 4.68 } after.
 The swift row with #1341 (a test target's member shadows the library's one of the same signature; a member read without a call is the property, not the method of its name; swift0142 has an answer read from the code, sourcekit-lsp found none): over `22983bb70`, 2026-11-01, release build, `vm.loadavg` { 3.53 3.66 4.12 } before the run, { 3.45 3.63 4.03 } after.
+The julia row with #1343 (a function the project only extends, `Base.isempty(df) = ..`, offers Base's methods beside the extension when asked outside its file; julia0030, julia0103 and julia0226 read the oracle's `Broadcast.jl:1` as `broadcast.jl:8`), played for the first time with Julia 1.11.7 and the project's depot installed in a scratch folder: over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.73 3.38 4.08 } before the run, { 2.79 3.26 3.98 } after. Its 13 `not scored, jumps elsewhere` were there on master's build too (the column was unmeasured for julia).
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -112,7 +113,7 @@ The swift row with #1341 (a test target's member shadows the library's one of th
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
+| julia (DataFrames.jl) | 177 | 73 (41%) | 87 (49%) | 0 (0%) | 17 (10%) | 123 | 13 | 16.3 | 28.1 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 49.2 | 172.2 |
