@@ -3,6 +3,7 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 mod braces;
 mod elixir;
 mod spans;
+mod sql;
 mod words;
 
 impl App {
@@ -48,6 +49,7 @@ impl App {
             Some("html" | "htm") => Some(spans::html(lines)),
             Some("xml") => Some(spans::xml(lines)),
             Some("md" | "markdown") => Some(spans::markdown(lines)),
+            Some("sql") => Some(sql::sql(lines)),
             _ => None,
         };
         if let Some(spans) = spans {
