@@ -24,6 +24,7 @@ FOLD_ONLY = {
     "rbs": ["rbs", "rbs", "https://github.com/ruby/rbs.git", "c78451b753cc6de113be8d096d09418d8170e9c6", "-"],
     "ohmyzsh": ["ohmyzsh", "zsh", "https://github.com/ohmyzsh/ohmyzsh.git", "60c9a7a839b790cd905d0fd4419435124fd1bdc0", "-"],
     "oslib": ["oslib", "scala", "https://github.com/com-lihaoyi/os-lib.git", "86e5ddb65fe62305afb5885fcc0f8da50aba4b48", "-"],
+    "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
 }
 LANGS = {
     "go": (["caddy"], {"go": "go"}),
@@ -44,6 +45,7 @@ LANGS = {
     "zsh": (["ohmyzsh"], {"zsh": "zsh"}),
     "scala": (["oslib"], {"scala": "scala", "sc": "scala"}),
     "dart": (["immich"], {"dart": "dart"}),
+    "zig": (["zls"], {"zig": "zig"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
