@@ -463,6 +463,48 @@ fn a_dart_sdk_name_skips_the_patch_files_and_a_static_reads_its_class() {
 }
 
 #[test]
+fn a_dart_sdk_named_constructor_with_an_untyped_parameter_is_its_declaration() {
+    let sdk = external_root(
+        "outside-dart-untyped",
+        &[
+            (
+                "lib/core/core.dart",
+                "library dart.core;\n\npart 'errors.dart';\n",
+            ),
+            (
+                "lib/core/errors.dart",
+                "part of dart.core;\n\nclass ArgumentError {\n  final Object? name;\n  @pragma(\"vm:entry-point\")\n  ArgumentError.value(value, [this.name])\n    : invalidValue = value;\n  void check() {\n    ArgumentError.value(1, [2]);\n  }\n}\n",
+            ),
+        ],
+    );
+    let (dir, mut a) = project_app(
+        "outside-dart-untyped-project",
+        &[
+            (
+                "lib/main.dart",
+                "void run(String method) {\n  throw ArgumentError.value(method, 'method');\n}\n",
+            ),
+            (
+                "lib/other.dart",
+                "class Header {\n  String value = '';\n}\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Dart, &[sdk.join("lib")]);
+    d_on(&mut a, "lib/main.dart", "ArgumentError.value");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "value \u{2192} ArgumentError.value (via ArgumentError)",
+            &at(&sdk, "lib/core/errors.dart", 6)
+        )
+    );
+    for d in [dir, sdk] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_called_dart_sdk_class_lands_on_its_constructor_and_a_written_one_on_the_class() {
     let sdk = external_root(
         "outside-dart-constructor",

@@ -93,6 +93,7 @@ The ruby row with #1340 (a record a model's `find` returned, through an `@ivar` 
 The swift row with #1341 (a test target's member shadows the library's one of the same signature; a member read without a call is the property, not the method of its name; swift0142 has an answer read from the code, sourcekit-lsp found none): over `22983bb70`, 2026-11-01, release build, `vm.loadavg` { 3.53 3.66 4.12 } before the run, { 3.45 3.63 4.03 } after.
 The julia row with #1343 (a function the project only extends, `Base.isempty(df) = ..`, offers Base's methods beside the extension when asked outside its file; julia0030, julia0103 and julia0226 read the oracle's `Broadcast.jl:1` as `broadcast.jl:8`), played for the first time with Julia 1.11.7 and the project's depot installed in a scratch folder: over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.73 3.38 4.08 } before the run, { 2.79 3.26 3.98 } after. Its 13 `not scored, jumps elsewhere` were there on master's build too (the column was unmeasured for julia).
 The cpp row with #1336's class scope (a type name in a class's method finds the class's own nested type first, `DBImpl::Writer`; a method declared in a class lands on that class's out-of-line definition with the same parameters, `VersionEdit::Clear`, `DBImpl::Delete`): over `f79b372f9`, 2026-11-02, release build, `vm.loadavg` { 3.45 4.73 4.76 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -128,5 +129,5 @@ The cpp row with #1336's class scope (a type name in a class's method finds the 
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 90 (93%) | 4 (4%) | 0 (0%) | 3 (3%) | 17 | 0 | 48.0 | 143.6 |
+| dart (dio) | 97 | 92 (95%) | 4 (4%) | 0 (0%) | 1 (1%) | 17 | 0 | 47.7 | 142.1 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
