@@ -7,6 +7,7 @@ use super::ruby_locals;
 pub enum RubyReturns {
     Itself,
     New(String),
+    Found(String),
 }
 
 fn continues(line: &str) -> bool {
@@ -131,8 +132,20 @@ pub fn ruby_last_value(text: &str, def_line1: usize) -> Option<RubyReturns> {
     if last == "self" {
         return Some(RubyReturns::Itself);
     }
-    NEW.captures(last)
-        .map(|c| RubyReturns::New(c[1].to_owned()))
+    if let Some(c) = NEW.captures(last) {
+        return Some(RubyReturns::New(c[1].to_owned()));
+    }
+    ruby_found_record(last).map(|c| RubyReturns::Found(c.to_owned()))
+}
+
+pub fn ruby_found_record(value: &str) -> Option<&str> {
+    static FIND: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(?:@[a-z_]\w*\s*\|\|=\s*)?((?:::)?[A-Z][\w:]*)\.find\([^()]*\)$")
+            .expect("the regex is a literal")
+    });
+    FIND.captures(value)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str())
 }
 
 pub fn ruby_struct_line(name: &str) -> String {
