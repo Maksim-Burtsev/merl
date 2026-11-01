@@ -487,7 +487,12 @@ impl App {
         let model = head
             .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
             .next()
-            .filter(|m| !m.is_empty() && !head[..head.len() - m.len()].ends_with('.'))?;
+            .filter(|m| {
+                !m.is_empty()
+                    && head
+                        .strip_suffix(m)
+                        .is_some_and(|before| !before.ends_with('.'))
+            })?;
         let ty = self.type_decl(kind, here, model)?;
         let (class, text, made) = self.python_mro(&ty).into_iter().find_map(|t| {
             let text = self.text_of(&t.path)?;
