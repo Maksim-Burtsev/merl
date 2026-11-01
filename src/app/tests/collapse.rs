@@ -256,14 +256,17 @@ fn a_fold_inside_a_callback_is_the_same_fold_after_a_reload() {
 }
 
 #[test]
-fn an_erlang_file_has_no_fold_rules_though_elixir_does() {
+fn an_erlang_header_folds_as_erlang() {
     let mut a = app_as(
-        "erl",
+        "hrl",
         "f(X) ->\n    case X of\n        1 -> one\n    end.\n",
     );
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
-    assert_eq!(a.message, "no fold rules for .erl");
+    assert_eq!(a.collapsed, [(0, 3)]);
+    a.collapsed.clear();
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, [(1, 3)]);
 }
 
 #[test]
@@ -537,6 +540,7 @@ fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_and_s
         ("dart", "dart.dart"),
         ("scala", "scala.scala"),
         ("ex", "elixir.ex"),
+        ("erl", "erlang.erl"),
         ("rbs", "rbs.rbs"),
         ("zsh", "zsh.zsh"),
         ("swift", "swift.swift"),
