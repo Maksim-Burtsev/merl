@@ -2,6 +2,7 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 
 mod braces;
 mod elixir;
+mod nix;
 mod spans;
 mod sql;
 mod words;
@@ -47,6 +48,7 @@ impl App {
             Some("yml" | "yaml") => Some(spans::yaml(lines)),
             Some("toml") => Some(spans::toml(lines)),
             Some("tf") => Some(spans::terraform(lines)),
+            Some("nix") => Some(nix::nix(lines)),
             Some("html" | "htm") => Some(spans::html(lines)),
             Some("vue") => Some(spans::template(lines, spans::Template::Vue)),
             Some("svelte") => Some(spans::template(lines, spans::Template::Svelte)),

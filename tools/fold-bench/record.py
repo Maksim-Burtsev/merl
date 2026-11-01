@@ -52,6 +52,7 @@ LANGS = {
     "svelte": (["immich"], {"svelte": "svelte"}),
     "astro": (["starlight"], {"astro": "astro"}),
     "zig": (["zls"], {"zig": "zig"}),
+    "nix": (["nix-darwin"], {"nix": "nix"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
