@@ -473,6 +473,17 @@ fn dart_receivers_read_a_written_type() {
         None
     );
     assert_eq!(
+        dart_typed("  final files = <MapEntry<String, Cup>>[];", "", "files"),
+        Some(ty(None, "List", None))
+    );
+    assert_eq!(
+        dart_typed("  final cups = const <Cup>[", "    Cup(1),\n  ];\n", "cups"),
+        Some(ty(None, "List", None))
+    );
+    assert_eq!(dart_typed("  final n = <Cup>[].length;", "", "n"), None);
+    assert_eq!(dart_typed("  final n = <int>[1] + more;", "", "n"), None);
+    assert_eq!(dart_typed("  final m = <String, int>{};", "", "m"), None);
+    assert_eq!(
         dart_cascade("  Kettle(1).."),
         Some(Ok(ty(None, "Kettle", None)))
     );
