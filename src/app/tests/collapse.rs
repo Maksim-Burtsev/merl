@@ -559,6 +559,7 @@ fn f_survives_every_prefix_of_the_listed_fold_fixtures() {
         ("cmake", "cmake.cmake"),
         ("sol", "solidity.sol"),
         ("bzl", "starlark.bzl"),
+        ("groovy", "groovy.groovy"),
     ];
     for (ext, name) in fixtures {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();

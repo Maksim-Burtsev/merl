@@ -1,0 +1,618 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 6000 folds in 616 files, 1058 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+nextflow/config/codenarc/codenarc.groovy	17:351 19:23
+nextflow/gradle/codenarc.groovy	17:34
+nextflow/modules/nextflow/build.gradle	19:26 28:75 82:84
+nextflow/modules/nextflow/src/main/groovy/nextflow/NF.groovy	29:68 31:33 35:37 39:43 45:47 49:51 53:55 57:59 61:63 65:67
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/AgentRunner.groovy	30:99 94:96
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/SkillDescriptor.groovy	37:42
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/SkillResource.groovy	32:37
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/ToolDescriptor.groovy	32:37
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/ToolDispatcher.groovy	31:33
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/ToolSchema.groovy	37:128 54:57 68:74 69:73 77:79 81:83 85:87 100:113 121:126
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/WiredModuleTool.groovy	36:61
+nextflow/modules/nextflow/src/main/groovy/nextflow/agent/rpc/Probes.groovy	25:34
+nextflow/modules/nextflow/src/main/groovy/nextflow/cli/AuthCommand.groovy	28:50
+nextflow/modules/nextflow/src/main/groovy/nextflow/cli/LaunchCommand.groovy	28:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/cli/PluginExecAware.groovy	24:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/cloud/CloudTransferOptions.groovy	26:38
+nextflow/modules/nextflow/src/main/groovy/nextflow/cloud/types/CloudMachineInfo.groovy	27:31
+nextflow/modules/nextflow/src/main/groovy/nextflow/config/ConfigField.groovy	33:45
+nextflow/modules/nextflow/src/main/groovy/nextflow/config/ConfigParser.groovy	26:101 80:82
+nextflow/modules/nextflow/src/main/groovy/nextflow/config/ConfigParserFactory.groovy	32:46 34:44 36:38 39:42
+nextflow/modules/nextflow/src/main/groovy/nextflow/config/parser/v1/PluginsDsl.groovy	26:38 32:36
+nextflow/modules/nextflow/src/main/groovy/nextflow/container/ContainerConfig.groovy	27:63 29:31 33:35 37:39 41:43 45:47 49:51 53:55
+nextflow/modules/nextflow/src/main/groovy/nextflow/container/ContainerHelper.groovy	22:42 24:26 28:30 32:40
+nextflow/modules/nextflow/src/main/groovy/nextflow/container/ContainerNameValidator.groovy	29:81 77:79
+nextflow/modules/nextflow/src/main/groovy/nextflow/container/inspect/ContainerInspectMode.groovy	26:41 34:36 38:40
+nextflow/modules/nextflow/src/main/groovy/nextflow/container/resolver/ContainerInfo.groovy	27:38 35:37
+nextflow/modules/nextflow/src/main/groovy/nextflow/container/resolver/ContainerResolver.groovy	31:73
+nextflow/modules/nextflow/src/main/groovy/nextflow/daemon/DaemonLauncher.groovy	26:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/AbortRunException.groovy	29:32
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ConfigParseException.groovy	27:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/DuplicateChannelNameException.groovy	27:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/DuplicateModuleFunctionException.groovy	28:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/DuplicateModuleIncludeException.groovy	28:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/DuplicateProcessInvocation.groovy	28:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/HttpResponseLengthExceedException.groovy	30:31
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/IllegalArityException.groovy	29:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/IllegalConfigException.groovy	28:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/IllegalDirectiveException.groovy	26:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/IllegalFileException.groovy	28:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/IllegalModulePathException.groovy	27:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/MissingCredentialsException.groovy	27:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/MissingLibraryException.groovy	27:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/MissingValueException.groovy	27:31
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/PlainExceptionMessage.groovy	25:26
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ProcessException.groovy	29:31
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ProcessFailedException.groovy	27:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ProcessRetryableException.groovy	22:23
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ProcessSubmitException.groovy	27:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ProcessSubmitTimeoutException.groovy	28:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ProcessTemplateException.groovy	27:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ProcessUnrecoverableException.groovy	30:32
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/RateLimitExceededException.groovy	30:31
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ScriptCompilationException.groovy	28:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ScriptRuntimeException.groovy	31:32
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/ShowOnlyExceptionMessage.groovy	26:27
+nextflow/modules/nextflow/src/main/groovy/nextflow/exception/StopSplitIterationException.groovy	26:32 28:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/executor/PbsProExecutor.groovy	36:137 46:99 49:52 65:67 70:72 73:76 77:84 78:80 81:83 87:90 94:96 102:110 104:105 106:108 114:125 128:130 133:135
+nextflow/modules/nextflow/src/main/groovy/nextflow/executor/ScriptFileCopyStrategy.groovy	24:88
+nextflow/modules/nextflow/src/main/groovy/nextflow/executor/SupportedScriptTypes.groovy	36:41
+nextflow/modules/nextflow/src/main/groovy/nextflow/executor/TaskArrayExecutor.groovy	32:87 60:62 70:74 76:86 77:79 80:82 83:85
+nextflow/modules/nextflow/src/main/groovy/nextflow/executor/local/AgentExecutor.groovy	58:87 61:63 69:71 79:86
+nextflow/modules/nextflow/src/main/groovy/nextflow/executor/local/LocalExecutor.groovy	37:64 40:42 45:53 56:58 61:63
+nextflow/modules/nextflow/src/main/groovy/nextflow/extension/DumpHelper.groovy	33:99 45:59 46:48 49:51 52:54 55:57 66:71 78:80 91:97
+nextflow/modules/nextflow/src/main/groovy/nextflow/extension/KeyPair.groovy	31:46 35:37 39:41 43:45
+nextflow/modules/nextflow/src/main/groovy/nextflow/file/LogicalDataPath.groovy	28:35
+nextflow/modules/nextflow/src/main/groovy/nextflow/file/SlurperEx.groovy	35:80 44:46 55:57 66:68 77:79
+nextflow/modules/nextflow/src/main/groovy/nextflow/fusion/FusionEnv.groovy	24:27
+nextflow/modules/nextflow/src/main/groovy/nextflow/fusion/FusionToken.groovy	24:28
+nextflow/modules/nextflow/src/main/groovy/nextflow/mail/MailProvider.groovy	28:36
+nextflow/modules/nextflow/src/main/groovy/nextflow/mail/SendMailProvider.groovy	24:35 27:29 32:34
+nextflow/modules/nextflow/src/main/groovy/nextflow/mail/SimpleMailProvider.groovy	24:35 27:29 32:34
+nextflow/modules/nextflow/src/main/groovy/nextflow/module/ModuleChecksum.groovy	32:71 39:41 46:48 53:55 60:63 68:70
+nextflow/modules/nextflow/src/main/groovy/nextflow/plugin/extension/Factory.groovy	33:35
+nextflow/modules/nextflow/src/main/groovy/nextflow/plugin/extension/Function.groovy	33:35
+nextflow/modules/nextflow/src/main/groovy/nextflow/plugin/extension/Operator.groovy	33:35
+nextflow/modules/nextflow/src/main/groovy/nextflow/plugin/extension/PluginExtensionMethod.groovy	25:40
+nextflow/modules/nextflow/src/main/groovy/nextflow/plugin/spec/PluginSpecWriter.groovy	33:54 35:53 36:39
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/BatchHandler.groovy	26:35
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/TaskCacheStrategy.groovy	43:74
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/TaskEntry.groovy	31:37
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/TaskFault.groovy	27:31
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/TaskHasherFactory.groovy	41:52
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/TaskMonitor.groovy	24:54
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/TaskResolver.groovy	34:80
+nextflow/modules/nextflow/src/main/groovy/nextflow/processor/tip/TaskTipProvider.groovy	26:32
+nextflow/modules/nextflow/src/main/groovy/nextflow/scm/RepositoryStrategy.groovy	32:161
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/ChainableDef.groovy	27:37
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/ExecutionContext.groovy	25:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/Param.groovy	33:46
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/ScriptLoader.groovy	26:40
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/ScriptLoaderFactory.groovy	33:47 35:45 37:39 40:43
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/params/EnvInParam.groovy	28:33
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/params/InParam.groovy	26:40
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/params/OptionalParam.groovy	25:36 31:34
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/params/OutParam.groovy	27:45
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/params/PathQualifier.groovy	24:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/params/ValueInParam.groovy	28:33
+nextflow/modules/nextflow/src/main/groovy/nextflow/script/parser/v2/ErrorListener.groovy	28:37 41:49
+nextflow/modules/nextflow/src/main/groovy/nextflow/secret/EmptySecretProvider.groovy	106:119 111:114 116:118
+nextflow/modules/nextflow/src/main/groovy/nextflow/secret/MissingSecretException.groovy	28:29
+nextflow/modules/nextflow/src/main/groovy/nextflow/secret/Secret.groovy	24:27
+nextflow/modules/nextflow/src/main/groovy/nextflow/splitter/CollectorStrategy.groovy	27:44
+nextflow/modules/nextflow/src/main/groovy/nextflow/splitter/SplitterEx.groovy	31:70 35:37 39:41 43:45 47:49 51:53 55:57 59:61 63:65 67:69
+nextflow/modules/nextflow/src/main/groovy/nextflow/splitter/SplitterStrategy.groovy	27:51
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/LogObserver.groovy	28:43
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/ProgressState.groovy	23:30
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/TraceObserverFactory.groovy	27:37
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/TraceObserverFactoryV2.groovy	26:35
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/TraceObserverV2.groovy	34:142 112:114
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/event/FilePublishEvent.groovy	32:45
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/event/TaskEvent.groovy	31:40
+nextflow/modules/nextflow/src/main/groovy/nextflow/trace/event/WorkflowOutputEvent.groovy	32:51
+nextflow/modules/nextflow/src/main/groovy/nextflow/util/ColorUtil.groovy	30:159 35:53 37:39 43:49 44:45 46:48 59:61 71:139 72:74 76:78 88:118 91:94 95:96 97:117 127:129 130:136 144:157
+nextflow/modules/nextflow/src/main/groovy/nextflow/util/LoggerOptions.groovy	29:37
+nextflow/modules/nextflow/src/main/groovy/nextflow/util/PathEscapeAware.groovy	27:31
+nextflow/modules/nextflow/src/main/groovy/nextflow/util/PathSplitter.groovy	33:60 37:46 48:59 51:55 56:58
+nextflow/modules/nextflow/src/main/groovy/nextflow/util/TupleHelper.groovy	27:104 29:33 35:40 42:48 50:57 59:67 69:78 80:90 92:103
+nextflow/modules/nextflow/src/test/groovy/FunctionalTests.groovy	31:733 33:74 36:45 76:102 79:81 105:140 107:120 143:182 146:153 184:313 191:212 315:386 322:337 388:447 390:397 419:426 449:582 451:456 475:480 500:504 527:532 556:562 585:637 588:593 612:617 639:663 642:646 665:694 696:732
+nextflow/modules/nextflow/src/test/groovy/groovy/runtime/metaclass/NextflowDelegatingMetaClassTest.groovy	26:63 32:59
+nextflow/modules/nextflow/src/test/groovy/groovy/runtime/metaclass/NumberDelegatingMetaClassTest.groovy	28:67 31:38 40:46 48:52 55:64
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentCallInfoTest.groovy	23:55 25:27 29:34 36:42 44:47 49:54
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentExternalToolTest.groovy	44:198 46:48 50:56 58:129 62:74 77:117 131:197 140:180
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentModuleDirIsolationTest.groovy	47:178 49:51 53:177 144:152
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentModuleRunScopeTest.groovy	38:213 42:44 46:50 52:72 75:90 92:137 96:98 99:118 122:126 139:168 143:145 147:154 170:202 176:178 179:185 189:193 204:212 207:210
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentModuleSpecToolTest.groovy	44:480 46:48 50:169 125:149 162:163 171:275 244:257 267:268 277:372 352:355 370:371 374:478 457:460 473:474
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentOutputPlanTest.groovy	35:174 40:42 44:46 50:53 55:61 63:73 75:92 84:91 96:108 101:107 110:116 120:123 125:128 130:140 142:149 151:158 162:173
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentProtocolSpecTest.groovy	21:165 23:56 25:38 41:55 63:77 65:69 79:96 82:86 103:121 105:109 123:147 128:135 149:164 151:155
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentRegistryToolTest.groovy	51:198 53:55 57:197 147:172 177:180 190:191
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentRunIntegrationTest.groovy	29:276 31:33 35:89 42:69 91:138 99:122 140:185 146:176 147:153 148:152 187:224 193:216 226:275 232:264 233:239 234:238
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentRunnerProviderTest.groovy	21:100 23:26 28:37 39:52 41:43 54:67 56:58 69:81 71:73 83:90 92:99
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentRunnerRequestTest.groovy	21:274 23:52 25:37 54:59 61:66 73:84 75:80 77:79 86:89 91:105 93:96 112:119 121:131 133:141 143:152 160:179 181:192 194:214 222:231 224:225 233:243 237:238 245:249 251:260 262:273 265:266
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentTaskScriptTest.groovy	30:103 33:37 39:41 43:60 62:68 64:65 66:67 70:80 75:79 82:95 97:102
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentToolBridgeIntegrationTest.groovy	38:356 43:45 47:109 51:63 66:100 111:170 117:120 123:159 172:223 181:217 226:231 233:297 238:241 244:282 299:355 309:334 337:340
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/AgentTopicOutputToolTest.groovy	42:164 44:46 48:163 134:137
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/FilesystemToolDescriptorPinTest.groovy	51:112 81:84 86:105 107:111
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/ModuleToolBridgeBindingTest.groovy	42:222 45:53 55:109 104:105 111:150 152:203 205:221
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/ModuleToolBridgeTaskFailureTest.groovy	41:120 43:46 84:102 86:88 92:94 95:97 104:118 107:110
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/ProcessToolSchemaTest.groovy	34:180 36:51 53:75 55:66 69:74 77:107 79:93 99:104 109:131 111:122 125:130 133:155 135:146 157:179 159:170
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/RecordSchemaTest.groovy	34:122 36:63 65:85 67:70 76:84 78:81 87:106 89:92 108:121 110:113
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/SandboxGuardTest.groovy	23:82 26:33 35:42 44:50 52:60 62:70 72:81
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/SkillResolverTest.groovy	25:283 31:38 40:47 49:63 55:62 67:82 84:98 100:111 113:127 131:144 146:153 155:163 167:176 178:185 189:217 224:238 245:259 261:282
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/ToolDescriptorTest.groovy	24:59 26:39 41:58 45:49
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/ToolRefTest.groovy	29:135 32:56 59:95 97:106 109:134
+nextflow/modules/nextflow/src/test/groovy/nextflow/agent/rpc/AgentRpcRegistrationTest.groovy	26:83 28:34 36:42 44:57 59:82
+nextflow/modules/nextflow/src/test/groovy/nextflow/ast/NextflowDSLImplTest.groovy	32:197 34:40 43:70 72:91 94:113 115:141 143:168 170:195
+nextflow/modules/nextflow/src/test/groovy/nextflow/ast/OpXformTest.groovy	32:231 34:50 40:47 52:68 58:65 70:89 72:75 91:106 93:99 109:124 111:117 126:141 128:134 144:160 146:154 163:180 165:173 183:200 185:195 203:219 205:214 221:230 223:225
+nextflow/modules/nextflow/src/test/groovy/nextflow/ast/TaskCmdXformVisitorTest.groovy	31:54 33:53 39:43 47:49
+nextflow/modules/nextflow/src/test/groovy/nextflow/cache/DefaultCacheStoreTest.groovy	27:85 29:57 59:83
+nextflow/modules/nextflow/src/test/groovy/nextflow/conda/CondaCacheTest.groovy	28:625 30:32 34:36 38:47 49:92 95:108 110:124 126:153 155:180 182:208 210:226 228:250 252:274 276:298 300:322 324:346 348:363 365:380 382:397 399:414 416:432 434:450 452:483 485:515 517:551 553:569 571:588 590:607 609:624
+nextflow/modules/nextflow/src/test/groovy/nextflow/config/ConfigBuilderTest.groovy	35:1042 37:54 56:118 120:161 163:186 188:233 235:263 265:276 278:297 299:326 328:347 349:372 374:459 461:506 508:549 551:587 589:615 620:646 648:677 679:712 714:751 753:800 802:835 837:895 897:950 952:1040
+nextflow/modules/nextflow/src/test/groovy/nextflow/config/ConfigMapTest.groovy	25:42 27:40
+nextflow/modules/nextflow/src/test/groovy/nextflow/config/ConfigValidatorTest.groovy	26:271 31:43 33:40 34:39 35:38 45:56 47:53 48:52 49:51 58:71 60:68 61:67 62:66 63:65 73:86 75:82 76:78 79:81 88:103 90:97 93:96 105:134 107:116 108:115 109:114 111:113 121:130 122:129 123:128 125:127 136:150 138:144 139:143 152:169 154:166 155:165 156:158 159:161 162:164 171:191 173:188 174:187 178:180 181:183 184:186 193:201 203:238 205:209 206:208 214:222 215:221 216:220 227:235 228:234 229:233 240:250 242:247 243:246 252:256 258:269
+nextflow/modules/nextflow/src/test/groovy/nextflow/config/ManifestTest.groovy	27:189 29:79 32:56 34:48 35:41 42:47 81:102 104:123 107:113 115:122 125:140 127:133 128:132 142:154 144:149 145:148 156:187 158:160 162:163 166:171 167:170 173:174 177:182 178:181 184:185
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/AppleContainerBuilderTest.groovy	24:148 26:31 33:39 41:49 51:56 58:63 65:71 73:84 86:92 94:100 102:108 110:117 119:126 128:133 135:140 142:147
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/ApptainerCacheTest.groovy	30:209 33:52 54:66 68:80 82:94 96:108 111:139 142:164 166:188 192:207
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/ApptainerConfigTest.groovy	27:72 29:37 39:71 41:54
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/CharliecloudCacheTest.groovy	31:244 33:48 51:63 65:79 81:95 97:114 116:133 135:153 155:173 175:199 201:223 227:242
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/ContainerBuilderTest.groovy	28:117 30:39 41:66 69:91 93:103 105:116
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/ContainerNameValidatorTest.groovy	25:61 27:60
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/SarusBuilderTest.groovy	24:99 26:34 36:64 66:95
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/ShifterBuilderTest.groovy	23:105 25:33 35:52 54:101
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/SingularityCacheTest.groovy	30:209 33:52 54:66 68:80 82:94 96:108 111:139 142:164 166:188 192:207
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/SingularityConfigTest.groovy	27:72 29:37 39:71 41:54
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/SmolVmBuilderTest.groovy	24:134 26:31 33:39 41:49 51:59 61:67 69:80 82:88 90:95 97:102 104:109 111:116 118:123 125:133
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/inspect/ContainerInspectModeTest.groovy	25:51 27:49
+nextflow/modules/nextflow/src/test/groovy/nextflow/container/inspect/ContainersInspectorTest.groovy	30:108 32:35 37:50 38:40 41:48 43:47 44:46 52:64 60:63 66:90 92:106
+nextflow/modules/nextflow/src/test/groovy/nextflow/dag/DAGTest.groovy	34:329 36:38 40:59 62:135 74:78 100:104 137:159 161:191 193:255 203:207 209:213 257:280 264:268 282:327
+nextflow/modules/nextflow/src/test/groovy/nextflow/dag/DagSerializerTest.groovy	25:135 27:29 31:34 36:41 43:91 51:55 56:60 61:65 93:109 111:133 119:123
+nextflow/modules/nextflow/src/test/groovy/nextflow/dag/DotRendererTest.groovy	29:84 31:33 35:40 42:83
+nextflow/modules/nextflow/src/test/groovy/nextflow/dag/GexfRendererTest.groovy	30:58 32:34 36:57
+nextflow/modules/nextflow/src/test/groovy/nextflow/dag/MermaidRendererTest.groovy	28:67 30:66
+nextflow/modules/nextflow/src/test/groovy/nextflow/dag/MultipleInputChannelExceptionTest.groovy	25:49 27:47
+nextflow/modules/nextflow/src/test/groovy/nextflow/dag/MultipleOutputChannelExceptionTest.groovy	25:50 27:47
+nextflow/modules/nextflow/src/test/groovy/nextflow/dataflow/ValueImplTest.groovy	34:195 36:59 39:41 47:49 54:56 61:68 63:65 70:89 72:74 82:84 91:106 94:102 108:117 110:112 119:126 121:123 128:152 132:134 142:147 143:146 154:171 157:159 165:167 173:193 175:183 188:190
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/BashFunLibTest.groovy	29:159 31:92 95:125 127:157
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/BashTemplateEngineTest.groovy	25:51 27:49
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/BatchCleanupTest.groovy	25:112 27:46 49:85 53:55 87:110
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/BridgeExecutorTest.groovy	28:128 30:45 47:54 56:62 64:96 87:95 98:126
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/CondorExecutorTest.groovy	31:273 34:131 42:43 57:58 74:75 89:90 104:105 119:120 134:142 144:152 154:162 164:171 173:203 205:226 229:271 254:259 261:269
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/ExecutorConfigTest.groovy	25:142 28:51 53:70 72:81 83:92 94:103 105:117 119:139
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/ExecutorFactoryTest.groovy	34:164 37:59 61:91 94:115 117:126 128:155 158:163 168:178 170:172 175:177
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/ExecutorTest.groovy	30:88 33:46 48:67 70:86
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/FluxExecutorTest.groovy	30:185 32:39 41:48 50:57 59:106 62:64 108:127 110:112 129:149 132:134 152:174 176:184
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/GridExecutorTest.groovy	28:175 31:50 37:39 52:73 60:62 77:91 94:113 100:102 115:144 121:123 147:172 153:155
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/GridTaskHandlerTest.groovy	36:151 38:51 53:78 56:58 80:103 84:86 87:89 105:135 110:118 119:121 137:150
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/HyperQueueExecutorTest.groovy	32:142 34:51 53:81 83:94 96:102 104:141 117:122 131:140
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/MoabExecutorTest.groovy	30:245 32:39 41:55 57:64 66:73 76:105 108:218 125:130 138:145 154:162 173:182 191:200 208:216 220:244 237:242
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/NqsiiExecutorTest.groovy	32:292 34:43 45:165 62:69 77:86 95:105 116:126 135:145 153:163 167:193 184:191 196:212 214:222 225:232 234:280 282:290
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/OarExecutorTest.groovy	28:278 30:47 49:56 58:64 66:188 85:91 97:104 110:117 125:134 142:151 160:169 178:187 190:217 209:215 220:267 269:276
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/PbsExecutorTest.groovy	32:371 34:38 35:37 40:42 44:53 55:189 70:75 82:89 97:105 114:123 132:141 149:157 165:172 175:180 182:188 191:215 208:213 218:235 237:252 255:262 264:296 298:303 305:313 315:325 327:333 336:346 348:370
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/PbsProExecutorTest.groovy	32:324 34:38 35:37 40:42 44:64 59:63 66:87 81:86 89:112 105:111 114:136 129:135 138:160 153:159 162:187 169:173 181:186 189:207 193:198 201:206 209:217 219:251 253:278 271:277 280:286 289:299 301:323
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/SgeExecutorTest.groovy	31:410 34:42 44:52 54:217 70:78 85:93 102:112 121:131 142:153 164:175 186:197 200:205 207:215 219:245 235:243 247:261 263:270 273:301 303:347 349:377 368:374 379:388 390:396 399:409
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/SimpleFileCopyStrategyTest.groovy	30:388 33:74 77:91 93:100 103:132 136:158 161:178 180:197 199:216 219:237 239:257 260:280 282:298 300:321 323:343 346:353 355:386
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/TcsExecutorTest.groovy	34:230 36:43 45:51 54:69 71:138 92:99 108:115 122:127 131:137 140:168 160:167 170:200 202:207 209:215 218:228
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/res/AcceleratorResourceTest.groovy	25:57 27:48 50:56
+nextflow/modules/nextflow/src/test/groovy/nextflow/executor/res/DiskResourceTest.groovy	26:51 31:44 46:50
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/BranchOpTest.groovy	33:347 38:60 41:48 62:81 64:70 83:102 85:91 105:126 107:117 128:146 130:137 149:171 152:159 173:189 175:183 192:208 194:202 212:234 215:222 236:254 239:245 256:274 258:269 276:284 278:280 286:294 288:290 296:312 298:300 306:308 315:324 317:319 327:346 330:336
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/BufferOpTest.groovy	30:173 32:52 35:37 44:46 54:97 57:59 67:69 79:81 88:90 99:107 110:130 113:115 122:124 132:144 136:138 146:170 149:151 157:159 164:166
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/CHTest.groovy	32:147 34:43 45:51 53:60 62:76 70:72 78:87 82:84 89:103 93:95 106:113 115:129 119:121 131:145 135:137
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/CapturePropertiesTest.groovy	25:35 27:33
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/CountFastaOpTest.groovy	28:123 30:71 65:67 73:122 116:118
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/CountFastqOpTest.groovy	28:134 30:75 69:71 77:133 127:129
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/CountLinesOpTest.groovy	27:62 29:61 55:57
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/DataflowMergeExtensionTest.groovy	29:133 31:33 35:48 37:42 50:88 53:57 65:69 77:81 90:104 93:97 106:118 109:113 120:131 122:126
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/DumpHelperTest.groovy	29:141 31:57 59:85 87:112 114:132 134:136 138:140
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/GroupKeyTest.groovy	28:78 30:43 45:62 64:76
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/GroupTupleOpTest.groovy	27:185 29:57 59:78 80:95 98:142 104:106 110:112 121:123 132:134 144:165 150:154 157:159 167:184 169:173 176:178
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/MixOpTest.groovy	28:68 30:48 32:37 50:57 52:54 59:66 61:63
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/MultiMapOpTest.groovy	33:146 38:67 41:48 69:98 72:79 100:123 102:112 125:144 128:134
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/PhaseOpTest.groovy	26:82 28:30 32:80
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/PublishOpTest.groovy	27:110 29:45 47:56 58:69 71:89 73:76 91:108 93:96
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/SetOpTest.groovy	28:70 30:48 32:35 42:45 50:68 52:55 62:65
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/SplitFastaOperatorTest.groovy	30:204 66:79 69:71 82:95 85:87 97:113 100:104 115:128 118:120 131:162 154:156 164:203 195:197
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/TransposeOpTest.groovy	31:303 33:52 39:41 54:71 60:62 73:92 79:81 94:113 100:102 115:144 121:123 132:134 146:161 152:154 163:178 169:171 180:209 211:220 222:253 255:264 266:302 272:274 282:284 293:295
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/UniqueOpTest.groovy	30:64 32:42 34:36 44:51 46:48 53:62 55:59
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/plugin/ChannelFactoryInstanceTest.groovy	36:216 38:66 44:47 49:52 54:56 58:65 68:82 73:76 78:81 84:113 115:142 144:186 188:214
+nextflow/modules/nextflow/src/test/groovy/nextflow/extension/plugin/PluginExtensionProviderTest.groovy	36:82 38:43 45:52 54:68 59:62 70:74 76:81
+nextflow/modules/nextflow/src/test/groovy/nextflow/file/DirWatcherTest.groovy	32:225 35:57 60:84 86:113 115:144 146:174 176:206 210:223
+nextflow/modules/nextflow/src/test/groovy/nextflow/file/DirWatcherV2Test.groovy	30:221 32:54 57:81 83:110 112:141 143:171 173:203 207:220
+nextflow/modules/nextflow/src/test/groovy/nextflow/file/PathVisitorTest.groovy	26:55 28:53
+nextflow/modules/nextflow/src/test/groovy/nextflow/file/SequentialFileStoreTest.groovy	27:134 32:67 69:110 77:86 90:102 113:132
+nextflow/modules/nextflow/src/test/groovy/nextflow/file/SimpleFileCollectorTest.groovy	30:282 33:51 53:73 75:119 122:146 149:178 180:216 218:241 230:239 243:279 257:266 268:277
+nextflow/modules/nextflow/src/test/groovy/nextflow/file/SlurperExTest.groovy	28:94 30:62 64:92
+nextflow/modules/nextflow/src/test/groovy/nextflow/file/SortFileCollectorTest.groovy	27:330 29:54 56:78 81:111 114:144 146:187 190:216 218:244 246:287 289:328 305:312 314:321
+nextflow/modules/nextflow/src/test/groovy/nextflow/fusion/FusionHelperTest.groovy	30:88 32:48 50:61 63:86 65:67
+nextflow/modules/nextflow/src/test/groovy/nextflow/fusion/FusionScriptLauncherTest.groovy	30:104 32:53 55:66 62:65 68:80 75:79 82:93 89:92 95:103 97:99
+nextflow/modules/nextflow/src/test/groovy/nextflow/mail/AttachmentTest.groovy	28:95 31:40 42:80 82:93
+nextflow/modules/nextflow/src/test/groovy/nextflow/mail/MailTest.groovy	26:144 28:59 31:43 62:112 114:143 117:128
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/DefaultRemoteModuleResolverTest.groovy	27:46 29:37 39:45
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/InstalledModuleTest.groovy	29:201 33:35 37:39 41:73 58:66 75:108 93:101 110:138 124:131 140:168 154:161 170:200 185:192
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/ModuleReferenceTest.groovy	27:229 29:37 39:45 47:55 57:63 65:71 73:79 81:87 89:95 97:103 105:113 115:122 124:131 133:140 142:151 153:160 162:168 170:184 186:193 195:201 203:209 211:219 221:228
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/ModuleResolverDependencyTest.groovy	38:373 46:48 50:59 53:54 61:78 63:67 68:72 73:76 80:82 84:86 89:99 101:116 118:132 134:148 150:164 166:181 183:197 199:218 220:236 238:251 253:269 271:283 285:299 301:321 323:347 349:371
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/ModuleResolverTest.groovy	33:217 38:50 52:75 77:102 104:134 136:164 166:192 194:215
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/ModuleSchemaValidatorTest.groovy	32:214 60:64 66:70 72:85 75:78 87:100 90:92 102:120 105:112 122:135 125:128 137:147 149:167 151:158 169:182 184:197 199:205 207:213
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/ModuleSpecFactoryTest.groovy	30:1231 35:63 65:93 95:114 116:133 118:125 135:151 153:171 173:186 188:197 199:271 273:350 352:368 370:433 435:454 456:499 501:515 517:543 549:588 590:642 644:674 676:706 708:733 735:787 793:833 835:872 878:905 907:935 937:965 967:996 998:1050 1053:1069 1071:1109 1111:1132 1134:1162 1164:1185 1187:1229
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/ModuleSpecTest.groovy	30:120 39:54 41:46 60:69 71:88 73:78 90:101 103:118 105:109
+nextflow/modules/nextflow/src/test/groovy/nextflow/module/ModuleValidatorTest.groovy	30:386 44:48 50:56 58:83 60:76 85:107 87:100 109:138 111:131 140:177 142:170 179:207 181:200 210:240 212:233 242:267 244:260 269:295 271:288 297:322 299:315 324:350 326:342 353:384 355:376
+nextflow/modules/nextflow/src/test/groovy/nextflow/platform/PlatformHelperTest.groovy	27:126 29:40 42:51 53:64 66:75 77:86 88:97 99:102 104:107 109:112 114:120 116:119 122:125
+nextflow/modules/nextflow/src/test/groovy/nextflow/platform/ResourceLabelPolicyTest.groovy	27:256 31:39 41:48 53:67 69:73 75:87 89:92 97:111 114:126 128:132 134:140 136:139 145:161 164:177 179:184 186:192 188:191 197:210 212:216 214:215 220:229 231:238 242:254
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/BatchContextTest.groovy	25:73 27:39 42:52 55:72
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/DefaultTaskCacheStrategyTest.groovy	35:211 49:54 56:60 57:59 62:64 66:70 72:89 91:107 109:156 158:175 177:191 193:209
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/ErrorStrategyTest.groovy	25:49 27:47
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/HintDefsTest.groovy	26:80 28:40 30:37 42:48 50:55 57:62 64:70 72:78
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/LocalPollingMonitorTest.groovy	35:375 37:103 40:41 45:50 46:49 51:54 55:57 58:60 61:65 71:76 105:150 110:117 153:197 158:165 199:232 204:211 234:260 239:246 262:287 267:274 289:319 296:303 321:346 348:374
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskBeanTest.groovy	32:131 34:108 40:42 110:130 113:119
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskEnvCollectorTest.groovy	26:75 28:49 51:73
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskErrorFormatterTest.groovy	30:382 32:61 35:38 39:44 63:83 66:69 70:75 85:103 88:90 91:96 105:128 108:111 112:116 130:147 133:135 136:140 149:181 152:161 183:206 186:196 208:229 211:220 231:252 234:240 254:276 257:267 278:297 281:289 299:320 302:311 322:355 332:342 357:380 362:372
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskFileCollectorTest.groovy	29:233 31:52 35:37 55:60 62:141 143:145 147:178 180:204 182:185 207:231 209:212
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskOutputResolverTest.groovy	32:318 37:44 38:43 46:50 47:49 52:76 78:97 99:113 115:126 128:139 141:151 153:167 169:185 187:198 200:211 213:223 225:236 238:246 248:258 260:271 273:281 283:292 294:317 298:303
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskPathTest.groovy	32:189 34:90 92:113 115:132 134:138 141:158 160:169 171:187
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskRunTest.groovy	59:1035 61:63 65:91 93:112 114:137 140:161 163:209 211:231 235:289 291:304 306:323 326:344 346:366 368:379 382:411 413:438 440:469 449:452 471:509 511:534 536:559 561:585 587:606 608:628 630:666 668:683 685:691 687:689 693:716 718:731 734:746 749:775 777:791 793:810 796:798 812:837 820:822 840:860 862:888 890:902 904:909 913:927 916:918 929:944 932:934 946:962 953:955 964:975 977:984 986:1009 1011:1034
+nextflow/modules/nextflow/src/test/groovy/nextflow/processor/TaskTemplateEngineTest.groovy	24:185 26:33 35:66 68:108 110:134 136:150 152:163 165:184
+nextflow/modules/nextflow/src/test/groovy/nextflow/scm/AzureRepositoryProviderTest.groovy	27:324 45:54 56:68 70:83 85:97 99:106 108:117 126:140 144:157 162:177 173:175 181:198 192:197 202:216 220:242 246:259 263:282 286:304 308:323
+nextflow/modules/nextflow/src/test/groovy/nextflow/scm/GitReferenceHelperTest.groovy	25:324 30:32 35:61 63:70 72:81 74:76 83:99 88:91 92:94 101:116 105:108 109:111 118:127 129:138 140:152 143:145 154:166 157:159 168:180 171:173 182:187 189:193 195:199 201:217 204:208 219:236 223:227 238:260 243:247 248:250 262:283 266:270 271:273 285:296 288:291 298:310 302:305 312:323 315:318
+nextflow/modules/nextflow/src/test/groovy/nextflow/scm/GitUrlTest.groovy	26:66 29:56 58:63
+nextflow/modules/nextflow/src/test/groovy/nextflow/scm/GiteaRepositoryProviderTest.groovy	28:246 30:36 38:44 46:61 64:77 80:95 99:123 127:140 144:156 160:179 183:198 202:219 223:245
+nextflow/modules/nextflow/src/test/groovy/nextflow/scm/HubOptionsTest.groovy	25:41 27:40
+nextflow/modules/nextflow/src/test/groovy/nextflow/scm/ProviderPathTest.groovy	25:101 28:60 31:33 62:73 76:87 78:80 89:100 91:93
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/AgentBuilderTest.groovy	20:108 22:46 48:64 66:85 87:96 98:107
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/BaseScriptTest.groovy	33:107 36:70 72:105
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/BodyDefTest.groovy	27:61 29:42 45:52 54:59
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/DataflowTypesTest.groovy	29:238 31:72 74:117 119:162 164:209 211:236 213:232
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ExecutionStackTest.groovy	25:86 27:29 31:84
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/IterableDefTest.groovy	25:28
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/OutputDslTest.groovy	33:379 35:42 36:39 44:106 54:63 57:62 58:61 75:77 78:85 82:84 93:95 108:145 116:119 130:131 147:188 155:158 171:172 190:205 193:195 202:204 207:244 217:220 231:232 246:272 263:271 274:292 287:291 294:313 302:304 315:334 324:326 336:355 344:346 357:377 365:369 366:368
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/PlatformMetadataTest.groovy	26:73 28:34 36:42 44:53 55:61 63:72
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ProcessConfigTest.groovy	29:171 32:44 46:64 67:82 84:90 93:104 107:120 123:143 146:169
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ProcessDefTest.groovy	28:131 30:57 59:102 66:76 67:75 68:74 104:130 112:124 113:117 114:116 118:120 121:123
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptBindingTest.groovy	27:156 29:42 44:76 78:105 107:138 140:154
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptDslTest.groovy	30:640 32:57 59:75 77:95 97:118 121:157 160:170 163:165 172:187 175:182 189:202 192:198 204:220 206:216 222:238 224:235 240:263 243:255 266:288 268:282 290:315 292:308 317:340 319:334 342:364 344:359 366:388 368:383 390:411 392:406 413:439 415:434 441:461 443:456 463:482 465:477 485:507 487:502 510:534 512:529 536:564 538:559 566:584 587:606 590:592 598:602 608:638 610:634
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptIncludesTest.groovy	32:1032 34:79 81:105 107:132 134:163 165:192 194:236 239:282 284:320 322:360 362:393 395:431 434:481 483:532 535:568 570:600 602:631 633:701 704:736 739:794 798:832 834:867 869:897 899:928 930:957 959:988 990:1031
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptPipesTest.groovy	28:272 30:59 62:89 91:127 129:159 162:182 185:211 214:234 237:249 252:270
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptProcessRunTest.groovy	33:175 35:56 58:82 110:124 126:143 145:174
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptRecurseTest.groovy	31:154 36:59 61:84 87:125 127:152
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptRunnerTest.groovy	34:638 36:66 69:99 102:128 131:158 161:186 188:214 216:237 240:266 269:304 272:279 306:348 309:323 350:379 353:356 381:415 386:392 417:445 422:425 448:505 450:459 508:545 547:573 575:599 602:637 608:611
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/ScriptTypesTest.groovy	32:416 34:56 37:53 58:80 61:77 82:101 85:96 103:160 105:120 135:154 162:177 165:173 179:204 182:198 206:224 209:220 226:257 259:286 288:324 326:370 372:415 374:382 397:403
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/TaskClosureTest.groovy	25:57 27:39 41:56
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/WorkflowDefTest.groovy	33:219 35:79 81:97 99:119 121:140 142:161 163:207 209:217
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/WorkflowEntryHandlerTest.groovy	39:722 41:55 42:45 47:49 50:53 57:64 73:77 79:98 81:94 100:131 110:123 133:163 142:156 165:185 167:180 187:226 197:217 228:263 237:255 265:285 267:280 287:312 292:305 314:334 316:330 336:356 338:351 358:384 360:374 386:406 388:401 408:430 411:425 432:449 434:444 451:471 453:466 473:494 475:488 496:517 498:512 519:541 523:536 543:562 545:558 564:592 571:584 594:627 600:618 629:650 631:645 652:686 659:678 688:720 694:712
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/WorkflowMetadataTest.groovy	42:379 47:63 65:155 72:80 86:89 157:159 161:209 185:193 211:227 220:222 229:279 254:263 281:300 302:313 315:339 320:330 332:335 341:358 360:377
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/WorkflowNotifierTest.groovy	41:363 43:172 50:74 175:228 183:208 230:237 239:281 283:314 317:360 322:326 327:329
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/bundle/ResourcesBundleTest.groovy	32:234 39:83 64:70 72:78 85:108 110:133 135:145 147:158 160:174 176:207 198:206 209:232 227:229
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/dsl/ProcessBuilderTest.groovy	31:388 33:35 37:39 41:80 82:102 104:127 129:146 148:164 166:183 185:206 208:216 218:227 229:257 259:289 291:311 313:333 335:344 346:367 369:387
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/dsl/ProcessConfigBuilderTest.groovy	27:267 29:31 33:39 42:57 59:111 61:67 114:158 116:121 161:210 167:170 184:188 200:204 213:235 219:221 225:228 230:233 237:266 239:243
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/dsl/ProcessDslV1Test.groovy	31:131 33:35 37:64 66:88 90:129
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/dsl/ProcessDslV2Test.groovy	27:148 29:31 33:59 61:84 86:103 105:146
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/EachInParamTest.groovy	27:71 29:69 35:37 42:44 49:51 56:58 63:65
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/FileInParamTest.groovy	24:40 26:37
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/FileOutParamTest.groovy	28:108 30:53 55:73 76:105
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/ParamsDsl2Test.groovy	29:109 31:64 66:108
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/ParamsInTest.groovy	33:751 39:86 88:135 137:181 183:216 218:253 255:293 295:361 364:433 435:461 467:537 539:572 574:606 598:599 601:602 608:665 668:716 719:749
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/TupleInParamTest.groovy	26:165 28:114 116:162 147:148 151:152 155:156 159:160
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/v2/ProcessFileInputTest.groovy	24:65 26:46 48:63
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/params/v2/ProcessFileOutputTest.groovy	24:41 26:39
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/parser/v1/ScriptLoaderV1Test.groovy	31:162 33:55 57:78 80:100 102:116 118:127 129:141 143:160
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/parser/v2/AgentScriptLoadingTest.groovy	29:361 31:67 69:113 115:160 162:222 217:218 224:273 275:316 318:360
+nextflow/modules/nextflow/src/test/groovy/nextflow/script/parser/v2/ScriptLoaderV2Test.groovy	35:471 40:65 67:87 89:108 110:143 145:180 182:200 202:221 223:255 257:286 288:327 329:351 353:383 385:436 438:469
+nextflow/modules/nextflow/src/test/groovy/nextflow/secret/LocalSecretsProviderTest.groovy	30:352 32:62 64:82 84:107 109:147 119:130 120:129 121:125 126:128 134:137 149:178 180:207 210:233 235:257 260:280 282:324 326:351
+nextflow/modules/nextflow/src/test/groovy/nextflow/secret/SecretsLoaderTest.groovy	30:108 32:39 42:61 63:92 94:106 100:101
+nextflow/modules/nextflow/src/test/groovy/nextflow/spack/SpackCacheTest.groovy	27:280 29:37 40:53 56:83 85:102 105:131 133:149 151:167 169:185 187:206 208:224 226:243 245:262 264:279
+nextflow/modules/nextflow/src/test/groovy/nextflow/spack/SpackConfigTest.groovy	26:46 29:45
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/AbstractSplitterTest.groovy	27:180 31:48 50:59 61:120 122:149 125:140 127:129 132:134 137:139 151:178 154:169 156:158 161:163 166:168
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/AbstractTextSplitterTest.groovy	28:180 30:139 141:178
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/CharSequenceCollectorTest.groovy	25:77 27:43 45:62 64:75
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/FastaSplitterTest.groovy	27:421 30:61 65:89 84:87 91:118 112:116 120:166 169:198 201:254 227:236 239:247 249:253 256:298 277:283 285:290 292:297 301:330 332:375 356:366 368:374 377:419
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/JsonSplitterTest.groovy	25:173 84:95 97:104 107:118 120:128 131:139 142:150 153:172
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/ObjectListCollectorTest.groovy	25:76 27:40 43:60 62:74
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/SplitterExTest.groovy	29:347 32:52 54:79 81:105 107:132 134:162 164:174 176:186 189:212 215:270 241:245 247:251 253:257 259:263 265:268 273:326 299:304 306:311 313:318 320:325 329:345
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/SplitterFactoryTest.groovy	25:36 27:33
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/StringSplitterTest.groovy	26:73 29:34 36:41 43:51 53:58 60:71
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/TextFileCollectorTest.groovy	33:188 35:45 47:84 87:119 121:158 160:186
+nextflow/modules/nextflow/src/test/groovy/nextflow/splitter/TextSplitterTest.groovy	29:363 31:37 39:44 46:54 56:63 65:95 97:111 113:129 131:147 149:176 178:205 207:228 230:251 253:282 284:291 293:306 309:331 333:362
+nextflow/modules/nextflow/src/test/groovy/nextflow/trace/AgentLogObserverTest.groovy	32:256 34:53 38:43 55:69 71:94 75:82 96:118 103:105 106:108 120:142 127:129 130:132 144:166 151:153 154:156 168:194 172:180 181:183 184:186 196:215 200:202 203:205 206:208 217:239 222:229 244:255 247:249 252:254
+nextflow/modules/nextflow/src/test/groovy/nextflow/trace/ProgressRecordTest.groovy	25:89 27:54 31:53 56:86
+nextflow/modules/nextflow/src/test/groovy/nextflow/trace/StatsObserverTest.groovy	26:72 28:48 39:46 50:69 62:65
+nextflow/modules/nextflow/src/test/groovy/nextflow/trace/TraceFileObserverTest.groovy	40:349 44:46 48:51 53:67 70:78 80:99 101:176 179:219 221:242 244:285 287:347
+nextflow/modules/nextflow/src/test/groovy/nextflow/trace/TraceHelperTest.groovy	27:64 29:45 47:62
+nextflow/modules/nextflow/src/test/groovy/nextflow/trace/WorkflowStatsTest.groovy	31:816 34:78 80:99 102:135 137:165 168:178 180:199 201:218 208:210 220:253 227:231 237:240 255:303 264:267 275:280 305:371 319:322 333:341 373:439 387:389 400:408 441:506 455:457 468:476 508:575 523:525 538:548 577:644 592:594 607:617 646:711 660:662 674:683 713:724 726:760 732:736 743:745 762:792 767:771 778:780 795:815
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/ArrayBagTest.groovy	24:108 26:38 40:51 53:66 68:75 77:91 93:106
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/BarrierTest.groovy	26:73 28:52 55:72
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/BlankSeparatedListTest.groovy	27:94 29:37 39:46 48:54 56:61 63:68 71:81 83:92 85:88
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/ClassLoaderFactoryTest.groovy	27:59 29:57
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/ColorUtilTest.groovy	29:240 34:36 38:50 52:64 66:78 76:77 80:93 95:104 101:103 106:116 112:115 118:129 124:128 131:135 137:143 145:151 153:161 158:160 163:173 168:172 175:186 182:185 188:197 193:196 199:211 205:210 213:225 219:220 221:224 227:239
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/ConfigHelperTest.groovy	26:322 29:45 47:71 72:134 136:156 158:197 199:250 252:291 293:301 304:319
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/CsvWriterTest.groovy	25:102 27:55 31:35 57:69 61:63 71:83 75:77 85:100
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/HistoryFileTest.groovy	29:359 41:48 50:80 83:115 118:133 135:146 148:156 158:175 167:171 177:194 186:190 197:214 206:213 216:230 232:251 253:265 268:279 282:296 298:307 309:357
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/IdentityTest.groovy	25:54 27:33 36:43 45:52
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/PathSplitterTest.groovy	26:65 29:64
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/PathTrieTest.groovy	25:236 27:41 43:84 86:113 115:149 151:172 174:215 217:234
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/SimpleAgentTest.groovy	25:53 27:51
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/SimpleHttpClientTest.groovy	25:165 28:42 44:67 50:53 54:57 70:81 83:95 97:107 110:162 127:140 129:139
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/ThreadPoolBuilderTest.groovy	25:81 27:49 51:80
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/ThreadPoolHelperTest.groovy	27:33 29:32
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/ThreadPoolManagerTest.groovy	25:70 27:33 35:41 43:49 51:59 61:69
+nextflow/modules/nextflow/src/test/groovy/nextflow/util/TrieTest.groovy	25:137 27:37 39:47 49:59 62:80 82:101 103:117 119:135
+nextflow/modules/nextflow/src/testFixtures/groovy/test/BaseSpec.groovy	29:40 31:33 35:37
+nextflow/modules/nf-cli-v1/build.gradle	1:3 7:14 16:27 29:31 33:35 37:47 39:41 44:46
+nextflow/modules/nf-cli-v1/src/main/groovy/nextflow/cli/CmdHelper.groovy	24:51 34:49 41:47 44:46
+nextflow/modules/nf-cli-v1/src/main/groovy/nextflow/cli/UsageAware.groovy	25:31
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdAuthTest.groovy	32:203 40:46 49:65 67:80 82:95 97:109 111:124 126:139 141:154 156:169 171:190 192:202
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdCleanTest.groovy	29:108 31:50 52:70 73:94 96:106
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdCloneTest.groovy	28:51 32:49
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdConfigTest.groovy	33:618 35:37 39:63 65:93 95:138 140:172 174:209 211:236 238:279 281:316 318:368 370:410 414:437 419:423 440:477 480:520 522:571 573:617
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdHelperTest.groovy	25:49 27:47
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdInfoTest.groovy	39:135 43:45 47:55 57:59 61:78 80:106 108:134
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdInspectTest.groovy	25:44 27:42
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdLineageTest.groovy	43:273 45:48 50:54 56:58 66:91 75:77 93:114 100:102 116:144 123:125 128:129 146:166 151:153 168:241 174:176 189:190 192:193 195:201 199:200 203:204 206:209 243:271 250:252 255:256
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdLintTest.groovy	32:295 37:43 39:41 45:47 49:71 73:90 92:138 140:170 172:193 195:221 223:246 248:269 271:293
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdLogFileTest.groovy	34:532 57:76 78:97 99:119 121:143 126:128 145:165 167:194 196:222 224:239 241:255 257:276 278:285 287:302 304:317 323:339 341:356 362:391 393:408 410:427 429:444 450:453 455:461 463:469 471:475 477:481 483:488 490:494 496:499 501:504 506:509 511:531
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdLogTest.groovy	42:185 44:46 48:51 59:120 122:183
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdPluginCreateTest.groovy	29:72 31:33 36:70 40:44
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdPluginTest.groovy	24:82 26:38 31:33 34:36 40:48 50:55 57:62 64:71 73:80
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdPullTest.groovy	34:59 36:38 41:57
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/CmdSecretTest.groovy	34:129 45:47 49:55 57:60 62:78 81:95 97:108 110:127
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/LogFileFormatterTest.groovy	25:361 31:47 49:55 57:68 72:79 81:94 96:108 112:120 124:139 141:157 159:171 173:183 185:198 202:218 220:234 236:250 252:264 266:279 283:294 296:309 311:322 324:335 337:347 351:360
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/module/CmdModuleCreateTest.groovy	29:340 34:44 46:58 60:82 84:98 100:104 106:123 125:137 139:146 148:156 158:186 188:200 202:215 217:230 232:253 234:236 255:266 268:277 279:288 290:304 295:297 306:325 308:310 327:339 329:331
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/module/CmdModuleListTest.groovy	37:229 47:70 72:95 97:108 110:129 131:152 154:172 174:195 197:228
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/module/CmdModulePublishTest.groovy	35:220 40:65 67:85 87:116 118:151 153:158 160:177 179:189 191:203 194:196 205:219 208:210
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/module/CmdModuleRemoveTest.groovy	37:263 47:65 67:88 90:104 106:123 125:144 146:165 167:188 190:202 204:215 217:228 230:262 257:259
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/module/CmdModuleValidateTest.groovy	30:173 35:69 71:80 82:92 94:104 106:116 118:136 138:153 155:161 163:172
+nextflow/modules/nf-cli-v1/src/test/groovy/nextflow/cli/module/CmdModuleViewTest.groovy	42:873 50:103 52:57 60:64 69:71 75:77 78:80 105:147 107:110 113:116 122:124 128:130 131:133 149:184 151:153 156:160 166:168 172:174 186:239 188:192 195:199 205:207 211:213 214:216 241:287 243:248 251:254 257:260 265:267 271:273 274:276 289:350 291:296 297:301 304:307 310:313 316:319 324:326 330:332 333:335 352:406 354:359 362:365 368:371 374:377 382:384 388:390 391:393 408:467 410:413 414:417 420:423 424:427 430:433 436:439 444:446 450:452 453:455 469:505 471:474 477:480 486:488 492:494 507:556 509:512 515:518 521:524 527:530 535:537 541:543 544:546 558:572 561:563 574:588 577:579 590:633 592:596 599:603 608:610 614:616 617:619 635:671 637:639 642:646 651:653 657:659 660:662 673:733 675:679 680:684 687:690 693:696 699:702 707:709 713:715 716:718 735:791 737:742 745:748 751:754 760:762 766:768 769:771 793:872 795:800 801:804 807:812 813:816 819:823 826:829 835:837 841:843 844:846
+nextflow/modules/nf-commons/build.gradle	18:25 27:54
+nextflow/modules/nf-commons/src/main/nextflow/Const.groovy	26:91 49:56 58:67 62:64 69:71
+nextflow/modules/nf-commons/src/main/nextflow/ISession.groovy	26:69
+nextflow/modules/nf-commons/src/main/nextflow/file/TagAwareFile.groovy	24:31
+nextflow/modules/nf-commons/src/main/nextflow/io/SerializableMarker.groovy	25:26
+nextflow/modules/nf-commons/src/main/nextflow/plugin/CustomVersionManager.groovy	33:79 38:49 42:44 45:48 51:65 52:61 53:55 56:59 62:64 67:70 73:77
+nextflow/modules/nf-commons/src/main/nextflow/plugin/DevPluginClasspath.groovy	30:60 34:41 44:50 45:48 53:59 54:57
+nextflow/modules/nf-commons/src/main/nextflow/plugin/PrefetchUpdateRepository.groovy	30:36
+nextflow/modules/nf-commons/src/main/nextflow/plugin/Priority.groovy	32:35
+nextflow/modules/nf-commons/src/main/nextflow/plugin/Scoped.groovy	33:36
+nextflow/modules/nf-commons/src/main/nextflow/serde/JsonSerializable.groovy	24:26
+nextflow/modules/nf-commons/src/main/nextflow/ui/LabelDecorator.groovy	23:27
+nextflow/modules/nf-commons/src/main/nextflow/util/MathHelper.groovy	27:41 29:31 33:35 37:39
+nextflow/modules/nf-commons/src/main/nextflow/util/ProcessHelper.groovy	31:64 33:53 34:39 40:42 45:49 50:52 55:62 56:58 59:61
+nextflow/modules/nf-commons/src/main/nextflow/util/ProxyConfig.groovy	38:74 47:51 57:59 66:68 71:73
+nextflow/modules/nf-commons/src/main/nextflow/util/Threads.groovy	27:48 29:31 33:37 39:46
+nextflow/modules/nf-commons/src/test/nextflow/BuildInfoTest.groovy	25:34 27:33
+nextflow/modules/nf-commons/src/test/nextflow/ConstTest.groovy	27:47 29:36 38:45
+nextflow/modules/nf-commons/src/test/nextflow/config/RegistryConfigTest.groovy	27:107 29:37 39:46 48:55 57:65 67:73 77:88 90:97 99:106
+nextflow/modules/nf-commons/src/test/nextflow/file/FileHelperTest.groovy	40:1242 44:48 50:71 73:111 113:120 123:131 133:227 230:238 240:253 255:270 273:301 303:329 331:341 343:351 354:410 413:459 461:494 496:529 503:505 510:512 531:545 547:600 602:615 618:625 628:658 660:706 668:680 671:673 674:679 676:678 708:756 758:773 775:811 783:795 786:788 789:794 791:793 813:849 821:833 824:826 827:832 829:831 851:905 907:945 947:970 973:984 987:1002 1005:1049 1052:1068 1070:1089 1092:1105 1107:1124 1127:1151 1154:1175 1177:1196 1198:1221 1222:1240
+nextflow/modules/nf-commons/src/test/nextflow/file/FilePatternSplitterTest.groovy	26:218 29:73 76:117 119:136 139:148 152:166 169:184 186:215
+nextflow/modules/nf-commons/src/test/nextflow/file/GlobsTest.groovy	25:34 27:32
+nextflow/modules/nf-commons/src/test/nextflow/file/ObjectMetaTest.groovy	24:41 26:34 36:40
+nextflow/modules/nf-commons/src/test/nextflow/file/StagePathTest.groovy	26:101 28:40 43:63 65:80 82:100
+nextflow/modules/nf-commons/src/test/nextflow/io/ByteBufferBackedInputStreamTest.groovy	25:43 27:41
+nextflow/modules/nf-commons/src/test/nextflow/io/DataInputStreamAdapterTest.groovy	27:48 29:46
+nextflow/modules/nf-commons/src/test/nextflow/io/ValueObjectTest.groovy	26:100 28:42 30:41 45:61 47:60 63:78 65:77 80:98 82:97
+nextflow/modules/nf-commons/src/test/nextflow/plugin/BasePluginTest.groovy	27:55 30:54 32:36 33:35
+nextflow/modules/nf-commons/src/test/nextflow/plugin/CustomPluginManagerTest.groovy	25:40 27:32 34:39
+nextflow/modules/nf-commons/src/test/nextflow/plugin/CustomVersionManagerTest.groovy	26:75 29:52 55:73
+nextflow/modules/nf-commons/src/test/nextflow/plugin/DefaultPluginsTest.groovy	25:66 27:49 33:36 51:64 57:60
+nextflow/modules/nf-commons/src/test/nextflow/plugin/HttpPluginRepositoryTest.groovy	30:318 36:38 42:62 44:54 45:54 47:54 66:104 68:87 69:87 71:87 108:120 124:138 142:155 144:147 145:147 159:172 161:164 162:164 176:192 178:184 179:184 181:184 196:211 198:202 199:202 215:310 222:263 223:263 225:263 315:317
+nextflow/modules/nf-commons/src/test/nextflow/plugin/PluginRefTest.groovy	25:58 27:39 41:56
+nextflow/modules/nf-commons/src/test/nextflow/plugin/extension/PluginExtensionMethodsTest.groovy	35:595 43:53 55:59 61:77 79:94 96:114 116:135 137:155 157:175 177:193 195:211 213:227 229:241 231:237 243:258 260:278 280:298 300:315 317:350 352:400 402:420 422:450 452:493 495:513 515:532 534:544 536:541 546:557 548:553 559:573 561:570 575:593 577:586
+nextflow/modules/nf-commons/src/test/nextflow/plugin/hello/HelloExtensionTest.groovy	29:60 31:43 34:38 45:59 48:54
+nextflow/modules/nf-commons/src/test/nextflow/plugin/hello/HelloFactoryTest.groovy	28:38 30:36
+nextflow/modules/nf-commons/src/test/nextflow/plugin/util/PluginRefactorTest.groovy	25:86 28:47 49:66 69:85
+nextflow/modules/nf-commons/src/test/nextflow/ui/TableBuilderTest.groovy	25:160 27:43 45:55 59:74 77:96 98:115 117:136 138:158
+nextflow/modules/nf-commons/src/test/nextflow/ui/TextLabelTest.groovy	26:89 28:35 37:48 50:62 65:76
+nextflow/modules/nf-commons/src/test/nextflow/util/ArrayTupleTest.groovy	25:57 27:56
+nextflow/modules/nf-commons/src/test/nextflow/util/BucketParserTest.groovy	28:82 31:48 50:58 60:81
+nextflow/modules/nf-commons/src/test/nextflow/util/CheckHelperTest.groovy	25:124 27:45 48:88 90:106 92:99 109:122
+nextflow/modules/nf-commons/src/test/nextflow/util/CmdLineHelperTest.groovy	26:72 29:37 40:70
+nextflow/modules/nf-commons/src/test/nextflow/util/CmdLineOptionMapTest.groovy	24:105 26:41 43:66 68:81 83:90 92:104
+nextflow/modules/nf-commons/src/test/nextflow/util/CollectionHelperTest.groovy	25:53 27:50 34:40 43:48
+nextflow/modules/nf-commons/src/test/nextflow/util/CsvParserTest.groovy	25:97 27:48 50:72 75:95
+nextflow/modules/nf-commons/src/test/nextflow/util/DurationTest.groovy	31:296 38:71 73:83 85:91 93:97 99:106 109:124 126:139 141:147 149:156 158:163 165:170 172:177 179:183 185:189 192:201 205:215 217:226 228:245 247:257 259:269 271:281 283:293
+nextflow/modules/nf-commons/src/test/nextflow/util/EscapeTest.groovy	28:119 30:38 40:63 65:73 75:85 88:98 100:118
+nextflow/modules/nf-commons/src/test/nextflow/util/HashBuilderTest.groovy	32:178 35:71 73:92 84:87 94:113 96:99 115:123 125:155 157:177
+nextflow/modules/nf-commons/src/test/nextflow/util/HttpClientOptsTest.groovy	26:64 28:35 37:41 43:53 55:63
+nextflow/modules/nf-commons/src/test/nextflow/util/IniFileTest.groovy	25:126 27:64 66:95 97:124
+nextflow/modules/nf-commons/src/test/nextflow/util/InsensitiveMapTest.groovy	25:59 27:57
+nextflow/modules/nf-commons/src/test/nextflow/util/MathHelperTest.groovy	26:61 29:42 45:60
+nextflow/modules/nf-commons/src/test/nextflow/util/MemoryUnitTest.groovy	26:179 28:41 44:82 84:92 94:101 103:131 133:140 142:148 150:153 155:158 160:164 166:177
+nextflow/modules/nf-commons/src/test/nextflow/util/ProcessHelperTest.groovy	27:49 29:40 42:48
+nextflow/modules/nf-commons/src/test/nextflow/util/ProxyConfigTest.groovy	29:81 31:33 35:38 40:60 42:45 62:68 70:80
+nextflow/modules/nf-commons/src/test/nextflow/util/ProxyConfigWiremockTest.groovy	42:112 46:50 52:55 57:65 59:61 63:64 67:71 73:92 94:111
+nextflow/modules/nf-commons/src/test/nextflow/util/RateUnitTest.groovy	25:65 29:47 49:53 56:59 61:64
+nextflow/modules/nf-commons/src/test/nextflow/util/RecordMapTest.groovy	27:77 29:75 31:35
+nextflow/modules/nf-commons/src/test/nextflow/util/SysHelperTest.groovy	34:156 37:53 55:60 62:69 71:79 82:110 112:132 134:154
+nextflow/modules/nf-commons/src/test/nextflow/util/ThreadsTest.groovy	30:89 32:42 44:55 57:71 73:88
+nextflow/modules/nf-commons/src/test/nextflow/util/VersionNumberTest.groovy	26:161 29:49 51:62 65:87 90:116 119:154 156:160
+nextflow/modules/nf-commons/src/testFixtures/groovy/nextflow/plugin/TestPluginClasspath.groovy	31:62 35:43 46:52 47:50 55:61 56:59
+nextflow/modules/nf-commons/src/testFixtures/groovy/nextflow/plugin/TestPluginDescriptorFinder.groovy	30:44 33:43
+nextflow/modules/nf-commons/src/testFixtures/groovy/nextflow/plugin/hello/HelloFunctions.groovy	22:37 24:35
+nextflow/modules/nf-httpfs/build.gradle	20:27 30:42
+nextflow/modules/nf-httpfs/src/main/nextflow/file/http/FtpFileSystemProvider.groovy	27:33 30:32
+nextflow/modules/nf-httpfs/src/main/nextflow/file/http/HttpFileSystemProvider.groovy	27:35 32:34
+nextflow/modules/nf-httpfs/src/main/nextflow/file/http/HttpsFileSystemProvider.groovy	28:35 31:33
+nextflow/modules/nf-httpfs/src/test/nextflow/file/http/XAuthRegistryTest.groovy	27:54 30:53
+nextflow/modules/nf-httpfs/src/test/nextflow/file/http/XFileSystemProviderTest.groovy	32:231 35:43 45:64 54:58 66:82 84:101 104:114 117:127 130:147 150:159 165:213 168:171 169:171 173:176 174:176 178:188 179:188 181:185 215:230
+nextflow/modules/nf-httpfs/src/test/nextflow/file/http/XPathTest.groovy	27:274 29:47 50:61 63:76 78:90 93:106 109:120 122:133 137:153 155:166 168:174 177:197 200:215 217:228 230:243 246:258 261:273
+nextflow/modules/nf-lang/build.gradle	16:18 20:22 24:31 33:35 37:39
+nextflow/modules/nf-lang/src/test/groovy/nextflow/config/control/ConfigResolveTest.groovy	35:195 40:42 44:46 48:50 52:76 54:58 66:70 78:111 113:147 115:124 135:144 149:193 151:167 172:178 186:190
+nextflow/modules/nf-lang/src/test/groovy/nextflow/config/control/ResolveIncludeTest.groovy	34:118 36:39 41:60 44:47 62:82 65:68 69:73 84:99 87:90 101:116 104:107
+nextflow/modules/nf-lang/src/test/groovy/nextflow/config/formatter/ConfigFormatterTest.groovy	28:153 33:35 37:44 46:50 52:58 60:70 62:69 72:84 74:83 86:98 88:97 102:121 104:120 123:131 125:130 133:151 135:150
+nextflow/modules/nf-lang/src/test/groovy/nextflow/config/parser/ConfigAstBuilderTest.groovy	30:180 35:37 39:41 43:140 45:52 60:69 77:90 98:106 114:122 130:134 142:178 144:148 157:161 170:175
+nextflow/modules/nf-lang/src/test/groovy/nextflow/script/control/CallArityTest.groovy	29:146 34:36 38:40 42:86 44:57 65:80 88:144 90:112 119:141
+nextflow/modules/nf-lang/src/test/groovy/nextflow/script/control/ResolveIncludeTest.groovy	34:384 36:39 41:60 44:47 62:89 65:68 69:72 91:115 94:97 98:102 117:141 120:123 124:129 143:175 146:149 150:161 177:206 180:185 186:195 208:228 211:214 215:219 230:253 233:244 280:300 283:290 302:322 305:312 324:344 327:334 346:362 349:352 364:382 367:370
+nextflow/modules/nf-lang/src/test/groovy/nextflow/script/control/ScriptResolveTest.groovy	35:658 40:42 44:46 48:51 53:101 55:63 71:77 85:95 103:125 108:121 127:156 129:144 158:176 160:173 178:268 180:184 192:198 206:214 222:229 237:244 252:259 270:289 291:320 322:339 324:333 341:353 343:347 355:406 357:361 369:373 381:385 396:400 408:452 410:423 431:446 454:490 456:465 473:484 492:510 494:498 503:507 512:577 519:529 539:550 558:569 579:609 582:590 591:600 611:639 617:635 641:656 643:653
+nextflow/modules/nf-lang/src/test/groovy/nextflow/script/formatter/ScriptFormatterTest.groovy	30:1351 35:37 39:48 50:56 58:62 64:74 66:73 78:101 80:87 88:100 103:113 105:112 115:155 117:136 138:154 157:183 159:182 185:209 187:208 211:266 213:241 243:265 271:296 273:295 298:352 300:312 313:325 326:338 339:351 354:368 356:367 370:384 372:383 386:462 388:413 414:439 440:461 464:489 493:503 495:502 505:540 507:521 522:529 530:539 542:563 544:562 565:583 567:582 585:592 587:591 594:622 596:608 609:621 624:637 626:636 641:656 643:655 658:667 660:666 669:690 671:689 692:723 694:698 699:706 707:717 718:722 725:737 727:736 739:767 741:750 751:758 759:766 769:806 771:778 779:786 787:794 795:805 808:818 810:817 820:844 822:831 832:843 846:854 848:853 856:872 858:871 876:901 878:885 886:893 894:900 903:935 906:915 917:923 925:934 937:955 939:954 957:970 959:969 972:994 974:993 996:1020 998:1019 1022:1038 1024:1037 1040:1059 1042:1058 1061:1073 1063:1072 1075:1093 1077:1092 1095:1112 1097:1111 1114:1126 1116:1125 1128:1146 1132:1145 1148:1169 1150:1168 1171:1177 1179:1196 1181:1195 1198:1249 1201:1210 1212:1222 1224:1238 1240:1248 1253:1297 1256:1275 1277:1296 1299:1323 1303:1322 1325:1349 1329:1348
+nextflow/modules/nf-lang/src/test/groovy/nextflow/script/parser/ScriptAstBuilderTest.groovy	34:818 39:41 43:45 47:140 49:55 63:74 82:94 102:114 122:134 142:191 144:151 159:166 174:187 193:208 195:202 210:238 212:218 226:235 240:266 242:247 255:263 268:287 270:281 289:326 291:300 308:320 328:362 330:338 346:356 364:419 366:378 386:398 406:413 421:465 423:436 447:462 467:508 469:484 492:505 510:547 512:524 532:544 549:569 551:566 571:608 573:585 593:605 610:636 612:616 624:630 638:679 641:647 656:660 669:673 681:772 684:690 698:702 711:716 723:727 736:740 749:754 764:769 774:790 792:816 795:801 807:813
+nextflow/modules/nf-lineage/build.gradle	18:25 27:30 32:38
+nextflow/modules/nf-lineage/src/main/nextflow/lineage/DefaultLinStoreFactory.groovy	31:51 37:44 39:41 47:49
+nextflow/modules/nf-lineage/src/main/nextflow/lineage/LinStore.groovy	31:92
+nextflow/modules/nf-lineage/src/main/nextflow/lineage/exception/OutputRelativePathException.groovy	24:25
+nextflow/modules/nf-lineage/src/main/nextflow/lineage/model/v1beta1/DataPath.groovy	29:38
+nextflow/modules/nf-lineage/src/main/nextflow/lineage/model/v1beta1/LinModel.groovy	24:26
+nextflow/modules/nf-lineage/src/main/nextflow/lineage/model/v1beta1/Parameter.groovy	29:33
+nextflow/modules/nf-lineage/src/main/nextflow/lineage/serde/LinSerializable.groovy	27:29
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/DefaultLinHistoryLogTest.groovy	28:78 34:38 40:42 44:60 62:77
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/DefaultLinStoreFactoryTest.groovy	27:49 30:47
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/DefaultLinStoreTest.groovy	40:161 48:52 54:64 66:80 82:92 94:101 103:130 132:159
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/LinExtensionImplTest.groovy	46:112 54:57 59:111 74:76
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/LinHistoryRecordTest.groovy	25:61 26:32 34:47 49:60
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/LinPropertyValidationTest.groovy	23:46 25:31 33:38 40:45
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/config/LineageConfigTest.groovy	25:50 27:33 35:41 43:49
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/serde/LinEncoderTest.groovy	33:270 35:57 39:40 59:118 63:70 64:69 71:89 80:87 93:96 120:176 178:197 183:186 199:233 204:209 235:254 256:269
+nextflow/modules/nf-lineage/src/test/nextflow/lineage/serde/LinTypeAdapterFactoryTest.groovy	25:181 27:88 90:128 130:145 147:163 165:180
+nextflow/plugins/nf-agent-pi/src/test/nextflow/agent/pi/AgentRpcTlsCredentialsTest.groovy	30:86 32:35 33:34 37:50 52:68 70:85
+nextflow/plugins/nf-agent-pi/src/test/nextflow/agent/pi/AgentSecretMaskerTest.groovy	26:95 28:47 42:43 49:62 64:79 81:94
+nextflow/plugins/nf-agent-pi/src/test/nextflow/agent/pi/PiAgentImageCoordinateTest.groovy	31:70 33:35 37:43 45:54 56:69
+nextflow/plugins/nf-agent-pi/src/test/nextflow/agent/pi/PiAgentLaunchSpecTest.groovy	25:59 27:35 37:44 46:58 48:50 53:57
+nextflow/plugins/nf-agent/build.gradle	16:19 21:32 29:31 34:41 43:46 48:75 67:70
+nextflow/plugins/nf-agent/src/main/nextflow/agent/AgentService.groovy	34:38
+nextflow/plugins/nf-agent/src/main/nextflow/agent/ChatModelFactory.groovy	52:158 54:59 68:70 72:74 104:157 138:146 147:155 153:154
+nextflow/plugins/nf-agent/src/main/nextflow/agent/ModuleToolAdapter.groovy	33:54 42:53
+nextflow/plugins/nf-agent/src/test/nextflow/agent/AgentEndToEndTest.groovy	30:68 32:67 35:50 41:49 43:46
+nextflow/plugins/nf-agent/src/test/nextflow/agent/AgentServiceTest.groovy	22:41 24:40
+nextflow/plugins/nf-agent/src/test/nextflow/agent/AgentSkillEndToEndTest.groovy	32:67 34:66 36:44 47:58
+nextflow/plugins/nf-agent/src/test/nextflow/agent/AgentToolEndToEndTest.groovy	35:85 37:42 44:84 47:52 55:59 60:69
+nextflow/plugins/nf-agent/src/test/nextflow/agent/AgentToolStructuredEndToEndTest.groovy	34:85 36:41 43:48 50:84 53:57 60:61 62:72
+nextflow/plugins/nf-agent/src/test/nextflow/agent/JsonSchemaMapperTest.groovy	28:210 30:56 32:40 34:37 58:79 60:69 62:67 81:96 83:88 85:87 94:95 98:119 100:109 102:108 103:107 121:127 129:165 131:144 133:141 134:139 167:184 169:174 171:173 186:209 188:197 190:196
+nextflow/plugins/nf-agent/src/test/nextflow/agent/LangChainAgentToolStructuredTest.groovy	41:284 43:48 50:55 58:72 60:71 61:70 63:68 64:68 74:136 82:88 83:87 91:98 92:97 103:105 109:112 132:133 134:135 138:165 142:147 143:146 148:150 154:157 167:198 169:173 170:172 175:180 176:179 181:183 186:190 200:225 203:207 204:206 208:210 214:217 227:252 230:235 231:234 236:238 242:245 254:283 258:262 259:261 263:269 264:268 273:276
+nextflow/plugins/nf-agent/src/test/nextflow/agent/ModuleToolAdapterTest.groovy	22:78 24:51 26:35 29:34 53:63 65:70 72:77
+nextflow/plugins/nf-agent/src/test/nextflow/agent/SkillAdapterTest.groovy	20:47 22:38 24:25 40:46
+nextflow/plugins/nf-amazon/build.gradle	16:19 21:39 29:38 41:48 50:54 56:85
+nextflow/plugins/nf-amazon/src/main/nextflow/cloud/aws/nio/S3AtomicLockProvider.groovy	34:53 37:39 42:50
+nextflow/plugins/nf-amazon/src/main/nextflow/cloud/aws/util/AwsHelper.groovy	27:38 29:36
+nextflow/plugins/nf-amazon/src/main/nextflow/cloud/aws/util/S3PathFactory.groovy	34:86 37:44 39:42 46:49 52:54 57:59 62:66 79:85
+nextflow/plugins/nf-amazon/src/test/nextflow/S3ChannelTest.groovy	26:38 28:36 31:33
+nextflow/plugins/nf-amazon/src/test/nextflow/S3NextflowTest.groovy	28:67 30:33 35:46 50:55 59:65
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/AwsClientFactoryTest.groovy	26:58 28:41 43:56
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/batch/AwsBatchFileCopyStrategyTest.groovy	24:383 26:52 54:114 116:304 306:365 368:381
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/batch/AwsBatchHelperTest.groovy	32:69 35:53 55:68
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/batch/AwsBatchScriptLauncherTest.groovy	35:677 37:39 41:148 48:53 150:172 158:163 174:189 180:185 191:328 200:207 331:357 341:346 359:386 370:375 388:500 398:403 502:616 511:516 619:635 623:628 637:675 643:646 659:664
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/batch/AwsContainerOptionsMapperTest.groovy	27:178 29:43 45:55 57:64 66:73 75:82 84:91 93:101 103:110 112:119 121:128 130:137 139:146 148:155 157:164 166:177
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/batch/model/RegisterJobDefinitionModelTest.groovy	27:351 29:40 42:52 54:64 66:80 82:93 95:109 111:125 127:140 142:155 157:171 173:184 186:214 216:229 222:223 231:259 241:242 245:246 261:276 278:300 285:286 302:325 308:309 312:313 327:350
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/S3AtomicLockProviderTest.groovy	24:62 26:33 35:53 48:49 55:60
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/S3ClientRetryTest.groovy	37:149 41:46 48:50 53:61 63:66 68:85 70:73 74:76 87:103 89:92 93:95 105:122 107:110 111:113 124:135 126:127 137:148 139:140
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/S3ClientTest.groovy	46:314 48:73 62:64 75:94 89:91 96:120 122:142 136:138 144:149 151:180 165:167 173:175 182:193 195:206 209:227 230:248 250:268 270:282 285:305 307:313
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/S3FileSystemProviderTest.groovy	27:99 29:96 31:61 32:57
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/ng/DownloadOptsTest.groovy	27:96 29:43 45:69 72:94 74:82
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/util/ByteBufferInputStreamTest.groovy	24:93 26:31 38:50 52:69 71:81 83:92
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/util/ExtendedS3TransferManagerTest.groovy	29:126 31:42 44:57 60:79 82:101 103:112 114:125
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/nio/util/S3ClientConfigurationTest.groovy	22:95 23:43 26:27 45:56 58:92 61:64
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/util/AwsHelperTest.groovy	25:38 27:37
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/util/S3BashLibTest.groovy	29:875 33:129 131:229 233:269 235:237 271:307 273:275 309:342 311:313 344:380 346:348 382:474 384:388 391:473 477:565 482:564 567:662 569:571 576:661 665:760 667:669 674:759 762:797 764:766 799:834 801:803 836:872 838:840
+nextflow/plugins/nf-amazon/src/test/nextflow/cloud/aws/util/S3PathFactoryTest.groovy	25:57 27:49 33:36 51:56
+nextflow/plugins/nf-amazon/src/test/nextflow/executor/BashWrapperBuilderWithS3Test.groovy	32:217 34:96 41:48 98:216 105:112
+nextflow/plugins/nf-amazon/src/test/nextflow/executor/FusionScriptLauncherS3Test.groovy	31:117 33:54 57:73 66:69 75:93 84:88 95:115 105:110
+nextflow/plugins/nf-amazon/src/test/nextflow/extension/PublishOpS3Test.groovy	31:63 33:62 39:42
+nextflow/plugins/nf-amazon/src/test/nextflow/file/FileHelperS3Test.groovy	30:85 34:58 60:71 74:84
+nextflow/plugins/nf-amazon/src/test/nextflow/util/ConfigParserTest.groovy	27:164 29:43 45:64 66:94 96:144 148:163
+nextflow/plugins/nf-amazon/src/test/nextflow/util/S3PathSerializerTest.groovy	25:45 27:34 36:43
+nextflow/plugins/nf-azure/build.gradle	16:19 21:38 29:37 40:47 49:53 55:93 59:61 62:65 66:68 74:80
+nextflow/plugins/nf-azure/src/main/nextflow/cloud/azure/batch/AzHelper.groovy	50:251 52:56 58:62 64:68 100:104 106:108 110:126 128:147 149:158 151:155 160:163 166:177 180:195 198:214 217:231 234:237 239:249 242:248
+nextflow/plugins/nf-azure/src/main/nextflow/cloud/azure/batch/AzJobKey.groovy	29:32
+nextflow/plugins/nf-azure/src/main/nextflow/cloud/azure/batch/AzTaskKey.groovy	28:36 32:34
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/batch/AzFileCopyStrategyTest.groovy	36:514 38:77 60:62 80:82 84:213 92:97 215:350 221:224 227:232 354:512 367:375
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/batch/AzJobKeyTest.groovy	26:47 28:45
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/batch/AzTaskKeyTest.groovy	25:32 27:30
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/config/AzBatchOptsTest.groovy	28:124 31:43 46:58 60:83 68:70 77:79 86:106 108:123
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/config/AzCopyOptsTest.groovy	25:43 27:41 35:36
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/config/AzPoolOptsTest.groovy	27:149 29:55 57:68 59:63 70:76 78:80 82:90 92:99 101:147 103:125 121:124
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/config/AzRegistryOptsTest.groovy	25:55 27:53 36:38 46:48
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/config/AzRetryConfigTest.groovy	26:43 28:42
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/file/AzBashLibTest.groovy	27:276 29:71 73:173 175:275
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/nio/AzAtomicLockProviderTest.groovy	29:88 31:38 40:45 49:52 55:59 62:69 72:86
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/nio/AzBaseSpec.groovy	32:216 38:41 43:47 49:51 53:55 57:73 75:84 86:95 97:101 103:109 111:118 112:114 115:117 120:123 125:154 127:139 128:133 134:138 143:148 149:153 156:159 161:175 165:171 172:174 178:184 180:182 186:196 189:193 198:214 203:212
+nextflow/plugins/nf-azure/src/test/nextflow/cloud/azure/nio/AzFileSystemProviderTest.groovy	29:181 31:36 39:59 62:80 82:104 106:130 132:156 158:179
+nextflow/plugins/nf-azure/src/test/nextflow/executor/BashWrapperBuilderWithAzTest.groovy	36:253 39:112 46:53 115:251 122:129 131:133
+nextflow/plugins/nf-azure/src/test/nextflow/file/FileHelperAzTest.groovy	32:101 34:42 35:40 36:39 44:46 50:74 76:87 90:100
+nextflow/plugins/nf-cloudcache/build.gradle	16:19 21:33 29:32 35:42 44:47 49:57
+nextflow/plugins/nf-cloudcache/src/test/nextflow/cache/CloudCacheConfigTest.groovy	25:43 27:33 35:41
+nextflow/plugins/nf-codecommit/build.gradle	16:19 21:32 29:31 34:41 43:47 49:63
+nextflow/plugins/nf-codecommit/src/test/nextflow/cloud/aws/codecommit/AwsCodeCommitFactoryTest.groovy	27:171 29:42 44:69 71:170 76:79 90:93 132:135 154:157
+nextflow/plugins/nf-codecommit/src/test/nextflow/cloud/aws/codecommit/AwsCodeCommitProviderConfigTest.groovy	25:44 27:42
+nextflow/plugins/nf-codecommit/src/test/nextflow/cloud/aws/codecommit/AwsCodeCommitRepositoryProviderTest.groovy	29:160 31:41 43:61 50:60 63:72 74:89 85:87 91:106 102:104 108:124 126:141 143:158
+nextflow/plugins/nf-console/build.gradle	16:19 21:32 29:31 34:41 43:46 48:62
+nextflow/plugins/nf-console/src/test/nextflow/ui/console/ConsoleRunnerTest.groovy	25:32 27:30
+nextflow/plugins/nf-google/build.gradle	16:19 21:37 29:36 39:46 48:51 53:90 72:78 92:94
+nextflow/plugins/nf-google/src/main/nextflow/cloud/google/batch/GoogleBatchLauncherSpec.groovy	26:52 45:47 49:51
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/GoogleSpecification.groovy	33:79 35:71 74:77
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/batch/GoogleBatchMachineTypeSelectorTest.groovy	24:194 26:43 45:74 47:49 76:92 78:80 95:101 103:113 115:131 133:149 151:163 165:193
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/batch/client/BatchConfigTest.groovy	25:72 27:40 42:70 44:53
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/batch/client/BatchRetryConfigTest.groovy	26:44 28:42
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/config/GoogleRetryOptsTest.groovy	26:43 28:42
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/util/GsAtomicLockProviderGcsTest.groovy	51:105 56:75 62:64 65:67 77:86 78:81 82:84 88:103
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/util/GsAtomicLockProviderTest.groovy	24:42 26:33 35:40
+nextflow/plugins/nf-google/src/test/nextflow/cloud/google/util/GsPathSerializerTest.groovy	32:50 34:49 36:38
+nextflow/plugins/nf-google/src/test/nextflow/executor/BashWrapperBuilderWithGoogleTest.groovy	26:37 28:35
+nextflow/plugins/nf-google/src/test/nextflow/extension/EscapeTest2.groovy	29:48 32:34 37:47
+nextflow/plugins/nf-google/src/test/nextflow/extension/FilesExTest2.groovy	40:101 46:67 48:50 78:99 93:95
+nextflow/plugins/nf-google/src/test/nextflow/file/FileHelperGsTest.groovy	44:241 49:78 52:54 57:58 60:61 64:65 68:69 72:73 76:77 81:97 100:111 114:140 142:153 156:166 178:199 205:223 225:239
+nextflow/plugins/nf-google/src/test/nextflow/file/GsPathTest.groovy	28:59 30:57 32:34
+nextflow/plugins/nf-k8s/build.gradle	16:19 21:33 29:32 35:42 44:47 49:60 62:64
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/K8sConfigTest.groovy	32:487 34:51 53:81 83:116 93:97 96:97 101:105 118:128 130:146 148:168 151:156 171:191 193:200 202:218 221:238 240:251 253:269 271:286 288:303 305:317 319:331 333:343 345:373 361:365 368:371 376:391 393:405 395:397 407:412 414:429 431:451 453:468 470:485
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/K8sTaskHandlerTest.groovy	52:1412 54:56 58:155 88:103 91:94 95:102 97:101 157:193 195:229 231:278 267:271 272:276 280:354 312:315 317:320 321:324 345:348 349:352 356:390 392:444 424:443 428:442 430:441 432:440 435:439 446:470 472:539 480:483 485:487 541:560 544:547 562:586 568:571 588:612 614:628 630:642 644:670 650:653 672:690 692:760 762:785 787:804 806:823 825:849 851:891 866:868 872:876 893:921 923:959 933:936 961:991 971:973 993:1041 1007:1009 1043:1074 1076:1101 1103:1139 1141:1184 1186:1198 1190:1191 1200:1220 1204:1205 1222:1236 1228:1229 1238:1281 1283:1368 1370:1385 1373:1379 1376:1378 1387:1410
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/K8sWrapperBuilderTest.groovy	31:62 33:61 41:48
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/client/ClientConfigTest.groovy	26:176 28:43 45:81 48:55 83:118 94:101 120:140 127:129 142:161 163:174
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/client/K8sClientTest.groovy	32:1181 34:71 73:81 83:91 93:101 103:124 126:151 153:173 175:194 196:223 225:249 251:272 274:295 297:386 379:383 388:430 432:478 480:518 520:550 552:593 595:678 680:720 722:762 764:844 846:895 897:978 980:1063 1065:1106 1108:1153 1155:1180
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/client/K8sResponseExceptionTest.groovy	25:66 27:42 30:32 45:53 48:50 55:65
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/client/K8sResponseJsonTest.groovy	25:70 27:44 46:60 62:67
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/model/PodEnvTest.groovy	25:62 27:30 32:38 34:37 40:52 42:45 47:50 54:60 56:59
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/model/PodMountConfigTest.groovy	25:47 27:45
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/model/PodMountSecretTest.groovy	25:46 27:45
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/model/PodOptionsTest.groovy	25:568 28:39 41:57 59:75 77:96 80:86 92:95 98:117 101:109 102:108 104:107 114:116 119:134 122:125 131:133 136:155 139:145 151:154 158:187 161:173 179:185 189:207 191:195 201:205 209:224 211:214 219:222 226:246 248:359 251:257 259:269 271:288 324:327 329:332 334:336 338:340 342:345 347:350 361:376 363:365 378:393 380:382 395:415 397:399 417:440 419:421 436:439 442:457 445:449 459:479 461:463 481:496 484:488 498:521 523:529 531:536 538:543 545:555 557:567
+nextflow/plugins/nf-k8s/src/test/nextflow/k8s/model/PodVolumeClaimTest.groovy	24:74 27:59 61:72
+nextflow/plugins/nf-seqera/build.gradle	17:20 22:34 30:33 36:43 45:48 50:73 66:68
+nextflow/plugins/nf-seqera/src/test/io/seqera/config/ExecutorOptsTest.groovy	28:392 30:37 39:55 57:66 59:62 68:78 70:73 80:89 82:85 91:107 93:100 95:99 109:119 111:114 121:139 123:126 141:156 143:146 158:168 160:163 170:190 172:181 178:180 192:201 194:197 203:215 205:208 217:226 219:222 228:236 230:232 238:247 240:243 249:258 251:253 260:269 262:265 271:279 273:275 281:290 283:286 292:301 294:297 303:311 305:307 313:322 315:318 324:332 326:328 334:343 336:339 345:353 347:349 355:366 357:361 368:379 370:374 381:389 383:385
+nextflow/plugins/nf-seqera/src/test/io/seqera/config/MachineRequirementOptsTest.groovy	26:62 28:36 38:50 40:44 52:60
+nextflow/plugins/nf-seqera/src/test/io/seqera/config/RetryOptsTest.groovy	26:58 28:44 46:56
+nextflow/plugins/nf-seqera/src/test/io/seqera/config/SchedulingRequirementOptsTest.groovy	26:64 28:34 36:42 44:50 52:63
+nextflow/plugins/nf-seqera/src/test/io/seqera/config/SeqeraConfigTest.groovy	27:88 29:35 37:50 39:44 40:43 52:73 54:64 55:63 60:62 75:86 77:81 78:80
+nextflow/plugins/nf-seqera/src/test/io/seqera/executor/LabelsTest.groovy	26:79 28:34 30:33 36:41 43:48 50:59 61:65 67:71 73:78
+nextflow/plugins/nf-seqera/src/test/io/seqera/executor/SeqeraBatchSubmitterTest.groovy	39:592 43:76 47:54 48:53 50:52 61:63 73:75 78:115 82:91 83:90 87:89 117:142 120:127 121:126 123:125 132:134 144:171 148:155 149:154 151:153 160:162 173:195 176:183 177:182 179:181 197:209 211:231 214:216 233:260 235:242 236:241 237:240 262:292 265:272 266:271 268:270 294:304 306:329 309:316 310:315 312:314 331:358 334:341 335:340 337:339 348:351 360:385 366:371 367:370 387:420 392:397 393:396 401:406 402:404 410:412 417:419 422:457 426:439 427:438 428:432 435:437 459:481 462:469 463:468 465:467 488:525 495:502 496:501 498:500 504:506 507:509 527:555 530:537 531:536 533:535 539:541 542:544 557:584 560:567 561:566 563:565 569:571 572:574 589:591
+nextflow/plugins/nf-seqera/src/test/io/seqera/util/MapperUtilTest.groovy	35:662 37:40 42:45 47:62 64:71 73:85 75:79 87:90 92:95 97:104 106:112 114:119 123:126 128:135 137:147 139:142 149:159 151:154 161:177 163:170 164:168 181:184 186:189 191:204 206:212 214:228 216:222 230:239 241:244 248:259 261:274 276:287 289:299 301:321 303:309 323:343 325:330 347:353 355:361 363:372 374:388 390:396 398:411 400:402 415:429 417:420 431:444 433:436 446:459 448:451 461:474 463:466 476:493 478:483 497:505 507:514 516:523 527:532 534:540 542:549 551:564 553:559 566:582 568:574 586:601 603:614 616:629 631:647 649:660
+nextflow/plugins/nf-tower/build.gradle	17:20 22:38 30:37 40:47 49:52 54:85 61:63 71:73
+nextflow/plugins/nf-tower/src/main/io/seqera/tower/plugin/CacheManager.groovy	40:164 58:80 82:100 86:89 91:96 97:99 102:162 107:117 108:113 114:116 118:120 123:126 127:129 131:134 135:137 139:142 143:145 147:150 151:153 155:158 159:161
+nextflow/plugins/nf-tower/src/main/io/seqera/tower/plugin/exception/BadResponseException.groovy	22:23
+nextflow/plugins/nf-tower/src/main/io/seqera/tower/plugin/exception/ForbiddenException.groovy	21:22
+nextflow/plugins/nf-tower/src/main/io/seqera/tower/plugin/exception/NotFoundException.groovy	21:22
+nextflow/plugins/nf-tower/src/main/io/seqera/tower/plugin/exception/UnauthorizedException.groovy	22:23
+nextflow/plugins/nf-tower/src/main/io/seqera/tower/plugin/fs/ResourceTypeHandler.groovy	30:51
+nextflow/plugins/nf-tower/src/main/io/seqera/tower/plugin/fs/SeqeraPathFactory.groovy	37:69 41:43 46:50 53:56 59:62 64:67
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/CacheManagerTest.groovy	29:217 31:33 35:37 39:44 46:137 59:67 139:179 152:160 181:216
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/LogsCheckpointTest.groovy	33:159 35:48 37:40 50:67 53:56 69:86 72:75 88:111 92:95 113:121 124:158 128:130 131:134
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/LogsHandlerTest.groovy	30:93 32:37 39:91 53:60
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/TowerFusionEnvTest.groovy	42:647 47:50 52:54 56:59 61:63 65:70 72:90 75:81 76:80 77:79 92:107 95:97 109:188 112:116 113:115 123:125 131:133 139:143 140:142 149:155 150:154 151:153 161:167 162:166 163:165 174:180 175:179 176:178 190:205 192:198 193:197 194:196 207:222 209:211 224:243 226:232 227:231 228:230 245:265 247:253 248:252 249:251 267:286 269:275 270:274 271:273 288:348 290:295 297:300 310:317 312:316 325:337 331:336 346:347 350:419 352:357 359:362 370:377 372:376 385:394 388:393 395:404 398:403 415:416 417:418 421:486 425:430 432:435 445:452 447:451 460:472 466:471 481:482 488:583 492:498 500:503 513:520 515:519 531:538 541:553 546:552 556:567 561:566 585:633 587:592 594:597 605:612 607:611 617:626 620:625 635:645
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/TowerReportsTest.groovy	26:122 28:40 42:73 65:70 75:119
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/TowerRetryPolicyTest.groovy	28:73 30:40 42:59 44:50 61:72
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/TowerXAuthTest.groovy	27:65 29:31 33:40 42:52 54:64
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/auth/AuthCommandImplTest.groovy	38:1177 47:54 56:72 59:62 75:86 88:99 101:112 114:124 126:145 147:160 162:171 173:182 184:194 196:220 205:209 222:240 238:239 242:263 260:261 265:293 274:278 279:283 295:319 307:309 321:344 333:335 346:359 349:352 361:373 364:366 375:392 394:407 409:428 430:443 445:461 463:479 481:493 495:522 498:502 524:543 527:530 545:555 557:566 568:581 583:592 594:603 605:621 623:633 635:645 647:667 650:653 669:687 672:674 689:735 691:695 698:701 737:758 760:778 780:802 785:787 804:822 824:842 844:873 847:850 851:858 853:857 875:898 878:881 882:885 900:931 902:905 912:915 933:955 957:992 959:961 969:972 994:1021 997:1008 998:1001 1002:1006 1023:1041 1026:1032 1027:1029 1043:1058 1060:1078 1080:1092 1094:1106 1108:1132 1117:1121 1134:1153 1138:1141 1142:1144 1155:1175 1159:1162 1163:1165
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/fs/DatasetInputStreamTest.groovy	23:141 25:37 39:55 57:67 69:81 83:95 97:108 110:116 118:124 126:132 134:140
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/fs/SeqeraPathTest.groovy	25:654 27:30 34:45 47:56 58:68 70:81 83:92 94:103 105:114 116:125 129:138 140:148 150:158 162:173 175:186 188:195 197:204 206:213 217:228 230:240 242:252 254:264 266:274 276:284 288:299 301:308 310:319 323:337 339:353 355:369 371:379 383:396 398:407 411:415 417:420 422:426 428:434 436:442 444:456 460:467 469:478 480:487 489:496 498:506 510:518 520:529 531:538 542:553 555:562 564:574 578:589 591:601 603:612 616:629 631:641 643:653
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/fs/handler/DatasetsResourceHandlerTest.groovy	33:269 39:43 45:49 51:54 56:72 68:71 74:91 87:90 93:106 108:120 122:139 141:156 158:169 171:185 187:202 204:215 217:231 233:251 253:265
+nextflow/plugins/nf-tower/src/test/io/seqera/tower/plugin/launch/LaunchCommandImplTest.groovy	36:932 46:56 58:68 70:80 82:94 96:108 110:121 125:139 141:156 158:170 172:185 187:200 202:215 217:233 235:246 248:257 259:268 270:282 284:295 299:312 314:329 331:346 348:357 361:374 376:404 378:381 382:385 406:426 409:412 428:451 432:435 455:470 458:461 472:488 475:478 490:500 502:514 516:529 533:543 545:555 557:568 572:591 576:579 593:627 596:606 607:610 613:614 629:648 632:636 637:640 650:665 654:657 669:682 684:697 699:709 713:723 725:744 728:731 732:734 746:762 749:751 764:774 778:805 782:788 783:787 790:793 807:824 812:815 826:843 831:836 847:860 862:871 875:883 887:911 889:899 913:931 915:922
+nextflow/plugins/nf-wave/build.gradle	17:20 22:35 30:34 37:44 46:49 51:71
+nextflow/plugins/nf-wave/src/main/io/seqera/wave/plugin/DescribeContainerResponse.groovy	30:73 32:36 39:50 53:58 61:64
+nextflow/plugins/nf-wave/src/main/io/seqera/wave/plugin/exception/BadResponseException.groovy	27:28
+nextflow/plugins/nf-wave/src/main/io/seqera/wave/plugin/exception/UnauthorizedException.groovy	27:28
+nextflow/plugins/nf-wave/src/main/io/seqera/wave/plugin/util/CliOpts.groovy	24:30
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/ContainerLayerTest.groovy	25:46 27:43
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/WaveAssetsTest.groovy	27:61 29:37 39:59
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/cli/WaveDebugCmdTest.groovy	26:46 29:44
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/config/HttpOptsTest.groovy	27:43 29:42
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/config/RetryOptsTest.groovy	26:45 28:43
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/config/TowerConfigTest.groovy	25:152 27:70 72:110 112:151
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/resolver/WaveContainerResolverTest.groovy	33:104 35:85 45:49 46:48 87:103
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/util/BasicCliOptsTest.groovy	27:44 30:43
+nextflow/plugins/nf-wave/src/test/io/seqera/wave/plugin/util/GnuCliOptsTest.groovy	25:44 27:42
+nextflow/settings.gradle	21:26 37:39
+pipeline-library/Jenkinsfile	2:22 3:5 6:9 10:21 11:20 12:14 15:19 16:18
+pipeline-library/test/groovy/BuildDockerAndPublishImageStepTests.groovy	17:829 38:57 46:48 61:87 68:70 71:73 79:81 84:86 89:95 90:94 91:93 97:100 102:104 106:108 111:121 114:116 117:120 123:125 127:129 132:177 137:139 180:208 185:187 211:241 214:219 215:218 244:274 247:253 248:252 277:315 280:290 281:289 318:344 320:325 321:324 347:364 350:352 353:355 367:384 370:372 373:375 387:406 393:395 409:442 412:416 413:415 445:489 451:455 452:454 492:523 495:500 496:499 526:558 529:533 530:532 561:593 564:568 565:567 596:612 599:603 600:602 615:632 618:623 619:622 635:653 639:644 640:643 656:675 660:666 661:665 678:695 682:687 683:686 698:714 702:706 703:705 717:748 724:729 725:728 751:781 757:762 758:761 784:796 788:790 799:828 804:808 805:807
+pipeline-library/test/groovy/BuildWebsiteStepTests.groovy	9:374 17:29 31:33 35:37 40:51 54:65 68:80 83:90 93:138 141:152 155:171 174:189 177:179 192:201 204:213 216:234 219:224 220:222 226:227 228:230 237:246 249:258 261:274 277:286 289:300 303:314 317:326 329:341 333:336 344:358 350:353 361:373 365:368
+pipeline-library/test/groovy/InfraStepTests.groovy	12:881 26:46 30:32 34:40 35:36 37:39 41:43 48:50 53:57 60:65 68:73 76:81 84:95 88:90 98:114 102:105 103:105 106:108 117:123 126:131 134:144 136:137 138:140 147:168 152:154 171:187 175:177 190:203 194:196 206:229 215:217 232:254 240:242 257:278 264:266 281:306 288:290 309:322 325:334 337:368 340:342 345:349 350:352 371:403 377:380 381:383 406:437 409:411 415:418 419:421 440:471 446:450 451:453 474:574 477:533 488:492 493:497 498:502 503:507 508:512 513:517 518:522 523:527 528:532 535:571 545:550 555:557 558:560 561:563 565:567 568:570 577:606 580:592 594:603 609:625 613:615 628:639 642:652 655:665 668:678 681:693 696:714 717:736 723:728 724:726 739:755 758:782 766:771 767:769 773:774 775:777 785:803 792:794 806:831 812:814 815:820 816:818 822:823 824:826 834:844 847:862 853:854 855:857 865:880
+pipeline-library/test/groovy/PublishBuildStatusReportStepTests.groovy	6:88 11:13 15:17 20:37 40:55 44:46 47:49 58:71 74:87
+pipeline-library/test/groovy/PublishReportsStepTests.groovy	8:46 13:17 20:33 24:25 26:28 36:45
+pipeline-library/test/groovy/RunBenchmarksStepTests.groovy	6:40 11:15 18:28 31:39
+pipeline-library/test/groovy/UpdatecliStepTests.groovy	9:180 16:21 24:48 51:67 70:86 89:106 109:128 131:143 147:156 160:179
+pipeline-library/vars/buildDockerAndPublishImage.groovy	6:39 8:23 9:12 13:23 14:19 20:23 24:38 25:34 26:33 28:29 30:32 35:37 41:50 42:44 45:49 46:48 52:348 53:70 80:82 88:97 89:94 100:102 107:120 108:112 113:115 116:118 123:127 136:347 137:144 145:346 146:155 148:150 157:191 161:190 162:167 163:164 165:167 168:189 170:180 172:174 175:180 181:188 183:184 185:187 193:205 194:201 195:196 197:201 198:200 202:204 209:211 212:222 213:218 214:218 215:217 219:221 226:345 228:238 229:238 230:232 233:236 239:242 243:245 248:343 250:258 251:254 252:254 255:257 261:295 262:294 265:266 267:270 272:273 274:293 276:283 277:283 284:292 285:291 299:342 300:341 301:302 303:340 305:319 320:336 337:339
+pipeline-library/vars/publishReports.groovy	8:107 9:11 19:22 24:26 28:106 29:105 58:95 59:64 65:95 66:94 96:104 98:101
+pipeline-library/vars/recordDeployment.groovy	1:53 2:6 11:12 13:52 14:23 24:51 25:50
+pipeline-library/vars/runBenchmarks.groovy	8:30 9:29 10:28 12:14 16:19 21:27 22:23 24:26

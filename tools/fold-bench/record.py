@@ -60,6 +60,7 @@ LANGS = {
     "solidity": (["openzeppelin-contracts"], {"sol": "solidity"}),
     "starlark": (["rules_go"], {"bzl": "starlark", "bazel": "starlark"}),
     "erlang": (["cowboy"], {"erl": "erlang", "hrl": "erlang"}),
+    "groovy": (["nextflow", "pipeline-library"], {"groovy": "groovy", "gradle": "groovy", "/Jenkinsfile": "groovy"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
