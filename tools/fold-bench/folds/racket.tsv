@@ -1,0 +1,201 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 1653 folds in 199 files, 21 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+drracket/drracket-core-lib/browser/external.rkt	2:10 11:15 18:19 21:27 34:38 42:47 49:51 57:64 68:70 74:75 79:85 87:89 96:127 134:146 148:151 153:304
+drracket/drracket-core-lib/browser/tool.rkt	2:4 8:16
+drracket/drracket-core-lib/drracket/acks.rkt	4:6 8:30
+drracket/drracket-core-lib/drracket/default-code-style.rkt	2:7 13:19 22:27
+drracket/drracket-core-lib/drracket/drracket.rkt	12:13 15:17 21:23 25:33 35:39 42:138 142:150
+drracket/drracket-core-lib/drracket/info.rkt	11:12 33:56 60:83 88:105
+drracket/drracket-core-lib/drracket/private/ada.rkt	2:7 12:14 21:24 26:28 30:39 41:44 53:58 60:61 63:75 77:86 91:98 107:114 123:124 129:139 142:144 146:171
+drracket/drracket-core-lib/drracket/private/app.rkt	3:16 18:22 25:50 53:55 57:59 61:86 88:123 125:311 334:398 400:439 441:453 455:471
+drracket/drracket-core-lib/drracket/private/bindings-browser.rkt	12:15 21:25 32:159 165:253 261:266 267:272 277:285
+drracket/drracket-core-lib/drracket/private/colored-errors.rkt	3:9 50:59 64:71 77:83 85:86 87:88 90:91 92:100 102:113 115:116 118:121 123:133 135:141 143:145 147:149 151:154 156:160 162:165 167:192 194:195 214:233 235:258 260:266 268:273 275:279 286:291 295:307 310:317
+drracket/drracket-core-lib/drracket/private/compiled-dir.rkt	10:14
+drracket/drracket-core-lib/drracket/private/debug.rkt	3:33 38:39 42:2534 2538:2564 2566:2644
+drracket/drracket-core-lib/drracket/private/dock-icon.rkt	3:6 10:11 13:23
+drracket/drracket-core-lib/drracket/private/drracket-errortrace-key.rkt	1:12
+drracket/drracket-core-lib/drracket/private/drracket-normal.rkt	3:12 16:25 31:36 38:45 47:53 59:63 67:68 72:73 77:78 80:86 88:89 93:100 102:108 112:138 140:148 150:195 197:221 227:255 257:259 261:262 306:313 315:332 338:349
+drracket/drracket-core-lib/drracket/private/ellipsis-snip-wxme.rkt	4:10
+drracket/drracket-core-lib/drracket/private/ellipsis-snip.rkt	2:7 10:126 134:145 147:149 152:157
+drracket/drracket-core-lib/drracket/private/embedded-snip-utils.rkt	2:3 9:21 26:28
+drracket/drracket-core-lib/drracket/private/eval-helpers-and-pref-init.rkt	2:17 19:31 33:37 43:49 51:58 62:81 83:87 90:103 113:215 217:235 244:266 268:270 273:298 300:305 308:318
+drracket/drracket-core-lib/drracket/private/eval.rkt	3:11 16:17 23:219
+drracket/drracket-core-lib/drracket/private/expanding-place.rkt	2:11 27:28 32:34 35:41 43:87 89:100 106:441 443:455 457:474 476:486 488:510 512:513 515:530 533:545
+drracket/drracket-core-lib/drracket/private/font.rkt	2:8 23:248
+drracket/drracket-core-lib/drracket/private/frame-icon.rkt	3:6 8:31 33:133 143:156
+drracket/drracket-core-lib/drracket/private/frame.rkt	3:20 22:200 202:300 302:321 323:819 822:823 826:961
+drracket/drracket-core-lib/drracket/private/get-defs.rkt	3:7 9:12 15:16 23:39 43:143 148:151 153:157 161:172 175:180 184:193 197:198 202:203 207:208 210:211 219:238 241:377
+drracket/drracket-core-lib/drracket/private/get-extend.rkt	3:5 7:13 20:76 78:84 88:89 91:92 94:95 97:98 100:105 107:108 110:115 117:118 120:127 129:143
+drracket/drracket-core-lib/drracket/private/help-desk.rkt	3:14 16:18 24:35 37:66 68:69 71:120 122:134 136:149 151:160
+drracket/drracket-core-lib/drracket/private/honu-logo.rkt	4:6 12:15 17:52 83:85 90:91 92:93 98:99 100:101 103:104 105:106 108:109 110:111 113:119 121:127 129:138 140:149 151:163 165:177 179:182 184:185 187:193 195:200 202:212 217:218 222:224 226:228 230:232 237:241 249:256 264:317 319:324 329:331 345:349 351:357 372:386 388:392 395:397 399:405 411:416 418:425 427:435 437:457 459:463 465:466 468:477
+drracket/drracket-core-lib/drracket/private/in-irl-namespace.rkt	3:10 11:21 31:42 47:50 52:64 68:122 124:130 132:139 141:153 155:162 165:166 172:251 253:254 258:259 263:302
+drracket/drracket-core-lib/drracket/private/init.rkt	2:8 10:11 34:35 48:92 98:124
+drracket/drracket-core-lib/drracket/private/insert-large-letters.rkt	3:5 6:8 9:11 15:20 23:27 30:43 46:57 60:62 67:184 187:194 196:234 237:246 249:250 251:320 322:330
+drracket/drracket-core-lib/drracket/private/insulated-read-language.rkt	17:27 29:51 53:97 99:103 105:108 110:113 115:118 120:122 124:151 153:156 157:160 163:173 175:179 181:202 204:336 338:346 348:352 355:360 362:379 381:412 414:416 418:425 427:429 431:439 441:548 553:639
+drracket/drracket-core-lib/drracket/private/interface.rkt	12:15 20:25 27:61 63:70 72:113 115:131 133:136
+drracket/drracket-core-lib/drracket/private/key-lang-support.rkt	6:8 12:23 25:32 34:55 56:76 78:86 87:95
+drracket/drracket-core-lib/drracket/private/key-lang.rkt	4:5
+drracket/drracket-core-lib/drracket/private/key.rkt	8:18
+drracket/drracket-core-lib/drracket/private/label-frame-mred.rkt	2:3 4:6 8:12 17:28
+drracket/drracket-core-lib/drracket/private/language-configuration.rkt	2:27 34:2608
+drracket/drracket-core-lib/drracket/private/language-object-contract.rkt	2:7 14:92
+drracket/drracket-core-lib/drracket/private/language.rkt	3:34 36:42 56:89 91:116 118:125 127:138 140:149 151:177 183:226 239:250 252:258 263:480 483:502 506:507 509:511 516:677 680:693 696:701 706:784 787:825 830:868 873:914 925:1165 1167:1171 1175:1185 1188:1223 1228:1245 1248:1254 1256:1265 1268:1360 1363:1382 1385:1453 1456:1495 1497:1528 1531:1548 1552:1561 1570:1572 1574:1577 1578:1579 1580:1581 1586:1589 1590:1594 1595:1599 1620:1624 1627:1631 1633:1638
+drracket/drracket-core-lib/drracket/private/launcher-bootstrap.rkt	9:50
+drracket/drracket-core-lib/drracket/private/link.rkt	2:26 30:51 53:55 57:91
+drracket/drracket-core-lib/drracket/private/local-member-names.rkt	4:8 10:16 19:20 23:24 27:32 35:37 40:41 45:46 49:68 71:74 76:79 89:94
+drracket/drracket-core-lib/drracket/private/main.rkt	3:29 31:43 46:51 53:54 57:63 65:71 73:75 79:82 86:88 94:95 106:110 117:121 124:125 126:127 129:130 136:147 155:159 165:167 170:178 182:186 187:191 193:199 201:211 213:224 231:233 234:236 237:239 240:242 247:253 255:273 275:280 282:287 291:295 297:300 304:347 356:478 484:486 488:493 497:499 506:508 510:512 514:518 521:524 528:551 553:559 571:574 581:607 609:611 612:614 615:617 618:620 624:635 637:652 654:658 660:663 665:672 674:679 681:684 689:692 693:697 698:701 702:716 717:719 720:722 727:730 731:735 737:748 754:778 782:784 785:787 789:912 927:935 937:944 947:969 989:1064
+drracket/drracket-core-lib/drracket/private/mkheart.rkt	24:34 36:55
+drracket/drracket-core-lib/drracket/private/modes.rkt	2:8 25:41 43:46 49:73
+drracket/drracket-core-lib/drracket/private/module-browser.rkt	3:17 28:249
+drracket/drracket-core-lib/drracket/private/module-language-tools.rkt	3:22 28:866 872:891 892:922
+drracket/drracket-core-lib/drracket/private/module-language.rkt	4:40 45:76 100:101 103:104 111:2939
+drracket/drracket-core-lib/drracket/private/multi-file-search.rkt	3:16 34:42 45:46 52:471 477:800 803:819 823:845 848:850 852:854 857:864 866:870 872:875 877:878 879:885
+drracket/drracket-core-lib/drracket/private/named-undefined.rkt	5:8 10:19 22:23 24:25
+drracket/drracket-core-lib/drracket/private/number-snip.rkt	2:4
+drracket/drracket-core-lib/drracket/private/palaka.rkt	14:16 17:22 24:34 36:50
+drracket/drracket-core-lib/drracket/private/parse-logger-args.rkt	5:31 33:46
+drracket/drracket-core-lib/drracket/private/pict-snip.rkt	2:9 14:17 21:84 88:92 94:108 110:111 114:129 132:142 144:164 166:181 183:193 195:207 209:211
+drracket/drracket-core-lib/drracket/private/profile-drs.rkt	2:7 19:123
+drracket/drracket-core-lib/drracket/private/recon.rkt	5:6 8:19
+drracket/drracket-core-lib/drracket/private/rep.rkt	18:45 52:53 55:2474 2476:2501 2503:2527 2529:2567 2569:2573
+drracket/drracket-core-lib/drracket/private/run-module-language-program.rkt	2:6 15:17 22:81 83:196 198:212 217:224
+drracket/drracket-core-lib/drracket/private/stack-checkpoint.rkt	2:9 12:14 29:37 39:47 50:89 91:134 137:183 185:189 191:196 198:203 205:207 209:215 217:218 220:225 227:230 232:236 238:244 246:249 251:257 259:261 263:269 271:285 287:304 306:311 313:333 335:342 344:349 354:361 363:372 374:375 377:418 420:609 611:618
+drracket/drracket-core-lib/drracket/private/stick-figures.rkt	2:4 13:29 31:47 49:65 67:83 85:101 103:118 120:150 155:158 160:168 171:193 195:209 211:219 224:310 312:333
+drracket/drracket-core-lib/drracket/private/suffix.rkt	2:3 10:18
+drracket/drracket-core-lib/drracket/private/syncheck-debug.rkt	3:6 13:116 120:141 145:153
+drracket/drracket-core-lib/drracket/private/syncheck/blueboxes-gui.rkt	2:20 21:28 38:40 42:44 50:59 63:65 67:73 74:80 82:96 104:173 175:183 185:653 655:694 699:723 725:728 730:733 740:743 748:812 816:851 856:857 858:859 861:896 900:997 1000:1026 1032:1039 1040:1047 1048:1055 1057:1069 1071:1108 1116:1122
+drracket/drracket-core-lib/drracket/private/syncheck/gui.rkt	21:53 69:72 93:98 101:107 109:146 148:151 152:155 156:159 160:163 165:168 169:172 173:176 177:180 181:184 185:188 189:192 193:196 197:199 200:202 203:205 206:210 212:3050 3056:3105 3107:3115 3120:3134 3136:3170
+drracket/drracket-core-lib/drracket/private/syncheck/intf.rkt	3:5 7:17
+drracket/drracket-core-lib/drracket/private/syncheck/local-member-names.rkt	2:3 4:5 7:40
+drracket/drracket-core-lib/drracket/private/syncheck/online-comp.rkt	2:12 16:32 40:59 61:74 76:101 104:136
+drracket/drracket-core-lib/drracket/private/text.rkt	2:4 8:12 14:33
+drracket/drracket-core-lib/drracket/private/tool-contract-language.rkt	3:4 8:74 76:127
+drracket/drracket-core-lib/drracket/private/tools-drs.rkt	10:24 26:40 47:48 49:50 56:65
+drracket/drracket-core-lib/drracket/private/tools.rkt	3:18 20:35 72:77 80:81 84:87 90:93 96:103 106:157 162:188 192:194 197:198 200:203 205:207 209:215 217:236 239:241 263:269 282:338 342:351 354:361 366:404 428:448 457:475 483:488 495:581
+drracket/drracket-core-lib/drracket/private/tooltip.rkt	2:5 17:19 27:48 50:108 110:187 191:213 216:263 266:299
+drracket/drracket-core-lib/drracket/private/tracing.rkt	3:13 17:233
+drracket/drracket-core-lib/drracket/private/ts.rkt	3:4 6:9
+drracket/drracket-core-lib/drracket/private/unit.rkt	3:47 58:61 66:69 71:73 74:76 77:78 79:80 82:84 86:89 92:94 96:97 101:105 107:5942 5944:5959 5964:5972 5974:6000
+drracket/drracket-core-lib/drracket/private/user-in-separate-process.rkt	2:18 37:42 46:49 51:58 60:80 82:98 104:153 167:285 289:292 304:310 312:315 319:337 340:341 344:352 354:360 362:366 369:407 409:415 417:419 421:580
+drracket/drracket-core-lib/drracket/private/wrap-tool-inputs.rkt	4:7 9:67
+drracket/drracket-core-lib/drracket/sprof.rkt	2:4 12:26 28:46 48:68 70:72 74:78 80:192 194:228 254:385
+drracket/drracket-core-lib/drracket/syncheck-drracket-button.rkt	2:5 6:9 13:14 15:16 18:22
+drracket/drracket-core-lib/info.rkt	7:38 40:41 47:48
+drracket/drracket-core-lib/scribble/tools/drracket-buttons.rkt	3:9 24:64 66:71
+drracket/drracket-core-lib/scribble/tools/private/mk-drs-bitmaps.rkt	10:20 23:29 30:36 39:49 51:60 66:69
+drracket/drracket-core/info.rkt	7:8 10:33 41:42
+drracket/drracket-core/scribblings/drracket/common.rkt	3:5 7:11 13:14 16:17
+drracket/drracket-core/scribblings/drracket/example.rkt	5:6
+drracket/drracket-core/scribblings/drracket/incremental-keybindings.rkt	12:50 52:58 60:94
+drracket/drracket-core/scribblings/drracket/make-indentation-table.rkt	2:5 16:27 30:39 43:52
+drracket/drracket-core/scribblings/tools/common.rkt	4:9 10:15 17:28 29:40 44:46 48:54 56:62 65:86
+drracket/drracket-core/scribblings/tools/doc-util.rkt	2:3 4:5 7:9 11:13 15:17 19:21
+drracket/drracket-core/scribblings/tools/example-src.rkt	2:4 8:9 11:33 35:146 149:156 158:162
+drracket/drracket-plugin-lib/drracket/private/drsig.rkt	4:44 46:47 48:56 57:58 60:61 62:63 65:72 73:100 102:111 113:114 115:117 118:140 142:145 146:155 156:163 166:167 172:173 174:175 176:190 192:193 194:201 203:214 216:217 218:224 226:227 228:229 231:232 233:248 250:255 256:264 265:267 269:271 272:273 274:279 281:282 283:284 286:287 288:294 296:298 299:300 302:303 304:305 307:310 311:320 321:323 325:326 327:331 333:334 335:336 338:339 340:342 344:350 351:386 387:394 396:397 398:401 403:404 405:409 411:413 414:415 417:427 429:430 431:433 435:450 452:453 454:455 457:472 474:475 476:477
+drracket/drracket-plugin-lib/drracket/tool.rkt	3:6
+drracket/drracket-plugin-lib/info.rkt	13:14
+drracket/drracket-plugin-lib/lang/debugger-language-interface.rkt	2:7
+drracket/drracket-test/info.rkt	5:7 8:18 25:26
+drracket/drracket-test/tests/drracket/autosave-recovery-gui.rkt	2:5 7:18 20:43
+drracket/drracket-test/tests/drracket/easter-egg.rkt	2:4 6:29
+drracket/drracket-test/tests/drracket/errortrace-stacks.rkt	2:9 16:21 23:25 30:104 106:150 152:206 208:290 293:336 341:352 358:366 368:377 380:390
+drracket/drracket-test/tests/drracket/errortrace-startup.rkt	17:18 43:56
+drracket/drracket-test/tests/drracket/example-tool.rkt	2:6 8:12 16:25 27:33 35:37
+drracket/drracket-test/tests/drracket/follow-log.rkt	25:31 34:35 40:113 116:125
+drracket/drracket-test/tests/drracket/get-defs-test.rkt	3:5 7:14 16:22 24:31 33:49 51:69 71:92 94:104 106:119 122:129 131:139 141:154 156:164
+drracket/drracket-test/tests/drracket/gui-debugger/breaks.rkt	5:11 13:22 24:26 27:29
+drracket/drracket-test/tests/drracket/gui-debugger/harness.rkt	2:3 10:21 23:38 40:44
+drracket/drracket-test/tests/drracket/gui-debugger/in-drr.rkt	2:5 7:36 39:59
+drracket/drracket-test/tests/drracket/gui-debugger/quote-syntax.rkt	4:6 8:9
+drracket/drracket-test/tests/drracket/gui-debugger/tail.rkt	4:21 23:24
+drracket/drracket-test/tests/drracket/hangman.rkt	2:4 6:23
+drracket/drracket-test/tests/drracket/hash-lang-extensions.rkt	3:5 7:227
+drracket/drracket-test/tests/drracket/incremental-keybindings-test.rkt	9:11 13:64
+drracket/drracket-test/tests/drracket/info.rkt	7:12 14:20
+drracket/drracket-test/tests/drracket/insert-large-letters-test.rkt	3:8 10:35
+drracket/drracket-test/tests/drracket/io.rkt	15:20 22:39 41:49 58:110 112:133 136:223 228:238 240:242
+drracket/drracket-test/tests/drracket/language-test.rkt	17:21 27:30 50:194 213:313 331:450 468:609 611:813 832:974 993:1127 1148:1277 1298:1435 1438:1443 1452:1477 1479:1489 1491:1497 1499:1537 1542:1552 1556:1569 1571:1581 1583:1691 1693:1720 1722:1724 1726:1744 1752:1835 1837:1842 1844:1849 1851:1861 1863:1878 1882:1884
+drracket/drracket-test/tests/drracket/leak-on-run.rkt	5:48 50:52
+drracket/drracket-test/tests/drracket/memory-log.rkt	2:7 17:24 28:36 38:64
+drracket/drracket-test/tests/drracket/module-browser.rkt	2:5 7:23 26:28 29:30 31:32 34:36 37:38 39:40 41:42 44:46 47:48
+drracket/drracket-test/tests/drracket/module-lang-test.rkt	2:5 10:34
+drracket/drracket-test/tests/drracket/no-write-and-frame-leak.rkt	24:29 31:55 57:114 116:173 175:198 200:253
+drracket/drracket-test/tests/drracket/online-compilation-zo-creation.rkt	2:9 11:31 34:133
+drracket/drracket-test/tests/drracket/populate-compiled.rkt	2:5 9:10 21:25 27:32 34:38 40:45 47:52 54:58 60:62 68:71 72:75 81:149
+drracket/drracket-test/tests/drracket/private/drracket-test-util.rkt	3:12 14:15 17:46 51:56 60:80 82:83 86:87 89:101 107:125 127:133 135:141 147:161 163:169 171:175 177:189 191:193 194:196 197:199 200:202 204:231 233:240 244:250 252:260 262:265 278:289 294:298 302:305 307:316 321:406 408:427 432:447 450:453 458:497 499:574 580:596 602:632 634:639
+drracket/drracket-test/tests/drracket/private/easter-egg-lib.rkt	11:14 16:23 25:41 43:159
+drracket/drracket-test/tests/drracket/private/gui.rkt	3:4 5:7 13:30 34:38 42:49 52:68 74:87 89:110
+drracket/drracket-test/tests/drracket/private/module-lang-test-utils.rkt	2:7 9:11 15:16 18:32 38:42 43:61 66:74 76:79 81:214 220:223 225:246 248:298
+drracket/drracket-test/tests/drracket/private/no-fw-test-util.rkt	2:3 5:11 21:58 60:99 101:114 119:134 136:142 145:150 152:154
+drracket/drracket-test/tests/drracket/private/randomly-click.rkt	10:34 38:43 46:52 55:69 71:124 126:128 131:138 141:150 154:173
+drracket/drracket-test/tests/drracket/private/repl-test.rkt	17:19 27:51 55:60 62:68 71:72 74:82 84:948 1021:1023 1025:1400 1402:1407 1409:1415 1417:1427 1429:1432 1435:1439
+drracket/drracket-test/tests/drracket/private/run-example-tool.rkt	2:21 25:82
+drracket/drracket-test/tests/drracket/repl-test-debug.rkt	5:7
+drracket/drracket-test/tests/drracket/repl-test-debugprofile.rkt	5:7
+drracket/drracket-test/tests/drracket/repl-test-misc.rkt	5:7
+drracket/drracket-test/tests/drracket/repl-test-raw.rkt	2:3 6:8
+drracket/drracket-test/tests/drracket/sample-solutions-one-window.rkt	2:262
+drracket/drracket-test/tests/drracket/save-hash-lang-line.rkt	3:5 7:46
+drracket/drracket-test/tests/drracket/separate-process.rkt	2:5 7:9
+drracket/drracket-test/tests/drracket/snip-run-all.rkt	8:11 16:53 56:59
+drracket/drracket-test/tests/drracket/snips.rkt	2:6 9:27 29:31
+drracket/drracket-test/tests/drracket/stepper-test.rkt	2:690
+drracket/drracket-test/tests/drracket/syncheck-eval-compile-time.rkt	3:5 7:17 21:29 30:31
+drracket/drracket-test/tests/drracket/syncheck-test.rkt	3:18 31:32 40:49 51:55 57:61 63:67 69:74 76:81 84:1758 1761:1795 1797:1806 1810:1982 1984:1989 1992:1997 1999:2018 2025:2069 2071:2080 2082:2093 2095:2114 2116:2119 2122:2123 2125:2139 2141:2142 2146:2148
+drracket/drracket-test/tests/drracket/teaching-lang-coverage.rkt	2:6 23:27 29:66 69:74 78:80 84:85 87:123
+drracket/drracket-test/tests/drracket/teaching-lang-executable-creation.rkt	2:4 7:12 15:30 34:35
+drracket/drracket-test/tests/drracket/teaching-lang-save-file.rkt	2:6 10:48
+drracket/drracket-test/tests/drracket/teaching-lang-sharing-modules.rkt	24:30 34:52 54:61
+drracket/drracket-test/tests/drracket/teachpack.rkt	3:8 17:60 63:91 93:135 137:159 161:164 166:175 177:186 189:231 233:254 256:266 268:274 276:281 283:285 287:289
+drracket/drracket-test/tests/drracket/time-keystrokes.rkt	3:5 12:14 16:88 90:102
+drracket/drracket-tool-doc/info.rkt	14:15
+drracket/drracket-tool-lib/drracket/get-module-path.rkt	2:8 10:22 24:287 298:300 308:310 313:317 320:333 335:390 392:394 397:398
+drracket/drracket-tool-lib/drracket/info.rkt	3:7
+drracket/drracket-tool-lib/drracket/module-browser.rkt	4:5
+drracket/drracket-tool-lib/drracket/private/raco-module-browser.rkt	5:10 11:23 26:27
+drracket/drracket-tool-lib/drracket/private/rectangle-intersect.rkt	4:6 8:16 18:23 25:30 32:54
+drracket/drracket-tool-lib/drracket/private/standalone-module-browser.rkt	3:23 25:28 30:34 39:40 42:44 52:55 73:74 76:88 90:95 97:140 142:155 175:176 178:179 181:311 313:315 317:487 489:586 588:597 599:622 630:1289 1291:1298 1300:1309 1311:1414 1420:1426
+drracket/drracket-tool-lib/info.rkt	5:11 12:13 23:24
+drracket/drracket-tool-test/info.rkt	5:7 16:17
+drracket/drracket-tool-test/tests/check-syntax/contract-check-syntax.rkt	3:6 8:21 23:27 29:47 50:51 53:76 78:95 97:124
+drracket/drracket-tool-test/tests/check-syntax/soup.rkt	4:5 7:12 17:21
+drracket/drracket-tool-test/tests/check-syntax/syncheck-direct.rkt	3:12 14:24 28:52 72:74 76:77 78:79 80:81 82:83 84:85 86:87 88:89 90:91 92:93 94:95 118:128 130:140 142:158 160:162 164:176 177:189 191:194 196:199 202:245 247:262 264:274 276:289 291:303 305:332 334:341 343:350 352:362 365:375 377:385 387:402 404:424 427:441 443:452 455:468 470:482 484:502 504:518 520:566 587:589 591:593 595:597 599:611 613:620 623:640 642:649 651:659 661:668 670:677 679:686 688:695 697:704 716:723 725:732 734:742 744:753 755:762 764:777 779:790 792:813 815:833 835:848 868:871 873:875 877:882 884:890 892:902 904:909 911:921 943:945 946:948 953:960 962:977 979:980 982:984 986:988 989:991 993:1000 1002:1006 1008:1012 1014:1023 1026:1048 1049:1050 1051:1052 1078:1080 1082:1086 1088:1095 1097:1103 1128:1153 1157:1180 1184:1266 1268:1287
+drracket/drracket-tool-text-lib/drracket/check-syntax.rkt	2:8 10:32 34:35 38:58 60:98
+drracket/drracket-tool-text-lib/drracket/find-module-path-completions.rkt	3:10 12:17 18:19 21:22 24:47 49:54 56:63 67:70 71:74 76:103 105:114 116:152 157:217 219:220 222:227 229:295 297:392
+drracket/drracket-tool-text-lib/drracket/private/syncheck/annotate.rkt	2:4 5:9 13:19 23:26 31:40 42:45 47:54 57:60 63:64
+drracket/drracket-tool-text-lib/drracket/private/syncheck/contract-traversal.rkt	2:8 11:62 64:204 209:216 223:228 230:244 246:250 252:253 255:260 262:298
+drracket/drracket-tool-text-lib/drracket/private/syncheck/syncheck-intf.rkt	2:3 5:27 34:85 87:89
+drracket/drracket-tool-text-lib/drracket/private/syncheck/syncheck-local-member-names.rkt	5:25
+drracket/drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt	3:20 24:26 36:148 151:165 211:617 619:620 621:622 623:626 628:629 631:637 640:650 651:655 657:698 700:704 705:717 720:744 747:768 776:912 916:941 944:948 950:952 965:1002 1007:1075 1077:1091 1093:1107 1111:1138 1141:1156 1173:1206 1209:1217 1219:1225 1228:1241 1245:1313 1319:1335 1342:1376 1380:1415 1418:1430 1434:1453 1461:1486 1489:1508 1514:1519 1538:1563 1565:1581 1600:1601 1606:1610 1615:1635 1637:1639 1642:1644 1647:1648 1650:1691
+drracket/drracket-tool-text-lib/drracket/private/syncheck/xref.rkt	2:4 5:6 12:42 47:54 56:59
+drracket/drracket-tool-text-lib/info.rkt	5:8 9:10 18:19
+drracket/drracket-tool/info.rkt	5:6 7:8 14:15
+drracket/drracket/browser/browser-sig.rkt	2:3 7:10
+drracket/drracket/browser/browser-unit.rkt	3:13 19:24 26:35
+drracket/drracket/browser/browser.rkt	2:11
+drracket/drracket/browser/htmltext.rkt	2:13 17:21 23:32 37:59 61:71 73:75
+drracket/drracket/browser/private/btree.rkt	12:13 19:22 24:27 29:46 48:65 68:143 145:157 159:160 162:164 166:170 172:181 183:192 194:204
+drracket/drracket/browser/private/bullet.rkt	2:3 5:8 12:15 17:18 22:76 78:88
+drracket/drracket/browser/private/entity-names.rkt	4:256 258:259
+drracket/drracket/browser/private/html.rkt	3:13 26:35 37:38 43:54 56:58 59:62 73:136 143:146 149:152 157:159 163:174 176:181 183:187 191:192 194:201 206:228 231:259 261:272 274:285 291:310 315:328 330:338 340:342 344:348 350:352 364:373 380:381 386:390 398:419 421:489 491:496 498:501 503:1230
+drracket/drracket/browser/private/hyper.rkt	29:40 42:45 59:71 74:79 81:568 571:580 590:595 596:601 602:606 628:634 638:646 648:675 677:773 779:816 824:856 860:894 896:919 921:1115 1119:1122 1124:1131 1133:1141 1149:1150 1152:1153
+drracket/drracket/browser/private/option-snip.rkt	4:5 11:13 17:119 124:199
+drracket/drracket/browser/private/sig.rkt	4:8 10:13 15:17 19:20 22:46 48:57
+drracket/drracket/drracket/plt-installer-tool.rkt	2:11 14:244
+drracket/drracket/drscheme/private/number-snip.rkt	2:4 5:6
+drracket/drracket/gui-debugger/annotator.rkt	1:424
+drracket/drracket/gui-debugger/debug-tool.rkt	5:31 41:43 45:1589
+drracket/drracket/gui-debugger/load-sandbox.rkt	3:6 8:11 15:19 23:24 29:43 48:71 76:86
+drracket/drracket/gui-debugger/marks.rkt	1:184
+drracket/drracket/help/bug-report.rkt	2:13 15:19 21:22 25:32 39:42 44:57 59:334 338:344
+drracket/drracket/help/private/bug-report-controls.rkt	2:14 16:18 20:413
+drracket/drracket/help/private/buginfo.rkt	3:7 14:15
+drracket/drracket/help/private/save-bug-report.rkt	3:7 9:12 14:15 19:24 26:31 33:38 47:54 62:68 72:83 85:97 103:114 116:126 128:134 136:137 139:156 159:164 166:168 169:173 175:181 182:196
+drracket/drracket/info.rkt	5:28 30:32 45:46
+drracket/drracket/macro-debugger/tool.rkt	2:18 27:30 32:37 39:44 46:85 93:470
+drracket/drracket/repo-time-stamp/stamp.rkt	4:6
+drracket/drracket/repo-time-stamp/time-stamp.rkt	5:10
+drracket/drracket/setup/plt-installer-sig.rkt	1:8
+drracket/drracket/setup/plt-installer-unit.rkt	2:8 11:50
+drracket/drracket/setup/plt-installer.rkt	1:12
+drracket/drracket/version/tool.rkt	3:6 23:24 26:155 158:186
