@@ -322,7 +322,7 @@ impl App {
         });
     }
 
-    fn ruby_ancestors(&self, here: &Path, class: &str) -> impl Iterator<Item = String> {
+    pub(super) fn ruby_ancestors(&self, here: &Path, class: &str) -> impl Iterator<Item = String> {
         let mut seen = vec![class.to_owned()];
         let mut i = 0;
         let mut pending: std::collections::VecDeque<(String, String)> =

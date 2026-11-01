@@ -1,4 +1,4 @@
-use super::{App, Candidate, Kind, Path, Reason, search};
+use super::{App, Candidate, Hit, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn ruby_receiver_methods(
@@ -34,6 +34,10 @@ impl App {
             return None;
         }
         let expr = expr.trim();
+        if let Some(name) = search::ruby_found_record(expr) {
+            let class = self.ruby_constant_class(here, name)?;
+            return self.ruby_record(here, class);
+        }
         if let Some((receiver, method)) = search::ruby_last_call(expr) {
             if method == "new" && receiver.starts_with(|c: char| c.is_ascii_uppercase() || c == ':')
             {
@@ -49,11 +53,25 @@ impl App {
         if !search::ruby_local_name(expr) {
             return None;
         }
+        match prefix.chars().next_back() {
+            Some('@') if !prefix.ends_with("@@") => {
+                return self.ruby_ivar_class(here, text, line1, expr, depth);
+            }
+            Some('@' | '$') => return None,
+            _ => {}
+        }
         if let Some(tapped) = search::ruby_tapped(prefix, expr) {
             let (head, receiver) = search::ruby_receiver_split(tapped);
             return self.ruby_value_class(here, text, line1, head, receiver, depth + 1);
         }
-        let (at, value) = search::ruby_assigned_once(text, line1, expr)?;
+        let Some((at, value)) = search::ruby_assigned_once(text, line1, expr) else {
+            let class = search::ruby_class_path(text, line1);
+            let bound = !search::ruby_locals(text, line1, expr).is_empty()
+                || !search::bindings(Kind::Ruby, text, line1, expr).is_empty();
+            return (!bound && !class.is_empty() && !search::ruby_self_is_class(text, line1))
+                .then(|| self.ruby_returned_class(here, &class, expr))
+                .flatten();
+        };
         let (head, whole) = search::ruby_receiver_split(&value);
         if !head.trim().is_empty() {
             return None;
@@ -96,7 +114,65 @@ impl App {
                     .is_empty()
                     .then_some(made)
             }
+            search::RubyReturns::Found(name) => {
+                let found = self.ruby_resolve(here, &owner, &name)?;
+                self.ruby_record(here, found)
+            }
         }
+    }
+
+    fn ruby_record(&self, here: &Path, class: String) -> Option<String> {
+        let record = std::iter::once(class.clone())
+            .chain(self.ruby_ancestors(here, &class))
+            .any(|c| {
+                self.ruby_parents(here, &c)
+                    .superclasses
+                    .iter()
+                    .any(|s| s.trim_start_matches(':') == "ActiveRecord::Base")
+            });
+        (record
+            && self
+                .ruby_methods_from(here, "find", class.clone(), true)
+                .is_empty())
+        .then_some(class)
+    }
+
+    fn ruby_ivar_class(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        depth: usize,
+    ) -> Option<String> {
+        let ivar = format!("@{name}");
+        let class = search::ruby_class_path(text, line1);
+        if class.is_empty() {
+            return None;
+        }
+        let cut = self.truncated.get();
+        let assigned: Vec<(Hit, String)> = self
+            .project_definitions(Kind::Ruby, here, &ivar, &search::ruby_assignment(&ivar))
+            .into_iter()
+            .filter_map(|h| {
+                let t = self.text_of(&h.path)?;
+                (search::ruby_class_path(&t, h.line1) == class).then_some((h, t))
+            })
+            .collect();
+        self.truncated.set(cut);
+        let [(hit, t)] = assigned.as_slice() else {
+            return None;
+        };
+        let value = hit.text.trim_start().strip_prefix(&ivar)?.trim_start();
+        let value = value
+            .strip_prefix("||=")
+            .or_else(|| value.strip_prefix('='))?
+            .trim();
+        let (head, whole) = search::ruby_receiver_split(value);
+        if !head.trim().is_empty() {
+            return None;
+        }
+        self.ruby_value_class(here, t, hit.line1, "", whole, depth + 1)
     }
 
     pub(super) fn ruby_super(&self, here: &Path, text: &str) -> Vec<Candidate> {
