@@ -531,8 +531,7 @@ fn f_folds_a_jsx_element_in_a_jsx_file() {
 }
 
 #[test]
-fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_scala_sql_and_terraform_fixtures()
- {
+fn f_survives_every_prefix_of_the_listed_fold_fixtures() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
     let fixtures = [
         ("dart", "dart.dart"),
@@ -547,6 +546,9 @@ fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_scala
         ("cc", "cpp.cc"),
         ("sql", "sql.sql"),
         ("tf", "terraform.tf"),
+        ("vue", "vue.vue"),
+        ("svelte", "svelte.svelte"),
+        ("astro", "astro.astro"),
     ];
     for (ext, name) in fixtures {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();

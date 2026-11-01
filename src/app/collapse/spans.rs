@@ -378,12 +378,23 @@ fn contains(parent: &str, child: &str) -> bool {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Template {
+    Vue,
+    Svelte,
+    Astro,
+}
+
 pub(super) fn html(lines: &[String]) -> Vec<(usize, usize)> {
-    markup(lines, false)
+    markup(lines, false, None)
 }
 
 pub(super) fn xml(lines: &[String]) -> Vec<(usize, usize)> {
-    markup(lines, true)
+    markup(lines, true, None)
+}
+
+pub(super) fn template(lines: &[String], template: Template) -> Vec<(usize, usize)> {
+    markup(lines, false, Some(template))
 }
 
 struct Markup<'a> {
@@ -391,11 +402,102 @@ struct Markup<'a> {
     lower: String,
     starts: Vec<usize>,
     xml: bool,
+    template: Option<Template>,
 }
 
 impl Markup<'_> {
     fn line(&self, at: usize) -> usize {
         self.starts.partition_point(|&s| s <= at) - 1
+    }
+
+    fn line_before(&self, at: usize) -> usize {
+        self.line(at.min(self.b.len()).saturating_sub(1))
+    }
+
+    fn content_end(&self, at: usize) -> usize {
+        let b = &self.b[..at.min(self.b.len())];
+        self.line_before(
+            b.iter()
+                .rposition(|c| !c.is_ascii_whitespace())
+                .map_or(0, |p| p + 1),
+        )
+    }
+
+    fn next_token(&self, from: usize) -> usize {
+        let rest = self.b.get(from..).unwrap_or_default();
+        rest.iter()
+            .position(|c| !c.is_ascii_whitespace())
+            .map_or(self.b.len(), |p| from + p)
+    }
+
+    fn body_start(&self, lines: &[String]) -> usize {
+        if self.template != Some(Template::Astro) {
+            return 0;
+        }
+        (self.starts.get(front_matter_end(lines))).map_or(self.b.len(), |&s| s)
+    }
+
+    fn brace_end(&self, from: usize) -> usize {
+        let mut quote = None;
+        let mut depth = 0usize;
+        for (i, &c) in self.b.iter().enumerate().skip(from) {
+            match quote {
+                Some(q) if c == q => quote = None,
+                None if matches!(c, b'"' | b'\'' | b'`') => quote = Some(c),
+                None if c == b'{' => depth += 1,
+                None if c == b'}' && depth <= 1 => return i,
+                None if c == b'}' => depth -= 1,
+                _ => {}
+            }
+        }
+        self.b.len()
+    }
+
+    fn block(
+        &self,
+        i: usize,
+        open: &mut Vec<(String, usize)>,
+        folds: &mut Vec<(usize, usize)>,
+    ) -> usize {
+        let end = self.brace_end(i);
+        let name = format!("{{{}", self.name_at((i + 2).min(self.b.len())));
+        let branch = |open: &mut Vec<(String, usize)>, folds: &mut Vec<(usize, usize)>| {
+            let Some(k) = open.iter().rposition(|(n, _)| n.starts_with('{')) else {
+                return false;
+            };
+            for (_, h) in open.drain(k + 1..) {
+                close_span(h, self.line(i), folds);
+            }
+            if open[k].0 == "{:" {
+                close_span(open[k].1, self.content_end(i), folds);
+                open.pop();
+            }
+            true
+        };
+        match self.b.get(i + 1) {
+            Some(b'#') => open.push((name, self.line(i))),
+            Some(b':') => {
+                if branch(open, folds) {
+                    open.push(("{:".into(), self.line(i)));
+                }
+            }
+            Some(b'/') => {
+                if let Some(k) = open.iter().rposition(|(n, _)| *n == name) {
+                    for (n, h) in open.drain(k + 1..) {
+                        let e = if n == "{:" {
+                            self.content_end(i)
+                        } else {
+                            self.line(i)
+                        };
+                        close_span(h, e, folds);
+                    }
+                    let (_, h) = open.pop().unwrap_or_default();
+                    close_span(h, self.line_before(end + 1), folds);
+                }
+            }
+            _ => {}
+        }
+        end + 1
     }
 
     fn find(&self, from: usize, what: &str) -> usize {
@@ -447,18 +549,20 @@ impl Markup<'_> {
         reason = "the scan's arms are grouped by state, the quoted ones first; a merge would mix them"
     )]
     fn tag_end(&self, from: usize) -> usize {
-        let b = self.b;
         let mut quote = None;
-        for (i, &c) in b.iter().enumerate().skip(from) {
+        let mut i = from;
+        while let Some(&c) = self.b.get(i) {
             match quote {
                 Some(q) if c == q => quote = None,
                 Some(_) => {}
                 None if c == b'"' || c == b'\'' => quote = Some(c),
+                None if c == b'{' && self.template.is_some() => i = self.brace_end(i),
                 None if c == b'>' => return i,
                 None => {}
             }
+            i += 1;
         }
-        b.len()
+        self.b.len()
     }
 }
 
@@ -468,17 +572,9 @@ fn close_span(h: usize, e: usize, folds: &mut Vec<(usize, usize)>) {
     }
 }
 
-fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
+fn markup(lines: &[String], xml: bool, template: Option<Template>) -> Vec<(usize, usize)> {
     let text = lines.join("\n");
     let b = text.as_bytes();
-    let starts: Vec<usize> = std::iter::once(0)
-        .chain(
-            b.iter()
-                .enumerate()
-                .filter(|c| *c.1 == b'\n')
-                .map(|(i, _)| i + 1),
-        )
-        .collect();
     let lower = if xml {
         text.clone()
     } else {
@@ -487,15 +583,23 @@ fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
     let m = Markup {
         b,
         lower,
-        starts,
+        starts: line_starts(b),
         xml,
+        template,
     };
+    let mut at = m.body_start(lines);
+    let svelte = template == Some(Template::Svelte);
     let mut open: Vec<(String, usize)> = Vec::new();
     let mut folds = Vec::new();
-    let mut at = 0;
-    while let Some(i) =
-        (b.get(at..).and_then(|r| r.iter().position(|&c| c == b'<'))).map(|i| at + i)
+    let mut voids = Vec::new();
+    while let Some(i) = (b.get(at..))
+        .and_then(|r| r.iter().position(|&c| c == b'<' || (svelte && c == b'{')))
+        .map(|i| at + i)
     {
+        if b[i] == b'{' {
+            at = m.block(i, &mut open, &mut folds);
+            continue;
+        }
         let rest = &b[i + 1..];
         if rest.starts_with(b"!--") {
             at = m.find(i + 4, "-->") + 3;
@@ -526,7 +630,8 @@ fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
             at = m.close_tag(i, &mut open, &mut folds) + 1;
             continue;
         }
-        if !rest.first().is_some_and(u8::is_ascii_alphabetic) {
+        let fragment = template == Some(Template::Astro) && rest.first() == Some(&b'>');
+        if !fragment && !rest.first().is_some_and(u8::is_ascii_alphabetic) {
             at = i + 1;
             continue;
         }
@@ -549,22 +654,40 @@ fn markup(lines: &[String], xml: bool) -> Vec<(usize, usize)> {
             );
             at = stop + 1;
         } else if b.get(end.wrapping_sub(1)) == Some(&b'/') {
-            if xml {
-                close_span(
-                    m.line(i),
-                    m.line(end.min(b.len().saturating_sub(1))),
-                    &mut folds,
-                );
+            if xml || template.is_some() {
+                close_span(m.line(i), m.line_before(end + 1), &mut folds);
             }
-        } else if xml || !VOID.contains(&name.as_str()) {
+        } else if xml || (svelte && b[i + 1].is_ascii_uppercase()) || !VOID.contains(&name.as_str())
+        {
             open.push((name, m.line(i)));
+        } else if template.is_some() {
+            close_span(m.line(i), m.line_before(m.next_token(at)), &mut voids);
         }
     }
     let last = lines.len().saturating_sub(1);
     for (_, h) in open {
         close_span(h, last, &mut folds);
     }
+    close_voids(&voids, &mut folds);
     innermost(folds)
+}
+
+fn close_voids(voids: &[(usize, usize)], folds: &mut Vec<(usize, usize)>) {
+    for &(h, e) in voids {
+        let starts = folds.iter().chain(voids).any(|f| f.0 == e);
+        close_span(h, e - usize::from(starts), folds);
+    }
+}
+
+fn line_starts(b: &[u8]) -> Vec<usize> {
+    std::iter::once(0)
+        .chain(
+            b.iter()
+                .enumerate()
+                .filter(|c| *c.1 == b'\n')
+                .map(|(i, _)| i + 1),
+        )
+        .collect()
 }
 
 enum Frame {
