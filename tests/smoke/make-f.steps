@@ -1,0 +1,26 @@
+# make-f: f folds Make and CMake (#1354). On a rule's first line f folds its recipe and f there
+# unfolds it; on a line inside a CMake function f folds the function. The files are written here,
+# not in the project, which every other scenario counts the files of.
+merl
+wait Open a file (fuzzy)
+run mkdir -p mk && printf 'CC ?= cc\n\nall: app\n\t$(CC) -o app main.c\n\t@echo built\n' > mk/app.mk && printf 'function(demo name)\n  if(WIN32)\n    message(win)\n  endif()\n  add_executable(${name} main.c)\nendfunction()\n' > mk/demo.cmake
+key q
+wait merl exited: 0
+merl mk/app.mk
+wait A app.mk
+key :
+type 3
+key Enter f
+wait 2 lines
+key f
+wait @echo built
+key q
+wait merl exited: 0
+merl mk/demo.cmake
+wait A demo.cmake
+key :
+type 5
+key Enter f
+wait 5 lines
+key q
+wait merl exited: 0
