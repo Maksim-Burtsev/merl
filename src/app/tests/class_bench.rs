@@ -122,6 +122,34 @@ fn name_of<'a>(n: Node<'a>, src: &'a str) -> Option<Node<'a>> {
     .filter(|m| src.get(m.byte_range()).is_some())
 }
 
+fn defined_by<'a>(p: Node<'a>, leaf: Node, src: &str) -> Option<Option<Node<'a>>> {
+    if p.kind() == "binding" {
+        return Some(p.child_by_field_name("attrpath"));
+    }
+    if p.kind() == "defun" {
+        let name = p.named_child(0)?.child_by_field_name("function_name")?;
+        return Some(Some(name));
+    }
+    let symbol = |n: &Node| matches!(n.kind(), "symbol" | "sym_lit");
+    if !matches!(p.kind(), "list" | "list_lit") {
+        return None;
+    }
+    let head = p.named_child(0).filter(symbol)?;
+    let head = src.get(head.byte_range())?.to_ascii_lowercase();
+    if !head.starts_with("def") && !head.contains("-define") {
+        return None;
+    }
+    let mut name = p.named_child(1)?;
+    if head.ends_with("values") {
+        let mut c = name.walk();
+        return Some(name.named_children(&mut c).find(|n| n.id() == leaf.id()));
+    }
+    while matches!(name.kind(), "list" | "list_lit") {
+        name = name.named_child(0)?;
+    }
+    Some(Some(name).filter(symbol))
+}
+
 fn segments(s: &str) -> Vec<String> {
     let mut depth = 0usize;
     let plain: String = s
@@ -232,7 +260,8 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
             chain = seg;
             continue;
         }
-        if !CONTAINERS.contains(&p.kind()) && !prototype(p) {
+        let defined = defined_by(p, leaf, src);
+        if defined.is_none() && !CONTAINERS.contains(&p.kind()) && !prototype(p) {
             continue;
         }
         let function = p.kind().contains("function")
@@ -261,7 +290,7 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
             }
             continue;
         }
-        let Some(name) = name_of(p, src) else {
+        let Some(name) = defined.map_or_else(|| name_of(p, src), |d| d) else {
             continue;
         };
         let text = src.get(name.byte_range())?;
@@ -269,6 +298,9 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
             found_def = true;
             let mut own = segments(text);
             own.pop();
+            if defined.is_some() {
+                own = segments(src.get(name.start_byte()..leaf.start_byte()).unwrap_or(""));
+            }
             if p.kind() == "method_declaration"
                 && let Some(r) = go_receiver(p, src)
             {

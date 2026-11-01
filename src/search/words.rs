@@ -5,10 +5,10 @@ use regex::Regex;
 use super::{
     HASKELL_RESERVED, Kind, SYMBOLS, Value, close_of, cmake_name, code, cs_parameter_of,
     enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
-    julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp, lisp_name,
-    literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_impl_type,
-    rust_let_declares, separator, shared_symbols, split_top, swift_type_header, symbol_name,
-    ts_declarators, type_name, uncommented, value_of, word_chars,
+    julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp,
+    lisp_form_encloses, lisp_name, literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name,
+    rust_impl_type, rust_let_declares, separator, shared_symbols, split_top, swift_type_header,
+    symbol_name, ts_declarators, type_name, uncommented, value_of, word_chars,
 };
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
@@ -64,7 +64,7 @@ pub fn shows_class(path: &std::path::Path) -> bool {
     let measured = [
         "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
         "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb", "php", "lua",
-        "sql",
+        "sql", "rkt", "scm", "ss", "sld", "lisp", "cl", "lsp", "asd", "el", "nix",
     ];
     path.extension()
         .and_then(|e| e.to_str())
@@ -373,6 +373,11 @@ fn qualified_by_nesting(
         }
         let tail = kind == Kind::Jvm && l.trim_start().starts_with(')');
         if steps_over(Some(kind), l.trim_start()) || tail || indent(l) >= depth {
+            continue;
+        }
+        if matches!(kind, Kind::Scheme | Kind::CommonLisp | Kind::EmacsLisp)
+            && !lisp_form_encloses(kind, text, j, line1 - 1)
+        {
             continue;
         }
         depth = indent(l);
