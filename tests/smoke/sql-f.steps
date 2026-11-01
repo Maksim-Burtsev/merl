@@ -1,0 +1,18 @@
+# sql-f: f folds SQL (#1345). On a statement's first line f folds the statement to its last line
+# and f there unfolds it; inside a WITH query's body f folds that body. The file is written here,
+# not in the project, which every other scenario counts the files of.
+merl
+wait Open a file (fuzzy)
+run mkdir -p db && printf 'CREATE VIEW order_view AS\nWITH totals AS (\n    SELECT\n        order_id,\n        sum(price) AS total\n    FROM\n        order_item\n    GROUP BY\n        order_id\n)\nSELECT\n    o.id,\n    t.total\nFROM\n    orders o\n    JOIN totals t ON t.order_id = o.id;\n' > db/views.sql
+key q
+wait merl exited: 0
+merl db/views.sql
+wait A views.sql
+key f
+wait 15 lines
+key f :
+type 5
+key Enter f
+wait db/views.sql  3:1
+key q
+wait merl exited: 0
