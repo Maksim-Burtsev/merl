@@ -636,6 +636,9 @@ impl App {
         if hits.is_empty() {
             *fallbacks = fallback;
         }
+        if let Some(own) = self.cpp_own_definition(a, &hits) {
+            return Some(vec![own]);
+        }
         let parameter = search::c_parameter(&a.text, self.line + 1, word);
         let one = search::c_one_definition(word, &hits, |p| self.text_of(p))
             .filter(|_| !on && !parameter)
@@ -660,9 +663,102 @@ impl App {
             })
             .filter(|h| !search::c_heads_a_nested_class(word, &h.text))
             .collect();
-        search::c_block_scoped(&a.text, word, self.line + 1, hits, |h| {
+        let hits = search::c_block_scoped(&a.text, word, self.line + 1, hits, |h| {
             (h.path == a.here && Self::c_type_line(word, h)).then_some(h.line1)
-        })
+        });
+        self.cpp_class_scoped(a, hits)
+    }
+
+    fn cpp_class_scoped(&self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
+        let code = search::c_code(&a.text);
+        if self.c_source()
+            || self.objc_file()
+            || a.dotted
+            || a.before.trim_end().ends_with("::")
+            || a.tail.trim_start().starts_with(['(', '{'])
+            || search::cpp_template_param(&code, &a.word)
+            || search::cpp_using_declares(&code, &a.word)
+        {
+            return hits;
+        }
+        let ctx = search::cpp_scope_path(&code, self.cpp_pos(a, &code));
+        let member = |h: &Hit| {
+            self.text_of(&h.path).is_some_and(|t| {
+                !search::c_inside_function(&t, h.line1, &a.word)
+                    && search::cpp_owner(&t, h.line1, &a.word).as_ref() == Some(&ctx)
+            })
+        };
+        let mine: Vec<bool> = hits.iter().map(member).collect();
+        let borrowed = regex::Regex::new(r"^\s*(?:friend\b|using\s+(?:typename\s+)?[\w:<>, ]*::)")
+            .expect("the regex is a literal");
+        let odd = (hits.iter().zip(&mine))
+            .any(|(h, m)| *m && (borrowed.is_match(&h.text) || !Self::c_type_line(&a.word, h)));
+        if ctx.is_empty() || odd || !mine.contains(&true) {
+            return hits;
+        }
+        let ahead = regex::Regex::new(&format!(
+            r"^\s*(?:class|struct|union)\s+{}\s*;",
+            regex::escape(&a.word)
+        ))
+        .expect("an escaped name keeps the pattern valid");
+        let hits: Vec<Hit> = (hits.into_iter().zip(mine))
+            .filter_map(|(h, m)| m.then_some(h))
+            .collect();
+        if hits.iter().all(|h| ahead.is_match(&h.text)) {
+            return hits;
+        }
+        hits.into_iter()
+            .filter(|h| !ahead.is_match(&h.text))
+            .collect()
+    }
+
+    fn cpp_pos(&self, a: &Asked, code: &str) -> usize {
+        let pos = (a.text.split('\n').take(self.line))
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + a.range.start;
+        pos.min(code.len())
+    }
+
+    fn cpp_own_definition(&self, a: &Asked, hits: &[Hit]) -> Option<Hit> {
+        static DECLARES: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"^\s*(?:[A-Za-z_][\w:]*(?:\s*<[^;(){}=]*>)?[\s*&]+)+$")
+                .expect("the regex is a literal")
+        });
+        static NOT_A_TYPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(
+                r"\b(?:return|throw|new|delete|case|else|goto|co_return|co_await|co_yield|friend|typedef|using|sizeof|operator)\b",
+            )
+            .expect("the regex is a literal")
+        });
+        let word = &a.word;
+        let code = search::c_code(&a.text);
+        let pos = self.cpp_pos(a, &code);
+        let ends = code.get(pos..)?.find(['{', ';'])?;
+        if self.c_source()
+            || self.objc_file()
+            || a.dotted
+            || !a.chain.is_empty()
+            || !DECLARES.is_match(&a.before)
+            || NOT_A_TYPE.is_match(&a.before)
+            || !a.tail.trim_start().starts_with('(')
+            || code.as_bytes().get(pos + ends) != Some(&b';')
+            || search::c_inside_function(&a.text, self.line + 1, word)
+        {
+            return None;
+        }
+        let ctx = search::cpp_scope_path(&code, pos);
+        let mine = search::cpp_declared_signature(&a.text, self.line + 1, word)?;
+        let mut own = hits.iter().filter(|h| {
+            self.text_of(&h.path).is_some_and(|t| {
+                search::cpp_owner(&t, h.line1, word).as_ref() == Some(&ctx)
+                    && search::cpp_defined_signature(&t, h.line1, word).as_ref() == Some(&mine)
+            })
+        });
+        match (ctx.is_empty(), own.next(), own.next()) {
+            (false, Some(h), None) => Some(h.clone()),
+            _ => None,
+        }
     }
 
     fn c_included_texts(&mut self, here: &std::path::Path) -> Vec<(PathBuf, String)> {

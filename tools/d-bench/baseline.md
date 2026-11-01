@@ -87,6 +87,7 @@ The cpp row with #1336's struct declared inside a function, seen only from its o
 The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
 The js row with #1337 (a default import through `export { local as default }`, a `require` of a file inside a package read for that file's declarations, the key of a renamed `require`): over `9dddebb41`, 2026-10-31, release build, `vm.loadavg` { 4.46 4.47 4.91 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The dart row with #1338 (a `super.` parameter lands on the superclass constructor's parameter; a generic type followed by a call on its line is no call): over `4aedb4735`, 2026-10-31, release build, `vm.loadavg` { 5.91 5.69 5.53 } before the run.
+The cpp row with #1336's class scope (a type name in a class's method finds the class's own nested type first, `DBImpl::Writer`; a method declared in a class lands on that class's out-of-line definition with the same parameters, `VersionEdit::Clear`, `DBImpl::Delete`): over `f79b372f9`, 2026-11-02, release build, `vm.loadavg` { 3.45 4.73 4.76 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -97,7 +98,7 @@ The dart row with #1338 (a `super.` parameter lands on the superclass constructo
 | rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 236 | 210 (89%) | 26 (11%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.3 | 65.7 |
+| cpp (leveldb) | 236 | 213 (90%) | 23 (10%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.6 |
 | php (koel) | 392 | 350 (89%) | 41 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 221.4 |
 | swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 7 | 21.4 | 45.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
