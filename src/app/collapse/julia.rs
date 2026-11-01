@@ -155,7 +155,7 @@ fn tokens(src: &str) -> Vec<Tok<'_>> {
             }
             b'#' if at(i + 1) == b'=' => {
                 let end = comment(b, i);
-                line += b[i..end].iter().filter(|&&c| c == b'\n').count();
+                line += src.get(i..end).unwrap_or("").matches('\n').count();
                 i = end;
                 continue;
             }

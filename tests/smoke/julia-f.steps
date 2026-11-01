@@ -9,12 +9,12 @@ wait merl exited: 0
 merl jlf/shop.jl
 wait A shop.jl
 key f
-wait 4 lines
+wait 3 lines ⋯ end
 key f
 wait println(x[end])
 key :
 type 2
 key Enter f
-wait 2 lines ⋯ end
+wait 1 line ⋯ end
 key q
 wait merl exited: 0
