@@ -171,7 +171,7 @@ pub fn word_chars(kind: Option<Kind>, address: bool) -> &'static str {
         Some(Kind::R) => ".",
         Some(Kind::Clojure) => "-?!*+<>=",
         Some(Kind::EmacsLisp) => "-?!*+<>=/",
-        Some(Kind::Scheme) => "-?!*+<>=/:",
+        Some(Kind::Scheme) => "-?!*+<>=/:%",
         Some(Kind::CommonLisp) => "-?!*+<>=/%",
         _ => "",
     }

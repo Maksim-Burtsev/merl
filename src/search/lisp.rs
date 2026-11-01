@@ -297,6 +297,9 @@ enum Role {
     Destructure,
     Letfn,
     Arity,
+    Literals,
+    Rule,
+    Pattern,
 }
 
 #[expect(
@@ -314,6 +317,8 @@ struct Frame<'a> {
     sequential: bool,
     recursive: bool,
     tests: bool,
+    values: bool,
+    literal: bool,
     entry: Option<usize>,
 }
 
@@ -335,6 +340,9 @@ const LETS: &[&str] = &[
     "let*",
     "letrec",
     "letrec*",
+    "let-values",
+    "let*-values",
+    "letrec-values",
     "flet",
     "labels",
     "when-let*",
@@ -342,8 +350,15 @@ const LETS: &[&str] = &[
     "and-let*",
     "pcase-let*",
 ];
-const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
-const RECURSIVE: &[&str] = &["letrec", "letrec*", "labels"];
+const SEQUENTIAL: &[&str] = &[
+    "let*",
+    "let*-values",
+    "when-let*",
+    "if-let*",
+    "and-let*",
+    "pcase-let*",
+];
+const RECURSIVE: &[&str] = &["letrec", "letrec*", "letrec-values", "labels"];
 const TESTS: &[&str] = &["when-let*", "if-let*", "and-let*"];
 const LAMBDAS: &[&str] = &["lambda", "opt-lambda"];
 const CLASSES: &[&str] = &["class", "class*", "mixin"];
@@ -359,6 +374,8 @@ const DEFUNS: &[&str] = &[
     "define-inline",
     "defmethod",
     "cl-defmethod",
+    "defgeneric",
+    "cl-defgeneric",
 ];
 const DEFINES: &[&str] = &[
     "define",
@@ -403,15 +420,23 @@ fn open_frame<'a>(
             None,
         ),
         Some(p) if p.role == Role::Entries && p.sequential => (false, Some(found)),
+        Some(p) if p.values && role == Role::Destructure => (false, p.entry),
         _ => (false, None),
     };
     let recursive = match stack.last() {
         Some(p) if role == Role::Entries => {
             RECURSIVE.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
         }
-        Some(p) => p.role == Role::Letfn || (p.role == Role::Entries && p.recursive),
+        Some(p) => p.role == Role::Letfn || (p.recursive && (p.role == Role::Entries || p.values)),
         None => false,
     };
+    let values = match stack.last() {
+        Some(p) if role == Role::Entries => p.head.is_some_and(|h| h.ends_with("-values")),
+        Some(p) => p.role == Role::Entries && p.values,
+        None => false,
+    };
+    let literal = matches!(role, Role::Rule | Role::Pattern | Role::Destructure)
+        && stack.last().is_some_and(|p| p.literal);
     let tests = match stack.last() {
         Some(p) if role == Role::Entries => {
             TESTS.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
@@ -420,7 +445,7 @@ fn open_frame<'a>(
         None => false,
     };
     let scope = match (role, stack.last()) {
-        (Role::Plain | Role::Arity, _) | (_, None) => {
+        (Role::Plain | Role::Arity | Role::Rule, _) | (_, None) => {
             scopes.push((pos, None));
             scopes.len() - 1
         }
@@ -437,6 +462,8 @@ fn open_frame<'a>(
         sequential,
         recursive,
         tests,
+        values,
+        literal,
         entry,
     }
 }
@@ -472,7 +499,7 @@ fn atom<'a>(
         Role::Pairs => f.idx.is_multiple_of(2),
         Role::Entries => !f.tests,
         Role::Params | Role::Destructure => true,
-        Role::Define => f.idx >= 1,
+        Role::Define | Role::Pattern => f.idx >= 1,
         Role::First => f.idx == 0,
         Role::Plain => (looping && f.loop_var) || named,
         _ => false,
@@ -481,7 +508,8 @@ fn atom<'a>(
         Kind::CommonLisp => a.eq_ignore_ascii_case(name),
         _ => a == name,
     };
-    if bound && binds(a) && same {
+    let literal = f.role == Role::Literals && same;
+    if bound && !f.literal && binds(a) && same {
         let visible = match (f.recursive, pending) {
             (true, _) => 0,
             (false, true) => usize::MAX,
@@ -498,6 +526,9 @@ fn atom<'a>(
         f.scope = scope;
     }
     f.idx += 1;
+    if literal && let [.., rules, _] = stack {
+        rules.literal = true;
+    }
     true
 }
 
@@ -540,13 +571,13 @@ pub(super) fn lisp_bindings(
             }
             Tok::Close => {
                 let Some(f) = stack.pop() else { break };
-                if matches!(f.role, Role::Plain | Role::Arity) {
+                if matches!(f.role, Role::Plain | Role::Arity | Role::Rule) {
                     scopes[f.scope].1 = Some(pos);
                 }
                 if let Some(from) = f.entry.filter(|_| f.tests && f.idx < 2) {
                     found.truncate(from);
                 }
-                if let Some(from) = f.entry {
+                if let Some(from) = f.entry.filter(|_| f.role == Role::First) {
                     for e in found[from..].iter_mut().filter(|e| e.2 == usize::MAX) {
                         e.2 = pos;
                     }
@@ -585,9 +616,13 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
     match p.role {
         Role::Pairs if p.idx.is_multiple_of(2) => return Role::Destructure,
         Role::Entries | Role::Letfn => return Role::First,
+        Role::First if p.values && p.idx == 0 => return Role::Destructure,
         Role::Params | Role::Define if c == b'(' => return Role::First,
-        Role::Params | Role::Define | Role::Destructure => return Role::Destructure,
+        Role::Params | Role::Define | Role::Destructure | Role::Pattern => {
+            return Role::Destructure;
+        }
         Role::Arity if p.idx == 0 && c == b'[' => return Role::Params,
+        Role::Rule if p.idx == 0 => return Role::Pattern,
         Role::Plain => {}
         _ => return Role::Plain,
     }
@@ -613,6 +648,13 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
             }
         }
         return Role::Plain;
+    }
+    if h == "syntax-rules" && p.idx >= 1 {
+        return if p.idx == 1 {
+            Role::Literals
+        } else {
+            Role::Rule
+        };
     }
     if c != b'(' {
         return Role::Plain;
