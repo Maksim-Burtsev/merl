@@ -29,6 +29,7 @@ FOLD_ONLY = {
     "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
     "buildroot": ["buildroot", "make", "https://github.com/buildroot/buildroot.git", "aa2d7ca53f704af901f6c33c13e4bb1591886700", "-"],
     "CMake": ["CMake", "cmake", "https://github.com/Kitware/CMake.git", "11f3f34077ba6fc1a2be6fe0f1ae542ebf884675", "-"],
+    "cowboy": ["cowboy", "erlang", "https://github.com/ninenines/cowboy.git", "3a001e2fd022c41897c17e88c0e719f53456ff6e", "-"],
 }
 LANGS = {
     "go": (["caddy"], {"go": "go"}),
@@ -58,6 +59,7 @@ LANGS = {
     "nix": (["nix-darwin"], {"nix": "nix"}),
     "solidity": (["openzeppelin-contracts"], {"sol": "solidity"}),
     "starlark": (["rules_go"], {"bzl": "starlark", "bazel": "starlark"}),
+    "erlang": (["cowboy"], {"erl": "erlang", "hrl": "erlang"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),

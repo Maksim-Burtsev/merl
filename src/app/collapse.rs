@@ -2,6 +2,7 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 
 mod braces;
 mod elixir;
+mod erlang;
 mod make;
 mod nix;
 mod spans;
@@ -36,6 +37,7 @@ impl App {
             }
             Some(Kind::Make) => Some(make::make(lines)),
             Some(Kind::Cmake) => Some(make::cmake(lines)),
+            _ if name.ends_with(".erl") || name.ends_with(".hrl") => Some(erlang::erlang(lines)),
             _ => None,
         };
         if let Some(blocks) = words {
