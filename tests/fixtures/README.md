@@ -553,6 +553,9 @@ defining form of the dialect, a namespace alias and a `:refer` (`money/format-pr
 of another file, `empty?` beside `empty`, a `defmulti`, `cl-defgeneric` or `defgeneric` offered
 with its methods, a `(comment …)` form, `#_`, `#;` and a nested `#| … |#`, a `(require …)` that
 opens a file, each refusal of the issue, and declaration-shaped lines in a docstring.
+`scheme/lib/rules.scm` and `common-lisp/generic.lisp` (#1344) bind a `let-values` formal, a
+`syntax-rules` pattern variable (not its literal, not its macro's keyword, not past its rule)
+and a `defgeneric` parameter, and call a name starting with `%`.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a

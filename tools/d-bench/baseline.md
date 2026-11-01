@@ -95,6 +95,7 @@ The julia row with #1343 (a function the project only extends, `Base.isempty(df)
 The cpp row with #1336's class scope (a type name in a class's method finds the class's own nested type first, `DBImpl::Writer`; a method declared in a class lands on that class's out-of-line definition with the same parameters, `VersionEdit::Clear`, `DBImpl::Delete`): over `f79b372f9`, 2026-11-02, release build, `vm.loadavg` { 3.45 4.73 4.76 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
 The js row with #1337's second pass (a member a `require`d package declares in its ES-module copy too, `dayjs/esm/index.d.ts` or `index.d.mts`, lands in the copy `require` reads): over `967116536`, 2026-11-02, release build, `vm.loadavg` { 2.54 3.88 4.38 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
+The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -129,6 +130,10 @@ The js row with #1337's second pass (a member a `require`d package declares in i
 | scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 2 | 8.0 | 9.6 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
 | bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |
+| racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
+| scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
+| commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
+| bash (bats-core, acme.sh) | 98 | 87 (89%) | 4 (4%) | 0 (0%) | 7 (7%) | 11 | 1 | 5.6 | 6.8 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 92 (95%) | 4 (4%) | 0 (0%) | 1 (1%) | 17 | 0 | 47.7 | 142.1 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
