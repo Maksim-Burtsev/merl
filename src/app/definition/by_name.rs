@@ -4,6 +4,17 @@ use super::{
 };
 
 impl App {
+    fn swift_by_name(&mut self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        self.swift_extensions(a, near, found);
+        self.swift_init_by_labels(&a.here, &a.word, a.range.end, found);
+        if a.dotted {
+            self.swift_uncalled(a.range.end, found);
+        }
+        if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, found) {
+            self.swift_by_labels(&a.word, a.range.end, found);
+        }
+    }
+
     pub(super) fn define_by_name(
         &mut self,
         a: &Asked,
@@ -63,14 +74,7 @@ impl App {
             self.star_winner(&a.here, &a.text, &a.word, &mut found);
         }
         if kind == Kind::Swift && !found.is_empty() {
-            self.swift_extensions(a, near, &mut found);
-            self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
-            if a.dotted {
-                self.swift_uncalled(a.range.end, &mut found);
-            }
-            if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, &found) {
-                self.swift_by_labels(&a.word, a.range.end, &mut found);
-            }
+            self.swift_by_name(a, near, &mut found);
         }
         if kind == Kind::Dart {
             let member = a.before.trim_end().ends_with('.');
