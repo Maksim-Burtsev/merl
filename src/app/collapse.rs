@@ -6,6 +6,7 @@ mod make;
 mod nix;
 mod spans;
 mod sql;
+mod starlark;
 mod words;
 
 impl App {
@@ -25,6 +26,7 @@ impl App {
             Some(Kind::Ruby) if name.ends_with(".rbs") => Some(words::rbs(lines)),
             Some(Kind::Ruby) => Some(words::ruby(lines)),
             Some(Kind::Lua) => Some(words::lua(lines)),
+            Some(Kind::Starlark) => Some(starlark::starlark(lines)),
             Some(Kind::Shell) => Some(words::shell(
                 lines,
                 name.ends_with(".zsh") || name.starts_with(".z"),

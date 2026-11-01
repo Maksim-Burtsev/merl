@@ -1,0 +1,57 @@
+wait A defs.bzl
+┌orders──────────────────────┐1 def shop(name):
+│▸ .github                   │2     native.genrule(
+│▸ .venv                     │3         name = name,
+│▸ app                       │4         outs = ["a"],
+│▾ bzl                       │5     )
+│  A defs.bzl                │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+bzl/defs.bzl  1:1  [code]                                                                                                                                                          14:32
+cursor (x,y,shown) 32,0,0
