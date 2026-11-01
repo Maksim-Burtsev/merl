@@ -322,18 +322,24 @@ impl Markup<'_> {
             .map_or(self.b.len(), |p| from + p)
     }
 
+    fn body_start(&self, lines: &[String]) -> usize {
+        if self.template != Some(Template::Astro) {
+            return 0;
+        }
+        (self.starts.get(front_matter_end(lines))).map_or(self.b.len(), |&s| s)
+    }
+
     fn brace_end(&self, from: usize) -> usize {
         let mut quote = None;
         let mut depth = 0usize;
         for (i, &c) in self.b.iter().enumerate().skip(from) {
             match quote {
                 Some(q) if c == q => quote = None,
-                Some(_) => {}
                 None if matches!(c, b'"' | b'\'' | b'`') => quote = Some(c),
                 None if c == b'{' => depth += 1,
                 None if c == b'}' && depth <= 1 => return i,
                 None if c == b'}' => depth -= 1,
-                None => {}
+                _ => {}
             }
         }
         self.b.len()
@@ -461,33 +467,19 @@ fn close_span(h: usize, e: usize, folds: &mut Vec<(usize, usize)>) {
 fn markup(lines: &[String], xml: bool, template: Option<Template>) -> Vec<(usize, usize)> {
     let text = lines.join("\n");
     let b = text.as_bytes();
-    let starts: Vec<usize> = std::iter::once(0)
-        .chain(
-            b.iter()
-                .enumerate()
-                .filter(|c| *c.1 == b'\n')
-                .map(|(i, _)| i + 1),
-        )
-        .collect();
     let lower = if xml {
         text.clone()
     } else {
         text.to_ascii_lowercase()
     };
-    let mut at = match template {
-        Some(Template::Astro) => starts
-            .get(front_matter_end(lines))
-            .copied()
-            .unwrap_or(b.len()),
-        _ => 0,
-    };
     let m = Markup {
         b,
         lower,
-        starts,
+        starts: line_starts(b),
         xml,
         template,
     };
+    let mut at = m.body_start(lines);
     let svelte = template == Some(Template::Svelte);
     let mut open: Vec<(String, usize)> = Vec::new();
     let mut folds = Vec::new();
@@ -568,11 +560,26 @@ fn markup(lines: &[String], xml: bool, template: Option<Template>) -> Vec<(usize
     for (_, h) in open {
         close_span(h, last, &mut folds);
     }
-    for (h, e) in voids.clone() {
-        let starts = folds.iter().chain(&voids).any(|f| f.0 == e);
-        close_span(h, e - usize::from(starts), &mut folds);
-    }
+    close_voids(&voids, &mut folds);
     innermost(folds)
+}
+
+fn close_voids(voids: &[(usize, usize)], folds: &mut Vec<(usize, usize)>) {
+    for &(h, e) in voids {
+        let starts = folds.iter().chain(voids).any(|f| f.0 == e);
+        close_span(h, e - usize::from(starts), folds);
+    }
+}
+
+fn line_starts(b: &[u8]) -> Vec<usize> {
+    std::iter::once(0)
+        .chain(
+            b.iter()
+                .enumerate()
+                .filter(|c| *c.1 == b'\n')
+                .map(|(i, _)| i + 1),
+        )
+        .collect()
 }
 
 enum Frame {
