@@ -100,7 +100,23 @@ fn cte(before: &[(usize, Tok)]) -> bool {
             t = back.next();
         }
     }
-    if !is(t, "AS") || !matches!(back.next(), Some(Tok::Word(_))) {
+    if !is(t, "AS") {
+        return false;
+    }
+    let mut t = back.next();
+    if t == Some(&Tok::Close) {
+        let mut depth = 1;
+        while depth > 0 {
+            match back.next() {
+                Some(Tok::Close) => depth += 1,
+                Some(Tok::Open) => depth -= 1,
+                None => return false,
+                _ => {}
+            }
+        }
+        t = back.next();
+    }
+    if !matches!(t, Some(Tok::Word(_))) {
         return false;
     }
     let t = back.next();
@@ -118,21 +134,47 @@ enum Frame<'a> {
 struct Level<'a> {
     frame: Frame<'a>,
     start: Option<usize>,
+    head: Option<&'a str>,
     last: usize,
 }
 
-impl Level<'_> {
+fn any(words: &[&str], w: &str) -> bool {
+    words.iter().any(|k| w.eq_ignore_ascii_case(k))
+}
+
+impl<'a> Level<'a> {
     fn touch(&mut self, n: usize) {
         self.start.get_or_insert(n);
         self.last = n;
     }
 
     fn flush(&mut self, folds: &mut Vec<(usize, usize)>) {
+        self.head = None;
         if let Some(h) = self.start.take()
             && self.last > h
         {
             folds.push((h, self.last));
         }
+    }
+
+    fn body_word(&mut self, w: &'a str, n: usize) {
+        if self.start.is_none() && any(&["BEGIN", "END", "DECLARE", "ELSE", "EXCEPTION", "LOOP"], w)
+        {
+            return;
+        }
+        if self
+            .head
+            .is_some_and(|h| any(&["IF", "ELSIF", "WHILE", "FOR", "FOREACH", "WHEN"], h))
+            && any(&["THEN", "LOOP"], w)
+        {
+            self.start = None;
+            self.head = None;
+            return;
+        }
+        if self.start.is_none() {
+            self.head = Some(w);
+        }
+        self.touch(n);
     }
 }
 
@@ -146,6 +188,7 @@ impl<'a> Statements<'a> {
         self.stack.push(Level {
             frame,
             start: None,
+            head: None,
             last: 0,
         });
     }
@@ -162,12 +205,6 @@ impl<'a> Statements<'a> {
                 l.flush(&mut self.folds);
             }
         }
-    }
-
-    fn statement_start(&self) -> bool {
-        (self.stack.iter().rev())
-            .find(|l| l.frame != Frame::Paren)
-            .is_some_and(|l| matches!(l.frame, Frame::Body(_)) && l.start.is_none())
     }
 }
 
@@ -213,11 +250,9 @@ pub(super) fn sql(lines: &[String]) -> Vec<(usize, usize)> {
                     Frame::Paren
                 });
             }
-            Tok::Word(w)
-                if s.statement_start()
-                    && ["BEGIN", "END", "DECLARE"]
-                        .iter()
-                        .any(|k| w.eq_ignore_ascii_case(k)) => {}
+            Tok::Word(w) if matches!(s.stack[depth - 1].frame, Frame::Body(_)) => {
+                s.stack[depth - 1].body_word(w, n);
+            }
             _ => s.touch(n),
         }
     }
