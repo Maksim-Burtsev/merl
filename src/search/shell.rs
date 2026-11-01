@@ -349,3 +349,51 @@ pub fn shell_no_name(lines: &[String], at: usize, lead: &str, tail: &str) -> boo
             }
         }) == Some(true)
 }
+pub fn shell_out_arg_pattern(word: &str) -> String {
+    format!(
+        r"^\s*[\w.:-]+\s+(?:\S+\s+)*{}(?:\s|;|$)",
+        regex::escape(word)
+    )
+}
+pub fn shell_out_arg<'a>(line: &'a str, word: &str) -> Option<(&'a str, usize)> {
+    let words = shell_words(line);
+    let (f, args) = words.split_first()?;
+    let n = args.iter().position(|a| *a == word)?;
+    (f.chars()
+        .all(|c| c.is_ascii_alphanumeric() || "_.:-".contains(c))
+        && !args[..n]
+            .iter()
+            .any(|a| a.contains(['@', '*', ';', '|', '&', '<', '>'])))
+    .then_some((*f, n + 1))
+}
+pub fn shell_writes_param(lines: &[&str], def: usize, n: usize) -> bool {
+    let Some(head) = lines.get(def) else {
+        return false;
+    };
+    let body = lines.get(def + 1..).unwrap_or_default();
+    let end = body
+        .iter()
+        .position(|b| b.trim_start().starts_with('}') && indent(b) == indent(head))
+        .unwrap_or(body.len());
+    let refs = |x: &str| format!(r#""?\$(?:{x}\b|\{{{x}\}})"?"#);
+    let mut names = vec![n.to_string()];
+    for l in &body[..end] {
+        let alias = names.iter().find_map(|x| {
+            Regex::new(&format!(
+                r"^\s*(?:(?:local|declare|typeset|readonly)(?:\s+-\w+)*\s+)?(\w+)={}\s*(?:;|#|$)",
+                refs(x)
+            ))
+            .ok()?
+            .captures(l)
+            .map(|c| c[1].to_owned())
+        });
+        names.extend(alias);
+    }
+    names.iter().any(|x| {
+        let r = refs(x);
+        Regex::new(&format!(
+            r#"(?:^|[\s;&|(])(?:printf\s+-v\s+{r}\s|read(?:\s+(?:-[a-zA-Z]*[dtnNuip]\s+\S+|-[a-zA-Z]*[a-zA-Z&&[^dtnNuip]]|\w+))*\s+{r}(?:\s|;|<|$)|eval\s+"?\\?\$\{{?{x}\}}?=|(?:local|declare|typeset)\s+-[a-zA-Z]*n[a-zA-Z]*\s+\w+={r}(?:\s|;|$))"#
+        ))
+        .is_ok_and(|re| body[..end].iter().any(|l| re.is_match(l)))
+    })
+}

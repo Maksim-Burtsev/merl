@@ -82,6 +82,7 @@ The rust row with #1302's variant brought by a glob over a dependency's enum (`u
 The php row with #1326's variable bound from a method called on a typed property (`$info = $this->encyclopediaService->getArtistInformation($artist); $info?->url`, read through the property's type and the method's native return type) and #1323's empty project stub of a vendor class: over `4b6151f08` with this change, 2026-10-31, release build, `vm.loadavg` { 4.39 6.05 6.59 } before the run.
 The rust row with #1302's third pass (a variant through a workspace crate that hands another on, `grep::printer::SummaryKind::PathWithMatch` in `crates/core/flags/hiargs.rs`; a `use` inside `mod tests` past a multi-line string at column 0, `RegexMatcher::new` in `crates/printer/src/standard.rs`): over `3a5c430a2`, 2026-10-31, release build, `vm.loadavg` { 4.47 5.50 6.66 } before the run.
 The bash row with #1335 (`env NAME=…` hands NAME to a program, bats's `run` takes a command, a script that sources nothing calls the function it defines once): over `564493936` with this change, 2026-10-31, release build, `vm.loadavg` { 5.23 5.94 5.99 } before the run.
+The bash row with #1335's second pass (a variable a function fills through its argument, `bats_separate_lines lines output` for bats's `lines`): over `22983bb70` with this change, 2026-11-02, release build, `vm.loadavg` { 3.38 4.23 4.54 } before the run.
 The js and ts rows with #1342 (a declaration on its own line, a parameter of a signature over several lines or a name of a several-name `let`, stays put; a part of a hyphenated JSX attribute needs no lookup; three skip rows get merl's target beside the oracle's): over `564493936` with this change, 2026-10-31, release build, `vm.loadavg` { 4.73 5.63 5.86 } before the run, { 4.46 5.17 5.65 } after.
 The cpp row with #1336's struct declared inside a function, seen only from its own block (`State` in `Version::Get`): over `f61ee8003`, 2026-10-31, release build, `vm.loadavg` { 5.66 6.54 6.46 } before the run.
 The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
@@ -124,7 +125,7 @@ The julia row with #1343 (a function the project only extends, `Base.isempty(df)
 | racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |
 | scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 2 | 8.0 | 9.6 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
-| bash (bats-core, acme.sh) | 98 | 87 (89%) | 4 (4%) | 0 (0%) | 7 (7%) | 11 | 1 | 5.6 | 6.8 |
+| bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 90 (93%) | 4 (4%) | 0 (0%) | 3 (3%) | 17 | 0 | 48.0 | 143.6 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
