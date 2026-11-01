@@ -429,6 +429,10 @@ of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not)
 a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
 a `while` inside a `for` of the same name, whose right side is either. Its `twice` calls a `str`
 method on a local set from one set from a `str` parameter (builtin, #1151).
+`caddies.py` (#1339): a keyword of a Django `Caddy.objects.create(...)` lands on the model's
+field, its own or an abstract base's, and stays an argument label for a class-body annotation,
+a `self.` attribute, a method's local, a nested `Meta`'s attribute, `filter(...)` and a dotted
+model.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,

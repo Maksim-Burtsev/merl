@@ -9,7 +9,7 @@ python0006	src/documents/search/_query.py:393
 python0007	src/documents/models.py:767		
 python0008	.venv/lib/python3.11/site-packages/cryptography/fernet.py:32		
 python0009	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/typing.py:658		
-python0010			
+python0010	src/documents/models.py:179		judged: create(**kwargs) sets the model's field Document.title
 python0011	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/pathlib.py:857		
 python0012	.venv/lib/python3.11/site-packages/rest_framework/status.py:34		
 python0013	src/paperless/tests/test_api_auth.py:27		
@@ -171,7 +171,7 @@ python0168	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/pytho
 python0169			
 python0170		builtin: the server's own stub	
 python0171	.venv/lib/python3.11/site-packages/django/urls/conf.py:96		
-python0172			
+python0172	src/documents/models.py:761		judged: create(**kwargs) sets the model's field UiSettings.settings
 python0173	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:892		
 python0174	src/documents/tests/test_management_retagger.py:29		
 python0175	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:2155		
@@ -266,7 +266,7 @@ python0263	src/documents/tests/search/test_acceptance.py:39
 python0264	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/unittest/mock.py:1207		
 python0265			
 python0266	.venv/lib/python3.11/site-packages/django/contrib/__init__.py:1		
-python0267			
+python0267	src/documents/models.py:190		judged: create(**kwargs) sets the model's field Document.content
 python0268	src/documents/models.py:755		
 python0269	.venv/lib/python3.11/site-packages/celery/schedules.py:323		
 python0270	~/.local/share/uv/python/cpython-3.11.16-macos-aarch64-none/lib/python3.11/logging/__init__.py:1467		

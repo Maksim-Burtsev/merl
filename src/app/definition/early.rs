@@ -361,6 +361,12 @@ impl App {
             if label.nested && self.answered_by_typed_key(a) {
                 return true;
             }
+            if kind == Kind::Python
+                && let Some(o) = &label.owner
+                && let Some(field) = self.created_model_field(&a.here, o.line0, o.byte_col, &a.word)
+            {
+                return self.show_found(a, vec![field]);
+            }
             let found = label
                 .owner
                 .map(|o| self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, &o.how))

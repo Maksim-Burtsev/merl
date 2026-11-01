@@ -470,6 +470,59 @@ impl App {
             .collect()
     }
 
+    pub(super) fn created_model_field(
+        &self,
+        here: &Path,
+        line0: usize,
+        byte_col: usize,
+        word: &str,
+    ) -> Option<Candidate> {
+        let kind = Kind::Python;
+        let head = self
+            .buf
+            .lines
+            .get(line0)?
+            .get(..=byte_col)?
+            .strip_suffix(".objects.create")?;
+        let model = head
+            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .next()
+            .filter(|m| {
+                !m.is_empty()
+                    && head
+                        .strip_suffix(m)
+                        .is_some_and(|before| !before.ends_with('.'))
+            })?;
+        let ty = self.type_decl(kind, here, model)?;
+        let (class, text, made) = self.python_mro(&ty).into_iter().find_map(|t| {
+            let text = self.text_of(&t.path)?;
+            let made = search::field_bindings(kind, &text, t.line, word);
+            (!made.is_empty()).then_some((t, text, made))
+        })?;
+        let [
+            search::Binding {
+                line1,
+                value: search::Value::Call(_),
+            },
+        ] = made.as_slice()
+        else {
+            return None;
+        };
+        let line = text.lines().nth(line1 - 1)?;
+        (!class.path.is_absolute() && starts_by_assigning(line.trim_start(), word)).then(|| {
+            Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: class.path.clone(),
+                    line1: *line1,
+                    byte_col: None,
+                    text: line.to_owned(),
+                },
+                reason: Reason::Label(format!("field of {}", class.name)),
+            }
+        })
+    }
+
     pub(super) fn made_by_class_attribute(&self, ty: &Typed, field: &str) -> Option<Typed> {
         let kind = Kind::Python;
         let mro = self.python_mro(ty);
