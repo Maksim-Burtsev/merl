@@ -87,6 +87,7 @@ The cpp row with #1336's struct declared inside a function, seen only from its o
 The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
 The js row with #1337 (a default import through `export { local as default }`, a `require` of a file inside a package read for that file's declarations, the key of a renamed `require`): over `9dddebb41`, 2026-10-31, release build, `vm.loadavg` { 4.46 4.47 4.91 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The dart row with #1338 (a `super.` parameter lands on the superclass constructor's parameter; a generic type followed by a call on its line is no call): over `4aedb4735`, 2026-10-31, release build, `vm.loadavg` { 5.91 5.69 5.53 } before the run.
+The swift row with #1341 (a test target's member shadows the library's one of the same signature; a member read without a call is the property, not the method of its name; swift0142 has an answer read from the code, sourcekit-lsp found none): over `22983bb70`, 2026-11-01, release build, `vm.loadavg` { 3.53 3.66 4.12 } before the run, { 3.45 3.63 4.03 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -99,7 +100,7 @@ The dart row with #1338 (a `super.` parameter lands on the superclass constructo
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 210 (89%) | 26 (11%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.3 | 65.7 |
 | php (koel) | 392 | 350 (89%) | 41 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 221.4 |
-| swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 7 | 21.4 | 45.6 |
+| swift (Alamofire) | 450 | 433 (96%) | 16 (4%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.6 | 47.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |

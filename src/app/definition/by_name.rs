@@ -65,6 +65,9 @@ impl App {
         if kind == Kind::Swift && !found.is_empty() {
             self.swift_extensions(a, near, &mut found);
             self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
+            if a.dotted {
+                self.swift_uncalled(a.range.end, &mut found);
+            }
             if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, &found) {
                 self.swift_by_labels(&a.word, a.range.end, &mut found);
             }
