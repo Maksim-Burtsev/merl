@@ -80,6 +80,9 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
+        if kind == Kind::TsJs && a.dotted {
+            required_copy(&a.text, &mut found);
+        }
         if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
             self.dart_unimported(&a.here, &a.word, &mut found);
             self.dart_outside_constructor(&a.word, &a.tail, &mut found);
@@ -755,6 +758,43 @@ impl App {
             })
             .collect()
     }
+}
+
+fn required_copy(text: &str, found: &mut Vec<Candidate>) {
+    let package = |c: &Candidate| {
+        let path = c.hit.path.to_string_lossy();
+        let at = path.rfind("node_modules/")? + "node_modules/".len();
+        let parts = if path[at..].starts_with('@') { 2 } else { 1 };
+        let end = (path[at..].match_indices('/').nth(parts - 1)).map(|(i, _)| at + i)?;
+        Some((path[..end].to_owned(), path[at..end].to_owned()))
+    };
+    let Some((dir, name)) = found.first().and_then(package) else {
+        return;
+    };
+    if found.len() < 2 || found.iter().any(|c| package(c).is_none_or(|p| p.0 != dir)) {
+        return;
+    }
+    let name = name.strip_prefix("@types/").unwrap_or(&name);
+    if ![format!("require(\"{name}\")"), format!("require('{name}')")]
+        .iter()
+        .any(|r| text.contains(r.as_str()))
+    {
+        return;
+    }
+    let required = |c: &Candidate| {
+        let path = c.hit.path.to_string_lossy();
+        let twin = match path.strip_suffix(".d.mts") {
+            Some(stem) => format!("{stem}.d.ts"),
+            None => path.replacen(&format!("{dir}/esm/"), &format!("{dir}/"), 1),
+        };
+        twin != path
+            && found.iter().any(|o| {
+                o.hit.line1 == c.hit.line1 && o.hit.path.to_string_lossy() == twin.as_str()
+            })
+    };
+    let esm: Vec<bool> = found.iter().map(required).collect();
+    let mut esm = esm.into_iter();
+    found.retain(|_| !esm.next().unwrap_or(false));
 }
 
 fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> bool {

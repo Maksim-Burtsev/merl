@@ -586,3 +586,56 @@ fn the_key_of_a_renamed_require_is_the_module_s_export() {
         assert_ne!(shown(&mut a), wrong, "{why}");
     }
 }
+
+#[test]
+fn a_member_a_required_package_declares_in_its_esm_copy_too_lands_in_the_copy_require_reads() {
+    let main = "const dayjs = require(\"dayjs\");\nconst WebSocket = require(\"ws\");\n\nconst expiry = dayjs();\nexpiry.diff(1);\nconst ws = new WebSocket(url);\nws.onerror = () => {};\n";
+    let esm = "import dayjs from \"dayjs\";\n\nconst expiry = dayjs();\nexpiry.diff(1);\n";
+    let (dir, mut a) = project_app(
+        "ts-esm-twin",
+        &[("server/auth.js", main), ("web/auth.mjs", esm)],
+    );
+    let dayjs = "export = dayjs;\ndeclare function dayjs(): dayjs.Dayjs;\ndeclare namespace dayjs {\n  class Dayjs {\n    diff(date?: number): number\n  }\n}\n";
+    let ws = "declare class WebSocket {\n    onopen: () => void;\n    onerror: () => void;\n}\nexport = WebSocket;\n";
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/dayjs/package.json",
+                "{\"name\": \"dayjs\", \"main\": \"dayjs.min.js\", \"types\": \"index.d.ts\"}\n",
+            ),
+            ("node_modules/dayjs/index.d.ts", dayjs),
+            ("node_modules/dayjs/esm/index.d.ts", dayjs),
+            (
+                "node_modules/@types/ws/package.json",
+                "{\"name\": \"@types/ws\", \"types\": \"index.d.ts\"}\n",
+            ),
+            ("node_modules/@types/ws/index.d.ts", ws),
+            ("node_modules/@types/ws/index.d.mts", ws),
+        ],
+    );
+    d_on(&mut a, "server/auth.js", "expiry.diff");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "diff → dayjs.Dayjs.diff (by name, 1 match)",
+            "node_modules/dayjs/index.d.ts:5"
+        ),
+        "require(\"dayjs\") reads the package's own index.d.ts, not esm/"
+    );
+    d_on(&mut a, "server/auth.js", "ws.onerror");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "onerror → WebSocket.onerror (by name, 1 match)",
+            "node_modules/@types/ws/index.d.ts:3"
+        ),
+        "require(\"ws\") reads index.d.ts, not index.d.mts"
+    );
+    d_on(&mut a, "web/auth.mjs", "expiry.diff");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "an import is not a require: both copies stay offered"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
