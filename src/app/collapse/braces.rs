@@ -12,6 +12,7 @@ mod objc;
 mod php;
 mod rust;
 mod scala;
+mod solidity;
 mod swift;
 mod zig;
 
@@ -32,6 +33,7 @@ pub(crate) enum Lang {
     Dart,
     Scala,
     Zig,
+    Solidity,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -58,6 +60,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         (_, "dart") => (Lang::Dart, false),
         (_, "scala" | "sc") => (Lang::Scala, false),
         (_, "zig") => (Lang::Zig, false),
+        (_, "sol") => (Lang::Solidity, false),
         (_, "cs") => (Lang::CSharp, false),
         (_, "rs") => (Lang::Rust, false),
         (_, "java") => (Lang::Java, false),
@@ -101,6 +104,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Dart => model.dart(lines),
         Lang::Scala => model.scala(lines),
         Lang::Zig => model.zig(),
+        Lang::Solidity => model.solidity(),
         lang => model.ecma(lang == Lang::Ts),
     }
     let starts = super::vim_folds(lines.len(), model.nodes.iter().map(|n| (n.0, n.1)));
@@ -315,7 +319,7 @@ impl<'a> Lexer<'a> {
         }
         if s[i..].starts_with(b"/*") {
             self.skip_past(i + 2, b"*/");
-            if self.c_family() && self.l > l {
+            if (self.c_family() || self.syntax.lang == Lang::Solidity) && self.l > l {
                 self.emit(l, i, 1, K::Comment, self.l);
             }
             return true;

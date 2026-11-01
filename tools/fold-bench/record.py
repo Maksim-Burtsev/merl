@@ -56,6 +56,7 @@ LANGS = {
     "astro": (["starlight"], {"astro": "astro"}),
     "zig": (["zls"], {"zig": "zig"}),
     "nix": (["nix-darwin"], {"nix": "nix"}),
+    "solidity": (["openzeppelin-contracts"], {"sol": "solidity"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
