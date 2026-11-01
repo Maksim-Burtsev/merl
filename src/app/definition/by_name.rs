@@ -762,11 +762,16 @@ impl App {
 
 fn required_copy(text: &str, found: &mut Vec<Candidate>) {
     let package = |c: &Candidate| {
-        let path = c.hit.path.to_string_lossy();
-        let at = path.rfind("node_modules/")? + "node_modules/".len();
-        let parts = if path[at..].starts_with('@') { 2 } else { 1 };
-        let end = (path[at..].match_indices('/').nth(parts - 1)).map(|(i, _)| at + i)?;
-        Some((path[..end].to_owned(), path[at..end].to_owned()))
+        let name = search::package_of(&c.hit.path)?;
+        let parts: Vec<_> = c.hit.path.components().collect();
+        let at = parts
+            .iter()
+            .rposition(|p| p.as_os_str() == "node_modules")?;
+        let dir: PathBuf = parts
+            .get(..=at + name.components().count())?
+            .iter()
+            .collect();
+        Some((dir, name.to_string_lossy().into_owned()))
     };
     let Some((dir, name)) = found.first().and_then(package) else {
         return;
@@ -781,20 +786,22 @@ fn required_copy(text: &str, found: &mut Vec<Candidate>) {
     {
         return;
     }
-    let required = |c: &Candidate| {
-        let path = c.hit.path.to_string_lossy();
-        let twin = match path.strip_suffix(".d.mts") {
-            Some(stem) => format!("{stem}.d.ts"),
-            None => path.replacen(&format!("{dir}/esm/"), &format!("{dir}/"), 1),
-        };
-        twin != path
-            && found.iter().any(|o| {
-                o.hit.line1 == c.hit.line1 && o.hit.path.to_string_lossy() == twin.as_str()
-            })
+    let twin = |c: &Candidate| match c.hit.path.to_string_lossy().strip_suffix(".d.mts") {
+        Some(stem) => Some(PathBuf::from(format!("{stem}.d.ts"))),
+        None => Some(dir.join(c.hit.path.strip_prefix(dir.join("esm")).ok()?)),
     };
-    let esm: Vec<bool> = found.iter().map(required).collect();
-    let mut esm = esm.into_iter();
-    found.retain(|_| !esm.next().unwrap_or(false));
+    let esm: Vec<(PathBuf, usize)> = (found.iter())
+        .filter(|c| {
+            twin(c).is_some_and(|t| {
+                (found.iter()).any(|o| o.hit.line1 == c.hit.line1 && o.hit.path == t)
+            })
+        })
+        .map(|c| (c.hit.path.clone(), c.hit.line1))
+        .collect();
+    found.retain(|c| {
+        !esm.iter()
+            .any(|(p, l)| *p == c.hit.path && *l == c.hit.line1)
+    });
 }
 
 fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> bool {
