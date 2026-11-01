@@ -2,6 +2,7 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 
 mod braces;
 mod elixir;
+mod lisp;
 mod spans;
 mod words;
 
@@ -48,7 +49,12 @@ impl App {
             Some("html" | "htm") => Some(spans::html(lines)),
             Some("xml") => Some(spans::xml(lines)),
             Some("md" | "markdown") => Some(spans::markdown(lines)),
-            _ => None,
+            _ => match self.kind() {
+                Some(k @ (Kind::Clojure | Kind::Scheme | Kind::CommonLisp)) => {
+                    Some(lisp::lisp(lines, k))
+                }
+                _ => None,
+            },
         };
         if let Some(spans) = spans {
             return Some(Folds::Spans(spans));

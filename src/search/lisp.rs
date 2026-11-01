@@ -140,26 +140,55 @@ fn char_end(b: &[u8], i: usize) -> usize {
     i
 }
 
+fn here_string_end(b: &[u8], i: usize) -> usize {
+    let line_end =
+        |from: usize| (b[from..].iter().position(|&c| c == b'\n')).map_or(b.len(), |n| from + n);
+    let mut end = line_end(i);
+    let term = &b[i + 3..end];
+    while end < b.len() {
+        let next = line_end(end + 1);
+        if &b[end + 1..next] == term {
+            return next;
+        }
+        end = next;
+    }
+    b.len()
+}
+
 fn lex(kind: Kind, text: &str) -> Lexed {
+    lex_keeping(kind, text, false)
+}
+
+pub fn lisp_code(kind: Kind, text: &str) -> Vec<u8> {
+    lex_keeping(kind, text, true).code
+}
+
+fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
     let b = text.as_bytes();
     let clojure = kind == Kind::Clojure;
     let hashed = matches!(kind, Kind::Scheme | Kind::CommonLisp);
     let mut code = b.to_vec();
     let mut literal = vec![false];
     let (mut depth, mut i) = (0usize, 0usize);
-    let (mut string, mut block) = (false, 0usize);
+    let (mut string, mut block, mut here) = (false, 0usize, 0usize);
     let mut ignored: Option<(usize, usize)> = None;
     let mut datum = false;
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
-            literal.push(string || block > 0 || ignored.is_some());
+            literal.push(string || block > 0 || ignored.is_some() || i < here);
             i += 1;
             continue;
         }
         let at = |s: &[u8]| b[i..].starts_with(s);
         let start = i;
-        if string {
+        if i < here {
+            i += 1;
+            blank(&mut code, start..i);
+        } else if kind == Kind::Scheme && at(b"#<<") {
+            here = here_string_end(b, i);
+            datum = false;
+        } else if string {
             (i, string) = string_step(b, i);
             if string {
                 blank(&mut code, start..i);
@@ -194,6 +223,7 @@ fn lex(kind: Kind, text: &str) -> Lexed {
             datum = false;
         } else {
             if clojure
+                && !comment_forms
                 && depth == 0
                 && ignored.is_none()
                 && at(b"(comment")
