@@ -44,6 +44,7 @@ LANGS = {
     "zsh": (["ohmyzsh"], {"zsh": "zsh"}),
     "scala": (["oslib"], {"scala": "scala", "sc": "scala"}),
     "dart": (["immich"], {"dart": "dart"}),
+    "solidity": (["openzeppelin-contracts"], {"sol": "solidity"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
