@@ -87,6 +87,7 @@ The cpp row with #1336's struct declared inside a function, seen only from its o
 The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
 The js row with #1337 (a default import through `export { local as default }`, a `require` of a file inside a package read for that file's declarations, the key of a renamed `require`): over `9dddebb41`, 2026-10-31, release build, `vm.loadavg` { 4.46 4.47 4.91 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The dart row with #1338 (a `super.` parameter lands on the superclass constructor's parameter; a generic type followed by a call on its line is no call): over `4aedb4735`, 2026-10-31, release build, `vm.loadavg` { 5.91 5.69 5.53 } before the run.
+The ruby row with #1340 (a record a model's `find` returned, through an `@ivar` assigned once or a memo method): over `0ff05d2b4`, 2026-11-01, release build, `vm.loadavg` { 2.72 3.99 4.52 } before the run, { 6.36 4.62 4.68 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -103,7 +104,7 @@ The dart row with #1338 (a `super.` parameter lands on the superclass constructo
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
-| ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
+| ruby (mastodon) | 140 | 133 (95%) | 6 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 63.9 | 352.1 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |

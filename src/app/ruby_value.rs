@@ -1,4 +1,4 @@
-use super::{App, Candidate, Hit, Kind, Path, Reason, search};
+use super::{App, Candidate, Kind, Path, Reason, search};
 
 impl App {
     pub(super) fn ruby_receiver_methods(
@@ -65,6 +65,10 @@ impl App {
             return self.ruby_value_class(here, text, line1, head, receiver, depth + 1);
         }
         let Some((at, value)) = search::ruby_assigned_once(text, line1, expr) else {
+            let def = format!(r"(?m)^\s*def\s+{}\s*$", regex::escape(expr));
+            if !regex::Regex::new(&def).is_ok_and(|re| re.is_match(text)) {
+                return None;
+            }
             let class = search::ruby_class_path(text, line1);
             let bound = !search::ruby_locals(text, line1, expr).is_empty()
                 || !search::bindings(Kind::Ruby, text, line1, expr).is_empty();
@@ -122,14 +126,21 @@ impl App {
     }
 
     fn ruby_record(&self, here: &Path, class: String) -> Option<String> {
-        let record = std::iter::once(class.clone())
-            .chain(self.ruby_ancestors(here, &class))
-            .any(|c| {
-                self.ruby_parents(here, &c)
-                    .superclasses
-                    .iter()
-                    .any(|s| s.trim_start_matches(':') == "ActiveRecord::Base")
-            });
+        let mut c = class.clone();
+        let mut record = false;
+        for _ in 0..8 {
+            let supers = self.ruby_parents(here, &c).superclasses;
+            record = supers
+                .iter()
+                .any(|s| s.trim_start_matches(':') == "ActiveRecord::Base");
+            let ([one], false) = (supers.as_slice(), record) else {
+                break;
+            };
+            let Some(up) = self.ruby_resolve(here, &c, one) else {
+                break;
+            };
+            c = up;
+        }
         (record
             && self
                 .ruby_methods_from(here, "find", class.clone(), true)
@@ -150,20 +161,24 @@ impl App {
         if class.is_empty() {
             return None;
         }
-        let cut = self.truncated.get();
-        let assigned: Vec<(Hit, String)> = self
-            .project_definitions(Kind::Ruby, here, &ivar, &search::ruby_assignment(&ivar))
-            .into_iter()
-            .filter_map(|h| {
-                let t = self.text_of(&h.path)?;
-                (search::ruby_class_path(&t, h.line1) == class).then_some((h, t))
+        let assign = regex::Regex::new(&search::ruby_assignment(&ivar)).ok()?;
+        let mut files = self.ruby_declarations(here, &class);
+        files.dedup_by(|a, b| a.0.path == b.0.path);
+        let assigned: Vec<(usize, &str, &str)> = files
+            .iter()
+            .flat_map(|(_, t)| {
+                t.lines()
+                    .enumerate()
+                    .filter(|(i, l)| {
+                        assign.is_match(l) && search::ruby_class_path(t, i + 1) == class
+                    })
+                    .map(move |(i, l)| (i + 1, l, t.as_str()))
             })
             .collect();
-        self.truncated.set(cut);
-        let [(hit, t)] = assigned.as_slice() else {
+        let [(line, assignment, t)] = assigned[..] else {
             return None;
         };
-        let value = hit.text.trim_start().strip_prefix(&ivar)?.trim_start();
+        let value = assignment.trim_start().strip_prefix(&ivar)?.trim_start();
         let value = value
             .strip_prefix("||=")
             .or_else(|| value.strip_prefix('='))?
@@ -172,7 +187,7 @@ impl App {
         if !head.trim().is_empty() {
             return None;
         }
-        self.ruby_value_class(here, t, hit.line1, "", whole, depth + 1)
+        self.ruby_value_class(here, t, line, "", whole, depth + 1)
     }
 
     pub(super) fn ruby_super(&self, here: &Path, text: &str) -> Vec<Candidate> {

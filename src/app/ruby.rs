@@ -234,6 +234,9 @@ impl App {
                 })
             })
             .collect();
+        if owned.is_empty() {
+            return Vec::new();
+        }
         let mut seen = HashSet::from([class.clone()]);
         let mut queue = std::collections::VecDeque::from([(class, on_class)]);
         while let Some((c, side)) = queue.pop_front() {
@@ -322,7 +325,7 @@ impl App {
         });
     }
 
-    pub(super) fn ruby_ancestors(&self, here: &Path, class: &str) -> impl Iterator<Item = String> {
+    fn ruby_ancestors(&self, here: &Path, class: &str) -> impl Iterator<Item = String> {
         let mut seen = vec![class.to_owned()];
         let mut i = 0;
         let mut pending: std::collections::VecDeque<(String, String)> =
@@ -385,7 +388,7 @@ impl App {
         hits
     }
 
-    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
+    pub(super) fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
         let last = path.rsplit("::").next().unwrap_or(path);
         self.ruby_named_declarations(here, last)
             .into_iter()
