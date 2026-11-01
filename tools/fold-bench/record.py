@@ -24,6 +24,7 @@ FOLD_ONLY = {
     "rbs": ["rbs", "rbs", "https://github.com/ruby/rbs.git", "c78451b753cc6de113be8d096d09418d8170e9c6", "-"],
     "ohmyzsh": ["ohmyzsh", "zsh", "https://github.com/ohmyzsh/ohmyzsh.git", "60c9a7a839b790cd905d0fd4419435124fd1bdc0", "-"],
     "oslib": ["oslib", "scala", "https://github.com/com-lihaoyi/os-lib.git", "86e5ddb65fe62305afb5885fcc0f8da50aba4b48", "-"],
+    "terraform-aws-eks": ["terraform-aws-eks", "terraform", "https://github.com/terraform-aws-modules/terraform-aws-eks.git", "91b8a8d944e3cf169483108acd12d5b1e47856f7", "-"],
 }
 LANGS = {
     "go": (["caddy"], {"go": "go"}),
@@ -44,6 +45,7 @@ LANGS = {
     "zsh": (["ohmyzsh"], {"zsh": "zsh"}),
     "scala": (["oslib"], {"scala": "scala", "sc": "scala"}),
     "dart": (["immich"], {"dart": "dart"}),
+    "terraform": (["terraform-aws-eks"], {"tf": "terraform"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
