@@ -87,6 +87,7 @@ The cpp row with #1336's struct declared inside a function, seen only from its o
 The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
 The js row with #1337 (a default import through `export { local as default }`, a `require` of a file inside a package read for that file's declarations, the key of a renamed `require`): over `9dddebb41`, 2026-10-31, release build, `vm.loadavg` { 4.46 4.47 4.91 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The dart row with #1338 (a `super.` parameter lands on the superclass constructor's parameter; a generic type followed by a call on its line is no call): over `4aedb4735`, 2026-10-31, release build, `vm.loadavg` { 5.91 5.69 5.53 } before the run.
+The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -117,9 +118,9 @@ The dart row with #1338 (a `super.` parameter lands on the superclass constructo
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 37.2 | 105.8 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
-| racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |
-| scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 2 | 8.0 | 9.6 |
-| commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
+| racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
+| scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
+| commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
 | bash (bats-core, acme.sh) | 98 | 87 (89%) | 4 (4%) | 0 (0%) | 7 (7%) | 11 | 1 | 5.6 | 6.8 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 90 (93%) | 4 (4%) | 0 (0%) | 3 (3%) | 17 | 0 | 48.0 | 143.6 |
