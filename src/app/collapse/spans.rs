@@ -346,7 +346,7 @@ impl Markup<'_> {
         folds: &mut Vec<(usize, usize)>,
     ) -> usize {
         let end = self.brace_end(i);
-        let name = format!("{{{}", self.name_at(i + 2));
+        let name = format!("{{{}", self.name_at((i + 2).min(self.b.len())));
         let branch = |open: &mut Vec<(String, usize)>, folds: &mut Vec<(usize, usize)>| {
             let Some(k) = open.iter().rposition(|(n, _)| n.starts_with('{')) else {
                 return false;
@@ -560,10 +560,8 @@ fn markup(lines: &[String], xml: bool, template: Option<Template>) -> Vec<(usize
         } else if xml || (svelte && b[i + 1].is_ascii_uppercase()) || !VOID.contains(&name.as_str())
         {
             open.push((name, m.line(i)));
-        } else if template == Some(Template::Vue) {
-            close_span(m.line(i), m.line_before(m.next_token(at)), &mut voids);
         } else if template.is_some() {
-            close_span(m.line(i), m.line_before(end + 1), &mut folds);
+            close_span(m.line(i), m.line_before(m.next_token(at)), &mut voids);
         }
     }
     let last = lines.len().saturating_sub(1);
