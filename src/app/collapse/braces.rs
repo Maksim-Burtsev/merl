@@ -13,6 +13,7 @@ mod php;
 mod rust;
 mod scala;
 mod swift;
+mod zig;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Lang {
@@ -30,6 +31,7 @@ pub(crate) enum Lang {
     Php,
     Dart,
     Scala,
+    Zig,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -55,6 +57,7 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         (_, "go") => (Lang::Go, false),
         (_, "dart") => (Lang::Dart, false),
         (_, "scala" | "sc") => (Lang::Scala, false),
+        (_, "zig") => (Lang::Zig, false),
         (_, "cs") => (Lang::CSharp, false),
         (_, "rs") => (Lang::Rust, false),
         (_, "java") => (Lang::Java, false),
@@ -97,6 +100,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Php => model.php(lines),
         Lang::Dart => model.dart(lines),
         Lang::Scala => model.scala(lines),
+        Lang::Zig => model.zig(),
         lang => model.ecma(lang == Lang::Ts),
     }
     let starts = super::vim_folds(lines.len(), model.nodes.iter().map(|n| (n.0, n.1)));
@@ -369,6 +373,9 @@ impl<'a> Lexer<'a> {
         }
         if self.syntax.lang == Lang::Dart && matches!(c, b'"' | b'\'' | b'r') && self.dart_string()
         {
+            return true;
+        }
+        if self.syntax.lang == Lang::Zig && c == b'\\' && self.zig_lines() {
             return true;
         }
         if self.syntax.lang == Lang::Kotlin && c == b'"' && self.kt_string() {
