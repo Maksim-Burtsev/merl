@@ -92,6 +92,7 @@ The python row with #1339 (a keyword of `Model.objects.create(...)` lands on the
 The ruby row with #1340 (a record a model's `find` returned, through an `@ivar` assigned once or a memo method): over `0ff05d2b4`, 2026-11-01, release build, `vm.loadavg` { 2.72 3.99 4.52 } before the run, { 6.36 4.62 4.68 } after.
 The swift row with #1341 (a test target's member shadows the library's one of the same signature; a member read without a call is the property, not the method of its name; swift0142 has an answer read from the code, sourcekit-lsp found none): over `22983bb70`, 2026-11-01, release build, `vm.loadavg` { 3.53 3.66 4.12 } before the run, { 3.45 3.63 4.03 } after.
 The julia row with #1343 (a function the project only extends, `Base.isempty(df) = ..`, offers Base's methods beside the extension when asked outside its file; julia0030, julia0103 and julia0226 read the oracle's `Broadcast.jl:1` as `broadcast.jl:8`), played for the first time with Julia 1.11.7 and the project's depot installed in a scratch folder: over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.73 3.38 4.08 } before the run, { 2.79 3.26 3.98 } after. Its 13 `not scored, jumps elsewhere` were there on master's build too (the column was unmeasured for julia).
+The cpp row with #1336's class scope (a type name in a class's method finds the class's own nested type first, `DBImpl::Writer`; a method declared in a class lands on that class's out-of-line definition with the same parameters, `VersionEdit::Clear`, `DBImpl::Delete`): over `f79b372f9`, 2026-11-02, release build, `vm.loadavg` { 3.45 4.73 4.76 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -102,7 +103,7 @@ The julia row with #1343 (a function the project only extends, `Base.isempty(df)
 | rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 236 | 210 (89%) | 26 (11%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.3 | 65.7 |
+| cpp (leveldb) | 236 | 213 (90%) | 23 (10%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.6 |
 | php (koel) | 392 | 350 (89%) | 41 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 221.4 |
 | swift (Alamofire) | 450 | 433 (96%) | 16 (4%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.6 | 47.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |

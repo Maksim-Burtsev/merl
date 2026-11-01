@@ -12,7 +12,7 @@ int Cabinet::Lock(int code) { return code; }
 //           ^ d: picker include/shop/beacon.hh:27, include/shop/beacon.hh:45
 
 bool seen(Beacon* s) { return s->Ready(); }
-//        ^ d: picker include/shop/beacon.hh:5, include/shop/beacon.hh:33
+//        ^ d: include/shop/beacon.hh:5
 //                               ^ d: include/shop/beacon.hh:9
 
 unsigned long stocked(Cabinet* d) {
