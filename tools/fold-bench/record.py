@@ -11,7 +11,8 @@ injections), lets treesitter fold it and, on every line where a fold starts, clo
 has a syntax error is left out. A language draws from the projects LANGS names; one with no
 project of its own (yaml, json, markdown, …) from every project of projects.tsv. FOLD_ONLY holds
 the projects of the languages the `d` bench has none for, kept out of projects.tsv because
-tools/d-bench/run reads cursors for every project there. A language's files are taken in the order of the hash of their path until FOLDS folds are recorded.
+tools/d-bench/run reads cursors for every project there. A file is matched by its extension, or by
+its whole name written `/NAME` (`/Makefile`). A language's files are taken in the order of the hash of their path until FOLDS folds are recorded.
 """
 import argparse, hashlib, os, subprocess, sys, tempfile
 
@@ -44,6 +45,7 @@ LANGS = {
     "zsh": (["ohmyzsh"], {"zsh": "zsh"}),
     "scala": (["oslib"], {"scala": "scala", "sc": "scala"}),
     "dart": (["immich"], {"dart": "dart"}),
+    "groovy": (["nextflow", "pipeline-library"], {"groovy": "groovy", "gradle": "groovy", "/Jenkinsfile": "groovy"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
@@ -80,7 +82,8 @@ def files(cache, lang):
         _, _, url, commit, _ = every[name]
         d = ensure(cache, name, url, commit)
         for f in subprocess.run(["git", "-C", d, "ls-files"], capture_output=True, text=True).stdout.splitlines():
-            ext = f.rsplit(".", 1)[-1] if "." in os.path.basename(f) else ""
+            base = "/" + os.path.basename(f)
+            ext = base if base in exts else f.rsplit(".", 1)[-1] if "." in base else ""
             if ext in exts and os.path.isfile(os.path.join(d, f)):
                 out.append((f"{name}/{f}", exts[ext]))
     return sorted(out, key=lambda p: hashlib.sha1(p[0].encode()).hexdigest())

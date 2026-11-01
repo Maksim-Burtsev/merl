@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::search::{Kind, kind_of};
+use crate::search::{Kind, groovy, kind_of};
 
 mod c;
 mod csharp;
 mod dart;
+mod groovy;
 mod java;
 mod kotlin;
 mod objc;
@@ -30,6 +31,7 @@ pub(crate) enum Lang {
     Php,
     Dart,
     Scala,
+    Groovy,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -44,6 +46,12 @@ pub(crate) const OBJC: Syntax = Syntax {
 };
 
 pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
+    if groovy(path) {
+        return Some(Syntax {
+            lang: Lang::Groovy,
+            jsx: false,
+        });
+    }
     let ext = path.extension()?.to_str()?;
     let (lang, jsx) = match (kind_of(path), ext) {
         (Some(Kind::Swift), _) => (Lang::Swift, false),
@@ -97,6 +105,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Php => model.php(lines),
         Lang::Dart => model.dart(lines),
         Lang::Scala => model.scala(lines),
+        Lang::Groovy => model.groovy(),
         lang => model.ecma(lang == Lang::Ts),
     }
     let starts = super::vim_folds(lines.len(), model.nodes.iter().map(|n| (n.0, n.1)));
@@ -108,7 +117,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
     defs.dedup();
     let semicolons = !matches!(
         syntax.lang,
-        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala
+        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala | Lang::Groovy
     );
     let heads = if semicolons {
         heads(lines, &toks, &model.back, &starts)
@@ -368,6 +377,12 @@ impl<'a> Lexer<'a> {
             return true;
         }
         if self.syntax.lang == Lang::Dart && matches!(c, b'"' | b'\'' | b'r') && self.dart_string()
+        {
+            return true;
+        }
+        if self.syntax.lang == Lang::Groovy
+            && matches!(c, b'"' | b'\'' | b'/' | b'$')
+            && self.groovy_quote()
         {
             return true;
         }
