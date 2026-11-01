@@ -561,6 +561,10 @@ fn f_survives_every_prefix_of_the_listed_fold_fixtures() {
         ("sol", "solidity.sol"),
         ("bzl", "starlark.bzl"),
         ("groovy", "groovy.groovy"),
+        ("clj", "clojure.clj"),
+        ("lisp", "commonlisp.lisp"),
+        ("rkt", "racket.rkt"),
+        ("scm", "scheme.scm"),
     ];
     for (ext, name) in fixtures {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();

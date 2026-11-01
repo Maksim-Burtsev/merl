@@ -1,0 +1,57 @@
+wait lisp/core.clj  3:1
+┌orders──────────────────────┐1 (ns demo.core)
+│▸ .github                   │2
+│▸ .venv                     │3 (defn greet [name]  3 lines ⋯
+│▸ app                       │7
+│▸ data                      │8 (def answer 42)
+│▸ deploy                    │
+│▸ docs                      │
+│▾ lisp                      │
+│  A core.clj                │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+lisp/core.clj  3:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 32,2,0

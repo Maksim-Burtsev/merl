@@ -185,10 +185,11 @@ and line of its code, or a run of it, never a recollection.
 fold bench and nowhere else: Python, the brace languages (`src/app/collapse/braces.rs`), Ruby,
 Lua, shell, zsh and RBS (`src/app/collapse/words.rs`), Elixir (`src/app/collapse/elixir.rs`), Erlang
 (`src/app/collapse/erlang.rs`), Julia (`src/app/collapse/julia.rs`), Nix (`src/app/collapse/nix.rs`),
-Make and CMake (`src/app/collapse/make.rs`), Starlark (`src/app/collapse/starlark.rs`), YAML, JSON,
-TOML, Terraform, HTML, Vue, Svelte, Astro, XML, CSS / SCSS and Markdown
-(`src/app/collapse/spans.rs`) and SQL (`src/app/collapse/sql.rs`) today, the rest in epic #623,
-each saying `no fold rules for .EXT` until then.
+Make and CMake (`src/app/collapse/make.rs`), Starlark (`src/app/collapse/starlark.rs`), Clojure,
+Common Lisp, Racket and Scheme (`src/app/collapse/lisp.rs`), YAML, JSON, TOML, Terraform, HTML,
+Vue, Svelte, Astro, XML, CSS / SCSS and Markdown (`src/app/collapse/spans.rs`) and SQL
+(`src/app/collapse/sql.rs`) today, the rest in epic #623, each saying `no fold rules for .EXT`
+until then.
 
 - **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
   a fold in real projects, compared with the reference: Python's own `ast` for Python, and for

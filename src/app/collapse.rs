@@ -4,6 +4,7 @@ mod braces;
 mod elixir;
 mod erlang;
 mod julia;
+mod lisp;
 mod make;
 mod nix;
 mod spans;
@@ -65,7 +66,12 @@ impl App {
             Some("xml") => Some(spans::xml(lines)),
             Some("md" | "markdown") => Some(spans::markdown(lines)),
             Some("sql") => Some(sql::sql(lines)),
-            _ => None,
+            _ => match self.kind() {
+                Some(k @ (Kind::Clojure | Kind::Scheme | Kind::CommonLisp)) => {
+                    Some(lisp::lisp(lines, k))
+                }
+                _ => None,
+            },
         };
         if let Some(spans) = spans {
             return Some(Folds::Spans(spans));
