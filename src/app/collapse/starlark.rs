@@ -99,28 +99,33 @@ pub(crate) fn starlark(lines: &[String]) -> Blocks {
         if !["def", "if", "for", "while", "with"].contains(&s.word.as_str()) {
             continue;
         }
-        let mut end = s.last;
-        for next in &stmts[k + 1..] {
-            if next.word == "#" {
-                if next.indent > s.indent {
-                    end = next.last;
-                }
-                continue;
-            }
-            let clause = match s.word.as_str() {
-                "if" => ["elif", "else"].contains(&next.word.as_str()),
-                "for" | "while" => next.word == "else",
-                _ => false,
-            };
-            if next.indent < s.indent || (next.indent == s.indent && !clause) {
-                break;
-            }
-            end = next.last;
-        }
+        let end = block_end(s, &stmts[k + 1..]);
         nodes.push((s.first, end));
         if s.word == "def" {
             funcs.push((s.first, end));
         }
     }
     Blocks::from_nodes(nodes, funcs, lines.len())
+}
+
+fn block_end(s: &Stmt, rest: &[Stmt]) -> usize {
+    let mut end = s.last;
+    for next in rest {
+        if next.word == "#" {
+            if next.indent > s.indent {
+                end = next.last;
+            }
+            continue;
+        }
+        let clause = match s.word.as_str() {
+            "if" => ["elif", "else"].contains(&next.word.as_str()),
+            "for" | "while" => next.word == "else",
+            _ => false,
+        };
+        if next.indent < s.indent || (next.indent == s.indent && !clause) {
+            break;
+        }
+        end = next.last;
+    }
+    end
 }
