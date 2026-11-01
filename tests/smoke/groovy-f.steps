@@ -11,7 +11,7 @@ wait A Jenkinsfile
 key :
 type 2
 key Enter f
-wait 4 lines
+wait 3 lines ⋯ }
 key f
 wait make all
 key :
