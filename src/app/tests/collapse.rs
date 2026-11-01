@@ -544,6 +544,7 @@ fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_and_s
         ("m", "objc.m"),
         ("c", "c.c"),
         ("cc", "cpp.cc"),
+        ("bzl", "starlark.bzl"),
     ];
     for (ext, name) in fixtures {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();
