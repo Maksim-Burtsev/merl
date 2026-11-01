@@ -2,6 +2,7 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 
 mod braces;
 mod elixir;
+mod nix;
 mod spans;
 mod words;
 
@@ -45,6 +46,7 @@ impl App {
             Some("scss") => Some(spans::scss(lines)),
             Some("yml" | "yaml") => Some(spans::yaml(lines)),
             Some("toml") => Some(spans::toml(lines)),
+            Some("nix") => Some(nix::nix(lines)),
             Some("html" | "htm") => Some(spans::html(lines)),
             Some("xml") => Some(spans::xml(lines)),
             Some("md" | "markdown") => Some(spans::markdown(lines)),

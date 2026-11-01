@@ -1,0 +1,57 @@
+wait A default.nix
+┌orders──────────────────────┐ 1 { pkgs, ... }:
+│▸ .github                   │ 2
+│▸ .venv                     │ 3 let
+│▸ app                       │ 4   name = "merl";
+│▸ data                      │ 5 in
+│▸ deploy                    │ 6 {
+│▸ docs                      │ 7   environment.systemPackages = [
+│▾ nix                       │ 8     pkgs.git
+│  A default.nix             │ 9   ];
+│▸ scripts                   │10   users.users.merl = {
+│▸ tests                     │11     home = "/Users/merl";
+│▸ web                       │12   };
+│▸ worker                    │13 }
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+nix/default.nix  1:1  [code]                                                                                                                                                       14:32
+cursor (x,y,shown) 33,0,0
