@@ -1,0 +1,57 @@
+wait A main.tf
+┌orders──────────────────────┐1 resource "aws_s3_bucket" "logs" {
+│▸ .github                   │2   bucket = "logs"
+│▸ .venv                     │3
+│▸ app                       │4   tags = {
+│▸ data                      │5     Name = "logs"
+│▸ deploy                    │6     Team = "infra"
+│▸ docs                      │7   }
+│▾ infra                     │8 }
+│  A main.tf                 │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+infra/main.tf  1:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 32,0,0

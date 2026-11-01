@@ -9,7 +9,7 @@ wait merl exited: 0
 merl infra/main.tf
 wait A main.tf
 key f
-wait 7 lines
+wait 6 lines ⋯ }
 key f :
 type 5
 key Enter f
