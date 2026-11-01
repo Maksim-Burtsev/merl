@@ -159,6 +159,19 @@ fn lex(kind: Kind, text: &str) -> Lexed {
     lex_keeping(kind, text, false)
 }
 
+fn char_literal(kind: Kind, b: &[u8], i: usize) -> bool {
+    match kind {
+        Kind::Clojure => b[i] == b'\\',
+        Kind::Scheme | Kind::CommonLisp => b[i..].starts_with(b"#\\"),
+        Kind::EmacsLisp => b[i] == b'?' && (i == 0 || delimiter(b[i - 1])),
+        _ => false,
+    }
+}
+
+fn comment_form(b: &[u8], i: usize, depth: usize) -> bool {
+    depth == 0 && b[i..].starts_with(b"(comment") && b.get(i + 8).is_none_or(|&c| delimiter(c))
+}
+
 pub fn lisp_code(kind: Kind, text: &str) -> Vec<u8> {
     lex_keeping(kind, text, true).code
 }
@@ -214,21 +227,12 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
                 datum = true;
             }
             i += 2;
-        } else if (clojure && c == b'\\')
-            || (hashed && at(b"#\\"))
-            || (kind == Kind::EmacsLisp && c == b'?' && (i == 0 || delimiter(b[i - 1])))
-        {
+        } else if char_literal(kind, b, i) {
             i = char_end(b, i);
             blank(&mut code, start..i);
             datum = false;
         } else {
-            if clojure
-                && !comment_forms
-                && depth == 0
-                && ignored.is_none()
-                && at(b"(comment")
-                && b.get(i + 8).is_none_or(|&c| delimiter(c))
-            {
+            if clojure && !comment_forms && ignored.is_none() && comment_form(b, i, depth) {
                 ignored = Some((0, i));
             }
             match c {
