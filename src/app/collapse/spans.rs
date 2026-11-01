@@ -164,6 +164,114 @@ fn brackets(code: &[Vec<u8>], opens: &[u8], statements: bool) -> Vec<(usize, usi
     innermost(folds)
 }
 
+pub(super) fn terraform(lines: &[String]) -> Vec<(usize, usize)> {
+    let mut folds = Vec::new();
+    let mut stack: Vec<(usize, bool)> = Vec::new();
+    let mut fresh = false;
+    let mut heredocs: Vec<(usize, String)> = Vec::new();
+    let mut comment = None;
+    let mut n = 0;
+    while n < lines.len() {
+        let b = lines[n].as_bytes();
+        let mut i = 0;
+        while i < b.len() {
+            if let Some(h) = comment {
+                if b[i..].starts_with(b"*/") {
+                    folds.push((h, n));
+                    comment = None;
+                    i += 1;
+                }
+                i += 1;
+                continue;
+            }
+            let c = b[i];
+            if c == b'#' || b[i..].starts_with(b"//") {
+                break;
+            }
+            if b[i..].starts_with(b"/*") {
+                comment = Some(n);
+                i += 2;
+                continue;
+            }
+            if c.is_ascii_whitespace() {
+                i += 1;
+                continue;
+            }
+            let word = b[i..]
+                .iter()
+                .take_while(|c| c.is_ascii_alphanumeric() || **c == b'_' || **c == b'-');
+            let len = word.count().max(1);
+            if fresh && let Some(top) = stack.last_mut() {
+                top.1 = &b[i..i + len] != b"for";
+            }
+            fresh = false;
+            match c {
+                b'"' => i = quoted(b, i),
+                b'<' if b[i..].starts_with(b"<<") => {
+                    let start = i + 2 + usize::from(b.get(i + 2) == Some(&b'-'));
+                    let tag: String = (lines[n].get(start..).unwrap_or(""))
+                        .chars()
+                        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+                        .collect();
+                    if !tag.is_empty() {
+                        i = start + tag.len() - 1;
+                        heredocs.push((n, tag));
+                    }
+                }
+                b'{' => {
+                    stack.push((n, true));
+                    fresh = true;
+                }
+                b'}' => {
+                    if let Some((h, true)) = stack.pop()
+                        && n > h
+                    {
+                        folds.push((h, n));
+                    }
+                }
+                _ => {}
+            }
+            i += len;
+        }
+        for (h, tag) in heredocs.drain(..) {
+            match (n + 1..lines.len()).find(|&e| lines[e].trim() == tag) {
+                Some(e) => {
+                    folds.push((h, e));
+                    n = e;
+                }
+                None => n = lines.len(),
+            }
+        }
+        n += 1;
+    }
+    innermost(folds)
+}
+
+fn quoted(b: &[u8], mut i: usize) -> usize {
+    i += 1;
+    while i < b.len() {
+        match b[i] {
+            b'\\' => i += 2,
+            b'"' => return i,
+            b'$' | b'%' if b.get(i + 1) == Some(&b'{') => {
+                i += 2;
+                let mut depth = 1;
+                while i < b.len() && depth > 0 {
+                    match b[i] {
+                        b'"' => i = quoted(b, i),
+                        b'{' => depth += 1,
+                        b'}' => depth -= 1,
+                        _ => {}
+                    }
+                    i += 1;
+                }
+            }
+            _ => i += 1,
+        }
+    }
+    i
+}
+
 fn innermost(mut folds: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
     folds.sort_unstable();
     folds.dedup();
