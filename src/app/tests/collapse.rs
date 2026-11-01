@@ -536,6 +536,7 @@ fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_and_s
     let fixtures = [
         ("dart", "dart.dart"),
         ("scala", "scala.scala"),
+        ("jl", "julia.jl"),
         ("ex", "elixir.ex"),
         ("rbs", "rbs.rbs"),
         ("zsh", "zsh.zsh"),
