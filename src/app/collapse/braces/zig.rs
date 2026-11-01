@@ -110,8 +110,10 @@ impl Model<'_, '_> {
         if head.is_some_and(|h| self.tx(h) == "switch") {
             return;
         }
-        let keyword = (p.filter(|&p| CONTAINERS.contains(&self.tx(p))))
-            .or(head.filter(|&h| CONTAINERS.contains(&self.tx(h))));
+        let keyword = [p, head]
+            .into_iter()
+            .flatten()
+            .find(|&j| CONTAINERS.contains(&self.tx(j)));
         let start = self.toks[keyword.unwrap_or(k)].line;
         self.add(start, self.closing(k), false);
     }
@@ -172,7 +174,7 @@ impl Model<'_, '_> {
         let open = k + 2 + usize::from(quoted);
         let named = self.word_at(k + 1) && self.punct(open, "(");
         let open = if named { open } else { k + 1 };
-        let Some(c) = self.pair[open].filter(|_| self.punct(open, "(")) else {
+        let Some(c) = self.punct(open, "(").then(|| self.pair[open]).flatten() else {
             return;
         };
         self.add(self.toks[open].line, Some(self.end_of(c)), false);
@@ -258,7 +260,10 @@ impl Model<'_, '_> {
         match self.tx(first) {
             "{" => return self.pair[first],
             "if" | "while" | "for" => return Some(self.zig_cond_end(first)?.0),
-            "switch" => return self.pair[self.pair[first + 1]? + 1],
+            "switch" => {
+                let c = (*self.pair.get(first + 1)?)?;
+                return *self.pair.get(c + 1)?;
+            }
             _ => {}
         }
         let mut last = None;
