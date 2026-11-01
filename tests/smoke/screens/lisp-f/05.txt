@@ -1,0 +1,57 @@
+wait (println s)
+┌orders──────────────────────┐1 (ns demo.core)
+│▸ .github                   │2
+│▸ .venv                     │3 (defn greet [name]
+│▸ app                       │4   (let [s (str "hi " name)]
+│▸ data                      │5     (println s)
+│▸ deploy                    │6     s))
+│▸ docs                      │7
+│▾ lisp                      │8 (def answer 42)
+│  A core.clj                │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+lisp/core.clj  3:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 32,2,0
