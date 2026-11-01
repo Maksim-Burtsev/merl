@@ -1,0 +1,57 @@
+wait A demo.cmake
+┌orders──────────────────────┐1 function(demo name)
+│▸ .github                   │2   if(WIN32)
+│▸ .venv                     │3     message(win)
+│▸ app                       │4   endif()
+│▸ data                      │5   add_executable(${name} main.c)
+│▸ deploy                    │6 endfunction()
+│▸ docs                      │
+│▾ mk                        │
+│  A app.mk                  │
+│  A demo.cmake              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+mk/demo.cmake  1:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 32,0,0

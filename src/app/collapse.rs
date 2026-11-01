@@ -2,6 +2,7 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 
 mod braces;
 mod elixir;
+mod make;
 mod spans;
 mod words;
 
@@ -29,6 +30,8 @@ impl App {
             Some(Kind::Elixir) if name.ends_with(".ex") || name.ends_with(".exs") => {
                 Some(elixir::elixir(lines))
             }
+            Some(Kind::Make) => Some(make::make(lines)),
+            Some(Kind::Cmake) => Some(make::cmake(lines)),
             _ => None,
         };
         if let Some(blocks) = words {

@@ -544,6 +544,8 @@ fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_and_s
         ("m", "objc.m"),
         ("c", "c.c"),
         ("cc", "cpp.cc"),
+        ("mk", "make.mk"),
+        ("cmake", "cmake.cmake"),
     ];
     for (ext, name) in fixtures {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();
@@ -587,5 +589,21 @@ fn php_uses_inside_a_braced_namespace_and_a_phtml_file_fold() {
         a.go((2, 4));
         key(&mut a, KeyCode::Char('f'));
         assert_eq!(a.collapsed, vec![(2, 3)], ".{ext}");
+    }
+}
+
+#[test]
+fn f_folds_make_and_cmake_by_their_file_names() {
+    for (name, text) in [
+        ("Makefile", "all:\n\techo a\n\techo b\n"),
+        ("GNUmakefile", "all:\n\techo a\n\techo b\n"),
+        ("CMakeLists.txt", "if(A)\n  message(a)\nendif()\n"),
+    ] {
+        let mut a = app("");
+        let path = a.buf.path.clone().unwrap().with_file_name(name);
+        a.buf = Buffer::from_bytes(path, text.as_bytes());
+        a.go((0, 0));
+        key(&mut a, KeyCode::Char('f'));
+        assert_eq!(a.collapsed, vec![(0, 2)], "{name}");
     }
 }
