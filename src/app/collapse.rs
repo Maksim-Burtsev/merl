@@ -3,6 +3,7 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 mod braces;
 mod elixir;
 mod erlang;
+mod julia;
 mod make;
 mod nix;
 mod spans;
@@ -28,6 +29,7 @@ impl App {
             Some(Kind::Ruby) => Some(words::ruby(lines)),
             Some(Kind::Lua) => Some(words::lua(lines)),
             Some(Kind::Starlark) => Some(starlark::starlark(lines)),
+            Some(Kind::Julia) => Some(julia::julia(lines)),
             Some(Kind::Shell) => Some(words::shell(
                 lines,
                 name.ends_with(".zsh") || name.starts_with(".z"),

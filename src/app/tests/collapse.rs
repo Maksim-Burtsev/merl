@@ -539,6 +539,7 @@ fn f_survives_every_prefix_of_the_listed_fold_fixtures() {
     let fixtures = [
         ("dart", "dart.dart"),
         ("scala", "scala.scala"),
+        ("jl", "julia.jl"),
         ("ex", "elixir.ex"),
         ("erl", "erlang.erl"),
         ("rbs", "rbs.rbs"),
