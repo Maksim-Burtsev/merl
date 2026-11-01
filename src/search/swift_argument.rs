@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::{Kind, SwiftExpr, code, split_top, swift_expr};
+use super::{Kind, SwiftExpr, code, split_top, swift_expr, swift_mods};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SwiftArgument {
@@ -78,4 +78,11 @@ pub fn swift_case_value(value: &str) -> Option<(String, String)> {
 
 pub fn swift_var(line: &str, name: &str) -> bool {
     Regex::new(&format!(r"\bvar\s+`?{}`?\s*=", regex::escape(name))).is_ok_and(|r| r.is_match(line))
+}
+
+pub fn swift_declares_func(line: &str) -> Option<bool> {
+    static DECL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(&format!(r"{}(func|let|var)\s", swift_mods!())).expect("the regex is a literal")
+    });
+    DECL.captures(line).map(|c| &c[1] == "func")
 }
