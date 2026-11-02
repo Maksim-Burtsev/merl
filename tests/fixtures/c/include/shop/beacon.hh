@@ -7,6 +7,7 @@ class Beacon {
   // Ready says whether a Beacon (a Laser or
   // a Camera) can scan.
   virtual bool Ready() const = 0;
+  //           ^ d: !jump
 };
 
 class Laser : public Beacon {

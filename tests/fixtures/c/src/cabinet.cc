@@ -3,13 +3,13 @@
 namespace shop {
 
 unsigned long Cabinet::Count() const { return 0; }
-//                     ^ d: include/shop/beacon.hh:24
+//                     ^ d: include/shop/beacon.hh:25
 
 void Cabinet::Fill(int items, int boxes) {}
-//            ^ d: include/shop/beacon.hh:25
+//            ^ d: include/shop/beacon.hh:26
 
 int Cabinet::Lock(int code) { return code; }
-//           ^ d: picker include/shop/beacon.hh:27, include/shop/beacon.hh:45
+//           ^ d: picker include/shop/beacon.hh:28, include/shop/beacon.hh:46
 
 bool seen(Beacon* s) { return s->Ready(); }
 //        ^ d: include/shop/beacon.hh:5
@@ -31,6 +31,6 @@ int again() { return probe(3); }
 //                   ^ d: src/count.cc:3
 
 bool shelved(Shelf<int>::Beacon* b) { return b->Ready(); }
-//                                              ^ d: include/shop/beacon.hh:40
+//                                              ^ d: include/shop/beacon.hh:41
 
 }  // namespace shop
