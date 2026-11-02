@@ -794,6 +794,9 @@ impl App {
         if kind == Kind::Sql {
             self.sql_hits(here, word, &mut hits);
         }
+        if kind == Kind::Scheme && hits.is_empty() {
+            hits = self.scheme_renamed(here, word);
+        }
         hits
     }
 

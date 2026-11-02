@@ -907,6 +907,61 @@ pub fn lisp_files(kind: Kind, dir: &Path, module: &str, files: &[PathBuf]) -> Ve
     }
 }
 
+pub fn scheme_renames(
+    text: &str,
+    line: usize,
+    word: &str,
+    own: bool,
+    includes_here: impl Fn(&str) -> bool,
+) -> bool {
+    struct Open<'a> {
+        head: Option<&'a str>,
+        idx: usize,
+    }
+    let code = String::from_utf8_lossy(&lex(Kind::Scheme, text).code).into_owned();
+    let mut starts = std::iter::once(0).chain(text.match_indices('\n').map(|(i, _)| i + 1));
+    let Some(from) = starts.nth(line.saturating_sub(1)) else {
+        return false;
+    };
+    let on_line = from..starts.next().unwrap_or(text.len());
+    let mut stack: Vec<Open> = Vec::new();
+    let (mut renamed, mut included) = (false, own);
+    for (tok, pos) in tokens(&code) {
+        match tok {
+            Tok::Open(_) => stack.push(Open { head: None, idx: 0 }),
+            Tok::Close => {
+                if stack.pop().is_none() {
+                    continue;
+                }
+                match stack.last_mut() {
+                    Some(p) => p.idx += 1,
+                    None if renamed && included => return true,
+                    None => (renamed, included) = (false, own),
+                }
+            }
+            Tok::Atom(a) => {
+                let n = stack.len();
+                renamed |= a == word
+                    && on_line.contains(&pos)
+                    && n >= 3
+                    && stack[n - 1].idx == 1
+                    && stack[n - 2].head == Some("rename")
+                    && stack[n - 2].idx >= 2
+                    && stack[..n - 2].iter().any(|o| o.head == Some("import"));
+                let Some(f) = stack.last_mut() else { continue };
+                included |= f.idx > 0
+                    && matches!(f.head, Some("include" | "include-ci"))
+                    && a == "\"\""
+                    && (text.get(pos + 1..).and_then(|t| t.split_once('"')))
+                        .is_some_and(|(inside, _)| includes_here(inside));
+                f.head = f.head.or(Some(a));
+                f.idx += 1;
+            }
+        }
+    }
+    false
+}
+
 pub fn scheme_foreign_branch(
     text: &str,
     line: usize,
