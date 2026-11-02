@@ -43,3 +43,12 @@ END
   (let ([tmp a])  ; f: 42-45
     (set! a b)  ; f: 42-45
     (set! b tmp)))  ; f: 42-45
+
+(define warning  ; f: 47-48
+  "write a here string as #<<EOF")  ; f: 47-48
+
+#| a block comment naming #<<EOF |#
+
+(define (pour cup)  ; f: 52-54
+  (let ([tea cup])  ; f: 52-54
+    tea))  ; f: 52-54
