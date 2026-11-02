@@ -37,3 +37,5 @@ function checkout(items, coupon)
 end
 row(i) = i
 res = 0
+show(stdout, res)
+# ^ d: picker src/tariff.jl:41

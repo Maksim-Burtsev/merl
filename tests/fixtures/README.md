@@ -505,7 +505,8 @@ scripts that `include` them by path: every declaration form of the issue (a `fun
 global `m` of another file and a local `total` beside the function `total`, `rate` both a method
 and a field, a functor, each refusal, imports of a package that is not installed, and
 declaration-shaped lines in a docstring, a nested `#= =#`, a backtick command over lines, a
-regex and a raw string.
+regex and a raw string. A bare `show` in `basket.jl`, a function the project only extends
+with `Base.show`, is a picker of that one method when no Julia is found (#1361).
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
