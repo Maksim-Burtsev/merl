@@ -198,9 +198,6 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
         if i < here {
             i += 1;
             blank(&mut code, start..i);
-        } else if kind == Kind::Scheme && at(b"#<<") {
-            here = here_string_end(b, i);
-            datum = false;
         } else if string {
             (i, string) = string_step(b, i);
             if string {
@@ -209,6 +206,9 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
         } else if block > 0 {
             (i, block) = block_step(b, i, block);
             blank(&mut code, start..i);
+        } else if kind == Kind::Scheme && at(b"#<<") {
+            here = here_string_end(b, i);
+            datum = false;
         } else if c == b';' {
             i += b[i..]
                 .iter()
@@ -433,9 +433,8 @@ const DEFUNS: &[&str] = &[
     "define-inline",
     "defmethod",
     "cl-defmethod",
-    "defgeneric",
-    "cl-defgeneric",
 ];
+const GENERICS: &[&str] = &["defgeneric", "cl-defgeneric"];
 const DEFINES: &[&str] = &[
     "define",
     "define/contract",
@@ -630,8 +629,11 @@ pub(super) fn lisp_bindings(
             }
             Tok::Close => {
                 let Some(f) = stack.pop() else { break };
-                if matches!(f.role, Role::Plain | Role::Arity | Role::Rule) {
-                    scopes[f.scope].1 = Some(pos);
+                let generic = f.role == Role::Params
+                    && (stack.last().and_then(|p| p.head))
+                        .is_some_and(|h| GENERICS.contains(&h.to_ascii_lowercase().as_str()));
+                if generic || matches!(f.role, Role::Plain | Role::Arity | Role::Rule) {
+                    scopes[f.scope].1.get_or_insert(pos);
                 }
                 if let Some(from) = f.entry.filter(|_| f.tests && f.idx < 2) {
                     found.truncate(from);
@@ -725,7 +727,8 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         2 if h == "let" && p.named => Role::Entries,
         1 if LAMBDAS.contains(&h) => Role::Params,
         1 if DEFINES.contains(&h) => Role::Define,
-        2 if DEFUNS.contains(&h) => Role::Params,
+        2 if DEFUNS.contains(&h) || GENERICS.contains(&h) => Role::Params,
+        1 if h == ":method" => Role::Params,
         _ => Role::Plain,
     }
 }
