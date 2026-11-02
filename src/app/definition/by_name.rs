@@ -721,7 +721,42 @@ impl App {
         self.cpp_class_scoped(a, hits)
     }
 
-    fn cpp_class_scoped(&self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
+    fn cpp_unseen_members_dropped(
+        &mut self,
+        a: &Asked,
+        ctx: &[String],
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        if !search::c_inside_function(&a.text, self.line + 1, &a.word) {
+            return hits;
+        }
+        let unseen: Vec<Option<String>> = (hits.iter())
+            .map(|h| {
+                let class = (self.text_of(&h.path))
+                    .filter(|_| Self::c_type_line(&a.word, h))
+                    .and_then(|t| search::cpp_member_class(&t, h.line1, &a.word))?;
+                (!ctx.contains(&class)).then_some(class)
+            })
+            .collect();
+        if unseen.iter().all(Option::is_none) || unseen.iter().all(Option::is_some) {
+            return hits;
+        }
+        let texts: Vec<String> = (self.c_reached(&a.here).into_iter())
+            .filter(|f| f.is_relative())
+            .filter_map(|f| self.text_of(&f))
+            .chain([a.text.clone()])
+            .collect();
+        (hits.into_iter().zip(unseen))
+            .filter(|(_, class)| {
+                class
+                    .as_ref()
+                    .is_none_or(|c| texts.iter().any(|t| search::cpp_derives_from(t, c)))
+            })
+            .map(|(h, _)| h)
+            .collect()
+    }
+
+    fn cpp_class_scoped(&mut self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
         let code = search::c_code(&a.text);
         if self.c_source()
             || self.objc_file()
@@ -734,6 +769,7 @@ impl App {
             return hits;
         }
         let ctx = search::cpp_scope_path(&code, self.cpp_pos(a, &code));
+        let hits = self.cpp_unseen_members_dropped(a, &ctx, hits);
         let member = |h: &Hit| {
             self.text_of(&h.path).is_some_and(|t| {
                 !search::c_inside_function(&t, h.line1, &a.word)
