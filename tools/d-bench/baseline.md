@@ -96,6 +96,7 @@ The cpp row with #1336's class scope (a type name in a class's method finds the 
 The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
 The js row with #1337's second pass (a member a `require`d package declares in its ES-module copy too, `dayjs/esm/index.d.ts` or `index.d.mts`, lands in the copy `require` reads): over `967116536`, 2026-11-02, release build, `vm.loadavg` { 2.54 3.88 4.38 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
+The rust row with #1302's fourth pass (a parameter typed by the trait's own associated type, `caps: &mut Self::Captures` under `type Captures: Captures;`, read through that bound: `let m = caps.get(0).unwrap(); m.end` in `crates/matcher/src/lib.rs`): over `1866bd8bc`, 2026-11-03, release build, `vm.loadavg` { 3.54 3.79 4.15 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -103,7 +104,7 @@ The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syn
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
 | js (eslint, uptime-kuma) | 217 | 201 (93%) | 13 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.8 | 174.1 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
+| rust (ripgrep) | 231 | 229 (99%) | 2 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 54.9 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 213 (90%) | 23 (10%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.6 |
