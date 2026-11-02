@@ -5,7 +5,7 @@ use super::c::{
     ACCESS_LABELS, Head, Scope, bracket_contents_blanked, c_bindings_at, c_body_name, c_code,
     c_head, c_head_start, c_innermost_open_brace, c_place, c_struct_head, c_words_on_line,
     close_or_end, cpp_class_path, cpp_decl_start, line_starts, scope_pos,
-    scopes_inside_out_to_type_or_namespace,
+    scopes_inside_out_to_type_or_namespace, untemplated,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -21,8 +21,11 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
         let path = match (c_struct_head(head), NAMESPACE.captures(head)) {
             (Some(name), _) => name,
             (None, Some(c)) => c.get(1).map_or("", |m| m.as_str()).to_owned(),
-            (None, None) => match c_head(head) {
-                Head::Function { name, .. } => {
+            (None, None) => match (c_head(head), c_head(&untemplated(head))) {
+                (Head::Function { name, .. }, _) if name.contains("::") => {
+                    name.rsplit_once("::").unzip().0.unwrap_or("").to_owned()
+                }
+                (Head::Function { .. }, Head::Function { name, .. }) => {
                     name.rsplit_once("::").unzip().0.unwrap_or("").to_owned()
                 }
                 _ => String::new(),
@@ -85,6 +88,21 @@ pub fn cpp_owner(text: &str, line1: usize, name: &str) -> Option<Vec<String>> {
         path.extend((qualifier.split("::").filter(|p| !p.is_empty())).map(str::to_owned));
     }
     Some(path)
+}
+
+pub fn cpp_member_class(text: &str, line1: usize, name: &str) -> Option<String> {
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, name, None).first()?;
+    let open = c_innermost_open_brace(code.as_bytes(), at)?;
+    c_struct_head(code.get(c_head_start(&code, open)..open)?).filter(|c| !c.is_empty())
+}
+
+pub fn cpp_derives_from(text: &str, class: &str) -> bool {
+    Regex::new(&format!(
+        r"[:,]\s*(?:(?:public|protected|private|virtual)\s+)*(?:\w+\s*::\s*)*{}\s*[<,{{]",
+        regex::escape(class)
+    ))
+    .is_ok_and(|re| re.is_match(&c_code(text)))
 }
 
 pub fn cpp_alias_in_scope(text: &str, pos: usize, alias: &str) -> Option<Vec<String>> {
