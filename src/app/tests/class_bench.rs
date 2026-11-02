@@ -122,13 +122,12 @@ fn name_of<'a>(n: Node<'a>, src: &'a str) -> Option<Node<'a>> {
     .filter(|m| src.get(m.byte_range()).is_some())
 }
 
-fn defined_by<'a>(p: Node<'a>, leaf: Node, src: &str) -> Option<Option<Node<'a>>> {
+fn defined_by<'a>(p: Node<'a>, leaf: Node, src: &str) -> Option<Node<'a>> {
     if p.kind() == "binding" {
-        return Some(p.child_by_field_name("attrpath"));
+        return p.child_by_field_name("attrpath");
     }
     if p.kind() == "defun" {
-        let name = p.named_child(0)?.child_by_field_name("function_name")?;
-        return Some(Some(name));
+        return p.named_child(0)?.child_by_field_name("function_name");
     }
     let symbol = |n: &Node| matches!(n.kind(), "symbol" | "sym_lit");
     if !matches!(p.kind(), "list" | "list_lit") {
@@ -142,12 +141,12 @@ fn defined_by<'a>(p: Node<'a>, leaf: Node, src: &str) -> Option<Option<Node<'a>>
     let mut name = p.named_child(1)?;
     if head.ends_with("values") {
         let mut c = name.walk();
-        return Some(name.named_children(&mut c).find(|n| n.id() == leaf.id()));
+        return name.named_children(&mut c).find(|n| n.id() == leaf.id());
     }
     while matches!(name.kind(), "list" | "list_lit") {
         name = name.named_child(0)?;
     }
-    Some(Some(name).filter(symbol))
+    Some(name).filter(symbol)
 }
 
 fn segments(s: &str) -> Vec<String> {
@@ -290,7 +289,7 @@ fn reference(root: Node, src: &str, row: usize, col: usize, word: &str) -> Optio
             }
             continue;
         }
-        let Some(name) = defined.map_or_else(|| name_of(p, src), |d| d) else {
+        let Some(name) = defined.or_else(|| name_of(p, src)) else {
             continue;
         };
         let text = src.get(name.byte_range())?;
