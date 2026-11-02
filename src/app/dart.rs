@@ -515,6 +515,14 @@ impl App {
             let c = self.dart_field_row(here, text, items)?;
             return Some((search::dart_iterated(&c.hit.text, items)?, c.hit.path));
         }
+        if let Some((method, awaited)) = search::dart_for_in_call(line, name) {
+            let c = self.dart_field_row(here, text, method)?;
+            let ty = search::dart_iterated_call(&c.hit.text, method, awaited)?;
+            let own = search::dart_this_super(text, self.line, false)?.class;
+            let params = search::dart_type_params(text, &own).unwrap_or_default();
+            return (ty.prefix.is_some() || !params.contains(&ty.class))
+                .then_some((ty, c.hit.path));
+        }
         let value = search::dart_value(line, name).filter(|_| depth < 4)?;
         if let Some((receiver, getter)) = search::dart_awaited(value) {
             return self.dart_awaited(here, text, receiver, getter, depth + 1);
