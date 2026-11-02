@@ -103,6 +103,8 @@ DataFrames.jl's install and `install-servers.sh`. LanguageServer.jl's analysis p
 dependency (Tables, InvertedIndices) and for some of Base's core types: those rows are `no-answer`.
 For a Base generic that DataFrames extends (`parent`, `view`, `copy`, `filter!`) it lists only
 the methods outside the project: where the argument is a DataFrames type, the row is `skip`.
+Where merl jumped and the oracle had nothing, 13 rows were read from the code (#1370, `judged` in
+the note); three on `Union`, built in C, answer its commented-out struct in `base/boot.jl`.
 merl's answers depend on the Julia it finds: the baseline is scored with Julia 1.11.7 in
 `<servers>/julia-1.11.7` (the same julialang-s3 tarball) and the depot in `<servers>/julia-depot`,
 which `run` puts on `PATH` and in `JULIA_DEPOT_PATH`. Without them it stops: on 2026-11-02 the
