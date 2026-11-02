@@ -83,21 +83,7 @@ pub fn ts_literal_member(
     written: &str,
     word: &str,
 ) -> Option<(usize, String)> {
-    if split_top(Kind::TsJs, written, b'|').len() > 1 {
-        return None;
-    }
-    let operands = split_top(Kind::TsJs, written, b'&');
-    if operands.len() < 2 {
-        return None;
-    }
-    let declaring: Vec<(&str, usize)> = operands
-        .iter()
-        .map(|o| o.trim())
-        .filter_map(|o| Some((o, literal_member_at(o, word)?)))
-        .collect();
-    let [(literal, offset)] = declaring[..] else {
-        return None;
-    };
+    let (literal, offset) = declaring_literal(written, word)?;
     let lines: Vec<&str> = text.lines().collect();
     let from = line.checked_sub(1)?;
     let header: Vec<&str> = lines[from..lines.len().min(from + 40)]
@@ -114,6 +100,29 @@ pub fn ts_literal_member(
         literal.split_whitespace().collect::<Vec<_>>().join(" "),
     ))
 }
+fn declaring_literal<'a>(written: &'a str, word: &str) -> Option<(&'a str, usize)> {
+    if split_top(Kind::TsJs, written, b'|').len() > 1 {
+        return None;
+    }
+    let operands = split_top(Kind::TsJs, written, b'&');
+    if operands.len() < 2 {
+        return None;
+    }
+    let declaring: Vec<(&str, usize)> = operands
+        .iter()
+        .map(|o| o.trim())
+        .filter_map(|o| Some((o, literal_member_at(o, word)?)))
+        .collect();
+    let [one] = declaring[..] else {
+        return None;
+    };
+    Some(one)
+}
+
+pub fn ts_intersection_declares(written: &str, word: &str) -> bool {
+    declaring_literal(written, word).is_some()
+}
+
 pub(super) struct TsDeclarator {
     pub line0: usize,
     pub as_own_statement: String,
