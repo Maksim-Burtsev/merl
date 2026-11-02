@@ -376,35 +376,6 @@ impl App {
         }
     }
 
-    fn literal_member(
-        &self,
-        kind: Kind,
-        here: &Path,
-        chain: &[String],
-        word: &str,
-    ) -> Option<Vec<Candidate>> {
-        let (file, text, bindings, mut links) = self.last_bindings(kind, here, chain)?;
-        let [b] = &bindings[..] else {
-            return None;
-        };
-        let search::Value::Type(written) = &b.value else {
-            return None;
-        };
-        let (line, literal) = search::ts_literal_member(&text, b.line1, written, word)?;
-        links.push(format!("{}: {literal}", chain.last()?));
-        let hit = Hit {
-            text: text.lines().nth(line - 1)?.to_owned(),
-            path: file,
-            line1: line,
-            byte_col: None,
-            deleted: None,
-        };
-        Some(vec![Candidate {
-            hit,
-            reason: Reason::Receiver(links.join(" \u{2192} ")),
-        }])
-    }
-
     pub(super) fn inherited_outside(
         &self,
         kind: Kind,

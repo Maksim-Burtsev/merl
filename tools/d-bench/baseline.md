@@ -106,6 +106,7 @@ The dart row with the third pass of #1338 (a loop over a call of the class's own
 The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
 The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
 The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, so `Union` no longer lands on `Union{}(a...)` in `boot.jl`; a member of a value, `f.fun` after a lowercase name, a call or an index, reads only fields): over `d52ab9a92`, 2026-11-03, release build, `vm.loadavg` { 3.63 4.61 4.88 } before the run, { 3.31 4.30 4.74 } after.
+The js row with #1337's fourth pass (a member of a value whose JSDoc `@type` names a `@typedef` of the same file joining an object type with `&`, `indexedResults.timings` under `@typedef {IndexedLintResult[] & { netLintingDuration: bigint; timings?: … }} WorkerLintResults`, lands on that `@typedef`): over `c1f6d79ca` with this change, 2026-11-03, release build, `vm.loadavg` { 3.96 4.08 4.42 } before the run.
 The python row with #1339's fourth pass (a parameter that `@patch(..)` decorators fill, bottom-up after `self`, is a `MagicMock`; python0321): over `8beca4fbe` with this change, 2026-11-03, release build, `vm.loadavg` { 4.82 5.13 4.97 } before the run, { 3.86 4.72 4.83 } after.
 The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp0130 `leveldb_options_t` also accepts its struct in `db/c.cc`, cpp0214 `GetChildren` answers `Env::GetChildren`, bash0077 `ISPC_Api` answers line 42): over `c1f6d79ca`, 2026-11-03, release build, `vm.loadavg` { 6.58 5.93 5.06 } before the run.
 The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void Trivet::Place(Stand* s) {`, are in the class's scope; an unqualified call in a method, `user_comparator()->Compare` in `DBImpl::DoCompactionWork`, is read as `this->` first; cpp0214 `target()->GetChildren`, no answer recorded, now jumps to `Env::GetChildren`): over `8b0969ab2`, 2026-11-03, release build, `vm.loadavg` { 3.42 3.43 4.05 } before the run.
@@ -114,7 +115,7 @@ The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void 
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 262 | 252 (96%) | 3 (1%) | 0 (0%) | 7 (3%) | 63 | 8 | 16.3 | 179.8 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
-| js (eslint, uptime-kuma) | 217 | 202 (93%) | 12 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.3 | 171.7 |
+| js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 229 (99%) | 2 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 54.9 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
