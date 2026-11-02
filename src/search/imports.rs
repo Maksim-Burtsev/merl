@@ -706,7 +706,13 @@ pub fn rust_uses(text: &str) -> Vec<RustUse> {
     }
     out
 }
-pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) -> Vec<PathBuf> {
+pub fn rust_use_files(
+    files: &[PathBuf],
+    here: &Path,
+    text: &str,
+    name: &str,
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Vec<PathBuf> {
     let mut bound = rust_uses(text).into_iter().filter(|u| u.name == name);
     let (
         Some(RustUse {
@@ -721,8 +727,9 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
     };
     let Some(RustModule {
         crate_src: src,
+        roots,
         path: mut module,
-    }) = rust_module_of(files, here)
+    }) = rust_module_of(files, here, text_of)
     else {
         return Vec::new();
     };
@@ -745,9 +752,9 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
         _ => return Vec::new(),
     };
     module.extend(parts.iter().cloned());
-    let at = module.iter().fold(src.clone(), |p, m| p.join(m));
+    let at = module.iter().fold(src, |p, m| p.join(m));
     let wanted = if module.is_empty() {
-        vec![src.join("lib.rs"), src.join("main.rs")]
+        roots
     } else {
         vec![at.with_extension("rs"), at.join("mod.rs")]
     };
@@ -755,11 +762,19 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
 }
 pub struct RustModule {
     pub crate_src: PathBuf,
+    pub roots: Vec<PathBuf>,
     pub path: Vec<String>,
 }
-pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
+pub fn rust_src_roots(src: &Path) -> Vec<PathBuf> {
+    vec![src.join("lib.rs"), src.join("main.rs")]
+}
+pub fn rust_module_of(
+    files: &[PathBuf],
+    here: &Path,
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Option<RustModule> {
     let src = here.ancestors().skip(1).find(|d| {
-        d.file_name().is_some_and(|n| n == "src")
+        d.file_name().is_some_and(|n| n == "src" || n == "tests")
             && files.contains(
                 &d.parent()
                     .unwrap_or_else(|| Path::new(""))
@@ -772,6 +787,9 @@ pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
         .iter()
         .map(|p| p.to_string_lossy().into_owned())
         .collect();
+    if src.ends_with("tests") {
+        return rust_test_module(files, src, here, module, text_of);
+    }
     if module.first().is_some_and(|m| m == "bin") {
         return None;
     }
@@ -782,6 +800,57 @@ pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
     }
     Some(RustModule {
         crate_src: src.to_path_buf(),
+        roots: rust_src_roots(src),
+        path: module,
+    })
+}
+fn rust_test_module(
+    files: &[PathBuf],
+    tests: &Path,
+    here: &Path,
+    mut module: Vec<String>,
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Option<RustModule> {
+    if module.last().is_some_and(|m| m == "mod") {
+        module.pop();
+    }
+    if let [dir, _, ..] = module.as_slice() {
+        let src = tests.join(dir);
+        let main = src.join("main.rs");
+        if files.contains(&main) {
+            module.remove(0);
+            if module == ["main"] {
+                module.clear();
+            }
+            return Some(RustModule {
+                crate_src: src,
+                roots: vec![main],
+                path: module,
+            });
+        }
+    }
+    let declares = Regex::new(&format!(
+        r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\s*;",
+        regex::escape(module.first()?)
+    ))
+    .ok()?;
+    let mut roots = files.iter().filter(|f| {
+        f.parent() == Some(tests)
+            && f.extension().is_some_and(|e| e == "rs")
+            && *f != here
+            && text_of(f).is_some_and(|t| declares.is_match(&t))
+    });
+    let roots = match (roots.next(), roots.next()) {
+        (Some(root), None) => vec![root.clone()],
+        (None, _) if here.parent() == Some(tests) => {
+            module.clear();
+            vec![here.to_path_buf()]
+        }
+        _ => return None,
+    };
+    Some(RustModule {
+        crate_src: tests.to_path_buf(),
+        roots,
         path: module,
     })
 }

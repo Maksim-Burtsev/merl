@@ -170,7 +170,7 @@ impl App {
             }
             seen.push(target.clone());
             let file = if target.is_empty() {
-                vec![home.src.join("lib.rs"), home.src.join("main.rs")]
+                home.roots.clone()
             } else {
                 let at = target.iter().fold(home.src.clone(), |p, m| p.join(m));
                 vec![at.with_extension("rs"), at.join("mod.rs")]
@@ -336,7 +336,11 @@ pub(super) fn registry_src(r: &Path, all: &[PathBuf], name: &str) -> Option<Crat
         .filter(|f| f.starts_with(&src))
         .cloned()
         .collect();
-    (!files.is_empty()).then_some(CrateSrc { src, files })
+    (!files.is_empty()).then_some(CrateSrc {
+        roots: search::rust_src_roots(&src),
+        src,
+        files,
+    })
 }
 
 impl App {
@@ -371,7 +375,11 @@ impl App {
             .filter(|f| f.starts_with(&src))
             .cloned()
             .collect();
-        Some(CrateSrc { src, files })
+        Some(CrateSrc {
+            roots: search::rust_src_roots(&src),
+            src,
+            files,
+        })
     }
 
     pub(in crate::app) fn rust_glob_variant(

@@ -778,6 +778,10 @@ binding, so it keeps the picker where reading the parameter jumped to `Scoop::he
 head is read among the bindings above the line, so `heap` is `Scoop`'s and the lookup ends.
 `hashed` heads its chain at `hashbrown::HashMap::new()`: the path's root is not std's, so `len`
 is not std's either and `d` answers by name, as master did.
+`rust/tests/` holds Cargo's integration-test crates (#1302), each with a `Gauge` of its own:
+`suite.rs` is the root of `checks.rs` and `kit.rs` (`mod checks; mod kit;`), `solo.rs` is a root
+of its own, and `bench/main.rs` roots `bench/kit.rs`, so `crate::` leads each file to its own
+`Gauge`. `common/mod.rs` is declared by two roots, so its `crate::kit::Gauge` keeps the picker.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
