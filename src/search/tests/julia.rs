@@ -282,7 +282,7 @@ fn julia_locals_of_blocks_outside_functions() {
 
 #[test]
 fn julia_imports_bind_names_and_modules() {
-    let text = "using DataFrames\nusing CSV, Tables\nimport DataFrames: select, transform as tf\nusing Base.Iterators: flatten\nimport LinearAlgebra as LA\nusing ..Shop\nimport Base.show\nusing Test: @test\n# using Hidden\n";
+    let text = "using DataFrames\nusing CSV, Tables\nimport DataFrames: select, transform as tf\nusing Base.Iterators: flatten\nimport LinearAlgebra as LA\nusing ..Shop\nimport Base.show\nusing Test: @test\n# using Hidden\nimport Base: length, # sizes\n    iterate\nimport Base:\n    first,\n    last\nfirst(x) = x\n";
     let got = imports(Kind::Julia, text);
     let has = |name: &str, path: &[&str]| {
         got.iter()
@@ -297,7 +297,11 @@ fn julia_imports_bind_names_and_modules() {
     assert!(has("LA", &["LinearAlgebra"]));
     assert!(has("Shop", &["..", "Shop"]));
     assert!(has("show", &["Base", "show"]));
-    assert!(has("test", &["Test", "test"]));
+    assert!(has("test", &["Test", "@test"]));
+    assert!(has("length", &["Base", "length"]));
+    assert!(has("iterate", &["Base", "iterate"]));
+    assert!(has("first", &["Base", "first"]));
+    assert!(has("last", &["Base", "last"]));
     assert!(!got.iter().any(|i| i.name == "Hidden"));
     let documented = imports(
         Kind::Julia,

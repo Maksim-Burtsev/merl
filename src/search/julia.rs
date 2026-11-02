@@ -181,10 +181,18 @@ fn closing(s: &str) -> Option<usize> {
     None
 }
 
+static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).expect("the regex is a literal")
+});
+
+pub fn julia_includes(from: &Path, line: &str, file: &Path) -> bool {
+    let dir = from.parent().unwrap_or(Path::new(""));
+    INCLUDE
+        .captures_iter(line)
+        .any(|c| super::imports::lexical(&dir.join(&c[1])).as_deref() == Some(file))
+}
+
 pub fn julia_include(line: &str, col: usize) -> Option<String> {
-    static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).expect("the regex is a literal")
-    });
     INCLUDE
         .captures_iter(line)
         .find(|c| c.get(0).is_some_and(|m| m.start() <= col && col < m.end()))
@@ -211,15 +219,26 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
     };
     let named = |item: &str| -> Option<(String, String)> {
         let mut it = item.split_whitespace();
-        let name = it.next()?.trim_start_matches('@').to_owned();
+        let name = it
+            .next()
+            .filter(|n| !n.trim_start_matches('@').is_empty())?;
         let alias = match (it.next(), it.next()) {
-            (Some("as"), Some(a)) => a.trim_start_matches('@').to_owned(),
-            _ => name.clone(),
+            (Some("as"), Some(a)) => a,
+            _ => name,
         };
-        (!name.is_empty()).then_some((alias, name))
+        Some((alias.trim_start_matches('@').to_owned(), name.to_owned()))
     };
     for c in IMPORT.captures_iter(text) {
-        let clause = c[1].trim().trim_end_matches(';');
+        let mut clause = c[1].trim().to_owned();
+        let mut below = text[c.get(0).map_or(text.len(), |m| m.end())..]
+            .lines()
+            .skip(1);
+        while clause.ends_with([',', ':'])
+            && let Some(line) = below.next()
+        {
+            clause.push_str(line.split('#').next().unwrap_or_default().trim());
+        }
+        let clause = clause.trim_end_matches(';');
         match clause.split_once(':').filter(|(_, r)| !r.starts_with(':')) {
             Some((module, items)) => {
                 let base = path(module);

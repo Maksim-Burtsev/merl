@@ -508,7 +508,9 @@ declaration-shaped lines in a docstring, a nested `#= =#`, a backtick command ov
 regex and a raw string. A bare `show` in `basket.jl`, a function the project only extends
 with `Base.show`, is a picker of that one method when no Julia is found (#1361), and so are
 `isempty`, extended after `import Base: isempty` in `money.jl`, and `push!`, a `Base.push!`
-whose signature runs over two lines in `test/runtests.jl` (#1363).
+whose signature runs over two lines in `test/runtests.jl` (#1363), and `length`, imported in
+`Shop.jl` that includes `money.jl`, and `iterate`, named on the line below `import Base:`; `test`,
+a function beside `using Test: @test`, is a jump (#1365).
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside

@@ -31,3 +31,7 @@ end
 
 import Base: isempty
 isempty(m::Money) = m.cents == 0
+length(m::Money) = 1
+import Base:
+    iterate
+iterate(m::Money) = nothing
