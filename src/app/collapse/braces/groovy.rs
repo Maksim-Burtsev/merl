@@ -101,7 +101,7 @@ impl Model<'_, '_> {
     pub(super) fn groovy(&mut self) {
         let mut glued = Vec::new();
         for k in 0..self.toks.len() {
-            if let Some((args, end)) = self.gv_juxt(k) {
+            if let Some((args, end)) = self.gv_juxtaposed(k) {
                 glued.push(args);
                 self.add(self.toks[args].line, Some(end), false);
             }
@@ -128,7 +128,7 @@ impl Model<'_, '_> {
         }
     }
 
-    fn gv_juxt(&self, k: usize) -> Option<(usize, usize)> {
+    fn gv_juxtaposed(&self, k: usize) -> Option<(usize, usize)> {
         if !self.word_at(k) || !self.first[k] || KEYWORDS.contains(&self.tx(k)) {
             return None;
         }
