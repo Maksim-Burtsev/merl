@@ -1,6 +1,6 @@
 # The shop (#429): a module over the files it includes.
 module Shop
-
+import Base: length
 export Tariff, Coupon, gross, weigh!
 #                             ^ d: src/tariff.jl:57
 #      ^ d: src/tariff.jl:7

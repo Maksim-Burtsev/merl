@@ -23,3 +23,5 @@ Base.push!(xs::Vector, row::Tariff;
     end
 end
 
+using Test: @test
+test(x) = x

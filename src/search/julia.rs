@@ -181,17 +181,25 @@ fn closing(s: &str) -> Option<usize> {
     None
 }
 
+static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).expect("the regex is a literal")
+});
+
+pub fn julia_includes(from: &Path, line: &str, file: &Path) -> bool {
+    let dir = from.parent().map(Path::to_path_buf).unwrap_or_default();
+    INCLUDE
+        .captures_iter(line.split('#').next().unwrap_or_default())
+        .any(|c| super::imports::lexical(&dir.join(&c[1])).as_deref() == Some(file))
+}
+
 pub fn julia_include(line: &str, col: usize) -> Option<String> {
-    static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r#"\binclude\s*\(\s*"([^"$]+)"\s*\)"#).expect("the regex is a literal")
-    });
     INCLUDE
         .captures_iter(line)
         .find(|c| c.get(0).is_some_and(|m| m.start() <= col && col < m.end()))
         .map(|c| c[1].to_owned())
 }
 
-pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
+pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>, macros: bool) {
     static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?m)^\s*(?:using|import)\s+([^\n#]+)").expect("the regex is a literal")
     });
@@ -219,11 +227,28 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
         (!name.is_empty()).then_some((alias, name))
     };
     for c in IMPORT.captures_iter(text) {
-        let clause = c[1].trim().trim_end_matches(';');
+        let mut clause = c[1].trim().to_owned();
+        let mut below = c
+            .get(0)
+            .and_then(|m| text.get(m.end()..))
+            .unwrap_or_default()
+            .lines()
+            .skip(1);
+        while clause.ends_with([',', ':'])
+            && let Some(line) = below.next()
+        {
+            clause.push_str(line.split('#').next().unwrap_or_default().trim());
+        }
+        let clause = clause.trim_end_matches(';');
         match clause.split_once(':').filter(|(_, r)| !r.starts_with(':')) {
             Some((module, items)) => {
                 let base = path(module);
-                for (alias, name) in items.split(',').filter_map(|i| named(i.trim())) {
+                for (alias, name) in items
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|i| macros || !i.starts_with('@'))
+                    .filter_map(named)
+                {
                     let mut p = base.clone();
                     p.push(name);
                     out.push(Import {

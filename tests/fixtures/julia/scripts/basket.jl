@@ -43,3 +43,9 @@ isempty(res)
 # ^ d: picker src/money.jl:33
 push!(res, north)
 # ^ d: picker test/runtests.jl:2
+length(res)
+# ^ d: picker src/money.jl:34
+iterate(res)
+# ^ d: picker src/money.jl:37
+test(res)
+# ^ d: test/runtests.jl:27
