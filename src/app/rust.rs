@@ -845,6 +845,7 @@ impl App {
                 let ty = match self
                     .rust_variant_typed(file, &lines, at, name)
                     .or_else(|| self.rust_for_typed(file, text, at, name))
+                    .or_else(|| self.rust_closure_param(file, text, at, name))
                 {
                     Some(ty) => ty,
                     None => self.rust_let_chain(file, text, at, name)?,

@@ -110,6 +110,7 @@ The js row with #1337's fourth pass (a member of a value whose JSDoc `@type` nam
 The python row with #1339's fourth pass (a parameter that `@patch(..)` decorators fill, bottom-up after `self`, is a `MagicMock`; python0321): over `8beca4fbe` with this change, 2026-11-03, release build, `vm.loadavg` { 4.82 5.13 4.97 } before the run, { 3.86 4.72 4.83 } after.
 The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp0130 `leveldb_options_t` also accepts its struct in `db/c.cc`, cpp0214 `GetChildren` answers `Env::GetChildren`, bash0077 `ISPC_Api` answers line 42): over `c1f6d79ca`, 2026-11-03, release build, `vm.loadavg` { 6.58 5.93 5.06 } before the run.
 The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void Trivet::Place(Stand* s) {`, are in the class's scope; an unqualified call in a method, `user_comparator()->Compare` in `DBImpl::DoCompactionWork`, is read as `this->` first; cpp0214 `target()->GetChildren`, no answer recorded, now jumps to `Env::GetChildren`): over `8b0969ab2`, 2026-11-03, release build, `vm.loadavg` { 3.42 3.43 4.05 } before the run.
+The rust row with #1302's integration-test crates (a package's `tests/` folder read as Cargo's crates) and rust0254 (a closure parameter typed by the callee's `F: FnMut(&Self::Captures)` bound and the receiver's `impl` of the trait): over `6897d447a`, 2026-11-03, release build, `vm.loadavg` { 4.75 4.97 4.46 } before the run, { 4.52 4.92 4.44 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -117,7 +118,7 @@ The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void 
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 229 (99%) | 2 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 54.9 |
+| rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 237 | 216 (91%) | 21 (9%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.5 | 63.1 |

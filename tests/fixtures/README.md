@@ -782,6 +782,11 @@ is not std's either and `d` answers by name, as master did.
 `suite.rs` is the root of `checks.rs` and `kit.rs` (`mod checks; mod kit;`), `solo.rs` is a root
 of its own, and `bench/main.rs` roots `bench/kit.rs`, so `crate::` leads each file to its own
 `Gauge`. `common/mod.rs` is declared by two roots, so its `crate::kit::Gauge` keeps the picker.
+`tests/meshes.rs` is rust0254's shape: `matcher.each(b"x, y", &mut caps, |caps| {` with `each` a
+default method of a trait bounding its `F: FnMut(&Self::Captures)`, and `Mesh`'s `impl` naming
+`type Captures = Caps;`, so `caps.get` is `Caps::get` beside `Grain::get`; the comma inside the
+string does not move the argument. A closure on the cursor's own line, a parameter written with
+a type, and a parameter of an unbounded `F` keep the picker.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
