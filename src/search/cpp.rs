@@ -39,6 +39,26 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
     out
 }
 
+pub fn cpp_lookup_path(code: &str, pos: usize) -> Vec<String> {
+    let here = cpp_scope_path(code, pos);
+    let Some(open) = (code.get(pos..))
+        .and_then(|r| r.find(['{', ';']))
+        .map(|i| pos + i)
+    else {
+        return here;
+    };
+    let start = c_head_start(code, open);
+    let in_params = code.as_bytes()[open] == b'{'
+        && matches!(c_head(code.get(start..open).unwrap_or_default()),
+            Head::Function { params, .. } if start + params.start < pos);
+    let body = cpp_scope_path(code, open + 1);
+    if in_params && body.len() > here.len() && body.starts_with(&here) {
+        body
+    } else {
+        here
+    }
+}
+
 pub fn cpp_scoped_name(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
     let at = *c_words_on_line(&code, line1, name, None).first()?;

@@ -29,6 +29,13 @@ impl App {
         let Some(r) = search::cpp_receiver(before) else {
             return CppAnswer::ByName(None);
         };
+        if let Some(call) = (before.get(r.start..).map(str::trim_start))
+            .filter(|c| r.head_called && !r.braced && c.starts_with(&r.head))
+            && let CppAnswer::Found(found) =
+                self.cpp_typed(here, text, &format!("this->{call}"), word)
+        {
+            return CppAnswer::Found(found);
+        }
         let calls = r.head_called || r.braced || r.calls.contains(&true);
         let broke =
             |at: &str| CppAnswer::ByName((!calls && !r.fields.is_empty()).then(|| at.to_owned()));

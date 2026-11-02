@@ -7,4 +7,7 @@ void Saucer::Spin() {
 //^ d: picker include/tea/trivet.hh:5, include/tea/trivet.hh:15
 }
 
+void Saucer::Tilt(Stand* s) {}
+//                ^ d: picker include/tea/trivet.hh:5, include/tea/trivet.hh:15
+
 }

@@ -13,6 +13,9 @@ class Trivet {
 
  protected:
   typedef int Stand;
+
+ public:
+  void Place(Stand* s);
 };
 
 template <typename K>
@@ -24,12 +27,33 @@ class Coaster {
   struct Stand {
     K top;
   };
+
+ public:
+  void Hold(Stand* s);
 };
 
 class Doily {
  public:
   void Fold();
   int Spread(Stand* s);
+};
+
+struct Dial {
+  int Read();
+};
+
+struct Gauge {
+  int Read();
+};
+
+Dial* Reading();
+
+class Kettle {
+ public:
+  int Boil();
+
+ private:
+  Gauge* Reading();
 };
 
 }

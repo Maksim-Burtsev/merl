@@ -108,6 +108,7 @@ The bash row with #1335's third pass (a script's own function wins when each fil
 The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, so `Union` no longer lands on `Union{}(a...)` in `boot.jl`; a member of a value, `f.fun` after a lowercase name, a call or an index, reads only fields): over `d52ab9a92`, 2026-11-03, release build, `vm.loadavg` { 3.63 4.61 4.88 } before the run, { 3.31 4.30 4.74 } after.
 The python row with #1339's fourth pass (a parameter that `@patch(..)` decorators fill, bottom-up after `self`, is a `MagicMock`; python0321): over `8beca4fbe` with this change, 2026-11-03, release build, `vm.loadavg` { 4.82 5.13 4.97 } before the run, { 3.86 4.72 4.83 } after.
 The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp0130 `leveldb_options_t` also accepts its struct in `db/c.cc`, cpp0214 `GetChildren` answers `Env::GetChildren`, bash0077 `ISPC_Api` answers line 42): over `c1f6d79ca`, 2026-11-03, release build, `vm.loadavg` { 6.58 5.93 5.06 } before the run.
+The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void Trivet::Place(Stand* s) {`, are in the class's scope; an unqualified call in a method, `user_comparator()->Compare` in `DBImpl::DoCompactionWork`, is read as `this->` first; cpp0214 `target()->GetChildren`, no answer recorded, now jumps to `Env::GetChildren`): over `8b0969ab2`, 2026-11-03, release build, `vm.loadavg` { 3.42 3.43 4.05 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -116,15 +117,15 @@ The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp
 | js (eslint, uptime-kuma) | 217 | 202 (93%) | 12 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.3 | 171.7 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 229 (99%) | 2 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 54.9 |
-| c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
+| c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 237 | 214 (90%) | 23 (10%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.5 | 63.1 |
+| cpp (leveldb) | 237 | 216 (91%) | 21 (9%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.5 | 63.1 |
 | swift (Alamofire) | 450 | 434 (96%) | 15 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.7 | 48.0 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
 | ruby (mastodon) | 140 | 134 (96%) | 5 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.6 | 365.0 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
@@ -137,7 +138,7 @@ The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
-| bash (bats-core, acme.sh) | 98 | 95 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.4 |
+| bash (bats-core, acme.sh) | 98 | 95 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
 | racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |

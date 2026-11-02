@@ -6,6 +6,7 @@ namespace pantry {
 
 class Saucer : public Trivet {
   void Spin();
+  void Tilt(Stand* s);
 };
 
 }
