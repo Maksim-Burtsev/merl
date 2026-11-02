@@ -72,3 +72,9 @@ function hidden() end
 #= nested =#
 struct Hidden end
 =#
+
+struct ByWeight
+    fun
+end
+apply(b::ByWeight, x) = b.fun(x)
+#                         ^ d: src/tariff.jl:77

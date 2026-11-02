@@ -73,6 +73,8 @@ fn julia_refusals() {
         ("@show total(xs)", "total"),
         ("@test rate(t) == 1", "rate"),
         ("x => 1", "x"),
+        ("Union{}(a...) = throw(x)", "Union"),
+        ("Tuple{ }() = ()", "Tuple"),
     ] {
         assert!(!alone(line, word), "{line}: {word}");
     }
@@ -121,6 +123,14 @@ fn a_julia_field_is_one_directly_inside_its_struct() {
     assert!(!narrowed("y = cents + 1", "cents").is_match(lines[1]));
     assert!(narrowed("y = m.cents + 1", "cents").is_match(lines[1]));
     assert!(narrowed("    cents::Int", "cents").is_match(lines[1]));
+    for line in ["f.fun(x)", "g(x).fun(x)", "xs[1].fun", "_f.fun"] {
+        let p = narrowed(line, "fun");
+        assert!(!p.is_match("fun(v) = sum(v)"), "{line}");
+        assert!(p.is_match("    fun::F"), "{line}");
+    }
+    for line in ["Tables.fun(x)", "Base.Iterators.fun", "using .fun"] {
+        assert!(narrowed(line, "fun").is_match("fun(v) = sum(v)"), "{line}");
+    }
     assert!(narrowed("@check x", "check").is_match("macro check(ex)"));
     assert!(!narrowed("@check x", "check").is_match("check(x) = x > 0"));
     assert!(!narrowed("check(x)", "check").is_match("macro check(ex)"));
