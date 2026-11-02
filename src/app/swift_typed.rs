@@ -1,6 +1,7 @@
 use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
 mod generic;
+mod key_path;
 
 struct SwiftChain {
     written: String,

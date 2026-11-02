@@ -98,6 +98,7 @@ The js row with #1337's second pass (a member a `require`d package declares in i
 The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
 The julia row with #1370 (the 13 rows where merl jumps and the oracle has none judged from the code: 9 right, 4 wrong, julia0111, julia0178 and julia0244 on `Union` landing on `Union{}(a...)` in `boot.jl`, julia0210 on `ByRow`'s `fun` landing in `test/select.jl`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.86 5.61 3.98 } before the run.
 The cpp row with the third pass of #1336 (a type a class declares inside its body is unseen in another class's method unless that class derives from it, `MemTable::Table` at `version_set.cc:1136`; a class template's out-of-line method, `void Coaster<K>::Lay() {`, is in the class's scope): over `d57b90f66`, 2026-11-03, release build, `vm.loadavg` { 3.84 4.12 4.27 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The swift row with #1341's third pass (a key path handed to a generic wrapper's method that takes a closure of the wrapped value, `mutableState.read(\.eventMonitor)`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 3.75 4.09 } before the run, { 3.45 3.70 4.04 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -109,7 +110,7 @@ The cpp row with the third pass of #1336 (a type a class declares inside its bod
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 214 (91%) | 22 (9%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.9 |
-| swift (Alamofire) | 450 | 433 (96%) | 16 (4%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.6 | 47.6 |
+| swift (Alamofire) | 450 | 434 (96%) | 15 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.7 | 48.0 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |

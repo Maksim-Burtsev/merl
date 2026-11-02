@@ -165,6 +165,9 @@ impl App {
             self.swift_by_labels(word, a.range.end, &mut found);
             return self.show_found(a, found);
         }
+        if self.answered_by_swift_key_path(a) {
+            return true;
+        }
         if kind == Kind::Swift
             && dotted
             && chain.is_empty()
@@ -243,6 +246,20 @@ impl App {
             self.message = resolution(&a.word, None, &[], None, false);
         }
         answered
+    }
+
+    fn answered_by_swift_key_path(&mut self, a: &Asked) -> bool {
+        if a.kind != Kind::Swift || !a.dotted || !a.chain.is_empty() {
+            return false;
+        }
+        match a
+            .lead
+            .strip_suffix('.')
+            .and_then(|lead| self.swift_key_path_rows(&a.here, &a.text, lead, &a.word))
+        {
+            Some(found) if !found.is_empty() => self.show_found(a, found),
+            _ => false,
+        }
     }
 
     fn answered_by_swift_cast(&mut self, a: &Asked) -> bool {
