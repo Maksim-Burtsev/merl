@@ -281,10 +281,11 @@ impl App {
                 .iter()
                 .all(|c| c.hit.path != here && search::julia_extends(&c.hit.text, word))
         {
-            found.extend(
-                self.external_definitions(kind, word, &a.chain, false, &near.imports, false)
-                    .unwrap_or_default(),
-            );
+            let base = self
+                .external_definitions(kind, word, &a.chain, false, &near.imports, false)
+                .unwrap_or_default();
+            self.offer_only |= base.is_empty();
+            found.extend(base);
         } else if found.is_empty()
             && !imported.outside
             && imported.value.is_none()

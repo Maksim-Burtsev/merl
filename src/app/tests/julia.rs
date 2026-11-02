@@ -171,3 +171,24 @@ fn d_on_a_julia_function_the_project_only_extends_offers_base_beside_the_extensi
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&base).unwrap();
 }
+
+#[test]
+fn d_on_a_julia_function_the_project_only_extends_offers_the_extension_when_no_base_is_found() {
+    let (dir, mut a) = project_app(
+        "julia-extends-alone",
+        &[
+            ("src/frames.jl", "Base.isempty(df::Frame) = true\n"),
+            ("test/use.jl", "@test isempty(keys(df))\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[]);
+    d_on(&mut a, "test/use.jl", "@test isempty");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "isempty: by name, 1 match".into(),
+            vec![("isempty".into(), "by name".into(), "src/frames.jl:1".into())]
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
