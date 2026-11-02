@@ -27,7 +27,6 @@ const MACROS: &str = julia_macros!();
 const END: &str = julia_name_end!();
 const QUALIFIER: &str = r"(?:[\w.]+\.)?";
 const TYPE_PARAMS: &str = r"(?:\{[^}]*\}\s*)?";
-const SIGNATURE_LINES: usize = 30;
 
 pub fn julia_patterns(word: &str) -> Vec<String> {
     let (w, e) = (regex::escape(word), END);
@@ -124,15 +123,11 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
         let Some(head) = text.get(c.get_match().end() - 1..) else {
             return false;
         };
-        let mut head = head.to_owned();
-        for next in lines.iter().skip(line).take(SIGNATURE_LINES) {
-            if closing(&head).is_some() {
-                break;
-            }
-            head.push('\n');
-            head.push_str(next.as_ref());
+        if closing(head).is_some() || head.contains(['"', '\'', '#']) {
+            return defines(head);
         }
-        return defines(&head);
+        let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+        return method_def(&text, line - 1);
     }
     if !text.starts_with([' ', '\t']) {
         return true;

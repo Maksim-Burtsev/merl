@@ -432,9 +432,11 @@ impl App {
     fn julia_extension(&self, h: &Hit, word: &str) -> bool {
         search::julia_extends(&h.text, word)
             || std::fs::read_to_string(self.root.join(&h.path)).is_ok_and(|text| {
-                search::imports(Kind::Julia, &text)
-                    .iter()
-                    .any(|i| i.name == word && i.path.len() > 1)
+                search::imports(Kind::Julia, &text).iter().any(|i| {
+                    i.name == word
+                        && i.path.len() > 1
+                        && i.path.first().is_some_and(|p| !p.starts_with('.'))
+                })
             })
     }
 
