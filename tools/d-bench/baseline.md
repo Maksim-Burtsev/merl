@@ -104,6 +104,7 @@ The python row with #1339's third pass (a member of a mock `with patch(..) as m:
 The ruby row with #1340's third pass (a method whose last value is a call chain, memoised through an `@ivar` assigned once, and a body whose `rescue` clauses only raise or give `nil`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 4.04 4.25 } before the run, { 12.26 6.78 5.27 } after.
 The dart row with the third pass of #1338 (a loop over a call of the class's own method, `await for (final chunk in finalize())`, reads the element type of its `Stream<Uint8List>` / `List` / `Iterable` / `Set` return): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.39 4.52 4.78 } before the run.
 The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
+The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -133,7 +134,7 @@ The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a na
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
-| bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |
+| bash (bats-core, acme.sh) | 98 | 95 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.4 |
 | racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
