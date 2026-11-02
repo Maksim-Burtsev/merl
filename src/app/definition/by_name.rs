@@ -279,7 +279,7 @@ impl App {
             && let Some(here) = self.rel_current()
             && found
                 .iter()
-                .all(|c| c.hit.path != here && search::julia_extends(&c.hit.text, word))
+                .all(|c| c.hit.path != here && self.julia_extension(&c.hit, word))
         {
             let base = self
                 .external_definitions(kind, word, &a.chain, false, &near.imports, false)
@@ -427,6 +427,15 @@ impl App {
             ));
             hits.retain(|h| patched.as_ref().is_ok_and(|re| re.is_match(&h.text)));
         }
+    }
+
+    fn julia_extension(&self, h: &Hit, word: &str) -> bool {
+        search::julia_extends(&h.text, word)
+            || std::fs::read_to_string(self.root.join(&h.path)).is_ok_and(|text| {
+                search::imports(Kind::Julia, &text)
+                    .iter()
+                    .any(|i| i.name == word && i.path.len() > 1)
+            })
     }
 
     fn lua_key_elsewhere(&self, h: &Hit, word: &str) -> bool {
