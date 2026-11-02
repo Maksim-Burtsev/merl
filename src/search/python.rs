@@ -946,3 +946,46 @@ pub fn python_assigned_call(text: &str, line1: usize, name: &str) -> Option<Stri
     };
     inner.ends_with(')').then(|| inner.to_owned())
 }
+pub fn python_patched_mock(text: &str, line1: usize) -> Option<(String, bool)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(\w+)\s*=\s*|(?:async\s+)?with\s+)((?:\w+\.)*patch(?:\.object)?)\s*\(")
+            .expect("the regex is a literal")
+    });
+    static KEYWORD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(\w+)\s*=[^=]").expect("the regex is a literal"));
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1)?;
+    let c = HEAD.captures(lines.get(at)?)?;
+    let callee = c[2].to_owned();
+    let Group {
+        inner_uncommented: args,
+        after_close,
+        ..
+    } = group(Kind::Python, &lines, at, c.get(0)?.end() - 1)?;
+    let after = uncommented(Kind::Python, after_close);
+    let binds = match c.get(1) {
+        Some(_) => after.trim().is_empty(),
+        None => after
+            .trim()
+            .strip_prefix("as")
+            .map(|r| {
+                r.trim_start()
+                    .trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
+            })
+            .is_some_and(|r| r.trim() == ":"),
+    };
+    let args: Vec<&str> = split_top(Kind::Python, &args, b',')
+        .into_iter()
+        .map(str::trim)
+        .filter(|a| !a.is_empty())
+        .collect();
+    let positional = args.iter().filter(|a| !KEYWORD.is_match(a)).count();
+    let replaced = args.iter().any(|a| {
+        a.starts_with('*')
+            || KEYWORD
+                .captures(a)
+                .is_some_and(|k| matches!(&k[1], "new" | "new_callable" | "autospec"))
+    });
+    let wanted = if callee.ends_with(".object") { 2 } else { 1 };
+    (binds && !replaced && positional == wanted).then_some((callee, c.get(1).is_none()))
+}

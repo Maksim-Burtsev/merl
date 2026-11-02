@@ -96,10 +96,11 @@ The cpp row with #1336's class scope (a type name in a class's method finds the 
 The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
 The js row with #1337's second pass (a member a `require`d package declares in its ES-module copy too, `dayjs/esm/index.d.ts` or `index.d.mts`, lands in the copy `require` reads): over `967116536`, 2026-11-02, release build, `vm.loadavg` { 2.54 3.88 4.38 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
+The python row with #1339's third pass (a member of a mock `with patch(..) as m:`, `with patch.object(..) as m:` or `m = mocker.patch(..)` binds, given no replacement, lands on that member of `MagicMock` when `AsyncMock` declares it in the same place): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.70 4.73 4.54 } before the run, { 3.84 4.50 4.47 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 249 (95%) | 3 (1%) | 0 (0%) | 10 (4%) | 63 | 8 | 16.1 | 275.5 |
+| python (paperless-ngx) | 262 | 251 (96%) | 3 (1%) | 0 (0%) | 8 (3%) | 63 | 8 | 16.0 | 254.1 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
 | js (eslint, uptime-kuma) | 217 | 201 (93%) | 13 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.8 | 174.1 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
