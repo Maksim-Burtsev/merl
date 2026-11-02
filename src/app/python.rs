@@ -642,20 +642,32 @@ impl App {
             return None;
         }
         let line1 = b.line1;
-        let (callee, entered) = search::python_patched_mock(text, line1)?;
-        let parts: Vec<String> = callee.split('.').map(str::to_owned).collect();
-        let (head, rest) = parts.split_first()?;
-        let from_mock = match bound(&search::imports(Kind::Python, text), head) {
-            Some(mut path) => {
-                path.extend(rest.iter().cloned());
-                entered && path.starts_with(&["unittest".into(), "mock".into(), "patch".into()])
-            }
-            None => {
-                !entered
-                    && rest.first().is_some_and(|p| p == "patch")
-                    && matches!(search::bindings(Kind::Python, text, line1, head).as_slice(),
+        let imports = search::imports(Kind::Python, text);
+        let unittest = |callee: &str| {
+            let mut parts = callee.split('.').map(str::to_owned);
+            (parts.next().and_then(|head| bound(&imports, &head))).is_some_and(|mut path| {
+                path.extend(parts);
+                path.starts_with(&["unittest".into(), "mock".into(), "patch".into()])
+            })
+        };
+        let from_mock = match search::python_patched_mock(text, line1) {
+            Some((callee, true)) => unittest(&callee),
+            Some((callee, false)) => {
+                let parts: Vec<&str> = callee.split('.').collect();
+                bound(&imports, parts[0]).is_none()
+                    && parts.get(1) == Some(&"patch")
+                    && matches!(search::bindings(Kind::Python, text, line1, parts[0]).as_slice(),
                         [search::Binding { value: search::Value::Type(t), .. }]
                             if t.trim_end().ends_with("MockerFixture"))
+            }
+            None => {
+                let (range, _) = self.word_here(Some(Kind::Python))?;
+                let before = self.line_str().get(..range.start)?.strip_suffix('.')?;
+                let receiver = before
+                    .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                    .next()?;
+                search::python_patched_param(text, line1, receiver)
+                    .is_some_and(|patches| patches.iter().all(|c| unittest(c)))
             }
         };
         if !from_mock {

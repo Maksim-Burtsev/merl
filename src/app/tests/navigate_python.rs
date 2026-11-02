@@ -1424,6 +1424,43 @@ fn a_name_patch_binds_without_a_replacement_is_a_magic_mock() {
 }
 
 #[test]
+fn a_parameter_patch_decorators_fill_bottom_up_is_a_magic_mock() {
+    let std = external_root(
+        "py-patched-param-std",
+        &[(
+            "unittest/mock.py",
+            "class NonCallableMock:\n    return_value = property(lambda self: None)\n\n\nclass Mock(NonCallableMock):\n    pass\n\n\nclass MagicMock(Mock):\n    pass\n\n\nclass AsyncMock(Mock):\n    pass\n\n\ndef patch(target, new=None):\n    pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-patched-param",
+        &[(
+            "app/test_views.py",
+            "from unittest import mock\nfrom unittest.mock import patch\nimport other\n\n\nclass TestViews:\n    @patch(\"app.first\")\n    @mock.patch(\n        \"app.second\",\n    )\n    @override_settings(AI=True)\n    @patch.dict(\"os.environ\", {})\n    @patch(\"app.given\", 1)\n    def test_a(\n        self,\n        second_mock,\n        first_mock,\n        fixture,\n    ) -> None:\n        second_mock.return_value\n        first_mock.return_value\n        fixture.return_value\n\n    @patch(\"app.thing\", autospec=True)\n    @patch(\"app.other\")\n    def test_b(self, other_mock, spec_mock):\n        other_mock.return_value\n        spec_mock.return_value\n\n    @patch(**targets)\n    @patch(\"app.other\")\n    def test_c(self, star_mock):\n        star_mock.return_value\n\n\n@patch(\"app.thing\")\ndef test_d(free_mock):\n    free_mock.return_value\n\n\n@other.patch(\"app.thing\")\n@patch(\"app.other\")\ndef test_e(foreign_mock):\n    foreign_mock.return_value\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    let mock = format!("{}:2", std.join("unittest/mock.py").display());
+    for name in ["second_mock", "first_mock", "other_mock", "free_mock"] {
+        d_on(&mut a, "app/test_views.py", &format!("{name}.return_value"));
+        let Shown::Jump(_, at) = shown(&mut a) else {
+            panic!("{name}: a jump");
+        };
+        assert_eq!(at, mock, "{name}");
+    }
+    for name in ["fixture", "spec_mock", "star_mock", "foreign_mock"] {
+        d_on(&mut a, "app/test_views.py", &format!("{name}.return_value"));
+        assert!(
+            !matches!(shown(&mut a), Shown::Jump(_, at) if at == mock),
+            "{name}: past the mocks, an autospec mock, an unreadable patch or a patch from elsewhere is not read"
+        );
+    }
+    for d in [dir, std] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_setting_is_read_under_every_module_level_block_and_nowhere_else() {
     let site = external_root(
         "py-block-settings-site",

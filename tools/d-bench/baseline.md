@@ -106,10 +106,11 @@ The dart row with the third pass of #1338 (a loop over a call of the class's own
 The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
 The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
 The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, so `Union` no longer lands on `Union{}(a...)` in `boot.jl`; a member of a value, `f.fun` after a lowercase name, a call or an index, reads only fields): over `d52ab9a92`, 2026-11-03, release build, `vm.loadavg` { 3.63 4.61 4.88 } before the run, { 3.31 4.30 4.74 } after.
+The python row with #1339's fourth pass (a parameter that `@patch(..)` decorators fill, bottom-up after `self`, is a `MagicMock`; python0321): over `8beca4fbe` with this change, 2026-11-03, release build, `vm.loadavg` { 4.82 5.13 4.97 } before the run, { 3.86 4.72 4.83 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 251 (96%) | 3 (1%) | 0 (0%) | 8 (3%) | 63 | 8 | 16.0 | 254.1 |
+| python (paperless-ngx) | 262 | 252 (96%) | 3 (1%) | 0 (0%) | 7 (3%) | 63 | 8 | 16.3 | 179.8 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 202 (93%) | 12 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.3 | 171.7 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
