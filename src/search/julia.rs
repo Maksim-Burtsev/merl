@@ -120,7 +120,14 @@ pub fn julia_declares<S: AsRef<str>>(lines: &[S], line: usize, word: &str) -> bo
         return true;
     }
     if let Some(c) = HEAD.captures(text).filter(|c| &c[1] == word) {
-        return text.get(c.get_match().end() - 1..).is_some_and(defines);
+        let Some(head) = text.get(c.get_match().end() - 1..) else {
+            return false;
+        };
+        if closing(head).is_some() || head.contains(['"', '\'', '#']) {
+            return defines(head);
+        }
+        let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+        return method_def(&text, line - 1);
     }
     if !text.starts_with([' ', '\t']) {
         return true;

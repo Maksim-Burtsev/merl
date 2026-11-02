@@ -456,3 +456,20 @@ fn julia_roots_read_the_manifest_and_the_depot() {
 fn julia_is_told_by_its_extension() {
     assert_eq!(kind_of(Path::new("src/money.jl")), Some(Kind::Julia));
 }
+
+#[test]
+fn a_julia_signature_over_lines_declares_and_a_call_over_lines_does_not() {
+    let lines = [
+        "Base.push!(xs::Vector, row;",
+        "           strict = true) =",
+        "    append!(xs, row)",
+        "push!(stack, '(')",
+        "closer[')'] = '('",
+        "push!(xs,",
+        "      y)",
+        "z = 1",
+    ];
+    assert!(declares(&lines, 1, "push!"));
+    assert!(!declares(&lines, 4, "push!"));
+    assert!(!declares(&lines, 6, "push!"));
+}

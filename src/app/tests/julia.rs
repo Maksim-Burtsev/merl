@@ -192,3 +192,36 @@ fn d_on_a_julia_function_the_project_only_extends_offers_the_extension_when_no_b
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn d_on_a_julia_function_the_project_imports_from_itself_or_by_dotted_path() {
+    let (dir, mut a) = project_app(
+        "julia-import-forms",
+        &[
+            (
+                "src/Pkg.jl",
+                "module Inner\nhelper(x) = x\nend\nusing .Inner: helper\n",
+            ),
+            (
+                "src/money.jl",
+                "import Base.isempty\nisempty(m::Money) = true\n",
+            ),
+            ("src/b.jl", "helper(1)\nisempty(xs)\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[]);
+    d_on(&mut a, "src/b.jl", "helper");
+    assert_eq!(
+        shown(&mut a),
+        jump("helper: by name, 1 match", "src/Pkg.jl:2")
+    );
+    d_on(&mut a, "src/b.jl", "isempty");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "isempty: by name, 1 match".into(),
+            vec![("isempty".into(), "by name".into(), "src/money.jl:2".into())]
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
