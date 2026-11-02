@@ -168,6 +168,15 @@ impl App {
         if kind == Kind::Swift
             && dotted
             && chain.is_empty()
+            && let Some(lead) = a.lead.strip_suffix('.')
+            && let Some(found) = self.swift_key_path_rows(&a.here, &a.text, lead, word)
+            && !found.is_empty()
+        {
+            return self.show_found(a, found);
+        }
+        if kind == Kind::Swift
+            && dotted
+            && chain.is_empty()
             && !matches!(word.as_str(), "init" | "none" | "some")
             && let Some(lead) = a.lead.strip_suffix('.')
             && let Some(found) = self.swift_expected_rows(&a.here, &a.text, lead, word)
