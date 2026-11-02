@@ -7,11 +7,19 @@ void Trivet::Set() {
 //^ d: include/tea/trivet.hh:15
 }
 
+void Trivet::Place(Stand* s) {
+//                 ^ d: include/tea/trivet.hh:15
+}
+
 template <typename K>
 void Coaster<K>::Lay() {
   Stand* s = nullptr;
-//^ d: include/tea/trivet.hh:24
+//^ d: include/tea/trivet.hh:27
 }
+
+template <typename K>
+void Coaster<K>::Hold(Stand* s) {}
+//                    ^ d: include/tea/trivet.hh:27
 
 void Doily::Fold() {
   Stand* s = nullptr;

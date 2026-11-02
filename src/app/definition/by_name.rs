@@ -725,9 +725,10 @@ impl App {
         &mut self,
         a: &Asked,
         ctx: &[String],
+        params: bool,
         hits: Vec<Hit>,
     ) -> Vec<Hit> {
-        if !search::c_inside_function(&a.text, self.line + 1, &a.word) {
+        if !params && !search::c_inside_function(&a.text, self.line + 1, &a.word) {
             return hits;
         }
         let unseen: Vec<Option<String>> = (hits.iter())
@@ -768,8 +769,10 @@ impl App {
         {
             return hits;
         }
-        let ctx = search::cpp_scope_path(&code, self.cpp_pos(a, &code));
-        let hits = self.cpp_unseen_members_dropped(a, &ctx, hits);
+        let pos = self.cpp_pos(a, &code);
+        let ctx = search::cpp_lookup_path(&code, pos);
+        let params = ctx != search::cpp_scope_path(&code, pos);
+        let hits = self.cpp_unseen_members_dropped(a, &ctx, params, hits);
         let member = |h: &Hit| {
             self.text_of(&h.path).is_some_and(|t| {
                 !search::c_inside_function(&t, h.line1, &a.word)
@@ -835,7 +838,7 @@ impl App {
         {
             return None;
         }
-        let ctx = search::cpp_scope_path(&code, pos);
+        let ctx = search::cpp_lookup_path(&code, pos);
         let mine = search::cpp_declared_signature(&a.text, self.line + 1, word)?;
         let mut own = hits.iter().filter(|h| {
             self.text_of(&h.path).is_some_and(|t| {
