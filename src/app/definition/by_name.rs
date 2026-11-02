@@ -431,31 +431,29 @@ impl App {
 
     fn julia_extension(&self, h: &Hit, word: &str) -> bool {
         let imports = |path: &std::path::Path| {
-            std::fs::read_to_string(self.root.join(path)).is_ok_and(|text| {
-                search::imports(Kind::Julia, &text).iter().any(|i| {
+            self.file_text(path).is_some_and(|text| {
+                search::julia_function_imports(&text).iter().any(|i| {
                     i.name == word
                         && i.path.len() > 1
                         && i.path.first().is_some_and(|p| !p.starts_with('.'))
-                        && i.path.last().is_some_and(|p| !p.starts_with('@'))
                 })
             })
         };
-        let Some(name) = h.path.file_name() else {
-            return false;
+        let included = |name: &std::ffi::OsStr| {
+            let include = format!(
+                r#"include\s*\(\s*"[^"]*{}""#,
+                regex::escape(&name.to_string_lossy())
+            );
+            self.grep(&include, false, false, |p| {
+                search::kind_of(p) == Some(Kind::Julia)
+            })
+            .unwrap_or_default()
+            .iter()
+            .any(|i| search::julia_includes(&i.path, &i.text, &h.path) && imports(&i.path))
         };
-        let include = format!(
-            r#"include\s*\(\s*"[^"]*{}""#,
-            regex::escape(&name.to_string_lossy())
-        );
         search::julia_extends(&h.text, word)
             || imports(&h.path)
-            || self
-                .grep(&include, false, false, |p| {
-                    search::kind_of(p) == Some(Kind::Julia)
-                })
-                .unwrap_or_default()
-                .iter()
-                .any(|i| search::julia_includes(&i.path, &i.text, &h.path) && imports(&i.path))
+            || h.path.file_name().is_some_and(included)
     }
 
     fn lua_key_elsewhere(&self, h: &Hit, word: &str) -> bool {

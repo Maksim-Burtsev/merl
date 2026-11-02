@@ -297,12 +297,15 @@ fn julia_imports_bind_names_and_modules() {
     assert!(has("LA", &["LinearAlgebra"]));
     assert!(has("Shop", &["..", "Shop"]));
     assert!(has("show", &["Base", "show"]));
-    assert!(has("test", &["Test", "@test"]));
+    assert!(has("test", &["Test", "test"]));
     assert!(has("length", &["Base", "length"]));
     assert!(has("iterate", &["Base", "iterate"]));
     assert!(has("first", &["Base", "first"]));
     assert!(has("last", &["Base", "last"]));
     assert!(!got.iter().any(|i| i.name == "Hidden"));
+    let functions = julia_function_imports(text);
+    assert!(functions.iter().any(|i| i.name == "show"));
+    assert!(!functions.iter().any(|i| i.name == "test"));
     let documented = imports(
         Kind::Julia,
         "\"\"\"\n    using Example\n\"\"\"\nusing Real\n",
@@ -324,6 +327,19 @@ fn julia_names_keep_their_bang() {
         Some("../src/money.jl")
     );
     assert_eq!(julia_include("x = include_dependency(\"a.jl\")", 25), None);
+    let money = Path::new("src/money.jl");
+    let report = Path::new("scripts/report.jl");
+    assert!(julia_includes(
+        report,
+        "include(\"../src/money.jl\")",
+        money
+    ));
+    assert!(!julia_includes(report, "include(\"money.jl\")", money));
+    assert!(!julia_includes(
+        report,
+        "# include(\"../src/money.jl\")",
+        money
+    ));
     assert_eq!(julia_col("sort!(a); sort(b)", "sort"), Some(10));
     assert_eq!(julia_col("sort!(a); resort(b)", "sort"), None);
     assert_eq!(julia_col("a!=b", "a"), Some(0));

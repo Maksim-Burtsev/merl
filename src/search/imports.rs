@@ -15,17 +15,25 @@ pub struct Import {
     pub name: String,
     pub path: Vec<String>,
 }
+fn code_of(kind: Kind, text: &str) -> String {
+    let literal = literal_lines(kind, text);
+    let code: Vec<&str> = text
+        .lines()
+        .zip(&literal)
+        .map(|(l, inside)| if *inside { "" } else { l })
+        .collect();
+    code.join("\n")
+}
 pub fn imports(kind: Kind, text: &str) -> Vec<Import> {
     if matches!(kind, Kind::Python | Kind::Julia) {
-        let literal = literal_lines(kind, text);
-        let code: Vec<&str> = text
-            .lines()
-            .zip(&literal)
-            .map(|(l, inside)| if *inside { "" } else { l })
-            .collect();
-        return imports_as_written(kind, &code.join("\n"));
+        return imports_as_written(kind, &code_of(kind, text));
     }
     imports_as_written(kind, text)
+}
+pub fn julia_function_imports(text: &str) -> Vec<Import> {
+    let mut out = Vec::new();
+    julia_imports(&code_of(Kind::Julia, text), &mut out, false);
+    out
 }
 pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
     static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -150,7 +158,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
         Kind::Go => go_imports(text, &mut out),
         Kind::TsJs => ts_imports(text, &mut out),
         Kind::Php => php_imports(text, &mut out),
-        Kind::Julia => julia_imports(text, &mut out),
+        Kind::Julia => julia_imports(text, &mut out, true),
         Kind::Jvm
         | Kind::Ruby
         | Kind::C

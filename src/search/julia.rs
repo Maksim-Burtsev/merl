@@ -188,7 +188,7 @@ static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
 pub fn julia_includes(from: &Path, line: &str, file: &Path) -> bool {
     let dir = from.parent().map(Path::to_path_buf).unwrap_or_default();
     INCLUDE
-        .captures_iter(line)
+        .captures_iter(line.split('#').next().unwrap_or_default())
         .any(|c| super::imports::lexical(&dir.join(&c[1])).as_deref() == Some(file))
 }
 
@@ -199,7 +199,7 @@ pub fn julia_include(line: &str, col: usize) -> Option<String> {
         .map(|c| c[1].to_owned())
 }
 
-pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
+pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>, macros: bool) {
     static IMPORT: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?m)^\s*(?:using|import)\s+([^\n#]+)").expect("the regex is a literal")
     });
@@ -219,14 +219,12 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
     };
     let named = |item: &str| -> Option<(String, String)> {
         let mut it = item.split_whitespace();
-        let name = it
-            .next()
-            .filter(|n| !n.trim_start_matches('@').is_empty())?;
+        let name = it.next()?.trim_start_matches('@').to_owned();
         let alias = match (it.next(), it.next()) {
-            (Some("as"), Some(a)) => a,
-            _ => name,
+            (Some("as"), Some(a)) => a.trim_start_matches('@').to_owned(),
+            _ => name.clone(),
         };
-        Some((alias.trim_start_matches('@').to_owned(), name.to_owned()))
+        (!name.is_empty()).then_some((alias, name))
     };
     for c in IMPORT.captures_iter(text) {
         let mut clause = c[1].trim().to_owned();
@@ -245,7 +243,12 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
         match clause.split_once(':').filter(|(_, r)| !r.starts_with(':')) {
             Some((module, items)) => {
                 let base = path(module);
-                for (alias, name) in items.split(',').filter_map(|i| named(i.trim())) {
+                for (alias, name) in items
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|i| macros || !i.starts_with('@'))
+                    .filter_map(named)
+                {
                     let mut p = base.clone();
                     p.push(name);
                     out.push(Import {
