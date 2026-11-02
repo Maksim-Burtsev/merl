@@ -277,6 +277,31 @@ fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
     Lexed { code, literal }
 }
 
+pub(super) fn lisp_form_encloses(kind: Kind, text: &str, form_line0: usize, line0: usize) -> bool {
+    let start = |n: usize| {
+        text.split_inclusive('\n')
+            .take(n)
+            .map(str::len)
+            .sum::<usize>()
+    };
+    let code = lex(kind, text).code;
+    let Some(code) = code.get(start(form_line0)..start(line0)) else {
+        return false;
+    };
+    let Some(open) = code.iter().position(|c| matches!(c, b'(' | b'[' | b'{')) else {
+        return false;
+    };
+    let mut depth = 0usize;
+    !code[open..].iter().any(|c| {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth = depth.saturating_sub(1),
+            _ => return false,
+        }
+        depth == 0
+    })
+}
+
 pub(super) fn lisp_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     lex(kind, text).literal
 }

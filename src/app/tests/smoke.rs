@@ -67,6 +67,10 @@ const UNSMOKED: &[(u32, &str)] = &[
         1333,
         "SQL's class in d's list: no smoke scenario plays d in SQL; class_bench measures the class and a_definition_row_s_class_is_its_declaration_s_and_comes_before_a_differing_reason shows it",
     ),
+    (
+        1334,
+        "The class in d's list for Racket, Scheme, Common Lisp, Emacs Lisp and Nix: lisp-d plays only Clojure and nix-d's d lands without a list; class_bench measures the class and a_lisp_row_s_class_is_a_form_still_open_on_its_line_whatever_the_indent shows it",
+    ),
 ];
 
 fn root() -> PathBuf {

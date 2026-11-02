@@ -648,3 +648,18 @@ fn a_sql_row_s_class_is_the_table_of_its_column_and_nothing_else() {
         "2:id=user_ 4:community_id=user_ 4:community= 5:uq_name= 9:title=public.post 14:id= 15:heading= 19:bump= 19:target= 24:counter= 26:score= 31:score= 35:id= 41:sad= 46:title= 51:bump= 45:idx_post= 8:post= 8:public= 1:user_= 30:post="
     );
 }
+
+#[test]
+fn a_lisp_row_s_class_is_a_form_still_open_on_its_line_whatever_the_indent() {
+    let rkt = "(define-syntax (wait stx)\n  (syntax-case stx ()\n    [(_ a) #'(wait/proc a)]))\n\n  (define (run frame)\n    (define (step) \"(\")\n    (step))\n\n(define-record-type Mark\n  (make-mark offset)\n  mark?\n  (offset mark-offset))\n";
+    let got: Vec<_> = [(5, "run"), (6, "step"), (12, "mark-offset")]
+        .into_iter()
+        .map(|(l, n)| {
+            format!(
+                "{n}={}",
+                container(Kind::Scheme, rkt, l, n).unwrap_or_default()
+            )
+        })
+        .collect();
+    assert_eq!(got.join(" "), "run= step=run mark-offset=Mark");
+}
