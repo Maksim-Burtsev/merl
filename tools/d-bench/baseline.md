@@ -82,34 +82,42 @@ The rust row with #1302's variant brought by a glob over a dependency's enum (`u
 The php row with #1326's variable bound from a method called on a typed property (`$info = $this->encyclopediaService->getArtistInformation($artist); $info?->url`, read through the property's type and the method's native return type) and #1323's empty project stub of a vendor class: over `4b6151f08` with this change, 2026-10-31, release build, `vm.loadavg` { 4.39 6.05 6.59 } before the run.
 The rust row with #1302's third pass (a variant through a workspace crate that hands another on, `grep::printer::SummaryKind::PathWithMatch` in `crates/core/flags/hiargs.rs`; a `use` inside `mod tests` past a multi-line string at column 0, `RegexMatcher::new` in `crates/printer/src/standard.rs`): over `3a5c430a2`, 2026-10-31, release build, `vm.loadavg` { 4.47 5.50 6.66 } before the run.
 The bash row with #1335 (`env NAME=…` hands NAME to a program, bats's `run` takes a command, a script that sources nothing calls the function it defines once): over `564493936` with this change, 2026-10-31, release build, `vm.loadavg` { 5.23 5.94 5.99 } before the run.
+The bash row with #1335's second pass (a variable a function fills through its argument, `bats_separate_lines lines output` for bats's `lines`): over `22983bb70` with this change, 2026-11-02, release build, `vm.loadavg` { 3.38 4.23 4.54 } before the run.
 The js and ts rows with #1342 (a declaration on its own line, a parameter of a signature over several lines or a name of a several-name `let`, stays put; a part of a hyphenated JSX attribute needs no lookup; three skip rows get merl's target beside the oracle's): over `564493936` with this change, 2026-10-31, release build, `vm.loadavg` { 4.73 5.63 5.86 } before the run, { 4.46 5.17 5.65 } after.
 The cpp row with #1336's struct declared inside a function, seen only from its own block (`State` in `Version::Get`): over `f61ee8003`, 2026-10-31, release build, `vm.loadavg` { 5.66 6.54 6.46 } before the run.
 The cpp row with #1336's out-of-line nested class (`struct SkipList<Key, Comparator>::Node {` no longer a declaration of `SkipList`): over `cf0a0857e`, 2026-10-31, release build, `vm.loadavg` { 4.53 4.59 5.21 } before the run.
 The js row with #1337 (a default import through `export { local as default }`, a `require` of a file inside a package read for that file's declarations, the key of a renamed `require`): over `9dddebb41`, 2026-10-31, release build, `vm.loadavg` { 4.46 4.47 4.91 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The dart row with #1338 (a `super.` parameter lands on the superclass constructor's parameter; a generic type followed by a call on its line is no call): over `4aedb4735`, 2026-10-31, release build, `vm.loadavg` { 5.91 5.69 5.53 } before the run.
+The python row with #1339 (a keyword of `Model.objects.create(...)` lands on the model's field; python0010, python0172 and python0267 answers judged, as python0310..0312 were): over `6cf9a2589`, 2026-11-01, release build, `vm.loadavg` { 4.42 4.89 4.42 } before the run, { 5.71 5.15 4.56 } after.
+The ruby row with #1340 (a record a model's `find` returned, through an `@ivar` assigned once or a memo method): over `0ff05d2b4`, 2026-11-01, release build, `vm.loadavg` { 2.72 3.99 4.52 } before the run, { 6.36 4.62 4.68 } after.
+The swift row with #1341 (a test target's member shadows the library's one of the same signature; a member read without a call is the property, not the method of its name; swift0142 has an answer read from the code, sourcekit-lsp found none): over `22983bb70`, 2026-11-01, release build, `vm.loadavg` { 3.53 3.66 4.12 } before the run, { 3.45 3.63 4.03 } after.
+The julia row with #1343 (a function the project only extends, `Base.isempty(df) = ..`, offers Base's methods beside the extension when asked outside its file; julia0030, julia0103 and julia0226 read the oracle's `Broadcast.jl:1` as `broadcast.jl:8`), played for the first time with Julia 1.11.7 and the project's depot installed in a scratch folder: over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.73 3.38 4.08 } before the run, { 2.79 3.26 3.98 } after. Its 13 `not scored, jumps elsewhere` were there on master's build too (the column was unmeasured for julia).
+The cpp row with #1336's class scope (a type name in a class's method finds the class's own nested type first, `DBImpl::Writer`; a method declared in a class lands on that class's out-of-line definition with the same parameters, `VersionEdit::Clear`, `DBImpl::Delete`): over `f79b372f9`, 2026-11-02, release build, `vm.loadavg` { 3.45 4.73 4.76 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
+The js row with #1337's second pass (a member a `require`d package declares in its ES-module copy too, `dayjs/esm/index.d.ts` or `index.d.mts`, lands in the copy `require` reads): over `967116536`, 2026-11-02, release build, `vm.loadavg` { 2.54 3.88 4.38 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
+The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 259 | 243 (94%) | 3 (1%) | 0 (0%) | 13 (5%) | 66 | 8 | 16.7 | 237.6 |
+| python (paperless-ngx) | 262 | 249 (95%) | 3 (1%) | 0 (0%) | 10 (4%) | 63 | 8 | 16.1 | 275.5 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
-| js (eslint, uptime-kuma) | 217 | 199 (92%) | 15 (7%) | 0 (0%) | 3 (1%) | 177 | 6 | 34.1 | 184.8 |
+| js (eslint, uptime-kuma) | 217 | 201 (93%) | 13 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.8 | 174.1 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 236 | 210 (89%) | 26 (11%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.3 | 65.7 |
-| php (koel) | 392 | 350 (89%) | 41 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 221.4 |
-| swift (Alamofire) | 449 | 429 (96%) | 19 (4%) | 0 (0%) | 1 (0%) | 280 | 7 | 21.4 | 45.6 |
+| cpp (leveldb) | 236 | 213 (90%) | 23 (10%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.6 |
+| swift (Alamofire) | 450 | 433 (96%) | 16 (4%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.6 | 47.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
-| ruby (mastodon) | 140 | 131 (94%) | 8 (6%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.5 | 358.6 |
+| ruby (mastodon) | 140 | 133 (95%) | 6 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 63.9 | 352.1 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 177 | 67 (38%) | 78 (44%) | 7 (4%) | 25 (14%) | 123 | 0 | 14.0 | 31.6 |
+| julia (DataFrames.jl) | 177 | 73 (41%) | 87 (49%) | 0 (0%) | 17 (10%) | 123 | 13 | 16.3 | 28.1 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 49.2 | 172.2 |
@@ -117,10 +125,10 @@ The dart row with #1338 (a `super.` parameter lands on the superclass constructo
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 37.2 | 105.8 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
-| racket (drracket) | 108 | 65 (60%) | 14 (13%) | 0 (0%) | 29 (27%) | 128 | 31 | 13.8 | 19.3 |
-| scheme (chibi-scheme) | 54 | 29 (54%) | 16 (30%) | 0 (0%) | 9 (17%) | 17 | 2 | 8.0 | 9.6 |
-| commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 2 | 7.2 | 8.3 |
-| bash (bats-core, acme.sh) | 98 | 87 (89%) | 4 (4%) | 0 (0%) | 7 (7%) | 11 | 1 | 5.6 | 6.8 |
+| bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |
+| racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
+| scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
+| commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 90 (93%) | 4 (4%) | 0 (0%) | 3 (3%) | 17 | 0 | 48.0 | 143.6 |
+| dart (dio) | 97 | 92 (95%) | 4 (4%) | 0 (0%) | 1 (1%) | 17 | 0 | 47.7 | 142.1 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

@@ -2,7 +2,14 @@ use super::{App, Buffer, HashMap, Kind, Path, TextLine, open};
 
 mod braces;
 mod elixir;
+mod erlang;
+mod julia;
+mod lisp;
+mod make;
+mod nix;
 mod spans;
+mod sql;
+mod starlark;
 mod words;
 
 impl App {
@@ -22,6 +29,8 @@ impl App {
             Some(Kind::Ruby) if name.ends_with(".rbs") => Some(words::rbs(lines)),
             Some(Kind::Ruby) => Some(words::ruby(lines)),
             Some(Kind::Lua) => Some(words::lua(lines)),
+            Some(Kind::Starlark) => Some(starlark::starlark(lines)),
+            Some(Kind::Julia) => Some(julia::julia(lines)),
             Some(Kind::Shell) => Some(words::shell(
                 lines,
                 name.ends_with(".zsh") || name.starts_with(".z"),
@@ -29,6 +38,9 @@ impl App {
             Some(Kind::Elixir) if name.ends_with(".ex") || name.ends_with(".exs") => {
                 Some(elixir::elixir(lines))
             }
+            Some(Kind::Make) => Some(make::make(lines)),
+            Some(Kind::Cmake) => Some(make::cmake(lines)),
+            _ if name.ends_with(".erl") || name.ends_with(".hrl") => Some(erlang::erlang(lines)),
             _ => None,
         };
         if let Some(blocks) = words {
@@ -45,10 +57,21 @@ impl App {
             Some("scss") => Some(spans::scss(lines)),
             Some("yml" | "yaml") => Some(spans::yaml(lines)),
             Some("toml") => Some(spans::toml(lines)),
+            Some("tf") => Some(spans::terraform(lines)),
+            Some("nix") => Some(nix::nix(lines)),
             Some("html" | "htm") => Some(spans::html(lines)),
+            Some("vue") => Some(spans::template(lines, spans::Template::Vue)),
+            Some("svelte") => Some(spans::template(lines, spans::Template::Svelte)),
+            Some("astro") => Some(spans::template(lines, spans::Template::Astro)),
             Some("xml") => Some(spans::xml(lines)),
             Some("md" | "markdown") => Some(spans::markdown(lines)),
-            _ => None,
+            Some("sql") => Some(sql::sql(lines)),
+            _ => match self.kind() {
+                Some(k @ (Kind::Clojure | Kind::Scheme | Kind::CommonLisp)) => {
+                    Some(lisp::lisp(lines, k))
+                }
+                _ => None,
+            },
         };
         if let Some(spans) = spans {
             return Some(Folds::Spans(spans));

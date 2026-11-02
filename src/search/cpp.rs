@@ -78,8 +78,11 @@ pub fn cpp_owner(text: &str, line1: usize, name: &str) -> Option<Vec<String>> {
         let start = head
             .rfind(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == ':'))
             .map_or(0, |i| i + 1);
-        let qualifier = head.get(start..)?.split("::").filter(|p| !p.is_empty());
-        path.extend(qualifier.map(str::to_owned));
+        let (before, qualifier) = (head.get(..start)?.trim_end(), head.get(start..)?);
+        if qualifier.is_empty() || before.ends_with('>') || before.ends_with("::") {
+            return None;
+        }
+        path.extend((qualifier.split("::").filter(|p| !p.is_empty())).map(str::to_owned));
     }
     Some(path)
 }

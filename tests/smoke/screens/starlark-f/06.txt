@@ -1,0 +1,57 @@
+wait 2 lines ⋯ )
+┌orders──────────────────────┐1 def shop(name):
+│▸ .github                   │2     native.genrule( 2 lines ⋯ )
+│▸ .venv                     │
+│▸ app                       │
+│▾ bzl                       │
+│  A defs.bzl                │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+bzl/defs.bzl  2:1  [code]                                                                                                                                                          14:32
+cursor (x,y,shown) 32,1,0

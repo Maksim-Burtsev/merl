@@ -1,0 +1,57 @@
+wait 3 lines ⋯ }
+┌orders──────────────────────┐1 node('linux') {
+│▸ .github                   │2     stage('build') { 3 lines ⋯ }
+│▸ .venv                     │7 }
+│▸ app                       │
+│▾ ci                        │
+│  A Jenkinsfile             │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+ci/Jenkinsfile  2:1  [code]                                                                                                                                                        14:32
+cursor (x,y,shown) 32,1,0

@@ -1,0 +1,57 @@
+wait infra/main.tf  4:1
+┌orders──────────────────────┐1 resource "aws_s3_bucket" "logs" {
+│▸ .github                   │2   bucket = "logs"
+│▸ .venv                     │3
+│▸ app                       │4   tags = { 2 lines ⋯ }
+│▸ data                      │8 }
+│▸ deploy                    │
+│▸ docs                      │
+│▾ infra                     │
+│  A main.tf                 │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+infra/main.tf  4:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 32,3,0

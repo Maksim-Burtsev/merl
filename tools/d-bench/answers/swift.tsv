@@ -141,7 +141,7 @@ swift0138	Source/Core/Session.swift:30;Source/Core/Session.swift:201
 swift0139			
 swift0140	Source/Core/Session.swift:318		
 swift0141	Source/Core/Notifications.swift:87;Source/Features/EventMonitor.swift:137;Source/Features/EventMonitor.swift:282;Source/Features/EventMonitor.swift:489;Source/Features/EventMonitor.swift:844;Tests/InspectorEventMonitor.swift:171;Tests/NSLoggingEventMonitor.swift:143		
-swift0142			
+swift0142	Tests/Result+AlamofireTests.swift:33		reviewed: judged, the server found none; the test target's Result.isFailure shadows the library's internal one, which `import Alamofire` does not see
 swift0143	Source/Core/Request.swift:37		
 swift0144	Source/Features/RetryPolicy.swift:364		
 swift0145		builtin: an SDK interface the server generated	

@@ -1,0 +1,401 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 4521 folds in 399 files, 6 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+immich/web/src/lib/actions/__test__/FocusTrapTest.svelte	1:10 14:23 15:22 16:19
+immich/web/src/lib/components/ActionMenuItem.svelte	1:12 14:16
+immich/web/src/lib/components/AdaptiveImage.svelte	1:50 52:220 222:300 225:299 232:288 239:241 243:250 244:249 247:248 252:263 253:262 265:275 266:274 277:287 278:286 290:292 294:298 295:297
+immich/web/src/lib/components/AdminCard.svelte	1:15 17:34 18:28 19:27 20:23 24:26 29:33 30:32
+immich/web/src/lib/components/AlphaBackground.svelte	1:10
+immich/web/src/lib/components/ApiKeyPermissionsPicker.svelte	1:50 53:56 58:78 59:74 60:73 61:72 62:71 75:77
+immich/web/src/lib/components/AssetViewerEvents.svelte	1:26
+immich/web/src/lib/components/BreadcrumbActionPage.svelte	1:31 33:61 34:57 37:56 38:53 39:52 40:51 41:50 58:60
+immich/web/src/lib/components/CalendarHeatmap.svelte	1:47 49:98 50:97 58:85 59:84 60:70 61:63 67:69 72:83 77:82 87:96
+immich/web/src/lib/components/DelayedLoadingSpinner.svelte	1:3 5:7 9:20
+immich/web/src/lib/components/HeaderActionButton.svelte	1:12 14:25 15:24
+immich/web/src/lib/components/Image.svelte	1:66 68:79 69:78 70:77
+immich/web/src/lib/components/ImageLayer.svelte	1:17 19:34 20:33 21:32
+immich/web/src/lib/components/LoadingDots.svelte	1:10 12:17 13:16 14:15 19:47
+immich/web/src/lib/components/OnEvents.svelte	1:26
+immich/web/src/lib/components/SchemaAlbumPicker.svelte	1:24 26:28 30:59 31:36 33:35 38:58 39:50 40:48 41:47 51:57 53:57 55:56
+immich/web/src/lib/components/SchemaConfiguration.svelte	1:62 65:115 68:81 69:76 70:75 72:74 77:81 78:80 82:83 84:85 86:89 87:89 90:93 91:93 94:99 96:99 100:103 101:103 104:107 105:107 108:111 109:111 112:114
+immich/web/src/lib/components/SchemaTagPicker.svelte	1:14 16:26 28:32 29:31
+immich/web/src/lib/components/ServerAboutItem.svelte	1:13 15:24 17:23 18:22 20:21
+immich/web/src/lib/components/SharedLinkExpiration.svelte	1:54 56:72 57:59 61:71 62:70 63:69
+immich/web/src/lib/components/SharedLinkFormFields.svelte	1:31 33:66 34:44 35:40 37:39 41:43 46:48 50:52 55:57 59:61 63:65
+immich/web/src/lib/components/TableButton.svelte	1:11 13:22 14:21
+immich/web/src/lib/components/TestWrapper.svelte	1:11 13:15
+immich/web/src/lib/components/Thumbhash.svelte	1:33 35:40
+immich/web/src/lib/components/admin-settings/StorageTemplateSettings.svelte	1:159 161:261 162:260 167:180 168:175 176:179 182:250 183:249 184:200 185:187 188:199 196:198 202:223 210:222 211:221 225:237 226:236 233:235 239:248 240:247 244:246 252:259 253:258 255:257 263:339 264:280 265:279 266:278 267:277 268:276 269:275 271:274 272:274 282:338 283:337 284:303 305:336 306:313 315:333 316:332 317:319 320:331 321:330 322:329 326:328
+immich/web/src/lib/components/admin-settings/SupportedDatetimePanel.svelte	1:15 17:26 18:25 20:24 21:23 30:48 31:36 33:35 37:47 38:46
+immich/web/src/lib/components/admin-settings/SupportedVariablesPanel.svelte	1:4 8:59 9:58 10:57 11:17 13:16 19:25 21:24 27:34 29:33 36:49 38:48 40:43 44:47 50:56 52:55
+immich/web/src/lib/components/album-page/AlbumCard.svelte	1:26 28:90 32:46 33:45 38:44 50:89 51:57 59:63 60:62 65:88 66:70 67:69 72:74 76:87 78:84 80:83 81:83 85:86
+immich/web/src/lib/components/album-page/AlbumCardGroup.svelte	1:43 45:47 49:63 50:62 51:60 65:89 66:88 67:87 68:86 71:85 77:84
+immich/web/src/lib/components/album-page/AlbumCover.svelte	1:20 22:26 24:25
+immich/web/src/lib/components/album-page/AlbumMap.svelte	1:62 64:71
+immich/web/src/lib/components/album-page/AlbumSharedLink.svelte	1:35 37:47 38:41 42:46
+immich/web/src/lib/components/album-page/AlbumSummary.svelte	1:12 14:20 15:18
+immich/web/src/lib/components/album-page/AlbumThumbnail.svelte	1:15 17:67 18:66 20:48 21:48 23:29 30:37 31:36 38:47 39:46 49:65 50:65 51:54 55:64 56:63
+immich/web/src/lib/components/album-page/AlbumViewer.svelte	1:62 64:73 75:97 76:96 77:95 79:81 83:85 88:94 89:93 99:154 100:153 101:106 103:105 107:152 108:152 109:113 110:112 115:151 118:127 119:126 129:146 130:137 138:145 147:149
+immich/web/src/lib/components/album-page/AlbumsList.svelte	1:194 198:215 199:211 201:207 203:206 204:206 208:210 212:214
+immich/web/src/lib/components/album-page/AlbumsTable.svelte	1:22 24:77 25:33 28:32 29:31 34:76 35:39 36:38 40:75 41:75 44:64 47:63 52:62 53:57 59:61 65:74 66:73 70:72
+immich/web/src/lib/components/album-page/AlbumsTableHeader.svelte	1:29 31:46 32:45 37:43 38:42 40:41
+immich/web/src/lib/components/album-page/AlbumsTableRow.svelte	1:38 40:42 44:87 49:63 51:62 52:61 64:66 67:69 70:72 73:79 74:78 76:77 80:86 81:85 83:84
+immich/web/src/lib/components/asset-viewer/ActivityStatus.svelte	1:17 19:47 20:33 30:32 34:46 43:45
+immich/web/src/lib/components/asset-viewer/AlbumListItem.svelte	1:117 119:174 128:154 137:147 138:146 139:145 148:153 150:152 156:173 157:172 165:171 166:168 169:170
+immich/web/src/lib/components/asset-viewer/AlbumListItemDetails.svelte	1:10 13:15
+immich/web/src/lib/components/asset-viewer/AssetViewer.svelte	1:492 495:502 504:510 512:702 519:534 520:533 521:532 536:547 537:546 538:545 549:553 550:552 556:625 557:602 558:569 570:581 571:581 582:583 584:585 586:587 588:601 589:601 604:614 605:613 606:612 616:620 617:619 622:624 627:631 628:630 633:649 634:648 643:647 645:646 651:684 653:683 654:682 655:681 656:680 660:673 675:679 676:678 686:701 687:700 693:699 704:731
+immich/web/src/lib/components/asset-viewer/AssetViewerNavBar.svelte	1:82 86:177 89:91 93:176 97:105 98:104 99:103 100:102 120:122 124:175 125:174 131:133 144:147 148:151 155:157 161:163 167:173
+immich/web/src/lib/components/asset-viewer/DetailPanel.svelte	1:113 117:383 118:279 119:129 120:127 131:151 132:150 133:149 134:136 137:145 138:144 139:143 141:142 146:148 157:278 158:164 159:161 162:163 168:211 171:210 172:185 174:184 175:183 186:193 187:192 189:191 194:209 195:208 196:204 197:201 198:200 205:207 213:245 214:244 217:243 218:232 219:231 220:230 234:242 235:237 239:241 247:275 248:274 251:273 252:262 253:261 254:260 264:272 265:267 269:271 281:325 282:324 283:323 284:289 286:288 290:322 291:322 310:321 312:320 314:319 327:342 328:341 330:340 331:333 335:339 336:338 344:376 345:375 346:374 347:349 350:373 351:372 352:371 353:361 354:360 363:370 365:369 366:368 378:382 379:381 385:392 386:391
+immich/web/src/lib/components/asset-viewer/DetailPanelDate.svelte	1:36 38:86 39:76 47:69 50:68 51:53 54:67 55:66 71:75 72:74 77:85 78:85 79:81 82:84
+immich/web/src/lib/components/asset-viewer/DetailPanelLocation.svelte	1:31 33:82 34:66 41:59 44:58 45:47 48:52 49:51 53:57 54:56 61:65 62:64 67:81 68:81 74:77 78:80
+immich/web/src/lib/components/asset-viewer/DetailPanelPeople.svelte	1:58 60:137 61:136 62:102 63:101 65:100 66:99 67:77 68:76 78:86 88:98 89:97 104:135 105:134 108:133 116:126 128:132 129:131
+immich/web/src/lib/components/asset-viewer/DetailPanelStarRating.svelte	1:25 27:31 28:30
+immich/web/src/lib/components/asset-viewer/DetailPanelTags.svelte	1:35 39:60 40:59 41:43 44:58 45:56 46:55 52:54
+immich/web/src/lib/components/asset-viewer/ImagePanoramaViewer.svelte	1:21 23:31 24:30 26:27 28:29
+immich/web/src/lib/components/asset-viewer/NavigationArea.svelte	1:11 13:20
+immich/web/src/lib/components/asset-viewer/OcrBoundingBox.svelte	1:44 46:65
+immich/web/src/lib/components/asset-viewer/OcrButton.svelte	1:6 8:17
+immich/web/src/lib/components/asset-viewer/PhotoSphereViewerAdapter.svelte	1:248 255:275
+immich/web/src/lib/components/asset-viewer/PhotoViewer.svelte	1:201 205:212 214:298 224:293 241:245 242:244 246:292 247:262 251:261 252:259 253:258 255:257 263:287 266:286 272:285 273:284 289:291 295:297
+immich/web/src/lib/components/asset-viewer/SlideshowMetadataOverlay.svelte	1:40 42:65 43:64 44:63 48:62 49:51 52:61 53:60 54:56 57:59
+immich/web/src/lib/components/asset-viewer/VideoNativeViewer.svelte	1:330 332:351 353:501 354:500 360:499 361:368 362:367 369:498 371:488 379:430 380:403 404:429 405:429 432:454 433:453 435:442 438:441 443:452 444:451 447:450 456:487 457:485 458:461 466:476 470:475 478:484 479:482 490:494 491:493 496:498 503:583
+immich/web/src/lib/components/asset-viewer/VideoPanoramaViewer.svelte	1:20 22:36 23:35 25:32 26:32 33:34
+immich/web/src/lib/components/asset-viewer/VideoRemoteViewer.svelte	1:69 71:74 78:102 79:92 80:82 83:91 84:91 94:101
+immich/web/src/lib/components/asset-viewer/VideoWrapperViewer.svelte	1:38 40:56 42:55 43:55
+immich/web/src/lib/components/asset-viewer/actions/ArchiveAction.svelte	1:29 33:37
+immich/web/src/lib/components/asset-viewer/actions/DeleteAction.svelte	1:59 61:66 68:75
+immich/web/src/lib/components/asset-viewer/actions/NextAssetAction.svelte	1:14 16:21 23:25
+immich/web/src/lib/components/asset-viewer/actions/PreviousAssetAction.svelte	1:14 16:21 23:25
+immich/web/src/lib/components/asset-viewer/actions/RestoreAction.svelte	1:29
+immich/web/src/lib/components/asset-viewer/actions/SetVisibilityAction.svelte	1:55 57:61
+immich/web/src/lib/components/asset-viewer/editor/EditorPanel.svelte	1:48 50:55 57:91 58:71 59:69 60:67 73:77 74:76 79:90 80:89
+immich/web/src/lib/components/asset-viewer/editor/transform-tool/CropArea.svelte	1:61 63:119 64:118 71:77 78:84 85:117 87:93 95:104 97:103 106:116 108:115 121:203
+immich/web/src/lib/components/asset-viewer/editor/transform-tool/TransformTool.svelte	1:69 71:76 78:148 79:81 82:111 83:89 90:96 97:103 104:110 113:115 118:147 119:146 120:145 121:143 129:142 131:135 136:141 138:141
+immich/web/src/lib/components/asset-viewer/face-editor/FaceEditor.svelte	1:366 370:431 381:430 388:390 392:421 393:420 394:415 395:414 396:413 401:409 410:412 416:419 417:419 423:425 427:429
+immich/web/src/lib/components/assets/BrokenAsset.svelte	1:16 18:33 27:29 30:32
+immich/web/src/lib/components/assets/thumbnail/ImageThumbnail.svelte	1:71 73:87 75:86 76:86 89:94 90:93
+immich/web/src/lib/components/assets/thumbnail/Thumbnail.svelte	1:204 206:443 238:442 239:383 240:254 255:292 256:265 257:264 266:278 267:278 268:277 279:291 281:291 282:290 294:306 295:305 309:369 311:318 312:317 321:325 322:324 327:333 328:332 329:331 335:339 336:338 341:347 342:346 343:345 349:355 350:354 351:353 358:368 359:367 372:382 373:381 385:391 386:390 394:414 395:413 404:412 406:409 407:409 410:411 417:432 418:431 435:441
+immich/web/src/lib/components/assets/thumbnail/VideoThumbnail.svelte	1:63 65:91 66:90 93:126 96:106 97:105 98:104 100:101 102:103 109:125 114:124 115:121 117:118 119:120 122:123
+immich/web/src/lib/components/faces-page/AssignFaceSidePanel.svelte	1:72 74:187 78:148 79:147 80:90 81:88 91:116 92:101 102:115 103:110 111:114 112:114 117:146 118:125 126:138 127:132 133:137 134:136 139:146 149:186 151:185 152:154 155:184 156:184 157:183 158:182 159:181 160:180 161:172 162:171 174:179
+immich/web/src/lib/components/faces-page/PeopleSearch.svelte	1:99 101:118 102:108 109:117 110:117
+immich/web/src/lib/components/faces-page/PersonSidePanel.svelte	1:187 191:202 204:371 208:231 209:219 210:217 220:230 221:227 228:229 233:370 234:369 235:368 236:238 239:367 240:367 243:366 244:365 252:316 253:315 254:263 264:278 265:278 279:290 280:290 291:314 292:314 293:302 303:313 304:313 318:326 319:325 320:324 322:323 328:359 329:348 330:338 339:347 340:347 349:358 350:357 360:364 361:363 373:382 374:381
+immich/web/src/lib/components/layouts/AdminPageLayout.svelte	1:20 22:47 23:25 26:42 30:37 39:41 44:46
+immich/web/src/lib/components/layouts/AuthPageLayout.svelte	1:12 14:42 15:26 16:25 17:21 22:24 28:41 29:36 30:35 31:34 38:40
+immich/web/src/lib/components/layouts/UserPageLayout.svelte	1:3 5:47 49:53 50:52 54:108 61:65 63:64 67:107 68:70 72:106 73:105 74:81 75:77 78:80 85:104 86:101 87:100 88:99 89:98
+immich/web/src/lib/components/maintenance/MaintenanceBackupEntry.svelte	1:55 59:126 60:125 61:124 62:96 63:83 64:70 66:67 68:69 72:76 74:75 77:82 78:81 85:95 86:88 89:94 98:101 103:111 104:106 107:110 108:110 113:123 114:117 119:122
+immich/web/src/lib/components/maintenance/MaintenanceBackupsList.svelte	1:86 90:137 91:114 92:113 93:112 94:106 95:98 99:105 107:111 108:111 118:136 119:135 120:125 121:124 127:134 128:133
+immich/web/src/lib/components/maintenance/integrity/IntegrityReportTableItem.svelte	1:32 36:41 38:40
+immich/web/src/lib/components/memories/BirthdayConfetti.svelte	1:14
+immich/web/src/lib/components/memories/MemoryCard.svelte	1:19 21:59 27:31 28:30 32:34 35:58 36:57 37:53 39:52 40:51 41:50 42:49 55:56
+immich/web/src/lib/components/pages/SharedLinkErrorPage.svelte	1:4 6:8 10:15 12:14
+immich/web/src/lib/components/pages/SharedLinkPage.svelte	1:70 72:75 76:106 77:92 80:91 82:84 85:90 86:89 93:105 94:104 95:99 96:98 101:103 108:110 111:115 112:114
+immich/web/src/lib/components/server-statistics/ServerStatisticsCard.svelte	1:29 31:57 32:37 33:35 39:54 40:42 43:49 44:49 46:48 50:53 51:53 59:74
+immich/web/src/lib/components/share-page/IndividualSharedViewer.svelte	1:77 79:146 80:86 88:139 89:138 90:105 91:98 99:101 102:104 106:137 107:137 108:112 109:111 114:136 115:124 116:123 126:135 127:134 140:145 141:145 142:144
+immich/web/src/lib/components/shared-components/Combobox.svelte	1:20 22:268 271:273 274:427 287:380 288:294 289:293 290:292 296:359 361:379 366:378 367:375 376:377 382:426 398:425 399:411 401:410 412:424 414:423
+immich/web/src/lib/components/shared-components/ControlAppBar.svelte	1:18 20:49 21:48 22:35 23:34 24:32 25:31 26:30 28:29 37:41 38:40 43:47 44:46
+immich/web/src/lib/components/shared-components/CoordinatesInput.svelte	1:45 47:50 52:55
+immich/web/src/lib/components/shared-components/EmptyPlaceholder.svelte	1:20 23:34 30:32
+immich/web/src/lib/components/shared-components/NumberRangeInput.svelte	1:40 42:54
+immich/web/src/lib/components/shared-components/Qrcode.svelte	1:14 16:20 17:19
+immich/web/src/lib/components/shared-components/SingleGridRow.svelte	1:35 37:39
+immich/web/src/lib/components/shared-components/TagPill.svelte	1:12 14:31 15:21 18:20 23:30
+immich/web/src/lib/components/shared-components/ThemeButton.svelte	1:3 5:7
+immich/web/src/lib/components/shared-components/UserAvatar.svelte	1:3 5:78 80:106 84:93 85:92 94:105 95:104
+immich/web/src/lib/components/shared-components/album-selection/NewAlbumListItem.svelte	1:23 25:40 33:35 36:39
+immich/web/src/lib/components/shared-components/context-menu/ButtonContextMenu.svelte	1:142 147:205 160:175 161:174 176:204 177:203 191:202
+immich/web/src/lib/components/shared-components/context-menu/ContextMenu.svelte	1:60 64:90 78:89
+immich/web/src/lib/components/shared-components/context-menu/MenuOption.svelte	1:46 52:80 62:64 65:79 66:73 68:72 69:71 74:78 75:77
+immich/web/src/lib/components/shared-components/gallery-viewer/GalleryViewer.svelte	1:337 341:380 342:379 347:378 348:377 350:376 351:368 369:375 370:374 383:398 384:397 385:396 386:395
+immich/web/src/lib/components/shared-components/map/Map.svelte	1:9 11:368 371:495 373:486 393:485 394:411 397:410 399:407 400:406 401:405 402:404 413:421 414:420 415:419 416:418 423:431 424:430 425:429 426:428 433:484 441:453 446:452 447:451 454:483 463:482 464:476 466:475 467:475 477:481 478:480 488:494 489:493 490:492
+immich/web/src/lib/components/shared-components/navigation-bar/AccountInfoPanel.svelte	1:28 30:120 37:96 40:55 42:54 43:53 56:61 57:59 63:95 64:77 73:76 78:94 79:93 89:92 98:119 99:105 107:118
+immich/web/src/lib/components/shared-components/navigation-bar/NavigationBar.svelte	1:3 5:48 52:187 54:186 59:82 60:78 79:81 83:185 84:88 85:87 90:184 91:103 92:102 105:126 106:114 115:125 130:159 136:154 137:145 147:153 148:152 156:158 163:183 169:178 175:177 180:182
+immich/web/src/lib/components/shared-components/navigation-bar/NotificationItem.svelte	1:100 102:133 108:132 109:118 110:117 120:127 122:124 129:131
+immich/web/src/lib/components/shared-components/navigation-bar/NotificationPanel.svelte	1:70 72:116 79:115 80:92 82:91 83:90 96:114 97:103 104:113 105:113 106:112 107:111 108:110
+immich/web/src/lib/components/shared-components/progress-bar/ProgressBar.svelte	1:91 93:95
+immich/web/src/lib/components/shared-components/purchasing/IndividualPurchaseOptionCard.svelte	1:7 10:43 13:16 18:21 23:42 24:39 25:28 30:33 35:38
+immich/web/src/lib/components/shared-components/purchasing/PurchaseActivationSuccess.svelte	1:14 16:33 21:28 22:27 30:32
+immich/web/src/lib/components/shared-components/purchasing/PurchaseContent.svelte	1:36 38:84 39:43 40:42 45:56 46:55 47:49 51:53 58:61 63:83 65:82 66:74 75:81 76:80 78:79
+immich/web/src/lib/components/shared-components/purchasing/ServerPurchaseOptionCard.svelte	1:7 10:43 13:16 18:21 23:42 24:39 25:28 30:33 35:38
+immich/web/src/lib/components/shared-components/search-bar/SearchBar.svelte	1:138 142:224 143:223 153:196 155:184 186:195 198:210 199:209 200:208 211:222 212:221
+immich/web/src/lib/components/shared-components/search-bar/SearchButton.svelte	1:21 23:31
+immich/web/src/lib/components/shared-components/search-bar/SearchCameraSection.svelte	1:71 73:106 75:105 76:84 77:83 86:94 87:93 96:104 97:103
+immich/web/src/lib/components/shared-components/search-bar/SearchDateSection.svelte	1:44 46:85 48:69 49:53 54:58 59:63 64:68 70:81 71:80 72:75 76:79 82:84
+immich/web/src/lib/components/shared-components/search-bar/SearchDisplaySection.svelte	1:8 10:25 11:24 13:23 14:16 17:19 20:22
+immich/web/src/lib/components/shared-components/search-bar/SearchFilters.svelte	1:188 190:274 191:273 192:272 196:202 203:217 205:216 206:215 207:214 218:234 219:233 220:232 222:223 224:225 226:227 228:229 230:231 235:251 241:250 243:249 245:247 253:271 254:260 262:269
+immich/web/src/lib/components/shared-components/search-bar/SearchHistorySection.svelte	1:80 82:135 83:134 84:100 86:99 87:98 102:133 104:132 105:131 107:118 119:130 120:129
+immich/web/src/lib/components/shared-components/search-bar/SearchLocationSection.svelte	1:63 65:99 68:98 69:77 70:76 79:87 80:86 89:97 90:96
+immich/web/src/lib/components/shared-components/search-bar/SearchMediaSection.svelte	1:9 11:39 12:38 15:37 16:22 23:29 30:36
+immich/web/src/lib/components/shared-components/search-bar/SearchPeopleSection.svelte	1:41 43:105 44:46 47:104 48:104 53:103 57:86 61:85 62:84 67:82 68:74 75:81 76:80 88:102 89:101 90:100
+immich/web/src/lib/components/shared-components/search-bar/SearchRatingsSection.svelte	1:16 18:30 20:29 21:28 22:27
+immich/web/src/lib/components/shared-components/search-bar/SearchTagsSection.svelte	1:63 65:105 66:104 67:79 69:78 81:98 82:97 83:96 85:95 86:94 100:103 101:102
+immich/web/src/lib/components/shared-components/search-bar/SearchTextSection.svelte	1:14 16:41 17:40 19:39 20:24 21:23 25:27 28:30 31:33 34:38 35:37
+immich/web/src/lib/components/shared-components/settings/SettingAccordion.svelte	1:55 57:108 63:101 69:82 70:77 71:73 74:76 79:80 84:100 87:99 103:107 104:106 110:118
+immich/web/src/lib/components/shared-components/settings/SettingInputField.svelte	1:80 82:166 83:97 85:87 89:96 90:95 99:107 100:102 103:106 104:106 109:165 110:151 111:129 112:128 131:148 152:164 153:164 168:191
+immich/web/src/lib/components/shared-components/settings/SettingSwitch.svelte	1:33 35:58 36:55 37:49 38:40 41:48 42:47 51:53
+immich/web/src/lib/components/shared-components/settings/SettingsLanguageSelector.svelte	1:31 33:52 34:42 35:41 36:38 44:51
+immich/web/src/lib/components/shared-components/settings/SystemConfigButtonRow.svelte	1:42 44:57 45:51 46:50 47:49 53:56
+immich/web/src/lib/components/shared-components/side-bar/BottomInfo.svelte	1:5 7:9 13:15
+immich/web/src/lib/components/shared-components/side-bar/PurchaseInfo.svelte	1:70 72:105 73:104 74:80 81:103 82:103 91:102 92:97 94:96 99:101 107:170 108:169 109:168 118:134 119:121 122:133 136:138 140:148 141:143 145:147 150:152 153:167 154:156 157:166 172:176
+immich/web/src/lib/components/shared-components/side-bar/RecentAlbums.svelte	1:26 28:46 29:45 34:41 35:40 42:44
+immich/web/src/lib/components/shared-components/side-bar/ServerStatus.svelte	1:56 58:90 61:71 62:65 66:70 67:70 73:89 74:88 75:85 80:84 82:83 86:87 92:113 93:112 99:111 100:105 102:104 106:110
+immich/web/src/lib/components/shared-components/side-bar/StorageSpace.svelte	1:34 36:64 45:63 46:59 60:62
+immich/web/src/lib/components/shared-components/side-bar/UserSidebar.svelte	1:40 42:121 45:47 49:51 53:55 57:59 61:63 65:70 76:87 82:86 83:85 89:91 93:99 94:98 101:103 107:112 116:118
+immich/web/src/lib/components/shared-components/tree/Tree.svelte	1:24 26:46 32:36 33:35 37:44 38:43 48:50
+immich/web/src/lib/components/shared-components/tree/TreeBreadcrumbs.svelte	1:21 23:36 24:35 25:33
+immich/web/src/lib/components/shared-components/tree/TreeItemThumbnails.svelte	1:12 14:33 15:32 19:31 20:30 27:29
+immich/web/src/lib/components/shared-components/tree/TreeItems.svelte	1:13 15:21 16:20 17:19
+immich/web/src/lib/components/sharedlinks-page/covers/AssetCover.svelte	1:15 17:29 19:28 20:28
+immich/web/src/lib/components/sharedlinks-page/covers/NoCover.svelte	1:11 13:21
+immich/web/src/lib/components/sidebar/Sidebar.svelte	1:32 34:51 48:50
+immich/web/src/lib/components/timeline/AssetLayout.svelte	1:33 36:56 37:55 42:54 58:62
+immich/web/src/lib/components/timeline/AssetSelectControlBar.svelte	1:17 19:29 20:25 21:24 26:28
+immich/web/src/lib/components/timeline/Month.svelte	1:58 60:111 63:110 74:97 78:92 79:91 86:90 88:89 94:96 99:109 106:108 113:117
+immich/web/src/lib/components/timeline/Scrubber.svelte	1:493 495:500 502:609 524:536 525:535 537:562 538:561 550:560 551:559 564:575 565:574 566:573 567:572 576:581 583:602 584:601 591:600 592:596 593:595 597:599 603:608
+immich/web/src/lib/components/timeline/Timeline.svelte	1:553 555:569 571:576 578:602 579:601 605:708 615:707 616:628 624:627 630:698 634:697 635:642 643:696 644:696 651:695 659:694 664:693 700:706 710:714 711:713 716:728
+immich/web/src/lib/components/timeline/TimelineAssetViewer.svelte	1:193 197:216 198:215
+immich/web/src/lib/components/timeline/actions/ArchiveAction.svelte	1:35 37:39 41:54 42:53 43:50 51:52
+immich/web/src/lib/components/timeline/actions/ChangeDateAction.svelte	1:28 30:32
+immich/web/src/lib/components/timeline/actions/ChangeDescriptionAction.svelte	1:32 34:36
+immich/web/src/lib/components/timeline/actions/ChangeLocationAction.svelte	1:35 37:39
+immich/web/src/lib/components/timeline/actions/DeleteAssetsAction.svelte	1:40 42:62 44:52 45:52 53:61 54:61
+immich/web/src/lib/components/timeline/actions/DownloadAction.svelte	1:33 37:48 39:47 40:47
+immich/web/src/lib/components/timeline/actions/FavoriteAction.svelte	1:56 58:60 62:75 63:74 64:71 72:73
+immich/web/src/lib/components/timeline/actions/LinkLivePhotoAction.svelte	1:69 71:73 75:88 76:87 77:84 85:86
+immich/web/src/lib/components/timeline/actions/RemoveFromSharedLinkAction.svelte	1:23 27:34
+immich/web/src/lib/components/timeline/actions/SelectAllAction.svelte	1:27 29:33 31:32
+immich/web/src/lib/components/timeline/actions/SetVisibilityAction.svelte	1:51 53:70 54:58 59:69 60:69
+immich/web/src/lib/components/timeline/actions/TimelineKeyboardActions.svelte	1:147
+immich/web/src/lib/components/user-settings-page/DeviceCard.svelte	1:31 33:93 34:54 35:53 37:38 39:40 41:42 43:44 45:46 47:48 49:50 51:52 55:92 56:78 57:67 58:66 59:63 64:65 68:77 72:76 79:91 80:90 81:89
+immich/web/src/lib/components/user-settings-page/PinCodeCreateForm.svelte	1:42 44:65 45:55 46:48 49:51 52:54 57:64 58:60 61:63
+immich/web/src/lib/components/user-settings-page/UserApiKeyGrid.svelte	1:32 34:57 35:43 36:41 44:56 45:55 46:54 47:52
+immich/web/src/lib/elements/DateInput.svelte	1:24 26:40
+immich/web/src/lib/elements/Dropdown.svelte	1:11 13:95 97:140 99:104 100:102 107:139 108:138 114:137 117:136 123:135 124:126 127:129 130:134 132:134
+immich/web/src/lib/elements/DurationInput.svelte	1:43 45:52 46:48
+immich/web/src/lib/elements/FormatMessage.svelte	1:105 135:141 136:140 138:139
+immich/web/src/lib/elements/GroupTab.svelte	1:15 17:40 21:39 22:38 23:31 32:37
+immich/web/src/lib/elements/HotModuleReload.svelte	1:36
+immich/web/src/lib/elements/Portal.svelte	1:46 66:76 78:80
+immich/web/src/lib/elements/SearchBar.svelte	1:37 39:78 44:52 53:61 62:66 63:65 67:77 68:76
+immich/web/src/lib/elements/Skeleton.svelte	1:12 14:23 15:21 16:20 25:42
+immich/web/src/lib/elements/SkipLink.svelte	1:57 59:69 60:68
+immich/web/src/lib/elements/StarRating.svelte	1:58 61:104 71:103 72:102 78:88 89:101 105:109 106:108
+immich/web/src/lib/elements/__test__/FormatTagB.svelte	1:12 14:20 15:19 16:18
+immich/web/src/lib/modals/AddUsersModal.svelte	1:63 65:98 73:97 74:76 77:96 78:96 79:84 85:95 86:92 88:91
+immich/web/src/lib/modals/AlbumEditModal.svelte	1:25 27:41 28:40 31:39 32:34 36:38
+immich/web/src/lib/modals/AlbumOptionsModal.svelte	1:66 68:74 76:153 77:152 78:151 79:101 81:100 82:93 83:92 84:91 94:99 95:98 103:134 104:109 106:108 110:133 111:132 112:131 113:118 114:116 119:130 120:129 135:150 136:149 137:140 142:148 143:147 144:146
+immich/web/src/lib/modals/AlbumPickerModal.svelte	1:157 159:231 160:212 161:206 162:205 164:175 165:174 167:173 169:172 176:204 177:183 184:204 186:203 187:202 189:190 191:192 193:201 194:201 207:211 208:210 213:230 214:229 215:228 216:221 217:219 222:227 223:225
+immich/web/src/lib/modals/ApiKeyCreateModal.svelte	1:26 28:35 29:33 30:32
+immich/web/src/lib/modals/ApiKeySecretModal.svelte	1:13 15:27 16:19 21:26 22:25
+immich/web/src/lib/modals/ApiKeyUpdateModal.svelte	1:35 37:44 38:42 39:41
+immich/web/src/lib/modals/AppDownloadModal.svelte	1:9 11:25 12:24 13:15 17:19 21:23
+immich/web/src/lib/modals/AssetAddToAlbumModal.svelte	1:25
+immich/web/src/lib/modals/AssetChangeDateModal.svelte	1:53 55:76 65:70 71:75 72:74
+immich/web/src/lib/modals/AssetDeleteConfirmModal.svelte	1:24 26:47 32:46 33:39 34:38 35:37 42:45
+immich/web/src/lib/modals/AssetSelectionChangeDateModal.svelte	1:64 66:120 75:77 78:84 81:83 85:93 86:92
+immich/web/src/lib/modals/AssetTagModal.svelte	1:56 58:88 68:78 69:77 80:87 81:86 83:85
+immich/web/src/lib/modals/AssetUpdateDescriptionConfirmModal.svelte	1:12 14:18 15:17
+immich/web/src/lib/modals/AuthDisableLoginConfirmModal.svelte	1:12 14:27 15:26 16:25 18:24 19:23 20:22
+immich/web/src/lib/modals/AvatarEditModal.svelte	1:32 34:48 35:47 36:46 37:45 38:44 39:43
+immich/web/src/lib/modals/ClusterGroupUserSelectionModal.svelte	1:28 30:60 31:59 32:58 33:35 36:57 37:57 38:48 39:47 40:46 42:45 50:54 51:53 55:56
+immich/web/src/lib/modals/ClusterGroupUsersModal.svelte	1:19 21:54 22:46 23:45 24:26 27:44 30:32 34:44 35:43 36:42 38:41 48:53 49:52
+immich/web/src/lib/modals/CreateFaceModal.svelte	1:64 66:91 75:86 76:85 77:84 79:83 80:82 88:90
+immich/web/src/lib/modals/EmailTemplatePreviewModal.svelte	1:11 13:23 14:22 15:21 16:20
+immich/web/src/lib/modals/GeolocationPointPickerModal.svelte	1:140 142:228 149:227 150:226 151:186 152:165 153:164 154:163 155:162 167:185 172:184 173:183 174:182 179:181 189:221 190:220 191:196 193:195 197:219 198:219 223:225
+immich/web/src/lib/modals/GeolocationUpdateConfirmModal.svelte	1:19 21:30 22:29 23:25
+immich/web/src/lib/modals/HelpAndFeedbackModal.svelte	1:14 16:25 17:24 18:23 20:22 27:71 28:70 30:46 47:69 49:51 52:68 53:55 57:59 61:63 65:67
+immich/web/src/lib/modals/JobCreateModal.svelte	1:57 59:61
+immich/web/src/lib/modals/LibraryExclusionPatternAddModal.svelte	1:22 24:36 33:35
+immich/web/src/lib/modals/LibraryExclusionPatternEditModal.svelte	1:23 25:30 27:29
+immich/web/src/lib/modals/LibraryFolderAddModal.svelte	1:22 24:36 33:35
+immich/web/src/lib/modals/LibraryFolderEditModal.svelte	1:24 26:31 28:30
+immich/web/src/lib/modals/MapModal.svelte	1:14 16:33 17:32 18:31 19:30 20:29 21:26 23:25 27:28
+immich/web/src/lib/modals/MapSettingsModal.svelte	1:20 22:120 23:119 24:26 27:29 30:32 33:35 36:38 39:41 43:118 44:72 45:51 46:50 52:57 53:56 58:71 59:70 73:117 74:117 75:105 76:104 106:116
+immich/web/src/lib/modals/MemoriesSettingsModal.svelte	1:16 18:27 19:26 20:22 23:25
+immich/web/src/lib/modals/NavigateToDateModal.svelte	1:38 40:62 49:61 50:52 53:60 54:59
+immich/web/src/lib/modals/ObtainiumConfigModal.svelte	1:25 27:72 28:71 31:41 32:40 43:45 47:49 51:53 55:70 56:69 58:68 59:67
+immich/web/src/lib/modals/PartnerSelectionModal.svelte	1:34 36:68 37:67 38:66 39:41 42:65 43:65 44:60 45:53 46:52 48:51 55:59 56:58 61:64 62:64
+immich/web/src/lib/modals/PasswordResetSuccessModal.svelte	1:13 15:34 16:33 19:30 21:29
+immich/web/src/lib/modals/PeopleFilterModal.svelte	1:96 98:123 100:122 102:121 112:120 113:119 114:116 117:118 125:151 126:150 129:137 131:136 138:146 140:145 147:149
+immich/web/src/lib/modals/PeopleFilterUserPicker.svelte	1:18 20:38 21:37 22:27 23:25 28:36 29:35 31:34
+immich/web/src/lib/modals/PeoplePickerModal.svelte	1:60 62:111 63:99 64:98 67:97 68:96 69:71 72:93 73:93 74:92 76:91 83:89 94:95 101:110 102:109 103:108 105:107
+immich/web/src/lib/modals/PeopleSelectionModal.svelte	1:60 62:117 63:116 64:115 65:103 66:69 71:73 75:102 76:81 77:80 83:97 84:96 85:95 86:94 99:101 105:112 106:111 108:110 113:114
+immich/web/src/lib/modals/PersonBulkShareModal.svelte	1:170 172:233 181:232 184:196 185:187 188:195 189:195 191:194 198:231 199:201 202:230 203:208 210:230 211:229 212:217 213:215 219:228 220:227 221:224
+immich/web/src/lib/modals/PersonEditAccessModal.svelte	1:58 60:73 61:72 62:71 63:69 65:68 77:101 78:80 82:85 87:91 88:90 93:100 95:99 96:98
+immich/web/src/lib/modals/PersonEditModal.svelte	1:33 35:68 43:67 44:46 48:56 49:54 58:66 59:65 60:63
+immich/web/src/lib/modals/PersonMergeSuggestionModal.svelte	1:50 52:149 60:141 61:140 62:73 64:72 65:71 75:92 77:81 78:80 82:91 83:90 94:114 104:113 105:112 115:139 116:139 117:119 120:138 122:137 123:136 124:135 125:134 126:133 143:145 146:148
+immich/web/src/lib/modals/PinCodeResetModal.svelte	1:24 26:43 27:38 28:37 31:36 32:35 39:42 40:42
+immich/web/src/lib/modals/PluginMethodPicker.svelte	1:13 15:41 16:40 17:19 20:39 21:39 22:38 23:37 24:36 25:32 27:31 28:30 33:35
+immich/web/src/lib/modals/ProfileImageCropperModal.svelte	1:81 83:91 84:90 85:89
+immich/web/src/lib/modals/PurchaseModal.svelte	1:14 16:29 17:28 18:27 20:26 21:26
+immich/web/src/lib/modals/QrCodeModal.svelte	1:17 19:40 20:39 21:25 22:24 26:38 28:37 29:36
+immich/web/src/lib/modals/ServerAboutModal.svelte	1:16 18:104 19:103 20:102 21:23 29:34 35:40 42:49 43:48 51:58 52:57 60:62 64:71 65:70 73:101 75:100 76:99 78:98 79:97
+immich/web/src/lib/modals/ServerRestartingModal.svelte	1:10 12:16 13:15
+immich/web/src/lib/modals/SharedLinkCreateModal.svelte	1:44 46:71 54:56 58:60 62:70
+immich/web/src/lib/modals/ShortcutsModal.svelte	1:55 57:109 58:108 59:107 60:80 61:79 63:78 64:77 65:76 66:74 67:73 68:72 81:106 82:105 84:104 85:103 86:102 87:95 88:94 89:93 96:101 98:100
+immich/web/src/lib/modals/SlideshowSettingsModal.svelte	1:78 80:119 81:118 82:84 86:88 90:92 94:96 98:100 102:104 106:108 110:112 114:117
+immich/web/src/lib/modals/StorageTemplateVariablesModal.svelte	1:14 16:21 17:20
+immich/web/src/lib/modals/TagCreateModal.svelte	1:26 28:34 31:33
+immich/web/src/lib/modals/TagEditModal.svelte	1:28 30:36 33:35
+immich/web/src/lib/modals/UserDeleteConfirmModal.svelte	1:32 34:76 41:75 42:74 43:60 44:59 45:49 46:48 50:58 51:58 55:57 62:65 67:73 70:72
+immich/web/src/lib/modals/UserRestoreConfirmModal.svelte	1:26 28:45 36:44 37:43 38:42 39:41
+immich/web/src/lib/modals/VersionAnnouncementModal.svelte	1:13 15:44 23:35 24:34 25:33 26:30 27:29 31:32 39:43
+immich/web/src/lib/modals/WorkflowAddStepModal.svelte	1:39 41:76 42:75 43:58 44:49 46:48 50:57 60:68 62:67 64:66 70:74
+immich/web/src/lib/modals/WorkflowDuplicateModal.svelte	1:34 36:53 44:52 45:47 49:51
+immich/web/src/lib/modals/WorkflowEditStepModal.svelte	1:36 38:68 39:67 40:50 41:46 43:45 47:49 52:60 54:59 56:58 62:66
+immich/web/src/lib/modals/WorkflowLogsModal.svelte	1:92 94:171 95:170 96:169 97:150 98:101 102:149 103:145 104:144 105:118 106:117 107:111 112:116 113:115 119:143 120:142 121:141 122:124 125:132 126:132 127:131 129:130 133:140 134:140 135:139 137:138 146:148 151:163 152:161 164:168 165:168
+immich/web/src/lib/modals/WorkflowTemplatePickerModal.svelte	1:36 38:71 46:70 47:69 48:68 52:67 53:57 58:61 62:66 63:65
+immich/web/src/lib/modals/WorkflowTriggerPicker.svelte	1:18 20:31 21:30 22:29 23:28 24:27
+immich/web/src/routes/(user)/+layout.svelte	1:23 25:27 30:37
+immich/web/src/routes/(user)/DragAndDropUploadOverlay.svelte	1:175 181:191 183:190
+immich/web/src/routes/(user)/albums/+page.svelte	1:23 25:58 26:30 27:29 32:44 33:40 34:39 41:43 46:57 54:56
+immich/web/src/routes/(user)/albums/AlbumsControls.svelte	1:113 116:123 117:122 126:128 131:139 142:151 154:164 166:196 167:195 169:194 170:180 171:179 183:193 184:192 199:219 200:208 209:218 210:218
+immich/web/src/routes/(user)/albums/[albumId=id]/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:323 325:335 338:605 339:592 340:448 341:435 356:434 357:415 359:414 360:365 367:369 372:408 373:407 374:404 380:382 385:393 386:392 395:403 396:402 409:413 417:433 418:432 419:431 421:430 426:428 437:447 438:446 439:445 450:591 451:490 457:462 458:461 463:489 465:475 469:473 476:482 477:481 486:488 491:590 492:563 493:562 494:561 497:514 498:513 518:520 522:531 523:530 534:560 535:559 541:547 542:546 549:555 550:554 565:582 566:581 567:575 568:574 569:573 571:572 577:580 584:590 585:589 586:588 593:604 594:603 595:602 607:617
+immich/web/src/routes/(user)/archive/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:45 47:60 48:59 56:58 62:83 63:82 66:69 73:76 77:81
+immich/web/src/routes/(user)/buy/+page.svelte	1:20 22:44 23:43 24:42 25:27 29:31 33:41 35:40 36:40
+immich/web/src/routes/(user)/buy/SupporterBadge.svelte	1:11 13:19 21:53
+immich/web/src/routes/(user)/explore/+page.svelte	1:66 70:188 71:103 72:102 73:80 75:79 81:101 82:100 83:99 84:98 85:91 92:96 93:95 105:136 106:135 107:114 109:113 115:134 116:133 117:132 118:131 119:125 120:124 126:130 138:154 139:153 140:147 142:146 148:152 149:151 156:183 157:182 158:165 160:164 166:181 167:180 168:179 174:178 185:187 190:200 191:199 192:198 193:197
+immich/web/src/routes/(user)/favorites/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:47 49:62 50:61 58:60 65:92 66:91 73:90 78:82 85:89
+immich/web/src/routes/(user)/folders/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:86 88:127 89:104 90:103 92:102 94:101 95:100 110:126 114:125 115:124 116:123 129:175 130:174 131:173 135:142 144:156 158:172
+immich/web/src/routes/(user)/locked/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:53 57:75 63:74 71:73 78:89 79:88 82:87
+immich/web/src/routes/(user)/map/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:54 56:111 57:95 58:94 59:82 65:81 66:71 68:70 72:80 73:80 84:93 85:92 86:91 96:110 97:109 98:108 99:107
+immich/web/src/routes/(user)/map/[[photos=photos]]/[[assetId=id]]/MapTimelinePanel.svelte	1:91 93:115 94:102 95:100 97:99 104:114 105:113 117:171 122:170 123:169 128:168 129:132 134:165 138:145 139:144 149:153 155:159 166:167
+immich/web/src/routes/(user)/memories/+page.svelte	1:40 42:92 47:59 48:58 49:57 60:91 61:86 62:64 65:85 66:68 69:84 87:90 88:90
+immich/web/src/routes/(user)/memories/[id]/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:3
+immich/web/src/routes/(user)/memories/[id]/[[photos=photos]]/[[assetId=id]]/MemoryPhotoViewer.svelte	1:41 43:46 48:59 50:58 51:58 52:57
+immich/web/src/routes/(user)/memories/[id]/[[photos=photos]]/[[assetId=id]]/MemoryVideoViewer.svelte	1:24 26:43 27:42 28:41 30:40
+immich/web/src/routes/(user)/partners/[userId]/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:36 38:40 42:59 43:50 51:58 52:58 53:57 54:56
+immich/web/src/routes/(user)/people/+page.svelte	1:288 294:383 315:350 316:349 317:338 318:330 319:329 320:328 331:337 340:348 352:382 353:372 354:371 355:370 360:369 373:381 374:381 375:380 377:379
+immich/web/src/routes/(user)/people/PeopleCard.svelte	1:32 34:62 35:61 36:51 37:45 46:50 47:49 53:60 54:59
+immich/web/src/routes/(user)/people/PeopleInfiniteScroll.svelte	1:30 32:42 33:41 34:40 35:37 38:39
+immich/web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:328 330:336 338:474 347:473 348:472 359:471 361:470 369:433 370:432 371:378 379:431 380:431 381:388 389:430 390:404 391:395 392:394 396:403 405:410 406:409 411:413 414:429 415:428 434:469 435:468 436:467 437:443 440:442 444:466 445:466 446:465 447:464 455:462 476:536 477:535 478:514 484:487 488:513 490:494 498:505 508:512 515:534 516:526 517:525 518:524 520:523 528:534 529:533 530:532 538:545 539:544 547:549
+immich/web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/EditNameInput.svelte	1:30 32:49 38:48 39:46
+immich/web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/FaceThumbnail.svelte	1:25 27:71 35:47 44:46 49:54 56:62 57:61 64:70 65:69
+immich/web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/MergeFaceSelector.svelte	1:79 83:142 87:101 88:95 89:93 91:92 96:100 97:99 102:141 103:140 104:138 107:137 108:112 109:111 114:135 115:134 116:133 117:119 120:132 121:131 122:130
+immich/web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/PeopleList.svelte	1:27 29:47 30:32 34:46 35:45 49:58 53:57 54:56
+immich/web/src/routes/(user)/people/[personId]/[[photos=photos]]/[[assetId=id]]/UnmergeFaceSelector.svelte	1:108 112:170 116:147 117:120 121:146 122:145 123:133 134:144 149:169 150:168 151:166 152:165 155:164 156:163
+immich/web/src/routes/(user)/people/manage/+page.svelte	1:113 115:179 116:146 117:145 118:143 119:126 127:134 135:142 148:178 149:177 150:176 152:175 159:167 168:174 169:173
+immich/web/src/routes/(user)/people/manage/ManagePeopleVisibility.test-wrapper.svelte	1:11 13:15
+immich/web/src/routes/(user)/photos/[[assetId=id]]/+page.svelte	1:90 92:113 93:112 102:108 103:107 104:106 109:111 115:166 116:165 125:164 126:129 131:161 135:142 136:141 146:149 151:155 162:163
+immich/web/src/routes/(user)/places/+page.svelte	1:31 35:52 39:43 40:42 45:51
+immich/web/src/routes/(user)/places/PlacesCardGroup.svelte	1:20 22:36 23:35 24:33 38:63 39:62 40:61 41:60 43:59 44:53 47:52 54:58
+immich/web/src/routes/(user)/places/PlacesControls.svelte	1:21 23:25 27:29 31:59 32:58 34:57 35:44 36:43 47:56 48:55
+immich/web/src/routes/(user)/places/PlacesList.svelte	1:88 90:106 92:98 94:97 95:97 99:105 100:105 101:104
+immich/web/src/routes/(user)/recently-added/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:81 83:97 84:96 93:95 99:150 100:149 109:148 110:113 115:145 119:126 120:125 130:133 135:139 146:147
+immich/web/src/routes/(user)/s/[slug]/+error.svelte	1:3
+immich/web/src/routes/(user)/s/[slug]/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:10
+immich/web/src/routes/(user)/search/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:249 255:304 256:303 257:302 258:301 260:300 263:267 269:289 270:288 271:287 273:276 274:276 277:280 278:280 281:282 283:284 285:286 291:299 306:400 312:338 313:331 314:322 323:330 324:330 325:329 333:337 334:336 340:399 341:398 342:389 343:388 348:355 357:387 358:368 370:384 385:386 390:397 391:397 392:396 393:395
+immich/web/src/routes/(user)/share/[key]/+error.svelte	1:3
+immich/web/src/routes/(user)/share/[key]/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:10
+immich/web/src/routes/(user)/shared-links/(list)/+layout.svelte	1:68 72:102 73:83 74:82 75:81 85:101 86:98 87:91 92:97 93:97 94:96
+immich/web/src/routes/(user)/shared-links/(list)/ShareCover.svelte	1:16 18:31 19:30 21:27 22:27 28:29
+immich/web/src/routes/(user)/shared-links/(list)/SharedLinkCard.svelte	1:56 58:120 61:104 68:103 69:91 70:78 71:77 73:74 75:76 80:86 81:85 83:84 88:90 93:102 94:101 95:97 98:100 105:119 106:110 112:118 113:117
+immich/web/src/routes/(user)/shared-links/(list)/[id]/edit/+page.svelte	1:47 49:75 50:55 51:54 57:64 58:63 60:62 66:74
+immich/web/src/routes/(user)/sharing/+page.svelte	1:39 41:88 42:87 43:70 44:67 45:47 49:66 50:65 51:64 56:63 57:59 60:62 72:86 73:75 77:85 79:84 81:83
+immich/web/src/routes/(user)/tags/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:81 85:117 86:96 87:95 89:94 91:93 100:116 101:115 102:112 109:111 113:114 119:152 120:151 121:150 122:149 128:131 132:148 137:140 142:146
+immich/web/src/routes/(user)/trash/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:44 46:70 47:69 53:68 60:64 65:67 72:78 73:77
+immich/web/src/routes/(user)/trash/[[photos=photos]]/[[assetId=id]]/RestoreAction.svelte	1:33 35:44
+immich/web/src/routes/(user)/user-settings/+page.svelte	1:16 18:22 19:21
+immich/web/src/routes/(user)/user-settings/AppSettings.svelte	1:62 64:120 65:119 66:118 67:72 68:71 76:79 81:90 82:89 92:94 96:98 100:105 107:109 111:113 115:117
+immich/web/src/routes/(user)/user-settings/ChangePasswordSettings.svelte	1:21 23:54 24:53 25:52 26:51 27:29 31:33 35:37 39:41 43:50 44:49
+immich/web/src/routes/(user)/user-settings/DeviceList.svelte	1:51 53:89 54:88 55:87 56:63 57:62 58:60 64:86 65:75 66:68 69:74 71:73 77:79 81:85 82:84
+immich/web/src/routes/(user)/user-settings/DownloadSettings.svelte	1:38 40:61 41:60 42:59 43:58 44:49 50:54 55:57
+immich/web/src/routes/(user)/user-settings/FeatureSettings.svelte	1:77 79:213 80:212 81:211 82:210 83:95 84:94 85:93 86:92 97:109 98:108 99:101 103:107 104:106 111:127 112:126 113:115 117:121 118:120 123:125 129:153 130:152 131:133 135:151 136:138 139:141 142:150 143:149 155:161 156:160 157:159 163:175 164:174 165:167 169:173 170:172 177:189 178:188 179:181 183:187 184:186 191:197 192:196 193:195 199:205 200:204 201:203 207:209
+immich/web/src/routes/(user)/user-settings/NotificationsSettings.svelte	1:37 39:61 40:60 41:59 42:54 43:45 47:49 51:53 56:58
+immich/web/src/routes/(user)/user-settings/OauthSettings.svelte	1:41 43:64 44:63 45:62 46:61 47:49 50:60 51:60 52:56 53:55 58:59
+immich/web/src/routes/(user)/user-settings/PinCodeChangeForm.svelte	1:37 39:64 40:54 42:44 45:47 48:50 51:53 56:63 57:59 60:62
+immich/web/src/routes/(user)/user-settings/PinCodeSettings.svelte	1:19 23:33 24:32 25:27 28:31 29:31
+immich/web/src/routes/(user)/user-settings/SettingCombobox.svelte	1:30 32:50 33:43 35:42 36:41 46:49
+immich/web/src/routes/(user)/user-settings/SharingSettings.svelte	1:246 248:411 249:410 250:333 251:282 252:281 253:280 258:279 259:270 261:269 262:267 264:266 272:278 273:275 276:277 284:325 285:287 289:324 290:323 291:300 292:299 294:298 295:297 302:322 304:321 308:316 309:311 312:315 318:320 327:332 328:330 335:409 336:404 337:403 338:402 339:363 340:350 342:349 343:345 346:348 352:362 353:361 365:401 367:385 369:371 372:374 375:384 376:379 380:383 388:400 390:392 394:399 406:408
+immich/web/src/routes/(user)/user-settings/UserApiKeyList.svelte	1:31 35:81 36:80 37:46 38:45 48:79 49:78 50:55 57:77 58:76 60:75 62:68 63:67 70:74
+immich/web/src/routes/(user)/user-settings/UserProfileSettings.svelte	1:31 33:59 34:58 35:57 36:56 37:39 41:43 45:47 49:51 53:55
+immich/web/src/routes/(user)/user-settings/UserPurchaseSettings.svelte	1:103 105:183 106:182 107:181 109:116 110:115 119:178 120:142 125:141 126:128 130:140 131:137 138:139 144:150 145:149 146:148 151:177 152:171 157:170 158:160 161:169 162:168 173:177 174:176 179:180
+immich/web/src/routes/(user)/user-settings/UserSettingsList.svelte	1:47 49:56 58:60 62:69 71:73 75:82 84:91 93:100 102:109 111:121 112:120 123:130 132:140 142:150 152:159
+immich/web/src/routes/(user)/user-settings/UserUsageStatistic.svelte	1:64 66:73 67:72 75:129 77:90 78:83 84:89 93:104 94:97 98:103 99:102 106:128 108:116 110:115 111:115 119:127 121:126 122:126
+immich/web/src/routes/(user)/utilities/+page.svelte	1:11 13:19 14:18 15:17
+immich/web/src/routes/(user)/utilities/UtilitiesMenu.svelte	1:22 24:33 27:32 28:31 35:58 38:47 43:45 48:57 53:55
+immich/web/src/routes/(user)/utilities/duplicates/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:210 212:219 221:326 222:254 223:253 224:233 234:243 244:252 256:325 257:324 258:261 263:319 264:271 272:318 273:317 274:293 275:283 284:292 294:296 297:316 298:306 307:315 320:323 321:323
+immich/web/src/routes/(user)/utilities/duplicates/[[photos=photos]]/[[assetId=id]]/DuplicateAsset.svelte	1:41 43:130 44:102 45:92 53:58 61:65 62:64 68:74 77:91 78:82 79:81 83:90 84:89 85:88 94:101 104:129 109:113 110:112 116:128 117:127 119:126 120:126 122:125 123:125
+immich/web/src/routes/(user)/utilities/duplicates/[[photos=photos]]/[[assetId=id]]/DuplicatesCompareControl.svelte	1:105 107:118 120:198 121:170 123:134 124:126 127:133 137:169 138:158 139:147 148:157 149:157 159:168 172:186 173:185 174:184 175:183 188:197 189:196 190:195 200:214 201:213 202:212 203:211
+immich/web/src/routes/(user)/utilities/duplicates/[[photos=photos]]/[[assetId=id]]/InfoRow.svelte	1:13 15:27 18:20 22:26 23:25
+immich/web/src/routes/(user)/utilities/duplicates/[[photos=photos]]/[[assetId=id]]/LinkToDocs.svelte	1:10 12:16 13:15
+immich/web/src/routes/(user)/utilities/geolocation/+page.svelte	1:138 142:226 143:189 144:188 146:162 147:149 150:161 156:160 158:159 164:166 167:176 177:187 184:186 191:195 192:194 197:225 208:221 209:211 212:220 213:215 216:219 217:219 222:224
+immich/web/src/routes/(user)/utilities/large-files/[[photos=photos]]/[[assetId=id]]/+page.svelte	1:62 66:78 67:77 68:76 69:71 72:75 73:75 80:95 81:94 82:93 83:92
+immich/web/src/routes/(user)/utilities/large-files/[[photos=photos]]/[[assetId=id]]/LargeAssetData.svelte	1:18 20:40 25:33 28:32 29:31 34:36 37:39
+immich/web/src/routes/(user)/workflows/+page.svelte	1:59 63:155 64:154 65:153 66:152 67:74 75:151 76:151 77:150 80:149 81:148 82:129 87:95 97:115 98:108 99:101 103:107 104:106 110:114 111:113 117:128 131:147 132:146 133:145 135:144
+immich/web/src/routes/(user)/workflows/[workflowId]/+page.svelte	1:271 275:431 276:305 277:304 285:288 289:303 290:302 291:301 307:428 308:427 309:332 310:320 321:331 334:426 335:370 336:345 337:344 339:343 340:342 347:369 348:368 349:353 350:352 355:360 356:359 361:367 362:366 374:396 375:395 376:394 377:379 380:383 385:393 398:412 399:411 400:410 414:423 424:425
+immich/web/src/routes/(user)/workflows/[workflowId]/WorkflowJsonEditor.svelte	1:101 103:124 104:123 105:115 106:114 107:113 109:112 116:122 117:121 118:120 126:128
+immich/web/src/routes/(user)/workflows/[workflowId]/WorkflowStepCard.svelte	1:17 19:130 132:261 133:146 134:145 136:144 148:260 157:259 164:218 165:217 167:176 177:187 182:186 188:196 189:192 193:195 197:216 198:206 207:215 220:258 221:257 222:256 223:232 224:231 233:255 234:254 235:241 236:240 238:239 242:251 243:251 244:250 246:247 248:249 252:253
+immich/web/src/routes/(user)/workflows/[workflowId]/WorkflowStepDragImage.svelte	1:13 15:42 20:30 25:29 32:41 33:36 38:40
+immich/web/src/routes/(user)/workflows/[workflowId]/WorkflowSummary.svelte	1:97 101:148 102:137 108:130 110:129 111:119 120:128 133:136 134:135 138:147 139:147
+immich/web/src/routes/+error.svelte	1:4
+immich/web/src/routes/+layout.svelte	1:231 237:257 243:256 250:255 251:254 259:285 260:264 262:263 266:268 274:284
+immich/web/src/routes/+page.svelte	1:21 23:35 24:34 26:33 27:29 30:32
+immich/web/src/routes/DownloadPanel.svelte	1:19 21:56 22:55 26:29 30:54 31:53 32:52 33:40 34:39 36:38 41:51 42:50
+immich/web/src/routes/ErrorLayout.svelte	1:32 34:91 35:41 36:40 37:39 43:90 44:89 45:88 46:58 47:50 51:57 60:66 62:65 68:87 69:74 70:73 75:80 76:79 81:86 82:85
+immich/web/src/routes/NavigationLoadingBar.svelte	1:26 28:32 29:31
+immich/web/src/routes/UploadAssetPreview.svelte	1:37 39:116 44:93 45:61 46:60 48:49 50:51 52:57 53:57 55:56 58:59 65:92 66:82 67:78 79:81 83:91 84:91 85:87 88:90 95:107 96:106 98:105 99:104 101:103 109:115 110:114 111:113
+immich/web/src/routes/UploadPanel.svelte	1:34 36:172 37:171 53:170 54:138 58:113 59:79 60:68 69:78 80:112 81:100 82:90 91:99 101:111 102:110 114:132 115:131 116:118 119:130 133:137 134:136 139:169 140:169 141:148 149:158 150:157 159:168 165:167
+immich/web/src/routes/VersionAnnouncement.svelte	1:43
+immich/web/src/routes/admin/library-management/(list)/+layout.svelte	1:61 67:143 68:142 69:141 70:138 71:130 72:79 80:129 81:128 83:127 84:86 87:89 90:123 91:93 94:96 97:99 100:112 102:104 105:107 108:112 113:122 114:116 117:119 120:122 124:126 131:137 132:137 145:177
+immich/web/src/routes/admin/library-management/(list)/new/+page.svelte	1:30 32:44 40:43
+immich/web/src/routes/admin/library-management/[id]/+layout.svelte	1:53 59:121 63:120 64:118 66:70 72:98 73:97 74:79 80:96 81:96 82:95 83:94 85:93 86:88 89:92 100:117 101:116 102:115 103:114 105:113 106:108 109:112
+immich/web/src/routes/admin/library-management/[id]/edit/+page.svelte	1:29 31:35 32:34
+immich/web/src/routes/admin/maintenance/+page.svelte	1:108 112:191 113:190 114:176 115:139 117:127 128:138 141:175 142:174 143:173 148:172 149:171 150:169 151:159 160:168 178:189 181:188
+immich/web/src/routes/admin/maintenance/integrity-report/[type]/+page.svelte	1:65 69:99 77:98 78:97 79:96 80:83 85:89 86:88 91:95 92:94
+immich/web/src/routes/admin/queues/+page.svelte	1:34 40:46 41:45 42:44
+immich/web/src/routes/admin/queues/QueueCard.svelte	1:44 46:182 47:121 48:52 50:51 53:120 54:82 55:58 59:66 67:81 68:75 69:74 76:80 77:79 84:86 88:93 90:92 95:119 96:106 103:105 108:118 114:116 122:181 123:132 124:131 134:154 135:140 136:139 141:153 143:147 148:152 149:152 156:173 157:162 158:161 163:168 164:167 169:172 175:180 176:179
+immich/web/src/routes/admin/queues/QueueCardBadge.svelte	1:21 23:25
+immich/web/src/routes/admin/queues/QueueCardButton.svelte	1:3 5:32 34:36
+immich/web/src/routes/admin/queues/QueuePanel.svelte	1:125 127:134 128:133 130:132
+immich/web/src/routes/admin/queues/QueueStorageMigrationDescription.svelte	1:6 8:17 12:16 13:15
+immich/web/src/routes/admin/queues/[name]/+page.svelte	1:36 38:77 42:76 43:75 44:51 46:50 47:49 54:60 57:59 62:74 63:73 64:69 65:68 70:72
+immich/web/src/routes/admin/queues/[name]/QueueGraph.svelte	1:161 163:167 164:166
+immich/web/src/routes/admin/server-status/+page.svelte	1:33 35:39 36:38
+immich/web/src/routes/admin/server-status/ServerStatisticsPanel.svelte	1:56 58:62 64:189 65:133 68:72 74:132 75:131 76:91 77:80 82:90 83:89 85:86 87:88 92:107 93:96 98:106 99:105 101:102 103:104 108:130 109:112 114:129 115:128 117:125 119:121 123:125 126:127 135:188 137:187 138:143 144:186 145:185 146:184 148:183 150:182 151:182 152:154 155:160 156:159 161:179 163:165 166:178 167:177 175:176 180:181 191:238
+immich/web/src/routes/admin/system-settings/+page.svelte	1:213 217:231 218:230 219:221 222:224 225:229 226:228
+immich/web/src/routes/admin/system-settings/AuthSettings.svelte	1:63 65:322 66:321 67:320 68:319 69:300 74:299 75:81 76:80 77:79 83:87 89:298 92:97 94:96 99:106 108:115 117:124 126:138 127:137 140:147 149:156 158:165 167:175 177:185 187:195 197:203 205:213 215:223 225:233 235:243 245:252 254:262 264:269 271:276 278:286 288:297 289:296 302:316 307:315 308:314 309:313
+immich/web/src/routes/admin/system-settings/BackupSettings.svelte	1:24 26:79 27:78 28:77 29:76 30:34 36:42 44:64 52:63 53:62 54:61 55:60 56:59 66:73
+immich/web/src/routes/admin/system-settings/FFmpegSettings.svelte	1:31 33:453 34:452 35:451 36:446 37:50 39:49 40:48 41:47 43:44 45:46 52:141 57:140 58:84 86:103 105:122 124:139 143:284 148:283 149:163 166:182 184:199 201:209 211:229 231:238 240:247 249:274 276:282 286:358 291:357 292:318 320:326 328:339 341:347 349:356 360:393 365:392 366:373 375:382 384:391 395:445 400:444 401:407 409:424 426:443 448:450
+immich/web/src/routes/admin/system-settings/ImageSettings.svelte	1:18 20:224 21:223 22:222 23:217 24:81 29:45 47:62 64:71 73:80 83:139 88:104 106:120 122:129 131:138 141:194 146:153 157:173 175:182 184:193 196:205 197:204 207:216 208:215 219:221
+immich/web/src/routes/admin/system-settings/IntegrityChecksSettings.svelte	1:17 19:167 20:166 21:165 22:164 23:60 28:59 29:33 35:58 44:57 45:56 46:55 47:54 48:53 62:99 67:98 68:72 74:97 83:96 84:95 85:94 86:93 87:92 101:161 106:160 107:111 113:136 122:135 123:134 124:133 125:132 126:131 138:146 148:159
+immich/web/src/routes/admin/system-settings/JobSettings.svelte	1:54 56:89 57:88 58:87 59:82 60:81 61:80 62:70 71:79 72:79 84:86
+immich/web/src/routes/admin/system-settings/LibrarySettings.svelte	1:25 27:94 28:93 29:92 30:91 31:43 36:42 37:41 45:88 50:87 51:55 57:63 65:86 73:85 74:84 75:83 76:82 77:81
+immich/web/src/routes/admin/system-settings/LoggingSettings.svelte	1:14 16:46 17:45 18:44 19:43 20:24 25:40
+immich/web/src/routes/admin/system-settings/MachineLearningSettings.svelte	1:20 22:331 23:330 24:329 25:70 26:31 35:58 36:57 37:56 46:55 47:54 48:53 60:69 61:68 72:110 77:109 78:82 86:96 98:108 112:146 117:145 118:123 127:144 135:143 136:142 137:141 138:140 148:176 153:175 154:159 163:174 178:255 183:254 184:189 193:209 211:224 226:239 241:253 257:327 262:326 263:268 272:289 291:302 304:315 317:325
+immich/web/src/routes/admin/system-settings/MapSettings.svelte	1:17 19:76 20:75 21:74 22:73 23:51 24:50 25:30 34:41 42:49 53:70 54:62 55:61 56:60 57:59 63:69 64:68
+immich/web/src/routes/admin/system-settings/MetadataSettings.svelte	1:11 13:28 14:27 15:26 16:23 17:22
+immich/web/src/routes/admin/system-settings/NewVersionCheckSettings.svelte	1:14 16:44 17:43 18:42 19:41 20:25 26:39
+immich/web/src/routes/admin/system-settings/NightlyTasksSettings.svelte	1:14 16:64 17:63 18:62 19:59 20:28 29:34 35:40 41:46 47:52 53:58
+immich/web/src/routes/admin/system-settings/NotificationSettings.svelte	1:61 63:166 64:162 65:161 66:160 67:159 68:158 69:73 77:85 87:95 97:105 107:115 117:122 124:129 133:141 143:157 144:156 151:155 153:154
+immich/web/src/routes/admin/system-settings/ServerSettings.svelte	1:14 16:49 17:48 18:47 19:46 20:26 28:34 36:41 43:45
+immich/web/src/routes/admin/system-settings/SettingCheckboxes.svelte	1:32 34:69 35:48 36:38 40:47 41:46 50:54 51:53 55:68 56:67 57:66 58:64
+immich/web/src/routes/admin/system-settings/SettingSelect.svelte	1:39 41:84 42:53 45:52 46:51 55:59 56:58 61:83 62:69 70:82 79:81
+immich/web/src/routes/admin/system-settings/SettingTextarea.svelte	1:30 32:67 33:47 35:37 39:46 40:45 49:55 50:52 53:54 57:66
+immich/web/src/routes/admin/system-settings/TemplateSettings.svelte	1:61 63:106 64:105 65:104 66:103 71:102 72:76 73:75 78:80 82:101 83:89 90:100 91:99
+immich/web/src/routes/admin/system-settings/ThemeSettings.svelte	1:12 14:30 15:29 16:28 17:27 18:24
+immich/web/src/routes/admin/system-settings/TrashSettings.svelte	1:14 16:42 17:41 18:40 19:39 20:24 28:36
+immich/web/src/routes/admin/system-settings/UserSettings.svelte	1:14 16:35 17:34 18:33 19:28 20:27 30:32
+immich/web/src/routes/admin/users/(list)/+layout.svelte	1:63 65:71 75:110 76:109 77:106 78:82 84:105 85:104 86:103 87:89 91:99 92:98 93:97 95:96 100:102
+immich/web/src/routes/admin/users/(list)/new/+page.svelte	1:62 64:108 65:67 69:107 70:72 74:78 75:77 80:82 84:87 89:91 93:95 97:102 99:101 104:106
+immich/web/src/routes/admin/users/[id]/+layout.svelte	1:90 92:97 101:237 105:236 106:235 107:109 111:232 112:122 113:116 117:121 118:120 123:141 124:140 125:129 130:134 135:139 143:166 144:165 145:148 149:152 153:156 157:160 161:164 168:180 169:179 182:204 183:203 184:197 198:202 199:202 206:214 207:213 208:212 216:230 217:220 221:229 223:228 224:228
+immich/web/src/routes/admin/users/[id]/FeatureSetting.svelte	1:11 13:16
+immich/web/src/routes/admin/users/[id]/edit/+page.svelte	1:56 58:90 59:61 63:65 67:72 69:71 74:76 78:83 80:82 85:89 86:88
+immich/web/src/routes/auth/change-password/+page.svelte	1:30 32:54 33:53 34:39 35:38 41:43 45:48 50:52
+immich/web/src/routes/auth/login/+page.svelte	1:127 129:187 130:186 131:136 132:135 138:154 139:153 140:142 144:146 148:150 156:181 157:166 158:165 160:164 167:169 170:180 183:185
+immich/web/src/routes/auth/logout/+page.svelte	1:6 8:12 9:11
+immich/web/src/routes/auth/onboarding/+page.svelte	1:161 163:184 164:183 165:170 166:169 171:182 172:181
+immich/web/src/routes/auth/onboarding/OnboardingBackup.svelte	1:12 14:56 15:55 16:27 18:26 19:25 20:24 21:23 29:44 32:43 33:42 34:41 35:37 38:40 46:54 47:53 48:52 49:51
+immich/web/src/routes/auth/onboarding/OnboardingCard.svelte	1:30 32:83 37:48 38:47 39:41 42:46 43:45 51:82 52:66 53:65 54:64 68:81 69:80 77:79
+immich/web/src/routes/auth/onboarding/OnboardingHello.svelte	1:11 13:23 15:17 18:22
+immich/web/src/routes/auth/onboarding/OnboardingLanguage.svelte	1:4 6:12 7:9
+immich/web/src/routes/auth/onboarding/OnboardingMobileApp.svelte	1:7 11:31 12:20 22:30
+immich/web/src/routes/auth/onboarding/OnboardingServerPrivacy.svelte	1:13 15:30 16:18 20:24 25:29
+immich/web/src/routes/auth/onboarding/OnboardingStorageTemplate.svelte	1:9 11:17 19:27 20:22 24:26
+immich/web/src/routes/auth/onboarding/OnboardingTheme.svelte	1:5 7:34 10:33 11:20 16:19 21:32 26:31
+immich/web/src/routes/auth/onboarding/OnboardingUserPrivacy.svelte	1:19 21:27 22:24
+immich/web/src/routes/auth/pin-prompt/+page.svelte	1:39 41:73 42:72 43:71 44:66 45:53 46:48 49:52 50:52 58:65 59:61 62:64 68:70
+immich/web/src/routes/auth/register/+page.svelte	1:49 51:81 52:80 53:55 57:59 61:63 65:67 69:71 73:75 77:79
+immich/web/src/routes/maintenance/+page.svelte	1:39 41:95 45:94 46:93 48:67 49:51 53:66 55:57 58:60 61:63 64:66 68:69 70:92 72:82 73:81 74:80 75:79 76:78 83:92 84:90
+immich/web/src/routes/maintenance/MaintenanceRestoreFlow.svelte	1:13 15:19 17:18
+immich/web/src/routes/maintenance/RestoreFlowDetectInstall.svelte	1:31 35:92 36:91 37:90 38:43 39:42 44:82 45:81 46:80 47:50 51:79 52:67 53:66 60:65 68:78 69:71 72:74 75:77 85:89 86:89 94:97
+immich/web/src/routes/maintenance/RestoreFlowSelectBackup.svelte	1:14 17:19 20:23
+immich/web/src/test-data/mocks/UserPageLayout.mock.svelte	1:8 10:13

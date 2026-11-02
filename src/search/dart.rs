@@ -81,7 +81,9 @@ pub fn dart_patterns(word: &str) -> Vec<String> {
 pub fn dart_bare_constructor(class: &str, word: &str) -> String {
     let c = regex::escape(class);
     let w = regex::escape(word);
-    format!(r"^\s+{ANNOTATIONS}{c}\.{w}\s*\(\s*\)\s*;")
+    format!(
+        r"^\s+{ANNOTATIONS}{c}\.{w}\s*\(\s*(?:\)\s*;|[A-Za-z_$][\w$]*\s*(?:,\s*[\[{{]|\)\s*(?::|\{{|$)))"
+    )
 }
 
 pub fn dart_declares<S: AsRef<str>>(lines: &[S], line1: usize, line_text: &str) -> bool {
@@ -862,10 +864,13 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
         r"(?:^|[(,{{\[\s])(?:(?:final|late|required|covariant|const)\s+)*(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)(?:<[^()]*>)?\??\s+{w}\s*(?:[,)=;}}\]]|$)"
     ));
     let assigned = rule(format!(r"(?:final|var|const|late)\s+{w}\s*=\s*{DART_NEW}"));
+    let listed = rule(format!(
+        r"(?:final|var|const|late)\s+{w}\s*=\s*(?:const\s+)?<[\w$.,?\s<>]*>\s*\["
+    ));
     let closure = rule(format!(
         r"[(,]\s*{w}\s*(?:,[^()]*)?\)\s*(?:async\s*)?(?:=>|\{{)"
     ));
-    if [&declared, &assigned, &closure]
+    if [&declared, &assigned, &listed, &closure]
         .iter()
         .map(|r| r.find_iter(line).count())
         .sum::<usize>()
@@ -880,7 +885,10 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
             constructor: None,
         });
     }
-    let c = assigned.captures(line)?;
+    let (c, list) = match assigned.captures(line) {
+        Some(c) => (c, false),
+        None => (listed.captures(line)?, true),
+    };
     let open = c.get(0)?.end() - 1;
     let whole;
     let s = if close_of(Kind::Dart, line, open).is_some() {
@@ -889,7 +897,16 @@ pub fn dart_typed(line: &str, rest: &str, name: &str) -> Option<DartType> {
         whole = format!("{line}\n{rest}");
         &whole
     };
-    let (ty, close) = dart_new(s, &c, open)?;
+    let (ty, close) = if list {
+        let ty = DartType {
+            prefix: None,
+            class: "List".to_owned(),
+            constructor: None,
+        };
+        (ty, close_of(Kind::Dart, s, open)?)
+    } else {
+        dart_new(s, &c, open)?
+    };
     s.get(close..)?.trim_start().starts_with(';').then_some(ty)
 }
 

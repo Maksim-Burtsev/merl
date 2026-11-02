@@ -1,0 +1,513 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 6011 folds in 511 files, 41 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+lem/contrib/bracket-paren-mode/bracket-paren-mode.lisp	1:3 7:9 15:17 19:37
+lem/contrib/bracket-paren-mode/lem-bracket-paren-mode.asd	1:4
+lem/contrib/calc-mode/main.lisp	5:10 14:18 20:32 34:36 38:47
+lem/contrib/calc-mode/project.lisp	2:5
+lem/contrib/fbar/lem-fbar.asd	1:4
+lem/contrib/google-translate/lem-google-translate.asd	2:8
+lem/contrib/google-translate/main.lisp	6:11
+lem/contrib/google-translate/project.lisp	2:5
+lem/contrib/migemo/lem-migemo.asd	2:6
+lem/contrib/modeline-battery/main.lisp	1:4 11:16 18:28 30:31 33:34
+lem/contrib/mouse-sgr1006/lem-mouse-sgr1006.asd	2:5
+lem/contrib/ollama/lem-ollama.asd	1:8
+lem/contrib/ollama/ollama.lisp	1:7 10:12 24:29 31:39 41:48 50:61 63:70 72:82
+lem/contrib/ollama/project.lisp	2:5
+lem/contrib/overwrite-mode/lem-overwrite-mode.asd	1:4
+lem/contrib/overwrite-mode/overwrite-mode.lisp	1:2 5:6 8:12 14:17 19:21 23:25
+lem/contrib/selection-mode/lem-selection-mode.asd	2:7
+lem/contrib/selection-mode/selection-mode.lisp	4:6 8:11 25:27 29:49 51:60 64:65 66:67 68:69 70:71 72:76 78:84 86:90 92:94
+lem/contrib/tetris/lem-tetris.asd	1:4
+lem/contrib/tetris/tetris.lisp	1:3 7:9 20:21 23:26 30:58 75:78 80:81 83:88 90:95 97:107 109:111 113:118 120:128 130:134 136:140 142:144 146:154 156:160 162:176 178:179 181:185 187:189 191:195 197:224 226:229 231:236 238:239 241:251 253:256 258:262 264:268 270:274 276:281 283:286 288:290 299:307 309:324
+lem/contrib/trailing-spaces/lem-trailing-spaces.asd	1:4
+lem/contrib/trailing-spaces/trailing-spaces.lisp	1:3 6:7 11:15 17:24 26:40 42:44 46:48
+lem/contrib/version-up/lem-version-up.asd	2:7
+lem/contrib/version-up/project.lisp	2:5
+lem/contrib/version-up/version.lisp	5:8 10:16 20:27 29:30 32:42 44:63 65:76 78:96
+lem/extensions/ansible-mode/ansible-mode.lisp	1:5 9:19 21:29 31:38
+lem/extensions/asciidoc-mode/asciidoc-mode.lisp	5:8 11:52 54:58 60:65
+lem/extensions/asm-mode/asm-mode.lisp	1:6 17:36 38:45 47:51 53:62 64:65
+lem/extensions/asm-mode/lem-asm-mode.asd	1:4
+lem/extensions/bookmark/lem-bookmark.asd	1:4
+lem/extensions/c-mode/format.lisp	1:6 9:14 16:18 20:25 27:33
+lem/extensions/c-mode/grammar.lisp	1:5 8:13 15:64
+lem/extensions/c-mode/lem-c-mode.asd	1:6
+lem/extensions/call-graph/provider.lisp	11:18 20:21 23:25 27:30 32:37 39:44 49:50 52:53 55:56 58:75 77:90 94:108 110:146
+lem/extensions/call-graph/registry.lisp	8:17 19:31 36:56 58:76 78:100 102:120
+lem/extensions/call-graph/tests/provider-test.lisp	1:2 7:14 16:17 19:21 23:30 32:33 37:39 41:43 47:50 52:55 59:63 67:71 73:79 83:88 90:94 98:103 107:109 111:112 114:116 118:119 121:129 131:147 151:155 157:162
+lem/extensions/call-graph/tests/registry-test.lisp	1:2 7:9 11:12 14:15 17:19 21:23 25:27 29:30 32:33 35:37 39:41 43:45 47:48 50:51 53:55 57:59 63:65 69:71 73:75 79:84 86:92 94:99 101:112 116:124 126:129 131:144 146:155 159:169 171:183 185:189 191:199 203:210 212:219 223:226 230:237 239:246
+lem/extensions/call-graph/tests/types-test.lisp	1:2 7:18 20:38 42:47 49:57 61:67 71:74 78:84 86:90 92:100 104:110 112:116 118:124 128:133 135:138 142:148 150:156 158:160 164:170 172:184 186:206 208:218 222:265
+lem/extensions/call-graph/types.lisp	8:9 11:32 34:43 45:54 58:60 62:65 67:70 72:74 76:83 87:95 97:99 101:105 107:187
+lem/extensions/claude-code/claude-code-sdk.lisp	3:8 11:26 28:29 31:73 75:77 79:94 96:118 121:125
+lem/extensions/clojure-mode/commands.lisp	1:22 28:29 33:38 40:44 48:52 54:67 71:77 79:87 89:94 98:107 109:118 120:127 129:135 137:146 150:161 163:174 176:186 190:205 207:212 216:224 226:231 235:246
+lem/extensions/clojure-mode/detective.lisp	1:6 22:28 30:37 39:46 48:55 57:64 66:73 75:83 87:89 91:116 120:123
+lem/extensions/clojure-mode/lem-clojure-mode.asd	1:19 21:29
+lem/extensions/clojure-mode/lsp-config.lisp	1:2 6:12
+lem/extensions/clojure-mode/repl.lisp	1:20 26:27 29:30 32:33 35:36 40:68 77:79 81:84 86:89 91:93 97:102 104:110 112:121 123:146 150:154 156:168 170:175 179:183 185:187 189:191
+lem/extensions/clojure-mode/stacktrace.lisp	1:21 27:28 30:31 33:34 36:37 39:40 42:43 47:50 66:71 73:76 80:85 87:115 119:161 163:193 197:217 219:226 230:247 249:254 256:259 261:265 267:274
+lem/extensions/clojure-mode/test-runner.lisp	1:18 24:25 27:28 30:31 33:34 42:45 52:57 59:62 66:77 81:106 108:118 120:129 131:148 150:210 214:241 243:269 271:294 296:316 318:321 323:326
+lem/extensions/clojure-mode/tests/main.lisp	1:5 8:13 15:17 19:24 26:40 42:55 57:69 71:79 81:91
+lem/extensions/clojure-mode/tools.lisp	1:19 25:33 35:57 59:61 63:85 87:132 136:152 156:193 195:202 206:232 236:270 272:275 277:279 283:317 319:323 330:335
+lem/extensions/coalton-mode/lem-coalton-mode.asd	1:6
+lem/extensions/color-preview/color-preview.lisp	1:3 6:9 13:31 33:35 37:41 43:72 74:76
+lem/extensions/copilot/client.lisp	1:30 37:40 42:49 51:53 55:65 67:70 72:77 79:81 83:89 91:93 95:102 104:105 107:115 117:120 122:127 129:132 134:140 142:145 147:152 154:157 159:164 166:167 169:173 175:179 181:186 191:208 210:213 215:218 220:221
+lem/extensions/copilot/languages.lisp	1:4 7:10 12:15
+lem/extensions/copilot/lem-copilot.asd	1:10
+lem/extensions/copilot/sign-in.lisp	1:6 13:25 27:32 34:36 38:41 43:77
+lem/extensions/copilot/test-commands.lisp	1:5 8:14 16:21
+lem/extensions/copilot/utils.lisp	1:4 7:8 10:12
+lem/extensions/css-mode/lem-css-mode.asd	1:5
+lem/extensions/dart-mode/lem-dart-mode.asd	1:4
+lem/extensions/display-time-mode/main.lisp	1:6 9:18 20:24 26:34 36:42
+lem/extensions/dockerfile-mode/lsp-config.lisp	1:2 6:12
+lem/extensions/dockerfile-mode/tests/main.lisp	1:2 5:8 10:13 15:20
+lem/extensions/documentation-mode/documentation-mode.lisp	1:8 11:15 19:20 23:26
+lem/extensions/documentation-mode/internal.lisp	1:8 11:12 14:17 19:22 24:30 32:35 37:38 40:41 43:51 53:60 62:68 89:90 92:93 95:98 100:101 103:104 106:110 112:121 123:126 130:136 138:142 144:145 147:150 152:155 157:182 186:195 200:201 203:213 215:224 226:249 251:260 263:273 275:277
+lem/extensions/documentation-mode/lem-documentation-mode.asd	1:6
+lem/extensions/dot-mode/dot-mode.lisp	2:8 11:12 14:15 17:22 24:36 38:46 48:54
+lem/extensions/dot-mode/lem-dot-mode.asd	1:5
+lem/extensions/elisp-mode/elisp-mode.lisp	1:6 11:14 16:19 21:24 26:36 40:92 94:95 97:98 101:106 109:182 184:196 198:214 217:220 222:231 233:253
+lem/extensions/elisp-mode/lem-elisp-mode.asd	1:9
+lem/extensions/elisp-mode/run-elisp.lisp	1:4 12:17 24:30 32:37 39:41 43:44 46:50 52:67 69:76 78:82 85:95 97:109 112:113 115:118
+lem/extensions/elixir-mode/elixir-mode.lisp	1:6 10:27 29:30 32:33 36:38 41:46 49:67 69:81 83:93 95:98 101:107
+lem/extensions/elixir-mode/lem-elixir-mode.asd	2:10
+lem/extensions/elixir-mode/lsp-config.lisp	1:2 6:12
+lem/extensions/elixir-mode/run-elixir.lisp	1:4 12:17 21:27 29:34 36:38 40:41 43:47 49:64 66:73 75:78 80:81 83:86
+lem/extensions/emacs-help-mode/lem-emacs-help-mode.asd	3:9
+lem/extensions/encodings/8bit.lisp	1:2 5:43
+lem/extensions/encodings/cp932.lisp	1:3 8:17 23:55 57:64 66:71
+lem/extensions/encodings/encodings-table/lem-encodings-table.asd	1:7
+lem/extensions/encodings/encodings-table/main.lisp	1:3 6:66
+lem/extensions/encodings/euc-jp.lisp	1:2 7:16 22:69 71:82 84:89
+lem/extensions/encodings/gb2312.lisp	1:2 7:16 22:55 57:68 70:75
+lem/extensions/encodings/lem-encodings.asd	1:11
+lem/extensions/encodings/project.lisp	2:5
+lem/extensions/erlang-mode/erlang-mode.lisp	1:8 16:33 35:36 38:39 41:42 44:58 60:62 64:93 95:121 123:245 247:354 356:361 363:364 366:374 378:380 382:420 422:434 436:447 449:452 454:460 465:469
+lem/extensions/erlang-mode/lem-erlang-mode.asd	2:10
+lem/extensions/erlang-mode/lsp-config.lisp	1:2 6:8 10:11 13:18 20:26
+lem/extensions/erlang-mode/run-erlang.lisp	1:4 12:17 22:28 30:35 37:39 41:42 44:48 50:65 67:74 76:79 81:82 84:87
+lem/extensions/git-gutter/tests/git-gutter-tests.lisp	1:4 9:13 15:19 21:25 27:31 35:46 48:57 59:68 70:82 84:100 102:104 106:121 123:133 137:151 155:163 165:173 175:186 188:193 195:200 202:215 217:220 224:229 231:236 238:243 245:250 252:257 259:264 266:271 275:281 283:290 292:298 300:305 307:312 314:323 327:335 337:342 344:349 351:356 358:367 369:372 376:385 387:408
+lem/extensions/go-mode/call-graph-provider.lisp	1:21 33:39 41:48 52:68 70:87 91:92 94:95 97:98 100:117 119:132 136:157 159:172 176:201 203:215 217:238 240:264 266:306 308:334 336:349 351:362 369:371 373:386
+lem/extensions/go-mode/lem-go-mode.asd	1:5 7:10
+lem/extensions/haskell-mode/lem-haskell-mode.asd	1:4
+lem/extensions/html-mode/lem-html-mode.asd	1:8
+lem/extensions/java-mode/java-mode.lisp	1:4 11:21 24:25 27:28 30:34 36:41 43:57 59:70 72:81
+lem/extensions/js-mode/call-graph-provider.lisp	1:21 33:52 54:61 65:82 84:101 105:106 108:109 111:112 114:136 138:151 155:176 178:191 195:220 222:247 249:273 275:299 301:320 322:362 364:401 403:416 418:429 435:437 439:452
+lem/extensions/js-mode/eslint.lisp	1:3 6:12 14:24 26:43
+lem/extensions/js-mode/lem-js-mode.asd	1:8 10:13
+lem/extensions/js-mode/lsp-config.lisp	1:3 6:12
+lem/extensions/json-mode/lem-json-mode.asd	1:4
+lem/extensions/kotlin-mode/kotlin-mode.lisp	1:4 7:13 15:121 123:136 139:151 159:162 164:168 170:208 211:214
+lem/extensions/kotlin-mode/lem-kotlin-mode.asd	1:5
+lem/extensions/language-client/lem-language-client.asd	1:7
+lem/extensions/language-client/request.lisp	1:11 19:30 32:34 36:38 40:42 44:46 48:54 56:66 68:70 72:74 76:80 82:95 97:100 102:107
+lem/extensions/language-server/commands.lisp	5:6 8:9 15:18 20:26
+lem/extensions/language-server/config.lisp	3:7 9:10 12:13 15:16 18:19
+lem/extensions/language-server/controller/language-features.lisp	3:7 9:13 15:22 24:29 31:36 38:69 71:89 91:106 108:111 113:121 123:130 132:139 141:144 146:149 151:156 158:175 177:184 186:189 191:194 196:228 230:235 237:241 243:271 273:275 277:280 282:318 320:354 356:360 362:371 373:396 398:408 410:418 420:426 428:436 438:465 467:475 477:487 489:495 497:505 507:514 516:523 525:533
+lem/extensions/language-server/controller/lifecycle.lisp	3:69 71:73 95:97 99:104
+lem/extensions/language-server/controller/window.lisp	3:8 10:14 16:20
+lem/extensions/language-server/controller/workspace.lisp	3:7
+lem/extensions/language-server/eval.lisp	3:14 16:19 21:30 32:35 37:50 52:61 63:72 74:75 77:99 101:108
+lem/extensions/language-server/lem-language-server.asd	4:32 34:38
+lem/extensions/language-server/method.lisp	6:8 13:24 26:27 29:33 35:38 40:49 51:63 65:68 70:75
+lem/extensions/language-server/micros-client.lisp	1:15 20:27 29:33 37:69 71:73 75:78 80:91 93:97 99:105 107:129 131:134 136:139 141:154 156:171 173:174 176:184 186:189 191:194 196:209 211:214 216:218 220:229 231:245 247:253 255:258 260:266 268:278 280:283 285:288
+lem/extensions/language-server/server.lisp	14:20 22:29 31:37 39:41 43:44 46:47 49:53 55:58 60:65 67:68 70:71 73:74 76:81 83:84 86:87 89:90 92:94 96:97 99:100 102:103 105:107 109:110 112:113 115:116 118:119 121:122 124:125 127:130 132:133 135:136 138:146 148:152 154:157 159:160 162:166 168:169
+lem/extensions/language-server/text-document.lisp	3:4 6:7 11:15 17:19 21:26 28:31 33:37 39:57 59:67 69:76 78:84
+lem/extensions/legit/legit-clone.lisp	1:5 9:17 19:23 25:28 30:39
+lem/extensions/legit/legit-common.lisp	1:20 24:25 27:30 32:37 39:51 53:57 59:62 64:71 73:78
+lem/extensions/legit/lem-legit.asd	1:19
+lem/extensions/legit/peek-legit.lisp	19:22 46:47 49:50 54:58 67:68 70:71 73:74 76:77 81:87 89:93 95:99 101:105 107:111 113:117 119:122 124:127 129:132 134:137 139:142 144:147 149:154 156:159 161:165 167:171 173:195 197:225 227:235 237:260 262:274 276:292 294:320 322:330 333:334 336:339 341:345 347:355 357:365 367:372 375:394 396:400 402:403 405:406 408:409 411:418 420:427 429:436 438:445 452:455 457:458 460:466 468:472
+lem/extensions/legit/porcelain-fossil.lisp	1:9 14:15 18:21 23:28 30:38 40:49 51:61 63:71 73:92 94:96 99:103 106:107 109:111 113:116 118:119 121:127 129:130 132:136 138:141 143:150 152:153 155:157
+lem/extensions/lem-base16-themes/lem-base16-themes-generate.asd	1:7
+lem/extensions/lem-base16-themes/src/macros.lisp	5:76
+lem/extensions/lem-base16-themes/src/package.lisp	2:3
+lem/extensions/lem-dashboard/dashboard-items.lisp	4:11 13:19 22:27 29:31 33:45 48:52 54:57 60:66 68:74 77:82 84:86 88:100 103:113 115:120 122:147 148:170 172:181 183:188 190:214
+lem/extensions/lem-dashboard/default-dashboard.lisp	3:35 37:55 57:58 60:61 63:112
+lem/extensions/lem-dashboard/lem-dashboard.asd	1:7
+lem/extensions/lem-tutor/lem-tutor.asd	1:3
+lem/extensions/lisp-mode/apropos-mode.lisp	3:7 14:15 21:40 42:49 51:66 68:71 73:81 83:84 86:105 107:113 115:122
+lem/extensions/lisp-mode/commands/call-defun.lisp	1:4 9:13 15:19 21:48 50:75
+lem/extensions/lisp-mode/connection.lisp	1:48 51:56 60:61 63:64 70:130 132:133 135:136 138:139 141:157 159:172 174:218 220:227 229:235 237:240 249:271 277:278 280:303 305:312 314:319 321:324 326:333 337:340 342:344 349:350 352:353 359:365 367:368
+lem/extensions/lisp-mode/connections.lisp	1:5 10:11 13:14 16:18
+lem/extensions/lisp-mode/ext/autodoc.lisp	1:3 9:12 14:27 29:46 48:49
+lem/extensions/lisp-mode/ext/class-browser.lisp	1:4 7:8 10:14
+lem/extensions/lisp-mode/ext/completion.lisp	1:8 11:16 18:22 24:26 28:48 50:53 55:57 59:62
+lem/extensions/lisp-mode/ext/connection-list.lisp	1:6 11:13 15:16 18:26 28:31 33:38
+lem/extensions/lisp-mode/ext/defstruct-to-defclass.lisp	1:2 5:6
+lem/extensions/lisp-mode/ext/detective.lisp	1:3 7:12 14:22 24:25 27:28 30:31 33:34 36:42
+lem/extensions/lisp-mode/ext/eval.lisp	1:10 13:14 16:17 24:28 30:31 33:34 36:38 40:41 43:50 52:62 64:65 67:69 71:78 81:89 91:124 126:131 133:135 137:138 140:141 143:163 165:169 171:178 180:185 187:190 192:196 198:200 202:203 205:221 223:230 232:240 242:247 249:251
+lem/extensions/lisp-mode/ext/exporter.lisp	1:3 6:11 13:22 24:28 30:43 45:69 71:92
+lem/extensions/lisp-mode/ext/inspector.lisp	1:27 32:33 35:36 41:44 63:70 72:77 79:81 83:110 112:117 119:125 127:141 143:145 147:149 151:153 155:165 167:173 175:181 183:185 191:192 194:195 197:201 203:205 207:209 211:212 214:217 219:223 225:229 231:235 237:241 243:253 255:256 258:268 270:278 280:288 290:291 293:300
+lem/extensions/lisp-mode/ext/macroexpand.lisp	1:9 12:13 15:16 18:22 32:33 35:39 41:43 45:47 49:50 52:55 57:60 62:67 69:74 76:84 86:89 91:94 96:101 103:104 106:121 123:128 130:143 145:151 153:159 161:167 169:184 188:190 192:193 195:197 199:201 203:206 208:211 213:214 216:217 219:230 236:257 259:267 269:271 273:275
+lem/extensions/lisp-mode/ext/organize-imports.lisp	1:2 7:11 13:15 17:20 22:25 27:32 34:39 41:45 47:48 50:56 58:63 65:68 70:79 81:94 96:101 103:108 110:111 113:121 123:125 127:128
+lem/extensions/lisp-mode/ext/package-inferred-system.lisp	1:9 12:15 17:19 21:25 27:29 31:34 36:39 41:67 69:79 81:116 118:121 123:128 130:140 142:147
+lem/extensions/lisp-mode/ext/paren-coloring.lisp	1:15 18:22 24:25 27:28 30:31 33:34 36:37 39:40 48:94 96:98 100:102 104:106
+lem/extensions/lisp-mode/ext/self-insert-hook.lisp	1:2 5:11 13:15
+lem/extensions/lisp-mode/ext/sldb.lisp	1:51 54:55 57:58 60:61 63:64 66:67 69:70 72:73 75:76 78:79 81:82 84:85 87:90 124:127 129:131 137:146 148:179 181:187 189:199 201:208 210:223 225:231 233:241 243:283 285:290 292:300 302:308 310:318 320:338 340:344 346:354 356:358 360:362 364:370 372:379 381:384 386:394 396:400 402:409 411:419 432:444 446:449 451:457 459:463 465:468 470:474 476:477 479:480 482:483 485:489 491:493 495:498 500:506 508:516 518:521 523:528 530:536 538:539 541:549 551:552
+lem/extensions/lisp-mode/ext/test-runner.lisp	1:4 7:8 10:11 16:19 21:25 27:28 30:33 35:39 41:45 47:48 50:61 63:67 69:85 87:91 93:97
+lem/extensions/lisp-mode/ext/trace.lisp	1:10 18:19 21:42 44:46
+lem/extensions/lisp-mode/ext/utopian.lisp	1:2 7:44
+lem/extensions/lisp-mode/grammar.lisp	1:4 9:19 21:35 37:40 42:45 47:50 52:62 64:65 67:76 78:229
+lem/extensions/lisp-mode/implementation.lisp	1:5 10:12 14:15 17:18 20:21 23:27 29:33 35:40 42:44 46:48 52:56 58:66
+lem/extensions/lisp-mode/lem-lisp-mode.asd	1:62 64:68
+lem/extensions/lisp-mode/message-definitions.lisp	3:8 10:11 13:14 16:17 19:20 22:24 26:27 29:30 32:39 41:44 46:47 49:50 52:58 60:64 66:68 70:74
+lem/extensions/lisp-mode/message-dispatcher.lisp	1:5 10:11 13:21 25:27 31:37
+lem/extensions/lisp-mode/message.lisp	3:5
+lem/extensions/lisp-mode/package.lisp	1:8
+lem/extensions/lisp-mode/read-only-sources.lisp	1:4 7:11 13:14 16:18
+lem/extensions/lisp-mode/reader.lisp	1:3 6:19 21:25 27:37 39:49 51:53
+lem/extensions/lisp-mode/repl.lisp	3:4 6:7 9:11 14:23 25:40 50:52 54:62 64:72 74:84 86:96 98:104 106:119 121:122 124:125 127:128 130:131 133:137 139:147 149:153 155:156 158:164 166:170 172:179 181:189 191:197 199:201 203:208 210:213 215:226 228:231 235:249 251:258 260:265 267:270 272:280 282:293 295:302 304:309 311:315 317:328 330:332 334:338 340:348 350:352 354:358 360:362 364:367 369:383 385:386 388:395 397:398 400:415 417:465 467:475 477:499 501:502 504:516 518:521 523:527 533:536 538:544 546:554 556:563 565:577 579:582 584:594 596:604 606:612 614:616 618:622 624:627
+lem/extensions/lisp-mode/rpc.lisp	1:6 11:13 15:17 21:30 32:42
+lem/extensions/lisp-mode/ui-mode.lisp	1:10 13:16 23:25 27:32
+lem/extensions/lisp-mode/v2/lsp-config.lisp	1:5 10:21 23:24 26:27 29:30 32:33 35:41 43:48 50:52 54:61 63:65 68:69 71:74 76:87
+lem/extensions/lisp-syntax/defstruct-to-defclass.lisp	1:5 10:13 15:18 20:23 25:26 28:34 36:39 41:46 48:56 60:73 75:80 82:83 85:86 88:96 98:106 108:109 111:128 130:155 157:179 181:210 212:216 218:227 229:230 232:254 256:258 261:264 266:267 269:271 273:277 279:283 285:289 291:378 380:383
+lem/extensions/lisp-syntax/enclosing.lisp	1:5 8:10 12:15 17:23 25:26 28:31 33:36 38:62 64:75
+lem/extensions/lisp-syntax/lem-lisp-syntax.asd	1:10
+lem/extensions/lisp-syntax/lem-lisp-syntax.lisp	1:9
+lem/extensions/lisp-syntax/misc.lisp	1:7 10:29 31:32
+lem/extensions/lisp-syntax/parse-for-autodoc.lisp	1:5 10:11 13:15 17:22 24:43 45:68
+lem/extensions/lisp-syntax/syntax-table.lisp	1:5 8:25 27:42
+lem/extensions/living-canvas/buffer.lisp	1:12 17:27 31:788 792:795 799:808 812:820
+lem/extensions/living-canvas/language-detection.lisp	1:7 15:25 27:51 53:64 66:77 79:105
+lem/extensions/living-canvas/lem-living-canvas.asd	1:18 20:32
+lem/extensions/living-canvas/living-canvas.lisp	1:29 34:35 37:38 40:41 43:44 48:49 58:60 62:64 68:70 72:74 76:82 86:94 98:102 104:106 110:119 121:126 128:161 163:175 179:208 214:238 240:268 270:292 294:302 306:325 327:336 338:358 360:405 409:438 442:484 488:490
+lem/extensions/living-canvas/tests/language-detection-test.lisp	1:2 12:16 18:21 25:29 33:37 41:45 47:50 54:57 61:65 67:70 74:91 95:99
+lem/extensions/lsp-base/lem-lsp-base.asd	1:9
+lem/extensions/lsp-base/protocol-generator.lisp	1:7 10:13 19:21 23:25 27:31 33:40 42:46 48:49 51:52 55:61 63:70 72:78 80:91 93:100 102:122 124:139 141:150 152:159 161:175 177:186 188:195 197:201 203:227 229:235 237:261 263:269 271:275 277:307 309:316 318:342 344:357 359:365 367:374 376:400 402:417 419:420 422:426 428:430 432:434 436:473 475:479
+lem/extensions/lsp-base/yason-utils.lisp	1:4 7:11 13:14 16:22 24:26
+lem/extensions/lsp-mode/async-process-stream.lisp	1:4 7:16 18:19 21:29 31:33 35:38 40:42 48:51 53:54 70:71
+lem/extensions/lsp-mode/client.lisp	1:10 15:22 24:27 29:31 33:35 37:40 42:43
+lem/extensions/lsp-mode/lem-lsp-mode.asd	1:17
+lem/extensions/lua-mode/lem-lua-mode.asd	1:5
+lem/extensions/makefile-mode/lem-makefile-mode.asd	1:4
+lem/extensions/makefile-mode/makefile-mode.lisp	1:6 9:14 16:26 28:35 37:46 48:51 53:55
+lem/extensions/markdown-mode/interactive.lisp	1:4 9:13 15:16 18:22 24:31 33:40 42:46 48:58 60:71 73:76 78:83 85:88 90:94 96:103 105:107 109:111 113:116 121:125 131:135 137:142 144:149
+lem/extensions/markdown-mode/internal.lisp	1:10 20:21 23:24 26:27 29:30
+lem/extensions/markdown-mode/languages.lisp	1:3 6:11 13:15
+lem/extensions/markdown-mode/markdown-mode.lisp	3:6 9:14 16:18 20:38 42:46 48:52 54:85 87:114 116:123
+lem/extensions/markdown-mode/preview/external-browser.lisp	1:10 14:16 18:22 24:25 27:28 30:31 33:36 38:49 51:52 54:60 62:69 71:78 80:86 88:89 91:94 96:97 99:103
+lem/extensions/markdown-mode/preview/html-buffer.lisp	1:4 7:10 12:20 22:24 26:27 29:40
+lem/extensions/markdown-mode/syntax-parser.lisp	1:6 11:12 14:22 24:29 31:32 34:35 37:54 56:156 159:164 166:171
+lem/extensions/mcp-server/config.lisp	3:4 6:8 10:11 13:14 16:17
+lem/extensions/mcp-server/handlers/command.lisp	6:20 23:44 47:61 64:84
+lem/extensions/mcp-server/handlers/editing.lisp	6:33 36:69 72:109 112:126 129:152
+lem/extensions/mcp-server/lem-mcp-server.asd	1:25
+lem/extensions/mcp-server/method.lisp	6:7 9:10 12:17 19:20 22:23 25:34 36:38 40:46 48:72 74:95 98:99 101:105 107:111 113:117
+lem/extensions/mcp-server/package.lisp	1:111
+lem/extensions/mcp-server/server.lisp	6:7 9:11 14:27 29:34 37:38 40:41 43:44 46:59 61:63 65:70 73:79 81:84 86:89 92:94 96:110 112:119 121:159 161:166 168:170 172:174 176:199 201:221 223:231 233:242 245:261 263:271 274:297
+lem/extensions/mcp-server/tools.lisp	7:9 12:28 31:51
+lem/extensions/nim-mode/lem-nim-mode.asd	1:4
+lem/extensions/nim-mode/nim-mode.lisp	1:6 9:15 19:51 55:72 75:87 90:116 118:129 133:137 139:140 142:148 150:161
+lem/extensions/nix-mode/indent.lisp	1:7 10:11 15:23 25:27 31:33 35:38 40:43 45:48 50:71 73:75 77:93 95:101 103:109 111:115 117:123 125:128 130:135 137:148 150:157 159:162 164:212 216:220 222:227 229:250 252:279 281:286 288:295 297:301 303:310 312:319 321:328 330:337 339:350 352:357 359:361 363:367 369:374 376:381 383:397 399:407 409:424 426:445 447:499
+lem/extensions/ocaml-mode/lem-ocaml-mode.asd	1:4
+lem/extensions/ocaml-mode/ocaml-mode.lisp	1:4 9:17 19:24 26:36 38:42 44:45 47:52 54:71 73:84 86:92
+lem/extensions/odin-mode/lem-odin-mode.asd	1:5 7:11
+lem/extensions/odin-mode/odin-mode.lisp	1:5 10:13 15:22 24:32 34:43 45:46 48:49 51:66 70:84 90:96 98:102 106:110 112:121 123:148 152:168 170:189 191:196 198:200 204:206 208:214 216:226 228:308
+lem/extensions/odin-mode/tests/main.lisp	1:6 9:12 14:17 19:21 23:25
+lem/extensions/paredit-mode/tests/main.lisp	1:4 7:11 13:36 38:42
+lem/extensions/patch-mode/lem-patch-mode.asd	1:5
+lem/extensions/patch-mode/patch-mode.lisp	1:4 7:8 10:11 13:14 16:21 23:26 28:31
+lem/extensions/perl-mode/lem-perl-mode.asd	1:5 7:11
+lem/extensions/perl-mode/perl-mode.lisp	1:4 7:13 15:145 147:160 162:175 182:184 186:190 192:219 221:224
+lem/extensions/pixel-demo/lem-pixel-demo.asd	1:4 6:13
+lem/extensions/pixel-demo/pixel-demo.lisp	1:8 13:14 16:17 19:20 22:23 25:36 38:45 47:53 64:101 103:124 126:130 135:154 156:171 176:202 204:219 230:257 259:291 293:317
+lem/extensions/pixel-demo/tests/pixel-demo-tests.lisp	1:4 7:14 16:24 26:31 33:65
+lem/extensions/posix-shell-mode/lem-posix-shell-mode.asd	1:4
+lem/extensions/posix-shell-mode/posix-shell-mode.lisp	2:5 8:12 14:17 19:22 24:29 31:34 36:54 56:65 67:76 78:82
+lem/extensions/process/lem-process.asd	1:6
+lem/extensions/process/package.lisp	1:10
+lem/extensions/process/stream.lisp	3:7 11:20 22:23 25:26 28:30 32:36 38:48 50:51 53:55 61:62 64:66 72:73 77:80 82:87 89:90 92:93 124:125 127:128
+lem/extensions/python-mode/call-graph-provider.lisp	1:21 33:42 44:51 55:71 73:90 94:95 97:98 100:101 103:121 123:136 140:161 163:176 180:205 207:230 232:244 246:272 274:293 295:335 337:360 362:375 377:388 395:397 399:412
+lem/extensions/python-mode/lem-python-mode.asd	1:8 10:13
+lem/extensions/python-mode/lsp-config.lisp	1:3 6:12
+lem/extensions/python-mode/python-mode.lisp	1:4 7:12 14:20 23:53 55:67 69:80 83:113 115:116 118:124
+lem/extensions/review-mode/lem-review-mode.asd	1:4
+lem/extensions/ruby-mode/lem-ruby-mode.asd	1:4
+lem/extensions/ruby-mode/ruby-mode.lisp	1:6 10:17 19:20 22:23 25:26 28:29 31:32 34:35 37:38 45:46 48:49 52:55 57:62 65:88 90:102 105:115 117:120 123:129 131:133 136:138 140:172
+lem/extensions/rust-mode/lem-rust-mode.asd	1:4
+lem/extensions/scala-mode/lem-scala-mode.asd	1:4
+lem/extensions/scheme-mode/eval.lisp	6:11 13:18 20:30 32:47 49:53 55:63 65:67 69:72
+lem/extensions/scheme-mode/grammar.lisp	3:13 15:16 18:26 28:132
+lem/extensions/scheme-mode/lem-scheme-syntax.lisp	1:8
+lem/extensions/scheme-mode/package.lisp	1:42
+lem/extensions/scheme-mode/repl.lisp	3:24 26:28 31:56 58:66 68:72 74:90 92:98 100:122 124:138 140:169 174:175 177:178 180:181 183:184 189:194 198:206 208:222 224:233 235:236 238:248 250:258 260:266 268:269 271:275 277:280 282:296 298:309 313:314 316:335 340:364 366:374 376:381 383:386 388:396 398:412 414:462 464:472 474:490 492:493 495:505 507:521
+lem/extensions/scheme-mode/swank-protocol.lisp	1:38 42:49 51:59 63:65 67:69 73:82 84:94 98:161 163:170 172:179 181:227 231:233 235:242 244:250 252:255 264:286 290:302 304:310 312:317 319:322 324:335 337:344 348:359 362:390 392:396 398:408 410:421 423:425 427:430 432:434
+lem/extensions/scheme-mode/syntax-data.lisp	1:5 8:153 155:157 159:160 162:169
+lem/extensions/scheme-mode/syntax-misc.lisp	1:5 8:27 29:30
+lem/extensions/scheme-mode/syntax-parse.lisp	1:3 8:9 11:16 18:23 25:45 47:70
+lem/extensions/scheme-mode/syntax-syntax-table.lisp	1:3 6:23 25:40
+lem/extensions/skk-mode/conversion.lisp	1:32 35:40 42:52 54:111 113:120 122:133 135:157 159:176 178:198 200:220 222:243 245:252 254:261 263:277 279:297 299:305 307:311 313:320 322:324
+lem/extensions/skk-mode/display.lisp	1:21 25:26 28:29 31:32 34:35 37:38 41:44 46:48 50:52 55:56 58:59 61:67 69:74 76:110 114:119 121:124 126:147 149:153 155:168 170:179 181:189 193:199 201:233 235:238
+lem/extensions/skk-mode/romaji.lisp	1:6 9:95 97:98 100:106 108:110 112:114 116:118 120:159 161:171 173:183 185:190
+lem/extensions/skk-mode/skk-mode.lisp	1:33 37:38 40:47 51:53 56:58 61:63 66:68 71:72 75:84 88:94 96:106 108:112 116:135 137:155 157:169 171:183 185:198 200:210 212:231 233:251 253:283 285:292 294:311 313:376 378:404
+lem/extensions/skk-mode/state.lisp	1:16 19:21 23:70 72:76 78:90 92:94 96:99
+lem/extensions/skk-mode/tests/main.lisp	1:26 31:37 39:53 55:66 68:73 75:81 83:96 98:104 106:113 115:121 123:132 134:147 151:155 157:161 163:167 171:187 191:215 217:225 227:242 244:261 265:271 273:314 316:342 344:378 380:386 388:398 400:412 416:438 442:463 467:474 476:479 487:489 491:497 499:516 518:532 534:540 542:547 550:577 580:601 604:632 636:660 663:687 690:708 711:741 744:761 764:784 791:869 884:967 973:1007 1015:1127 1142:1179 1188:1231 1233:1271 1273:1323 1325:1364
+lem/extensions/sql-mode/lem-sql-mode.asd	1:4
+lem/extensions/swift-mode/swift-mode.lisp	1:4 11:25 27:35
+lem/extensions/terminal/ffi.lisp	1:2 5:11 13:14 16:17 63:65 66:67 72:75 76:79 81:94 96:117 119:120 122:125 127:130 132:133 135:136 139:141 143:144 146:149 152:163 165:169 171:176 180:184 186:187 189:190 192:193 195:196 198:199 201:202 204:205 207:208 210:211 213:214 216:217 219:220 222:223 225:226 228:229 231:232 234:235 237:238 240:241 243:244 246:247 249:250 252:255 262:266 268:270 272:282 293:309 311:314 316:321 323:329 331:336 338:341 343:346 348:351 353:356
+lem/extensions/terminal/lem-terminal.asd	1:6
+lem/extensions/terminal/terminal-mode.lisp	1:4 8:27 29:37 39:48 50:59 67:68 70:71 73:80 82:85 87:92 94:107 109:131 133:134 136:173 175:181 210:212 214:215 217:219 221:236 238:241 243:246 248:251 253:255 257:258 260:261
+lem/extensions/terminal/terminal.lisp	1:22 28:29 31:32 34:35 37:42 44:57 59:62 64:65 67:68 86:87 91:92 94:95 97:98 100:102 105:170 172:180 182:188 190:192 194:214 216:229 231:238 240:281 283:296 298:299 301:304 306:309 312:321 323:325 327:342 348:349 351:399 401:417 419:444 446:450 452:507 509:519 521:526 528:532 534:538 540:542 544:557 560:565 567:574 576:584 586:587 589:590 592:597 599:629 631:644 646:653
+lem/extensions/terraform-mode/indent.lisp	3:9 14:15 17:20 22:24 26:32 34:42 44:51 53:54 56:76 78:82 84:95 97:151 153:161 163:184
+lem/extensions/terraform-mode/terraform-mode.lisp	1:6 9:14 16:67 69:80 82:93
+lem/extensions/toml-mode/lem-toml-mode.asd	1:4 6:10
+lem/extensions/toml-mode/toml-mode.lisp	1:4 9:15 17:19 21:53 55:64 66:68 70:81
+lem/extensions/tramp/lem-tramp.asd	1:4
+lem/extensions/tramp/tramp.lisp	1:7 10:16 22:30 32:57 63:64 66:68 70:72 74:76 78:91 97:99 101:102 104:106 108:114 116:119 125:127 129:131 133:135 137:139 141:143 145:153 155:168 170:175 177:179 181:197 203:207 209:238 242:253 255:259 261:292 296:301 303:336 338:384 386:424 428:435 437:450 456:485 487:493 495:542 544:547 553:584 590:612 618:630 632:644 646:668 670:688 690:710 712:733 735:740 746:747 749:759 761:776 778:803 805:817 823:824 826:834 840:863 865:886
+lem/extensions/transient/keymap.lisp	3:15 17:37 39:43 45:48 50:64 74:92 94:110 112:116 118:123 125:127 129:133 135:141 143:147 150:151 153:169 171:174 176:177 179:180 182:184 186:210 212:248 250:296 298:380
+lem/extensions/transient/lem-transient.asd	1:7 9:12
+lem/extensions/transient/popup.lisp	3:4 6:8 10:12 14:16 18:20 22:24 26:28 30:35 37:43 45:47 49:51 53:56 58:60 62:64 66:69 71:74 77:94 96:105 107:110 112:113 115:120 122:124 126:128 130:134 136:146 148:151 153:161 164:183 185:193 195:198 200:204 206:210 212:213 215:216 218:236 238:244 246:317 319:360 362:366 368:375 377:423 425:431 433:471 473:476 478:497 499:503 505:509 511:519 521:529 531:536 538:548 551:565 567:569
+lem/extensions/transient/tests/main.lisp	1:2 6:13 15:25 27:41 43:49 51:69 71:78 80:97
+lem/extensions/transient/transient.lisp	1:24
+lem/extensions/tree-sitter/indent.lisp	1:6 11:20 24:28 30:36 38:53 55:77 79:107
+lem/extensions/tree-sitter/lem-tree-sitter.asd	1:11
+lem/extensions/tree-sitter/package.lisp	1:7 9:14 16:35
+lem/extensions/typescript-mode/lsp-config.lisp	1:2 5:11
+lem/extensions/typst-mode/lem-typst-mode.asd	1:10 12:19
+lem/extensions/typst-mode/lsp-config.lisp	1:2 5:11
+lem/extensions/typst-mode/preview/preview.lisp	1:6 15:18 21:28 30:38 41:47 49:61 63:93 95:105
+lem/extensions/typst-mode/tests/main.lisp	1:2 5:50 52:57 59:64 66:71 73:82 84:97 99:109
+lem/extensions/typst-mode/typst-mode.lisp	1:6 9:12 14:15 17:24 26:31 33:77 79:94 96:98 100:102 104:111 113:132
+lem/extensions/vi-mode/binds.lisp	1:12 222:225 226:229 230:233 234:237
+lem/extensions/vi-mode/commands/utils.lisp	1:47 52:54 56:61 63:70 72:73 75:83 85:89 93:103 105:116 118:128 130:172 174:182 184:206 208:216 218:235 237:245 248:258 260:284 286:295
+lem/extensions/vi-mode/core.lisp	1:49 56:58 60:61 72:73 75:76 80:84 86:104 106:108 113:116 119:127 129:130 132:133 137:138 140:141 143:144 146:150 152:155 157:163 165:166 168:178 180:184 186:187 189:198 200:205 207:212 214:216 218:220 225:230 232:233 237:241 243:251 257:260 264:266 270:272 274:276 278:279 281:283 285:288
+lem/extensions/vi-mode/ex-command.lisp	1:14 19:26 28:37 39:40 42:44 46:48 50:52 54:55 57:59 61:63 65:67 69:71 73:75 77:79 81:83 85:87 89:90 92:93 95:97 99:101 103:105 107:109 111:114 116:119 121:123 125:126 128:129 131:133 135:140 142:147 149:155 157:207 209:214 216:218 220:223 225:229 231:248 250:268 270:273 275:277 279:281 283:285
+lem/extensions/vi-mode/ex-core.lisp	1:20 26:27 29:30 32:33 35:42 44:45 47:48 50:59 61:62 64:65 67:68 70:73 76:80 82:85 87:89
+lem/extensions/vi-mode/jumplist.lisp	1:15 20:23 25:32 34:39 41:48 50:64 66:71 73:78 80:84 86:116 118:142 144:154 156:163 165:170 172:173 175:202 204:213 217:225 227:231 233:235 237:241 243:246
+lem/extensions/vi-mode/leader.lisp	1:6 13:14 16:17 19:20 22:25 27:30
+lem/extensions/vi-mode/modeline.lisp	1:17 22:23 25:26 28:29 31:32 34:35 37:39 41:46 48:50 52:59 61:64
+lem/extensions/vi-mode/options.lisp	1:33 36:46 56:58 60:66 68:74 76:79 81:84 86:87 89:93 95:104 106:109 111:112 114:120 122:142 144:146 148:153 155:159 161:247 249:284 286:289 291:306 308:316 318:347 351:353 355:359 361:363 365:369 371:397 399:402 404:408 410:413
+lem/extensions/vi-mode/rc-example.lisp	7:9 11:13 15:20
+lem/extensions/vi-mode/special-binds.lisp	1:19 22:23 25:26 28:29 31:32 34:35
+lem/extensions/vi-mode/states.lisp	1:35 38:39 55:58 62:63 68:73 78:83 88:92 97:101 106:109 114:117 122:123 124:127 129:134 136:139 141:147 149:154
+lem/extensions/vi-mode/tests/utils.lisp	1:42 45:51 53:60 62:76 78:85 87:120 122:168 171:178 180:212 214:242 244:253 255:263 265:268 270:278 280:295 297:306 308:319 321:323 325:333 335:338 340:341 343:345 347:349 351:359 361:371 373:382 384:388 390:397 398:406 408:413 415:416
+lem/extensions/vi-mode/text-objects.lisp	1:36 43:45 51:62 64:66 68:83 85:106 108:125 127:142 144:169 174:176 178:179 181:204 209:214 216:224 226:260 262:276 278:282 284:286 288:290 295:300 302:320 322:332 334:374 376:381 383:400 405:407 409:411 413:415 420:422 424:426 428:430 435:437 442:444 449:453 458:462 467:470 475:478 483:484 486:520 522:537 539:544 546:548 550:552 557:558 560:576 578:634 636:655 657:673 675:693 695:697 699:701 707:722 725:731
+lem/extensions/vi-mode/utils.lisp	1:8 13:28 30:61 63:68 70:74
+lem/extensions/vi-mode/visual.lisp	1:34 39:41 43:85 87:90 92:94 96:98 100:102 104:106 110:112 114:127 129:130 132:133 135:136 138:139 141:142 144:145 147:148 150:168 170:187 189:196 198:202 204:220 222:230 232:235 237:243 245:247 249:255 257:261 263:267 269:271 273:274 276:278 280:282
+lem/extensions/vi-mode/window.lisp	1:16 19:20 22:24 26:27 29:32 34:39 41:44 46:50 52:55 57:61 63:67 69:73 75:91 93:103
+lem/extensions/vi-mode/word.lisp	1:13 16:18 20:22 24:25 27:32 34:36 38:43 45:52 54:67 69:81 83:95
+lem/extensions/vue-mode/lem-vue-mode.asd	1:7
+lem/extensions/vue-mode/lsp-config.lisp	1:9 13:17 19:27
+lem/extensions/vue-mode/vue-mode.lisp	1:9 14:17 19:61 63:76 78:89
+lem/extensions/wat-mode/indent.lisp	1:7 15:17 19:21 23:53 55:58 60:62 64:96 98:113
+lem/extensions/wat-mode/lem-wat-mode.asd	1:11
+lem/extensions/wat-mode/lsp-config.lisp	1:2
+lem/extensions/wat-mode/wat-mode.lisp	1:6 11:14 16:19 21:22 24:44 46:49 53:59 61:95 99:108 110:112 114:122 124:136
+lem/extensions/xml-mode/lem-xml-mode.asd	1:5
+lem/extensions/xml-mode/xml-mode.lisp	1:7 10:15 17:23 25:26 28:36 40:47 49:53 55:59 64:65 67:70 72:77 79:80 82:85 87:125 128:129
+lem/extensions/yaml-mode/yaml-mode.lisp	1:5 10:15 17:18 20:34 36:42 44:46 48:59 61:65
+lem/extensions/zig-mode/lem-zig-mode.asd	1:5
+lem/extensions/zig-mode/lsp-config.lisp	1:4 7:13
+lem/extensions/zig-mode/zig-mode.lisp	1:5 9:10 12:18 20:121 123:136 139:152 164:166 168:172 174:210 213:216 218:233 235:244 246:252 254:263
+lem/frontends/fake-interface/fake-interface.lisp	1:5 8:23 25:31 33:39 41:42 44:45 47:48 50:51 53:54 56:57 59:70 72:73 75:76 78:80 82:84 88:89 91:92 94:95 97:98 100:101 103:104 106:107 109:110 112:118 120:123
+lem/frontends/ncurses/attribute.lisp	1:3 6:13 15:31 33:50
+lem/frontends/ncurses/cl-charms-pdcurseswin32.lisp	5:8 16:28 31:40 42:58 59:69 79:87
+lem/frontends/ncurses/clipboard.lisp	1:4 7:10 12:15 17:20 22:24 34:35 37:38 41:47 49:54 56:61 63:70 73:74 76:77 79:85 88:89 92:98 102:105 107:109 111:112
+lem/frontends/ncurses/config.lisp	1:4
+lem/frontends/ncurses/drawing-object.lisp	1:5 10:11 13:14 16:17 19:20 22:23 25:26 28:29
+lem/frontends/ncurses/key.lisp	1:6 12:14 16:19 21:23 25:26 63:65
+lem/frontends/ncurses/lem-ncurses.asd	1:20
+lem/frontends/ncurses/mainloop.lisp	1:3 6:10 12:26 28:47
+lem/frontends/ncurses/ncurses.lisp	1:4 10:14 16:17 19:20 22:23 25:26 28:29 31:32 34:35 37:38 40:56 58:59 61:62 64:65 67:68 70:71 73:74 76:77 79:80 82:83 85:86 88:90 92:98 100:101 103:104 106:107 109:110
+lem/frontends/ncurses/render.lisp	1:6 9:13 17:18 20:28 30:38 40:49 51:59 61:62 64:68 70:72 74:77 79:81 83:97 99:103
+lem/frontends/ncurses/style.lisp	1:15 18:20 24:26 28:39 41:43
+lem/frontends/ncurses/term.lisp	1:17 28:29 30:33 34:36 41:47 49:316 318:324 326:339 341:343 345:349 355:359 361:374 376:381 383:387 389:396 398:405 407:411 419:423 425:428 433:438 440:444 446:471 473:474 476:481 483:494 496:497 499:500
+lem/frontends/ncurses/view.lisp	1:23 26:27 29:40 42:44 46:47 49:54 56:63 65:72 74:101 103:108 110:113 115:131 133:147 149:191 196:200 202:203 205:232 234:269 271:284
+lem/frontends/pdcurses/lem-pdcurses.asd	1:4
+lem/frontends/sdl2/color-picker.lisp	1:3 9:12 16:35 37:47 49:56 58:61 63:84 86:92 94:95 97:98 100:107 109:115 117:122 124:146 148:170 174:184 186:196 198:202 204:264 276:284 286:308 310:312 314:317 319:321 323:326 330:332 334:339 341:347 349:350 352:354 356:358 360:362 366:368 370:381 383:386 388:389
+lem/frontends/sdl2/display.lisp	1:50 55:64 66:67 69:70 72:73 75:76 78:117 120:130 132:136 138:139 141:142 144:145 147:148 150:151 153:154 156:159 161:164 166:168 170:173 175:176 178:182 184:185 187:190 192:212 214:216 218:220 222:223 225:226 228:229 231:232 234:235 237:243 245:251 253:261 263:270 272:275 277:279 281:293 295:321 323:330 332:334 336:339 341:366 368:383 385:397 399:402 404:409
+lem/frontends/sdl2/font.lisp	1:24 31:38 40:54 56:58 60:90 92:106 108:111 113:119 121:146 148:155 159:160 162:166 168:172 174:176
+lem/frontends/sdl2/graphics.lisp	1:14 17:26 28:29 31:32 34:35 37:38 40:41 43:44 46:47 49:50 52:54 56:58 60:66 68:70 72:76 78:85 87:88 90:97 99:105 107:110 112:125 127:149 151:157 159:164 166:172 174:194
+lem/frontends/sdl2/icon.lisp	1:2 6:73 75:713 715:1214 1216:2148 2150:2312 2314:2905 2908:3210 3213:3217 3219:3259
+lem/frontends/sdl2/image-buffer.lisp	1:13 18:19 21:22 24:25 27:28 30:34 36:41 57:66 68:77 79:88 90:99 101:111 113:128 130:131 133:134 136:138 140:142 144:146 148:150 154:160 162:173 177:187
+lem/frontends/sdl2/lem-sdl2.asd	1:29 31:37 39:43
+lem/frontends/sdl2/log.lisp	1:4 7:14 16:23 25:27
+lem/frontends/sdl2/main.lisp	1:16 22:35 37:48 50:59 61:71 73:75 77:82 84:86 88:89 91:114 116:117 119:144 146:149 151:193 195:198 200:237 239:242 244:247 249:253 255:259 261:264 266:270 272:276 278:281 283:290 292:295 297:304 306:310 312:316 318:322 324:328 330:334 336:340 342:346 348:352 356:369 371:380 382:410 412:420 422:430 432:440 442:452 454:458 460:461 463:471 473:475 477:479 481:484 486:489 511:515 525:528 532:540 542:543 545:551 555:558 560:561 563:565
+lem/frontends/sdl2/mouse.lisp	1:5 10:11 13:15 17:19
+lem/frontends/sdl2/platform.lisp	1:7 17:27
+lem/frontends/sdl2/tests/drawing.lisp	1:4 31:32 34:35 37:41 43:53 55:64 66:75
+lem/frontends/sdl2/tests/font.lisp	1:3 15:18 20:21 23:24 26:41 43:59 61:74
+lem/frontends/sdl2/tree.lisp	1:2 7:23 25:27 29:39 41:44 46:47 49:64 66:72 74:90 92:104 106:116 118:122 124:128 130:136 138:149 151:197 199:219 221:240 242:244 246:260 262:265 277:280 282:285 287:288 290:293 295:298 300:301 303:304 306:307 309:312 314:317 319:325 327:330 332:340 342:346 348:352 354:358 361:364 366:382 384:392
+lem/frontends/sdl2/utils.lisp	1:4 7:12 14:20
+lem/frontends/sdl2/view.lisp	1:23 26:53 55:57 59:63 65:69 71:80 82:85 87:90 92:98 100:102 104:113 115:121 123:124 126:134 136:156
+lem/frontends/sdl2/wm.lisp	1:3 18:19
+lem/frontends/server/icon.lisp	1:2 6:73 75:713 715:1214 1216:2148 2150:2312 2314:2905 2908:3210 3213:3217 3219:3259
+lem/frontends/server/mouse.lisp	1:4 10:12 14:15
+lem/frontends/server/tabbar.lisp	6:13 16:17 19:20 22:23 25:33 35:36 43:46 48:62 64:253 255:261 263:269 271:276 278:281 289:294 298:302 304:308 310:312 314:318 320:322 327:331 333:337 339:344 346:349
+lem/frontends/server/utils.lisp	1:6 9:10 12:22 24:26 28:31
+lem/frontends/server/view.lisp	1:19 24:25 27:45 47:52 54:59 61:67 69:97
+lem/frontends/webview/browser.lisp	1:18 21:22 24:25 27:32 34:43 45:54 56:73 75:97 99:104
+lem/frontends/webview/darwin.lisp	1:4
+lem/frontends/webview/lem-webview.asd	1:8
+lem/frontends/webview/main.lisp	1:9 12:13 15:18 20:22 24:37 41:43 45:60 62:66 68:85 87:101
+lem/lem-tests.asd	1:88
+lem/lem.asd	17:233 235:314 316:328
+lem/scripts/build-client.lisp	3:5
+lem/scripts/build-legit.lisp	8:10
+lem/scripts/build-ncurses.lisp	5:7
+lem/scripts/build-sdl2-ncurses.lisp	6:8
+lem/scripts/build-server.lisp	5:7
+lem/scripts/build-terminal.lisp	18:20 22:23 25:34 36:41 43:50 52:62 69:75 77:83 85:97 99:119
+lem/scripts/build-webview-ncurses.lisp	6:8
+lem/scripts/win-deploy.lisp	15:19 23:28
+lem/specs/001-multi-language-canvas/contracts/provider-interface.lisp	15:39 45:71 77:94 96:122 124:164 170:194 196:214 216:238 244:267 269:278 280:295 297:306 312:318 320:386 392:399 401:407 409:414
+lem/src/buffer/buffer-list-manager.lisp	1:6 11:15 19:20 22:26 28:29
+lem/src/buffer/encodings.lisp	3:6 8:11 15:21 23:28 30:31 33:38 42:85 87:88 89:90 91:92
+lem/src/buffer/indent.lisp	7:9 11:44 46:50 52:56 58:62 64:66 68:72
+lem/src/buffer/internal/basic.lisp	3:7 9:12 14:17 19:21 23:26 28:30 32:34 36:42 44:51 53:56 58:62 64:66 68:70 72:100 103:122 124:133 135:144 146:148 150:159 161:176 178:191 193:207 209:221 223:226 228:243 245:254 256:261 264:267 269:272 274:291 293:298 300:309 311:320 322:329 331:336 338:348 350:352 354:359 361:380 382:387 389:398 400:410 412:423 425:442 444:448 450:462 464:473 475:482 484:491 493:500 502:504
+lem/src/buffer/internal/buffer-insert.lisp	3:4 6:7 12:20 22:29 31:32 34:37 39:97 99:119 121:150 153:156 158:161 163:166 168:175 177:184 186:200 202:220
+lem/src/buffer/internal/buffer.lisp	5:94 96:97 98:99 101:102 104:105 107:108 111:112 113:114 115:116 120:121 123:128 130:133 135:138 140:141 143:144 146:148 150:177 179:181 183:185 187:191 193:198 200:203 205:206 208:210 212:215 217:219 221:224 226:231 233:235 237:241 243:246 248:250 252:258 260:265 267:275 277:282 284:286 288:290 292:296 298:299 301:303 305:312 316:318 320:322 324:327 329:333 335:339 341:350 352:359 361:363 365:368 370:374 376:382 384:390 392:399 401:406 408:410
+lem/src/buffer/internal/check-corruption.lisp	5:8 10:32 34:40 42:51 53:75 77:79
+lem/src/buffer/internal/edit.lisp	3:4 6:14 16:25 27:38 40:51
+lem/src/buffer/internal/search.lisp	5:8 10:29 31:36 38:42 44:48 50:70 72:100 102:141 143:148 150:191 193:198 200:213 215:232 234:255 257:272 274:277 279:294
+lem/src/buffer/internal/syntax-parser.lisp	9:11 13:14 16:17 23:47
+lem/src/buffer/internal/syntax-scan.lisp	3:54 57:66 68:76 78:91 93:113 115:130 132:142 144:151 153:171 173:186 188:201 203:212 214:223 225:226 228:229 231:232 234:235 237:273 275:316 318:353 355:386 388:399 401:416 418:419 421:422 424:425 427:428 430:444 446:448 450:452 454:462 464:468
+lem/src/buffer/internal/tmlanguage.lisp	3:9 11:15 17:39 41:53 57:60 62:65 67:70 72:73 75:80 82:97 99:106 108:109 111:112 114:115 117:118 120:121 123:124 126:127 129:130 132:137 139:143 153:163 165:175 177:202 204:218 220:225 227:240 242:246 248:264 266:277 279:282 284:286 288:346 348:364 366:371 373:384 386:392 394:419 421:431 433:439 441:447
+lem/src/buffer/internal/undo.lisp	8:9 11:13 15:17 19:22 24:29 31:32 34:36 38:40 42:45 47:53 55:56 58:59 61:70 72:79 81:93 95:101 103:114 116:122
+lem/src/buffer/internal/var.lisp	3:6 8:12 14:19 21:31 33:38 40:46 48:50 52:54
+lem/src/buffer/line.lisp	1:40 43:45 47:79 81:85 87:96 98:99 101:111 113:114 116:119 121:122 124:137 139:150 152:157 159:176 178:188 190:192 194:213 215:225 227:244 246:265 267:275 277:288 290:292 294:296 298:304 306:307 309:314 316:324 326:336 338:362 364:390 392:399 401:405 407:413 415:420 422:427 429:437
+lem/src/buffer/package.lisp	1:2 15:290 292:304 306:321 323:343 345:350
+lem/src/clipboard.lisp	3:5 7:15 23:28 30:32 34:36 38:45 47:49 51:53
+lem/src/color-theme.lisp	3:5 9:10 12:13 17:19 23:25 27:28 30:47 49:55 57:60 62:87 89:115 117:118 120:122 124:126 128:131 133:140 142:143
+lem/src/command-advices.lisp	8:17 19:20 22:25 27:30 32:36
+lem/src/command-line-arguments.lisp	3:12 14:15 19:28 30:31 33:34 36:82 84:101
+lem/src/commands/buffer.lisp	1:9 17:19 21:27 29:31 33:35
+lem/src/commands/edit.lisp	1:42 77:78 84:88 90:95 97:100 102:104 106:108 110:114 116:122 125:133 135:138 140:146 148:153 155:160 162:166 168:170 172:178 180:182 184:196 198:201 203:233 235:245 247:255 257:262 264:266 268:279 281:292 294:299 301:303 305:317 319:323 325:330 332:347 349:354 356:360 362:380 382:397 399:404 406:411 413:423 425:427 429:431 433:452 454:462 464:469 471:476 478:483 485:486 488:492 494:498 500:504 506:510
+lem/src/commands/font.lisp	1:6 12:14 16:18 20:22 24:25
+lem/src/commands/frame.lisp	1:5 8:10 12:14 16:18
+lem/src/commands/mark.lisp	1:7 15:21 23:29 31:36 38:41 43:46
+lem/src/commands/move.lisp	1:23 50:53 55:58 63:73 75:98 100:107 109:115 117:121 123:130 132:138 140:144 146:152 154:164 166:176 178:194 196:201 203:208 210:212 214:216 218:222 224:227 229:232 234:237 239:253 255:257 259:263 265:267 269:275 277:283 285:293 295:297 299:306
+lem/src/commands/multiple-cursors.lisp	1:5 10:18 20:26 28:29 33:36
+lem/src/commands/process.lisp	1:6 12:43 45:57
+lem/src/commands/project.lisp	1:20 31:40 42:53 55:56 57:58 60:62 64:66 68:72 74:81 83:85 87:90 92:103 107:137 139:154 156:161 163:169 173:180 182:187 189:194 196:198 200:221 223:233 239:246 248:258 260:266 268:271 273:275 277:279 281:287 289:297 299:309
+lem/src/commands/s-expression.lisp	1:15 30:39 41:43 45:47 49:51 53:55 57:60 62:70 72:79 81:102 104:118 120:123
+lem/src/commands/sprof.lisp	1:3 6:11 13:20 22:28 30:40 42:68
+lem/src/commands/window.lisp	1:33 64:67 69:94 96:102 104:112 114:118 120:125 127:132 134:138 140:144 146:156 158:159 161:167 169:172 174:177 179:182 184:187 189:212 214:220 222:225 227:233 235:241 243:249 251:257 259:260 262:274 276:286 294:316 318:320
+lem/src/commands/word.lisp	1:19 41:59 61:82 84:86 88:90 92:104 106:109 111:123 125:129 131:135 137:139 141:143 145:160 162:164 166:168 170:172 174:185 187:189 191:198 200:206 208:214 216:232 234:239 241:246
+lem/src/common/character/eastasian.lisp	1:3 6:53 55:60 62:63
+lem/src/common/character/package.lisp	1:4
+lem/src/common/color.lisp	1:16 28:782 787:800 803:806 808:809 811:815 819:822 824:834 836:840 842:860 862:870 872:891 893:912 914:918
+lem/src/common/command.lisp	1:18 21:26 28:30 32:33 35:36 38:40 42:46 51:52 54:57 59:60 62:64 66:67 69:70 72:73 75:76
+lem/src/common/history.lisp	1:16 19:24 26:28 30:33 35:44 46:53 55:58 60:99 101:106 108:112 114:119 121:135 137:143 145:151 153:163 165:175 177:184 186:189
+lem/src/common/hooks.lisp	1:5 10:12 14:23 25:26
+lem/src/common/killring.lisp	1:12 21:23 30:33 35:36 38:39 41:57 59:65 67:69 71:73 75:76 78:85 89:90 92:93 95:96 98:99 101:102
+lem/src/common/ring.lisp	1:12 15:20 22:31 33:39 41:42 44:50 52:59 61:62 64:77 79:84 86:92
+lem/src/common/socket.lisp	1:7 13:29 31:35 37:38 40:41
+lem/src/common/utils.lisp	1:7 10:21 23:24 26:27 29:34 36:56 58:63
+lem/src/common/var.lisp	1:15 20:24 26:31 33:48 50:51 53:56 58:61 62:65 67:69 71:79 81:86 88:96 98:103 105:107 109:111 115:120 122:123
+lem/src/completion.lisp	5:12 14:18 20:28 30:51 53:62 64:68 70:84 86:90 92:93 95:118 120:135
+lem/src/config.lisp	6:11 13:14 16:17 19:20 22:24 26:31 33:55 57:61 63:65 67:83
+lem/src/cursors.lisp	3:9 11:13 15:18 20:36 38:41 43:46 48:53 55:56 58:59 61:63 65:66 68:69 71:72 74:75 77:78 80:81 83:84 86:91 93:103 105:107 109:112 114:125 127:130
+lem/src/defcommand.lisp	5:95 97:106 108:111 113:190
+lem/src/display/char-type.lisp	3:4 6:10 12:16 18:22 24:25 27:28 30:33 35:58
+lem/src/display/logical-line.lisp	5:10 12:19 21:28 30:53 55:86 88:105 107:119 121:126 128:134 136:146 148:150 152:154 156:159 161:163 165:171 174:201 203:212 214:231 233:421 423:425 427:429 431:433 435:436 438:441 443:444 446:447 449:450 452:453 455:456 458:459 461:462 464:465 467:480 482:503 505:546 548:570 572:578 582:588 590:596 598:612 614:626 628:629
+lem/src/echo.lisp	8:21 23:33 35:45 47:49
+lem/src/errors.lisp	5:13 15:17 19:25 27:29 31:33 35:37
+lem/src/event-queue.lisp	5:6 8:9 11:14 16:32
+lem/src/ext/abbrev.lisp	1:6 9:13 15:27 29:33 35:45 47:53 55:66 69:80 87:107
+lem/src/ext/auto-save.lisp	1:7 16:20 22:23 25:35 37:40 42:49 51:63 65:69 71:72
+lem/src/ext/button.lisp	1:15 18:22 24:25 27:28 30:32 36:43 45:46 48:51 53:73 75:79 81:82 84:92 94:98 100:107 109:111 113:125
+lem/src/ext/context-menu.lisp	1:10 13:20 22:26 28:30 32:34 36:42 44:48 50:54 56:57 59:61 63:67 69:74 76:88
+lem/src/ext/deepl.lisp	1:2 5:8 10:22 24:27 29:39 41:48 50:63
+lem/src/ext/detective.lisp	1:69 73:79 81:84 86:92 94:100 102:104 106:108 110:113 119:148 150:151 153:154 156:157 159:160 162:163 165:166 168:169 171:172 176:205 209:218 222:224 226:227 231:234 236:237 239:253 255:268 270:277 279:286 288:291 293:296 298:302 304:308 310:314 316:320 322:326 328:333
+lem/src/ext/directory-mode/file.lisp	1:10 19:33 35:47 49:61 63:73 75:79 81:86 88:94 96:103 105:108 110:113 115:116 118:119 122:136
+lem/src/ext/directory-mode/internal.lisp	1:35 42:43 46:49 51:52 54:58 60:62 64:65 67:68 70:72 74:85 87:92 94:101 103:104 106:109 111:113 115:117 119:121 123:126 128:131 133:135 137:139 141:146 148:157 159:171 173:184 186:192 194:205 207:210 212:214 216:229 231:240 242:256 258:264 266:277 279:282 284:288 290:303
+lem/src/ext/directory-mode/mode.lisp	1:4 11:14
+lem/src/ext/extension-commands.lisp	1:6 10:16 18:24 26:30 32:48 51:67
+lem/src/ext/filer.lisp	1:21 24:26 28:29 31:32 34:41 47:51 53:55 59:65 67:73 75:78 80:81 83:85 87:96 98:101 103:111 113:114 116:117 119:123 125:142 144:145 147:149 151:162 164:172 174:175 177:185 187:193 195:201 203:208 210:215 217:222 224:231 233:238 240:252 254:256 258:260 262:266 268:286 288:300 304:307 309:312 314:320 322:328 330:339 341:342 344:364
+lem/src/ext/frame-multiplexer.lisp	1:31 40:41 43:44 46:47 49:53 55:57 79:82 84:86 88:104 106:112 114:117 119:121 123:148 150:162 164:181 183:184 186:188 190:192 194:195 197:207 209:215 217:220 222:227 229:238 240:249 251:253 255:256 258:265 267:292 294:298 300:310 312:318 320:321 323:327 329:331 333:339 343:345 347:366 368:379 381:396 398:414 416:427 429:440 442:455 457:470 472:492 494:505 507:509 511:513
+lem/src/ext/go-back.lisp	1:10 15:17 25:28 30:34 36:54 56:82 84:100 102:105 107:108 110:111 113:116
+lem/src/ext/grep.lisp	1:11 22:45 47:61 63:74 76:78 80:82 84:91 93:107 109:136 138:144 146:156 158:184 186:187 188:190
+lem/src/ext/gtags.lisp	1:7 10:22 26:27 29:36 38:42 49:54 56:62 64:72 74:76 78:81 83:87 89:95 97:103 105:126 128:132
+lem/src/ext/interactive-mode.lisp	1:13 24:36 38:41 43:54 56:57 60:66 68:69 71:75 77:78 80:81 84:86 88:89 91:94 98:99 101:109 111:115 117:136 138:147 150:176
+lem/src/ext/language-mode-tools.lisp	1:7 10:15 17:18 20:23
+lem/src/ext/line-numbers.lisp	1:11 14:15 21:24 26:29 31:32 34:35 37:39 41:44 46:53 55:56 58:67 69:72 74:84 86:92
+lem/src/ext/link.lisp	1:5 8:9 11:17 19:30 32:35 37:41 43:45 47:49 51:79 81:95 97:107 109:119 121:123 125:126 128:145 149:158 160:164 166:170 173:184 186:187 189:191 193:197 201:207 209:210 212:214 216:217
+lem/src/ext/list-buffers.lisp	1:12 17:19 21:25 27:33 35:63
+lem/src/ext/loading-spinner.lisp	1:9 14:15 17:27 31:32 34:35 37:40 42:44 46:48 50:53 55:60 62:65 70:72 74:89 91:96 98:100 102:105 107:111 113:135 137:141 143:149 151:154
+lem/src/ext/multi-column-list.lisp	1:13 16:17 19:21 40:46 48:55 57:58 60:61 63:64 66:67 69:70 72:73 75:77 79:81 83:84 86:87 95:97 99:101 103:106 108:111 113:114 116:117 119:120 122:123 125:155 157:161 163:169 171:173 175:177 179:181 183:186 188:192 194:198 200:208 210:216 218:240 242:265 267:279 281:282 284:285 287:288 290:292 294:295 297:323 325:330 332:348 350:359 361:364 366:368 370:372 374:379 381:384 386:387 389:399 401:408
+lem/src/ext/peek-source.lisp	1:16 19:20 22:23 25:26 30:34 40:43 57:58 60:61 63:64 66:67 71:78 80:84 86:89 91:94 96:99 101:104 106:125 127:141 143:146 148:154 156:160 162:169 171:173 175:177 179:180 183:184 186:189 191:199 201:204 206:211 213:219 221:222 224:225 227:228 233:236 238:239 241:247 249:253
+lem/src/ext/popup-menu.lisp	1:7 10:25 27:28 31:32 34:35 37:46 48:49 51:56 58:67 69:71 73:74 76:77 79:80 82:106 110:140 142:166 168:170 172:174 176:184 186:191 193:200 202:206 208:212 214:217
+lem/src/ext/popup-message.lisp	1:4 11:17 19:50 52:54 56:63 65:67
+lem/src/ext/read-only-sources.lisp	1:4 11:12 14:15 17:22 24:27
+lem/src/ext/rectangle.lisp	1:5 11:13 15:18 27:28 30:32 34:36 38:40 42:55 57:67 69:81 83:89 91:94 96:104 106:107 109:110 112:117 119:123 125:132
+lem/src/ext/showparen.lisp	1:10 15:16 22:28 30:33 35:44 46:53 55:65 69:86 88:89
+lem/src/ext/thingatp.lisp	1:7 10:29 31:38
+lem/src/ext/tmlanguage.lisp	1:5 8:21 23:28 30:42 44:50 52:67 69:71 73:77 79:82 84:91 93:97 99:100 102:108
+lem/src/ext/universal-argument.lisp	1:22 25:28 32:34 36:40 42:49 51:52 54:55 57:59 65:69 71:73 75:83 85:87 89:93 95:101 103:106 108:112
+lem/src/external-packages.lisp	1:17 21:22
+lem/src/file.lisp	7:9 11:12 14:30 32:44 46:50 52:53 55:58 60:64 66:67 70:77 79:80 82:87 89:93 95:105 107:110 112:115 118:120
+lem/src/format.lisp	3:4 10:13 15:22 24:26 28:46 49:52
+lem/src/frame.lisp	6:7 9:79 81:84 86:87 89:90 92:93 95:98 100:101 103:104 106:108 110:118 120:121 123:124 126:127 129:130 132:135 137:138 140:142 144:148 150:157 159:162 164:166 169:171 173:175 177:179 181:183 186:190 192:195 197:204 206:211 214:218 220:233 235:249
+lem/src/html-buffer.lisp	3:8 10:12 14:15 17:20 22:26
+lem/src/input.lisp	3:18 26:30 32:38 40:49 51:52 54:73 75:83 85:94 96:106 108:115 117:130 132:136 138:142 144:148 150:170 172:242 244:246 248:251 253:260 262:268
+lem/src/interface.lisp	5:47 49:75 79:80 87:88 95:96 97:98 106:114 115:119 120:124 125:126 127:128 129:130 133:138 140:141 148:149 151:152 153:154 156:157 158:159 160:161 162:163 165:166 168:169 171:172 174:176 182:183 188:191 193:199 201:203 207:208 210:216 218:222 224:228 230:232 234:236 238:241 243:246 248:251 253:256 261:262 264:265 267:268 270:272 274:276 278:281 283:286 288:298
+lem/src/key.lisp	3:5 7:8 10:12 16:17 19:20 22:28 30:38 40:49 51:53 57:72 74:79 81:87 89:90 92:96 184:185
+lem/src/killring.lisp	5:6 8:10 12:14 16:19 21:24
+lem/src/lem.lisp	10:11 13:16 19:22 24:34 36:37 39:41 43:55 57:65 67:72 74:88 90:93 98:137 139:140 142:143 154:161
+lem/src/macosx.lisp	3:12 18:25
+lem/src/macros.lisp	3:11 13:17 19:31 43:53 55:61 63:73
+lem/src/mode.lisp	10:11 13:20 22:25 27:32 34:36 38:40 44:46 48:49 51:54 56:57 59:60 62:63 65:67 69:71 73:75 77:79 81:83 85:87 89:91 93:95 97:98 100:101 103:104 106:107 109:110 112:117 119:120 122:126 128:129 131:135 138:172 175:180 182:189 191:194 196:230 233:234 236:246 248:271 274:275 279:285 287:288 290:291 293:307 309:312 315:316 318:319 321:322 324:326 328:335 337:338
+lem/src/modeline.lisp	3:6 8:15 17:18 20:21 23:24 26:27 29:30 32:33 35:36 38:39 41:42 44:45 47:48 50:51 55:59 61:66 68:71 73:80 82:86 88:94 96:106 108:115 117:136 138:141 145:146 148:151 153:154 156:180 182:191
+lem/src/mouse.lisp	3:9 11:12 14:15 17:18 20:21 29:30 32:43 45:47 49:50 52:53 55:57 59:60 62:70 72:78 80:84 88:89 93:97 99:103 105:107 109:126 128:129 131:143 145:146 148:197 199:207 209:212 216:228 230:233 235:238 240:250 252:307 309:318 321:337 339:344 346:354 357:358 360:361 363:372 375:380 382:384 386:406 408:416 419:434 437:438 440:443 445:453 455:463 466:474 476:482 484:491 493:500
+lem/src/overlay.lisp	3:31 33:39 41:42 44:46 48:55 57:66 68:81 83:90 92:100 102:111 113:114 116:117 119:120 122:123 125:128
+lem/src/region.lisp	10:12 14:16 18:26 28:30 32:33
+lem/src/save-excursion.lisp	3:14 16:18
+lem/src/streams.lisp	3:12 14:16 18:21 24:34 36:39 45:46 48:49 51:57 59:60 62:68 70:73 75:78 80:81 83:84 86:94 96:98 100:101 103:105 107:110 112:116 118:125 127:131 133:136 138:139 141:142 149:153 155:156 158:173 175:177 179:180 182:185 187:190 192:193 195:196 199:206 208:210 212:221 223:230 232:234 236:238 249:250 252:253 262:263 265:267
+lem/src/syntax-scanner.lisp	9:11 13:14 16:21 23:42 44:51 53:69 71:74 76:77 79:80 82:83 85:95 99:100 102:105
+lem/src/system-utils.lisp	3:26
+lem/src/system.lisp	5:11 13:21 23:28 30:39 43:74
+lem/src/typeout.lisp	3:7 19:65 67:69 71:88 90:92 94:96 98:112 114:119 122:125
+lem/src/ui/theme-list.lisp	3:5 9:13 15:42
+lem/src/version.lisp	3:5 7:25 27:28 30:32 34:40
+lem/src/window/floating-window.lisp	3:43 45:46 48:52 54:56 58:66 68:96 98:99 101:105 107:108 110:123 125:138 140:154
+lem/src/window/side-window.lisp	5:6 11:26 28:31 33:36 38:46 51:70 72:75 77:84 86:99 103:125 127:133 135:143
+lem/src/window/virtual-line.lisp	3:22 24:36 38:58 60:64 66:71 73:80 82:96 98:112 114:121 123:144 146:154 156:177 179:184 186:189 191:198 200:222 224:268 270:293 295:296 298:304 306:314 316:317 319:320 322:323 325:326 328:338
+lem/src/window/window-tree.lisp	3:4 6:8 10:12 14:15 17:18 20:21 23:24 26:29 31:32 34:40 42:47 49:53 55:59 61:68 70:101 103:122 124:180
+lem/src/window/window.lisp	23:25 28:29 31:127 129:133 135:136 138:139 141:142 144:146 148:169 171:180 184:191 193:196 198:205 207:209 211:215 217:221 223:224 226:229 231:232 234:235 237:238 240:241 243:244 246:258 260:261 263:268 270:271 273:282 284:285 287:294 296:299 301:310 312:322 324:329 331:351 353:361 363:372 374:400 402:404 406:435 437:468 470:474 476:488 490:498 502:518 520:521 523:524 526:548 550:553 555:560 562:600 602:620 622:623 625:629 631:632 634:638 641:665 667:673 675:680 682:688 690:695 697:718 720:726 728:733 735:741 743:748 750:756 758:765 767:781 783:787 789:793 795:799 801:805 808:818 820:828 830:831 833:834 836:837 839:842 844:845 847:848 850:851 853:859 861:862 864:866 868:870 872:874 876:877 879:880 882:915 917:922 924:939 941:965 967:987 990:993 995:998 1000:1010 1012:1020 1022:1032 1034:1042 1045:1054 1056:1060 1062:1069
+lem/src/windows.lisp	33:39 46:53
+lem/tests/attribute.lisp	1:2 5:6 8:19 21:30 32:43 45:55 57:66 68:69 71:90 92:99
+lem/tests/buffer-list-test.lisp	1:9 12:13 15:22 24:41 43:64 66:86 88:127 129:195 197:202 204:210 212:226 228:242 244:287 289:334 336:350
+lem/tests/buffer/internal.lisp	1:3 6:9 11:15 17:50 52:64 66:81 83:95 97:105 107:117 119:124 126:208 210:254
+lem/tests/clojure-mode.lisp	1:34 39:49 51:55 57:67 69:71 73:82 88:93 95:100 102:105 107:112 114:120 122:127 129:133 135:144 146:153 155:163 165:174 180:182 184:192 194:205 213:219 225:230 232:237 243:253 262:274 276:288 290:302 304:316 318:330 336:341 343:345 347:349 355:371 373:388 390:406 408:423 425:434 436:445 451:477 479:488 490:495 497:514 520:526 528:533 535:540 542:546 552:559 561:566 568:573 575:579 581:585 591:602 604:609 611:616 618:627 633:644 646:650 652:657 659:664 670:676 678:688 690:714 716:723 729:740 742:753 755:769 771:783 785:797 803:819 821:834
+lem/tests/command-line-arguments.lisp	1:3 6:20 22:128 130:136
+lem/tests/common/history.lisp	1:4 7:20 22:48
+lem/tests/common/killring.lisp	1:4 7:23 25:29 31:40 42:46 48:57 59:73 75:77
+lem/tests/common/ring.lisp	1:2 5:14 16:77 79:84 86:92 94:111
+lem/tests/completion.lisp	1:3 6:15
+lem/tests/cursors.lisp	1:10 13:18 20:38 40:44 46:72 74:76 78:79 81:82 84:113
+lem/tests/display-cache.lisp	1:2 6:17 19:53 55:73 75:92 94:130
+lem/tests/filer.lisp	1:2 6:27 30:40 43:54 57:71 74:81 84:102
+lem/tests/input.lisp	1:2 5:9 11:14 16:21 23:28 30:37 39:46 48:56 58:65 67:76 78:84 86:102 104:121
+lem/tests/interp.lisp	1:2 7:9 11:14 16:21
+lem/tests/isearch.lisp	1:10 13:19 21:25 27:39 41:88
+lem/tests/keymap.lisp	1:8 11:21 23:36
+lem/tests/killring.lisp	1:5 8:26
+lem/tests/language-server/language-features-tests.lisp	1:9 14:34 36:42 46:57 59:68 72:80 84:92 96:104 106:115 119:128 130:140 144:155 159:170 172:181
+lem/tests/language-server/micros-tests.lisp	1:4 7:10 12:22 24:27 29:30 32:37
+lem/tests/language-server/test-utils.lisp	1:18 23:36 38:48 50:59 63:74 76:78 80:84 86:89 91:94 98:104 106:109 113:130
+lem/tests/legit.lisp	1:6 15:23 25:27 29:40 42:64 66:68 72:77 79:94 96:110 114:134 136:164 168:186 188:207 211:216 218:223 225:230 232:237 239:244 246:251 253:256 258:261 265:268 270:274 276:280 282:286 288:292
+lem/tests/lisp-mode/package-inferred-system.lisp	1:3 6:44
+lem/tests/lisp-syntax/defstruct-to-defclass.lisp	1:31 34:36 38:44 46:51 53:59 61:67 69:106 108:112 114:278
+lem/tests/lisp-syntax/indent-test.lisp	1:9 12:15 17:30 32:35 38:42 44:49 51:70 72:73 75:88 90:94 101:104
+lem/tests/listener-mode.lisp	1:17 20:33 35:64 68:129
+lem/tests/lsp-mode/integration-tests.lisp	1:9 14:15 17:19 23:27 29:38 40:49 51:57 61:65 79:88 92:101 105:109
+lem/tests/lsp-mode/mock-client.lisp	1:17 20:34 36:43 45:48 50:53 55:57 59:72
+lem/tests/lsp-mode/spec-test.lisp	1:8 18:32 34:41
+lem/tests/lsp-mode/test-utils.lisp	1:18 21:44 46:54 56:63 65:83 87:95 97:100 104:106 108:110 112:117 119:124 128:130
+lem/tests/lsp-mode/tests.lisp	1:18 23:36 38:51 53:59 63:79 81:93 95:107 111:120 124:135 139:143
+lem/tests/mcp-server/display-input-tests.lisp	1:4 14:18 24:42 44:57 59:82 84:100 102:122 124:135 141:154 156:170 172:188 190:212 214:227 229:241 247:265 267:283
+lem/tests/mcp-server/edge-case-tests.lisp	1:4 14:25 27:38 40:51 53:67 73:91 97:108 110:121 123:134 140:158 164:182 188:209 215:232 238:264 270:293 295:318 324:334 340:361
+lem/tests/mcp-server/utils.lisp	1:10 19:20 22:23 25:35 37:46 48:53 55:57 59:64 66:68 70:73
+lem/tests/popup-window.lisp	1:7 10:15
+lem/tests/sample-code/defstruct-to-defclass.lisp	3:6 8:14 16:35 37:41 45:57 59:77 79:131 133:151
+lem/tests/sample-code/syntax-sample.lisp	1:3
+lem/tests/scala-mode.lisp	1:4 7:21
+lem/tests/self-insert-command.lisp	1:6 9:12 14:25
+lem/tests/string-width-utils.lisp	1:8 11:38 40:328 330:336 361:387 389:413 415:430
+lem/tests/syntax-scanner.lisp	1:3 13:14 16:17 19:20 22:23 27:32 34:42 46:56 58:76 78:96 100:105 107:117 119:137 139:154 158:213 215:247 249:267
+lem/tests/thingatp.lisp	1:2 7:28 30:48
+lem/tests/tree-sitter/main.lisp	1:5 10:16 18:20 24:27 29:33 35:38 42:50 54:58 60:62 64:66 68:72 74:110 112:147 149:196
+lem/tests/wat-mode.lisp	1:9 14:23 25:29 33:35 37:39 43:45 47:52 54:63 67:72 74:82 84:93 97:100 102:105 109:113 117:132
+lem/tests/window.lisp	1:5 8:15 17:19 21:26 28:39 41:60 62:73 77:97 99:115 117:136 138:157 159:176 178:194 196:212

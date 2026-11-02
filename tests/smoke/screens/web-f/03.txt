@@ -1,0 +1,57 @@
+wait A List.svelte
+┌orders──────────────────────┐ 1 <script>
+│▸ .github                   │ 2   let items = [];
+│▸ .venv                     │ 3 </script>
+│▸ app                       │ 4
+│▸ data                      │ 5 <ul>
+│▸ deploy                    │ 6   {#each items as item}
+│▸ docs                      │ 7     <li>{item}</li>
+│▸ scripts                   │ 8   {:else}
+│▸ tests                     │ 9     <li>No items</li>
+│▾ web                       │10     <li>Add one</li>
+│  ▸ android                 │11   {/each}
+│  ▸ src                     │12 </ul>
+│  A List.svelte             │
+│    package.json            │
+│    tsconfig.json           │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+web/List.svelte  1:1  [code]                                                                                                                                                       14:32
+cursor (x,y,shown) 33,0,0

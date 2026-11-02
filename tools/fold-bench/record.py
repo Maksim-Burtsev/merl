@@ -11,7 +11,8 @@ injections), lets treesitter fold it and, on every line where a fold starts, clo
 has a syntax error is left out. A language draws from the projects LANGS names; one with no
 project of its own (yaml, json, markdown, …) from every project of projects.tsv. FOLD_ONLY holds
 the projects of the languages the `d` bench has none for, kept out of projects.tsv because
-tools/d-bench/run reads cursors for every project there. A language's files are taken in the order of the hash of their path until FOLDS folds are recorded.
+tools/d-bench/run reads cursors for every project there. A file is matched by its extension, or by
+its whole name written `/NAME` (`/Makefile`). A language's files are taken in the order of the hash of their path until FOLDS folds are recorded.
 """
 import argparse, hashlib, os, subprocess, sys, tempfile
 
@@ -24,6 +25,11 @@ FOLD_ONLY = {
     "rbs": ["rbs", "rbs", "https://github.com/ruby/rbs.git", "c78451b753cc6de113be8d096d09418d8170e9c6", "-"],
     "ohmyzsh": ["ohmyzsh", "zsh", "https://github.com/ohmyzsh/ohmyzsh.git", "60c9a7a839b790cd905d0fd4419435124fd1bdc0", "-"],
     "oslib": ["oslib", "scala", "https://github.com/com-lihaoyi/os-lib.git", "86e5ddb65fe62305afb5885fcc0f8da50aba4b48", "-"],
+    "terraform-aws-eks": ["terraform-aws-eks", "terraform", "https://github.com/terraform-aws-modules/terraform-aws-eks.git", "91b8a8d944e3cf169483108acd12d5b1e47856f7", "-"],
+    "zls": ["zls", "zig", "https://github.com/zigtools/zls.git", "eab2be0fd74443a27662da809b771c4ad0d2afcf", "-"],
+    "buildroot": ["buildroot", "make", "https://github.com/buildroot/buildroot.git", "aa2d7ca53f704af901f6c33c13e4bb1591886700", "-"],
+    "CMake": ["CMake", "cmake", "https://github.com/Kitware/CMake.git", "11f3f34077ba6fc1a2be6fe0f1ae542ebf884675", "-"],
+    "cowboy": ["cowboy", "erlang", "https://github.com/ninenines/cowboy.git", "3a001e2fd022c41897c17e88c0e719f53456ff6e", "-"],
 }
 LANGS = {
     "go": (["caddy"], {"go": "go"}),
@@ -44,6 +50,22 @@ LANGS = {
     "zsh": (["ohmyzsh"], {"zsh": "zsh"}),
     "scala": (["oslib"], {"scala": "scala", "sc": "scala"}),
     "dart": (["immich"], {"dart": "dart"}),
+    "sql": (["lemmy"], {"sql": "sql"}),
+    "terraform": (["terraform-aws-eks"], {"tf": "terraform"}),
+    "vue": (["gitea"], {"vue": "vue"}),
+    "svelte": (["immich"], {"svelte": "svelte"}),
+    "astro": (["starlight"], {"astro": "astro"}),
+    "zig": (["zls"], {"zig": "zig"}),
+    "nix": (["nix-darwin"], {"nix": "nix"}),
+    "solidity": (["openzeppelin-contracts"], {"sol": "solidity"}),
+    "starlark": (["rules_go"], {"bzl": "starlark", "bazel": "starlark"}),
+    "erlang": (["cowboy"], {"erl": "erlang", "hrl": "erlang"}),
+    "groovy": (["nextflow", "pipeline-library"], {"groovy": "groovy", "gradle": "groovy", "/Jenkinsfile": "groovy"}),
+    "julia": (["DataFrames.jl"], {"jl": "julia"}),
+    "clojure": (["babashka"], {"clj": "clojure", "cljs": "clojure", "cljc": "clojure", "bb": "clojure"}),
+    "commonlisp": (["lem"], {"lisp": "commonlisp", "cl": "commonlisp", "lsp": "commonlisp", "asd": "commonlisp"}),
+    "racket": (["drracket"], {"rkt": "racket"}),
+    "scheme": (["chibi-scheme"], {"scm": "scheme", "ss": "scheme", "sld": "scheme"}),
     "shell": (EVERY, {"sh": "bash", "bash": "bash"}),
     "lua": (EVERY, {"lua": "lua"}),
     "yaml": (EVERY, {"yml": "yaml", "yaml": "yaml"}),
@@ -53,6 +75,8 @@ LANGS = {
     "css": (EVERY, {"css": "css", "scss": "scss"}),
     "markdown": (EVERY, {"md": "markdown"}),
     "xml": (EVERY, {"xml": "xml"}),
+    "make": (["buildroot", "redis"], {"mk": "make", "/Makefile": "make", "/makefile": "make", "/GNUmakefile": "make"}),
+    "cmake": (["CMake"], {"cmake": "cmake", "/CMakeLists.txt": "cmake"}),
 }
 
 
@@ -80,7 +104,8 @@ def files(cache, lang):
         _, _, url, commit, _ = every[name]
         d = ensure(cache, name, url, commit)
         for f in subprocess.run(["git", "-C", d, "ls-files"], capture_output=True, text=True).stdout.splitlines():
-            ext = f.rsplit(".", 1)[-1] if "." in os.path.basename(f) else ""
+            base = "/" + os.path.basename(f)
+            ext = base if base in exts else f.rsplit(".", 1)[-1] if "." in base else ""
             if ext in exts and os.path.isfile(os.path.join(d, f)):
                 out.append((f"{name}/{f}", exts[ext]))
     return sorted(out, key=lambda p: hashlib.sha1(p[0].encode()).hexdigest())

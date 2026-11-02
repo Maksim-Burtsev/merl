@@ -181,6 +181,68 @@ impl App {
                 _ => true,
             }
         });
+        let Some(mine) = tests
+            .iter()
+            .find(|t| here.strip_prefix(&self.root).unwrap_or(here).starts_with(t))
+        else {
+            return;
+        };
+        let signature = |h: &Hit| {
+            let text = self.text_of(&h.path)?;
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, &text);
+            let at = search::swift_scope(&lines, &literal, h.line1).header_line1;
+            let mut decl: Vec<&str> = vec![lines.get(at.checked_sub(1)?)?.trim()];
+            for line in lines.get(h.line1.checked_sub(1)?..)?.iter().take(20) {
+                decl.push(line.trim());
+                if line.contains('{') {
+                    return Some(decl.join("\n"));
+                }
+            }
+            None
+        };
+        let own: Vec<String> = hits
+            .iter()
+            .filter(|h| {
+                h.path
+                    .strip_prefix(&self.root)
+                    .unwrap_or(&h.path)
+                    .starts_with(mine)
+            })
+            .filter_map(signature)
+            .collect();
+        hits.retain(|h| in_tests(&h.path) || signature(h).is_none_or(|s| !own.contains(&s)));
+    }
+
+    pub(super) fn swift_uncalled(&self, word: &str, after: usize, found: &mut Vec<Candidate>) {
+        let rest = self
+            .line_str()
+            .get(after..)
+            .unwrap_or_default()
+            .trim_start();
+        let next = match rest {
+            "" => self
+                .buf
+                .lines
+                .get(self.line + 1)
+                .map_or("", |l| l.trim_start()),
+            _ => rest,
+        };
+        if next.trim_start_matches(['?', '!']).starts_with(['(', '{']) {
+            return;
+        }
+        let func = |c: &Candidate| search::swift_declares_func(&c.hit.text);
+        let owner = |c: &Candidate| {
+            self.text_of(&c.hit.path)
+                .and_then(|t| search::qualified(Kind::Swift, &t, c.hit.line1, word))
+        };
+        let properties: Vec<String> = found
+            .iter()
+            .filter(|c| func(c) == Some(false))
+            .filter_map(owner)
+            .collect();
+        found
+            .retain(|c| func(c) != Some(true) || owner(c).is_none_or(|o| !properties.contains(&o)));
     }
 
     fn swift_qualified(&self, h: &Hit, name: &str) -> String {

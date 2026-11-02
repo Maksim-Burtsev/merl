@@ -787,11 +787,40 @@ impl App {
             {
                 hits = vec![only.clone()];
             }
+            if hits.is_empty() && command != Some(true) {
+                hits = self.shell_out_args(here, word);
+            }
         }
         if kind == Kind::Sql {
             self.sql_hits(here, word, &mut hits);
         }
         hits
+    }
+
+    fn shell_out_args(&self, here: &Path, word: &str) -> Vec<Hit> {
+        let mut writes: HashMap<(String, usize), bool> = HashMap::new();
+        let mut calls = self.project_grep(Kind::Shell, here, &search::shell_out_arg_pattern(word));
+        calls.retain(|h| {
+            let Some((f, n)) = search::shell_out_arg(&h.text, word) else {
+                return false;
+            };
+            *writes.entry((f.to_owned(), n)).or_insert_with(|| {
+                let pattern = search::def_patterns(Kind::Shell, f).join("|");
+                let defs: Vec<Hit> = self
+                    .project_grep(Kind::Shell, here, &pattern)
+                    .into_iter()
+                    .filter(|d| search::shell_names_a_command(&d.text))
+                    .collect();
+                let [def] = &defs[..] else {
+                    return false;
+                };
+                self.text_of(&def.path).is_some_and(|text| {
+                    let lines: Vec<&str> = text.lines().collect();
+                    search::shell_writes_param(&lines, def.line1 - 1, n)
+                })
+            })
+        });
+        calls
     }
 
     fn sql_hits(&self, here: &Path, word: &str, hits: &mut Vec<Hit>) {

@@ -1,18 +1,21 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::search::{Kind, kind_of};
+use crate::search::{Kind, groovy, kind_of};
 
 mod c;
 mod csharp;
 mod dart;
+mod groovy;
 mod java;
 mod kotlin;
 mod objc;
 mod php;
 mod rust;
 mod scala;
+mod solidity;
 mod swift;
+mod zig;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum Lang {
@@ -30,6 +33,9 @@ pub(crate) enum Lang {
     Php,
     Dart,
     Scala,
+    Zig,
+    Solidity,
+    Groovy,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -44,6 +50,12 @@ pub(crate) const OBJC: Syntax = Syntax {
 };
 
 pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
+    if groovy(path) {
+        return Some(Syntax {
+            lang: Lang::Groovy,
+            jsx: false,
+        });
+    }
     let ext = path.extension()?.to_str()?;
     let (lang, jsx) = match (kind_of(path), ext) {
         (Some(Kind::Swift), _) => (Lang::Swift, false),
@@ -55,6 +67,8 @@ pub(crate) fn syntax_of(path: &Path) -> Option<Syntax> {
         (_, "go") => (Lang::Go, false),
         (_, "dart") => (Lang::Dart, false),
         (_, "scala" | "sc") => (Lang::Scala, false),
+        (_, "zig") => (Lang::Zig, false),
+        (_, "sol") => (Lang::Solidity, false),
         (_, "cs") => (Lang::CSharp, false),
         (_, "rs") => (Lang::Rust, false),
         (_, "java") => (Lang::Java, false),
@@ -97,6 +111,9 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
         Lang::Php => model.php(lines),
         Lang::Dart => model.dart(lines),
         Lang::Scala => model.scala(lines),
+        Lang::Zig => model.zig(),
+        Lang::Solidity => model.solidity(),
+        Lang::Groovy => model.groovy(),
         lang => model.ecma(lang == Lang::Ts),
     }
     let starts = super::vim_folds(lines.len(), model.nodes.iter().map(|n| (n.0, n.1)));
@@ -108,7 +125,7 @@ pub(crate) fn folds(lines: &[String], syntax: Syntax) -> Folds {
     defs.dedup();
     let semicolons = !matches!(
         syntax.lang,
-        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala
+        Lang::Js | Lang::Ts | Lang::Go | Lang::Kotlin | Lang::Swift | Lang::Scala | Lang::Groovy
     );
     let heads = if semicolons {
         heads(lines, &toks, &model.back, &starts)
@@ -311,7 +328,7 @@ impl<'a> Lexer<'a> {
         }
         if s[i..].starts_with(b"/*") {
             self.skip_past(i + 2, b"*/");
-            if self.c_family() && self.l > l {
+            if (self.c_family() || self.syntax.lang == Lang::Solidity) && self.l > l {
                 self.emit(l, i, 1, K::Comment, self.l);
             }
             return true;
@@ -368,6 +385,15 @@ impl<'a> Lexer<'a> {
             return true;
         }
         if self.syntax.lang == Lang::Dart && matches!(c, b'"' | b'\'' | b'r') && self.dart_string()
+        {
+            return true;
+        }
+        if self.syntax.lang == Lang::Zig && c == b'\\' && self.zig_lines() {
+            return true;
+        }
+        if self.syntax.lang == Lang::Groovy
+            && matches!(c, b'"' | b'\'' | b'/' | b'$')
+            && self.groovy_quote()
         {
             return true;
         }

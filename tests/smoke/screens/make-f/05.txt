@@ -1,0 +1,57 @@
+wait @echo built
+┌orders──────────────────────┐1 CC ?= cc
+│▸ .github                   │2
+│▸ .venv                     │3 all: app
+│▸ app                       │4     $(CC) -o app main.c
+│▸ data                      │5     @echo built
+│▸ deploy                    │
+│▸ docs                      │
+│▾ mk                        │
+│  A app.mk                  │
+│  A demo.cmake              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+mk/app.mk  3:1  [code]                                                                                                                                                             14:32
+cursor (x,y,shown) 32,2,0

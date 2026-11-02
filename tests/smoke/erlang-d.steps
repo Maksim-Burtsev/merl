@@ -19,3 +19,12 @@ type order{id
 key Enter d
 wait order: by name, 1 match
 key Escape
+# f folds Erlang (#1356): inside new's clause, f folds the clause to its `.`; f on its line
+# f folds Erlang (#1356): back in shop_order.erl, inside new's clause, f folds the clause to its
+# `.`; f on its line unfolds it.
+key [
+wait shop_order.erl  7:
+key f
+wait ⋯
+key f
+wait #order{id = Id}.

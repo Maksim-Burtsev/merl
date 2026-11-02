@@ -1,0 +1,57 @@
+wait A views.sql
+┌orders──────────────────────┐ 1 CREATE VIEW order_view AS
+│▸ .github                   │ 2 WITH totals AS (
+│▸ .venv                     │ 3     SELECT
+│▸ app                       │ 4         order_id,
+│▸ data                      │ 5         sum(price) AS total
+│▾ db                        │ 6     FROM
+│  A views.sql               │ 7         order_item
+│▸ deploy                    │ 8     GROUP BY
+│▸ docs                      │ 9         order_id
+│▸ scripts                   │10 )
+│▸ tests                     │11 SELECT
+│▸ web                       │12     o.id,
+│▸ worker                    │13     t.total
+│  .env                      │14 FROM
+│  .gitignore                │15     orders o
+│  docker-compose.yml        │16     JOIN totals t ON t.order_id = o.id;
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+db/views.sql  1:1  [code]                                                                                                                                                          14:32
+cursor (x,y,shown) 33,0,0
