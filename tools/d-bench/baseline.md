@@ -101,6 +101,7 @@ The cpp row with the third pass of #1336 (a type a class declares inside its bod
 The swift row with #1341's third pass (a key path handed to a generic wrapper's method that takes a closure of the wrapped value, `mutableState.read(\.eventMonitor)`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 3.75 4.09 } before the run, { 3.45 3.70 4.04 } after.
 The rust row with #1302's fourth pass (a parameter typed by the trait's own associated type, `caps: &mut Self::Captures` under `type Captures: Captures;`, read through that bound: `let m = caps.get(0).unwrap(); m.end` in `crates/matcher/src/lib.rs`): over `1866bd8bc`, 2026-11-03, release build, `vm.loadavg` { 3.54 3.79 4.15 } before the run.
 The python row with #1339's third pass (a member of a mock `with patch(..) as m:`, `with patch.object(..) as m:` or `m = mocker.patch(..)` binds, given no replacement, lands on that member of `MagicMock` when `AsyncMock` declares it in the same place): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.70 4.73 4.54 } before the run, { 3.84 4.50 4.47 } after.
+The ruby row with #1340's third pass (a method whose last value is a call chain, memoised through an `@ivar` assigned once, and a body whose `rescue` clauses only raise or give `nil`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 4.04 4.25 } before the run, { 12.26 6.78 5.27 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -116,7 +117,7 @@ The python row with #1339's third pass (a member of a mock `with patch(..) as m:
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
-| ruby (mastodon) | 140 | 133 (95%) | 6 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 63.9 | 352.1 |
+| ruby (mastodon) | 140 | 134 (96%) | 5 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.6 | 365.0 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
