@@ -56,6 +56,7 @@ pub(super) fn tuple_field(name: &str) -> bool {
 
 struct CrateSrc {
     src: PathBuf,
+    roots: Vec<PathBuf>,
     files: Vec<PathBuf>,
 }
 
@@ -548,8 +549,9 @@ impl App {
     ) -> Option<(CrateSrc, Vec<String>)> {
         let search::RustModule {
             crate_src: src,
+            roots,
             path: mut module,
-        } = search::rust_module_of(&self.files, here)?;
+        } = search::rust_module_of(&self.files, here, |p| self.text_of(p))?;
         match root {
             "crate" => module.clear(),
             "super" => {
@@ -565,7 +567,7 @@ impl App {
             .filter(|f| f.starts_with(&src))
             .cloned()
             .collect();
-        Some((CrateSrc { src, files }, module))
+        Some((CrateSrc { src, roots, files }, module))
     }
 
     fn rust_in_crate(
@@ -576,14 +578,14 @@ impl App {
         macro_call: MacroUse,
         depth: usize,
     ) -> Option<InCrate> {
-        let CrateSrc { src, files } = krate;
+        let CrateSrc { src, roots, files } = krate;
         let (name, parts) = path.split_last()?;
         let mut module: Vec<String> = base.to_vec();
         module.extend(parts.iter().cloned());
         let file_of = |m: &[String]| -> Vec<PathBuf> {
             let at = m.iter().fold(src.clone(), |p, n| p.join(n));
             let wanted = if m.is_empty() {
-                vec![src.join("lib.rs"), src.join("main.rs")]
+                roots.clone()
             } else {
                 vec![at.with_extension("rs"), at.join("mod.rs")]
             };
@@ -700,7 +702,11 @@ impl App {
                 .filter(|f| f.starts_with(&src))
                 .cloned()
                 .collect();
-            (!files.is_empty()).then_some(CrateSrc { src, files })
+            (!files.is_empty()).then_some(CrateSrc {
+                roots: search::rust_src_roots(&src),
+                src,
+                files,
+            })
         })
     }
 
@@ -737,7 +743,11 @@ impl App {
                     .filter(|f| f.starts_with(&src))
                     .cloned()
                     .collect();
-                (named && !files.is_empty()).then_some(CrateSrc { src, files })
+                (named && !files.is_empty()).then_some(CrateSrc {
+                    roots: search::rust_src_roots(&src),
+                    src,
+                    files,
+                })
             })
     }
 
@@ -835,6 +845,7 @@ impl App {
                 let ty = match self
                     .rust_variant_typed(file, &lines, at, name)
                     .or_else(|| self.rust_for_typed(file, text, at, name))
+                    .or_else(|| self.rust_closure_param(file, text, at, name))
                 {
                     Some(ty) => ty,
                     None => self.rust_let_chain(file, text, at, name)?,

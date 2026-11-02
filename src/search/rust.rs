@@ -652,7 +652,7 @@ fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     }
     None
 }
-fn top_split(mut s: &str) -> Vec<&str> {
+pub fn top_split(mut s: &str) -> Vec<&str> {
     let mut out = Vec::new();
     while let Some((head, rest)) = top_stop(s, b",").and_then(|i| s.split_at_checked(i)) {
         out.push(head);
@@ -767,7 +767,7 @@ fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
         .find(|&i| declared.is_match(&uncommented(Kind::Rust, lines[i])))
         .or_else(|| (f..=last).find(|&i| names(lines[i], name)))
 }
-fn past_generics(line: &str, at: usize) -> Option<usize> {
+pub(super) fn past_generics(line: &str, at: usize) -> Option<usize> {
     let from = line.get(at..)?;
     if !from.starts_with('<') {
         return Some(at);

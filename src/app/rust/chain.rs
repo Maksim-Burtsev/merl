@@ -271,7 +271,10 @@ impl App {
         at: usize,
         parts: &[String],
     ) -> Option<(Hit, String)> {
-        if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
+        if search::bindings(Kind::Rust, text, at + 1, &parts[0])
+            .iter()
+            .any(|b| b.line1 != at + 1)
+        {
             return None;
         }
         let decl = if let Some(decl) = self.declaration(Kind::Rust, file, parts) {
@@ -389,6 +392,82 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    pub(super) fn rust_closure_param(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<Typed> {
+        static CLOSURE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"[(,]\s*(?:move\s+)?\|([\w\s,]*)\|").expect("the regex is a literal")
+        });
+        let lines: Vec<&str> = text.lines().collect();
+        let line = lines.get(at)?;
+        let found: Vec<(usize, usize)> = CLOSURE
+            .captures_iter(line)
+            .filter_map(|c| {
+                let params: Vec<&str> = c[1].split(',').map(str::trim).collect();
+                let input = params
+                    .iter()
+                    .position(|p| p.strip_prefix("mut ").unwrap_or(p).trim() == name)?;
+                Some((c.get(0)?.start() + 1, input))
+            })
+            .collect();
+        let [(start, input)] = found[..] else {
+            return None;
+        };
+        let mut expr = line.get(..start)?.trim().to_owned();
+        let mut i = at;
+        while expr.starts_with('.') && i > 0 {
+            i -= 1;
+            expr.insert_str(0, lines[i].trim());
+        }
+        let open = opening(&format!("{expr})"), b')', b'(')?;
+        let arg = search::top_split(expr.get(open + 1..)?).len() - 1;
+        let mut w = walk_back(expr.get(..open)?)?;
+        let method = w.links.pop().filter(|l| !l.call)?.name;
+        if w.rest != 0 {
+            return None;
+        }
+        let mut got = self.rust_head(file, text, at, &w, None)?;
+        for link in &w.links {
+            got = self.rust_step(got, link)?;
+        }
+        let Got::Ty(ty) = got else { return None };
+        let [decl] = <[Hit; 1]>::try_from(self.rust_members(&ty, &method)).ok()?;
+        let t = self.text_of(&decl.path)?;
+        let l: Vec<&str> = t.lines().collect();
+        let sig = search::rust_signature(&l, decl.line1 - 1)?;
+        let written = search::rust_closure_input(&sig, arg, input)?;
+        let written = written.trim_start_matches(['&', ' ']);
+        let written = written.strip_prefix("mut ").unwrap_or(written).trim();
+        let Some(assoc) = written.strip_prefix("Self::") else {
+            return self.rust_resolve(&decl.path, written, decl.line1 - 1);
+        };
+        let (search::RustOwner::Trait(tr) | search::RustOwner::ImplOf(tr)) =
+            search::rust_method_at(&l, decl.line1)?.owner
+        else {
+            return None;
+        };
+        let impls = format!(
+            r"^\s*(?:unsafe\s+)?impl\b[^{{]*\b{}\b[^{{]*\bfor\s+(?:\w+::)*{}\b",
+            regex::escape(&tr),
+            regex::escape(&ty.name)
+        );
+        let [imp] = <[Hit; 1]>::try_from(
+            self.grep_in(&impls, &self.rust_type_files(&ty))
+                .into_iter()
+                .filter(|h| search::rust_impl_trait(&h.text).as_ref() == Some(&tr))
+                .collect::<Vec<_>>(),
+        )
+        .ok()?;
+        let it = self.text_of(&imp.path)?;
+        let il: Vec<&str> = it.lines().collect();
+        let assoc = search::rust_assoc_type(&il, imp.line1 - 1, assoc)?;
+        self.rust_resolve(&imp.path, &assoc, imp.line1 - 1)
     }
 
     fn rust_closure_returns(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
