@@ -12,3 +12,11 @@ load ../lib/steep
   [ "$sediment" = "" ]
   #    ^ d: none
 }
+
+@test "brews a tray" {
+  brew_tray
+  [ "$beaker" = "" ]
+  #   ^ d: none
+  [ "$flask" = full ]
+  #   ^ d: lib/steep.bash:31
+}

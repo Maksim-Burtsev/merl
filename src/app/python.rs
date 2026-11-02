@@ -494,7 +494,17 @@ impl App {
                         .is_some_and(|before| !before.ends_with('.'))
             })?;
         let ty = self.type_decl(kind, here, model)?;
-        let (class, text, made) = self.python_mro(&ty).into_iter().find_map(|t| {
+        let mro = self.python_mro(&ty);
+        mro.iter()
+            .any(|t| {
+                self.text_of(&t.path).is_some_and(|text| {
+                    search::bases(kind, &text, t.line)
+                        .iter()
+                        .any(|b| b == "models.Model" || b.ends_with(".models.Model"))
+                })
+            })
+            .then_some(())?;
+        let (class, text, made) = mro.into_iter().find_map(|t| {
             let text = self.text_of(&t.path)?;
             let made = search::field_bindings(kind, &text, t.line, word);
             (!made.is_empty()).then_some((t, text, made))

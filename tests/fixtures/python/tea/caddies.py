@@ -38,3 +38,17 @@ def stock(shelf):
     #                    ^ d: none
     shelf.Caddy.objects.create(scoops=3)
     #                          ^ d: none
+
+
+class Hamper:
+    pass
+
+
+class Pantry:
+    objects = Hamper()
+    canister = Hamper()
+
+
+def stow():
+    Pantry.objects.create(canister=1)
+    #                     ^ d: none

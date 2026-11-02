@@ -214,7 +214,7 @@ impl App {
         hits.retain(|h| in_tests(&h.path) || signature(h).is_none_or(|s| !own.contains(&s)));
     }
 
-    pub(super) fn swift_uncalled(&self, after: usize, found: &mut Vec<Candidate>) {
+    pub(super) fn swift_uncalled(&self, word: &str, after: usize, found: &mut Vec<Candidate>) {
         let rest = self
             .line_str()
             .get(after..)
@@ -232,9 +232,17 @@ impl App {
             return;
         }
         let func = |c: &Candidate| search::swift_declares_func(&c.hit.text);
-        if found.iter().any(|c| func(c) == Some(false)) {
-            found.retain(|c| func(c) != Some(true));
-        }
+        let owner = |c: &Candidate| {
+            self.text_of(&c.hit.path)
+                .and_then(|t| search::qualified(Kind::Swift, &t, c.hit.line1, word))
+        };
+        let properties: Vec<String> = found
+            .iter()
+            .filter(|c| func(c) == Some(false))
+            .filter_map(owner)
+            .collect();
+        found
+            .retain(|c| func(c) != Some(true) || owner(c).is_none_or(|o| !properties.contains(&o)));
     }
 
     fn swift_qualified(&self, h: &Hit, name: &str) -> String {
