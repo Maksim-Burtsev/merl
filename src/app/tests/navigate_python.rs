@@ -1366,6 +1366,64 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
 }
 
 #[test]
+fn a_name_patch_binds_without_a_replacement_is_a_magic_mock() {
+    let std = external_root(
+        "py-patched-std",
+        &[(
+            "unittest/mock.py",
+            "class NonCallableMock:\n    return_value = property(lambda self: None)\n\n    def reset_mock(self):\n        pass\n\n\nclass Mock(NonCallableMock):\n    pass\n\n\nclass MagicMock(Mock):\n    pass\n\n\nclass AsyncMockMixin:\n    def assert_awaited_once(self):\n        pass\n\n    def reset_mock(self):\n        pass\n\n\nclass AsyncMock(AsyncMockMixin, Mock):\n    pass\n\n\ndef patch(target, new=None):\n    pass\n",
+        )],
+    );
+    let site = external_root(
+        "py-patched-site",
+        &[(
+            "anyio/tasks.py",
+            "class TaskHandle:\n    def return_value(self):\n        pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-patched",
+        &[(
+            "app/test_mocks.py",
+            "from unittest import mock\nfrom unittest.mock import patch\nfrom pytest_mock import MockerFixture\n\n\ndef test_a(mocker: MockerFixture) -> None:\n    fixture_patched = mocker.patch(\n        \"app.thing\",\n    )\n    fixture_patched.return_value\n    with patch(\"app.thing\") as with_patched:\n        with_patched.return_value\n    with mock.patch.object(object, \"thing\") as object_patched:\n        object_patched.return_value\n    replaced = mocker.patch(\"app.thing\", new=1)\n    replaced.return_value\n    with patch(\"app.thing\", 1) as given:\n        given.return_value\n    with patch.dict(\"os.environ\") as env:\n        env.return_value\n    patcher = mock.patch(\"app.thing\")\n    patcher.return_value\n    with patch(\"app.coroutine\") as awaited:\n        awaited.assert_awaited_once()\n        awaited.reset_mock()\n\n\ndef test_b(mocker) -> None:\n    untyped = mocker.patch(\"app.thing\")\n    untyped.return_value\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
+    let mock = format!("{}:2", std.join("unittest/mock.py").display());
+    for name in ["fixture_patched", "with_patched", "object_patched"] {
+        d_on(&mut a, "app/test_mocks.py", &format!("{name}.return_value"));
+        let Shown::Jump(_, at) = shown(&mut a) else {
+            panic!("{name}: a jump");
+        };
+        assert_eq!(at, mock, "{name}");
+    }
+    for name in ["replaced", "given", "env", "patcher", "untyped"] {
+        d_on(&mut a, "app/test_mocks.py", &format!("{name}.return_value"));
+        assert!(
+            !matches!(shown(&mut a), Shown::Jump(_, at) if at == mock),
+            "{name}: a patch with a replacement, patch.dict, a patcher not entered or an unannotated mocker is not read"
+        );
+    }
+    d_on(&mut a, "app/test_mocks.py", "awaited.assert_awaited_once");
+    let Shown::Jump(_, at) = shown(&mut a) else {
+        panic!("a member only AsyncMock has: a jump");
+    };
+    assert_eq!(
+        at,
+        format!("{}:17", std.join("unittest/mock.py").display()),
+        "patch makes an AsyncMock for an async target: a member MagicMock lacks is still found by name"
+    );
+    d_on(&mut a, "app/test_mocks.py", "awaited.reset_mock");
+    assert!(
+        !matches!(shown(&mut a), Shown::Jump(_, at) if at == format!("{}:4", std.join("unittest/mock.py").display())),
+        "a member AsyncMock declares again is not MagicMock's"
+    );
+    for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_setting_is_read_under_every_module_level_block_and_nowhere_else() {
     let site = external_root(
         "py-block-settings-site",

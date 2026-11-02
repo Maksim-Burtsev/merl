@@ -720,6 +720,12 @@ impl App {
         b: &search::Binding,
         hops: usize,
     ) -> Option<TypeVia> {
+        if let Some(ty) = self.patched_mock(kind, text, b) {
+            return Some(TypeVia {
+                ty,
+                call_signature: None,
+            });
+        }
         match &b.value {
             search::Value::Type(t) | search::Value::New(t) => {
                 let path = search::type_path(kind, t).filter(|p| p.len() > 1);
