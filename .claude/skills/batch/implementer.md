@@ -23,6 +23,9 @@ a release build of master, and the commit trailers. Read `AGENTS.md` in your wor
   another agent's `pop` takes yours.
 - `tools/d-bench/run` gets `--cache` pointing at a private folder of symlinks to
   `~/.cache/merl-d-bench/<project>`: parallel runs overwrite the shared cache's tables.
+- Never change `tools/d-bench/answers/`: the answer key that scores your rule is not yours to
+  write. A recorded answer you think is wrong, or an empty one you could answer, goes into your
+  report as the row, the answer you would record and why; the dispatcher has it judged apart.
 - "Before" screencasts use the master build from your task file.
 - A change to a screen updates the golden screens and snapshots in the same commit.
 - Before every push, `tools/heavy tools/ci-local clippy tests` for kind `epic` (the dispatcher
