@@ -655,7 +655,8 @@ in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).
-`kettle.mjs` exports as its default an instance bound to a `const` (#1008). `sieve.cjs` assigns
+`kettle.mjs` exports as its default an instance bound to a `const` (#1008), and by name
+another, `spare`, whose member `steaming.mjs` reads through its class (#1337). `sieve.cjs` assigns
 to `exports.name` a value in parentheses, which declares nothing, an `async` arrow, an arrow with
 a bare parameter and a named function behind `module.exports.`, read from `pouring.cjs` through a
 destructured and a whole `require` (#1007). `mill.cjs` holds what a constructor function must
