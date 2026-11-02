@@ -96,6 +96,7 @@ The cpp row with #1336's class scope (a type name in a class's method finds the 
 The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
 The js row with #1337's second pass (a member a `require`d package declares in its ES-module copy too, `dayjs/esm/index.d.ts` or `index.d.mts`, lands in the copy `require` reads): over `967116536`, 2026-11-02, release build, `vm.loadavg` { 2.54 3.88 4.38 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
+The julia row with #1370 (the 13 rows where merl jumps and the oracle has none judged from the code: 9 right, 4 wrong, julia0111, julia0178 and julia0244 on `Union` landing on `Union{}(a...)` in `boot.jl`, julia0210 on `ByRow`'s `fun` landing in `test/select.jl`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.86 5.61 3.98 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -117,7 +118,7 @@ The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syn
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 177 | 73 (41%) | 87 (49%) | 0 (0%) | 17 (10%) | 123 | 13 | 16.3 | 28.1 |
+| julia (DataFrames.jl) | 190 | 82 (43%) | 87 (46%) | 4 (2%) | 17 (9%) | 110 | 0 | 17.2 | 29.4 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 49.2 | 172.2 |
