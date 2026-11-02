@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, code, comment, group, indent, literal_lines, names, split_top,
-    swift_mods, uncommented,
+    Binding, Kind, SwiftCall, Value, close_of, code, comment, group, indent, literal_lines, names,
+    split_top, swift_mods, uncommented,
 };
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -183,49 +183,6 @@ pub fn swift_in_top_level_func<S: AsRef<str>>(lines: &[S], literal: &[bool], lin
         let t = uncommented(Kind::Swift, lines[outer - 1].as_ref());
         indent(&t) == 0 && SWIFT_FUNC.is_match(&t)
     }
-}
-#[derive(Debug, PartialEq, Eq)]
-pub struct SwiftCall {
-    pub labels: Vec<String>,
-    pub trailing_closure: bool,
-}
-pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<SwiftCall> {
-    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*`?(\w+)`?\s*:").expect("the regex is a literal")
-    });
-    let line = lines.get(line0)?;
-    let rest = line.get(after..)?;
-    if rest.trim_start().starts_with('{') {
-        let condition = ["if ", "guard ", "while ", "for ", "switch ", "} else"]
-            .iter()
-            .any(|k| line.trim_start().starts_with(k));
-        return (!condition).then(|| SwiftCall {
-            labels: Vec::new(),
-            trailing_closure: true,
-        });
-    }
-    if !rest.starts_with('(') {
-        return None;
-    }
-    let g = group(Kind::Swift, lines, line0, after)?;
-    let trailing_closure = g.after_close.trim_start().starts_with('{');
-    let inner = g.inner_uncommented;
-    let labels = if inner.trim().is_empty() {
-        Vec::new()
-    } else {
-        split_top(Kind::Swift, &inner, b',')
-            .into_iter()
-            .map(|a| {
-                LABEL
-                    .captures(a)
-                    .map_or_else(|| "_".to_owned(), |c| c[1].to_owned())
-            })
-            .collect()
-    };
-    Some(SwiftCall {
-        labels,
-        trailing_closure,
-    })
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct SwiftParam {

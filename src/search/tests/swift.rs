@@ -36,6 +36,7 @@ fn a_call_and_a_declaration_are_read_label_by_label() {
         call("k.boil(then: 1) { }", "boil"),
         Some(SwiftCall {
             labels: vec!["then".to_owned()],
+            args: vec!["1".to_owned()],
             trailing_closure: true
         }),
         "a trailing closure"
@@ -44,6 +45,7 @@ fn a_call_and_a_declaration_are_read_label_by_label() {
         call("k.boil { }", "boil"),
         Some(SwiftCall {
             labels: Vec::new(),
+            args: Vec::new(),
             trailing_closure: true
         })
     );

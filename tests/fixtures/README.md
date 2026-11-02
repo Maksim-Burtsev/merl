@@ -730,6 +730,11 @@ func's call (`Rush.make()`) keeps the picker. A method of a value whose type mer
 (`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
 also opens; two overloads taking
 two types, or a receiver merl cannot type, keep the picker.
+`swift/Sources/Shop/Overloads.swift` (#1341) calls overloads that differ only by the type of an
+argument: a parameter, a local of a written type or built by a constructor, a constructor call and
+a string literal, each taken by one overload while the others take a struct of another name. Two
+numeric overloads for an integer literal, a protocol, a generic, two classes, an alias, the same
+type twice and a comparison of two strings keep the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
