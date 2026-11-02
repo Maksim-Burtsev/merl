@@ -186,7 +186,7 @@ static INCLUDE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 pub fn julia_includes(from: &Path, line: &str, file: &Path) -> bool {
-    let dir = from.parent().unwrap_or(Path::new(""));
+    let dir = from.parent().map(Path::to_path_buf).unwrap_or_default();
     INCLUDE
         .captures_iter(line)
         .any(|c| super::imports::lexical(&dir.join(&c[1])).as_deref() == Some(file))
@@ -230,7 +230,10 @@ pub(super) fn julia_imports(text: &str, out: &mut Vec<Import>) {
     };
     for c in IMPORT.captures_iter(text) {
         let mut clause = c[1].trim().to_owned();
-        let mut below = text[c.get(0).map_or(text.len(), |m| m.end())..]
+        let mut below = c
+            .get(0)
+            .and_then(|m| text.get(m.end()..))
+            .unwrap_or_default()
             .lines()
             .skip(1);
         while clause.ends_with([',', ':'])
