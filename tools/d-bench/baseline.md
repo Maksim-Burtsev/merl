@@ -106,6 +106,7 @@ The dart row with the third pass of #1338 (a loop over a call of the class's own
 The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
 The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
 The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, so `Union` no longer lands on `Union{}(a...)` in `boot.jl`; a member of a value, `f.fun` after a lowercase name, a call or an index, reads only fields): over `d52ab9a92`, 2026-11-03, release build, `vm.loadavg` { 3.63 4.61 4.88 } before the run, { 3.31 4.30 4.74 } after.
+The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void Trivet::Place(Stand* s) {`, are in the class's scope; an unqualified call in a method, `user_comparator()->Compare` in `DBImpl::DoCompactionWork`, is read as `this->` first; cpp0214 `target()->GetChildren`, no answer recorded, now jumps to `Env::GetChildren`): over `8b0969ab2`, 2026-11-03, release build, `vm.loadavg` { 3.42 3.43 4.05 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -116,7 +117,7 @@ The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, s
 | rust (ripgrep) | 231 | 229 (99%) | 2 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 54.9 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 236 | 214 (91%) | 22 (9%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.9 |
+| cpp (leveldb) | 236 | 215 (91%) | 21 (9%) | 0 (0%) | 0 (0%) | 64 | 9 | 17.1 | 62.6 |
 | swift (Alamofire) | 450 | 434 (96%) | 15 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.7 | 48.0 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |

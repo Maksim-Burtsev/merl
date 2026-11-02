@@ -38,4 +38,22 @@ class Doily {
   int Spread(Stand* s);
 };
 
+struct Dial {
+  int Read();
+};
+
+struct Gauge {
+  int Read();
+};
+
+Dial* Reading();
+
+class Kettle {
+ public:
+  int Boil();
+
+ private:
+  Gauge* Reading();
+};
+
 }

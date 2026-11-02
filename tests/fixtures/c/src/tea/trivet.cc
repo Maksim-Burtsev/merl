@@ -37,4 +37,10 @@ int Count() {
   return s.legs;
 }
 
+int Kettle::Boil() { return Reading()->Read(); }
+//                                     ^ d: include/tea/trivet.hh:46
+
+int Pour() { return Reading()->Read(); }
+//                             ^ d: include/tea/trivet.hh:42
+
 }
