@@ -19,3 +19,14 @@ decant() {
   taste sediment
   printf -v "$2" '%s' "$1"
 }
+
+# A one-line function just above a writer writes nothing: `top_up` fills no `beaker`.
+top_up() { echo "$1"; }
+brim() {
+  printf -v "$1" '%s' full
+}
+
+brew_tray() {
+  top_up beaker
+  brim flask
+}

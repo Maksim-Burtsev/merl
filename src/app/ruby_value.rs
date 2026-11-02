@@ -178,6 +178,9 @@ impl App {
         let [(line, assignment, t)] = assigned[..] else {
             return None;
         };
+        if search::ruby_self_is_class(t, line) || search::ruby_self_is_class(text, line1) {
+            return None;
+        }
         let value = assignment.trim_start().strip_prefix(&ivar)?.trim_start();
         let value = value
             .strip_prefix("||=")

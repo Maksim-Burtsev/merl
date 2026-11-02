@@ -30,3 +30,24 @@ func shopErrorCodeOr() -> Int? {
     return outcome.failure?.asShopError(or: 0)
     //                      ^ d: picker Sources/Shop/Shadows.swift:17, Sources/Shop/Shadows.swift:19
 }
+
+// An unapplied method of the receiver's own type is no other type's property of its name.
+final class Gong {
+    func resound() {}
+}
+
+struct Knell {
+    var resound: Int = 0
+}
+
+func gongHandler(_ gong: Gong) -> () -> Void {
+    let h = gong.resound
+    //           ^ d: Sources/Shop/Shadows.swift:36
+    return h
+}
+
+func gongHandlers(_ gongs: [String: Gong]) {
+    let h = gongs["a"]?.resound
+    //                  ^ d: picker Sources/Shop/Shadows.swift:36, Sources/Shop/Shadows.swift:40
+    _ = h
+}

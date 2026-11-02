@@ -52,3 +52,18 @@ class PromoteWorker
     MemberRecord.find(@id)
   end
 end
+
+class SweepWorker
+  @shared = MemberRecord.find(1)
+
+  def self.prepare(id)
+    @prepared = MemberRecord.find(id)
+  end
+
+  def sweep
+    @shared.promote!
+    #       ^ d: picker app/record_lookup.rb:6, app/record_lookup.rb:15
+    @prepared.promote!
+    #         ^ d: picker app/record_lookup.rb:6, app/record_lookup.rb:15
+  end
+end

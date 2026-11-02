@@ -370,7 +370,11 @@ pub fn shell_writes_param(lines: &[&str], def: usize, n: usize) -> bool {
     let Some(head) = lines.get(def) else {
         return false;
     };
-    let body = lines.get(def + 1..).unwrap_or_default();
+    let body = if head.trim_end().ends_with('}') {
+        std::slice::from_ref(head)
+    } else {
+        lines.get(def + 1..).unwrap_or_default()
+    };
     let end = body
         .iter()
         .position(|b| b.trim_start().starts_with('}') && indent(b) == indent(head))
