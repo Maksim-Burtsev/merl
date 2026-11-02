@@ -26,6 +26,11 @@ impl App {
         if fit {
             let mut fits = labels.iter().map(|l| search::swift_call_fits(&call, l));
             found.retain(|_| fits.next().unwrap_or(true));
+            let kept: Vec<_> = labels
+                .into_iter()
+                .filter(|l| search::swift_call_fits(&call, l))
+                .collect();
+            self.swift_by_argument_types(&call, &kept, found);
         }
         fit
     }
