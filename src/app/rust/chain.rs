@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use super::sysroot::rust_element;
 use super::{
-    App, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
+    App, Bound, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
     rust_bare_type, search,
 };
 
@@ -249,6 +249,7 @@ pub(super) enum Got {
         written: String,
         line0: usize,
     },
+    Bound(Bound),
 }
 
 impl App {
@@ -327,6 +328,9 @@ impl App {
                 written,
                 line0,
             } if link.call => self.rust_std_returns(&file, &written, line0, &link.name),
+            Got::Bound(b) if link.call => {
+                self.rust_fn_returns(&self.rust_bound_method(&b, &link.name)?.0)
+            }
             _ => None,
         }
     }
@@ -343,7 +347,13 @@ impl App {
             ([name], false) => self
                 .rust_value_type(file, text, line0, name, own.is_some())
                 .map(|(ty, _)| Got::Ty(ty))
-                .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some())),
+                .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some()))
+                .or_else(|| {
+                    let b = self
+                        .rust_param_bound(file, text, line0, name)
+                        .filter(|_| name != "self");
+                    b.map(Got::Bound)
+                }),
             ([.., ty, f], true) if ty.starts_with(|c: char| c.is_ascii_uppercase()) => {
                 let owner = w.head[..w.head.len() - 1].join("::");
                 let Some(ty) = self.rust_resolve(file, &owner, line0) else {
@@ -647,7 +657,7 @@ impl App {
     ) -> Option<Typed> {
         match self.rust_let_got(file, text, at, name, false)? {
             Got::Ty(ty) => Some(ty),
-            Got::Written { .. } => None,
+            Got::Written { .. } | Got::Bound(_) => None,
         }
     }
 
@@ -660,7 +670,7 @@ impl App {
     ) -> Option<String> {
         match self.rust_let_got(file, text, at, name, true)? {
             Got::Written { written, .. } => rust_bare_type(&written),
-            Got::Ty(_) => None,
+            Got::Ty(_) | Got::Bound(_) => None,
         }
     }
 
@@ -708,7 +718,7 @@ impl App {
                 let owner = self.text_of(&file)?;
                 return self.rust_std_call(&owner, via, &std, word);
             }
-            Got::Written { .. } => return None,
+            Got::Written { .. } | Got::Bound(_) => return None,
         };
         let hits = if call {
             self.rust_members(&ty, word)

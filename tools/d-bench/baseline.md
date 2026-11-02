@@ -99,6 +99,7 @@ The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syn
 The julia row with #1370 (the 13 rows where merl jumps and the oracle has none judged from the code: 9 right, 4 wrong, julia0111, julia0178 and julia0244 on `Union` landing on `Union{}(a...)` in `boot.jl`, julia0210 on `ByRow`'s `fun` landing in `test/select.jl`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.86 5.61 3.98 } before the run.
 The cpp row with the third pass of #1336 (a type a class declares inside its body is unseen in another class's method unless that class derives from it, `MemTable::Table` at `version_set.cc:1136`; a class template's out-of-line method, `void Coaster<K>::Lay() {`, is in the class's scope): over `d57b90f66`, 2026-11-03, release build, `vm.loadavg` { 3.84 4.12 4.27 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 The swift row with #1341's third pass (a key path handed to a generic wrapper's method that takes a closure of the wrapped value, `mutableState.read(\.eventMonitor)`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 3.75 4.09 } before the run, { 3.45 3.70 4.04 } after.
+The rust row with #1302's fourth pass (a parameter typed by the trait's own associated type, `caps: &mut Self::Captures` under `type Captures: Captures;`, read through that bound: `let m = caps.get(0).unwrap(); m.end` in `crates/matcher/src/lib.rs`): over `1866bd8bc`, 2026-11-03, release build, `vm.loadavg` { 3.54 3.79 4.15 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -106,7 +107,7 @@ The swift row with #1341's third pass (a key path handed to a generic wrapper's 
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
 | js (eslint, uptime-kuma) | 217 | 201 (93%) | 13 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.8 | 174.1 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
+| rust (ripgrep) | 231 | 229 (99%) | 2 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 54.9 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 214 (91%) | 22 (9%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.9 |
