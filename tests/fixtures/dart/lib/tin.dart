@@ -64,6 +64,33 @@ class Caddie {
     }
     return total;
   }
+
+  // A loop over a call of the class's own method reads its element type (#1338).
+  List<Sprig> picked() => leaves;
+  Stream<Weed> weeds() async* {}
+
+  Future<int> sip() async {
+    var total = 0;
+    for (final leaf in picked()) {
+      total += leaf.swirl();
+      //            ^ d: lib/tin.dart:35
+    }
+    await for (final weed in weeds()) {
+      total += weed.swirl();
+      //            ^ d: lib/tin.dart:39
+    }
+    return total;
+  }
+
+  int hidden() {
+    var total = 0;
+    Iterable<Weed> picked() => [];
+    for (final shadow in picked()) {
+      total += shadow.swirl();
+      //              ^ d: !jump
+    }
+    return total;
+  }
 }
 
 abstract class _Urn {

@@ -965,6 +965,43 @@ pub fn dart_for_in<'a>(line: &'a str, name: &str) -> Option<&'a str> {
     Some(re.captures(line)?.get(1)?.as_str())
 }
 
+pub fn dart_for_in_call<'a>(line: &'a str, name: &str) -> Option<(&'a str, bool)> {
+    let re = Regex::new(&format!(
+        r"(?:^|[^\w$.])(await\s+)?for\s*\(\s*(?:final|var)\s+{}\s+in\s+([A-Za-z_$][\w$]*)\s*\(\s*\)\s*\)",
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some((c.get(2)?.as_str(), c.get(1).is_some()))
+}
+
+pub fn dart_iterated_call(line: &str, name: &str, awaited: bool) -> Option<DartType> {
+    let iterable = if awaited {
+        "Stream"
+    } else {
+        "(?:List|Iterable|Set)"
+    };
+    let re = Regex::new(&format!(
+        concat!(
+            r"^\s*",
+            dart_annotations!(),
+            dart_mods!(),
+            r"{}<(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)",
+            dart_generics!(),
+            r"\??>\??\s+{}\s*\("
+        ),
+        iterable,
+        regex::escape(name)
+    ))
+    .ok()?;
+    let c = re.captures(line)?;
+    Some(DartType {
+        prefix: c.get(1).map(|m| m.as_str().to_owned()),
+        class: c[2].to_owned(),
+        constructor: None,
+    })
+}
+
 pub fn dart_iterated(line: &str, name: &str) -> Option<DartType> {
     let w = regex::escape(name);
     let element = concat!(r"(?:([a-z_$][\w$]*)\.)?(_?[A-Z][\w$]*)", dart_generics!());

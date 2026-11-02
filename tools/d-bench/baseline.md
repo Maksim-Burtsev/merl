@@ -102,6 +102,7 @@ The swift row with #1341's third pass (a key path handed to a generic wrapper's 
 The rust row with #1302's fourth pass (a parameter typed by the trait's own associated type, `caps: &mut Self::Captures` under `type Captures: Captures;`, read through that bound: `let m = caps.get(0).unwrap(); m.end` in `crates/matcher/src/lib.rs`): over `1866bd8bc`, 2026-11-03, release build, `vm.loadavg` { 3.54 3.79 4.15 } before the run.
 The python row with #1339's third pass (a member of a mock `with patch(..) as m:`, `with patch.object(..) as m:` or `m = mocker.patch(..)` binds, given no replacement, lands on that member of `MagicMock` when `AsyncMock` declares it in the same place): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.70 4.73 4.54 } before the run, { 3.84 4.50 4.47 } after.
 The ruby row with #1340's third pass (a method whose last value is a call chain, memoised through an `@ivar` assigned once, and a body whose `rescue` clauses only raise or give `nil`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 4.04 4.25 } before the run, { 12.26 6.78 5.27 } after.
+The dart row with the third pass of #1338 (a loop over a call of the class's own method, `await for (final chunk in finalize())`, reads the element type of its `Stream<Uint8List>` / `List` / `Iterable` / `Set` return): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.39 4.52 4.78 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -136,5 +137,5 @@ The ruby row with #1340's third pass (a method whose last value is a call chain,
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 92 (95%) | 4 (4%) | 0 (0%) | 1 (1%) | 17 | 0 | 47.7 | 142.1 |
+| dart (dio) | 97 | 93 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 17 | 0 | 48.7 | 141.9 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |
