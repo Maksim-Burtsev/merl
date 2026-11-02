@@ -48,7 +48,7 @@ impl App {
                     .then_some(class);
             }
             let class = self.ruby_value_class(here, text, line1, prefix, receiver, depth + 1)?;
-            return self.ruby_returned_class(here, &class, method);
+            return self.ruby_returned_class(here, &class, method, depth);
         }
         if !search::ruby_local_name(expr) {
             return None;
@@ -73,7 +73,7 @@ impl App {
             let bound = !search::ruby_locals(text, line1, expr).is_empty()
                 || !search::bindings(Kind::Ruby, text, line1, expr).is_empty();
             return (!bound && !class.is_empty() && !search::ruby_self_is_class(text, line1))
-                .then(|| self.ruby_returned_class(here, &class, expr))
+                .then(|| self.ruby_returned_class(here, &class, expr, depth))
                 .flatten();
         };
         let (head, whole) = search::ruby_receiver_split(&value);
@@ -101,7 +101,13 @@ impl App {
         self.ruby_resolve(here, &scope, target)
     }
 
-    fn ruby_returned_class(&self, here: &Path, class: &str, method: &str) -> Option<String> {
+    fn ruby_returned_class(
+        &self,
+        here: &Path,
+        class: &str,
+        method: &str,
+        depth: usize,
+    ) -> Option<String> {
         let found = self.ruby_methods_from(here, method, class.to_owned(), false);
         let [one] = found.as_slice() else {
             return None;
@@ -121,6 +127,10 @@ impl App {
             search::RubyReturns::Found(name) => {
                 let found = self.ruby_resolve(here, &owner, &name)?;
                 self.ruby_record(here, found)
+            }
+            search::RubyReturns::Chain(line1, chain) => {
+                let (prefix, expr) = search::ruby_receiver_split(&chain);
+                self.ruby_value_class(here, &t, line1, prefix, expr, depth + 1)
             }
         }
     }
