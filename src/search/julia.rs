@@ -26,7 +26,7 @@ macro_rules! julia_name_end {
 const MACROS: &str = julia_macros!();
 const END: &str = julia_name_end!();
 const QUALIFIER: &str = r"(?:[\w.]+\.)?";
-const TYPE_PARAMS: &str = r"(?:\{[^}]*\}\s*)?";
+const TYPE_PARAMS: &str = r"(?:\{\s*[^}\s][^}]*\}\s*)?";
 
 pub fn julia_patterns(word: &str) -> Vec<String> {
     let (w, e) = (regex::escape(word), END);
@@ -60,9 +60,24 @@ pub fn julia_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<u
         return;
     }
     patterns.retain(|p| *p != mac);
+    if on_value(before) {
+        patterns.retain(|p| *p == field);
+        return;
+    }
     let called = after.starts_with(['(', '{']) || after.starts_with(".(");
     if called || (!before.ends_with('.') && !matches(&field)) {
         patterns.retain(|p| *p != field);
+    }
+}
+
+fn on_value(before: &str) -> bool {
+    let Some(receiver) = before.strip_suffix('.') else {
+        return false;
+    };
+    let name = |c: char| c.is_alphanumeric() || c == '_' || c == '!';
+    match receiver.chars().rev().take_while(|&c| name(c)).last() {
+        Some(first) => first.is_lowercase() || first == '_',
+        None => receiver.ends_with([')', ']']),
     }
 }
 

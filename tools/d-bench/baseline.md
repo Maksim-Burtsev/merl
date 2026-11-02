@@ -105,6 +105,7 @@ The ruby row with #1340's third pass (a method whose last value is a call chain,
 The dart row with the third pass of #1338 (a loop over a call of the class's own method, `await for (final chunk in finalize())`, reads the element type of its `Stream<Uint8List>` / `List` / `Iterable` / `Set` return): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.39 4.52 4.78 } before the run.
 The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
 The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
+The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, so `Union` no longer lands on `Union{}(a...)` in `boot.jl`; a member of a value, `f.fun` after a lowercase name, a call or an index, reads only fields): over `d52ab9a92`, 2026-11-03, release build, `vm.loadavg` { 3.63 4.61 4.88 } before the run, { 3.31 4.30 4.74 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -126,7 +127,7 @@ The bash row with #1335's third pass (a script's own function wins when each fil
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 190 | 82 (43%) | 87 (46%) | 4 (2%) | 17 (9%) | 110 | 0 | 17.2 | 29.4 |
+| julia (DataFrames.jl) | 190 | 85 (45%) | 84 (44%) | 0 (0%) | 21 (11%) | 110 | 0 | 16.8 | 29.2 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
