@@ -103,12 +103,13 @@ The rust row with #1302's fourth pass (a parameter typed by the trait's own asso
 The python row with #1339's third pass (a member of a mock `with patch(..) as m:`, `with patch.object(..) as m:` or `m = mocker.patch(..)` binds, given no replacement, lands on that member of `MagicMock` when `AsyncMock` declares it in the same place): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.70 4.73 4.54 } before the run, { 3.84 4.50 4.47 } after.
 The ruby row with #1340's third pass (a method whose last value is a call chain, memoised through an `@ivar` assigned once, and a body whose `rescue` clauses only raise or give `nil`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 4.04 4.25 } before the run, { 12.26 6.78 5.27 } after.
 The dart row with the third pass of #1338 (a loop over a call of the class's own method, `await for (final chunk in finalize())`, reads the element type of its `Stream<Uint8List>` / `List` / `Iterable` / `Set` return): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.39 4.52 4.78 } before the run.
+The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 262 | 251 (96%) | 3 (1%) | 0 (0%) | 8 (3%) | 63 | 8 | 16.0 | 254.1 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
-| js (eslint, uptime-kuma) | 217 | 201 (93%) | 13 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.8 | 174.1 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
+| js (eslint, uptime-kuma) | 217 | 202 (93%) | 12 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.3 | 171.7 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 229 (99%) | 2 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 54.9 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
@@ -127,9 +128,9 @@ The dart row with the third pass of #1338 (a loop over a call of the class's own
 | julia (DataFrames.jl) | 190 | 82 (43%) | 87 (46%) | 4 (2%) | 17 (9%) | 110 | 0 | 17.2 | 29.4 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
-| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 49.2 | 172.2 |
-| svelte (immich) | 182 | 120 (66%) | 44 (24%) | 0 (0%) | 18 (10%) | 88 | 2 | 39.8 | 218.5 |
-| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 37.2 | 105.8 |
+| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
+| svelte (immich) | 182 | 126 (69%) | 42 (23%) | 0 (0%) | 14 (8%) | 88 | 2 | 30.5 | 177.3 |
+| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
 | bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |

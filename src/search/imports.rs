@@ -449,6 +449,14 @@ pub fn default_class(text: &str) -> Option<String> {
     .ok()?;
     Some(bound.captures(text)?[1].to_owned())
 }
+pub fn top_level_new(text: &str, name: &str) -> Option<String> {
+    let bound = Regex::new(&format!(
+        r"(?m)^(?:export\s+)?const\s+{}\s*=\s*new\s+([A-Za-z_$][\w$]*)\s*\(",
+        regex::escape(name)
+    ))
+    .ok()?;
+    Some(bound.captures(text)?[1].to_owned())
+}
 #[derive(Debug, PartialEq, Eq)]
 pub enum ModuleExports {
     OneAssignment { line1: usize, name: Option<String> },

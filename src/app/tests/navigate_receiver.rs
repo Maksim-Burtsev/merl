@@ -718,3 +718,47 @@ fn a_std_member_overloaded_by_const_alone_is_the_one_a_plain_object_calls() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&root).unwrap();
 }
+
+#[test]
+fn a_member_of_a_const_another_module_exports_from_new_lands_in_its_class() {
+    let util = "export function debug(msg) {\n    console.log(msg);\n}\nclass Logger {\n    debug(module, msg) {\n        console.log(module, msg);\n    }\n}\nexport const log = new Logger();\nexport let swapped = new Logger();\nswapped = new Map();\nconst inner = new Logger();\nexport { inner as renamed };\nexport function info() {}\nclass Child extends Logger {\n    info() {}\n}\nexport const kid = new Child();\nexport function trace() {}\nimport { Remote } from \"./remote\";\nexport const far = new Remote();\n";
+    let remote = "export class Remote {\n    debug() {}\n}\n";
+    let main = "import { log, swapped, renamed, kid, far } from \"../src/util\";\n\nlog.debug(\"server\", \"up\");\nswapped.debug(\"server\", \"up\");\nrenamed.debug(\"server\", \"up\");\nkid.debug(1);\nkid.info(1);\nlog.trace(1);\nlog.info(1);\nfar.debug(1);\n";
+    let (dir, mut a) = project_app(
+        "ts-imported-new",
+        &[
+            ("src/util.ts", util),
+            ("src/remote.ts", remote),
+            ("server/server.js", main),
+        ],
+    );
+    for (on, via, place) in [
+        (
+            "log.debug",
+            "debug \u{2192} Logger.debug (via log: Logger)",
+            "src/util.ts:5",
+        ),
+        (
+            "kid.info",
+            "info \u{2192} Child.info (via kid: Child)",
+            "src/util.ts:16",
+        ),
+    ] {
+        d_on(&mut a, "server/server.js", on);
+        assert_eq!(shown(&mut a), jump(via, place), "{on}");
+    }
+    for on in [
+        "swapped.debug",
+        "renamed.debug",
+        "kid.debug",
+        "log.info",
+        "far.debug",
+    ] {
+        d_on(&mut a, "server/server.js", on);
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(..)),
+            "a let, a renamed export, an inherited or missing member and a class from another module keep the picker: {on}"
+        );
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
