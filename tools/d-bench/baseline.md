@@ -96,6 +96,7 @@ The cpp row with #1336's class scope (a type name in a class's method finds the 
 The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
 The js row with #1337's second pass (a member a `require`d package declares in its ES-module copy too, `dayjs/esm/index.d.ts` or `index.d.mts`, lands in the copy `require` reads): over `967116536`, 2026-11-02, release build, `vm.loadavg` { 2.54 3.88 4.38 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
+The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -125,7 +126,7 @@ The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syn
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 37.2 | 105.8 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
-| bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |
+| bash (bats-core, acme.sh) | 98 | 95 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.4 |
 | racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
