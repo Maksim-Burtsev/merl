@@ -25,3 +25,7 @@ end
 
 using Test: @test
 test(x) = x
+Union{}(a...) = throw(ArgumentError("no value of Union{}"))
+rows = Union{Int, Nothing}[1, nothing]
+#      ^ d: none
+fun(v) = sum(v)

@@ -5,7 +5,7 @@ use super::c::{
     ACCESS_LABELS, Head, Scope, bracket_contents_blanked, c_bindings_at, c_body_name, c_code,
     c_head, c_head_start, c_innermost_open_brace, c_place, c_struct_head, c_words_on_line,
     close_or_end, cpp_class_path, cpp_decl_start, line_starts, scope_pos,
-    scopes_inside_out_to_type_or_namespace,
+    scopes_inside_out_to_type_or_namespace, untemplated,
 };
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
@@ -21,8 +21,11 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
         let path = match (c_struct_head(head), NAMESPACE.captures(head)) {
             (Some(name), _) => name,
             (None, Some(c)) => c.get(1).map_or("", |m| m.as_str()).to_owned(),
-            (None, None) => match c_head(head) {
-                Head::Function { name, .. } => {
+            (None, None) => match (c_head(head), c_head(&untemplated(head))) {
+                (Head::Function { name, .. }, _) if name.contains("::") => {
+                    name.rsplit_once("::").unzip().0.unwrap_or("").to_owned()
+                }
+                (Head::Function { .. }, Head::Function { name, .. }) => {
                     name.rsplit_once("::").unzip().0.unwrap_or("").to_owned()
                 }
                 _ => String::new(),
@@ -34,6 +37,26 @@ pub fn cpp_scope_path(code: &str, pos: usize) -> Vec<String> {
     }
     out.reverse();
     out
+}
+
+pub fn cpp_lookup_path(code: &str, pos: usize) -> Vec<String> {
+    let here = cpp_scope_path(code, pos);
+    let Some(open) = (code.get(pos..))
+        .and_then(|r| r.find(['{', ';']))
+        .map(|i| pos + i)
+    else {
+        return here;
+    };
+    let start = c_head_start(code, open);
+    let in_params = code.as_bytes()[open] == b'{'
+        && matches!(c_head(code.get(start..open).unwrap_or_default()),
+            Head::Function { params, .. } if start + params.start < pos);
+    let body = cpp_scope_path(code, open + 1);
+    if in_params && body.len() > here.len() && body.starts_with(&here) {
+        body
+    } else {
+        here
+    }
 }
 
 pub fn cpp_scoped_name(text: &str, line1: usize, name: &str) -> Option<String> {
@@ -85,6 +108,21 @@ pub fn cpp_owner(text: &str, line1: usize, name: &str) -> Option<Vec<String>> {
         path.extend((qualifier.split("::").filter(|p| !p.is_empty())).map(str::to_owned));
     }
     Some(path)
+}
+
+pub fn cpp_member_class(text: &str, line1: usize, name: &str) -> Option<String> {
+    let code = c_code(text);
+    let at = *c_words_on_line(&code, line1, name, None).first()?;
+    let open = c_innermost_open_brace(code.as_bytes(), at)?;
+    c_struct_head(code.get(c_head_start(&code, open)..open)?).filter(|c| !c.is_empty())
+}
+
+pub fn cpp_may_derive_from(text: &str, class: &str) -> bool {
+    let c = regex::escape(class);
+    Regex::new(&format!(
+        r"[:,]\s*(?:(?:public|protected|private|virtual)\s+)*(?:\w+\s*::\s*)*{c}\s*[<,{{]|\b(?:class|struct)\b[^;{{}}]*:[^;{{}}]*\b{c}\b[^;{{}}]*\{{|\busing\s+\w+\s*=[^;]*\b{c}\b|\btypedef\b[^;]*\b{c}\b"
+    ))
+    .is_ok_and(|re| re.is_match(&c_code(text)))
 }
 
 pub fn cpp_alias_in_scope(text: &str, pos: usize, alias: &str) -> Option<Vec<String>> {
@@ -161,6 +199,24 @@ pub fn cpp_using_declares(code: &str, name: &str) -> bool {
         regex::escape(name)
     ))
     .is_ok_and(|re| re.is_match(code))
+}
+
+pub fn cpp_function_uses(text: &str, line1: usize, word: &str, name: &str) -> bool {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let Some(pos) = scope_pos(&code, &starts, line1, word) else {
+        return false;
+    };
+    scopes_inside_out_to_type_or_namespace(&code, pos)
+        .into_iter()
+        .find(|s| matches!(s.head, Head::Function { .. }))
+        .and_then(|s| code.get(s.open..pos))
+        .is_some_and(|body| cpp_using_declares(body, name))
+}
+
+pub fn cpp_templated(code: &str, open: usize) -> bool {
+    code.get(c_head_start(code, open)..open)
+        .is_some_and(|head| head.trim_start().starts_with("template"))
 }
 
 pub fn cpp_defined_signature(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {

@@ -468,6 +468,7 @@ impl App {
                 let [(decl, ..)] = <[_; 1]>::try_from(decls).ok()?;
                 (decl.path, c[2].to_owned())
             }
+            Got::Bound(_) => return None,
         };
         ["core", "alloc", "std"]
             .into_iter()

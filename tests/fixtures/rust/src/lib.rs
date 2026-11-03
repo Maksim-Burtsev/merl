@@ -19,3 +19,4 @@ pub mod looms;
 pub mod heddles;
 pub mod bales;
 pub mod infusion;
+pub mod sieves;

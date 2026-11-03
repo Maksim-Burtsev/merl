@@ -1,6 +1,22 @@
-use super::{App, Candidate, Kind, Reason, search};
+use std::path::Path;
+
+use super::{App, Candidate, Hit, Kind, Reason, search};
 
 impl App {
+    pub(super) fn scheme_renamed(&self, here: &Path, word: &str) -> Vec<Hit> {
+        let pattern = format!(r"\([^\s()]+\s+{}\)", regex::escape(word));
+        let mut hits = self.project_grep(Kind::Scheme, here, &pattern);
+        hits.retain(|h| {
+            let dir = h.path.parent().unwrap_or_else(|| Path::new(""));
+            self.text_of(&h.path).is_some_and(|text| {
+                search::scheme_renames(&text, h.line1, word, h.path == here, |f| {
+                    dir.join(f) == here
+                })
+            })
+        });
+        hits
+    }
+
     pub(super) fn binding_lines(
         &self,
         kind: Kind,

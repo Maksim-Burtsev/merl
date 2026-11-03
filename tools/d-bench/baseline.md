@@ -96,39 +96,56 @@ The cpp row with #1336's class scope (a type name in a class's method finds the 
 The dart row with the second pass of #1338 (a named constructor whose first parameter has no type, `ArgumentError.value(value, [this.name])`; a field or local set to a typed list literal is a `List`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 2.65 3.48 4.13 } before the run.
 The js row with #1337's second pass (a member a `require`d package declares in its ES-module copy too, `dayjs/esm/index.d.ts` or `index.d.mts`, lands in the copy `require` reads): over `967116536`, 2026-11-02, release build, `vm.loadavg` { 2.54 3.88 4.38 } before the run; the ts, vue, svelte and astro rows played the same (0 worse, 0 better) and are kept.
 The racket, scheme and commonlisp rows with #1344 (a `let-values` formal, a `syntax-rules` pattern variable but its literals and its macro's keyword, a `defgeneric` parameter, `%` in a Scheme name such as `option-snip%`): over `22983bb70`, 2026-11-02, release build, `vm.loadavg` { 3.68 3.49 3.82 } before the run, { 3.55 3.46 3.81 } after.
+The julia row with #1370 (the 13 rows where merl jumps and the oracle has none judged from the code: 9 right, 4 wrong, julia0111, julia0178 and julia0244 on `Union` landing on `Union{}(a...)` in `boot.jl`, julia0210 on `ByRow`'s `fun` landing in `test/select.jl`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.86 5.61 3.98 } before the run.
+The cpp row with the third pass of #1336 (a type a class declares inside its body is unseen in another class's method unless that class derives from it, `MemTable::Table` at `version_set.cc:1136`; a class template's out-of-line method, `void Coaster<K>::Lay() {`, is in the class's scope): over `d57b90f66`, 2026-11-03, release build, `vm.loadavg` { 3.84 4.12 4.27 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The swift row with #1341's third pass (a key path handed to a generic wrapper's method that takes a closure of the wrapped value, `mutableState.read(\.eventMonitor)`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 3.75 4.09 } before the run, { 3.45 3.70 4.04 } after.
+The rust row with #1302's fourth pass (a parameter typed by the trait's own associated type, `caps: &mut Self::Captures` under `type Captures: Captures;`, read through that bound: `let m = caps.get(0).unwrap(); m.end` in `crates/matcher/src/lib.rs`): over `1866bd8bc`, 2026-11-03, release build, `vm.loadavg` { 3.54 3.79 4.15 } before the run.
+The python row with #1339's third pass (a member of a mock `with patch(..) as m:`, `with patch.object(..) as m:` or `m = mocker.patch(..)` binds, given no replacement, lands on that member of `MagicMock` when `AsyncMock` declares it in the same place): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.70 4.73 4.54 } before the run, { 3.84 4.50 4.47 } after.
+The ruby row with #1340's third pass (a method whose last value is a call chain, memoised through an `@ivar` assigned once, and a body whose `rescue` clauses only raise or give `nil`): over `400b00c23`, 2026-11-03, release build, `vm.loadavg` { 3.25 4.04 4.25 } before the run, { 12.26 6.78 5.27 } after.
+The dart row with the third pass of #1338 (a loop over a call of the class's own method, `await for (final chunk in finalize())`, reads the element type of its `Stream<Uint8List>` / `List` / `Iterable` / `Set` return): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 3.39 4.52 4.78 } before the run.
+The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
+The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
+The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, so `Union` no longer lands on `Union{}(a...)` in `boot.jl`; a member of a value, `f.fun` after a lowercase name, a call or an index, reads only fields): over `d52ab9a92`, 2026-11-03, release build, `vm.loadavg` { 3.63 4.61 4.88 } before the run, { 3.31 4.30 4.74 } after.
+The js row with #1337's fourth pass (a member of a value whose JSDoc `@type` names a `@typedef` of the same file joining an object type with `&`, `indexedResults.timings` under `@typedef {IndexedLintResult[] & { netLintingDuration: bigint; timings?: … }} WorkerLintResults`, lands on that `@typedef`): over `c1f6d79ca` with this change, 2026-11-03, release build, `vm.loadavg` { 3.96 4.08 4.42 } before the run.
+The python row with #1339's fourth pass (a parameter that `@patch(..)` decorators fill, bottom-up after `self`, is a `MagicMock`; python0321): over `8beca4fbe` with this change, 2026-11-03, release build, `vm.loadavg` { 4.82 5.13 4.97 } before the run, { 3.86 4.72 4.83 } after.
+The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp0130 `leveldb_options_t` also accepts its struct in `db/c.cc`, cpp0214 `GetChildren` answers `Env::GetChildren`, bash0077 `ISPC_Api` answers line 42): over `c1f6d79ca`, 2026-11-03, release build, `vm.loadavg` { 6.58 5.93 5.06 } before the run.
+The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void Trivet::Place(Stand* s) {`, are in the class's scope; an unqualified call in a method, `user_comparator()->Compare` in `DBImpl::DoCompactionWork`, is read as `this->` first; cpp0214 `target()->GetChildren`, no answer recorded, now jumps to `Env::GetChildren`): over `8b0969ab2`, 2026-11-03, release build, `vm.loadavg` { 3.42 3.43 4.05 } before the run.
+The swift row with #1341's fourth pass (overloads that differ only by the type of an argument, `upload(stream, with: convertible, ..)` in `Session` where `stream` is an `InputStream` and the other `upload`s take `Data` or `URL`): over `aa49be99f` with this change, 2026-11-03, release build, `vm.loadavg` { 2.78 3.46 3.99 } after the run.
+The rust row with #1302's integration-test crates (a package's `tests/` folder read as Cargo's crates) and rust0254 (a closure parameter typed by the callee's `F: FnMut(&Self::Captures)` bound and the receiver's `impl` of the trait): over `6897d447a`, 2026-11-03, release build, `vm.loadavg` { 4.75 4.97 4.46 } before the run, { 4.52 4.92 4.44 } after.
+The swift row with #1341's fifth pass (a static call followed by a property as an argument, `session.upload(data, to: url)` with `let url = Endpoint.method(.post).url` in `UploadTests`): over `9844374ee` with this change, 2026-11-03, release build, `vm.loadavg` { 3.68 3.89 4.11 } before the run, { 3.63 3.84 4.06 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 249 (95%) | 3 (1%) | 0 (0%) | 10 (4%) | 63 | 8 | 16.1 | 275.5 |
-| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 43.4 | 95.0 |
-| js (eslint, uptime-kuma) | 217 | 201 (93%) | 13 (6%) | 0 (0%) | 3 (1%) | 177 | 6 | 32.8 | 174.1 |
+| python (paperless-ngx) | 262 | 252 (96%) | 3 (1%) | 0 (0%) | 7 (3%) | 63 | 8 | 16.3 | 179.8 |
+| ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
+| js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 228 (99%) | 3 (1%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.2 | 56.7 |
-| c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 25.4 | 37.5 |
+| rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
+| c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 236 | 213 (90%) | 23 (10%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 62.6 |
-| swift (Alamofire) | 450 | 433 (96%) | 16 (4%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.6 | 47.6 |
+| cpp (leveldb) | 237 | 216 (91%) | 21 (9%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.5 | 63.1 |
+| swift (Alamofire) | 450 | 436 (97%) | 13 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.8 | 48.0 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
-| ruby (mastodon) | 140 | 133 (95%) | 6 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 63.9 | 352.1 |
-| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 27.8 | 131.7 |
+| ruby (mastodon) | 140 | 134 (96%) | 5 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.6 | 365.0 |
+| objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 177 | 73 (41%) | 87 (49%) | 0 (0%) | 17 (10%) | 123 | 13 | 16.3 | 28.1 |
+| julia (DataFrames.jl) | 190 | 85 (45%) | 84 (44%) | 0 (0%) | 21 (11%) | 110 | 0 | 16.8 | 29.2 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
-| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 49.2 | 172.2 |
-| svelte (immich) | 182 | 120 (66%) | 44 (24%) | 0 (0%) | 18 (10%) | 88 | 2 | 39.8 | 218.5 |
-| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 37.2 | 105.8 |
+| vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
+| svelte (immich) | 182 | 126 (69%) | 42 (23%) | 0 (0%) | 14 (8%) | 88 | 2 | 30.5 | 177.3 |
+| astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
-| bash (bats-core, acme.sh) | 98 | 94 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 11 | 1 | 5.0 | 9.6 |
+| bash (bats-core, acme.sh) | 98 | 95 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
 | racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
-| dart (dio) | 97 | 92 (95%) | 4 (4%) | 0 (0%) | 1 (1%) | 17 | 0 | 47.7 | 142.1 |
+| dart (dio) | 97 | 93 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 17 | 0 | 48.7 | 141.9 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

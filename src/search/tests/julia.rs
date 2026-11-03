@@ -73,6 +73,8 @@ fn julia_refusals() {
         ("@show total(xs)", "total"),
         ("@test rate(t) == 1", "rate"),
         ("x => 1", "x"),
+        ("Union{}(a...) = throw(x)", "Union"),
+        ("Tuple{ }() = ()", "Tuple"),
     ] {
         assert!(!alone(line, word), "{line}: {word}");
     }
@@ -114,13 +116,29 @@ fn a_julia_field_is_one_directly_inside_its_struct() {
     let narrowed = |line: &str, word: &str| {
         let at = line.find(word).unwrap();
         let mut p = julia_patterns(word);
-        julia_narrow(&mut p, line, at..at + word.len());
+        let text = format!(
+            "import LinearAlgebra as la\nconst hh = Helpers\nmodule utils end\nfunction h(f, m, _f)\n    {line}\nend"
+        );
+        julia_narrow(&mut p, &text, 4, line, at..at + word.len());
         Regex::new(&p.join("|")).unwrap()
     };
     assert!(!narrowed("cents(x)", "cents").is_match(lines[1]));
     assert!(!narrowed("y = cents + 1", "cents").is_match(lines[1]));
     assert!(narrowed("y = m.cents + 1", "cents").is_match(lines[1]));
     assert!(narrowed("    cents::Int", "cents").is_match(lines[1]));
+    for line in ["f.fun(x)", "g(x).fun(x)", "xs[1].fun", "_f.fun"] {
+        let p = narrowed(line, "fun");
+        assert!(!p.is_match("fun(v) = sum(v)"), "{line}");
+        assert!(p.is_match("    fun::F"), "{line}");
+    }
+    for line in ["Tables.fun(x)", "Base.Iterators.fun", "using .fun"] {
+        assert!(narrowed(line, "fun").is_match("fun(v) = sum(v)"), "{line}");
+    }
+    for line in ["la.fun(x)", "hh.fun(x)", "utils.fun(x)", "nm.fun(x)"] {
+        let p = narrowed(line, "fun");
+        assert!(p.is_match("fun(v) = sum(v)"), "{line}");
+        assert!(!p.is_match("    fun::F"), "{line}");
+    }
     assert!(narrowed("@check x", "check").is_match("macro check(ex)"));
     assert!(!narrowed("@check x", "check").is_match("check(x) = x > 0"));
     assert!(!narrowed("check(x)", "check").is_match("macro check(ex)"));

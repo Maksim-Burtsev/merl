@@ -2,12 +2,13 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::ruby_locals;
+use super::{ruby_last_call, ruby_locals, ruby_receiver_split};
 
 pub enum RubyReturns {
     Itself,
     New(String),
     Found(String),
+    Chain(usize, String),
 }
 
 fn continues(line: &str) -> bool {
@@ -124,18 +125,76 @@ pub fn ruby_last_value(text: &str, def_line1: usize) -> Option<RubyReturns> {
         .take_while(|l| skipped(l) || l.len() - l.trim_start().len() > indent)
         .copied()
         .collect();
-    let close = lines.get(def_line1 + body.len())?;
-    if !close.trim_start().starts_with("end") || body.iter().any(|l| RETURN.is_match(l)) {
+    if !rescues_then_end(lines.get(def_line1 + body.len()..)?, indent)
+        || body.iter().any(|l| RETURN.is_match(l))
+    {
         return None;
     }
-    let last = body.iter().rev().find(|l| !skipped(l))?.trim();
+    let (at, last) = body.iter().enumerate().rev().find(|(_, l)| !skipped(l))?;
+    let last = last.trim();
+    if body[..at]
+        .iter()
+        .rev()
+        .find(|l| !skipped(l))
+        .is_some_and(|l| leaves_open(l))
+    {
+        return None;
+    }
     if last == "self" {
         return Some(RubyReturns::Itself);
     }
     if let Some(c) = NEW.captures(last) {
         return Some(RubyReturns::New(c[1].to_owned()));
     }
-    ruby_found_record(last).map(|c| RubyReturns::Found(c.to_owned()))
+    if let Some(c) = ruby_found_record(last) {
+        return Some(RubyReturns::Found(c.to_owned()));
+    }
+    let (memo, chain) = memo_value(last);
+    (ruby_last_call(chain).is_some() && ruby_receiver_split(chain).0.trim().is_empty())
+        .then(|| RubyReturns::Chain(def_line1 + at + 1, memo.unwrap_or(chain).to_owned()))
+}
+
+fn leaves_open(line: &str) -> bool {
+    let t = line.trim_end();
+    t.ends_with([
+        '|', '&', '+', '-', '*', '/', '%', '=', '<', '>', ':', ',', '(', '[', '{', '\\', '^', '~',
+    ]) || [" ?", " and", " or", " not"].iter().any(|w| t.ends_with(w))
+}
+
+fn memo_value(value: &str) -> (Option<&str>, &str) {
+    static MEMO: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^(@[a-z_]\w*)\s*\|\|=\s*(.+)$").expect("the regex is a literal")
+    });
+    MEMO.captures(value)
+        .and_then(|c| Some((Some(c.get(1)?.as_str()), c.get(2)?.as_str())))
+        .unwrap_or((None, value))
+}
+
+fn rescues_then_end(rest: &[&str], indent: usize) -> bool {
+    let mut clause = false;
+    for line in rest {
+        let t = line.trim_start();
+        if skipped(line) {
+            continue;
+        }
+        if line.len() - t.len() > indent {
+            if !clause || !(t == "nil" || t.starts_with("raise ")) {
+                return false;
+            }
+            continue;
+        }
+        if line.len() - t.len() < indent {
+            return false;
+        }
+        if t == "end" || t.starts_with("end ") {
+            return true;
+        }
+        if t != "rescue" && !t.starts_with("rescue ") {
+            return false;
+        }
+        clause = true;
+    }
+    false
 }
 
 pub fn ruby_found_record(value: &str) -> Option<&str> {

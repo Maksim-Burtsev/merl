@@ -652,7 +652,7 @@ fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     }
     None
 }
-fn top_split(mut s: &str) -> Vec<&str> {
+pub fn top_split(mut s: &str) -> Vec<&str> {
     let mut out = Vec::new();
     while let Some((head, rest)) = top_stop(s, b",").and_then(|i| s.split_at_checked(i)) {
         out.push(head);
@@ -767,7 +767,7 @@ fn rust_param(lines: &[&str], f: usize, name: &str) -> Option<usize> {
         .find(|&i| declared.is_match(&uncommented(Kind::Rust, lines[i])))
         .or_else(|| (f..=last).find(|&i| names(lines[i], name)))
 }
-fn past_generics(line: &str, at: usize) -> Option<usize> {
+pub(super) fn past_generics(line: &str, at: usize) -> Option<usize> {
     let from = line.get(at..)?;
     if !from.starts_with('<') {
         return Some(at);
@@ -1196,46 +1196,6 @@ pub fn rust_self_type(lines: &[&str], line0: usize) -> Option<RustSelfType> {
 }
 pub fn rust_self_trait(lines: &[&str], line0: usize) -> Option<usize> {
     self_owner(lines, line0).filter(|&i| TRAIT_LINE.is_match(lines[i]))
-}
-pub fn rust_signature(lines: &[&str], at: usize) -> Option<String> {
-    static FN: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\bfn\s+\w+").expect("the regex is a literal"));
-    let f = (0..=at).rev().take(20).find(|&i| FN.is_match(lines[i]))?;
-    if lines[f..at].iter().any(|l| l.contains(['{', ';'])) {
-        return None;
-    }
-    let mut sig = String::new();
-    for l in &lines[f..] {
-        sig.push_str(l);
-        sig.push(' ');
-        if l.contains('{') || l.trim_end().ends_with(';') {
-            break;
-        }
-    }
-    Some(sig)
-}
-pub fn rust_bounds(lines: &[&str], at: usize, param: &str) -> Vec<String> {
-    let Some(sig) = rust_signature(lines, at) else {
-        return Vec::new();
-    };
-    let Ok(re) = Regex::new(&format!(
-        r"(?:<|,|\bwhere)\s*{}\s*:\s*([^,{{>]+)",
-        regex::escape(param)
-    )) else {
-        return Vec::new();
-    };
-    re.captures_iter(&sig)
-        .flat_map(|c| {
-            c[1].split('+')
-                .filter_map(|b| {
-                    let b = b.trim();
-                    let name = b.split('<').next()?.rsplit("::").next()?.trim();
-                    name.starts_with(|c: char| c.is_ascii_uppercase())
-                        .then(|| name.to_owned())
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect()
 }
 pub fn rust_inline_mod(lines: &[&str], line0: usize) -> Option<usize> {
     rust_inline_mod_past(lines, &[], line0)

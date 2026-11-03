@@ -1,0 +1,6 @@
+(define-library (shop table)
+  (export table-drop! table-wipe!)
+  (import (scheme base)
+          (rename (srfi 69)
+                  (hash-table-delete! %table-delete!)))
+  (include "table.scm"))

@@ -1,6 +1,55 @@
 use regex::Regex;
 
-use super::{Kind, SwiftExpr, code, split_top, swift_expr, swift_mods};
+use super::{Kind, SwiftExpr, code, group, split_top, swift_expr, swift_mods};
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct SwiftCall {
+    pub labels: Vec<String>,
+    pub args: Vec<String>,
+    pub trailing_closure: bool,
+}
+pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<SwiftCall> {
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*`?(\w+)`?\s*:").expect("the regex is a literal")
+    });
+    let line = lines.get(line0)?;
+    let rest = line.get(after..)?;
+    if rest.trim_start().starts_with('{') {
+        let condition = ["if ", "guard ", "while ", "for ", "switch ", "} else"]
+            .iter()
+            .any(|k| line.trim_start().starts_with(k));
+        return (!condition).then(|| SwiftCall {
+            labels: Vec::new(),
+            args: Vec::new(),
+            trailing_closure: true,
+        });
+    }
+    if !rest.starts_with('(') {
+        return None;
+    }
+    let g = group(Kind::Swift, lines, line0, after)?;
+    let trailing_closure = g.after_close.trim_start().starts_with('{');
+    let inner = g.inner_uncommented;
+    let (labels, args) = if inner.trim().is_empty() {
+        (Vec::new(), Vec::new())
+    } else {
+        split_top(Kind::Swift, &inner, b',')
+            .into_iter()
+            .map(|a| match LABEL.captures(a) {
+                Some(c) => (
+                    c[1].to_owned(),
+                    a.get(c[0].len()..).unwrap_or("").trim().to_owned(),
+                ),
+                None => ("_".to_owned(), a.trim().to_owned()),
+            })
+            .unzip()
+    };
+    Some(SwiftCall {
+        labels,
+        args,
+        trailing_closure,
+    })
+}
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct SwiftArgument {
@@ -85,4 +134,20 @@ pub fn swift_declares_func(line: &str) -> Option<bool> {
         Regex::new(&format!(r"{}(func|let|var)\s", swift_mods!())).expect("the regex is a literal")
     });
     DECL.captures(line).map(|c| &c[1] == "func")
+}
+
+pub fn swift_call_fields(e: &str) -> Option<(String, Vec<String>)> {
+    let e = e.trim();
+    let (call, tail) = e.split_at(e.rfind(')')? + 1);
+    let fields: Vec<String> = tail
+        .strip_prefix('.')?
+        .split('.')
+        .map(str::to_owned)
+        .collect();
+    let ident = |f: &String| {
+        f.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && f.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    (fields.iter().all(ident) && matches!(swift_expr(call)?, SwiftExpr::Call(_)))
+        .then(|| (call.to_owned(), fields))
 }

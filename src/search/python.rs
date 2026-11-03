@@ -946,3 +946,136 @@ pub fn python_assigned_call(text: &str, line1: usize, name: &str) -> Option<Stri
     };
     inner.ends_with(')').then(|| inner.to_owned())
 }
+pub fn python_patched_mock(text: &str, line1: usize) -> Option<(String, bool)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(\w+)\s*=\s*|(?:async\s+)?with\s+)((?:\w+\.)*patch(?:\.object)?)\s*\(")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1)?;
+    let c = HEAD.captures(lines.get(at)?)?;
+    let callee = c[2].to_owned();
+    let Group {
+        inner_uncommented: args,
+        after_close,
+        ..
+    } = group(Kind::Python, &lines, at, c.get(0)?.end() - 1)?;
+    let after = uncommented(Kind::Python, after_close);
+    let binds = match c.get(1) {
+        Some(_) => after.trim().is_empty(),
+        None => after
+            .trim()
+            .strip_prefix("as")
+            .map(|r| {
+                r.trim_start()
+                    .trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
+            })
+            .is_some_and(|r| r.trim() == ":"),
+    };
+    (binds && patch_fill(&callee, &args) == Some(Fill::Mock))
+        .then_some((callee, c.get(1).is_none()))
+}
+#[derive(PartialEq, Eq)]
+enum Fill {
+    Nothing,
+    Mock,
+    Other,
+}
+fn patch_fill(callee: &str, args: &str) -> Option<Fill> {
+    static KEYWORD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(\w+)\s*=[^=]").expect("the regex is a literal"));
+    if matches!(callee.rsplit('.').next(), Some("dict" | "multiple")) {
+        return Some(Fill::Nothing);
+    }
+    let args: Vec<&str> = split_top(Kind::Python, args, b',')
+        .into_iter()
+        .map(str::trim)
+        .filter(|a| !a.is_empty())
+        .collect();
+    if args.iter().any(|a| a.starts_with('*')) {
+        return None;
+    }
+    let keywords: Vec<&str> = args
+        .iter()
+        .filter_map(|a| KEYWORD.captures(a).and_then(|k| k.get(1)))
+        .map(|k| k.as_str())
+        .collect();
+    let positional = args.len() - keywords.len();
+    let wanted = if callee.ends_with(".object") { 2 } else { 1 };
+    if positional > wanted || keywords.contains(&"new") {
+        Some(Fill::Nothing)
+    } else if positional < wanted {
+        None
+    } else if keywords.contains(&"new_callable") || keywords.contains(&"autospec") {
+        Some(Fill::Other)
+    } else {
+        Some(Fill::Mock)
+    }
+}
+pub fn python_patched_param(text: &str, line1: usize, name: &str) -> Option<Vec<String>> {
+    static DECORATOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*@((?:\w+\.)*\w+)\s*(\()?").expect("the regex is a literal")
+    });
+    static PATCH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\.)patch(?:\.\w+)?$").expect("the regex is a literal")
+    });
+    static FILLS_NONE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\w+\.)*override_settings$|^pytest\.mark\.\w+$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let d = (0..=at)
+        .rev()
+        .find(|&i| DEF.is_match(lines[i].trim_start()))?;
+    let Group {
+        inner_uncommented: params,
+        close_line,
+        ..
+    } = group(Kind::Python, &lines, d, lines[d].find('(')?)?;
+    let mut written = Vec::new();
+    python_params(&lines, d, &params, name, &mut written);
+    if close_line < at || !written.iter().any(|b| b.line1 == line1) {
+        return None;
+    }
+    let names: Vec<&str> = split_top(Kind::Python, &params, b',')
+        .into_iter()
+        .map(|p| split_top(Kind::Python, p, b'=')[0].trim())
+        .map(|p| p.split_once(':').map_or(p, |(n, _)| n.trim()))
+        .collect();
+    let k = names.iter().position(|&p| p == name)?;
+    let skip = usize::from(python_class_of(&lines, d).is_some());
+    if k < skip || names[..k].iter().any(|p| p.starts_with('*') || *p == "/") {
+        return None;
+    }
+    let ind = indent(lines[d]);
+    let (mut fills, mut patches) = (Vec::new(), Vec::new());
+    for i in (0..d).rev() {
+        let t = lines[i].trim();
+        if t.is_empty()
+            || t.starts_with('#')
+            || indent(lines[i]) > ind
+            || closes_a_wrapped_header(t)
+        {
+            continue;
+        }
+        if indent(lines[i]) < ind || !t.starts_with('@') {
+            break;
+        }
+        let c = DECORATOR.captures(lines[i])?;
+        if !PATCH.is_match(&c[1]) {
+            if FILLS_NONE.is_match(&c[1]) {
+                continue;
+            }
+            return None;
+        }
+        patches.push(c[1].to_owned());
+        let open = c.get(2)?.start();
+        let args = group(Kind::Python, &lines, i, open)?.inner_uncommented;
+        match patch_fill(&c[1], &args)? {
+            Fill::Nothing => {}
+            fill => fills.push(fill),
+        }
+    }
+    (fills.get(k - skip)? == &Fill::Mock).then_some(patches)
+}

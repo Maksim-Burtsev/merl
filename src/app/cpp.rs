@@ -29,6 +29,14 @@ impl App {
         let Some(r) = search::cpp_receiver(before) else {
             return CppAnswer::ByName(None);
         };
+        if let Some(call) = (before.get(r.start..).map(str::trim_start))
+            .filter(|c| r.head_called && !r.braced && c.starts_with(&r.head))
+            && self.cpp_member_unhidden(here, text, &r.head, word)
+            && let CppAnswer::Found(found) =
+                self.cpp_typed(here, text, &format!("this->{call}"), word)
+        {
+            return CppAnswer::Found(found);
+        }
         let calls = r.head_called || r.braced || r.calls.contains(&true);
         let broke =
             |at: &str| CppAnswer::ByName((!calls && !r.fields.is_empty()).then(|| at.to_owned()));
@@ -314,6 +322,24 @@ impl App {
             }
         }
         None
+    }
+
+    fn cpp_member_unhidden(&mut self, here: &Path, text: &str, head: &str, word: &str) -> bool {
+        if search::cpp_function_uses(text, self.line + 1, word, head)
+            || search::cpp_value_type(text, self.line + 1, head) != Ok(None)
+        {
+            return false;
+        }
+        let code = search::c_code(text);
+        let Some(name) = search::c_method_class(text, self.line + 1, word) else {
+            return false;
+        };
+        let ctx = search::cpp_scope_path(&code, offset(text, self.line, self.col).min(code.len()));
+        self.cpp_class(here, &[name], &code, None, &ctx)
+            .is_some_and(|class| {
+                !search::cpp_templated(&class.code, class.open)
+                    || !search::cpp_body_members(&class.code, class.open, head).is_empty()
+            })
     }
 
     pub(super) fn cpp_class_scope(

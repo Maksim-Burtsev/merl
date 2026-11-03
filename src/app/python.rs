@@ -628,3 +628,81 @@ pub(super) fn starts_by_assigning(text: &str, word: &str) -> bool {
         rest.starts_with(':') || rest.starts_with('=') && !rest.starts_with("==")
     })
 }
+
+impl App {
+    pub(super) fn patched_mock(
+        &self,
+        kind: Kind,
+        text: &str,
+        b: &search::Binding,
+    ) -> Option<Typed> {
+        if kind != Kind::Python
+            || !matches!(b.value, search::Value::Call(_) | search::Value::Unknown)
+        {
+            return None;
+        }
+        let line1 = b.line1;
+        let imports = search::imports(Kind::Python, text);
+        let unittest = |callee: &str| {
+            let mut parts = callee.split('.').map(str::to_owned);
+            (parts.next().and_then(|head| bound(&imports, &head))).is_some_and(|mut path| {
+                path.extend(parts);
+                path.starts_with(&["unittest".into(), "mock".into(), "patch".into()])
+            })
+        };
+        let from_mock = match search::python_patched_mock(text, line1) {
+            Some((callee, true)) => unittest(&callee),
+            Some((callee, false)) => {
+                let parts: Vec<&str> = callee.split('.').collect();
+                bound(&imports, parts[0]).is_none()
+                    && parts.get(1) == Some(&"patch")
+                    && matches!(search::bindings(Kind::Python, text, line1, parts[0]).as_slice(),
+                        [search::Binding { value: search::Value::Type(t), .. }]
+                            if t.trim_end().ends_with("MockerFixture"))
+            }
+            None => {
+                let (range, _) = self.word_here(Some(Kind::Python))?;
+                let before = self.line_str().get(..range.start)?.strip_suffix('.')?;
+                let receiver = before
+                    .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                    .next()?;
+                search::python_patched_param(text, line1, receiver)
+                    .is_some_and(|patches| patches.iter().all(|c| unittest(c)))
+            }
+        };
+        if !from_mock {
+            return None;
+        }
+        let [magic, other] = ["MagicMock", "AsyncMock"].map(|name| {
+            let path = ["unittest", "mock", name].map(str::to_owned);
+            let class = self.outside_class(Path::new(""), &path, &path[2..])?;
+            Some(Typed {
+                name: search::type_name(Kind::Python, &class.text)?,
+                path: class.path,
+                line: class.line1,
+            })
+        });
+        let (magic, other) = (magic?, other?);
+        let word = self.word_here(Some(Kind::Python))?.1.to_owned();
+        let declares = |ty: &Typed| -> Vec<(PathBuf, usize)> {
+            let kind = Kind::Python;
+            let declared =
+                self.hierarchy(kind, ty, 0, &mut |t| self.instance_member(kind, t, &word));
+            let hits = declared.or_else(|| {
+                let mut assigned = None;
+                self.hierarchy(kind, ty, 0, &mut |t| {
+                    if let Some(hit) = self.field_of(kind, t, &word, true) {
+                        assigned = Some(vec![hit]);
+                    }
+                    None::<()>
+                });
+                assigned
+            });
+            (hits.unwrap_or_default().into_iter())
+                .map(|h| (h.path, h.line1))
+                .collect()
+        };
+        let found = declares(&magic);
+        (!found.is_empty() && found == declares(&other)).then_some(magic)
+    }
+}

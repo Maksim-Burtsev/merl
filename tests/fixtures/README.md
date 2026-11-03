@@ -351,6 +351,11 @@ lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::C
 as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
 `sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside
 it, where master jumped (#1248).
+`c/src/tea/trivet.cc` (#1336) reads `Reading()->Read()` in `Kettle::Boil` through the class's own
+`Gauge* Reading()`, but not in `Hob::Simmer`, whose `Reading` would come from the dependent base
+`Brazier<T>`, nor in `Cauldron::Stir` after `using pantry::Reading;`: both go through the
+namespace's `Dial* Reading()`. `Trivet`'s nested `Stand` stays in the picker in
+`trivet_platter.cc`, whose `Platter` derives from it through the alias `TrivetBase`.
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -510,7 +515,11 @@ with `Base.show`, is a picker of that one method when no Julia is found (#1361),
 `isempty`, extended after `import Base: isempty` in `money.jl`, and `push!`, a `Base.push!`
 whose signature runs over two lines in `test/runtests.jl` (#1363), and `length`, imported in
 `Shop.jl` that includes `money.jl`, and `iterate`, named on the line below `import Base:`; `test`,
-a function beside `using Test: @test`, is a jump (#1365).
+a function beside `using Test: @test`, is a jump (#1365). `Union{}(a...)` in `test/runtests.jl` is a
+method of the empty union, not of `Union` (#1371), and `b.fun(x)` in `tariff.jl` calls the field
+of `ByWeight`, not the test's function `fun` (#1372), while `lv.cut(x)`, `lv` a `const` bound to the
+lowercase module `levies`, calls the module's function, not the field of `Levy`: only a local or
+a parameter before the dot is a value.
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
@@ -655,7 +664,8 @@ in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).
-`kettle.mjs` exports as its default an instance bound to a `const` (#1008). `sieve.cjs` assigns
+`kettle.mjs` exports as its default an instance bound to a `const` (#1008), and by name
+another, `spare`, whose member `steaming.mjs` reads through its class (#1337). `sieve.cjs` assigns
 to `exports.name` a value in parentheses, which declares nothing, an `async` arrow, an arrow with
 a bare parameter and a named function behind `module.exports.`, read from `pouring.cjs` through a
 destructured and a whole `require` (#1007). `mill.cjs` holds what a constructor function must
@@ -727,6 +737,15 @@ func's call (`Rush.make()`) keeps the picker. A method of a value whose type mer
 (`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
 also opens; two overloads taking
 two types, or a receiver merl cannot type, keep the picker.
+`swift/Sources/Shop/Overloads.swift` (#1341) calls overloads that differ only by the type of an
+argument: a parameter, a local of a written type or built by a constructor, a constructor call and
+a string literal, each taken by one overload while the others take a struct of another name. Two
+numeric overloads for an integer literal, a protocol, a generic, two classes, an alias, the same
+type twice and a comparison of two strings keep the picker. `swift/Sources/Shop/Wharf.swift` passes a
+call followed by a property (`Wharf.berth(1).bale`, a static func, `Self`, an instance call, a
+property an extension in another file declares): the call's written return type, then the
+property's, types the argument. A generic return, an optional chain and a generic property keep
+the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -775,6 +794,15 @@ binding, so it keeps the picker where reading the parameter jumped to `Scoop::he
 head is read among the bindings above the line, so `heap` is `Scoop`'s and the lookup ends.
 `hashed` heads its chain at `hashbrown::HashMap::new()`: the path's root is not std's, so `len`
 is not std's either and `d` answers by name, as master did.
+`rust/tests/` holds Cargo's integration-test crates (#1302), each with a `Gauge` of its own:
+`suite.rs` is the root of `checks.rs` and `kit.rs` (`mod checks; mod kit;`), `solo.rs` is a root
+of its own, and `bench/main.rs` roots `bench/kit.rs`, so `crate::` leads each file to its own
+`Gauge`. `common/mod.rs` is declared by two roots, so its `crate::kit::Gauge` keeps the picker.
+`tests/meshes.rs` is rust0254's shape: `matcher.each(b"x, y", &mut caps, |caps| {` with `each` a
+default method of a trait bounding its `F: FnMut(&Self::Captures)`, and `Mesh`'s `impl` naming
+`type Captures = Caps;`, so `caps.get` is `Caps::get` beside `Grain::get`; the comma inside the
+string does not move the argument. A closure on the cursor's own line, a parameter written with
+a type, and a parameter of an unbounded `F` keep the picker.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

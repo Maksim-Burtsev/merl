@@ -779,11 +779,7 @@ impl App {
             let own: Vec<&Hit> = hits.iter().filter(|h| h.path == here).collect();
             if command == Some(true)
                 && let [only] = own[..]
-                && !self
-                    .buf
-                    .lines
-                    .iter()
-                    .any(|l| search::shell_reads_another_file(l))
+                && self.shell_sources_none_of(here, &hits)
             {
                 hits = vec![only.clone()];
             }
@@ -794,7 +790,47 @@ impl App {
         if kind == Kind::Sql {
             self.sql_hits(here, word, &mut hits);
         }
+        if kind == Kind::Scheme && hits.is_empty() {
+            hits = self.scheme_renamed(here, word);
+        }
         hits
+    }
+
+    fn shell_sources_none_of(&self, here: &Path, hits: &[Hit]) -> bool {
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
+        let bats = here.extension().is_some_and(|e| e == "bats");
+        let lines = &self.buf.lines;
+        lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| search::shell_reads_another_file(l))
+            .all(|(i, l)| {
+                let named = i
+                    .checked_sub(1)
+                    .and_then(|p| search::shell_directive_source(&lines[p]))
+                    .map(PathBuf::from);
+                let file = match named {
+                    Some(file) if self.files.contains(&file) => file,
+                    Some(_) => return false,
+                    None => {
+                        let col = l.len() - l.trim_start().len();
+                        let Some(path) = search::shell_source(l, col, bats)
+                            .filter(|_| search::shell_source_from_here(l))
+                        else {
+                            return false;
+                        };
+                        let [file] = &search::shell_files(dir, &path, &self.files)[..] else {
+                            return false;
+                        };
+                        file.clone()
+                    }
+                };
+                file != here
+                    && !hits.iter().any(|h| h.path == file)
+                    && self
+                        .text_of(&file)
+                        .is_some_and(|t| !t.lines().any(search::shell_reads_another_file))
+            })
     }
 
     fn shell_out_args(&self, here: &Path, word: &str) -> Vec<Hit> {

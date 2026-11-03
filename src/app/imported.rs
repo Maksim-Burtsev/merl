@@ -297,6 +297,16 @@ impl App {
                     })
                 })
         };
+        if let [head] = chain
+            && !matches!(taken, "*" | "default")
+            && let Some(made) = files
+                .iter()
+                .find_map(|f| search::top_level_new(&self.text_of(f)?, taken))
+                .filter(class)
+        {
+            *instance = Some(format!("{head}: {made}"));
+            return Some(vec![made, word.to_owned()]);
+        }
         Some(match taken {
             "*" => match (exports.map(|(_, e)| e), chain.is_empty()) {
                 (Some(search::ModuleExports::OneAssignment { name, .. }), true) => {

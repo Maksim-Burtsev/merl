@@ -779,7 +779,7 @@ fn rust_use_files_follow_the_crate_and_super_paths() {
     .map(PathBuf::from)
     .collect();
     let find = |here: &str, text: &str| -> Vec<String> {
-        rust_use_files(&files, Path::new(here), text, "Cache")
+        rust_use_files(&files, Path::new(here), text, "Cache", |_| None)
             .iter()
             .map(|p| p.display().to_string())
             .collect()

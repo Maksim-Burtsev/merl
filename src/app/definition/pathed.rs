@@ -135,7 +135,8 @@ impl App {
             && chain.len() == 1
             && !declared.iter().any(|h| h.path == a.here)
         {
-            let files = search::rust_use_files(&self.files, &a.here, &a.text, owner);
+            let files =
+                search::rust_use_files(&self.files, &a.here, &a.text, owner, |p| self.text_of(p));
             q.answer_files = (!files.is_empty()).then_some(files);
         }
         self.truncated.set(false);

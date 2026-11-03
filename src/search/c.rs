@@ -145,7 +145,7 @@ fn c_back_to_stop(code: &str, at: usize) -> Option<(&str, Option<u8>)> {
         None => Some((code.get(..at)?, None)),
     }
 }
-fn untemplated(s: &str) -> String {
+pub(super) fn untemplated(s: &str) -> String {
     static ANGLE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"<[^<>]*>").expect("the regex is a literal"));
     let mut s = s.to_owned();

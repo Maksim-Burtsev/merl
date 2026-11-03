@@ -7,3 +7,5 @@ class Kettle {
 const kettle = new Kettle();
 
 export default kettle;
+
+export const spare = new Kettle();

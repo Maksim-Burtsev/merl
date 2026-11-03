@@ -1,6 +1,8 @@
 use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
 mod generic;
+mod key_path;
+mod overload;
 
 struct SwiftChain {
     written: String,
@@ -482,21 +484,6 @@ impl App {
             .any(|h| search::swift_alias(&h.text, name).is_some())
     }
 
-    fn swift_scope_generics(&self, here: &Path, text: &str, line1: usize) -> Vec<String> {
-        let lines: Vec<&str> = text.lines().collect();
-        let literal = search::literal_lines(Kind::Swift, text);
-        let mut out = Vec::new();
-        let mut at = line1;
-        while let Some(line) = at.checked_sub(1).and_then(|i| lines.get(i)) {
-            out.extend(search::swift_generics(line));
-            if let Some(t) = search::swift_extended(line) {
-                out.extend(self.swift_decl_generics(here, &t).into_iter().flatten());
-            }
-            at = search::swift_scope(&lines, &literal, at).header_line1;
-        }
-        out
-    }
-
     fn swift_nested_given(
         &self,
         here: &Path,
@@ -635,6 +622,9 @@ impl App {
     ) -> Option<WrittenVia> {
         if let Some(call) = search::swift_array_call(e) {
             return self.swift_array_call(here, file, text, line1, call, hops);
+        }
+        if let Some(call) = search::swift_call_fields(e) {
+            return self.swift_call_fields(here, file, text, line1, call, hops);
         }
         let callee = match search::swift_expr(e)? {
             search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
