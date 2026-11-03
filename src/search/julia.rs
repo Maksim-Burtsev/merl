@@ -44,7 +44,13 @@ pub fn julia_patterns(word: &str) -> Vec<String> {
     ]
 }
 
-pub fn julia_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<usize>) {
+pub fn julia_narrow(
+    patterns: &mut Vec<String>,
+    text: &str,
+    row: usize,
+    line: &str,
+    r: std::ops::Range<usize>,
+) {
     let (Some(word), Some(before), Some(after)) =
         (line.get(r.clone()), line.get(..r.start), line.get(r.end..))
     else {
@@ -60,7 +66,7 @@ pub fn julia_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<u
         return;
     }
     patterns.retain(|p| *p != mac);
-    if on_value(before) {
+    if on_value(text, row, before) {
         patterns.retain(|p| *p == field);
         return;
     }
@@ -70,15 +76,23 @@ pub fn julia_narrow(patterns: &mut Vec<String>, line: &str, r: std::ops::Range<u
     }
 }
 
-fn on_value(before: &str) -> bool {
+fn on_value(text: &str, row: usize, before: &str) -> bool {
     let Some(receiver) = before.strip_suffix('.') else {
         return false;
     };
-    let name = |c: char| c.is_alphanumeric() || c == '_' || c == '!';
-    match receiver.chars().rev().take_while(|&c| name(c)).last() {
-        Some(first) => first.is_lowercase() || first == '_',
-        None => receiver.ends_with([')', ']']),
+    if receiver.ends_with([')', ']']) {
+        return true;
     }
+    let name = |c: char| c.is_alphanumeric() || c == '_' || c == '!' || c == '.';
+    let chain: String = receiver.chars().rev().take_while(|&c| name(c)).collect();
+    let chain: String = chain.chars().rev().collect();
+    let Some(head) = chain.split('.').next().filter(|h| !h.is_empty()) else {
+        return false;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    head.starts_with(|c: char| c.is_lowercase() || c == '_')
+        && row < lines.len()
+        && !julia_bindings(&lines, row, head).is_empty()
 }
 
 fn julia_field(word: &str) -> String {

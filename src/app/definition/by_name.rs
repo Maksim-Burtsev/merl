@@ -751,7 +751,7 @@ impl App {
             .filter(|(_, class)| {
                 class
                     .as_ref()
-                    .is_none_or(|c| texts.iter().any(|t| search::cpp_derives_from(t, c)))
+                    .is_none_or(|c| texts.iter().any(|t| search::cpp_may_derive_from(t, c)))
             })
             .map(|(h, _)| h)
             .collect()

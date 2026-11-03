@@ -43,4 +43,10 @@ int Kettle::Boil() { return Reading()->Read(); }
 int Pour() { return Reading()->Read(); }
 //                             ^ d: include/tea/trivet.hh:42
 
+int Cauldron::Stir() {
+  using pantry::Reading;
+  return Reading()->Read();
+//                  ^ d: include/tea/trivet.hh:42
+}
+
 }
