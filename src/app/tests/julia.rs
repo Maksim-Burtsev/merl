@@ -135,6 +135,49 @@ fn d_on_a_julia_call_outside_the_project_reads_no_field() {
 }
 
 #[test]
+fn d_on_a_julia_type_annotation_reads_the_type_not_a_member_of_the_value() {
+    let (dir, mut a) = project_app(
+        "julia-typed",
+        &[(
+            "src/use.jl",
+            "f(i::Integer) = i\ng(bc::Base.Broadcast.Broadcasted) = bc\nh(x::N) where N = x\n",
+        )],
+    );
+    let base = external_root(
+        "julia-typed",
+        &[
+            (
+                "base/boot.jl",
+                "abstract type Integer <: Real end\nconst N = 382\n",
+            ),
+            (
+                "base/broadcast.jl",
+                "module Broadcast\nstruct Broadcasted end\nend\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    let at = |file: &str, line: usize| format!("{}:{line}", base.join(file).display());
+    for (code, want) in [
+        (
+            "f(i::Integer",
+            jump("Integer: by name, 1 match", &at("base/boot.jl", 1)),
+        ),
+        (
+            "Base.Broadcast",
+            jump("Broadcast: by name, 1 match", &at("base/broadcast.jl", 1)),
+        ),
+        ("h(x::N", jump("no definition for N", "src/use.jl:3")),
+    ] {
+        d_on(&mut a, "src/use.jl", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+        a.jump_to(&dir.join("src/use.jl"), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
 fn d_on_a_julia_function_the_project_only_extends_offers_base_beside_the_extension() {
     let (dir, mut a) = project_app(
         "julia-extends",

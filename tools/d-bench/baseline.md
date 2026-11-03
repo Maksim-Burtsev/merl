@@ -114,6 +114,7 @@ The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void 
 The swift row with #1341's fourth pass (overloads that differ only by the type of an argument, `upload(stream, with: convertible, ..)` in `Session` where `stream` is an `InputStream` and the other `upload`s take `Data` or `URL`): over `aa49be99f` with this change, 2026-11-03, release build, `vm.loadavg` { 2.78 3.46 3.99 } after the run.
 The rust row with #1302's integration-test crates (a package's `tests/` folder read as Cargo's crates) and rust0254 (a closure parameter typed by the callee's `F: FnMut(&Self::Captures)` bound and the receiver's `impl` of the trait): over `6897d447a`, 2026-11-03, release build, `vm.loadavg` { 4.75 4.97 4.46 } before the run, { 4.52 4.92 4.44 } after.
 The swift row with #1341's fifth pass (a static call followed by a property as an argument, `session.upload(data, to: url)` with `let url = Endpoint.method(.post).url` in `UploadTests`): over `9844374ee` with this change, 2026-11-03, release build, `vm.loadavg` { 3.68 3.89 4.11 } before the run, { 3.63 3.84 4.06 } after.
+The julia row with #1375's first pass (a type after `::` is looked up as a type, not a member of the value, unless a `where` or a `struct` of the file binds it as a parameter; the variable of a `catch err` block): over `bf0298930` with this change, 2026-11-03, release build, `vm.loadavg` { 3.82 4.18 3.91 } before the run, { 3.53 4.02 3.87 } after. julia0108 (`x::Tables.AbstractRow`, no answer recorded) now jumps to `abstract type AbstractRow end` in Tables, which is its definition.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -135,7 +136,7 @@ The swift row with #1341's fifth pass (a static call followed by a property as a
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 189 | 85 (45%) | 83 (44%) | 0 (0%) | 21 (11%) | 111 | 0 | 16.7 | 29.1 |
+| julia (DataFrames.jl) | 189 | 88 (47%) | 87 (46%) | 0 (0%) | 14 (7%) | 111 | 0 | 18.4 | 29.4 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |

@@ -29,3 +29,13 @@ Union{}(a...) = throw(ArgumentError("no value of Union{}"))
 rows = Union{Int, Nothing}[1, nothing]
 #      ^ d: none
 fun(v) = sum(v)
+try
+    rate(north)
+catch err
+    if err isa MethodError
+        rethrow(err)
+#               ^ d: test/runtests.jl:34
+    end
+end
+seen = err
+#      ^ d: none
