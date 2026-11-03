@@ -39,3 +39,11 @@ catch err
 end
 seen = err
 #      ^ d: none
+try
+    rate(south)
+catch err
+    let err = 2
+        show(err)
+#            ^ d: none
+    end
+end
