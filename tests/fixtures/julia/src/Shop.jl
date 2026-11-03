@@ -16,4 +16,8 @@ baremodule Core2
 #          ^ d: src/Shop.jl:15
 end
 
+const Rates{T} = Vector{T}
+const Prices = Rates{Float64}
+#              ^ d: src/Shop.jl:19
+
 end
