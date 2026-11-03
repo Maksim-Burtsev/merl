@@ -799,22 +799,36 @@ impl App {
     fn shell_sources_none_of(&self, here: &Path, hits: &[Hit]) -> bool {
         let dir = here.parent().unwrap_or_else(|| Path::new(""));
         let bats = here.extension().is_some_and(|e| e == "bats");
-        self.buf
-            .lines
+        let lines = &self.buf.lines;
+        lines
             .iter()
-            .filter(|l| search::shell_reads_another_file(l))
-            .all(|l| {
-                let col = l.len() - l.trim_start().len();
-                let Some(path) = search::shell_source(l, col, bats) else {
-                    return false;
-                };
-                let [file] = &search::shell_files(dir, &path, &self.files)[..] else {
-                    return false;
+            .enumerate()
+            .filter(|(_, l)| search::shell_reads_another_file(l))
+            .all(|(i, l)| {
+                let named = i
+                    .checked_sub(1)
+                    .and_then(|p| search::shell_directive_source(&lines[p]))
+                    .map(PathBuf::from);
+                let file = match named {
+                    Some(file) if self.files.contains(&file) => file,
+                    Some(_) => return false,
+                    None => {
+                        let col = l.len() - l.trim_start().len();
+                        let Some(path) = search::shell_source(l, col, bats)
+                            .filter(|_| search::shell_source_from_here(l))
+                        else {
+                            return false;
+                        };
+                        let [file] = &search::shell_files(dir, &path, &self.files)[..] else {
+                            return false;
+                        };
+                        file.clone()
+                    }
                 };
                 file != here
-                    && !hits.iter().any(|h| h.path == *file)
+                    && !hits.iter().any(|h| h.path == file)
                     && self
-                        .text_of(file)
+                        .text_of(&file)
                         .is_some_and(|t| !t.lines().any(search::shell_reads_another_file))
             })
     }

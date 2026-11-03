@@ -78,3 +78,13 @@ struct ByWeight
 end
 apply(b::ByWeight, x) = b.fun(x)
 #                         ^ d: src/tariff.jl:77
+
+module levies
+cut(x) = x / 10
+end
+const lv = levies
+struct Levy
+    cut
+end
+levied(x) = lv.cut(x)
+#              ^ d: src/tariff.jl:83

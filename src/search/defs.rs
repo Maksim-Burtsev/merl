@@ -387,7 +387,7 @@ pub fn narrow_patterns(
             }
         }
         Kind::Dart => dart_narrow(p, line, r),
-        Kind::Julia => julia_narrow(p, line, r),
+        Kind::Julia => julia_narrow(p, text, row, line, r),
         _ => {}
     }
 }

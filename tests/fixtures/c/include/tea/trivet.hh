@@ -56,4 +56,23 @@ class Kettle {
   Gauge* Reading();
 };
 
+template <class T>
+struct Brazier {
+  Gauge* Reading();
+};
+
+template <class T>
+struct Hob : Brazier<T> {
+  int Simmer() { return Reading()->Read(); }
+//                                 ^ d: include/tea/trivet.hh:42
+};
+
+class Cauldron {
+ public:
+  int Stir();
+
+ private:
+  Gauge* Reading(int);
+};
+
 }
