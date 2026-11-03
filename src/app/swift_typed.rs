@@ -623,6 +623,9 @@ impl App {
         if let Some(call) = search::swift_array_call(e) {
             return self.swift_array_call(here, file, text, line1, call, hops);
         }
+        if let Some(call) = search::swift_call_fields(e) {
+            return self.swift_call_fields(here, file, text, line1, call, hops);
+        }
         let callee = match search::swift_expr(e)? {
             search::SwiftExpr::Cast(t) => return Some(WrittenVia::plain(t)),
             search::SwiftExpr::Chain(c) => {

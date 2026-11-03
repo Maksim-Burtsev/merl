@@ -135,3 +135,19 @@ pub fn swift_declares_func(line: &str) -> Option<bool> {
     });
     DECL.captures(line).map(|c| &c[1] == "func")
 }
+
+pub fn swift_call_fields(e: &str) -> Option<(String, Vec<String>)> {
+    let e = e.trim();
+    let (call, tail) = e.split_at(e.rfind(')')? + 1);
+    let fields: Vec<String> = tail
+        .strip_prefix('.')?
+        .split('.')
+        .map(str::to_owned)
+        .collect();
+    let ident = |f: &String| {
+        f.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_')
+            && f.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    (fields.iter().all(ident) && matches!(swift_expr(call)?, SwiftExpr::Call(_)))
+        .then(|| (call.to_owned(), fields))
+}
