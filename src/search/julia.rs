@@ -310,6 +310,8 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
         r"(?:^|[^\w!])(?:{w}|\((?:[^()]*[,\s])?{w}(?:[,\s:=][^()]*)?\))\s*->"
     ))
     .expect("an escaped name keeps the pattern valid");
+    let catch = Regex::new(&format!(r"^\s*catch\s+{w}\s*(?:#.*)?$"))
+        .expect("an escaped name keeps the pattern valid");
     if generator.is_match(lines[at]) || lambda.is_match(lines[at]) {
         return binding(at);
     }
@@ -332,7 +334,7 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             continue;
         }
         let body = std::mem::replace(&mut depth, indent(l));
-        if k != at && generator.is_match(l) {
+        if k != at && (generator.is_match(l) || catch.is_match(l)) {
             let assigned = (k + 1..body_end)
                 .rev()
                 .find(|&i| code(i) && assigns(lines[i]));
@@ -577,6 +579,14 @@ pub fn julia_extends(line: &str, word: &str) -> bool {
         regex::escape(word)
     ))
     .is_ok_and(|re| re.is_match(line))
+}
+
+pub fn julia_type_param<S: AsRef<str>>(lines: &[S], word: &str) -> bool {
+    let w = regex::escape(word);
+    Regex::new(&format!(
+        r"(?:\bwhere\s*|\b(?:struct|type)\s+\w+\s*)(?:\{{(?:[^}}]*,)?\s*)?{w}\b"
+    ))
+    .is_ok_and(|re| lines.iter().any(|l| re.is_match(l.as_ref())))
 }
 
 pub fn julia_whole(line: &str, word: &str) -> bool {

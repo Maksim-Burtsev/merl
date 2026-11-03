@@ -512,7 +512,8 @@ whose signature runs over two lines in `test/runtests.jl` (#1363), and `length`,
 `Shop.jl` that includes `money.jl`, and `iterate`, named on the line below `import Base:`; `test`,
 a function beside `using Test: @test`, is a jump (#1365). `Union{}(a...)` in `test/runtests.jl` is a
 method of the empty union, not of `Union` (#1371), and `b.fun(x)` in `tariff.jl` calls the field
-of `ByWeight`, not the test's function `fun` (#1372).
+of `ByWeight`, not the test's function `fun` (#1372). `err` in a `catch err` block is the
+variable `catch` binds, and none past the block's `end` (#1375).
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
