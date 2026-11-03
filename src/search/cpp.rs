@@ -1096,15 +1096,35 @@ fn range_element(text: &str, code: &str, at: usize, len: usize) -> Option<Vec<St
     if range.is_empty() || !rest.get(range.len()..)?.trim_start().starts_with(')') {
         return None;
     }
+    element(text, code, c_place(code, at).line1, range, &CONTAINER)
+}
+
+pub fn cpp_index_element(text: &str, line1: usize, name: &str) -> Option<Vec<String>> {
+    static INDEXED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:const\s+)?(?:::\s*)?std\s*::\s*(?:vector|deque|array|span)\s*<")
+            .expect("the regex is a literal")
+    });
+    element(text, &c_code(text), line1, name, &INDEXED)
+}
+
+fn element(text: &str, code: &str, line1: usize, name: &str, kinds: &Regex) -> Option<Vec<String>> {
     let starts = line_starts(code);
-    let mut types = c_bindings_at(text, c_place(code, at).line1, None, range)
+    let mut types = c_bindings_at(text, line1, None, name)
         .into_iter()
         .map(|p| {
             let b = starts[p.line1 - 1] + p.byte_col;
             let written = code.get(cpp_decl_start(code, b)?..b)?;
-            let m = CONTAINER.find(written)?;
-            let (args, _) = template_args(written.get(m.end()..)?)?;
-            Some(args.first()?.clone()).filter(|a| !a.contains('<'))
+            let m = kinds.find(written)?;
+            let (args, end) = template_args(written.get(m.end()..)?)?;
+            let tail = written.get(m.end() + end..)?.replace("const", "");
+            let whole = tail
+                .trim_matches(|c: char| c.is_whitespace() || c == '&')
+                .is_empty()
+                && !code.get(b + name.len()..)?.trim_start().starts_with('[');
+            whole
+                .then(|| args.first().cloned())
+                .flatten()
+                .filter(|a| !a.contains('<'))
         })
         .map(|arg| cpp_class_path(&arg?).filter(|p| p[0] != "std"));
     let first = types.next()??;

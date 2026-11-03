@@ -356,6 +356,13 @@ it, where master jumped (#1248).
 `Brazier<T>`, nor in `Cauldron::Stir` after `using pantry::Reading;`: both go through the
 namespace's `Dial* Reading()`. `Trivet`'s nested `Stand` stays in the picker in
 `trivet_platter.cc`, whose `Platter` derives from it through the alias `TrivetBase`.
+`c/src/tea/steeping.cc` (#1336) reads `stoves[0]->sip()` through the element type of a
+`std::vector`, `std::array` or `std::deque` named once, also through an alias (`Pot`), behind
+`auto*` and inside a block whose own `stoves` hides the parameter. An array of vectors, a pointer
+to one, a `std::map`, a field's subscript and a template parameter's element keep the picker.
+`brew::Steep(80).sip()` types `Steep` by the declaration of `tea/steep.hh`, past a `static`
+namesake in `steep.cc`, another translation unit; `brew::Pour`, whose namesake is `static` in this
+file, keeps the picker.
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).

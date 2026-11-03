@@ -1471,6 +1471,7 @@ fn c_receiver_cuts_at_a_character() {
             fields: vec![],
             calls: vec![],
             braced: false,
+            indexed: false,
             start: 4,
         })
     );

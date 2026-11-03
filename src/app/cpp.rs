@@ -165,16 +165,32 @@ impl App {
             let ctx = search::cpp_scope_path(&code, offset(text, at.0, at.1).min(code.len()));
             return (ty[0] != "std").then_some((ty, code, ctx, None));
         }
+        if r.indexed {
+            let ty = search::cpp_index_element(text, at.0 + 1, &r.head)?;
+            let code = search::c_code(text);
+            let ctx = search::cpp_scope_path(&code, offset(text, at.0, at.1).min(code.len()));
+            return Some((ty, code, ctx, None));
+        }
         if r.head_called {
-            return self.cpp_return_type(here, &r.head);
+            return self.cpp_return_type(here, text, &r.head);
         }
         self.cpp_head_type(here, text, &r.head, word, at, depth)
     }
 
-    fn cpp_return_type(&mut self, here: &Path, name: &str) -> Option<HeadType> {
+    fn cpp_return_type(&mut self, here: &Path, here_text: &str, name: &str) -> Option<HeadType> {
         let p = search::def_patterns(Kind::C, name);
         let hits = self.project_definitions(Kind::C, here, name, &format!("{}|{}", p[0], p[7]));
         let hits = self.c_reached_only(here, name, hits);
+        let by_macro = self.c_static_by_macro(here, &hits);
+        let hits = search::c_file_local(
+            name,
+            here,
+            here_text,
+            hits,
+            &by_macro,
+            |p| self.text_of(p),
+            true,
+        );
         let mut found: Option<HeadType> = None;
         for h in hits {
             if h.text.trim_start().starts_with('#') {

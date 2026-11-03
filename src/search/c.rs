@@ -1017,6 +1017,7 @@ pub struct CReceiver {
     pub fields: Vec<String>,
     pub calls: Vec<bool>,
     pub braced: bool,
+    pub indexed: bool,
     pub start: usize,
 }
 pub fn cpp_receiver(before: &str) -> Option<CReceiver> {
@@ -1028,7 +1029,7 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
     let code = c_code(before);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut rest = code.trim_end();
-    let (mut fields, mut calls) = (Vec::new(), Vec::new());
+    let (mut fields, mut calls, mut indexed) = (Vec::new(), Vec::new(), false);
     loop {
         rest = match rest.strip_suffix("->") {
             Some(r) => r,
@@ -1036,9 +1037,10 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         .trim_end();
         while rest.ends_with(']') {
-            if cpp {
+            if indexed {
                 return None;
             }
+            indexed = cpp;
             rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let called = rest.ends_with(')');
@@ -1057,13 +1059,16 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         rest = before.trim_end();
         let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
+        let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
+        if indexed && (member || called || braced || start < rest.len()) {
+            return None;
+        }
         match (member, called, braced) {
             (true, _, false) if cpp || !called => {
                 fields.insert(0, name.to_owned());
                 calls.insert(0, called);
             }
             (false, _, _) => {
-                let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
                 let head = if braced {
                     format!("{}{name}", rest.get(start..)?).replace(char::is_whitespace, "")
                 } else {
@@ -1075,6 +1080,7 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
                     fields,
                     calls,
                     braced,
+                    indexed,
                     start,
                 });
             }
@@ -1859,7 +1865,18 @@ mod tests {
         for before in ["((client *)p)->", "this->", "a->f(x)->", "1.", "A{}."] {
             assert_eq!(c_receiver(before), None, "{before}");
         }
-        assert_eq!(cpp_receiver("a[0]."), None);
+        let indexed = cpp_receiver("x = a[i]->").map(|r| (r.head, r.indexed, r.fields));
+        assert_eq!(indexed, Some(("a".to_owned(), true, vec![])));
+        for before in [
+            "a[0][1].",
+            "a.b[0].",
+            "f()[0].",
+            "ns::a[0].",
+            "A{}[0].",
+            "(*a)[0].",
+        ] {
+            assert_eq!(cpp_receiver(before), None, "{before}");
+        }
         assert_eq!(parts(cpp_receiver("this->")), r("this", false, &[]));
         let chain = cpp_receiver("x = ::ns::A{1}.f(2).g->")
             .map(|r| (r.head, r.braced, r.fields, r.calls, r.start));
