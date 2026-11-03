@@ -140,7 +140,13 @@ fn d_on_a_julia_type_annotation_reads_the_type_not_a_member_of_the_value() {
         "julia-typed",
         &[(
             "src/use.jl",
-            "f(i::Integer) = i\ng(bc::Base.Broadcast.Broadcasted) = bc\nh(x::N) where N = x\n",
+            "f(i::Integer) = i\ng(bc::Base.Broadcast.Broadcasted) = bc\nh(x::N) where N = x\n\
+struct Grid{T,\n            M}\n    size::M\nend\n\
+function k(x::AbstractArray{T}, n::K) where {\n        T,\n        K<:Integer}\n    n\nend\n\
+struct Box{T<:Union{Int,Float64},J}\n    n::J\nend\n\
+m(x::I) where {T<:Tuple{Int},I} = x\n\
+struct Bare{Q}\n    q::Q\nend\n\
+p(x::R) where {T, R} = x\n",
         )],
     );
     let base = external_root(
@@ -148,7 +154,7 @@ fn d_on_a_julia_type_annotation_reads_the_type_not_a_member_of_the_value() {
         &[
             (
                 "base/boot.jl",
-                "abstract type Integer <: Real end\nconst N = 382\n",
+                "abstract type Integer <: Real end\nconst N = 382\nconst M = 1\nconst K = 2\nconst J = 3\nconst I = 4\nconst Q = 5\nconst R = 6\n",
             ),
             (
                 "base/broadcast.jl",
@@ -168,6 +174,12 @@ fn d_on_a_julia_type_annotation_reads_the_type_not_a_member_of_the_value() {
             jump("Broadcast: by name, 1 match", &at("base/broadcast.jl", 1)),
         ),
         ("h(x::N", jump("no definition for N", "src/use.jl:3")),
+        ("size::M", jump("no definition for M", "src/use.jl:6")),
+        ("n::K", jump("no definition for K", "src/use.jl:8")),
+        ("n::J", jump("no definition for J", "src/use.jl:14")),
+        ("m(x::I", jump("no definition for I", "src/use.jl:16")),
+        ("q::Q", jump("no definition for Q", "src/use.jl:18")),
+        ("p(x::R", jump("no definition for R", "src/use.jl:20")),
     ] {
         d_on(&mut a, "src/use.jl", code);
         assert_eq!(shown(&mut a), want, "{code}");
