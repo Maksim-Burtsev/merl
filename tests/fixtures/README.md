@@ -351,6 +351,11 @@ lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::C
 as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
 `sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside
 it, where master jumped (#1248).
+`c/src/tea/trivet.cc` (#1336) reads `Reading()->Read()` in `Kettle::Boil` through the class's own
+`Gauge* Reading()`, but not in `Hob::Simmer`, whose `Reading` would come from the dependent base
+`Brazier<T>`, nor in `Cauldron::Stir` after `using pantry::Reading;`: both go through the
+namespace's `Dial* Reading()`. `Trivet`'s nested `Stand` stays in the picker in
+`trivet_platter.cc`, whose `Platter` derives from it through the alias `TrivetBase`.
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -512,7 +517,9 @@ whose signature runs over two lines in `test/runtests.jl` (#1363), and `length`,
 `Shop.jl` that includes `money.jl`, and `iterate`, named on the line below `import Base:`; `test`,
 a function beside `using Test: @test`, is a jump (#1365). `Union{}(a...)` in `test/runtests.jl` is a
 method of the empty union, not of `Union` (#1371), and `b.fun(x)` in `tariff.jl` calls the field
-of `ByWeight`, not the test's function `fun` (#1372).
+of `ByWeight`, not the test's function `fun` (#1372), while `lv.cut(x)`, `lv` a `const` bound to the
+lowercase module `levies`, calls the module's function, not the field of `Levy`: only a local or
+a parameter before the dot is a value.
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside

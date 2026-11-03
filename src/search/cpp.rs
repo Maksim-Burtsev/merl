@@ -117,10 +117,10 @@ pub fn cpp_member_class(text: &str, line1: usize, name: &str) -> Option<String> 
     c_struct_head(code.get(c_head_start(&code, open)..open)?).filter(|c| !c.is_empty())
 }
 
-pub fn cpp_derives_from(text: &str, class: &str) -> bool {
+pub fn cpp_may_derive_from(text: &str, class: &str) -> bool {
+    let c = regex::escape(class);
     Regex::new(&format!(
-        r"[:,]\s*(?:(?:public|protected|private|virtual)\s+)*(?:\w+\s*::\s*)*{}\s*[<,{{]",
-        regex::escape(class)
+        r"[:,]\s*(?:(?:public|protected|private|virtual)\s+)*(?:\w+\s*::\s*)*{c}\s*[<,{{]|\b(?:class|struct)\b[^;{{}}]*:[^;{{}}]*\b{c}\b[^;{{}}]*\{{|\busing\s+\w+\s*=[^;]*\b{c}\b|\btypedef\b[^;]*\b{c}\b"
     ))
     .is_ok_and(|re| re.is_match(&c_code(text)))
 }
@@ -199,6 +199,24 @@ pub fn cpp_using_declares(code: &str, name: &str) -> bool {
         regex::escape(name)
     ))
     .is_ok_and(|re| re.is_match(code))
+}
+
+pub fn cpp_function_uses(text: &str, line1: usize, word: &str, name: &str) -> bool {
+    let code = c_code(text);
+    let starts = line_starts(&code);
+    let Some(pos) = scope_pos(&code, &starts, line1, word) else {
+        return false;
+    };
+    scopes_inside_out_to_type_or_namespace(&code, pos)
+        .into_iter()
+        .find(|s| matches!(s.head, Head::Function { .. }))
+        .and_then(|s| code.get(s.open..pos))
+        .is_some_and(|body| cpp_using_declares(body, name))
+}
+
+pub fn cpp_templated(code: &str, open: usize) -> bool {
+    code.get(c_head_start(code, open)..open)
+        .is_some_and(|head| head.trim_start().starts_with("template"))
 }
 
 pub fn cpp_defined_signature(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
