@@ -153,6 +153,25 @@ pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
     };
     Some(format!("./{path}{bash}"))
 }
+pub fn shell_source_from_here(line: &str) -> bool {
+    ![
+        "$(dirname \"$0\")",
+        "$(dirname \"${BASH_SOURCE[0]}\")",
+        "$(dirname \"$BASH_SOURCE\")",
+        "${BASH_SOURCE%/*}",
+        "${0%/*}",
+    ]
+    .iter()
+    .fold(line.to_owned(), |l, here| l.replace(here, ""))
+    .contains(['$', '`'])
+}
+pub fn shell_directive_source(line: &str) -> Option<&str> {
+    static DIRECTIVE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*#\s*shellcheck\s(?:.*\s)?source=([\w./-]+)(?:\s|$)")
+            .expect("the regex is a literal")
+    });
+    Some(DIRECTIVE.captures(line)?.get(1)?.as_str())
+}
 pub fn shell_files(dir: &Path, path: &str, files: &[PathBuf]) -> Vec<PathBuf> {
     match lexical(&dir.join(path)).filter(|f| files.contains(f)) {
         Some(f) => vec![f],
