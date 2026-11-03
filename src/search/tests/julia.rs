@@ -35,6 +35,12 @@ fn julia_declaration_forms() {
         ("module Shop", "Shop"),
         ("baremodule Core2", "Core2"),
         ("const LIMIT = 10", "LIMIT"),
+        (
+            "const AbstractVector{T} = AbstractArray{T,1}",
+            "AbstractVector",
+        ),
+        ("const VecOrMat{T} = Union{Vec{T}, Mat{T}}", "VecOrMat"),
+        ("const Vec{T} = Array{T,1} where T", "Vec"),
         ("config = load()", "config"),
         ("@enum Color red green blue", "Color"),
         ("@enum Color red green blue", "green"),
@@ -75,6 +81,9 @@ fn julia_refusals() {
         ("x => 1", "x"),
         ("Union{}(a...) = throw(x)", "Union"),
         ("Tuple{ }() = ()", "Tuple"),
+        ("const VecOrMat{T} = Union{Vec{T}, Mat{T}}", "Vec"),
+        ("const Vecs{T} = Array{T,1}", "Vec"),
+        ("const Vec{T} == x", "Vec"),
     ] {
         assert!(!alone(line, word), "{line}: {word}");
     }

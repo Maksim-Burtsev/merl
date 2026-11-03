@@ -37,7 +37,7 @@ pub fn julia_patterns(word: &str) -> Vec<String> {
         format!(r"^\s*(?:abstract|primitive)\s+type\s+{w}{e}"),
         julia_macro(word),
         format!(r"^\s*(?:bare)?module\s+{w}{e}"),
-        format!(r"^\s*(?:global\s+)?const\s+{w}\s*(?:::[^=]*)?=(?:[^=]|$)"),
+        format!(r"^\s*(?:global\s+)?const\s+{w}\s*{TYPE_PARAMS}(?:::[^=]*)?=(?:[^=]|$)"),
         format!(r"^{w}\s*(?:::[^=]*)?=(?:[^=>]|$)"),
         julia_field(word),
         format!(r"^\s*@enum\s+(?:{w}{e}|[\w.]+(?:::[\w.]+)?\s+(?:[\w\s=]*\s)?{w}{e})"),
