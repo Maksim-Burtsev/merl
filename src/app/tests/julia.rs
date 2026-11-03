@@ -135,6 +135,61 @@ fn d_on_a_julia_call_outside_the_project_reads_no_field() {
 }
 
 #[test]
+fn d_on_a_julia_type_annotation_reads_the_type_not_a_member_of_the_value() {
+    let (dir, mut a) = project_app(
+        "julia-typed",
+        &[(
+            "src/use.jl",
+            "f(i::Integer) = i\ng(bc::Base.Broadcast.Broadcasted) = bc\nh(x::N) where N = x\n\
+struct Grid{T,\n            M}\n    size::M\nend\n\
+function k(x::AbstractArray{T}, n::K) where {\n        T,\n        K<:Integer}\n    n\nend\n\
+struct Box{T<:Union{Int,Float64},J}\n    n::J\nend\n\
+m(x::I) where {T<:Tuple{Int},I} = x\n\
+struct Bare{Q}\n    q::Q\nend\n\
+p(x::R) where {T, R} = x\n",
+        )],
+    );
+    let base = external_root(
+        "julia-typed",
+        &[
+            (
+                "base/boot.jl",
+                "abstract type Integer <: Real end\nconst N = 382\nconst M = 1\nconst K = 2\nconst J = 3\nconst I = 4\nconst Q = 5\nconst R = 6\n",
+            ),
+            (
+                "base/broadcast.jl",
+                "module Broadcast\nstruct Broadcasted end\nend\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    let at = |file: &str, line: usize| format!("{}:{line}", base.join(file).display());
+    for (code, want) in [
+        (
+            "f(i::Integer",
+            jump("Integer: by name, 1 match", &at("base/boot.jl", 1)),
+        ),
+        (
+            "Base.Broadcast",
+            jump("Broadcast: by name, 1 match", &at("base/broadcast.jl", 1)),
+        ),
+        ("h(x::N", jump("no definition for N", "src/use.jl:3")),
+        ("size::M", jump("no definition for M", "src/use.jl:6")),
+        ("n::K", jump("no definition for K", "src/use.jl:8")),
+        ("n::J", jump("no definition for J", "src/use.jl:14")),
+        ("m(x::I", jump("no definition for I", "src/use.jl:16")),
+        ("q::Q", jump("no definition for Q", "src/use.jl:18")),
+        ("p(x::R", jump("no definition for R", "src/use.jl:20")),
+    ] {
+        d_on(&mut a, "src/use.jl", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+        a.jump_to(&dir.join("src/use.jl"), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
 fn d_on_a_julia_function_the_project_only_extends_offers_base_beside_the_extension() {
     let (dir, mut a) = project_app(
         "julia-extends",

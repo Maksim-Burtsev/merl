@@ -356,6 +356,18 @@ it, where master jumped (#1248).
 `Brazier<T>`, nor in `Cauldron::Stir` after `using pantry::Reading;`: both go through the
 namespace's `Dial* Reading()`. `Trivet`'s nested `Stand` stays in the picker in
 `trivet_platter.cc`, whose `Platter` derives from it through the alias `TrivetBase`.
+`c/src/tea/steeping.cc` (#1336) reads `stoves[0]->sip()` through the element type of a
+`std::vector`, `std::array`, `std::deque` or `std::span` named once, also through an alias (`Pot`),
+behind `auto*` and inside a block whose own `stoves` hides the parameter. An array of vectors, a
+pointer to one, a `std::map`, a field's subscript and a template parameter's element keep the
+picker. In `later` the first `mugs[0]` is the parameter, not the lambda's `mugs` further on the
+line; in `hidden` a block's `mugs` written with `decltype`, `typeof` or `alignas` keeps the picker
+rather than typing the outer vector; in `handled` `->` after the subscript needs an element
+written as a pointer, so `Grip`, whose `operator->` gives a `Lid*`, and its alias `Knob` keep the
+picker, while `grips[1].rim` is `Grip`'s own.
+`brew::Steep(80).sip()` types `Steep` by the declaration of `tea/steep.hh`, past a `static`
+namesake in `steep.cc`, another translation unit; `brew::Pour`, whose namesake is `static` in this
+file, keeps the picker.
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -519,7 +531,8 @@ a function beside `using Test: @test`, is a jump (#1365). `Union{}(a...)` in `te
 method of the empty union, not of `Union` (#1371), and `b.fun(x)` in `tariff.jl` calls the field
 of `ByWeight`, not the test's function `fun` (#1372), while `lv.cut(x)`, `lv` a `const` bound to the
 lowercase module `levies`, calls the module's function, not the field of `Levy`: only a local or
-a parameter before the dot is a value.
+a parameter before the dot is a value. `err` in a `catch err` block is the variable `catch` binds,
+and none past the block's `end` (#1375).
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside

@@ -106,6 +106,7 @@ The dart row with the third pass of #1338 (a loop over a call of the class's own
 The ts, js, vue, svelte and astro rows with #1337's third pass (a member of a named import whose module binds it at top level as `const name = new Class(…)`, `Class` declared in that module: `log.debug` in uptime-kuma, immich's `authManager` and `assetMultiSelectManager`): over `3932efe29`, 2026-11-03, release build, `vm.loadavg` { 4.08 5.18 5.00 } before the run.
 The bash row with #1335's third pass (a script's own function wins when each file it sources is found, defines none of that name and sources nothing, `buffer` in bats-format-pretty): over `400b00c23` with this change, 2026-11-03, release build, `vm.loadavg` { 9.41 5.77 5.11 } before the run.
 The julia row with #1371 and #1372 (a method of `Name{}` is not one of `Name`, so `Union` no longer lands on `Union{}(a...)` in `boot.jl`; a member of a value, `f.fun` after a lowercase name, a call or an index, reads only fields): over `d52ab9a92`, 2026-11-03, release build, `vm.loadavg` { 3.63 4.61 4.88 } before the run, { 3.31 4.30 4.74 } after.
+The julia row with #1375 (answer key judged from the code: the 6 `AbstractVector` rows and julia0088's `AbstractMatrix` answer their `const` in `base/array.jl`, not LinearAlgebra's `AbstractArray(F)` methods; julia0108 `Tables.AbstractRow` answers its `abstract type`; julia0069 and julia0139, a reassignment in a testset, are `on-decl` with the first assignment also right): over `bf0298930`, 2026-11-03, release build, `vm.loadavg` { 4.63 5.39 4.77 } before the run, { 3.05 4.47 4.49 } after.
 The js row with #1337's fourth pass (a member of a value whose JSDoc `@type` names a `@typedef` of the same file joining an object type with `&`, `indexedResults.timings` under `@typedef {IndexedLintResult[] & { netLintingDuration: bigint; timings?: … }} WorkerLintResults`, lands on that `@typedef`): over `c1f6d79ca` with this change, 2026-11-03, release build, `vm.loadavg` { 3.96 4.08 4.42 } before the run.
 The python row with #1339's fourth pass (a parameter that `@patch(..)` decorators fill, bottom-up after `self`, is a `MagicMock`; python0321): over `8beca4fbe` with this change, 2026-11-03, release build, `vm.loadavg` { 4.82 5.13 4.97 } before the run, { 3.86 4.72 4.83 } after.
 The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp0130 `leveldb_options_t` also accepts its struct in `db/c.cc`, cpp0214 `GetChildren` answers `Env::GetChildren`, bash0077 `ISPC_Api` answers line 42): over `c1f6d79ca`, 2026-11-03, release build, `vm.loadavg` { 6.58 5.93 5.06 } before the run.
@@ -113,6 +114,9 @@ The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void 
 The swift row with #1341's fourth pass (overloads that differ only by the type of an argument, `upload(stream, with: convertible, ..)` in `Session` where `stream` is an `InputStream` and the other `upload`s take `Data` or `URL`): over `aa49be99f` with this change, 2026-11-03, release build, `vm.loadavg` { 2.78 3.46 3.99 } after the run.
 The rust row with #1302's integration-test crates (a package's `tests/` folder read as Cargo's crates) and rust0254 (a closure parameter typed by the callee's `F: FnMut(&Self::Captures)` bound and the receiver's `impl` of the trait): over `6897d447a`, 2026-11-03, release build, `vm.loadavg` { 4.75 4.97 4.46 } before the run, { 4.52 4.92 4.44 } after.
 The swift row with #1341's fifth pass (a static call followed by a property as an argument, `session.upload(data, to: url)` with `let url = Endpoint.method(.post).url` in `UploadTests`): over `9844374ee` with this change, 2026-11-03, release build, `vm.loadavg` { 3.68 3.89 4.11 } before the run, { 3.63 3.84 4.06 } after.
+The julia row with #1375's first pass (a type after `::` is looked up as a type, not a member of the value, unless a `where` or a `struct` of the file binds it as a parameter; the variable of a `catch err` block): over `bf0298930` with this change, 2026-11-03, release build, `vm.loadavg` { 3.82 4.18 3.91 } before the run, { 3.53 4.02 3.87 } after. julia0108 (`x::Tables.AbstractRow`, no answer recorded) now jumps to `abstract type AbstractRow end` in Tables, which is its definition.
+The julia row with #1375's second pass (a parametric alias, `const AbstractVector{T} = AbstractArray{T,1}`, declares `AbstractVector`; the 6 `AbstractVector` rows jump to `base/array.jl:23`, julia0088 `AbstractMatrix` is a picker with `base/array.jl:31` beside LinearAlgebra's `AbstractMatrix{T}(A::...)` methods): over `5f3c386ac` with this change, 2026-11-03, release build, `vm.loadavg` { 4.24 5.21 4.89 } before the run.
+The cpp row with #1336's fifth pass (a subscript of a local `std::vector`, `std::array`, `std::deque` or `std::span` is its element, `inputs[i]->file_size` in `VersionSet::CompactRange`; a call's return type skips a `static` namesake in another translation unit, `test::RandomString(...).ToString()` in `table_test.cc`): over `68a9bc1d8`, 2026-11-03, release build, `vm.loadavg` { 4.63 4.67 4.54 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -123,7 +127,7 @@ The swift row with #1341's fifth pass (a static call followed by a property as a
 | rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 237 | 216 (91%) | 21 (9%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.5 | 63.1 |
+| cpp (leveldb) | 237 | 218 (92%) | 19 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.4 | 62.4 |
 | swift (Alamofire) | 450 | 436 (97%) | 13 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.8 | 48.0 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
@@ -134,7 +138,7 @@ The swift row with #1341's fifth pass (a static call followed by a property as a
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 190 | 85 (45%) | 84 (44%) | 0 (0%) | 21 (11%) | 110 | 0 | 16.8 | 29.2 |
+| julia (DataFrames.jl) | 189 | 94 (50%) | 88 (47%) | 0 (0%) | 7 (4%) | 111 | 0 | 18.6 | 29.2 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |

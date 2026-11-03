@@ -37,7 +37,7 @@ pub fn julia_patterns(word: &str) -> Vec<String> {
         format!(r"^\s*(?:abstract|primitive)\s+type\s+{w}{e}"),
         julia_macro(word),
         format!(r"^\s*(?:bare)?module\s+{w}{e}"),
-        format!(r"^\s*(?:global\s+)?const\s+{w}\s*(?:::[^=]*)?=(?:[^=]|$)"),
+        format!(r"^\s*(?:global\s+)?const\s+{w}\s*{TYPE_PARAMS}(?:::[^=]*)?=(?:[^=]|$)"),
         format!(r"^{w}\s*(?:::[^=]*)?=(?:[^=>]|$)"),
         julia_field(word),
         format!(r"^\s*@enum\s+(?:{w}{e}|[\w.]+(?:::[\w.]+)?\s+(?:[\w\s=]*\s)?{w}{e})"),
@@ -324,6 +324,11 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
         r"(?:^|[^\w!])(?:{w}|\((?:[^()]*[,\s])?{w}(?:[,\s:=][^()]*)?\))\s*->"
     ))
     .expect("an escaped name keeps the pattern valid");
+    let catch = Regex::new(&format!(r"^\s*catch\s+{w}\s*(?:#.*)?$"))
+        .expect("an escaped name keeps the pattern valid");
+    let shadow = Regex::new(&format!(r"^\s*let\b(?:.*[^\w!])?{w}(?:[^\w!]|$)"))
+        .expect("an escaped name keeps the pattern valid");
+    let mut let_seen = false;
     if generator.is_match(lines[at]) || lambda.is_match(lines[at]) {
         return binding(at);
     }
@@ -346,7 +351,8 @@ pub(super) fn julia_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindi
             continue;
         }
         let body = std::mem::replace(&mut depth, indent(l));
-        if k != at && generator.is_match(l) {
+        let_seen |= k != at && shadow.is_match(l);
+        if k != at && (generator.is_match(l) || (catch.is_match(l) && !let_seen)) {
             let assigned = (k + 1..body_end)
                 .rev()
                 .find(|&i| code(i) && assigns(lines[i]));
@@ -591,6 +597,45 @@ pub fn julia_extends(line: &str, word: &str) -> bool {
         regex::escape(word)
     ))
     .is_ok_and(|re| re.is_match(line))
+}
+
+pub fn julia_type_param<S: AsRef<str>>(lines: &[S], word: &str) -> bool {
+    static HEAD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bwhere\s*|\b(?:struct|type)\s+\w+\s*").expect("the regex is a literal")
+    });
+    let Ok(item) = Regex::new(&format!(r"^\s*{}\b", regex::escape(word))) else {
+        return false;
+    };
+    let text = lines
+        .iter()
+        .map(AsRef::as_ref)
+        .collect::<Vec<_>>()
+        .join("\n");
+    HEAD.find_iter(&text).any(|m| {
+        let rest = text.get(m.end()..).unwrap_or_default();
+        let names = |r: std::ops::Range<usize>| rest.get(r).is_some_and(|s| item.is_match(s));
+        let Some(list) = closing(rest).filter(|_| rest.starts_with('{')) else {
+            return item.is_match(rest);
+        };
+        let mut depth = 0usize;
+        let mut start = 1;
+        rest.char_indices()
+            .take_while(|&(i, _)| i < list)
+            .any(|(i, c)| {
+                match c {
+                    '(' | '[' | '{' => depth += 1,
+                    ')' | ']' | '}' => depth = depth.saturating_sub(1),
+                    ',' if depth == 1 => {
+                        let hit = names(start..i);
+                        start = i + 1;
+                        return hit;
+                    }
+                    _ => {}
+                }
+                false
+            })
+            || names(start..list)
+    })
 }
 
 pub fn julia_whole(line: &str, word: &str) -> bool {

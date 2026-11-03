@@ -165,16 +165,32 @@ impl App {
             let ctx = search::cpp_scope_path(&code, offset(text, at.0, at.1).min(code.len()));
             return (ty[0] != "std").then_some((ty, code, ctx, None));
         }
+        if r.indexed {
+            let ty = search::cpp_index_element(text, at.0 + 1, at.1, &r.head)?;
+            let code = search::c_code(text);
+            let ctx = search::cpp_scope_path(&code, offset(text, at.0, at.1).min(code.len()));
+            return Some((ty, code, ctx, None));
+        }
         if r.head_called {
-            return self.cpp_return_type(here, &r.head);
+            return self.cpp_return_type(here, text, &r.head);
         }
         self.cpp_head_type(here, text, &r.head, word, at, depth)
     }
 
-    fn cpp_return_type(&mut self, here: &Path, name: &str) -> Option<HeadType> {
+    fn cpp_return_type(&mut self, here: &Path, here_text: &str, name: &str) -> Option<HeadType> {
         let p = search::def_patterns(Kind::C, name);
         let hits = self.project_definitions(Kind::C, here, name, &format!("{}|{}", p[0], p[7]));
         let hits = self.c_reached_only(here, name, hits);
+        let by_macro = self.c_static_by_macro(here, &hits);
+        let hits = search::c_file_local(
+            name,
+            here,
+            here_text,
+            hits,
+            &by_macro,
+            |p| self.text_of(p),
+            true,
+        );
         let mut found: Option<HeadType> = None;
         for h in hits {
             if h.text.trim_start().starts_with('#') {
@@ -381,10 +397,10 @@ impl App {
             Ok(Some((t, at))) => return Some((t, code, here_ctx, Some(at))),
             Ok(None) => {}
             Err(()) => {
-                let (expr, line0) = search::cpp_auto_init(text, line0 + 1, head)?;
+                let (expr, line0, end) = search::cpp_auto_init(text, line0 + 1, head)?;
                 let r = (search::cpp_receiver(&format!("{expr}.")))
                     .filter(|r| depth < 3 && r.fields.len() < 6)?;
-                let start = self.cpp_start(here, text, &r, head, (line0, 0), depth + 1)?;
+                let start = self.cpp_start(here, text, &r, head, (line0, end), depth + 1)?;
                 let around = search::c_method_class(text, line0 + 1, head);
                 return Some(
                     self.cpp_walk(here, start, around, &r, &mut Vec::new())

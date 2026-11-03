@@ -2,9 +2,9 @@ use regex::Regex;
 use std::sync::LazyLock;
 
 use super::c::{
-    ACCESS_LABELS, Head, Scope, bracket_contents_blanked, c_bindings_at, c_body_name, c_code,
-    c_head, c_head_start, c_innermost_open_brace, c_place, c_struct_head, c_words_on_line,
-    close_or_end, cpp_class_path, cpp_decl_start, line_starts, scope_pos,
+    ACCESS_LABELS, Head, Scope, bracket_contents_blanked, c_bindings_at, c_bindings_from,
+    c_body_name, c_code, c_head, c_head_start, c_innermost_open_brace, c_place, c_struct_head,
+    c_words_on_line, close_or_end, cpp_class_path, cpp_decl_start, line_starts, scope_pos,
     scopes_inside_out_to_type_or_namespace, untemplated,
 };
 
@@ -909,7 +909,7 @@ pub fn cpp_value_type(
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
     let mut types = at.iter().map(|&a| {
-        cpp_type_at(&code, a, name.len()).or_else(|| range_element(text, &code, a, name.len()))
+        cpp_type_at(&code, a, name.len()).or_else(|| range_element(&code, a, name.len()))
     });
     let Some(first) = types.next() else {
         return Ok(None);
@@ -920,7 +920,7 @@ pub fn cpp_value_type(
     }
 }
 
-pub fn cpp_auto_init(text: &str, line1: usize, name: &str) -> Option<(String, usize)> {
+pub fn cpp_auto_init(text: &str, line1: usize, name: &str) -> Option<(String, usize, usize)> {
     let code = c_code(text);
     let starts = line_starts(&code);
     let [p] = c_bindings_at(text, line1, None, name)[..] else {
@@ -936,8 +936,9 @@ pub fn cpp_auto_init(text: &str, line1: usize, name: &str) -> Option<(String, us
         .strip_prefix('=')?;
     let expr = rest.get(..bracket_contents_blanked(rest).find(';')?)?;
     let r = super::cpp_receiver(&format!("{expr}."))?;
+    let end = code.len() - rest.len() + expr.len() - starts[p.line1 - 1];
     (!rest.starts_with('=') && expr.get(..r.start)?.trim().is_empty())
-        .then(|| (expr.to_owned(), p.line1 - 1))
+        .then(|| (expr.to_owned(), p.line1 - 1, end))
 }
 
 pub fn cpp_alias_target(code: &str, line1: usize, name: &str) -> Option<(usize, Vec<String>)> {
@@ -1077,7 +1078,7 @@ fn template_args(s: &str) -> Option<(Vec<String>, usize)> {
     None
 }
 
-fn range_element(text: &str, code: &str, at: usize, len: usize) -> Option<Vec<String>> {
+fn range_element(code: &str, at: usize, len: usize) -> Option<Vec<String>> {
     static CONTAINER: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:const\s+)?(?:::\s*)?std\s*::\s*(?:vector|list|forward_list|deque|array|span|set|multiset|unordered_set|unordered_multiset|initializer_list)\s*<").expect("the regex is a literal")
     });
@@ -1096,15 +1097,87 @@ fn range_element(text: &str, code: &str, at: usize, len: usize) -> Option<Vec<St
     if range.is_empty() || !rest.get(range.len()..)?.trim_start().starts_with(')') {
         return None;
     }
+    element(code, code.len() - rest.len(), range, &CONTAINER, None)
+}
+
+pub fn cpp_index_element(text: &str, line1: usize, col: usize, name: &str) -> Option<Vec<String>> {
+    static INDEXED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:const\s+)?(?:::\s*)?std\s*::\s*(?:vector|deque|array|span)\s*<")
+            .expect("the regex is a literal")
+    });
+    let code = c_code(text);
+    let until = line_starts(&code).get(line1.checked_sub(1)?)? + col;
+    let at = (c_words_on_line(&code, line1, name, Some('[')).into_iter()).rfind(|&i| i < until)?;
+    let open = at + code.get(at..)?.find('[')?;
+    let after = code
+        .get(close_or_end(&code, open, code.len()) + 1..)?
+        .trim_start();
+    let arrow = if after.starts_with("->") {
+        Some(true)
+    } else {
+        after.starts_with('.').then_some(false)
+    };
+    element(&code, at, name, &INDEXED, arrow)
+}
+
+fn redeclared(between: &str, name: &str) -> bool {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    between.match_indices(name).any(|(i, _)| {
+        let (Some(head), Some(rest)) = (between.get(..i), between.get(i + name.len()..)) else {
+            return true;
+        };
+        let ty = head.trim_end_matches(|c: char| c.is_whitespace() || c == '*' || c == '&');
+        let word = ty
+            .get(ty.trim_end_matches(is_name).len()..)
+            .unwrap_or_default();
+        !head.ends_with(is_name)
+            && !rest.starts_with(is_name)
+            && ty.ends_with(|c: char| is_name(c) || c == ')' || c == '>')
+            && !matches!(
+                word,
+                "return"
+                    | "else"
+                    | "case"
+                    | "delete"
+                    | "throw"
+                    | "co_return"
+                    | "co_yield"
+                    | "co_await"
+                    | "sizeof"
+                    | "do"
+            )
+            && rest
+                .trim_start()
+                .starts_with(['=', ';', '{', '(', ',', '[', ':'])
+    })
+}
+
+fn element(
+    code: &str,
+    at: usize,
+    name: &str,
+    kinds: &Regex,
+    arrow: Option<bool>,
+) -> Option<Vec<String>> {
     let starts = line_starts(code);
-    let mut types = c_bindings_at(text, c_place(code, at).line1, None, range)
+    let mut types = c_bindings_from(code, at, false, name)
         .into_iter()
         .map(|p| {
             let b = starts[p.line1 - 1] + p.byte_col;
+            if redeclared(code.get(b + name.len()..at)?, name) {
+                return None;
+            }
             let written = code.get(cpp_decl_start(code, b)?..b)?;
-            let m = CONTAINER.find(written)?;
-            let (args, _) = template_args(written.get(m.end()..)?)?;
-            Some(args.first()?.clone()).filter(|a| !a.contains('<'))
+            let m = kinds.find(written)?;
+            let (args, end) = template_args(written.get(m.end()..)?)?;
+            let tail = written.get(m.end() + end..)?.replace("const", "");
+            let whole = tail
+                .trim_matches(|c: char| c.is_whitespace() || c == '&')
+                .is_empty()
+                && !code.get(b + name.len()..)?.trim_start().starts_with('[');
+            whole.then(|| args.first().cloned()).flatten().filter(|a| {
+                !a.contains('<') && arrow.is_none_or(|r| r == a.trim_end().ends_with('*'))
+            })
         })
         .map(|arg| cpp_class_path(&arg?).filter(|p| p[0] != "std"));
     let first = types.next()??;

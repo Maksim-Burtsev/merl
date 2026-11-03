@@ -728,6 +728,15 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
     let Some(pos) = scope_pos(&code, &starts, line1, name) else {
         return Vec::new();
     };
+    let member = col.is_some_and(|c| {
+        (code.get(starts[line1 - 1] + c..))
+            .and_then(|r| r.strip_prefix(name))
+            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
+    });
+    c_bindings_from(&code, pos, member, name)
+}
+pub(super) fn c_bindings_from(code: &str, pos: usize, member: bool, name: &str) -> Vec<CPlace> {
+    let starts = line_starts(code);
     let place = |at: usize| {
         let line1 = starts.partition_point(|&s| s <= at);
         CPlace {
@@ -735,21 +744,16 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
             byte_col: at - starts[line1 - 1],
         }
     };
-    let member = col.is_some_and(|c| {
-        (code.get(starts[line1 - 1] + c..))
-            .and_then(|r| r.strip_prefix(name))
-            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
-    });
-    if let Some(at) = initializer_parameter(&code, pos, name).filter(|_| !member) {
+    if let Some(at) = initializer_parameter(code, pos, name).filter(|_| !member) {
         return vec![place(at)];
     }
     for Scope {
         open,
         head_start: start,
         head,
-    } in scopes_inside_out_to_type_or_namespace(&code, pos)
+    } in scopes_inside_out_to_type_or_namespace(code, pos)
     {
-        let found = block_declarations(&code, open + 1, pos, name);
+        let found = block_declarations(code, open + 1, pos, name);
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
@@ -765,7 +769,7 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
                 code.get(inner.clone())
                     .and_then(|p| parameter_at(p, name))
                     .map(|j| inner.start + j)
-                    .or_else(|| super::cpp::init_capture(&code, start..inner.start - 1, name))
+                    .or_else(|| super::cpp::init_capture(code, start..inner.start - 1, name))
             }
             Head::Control { parens } => {
                 let inner = start + parens.start + 1..start + parens.end - 1;
@@ -1017,6 +1021,7 @@ pub struct CReceiver {
     pub fields: Vec<String>,
     pub calls: Vec<bool>,
     pub braced: bool,
+    pub indexed: bool,
     pub start: usize,
 }
 pub fn cpp_receiver(before: &str) -> Option<CReceiver> {
@@ -1028,7 +1033,7 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
     let code = c_code(before);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut rest = code.trim_end();
-    let (mut fields, mut calls) = (Vec::new(), Vec::new());
+    let (mut fields, mut calls, mut indexed) = (Vec::new(), Vec::new(), false);
     loop {
         rest = match rest.strip_suffix("->") {
             Some(r) => r,
@@ -1036,9 +1041,10 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         .trim_end();
         while rest.ends_with(']') {
-            if cpp {
+            if indexed {
                 return None;
             }
+            indexed = cpp;
             rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let called = rest.ends_with(')');
@@ -1057,13 +1063,16 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         rest = before.trim_end();
         let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
+        let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
+        if indexed && (member || called || braced || start < rest.len()) {
+            return None;
+        }
         match (member, called, braced) {
             (true, _, false) if cpp || !called => {
                 fields.insert(0, name.to_owned());
                 calls.insert(0, called);
             }
             (false, _, _) => {
-                let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
                 let head = if braced {
                     format!("{}{name}", rest.get(start..)?).replace(char::is_whitespace, "")
                 } else {
@@ -1075,6 +1084,7 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
                     fields,
                     calls,
                     braced,
+                    indexed,
                     start,
                 });
             }
@@ -1859,7 +1869,18 @@ mod tests {
         for before in ["((client *)p)->", "this->", "a->f(x)->", "1.", "A{}."] {
             assert_eq!(c_receiver(before), None, "{before}");
         }
-        assert_eq!(cpp_receiver("a[0]."), None);
+        let indexed = cpp_receiver("x = a[i]->").map(|r| (r.head, r.indexed, r.fields));
+        assert_eq!(indexed, Some(("a".to_owned(), true, vec![])));
+        for before in [
+            "a[0][1].",
+            "a.b[0].",
+            "f()[0].",
+            "ns::a[0].",
+            "A{}[0].",
+            "(*a)[0].",
+        ] {
+            assert_eq!(cpp_receiver(before), None, "{before}");
+        }
         assert_eq!(parts(cpp_receiver("this->")), r("this", false, &[]));
         let chain = cpp_receiver("x = ::ns::A{1}.f(2).g->")
             .map(|r| (r.head, r.braced, r.fields, r.calls, r.start));

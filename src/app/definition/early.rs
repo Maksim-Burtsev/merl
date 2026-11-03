@@ -125,7 +125,16 @@ impl App {
             return None;
         };
         let dotted = before.ends_with('.') && !before.ends_with("..");
-        let chain = search::qualifier(&written, start);
+        let typed = before
+            .rfind("::")
+            .filter(|_| {
+                kind == Some(Kind::Julia) && !search::julia_type_param(&self.buf.lines, &word)
+            })
+            .and_then(|i| Some((written.get(i + 2..)?, start - i - 2)));
+        let chain = match typed {
+            Some((annotation, at)) => search::qualifier(annotation, at),
+            None => search::qualifier(&written, start),
+        };
         let here = self.rel_current();
         let (Some(kind), Some(here)) = (kind, here) else {
             self.message = self.no_rules();
