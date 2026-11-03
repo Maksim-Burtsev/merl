@@ -1,7 +1,7 @@
 # #1340: a method's last value that is a call chain, memoised or not, types its caller's receiver,
 # and so does a body whose `rescue` clauses only raise or give `nil`. A clause that gives another
-# value, an `ensure`, a memo whose ivar is assigned elsewhere too (here in a reopening), and a
-# chain through a method the rules cannot type stay pickers.
+# value, an `ensure`, a memo whose ivar is assigned elsewhere too (here in a reopening), a chain
+# through a method the rules cannot type and a last line that ends an expression stay pickers.
 class Finger
   class Answer
     def href
@@ -46,6 +46,10 @@ class FingerClient
     #       ^ d: picker app/finger_lookup.rb:7, app/finger_lookup.rb:12
     swapped.href
     #       ^ d: picker app/finger_lookup.rb:7, app/finger_lookup.rb:12
+    continued.href
+    #         ^ d: picker app/finger_lookup.rb:7, app/finger_lookup.rb:12
+    wrapped.href
+    #       ^ d: picker app/finger_lookup.rb:7, app/finger_lookup.rb:12
     @swapped = Finger::Stray.new
   end
 
@@ -71,6 +75,24 @@ class FingerClient
 
   def unknown
     @unknown ||= helper.perform
+  end
+
+  def continued
+    cached ||
+      Finger.new.perform
+  end
+
+  def wrapped
+    wrap 1,
+      Finger.new.perform
+  end
+
+  def cached
+    Finger::Stray.new
+  end
+
+  def wrap(_n, _v)
+    Finger::Stray.new
   end
 end
 

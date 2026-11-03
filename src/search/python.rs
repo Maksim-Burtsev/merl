@@ -1019,6 +1019,10 @@ pub fn python_patched_param(text: &str, line1: usize, name: &str) -> Option<Vec<
     static PATCH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|\.)patch(?:\.\w+)?$").expect("the regex is a literal")
     });
+    static FILLS_NONE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\w+\.)*override_settings$|^pytest\.mark\.\w+$")
+            .expect("the regex is a literal")
+    });
     let lines: Vec<&str> = text.lines().collect();
     let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
     let d = (0..=at)
@@ -1060,7 +1064,10 @@ pub fn python_patched_param(text: &str, line1: usize, name: &str) -> Option<Vec<
         }
         let c = DECORATOR.captures(lines[i])?;
         if !PATCH.is_match(&c[1]) {
-            continue;
+            if FILLS_NONE.is_match(&c[1]) {
+                continue;
+            }
+            return None;
         }
         patches.push(c[1].to_owned());
         let open = c.get(2)?.start();

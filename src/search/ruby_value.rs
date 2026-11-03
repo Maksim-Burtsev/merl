@@ -132,6 +132,14 @@ pub fn ruby_last_value(text: &str, def_line1: usize) -> Option<RubyReturns> {
     }
     let (at, last) = body.iter().enumerate().rev().find(|(_, l)| !skipped(l))?;
     let last = last.trim();
+    if body[..at]
+        .iter()
+        .rev()
+        .find(|l| !skipped(l))
+        .is_some_and(|l| leaves_open(l))
+    {
+        return None;
+    }
     if last == "self" {
         return Some(RubyReturns::Itself);
     }
@@ -144,6 +152,13 @@ pub fn ruby_last_value(text: &str, def_line1: usize) -> Option<RubyReturns> {
     let (memo, chain) = memo_value(last);
     (ruby_last_call(chain).is_some() && ruby_receiver_split(chain).0.trim().is_empty())
         .then(|| RubyReturns::Chain(def_line1 + at + 1, memo.unwrap_or(chain).to_owned()))
+}
+
+fn leaves_open(line: &str) -> bool {
+    let t = line.trim_end();
+    t.ends_with([
+        '|', '&', '+', '-', '*', '/', '%', '=', '<', '>', ':', ',', '(', '[', '{', '\\', '^', '~',
+    ]) || [" ?", " and", " or", " not"].iter().any(|w| t.ends_with(w))
 }
 
 fn memo_value(value: &str) -> (Option<&str>, &str) {
