@@ -166,7 +166,7 @@ impl App {
             return (ty[0] != "std").then_some((ty, code, ctx, None));
         }
         if r.indexed {
-            let ty = search::cpp_index_element(text, at.0 + 1, &r.head)?;
+            let ty = search::cpp_index_element(text, at.0 + 1, at.1, &r.head)?;
             let code = search::c_code(text);
             let ctx = search::cpp_scope_path(&code, offset(text, at.0, at.1).min(code.len()));
             return Some((ty, code, ctx, None));
@@ -397,10 +397,10 @@ impl App {
             Ok(Some((t, at))) => return Some((t, code, here_ctx, Some(at))),
             Ok(None) => {}
             Err(()) => {
-                let (expr, line0) = search::cpp_auto_init(text, line0 + 1, head)?;
+                let (expr, line0, end) = search::cpp_auto_init(text, line0 + 1, head)?;
                 let r = (search::cpp_receiver(&format!("{expr}.")))
                     .filter(|r| depth < 3 && r.fields.len() < 6)?;
-                let start = self.cpp_start(here, text, &r, head, (line0, 0), depth + 1)?;
+                let start = self.cpp_start(here, text, &r, head, (line0, end), depth + 1)?;
                 let around = search::c_method_class(text, line0 + 1, head);
                 return Some(
                     self.cpp_walk(here, start, around, &r, &mut Vec::new())

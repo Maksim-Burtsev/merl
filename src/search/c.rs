@@ -728,6 +728,15 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
     let Some(pos) = scope_pos(&code, &starts, line1, name) else {
         return Vec::new();
     };
+    let member = col.is_some_and(|c| {
+        (code.get(starts[line1 - 1] + c..))
+            .and_then(|r| r.strip_prefix(name))
+            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
+    });
+    c_bindings_from(&code, pos, member, name)
+}
+pub(super) fn c_bindings_from(code: &str, pos: usize, member: bool, name: &str) -> Vec<CPlace> {
+    let starts = line_starts(code);
     let place = |at: usize| {
         let line1 = starts.partition_point(|&s| s <= at);
         CPlace {
@@ -735,21 +744,16 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
             byte_col: at - starts[line1 - 1],
         }
     };
-    let member = col.is_some_and(|c| {
-        (code.get(starts[line1 - 1] + c..))
-            .and_then(|r| r.strip_prefix(name))
-            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
-    });
-    if let Some(at) = initializer_parameter(&code, pos, name).filter(|_| !member) {
+    if let Some(at) = initializer_parameter(code, pos, name).filter(|_| !member) {
         return vec![place(at)];
     }
     for Scope {
         open,
         head_start: start,
         head,
-    } in scopes_inside_out_to_type_or_namespace(&code, pos)
+    } in scopes_inside_out_to_type_or_namespace(code, pos)
     {
-        let found = block_declarations(&code, open + 1, pos, name);
+        let found = block_declarations(code, open + 1, pos, name);
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
@@ -765,7 +769,7 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
                 code.get(inner.clone())
                     .and_then(|p| parameter_at(p, name))
                     .map(|j| inner.start + j)
-                    .or_else(|| super::cpp::init_capture(&code, start..inner.start - 1, name))
+                    .or_else(|| super::cpp::init_capture(code, start..inner.start - 1, name))
             }
             Head::Control { parens } => {
                 let inner = start + parens.start + 1..start + parens.end - 1;
