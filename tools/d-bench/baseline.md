@@ -115,6 +115,7 @@ The swift row with #1341's fourth pass (overloads that differ only by the type o
 The rust row with #1302's integration-test crates (a package's `tests/` folder read as Cargo's crates) and rust0254 (a closure parameter typed by the callee's `F: FnMut(&Self::Captures)` bound and the receiver's `impl` of the trait): over `6897d447a`, 2026-11-03, release build, `vm.loadavg` { 4.75 4.97 4.46 } before the run, { 4.52 4.92 4.44 } after.
 The swift row with #1341's fifth pass (a static call followed by a property as an argument, `session.upload(data, to: url)` with `let url = Endpoint.method(.post).url` in `UploadTests`): over `9844374ee` with this change, 2026-11-03, release build, `vm.loadavg` { 3.68 3.89 4.11 } before the run, { 3.63 3.84 4.06 } after.
 The julia row with #1375's first pass (a type after `::` is looked up as a type, not a member of the value, unless a `where` or a `struct` of the file binds it as a parameter; the variable of a `catch err` block): over `bf0298930` with this change, 2026-11-03, release build, `vm.loadavg` { 3.82 4.18 3.91 } before the run, { 3.53 4.02 3.87 } after. julia0108 (`x::Tables.AbstractRow`, no answer recorded) now jumps to `abstract type AbstractRow end` in Tables, which is its definition.
+The cpp row with #1336's fifth pass (a subscript of a local `std::vector`, `std::array`, `std::deque` or `std::span` is its element, `inputs[i]->file_size` in `VersionSet::CompactRange`; a call's return type skips a `static` namesake in another translation unit, `test::RandomString(...).ToString()` in `table_test.cc`): over `68a9bc1d8`, 2026-11-03, release build, `vm.loadavg` { 4.63 4.67 4.54 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -125,7 +126,7 @@ The julia row with #1375's first pass (a type after `::` is looked up as a type,
 | rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 237 | 216 (91%) | 21 (9%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.5 | 63.1 |
+| cpp (leveldb) | 237 | 218 (92%) | 19 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.4 | 62.4 |
 | swift (Alamofire) | 450 | 436 (97%) | 13 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.8 | 48.0 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
