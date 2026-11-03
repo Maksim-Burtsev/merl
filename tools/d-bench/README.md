@@ -105,6 +105,10 @@ For a Base generic that DataFrames extends (`parent`, `view`, `copy`, `filter!`)
 the methods outside the project: where the argument is a DataFrames type, the row is `skip`.
 Where merl jumped and the oracle had nothing, 13 rows were read from the code (#1370, `judged` in
 the note); three on `Union`, built in C, answer its commented-out struct in `base/boot.jl`.
+#1375 judged 10 more: `AbstractVector` and `AbstractMatrix`, where the oracle gave LinearAlgebra's
+`AbstractArray(F)` methods, answer their `const` in `base/array.jl`; a reassignment in a testset
+answers its own line (`on-decl`) or the testset's first assignment; `Tables.AbstractRow` its
+`abstract type`.
 merl's answers depend on the Julia it finds: the baseline is scored with Julia 1.11.7 in
 `<servers>/julia-1.11.7` (the same julialang-s3 tarball) and the depot in `<servers>/julia-depot`,
 which `run` puts on `PATH` and in `JULIA_DEPOT_PATH`. Without them it stops: on 2026-11-02 the
