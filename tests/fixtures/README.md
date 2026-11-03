@@ -734,7 +734,11 @@ two types, or a receiver merl cannot type, keep the picker.
 argument: a parameter, a local of a written type or built by a constructor, a constructor call and
 a string literal, each taken by one overload while the others take a struct of another name. Two
 numeric overloads for an integer literal, a protocol, a generic, two classes, an alias, the same
-type twice and a comparison of two strings keep the picker.
+type twice and a comparison of two strings keep the picker. `swift/Sources/Shop/Wharf.swift` passes a
+call followed by a property (`Wharf.berth(1).bale`, a static func, `Self`, an instance call, a
+property an extension in another file declares): the call's written return type, then the
+property's, types the argument. A generic return, an optional chain and a generic property keep
+the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which

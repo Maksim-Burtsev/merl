@@ -87,3 +87,7 @@ struct Tallyman {
 //      ^ d: Sources/Shop/Overloads.swift:81
     }
 }
+
+extension Wharf {
+    var sack: Sack { Sack() }
+}

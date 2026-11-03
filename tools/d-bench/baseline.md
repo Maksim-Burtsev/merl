@@ -112,6 +112,7 @@ The cpp and bash rows with three answers judged from the code (#1336, #1335: cpp
 The cpp row with #1336's fourth pass (an out-of-line method's parameters, `void Trivet::Place(Stand* s) {`, are in the class's scope; an unqualified call in a method, `user_comparator()->Compare` in `DBImpl::DoCompactionWork`, is read as `this->` first; cpp0214 `target()->GetChildren`, no answer recorded, now jumps to `Env::GetChildren`): over `8b0969ab2`, 2026-11-03, release build, `vm.loadavg` { 3.42 3.43 4.05 } before the run.
 The swift row with #1341's fourth pass (overloads that differ only by the type of an argument, `upload(stream, with: convertible, ..)` in `Session` where `stream` is an `InputStream` and the other `upload`s take `Data` or `URL`): over `aa49be99f` with this change, 2026-11-03, release build, `vm.loadavg` { 2.78 3.46 3.99 } after the run.
 The rust row with #1302's integration-test crates (a package's `tests/` folder read as Cargo's crates) and rust0254 (a closure parameter typed by the callee's `F: FnMut(&Self::Captures)` bound and the receiver's `impl` of the trait): over `6897d447a`, 2026-11-03, release build, `vm.loadavg` { 4.75 4.97 4.46 } before the run, { 4.52 4.92 4.44 } after.
+The swift row with #1341's fifth pass (a static call followed by a property as an argument, `session.upload(data, to: url)` with `let url = Endpoint.method(.post).url` in `UploadTests`): over `9844374ee` with this change, 2026-11-03, release build, `vm.loadavg` { 3.68 3.89 4.11 } before the run, { 3.63 3.84 4.06 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -123,7 +124,7 @@ The rust row with #1302's integration-test crates (a package's `tests/` folder r
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 237 | 216 (91%) | 21 (9%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.5 | 63.1 |
-| swift (Alamofire) | 450 | 435 (97%) | 14 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.9 | 47.9 |
+| swift (Alamofire) | 450 | 436 (97%) | 13 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.8 | 48.0 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |

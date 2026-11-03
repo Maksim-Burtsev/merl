@@ -1,4 +1,4 @@
-use super::{App, Candidate, Kind, Path, search};
+use super::{App, Candidate, Kind, Path, WrittenVia, generic, search};
 
 enum Typed {
     Literal(&'static str),
@@ -149,6 +149,25 @@ impl App {
             let kept = found.swap_remove(*k);
             *found = vec![kept];
         }
+    }
+
+    pub(super) fn swift_call_fields(
+        &self,
+        here: &Path,
+        file: &Path,
+        text: &str,
+        line1: usize,
+        (call, fields): (String, Vec<String>),
+        hops: usize,
+    ) -> Option<WrittenVia> {
+        let hops = hops.checked_sub(1)?;
+        let call = self.swift_expr(here, file, text, line1, &call, hops)?;
+        fields.iter().try_fold(call, |via, field| {
+            let ty = self.swift_type(here, &via.written)?;
+            ty.keyword.as_ref()?;
+            self.swift_field(here, &ty, field, hops)
+                .filter(|v| !generic::bound(&v.written))
+        })
     }
 
     fn swift_arg_type(&self, here: &Path, text: &str, e: &str) -> Option<Typed> {
