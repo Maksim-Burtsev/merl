@@ -826,6 +826,33 @@ fn names_any(text: &str, names: &[String]) -> bool {
     })
 }
 
+fn rebinds(lines: &[&str], k: usize, name: &str) -> bool {
+    let literal = julia_literal_lines(&lines.join("\n"));
+    let depth = indent(lines[k]);
+    let end = (k + 1..lines.len())
+        .find(|&i| {
+            let l = lines[i].trim();
+            !literal.get(i).copied().unwrap_or(false)
+                && !l.is_empty()
+                && !l.starts_with('#')
+                && indent(lines[i]) <= depth
+        })
+        .unwrap_or(lines.len());
+    let method = lines[k..end].join("\n");
+    let Some(body) = method
+        .find('(')
+        .and_then(|i| Some(i + closing(method.get(i..)?)? + 1))
+        .and_then(|i| method.get(i..))
+    else {
+        return true;
+    };
+    let (w, e) = (regex::escape(name), r"(?:[^\w!.]|$)");
+    Regex::new(&format!(
+        r"(?m)(?:^|[^\w!.]){w}\s*->|\((?:[^()]*[,\s])?{w}(?:[,\s:=][^()]*)?\)\s*->|\bfor\b.*?(?:^|[^\w!.]){w}(?:[^\w!].*?)?(?:\s+in\b|∈|=)|\b(?:let|function|do|catch|local|global)\b.*?[^\w!.]{w}{e}|(?:^|[^\w!.]){w}\s*(?:::[^=\n]*)?(?:\s*,\s*[\w!]+)*\s*\)?\s*\.?(?:[-+*/\\^÷%&|⊻]|//|<<|>>>?)?=(?:[^=>]|$)"
+    ))
+    .map_or(true, |re| re.is_match(body))
+}
+
 pub fn julia_param_type(text: &str, row: usize, name: &str) -> Option<String> {
     static TYPED: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^([A-Za-z_][\w!]*)\s*::\s*([A-Za-z_]\w*)\s*(?:\{[^{}]*\})?\s*(?:=[^=].*)?$")
@@ -840,6 +867,9 @@ pub fn julia_param_type(text: &str, row: usize, name: &str) -> Option<String> {
         return None;
     }
     let (inner, tail) = signature(&lines, k)?;
+    if rebinds(&lines, k, name) {
+        return None;
+    }
     let ty = top_level(&inner)
         .into_iter()
         .filter_map(|p| TYPED.captures(p.trim()))
@@ -898,6 +928,10 @@ pub fn julia_struct_of<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
     STRUCT.is_match(text[k]).then_some(k)
 }
 
+static READABLE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?:[A-Za-z_][\w.]*\s*(?:\{[^$]*\})?)?$").expect("the regex is a literal")
+});
+
 pub fn julia_property_overload<S: AsRef<str>>(
     lines: &[S],
     k: usize,
@@ -921,6 +955,9 @@ pub fn julia_property_overload<S: AsRef<str>>(
         .map(|p| p.split_once("::").unwrap_or((p, "")))
         .unwrap_or_default();
     let ty = ty.trim();
+    if !READABLE.is_match(ty) {
+        return true;
+    }
     if !(ty.is_empty() || ty == "Any" || tail.contains("where") || names_any(ty, types)) {
         return false;
     }
@@ -944,8 +981,16 @@ pub fn julia_property_overload<S: AsRef<str>>(
         regex::escape(sym.as_str())
     ));
     let named = Regex::new(&format!(r":{}(?:[^\w!]|$)", regex::escape(word)));
-    let (Ok(fallback), Ok(named)) = (fallback, named) else {
+    let s = regex::escape(sym.as_str());
+    let other = Regex::new(&format!(
+        r"{s}\s*(?:===?|!==?|≡)\s*:[\w!]+|:[\w!]+\s*(?:===?|!==?|≡)\s*{s}(?:[^\w!]|$)|{s}\s+(?:in|∈)\s*[(\[]\s*:[\w!]+(?:\s*,\s*:[\w!]+)*\s*,?\s*[)\]]"
+    ));
+    let used = Regex::new(&format!(r"(?:^|[^\w!.:]){s}(?:[^\w!]|$)"));
+    let (Ok(fallback), Ok(named), Ok(other), Ok(used)) = (fallback, named, other, used) else {
         return true;
     };
-    !body.iter().any(|l| fallback.is_match(l)) || body.iter().any(|l| named.is_match(l))
+    !body.iter().any(|l| fallback.is_match(l))
+        || body.iter().any(|l| {
+            named.is_match(l) || used.is_match(&other.replace_all(&fallback.replace_all(l, ""), ""))
+        })
 }
