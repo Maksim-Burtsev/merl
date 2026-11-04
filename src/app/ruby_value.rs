@@ -64,6 +64,9 @@ impl App {
             let (head, receiver) = search::ruby_receiver_split(tapped);
             return self.ruby_value_class(here, text, line1, head, receiver, depth + 1);
         }
+        if let Some(name) = search::ruby_param_type(text, line1, expr) {
+            return self.ruby_resolve(here, &search::ruby_class_path(text, line1), &name);
+        }
         let Some((at, value)) = search::ruby_assigned_once(text, line1, expr) else {
             let def = format!(r"(?m)^\s*def\s+{}\s*$", regex::escape(expr));
             if !regex::Regex::new(&def).is_ok_and(|re| re.is_match(text)) {
