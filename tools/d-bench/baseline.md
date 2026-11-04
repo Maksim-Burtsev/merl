@@ -122,6 +122,7 @@ The swift row with #1341's sixth pass (a value of a project type never fits an a
 The python row with #1339's fifth pass (a keyword argument of a callee outside the project, found by its import, lands on that parameter or on an outside dataclass's field; python0303 `time_machine.travel(.., tick=False)`): over `ab87a9a10` with this change, 2026-11-05, release build, `vm.loadavg` { 7.54 5.30 4.52 } before the run, { 4.03 4.70 4.37 } after.
 The cpp row with #1336's sixth pass (`std::X` outside the project finds no member of a class, and a class head after a reserved `_LIBCPP_BEGIN_NAMESPACE_STD` is read as a class; cpp0101 `std::unique_lock<std::mutex>` jumps to `class mutex`, not `unique_lock::mutex()`): over `0392f637a` with this change, 2026-11-05, release build, `vm.loadavg` { 3.42 4.59 4.52 } before the run, { 3.10 4.22 4.38 } after; the c and objc rows played the same (0 worse, 0 better) and are kept.
 The svelte row with #1337's fifth pass (a component a package's entry re-exports as `default` lands on the `declare const` of that file, not on the `type X = ReturnType<typeof X>` beside it nor on a namesake elsewhere in the package; 25 `@immich/ui` and `svelte-maplibre` rows): over `6298e4ded` with this change, 2026-11-05, release build, `vm.loadavg` { 3.11 5.20 4.99 } before the run.
+The ruby row with #1340's fourth pass (a method parameter whose YARD `@param [Account] account` names one class, read directly or through `@account = account` set once in the class; ruby0135 jumps, and like the other rows typed as `Account` it takes ~630 ms, which moves p90): over `abefb3925` with this change, 2026-11-05, release build, `vm.loadavg` { 3.01 4.15 4.62 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -137,7 +138,7 @@ The svelte row with #1337's fifth pass (a component a package's entry re-exports
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
-| ruby (mastodon) | 140 | 134 (96%) | 5 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.6 | 365.0 |
+| ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.4 | 408.7 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
