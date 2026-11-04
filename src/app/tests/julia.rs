@@ -280,3 +280,43 @@ fn d_on_a_julia_function_the_project_imports_from_itself_or_by_dotted_path() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn d_on_julia_s_base_reads_the_base_module_not_a_submodule_s_own_binding() {
+    let (dir, mut a) = project_app(
+        "julia-base-module",
+        &[
+            ("src/show.jl", "Base.summary(df) = 1\n"),
+            (
+                "src/bare.jl",
+                "baremodule Bare\nBase.summary(df) = 1\nend\n",
+            ),
+        ],
+    );
+    let base = external_root(
+        "julia-base-module",
+        &[
+            ("base/Base.jl", "\nbaremodule Base\nend\n"),
+            (
+                "base/iterators.jl",
+                "baremodule Iterators\nconst Base = parentmodule(@__MODULE__)\nend\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    d_on(&mut a, "src/show.jl", "Base|.summary");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Base: by name, 1 match",
+            &format!("{}:2", base.join("base/Base.jl").display())
+        )
+    );
+    a.jump_to(&dir.join("src/bare.jl"), 1);
+    d_on(&mut a, "src/bare.jl", "Base|.summary");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(title, _) if title == "Base: by name, 2 declarations"),
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}

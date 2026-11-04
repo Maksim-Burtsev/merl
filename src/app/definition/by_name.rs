@@ -87,6 +87,9 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
+        if kind == Kind::Julia && a.word == "Base" && !a.dotted && a.chain.is_empty() {
+            julia_base_module(&a.text, &mut found);
+        }
         if kind == Kind::TsJs && a.dotted {
             required_copy(&a.text, &mut found);
         }
@@ -1023,5 +1026,15 @@ fn c_namespace(word: &str, hits: Vec<Hit>, after_tag_keyword: bool, called: bool
         hits.into_iter().filter(|h| keep(tag(h))).collect()
     } else {
         hits
+    }
+}
+
+fn julia_base_module(text: &str, found: &mut Vec<Candidate>) {
+    let module = |c: &Candidate| c.hit.text.trim_end() == "baremodule Base";
+    if !text.lines().any(|l| l.starts_with("baremodule "))
+        && found.iter().all(|c| c.hit.path.is_absolute())
+        && found.iter().any(module)
+    {
+        found.retain(module);
     }
 }
