@@ -320,3 +320,32 @@ fn d_on_julia_s_base_reads_the_base_module_not_a_submodule_s_own_binding() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&base).unwrap();
 }
+
+#[test]
+fn d_on_a_julia_field_reads_the_struct_its_parameter_is_typed_by() {
+    let types = "abstract type AbstractFrame end\nmutable struct Group{T<:AbstractFrame}\n    parent::T\n    cols::Vector{Symbol}\n    idx::Vector{Int}\nend\nstruct Frame <: AbstractFrame\n    cols::Vector{Symbol}\nend\nstruct Key\n    cols::Vector{Symbol}\nend\nstruct Sorter\n    cols::Vector{Symbol}\n    function Sorter(c)\n        cols = c\n        new(cols)\n    end\nend\nfunction Base.getproperty(gd::Group, f::Symbol)\n    if f === :idx\n        return getfield(gd, :idx)\n    end\n    return getfield(gd, f)\nend\nBase.getproperty(df::AbstractFrame, s::Symbol) = df[!, s]\nfunction Base.getproperty(k::Key, p::Symbol)\n    p === :cols && return 1\n    return getfield(k, p)\nend\n";
+    let uses = "function plain(g1::Group, x)\n    g1.cols\nend\nfunction para(g2::Group{Frame})\n    g2.cols\nend\nabstr(f3::AbstractFrame) = f3.cols\nfunction bound(g4::G) where {G<:Group}\n    g4.cols\nend\nfunction again(g5::Group)\n    g5 = pick()\n    g5.cols\nend\nfunction inherited(f6::Frame)\n    f6.cols\nend\nfunction keyed(k7::Key)\n    k7.cols\nend\nfunction sorted(s8::Sorter)\n    s8.cols\nend\n";
+    let (dir, mut a) = project_app(
+        "julia-typed-field",
+        &[("src/types.jl", types), ("src/use.jl", uses)],
+    );
+    for (code, line) in [
+        ("g1.cols", Some(4)),
+        ("g2.cols", Some(4)),
+        ("f3.cols", None),
+        ("g4.cols", None),
+        ("g5.cols", None),
+        ("f6.cols", None),
+        ("k7.cols", None),
+        ("s8.cols", Some(14)),
+    ] {
+        d_on(&mut a, "src/use.jl", code);
+        match (shown(&mut a), line) {
+            (Shown::Jump(_, at), Some(line)) => assert_eq!(at, format!("src/types.jl:{line}")),
+            (Shown::Picker(..), None) => {}
+            (got, _) => panic!("{code}: {got:?}"),
+        }
+        a.jump_to(&dir.join("src/use.jl"), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
