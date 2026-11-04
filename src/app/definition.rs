@@ -145,7 +145,11 @@ impl App {
             self.probe.take().unwrap_or_default()
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
-        let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
+        let reads_outside = (kind == Kind::Rust && *owner == search::Owner::Typed)
+            || (kind == Kind::Python
+                && *owner == search::Owner::Args
+                && !owners.is_empty()
+                && owners.iter().all(|c| c.reason.proven()));
         let offer = std::mem::take(&mut self.offer_only)
             || (!reads_outside && owners.iter().any(|c| c.hit.path.is_absolute()))
             || (owners.iter().all(|c| !c.reason.proven())
@@ -783,6 +787,12 @@ impl App {
             {
                 hits = vec![only.clone()];
             }
+            if command != Some(true)
+                && !assigns
+                && let Some(f) = mine
+            {
+                self.shell_gated(here, word, &lines, f, &mut hits);
+            }
             if hits.is_empty() && command != Some(true) {
                 hits = self.shell_out_args(here, word);
             }
@@ -831,6 +841,52 @@ impl App {
                         .text_of(&file)
                         .is_some_and(|t| !t.lines().any(search::shell_reads_another_file))
             })
+    }
+
+    fn shell_gated(&self, here: &Path, word: &str, lines: &[&str], f: usize, hits: &mut Vec<Hit>) {
+        let function_of = |h: &Hit| {
+            (h.path == here && h.line1 <= lines.len())
+                .then(|| search::shell_function_at(lines, h.line1 - 1))
+                .flatten()
+        };
+        let Some(g) = hits.first().and_then(function_of).filter(|&g| {
+            g != f && hits.len() > 1 && hits.iter().all(|h| function_of(h) == Some(g))
+        }) else {
+            return;
+        };
+        let (Some(fname), Some(gname)) = (
+            search::shell_function_name(lines[f]),
+            search::shell_function_name(lines[g]),
+        ) else {
+            return;
+        };
+        let live: Vec<&Hit> = hits
+            .iter()
+            .filter(|h| !search::shell_fails_after(lines, h.line1 - 1, word))
+            .collect();
+        let [one] = live[..] else {
+            return;
+        };
+        if !search::shell_runs_first(lines, g, one.line1 - 1) {
+            return;
+        }
+        let one = one.clone();
+        let calls = self.project_grep(Kind::Shell, here, &regex::escape(fname));
+        let outside: Vec<&Hit> = calls
+            .iter()
+            .filter(|c| {
+                !(function_of(c) == Some(f)
+                    || c.text.trim_start().starts_with('#')
+                    || c.path == here && c.line1 == f + 1)
+            })
+            .collect();
+        if !outside.is_empty()
+            && outside
+                .iter()
+                .all(|c| search::shell_gated_by(&c.text, fname, gname))
+        {
+            *hits = vec![one];
+        }
     }
 
     fn shell_out_args(&self, here: &Path, word: &str) -> Vec<Hit> {

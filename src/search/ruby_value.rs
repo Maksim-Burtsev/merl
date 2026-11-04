@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::{ruby_last_call, ruby_locals, ruby_receiver_split};
+use super::{Kind, bindings, ruby_last_call, ruby_locals, ruby_receiver_split};
 
 pub enum RubyReturns {
     Itself,
@@ -217,4 +217,66 @@ pub fn ruby_struct_member(line: &str, word: &str) -> bool {
         regex::escape(word)
     ))
     .is_ok_and(|re| re.is_match(line))
+}
+
+pub fn ruby_param_type(text: &str, line1: usize, name: &str) -> Option<String> {
+    static TAG: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(
+            r"^#\s*@param\s+(?:\[([^\]]*)\]\s+([a-z_]\w*)|([a-z_]\w*)\s+\[([^\]]*)\])(?:\s|$)",
+        )
+        .expect("the regex is a literal")
+    });
+    static CONSTANT: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:::)?[A-Z][\w:]*$").expect("the regex is a literal"));
+    let bound = bindings(Kind::Ruby, text, line1, name);
+    let [def] = bound.as_slice() else {
+        return None;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let head = lines.get(def.line1.checked_sub(1)?)?;
+    let piped = Regex::new(&format!(r"\|[^|]*\b{}\b[^|]*\|", regex::escape(name))).ok()?;
+    let n = regex::escape(name);
+    let splat = Regex::new(&format!(r"[*&]\s*{n}\b")).ok()?;
+    let rebinds = Regex::new(&format!(
+        r"(?:^|[^@$:.\w]){n}\s*(?:[-+*/%|&^]|\*\*|<<|>>|&&|\|\|)?=(?:$|[^=~>])|^\s*[\w\s,*]*\b{n}\b[\w\s,*]*=(?:$|[^=~>])|=>\s*{n}\b|^\s*in\b.*\b{n}\b|\bin\s*[\[{{(].*\b{n}\b|\bfor\s+[\w\s,]*\b{n}\b|->\s*\(?[^{{]*\b{n}\b|\|[^|]*\b{n}\b[^|]*\|"
+    ))
+    .ok()?;
+    let indent = head.len() - head.trim_start().len();
+    let end = lines[def.line1..]
+        .iter()
+        .position(|l| !l.trim().is_empty() && l.len() - l.trim_start().len() <= indent)
+        .map_or(lines.len(), |p| def.line1 + p)
+        .max(line1);
+    if !head.trim_start().starts_with("def ")
+        || splat.is_match(head)
+        || !ruby_locals(text, line1, name).is_empty()
+        || lines
+            .get(def.line1 - 1..line1)?
+            .iter()
+            .any(|l| piped.is_match(l))
+        || lines
+            .get(def.line1..end)?
+            .iter()
+            .any(|l| rebinds.is_match(l))
+    {
+        return None;
+    }
+    let types: Vec<&str> = lines[..def.line1 - 1]
+        .iter()
+        .rev()
+        .map(|l| l.trim())
+        .take_while(|l| l.starts_with('#'))
+        .filter_map(|l| {
+            let c = TAG.captures(l)?;
+            let (ty, param) = match c.get(1) {
+                Some(ty) => (ty, c.get(2)?),
+                None => (c.get(4)?, c.get(3)?),
+            };
+            (param.as_str() == name).then_some(ty.as_str().trim())
+        })
+        .collect();
+    let [ty] = types[..] else {
+        return None;
+    };
+    CONSTANT.is_match(ty).then(|| ty.to_owned())
 }

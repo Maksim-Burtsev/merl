@@ -787,3 +787,210 @@ pub fn julia_depot(var: Option<std::ffi::OsString>, home: &Path) -> PathBuf {
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| home.join(".julia"))
 }
+
+static FUNCTION: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(r"^\s*{MACROS}function\s")).expect("the regex is a literal")
+});
+static PARAM: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[A-Za-z_][\w!]*").expect("the regex is a literal"));
+
+fn signature(lines: &[&str], k: usize) -> Option<(String, String)> {
+    let head = lines.get(k..lines.len().min(k + 20))?.join("\n");
+    let from = head.get(head.find('(')?..)?;
+    let close = closing(from)?;
+    let tail = from.get(close + 1..)?.lines().next().unwrap_or_default();
+    Some((from.get(1..close)?.to_owned(), tail.to_owned()))
+}
+
+fn top_level(inner: &str) -> Vec<&str> {
+    let (mut out, mut depth, mut start) = (Vec::new(), 0usize, 0);
+    for (i, c) in inner.char_indices() {
+        match c {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' | ';' if depth == 0 => {
+                out.extend(inner.get(start..i));
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    out.extend(inner.get(start..));
+    out
+}
+
+fn names_any(text: &str, names: &[String]) -> bool {
+    names.iter().any(|n| {
+        Regex::new(&format!(r"(?:^|[^\w!.]){}(?:[^\w!]|$)", regex::escape(n)))
+            .is_ok_and(|re| re.is_match(text))
+    })
+}
+
+fn rebinds(lines: &[&str], k: usize, name: &str) -> bool {
+    let literal = julia_literal_lines(&lines.join("\n"));
+    let depth = indent(lines[k]);
+    let end = (k + 1..lines.len())
+        .find(|&i| {
+            let l = lines[i].trim();
+            !literal.get(i).copied().unwrap_or(false)
+                && !l.is_empty()
+                && !l.starts_with('#')
+                && indent(lines[i]) <= depth
+        })
+        .unwrap_or(lines.len());
+    let method = lines[k..end].join("\n");
+    let Some(body) = method
+        .find('(')
+        .and_then(|i| Some(i + closing(method.get(i..)?)? + 1))
+        .and_then(|i| method.get(i..))
+    else {
+        return true;
+    };
+    let (w, e) = (regex::escape(name), r"(?:[^\w!.]|$)");
+    Regex::new(&format!(
+        r"(?m)(?:^|[^\w!.]){w}\s*->|\((?:[^()]*[,\s])?{w}(?:[,\s:=][^()]*)?\)\s*->|\bfor\b.*?(?:^|[^\w!.]){w}(?:[^\w!].*?)?(?:\s+in\b|∈|=)|\b(?:let|function|do|catch|local|global)\b.*?[^\w!.]{w}{e}|(?:^|[^\w!.]){w}\s*(?:::[^=\n]*)?(?:\s*,\s*[\w!]+)*\s*\)?\s*\.?(?:[-+*/\\^÷%&|⊻]|//|<<|>>>?)?=(?:[^=>]|$)"
+    ))
+    .map_or(true, |re| re.is_match(body))
+}
+
+pub fn julia_param_type(text: &str, row: usize, name: &str) -> Option<String> {
+    static TYPED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^([A-Za-z_][\w!]*)\s*::\s*([A-Za-z_]\w*)\s*(?:\{[^{}]*\})?\s*(?:=[^=].*)?$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let [b] = &julia_bindings(&lines, row, name)[..] else {
+        return None;
+    };
+    let k = b.line1 - 1;
+    if !lines.get(k).is_some_and(|l| FUNCTION.is_match(l)) && !method_def(&lines, k) {
+        return None;
+    }
+    let (inner, tail) = signature(&lines, k)?;
+    if rebinds(&lines, k, name) {
+        return None;
+    }
+    let ty = top_level(&inner)
+        .into_iter()
+        .filter_map(|p| TYPED.captures(p.trim()))
+        .find(|c| &c[1] == name)
+        .map(|c| c[2].to_owned())?;
+    (!(tail.contains("where") && names_any(&tail, std::slice::from_ref(&ty)))).then_some(ty)
+}
+
+pub fn julia_type_heads(name: &str) -> String {
+    format!(
+        r"^\s*{MACROS}(?:(?:mutable\s+)?struct|abstract\s+type)\s+{}{END}",
+        regex::escape(name)
+    )
+}
+
+pub fn julia_is_struct(line: &str) -> bool {
+    STRUCT.is_match(line)
+}
+
+pub fn julia_supertype(line: &str) -> Option<String> {
+    static SUPER: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(&format!(
+            r"^\s*{MACROS}(?:(?:mutable\s+)?struct|abstract\s+type)\s+[A-Za-z_]\w*\s*(?:\{{[^{{}}]*(?:\{{[^{{}}]*\}}[^{{}}]*)*\}})?\s*(?:<:\s*([A-Za-z_][\w.]*)\s*(?:\{{[^{{}}]*\}})?)?\s*(?:\bend\b)?\s*(?:#.*)?$"
+        ))
+        .expect("the regex is a literal")
+    });
+    SUPER
+        .captures(line)
+        .map(|c| c.get(1).map_or("Any", |m| m.as_str()).to_owned())
+}
+
+pub fn julia_alias_pattern(names: &[String]) -> String {
+    let names: Vec<String> = names.iter().map(|n| regex::escape(n)).collect();
+    format!(
+        r"^(?:const\s+)?[A-Za-z_]\w*\s*(?:\{{[^}}]*\}})?\s*=\s*(?:Union\{{[^}}]*)?\b(?:{})\b",
+        names.join("|")
+    )
+}
+
+pub fn julia_alias(line: &str) -> Option<String> {
+    PARAM
+        .find(line.trim_start().trim_start_matches("const").trim_start())
+        .map(|m| m.as_str().to_owned())
+}
+
+pub fn julia_struct_of<S: AsRef<str>>(lines: &[S], at: usize) -> Option<usize> {
+    let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+    let depth = indent(text.get(at)?);
+    let literal = julia_literal_lines(&text.join("\n"));
+    let k = (0..at).rev().find(|&i| {
+        !literal.get(i).copied().unwrap_or(false)
+            && !text[i].trim().is_empty()
+            && !text[i].trim_start().starts_with('#')
+            && indent(text[i]) < depth
+    })?;
+    STRUCT.is_match(text[k]).then_some(k)
+}
+
+static READABLE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?:[A-Za-z_][\w.]*\s*(?:\{[^$]*\})?)?$").expect("the regex is a literal")
+});
+
+pub fn julia_property_overload<S: AsRef<str>>(
+    lines: &[S],
+    k: usize,
+    types: &[String],
+    word: &str,
+) -> bool {
+    let text: Vec<&str> = lines.iter().map(AsRef::as_ref).collect();
+    let Some(&line) = text.get(k) else {
+        return false;
+    };
+    let function = FUNCTION.is_match(line);
+    if !function && !method_def(&text, k) {
+        return false;
+    }
+    let Some((inner, tail)) = signature(&text, k) else {
+        return true;
+    };
+    let params = top_level(&inner);
+    let (recv, ty) = params
+        .first()
+        .map(|p| p.split_once("::").unwrap_or((p, "")))
+        .unwrap_or_default();
+    let ty = ty.trim();
+    if !READABLE.is_match(ty) {
+        return true;
+    }
+    if !(ty.is_empty() || ty == "Any" || tail.contains("where") || names_any(ty, types)) {
+        return false;
+    }
+    let (Some(recv), Some(sym), true) = (
+        PARAM.find(recv.trim()),
+        params.get(1).and_then(|p| PARAM.find(p.trim())),
+        function,
+    ) else {
+        return true;
+    };
+    let depth = indent(line);
+    let body: Vec<&str> = text
+        .iter()
+        .skip(k + 1)
+        .take_while(|l| !(indent(l) == depth && l.trim_start().starts_with("end")))
+        .copied()
+        .collect();
+    let fallback = Regex::new(&format!(
+        r"\bgetfield\(\s*{}\s*,\s*{}\s*\)",
+        regex::escape(recv.as_str()),
+        regex::escape(sym.as_str())
+    ));
+    let named = Regex::new(&format!(r":{}(?:[^\w!]|$)", regex::escape(word)));
+    let s = regex::escape(sym.as_str());
+    let other = Regex::new(&format!(
+        r"{s}\s*(?:===?|!==?|≡)\s*:[\w!]+|:[\w!]+\s*(?:===?|!==?|≡)\s*{s}(?:[^\w!]|$)|{s}\s+(?:in|∈)\s*[(\[]\s*:[\w!]+(?:\s*,\s*:[\w!]+)*\s*,?\s*[)\]]"
+    ));
+    let used = Regex::new(&format!(r"(?:^|[^\w!.:]){s}(?:[^\w!]|$)"));
+    let (Ok(fallback), Ok(named), Ok(other), Ok(used)) = (fallback, named, other, used) else {
+        return true;
+    };
+    !body.iter().any(|l| fallback.is_match(l))
+        || body.iter().any(|l| {
+            named.is_match(l) || used.is_match(&other.replace_all(&fallback.replace_all(l, ""), ""))
+        })
+}

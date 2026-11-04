@@ -662,3 +662,111 @@ fn a_project_s_own_logging_wins_over_typeshed_s() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_keyword_of_a_callee_found_outside_lands_on_its_parameter() {
+    let site = external_root(
+        "py-outside-kw",
+        &[(
+            "time_machine/__init__.py",
+            "class travel:\n    def __init__(self, destination, *, tick: bool = True) -> None:\n        pass\n\n\ndef shift(delta, **kwargs):\n    pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside-kw-p",
+        &[(
+            "app/t.py",
+            "import time_machine\n\n\ndef test_x():\n    with time_machine.travel(0, tick=False):\n        time_machine.shift(1, tick=True)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    d_on(&mut a, "app/t.py", "travel(0, tick");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "tick: parameter of travel",
+            &format!("{}:2", site.join("time_machine/__init__.py").display())
+        )
+    );
+    d_on(&mut a, "app/t.py", "shift(1, tick");
+    assert_eq!(a.message, "tick: argument label");
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_keyword_of_a_callee_found_outside_only_by_name_does_not_jump() {
+    let site = external_root(
+        "py-outside-kw-name",
+        &[(
+            "time_machine/__init__.py",
+            "class Clock:\n    def rewind(self, delta, *, tick: bool = True) -> None:\n        pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside-kw-name-p",
+        &[(
+            "app/t.py",
+            "def test_x(clock):\n    clock.rewind(1, tick=False)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    d_on(&mut a, "app/t.py", "rewind(1, tick");
+    assert_eq!(a.message, "tick: argument label");
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_stdlib_property_typeshed_types_as_self_keeps_the_receiver_s_type() {
+    let pathlib = "class PurePath:\n    @property\n    def parent(self):\n        return self._from_parts(self._parts[:-1])\n\n\nclass Path(PurePath):\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        pass\n";
+    let prefix = external_root(
+        "py-self-std",
+        &[
+            ("lib/python3.12/pathlib.py", pathlib),
+            ("lib/python3.12/os.py", ""),
+        ],
+    );
+    let std = prefix.join("lib/python3.12");
+    let site = external_root("py-self-site", &[("site-packages/pathlib.py", pathlib)]);
+    let plain = external_root("py-self-plain", &[("pathlib.py", pathlib), ("os.py", "")]);
+    let (dir, mut a) = project_app(
+        "py-self-p",
+        &[(
+            "app/t.py",
+            "from pathlib import Path\n\n\ndef f(existing: Path):\n    existing.parent.mkdir(parents=True)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    let place = format!("{}:8", std.join("pathlib.py").display());
+    d_on(&mut a, "app/t.py", "parent.mkdir");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "mkdir \u{2192} Path.mkdir (via existing.parent: Path)",
+            &place
+        )
+    );
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        shown(&mut a),
+        jump("parents: parameter of Path.mkdir", &place)
+    );
+    use_roots(&mut a, Kind::Python, &[site.join("site-packages")]);
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        a.message, "parents: argument label",
+        "a package named like the standard library's module is not typed by its stub"
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&plain));
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        a.message, "parents: argument label",
+        "an outside root that is no interpreter's lib/pythonX.Y is not typed by its stub"
+    );
+    for d in [dir, prefix, site, plain] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

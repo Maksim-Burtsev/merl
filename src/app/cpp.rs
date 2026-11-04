@@ -780,6 +780,26 @@ impl App {
             .collect();
         visible.contains(&true).then_some((visible, args))
     }
+
+    pub(super) fn cpp_namespace_members(
+        &self,
+        chain: &[String],
+        dotted: bool,
+        word: &str,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        if dotted || self.c_source() || chain != ["std"] || hits.len() < 2 {
+            return hits;
+        }
+        let free: Vec<Hit> = (hits.iter())
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .is_none_or(|t| search::cpp_member_class(&t, h.line1, word).is_none())
+            })
+            .cloned()
+            .collect();
+        if free.is_empty() { hits } else { free }
+    }
 }
 
 fn cpp_namesake(

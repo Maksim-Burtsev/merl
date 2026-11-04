@@ -866,7 +866,8 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
         }
         let signature = (t == "{" || t.starts_with("where"))
             && opener(i).is_some_and(|j| FN_LINE.is_match(lines[j]));
-        if t.starts_with(')') || signature {
+        let for_header = t == "{" && opener(i).is_some_and(|j| open_for_head(&code(j)));
+        if t.starts_with(')') || signature || for_header {
             match opener(i) {
                 Some(j) => i = j,
                 None => break,
@@ -884,6 +885,9 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
         depth = indent(lines[i]);
     }
     out
+}
+fn open_for_head(l: &str) -> bool {
+    l.starts_with("for ") && !l.ends_with(['{', '}', ';'])
 }
 pub fn rust_method_pattern(word: &str) -> String {
     format!(

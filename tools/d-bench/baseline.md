@@ -117,36 +117,48 @@ The swift row with #1341's fifth pass (a static call followed by a property as a
 The julia row with #1375's first pass (a type after `::` is looked up as a type, not a member of the value, unless a `where` or a `struct` of the file binds it as a parameter; the variable of a `catch err` block): over `bf0298930` with this change, 2026-11-03, release build, `vm.loadavg` { 3.82 4.18 3.91 } before the run, { 3.53 4.02 3.87 } after. julia0108 (`x::Tables.AbstractRow`, no answer recorded) now jumps to `abstract type AbstractRow end` in Tables, which is its definition.
 The julia row with #1375's second pass (a parametric alias, `const AbstractVector{T} = AbstractArray{T,1}`, declares `AbstractVector`; the 6 `AbstractVector` rows jump to `base/array.jl:23`, julia0088 `AbstractMatrix` is a picker with `base/array.jl:31` beside LinearAlgebra's `AbstractMatrix{T}(A::...)` methods): over `5f3c386ac` with this change, 2026-11-03, release build, `vm.loadavg` { 4.24 5.21 4.89 } before the run.
 The cpp row with #1336's fifth pass (a subscript of a local `std::vector`, `std::array`, `std::deque` or `std::span` is its element, `inputs[i]->file_size` in `VersionSet::CompactRange`; a call's return type skips a `static` namesake in another translation unit, `test::RandomString(...).ToString()` in `table_test.cc`): over `68a9bc1d8`, 2026-11-03, release build, `vm.loadavg` { 4.63 4.67 4.54 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The julia row with #1375's third pass (an unqualified `Base` names the `baremodule Base`, not the `const Base = parentmodule(@__MODULE__)` of `Iterators` and `Order`, which binds only inside those bare modules; the 6 `Base` rows at column 0 jump to `base/Base.jl:3`): over `d4d8e5bc2` with this change, 2026-11-05, release build, `vm.loadavg` { 3.27 4.77 4.20 } after the run.
+The julia row with #1375's fourth pass (a field of a parameter typed by a struct, `gd.cols` in `f(gd::GroupedDataFrame)`, reads that struct's field when no `getproperty` of the type, a supertype or an alias may answer the name; julia0221 and julia0252 jump to `groupeddataframe.jl:39`): over `e3564876b` with this change, 2026-11-05, release build, `vm.loadavg` { 7.79 5.97 4.96 } before the run, { 4.32 5.15 4.78 } after.
+The swift row with #1341's sixth pass (a value of a project type never fits an array parameter or an alias of one, and the element of `array.enumerated().map { index, component in` is typed; swift0031 `serialize(component, forKey: keyPath)` in `URLEncodedFormSerializer`): over `aef7032d1` with this change, 2026-11-05, release build, `vm.loadavg` { 2.79 3.92 4.01 } before the run, { 3.16 3.78 3.95 } after.
+The python row with #1339's fifth pass (a keyword argument of a callee outside the project, found by its import, lands on that parameter or on an outside dataclass's field; python0303 `time_machine.travel(.., tick=False)`): over `ab87a9a10` with this change, 2026-11-05, release build, `vm.loadavg` { 7.54 5.30 4.52 } before the run, { 4.03 4.70 4.37 } after.
+The cpp row with #1336's sixth pass (`std::X` outside the project finds no member of a class, and a class head after a reserved `_LIBCPP_BEGIN_NAMESPACE_STD` is read as a class; cpp0101 `std::unique_lock<std::mutex>` jumps to `class mutex`, not `unique_lock::mutex()`): over `0392f637a` with this change, 2026-11-05, release build, `vm.loadavg` { 3.42 4.59 4.52 } before the run, { 3.10 4.22 4.38 } after; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The cpp row with cpp0073 judged `skip` (TEST_F's definition is in leveldb's googletest submodule, which the clone lacks): the night epic's full run of 2026-11-05 scored again with `--merl`, release build; nothing else moved.
+The svelte row with #1337's fifth pass (a component a package's entry re-exports as `default` lands on the `declare const` of that file, not on the `type X = ReturnType<typeof X>` beside it nor on a namesake elsewhere in the package; 25 `@immich/ui` and `svelte-maplibre` rows): over `6298e4d` with this change, 2026-11-05, release build, `vm.loadavg` { 3.11 5.20 4.99 } before the run.
+The ruby row with #1340's fourth pass (a method parameter whose YARD `@param [Account] account` names one class, read directly or through `@account = account` set once in the class; ruby0135 jumps, and like the other rows typed as `Account` it takes ~630 ms, which moves p90): over `abefb3925` with this change, 2026-11-05, release build, `vm.loadavg` { 3.01 4.15 4.62 } before the run.
+The rust row with #1302's seventh pass (a `for` variable over a project iterator's `Item`, through std adapters that keep it, with the `{` on its own line: `for ig in self.parents().take_while(..)` in `crates/ignore/src/dir.rs`): over `c86b83a2d` with this change, 2026-11-05, release build, `vm.loadavg` { 5.24 4.44 4.65 } before the run.
+The bash row with #1335's fourth pass (a function every call of which follows `G &&` reads the one assignment `G` runs first, not one followed by `return 1`; bash0077 `ISPC_Api` in `_ISPC_login` jumps to `dns_ispconfig.sh:42`): over `314357d81` with this change, 2026-11-05, release build, `vm.loadavg` { 3.26 4.17 4.41 } before the run.
+The python row with #1339's sixth pass (a standard-library property whose typeshed stub returns `Self` keeps the receiver's type: `existing.parent.mkdir(parents=True)` on a `Path`; python0216): over `eec6d4887` with this change, 2026-11-05, release build, `vm.loadavg` { 2.62 3.48 4.19 } before the run.
+The swift row with #1341's sixth pass (a default in an extension bounded by `where Self: P`, reached through the protocols the class's protocol refines: swift0195 `serializeDownload` on a `JSONResponseSerializer` jumps to `ResponseSerialization.swift:156`): over `04425bb4`, 2026-11-05, release build, `vm.loadavg` { 2.86 3.40 4.08 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 252 (96%) | 3 (1%) | 0 (0%) | 7 (3%) | 63 | 8 | 16.3 | 179.8 |
+| python (paperless-ngx) | 262 | 254 (97%) | 3 (1%) | 0 (0%) | 5 (2%) | 63 | 8 | 16.2 | 179.8 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
+| rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 237 | 218 (92%) | 19 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.4 | 62.4 |
-| swift (Alamofire) | 450 | 436 (97%) | 13 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.8 | 48.0 |
+| cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
+| swift (Alamofire) | 450 | 438 (97%) | 11 (2%) | 0 (0%) | 1 (0%) | 279 | 7 | 23.7 | 57.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
-| ruby (mastodon) | 140 | 134 (96%) | 5 (4%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.6 | 365.0 |
+| ruby (mastodon) | 140 | 135 (96%) | 4 (3%) | 0 (0%) | 1 (1%) | 179 | 2 | 65.4 | 408.7 |
 | objc (SDWebImage) | 229 | 94 (41%) | 120 (52%) | 0 (0%) | 15 (7%) | 41 | 8 | 21.3 | 132.2 |
 | groovy (nextflow) | 25 | 13 (52%) | 4 (16%) | 0 (0%) | 8 (32%) | 47 | 4 | 83.6 | 160.7 |
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 189 | 94 (50%) | 88 (47%) | 0 (0%) | 7 (4%) | 111 | 0 | 18.6 | 29.2 |
+| julia (DataFrames.jl) | 189 | 102 (54%) | 80 (42%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.2 | 29.9 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
-| svelte (immich) | 182 | 126 (69%) | 42 (23%) | 0 (0%) | 14 (8%) | 88 | 2 | 30.5 | 177.3 |
+| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 31.5 | 178.8 |
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
-| bash (bats-core, acme.sh) | 98 | 95 (97%) | 3 (3%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
+| bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
 | racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
 | commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |

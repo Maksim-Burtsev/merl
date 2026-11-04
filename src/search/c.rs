@@ -160,7 +160,7 @@ pub(super) fn c_struct_head(head: &str) -> Option<String> {
     });
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
-            r"^(?:template\s*(?:<.*>)?\s*)?(?:(?:typedef|static|extern|const|volatile)\s+)*(?:struct|union|class)\b(?:\s+(?:[A-Z][A-Z0-9_]*\s+)*(?:\w+::)*(\w+))?(?:\s+final)?\s*(?::(?:[^:]|$)[^;{}()=]*)?$",
+            r"^(?:_[A-Z][A-Z0-9_]*\s+)*(?:template\s*(?:<.*>)?\s*)?(?:(?:typedef|static|extern|const|volatile)\s+)*(?:struct|union|class)\b(?:\s+(?:[A-Z][A-Z0-9_]*\s+)*(?:\w+::)*(\w+))?(?:\s+final)?\s*(?::(?:[^:]|$)[^;{}()=]*)?$",
         )
         .expect("the regex is a literal")
     });

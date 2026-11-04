@@ -280,3 +280,125 @@ fn d_on_a_julia_function_the_project_imports_from_itself_or_by_dotted_path() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn d_on_julia_s_base_reads_the_base_module_not_a_submodule_s_own_binding() {
+    let (dir, mut a) = project_app(
+        "julia-base-module",
+        &[
+            (
+                "src/show.jl",
+                "Base.summary(df) = 1\nIterators.Base.summary(df) = 1\n",
+            ),
+            (
+                "src/bare.jl",
+                "baremodule Bare\nBase.summary(df) = 1\nend\n",
+            ),
+        ],
+    );
+    let base = external_root(
+        "julia-base-module",
+        &[
+            ("base/Base.jl", "\nbaremodule Base\nend\n"),
+            (
+                "base/iterators.jl",
+                "baremodule Iterators\nconst Base = parentmodule(@__MODULE__)\nend\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    d_on(&mut a, "src/show.jl", "Base|.summary");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Base: by name, 1 match",
+            &format!("{}:2", base.join("base/Base.jl").display())
+        )
+    );
+    a.jump_to(&dir.join("src/show.jl"), 1);
+    d_on(&mut a, "src/show.jl", "Iterators.Base|.summary");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Base: by name, 1 match",
+            &format!("{}:2", base.join("base/iterators.jl").display())
+        )
+    );
+    a.jump_to(&dir.join("src/bare.jl"), 1);
+    d_on(&mut a, "src/bare.jl", "Base|.summary");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(title, _) if title == "Base: by name, 2 declarations"),
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_field_reads_the_struct_its_parameter_is_typed_by() {
+    let types = "abstract type AbstractFrame end\nmutable struct Group{T<:AbstractFrame}\n    parent::T\n    cols::Vector{Symbol}\n    idx::Vector{Int}\nend\nstruct Frame <: AbstractFrame\n    cols::Vector{Symbol}\nend\nstruct Key\n    cols::Vector{Symbol}\nend\nstruct Sorter\n    cols::Vector{Symbol}\n    function Sorter(c)\n        cols = c\n        new(cols)\n    end\nend\nfunction Base.getproperty(gd::Group, f::Symbol)\n    if f === :idx\n        return getfield(gd, :idx)\n    end\n    return getfield(gd, f)\nend\nBase.getproperty(df::AbstractFrame, s::Symbol) = df[!, s]\nfunction Base.getproperty(k::Key, p::Symbol)\n    p === :cols && return 1\n    return getfield(k, p)\nend\nstruct Disk\n    r::Float64\n    area::Float64\nend\nstruct Square\n    area::Float64\nend\nconst AREA = :area\nfunction Base.getproperty(d::Disk, name::Symbol)\n    name === AREA && return getfield(d, :r)^2\n    return getfield(d, name)\nend\nstruct CGroup\n    cols::Vector{Symbol}\nend\nconst PROPS = (:cols,)\nfunction Base.getproperty(c::CGroup, s::Symbol)\n    s in PROPS && return 1\n    return getfield(c, s)\nend\n";
+    let uses = "function plain(g1::Group, x)\n    g1.cols\nend\nfunction para(g2::Group{Frame})\n    g2.cols\nend\nabstr(f3::AbstractFrame) = f3.cols\nfunction bound(g4::G) where {G<:Group}\n    g4.cols\nend\nfunction again(g5::Group)\n    g5 = pick()\n    g5.cols\nend\nfunction inherited(f6::Frame)\n    f6.cols\nend\nfunction keyed(k7::Key)\n    k7.cols\nend\nfunction sorted(s8::Sorter)\n    s8.cols\nend\nfunction looped(g9::Group)\n    for i in 1:3\n        g9.cols\n        g9 = pick()\n    end\nend\nmapped(g10::Group, xs) = map(g10 -> g10.cols, xs)\nlisted(g11::Group, gs) = [g11.cols for g11 in gs]\nfunction later(g17::Group, ks)\n    [g17.cols\n     for g17 in ks]\nend\nfunction each(g19::Group, xs)\n    foreach(g19 -> begin\n        g19.cols\n    end, xs)\nend\nfunction anon(g21::Group)\n    h = function (g21)\n        g21.cols\n    end\nend\nfunction shadowed(g25::Group, k)\n    let g25 = k; g25.cols; end\nend\nfunction disk(d22::Disk)\n    d22.area\nend\nfunction consts(c1::CGroup)\n    c1.cols\nend\n";
+    let (dir, mut a) = project_app(
+        "julia-typed-field",
+        &[("src/types.jl", types), ("src/use.jl", uses)],
+    );
+    for (code, line) in [
+        ("g1.cols", Some(4)),
+        ("g2.cols", Some(4)),
+        ("f3.cols", None),
+        ("g4.cols", None),
+        ("g5.cols", None),
+        ("f6.cols", None),
+        ("k7.cols", None),
+        ("s8.cols", Some(14)),
+        ("g9.|cols", None),
+        ("-> g10.|cols", None),
+        ("[g11.|cols", None),
+        ("[g17.|cols", None),
+        ("        g19.|cols", None),
+        ("        g21.|cols", None),
+        ("; g25.|cols", None),
+        ("d22.|area", None),
+        ("c1.|cols", None),
+    ] {
+        d_on(&mut a, "src/use.jl", code);
+        match (shown(&mut a), line) {
+            (Shown::Jump(_, at), Some(line)) => assert_eq!(at, format!("src/types.jl:{line}")),
+            (Shown::Picker(..), None) => {}
+            (got, _) => panic!("{code}: {got:?}"),
+        }
+        a.jump_to(&dir.join("src/use.jl"), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_field_keeps_the_picker_when_a_getproperty_reads_an_unwritten_type() {
+    let types = "struct Group\n    cols::Vector{Symbol}\nend\nstruct Key\n    cols::Vector{Symbol}\nend\nfor T in (:Group,)\n    @eval function Base.getproperty(e::$T, s::Symbol)\n        s === :cols && return 1\n        return getfield(e, s)\n    end\nend\n";
+    let uses = "function plain(e1::Group)\n    e1.cols\nend\n";
+    let (dir, mut a) = project_app(
+        "julia-eval-getproperty",
+        &[("src/types.jl", types), ("src/use.jl", uses)],
+    );
+    d_on(&mut a, "src/use.jl", "e1.|cols");
+    assert!(matches!(shown(&mut a), Shown::Picker(..)));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_julia_s_base_keeps_the_picker_when_the_project_owns_a_base() {
+    let (dir, mut a) = project_app(
+        "julia-own-base",
+        &[
+            ("src/Base.jl", "module Base\nend\n"),
+            ("vendor/base.jl", "baremodule Base\nend\n"),
+            ("src/show.jl", "Base.summary(df) = 1\n"),
+        ],
+    );
+    d_on(&mut a, "src/show.jl", "Base|.summary");
+    let got = shown(&mut a);
+    assert!(
+        matches!(got, Shown::Picker(ref title, _) if title == "Base: by name, 2 declarations"),
+        "{got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

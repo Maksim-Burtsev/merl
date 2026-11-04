@@ -145,8 +145,24 @@ pub fn swift_inherited(line: &str) -> Vec<String> {
     let list = c[1].split(" where ").next().unwrap_or_default();
     split_top(Kind::Swift, list, b',')
         .into_iter()
+        .flat_map(|n| n.split('&'))
         .filter_map(|n| swift_type_name(n.split('<').next().unwrap_or(n)))
         .collect()
+}
+pub fn swift_self_bounds(clause: &str) -> Option<Vec<String>> {
+    let t = uncommented(Kind::Swift, clause);
+    let (clause, _) = t.split_once('{')?;
+    let mut bounds = Vec::new();
+    for item in clause.split(',') {
+        let (lhs, rhs) = item.split_once(':')?;
+        if lhs.trim() != "Self" {
+            return None;
+        }
+        for name in rhs.split('&') {
+            bounds.push(swift_type_name(name).filter(|n| n.trim() == name.trim())?);
+        }
+    }
+    Some(bounds)
 }
 pub struct SwiftTypeHeader {
     pub keyword: String,
@@ -1052,6 +1068,12 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
         r"^for\s+(?:case\s+)?(?:let\s+)?\(\s*\w+\s*,\s*`?{n}`?\s*\)\s+in\s+([A-Za-z_][\w.]*)\.enumerated\(\)\s*\{{?\s*$"
     ));
     if let Some(c) = enumerated.captures(t) {
+        return Some(SwiftGiven::Element(c[1].to_owned()));
+    }
+    let mapped = rule(format!(
+        r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.enumerated\(\)\.(?:map|compactMap|flatMap|forEach)\s*\{{\s*\(?\s*\w+\s*,\s*`?{n}`?\s*\)?\s+in\b"
+    ));
+    if let Some(c) = mapped.captures(t) {
         return Some(SwiftGiven::Element(c[1].to_owned()));
     }
     let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*([A-Za-z_][\w.]*)$".to_owned());

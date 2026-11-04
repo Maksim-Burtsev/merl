@@ -72,7 +72,7 @@ cpp0069	table/table_test.cc:292
 cpp0070	table/filter_block.cc:21;table/filter_block.h:37		
 cpp0071	db/skiplist.h:139		
 cpp0072	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:3108;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:3016;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:1452;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:1387;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:1415		
-cpp0073	db/log_test.cc:261		
+cpp0073	db/log_test.cc:261	TEST_F is gtest's macro; third_party/googletest is a submodule the clone lacks, so the recorded answer is a use (db/log_test.cc:261), not its definition	judged 2026-11-05
 cpp0074	db/version_set.h:298		
 cpp0075	include/leveldb/table_builder.h:87		
 cpp0076	util/env_posix.cc:910		

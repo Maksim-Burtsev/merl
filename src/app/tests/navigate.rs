@@ -1485,7 +1485,11 @@ fn c_outside_reads_what_the_file_includes() {
             ),
             (
                 "c++/v1/mutex",
-                "#include <__mutex/mutex.h>\n#include <__cxx03/mutex>\nint mutex_init(void);\n",
+                "#include <__mutex/mutex.h>\n#include <__cxx03/mutex>\nint mutex_init(void);\n#include <__mutex/unique_lock.h>\n",
+            ),
+            (
+                "c++/v1/__mutex/unique_lock.h",
+                "_LIBCPP_BEGIN_NAMESPACE_STD\n\ntemplate <class _Mutex>\nclass unique_lock {\npublic:\n  _Mutex* mutex() const { return __m_; }\n};\n",
             ),
             ("c++/v1/__cxx03/mutex", "class mutex {\n};\n"),
             (
@@ -1529,7 +1533,7 @@ fn c_outside_reads_what_the_file_includes() {
     assert_eq!(
         shown(&mut a),
         jump("mutex: by name, 1 match", &at("c++/v1/__mutex/mutex.h", 1)),
-        "a class behind `_LIBCPP_` macros is a declaration"
+        "a class behind `_LIBCPP_` macros is a declaration; `std::` finds no class's member"
     );
     d_on(&mut a, "m.cc", "return mutex_init");
     assert_eq!(

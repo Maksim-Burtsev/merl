@@ -203,6 +203,9 @@ impl App {
     }
 
     fn swift_fit(&self, here: &Path, written: &str, arg: &Typed, generics: &[String]) -> Fit {
+        if matches!(arg, Typed::Named(_)) && self.swift_collection(here, written) {
+            return Fit::Not;
+        }
         let Some(p) = plain(written).filter(|p| !generics.iter().any(|g| g == p)) else {
             return Fit::Unknown;
         };
@@ -221,6 +224,34 @@ impl App {
                 _ => Fit::Unknown,
             },
         }
+    }
+
+    fn swift_collection(&self, here: &Path, written: &str) -> bool {
+        let t = written.trim().trim_end_matches(['?', '!']);
+        if t.starts_with('[') && t.ends_with(']') {
+            return true;
+        }
+        let Some(full) = search::swift_nested_type_name(t).or_else(|| search::swift_type_name(t))
+        else {
+            return false;
+        };
+        let name = full.rsplit('.').next().unwrap_or(&full);
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let hits: Vec<_> = self
+            .project_definitions(Kind::Swift, here, name, &pattern)
+            .into_iter()
+            .filter(|h| self.in_code(Kind::Swift, h))
+            .collect();
+        let [h] = hits.as_slice() else {
+            return false;
+        };
+        let placed = self
+            .text_of(&h.path)
+            .and_then(|text| search::qualified(Kind::Swift, &text, h.line1, name))
+            .unwrap_or_else(|| name.to_owned());
+        search::swift_alias(&h.text, name)
+            .filter(|_| placed == full)
+            .is_some_and(|a| a.starts_with('[') && a.ends_with(']'))
     }
 
     fn swift_nominal(&self, here: &Path, name: &str) -> Option<Nominal> {
