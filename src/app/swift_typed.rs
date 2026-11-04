@@ -306,6 +306,13 @@ impl App {
             return (up.keyword.as_deref() == Some("class")).then(|| WrittenVia::plain(up.name));
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
+            _ if file == here
+                && line1 == self.line + 1
+                && search::swift_closure_param(lines[line1 - 1], name, self.col) =>
+            {
+                let call = search::swift_trailing_closure(lines[line1 - 1].get(..self.col)?, name)?;
+                self.swift_closure_value(here, file, text, line1, call, hops)
+            }
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
                 match search::swift_given(line, name) {
@@ -327,13 +334,6 @@ impl App {
                         }
                     },
                 }
-            }
-            [] if file == here
-                && line1 == self.line + 1
-                && search::swift_closure_param(lines[line1 - 1], name, self.col) =>
-            {
-                let call = search::swift_trailing_closure(lines[line1 - 1].get(..self.col)?, name)?;
-                self.swift_closure_value(here, file, text, line1, call, hops)
             }
             [] if file == here
                 && line1 == self.line + 1
@@ -780,7 +780,18 @@ impl App {
         if !decl.text.contains("func ") {
             return None;
         }
-        let returns = search::swift_returns(&self.text_of(&decl.path)?, decl.line1)?;
+        let text = self.text_of(&decl.path)?;
+        let returns = search::swift_returns(&text, decl.line1)?;
+        let head = search::swift_type_name(&returns).unwrap_or_default();
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, &text);
+        let mut at = decl.line1;
+        while at > 0 {
+            if search::swift_generics(lines[at - 1]).contains(&head) {
+                return None;
+            }
+            at = search::swift_scope(&lines, &literal, at).header_line1;
+        }
         let returns = match (returns.as_str(), owner) {
             ("Self", Some(owner)) => owner,
             _ => returns,
