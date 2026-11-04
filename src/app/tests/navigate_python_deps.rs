@@ -662,3 +662,35 @@ fn a_project_s_own_logging_wins_over_typeshed_s() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_keyword_of_a_callee_found_outside_lands_on_its_parameter() {
+    let site = external_root(
+        "py-outside-kw",
+        &[(
+            "time_machine/__init__.py",
+            "class travel:\n    def __init__(self, destination, *, tick: bool = True) -> None:\n        pass\n\n\ndef shift(delta, **kwargs):\n    pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside-kw-p",
+        &[(
+            "app/t.py",
+            "import time_machine\n\n\ndef test_x():\n    with time_machine.travel(0, tick=False):\n        time_machine.shift(1, tick=True)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    d_on(&mut a, "app/t.py", "travel(0, tick");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "tick: parameter of travel",
+            &format!("{}:2", site.join("time_machine/__init__.py").display())
+        )
+    );
+    d_on(&mut a, "app/t.py", "shift(1, tick");
+    assert_eq!(a.message, "tick: argument label");
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}

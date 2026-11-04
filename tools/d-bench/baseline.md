@@ -119,10 +119,11 @@ The julia row with #1375's second pass (a parametric alias, `const AbstractVecto
 The cpp row with #1336's fifth pass (a subscript of a local `std::vector`, `std::array`, `std::deque` or `std::span` is its element, `inputs[i]->file_size` in `VersionSet::CompactRange`; a call's return type skips a `static` namesake in another translation unit, `test::RandomString(...).ToString()` in `table_test.cc`): over `68a9bc1d8`, 2026-11-03, release build, `vm.loadavg` { 4.63 4.67 4.54 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 The julia row with #1375's third pass (an unqualified `Base` names the `baremodule Base`, not the `const Base = parentmodule(@__MODULE__)` of `Iterators` and `Order`, which binds only inside those bare modules; the 6 `Base` rows at column 0 jump to `base/Base.jl:3`): over `d4d8e5bc2` with this change, 2026-11-05, release build, `vm.loadavg` { 3.27 4.77 4.20 } after the run.
 The swift row with #1341's sixth pass (a value of a project type never fits an array parameter or an alias of one, and the element of `array.enumerated().map { index, component in` is typed; swift0031 `serialize(component, forKey: keyPath)` in `URLEncodedFormSerializer`): over `aef7032d1` with this change, 2026-11-05, release build, `vm.loadavg` { 2.79 3.92 4.01 } before the run, { 3.16 3.78 3.95 } after.
+The python row with #1339's fifth pass (a keyword argument of a callee outside the project, found by its import, lands on that parameter or on an outside dataclass's field; python0303 `time_machine.travel(.., tick=False)`): over `ab87a9a10` with this change, 2026-11-05, release build, `vm.loadavg` { 7.54 5.30 4.52 } before the run, { 4.03 4.70 4.37 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 252 (96%) | 3 (1%) | 0 (0%) | 7 (3%) | 63 | 8 | 16.3 | 179.8 |
+| python (paperless-ngx) | 262 | 253 (97%) | 3 (1%) | 0 (0%) | 6 (2%) | 63 | 8 | 16.5 | 178.7 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
