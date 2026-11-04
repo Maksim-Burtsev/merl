@@ -130,10 +130,11 @@ The bash row with #1335's fourth pass (a function every call of which follows `G
 The python row with #1339's sixth pass (a standard-library property whose typeshed stub returns `Self` keeps the receiver's type: `existing.parent.mkdir(parents=True)` on a `Path`; python0216): over `eec6d4887` with this change, 2026-11-05, release build, `vm.loadavg` { 2.62 3.48 4.19 } before the run.
 The swift row with #1341's sixth pass (a default in an extension bounded by `where Self: P`, reached through the protocols the class's protocol refines: swift0195 `serializeDownload` on a `JSONResponseSerializer` jumps to `ResponseSerialization.swift:156`): over `04425bb4`, 2026-11-05, release build, `vm.loadavg` { 2.86 3.40 4.08 } before the run.
 The swift row with #1341's eighth pass (a chain of calls led by a value, through a generic method's declared return type: swift0132 `session.download(.get).serializingDecodable(..).response` jumps to `Concurrency.swift:375`): over `7211baa3c` with this change, 2026-11-05, release build, `vm.loadavg` { 2.46 3.12 3.38 } before the run, { 3.55 3.35 3.44 } after.
+The python row with #1339's seventh pass (a member of an outside module's instance, `NAME = Class(...)` bound once, lands on its class's member, an annotation under `if TYPE_CHECKING:` included; python0246 `@pytest.mark.usefixtures`): over `4e8148de5` with this change, 2026-11-05, release build, `vm.loadavg` { 2.41 3.12 3.38 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 254 (97%) | 3 (1%) | 0 (0%) | 5 (2%) | 63 | 8 | 16.2 | 179.8 |
+| python (paperless-ngx) | 262 | 255 (97%) | 3 (1%) | 0 (0%) | 4 (2%) | 63 | 8 | 16.4 | 167.6 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |

@@ -139,6 +139,18 @@ fn python_fields(
             Some("self.") => ind > base,
             Some(_) => ind > base && in_classmethod(),
         };
+        let type_checking = || {
+            lines[..i]
+                .iter()
+                .rfind(|l| !l.trim().is_empty() && indent(l) < ind)
+                .is_some_and(|l| {
+                    indent(l) == base
+                        && matches!(
+                            uncommented(kind, l).trim(),
+                            "if TYPE_CHECKING:" | "if typing.TYPE_CHECKING:"
+                        )
+                })
+        };
         if ind == base && def.is_match(t) && property(i, ind) {
             push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
             continue;
@@ -148,7 +160,10 @@ fn python_fields(
             continue;
         }
         for s in python_statements(t, false) {
-            if let Some(c) = annotated.captures(s).filter(right) {
+            if let Some(c) = annotated
+                .captures(s)
+                .filter(|c| right(c) || (c.get(1).is_none() && type_checking()))
+            {
                 push(i, Value::Type(c[2].to_owned()));
             } else if let Some(c) = assigned.captures(s).filter(right) {
                 push(i, value_of(kind, &c[2]));

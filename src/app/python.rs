@@ -232,6 +232,60 @@ impl App {
         found
     }
 
+    pub(super) fn outside_instance_member(
+        &self,
+        module: &[String],
+        value: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let kind = Kind::Python;
+        let made = self.outside_handed_on(module, value, 0);
+        let [made] = made.as_slice() else {
+            return None;
+        };
+        let (name, _) = made.hit.text.split_once('=')?;
+        let name = name.trim_end();
+        if name.is_empty() || !name.chars().all(super::is_word) {
+            return None;
+        }
+        let text = self.text_of(&made.hit.path)?;
+        let bound = search::bindings(kind, &text, 1, name);
+        let [
+            search::Binding {
+                line1,
+                value: search::Value::Call(class),
+            },
+        ] = bound.as_slice()
+        else {
+            return None;
+        };
+        let n = regex::escape(name);
+        let rebound = Regex::new(&format!(
+            r"^\s*(?:global\s+(?:\w+\s*,\s*)*{n}\b|{n}\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$))"
+        ))
+        .ok()?;
+        if *line1 != made.hit.line1
+            || class.contains('.')
+            || text.lines().filter(|l| rebound.is_match(l)).count() != 1
+        {
+            return None;
+        }
+        let ty = self.type_decl(kind, &made.hit.path, class)?;
+        let hits = match self.own_member(kind, &ty, word) {
+            Some(hits) => hits,
+            None => self.above(kind, &ty, word, 0).ok()?,
+        };
+        let reason = Reason::Receiver(format!("{}.{value}: {}", module.join("."), ty.name));
+        (!hits.is_empty()).then(|| {
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect()
+        })
+    }
+
     fn module_level_defs(&self, file: &Path, text: &str, name: &str) -> Vec<Hit> {
         let kind = Kind::Python;
         let pattern = search::def_patterns(kind, name).join("|");
