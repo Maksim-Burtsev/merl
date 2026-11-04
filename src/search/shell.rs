@@ -420,3 +420,93 @@ pub fn shell_writes_param(lines: &[&str], def: usize, n: usize) -> bool {
         .is_ok_and(|re| body[..end].iter().any(|l| re.is_match(l)))
     })
 }
+pub fn shell_function_name(line: &str) -> Option<&str> {
+    let s = HEADER.find(line)?.as_str().trim_start();
+    let s = s
+        .strip_prefix("function")
+        .filter(|r| r.starts_with(char::is_whitespace))
+        .map_or(s, str::trim_start);
+    s.split(|c: char| c == '(' || c.is_whitespace())
+        .next()
+        .filter(|n| !n.is_empty())
+}
+fn shell_plain(line: &str) -> bool {
+    const FLOW: &[&str] = &[
+        "if", "then", "else", "elif", "fi", "case", "esac", "for", "select", "while", "until",
+        "do", "done", "return", "exit", "exec", "break", "continue", "function", "trap",
+    ];
+    let t = line.trim();
+    if t.is_empty() || t.starts_with('#') {
+        return true;
+    }
+    let first = t.split([' ', '\t', ';']).next().unwrap_or("");
+    !FLOW.contains(&first)
+        && !t.starts_with(['{', '}', '(', ')'])
+        && !["&&", "||", ";;", "<<"].iter().any(|s| t.contains(s))
+        && !t.ends_with(['\\', '{', '(', '|'])
+        && shell_quotes_closed(t)
+}
+fn shell_quotes_closed(s: &str) -> bool {
+    let mut quote = None;
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (Some('\''), '\'') => quote = None,
+            (Some('\''), _) => {}
+            (_, '\\') => {
+                chars.next();
+            }
+            (Some(q), c) if c == q => quote = None,
+            (None, '"' | '\'') => quote = Some(c),
+            _ => {}
+        }
+    }
+    quote.is_none()
+}
+pub fn shell_fails_after(lines: &[&str], at: usize, name: &str) -> bool {
+    lines
+        .get(at)
+        .is_some_and(|l| shell_plain(l) && l.trim_start().starts_with(&format!("{name}=")))
+        && lines[at + 1..]
+            .iter()
+            .find(|l| !shell_plain(l))
+            .is_some_and(|l| {
+                let mut w = l.split_whitespace();
+                matches!(w.next(), Some("return" | "exit"))
+                    && w.next()
+                        .is_some_and(|n| n.parse::<u8>().is_ok_and(|n| n != 0))
+                    && w.next().is_none_or(|c| c.starts_with('#'))
+            })
+}
+pub fn shell_runs_first(lines: &[&str], def: usize, at: usize) -> bool {
+    lines.get(def).is_some_and(|l| l.trim_end().ends_with('{'))
+        && lines
+            .get(def + 1..=at)
+            .is_some_and(|b| b.iter().all(|l| shell_plain(l)))
+}
+pub fn shell_gated_by(line: &str, f: &str, g: &str) -> bool {
+    let word = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut any = false;
+    for (i, _) in line.match_indices(f) {
+        let (Some(before), Some(after)) = (line.get(..i), line.get(i + f.len()..)) else {
+            continue;
+        };
+        if before.ends_with(word) || after.starts_with(word) {
+            continue;
+        }
+        let gated = shell_quotes_closed(before)
+            && before
+                .trim_end()
+                .strip_suffix("&&")
+                .and_then(|b| b.trim_end().strip_suffix(g))
+                .is_some_and(|b| {
+                    let b = b.trim_end();
+                    b.is_empty() || b.ends_with("&&")
+                });
+        if !gated {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
