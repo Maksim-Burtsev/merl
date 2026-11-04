@@ -268,6 +268,21 @@ impl App {
         hits
     }
 
+    fn module_instance_member(
+        &self,
+        q: &ModuleLookup,
+        module: &[String],
+    ) -> Option<Vec<Candidate>> {
+        if !(q.imported && q.kind == Kind::Python && module.len() >= q.floor) || q.chain.is_empty()
+        {
+            return None;
+        }
+        let [value] = q.named.as_deref()?.get(module.len()..)? else {
+            return None;
+        };
+        self.outside_instance_member(module, value, q.word)
+    }
+
     fn module_definitions(&mut self, q: &ModuleLookup, module: &[String]) -> Vec<Candidate> {
         let (kind, word, imported) = (q.kind, q.word, q.imported);
         let top_level =
@@ -304,6 +319,11 @@ impl App {
                 q.files.clone()
             };
             hits = self.outside_default(kind, &within);
+        }
+        if hits.is_empty()
+            && let Some(found) = self.module_instance_member(q, module)
+        {
+            return found;
         }
         let walked = if hits.is_empty()
             && imported

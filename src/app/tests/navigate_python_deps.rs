@@ -770,3 +770,75 @@ fn a_stdlib_property_typeshed_types_as_self_keeps_the_receiver_s_type() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
+    let made = "from typing import TYPE_CHECKING\n\n\nclass MarkGenerator:\n    if TYPE_CHECKING:\n        usefixtures: _UsefixturesMarkDecorator\n\n    def plain(self):\n        pass\n\n    def __getattr__(self, name: str) -> MarkDecorator:\n        pass\n\n\nclass Other:\n    def plain(self):\n        pass\n\n    def usefixtures(self):\n        pass\n\n\nMARK_GEN = MarkGenerator(_ispytest=True)\n";
+    let reassigned = format!("{made}MARK_GEN = Other()\n");
+    let global =
+        format!("{made}\n\ndef configure():\n    global MARK_GEN\n    MARK_GEN = Other()\n");
+    let test = "import pytest\n\n\n@pytest.mark.usefixtures(\"db\")\ndef test_a():\n    pytest.mark.plain()\n    pytest.mark.django_db\n\n\ndef test_b(xs):\n    for pytest in xs:\n        pytest.mark.plain(3)\n\n\ndef test_c(pytest):\n    f = lambda pytest: pytest.mark.plain(4)\n";
+    for (name, lib, typed) in [
+        ("py-mark-gen", made.to_owned(), true),
+        ("py-mark-gen-twice", reassigned, false),
+        ("py-mark-gen-global", global, false),
+    ] {
+        let site = external_root(
+            name,
+            &[
+                (
+                    "pytest/__init__.py",
+                    "from _pytest.mark import MARK_GEN as mark\n",
+                ),
+                ("_pytest/__init__.py", ""),
+                (
+                    "_pytest/mark/__init__.py",
+                    "from .structures import MARK_GEN\n",
+                ),
+                ("_pytest/mark/structures.py", &lib),
+            ],
+        );
+        let (dir, mut a) = project_app(&format!("{name}-p"), &[("app/t.py", test)]);
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+        let at = |line: usize| {
+            format!(
+                "{}:{line}",
+                site.join("_pytest/mark/structures.py").display()
+            )
+        };
+        let via = "via pytest.mark: MarkGenerator";
+        d_on(&mut a, "app/t.py", "mark.usefixtures");
+        let usefixtures = shown(&mut a);
+        a.picker = None;
+        d_on(&mut a, "app/t.py", "mark.plain|()");
+        let plain = shown(&mut a);
+        a.picker = None;
+        if typed {
+            assert_eq!(usefixtures, jump(&format!("usefixtures: {via}"), &at(6)));
+            assert_eq!(
+                plain,
+                jump(
+                    &format!("plain \u{2192} MarkGenerator.plain ({via})"),
+                    &at(8)
+                )
+            );
+        } else {
+            assert!(!a.message.contains(via), "{name}: {}", a.message);
+            assert_ne!(
+                usefixtures,
+                jump(&format!("usefixtures: {via}"), &at(6)),
+                "{name}"
+            );
+        }
+        d_on(&mut a, "app/t.py", "mark.django_db");
+        assert_eq!(a.message, "no definition for django_db", "{name}");
+        for rebound in ["mark.plain|(3", "mark.plain|(4"] {
+            a.picker = None;
+            d_on(&mut a, "app/t.py", rebound);
+            assert!(!a.message.contains(via), "{name} {rebound}: {}", a.message);
+        }
+        for d in [dir, site] {
+            std::fs::remove_dir_all(d).unwrap();
+        }
+    }
+}
