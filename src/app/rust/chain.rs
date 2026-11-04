@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use super::returns::iterator_items;
 use super::sysroot::rust_element;
 use super::{
     App, Bound, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
@@ -159,11 +160,16 @@ fn tuple_initializer(
 }
 
 fn for_iterated<'a>(text: &'a str, at: usize, name: &str) -> Option<(&'a str, &'a str)> {
-    let line = text.lines().nth(at)?.trim();
+    let mut lines = text.lines().skip(at);
+    let line = lines.next()?.trim();
     let rest = line.strip_prefix("for ")?.trim_start();
     let rest = rest.strip_prefix("mut ").unwrap_or(rest);
     let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
-    let expr = expr.strip_suffix('{')?.trim();
+    let expr = match expr.strip_suffix('{') {
+        Some(expr) => expr,
+        None => (lines.next()?.trim() == "{").then_some(expr)?,
+    }
+    .trim();
     let place = expr.strip_prefix('&').map_or(expr, |s| {
         let s = s.trim_start();
         s.strip_prefix("mut ").unwrap_or(s).trim()
@@ -688,9 +694,11 @@ impl App {
             Regex::new(r"\.map\(\s*\|[^|]*\|\s*((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*\([^()]*\)\s*\)\s*\.collect\(\s*\)$")
                 .expect("the regex is a literal")
         });
-        let (_, place) = for_iterated(text, at, name)?;
+        let (expr, place) = for_iterated(text, at, name)?;
         if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return None;
+            return (expr == place)
+                .then(|| self.rust_for_project_item(file, text, at, expr))
+                .flatten();
         }
         let bindings = search::bindings(Kind::Rust, text, at + 1, place);
         let [b] = bindings.as_slice() else {
@@ -725,6 +733,68 @@ impl App {
             .collect();
         let (decl, returns) = self.rust_call_returns(file, text, let_at, &parts)?;
         self.rust_resolve(&decl.path, &returns, decl.line1 - 1)
+    }
+
+    fn rust_for_project_item(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        expr: &str,
+    ) -> Option<Typed> {
+        const SAME_ITEM: [&str; 11] = [
+            "by_ref",
+            "filter",
+            "fuse",
+            "inspect",
+            "peekable",
+            "rev",
+            "skip",
+            "skip_while",
+            "step_by",
+            "take",
+            "take_while",
+        ];
+        let mut w = walk_back(expr)?;
+        if w.rest != 0 {
+            return None;
+        }
+        let mut adapters = Vec::new();
+        while let Some(l) = w
+            .links
+            .pop_if(|l| l.call && SAME_ITEM.contains(&l.name.as_str()))
+        {
+            adapters.push(l.name);
+        }
+        if !w.head_call && w.links.is_empty() && adapters.is_empty() {
+            return None;
+        }
+        let mut got = self.rust_head(file, text, at, &w, None)?;
+        for link in &w.links {
+            got = self.rust_step(got, link)?;
+        }
+        let Got::Ty(ty) = got else {
+            return None;
+        };
+        if adapters
+            .iter()
+            .any(|a| !self.rust_members(&ty, a).is_empty())
+        {
+            return None;
+        }
+        let t = self.text_of(&ty.path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        let [(impl_line0, item)] = iterator_items(&lines, &ty.name)[..] else {
+            return None;
+        };
+        let generics = lines[impl_line0].trim().strip_prefix("impl")?;
+        let lifetimes_only = generics.strip_prefix('<').is_none_or(|g| {
+            g.split('>')
+                .next()
+                .is_some_and(|g| g.split(',').all(|p| p.trim().starts_with('\'')))
+        });
+        lifetimes_only.then_some(())?;
+        self.rust_resolve(&ty.path, item, impl_line0)
     }
 
     pub(super) fn rust_let_chain(

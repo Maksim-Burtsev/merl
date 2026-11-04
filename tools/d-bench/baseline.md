@@ -121,6 +121,7 @@ The julia row with #1375's third pass (an unqualified `Base` names the `baremodu
 The swift row with #1341's sixth pass (a value of a project type never fits an array parameter or an alias of one, and the element of `array.enumerated().map { index, component in` is typed; swift0031 `serialize(component, forKey: keyPath)` in `URLEncodedFormSerializer`): over `aef7032d1` with this change, 2026-11-05, release build, `vm.loadavg` { 2.79 3.92 4.01 } before the run, { 3.16 3.78 3.95 } after.
 The python row with #1339's fifth pass (a keyword argument of a callee outside the project, found by its import, lands on that parameter or on an outside dataclass's field; python0303 `time_machine.travel(.., tick=False)`): over `ab87a9a10` with this change, 2026-11-05, release build, `vm.loadavg` { 7.54 5.30 4.52 } before the run, { 4.03 4.70 4.37 } after.
 The cpp row with #1336's sixth pass (`std::X` outside the project finds no member of a class, and a class head after a reserved `_LIBCPP_BEGIN_NAMESPACE_STD` is read as a class; cpp0101 `std::unique_lock<std::mutex>` jumps to `class mutex`, not `unique_lock::mutex()`): over `0392f637a` with this change, 2026-11-05, release build, `vm.loadavg` { 3.42 4.59 4.52 } before the run, { 3.10 4.22 4.38 } after; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The rust row with #1302's seventh pass (a `for` variable over a project iterator's `Item`, through std adapters that keep it, with the `{` on its own line: `for ig in self.parents().take_while(..)` in `crates/ignore/src/dir.rs`): over `99f5248f2`, 2026-11-05, release build, `vm.loadavg` { 5.24 4.44 4.65 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -128,7 +129,7 @@ The cpp row with #1336's sixth pass (`std::X` outside the project finds no membe
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
+| rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 237 | 219 (92%) | 18 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.6 | 64.6 |
