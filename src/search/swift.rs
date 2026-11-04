@@ -145,8 +145,24 @@ pub fn swift_inherited(line: &str) -> Vec<String> {
     let list = c[1].split(" where ").next().unwrap_or_default();
     split_top(Kind::Swift, list, b',')
         .into_iter()
+        .flat_map(|n| n.split('&'))
         .filter_map(|n| swift_type_name(n.split('<').next().unwrap_or(n)))
         .collect()
+}
+pub fn swift_self_bounds(clause: &str) -> Option<Vec<String>> {
+    let t = uncommented(Kind::Swift, clause);
+    let (clause, _) = t.split_once('{')?;
+    let mut bounds = Vec::new();
+    for item in clause.split(',') {
+        let (lhs, rhs) = item.split_once(':')?;
+        if lhs.trim() != "Self" {
+            return None;
+        }
+        for name in rhs.split('&') {
+            bounds.push(swift_type_name(name).filter(|n| n.trim() == name.trim())?);
+        }
+    }
+    Some(bounds)
 }
 pub struct SwiftTypeHeader {
     pub keyword: String,

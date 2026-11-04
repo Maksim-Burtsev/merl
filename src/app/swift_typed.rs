@@ -1,5 +1,6 @@
 use super::{App, Candidate, HashSet, Hit, Kind, Path, Reason, search};
 
+mod defaults;
 mod generic;
 mod key_path;
 mod overload;
@@ -92,9 +93,9 @@ impl App {
                             .collect(),
                     );
                 };
-                let mut rows = self.swift_protocol_rows(here, &p, word, true)?;
+                let mut rows = self.swift_protocol_rows(here, &p, word, true, &[])?;
                 if rows.is_empty() {
-                    rows = self.swift_protocol_rows(here, &p, word, false)?;
+                    rows = self.swift_protocol_rows(here, &p, word, false, &[])?;
                 }
                 return (!rows.is_empty()).then(|| {
                     rows.into_iter()
@@ -835,7 +836,7 @@ impl App {
             .trim();
         let t = t.strip_prefix("any ").unwrap_or(t);
         let p = search::swift_type_name(t).filter(|p| self.swift_protocol(here, p))?;
-        let rows = self.swift_protocol_rows(here, &p, field, true)?;
+        let rows = self.swift_protocol_rows(here, &p, field, true, &[])?;
         let [row] = <[Hit; 1]>::try_from(rows).ok()?;
         if !search::swift_instance_member(&row.text) || row.text.contains("func ") {
             return None;
@@ -1160,80 +1161,6 @@ impl App {
                 })
                 .collect(),
         )
-    }
-
-    fn swift_protocol(&self, here: &Path, name: &str) -> bool {
-        let pattern = search::def_patterns(Kind::Swift, name).join("|");
-        let decls: Vec<String> = self
-            .project_definitions(Kind::Swift, here, name, &pattern)
-            .iter()
-            .filter(|h| self.in_code(Kind::Swift, h))
-            .filter_map(|h| search::swift_type_header(&h.text))
-            .filter(|t| t.name == name && t.keyword != "extension")
-            .map(|t| t.keyword)
-            .collect();
-        matches!(decls.as_slice(), [k] if k == "protocol")
-    }
-
-    fn swift_defaults(&self, here: &Path, types: &[String], word: &str) -> Option<Vec<Hit>> {
-        let mut protocols: Vec<String> = Vec::new();
-        for t in types {
-            let pattern = search::def_patterns(Kind::Swift, t).join("|");
-            for h in self.project_definitions(Kind::Swift, here, t, &pattern) {
-                let Some(head) = search::swift_type_header(&h.text)
-                    .filter(|head| head.name == *t && self.in_code(Kind::Swift, &h))
-                else {
-                    continue;
-                };
-                let inherited = search::swift_inherited(&h.text);
-                if head.where_constrained && !inherited.is_empty() {
-                    return None;
-                }
-                protocols.extend(inherited);
-            }
-        }
-        protocols.sort();
-        protocols.dedup();
-        let mut rows: Vec<Hit> = Vec::new();
-        for p in protocols.iter().filter(|p| self.swift_protocol(here, p)) {
-            rows.extend(self.swift_protocol_rows(here, p, word, false)?);
-        }
-        (!rows.is_empty()).then_some(rows)
-    }
-
-    fn swift_protocol_rows(
-        &self,
-        here: &Path,
-        protocol: &str,
-        word: &str,
-        requirement: bool,
-    ) -> Option<Vec<Hit>> {
-        let pattern = search::def_patterns(Kind::Swift, word).join("|");
-        let full = format!("{protocol}.{word}");
-        let mut rows = Vec::new();
-        for h in self.project_definitions(Kind::Swift, here, word, &pattern) {
-            let text = self.text_of(&h.path)?;
-            let named = search::qualified(Kind::Swift, &text, h.line1, word)
-                .is_some_and(|q| q == full || q.ends_with(&format!(".{full}")));
-            if !named || !self.in_code(Kind::Swift, &h) {
-                continue;
-            }
-            let lines: Vec<&str> = text.lines().collect();
-            let literal = search::literal_lines(Kind::Swift, &text);
-            let at = search::swift_enclosing_type(&lines, &literal, h.line1)?;
-            let head = search::swift_type_header(lines[at - 1])?;
-            let constrained = head.where_constrained
-                || lines
-                    .get(at)
-                    .is_some_and(|l| l.trim_start().starts_with("where "));
-            match head.keyword.as_str() {
-                "protocol" if requirement => rows.push(h),
-                "extension" if !requirement && constrained => return None,
-                "extension" if !requirement => rows.push(h),
-                _ => {}
-            }
-        }
-        Some(rows)
     }
 }
 
