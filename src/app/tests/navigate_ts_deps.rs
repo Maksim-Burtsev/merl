@@ -639,3 +639,75 @@ fn a_member_a_required_package_declares_in_its_esm_copy_too_lands_in_the_copy_re
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_component_a_package_re_exports_as_default_lands_on_its_declared_const() {
+    let main = "import { Button, Text, Plain } from \"ui\";\n\nButton;\nText;\nPlain;\n";
+    let (dir, mut a) = project_app("ts-default-component", &[("src/main.ts", main)]);
+    let pair = |name: &str, ty: &str| {
+        format!(
+            "import {name} from '../../internal/{name}.svelte';\ndeclare const {name}: import(\"svelte\").Component<{{}}, {{}}, \"\">;\ntype {name} = {ty};\nexport default {name};\n"
+        )
+    };
+    let derived = |name: &str| pair(name, &format!("ReturnType<typeof {name}>"));
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/ui/package.json",
+                "{\"name\": \"ui\", \"exports\": {\".\": {\"types\": \"./dist/index.d.ts\"}}}\n",
+            ),
+            (
+                "node_modules/ui/dist/index.d.ts",
+                "export { default as Button } from './components/Button/Button.svelte';\nexport { default as Text } from './components/Text/Text.svelte';\nexport { default as Plain } from './components/Plain/Plain.svelte';\n",
+            ),
+            (
+                "node_modules/ui/dist/components/Button/Button.svelte.d.ts",
+                &derived("Button"),
+            ),
+            (
+                "node_modules/ui/dist/internal/Button.svelte.d.ts",
+                &derived("Button"),
+            ),
+            (
+                "node_modules/ui/dist/components/Text/Text.svelte.d.ts",
+                &derived("Text"),
+            ),
+            (
+                "node_modules/ui/dist/components/Markdown/Text.svelte.d.ts",
+                &derived("Text"),
+            ),
+            (
+                "node_modules/ui/dist/components/Plain/Plain.svelte.d.ts",
+                &pair("Plain", "{ a: 1 }"),
+            ),
+        ],
+    );
+    for (code, want, why) in [
+        (
+            "|Button;",
+            jump(
+                "Button: via import ui",
+                "node_modules/ui/dist/components/Button/Button.svelte.d.ts:2",
+            ),
+            "the file the entry re-exports, its const and not the type made from it",
+        ),
+        (
+            "|Text;",
+            jump(
+                "Text: via import ui",
+                "node_modules/ui/dist/components/Text/Text.svelte.d.ts:2",
+            ),
+            "a namesake component the entry does not re-export as Text is not offered",
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{why}");
+    }
+    d_on(&mut a, "src/main.ts", "|Plain;");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "a type of its own beside the const is a second declaration: both stay offered"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
