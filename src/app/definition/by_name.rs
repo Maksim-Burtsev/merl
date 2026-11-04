@@ -87,8 +87,8 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
-        if kind == Kind::Julia && a.word == "Base" && !a.dotted && a.chain.is_empty() {
-            julia_base_module(&a.text, &mut found);
+        if kind == Kind::Julia {
+            self.julia_found(a, p, &mut found);
         }
         if kind == Kind::TsJs && a.dotted {
             required_copy(&a.text, &mut found);
@@ -429,6 +429,80 @@ impl App {
                 r"^\s*(?:function\s+{l}[.:]{w}\s*\(|{l}\.{w}\s*=[^=])"
             ));
             hits.retain(|h| patched.as_ref().is_ok_and(|re| re.is_match(&h.text)));
+        }
+    }
+
+    fn julia_found(&self, a: &Asked, p: &Patterns, found: &mut Vec<Candidate>) {
+        if a.word == "Base" && !a.dotted && a.chain.is_empty() {
+            julia_base_module(&a.text, found);
+        }
+        if p.on_value && found.len() > 1 {
+            self.julia_typed_field(a, found);
+        }
+    }
+
+    fn julia_typed_field(&self, a: &Asked, found: &mut Vec<Candidate>) {
+        let [head] = &a.chain[..] else {
+            return;
+        };
+        let Some(ty) = search::julia_param_type(&a.text, self.line, head) else {
+            return;
+        };
+        let decl = |pattern: &str| -> Vec<Hit> {
+            self.grep(pattern, false, false, |p| {
+                search::kind_of(p) == Some(Kind::Julia)
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| self.in_code(Kind::Julia, h))
+            .collect()
+        };
+        let heads = decl(&search::julia_type_heads(&ty));
+        let [st] = &heads[..] else {
+            return;
+        };
+        if !search::julia_is_struct(&st.text) {
+            return;
+        }
+        let mut types = vec![ty];
+        let mut line = st.text.clone();
+        loop {
+            let sup = match search::julia_supertype(&line) {
+                None => return,
+                Some(sup) if sup == "Any" => break,
+                Some(sup) => sup,
+            };
+            let heads = decl(&search::julia_type_heads(&sup));
+            let ([h], false) = (&heads[..], types.contains(&sup)) else {
+                return;
+            };
+            line.clone_from(&h.text);
+            types.push(sup);
+        }
+        let aliases = decl(&search::julia_alias_pattern(&types));
+        types.extend(aliases.iter().filter_map(|h| search::julia_alias(&h.text)));
+        for h in decl(r"getproperty\s*\(") {
+            let Some(text) = self.file_text(&h.path) else {
+                return;
+            };
+            let lines: Vec<&str> = text.lines().collect();
+            if search::julia_property_overload(&lines, h.line1 - 1, &types, &a.word) {
+                return;
+            }
+        }
+        let Some(text) = self.file_text(&st.path) else {
+            return;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let owned: Vec<&Candidate> = found
+            .iter()
+            .filter(|c| {
+                c.hit.path == st.path
+                    && search::julia_struct_of(&lines, c.hit.line1 - 1) == Some(st.line1 - 1)
+            })
+            .collect();
+        if let [one] = owned[..] {
+            *found = vec![one.clone()];
         }
     }
 
