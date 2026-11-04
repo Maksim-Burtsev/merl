@@ -174,7 +174,8 @@ impl App {
                             |h| h,
                             |this, files| this.declarations_among(kind, word, pattern, files),
                         );
-                        self.c_clang_redefinition(&here, word, hits)
+                        let hits = self.c_clang_redefinition(&here, word, hits);
+                        self.cpp_namespace_members(chain, dotted, word, hits)
                     }
                     None => self.declarations_among(kind, word, pattern, &all),
                 },

@@ -119,6 +119,7 @@ The julia row with #1375's second pass (a parametric alias, `const AbstractVecto
 The cpp row with #1336's fifth pass (a subscript of a local `std::vector`, `std::array`, `std::deque` or `std::span` is its element, `inputs[i]->file_size` in `VersionSet::CompactRange`; a call's return type skips a `static` namesake in another translation unit, `test::RandomString(...).ToString()` in `table_test.cc`): over `68a9bc1d8`, 2026-11-03, release build, `vm.loadavg` { 4.63 4.67 4.54 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
 The julia row with #1375's third pass (an unqualified `Base` names the `baremodule Base`, not the `const Base = parentmodule(@__MODULE__)` of `Iterators` and `Order`, which binds only inside those bare modules; the 6 `Base` rows at column 0 jump to `base/Base.jl:3`): over `d4d8e5bc2` with this change, 2026-11-05, release build, `vm.loadavg` { 3.27 4.77 4.20 } after the run.
 The swift row with #1341's sixth pass (a value of a project type never fits an array parameter or an alias of one, and the element of `array.enumerated().map { index, component in` is typed; swift0031 `serialize(component, forKey: keyPath)` in `URLEncodedFormSerializer`): over `aef7032d1` with this change, 2026-11-05, release build, `vm.loadavg` { 2.79 3.92 4.01 } before the run, { 3.16 3.78 3.95 } after.
+The cpp row with #1336's sixth pass (`std::X` outside the project finds no member of a class, and a class head after a reserved `_LIBCPP_BEGIN_NAMESPACE_STD` is read as a class; cpp0101 `std::unique_lock<std::mutex>` jumps to `class mutex`, not `unique_lock::mutex()`): over `0392f637a` with this change, 2026-11-05, release build, `vm.loadavg` { 3.42 4.59 4.52 } before the run, { 3.10 4.22 4.38 } after; the c and objc rows played the same (0 worse, 0 better) and are kept.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -129,7 +130,7 @@ The swift row with #1341's sixth pass (a value of a project type never fits an a
 | rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
-| cpp (leveldb) | 237 | 218 (92%) | 19 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.4 | 62.4 |
+| cpp (leveldb) | 237 | 219 (92%) | 18 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.6 | 64.6 |
 | swift (Alamofire) | 450 | 437 (97%) | 12 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 22.6 | 48.8 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
