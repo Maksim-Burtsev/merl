@@ -145,7 +145,11 @@ impl App {
             self.probe.take().unwrap_or_default()
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
-        let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
+        let reads_outside = (kind == Kind::Rust && *owner == search::Owner::Typed)
+            || (kind == Kind::Python
+                && *owner == search::Owner::Args
+                && !owners.is_empty()
+                && owners.iter().all(|c| c.reason.proven()));
         let offer = std::mem::take(&mut self.offer_only)
             || (!reads_outside && owners.iter().any(|c| c.hit.path.is_absolute()))
             || (owners.iter().all(|c| !c.reason.proven())
