@@ -235,12 +235,29 @@ pub fn ruby_param_type(text: &str, line1: usize, name: &str) -> Option<String> {
     let lines: Vec<&str> = text.lines().collect();
     let head = lines.get(def.line1.checked_sub(1)?)?;
     let piped = Regex::new(&format!(r"\|[^|]*\b{}\b[^|]*\|", regex::escape(name))).ok()?;
+    let n = regex::escape(name);
+    let splat = Regex::new(&format!(r"[*&]\s*{n}\b")).ok()?;
+    let rebinds = Regex::new(&format!(
+        r"(?:^|[^@$:.\w]){n}\s*(?:[-+*/%|&^]|\*\*|<<|>>|&&|\|\|)?=(?:$|[^=~>])|^\s*[\w\s,*]*\b{n}\b[\w\s,*]*=(?:$|[^=~>])|=>\s*{n}\b|^\s*in\b.*\b{n}\b|\bin\s*[\[{{(].*\b{n}\b|\bfor\s+[\w\s,]*\b{n}\b|->\s*\(?[^{{]*\b{n}\b|\|[^|]*\b{n}\b[^|]*\|"
+    ))
+    .ok()?;
+    let indent = head.len() - head.trim_start().len();
+    let end = lines[def.line1..]
+        .iter()
+        .position(|l| !l.trim().is_empty() && l.len() - l.trim_start().len() <= indent)
+        .map_or(lines.len(), |p| def.line1 + p)
+        .max(line1);
     if !head.trim_start().starts_with("def ")
+        || splat.is_match(head)
         || !ruby_locals(text, line1, name).is_empty()
         || lines
             .get(def.line1 - 1..line1)?
             .iter()
             .any(|l| piped.is_match(l))
+        || lines
+            .get(def.line1..end)?
+            .iter()
+            .any(|l| rebinds.is_match(l))
     {
         return None;
     }
