@@ -126,6 +126,7 @@ The svelte row with #1337's fifth pass (a component a package's entry re-exports
 The ruby row with #1340's fourth pass (a method parameter whose YARD `@param [Account] account` names one class, read directly or through `@account = account` set once in the class; ruby0135 jumps, and like the other rows typed as `Account` it takes ~630 ms, which moves p90): over `abefb3925` with this change, 2026-11-05, release build, `vm.loadavg` { 3.01 4.15 4.62 } before the run.
 The rust row with #1302's seventh pass (a `for` variable over a project iterator's `Item`, through std adapters that keep it, with the `{` on its own line: `for ig in self.parents().take_while(..)` in `crates/ignore/src/dir.rs`): over `c86b83a2d` with this change, 2026-11-05, release build, `vm.loadavg` { 5.24 4.44 4.65 } before the run.
 The bash row with #1335's fourth pass (a function every call of which follows `G &&` reads the one assignment `G` runs first, not one followed by `return 1`; bash0077 `ISPC_Api` in `_ISPC_login` jumps to `dns_ispconfig.sh:42`): over `314357d81` with this change, 2026-11-05, release build, `vm.loadavg` { 3.26 4.17 4.41 } before the run.
+The swift row with #1341's sixth pass (a default in an extension bounded by `where Self: P`, reached through the protocols the class's protocol refines: swift0195 `serializeDownload` on a `JSONResponseSerializer` jumps to `ResponseSerialization.swift:156`): over `04425bb4`, 2026-11-05, release build, `vm.loadavg` { 2.86 3.40 4.08 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -137,7 +138,7 @@ The bash row with #1335's fourth pass (a function every call of which follows `G
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 237 | 219 (92%) | 18 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.6 | 64.6 |
-| swift (Alamofire) | 450 | 437 (97%) | 12 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 22.6 | 48.8 |
+| swift (Alamofire) | 450 | 438 (97%) | 11 (2%) | 0 (0%) | 1 (0%) | 279 | 7 | 23.7 | 57.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
