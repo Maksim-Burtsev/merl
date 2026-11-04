@@ -117,6 +117,7 @@ The swift row with #1341's fifth pass (a static call followed by a property as a
 The julia row with #1375's first pass (a type after `::` is looked up as a type, not a member of the value, unless a `where` or a `struct` of the file binds it as a parameter; the variable of a `catch err` block): over `bf0298930` with this change, 2026-11-03, release build, `vm.loadavg` { 3.82 4.18 3.91 } before the run, { 3.53 4.02 3.87 } after. julia0108 (`x::Tables.AbstractRow`, no answer recorded) now jumps to `abstract type AbstractRow end` in Tables, which is its definition.
 The julia row with #1375's second pass (a parametric alias, `const AbstractVector{T} = AbstractArray{T,1}`, declares `AbstractVector`; the 6 `AbstractVector` rows jump to `base/array.jl:23`, julia0088 `AbstractMatrix` is a picker with `base/array.jl:31` beside LinearAlgebra's `AbstractMatrix{T}(A::...)` methods): over `5f3c386ac` with this change, 2026-11-03, release build, `vm.loadavg` { 4.24 5.21 4.89 } before the run.
 The cpp row with #1336's fifth pass (a subscript of a local `std::vector`, `std::array`, `std::deque` or `std::span` is its element, `inputs[i]->file_size` in `VersionSet::CompactRange`; a call's return type skips a `static` namesake in another translation unit, `test::RandomString(...).ToString()` in `table_test.cc`): over `68a9bc1d8`, 2026-11-03, release build, `vm.loadavg` { 4.63 4.67 4.54 } before the run; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The swift row with #1341's sixth pass (a value of a project type never fits an array parameter or an alias of one, and the element of `array.enumerated().map { index, component in` is typed; swift0031 `serialize(component, forKey: keyPath)` in `URLEncodedFormSerializer`): over `aef7032d1` with this change, 2026-11-05, release build, `vm.loadavg` { 2.79 3.92 4.01 } before the run, { 3.16 3.78 3.95 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -128,7 +129,7 @@ The cpp row with #1336's fifth pass (a subscript of a local `std::vector`, `std:
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 237 | 218 (92%) | 19 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.4 | 62.4 |
-| swift (Alamofire) | 450 | 436 (97%) | 13 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 21.8 | 48.0 |
+| swift (Alamofire) | 450 | 437 (97%) | 12 (3%) | 0 (0%) | 1 (0%) | 279 | 7 | 22.6 | 48.8 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
