@@ -278,11 +278,16 @@ impl App {
         let Some(dir) = crate::typeshed::stdlib() else {
             return false;
         };
-        let packaged = ty.path.ancestors().any(|d| {
-            d.file_name()
-                .is_some_and(|n| n == "site-packages" || n == "dist-packages")
-        });
-        if !ty.path.is_absolute() || rel.is_absolute() || packaged {
+        let stdlib = ty
+            .path
+            .ancestors()
+            .nth(rel.components().count())
+            .is_some_and(|root| {
+                root.file_name()
+                    .is_some_and(|n| n.to_string_lossy().starts_with("python"))
+                    && root.join("os.py").is_file()
+            });
+        if !ty.path.is_absolute() || rel.is_absolute() || !stdlib {
             return false;
         }
         let Some((stub, text)) = [rel.with_extension("pyi"), rel.join("__init__.pyi")]

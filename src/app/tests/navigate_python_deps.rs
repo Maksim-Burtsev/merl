@@ -696,10 +696,42 @@ fn a_keyword_of_a_callee_found_outside_lands_on_its_parameter() {
 }
 
 #[test]
+fn a_keyword_of_a_callee_found_outside_only_by_name_does_not_jump() {
+    let site = external_root(
+        "py-outside-kw-name",
+        &[(
+            "time_machine/__init__.py",
+            "class Clock:\n    def rewind(self, delta, *, tick: bool = True) -> None:\n        pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside-kw-name-p",
+        &[(
+            "app/t.py",
+            "def test_x(clock):\n    clock.rewind(1, tick=False)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    d_on(&mut a, "app/t.py", "rewind(1, tick");
+    assert_eq!(a.message, "tick: argument label");
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_stdlib_property_typeshed_types_as_self_keeps_the_receiver_s_type() {
     let pathlib = "class PurePath:\n    @property\n    def parent(self):\n        return self._from_parts(self._parts[:-1])\n\n\nclass Path(PurePath):\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        pass\n";
-    let std = external_root("py-self-std", &[("pathlib.py", pathlib)]);
+    let prefix = external_root(
+        "py-self-std",
+        &[
+            ("lib/python3.12/pathlib.py", pathlib),
+            ("lib/python3.12/os.py", ""),
+        ],
+    );
+    let std = prefix.join("lib/python3.12");
     let site = external_root("py-self-site", &[("site-packages/pathlib.py", pathlib)]);
+    let plain = external_root("py-self-plain", &[("pathlib.py", pathlib), ("os.py", "")]);
     let (dir, mut a) = project_app(
         "py-self-p",
         &[(
@@ -728,7 +760,13 @@ fn a_stdlib_property_typeshed_types_as_self_keeps_the_receiver_s_type() {
         a.message, "parents: argument label",
         "a package named like the standard library's module is not typed by its stub"
     );
-    for d in [dir, std, site] {
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&plain));
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        a.message, "parents: argument label",
+        "an outside root that is no interpreter's lib/pythonX.Y is not typed by its stub"
+    );
+    for d in [dir, prefix, site, plain] {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
