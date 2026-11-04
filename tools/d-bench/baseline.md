@@ -123,6 +123,7 @@ The python row with #1339's fifth pass (a keyword argument of a callee outside t
 The cpp row with #1336's sixth pass (`std::X` outside the project finds no member of a class, and a class head after a reserved `_LIBCPP_BEGIN_NAMESPACE_STD` is read as a class; cpp0101 `std::unique_lock<std::mutex>` jumps to `class mutex`, not `unique_lock::mutex()`): over `0392f637a` with this change, 2026-11-05, release build, `vm.loadavg` { 3.42 4.59 4.52 } before the run, { 3.10 4.22 4.38 } after; the c and objc rows played the same (0 worse, 0 better) and are kept.
 The svelte row with #1337's fifth pass (a component a package's entry re-exports as `default` lands on the `declare const` of that file, not on the `type X = ReturnType<typeof X>` beside it nor on a namesake elsewhere in the package; 25 `@immich/ui` and `svelte-maplibre` rows): over `6298e4ded` with this change, 2026-11-05, release build, `vm.loadavg` { 3.11 5.20 4.99 } before the run.
 The ruby row with #1340's fourth pass (a method parameter whose YARD `@param [Account] account` names one class, read directly or through `@account = account` set once in the class; ruby0135 jumps, and like the other rows typed as `Account` it takes ~630 ms, which moves p90): over `abefb3925` with this change, 2026-11-05, release build, `vm.loadavg` { 3.01 4.15 4.62 } before the run.
+The rust row with #1302's seventh pass (a `for` variable over a project iterator's `Item`, through std adapters that keep it, with the `{` on its own line: `for ig in self.parents().take_while(..)` in `crates/ignore/src/dir.rs`): over `c86b83a2d` with this change, 2026-11-05, release build, `vm.loadavg` { 5.24 4.44 4.65 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -130,7 +131,7 @@ The ruby row with #1340's fourth pass (a method parameter whose YARD `@param [Ac
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
-| rust (ripgrep) | 231 | 230 (100%) | 1 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 53.3 |
+| rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 237 | 219 (92%) | 18 (8%) | 0 (0%) | 0 (0%) | 63 | 8 | 17.6 | 64.6 |
