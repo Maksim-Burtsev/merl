@@ -1054,6 +1054,12 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
     if let Some(c) = enumerated.captures(t) {
         return Some(SwiftGiven::Element(c[1].to_owned()));
     }
+    let mapped = rule(format!(
+        r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.enumerated\(\)\.(?:map|compactMap|flatMap|forEach)\s*\{{\s*\(?\s*\w+\s*,\s*`?{n}`?\s*\)?\s+in\b"
+    ));
+    if let Some(c) = mapped.captures(t) {
+        return Some(SwiftGiven::Element(c[1].to_owned()));
+    }
     let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*([A-Za-z_][\w.]*)$".to_owned());
     if let Some(c) = tuple.captures(t) {
         let at = c[1]

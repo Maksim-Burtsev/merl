@@ -91,3 +91,25 @@ struct Tallyman {
 extension Wharf {
     var sack: Sack { Sack() }
 }
+
+// A value of a project type never fits an array parameter, nor an alias of one; the element of
+// `xs.enumerated().map { index, x in` is typed as in a `for (index, x) in xs.enumerated()` loop.
+enum Skid {
+    typealias Pile = [(key: String, value: Skid)]
+    case bare
+}
+
+struct Loader {
+    func heave(_ skid: Skid) {}
+    func heave(_ pile: Skid.Pile) {}
+    func heave(_ skids: [Skid]) {}
+
+    func heaveAll(_ skids: [Skid]) {
+        _ = skids.enumerated().map { index, skid in
+            heave(skid)
+//          ^ d: Sources/Shop/Overloads.swift:103
+        }
+        heave(Skid.bare)
+//      ^ d: Sources/Shop/Overloads.swift:103
+    }
+}
