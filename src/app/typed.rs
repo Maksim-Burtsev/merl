@@ -550,8 +550,7 @@ impl App {
                 ty: next,
                 call_signature,
             } = self
-                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                .and_then(DeclaredField::typed)
+                .typed_field(kind, &ty, field)
                 .or_else(|| {
                     let made =
                         (kind == Kind::Python).then(|| self.made_by_class_attribute(&ty, field));
@@ -635,6 +634,17 @@ impl App {
             }
         }
         found
+    }
+
+    fn typed_field(&self, kind: Kind, ty: &Typed, field: &str) -> Option<TypeVia> {
+        self.hierarchy(kind, ty, 0, &mut |t| self.field_type(kind, t, field))
+            .and_then(DeclaredField::typed)
+            .or_else(|| {
+                (kind == Kind::Python && self.stub_returns_self(ty, field)).then(|| TypeVia {
+                    ty: ty.clone(),
+                    call_signature: None,
+                })
+            })
     }
 
     fn field_type(&self, kind: Kind, ty: &Typed, field: &str) -> Option<DeclaredField> {
@@ -760,9 +770,7 @@ impl App {
                 let ProvenType { ty, .. } = self
                     .chain_type(kind, file, text, b.line1, from, hops - 1)
                     .ok()?;
-                let TypeVia { ty, .. } = self
-                    .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .and_then(DeclaredField::typed)?;
+                let TypeVia { ty, .. } = self.typed_field(kind, &ty, field)?;
                 Some(TypeVia {
                     ty,
                     call_signature: None,
@@ -774,9 +782,7 @@ impl App {
                     value: (**head).clone(),
                 };
                 let TypeVia { ty, .. } = self.binding_type(kind, file, text, &at, hops)?;
-                let TypeVia { ty, .. } = self
-                    .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .and_then(DeclaredField::typed)?;
+                let TypeVia { ty, .. } = self.typed_field(kind, &ty, field)?;
                 Some(TypeVia {
                     ty,
                     call_signature: None,

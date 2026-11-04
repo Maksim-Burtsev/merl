@@ -125,10 +125,11 @@ The svelte row with #1337's fifth pass (a component a package's entry re-exports
 The ruby row with #1340's fourth pass (a method parameter whose YARD `@param [Account] account` names one class, read directly or through `@account = account` set once in the class; ruby0135 jumps, and like the other rows typed as `Account` it takes ~630 ms, which moves p90): over `abefb3925` with this change, 2026-11-05, release build, `vm.loadavg` { 3.01 4.15 4.62 } before the run.
 The rust row with #1302's seventh pass (a `for` variable over a project iterator's `Item`, through std adapters that keep it, with the `{` on its own line: `for ig in self.parents().take_while(..)` in `crates/ignore/src/dir.rs`): over `c86b83a2d` with this change, 2026-11-05, release build, `vm.loadavg` { 5.24 4.44 4.65 } before the run.
 The bash row with #1335's fourth pass (a function every call of which follows `G &&` reads the one assignment `G` runs first, not one followed by `return 1`; bash0077 `ISPC_Api` in `_ISPC_login` jumps to `dns_ispconfig.sh:42`): over `314357d81` with this change, 2026-11-05, release build, `vm.loadavg` { 3.26 4.17 4.41 } before the run.
+The python row with #1339's sixth pass (a standard-library property whose typeshed stub returns `Self` keeps the receiver's type: `existing.parent.mkdir(parents=True)` on a `Path`; python0216): over `eec6d4887` with this change, 2026-11-05, release build, `vm.loadavg` { 2.62 3.48 4.19 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 253 (97%) | 3 (1%) | 0 (0%) | 6 (2%) | 63 | 8 | 16.5 | 178.7 |
+| python (paperless-ngx) | 262 | 254 (97%) | 3 (1%) | 0 (0%) | 5 (2%) | 63 | 8 | 16.2 | 179.8 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |

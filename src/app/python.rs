@@ -271,6 +271,55 @@ impl App {
         Some(hit)
     }
 
+    pub(super) fn stub_returns_self(&self, ty: &Typed, field: &str) -> bool {
+        let rel = self
+            .rel_to_its_root(Kind::Python, &ty.path)
+            .with_extension("");
+        let Some(dir) = crate::typeshed::stdlib() else {
+            return false;
+        };
+        let packaged = ty.path.ancestors().any(|d| {
+            d.file_name()
+                .is_some_and(|n| n == "site-packages" || n == "dist-packages")
+        });
+        if !ty.path.is_absolute() || rel.is_absolute() || packaged {
+            return false;
+        }
+        let Some((stub, text)) = [rel.with_extension("pyi"), rel.join("__init__.pyi")]
+            .into_iter()
+            .find_map(|f| Some((dir.join(&f), std::fs::read_to_string(dir.join(f)).ok()?)))
+        else {
+            return false;
+        };
+        let defs = self.module_level_defs(&stub, &text, &ty.name);
+        let [class] = &defs[..] else {
+            return false;
+        };
+        if !search::declares_type(Kind::Python, &class.text) {
+            return false;
+        }
+        let class = Typed {
+            name: ty.name.clone(),
+            path: stub,
+            line: class.line1,
+        };
+        let says_self = self.hierarchy(Kind::Python, &class, 0, &mut |t| {
+            let text = self.text_of(&t.path)?;
+            let found = search::field_bindings(Kind::Python, &text, t.line, field);
+            let self_type = search::imports(Kind::Python, &text).iter().any(|i| {
+                i.name == "Self"
+                    && matches!(&i.path[..], [m, s] if s == "Self" && (m == "typing" || m == "typing_extensions"))
+            });
+            (!found.is_empty()).then(|| {
+                self_type
+                    && found
+                        .iter()
+                        .all(|b| matches!(&b.value, search::Value::Type(s) if s == "Self"))
+            })
+        });
+        says_self == Some(true)
+    }
+
     pub(super) fn runtime_class(&self, ty: Typed) -> Typed {
         let Some(rel) = crate::typeshed::within(&ty.path) else {
             return ty;

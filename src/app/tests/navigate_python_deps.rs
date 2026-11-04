@@ -694,3 +694,41 @@ fn a_keyword_of_a_callee_found_outside_lands_on_its_parameter() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_stdlib_property_typeshed_types_as_self_keeps_the_receiver_s_type() {
+    let pathlib = "class PurePath:\n    @property\n    def parent(self):\n        return self._from_parts(self._parts[:-1])\n\n\nclass Path(PurePath):\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        pass\n";
+    let std = external_root("py-self-std", &[("pathlib.py", pathlib)]);
+    let site = external_root("py-self-site", &[("site-packages/pathlib.py", pathlib)]);
+    let (dir, mut a) = project_app(
+        "py-self-p",
+        &[(
+            "app/t.py",
+            "from pathlib import Path\n\n\ndef f(existing: Path):\n    existing.parent.mkdir(parents=True)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    let place = format!("{}:8", std.join("pathlib.py").display());
+    d_on(&mut a, "app/t.py", "parent.mkdir");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "mkdir \u{2192} Path.mkdir (via existing.parent: Path)",
+            &place
+        )
+    );
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        shown(&mut a),
+        jump("parents: parameter of Path.mkdir", &place)
+    );
+    use_roots(&mut a, Kind::Python, &[site.join("site-packages")]);
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        a.message, "parents: argument label",
+        "a package named like the standard library's module is not typed by its stub"
+    );
+    for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
