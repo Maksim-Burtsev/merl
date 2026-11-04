@@ -121,6 +121,7 @@ The julia row with #1375's third pass (an unqualified `Base` names the `baremodu
 The swift row with #1341's sixth pass (a value of a project type never fits an array parameter or an alias of one, and the element of `array.enumerated().map { index, component in` is typed; swift0031 `serialize(component, forKey: keyPath)` in `URLEncodedFormSerializer`): over `aef7032d1` with this change, 2026-11-05, release build, `vm.loadavg` { 2.79 3.92 4.01 } before the run, { 3.16 3.78 3.95 } after.
 The python row with #1339's fifth pass (a keyword argument of a callee outside the project, found by its import, lands on that parameter or on an outside dataclass's field; python0303 `time_machine.travel(.., tick=False)`): over `ab87a9a10` with this change, 2026-11-05, release build, `vm.loadavg` { 7.54 5.30 4.52 } before the run, { 4.03 4.70 4.37 } after.
 The cpp row with #1336's sixth pass (`std::X` outside the project finds no member of a class, and a class head after a reserved `_LIBCPP_BEGIN_NAMESPACE_STD` is read as a class; cpp0101 `std::unique_lock<std::mutex>` jumps to `class mutex`, not `unique_lock::mutex()`): over `0392f637a` with this change, 2026-11-05, release build, `vm.loadavg` { 3.42 4.59 4.52 } before the run, { 3.10 4.22 4.38 } after; the c and objc rows played the same (0 worse, 0 better) and are kept.
+The svelte row with #1337's fifth pass (a component a package's entry re-exports as `default` lands on the `declare const` of that file, not on the `type X = ReturnType<typeof X>` beside it nor on a namesake elsewhere in the package; 25 `@immich/ui` and `svelte-maplibre` rows): over `6298e4ded` with this change, 2026-11-05, release build, `vm.loadavg` { 3.11 5.20 4.99 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -146,7 +147,7 @@ The cpp row with #1336's sixth pass (`std::X` outside the project finds no membe
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
-| svelte (immich) | 182 | 126 (69%) | 42 (23%) | 0 (0%) | 14 (8%) | 88 | 2 | 30.5 | 177.3 |
+| svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 31.5 | 178.8 |
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |

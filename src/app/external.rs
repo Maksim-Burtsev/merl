@@ -286,6 +286,9 @@ impl App {
             self,
             self.declarations_among(kind, word, q.pattern, &q.files),
         );
+        if narrowed_to_copy && kind == Kind::TsJs && q.word_is_export_name() {
+            hits = self.default_reexported_component(word, q.copy, hits);
+        }
         if hits.is_empty() && narrowed_to_copy && q.word_is_export_name() {
             let within = if module.len() <= q.copy.name_parts {
                 q.copy.entries()
@@ -359,6 +362,52 @@ impl App {
             }));
         }
         found
+    }
+
+    fn default_reexported_component(
+        &self,
+        word: &str,
+        copy: &search::PackageCopy,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        let mut files: Vec<PathBuf> = copy
+            .entries()
+            .iter()
+            .flat_map(|e| {
+                let text = self.text_of(e).unwrap_or_default();
+                search::reexported(&text, word)
+                    .into_iter()
+                    .filter(|r| {
+                        r.name_in_module == "default"
+                            && r.module.first().is_some_and(|m| m.starts_with('.'))
+                    })
+                    .flat_map(|r| {
+                        search::module_files(Kind::TsJs, &self.root, &copy.files, e, &r.module)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        files.sort();
+        files.dedup();
+        let [file] = &files[..] else {
+            return hits;
+        };
+        let kept: Vec<Hit> = hits.iter().filter(|h| h.path == *file).cloned().collect();
+        let (value, ty) = match &kept[..] {
+            [value, ty] if ty.line1 == value.line1 + 1 => (value, ty),
+            [] => return hits,
+            _ => return kept,
+        };
+        let declared = ["declare const ", "export declare const "]
+            .iter()
+            .filter_map(|p| value.text.trim_start().strip_prefix(p))
+            .any(|rest| rest.strip_prefix(word).is_some_and(|r| r.starts_with(':')));
+        let derived = ty.text.trim() == format!("type {word} = ReturnType<typeof {word}>;");
+        if declared && derived {
+            vec![value.clone()]
+        } else {
+            kept
+        }
     }
 
     fn elixir_module(
