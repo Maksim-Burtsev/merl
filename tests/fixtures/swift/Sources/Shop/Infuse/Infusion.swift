@@ -192,3 +192,22 @@ func dipped() -> Int {
     ladle().dip(1).scoops
     //             ^ d: !jump
 }
+
+struct Sieve {
+    func held<Bowl>(_ b: Bowl) -> Bowl { b }
+    func strained() -> Sieve { self }
+}
+
+func sieved(_ sieve: Sieve, _ others: [Hearth]) -> Int {
+    let w = Whisk()
+    let poured = w.sift(1).finish().taste()
+    //                              ^ d: Sources/Shop/Infuse/Sencha.swift:51
+    _ = others.map { w in w.sift(1).sift(2).scoops }
+    //                                      ^ d: !jump
+    _ = others.map { w in w.sift(1).scoops }
+    //                              ^ d: !jump
+    _ = sieve.strained().held(Bowl(froth: 1)).taste()
+    //                                        ^ d: !jump
+    return poured + Sieve().strained().held(Bowl(froth: 1)).taste()
+    //                                                      ^ d: !jump
+}

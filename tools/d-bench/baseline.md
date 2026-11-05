@@ -129,6 +129,7 @@ The rust row with #1302's seventh pass (a `for` variable over a project iterator
 The bash row with #1335's fourth pass (a function every call of which follows `G &&` reads the one assignment `G` runs first, not one followed by `return 1`; bash0077 `ISPC_Api` in `_ISPC_login` jumps to `dns_ispconfig.sh:42`): over `314357d81` with this change, 2026-11-05, release build, `vm.loadavg` { 3.26 4.17 4.41 } before the run.
 The python row with #1339's sixth pass (a standard-library property whose typeshed stub returns `Self` keeps the receiver's type: `existing.parent.mkdir(parents=True)` on a `Path`; python0216): over `eec6d4887` with this change, 2026-11-05, release build, `vm.loadavg` { 2.62 3.48 4.19 } before the run.
 The swift row with #1341's sixth pass (a default in an extension bounded by `where Self: P`, reached through the protocols the class's protocol refines: swift0195 `serializeDownload` on a `JSONResponseSerializer` jumps to `ResponseSerialization.swift:156`): over `04425bb4`, 2026-11-05, release build, `vm.loadavg` { 2.86 3.40 4.08 } before the run.
+The swift row with #1341's eighth pass (a chain of calls led by a value, through a generic method's declared return type: swift0132 `session.download(.get).serializingDecodable(..).response` jumps to `Concurrency.swift:375`): over `7211baa3c` with this change, 2026-11-05, release build, `vm.loadavg` { 2.46 3.12 3.38 } before the run, { 3.55 3.35 3.44 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -140,7 +141,7 @@ The swift row with #1341's sixth pass (a default in an extension bounded by `whe
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
-| swift (Alamofire) | 450 | 438 (97%) | 11 (2%) | 0 (0%) | 1 (0%) | 279 | 7 | 23.7 | 57.6 |
+| swift (Alamofire) | 450 | 439 (98%) | 10 (2%) | 0 (0%) | 1 (0%) | 279 | 7 | 23.6 | 58.2 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
