@@ -5,7 +5,8 @@ use regex::Regex;
 use super::{
     Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
     element_type, group, in_method, indent, jsdoc_owner, jsdoc_properties, literal_lines,
-    python_statements, returns, split_top, ts_header, type_path, uncommented, value_of,
+    python_rooted, python_statements, returns, split_top, ts_header, type_path, uncommented,
+    value_of,
 };
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
@@ -56,7 +57,10 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     let literal = literal_lines(kind, text);
     let body = body.filter(|&i| !literal.get(i).copied().unwrap_or(false));
     match kind {
-        Kind::Python => python_fields(text, &lines, body, base, name),
+        Kind::Python => match python_fields(text, &lines, body.clone(), base, name) {
+            found if found.is_empty() => python_checked_only(text, &lines, body, base, decl, name),
+            found => found,
+        },
         Kind::TsJs => ts_fields(text, &lines, body, base, name, decl),
         Kind::Go if lines[k].contains("struct") => body
             .filter(|&i| indent(lines[i]) == base)
@@ -139,18 +143,6 @@ fn python_fields(
             Some("self.") => ind > base,
             Some(_) => ind > base && in_classmethod(),
         };
-        let type_checking = || {
-            lines[..i]
-                .iter()
-                .rfind(|l| !l.trim().is_empty() && indent(l) < ind)
-                .is_some_and(|l| {
-                    indent(l) == base
-                        && matches!(
-                            uncommented(kind, l).trim(),
-                            "if TYPE_CHECKING:" | "if typing.TYPE_CHECKING:"
-                        )
-                })
-        };
         if ind == base && def.is_match(t) && property(i, ind) {
             push(i, returns(kind, text, i + 1).unwrap_or(Value::Unknown));
             continue;
@@ -160,15 +152,68 @@ fn python_fields(
             continue;
         }
         for s in python_statements(t, false) {
-            if let Some(c) = annotated
-                .captures(s)
-                .filter(|c| right(c) || (c.get(1).is_none() && type_checking()))
-            {
+            if let Some(c) = annotated.captures(s).filter(right) {
                 push(i, Value::Type(c[2].to_owned()));
             } else if let Some(c) = assigned.captures(s).filter(right) {
                 push(i, value_of(kind, &c[2]));
             }
         }
+    }
+    out
+}
+fn python_checked_only(
+    text: &str,
+    lines: &[&str],
+    body: impl Iterator<Item = usize>,
+    base: usize,
+    decl: usize,
+    name: &str,
+) -> Vec<Binding> {
+    if !text.contains("TYPE_CHECKING") {
+        return Vec::new();
+    }
+    let kind = Kind::Python;
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let annotation = rule(format!(r"^{n}\s*:\s*([^=;]+?)\s*(?:=.*)?$"));
+    let runtime = rule(format!(r"\b{n}\b|\bsetattr\s*\(|__dict__"));
+    let under_type_checking = |i: usize, ind: usize| {
+        lines[..i]
+            .iter()
+            .rfind(|l| !l.trim().is_empty() && indent(l) < ind)
+            .is_some_and(|l| {
+                indent(l) == base
+                    && matches!(
+                        uncommented(kind, l).trim(),
+                        "if TYPE_CHECKING:" | "if typing.TYPE_CHECKING:"
+                    )
+            })
+    };
+    let mut out = Vec::new();
+    for i in body {
+        let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
+        let t = code.trim();
+        match annotation.captures(t) {
+            Some(c) if ind > base && under_type_checking(i, ind) => out.push(Binding {
+                line1: i + 1,
+                value: Value::Type(c[1].to_owned()),
+            }),
+            _ if runtime.is_match(t) => return Vec::new(),
+            _ => {}
+        }
+    }
+    let header = rule(r"^\s*class\s+(\w+)".to_owned());
+    let Some(c) = header
+        .captures(lines[decl - 1])
+        .map(|c| regex::escape(&c[1]))
+    else {
+        return Vec::new();
+    };
+    let stored = rule(format!(
+        r#"\b{c}\s*\.\s*{n}\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$)|setattr\s*\(\s*{c}\s*,\s*["']{n}["']"#
+    ));
+    if out.is_empty() || stored.is_match(text) || !python_rooted(text, decl) {
+        return Vec::new();
     }
     out
 }

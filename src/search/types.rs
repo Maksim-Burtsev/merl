@@ -199,6 +199,16 @@ pub(super) fn type_list(kind: Kind, s: &str) -> Vec<String> {
         .map(str::to_owned)
         .collect()
 }
+pub fn plain_python_base(b: &str) -> bool {
+    let b = b.split('[').next().unwrap_or(b);
+    let b = b.rsplit('.').next().unwrap_or(b);
+    matches!(b, "Generic" | "Protocol" | "ABC" | "object")
+}
+pub fn python_rooted(text: &str, decl_line1: usize) -> bool {
+    bases(Kind::Python, text, decl_line1)
+        .iter()
+        .all(|b| plain_python_base(b))
+}
 pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
     static TS_EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bextends\s+((?:<[^<>]*>|[^{])+?)\s*(?:\bimplements\b|\{|$)")

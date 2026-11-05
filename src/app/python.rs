@@ -259,22 +259,28 @@ impl App {
         else {
             return None;
         };
-        let n = regex::escape(name);
-        let rebound = Regex::new(&format!(
-            r"^\s*(?:global\s+(?:\w+\s*,\s*)*{n}\b|{n}\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$))"
-        ))
-        .ok()?;
-        if *line1 != made.hit.line1
-            || class.contains('.')
-            || text.lines().filter(|l| rebound.is_match(l)).count() != 1
-        {
+        let once = |n: &str| {
+            let binds = module_binds(n);
+            text.lines().filter(|l| binds.is_match(l)).count() == 1
+        };
+        if *line1 != made.hit.line1 || class.contains('.') || !once(name) || !once(class) {
             return None;
         }
         let ty = self.type_decl(kind, &made.hit.path, class)?;
-        let hits = match self.own_member(kind, &ty, word) {
-            Some(hits) => hits,
-            None => self.above(kind, &ty, word, 0).ok()?,
-        };
+        if ty.path != made.hit.path || !search::python_rooted(&text, ty.line) {
+            return None;
+        }
+        let start = self.walked_module(module)?;
+        let package = self.python_package_files(&[&made.hit.path, &start]);
+        let (m, v) = (regex::escape(module.last()?), regex::escape(value));
+        let stores = format!(
+            r#"{}|\b{m}\s*\.\s*{v}{STORE}|\bsetattr\s*\(\s*{m}\s*,\s*["']{v}["']"#,
+            stores_of(&[name, word])
+        );
+        if !self.grep_in(&stores, &package).is_empty() {
+            return None;
+        }
+        let hits = self.own_member(kind, &ty, word)?;
         let reason = Reason::Receiver(format!("{}.{value}: {}", module.join("."), ty.name));
         (!hits.is_empty()).then(|| {
             hits.into_iter()
@@ -713,6 +719,25 @@ pub(super) fn python_absolute(
     }
     (!path.is_empty()).then_some(path)
 }
+const STORE: &str = r"\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$)";
+
+fn module_binds(name: &str) -> Regex {
+    let n = regex::escape(name);
+    Regex::new(&format!(
+        r"^\s*(?:(?:global|del|case)\b.*\b{n}\b|(?:async\s+)?(?:def|class)\s+{n}\b|for\b.*\b{n}\b.*\bin\b|[\w\s,.*()\[\]]*\b{n}\b[\w\s,.*()\[\]]*{STORE})|\bimport\b.*\b{n}\b|\bas\s+{n}\b|\b{n}\s*:=|\bsetattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)|\bsys\.modules\b"
+    ))
+    .expect("an escaped name keeps the pattern valid")
+}
+
+fn stores_of(names: &[&str]) -> String {
+    let n = (names.iter().map(|n| regex::escape(n)))
+        .collect::<Vec<_>>()
+        .join("|");
+    format!(
+        r#"\.\s*(?:{n})\b{STORE}|\bsetattr\s*\(.*["'](?:{n})["']|\[\s*["'](?:{n})["']\s*\]{STORE}|\b(?:{n})\s*\.\s*__(?:dict|setattr)__"#
+    )
+}
+
 fn python_import_line(text: &str, name: &str) -> Option<usize> {
     static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)")

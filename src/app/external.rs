@@ -604,6 +604,21 @@ impl App {
             .map(|(_, f)| f.clone())
     }
 
+    pub(super) fn python_package_files(&self, of: &[&Path]) -> Vec<PathBuf> {
+        let Some((roots, files)) = self.external.get(&Kind::Python) else {
+            return Vec::new();
+        };
+        let top = |f: &Path| {
+            let (root, rel) = python_rel(roots, f)?;
+            Some((root, rel.components().next()?.as_os_str().to_owned()))
+        };
+        let tops: Vec<_> = of.iter().filter_map(|f| top(f)).collect();
+        (files.iter())
+            .filter(|f| top(f).is_some_and(|t| tops.contains(&t)))
+            .cloned()
+            .collect()
+    }
+
     pub(super) fn note_cut(&self, hits: &[Hit]) {
         if hits.len() >= search::MAX_HITS {
             self.truncated.set(true);
