@@ -885,6 +885,114 @@ pub fn julia_type_heads(name: &str) -> String {
     )
 }
 
+pub fn julia_declares_type(line: &str, name: &str) -> bool {
+    let w = regex::escape(name);
+    Regex::new(&format!(
+        r"^\s*(?:{MACROS}(?:mutable\s+)?struct|(?:abstract|primitive)\s+type)\s+{w}{END}|^\s*(?:global\s+)?const\s+{w}\s*{TYPE_PARAMS}=(?:[^=]|$)"
+    ))
+    .is_ok_and(|re| re.is_match(line))
+}
+
+pub fn julia_declares_method(line: &str, name: &str) -> bool {
+    let w = regex::escape(name);
+    Regex::new(&format!(
+        r"^\s*{MACROS}(?:function\s+{QUALIFIER}{w}{END}|{QUALIFIER}{w}\s*{TYPE_PARAMS}\()"
+    ))
+    .is_ok_and(|re| re.is_match(line))
+}
+
+pub fn julia_names_a_type_here(lines: &[&str], row: usize, start: usize, name: &str) -> bool {
+    let code_line = |k: usize, literal: &[bool]| {
+        let l = lines[k].trim_start();
+        !literal.get(k).copied().unwrap_or(false) && !l.is_empty() && !l.starts_with('#')
+    };
+    let Some(line) = lines.get(row) else {
+        return false;
+    };
+    let (Some(before), Some(after)) = (line.get(..start), line.get(start + name.len()..)) else {
+        return false;
+    };
+    if !in_type_position(before) || called(after) || julia_type_param(lines, name) {
+        return false;
+    }
+    let literal = julia_literal_lines(&lines.join("\n"));
+    let first = (0..=row)
+        .rev()
+        .find(|&k| code_line(k, &literal) && indent(lines[k]) == 0)
+        .unwrap_or(0);
+    let last = (row + 1..lines.len())
+        .find(|&k| code_line(k, &literal) && indent(lines[k]) == 0)
+        .map_or(lines.len(), |k| {
+            k + usize::from(lines[k].trim_start().starts_with("end"))
+        });
+    (first..last)
+        .filter(|&k| !literal.get(k).copied().unwrap_or(false))
+        .all(|k| {
+            let l = lines[k];
+            let l = if l.contains(['"', '\'', '`']) {
+                l
+            } else {
+                l.split('#').next().unwrap_or_default()
+            };
+            let defined = julia_declares_method(l, name);
+            julia_col_all(l, name).all(|i| {
+                let (Some(b), Some(a)) = (l.get(..i), l.get(i + name.len()..)) else {
+                    return false;
+                };
+                in_type_position(b) || (called(a) && !defined)
+            })
+        })
+}
+
+fn julia_col_all<'a>(line: &'a str, word: &'a str) -> impl Iterator<Item = usize> + 'a {
+    let b = line.as_bytes();
+    let part = move |i: usize| {
+        b.get(i)
+            .is_some_and(|&c| c.is_ascii_alphanumeric() || c == b'_' || c == b'!')
+    };
+    line.match_indices(word)
+        .map(|(i, _)| i)
+        .filter(move |&i| !(part(i + word.len()) || i > 0 && part(i - 1)))
+}
+
+fn called(after: &str) -> bool {
+    let after = match closing(after).filter(|_| after.starts_with('{')) {
+        Some(close) => after.get(close + 1..).unwrap_or_default(),
+        None => after,
+    };
+    after.starts_with('(') || after.starts_with(".(")
+}
+
+fn in_type_position(before: &str) -> bool {
+    let b = before.trim_end();
+    let word_ends = |w: &str| {
+        b.strip_suffix(w)
+            .is_some_and(|r| !r.ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '!'))
+    };
+    if b.ends_with("::") || b.ends_with("<:") || b.ends_with(">:") || b.ends_with("=>") {
+        return true;
+    }
+    if word_ends("isa") || b.ends_with("@test_throws") {
+        return before.len() > b.len();
+    }
+    let mut open = Vec::new();
+    for (i, c) in b.char_indices() {
+        match c {
+            '(' | '[' | '{' => open.push((i, c)),
+            ')' | ']' | '}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open.last().is_some_and(|&(i, c)| {
+        c == '{'
+            && (b.ends_with('{') || b.ends_with(','))
+            && b.get(..i)
+                .is_some_and(|h| h.ends_with(|c: char| c.is_alphanumeric() || c == '_'))
+    })
+}
+
 pub fn julia_is_struct(line: &str) -> bool {
     STRUCT.is_match(line)
 }

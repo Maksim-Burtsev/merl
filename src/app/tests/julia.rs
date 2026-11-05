@@ -402,3 +402,59 @@ fn d_on_julia_s_base_keeps_the_picker_when_the_project_owns_a_base() {
     );
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn d_on_a_julia_type_name_not_called_lands_on_its_declaration() {
+    let types = "struct Shape\n    r\n    Shape(r) = new(r)\nend\nShape() = Shape(1)\nabstract type Kind end\nKind(x::Int) = 1\nconst Vec = Vector{Int}\nVec(n::Int) = Vec(undef, n)\nstruct Dup\nend\nDup(x) = 1\n";
+    let uses = "area(a1::Shape) = 1\nfunction isa_(a2)\n    a2 isa Shape\nend\nvec(a3::Vector{Shape}) = 1\nunion(a4::Union{Int, Shape}) = 1\nsub(::Type{T}) where {T <: Shape} = 1\npair(df) = select(df, :a5 => Shape)\nthrows() = @test_throws Shape f(:a6)\nkind(a7::Kind) = 1\nv(a8::Vec) = 1\ndup(a9::Dup) = 1\ncalled1() = Shape(:b1)\ncalled2(xs) = Shape.(xs, :b2)\nfunction lets(t)\n    let Shape = t\n        b3 isa Shape\n    end\nend\nfunction dos(xs)\n    map(xs) do Shape\n        b4 isa Shape\n    end\nend\nfunction catches()\n    try\n        f()\n    catch Shape\n        b5 isa Shape\n    end\nend\nfunction anon()\n    h = function (Shape)\n        b6 isa Shape\n    end\nend\nfunction loops(ts)\n    for Shape in ts\n        b7 isa Shape\n    end\nend\ncomp(ts) = [b8 isa Shape for Shape in ts]\nfunction destr(t)\n    (c, Shape) = t\n    b9 isa Shape\nend\nfunction kw(x; Shape=Int)\n    c1 isa Shape\nend\nlam(xs) = map(Shape -> c2 isa Shape, xs)\nfunction assigned(t)\n    Shape = t\n    c3 isa Shape\nend\nfunction param(Shape)\n    c4 isa Shape\nend\nfunction local_method()\n    Shape(x) = 1\n    c5 isa Shape\nend\nfunction typed_param(Shape::Type)\n    c6 isa Shape\nend\nfunction lets_tuple(t)\n    let a = 1, Shape = t\n        c7 isa Shape\n    end\nend\nfunction multi(\n        x,\n        Shape)\n    c9 isa Shape\nend\nfunction later(t)\n    d1 isa Shape\n    Shape = t\nend\n";
+    let (dir, mut a) = project_app(
+        "julia-type-named",
+        &[
+            ("src/types.jl", types),
+            ("src/other.jl", "struct Dup\nend\n"),
+            ("src/use.jl", uses),
+            ("src/where.jl", "wh(c8::Shape) where {Shape} = 1\n"),
+        ],
+    );
+    for (file, code, line) in [
+        ("src/use.jl", "a1::Shape", Some(1)),
+        ("src/use.jl", "a2 isa Shape", Some(1)),
+        ("src/use.jl", "a3::Vector{Shape", Some(1)),
+        ("src/use.jl", "Int, Shape", Some(1)),
+        ("src/use.jl", "T <: Shape", Some(1)),
+        ("src/use.jl", ":a5 => Shape", Some(1)),
+        ("src/use.jl", "@test_throws |Shape f(:a6)", Some(1)),
+        ("src/use.jl", "a7::Kind", Some(6)),
+        ("src/use.jl", "a8::Vec", Some(8)),
+        ("src/use.jl", "a9::Dup", None),
+        ("src/use.jl", "Shape(:b1)", None),
+        ("src/use.jl", "Shape.(xs, :b2)", None),
+        ("src/use.jl", "b3 isa Shape", None),
+        ("src/use.jl", "b4 isa Shape", None),
+        ("src/use.jl", "b5 isa Shape", None),
+        ("src/use.jl", "b6 isa Shape", None),
+        ("src/use.jl", "b7 isa Shape", None),
+        ("src/use.jl", "b8 isa Shape", None),
+        ("src/use.jl", "b9 isa Shape", None),
+        ("src/use.jl", "c1 isa Shape", None),
+        ("src/use.jl", "c2 isa Shape", None),
+        ("src/use.jl", "c3 isa Shape", None),
+        ("src/use.jl", "c4 isa Shape", None),
+        ("src/use.jl", "c5 isa Shape", None),
+        ("src/use.jl", "c6 isa Shape", None),
+        ("src/use.jl", "c7 isa Shape", None),
+        ("src/use.jl", "c9 isa Shape", None),
+        ("src/use.jl", "d1 isa Shape", None),
+        ("src/where.jl", "c8::Shape", None),
+    ] {
+        d_on(&mut a, file, code);
+        match (shown(&mut a), line) {
+            (Shown::Jump(_, at), Some(line)) => assert_eq!(at, format!("src/types.jl:{line}")),
+            (Shown::Jump(_, at), None) => assert!(!at.starts_with("src/types.jl"), "{code}: {at}"),
+            (Shown::Picker(..), None) => {}
+            (got, _) => panic!("{code}: {got:?}"),
+        }
+        a.jump_to(&dir.join(file), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
