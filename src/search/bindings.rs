@@ -3,10 +3,11 @@ use regex::Regex;
 use super::{
     Kind, behind_doc, c_bindings, close_of, code, comment, cs_enclosing, cs_namespace_line,
     cs_opener, cs_statement, cs_type_decl, dart_bindings, declares_type, gdscript_bindings,
-    haskell_bindings, indent, julia_bindings, jvm_bindings, lisp, lisp_bindings, literal_lines,
-    lua_bindings, names, nix_bindings, powershell_params, python_bindings_at, ruby_bindings,
-    rust_bindings, shell_bindings, solidity_bindings, split_top, swift_bindings, ts_declarators,
-    ts_declares_then_uses, ts_destructured, ts_hoisted_vars, ts_params, type_list, uncommented,
+    go_declares_then_uses, haskell_bindings, indent, julia_bindings, jvm_bindings, lisp,
+    lisp_bindings, literal_lines, lua_bindings, names, nix_bindings, powershell_params,
+    python_bindings_at, ruby_bindings, rust_bindings, shell_bindings, solidity_bindings, split_top,
+    swift_bindings, ts_declarators, ts_declares_then_uses, ts_destructured, ts_hoisted_vars,
+    ts_params, type_list, uncommented,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -179,7 +180,14 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
             ts_hoisted_vars(&lines, at, name, &mut out);
             out
         }
-        Kind::TsJs | Kind::Go | Kind::CSharp => block_bindings(kind, &lines, at, name),
+        Kind::Go => {
+            let out = block_bindings(kind, &lines, at, name);
+            if out.iter().all(|b| b.line1 != line) && go_declares_then_uses(lines[at], name) {
+                return vec![unknown(line)];
+            }
+            out
+        }
+        Kind::TsJs | Kind::CSharp => block_bindings(kind, &lines, at, name),
         Kind::Lua => lua_bindings(&lines, at, name),
         Kind::Shell => shell_bindings(&lines, at, name),
         Kind::PowerShell => powershell_params(&lines, at, name),
@@ -584,8 +592,10 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
                         value,
                     });
                 }
-                if t.starts_with("switch ") || t.starts_with("select ") {
-                    arm = None;
+                if (t.starts_with("switch ") || t.starts_with("select "))
+                    && go_switch_init(arm.take(), t, i + 1, name, &mut out)
+                {
+                    break;
                 }
                 declared_in_block |= out.len() > before;
             }
@@ -617,6 +627,22 @@ fn block_bindings(kind: Kind, lines: &[&str], at: usize, name: &str) -> Vec<Bind
         }
     }
     out
+}
+fn go_switch_init(
+    arm: Option<Vec<String>>,
+    t: &str,
+    line: usize,
+    name: &str,
+    out: &mut Vec<Binding>,
+) -> bool {
+    let Some(value) = arm
+        .filter(|_| t.starts_with("switch ") && !t.contains(".(type)"))
+        .and_then(|_| go_header_init(t, name))
+    else {
+        return false;
+    };
+    out.push(Binding { line1: line, value });
+    true
 }
 fn own_line_hides(kind: Kind, line: &str, at: usize, name: &str, out: &mut Vec<Binding>) -> bool {
     let own = uncommented(kind, line);
@@ -1063,7 +1089,7 @@ static GO_SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
 });
 fn go_header_init(header: &str, name: &str) -> Option<Value> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^for\s+|(?:^|\belse\s+)if\s+").expect("the regex is a literal")
+        Regex::new(r"^(?:for|switch)\s+|(?:^|\belse\s+)if\s+").expect("the regex is a literal")
     });
     let (names, values, at) = HEAD.find_iter(header).find_map(|m| {
         let [init, _, ..] = split_top(Kind::Go, header.get(m.end()..)?, b';')[..] else {
@@ -1120,7 +1146,7 @@ fn go_constrained(t: &str, type_params: &[(String, String)]) -> String {
         _ => t.to_owned(),
     }
 }
-fn go_params(
+pub(super) fn go_params(
     params: &str,
     type_params: &[(String, String)],
     line: usize,
