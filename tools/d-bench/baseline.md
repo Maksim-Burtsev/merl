@@ -132,12 +132,13 @@ The swift row with #1341's sixth pass (a default in an extension bounded by `whe
 The swift row with #1341's eighth pass (a chain of calls led by a value, through a generic method's declared return type: swift0132 `session.download(.get).serializingDecodable(..).response` jumps to `Concurrency.swift:375`): over `7211baa3c` with this change, 2026-11-05, release build, `vm.loadavg` { 2.46 3.12 3.38 } before the run, { 3.55 3.35 3.44 } after.
 The python row with #1339's eighth pass (a call of a name typed `Callable[..., T]` or `Callable[[..], T]` returns `T`: python0142 `cjk_only = index_document(..)` then `cjk_only.pk`, on a fixture parameter typed `Callable[..., Document]`): over `07db2106d` with this change, 2026-11-06, release build, `vm.loadavg` { 9.01 5.93 4.84 } before the run.
 The swift row with #1341's tenth pass (a label in an implicit `.init(` typed by the outer call's parameter of that label: swift0107 `refreshWindow: .init(interval: 30, maximumAttempts: 1)` jumps to `AuthenticationInterceptor.swift:187`): over `07db2106d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.95 4.50 4.62 } before the run.
+The julia and js rows with answers judged for #1375 and #1337 (a Julia type named, not called, answers its declaration: julia0013, julia0029, julia0049, julia0085, julia0087, julia0233; js0366 and js0382 also accept the `ts5.6/buffer.buffer.d.ts:353` the project's TypeScript 4.4.4 reads): over `0a18a2f18`, 2026-11-06, release build, `vm.loadavg` { 4.70 6.22 5.71 } before the run, { 4.01 5.31 5.40 } after. No verdict moved: merl's pickers held both answers.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
 | python (paperless-ngx) | 262 | 255 (97%) | 3 (1%) | 0 (0%) | 4 (2%) | 63 | 8 | 16.3 | 175.3 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
-| js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
+| js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.3 | 171.2 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
@@ -153,7 +154,7 @@ The swift row with #1341's tenth pass (a label in an implicit `.init(` typed by 
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 189 | 102 (54%) | 80 (42%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.2 | 29.9 |
+| julia (DataFrames.jl) | 189 | 102 (54%) | 80 (42%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.2 | 29.4 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
