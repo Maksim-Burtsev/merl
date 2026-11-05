@@ -283,10 +283,11 @@ impl App {
             let own = search::swift_type_header(lines[around? - 1])?.name;
             return Some(WrittenVia::plain(own));
         }
+        let lead = (file == here && line1 == self.line + 1)
+            .then(|| lines[line1 - 1].get(..self.col))
+            .flatten();
         if name == "0" {
-            let lead = (file == here && line1 == self.line + 1)
-                .then(|| lines[line1 - 1].get(..self.col))
-                .flatten()?;
+            let lead = lead?;
             let Some(each) = search::swift_closure_sequence(lead) else {
                 let call = search::swift_trailing_closure(lead, name)?;
                 return self.swift_closure_value(here, file, text, line1, call, hops);
@@ -306,14 +307,10 @@ impl App {
             return (up.keyword.as_deref() == Some("class")).then(|| WrittenVia::plain(up.name));
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
-            _ if file == here
-                && line1 == self.line + 1
-                && let Some(call) = lines[line1 - 1]
-                    .get(..self.col)
-                    .and_then(|lead| search::swift_param_closure(lead, name)) =>
-            {
+            _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
+            [_] if lead.is_some_and(|l| search::swift_rebound_in_open_block(l, name)) => None,
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
                 match search::swift_given(line, name) {
@@ -336,12 +333,7 @@ impl App {
                     },
                 }
             }
-            [] if file == here
-                && line1 == self.line + 1
-                && let Some(value) = lines[line1 - 1]
-                    .get(..self.col)
-                    .and_then(|lead| search::swift_bound_before(lead, name)) =>
-            {
+            [] if let Some(value) = lead.and_then(|l| search::swift_bound_before(l, name)) => {
                 let given = search::SwiftGiven::Value(value);
                 self.swift_given_type(here, file, text, line1, given, hops)
             }

@@ -170,6 +170,26 @@ pub fn swift_shadows(line: &str, name: &str) -> bool {
         .is_match(&uncommented(Kind::Swift, line))
 }
 
+pub fn swift_rebound_in_open_block(lead: &str, name: &str) -> bool {
+    let open = open_braces(lead, lead.len());
+    let starts = std::iter::once(0).chain(open.iter().map(|&o| o + 1));
+    let ends = open.iter().copied().chain(std::iter::once(lead.len()));
+    starts.zip(ends).enumerate().any(|(i, (from, to))| {
+        let part = lead.get(from..to).unwrap_or_default();
+        let params = i > 0
+            && CLOSURE_HEAD
+                .captures(part)
+                .is_some_and(|c| swift_closure_params_bind(&c[2], name));
+        let case = part.trim_start().starts_with("case ") && super::swift_may_bind(part, name);
+        params
+            || if i < open.len() {
+                swift_shadows(part, name)
+            } else {
+                case
+            }
+    })
+}
+
 pub fn swift_generic_params(lines: &[&str], line1: usize) -> Option<Vec<String>> {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:\bfunc\s+`?[^\s(<]+`?|\binit[?!]?|\bsubscript|\b(?:class|struct|enum|actor|typealias)\s+`?\w+`?)\s*<")
