@@ -218,7 +218,7 @@ impl App {
             && dotted
             && chain.is_empty()
             && word != "init"
-            && let Some(links) = a.written.get(..a.start).and_then(search::swift_call_links)
+            && let Some(links) = self.swift_unshadowed_links(&a.text, a.written.get(..a.start))
             && let Some(mut found) = self.swift_on_call(
                 &a.here,
                 &a.text,
