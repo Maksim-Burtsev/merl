@@ -439,6 +439,26 @@ impl App {
         if p.on_value && found.len() > 1 {
             self.julia_typed_field(a, found);
         }
+        if !a.dotted && a.chain.is_empty() && found.len() > 1 {
+            self.julia_type_named(a, found);
+        }
+    }
+
+    fn julia_type_named(&self, a: &Asked, found: &mut Vec<Candidate>) {
+        let lines: Vec<&str> = a.text.lines().collect();
+        if !search::julia_names_a_type_here(&lines, self.line, a.range.start, &a.word) {
+            return;
+        }
+        let (heads, methods): (Vec<&Candidate>, Vec<&Candidate>) = found
+            .iter()
+            .partition(|c| search::julia_declares_type(&c.hit.text, &a.word));
+        if let [head] = heads[..]
+            && methods
+                .iter()
+                .all(|c| search::julia_declares_method(&c.hit.text, &a.word))
+        {
+            *found = vec![head.clone()];
+        }
     }
 
     fn julia_typed_field(&self, a: &Asked, found: &mut Vec<Candidate>) {

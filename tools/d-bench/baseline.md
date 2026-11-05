@@ -133,6 +133,7 @@ The swift row with #1341's eighth pass (a chain of calls led by a value, through
 The python row with #1339's eighth pass (a call of a name typed `Callable[..., T]` or `Callable[[..], T]` returns `T`: python0142 `cjk_only = index_document(..)` then `cjk_only.pk`, on a fixture parameter typed `Callable[..., Document]`): over `07db2106d` with this change, 2026-11-06, release build, `vm.loadavg` { 9.01 5.93 4.84 } before the run.
 The swift row with #1341's tenth pass (a label in an implicit `.init(` typed by the outer call's parameter of that label: swift0107 `refreshWindow: .init(interval: 30, maximumAttempts: 1)` jumps to `AuthenticationInterceptor.swift:187`): over `07db2106d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.95 4.50 4.62 } before the run.
 The julia and js rows with answers judged for #1375 and #1337 (a Julia type named, not called, answers its declaration: julia0013, julia0029, julia0049, julia0085, julia0087, julia0233; js0366 and js0382 also accept the `ts5.6/buffer.buffer.d.ts:353` the project's TypeScript 4.4.4 reads): over `0a18a2f18`, 2026-11-06, release build, `vm.loadavg` { 4.70 6.22 5.71 } before the run, { 4.01 5.31 5.40 } after. No verdict moved: merl's pickers held both answers.
+The julia row with #1375's fifth pass (a type name that is not called, after `::`, `isa`, `<:`, `>:`, `=>`, `@test_throws` or inside a `T{…}`, whose candidates are one `struct`, `abstract type`, `primitive type` or `const` and that name's methods, lands on the declaration, unless the name is bound anywhere in its top-level block or a `where`/`struct` of the file binds it as a parameter; 21 rows from pickers to direct hits, among them julia0081 `AsTable` and the six judged rows): over `b628e397d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.36 3.53 4.36 } before the run, { 3.01 3.44 4.25 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -154,7 +155,7 @@ The julia and js rows with answers judged for #1375 and #1337 (a Julia type name
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 189 | 102 (54%) | 80 (42%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.2 | 29.4 |
+| julia (DataFrames.jl) | 189 | 123 (65%) | 59 (31%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.8 | 33.5 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
