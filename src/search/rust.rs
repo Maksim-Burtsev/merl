@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use super::rust_rebound::macro_binds;
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, literal_lines, names,
     uncommented,
@@ -629,7 +630,7 @@ fn without_closures_binding(line: &str, w: &str) -> String {
     }
     out
 }
-fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
+pub(super) fn top_stop(s: &str, stops: &[u8]) -> Option<usize> {
     let b = s.as_bytes();
     let mut depth = 0i32;
     for (i, c) in code(Kind::Rust, s) {
@@ -661,42 +662,17 @@ pub fn top_split(mut s: &str) -> Vec<&str> {
     out.push(s);
     out
 }
-pub fn rust_closure_holds(line: &str, name: &str, at: usize) -> bool {
-    static CLOSURE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|[(,={]|\bmove|\breturn|=>)\s*\|([^|]*)\|")
-            .expect("the regex is a literal")
-    });
-    CLOSURE.captures_iter(line).any(|c| {
-        let Some(body) = c.get(0).and_then(|m| line.get(m.end()..at)) else {
-            return false;
-        };
-        let mut depth = 0i32;
-        let inside = code(Kind::Rust, body).all(|(_, b)| {
-            match b {
-                b'(' | b'[' | b'{' => depth += 1,
-                b')' | b']' | b'}' => depth -= 1,
-                _ => {}
-            }
-            depth > 0 || (depth == 0 && !matches!(b, b',' | b';'))
-        });
-        inside
-            && !rust_rebinds(body, name)
-            && top_split(&c[1])
-                .iter()
-                .any(|p| binds(without_type(p), name))
-    })
-}
-fn rust_rebinds(code_part: &str, name: &str) -> bool {
+pub(super) fn rust_rebinds(code_part: &str, name: &str) -> bool {
     static LET: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\blet\b").expect("the regex is a literal"));
     LET.is_match(code_part) || line_binds(code_part, name, CodeShape::Line)
 }
-fn without_type(param: &str) -> &str {
+pub(super) fn without_type(param: &str) -> &str {
     top_stop(param, b":")
         .and_then(|i| param.get(..i))
         .unwrap_or(param)
 }
-fn binds(pat: &str, name: &str) -> bool {
+pub(super) fn binds(pat: &str, name: &str) -> bool {
     let mut bytes = vec![b' '; pat.len()];
     for (i, c) in code(Kind::Rust, pat) {
         bytes[i] = if c == 0 { b' ' } else { c };
@@ -867,6 +843,7 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
                         return Vec::new();
                     }
                 }
+                None if macro_binds(&t, name) => return Vec::new(),
                 None => {}
             }
             continue;

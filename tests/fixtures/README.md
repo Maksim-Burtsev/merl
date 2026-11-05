@@ -830,6 +830,10 @@ default method of a trait bounding its `F: FnMut(&Self::Captures)`, and `Mesh`'s
 `type Captures = Caps;`, so `caps.get` is `Caps::get` beside `Grain::get`; the comma inside the
 string does not move the argument. A closure on the cursor's own line, a parameter written with
 a type, and a parameter of an unbounded `F` keep the picker.
+`tests/rebound.rs` binds `held` again on the cursor's own line before the cursor (a `let`, a
+`let … else`, a block's `let`, a one-line `match` arm) and through a project macro taking the
+name (`sift!(held);`), all over an outer `held: Caps`: each keeps a picker holding `Grain::get`,
+while the `let`'s own right side, the next arm, a closed block and std macros keep `Caps`.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a

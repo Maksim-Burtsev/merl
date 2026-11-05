@@ -839,6 +839,11 @@ impl App {
             let link = format!("self: {}", ty.name);
             return Some((ty, link));
         }
+        if let (Some(c), Some(line)) = (col, lines.get(line0))
+            && search::rust_rebound_before(line, name, c)
+        {
+            return None;
+        }
         let mut bindings = rust_seen(text, line0, name, above);
         if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
             && let (Some(c), Some(line)) = (col, lines.get(line0))
