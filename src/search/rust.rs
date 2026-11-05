@@ -661,6 +661,36 @@ pub fn top_split(mut s: &str) -> Vec<&str> {
     out.push(s);
     out
 }
+pub fn rust_closure_holds(line: &str, name: &str, at: usize) -> bool {
+    static CLOSURE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|[(,={]|\bmove|\breturn|=>)\s*\|([^|]*)\|")
+            .expect("the regex is a literal")
+    });
+    CLOSURE.captures_iter(line).any(|c| {
+        let Some(body) = c.get(0).and_then(|m| line.get(m.end()..at)) else {
+            return false;
+        };
+        let mut depth = 0i32;
+        let inside = code(Kind::Rust, body).all(|(_, b)| {
+            match b {
+                b'(' | b'[' | b'{' => depth += 1,
+                b')' | b']' | b'}' => depth -= 1,
+                _ => {}
+            }
+            depth > 0 || (depth == 0 && !matches!(b, b',' | b';'))
+        });
+        inside
+            && !rust_rebinds(body, name)
+            && top_split(&c[1])
+                .iter()
+                .any(|p| binds(without_type(p), name))
+    })
+}
+fn rust_rebinds(code_part: &str, name: &str) -> bool {
+    static LET: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\blet\b").expect("the regex is a literal"));
+    LET.is_match(code_part) || line_binds(code_part, name, CodeShape::Line)
+}
 fn without_type(param: &str) -> &str {
     top_stop(param, b":")
         .and_then(|i| param.get(..i))
@@ -866,8 +896,8 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
         }
         let signature = (t == "{" || t.starts_with("where"))
             && opener(i).is_some_and(|j| FN_LINE.is_match(lines[j]));
-        let for_header = t == "{" && opener(i).is_some_and(|j| open_for_head(&code(j)));
-        if t.starts_with(')') || signature || for_header {
+        let open_header = t == "{" && opener(i).is_some_and(|j| open_head(lines, j, i));
+        if t.starts_with(')') || signature || open_header {
             match opener(i) {
                 Some(j) => i = j,
                 None => break,
@@ -886,8 +916,12 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
     }
     out
 }
-fn open_for_head(l: &str) -> bool {
-    l.starts_with("for ") && !l.ends_with(['{', '}', ';'])
+fn open_head(lines: &[&str], head: usize, brace: usize) -> bool {
+    let code = |k: usize| uncommented(Kind::Rust, lines[k]).trim().to_owned();
+    let l = code(head);
+    ["for ", "if ", "while "].iter().any(|k| l.starts_with(k))
+        && !l.ends_with(['{', '}', ';'])
+        && (head + 1..brace).all(|k| code(k).is_empty() || indent(lines[k]) > indent(lines[brace]))
 }
 pub fn rust_method_pattern(word: &str) -> String {
     format!(
@@ -1259,10 +1293,24 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
     let n = regex::escape(name);
     let line = uncommented(Kind::Rust, lines.get(at)?);
     let t = line.trim();
+    let closure_typed_param = Regex::new(&format!(
+        r"\|(?:[^|]*?[\s(,])?(?:mut\s+)?{n}\s*:([^:][^|]*)\|"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let typed_param = || {
+        let c = closure_typed_param.captures(&line)?;
+        let rest = line.get(c.get(0)?.end()..)?;
+        (!rust_rebinds(rest, name)).then(|| RustHolds::Type(type_at(&c[1]).to_owned()))
+    };
     if t.starts_with("let ") {
         let head = Regex::new(&format!(r"^let\s+(?:mut\s+)?{n}\s*(:[^:]|=[^=])"))
             .expect("an escaped name keeps the pattern valid");
-        let c = head.captures(t)?;
+        let Some(c) = head.captures(t) else {
+            let own = let_pattern(&line)
+                .and_then(|p| line.get(p))
+                .is_some_and(|p| binds(p, name));
+            return if own { None } else { typed_param() };
+        };
         let rest = t.get(c.get(1)?.start() + 1..)?;
         if c[1].starts_with(':') {
             return Some(RustHolds::Type(type_at(rest).to_owned()));
@@ -1306,12 +1354,8 @@ pub fn rust_holds(lines: &[&str], at: usize, name: &str) -> Option<RustHolds> {
         }
         return None;
     }
-    let closure_typed_param = Regex::new(&format!(
-        r"\|(?:[^|]*?[\s(,])?(?:mut\s+)?{n}\s*:([^:][^|]*)\|"
-    ))
-    .expect("an escaped name keeps the pattern valid");
-    if let Some(c) = closure_typed_param.captures(&line) {
-        return Some(RustHolds::Type(type_at(&c[1]).to_owned()));
+    if closure_typed_param.is_match(&line) {
+        return typed_param();
     }
     let fn_param = Regex::new(&format!(r"(?:^|[(,])\s*(?:mut\s+)?{n}\s*:([^:].*)"))
         .expect("an escaped name keeps the pattern valid");

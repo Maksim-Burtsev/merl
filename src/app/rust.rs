@@ -762,10 +762,11 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
-        let mut typed = self.rust_value_type(here, text, self.line, &chain[0], false);
+        let col = self.word_here(Some(Kind::Rust)).map(|(r, _)| r.start);
+        let mut typed = self.rust_value_type(here, text, self.line, &chain[0], false, col);
         if typed.is_none() {
             self.external_files(Kind::Rust);
-            typed = self.rust_value_type(here, text, self.line, &chain[0], false);
+            typed = self.rust_value_type(here, text, self.line, &chain[0], false, col);
         }
         let Some((mut ty, link)) = typed else {
             if let [name] = chain
@@ -826,6 +827,7 @@ impl App {
         line0: usize,
         name: &str,
         above: bool,
+        col: Option<usize>,
     ) -> Option<(Typed, String)> {
         let lines: Vec<&str> = text.lines().collect();
         if name == "self" {
@@ -837,7 +839,13 @@ impl App {
             let link = format!("self: {}", ty.name);
             return Some((ty, link));
         }
-        let bindings = rust_seen(text, line0, name, above);
+        let mut bindings = rust_seen(text, line0, name, above);
+        if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
+            && let (Some(c), Some(line)) = (col, lines.get(line0))
+            && search::rust_closure_holds(line, name, c)
+        {
+            bindings.truncate(1);
+        }
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
@@ -1064,7 +1072,7 @@ impl App {
             let tr = PATH.captures(before)?[1].to_owned();
             let arg = ARG.captures(line.get(range.end..)?)?;
             (
-                self.rust_value_type(here, text, self.line, &arg[1], false)?
+                self.rust_value_type(here, text, self.line, &arg[1], false, None)?
                     .0,
                 tr,
                 true,
