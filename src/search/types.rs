@@ -599,6 +599,34 @@ pub fn python_dict_value(written: &str) -> Option<String> {
     let value = value.trim();
     (!value.is_empty()).then(|| value.to_owned())
 }
+pub fn python_callable_return(text: &str, written: &str) -> Option<String> {
+    let t = written.trim().trim_matches(['"', '\'']);
+    let open = t.find('[').filter(|_| t.ends_with(']'))?;
+    let head = t.get(..open)?.trim_end();
+    let standard = || {
+        let imports = super::imports(Kind::Python, text);
+        let mut callable = imports.iter().filter(|i| i.name == "Callable").peekable();
+        callable.peek().is_some()
+            && callable.all(|i| {
+                matches!(
+                    i.path.join(".").trim_end_matches(".Callable"),
+                    "typing" | "collections.abc" | "typing_extensions"
+                )
+            })
+    };
+    if !(matches!(head, "typing.Callable" | "collections.abc.Callable")
+        || head == "Callable" && standard())
+    {
+        return None;
+    }
+    let [params, returns] = split_top(Kind::Python, t.get(open + 1..t.len() - 1)?, b',')[..] else {
+        return None;
+    };
+    let params = params.trim();
+    let returns = returns.trim();
+    ((params == "..." || params.starts_with('[')) && !returns.is_empty() && returns != "None")
+        .then(|| returns.to_owned())
+}
 pub struct EnumConstant {
     pub name: String,
     pub line1: usize,

@@ -982,6 +982,26 @@ impl App {
         {
             return Some(via);
         }
+        if kind == Kind::Python
+            && receiver.is_empty()
+            && let [
+                search::Binding {
+                    value: search::Value::Type(written),
+                    line1: at,
+                },
+            ] = &self.bindings_of(kind, file, text, line1, method)[..]
+            && let Some(returns) = search::python_callable_return(text, written)
+            && !text
+                .lines()
+                .nth(at - 1)
+                .is_some_and(|l| l.starts_with(method.as_str()))
+        {
+            let ty = self.annotated_type(kind, file, text, *at, &returns)?;
+            return Some(TypeVia {
+                ty: self.runtime_class(ty),
+                call_signature: Some(signature(kind, callee, &returns)),
+            });
+        }
         let decl = self.callee_decl(kind, file, text, line1, callee, hops)?;
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {

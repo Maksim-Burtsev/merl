@@ -1706,3 +1706,55 @@ fn a_python_member_set_from_outside_is_no_absence_of_its_class() {
         Shown::Jump("no definition for shout".into(), "tea/guards.py:59".into()),
     )]);
 }
+
+#[test]
+fn a_call_of_a_parameter_typed_callable_returns_its_declared_type() {
+    let shapes = "from collections.abc import Callable\n\nfrom app.models import Doc, Other\n\nmade: Callable[..., Doc] = Doc\n\n\ndef plain(make: Callable[..., Doc]) -> None:\n    plain_doc = make(title=\"x\")\n    plain_doc.pk\n\n\ndef reassigned(make: Callable[..., Doc]) -> None:\n    make = Other\n    re_doc = make()\n    re_doc.pk\n\n\ndef lambda_shadow(make: Callable[..., Doc]) -> None:\n    f = lambda make: make().pk\n\n\ndef module_global() -> None:\n    global_doc = made()\n    global_doc.pk\n";
+    let mine = "from app.mine import Callable\nfrom app.models import Doc\n\n\ndef own(make: Callable[..., Doc]) -> None:\n    own_doc = make()\n    own_doc.pk\n";
+    let (dir, mut a) = project_app(
+        "py-callable-param",
+        &[
+            (
+                "app/models.py",
+                "class Doc:\n    pk: int = 0\n\n\nclass Other:\n    pk: str = \"\"\n",
+            ),
+            ("app/shapes.py", shapes),
+            ("app/mine_shapes.py", mine),
+            (
+                "app/other.py",
+                "import app.shapes as shapes\nfrom app.models import Other\n\nshapes.made = lambda: Other()\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "app/shapes.py", "plain_doc.pk");
+    assert_eq!(
+        shown(&mut a),
+        jump("pk \u{2192} Doc.pk (via make() -> Doc)", "app/models.py:2")
+    );
+    for (file, at, why) in [
+        ("app/shapes.py", "re_doc.pk", "the parameter is rebound"),
+        (
+            "app/shapes.py",
+            "make().pk",
+            "a lambda's parameter shadows it",
+        ),
+        (
+            "app/shapes.py",
+            "global_doc.pk",
+            "a module's value another file may store",
+        ),
+        (
+            "app/mine_shapes.py",
+            "own_doc.pk",
+            "a `Callable` of the project's own",
+        ),
+    ] {
+        d_on(&mut a, file, at);
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(..)),
+            "{why}: {}",
+            a.message
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
