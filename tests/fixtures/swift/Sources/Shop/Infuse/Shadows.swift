@@ -49,9 +49,8 @@ func shadowed(_ maybe: Froth?, _ fs: [Froth], _ opts: [Froth?], _ f: Froth) -> I
     for (_, w) in fs.enumerated() { return w.stir(1).curdle().sample() }
     //                                                        ^ d: !jump
     switch maybe {
-    case .some(let w):
-        return w.stir(1).curdle().sample()
-        //                        ^ d: !jump
+    case .some(let w): return w.stir(1).curdle().sample()
+    //                                           ^ d: !jump
     case .none:
         break
     }

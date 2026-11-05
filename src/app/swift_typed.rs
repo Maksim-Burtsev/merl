@@ -592,13 +592,19 @@ impl App {
         Some(generics)
     }
 
-    pub(super) fn swift_lead_unshadowed(&self, text: &str, lead: &str, first: &str) -> bool {
-        let Some((name, _)) = first.split_once('.') else {
-            return true;
+    pub(super) fn swift_unshadowed_links(
+        &self,
+        text: &str,
+        lead: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let lead = lead?;
+        let links = search::swift_call_links(lead)?;
+        let Some((name, _)) = links[0].split_once('.') else {
+            return Some(links);
         };
         let lines: Vec<&str> = text.lines().collect();
         let line1 = self.line + 1;
-        match search::bindings(Kind::Swift, text, line1, name).as_slice() {
+        let unshadowed = match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             _ if name == "self" => true,
             [b] if b.line1 < line1 => !lines[b.line1..line1 - 1]
                 .iter()
@@ -606,7 +612,8 @@ impl App {
                 .chain([lead])
                 .any(|l| search::swift_shadows(l, name)),
             _ => false,
-        }
+        };
+        unshadowed.then_some(links)
     }
 
     fn swift_given_type(

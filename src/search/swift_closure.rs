@@ -186,7 +186,7 @@ pub fn swift_generic_params(lines: &[&str], line1: usize) -> Option<Vec<String>>
         let close = decl.char_indices().find(|&(i, c)| {
             match c {
                 '<' => depth += 1,
-                '>' if !decl[..i].ends_with('-') => depth -= 1,
+                '>' if !decl.get(..i).is_some_and(|s| s.ends_with('-')) => depth -= 1,
                 _ => {}
             }
             depth == 0
