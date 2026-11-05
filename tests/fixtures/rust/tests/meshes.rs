@@ -43,14 +43,34 @@ pub fn sift() {
     let matcher = mesh();
     let mut caps = Caps;
     matcher.each(b"a, b", &mut caps, |caps| caps.get(1).is_some());
-    //                                           ^ d: !jump; want tests/meshes.rs:5 (#1302)
+    //                                           ^ d: tests/meshes.rs:5
     matcher
         .each(b"x, y", &mut caps, |caps| {
             caps.get(0).is_some()
             //   ^ d: tests/meshes.rs:5
         });
     matcher.loose(&mut caps, |caps: &Grain| caps.get(0).is_some());
-    //                                           ^ d: !jump; want tests/meshes.rs:11 (#1302)
+    //                                           ^ d: tests/meshes.rs:11
     matcher.loose(&mut caps, |grain| grain.get(0).is_some());
     //                                     ^ d: !jump
+    let _ = (matcher.loose(&mut caps, |caps: &Grain| caps.get(0)), caps.get(3));
+    //                                                    ^ d: tests/meshes.rs:11
+    //                                                                  ^ d: !jump
+    let peek = |caps: &Grain| caps.get(0);
+    //                             ^ d: tests/meshes.rs:11
+    matcher.each(b"z", &mut caps, |grain| caps.get(4).is_some());
+    //                                         ^ d: !jump
+    matcher.each(b"w", &mut caps, |caps| caps.get(0).is_none() || caps.get(5).is_some());
+    //                                                                 ^ d: tests/meshes.rs:5
+    matcher.each(b"r", &mut caps, |caps| { let caps: Grain = Grain; caps.get(6).is_some() });
+    //                                                                   ^ d: !jump
+    matcher.loose(&mut caps, |caps: &Grain| { let caps = mesh(); caps.get(7) });
+    //                                                                ^ d: !jump
+    let grain: Grain = Grain;
+    matcher.loose(&mut caps, |grain: &Grain| { let grain = mesh(); grain.get(8) });
+    //                                                                   ^ d: !jump
+    let (_, sieve) = (matcher.loose(&mut caps, |sieve: &Grain| sieve.get(9)), Caps);
+    sieve.get(10);
+    //    ^ d: !jump
+    let _ = (peek, grain);
 }

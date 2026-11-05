@@ -354,7 +354,7 @@ impl App {
     ) -> Option<Got> {
         match (w.head.as_slice(), w.head_call) {
             ([name], false) => self
-                .rust_value_type(file, text, line0, name, own.is_some())
+                .rust_value_type(file, text, line0, name, own.is_some(), None)
                 .map(|(ty, _)| Got::Ty(ty))
                 .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some()))
                 .or_else(|| {
