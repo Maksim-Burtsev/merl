@@ -297,7 +297,11 @@ overrides, an interface method, a function-typed field and a generic method, and
 package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
 `GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
 package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the
-project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
+project's `Query.And` wins over `Filter.And`. `go/shop/rebound.go` (#1380) rebinds a `Tariff`
+to a `Coupon` earlier on the cursor's line (an `if` and a `for` header, a block's `:=` and `var`,
+a type switch, a `select` case), which stays a picker, and in a `switch` init over several lines,
+which lands on `Coupon.Rate`; `t.Rate()` on the right of its own redeclaration stays `Tariff`'s.
+`csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
 `Shop.Tea.Stale`. `csharp/src/Shop/Pages/Till.razor` (#1088) is a Blazor component, read as a
