@@ -648,6 +648,11 @@ a commented-out declaration, and `this` in a class expression. One answer is rea
 answers the interface's. `caddy.ts` and `tins.ts` hold std names the project shadows: a project
 `Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
 whose member is "not installed", never "builtin".
+`rebound.ts` (and `coffee/rebound.js`) rebinds a `u` typed by `urn.ts`'s `Urn` to a `Flask`, both
+declaring `siphon` (#1337): earlier on the cursor's line (a destructuring and a `let` in a block
+on one line, a `const` before a `return`), which stays a picker, and by a `var` hoisted from a
+block, a `switch` case or below the use, which lands on `Flask.siphon`. A `var` of a nested
+function, of a callback on one line and in a string hoists nothing.
 
 `typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
 `@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,

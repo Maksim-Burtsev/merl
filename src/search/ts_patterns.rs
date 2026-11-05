@@ -664,3 +664,121 @@ pub fn jsx_hyphenated_attribute(lead: &str, tail: &str) -> bool {
     let rest = tail.trim_start_matches(|c: char| named(c) || c == '-');
     (glued_before || glued_after) && rest.starts_with('=') && !rest.starts_with("==")
 }
+
+pub(super) fn ts_declares_then_uses(line: &str, name: &str) -> bool {
+    static DECLARES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w$.])((?:let|const|var)\s)").expect("the regex is a literal")
+    });
+    let Ok(used) = Regex::new(&format!(
+        r"(?:^|[^\w$.]){}(?:[^\w$]|$)",
+        regex::escape(name)
+    )) else {
+        return false;
+    };
+    let line = code_only(line);
+    DECLARES.captures_iter(&line).any(|c| {
+        let Some((statement, rest)) = statement_from(&line, c.get(1).map_or(0, |m| m.start()))
+        else {
+            return false;
+        };
+        let mut out = Vec::new();
+        super::statement_bindings(Kind::TsJs, statement, 1, name, &mut out);
+        !out.is_empty() && used.is_match(rest)
+    })
+}
+
+pub(super) fn ts_hoisted_vars(lines: &[&str], at: usize, name: &str, out: &mut Vec<Binding>) {
+    static CONTROL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(
+            r"^(?:[\w$]+\s*:\s*)?(?:\{|(?:\}\s*)?(?:if|else|for|while|do|try|catch|finally|switch|case|default)\b)",
+        )
+        .expect("the regex is a literal")
+    });
+    let Ok(var) = Regex::new(&format!(
+        r"(?:^|[^\w$.])(var\s+){}(?:[^\w$]|$)",
+        regex::escape(name)
+    )) else {
+        return;
+    };
+    let header_of = |i: usize| {
+        let depth = indent(lines[i]);
+        (0..i).rev().find(|&j| {
+            let t = lines[j].trim_start();
+            !t.is_empty() && !t.starts_with(['}', ')', ']', '/', '*']) && indent(lines[j]) < depth
+        })
+    };
+    let scope_of = |mut i: usize| {
+        while let Some(j) = header_of(i) {
+            let header = uncommented(Kind::TsJs, lines[j]);
+            if !CONTROL.is_match(header.trim()) {
+                return header.trim_end().ends_with('{').then_some(j);
+            }
+            i = j;
+        }
+        None
+    };
+    let Some(h) = scope_of(at) else {
+        return;
+    };
+    let mut literal = None;
+    let mut hoisted = Vec::new();
+    for (l, line) in lines.iter().enumerate().skip(h + 1) {
+        if !line.trim().is_empty() && indent(line) <= indent(lines[h]) {
+            break;
+        }
+        if !line.contains("var") {
+            continue;
+        }
+        let line = code_only(line);
+        let Some(m) = var.captures(&line).and_then(|c| c.get(1)) else {
+            continue;
+        };
+        let before = line.get(..m.start()).unwrap_or_default().trim();
+        if before.contains("=>")
+            || names(before, "function")
+            || out.iter().any(|b| b.line1 == l + 1)
+            || scope_of(l) != Some(h)
+            || literal.get_or_insert_with(|| literal_lines(Kind::TsJs, &lines.join("\n")))[l]
+        {
+            continue;
+        }
+        let mut found = Vec::new();
+        if let Some((statement, _)) = statement_from(&line, m.start()) {
+            super::statement_bindings(Kind::TsJs, statement, l + 1, name, &mut found);
+        }
+        hoisted.push(found.pop().unwrap_or(Binding {
+            line1: l + 1,
+            value: Value::Unknown,
+        }));
+    }
+    if !hoisted.is_empty() {
+        out.retain(|b| b.line1 > h);
+        out.extend(hoisted);
+    }
+}
+
+fn statement_from(line: &str, from: usize) -> Option<(&str, &str)> {
+    let mut depth = 0i32;
+    let rest = line.get(from..)?;
+    let end = rest.bytes().position(|c| {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth -= 1,
+            _ => {}
+        }
+        depth < 0 || (c == b';' && depth == 0)
+    });
+    let Some(e) = end else {
+        return Some((rest.trim(), ""));
+    };
+    let after = rest.get(e + 1..).filter(|_| rest.as_bytes()[e] == b';');
+    Some((rest.get(..e)?.trim(), after.unwrap_or_default()))
+}
+
+fn code_only(line: &str) -> String {
+    let mut b = vec![b' '; line.len()];
+    for (i, c) in code(Kind::TsJs, line) {
+        b[i] = c;
+    }
+    String::from_utf8_lossy(&b).into_owned()
+}
