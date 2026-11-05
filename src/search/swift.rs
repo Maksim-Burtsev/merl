@@ -393,7 +393,7 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
             Some(r) if r.ends_with(')') => rest = r,
             Some(r) => {
                 static VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-                    Regex::new(r"(?:^|[^\w.)\]?!])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
+                    Regex::new(r"(?:^|[^\w.)\]?!$`])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
                         .expect("the regex is a literal")
                 });
                 let value = VALUE.captures(r)?;
@@ -599,7 +599,7 @@ fn swift_shorthand(clause: &str, name: &str) -> bool {
         .or_else(|| c.strip_prefix("var "))
         .is_some_and(|n| n.trim().trim_matches('`') == name)
 }
-fn swift_captures(list: &str, name: &str) -> bool {
+pub(super) fn swift_captures(list: &str, name: &str) -> bool {
     name != "self"
         && list.split(',').any(|entry| {
             let e = entry.trim();
@@ -873,37 +873,11 @@ fn swift_header_binds(first_line: &str, joined: &str, opening_line: &str, name: 
         Binds::Nothing
     }
 }
-fn swift_closure_params_bind(params: &str, name: &str) -> bool {
+pub(super) fn swift_closure_params_bind(params: &str, name: &str) -> bool {
     let params = params.trim().trim_start_matches('(').trim_end_matches(')');
     params.split(',').any(|p| {
         let p = p.split(':').next().unwrap_or(p);
         p.split_whitespace().last() == Some(name)
-    })
-}
-pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
-    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"^\s*(?:\[([^\]]*)\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\s",
-        )
-        .expect("the regex is a literal")
-    });
-    let mut open = Vec::new();
-    for (i, c) in code(Kind::Swift, line).take_while(|&(i, _)| i < at) {
-        match c {
-            b'{' => open.push(i),
-            b'}' => {
-                open.pop();
-            }
-            _ => {}
-        }
-    }
-    open.iter().any(|&o| {
-        line.get(o + 1..at)
-            .and_then(|s| HEAD.captures(s))
-            .is_some_and(|c| {
-                swift_closure_params_bind(&c[2], name)
-                    || c.get(1).is_some_and(|l| swift_captures(l.as_str(), name))
-            })
     })
 }
 pub fn swift_binds_on(line: &str, name: &str) -> bool {

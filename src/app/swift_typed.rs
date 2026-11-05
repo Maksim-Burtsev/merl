@@ -308,9 +308,10 @@ impl App {
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             _ if file == here
                 && line1 == self.line + 1
-                && search::swift_closure_param(lines[line1 - 1], name, self.col) =>
+                && let Some(call) = lines[line1 - 1]
+                    .get(..self.col)
+                    .and_then(|lead| search::swift_param_closure(lead, name)) =>
             {
-                let call = search::swift_trailing_closure(lines[line1 - 1].get(..self.col)?, name)?;
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
             [b] => {
@@ -568,6 +569,46 @@ impl App {
             .collect()
     }
 
+    fn swift_extended_generics(&self, here: &Path, name: &str) -> Option<Vec<String>> {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let decls: Vec<Hit> = self
+            .project_definitions(Kind::Swift, here, name, &pattern)
+            .into_iter()
+            .filter(|h| {
+                self.in_code(Kind::Swift, h)
+                    && search::swift_type_header(&h.text)
+                        .is_some_and(|t| t.name == name && t.keyword != "extension")
+            })
+            .collect();
+        if decls.is_empty() {
+            return None;
+        }
+        let mut generics = Vec::new();
+        for h in decls {
+            let text = self.text_of(&h.path)?;
+            let lines: Vec<&str> = text.lines().collect();
+            generics.extend(search::swift_generic_params(&lines, h.line1)?);
+        }
+        Some(generics)
+    }
+
+    pub(super) fn swift_lead_unshadowed(&self, text: &str, lead: &str, first: &str) -> bool {
+        let Some((name, _)) = first.split_once('.') else {
+            return true;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let line1 = self.line + 1;
+        match search::bindings(Kind::Swift, text, line1, name).as_slice() {
+            _ if name == "self" => true,
+            [b] if b.line1 < line1 => !lines[b.line1..line1 - 1]
+                .iter()
+                .copied()
+                .chain([lead])
+                .any(|l| search::swift_shadows(l, name)),
+            _ => false,
+        }
+    }
+
     fn swift_given_type(
         &self,
         here: &Path,
@@ -787,7 +828,13 @@ impl App {
         let literal = search::literal_lines(Kind::Swift, &text);
         let mut at = decl.line1;
         while at > 0 {
-            if search::swift_generics(lines[at - 1]).contains(&head) {
+            let generics = match search::swift_type_header(lines[at - 1]) {
+                Some(h) if h.keyword == "extension" => {
+                    self.swift_extended_generics(&decl.path, &h.name)?
+                }
+                _ => search::swift_generic_params(&lines, at)?,
+            };
+            if generics.contains(&head) {
                 return None;
             }
             at = search::swift_scope(&lines, &literal, at).header_line1;
