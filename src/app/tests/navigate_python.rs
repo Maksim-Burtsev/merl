@@ -1758,3 +1758,42 @@ fn a_call_of_a_parameter_typed_callable_returns_its_declared_type() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_typed_name_rebound_by_a_same_line_scope_a_wrapped_lambda_or_a_nested_target_keeps_the_picker()
+{
+    let shapes = "from app.models import Doc, Tag\n\n\ndef control(d: Doc):\n    d.stamp(0)\n\n\ndef one_line_def(d: Doc):\n    def g(d): return d.stamp(1)\n\n\ndef one_line_class(d: Doc):\n    class K: d = Tag(); x = d.stamp(2)\n\n\ndef wrapped_lambda(d: Doc):\n    g = lambda d: (\n        d.stamp(3))\n\n\ndef with_tuple(d: Doc, stuff):\n    with stuff as (d, e):\n        d.stamp(4)\n\n\ndef nested_tuple(d: Doc):\n    (n, (d, m)) = (1, (Tag(), 2))\n    d.stamp(5)\n\n\ndef under_nonlocal(d: Doc):\n    def g():\n        nonlocal d\n        d = Tag()\n        return d.stamp(6)\n\n\nd = Doc()\n\n\ndef under_global():\n    global d; d = Tag(); d.stamp(7)\n";
+    let (dir, mut a) = project_app(
+        "py-rebound",
+        &[
+            (
+                "app/models.py",
+                "class Doc:\n    def stamp(self, n):\n        return n\n\n\nclass Tag:\n    def stamp(self, n):\n        return n\n",
+            ),
+            ("app/shapes.py", shapes),
+        ],
+    );
+    d_on(&mut a, "app/shapes.py", "d.stamp|(0)");
+    assert!(
+        matches!(shown(&mut a), Shown::Jump(_, at) if at == "app/models.py:2"),
+        "{}",
+        a.message
+    );
+    for (n, why) in [
+        (1, "a one-line def's parameter"),
+        (2, "a one-line class body's assignment"),
+        (3, "a lambda's parameter, its body wrapped"),
+        (4, "a parenthesised `with … as` target"),
+        (5, "a nested tuple target"),
+        (6, "an assignment under `nonlocal`"),
+        (7, "an assignment under `global` on its line"),
+    ] {
+        d_on(&mut a, "app/shapes.py", &format!("d.stamp|({n})"));
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(..)),
+            "{why}: {}",
+            a.message
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
