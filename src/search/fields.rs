@@ -27,6 +27,18 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
     start..end.max(start)
 }
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
+    class_fields(kind, text, decl, name, false)
+}
+pub fn type_checking_fields(text: &str, decl: usize, name: &str) -> Vec<Binding> {
+    class_fields(Kind::Python, text, decl, name, true)
+}
+fn class_fields(
+    kind: Kind,
+    text: &str,
+    decl: usize,
+    name: &str,
+    type_checking: bool,
+) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
@@ -57,10 +69,8 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     let literal = literal_lines(kind, text);
     let body = body.filter(|&i| !literal.get(i).copied().unwrap_or(false));
     match kind {
-        Kind::Python => match python_fields(text, &lines, body.clone(), base, name) {
-            found if found.is_empty() => python_checked_only(text, &lines, body, base, decl, name),
-            found => found,
-        },
+        Kind::Python if type_checking => python_checked_only(text, &lines, body, base, decl, name),
+        Kind::Python => python_fields(text, &lines, body, base, name),
         Kind::TsJs => ts_fields(text, &lines, body, base, name, decl),
         Kind::Go if lines[k].contains("struct") => body
             .filter(|&i| indent(lines[i]) == base)

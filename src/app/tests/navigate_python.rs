@@ -1708,7 +1708,7 @@ fn a_python_member_set_from_outside_is_no_absence_of_its_class() {
 }
 
 #[test]
-fn a_member_only_type_checking_declares_is_read_when_nothing_binds_it_at_run_time() {
+fn a_project_class_s_member_only_type_checking_declares_keeps_today_s_answer() {
     let code = "import typing\nfrom typing import TYPE_CHECKING\n\n\nclass A:\n    def go(self):\n        pass\n\n\nclass B:\n    def go(self):\n        pass\n\n\nclass Typed:\n    if TYPE_CHECKING:\n        x: A\n\n\nclass Spelled:\n    if typing.TYPE_CHECKING:\n        x: A\n\n\nclass Base9:\n    def __init__(self):\n        self.x = B()\n\n\nclass C9(Base9):\n    if TYPE_CHECKING:\n        x: A\n\n\nclass Branched:\n    if TYPE_CHECKING:\n        x: A\n    else:\n        x = B()\n\n\nclass Bound:\n    if TYPE_CHECKING:\n        x: A\n\n    def __init__(self):\n        self.x = B()\n\n\nclass Stored:\n    if TYPE_CHECKING:\n        x: A\n\n\nStored.x = B()\n\n\ndef use(t: Typed, s: Spelled, c9: C9, b: Branched, d: Bound, e: Stored):\n    t.x.go()\n    s.x.go()\n    c9.x.go()\n    b.x.go()\n    d.x.go()\n    e.x.go()\n";
     let (dir, mut a) = project_app("py-type-checking", &[("app/kinds.py", code)]);
     let on = |a: &mut App, receiver: &str| {
@@ -1716,15 +1716,6 @@ fn a_member_only_type_checking_declares_is_read_when_nothing_binds_it_at_run_tim
         d_on(a, "app/kinds.py", &format!("    {receiver}.x.go|()"));
         shown(a)
     };
-    for receiver in ["t", "s"] {
-        assert_eq!(
-            on(&mut a, receiver),
-            jump(
-                &format!("go \u{2192} A.go (via {receiver}.x: A)"),
-                "app/kinds.py:6"
-            )
-        );
-    }
     for receiver in ["c9", "d"] {
         assert_eq!(
             on(&mut a, receiver),
@@ -1734,9 +1725,12 @@ fn a_member_only_type_checking_declares_is_read_when_nothing_binds_it_at_run_tim
             )
         );
     }
-    for receiver in ["b", "e"] {
+    for receiver in ["t", "s", "b", "e"] {
         let got = on(&mut a, receiver);
-        assert!(!format!("{got:?}").contains(": A)"), "{receiver}: {got:?}");
+        assert!(
+            matches!(&got, Shown::Picker(m, _) if m.ends_with("(chain broke at x)")),
+            "{receiver}: {got:?}"
+        );
     }
     std::fs::remove_dir_all(dir).unwrap();
 }

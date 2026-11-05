@@ -837,7 +837,32 @@ fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
             reexport,
             (false, false),
         ),
+        (
+            "py-mark-gen-decorated",
+            classes("pass").replace("class MarkGenerator:", "@swap\nclass MarkGenerator:")
+                + binding,
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-dict",
+            format!("{}{binding}", classes("self.__dict__.update(kw)")),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-star",
+            format!("{made}from _pytest.alt import *\n"),
+            reexport,
+            (false, false),
+        ),
+        ("py-mark-gen-project", made.clone(), reexport, (true, false)),
     ] {
+        let conftest = if name == "py-mark-gen-project" {
+            "import pytest\n\npytest.mark.plain = None\n"
+        } else {
+            ""
+        };
         let site = external_root(
             name,
             &[
@@ -850,7 +875,10 @@ fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
                 ("_pytest/mark/structures.py", &lib),
             ],
         );
-        let (dir, mut a) = project_app(&format!("{name}-p"), &[("app/t.py", test)]);
+        let (dir, mut a) = project_app(
+            &format!("{name}-p"),
+            &[("app/t.py", test), ("app/conftest.py", conftest)],
+        );
         use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
         let at = |line: usize| {
             format!(
@@ -865,7 +893,7 @@ fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
         d_on(&mut a, "app/t.py", "mark.plain|()");
         let plain = shown(&mut a);
         a.picker = None;
-        let untyped = |s: &Shown| !format!("{s:?}").contains(via);
+        let untyped = |s: &Shown| !format!("{s:?}").contains("via pytest.mark:");
         if typed.0 {
             assert_eq!(usefixtures, jump(&format!("usefixtures: {via}"), &at(6)));
         } else {

@@ -267,20 +267,35 @@ impl App {
             return None;
         }
         let ty = self.type_decl(kind, &made.hit.path, class)?;
-        if ty.path != made.hit.path || !search::python_rooted(&text, ty.line) {
+        let above: Vec<&str> = text.lines().take(ty.line.saturating_sub(1)).collect();
+        let decorated = (above.iter().rev())
+            .map(|l| l.trim())
+            .take_while(|l| l.starts_with('@'))
+            .any(|l| !matches!(l, "@final" | "@typing.final"));
+        if ty.path != made.hit.path
+            || decorated
+            || !search::python_rooted(&text, ty.line)
+            || DYNAMIC_STORE.is_match(&text)
+        {
             return None;
         }
         let start = self.walked_module(module)?;
         let package = self.python_package_files(&[&made.hit.path, &start]);
         let (m, v) = (regex::escape(module.last()?), regex::escape(value));
         let stores = format!(
-            r#"{}|\b{m}\s*\.\s*{v}{STORE}|\bsetattr\s*\(\s*{m}\s*,\s*["']{v}["']"#,
+            r#"{}|\b{m}\s*\.\s*{v}{STORE}|setattr\s*\(\s*{m}\s*,\s*["']{v}["']"#,
             stores_of(&[name, word])
         );
-        if !self.grep_in(&stores, &package).is_empty() {
+        let in_project = self.grep(&stores, false, false, |p| {
+            p.extension().is_some_and(|e| e == "py")
+        });
+        if !self.grep_in(&stores, &package).is_empty() || !in_project.ok()?.is_empty() {
             return None;
         }
-        let hits = self.own_member(kind, &ty, word)?;
+        let hits = match self.own_member(kind, &ty, word) {
+            Some(hits) if !hits.is_empty() => hits,
+            _ => self.type_checking_member(&ty, word)?,
+        };
         let reason = Reason::Receiver(format!("{}.{value}: {}", module.join("."), ty.name));
         (!hits.is_empty()).then(|| {
             hits.into_iter()
@@ -290,6 +305,24 @@ impl App {
                 })
                 .collect()
         })
+    }
+
+    fn type_checking_member(&self, ty: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&ty.path)?;
+        let lines: Vec<&str> = text.lines().collect();
+        let hits: Vec<Hit> = search::type_checking_fields(&text, ty.line, word)
+            .into_iter()
+            .filter_map(|b| {
+                Some(Hit {
+                    text: (*lines.get(b.line1 - 1)?).to_owned(),
+                    path: ty.path.clone(),
+                    line1: b.line1,
+                    byte_col: None,
+                    deleted: None,
+                })
+            })
+            .collect();
+        (!hits.is_empty()).then_some(hits)
     }
 
     fn module_level_defs(&self, file: &Path, text: &str, name: &str) -> Vec<Hit> {
@@ -721,10 +754,15 @@ pub(super) fn python_absolute(
 }
 const STORE: &str = r"\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$)";
 
+static DYNAMIC_STORE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r#"__dict__\s*\.\s*update|setattr\s*\(\s*(?:self|cls)\s*,\s*[^"'\s]"#)
+        .expect("the regex is a literal")
+});
+
 fn module_binds(name: &str) -> Regex {
     let n = regex::escape(name);
     Regex::new(&format!(
-        r"^\s*(?:(?:global|del|case)\b.*\b{n}\b|(?:async\s+)?(?:def|class)\s+{n}\b|for\b.*\b{n}\b.*\bin\b|[\w\s,.*()\[\]]*\b{n}\b[\w\s,.*()\[\]]*{STORE})|\bimport\b.*\b{n}\b|\bas\s+{n}\b|\b{n}\s*:=|\bsetattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)|\bsys\.modules\b"
+        r"^\s*(?:(?:global|del|case)\b.*\b{n}\b|(?:async\s+)?(?:def|class)\s+{n}\b|for\b.*\b{n}\b.*\bin\b|[\w\s,.*()\[\]]*\b{n}\b[\w\s,.*()\[\]]*{STORE})|\bimport\b.*\b{n}\b|\bimport\s+\*|\bas\s+{n}\b|\b{n}\s*:=|\bsetattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)|\bsys\.modules\b"
     ))
     .expect("an escaped name keeps the pattern valid")
 }
@@ -734,7 +772,7 @@ fn stores_of(names: &[&str]) -> String {
         .collect::<Vec<_>>()
         .join("|");
     format!(
-        r#"\.\s*(?:{n})\b{STORE}|\bsetattr\s*\(.*["'](?:{n})["']|\[\s*["'](?:{n})["']\s*\]{STORE}|\b(?:{n})\s*\.\s*__(?:dict|setattr)__"#
+        r#"\.\s*(?:{n})\b{STORE}|setattr\s*\(.*["'](?:{n})["']|\[\s*["'](?:{n})["']\s*\]{STORE}|\b(?:{n})\s*\.\s*__(?:dict|setattr)__"#
     )
 }
 
