@@ -7,6 +7,7 @@ use super::{Group, Kind, body_of, code, group, indent, literal_lines, split_top,
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Owner {
     Args,
+    Implicit(String),
     Object(usize),
     Typed,
 }
@@ -116,6 +117,7 @@ pub fn label_at(
                         how: Owner::Args,
                     })
                 })
+                .or_else(|| head.and_then(|h| swift_implicit_init(kind, &lines, &literal, at, h)))
             } else {
                 Some(LabelOwner {
                     line0: at,
@@ -131,6 +133,29 @@ pub fn label_at(
         }
         _ => None,
     }
+}
+
+fn swift_implicit_init(
+    kind: Kind,
+    lines: &[&str],
+    literal: &[bool],
+    at: usize,
+    head: &str,
+) -> Option<LabelOwner> {
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[\s(,])`?(\w+)`?\s*:\s*$").expect("the regex is a literal")
+    });
+    let label = LABEL.captures(head)?.get(1)?;
+    let outer = open_bracket(kind, lines, literal, at, label.start())?;
+    if outer.bracket != b'(' || !matches!(outer.first_met, Some(b'(' | b',')) {
+        return None;
+    }
+    let call = lines[outer.line0].get(..=outer.byte)?;
+    Some(LabelOwner {
+        line0: outer.line0,
+        byte_col: outer.byte,
+        how: Owner::Implicit(format!("{call}{}:", label.as_str())),
+    })
 }
 
 fn ts_object_key(
@@ -679,6 +704,7 @@ pub fn label_lines(
             }
             out
         }
+        (Owner::Implicit(_), _) => Vec::new(),
         (Owner::Args, None) => params(kind, &lines, k, name, |p| param_named(kind, p, word))
             .into_iter()
             .collect(),
