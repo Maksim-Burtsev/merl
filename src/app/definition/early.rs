@@ -378,7 +378,12 @@ impl App {
             }
             let found = label
                 .owner
-                .map(|o| self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, &o.how))
+                .map(|o| match &o.how {
+                    search::Owner::Implicit(lead) => {
+                        self.swift_implicit_init_rows(&a.here, &a.word, o.line0, lead)
+                    }
+                    how => self.label_targets(kind, &a.here, &a.word, o.line0, o.byte_col, how),
+                })
                 .unwrap_or_default();
             if found.is_empty() {
                 self.message = format!("{}: {}", a.word, label.what);

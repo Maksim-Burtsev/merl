@@ -750,6 +750,11 @@ func's call (`Rush.make()`) keeps the picker. A method of a value whose type mer
 (`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
 also opens; two overloads taking
 two types, or a receiver merl cannot type, keep the picker.
+`swift/Sources/Shop/Refresh.swift` (#1341) puts the cursor on a label inside an implicit `.init(`
+handed to `Lease(…, span: .init(…))`, over two lines too: it lands on the `init` of `Lease.Span`,
+the type the outer `init`'s `span:` parameter names. Overloads taking two types, a generic of the
+class or of the `init`, a type nested in two namesakes, an alias, no label, a ternary, an array
+literal and a call on a value (a closure's parameter shadowing a typed one) find nothing.
 `swift/Sources/Shop/Overloads.swift` (#1341) calls overloads that differ only by the type of an
 argument: a parameter, a local of a written type or built by a constructor, a constructor call and
 a string literal, each taken by one overload while the others take a struct of another name. Two
