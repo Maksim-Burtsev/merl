@@ -856,6 +856,15 @@ fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
             reexport,
             (false, false),
         ),
+        (
+            "py-mark-gen-dunder",
+            format!(
+                "{}{binding}",
+                classes("object.__setattr__(self, \"plain\", None)")
+            ),
+            reexport,
+            (true, false),
+        ),
         ("py-mark-gen-project", made, reexport, (true, false)),
     ] {
         let conftest = if name == "py-mark-gen-project" {

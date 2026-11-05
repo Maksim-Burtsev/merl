@@ -755,7 +755,7 @@ pub(super) fn python_absolute(
 const STORE: &str = r"\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$)";
 
 static DYNAMIC_STORE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r#"__dict__\s*\.\s*update|setattr\s*\(\s*(?:self|cls)\s*,\s*[^"'\s]"#)
+    Regex::new(r#"__dict__\s*\.\s*update|setattr(?:__)?\s*\(\s*(?:self|cls)\s*,\s*[^"'\s]"#)
         .expect("the regex is a literal")
 });
 
@@ -772,7 +772,7 @@ fn stores_of(names: &[&str]) -> String {
         .collect::<Vec<_>>()
         .join("|");
     format!(
-        r#"\.\s*(?:{n})\b{STORE}|setattr\s*\(.*["'](?:{n})["']|\[\s*["'](?:{n})["']\s*\]{STORE}|\b(?:{n})\s*\.\s*__(?:dict|setattr)__"#
+        r#"\.\s*(?:{n})\b{STORE}|setattr(?:__)?\s*\(.*["'](?:{n})["']|\[\s*["'](?:{n})["']\s*\]{STORE}|\b(?:{n})\s*\.\s*__(?:dict|setattr)__"#
     )
 }
 
