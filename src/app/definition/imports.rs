@@ -281,6 +281,7 @@ impl App {
         if kind == Kind::Jvm
             && a.own()
             && (a.dotted || a.before.ends_with("::"))
+            && !search::jvm_anonymous_open(&a.before)
             && let Some(owner) = search::jvm_this_owner(&a.text, self.line + 1)
         {
             let full = format!("{owner}.{}", a.word);

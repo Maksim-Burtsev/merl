@@ -154,16 +154,48 @@ pub(super) fn lambda_open_at(line: &str, at: &std::ops::Range<usize>, col: usize
     if col < at.start {
         return false;
     }
-    let braced = line.get(at.start..).is_some_and(|l| l.starts_with('{'));
+    let case = line.get(at.start..).is_some_and(|l| l.starts_with("case"));
+    let braced = case || line.get(at.start..).is_some_and(|l| l.starts_with('{'));
     let mut depth = 0i32;
     line.get(at.end.min(col)..col).is_some_and(|body| {
-        body.bytes().all(|b| {
+        let word = |i: usize| {
+            body.as_bytes()
+                .get(i)
+                .is_some_and(|b| b.is_ascii_alphanumeric() || *b == b'_')
+        };
+        body.bytes().enumerate().all(|(i, b)| {
             match b {
                 b'(' | b'[' | b'{' => depth += 1,
                 b')' | b']' | b'}' => depth -= 1,
                 _ => {}
             }
-            depth >= 0 && (braced || depth > 0 || !matches!(b, b';' | b','))
+            let next_case = case
+                && depth == 0
+                && body.get(i..).is_some_and(|r| r.starts_with("case"))
+                && !word(i.wrapping_sub(1))
+                && !word(i + 4);
+            depth >= 0 && !next_case && (braced || depth > 0 || !matches!(b, b';' | b','))
+        })
+    })
+}
+
+pub fn jvm_anonymous_open(before: &str) -> bool {
+    static OPENS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bnew\s+[\w.]+\s*(?:<[^{}]*>)?\s*(?:\([^{}]*\))?\s*\{|\bobject\s*:[^{}]*\{")
+            .expect("the regex is a literal")
+    });
+    let line = blanked(before);
+    OPENS.find_iter(&line).any(|m| {
+        let mut depth = 0i32;
+        line.get(m.end()..).is_some_and(|rest| {
+            rest.bytes().all(|b| {
+                match b {
+                    b'{' => depth += 1,
+                    b'}' => depth -= 1,
+                    _ => {}
+                }
+                depth >= 0
+            })
         })
     })
 }
