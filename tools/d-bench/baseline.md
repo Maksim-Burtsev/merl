@@ -138,10 +138,11 @@ The python row with #1339's seventh pass (a member of an outside module's instan
 The clojure, elisp, racket, scheme and commonlisp rows with #1401 (a name bound again by `dolist`, `dotimes`, `do`, `destructuring-bind`, `multiple-value-bind`, `seq-let`, `with-slots`, `receive`, `guard`, `cl-flet`, `cl-labels`, `macrolet` or `symbol-macrolet`; two commonlisp misses to direct hits): over `d23991842` with this change, 2026-11-07, release build, `vm.loadavg` { 3.09 3.36 3.86 } before the run.
 The clojure, elisp, racket, scheme and commonlisp rows with #1401's second pass (Racket `for` clauses, an internal `define` or `define-values`, `case-lambda`; Clojure `as->`, `catch`, a `:let`, `reify` and `defrecord` methods; `if-let`, `cl-loop`, `condition-case`, `handler-case`; eight racket rows to direct hits, five racket rows with no recorded answer now jumping to their internal `define`): over `62b66b884` with this change, 2026-11-07, release build, `vm.loadavg` { 3.26 3.35 3.98 } before the run.
 The racket row with those five rows judged from the code (racket0041, racket0097, racket0165, racket0178, racket0185: each name's internal `define` or `define-values`, now direct hits): `d559d8941`, 2026-11-07, release build, `vm.loadavg` { 5.44 5.40 4.64 } before the run, { 4.45 5.01 4.56 } after.
+The python row with #1339's ninth pass (a subscript `x[i].attr` of a written `list[T]`, `Sequence[T]` or a declared return of one reads `T`, a slice and a dict do not: python0020 `nodes[0].metadata` with `build_document_node(..) -> list["BaseNode"]`): over `468e68bcb`, 2026-11-07, release build, `vm.loadavg` { 4.17 4.64 4.86 } before the run, { 3.02 4.17 4.66 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 256 (98%) | 3 (1%) | 0 (0%) | 3 (1%) | 63 | 8 | 16.5 | 169.6 |
+| python (paperless-ngx) | 262 | 257 (98%) | 3 (1%) | 0 (0%) | 2 (1%) | 63 | 8 | 16.6 | 168.5 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.3 | 171.2 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
