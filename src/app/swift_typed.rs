@@ -314,14 +314,7 @@ impl App {
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
             [b] if lead.is_some_and(|l| {
-                let kept = match lines
-                    .get(b.line1 - 1)
-                    .and_then(|l| search::swift_given(l, name))
-                {
-                    Some(search::SwiftGiven::Type(t)) => Some(t),
-                    _ => None,
-                };
-                search::swift_rebound_in_open_block(l, name, kept.as_deref())
+                search::swift_rebound_in_open_block(l, name, lines.get(b.line1 - 1).copied())
             }) =>
             {
                 None

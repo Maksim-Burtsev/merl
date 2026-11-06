@@ -139,8 +139,8 @@ fn enumerator_head(lines: &[&str], at: usize) -> Option<usize> {
 
 fn enumerators_open(lines: &[&str], head: usize, at: usize) -> bool {
     let mut depth = 0i32;
-    for k in head..at {
-        let code = blanked(lines[k]);
+    for (k, line) in lines.iter().enumerate().take(at).skip(head) {
+        let code = blanked(line);
         let from = if k == head {
             code.find("for").unwrap_or_default()
         } else {

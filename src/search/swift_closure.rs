@@ -188,7 +188,12 @@ fn swift_declares(s: &str, name: &str, kept: Option<&str>) -> bool {
     !same && super::swift_may_bind(&LABEL.replace_all(pattern, "$1"), name)
 }
 
-pub fn swift_rebound_in_open_block(lead: &str, name: &str, kept: Option<&str>) -> bool {
+pub fn swift_rebound_in_open_block(lead: &str, name: &str, binding: Option<&str>) -> bool {
+    let kept = match binding.and_then(|l| super::swift_given(l, name)) {
+        Some(super::SwiftGiven::Type(t)) => Some(t),
+        _ => None,
+    };
+    let kept = kept.as_deref();
     let open = open_braces(lead, lead.len());
     let starts = std::iter::once(0).chain(open.iter().map(|&o| o + 1));
     let ends = open.iter().copied().chain(std::iter::once(lead.len()));
