@@ -124,3 +124,47 @@ pub fn julia_binds_before(before: &str, name: &str) -> bool {
         })
     })
 }
+
+pub fn julia_comprehension_below(
+    text: &str,
+    line1: usize,
+    col: usize,
+    name: &str,
+) -> Option<usize> {
+    static FOR: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\bfor\b").expect("the regex is a literal"));
+    let w = regex::escape(name);
+    let generator = Regex::new(&format!(
+        r"\bfor\s+\(?(?:[\w!]+\s*,\s*)*{w}(?:\s*,\s*[\w!]+)*\)?\s*(?:in\b|=|∈)"
+    ))
+    .ok()?;
+    let code = text
+        .lines()
+        .skip(line1.checked_sub(1)?)
+        .take(20)
+        .map(julia_code)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let line_end = code.find('\n')?;
+    let depth = depths(&code);
+    let base = *depth.get(col).filter(|_| col <= line_end)?;
+    let open = (0..col).rev().find(|&i| depth[i] < base)?;
+    let close = (col..code.len()).find(|&i| depth[i] < base)?;
+    if !matches!(code.as_bytes()[open], b'[' | b'(')
+        || close <= line_end
+        || code.get(open..col).is_some_and(|lead| FOR.is_match(lead))
+    {
+        return None;
+    }
+    generator
+        .find_iter(code.get(..close)?)
+        .find(|m| m.start() > line_end && depth[m.start()] == base)
+        .map(|m| {
+            line1
+                + code
+                    .get(..m.start())
+                    .unwrap_or_default()
+                    .matches('\n')
+                    .count()
+        })
+}
