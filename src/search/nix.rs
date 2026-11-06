@@ -307,16 +307,35 @@ impl<'a> Parse<'a> {
     }
 
     fn let_scope(&self, at: usize) -> Option<Scope<'a>> {
-        let (mut k, mut lets, mut stmt, mut binds) = (at + 1, 0usize, true, Vec::new());
-        while k < self.toks.len() {
+        let (binds, k) = self.attr_binds(at + 1, self.toks.len())?;
+        (k < self.toks.len()).then(|| Scope {
+            from: self.toks[at].1,
+            to: self.body_end(k + 1),
+            binds,
+            is_let: true,
+        })
+    }
+
+    fn rec_scope(&self, at: usize) -> Option<Scope<'a>> {
+        let open = at + 1;
+        if self.toks.get(open)?.0 != Tok::Punct(b'{') {
+            return None;
+        }
+        let close = self.matched[open]?;
+        Some(Scope {
+            from: self.toks[open].1,
+            to: self.toks[close].1,
+            binds: self.attr_binds(open + 1, close)?.0,
+            is_let: false,
+        })
+    }
+
+    fn attr_binds(&self, mut k: usize, end: usize) -> Option<(Vec<(&'a str, usize)>, usize)> {
+        let (mut lets, mut stmt, mut binds) = (0usize, true, Vec::new());
+        while k < end {
             let (t, pos) = self.toks[k];
             if self.keyword(k, "in") && lets == 0 {
-                return Some(Scope {
-                    from: self.toks[at].1,
-                    to: self.body_end(k + 1),
-                    binds,
-                    is_let: true,
-                });
+                return Some((binds, k));
             }
             match t {
                 Tok::Punct(b'{' | b'[' | b'(') => {
@@ -357,7 +376,7 @@ impl<'a> Parse<'a> {
             }
             k += 1;
         }
-        None
+        Some((binds, end))
     }
 
     fn lambda(&self, colon: usize, code: &[u8]) -> Option<Scope<'a>> {
@@ -422,6 +441,7 @@ impl<'a> Parse<'a> {
             .filter_map(|k| match self.toks[k].0 {
                 Tok::Punct(b':') => self.lambda(k, code),
                 _ if self.keyword(k, "let") => self.let_scope(k),
+                _ if self.keyword(k, "rec") => self.rec_scope(k),
                 _ => None,
             })
             .collect()
@@ -440,13 +460,29 @@ fn line_of(text: &str, pos: usize) -> usize {
         + 1
 }
 
-pub(super) fn nix_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+pub fn nix_bindings_at(text: &str, line1: usize, col: usize, name: &str) -> Vec<Binding> {
+    let lines: Vec<&str> = text.lines().collect();
+    match line1.checked_sub(1).filter(|&at| at < lines.len()) {
+        Some(at) => nix_bindings(&lines, at, Some(col), name),
+        None => Vec::new(),
+    }
+}
+
+pub(super) fn nix_bindings(
+    lines: &[&str],
+    at: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Vec<Binding> {
     let text = lines.join("\n");
     let lexed = lex(&text);
     let code = String::from_utf8_lossy(&lexed.code);
     let parse = Parse::new(&code);
-    let start: usize = lines[..at].iter().map(|l| l.len() + 1).sum();
-    let end = start + lines[at].len();
+    let line_start: usize = lines[..at].iter().map(|l| l.len() + 1).sum();
+    let (start, end) = match col {
+        Some(c) => (line_start + c, line_start + c),
+        None => (line_start, line_start + lines[at].len()),
+    };
     let scopes = parse.scopes(&lexed.code);
     scopes
         .iter()
