@@ -444,6 +444,11 @@ pub(super) fn c_head(head: &str) -> Head {
         return Head::Lambda { params: group };
     }
     let Some(name) = NAME.captures(before).and_then(|c| c.get(1)) else {
+        let block_return = before.rsplit_once('^').map(|(_, r)| r);
+        if block_return.is_some_and(|r| r.chars().all(|c| c.is_alphanumeric() || " _*".contains(c)))
+        {
+            return Head::Lambda { params: group };
+        }
         return Head::Block;
     };
     let name: String = name.as_str().split_whitespace().collect();
@@ -647,7 +652,9 @@ fn control_init(code: &str, from: usize, pos: usize, name: &str) -> Option<usize
         let close = close_or_end(code, open, pos);
         let parts = code.get(open + 1..close).map(split_top_level_semicolons);
         for (j, part) in parts.unwrap_or_default() {
-            if let Some(k) = declared_at(part, name, DeclaredIn::ControlHead) {
+            if let Some(k) = declared_at(part, name, DeclaredIn::ControlHead)
+                .or_else(|| super::objc_for_in(part, name))
+            {
                 found = Some(open + 1 + j + k);
             }
         }

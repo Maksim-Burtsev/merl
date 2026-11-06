@@ -207,7 +207,7 @@ pub fn bindings_at(
         Kind::Ruby => ruby_bindings(&lines, at, name),
         Kind::Rust => rust_bindings(&lines, at, name),
         Kind::Elixir => elixir_bindings(&lines, at, name),
-        Kind::Nix => nix_bindings(&lines, at, name),
+        Kind::Nix => nix_bindings(&lines, at, None, name),
         Kind::Haskell => haskell_bindings(&lines, at, name),
         Kind::Julia => julia_bindings(&lines, at, name),
         Kind::Gdscript => gdscript_bindings(&lines, at, name),

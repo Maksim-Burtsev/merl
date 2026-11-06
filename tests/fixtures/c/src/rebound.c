@@ -14,3 +14,5 @@ void value(void) { struct gourd g; { struct terrine g; g.slosh = 1; } g.slosh = 
 //                                                                      ^ d: src/rebound.c:1
 void closed(struct gourd *g) { { struct terrine *g = 0; } g->slosh = 1; }
 //                                                           ^ d: src/rebound.c:1
+void paren(struct gourd *g) { { struct terrine (*g) = 0; g->slosh = 1; } }
+//                                                          ^ d: src/rebound.c:1; want src/rebound.c:2 (#1400)
