@@ -11,8 +11,8 @@ whatever needs them afterwards waits under `needs-owner`.
 
 ## 1. Ask, once
 
-Ask nothing the repo already answers: invisible work merges when it is green (AGENTS.md
-`## Merging`). In one message, ask only what the owner has not said in the session:
+Ask nothing the repo already answers: invisible work merges when it is green
+(`docs/agents/merging.md`). In one message, ask only what the owner has not said in the session:
 
 - About how many hours of work to pick?
 - The budget: a share of the weekly limit, and until 2026-10-22 a token budget beside it (the
