@@ -418,6 +418,7 @@ impl App {
                 scope = s;
                 ty
             }
+            [r] if search::dart_promoted(text, self.line + 1, self.dart_col(), r) => return None,
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -462,6 +463,11 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
+    fn dart_col(&self) -> usize {
+        self.word_here(Some(Kind::Dart))
+            .map_or(self.col, |(range, _)| range.start)
+    }
+
     fn dart_super_param(&self, here: &Path, text: &str, word: &str) -> Option<Candidate> {
         let (range, _) = self.word_here(Some(Kind::Dart))?;
         let at = line_offset(text, self.line + 1) + range.start;
@@ -489,7 +495,7 @@ impl App {
         depth: usize,
     ) -> Option<(search::DartType, PathBuf)> {
         let line_of = |name: &str| {
-            let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
+            let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
             let [b] = bindings.as_slice() else {
                 return None;
             };
