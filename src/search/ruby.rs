@@ -731,6 +731,19 @@ fn ruby_call_whole(lines: &[&str], at: usize) -> Option<String> {
     None
 }
 
+pub fn ruby_gate_line(text: &str, line1: usize) -> usize {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return 0;
+    };
+    let literal = literal_lines(Kind::Ruby, text);
+    around(&lines, &literal, at)
+        .openers_innermost_first
+        .iter()
+        .find(|(_, o)| *o == Opens::Gate)
+        .map_or(0, |&(i, _)| i + 1)
+}
+
 fn enclosing_def(text: &str, line1: usize) -> Option<(usize, String)> {
     static DEF: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:[a-z_]+\s+)?def\s+([a-z_]\w*[?!=]?)(?:[\s(;]|$)")

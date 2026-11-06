@@ -251,6 +251,13 @@ impl App {
                 None => (own(outer)?, Vec::new()),
             },
             f if f.starts_with(|c: char| c.is_ascii_lowercase()) => {
+                if search::jvm_rebound_before(before, f)
+                    && !search::bindings(Kind::Jvm, text, line, f)
+                        .iter()
+                        .any(|b| b.line1 == line)
+                {
+                    return None;
+                }
                 let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, f));
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =

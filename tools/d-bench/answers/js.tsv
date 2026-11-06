@@ -365,7 +365,7 @@ js0362	server/uptime-kuma-server.js:23
 js0363	server/model/monitor.js:115		
 js0364	node_modules/@types/ws/index.d.ts:75		
 js0365	server/socket-handlers/docker-socket-handler.js:33		
-js0366	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		
+js0366	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/ts5.6/buffer.buffer.d.ts:353;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		judged: also the ts5.6/ interface Buffer that the project's TypeScript 4.4.4 reads through @types/node's typesVersions; the oracle ran TypeScript 6.0
 js0367	src/util.ts:368		
 js0368	db/knex_init_db.js:66		
 js0369			
@@ -381,7 +381,7 @@ js0378
 js0379	src/util.ts:40		
 js0380	src/util.ts:41		
 js0381			
-js0382	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		
+js0382	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/ts5.6/buffer.buffer.d.ts:353;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		judged: also the ts5.6/ interface Buffer that the project's TypeScript 4.4.4 reads through @types/node's typesVersions; the oracle ran TypeScript 6.0
 js0383	server/monitor-types/globalping.js:168		
 js0384	node_modules/@types/node/process.d.ts:1193;~/Library/Caches/typescript/6.0/node_modules/@types/node/process.d.ts:1194		
 js0385	server/model/domain_expiry.js:170		

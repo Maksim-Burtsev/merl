@@ -1,5 +1,6 @@
 use regex::Regex;
 
+use super::jvm_rebound::negated_pattern_exits;
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
     literal_lines, qualified, scala_given_tail, scala_mods, split_top, steps_over, uncommented,
@@ -312,7 +313,7 @@ fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> 
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let ret = super::jvm_return_type!();
     let clause = rule(format!(
-        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\binstanceof\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\(.*\b(?:var|{ret})\s+{n}\s*[,)]"
+        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\(.*\b(?:var|{ret})\s+{n}\s*[,)]"
     ));
     let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
         .into_iter()
@@ -361,7 +362,9 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
         }
         if ind == depth {
             let member_or_top_level = scope_of(lines, i).is_none_or(|s| opens_type(lines[s]));
-            if declares_local(t, name) && !member_or_top_level {
+            if (declares_local(t, name) || negated_pattern_exits(lines, i, name))
+                && !member_or_top_level
+            {
                 out.push(binding(i + 1));
             }
             continue;

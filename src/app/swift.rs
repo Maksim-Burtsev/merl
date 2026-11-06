@@ -311,6 +311,73 @@ impl App {
             .collect()))
     }
 
+    pub(super) fn swift_implicit_init_rows(
+        &mut self,
+        here: &Path,
+        word: &str,
+        line0: usize,
+        lead: &str,
+    ) -> Vec<Candidate> {
+        let Some(arg) = search::swift_argument(lead) else {
+            return Vec::new();
+        };
+        let line = std::mem::replace(&mut self.line, line0);
+        let cut = self.truncated.get();
+        let rows = self.swift_init_rows(here, word, &arg);
+        self.truncated.set(cut);
+        self.line = line;
+        rows.unwrap_or_default()
+    }
+
+    fn swift_init_rows(
+        &self,
+        here: &Path,
+        word: &str,
+        arg: &search::SwiftArgument,
+    ) -> Option<Vec<Candidate>> {
+        if arg.on_value {
+            return None;
+        }
+        let types = self.swift_argument_types(here, arg)?;
+        let [(scope, ty)] = types.as_slice() else {
+            return None;
+        };
+        let last = ty.rsplit('.').next()?;
+        let [d] = self.swift_defs(here, last, last, false).try_into().ok()?;
+        let keyword = search::swift_type_header(&d.text)?.keyword;
+        let of = self.swift_qualified(&d, last);
+        let prefix = of.strip_suffix(ty.as_str())?.trim_end_matches('.');
+        let seen = prefix.is_empty() || scope == prefix || scope.starts_with(&format!("{prefix}."));
+        if !seen || !matches!(keyword.as_str(), "struct" | "class" | "enum" | "actor") {
+            return None;
+        }
+        let text = self.text_of(&d.path)?;
+        let rows = search::label_lines(
+            Kind::Swift,
+            &text,
+            d.line1,
+            last,
+            word,
+            &search::Owner::Args,
+        )
+        .into_iter()
+        .map(|l| {
+            let line1 = search::swift_signature_line(&text, l);
+            Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: d.path.clone(),
+                    line1,
+                    byte_col: None,
+                    text: text.lines().nth(line1 - 1).unwrap_or_default().to_owned(),
+                },
+                reason: Reason::Label(format!("parameter of {of}")),
+            }
+        })
+        .collect();
+        Some(rows)
+    }
+
     fn swift_argument_types(
         &self,
         here: &Path,

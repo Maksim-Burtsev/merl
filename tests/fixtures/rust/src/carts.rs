@@ -31,7 +31,8 @@ pub static roller: fn() -> Wagon = wagon;
 pub fn shadowed() -> u32 {
     let cart: Wagon = Wagon;
     [Sled].iter().map(|cart: &Sled| cart.roll()).sum::<u32>() + cart.roll()
-    //                                   ^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4
+    //                                   ^ d: src/carts.rs:19
+    //                                                               ^ d: picker src/carts.rs:7, src/carts.rs:19, src/hauls/yard.rs:4
 }
 
 pub fn defaulted() -> u32 {

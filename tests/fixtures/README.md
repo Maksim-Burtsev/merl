@@ -222,7 +222,17 @@ continues with the class declaring the method, as intelephense reads `self` (#11
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
 function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
-declaring what the corner declares. `lua/lua/tea/` has `local function pour` beside
+declaring what the corner declares. `php/src/Tea/Rebound.php` binds a `Kettle $pot` again
+before `$pot->pour()` (#1382): a second statement on the line, `$cup = $pot = new Teapot()`,
+`??=`, `instanceof Teapot` in an `if` and as a `!` guard, a closure that does not capture it,
+`use (&$pot)`, `extract()`, `${'pot'}`, `preg_match`'s out-parameter, `['pot' => $pot] =` and a
+`foreach` header wrapped over lines each keep a picker holding `Teapot::pour`, while the
+assignment's own right side, `instanceof Kettle` and a closure's `use ($pot)` keep `Kettle`.
+So do the plain reads of `plainReads` (#1384's review): `$pot` in `str_replace`'s or
+`preg_match`'s subject, `$m & $pot->lid`, a comment, a string, `==`, a named argument, an array
+key or value, `$pot->lid = …` and a rebinding after the use; `str_replace`'s count slot and
+`$alias = &$pot` keep the picker.
+`lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
@@ -297,7 +307,14 @@ overrides, an interface method, a function-typed field and a generic method, and
 package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
 `GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
 package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the
-project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
+project's `Query.And` wins over `Filter.And`. `go/shop/rebound.go` (#1380) rebinds a `Tariff`
+to a `Coupon` earlier on the cursor's line (an `if` and a `for` header, a block's `:=` and `var`,
+a type switch, a `select` case), which stays a picker, and in a `switch` init over several lines,
+which lands on `Coupon.Rate`; `t.Rate()` on the right of its own redeclaration stays `Tariff`'s.
+`ReboundControls` keeps `Tariff`'s jump where the rebinding does not reach the use (#1384's
+review): a block closed earlier on the line, a declaration after the use, the name in a comment
+or a string, `==`, a struct field key and `t.Base = …`.
+`csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
 `Shop.Tea.Stale`. `csharp/src/Shop/Pages/Till.razor` (#1088) is a Blazor component, read as a
@@ -402,6 +419,12 @@ does not read: a picker.
 `Aliased.cs` with no namespace and in `Checks.cs` in `Shop.Tea.Infuse`. `Shadowed.cs` in
 `Shop.Pantry`, whose own `Jar` comes before the alias, and `Boxed<Jar>`'s type parameter keep
 master's picker.
+`csharp/src/Shop/Rebound/` (#1383) hides a field `Flask x` or a parameter `Flask k` behind an
+`Ewer` or a `Spill` that also has `Decant`: a lambda's or a `delegate`'s parameter, `foreach`,
+`catch`, `using var` and a local in a block on one line, a property pattern `is Ewer { } x`,
+switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
+whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
+`Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -648,6 +671,15 @@ a commented-out declaration, and `this` in a class expression. One answer is rea
 answers the interface's. `caddy.ts` and `tins.ts` hold std names the project shadows: a project
 `Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
 whose member is "not installed", never "builtin".
+`rebound.ts` (and `coffee/rebound.js`) rebinds a `u` typed by `urn.ts`'s `Urn` to a `Flask`, both
+declaring `siphon` (#1337): earlier on the cursor's line (a destructuring and a `let` in a block
+on one line, a `const` before a `return`), which stays a picker, and by a `var` hoisted from a
+block, a `switch` case or below the use, which lands on `Flask.siphon`. A `var` of a nested
+function, of a callback on one line and in a string hoists nothing. `controls` keeps `Urn`'s
+jump where the rebinding does not reach the use (#1384's review): a block closed earlier on the
+line, a block or a callback opened after the use, the name in a comment or a string, `==`, an
+object key, `box.u = …` and a `for` body closed before the use; in `coffee/rebound.js` a `var`
+below the use of a parameter, or of a `var` already assigned above, keeps the jump too.
 
 `typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
 `@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,
@@ -750,6 +782,11 @@ func's call (`Rush.make()`) keeps the picker. A method of a value whose type mer
 (`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
 also opens; two overloads taking
 two types, or a receiver merl cannot type, keep the picker.
+`swift/Sources/Shop/Refresh.swift` (#1341) puts the cursor on a label inside an implicit `.init(`
+handed to `Lease(…, span: .init(…))`, over two lines too: it lands on the `init` of `Lease.Span`,
+the type the outer `init`'s `span:` parameter names. Overloads taking two types, a generic of the
+class or of the `init`, a type nested in two namesakes, an alias, no label, a ternary, an array
+literal and a call on a value (a closure's parameter shadowing a typed one) find nothing.
 `swift/Sources/Shop/Overloads.swift` (#1341) calls overloads that differ only by the type of an
 argument: a parameter, a local of a written type or built by a constructor, a constructor call and
 a string literal, each taken by one overload while the others take a struct of another name. Two
@@ -816,6 +853,10 @@ default method of a trait bounding its `F: FnMut(&Self::Captures)`, and `Mesh`'s
 `type Captures = Caps;`, so `caps.get` is `Caps::get` beside `Grain::get`; the comma inside the
 string does not move the argument. A closure on the cursor's own line, a parameter written with
 a type, and a parameter of an unbounded `F` keep the picker.
+`tests/rebound.rs` binds `held` again on the cursor's own line before the cursor (a `let`, a
+`let … else`, a block's `let`, a one-line `match` arm) and through a project macro taking the
+name (`sift!(held);`), all over an outer `held: Caps`: each keeps a picker holding `Grain::get`,
+while the `let`'s own right side, the next arm, a closed block and std macros keep `Caps`.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
@@ -957,6 +998,15 @@ beside an extension of its name, a `String` local beside a project `trimIndent`,
 and `var plunger = plunger`, destructuring in a `val` and a loop header, a star import beside a
 same-package `Mesh`, an alias import of a function, a local function hiding a member inside an
 object expression, and `this@Cafetiere` from an inner class.
+
+`jvm/src/main/java/rebound/` and `jvm/src/main/kotlin/refill/` bind a name again over an outer one
+of another type (#1381): a `Flask x` field, or a local `Flask z` / `val z = Cruet()`, hidden by a
+local declared in the middle of the cursor's line, a parameter of an anonymous class's method on
+one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) and a negated
+`instanceof` whose `if` returns. The one-line shapes keep a picker holding `Ewer.decant` /
+`Phial.tipple`, the multi-line ones land on it, while a use before the declaration, a closed
+block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
+name's member.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an

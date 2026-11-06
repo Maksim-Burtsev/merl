@@ -363,7 +363,7 @@ impl App {
         let (last, before) = chain.split_last()?;
         if before.is_empty() {
             let text = self.buf.lines.join("\n");
-            let bindings = search::bindings(kind, &text, self.line + 1, last);
+            let bindings = search::bindings_at(kind, &text, self.line + 1, Some(self.col), last);
             Some((here.to_path_buf(), text, bindings, Vec::new()))
         } else {
             let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
@@ -982,6 +982,27 @@ impl App {
         {
             return Some(via);
         }
+        if kind == Kind::Python
+            && receiver.is_empty()
+            && let [
+                search::Binding {
+                    value: search::Value::Type(written),
+                    line1: at,
+                },
+            ] = &self.bindings_of(kind, file, text, line1, method)[..]
+            && let Some(returns) = search::python_callable_return(text, written)
+            && (search::python_in_function(text, *at)
+                || text.lines().nth(at - 1).is_some_and(|l| {
+                    let t = l.trim_start();
+                    t.starts_with("def ") || t.starts_with("async def ")
+                }))
+        {
+            let ty = self.annotated_type(kind, file, text, *at, &returns)?;
+            return Some(TypeVia {
+                ty: self.runtime_class(ty),
+                call_signature: Some(signature(kind, callee, &returns)),
+            });
+        }
         let decl = self.callee_decl(kind, file, text, line1, callee, hops)?;
         if search::declares_type(kind, &decl.text) {
             let ty = Typed {
@@ -1181,7 +1202,9 @@ impl App {
         line1: usize,
         name: &str,
     ) -> Vec<search::Binding> {
-        let mut bindings = search::bindings(kind, text, line1, name);
+        let col = (line1 == self.line + 1 && text.lines().nth(self.line) == Some(self.line_str()))
+            .then_some(self.col);
+        let mut bindings = search::bindings_at(kind, text, line1, col, name);
         if search::reads_jsdoc(kind, file) {
             for b in &mut bindings {
                 if let Some(t) = search::jsdoc_binding(text, b.line1, name)
