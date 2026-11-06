@@ -3,7 +3,7 @@
 How often `d` lands where a language server would, per language, in 36 real projects pinned to a
 commit: 7,997 cursors, each with an answer recorded once and reviewed, and the table master
 scores on them (`baseline.md`). A `d` change runs it and shows no language worse than master
-(`AGENTS.md`, `## Changing d`).
+(`docs/agents/d.md`).
 
 ```sh
 tools/d-bench/run                    # every language: 5.4 min on a warm cache (2026-09-28)
