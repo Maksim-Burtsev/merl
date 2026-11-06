@@ -845,6 +845,12 @@ impl App {
             return None;
         }
         let mut bindings = rust_seen(text, line0, name, above);
+        if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
+            && let (Some(c), Some(line)) = (col, lines.get(line0))
+            && chain::arm_hides(line, name, c)
+        {
+            bindings.truncate(1);
+        }
         let own_closure = if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
             && let (Some(c), Some(line)) = (col, lines.get(line0))
             && let Some(header) = search::rust_closure_holds(line, name, c)
@@ -864,6 +870,7 @@ impl App {
             let Some(holds) = holds else {
                 let ty = match self
                     .rust_variant_typed(file, &lines, at, name)
+                    .or_else(|| self.rust_if_let_typed(file, text, at, name))
                     .or_else(|| self.rust_for_typed(file, text, at, name))
                     .or_else(|| self.rust_closure_param(file, text, at, name))
                 {
