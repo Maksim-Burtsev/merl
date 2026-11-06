@@ -644,7 +644,12 @@ and a `defgeneric` parameter, and call a name starting with `%`.
 `common-lisp/rebound.lisp`, `emacs-lisp/shop-rebound.el` and `scheme/lib/rebound.scm` (#1401) bind a
 name of a top-level function again by `dolist`, `dotimes`, `destructuring-bind`, `seq-let`,
 `receive`, `guard`, `do`, `with-slots`, `cl-flet` or `symbol-macrolet`, and call the function
-after the form closes, in a form binding other names, and beside a string of its name.
+after the form closes, in a form binding other names, and beside a string of its name. They,
+`scheme/rebound.rkt` and `clojure/src/shop/rebound.clj` also bind it by a Racket `for` clause,
+an internal `define` or `define-values`, `case-lambda`, a rest-symbol `lambda`, `as->`, `catch`,
+a `:let`, a `reify` or `defrecord` method, `if-let`, `cl-loop`, `condition-case` and
+`handler-case`, and call it after a `#:when`, in a `condition-case` or `handler-case` body and in
+an `if-let` else branch.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
