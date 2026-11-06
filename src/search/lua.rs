@@ -3,10 +3,13 @@ use std::path::PathBuf;
 
 use regex::Regex;
 
-use super::{Binding, Kind, Value, bindings, continued, indent, literal_lines, uncommented};
+use super::{
+    Binding, Kind, Value, bindings, continued, indent, literal_lines, lua_binds_through,
+    uncommented,
+};
 
 pub(super) fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
-    lua_walk(lines, at, name).map_or_else(
+    lua_walk(lines, at, name, false).map_or_else(
         |_| Vec::new(),
         |line1| {
             vec![Binding {
@@ -19,9 +22,21 @@ pub(super) fn lua_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
 pub fn lua_value_of_its_own(text: &str, line: usize, name: &str) -> Option<usize> {
     let lines: Vec<&str> = text.lines().collect();
     let at = line.checked_sub(1).filter(|&i| i < lines.len())?;
-    lua_walk(&lines, at, name).err().flatten()
+    lua_walk(&lines, at, name, false).err().flatten()
 }
-fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize>> {
+pub fn lua_reassigned(text: &str, line: usize, name: &str) -> bool {
+    let lines: Vec<&str> = text.lines().collect();
+    let keeps = Regex::new(&format!(r"^\s*{0}\s*=\s*{0}\s+or\b", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid");
+    line.checked_sub(1)
+        .filter(|&i| i < lines.len())
+        .is_some_and(|at| match lua_walk(&lines, at, name, false) {
+            Ok(bound) => lua_walk(&lines, at, name, true)
+                .is_ok_and(|r| r != bound && !keeps.is_match(lines[r - 1])),
+            Err(_) => false,
+        })
+}
+fn lua_walk(lines: &[&str], at: usize, name: &str, assigned: bool) -> Result<usize, Option<usize>> {
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^local\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(?:=|$))")
             .expect("the regex is a literal")
@@ -66,6 +81,9 @@ fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize
             {
                 return Ok(i + 1);
             }
+            if lua_binds_through(lines[i], name, assigned) {
+                return Ok(i + 1);
+            }
             continue;
         }
         depth = ind;
@@ -79,6 +97,9 @@ fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize
         if own || params || vars {
             return Ok(i + 1);
         }
+        if let Some(param) = split_params(lines, i, at, &lists) {
+            return Ok(param + 1);
+        }
         if local.and_then(|c| c.get(2)).is_some_and(|l| {
             lists(l.as_str())
                 && t.get(l.end()..)
@@ -88,6 +109,39 @@ fn lua_walk(lines: &[&str], at: usize, name: &str) -> Result<usize, Option<usize
         }
     }
     Err(unseen)
+}
+fn split_params(
+    lines: &[&str],
+    head: usize,
+    at: usize,
+    lists: &dyn Fn(&str) -> bool,
+) -> Option<usize> {
+    static OPEN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bfunction\b[\w\s.:]*\(([\w\s,.]*)$").expect("the regex is a literal")
+    });
+    let first = uncommented(Kind::Lua, lines[head]);
+    if lists(OPEN.captures(first.trim_end())?.get(1)?.as_str()) {
+        return Some(head);
+    }
+    for (j, line) in lines.iter().enumerate().take(at).skip(head + 1) {
+        let code = uncommented(Kind::Lua, line);
+        let (names, closed) = code
+            .split_once(')')
+            .map_or((code.as_str(), false), |(n, _)| (n, true));
+        if !names
+            .chars()
+            .all(|c| c.is_alphanumeric() || " \t,._".contains(c))
+        {
+            return None;
+        }
+        if lists(names) {
+            return Some(j);
+        }
+        if closed {
+            return None;
+        }
+    }
+    None
 }
 fn lua_binds_on_its_line(line: &str, name: &str) -> bool {
     static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
