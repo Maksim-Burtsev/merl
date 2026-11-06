@@ -307,6 +307,12 @@ each part of its selector, a property, a block property, the four `NS_ENUM` macr
 class extension, forward declarations, a declaration-shaped `/* */` block) and probes them all,
 the refusals included, from `Profile.mm`. Its `Order` and `include/shop/warehouse.h`'s
 `courier_cmp` take unnamed `const T` and `struct T` parameters, whose `T` is a type (#1276).
+`objc/Rebound.m` (#1400) binds the global `crumb` again by a block parameter (`^(int crumb)`,
+`^ (`, `^NSString *(`, nested, in a message argument) and by a braceless `for (id crumb in xs)`,
+which answer with that binding, and keeps the global where the binding does not reach the use:
+`for (crumb in xs)`, a loop or block closed or opened later on the line, `^{`, another
+parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
+`c/src/rebound.c` keeps `struct terrine (*g)` as a known miss of #1400.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
