@@ -565,7 +565,12 @@ method of the empty union, not of `Union` (#1371), and `b.fun(x)` in `tariff.jl`
 of `ByWeight`, not the test's function `fun` (#1372), while `lv.cut(x)`, `lv` a `const` bound to the
 lowercase module `levies`, calls the module's function, not the field of `Levy`: only a local or
 a parameter before the dot is a value. `err` in a `catch err` block is the variable `catch` binds,
-and none past the block's `end` (#1375).
+and none past the block's `end` (#1375); a `let err` inside that block is the `let`'s (#1396).
+`julia/src/rebound.jl` (#1396) binds a `flask` typed `Flask` again by an enclosing `let`, a
+`let …;` before the cursor on its line and an assignment ended by `;`, and `swig` and `Flask`
+beside the module's function and struct: each lands on that binding, `flask.sip` in the `let`
+body keeps the picker, and the control rows (a closed `let`, a `let`'s right side, a keyword
+argument, a comparison, a closed `for`, a comment, a string) keep master's answer.
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
