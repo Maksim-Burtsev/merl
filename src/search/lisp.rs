@@ -404,6 +404,15 @@ const LETS: &[&str] = &[
     "letrec-values",
     "flet",
     "labels",
+    "cl-flet",
+    "cl-flet*",
+    "cl-labels",
+    "macrolet",
+    "cl-macrolet",
+    "symbol-macrolet",
+    "cl-symbol-macrolet",
+    "do",
+    "do*",
     "when-let*",
     "if-let*",
     "and-let*",
@@ -417,9 +426,20 @@ const SEQUENTIAL: &[&str] = &[
     "and-let*",
     "pcase-let*",
 ];
-const RECURSIVE: &[&str] = &["letrec", "letrec*", "letrec-values", "labels"];
+const RECURSIVE: &[&str] = &["letrec", "letrec*", "letrec-values", "labels", "cl-labels"];
 const TESTS: &[&str] = &["when-let*", "if-let*", "and-let*"];
-const LAMBDAS: &[&str] = &["lambda", "opt-lambda"];
+const LAMBDAS: &[&str] = &[
+    "lambda",
+    "opt-lambda",
+    "destructuring-bind",
+    "cl-destructuring-bind",
+    "multiple-value-bind",
+    "cl-multiple-value-bind",
+    "seq-let",
+    "with-slots",
+    "receive",
+];
+const LOOPS: &[&str] = &["dolist", "dotimes", "cl-dolist", "cl-dotimes", "guard"];
 const CLASSES: &[&str] = &["class", "class*", "mixin"];
 const CLAUSES: &[&str] = &["inherit", "inherit-field", "init-field", "field"];
 const LOOP_VARS: &[&str] = &["for", "as", "with"];
@@ -726,6 +746,7 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         1 if LETS.contains(&h) => Role::Entries,
         2 if h == "let" && p.named => Role::Entries,
         1 if LAMBDAS.contains(&h) => Role::Params,
+        1 if LOOPS.contains(&h) => Role::First,
         1 if DEFINES.contains(&h) => Role::Define,
         2 if DEFUNS.contains(&h) || GENERICS.contains(&h) => Role::Params,
         1 if h == ":method" => Role::Params,
