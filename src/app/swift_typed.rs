@@ -299,6 +299,9 @@ impl App {
             let given = search::SwiftGiven::Element(each);
             return self.swift_given_type(here, file, text, line1, given, hops);
         }
+        if lead.is_some_and(|l| search::swift_projected(l, name)) {
+            return None;
+        }
         if name == "super" {
             let own = search::swift_type_header(lines[around? - 1])?.name;
             let ty = self.swift_type(here, &own)?;
