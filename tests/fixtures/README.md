@@ -222,7 +222,13 @@ continues with the class declaring the method, as intelephense reads `self` (#11
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
 function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
-declaring what the corner declares. `lua/lua/tea/` has `local function pour` beside
+declaring what the corner declares. `php/src/Tea/Rebound.php` binds a `Kettle $pot` again
+before `$pot->pour()` (#1382): a second statement on the line, `$cup = $pot = new Teapot()`,
+`??=`, `instanceof Teapot` in an `if` and as a `!` guard, a closure that does not capture it,
+`use (&$pot)`, `extract()`, `${'pot'}`, `preg_match`'s out-parameter, `['pot' => $pot] =` and a
+`foreach` header wrapped over lines each keep a picker holding `Teapot::pour`, while the
+assignment's own right side, `instanceof Kettle` and a closure's `use ($pot)` keep `Kettle`.
+`lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.

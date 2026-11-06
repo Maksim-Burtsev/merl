@@ -1157,14 +1157,8 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
         let property_under_cursor = bound == at && promoted.is_match(&code_lines[at]);
         return (!property_under_cursor).then(|| vec![bound + 1]);
     }
-    let binds = [
-        format!(r"(?:^|[^\w$:>])\${n}\s*=(?:[^=>]|$)"),
-        format!(r"\bforeach\s*\(.*\bas\b.*\${n}\b"),
-        format!(r"\bcatch\s*\([^)]*\${n}\b"),
-        format!(r"^\s*(?:global|static)\s+[^;(]*\${n}\b"),
-        format!(r"(?:^|[^\w$])(?:list\s*\(|\[)[^;=]*\${n}\b[^;=]*[\])]\s*=(?:[^=>]|$)"),
-    ]
-    .map(rule);
+    let all = php_rebinds(name);
+    let binds = &all[..5];
     let scope = php_scope(&code_lines, &literal, at);
     let mut out = Vec::new();
     let from = match scope {
@@ -1186,11 +1180,107 @@ pub fn php_variable(text: &str, line: usize, name: &str) -> Option<Vec<usize>> {
     };
     out.extend(
         (from..=at)
-            .filter(|&i| !literal[i] && binds.iter().any(|b| b.is_match(&code_lines[i])))
+            .filter(|&i| {
+                !literal[i]
+                    && (binds.iter().any(|b| b.is_match(&code_lines[i]))
+                        || var.is_match(&code_lines[i])
+                            && php_wrapped_binding(&code_lines, &literal, i, binds))
+            })
             .filter(|&i| i == at || php_scope(&code_lines, &literal, i) == scope)
             .map(|i| i + 1),
     );
     Some(out)
+}
+fn php_rebinds(name: &str) -> [Regex; 11] {
+    let n = regex::escape(name);
+    [
+        format!(r"(?:^|[^\w$:>])\${n}\s*=(?:[^=>]|$)"),
+        format!(r"\bforeach\s*\(.*\bas\b.*\${n}\b"),
+        format!(r"\bcatch\s*\([^)]*\${n}\b"),
+        format!(r"^\s*(?:global|static)\s+[^;(]*\${n}\b"),
+        format!(
+            r"(?:^|[^\w$])(?:list\s*\(|\[)(?:[^;=]|=>)*\${n}\b(?:[^;=]|=>)*[\])]\s*=(?:[^=>]|$)"
+        ),
+        format!(r"(?:^|[^\w$:>])\${n}\s*(?:\?\?|\*\*|<<|>>|[-+*/.%|&^])="),
+        format!(r"(?:^|[^&])&\s*\${n}\b"),
+        format!(r"\bunset\s*\([^)]*\${n}\b"),
+        r"\bextract\s*\(|\$\$|\$\{".to_owned(),
+        format!(
+            r"\b(?:preg_match(?:_all)?|preg_replace(?:_callback)?|str_i?replace|(?:mb_)?parse_str|settype|exec|similar_text)\s*\([^;]*\${n}\b"
+        ),
+        format!(r"(?:^|[^\w$:>])\${n}\s+instanceof\s+([\w\\]+)"),
+    ]
+    .map(|p| Regex::new(&p).expect("an escaped name keeps the pattern valid"))
+}
+fn php_wrapped_binding(code_lines: &[String], literal: &[bool], i: usize, binds: &[Regex]) -> bool {
+    let open = |l: &str| {
+        let t = l.trim();
+        !t.is_empty() && !t.ends_with([';', '{', '}'])
+    };
+    let mut top = i;
+    while top > 0 && i - top < 50 && !literal[top - 1] && open(&code_lines[top - 1]) {
+        top -= 1;
+    }
+    let mut end = i;
+    while end + 1 < code_lines.len() && end - i < 50 && !literal[end + 1] && open(&code_lines[end])
+    {
+        end += 1;
+    }
+    let joined = code_lines[top..=end].join(" ");
+    top < end && binds[1..5].iter().any(|b| b.is_match(&joined))
+}
+pub fn php_rebound_before(line: &str, col: usize, name: &str) -> bool {
+    static BLOCK: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"/\*.*?\*/").expect("the regex is a literal"));
+    let var = format!("${name}");
+    let typed: String = line.chars().take(col).collect();
+    let code = BLOCK.replace_all(&php_code(&typed), " ").into_owned();
+    let Some(receiver) = code.rfind(&var) else {
+        return false;
+    };
+    let mut before = code.get(..receiver).unwrap_or_default();
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let head = rule(format!(r"^\s*\${n}\s*=[^=>]"));
+    let mention = rule(format!(r"\${n}\b"));
+    if let Some(m) = head.find(before)
+        && !before.contains(';')
+    {
+        before = before.get(m.end()..).unwrap_or_default();
+    }
+    let in_closure = FUNCTION.find_iter(before).last().is_some_and(|m| {
+        let tail = before.get(m.end()..).unwrap_or_default();
+        tail.split_once('{').is_some_and(|(head, body)| {
+            !mention.is_match(head) && body.matches('{').count() >= body.matches('}').count()
+        })
+    });
+    in_closure || php_rebinds(name)[..10].iter().any(|b| b.is_match(before))
+}
+pub fn php_rebound_between(text: &str, from: usize, to: usize, name: &str) -> bool {
+    let binds = php_rebinds(name);
+    let literal = literal_lines(Kind::Php, text);
+    text.lines()
+        .enumerate()
+        .take(to)
+        .skip(from)
+        .filter(|&(i, _)| literal.get(i) != Some(&true))
+        .any(|(_, l)| binds[5..10].iter().any(|b| b.is_match(&php_code(l))))
+}
+pub fn php_narrowed(text: &str, from: usize, to: usize, name: &str) -> Vec<(usize, String)> {
+    let narrowing = &php_rebinds(name)[10];
+    let literal = literal_lines(Kind::Php, text);
+    text.lines()
+        .enumerate()
+        .take(to + 1)
+        .skip(from)
+        .filter(|&(i, _)| literal.get(i) != Some(&true))
+        .flat_map(|(i, l)| {
+            narrowing
+                .captures_iter(&php_code(l))
+                .map(|c| (i, c[1].to_owned()))
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 fn php_parameter_of_statement_ending_at(
     code_lines: &[String],
