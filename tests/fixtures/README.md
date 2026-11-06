@@ -442,6 +442,11 @@ function of its name, an anonymous union, a `for` and a block each redeclaring a
 local named like its struct tag, a macro declaring a function, designated initializers, a
 compound literal, a `struct` tag beside a function of its name, `goto` to a label named like a
 local, and declarations in a string, a comment and `#if 0`.
+`c/src/rebound.cc` and `c/src/rebound.c` (#1387) bind a `Gourd g` again as a `Terrine` on the
+cursor's own line (a block, a range-`for`, a lambda parameter, an `if` init and condition, a
+`catch`), before and after the use, and keep `Gourd`'s jump where the rebinding does not reach
+the use: a block closed earlier on the line, a lambda later on it, a `for` init that only reads,
+a comment and a string. A `for` and an `if` init without a value still read the outer `g`.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,

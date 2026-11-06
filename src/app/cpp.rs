@@ -60,7 +60,7 @@ impl App {
                 && r.fields.is_empty()
                 && !calls
                 && r.head != "this"
-                && match search::cpp_value_type(text, self.line + 1, &r.head) {
+                && match search::cpp_value_type(text, self.line + 1, Some(self.col), &r.head) {
                     Ok(local) => {
                         search::cpp_plain_object(text, self.line + 1, &r.head, local.is_none())
                     }
@@ -342,7 +342,7 @@ impl App {
 
     fn cpp_member_unhidden(&mut self, here: &Path, text: &str, head: &str, word: &str) -> bool {
         if search::cpp_function_uses(text, self.line + 1, word, head)
-            || search::cpp_value_type(text, self.line + 1, head) != Ok(None)
+            || search::cpp_value_type(text, self.line + 1, Some(self.col), head) != Ok(None)
         {
             return false;
         }
@@ -393,11 +393,11 @@ impl App {
                 None,
             ));
         }
-        match search::cpp_value_type(text, line0 + 1, head) {
+        match search::cpp_value_type(text, line0 + 1, Some(col), head) {
             Ok(Some((t, at))) => return Some((t, code, here_ctx, Some(at))),
             Ok(None) => {}
             Err(()) => {
-                let (expr, line0, end) = search::cpp_auto_init(text, line0 + 1, head)?;
+                let (expr, line0, end) = search::cpp_auto_init(text, line0 + 1, Some(col), head)?;
                 let r = (search::cpp_receiver(&format!("{expr}.")))
                     .filter(|r| depth < 3 && r.fields.len() < 6)?;
                 let start = self.cpp_start(here, text, &r, head, (line0, end), depth + 1)?;
@@ -667,7 +667,7 @@ impl App {
         ctx: &[String],
         name: &str,
     ) -> Option<Vec<String>> {
-        let Ok(Some((ty, _))) = search::cpp_value_type(text, self.line + 1, name) else {
+        let Ok(Some((ty, _))) = search::cpp_value_type(text, self.line + 1, None, name) else {
             return None;
         };
         let name = ty.last()?;
