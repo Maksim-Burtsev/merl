@@ -35,6 +35,12 @@ fn julia_declaration_forms() {
         ("module Shop", "Shop"),
         ("baremodule Core2", "Core2"),
         ("const LIMIT = 10", "LIMIT"),
+        (
+            "const AbstractVector{T} = AbstractArray{T,1}",
+            "AbstractVector",
+        ),
+        ("const VecOrMat{T} = Union{Vec{T}, Mat{T}}", "VecOrMat"),
+        ("const Vec{T} = Array{T,1} where T", "Vec"),
         ("config = load()", "config"),
         ("@enum Color red green blue", "Color"),
         ("@enum Color red green blue", "green"),
@@ -73,6 +79,11 @@ fn julia_refusals() {
         ("@show total(xs)", "total"),
         ("@test rate(t) == 1", "rate"),
         ("x => 1", "x"),
+        ("Union{}(a...) = throw(x)", "Union"),
+        ("Tuple{ }() = ()", "Tuple"),
+        ("const VecOrMat{T} = Union{Vec{T}, Mat{T}}", "Vec"),
+        ("const Vecs{T} = Array{T,1}", "Vec"),
+        ("const Vec{T} == x", "Vec"),
     ] {
         assert!(!alone(line, word), "{line}: {word}");
     }
@@ -114,13 +125,29 @@ fn a_julia_field_is_one_directly_inside_its_struct() {
     let narrowed = |line: &str, word: &str| {
         let at = line.find(word).unwrap();
         let mut p = julia_patterns(word);
-        julia_narrow(&mut p, line, at..at + word.len());
+        let text = format!(
+            "import LinearAlgebra as la\nconst hh = Helpers\nmodule utils end\nfunction h(f, m, _f)\n    {line}\nend"
+        );
+        julia_narrow(&mut p, &text, 4, line, at..at + word.len());
         Regex::new(&p.join("|")).unwrap()
     };
     assert!(!narrowed("cents(x)", "cents").is_match(lines[1]));
     assert!(!narrowed("y = cents + 1", "cents").is_match(lines[1]));
     assert!(narrowed("y = m.cents + 1", "cents").is_match(lines[1]));
     assert!(narrowed("    cents::Int", "cents").is_match(lines[1]));
+    for line in ["f.fun(x)", "g(x).fun(x)", "xs[1].fun", "_f.fun"] {
+        let p = narrowed(line, "fun");
+        assert!(!p.is_match("fun(v) = sum(v)"), "{line}");
+        assert!(p.is_match("    fun::F"), "{line}");
+    }
+    for line in ["Tables.fun(x)", "Base.Iterators.fun", "using .fun"] {
+        assert!(narrowed(line, "fun").is_match("fun(v) = sum(v)"), "{line}");
+    }
+    for line in ["la.fun(x)", "hh.fun(x)", "utils.fun(x)", "nm.fun(x)"] {
+        let p = narrowed(line, "fun");
+        assert!(p.is_match("fun(v) = sum(v)"), "{line}");
+        assert!(!p.is_match("    fun::F"), "{line}");
+    }
     assert!(narrowed("@check x", "check").is_match("macro check(ex)"));
     assert!(!narrowed("@check x", "check").is_match("check(x) = x > 0"));
     assert!(!narrowed("check(x)", "check").is_match("macro check(ex)"));
@@ -282,7 +309,7 @@ fn julia_locals_of_blocks_outside_functions() {
 
 #[test]
 fn julia_imports_bind_names_and_modules() {
-    let text = "using DataFrames\nusing CSV, Tables\nimport DataFrames: select, transform as tf\nusing Base.Iterators: flatten\nimport LinearAlgebra as LA\nusing ..Shop\nimport Base.show\nusing Test: @test\n# using Hidden\n";
+    let text = "using DataFrames\nusing CSV, Tables\nimport DataFrames: select, transform as tf\nusing Base.Iterators: flatten\nimport LinearAlgebra as LA\nusing ..Shop\nimport Base.show\nusing Test: @test\n# using Hidden\nimport Base: length, # sizes\n    iterate\nimport Base:\n    first,\n    last\nfirst(x) = x\n";
     let got = imports(Kind::Julia, text);
     let has = |name: &str, path: &[&str]| {
         got.iter()
@@ -298,7 +325,14 @@ fn julia_imports_bind_names_and_modules() {
     assert!(has("Shop", &["..", "Shop"]));
     assert!(has("show", &["Base", "show"]));
     assert!(has("test", &["Test", "test"]));
+    assert!(has("length", &["Base", "length"]));
+    assert!(has("iterate", &["Base", "iterate"]));
+    assert!(has("first", &["Base", "first"]));
+    assert!(has("last", &["Base", "last"]));
     assert!(!got.iter().any(|i| i.name == "Hidden"));
+    let functions = julia_function_imports(text);
+    assert!(functions.iter().any(|i| i.name == "show"));
+    assert!(!functions.iter().any(|i| i.name == "test"));
     let documented = imports(
         Kind::Julia,
         "\"\"\"\n    using Example\n\"\"\"\nusing Real\n",
@@ -320,6 +354,19 @@ fn julia_names_keep_their_bang() {
         Some("../src/money.jl")
     );
     assert_eq!(julia_include("x = include_dependency(\"a.jl\")", 25), None);
+    let money = Path::new("src/money.jl");
+    let report = Path::new("scripts/report.jl");
+    assert!(julia_includes(
+        report,
+        "include(\"../src/money.jl\")",
+        money
+    ));
+    assert!(!julia_includes(report, "include(\"money.jl\")", money));
+    assert!(!julia_includes(
+        report,
+        "# include(\"../src/money.jl\")",
+        money
+    ));
     assert_eq!(julia_col("sort!(a); sort(b)", "sort"), Some(10));
     assert_eq!(julia_col("sort!(a); resort(b)", "sort"), None);
     assert_eq!(julia_col("a!=b", "a"), Some(0));
@@ -455,4 +502,21 @@ fn julia_roots_read_the_manifest_and_the_depot() {
 #[test]
 fn julia_is_told_by_its_extension() {
     assert_eq!(kind_of(Path::new("src/money.jl")), Some(Kind::Julia));
+}
+
+#[test]
+fn a_julia_signature_over_lines_declares_and_a_call_over_lines_does_not() {
+    let lines = [
+        "Base.push!(xs::Vector, row;",
+        "           strict = true) =",
+        "    append!(xs, row)",
+        "push!(stack, '(')",
+        "closer[')'] = '('",
+        "push!(xs,",
+        "      y)",
+        "z = 1",
+    ];
+    assert!(declares(&lines, 1, "push!"));
+    assert!(!declares(&lines, 4, "push!"));
+    assert!(!declares(&lines, 6, "push!"));
 }

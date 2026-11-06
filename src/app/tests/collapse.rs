@@ -256,14 +256,17 @@ fn a_fold_inside_a_callback_is_the_same_fold_after_a_reload() {
 }
 
 #[test]
-fn an_erlang_file_has_no_fold_rules_though_elixir_does() {
+fn an_erlang_header_folds_as_erlang() {
     let mut a = app_as(
-        "erl",
+        "hrl",
         "f(X) ->\n    case X of\n        1 -> one\n    end.\n",
     );
     key(&mut a, KeyCode::Char('f'));
-    assert_eq!(a.collapsed, [] as [(usize, usize); 0]);
-    assert_eq!(a.message, "no fold rules for .erl");
+    assert_eq!(a.collapsed, [(0, 3)]);
+    a.collapsed.clear();
+    a.go((1, 0));
+    key(&mut a, KeyCode::Char('f'));
+    assert_eq!(a.collapsed, [(1, 3)]);
 }
 
 #[test]
@@ -531,12 +534,14 @@ fn f_folds_a_jsx_element_in_a_jsx_file() {
 }
 
 #[test]
-fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_and_scala_fixtures() {
+fn f_survives_every_prefix_of_the_listed_fold_fixtures() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/folds");
     let fixtures = [
         ("dart", "dart.dart"),
         ("scala", "scala.scala"),
+        ("jl", "julia.jl"),
         ("ex", "elixir.ex"),
+        ("erl", "erlang.erl"),
         ("rbs", "rbs.rbs"),
         ("zsh", "zsh.zsh"),
         ("swift", "swift.swift"),
@@ -544,6 +549,22 @@ fn f_survives_every_prefix_of_the_swift_php_objc_c_cpp_elixir_rbs_zsh_dart_and_s
         ("m", "objc.m"),
         ("c", "c.c"),
         ("cc", "cpp.cc"),
+        ("sql", "sql.sql"),
+        ("tf", "terraform.tf"),
+        ("vue", "vue.vue"),
+        ("svelte", "svelte.svelte"),
+        ("astro", "astro.astro"),
+        ("zig", "zig.zig"),
+        ("nix", "nix.nix"),
+        ("mk", "make.mk"),
+        ("cmake", "cmake.cmake"),
+        ("sol", "solidity.sol"),
+        ("bzl", "starlark.bzl"),
+        ("groovy", "groovy.groovy"),
+        ("clj", "clojure.clj"),
+        ("lisp", "commonlisp.lisp"),
+        ("rkt", "racket.rkt"),
+        ("scm", "scheme.scm"),
     ];
     for (ext, name) in fixtures {
         let text = std::fs::read_to_string(dir.join(name)).unwrap();
@@ -587,5 +608,21 @@ fn php_uses_inside_a_braced_namespace_and_a_phtml_file_fold() {
         a.go((2, 4));
         key(&mut a, KeyCode::Char('f'));
         assert_eq!(a.collapsed, vec![(2, 3)], ".{ext}");
+    }
+}
+
+#[test]
+fn f_folds_make_and_cmake_by_their_file_names() {
+    for (name, text) in [
+        ("Makefile", "all:\n\techo a\n\techo b\n"),
+        ("GNUmakefile", "all:\n\techo a\n\techo b\n"),
+        ("CMakeLists.txt", "if(A)\n  message(a)\nendif()\n"),
+    ] {
+        let mut a = app("");
+        let path = a.buf.path.clone().unwrap().with_file_name(name);
+        a.buf = Buffer::from_bytes(path, text.as_bytes());
+        a.go((0, 0));
+        key(&mut a, KeyCode::Char('f'));
+        assert_eq!(a.collapsed, vec![(0, 2)], "{name}");
     }
 }

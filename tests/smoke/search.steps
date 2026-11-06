@@ -27,3 +27,14 @@ wait /OrderRepo
 key Escape s
 wait s> OrderRepo
 key Escape
+# * finds the word under the cursor as a whole word, in its case (#923): on the parameter repo
+# it skips OrderRepo and stops on self.repo, where /repo counts 8; n walks the rest of the 5.
+key Escape :
+type 12
+key Enter /
+type repo
+key Enter Escape
+type *
+wait 2/5
+key n
+wait 3/5

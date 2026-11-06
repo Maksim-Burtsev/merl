@@ -1,6 +1,6 @@
 # The shop (#429): a module over the files it includes.
 module Shop
-
+import Base: length
 export Tariff, Coupon, gross, weigh!
 #                             ^ d: src/tariff.jl:57
 #      ^ d: src/tariff.jl:7
@@ -15,5 +15,9 @@ include("tariff.jl")
 baremodule Core2
 #          ^ d: src/Shop.jl:15
 end
+
+const Rates{T} = Vector{T}
+const Prices = Rates{Float64}
+#              ^ d: src/Shop.jl:19
 
 end

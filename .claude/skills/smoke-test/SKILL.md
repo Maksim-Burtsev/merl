@@ -1,6 +1,6 @@
 ---
 name: smoke-test
-description: The release gate of merl, step 2 of AGENTS.md `## Releases`, after the changelog. Use whenever a merl release is asked for or prepared (a version bump, a tag, a `release: X.Y.Z` PR), and to check a build against the last release. Plays the tests/smoke scenarios in tmux on both, compares their screens and timings, and ends in a GO / NO-GO verdict table for the release PR.
+description: The release gate of merl, step 2 of `docs/agents/releases.md`, after the changelog. Use whenever a merl release is asked for or prepared (a version bump, a tag, a `release: X.Y.Z` PR), and to check a build against the last release. Plays the tests/smoke scenarios in tmux on both, compares their screens and timings, and ends in a GO / NO-GO verdict table for the release PR.
 ---
 
 # Smoke test before a release

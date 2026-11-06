@@ -153,6 +153,25 @@ pub fn shell_source(line: &str, col: usize, bats: bool) -> Option<String> {
     };
     Some(format!("./{path}{bash}"))
 }
+pub fn shell_source_from_here(line: &str) -> bool {
+    ![
+        "$(dirname \"$0\")",
+        "$(dirname \"${BASH_SOURCE[0]}\")",
+        "$(dirname \"$BASH_SOURCE\")",
+        "${BASH_SOURCE%/*}",
+        "${0%/*}",
+    ]
+    .iter()
+    .fold(line.to_owned(), |l, here| l.replace(here, ""))
+    .contains(['$', '`'])
+}
+pub fn shell_directive_source(line: &str) -> Option<&str> {
+    static DIRECTIVE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*#\s*shellcheck\s(?:.*\s)?source=([\w./-]+)(?:\s|$)")
+            .expect("the regex is a literal")
+    });
+    Some(DIRECTIVE.captures(line)?.get(1)?.as_str())
+}
 pub fn shell_files(dir: &Path, path: &str, files: &[PathBuf]) -> Vec<PathBuf> {
     match lexical(&dir.join(path)).filter(|f| files.contains(f)) {
         Some(f) => vec![f],
@@ -294,6 +313,35 @@ pub fn shell_command_position(lead: &str) -> Option<bool> {
         ))
     .then_some(true)
 }
+pub fn bats_runs(lead: &str) -> bool {
+    let mut l = lead.trim_end();
+    if l.len() == lead.len() {
+        return false;
+    }
+    loop {
+        let (rest, last) = l.rsplit_once([' ', '\t']).unwrap_or(("", l));
+        if last == "run" {
+            return shell_command_position(rest) == Some(true);
+        }
+        if !(last.starts_with('-') || last == "!") {
+            return false;
+        }
+        l = rest.trim_end();
+    }
+}
+pub fn shell_env_line(line: &str) -> bool {
+    static ENV: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:exec\s+)?env\s+[-\w]").expect("the regex is a literal")
+    });
+    ENV.is_match(line)
+}
+pub fn shell_reads_another_file(line: &str) -> bool {
+    static SOURCES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[\s;&|({])(?:source|\.|load|bats_load_library)\s+\S")
+            .expect("the regex is a literal")
+    });
+    SOURCES.is_match(line)
+}
 pub fn shell_no_name(lines: &[String], at: usize, lead: &str, tail: &str) -> bool {
     let quoted = !lead.contains('"')
         && lead.matches('\'').count() % 2 == 1
@@ -319,4 +367,146 @@ pub fn shell_no_name(lines: &[String], at: usize, lead: &str, tail: &str) -> boo
                 (l == "esac" || l.starts_with("esac ")).then_some(false)
             }
         }) == Some(true)
+}
+pub fn shell_out_arg_pattern(word: &str) -> String {
+    format!(
+        r"^\s*[\w.:-]+\s+(?:\S+\s+)*{}(?:\s|;|$)",
+        regex::escape(word)
+    )
+}
+pub fn shell_out_arg<'a>(line: &'a str, word: &str) -> Option<(&'a str, usize)> {
+    let words = shell_words(line);
+    let (f, args) = words.split_first()?;
+    let n = args.iter().position(|a| *a == word)?;
+    (f.chars()
+        .all(|c| c.is_ascii_alphanumeric() || "_.:-".contains(c))
+        && !args[..n]
+            .iter()
+            .any(|a| a.contains(['@', '*', ';', '|', '&', '<', '>'])))
+    .then_some((*f, n + 1))
+}
+pub fn shell_writes_param(lines: &[&str], def: usize, n: usize) -> bool {
+    let Some(head) = lines.get(def) else {
+        return false;
+    };
+    let body = if head.trim_end().ends_with('}') {
+        std::slice::from_ref(head)
+    } else {
+        lines.get(def + 1..).unwrap_or_default()
+    };
+    let end = body
+        .iter()
+        .position(|b| b.trim_start().starts_with('}') && indent(b) == indent(head))
+        .unwrap_or(body.len());
+    let refs = |x: &str| format!(r#""?\$(?:{x}\b|\{{{x}\}})"?"#);
+    let mut names = vec![n.to_string()];
+    for l in &body[..end] {
+        let alias = names.iter().find_map(|x| {
+            Regex::new(&format!(
+                r"^\s*(?:(?:local|declare|typeset|readonly)(?:\s+-\w+)*\s+)?(\w+)={}\s*(?:;|#|$)",
+                refs(x)
+            ))
+            .ok()?
+            .captures(l)
+            .map(|c| c[1].to_owned())
+        });
+        names.extend(alias);
+    }
+    names.iter().any(|x| {
+        let r = refs(x);
+        Regex::new(&format!(
+            r#"(?:^|[\s;&|(])(?:printf\s+-v\s+{r}\s|read(?:\s+(?:-[a-zA-Z]*[dtnNuip]\s+\S+|-[a-zA-Z]*[a-zA-Z&&[^dtnNuip]]|\w+))*\s+{r}(?:\s|;|<|$)|eval\s+"?\\?\$\{{?{x}\}}?=|(?:local|declare|typeset)\s+-[a-zA-Z]*n[a-zA-Z]*\s+\w+={r}(?:\s|;|$))"#
+        ))
+        .is_ok_and(|re| body[..end].iter().any(|l| re.is_match(l)))
+    })
+}
+pub fn shell_function_name(line: &str) -> Option<&str> {
+    let s = HEADER.find(line)?.as_str().trim_start();
+    let s = s
+        .strip_prefix("function")
+        .filter(|r| r.starts_with(char::is_whitespace))
+        .map_or(s, str::trim_start);
+    s.split(|c: char| c == '(' || c.is_whitespace())
+        .next()
+        .filter(|n| !n.is_empty())
+}
+fn shell_plain(line: &str) -> bool {
+    const FLOW: &[&str] = &[
+        "if", "then", "else", "elif", "fi", "case", "esac", "for", "select", "while", "until",
+        "do", "done", "return", "exit", "exec", "break", "continue", "function", "trap",
+    ];
+    let t = line.trim();
+    if t.is_empty() || t.starts_with('#') {
+        return true;
+    }
+    let first = t.split([' ', '\t', ';']).next().unwrap_or("");
+    !FLOW.contains(&first)
+        && !t.starts_with(['{', '}', '(', ')'])
+        && !["&&", "||", ";;", "<<"].iter().any(|s| t.contains(s))
+        && !t.ends_with(['\\', '{', '(', '|'])
+        && shell_quotes_closed(t)
+}
+fn shell_quotes_closed(s: &str) -> bool {
+    let mut quote = None;
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        match (quote, c) {
+            (Some('\''), '\'') => quote = None,
+            (Some('\''), _) => {}
+            (_, '\\') => {
+                chars.next();
+            }
+            (Some(q), c) if c == q => quote = None,
+            (None, '"' | '\'') => quote = Some(c),
+            _ => {}
+        }
+    }
+    quote.is_none()
+}
+pub fn shell_fails_after(lines: &[&str], at: usize, name: &str) -> bool {
+    lines
+        .get(at)
+        .is_some_and(|l| shell_plain(l) && l.trim_start().starts_with(&format!("{name}=")))
+        && lines[at + 1..]
+            .iter()
+            .find(|l| !shell_plain(l))
+            .is_some_and(|l| {
+                let mut w = l.split_whitespace();
+                matches!(w.next(), Some("return" | "exit"))
+                    && w.next()
+                        .is_some_and(|n| n.parse::<u8>().is_ok_and(|n| n != 0))
+                    && w.next().is_none_or(|c| c.starts_with('#'))
+            })
+}
+pub fn shell_runs_first(lines: &[&str], def: usize, at: usize) -> bool {
+    lines.get(def).is_some_and(|l| l.trim_end().ends_with('{'))
+        && lines
+            .get(def + 1..=at)
+            .is_some_and(|b| b.iter().all(|l| shell_plain(l)))
+}
+pub fn shell_gated_by(line: &str, f: &str, g: &str) -> bool {
+    let word = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let mut any = false;
+    for (i, _) in line.match_indices(f) {
+        let (Some(before), Some(after)) = (line.get(..i), line.get(i + f.len()..)) else {
+            continue;
+        };
+        if before.ends_with(word) || after.starts_with(word) {
+            continue;
+        }
+        let gated = shell_quotes_closed(before)
+            && before
+                .trim_end()
+                .strip_suffix("&&")
+                .and_then(|b| b.trim_end().strip_suffix(g))
+                .is_some_and(|b| {
+                    let b = b.trim_end();
+                    b.is_empty() || b.ends_with("&&")
+                });
+        if !gated {
+            return false;
+        }
+        any = true;
+    }
+    any
 }

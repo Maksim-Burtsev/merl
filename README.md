@@ -145,6 +145,7 @@ counts stay on your machine.
 |---|---|
 | / / Ctrl+F | Find in the open file |
 | n / N | Next / previous match |
+| * | Find the word under the cursor as a whole word, or the selection |
 | s | Search the project |
 
 **Review**
@@ -153,6 +154,7 @@ counts stay on your machine.
 |---|---|
 | c / C | Review: next / previous hunk, on to the next file |
 | m | Review: mark the file as viewed, or take the mark off |
+| a | Review: note for the agent on the line or the selection |
 | Fold: Enter | Review: load the diff of a folded generated file |
 
 **Editing**

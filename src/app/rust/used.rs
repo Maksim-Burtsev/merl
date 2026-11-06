@@ -170,7 +170,7 @@ impl App {
             }
             seen.push(target.clone());
             let file = if target.is_empty() {
-                vec![home.src.join("lib.rs"), home.src.join("main.rs")]
+                home.roots.clone()
             } else {
                 let at = target.iter().fold(home.src.clone(), |p, m| p.join(m));
                 vec![at.with_extension("rs"), at.join("mod.rs")]
@@ -246,7 +246,11 @@ impl App {
         self.rust_resolve(&hit.path, target, hit.line1 - 1)
     }
 
-    fn rust_crate_reexported(&self, krate: &CrateSrc, rest: &[String]) -> Option<CrateSrc> {
+    pub(super) fn rust_crate_reexported(
+        &self,
+        krate: &CrateSrc,
+        rest: &[String],
+    ) -> Option<CrateSrc> {
         let [alias, _, ..] = rest else {
             return None;
         };
@@ -260,7 +264,18 @@ impl App {
             regex::escape(alias)
         ))
         .ok()?;
-        let target = re.captures(&text)?[1].to_owned();
+        let mut lines = re.captures_iter(&text);
+        let found = lines.next()?;
+        let attribute = text
+            .get(..found.get(0)?.start())?
+            .trim_end()
+            .lines()
+            .next_back()
+            .is_some_and(|l| l.trim_start().starts_with("#[cfg"));
+        if lines.next().is_some() || attribute {
+            return None;
+        }
+        let target = found[1].to_owned();
         if matches!(target.as_str(), "crate" | "self" | "super") || declares_mod(&text, &target) {
             return None;
         }
@@ -321,7 +336,11 @@ pub(super) fn registry_src(r: &Path, all: &[PathBuf], name: &str) -> Option<Crat
         .filter(|f| f.starts_with(&src))
         .cloned()
         .collect();
-    (!files.is_empty()).then_some(CrateSrc { src, files })
+    (!files.is_empty()).then_some(CrateSrc {
+        roots: search::rust_src_roots(&src),
+        src,
+        files,
+    })
 }
 
 impl App {
@@ -356,7 +375,11 @@ impl App {
             .filter(|f| f.starts_with(&src))
             .cloned()
             .collect();
-        Some(CrateSrc { src, files })
+        Some(CrateSrc {
+            roots: search::rust_src_roots(&src),
+            src,
+            files,
+        })
     }
 
     pub(in crate::app) fn rust_glob_variant(
@@ -475,4 +498,42 @@ impl App {
             reason: Reason::Import(format!("{}::*", glob.join("::"))),
         })
     }
+
+    pub(super) fn rust_path_variant(
+        &mut self,
+        here: &Path,
+        text: &str,
+        word: &str,
+        owner: &[String],
+        imported: bool,
+    ) -> Option<Vec<Candidate>> {
+        if !word.starts_with(|c: char| c.is_ascii_uppercase()) {
+            return None;
+        }
+        let mut variant = self.rust_dependency_variant(here, text, word, owner)?;
+        let spelled = owner.join("::");
+        variant.reason = if imported {
+            Reason::Import(spelled)
+        } else {
+            Reason::Path(spelled)
+        };
+        Some(vec![variant])
+    }
+}
+
+pub(super) fn rust_below(here: &Path, p: &Path) -> bool {
+    let parent = p.parent().unwrap_or_else(|| Path::new(""));
+    let root_file = p
+        .file_stem()
+        .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
+        || ["tests", "benches", "examples"]
+            .iter()
+            .any(|d| parent.file_name().is_some_and(|n| n == *d))
+        || parent.ends_with("src/bin");
+    let dir = if root_file {
+        parent.to_path_buf()
+    } else {
+        p.with_extension("")
+    };
+    here == p || here.starts_with(dir)
 }

@@ -18,7 +18,7 @@ wait Tutor 2/
 17         """Load the notes from disk; a missing file means no notes yet."""
 18         if not self.config.path.exists():
 19             return []
-20         raw = json.loads(self.config.path.read_╭ Tutor 2/26 · Find in the file ───────────────────────────────────────────────────╮
+20         raw = json.loads(self.config.path.read_╭ Tutor 2/27 · Find in the file ───────────────────────────────────────────────────╮
 21         return [Note.from_dict(item) for item i│                                                                                  │
 22                                                │  Press `/` (or Ctrl+F), type `load_config`, Enter. The search runs as you type.  │
 23     def _write(self) -> None:                  │                                                                                  │

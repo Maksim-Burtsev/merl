@@ -143,7 +143,7 @@ js0140		builtin: the server's own stub
 js0141	lib/languages/js/source-code/source-code.js:99		
 js0142		types the server fetched; not installed in the project	
 js0143			
-js0144	lib/api.js:12	shorthand property of a require binding: the oracle stops at the binding, merl follows the require to class ESLint (#328)	
+js0144	lib/api.js:12;lib/eslint/eslint.js:693	shorthand property of a require binding: the oracle stops at the binding, merl follows the require to class ESLint (#328)	reviewed: add the class the require leads to beside the binding (#1342)
 js0145	node_modules/@eslint/core/dist/esm/types.d.ts:279		
 js0146	conf/globals.js:83		
 js0147	lib/languages/js/source-code/token-store/filter-cursor.js:32		
@@ -301,7 +301,7 @@ js0298	server/monitor-types/mqtt.js:24
 js0299			
 js0300	server/uptime-kuma-server.js:23		
 js0301	node_modules/redbean-node/dist/bean-model.d.ts:2		
-js0302	server/model/monitor.js:32	destructured require binding: the oracle stops at the binding, merl follows the require to exports.checkCertificate (#328)	
+js0302	server/model/monitor.js:32;server/util-server.js:480	destructured require binding: the oracle stops at the binding, merl follows the require to exports.checkCertificate (#328)	reviewed: add the export the require leads to beside the binding (#1342)
 js0303	~/.cache/merl-d-bench/servers/node_modules/typescript/lib/lib.dom.d.ts:44123;node_modules/@types/node/web-globals/timers.d.ts:27;node_modules/@types/node/web-globals/timers.d.ts:32;~/Library/Caches/typescript/6.0/node_modules/@types/node/web-globals/timers.d.ts:32;~/Library/Caches/typescript/6.0/node_modules/@types/node/web-globals/timers.d.ts:27		
 js0304	server/uptime-calculator.js:425		
 js0305			
@@ -365,7 +365,7 @@ js0362	server/uptime-kuma-server.js:23
 js0363	server/model/monitor.js:115		
 js0364	node_modules/@types/ws/index.d.ts:75		
 js0365	server/socket-handlers/docker-socket-handler.js:33		
-js0366	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		
+js0366	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/ts5.6/buffer.buffer.d.ts:353;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		judged: also the ts5.6/ interface Buffer that the project's TypeScript 4.4.4 reads through @types/node's typesVersions; the oracle ran TypeScript 6.0
 js0367	src/util.ts:368		
 js0368	db/knex_init_db.js:66		
 js0369			
@@ -381,7 +381,7 @@ js0378
 js0379	src/util.ts:40		
 js0380	src/util.ts:41		
 js0381			
-js0382	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		
+js0382	~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/buffer.buffer.d.ts:356;node_modules/@types/node/ts5.6/buffer.buffer.d.ts:353;node_modules/@types/node/buffer.d.ts:205;node_modules/@types/node/buffer.d.ts:1760;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:205;~/Library/Caches/typescript/6.0/node_modules/@types/node/buffer.d.ts:1760		judged: also the ts5.6/ interface Buffer that the project's TypeScript 4.4.4 reads through @types/node's typesVersions; the oracle ran TypeScript 6.0
 js0383	server/monitor-types/globalping.js:168		
 js0384	node_modules/@types/node/process.d.ts:1193;~/Library/Caches/typescript/6.0/node_modules/@types/node/process.d.ts:1194		
 js0385	server/model/domain_expiry.js:170		

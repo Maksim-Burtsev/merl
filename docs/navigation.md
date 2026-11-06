@@ -914,9 +914,13 @@ sit in a directory the walk went into, `.env` or `config/local.yml`, dim and aft
 nothing from inside `node_modules/`. `s`, `u` and `d` search only what is not ignored.
 A symbolic link to a directory is such a row too: the walk does not follow it, so a link to `..`
 or `/` pulls nothing in. A file behind it opens editable wherever it leads, as through a link to
-a file: a save writes into the file the link leads to and keeps the link. A file the walk does
-not list under `.venv`, `site-packages`, `node_modules` or a `bazel-*` folder is a library's and
-opens read-only however it is reached, a package linked in with `npm link` included.
+a file: a save writes into the file the link leads to and keeps the link. A file under a
+`.venv`, `site-packages`, `dist-packages`, `node_modules`, `vendor`, `Pods`, `deps`, `_build`,
+`.build`, `local`, `.dart_tool` or `bazel-*` folder the walk lists nothing from is a library's
+and opens read-only however it is reached. That is an ignored folder of these names, a project's
+own `local/` or `deps/` too, and also one behind a link to a directory (a package linked in with
+`npm link`) or below the root of a file opened outside a repository, where the walk lists only
+the root's own files. A committed `vendor/` stays editable, the files it ignores included.
 
 The open file itself is watched and reloads on every change on disk, keeping the cursor, the
 scroll position, the jump history and the undo history, where the change is one more step.

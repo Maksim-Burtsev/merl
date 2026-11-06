@@ -18,7 +18,7 @@ wait Tutor 10/
 17         """Load the notes from disk; a missing file means no notes yet."""
 18         if not self.config.path.exists():
 19             return []
-20         raw = json.loads(self.config.path.read_╭ Tutor 10/26 · Go to line ────────────────────────────────────────────────────────╮
+20         raw = json.loads(self.config.path.read_╭ Tutor 10/27 · Go to line ────────────────────────────────────────────────────────╮
 21         return [Note.from_dict(item) for item i│                                                                                  │
 22                                                │  `:` (or Ctrl+G), then a number: type `42` and press Enter.                      │
 23     def _write(self) -> None:                  │                                                                                  │

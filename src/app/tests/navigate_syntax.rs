@@ -1050,8 +1050,8 @@ fn an_imported_package_is_the_copy_node_loads() {
             "what a default import binds is its own name for the default export, whatever the module exports under that name otherwise",
             "^dparse",
             jump(
-                "no definition for dparse",
-                &format!("{file}:{}", line("dparse")),
+                "dparse: via import dflt",
+                "packages/api/node_modules/dflt/index.d.ts:3",
             ),
         ),
         (

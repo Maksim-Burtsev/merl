@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, code, comment, group, indent, literal_lines, names, split_top,
-    swift_mods, uncommented,
+    Binding, Kind, SwiftCall, Value, close_of, code, comment, group, indent, literal_lines, names,
+    split_top, swift_mods, uncommented,
 };
 
 static SWIFT_FUNC: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -145,8 +145,24 @@ pub fn swift_inherited(line: &str) -> Vec<String> {
     let list = c[1].split(" where ").next().unwrap_or_default();
     split_top(Kind::Swift, list, b',')
         .into_iter()
+        .flat_map(|n| n.split('&'))
         .filter_map(|n| swift_type_name(n.split('<').next().unwrap_or(n)))
         .collect()
+}
+pub fn swift_self_bounds(clause: &str) -> Option<Vec<String>> {
+    let t = uncommented(Kind::Swift, clause);
+    let (clause, _) = t.split_once('{')?;
+    let mut bounds = Vec::new();
+    for item in clause.split(',') {
+        let (lhs, rhs) = item.split_once(':')?;
+        if lhs.trim() != "Self" {
+            return None;
+        }
+        for name in rhs.split('&') {
+            bounds.push(swift_type_name(name).filter(|n| n.trim() == name.trim())?);
+        }
+    }
+    Some(bounds)
 }
 pub struct SwiftTypeHeader {
     pub keyword: String,
@@ -183,49 +199,6 @@ pub fn swift_in_top_level_func<S: AsRef<str>>(lines: &[S], literal: &[bool], lin
         let t = uncommented(Kind::Swift, lines[outer - 1].as_ref());
         indent(&t) == 0 && SWIFT_FUNC.is_match(&t)
     }
-}
-#[derive(Debug, PartialEq, Eq)]
-pub struct SwiftCall {
-    pub labels: Vec<String>,
-    pub trailing_closure: bool,
-}
-pub fn swift_call_labels(lines: &[&str], line0: usize, after: usize) -> Option<SwiftCall> {
-    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*`?(\w+)`?\s*:").expect("the regex is a literal")
-    });
-    let line = lines.get(line0)?;
-    let rest = line.get(after..)?;
-    if rest.trim_start().starts_with('{') {
-        let condition = ["if ", "guard ", "while ", "for ", "switch ", "} else"]
-            .iter()
-            .any(|k| line.trim_start().starts_with(k));
-        return (!condition).then(|| SwiftCall {
-            labels: Vec::new(),
-            trailing_closure: true,
-        });
-    }
-    if !rest.starts_with('(') {
-        return None;
-    }
-    let g = group(Kind::Swift, lines, line0, after)?;
-    let trailing_closure = g.after_close.trim_start().starts_with('{');
-    let inner = g.inner_uncommented;
-    let labels = if inner.trim().is_empty() {
-        Vec::new()
-    } else {
-        split_top(Kind::Swift, &inner, b',')
-            .into_iter()
-            .map(|a| {
-                LABEL
-                    .captures(a)
-                    .map_or_else(|| "_".to_owned(), |c| c[1].to_owned())
-            })
-            .collect()
-    };
-    Some(SwiftCall {
-        labels,
-        trailing_closure,
-    })
 }
 #[derive(Debug, PartialEq, Eq)]
 pub struct SwiftParam {
@@ -418,7 +391,15 @@ pub fn swift_call_links(before: &str) -> Option<Vec<String>> {
         links.insert(0, name.to_owned());
         match head.get(..start)?.strip_suffix('.') {
             Some(r) if r.ends_with(')') => rest = r,
-            Some(_) => return None,
+            Some(r) => {
+                static VALUE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+                    Regex::new(r"(?:^|[^\w.)\]?!$`])([a-z_]\w*(?:\.[A-Za-z_]\w*)*)$")
+                        .expect("the regex is a literal")
+                });
+                let value = VALUE.captures(r)?;
+                links[0] = format!("{}.{}", &value[1], links[0]);
+                break;
+            }
             None => break,
         }
     }
@@ -618,7 +599,7 @@ fn swift_shorthand(clause: &str, name: &str) -> bool {
         .or_else(|| c.strip_prefix("var "))
         .is_some_and(|n| n.trim().trim_matches('`') == name)
 }
-fn swift_captures(list: &str, name: &str) -> bool {
+pub(super) fn swift_captures(list: &str, name: &str) -> bool {
     name != "self"
         && list.split(',').any(|entry| {
             let e = entry.trim();
@@ -892,37 +873,11 @@ fn swift_header_binds(first_line: &str, joined: &str, opening_line: &str, name: 
         Binds::Nothing
     }
 }
-fn swift_closure_params_bind(params: &str, name: &str) -> bool {
+pub(super) fn swift_closure_params_bind(params: &str, name: &str) -> bool {
     let params = params.trim().trim_start_matches('(').trim_end_matches(')');
     params.split(',').any(|p| {
         let p = p.split(':').next().unwrap_or(p);
         p.split_whitespace().last() == Some(name)
-    })
-}
-pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
-    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(
-            r"^\s*(?:\[([^\]]*)\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\s",
-        )
-        .expect("the regex is a literal")
-    });
-    let mut open = Vec::new();
-    for (i, c) in code(Kind::Swift, line).take_while(|&(i, _)| i < at) {
-        match c {
-            b'{' => open.push(i),
-            b'}' => {
-                open.pop();
-            }
-            _ => {}
-        }
-    }
-    open.iter().any(|&o| {
-        line.get(o + 1..at)
-            .and_then(|s| HEAD.captures(s))
-            .is_some_and(|c| {
-                swift_closure_params_bind(&c[2], name)
-                    || c.get(1).is_some_and(|l| swift_captures(l.as_str(), name))
-            })
     })
 }
 pub fn swift_binds_on(line: &str, name: &str) -> bool {
@@ -1095,6 +1050,12 @@ pub fn swift_given(line: &str, name: &str) -> Option<SwiftGiven> {
         r"^for\s+(?:case\s+)?(?:let\s+)?\(\s*\w+\s*,\s*`?{n}`?\s*\)\s+in\s+([A-Za-z_][\w.]*)\.enumerated\(\)\s*\{{?\s*$"
     ));
     if let Some(c) = enumerated.captures(t) {
+        return Some(SwiftGiven::Element(c[1].to_owned()));
+    }
+    let mapped = rule(format!(
+        r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.enumerated\(\)\.(?:map|compactMap|flatMap|forEach)\s*\{{\s*\(?\s*\w+\s*,\s*`?{n}`?\s*\)?\s+in\b"
+    ));
+    if let Some(c) = mapped.captures(t) {
         return Some(SwiftGiven::Element(c[1].to_owned()));
     }
     let tuple = rule(r"^(?:let|var)\s+\(([\w\s,`]+)\)\s*=\s*([A-Za-z_][\w.]*)$".to_owned());

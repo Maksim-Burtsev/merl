@@ -1,0 +1,57 @@
+wait 1 line
+┌orders──────────────────────┐1 const std = @import("std");
+│▸ .github                   │2
+│▸ .venv                     │3 pub fn clamp(n: u32) u32 {
+│▸ app                       │4     if (n > 10) { 1 line ⋯ }
+│▸ data                      │7     return n;
+│▸ deploy                    │8 }
+│▸ docs                      │
+│▸ scripts                   │
+│▾ src                       │
+│  A clamp.zig               │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+src/clamp.zig  4:1  [code]                                                                                                                                                         14:32
+cursor (x,y,shown) 32,3,0

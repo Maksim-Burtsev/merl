@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Release step 1 (AGENTS.md `## Releases`): gather `changes/N.md` under CHANGELOG.md's
+"""Release step 1 (`docs/agents/releases.md`): gather `changes/N.md` under CHANGELOG.md's
 `## [Unreleased]`, one heading each in Keep a Changelog's order, entries by issue number, and
 delete the fragments.
 

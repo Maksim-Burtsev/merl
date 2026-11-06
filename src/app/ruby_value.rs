@@ -34,6 +34,10 @@ impl App {
             return None;
         }
         let expr = expr.trim();
+        if let Some(name) = search::ruby_found_record(expr) {
+            let class = self.ruby_constant_class(here, name)?;
+            return self.ruby_record(here, class);
+        }
         if let Some((receiver, method)) = search::ruby_last_call(expr) {
             if method == "new" && receiver.starts_with(|c: char| c.is_ascii_uppercase() || c == ':')
             {
@@ -44,16 +48,38 @@ impl App {
                     .then_some(class);
             }
             let class = self.ruby_value_class(here, text, line1, prefix, receiver, depth + 1)?;
-            return self.ruby_returned_class(here, &class, method);
+            return self.ruby_returned_class(here, &class, method, depth);
         }
         if !search::ruby_local_name(expr) {
             return None;
+        }
+        match prefix.chars().next_back() {
+            Some('@') if !prefix.ends_with("@@") => {
+                return self.ruby_ivar_class(here, text, line1, expr, depth);
+            }
+            Some('@' | '$') => return None,
+            _ => {}
         }
         if let Some(tapped) = search::ruby_tapped(prefix, expr) {
             let (head, receiver) = search::ruby_receiver_split(tapped);
             return self.ruby_value_class(here, text, line1, head, receiver, depth + 1);
         }
-        let (at, value) = search::ruby_assigned_once(text, line1, expr)?;
+        if let Some(name) = search::ruby_param_type(text, line1, expr) {
+            return self.ruby_resolve(here, &search::ruby_class_path(text, line1), &name);
+        }
+        let Some((at, value)) = search::ruby_assigned_once(text, line1, expr) else {
+            let def = format!(r"(?m)^\s*def\s+{}\s*$", regex::escape(expr));
+            if !regex::Regex::new(&def).is_ok_and(|re| re.is_match(text)) {
+                return None;
+            }
+            let class = search::ruby_class_path(text, line1);
+            let bound = !search::ruby_locals(text, line1, expr).is_empty()
+                || !search::bindings(Kind::Ruby, text, line1, expr).is_empty()
+                || search::ruby_rebound(text, "", search::ruby_gate_line(text, line1), line1, expr);
+            return (!bound && !class.is_empty() && !search::ruby_self_is_class(text, line1))
+                .then(|| self.ruby_returned_class(here, &class, expr, depth))
+                .flatten();
+        };
         let (head, whole) = search::ruby_receiver_split(&value);
         if !head.trim().is_empty() {
             return None;
@@ -79,7 +105,13 @@ impl App {
         self.ruby_resolve(here, &scope, target)
     }
 
-    fn ruby_returned_class(&self, here: &Path, class: &str, method: &str) -> Option<String> {
+    fn ruby_returned_class(
+        &self,
+        here: &Path,
+        class: &str,
+        method: &str,
+        depth: usize,
+    ) -> Option<String> {
         let found = self.ruby_methods_from(here, method, class.to_owned(), false);
         let [one] = found.as_slice() else {
             return None;
@@ -96,7 +128,96 @@ impl App {
                     .is_empty()
                     .then_some(made)
             }
+            search::RubyReturns::Found(name) => {
+                let found = self.ruby_resolve(here, &owner, &name)?;
+                self.ruby_record(here, found)
+            }
+            search::RubyReturns::Chain(line1, chain) => {
+                let (prefix, expr) = search::ruby_receiver_split(&chain);
+                self.ruby_value_class(here, &t, line1, prefix, expr, depth + 1)
+            }
         }
+    }
+
+    fn ruby_record(&self, here: &Path, class: String) -> Option<String> {
+        let mut c = class.clone();
+        let mut record = false;
+        for _ in 0..8 {
+            let supers = self.ruby_parents(here, &c).superclasses;
+            record = supers
+                .iter()
+                .any(|s| s.trim_start_matches(':') == "ActiveRecord::Base");
+            let ([one], false) = (supers.as_slice(), record) else {
+                break;
+            };
+            let Some(up) = self.ruby_resolve(here, &c, one) else {
+                break;
+            };
+            c = up;
+        }
+        (record
+            && self
+                .ruby_methods_from(here, "find", class.clone(), true)
+                .is_empty())
+        .then_some(class)
+    }
+
+    fn ruby_ivar_class(
+        &self,
+        here: &Path,
+        text: &str,
+        line1: usize,
+        name: &str,
+        depth: usize,
+    ) -> Option<String> {
+        let ivar = format!("@{name}");
+        let class = search::ruby_class_path(text, line1);
+        if class.is_empty() {
+            return None;
+        }
+        let assign = regex::Regex::new(&search::ruby_assignment(&ivar)).ok()?;
+        let rebind = search::RubyRebinding::ivar(name)?;
+        let writer = regex::Regex::new(r"\battr_(?:writer|accessor)\b").ok()?;
+        let setter = format!(r"\.{}\s*=(?:[^=~>]|$)", regex::escape(name));
+        let called = std::cell::OnceCell::new();
+        let mut files = self.ruby_declarations(here, &class);
+        files.dedup_by(|a, b| a.0.path == b.0.path);
+        let assigned: Vec<(usize, &str, &str)> = files
+            .iter()
+            .flat_map(|(_, t)| {
+                t.lines()
+                    .enumerate()
+                    .filter(|(i, l)| {
+                        rebind.count(l) > 0
+                            && search::ruby_class_path(t, i + 1) == class
+                            && (!writer.is_match(l)
+                                || *called.get_or_init(|| {
+                                    !self.project_grep(Kind::Ruby, here, &setter).is_empty()
+                                }))
+                    })
+                    .map(move |(i, l)| (i + 1, l, t.as_str()))
+            })
+            .collect();
+        let [(line, assignment, t)] = assigned[..] else {
+            return None;
+        };
+        if !assign.is_match(assignment)
+            || rebind.count(assignment) > 1
+            || search::ruby_self_is_class(t, line)
+            || search::ruby_self_is_class(text, line1)
+        {
+            return None;
+        }
+        let value = assignment.trim_start().strip_prefix(&ivar)?.trim_start();
+        let value = value
+            .strip_prefix("||=")
+            .or_else(|| value.strip_prefix('='))?
+            .trim();
+        let (head, whole) = search::ruby_receiver_split(value);
+        if !head.trim().is_empty() {
+            return None;
+        }
+        self.ruby_value_class(here, t, line, "", whole, depth + 1)
     }
 
     pub(super) fn ruby_super(&self, here: &Path, text: &str) -> Vec<Candidate> {

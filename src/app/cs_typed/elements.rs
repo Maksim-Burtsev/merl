@@ -1,5 +1,5 @@
 use super::{CsType, CsWrittenType, Proven, one_more, same};
-use crate::app::{App, Path, Typed, search};
+use crate::app::{App, Kind, Path, Typed, search};
 
 impl App {
     pub(super) fn cs_await(&self, p: Proven) -> Option<Proven> {
@@ -143,5 +143,19 @@ impl App {
             written,
             from: of.from.clone(),
         })
+    }
+
+    pub(super) fn cs_new_call(&self) -> bool {
+        let line = self.line_str();
+        let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@' || c == '.';
+        self.definition_word(Some(Kind::CSharp))
+            .is_some_and(|(r, _)| {
+                line.get(..r.start)
+                    .and_then(|b| b.trim_end().strip_suffix("new"))
+                    .is_some_and(|b| !b.ends_with(ident))
+                    && line
+                        .get(r.end..)
+                        .is_some_and(|a| a.trim_start().starts_with('('))
+            })
     }
 }

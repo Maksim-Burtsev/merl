@@ -133,6 +133,11 @@ impl Buffer {
     }
 
     #[cfg(test)]
+    pub fn tree(&self) -> Option<&tree_sitter::Tree> {
+        self.ts.as_ref()?.tree()
+    }
+
+    #[cfg(test)]
     pub fn sexp(&self) -> String {
         self.ts
             .as_ref()

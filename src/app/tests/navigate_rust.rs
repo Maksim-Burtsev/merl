@@ -2242,3 +2242,133 @@ fn a_variant_brought_by_a_glob_over_a_dependency_s_enum_opens_in_the_dependency(
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&registry).unwrap();
 }
+
+#[test]
+fn a_path_through_a_workspace_crate_that_hands_another_on_opens_in_that_crate() {
+    let (dir, mut a) = project_app(
+        "rust-handed-on",
+        &[
+            (
+                "Cargo.toml",
+                "[package]\nname = \"rg\"\n\n[dependencies]\ngrep = { path = \"crates/grep\" }\n",
+            ),
+            (
+                "src/main.rs",
+                "use grep::printer::SummaryKind;\n\nfn kind() -> SummaryKind {\n    SummaryKind::PathWithMatch\n}\n\nenum Mode {\n    PathWithMatch,\n}\n",
+            ),
+            ("crates/grep/Cargo.toml", "[package]\nname = \"grep\"\n"),
+            (
+                "crates/grep/src/lib.rs",
+                "pub extern crate grep_printer as printer;\n",
+            ),
+            (
+                "crates/printer/Cargo.toml",
+                "[package]\nname = \"grep-printer\"\n",
+            ),
+            (
+                "crates/printer/src/lib.rs",
+                "pub use crate::summary::SummaryKind;\n\nmod standard;\nmod summary;\n",
+            ),
+            (
+                "crates/printer/src/standard.rs",
+                "pub struct Standard;\n\nimpl Standard {\n    pub fn new() -> Standard {\n        Standard\n    }\n}\n\n#[cfg(test)]\nmod tests {\n    use grep_regex::RegexMatcher;\n\n    const TEXT: &str = \"\\\nfor the Doctor Watsons\nof this world\\\n\";\n\n    #[test]\n    fn found() {\n        RegexMatcher::new(\"a\");\n    }\n}\n",
+            ),
+            (
+                "crates/regex/Cargo.toml",
+                "[package]\nname = \"grep-regex\"\n",
+            ),
+            (
+                "crates/regex/src/lib.rs",
+                "pub use crate::matcher::RegexMatcher;\n\nmod matcher;\n",
+            ),
+            (
+                "crates/regex/src/matcher.rs",
+                "pub struct RegexMatcher;\n\nimpl RegexMatcher {\n    pub fn new(p: &str) -> RegexMatcher {\n        RegexMatcher\n    }\n}\n",
+            ),
+            (
+                "crates/printer/src/summary.rs",
+                "pub enum SummaryKind {\n    Count,\n    PathWithMatch,\n}\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "src/main.rs", "SummaryKind::Path|WithMatch");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Jump(
+            "PathWithMatch → SummaryKind::PathWithMatch (via import grep::printer::SummaryKind)"
+                .into(),
+            "crates/printer/src/summary.rs:3".into()
+        ),
+        "the variant in the crate `pub extern crate … as printer` names, not the project's namesake"
+    );
+    d_on(
+        &mut a,
+        "crates/printer/src/standard.rs",
+        "RegexMatcher::n|ew",
+    );
+    assert_eq!(
+        shown(&mut a),
+        Shown::Jump(
+            "new → RegexMatcher::new (via import grep_regex::matcher)".into(),
+            "crates/regex/src/matcher.rs:4".into()
+        ),
+        "a `use` inside `mod tests` brings a workspace crate's re-exported type"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_crate_alias_re_exported_under_cfg_is_not_followed() {
+    let backends = |lib: &str| {
+        vec![
+            (
+                "Cargo.toml",
+                "[package]\nname = \"rg\"\n\n[dependencies]\ngrep = { path = \"crates/grep\" }\n"
+                    .to_owned(),
+            ),
+            (
+                "src/main.rs",
+                "use grep::backend::Engine;\n\nfn engine() -> Engine {\n    Engine::new()\n}\n"
+                    .to_owned(),
+            ),
+            ("crates/grep/Cargo.toml", "[package]\nname = \"grep\"\n".to_owned()),
+            ("crates/grep/src/lib.rs", lib.to_owned()),
+            ("crates/a/Cargo.toml", "[package]\nname = \"impl-a\"\n".to_owned()),
+            (
+                "crates/a/src/lib.rs",
+                "pub struct Engine;\n\nimpl Engine {\n    pub fn new() -> Engine {\n        Engine\n    }\n}\n".to_owned(),
+            ),
+            ("crates/b/Cargo.toml", "[package]\nname = \"impl-b\"\n".to_owned()),
+            (
+                "crates/b/src/lib.rs",
+                "pub struct Engine;\n\nimpl Engine {\n    pub fn new() -> Engine {\n        Engine\n    }\n}\n".to_owned(),
+            ),
+        ]
+    };
+    for (name, lib) in [
+        (
+            "rust-cfg-two",
+            "#[cfg(feature = \"a\")]\npub use impl_a as backend;\n#[cfg(not(feature = \"a\"))]\npub use impl_b as backend;\n",
+        ),
+        (
+            "rust-cfg-one",
+            "#[cfg(feature = \"b\")]\npub use impl_b as backend;\n",
+        ),
+    ] {
+        let files = backends(lib);
+        let files: Vec<(&str, &str)> = files.iter().map(|(p, t)| (*p, t.as_str())).collect();
+        let (dir, mut a) = project_app(name, &files);
+        d_on(&mut a, "src/main.rs", "Engine::n|ew");
+        assert_eq!(
+            shown(&mut a),
+            Shown::Picker(
+                "new: by name, 2 declarations".into(),
+                ["crates/a/src/lib.rs:4", "crates/b/src/lib.rs:4"]
+                    .map(|p| ("Engine::new".into(), "by name".into(), p.into()))
+                    .to_vec()
+            ),
+            "{name}: a re-export under #[cfg] may not be the one built, so both namesakes are offered"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

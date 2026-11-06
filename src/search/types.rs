@@ -199,6 +199,16 @@ pub(super) fn type_list(kind: Kind, s: &str) -> Vec<String> {
         .map(str::to_owned)
         .collect()
 }
+pub fn plain_python_base(b: &str) -> bool {
+    let b = b.split('[').next().unwrap_or(b);
+    let b = b.rsplit('.').next().unwrap_or(b);
+    matches!(b, "Generic" | "Protocol" | "ABC" | "object")
+}
+pub fn python_rooted(text: &str, decl_line1: usize) -> bool {
+    bases(Kind::Python, text, decl_line1)
+        .iter()
+        .all(|b| plain_python_base(b))
+}
 pub fn bases(kind: Kind, text: &str, decl_line1: usize) -> Vec<String> {
     static TS_EXTENDS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bextends\s+((?:<[^<>]*>|[^{])+?)\s*(?:\bimplements\b|\{|$)")
@@ -598,6 +608,34 @@ pub fn python_dict_value(written: &str) -> Option<String> {
     }
     let value = value.trim();
     (!value.is_empty()).then(|| value.to_owned())
+}
+pub fn python_callable_return(text: &str, written: &str) -> Option<String> {
+    let t = written.trim().trim_matches(['"', '\'']);
+    let open = t.find('[').filter(|_| t.ends_with(']'))?;
+    let head = t.get(..open)?.trim_end();
+    let standard = || {
+        let imports = super::imports(Kind::Python, text);
+        let mut callable = imports.iter().filter(|i| i.name == "Callable").peekable();
+        callable.peek().is_some()
+            && callable.all(|i| {
+                matches!(
+                    i.path.join(".").trim_end_matches(".Callable"),
+                    "typing" | "collections.abc" | "typing_extensions"
+                )
+            })
+    };
+    if !(matches!(head, "typing.Callable" | "collections.abc.Callable")
+        || head == "Callable" && standard())
+    {
+        return None;
+    }
+    let [params, returns] = split_top(Kind::Python, t.get(open + 1..t.len() - 1)?, b',')[..] else {
+        return None;
+    };
+    let params = params.trim();
+    let returns = returns.trim();
+    ((params == "..." || params.starts_with('[')) && !returns.is_empty() && returns != "None")
+        .then(|| returns.to_owned())
 }
 pub struct EnumConstant {
     pub name: String,

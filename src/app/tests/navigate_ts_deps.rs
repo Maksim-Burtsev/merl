@@ -456,3 +456,258 @@ fn an_ambient_module_of_a_dependency_answers_through_its_declaration_map() {
     }
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_default_import_lands_on_the_local_a_module_exports_as_default() {
+    let main = "import vue from \"plug\";\nimport pack from \"pack\";\nimport relay from \"relay\";\nimport own from \"./own\";\n\nexport default [\n    vue(),\n    pack(),\n    relay(),\n    own(),\n];\n";
+    let own =
+        "function ownPlugin() {}\nfunction other() {}\nexport { other, ownPlugin as default };\n";
+    let (dir, mut a) = project_app(
+        "ts-as-default",
+        &[("vite.config.mjs", main), ("own.js", own)],
+    );
+    let vue = "interface Options {\n}\ndeclare function vuePlugin(o?: Options): void;\ndeclare function vueCjs(o: Options): void;\nexport { Options, vuePlugin as default, vueCjs as \"module.exports\" };\n";
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/plug/package.json",
+                "{\"name\": \"plug\", \"exports\": {\".\": \"./dist/index.mjs\"}}\n",
+            ),
+            ("node_modules/plug/dist/index.d.mts", vue),
+            (
+                "node_modules/plug/dist/index.mjs",
+                "function vuePlugin() {}\nexport { vuePlugin as default };\n",
+            ),
+            (
+                "node_modules/pack/package.json",
+                "{\"name\": \"pack\", \"types\": \"dist/index.d.ts\"}\n",
+            ),
+            (
+                "node_modules/pack/dist/index.d.ts",
+                "declare function export_default(): void;\n\nexport { export_default as default };\n",
+            ),
+            (
+                "node_modules/relay/index.d.ts",
+                "declare function relayPlugin(): void;\nexport { relayPlugin as default } from \"./impl\";\n",
+            ),
+        ],
+    );
+    for (code, want, why) in [
+        (
+            "    vue|()",
+            jump(
+                "vue: via import plug",
+                "node_modules/plug/dist/index.d.mts:3",
+            ),
+            "the declaration file, not the module beside it",
+        ),
+        (
+            "    pack|()",
+            jump(
+                "pack: via import pack",
+                "node_modules/pack/dist/index.d.ts:1",
+            ),
+            "a package's `types` entry",
+        ),
+        (
+            "    own|()",
+            jump("own: via import own.js", "own.js:1"),
+            "a module of the project",
+        ),
+    ] {
+        d_on(&mut a, "vite.config.mjs", code);
+        assert_eq!(shown(&mut a), want, "{why}");
+    }
+    d_on(&mut a, "vite.config.mjs", "    relay|()");
+    assert_ne!(
+        shown(&mut a),
+        jump("relay: via import relay", "node_modules/relay/index.d.ts:1"),
+        "a default handed on from another module is not the local namesake"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_file_a_require_names_inside_a_package_is_read_for_its_types() {
+    let main = "const { BeanModel } = require(\"bean/dist/bean-model\");\n\nclass Heartbeat extends BeanModel {}\n";
+    let (dir, mut a) = project_app("ts-package-file", &[("server/heartbeat.js", main)]);
+    let declared = "import { Bean } from \"./bean\";\nexport declare abstract class BeanModel extends Bean {\n    onOpen(): void;\n}\n";
+    let built = "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\nexports.BeanModel = void 0;\nclass BeanModel {\n}\nexports.BeanModel = BeanModel;\n";
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/bean/package.json",
+                "{\"name\": \"bean\", \"main\": \"dist/bean.js\", \"types\": \"dist/bean.d.ts\"}\n",
+            ),
+            (
+                "node_modules/bean/dist/bean.d.ts",
+                "export declare class Bean {\n}\n",
+            ),
+            ("node_modules/bean/dist/bean-model.d.ts", declared),
+            ("node_modules/bean/dist/bean-model.js", built),
+            ("node_modules/bean/dist/lib/bean-model.d.ts", declared),
+            ("node_modules/bean/dist/lib/bean-model.js", built),
+        ],
+    );
+    d_on(&mut a, "server/heartbeat.js", "extends BeanModel");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "BeanModel: via import bean/dist/bean-model",
+            "node_modules/bean/dist/bean-model.d.ts:2"
+        ),
+        "the file at the path the require names, its declaration file over the module beside it"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn the_key_of_a_renamed_require_is_the_module_s_export() {
+    let server = "const {\n    handler,\n    autoStart: cloudflaredAutoStart,\n} = require(\"./handlers/cf\");\nconst { autoStart: localStart } = settings;\n\ncloudflaredAutoStart(handler, localStart);\nmodule.exports = { autoStart: cloudflaredAutoStart };\n";
+    let cf =
+        "module.exports.handler = () => {};\n\nmodule.exports.autoStart = async (token) => {\n};\n";
+    let (_, mut a) = project_app(
+        "ts-require-key",
+        &[("server.js", server), ("handlers/cf.js", cf)],
+    );
+    d_on(&mut a, "server.js", "    autoStart");
+    assert_eq!(
+        shown(&mut a),
+        jump("autoStart: via import handlers/cf.js", "handlers/cf.js:3")
+    );
+    let wrong = jump("autoStart: via import handlers/cf.js", "handlers/cf.js:3");
+    for (code, why) in [
+        ("const { autoStart", "a key of a value, not of a require"),
+        ("= { autoStart", "a key of an object literal"),
+    ] {
+        d_on(&mut a, "server.js", code);
+        assert_ne!(shown(&mut a), wrong, "{why}");
+    }
+}
+
+#[test]
+fn a_member_a_required_package_declares_in_its_esm_copy_too_lands_in_the_copy_require_reads() {
+    let main = "const dayjs = require(\"dayjs\");\nconst WebSocket = require(\"ws\");\n\nconst expiry = dayjs();\nexpiry.diff(1);\nconst ws = new WebSocket(url);\nws.onerror = () => {};\n";
+    let esm = "import dayjs from \"dayjs\";\n\nconst expiry = dayjs();\nexpiry.diff(1);\n";
+    let (dir, mut a) = project_app(
+        "ts-esm-twin",
+        &[("server/auth.js", main), ("web/auth.mjs", esm)],
+    );
+    let dayjs = "export = dayjs;\ndeclare function dayjs(): dayjs.Dayjs;\ndeclare namespace dayjs {\n  class Dayjs {\n    diff(date?: number): number\n  }\n}\n";
+    let ws = "declare class WebSocket {\n    onopen: () => void;\n    onerror: () => void;\n}\nexport = WebSocket;\n";
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/dayjs/package.json",
+                "{\"name\": \"dayjs\", \"main\": \"dayjs.min.js\", \"types\": \"index.d.ts\"}\n",
+            ),
+            ("node_modules/dayjs/index.d.ts", dayjs),
+            ("node_modules/dayjs/esm/index.d.ts", dayjs),
+            (
+                "node_modules/@types/ws/package.json",
+                "{\"name\": \"@types/ws\", \"types\": \"index.d.ts\"}\n",
+            ),
+            ("node_modules/@types/ws/index.d.ts", ws),
+            ("node_modules/@types/ws/index.d.mts", ws),
+        ],
+    );
+    d_on(&mut a, "server/auth.js", "expiry.diff");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "diff → dayjs.Dayjs.diff (by name, 1 match)",
+            "node_modules/dayjs/index.d.ts:5"
+        ),
+        "require(\"dayjs\") reads the package's own index.d.ts, not esm/"
+    );
+    d_on(&mut a, "server/auth.js", "ws.onerror");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "onerror → WebSocket.onerror (by name, 1 match)",
+            "node_modules/@types/ws/index.d.ts:3"
+        ),
+        "require(\"ws\") reads index.d.ts, not index.d.mts"
+    );
+    d_on(&mut a, "web/auth.mjs", "expiry.diff");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "an import is not a require: both copies stay offered"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn a_component_a_package_re_exports_as_default_lands_on_its_declared_const() {
+    let main = "import { Button, Text, Plain } from \"ui\";\n\nButton;\nText;\nPlain;\n";
+    let (dir, mut a) = project_app("ts-default-component", &[("src/main.ts", main)]);
+    let pair = |name: &str, ty: &str| {
+        format!(
+            "import {name} from '../../internal/{name}.svelte';\ndeclare const {name}: import(\"svelte\").Component<{{}}, {{}}, \"\">;\ntype {name} = {ty};\nexport default {name};\n"
+        )
+    };
+    let derived = |name: &str| pair(name, &format!("ReturnType<typeof {name}>"));
+    write_outside(
+        &dir,
+        &[
+            (
+                "node_modules/ui/package.json",
+                "{\"name\": \"ui\", \"exports\": {\".\": {\"types\": \"./dist/index.d.ts\"}}}\n",
+            ),
+            (
+                "node_modules/ui/dist/index.d.ts",
+                "export { default as Button } from './components/Button/Button.svelte';\nexport { default as Text } from './components/Text/Text.svelte';\nexport { default as Plain } from './components/Plain/Plain.svelte';\n",
+            ),
+            (
+                "node_modules/ui/dist/components/Button/Button.svelte.d.ts",
+                &derived("Button"),
+            ),
+            (
+                "node_modules/ui/dist/internal/Button.svelte.d.ts",
+                &derived("Button"),
+            ),
+            (
+                "node_modules/ui/dist/components/Text/Text.svelte.d.ts",
+                &derived("Text"),
+            ),
+            (
+                "node_modules/ui/dist/components/Markdown/Text.svelte.d.ts",
+                &derived("Text"),
+            ),
+            (
+                "node_modules/ui/dist/components/Plain/Plain.svelte.d.ts",
+                &pair("Plain", "{ a: 1 }"),
+            ),
+        ],
+    );
+    for (code, want, why) in [
+        (
+            "|Button;",
+            jump(
+                "Button: via import ui",
+                "node_modules/ui/dist/components/Button/Button.svelte.d.ts:2",
+            ),
+            "the file the entry re-exports, its const and not the type made from it",
+        ),
+        (
+            "|Text;",
+            jump(
+                "Text: via import ui",
+                "node_modules/ui/dist/components/Text/Text.svelte.d.ts:2",
+            ),
+            "a namesake component the entry does not re-export as Text is not offered",
+        ),
+    ] {
+        d_on(&mut a, "src/main.ts", code);
+        assert_eq!(shown(&mut a), want, "{why}");
+    }
+    d_on(&mut a, "src/main.ts", "|Plain;");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(..)),
+        "a type of its own beside the const is a second declaration: both stay offered"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}

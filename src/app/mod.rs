@@ -112,6 +112,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
     (": / Ctrl+G", "Go to line", "Files and jumps"),
     ("/ / Ctrl+F", "Find in the open file", "Search"),
     ("n / N", "Next / previous match", "Search"),
+    (
+        "*",
+        "Find the word under the cursor as a whole word, or the selection",
+        "Search",
+    ),
     ("s", "Search the project", "Search"),
     (
         "c / C",
@@ -121,6 +126,11 @@ pub const KEYS: &[(&str, &str, &str)] = &[
     (
         "m",
         "Review: mark the file as viewed, or take the mark off",
+        "Review",
+    ),
+    (
+        "a",
+        "Review: note for the agent on the line or the selection",
         "Review",
     ),
     (

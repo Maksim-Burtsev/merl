@@ -34,7 +34,6 @@ fn read(dir: &Path) -> String {
 
 fn on_a_rs(tag: &str, line: usize) -> (PathBuf, App) {
     let (dir, mut a) = review_app(tag);
-    a.notes.on = true;
     a.show_tree = false;
     a.jump_to(&dir.join("src/a.rs"), line);
     screen(&mut a);
@@ -286,7 +285,6 @@ fn a_branch_with_slashes_keeps_its_notes_in_folders() {
         .output()
         .unwrap();
     assert!(out.status.success());
-    a.notes.on = true;
     a.jump_to(&dir.join("src/a.rs"), 1);
     screen(&mut a);
     note(&mut a, "first");
@@ -299,11 +297,19 @@ fn a_branch_with_slashes_keeps_its_notes_in_folders() {
 }
 
 #[test]
-fn notes_off_leave_a_alone() {
+fn reading_the_branch_draws_no_note_and_leaves_a_alone() {
     let (dir, mut a) = on_a_rs("notes-off", 3);
-    a.notes.on = false;
+    note(&mut a, "kept for the agent");
+    assert!(screen(&mut a).contains("kept for the agent"));
+    let (tree, files) = crate::tree::build(&dir, false);
+    let mut a = App::new(dir.clone(), tree, files, Buffer::empty(), None);
+    a.show_tree = false;
+    a.jump_to(&dir.join("src/a.rs"), 3);
+    assert!(!screen(&mut a).contains("kept for the agent"));
     keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
     assert_eq!(a.mode, Mode::Normal);
+    assert_eq!(a.notes.list.len(), 0);
+    assert_eq!(a.notes_farewell(), None);
     drop(std::fs::remove_dir_all(dir));
 }
 
@@ -497,5 +503,25 @@ fn a_note_row_keeps_its_plain_gutter_in_a_theme_with_a_number_strip() {
         buf[(0, y + 1)].bg,
         theme.gutter_bg(),
         "the file row under it has the strip"
+    );
+}
+
+#[test]
+fn a_note_being_typed_draws_the_reading_cursor_on_its_band() {
+    let (dir, mut a) = on_a_rs("notes-cursor", 2);
+    keys(&mut a, &[(KeyCode::Char('a'), NONE)]);
+    typed(&mut a, "check the window");
+    assert_eq!(a.mode, Mode::Note);
+    let theme = crate::theme::load("github-light").unwrap();
+    let mut t = Terminal::new(TestBackend::new(70, 16)).unwrap();
+    t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
+    drop(std::fs::remove_dir_all(dir));
+    let at = a.cursor_cell.expect("the note's cursor");
+    let cell = &t.backend().buffer()[(at.x, at.y)];
+    let hex = |h: &str| h.parse::<ratatui::style::Color>().unwrap();
+    assert_eq!(
+        (cell.fg, cell.bg),
+        (hex("#ffffff"), hex("#1f2328")),
+        "github-light's Cursor, not the accent #6639ba at 2.34:1 on the note band"
     );
 }

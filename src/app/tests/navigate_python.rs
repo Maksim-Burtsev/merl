@@ -1366,6 +1366,101 @@ fn a_member_from_outside_never_lands_on_a_namesake() {
 }
 
 #[test]
+fn a_name_patch_binds_without_a_replacement_is_a_magic_mock() {
+    let std = external_root(
+        "py-patched-std",
+        &[(
+            "unittest/mock.py",
+            "class NonCallableMock:\n    return_value = property(lambda self: None)\n\n    def reset_mock(self):\n        pass\n\n\nclass Mock(NonCallableMock):\n    pass\n\n\nclass MagicMock(Mock):\n    pass\n\n\nclass AsyncMockMixin:\n    def assert_awaited_once(self):\n        pass\n\n    def reset_mock(self):\n        pass\n\n\nclass AsyncMock(AsyncMockMixin, Mock):\n    pass\n\n\ndef patch(target, new=None):\n    pass\n",
+        )],
+    );
+    let site = external_root(
+        "py-patched-site",
+        &[(
+            "anyio/tasks.py",
+            "class TaskHandle:\n    def return_value(self):\n        pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-patched",
+        &[(
+            "app/test_mocks.py",
+            "from unittest import mock\nfrom unittest.mock import patch\nfrom pytest_mock import MockerFixture\n\n\ndef test_a(mocker: MockerFixture) -> None:\n    fixture_patched = mocker.patch(\n        \"app.thing\",\n    )\n    fixture_patched.return_value\n    with patch(\"app.thing\") as with_patched:\n        with_patched.return_value\n    with mock.patch.object(object, \"thing\") as object_patched:\n        object_patched.return_value\n    replaced = mocker.patch(\"app.thing\", new=1)\n    replaced.return_value\n    with patch(\"app.thing\", 1) as given:\n        given.return_value\n    with patch.dict(\"os.environ\") as env:\n        env.return_value\n    patcher = mock.patch(\"app.thing\")\n    patcher.return_value\n    with patch(\"app.coroutine\") as awaited:\n        awaited.assert_awaited_once()\n        awaited.reset_mock()\n\n\ndef test_b(mocker) -> None:\n    untyped = mocker.patch(\"app.thing\")\n    untyped.return_value\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, &[std.clone(), site.clone()]);
+    let mock = format!("{}:2", std.join("unittest/mock.py").display());
+    for name in ["fixture_patched", "with_patched", "object_patched"] {
+        d_on(&mut a, "app/test_mocks.py", &format!("{name}.return_value"));
+        let Shown::Jump(_, at) = shown(&mut a) else {
+            panic!("{name}: a jump");
+        };
+        assert_eq!(at, mock, "{name}");
+    }
+    for name in ["replaced", "given", "env", "patcher", "untyped"] {
+        d_on(&mut a, "app/test_mocks.py", &format!("{name}.return_value"));
+        assert!(
+            !matches!(shown(&mut a), Shown::Jump(_, at) if at == mock),
+            "{name}: a patch with a replacement, patch.dict, a patcher not entered or an unannotated mocker is not read"
+        );
+    }
+    d_on(&mut a, "app/test_mocks.py", "awaited.assert_awaited_once");
+    let Shown::Jump(_, at) = shown(&mut a) else {
+        panic!("a member only AsyncMock has: a jump");
+    };
+    assert_eq!(
+        at,
+        format!("{}:17", std.join("unittest/mock.py").display()),
+        "patch makes an AsyncMock for an async target: a member MagicMock lacks is still found by name"
+    );
+    d_on(&mut a, "app/test_mocks.py", "awaited.reset_mock");
+    assert!(
+        !matches!(shown(&mut a), Shown::Jump(_, at) if at == format!("{}:4", std.join("unittest/mock.py").display())),
+        "a member AsyncMock declares again is not MagicMock's"
+    );
+    for d in [dir, std, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_parameter_patch_decorators_fill_bottom_up_is_a_magic_mock() {
+    let std = external_root(
+        "py-patched-param-std",
+        &[(
+            "unittest/mock.py",
+            "class NonCallableMock:\n    return_value = property(lambda self: None)\n\n\nclass Mock(NonCallableMock):\n    pass\n\n\nclass MagicMock(Mock):\n    pass\n\n\nclass AsyncMock(Mock):\n    pass\n\n\ndef patch(target, new=None):\n    pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-patched-param",
+        &[(
+            "app/test_views.py",
+            "from unittest import mock\nfrom unittest.mock import patch\nimport other\n\n\nclass TestViews:\n    @patch(\"app.first\")\n    @mock.patch(\n        \"app.second\",\n    )\n    @override_settings(AI=True)\n    @patch.dict(\"os.environ\", {})\n    @patch(\"app.given\", 1)\n    def test_a(\n        self,\n        second_mock,\n        first_mock,\n        fixture,\n    ) -> None:\n        second_mock.return_value\n        first_mock.return_value\n        fixture.return_value\n\n    @patch(\"app.thing\", autospec=True)\n    @patch(\"app.other\")\n    def test_b(self, other_mock, spec_mock):\n        other_mock.return_value\n        spec_mock.return_value\n\n    @patch(**targets)\n    @patch(\"app.other\")\n    def test_c(self, star_mock):\n        star_mock.return_value\n\n\n@patch(\"app.thing\")\ndef test_d(free_mock):\n    free_mock.return_value\n\n\n@other.patch(\"app.thing\")\n@patch(\"app.other\")\ndef test_e(foreign_mock):\n    foreign_mock.return_value\n\n\nclass TestCases:\n    @parameterized.expand([(1,)])\n    @pytest.mark.slow\n    @patch(\"app.thing\")\n    def test_f(self, case, expanded_mock):\n        case.return_value\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    let mock = format!("{}:2", std.join("unittest/mock.py").display());
+    for name in ["second_mock", "first_mock", "other_mock", "free_mock"] {
+        d_on(&mut a, "app/test_views.py", &format!("{name}.return_value"));
+        let Shown::Jump(_, at) = shown(&mut a) else {
+            panic!("{name}: a jump");
+        };
+        assert_eq!(at, mock, "{name}");
+    }
+    for name in ["fixture", "spec_mock", "star_mock", "foreign_mock", "case"] {
+        d_on(&mut a, "app/test_views.py", &format!("{name}.return_value"));
+        assert!(
+            !matches!(shown(&mut a), Shown::Jump(_, at) if at == mock),
+            "{name}: past the mocks, an autospec mock, an unreadable patch, a patch from elsewhere or one under a decorator that may fill parameters is not read"
+        );
+    }
+    for d in [dir, std] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
 fn a_setting_is_read_under_every_module_level_block_and_nowhere_else() {
     let site = external_root(
         "py-block-settings-site",
@@ -1610,4 +1705,149 @@ fn a_python_member_set_from_outside_is_no_absence_of_its_class() {
         "lid.shout|(\"x\")",
         Shown::Jump("no definition for shout".into(), "tea/guards.py:59".into()),
     )]);
+}
+
+#[test]
+fn a_project_class_s_member_only_type_checking_declares_keeps_today_s_answer() {
+    let code = "import typing\nfrom typing import TYPE_CHECKING\n\n\nclass A:\n    def go(self):\n        pass\n\n\nclass B:\n    def go(self):\n        pass\n\n\nclass Typed:\n    if TYPE_CHECKING:\n        x: A\n\n\nclass Spelled:\n    if typing.TYPE_CHECKING:\n        x: A\n\n\nclass Base9:\n    def __init__(self):\n        self.x = B()\n\n\nclass C9(Base9):\n    if TYPE_CHECKING:\n        x: A\n\n\nclass Branched:\n    if TYPE_CHECKING:\n        x: A\n    else:\n        x = B()\n\n\nclass Bound:\n    if TYPE_CHECKING:\n        x: A\n\n    def __init__(self):\n        self.x = B()\n\n\nclass Stored:\n    if TYPE_CHECKING:\n        x: A\n\n\nStored.x = B()\n\n\ndef use(t: Typed, s: Spelled, c9: C9, b: Branched, d: Bound, e: Stored):\n    t.x.go()\n    s.x.go()\n    c9.x.go()\n    b.x.go()\n    d.x.go()\n    e.x.go()\n";
+    let (dir, mut a) = project_app("py-type-checking", &[("app/kinds.py", code)]);
+    let on = |a: &mut App, receiver: &str| {
+        a.picker = None;
+        d_on(a, "app/kinds.py", &format!("    {receiver}.x.go|()"));
+        shown(a)
+    };
+    for receiver in ["c9", "d"] {
+        assert_eq!(
+            on(&mut a, receiver),
+            jump(
+                &format!("go \u{2192} B.go (via {receiver}.x: B)"),
+                "app/kinds.py:11"
+            )
+        );
+    }
+    for receiver in ["t", "s", "b", "e"] {
+        let got = on(&mut a, receiver);
+        assert!(
+            matches!(&got, Shown::Picker(m, _) if m.ends_with("(chain broke at x)")),
+            "{receiver}: {got:?}"
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_call_of_a_parameter_typed_callable_returns_its_declared_type() {
+    let shapes = "from collections.abc import Callable\n\nfrom app.models import Doc, Other\n\nmade: Callable[..., Doc] = Doc\n\n\ndef plain(make: Callable[..., Doc]) -> None:\n    plain_doc = make(title=\"x\")\n    plain_doc.pk\n\n\ndef reassigned(make: Callable[..., Doc]) -> None:\n    make = Other\n    re_doc = make()\n    re_doc.pk\n\n\ndef lambda_shadow(make: Callable[..., Doc]) -> None:\n    f = lambda make: make().pk\n\n\ndef module_global() -> None:\n    global_doc = made()\n    global_doc.pk\n\n\nif True:\n    made_under: Callable[..., Doc] = Doc\n\n\ndef indented_global() -> None:\n    under_doc = made_under()\n    under_doc.pk\n";
+    let mine = "from app.mine import Callable\nfrom app.models import Doc\n\n\ndef own(make: Callable[..., Doc]) -> None:\n    own_doc = make()\n    own_doc.pk\n";
+    let (dir, mut a) = project_app(
+        "py-callable-param",
+        &[
+            (
+                "app/models.py",
+                "class Doc:\n    pk: int = 0\n\n\nclass Other:\n    pk: str = \"\"\n",
+            ),
+            ("app/shapes.py", shapes),
+            ("app/mine_shapes.py", mine),
+            (
+                "app/other.py",
+                "import app.shapes as shapes\nfrom app.models import Other\n\nshapes.made = lambda: Other()\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "app/shapes.py", "plain_doc.pk");
+    assert_eq!(
+        shown(&mut a),
+        jump("pk \u{2192} Doc.pk (via make() -> Doc)", "app/models.py:2")
+    );
+    for (file, at, why) in [
+        ("app/shapes.py", "re_doc.pk", "the parameter is rebound"),
+        (
+            "app/shapes.py",
+            "make().pk",
+            "a lambda's parameter shadows it",
+        ),
+        (
+            "app/shapes.py",
+            "global_doc.pk",
+            "a module's value another file may store",
+        ),
+        (
+            "app/shapes.py",
+            "under_doc.pk",
+            "a module's value under an `if`",
+        ),
+        (
+            "app/mine_shapes.py",
+            "own_doc.pk",
+            "a `Callable` of the project's own",
+        ),
+    ] {
+        d_on(&mut a, file, at);
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(..)),
+            "{why}: {}",
+            a.message
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_typed_name_rebound_by_a_same_line_scope_a_wrapped_lambda_or_a_nested_target_keeps_the_picker()
+{
+    let shapes = "from app.models import Doc, Tag\n\n\ndef control(d: Doc):\n    d.stamp(0)\n\n\ndef one_line_def(d: Doc):\n    def g(d): return d.stamp(1)\n\n\ndef one_line_class(d: Doc):\n    class K: d = Tag(); x = d.stamp(2)\n\n\ndef wrapped_lambda(d: Doc):\n    g = lambda d: (\n        d.stamp(3))\n\n\ndef with_tuple(d: Doc, stuff):\n    with stuff as (d, e):\n        d.stamp(4)\n\n\ndef nested_tuple(d: Doc):\n    (n, (d, m)) = (1, (Tag(), 2))\n    d.stamp(5)\n\n\ndef under_nonlocal(d: Doc):\n    def g():\n        nonlocal d\n        d = Tag()\n        return d.stamp(6)\n\n\nd = Doc()\n\n\ndef under_global():\n    global d; d = Tag(); d.stamp(7)\n\n\ndef subscript_call(d: Doc, cache, key):\n    cache[key(d, 1)] = 1\n    d.stamp(10)\n\n\ndef subscript_tuple(d: Doc, grid):\n    grid[(d, 1)] = 0\n    d.stamp(11)\n\n\ndef call_attribute(d: Doc, g):\n    g(d, 1).attr = 0\n    d.stamp(12)\n\n\ndef memo_key(d: Doc, memo, i):\n    memo[(d, i)] = i\n    d.stamp(13)\n\n\ndef in_a_comment(d: Doc):\n    # d, e = Tag(), 1\n    d.stamp(14)\n\n\ndef in_a_string(d: Doc):\n    s = \"d, e = Tag(), 1\"\n    d.stamp(15)\n\n\ndef compared(d: Doc, e):\n    ok, n = d == e, 1\n    d.stamp(16)\n\n\ndef keyword(d: Doc, f, e):\n    n, m = f(e, d=1), 1\n    d.stamp(17)\n\n\ndef dict_key(d: Doc, e):\n    m, n = {\"d\": e, d: 1}, 1\n    d.stamp(18)\n\n\ndef attribute_target(d: Doc):\n    d.y, e = Tag(), 1\n    d.stamp(19)\n\n\ndef global_after():\n    global d\n    d.stamp(20)\n    d = Tag()\n\n\ndef nonlocal_after(d: Doc):\n    def g():\n        nonlocal d\n        d.stamp(21)\n        d = Tag()\n";
+    let (dir, mut a) = project_app(
+        "py-rebound",
+        &[
+            (
+                "app/models.py",
+                "class Doc:\n    def stamp(self, n):\n        return n\n\n\nclass Tag:\n    def stamp(self, n):\n        return n\n",
+            ),
+            ("app/shapes.py", shapes),
+        ],
+    );
+    d_on(&mut a, "app/shapes.py", "d.stamp|(0)");
+    assert!(
+        matches!(shown(&mut a), Shown::Jump(_, at) if at == "app/models.py:2"),
+        "{}",
+        a.message
+    );
+    for (n, why) in [
+        (1, "a one-line def's parameter"),
+        (2, "a one-line class body's assignment"),
+        (3, "a lambda's parameter, its body wrapped"),
+        (4, "a parenthesised `with … as` target"),
+        (5, "a nested tuple target"),
+        (6, "an assignment under `nonlocal`"),
+        (7, "an assignment under `global` on its line"),
+    ] {
+        d_on(&mut a, "app/shapes.py", &format!("d.stamp|({n})"));
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(..)),
+            "{why}: {}",
+            a.message
+        );
+    }
+    for (n, why) in [
+        (10, "a call's argument inside a subscript target"),
+        (11, "a tuple inside a subscript target"),
+        (12, "a call's argument before an attribute target"),
+        (13, "a memo key"),
+        (14, "a target in a comment"),
+        (15, "a target in a string"),
+        (16, "`==` in a tuple's value"),
+        (17, "a keyword argument"),
+        (18, "a dict key"),
+        (19, "an attribute target"),
+        (20, "an assignment under `global` after the cursor"),
+        (21, "an assignment under `nonlocal` after the cursor"),
+    ] {
+        d_on(&mut a, "app/shapes.py", &format!("d.stamp|({n})"));
+        assert!(
+            matches!(shown(&mut a), Shown::Jump(_, at) if at == "app/models.py:2"),
+            "{why}: {}",
+            a.message
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
 }

@@ -191,7 +191,6 @@ fn configure(app: &mut App, config: &theme::Config, name: String) {
     app.review_list_marks = config.review_list_marks;
     app.review_open_files_first = config.review_open_files_first;
     app.clock_format = config.clock.clone();
-    app.notes.on = config.review_notes;
     app.theme = name;
     app.config = theme::config_path();
 }

@@ -18,7 +18,7 @@ The steps file is one verb per line, `#` comments and blank lines ignored:
 
 The pane is sampled on a timer and identical frames are merged, so the GIF keeps the real
 timing of the run instead of one frame per keystroke. Keep a recording under ~15 s. How to walk
-the code in one, AGENTS.md `## Screencasts` says.
+the code in one, `docs/agents/screencasts.md` says.
 
 Record outside the repository. merl walks up to the project root, so a sample project inside
 the checkout puts merl's own tree in the shot and makes `s` grep thousands of files -- the UI

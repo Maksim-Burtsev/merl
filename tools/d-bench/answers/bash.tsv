@@ -76,7 +76,7 @@ bash0073	acme.sh:3011		judged: acme.sh sources the plugin, its function
 bash0074	acme.sh:348		judged: acme.sh sources the plugin, its function
 bash0075	acme.sh:906		judged: acme.sh sources the plugin, its function
 bash0076	acme.sh:5333		
-bash0077	dnsapi/dns_ispconfig.sh:47		
+bash0077	dnsapi/dns_ispconfig.sh:42		reviewed: _ISPC_login runs only after _ISPC_credentials succeeds, so its value comes from line 42; line 47 clears it on the failure branch that returns 1 (#1335)
 bash0078	dnsapi/dns_udr.sh:146		
 bash0079	acme.sh:348		judged: acme.sh sources the plugin, its function
 bash0080	dnsapi/dns_tele3.sh:55		

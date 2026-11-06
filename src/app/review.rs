@@ -13,6 +13,7 @@ impl App {
         if let Some(link) = (self.buf.path.as_deref()).and_then(|p| self.reviewed_link(p)) {
             self.buf = link;
         }
+        self.notes.on = true;
         self.refresh_diff();
         self.load_viewed();
         let marks_failed =

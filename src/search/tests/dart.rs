@@ -473,6 +473,17 @@ fn dart_receivers_read_a_written_type() {
         None
     );
     assert_eq!(
+        dart_typed("  final files = <MapEntry<String, Cup>>[];", "", "files"),
+        Some(ty(None, "List", None))
+    );
+    assert_eq!(
+        dart_typed("  final cups = const <Cup>[", "    Cup(1),\n  ];\n", "cups"),
+        Some(ty(None, "List", None))
+    );
+    assert_eq!(dart_typed("  final n = <Cup>[].length;", "", "n"), None);
+    assert_eq!(dart_typed("  final n = <int>[1] + more;", "", "n"), None);
+    assert_eq!(dart_typed("  final m = <String, int>{};", "", "m"), None);
+    assert_eq!(
         dart_cascade("  Kettle(1).."),
         Some(Ok(ty(None, "Kettle", None)))
     );
@@ -515,6 +526,39 @@ fn dart_loops_over_a_written_element_type_and_a_list_literal_is_a_list() {
         None
     );
     assert_eq!(dart_iterated("  final loose = [];", "loose"), None);
+    assert_eq!(
+        dart_for_in_call("    await for (final chunk in finalize()) {", "chunk"),
+        Some(("finalize", true))
+    );
+    assert_eq!(
+        dart_for_in_call("    for (var e in items()) {", "e"),
+        Some(("items", false))
+    );
+    assert_eq!(
+        dart_for_in_call("    for (var e in a.items()) {", "e"),
+        None
+    );
+    assert_eq!(dart_for_in_call("    for (var e in items(1)) {", "e"), None);
+    assert_eq!(
+        dart_iterated_call("  Stream<Uint8List> finalize() {", "finalize", true),
+        Some(ty(None, "Uint8List", None))
+    );
+    assert_eq!(
+        dart_iterated_call("  Stream<Uint8List> finalize() {", "finalize", false),
+        None
+    );
+    assert_eq!(
+        dart_iterated_call(
+            "  Iterable<MapEntry<String, int>> pairs() sync* {",
+            "pairs",
+            false
+        ),
+        Some(ty(None, "MapEntry", None))
+    );
+    assert_eq!(
+        dart_iterated_call("  Stream<T> drip<T>() async* {", "drip", true),
+        None
+    );
     for before in [
         "  ok = ['a', 'b'].",
         "  return const <String>['a'].",

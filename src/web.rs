@@ -98,6 +98,7 @@ fn build(
     let mut app = App::new(root, tree, files, Buffer::empty(), None);
     app.no_external();
     app.start_review(review);
+    app.notes.on = false;
     let config = theme::Config::default();
     crate::configure(&mut app, &config, config.theme.clone());
     app.config = None;

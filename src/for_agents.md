@@ -12,8 +12,8 @@ What the user does in merl:
   BRANCH and checks out what was pushed in a folder of its own (`.git/merl/branches/BRANCH/`),
   leaving the user's checkout as it is. The left panel lists the changed files, the diff is drawn
   over the code, and `c` / `C` walk the hunks file by file, top to bottom of the panel.
-- `a` leaves a note for you on a line or a selected range, while reviewing or reading (an
-  experiment, on with `review_notes = true` in `~/.config/merl/config.toml`).
+- `a` leaves a note for you on a line or a selected range, in a review only (`merl --review`);
+  reading a file without a review takes no notes. See "Review notes" below.
 - `m` marks a file viewed. Marks are kept per branch across sessions; a file that changed since
   it was marked loses its mark by itself. Never touch them.
 

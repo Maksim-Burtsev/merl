@@ -18,7 +18,7 @@ wait Tutor 9/
 19         """The note as plain, JSON-friendly data."""
 20         return {
 21             "id": self.id,
-22             "text": self.text,                 ╭ Tutor 9/26 · Project symbols ────────────────────────────────────────────────────╮
+22             "text": self.text,                 ╭ Tutor 9/27 · Project symbols ────────────────────────────────────────────────────╮
 23             "tags": self.tags,                 │                                                                                  │
 24             "created": self.created.isoformat()│  `D` lists every class and function of the project. Type `NoteStore` and press   │
 25         }                                      │  Enter.                                                                          │

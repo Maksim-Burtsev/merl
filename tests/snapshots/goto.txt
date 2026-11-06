@@ -75,7 +75,7 @@ u fg #4fd6be bg #222436
 v fg #589ed7 bg #222436
 w fg #c3e88d bg #222436
 x fg #828bb8 bg #1e2030
-y fg #222436 bg #82aaff
+y fg #222436 bg #c8d3f5
 
 ==== 80x24 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddd
@@ -116,7 +116,7 @@ k fg #0550ae bg #e7eaf0
 l fg #cf222e bg #e7eaf0
 m fg #6639ba bg #e7eaf0
 n fg #f6f8fa bg #5094e4
-o fg #ffffff bg #6639ba
+o fg #ffffff bg #1f2328
 
 ==== 120x33 tokyonight-moon text, cursor 3,32
 ┌notes───────────────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
@@ -212,7 +212,7 @@ v fg #589ed7 bg #222436
 w fg #c3e88d bg #222436
 x fg #ff966c bg #222436
 y fg #828bb8 bg #1e2030
-z fg #222436 bg #82aaff
+z fg #222436 bg #c8d3f5
 
 ==== 120x33 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeee
@@ -262,7 +262,7 @@ k fg #0550ae bg #e7eaf0
 l fg #cf222e bg #e7eaf0
 m fg #6639ba bg #e7eaf0
 n fg #f6f8fa bg #5094e4
-o fg #ffffff bg #6639ba
+o fg #ffffff bg #1f2328
 
 ==== 185x55 tokyonight-moon text, cursor 3,54
 ┌notes───────────────────────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
@@ -402,7 +402,7 @@ v fg #589ed7 bg #222436
 w fg #c3e88d bg #222436
 x fg #ff966c bg #222436
 y fg #828bb8 bg #1e2030
-z fg #222436 bg #82aaff
+z fg #222436 bg #c8d3f5
 
 ==== 185x55 github-light styles
 abbbbbaaaaaaaaaaaaaaaaaaaaaaaacccddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -474,4 +474,4 @@ k fg #0550ae bg #e7eaf0
 l fg #cf222e bg #e7eaf0
 m fg #6639ba bg #e7eaf0
 n fg #f6f8fa bg #5094e4
-o fg #ffffff bg #6639ba
+o fg #ffffff bg #1f2328

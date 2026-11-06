@@ -1,0 +1,57 @@
+wait db/views.sql  3:1
+┌orders──────────────────────┐ 1 CREATE VIEW order_view AS
+│▸ .github                   │ 2 WITH totals AS (
+│▸ .venv                     │ 3     SELECT  6 lines ⋯
+│▸ app                       │10 )
+│▸ data                      │11 SELECT
+│▾ db                        │12     o.id,
+│  A views.sql               │13     t.total
+│▸ deploy                    │14 FROM
+│▸ docs                      │15     orders o
+│▸ scripts                   │16     JOIN totals t ON t.order_id = o.id;
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+db/views.sql  3:1  [code]                                                                                                                                                          14:32
+cursor (x,y,shown) 33,2,0

@@ -1179,11 +1179,11 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
         .map(|r| (r.item.label.clone(), r.item.deleted))
         .collect();
     assert!(
-        rows.contains(&("A.run  by name  a.py:2: def run(self):".into(), true)),
+        rows.contains(&("A  a.py:2: def run(self):".into(), true)),
         "{rows:#?}"
     );
     assert!(
-        rows.contains(&("B.run  by name  b.py:2: def run(self):".into(), false)),
+        rows.contains(&("B  b.py:2: def run(self):".into(), false)),
         "{rows:#?}"
     );
     a.show_tree = false;
@@ -1191,20 +1191,23 @@ fn a_base_picker_keeps_its_title_and_marks_its_deleted_row() {
     let mut t = Terminal::new(TestBackend::new(90, 12)).unwrap();
     t.draw(|f| crate::ui::draw(f, &mut a, &theme)).unwrap();
     let buf = t.backend().buffer();
-    let find = |label: &str| {
+    let find = |class: &str| {
         (0..buf.area.height)
             .find_map(|y| {
                 let text: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect();
-                let at = text.find(label)?;
+                let tail = text.trim_end().trim_end_matches('\u{2502}').trim_end();
+                let at = text
+                    .find("  2  def run")
+                    .filter(|_| tail.ends_with(class))?;
                 Some((
                     u16::try_from(text.get(..at).unwrap().chars().count()).unwrap(),
                     y,
                 ))
             })
-            .unwrap_or_else(|| panic!("no row {label}"))
+            .unwrap_or_else(|| panic!("no row of{class}"))
     };
-    let (xa, ya) = find("A.run");
-    let (xb, yb) = find("B.run");
+    let (xa, ya) = find(" A");
+    let (xb, yb) = find(" B");
     assert_eq!(
         (buf[(xa - 1, ya)].symbol(), buf[(xa - 1, ya)].fg),
         ("\u{258e}", Color::Red),
@@ -1474,13 +1477,7 @@ fn a_deleted_row_of_a_renamed_file_is_named_from_its_old_text() {
                 .to_owned()
         })
         .collect();
-    assert_eq!(
-        labels,
-        [
-            "B.run  by name  lib/beta.py:2: ",
-            "A.run  by name  a.py:2: "
-        ]
-    );
+    assert_eq!(labels, ["B  lib/beta.py:2: ", "A  a.py:2: "]);
     drop(std::fs::remove_dir_all(dir));
 }
 

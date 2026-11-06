@@ -10,39 +10,39 @@ wait seneca-light
 │    repos.py                │ 9     PAID = "paid"
 │    service.py              │10     SHIPPED = "shipped"
 │    uow.py                  │11     CANCELLED = "cancelled"
-│▸ data                      │12     R┌Themes (7/97)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│▸ deploy                    │13      │> sene                                                                                                                                   │
-│▸ docs                      │14      │seneca                                                                                                                                   │
-│▸ scripts                   │15 @data│seneca-light                                                                                                                             │
-│▸ tests                     │16 class│selenized                                                                                                                                │
-│▸ web                       │17     i│selenized-light                                                                                                                          │
-│▸ worker                    │18     c│rose-pine                                                                                                                                │
-│  .env                      │19     t│rose-pine-moon                                                                                                                           │
-│  .gitignore                │20     s│rose-pine-dawn                                                                                                                           │
-│  docker-compose.yml        │21     c│                                                                                                                                         │
-│  Dockerfile                │22      │                                                                                                                                         │
-│  Makefile                  │23     d│                                                                                                                                         │
-│  pyproject.toml            │24      │                                                                                                                                         │
-│  README.md                 │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        │                                                                                                                                         │
-│                            │        └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│▸ data                      │12 ┌Themes (7/97)────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ deploy                    │13 │> sene                                                                                                                                   │
+│▸ docs                      │14 │seneca                                                                                                                                   │
+│▸ scripts                   │15 │seneca-light                                                                                                                             │
+│▸ tests                     │16 │selenized                                                                                                                                │
+│▸ web                       │17 │selenized-light                                                                                                                          │
+│▸ worker                    │18 │rose-pine                                                                                                                                │
+│  .env                      │19 │rose-pine-moon                                                                                                                           │
+│  .gitignore                │20 │rose-pine-dawn                                                                                                                           │
+│  docker-compose.yml        │21 │                                                                                                                                         │
+│  Dockerfile                │22 │                                                                                                                                         │
+│  Makefile                  │23 │                                                                                                                                         │
+│  pyproject.toml            │24 │                                                                                                                                         │
+│  README.md                 │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   │                                                                                                                                         │
+│                            │   └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 │                            │
 │                            │
 │                            │
@@ -54,4 +54,4 @@ wait seneca-light
 │                            │
 └────────────────────────────┘
 app/models.py  1:1  [code]                                                                                                                                                         14:32
-cursor (x,y,shown) 45,12,0
+cursor (x,y,shown) 40,12,0

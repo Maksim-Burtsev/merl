@@ -1,8 +1,8 @@
-wait why delete these
+wait app/repos.py  -32:1  [code]
 ┌agent/refund ← origin/main──┐ 4 class OrderRepo:
 │  ▾ app                     │ 9
 │✎   A refunds.py      +18 −0│10     def get(self, order_id: int) -> Order | None:
-│    M repos.py        +0 −28│11         row = self.db.fetch_one("SELECT * FROM orders WHERE id = %s", order_id)
+│✎   M repos.py        +0 −28│11         row = self.db.fetch_one("SELECT * FROM orders WHERE id = %s", order_id)
 │    M service.py      +13 −1│12         return Order(**row) if row else None
 │  ▾ deploy                  │13
 │    ▾ helm                  │14     def find_by_customer(self, customer_id: int) -> list[Order]:
@@ -52,6 +52,6 @@ wait why delete these
 │                            │  ▎
 │                            │  ▎    def clear(self) -> None:
 │                            │  ▎        self.orders.clear()
-└ 8 files · +59 −39 · 1 note ┘
-app/repos.py  -32:1  [edit]  hunk 1/1  file 2/8                                                                                                                                    14:32
-cursor (x,y,shown) 50,25,0
+└────────────────────────────┘
+app/repos.py  -32:1  [code]  hunk 1/1  file 2/8                                                                                                                                    14:32
+cursor (x,y,shown) 32,25,0

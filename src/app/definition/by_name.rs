@@ -4,6 +4,17 @@ use super::{
 };
 
 impl App {
+    fn swift_by_name(&mut self, a: &Asked, near: &Near, found: &mut Vec<Candidate>) {
+        self.swift_extensions(a, near, found);
+        self.swift_init_by_labels(&a.here, &a.word, a.range.end, found);
+        if a.dotted {
+            self.swift_uncalled(&a.word, a.range.end, found);
+        }
+        if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, found) {
+            self.swift_by_labels(&a.word, a.range.end, found);
+        }
+    }
+
     pub(super) fn define_by_name(
         &mut self,
         a: &Asked,
@@ -63,11 +74,7 @@ impl App {
             self.star_winner(&a.here, &a.text, &a.word, &mut found);
         }
         if kind == Kind::Swift && !found.is_empty() {
-            self.swift_extensions(a, near, &mut found);
-            self.swift_init_by_labels(&a.here, &a.word, a.range.end, &mut found);
-            if a.dotted && a.chain.is_empty() && self.swift_one_owner(&a.word, &found) {
-                self.swift_by_labels(&a.word, a.range.end, &mut found);
-            }
+            self.swift_by_name(a, near, &mut found);
         }
         if kind == Kind::Dart {
             let member = a.before.trim_end().ends_with('.');
@@ -80,6 +87,12 @@ impl App {
             self.ts_member_namesakes(a, near, &mut found);
         }
         self.found_outside(a, near, p, imported, &mut found);
+        if kind == Kind::Julia {
+            self.julia_found(a, p, &mut found);
+        }
+        if kind == Kind::TsJs && a.dotted {
+            required_copy(&a.text, &mut found);
+        }
         if kind == Kind::Dart && !a.before.trim_end().ends_with('.') {
             self.dart_unimported(&a.here, &a.word, &mut found);
             self.dart_outside_constructor(&a.word, &a.tail, &mut found);
@@ -261,6 +274,21 @@ impl App {
                         reason: Reason::ByName,
                     }),
             );
+        } else if kind == Kind::Julia
+            && !a.dotted
+            && !found.is_empty()
+            && !imported.outside
+            && imported.value.is_none()
+            && let Some(here) = self.rel_current()
+            && found
+                .iter()
+                .all(|c| c.hit.path != here && self.julia_extension(&c.hit, word))
+        {
+            let base = self
+                .external_definitions(kind, word, &a.chain, false, &near.imports, false)
+                .unwrap_or_default();
+            self.offer_only |= base.is_empty();
+            found.extend(base);
         } else if found.is_empty()
             && !imported.outside
             && imported.value.is_none()
@@ -402,6 +430,127 @@ impl App {
             ));
             hits.retain(|h| patched.as_ref().is_ok_and(|re| re.is_match(&h.text)));
         }
+    }
+
+    fn julia_found(&self, a: &Asked, p: &Patterns, found: &mut Vec<Candidate>) {
+        if a.word == "Base" && !a.dotted && a.chain.is_empty() {
+            julia_base_module(&a.text, found);
+        }
+        if p.on_value && found.len() > 1 {
+            self.julia_typed_field(a, found);
+        }
+        if !a.dotted && a.chain.is_empty() && found.len() > 1 {
+            self.julia_type_named(a, found);
+        }
+    }
+
+    fn julia_type_named(&self, a: &Asked, found: &mut Vec<Candidate>) {
+        let lines: Vec<&str> = a.text.lines().collect();
+        if !search::julia_names_a_type_here(&lines, self.line, a.range.start, &a.word) {
+            return;
+        }
+        let (heads, methods): (Vec<&Candidate>, Vec<&Candidate>) = found
+            .iter()
+            .partition(|c| search::julia_declares_type(&c.hit.text, &a.word));
+        if let [head] = heads[..]
+            && methods
+                .iter()
+                .all(|c| search::julia_declares_method(&c.hit.text, &a.word))
+        {
+            *found = vec![head.clone()];
+        }
+    }
+
+    fn julia_typed_field(&self, a: &Asked, found: &mut Vec<Candidate>) {
+        let [head] = &a.chain[..] else {
+            return;
+        };
+        let Some(ty) = search::julia_param_type(&a.text, self.line, head) else {
+            return;
+        };
+        let decl = |pattern: &str| -> Vec<Hit> {
+            self.grep(pattern, false, false, |p| {
+                search::kind_of(p) == Some(Kind::Julia)
+            })
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|h| self.in_code(Kind::Julia, h))
+            .collect()
+        };
+        let heads = decl(&search::julia_type_heads(&ty));
+        let [st] = &heads[..] else {
+            return;
+        };
+        if !search::julia_is_struct(&st.text) {
+            return;
+        }
+        let mut types = vec![ty];
+        let mut line = st.text.clone();
+        loop {
+            let sup = match search::julia_supertype(&line) {
+                None => return,
+                Some(sup) if sup == "Any" => break,
+                Some(sup) => sup,
+            };
+            let heads = decl(&search::julia_type_heads(&sup));
+            let ([h], false) = (&heads[..], types.contains(&sup)) else {
+                return;
+            };
+            line.clone_from(&h.text);
+            types.push(sup);
+        }
+        let aliases = decl(&search::julia_alias_pattern(&types));
+        types.extend(aliases.iter().filter_map(|h| search::julia_alias(&h.text)));
+        for h in decl(r"getproperty\s*\(") {
+            let Some(text) = self.file_text(&h.path) else {
+                return;
+            };
+            let lines: Vec<&str> = text.lines().collect();
+            if search::julia_property_overload(&lines, h.line1 - 1, &types, &a.word) {
+                return;
+            }
+        }
+        let Some(text) = self.file_text(&st.path) else {
+            return;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let owned: Vec<&Candidate> = found
+            .iter()
+            .filter(|c| {
+                c.hit.path == st.path
+                    && search::julia_struct_of(&lines, c.hit.line1 - 1) == Some(st.line1 - 1)
+            })
+            .collect();
+        if let [one] = owned[..] {
+            *found = vec![one.clone()];
+        }
+    }
+
+    fn julia_extension(&self, h: &Hit, word: &str) -> bool {
+        let imports = |path: &std::path::Path| {
+            self.file_text(path).is_some_and(|text| {
+                search::julia_function_imports(&text).iter().any(|i| {
+                    i.name == word
+                        && i.path.len() > 1
+                        && i.path.first().is_some_and(|p| !p.starts_with('.'))
+                })
+            })
+        };
+        let included = |name: &std::ffi::OsStr| {
+            let include = format!(
+                r#"include\s*\(\s*"[^"]*{}""#,
+                regex::escape(&name.to_string_lossy())
+            );
+            self.grep(&include, false, false, |p| {
+                search::kind_of(p) == Some(Kind::Julia)
+            })
+            .unwrap_or_default()
+            .iter()
+            .any(|i| search::julia_includes(&i.path, &i.text, &h.path) && imports(&i.path))
+        };
+        search::julia_extends(&h.text, word)
+            || imports(&h.path)
+            || h.path.file_name().is_some_and(included)
     }
 
     fn lua_key_elsewhere(&self, h: &Hit, word: &str) -> bool {
@@ -588,14 +737,7 @@ impl App {
                 struct_tag: tag,
             },
         );
-        let hits: Vec<Hit> = (self.c_reached_only(&a.here, word, hits).into_iter())
-            .filter(|h| {
-                h.path == a.here
-                    || !Self::c_type_line(word, h)
-                    || !(self.text_of(&h.path))
-                        .is_some_and(|t| search::c_inside_function(&t, h.line1, word))
-            })
-            .collect();
+        let hits = self.c_visible_types(a, hits);
         let on = hits
             .iter()
             .any(|h| h.path == a.here && h.line1 == self.line + 1);
@@ -643,6 +785,9 @@ impl App {
         if hits.is_empty() {
             *fallbacks = fallback;
         }
+        if let Some(own) = self.cpp_own_definition(a, &hits) {
+            return Some(vec![own]);
+        }
         let parameter = search::c_parameter(&a.text, self.line + 1, word);
         let one = search::c_one_definition(word, &hits, |p| self.text_of(p))
             .filter(|_| !on && !parameter)
@@ -654,6 +799,154 @@ impl App {
             }
             None => hits,
         })
+    }
+
+    fn c_visible_types(&mut self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
+        let word = &a.word;
+        let hits: Vec<Hit> = (self.c_reached_only(&a.here, word, hits).into_iter())
+            .filter(|h| {
+                h.path == a.here
+                    || !Self::c_type_line(word, h)
+                    || !(self.text_of(&h.path))
+                        .is_some_and(|t| search::c_inside_function(&t, h.line1, word))
+            })
+            .filter(|h| !search::c_heads_a_nested_class(word, &h.text))
+            .collect();
+        let hits = search::c_block_scoped(&a.text, word, self.line + 1, hits, |h| {
+            (h.path == a.here && Self::c_type_line(word, h)).then_some(h.line1)
+        });
+        self.cpp_class_scoped(a, hits)
+    }
+
+    fn cpp_unseen_members_dropped(
+        &mut self,
+        a: &Asked,
+        ctx: &[String],
+        params: bool,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        if !params && !search::c_inside_function(&a.text, self.line + 1, &a.word) {
+            return hits;
+        }
+        let unseen: Vec<Option<String>> = (hits.iter())
+            .map(|h| {
+                let class = (self.text_of(&h.path))
+                    .filter(|_| Self::c_type_line(&a.word, h))
+                    .and_then(|t| search::cpp_member_class(&t, h.line1, &a.word))?;
+                (!ctx.contains(&class)).then_some(class)
+            })
+            .collect();
+        if unseen.iter().all(Option::is_none) || unseen.iter().all(Option::is_some) {
+            return hits;
+        }
+        let texts: Vec<String> = (self.c_reached(&a.here).into_iter())
+            .filter(|f| f.is_relative())
+            .filter_map(|f| self.text_of(&f))
+            .chain([a.text.clone()])
+            .collect();
+        (hits.into_iter().zip(unseen))
+            .filter(|(_, class)| {
+                class
+                    .as_ref()
+                    .is_none_or(|c| texts.iter().any(|t| search::cpp_may_derive_from(t, c)))
+            })
+            .map(|(h, _)| h)
+            .collect()
+    }
+
+    fn cpp_class_scoped(&mut self, a: &Asked, hits: Vec<Hit>) -> Vec<Hit> {
+        let code = search::c_code(&a.text);
+        if self.c_source()
+            || self.objc_file()
+            || a.dotted
+            || a.before.trim_end().ends_with("::")
+            || a.tail.trim_start().starts_with(['(', '{'])
+            || search::cpp_template_param(&code, &a.word)
+            || search::cpp_using_declares(&code, &a.word)
+        {
+            return hits;
+        }
+        let pos = self.cpp_pos(a, &code);
+        let ctx = search::cpp_lookup_path(&code, pos);
+        let params = ctx != search::cpp_scope_path(&code, pos);
+        let hits = self.cpp_unseen_members_dropped(a, &ctx, params, hits);
+        let member = |h: &Hit| {
+            self.text_of(&h.path).is_some_and(|t| {
+                !search::c_inside_function(&t, h.line1, &a.word)
+                    && search::cpp_owner(&t, h.line1, &a.word).as_ref() == Some(&ctx)
+            })
+        };
+        let mine: Vec<bool> = hits.iter().map(member).collect();
+        let borrowed = regex::Regex::new(r"^\s*(?:friend\b|using\s+(?:typename\s+)?[\w:<>, ]*::)")
+            .expect("the regex is a literal");
+        let odd = (hits.iter().zip(&mine))
+            .any(|(h, m)| *m && (borrowed.is_match(&h.text) || !Self::c_type_line(&a.word, h)));
+        if ctx.is_empty() || odd || !mine.contains(&true) {
+            return hits;
+        }
+        let ahead = regex::Regex::new(&format!(
+            r"^\s*(?:class|struct|union)\s+{}\s*;",
+            regex::escape(&a.word)
+        ))
+        .expect("an escaped name keeps the pattern valid");
+        let hits: Vec<Hit> = (hits.into_iter().zip(mine))
+            .filter_map(|(h, m)| m.then_some(h))
+            .collect();
+        if hits.iter().all(|h| ahead.is_match(&h.text)) {
+            return hits;
+        }
+        hits.into_iter()
+            .filter(|h| !ahead.is_match(&h.text))
+            .collect()
+    }
+
+    fn cpp_pos(&self, a: &Asked, code: &str) -> usize {
+        let pos = (a.text.split('\n').take(self.line))
+            .map(|l| l.len() + 1)
+            .sum::<usize>()
+            + a.range.start;
+        pos.min(code.len())
+    }
+
+    fn cpp_own_definition(&self, a: &Asked, hits: &[Hit]) -> Option<Hit> {
+        static DECLARES: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(r"^\s*(?:[A-Za-z_][\w:]*(?:\s*<[^;(){}=]*>)?[\s*&]+)+$")
+                .expect("the regex is a literal")
+        });
+        static NOT_A_TYPE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+            regex::Regex::new(
+                r"\b(?:return|throw|new|delete|case|else|goto|co_return|co_await|co_yield|friend|typedef|using|sizeof|operator)\b",
+            )
+            .expect("the regex is a literal")
+        });
+        let word = &a.word;
+        let code = search::c_code(&a.text);
+        let pos = self.cpp_pos(a, &code);
+        let ends = code.get(pos..)?.find(['{', ';'])?;
+        if self.c_source()
+            || self.objc_file()
+            || a.dotted
+            || !a.chain.is_empty()
+            || !DECLARES.is_match(&a.before)
+            || NOT_A_TYPE.is_match(&a.before)
+            || !a.tail.trim_start().starts_with('(')
+            || code.as_bytes().get(pos + ends) != Some(&b';')
+            || search::c_inside_function(&a.text, self.line + 1, word)
+        {
+            return None;
+        }
+        let ctx = search::cpp_lookup_path(&code, pos);
+        let mine = search::cpp_declared_signature(&a.text, self.line + 1, word)?;
+        let mut own = hits.iter().filter(|h| {
+            self.text_of(&h.path).is_some_and(|t| {
+                search::cpp_owner(&t, h.line1, word).as_ref() == Some(&ctx)
+                    && search::cpp_defined_signature(&t, h.line1, word).as_ref() == Some(&mine)
+            })
+        });
+        match (ctx.is_empty(), own.next(), own.next()) {
+            (false, Some(h), None) => Some(h.clone()),
+            _ => None,
+        }
     }
 
     fn c_included_texts(&mut self, here: &std::path::Path) -> Vec<(PathBuf, String)> {
@@ -748,6 +1041,50 @@ impl App {
     }
 }
 
+fn required_copy(text: &str, found: &mut Vec<Candidate>) {
+    let package = |c: &Candidate| {
+        let name = search::package_of(&c.hit.path)?;
+        let parts: Vec<_> = c.hit.path.components().collect();
+        let at = parts
+            .iter()
+            .rposition(|p| p.as_os_str() == "node_modules")?;
+        let dir: PathBuf = parts
+            .get(..=at + name.components().count())?
+            .iter()
+            .collect();
+        Some((dir, name.to_string_lossy().into_owned()))
+    };
+    let Some((dir, name)) = found.first().and_then(package) else {
+        return;
+    };
+    if found.len() < 2 || found.iter().any(|c| package(c).is_none_or(|p| p.0 != dir)) {
+        return;
+    }
+    let name = name.strip_prefix("@types/").unwrap_or(&name);
+    if ![format!("require(\"{name}\")"), format!("require('{name}')")]
+        .iter()
+        .any(|r| text.contains(r.as_str()))
+    {
+        return;
+    }
+    let twin = |c: &Candidate| match c.hit.path.to_string_lossy().strip_suffix(".d.mts") {
+        Some(stem) => Some(PathBuf::from(format!("{stem}.d.ts"))),
+        None => Some(dir.join(c.hit.path.strip_prefix(dir.join("esm")).ok()?)),
+    };
+    let esm: Vec<(PathBuf, usize)> = (found.iter())
+        .filter(|c| {
+            twin(c).is_some_and(|t| {
+                (found.iter()).any(|o| o.hit.line1 == c.hit.line1 && o.hit.path == t)
+            })
+        })
+        .map(|c| (c.hit.path.clone(), c.hit.line1))
+        .collect();
+    found.retain(|c| {
+        !esm.iter()
+            .any(|(p, l)| *p == c.hit.path && *l == c.hit.line1)
+    });
+}
+
 fn lua_qualified_elsewhere(here: &std::path::Path, word: &str, hits: &[Hit]) -> bool {
     let table = regex::Regex::new(&format!(
         r"^\s*function\s+[\w.:]*[.:]{}\b",
@@ -783,5 +1120,15 @@ fn c_namespace(word: &str, hits: Vec<Hit>, after_tag_keyword: bool, called: bool
         hits.into_iter().filter(|h| keep(tag(h))).collect()
     } else {
         hits
+    }
+}
+
+fn julia_base_module(text: &str, found: &mut Vec<Candidate>) {
+    let module = |c: &Candidate| c.hit.text.trim_end() == "baremodule Base";
+    if !text.lines().any(|l| l.starts_with("baremodule "))
+        && found.iter().all(|c| c.hit.path.is_absolute())
+        && found.iter().any(module)
+    {
+        found.retain(module);
     }
 }

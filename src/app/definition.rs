@@ -145,7 +145,11 @@ impl App {
             self.probe.take().unwrap_or_default()
         };
         (self.line, self.col, self.message) = (cursor_line, cursor_col, message);
-        let reads_outside = kind == Kind::Rust && *owner == search::Owner::Typed;
+        let reads_outside = (kind == Kind::Rust && *owner == search::Owner::Typed)
+            || (kind == Kind::Python
+                && *owner == search::Owner::Args
+                && !owners.is_empty()
+                && owners.iter().all(|c| c.reason.proven()));
         let offer = std::mem::take(&mut self.offer_only)
             || (!reads_outside && owners.iter().any(|c| c.hit.path.is_absolute()))
             || (owners.iter().all(|c| !c.reason.proven())
@@ -157,7 +161,7 @@ impl App {
             return Vec::new();
         };
         let what = match owner {
-            search::Owner::Args => "parameter",
+            search::Owner::Args | search::Owner::Implicit(_) => "parameter",
             search::Owner::Object(_) | search::Owner::Typed => "field",
         };
         let mut out: Vec<Candidate> = Vec::new();
@@ -742,6 +746,9 @@ impl App {
                 if let Some(binds) = search::shell_loop_binds(&h.text, word) {
                     return binds && h.path == here;
                 }
+                if search::shell_env_line(&h.text) {
+                    return h.path != here;
+                }
                 let Some(text) = self.text_of(&h.path) else {
                     return true;
                 };
@@ -758,7 +765,12 @@ impl App {
             let assigns = at
                 .and_then(|r| self.line_str().get(r.end..))
                 .is_some_and(|t| t.starts_with(['=', '+', '[']));
-            if let Some(command) = lead.and_then(search::shell_command_position) {
+            let bats = here.extension().is_some_and(|e| e == "bats");
+            let command = lead.and_then(|l| {
+                search::shell_command_position(l)
+                    .or_else(|| (bats && search::bats_runs(l)).then_some(true))
+            });
+            if let Some(command) = command {
                 let sorted: Vec<Hit> = hits
                     .iter()
                     .filter(|h| search::shell_names_a_command(&h.text) == command)
@@ -768,11 +780,139 @@ impl App {
                     hits = sorted;
                 }
             }
+            let own: Vec<&Hit> = hits.iter().filter(|h| h.path == here).collect();
+            if command == Some(true)
+                && let [only] = own[..]
+                && self.shell_sources_none_of(here, &hits)
+            {
+                hits = vec![only.clone()];
+            }
+            if command != Some(true)
+                && !assigns
+                && let Some(f) = mine
+            {
+                self.shell_gated(here, word, &lines, f, &mut hits);
+            }
+            if hits.is_empty() && command != Some(true) {
+                hits = self.shell_out_args(here, word);
+            }
         }
         if kind == Kind::Sql {
             self.sql_hits(here, word, &mut hits);
         }
+        if kind == Kind::Scheme && hits.is_empty() {
+            hits = self.scheme_renamed(here, word);
+        }
         hits
+    }
+
+    fn shell_sources_none_of(&self, here: &Path, hits: &[Hit]) -> bool {
+        let dir = here.parent().unwrap_or_else(|| Path::new(""));
+        let bats = here.extension().is_some_and(|e| e == "bats");
+        let lines = &self.buf.lines;
+        lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| search::shell_reads_another_file(l))
+            .all(|(i, l)| {
+                let named = i
+                    .checked_sub(1)
+                    .and_then(|p| search::shell_directive_source(&lines[p]))
+                    .map(PathBuf::from);
+                let file = match named {
+                    Some(file) if self.files.contains(&file) => file,
+                    Some(_) => return false,
+                    None => {
+                        let col = l.len() - l.trim_start().len();
+                        let Some(path) = search::shell_source(l, col, bats)
+                            .filter(|_| search::shell_source_from_here(l))
+                        else {
+                            return false;
+                        };
+                        let [file] = &search::shell_files(dir, &path, &self.files)[..] else {
+                            return false;
+                        };
+                        file.clone()
+                    }
+                };
+                file != here
+                    && !hits.iter().any(|h| h.path == file)
+                    && self
+                        .text_of(&file)
+                        .is_some_and(|t| !t.lines().any(search::shell_reads_another_file))
+            })
+    }
+
+    fn shell_gated(&self, here: &Path, word: &str, lines: &[&str], f: usize, hits: &mut Vec<Hit>) {
+        let function_of = |h: &Hit| {
+            (h.path == here && h.line1 <= lines.len())
+                .then(|| search::shell_function_at(lines, h.line1 - 1))
+                .flatten()
+        };
+        let Some(g) = hits.first().and_then(function_of).filter(|&g| {
+            g != f && hits.len() > 1 && hits.iter().all(|h| function_of(h) == Some(g))
+        }) else {
+            return;
+        };
+        let (Some(fname), Some(gname)) = (
+            search::shell_function_name(lines[f]),
+            search::shell_function_name(lines[g]),
+        ) else {
+            return;
+        };
+        let live: Vec<&Hit> = hits
+            .iter()
+            .filter(|h| !search::shell_fails_after(lines, h.line1 - 1, word))
+            .collect();
+        let [one] = live[..] else {
+            return;
+        };
+        if !search::shell_runs_first(lines, g, one.line1 - 1) {
+            return;
+        }
+        let one = one.clone();
+        let calls = self.project_grep(Kind::Shell, here, &regex::escape(fname));
+        let outside: Vec<&Hit> = calls
+            .iter()
+            .filter(|c| {
+                !(function_of(c) == Some(f)
+                    || c.text.trim_start().starts_with('#')
+                    || c.path == here && c.line1 == f + 1)
+            })
+            .collect();
+        if !outside.is_empty()
+            && outside
+                .iter()
+                .all(|c| search::shell_gated_by(&c.text, fname, gname))
+        {
+            *hits = vec![one];
+        }
+    }
+
+    fn shell_out_args(&self, here: &Path, word: &str) -> Vec<Hit> {
+        let mut writes: HashMap<(String, usize), bool> = HashMap::new();
+        let mut calls = self.project_grep(Kind::Shell, here, &search::shell_out_arg_pattern(word));
+        calls.retain(|h| {
+            let Some((f, n)) = search::shell_out_arg(&h.text, word) else {
+                return false;
+            };
+            *writes.entry((f.to_owned(), n)).or_insert_with(|| {
+                let pattern = search::def_patterns(Kind::Shell, f).join("|");
+                let defs: Vec<Hit> = self
+                    .project_grep(Kind::Shell, here, &pattern)
+                    .into_iter()
+                    .filter(|d| search::shell_names_a_command(&d.text))
+                    .collect();
+                let [def] = &defs[..] else {
+                    return false;
+                };
+                self.text_of(&def.path).is_some_and(|text| {
+                    let lines: Vec<&str> = text.lines().collect();
+                    search::shell_writes_param(&lines, def.line1 - 1, n)
+                })
+            })
+        });
+        calls
     }
 
     fn sql_hits(&self, here: &Path, word: &str, hits: &mut Vec<Hit>) {

@@ -468,6 +468,7 @@ impl App {
                 let [(decl, ..)] = <[_; 1]>::try_from(decls).ok()?;
                 (decl.path, c[2].to_owned())
             }
+            Got::Bound(_) => return None,
         };
         ["core", "alloc", "std"]
             .into_iter()
@@ -478,23 +479,30 @@ impl App {
             .then_some(())?;
         let t = self.text_of(&path)?;
         let lines: Vec<&str> = t.lines().collect();
-        let mut items = lines.iter().enumerate().filter_map(|(i, l)| {
-            (search::rust_impl_trait(l)? == "Iterator" && search::rust_impl_type(l)? == name).then(
-                || {
-                    lines
-                        .iter()
-                        .skip(i + 1)
-                        .take(4)
-                        .find_map(|l| l.trim().strip_prefix("type Item =")?.strip_suffix(';'))
-                },
-            )?
-        });
-        let item = items.next()?.trim();
-        if items.any(|other| other.trim() != item) {
+        let items = iterator_items(&lines, &name);
+        let ((_, item), rest) = items.split_first()?;
+        if rest.iter().any(|(_, other)| other != item) {
             return None;
         }
         rust_bare_type(item)
     }
+}
+
+pub(super) fn iterator_items<'a>(lines: &[&'a str], name: &str) -> Vec<(usize, &'a str)> {
+    lines
+        .iter()
+        .enumerate()
+        .filter_map(|(i, l)| {
+            (search::rust_impl_trait(l)? == "Iterator" && search::rust_impl_type(l)? == name).then(
+                || {
+                    lines.iter().skip(i + 1).take(4).find_map(|l| {
+                        let item = l.trim().strip_prefix("type Item =")?.strip_suffix(';')?;
+                        Some((i, item.trim()))
+                    })
+                },
+            )?
+        })
+        .collect()
 }
 
 impl App {

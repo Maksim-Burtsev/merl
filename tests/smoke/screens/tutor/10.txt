@@ -17,7 +17,7 @@ wait Tutor 24/
 │                            │14▎    parser.add_argument("command", choices=["add", "remove", "list", "find", "tags"])
 │                            │15     parser.add_argument("words", nargs="*", help="note text, id, or search query")
 │                            │  ▎    parser.add_argument("--tag", action="append", default=[], help="tag a new note")
-│                            │16▎    parser.add_ar╭ Tutor 24/26 · Next change ───────────────────────────────────────────────────────╮
+│                            │16▎    parser.add_ar╭ Tutor 24/27 · Next change ───────────────────────────────────────────────────────╮
 │                            │17▎        "--tag", │                                                                                  │
 │                            │18▎        action="a│  A review: an agent built PLAN.md and left its work uncommitted, the files on    │
 │                            │19▎        default=[│  the left. `c` goes to the next change, and past the last one into the next      │

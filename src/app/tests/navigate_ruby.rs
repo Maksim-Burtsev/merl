@@ -119,7 +119,7 @@ fn the_core_signatures_and_the_standard_library_come_first() {
             "fetch: by name, 2 declarations",
             &[
                 ("Settings.fetch", "app/models/settings.rb:2"),
-                ("Hash.fetch", "hash.rbs:2"),
+                ("fetch", "hash.rbs:2"),
             ]
         ),
         "the core's `def name: …` in a `class` is read from the `rbs` gem's signatures; a member found by name in the project gets the ones outside beside it, so the project's one namesake is offered, never jumped to"
@@ -142,10 +142,7 @@ fn the_core_signatures_and_the_standard_library_come_first() {
     d_on(&mut a, "app/lib/run.rb", "Errno::ENOENT");
     assert_eq!(
         shown(&mut a),
-        picker(
-            "ENOENT: by name, 1 match",
-            &[("Errno.ENOENT", "errno.rbs:2")]
-        ),
+        picker("ENOENT: by name, 1 match", &[("ENOENT", "errno.rbs:2")]),
         "A constant's path names no file: `Errno` is no directory of the core, and the name is looked for by name, offered as any `::` path no declaration of the project spells"
     );
     d_on(&mut a, "app/lib/run.rb", "Account.find");

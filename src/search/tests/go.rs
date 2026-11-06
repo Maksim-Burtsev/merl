@@ -508,3 +508,30 @@ fn a_go_parameter_typed_by_a_type_parameter_is_its_constraint_only_when_that_is_
         assert_eq!(typed(header), [Value::Type(want.into())], "{header}");
     }
 }
+
+#[test]
+fn a_go_row_s_class_is_the_named_type_or_function_it_sits_in_and_never_an_anonymous_struct() {
+    let go = "package a\n\ntype Stack[T any] struct {\n\titems []T\n\tDB    struct {\n\t\tHost string\n\t}\n}\n\nfunc (s *Stack[T]) Push(v T) {}\n\ntype Reader interface {\n\tRead(p []byte) (int, error)\n}\n\ntype (\n\tA struct {\n\t\tX int\n\t}\n)\n\nconst Max = 1\n\nfunc Run(ctx int) {\n\tn := 1\n\tfor _, tc := range []struct {\n\t\tname string\n\t}{} {\n\t}\n\tone := struct{ age int }{}\n}\n\ntype P struct{ Q int }\n";
+    let class = |line, name| container(Kind::Go, go, line, name);
+    let got: Vec<_> = [
+        (4, "items"),
+        (6, "Host"),
+        (10, "Push"),
+        (13, "Read"),
+        (18, "X"),
+        (22, "Max"),
+        (24, "Run"),
+        (24, "ctx"),
+        (25, "n"),
+        (27, "name"),
+        (30, "age"),
+        (33, "Q"),
+    ]
+    .into_iter()
+    .map(|(l, n)| format!("{n}={}", class(l, n).unwrap_or_default()))
+    .collect();
+    assert_eq!(
+        got.join(" "),
+        "items=Stack Host= Push=Stack Read=Reader X= Max= Run= ctx=Run n=Run name= age= Q=P"
+    );
+}

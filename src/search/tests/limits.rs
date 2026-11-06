@@ -398,7 +398,7 @@ fn proto_and_jvm_roots_leave_the_package_caches_out() {
 fn rust_use_files_try_only_the_default_module_paths() {
     let find = |files: &[&str], text: &str| -> Vec<PathBuf> {
         let files: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
-        rust_use_files(&files, Path::new("src/lib.rs"), text, "Cache")
+        rust_use_files(&files, Path::new("src/lib.rs"), text, "Cache", |_| None)
     };
     let text = "#[path = \"elsewhere/net_impl.rs\"]\nmod net;\nuse crate::net::Cache;\n";
     assert_eq!(

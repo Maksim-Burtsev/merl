@@ -384,6 +384,12 @@ impl App {
         chain: &[String],
         word: &str,
     ) -> Option<Vec<Candidate>> {
+        if let [r] = chain
+            && r == "super"
+            && let Some(found) = self.dart_super_param(here, text, word)
+        {
+            return Some(vec![found]);
+        }
         let mut scope = here.to_path_buf();
         let ty = match chain {
             [] if before.ends_with("..") => match search::dart_cascade(before)? {
@@ -412,6 +418,7 @@ impl App {
                 scope = s;
                 ty
             }
+            [r] if search::dart_promoted(text, self.line + 1, self.dart_col(), r) => return None,
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -456,6 +463,30 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
+    fn dart_col(&self) -> usize {
+        self.word_here(Some(Kind::Dart))
+            .map_or(self.col, |(range, _)| range.start)
+    }
+
+    fn dart_super_param(&self, here: &Path, text: &str, word: &str) -> Option<Candidate> {
+        let (range, _) = self.word_here(Some(Kind::Dart))?;
+        let at = line_offset(text, self.line + 1) + range.start;
+        let (ty, named, slot) = search::dart_super_param(text, self.line, at)?;
+        let file = self.dart_class_file(here, &ty)?;
+        let source = self.text_of(&file)?;
+        let line1 =
+            search::dart_constructor_param(&source, &ty.class, named.as_deref(), word, slot)?;
+        let hit = Hit {
+            deleted: None,
+            path: file,
+            line1,
+            byte_col: None,
+            text: source.lines().nth(line1 - 1)?.to_owned(),
+        };
+        let reason = Reason::Receiver(ty.class);
+        Some(Candidate { hit, reason })
+    }
+
     fn dart_bound(
         &self,
         here: &Path,
@@ -464,13 +495,21 @@ impl App {
         depth: usize,
     ) -> Option<(search::DartType, PathBuf)> {
         let line_of = |name: &str| {
-            let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
+            let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
             let [b] = bindings.as_slice() else {
                 return None;
             };
             text.lines().nth(b.line1 - 1).map(|l| (l, b.line1))
         };
         let (line, line1) = line_of(name)?;
+        let seen = if line1 == self.line + 1 {
+            line.get(..self.dart_col()).unwrap_or(line)
+        } else {
+            line
+        };
+        if search::dart_binders(seen, name) > 1 {
+            return None;
+        }
         let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
         if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
             let ty = search::dart_type_bound(line, &ty).unwrap_or(ty);
@@ -489,6 +528,14 @@ impl App {
             }
             let c = self.dart_field_row(here, text, items)?;
             return Some((search::dart_iterated(&c.hit.text, items)?, c.hit.path));
+        }
+        if let Some((method, awaited)) = search::dart_for_in_call(line, name) {
+            let c = self.dart_field_row(here, text, method)?;
+            let ty = search::dart_iterated_call(&c.hit.text, method, awaited)?;
+            let own = search::dart_this_super(text, self.line, false)?.class;
+            let params = search::dart_type_params(text, &own).unwrap_or_default();
+            return (ty.prefix.is_some() || !params.contains(&ty.class))
+                .then_some((ty, c.hit.path));
         }
         let value = search::dart_value(line, name).filter(|_| depth < 4)?;
         if let Some((receiver, getter)) = search::dart_awaited(value) {
@@ -796,7 +843,7 @@ impl App {
     }
 
     fn dart_field_row(&self, here: &Path, text: &str, field: &str) -> Option<Candidate> {
-        if !search::bindings(Kind::Dart, text, self.line + 1, field).is_empty() {
+        if !search::dart_bindings_seen(text, self.line + 1, self.dart_col(), field).is_empty() {
             return None;
         }
         let class = search::dart_this_super(text, self.line, false)?.class;

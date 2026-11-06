@@ -1,10 +1,10 @@
 wait Close an overlay, leave edit mode
 ┌orders──────────────────────┐ 1 f┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
-│▸ .github                   │ 2  │   n / N                             Next / previous match                                                         │
-│▸ .venv                     │ 3  │   s                                 Search the project                                                            │
-│▾ app                       │ 4 c│ Review                                                                                                            │
-│    __init__.py             │ 5  │   c / C                             Review: next / previous hunk, on to the next file                             │
-│    api.py                  │ 6  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│▸ .github                   │ 2  │   s                                 Search the project                                                            │
+│▸ .venv                     │ 3  │ Review                                                                                                            │
+│▾ app                       │ 4 c│   c / C                             Review: next / previous hunk, on to the next file                             │
+│    __init__.py             │ 5  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│    api.py                  │ 6  │   a                                 Review: note for the agent on the line or the selection                       │
 │    config.py               │ 7  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
 │    models.py               │ 8  │ Editing                                                                                                           │
 │    repos.py                │ 9  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
