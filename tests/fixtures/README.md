@@ -976,6 +976,15 @@ and `var plunger = plunger`, destructuring in a `val` and a loop header, a star 
 same-package `Mesh`, an alias import of a function, a local function hiding a member inside an
 object expression, and `this@Cafetiere` from an inner class.
 
+`jvm/src/main/java/rebound/` and `jvm/src/main/kotlin/refill/` bind a name again over an outer one
+of another type (#1381): a `Flask x` field, or a local `Flask z` / `val z = Cruet()`, hidden by a
+local declared in the middle of the cursor's line, a parameter of an anonymous class's method on
+one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) and a negated
+`instanceof` whose `if` returns. The one-line shapes keep a picker holding `Ewer.decant` /
+`Phial.tipple`, the multi-line ones land on it, while a use before the declaration, a closed
+block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
+name's member.
+
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
 `attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides
