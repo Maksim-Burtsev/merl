@@ -77,6 +77,12 @@ pub fn shadowed_after(held: Caps) -> usize {
     // ^ d: tests/rebound.rs:74
 }
 
+pub fn shadowed_second(held: Caps) -> usize {
+    let n = held.get(); let held = Grain;
+    held.get() + n
+    //   ^ d: picker tests/rebound.rs:15, …
+}
+
 pub fn shadowed_inside(held: Caps, c: bool) -> usize {
     if c {
         held.get(); let held = Grain;
