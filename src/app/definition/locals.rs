@@ -183,7 +183,9 @@ impl App {
                 && (before.ends_with(':') || (after.starts_with(':') && !after.starts_with("::"))))
             || (kind == Kind::Dart
                 && after.starts_with(':')
-                && search::dart_label(&a.text, self.line + 1, range.start));
+                && search::dart_label(&a.text, self.line + 1, range.start))
+            || (kind == Kind::Solidity
+                && search::solidity_key(&a.text, self.line + 1, before, after));
         let super_keyword = !dotted && word == "super" && kind != Kind::Lua;
         let after = a.tail.trim_start();
         let rust_path = kind == Kind::Rust

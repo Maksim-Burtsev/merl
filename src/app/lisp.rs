@@ -40,6 +40,8 @@ impl App {
             return vec![line];
         } else if kind == Kind::Dart && line == self.line + 1 {
             search::dart_bindings_at(text, line, col, name)
+        } else if kind == Kind::Solidity && line == self.line + 1 {
+            search::bindings_at(kind, text, line, Some(col), name)
         } else {
             search::bindings(kind, text, line, name)
         };

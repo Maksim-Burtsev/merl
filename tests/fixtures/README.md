@@ -609,6 +609,14 @@ aliased and as a qualifier, a remapped one through `remappings.txt` and one thro
 `foundry.toml` into `lib/`, every declaration form of the issue, parameters, named returns and
 locals of a header over lines, and declaration-shaped lines in a NatSpec `/** */`, a `/* */` and a
 `//` comment.
+`solidity/contracts/Rebound.sol` (#1397) reads a name where a local or parameter of the same name
+is in scope but is not what the cursor names: a named argument's key (`Crate({heft: heft})`, on
+one line and over lines, which lands on the struct's field, and an event's, which keeps a picker),
+and a name in its own declaration's initializer (`uint256 notch = notch + 1;`, a tuple, a `for`
+header, a read before a same-line `;`), which opens a picker holding the state variable. Its controls
+keep the local: the value after the key, a ternary's `: ` on one line and over lines, a Yul `:=`,
+a read after the declaration's `;` on its line, and plain reads under a commented and a quoted
+declaration.
 `yaml/api/` (#435) is an OpenAPI description over two files and two JSON Schemas, for `d` on a
 `$ref`: a pointer into the same file past a namesake key, one into another file (on each word of
 the reference and on its punctuation), a whole file, an escaped path key, a quoted status code,

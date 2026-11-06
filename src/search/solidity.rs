@@ -200,7 +200,51 @@ fn solidity_params(head: &str) -> Vec<std::ops::Range<usize>> {
     lists
 }
 
-pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+pub fn solidity_key(text: &str, line1: usize, before: &str, after: &str) -> bool {
+    let after = after.trim_start();
+    let before = before.trim_end();
+    let opens = |l: &str| {
+        l.split("//")
+            .next()
+            .unwrap_or_default()
+            .trim_end()
+            .ends_with(['{', ','])
+    };
+    after.starts_with(':')
+        && !after.starts_with(":=")
+        && (opens(before)
+            || (before.is_empty()
+                && text
+                    .lines()
+                    .take(line1.saturating_sub(1))
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty())
+                    .last()
+                    .is_some_and(opens)))
+}
+
+fn in_own_initializer(line: &str, col: usize, name: &str) -> bool {
+    let word = Regex::new(&format!(
+        r"(?:^|[^\w$])({})(?:[^\w$]|$)",
+        regex::escape(name)
+    ))
+    .expect("an escaped name");
+    let Some(decl) = word.captures(line).and_then(|c| c.get(1)) else {
+        return false;
+    };
+    let end = line
+        .get(decl.end()..)
+        .and_then(|rest| rest.find(';'))
+        .map_or(line.len(), |i| decl.end() + i);
+    decl.start() < col && col < end
+}
+
+pub(super) fn solidity_bindings(
+    lines: &[&str],
+    at: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Vec<Binding> {
     let w = regex::escape(name);
     let local = Regex::new(&solidity_variable(&w)).expect("an escaped name");
     let each = Regex::new(&format!(r"^for\s*\(\s*{TYPE}\s+{w}\s*[=;]")).expect("an escaped name");
@@ -234,7 +278,9 @@ pub(super) fn solidity_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bi
     if solidity_head(own) {
         return params(at).map(found).unwrap_or_default();
     }
-    let mut hit = (declares(at) || each.is_match(own)).then_some(at);
+    let mut hit = (declares(at) || each.is_match(own))
+        .then_some(at)
+        .filter(|_| !col.is_some_and(|c| in_own_initializer(lines[at], c, name)));
     let (mut depth, mut wrapped) = (indent(lines[at]), own.starts_with(')'));
     for i in (0..at).rev() {
         let t = lines[i].trim();
