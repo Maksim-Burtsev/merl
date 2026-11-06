@@ -137,6 +137,7 @@ The julia row with #1375's fifth pass (a type name that is not called, after `::
 The python row with #1339's seventh pass (a member of an outside module's instance, `NAME = Class(...)` bound once, lands on its class's member, an annotation under `if TYPE_CHECKING:` included; python0246 `@pytest.mark.usefixtures`): over `daf83e7b9`, this change merged with master, 2026-11-06, release build, `vm.loadavg` { 5.35 5.66 4.60 } before the run, { 3.87 5.04 4.46 } after.
 The clojure, elisp, racket, scheme and commonlisp rows with #1401 (a name bound again by `dolist`, `dotimes`, `do`, `destructuring-bind`, `multiple-value-bind`, `seq-let`, `with-slots`, `receive`, `guard`, `cl-flet`, `cl-labels`, `macrolet` or `symbol-macrolet`; two commonlisp misses to direct hits): over `d23991842` with this change, 2026-11-07, release build, `vm.loadavg` { 3.09 3.36 3.86 } before the run.
 The clojure, elisp, racket, scheme and commonlisp rows with #1401's second pass (Racket `for` clauses, an internal `define` or `define-values`, `case-lambda`; Clojure `as->`, `catch`, a `:let`, `reify` and `defrecord` methods; `if-let`, `cl-loop`, `condition-case`, `handler-case`; eight racket rows to direct hits, five racket rows with no recorded answer now jumping to their internal `define`): over `62b66b884` with this change, 2026-11-07, release build, `vm.loadavg` { 3.26 3.35 3.98 } before the run.
+The racket row with those five rows judged from the code (racket0041, racket0097, racket0165, racket0178, racket0185: each name's internal `define` or `define-values`, now direct hits): `d559d8941`, 2026-11-07, release build, `vm.loadavg` { 5.44 5.40 4.64 } before the run, { 4.45 5.01 4.56 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -167,7 +168,7 @@ The clojure, elisp, racket, scheme and commonlisp rows with #1401's second pass 
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 5.0 | 13.8 |
 | elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.0 | 4.9 |
 | bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
-| racket (drracket) | 108 | 74 (69%) | 7 (6%) | 0 (0%) | 27 (25%) | 128 | 35 | 14.1 | 17.6 |
+| racket (drracket) | 113 | 79 (70%) | 7 (6%) | 0 (0%) | 27 (24%) | 123 | 30 | 14.2 | 17.9 |
 | scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.5 | 13.8 |
 | commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
