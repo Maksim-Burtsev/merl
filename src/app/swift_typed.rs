@@ -299,6 +299,9 @@ impl App {
             let given = search::SwiftGiven::Element(each);
             return self.swift_given_type(here, file, text, line1, given, hops);
         }
+        if lead.is_some_and(|l| search::swift_projected(l, name)) {
+            return None;
+        }
         if name == "super" {
             let own = search::swift_type_header(lines[around? - 1])?.name;
             let ty = self.swift_type(here, &own)?;
@@ -310,7 +313,12 @@ impl App {
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
             }
-            [_] if lead.is_some_and(|l| search::swift_rebound_in_open_block(l, name)) => None,
+            [b] if lead.is_some_and(|l| {
+                search::swift_rebound_in_open_block(l, name, lines.get(b.line1 - 1).copied())
+            }) =>
+            {
+                None
+            }
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
                 match search::swift_given(line, name) {

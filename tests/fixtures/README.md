@@ -442,6 +442,11 @@ function of its name, an anonymous union, a `for` and a block each redeclaring a
 local named like its struct tag, a macro declaring a function, designated initializers, a
 compound literal, a `struct` tag beside a function of its name, `goto` to a label named like a
 local, and declarations in a string, a comment and `#if 0`.
+`c/src/rebound.cc` and `c/src/rebound.c` (#1387) bind a `Gourd g` again as a `Terrine` on the
+cursor's own line (a block, a range-`for`, a lambda parameter, an `if` init and condition, a
+`catch`), before and after the use, and keep `Gourd`'s jump where the rebinding does not reach
+the use: a block closed earlier on the line, a lambda later on it, a `for` init that only reads,
+a comment and a string. A `for` and an `if` init without a value still read the outer `g`.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
@@ -925,6 +930,13 @@ that types its receiver.
 namesake `petal` in `Bloom` and `Thorn`: `Future<Bloom>`, `FutureOr<Thorn>`, and `Future<T>` /
 `Future<T?>` whose `T` the `Future<Thorn>` handed to `Pod.of` decides. A getter returning
 `dynamic`, a `T` from `Pod.wrap(T)` and one from a generic method's `Future<S>` do not jump.
+`dart/lib/rebound.dart` (#1388) binds a typed `x` again where `d` reads it: on the cursor's own
+line (a closure, a `for`-`in`, a one-line block), by a type pattern (`if (o case Ewer x)`,
+`case Ewer x when …:`, a switch-expression arm) and by `is` promotion, which keeps a picker.
+Its controls read the outer `x` after a closed closure, block, arm or `if`, and in a string;
+a line that binds `x` twice keeps the picker, and `is` under `||`, `!(…)`, a string, a
+non-exiting `is!` or an inner rebinding, a `case` arm closed before `case _:` and a field read
+after a closed same-line pattern keep the outer jump.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
@@ -1007,6 +1019,14 @@ one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) an
 `Phial.tipple`, the multi-line ones land on it, while a use before the declaration, a closed
 block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
 name's member.
+
+`jvm/src/main/scala/rebound/` (#1389) binds the `x` field of a `Cup` again as a `Mug` where `d`
+cannot read the new type: a `for` generator on the cursor's line, over lines in `for (…) {`,
+`for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`, `val Tray(x) =`,
+`given x: Mug`, `implicit val x: Mug` and a colon lambda `ms.foreach: x =>`. Each keeps a picker
+of both `sip`s, and so does the arm after a `case x: Mug => …;` on its line, which itself lands
+on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val y = x` and a
+generator on a later line keep `Cup.sip`.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
