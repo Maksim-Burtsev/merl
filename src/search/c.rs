@@ -2,7 +2,7 @@ use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
 
-use super::c_block::scope_pos;
+use super::c_block::{control_head_declarations, control_init, scope_pos};
 use super::{Binding, Value};
 
 pub(super) static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
@@ -496,13 +496,17 @@ const STATEMENT_WORDS_NOT_TYPES: &[&str] = &[
     "asm",
 ];
 #[derive(Clone, Copy, PartialEq)]
-enum DeclaredIn {
+pub(super) enum DeclaredIn {
     Statement,
     ControlHead,
 }
-fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
+pub(super) fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
     static BOUND: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"^\s*(?:const\s+)?auto\s*&{0,2}\s*\[([^\]]*)\]\s*[=:{(]")
+            .expect("the regex is a literal")
+    });
+    static PARENTHESIZED: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(?:const|volatile|static|register)\s+)*(?:struct|union|enum|class)\s+[A-Za-z_]\w*\s*\(\s*[*&]*\s*([A-Za-z_]\w*)\s*\)\s*[=;,\[(]")
             .expect("the regex is a literal")
     });
     static TOKEN: LazyLock<Regex> =
@@ -512,6 +516,11 @@ fn declared_at(stmt: &str, name: &str, place: DeclaredIn) -> Option<usize> {
             .find_iter(m.as_str())
             .find(|t| t.as_str() == name)
             .map(|t| m.start() + t.start());
+    }
+    if let Some(m) =
+        (PARENTHESIZED.captures(stmt).and_then(|c| c.get(1))).filter(|m| m.as_str() == name)
+    {
+        return Some(m.start());
     }
     let f = bracket_contents_blanked(stmt);
     let is_name = |c: char| c.is_alphanumeric() || c == '_';
@@ -641,30 +650,6 @@ fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<us
     }
     out
 }
-fn control_init(code: &str, from: usize, pos: usize, name: &str) -> Option<usize> {
-    static CONTROL: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"^\s*(?:else\s+)?(?:for|if|while|switch)\s*\(").expect("the regex is a literal")
-    });
-    let mut at = from;
-    let mut found = None;
-    while let Some(m) = code.get(at..pos).and_then(|s| CONTROL.find(s)) {
-        let open = at + m.end() - 1;
-        let close = close_or_end(code, open, pos);
-        let parts = code.get(open + 1..close).map(split_top_level_semicolons);
-        for (j, part) in parts.unwrap_or_default() {
-            if let Some(k) = declared_at(part, name, DeclaredIn::ControlHead)
-                .or_else(|| super::objc_for_in(part, name))
-            {
-                found = Some(open + 1 + j + k);
-            }
-        }
-        if close >= pos {
-            break;
-        }
-        at = close + 1;
-    }
-    found
-}
 pub(super) fn close_or_end(code: &str, open: usize, end: usize) -> usize {
     let mut depth = 0usize;
     for (i, c) in code.bytes().enumerate().take(end).skip(open) {
@@ -767,16 +752,11 @@ pub(super) fn c_bindings_from(code: &str, pos: usize, member: bool, name: &str) 
             Head::Control { parens } => {
                 let inner = start + parens.start + 1..start + parens.end - 1;
                 code.get(inner.clone())
-                    .and_then(|parens| {
-                        (split_top_level_semicolons(parens).into_iter())
-                            .find_map(|(at, stmt)| {
-                                declared_at(stmt, name, DeclaredIn::ControlHead).map(|j| at + j)
-                            })
-                            .or_else(|| super::objc_for_in(parens, name))
-                    })
+                    .and_then(|parens| control_head_declarations(parens, name).first().copied())
                     .map(|j| inner.start + j)
             }
-            Head::Block | Head::TypeOrNamespace => None,
+            Head::Block => super::cpp::init_capture(code, start..open, name),
+            Head::TypeOrNamespace => None,
         };
         if let Some(at) = found {
             return vec![place(at)];
@@ -798,17 +778,6 @@ fn initializer_parameter(code: &str, pos: usize, name: &str) -> Option<usize> {
     }
     let inner = start + params.start + 1..start + params.end - 1;
     parameter_at(code.get(inner.clone())?, name).map(|j| inner.start + j)
-}
-fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
-    let f = bracket_contents_blanked(s);
-    let mut from = 0;
-    f.split(';')
-        .filter_map(|part| {
-            let at = from;
-            from += part.len() + 1;
-            Some((at, s.get(at..at + part.len())?))
-        })
-        .collect()
 }
 pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
     let code = c_code(text);
@@ -1124,6 +1093,17 @@ const C_TYPE_KEYWORDS: &[&str] = &[
     reason = "each arm is one kind of byte the scan stops at"
 )]
 pub fn c_decl_type(code: &str, at: usize) -> Option<CType> {
+    static TAG_IN_PARENS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(?:struct|union|enum|class)\s+([A-Za-z_]\w*)\s*\(\s*[*&]*\s*$")
+            .expect("the regex is a literal")
+    });
+    let near = (at.saturating_sub(128)..at).find(|&i| code.is_char_boundary(i));
+    if let Some(tag) = (near.and_then(|from| code.get(from..at)))
+        .and_then(|before| TAG_IN_PARENS.captures(before))
+        .and_then(|c| c.get(1))
+    {
+        return Some(CType::Name(tag.as_str().to_owned()));
+    }
     let b = code.as_bytes();
     let (mut depth, mut i) = (0usize, at);
     let (mut first_comma, mut last_comma, mut param) = (None, None, false);
@@ -1693,13 +1673,16 @@ mod tests {
     }
 
     #[test]
-    fn a_control_head_binds_only_what_takes_an_initializer() {
+    fn a_control_head_binds_its_init_statement_and_what_takes_an_initializer() {
         for (head, want) in [
             ("if (T *x = f())", 2),
             ("while (T x = next())", 2),
             ("for (auto& x : xs)", 2),
             ("switch (int x = g(); x)", 2),
-            ("for (T x; x < n; ++x)", 1),
+            ("for (T x; x < n; ++x)", 2),
+            ("if (T x; x)", 2),
+            ("for (x; x < n; ++x)", 1),
+            ("for (i = x; i < n; ++i)", 1),
             ("if (a * x[0] > 1)", 1),
             ("while (a * x(1))", 1),
         ] {

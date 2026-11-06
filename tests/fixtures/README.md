@@ -312,7 +312,7 @@ the refusals included, from `Profile.mm`. Its `Order` and `include/shop/warehous
 which answer with that binding, and keeps the global where the binding does not reach the use:
 `for (crumb in xs)`, a loop or block closed or opened later on the line, `^{`, another
 parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
-`c/src/rebound.c` keeps `struct terrine (*g)` as a known miss of #1400.
+`c/src/rebound.c` reads `struct terrine (*g)` as declaring `g` (#1400), and a call `deref(g)` as not.
 
 The adversarial corners of #931 keep a tea set's names, so the shop's stay unique: a `Kettle` and
 a `Teapot` sharing `Pour` / `decant`, a namesake `Kettle` in another package or namespace, a
@@ -462,7 +462,8 @@ local, and declarations in a string, a comment and `#if 0`.
 cursor's own line (a block, a range-`for`, a lambda parameter, an `if` init and condition, a
 `catch`), before and after the use, and keep `Gourd`'s jump where the rebinding does not reach
 the use: a block closed earlier on the line, a lambda later on it, a `for` init that only reads,
-a comment and a string. A `for` and an `if` init without a value still read the outer `g`.
+a comment and a string. A `for` and an `if` init without a value, and a lambda capture `[g = Terrine()]`
+with no parameter list, bind `g` too; a copy capture `[g]` and a `for` init that only calls `g.slosh()` keep `Gourd`.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
