@@ -4,6 +4,7 @@ mod defaults;
 mod generic;
 mod key_path;
 mod overload;
+mod payload;
 
 struct SwiftChain {
     written: String,
@@ -309,6 +310,9 @@ impl App {
             let up = self.swift_type(here, &base)?;
             return (up.keyword.as_deref() == Some("class")).then(|| WrittenVia::plain(up.name));
         }
+        if let Some(payload) = lead.and_then(|l| search::swift_case_payload(l, name)) {
+            return self.swift_payload_value(here, file, text, line1, &payload, hops);
+        }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
             _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
                 self.swift_closure_value(here, file, text, line1, call, hops)
@@ -321,6 +325,9 @@ impl App {
             }
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
+                if let Some(payload) = search::swift_case_payload(line, name) {
+                    return self.swift_payload_value(here, file, text, b.line1, &payload, hops);
+                }
                 match search::swift_given(line, name) {
                     Some(given) => {
                         let given = self.swift_nested_given(here, text, b.line1, given);

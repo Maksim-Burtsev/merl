@@ -139,6 +139,7 @@ The clojure, elisp, racket, scheme and commonlisp rows with #1401 (a name bound 
 The clojure, elisp, racket, scheme and commonlisp rows with #1401's second pass (Racket `for` clauses, an internal `define` or `define-values`, `case-lambda`; Clojure `as->`, `catch`, a `:let`, `reify` and `defrecord` methods; `if-let`, `cl-loop`, `condition-case`, `handler-case`; eight racket rows to direct hits, five racket rows with no recorded answer now jumping to their internal `define`): over `62b66b884` with this change, 2026-11-07, release build, `vm.loadavg` { 3.26 3.35 3.98 } before the run.
 The racket row with those five rows judged from the code (racket0041, racket0097, racket0165, racket0178, racket0185: each name's internal `define` or `define-values`, now direct hits): `d559d8941`, 2026-11-07, release build, `vm.loadavg` { 5.44 5.40 4.64 } before the run, { 4.45 5.01 4.56 } after.
 The python row with #1339's ninth pass (a subscript `x[i].attr` of a written `list[T]`, `Sequence[T]` or a declared return of one reads `T`, a slice and a dict do not: python0020 `nodes[0].metadata` with `build_document_node(..) -> list["BaseNode"]`): over `468e68bcb`, 2026-11-07, release build, `vm.loadavg` { 4.17 4.64 4.86 } before the run, { 3.02 4.17 4.66 } after.
+The swift row with #1341's eleventh pass (an enum payload bound by `if`/`guard`/`while case let .c(x) = subject`, typed from the enum's case: swift0203 `reason.isBodyPartInputStreamCreationFailed` jumps to `AFError+AlamofireTests.swift:237`): over `f7620fd07` with this change, 2026-11-07, release build, `vm.loadavg` { 3.24 4.28 4.55 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -150,7 +151,7 @@ The python row with #1339's ninth pass (a subscript `x[i].attr` of a written `li
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
-| swift (Alamofire) | 450 | 440 (98%) | 10 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 24.0 | 59.6 |
+| swift (Alamofire) | 450 | 441 (98%) | 9 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 24.2 | 59.2 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
