@@ -2,7 +2,7 @@ use regex::Regex;
 
 use super::{Kind, code, indent, uncommented};
 
-fn blanked(s: &str) -> String {
+pub(super) fn blanked(s: &str) -> String {
     let mut bytes = vec![b' '; s.len()];
     for (i, c) in code(Kind::Jvm, s) {
         bytes[i] = if c.is_ascii() { c } else { b' ' };

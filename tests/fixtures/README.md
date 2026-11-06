@@ -1017,6 +1017,14 @@ one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) an
 block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
 name's member.
 
+`jvm/src/main/scala/rebound/` (#1389) binds the `x` field of a `Cup` again as a `Mug` where `d`
+cannot read the new type: a `for` generator on the cursor's line, over lines in `for (…) {`,
+`for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`, `val Tray(x) =`,
+`given x: Mug`, `implicit val x: Mug` and a colon lambda `ms.foreach: x =>`. Each keeps a picker
+of both `sip`s, and so does the arm after a `case x: Mug => …;` on its line, which itself lands
+on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val y = x` and a
+generator on a later line keep `Cup.sip`.
+
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
 `attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides

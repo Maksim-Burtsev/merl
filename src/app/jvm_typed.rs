@@ -258,6 +258,15 @@ impl App {
                 {
                     return None;
                 }
+                if search::scala(here) {
+                    let bound: Vec<usize> = search::bindings(Kind::Jvm, text, line, f)
+                        .iter()
+                        .map(|b| b.line1)
+                        .collect();
+                    if search::scala_rebound(text, line, before, f, &bound) {
+                        return None;
+                    }
+                }
                 let smart = kotlin.then(|| search::jvm_smart_cast(text, line, before, f));
                 let narrowed = smart.flatten().or_else(|| {
                     let lambda =
