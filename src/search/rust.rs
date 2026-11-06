@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::rust_rebound::macro_binds;
+use super::rust_rebound::{macro_binds, rust_rebound_before};
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, literal_lines, names,
     uncommented,
@@ -844,7 +844,11 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
                     }
                 }
                 None if macro_binds(&t, name) => return Vec::new(),
-                None => {}
+                _ if rust_rebound_before(lines[i], name, lines[i].len()) => {
+                    out.push(found(i));
+                    return out;
+                }
+                _ => {}
             }
             continue;
         }
