@@ -1,6 +1,9 @@
 use regex::Regex;
 
-use super::jvm_rebound::negated_pattern_exits;
+use super::jvm_rebound::{
+    blanked, jvm_declared_before, lambda_binders, lambda_names, lambda_open_at,
+    negated_pattern_exits,
+};
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, jvm_mods,
     literal_lines, qualified, scala_given_tail, scala_mods, split_top, steps_over, uncommented,
@@ -181,59 +184,7 @@ pub(super) fn param_names(entry: &str, groovy: bool) -> Vec<String> {
     name.into_iter().filter(|n| n != "_").collect()
 }
 
-fn lambda_names(line: &str) -> Vec<String> {
-    static SCALA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[(,{=]|=>)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*=>")
-            .expect("the regex is a literal")
-    });
-    static CASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bcase\s+(.+?)\s*(?:\bif\b.*?)?=>").expect("the regex is a literal")
-    });
-    static BINDER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?:^|[^\w.`"'])([a-z_]\w*)\s*([(.]?)"#).expect("the regex is a literal")
-    });
-    static KOTLIN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\{\s*([^{}]*?)\s*->").expect("the regex is a literal")
-    });
-    static JAVA: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?:^|[(,=]|->)\s*(?:\(([^()]*)\)|([A-Za-z_]\w*))\s*->")
-            .expect("the regex is a literal")
-    });
-    let mut out = Vec::new();
-    for c in KOTLIN.captures_iter(line) {
-        for entry in c[1].split(',') {
-            let e = entry.trim().trim_matches(['(', ')']).trim();
-            let name = e.split(':').next().unwrap_or("").trim();
-            if ident(name) {
-                out.push(name.to_owned());
-            }
-        }
-    }
-    for c in CASE.captures_iter(line) {
-        for b in BINDER.captures_iter(&c[1]).filter(|b| b[2].is_empty()) {
-            out.push(b[1].to_owned());
-        }
-    }
-    for c in JAVA.captures_iter(line).chain(SCALA.captures_iter(line)) {
-        match (c.get(1), c.get(2)) {
-            (Some(list), _) => {
-                for entry in list.as_str().split(',') {
-                    let e = entry.trim();
-                    out.extend(if e.contains(char::is_whitespace) {
-                        param_names(e, false)
-                    } else {
-                        ident(e).then(|| e.to_owned()).into_iter().collect()
-                    });
-                }
-            }
-            (None, Some(name)) => out.push(name.as_str().to_owned()),
-            _ => {}
-        }
-    }
-    out.retain(|n| n != "_");
-    out
-}
-fn ident(s: &str) -> bool {
+pub(super) fn ident(s: &str) -> bool {
     s.starts_with(|c: char| c.is_alphabetic() || c == '_')
         && s.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
@@ -308,7 +259,13 @@ fn param_lists_line1_binding(lines: &[&str], from: usize, name: &str) -> Option<
     None
 }
 
-fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> Vec<usize> {
+fn header_lines1_binding(
+    lines: &[&str],
+    from: usize,
+    to: usize,
+    name: &str,
+    cursor: Option<usize>,
+) -> Vec<usize> {
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let ret = super::jvm_return_type!();
@@ -320,7 +277,16 @@ fn header_lines1_binding(lines: &[&str], from: usize, to: usize, name: &str) -> 
         .collect();
     for (i, l) in lines.iter().enumerate().take(to + 1).skip(from) {
         let code = uncommented(Kind::Jvm, l);
-        if clause.is_match(&code) || lambda_names(&code).iter().any(|p| p == name) {
+        let lambda = match cursor {
+            Some(col) => {
+                let line = blanked(l);
+                lambda_binders(&line)
+                    .iter()
+                    .any(|(p, at)| p == name && lambda_open_at(&line, at, col))
+            }
+            None => lambda_names(&code).iter().any(|p| p == name),
+        };
+        if clause.is_match(&code) || lambda {
             out.push(i + 1);
         }
     }
@@ -333,12 +299,35 @@ fn declares_local(t: &str, name: &str) -> bool {
     let n = regex::escape(name);
     let ret = super::jvm_return_type!();
     Regex::new(&format!(
-        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
+        r"^(?:(?:final|lateinit|const)\s+)*(?:(?:val|var|def|fun)\s+{n}(?:[^\w.]|$)|(?:val|var|def)\s*\([^)]*\b{n}\b[^)]*\)\s*=|(?:@[\w.]+\s+)*(?:var|{ret})(?:\.\.\.)?\s+{n}\s*[=;,:])"
     ))
     .is_ok_and(|re| re.is_match(t))
 }
 
-pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+pub fn jvm_bindings_at(text: &str, line1: usize, col: usize, name: &str) -> Vec<Binding> {
+    let lines: Vec<&str> = text.lines().collect();
+    let Some(at) = line1.checked_sub(1).filter(|&i| i < lines.len()) else {
+        return Vec::new();
+    };
+    if !matches!(name, "this" | "super" | "it")
+        && blanked(lines[at])
+            .get(..col)
+            .is_some_and(|lead| jvm_declared_before(lead, name))
+    {
+        return vec![Binding {
+            line1,
+            value: Value::Unknown,
+        }];
+    }
+    jvm_bindings(&lines, at, name, Some(col))
+}
+
+pub(super) fn jvm_bindings(
+    lines: &[&str],
+    at: usize,
+    name: &str,
+    col: Option<usize>,
+) -> Vec<Binding> {
     let binding = |line| Binding {
         line1: line,
         value: Value::Unknown,
@@ -348,7 +337,7 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
     }
     let text = lines.join("\n");
     let literal = literal_lines(Kind::Jvm, &text);
-    let bound_on_cursor_line = header_lines1_binding(lines, at, at, name);
+    let bound_on_cursor_line = header_lines1_binding(lines, at, at, name, col);
     let mut out: Vec<Binding> = bound_on_cursor_line.into_iter().map(binding).collect();
     let mut depth = indent(lines[at]);
     let mut i = at;
@@ -389,7 +378,7 @@ pub(super) fn jvm_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding
             continue;
         }
         out.extend(
-            header_lines1_binding(lines, i, end, name)
+            header_lines1_binding(lines, i, end, name, None)
                 .into_iter()
                 .map(binding),
         );
@@ -1046,7 +1035,7 @@ pub fn kotlin_lambda_collection(
     }
     let lines: Vec<&str> = text.lines().collect();
     let mut at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
-    let nearest: Vec<usize> = jvm_bindings(&lines, at, name)
+    let nearest: Vec<usize> = jvm_bindings(&lines, at, name, None)
         .iter()
         .map(|b| b.line1)
         .collect();

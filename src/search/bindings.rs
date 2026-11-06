@@ -202,7 +202,7 @@ pub fn bindings_at(
         Kind::PowerShell => powershell_params(&lines, at, name),
         Kind::Zig => zig_bindings(&lines, at, name),
         Kind::C => c_bindings(text, line, None, name),
-        Kind::Jvm => jvm_bindings(&lines, at, name),
+        Kind::Jvm => jvm_bindings(&lines, at, name, None),
         Kind::Swift => swift_bindings(&lines, at, name),
         Kind::Ruby => ruby_bindings(&lines, at, name),
         Kind::Rust => rust_bindings(&lines, at, name),

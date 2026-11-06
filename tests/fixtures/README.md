@@ -1035,6 +1035,14 @@ one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) an
 block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
 name's member.
 
+`jvm/src/main/groovy/rebound/Workbench.groovy` (#1398) binds a `Gimlet c` field and a `def x`
+field again where `d` is pressed on the name: a local ended by `;` earlier on the cursor's line
+(`Auger c = …;`, `def x = 2;`, `def (a, x) = …;`), a typed closure parameter (`{ Auger c -> …`)
+on the line and over lines, and `def (a, x) = …` on a line above. Each lands on its own line. A
+plain read, a block or a closure (typed or not) closed before the cursor, a use before the
+declaration, a declaration on a later line, in a comment or a string, the right side of
+`def c = c.bore()` and `foo(c: 1)` keep the field.
+
 `jvm/src/main/scala/rebound/` (#1389) binds the `x` field of a `Cup` again as a `Mug` where `d`
 cannot read the new type: a `for` generator on the cursor's line, over lines in `for (…) {`,
 `for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`, `val Tray(x) =`,
