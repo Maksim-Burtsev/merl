@@ -42,9 +42,13 @@ impl App {
         here: &Path,
         word: &str,
         chain: &[String],
+        before: &str,
     ) -> Result<CsAnswer, String> {
         let text = self.buf.lines.join("\n");
         let (first, fields) = chain.split_first().ok_or_else(|| word.to_owned())?;
+        if search::cs_rebound(&text, self.line + 1, before, first) {
+            return Err(first.clone());
+        }
         let Proven { mut ty, link, .. } = self
             .cs_name_type(here, &text, self.line + 1, first, 1)
             .ok_or_else(|| first.clone())?;
@@ -850,20 +854,6 @@ impl App {
         }
         live.extend(hidden);
         live
-    }
-
-    fn cs_new_call(&self) -> bool {
-        let line = self.line_str();
-        let ident = |c: char| c.is_alphanumeric() || c == '_' || c == '@' || c == '.';
-        self.definition_word(Some(Kind::CSharp))
-            .is_some_and(|(r, _)| {
-                line.get(..r.start)
-                    .and_then(|b| b.trim_end().strip_suffix("new"))
-                    .is_some_and(|b| !b.ends_with(ident))
-                    && line
-                        .get(r.end..)
-                        .is_some_and(|a| a.trim_start().starts_with('('))
-            })
     }
 
     fn cs_partial_constructors(&self, word: &str, parts: Vec<Hit>) -> Vec<Hit> {
