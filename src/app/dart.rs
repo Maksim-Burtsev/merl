@@ -502,6 +502,14 @@ impl App {
             text.lines().nth(b.line1 - 1).map(|l| (l, b.line1))
         };
         let (line, line1) = line_of(name)?;
+        let seen = if line1 == self.line + 1 {
+            line.get(..self.dart_col()).unwrap_or(line)
+        } else {
+            line
+        };
+        if search::dart_binders(seen, name) > 1 {
+            return None;
+        }
         let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
         if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
             let ty = search::dart_type_bound(line, &ty).unwrap_or(ty);
@@ -835,7 +843,7 @@ impl App {
     }
 
     fn dart_field_row(&self, here: &Path, text: &str, field: &str) -> Option<Candidate> {
-        if !search::bindings(Kind::Dart, text, self.line + 1, field).is_empty() {
+        if !search::dart_bindings_seen(text, self.line + 1, self.dart_col(), field).is_empty() {
             return None;
         }
         let class = search::dart_this_super(text, self.line, false)?.class;

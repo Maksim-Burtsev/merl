@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use regex::Regex;
 
 use super::{
-    Binding, Kind, Value, close_of, dart_rebound::dart_binds_at, indent, lexical, literal_lines,
+    Binding, Kind, Value, close_of, dart_rebound::dart_binder_at, indent, lexical, literal_lines,
     split_top, uncommented,
 };
 
@@ -560,7 +560,7 @@ fn dart_walk(
         dart_initializer_header(line, list_follows).is_some_and(|h| dart_header_binds(&h, name))
     };
     let own = match col {
-        Some(c) => dart_binds_at(lines[at], c, name),
+        Some(c) => dart_binder_at(lines[at], c, name).is_some(),
         None => dart_header_binds(code(at).trim(), name),
     };
     if own || (read && in_class(at, indent(lines[at])) && listed(&code(at), false)) {

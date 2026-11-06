@@ -68,3 +68,60 @@ void promoted(Vase x) {
   x.slosh();
   //^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
 }
+
+void typedAt(Vase x, Object o, List<Flagon> fs) {
+  if (o case Ewer x) {} for (final x in fs) x.slosh();
+  //                                          ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  if (o case Ewer x) {} switch (o) { case Flagon x: x.slosh(); }
+  //                                                  ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+  { Ewer x = Ewer(); } for (final x in fs) x.slosh();
+  //                                         ^ d: picker lib/rebound.dart:2, lib/rebound.dart:7, lib/rebound.dart:11
+}
+
+void notNarrowed(Vase x, bool ok, List<Flagon> fs) {
+  if (x is Ewer || ok) {
+    x.slosh();
+    //^ d: lib/rebound.dart:2
+  }
+  if (x is Ewer || ok) x.slosh();
+  //                     ^ d: lib/rebound.dart:2
+  while (!(x is Ewer)) {
+    x.slosh();
+    //^ d: lib/rebound.dart:2
+  }
+  group('x is hot', () {
+    x.slosh();
+    //^ d: lib/rebound.dart:2
+  });
+  if (x is Ewer) {
+    for (final x in fs) {
+      x.slosh();
+      //^ d: lib/rebound.dart:11
+    }
+  }
+  if (x is! Ewer) {
+    print('odd');
+  }
+  x.slosh();
+  //^ d: lib/rebound.dart:2
+}
+
+void closedArms(Ewer x, Object o) {
+  switch (o) { case Flagon x: break; case _: x.slosh(); }
+  //                                           ^ d: lib/rebound.dart:7
+  switch (o) { case Flagon x: break; default: x.slosh(); }
+  //                                            ^ d: lib/rebound.dart:7
+}
+
+class Ledge {
+  Ewer x = Ewer();
+
+  void read(Object o) {
+    if (o case Flagon x) {} x.slosh();
+    //                        ^ d: lib/rebound.dart:7
+    final r = switch (o) { Flagon x => 1, _ => x.slosh() };
+    //                                           ^ d: lib/rebound.dart:7
+  }
+}
+
+void group(String s, void Function() f) {}

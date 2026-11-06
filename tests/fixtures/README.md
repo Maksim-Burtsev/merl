@@ -933,7 +933,10 @@ namesake `petal` in `Bloom` and `Thorn`: `Future<Bloom>`, `FutureOr<Thorn>`, and
 `dart/lib/rebound.dart` (#1388) binds a typed `x` again where `d` reads it: on the cursor's own
 line (a closure, a `for`-`in`, a one-line block), by a type pattern (`if (o case Ewer x)`,
 `case Ewer x when …:`, a switch-expression arm) and by `is` promotion, which keeps a picker.
-Its controls read the outer `x` after a closed closure, block, arm or `if`, and in a string.
+Its controls read the outer `x` after a closed closure, block, arm or `if`, and in a string;
+a line that binds `x` twice keeps the picker, and `is` under `||`, `!(…)`, a string, a
+non-exiting `is!` or an inner rebinding, a `case` arm closed before `case _:` and a field read
+after a closed same-line pattern keep the outer jump.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
