@@ -228,6 +228,9 @@ impl App {
                 .collect()
         };
         let mut locals = locals_at(&a.text, self.line + 1);
+        if let Some(own) = self.shell_line_locals(a) {
+            return own;
+        }
         if kind == Kind::Shell
             && locals.is_empty()
             && search::shell_command_position(&a.lead) == Some(false)
@@ -276,6 +279,7 @@ impl App {
             && !locals.is_empty()
             && (!on_itself
                 || ours
+                || self.shell_line_locals(a).as_deref() == Some(locals)
                 || matches!(
                     kind,
                     Kind::Rust
@@ -291,6 +295,22 @@ impl App {
             return self.show_found(a, found);
         }
         false
+    }
+
+    fn shell_line_locals(&self, a: &Asked) -> Option<Vec<usize>> {
+        if a.kind != Kind::Shell {
+            return None;
+        }
+        match search::shell_command_position(&a.lead) {
+            Some(true) => Some(Vec::new()),
+            Some(false)
+                if search::shell_binds_before(self.line_str(), a.range.start, a.first())
+                    && search::literal_lines(a.kind, &a.text).get(self.line) != Some(&true) =>
+            {
+                Some(vec![self.line + 1])
+            }
+            _ => None,
+        }
     }
 }
 
