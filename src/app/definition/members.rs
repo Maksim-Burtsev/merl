@@ -76,9 +76,10 @@ impl App {
                 Some(b) if !b.ends_with(':') => search::qualifier(&format!("{b}."), a.start),
                 _ => chain.clone(),
             };
-            let rebound = chain
-                .first()
-                .is_some_and(|f| search::lua_binds_before(&a.lead, f, true));
+            let rebound = chain.first().is_some_and(|f| {
+                search::lua_binds_before(&a.lead, f, true)
+                    || search::lua_reassigned(&a.text, self.line + 1, f)
+            });
             let found = if rebound {
                 Vec::new()
             } else {

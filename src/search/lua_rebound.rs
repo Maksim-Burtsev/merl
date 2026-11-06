@@ -1,6 +1,6 @@
 use regex::Regex;
 
-use super::{Kind, code};
+use super::{Kind, code, uncommented};
 
 fn lua_code(s: &str) -> String {
     let mut out = vec![b' '; s.len()];
@@ -33,9 +33,32 @@ fn still_open(line: &str, words: &[(usize, &str)], from: usize) -> bool {
     true
 }
 
+static WORD: std::sync::LazyLock<Regex> =
+    std::sync::LazyLock::new(|| Regex::new(r"[A-Za-z_]\w*").expect("the regex is a literal"));
+
+pub fn lua_binds_through(line: &str, name: &str, assigned: bool) -> bool {
+    if !line.contains(name) {
+        return false;
+    }
+    let line = uncommented(Kind::Lua, line);
+    let code = lua_code(&line);
+    let mut depth = 0usize;
+    for w in WORD.find_iter(&code) {
+        match w.as_str() {
+            "function" | "do" | "then" | "repeat" => depth += 1,
+            "end" | "until" | "elseif" => match depth.checked_sub(1) {
+                Some(d) => depth = d,
+                None => return false,
+            },
+            _ => {}
+        }
+    }
+    depth == 0
+        && !code.trim_end().ends_with([',', '{', '(', '['])
+        && lua_binds_before(&format!("{line};"), name, assigned)
+}
+
 pub fn lua_binds_before(before: &str, name: &str, assigned: bool) -> bool {
-    static WORD: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"[A-Za-z_]\w*").expect("the regex is a literal"));
     static LOCAL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\blocal\s+(?:function\s+(\w+)|([\w\s,<>]+?)\s*(=|;|$))")
             .expect("the regex is a literal")
