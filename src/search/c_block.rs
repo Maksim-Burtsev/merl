@@ -1,7 +1,26 @@
-use super::c::{
-    Head, c_code, close_or_end, line_starts, scope_pos, scopes_inside_out_to_type_or_namespace,
-};
+use super::c::{Head, c_code, close_or_end, line_starts, scopes_inside_out_to_type_or_namespace};
 use regex::Regex;
+
+pub(super) fn scope_pos(
+    code: &str,
+    starts: &[usize],
+    line1: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Option<usize> {
+    let from = *starts.get(line1.checked_sub(1)?)?;
+    let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
+    let is_name = |c: char| c.is_alphanumeric() || c == '_';
+    let found: Vec<usize> = (code.get(from..to)?.match_indices(name))
+        .map(|(i, _)| i)
+        .filter(|&i| {
+            code.get(..from + i).is_some_and(|h| !h.ends_with(is_name))
+                && (code.get(from + i + name.len()..)).is_some_and(|r| !r.starts_with(is_name))
+        })
+        .collect();
+    let at = col.and_then(|c| found.iter().rfind(|&&i| i <= c));
+    Some(at.or_else(|| found.last()).map_or(to, |&i| from + i))
+}
 
 enum Reach {
     Plain,
@@ -17,9 +36,9 @@ pub fn c_block_scoped<T>(
 ) -> Vec<T> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let at = scope_pos(&code, &starts, from1, name);
+    let at = scope_pos(&code, &starts, from1, None, name);
     let reach = |line1: usize| {
-        let open = scope_pos(&code, &starts, line1, name).and_then(|pos| {
+        let open = scope_pos(&code, &starts, line1, None, name).and_then(|pos| {
             scopes_inside_out_to_type_or_namespace(&code, pos)
                 .into_iter()
                 .find(|s| matches!(s.head, Head::Function { .. } | Head::Lambda { .. }))

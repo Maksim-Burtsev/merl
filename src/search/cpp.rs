@@ -4,9 +4,10 @@ use std::sync::LazyLock;
 use super::c::{
     ACCESS_LABELS, Head, Scope, bracket_contents_blanked, c_bindings_at, c_bindings_from,
     c_body_name, c_code, c_head, c_head_start, c_innermost_open_brace, c_place, c_struct_head,
-    c_words_on_line, close_or_end, cpp_class_path, cpp_decl_start, line_starts, scope_pos,
+    c_words_on_line, close_or_end, cpp_class_path, cpp_decl_start, line_starts,
     scopes_inside_out_to_type_or_namespace, untemplated,
 };
+use super::c_block::scope_pos;
 
 static NAMESPACE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?:^|[\n;])\s*(?:inline\s+)?namespace\b\s*((?:\w+\s*::\s*)*\w+)?\s*$")
@@ -204,7 +205,7 @@ pub fn cpp_using_declares(code: &str, name: &str) -> bool {
 pub fn cpp_function_uses(text: &str, line1: usize, word: &str, name: &str) -> bool {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let Some(pos) = scope_pos(&code, &starts, line1, word) else {
+    let Some(pos) = scope_pos(&code, &starts, line1, None, word) else {
         return false;
     };
     scopes_inside_out_to_type_or_namespace(&code, pos)
@@ -900,11 +901,12 @@ pub(super) fn init_capture(code: &str, span: std::ops::Range<usize>, name: &str)
 pub fn cpp_value_type(
     text: &str,
     line1: usize,
+    col: Option<usize>,
     name: &str,
 ) -> Result<Option<(Vec<String>, usize)>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let at: Vec<usize> = c_bindings_at(text, line1, None, name)
+    let at: Vec<usize> = c_bindings_at(text, line1, col, name)
         .into_iter()
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
@@ -920,10 +922,15 @@ pub fn cpp_value_type(
     }
 }
 
-pub fn cpp_auto_init(text: &str, line1: usize, name: &str) -> Option<(String, usize, usize)> {
+pub fn cpp_auto_init(
+    text: &str,
+    line1: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Option<(String, usize, usize)> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let [p] = c_bindings_at(text, line1, None, name)[..] else {
+    let [p] = c_bindings_at(text, line1, col, name)[..] else {
         return None;
     };
     let at = starts[p.line1 - 1] + p.byte_col;
@@ -1226,7 +1233,7 @@ pub fn cpp_least_qualified(code: &str, ats: &[usize], len: usize) -> Option<usiz
 
 pub fn cpp_plain_object(text: &str, line1: usize, name: &str, member: bool) -> bool {
     let code = c_code(text);
-    let Some(pos) = scope_pos(&code, &line_starts(&code), line1, name) else {
+    let Some(pos) = scope_pos(&code, &line_starts(&code), line1, None, name) else {
         return false;
     };
     let scopes = scopes_inside_out_to_type_or_namespace(&code, pos);
