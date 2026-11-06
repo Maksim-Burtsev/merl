@@ -135,6 +135,7 @@ The swift row with #1341's tenth pass (a label in an implicit `.init(` typed by 
 The julia and js rows with answers judged for #1375 and #1337 (a Julia type named, not called, answers its declaration: julia0013, julia0029, julia0049, julia0085, julia0087, julia0233; js0366 and js0382 also accept the `ts5.6/buffer.buffer.d.ts:353` the project's TypeScript 4.4.4 reads): over `0a18a2f18`, 2026-11-06, release build, `vm.loadavg` { 4.70 6.22 5.71 } before the run, { 4.01 5.31 5.40 } after. No verdict moved: merl's pickers held both answers.
 The julia row with #1375's fifth pass (a type name that is not called, after `::`, `isa`, `<:`, `>:`, `=>`, `@test_throws` or inside a `T{…}`, whose candidates are one `struct`, `abstract type`, `primitive type` or `const` and that name's methods, lands on the declaration, unless the name is bound anywhere in its top-level block or a `where`/`struct` of the file binds it as a parameter; 21 rows from pickers to direct hits, among them julia0081 `AsTable` and the six judged rows): over `b628e397d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.36 3.53 4.36 } before the run, { 3.01 3.44 4.25 } after.
 The python row with #1339's seventh pass (a member of an outside module's instance, `NAME = Class(...)` bound once, lands on its class's member, an annotation under `if TYPE_CHECKING:` included; python0246 `@pytest.mark.usefixtures`): over `daf83e7b9`, this change merged with master, 2026-11-06, release build, `vm.loadavg` { 5.35 5.66 4.60 } before the run, { 3.87 5.04 4.46 } after.
+The clojure, elisp, racket, scheme and commonlisp rows with #1401 (a name bound again by `dolist`, `dotimes`, `do`, `destructuring-bind`, `multiple-value-bind`, `seq-let`, `with-slots`, `receive`, `guard`, `cl-flet`, `cl-labels`, `macrolet` or `symbol-macrolet`; two commonlisp misses to direct hits): over `d23991842` with this change, 2026-11-07, release build, `vm.loadavg` { 3.09 3.36 3.86 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -162,12 +163,12 @@ The python row with #1339's seventh pass (a member of an outside module's instan
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |
 | svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 31.5 | 178.8 |
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
-| clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 9.2 | 18.6 |
-| elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.2 | 5.2 |
+| clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 8.5 | 13.7 |
+| elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.0 | 4.8 |
 | bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
-| racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 11.7 | 14.6 |
-| scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.3 | 8.9 |
-| commonlisp (lem) | 52 | 34 (65%) | 3 (6%) | 0 (0%) | 15 (29%) | 26 | 1 | 6.7 | 7.7 |
+| racket (drracket) | 108 | 66 (61%) | 14 (13%) | 0 (0%) | 28 (26%) | 128 | 30 | 14.4 | 18.0 |
+| scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.6 | 13.7 |
+| commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.6 | 7.6 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 93 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 17 | 0 | 48.7 | 141.9 |
 | sql (lemmy) | 79 | 75 (95%) | 1 (1%) | 0 (0%) | 3 (4%) | 31 | 0 | 13.9 | 34.8 |

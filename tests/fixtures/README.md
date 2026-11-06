@@ -634,6 +634,10 @@ opens a file, each refusal of the issue, and declaration-shaped lines in a docst
 `scheme/lib/rules.scm` and `common-lisp/generic.lisp` (#1344) bind a `let-values` formal, a
 `syntax-rules` pattern variable (not its literal, not its macro's keyword, not past its rule)
 and a `defgeneric` parameter, and call a name starting with `%`.
+`common-lisp/rebound.lisp`, `emacs-lisp/shop-rebound.el` and `scheme/lib/rebound.scm` (#1401) bind a
+name of a top-level function again by `dolist`, `dotimes`, `destructuring-bind`, `seq-let`,
+`receive`, `guard`, `do`, `with-slots`, `cl-flet` or `symbol-macrolet`, and call the function
+after the form closes, in a form binding other names, and beside a string of its name.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
