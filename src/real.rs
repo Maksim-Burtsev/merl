@@ -24,6 +24,16 @@ pub fn canonicalize(p: &Path) -> io::Result<PathBuf> {
     Ok(out)
 }
 
+pub fn link_inside(root: &Path, rel: &Path) -> Option<PathBuf> {
+    let path = root.join(rel);
+    if !path.is_symlink() {
+        return None;
+    }
+    let real = canonicalize(&path).ok()?;
+    let real = real.strip_prefix(canonicalize(root).ok()?).ok()?;
+    (real != rel).then(|| real.to_path_buf())
+}
+
 #[cfg(not(target_family = "wasm"))]
 pub fn pid() -> u32 {
     std::process::id()

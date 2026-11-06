@@ -27,7 +27,7 @@ impl App {
         wanted: impl Fn(&Path) -> bool,
     ) -> SearchJob {
         let mut files: Vec<PathBuf> = self.files.iter().filter(|p| wanted(p)).cloned().collect();
-        let current = self.rel_current();
+        let current = self.rel_current().filter(|_| !self.shows_a_link());
         if let Some(cur) = &current
             && wanted(cur)
         {
