@@ -1077,7 +1077,7 @@ pub fn rust_stability(lines: &[&str], line1: usize) -> bool {
     clippy::string_slice,
     reason = "every cut is before an ASCII byte: a stop or the space of \" where\""
 )]
-fn type_at(s: &str) -> &str {
+pub(super) fn type_at(s: &str) -> &str {
     let b = s.as_bytes();
     let mut depth = 0i32;
     for (i, &c) in b.iter().enumerate() {

@@ -915,25 +915,26 @@ pub fn julia_names_a_type_here(lines: &[&str], row: usize, start: usize, name: &
     if !in_type_position(before) || called(after) || julia_type_param(lines, name) {
         return false;
     }
-    let literal = julia_literal_lines(&lines.join("\n"));
-    let first = (0..=row)
-        .rev()
-        .find(|&k| code_line(k, &literal) && indent(lines[k]) == 0)
-        .unwrap_or(0);
+    let text = lines.join("\n");
+    let mut imports = Vec::new();
+    julia_imports(&text, &mut imports, false);
+    if imports.iter().any(|i| i.name == name) {
+        return false;
+    }
+    let literal = julia_literal_lines(&text);
+    let Some(top) = julia_top_level_lines(lines, &literal) else {
+        return false;
+    };
+    let edge = |k: usize| code_line(k, &literal) && indent(lines[k]) == 0 && top[k];
+    let first = (0..=row).rev().find(|&k| edge(k)).unwrap_or(0);
     let last = (row + 1..lines.len())
-        .find(|&k| code_line(k, &literal) && indent(lines[k]) == 0)
-        .map_or(lines.len(), |k| {
-            k + usize::from(lines[k].trim_start().starts_with("end"))
-        });
+        .find(|&k| edge(k))
+        .unwrap_or(lines.len());
     (first..last)
         .filter(|&k| !literal.get(k).copied().unwrap_or(false))
         .all(|k| {
-            let l = lines[k];
-            let l = if l.contains(['"', '\'', '`']) {
-                l
-            } else {
-                l.split('#').next().unwrap_or_default()
-            };
+            let l = julia_code(lines[k]);
+            let l = l.as_str();
             let defined = julia_declares_method(l, name);
             julia_col_all(l, name).all(|i| {
                 let (Some(b), Some(a)) = (l.get(..i), l.get(i + name.len()..)) else {
@@ -942,6 +943,79 @@ pub fn julia_names_a_type_here(lines: &[&str], row: usize, start: usize, name: &
                 in_type_position(b) || (called(a) && !defined)
             })
         })
+}
+
+fn julia_code(line: &str) -> String {
+    let b = line.as_bytes();
+    let mut out = b.to_vec();
+    let mut i = 0;
+    while i < b.len() {
+        let from = i;
+        match b[i] {
+            b'#' => i = b.len(),
+            b'"' | b'`' => {
+                i += 1;
+                while i < b.len() && b[i] != b[from] {
+                    i += if b[i] == b'\\' { 2 } else { 1 };
+                }
+                i += 1;
+            }
+            b'\'' if b.get(i + 1) == Some(&b'\\') || b.get(i + 2) == Some(&b'\'') => {
+                i += if b.get(i + 1) == Some(&b'\\') { 4 } else { 3 };
+            }
+            _ => {
+                i += 1;
+                continue;
+            }
+        }
+        out[from..i.min(b.len())].fill(b' ');
+    }
+    String::from_utf8(out).unwrap_or_else(|_| line.to_owned())
+}
+
+fn julia_top_level_lines(lines: &[&str], literal: &[bool]) -> Option<Vec<bool>> {
+    const OPENS: &[&str] = &[
+        "function", "macro", "struct", "let", "begin", "quote", "do", "if", "for", "while", "try",
+    ];
+    let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'!';
+    let (mut brackets, mut blocks) = (0usize, Vec::new());
+    let mut out = Vec::with_capacity(lines.len());
+    for (k, line) in lines.iter().enumerate() {
+        out.push(brackets == 0 && !blocks.contains(&false));
+        if literal.get(k).copied().unwrap_or(false) {
+            continue;
+        }
+        let line = julia_code(line);
+        let b = line.as_bytes();
+        let mut i = 0;
+        while i < b.len() {
+            match b[i] {
+                b'(' | b'[' | b'{' => brackets += 1,
+                b')' | b']' | b'}' => brackets = brackets.checked_sub(1)?,
+                c if word(c) && (i == 0 || !word(b[i - 1]) && !matches!(b[i - 1], b'.' | b':')) => {
+                    let end = (i..b.len()).find(|&j| !word(b[j])).unwrap_or(b.len());
+                    let w = line.get(i..end).unwrap_or_default();
+                    let rest = line.get(end..).unwrap_or_default().trim_start();
+                    if brackets == 0 {
+                        if w == "end" {
+                            blocks.pop()?;
+                        } else if w == "module" || w == "baremodule" {
+                            blocks.push(true);
+                        } else if OPENS.contains(&w)
+                            || matches!(w, "abstract" | "primitive") && rest.starts_with("type")
+                        {
+                            blocks.push(false);
+                        }
+                    }
+                    i = end;
+                    continue;
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+    }
+    Some(out)
 }
 
 fn julia_col_all<'a>(line: &'a str, word: &'a str) -> impl Iterator<Item = usize> + 'a {

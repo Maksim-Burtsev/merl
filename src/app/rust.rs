@@ -3,7 +3,7 @@ mod returns;
 mod sysroot;
 mod used;
 
-use used::registry_src;
+use used::{registry_src, rust_below};
 
 use std::sync::LazyLock;
 
@@ -845,16 +845,23 @@ impl App {
             return None;
         }
         let mut bindings = rust_seen(text, line0, name, above);
-        if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
+        let own_closure = if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
             && let (Some(c), Some(line)) = (col, lines.get(line0))
-            && search::rust_closure_holds(line, name, c)
+            && let Some(header) = search::rust_closure_holds(line, name, c)
         {
             bindings.truncate(1);
-        }
+            Some(search::rust_closure_param_type(header, name))
+        } else {
+            None
+        };
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
-            let Some(holds) = search::rust_holds(&lines, at, name) else {
+            let holds = match &own_closure {
+                Some(written) => written.clone().map(search::RustHolds::Type),
+                None => search::rust_holds(&lines, at, name),
+            };
+            let Some(holds) = holds else {
                 let ty = match self
                     .rust_variant_typed(file, &lines, at, name)
                     .or_else(|| self.rust_for_typed(file, text, at, name))
@@ -1383,23 +1390,6 @@ impl App {
         .filter(|h| !h.text.trim_end().ends_with(';'))
         .collect()
     }
-}
-
-fn rust_below(here: &Path, p: &Path) -> bool {
-    let parent = p.parent().unwrap_or_else(|| Path::new(""));
-    let root_file = p
-        .file_stem()
-        .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
-        || ["tests", "benches", "examples"]
-            .iter()
-            .any(|d| parent.file_name().is_some_and(|n| n == *d))
-        || parent.ends_with("src/bin");
-    let dir = if root_file {
-        parent.to_path_buf()
-    } else {
-        p.with_extension("")
-    };
-    here == p || here.starts_with(dir)
 }
 
 fn rust_receiver_type(text: &str, line0: usize, chain: &[String], before: &str) -> Option<String> {

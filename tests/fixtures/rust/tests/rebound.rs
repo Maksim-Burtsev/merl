@@ -77,3 +77,32 @@ pub fn printed(held: Caps) -> usize {
     held.get()
     //   ^ d: tests/rebound.rs:6
 }
+
+pub struct Wrap {
+    pub held: Caps,
+}
+
+pub struct Pair {
+    pub held: Grain,
+}
+
+pub fn controls(held: Caps, mut pair: Pair) -> usize {
+    let n = 1; /* let held = Grain; */ held.get();
+    //                                      ^ d: tests/rebound.rs:6
+    let s = "let held = Grain;"; held.get();
+    //                                ^ d: tests/rebound.rs:6
+    let same = held.get() == held.get(); held.get();
+    //                                        ^ d: tests/rebound.rs:6
+    let w = Wrap { held: Caps }; held.get();
+    //                                ^ d: tests/rebound.rs:6
+    let v = Wrap { held }; held.get();
+    //                          ^ d: tests/rebound.rs:6
+    pair.held = Grain; held.get();
+    //                      ^ d: tests/rebound.rs:6
+    { let held = Grain; held.get(); } held.get();
+    //                                     ^ d: tests/rebound.rs:6
+    held.get(); let held = Grain;
+    //   ^ d: tests/rebound.rs:6
+    let _ = (n, s, same, w.held, v.held, pair.held, held);
+    0
+}

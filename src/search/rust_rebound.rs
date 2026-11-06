@@ -2,15 +2,15 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::rust::{binds, rust_rebinds, top_split, top_stop, without_type};
+use super::rust::{binds, rust_rebinds, top_split, top_stop, type_at, without_type};
 use super::{Kind, code};
 
-pub fn rust_closure_holds(line: &str, name: &str, at: usize) -> bool {
+pub fn rust_closure_holds<'a>(line: &'a str, name: &str, at: usize) -> Option<&'a str> {
     static CLOSURE: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(r"(?:^|[(,={]|\bmove|\breturn|=>)\s*\|([^|]*)\|")
             .expect("the regex is a literal")
     });
-    CLOSURE.captures_iter(line).any(|c| {
+    let holds = CLOSURE.captures_iter(line).find(|c| {
         let Some(body) = c.get(0).and_then(|m| line.get(m.end()..at)) else {
             return false;
         };
@@ -28,6 +28,15 @@ pub fn rust_closure_holds(line: &str, name: &str, at: usize) -> bool {
             && top_split(&c[1])
                 .iter()
                 .any(|p| binds(without_type(p), name))
+    });
+    holds.and_then(|c| c.get(1)).map(|m| m.as_str())
+}
+pub fn rust_closure_param_type(header: &str, name: &str) -> Option<String> {
+    top_split(header).into_iter().find_map(|p| {
+        let colon = top_stop(p, b":")?;
+        let pat = p.get(..colon)?.trim();
+        let pat = pat.strip_prefix("mut ").unwrap_or(pat).trim();
+        (pat == name).then(|| type_at(p.get(colon + 1..).unwrap_or_default()).to_owned())
     })
 }
 pub(super) fn macro_binds(call: &str, name: &str) -> bool {
@@ -60,9 +69,26 @@ pub(super) fn macro_binds(call: &str, name: &str) -> bool {
     CALL.captures(call)
         .is_some_and(|c| &c[2] == name && !STD.contains(&&c[1]))
 }
+fn without_block_comments(line: &str) -> String {
+    let b = line.as_bytes();
+    let mut out = b.to_vec();
+    let mut past = 0;
+    for (i, c) in code(Kind::Rust, line) {
+        if i < past || c != b'/' || b.get(i + 1) != Some(&b'*') {
+            continue;
+        }
+        past = line
+            .get(i + 2..)
+            .and_then(|r| r.find("*/"))
+            .map_or(b.len(), |e| i + e + 4);
+        out[i..past].fill(b' ');
+    }
+    String::from_utf8(out).unwrap_or_else(|_| line.to_owned())
+}
 pub fn rust_rebound_before(line: &str, name: &str, at: usize) -> bool {
     static OPEN: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"\blet\s|=>|\b\w+!").expect("the regex is a literal"));
+    let line = without_block_comments(line);
     let Some(head) = line.get(..at) else {
         return false;
     };
