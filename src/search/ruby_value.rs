@@ -239,7 +239,7 @@ impl RubyRebinding {
         let n = regex::escape(name);
         Self::new(
             &format!(
-                r"(?:^|[^@$:.\w]){n}\s*(?:[-+*/%|&^]|\*\*|<<|>>|&&|\|\|)?=(?:$|[^=~>])|^\s*[\w\s,*()]*\b{n}\b[\w\s,*()]*=(?:$|[^=~>])|=>\s*{n}\b|=>\s*[\[{{(].*\b{n}\b|(?:^|;)\s*in\b.*\b{n}\b|\bin\s*[\[{{(].*\b{n}\b|\bfor\s+[\w\s,]*\b{n}\b|->\s*\(?[^{{]*\b{n}\b|\|[^|]*\b{n}\b[^|]*\||^\s*[\w\s,*()]*\b{n}\b[^|]*\|\s*$|\bdef\b"
+                r"(?:^|[^@$:.\w]){n}\s*(?:[-+*/%|&^]|\*\*|<<|>>|&&|\|\|)?=(?:$|[^=~>])|^\s*[\w\s,*()]*\b{n}\b[\w\s,*()]*=(?:$|[^=~>])|=>\s*{n}(?:$|[^\w.(\[?!:&])|=>\s*[\[{{(].*\b{n}\b|(?:^|;)\s*in\b.*\b{n}\b|\bin\s*[\[{{(].*\b{n}\b|\bfor\s+[\w\s,]*\b{n}\b|->\s*\(?[^{{]*\b{n}\b|(?:\{{|\bdo)\s*\|[^|]*\b{n}\b[^|]*\||^\s*[\w\s,*()]*\b{n}\b[^|]*\|\s*$"
             ),
             &format!(r"\(\?<{n}>|variable_set\s*\(?\s*[:'\x22]{n}\b"),
         )
@@ -256,16 +256,42 @@ impl RubyRebinding {
     }
 
     pub fn count(&self, line: &str) -> usize {
-        let mut code = vec![b' '; line.len()];
-        for (i, c) in super::code(Kind::Ruby, line) {
-            if c == 0 {
-                break;
-            }
-            code[i] = c;
-        }
-        self.code.find_iter(&String::from_utf8_lossy(&code)).count()
-            + self.raw.find_iter(line).count()
+        self.code.find_iter(&code_only(line)).count() + self.raw.find_iter(line).count()
     }
+}
+
+fn code_only(line: &str) -> String {
+    let mut code = vec![b' '; line.len()];
+    for (i, c) in super::code(Kind::Ruby, line) {
+        if c == 0 {
+            break;
+        }
+        code[i] = c;
+    }
+    String::from_utf8_lossy(&code).into_owned()
+}
+
+static DEF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\bdef\b").expect("the regex is a literal"));
+static CLOSED_BLOCK: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?P<open>\{\s*)\|[^|]*\|(?P<body>[^{}]*\})").expect("the regex is a literal")
+});
+
+fn opens_a_def(lines: &[&str], at: usize, until: usize) -> bool {
+    static ONE_LINE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bend\s*$|\bdef\s+[\w.?!]+(?:\([^)]*\))?\s*=(?:$|[^=~>])")
+            .expect("the regex is a literal")
+    });
+    static END: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*end\b").expect("the regex is a literal"));
+    let code = code_only(lines[at]);
+    DEF.is_match(&code)
+        && !ONE_LINE.is_match(&code)
+        && !lines
+            .get(at + 1..until)
+            .unwrap_or_default()
+            .iter()
+            .any(|l| indent(l) == indent(lines[at]) && END.is_match(l))
 }
 
 pub fn ruby_rebound(text: &str, value: &str, after1: usize, line1: usize, name: &str) -> bool {
@@ -287,14 +313,15 @@ pub fn ruby_rebound(text: &str, value: &str, after1: usize, line1: usize, name: 
             .filter(|tail| !tail.contains(';'))
             .unwrap_or(l)
     });
+    let until = line1.saturating_sub(1).min(lines.len());
     re.count(value) > 0
         || re.count(cursor_value) > 0
-        || lines
-            .iter()
-            .zip(&literal)
-            .take(line1.saturating_sub(1))
-            .skip(after1)
-            .any(|(l, &lit)| !lit && re.count(l) > 0)
+        || DEF.is_match(&code_only(cursor_value))
+        || (after1..until).any(|i| {
+            !literal[i]
+                && (re.count(&CLOSED_BLOCK.replace_all(lines[i], "$open$body")) > 0
+                    || opens_a_def(&lines, i, until))
+        })
         || in_a_branch
             && bindings(Kind::Ruby, text, line1, name)
                 .iter()

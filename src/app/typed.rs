@@ -991,10 +991,11 @@ impl App {
                 },
             ] = &self.bindings_of(kind, file, text, line1, method)[..]
             && let Some(returns) = search::python_callable_return(text, written)
-            && !text
-                .lines()
-                .nth(at - 1)
-                .is_some_and(|l| l.starts_with(method.as_str()))
+            && (search::python_in_function(text, *at)
+                || text.lines().nth(at - 1).is_some_and(|l| {
+                    let t = l.trim_start();
+                    t.starts_with("def ") || t.starts_with("async def ")
+                }))
         {
             let ty = self.annotated_type(kind, file, text, *at, &returns)?;
             return Some(TypeVia {

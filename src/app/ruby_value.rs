@@ -177,6 +177,9 @@ impl App {
         }
         let assign = regex::Regex::new(&search::ruby_assignment(&ivar)).ok()?;
         let rebind = search::RubyRebinding::ivar(name)?;
+        let writer = regex::Regex::new(r"\battr_(?:writer|accessor)\b").ok()?;
+        let setter = format!(r"\.{}\s*=(?:[^=~>]|$)", regex::escape(name));
+        let called = std::cell::OnceCell::new();
         let mut files = self.ruby_declarations(here, &class);
         files.dedup_by(|a, b| a.0.path == b.0.path);
         let assigned: Vec<(usize, &str, &str)> = files
@@ -185,7 +188,12 @@ impl App {
                 t.lines()
                     .enumerate()
                     .filter(|(i, l)| {
-                        rebind.count(l) > 0 && search::ruby_class_path(t, i + 1) == class
+                        rebind.count(l) > 0
+                            && search::ruby_class_path(t, i + 1) == class
+                            && (!writer.is_match(l)
+                                || *called.get_or_init(|| {
+                                    !self.project_grep(Kind::Ruby, here, &setter).is_empty()
+                                }))
                     })
                     .map(move |(i, l)| (i + 1, l, t.as_str()))
             })
