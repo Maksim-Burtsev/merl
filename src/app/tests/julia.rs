@@ -414,6 +414,18 @@ fn d_on_a_julia_type_name_not_called_lands_on_its_declaration() {
             ("src/other.jl", "struct Dup\nend\n"),
             ("src/use.jl", uses),
             ("src/where.jl", "wh(c8::Shape) where {Shape} = 1\n"),
+            (
+                "src/plots.jl",
+                "using Plots: Shape\n\narea(e1::Shape) = 1\n",
+            ),
+            (
+                "src/other_.jl",
+                "import .Other: Shape\nfunction q(e2)\n    e2 isa Shape\nend\n",
+            ),
+            (
+                "src/edges.jl",
+                "function g(Shape)\n    data = [\n1, 2,\n]\n    e3 isa Shape\nend\nlet Shape = Int\ne4 isa Shape\nend\nfunction keeps(xs)\n    [e5 isa Shape for x in xs]  # Shape = 1\n    s = \"Shape = 1\"\n    e6 isa Shape\nend\n",
+            ),
         ],
     );
     for (file, code, line) in [
@@ -446,6 +458,12 @@ fn d_on_a_julia_type_name_not_called_lands_on_its_declaration() {
         ("src/use.jl", "c9 isa Shape", None),
         ("src/use.jl", "d1 isa Shape", None),
         ("src/where.jl", "c8::Shape", None),
+        ("src/plots.jl", "e1::Shape", None),
+        ("src/other_.jl", "e2 isa Shape", None),
+        ("src/edges.jl", "e3 isa Shape", None),
+        ("src/edges.jl", "e4 isa Shape", None),
+        ("src/edges.jl", "e5 isa Shape", Some(1)),
+        ("src/edges.jl", "e6 isa Shape", Some(1)),
     ] {
         d_on(&mut a, file, code);
         match (shown(&mut a), line) {
