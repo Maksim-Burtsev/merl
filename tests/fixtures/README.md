@@ -412,6 +412,12 @@ does not read: a picker.
 `Aliased.cs` with no namespace and in `Checks.cs` in `Shop.Tea.Infuse`. `Shadowed.cs` in
 `Shop.Pantry`, whose own `Jar` comes before the alias, and `Boxed<Jar>`'s type parameter keep
 master's picker.
+`csharp/src/Shop/Rebound/` (#1383) hides a field `Flask x` or a parameter `Flask k` behind an
+`Ewer` or a `Spill` that also has `Decant`: a lambda's or a `delegate`'s parameter, `foreach`,
+`catch`, `using var` and a local in a block on one line, a property pattern `is Ewer { } x`,
+switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
+whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
+`Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a

@@ -293,7 +293,7 @@ impl App {
         let answer = match dotted {
             false => self.cs_initializer(&a.here, word, &a.range).map(Ok),
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
-                Some(self.cs_typed(&a.here, word, chain))
+                Some(self.cs_typed(&a.here, word, chain, &a.before))
             }
             true if chain.is_empty() => self
                 .cs_constructed(&a.here, word, &a.before)
