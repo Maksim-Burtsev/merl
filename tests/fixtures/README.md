@@ -930,6 +930,10 @@ that types its receiver.
 namesake `petal` in `Bloom` and `Thorn`: `Future<Bloom>`, `FutureOr<Thorn>`, and `Future<T>` /
 `Future<T?>` whose `T` the `Future<Thorn>` handed to `Pod.of` decides. A getter returning
 `dynamic`, a `T` from `Pod.wrap(T)` and one from a generic method's `Future<S>` do not jump.
+`dart/lib/rebound.dart` (#1388) binds a typed `x` again where `d` reads it: on the cursor's own
+line (a closure, a `for`-`in`, a one-line block), by a type pattern (`if (o case Ewer x)`,
+`case Ewer x when …:`, a switch-expression arm) and by `is` promotion, which keeps a picker.
+Its controls read the outer `x` after a closed closure, block, arm or `if`, and in a string.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
