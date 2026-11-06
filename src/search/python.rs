@@ -443,6 +443,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
         }
         if let Some(global) = outside {
+            out.retain(|b| b.line1 <= at + 1);
             module_only |= global;
             continue;
         }
@@ -488,13 +489,31 @@ fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     } else {
         TUPLE_TARGET
             .captures(s)
-            .filter(|c| {
-                c[1].contains(',')
-                    && c[1].matches('(').count() == c[1].matches(')').count()
-                    && names(&c[1], name)
-            })
+            .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())
+            .map(|c| top_level_targets(&c[1]))
+            .filter(|t| t.contains(',') && names(t, name))
             .map(|_| Value::Unknown)
     }
+}
+fn top_level_targets(target: &str) -> String {
+    let mut opened = Vec::new();
+    let mut prev = ' ';
+    target
+        .chars()
+        .map(|c| {
+            if matches!(c, '[' | '(') {
+                opened.push(c == '[' || prev.is_alphanumeric() || matches!(prev, '_' | ')' | ']'));
+            }
+            let shown = !opened.iter().any(|&hidden| hidden);
+            if matches!(c, ']' | ')') {
+                opened.pop();
+            }
+            if !c.is_whitespace() {
+                prev = c;
+            }
+            if shown { c } else { ' ' }
+        })
+        .collect()
 }
 fn python_inline(t: &str, name: &str) -> bool {
     static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
