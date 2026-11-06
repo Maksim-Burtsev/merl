@@ -1,4 +1,4 @@
-wait Tutor 27/
+wait Tutor 28/
 ┌agent/find-by-tag ← HEAD────┐ 1 """Storage: every note lives in one JSON file, read and written as a whole."""
 │  ▾ tests                   │ 2
 │    A test_cli.py     +43 −0│ 3 import json
@@ -17,7 +17,7 @@ wait Tutor 27/
 │                            │16     def _read(self) -> list[Note]:
 │                            │17         """Load the notes from disk; a missing file means no notes yet."""
 │                            │18         if not self.config.path.exists():
-│                            │19             retur╭ Tutor 27/27 · Note for the agent ────────────────────────────────────────────────╮
+│                            │19             retur╭ Tutor 28/28 · Note for the agent ────────────────────────────────────────────────╮
 │                            │20         raw = jso│                                                                                  │
 │                            │  ▎        return [N│  `a` leaves the agent a note on the line, or on the selected lines: type it,     │
 │                            │21▎        notes = [│  and Esc keeps it under the line. Enter on a note edits it, and a note you       │

@@ -1,0 +1,57 @@
+wait 1:1  [edit]
+┌orders──────────────────────┐1
+│▸ .github                   │
+│▸ .venv                     │
+│▾ app                       │
+│    __init__.py             │
+│    api.py                  │
+│  M config.py               │
+│  M models.py               │
+│  A money.py                │
+│    repos.py                │
+│    service.py              │
+│    uow.py                  │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│M README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+app/repos.py ●  1:1  [edit]  Spaces: 4                                                                                                                                             14:32
+cursor (x,y,shown) 32,0,0

@@ -1,4 +1,4 @@
-wait Tutor 23/
+wait Tutor 24/
  1 id,created,updated,due,done,pin┌merl — keys (Up / Down to scroll)──────────────────────────────────────────────────────────────────────────────────┐
  2 1,2026-01-08,2026-01-08,,yes,no│ Files and jumps                                                                                                   │erwise skip the oat milk and get ›
  3 3,2026-01-18,2026-02-02,2026-02│   o / Ctrl+E                        Open a file (fuzzy)                                                           │n Tuesday. Ask whether they can s›
@@ -18,7 +18,7 @@ wait Tutor 23/
                                   │   m                                 Review: mark the file as viewed, or take the mark off                         │
                                   │   a                                 Review: note for the agent on the line or the selection                       │
                                   │   Fold: Enter                       Review: load the diff of a folded generated file                              │
-                                  │ Editing       ╭ Tutor 23/27 · Close it ──────────────────────────────────────────────────────────╮                │
+                                  │ Editing       ╭ Tutor 24/28 · Close it ──────────────────────────────────────────────────────────╮                │
                                   │   Enter       │                                                                                  │                │
                                   │   Ctrl+S      │  `?` lists every key merl knows, and it is open now. Esc closes any overlay,     │                │
                                   │   Ctrl+R      │  and clears the selection and the find pattern. Press Esc.                       │                │
@@ -28,6 +28,7 @@ wait Tutor 23/
                                   │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
                                   │ Selection                                                                                                         │
                                   │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
+                                  │   Ctrl+A                            Select the whole file                                                         │
                                   │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
                                   │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
                                   │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
@@ -51,7 +52,6 @@ wait Tutor 23/
                                   │   Tree: Left / Right                Collapse / expand                                                             │
                                   │   Tree: PgUp / PgDn                 Move one page                                                                 │
                                   │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
-                                  │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
                                   └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 export.csv  1:1  [code]  nowrap  ✓ Keep or put back  ✓ Fold a function                                                                                                             14:32
 cursor (x,y,shown) 185,54,0
