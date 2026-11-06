@@ -23,6 +23,9 @@ impl App {
             || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
         let mut locals = self.locals_of(a, declared);
+        if self.python_inline_elsewhere(a, &locals, declared) {
+            locals.retain(|&n| n != self.line + 1);
+        }
         let go_own = kind == Kind::Go
             && locals.contains(&(self.line + 1))
             && search::go_binds_here(self.line_str(), word, range.start);
@@ -88,7 +91,7 @@ impl App {
             || (kind == Kind::CSharp
                 && locals == [self.line + 1]
                 && search::cs_binds_here(self.line_str(), word, range.start));
-        let python_own = self.python_own(a, &locals, declared);
+        let python_own = self.python_own(a, &mut locals, declared);
         if self.answered_by_locals(
             a,
             &locals,
@@ -156,11 +159,32 @@ impl App {
             && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word)
     }
 
-    fn python_own(&self, a: &Asked, locals: &[usize], declared: bool) -> bool {
-        a.kind == Kind::Python
-            && locals == [self.line + 1]
-            && ((!declared && search::python_inline_binds(self.line_str(), &a.word))
-                || (!a.dotted && search::python_in_function_body(&a.text, self.line + 1)))
+    fn python_inline_elsewhere(&self, a: &Asked, locals: &[usize], declared: bool) -> bool {
+        let (line, word) = (self.line_str(), &a.word);
+        matches!(a.kind, Kind::Python | Kind::Starlark)
+            && !declared
+            && !a.dotted
+            && locals.contains(&(self.line + 1))
+            && search::python_binds_only_inline(line, word)
+            && !search::python_binds_around(line, word, a.range.start)
+    }
+
+    fn python_own(&self, a: &Asked, locals: &mut Vec<usize>, declared: bool) -> bool {
+        let (line, own) = (self.line_str(), self.line + 1);
+        let around = matches!(a.kind, Kind::Python | Kind::Starlark)
+            && !declared
+            && !a.dotted
+            && locals.contains(&own)
+            && (search::python_binds_around(line, &a.word, a.range.start)
+                || search::python_def_line_binds(line, &a.word, a.range.start));
+        if around {
+            *locals = vec![own];
+        }
+        around
+            || (a.kind == Kind::Python
+                && *locals == [own]
+                && !a.dotted
+                && search::python_in_function_body(&a.text, own))
     }
 
     fn locals_of(&self, a: &Asked, declared: bool) -> Vec<usize> {

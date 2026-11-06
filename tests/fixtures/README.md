@@ -478,6 +478,11 @@ star-import `infuse` where the later-wins rule must give up (#980): a later modu
 name, and a star import below the use or indented. `lamp.py` has a class attribute and a `def`
 below it of one name, the `def` the answer: JavaScript's rule that a field shadows its method
 (#1004) must stay out of Python.
+`rebound.py` (#1399) binds `infuse`, imported, and `LEAVES` again by a one-line `def`'s
+parameter (one with a default) or a local after `;`, by a comprehension and a lambda, and reads
+them beside these on the line too: before the lambda, after the comprehension, in its first
+iterable and after a lambda's body, where the outer binding wins; a top-level comprehension's
+variable wins over a later module-level namesake.
 `pouring.py` is the third corner (#1126), its answers pyright's, over `brewer.py` and `spout.py`:
 members of a `str`, a file, `os.path` and a `dict` beside `Strainer`'s namesakes, a builder over
 lines and chains of calls beside `Infuser`'s, a renaming re-export, an import of the module under
@@ -652,6 +657,7 @@ parameter shadows), labels to a target in every form (`:api`, `api`, `//api`, `@
 `@//api`), to a source file and to a repository (`@rules_go`, `@bazel_gazelle` by its
 `repo_name`), each refusal of the issue (a rule call, a keyword argument, a computed name, a load's
 strings, `native.genrule`, a `select` key), and declaration-shaped lines in a docstring.
+`tools/rebound.bzl` (#1399) is `tea/rebound.py` of Python in Starlark, over a loaded `weigh_parcel`.
 
 `elixir/` ignores its `deps/` in a `.gitignore` of its own, as `mix new` writes it, and holds a
 `deps/jason`, `deps/phoenix_live_view` and `deps/plug` added with `git add -f`: dependencies
