@@ -40,7 +40,7 @@ racket0037	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/
 racket0038			
 racket0039			
 racket0040			
-racket0041			
+racket0041	drracket-core-lib/drracket/private/user-in-separate-process.rkt:106		judged: internal define in forward-output-back
 racket0042			
 racket0043	drracket/gui-debugger/debug-tool.rkt:76		
 racket0044	drracket-core-lib/drracket/private/get-defs.rkt:153		
@@ -96,7 +96,7 @@ racket0093	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/string-cons
 racket0094			
 racket0095	drracket/version/tool.rkt:31		
 racket0096	drracket-core-lib/drracket/private/stack-checkpoint.rkt:205		
-racket0097			
+racket0097	drracket-core-lib/drracket/private/module-language.rkt:2350		judged: define-values in oc-finished; define/oc-log wraps the body in (let () . body)
 racket0098	drracket-core-lib/drracket/private/colored-errors.rkt:177		
 racket0099			
 racket0100	drracket-tool-test/tests/check-syntax/contract-check-syntax.rkt:62		
@@ -164,7 +164,7 @@ racket0161	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:448
 racket0162	drracket-core-lib/drracket/private/stack-checkpoint.rkt:417		
 racket0163	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/list.rkt:43		
 racket0164			
-racket0165			
+racket0165	drracket-core-lib/drracket/private/module-language.rkt:226		judged: internal define in get-users-language-name
 racket0166	drracket-core-lib/drracket/private/unit.rkt:272		
 racket0167			
 racket0168			
@@ -177,14 +177,14 @@ racket0174
 racket0175	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2554;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:757		reviewed: the procedure in-list next to the sequence syntax *in-list a for clause renames it from
 racket0176			
 racket0177	drracket-tool-text-lib/drracket/private/syncheck/contract-traversal.rkt:107		
-racket0178			
+racket0178	drracket-core-lib/drracket/private/module-language.rkt:2316		judged: define-values in oc-timer-expired; the when body defines only editor-contents and filename/loc
 racket0179	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:2488;/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/collects/racket/private/for.rkt:691		reviewed: the procedure in-range next to the sequence syntax a for clause renames it from
 racket0180			
 racket0181			
 racket0182	drracket-test/tests/drracket/private/randomly-click.rkt:141		
 racket0183			
 racket0184	drracket-tool-text-lib/drracket/private/syncheck/traversals.rkt:720		
-racket0185			
+racket0185	drracket-core-lib/drracket/private/rep.rkt:1742		judged: internal define in the thread's λ body
 racket0186	drracket/macro-debugger/tool.rkt:459		
 racket0187	/opt/homebrew/Cellar/minimal-racket/9.3/share/racket/pkgs/string-constants-lib/string-constants/string-constant.rkt:280		
 racket0188	drracket/help/bug-report.rkt:59		
