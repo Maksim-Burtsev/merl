@@ -1063,7 +1063,14 @@ cannot read the new type: a `for` generator on the cursor's line, over lines in 
 `given x: Mug`, `implicit val x: Mug` and a colon lambda `ms.foreach: x =>`. Each keeps a picker
 of both `sip`s, and so does the arm after a `case x: Mug => …;` on its line, which itself lands
 on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val y = x` and a
-generator on a later line keep `Cup.sip`.
+generator on a later line keep `Cup.sip`. `Rebound.caseBody` presses `d` on `x` after a `;` in
+the body of its `case x: Mug =>`, which lands on its own line; in `caseNext` a later `case _ =>`
+ends it and `x` is the field again (#1398).
+
+`Teapot.scala`, `Urn.java` and `Jug.kt` (#1389) call `this.` + a member their class shares with
+the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,
+`object : Flagon() { … }`): that `this` is the anonymous class, so `d` opens the by-name picker;
+`this.` after the anonymous class is closed keeps the class's own member.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an

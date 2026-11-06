@@ -100,3 +100,7 @@ class Rebound(val x: Cup):
   def guarded(x: Mug, o: Option[Int]): Unit = o match { case Some(n) if(x == null) => x.sip() }
   //                                                                                    ^ d: src/main/scala/rebound/Mug.scala:4
 
+  def caseBody(o: Any): Unit = o match { case x: Mug => x.sip(); x.sip() }
+  //                                                             ^ d: src/main/scala/rebound/Rebound.scala:103
+  def caseNext(o: Any): Unit = o match { case x: Mug => x.sip(); case _ => x.sip() }
+  //                                                                       ^ d: src/main/scala/rebound/Rebound.scala:3
