@@ -22,10 +22,7 @@ impl App {
         let declared = swift_binds_here
             || ts_key
             || (a.chain.is_empty() && search::binds_at(kind, self.line_str(), range.start, word));
-        let mut locals = self.locals_of(a, declared);
-        if self.python_inline_elsewhere(a, &locals, declared) {
-            locals.retain(|&n| n != self.line + 1);
-        }
+        let mut locals = self.python_locals(a, self.locals_of(a, declared), declared);
         let go_own = kind == Kind::Go
             && locals.contains(&(self.line + 1))
             && search::go_binds_here(self.line_str(), word, range.start);
@@ -159,14 +156,18 @@ impl App {
             && !search::swift_binds_on(&signature(format!("{}_{}", a.lead, a.tail)), word)
     }
 
-    fn python_inline_elsewhere(&self, a: &Asked, locals: &[usize], declared: bool) -> bool {
+    fn python_locals(&self, a: &Asked, mut locals: Vec<usize>, declared: bool) -> Vec<usize> {
         let (line, word) = (self.line_str(), &a.word);
-        matches!(a.kind, Kind::Python | Kind::Starlark)
+        let elsewhere = matches!(a.kind, Kind::Python | Kind::Starlark)
             && !declared
             && !a.dotted
             && locals.contains(&(self.line + 1))
             && search::python_binds_only_inline(line, word)
-            && !search::python_binds_around(line, word, a.range.start)
+            && !search::python_binds_around(line, word, a.range.start);
+        if elsewhere {
+            locals.retain(|&n| n != self.line + 1);
+        }
+        locals
     }
 
     fn python_own(&self, a: &Asked, locals: &mut Vec<usize>, declared: bool) -> bool {

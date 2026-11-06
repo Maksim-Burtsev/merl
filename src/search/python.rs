@@ -576,7 +576,7 @@ pub fn python_binds_around(line: &str, name: &str, col: usize) -> bool {
                     .find_at(&top, m.end())
                     .map_or(top.len(), |k| k.start())
         });
-        let comprehension = !(g + 1 == groups.len() && statement_for)
+        let comprehension = (g + 1 != groups.len() || !statement_for)
             && !iterable.is_some_and(|r| r.contains(&at))
             && FOR_IN.captures_iter(&top).any(|c| names(&c[1], name));
         let lambda = LAMBDA.captures_iter(&top).any(|c| {
