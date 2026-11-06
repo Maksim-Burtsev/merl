@@ -232,6 +232,99 @@ impl App {
         found
     }
 
+    pub(super) fn outside_instance_member(
+        &self,
+        module: &[String],
+        value: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let kind = Kind::Python;
+        let made = self.outside_handed_on(module, value, 0);
+        let [made] = made.as_slice() else {
+            return None;
+        };
+        let (name, _) = made.hit.text.split_once('=')?;
+        let name = name.trim_end();
+        if name.is_empty() || !name.chars().all(super::is_word) {
+            return None;
+        }
+        let text = self.text_of(&made.hit.path)?;
+        let bound = search::bindings(kind, &text, 1, name);
+        let [
+            search::Binding {
+                line1,
+                value: search::Value::Call(class),
+            },
+        ] = bound.as_slice()
+        else {
+            return None;
+        };
+        let once = |n: &str| {
+            let binds = module_binds(n);
+            text.lines().filter(|l| binds.is_match(l)).count() == 1
+        };
+        if *line1 != made.hit.line1 || class.contains('.') || !once(name) || !once(class) {
+            return None;
+        }
+        let ty = self.type_decl(kind, &made.hit.path, class)?;
+        let above: Vec<&str> = text.lines().take(ty.line.saturating_sub(1)).collect();
+        let decorated = (above.iter().rev())
+            .map(|l| l.trim())
+            .take_while(|l| l.starts_with('@'))
+            .any(|l| !matches!(l, "@final" | "@typing.final"));
+        if ty.path != made.hit.path
+            || decorated
+            || !search::python_rooted(&text, ty.line)
+            || DYNAMIC_STORE.is_match(&text)
+        {
+            return None;
+        }
+        let start = self.walked_module(module)?;
+        let package = self.python_package_files(&[&made.hit.path, &start]);
+        let (m, v) = (regex::escape(module.last()?), regex::escape(value));
+        let stores = format!(
+            r#"{}|\b{m}\s*\.\s*{v}{STORE}|setattr\s*\(\s*{m}\s*,\s*["']{v}["']"#,
+            stores_of(&[name, word])
+        );
+        let in_project = self.grep(&stores, false, false, |p| {
+            p.extension().is_some_and(|e| e == "py")
+        });
+        if !self.grep_in(&stores, &package).is_empty() || !in_project.ok()?.is_empty() {
+            return None;
+        }
+        let hits = match self.own_member(kind, &ty, word) {
+            Some(hits) if !hits.is_empty() => hits,
+            _ => self.type_checking_member(&ty, word)?,
+        };
+        let reason = Reason::Receiver(format!("{}.{value}: {}", module.join("."), ty.name));
+        (!hits.is_empty()).then(|| {
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect()
+        })
+    }
+
+    fn type_checking_member(&self, ty: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&ty.path)?;
+        let lines: Vec<&str> = text.lines().collect();
+        let hits: Vec<Hit> = search::type_checking_fields(&text, ty.line, word)
+            .into_iter()
+            .filter_map(|b| {
+                Some(Hit {
+                    text: (*lines.get(b.line1 - 1)?).to_owned(),
+                    path: ty.path.clone(),
+                    line1: b.line1,
+                    byte_col: None,
+                    deleted: None,
+                })
+            })
+            .collect();
+        (!hits.is_empty()).then_some(hits)
+    }
+
     fn module_level_defs(&self, file: &Path, text: &str, name: &str) -> Vec<Hit> {
         let kind = Kind::Python;
         let pattern = search::def_patterns(kind, name).join("|");
@@ -659,6 +752,30 @@ pub(super) fn python_absolute(
     }
     (!path.is_empty()).then_some(path)
 }
+const STORE: &str = r"\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$)";
+
+static DYNAMIC_STORE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r#"__dict__\s*\.\s*update|setattr(?:__)?\s*\(\s*(?:self|cls)\s*,\s*[^"'\s]"#)
+        .expect("the regex is a literal")
+});
+
+fn module_binds(name: &str) -> Regex {
+    let n = regex::escape(name);
+    Regex::new(&format!(
+        r"^\s*(?:(?:global|del|case)\b.*\b{n}\b|(?:async\s+)?(?:def|class)\s+{n}\b|for\b.*\b{n}\b.*\bin\b|[\w\s,.*()\[\]]*\b{n}\b[\w\s,.*()\[\]]*{STORE})|\bimport\b.*\b{n}\b|\bimport\s+\*|\bas\s+{n}\b|\b{n}\s*:=|\bsetattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)|\bsys\.modules\b"
+    ))
+    .expect("an escaped name keeps the pattern valid")
+}
+
+fn stores_of(names: &[&str]) -> String {
+    let n = (names.iter().map(|n| regex::escape(n)))
+        .collect::<Vec<_>>()
+        .join("|");
+    format!(
+        r#"\.\s*(?:{n})\b{STORE}|setattr(?:__)?\s*\(.*["'](?:{n})["']|\[\s*["'](?:{n})["']\s*\]{STORE}|\b(?:{n})\s*\.\s*__(?:dict|setattr)__"#
+    )
+}
+
 fn python_import_line(text: &str, name: &str) -> Option<usize> {
     static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)")

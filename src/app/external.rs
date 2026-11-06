@@ -268,6 +268,21 @@ impl App {
         hits
     }
 
+    fn module_instance_member(
+        &self,
+        q: &ModuleLookup,
+        module: &[String],
+    ) -> Option<Vec<Candidate>> {
+        if !(q.imported && q.kind == Kind::Python && module.len() >= q.floor) || q.chain.is_empty()
+        {
+            return None;
+        }
+        let [value] = q.named.as_deref()?.get(module.len()..)? else {
+            return None;
+        };
+        self.outside_instance_member(module, value, q.word)
+    }
+
     fn module_definitions(&mut self, q: &ModuleLookup, module: &[String]) -> Vec<Candidate> {
         let (kind, word, imported) = (q.kind, q.word, q.imported);
         let top_level =
@@ -304,6 +319,11 @@ impl App {
                 q.files.clone()
             };
             hits = self.outside_default(kind, &within);
+        }
+        if hits.is_empty()
+            && let Some(found) = self.module_instance_member(q, module)
+        {
+            return found;
         }
         let walked = if hits.is_empty()
             && imported
@@ -582,6 +602,21 @@ impl App {
             })
             .min_by_key(|(rank, _)| *rank)
             .map(|(_, f)| f.clone())
+    }
+
+    pub(super) fn python_package_files(&self, of: &[&Path]) -> Vec<PathBuf> {
+        let Some((roots, files)) = self.external.get(&Kind::Python) else {
+            return Vec::new();
+        };
+        let top = |f: &Path| {
+            let (root, rel) = python_rel(roots, f)?;
+            Some((root, rel.components().next()?.as_os_str().to_owned()))
+        };
+        let tops: Vec<_> = of.iter().filter_map(|f| top(f)).collect();
+        (files.iter())
+            .filter(|f| top(f).is_some_and(|t| tops.contains(&t)))
+            .cloned()
+            .collect()
     }
 
     pub(super) fn note_cut(&self, hits: &[Hit]) {

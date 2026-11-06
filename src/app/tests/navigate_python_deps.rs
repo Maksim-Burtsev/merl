@@ -770,3 +770,164 @@ fn a_stdlib_property_typeshed_types_as_self_keeps_the_receiver_s_type() {
         std::fs::remove_dir_all(d).unwrap();
     }
 }
+
+#[test]
+fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
+    let classes = |init: &str| {
+        format!(
+            "from typing import TYPE_CHECKING\n\n\nclass MarkGenerator:\n    if TYPE_CHECKING:\n        usefixtures: _UsefixturesMarkDecorator\n\n    def __init__(self):\n        {init}\n\n    def plain(self):\n        pass\n\n    def __getattr__(self, name: str) -> MarkDecorator:\n        pass\n\n\nclass Other:\n    def plain(self):\n        pass\n\n    def usefixtures(self):\n        pass\n\n\n"
+        )
+    };
+    let binding = "MARK_GEN = MarkGenerator(_ispytest=True)\n";
+    let made = format!("{}{binding}", classes("pass"));
+    let reexport = "from .structures import MARK_GEN\n";
+    let test = "import pytest\n\n\n@pytest.mark.usefixtures(\"db\")\ndef test_a():\n    pytest.mark.plain()\n    pytest.mark.django_db\n\n\ndef test_b(xs):\n    for pytest in xs:\n        pytest.mark.plain(3)\n\n\ndef test_c(pytest):\n    f = lambda pytest: pytest.mark.plain(4)\n";
+    for (name, lib, mark, typed) in [
+        ("py-mark-gen", made.clone(), reexport, (true, true)),
+        (
+            "py-mark-gen-twice",
+            format!("{made}MARK_GEN = Other()\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-global",
+            format!(
+                "{made}\n\ndef configure(xs):\n    global MARK_GEN\n    for MARK_GEN in xs:\n        pass\n"
+            ),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-package",
+            made.clone(),
+            "from . import structures\nstructures.MARK_GEN = structures.Other()\nfrom .structures import MARK_GEN\n",
+            (false, false),
+        ),
+        (
+            "py-mark-gen-member",
+            format!("{made}MARK_GEN.plain = Other().plain\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-self",
+            format!("{}{binding}", classes("self.plain = Other().plain")),
+            reexport,
+            (true, false),
+        ),
+        (
+            "py-mark-gen-alias",
+            format!(
+                "{}from _pytest.alt import Alt as MarkGenerator\n{binding}",
+                classes("pass")
+            ),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-globals",
+            format!("{made}globals()[\"MARK_GEN\"] = Other()\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-setattr",
+            format!("{made}import sys\n\nsetattr(sys.modules[__name__], \"MARK_GEN\", Other())\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-decorated",
+            classes("pass").replace("class MarkGenerator:", "@swap\nclass MarkGenerator:")
+                + binding,
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-dict",
+            format!("{}{binding}", classes("self.__dict__.update(kw)")),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-star",
+            format!("{made}from _pytest.alt import *\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-dunder",
+            format!(
+                "{}{binding}",
+                classes("object.__setattr__(self, \"plain\", None)")
+            ),
+            reexport,
+            (true, false),
+        ),
+        ("py-mark-gen-project", made, reexport, (true, false)),
+    ] {
+        let conftest = if name == "py-mark-gen-project" {
+            "import pytest\n\npytest.mark.plain = None\n"
+        } else {
+            ""
+        };
+        let site = external_root(
+            name,
+            &[
+                (
+                    "pytest/__init__.py",
+                    "from _pytest.mark import MARK_GEN as mark\n",
+                ),
+                ("_pytest/__init__.py", ""),
+                ("_pytest/mark/__init__.py", mark),
+                ("_pytest/mark/structures.py", &lib),
+            ],
+        );
+        let (dir, mut a) = project_app(
+            &format!("{name}-p"),
+            &[("app/t.py", test), ("app/conftest.py", conftest)],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+        let at = |line: usize| {
+            format!(
+                "{}:{line}",
+                site.join("_pytest/mark/structures.py").display()
+            )
+        };
+        let via = "via pytest.mark: MarkGenerator";
+        d_on(&mut a, "app/t.py", "mark.usefixtures");
+        let usefixtures = shown(&mut a);
+        a.picker = None;
+        d_on(&mut a, "app/t.py", "mark.plain|()");
+        let plain = shown(&mut a);
+        a.picker = None;
+        let untyped = |s: &Shown| !format!("{s:?}").contains("via pytest.mark:");
+        if typed.0 {
+            assert_eq!(usefixtures, jump(&format!("usefixtures: {via}"), &at(6)));
+        } else {
+            assert!(untyped(&usefixtures), "{name}: {usefixtures:?}");
+        }
+        if typed.1 {
+            assert_eq!(
+                plain,
+                jump(
+                    &format!("plain \u{2192} MarkGenerator.plain ({via})"),
+                    &at(11)
+                )
+            );
+        } else {
+            assert!(untyped(&plain), "{name}: {plain:?}");
+        }
+        d_on(&mut a, "app/t.py", "mark.django_db");
+        assert_eq!(a.message, "no definition for django_db", "{name}");
+        for rebound in ["mark.plain|(3", "mark.plain|(4"] {
+            a.picker = None;
+            d_on(&mut a, "app/t.py", rebound);
+            assert!(!a.message.contains(via), "{name} {rebound}: {}", a.message);
+        }
+        for d in [dir, site] {
+            std::fs::remove_dir_all(d).unwrap();
+        }
+    }
+}

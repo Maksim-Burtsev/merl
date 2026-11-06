@@ -134,10 +134,11 @@ The python row with #1339's eighth pass (a call of a name typed `Callable[..., T
 The swift row with #1341's tenth pass (a label in an implicit `.init(` typed by the outer call's parameter of that label: swift0107 `refreshWindow: .init(interval: 30, maximumAttempts: 1)` jumps to `AuthenticationInterceptor.swift:187`): over `07db2106d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.95 4.50 4.62 } before the run.
 The julia and js rows with answers judged for #1375 and #1337 (a Julia type named, not called, answers its declaration: julia0013, julia0029, julia0049, julia0085, julia0087, julia0233; js0366 and js0382 also accept the `ts5.6/buffer.buffer.d.ts:353` the project's TypeScript 4.4.4 reads): over `0a18a2f18`, 2026-11-06, release build, `vm.loadavg` { 4.70 6.22 5.71 } before the run, { 4.01 5.31 5.40 } after. No verdict moved: merl's pickers held both answers.
 The julia row with #1375's fifth pass (a type name that is not called, after `::`, `isa`, `<:`, `>:`, `=>`, `@test_throws` or inside a `T{…}`, whose candidates are one `struct`, `abstract type`, `primitive type` or `const` and that name's methods, lands on the declaration, unless the name is bound anywhere in its top-level block or a `where`/`struct` of the file binds it as a parameter; 21 rows from pickers to direct hits, among them julia0081 `AsTable` and the six judged rows): over `b628e397d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.36 3.53 4.36 } before the run, { 3.01 3.44 4.25 } after.
+The python row with #1339's seventh pass (a member of an outside module's instance, `NAME = Class(...)` bound once, lands on its class's member, an annotation under `if TYPE_CHECKING:` included; python0246 `@pytest.mark.usefixtures`): over `daf83e7b9`, this change merged with master, 2026-11-06, release build, `vm.loadavg` { 5.35 5.66 4.60 } before the run, { 3.87 5.04 4.46 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 255 (97%) | 3 (1%) | 0 (0%) | 4 (2%) | 63 | 8 | 16.3 | 175.3 |
+| python (paperless-ngx) | 262 | 256 (98%) | 3 (1%) | 0 (0%) | 3 (1%) | 63 | 8 | 16.5 | 169.6 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
 | js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.3 | 171.2 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
