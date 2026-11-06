@@ -332,27 +332,67 @@ fn the_site_lists_every_key_and_maps_each_to_its_row() {
         .nth(1)
         .and_then(|m| m.split("\n};\n").next())
         .expect("keys.js has a MAP");
-    let entry = Regex::new(r#"\["[^"]*", (?:"([^"]*)"|null), "[^"]*"\]"#).unwrap();
-    let mapped: Vec<&str> = entry
-        .captures_iter(map)
-        .filter_map(|c| c.get(1))
-        .map(|m| m.as_str())
-        .collect();
-    for row in &mapped {
+    for (i, (key, _, _)) in KEYS.iter().enumerate() {
         assert!(
-            KEYS.iter().any(|(k, _, _)| k == row),
-            "the site's key map points at {row:?}, which is not a row of KEYS"
+            !KEYS[..i].iter().any(|(k, _, _)| k == key),
+            "two rows of KEYS are {key:?}, and the site's key map names a row by its key"
         );
     }
-    for (key, _, _) in KEYS {
-        let in_a_mode = key
-            .split_once(": ")
-            .is_some_and(|(m, _)| !m.is_empty() && m.chars().all(char::is_alphabetic));
+    let entry = Regex::new(r#"\["[^"]*", (?:"([^"]*)"|null), "([^"]*)"\]"#).unwrap();
+    let entries: Vec<_> = entry.captures_iter(map).collect();
+    assert_eq!(
+        entries.len(),
+        map.matches(": [").count(),
+        "every entry of the site's key map reads [\"word\", \"row\" or null, \"label\"]"
+    );
+    let mut mapped = Vec::new();
+    for c in &entries {
+        let Some(row) = c.get(1).map(|m| m.as_str()) else {
+            continue;
+        };
+        let label = c[2]
+            .replace('←', "Left")
+            .replace('→', "Right")
+            .replace('↑', "Up")
+            .replace('↓', "Down");
+        let row_key = KEYS.iter().map(|(k, _, _)| *k).find(|k| *k == row);
         assert!(
-            in_a_mode || mapped.contains(key),
+            row_key.is_some_and(|k| presses(k).contains(&label)),
+            "the site's key map shows {label:?} on {row:?}, a row of KEYS without that key"
+        );
+        mapped.push(row);
+    }
+    for (key, _, _) in KEYS {
+        let off_the_board = key
+            .split_once(": ")
+            .is_some_and(|(m, _)| ["Fold", "Tree", "Picker", "Help"].contains(&m));
+        assert!(
+            off_the_board || mapped.contains(key),
             "the site's key map has no key for {key:?}"
         );
     }
+}
+
+fn presses(key: &str) -> Vec<String> {
+    if key == "Arrows" {
+        return ["Up", "Down", "Left", "Right"].map(String::from).to_vec();
+    }
+    let key = key
+        .split_once(": ")
+        .filter(|(m, _)| m.starts_with(char::is_alphabetic))
+        .map_or(key, |(_, k)| k);
+    let mut alts = key.split(" / ");
+    let first = alts.next().unwrap_or_default();
+    let mods = first.rsplit_once('+').map_or("", |(m, _)| m);
+    std::iter::once(first.to_string())
+        .chain(alts.map(|a| {
+            if a.contains('+') || mods.is_empty() {
+                a.to_string()
+            } else {
+                format!("{mods}+{a}")
+            }
+        }))
+        .collect()
 }
 
 #[test]
