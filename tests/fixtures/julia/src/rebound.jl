@@ -65,3 +65,36 @@ function controls(flask::Flask, xs)
     s = "flask = 1; "; flask
     #                  ^ d: src/rebound.jl:57
 end
+
+function comprehended(flask::Flask, flasks, xs)
+    [flask.sip
+#    ^ d: src/rebound.jl:72
+     for flask in flasks]
+    (flask
+#    ^ d: src/rebound.jl:75
+     for flask in flasks)
+    [flask
+#    ^ d: src/rebound.jl:79
+     for x in xs
+     for flask in x]
+    flask.sip + sum([s
+#   ^ d: src/rebound.jl:69
+     for s in flasks])
+    [f(flask)
+#      ^ d: src/rebound.jl:69
+     for x in flask]
+    [flask
+#    ^ d: src/rebound.jl:69
+     + sum(1 for flask in flasks)]
+    [x for x in flask
+#               ^ d: src/rebound.jl:69
+     for flask in x]
+    [flask,
+#    ^ d: src/rebound.jl:69
+     "for flask in flasks"]
+    [flask]
+#    ^ d: src/rebound.jl:69
+    for flask in flasks
+        flask
+    end
+end
