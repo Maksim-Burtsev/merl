@@ -166,6 +166,15 @@ fn ts_cast(e: &str) -> Option<Value> {
     })
 }
 pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding> {
+    bindings_at(kind, text, line, None, name)
+}
+pub fn bindings_at(
+    kind: Kind,
+    text: &str,
+    line: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(at) = line.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
@@ -174,7 +183,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         Kind::Python | Kind::Starlark => python_bindings_at(&lines, at, name),
         Kind::TsJs if name != "this" && name != "super" => {
             let mut out = block_bindings(kind, &lines, at, name);
-            if out.iter().all(|b| b.line1 != line) && ts_declares_then_uses(lines[at], name) {
+            if out.iter().all(|b| b.line1 != line) && ts_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
             ts_hoisted_vars(&lines, at, name, &mut out);
@@ -182,7 +191,7 @@ pub fn bindings(kind: Kind, text: &str, line: usize, name: &str) -> Vec<Binding>
         }
         Kind::Go => {
             let out = block_bindings(kind, &lines, at, name);
-            if out.iter().all(|b| b.line1 != line) && go_declares_then_uses(lines[at], name) {
+            if out.iter().all(|b| b.line1 != line) && go_declares_then_uses(lines[at], col, name) {
                 return vec![unknown(line)];
             }
             out

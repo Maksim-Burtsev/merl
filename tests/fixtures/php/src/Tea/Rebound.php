@@ -119,4 +119,49 @@ class Rebound
         }
         return 0;
     }
+
+    public function plainReads(Kettle $pot, int $m): int
+    {
+        $s = str_replace((string) $pot->lid, '', 'x'); $pot->pour(1);
+        //                                                   ^ d: src/Tea/Kettle.php:11
+        if ($m & $pot->lid && $pot->pour(1)) {}
+        //                          ^ d: src/Tea/Kettle.php:11
+        $ok = preg_match('/a/', (string) $pot->lid); $pot->pour($ok);
+        //                                                 ^ d: src/Tea/Kettle.php:11
+        $pot->pour(1); // $pot = new Teapot();
+        //    ^ d: src/Tea/Kettle.php:11
+        $s = '$pot = new Teapot();'; $pot->pour(1);
+        //                                 ^ d: src/Tea/Kettle.php:11
+        $same = $pot == null; $pot->pour(1);
+        //                          ^ d: src/Tea/Kettle.php:11
+        $this->fill(pot: 1); $pot->pour(1);
+        //                         ^ d: src/Tea/Kettle.php:11
+        $a = ['pot' => $pot, 'lid' => $pot->lid]; $pot->pour(1);
+        //                                              ^ d: src/Tea/Kettle.php:11
+        $pot->lid = 2; $pot->pour(1);
+        //                   ^ d: src/Tea/Kettle.php:11
+        $n = $pot->pour(1); $pot = new Teapot();
+        //         ^ d: src/Tea/Kettle.php:11
+        return $n + $same + count($a) + strlen($s);
+    }
+
+    public function fill(int $pot): int
+    {
+        return $pot;
+    }
+
+    public function counted(Kettle $pot): int
+    {
+        str_replace('a', 'b', 'c', $pot);
+        return $pot->pour(1);
+        //           ^ d: picker src/Tea/Kettle.php:11, src/Tea/Teapot.php:12, …
+    }
+
+    public function aliased(Kettle $pot): int
+    {
+        $alias = &$pot;
+        $alias = new Teapot();
+        return $pot->pour(1);
+        //           ^ d: picker src/Tea/Kettle.php:11, src/Tea/Teapot.php:12, …
+    }
 }

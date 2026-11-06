@@ -2,13 +2,16 @@ use regex::Regex;
 
 use super::{Binding, Kind, close_of, code, go_params, names};
 
-pub(super) fn go_declares_then_uses(line: &str, name: &str) -> bool {
+pub(super) fn go_declares_then_uses(line: &str, col: Option<usize>, name: &str) -> bool {
     static SHORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\b((?:var\s+)?[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(:=)?")
             .expect("the regex is a literal")
     });
     static FUNC: std::sync::LazyLock<Regex> =
         std::sync::LazyLock::new(|| Regex::new(r"\bfunc\s*\(").expect("the regex is a literal"));
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\b(?:if|for|switch)\s*$").expect("the regex is a literal")
+    });
     let Ok(member) = Regex::new(&format!(r"(?:^|[^\w.]){}\s*\.", regex::escape(name))) else {
         return false;
     };
@@ -17,17 +20,21 @@ pub(super) fn go_declares_then_uses(line: &str, name: &str) -> bool {
         b[i] = c;
     }
     let line = String::from_utf8_lossy(&b).into_owned();
-    let used_after = |from: usize| line.get(from..).is_some_and(|rest| member.is_match(rest));
+    let used_after = |from: usize, header: bool| match col {
+        Some(col) => from <= col && open_until(&line, from, col, header),
+        None => line.get(from..).is_some_and(|rest| member.is_match(rest)),
+    };
     let declared = SHORT.captures_iter(&line).any(|c| {
         let (Some(list), Some(end)) = (c.get(1), c.get(0)) else {
             return false;
         };
+        let header = HEADER.is_match(line.get(..list.start()).unwrap_or_default());
         let list = match list.as_str().strip_prefix("var") {
             Some(rest) if rest.starts_with(char::is_whitespace) => rest,
             _ if c.get(2).is_some() => list.as_str(),
             _ => return false,
         };
-        names(list, name) && used_after(statement_end(&line, end.end()))
+        names(list, name) && used_after(statement_end(&line, end.end()), header)
     });
     declared
         || FUNC.find_iter(&line).any(|m| {
@@ -52,8 +59,29 @@ pub(super) fn go_declares_then_uses(line: &str, name: &str) -> bool {
                 }
                 None => close,
             };
-            !found.is_empty() && used_after(end)
+            !found.is_empty() && used_after(end, true)
         })
+}
+
+fn open_until(line: &str, from: usize, col: usize, header: bool) -> bool {
+    let (mut depth, mut entered) = (0i32, false);
+    for (i, c) in line.bytes().enumerate().take(col).skip(from) {
+        match c {
+            b'{' => {
+                depth += 1;
+                entered = true;
+            }
+            b'}' => {
+                depth -= 1;
+                let rest = line.get(i + 1..).unwrap_or_default().trim_start();
+                if depth < 0 || header && entered && depth == 0 && !rest.starts_with("else") {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    true
 }
 
 fn statement_end(line: &str, from: usize) -> usize {

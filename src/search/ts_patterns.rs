@@ -665,7 +665,22 @@ pub fn jsx_hyphenated_attribute(lead: &str, tail: &str) -> bool {
     (glued_before || glued_after) && rest.starts_with('=') && !rest.starts_with("==")
 }
 
-pub(super) fn ts_declares_then_uses(line: &str, name: &str) -> bool {
+fn shares_block(line: &str, at: usize, col: usize) -> bool {
+    let (mut depth, mut low) = (0i32, 0i32);
+    for c in line.bytes().take(at.max(col)).skip(at.min(col)) {
+        match c {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                low = low.min(depth);
+            }
+            _ => {}
+        }
+    }
+    if at < col { low >= 0 } else { low == depth }
+}
+
+pub(super) fn ts_declares_then_uses(line: &str, col: Option<usize>, name: &str) -> bool {
     static DECLARES: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?:^|[^\w$.])((?:let|const|var)\s)").expect("the regex is a literal")
     });
@@ -677,13 +692,23 @@ pub(super) fn ts_declares_then_uses(line: &str, name: &str) -> bool {
     };
     let line = code_only(line);
     DECLARES.captures_iter(&line).any(|c| {
-        let Some((statement, rest)) = statement_from(&line, c.get(1).map_or(0, |m| m.start()))
-        else {
+        let Some(keyword) = c.get(1) else {
+            return false;
+        };
+        let Some((statement, rest)) = statement_from(&line, keyword.start()) else {
             return false;
         };
         let mut out = Vec::new();
         super::statement_bindings(Kind::TsJs, statement, 1, name, &mut out);
-        !out.is_empty() && used.is_match(rest)
+        let head = line.get(..keyword.start()).unwrap_or_default().trim_end();
+        !out.is_empty()
+            && match col {
+                Some(col) if !keyword.as_str().starts_with("var") => {
+                    (head.is_empty() || head.ends_with([';', '{', '}']))
+                        && shares_block(&line, keyword.start(), col)
+                }
+                _ => used.is_match(rest),
+            }
     })
 }
 
@@ -750,6 +775,9 @@ pub(super) fn ts_hoisted_vars(lines: &[&str], at: usize, name: &str, out: &mut V
             line1: l + 1,
             value: Value::Unknown,
         }));
+    }
+    if out.iter().any(|b| b.line1 > h) {
+        hoisted.retain(|b| b.line1 <= at + 1);
     }
     if !hoisted.is_empty() {
         out.retain(|b| b.line1 > h);
