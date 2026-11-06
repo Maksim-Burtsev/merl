@@ -76,7 +76,7 @@ impl App {
             return None;
         }
         let same_line = (matches!(kind, Kind::Jvm | Kind::PowerShell | Kind::Dart)
-            || (kind == Kind::Swift && !declared))
+            || (matches!(kind, Kind::Swift | Kind::Lua) && !declared))
             && locals == [self.line + 1]
             && whole_at(self.line_str(), word, "").is_some_and(|at| at < range.start);
         let own_line = go_own

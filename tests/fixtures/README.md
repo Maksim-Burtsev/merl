@@ -243,6 +243,11 @@ and `lua/tea/table.lua` must not reach (#1062), nor the key `assert = function` 
 below a comment; its globals assigned in an `if` block and at the top level stay definitions (#1112).
 `lua/tea/tray.lua` calls a bare `rinse` whose namesakes are `function S.rinse` in `saucer.lua` and
 `spec.lua`'s `local rinse`, a picker of both.
+`lua/jug/rebound.lua` (#1393) binds a `flask` typed `Flask` again on the cursor's own line before
+the cursor: a closure's parameter, a loop variable, a `local` after `;`, in a `while` or before an
+`until`, a reassignment and a closure's `self`. The name lands on its own line and its `glug` opens
+the picker; the control rows (a read before the binding ends, a `do` block or a closure closed
+before the cursor, a comment, a string) keep master's answer.
 `lua/tea/infusion.lua` is the third corner (#1126), its answers read from the code, over
 `gaiwan.lua`: `string.format`, `table.insert` and `("cup"):upper()` beside the module's `format`,
 `insert` and `Gaiwan:upper`, which stay the standard library's (none) unless the project patches

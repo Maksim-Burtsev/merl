@@ -30,6 +30,14 @@ impl App {
             search::lisp_bindings_at(kind, text, line, col, name)
         } else if kind == Kind::C && line == self.line + 1 {
             search::c_bindings(text, line, Some(col), name)
+        } else if kind == Kind::Lua
+            && line == self.line + 1
+            && self
+                .line_str()
+                .get(..col)
+                .is_some_and(|lead| search::lua_binds_before(lead, name, false))
+        {
+            return vec![line];
         } else if kind == Kind::Dart && line == self.line + 1 {
             search::dart_bindings_at(text, line, col, name)
         } else {
