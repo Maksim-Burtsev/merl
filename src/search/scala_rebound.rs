@@ -46,16 +46,68 @@ fn open_after(rest: &str, scope: Scope) -> bool {
     true
 }
 
+fn param_list_end(bytes: &[u8], open: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    (open..bytes.len()).find(|&j| {
+        match bytes.get(j) {
+            Some(b'(' | b'[' | b'{') => depth += 1,
+            Some(b')' | b']' | b'}') => depth -= 1,
+            _ => {}
+        }
+        depth == 0
+    })
+}
+
+fn def_bodies(code: &str, name: &str) -> Vec<usize> {
+    static DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\bdef\s+\w+\s*(?:\[[^\]]*\]\s*)?\(").expect("the regex is a literal")
+    });
+    let param = Regex::new(&format!(
+        r"[(,]\s*(?:implicit\s+|using\s+)?{}\s*:",
+        regex::escape(name)
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    let bytes = code.as_bytes();
+    let mut out = Vec::new();
+    for m in DEF.find_iter(code) {
+        let mut i = m.end() - 1;
+        let mut binds = false;
+        while bytes.get(i) == Some(&b'(') {
+            let Some(close) = param_list_end(bytes, i) else {
+                break;
+            };
+            binds |= param.is_match(code.get(i..=close).unwrap_or_default());
+            i = close + 1;
+            while bytes.get(i).is_some_and(u8::is_ascii_whitespace) {
+                i += 1;
+            }
+        }
+        let rest = code.get(i..).unwrap_or_default();
+        let rest = rest.split(';').next().unwrap_or_default();
+        let body = if rest.starts_with('{') {
+            Some(i + 1)
+        } else {
+            rest.match_indices('=')
+                .find(|&(k, _)| !rest.get(k + 1..).is_some_and(|r| r.starts_with(['>', '='])))
+                .map(|(k, _)| i + k + 1)
+        };
+        out.extend(body.filter(|_| binds));
+    }
+    out
+}
+
 fn binders(code: &str, name: &str) -> Vec<(usize, Scope)> {
     static CASE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"\bcase\s+([^;]*?)=>").expect("the regex is a literal")
     });
+    static GUARD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"\sif\b").expect("the regex is a literal"));
     let n = regex::escape(name);
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let arm = rule(format!(
-        r"(?:^|[^\w.])(?:{n}\s*(?::[^=;(){{}}]*)?|\([^()]*[(,\s]{n}\b[^()]*\)|\({n}\b[^()]*\))\s*=>|\bdef\s+\w+[^=;]*?[(,]\s*(?:implicit\s+|using\s+)?{n}\s*:[^;]*?="
+        r"(?:^|[^\w.])(?:{n}\s*(?::[^=;(){{}},]*)?|\([^()]*[(,\s]{n}\b[^()]*\)|\({n}\b[^()]*\))\s*=>"
     ));
-    let generator = rule(format!(r"(?:^|[^\w.]){n}\s*(?::[^<;]*)?<-"));
+    let generator = rule(format!(r"(?:^|[^\w.]){n}\s*(?::[^<;,()]*)?<-"));
     let block = rule(format!(
         r"\b(?:val|var|given)\s+(?:[^=;]*?[^\w.])?{n}\b[^=;]*=|\bdef\s+{n}\b[^;(]*="
     ));
@@ -67,8 +119,9 @@ fn binders(code: &str, name: &str) -> Vec<(usize, Scope)> {
             .map(|m| (m.end(), Scope::Generator)),
     );
     out.extend(block.find_iter(code).map(|m| (m.end(), Scope::Block)));
+    out.extend(def_bodies(code, name).into_iter().map(|e| (e, Scope::Arm)));
     for c in CASE.captures_iter(code) {
-        let pat = c[1].split(" if ").next().unwrap_or_default();
+        let pat = GUARD.split(&c[1]).next().unwrap_or_default();
         if pattern.is_match(pat) {
             out.push((c.get(0).map_or(0, |m| m.end()), Scope::Arm));
         }
@@ -82,6 +135,35 @@ fn enumerator_head(lines: &[&str], at: usize) -> Option<usize> {
         .rev()
         .take_while(|&k| indent(lines[k]) <= indent(lines[at]))
         .find(|&k| for_.is_match(&blanked(lines[k])))
+}
+
+fn enumerators_open(lines: &[&str], head: usize, at: usize) -> bool {
+    let mut depth = 0i32;
+    for (k, line) in lines.iter().enumerate().take(at).skip(head) {
+        let code = blanked(line);
+        let from = if k == head {
+            code.find("for").unwrap_or_default()
+        } else {
+            0
+        };
+        let t = code.trim_start();
+        if k > head && depth == 0 && (t.starts_with("do") || t.starts_with("yield")) {
+            return false;
+        }
+        for b in code.bytes().skip(from) {
+            match b {
+                b'(' | b'{' | b'[' => depth += 1,
+                b')' | b'}' | b']' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return false;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    true
 }
 
 fn continues(line: &str) -> bool {
@@ -128,8 +210,10 @@ fn unread_above(lines: &[&str], at: usize, name: &str) -> Option<usize> {
         let generator = binders(&code, name)
             .iter()
             .any(|&(_, s)| s == Scope::Generator);
-        let head = enumerator_head(lines, k)
-            .filter(|&h| generator || (h < k && open_for.is_match(&blanked(lines[h]))));
+        let head = enumerator_head(lines, k).filter(|&h| {
+            generator
+                || (h < k && open_for.is_match(&blanked(lines[h])) && enumerators_open(lines, h, k))
+        });
         if (generator || enumerator.is_match(&code))
             && let Some(head) = head
         {
@@ -170,12 +254,15 @@ pub fn scala_rebound(text: &str, line1: usize, before: &str, name: &str, bound: 
         return false;
     };
     let code = blanked(before);
-    let open: Vec<bool> = binders(&code, name)
+    let mut found = binders(&code, name);
+    found.sort_by_key(|&(end, _)| end);
+    found.dedup_by_key(|&mut (end, _)| end);
+    let open: Vec<bool> = found
         .into_iter()
         .map(|(end, scope)| open_after(code.get(end..).unwrap_or_default(), scope))
         .collect();
     if bound.contains(&line1) {
-        return open.is_empty() || open.contains(&false);
+        return open.iter().rposition(|&o| o) != Some(0);
     }
     if open.contains(&true) {
         return true;

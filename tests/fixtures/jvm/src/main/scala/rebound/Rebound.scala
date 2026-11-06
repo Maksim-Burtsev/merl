@@ -75,3 +75,28 @@ class Rebound(val x: Cup):
     x.sip()
     //^ d: src/main/scala/rebound/Cup.scala:4
     for (x <- ms) ()
+  def dflt(x: Mug, n: Int = 0): Unit = x.sip()
+  //                                     ^ d: src/main/scala/rebound/Mug.scala:4
+  def fnParam(x: Mug, g: Int => Int): Unit = x.sip()
+  //                                           ^ d: src/main/scala/rebound/Mug.scala:4
+  def proc(x: Mug) { x.sip() }
+  //                   ^ d: src/main/scala/rebound/Mug.scala:4
+  def genParams(x: Mug, ns: List[Int]): Unit = { for (n <- ns) yield n; x.sip() }
+  //                                                                      ^ d: src/main/scala/rebound/Mug.scala:4
+  def closedCase(x: Mug, o: Any): Unit = { o match { case x: Cup => () }; x.sip() }
+  //                                                                        ^ d: src/main/scala/rebound/Mug.scala:4
+  def lambda(cs: List[Cup]): Unit = { val x = Mug(); cs.foreach { x => x.sip() }; x.sip() }
+  //                                                                     ^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4
+  //                                                                                ^ d: src/main/scala/rebound/Mug.scala:4
+  def forBody(ms: List[Mug]): Unit =
+    var x: Mug = Mug()
+    for {
+      m <- ms
+    } {
+      x = m
+      x.sip()
+      //^ d: src/main/scala/rebound/Mug.scala:4
+    }
+  def guarded(x: Mug, o: Option[Int]): Unit = o match { case Some(n) if(x == null) => x.sip() }
+  //                                                                                    ^ d: src/main/scala/rebound/Mug.scala:4
+

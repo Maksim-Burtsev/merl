@@ -170,7 +170,30 @@ pub fn swift_shadows(line: &str, name: &str) -> bool {
         .is_match(&uncommented(Kind::Swift, line))
 }
 
-pub fn swift_rebound_in_open_block(lead: &str, name: &str) -> bool {
+fn swift_declares(s: &str, name: &str, kept: Option<&str>) -> bool {
+    static LABEL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"([(,])\s*`?\w+`?\s*:").expect("the regex is a literal")
+    });
+    let s = s.trim_start();
+    if !["let ", "var ", "guard "].iter().any(|k| s.starts_with(k)) {
+        return false;
+    }
+    let head = s.split('{').next().unwrap_or(s);
+    let pattern = split_top(Kind::Swift, head, b'=')[0];
+    let same = kept.is_some_and(|t| match super::swift_given(s, name) {
+        Some(super::SwiftGiven::Type(w)) => w == t,
+        Some(super::SwiftGiven::Value(v)) => v.strip_prefix(t).is_some_and(|r| r.starts_with('(')),
+        _ => false,
+    });
+    !same && super::swift_may_bind(&LABEL.replace_all(pattern, "$1"), name)
+}
+
+pub fn swift_rebound_in_open_block(lead: &str, name: &str, binding: Option<&str>) -> bool {
+    let kept = match binding.and_then(|l| super::swift_given(l, name)) {
+        Some(super::SwiftGiven::Type(t)) => Some(t),
+        _ => None,
+    };
+    let kept = kept.as_deref();
     let open = open_braces(lead, lead.len());
     let starts = std::iter::once(0).chain(open.iter().map(|&o| o + 1));
     let ends = open.iter().copied().chain(std::iter::once(lead.len()));
@@ -183,13 +206,7 @@ pub fn swift_rebound_in_open_block(lead: &str, name: &str) -> bool {
         let case = part.trim_start().starts_with("case ") && super::swift_may_bind(part, name);
         let declared = split_top(Kind::Swift, part, b';')
             .split_last()
-            .is_some_and(|(_, done)| {
-                done.iter().any(|s| {
-                    let s = s.trim_start();
-                    ["let ", "var ", "guard "].iter().any(|k| s.starts_with(k))
-                        && super::swift_may_bind(s.split('{').next().unwrap_or(s), name)
-                })
-            });
+            .is_some_and(|(_, done)| done.iter().any(|s| swift_declares(s, name, kept)));
         declared
             || params
             || if i < open.len() {
