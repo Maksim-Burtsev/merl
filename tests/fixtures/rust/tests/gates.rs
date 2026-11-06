@@ -43,7 +43,7 @@ pub fn gate() -> usize {
     match grain()
     {
         Some(held) => held.get(),
-        //                 ^ d: !jump; want tests/gates.rs:11 (#1302)
+        //                 ^ d: tests/gates.rs:11
         None => held.get(),
         //           ^ d: tests/gates.rs:5
     };
@@ -97,4 +97,34 @@ pub fn wrappers() -> usize {
     //                                 ^ d: !jump
     held.get()
     //   ^ d: tests/gates.rs:5
+}
+
+pub fn arms() -> usize {
+    let held: Caps = Caps;
+    let a = match caught() {
+        Ok(held) => held.get(),
+        //               ^ d: tests/gates.rs:11
+        Err(_) => held.get(),
+        //             ^ d: tests/gates.rs:5
+    };
+    let b = match grain() {
+        Ok(held) => held.get(),
+        //               ^ d: !jump
+        _ => 0,
+    };
+    let c = match grain() {
+        Some(held) if held.get() > 0 => held.get(),
+        //                                   ^ d: !jump
+        _ => 0,
+    };
+    let d = match held.get() {
+        0 => match grain() {
+            Some(held) => held.get(),
+            //                 ^ d: tests/gates.rs:11
+            None => held.get(),
+            //           ^ d: tests/gates.rs:5
+        },
+        _ => 0,
+    };
+    a + b + c + d
 }

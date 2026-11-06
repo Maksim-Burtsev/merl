@@ -228,6 +228,59 @@ fn match_arms(lines: &[&str], at: usize) -> Option<Vec<Arm>> {
     None
 }
 
+fn wrapped_pattern<'a>(t: &'a str, name: &str) -> Option<(&'static str, &'a str)> {
+    let (variant, rest) = t.split_once('(')?;
+    let wrapper = match variant.trim_end() {
+        "Some" => "Option",
+        "Ok" => "Result",
+        _ => return None,
+    };
+    let rest = rest.trim_start();
+    let rest = rest.strip_prefix("mut ").unwrap_or(rest);
+    let rest = rest.strip_prefix(name)?.trim_start().strip_prefix(')')?;
+    Some((wrapper, rest.trim_start()))
+}
+
+pub(super) fn arm_hides(line: &str, name: &str, col: usize) -> bool {
+    let t = line.trim_start();
+    wrapped_pattern(t, name)
+        .and_then(|(_, rest)| rest.strip_prefix("=>"))
+        .is_some_and(|body| col >= line.len() - body.len())
+}
+
+fn if_let_scrutinee(lines: &[&str], at: usize, rest: &str) -> Option<String> {
+    let mut expr = rest.trim().to_owned();
+    let mut i = at;
+    loop {
+        if let Some(e) = expr.strip_suffix('{') {
+            return Some(e.trim_end().to_owned());
+        }
+        i += 1;
+        let next = lines.get(i).filter(|_| i <= at + 5)?.trim();
+        if next == "{" {
+            return Some(expr);
+        }
+        expr = format!("{expr} {next}");
+    }
+}
+
+fn match_scrutinee(lines: &[&str], at: usize) -> Option<String> {
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let arm = indent(lines.get(at)?);
+    let i = (0..at)
+        .rev()
+        .take(40)
+        .find(|&i| !lines[i].trim().is_empty() && indent(lines[i]) < arm)?;
+    let mut head = lines[i].trim().strip_suffix('{')?.trim_end();
+    if head.is_empty() {
+        head = lines[i.checked_sub(1)?].trim();
+    }
+    let (before, scrutinee) = head.rsplit_once("match ")?;
+    let before = before.trim_end();
+    (before.is_empty() || before.ends_with('=') || before.ends_with("=>"))
+        .then(|| scrutinee.to_owned())
+}
+
 fn unwrapped(written: &str) -> Option<String> {
     let t = written.trim();
     let open = t.find('<')?;
@@ -691,33 +744,16 @@ impl App {
         name: &str,
     ) -> Option<Typed> {
         let lines: Vec<&str> = text.lines().collect();
-        let t = lines.get(at)?.trim();
-        let t = ["} else if let ", "if let ", "while let "]
+        let line = lines.get(at)?.trim();
+        let header = ["} else if let ", "if let ", "while let "]
             .iter()
-            .find_map(|p| t.strip_prefix(p))?;
-        let (variant, rest) = t.split_once('(')?;
-        let wrapper = match variant.trim_end() {
-            "Some" => "Option",
-            "Ok" => "Result",
+            .find_map(|p| line.strip_prefix(p));
+        let (wrapper, rest) = wrapped_pattern(header.unwrap_or(line), name)?;
+        let expr = match (header, rest.strip_prefix("=>")) {
+            (None, Some(_)) => match_scrutinee(&lines, at)?,
+            (Some(_), None) => if_let_scrutinee(&lines, at, rest.strip_prefix('=')?)?,
             _ => return None,
         };
-        let rest = rest.trim_start();
-        let rest = rest.strip_prefix("mut ").unwrap_or(rest);
-        let rest = rest.strip_prefix(name)?.trim_start().strip_prefix(')')?;
-        let mut expr = rest.trim_start().strip_prefix('=')?.trim().to_owned();
-        let mut i = at;
-        loop {
-            if let Some(e) = expr.strip_suffix('{') {
-                expr = e.trim_end().to_owned();
-                break;
-            }
-            i += 1;
-            let next = lines.get(i).filter(|_| i <= at + 5)?.trim();
-            if next == "{" {
-                break;
-            }
-            expr = format!("{expr} {next}");
-        }
         let w = walk_back(expr.trim())?;
         if w.links.is_empty() && !w.head_call {
             return None;

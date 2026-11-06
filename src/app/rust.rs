@@ -845,6 +845,12 @@ impl App {
             return None;
         }
         let mut bindings = rust_seen(text, line0, name, above);
+        if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
+            && let (Some(c), Some(line)) = (col, lines.get(line0))
+            && chain::arm_hides(line, name, c)
+        {
+            bindings.truncate(1);
+        }
         let own_closure = if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
             && let (Some(c), Some(line)) = (col, lines.get(line0))
             && let Some(header) = search::rust_closure_holds(line, name, c)
