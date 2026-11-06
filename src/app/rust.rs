@@ -3,7 +3,7 @@ mod returns;
 mod sysroot;
 mod used;
 
-use used::registry_src;
+use used::{registry_src, rust_below};
 
 use std::sync::LazyLock;
 
@@ -762,10 +762,11 @@ impl App {
         if let Some(seventh) = chain.get(6) {
             return Err(seventh.clone());
         }
-        let mut typed = self.rust_value_type(here, text, self.line, &chain[0], false);
+        let col = self.word_here(Some(Kind::Rust)).map(|(r, _)| r.start);
+        let mut typed = self.rust_value_type(here, text, self.line, &chain[0], false, col);
         if typed.is_none() {
             self.external_files(Kind::Rust);
-            typed = self.rust_value_type(here, text, self.line, &chain[0], false);
+            typed = self.rust_value_type(here, text, self.line, &chain[0], false, col);
         }
         let Some((mut ty, link)) = typed else {
             if let [name] = chain
@@ -826,6 +827,7 @@ impl App {
         line0: usize,
         name: &str,
         above: bool,
+        col: Option<usize>,
     ) -> Option<(Typed, String)> {
         let lines: Vec<&str> = text.lines().collect();
         if name == "self" {
@@ -837,11 +839,29 @@ impl App {
             let link = format!("self: {}", ty.name);
             return Some((ty, link));
         }
-        let bindings = rust_seen(text, line0, name, above);
+        if let (Some(c), Some(line)) = (col, lines.get(line0))
+            && search::rust_rebound_before(line, name, c)
+        {
+            return None;
+        }
+        let mut bindings = rust_seen(text, line0, name, above);
+        let own_closure = if bindings.first().is_some_and(|b| b.line1 == line0 + 1)
+            && let (Some(c), Some(line)) = (col, lines.get(line0))
+            && let Some(header) = search::rust_closure_holds(line, name, c)
+        {
+            bindings.truncate(1);
+            Some(search::rust_closure_param_type(header, name))
+        } else {
+            None
+        };
         let mut found: Option<(Typed, String)> = None;
         for b in &bindings {
             let at = b.line1 - 1;
-            let Some(holds) = search::rust_holds(&lines, at, name) else {
+            let holds = match &own_closure {
+                Some(written) => written.clone().map(search::RustHolds::Type),
+                None => search::rust_holds(&lines, at, name),
+            };
+            let Some(holds) = holds else {
                 let ty = match self
                     .rust_variant_typed(file, &lines, at, name)
                     .or_else(|| self.rust_for_typed(file, text, at, name))
@@ -1064,7 +1084,7 @@ impl App {
             let tr = PATH.captures(before)?[1].to_owned();
             let arg = ARG.captures(line.get(range.end..)?)?;
             (
-                self.rust_value_type(here, text, self.line, &arg[1], false)?
+                self.rust_value_type(here, text, self.line, &arg[1], false, None)?
                     .0,
                 tr,
                 true,
@@ -1370,23 +1390,6 @@ impl App {
         .filter(|h| !h.text.trim_end().ends_with(';'))
         .collect()
     }
-}
-
-fn rust_below(here: &Path, p: &Path) -> bool {
-    let parent = p.parent().unwrap_or_else(|| Path::new(""));
-    let root_file = p
-        .file_stem()
-        .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
-        || ["tests", "benches", "examples"]
-            .iter()
-            .any(|d| parent.file_name().is_some_and(|n| n == *d))
-        || parent.ends_with("src/bin");
-    let dir = if root_file {
-        parent.to_path_buf()
-    } else {
-        p.with_extension("")
-    };
-    here == p || here.starts_with(dir)
 }
 
 fn rust_receiver_type(text: &str, line0: usize, chain: &[String], before: &str) -> Option<String> {

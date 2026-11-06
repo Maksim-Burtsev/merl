@@ -520,3 +520,20 @@ impl App {
         Some(vec![variant])
     }
 }
+
+pub(super) fn rust_below(here: &Path, p: &Path) -> bool {
+    let parent = p.parent().unwrap_or_else(|| Path::new(""));
+    let root_file = p
+        .file_stem()
+        .is_some_and(|s| s == "lib" || s == "main" || s == "mod" || s == "build")
+        || ["tests", "benches", "examples"]
+            .iter()
+            .any(|d| parent.file_name().is_some_and(|n| n == *d))
+        || parent.ends_with("src/bin");
+    let dir = if root_file {
+        parent.to_path_buf()
+    } else {
+        p.with_extension("")
+    };
+    here == p || here.starts_with(dir)
+}

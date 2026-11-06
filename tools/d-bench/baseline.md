@@ -129,19 +129,24 @@ The rust row with #1302's seventh pass (a `for` variable over a project iterator
 The bash row with #1335's fourth pass (a function every call of which follows `G &&` reads the one assignment `G` runs first, not one followed by `return 1`; bash0077 `ISPC_Api` in `_ISPC_login` jumps to `dns_ispconfig.sh:42`): over `314357d81` with this change, 2026-11-05, release build, `vm.loadavg` { 3.26 4.17 4.41 } before the run.
 The python row with #1339's sixth pass (a standard-library property whose typeshed stub returns `Self` keeps the receiver's type: `existing.parent.mkdir(parents=True)` on a `Path`; python0216): over `eec6d4887` with this change, 2026-11-05, release build, `vm.loadavg` { 2.62 3.48 4.19 } before the run.
 The swift row with #1341's sixth pass (a default in an extension bounded by `where Self: P`, reached through the protocols the class's protocol refines: swift0195 `serializeDownload` on a `JSONResponseSerializer` jumps to `ResponseSerialization.swift:156`): over `04425bb4`, 2026-11-05, release build, `vm.loadavg` { 2.86 3.40 4.08 } before the run.
+The swift row with #1341's eighth pass (a chain of calls led by a value, through a generic method's declared return type: swift0132 `session.download(.get).serializingDecodable(..).response` jumps to `Concurrency.swift:375`): over `7211baa3c` with this change, 2026-11-05, release build, `vm.loadavg` { 2.46 3.12 3.38 } before the run, { 3.55 3.35 3.44 } after.
+The python row with #1339's eighth pass (a call of a name typed `Callable[..., T]` or `Callable[[..], T]` returns `T`: python0142 `cjk_only = index_document(..)` then `cjk_only.pk`, on a fixture parameter typed `Callable[..., Document]`): over `07db2106d` with this change, 2026-11-06, release build, `vm.loadavg` { 9.01 5.93 4.84 } before the run.
+The swift row with #1341's tenth pass (a label in an implicit `.init(` typed by the outer call's parameter of that label: swift0107 `refreshWindow: .init(interval: 30, maximumAttempts: 1)` jumps to `AuthenticationInterceptor.swift:187`): over `07db2106d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.95 4.50 4.62 } before the run.
+The julia and js rows with answers judged for #1375 and #1337 (a Julia type named, not called, answers its declaration: julia0013, julia0029, julia0049, julia0085, julia0087, julia0233; js0366 and js0382 also accept the `ts5.6/buffer.buffer.d.ts:353` the project's TypeScript 4.4.4 reads): over `0a18a2f18`, 2026-11-06, release build, `vm.loadavg` { 4.70 6.22 5.71 } before the run, { 4.01 5.31 5.40 } after. No verdict moved: merl's pickers held both answers.
+The julia row with #1375's fifth pass (a type name that is not called, after `::`, `isa`, `<:`, `>:`, `=>`, `@test_throws` or inside a `T{…}`, whose candidates are one `struct`, `abstract type`, `primitive type` or `const` and that name's methods, lands on the declaration, unless the name is bound anywhere in its top-level block or a `where`/`struct` of the file binds it as a parameter; 21 rows from pickers to direct hits, among them julia0081 `AsTable` and the six judged rows): over `b628e397d` with this change, 2026-11-06, release build, `vm.loadavg` { 2.36 3.53 4.36 } before the run, { 3.01 3.44 4.25 } after.
 The python row with #1339's seventh pass (a member of an outside module's instance, `NAME = Class(...)` bound once, lands on its class's member, an annotation under `if TYPE_CHECKING:` included; python0246 `@pytest.mark.usefixtures`): over `4e8148de5` with this change, 2026-11-05, release build, `vm.loadavg` { 2.41 3.12 3.38 } before the run.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
-| python (paperless-ngx) | 262 | 255 (97%) | 3 (1%) | 0 (0%) | 4 (2%) | 63 | 8 | 16.4 | 167.6 |
+| python (paperless-ngx) | 262 | 255 (97%) | 3 (1%) | 0 (0%) | 4 (2%) | 63 | 8 | 16.3 | 175.3 |
 | ts (outline) | 121 | 116 (96%) | 3 (2%) | 0 (0%) | 2 (2%) | 179 | 3 | 42.5 | 93.7 |
-| js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.6 | 174.9 |
+| js (eslint, uptime-kuma) | 217 | 203 (94%) | 12 (6%) | 0 (0%) | 2 (1%) | 177 | 6 | 32.3 | 171.2 |
 | go (caddy, gitea) | 319 | 313 (98%) | 5 (2%) | 0 (0%) | 1 (0%) | 50 | 0 | 6.5 | 21.0 |
 | rust (ripgrep) | 231 | 231 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 69 | 5 | 6.0 | 52.3 |
 | c (redis) | 251 | 240 (96%) | 11 (4%) | 0 (0%) | 0 (0%) | 19 | 7 | 24.1 | 36.1 |
 | php (koel) | 392 | 353 (90%) | 38 (10%) | 0 (0%) | 1 (0%) | 88 | 3 | 27.3 | 222.2 |
 | cpp (leveldb) | 236 | 219 (93%) | 17 (7%) | 0 (0%) | 0 (0%) | 64 | 8 | 17.2 | 63.7 |
-| swift (Alamofire) | 450 | 438 (97%) | 11 (2%) | 0 (0%) | 1 (0%) | 279 | 7 | 23.7 | 57.6 |
+| swift (Alamofire) | 450 | 440 (98%) | 10 (2%) | 0 (0%) | 0 (0%) | 279 | 7 | 24.0 | 59.6 |
 | java (halo) | 115 | 115 (100%) | 0 (0%) | 0 (0%) | 0 (0%) | 88 | 2 | 75.8 | 157.0 |
 | kotlin (nowinandroid) | 56 | 55 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 95 | 0 | 30.3 | 69.3 |
 | csharp (eShop) | 85 | 82 (96%) | 3 (4%) | 0 (0%) | 0 (0%) | 130 | 1 | 22.2 | 39.1 |
@@ -151,7 +156,7 @@ The python row with #1339's seventh pass (a member of an outside module's instan
 | jenkins (pipeline-library) | 18 | 11 (61%) | 7 (39%) | 0 (0%) | 0 (0%) | 54 | 0 | 57.5 | 90.5 |
 | solidity (openzeppelin-contracts) | 158 | 103 (65%) | 55 (35%) | 0 (0%) | 0 (0%) | 112 | 34 | 7.5 | 9.8 |
 | starlark (rules_go) | 84 | 79 (94%) | 2 (2%) | 0 (0%) | 3 (4%) | 186 | 17 | 4.5 | 7.2 |
-| julia (DataFrames.jl) | 189 | 102 (54%) | 80 (42%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.2 | 29.9 |
+| julia (DataFrames.jl) | 189 | 123 (65%) | 59 (31%) | 0 (0%) | 7 (4%) | 111 | 0 | 20.8 | 33.5 |
 | nix (nix-darwin) | 49 | 39 (80%) | 10 (20%) | 0 (0%) | 0 (0%) | 51 | 0 | 3.1 | 10.9 |
 | css (bootstrap) | 235 | 179 (76%) | 56 (24%) | 0 (0%) | 0 (0%) | 65 | 1 | 3.5 | 26.6 |
 | vue (gitea) | 218 | 123 (56%) | 47 (22%) | 0 (0%) | 48 (22%) | 52 | 2 | 48.2 | 176.3 |

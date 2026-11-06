@@ -2,7 +2,10 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::{Kind, bindings, ruby_last_call, ruby_locals, ruby_receiver_split};
+use super::{
+    Kind, bindings, indent, literal_lines, ruby_assignment, ruby_last_call, ruby_locals,
+    ruby_receiver_split,
+};
 
 pub enum RubyReturns {
     Itself,
@@ -86,7 +89,7 @@ pub fn ruby_assigned_once(text: &str, line1: usize, name: &str) -> Option<(usize
         }
         value.push_str(next.trim());
     }
-    Some((at, value))
+    (!ruby_rebound(text, &value, at, line1, name)).then_some((at, value))
 }
 
 pub fn ruby_constant_alias(name: &str) -> String {
@@ -219,6 +222,112 @@ pub fn ruby_struct_member(line: &str, word: &str) -> bool {
     .is_ok_and(|re| re.is_match(line))
 }
 
+pub struct RubyRebinding {
+    code: Regex,
+    raw: Regex,
+}
+
+impl RubyRebinding {
+    fn new(code: &str, raw: &str) -> Option<Self> {
+        Some(Self {
+            code: Regex::new(code).ok()?,
+            raw: Regex::new(raw).ok()?,
+        })
+    }
+
+    fn local(name: &str) -> Option<Self> {
+        let n = regex::escape(name);
+        Self::new(
+            &format!(
+                r"(?:^|[^@$:.\w]){n}\s*(?:[-+*/%|&^]|\*\*|<<|>>|&&|\|\|)?=(?:$|[^=~>])|^\s*[\w\s,*()]*\b{n}\b[\w\s,*()]*=(?:$|[^=~>])|=>\s*{n}(?:$|[^\w.(\[?!:&])|=>\s*[\[{{(].*\b{n}\b|(?:^|;)\s*in\b.*\b{n}\b|\bin\s*[\[{{(].*\b{n}\b|\bfor\s+[\w\s,]*\b{n}\b|->\s*\(?[^{{]*\b{n}\b|(?:\{{|\bdo)\s*\|[^|]*\b{n}\b[^|]*\||^\s*[\w\s,*()]*\b{n}\b[^|]*\|\s*$"
+            ),
+            &format!(r"\(\?<{n}>|variable_set\s*\(?\s*[:'\x22]{n}\b"),
+        )
+    }
+
+    pub fn ivar(name: &str) -> Option<Self> {
+        let n = regex::escape(name);
+        Self::new(
+            &format!(
+                r"(?:^|[^@\w])@{n}\b\s*(?:[-+*/%|&^]|\*\*|<<|>>|&&|\|\|)?=(?:$|[^=~>])|(?:^|[^@\w])@{n}\b\s*,[^=]*=(?:$|[^=~>])|=>\s*@{n}\b|\bfor\s+[\w\s,@]*@{n}\b|\battr_(?:writer|accessor)\b.*:{n}\b"
+            ),
+            &format!(r"variable_set\s*\(?\s*[:'\x22]@{n}\b"),
+        )
+    }
+
+    pub fn count(&self, line: &str) -> usize {
+        self.code.find_iter(&code_only(line)).count() + self.raw.find_iter(line).count()
+    }
+}
+
+fn code_only(line: &str) -> String {
+    let mut code = vec![b' '; line.len()];
+    for (i, c) in super::code(Kind::Ruby, line) {
+        if c == 0 {
+            break;
+        }
+        code[i] = c;
+    }
+    String::from_utf8_lossy(&code).into_owned()
+}
+
+static DEF: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\bdef\b").expect("the regex is a literal"));
+static CLOSED_BLOCK: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?P<open>\{\s*)\|[^|]*\|(?P<body>[^{}]*\})").expect("the regex is a literal")
+});
+
+fn opens_a_def(lines: &[&str], at: usize, until: usize) -> bool {
+    static ONE_LINE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\bend\s*$|\bdef\s+[\w.?!]+(?:\([^)]*\))?\s*=(?:$|[^=~>])")
+            .expect("the regex is a literal")
+    });
+    static END: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\s*end\b").expect("the regex is a literal"));
+    let code = code_only(lines[at]);
+    DEF.is_match(&code)
+        && !ONE_LINE.is_match(&code)
+        && !lines
+            .get(at + 1..until)
+            .unwrap_or_default()
+            .iter()
+            .any(|l| indent(l) == indent(lines[at]) && END.is_match(l))
+}
+
+pub fn ruby_rebound(text: &str, value: &str, after1: usize, line1: usize, name: &str) -> bool {
+    let Some(re) = RubyRebinding::local(name) else {
+        return true;
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let literal = literal_lines(Kind::Ruby, text);
+    let line = |l1: usize| l1.checked_sub(1).and_then(|i| lines.get(i));
+    let in_a_branch = line(after1)
+        .zip(line(line1))
+        .is_some_and(|(a, c)| indent(a) > indent(c));
+    let assigned = Regex::new(&ruby_assignment(name)).ok();
+    let cursor_value = line(line1).map_or("", |l| {
+        assigned
+            .as_ref()
+            .and_then(|a| a.find(l))
+            .and_then(|m| l.get(m.end()..))
+            .filter(|tail| !tail.contains(';'))
+            .unwrap_or(l)
+    });
+    let until = line1.saturating_sub(1).min(lines.len());
+    re.count(value) > 0
+        || re.count(cursor_value) > 0
+        || DEF.is_match(&code_only(cursor_value))
+        || (after1..until).any(|i| {
+            !literal[i]
+                && (re.count(&CLOSED_BLOCK.replace_all(lines[i], "$open$body")) > 0
+                    || opens_a_def(&lines, i, until))
+        })
+        || in_a_branch
+            && bindings(Kind::Ruby, text, line1, name)
+                .iter()
+                .any(|b| b.line1 != after1)
+}
+
 pub fn ruby_param_type(text: &str, line1: usize, name: &str) -> Option<String> {
     static TAG: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
@@ -237,10 +346,6 @@ pub fn ruby_param_type(text: &str, line1: usize, name: &str) -> Option<String> {
     let piped = Regex::new(&format!(r"\|[^|]*\b{}\b[^|]*\|", regex::escape(name))).ok()?;
     let n = regex::escape(name);
     let splat = Regex::new(&format!(r"[*&]\s*{n}\b")).ok()?;
-    let rebinds = Regex::new(&format!(
-        r"(?:^|[^@$:.\w]){n}\s*(?:[-+*/%|&^]|\*\*|<<|>>|&&|\|\|)?=(?:$|[^=~>])|^\s*[\w\s,*]*\b{n}\b[\w\s,*]*=(?:$|[^=~>])|=>\s*{n}\b|^\s*in\b.*\b{n}\b|\bin\s*[\[{{(].*\b{n}\b|\bfor\s+[\w\s,]*\b{n}\b|->\s*\(?[^{{]*\b{n}\b|\|[^|]*\b{n}\b[^|]*\|"
-    ))
-    .ok()?;
     let indent = head.len() - head.trim_start().len();
     let end = lines[def.line1..]
         .iter()
@@ -254,10 +359,7 @@ pub fn ruby_param_type(text: &str, line1: usize, name: &str) -> Option<String> {
             .get(def.line1 - 1..line1)?
             .iter()
             .any(|l| piped.is_match(l))
-        || lines
-            .get(def.line1..end)?
-            .iter()
-            .any(|l| rebinds.is_match(l))
+        || ruby_rebound(text, "", def.line1, end, name)
     {
         return None;
     }

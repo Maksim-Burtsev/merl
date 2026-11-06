@@ -314,7 +314,7 @@ static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^(?:(?:async\s+)?def|class)\s+(\w+)").expect("the regex is a literal")
 });
 static TUPLE_TARGET: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").expect("the regex is a literal")
+    Regex::new(r"^([\w\s,.*\[\]()]+)\s*=[^=]").expect("the regex is a literal")
 });
 
 struct Rules {
@@ -334,7 +334,7 @@ impl Rules {
             annotated: rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$")),
             assigned: rule(format!(r"^{n}\s*=\s*([^=].*)$")),
             unknown: rule(format!(
-                r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
+                r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+(?:[(\[][\w\s,*]*)?\b{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
             )),
             declared_outside: rule(format!(r"^(global|nonlocal)\s.*\b{n}\b")),
             plain_loop_over_a_name: rule(format!(
@@ -370,7 +370,6 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     let mut out = Vec::new();
     let mut module_only = false;
-    let mut under_global = Vec::new();
     for scope in scopes_innermost_first {
         if module_only && matches!(scope, Scope::Def(_)) {
             continue;
@@ -403,7 +402,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 nested_def_or_class_indent = None;
             }
             if let Some(c) = SCOPE.captures(t) {
-                if &c[1] == name {
+                if &c[1] == name || (i == at && python_header_binds(lines, at, t, &r, name)) {
                     out.push(Binding {
                         line1: i + 1,
                         value: Value::Unknown,
@@ -414,12 +413,13 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             if let Some(c) = r.declared_outside.captures(t) {
                 outside = Some(&c[1] == "global");
-                continue;
             }
             let value = if let Some(c) = r.plain_loop_over_a_name.captures(t) {
                 Some(Value::Element(looped(&c)))
             } else if r.unknown.is_match(t)
-                || (i == at && python_inline(t, name))
+                || (i <= at
+                    && python_inline(t, name)
+                    && (i + 1..=at).all(|k| continued(Kind::Python, lines, k)))
                 || python_case_binds(t, name)
             {
                 Some(Value::Unknown)
@@ -443,10 +443,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
         }
         if let Some(global) = outside {
-            if global && !module_only {
-                under_global = std::mem::take(&mut out);
-            }
-            out.clear();
+            out.retain(|b| b.line1 <= at + 1);
             module_only |= global;
             continue;
         }
@@ -454,7 +451,33 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             break;
         }
     }
-    if out.is_empty() { under_global } else { out }
+    out
+}
+fn python_header_binds(lines: &[&str], at: usize, t: &str, r: &Rules, name: &str) -> bool {
+    let mut params = Vec::new();
+    let body = if DEF.is_match(t) {
+        let open = lines[at].find('(').expect("a def has a parameter list");
+        let Some(g) = group(Kind::Python, lines, at, open) else {
+            return false;
+        };
+        if g.close_line != at {
+            return false;
+        }
+        python_params(lines, at, &g.inner_uncommented, name, &mut params);
+        g.after_close
+    } else {
+        t
+    };
+    !params.is_empty()
+        || code(Kind::Python, body)
+            .find(|&(_, c)| c == b':')
+            .and_then(|(k, _)| body.get(k + 1..))
+            .is_some_and(|rest| {
+                split_top(Kind::Python, rest, b';')
+                    .into_iter()
+                    .map(str::trim)
+                    .any(|s| statement_binds(r, s, name).is_some() || python_inline(s, name))
+            })
 }
 fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     if r.unknown.is_match(s) || r.chained_assignment.is_match(s) {
@@ -466,9 +489,31 @@ fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     } else {
         TUPLE_TARGET
             .captures(s)
-            .filter(|c| c[1].contains(',') && names(&c[1], name))
+            .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())
+            .map(|c| top_level_targets(&c[1]))
+            .filter(|t| t.contains(',') && names(t, name))
             .map(|_| Value::Unknown)
     }
+}
+fn top_level_targets(target: &str) -> String {
+    let mut opened = Vec::new();
+    let mut prev = ' ';
+    target
+        .chars()
+        .map(|c| {
+            if matches!(c, '[' | '(') {
+                opened.push(c == '[' || prev.is_alphanumeric() || matches!(prev, '_' | ')' | ']'));
+            }
+            let shown = !opened.iter().any(|&hidden| hidden);
+            if matches!(c, ']' | ')') {
+                opened.pop();
+            }
+            if !c.is_whitespace() {
+                prev = c;
+            }
+            if shown { c } else { ' ' }
+        })
+        .collect()
 }
 fn python_inline(t: &str, name: &str) -> bool {
     static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

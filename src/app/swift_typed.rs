@@ -283,10 +283,11 @@ impl App {
             let own = search::swift_type_header(lines[around? - 1])?.name;
             return Some(WrittenVia::plain(own));
         }
+        let lead = (file == here && line1 == self.line + 1)
+            .then(|| lines[line1 - 1].get(..self.col))
+            .flatten();
         if name == "0" {
-            let lead = (file == here && line1 == self.line + 1)
-                .then(|| lines[line1 - 1].get(..self.col))
-                .flatten()?;
+            let lead = lead?;
             let Some(each) = search::swift_closure_sequence(lead) else {
                 let call = search::swift_trailing_closure(lead, name)?;
                 return self.swift_closure_value(here, file, text, line1, call, hops);
@@ -306,6 +307,10 @@ impl App {
             return (up.keyword.as_deref() == Some("class")).then(|| WrittenVia::plain(up.name));
         }
         match search::bindings(Kind::Swift, text, line1, name).as_slice() {
+            _ if let Some(call) = lead.and_then(|l| search::swift_param_closure(l, name)) => {
+                self.swift_closure_value(here, file, text, line1, call, hops)
+            }
+            [_] if lead.is_some_and(|l| search::swift_rebound_in_open_block(l, name)) => None,
             [b] => {
                 let line = lines.get(b.line1 - 1)?;
                 match search::swift_given(line, name) {
@@ -328,19 +333,7 @@ impl App {
                     },
                 }
             }
-            [] if file == here
-                && line1 == self.line + 1
-                && search::swift_closure_param(lines[line1 - 1], name, self.col) =>
-            {
-                let call = search::swift_trailing_closure(lines[line1 - 1].get(..self.col)?, name)?;
-                self.swift_closure_value(here, file, text, line1, call, hops)
-            }
-            [] if file == here
-                && line1 == self.line + 1
-                && let Some(value) = lines[line1 - 1]
-                    .get(..self.col)
-                    .and_then(|lead| search::swift_bound_before(lead, name)) =>
-            {
+            [] if let Some(value) = lead.and_then(|l| search::swift_bound_before(l, name)) => {
                 let given = search::SwiftGiven::Value(value);
                 self.swift_given_type(here, file, text, line1, given, hops)
             }
@@ -568,6 +561,53 @@ impl App {
             .collect()
     }
 
+    fn swift_extended_generics(&self, here: &Path, name: &str) -> Option<Vec<String>> {
+        let pattern = search::def_patterns(Kind::Swift, name).join("|");
+        let decls: Vec<Hit> = self
+            .project_definitions(Kind::Swift, here, name, &pattern)
+            .into_iter()
+            .filter(|h| {
+                self.in_code(Kind::Swift, h)
+                    && search::swift_type_header(&h.text)
+                        .is_some_and(|t| t.name == name && t.keyword != "extension")
+            })
+            .collect();
+        if decls.is_empty() {
+            return None;
+        }
+        let mut generics = Vec::new();
+        for h in decls {
+            let text = self.text_of(&h.path)?;
+            let lines: Vec<&str> = text.lines().collect();
+            generics.extend(search::swift_generic_params(&lines, h.line1)?);
+        }
+        Some(generics)
+    }
+
+    pub(super) fn swift_unshadowed_links(
+        &self,
+        text: &str,
+        lead: Option<&str>,
+    ) -> Option<Vec<String>> {
+        let lead = lead?;
+        let links = search::swift_call_links(lead)?;
+        let Some((name, _)) = links[0].split_once('.') else {
+            return Some(links);
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        let line1 = self.line + 1;
+        let unshadowed = match search::bindings(Kind::Swift, text, line1, name).as_slice() {
+            _ if name == "self" => true,
+            [b] if b.line1 < line1 => !lines[b.line1..line1 - 1]
+                .iter()
+                .copied()
+                .chain([lead])
+                .any(|l| search::swift_shadows(l, name)),
+            _ => false,
+        };
+        unshadowed.then_some(links)
+    }
+
     fn swift_given_type(
         &self,
         here: &Path,
@@ -780,7 +820,24 @@ impl App {
         if !decl.text.contains("func ") {
             return None;
         }
-        let returns = search::swift_returns(&self.text_of(&decl.path)?, decl.line1)?;
+        let text = self.text_of(&decl.path)?;
+        let returns = search::swift_returns(&text, decl.line1)?;
+        let head = search::swift_type_name(&returns).unwrap_or_default();
+        let lines: Vec<&str> = text.lines().collect();
+        let literal = search::literal_lines(Kind::Swift, &text);
+        let mut at = decl.line1;
+        while at > 0 {
+            let generics = match search::swift_type_header(lines[at - 1]) {
+                Some(h) if h.keyword == "extension" => {
+                    self.swift_extended_generics(&decl.path, &h.name)?
+                }
+                _ => search::swift_generic_params(&lines, at)?,
+            };
+            if generics.contains(&head) {
+                return None;
+            }
+            at = search::swift_scope(&lines, &literal, at).header_line1;
+        }
         let returns = match (returns.as_str(), owner) {
             ("Self", Some(owner)) => owner,
             _ => returns,

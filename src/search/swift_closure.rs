@@ -1,5 +1,6 @@
 use regex::Regex;
 
+use super::swift::{swift_captures, swift_closure_params_bind};
 use super::{Kind, close_of, code, split_top, swift_func_decl, swift_signature_line, uncommented};
 
 pub fn swift_array_call(e: &str) -> Option<(Vec<String>, bool, String)> {
@@ -98,6 +99,132 @@ pub fn swift_function_inputs(ty: &str) -> Option<Vec<String>> {
             })
             .collect(),
     )
+}
+
+static CLOSURE_HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(
+        r"^\s*(?:\[([^\]]*)\]\s*)?(?:@\w+\s+)?(\([^()]*\)|[\w\s,]*?)\s*(?:async\s+)?(?:throws\s+)?(?:->\s*[^{}]+?)?\s*\bin\s",
+    )
+    .expect("the regex is a literal")
+});
+
+fn open_braces(line: &str, at: usize) -> Vec<usize> {
+    let mut open = Vec::new();
+    for (i, c) in code(Kind::Swift, line).take_while(|&(i, _)| i < at) {
+        match c {
+            b'{' => open.push(i),
+            b'}' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    open
+}
+
+pub fn swift_closure_param(line: &str, name: &str, at: usize) -> bool {
+    open_braces(line, at).iter().any(|&o| {
+        line.get(o + 1..at)
+            .and_then(|s| CLOSURE_HEAD.captures(s))
+            .is_some_and(|c| {
+                swift_closure_params_bind(&c[2], name)
+                    || c.get(1).is_some_and(|l| swift_captures(l.as_str(), name))
+            })
+    })
+}
+
+pub fn swift_param_closure(lead: &str, name: &str) -> Option<(String, String)> {
+    static CALL: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|[^\w.)\]?!])([A-Za-z_][\w.]*)\.([A-Za-z_]\w*)\s*$")
+            .expect("the regex is a literal")
+    });
+    let binds = |o: usize| {
+        lead.get(o + 1..)
+            .and_then(|s| CLOSURE_HEAD.captures(s))
+            .is_some_and(|c| {
+                let params = c[2].trim();
+                (params.starts_with('(')
+                    || params.split(',').all(|p| p.split_whitespace().count() == 1))
+                    && swift_closure_params_bind(params, name)
+            })
+    };
+    let o = open_braces(lead, lead.len())
+        .into_iter()
+        .rev()
+        .find(|&o| binds(o))?;
+    let before = uncommented(Kind::Swift, lead.get(..o)?);
+    let c = CALL.captures(&before)?;
+    Some((c[1].to_owned(), c[2].to_owned()))
+}
+
+pub fn swift_shadows(line: &str, name: &str) -> bool {
+    let n = regex::escape(name);
+    super::swift_may_bind(line, name)
+        || CLOSURE_HEAD
+            .captures(&uncommented(Kind::Swift, line))
+            .is_some_and(|c| swift_closure_params_bind(&c[2], name))
+        || Regex::new(&format!(
+            r"(?:^|[(,])\s*(?:`?\w+`?\s+)?`?{n}`?\s*:\s*[@A-Z(\[]"
+        ))
+        .expect("an escaped name keeps the pattern valid")
+        .is_match(&uncommented(Kind::Swift, line))
+}
+
+pub fn swift_rebound_in_open_block(lead: &str, name: &str) -> bool {
+    let open = open_braces(lead, lead.len());
+    let starts = std::iter::once(0).chain(open.iter().map(|&o| o + 1));
+    let ends = open.iter().copied().chain(std::iter::once(lead.len()));
+    starts.zip(ends).enumerate().any(|(i, (from, to))| {
+        let part = lead.get(from..to).unwrap_or_default();
+        let params = i > 0
+            && CLOSURE_HEAD
+                .captures(part)
+                .is_some_and(|c| swift_closure_params_bind(&c[2], name));
+        let case = part.trim_start().starts_with("case ") && super::swift_may_bind(part, name);
+        params
+            || if i < open.len() {
+                swift_shadows(part, name)
+            } else {
+                case
+            }
+    })
+}
+
+pub fn swift_generic_params(lines: &[&str], line1: usize) -> Option<Vec<String>> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:\bfunc\s+`?[^\s(<]+`?|\binit[?!]?|\bsubscript|\b(?:class|struct|enum|actor|typealias)\s+`?\w+`?)\s*<")
+            .expect("the regex is a literal")
+    });
+    let first = uncommented(Kind::Swift, lines.get(line1.checked_sub(1)?)?);
+    let Some(m) = HEAD.find(&first) else {
+        return Some(Vec::new());
+    };
+    let mut decl = first.get(m.end()..)?.to_owned();
+    let mut more = lines.iter().skip(line1).take(15);
+    loop {
+        let mut depth = 1;
+        let close = decl.char_indices().find(|&(i, c)| {
+            match c {
+                '<' => depth += 1,
+                '>' if !decl.get(..i).is_some_and(|s| s.ends_with('-')) => depth -= 1,
+                _ => {}
+            }
+            depth == 0
+        });
+        if let Some((close, _)) = close {
+            let params = split_top(Kind::Swift, decl.get(..close)?, b',');
+            return Some(
+                params
+                    .iter()
+                    .filter_map(|p| p.split(':').next())
+                    .map(|p| p.trim().trim_start_matches("each ").to_owned())
+                    .filter(|p| !p.is_empty())
+                    .collect(),
+            );
+        }
+        decl.push(' ');
+        decl.push_str(&uncommented(Kind::Swift, more.next()?));
+    }
 }
 
 pub fn swift_bound_before(lead: &str, name: &str) -> Option<String> {

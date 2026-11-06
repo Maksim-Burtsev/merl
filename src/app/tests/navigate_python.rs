@@ -1734,3 +1734,120 @@ fn a_project_class_s_member_only_type_checking_declares_keeps_today_s_answer() {
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_call_of_a_parameter_typed_callable_returns_its_declared_type() {
+    let shapes = "from collections.abc import Callable\n\nfrom app.models import Doc, Other\n\nmade: Callable[..., Doc] = Doc\n\n\ndef plain(make: Callable[..., Doc]) -> None:\n    plain_doc = make(title=\"x\")\n    plain_doc.pk\n\n\ndef reassigned(make: Callable[..., Doc]) -> None:\n    make = Other\n    re_doc = make()\n    re_doc.pk\n\n\ndef lambda_shadow(make: Callable[..., Doc]) -> None:\n    f = lambda make: make().pk\n\n\ndef module_global() -> None:\n    global_doc = made()\n    global_doc.pk\n\n\nif True:\n    made_under: Callable[..., Doc] = Doc\n\n\ndef indented_global() -> None:\n    under_doc = made_under()\n    under_doc.pk\n";
+    let mine = "from app.mine import Callable\nfrom app.models import Doc\n\n\ndef own(make: Callable[..., Doc]) -> None:\n    own_doc = make()\n    own_doc.pk\n";
+    let (dir, mut a) = project_app(
+        "py-callable-param",
+        &[
+            (
+                "app/models.py",
+                "class Doc:\n    pk: int = 0\n\n\nclass Other:\n    pk: str = \"\"\n",
+            ),
+            ("app/shapes.py", shapes),
+            ("app/mine_shapes.py", mine),
+            (
+                "app/other.py",
+                "import app.shapes as shapes\nfrom app.models import Other\n\nshapes.made = lambda: Other()\n",
+            ),
+        ],
+    );
+    d_on(&mut a, "app/shapes.py", "plain_doc.pk");
+    assert_eq!(
+        shown(&mut a),
+        jump("pk \u{2192} Doc.pk (via make() -> Doc)", "app/models.py:2")
+    );
+    for (file, at, why) in [
+        ("app/shapes.py", "re_doc.pk", "the parameter is rebound"),
+        (
+            "app/shapes.py",
+            "make().pk",
+            "a lambda's parameter shadows it",
+        ),
+        (
+            "app/shapes.py",
+            "global_doc.pk",
+            "a module's value another file may store",
+        ),
+        (
+            "app/shapes.py",
+            "under_doc.pk",
+            "a module's value under an `if`",
+        ),
+        (
+            "app/mine_shapes.py",
+            "own_doc.pk",
+            "a `Callable` of the project's own",
+        ),
+    ] {
+        d_on(&mut a, file, at);
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(..)),
+            "{why}: {}",
+            a.message
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_typed_name_rebound_by_a_same_line_scope_a_wrapped_lambda_or_a_nested_target_keeps_the_picker()
+{
+    let shapes = "from app.models import Doc, Tag\n\n\ndef control(d: Doc):\n    d.stamp(0)\n\n\ndef one_line_def(d: Doc):\n    def g(d): return d.stamp(1)\n\n\ndef one_line_class(d: Doc):\n    class K: d = Tag(); x = d.stamp(2)\n\n\ndef wrapped_lambda(d: Doc):\n    g = lambda d: (\n        d.stamp(3))\n\n\ndef with_tuple(d: Doc, stuff):\n    with stuff as (d, e):\n        d.stamp(4)\n\n\ndef nested_tuple(d: Doc):\n    (n, (d, m)) = (1, (Tag(), 2))\n    d.stamp(5)\n\n\ndef under_nonlocal(d: Doc):\n    def g():\n        nonlocal d\n        d = Tag()\n        return d.stamp(6)\n\n\nd = Doc()\n\n\ndef under_global():\n    global d; d = Tag(); d.stamp(7)\n\n\ndef subscript_call(d: Doc, cache, key):\n    cache[key(d, 1)] = 1\n    d.stamp(10)\n\n\ndef subscript_tuple(d: Doc, grid):\n    grid[(d, 1)] = 0\n    d.stamp(11)\n\n\ndef call_attribute(d: Doc, g):\n    g(d, 1).attr = 0\n    d.stamp(12)\n\n\ndef memo_key(d: Doc, memo, i):\n    memo[(d, i)] = i\n    d.stamp(13)\n\n\ndef in_a_comment(d: Doc):\n    # d, e = Tag(), 1\n    d.stamp(14)\n\n\ndef in_a_string(d: Doc):\n    s = \"d, e = Tag(), 1\"\n    d.stamp(15)\n\n\ndef compared(d: Doc, e):\n    ok, n = d == e, 1\n    d.stamp(16)\n\n\ndef keyword(d: Doc, f, e):\n    n, m = f(e, d=1), 1\n    d.stamp(17)\n\n\ndef dict_key(d: Doc, e):\n    m, n = {\"d\": e, d: 1}, 1\n    d.stamp(18)\n\n\ndef attribute_target(d: Doc):\n    d.y, e = Tag(), 1\n    d.stamp(19)\n\n\ndef global_after():\n    global d\n    d.stamp(20)\n    d = Tag()\n\n\ndef nonlocal_after(d: Doc):\n    def g():\n        nonlocal d\n        d.stamp(21)\n        d = Tag()\n";
+    let (dir, mut a) = project_app(
+        "py-rebound",
+        &[
+            (
+                "app/models.py",
+                "class Doc:\n    def stamp(self, n):\n        return n\n\n\nclass Tag:\n    def stamp(self, n):\n        return n\n",
+            ),
+            ("app/shapes.py", shapes),
+        ],
+    );
+    d_on(&mut a, "app/shapes.py", "d.stamp|(0)");
+    assert!(
+        matches!(shown(&mut a), Shown::Jump(_, at) if at == "app/models.py:2"),
+        "{}",
+        a.message
+    );
+    for (n, why) in [
+        (1, "a one-line def's parameter"),
+        (2, "a one-line class body's assignment"),
+        (3, "a lambda's parameter, its body wrapped"),
+        (4, "a parenthesised `with … as` target"),
+        (5, "a nested tuple target"),
+        (6, "an assignment under `nonlocal`"),
+        (7, "an assignment under `global` on its line"),
+    ] {
+        d_on(&mut a, "app/shapes.py", &format!("d.stamp|({n})"));
+        assert!(
+            matches!(shown(&mut a), Shown::Picker(..)),
+            "{why}: {}",
+            a.message
+        );
+    }
+    for (n, why) in [
+        (10, "a call's argument inside a subscript target"),
+        (11, "a tuple inside a subscript target"),
+        (12, "a call's argument before an attribute target"),
+        (13, "a memo key"),
+        (14, "a target in a comment"),
+        (15, "a target in a string"),
+        (16, "`==` in a tuple's value"),
+        (17, "a keyword argument"),
+        (18, "a dict key"),
+        (19, "an attribute target"),
+        (20, "an assignment under `global` after the cursor"),
+        (21, "an assignment under `nonlocal` after the cursor"),
+    ] {
+        d_on(&mut a, "app/shapes.py", &format!("d.stamp|({n})"));
+        assert!(
+            matches!(shown(&mut a), Shown::Jump(_, at) if at == "app/models.py:2"),
+            "{why}: {}",
+            a.message
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}

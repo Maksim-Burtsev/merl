@@ -161,7 +161,7 @@ impl App {
             return Vec::new();
         };
         let what = match owner {
-            search::Owner::Args => "parameter",
+            search::Owner::Args | search::Owner::Implicit(_) => "parameter",
             search::Owner::Object(_) | search::Owner::Typed => "field",
         };
         let mut out: Vec<Candidate> = Vec::new();

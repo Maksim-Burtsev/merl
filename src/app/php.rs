@@ -759,6 +759,31 @@ impl App {
         line0: usize,
         cursor: bool,
     ) -> Option<ProvenClass> {
+        if cursor && search::php_rebound_before(text.lines().nth(line0)?, self.col, name) {
+            return None;
+        }
+        let (found, from) = self.php_variable_bound(here, text, name, line0, cursor)?;
+        let to = if cursor { line0 } else { line0 + 1 };
+        if search::php_rebound_between(text, from, to, name) {
+            return None;
+        }
+        for (at, written) in search::php_narrowed(text, from, line0, name) {
+            let narrowed = self.php_type(here, text, at, &written)?;
+            if (&narrowed.path, narrowed.header0) != (&found.class.path, found.class.header0) {
+                return None;
+            }
+        }
+        Some(found)
+    }
+
+    fn php_variable_bound(
+        &mut self,
+        here: &Path,
+        text: &str,
+        name: &str,
+        line0: usize,
+        cursor: bool,
+    ) -> Option<(ProvenClass, usize)> {
         let lines: Vec<&str> = text.lines().collect();
         let mut found: Option<ProvenClass> = None;
         let bound = search::php_variable(text, line0 + 1, name)?;
@@ -769,6 +794,7 @@ impl App {
             }
             _ => bound,
         };
+        let from = bound.first()?.checked_sub(1)?;
         for b in bound {
             let at = b - 1;
             let statement = lines[at..lines.len().min(at + 20)].join("\n");
@@ -855,7 +881,7 @@ impl App {
                 }
             }
         }
-        found
+        Some((found?, from))
     }
 
     fn php_one_method(&mut self, class: &PhpClass, method: &str) -> Option<Hit> {
