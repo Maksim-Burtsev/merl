@@ -2,6 +2,7 @@ use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
 
+use super::c_block::scope_pos;
 use super::{Binding, Value};
 
 pub(super) static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
@@ -698,21 +699,6 @@ pub(super) fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> 
     }
     out
 }
-pub(super) fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<usize> {
-    let from = *starts.get(line1.checked_sub(1)?)?;
-    let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
-    let is_name = |c: char| c.is_alphanumeric() || c == '_';
-    Some(
-        code.get(from..to)?
-            .match_indices(name)
-            .filter(|(i, _)| {
-                code.get(..from + i).is_some_and(|h| !h.ends_with(is_name))
-                    && (code.get(from + i + name.len()..)).is_some_and(|r| !r.starts_with(is_name))
-            })
-            .last()
-            .map_or(to, |(i, _)| from + i),
-    )
-}
 pub fn c_bindings(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<Binding> {
     c_bindings_at(text, line1, col, name)
         .into_iter()
@@ -725,7 +711,7 @@ pub fn c_bindings(text: &str, line1: usize, col: Option<usize>, name: &str) -> V
 pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<CPlace> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let Some(pos) = scope_pos(&code, &starts, line1, name) else {
+    let Some(pos) = scope_pos(&code, &starts, line1, col, name) else {
         return Vec::new();
     };
     let member = col.is_some_and(|c| {
@@ -820,7 +806,7 @@ fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
 pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
     let code = c_code(text);
     let starts = line_starts(&code);
-    scope_pos(&code, &starts, line1, name).is_some_and(|pos| {
+    scope_pos(&code, &starts, line1, None, name).is_some_and(|pos| {
         scopes_inside_out_to_type_or_namespace(&code, pos)
             .iter()
             .any(|s| matches!(s.head, Head::Function { .. } | Head::Lambda { .. }))
@@ -829,7 +815,7 @@ pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
 pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let pos = scope_pos(&code, &starts, line1, name)?;
+    let pos = scope_pos(&code, &starts, line1, None, name)?;
     let (open, name) = scopes_inside_out_to_type_or_namespace(&code, pos)
         .into_iter()
         .find_map(|scope| match scope.head {
@@ -1253,10 +1239,15 @@ pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
             Some(at)
         })
 }
-pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType>, ()> {
+pub fn c_value_type(
+    text: &str,
+    line1: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Result<Option<CType>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let mut at: Vec<usize> = c_bindings_at(text, line1, None, name)
+    let mut at: Vec<usize> = c_bindings_at(text, line1, col, name)
         .into_iter()
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
@@ -1957,9 +1948,12 @@ mod tests {
     fn a_value_type_is_its_one_declaration_in_the_file() {
         let text = "static struct name { int a; } name;\nint f() { return name.a; }\n";
         let open = text.find('{').unwrap();
-        assert_eq!(c_value_type(text, 2, "name"), Ok(Some(CType::Body(open))));
+        assert_eq!(
+            c_value_type(text, 2, None, "name"),
+            Ok(Some(CType::Body(open)))
+        );
         let text = "struct a *x;\nstruct b *x;\nint f() { return x->n; }\n";
-        assert_eq!(c_value_type(text, 3, "x"), Err(()));
-        assert_eq!(c_value_type(text, 3, "y"), Ok(None));
+        assert_eq!(c_value_type(text, 3, None, "x"), Err(()));
+        assert_eq!(c_value_type(text, 3, None, "y"), Ok(None));
     }
 }

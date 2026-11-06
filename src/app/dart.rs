@@ -418,6 +418,7 @@ impl App {
                 scope = s;
                 ty
             }
+            [r] if search::dart_promoted(text, self.line + 1, self.dart_col(), r) => return None,
             [r] => match self.dart_bound(here, text, r, 0) {
                 Some((ty, s)) => {
                     scope = s;
@@ -462,6 +463,11 @@ impl App {
         (!found.is_empty()).then_some(found)
     }
 
+    fn dart_col(&self) -> usize {
+        self.word_here(Some(Kind::Dart))
+            .map_or(self.col, |(range, _)| range.start)
+    }
+
     fn dart_super_param(&self, here: &Path, text: &str, word: &str) -> Option<Candidate> {
         let (range, _) = self.word_here(Some(Kind::Dart))?;
         let at = line_offset(text, self.line + 1) + range.start;
@@ -489,13 +495,21 @@ impl App {
         depth: usize,
     ) -> Option<(search::DartType, PathBuf)> {
         let line_of = |name: &str| {
-            let bindings = search::bindings(Kind::Dart, text, self.line + 1, name);
+            let bindings = search::dart_bindings_seen(text, self.line + 1, self.dart_col(), name);
             let [b] = bindings.as_slice() else {
                 return None;
             };
             text.lines().nth(b.line1 - 1).map(|l| (l, b.line1))
         };
         let (line, line1) = line_of(name)?;
+        let seen = if line1 == self.line + 1 {
+            line.get(..self.dart_col()).unwrap_or(line)
+        } else {
+            line
+        };
+        if search::dart_binders(seen, name) > 1 {
+            return None;
+        }
         let next: usize = text.split_inclusive('\n').take(line1).map(str::len).sum();
         if let Some(ty) = search::dart_typed(line, text.get(next..)?, name) {
             let ty = search::dart_type_bound(line, &ty).unwrap_or(ty);
@@ -829,7 +843,7 @@ impl App {
     }
 
     fn dart_field_row(&self, here: &Path, text: &str, field: &str) -> Option<Candidate> {
-        if !search::bindings(Kind::Dart, text, self.line + 1, field).is_empty() {
+        if !search::dart_bindings_seen(text, self.line + 1, self.dart_col(), field).is_empty() {
             return None;
         }
         let class = search::dart_this_super(text, self.line, false)?.class;
