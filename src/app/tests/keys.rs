@@ -316,6 +316,46 @@ fn readme_documents_every_key() {
 }
 
 #[test]
+fn the_site_lists_every_key_and_maps_each_to_its_row() {
+    let js = include_str!("../../../web/site/parts/keys.js");
+    let mut list = String::from("\nconst KEYS = [\n");
+    for (key, action, g) in KEYS {
+        _ = writeln!(list, "  [{key:?}, {action:?}, {g:?}],");
+    }
+    list += "];\n";
+    assert!(
+        js.contains(&list),
+        "web/site/parts/keys.js should list every key as{list}"
+    );
+    let map = js
+        .split("\nconst MAP = {\n")
+        .nth(1)
+        .and_then(|m| m.split("\n};\n").next())
+        .expect("keys.js has a MAP");
+    let entry = Regex::new(r#"\["[^"]*", (?:"([^"]*)"|null), "[^"]*"\]"#).unwrap();
+    let mapped: Vec<&str> = entry
+        .captures_iter(map)
+        .filter_map(|c| c.get(1))
+        .map(|m| m.as_str())
+        .collect();
+    for row in &mapped {
+        assert!(
+            KEYS.iter().any(|(k, _, _)| k == row),
+            "the site's key map points at {row:?}, which is not a row of KEYS"
+        );
+    }
+    for (key, _, _) in KEYS {
+        let in_a_mode = key
+            .split_once(": ")
+            .is_some_and(|(m, _)| !m.is_empty() && m.chars().all(char::is_alphabetic));
+        assert!(
+            in_a_mode || mapped.contains(key),
+            "the site's key map has no key for {key:?}"
+        );
+    }
+}
+
+#[test]
 fn every_group_of_keys_is_one_run() {
     let mut runs: Vec<&str> = Vec::new();
     for (_, _, g) in KEYS {
