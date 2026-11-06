@@ -356,6 +356,7 @@ enum Role {
     Destructure,
     Letfn,
     Arity,
+    Method,
     Literals,
     Rule,
     Pattern,
@@ -417,6 +418,8 @@ const LETS: &[&str] = &[
     "if-let*",
     "and-let*",
     "pcase-let*",
+    "when-let",
+    "if-let",
 ];
 const SEQUENTIAL: &[&str] = &[
     "let*",
@@ -425,9 +428,19 @@ const SEQUENTIAL: &[&str] = &[
     "if-let*",
     "and-let*",
     "pcase-let*",
+    "when-let",
+    "if-let",
 ];
 const RECURSIVE: &[&str] = &["letrec", "letrec*", "letrec-values", "labels", "cl-labels"];
-const TESTS: &[&str] = &["when-let*", "if-let*", "and-let*"];
+const TESTS: &[&str] = &["when-let*", "if-let*", "and-let*", "when-let", "if-let"];
+const METHODS: &[&str] = &[
+    "reify",
+    "deftype",
+    "defrecord",
+    "extend-type",
+    "extend-protocol",
+    "proxy",
+];
 const LAMBDAS: &[&str] = &[
     "lambda",
     "opt-lambda",
@@ -462,6 +475,10 @@ const DEFINES: &[&str] = &[
     "define/private",
     "define/override",
 ];
+
+fn racket_for(h: &str) -> bool {
+    ["for", "for*"].contains(&h) || h.starts_with("for/") || h.starts_with("for*/")
+}
 
 fn binds(atom: &str) -> bool {
     !atom.starts_with([':', '&', '"', '#']) && atom != "."
@@ -523,7 +540,7 @@ fn open_frame<'a>(
         None => false,
     };
     let scope = match (role, stack.last()) {
-        (Role::Plain | Role::Arity | Role::Rule, _) | (_, None) => {
+        (Role::Plain | Role::Arity | Role::Method | Role::Rule, _) | (_, None) => {
             scopes.push((pos, None));
             scopes.len() - 1
         }
@@ -561,6 +578,24 @@ fn atom<'a>(
         _ => None,
     };
     let pending = stack.last().is_some_and(|f| f.entry.is_some());
+    let body = match &*stack {
+        _ if kind != Kind::Scheme || stack.iter().any(|f| f.role == Role::Rule) => None,
+        [.., o, d]
+            if d.idx == 1
+                && d.role == Role::Plain
+                && d.head.is_some_and(|h| DEFINES.contains(&h)) =>
+        {
+            Some(o.scope)
+        }
+        [.., o, d, p]
+            if d.idx == 1
+                && ((p.role == Role::Define && p.idx == 0)
+                    || (p.role == Role::Params && d.head == Some("define-values"))) =>
+        {
+            Some(o.scope)
+        }
+        _ => None,
+    };
     let Some(f) = stack.last_mut() else {
         return false;
     };
@@ -568,20 +603,31 @@ fn atom<'a>(
         f.head = Some(a);
     }
     let head = f.head.unwrap_or("");
-    let looping = kind == Kind::CommonLisp
-        && f.role == Role::Plain
+    let looping = f.role == Role::Plain
         && f.idx > 0
-        && head.eq_ignore_ascii_case("loop");
+        && match kind {
+            Kind::CommonLisp => head.eq_ignore_ascii_case("loop"),
+            Kind::EmacsLisp => head == "cl-loop",
+            _ => false,
+        };
     let named = kind == Kind::Scheme && f.role == Role::Plain && f.idx == 1 && head == "let";
-    let bound = match f.role {
-        Role::Pairs => f.idx.is_multiple_of(2),
-        Role::Entries => !f.tests,
-        Role::Params | Role::Destructure => true,
-        Role::Define | Role::Pattern => f.idx >= 1,
-        Role::First => f.idx == 0,
-        Role::Plain => (looping && f.loop_var) || named,
-        _ => false,
-    };
+    let own = f.role == Role::Plain
+        && match kind {
+            Kind::Clojure => f.idx == 2 && ["as->", "catch"].contains(&head),
+            Kind::Scheme => f.idx == 1 && head == "lambda",
+            Kind::EmacsLisp => f.idx == 1 && head == "condition-case",
+            _ => false,
+        };
+    let bound = body.is_some()
+        || match f.role {
+            Role::Pairs => f.idx.is_multiple_of(2),
+            Role::Entries => !f.tests,
+            Role::Params | Role::Destructure => true,
+            Role::Define | Role::Pattern => f.idx >= 1,
+            Role::First | Role::Arity => f.idx == 0,
+            Role::Plain => (looping && f.loop_var) || named || own,
+            _ => false,
+        };
     let same = match kind {
         Kind::CommonLisp => a.eq_ignore_ascii_case(name),
         _ => a == name,
@@ -589,14 +635,20 @@ fn atom<'a>(
     let literal = f.role == Role::Literals && same;
     if bound && !f.literal && binds(a) && same {
         let visible = match (f.recursive, pending) {
+            _ if own && head == "condition-case" => usize::MAX,
             (true, _) => 0,
             (false, true) => usize::MAX,
             (false, false) => pos,
         };
-        found.push((f.scope, pos, visible));
+        found.push((body.unwrap_or(f.scope), pos, visible));
     }
     if looping {
         f.loop_var = !f.loop_var && LOOP_VARS.iter().any(|k| k.eq_ignore_ascii_case(a));
+    }
+    match f.role {
+        Role::Pairs => f.loop_var = f.idx.is_multiple_of(2) && a == ":let",
+        Role::Entries => f.loop_var = a.starts_with(':'),
+        _ => {}
     }
     f.named |= named;
     if let Some(scope) = class.filter(|_| f.idx == 0 && CLAUSES.contains(&a)) {
@@ -652,7 +704,12 @@ pub(super) fn lisp_bindings(
                 let generic = f.role == Role::Params
                     && (stack.last().and_then(|p| p.head))
                         .is_some_and(|h| GENERICS.contains(&h.to_ascii_lowercase().as_str()));
-                if generic || matches!(f.role, Role::Plain | Role::Arity | Role::Rule) {
+                if generic
+                    || matches!(
+                        f.role,
+                        Role::Plain | Role::Arity | Role::Method | Role::Rule
+                    )
+                {
                     scopes[f.scope].1.get_or_insert(pos);
                 }
                 if let Some(from) = f.entry.filter(|_| f.tests && f.idx < 2) {
@@ -660,6 +717,28 @@ pub(super) fn lisp_bindings(
                 }
                 if let Some(from) = f.entry.filter(|_| f.role == Role::First) {
                     for e in found[from..].iter_mut().filter(|e| e.2 == usize::MAX) {
+                        e.2 = pos;
+                    }
+                }
+                if let Some(p) = stack.last().filter(|p| {
+                    p.idx == 2
+                        && p.head
+                            .is_some_and(|h| ["if-let", "if-let*", "if-some"].contains(&h))
+                }) {
+                    scopes.push((scopes[p.scope].0, Some(pos)));
+                    let until = scopes.len() - 1;
+                    for e in found.iter_mut().filter(|e| e.0 == p.scope) {
+                        e.0 = until;
+                    }
+                }
+                if let Some(p) = stack
+                    .last()
+                    .filter(|p| p.idx == 2 && p.head == Some("condition-case"))
+                {
+                    for e in found
+                        .iter_mut()
+                        .filter(|e| e.0 == p.scope && e.2 == usize::MAX)
+                    {
                         e.2 = pos;
                     }
                 }
@@ -695,6 +774,14 @@ pub(super) fn lisp_bindings(
 fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
     let h = p.head.unwrap_or("");
     match p.role {
+        Role::Pairs | Role::Entries if p.loop_var => {
+            p.loop_var = false;
+            return if p.role == Role::Pairs {
+                Role::Pairs
+            } else {
+                Role::Plain
+            };
+        }
         Role::Pairs if p.idx.is_multiple_of(2) => return Role::Destructure,
         Role::Entries | Role::Letfn => return Role::First,
         Role::First if p.values && p.idx == 0 => return Role::Destructure,
@@ -702,7 +789,8 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         Role::Params | Role::Define | Role::Destructure | Role::Pattern => {
             return Role::Destructure;
         }
-        Role::Arity if p.idx == 0 && c == b'[' => return Role::Params,
+        Role::Arity if p.idx == 0 && (c == b'[' || !clojure) => return Role::Params,
+        Role::Method if p.idx == 1 && (c == b'[' || !clojure) => return Role::Params,
         Role::Rule if p.idx == 0 => return Role::Pattern,
         Role::Plain => {}
         _ => return Role::Plain,
@@ -717,6 +805,13 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         }
         if c == b'[' && p.idx == 1 && h == "letfn" {
             return Role::Letfn;
+        }
+        if METHODS.contains(&h) && p.idx >= 1 {
+            match c {
+                b'(' => return Role::Method,
+                b'[' if p.idx == 2 && h.starts_with("def") => return Role::Params,
+                _ => {}
+            }
         }
         if ["defn", "defn-", "defmacro", "fn"].contains(&h) && p.idx >= 1 && !p.params {
             match c {
@@ -737,14 +832,20 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
             Role::Rule
         };
     }
+    if h == "case-lambda" && p.idx >= 1 {
+        return Role::Arity;
+    }
     if c != b'(' {
         return Role::Plain;
     }
     let h = h.to_ascii_lowercase();
     let h = h.as_str();
     match p.idx {
-        1 if LETS.contains(&h) => Role::Entries,
+        1 if LETS.contains(&h) || racket_for(h) => Role::Entries,
         2 if h == "let" && p.named => Role::Entries,
+        2 if racket_for(h) && h.contains("/fold") => Role::Entries,
+        1 if h == "define-values" => Role::Params,
+        n if n >= 2 && h == "handler-case" => Role::Method,
         1 if LAMBDAS.contains(&h) => Role::Params,
         1 if LOOPS.contains(&h) => Role::First,
         1 if DEFINES.contains(&h) => Role::Define,
