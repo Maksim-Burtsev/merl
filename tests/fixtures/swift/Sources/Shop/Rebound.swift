@@ -152,3 +152,20 @@ func locals(maybe: Ember?) {
 }
 
 func kindle() throws {}
+
+func strings(torch: Torch) {
+    let s = "var \(torch)"; _ = torch.flare() + s.count
+    //                                ^ d: Sources/Shop/Rebound.swift:4
+    let note = "let go of torch"; _ = torch.flare() + note.count
+    //                                      ^ d: Sources/Shop/Rebound.swift:4
+}
+
+func labels(torch: Torch, t: (torch: Int, b: Int)) {
+    let (torch: a, b: b) = t; _ = torch.flare() + a + b
+    //                                  ^ d: Sources/Shop/Rebound.swift:4
+}
+
+func sameType(torch: Torch) {
+    let torch = Torch(); _ = torch.flare()
+    //                             ^ d: Sources/Shop/Rebound.swift:4
+}
