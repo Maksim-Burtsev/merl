@@ -683,6 +683,59 @@ impl App {
         self.rust_std_item(got)
     }
 
+    pub(super) fn rust_if_let_typed(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<Typed> {
+        let lines: Vec<&str> = text.lines().collect();
+        let t = lines.get(at)?.trim();
+        let t = ["} else if let ", "if let ", "while let "]
+            .iter()
+            .find_map(|p| t.strip_prefix(p))?;
+        let (variant, rest) = t.split_once('(')?;
+        let wrapper = match variant.trim_end() {
+            "Some" => "Option",
+            "Ok" => "Result",
+            _ => return None,
+        };
+        let rest = rest.trim_start();
+        let rest = rest.strip_prefix("mut ").unwrap_or(rest);
+        let rest = rest.strip_prefix(name)?.trim_start().strip_prefix(')')?;
+        let mut expr = rest.trim_start().strip_prefix('=')?.trim().to_owned();
+        let mut i = at;
+        loop {
+            if let Some(e) = expr.strip_suffix('{') {
+                expr = e.trim_end().to_owned();
+                break;
+            }
+            i += 1;
+            let next = lines.get(i).filter(|_| i <= at + 5)?.trim();
+            if next == "{" {
+                break;
+            }
+            expr = format!("{expr} {next}");
+        }
+        let w = walk_back(expr.trim())?;
+        if w.links.is_empty() && !w.head_call {
+            return None;
+        }
+        let Got::Written {
+            file,
+            written,
+            line0,
+        } = self.rust_walked_got(file, text, at, name, false, &w)?
+        else {
+            return None;
+        };
+        if rust_bare_type(&written).as_deref() != Some(wrapper) {
+            return None;
+        }
+        self.rust_resolve(&file, &unwrapped(&written)?, line0)
+    }
+
     pub(super) fn rust_for_typed(
         &self,
         file: &Path,

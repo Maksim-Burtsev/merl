@@ -22,18 +22,18 @@ pub fn gate() -> usize {
     if let Some(held) = grain()
     {
         held.get();
-        //   ^ d: !jump; want tests/gates.rs:11 (#1302)
+        //   ^ d: tests/gates.rs:11
     }
     if let Some(held) =
         grain()
     {
         held.get();
-        //   ^ d: !jump; want tests/gates.rs:11 (#1302)
+        //   ^ d: tests/gates.rs:11
     }
     while let Some(held) = grain()
     {
         held.get();
-        //   ^ d: !jump; want tests/gates.rs:11 (#1302)
+        //   ^ d: tests/gates.rs:11
     }
     if held.get() > 0
     {
@@ -64,6 +64,37 @@ pub fn gate() -> usize {
         held.get();
         //   ^ d: tests/gates.rs:5
     }
+    held.get()
+    //   ^ d: tests/gates.rs:5
+}
+
+fn caught() -> Result<Grain, Caps> {
+    Ok(Grain)
+}
+
+pub fn wrappers() -> usize {
+    let held: Caps = Caps;
+    if let Ok(held) = caught() {
+        held.get();
+        //   ^ d: tests/gates.rs:11
+    }
+    if let Ok(held) = grain()
+    {
+        held.get();
+        //   ^ d: !jump
+    }
+    if let Some(held) = caught()
+    {
+        held.get();
+        //   ^ d: !jump
+    }
+    if let Some(held) = grain() && held.get() > 0
+    {
+        held.get();
+        //   ^ d: !jump
+    }
+    if let Some(held) = grain() { held.get(); }
+    //                                 ^ d: !jump
     held.get()
     //   ^ d: tests/gates.rs:5
 }

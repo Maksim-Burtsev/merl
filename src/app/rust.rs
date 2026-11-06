@@ -864,6 +864,7 @@ impl App {
             let Some(holds) = holds else {
                 let ty = match self
                     .rust_variant_typed(file, &lines, at, name)
+                    .or_else(|| self.rust_if_let_typed(file, text, at, name))
                     .or_else(|| self.rust_for_typed(file, text, at, name))
                     .or_else(|| self.rust_closure_param(file, text, at, name))
                 {
