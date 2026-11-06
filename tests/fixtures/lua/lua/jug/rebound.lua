@@ -1,6 +1,6 @@
--- Rebound names (#1393): a name bound again on the cursor's own line, before the cursor, by a
--- parameter, a loop variable, a `local` after `;` or a reassignment, is not the outer binding;
--- the control rows keep master's answer on a plain read, a closed block, a comment and a string.
+-- Rebound names (#1393): a name bound again before the cursor (a parameter, also over two lines, a
+-- loop variable, a `local` after `;` or a reassignment, on its line or the lines above) is not the
+-- outer binding; controls keep master's answer on a plain read, closed blocks, comments, strings.
 local Flask = {}
 Flask.__index = Flask
 function Flask.new() return setmetatable({}, Flask) end
@@ -114,4 +114,85 @@ local function plain_read_later()
   return flask:glug()
   --           ^ d: lua/jug/rebound.lua:7
   --     ^ d: lua/jug/rebound.lua:13
+end
+
+local function local_on_the_line_above()
+  print(flask:glug()); local flask = Jug.new()
+  return flask:glug()
+  --           ^ d: picker lua/jug/rebound.lua:7, lua/jug/rebound.lua:11
+  --     ^ d: lua/jug/rebound.lua:120
+end
+
+local function reassigned_above()
+  local flask = Flask.new()
+  flask = Jug.new()
+  return flask:glug()
+  --           ^ d: picker lua/jug/rebound.lua:7, lua/jug/rebound.lua:11
+  --     ^ d: lua/jug/rebound.lua:127
+end
+
+local function top_level_reassigned_above()
+  flask = Jug.new()
+  return flask:glug()
+  --           ^ d: picker lua/jug/rebound.lua:7, lua/jug/rebound.lua:11
+  --     ^ d: lua/jug/rebound.lua:13
+end
+
+local function params_over_two_lines(jugs)
+  local flask = Flask.new()
+  each(jugs, function(x,
+      flask)
+    return flask:glug()
+    --     ^ d: lua/jug/rebound.lua:144
+  end)
+end
+
+local function kept_by_or()
+  local flask = Flask.new()
+  flask = flask or Flask.new()
+  return flask:glug()
+  --           ^ d: lua/jug/rebound.lua:7
+end
+
+local function closed_on_the_line_above()
+  if true then local flask = Jug.new() end
+  repeat local flask = Jug.new() until flask
+  local f = function(flask) return flask end
+  return flask:glug()
+  --           ^ d: lua/jug/rebound.lua:7
+  --     ^ d: lua/jug/rebound.lua:13
+end
+
+local function block_opened_on_the_line_above()
+  if true then local flask = Jug.new()
+    print(flask)
+  end
+  return flask:glug()
+  --           ^ d: lua/jug/rebound.lua:7
+  --     ^ d: lua/jug/rebound.lua:13
+end
+
+local function table_field()
+  local t = {
+    flask = Jug.new(),
+    n = flask:glug(),
+    --        ^ d: lua/jug/rebound.lua:7
+    --  ^ d: lua/jug/rebound.lua:13
+  }
+end
+
+local function split_params_closed(jugs)
+  local flask = Flask.new()
+  each(jugs, function(x,
+      flask)
+    return flask:glug()
+    --           ^ d: picker lua/jug/rebound.lua:7, lua/jug/rebound.lua:11
+  end)
+  each(jugs, function(x,
+      flask) return 1 end)
+  local s = "x; local flask = 1"
+  -- x(); local flask = Jug.new()
+  return flask:glug()
+  --           ^ d: lua/jug/rebound.lua:7
+  --     ^ d: lua/jug/rebound.lua:185
 end

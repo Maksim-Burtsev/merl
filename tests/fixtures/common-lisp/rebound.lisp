@@ -15,3 +15,6 @@
 ;                                      ^ d: rebound.lisp:14
 (defun quiet () (symbol-macrolet ((tally 1)) tally) "tally" (tally))
 ;                                                            ^ d: rebound.lisp:1
+(defun handle (x) (handler-case (tally) (error (tally) tally)))
+;                                ^ d: rebound.lisp:1
+;                                                      ^ d: rebound.lisp:18
