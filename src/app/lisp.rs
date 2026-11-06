@@ -28,6 +28,11 @@ impl App {
     ) -> Vec<usize> {
         let found = if search::lisp(kind) && bare && line == self.line + 1 {
             search::lisp_bindings_at(kind, text, line, col, name)
+        } else if let Some(l) = (kind == Kind::Julia && line == self.line + 1)
+            .then(|| search::julia_comprehension_below(text, line, col, name))
+            .flatten()
+        {
+            return vec![l];
         } else if kind == Kind::C && line == self.line + 1 {
             search::c_bindings(text, line, Some(col), name)
         } else if line == self.line + 1
