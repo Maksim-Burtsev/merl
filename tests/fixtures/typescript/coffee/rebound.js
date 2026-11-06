@@ -20,3 +20,21 @@ export function hoistedInASwitch(n) {
   return u.siphon();
   //       ^ d: tea/urn.ts:8
 }
+
+/** @param {Urn} u */
+export function hoistedBelowAParameter(u) {
+  u.siphon();
+  //^ d: tea/urn.ts:2
+  if (!u) {
+    var u = new Flask();
+  }
+}
+
+export function hoistedBelowAnAssignment() {
+  var u = new Urn();
+  u.siphon();
+  //^ d: tea/urn.ts:2
+  for (const n of [1]) {
+    var u = new Flask();
+  }
+}

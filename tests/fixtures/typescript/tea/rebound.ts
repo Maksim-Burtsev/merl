@@ -46,3 +46,27 @@ export function varInAString() {
   return u.siphon() + s;
   //       ^ d: tea/urn.ts:2
 }
+
+export function controls(u: Urn) {
+  if (u) { const u = new Flask(); u.siphon(); } u.siphon();
+  //                                ^ d: picker tea/urn.ts:2, tea/urn.ts:8
+  //                                              ^ d: tea/urn.ts:2
+  u.siphon(); { const u = new Flask(); u.siphon(); }
+  //^ d: tea/urn.ts:2
+  //                                     ^ d: picker tea/urn.ts:2, tea/urn.ts:8
+  u.siphon(); [1].forEach(() => { let u = new Flask(); return u; });
+  //^ d: tea/urn.ts:2
+  u.siphon(); // const u = new Flask(); u.siphon();
+  //^ d: tea/urn.ts:2
+  const s = "const u = 1; u.siphon()"; u.siphon();
+  //                                     ^ d: tea/urn.ts:2
+  const same = u == box.u; u.siphon();
+  //                         ^ d: tea/urn.ts:2
+  const o = { u: 1, w: u }; u.siphon();
+  //                          ^ d: tea/urn.ts:2
+  box.u = new Flask(); u.siphon();
+  //                     ^ d: tea/urn.ts:2
+  for (const n of [1]) { const u = new Flask(); u.siphon(); } u.siphon();
+  //                                                            ^ d: tea/urn.ts:2
+  return [s, same, o];
+}

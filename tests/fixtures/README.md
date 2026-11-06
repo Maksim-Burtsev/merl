@@ -228,6 +228,10 @@ before `$pot->pour()` (#1382): a second statement on the line, `$cup = $pot = ne
 `use (&$pot)`, `extract()`, `${'pot'}`, `preg_match`'s out-parameter, `['pot' => $pot] =` and a
 `foreach` header wrapped over lines each keep a picker holding `Teapot::pour`, while the
 assignment's own right side, `instanceof Kettle` and a closure's `use ($pot)` keep `Kettle`.
+So do the plain reads of `plainReads` (#1384's review): `$pot` in `str_replace`'s or
+`preg_match`'s subject, `$m & $pot->lid`, a comment, a string, `==`, a named argument, an array
+key or value, `$pot->lid = …` and a rebinding after the use; `str_replace`'s count slot and
+`$alias = &$pot` keep the picker.
 `lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
@@ -307,6 +311,9 @@ project's `Query.And` wins over `Filter.And`. `go/shop/rebound.go` (#1380) rebin
 to a `Coupon` earlier on the cursor's line (an `if` and a `for` header, a block's `:=` and `var`,
 a type switch, a `select` case), which stays a picker, and in a `switch` init over several lines,
 which lands on `Coupon.Rate`; `t.Rate()` on the right of its own redeclaration stays `Tariff`'s.
+`ReboundControls` keeps `Tariff`'s jump where the rebinding does not reach the use (#1384's
+review): a block closed earlier on the line, a declaration after the use, the name in a comment
+or a string, `==`, a struct field key and `t.Base = …`.
 `csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
@@ -668,7 +675,11 @@ whose member is "not installed", never "builtin".
 declaring `siphon` (#1337): earlier on the cursor's line (a destructuring and a `let` in a block
 on one line, a `const` before a `return`), which stays a picker, and by a `var` hoisted from a
 block, a `switch` case or below the use, which lands on `Flask.siphon`. A `var` of a nested
-function, of a callback on one line and in a string hoists nothing.
+function, of a callback on one line and in a string hoists nothing. `controls` keeps `Urn`'s
+jump where the rebinding does not reach the use (#1384's review): a block closed earlier on the
+line, a block or a callback opened after the use, the name in a comment or a string, `==`, an
+object key, `box.u = …` and a `for` body closed before the use; in `coffee/rebound.js` a `var`
+below the use of a parameter, or of a `var` already assigned above, keeps the jump too.
 
 `typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
 `@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,

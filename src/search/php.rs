@@ -1202,12 +1202,15 @@ fn php_rebinds(name: &str) -> [Regex; 11] {
             r"(?:^|[^\w$])(?:list\s*\(|\[)(?:[^;=]|=>)*\${n}\b(?:[^;=]|=>)*[\])]\s*=(?:[^=>]|$)"
         ),
         format!(r"(?:^|[^\w$:>])\${n}\s*(?:\?\?|\*\*|<<|>>|[-+*/.%|&^])="),
-        format!(r"(?:^|[^&])&\s*\${n}\b"),
+        format!(r"(?:[=(,\[]|=>|\bas)\s*&\s*\${n}\b"),
         format!(r"\bunset\s*\([^)]*\${n}\b"),
         r"\bextract\s*\(|\$\$|\$\{".to_owned(),
-        format!(
-            r"\b(?:preg_match(?:_all)?|preg_replace(?:_callback)?|str_i?replace|(?:mb_)?parse_str|settype|exec|similar_text)\s*\([^;]*\${n}\b"
-        ),
+        {
+            let arg = r"(?:[^,;()\[\]]|\([^()]*\)|\[[^\[\]]*\])*";
+            format!(
+                r"(?:^|[^\w$>:])(?:(?:preg_match(?:_all)?|similar_text)\s*\((?:{arg},){{2}}|preg_replace(?:_callback)?\s*\((?:{arg},){{4}}|str_i?replace\s*\((?:{arg},){{3}}|(?:mb_)?parse_str\s*\({arg},|settype\s*\(|exec\s*\({arg},(?:{arg},)?)\s*&?\s*\${n}\s*(?:[,)]|$)"
+            )
+        },
         format!(r"(?:^|[^\w$:>])\${n}\s+instanceof\s+([\w\\]+)"),
     ]
     .map(|p| Regex::new(&p).expect("an escaped name keeps the pattern valid"))
