@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::rust_rebound::macro_binds;
+use super::rust_rebound::{macro_binds, rust_rebound_before};
 use super::{
     Binding, Group, Kind, Value, code, comment, def_patterns, group, indent, literal_lines, names,
     uncommented,
@@ -789,18 +789,16 @@ pub(super) fn past_generics(line: &str, at: usize) -> Option<usize> {
     })?;
     Some(at + end + 1)
 }
-#[expect(
-    clippy::match_same_arms,
-    reason = "a guarded arm sits between the two; merging them would move one past it"
-)]
-pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+fn local_name(name: &str) -> bool {
     const KEYWORDS: &[&str] = &[
         "self", "mut", "ref", "box", "crate", "super", "true", "false",
     ];
-    if !name.starts_with(|c: char| c.is_lowercase() || c == '_')
-        || name == "_"
-        || KEYWORDS.contains(&name)
-    {
+    name.starts_with(|c: char| c.is_lowercase() || c == '_')
+        && name != "_"
+        && !KEYWORDS.contains(&name)
+}
+pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
+    if !local_name(name) {
         return Vec::new();
     }
     let literal = literal_lines(Kind::Rust, &lines.join("\n"));
@@ -834,7 +832,6 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
                     out.push(found(i));
                     return out;
                 }
-                Some(_) => {}
                 None if t.starts_with("let ") => {
                     let end = (i + 1..at)
                         .find(|&j| !lines[j].trim().is_empty() && indent(lines[j]) <= depth)
@@ -844,7 +841,11 @@ pub(super) fn rust_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Bindin
                     }
                 }
                 None if macro_binds(&t, name) => return Vec::new(),
-                None => {}
+                _ if rust_rebound_before(lines[i], name, lines[i].len()) => {
+                    out.push(found(i));
+                    return out;
+                }
+                _ => {}
             }
             continue;
         }

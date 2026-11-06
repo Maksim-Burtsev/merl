@@ -70,6 +70,29 @@ pub fn macro_line(held: Caps) -> usize {
     //                ^ d: picker tests/rebound.rs:15, …
 }
 
+pub fn shadowed_after(held: Caps) -> usize {
+    held.get(); let held = Grain;
+    held.get()
+    //   ^ d: picker tests/rebound.rs:15, …
+    // ^ d: tests/rebound.rs:74
+}
+
+pub fn shadowed_second(held: Caps) -> usize {
+    let n = held.get(); let held = Grain;
+    held.get() + n
+    //   ^ d: picker tests/rebound.rs:15, …
+}
+
+pub fn shadowed_inside(held: Caps, c: bool) -> usize {
+    if c {
+        held.get(); let held = Grain;
+    } else {
+        held.get(); let held = Grain;
+    }
+    held.get()
+    //   ^ d: tests/rebound.rs:6
+}
+
 pub fn printed(held: Caps) -> usize {
     println!("{}", 1);
     assert!(held.get() < 2);
