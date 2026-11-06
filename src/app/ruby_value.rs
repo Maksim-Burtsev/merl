@@ -74,7 +74,8 @@ impl App {
             }
             let class = search::ruby_class_path(text, line1);
             let bound = !search::ruby_locals(text, line1, expr).is_empty()
-                || !search::bindings(Kind::Ruby, text, line1, expr).is_empty();
+                || !search::bindings(Kind::Ruby, text, line1, expr).is_empty()
+                || search::ruby_rebound(text, "", search::ruby_gate_line(text, line1), line1, expr);
             return (!bound && !class.is_empty() && !search::ruby_self_is_class(text, line1))
                 .then(|| self.ruby_returned_class(here, &class, expr, depth))
                 .flatten();
@@ -175,6 +176,7 @@ impl App {
             return None;
         }
         let assign = regex::Regex::new(&search::ruby_assignment(&ivar)).ok()?;
+        let rebind = search::RubyRebinding::ivar(name)?;
         let mut files = self.ruby_declarations(here, &class);
         files.dedup_by(|a, b| a.0.path == b.0.path);
         let assigned: Vec<(usize, &str, &str)> = files
@@ -183,7 +185,7 @@ impl App {
                 t.lines()
                     .enumerate()
                     .filter(|(i, l)| {
-                        assign.is_match(l) && search::ruby_class_path(t, i + 1) == class
+                        rebind.count(l) > 0 && search::ruby_class_path(t, i + 1) == class
                     })
                     .map(move |(i, l)| (i + 1, l, t.as_str()))
             })
@@ -191,7 +193,11 @@ impl App {
         let [(line, assignment, t)] = assigned[..] else {
             return None;
         };
-        if search::ruby_self_is_class(t, line) || search::ruby_self_is_class(text, line1) {
+        if !assign.is_match(assignment)
+            || rebind.count(assignment) > 1
+            || search::ruby_self_is_class(t, line)
+            || search::ruby_self_is_class(text, line1)
+        {
             return None;
         }
         let value = assignment.trim_start().strip_prefix(&ivar)?.trim_start();

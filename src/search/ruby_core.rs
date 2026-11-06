@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::ruby_locals;
+use super::{ruby_locals, ruby_rebound};
 
 const STRING: &[&str] = &[
     "strip",
@@ -341,7 +341,7 @@ fn core_value(
         .filter(|v| !v.starts_with(['=', '~', '>']))?;
     let value = value.trim();
     let (head, whole) = ruby_receiver_split(value);
-    if !head.trim().is_empty() {
+    if !head.trim().is_empty() || ruby_rebound(text, value, at, line1, expr) {
         return None;
     }
     core_value(text, at, "", whole, constant, depth + 1)
