@@ -181,13 +181,29 @@ pub fn swift_rebound_in_open_block(lead: &str, name: &str) -> bool {
                 .captures(part)
                 .is_some_and(|c| swift_closure_params_bind(&c[2], name));
         let case = part.trim_start().starts_with("case ") && super::swift_may_bind(part, name);
-        params
+        let declared = split_top(Kind::Swift, part, b';')
+            .split_last()
+            .is_some_and(|(_, done)| {
+                done.iter().any(|s| {
+                    let s = s.trim_start();
+                    ["let ", "var ", "guard "].iter().any(|k| s.starts_with(k))
+                        && super::swift_may_bind(s.split('{').next().unwrap_or(s), name)
+                })
+            });
+        declared
+            || params
             || if i < open.len() {
                 swift_shadows(part, name)
             } else {
                 case
             }
     })
+}
+
+pub fn swift_projected(lead: &str, name: &str) -> bool {
+    Regex::new(&format!(r"\${}\b[\w.?!]*$", regex::escape(name)))
+        .expect("an escaped name keeps the pattern valid")
+        .is_match(lead)
 }
 
 pub fn swift_generic_params(lines: &[&str], line1: usize) -> Option<Vec<String>> {
