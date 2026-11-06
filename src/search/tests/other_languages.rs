@@ -914,6 +914,41 @@ fn a_shell_for_or_read_binds_only_its_own_names() {
     assert_eq!(shell_loop_binds("echo read x", "x"), None);
 }
 
+#[test]
+fn shell_binds_before_reads_the_cursor_s_line() {
+    let at = |line: &str| line.rfind("cup").unwrap_or(0);
+    for line in [
+        r#"two() { local cup=small; echo "$cup"; }"#,
+        r#"for cup in a b; do echo "$cup"; done"#,
+        r#"while read -r cup; do echo "$cup"; done"#,
+        r#"cup=x; echo "$cup""#,
+        r#"( cup=sub; echo "$cup" )"#,
+        r#"case $x in a) cup=1; echo "$cup";; esac"#,
+        r#"mapfile -t cup < f; echo "${cup[0]}""#,
+        r#"local x=1 cup=13; echo "$cup""#,
+        r#"cup=1 && echo "$cup""#,
+    ] {
+        assert!(shell_binds_before(line, at(line), "cup"), "{line}");
+    }
+    for line in [
+        r#"cup=y echo "$cup""#,
+        r#"echo "$cup" "$cup""#,
+        r#"three() { local cup=1; }; echo "$cup""#,
+        r#"( cup=1 ); echo "$cup""#,
+        r#"echo "local cup=3"; echo "$cup""#,
+        r#"echo 'cup=3'; echo "$cup""#,
+        r#"# cup=1; echo "$cup""#,
+        r#"cup=$(echo "$cup")"#,
+        r"local cup=12 tea=$cup",
+        r#"cup=1 | cat; echo "$cup""#,
+        r#"eleven() { echo "$cup"; local cup=11; }"#,
+        r#"for tea in a; do echo "$cup"; done"#,
+    ] {
+        let col = line.find("$cup").map_or(0, |i| i + 1);
+        assert!(!shell_binds_before(line, col, "cup"), "{line}");
+    }
+}
+
 const TF: &str = r#"variable "region" {
   default = "eu"
 }

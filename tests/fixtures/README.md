@@ -289,7 +289,12 @@ the `else` of an `if` that follows an `if` or a loop already closed, whose assig
 `sieve` reads one in a later arm of a `case` whose earlier arm `;;` ended: the assignment above
 the `case` answers. `simmer` reads one after a `case` inside `$(..)`, and `decoct` in an arm of a
 `case` inside a `while` loop, where an earlier pass ran the earlier arm: the nearest assignment
-answers, as on master.
+answers, as on master. `shell/bin/rebound.sh` (#1395) binds `mug` again earlier on the cursor's
+line (a `local` in a one-line function, `for`, `while read`, `x=1;`, a subshell, a `case` arm,
+`mapfile`), which answers with that line, and keeps the older assignment where the binding does
+not reach the use: a `mug=z cmd` prefix, a plain read, a block or subshell closed earlier on the
+line, a comment, a string, `mug=$(echo "$mug")`, `local mug=12 tea=$mug` and a `local` after
+the use. The command `chai` under a `local chai=1` is the function.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
