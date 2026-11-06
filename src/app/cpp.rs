@@ -29,6 +29,14 @@ impl App {
         let Some(r) = search::cpp_receiver(before) else {
             return CppAnswer::ByName(None);
         };
+        if let Some(call) = (before.get(r.start..).map(str::trim_start))
+            .filter(|c| r.head_called && !r.braced && c.starts_with(&r.head))
+            && self.cpp_member_unhidden(here, text, &r.head, word)
+            && let CppAnswer::Found(found) =
+                self.cpp_typed(here, text, &format!("this->{call}"), word)
+        {
+            return CppAnswer::Found(found);
+        }
         let calls = r.head_called || r.braced || r.calls.contains(&true);
         let broke =
             |at: &str| CppAnswer::ByName((!calls && !r.fields.is_empty()).then(|| at.to_owned()));
@@ -52,7 +60,7 @@ impl App {
                 && r.fields.is_empty()
                 && !calls
                 && r.head != "this"
-                && match search::cpp_value_type(text, self.line + 1, &r.head) {
+                && match search::cpp_value_type(text, self.line + 1, Some(self.col), &r.head) {
                     Ok(local) => {
                         search::cpp_plain_object(text, self.line + 1, &r.head, local.is_none())
                     }
@@ -157,16 +165,32 @@ impl App {
             let ctx = search::cpp_scope_path(&code, offset(text, at.0, at.1).min(code.len()));
             return (ty[0] != "std").then_some((ty, code, ctx, None));
         }
+        if r.indexed {
+            let ty = search::cpp_index_element(text, at.0 + 1, at.1, &r.head)?;
+            let code = search::c_code(text);
+            let ctx = search::cpp_scope_path(&code, offset(text, at.0, at.1).min(code.len()));
+            return Some((ty, code, ctx, None));
+        }
         if r.head_called {
-            return self.cpp_return_type(here, &r.head);
+            return self.cpp_return_type(here, text, &r.head);
         }
         self.cpp_head_type(here, text, &r.head, word, at, depth)
     }
 
-    fn cpp_return_type(&mut self, here: &Path, name: &str) -> Option<HeadType> {
+    fn cpp_return_type(&mut self, here: &Path, here_text: &str, name: &str) -> Option<HeadType> {
         let p = search::def_patterns(Kind::C, name);
         let hits = self.project_definitions(Kind::C, here, name, &format!("{}|{}", p[0], p[7]));
         let hits = self.c_reached_only(here, name, hits);
+        let by_macro = self.c_static_by_macro(here, &hits);
+        let hits = search::c_file_local(
+            name,
+            here,
+            here_text,
+            hits,
+            &by_macro,
+            |p| self.text_of(p),
+            true,
+        );
         let mut found: Option<HeadType> = None;
         for h in hits {
             if h.text.trim_start().starts_with('#') {
@@ -316,6 +340,24 @@ impl App {
         None
     }
 
+    fn cpp_member_unhidden(&mut self, here: &Path, text: &str, head: &str, word: &str) -> bool {
+        if search::cpp_function_uses(text, self.line + 1, word, head)
+            || search::cpp_value_type(text, self.line + 1, Some(self.col), head) != Ok(None)
+        {
+            return false;
+        }
+        let code = search::c_code(text);
+        let Some(name) = search::c_method_class(text, self.line + 1, word) else {
+            return false;
+        };
+        let ctx = search::cpp_scope_path(&code, offset(text, self.line, self.col).min(code.len()));
+        self.cpp_class(here, &[name], &code, None, &ctx)
+            .is_some_and(|class| {
+                !search::cpp_templated(&class.code, class.open)
+                    || !search::cpp_body_members(&class.code, class.open, head).is_empty()
+            })
+    }
+
     pub(super) fn cpp_class_scope(
         &mut self,
         here: &Path,
@@ -351,14 +393,14 @@ impl App {
                 None,
             ));
         }
-        match search::cpp_value_type(text, line0 + 1, head) {
+        match search::cpp_value_type(text, line0 + 1, Some(col), head) {
             Ok(Some((t, at))) => return Some((t, code, here_ctx, Some(at))),
             Ok(None) => {}
             Err(()) => {
-                let (expr, line0) = search::cpp_auto_init(text, line0 + 1, head)?;
+                let (expr, line0, end) = search::cpp_auto_init(text, line0 + 1, Some(col), head)?;
                 let r = (search::cpp_receiver(&format!("{expr}.")))
                     .filter(|r| depth < 3 && r.fields.len() < 6)?;
-                let start = self.cpp_start(here, text, &r, head, (line0, 0), depth + 1)?;
+                let start = self.cpp_start(here, text, &r, head, (line0, end), depth + 1)?;
                 let around = search::c_method_class(text, line0 + 1, head);
                 return Some(
                     self.cpp_walk(here, start, around, &r, &mut Vec::new())
@@ -625,7 +667,7 @@ impl App {
         ctx: &[String],
         name: &str,
     ) -> Option<Vec<String>> {
-        let Ok(Some((ty, _))) = search::cpp_value_type(text, self.line + 1, name) else {
+        let Ok(Some((ty, _))) = search::cpp_value_type(text, self.line + 1, None, name) else {
             return None;
         };
         let name = ty.last()?;
@@ -737,6 +779,26 @@ impl App {
             .map(|(s, o)| o || s.as_ref().is_some_and(|s| adl.contains(s)))
             .collect();
         visible.contains(&true).then_some((visible, args))
+    }
+
+    pub(super) fn cpp_namespace_members(
+        &self,
+        chain: &[String],
+        dotted: bool,
+        word: &str,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        if dotted || self.c_source() || chain != ["std"] || hits.len() < 2 {
+            return hits;
+        }
+        let free: Vec<Hit> = (hits.iter())
+            .filter(|h| {
+                self.text_of(&h.path)
+                    .is_none_or(|t| search::cpp_member_class(&t, h.line1, word).is_none())
+            })
+            .cloned()
+            .collect();
+        if free.is_empty() { hits } else { free }
     }
 }
 

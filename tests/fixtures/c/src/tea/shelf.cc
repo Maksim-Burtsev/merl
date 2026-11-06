@@ -32,7 +32,7 @@ int local_pot() {
     int size;
   };
   Pot p;
-  //^ d: picker src/tea/shelf.cc:17, src/tea/shelf.cc:31, include/tea/shelf.hh:4, include/tea/shelf.hh:22
+  //^ d: src/tea/shelf.cc:31
   return p.size;
   //       ^ d: src/tea/shelf.cc:32
 }

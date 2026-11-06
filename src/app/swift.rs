@@ -26,6 +26,11 @@ impl App {
         if fit {
             let mut fits = labels.iter().map(|l| search::swift_call_fits(&call, l));
             found.retain(|_| fits.next().unwrap_or(true));
+            let kept: Vec<_> = labels
+                .into_iter()
+                .filter(|l| search::swift_call_fits(&call, l))
+                .collect();
+            self.swift_by_argument_types(&call, &kept, found);
         }
         fit
     }
@@ -181,6 +186,68 @@ impl App {
                 _ => true,
             }
         });
+        let Some(mine) = tests
+            .iter()
+            .find(|t| here.strip_prefix(&self.root).unwrap_or(here).starts_with(t))
+        else {
+            return;
+        };
+        let signature = |h: &Hit| {
+            let text = self.text_of(&h.path)?;
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, &text);
+            let at = search::swift_scope(&lines, &literal, h.line1).header_line1;
+            let mut decl: Vec<&str> = vec![lines.get(at.checked_sub(1)?)?.trim()];
+            for line in lines.get(h.line1.checked_sub(1)?..)?.iter().take(20) {
+                decl.push(line.trim());
+                if line.contains('{') {
+                    return Some(decl.join("\n"));
+                }
+            }
+            None
+        };
+        let own: Vec<String> = hits
+            .iter()
+            .filter(|h| {
+                h.path
+                    .strip_prefix(&self.root)
+                    .unwrap_or(&h.path)
+                    .starts_with(mine)
+            })
+            .filter_map(signature)
+            .collect();
+        hits.retain(|h| in_tests(&h.path) || signature(h).is_none_or(|s| !own.contains(&s)));
+    }
+
+    pub(super) fn swift_uncalled(&self, word: &str, after: usize, found: &mut Vec<Candidate>) {
+        let rest = self
+            .line_str()
+            .get(after..)
+            .unwrap_or_default()
+            .trim_start();
+        let next = match rest {
+            "" => self
+                .buf
+                .lines
+                .get(self.line + 1)
+                .map_or("", |l| l.trim_start()),
+            _ => rest,
+        };
+        if next.trim_start_matches(['?', '!']).starts_with(['(', '{']) {
+            return;
+        }
+        let func = |c: &Candidate| search::swift_declares_func(&c.hit.text);
+        let owner = |c: &Candidate| {
+            self.text_of(&c.hit.path)
+                .and_then(|t| search::qualified(Kind::Swift, &t, c.hit.line1, word))
+        };
+        let properties: Vec<String> = found
+            .iter()
+            .filter(|c| func(c) == Some(false))
+            .filter_map(owner)
+            .collect();
+        found
+            .retain(|c| func(c) != Some(true) || owner(c).is_none_or(|o| !properties.contains(&o)));
     }
 
     fn swift_qualified(&self, h: &Hit, name: &str) -> String {
@@ -242,6 +309,73 @@ impl App {
                 reason: Reason::Receiver(label.clone()),
             })
             .collect()))
+    }
+
+    pub(super) fn swift_implicit_init_rows(
+        &mut self,
+        here: &Path,
+        word: &str,
+        line0: usize,
+        lead: &str,
+    ) -> Vec<Candidate> {
+        let Some(arg) = search::swift_argument(lead) else {
+            return Vec::new();
+        };
+        let line = std::mem::replace(&mut self.line, line0);
+        let cut = self.truncated.get();
+        let rows = self.swift_init_rows(here, word, &arg);
+        self.truncated.set(cut);
+        self.line = line;
+        rows.unwrap_or_default()
+    }
+
+    fn swift_init_rows(
+        &self,
+        here: &Path,
+        word: &str,
+        arg: &search::SwiftArgument,
+    ) -> Option<Vec<Candidate>> {
+        if arg.on_value {
+            return None;
+        }
+        let types = self.swift_argument_types(here, arg)?;
+        let [(scope, ty)] = types.as_slice() else {
+            return None;
+        };
+        let last = ty.rsplit('.').next()?;
+        let [d] = self.swift_defs(here, last, last, false).try_into().ok()?;
+        let keyword = search::swift_type_header(&d.text)?.keyword;
+        let of = self.swift_qualified(&d, last);
+        let prefix = of.strip_suffix(ty.as_str())?.trim_end_matches('.');
+        let seen = prefix.is_empty() || scope == prefix || scope.starts_with(&format!("{prefix}."));
+        if !seen || !matches!(keyword.as_str(), "struct" | "class" | "enum" | "actor") {
+            return None;
+        }
+        let text = self.text_of(&d.path)?;
+        let rows = search::label_lines(
+            Kind::Swift,
+            &text,
+            d.line1,
+            last,
+            word,
+            &search::Owner::Args,
+        )
+        .into_iter()
+        .map(|l| {
+            let line1 = search::swift_signature_line(&text, l);
+            Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: d.path.clone(),
+                    line1,
+                    byte_col: None,
+                    text: text.lines().nth(line1 - 1).unwrap_or_default().to_owned(),
+                },
+                reason: Reason::Label(format!("parameter of {of}")),
+            }
+        })
+        .collect();
+        Some(rows)
     }
 
     fn swift_argument_types(

@@ -218,6 +218,13 @@ pub fn skipped_in(file: &Path) -> HashSet<PathBuf> {
         .collect()
 }
 
+pub fn order_commit(file: &Path) -> Option<String> {
+    let text = std::fs::read_to_string(file).ok()?;
+    let sha = (text.lines()).find_map(|l| l.trim().strip_prefix("# commit "))?;
+    let sha = sha.trim();
+    (!sha.is_empty() && sha.bytes().all(|b| b.is_ascii_hexdigit())).then(|| sha.to_owned())
+}
+
 fn order_lines(text: &str) -> impl Iterator<Item = (bool, &Path)> {
     text.lines()
         .map(str::trim)

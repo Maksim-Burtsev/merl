@@ -417,8 +417,8 @@ fn a_cast_is_read_as_the_type_it_writes() {
     );
     assert_eq!(
         at(19),
-        [],
-        "no type switch: nothing the rules read binds `v` here"
+        [(17, Value::Call("pick".into()))],
+        "no type switch: the switch's init binds `v` (#1380)"
     );
     let chans = "func f(v *Repo, x any, ch chan int) {\n\tswitch v := x.(type) {\n\tcase *Audit:\n\t\tv.Go()\n\t}\n\tselect {\n\tcase <-ch:\n\t\tv.Go()\n\t}\n}\n";
     assert_eq!(

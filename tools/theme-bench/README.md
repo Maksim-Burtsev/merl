@@ -29,8 +29,8 @@ on a probe file (`v`, then a find for `alpha`), LazyVim's from the highlight gro
 
 ## Tree-sitter
 
-merl colours the languages of epic #797 with tree-sitter (AGENTS.md `## Changing syntax
-colours`), on by default since #810, and `baseline.tsv` is that table. On 2026-10-12 (#802) Python matched every character in all
+merl colours the languages of epic #797 with tree-sitter
+(`docs/agents/colours.md`), on by default since #810, and `baseline.tsv` is that table. On 2026-10-12 (#802) Python matched every character in all
 92 themes, 19,185 per theme: no miss is left to list. A language that leaves misses lists them
 here by cause.
 

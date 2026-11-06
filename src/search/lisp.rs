@@ -140,26 +140,65 @@ fn char_end(b: &[u8], i: usize) -> usize {
     i
 }
 
+fn here_string_end(b: &[u8], i: usize) -> usize {
+    let line_end =
+        |from: usize| (b[from..].iter().position(|&c| c == b'\n')).map_or(b.len(), |n| from + n);
+    let mut end = line_end(i);
+    let term = &b[i + 3..end];
+    while end < b.len() {
+        let next = line_end(end + 1);
+        if &b[end + 1..next] == term {
+            return next;
+        }
+        end = next;
+    }
+    b.len()
+}
+
 fn lex(kind: Kind, text: &str) -> Lexed {
+    lex_keeping(kind, text, false)
+}
+
+fn char_literal(kind: Kind, b: &[u8], i: usize) -> bool {
+    match kind {
+        Kind::Clojure => b[i] == b'\\',
+        Kind::Scheme | Kind::CommonLisp => b[i..].starts_with(b"#\\"),
+        Kind::EmacsLisp => b[i] == b'?' && (i == 0 || delimiter(b[i - 1])),
+        _ => false,
+    }
+}
+
+fn comment_form(b: &[u8], i: usize, depth: usize) -> bool {
+    depth == 0 && b[i..].starts_with(b"(comment") && b.get(i + 8).is_none_or(|&c| delimiter(c))
+}
+
+pub fn lisp_code(kind: Kind, text: &str) -> Vec<u8> {
+    lex_keeping(kind, text, true).code
+}
+
+fn lex_keeping(kind: Kind, text: &str, comment_forms: bool) -> Lexed {
     let b = text.as_bytes();
     let clojure = kind == Kind::Clojure;
     let hashed = matches!(kind, Kind::Scheme | Kind::CommonLisp);
     let mut code = b.to_vec();
     let mut literal = vec![false];
     let (mut depth, mut i) = (0usize, 0usize);
-    let (mut string, mut block) = (false, 0usize);
+    let (mut string, mut block, mut here) = (false, 0usize, 0usize);
     let mut ignored: Option<(usize, usize)> = None;
     let mut datum = false;
     while i < b.len() {
         let c = b[i];
         if c == b'\n' {
-            literal.push(string || block > 0 || ignored.is_some());
+            literal.push(string || block > 0 || ignored.is_some() || i < here);
             i += 1;
             continue;
         }
         let at = |s: &[u8]| b[i..].starts_with(s);
         let start = i;
-        if string {
+        if i < here {
+            i += 1;
+            blank(&mut code, start..i);
+        } else if string {
             (i, string) = string_step(b, i);
             if string {
                 blank(&mut code, start..i);
@@ -167,6 +206,9 @@ fn lex(kind: Kind, text: &str) -> Lexed {
         } else if block > 0 {
             (i, block) = block_step(b, i, block);
             blank(&mut code, start..i);
+        } else if kind == Kind::Scheme && at(b"#<<") {
+            here = here_string_end(b, i);
+            datum = false;
         } else if c == b';' {
             i += b[i..]
                 .iter()
@@ -185,20 +227,12 @@ fn lex(kind: Kind, text: &str) -> Lexed {
                 datum = true;
             }
             i += 2;
-        } else if (clojure && c == b'\\')
-            || (hashed && at(b"#\\"))
-            || (kind == Kind::EmacsLisp && c == b'?' && (i == 0 || delimiter(b[i - 1])))
-        {
+        } else if char_literal(kind, b, i) {
             i = char_end(b, i);
             blank(&mut code, start..i);
             datum = false;
         } else {
-            if clojure
-                && depth == 0
-                && ignored.is_none()
-                && at(b"(comment")
-                && b.get(i + 8).is_none_or(|&c| delimiter(c))
-            {
+            if clojure && !comment_forms && ignored.is_none() && comment_form(b, i, depth) {
                 ignored = Some((0, i));
             }
             match c {
@@ -241,6 +275,31 @@ fn lex(kind: Kind, text: &str) -> Lexed {
         }
     }
     Lexed { code, literal }
+}
+
+pub(super) fn lisp_form_encloses(kind: Kind, text: &str, form_line0: usize, line0: usize) -> bool {
+    let start = |n: usize| {
+        text.split_inclusive('\n')
+            .take(n)
+            .map(str::len)
+            .sum::<usize>()
+    };
+    let code = lex(kind, text).code;
+    let Some(code) = code.get(start(form_line0)..start(line0)) else {
+        return false;
+    };
+    let Some(open) = code.iter().position(|c| matches!(c, b'(' | b'[' | b'{')) else {
+        return false;
+    };
+    let mut depth = 0usize;
+    !code[open..].iter().any(|c| {
+        match c {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => depth = depth.saturating_sub(1),
+            _ => return false,
+        }
+        depth == 0
+    })
 }
 
 pub(super) fn lisp_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
@@ -297,6 +356,9 @@ enum Role {
     Destructure,
     Letfn,
     Arity,
+    Literals,
+    Rule,
+    Pattern,
 }
 
 #[expect(
@@ -314,6 +376,8 @@ struct Frame<'a> {
     sequential: bool,
     recursive: bool,
     tests: bool,
+    values: bool,
+    literal: bool,
     entry: Option<usize>,
 }
 
@@ -335,6 +399,9 @@ const LETS: &[&str] = &[
     "let*",
     "letrec",
     "letrec*",
+    "let-values",
+    "let*-values",
+    "letrec-values",
     "flet",
     "labels",
     "when-let*",
@@ -342,8 +409,15 @@ const LETS: &[&str] = &[
     "and-let*",
     "pcase-let*",
 ];
-const SEQUENTIAL: &[&str] = &["let*", "when-let*", "if-let*", "and-let*", "pcase-let*"];
-const RECURSIVE: &[&str] = &["letrec", "letrec*", "labels"];
+const SEQUENTIAL: &[&str] = &[
+    "let*",
+    "let*-values",
+    "when-let*",
+    "if-let*",
+    "and-let*",
+    "pcase-let*",
+];
+const RECURSIVE: &[&str] = &["letrec", "letrec*", "letrec-values", "labels"];
 const TESTS: &[&str] = &["when-let*", "if-let*", "and-let*"];
 const LAMBDAS: &[&str] = &["lambda", "opt-lambda"];
 const CLASSES: &[&str] = &["class", "class*", "mixin"];
@@ -360,6 +434,7 @@ const DEFUNS: &[&str] = &[
     "defmethod",
     "cl-defmethod",
 ];
+const GENERICS: &[&str] = &["defgeneric", "cl-defgeneric"];
 const DEFINES: &[&str] = &[
     "define",
     "define/contract",
@@ -403,15 +478,23 @@ fn open_frame<'a>(
             None,
         ),
         Some(p) if p.role == Role::Entries && p.sequential => (false, Some(found)),
+        Some(p) if p.values && role == Role::Destructure => (false, p.entry),
         _ => (false, None),
     };
     let recursive = match stack.last() {
         Some(p) if role == Role::Entries => {
             RECURSIVE.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
         }
-        Some(p) => p.role == Role::Letfn || (p.role == Role::Entries && p.recursive),
+        Some(p) => p.role == Role::Letfn || (p.recursive && (p.role == Role::Entries || p.values)),
         None => false,
     };
+    let values = match stack.last() {
+        Some(p) if role == Role::Entries => p.head.is_some_and(|h| h.ends_with("-values")),
+        Some(p) => p.role == Role::Entries && p.values,
+        None => false,
+    };
+    let literal = matches!(role, Role::Rule | Role::Pattern | Role::Destructure)
+        && stack.last().is_some_and(|p| p.literal);
     let tests = match stack.last() {
         Some(p) if role == Role::Entries => {
             TESTS.contains(&p.head.unwrap_or("").to_ascii_lowercase().as_str())
@@ -420,7 +503,7 @@ fn open_frame<'a>(
         None => false,
     };
     let scope = match (role, stack.last()) {
-        (Role::Plain | Role::Arity, _) | (_, None) => {
+        (Role::Plain | Role::Arity | Role::Rule, _) | (_, None) => {
             scopes.push((pos, None));
             scopes.len() - 1
         }
@@ -437,6 +520,8 @@ fn open_frame<'a>(
         sequential,
         recursive,
         tests,
+        values,
+        literal,
         entry,
     }
 }
@@ -472,7 +557,7 @@ fn atom<'a>(
         Role::Pairs => f.idx.is_multiple_of(2),
         Role::Entries => !f.tests,
         Role::Params | Role::Destructure => true,
-        Role::Define => f.idx >= 1,
+        Role::Define | Role::Pattern => f.idx >= 1,
         Role::First => f.idx == 0,
         Role::Plain => (looping && f.loop_var) || named,
         _ => false,
@@ -481,7 +566,8 @@ fn atom<'a>(
         Kind::CommonLisp => a.eq_ignore_ascii_case(name),
         _ => a == name,
     };
-    if bound && binds(a) && same {
+    let literal = f.role == Role::Literals && same;
+    if bound && !f.literal && binds(a) && same {
         let visible = match (f.recursive, pending) {
             (true, _) => 0,
             (false, true) => usize::MAX,
@@ -498,6 +584,9 @@ fn atom<'a>(
         f.scope = scope;
     }
     f.idx += 1;
+    if literal && let [.., rules, _] = stack {
+        rules.literal = true;
+    }
     true
 }
 
@@ -540,13 +629,16 @@ pub(super) fn lisp_bindings(
             }
             Tok::Close => {
                 let Some(f) = stack.pop() else { break };
-                if matches!(f.role, Role::Plain | Role::Arity) {
-                    scopes[f.scope].1 = Some(pos);
+                let generic = f.role == Role::Params
+                    && (stack.last().and_then(|p| p.head))
+                        .is_some_and(|h| GENERICS.contains(&h.to_ascii_lowercase().as_str()));
+                if generic || matches!(f.role, Role::Plain | Role::Arity | Role::Rule) {
+                    scopes[f.scope].1.get_or_insert(pos);
                 }
                 if let Some(from) = f.entry.filter(|_| f.tests && f.idx < 2) {
                     found.truncate(from);
                 }
-                if let Some(from) = f.entry {
+                if let Some(from) = f.entry.filter(|_| f.role == Role::First) {
                     for e in found[from..].iter_mut().filter(|e| e.2 == usize::MAX) {
                         e.2 = pos;
                     }
@@ -585,9 +677,13 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
     match p.role {
         Role::Pairs if p.idx.is_multiple_of(2) => return Role::Destructure,
         Role::Entries | Role::Letfn => return Role::First,
+        Role::First if p.values && p.idx == 0 => return Role::Destructure,
         Role::Params | Role::Define if c == b'(' => return Role::First,
-        Role::Params | Role::Define | Role::Destructure => return Role::Destructure,
+        Role::Params | Role::Define | Role::Destructure | Role::Pattern => {
+            return Role::Destructure;
+        }
         Role::Arity if p.idx == 0 && c == b'[' => return Role::Params,
+        Role::Rule if p.idx == 0 => return Role::Pattern,
         Role::Plain => {}
         _ => return Role::Plain,
     }
@@ -614,6 +710,13 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         }
         return Role::Plain;
     }
+    if h == "syntax-rules" && p.idx >= 1 {
+        return if p.idx == 1 {
+            Role::Literals
+        } else {
+            Role::Rule
+        };
+    }
     if c != b'(' {
         return Role::Plain;
     }
@@ -624,7 +727,8 @@ fn child_role(clojure: bool, p: &mut Frame, c: u8) -> Role {
         2 if h == "let" && p.named => Role::Entries,
         1 if LAMBDAS.contains(&h) => Role::Params,
         1 if DEFINES.contains(&h) => Role::Define,
-        2 if DEFUNS.contains(&h) => Role::Params,
+        2 if DEFUNS.contains(&h) || GENERICS.contains(&h) => Role::Params,
+        1 if h == ":method" => Role::Params,
         _ => Role::Plain,
     }
 }
@@ -801,6 +905,61 @@ pub fn lisp_files(kind: Kind, dir: &Path, module: &str, files: &[PathBuf]) -> Ve
             .cloned()
             .collect(),
     }
+}
+
+pub fn scheme_renames(
+    text: &str,
+    line: usize,
+    word: &str,
+    own: bool,
+    includes_here: impl Fn(&str) -> bool,
+) -> bool {
+    struct Open<'a> {
+        head: Option<&'a str>,
+        idx: usize,
+    }
+    let code = String::from_utf8_lossy(&lex(Kind::Scheme, text).code).into_owned();
+    let mut starts = std::iter::once(0).chain(text.match_indices('\n').map(|(i, _)| i + 1));
+    let Some(from) = starts.nth(line.saturating_sub(1)) else {
+        return false;
+    };
+    let on_line = from..starts.next().unwrap_or(text.len());
+    let mut stack: Vec<Open> = Vec::new();
+    let (mut renamed, mut included) = (false, own);
+    for (tok, pos) in tokens(&code) {
+        match tok {
+            Tok::Open(_) => stack.push(Open { head: None, idx: 0 }),
+            Tok::Close => {
+                if stack.pop().is_none() {
+                    continue;
+                }
+                match stack.last_mut() {
+                    Some(p) => p.idx += 1,
+                    None if renamed && included => return true,
+                    None => (renamed, included) = (false, own),
+                }
+            }
+            Tok::Atom(a) => {
+                let n = stack.len();
+                renamed |= a == word
+                    && on_line.contains(&pos)
+                    && n >= 3
+                    && stack[n - 1].idx == 1
+                    && stack[n - 2].head == Some("rename")
+                    && stack[n - 2].idx >= 2
+                    && stack[..n - 2].iter().any(|o| o.head == Some("import"));
+                let Some(f) = stack.last_mut() else { continue };
+                included |= f.idx > 0
+                    && matches!(f.head, Some("include" | "include-ci"))
+                    && a == "\"\""
+                    && (text.get(pos + 1..).and_then(|t| t.split_once('"')))
+                        .is_some_and(|(inside, _)| includes_here(inside));
+                f.head = f.head.or(Some(a));
+                f.idx += 1;
+            }
+        }
+    }
+    false
 }
 
 pub fn scheme_foreign_branch(

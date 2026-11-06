@@ -222,7 +222,17 @@ continues with the class declaring the method, as intelephense reads `self` (#11
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
 function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
-declaring what the corner declares. `lua/lua/tea/` has `local function pour` beside
+declaring what the corner declares. `php/src/Tea/Rebound.php` binds a `Kettle $pot` again
+before `$pot->pour()` (#1382): a second statement on the line, `$cup = $pot = new Teapot()`,
+`??=`, `instanceof Teapot` in an `if` and as a `!` guard, a closure that does not capture it,
+`use (&$pot)`, `extract()`, `${'pot'}`, `preg_match`'s out-parameter, `['pot' => $pot] =` and a
+`foreach` header wrapped over lines each keep a picker holding `Teapot::pour`, while the
+assignment's own right side, `instanceof Kettle` and a closure's `use ($pot)` keep `Kettle`.
+So do the plain reads of `plainReads` (#1384's review): `$pot` in `str_replace`'s or
+`preg_match`'s subject, `$m & $pot->lid`, a comment, a string, `==`, a named argument, an array
+key or value, `$pot->lid = …` and a rebinding after the use; `str_replace`'s count slot and
+`$alias = &$pot` keep the picker.
+`lua/lua/tea/` has `local function pour` beside
 `function M.pour` and `Kettle:pour`, a parameter named like a required module, `local n = n + 1`,
 `local fact = function` against `local function fib`, `local later` assigned by `function
 later()`, a loop variable hiding a local, and a long string and a block comment declaring names.
@@ -297,7 +307,14 @@ overrides, an interface method, a function-typed field and a generic method, and
 package imported plainly and under an alias. `go/orm/` (#1072) chains method calls off
 `GetEngine()`, on one line and one call per line: through `Join`, which returns a type of a
 package outside the project, a `Filter.Or` namesake must not be jumped to; through `Where`, the
-project's `Query.And` wins over `Filter.And`. `csharp/src/Shop/Tea/` adds a partial class over
+project's `Query.And` wins over `Filter.And`. `go/shop/rebound.go` (#1380) rebinds a `Tariff`
+to a `Coupon` earlier on the cursor's line (an `if` and a `for` header, a block's `:=` and `var`,
+a type switch, a `select` case), which stays a picker, and in a `switch` init over several lines,
+which lands on `Coupon.Rate`; `t.Rate()` on the right of its own redeclaration stays `Tariff`'s.
+`ReboundControls` keeps `Tariff`'s jump where the rebinding does not reach the use (#1384's
+review): a block closed earlier on the line, a declaration after the use, the name in a comment
+or a string, `==`, a struct field key and `t.Base = …`.
+`csharp/src/Shop/Tea/` adds a partial class over
 two files, `using static` beside a member of the same name, overloads, `base.`, an explicit
 interface implementation, a lambda parameter hiding a local and a `using` alias of
 `Shop.Tea.Stale`. `csharp/src/Shop/Pages/Till.razor` (#1088) is a Blazor component, read as a
@@ -351,6 +368,23 @@ lands on its declaration, as on master. `c/src/tea/chawan.cc` defines `matcha::C
 as `Chawan::Chawan` behind `using namespace matcha;`, where `Chawan(1)` lands, as on master;
 `sado::Bowl`'s `Bowl(1)` stays on its declaration, not on the global `Bowl`'s definition beside
 it, where master jumped (#1248).
+`c/src/tea/trivet.cc` (#1336) reads `Reading()->Read()` in `Kettle::Boil` through the class's own
+`Gauge* Reading()`, but not in `Hob::Simmer`, whose `Reading` would come from the dependent base
+`Brazier<T>`, nor in `Cauldron::Stir` after `using pantry::Reading;`: both go through the
+namespace's `Dial* Reading()`. `Trivet`'s nested `Stand` stays in the picker in
+`trivet_platter.cc`, whose `Platter` derives from it through the alias `TrivetBase`.
+`c/src/tea/steeping.cc` (#1336) reads `stoves[0]->sip()` through the element type of a
+`std::vector`, `std::array`, `std::deque` or `std::span` named once, also through an alias (`Pot`),
+behind `auto*` and inside a block whose own `stoves` hides the parameter. An array of vectors, a
+pointer to one, a `std::map`, a field's subscript and a template parameter's element keep the
+picker. In `later` the first `mugs[0]` is the parameter, not the lambda's `mugs` further on the
+line; in `hidden` a block's `mugs` written with `decltype`, `typeof` or `alignas` keeps the picker
+rather than typing the outer vector; in `handled` `->` after the subscript needs an element
+written as a pointer, so `Grip`, whose `operator->` gives a `Lid*`, and its alias `Knob` keep the
+picker, while `grips[1].rim` is `Grip`'s own.
+`brew::Steep(80).sip()` types `Steep` by the declaration of `tea/steep.hh`, past a `static`
+namesake in `steep.cc`, another translation unit; `brew::Pour`, whose namesake is `static` in this
+file, keeps the picker.
 `c/src/zl/` spells `static` as zlib does, `#define local static` in a header included through another
 one, beside a macro for `extern` and one that is `static` in one branch of an `#ifdef` only, which
 stay global (#1030).
@@ -385,6 +419,12 @@ does not read: a picker.
 `Aliased.cs` with no namespace and in `Checks.cs` in `Shop.Tea.Infuse`. `Shadowed.cs` in
 `Shop.Pantry`, whose own `Jar` comes before the alias, and `Boxed<Jar>`'s type parameter keep
 master's picker.
+`csharp/src/Shop/Rebound/` (#1383) hides a field `Flask x` or a parameter `Flask k` behind an
+`Ewer` or a `Spill` that also has `Decant`: a lambda's or a `delegate`'s parameter, `foreach`,
+`catch`, `using var` and a local in a block on one line, a property pattern `is Ewer { } x`,
+switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
+whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
+`Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -402,6 +442,11 @@ function of its name, an anonymous union, a `for` and a block each redeclaring a
 local named like its struct tag, a macro declaring a function, designated initializers, a
 compound literal, a `struct` tag beside a function of its name, `goto` to a label named like a
 local, and declarations in a string, a comment and `#if 0`.
+`c/src/rebound.cc` and `c/src/rebound.c` (#1387) bind a `Gourd g` again as a `Terrine` on the
+cursor's own line (a block, a range-`for`, a lambda parameter, an `if` init and condition, a
+`catch`), before and after the use, and keep `Gourd`'s jump where the rebinding does not reach
+the use: a block closed earlier on the line, a lambda later on it, a `for` init that only reads,
+a comment and a string. A `for` and an `if` init without a value still read the outer `g`.
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
@@ -429,6 +474,10 @@ of `str` methods and literals (builtin), and with a `list[Brewer]` operand (not)
 a `for` loop's own target, `line = line.strip()`, whose right side is the loop's (#1154), beside
 a `while` inside a `for` of the same name, whose right side is either. Its `twice` calls a `str`
 method on a local set from one set from a `str` parameter (builtin, #1151).
+`caddies.py` (#1339): a keyword of a Django `Caddy.objects.create(...)` lands on the model's
+field, its own or an abstract base's, and stays an argument label for a class-body annotation,
+a `self.` attribute, a method's local, a nested `Meta`'s attribute, `filter(...)` and a dotted
+model.
 
 `markdown/` has no shop: Markdown declares nothing, and `d` there follows a link (#421).
 `docs/notes.md` probes every form of link against the headings of `README.md` (two of one name,
@@ -501,7 +550,17 @@ scripts that `include` them by path: every declaration form of the issue (a `fun
 global `m` of another file and a local `total` beside the function `total`, `rate` both a method
 and a field, a functor, each refusal, imports of a package that is not installed, and
 declaration-shaped lines in a docstring, a nested `#= =#`, a backtick command over lines, a
-regex and a raw string.
+regex and a raw string. A bare `show` in `basket.jl`, a function the project only extends
+with `Base.show`, is a picker of that one method when no Julia is found (#1361), and so are
+`isempty`, extended after `import Base: isempty` in `money.jl`, and `push!`, a `Base.push!`
+whose signature runs over two lines in `test/runtests.jl` (#1363), and `length`, imported in
+`Shop.jl` that includes `money.jl`, and `iterate`, named on the line below `import Base:`; `test`,
+a function beside `using Test: @test`, is a jump (#1365). `Union{}(a...)` in `test/runtests.jl` is a
+method of the empty union, not of `Union` (#1371), and `b.fun(x)` in `tariff.jl` calls the field
+of `ByWeight`, not the test's function `fun` (#1372), while `lv.cut(x)`, `lv` a `const` bound to the
+lowercase module `levies`, calls the module's function, not the field of `Levy`: only a local or
+a parameter before the dot is a value. `err` in a `catch err` block is the variable `catch` binds,
+and none past the block's `end` (#1375).
 `r/` (#422) is a package, `shop` in its `DESCRIPTION`, whose `R/` holds every declaration form of
 the issue (a function with `<-` and `<<-`, a lambda, a backticked operator and replacement
 function, an S3 method, `.onLoad`, a top-level `=`), an S4 generic with two methods beside
@@ -549,6 +608,9 @@ defining form of the dialect, a namespace alias and a `:refer` (`money/format-pr
 of another file, `empty?` beside `empty`, a `defmulti`, `cl-defgeneric` or `defgeneric` offered
 with its methods, a `(comment …)` form, `#_`, `#;` and a nested `#| … |#`, a `(require …)` that
 opens a file, each refusal of the issue, and declaration-shaped lines in a docstring.
+`scheme/lib/rules.scm` and `common-lisp/generic.lisp` (#1344) bind a `let-values` formal, a
+`syntax-rules` pattern variable (not its literal, not its macro's keyword, not past its rule)
+and a `defgeneric` parameter, and call a name starting with `%`.
 `starlark/` (#431) is a Bazel module, `shop`, with two packages and two `.bzl` files: every
 declaration form (a `def`, a rule, a provider, an aspect, a repository rule, a module extension, a
 transition, a plain value), names a `load` takes (one under an alias, one over several lines, one a
@@ -614,6 +676,15 @@ a commented-out declaration, and `this` in a class expression. One answer is rea
 answers the interface's. `caddy.ts` and `tins.ts` hold std names the project shadows: a project
 `Array` whose `from` is no builtin, a project `ReadonlySet`, and an imported outside `ReadonlySet`
 whose member is "not installed", never "builtin".
+`rebound.ts` (and `coffee/rebound.js`) rebinds a `u` typed by `urn.ts`'s `Urn` to a `Flask`, both
+declaring `siphon` (#1337): earlier on the cursor's line (a destructuring and a `let` in a block
+on one line, a `const` before a `return`), which stays a picker, and by a `var` hoisted from a
+block, a `switch` case or below the use, which lands on `Flask.siphon`. A `var` of a nested
+function, of a callback on one line and in a string hoists nothing. `controls` keeps `Urn`'s
+jump where the rebinding does not reach the use (#1384's review): a block closed earlier on the
+line, a block or a callback opened after the use, the name in a comment or a string, `==`, an
+object key, `box.u = …` and a `for` body closed before the use; in `coffee/rebound.js` a `var`
+below the use of a parameter, or of a `var` already assigned above, keeps the jump too.
 
 `typescript/linter/` is eslint's rule types in small (#1283): `rules/quiet.js` is a rule under
 `@type {import('../types').Rule.RuleModule}`, whose `create(context)` takes `Rule.RuleContext`,
@@ -643,7 +714,8 @@ in a template literal and comments.
 Two probes guard what a rule for `exports.name =` or `Ctor.prototype.name =` must not take: a
 `require`d module named like one of its `exports` properties (`glazing.cjs`), and a default
 import named like a prototype method of the exported constructor (`firing.mjs`).
-`kettle.mjs` exports as its default an instance bound to a `const` (#1008). `sieve.cjs` assigns
+`kettle.mjs` exports as its default an instance bound to a `const` (#1008), and by name
+another, `spare`, whose member `steaming.mjs` reads through its class (#1337). `sieve.cjs` assigns
 to `exports.name` a value in parentheses, which declares nothing, an `async` arrow, an arrow with
 a bare parameter and a named function behind `module.exports.`, read from `pouring.cjs` through a
 destructured and a whole `require` (#1007). `mill.cjs` holds what a constructor function must
@@ -663,7 +735,10 @@ behind a `require` (#1076): `this.x` reads the class's own fields and the base's
 field of `Roaster` stays out.
 `ledger.js` declares several names in one `let` (#1077), without initializers and with a comma
 inside one, beside a function `count` and another function's local `last` the later names must
-not reach.
+not reach. Its `weigh` probes the declarations themselves (#1342): a parameter of a signature
+over several lines and a name of a `let`, which stay where they are rather than reach those
+namesakes. `scope/Panel.tsx`'s `Field` puts a variable `label` beside the hyphenated JSX
+attributes `aria-label` and `data-label-for`, whose parts declare nothing.
 `pulling.mjs`, `steamer.cjs` and `wand.cjs` are the third corner (#1126), their answers
 tsserver's with `checkJs`: the shapes of `tea/infusion.ts` in JavaScript over `lever.mjs` and its
 re-exports in `espresso.mjs`, a JSDoc `import("…")` type, `const self = this` and `const that =
@@ -712,6 +787,20 @@ func's call (`Rush.make()`) keeps the picker. A method of a value whose type mer
 (`cashier.file(.express)`) reads its parameter's `Lane` as the top-level one, which an extension
 also opens; two overloads taking
 two types, or a receiver merl cannot type, keep the picker.
+`swift/Sources/Shop/Refresh.swift` (#1341) puts the cursor on a label inside an implicit `.init(`
+handed to `Lease(…, span: .init(…))`, over two lines too: it lands on the `init` of `Lease.Span`,
+the type the outer `init`'s `span:` parameter names. Overloads taking two types, a generic of the
+class or of the `init`, a type nested in two namesakes, an alias, no label, a ternary, an array
+literal and a call on a value (a closure's parameter shadowing a typed one) find nothing.
+`swift/Sources/Shop/Overloads.swift` (#1341) calls overloads that differ only by the type of an
+argument: a parameter, a local of a written type or built by a constructor, a constructor call and
+a string literal, each taken by one overload while the others take a struct of another name. Two
+numeric overloads for an integer literal, a protocol, a generic, two classes, an alias, the same
+type twice and a comparison of two strings keep the picker. `swift/Sources/Shop/Wharf.swift` passes a
+call followed by a property (`Wharf.berth(1).bale`, a static func, `Self`, an instance call, a
+property an extension in another file declares): the call's written return type, then the
+property's, types the argument. A generic return, an optional chain and a generic property keep
+the picker.
 
 `rust/src/tea/` is the adversarial corner of #982 for Rust, its answers rust-analyzer's. A
 `Kettle` with an inherent `pour` beside the `pour` of two traits, `Pour` and `Spill`, which
@@ -760,6 +849,19 @@ binding, so it keeps the picker where reading the parameter jumped to `Scoop::he
 head is read among the bindings above the line, so `heap` is `Scoop`'s and the lookup ends.
 `hashed` heads its chain at `hashbrown::HashMap::new()`: the path's root is not std's, so `len`
 is not std's either and `d` answers by name, as master did.
+`rust/tests/` holds Cargo's integration-test crates (#1302), each with a `Gauge` of its own:
+`suite.rs` is the root of `checks.rs` and `kit.rs` (`mod checks; mod kit;`), `solo.rs` is a root
+of its own, and `bench/main.rs` roots `bench/kit.rs`, so `crate::` leads each file to its own
+`Gauge`. `common/mod.rs` is declared by two roots, so its `crate::kit::Gauge` keeps the picker.
+`tests/meshes.rs` is rust0254's shape: `matcher.each(b"x, y", &mut caps, |caps| {` with `each` a
+default method of a trait bounding its `F: FnMut(&Self::Captures)`, and `Mesh`'s `impl` naming
+`type Captures = Caps;`, so `caps.get` is `Caps::get` beside `Grain::get`; the comma inside the
+string does not move the argument. A closure on the cursor's own line, a parameter written with
+a type, and a parameter of an unbounded `F` keep the picker.
+`tests/rebound.rs` binds `held` again on the cursor's own line before the cursor (a `let`, a
+`let … else`, a block's `let`, a one-line `match` arm) and through a project macro taking the
+name (`sift!(held);`), all over an outer `held: Caps`: each keeps a picker holding `Grain::get`,
+while the `let`'s own right side, the next arm, a closed block and std macros keep `Caps`.
 
 `sql/migrations/` and `sql/numbered/` are diesel-style migration folders for #1064: a
 `strainers` table created, re-created by a later `up.sql` and again by its `down.sql`, a
@@ -828,6 +930,13 @@ that types its receiver.
 namesake `petal` in `Bloom` and `Thorn`: `Future<Bloom>`, `FutureOr<Thorn>`, and `Future<T>` /
 `Future<T?>` whose `T` the `Future<Thorn>` handed to `Pod.of` decides. A getter returning
 `dynamic`, a `T` from `Pod.wrap(T)` and one from a generic method's `Future<S>` do not jump.
+`dart/lib/rebound.dart` (#1388) binds a typed `x` again where `d` reads it: on the cursor's own
+line (a closure, a `for`-`in`, a one-line block), by a type pattern (`if (o case Ewer x)`,
+`case Ewer x when …:`, a switch-expression arm) and by `is` promotion, which keeps a picker.
+Its controls read the outer `x` after a closed closure, block, arm or `if`, and in a string;
+a line that binds `x` twice keeps the picker, and `is` under `||`, `!(…)`, a string, a
+non-exiting `is!` or an inner rebinding, a `case` arm closed before `case _:` and a field read
+after a closed same-line pattern keep the outer jump.
 
 `sql/steep/` is SQL's third corner (#1126): a `urns` that `INHERITS` a `samovars` and a
 `cozies` made `LIKE` it (#1222), a view's column, output aliases with and without `AS` in an
@@ -901,6 +1010,23 @@ beside an extension of its name, a `String` local beside a project `trimIndent`,
 and `var plunger = plunger`, destructuring in a `val` and a loop header, a star import beside a
 same-package `Mesh`, an alias import of a function, a local function hiding a member inside an
 object expression, and `this@Cafetiere` from an inner class.
+
+`jvm/src/main/java/rebound/` and `jvm/src/main/kotlin/refill/` bind a name again over an outer one
+of another type (#1381): a `Flask x` field, or a local `Flask z` / `val z = Cruet()`, hidden by a
+local declared in the middle of the cursor's line, a parameter of an anonymous class's method on
+one line, a `switch` pattern (`case Ewer x ->` and `case Ewer x:` over lines) and a negated
+`instanceof` whose `if` returns. The one-line shapes keep a picker holding `Ewer.decant` /
+`Phial.tipple`, the multi-line ones land on it, while a use before the declaration, a closed
+block, the `else` after a block and a negated pattern whose `if` does not exit keep the outer
+name's member.
+
+`jvm/src/main/scala/rebound/` (#1389) binds the `x` field of a `Cup` again as a `Mug` where `d`
+cannot read the new type: a `for` generator on the cursor's line, over lines in `for (…) {`,
+`for … do` and `for { … } yield`, a `x = m` enumerator, `val (x, n) =`, `val Tray(x) =`,
+`given x: Mug`, `implicit val x: Mug` and a colon lambda `ms.foreach: x =>`. Each keeps a picker
+of both `sip`s, and so does the arm after a `case x: Mug => …;` on its line, which itself lands
+on `Mug.sip`; a closed `for`, a line after the block, a comment, a string, `val y = x` and a
+generator on a later line keep `Cup.sip`.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an

@@ -2,7 +2,9 @@
 # worker/ and the README; the agent's order file writes `skip ` before the test, the docs page
 # and the README. They stay in the panel, each with a robot and a dim row; c walks past tests/
 # and docs/ from app/service.py to worker/main.go and stops there at the last hunk, C walks back
-# past them, and Enter in the panel opens a skipped file.
+# past them, and Enter in the panel opens a skipped file. Then the order names the commit the
+# agent read and the docs page changes after it: the page loses its robot and the review opens
+# on it, the test keeps its robot (#1189).
 merl README.md
 wait # orders
 run git switch -q -c agent/skip && printf '\n# models\n' >> app/models.py && printf '\n# service\n' >> app/service.py && printf '\n# test\n' >> tests/test_service.py && printf '\nMore notes.\n' >> docs/notes.md && printf '\n// worker\n' >> worker/main.go && printf '\nMore.\n' >> README.md && git commit -qam 'agent: a change in five folders'
@@ -26,3 +28,8 @@ wait hunk 1/1  file 2/6
 caption Enter in the panel opens a skipped file
 key Tab Down Down Enter
 wait tests/test_service.py
+caption the agent read this commit; then the docs page changes on the branch (#1189)
+run printf '# commit %s\napp/models.py\napp/service.py\nskip tests/test_service.py\nskip docs/notes.md\nworker/main.go\nskip README.md\n' "$(git rev-parse HEAD)" > .git/merl/review/agent/skip && printf '\nEven more notes.\n' >> docs/notes.md && git commit -qam 'docs: a change after the order'
+merl --review
+caption the docs page lost its robot: the review opens on it, the test keeps its robot
+wait hunk 1/1  file 4/6

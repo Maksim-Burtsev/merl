@@ -15,17 +15,25 @@ pub struct Import {
     pub name: String,
     pub path: Vec<String>,
 }
+fn code_of(kind: Kind, text: &str) -> String {
+    let literal = literal_lines(kind, text);
+    let code: Vec<&str> = text
+        .lines()
+        .zip(&literal)
+        .map(|(l, inside)| if *inside { "" } else { l })
+        .collect();
+    code.join("\n")
+}
 pub fn imports(kind: Kind, text: &str) -> Vec<Import> {
     if matches!(kind, Kind::Python | Kind::Julia) {
-        let literal = literal_lines(kind, text);
-        let code: Vec<&str> = text
-            .lines()
-            .zip(&literal)
-            .map(|(l, inside)| if *inside { "" } else { l })
-            .collect();
-        return imports_as_written(kind, &code.join("\n"));
+        return imports_as_written(kind, &code_of(kind, text));
     }
     imports_as_written(kind, text)
+}
+pub fn julia_function_imports(text: &str) -> Vec<Import> {
+    let mut out = Vec::new();
+    julia_imports(&code_of(Kind::Julia, text), &mut out, false);
+    out
 }
 pub fn python_import_module(line: &str, at: usize) -> Option<Vec<String>> {
     static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -150,7 +158,7 @@ pub fn imports_as_written(kind: Kind, text: &str) -> Vec<Import> {
         Kind::Go => go_imports(text, &mut out),
         Kind::TsJs => ts_imports(text, &mut out),
         Kind::Php => php_imports(text, &mut out),
-        Kind::Julia => julia_imports(text, &mut out),
+        Kind::Julia => julia_imports(text, &mut out, true),
         Kind::Jvm
         | Kind::Ruby
         | Kind::C
@@ -412,6 +420,16 @@ pub fn default_name(line: &str) -> Option<String> {
         Regex::new(r"^\s*export\s+default\s+([A-Za-z_$][\w$]*)\s*;?\s*$")
             .expect("the regex is a literal")
     });
+    static LIST: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*export\s*\{([^}]*)\}\s*;?\s*$").expect("the regex is a literal")
+    });
+    if let Some(list) = LIST.captures(line) {
+        return list[1].split(',').find_map(|e| {
+            let (local, exported) = e.trim().split_once(" as ")?;
+            (exported.trim() == "default" && !local.trim().contains(' '))
+                .then(|| local.trim().to_owned())
+        });
+    }
     let name = DEFAULT.captures(line)?[1].to_owned();
     (!matches!(name.as_str(), "class" | "function" | "async" | "abstract")).then_some(name)
 }
@@ -427,6 +445,14 @@ pub fn default_class(text: &str) -> Option<String> {
     let bound = Regex::new(&format!(
         r"(?m)^\s*(?:export\s+)?const\s+{}\s*=\s*new\s+([A-Za-z_$][\w$]*)\s*\(",
         regex::escape(&name)
+    ))
+    .ok()?;
+    Some(bound.captures(text)?[1].to_owned())
+}
+pub fn top_level_new(text: &str, name: &str) -> Option<String> {
+    let bound = Regex::new(&format!(
+        r"(?m)^(?:export\s+)?const\s+{}\s*=\s*new\s+([A-Za-z_$][\w$]*)\s*\(",
+        regex::escape(name)
     ))
     .ok()?;
     Some(bound.captures(text)?[1].to_owned())
@@ -680,7 +706,13 @@ pub fn rust_uses(text: &str) -> Vec<RustUse> {
     }
     out
 }
-pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) -> Vec<PathBuf> {
+pub fn rust_use_files(
+    files: &[PathBuf],
+    here: &Path,
+    text: &str,
+    name: &str,
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Vec<PathBuf> {
     let mut bound = rust_uses(text).into_iter().filter(|u| u.name == name);
     let (
         Some(RustUse {
@@ -695,8 +727,9 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
     };
     let Some(RustModule {
         crate_src: src,
+        roots,
         path: mut module,
-    }) = rust_module_of(files, here)
+    }) = rust_module_of(files, here, text_of)
     else {
         return Vec::new();
     };
@@ -719,9 +752,9 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
         _ => return Vec::new(),
     };
     module.extend(parts.iter().cloned());
-    let at = module.iter().fold(src.clone(), |p, m| p.join(m));
+    let at = module.iter().fold(src, |p, m| p.join(m));
     let wanted = if module.is_empty() {
-        vec![src.join("lib.rs"), src.join("main.rs")]
+        roots
     } else {
         vec![at.with_extension("rs"), at.join("mod.rs")]
     };
@@ -729,11 +762,19 @@ pub fn rust_use_files(files: &[PathBuf], here: &Path, text: &str, name: &str) ->
 }
 pub struct RustModule {
     pub crate_src: PathBuf,
+    pub roots: Vec<PathBuf>,
     pub path: Vec<String>,
 }
-pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
+pub fn rust_src_roots(src: &Path) -> Vec<PathBuf> {
+    vec![src.join("lib.rs"), src.join("main.rs")]
+}
+pub fn rust_module_of(
+    files: &[PathBuf],
+    here: &Path,
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Option<RustModule> {
     let src = here.ancestors().skip(1).find(|d| {
-        d.file_name().is_some_and(|n| n == "src")
+        d.file_name().is_some_and(|n| n == "src" || n == "tests")
             && files.contains(
                 &d.parent()
                     .unwrap_or_else(|| Path::new(""))
@@ -746,6 +787,9 @@ pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
         .iter()
         .map(|p| p.to_string_lossy().into_owned())
         .collect();
+    if src.ends_with("tests") {
+        return rust_test_module(files, src, here, module, text_of);
+    }
     if module.first().is_some_and(|m| m == "bin") {
         return None;
     }
@@ -756,6 +800,57 @@ pub fn rust_module_of(files: &[PathBuf], here: &Path) -> Option<RustModule> {
     }
     Some(RustModule {
         crate_src: src.to_path_buf(),
+        roots: rust_src_roots(src),
+        path: module,
+    })
+}
+fn rust_test_module(
+    files: &[PathBuf],
+    tests: &Path,
+    here: &Path,
+    mut module: Vec<String>,
+    text_of: impl Fn(&Path) -> Option<String>,
+) -> Option<RustModule> {
+    if module.last().is_some_and(|m| m == "mod") {
+        module.pop();
+    }
+    if let [dir, _, ..] = module.as_slice() {
+        let src = tests.join(dir);
+        let main = src.join("main.rs");
+        if files.contains(&main) {
+            module.remove(0);
+            if module == ["main"] {
+                module.clear();
+            }
+            return Some(RustModule {
+                crate_src: src,
+                roots: vec![main],
+                path: module,
+            });
+        }
+    }
+    let declares = Regex::new(&format!(
+        r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+{}\s*;",
+        regex::escape(module.first()?)
+    ))
+    .ok()?;
+    let mut roots = files.iter().filter(|f| {
+        f.parent() == Some(tests)
+            && f.extension().is_some_and(|e| e == "rs")
+            && *f != here
+            && text_of(f).is_some_and(|t| declares.is_match(&t))
+    });
+    let roots = match (roots.next(), roots.next()) {
+        (Some(root), None) => vec![root.clone()],
+        (None, _) if here.parent() == Some(tests) => {
+            module.clear();
+            vec![here.to_path_buf()]
+        }
+        _ => return None,
+    };
+    Some(RustModule {
+        crate_src: tests.to_path_buf(),
+        roots,
         path: module,
     })
 }
@@ -1150,6 +1245,11 @@ pub fn in_module(path: &Path, parts: &[String]) -> bool {
         }
     }
     i == parts.len()
+}
+pub fn at_module_path(path: &Path, parts: &[String]) -> bool {
+    path.components()
+        .map(|c| normalized_module_part(&c.as_os_str().to_string_lossy()))
+        .eq(parts.iter().map(|p| normalized_module_part(p)))
 }
 fn normalized_module_part(s: &str) -> String {
     let s = s.split('@').next().unwrap_or(s);

@@ -1,8 +1,9 @@
 use std::sync::LazyLock;
 
+use super::returns::iterator_items;
 use super::sysroot::rust_element;
 use super::{
-    App, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
+    App, Bound, Candidate, Hit, InCrate, Kind, MacroUse, Path, PathBuf, Reason, Regex, Typed,
     rust_bare_type, search,
 };
 
@@ -159,11 +160,16 @@ fn tuple_initializer(
 }
 
 fn for_iterated<'a>(text: &'a str, at: usize, name: &str) -> Option<(&'a str, &'a str)> {
-    let line = text.lines().nth(at)?.trim();
+    let mut lines = text.lines().skip(at);
+    let line = lines.next()?.trim();
     let rest = line.strip_prefix("for ")?.trim_start();
     let rest = rest.strip_prefix("mut ").unwrap_or(rest);
     let expr = rest.strip_prefix(name)?.trim_start().strip_prefix("in ")?;
-    let expr = expr.strip_suffix('{')?.trim();
+    let expr = match expr.strip_suffix('{') {
+        Some(expr) => expr,
+        None => (lines.next()?.trim() == "{").then_some(expr)?,
+    }
+    .trim();
     let place = expr.strip_prefix('&').map_or(expr, |s| {
         let s = s.trim_start();
         s.strip_prefix("mut ").unwrap_or(s).trim()
@@ -249,6 +255,7 @@ pub(super) enum Got {
         written: String,
         line0: usize,
     },
+    Bound(Bound),
 }
 
 impl App {
@@ -270,7 +277,10 @@ impl App {
         at: usize,
         parts: &[String],
     ) -> Option<(Hit, String)> {
-        if !search::bindings(Kind::Rust, text, at + 1, &parts[0]).is_empty() {
+        if search::bindings(Kind::Rust, text, at + 1, &parts[0])
+            .iter()
+            .any(|b| b.line1 != at + 1)
+        {
             return None;
         }
         let decl = if let Some(decl) = self.declaration(Kind::Rust, file, parts) {
@@ -327,6 +337,9 @@ impl App {
                 written,
                 line0,
             } if link.call => self.rust_std_returns(&file, &written, line0, &link.name),
+            Got::Bound(b) if link.call => {
+                self.rust_fn_returns(&self.rust_bound_method(&b, &link.name)?.0)
+            }
             _ => None,
         }
     }
@@ -341,9 +354,15 @@ impl App {
     ) -> Option<Got> {
         match (w.head.as_slice(), w.head_call) {
             ([name], false) => self
-                .rust_value_type(file, text, line0, name, own.is_some())
+                .rust_value_type(file, text, line0, name, own.is_some(), None)
                 .map(|(ty, _)| Got::Ty(ty))
-                .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some())),
+                .or_else(|| self.rust_std_head(file, text, line0, name, own.is_some()))
+                .or_else(|| {
+                    let b = self
+                        .rust_param_bound(file, text, line0, name)
+                        .filter(|_| name != "self");
+                    b.map(Got::Bound)
+                }),
             ([.., ty, f], true) if ty.starts_with(|c: char| c.is_ascii_uppercase()) => {
                 let owner = w.head[..w.head.len() - 1].join("::");
                 let Some(ty) = self.rust_resolve(file, &owner, line0) else {
@@ -379,6 +398,82 @@ impl App {
             }
             _ => None,
         }
+    }
+
+    pub(super) fn rust_closure_param(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        name: &str,
+    ) -> Option<Typed> {
+        static CLOSURE: LazyLock<Regex> = LazyLock::new(|| {
+            Regex::new(r"[(,]\s*(?:move\s+)?\|([\w\s,]*)\|").expect("the regex is a literal")
+        });
+        let lines: Vec<&str> = text.lines().collect();
+        let line = lines.get(at)?;
+        let found: Vec<(usize, usize)> = CLOSURE
+            .captures_iter(line)
+            .filter_map(|c| {
+                let params: Vec<&str> = c[1].split(',').map(str::trim).collect();
+                let input = params
+                    .iter()
+                    .position(|p| p.strip_prefix("mut ").unwrap_or(p).trim() == name)?;
+                Some((c.get(0)?.start() + 1, input))
+            })
+            .collect();
+        let [(start, input)] = found[..] else {
+            return None;
+        };
+        let mut expr = line.get(..start)?.trim().to_owned();
+        let mut i = at;
+        while expr.starts_with('.') && i > 0 {
+            i -= 1;
+            expr.insert_str(0, lines[i].trim());
+        }
+        let open = opening(&format!("{expr})"), b')', b'(')?;
+        let arg = search::top_split(expr.get(open + 1..)?).len() - 1;
+        let mut w = walk_back(expr.get(..open)?)?;
+        let method = w.links.pop().filter(|l| !l.call)?.name;
+        if w.rest != 0 {
+            return None;
+        }
+        let mut got = self.rust_head(file, text, at, &w, None)?;
+        for link in &w.links {
+            got = self.rust_step(got, link)?;
+        }
+        let Got::Ty(ty) = got else { return None };
+        let [decl] = <[Hit; 1]>::try_from(self.rust_members(&ty, &method)).ok()?;
+        let t = self.text_of(&decl.path)?;
+        let l: Vec<&str> = t.lines().collect();
+        let sig = search::rust_signature(&l, decl.line1 - 1)?;
+        let written = search::rust_closure_input(&sig, arg, input)?;
+        let written = written.trim_start_matches(['&', ' ']);
+        let written = written.strip_prefix("mut ").unwrap_or(written).trim();
+        let Some(assoc) = written.strip_prefix("Self::") else {
+            return self.rust_resolve(&decl.path, written, decl.line1 - 1);
+        };
+        let (search::RustOwner::Trait(tr) | search::RustOwner::ImplOf(tr)) =
+            search::rust_method_at(&l, decl.line1)?.owner
+        else {
+            return None;
+        };
+        let impls = format!(
+            r"^\s*(?:unsafe\s+)?impl\b[^{{]*\b{}\b[^{{]*\bfor\s+(?:\w+::)*{}\b",
+            regex::escape(&tr),
+            regex::escape(&ty.name)
+        );
+        let [imp] = <[Hit; 1]>::try_from(
+            self.grep_in(&impls, &self.rust_type_files(&ty))
+                .into_iter()
+                .filter(|h| search::rust_impl_trait(&h.text).as_ref() == Some(&tr))
+                .collect::<Vec<_>>(),
+        )
+        .ok()?;
+        let it = self.text_of(&imp.path)?;
+        let il: Vec<&str> = it.lines().collect();
+        let assoc = search::rust_assoc_type(&il, imp.line1 - 1, assoc)?;
+        self.rust_resolve(&imp.path, &assoc, imp.line1 - 1)
     }
 
     fn rust_closure_returns(&self, file: &Path, text: &str, at: usize, name: &str) -> Option<Got> {
@@ -599,9 +694,11 @@ impl App {
             Regex::new(r"\.map\(\s*\|[^|]*\|\s*((?:[A-Za-z_]\w*::)*[A-Za-z_]\w*)\s*\([^()]*\)\s*\)\s*\.collect\(\s*\)$")
                 .expect("the regex is a literal")
         });
-        let (_, place) = for_iterated(text, at, name)?;
+        let (expr, place) = for_iterated(text, at, name)?;
         if place.is_empty() || !place.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return None;
+            return (expr == place)
+                .then(|| self.rust_for_project_item(file, text, at, expr))
+                .flatten();
         }
         let bindings = search::bindings(Kind::Rust, text, at + 1, place);
         let [b] = bindings.as_slice() else {
@@ -638,6 +735,68 @@ impl App {
         self.rust_resolve(&decl.path, &returns, decl.line1 - 1)
     }
 
+    fn rust_for_project_item(
+        &self,
+        file: &Path,
+        text: &str,
+        at: usize,
+        expr: &str,
+    ) -> Option<Typed> {
+        const SAME_ITEM: [&str; 11] = [
+            "by_ref",
+            "filter",
+            "fuse",
+            "inspect",
+            "peekable",
+            "rev",
+            "skip",
+            "skip_while",
+            "step_by",
+            "take",
+            "take_while",
+        ];
+        let mut w = walk_back(expr)?;
+        if w.rest != 0 {
+            return None;
+        }
+        let mut adapters = Vec::new();
+        while let Some(l) = w
+            .links
+            .pop_if(|l| l.call && SAME_ITEM.contains(&l.name.as_str()))
+        {
+            adapters.push(l.name);
+        }
+        if !w.head_call && w.links.is_empty() && adapters.is_empty() {
+            return None;
+        }
+        let mut got = self.rust_head(file, text, at, &w, None)?;
+        for link in &w.links {
+            got = self.rust_step(got, link)?;
+        }
+        let Got::Ty(ty) = got else {
+            return None;
+        };
+        if adapters
+            .iter()
+            .any(|a| !self.rust_members(&ty, a).is_empty())
+        {
+            return None;
+        }
+        let t = self.text_of(&ty.path)?;
+        let lines: Vec<&str> = t.lines().collect();
+        let [(impl_line0, item)] = iterator_items(&lines, &ty.name)[..] else {
+            return None;
+        };
+        let generics = lines[impl_line0].trim().strip_prefix("impl")?;
+        let lifetimes_only = generics.strip_prefix('<').is_none_or(|g| {
+            g.split('>')
+                .next()
+                .is_some_and(|g| g.split(',').all(|p| p.trim().starts_with('\'')))
+        });
+        lifetimes_only.then_some(())?;
+        self.rust_resolve(&ty.path, item, impl_line0)
+    }
+
     pub(super) fn rust_let_chain(
         &self,
         file: &Path,
@@ -647,7 +806,7 @@ impl App {
     ) -> Option<Typed> {
         match self.rust_let_got(file, text, at, name, false)? {
             Got::Ty(ty) => Some(ty),
-            Got::Written { .. } => None,
+            Got::Written { .. } | Got::Bound(_) => None,
         }
     }
 
@@ -660,7 +819,7 @@ impl App {
     ) -> Option<String> {
         match self.rust_let_got(file, text, at, name, true)? {
             Got::Written { written, .. } => rust_bare_type(&written),
-            Got::Ty(_) => None,
+            Got::Ty(_) | Got::Bound(_) => None,
         }
     }
 
@@ -708,7 +867,7 @@ impl App {
                 let owner = self.text_of(&file)?;
                 return self.rust_std_call(&owner, via, &std, word);
             }
-            Got::Written { .. } => return None,
+            Got::Written { .. } | Got::Bound(_) => return None,
         };
         let hits = if call {
             self.rust_members(&ty, word)

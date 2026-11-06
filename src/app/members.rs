@@ -731,13 +731,11 @@ impl App {
             .text_of(&ty.path)
             .filter(|_| depth < 8)
             .ok_or_else(broke)?;
-        let plain = |b: &str| {
-            let b = b.split('[').next().unwrap_or(b);
-            let b = b.rsplit('.').next().unwrap_or(b);
-            matches!(b, "Generic" | "Protocol" | "ABC" | "object")
-        };
         let written = search::bases(kind, &text, ty.line);
-        let bases: Vec<&String> = written.iter().filter(|b| !plain(b)).collect();
+        let bases: Vec<&String> = written
+            .iter()
+            .filter(|b| !search::plain_python_base(b))
+            .collect();
         let mut answers: Vec<Vec<Hit>> = Vec::new();
         for (i, base) in bases.iter().enumerate() {
             let Some(base) = self.type_decl(kind, &ty.path, base) else {

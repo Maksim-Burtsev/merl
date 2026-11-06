@@ -1419,8 +1419,15 @@ fn swift_tuples_closures_chains_and_if_arms_are_read() {
         Some(vec!["Whisk".into(), "sift".into(), "finish".into()])
     );
     assert_eq!(swift_call_links("Bowl(froth: 1)."), None);
-    assert_eq!(swift_call_links("w.sift(1).finish()."), None);
+    assert_eq!(
+        swift_call_links("x = self.w.sift(1).finish()."),
+        Some(vec!["self.w.sift".into(), "finish".into()])
+    );
+    assert_eq!(swift_call_links("w.sift(1)."), None);
     assert_eq!(swift_call_links("    .sift(1).finish()."), None);
+    assert_eq!(swift_call_links("a[0].sift(1).finish()."), None);
+    assert_eq!(swift_call_links("w?.sift(1).finish()."), None);
+    assert_eq!(swift_call_links("Shop.sift(1).finish()."), None);
     let lines = [
         "#if os(macOS)",
         "typealias K = A",
@@ -1471,6 +1478,7 @@ fn c_receiver_cuts_at_a_character() {
             fields: vec![],
             calls: vec![],
             braced: false,
+            indexed: false,
             start: 4,
         })
     );

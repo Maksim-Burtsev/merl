@@ -1,57 +1,57 @@
-wait A Month.php
-┌orders──────────────────────┐1 <?php
-│▸ .github                   │2 namespace Billing;
-│▸ .venv                     │3
-│▸ app                       │4 use Billing\Legacy\Ledger as OldLedger;
-│▸ data                      │5
-│▸ deploy                    │6 function close(): int
-│▸ docs                      │7 {
-│▾ scripts                   │8     return Ledger::total() - OldLedger::total();
-│  ▾ billing                 │9 }
-│    ▸ Legacy                │
-│    A Ledger.php            │
-│    A Month.php             │
-│  ▸ payouts                 │
-│  A composer.json           │
-│    invoices.php            │
-│    refund_by_hand.py       │
-│▸ tests                     │
-│▸ web                       │
-│▸ worker                    │
-│  .env                      │
-│  .gitignore                │
-│  docker-compose.yml        │
-│  Dockerfile                │
-│  Makefile                  │
-│  pyproject.toml            │
-│  README.md                 │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
-│                            │
+wait at a declaration
+┌orders──────────────────────┐ 3 namespace Billing;
+│▸ .github                   │ 4
+│▸ .venv                     │ 5 abstract class Document
+│▸ app                       │ 6 {
+│▸ data                      │ 7     public const PAPER = 'A4';
+│▸ deploy                    │ 8
+│▸ docs                      │ 9     protected function render(string $format): string
+│▾ scripts                   │10     {
+│  ▸ payouts                 │11         return "{$format}:" . static::PAPER;
+│    invoices.php            │12     }
+│    refund_by_hand.py       │13 }
+│▸ tests                     │14 ┌number: at a declaration, 1 other by name (1/1)──────────────────────────────────────────────────────────────────────────────────────────┐
+│▸ web                       │15 │>                                                                                                                                        │
+│▸ worker                    │16 │scripts/invoices.php                                                                                                                     │
+│  .env                      │17 │  17  protected function number(): string                                                                                        Numbered│
+│  .gitignore                │18 │                                                                                                                                         │
+│  docker-compose.yml        │19 │                                                                                                                                         │
+│  Dockerfile                │20 │                                                                                                                                         │
+│  Makefile                  │21 │                                                                                                                                         │
+│  pyproject.toml            │22 │                                                                                                                                         │
+│  README.md                 │23 │                                                                                                                                         │
+│                            │24 │                                                                                                                                         │
+│                            │25 │                                                                                                                                         │
+│                            │26 │                                                                                                                                         │
+│                            │27 │                                                                                                                                         │
+│                            │28 │                                                                                                                                         │
+│                            │29 │                                                                                                                                         │
+│                            │30 │                                                                                                                                         │
+│                            │31 │                                                                                                                                         │
+│                            │32 │                                                                                                                                         │
+│                            │33 │                                                                                                                                         │
+│                            │34 │                                                                                                                                         │
+│                            │35 │                                                                                                                                         │
+│                            │36 │                                                                                                                                         │
+│                            │37 │                                                                                                                                         │
+│                            │38 │                                                                                                                                         │
+│                            │39 │                                                                                                                                         │
+│                            │40 │                                                                                                                                         │
+│                            │41 │                                                                                                                                         │
+│                            │42 │                                                                                                                                         │
+│                            │43 │                                                                                                                                         │
+│                            │44 │                                                                                                                                         │
+│                            │45 │                                                                                                                                         │
+│                            │46 └─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+│                            │47     }
+│                            │48 }
+│                            │49
+│                            │50 function send_receipt(Receipt $receipt): string
+│                            │51 {
+│                            │52     return $receipt->number();
+│                            │53 }
 │                            │
 │                            │
 └────────────────────────────┘
-scripts/billing/Month.php  8:21  [code]                                                                                                                                            14:32
-cursor (x,y,shown) 52,7,0
+scripts/invoices.php  30:21  [code]  number: at a declaration, 1 other by name                                                                                                     14:32
+cursor (x,y,shown) 36,12,0

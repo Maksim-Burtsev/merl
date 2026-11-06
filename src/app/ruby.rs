@@ -234,6 +234,9 @@ impl App {
                 })
             })
             .collect();
+        if owned.is_empty() {
+            return Vec::new();
+        }
         let mut seen = HashSet::from([class.clone()]);
         let mut queue = std::collections::VecDeque::from([(class, on_class)]);
         while let Some((c, side)) = queue.pop_front() {
@@ -385,7 +388,7 @@ impl App {
         hits
     }
 
-    fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
+    pub(super) fn ruby_declarations(&self, here: &Path, path: &str) -> Vec<(Hit, String)> {
         let last = path.rsplit("::").next().unwrap_or(path);
         self.ruby_named_declarations(here, last)
             .into_iter()

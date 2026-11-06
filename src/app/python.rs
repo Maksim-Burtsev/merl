@@ -232,6 +232,99 @@ impl App {
         found
     }
 
+    pub(super) fn outside_instance_member(
+        &self,
+        module: &[String],
+        value: &str,
+        word: &str,
+    ) -> Option<Vec<Candidate>> {
+        let kind = Kind::Python;
+        let made = self.outside_handed_on(module, value, 0);
+        let [made] = made.as_slice() else {
+            return None;
+        };
+        let (name, _) = made.hit.text.split_once('=')?;
+        let name = name.trim_end();
+        if name.is_empty() || !name.chars().all(super::is_word) {
+            return None;
+        }
+        let text = self.text_of(&made.hit.path)?;
+        let bound = search::bindings(kind, &text, 1, name);
+        let [
+            search::Binding {
+                line1,
+                value: search::Value::Call(class),
+            },
+        ] = bound.as_slice()
+        else {
+            return None;
+        };
+        let once = |n: &str| {
+            let binds = module_binds(n);
+            text.lines().filter(|l| binds.is_match(l)).count() == 1
+        };
+        if *line1 != made.hit.line1 || class.contains('.') || !once(name) || !once(class) {
+            return None;
+        }
+        let ty = self.type_decl(kind, &made.hit.path, class)?;
+        let above: Vec<&str> = text.lines().take(ty.line.saturating_sub(1)).collect();
+        let decorated = (above.iter().rev())
+            .map(|l| l.trim())
+            .take_while(|l| l.starts_with('@'))
+            .any(|l| !matches!(l, "@final" | "@typing.final"));
+        if ty.path != made.hit.path
+            || decorated
+            || !search::python_rooted(&text, ty.line)
+            || DYNAMIC_STORE.is_match(&text)
+        {
+            return None;
+        }
+        let start = self.walked_module(module)?;
+        let package = self.python_package_files(&[&made.hit.path, &start]);
+        let (m, v) = (regex::escape(module.last()?), regex::escape(value));
+        let stores = format!(
+            r#"{}|\b{m}\s*\.\s*{v}{STORE}|setattr\s*\(\s*{m}\s*,\s*["']{v}["']"#,
+            stores_of(&[name, word])
+        );
+        let in_project = self.grep(&stores, false, false, |p| {
+            p.extension().is_some_and(|e| e == "py")
+        });
+        if !self.grep_in(&stores, &package).is_empty() || !in_project.ok()?.is_empty() {
+            return None;
+        }
+        let hits = match self.own_member(kind, &ty, word) {
+            Some(hits) if !hits.is_empty() => hits,
+            _ => self.type_checking_member(&ty, word)?,
+        };
+        let reason = Reason::Receiver(format!("{}.{value}: {}", module.join("."), ty.name));
+        (!hits.is_empty()).then(|| {
+            hits.into_iter()
+                .map(|hit| Candidate {
+                    hit,
+                    reason: reason.clone(),
+                })
+                .collect()
+        })
+    }
+
+    fn type_checking_member(&self, ty: &Typed, word: &str) -> Option<Vec<Hit>> {
+        let text = self.text_of(&ty.path)?;
+        let lines: Vec<&str> = text.lines().collect();
+        let hits: Vec<Hit> = search::type_checking_fields(&text, ty.line, word)
+            .into_iter()
+            .filter_map(|b| {
+                Some(Hit {
+                    text: (*lines.get(b.line1 - 1)?).to_owned(),
+                    path: ty.path.clone(),
+                    line1: b.line1,
+                    byte_col: None,
+                    deleted: None,
+                })
+            })
+            .collect();
+        (!hits.is_empty()).then_some(hits)
+    }
+
     fn module_level_defs(&self, file: &Path, text: &str, name: &str) -> Vec<Hit> {
         let kind = Kind::Python;
         let pattern = search::def_patterns(kind, name).join("|");
@@ -269,6 +362,60 @@ impl App {
         let text = std::fs::read_to_string(&stub).ok()?;
         let [hit] = <[Hit; 1]>::try_from(self.module_level_defs(&stub, &text, name)).ok()?;
         Some(hit)
+    }
+
+    pub(super) fn stub_returns_self(&self, ty: &Typed, field: &str) -> bool {
+        let rel = self
+            .rel_to_its_root(Kind::Python, &ty.path)
+            .with_extension("");
+        let Some(dir) = crate::typeshed::stdlib() else {
+            return false;
+        };
+        let stdlib = ty
+            .path
+            .ancestors()
+            .nth(rel.components().count())
+            .is_some_and(|root| {
+                root.file_name()
+                    .is_some_and(|n| n.to_string_lossy().starts_with("python"))
+                    && root.join("os.py").is_file()
+            });
+        if !ty.path.is_absolute() || rel.is_absolute() || !stdlib {
+            return false;
+        }
+        let Some((stub, text)) = [rel.with_extension("pyi"), rel.join("__init__.pyi")]
+            .into_iter()
+            .find_map(|f| Some((dir.join(&f), std::fs::read_to_string(dir.join(f)).ok()?)))
+        else {
+            return false;
+        };
+        let defs = self.module_level_defs(&stub, &text, &ty.name);
+        let [class] = &defs[..] else {
+            return false;
+        };
+        if !search::declares_type(Kind::Python, &class.text) {
+            return false;
+        }
+        let class = Typed {
+            name: ty.name.clone(),
+            path: stub,
+            line: class.line1,
+        };
+        let says_self = self.hierarchy(Kind::Python, &class, 0, &mut |t| {
+            let text = self.text_of(&t.path)?;
+            let found = search::field_bindings(Kind::Python, &text, t.line, field);
+            let self_type = search::imports(Kind::Python, &text).iter().any(|i| {
+                i.name == "Self"
+                    && matches!(&i.path[..], [m, s] if s == "Self" && (m == "typing" || m == "typing_extensions"))
+            });
+            (!found.is_empty()).then(|| {
+                self_type
+                    && found
+                        .iter()
+                        .all(|b| matches!(&b.value, search::Value::Type(s) if s == "Self"))
+            })
+        });
+        says_self == Some(true)
     }
 
     pub(super) fn runtime_class(&self, ty: Typed) -> Typed {
@@ -470,6 +617,69 @@ impl App {
             .collect()
     }
 
+    pub(super) fn created_model_field(
+        &self,
+        here: &Path,
+        line0: usize,
+        byte_col: usize,
+        word: &str,
+    ) -> Option<Candidate> {
+        let kind = Kind::Python;
+        let head = self
+            .buf
+            .lines
+            .get(line0)?
+            .get(..=byte_col)?
+            .strip_suffix(".objects.create")?;
+        let model = head
+            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+            .next()
+            .filter(|m| {
+                !m.is_empty()
+                    && head
+                        .strip_suffix(m)
+                        .is_some_and(|before| !before.ends_with('.'))
+            })?;
+        let ty = self.type_decl(kind, here, model)?;
+        let mro = self.python_mro(&ty);
+        mro.iter()
+            .any(|t| {
+                self.text_of(&t.path).is_some_and(|text| {
+                    search::bases(kind, &text, t.line)
+                        .iter()
+                        .any(|b| b == "models.Model" || b.ends_with(".models.Model"))
+                })
+            })
+            .then_some(())?;
+        let (class, text, made) = mro.into_iter().find_map(|t| {
+            let text = self.text_of(&t.path)?;
+            let made = search::field_bindings(kind, &text, t.line, word);
+            (!made.is_empty()).then_some((t, text, made))
+        })?;
+        let [
+            search::Binding {
+                line1,
+                value: search::Value::Call(_),
+            },
+        ] = made.as_slice()
+        else {
+            return None;
+        };
+        let line = text.lines().nth(line1 - 1)?;
+        (!class.path.is_absolute() && starts_by_assigning(line.trim_start(), word)).then(|| {
+            Candidate {
+                hit: Hit {
+                    deleted: None,
+                    path: class.path.clone(),
+                    line1: *line1,
+                    byte_col: None,
+                    text: line.to_owned(),
+                },
+                reason: Reason::Label(format!("field of {}", class.name)),
+            }
+        })
+    }
+
     pub(super) fn made_by_class_attribute(&self, ty: &Typed, field: &str) -> Option<Typed> {
         let kind = Kind::Python;
         let mro = self.python_mro(ty);
@@ -542,6 +752,30 @@ pub(super) fn python_absolute(
     }
     (!path.is_empty()).then_some(path)
 }
+const STORE: &str = r"\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$)";
+
+static DYNAMIC_STORE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r#"__dict__\s*\.\s*update|setattr(?:__)?\s*\(\s*(?:self|cls)\s*,\s*[^"'\s]"#)
+        .expect("the regex is a literal")
+});
+
+fn module_binds(name: &str) -> Regex {
+    let n = regex::escape(name);
+    Regex::new(&format!(
+        r"^\s*(?:(?:global|del|case)\b.*\b{n}\b|(?:async\s+)?(?:def|class)\s+{n}\b|for\b.*\b{n}\b.*\bin\b|[\w\s,.*()\[\]]*\b{n}\b[\w\s,.*()\[\]]*{STORE})|\bimport\b.*\b{n}\b|\bimport\s+\*|\bas\s+{n}\b|\b{n}\s*:=|\bsetattr\s*\(|\bglobals\s*\(\s*\)|\bvars\s*\(\s*\)|\bsys\.modules\b"
+    ))
+    .expect("an escaped name keeps the pattern valid")
+}
+
+fn stores_of(names: &[&str]) -> String {
+    let n = (names.iter().map(|n| regex::escape(n)))
+        .collect::<Vec<_>>()
+        .join("|");
+    format!(
+        r#"\.\s*(?:{n})\b{STORE}|setattr(?:__)?\s*\(.*["'](?:{n})["']|\[\s*["'](?:{n})["']\s*\]{STORE}|\b(?:{n})\s*\.\s*__(?:dict|setattr)__"#
+    )
+}
+
 fn python_import_line(text: &str, name: &str) -> Option<usize> {
     static FROM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"(?m)^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)")
@@ -564,4 +798,82 @@ pub(super) fn starts_by_assigning(text: &str, word: &str) -> bool {
         let rest = rest.trim_start();
         rest.starts_with(':') || rest.starts_with('=') && !rest.starts_with("==")
     })
+}
+
+impl App {
+    pub(super) fn patched_mock(
+        &self,
+        kind: Kind,
+        text: &str,
+        b: &search::Binding,
+    ) -> Option<Typed> {
+        if kind != Kind::Python
+            || !matches!(b.value, search::Value::Call(_) | search::Value::Unknown)
+        {
+            return None;
+        }
+        let line1 = b.line1;
+        let imports = search::imports(Kind::Python, text);
+        let unittest = |callee: &str| {
+            let mut parts = callee.split('.').map(str::to_owned);
+            (parts.next().and_then(|head| bound(&imports, &head))).is_some_and(|mut path| {
+                path.extend(parts);
+                path.starts_with(&["unittest".into(), "mock".into(), "patch".into()])
+            })
+        };
+        let from_mock = match search::python_patched_mock(text, line1) {
+            Some((callee, true)) => unittest(&callee),
+            Some((callee, false)) => {
+                let parts: Vec<&str> = callee.split('.').collect();
+                bound(&imports, parts[0]).is_none()
+                    && parts.get(1) == Some(&"patch")
+                    && matches!(search::bindings(Kind::Python, text, line1, parts[0]).as_slice(),
+                        [search::Binding { value: search::Value::Type(t), .. }]
+                            if t.trim_end().ends_with("MockerFixture"))
+            }
+            None => {
+                let (range, _) = self.word_here(Some(Kind::Python))?;
+                let before = self.line_str().get(..range.start)?.strip_suffix('.')?;
+                let receiver = before
+                    .rsplit(|c: char| !(c.is_alphanumeric() || c == '_'))
+                    .next()?;
+                search::python_patched_param(text, line1, receiver)
+                    .is_some_and(|patches| patches.iter().all(|c| unittest(c)))
+            }
+        };
+        if !from_mock {
+            return None;
+        }
+        let [magic, other] = ["MagicMock", "AsyncMock"].map(|name| {
+            let path = ["unittest", "mock", name].map(str::to_owned);
+            let class = self.outside_class(Path::new(""), &path, &path[2..])?;
+            Some(Typed {
+                name: search::type_name(Kind::Python, &class.text)?,
+                path: class.path,
+                line: class.line1,
+            })
+        });
+        let (magic, other) = (magic?, other?);
+        let word = self.word_here(Some(Kind::Python))?.1.to_owned();
+        let declares = |ty: &Typed| -> Vec<(PathBuf, usize)> {
+            let kind = Kind::Python;
+            let declared =
+                self.hierarchy(kind, ty, 0, &mut |t| self.instance_member(kind, t, &word));
+            let hits = declared.or_else(|| {
+                let mut assigned = None;
+                self.hierarchy(kind, ty, 0, &mut |t| {
+                    if let Some(hit) = self.field_of(kind, t, &word, true) {
+                        assigned = Some(vec![hit]);
+                    }
+                    None::<()>
+                });
+                assigned
+            });
+            (hits.unwrap_or_default().into_iter())
+                .map(|h| (h.path, h.line1))
+                .collect()
+        };
+        let found = declares(&magic);
+        (!found.is_empty() && found == declares(&other)).then_some(magic)
+    }
 }

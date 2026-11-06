@@ -1,0 +1,571 @@
+# NVIM v0.12.5, nvim-treesitter 910fdf6: 6000 folds in 569 files, 0 files left out for a syntax error
+# path (project/file)	each fold as line:last hidden line, 1-based
+babashka/.circleci/script/gen_ci.clj	1:6 13:21 23:27 29:35 37:39 41:57 59:78 80:124 126:222 224:260 262:264 266:276 278:280 282:284 286:293 295:296 298:314
+babashka/.circleci/script/publish_artifact.clj	1:4 11:17 19:24 26:34
+babashka/.clj-kondo/babashka/sci/sci/core.clj	3:9
+babashka/.clj-kondo/hooks/babashka/ffi.clj	1:2 4:6 8:11 13:88
+babashka/.sbx/repl.clj	14:19 21:27 29:30 32:36 38:39 41:42 44:52 54:56 58:65 67:71 73:80 82:97 99:130 132:133
+babashka/doc/adr/0001-jline-providers/snake.clj	3:6 8:14 16:21 23:27 29:49 51:59 61:63 70:87 89:115 117:122 124:131 133:160 162:218
+babashka/doc/adr/ai/0002-resolver-phases.clj	3:5 7:10 15:17
+babashka/doc/fly_io/example.clj	1:3 5:7 9:18
+babashka/examples/cprop.clj	33:36
+babashka/examples/digitalocean-ping.clj	3:5 9:11 13:18 24:27 29:30
+babashka/examples/download-aliases.clj	3:4
+babashka/examples/fzf.clj	3:7
+babashka/examples/hsqldb_unused_vars.clj	17:20 23:24 31:32 34:47 49:51 53:60 62:70 72:78 83:86
+babashka/examples/http-server.clj	6:13 15:17 22:32 41:134 137:141 144:151 153:169 171:173 175:191
+babashka/examples/http_server_from_scratch.clj	12:13 15:63
+babashka/examples/httpkit_server.clj	1:3 5:11
+babashka/examples/image-viewer.clj	3:9 11:12 17:24 28:59 61:77
+babashka/examples/is_tty.clj	3:4 6:12 18:21
+babashka/examples/logger.clj	3:11
+babashka/examples/ls_jar.clj	5:6 7:19
+babashka/examples/memo.clj	3:7 9:10 12:16
+babashka/examples/mysql_cmdline.clj	6:9 11:14 16:27
+babashka/examples/normalize-keywords.clj	1:5 13:18 20:21 23:36 38:43
+babashka/examples/notes.clj	3:6 11:12 17:20 23:37 40:55 57:58 60:63 65:66 68:72 74:78 80:83 86:111
+babashka/examples/nrepl_middleware.clj	13:16 18:30 32:38 42:45
+babashka/examples/outdated.clj	7:10 11:13 15:24 29:32
+babashka/examples/pom_version_get_xml_zip.clj	5:7 11:14
+babashka/examples/pom_version_set.clj	15:17 24:29 31:35
+babashka/examples/portal.clj	3:9 15:16 20:23 25:32 36:47
+babashka/examples/process_builder.clj	6:17
+babashka/examples/sqlite.clj	15:16 18:25 27:28 30:31 33:34 36:38 40:48 50:52 54:62 64:71 77:81
+babashka/examples/tetris.clj	17:20 27:34 38:45 47:48 50:54 56:62 64:68 70:71 73:80 82:83 85:93 95:101 105:107 109:112 114:131 133:139 143:144 149:166 168:194 204:220 224:227 229:277
+babashka/examples/torrent-viewer.clj	9:10 12:14 16:19
+babashka/examples/tree.clj	6:9 19:27 29:41 43:50 54:70 76:77
+babashka/examples/vim.clj	4:9 11:15
+babashka/examples/whatsapp_frequencies.clj	5:9 11:17 19:30
+babashka/examples/which.clj	5:14 16:17
+babashka/examples/wiki-translate.clj	5:11
+babashka/examples/xml-example.clj	3:18 27:32 49:57 59:64 68:70 72:74 76:78
+babashka/feature-core-match/babashka/impl/match.clj	1:8 12:16
+babashka/feature-csv/babashka/impl/csv.clj	1:4 8:10
+babashka/feature-datascript/babashka/impl/datascript.clj	1:5 10:20 22:26
+babashka/feature-hiccup/babashka/impl/hiccup.clj	1:7 14:36 38:50 52:54 56:57 59:61 66:70 72:75 77:78
+babashka/feature-httpkit-client/babashka/impl/httpkit_client.clj	1:8 18:24 26:34 52:75 77:79
+babashka/feature-httpkit-server/babashka/impl/httpkit_server.clj	1:3 7:22
+babashka/feature-jdbc/babashka/impl/jdbc.clj	1:7 11:22 24:32 36:37 41:48
+babashka/feature-logging/babashka/impl/logging.clj	1:8 14:15 17:27 29:84 86:90 92:121 123:124 126:127 129:130 132:133 137:138 142:155 157:167 169:175 199:228 232:235 239:240 242:245 249:250 252:267 269:272 274:278 282:294 296:300 304:305 309:312
+babashka/feature-priority-map/babashka/impl/priority_map.clj	1:3 7:11
+babashka/feature-rrb-vector/babashka/impl/rrb_vector.clj	1:3
+babashka/feature-selmer/babashka/impl/selmer.clj	1:11 17:24 30:31 33:40 42:46 48:52 54:55 57:58 60:66 68:76 78:94 96:103 109:113 117:121 123:124 126:127 129:131 133:135 137:143 147:148
+babashka/feature-spec-alpha/babashka/impl/spec.clj	1:7 13:19 21:28 32:45 48:50 53:54
+babashka/feature-test-check/babashka/impl/clojure/test/check.clj	1:4 6:18 20:24 34:40 49:129 138:154 163:167 176:177
+babashka/feature-transit/babashka/impl/transit.clj	1:4 8:19
+babashka/feature-xml/babashka/impl/xml.clj	1:9 16:19 21:47 49:76 78:95 97:100 102:103
+babashka/feature-yaml/babashka/impl/ordered.clj	1:5 10:11 13:14
+babashka/feature-yaml/babashka/impl/yaml.clj	1:4 8:15
+babashka/impl-graal-features/build.clj	1:2 8:9 12:13 15:19 21:34 36:42 44:51
+babashka/impl-java/build.clj	1:3 6:7 15:16 18:21 23:27 29:46 48:54 56:63
+babashka/impl-java/build/reify2.clj	1:4 8:12 14:21 23:26 28:47 49:99 101:181 185:196 198:213 215:216 220:222 224:225 227:236
+babashka/impl-java/src/babashka/impl/reify2.clj	1:2 6:8 10:47 49:73 75:101 105:106
+babashka/impl-java/src/babashka/impl/reify2/interfaces.clj	3:51
+babashka/project.clj	1:139
+babashka/resources/src/babashka/babashka/impl/mvn/cipher.clj	1:17 25:28 30:31 33:49 51:56 58:66 68:79 81:98
+babashka/resources/src/babashka/babashka/impl/mvn/coords.clj	1:4 6:10 13:22 24:25 27:28 30:44 46:49 51:54 56:60 62:63 65:68 70:74 76:79 81:84 86:87
+babashka/resources/src/babashka/babashka/impl/mvn/env.clj	1:5 7:9
+babashka/resources/src/babashka/babashka/impl/mvn/http.clj	1:8 11:14 18:32 37:43 45:56 58:62 64:78 80:81 83:89 91:102 104:115 117:133 135:156 158:159 161:170 172:182 184:193 195:215 217:221 225:237 239:252 254:274
+babashka/resources/src/babashka/babashka/impl/mvn/metadata.clj	1:13 15:21 23:40 42:43 45:53 55:75 77:80 82:83 85:88 90:91 93:94 96:98 100:103 105:122 124:152 154:182 184:189 191:196 198:208 210:219 221:243 245:252 254:255 257:275 277:287 289:318
+babashka/resources/src/babashka/babashka/impl/mvn/pom.clj	1:11 15:18 20:21 23:31 33:34 36:48 50:51 53:55 57:59 61:75 77:83 85:102 104:125 129:130 136:143 145:150 152:160 162:170 172:180 184:206 208:211 213:231 233:236 238:252 254:261 263:270 272:279 285:286 288:294 296:301 303:304 306:314 318:333 335:342 344:368 370:374 376:385 389:390 394:395 397:401 403:406 408:412 414:464 466:487 489:500 502:525 527:535
+babashka/resources/src/babashka/babashka/impl/mvn/repo.clj	1:12 14:16 18:26 28:29 31:36 38:43 45:72 74:99 101:104 108:112 114:123 125:133 135:143 145:159 161:179 181:192 194:207 209:215 217:225 227:240
+babashka/resources/src/babashka/babashka/impl/mvn/settings.clj	1:9 11:20 22:49 51:55 57:65 67:69 71:76 78:86 88:91 93:99 105:111 113:114 116:118 120:123 125:126 128:143 145:156 158:164 169:179 181:182 184:195 197:216 218:227
+babashka/resources/src/babashka/babashka/impl/mvn/tools_deps.clj	1:15 17:18 22:24 26:27 29:30 32:39 41:58 62:69 71:78 80:95 97:101 103:105 107:108 110:111 113:123 125:148 150:158 160:164 166:172 176:178 180:182 184:186 188:190 192:194 196:198 200:202 204:206 208:210 212:218 220:228 230:237 241:252 254:256 258:265 267:298 300:304 306:309 311:314 318:336 338:345 347:352 354:364 366:379 381:383 385:387
+babashka/resources/src/babashka/babashka/impl/mvn/tracking.clj	1:7 11:16 18:24 26:35 37:55
+babashka/resources/src/babashka/babashka/impl/mvn/version.clj	1:6 16:18 20:21 23:24 26:29 31:39 41:73 75:79 81:88 90:91 93:108 110:113 115:123 125:141 143:147 149:150 152:180 182:200 202:208 210:213
+babashka/resources/src/babashka/babashka/impl/mvn/xml.clj	1:8 10:18 20:21 23:24 26:27 29:30 32:35 37:38 40:44 46:47
+babashka/resources/src/babashka/babashka/nrepl/impl/cider.clj	1:18 20:24 28:42 44:55 57:76 83:86 88:89 91:112 114:123 125:131 133:141 143:145 147:161 163:170 172:184 192:197 199:210 212:218 222:227 229:235 237:243 245:249 251:267 269:272 274:281 283:301 305:307 309:320 322:336 338:339 341:345 347:350 352:360 362:381 383:390 392:414 416:435
+babashka/resources/src/babashka/babashka/nrepl/impl/server.clj	1:14 16:17 19:28 30:34 36:42 44:45 47:65 67:73 75:77 79:93 95:122 124:125 127:163
+babashka/resources/src/babashka/clojure/java/classpath.clj	16:23 25:28 30:32 34:40 42:48 50:56 58:64 66:69 71:87 89:92 94:97
+babashka/resources/src/babashka/clojure/repl/deps.clj	1:2 4:10 12:30
+babashka/resources/src/babashka/clojure/spec/alpha.clj	9:20 26:29 31:32 34:37 41:45 47:49 51:53 55:57 59:65 69:73 75:84 86:92 94:98 100:103 105:111 113:120 125:134 136:141 143:144 146:151 153:172 174:176 178:181 183:187 189:194 196:200 202:219 221:224 226:232 234:239 241:248 250:273 277:281 283:286 288:291 295:306 308:319 321:326 328:334 336:341 343:353 355:361 363:370 372:375 377:380 382:399 401:428 430:490 492:507 509:517 519:525 527:534 536:582 584:593 595:606 608:620 623:627 629:633 635:639 641:656 658:672 674:680 682:688 690:708 710:716 718:728 730:763 766:768 770:771 773:784 786:793 795:800 802:807 811:818 820:829 831:835 838:924 929:960 962:1010 1012:1072 1074:1075 1077:1142 1144:1154 1156:1165 1167:1209 1211:1237 1239:1257 1261:1388 1398:1399 1401:1409 1413:1416 1418:1423 1425:1427 1429:1432 1434:1437 1439:1446 1448:1458 1463:1465 1467:1469 1471:1475 1479:1489 1493:1506 1508:1527 1529:1540 1542:1560 1562:1576 1578:1631 1633:1672 1674:1685 1687:1711 1713:1736 1740:1749 1751:1759 1761:1805 1810:1827 1829:1848 1850:1874 1876:1880 1882:1889 1891:1903 1905:1910 1912:1922 1924:1928 1930:1935 1937:1952 1955:1964 1968:1971 1973:1980 1982:1991 1993:2012
+babashka/resources/src/babashka/clojure/spec/gen/alpha.clj	9:11 17:26 28:29 30:32 34:35 36:39 41:53 55:59 61:66 68:74 76:85 87:93 95:97 99:108 110:116 118:120 122:127 131:188 190:195 197:225
+babashka/resources/src/babashka/clojure/spec/test/alpha.clj	9:15 21:23 25:27 29:36 38:42 44:55 59:61 63:66 68:72 74:75 77:105 107:122 124:154 156:159 163:170 172:173 175:185 187:191 193:201 203:210 212:218 220:233 235:249 251:260 262:267 269:272 274:290 292:300 302:305 307:310 312:321 323:370 372:384 388:396 398:413 415:422 424:434 436:455 457:462 464:466 468:474 476:483 485:524 528:530 532:536 538:549 551:559 561:576
+babashka/resources/src/babashka/clojure/test/junit.clj	17:39 42:44 45:46 51:53 55:64 66:68 70:75 77:80 82:87 89:91 93:95 97:102 104:107 109:111 113:128 130:132 134:141 146:148 150:152 154:158 160:162 164:166 168:173 175:180 184:197
+babashka/resources/src/babashka/clojure/tools/build/api.clj	1:10 16:20 22:25 27:30 32:41 43:49 51:58 62:73 75:87 89:107 109:131 135:160 164:189 191:216 220:255 257:274 278:326 328:341 345:367 369:422 424:438 440:512 514:525 527:538 542:559
+babashka/resources/src/babashka/clojure/tools/build/api/specs.clj	1:2
+babashka/resources/src/babashka/clojure/tools/build/tasks/compile_clj.clj	9:23 27:44 46:48 50:52 54:71 73:80 82:121
+babashka/resources/src/babashka/clojure/tools/build/tasks/copy.clj	9:16 25:40 42:46 48:49 51:52 54:61 63:91
+babashka/resources/src/babashka/clojure/tools/build/tasks/create_basis.clj	9:14 16:30
+babashka/resources/src/babashka/clojure/tools/build/tasks/install.clj	1:14 16:18 20:32 34:53 55:61 63:88 90:112
+babashka/resources/src/babashka/clojure/tools/build/tasks/jar.clj	9:17 19:35
+babashka/resources/src/babashka/clojure/tools/build/tasks/javac.clj	1:13 15:20 22:35
+babashka/resources/src/babashka/clojure/tools/build/tasks/process.clj	9:17 21:22 24:66 68:76 78:86 88:98 100:111 113:115 117:119 121:127 129:140 142:167
+babashka/resources/src/babashka/clojure/tools/build/tasks/uber.clj	9:22 26:35 37:44 46:56 58:62 64:66 68:70 72:84 86:97 99:101 103:105 107:114 116:130 132:140 142:166 168:210 212:230 232:243 245:252 254:258 260:267 269:302
+babashka/resources/src/babashka/clojure/tools/build/tasks/write_pom.clj	9:25 33:56 58:61 63:65 67:70 72:75 77:82 84:90 92:95 97:101 103:133 135:139 141:162 164:166 168:174 176:180 182:186 188:195 197:201 203:211 213:218 220:228 230:234 236:287
+babashka/resources/src/babashka/clojure/tools/build/tasks/zip.clj	9:16 20:28 30:35
+babashka/resources/src/babashka/clojure/tools/build/util/file.clj	9:16 20:39 41:45 47:50 52:54 56:61 63:106 108:116 118:127
+babashka/resources/src/babashka/clojure/tools/build/util/log.clj	9:11 13:16 18:22
+babashka/resources/src/babashka/clojure/tools/build/util/zip.clj	9:19 23:38 40:49 51:56 58:70 72:82 84:101
+babashka/resources/src/babashka/clojure/tools/deps.clj	9:29 35:39 41:45 47:51 53:61 63:67 69:73 77:81 83:87 93:101 103:130 139:146 148:152 154:157 159:162 164:167 169:187 189:200 202:205 207:254 256:260 262:269 271:284 286:332 334:342 344:355 357:375 377:405 407:418 420:430 432:438 440:443 445:450 452:463 465:469 471:490 492:509 511:514 516:528 530:538 540:554 556:574 578:627 629:655 657:717 719:748 750:757 766:934
+babashka/resources/src/babashka/clojure/tools/deps/extensions.clj	9:15 20:24 26:34 38:40 44:47 49:64 66:73 75:79 81:82 84:88 90:98 100:101 103:107 109:110 112:114 116:117 119:121 127:131 133:136 140:142 144:145 147:152 156:162 164:166 168:169 171:173 175:176 178:181 183:184 186:189 193:197 199:200 202:207 209:210 212:227
+babashka/resources/src/babashka/clojure/tools/deps/extensions/deps.clj	9:19 23:30 32:35 37:47 49:53 55:57 59:65
+babashka/resources/src/babashka/clojure/tools/deps/extensions/local.clj	9:33 35:37 39:42 44:49 51:55 57:61 63:65 67:72 74:75 77:80 82:93 107:108 110:114 116:120 123:125 128:133 135:137 158:165 168:171 173:176
+babashka/resources/src/babashka/clojure/tools/deps/extensions/maven.clj	1:7
+babashka/resources/src/babashka/clojure/tools/deps/extensions/pom.clj	1:6 8:12 14:17
+babashka/resources/src/babashka/clojure/tools/deps/script/make_classpath2.clj	9:25 27:28 30:53 55:58 60:64 66:78 80:127 129:135 137:157 159:194
+babashka/resources/src/babashka/clojure/tools/deps/script/parse.clj	9:19 21:27 29:38 40:47
+babashka/resources/src/babashka/clojure/tools/deps/script/resolve_tags.clj	9:24 26:27 29:44 46:60 62:81 83:93 95:97
+babashka/resources/src/babashka/clojure/tools/deps/tool.clj	9:20 22:24 26:29 31:47 49:57 59:69 71:79 81:86
+babashka/resources/src/babashka/clojure/tools/deps/util/concurrent.clj	9:14 18:24 26:28 32:36 38:41
+babashka/resources/src/babashka/clojure/tools/deps/util/dir.clj	9:21 25:29 31:38 40:44 46:52 54:68 71:73
+babashka/resources/src/babashka/clojure/tools/deps/util/io.clj	9:18 22:28 30:42 44:48 50:59 61:63
+babashka/resources/src/babashka/clojure/tools/deps/util/maven.clj	1:8 12:15 19:20
+babashka/resources/src/babashka/clojure/tools/deps/util/session.clj	9:14 18:28 30:35 37:45
+babashka/resources/src/babashka/clojure/tools/gitlibs.clj	9:18 22:26 29:42 44:48 50:59 61:74 76:85 87:90 92:95 97:121
+babashka/resources/src/babashka/clojure/tools/gitlibs/config.clj	9:13 17:26 28:44 46:48
+babashka/resources/src/babashka/clojure/tools/gitlibs/impl.clj	9:17 23:25 27:34 36:42 44:57 61:63 65:66 68:69 71:98 100:102 104:111 113:120 123:130 132:139 141:150 152:156 158:162 165:171 173:179 181:185 187:200 202:210
+babashka/resources/src/babashka/clojure/tools/namespace/dependency.cljc	9:12 14:32 34:45 47:50 52:63 69:108 110:111 113:116 118:121 123:146 148:150 152:160
+babashka/resources/src/babashka/clojure/tools/namespace/file.clj	9:15 17:25 27:34 36:39 41:44 46:50 52:57 61:70 74:84 86:92
+babashka/resources/src/babashka/clojure/tools/namespace/find.clj	9:20 24:29 31:36 38:46 50:52 54:67 69:77 79:97 99:108 112:114 116:127 129:137 139:161 163:173 175:185 190:207 209:221
+babashka/resources/src/babashka/clojure/tools/namespace/parse.cljc	9:15 17:20 22:25 27:31 33:37 39:59 63:70 72:81 83:102 104:107 109:114 116:119 121:125 127:132
+babashka/resources/src/babashka/clojure/tools/namespace/track.cljc	9:19 21:22 24:28 30:33 35:37 39:86 88:109 111:114 116:147
+babashka/resources/src/babashka/nrepl/ack.clj	1:10 15:21 23:37 39:49 52:64
+babashka/resources/src/babashka/nrepl/bencode.clj	1:5 11:23
+babashka/resources/src/babashka/nrepl/config.clj	1:16 18:20 22:24 26:32 36:56 58:60 62:66 68:75 77:85
+babashka/resources/src/babashka/nrepl/middleware.clj	1:14 19:22 24:26 28:38 40:42 44:47 49:69 71:79 81:89 91:99 101:129 131:176 178:185
+babashka/resources/src/babashka/nrepl/middleware/caught.clj	1:16 18:21 23:25 27:28 30:36 38:55 57:94 96:99 101:103
+babashka/resources/src/babashka/nrepl/middleware/completion.clj	1:20 22:26 28:31 33:39 41:54 56:66
+babashka/resources/src/babashka/nrepl/middleware/interruptible_eval.clj	1:20 22:24 26:28 30:38 40:45 47:53 55:57 59:165 167:190 192:212
+babashka/resources/src/babashka/nrepl/middleware/io.clj	1:7 9:18 20:30 32:39
+babashka/resources/src/babashka/nrepl/middleware/load_file.clj	1:17 42:47 49:78 80:91 93:105
+babashka/resources/src/babashka/nrepl/middleware/lookup.clj	1:18 20:25 27:33 35:47 49:58
+babashka/resources/src/babashka/nrepl/middleware/print.clj	1:16 18:23 25:28 30:32 34:37 39:46 48:49 51:58 60:70 72:86 88:109 111:129 131:138 140:144 146:188 190:194 196:202
+babashka/resources/src/babashka/nrepl/middleware/session.clj	1:19 23:33 43:46 48:66 68:85 87:132 156:168 170:186 188:207 209:288 290:298 300:319 321:326 328:332 334:375 377:407 409:434 436:443
+babashka/resources/src/babashka/nrepl/misc.clj	1:8 10:22 24:31 33:38 40:43 45:52 54:80 82:91 93:104 106:112 114:123 127:131 133:139 141:148 150:156 158:169 171:184
+babashka/resources/src/babashka/nrepl/server.clj	1:22 24:29 31:37 39:48 50:55 57:91 93:107 109:112 114:125 127:131 133:136 138:153 155:173 175:239
+babashka/resources/src/babashka/nrepl/socket.clj	1:20 22:26 30:47 51:52 54:55 57:58 60:61 63:67 69:73 75:80 82:83 85:93 95:104 106:115 117:120 122:125 127:151 153:173 175:198 200:203 205:219 221:223 225:230 238:243 245:250 273:292 299:301 303:307 309:311 313:317
+babashka/resources/src/babashka/nrepl/socket/dynamic.clj	1:6 14:19
+babashka/resources/src/babashka/nrepl/tls.clj	1:2 4:5 7:8 10:11 13:14 16:17
+babashka/resources/src/babashka/nrepl/util/classloader.clj	1:3 7:9
+babashka/resources/src/babashka/nrepl/util/completion.clj	1:4 6:12
+babashka/resources/src/babashka/nrepl/util/lookup.clj	1:12 14:22 24:26 28:32 34:39
+babashka/resources/src/babashka/nrepl/util/out.clj	1:7 14:17 19:26 28:37 39:45 47:53 55:100
+babashka/resources/src/babashka/nrepl/util/print.clj	1:8 10:16 18:20 22:27 29:40 42:47
+babashka/resources/src/babashka/nrepl/util/threading.clj	1:11 13:17 19:27 31:33 35:37 39:41 45:48 50:51 53:65 69:82
+babashka/resources/src/babashka/nrepl/version.clj	1:6 8:16 18:19 21:33 35:39 41:49
+babashka/resources/src/babashka/orchard/inspect.clj	1:23 31:40 42:54 56:59 61:67 69:71 73:74 76:92 94:96 98:102 104:111 113:152 154:159 161:167 169:175 177:190 192:195 197:214 216:222 224:227 229:245 247:251 253:257 259:270 272:287 289:294 296:300 302:306 308:317 325:328 332:335 337:340 342:346 348:349 351:356 360:365 367:370 372:375 377:382 384:389 391:394 396:402 404:406 408:411 413:427 429:435 437:445 447:448 450:453 455:459 461:470 472:487 489:502 504:545 547:552 554:580 584:594 596:602 604:610 612:615 617:621 623:634 636:645 647:655 659:664 666:672 674:677 679:694 696:701 704:708 712:728 730:739 745:756 758:761 763:766 768:771 773:781 783:793 795:856 858:869 871:897 899:923 925:945 947:985 987:1004 1006:1021 1023:1028 1030:1039 1041:1050 1052:1060 1062:1066 1068:1075 1077:1084 1086:1093 1095:1100 1102:1111 1113:1131 1133:1134 1136:1161 1165:1177 1181:1184 1186:1212
+babashka/resources/src/babashka/orchard/inspect/analytics.clj	1:9 15:18 20:34 40:46 48:49 51:57 59:65 67:81 83:84 86:102 104:119 121:131 133:140 142:158 160:171 173:190 192:198
+babashka/resources/src/babashka/orchard/java/compatibility.clj	1:4 6:12 14:17 19:24 26:29 31:44 46:47
+babashka/resources/src/babashka/orchard/misc.clj	1:9 11:12 14:17 19:25 27:40 47:53 55:62 64:71 73:79 81:86 88:93 95:102 104:107 109:118 120:121 124:129 132:138 140:143 145:151 153:162 164:165 167:181
+babashka/resources/src/babashka/orchard/pp.clj	1:18 20:26 28:41 43:45 47:57 59:67 69:81 83:88 90:108 110:114 116:143 145:149 151:158 160:173 175:181 183:192 194:203 205:213 215:261 263:279 281:315 317:326 328:335 337:374 376:394 396:408
+babashka/resources/src/babashka/orchard/print.clj	1:24 26:45 47:49 51:53 55:57 59:64 66:68 70:78 80:113 115:116 118:130 132:133 135:149 151:155 157:158 160:161 163:164 166:167 169:175 177:178 186:192 194:200 202:221 223:224 226:230 232:234 236:238 240:243 245:246 248:252 254:267 276:279 281:287 289:293 295:301 305:306 308:316
+babashka/resources/src/babashka/orchard/util/io.clj	1:8 10:16 18:21 23:27 29:33 35:39 45:49 51:59 61:80 82:84 86:92
+babashka/script/add_libtest.clj	10:18 20:22 30:34 36:42 44:55 59:65 67:74 76:95 97:108 110:130 132:142 144:158 160:168 170:183 185:189 191:203 205:206
+babashka/script/babashka/release_artifact.clj	1:4 6:12 14:45
+babashka/script/built_in.clj	3:5 8:14
+babashka/script/bump_graal_version.clj	16:18 20:37 39:49 59:62 64:65 67:69 71:74 76:83 85:87 89:99
+babashka/script/bump_version.clj	3:5 9:37 42:60
+babashka/script/changelog.clj	3:4 6:27
+babashka/script/mvn_oracle/build_corpus.clj	5:8 13:15 17:18 20:32 34:52 54:58 60:64 66:68 70:74
+babashka/script/mvn_oracle/cipher_test.clj	5:9 13:18 20:22 24:29 31:41 43:58 60:70 72:85 87:88
+babashka/script/mvn_oracle/cipher_vectors.clj	5:6 15:16 20:26 28:33
+babashka/script/mvn_oracle/concurrency_test.clj	4:11 15:21 23:32 34:38 40:44 46:62 64:76 80:90 92:108 110:111
+babashka/script/mvn_oracle/coords_test.clj	5:7 9:14 16:25 27:32 34:40 42:52 54:58 60:61
+babashka/script/mvn_oracle/http_test.clj	4:8 10:25 27:28
+babashka/script/mvn_oracle/install_test.clj	6:13 19:28 30:31 33:34 36:39 41:86 88:90
+babashka/script/mvn_oracle/interpolation_test.clj	6:8 10:17 22:33 37:64 66:73 75:76
+babashka/script/mvn_oracle/layout_test.clj	5:7 12:16 18:25 27:28
+babashka/script/mvn_oracle/local_pom_test.clj	4:9 11:12 14:23 25:26 33:38 42:65 67:82 84:102 104:123 125:155 157:174 176:178
+babashka/script/mvn_oracle/local_repo_test.clj	7:15 19:22 24:26 28:37 39:42 44:85 87:108 110:125 127:143 145:149 151:179 181:182
+babashka/script/mvn_oracle/messages_test.clj	5:9 11:15 17:28 30:32 34:41 43:59 61:70 72:89 91:92
+babashka/script/mvn_oracle/oracle.clj	1:9 12:14 16:18 20:26 28:31 33:36 38:44 46:54 56:65 67:68
+babashka/script/mvn_oracle/parent_range_test.clj	5:10 17:18 20:26 28:35 37:40 42:50 52:57 59:61 63:69 71:72 74:76 78:82 84:87 89:92 94:110 112:132 134:136
+babashka/script/mvn_oracle/patched/clojure/tools/deps/extensions/faken.clj	9:16 25:28 32:34 36:38 40:42 44:48 50:56 58:60 62:64 66:71
+babashka/script/mvn_oracle/pom_repositories_test.clj	5:12 14:15 17:20 22:55 57:58
+babashka/script/mvn_oracle/pom_test.clj	6:8 10:11 13:30 32:49 51:54 56:57 59:60 62:94 96:111 113:129 131:147 149:169 171:188 190:197 199:209 211:224 226:243 245:258 260:267 269:299 301:309 311:314 316:317
+babashka/script/mvn_oracle/profile_test.clj	8:11 15:45 52:94 98:119 123:150 152:160 162:163
+babashka/script/mvn_oracle/proxy_test.clj	6:15 19:28 30:49 51:59 66:74 76:77 79:93 95:128 130:131 133:152 154:155
+babashka/script/mvn_oracle/run.clj	2:11 18:22 24:39 41:49 51:76
+babashka/script/mvn_oracle/settings_test.clj	5:12 14:45 49:60 62:68 70:73 75:79 81:103 109:111 113:124 126:132 134:143 145:149 151:153 155:165 167:183 185:193 195:202 204:217 219:250 252:272 274:285 287:288
+babashka/script/mvn_oracle/snapshot_test.clj	7:12 14:27 29:33 38:39 41:43 45:63 65:69 71:97 99:113 115:131 133:134 136:147 149:159 161:182 184:207 209:216 218:220
+babashka/script/mvn_oracle/tests.clj	6:8 14:16 18:33
+babashka/script/mvn_oracle/tools_deps_test.clj	7:12 14:16 20:24 26:32 34:55
+babashka/script/mvn_oracle/unreadable_pom_test.clj	4:12 19:22 24:26 28:34 36:46 48:49 51:57 59:67 69:76 78:88 90:102 104:112 114:118 120:122
+babashka/script/mvn_oracle/update_policy_test.clj	4:10 14:16 21:38 42:46 48:95 97:106 108:126 128:153 155:187 189:213 215:217
+babashka/script/mvn_oracle/version_cases.clj	9:11 13:15 17:21
+babashka/script/mvn_oracle/version_test.clj	5:8 12:14 18:23 25:31 33:42 44:45
+babashka/script/mvn_oracle/versions_cache_test.clj	4:9 11:17 19:33 35:47 49:50
+babashka/script/reflection.clj	3:5
+babashka/script/resync.clj	14:18 22:24 26:33 35:45 47:68 70:80 82:90 92:107 109:119 121:133
+babashka/script/vendor_bundled_sources.clj	18:22 28:30 32:40 42:44 46:47 54:120 123:131 138:148 152:191 196:202 204:222 224:229 231:291
+babashka/src/aaaa_this_has_to_be_first/because_patches.clj	1:5 8:44 47:48
+babashka/src/babashka/dude.clj	1:4
+babashka/src/babashka/impl/bencode.clj	1:5 9:11
+babashka/src/babashka/impl/cheshire.clj	1:6 16:22 24:30 32:44 46:58 60:72 74:86 88:97 99:116 118:122 124:126
+babashka/src/babashka/impl/classes.clj	1:12 16:18 20:21 23:24 26:287 292:305 308:310 312:313 315:340 342:403 405:407 409:411 414:965 967:972 974:1175 1178:1181 1193:1198 1200:1258 1262:1264 1266:1274 1276:1327 1329:1336 1338:1343 1345:1346 1350:1352 1354:1358
+babashka/src/babashka/impl/classpath.clj	1:9 13:22 26:27 29:34 38:55 57:64 66:68 70:75 77:80 82:87 89:93 97:101 105:109
+babashka/src/babashka/impl/cli.clj	1:4 8:9 13:14 16:18 20:50
+babashka/src/babashka/impl/clojure/core.clj	1:14 16:18 30:46 48:62 64:66 71:77 79:85 87:93 99:100 102:111 113:126 128:135 137:141 143:160 162:168 170:252
+babashka/src/babashka/impl/clojure/core/async.clj	1:9 14:27 39:41 43:64 66:80 82:84 86:88 90:92 94:98 100:102 106:113 115:189 193:195
+babashka/src/babashka/impl/clojure/core/server.clj	12:26 36:43 45:49 51:58 60:85 87:125 127:139 141:146 148:154 156:235 237:259
+babashka/src/babashka/impl/clojure/data.clj	9:13 19:22 25:33 35:49 51:60 62:67 69:71 73:75 77:79 81:88 90:101 103:105 107:123 125:143
+babashka/src/babashka/impl/clojure/instant.clj	1:3 7:9
+babashka/src/babashka/impl/clojure/java/browse.clj	1:5 11:19 21:29 31:33
+babashka/src/babashka/impl/clojure/java/javadoc.clj	1:6 14:16 18:27 29:30 32:33 35:40 42:58 60:66 68:75
+babashka/src/babashka/impl/clojure/java/process.clj	1:3
+babashka/src/babashka/impl/clojure/java/shell.clj	1:4 11:14 16:26 28:30 36:41
+babashka/src/babashka/impl/clojure/main.clj	14:19 23:27 29:52 54:58 60:67 69:74 76:86 92:96 98:100 102:172 174:186 188:193 195:272
+babashka/src/babashka/impl/clojure/math.clj	1:3
+babashka/src/babashka/impl/clojure/reflect.clj	1:3
+babashka/src/babashka/impl/clojure/repl.clj	1:8 14:74 76:89 91:120 122:125
+babashka/src/babashka/impl/clojure/spec/alpha.clj	9:19 25:29 31:33 35:37 39:41 43:49 53:57 59:68 70:76 78:82 84:87 89:95 97:104 109:118 120:125 127:128 130:134 136:155 157:159 161:164 166:170 172:177 179:183 185:202 204:207 209:215 217:222 224:231 233:256 260:264 266:269 271:274 278:289 291:302 304:311 313:319 321:328 330:340 342:351 353:360 362:365 367:370 372:389 391:418 420:480 482:497 499:507 509:515 517:524 526:572 574:583 585:596 598:610 613:617 619:623 625:629 631:646 648:662 664:670 672:678 680:699 701:707 709:719 721:754 757:759 761:762 764:775 777:784 786:791 793:798 802:809 811:820 822:826 829:915 920:951 953:1001 1003:1063 1065:1066 1068:1133 1135:1145 1147:1156 1158:1200 1202:1228 1230:1248 1252:1379 1389:1390 1392:1400 1404:1407 1409:1414 1416:1418 1420:1423 1425:1428 1430:1437 1439:1449 1454:1456 1458:1460 1462:1466 1470:1480 1484:1497 1499:1518 1520:1531 1533:1551 1553:1567 1569:1622 1624:1663 1665:1676 1678:1702 1704:1727 1731:1740 1742:1750 1752:1796 1801:1818 1820:1839 1841:1865 1867:1871 1873:1880 1882:1894 1896:1901 1903:1913 1915:1919 1921:1926 1928:1943 1946:1955 1957:1960 1962:1969 1971:1980 1982:2001
+babashka/src/babashka/impl/clojure/spec/gen/alpha.clj	9:14 19:21 23:24 25:28 30:42 44:48 50:55 57:66 68:74 76:78 80:89 91:97 99:101 103:108 112:169 171:176 178:206
+babashka/src/babashka/impl/clojure/spec/test/alpha.clj	9:15 21:23 25:27 38:42 44:55 59:61 68:72 74:101 103:115 117:143 145:148 152:157 159:162 164:180 182:191 198:202 204:213 215:262 264:276 280:288 290:305 307:314 316:326 328:347 349:355 357:359 361:367 369:376 378:417 421:423 425:429 431:442 444:452 454:469
+babashka/src/babashka/impl/clojure/test.clj	17:241 248:249 253:258 260:265 272:273 281:286 288:293 297:308 310:315 317:323 327:336 340:351 353:354 356:357 359:366 368:383 385:396 398:402 404:406 417:423 425:438 440:459 461:474 484:489 491:495 497:500 502:514 516:530 532:551 554:564 572:590 592:615 617:623 629:639 642:657 659:665 668:677 683:688 690:695 697:698 700:701 703:707 709:714 716:721 728:741 745:759 761:765 767:787 793:803 805:814 816:822 824:838 840:858
+babashka/src/babashka/impl/clojure/tools/reader_types.clj	1:4 8:9 13:22
+babashka/src/babashka/impl/clojure/zip.clj	1:4 8:36
+babashka/src/babashka/impl/common.clj	1:5
+babashka/src/babashka/impl/core.clj	1:4 8:9
+babashka/src/babashka/impl/curl.clj	1:5 9:16
+babashka/src/babashka/impl/data.clj	1:5 9:11
+babashka/src/babashka/impl/data_json.clj	1:5 9:12 14:17 19:23
+babashka/src/babashka/impl/datafy.clj	1:6 10:12
+babashka/src/babashka/impl/deftype.clj	1:4 12:19 21:25 27:44
+babashka/src/babashka/impl/deps.clj	1:10 16:24 26:29 31:35 37:46 61:64 66:82 84:89 91:94 96:98 100:110 112:120 122:129 135:219 221:226
+babashka/src/babashka/impl/edamame.clj	1:3
+babashka/src/babashka/impl/error_handler.clj	1:7 9:10 12:18 20:28 30:62 64:66 68:77 79:82 84:94 96:97 99:154
+babashka/src/babashka/impl/ffi.clj	1:4 11:12
+babashka/src/babashka/impl/fs.clj	1:3 5:6
+babashka/src/babashka/impl/http_client.clj	1:6 12:13 15:16 18:19
+babashka/src/babashka/impl/nrepl/sci.clj	1:9 15:16 20:49 53:58 60:64 66:73 75:95 97:101 103:144 146:157 159:163 165:208 210:222 224:238 240:295 297:301
+babashka/src/babashka/impl/nrepl_server.clj	1:7 9:15 17:20 22:25 27:30 32:35
+babashka/src/babashka/impl/patches/datafy.clj	1:11 13:14 16:30 32:39
+babashka/src/babashka/impl/pipe_signal_handler.clj	1:4 8:9 11:17
+babashka/src/babashka/impl/pods.clj	1:8 10:11 13:34 38:44
+babashka/src/babashka/impl/pprint.clj	1:6 10:14 16:21 23:29 33:34 36:37 39:40 42:47 49:73 75:76 78:82 84:91 93:105 107:124 126:152 154:159 161:190 194:220 222:239
+babashka/src/babashka/impl/print_deps.clj	1:9 11:40 42:45 47:51
+babashka/src/babashka/impl/process.clj	1:5 11:13 16:18 21:23 26:28 31:33 36:38 41:57
+babashka/src/babashka/impl/protocols.clj	1:10 16:18 20:22 27:29 31:33 37:61
+babashka/src/babashka/impl/proxy.clj	1:3 7:9 11:12 14:213 221:236 240:242
+babashka/src/babashka/impl/repl.clj	1:27 31:64 66:71 73:74 76:85 87:88 90:102 104:110 112:135 137:149 151:166 168:178 180:193 195:221 223:227 229:237 239:245 247:250 252:253 255:256 258:259 261:270 272:273 275:276 278:289 291:295 297:311 313:321 323:339 341:356 358:368 370:387 389:428 430:433 435:444 446:447 449:459 461:478 480:485 487:502 504:528 530:534 536:545 547:562 564:618 620:634 636:639 643:667 669:676 678:684 686:690 692:711 713:721 723:739 741:748 750:767 769:775 779:782
+babashka/src/babashka/impl/rewrite_clj.clj	1:8 16:17 19:20 22:23 25:26 28:29
+babashka/src/babashka/impl/sci.clj	1:4 8:47 49:52
+babashka/src/babashka/impl/server.clj	1:6 10:11 13:15 17:19 21:23 25:31
+babashka/src/babashka/impl/sigint_handler.clj	1:4 8:15
+babashka/src/babashka/impl/socket_repl.clj	1:8 13:14 16:29 31:39 41:43 45:48
+babashka/src/babashka/impl/terminal.clj	1:4 6:8
+babashka/src/babashka/impl/test.clj	1:4 6:8 12:13 15:62
+babashka/src/babashka/impl/tools_deps.clj	1:6 21:23 28:30 34:47 49:58 60:61 63:71 75:107
+babashka/src/babashka/impl/uberscript.clj	1:2 4:30 32:35 37:47 49:53 55:60 62:68 70:75 77:109
+babashka/src/babashka/main.clj	1:83 89:102 120:124 127:128 130:146 148:150 152:171 173:181 183:188 190:257 259:281 283:293 295:300 302:309 311:358 360:366 368:373 375:376 378:387 389:409 417:418 422:574 576:582 587:591 593:595 597:598 600:618 620:631 633:779 781:816 818:828 830:857 863:880 882:887 891:895 897:920 922:937 939:957 959:972 974:979 981:1284 1286:1295 1297:1304 1306:1322 1324:1327 1329:1337 1339:1342 1344:1350 1352:1358 1360:1362 1364:1386 1388:1476 1478:1489 1491:1515
+babashka/src/babashka/nrepl/server.clj	1:7 13:27 29:36 38:49 51:52
+babashka/src/babashka/terminal.clj	1:3 8:9 11:12 14:22
+babashka/src/babashka/wait.clj	1:4 8:35 37:62 66:68 70:78
+babashka/test-resources/babashka/assert_expr.clj	3:15 17:19
+babashka/test-resources/babashka/config_property.clj	1:2 8:9
+babashka/test-resources/babashka/embedded_pg_tests.clj	1:4 6:13 15:16 18:19 21:23
+babashka/test-resources/babashka/exec_test.clj	1:2 4:11
+babashka/test-resources/babashka/file_location1.clj	1:2
+babashka/test-resources/babashka/file_location2.clj	3:4 6:7
+babashka/test-resources/babashka/file_property1.clj	1:2
+babashka/test-resources/babashka/init_caller.clj	1:2
+babashka/test-resources/babashka/init_test.clj	5:6
+babashka/test-resources/babashka/src_for_classpath_test/call_init_main.clj	1:2
+babashka/test-resources/babashka/src_for_classpath_test/env/env_ns.clj	3:4
+babashka/test-resources/babashka/src_for_classpath_test/my/impl.cljc	3:5
+babashka/test-resources/babashka/src_for_classpath_test/my/main.clj	1:2 4:5
+babashka/test-resources/babashka/src_for_classpath_test/my/main2.clj	3:4
+babashka/test-resources/babashka/src_for_classpath_test/my_script.bb	3:4
+babashka/test-resources/babashka/src_for_classpath_test/reader.clj	3:4 6:7
+babashka/test-resources/babashka/statsd.clj	1:12 18:20 22:25 27:29 34:37 39:42 44:45 47:48
+babashka/test-resources/babashka/tasks_cli.clj	1:2 4:5 7:8 11:15 19:26 29:34 38:41 44:47 49:52 54:57 61:65 67:70 73:76 81:84 86:87 90:98 104:115 117:120 122:125 127:128 130:131 133:137 139:143 145:150
+babashka/test-resources/babashka/tasks_cli_noisy.clj	7:11
+babashka/test-resources/babashka/tasks_cli_ns.clj	1:4 6:10
+babashka/test-resources/babashka/test_report.clj	1:3 5:6 8:10
+babashka/test-resources/babashka/uberjar/src/my/impl.clj	1:2 4:6
+babashka/test-resources/babashka/uberjar/src/my/impl2.clj	1:2
+babashka/test-resources/babashka/uberjar/src/my/main_main.clj	1:3 5:6
+babashka/test-resources/babashka/uberjar/src/my/main_pod.clj	1:2 4:5
+babashka/test-resources/babashka/uberscript/src/my/as_alias_ns.clj	1:2 4:5
+babashka/test-resources/babashka/uberscript/src/my/impl1.clj	1:3 17:19
+babashka/test-resources/babashka/uberscript/src/my/impl2.cljc	1:2
+babashka/test-resources/babashka/uberscript/src/my/impl3.cljc	5:8 10:11
+babashka/test-resources/babashka/uberscript/src/my/main.clj	1:4 9:13
+babashka/test-resources/babashka/uberscript/src/my/main_pod.clj	1:3 5:6
+babashka/test-resources/babashka/uberscript/src/my/other_ns_with_pod.clj	1:2
+babashka/test-resources/babashka/version.clj	6:9
+babashka/test-resources/bb-edn/user.clj	1:3 5:10
+babashka/test-resources/bb_in_root_script_in_other_dir/dir/script.clj	3:4
+babashka/test-resources/break_iterator_test.clj	1:2 4:11 13:14
+babashka/test-resources/ffi_hook_probe.clj	1:2 4:7 9:12 14:17 26:29 31:40 45:48 50:53 56:59
+babashka/test-resources/lib_tests/aero/core_test.cljc	3:17 19:21 23:26 30:34 36:38 40:46 48:50 52:62 64:66 68:73 84:87 100:107 109:113 115:121 123:126 128:131 133:136 138:141 143:145 147:151 153:155 171:173 175:186 188:197 199:201 203:208 210:212 214:219 221:234 236:239 241:256
+babashka/test-resources/lib_tests/aero/lumo_test.cljs	1:4 8:9 11:13 15:23
+babashka/test-resources/lib_tests/again/core_test.clj	1:6 8:13 15:24 26:35 37:43 45:47 49:56 58:64 66:76 78:90 92:102 104:117 119:120 122:135 137:150 152:164 166:270 274:279 281:282 284:285 289:332
+babashka/test-resources/lib_tests/arrangement/core_test.cljc	1:4 7:10 13:15 18:20 23:25 28:30 33:35 38:45 48:56 59:72
+babashka/test-resources/lib_tests/babashka/curl_test.clj	1:4 6:25
+babashka/test-resources/lib_tests/babashka/run_all_libtests.clj	1:11 18:24 30:32 34:41 43:79 82:102 108:111 113:114 120:125 141:165 175:188 190:201 203:228 232:238
+babashka/test-resources/lib_tests/better_cond/core_test.cljc	1:4 6:38
+babashka/test-resources/lib_tests/bond/assertions_test.clj	1:5 7:24 26:43 45:63 65:91 93:121
+babashka/test-resources/lib_tests/bond/target_data.clj	1:4 6:8 10:12 14:15 17:19 21:23 25:27 29:31 33:35
+babashka/test-resources/lib_tests/bond/test/assertions.cljc	1:6 8:21 23:36 38:51
+babashka/test-resources/lib_tests/bond/test/james.cljc	1:8 10:20 22:28 30:34 36:44 46:54 57:71 73:76 78:89 91:98 100:108
+babashka/test-resources/lib_tests/bond/test/target.cljc	3:5 7:9 11:12 14:16 18:20 22:24 26:28 30:32
+babashka/test-resources/lib_tests/borkdude/deps/smoke_test.clj	1:5 8:10 12:20
+babashka/test-resources/lib_tests/borkdude/rewrite_edn_test.cljc	1:3 5:68 70:75 77:82 84:91 93:98 100:112 114:126 128:133
+babashka/test-resources/lib_tests/camel_snake_kebab/core_test.cljc	1:5 9:54 56:65
+babashka/test-resources/lib_tests/camel_snake_kebab/extras_test.cljc	1:5 7:16
+babashka/test-resources/lib_tests/camel_snake_kebab/internals/string_separator_test.cljc	1:4 6:41
+babashka/test-resources/lib_tests/camel_snake_kebab/test_runner.cljs	1:6 8:10
+babashka/test-resources/lib_tests/cheshire/test/core.clj	1:22 24:28 30:33 35:39 41:44 46:48 50:51 53:55 57:59 61:66 68:69 71:72 74:76 78:80 82:84 86:88 90:94 96:98 100:102 104:107 109:114 116:121 123:125 127:128 130:132 193:197 199:205 216:219 221:222 224:241 287:294 296:302 304:308 310:314 316:320 322:332 334:342 344:352 354:365 367:375 377:385 387:395 397:406 408:415 417:446 448:454 456:466 468:480 482:494 496:519 521:532 534:557 559:582 584:594 596:598 600:609 611:620 622:627 629:639 641:668 670:682 684:689 691:694 773:774 776:777
+babashka/test-resources/lib_tests/clarktown/core_test.clj	1:7 10:15
+babashka/test-resources/lib_tests/clarktown/parsers/bold_test.clj	1:4 7:18
+babashka/test-resources/lib_tests/clarktown/parsers/code_block_test.clj	1:7 11:18
+babashka/test-resources/lib_tests/clarktown/parsers/empty_block_test.clj	1:4 7:14
+babashka/test-resources/lib_tests/clarktown/parsers/heading_block_test.clj	1:4 7:26 29:44
+babashka/test-resources/lib_tests/clarktown/parsers/inline_code_test.clj	1:4 7:14
+babashka/test-resources/lib_tests/clarktown/parsers/italic_test.clj	1:4 7:18
+babashka/test-resources/lib_tests/clarktown/parsers/link_and_image_test.clj	1:4 7:23
+babashka/test-resources/lib_tests/clarktown/parsers/quote_block_test.clj	1:4 7:15
+babashka/test-resources/lib_tests/clarktown/parsers/strikethrough_test.clj	1:4 7:14
+babashka/test-resources/lib_tests/cli_matic/core_test.cljc	1:13 17:19 21:23 25:50 52:75 77:78 80:139 141:174 176:186 188:189 191:224 242:266 268:331 333:344 346:347 349:374 376:378 380:423 437:450 451:452 454:466 471:497 507:515 517:518 520:536 544:553 555:556 558:615 617:695 697:709
+babashka/test-resources/lib_tests/cli_matic/help_gen_test.cljc	1:10 12:21 23:38 40:55 59:78 80:81 83:122 124:144 146:208 210:230 232:268 270:284 286:287 289:304 306:347 349:370 372:406
+babashka/test-resources/lib_tests/cli_matic/presets_test.cljc	1:10 12:14 16:28 33:38 40:45 49:85 89:140 143:179 182:244 248:271 279:303 307:335 339:367 371:418 424:431 433:446 448:454
+babashka/test-resources/lib_tests/cli_matic/utils_candidates_test.cljc	1:4 8:19 21:41 43:58
+babashka/test-resources/lib_tests/cli_matic/utils_convert_config_test.cljc	1:8 25:31 33:43
+babashka/test-resources/lib_tests/cli_matic/utils_test.cljc	1:13 15:31 33:50 52:54 56:64 66:76 78:86 96:98 100:123 125:146 148:182 184:196
+babashka/test-resources/lib_tests/cli_matic/utils_v2_test.cljc	1:10 21:76 78:184 194:241
+babashka/test-resources/lib_tests/clj_commons/digest_test.clj	1:4 6:13 15:18
+babashka/test-resources/lib_tests/clj_http/lite/client_test.clj	1:4 6:25 27:31 34:35
+babashka/test-resources/lib_tests/clj_http/lite/test_runner.clj	1:3 5:9
+babashka/test-resources/lib_tests/clj_stacktrace/core_test.clj	1:4 6:66 68:71 73:77 79:83
+babashka/test-resources/lib_tests/clj_stacktrace/repl_test.clj	1:4 6:13 15:19 21:25 27:31
+babashka/test-resources/lib_tests/cljc/java_time_test.cljc	1:34 45:47 49:56 58:60 62:63 65:89
+babashka/test-resources/lib_tests/clojure/algo/test_monads.clj	11:16 19:31 33:52 54:64 66:82 84:98 100:112 114:156 158:199 201:208 210:219 221:229
+babashka/test-resources/lib_tests/clojure/core/cache_test.bb	9:17 21:23 25:30 32:37 39:42 44:49 51:77 79:84 86:91 97:113 115:133 135:148 150:198 202:227 229:232 234:256 258:265 267:312 316:322 324:441 443:456 458:473 475:494 496:505 507:509 511:515 517:523 525:527 529:532
+babashka/test-resources/lib_tests/clojure/data/csv_test.clj	1:6 8:12 14:18 20:25 27:44 47:51 53:61 63:79
+babashka/test-resources/lib_tests/clojure/data/generators_test.clj	1:3 5:9 11:15 17:19 21:26 28:35
+babashka/test-resources/lib_tests/clojure/data/zip_test.clj	1:5 7:10 12:17
+babashka/test-resources/lib_tests/clojure/math/test_combinatorics.cljc	1:8 10:13 15:17 19:20 22:43 45:64 66:80 82:84 86:88 92:98 100:102 106:112 116:121 125:128 132:135 137:142 144:159 161:169 171:184 186:204
+babashka/test-resources/lib_tests/clojure/math/test_numeric_tower.clj	1:3 5:19 21:24 26:38 40:50 52:65 67:78 80:91 93:116 118:123 125:129
+babashka/test-resources/lib_tests/clojure/term/colors_test.clj	1:3 5:9 11:18 20:29
+babashka/test-resources/lib_tests/clojure/test_clojure/instr.clj	1:5 11:14 18:21 23:26 28:31 33:34 36:37 48:53 55:60 62:67 69:71 73:75 80:180
+babashka/test-resources/lib_tests/clojure/test_clojure/multi_spec.clj	1:3 5:12 21:22 23:24 28:57
+babashka/test-resources/lib_tests/clojure/test_clojure/spec.clj	1:5 9:13 17:24 26:153 155:164 166:170 172:180 182:186 188:210 212:232 234:238 240:241 243:246 249:292 294:298 300:305
+babashka/test-resources/lib_tests/clojure/tools/build/tasks/test_process.clj	9:14 16:20 22:24 26:32 34:41 43:47
+babashka/test-resources/lib_tests/clojure/tools/build/test_util.clj	9:16 23:26 28:38 40:41 43:50
+babashka/test-resources/lib_tests/clojure/tools/gitlibs/test_impl.clj	1:4 6:34
+babashka/test-resources/lib_tests/clojure/tools/test_gitlibs.clj	9:13 17:19 21:26 28:38 40:48
+babashka/test-resources/lib_tests/clojure_csv/test/core.clj	1:5 7:11 13:18 20:36 38:45 47:58 60:70 72:80 82:94 96:107 109:115 117:132
+babashka/test-resources/lib_tests/clojure_csv/test/utils.clj	1:7 9:10 12:29 31:43 45:74 76:88 90:112
+babashka/test-resources/lib_tests/com/rpl/specter/cljs_test_helpers.clj	4:13
+babashka/test-resources/lib_tests/com/rpl/specter/cljs_test_runner.cljs	1:4 6:7
+babashka/test-resources/lib_tests/com/rpl/specter/core_test.cljc	1:37 42:45 47:53 55:62 65:71 74:79 82:84 87:89 92:97 100:104 107:111 114:120 123:128 131:136 139:148 151:160 163:168 170:178 182:194 197:207 210:218 221:228 231:244 247:249 252:255 257:263 266:278 281:290 293:300 303:308 310:311 313:320 323:331 334:347 350:354 357:371 374:391 394:414 417:422 425:439 442:446 449:455 458:460 464:470 473:486 489:511 514:530 534:543 545:562 565:595 598:613 616:626 628:634 637:646 649:657 663:667 670:677 680:685 687:694 697:699 702:704 708:713 716:720 821:843 845:846 848:851 853:860 865:929 931:939 943:948 951:961 966:968 972:974 985:994 997:1011 1014:1016 1019:1026 1029:1036 1039:1041 1044:1049 1052:1058 1061:1062 1064:1073 1077:1083 1086:1091 1094:1106 1108:1123 1125:1132 1135:1142 1145:1147 1150:1164 1167:1197 1200:1209 1211:1215 1218:1225 1228:1235 1238:1241 1244:1245 1247:1256 1259:1260 1263:1265 1269:1277 1280:1281 1283:1286 1289:1299 1301:1304 1306:1307 1309:1310 1312:1316 1318:1319 1321:1324 1326:1327 1329:1335 1337:1350 1352:1372 1374:1389 1391:1397 1399:1400 1402:1414 1416:1425 1427:1439 1441:1455 1457:1466 1468:1478 1480:1485 1487:1492 1494:1500 1502:1508 1510:1516 1518:1525 1527:1530 1532:1536 1538:1542 1544:1551 1553:1558 1560:1565 1569:1571 1575:1584 1586:1592 1594:1600 1604:1605 1607:1610 1612:1626 1628:1644 1646:1657 1659:1661 1663:1667 1669:1671 1673:1686 1688:1692
+babashka/test-resources/lib_tests/com/rpl/specter/test_helpers.clj	1:8 13:22 25:36
+babashka/test-resources/lib_tests/com/rpl/specter/zipper_test.cljc	1:24 26:31 34:52 57:70 75:86 91:99 102:109 113:122
+babashka/test-resources/lib_tests/com/stuartsierra/component_test.clj	1:4 8:10 12:16 18:23 25:26 28:29 31:38 40:41 43:52 54:57 59:70 72:75 77:88 90:91 93:100 102:103 105:112 114:121 123:126 128:135 137:140 142:145 147:153 155:160 162:165 167:173 175:177 179:182 184:187 189:192 194:195 197:211 213:220 222:225 227:229 231:233 235:247 249:255 257:268 278:283 285:291 293:307
+babashka/test-resources/lib_tests/com/stuartsierra/dependency_test.clj	9:11 23:27 43:50 72:188 190:194 196:248 251:255 257:264 266:270 272:280 282:291 293:310 312:317 319:323
+babashka/test-resources/lib_tests/com/wsscode/misc/coll_test.cljc	1:4 6:17 19:34 36:46 48:50 52:54 56:58 60:70 72:74 76:78 80:82 84:86 88:90 92:94 96:98 100:114 116:120 122:136 138:144 146:152 156:160 162:202 204:210 212:218 220:224 226:231 233:243 245:247 249:257
+babashka/test-resources/lib_tests/com/wsscode/misc/macros_test.clj	1:4 6:14
+babashka/test-resources/lib_tests/com/wsscode/misc/math_test.cljc	1:4 6:8 10:12 14:16 18:20 22:24 26:28
+babashka/test-resources/lib_tests/com/wsscode/misc/refs_test.cljc	1:4 6:10 12:14 16:23 25:36
+babashka/test-resources/lib_tests/com/wsscode/misc/uuid_test.cljc	1:4 6:7
+babashka/test-resources/lib_tests/comb/test/template.clj	1:3 5:11 13:15
+babashka/test-resources/lib_tests/contajners/core_test.clj	1:3 5:22
+babashka/test-resources/lib_tests/contajners/impl_test.clj	1:4 6:9 11:23 25:32 34:37 39:45
+babashka/test-resources/lib_tests/core_match/core_tests.clj	9:12 16:26 28:38 40:46 48:54 56:63 65:73 75:81 83:111 113:120 122:129 131:138 140:147 149:156 158:165 167:174 177:191 193:198 200:206 208:214 218:224 226:232 234:242 244:252 254:255 261:267 270:276 279:285 287:293 295:303 305:312 314:323 326:332 334:340 342:346 348:353 356:360 383:389 391:397 399:404 406:411 413:418 420:425 427:432 434:442 444:450 452:458 462:470 472:480 482:489 491:497 499:503 505:510 512:517 519:528 530:537 539:579 581:588 590:597 599:606 608:615 617:623 625:630 632:638 640:646 648:653 655:660 662:665 667:672 674:682 684:694 696:701 703:708 710:726 728:736 738:746 748:756 758:765 767:774 776:798 800:807 809:816 818:825 827:838 840:851 853:865 870:872 874:886 888:892 894:896 898:908 910:914 916:926 928:933 935:947 949:955 957:962 964:968
+babashka/test-resources/lib_tests/cprop/smoke_test.clj	1:4 6:7
+babashka/test-resources/lib_tests/datalog/parser/impl_test.cljc	1:7 9:42 44:64 66:71 73:81 83:91 93:103 105:110 112:124 126:164 166:209 211:232 234:243 245:257 259:274 276:344 346:479 482:492
+babashka/test-resources/lib_tests/datalog/parser/pull_test.cljc	1:4 9:32 34:36 38:40
+babashka/test-resources/lib_tests/datalog/parser/test/util.cljc	1:2
+babashka/test-resources/lib_tests/datalog/parser_test.cljc	1:5 7:43 45:96
+babashka/test-resources/lib_tests/datalog/unparser_test.clj	1:5 7:13 17:25
+babashka/test-resources/lib_tests/docopt/core_test.clj	1:6 8:13 15:20 22:29 31:43 45:53 55:83 85:88
+babashka/test-resources/lib_tests/doric/test/core.clj	1:5 7:11 13:15 17:19 21:23 25:31 33:39 41:44 46:47 49:58 60:63 65:68 74:79 82:86 88:108 110:117
+babashka/test-resources/lib_tests/doric/test/doctest.clj	1:4 6:10 12:14 16:20 22:26 28:34 36:41 43:50 52:57 59:78 80:87 90:93
+babashka/test-resources/lib_tests/doric/test/readme.clj	1:3 5:6
+babashka/test-resources/lib_tests/edn_query_language/core_test.cljc	1:10 16:18 22:23 27:28 30:31 33:149 151:162 166:167 169:179 181:203 205:208 210:215 217:274 276:283 285:293 295:311 313:335 337:339 342:353 356:385
+babashka/test-resources/lib_tests/environ/core_test.cljc	1:5 11:14 16:18 37:65
+babashka/test-resources/lib_tests/environ/test/runner.cljs	1:3
+babashka/test-resources/lib_tests/exoscale/coax_cljs_test_runner.cljs	1:3
+babashka/test-resources/lib_tests/exoscale/coax_test.cljc	1:16 50:51 60:61 70:71 75:116 118:121 123:124 126:208 210:211 221:225 254:269 271:289 292:293 294:295 297:308 317:318 320:351 358:360 362:364 368:370 372:402 411:416 418:420 422:425 428:437
+babashka/test-resources/lib_tests/exoscale/lingo/test/core_test.cljc	1:6 14:15 30:33 35:233 235:269 271:313 315:329 331:375 377:385
+babashka/test-resources/lib_tests/expectations/clojure/test_test.clj	3:12 14:26 28:40 42:53 55:59 61:63 65:67 69:81 83:86 88:94 96:98 100:108 110:114 116:117 120:132 137:149 153:164 174:179
+babashka/test-resources/lib_tests/expound/alpha_test.cljc	1:30 34:35 37:45 51:53 59:65 67:68 70:92 94:99 101:106 108:112 115:117 119:122 124:135 139:161 167:169 171:246 251:271 276:297 306:307 309:428 432:495 499:519 527:643 647:648 654:660 662:666 673:846 851:852 856:858 859:861 862:863 865:990 995:996 997:998 1003:1092 1097:1098 1101:1102 1105:1107 1110:1197 1199:1201 1203:1205 1207:1239 1244:1282 1284:1290 1292:1300 1302:1310 1312:1356 1358:1369 1371:1383 1385:1401 1403:1406 1408:1418 1420:1423 1425:1428 1430:1432 1434:1440 1442:1450 1458:1506 1509:1526 1528:1531 1532:1534 1536:1537 1539:1578 1580:1621 1626:1665 1667:1711 1713:1753 1755:1798 1801:1820 1825:1826 1827:1828 1832:1834 1840:2167 2169:2184 2186:2211 2213:2239 2241:2249 2251:2257 2319:2326 2355:2360 2364:2370 2378:2379 2381:2385 2389:2394 2396:2397 2399:2707 2709:2713 2714:2736 2738:2739 2741:2742 2744:2753 2755:2812 2815:2817 2819:2820 2822:2878 2880:2884 2886:2887 2889:2935 2937:2995 3034:3035 3036:3037 3040:3041 3042:3043 3045:3047 3049:3051 3053:3126 3131:3222 3224:3226 3227:3229 3231:3235 3236:3237 3239:3241 3242:3243 3245:3247 3248:3249 3251:3253 3254:3257 3259:3261 3262:3264 3267:3269 3270:3272 3274:3275 3277:3278 3281:3503 3527:3563 3565:3568 3570:3578 3580:3607 3609:3612 3614:3619 3621:3632 3634:3661 3663:3688 3690:3693 3695:3698 3700:3704 3706:3708 3710:3717 3719:3733 3735:3742 3744:3749 3751:3752 3754:3759 3763:3772 3774:3780 3782:3794 3796:3799 3801:3803 3805:3808 3814:3820 3822:3827 3907:3915 3917:3940 3942:3943 3945:3947 3949:3950 3952:3978 4028:4056 4058:4063 4079:4195 4197:4203 4205:4221 4287:4306 4312:4350
+babashka/test-resources/lib_tests/expound/paths_test.cljc	1:7 11:13 15:21 23:25 27:39
+babashka/test-resources/lib_tests/expound/printer_test.cljc	1:9 13:15 20:34 41:43 44:49 50:53 54:55 56:57 58:61 63:64 66:136 138:178 180:233 235:333 335:345 347:428
+babashka/test-resources/lib_tests/expound/problems_test.cljc	1:5 7:9 17:18 19:20 22:30
+babashka/test-resources/lib_tests/expound/spec_gen.cljc	1:5 22:29 31:32 34:35 50:54 56:68 70:75 77:91
+babashka/test-resources/lib_tests/expound/specs_test.cljc	1:6 8:10 12:26
+babashka/test-resources/lib_tests/expound/spell_spec_test.cljc	4:13 20:21 23:25 27:28 30:31 35:39 41:48 50:56 61:71 73:78 80:86 88:93 95:115
+babashka/test-resources/lib_tests/expound/test_runner.cljs	1:10 16:17
+babashka/test-resources/lib_tests/expound/test_utils.cljc	1:15 26:29 31:35 37:38 40:41
+babashka/test-resources/lib_tests/failjure/runner.cljs	1:3
+babashka/test-resources/lib_tests/failjure/test_core.cljc	1:5 7:250 255:257
+babashka/test-resources/lib_tests/gaka/core_test.clj	1:3 5:7 9:39 41:86 88:131 133:141 143:164 166:188 190:195
+babashka/test-resources/lib_tests/hasch/test.cljc	1:9 15:89 91:97 100:107 109:112 114:117 119:122 125:127
+babashka/test-resources/lib_tests/hato/client_test.clj	1:16 18:24 26:92 94:124 149:167 169:180 182:240 242:256 258:291 293:309 311:330 332:335 337:341 343:348
+babashka/test-resources/lib_tests/helins/binf/test.cljc	5:16 25:26 29:30 33:34 37:40 120:187 193:197 216:240 244:260 284:300 304:306 322:324 352:354 372:373 377:401 406:438 442:444 461:463 482:495 499:525 529:557 561:563 589:620 626:642
+babashka/test-resources/lib_tests/helins/binf/test/base64.cljc	6:17 23:68 72:80
+babashka/test-resources/lib_tests/helins/binf/test/buffer.cljc	6:12 18:31 35:41 45:93
+babashka/test-resources/lib_tests/helins/binf/test/cabi.cljc	6:12 18:19 23:24 28:29 33:34 38:46 52:71 77:156 162:174 179:204 208:256 260:272 278:281 285:302 308:324
+babashka/test-resources/lib_tests/helins/binf/test/endian.cljc	6:18 24:35 41:48 52:59 63:70
+babashka/test-resources/lib_tests/helins/binf/test/float.cljc	6:13 19:26 30:39 54:58
+babashka/test-resources/lib_tests/helins/binf/test/int.cljc	6:12 18:32 36:92
+babashka/test-resources/lib_tests/helins/binf/test/int64.cljc	6:15 21:35 41:47 51:58 62:66 70:76 82:83 87:88 92:101 105:114 118:127 131:140 146:150 154:158
+babashka/test-resources/lib_tests/helins/binf/test/leb128.cljc	6:17 23:52 56:123 129:157 161:228 234:237 240:248 252:260 264:272 276:284
+babashka/test-resources/lib_tests/helins/binf/test/native.clj	6:13 19:20 24:25 30:61 65:67 71:74 78:137
+babashka/test-resources/lib_tests/helins/binf/test/string.cljc	6:16 22:23 27:32
+babashka/test-resources/lib_tests/hiccup/core_test.clj	1:3 5:18 20:55 57:92 94:129 131:145
+babashka/test-resources/lib_tests/honey/sql/helpers_test.cljc	3:20 22:142 144:158 160:178 180:210 212:249 251:255 257:269 271:316 318:342 344:348 350:354 356:362 364:370 372:385 387:393 395:406 408:424 426:436 438:446 448:453 455:505 507:616 618:625 627:668 670:715 719:727 729:758 760:798 800:819 821:844 846:858 860:867
+babashka/test-resources/lib_tests/honey/sql/postgres_test.cljc	10:31 33:126 128:147 149:160 162:169 171:177 179:229 231:249 251:271 273:290 292:296 298:302 304:310 312:318 320:326 328:334 336:342 344:350 352:363 365:374 376:381
+babashka/test-resources/lib_tests/honey/sql_test.cljc	3:9 11:14 16:69 71:73 75:93 97:106 110:116 118:121 122:139 141:149 151:162 164:171 173:188 190:198 200:217 219:222 224:227 229:232 234:246 248:271 273:278 280:285 287:301 303:318 320:324 326:361 363:397 399:417 419:443 445:449 451:457 459:466 468:471 473:478 498:503 505:513 515:561 563:605 607:688 690:701 703:710 712:722 726:732 734:766 768:794 796:818 820:846
+babashka/test-resources/lib_tests/honeysql/core_test.cljc	1:12 27:92 94:98 100:112 114:159 161:186 188:192 194:198 200:206 208:214 216:229 231:239 241:270 272:278 280:318 320:338 340:350
+babashka/test-resources/lib_tests/httpkit/client_test.clj	1:5 7:9 18:33 35:36 38:39 41:45 62:63 65:69 71:74
+babashka/test-resources/lib_tests/hugsql/babashka_test.clj	1:4 12:14
+babashka/test-resources/lib_tests/io/aviso/binary_test.clj	1:5 7:8 10:18 20:29 31:32 34:52
+babashka/test-resources/lib_tests/io/aviso/exception_test.clj	1:8 10:14 16:19 21:557 559:563 566:578 580:583
+babashka/test-resources/lib_tests/jasentaa/collections_test.cljc	1:6 8:15 17:21 23:26
+babashka/test-resources/lib_tests/jasentaa/parser/basic_test.cljc	1:7 9:14 16:19 21:24 26:30
+babashka/test-resources/lib_tests/jasentaa/parser/combinators_test.cljc	1:8 10:14 16:20 22:28
+babashka/test-resources/lib_tests/jasentaa/position_test.cljc	1:7 9:13 15:30 32:35 37:45 47:57
+babashka/test-resources/lib_tests/jasentaa/runner.cljs	1:8 10:15
+babashka/test-resources/lib_tests/jasentaa/test_helpers.cljc	1:3 5:12
+babashka/test-resources/lib_tests/jasentaa/worked_example_1.cljc	1:9 24:27 29:34 36:41 43:47 49:54 56:61 63:89
+babashka/test-resources/lib_tests/jasentaa/worked_example_2.cljc	1:11 26:27 29:32 34:41 43:50 52:59 61:62 64:65 67:69 72:73 75:76 78:80
+babashka/test-resources/lib_tests/java_http_clj/smoke_test.clj	1:5 7:9 11:12 14:18 22:25 27:43
+babashka/test-resources/lib_tests/lambdaisland/regal/malli_test.cljc	1:5 13:17
+babashka/test-resources/lib_tests/lambdaisland/regal/parse_test.cljc	1:4 6:21 23:29
+babashka/test-resources/lib_tests/lambdaisland/regal/spec_gen_test.clj	1:10 15:20 22:25 27:28 30:39
+babashka/test-resources/lib_tests/lambdaisland/regal/test_util.cljc	1:8 14:16 18:21 23:33 35:45
+babashka/test-resources/lib_tests/lambdaisland/regal_test.cljc	1:10 14:81 83:98 105:174
+babashka/test-resources/lib_tests/linked/core.bb	1:3 5:7
+babashka/test-resources/lib_tests/loom/test/alg.cljc	1:21 24:27 30:32 35:47 50:57 66:74 77:85 90:95 99:104 107:125 128:131 133:136 138:143 146:148 152:158 161:167 176:183 187:191 193:218 220:221 223:240 242:248 250:291 293:331 333:347 349:358 360:415 417:428 430:436 438:447 449:451 453:474 476:484 488:491 494:496 498:501 503:507 509:523 525:536 538:542 544:545 547:550 552:560 563:568 571:577 579:584 590:599 601:614 616:627
+babashka/test-resources/lib_tests/loom/test/alg_generic.cljc	1:13 15:23 25:44 49:56 58:63 65:69 71:94 96:98 100:102 104:108 110:112 114:120 122:128 130:134 136:142 144:153 155:164 166:217
+babashka/test-resources/lib_tests/loom/test/attr.cljc	1:5 7:31
+babashka/test-resources/lib_tests/loom/test/compliance_tester.cljc	1:8 10:52 54:99 101:142 144:195
+babashka/test-resources/lib_tests/loom/test/derived.cljc	1:8 10:57 59:67
+babashka/test-resources/lib_tests/loom/test/flow.cljc	1:7 11:13 16:26 29:32 35:46 49:54
+babashka/test-resources/lib_tests/loom/test/label.cljc	1:5 7:26
+babashka/test-resources/lib_tests/loom/test/network_simplex.cljc	1:5 12:19 21:28 30:43 45:55 57:81 83:97 99:108 110:120 122:137 139:149 151:172 174:186 188:201 203:212 214:221 223:231 233:236 238:246 248:260 262:270
+babashka/test-resources/lib_tests/loom/test/runner.cljs	1:10
+babashka/test-resources/lib_tests/markdown/md_test.cljc	1:5 7:9 11:21 23:27 29:35 37:38 40:44 46:47 49:50 52:53 55:56 58:59 61:62 64:66 68:69 71:73 75:77 79:85 87:89 91:93 95:101 103:106 108:110 112:118 120:122 124:129 131:133 135:137 139:143 145:160 162:172 174:178 180:198 200:210 212:214 216:218 220:238 240:250 252:256 258:262 264:268 270:272 274:276 278:280 282:284 286:288 290:292 294:298 300:304 306:309 311:313 315:317 319:341 343:345 347:349 351:353 355:357 359:361 363:365 367:369 371:374 376:391 393:405 407:410 412:413 415:416 418:419 421:422 424:425 427:428 430:431 433:434 436:437 439:441 443:444 446:447 449:450
+babashka/test-resources/lib_tests/markdown/nbb_runner.cljs	1:4
+babashka/test-resources/lib_tests/markdown/runner.cljs	1:3
+babashka/test-resources/lib_tests/me/raynes/core_test.clj	1:11 17:24 26:28 31:34 36:40 42:44 78:80 82:84 86:90 92:94 96:98 100:104 106:110 112:115 117:120 122:123 125:126 128:132 134:137 139:143 145:148 150:155 157:163 168:173 175:181 191:200 202:211 213:220 222:234 261:266 301:304 306:310 380:381 386:391 393:465
+babashka/test-resources/lib_tests/me/raynes/mock_midje.clj	3:7 9:12 14:23 25:29 31:38
+babashka/test-resources/lib_tests/medley/core_test.cljc	1:5 7:13 15:25 27:30 32:37 39:54 56:62 66:74 76:82 84:103 105:111 113:119 121:125 127:131 133:137 139:143 145:149 151:155 157:165 167:170 172:177 179:183 185:189 191:199 201:212 214:227 229:233 235:242 244:259 261:276 278:292 294:303 305:316 318:329 331:340 342:351 353:361 363:368 370:375 377:379 381:384 386:391 393:396 398:403
+babashka/test-resources/lib_tests/medley/test_runner.cljs	1:3
+babashka/test-resources/lib_tests/meta_merge/core_test.cljc	1:4 6:57
+babashka/test-resources/lib_tests/meta_merge/test_runner.cljs	1:3
+babashka/test-resources/lib_tests/minimallist/core_test.cljc	1:5 7:35 37:299 302:553
+babashka/test-resources/lib_tests/minimallist/generator_test.cljc	1:10 12:20 22:80 82:167 170:278 280:292 294:366 368:541
+babashka/test-resources/lib_tests/minimallist/util_test.cljc	1:4 6:15 17:26 28:35 37:53
+babashka/test-resources/lib_tests/missing/test/assertions_test.cljc	1:5 7:9 11:12
+babashka/test-resources/lib_tests/missing/test/old_methods.cljc	1:3 5:8 10:13
+babashka/test-resources/lib_tests/msgpack/core_check.clj	1:5 8:9 11:12 14:16 18:20 22:26 28:32 34:38 40:42 46:48 50:52
+babashka/test-resources/lib_tests/msgpack/core_test.clj	1:5 7:8 10:11 13:23 25:27 29:31 33:34 36:37 39:43 45:50 52:54 56:59 61:105 107:117 119:144 146:161 163:187 189:199 201:217 218:236
+babashka/test-resources/lib_tests/multigrep/core_test.clj	1:5 7:13 15:18 20:23
+babashka/test-resources/lib_tests/nrepl/core_test.clj	1:34 41:42 44:47 49:52 60:68 70:71 73:80 84:87 89:99 101:105 107:108 110:114 116:145 147:169 171:174 176:178 180:185 187:191 193:199 201:205 207:211 213:230 232:235 237:240 242:245 247:256 258:269 271:276 278:283 285:298 300:307 309:312 314:357 359:376 378:382 384:392 394:395 397:404 406:412 414:423 425:433 435:439 441:447 449:517 519:539 543:548 550:556 558:570 572:576 578:581 583:588 590:615 617:624 626:645 647:656 658:663 665:673 675:682 684:691 693:702 704:711 713:717 719:740 742:749 751:765 767:779 781:800 802:805 807:854 856:859 861:911 918:926 930:932 934:949 951:959 961:974 976:1011
+babashka/test-resources/lib_tests/nrepl/edn_test.clj	1:12 14:21 23:32 34:58
+babashka/test-resources/lib_tests/nrepl/util/lookup_test.clj	1:6 8:47 49:57 59:69 71:73
+babashka/test-resources/lib_tests/omniconf/core_test.clj	1:5 7:13 15:36
+babashka/test-resources/lib_tests/orchard/inspect/analytics_test.clj	1:6 10:36 38:47 49:58 60:73 75:88 90:101 103:114 116:143
+babashka/test-resources/lib_tests/orchard/inspect_test.clj	1:8 12:13 19:36 45:47 49:53 55:63 65:66 68:69 71:72 74:76 78:80 82:89 91:92 94:95 97:99 101:106 108:114 116:121 123:129 133:152 154:157 159:170 172:178 180:279 281:287 289:359 361:476 478:489 491:521 523:532 534:607 609:637 639:685 687:704 706:723 725:780 782:785 787:828 830:858 860:901 903:923 925:940 942:973 975:988 990:1012 1014:1049 1051:1171 1173:1229 1231:1247 1249:1271 1273:1289 1291:1323 1325:1359 1361:1387 1389:1423 1425:1434 1436:1500 1502:1514 1516:1536 1538:1547 1549:1559 1561:1647
+babashka/test-resources/lib_tests/orchard/pp_test.clj	1:6 8:9 11:24 26:194 196:209 211:217 219:228 230:231 233:265 267:290 292:304
+babashka/test-resources/lib_tests/orchard/print_test.clj	1:8 14:18 19:21 23:28 30:31 33:35 37:38 43:47 49:59 61:105 107:124 126:150 154:156 158:182 184:189
+babashka/test-resources/lib_tests/orchard/test/util.clj	1:5 9:13 15:20 22:25
+babashka/test-resources/lib_tests/orchestra/core_test.cljc	1:13 15:17 19:24 26:28 30:35 37:40 42:47 49:56 58:61 63:65 67:72 74:77 79:84 86:90 92:97 100:106 128:133 148:150 152:154 157:159 160:162 164:177 179:181 184:186 188:190 191:192 194:197 199:202 204:213 215:216 218:220 222:228 230:234 236:239 241:243 245:251 253:257
+babashka/test-resources/lib_tests/orchestra/expound_test.cljc	1:13 15:20 23:25 27:35
+babashka/test-resources/lib_tests/orchestra/make_fns.cljc	1:3
+babashka/test-resources/lib_tests/orchestra/many_fns.cljc	1:13 17:18
+babashka/test-resources/lib_tests/orchestra/reload_test.cljc	1:4 6:9
+babashka/test-resources/lib_tests/portal/bench.cljc	1:3 5:7 9:18
+babashka/test-resources/lib_tests/portal/e2e.clj	1:2 4:8 12:16 18:32
+babashka/test-resources/lib_tests/portal/jvm_test.clj	1:6 8:9 11:12 14:22
+babashka/test-resources/lib_tests/portal/runtime/cson_test.cljc	1:10 12:18 20:28 30:31 33:51 53:58 60:70 72:87 89:99 101:104 106:112 114:119 121:123 125:129 131:135 137:142 147:149 151:164
+babashka/test-resources/lib_tests/portal/runtime/fs_test.cljc	1:3 5:21
+babashka/test-resources/lib_tests/portal/test_planck.cljs	1:4 6:8 10:11
+babashka/test-resources/lib_tests/portal/test_runner.clj	1:5 7:13
+babashka/test-resources/lib_tests/portal/test_runner.cljs	1:4 6:8 10:12
+babashka/test-resources/lib_tests/progrock/core_test.clj	1:4 6:10 12:16 18:20 22:33 35:43
+babashka/test-resources/lib_tests/reifyhealth/specmonstah/core_test.cljc	1:10 16:28 30:40 42:44 46:49 51:53 55:62 64:81 83:99 101:111 113:140 142:157 159:195 197:233 235:248 250:280 282:337 339:391 393:435 437:486 488:491 493:504 506:522 524:541 545:552 554:560 562:570 572:576 578:584 586:594 596:613 615:631 633:663 665:697 699:702 704:711 713:724 726:747 749:754 756:762 764:770 772:777 779:783 785:789
+babashka/test-resources/lib_tests/reifyhealth/specmonstah/spec_gen_test.cljc	1:9 14:17 21:23 25:28 30:41 43:50 52:68 70:96 98:125 127:150 152:157 160:169 171:182 185:187 189:218 220:249 251:254 256:261 263:269 271:283
+babashka/test-resources/lib_tests/reifyhealth/specmonstah/test_data.cljc	1:6 9:12 16:18 20:23 49:77 80:91 101:110
+babashka/test-resources/lib_tests/rewrite_clj/node_test.cljc	1:6 8:56 59:61 63:65 67:73 75:78 80:103 105:112 114:192 194:212
+babashka/test-resources/lib_tests/rewrite_clj/paredit_test.cljc	1:6 14:15 17:45 47:89 91:132 134:162 164:201 203:221 223:235 237:261 263:281 283:299 301:311 313:338 340:364 366:378 380:393 396:416 419:443 445:464 466:480 482:501 503:509 511:523 525:572
+babashka/test-resources/lib_tests/rewrite_clj/parser_test.cljc	1:10 12:18 20:32 43:71 73:80 82:93 95:103 105:111 113:122 124:130 132:167 169:173 175:188 190:203 205:213 215:242 244:253 255:271 273:297 299:324 326:351 353:419 421:434 436:451 453:470 472:487 489:499 501:519 521:548 550:578 580:610 612:617 619:637 656:666 668:702 704:728 730:734
+babashka/test-resources/lib_tests/rewrite_clj/zip/subedit_test.cljc	1:5 7:23 25:51
+babashka/test-resources/lib_tests/rewrite_clj/zip/test_helper.cljc	1:8 10:21 23:48 50:63 65:81 83:100
+babashka/test-resources/lib_tests/rewrite_clj/zip_test.cljc	1:6 8:10 12:31 33:61 63:68 71:167 169:172
+babashka/test-resources/lib_tests/ruuter/core_test.cljc	1:5 8:25 28:41 44:64
+babashka/test-resources/lib_tests/selmer/core_test.clj	1:17 23:29 31:49 51:55 57:61 63:67 69:78 164:166 168:176 178:189 192:194 196:205 226:242 244:245 247:249 256:268 271:272 275:279 281:299 301:364 366:372 374:378 380:384 386:407 409:421 423:429 431:435 437:440 442:450 452:457 459:464 466:481 492:579 581:633 644:648 650:656 658:689 691:700 702:707 738:739 741:746 748:766 768:769 771:801 805:807 810:812 814:816 820:821 833:841 878:880 882:886 888:889 891:895 897:900 902:906 908:912 920:943 946:960 963:965 967:975 977:979 981:983 985:989 991:997 999:1006 1008:1016 1018:1035 1037:1045 1049:1055 1058:1068 1082:1086 1088:1096 1098:1103 1105:1108 1110:1113 1115:1118 1120:1123 1125:1127 1138:1143 1173:1178 1188:1192 1194:1234 1236:1285 1293:1294 1303:1326 1328:1355
+babashka/test-resources/lib_tests/selmer/our_test.clj	1:6 8:27
+babashka/test-resources/lib_tests/slingshot/slingshot_test.clj	1:5 18:22 24:69 71:111 113:138 150:151 153:164 166:169 171:174 177:180 182:185 187:194 196:197 199:205 207:212 214:216 218:221 223:238 240:250 252:258 260:288 290:304 306:315 317:323 325:330 332:334 336:341 343:345 347:367 369:388 390:394 396:421 425:430 432:437 439:518
+babashka/test-resources/lib_tests/slingshot/test_test.clj	1:4 6:8
+babashka/test-resources/lib_tests/spartan/spec_test.clj	1:2 7:9
+babashka/test-resources/lib_tests/table/width_test.clj	1:3 5:6 9:13 15:19 21:25 27:28
+babashka/test-resources/lib_tests/test_check/smoke_test.clj	3:6 8:13 16:19
+babashka/test-resources/lib_tests/testdoc/core_test.clj	1:5 7:19 21:34 36:43 45:52 54:83 85:89 91:100 102:103 105:112 114:117 119:126 128:130 132:133
+babashka/test-resources/lib_tests/testdoc/style/code_first_test.clj	1:5 7:9 11:20 22:26
+babashka/test-resources/lib_tests/testdoc/style/repl_test.clj	1:5 7:9 11:19 21:25
+babashka/test-resources/lib_tests/vault/client/http_test.clj	1:8 14:19 22:29 32:42 45:91 94:198
+babashka/test-resources/lib_tests/vault/client/mock_test.clj	1:8 11:18 21:74
+babashka/test-resources/lib_tests/vault/env_test.clj	1:5 8:14 17:33
+babashka/test-resources/lib_tests/vault/lease_test.clj	1:6 9:14 17:24 27:55 58:87 90:98
+babashka/test-resources/lib_tests/vault/secrets/kvv1_test.clj	1:12 17:38 41:76 79:113 116:139 144:183
+babashka/test-resources/lib_tests/vault/secrets/kvv2_test.clj	1:13 16:37 40:61 64:82 85:138 141:185 188:233 236:292 295:324 327:351 354:383 386:415 420:423 426:493
+babashka/test-resources/lib_tests/version_clj/compare_test.cljc	1:4 6:81
+babashka/test-resources/lib_tests/version_clj/core_test.cljc	1:4 6:13 15:31 33:63 65:77 79:81
+babashka/test-resources/lib_tests/version_clj/split_test.cljc	1:4 6:13 15:42 44:69 71:76
+babashka/test-resources/lib_tests/version_clj/via_use_test.clj	1:5 10:14
+babashka/test-resources/line_number_test_test.clj	1:2 4:5
+babashka/test-resources/pod.clj	1:9 13:16 20:22 24:25 27:28 30:125 127:162
+babashka/test-resources/pod_tests/bootleg.clj	1:2 4:7
+babashka/test-resources/pod_tests/local.clj	1:2 4:5
+babashka/test-resources/task_scripts/tasks.clj	1:2 4:7 9:12
+babashka/test-resources/task_test_scripts/task_test.clj	3:4 8:11
+babashka/test-resources/text_normalizer_test.clj	3:4
+babashka/test/babashka/agent_test.clj	1:5 7:10
+babashka/test/babashka/async_test.clj	1:5 7:14 16:30 32:35 37:44 46:52
+babashka/test/babashka/bb_edn_test.clj	1:11 13:23 25:31 33:45 47:61 63:290 292:299 301:312 314:333 335:387 389:399 401:409 411:421 423:429 431:463 465:472 474:481 483:489 491:495 497:501 503:507 509:534 536:540 543:546 548:549 551:552 554:556 558:561 563:581 583:1246 1248:1402
+babashka/test/babashka/classes_test.clj	1:4 6:8 10:11
+babashka/test/babashka/classpath_test.clj	1:8 10:11 15:37 39:54 56:65 67:76 78:83 85:90 92:99 101:114 116:135 137:140
+babashka/test/babashka/clojure_main_test.clj	1:7 9:22 24:26 28:55 57:74
+babashka/test/babashka/crypto_test.clj	1:6 8:9 11:15 17:36 38:52
+babashka/test/babashka/datafy_test.clj	1:4 6:7 9:70 72:83 86:89
+babashka/test/babashka/deftype_map_test.clj	1:5 7:11 15:42 44:67 69:80 82:95 97:107 109:118 120:154 156:179 181:209 211:218 220:227 229:236 238:276 278:317 319:355 357:387 389:399 401:406 408:442 444:453 455:484 486:514 516:545
+babashka/test/babashka/deps_test.clj	1:9 11:16 18:46 48:86 88:101 103:114 116:130 132:148 150:175 177:194 196:227 229:252 254:293 295:354 356:374 376:392
+babashka/test/babashka/error_test.clj	1:8 10:17 19:35 37:50 52:63 65:74 76:81 83:101 103:131 134:153 155:191 193:226 228:253 255:280 282:287
+babashka/test/babashka/ffi_test.clj	1:9 11:12 14:20 22:25 30:48 50:54 56:59 61:72 74:76 78:93 95:115 117:200 202:233 235:298 300:333 335:415 417:461 463:487 489:525 527:552 554:574 576:653 655:674 676:706 708:722 724:829 831:851 853:875 877:895 897:908 910:917 919:979 981:998 1000:1013 1015:1021 1023:1044 1046:1064 1066:1077 1079:1090
+babashka/test/babashka/file_var_test.clj	1:6 8:9 11:24
+babashka/test/babashka/impl/cli_test.clj	1:5 7:8 10:17
+babashka/test/babashka/impl/clojure/java/browse_test.clj	1:6
+babashka/test/babashka/impl/clojure/java/io_test.clj	1:4 6:10 12:25 27:32 34:41
+babashka/test/babashka/impl/clojure/java/shell_test.clj	1:5 8:19 21:33
+babashka/test/babashka/impl/clojure/main_test.clj	1:4 6:7 9:18
+babashka/test/babashka/impl/nrepl/sci_test.clj	1:6 11:13 15:16 18:41 43:54 56:72
+babashka/test/babashka/impl/nrepl_server_test.clj	1:18 24:26 28:43 45:55 57:282 284:296 298:315 317:332 334:351 353:368 370:377 379:386 388:417 419:427 429:439 441:472 474:486 488:510 512:551 553:567 569:613 615:643 645:662
+babashka/test/babashka/impl/queue_polling_reader_test.clj	1:5 9:13 15:28 30:36
+babashka/test/babashka/impl/repl_test.clj	1:11 19:22 24:28 30:38 40:58 62:64 66:92 94:95 97:100 102:103 105:111 113:119 121:122 124:125 127:174 176:210 212:229 231:245 248:262 264:276 278:290 292:297 299:304 306:310 312:320
+babashka/test/babashka/impl/socket_repl_test.clj	1:14 18:42 48:79 81:104 106:133 137:149
+babashka/test/babashka/impl/tasks_test.clj	1:3 5:10 12:25
+babashka/test/babashka/interop_test.clj	1:6 8:13 15:25 27:31 33:34 36:37 39:40 42:45 47:59 61:102 104:105 107:110 112:115 117:119 121:130 132:135 137:143 145:150 152:155 157:159 161:162 164:165 167:172 174:175 177:230 233:237 239:253 255:272 273:286 288:300 304:326 328:336 338:339 341:356 358:363 365:369 371:372 374:414 416:422 424:432 434:441 443:457 459:485 487:510 512:524 526:538
+babashka/test/babashka/java_net_http_test.clj	1:7 9:10 14:21 23:41 43:61 65:90 92:122 124:151 153:176 178:241 243:275 277:365 369:458 461:486 488:516 524:528 530:534 536:538 540:559 563:567 571:574 576:606
+babashka/test/babashka/java_security_test.clj	1:5 7:8 10:16 18:22
+babashka/test/babashka/java_time_test.clj	1:6 8:9 11:33
+babashka/test/babashka/jline_test.clj	1:4 6:11 13:19 21:31 33:39 41:44 46:50 52:65 67:80 82:86 88:99 101:139 141:152 154:158 160:186 188:197 199:204 206:226 228:248 250:254 256:264 266:279 281:283 285:288 290:304
+babashka/test/babashka/logging_test.clj	1:6 8:48 50:81 83:85 87:111 113:122 124:130
+babashka/test/babashka/main_test.clj	1:14 16:21 23:25 27:83 85:90 92:94 96:100 102:110 112:114 116:118 120:174 176:177 179:183 185:192 194:196 198:204 206:215 217:240 242:250 252:255 257:284 286:290 292:299 301:303 305:307 310:323 325:331 333:337 339:340 342:346 348:369 371:375 377:385 387:408 410:411 413:425 427:431 433:436 438:440 442:445 447:455 457:462 464:466 468:469 471:498 500:502 504:505 507:509 511:512 514:515 517:519 521:522 524:532 534:540 542:546 548:553 555:560 562:567 569:578 580:595 597:603 605:639 641:650 652:655 657:658 660:664 666:669 671:677 679:680 682:687 689:694 696:699 701:702 704:705 707:709 711:712 714:716 718:722 724:728 730:735 737:747 749:752 754:758 760:768 770:771 773:775 777:785 787:790 792:794 796:865 867:877 879:881 883:898 900:906 908:912 914:921 923:926 930:940 942:962 964:971 973:974 976:979 981:988 990:991 993:995 997:999 1001:1002 1004:1005 1007:1008 1010:1011 1013:1019 1021:1036 1038:1040 1044:1045
+babashka/test/babashka/namespace_test.clj	1:4 6:10 12:25 27:28 30:31
+babashka/test/babashka/pod_test.clj	1:5 7:29
+babashka/test/babashka/postgresql_test.clj	1:4 6:7 9:11 13:14 16:17 19:41
+babashka/test/babashka/pprint_test.clj	1:7 9:10 12:14 16:24 29:38 40:52 54:60 62:64
+babashka/test/babashka/print_deps_test.clj	1:9 12:29
+babashka/test/babashka/profile.clj	1:2 10:12
+babashka/test/babashka/protocols_test.clj	1:4 6:42 44:60
+babashka/test/babashka/proxy_test.clj	1:5 7:11 13:68 72:80 82:105 107:118 120:133 138:153 155:170 172:218 220:289
+babashka/test/babashka/reify_test.clj	1:6 8:12 14:23 25:52 54:104 106:136 138:148 150:157 159:181 183:188 190:203 205:210 212:215 217:229
+babashka/test/babashka/sci_test.clj	1:5 7:14
+babashka/test/babashka/scripts/check_var_names.bb	2:14
+babashka/test/babashka/scripts/csv.bb	1:3
+babashka/test/babashka/scripts/file_var.bb	1:2
+babashka/test/babashka/scripts/kill_child_processes.bb	1:2 8:25
+babashka/test/babashka/scripts/tools.cli.bb	3:7 9:14
+babashka/test/babashka/shutdown_hook_test.clj	1:6
+babashka/test/babashka/test_test.clj	1:9 11:14 16:19 21:24 26:35 37:60 62:71 73:75 77:79 81:83 85:87 89:96 98:105 107:117 119:121 123:127 129:142
+babashka/test/babashka/test_utils.clj	1:12 18:23 25:30 34:36 38:44 46:89 91:111 113:117 122:124 126:133 135:138 140:141 143:149
+babashka/test/babashka/transit_test.clj	1:5 7:8 10:13
+babashka/test/babashka/uberjar_test.clj	1:12 14:16 18:19 21:22 24:80 82:98 100:110
+babashka/test/babashka/uberscript_test.clj	1:5 7:10 12:16 18:28 30:35 37:44
+babashka/test/babashka/udp_test.clj	1:5 9:25

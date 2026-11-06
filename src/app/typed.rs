@@ -363,7 +363,7 @@ impl App {
         let (last, before) = chain.split_last()?;
         if before.is_empty() {
             let text = self.buf.lines.join("\n");
-            let bindings = search::bindings(kind, &text, self.line + 1, last);
+            let bindings = search::bindings_at(kind, &text, self.line + 1, Some(self.col), last);
             Some((here.to_path_buf(), text, bindings, Vec::new()))
         } else {
             let ProvenType { ty, links } = self.receiver(kind, here, before, None).ok()?;
@@ -374,35 +374,6 @@ impl App {
             })?;
             Some((found.0, found.1, found.2, links))
         }
-    }
-
-    fn literal_member(
-        &self,
-        kind: Kind,
-        here: &Path,
-        chain: &[String],
-        word: &str,
-    ) -> Option<Vec<Candidate>> {
-        let (file, text, bindings, mut links) = self.last_bindings(kind, here, chain)?;
-        let [b] = &bindings[..] else {
-            return None;
-        };
-        let search::Value::Type(written) = &b.value else {
-            return None;
-        };
-        let (line, literal) = search::ts_literal_member(&text, b.line1, written, word)?;
-        links.push(format!("{}: {literal}", chain.last()?));
-        let hit = Hit {
-            text: text.lines().nth(line - 1)?.to_owned(),
-            path: file,
-            line1: line,
-            byte_col: None,
-            deleted: None,
-        };
-        Some(vec![Candidate {
-            hit,
-            reason: Reason::Receiver(links.join(" \u{2192} ")),
-        }])
     }
 
     pub(super) fn inherited_outside(
@@ -579,8 +550,7 @@ impl App {
                 ty: next,
                 call_signature,
             } = self
-                .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                .and_then(DeclaredField::typed)
+                .typed_field(kind, &ty, field)
                 .or_else(|| {
                     let made =
                         (kind == Kind::Python).then(|| self.made_by_class_attribute(&ty, field));
@@ -666,6 +636,17 @@ impl App {
         found
     }
 
+    fn typed_field(&self, kind: Kind, ty: &Typed, field: &str) -> Option<TypeVia> {
+        self.hierarchy(kind, ty, 0, &mut |t| self.field_type(kind, t, field))
+            .and_then(DeclaredField::typed)
+            .or_else(|| {
+                (kind == Kind::Python && self.stub_returns_self(ty, field)).then(|| TypeVia {
+                    ty: ty.clone(),
+                    call_signature: None,
+                })
+            })
+    }
+
     fn field_type(&self, kind: Kind, ty: &Typed, field: &str) -> Option<DeclaredField> {
         let text = self.text_of(&ty.path)?;
         let bindings = search::field_bindings(kind, &text, ty.line, field);
@@ -720,6 +701,12 @@ impl App {
         b: &search::Binding,
         hops: usize,
     ) -> Option<TypeVia> {
+        if let Some(ty) = self.patched_mock(kind, text, b) {
+            return Some(TypeVia {
+                ty,
+                call_signature: None,
+            });
+        }
         match &b.value {
             search::Value::Type(t) | search::Value::New(t) => {
                 let path = search::type_path(kind, t).filter(|p| p.len() > 1);
@@ -783,9 +770,7 @@ impl App {
                 let ProvenType { ty, .. } = self
                     .chain_type(kind, file, text, b.line1, from, hops - 1)
                     .ok()?;
-                let TypeVia { ty, .. } = self
-                    .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .and_then(DeclaredField::typed)?;
+                let TypeVia { ty, .. } = self.typed_field(kind, &ty, field)?;
                 Some(TypeVia {
                     ty,
                     call_signature: None,
@@ -797,9 +782,7 @@ impl App {
                     value: (**head).clone(),
                 };
                 let TypeVia { ty, .. } = self.binding_type(kind, file, text, &at, hops)?;
-                let TypeVia { ty, .. } = self
-                    .hierarchy(kind, &ty, 0, &mut |t| self.field_type(kind, t, field))
-                    .and_then(DeclaredField::typed)?;
+                let TypeVia { ty, .. } = self.typed_field(kind, &ty, field)?;
                 Some(TypeVia {
                     ty,
                     call_signature: None,
@@ -998,6 +981,27 @@ impl App {
             && let Some(via) = self.dict_value(file, text, line1, r, method)
         {
             return Some(via);
+        }
+        if kind == Kind::Python
+            && receiver.is_empty()
+            && let [
+                search::Binding {
+                    value: search::Value::Type(written),
+                    line1: at,
+                },
+            ] = &self.bindings_of(kind, file, text, line1, method)[..]
+            && let Some(returns) = search::python_callable_return(text, written)
+            && (search::python_in_function(text, *at)
+                || text.lines().nth(at - 1).is_some_and(|l| {
+                    let t = l.trim_start();
+                    t.starts_with("def ") || t.starts_with("async def ")
+                }))
+        {
+            let ty = self.annotated_type(kind, file, text, *at, &returns)?;
+            return Some(TypeVia {
+                ty: self.runtime_class(ty),
+                call_signature: Some(signature(kind, callee, &returns)),
+            });
         }
         let decl = self.callee_decl(kind, file, text, line1, callee, hops)?;
         if search::declares_type(kind, &decl.text) {
@@ -1198,7 +1202,9 @@ impl App {
         line1: usize,
         name: &str,
     ) -> Vec<search::Binding> {
-        let mut bindings = search::bindings(kind, text, line1, name);
+        let col = (line1 == self.line + 1 && text.lines().nth(self.line) == Some(self.line_str()))
+            .then_some(self.col);
+        let mut bindings = search::bindings_at(kind, text, line1, col, name);
         if search::reads_jsdoc(kind, file) {
             for b in &mut bindings {
                 if let Some(t) = search::jsdoc_binding(text, b.line1, name)

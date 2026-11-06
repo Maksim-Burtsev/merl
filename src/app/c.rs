@@ -189,7 +189,8 @@ impl App {
         else {
             return false;
         };
-        let Ok(Some(search::CType::Name(ty))) = search::c_value_type(text, self.line + 1, &head)
+        let Ok(Some(search::CType::Name(ty))) =
+            search::c_value_type(text, self.line + 1, Some(self.col), &head)
         else {
             return false;
         };
@@ -205,7 +206,7 @@ impl App {
     }
 
     fn c_head_type(&self, here: &Path, text: &str, name: &str) -> Option<CTypeIn> {
-        match search::c_value_type(text, self.line + 1, name) {
+        match search::c_value_type(text, self.line + 1, Some(self.col), name) {
             Ok(Some(ty)) => {
                 return Some(CTypeIn {
                     file: here.to_path_buf(),

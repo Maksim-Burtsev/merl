@@ -1,0 +1,57 @@
+wait hunk 1/1  file 4/6
+┌agent/skip ← origin/main────┐12 - Search by customer finds orders by the customer's number, not by their name.
+│  ▾ app                     │13
+│✓   M models.py        +2 −0│14 ## 1.7.1
+│✓   M service.py       +2 −0│15
+│  ▾ tests                   │16 - A cancelled order keeps its total. The customer sees it struck through.
+│🤖  M test_service.py  +2 −0│17 - Orders paid by bank transfer stay pending until the bank confirms, up to two working days.
+│  ▾ docs                    │18
+│    M notes.md         +4 −0│19 ## 1.7.0
+│  ▾ worker                  │20
+│✓   M main.go          +2 −0│21 - Shipping jobs run in the worker: an order is marked shipped within a minute of the label.
+│🤖 M README.md         +2 −0│22 - The worker retries a failed sync three times, then the order shows up in the ops channel.
+│                            │23 - Orders from the old shop are imported read-only: no refunds, no cancellations.
+│                            │24
+│                            │25 ## 1.6.0
+│                            │26
+│                            │27 - The order page shows the payment provider's reference: quote it when you write to them.
+│                            │28 - Customers can cancel an order themselves while it is pending or paid.
+│                            │29
+│                            │30 ## 1.5.0
+│                            │31
+│                            │32 - The support page lists the last 20 orders of a customer.
+│                            │33 - ✔️ Cancelled orders show the reason the customer gave, under the total.
+│                            │34 - Refunds by hand go through scripts/refund_by_hand.py until the refund flow ships.
+│                            │35
+│                            │36 ## 1.4.0
+│                            │37
+│                            │38 - How to run the API on your machine: [the README](../README.md#orders).
+│                            │39▎
+│                            │40▎More notes.
+│                            │41▎
+│                            │42▎Even more notes.
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└ 6 files · +14 −0 ──────────┘
+docs/notes.md  39:1  [code]  hunk 1/1  file 4/6                                                                                                                                    14:32
+cursor (x,y,shown) 33,27,0

@@ -22,14 +22,14 @@ Refund issue(int cents) {
 
 int Drawer::count() {
   Scanner* first = nullptr;
-//^ d: picker include/shop/refund.hh:23, src/refund.cc:8
+//^ d: src/refund.cc:8
   return first ? 1 : 0;
 }
 
 Slot* slot;
-//^ d: picker include/shop/refund.hh:22, include/shop/invoice.hh:7
+//^ d: include/shop/invoice.hh:7
 Aisle* aisle;
-//^ d: picker include/shop/refund.hh:16, include/shop/refund.hh:28, include/shop/invoice.hh:5
+//^ d: include/shop/refund.hh:16
 
 // The qualifier written on a declaration's line is its owner (#508).
 Drawer::Scanner scanner;

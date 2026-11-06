@@ -62,9 +62,7 @@
 - The lints live in `Cargo.toml` `[lints]` and `clippy.toml`, and `tools/ci-local clippy` denies
   every warning. `#[allow]` is banned: a lint is silenced only by `#[expect(lint, reason = "…")]`,
   and `expects_do_not_grow` (`src/main.rs`) keeps their number under `EXPECTS`; a PR that removes
-  some lowers it. `unwrap()` and `&s[a..b]` on a `str` are not used outside tests. The
-  `#![expect(…, reason = "#858")]` lines are the strict-lints epic's backlog: code the epic has
-  not reached yet, never a place for new hits.
+  some lowers it. `unwrap()` and `&s[a..b]` on a `str` are not used outside tests.
 - The site (#776) runs this same `src/` in the browser: `web/build.sh OUT.wasm` builds it for
   `wasm32-wasip1` from `web/Cargo.toml`, whose dependencies match `Cargo.toml`'s
   (`the_browser_build_has_merl_s_dependencies`), at the versions `Cargo.lock` holds. The browser
@@ -81,8 +79,8 @@ carries three labels:
 
 - What it is: `bug` or `enhancement`, plus `tests`, `language-support` or `readme` when it is one
   of those.
-- How ready it is: `agent-ok`, `needs-owner`, `to-think` or `backlog` (`## Merging` says what each
-  means).
+- How ready it is: `agent-ok`, `needs-owner`, `to-think` or `backlog`
+  (`docs/agents/merging.md` says what each means).
 - How soon: `P1` is the 1.0 checklist and goes first, `P2` is wanted for 1.0, `P3` is for when
   time allows.
 
@@ -112,7 +110,7 @@ choice comes as options with a recommendation, and a look comes as a picture
 ## Working on an issue
 
 A brief can be as short as "Work on #N". It is done when the PR, in the shape below, is merged
-with its issue closed, or waits under `needs-owner` (see `## Merging`).
+with its issue closed, or waits under `needs-owner` (see `docs/agents/merging.md`).
 
 1. Read the issue with its comments, then check that nobody has it: the issue is open, carries
    no `in-progress` label, and `gh pr list --state all --search N` shows no PR for it. Parallel
@@ -164,12 +162,13 @@ with its issue closed, or waits under `needs-owner` (see `## Merging`).
    issue is listed in `UNSMOKED` with why.
 6. Commits are in English and carry the reasoning. The repo squashes with the PR's commit
    messages, so a commit written with Claude keeps its `Co-Authored-By: Claude …` trailer.
-7. Record the screencast, open the PR, and check `gh pr diff --name-only` holds only your files.
-   The PR says `Closes #N` only when the issue's own example now does what the issue wants: run
-   it on the build. Otherwise it says `Part of #N`, and what is left is filed as an issue.
+7. Record the screencast (`docs/agents/screencasts.md`), open the PR, and check `gh pr diff
+   --name-only` holds only your files. The PR says `Closes #N` only when the issue's own example
+   now does what the issue wants: run it on the build. Otherwise it says `Part of #N`, and what
+   is left is filed as an issue.
 8. Once the whole task is in the PR, review it with Punchcard, once. Fix every finding on the
    branch's own change in this PR; a finding outside it becomes an issue. Do not review again:
-   with the fixes pushed, go on as `## Merging` says. A docs-only PR needs no review.
+   with the fixes pushed, go on as `docs/agents/merging.md` says. A docs-only PR needs no review.
 
 Everything on GitHub (issues, PR bodies, reviews, comments) is in English.
 
@@ -183,139 +182,18 @@ and line of its code, or a run of it, never a recollection.
 
 ## Changing `f`
 
-`f` (`src/app/collapse.rs`) folds by the rules decided in #598, in the languages that pass the
-fold bench and nowhere else: Python, the brace languages (`src/app/collapse/braces.rs`), Ruby,
-Lua, shell, zsh and RBS (`src/app/collapse/words.rs`), Elixir (`src/app/collapse/elixir.rs`), and
-YAML, JSON, TOML, HTML, XML, CSS / SCSS and Markdown (`src/app/collapse/spans.rs`) today, the rest
-in epic #623, each saying `no fold rules for .EXT` until then.
-
-- **The bench**, `tools/fold-bench/run [--lang go,rust]`: `f` pressed on every line that starts
-  a fold in real projects, compared with the reference: Python's own `ast` for Python, and for
-  the rest what Neovim folds with nvim-treesitter's `folds.scm` in the projects of
-  `tools/d-bench/projects.tsv`, recorded once into `tools/fold-bench/folds/LANG.tsv`
-  (`record.py`, never in CI). It prints per language the exact folds, wrong ranges, nothing
-  folded and p50 ms. A language still off is pressed with the rules forced on and marked `off`:
-  that row is where its work starts, and it never fails the run.
-- **A language turns `f` on** at 99 % exact in the bench, with a fold fixture in `tests/folds/`
-  and its bench row; the PR commits the new `tools/fold-bench/baseline.tsv`
-  (`--update-baseline`).
-- **A change to `f`** keeps `tests/folds/` green and no bench line of a language that is on worse
-  than `baseline.tsv`: the run exits 1 on any.
+Before you change what `f` folds or turn it on in a language (`src/app/collapse*`, `tests/folds/`,
+`tools/fold-bench/`), read `docs/agents/f.md`.
 
 ## Changing syntax colours
 
-merl colours code as LazyVim does (epic #797): tree-sitter's syntax tree, nvim-treesitter's own
-queries and the theme's Neovim highlight groups (`themes/NAME.groups.json`, #801), in
-`src/treesitter.rs`, for Python, Go, Rust, Markdown, TypeScript, TSX, JavaScript, JSX, Bash (zsh
-stays on syntect, as LazyVim has no zsh parser), JSON, YAML, TOML, Lua, C, C++, Java, C#, Kotlin, Scala, Swift, Ruby, PHP, Elixir, Zig, HTML, CSS, XML, Diff, Query, Dockerfile, CMake, Protobuf, HCL, Terraform, INI, Nix, Scheme, Racket, Common Lisp (Emacs Lisp too, as Neovim calls it `lisp`), R, Erlang, SQL, Vue, Svelte, GraphQL, nginx, GDScript, Starlark and Solidity today and for the languages of
-#806–#809 as they land; every other file goes through syntect as before. Dart and Groovy stay on
-syntect: the grammars nvim-treesitter pins bind an older tree-sitter in their `Cargo.toml`
-(UserNobody14's tree-sitter-dart 0.22, murtaza64's tree-sitter-groovy `~0.26.8`), which cannot
-link beside merl's 0.27 (both declare `links = "tree-sitter"`), crates.io's tree-sitter-dart
-and tree-sitter-groovy (amaanq's) are other grammars, and arborium-dart and arborium-groovy 2.18.2
-are regenerated from older revisions (their `grammar.json` lacks the pins' `dot_shorthand` and
-`quoted_identifier`). Clojure, Julia and Perl stay on syntect
-too: the commits nvim-treesitter pins have no Rust bindings (sogaiu's tree-sitter-clojure and
-tree-sitter-julia have no `Cargo.toml`) or no `parser.c` (tree-sitter-perl is generated by
-nvim-treesitter), while crates.io's tree-sitter-clojure 0.1.0 repackages sogaiu's grammar against
-tree-sitter 0.25, tree-sitter-julia 0.23.1 has another `parser.c`, and ts-parser-perl 2.0.0 another
-`grammar.js`. SCSS stays on syntect too: the commit nvim-treesitter pins (serenadeai's c478c68)
-binds tree-sitter 0.20 in its `Cargo.toml`, while crates.io's tree-sitter-scss 1.0.0
-(tree-sitter-grammars') has another `parser.c` and arborium-scss 2.18.2 another `grammar.json`
-(its `conflicts` and rules differ from the pin's).
-
-- **A grammar is a dependency**: the crates.io release of the revision nvim-treesitter pins in
-  `lua/nvim-treesitter/parsers.lua` at `NVIM_TS` (compare its `parser.c` with that commit's), else
-  a git dependency pinned to that commit with its repo in `deny.toml` `[sources] allow-git`, else
-  a crates.io crate that repackages it with `parser.c` regenerated from that commit's `grammar.json`
-  (compare the two `grammar.json` as JSON, apart from the `$schema` and empty `reserved` keys a
-  newer `tree-sitter generate` adds; arborium-graphql for GraphQL). Never
-  a path crate or a `build.rs` of merl's: cargo would compile its C again in every new worktree,
-  while registry and git crates are built once in `tools/worktree`'s seed (#777) and cached by CI.
-- **The build-cost table** goes into the commit message of each PR that adds a grammar, against
-  master: the seed build, a new worktree's first `clippy --all-targets`, `test --no-run` and
-  `build --release`, the release binary's size and CI's wall time. A worktree's first build stays
-  within ~10 % of master's.
-- **Injections** (`src/treesitter/layers.rs`, #803) follow Neovim 0.12's `languagetree.lua`
-  (`_get_injections`, `_get_injection`, `get_node_ranges`, `add_injection`) and
-  `highlighter.lua`: each injected region is parsed with `set_included_ranges`, a child's
-  captures paint over its parent's at equal priority, and an edit repaints from the first row of
-  the region it falls in. A top-level `injection.combined` pattern keeps one child tree per
-  pattern and language (`src/treesitter/combined.rs`, as `add_injection` keys it), built from
-  its members in the whole file, edited with the parent and scanned and parsed again in the same
-  steps as the parent; a nested layer combines per paint, each of its trees whole, as `_get_injections` scans the whole tree of a query with a combined pattern. A language merl has no grammar for yet goes through syntect
-  (`syntax_for_info`), so a fenced block keeps its colours until its language's step lands;
-  the injected languages of a step's hosts (`regex`, `printf` for Python) come with it.
-- **The queries** are nvim-treesitter's `highlights.scm` and `injections.scm` at `NVIM_TS` in
-  `tools/theme-bench/record.py`, the one pin, copied into `queries/LANG/` by `tools/ts-queries
-  LANG` and never edited by hand. A theme's own `queries/` and `after/queries/` (lazy.nvim puts
-  a plugin's `after/` on the runtimepath, #819) are copied at its `themes.tsv` pin into
-  `themes/NAME.queries/LANG.scm` by `tools/theme-queries`, also never by hand, and appended to
-  the language's query when that theme paints (`src/treesitter/extends.rs`). merl reproduces Neovim 0.12's reading of them, from
-  `runtime/lua/vim/treesitter/query.lua` and `highlighter.lua`, not tree-sitter-highlight's: a
-  higher `priority` paints over a lower one, captures of equal priority paint in the order Neovim
-  sets them and combine (a colour replaces the one below, bold and italic add up), and `@a.b`
-  takes the theme's `@a.b.LANG`, then `@a.b`, then `@a` (a group defined empty stops there). A
-  predicate or directive merl does not implement makes the query fail to compile
-  (`every_vendored_query_compiles_with_what_it_uses`): implement it from `query.lua` first.
-- **The golden colours**: `tests/colors/LANG/` holds small fixtures that cover the language and
-  LazyVim's colour, bold and italic of every character in tokyonight-moon, catppuccin-mocha,
-  gruvbox-dark and github-light, recorded once by `tools/theme-bench/record.py --fixtures --lang
-  LANG` (Neovim 0.12 in tmux, never in CI). `cargo test` compares every character and prints
-  `file:line:col`, the token, want and got. All characters equal; a character that cannot be is
-  listed with its cause in `tests/colors/LANG/NOTES.md` and skipped by name, never by a threshold.
-- **Edits**: `tree_sitter_spans_after_edits_equal_a_fresh_parse_or_tree_sitter_s_own_replay_N`
-  (`edit_fuzz.rs`, eight shards of `SESSIONS` that run in parallel) plays random edits and compares the spans with a fresh parse after each, or,
-  when the incremental tree differs from the fresh one without an error in either, with the
-  tree tree-sitter itself builds from the same edits (Neovim keeps the incremental tree too);
-  run it with `MERL_FUZZ_SESSIONS=3000 cargo test --release tree_sitter_spans` before pushing a
-  change to `src/treesitter.rs` or to `Buffer::edited`.
-- **The bench**: `tools/theme-bench/run --lang LANG`. No
-  theme × language may match fewer characters than `baseline.tsv`; a language joins `for_syntax`
-  at ≥ 99 % median over the themes, its remaining misses listed by cause in
-  `tools/theme-bench/README.md`, and its table goes into the commit message.
-- **Speed**: `MERL_TS_SPEED=a.py,b.py cargo test --release speed -- --ignored` prints, beside
-  syntect's on the same files, the time to the first frame and to the coloured one, p50 and p90,
-  of opening at the top and in the middle, a keystroke after a line's indentation and one at
-  column 0 of an indented line: the largest file of the language in the bench projects, a
-  5,000-line and a 30,000-line one. The parse runs in steps, as Neovim's
-  (`languagetree.lua` `_async_parse`): 0.5 ms (`PARSE_STEP`) before a frame, 3 ms
-  (`PARSE_IDLE_STEP`) between keys; a frame draws with the last tree, edited to the new text,
-  plain before the first, so a first frame is no slower than syntect's and a keystroke's under
-  5 ms at p50 on every file.
+Before you change how merl colours code (a grammar, `src/treesitter*`, `queries/`, `themes/`,
+`tests/colors/`, `tools/theme-bench/`) or `Buffer::edited`, read `docs/agents/colours.md`.
 
 ## Changing `d`
 
-A wrong jump is worse than a picker or "don't know", and no lookup may get worse than on master.
-Only the path the change narrows gets new rules: every other lookup, and every other language,
-matches exactly as master does. Rules that start answering a new question tend to leak into the
-fallback paths, so a `d` PR is ready to merge only after the bench shows no cursor worse than
-master.
-
-- **The bench**, `tools/d-bench/run [--lang go,rust]` (`tools/d-bench/README.md`): recorded
-  cursors in real projects pinned to a commit, one per language, merl's answer scored against a
-  language server's (or a judgement read from the code, where the README says so) and diffed
-  against `baseline.tsv`, master's. It prints per language the direct hits, pickers with the
-  answer, wrong jumps, misses, wrong jumps on rows it does not score and p50 / p90 ms, lists every
-  cursor that got worse (a new wrong jump first, on a row not scored too), and exits 1 when there
-  is any. Run the languages the change touches, all of them
-  when a shared path moves; the table goes into the commit message. A PR that changes the table
-  commits the new baseline with it (`--update-baseline`), so the next PR compares against what
-  master will be.
-- It times in release; the times mean something only with `sysctl -n vm.loadavg` under ~8:
-  parallel sessions' builds push it to 30–90 and skew timings two- to threefold.
-- The answers are recorded once, never in CI and never in merl (`record.py`); a cursor whose
-  recorded answer is debatable is marked `skip` with the reason in `answers/LANG.tsv`, not argued
-  with in the code.
-
-The expected answers of `d` are written in the fixtures, under the line they probe
-(`tests/fixtures/README.md`, #307). A fixed case flips its annotation from `today; want … (#N)`
-to the wanted answer, or adds one when no annotation covers it; a miss found in a real project
-becomes an annotation with the issue that will fix it.
-
-An adversarial fixture per language (shadowed imports, namesake types, declaration-shaped lines
-in strings) finds what real projects do not. To prove a test can fail, revert one fix at a time
-and watch it go red.
+Before you change where `d` jumps in any language, its fixtures (`tests/fixtures/`) or its bench
+(`tools/d-bench/`), read `docs/agents/d.md`.
 
 ## Pull requests
 
@@ -336,123 +214,15 @@ and watch it go red.
 ## Screencasts
 
 Anything visible in the interface ships with a before/after screencast; internal refactoring,
-docs and tests need none. `tools/cast.py` records one run of one binary as a GIF (its docstring
-has the steps grammar); run it twice with the same steps file, once against a build of master,
-once against the branch. Record outside the checkout (`cp -R tutor/notes /tmp/notes`) and keep a
-run under ~15 s.
-
-- Open the steps with `wait <text merl draws>` and a no-op `key Escape`: leading waits are not
-  sampled, so the first real key would otherwise change the screen before the GIF starts.
-- A screencast that moves through code moves the way a seasoned keyboard user does, someone with
-  twenty years of Vim or Emacs: the keys that person reaches for, at that person's pace. The owner
-  scrolled files with a mouse for years and learns keyboard navigation from these screencasts.
-  - Reading down a file is `Ctrl+D` / `Ctrl+U`, the keyboard's scroll wheel. Code already on the
-    screen is reached the way a person would reach it there: a few `}`, or `/` and the first
-    letters of a name. Either is fine; the walk takes whichever comes naturally in that spot,
-    not whichever has the fewest keys. Code off the screen is reached by name (`D`, `d`, `s`), by
-    number (`:N`), or back (`[`). Arrows move a line or two.
-  - The keys play at `tools/cast.py`'s pace, each shown in its keycap, and the walk pauses where
-    a person would read.
-  - A demo of something that is not a walk (a picker, an overlay, a flag) shows it directly.
-- When merl exits (a panic, `q`) the pane dies and the GIF stops a frame early: pass `--bin` a
-  script that runs merl and then `sleep 6`. For a change to the command line, the script is a
-  prompt that runs what the steps type, the binary passed after `--`:
-  `BIN=$1; merl() { "$BIN" "$@"; }; while printf '$ ' && read -r line; do eval "$line"; done`.
-- `media` is public: no real home directory and no scratch path in a frame. Build a fake home in
-  `/tmp`, and pipe a command's output through `sed "s|$PWD/||"`.
-- Upload the pair to the orphan `media` branch, `prs/<N>-<slug>-before.gif` and `-after.gif`
-  (a bug GIF for an issue goes under `issues/`): `gh api -X PUT
-  repos/Maksim-Burtsev/merl/contents/prs/<name> --input -` with `{message, branch: "media",
-  content: <base64>}`. Every upload gets a name that is not taken yet (`GET …?ref=media`):
-  GitHub's image proxy caches by URL, so an overwritten GIF keeps showing the old one. Nothing is
-  deleted from `media`; merged PR bodies link to it.
-- The README's GIFs are made by `assets/tapes/record.py`, not cast.py; see its docstring.
+docs and tests need none. Before you record a screencast or GIF, or upload anything to `media`,
+read `docs/agents/screencasts.md`.
 
 ## Merging
 
-- Bug fixes, precision work, refactors, tests and docs: merge your own PR and close its issue
-  without asking. Once the findings of its one review are fixed, `gh pr merge --squash --auto`:
-  GitHub merges it when CI is green, and nobody waits on CI. A red check is yours to fix.
-- A change the user has to learn (a new or changed key, screen, animation or default): leave the
-  PR open with the before/after screencasts, add the `needs-owner` label and name it in your
-  status line. Never ask "can I merge?" in chat.
-- The owner's comment `ok` on a PR merges it through `.github/workflows/owner-ok.yml`, at the
-  commit it was given to; a push after it needs a new `ok`. Any other owner comment is a brief.
-- The README and any other text in the owner's voice: open a draft PR with the `needs-owner`
-  label and leave it to the owner.
-- An issue holding a question only the owner can answer carries one of two labels until the
-  answer is written into it:
-  - `needs-owner`: the options are on the table (a recommendation, a before/after screencast
-    from a prototype, the owner's earlier questions answered) and the owner only has to pick.
-  - `to-think`: nobody has shaped it yet; the owner thinks it through before it is worked on. An
-    agent that shapes one into a proposal (`.claude/skills/proposal/SKILL.md`) moves it to
-    `needs-owner`.
-
-  Once the decision is in the issue, the label goes and `agent-ok` comes, if nothing is left to
-  ask. `is:open label:needs-owner` is the owner's queue of picks, PRs included;
-  `is:open label:to-think` is the list to think over.
-- `release-blocker`: an issue or PR the next release waits for: a crash, lost data, a regression
-  since the last tag, a core flow (`--review`, `d`, editing) broken. Label it when you file or
-  triage one; the owner may take it off. A `release-blocker` PR under `needs-owner` is the one
-  the owner reads first.
-
-`master` takes squash merges of PRs only, with the CI checks green; nobody can push to it
-directly or bypass the checks. A branch behind master merges as it is: a queue of green PRs goes
-in at once, and CI on the push to master catches two changes that break only together. A red
-master is fixed before the next merge.
-
-- A PR that conflicts with master gets no CI at all on a push. Merge `origin/master` into the
-  branch, resolve, push: a merge keeps the commits a posted review links to, and the squash keeps
-  it off master.
-- In a stack, never `gh pr merge --delete-branch` a PR another one is based on: GitHub closes the
-  upper PR for good. Merge the base, rebase the next branch onto `origin/master`, force-push,
-  `gh pr edit --base master`. CI runs only for PRs into master, so push a new commit if it does
-  not start after the retarget.
+Before you merge a PR, leave it for the owner, act on the owner's comment on it, or update one
+that conflicts with master or sits in a stack, and before you set `needs-owner`, `to-think` or
+`release-blocker`, read `docs/agents/merging.md`.
 
 ## Releases
 
-Only when the owner asks for one, and with nothing open under `release-blocker`. In order:
-
-1. The changelog covers every PR since the last tag (`git log vX.Y.Z..origin/master`): check
-   each commit's issue and content, since PRs merge without an entry; a missing one is written as
-   its `changes/N.md`. Dependabot, `docs:`, `refactor:` and tooling commits get no entry. Entries
-   cite the issue. Then `tools/gather-changes.py` moves every `changes/N.md` under
-   `## [Unreleased]`, one heading each in Keep a Changelog's order, entries by issue number, and
-   deletes the files (`--print` shows the section and touches nothing). This happens on the
-   release branch: its PR (step 4) carries the section and the deletions.
-2. Smoke test: `.claude/skills/smoke-test/SKILL.md` (`/smoke-test` in Claude Code), from that
-   branch, so the report reads the finished changelog. No release without its GO.
-3. The release note, `docs/releases/X.Y.Z.md`: `release.yml` publishes it as the release, titled
-   `merl X.Y.Z`, and fails without it. It is a list, not the changelog section:
-   - `#### New` from `### Added`, `#### Better` from `### Changed`, `#### Fixed` from `### Fixed`;
-     a heading with nothing under it is left out.
-   - One line per changelog entry of the version, in the changelog's order: what you can do or
-     what changed, the key or flag in backticks, the issue in parentheses. Up to ~12 words; no
-     prose, no second sentence.
-   - Under `#### Better` and `#### Fixed`, the `d` lines leave the list for a folded block at the
-     end of their section, sorted so each language's lines stand together:
-     `<details><summary>N more <code>d</code> fixes, by language</summary>` (`improvements`
-     under Better). The owner asked for it on 0.8.0, whose 88 fixes were 63 `d` lines.
-   - Last line, with the anchor GitHub builds from the version's heading (`## [0.8.0] -
-     2026-09-27` is `#080---2026-09-27`); open the link to check it lands on the section:
-     `` [Full changelog](https://github.com/Maksim-Burtsev/merl/blob/master/CHANGELOG.md#080---2026-09-27) · `brew upgrade merl` ``
-   - No emoji, no intro paragraph, no contributor list. The model is the previous note in
-     `docs/releases/`, or for the first one the sample in #272.
-   - A GIF on top, above `#### New`, only when the release changes something visible that looks
-     good in motion: `tools/cast.py --size 160x50` on a real project with the tree open. Show it
-     to the owner and ask whether it goes in; without a yes the note has none. It goes to `media`
-     as `releases/X.Y.Z.gif` (a new name for every upload, as for PR screencasts) and into the
-     note as `![](https://raw.githubusercontent.com/Maksim-Burtsev/merl/media/releases/X.Y.Z.gif)`.
-4. A release PR, `release: X.Y.Z`, from a branch `release/X.Y.Z`: only such a branch's CI
-   presses `d`, `u` and `D` at every cursor of every fixture (#543, in four shards, ~25 minutes
-   with the other checks), and a panic it finds is fixed on that branch. `## [Unreleased]` becomes `## [X.Y.Z] - YYYY-MM-DD` with its
-   link, the version goes into `Cargo.toml` and `Cargo.lock`, it adds `docs/releases/X.Y.Z.md`,
-   it carries the `tests/budgets.tsv` the smoke test's time budgets wrote, and its body holds the
-   smoke test's verdict table.
-5. After the merge, an annotated tag `vX.Y.Z` (message `merl X.Y.Z`) on that commit, pushed;
-   `release.yml` builds the GitHub release and its binaries.
-6. The Homebrew tap: `release.yml` bumps it when the `TAP_TOKEN` secret is set; otherwise bump
-   `Formula/merl.rb` in `Maksim-Burtsev/homebrew-tap` by hand (the version and the four sha256
-   of the `.sha256` assets), commit `merl X.Y.Z` and push. The first release that ships
-   `merl-x86_64-apple-darwin.tar.gz` adds an `on_intel` block under `on_macos`, with that
-   asset's url and sha256; `bump-tap` fails on an asset the formula has no block for.
+When the owner asks for a release, and only then, follow `docs/agents/releases.md` in order.

@@ -15,15 +15,15 @@ merl snapshot: help
 │ Search                                                                       │
 │   / / Ctrl+F                        Find in the open file                    │
 │   n / N                             Next / previous match                    │
+│   *                                 Find the word under the cursor as a      │
+│                                     whole word, or the selection             │
 │   s                                 Search the project                       │
 │ Review                                                                       │
 │   c / C                             Review: next / previous hunk, on to the  │
 │                                     next file                                │
 │   m                                 Review: mark the file as viewed, or take │
 │                                     the mark off                             │
-│   Fold: Enter                       Review: load the diff of a folded        │
-│                                     generated file                           │
-│ Editing                                                                      │
+│   a                                 Review: note for the agent on the line   │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ==== 80x24 tokyonight-moon styles
@@ -41,15 +41,15 @@ acccccccccccccccccccccccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddddddaaa
 acccccccccccccccccccccccccccccccccccccdddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
 acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 a fg #c8d3f5 bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -71,15 +71,15 @@ acccccccccccccccccccccccccccccccccccccddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaa
 abbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddddddddaaa
 acccccccccccccccccccccccccccccccccccccdddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddddaa
 acccccccccccccccccccccccccccccccccccccddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccdddddddddddddddddddddddddddddddddaaaaaaaaa
-acccccccccccccccccccccccccccccccccccccddddddddddddddaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-abbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+acccccccccccccccccccccccccccccccccccccddddddddddddddddddddddddddddddddddddddaaaa
 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 a fg #1f2328 bg #ffffff
 b fg #6639ba bg #ffffff BOLD
@@ -99,10 +99,12 @@ d fg #787b7e bg #ffffff
 │ │ Search                                                                                                            │
 │ │   / / Ctrl+F                        Find in the open file                                                         │
 │ │   n / N                             Next / previous match                                                         │
+│ │   *                                 Find the word under the cursor as a whole word, or the selection              │
 │ │   s                                 Search the project                                                            │
 │ │ Review                                                                                                            │
 │ │   c / C                             Review: next / previous hunk, on to the next file                             │
 │ │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│ │   a                                 Review: note for the agent on the line or the selection                       │
 │ │   Fold: Enter                       Review: load the diff of a folded generated file                              │
 │ │ Editing                                                                                                           │
 │ │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
@@ -114,11 +116,9 @@ d fg #787b7e bg #ffffff
 │ │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 │ │ Selection                                                                                                         │
 │ │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
-│ │   Ctrl+A                            Select the whole file                                                         │
 │ │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
 │ │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
-│ │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
-└─│   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+└─│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
 st└───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 ==== 120x33 tokyonight-moon styles
@@ -134,10 +134,12 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeecccccccccccccccccccccccccccccc
 afcbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccg
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccc
 accbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccc
@@ -149,11 +151,9 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccc
 accbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
-aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
+aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 hhccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccci
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -178,10 +178,12 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeecccccccccccccccccccccccccccccc
 afcbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccg
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccg
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accbbbbbbbcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccc
+accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccc
 accbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccc
@@ -193,11 +195,9 @@ accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccc
 accbbbbbbbbbbccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccc
 accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
-accdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
-aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeccccc
+aacdddddddddddddddddddddddddddddddddddddeeeeeeeeeeeeeeeeeeeeeeeeeeeeeecccccccccccccccccccccccccccccccccccccccccccccccccc
 hhccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccci
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD
@@ -222,48 +222,48 @@ i fg #f6f8fa bg #5094e4
 │  store.py                  │10  │ Search                                                                                                            │
 │                            │11  │   / / Ctrl+F                        Find in the open file                                                         │
 │                            │12  │   n / N                             Next / previous match                                                         │
-│                            │13  │   s                                 Search the project                                                            │
-│                            │14  │ Review                                                                                                            │
-│                            │15  │   c / C                             Review: next / previous hunk, on to the next file                             │
-│                            │16  │   m                                 Review: mark the file as viewed, or take the mark off                         │
-│                            │17  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
-│                            │18  │ Editing                                                                                                           │
-│                            │19  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
-│                            │20  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
-│                            │21  │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
-│                            │22  │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
-│                            │23  │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
-│                            │24  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
-│                            │25  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
-│                            │26  │ Selection                                                                                                         │
-│                            │27  │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
-│                            │28  │   Ctrl+A                            Select the whole file                                                         │
-│                            │29  │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
-│                            │30  │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
-│                            │31  │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
-│                            │32  │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
-│                            │33  │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
-│                            │34  │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
-│                            │35  │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
-│                            │36  │ Movement                                                                                                          │
-│                            │37  │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
-│                            │38  │   Alt+Left / Alt+Right              Move one word                                                                 │
-│                            │39  │   Home / End                        Start / end of the screen row, then of the line                               │
-│                            │40  │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
-│                            │41  │   { / }                             Previous / next paragraph (blank line)                                        │
-│                            │42  │   Ctrl+D / Ctrl+U                   Move half a screen down / up                                                  │
-│                            │43  │   PgUp / PgDn                       Move one screen                                                               │
-│                            │44  │ Panels                                                                                                            │
-│                            │45  │   t                                 Show or hide the file tree                                                    │
-│                            │46  │   Tab                               Switch focus between tree and code                                            │
-│                            │47  │   Tree: Up / Down                   Move                                                                          │
-│                            │48  │   Tree: Enter                       Open the file, or expand the directory                                        │
-│                            │49  │   Tree: Left / Right                Collapse / expand                                                             │
-│                            │50  │   Tree: PgUp / PgDn                 Move one page                                                                 │
-│                            │51  │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
-│                            │52  │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
-│                            │53  │   Tree: { / }                       Previous / next folder                                                        │
-└────────────────────────────┘54  │   Picker: Up / Down                 Move                                                                          │
+│                            │13  │   *                                 Find the word under the cursor as a whole word, or the selection              │
+│                            │14  │   s                                 Search the project                                                            │
+│                            │15  │ Review                                                                                                            │
+│                            │16  │   c / C                             Review: next / previous hunk, on to the next file                             │
+│                            │17  │   m                                 Review: mark the file as viewed, or take the mark off                         │
+│                            │18  │   a                                 Review: note for the agent on the line or the selection                       │
+│                            │19  │   Fold: Enter                       Review: load the diff of a folded generated file                              │
+│                            │20  │ Editing                                                                                                           │
+│                            │21  │   Enter                             Edit at the cursor (Esc returns to navigation)                                │
+│                            │22  │   Ctrl+S                            Save now (edits are saved on their own after a pause)                         │
+│                            │23  │   Ctrl+R                            Reload from disk, dropping unsaved edits                                      │
+│                            │24  │   Ctrl+Z / Ctrl+Y                   Undo / redo                                                                   │
+│                            │25  │   Ctrl+C                            Copy the selection, or the line, to the clipboard                             │
+│                            │26  │   Edit: Ctrl+X                      Cut the selection, or the line                                                │
+│                            │27  │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
+│                            │28  │ Selection                                                                                                         │
+│                            │29  │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
+│                            │30  │   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+│                            │31  │   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+│                            │32  │   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+│                            │33  │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+│                            │34  │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+│                            │35  │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+│                            │36  │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
+│                            │37  │ Movement                                                                                                          │
+│                            │38  │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
+│                            │39  │   Alt+Left / Alt+Right              Move one word                                                                 │
+│                            │40  │   Home / End                        Start / end of the screen row, then of the line                               │
+│                            │41  │   Ctrl+Home / Ctrl+End              Start / end of the file                                                       │
+│                            │42  │   { / }                             Previous / next paragraph (blank line)                                        │
+│                            │43  │   Ctrl+D / Ctrl+U                   Move half a screen down / up                                                  │
+│                            │44  │   PgUp / PgDn                       Move one screen                                                               │
+│                            │45  │ Panels                                                                                                            │
+│                            │46  │   t                                 Show or hide the file tree                                                    │
+│                            │47  │   Tab                               Switch focus between tree and code                                            │
+│                            │48  │   Tree: Up / Down                   Move                                                                          │
+│                            │49  │   Tree: Enter                       Open the file, or expand the directory                                        │
+│                            │50  │   Tree: Left / Right                Collapse / expand                                                             │
+│                            │51  │   Tree: PgUp / PgDn                 Move one page                                                                 │
+│                            │52  │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
+│                            │53  │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
+└────────────────────────────┘54  │   Tree: { / }                       Previous / next folder                                                        │
 store.py  13:33  [code]           └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 ==== 185x55 tokyonight-moon styles
@@ -279,10 +279,12 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccieggggggggggggggggggggggggggggggggggggghhhhhhhh
 ajjjjjjjjjjjjjjjjjjjjjjjjjjjjaccceebbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeakkkleggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeellllllllllllllllllllllllllllllllll
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeakkkleggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeellllllllllllllllllllllllllllllllll
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -294,7 +296,6 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -319,8 +320,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 mmmmmmmmnnnnnnnnnnnnnnnnnnnnnnnnnneeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeennnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn
 a fg #82aaff bg #222436
 b fg #82aaff bg #222436 BOLD
@@ -350,10 +350,12 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeacccfeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aiiiiiiiiiiiiiiiiiiiiiiiiiiiiaccceebbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeejeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeejjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaeeejeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeejjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -365,7 +367,6 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceebbbbbbbbbbeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
@@ -390,8 +391,7 @@ aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhh
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aeeeeeeeeeeeeeeeeeeeeeeeeeeeeaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaccceeggggggggggggggggggggggggggggggggggggghhhhhhhhhhhhhhhhhhhhhheeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 kkkkkkkklllllllllllllllllllllllllleeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeellllllllllllllllllllllllllllllllll
 a fg #6639ba bg #ffffff
 b fg #6639ba bg #ffffff BOLD

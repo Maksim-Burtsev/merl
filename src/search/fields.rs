@@ -5,7 +5,8 @@ use regex::Regex;
 use super::{
     Binding, Kind, Value, bindings, close_of, code, comment, continued, declares_type,
     element_type, group, in_method, indent, jsdoc_owner, jsdoc_properties, literal_lines,
-    python_statements, returns, split_top, ts_header, type_path, uncommented, value_of,
+    python_rooted, python_statements, returns, split_top, ts_header, type_path, uncommented,
+    value_of,
 };
 
 pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<usize> {
@@ -26,6 +27,18 @@ pub(super) fn body_of(kind: Kind, lines: &[&str], k: usize) -> std::ops::Range<u
     start..end.max(start)
 }
 pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Binding> {
+    class_fields(kind, text, decl, name, false)
+}
+pub fn type_checking_fields(text: &str, decl: usize, name: &str) -> Vec<Binding> {
+    class_fields(Kind::Python, text, decl, name, true)
+}
+fn class_fields(
+    kind: Kind,
+    text: &str,
+    decl: usize,
+    name: &str,
+    type_checking: bool,
+) -> Vec<Binding> {
     let lines: Vec<&str> = text.lines().collect();
     let Some(k) = decl.checked_sub(1).filter(|&i| i < lines.len()) else {
         return Vec::new();
@@ -56,6 +69,7 @@ pub fn field_bindings(kind: Kind, text: &str, decl: usize, name: &str) -> Vec<Bi
     let literal = literal_lines(kind, text);
     let body = body.filter(|&i| !literal.get(i).copied().unwrap_or(false));
     match kind {
+        Kind::Python if type_checking => python_checked_only(text, &lines, body, base, decl, name),
         Kind::Python => python_fields(text, &lines, body, base, name),
         Kind::TsJs => ts_fields(text, &lines, body, base, name, decl),
         Kind::Go if lines[k].contains("struct") => body
@@ -154,6 +168,62 @@ fn python_fields(
                 push(i, value_of(kind, &c[2]));
             }
         }
+    }
+    out
+}
+fn python_checked_only(
+    text: &str,
+    lines: &[&str],
+    body: impl Iterator<Item = usize>,
+    base: usize,
+    decl: usize,
+    name: &str,
+) -> Vec<Binding> {
+    if !text.contains("TYPE_CHECKING") {
+        return Vec::new();
+    }
+    let kind = Kind::Python;
+    let n = regex::escape(name);
+    let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
+    let annotation = rule(format!(r"^{n}\s*:\s*([^=;]+?)\s*(?:=.*)?$"));
+    let runtime = rule(format!(r"\b{n}\b|\bsetattr\s*\(|__dict__"));
+    let under_type_checking = |i: usize, ind: usize| {
+        lines[..i]
+            .iter()
+            .rfind(|l| !l.trim().is_empty() && indent(l) < ind)
+            .is_some_and(|l| {
+                indent(l) == base
+                    && matches!(
+                        uncommented(kind, l).trim(),
+                        "if TYPE_CHECKING:" | "if typing.TYPE_CHECKING:"
+                    )
+            })
+    };
+    let mut out = Vec::new();
+    for i in body {
+        let (code, ind) = (uncommented(kind, lines[i]), indent(lines[i]));
+        let t = code.trim();
+        match annotation.captures(t) {
+            Some(c) if ind > base && under_type_checking(i, ind) => out.push(Binding {
+                line1: i + 1,
+                value: Value::Type(c[1].to_owned()),
+            }),
+            _ if runtime.is_match(t) => return Vec::new(),
+            _ => {}
+        }
+    }
+    let header = rule(r"^\s*class\s+(\w+)".to_owned());
+    let Some(c) = header
+        .captures(lines[decl - 1])
+        .map(|c| regex::escape(&c[1]))
+    else {
+        return Vec::new();
+    };
+    let stored = rule(format!(
+        r#"\b{c}\s*\.\s*{n}\s*(?:[-+*/%@|&^]|//|\*\*|<<|>>)?=(?:[^=]|$)|setattr\s*\(\s*{c}\s*,\s*["']{n}["']"#
+    ));
+    if out.is_empty() || stored.is_match(text) || !python_rooted(text, decl) {
+        return Vec::new();
     }
     out
 }

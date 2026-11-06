@@ -5,10 +5,10 @@ use regex::Regex;
 use super::{
     HASKELL_RESERVED, Kind, SYMBOLS, Value, close_of, cmake_name, code, cs_parameter_of,
     enclosing_type, field_bindings, go_one_line_field, haskell_name, indent, jsdoc_owner_name,
-    julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp, lisp_name,
-    literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name, rust_impl_type,
-    rust_let_declares, separator, shared_symbols, split_top, swift_type_header, symbol_name,
-    ts_declarators, type_name, uncommented, value_of, word_chars,
+    julia_assigns_here, julia_name, jvm_function, jvm_mods, jvm_receiver_at, lisp,
+    lisp_form_encloses, lisp_name, literal_lines, ml_name, nix_name, php_tag_class, r_quoted_name,
+    rust_impl_type, rust_let_declares, separator, shared_symbols, split_top, swift_type_header,
+    symbol_name, ts_declarators, type_name, uncommented, value_of, word_chars,
 };
 
 pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
@@ -60,6 +60,191 @@ pub fn qualified(kind: Kind, text: &str, line1: usize, name: &str) -> Option<Str
     qualified_by_owner(kind, text, &lines, line1, name)
         .or_else(|| qualified_by_nesting(kind, text, &lines, line1, name))
 }
+pub fn shows_class(path: &std::path::Path) -> bool {
+    let measured = [
+        "py", "rs", "java", "kt", "cs", "js", "mjs", "ts", "tsx", "mts", "cts", "sol", "swift",
+        "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "hxx", "sh", "bzl", "go", "rb", "php", "lua",
+        "sql", "rkt", "scm", "ss", "sld", "lisp", "cl", "lsp", "asd", "el", "nix",
+    ];
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| measured.contains(&e))
+}
+pub fn container(kind: Kind, text: &str, line1: usize, name: &str) -> Option<String> {
+    let line = text.lines().nth(line1.checked_sub(1)?)?;
+    let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+    let named = line.match_indices(name).any(|(i, _)| {
+        !word(line.get(..i).and_then(|s| s.chars().next_back()))
+            && !word(line.get(i + name.len()..).and_then(|s| s.chars().next()))
+    });
+    if !named {
+        return None;
+    }
+    if kind == Kind::Sql
+        && line.split(|c: char| !word(Some(c))).find(|w| !w.is_empty()) != Some(name)
+    {
+        return None;
+    }
+    if kind == Kind::C
+        && let Some(owner) = c_owner_on_line(line, name)
+    {
+        let owner = qualified(kind, text, line1, &owner).unwrap_or(owner);
+        return (!owner.contains('\u{2026}')).then_some(owner);
+    }
+    if kind == Kind::Ruby && name.starts_with('@') {
+        let lines: Vec<&str> = text.lines().collect();
+        let around = (0..line1 - 1)
+            .rev()
+            .filter(|&j| !steps_over(Some(kind), lines[j].trim_start()))
+            .find(|&j| indent(lines[j]) < indent(line));
+        let def = std::iter::once(line1 - 1)
+            .chain(around)
+            .find_map(|j| RB_DEF.captures(lines[j]).map(|c| (j, c[1].to_owned())));
+        if let Some((j, def)) = def {
+            return container(kind, text, j + 1, &def);
+        }
+    }
+    if kind == Kind::Php
+        && let Some(f) = php_parameter_of(line, name)
+    {
+        return Some(qualified(kind, text, line1, &f).unwrap_or(f));
+    }
+    if kind == Kind::Php
+        && let Some(j) = php_constructor_promoting(text, line1, name)
+    {
+        return container(kind, text, j, "__construct");
+    }
+    let q = qualified(kind, text, line1, name)?;
+    let sep = separator(kind);
+    let mut owner = q.strip_suffix(name)?.strip_suffix(sep)?;
+    if kind == Kind::TsJs
+        && let Some(result) = ts_call_result_around(text, line1)
+        && (owner == result || owner.ends_with(&format!("{sep}{result}")))
+    {
+        owner = owner
+            .strip_suffix(result.as_str())?
+            .strip_suffix(sep)
+            .unwrap_or("");
+    }
+    (!owner.is_empty() && !owner.contains('\u{2026}')).then(|| owner.to_owned())
+}
+fn c_owner_on_line(line: &str, name: &str) -> Option<String> {
+    static ENUM: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"\benum\s+(?:(?:class|struct)\s+)?([A-Za-z_]\w*)\s*(?::[^{]*)?\{([^}]*)")
+            .expect("the regex is a literal")
+    });
+    static HEADER: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*([A-Za-z_~][\w:<>,*&\s]*?[\s*&])?(?:[A-Za-z_]\w*(?:<[^<>]*>)?::)*(~?[A-Za-z_]\w*)\s*\(\s*([^*&^\s].*)$")
+            .expect("the regex is a literal")
+    });
+    let n = regex::escape(name);
+    if let Some(c) = ENUM.captures(line)
+        && &c[1] != name
+        && Regex::new(&format!(r"(?:^|,)\s*{n}\s*(?:=|,|$)"))
+            .expect("an escaped name keeps the pattern valid")
+            .is_match(&c[2])
+    {
+        return Some(c[1].to_owned());
+    }
+    let c = HEADER.captures(line)?;
+    let head = c.get(1).map_or("", |m| m.as_str());
+    let not_a_function = [
+        "if",
+        "for",
+        "while",
+        "switch",
+        "return",
+        "sizeof",
+        "catch",
+        "decltype",
+        "alignof",
+        "static_assert",
+        "defined",
+        "throw",
+        "new",
+        "delete",
+        "else",
+        "case",
+        "co_return",
+        "co_await",
+        "co_yield",
+        "goto",
+        "typedef",
+    ];
+    let function = &c[2];
+    let declares = !head.is_empty() || !line.trim_end().ends_with(';');
+    let parameter = Regex::new(&format!(
+        r"(?:^|,)\s*[^,]*?[^,\s][\s*&]+{n}\s*(?:\[[^\]]*\]\s*)?(?:[,)=]|$)"
+    ))
+    .expect("an escaped name keeps the pattern valid");
+    (declares
+        && function != name
+        && !not_a_function.contains(&function)
+        && !head.split_whitespace().any(|w| not_a_function.contains(&w))
+        && parameter.is_match(&c[3]))
+    .then(|| function.to_owned())
+}
+static PHP_FUNCTION: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"\bfunction\s+&?\s*([A-Za-z_]\w*)\s*\(([^)]*)").expect("the regex is a literal")
+});
+fn php_promotes(params: &str, name: &str) -> Option<bool> {
+    let variable = format!("${name}");
+    params.split(',').find_map(|p| {
+        let words: Vec<&str> = p.split(['=', ' ', '\t']).collect();
+        words
+            .iter()
+            .any(|w| w.trim_start_matches(['&', '.']) == variable)
+            .then(|| {
+                words.iter().any(|w| {
+                    let w = w.split('(').next().unwrap_or(w).to_ascii_lowercase();
+                    matches!(w.as_str(), "public" | "private" | "protected" | "readonly")
+                })
+            })
+    })
+}
+fn php_parameter_of(line: &str, name: &str) -> Option<String> {
+    let c = PHP_FUNCTION.captures(line).filter(|c| &c[1] != name)?;
+    (php_promotes(&c[2], name) == Some(false)).then(|| c[1].to_owned())
+}
+fn php_constructor_promoting(text: &str, line1: usize, name: &str) -> Option<usize> {
+    let lines: Vec<&str> = text.lines().collect();
+    if PHP_FUNCTION.is_match(lines[line1 - 1])
+        || lines[line1 - 1].contains(';')
+        || php_promotes(lines[line1 - 1], name) != Some(true)
+    {
+        return None;
+    }
+    (0..line1 - 1)
+        .rev()
+        .take_while(|&j| !lines[j].contains(['{', ';']))
+        .find_map(|j| {
+            PHP_FUNCTION
+                .captures(lines[j])
+                .map(|c| (j + 1, c[1].to_owned()))
+        })
+        .and_then(|(j, f)| (f == "__construct").then_some(j))
+}
+fn ts_call_result_around(text: &str, line1: usize) -> Option<String> {
+    static CALL_RESULT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]*)?=\s*(?:await\s+)?([A-Za-z_$][\w$.]*)\s*(?:<[^=]*>)?\(")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let indent = |s: &str| s.len() - s.trim_start().len();
+    let depth = indent(lines.get(line1.checked_sub(1)?)?);
+    let around = lines[..line1 - 1]
+        .iter()
+        .rev()
+        .find(|l| indent(l) < depth && !steps_over(Some(Kind::TsJs), l.trim_start()))?;
+    CALL_RESULT
+        .captures(around)
+        .filter(|c| !matches!(&c[2], "function" | "async"))
+        .map(|c| c[1].to_owned())
+}
+static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)")
+        .expect("the regex is a literal")
+});
 fn qualified_by_owner(
     kind: Kind,
     text: &str,
@@ -75,10 +260,6 @@ fn qualified_by_owner(
     });
     static EX_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r"^\s*def(?:p|macrop?|guardp?|delegate)?\s+([\w?!]+)")
-            .expect("the regex is a literal")
-    });
-    static RB_DEF: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"^\s*def\s+(?:(?:self\??|[A-Z]\w*)\.)?([A-Za-z_]\w*[?!=]?)")
             .expect("the regex is a literal")
     });
     static COLUMN: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -164,6 +345,10 @@ fn qualified_by_nesting(
         Regex::new(concat!(jvm_mods!(), r"companion\s+object\s*(?:[:{]|$)"))
             .expect("the regex is a literal")
     });
+    static TS_DOTTED_NAMESPACE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:export\s+)?(?:declare\s+)?(?:namespace|module)\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+)\s*\{")
+            .expect("the regex is a literal")
+    });
     let sep = separator(kind);
     let target = lines[line1 - 1];
     let indent = |s: &str| s.len() - s.trim_start().len();
@@ -190,6 +375,11 @@ fn qualified_by_nesting(
         if steps_over(Some(kind), l.trim_start()) || tail || indent(l) >= depth {
             continue;
         }
+        if matches!(kind, Kind::Scheme | Kind::CommonLisp | Kind::EmacsLisp)
+            && !lisp_form_encloses(kind, text, j, line1 - 1)
+        {
+            continue;
+        }
         depth = indent(l);
         if kind == Kind::Jvm && COMPANION.is_match(l) {
             continue;
@@ -202,8 +392,11 @@ fn qualified_by_nesting(
         if ruby && l.trim_start().starts_with("class << self") {
             continue;
         }
-        let named = rust_impl_type(l)
-            .filter(|_| kind == Kind::Rust)
+        let named = TS_DOTTED_NAMESPACE
+            .captures(l)
+            .filter(|_| kind == Kind::TsJs)
+            .map(|c| c[1].to_owned())
+            .or_else(|| rust_impl_type(l).filter(|_| kind == Kind::Rust))
             .or_else(|| {
                 swift_type_header(l)
                     .filter(|h| kind == Kind::Swift && h.keyword == "extension")
@@ -215,6 +408,7 @@ fn qualified_by_nesting(
                     .filter(|_| kind == Kind::Elixir)
                     .map(|c| c[1].to_owned())
             })
+            .or_else(|| RB_DEF.captures(l).filter(|_| ruby).map(|c| c[1].to_owned()))
             .or_else(|| declared_name(Some(kind), l));
         if named.is_none() && kind == Kind::Go && GO_STRUCT_WRITTEN_IN_PLACE.is_match(l) {
             names.push("struct{\u{2026}}".to_owned());

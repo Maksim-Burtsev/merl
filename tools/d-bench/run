@@ -238,6 +238,12 @@ def main():
         os.environ["PUB_CACHE"] = os.path.join(servers, "dart-pub-cache")
     elif any(p[1] == "dart" for p in pick):
         sys.exit(f"the dart row needs the Dart SDK in {dart_bin}: tools/d-bench/install-servers.sh fetches it")
+    julia_bin = os.path.join(servers, "julia-1.11.7", "bin")
+    if os.path.isdir(julia_bin):
+        os.environ["PATH"] = julia_bin + os.pathsep + os.environ["PATH"]
+        os.environ["JULIA_DEPOT_PATH"] = os.path.join(servers, "julia-depot")
+    elif any(p[1] == "julia" for p in pick):
+        sys.exit(f"the julia row needs Julia 1.11.7 in {julia_bin}, its baseline was scored with it: tools/d-bench/README.md")
     roots, cursors, answers = {}, [], {}
     for name, lang, url, commit, install in pick:
         roots[name] = os.path.realpath(ensure(cache, name, url, commit, install))

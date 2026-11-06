@@ -36,6 +36,7 @@ fn a_call_and_a_declaration_are_read_label_by_label() {
         call("k.boil(then: 1) { }", "boil"),
         Some(SwiftCall {
             labels: vec!["then".to_owned()],
+            args: vec!["1".to_owned()],
             trailing_closure: true
         }),
         "a trailing closure"
@@ -44,6 +45,7 @@ fn a_call_and_a_declaration_are_read_label_by_label() {
         call("k.boil { }", "boil"),
         Some(SwiftCall {
             labels: Vec::new(),
+            args: Vec::new(),
             trailing_closure: true
         })
     );
@@ -128,6 +130,22 @@ fn a_header_lists_what_it_inherits() {
     );
     assert_eq!(swift_inherited("extension Teapot: Brewing {}"), ["Brewing"]);
     assert_eq!(swift_inherited("struct Teapot {"), Vec::<String>::new());
+    assert_eq!(
+        swift_inherited("protocol Brew<Cup>: Steeping & Pouring {"),
+        ["Steeping", "Pouring"]
+    );
+}
+
+#[test]
+fn a_where_clause_bounds_self_by_protocols_only() {
+    assert_eq!(
+        swift_self_bounds("Self: Steeping & Pouring, Self: Kept {"),
+        Some(vec!["Steeping".into(), "Pouring".into(), "Kept".into()])
+    );
+    assert_eq!(swift_self_bounds("Self == Teapot {"), None);
+    assert_eq!(swift_self_bounds("Cup == Int {"), None);
+    assert_eq!(swift_self_bounds("Self: Store<Int> {"), None);
+    assert_eq!(swift_self_bounds("Self: Steeping"), None);
 }
 
 #[test]

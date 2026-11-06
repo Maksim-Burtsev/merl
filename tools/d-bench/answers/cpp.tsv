@@ -72,7 +72,7 @@ cpp0069	table/table_test.cc:292
 cpp0070	table/filter_block.cc:21;table/filter_block.h:37		
 cpp0071	db/skiplist.h:139		
 cpp0072	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:3108;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:3016;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:1452;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:1387;/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/c++/v1/string:1415		
-cpp0073	db/log_test.cc:261		
+cpp0073	db/log_test.cc:261	TEST_F is gtest's macro; third_party/googletest is a submodule the clone lacks, so the recorded answer is a use (db/log_test.cc:261), not its definition	judged 2026-11-05
 cpp0074	db/version_set.h:298		
 cpp0075	include/leveldb/table_builder.h:87		
 cpp0076	util/env_posix.cc:910		
@@ -129,7 +129,7 @@ cpp0126	include/leveldb/status.h:24
 cpp0127			
 cpp0128	include/leveldb/iterator.h:39		
 cpp0129	benchmarks/db_bench_sqlite3.cc:100		
-cpp0130	include/leveldb/c.h:63		
+cpp0130	include/leveldb/c.h:63;db/c.cc:67		reviewed: an opaque handle: the typedef c.h declares plus the struct db/c.cc defines; either is fair (#1336)
 cpp0131	db/log_reader.cc:178		
 cpp0132			
 cpp0133	db/filename.cc:78		
@@ -213,7 +213,7 @@ cpp0210	util/hash.cc:22;util/hash.h:15
 cpp0211	include/leveldb/options.h:151		
 cpp0212	table/format.h:83		
 cpp0213	db/fault_injection_test.cc:235		
-cpp0214			
+cpp0214	include/leveldb/env.h:119		judged: target() is the inherited EnvWrapper::target(), an Env*, so Env::GetChildren, as cpp0015 answers Comparator::Compare; the oracle found none in this test file (#1336)
 cpp0215	db/c.cc:53		
 cpp0216	/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk/usr/include/assert.h:71		
 cpp0217			

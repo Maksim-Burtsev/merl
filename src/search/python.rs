@@ -314,7 +314,7 @@ static SCOPE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^(?:(?:async\s+)?def|class)\s+(\w+)").expect("the regex is a literal")
 });
 static TUPLE_TARGET: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-    Regex::new(r"^(\(?[\w\s,.*\[\]]+\)?)\s*=[^=]").expect("the regex is a literal")
+    Regex::new(r"^([\w\s,.*\[\]()]+)\s*=[^=]").expect("the regex is a literal")
 });
 
 struct Rules {
@@ -334,7 +334,7 @@ impl Rules {
             annotated: rule(format!(r"^{n}\s*:\s*([^=]+?)\s*(?:=.*)?$")),
             assigned: rule(format!(r"^{n}\s*=\s*([^=].*)$")),
             unknown: rule(format!(
-                r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
+                r"^(?:async\s+)?for\s+[^=]*\b{n}\b.*\sin\s|\bas\s+(?:[(\[][\w\s,*]*)?\b{n}\b|\b{n}\s*:=|^from\s+\S+\s+import\s.*\b{n}\b\s*(?:[,);\\]|$)|^import\s(?:.*[\s,])?{n}\b"
             )),
             declared_outside: rule(format!(r"^(global|nonlocal)\s.*\b{n}\b")),
             plain_loop_over_a_name: rule(format!(
@@ -370,7 +370,6 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
     }
     let mut out = Vec::new();
     let mut module_only = false;
-    let mut under_global = Vec::new();
     for scope in scopes_innermost_first {
         if module_only && matches!(scope, Scope::Def(_)) {
             continue;
@@ -403,7 +402,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
                 nested_def_or_class_indent = None;
             }
             if let Some(c) = SCOPE.captures(t) {
-                if &c[1] == name {
+                if &c[1] == name || (i == at && python_header_binds(lines, at, t, &r, name)) {
                     out.push(Binding {
                         line1: i + 1,
                         value: Value::Unknown,
@@ -414,12 +413,13 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
             if let Some(c) = r.declared_outside.captures(t) {
                 outside = Some(&c[1] == "global");
-                continue;
             }
             let value = if let Some(c) = r.plain_loop_over_a_name.captures(t) {
                 Some(Value::Element(looped(&c)))
             } else if r.unknown.is_match(t)
-                || (i == at && python_inline(t, name))
+                || (i <= at
+                    && python_inline(t, name)
+                    && (i + 1..=at).all(|k| continued(Kind::Python, lines, k)))
                 || python_case_binds(t, name)
             {
                 Some(Value::Unknown)
@@ -443,10 +443,7 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             }
         }
         if let Some(global) = outside {
-            if global && !module_only {
-                under_global = std::mem::take(&mut out);
-            }
-            out.clear();
+            out.retain(|b| b.line1 <= at + 1);
             module_only |= global;
             continue;
         }
@@ -454,7 +451,33 @@ fn python_bindings(lines: &[&str], at: usize, name: &str) -> Vec<Binding> {
             break;
         }
     }
-    if out.is_empty() { under_global } else { out }
+    out
+}
+fn python_header_binds(lines: &[&str], at: usize, t: &str, r: &Rules, name: &str) -> bool {
+    let mut params = Vec::new();
+    let body = if DEF.is_match(t) {
+        let open = lines[at].find('(').expect("a def has a parameter list");
+        let Some(g) = group(Kind::Python, lines, at, open) else {
+            return false;
+        };
+        if g.close_line != at {
+            return false;
+        }
+        python_params(lines, at, &g.inner_uncommented, name, &mut params);
+        g.after_close
+    } else {
+        t
+    };
+    !params.is_empty()
+        || code(Kind::Python, body)
+            .find(|&(_, c)| c == b':')
+            .and_then(|(k, _)| body.get(k + 1..))
+            .is_some_and(|rest| {
+                split_top(Kind::Python, rest, b';')
+                    .into_iter()
+                    .map(str::trim)
+                    .any(|s| statement_binds(r, s, name).is_some() || python_inline(s, name))
+            })
 }
 fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     if r.unknown.is_match(s) || r.chained_assignment.is_match(s) {
@@ -466,9 +489,31 @@ fn statement_binds(r: &Rules, s: &str, name: &str) -> Option<Value> {
     } else {
         TUPLE_TARGET
             .captures(s)
-            .filter(|c| c[1].contains(',') && names(&c[1], name))
+            .filter(|c| c[1].matches('(').count() == c[1].matches(')').count())
+            .map(|c| top_level_targets(&c[1]))
+            .filter(|t| t.contains(',') && names(t, name))
             .map(|_| Value::Unknown)
     }
+}
+fn top_level_targets(target: &str) -> String {
+    let mut opened = Vec::new();
+    let mut prev = ' ';
+    target
+        .chars()
+        .map(|c| {
+            if matches!(c, '[' | '(') {
+                opened.push(c == '[' || prev.is_alphanumeric() || matches!(prev, '_' | ')' | ']'));
+            }
+            let shown = !opened.iter().any(|&hidden| hidden);
+            if matches!(c, ']' | ')') {
+                opened.pop();
+            }
+            if !c.is_whitespace() {
+                prev = c;
+            }
+            if shown { c } else { ' ' }
+        })
+        .collect()
 }
 fn python_inline(t: &str, name: &str) -> bool {
     static INLINE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
@@ -945,4 +990,137 @@ pub fn python_assigned_call(text: &str, line1: usize, name: &str) -> Option<Stri
         expr.as_str()
     };
     inner.ends_with(')').then(|| inner.to_owned())
+}
+pub fn python_patched_mock(text: &str, line1: usize) -> Option<(String, bool)> {
+    static HEAD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*(?:(\w+)\s*=\s*|(?:async\s+)?with\s+)((?:\w+\.)*patch(?:\.object)?)\s*\(")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1)?;
+    let c = HEAD.captures(lines.get(at)?)?;
+    let callee = c[2].to_owned();
+    let Group {
+        inner_uncommented: args,
+        after_close,
+        ..
+    } = group(Kind::Python, &lines, at, c.get(0)?.end() - 1)?;
+    let after = uncommented(Kind::Python, after_close);
+    let binds = match c.get(1) {
+        Some(_) => after.trim().is_empty(),
+        None => after
+            .trim()
+            .strip_prefix("as")
+            .map(|r| {
+                r.trim_start()
+                    .trim_start_matches(|c: char| c.is_alphanumeric() || c == '_')
+            })
+            .is_some_and(|r| r.trim() == ":"),
+    };
+    (binds && patch_fill(&callee, &args) == Some(Fill::Mock))
+        .then_some((callee, c.get(1).is_none()))
+}
+#[derive(PartialEq, Eq)]
+enum Fill {
+    Nothing,
+    Mock,
+    Other,
+}
+fn patch_fill(callee: &str, args: &str) -> Option<Fill> {
+    static KEYWORD: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"^(\w+)\s*=[^=]").expect("the regex is a literal"));
+    if matches!(callee.rsplit('.').next(), Some("dict" | "multiple")) {
+        return Some(Fill::Nothing);
+    }
+    let args: Vec<&str> = split_top(Kind::Python, args, b',')
+        .into_iter()
+        .map(str::trim)
+        .filter(|a| !a.is_empty())
+        .collect();
+    if args.iter().any(|a| a.starts_with('*')) {
+        return None;
+    }
+    let keywords: Vec<&str> = args
+        .iter()
+        .filter_map(|a| KEYWORD.captures(a).and_then(|k| k.get(1)))
+        .map(|k| k.as_str())
+        .collect();
+    let positional = args.len() - keywords.len();
+    let wanted = if callee.ends_with(".object") { 2 } else { 1 };
+    if positional > wanted || keywords.contains(&"new") {
+        Some(Fill::Nothing)
+    } else if positional < wanted {
+        None
+    } else if keywords.contains(&"new_callable") || keywords.contains(&"autospec") {
+        Some(Fill::Other)
+    } else {
+        Some(Fill::Mock)
+    }
+}
+pub fn python_patched_param(text: &str, line1: usize, name: &str) -> Option<Vec<String>> {
+    static DECORATOR: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^\s*@((?:\w+\.)*\w+)\s*(\()?").expect("the regex is a literal")
+    });
+    static PATCH: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"(?:^|\.)patch(?:\.\w+)?$").expect("the regex is a literal")
+    });
+    static FILLS_NONE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\w+\.)*override_settings$|^pytest\.mark\.\w+$")
+            .expect("the regex is a literal")
+    });
+    let lines: Vec<&str> = text.lines().collect();
+    let at = line1.checked_sub(1).filter(|&i| i < lines.len())?;
+    let d = (0..=at)
+        .rev()
+        .find(|&i| DEF.is_match(lines[i].trim_start()))?;
+    let Group {
+        inner_uncommented: params,
+        close_line,
+        ..
+    } = group(Kind::Python, &lines, d, lines[d].find('(')?)?;
+    let mut written = Vec::new();
+    python_params(&lines, d, &params, name, &mut written);
+    if close_line < at || !written.iter().any(|b| b.line1 == line1) {
+        return None;
+    }
+    let names: Vec<&str> = split_top(Kind::Python, &params, b',')
+        .into_iter()
+        .map(|p| split_top(Kind::Python, p, b'=')[0].trim())
+        .map(|p| p.split_once(':').map_or(p, |(n, _)| n.trim()))
+        .collect();
+    let k = names.iter().position(|&p| p == name)?;
+    let skip = usize::from(python_class_of(&lines, d).is_some());
+    if k < skip || names[..k].iter().any(|p| p.starts_with('*') || *p == "/") {
+        return None;
+    }
+    let ind = indent(lines[d]);
+    let (mut fills, mut patches) = (Vec::new(), Vec::new());
+    for i in (0..d).rev() {
+        let t = lines[i].trim();
+        if t.is_empty()
+            || t.starts_with('#')
+            || indent(lines[i]) > ind
+            || closes_a_wrapped_header(t)
+        {
+            continue;
+        }
+        if indent(lines[i]) < ind || !t.starts_with('@') {
+            break;
+        }
+        let c = DECORATOR.captures(lines[i])?;
+        if !PATCH.is_match(&c[1]) {
+            if FILLS_NONE.is_match(&c[1]) {
+                continue;
+            }
+            return None;
+        }
+        patches.push(c[1].to_owned());
+        let open = c.get(2)?.start();
+        let args = group(Kind::Python, &lines, i, open)?.inner_uncommented;
+        match patch_fill(&c[1], &args)? {
+            Fill::Nothing => {}
+            fill => fills.push(fill),
+        }
+    }
+    (fills.get(k - skip)? == &Fill::Mock).then_some(patches)
 }

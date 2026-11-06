@@ -2,6 +2,7 @@ use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
 
+use super::c_block::scope_pos;
 use super::{Binding, Value};
 
 pub(super) static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
@@ -145,7 +146,7 @@ fn c_back_to_stop(code: &str, at: usize) -> Option<(&str, Option<u8>)> {
         None => Some((code.get(..at)?, None)),
     }
 }
-fn untemplated(s: &str) -> String {
+pub(super) fn untemplated(s: &str) -> String {
     static ANGLE: LazyLock<Regex> =
         LazyLock::new(|| Regex::new(r"<[^<>]*>").expect("the regex is a literal"));
     let mut s = s.to_owned();
@@ -160,7 +161,7 @@ pub(super) fn c_struct_head(head: &str) -> Option<String> {
     });
     static HEAD: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
-            r"^(?:template\s*(?:<.*>)?\s*)?(?:(?:typedef|static|extern|const|volatile)\s+)*(?:struct|union|class)\b(?:\s+(?:[A-Z][A-Z0-9_]*\s+)*(?:\w+::)*(\w+))?(?:\s+final)?\s*(?::(?:[^:]|$)[^;{}()=]*)?$",
+            r"^(?:_[A-Z][A-Z0-9_]*\s+)*(?:template\s*(?:<.*>)?\s*)?(?:(?:typedef|static|extern|const|volatile)\s+)*(?:struct|union|class)\b(?:\s+(?:[A-Z][A-Z0-9_]*\s+)*(?:\w+::)*(\w+))?(?:\s+final)?\s*(?::(?:[^:]|$)[^;{}()=]*)?$",
         )
         .expect("the regex is a literal")
     });
@@ -698,21 +699,6 @@ pub(super) fn scopes_inside_out_to_type_or_namespace(code: &str, pos: usize) -> 
     }
     out
 }
-pub(super) fn scope_pos(code: &str, starts: &[usize], line1: usize, name: &str) -> Option<usize> {
-    let from = *starts.get(line1.checked_sub(1)?)?;
-    let to = starts.get(line1).map_or(code.len(), |&s| s - 1);
-    let is_name = |c: char| c.is_alphanumeric() || c == '_';
-    Some(
-        code.get(from..to)?
-            .match_indices(name)
-            .filter(|(i, _)| {
-                code.get(..from + i).is_some_and(|h| !h.ends_with(is_name))
-                    && (code.get(from + i + name.len()..)).is_some_and(|r| !r.starts_with(is_name))
-            })
-            .last()
-            .map_or(to, |(i, _)| from + i),
-    )
-}
 pub fn c_bindings(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<Binding> {
     c_bindings_at(text, line1, col, name)
         .into_iter()
@@ -725,9 +711,18 @@ pub fn c_bindings(text: &str, line1: usize, col: Option<usize>, name: &str) -> V
 pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -> Vec<CPlace> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let Some(pos) = scope_pos(&code, &starts, line1, name) else {
+    let Some(pos) = scope_pos(&code, &starts, line1, col, name) else {
         return Vec::new();
     };
+    let member = col.is_some_and(|c| {
+        (code.get(starts[line1 - 1] + c..))
+            .and_then(|r| r.strip_prefix(name))
+            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
+    });
+    c_bindings_from(&code, pos, member, name)
+}
+pub(super) fn c_bindings_from(code: &str, pos: usize, member: bool, name: &str) -> Vec<CPlace> {
+    let starts = line_starts(code);
     let place = |at: usize| {
         let line1 = starts.partition_point(|&s| s <= at);
         CPlace {
@@ -735,21 +730,16 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
             byte_col: at - starts[line1 - 1],
         }
     };
-    let member = col.is_some_and(|c| {
-        (code.get(starts[line1 - 1] + c..))
-            .and_then(|r| r.strip_prefix(name))
-            .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
-    });
-    if let Some(at) = initializer_parameter(&code, pos, name).filter(|_| !member) {
+    if let Some(at) = initializer_parameter(code, pos, name).filter(|_| !member) {
         return vec![place(at)];
     }
     for Scope {
         open,
         head_start: start,
         head,
-    } in scopes_inside_out_to_type_or_namespace(&code, pos)
+    } in scopes_inside_out_to_type_or_namespace(code, pos)
     {
-        let found = block_declarations(&code, open + 1, pos, name);
+        let found = block_declarations(code, open + 1, pos, name);
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
@@ -765,7 +755,7 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
                 code.get(inner.clone())
                     .and_then(|p| parameter_at(p, name))
                     .map(|j| inner.start + j)
-                    .or_else(|| super::cpp::init_capture(&code, start..inner.start - 1, name))
+                    .or_else(|| super::cpp::init_capture(code, start..inner.start - 1, name))
             }
             Head::Control { parens } => {
                 let inner = start + parens.start + 1..start + parens.end - 1;
@@ -816,7 +806,7 @@ fn split_top_level_semicolons(s: &str) -> Vec<(usize, &str)> {
 pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
     let code = c_code(text);
     let starts = line_starts(&code);
-    scope_pos(&code, &starts, line1, name).is_some_and(|pos| {
+    scope_pos(&code, &starts, line1, None, name).is_some_and(|pos| {
         scopes_inside_out_to_type_or_namespace(&code, pos)
             .iter()
             .any(|s| matches!(s.head, Head::Function { .. } | Head::Lambda { .. }))
@@ -825,7 +815,7 @@ pub fn c_inside_function(text: &str, line1: usize, name: &str) -> bool {
 pub fn c_method_class(text: &str, line1: usize, name: &str) -> Option<String> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let pos = scope_pos(&code, &starts, line1, name)?;
+    let pos = scope_pos(&code, &starts, line1, None, name)?;
     let (open, name) = scopes_inside_out_to_type_or_namespace(&code, pos)
         .into_iter()
         .find_map(|scope| match scope.head {
@@ -1017,6 +1007,7 @@ pub struct CReceiver {
     pub fields: Vec<String>,
     pub calls: Vec<bool>,
     pub braced: bool,
+    pub indexed: bool,
     pub start: usize,
 }
 pub fn cpp_receiver(before: &str) -> Option<CReceiver> {
@@ -1028,7 +1019,7 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
     let code = c_code(before);
     let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
     let mut rest = code.trim_end();
-    let (mut fields, mut calls) = (Vec::new(), Vec::new());
+    let (mut fields, mut calls, mut indexed) = (Vec::new(), Vec::new(), false);
     loop {
         rest = match rest.strip_suffix("->") {
             Some(r) => r,
@@ -1036,9 +1027,10 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         .trim_end();
         while rest.ends_with(']') {
-            if cpp {
+            if indexed {
                 return None;
             }
+            indexed = cpp;
             rest = rest.get(..opening_of_last_bracket(rest)?)?.trim_end();
         }
         let called = rest.ends_with(')');
@@ -1057,13 +1049,16 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
         }
         rest = before.trim_end();
         let member = rest.ends_with("->") || rest.ends_with('.') && !rest.ends_with("..");
+        let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
+        if indexed && (member || called || braced || start < rest.len()) {
+            return None;
+        }
         match (member, called, braced) {
             (true, _, false) if cpp || !called => {
                 fields.insert(0, name.to_owned());
                 calls.insert(0, called);
             }
             (false, _, _) => {
-                let start = QUALIFIER.find(rest).map_or(rest.len(), |m| m.start());
                 let head = if braced {
                     format!("{}{name}", rest.get(start..)?).replace(char::is_whitespace, "")
                 } else {
@@ -1075,6 +1070,7 @@ fn receiver(before: &str, cpp: bool) -> Option<CReceiver> {
                     fields,
                     calls,
                     braced,
+                    indexed,
                     start,
                 });
             }
@@ -1243,10 +1239,15 @@ pub fn c_body_field(code: &str, open: usize, word: &str) -> Option<usize> {
             Some(at)
         })
 }
-pub fn c_value_type(text: &str, line1: usize, name: &str) -> Result<Option<CType>, ()> {
+pub fn c_value_type(
+    text: &str,
+    line1: usize,
+    col: Option<usize>,
+    name: &str,
+) -> Result<Option<CType>, ()> {
     let code = c_code(text);
     let starts = line_starts(&code);
-    let mut at: Vec<usize> = c_bindings_at(text, line1, None, name)
+    let mut at: Vec<usize> = c_bindings_at(text, line1, col, name)
         .into_iter()
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
@@ -1859,7 +1860,18 @@ mod tests {
         for before in ["((client *)p)->", "this->", "a->f(x)->", "1.", "A{}."] {
             assert_eq!(c_receiver(before), None, "{before}");
         }
-        assert_eq!(cpp_receiver("a[0]."), None);
+        let indexed = cpp_receiver("x = a[i]->").map(|r| (r.head, r.indexed, r.fields));
+        assert_eq!(indexed, Some(("a".to_owned(), true, vec![])));
+        for before in [
+            "a[0][1].",
+            "a.b[0].",
+            "f()[0].",
+            "ns::a[0].",
+            "A{}[0].",
+            "(*a)[0].",
+        ] {
+            assert_eq!(cpp_receiver(before), None, "{before}");
+        }
         assert_eq!(parts(cpp_receiver("this->")), r("this", false, &[]));
         let chain = cpp_receiver("x = ::ns::A{1}.f(2).g->")
             .map(|r| (r.head, r.braced, r.fields, r.calls, r.start));
@@ -1936,9 +1948,12 @@ mod tests {
     fn a_value_type_is_its_one_declaration_in_the_file() {
         let text = "static struct name { int a; } name;\nint f() { return name.a; }\n";
         let open = text.find('{').unwrap();
-        assert_eq!(c_value_type(text, 2, "name"), Ok(Some(CType::Body(open))));
+        assert_eq!(
+            c_value_type(text, 2, None, "name"),
+            Ok(Some(CType::Body(open)))
+        );
         let text = "struct a *x;\nstruct b *x;\nint f() { return x->n; }\n";
-        assert_eq!(c_value_type(text, 3, "x"), Err(()));
-        assert_eq!(c_value_type(text, 3, "y"), Ok(None));
+        assert_eq!(c_value_type(text, 3, None, "x"), Err(()));
+        assert_eq!(c_value_type(text, 3, None, "y"), Ok(None));
     }
 }

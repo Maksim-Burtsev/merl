@@ -1,0 +1,57 @@
+wait 2 lines
+┌orders──────────────────────┐1 CC ?= cc
+│▸ .github                   │2
+│▸ .venv                     │3 all: app  2 lines ⋯
+│▸ app                       │
+│▸ data                      │
+│▸ deploy                    │
+│▸ docs                      │
+│▾ mk                        │
+│  A app.mk                  │
+│  A demo.cmake              │
+│▸ scripts                   │
+│▸ tests                     │
+│▸ web                       │
+│▸ worker                    │
+│  .env                      │
+│  .gitignore                │
+│  docker-compose.yml        │
+│  Dockerfile                │
+│  Makefile                  │
+│  pyproject.toml            │
+│  README.md                 │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+│                            │
+└────────────────────────────┘
+mk/app.mk  3:1  [code]                                                                                                                                                             14:32
+cursor (x,y,shown) 32,2,0

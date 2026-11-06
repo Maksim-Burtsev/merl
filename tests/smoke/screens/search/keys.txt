@@ -1,8 +1,11 @@
+*
 /
+:
 Esc
 Picker: Enter
 Picker: Esc
 [
+n
 q
 s
 t

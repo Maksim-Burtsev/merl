@@ -1,4 +1,4 @@
-wait and the clock
+wait app/refunds.py  1:1  [code]
 ┌agent/refund ← origin/main──┐ 1▎from datetime import datetime, timedelta, timezone
 │  ▾ app                     │  ✎ check the window
 │✎   A refunds.py      +18 −0│    and the clock
@@ -53,5 +53,5 @@ wait and the clock
 │                            │
 │                            │
 └ 8 files · +59 −39 · 1 note ┘
-app/refunds.py  1:1  [edit]  hunk 1/1  file 1/8                                                                                                                                    14:32
-cursor (x,y,shown) 47,2,0
+app/refunds.py  1:1  [code]  hunk 1/1  file 1/8                                                                                                                                    14:32
+cursor (x,y,shown) 32,1,0

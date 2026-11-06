@@ -20,6 +20,10 @@ class DeletePodcast
         $this->archive->find();
         //              ^ d: src/Radio/Archive.php:9
         //               status: via $this->archive: Archive
+        $found = $this->archive->find();
+        $found->subscribers();
+        //      ^ d: src/Radio/Podcast.php:7
+        //       status: via $this->archive->find(): Podcast
         $this->archive->find()->subscribers();
         //                      ^ d: picker src/Radio/Archive.php:14, src/Radio/Podcast.php:7
         $made = ScanInformation::make();

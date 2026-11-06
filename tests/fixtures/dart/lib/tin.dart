@@ -64,6 +64,33 @@ class Caddie {
     }
     return total;
   }
+
+  // A loop over a call of the class's own method reads its element type (#1338).
+  List<Sprig> picked() => leaves;
+  Stream<Weed> weeds() async* {}
+
+  Future<int> sip() async {
+    var total = 0;
+    for (final leaf in picked()) {
+      total += leaf.swirl();
+      //            ^ d: lib/tin.dart:35
+    }
+    await for (final weed in weeds()) {
+      total += weed.swirl();
+      //            ^ d: lib/tin.dart:39
+    }
+    return total;
+  }
+
+  int hidden() {
+    var total = 0;
+    Iterable<Weed> picked() => [];
+    for (final shadow in picked()) {
+      total += shadow.swirl();
+      //              ^ d: !jump
+    }
+    return total;
+  }
 }
 
 abstract class _Urn {
@@ -74,3 +101,8 @@ class Urn extends _Urn {
   int pour() => _leaf.swirl();
   //                  ^ d: lib/tin.dart:35
 }
+
+// A type argument is no call, though a call follows on the line (#1338).
+Future<Tin<int>> packed<S>() async => Tin([1], 'green');
+//     ^ d: lib/tin.dart:1
+//                                    ^ d: picker lib/tin.dart:1, lib/tin.dart:2

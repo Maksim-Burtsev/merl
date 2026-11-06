@@ -11,8 +11,8 @@ whatever needs them afterwards waits under `needs-owner`.
 
 ## 1. Ask, once
 
-Ask nothing the repo already answers: invisible work merges when it is green (AGENTS.md
-`## Merging`). In one message, ask only what the owner has not said in the session:
+Ask nothing the repo already answers: invisible work merges when it is green
+(`docs/agents/merging.md`). In one message, ask only what the owner has not said in the session:
 
 - About how many hours of work to pick?
 - The budget: a share of the weekly limit, and until 2026-10-22 a token budget beside it (the
@@ -121,7 +121,10 @@ owner's CLAUDE.md, memory and connectors: an implementer starts at ~18k tokens a
   Before merging, `git diff --stat EPIC...BRANCH` lists only files the task needs: an agent
   that squashed or rebased on a stale tree can roll other files back without a conflict, and
   on 2026-10-17 a Ruby branch put back `src/git.rs` from before #973's guard against deleting
-  the user's files.
+  the user's files. A branch that changes `tools/d-bench/answers/` is held: the answer key is
+  not the builder's to change (`implementer.md`), and on 2026-11-02 four rows its own rule then
+  hit were half of Python's and Swift's gains. Take those files out of the branch and give the
+  rows the implementer reported to an agent that did not build the rule, as a commit of its own.
 - **Own-PR issues.** The agent opens its PR, with before/after screencasts when it is visible
   (then under `needs-owner`), and reviews it with Punchcard once itself. An invisible PR then
   gets `gh pr merge --squash --auto`: GitHub merges it when CI is green, and nobody waits on CI.
@@ -197,10 +200,9 @@ say it in the plan.
   deletes the run's build output: each cargo `target` dir (3–10 GB) under the run's folder and
   this session's `/private/tmp` folder. The ledger, task files, logs and reports stay, and a dir a process still has open is left and named. On
   2026-10-18 runs that never did this had left ~100 GB and filled the disk.
-- One push notification (the `PushNotification` tool, loaded through ToolSearch) once the
-  last message is written: the verdict in a line (merged, waiting for the owner, not done) and
-  the one link the owner opens first. The owner reads the morning on the phone and should not
-  have to ask whether the run is done.
-- The last message is one table, in the owner's language: merged (issue, one line), waiting for
+- No push notification: the owner comes for the result. The last message's first line is the
+  verdict (merged, waiting for the owner, not done) and the one link the owner opens first: the
+  owner reads the morning on the phone and should not have to ask whether the run is done.
+- Then one table, in the owner's language: merged (issue, one line), waiting for
   the owner (link, what to look at), not done (why, what is left), then the weekly percentage
   and the tokens used, and the hours, against the budget and the estimate.

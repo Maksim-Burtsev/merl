@@ -55,7 +55,7 @@ Every picture is merl itself: a real build, run in tmux on a real project, recor
 `tools/cast.py`. The owner must be able to run the same steps and see the same screen, one to one.
 
 - **A screencast per option and case**, and one of **now** on master: the same steps file for each, moving
-  as `AGENTS.md` `## Screencasts` says. The project is cloned into your scratch folder and copied
+  as `docs/agents/screencasts.md` says. The project is cloned into your scratch folder and copied
   to `/tmp/<N>-<name>` (`media` is public: no home directory, no scratch path in a frame).
 - **One size and font for the whole proposal**: `--size 160x50`, a laptop's full screen, unless
   the issue is about a width; cast.py's default font and the Ghostty TokyoNight Moon colours.
@@ -80,8 +80,8 @@ When the owner cannot pick from pictures, build the recommended option as one PR
 now and every option as screencasts of the prototype's build, the recommendation, and asks for one
 letter. The other options never become PRs of their own: the owner reads one PR per issue.
 
-Upload to `media` as `issues/<N>-<slug>-<variant>.<ext>`, each name free first (`AGENTS.md`,
-`## Screencasts`).
+Upload to `media` as `issues/<N>-<slug>-<variant>.<ext>`, each name free first
+(`docs/agents/screencasts.md`).
 
 ## 6. Write it into the issue
 

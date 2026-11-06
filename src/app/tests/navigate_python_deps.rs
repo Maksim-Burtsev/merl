@@ -662,3 +662,272 @@ fn a_project_s_own_logging_wins_over_typeshed_s() {
     );
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn a_keyword_of_a_callee_found_outside_lands_on_its_parameter() {
+    let site = external_root(
+        "py-outside-kw",
+        &[(
+            "time_machine/__init__.py",
+            "class travel:\n    def __init__(self, destination, *, tick: bool = True) -> None:\n        pass\n\n\ndef shift(delta, **kwargs):\n    pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside-kw-p",
+        &[(
+            "app/t.py",
+            "import time_machine\n\n\ndef test_x():\n    with time_machine.travel(0, tick=False):\n        time_machine.shift(1, tick=True)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    d_on(&mut a, "app/t.py", "travel(0, tick");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "tick: parameter of travel",
+            &format!("{}:2", site.join("time_machine/__init__.py").display())
+        )
+    );
+    d_on(&mut a, "app/t.py", "shift(1, tick");
+    assert_eq!(a.message, "tick: argument label");
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_keyword_of_a_callee_found_outside_only_by_name_does_not_jump() {
+    let site = external_root(
+        "py-outside-kw-name",
+        &[(
+            "time_machine/__init__.py",
+            "class Clock:\n    def rewind(self, delta, *, tick: bool = True) -> None:\n        pass\n",
+        )],
+    );
+    let (dir, mut a) = project_app(
+        "py-outside-kw-name-p",
+        &[(
+            "app/t.py",
+            "def test_x(clock):\n    clock.rewind(1, tick=False)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+    d_on(&mut a, "app/t.py", "rewind(1, tick");
+    assert_eq!(a.message, "tick: argument label");
+    for d in [dir, site] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_stdlib_property_typeshed_types_as_self_keeps_the_receiver_s_type() {
+    let pathlib = "class PurePath:\n    @property\n    def parent(self):\n        return self._from_parts(self._parts[:-1])\n\n\nclass Path(PurePath):\n    def mkdir(self, mode=0o777, parents=False, exist_ok=False):\n        pass\n";
+    let prefix = external_root(
+        "py-self-std",
+        &[
+            ("lib/python3.12/pathlib.py", pathlib),
+            ("lib/python3.12/os.py", ""),
+        ],
+    );
+    let std = prefix.join("lib/python3.12");
+    let site = external_root("py-self-site", &[("site-packages/pathlib.py", pathlib)]);
+    let plain = external_root("py-self-plain", &[("pathlib.py", pathlib), ("os.py", "")]);
+    let (dir, mut a) = project_app(
+        "py-self-p",
+        &[(
+            "app/t.py",
+            "from pathlib import Path\n\n\ndef f(existing: Path):\n    existing.parent.mkdir(parents=True)\n",
+        )],
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&std));
+    let place = format!("{}:8", std.join("pathlib.py").display());
+    d_on(&mut a, "app/t.py", "parent.mkdir");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "mkdir \u{2192} Path.mkdir (via existing.parent: Path)",
+            &place
+        )
+    );
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        shown(&mut a),
+        jump("parents: parameter of Path.mkdir", &place)
+    );
+    use_roots(&mut a, Kind::Python, &[site.join("site-packages")]);
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        a.message, "parents: argument label",
+        "a package named like the standard library's module is not typed by its stub"
+    );
+    use_roots(&mut a, Kind::Python, std::slice::from_ref(&plain));
+    d_on(&mut a, "app/t.py", "mkdir(parents");
+    assert_eq!(
+        a.message, "parents: argument label",
+        "an outside root that is no interpreter's lib/pythonX.Y is not typed by its stub"
+    );
+    for d in [dir, prefix, site, plain] {
+        std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+#[test]
+fn a_member_of_an_outside_module_s_instance_lands_on_its_class_s_declaration() {
+    let classes = |init: &str| {
+        format!(
+            "from typing import TYPE_CHECKING\n\n\nclass MarkGenerator:\n    if TYPE_CHECKING:\n        usefixtures: _UsefixturesMarkDecorator\n\n    def __init__(self):\n        {init}\n\n    def plain(self):\n        pass\n\n    def __getattr__(self, name: str) -> MarkDecorator:\n        pass\n\n\nclass Other:\n    def plain(self):\n        pass\n\n    def usefixtures(self):\n        pass\n\n\n"
+        )
+    };
+    let binding = "MARK_GEN = MarkGenerator(_ispytest=True)\n";
+    let made = format!("{}{binding}", classes("pass"));
+    let reexport = "from .structures import MARK_GEN\n";
+    let test = "import pytest\n\n\n@pytest.mark.usefixtures(\"db\")\ndef test_a():\n    pytest.mark.plain()\n    pytest.mark.django_db\n\n\ndef test_b(xs):\n    for pytest in xs:\n        pytest.mark.plain(3)\n\n\ndef test_c(pytest):\n    f = lambda pytest: pytest.mark.plain(4)\n";
+    for (name, lib, mark, typed) in [
+        ("py-mark-gen", made.clone(), reexport, (true, true)),
+        (
+            "py-mark-gen-twice",
+            format!("{made}MARK_GEN = Other()\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-global",
+            format!(
+                "{made}\n\ndef configure(xs):\n    global MARK_GEN\n    for MARK_GEN in xs:\n        pass\n"
+            ),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-package",
+            made.clone(),
+            "from . import structures\nstructures.MARK_GEN = structures.Other()\nfrom .structures import MARK_GEN\n",
+            (false, false),
+        ),
+        (
+            "py-mark-gen-member",
+            format!("{made}MARK_GEN.plain = Other().plain\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-self",
+            format!("{}{binding}", classes("self.plain = Other().plain")),
+            reexport,
+            (true, false),
+        ),
+        (
+            "py-mark-gen-alias",
+            format!(
+                "{}from _pytest.alt import Alt as MarkGenerator\n{binding}",
+                classes("pass")
+            ),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-globals",
+            format!("{made}globals()[\"MARK_GEN\"] = Other()\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-setattr",
+            format!("{made}import sys\n\nsetattr(sys.modules[__name__], \"MARK_GEN\", Other())\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-decorated",
+            classes("pass").replace("class MarkGenerator:", "@swap\nclass MarkGenerator:")
+                + binding,
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-dict",
+            format!("{}{binding}", classes("self.__dict__.update(kw)")),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-star",
+            format!("{made}from _pytest.alt import *\n"),
+            reexport,
+            (false, false),
+        ),
+        (
+            "py-mark-gen-dunder",
+            format!(
+                "{}{binding}",
+                classes("object.__setattr__(self, \"plain\", None)")
+            ),
+            reexport,
+            (true, false),
+        ),
+        ("py-mark-gen-project", made, reexport, (true, false)),
+    ] {
+        let conftest = if name == "py-mark-gen-project" {
+            "import pytest\n\npytest.mark.plain = None\n"
+        } else {
+            ""
+        };
+        let site = external_root(
+            name,
+            &[
+                (
+                    "pytest/__init__.py",
+                    "from _pytest.mark import MARK_GEN as mark\n",
+                ),
+                ("_pytest/__init__.py", ""),
+                ("_pytest/mark/__init__.py", mark),
+                ("_pytest/mark/structures.py", &lib),
+            ],
+        );
+        let (dir, mut a) = project_app(
+            &format!("{name}-p"),
+            &[("app/t.py", test), ("app/conftest.py", conftest)],
+        );
+        use_roots(&mut a, Kind::Python, std::slice::from_ref(&site));
+        let at = |line: usize| {
+            format!(
+                "{}:{line}",
+                site.join("_pytest/mark/structures.py").display()
+            )
+        };
+        let via = "via pytest.mark: MarkGenerator";
+        d_on(&mut a, "app/t.py", "mark.usefixtures");
+        let usefixtures = shown(&mut a);
+        a.picker = None;
+        d_on(&mut a, "app/t.py", "mark.plain|()");
+        let plain = shown(&mut a);
+        a.picker = None;
+        let untyped = |s: &Shown| !format!("{s:?}").contains("via pytest.mark:");
+        if typed.0 {
+            assert_eq!(usefixtures, jump(&format!("usefixtures: {via}"), &at(6)));
+        } else {
+            assert!(untyped(&usefixtures), "{name}: {usefixtures:?}");
+        }
+        if typed.1 {
+            assert_eq!(
+                plain,
+                jump(
+                    &format!("plain \u{2192} MarkGenerator.plain ({via})"),
+                    &at(11)
+                )
+            );
+        } else {
+            assert!(untyped(&plain), "{name}: {plain:?}");
+        }
+        d_on(&mut a, "app/t.py", "mark.django_db");
+        assert_eq!(a.message, "no definition for django_db", "{name}");
+        for rebound in ["mark.plain|(3", "mark.plain|(4"] {
+            a.picker = None;
+            d_on(&mut a, "app/t.py", rebound);
+            assert!(!a.message.contains(via), "{name} {rebound}: {}", a.message);
+        }
+        for d in [dir, site] {
+            std::fs::remove_dir_all(d).unwrap();
+        }
+    }
+}

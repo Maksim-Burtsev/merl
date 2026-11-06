@@ -1,0 +1,23 @@
+---
+import Card from './Card.astro'; // f: none
+const list: Array<string> = ['<div>']; // f: none
+---
+<ul class:list={{ a: b > c }}> <!-- f: 5-15 -->
+  {
+    list.map((x) => ( // f: 5-15
+      <> <!-- f: 8-12 -->
+        <li>{x}</li> <!-- f: 8-12 -->
+        <Card
+          title=" f: 10-12"
+        /></>
+    ))
+  }
+</ul> <!-- f: 5-15 -->
+<img
+  alt=" f: 16-19"
+  src="a.png"
+>
+<br> <!-- f: none -->
+<style> <!-- f: 21-23 -->
+  ul > li { color: red; } /* f: 21-23 */
+</style>

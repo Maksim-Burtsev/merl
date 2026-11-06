@@ -133,3 +133,346 @@ fn d_on_a_julia_call_outside_the_project_reads_no_field() {
     std::fs::remove_dir_all(&dir).unwrap();
     std::fs::remove_dir_all(&base).unwrap();
 }
+
+#[test]
+fn d_on_a_julia_type_annotation_reads_the_type_not_a_member_of_the_value() {
+    let (dir, mut a) = project_app(
+        "julia-typed",
+        &[(
+            "src/use.jl",
+            "f(i::Integer) = i\ng(bc::Base.Broadcast.Broadcasted) = bc\nh(x::N) where N = x\n\
+struct Grid{T,\n            M}\n    size::M\nend\n\
+function k(x::AbstractArray{T}, n::K) where {\n        T,\n        K<:Integer}\n    n\nend\n\
+struct Box{T<:Union{Int,Float64},J}\n    n::J\nend\n\
+m(x::I) where {T<:Tuple{Int},I} = x\n\
+struct Bare{Q}\n    q::Q\nend\n\
+p(x::R) where {T, R} = x\n",
+        )],
+    );
+    let base = external_root(
+        "julia-typed",
+        &[
+            (
+                "base/boot.jl",
+                "abstract type Integer <: Real end\nconst N = 382\nconst M = 1\nconst K = 2\nconst J = 3\nconst I = 4\nconst Q = 5\nconst R = 6\n",
+            ),
+            (
+                "base/broadcast.jl",
+                "module Broadcast\nstruct Broadcasted end\nend\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    let at = |file: &str, line: usize| format!("{}:{line}", base.join(file).display());
+    for (code, want) in [
+        (
+            "f(i::Integer",
+            jump("Integer: by name, 1 match", &at("base/boot.jl", 1)),
+        ),
+        (
+            "Base.Broadcast",
+            jump("Broadcast: by name, 1 match", &at("base/broadcast.jl", 1)),
+        ),
+        ("h(x::N", jump("no definition for N", "src/use.jl:3")),
+        ("size::M", jump("no definition for M", "src/use.jl:6")),
+        ("n::K", jump("no definition for K", "src/use.jl:8")),
+        ("n::J", jump("no definition for J", "src/use.jl:14")),
+        ("m(x::I", jump("no definition for I", "src/use.jl:16")),
+        ("q::Q", jump("no definition for Q", "src/use.jl:18")),
+        ("p(x::R", jump("no definition for R", "src/use.jl:20")),
+    ] {
+        d_on(&mut a, "src/use.jl", code);
+        assert_eq!(shown(&mut a), want, "{code}");
+        a.jump_to(&dir.join("src/use.jl"), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_function_the_project_only_extends_offers_base_beside_the_extension() {
+    let (dir, mut a) = project_app(
+        "julia-extends",
+        &[
+            (
+                "src/frames.jl",
+                "Base.isempty(df::Frame) = true\nfunction g(df)\n    isempty(df)\nend\n",
+            ),
+            ("test/use.jl", "@test isempty(keys(df))\n"),
+        ],
+    );
+    let base = external_root(
+        "julia-extends",
+        &[("base/essentials.jl", "isempty(itr) = true\n")],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    d_on(&mut a, "test/use.jl", "@test isempty");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "isempty: by name, 2 declarations".into(),
+            vec![
+                ("isempty".into(), "by name".into(), "src/frames.jl:1".into()),
+                ("isempty".into(), "by name".into(), "essentials.jl:1".into()),
+            ]
+        )
+    );
+    a.jump_to(&dir.join("src/frames.jl"), 1);
+    d_on(&mut a, "src/frames.jl", "    isempty");
+    assert_eq!(
+        shown(&mut a),
+        jump("isempty: by name, 1 match", "src/frames.jl:1")
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_function_the_project_only_extends_offers_the_extension_when_no_base_is_found() {
+    let (dir, mut a) = project_app(
+        "julia-extends-alone",
+        &[
+            ("src/frames.jl", "Base.isempty(df::Frame) = true\n"),
+            ("test/use.jl", "@test isempty(keys(df))\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[]);
+    d_on(&mut a, "test/use.jl", "@test isempty");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "isempty: by name, 1 match".into(),
+            vec![("isempty".into(), "by name".into(), "src/frames.jl:1".into())]
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_function_the_project_imports_from_itself_or_by_dotted_path() {
+    let (dir, mut a) = project_app(
+        "julia-import-forms",
+        &[
+            (
+                "src/Pkg.jl",
+                "module Inner\nhelper(x) = x\nend\nusing .Inner: helper\n",
+            ),
+            (
+                "src/money.jl",
+                "import Base.isempty\nisempty(m::Money) = true\n",
+            ),
+            ("src/b.jl", "helper(1)\nisempty(xs)\n"),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[]);
+    d_on(&mut a, "src/b.jl", "helper");
+    assert_eq!(
+        shown(&mut a),
+        jump("helper: by name, 1 match", "src/Pkg.jl:2")
+    );
+    d_on(&mut a, "src/b.jl", "isempty");
+    assert_eq!(
+        shown(&mut a),
+        Shown::Picker(
+            "isempty: by name, 1 match".into(),
+            vec![("isempty".into(), "by name".into(), "src/money.jl:2".into())]
+        )
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_julia_s_base_reads_the_base_module_not_a_submodule_s_own_binding() {
+    let (dir, mut a) = project_app(
+        "julia-base-module",
+        &[
+            (
+                "src/show.jl",
+                "Base.summary(df) = 1\nIterators.Base.summary(df) = 1\n",
+            ),
+            (
+                "src/bare.jl",
+                "baremodule Bare\nBase.summary(df) = 1\nend\n",
+            ),
+        ],
+    );
+    let base = external_root(
+        "julia-base-module",
+        &[
+            ("base/Base.jl", "\nbaremodule Base\nend\n"),
+            (
+                "base/iterators.jl",
+                "baremodule Iterators\nconst Base = parentmodule(@__MODULE__)\nend\n",
+            ),
+        ],
+    );
+    use_roots(&mut a, Kind::Julia, &[base.join("base")]);
+    d_on(&mut a, "src/show.jl", "Base|.summary");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Base: by name, 1 match",
+            &format!("{}:2", base.join("base/Base.jl").display())
+        )
+    );
+    a.jump_to(&dir.join("src/show.jl"), 1);
+    d_on(&mut a, "src/show.jl", "Iterators.Base|.summary");
+    assert_eq!(
+        shown(&mut a),
+        jump(
+            "Base: by name, 1 match",
+            &format!("{}:2", base.join("base/iterators.jl").display())
+        )
+    );
+    a.jump_to(&dir.join("src/bare.jl"), 1);
+    d_on(&mut a, "src/bare.jl", "Base|.summary");
+    assert!(
+        matches!(shown(&mut a), Shown::Picker(title, _) if title == "Base: by name, 2 declarations"),
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::remove_dir_all(&base).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_field_reads_the_struct_its_parameter_is_typed_by() {
+    let types = "abstract type AbstractFrame end\nmutable struct Group{T<:AbstractFrame}\n    parent::T\n    cols::Vector{Symbol}\n    idx::Vector{Int}\nend\nstruct Frame <: AbstractFrame\n    cols::Vector{Symbol}\nend\nstruct Key\n    cols::Vector{Symbol}\nend\nstruct Sorter\n    cols::Vector{Symbol}\n    function Sorter(c)\n        cols = c\n        new(cols)\n    end\nend\nfunction Base.getproperty(gd::Group, f::Symbol)\n    if f === :idx\n        return getfield(gd, :idx)\n    end\n    return getfield(gd, f)\nend\nBase.getproperty(df::AbstractFrame, s::Symbol) = df[!, s]\nfunction Base.getproperty(k::Key, p::Symbol)\n    p === :cols && return 1\n    return getfield(k, p)\nend\nstruct Disk\n    r::Float64\n    area::Float64\nend\nstruct Square\n    area::Float64\nend\nconst AREA = :area\nfunction Base.getproperty(d::Disk, name::Symbol)\n    name === AREA && return getfield(d, :r)^2\n    return getfield(d, name)\nend\nstruct CGroup\n    cols::Vector{Symbol}\nend\nconst PROPS = (:cols,)\nfunction Base.getproperty(c::CGroup, s::Symbol)\n    s in PROPS && return 1\n    return getfield(c, s)\nend\n";
+    let uses = "function plain(g1::Group, x)\n    g1.cols\nend\nfunction para(g2::Group{Frame})\n    g2.cols\nend\nabstr(f3::AbstractFrame) = f3.cols\nfunction bound(g4::G) where {G<:Group}\n    g4.cols\nend\nfunction again(g5::Group)\n    g5 = pick()\n    g5.cols\nend\nfunction inherited(f6::Frame)\n    f6.cols\nend\nfunction keyed(k7::Key)\n    k7.cols\nend\nfunction sorted(s8::Sorter)\n    s8.cols\nend\nfunction looped(g9::Group)\n    for i in 1:3\n        g9.cols\n        g9 = pick()\n    end\nend\nmapped(g10::Group, xs) = map(g10 -> g10.cols, xs)\nlisted(g11::Group, gs) = [g11.cols for g11 in gs]\nfunction later(g17::Group, ks)\n    [g17.cols\n     for g17 in ks]\nend\nfunction each(g19::Group, xs)\n    foreach(g19 -> begin\n        g19.cols\n    end, xs)\nend\nfunction anon(g21::Group)\n    h = function (g21)\n        g21.cols\n    end\nend\nfunction shadowed(g25::Group, k)\n    let g25 = k; g25.cols; end\nend\nfunction disk(d22::Disk)\n    d22.area\nend\nfunction consts(c1::CGroup)\n    c1.cols\nend\n";
+    let (dir, mut a) = project_app(
+        "julia-typed-field",
+        &[("src/types.jl", types), ("src/use.jl", uses)],
+    );
+    for (code, line) in [
+        ("g1.cols", Some(4)),
+        ("g2.cols", Some(4)),
+        ("f3.cols", None),
+        ("g4.cols", None),
+        ("g5.cols", None),
+        ("f6.cols", None),
+        ("k7.cols", None),
+        ("s8.cols", Some(14)),
+        ("g9.|cols", None),
+        ("-> g10.|cols", None),
+        ("[g11.|cols", None),
+        ("[g17.|cols", None),
+        ("        g19.|cols", None),
+        ("        g21.|cols", None),
+        ("; g25.|cols", None),
+        ("d22.|area", None),
+        ("c1.|cols", None),
+    ] {
+        d_on(&mut a, "src/use.jl", code);
+        match (shown(&mut a), line) {
+            (Shown::Jump(_, at), Some(line)) => assert_eq!(at, format!("src/types.jl:{line}")),
+            (Shown::Picker(..), None) => {}
+            (got, _) => panic!("{code}: {got:?}"),
+        }
+        a.jump_to(&dir.join("src/use.jl"), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_field_keeps_the_picker_when_a_getproperty_reads_an_unwritten_type() {
+    let types = "struct Group\n    cols::Vector{Symbol}\nend\nstruct Key\n    cols::Vector{Symbol}\nend\nfor T in (:Group,)\n    @eval function Base.getproperty(e::$T, s::Symbol)\n        s === :cols && return 1\n        return getfield(e, s)\n    end\nend\n";
+    let uses = "function plain(e1::Group)\n    e1.cols\nend\n";
+    let (dir, mut a) = project_app(
+        "julia-eval-getproperty",
+        &[("src/types.jl", types), ("src/use.jl", uses)],
+    );
+    d_on(&mut a, "src/use.jl", "e1.|cols");
+    assert!(matches!(shown(&mut a), Shown::Picker(..)));
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_julia_s_base_keeps_the_picker_when_the_project_owns_a_base() {
+    let (dir, mut a) = project_app(
+        "julia-own-base",
+        &[
+            ("src/Base.jl", "module Base\nend\n"),
+            ("vendor/base.jl", "baremodule Base\nend\n"),
+            ("src/show.jl", "Base.summary(df) = 1\n"),
+        ],
+    );
+    d_on(&mut a, "src/show.jl", "Base|.summary");
+    let got = shown(&mut a);
+    assert!(
+        matches!(got, Shown::Picker(ref title, _) if title == "Base: by name, 2 declarations"),
+        "{got:?}"
+    );
+    std::fs::remove_dir_all(&dir).unwrap();
+}
+
+#[test]
+fn d_on_a_julia_type_name_not_called_lands_on_its_declaration() {
+    let types = "struct Shape\n    r\n    Shape(r) = new(r)\nend\nShape() = Shape(1)\nabstract type Kind end\nKind(x::Int) = 1\nconst Vec = Vector{Int}\nVec(n::Int) = Vec(undef, n)\nstruct Dup\nend\nDup(x) = 1\n";
+    let uses = "area(a1::Shape) = 1\nfunction isa_(a2)\n    a2 isa Shape\nend\nvec(a3::Vector{Shape}) = 1\nunion(a4::Union{Int, Shape}) = 1\nsub(::Type{T}) where {T <: Shape} = 1\npair(df) = select(df, :a5 => Shape)\nthrows() = @test_throws Shape f(:a6)\nkind(a7::Kind) = 1\nv(a8::Vec) = 1\ndup(a9::Dup) = 1\ncalled1() = Shape(:b1)\ncalled2(xs) = Shape.(xs, :b2)\nfunction lets(t)\n    let Shape = t\n        b3 isa Shape\n    end\nend\nfunction dos(xs)\n    map(xs) do Shape\n        b4 isa Shape\n    end\nend\nfunction catches()\n    try\n        f()\n    catch Shape\n        b5 isa Shape\n    end\nend\nfunction anon()\n    h = function (Shape)\n        b6 isa Shape\n    end\nend\nfunction loops(ts)\n    for Shape in ts\n        b7 isa Shape\n    end\nend\ncomp(ts) = [b8 isa Shape for Shape in ts]\nfunction destr(t)\n    (c, Shape) = t\n    b9 isa Shape\nend\nfunction kw(x; Shape=Int)\n    c1 isa Shape\nend\nlam(xs) = map(Shape -> c2 isa Shape, xs)\nfunction assigned(t)\n    Shape = t\n    c3 isa Shape\nend\nfunction param(Shape)\n    c4 isa Shape\nend\nfunction local_method()\n    Shape(x) = 1\n    c5 isa Shape\nend\nfunction typed_param(Shape::Type)\n    c6 isa Shape\nend\nfunction lets_tuple(t)\n    let a = 1, Shape = t\n        c7 isa Shape\n    end\nend\nfunction multi(\n        x,\n        Shape)\n    c9 isa Shape\nend\nfunction later(t)\n    d1 isa Shape\n    Shape = t\nend\n";
+    let (dir, mut a) = project_app(
+        "julia-type-named",
+        &[
+            ("src/types.jl", types),
+            ("src/other.jl", "struct Dup\nend\n"),
+            ("src/use.jl", uses),
+            ("src/where.jl", "wh(c8::Shape) where {Shape} = 1\n"),
+            (
+                "src/plots.jl",
+                "using Plots: Shape\n\narea(e1::Shape) = 1\n",
+            ),
+            (
+                "src/other_.jl",
+                "import .Other: Shape\nfunction q(e2)\n    e2 isa Shape\nend\n",
+            ),
+            (
+                "src/edges.jl",
+                "function g(Shape)\n    data = [\n1, 2,\n]\n    e3 isa Shape\nend\nlet Shape = Int\ne4 isa Shape\nend\nfunction keeps(xs)\n    [e5 isa Shape for x in xs]  # Shape = 1\n    s = \"Shape = 1\"\n    e6 isa Shape\nend\n",
+            ),
+        ],
+    );
+    for (file, code, line) in [
+        ("src/use.jl", "a1::Shape", Some(1)),
+        ("src/use.jl", "a2 isa Shape", Some(1)),
+        ("src/use.jl", "a3::Vector{Shape", Some(1)),
+        ("src/use.jl", "Int, Shape", Some(1)),
+        ("src/use.jl", "T <: Shape", Some(1)),
+        ("src/use.jl", ":a5 => Shape", Some(1)),
+        ("src/use.jl", "@test_throws |Shape f(:a6)", Some(1)),
+        ("src/use.jl", "a7::Kind", Some(6)),
+        ("src/use.jl", "a8::Vec", Some(8)),
+        ("src/use.jl", "a9::Dup", None),
+        ("src/use.jl", "Shape(:b1)", None),
+        ("src/use.jl", "Shape.(xs, :b2)", None),
+        ("src/use.jl", "b3 isa Shape", None),
+        ("src/use.jl", "b4 isa Shape", None),
+        ("src/use.jl", "b5 isa Shape", None),
+        ("src/use.jl", "b6 isa Shape", None),
+        ("src/use.jl", "b7 isa Shape", None),
+        ("src/use.jl", "b8 isa Shape", None),
+        ("src/use.jl", "b9 isa Shape", None),
+        ("src/use.jl", "c1 isa Shape", None),
+        ("src/use.jl", "c2 isa Shape", None),
+        ("src/use.jl", "c3 isa Shape", None),
+        ("src/use.jl", "c4 isa Shape", None),
+        ("src/use.jl", "c5 isa Shape", None),
+        ("src/use.jl", "c6 isa Shape", None),
+        ("src/use.jl", "c7 isa Shape", None),
+        ("src/use.jl", "c9 isa Shape", None),
+        ("src/use.jl", "d1 isa Shape", None),
+        ("src/where.jl", "c8::Shape", None),
+        ("src/plots.jl", "e1::Shape", None),
+        ("src/other_.jl", "e2 isa Shape", None),
+        ("src/edges.jl", "e3 isa Shape", None),
+        ("src/edges.jl", "e4 isa Shape", None),
+        ("src/edges.jl", "e5 isa Shape", Some(1)),
+        ("src/edges.jl", "e6 isa Shape", Some(1)),
+    ] {
+        d_on(&mut a, file, code);
+        match (shown(&mut a), line) {
+            (Shown::Jump(_, at), Some(line)) => assert_eq!(at, format!("src/types.jl:{line}")),
+            (Shown::Jump(_, at), None) => assert!(!at.starts_with("src/types.jl"), "{code}: {at}"),
+            (Shown::Picker(..), None) => {}
+            (got, _) => panic!("{code}: {got:?}"),
+        }
+        a.jump_to(&dir.join(file), 1);
+    }
+    std::fs::remove_dir_all(&dir).unwrap();
+}

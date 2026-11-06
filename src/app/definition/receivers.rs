@@ -165,6 +165,9 @@ impl App {
             self.swift_by_labels(word, a.range.end, &mut found);
             return self.show_found(a, found);
         }
+        if self.answered_by_swift_key_path(a) {
+            return true;
+        }
         if kind == Kind::Swift
             && dotted
             && chain.is_empty()
@@ -215,7 +218,7 @@ impl App {
             && dotted
             && chain.is_empty()
             && word != "init"
-            && let Some(links) = a.written.get(..a.start).and_then(search::swift_call_links)
+            && let Some(links) = self.swift_unshadowed_links(&a.text, a.written.get(..a.start))
             && let Some(mut found) = self.swift_on_call(
                 &a.here,
                 &a.text,
@@ -243,6 +246,20 @@ impl App {
             self.message = resolution(&a.word, None, &[], None, false);
         }
         answered
+    }
+
+    fn answered_by_swift_key_path(&mut self, a: &Asked) -> bool {
+        if a.kind != Kind::Swift || !a.dotted || !a.chain.is_empty() {
+            return false;
+        }
+        match a
+            .lead
+            .strip_suffix('.')
+            .and_then(|lead| self.swift_key_path_rows(&a.here, &a.text, lead, &a.word))
+        {
+            Some(found) if !found.is_empty() => self.show_found(a, found),
+            _ => false,
+        }
     }
 
     fn answered_by_swift_cast(&mut self, a: &Asked) -> bool {
@@ -276,7 +293,7 @@ impl App {
         let answer = match dotted {
             false => self.cs_initializer(&a.here, word, &a.range).map(Ok),
             true if !chain.is_empty() && bound(&near.imports, &chain[0]).is_none() => {
-                Some(self.cs_typed(&a.here, word, chain))
+                Some(self.cs_typed(&a.here, word, chain, &a.before))
             }
             true if chain.is_empty() => self
                 .cs_constructed(&a.here, word, &a.before)

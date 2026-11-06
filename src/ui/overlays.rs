@@ -510,7 +510,7 @@ fn place_header<'a>(
     if !place.header {
         return None;
     }
-    let lead = Span::styled(" ".repeat(prefix_w + place.head_w), base);
+    let lead = Span::styled(" ".repeat(prefix_w), base);
     let path = cells
         .iter()
         .filter(|(b, _)| place.path.contains(b))
@@ -552,13 +552,25 @@ fn place_rows<'a>(
     };
     let head = cells
         .iter()
-        .filter(|(b, _)| *b < place.path.start)
-        .map(|(_, s)| s.clone());
-    let first = prefix
+        .filter(|(b, _)| *b < place.head_end)
+        .map(|(_, s)| Span::styled(s.content.clone(), s.style.fg(theme.ghost_fg)));
+    let mut first: Vec<Span> = prefix
         .into_iter()
-        .chain(head)
         .chain([num])
-        .chain(in_row(&place.code_rows[0]));
+        .chain(in_row(&place.code_rows[0]))
+        .collect();
+    if place.head_w > 0 {
+        let keep = width.saturating_sub(place.head_w + 2);
+        let mut taken = 0;
+        first.retain(|s| {
+            taken += wrap::width(&s.content);
+            taken <= keep
+        });
+        let used: usize = first.iter().map(|s| wrap::width(&s.content)).sum();
+        let gap = width.saturating_sub(used + place.head_w).max(2);
+        first.push(Span::styled(" ".repeat(gap), style));
+        first.extend(head);
+    }
     let mut lines = vec![padded(first, width, style)];
     for r in &place.code_rows[1..] {
         let lead = Span::styled(" ".repeat(place.code_col), style);
@@ -577,6 +589,7 @@ fn padded<'a>(spans: impl IntoIterator<Item = Span<'a>>, width: usize, style: St
 struct Place {
     header: bool,
     head_w: usize,
+    head_end: usize,
     path: std::ops::Range<usize>,
     code_at: usize,
     num_w: usize,
@@ -659,9 +672,11 @@ fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
             };
             let header = last != Some(text);
             last = Some(text);
+            let head = head.trim_end();
             let head_w = wrap::width(head);
-            let code_col = prefix_w + head_w + 2 + num_w + 2;
-            let room = width.saturating_sub(code_col);
+            let code_col = prefix_w + 2 + num_w + 2;
+            let tail_w = if head_w > 0 { head_w + 2 } else { 0 };
+            let room = width.saturating_sub(code_col + tail_w);
             let code_rows = if wrap::width(code) > room && room >= MIN_WRAP {
                 wrap::wrap_line(code, room)
             } else {
@@ -670,6 +685,7 @@ fn places(rows: &[Row], width: usize, prefix_w: usize) -> Vec<Option<Place>> {
             Some(Place {
                 header,
                 head_w,
+                head_end: head.len(),
                 path,
                 code_at,
                 num_w,

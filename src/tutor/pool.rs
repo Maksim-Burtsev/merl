@@ -1,6 +1,7 @@
 use super::{Task, at, edited_since_unpacked, selected_on_one_line};
 use crate::app::{App, Focus, Mode, PickerKind};
 
+const INIT_LINE: usize = 12;
 const CALL_LINE: usize = 13;
 const CLASS_LINE: usize = 9;
 const IMPORT_LINE: usize = 5;
@@ -115,6 +116,25 @@ pub const POOL: &[Task] = &[
         keys: "/load_config<Enter>",
         answer: "N",
         done: |a| at(a, "store.py") && a.line + 1 == IMPORT_LINE && a.find_re.is_some(),
+    },
+    Task {
+        key: "*",
+        title: "Find the word under the cursor",
+        tutor: "`*` finds the word under the cursor as a whole word, in the same case, and goes \
+                to the next one; `n` and `N` walk the rest. Press it on `config`: it skips \
+                `Config` and stops on `self.config` below.",
+        drill: "Find `config` as a whole word, in the same case, and go to its next use: \
+                `self.config` below.",
+        start: Some(("store.py", INIT_LINE, "config")),
+        keys: "",
+        answer: "*",
+        done: |a| {
+            at(a, "store.py")
+                && a.line + 1 == CALL_LINE
+                && a.find_re
+                    .as_ref()
+                    .is_some_and(|r| r.as_str() == r"(?-u:\b)config(?-u:\b)")
+        },
     },
     Task {
         key: "s",
@@ -255,8 +275,8 @@ pub const POOL: &[Task] = &[
     Task {
         key: "Enter",
         title: "Edit",
-        tutor: "Enter starts editing at the cursor and the cursor becomes a bar: type `#hi` and \
-                press Esc, the block is back. merl saves a second after you stop typing; Ctrl+S \
+        tutor: "Enter starts editing at the cursor and the status bar shows `[edit]`: type `#hi` \
+                and press Esc to move around again. merl saves a second after you stop typing; Ctrl+S \
                 saves now, Ctrl+R reloads the file from disk.",
         drill: "Type `#hi` at the top of this file, then go back to moving around it.",
         start: Some((TEST_FILE, 1, "")),
@@ -945,6 +965,18 @@ pub const POOL: &[Task] = &[
         keys: "",
         answer: "m",
         done: |a| a.viewed.contains_key(std::path::Path::new("store.py")),
+    },
+    Task {
+        key: "a",
+        title: "Note for the agent",
+        tutor: "`a` leaves the agent a note on the line, or on the selected lines: type it, and \
+                Esc keeps it under the line. Enter on a note edits it, and a note you empty is \
+                gone. Press `a` on store.py, type a note, then Esc.",
+        drill: "Leave the agent your note on this line of store.py.",
+        start: Some(("store.py", 1, "")),
+        keys: "",
+        answer: "acheck this<Esc>",
+        done: |a| a.notes.editing.is_none() && !a.notes.list.is_empty(),
     },
 ];
 

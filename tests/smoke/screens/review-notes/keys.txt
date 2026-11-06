@@ -2,5 +2,6 @@ Arrows
 Ctrl+Z
 Enter
 Esc
+a
 c
 q

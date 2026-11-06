@@ -1,21 +1,22 @@
-wait app/refunds.py  1:1  [code]
+wait and the clock
 ┌agent/refund ← origin/main──┐ 1▎from datetime import datetime, timedelta, timezone
 │  ▾ app                     │  ✎ check the window
-│✎   A refunds.py      +18 −0│ 2▎from decimal import Decimal
-│    M repos.py        +0 −28│ 3▎
-│    M service.py      +13 −1│ 4▎from app.models import Order, OrderStatus
-│  ▾ deploy                  │ 5▎
-│    ▾ helm                  │ 6▎
-│      ▾ orders              │ 7▎class RefundNotAllowed(Exception):
-│        M values.yaml  +1 −0│ 8▎    pass
-│  ▾ docs                    │ 9▎
-│    M architecture.png   bin│10▎
-│  ▾ scripts                 │11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
-│    D refund_by_hand.… +0 −9│12▎    """What to give back: the whole total inside the window, nothing after it."""
-│  ▾ tests                   │13▎    now = now or datetime.now(timezone.utc)
-│    A test_refunds.py +23 −0│14▎    if order.status is not OrderStatus.PAID:
-│  ▾ worker                  │15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
-│    M main.go          +4 −1│16▎    if now - order.created_at > timedelta(days=window_days):
+│✎   A refunds.py      +18 −0│    and the clock
+│    M repos.py        +0 −28│ 2▎from decimal import Decimal
+│    M service.py      +13 −1│ 3▎
+│  ▾ deploy                  │ 4▎from app.models import Order, OrderStatus
+│    ▾ helm                  │ 5▎
+│      ▾ orders              │ 6▎
+│        M values.yaml  +1 −0│ 7▎class RefundNotAllowed(Exception):
+│  ▾ docs                    │ 8▎    pass
+│    M architecture.png   bin│ 9▎
+│  ▾ scripts                 │10▎
+│    D refund_by_hand.… +0 −9│11▎def refund_amount(order: Order, window_days: int, now: datetime | None = None) -> Decimal:
+│  ▾ tests                   │12▎    """What to give back: the whole total inside the window, nothing after it."""
+│    A test_refunds.py +23 −0│13▎    now = now or datetime.now(timezone.utc)
+│  ▾ worker                  │14▎    if order.status is not OrderStatus.PAID:
+│    M main.go          +4 −1│15▎        raise RefundNotAllowed(f"order {order.id} is {order.status.value}")
+│                            │16▎    if now - order.created_at > timedelta(days=window_days):
 │                            │17▎        raise RefundNotAllowed(f"order {order.id} is past the {window_days}-day window")
 │                            │18▎    return order.total
 │                            │
@@ -51,7 +52,6 @@ wait app/refunds.py  1:1  [code]
 │                            │
 │                            │
 │                            │
-│                            │
 └ 8 files · +59 −39 · 1 note ┘
-app/refunds.py  1:1  [code]  hunk 1/1  file 1/8                                                                                                                                    14:32
-cursor (x,y,shown) 32,1,0
+app/refunds.py  1:1  [edit]  hunk 1/1  file 1/8                                                                                                                                    14:32
+cursor (x,y,shown) 47,2,0

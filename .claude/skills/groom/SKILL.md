@@ -7,7 +7,7 @@ description: Go through merl's open issues with the owner, one at a time, until 
 
 The owner sits down for an hour and wants to leave with a batch of issues an agent can build
 without them. Each issue costs them one read and one answer: what they decide is written into
-the issue at once, so nobody asks again. `AGENTS.md` `## Merging` says what the labels mean.
+the issue at once, so nobody asks again. `docs/agents/merging.md` says what the labels mean.
 
 ## 1. Pick
 

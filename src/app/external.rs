@@ -1,6 +1,6 @@
 use super::{
-    App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, MAX_NAME_PAD, Path, PathBuf,
-    PickItem, Reason, Regex, at_label, bound, clip, git, jvm, search, word_col, wrap,
+    App, Arc, Candidate, HashMap, HashSet, Hit, Kind, MAX_LABEL_TEXT, Path, PathBuf, PickItem,
+    Reason, Regex, at_label, bound, clip, git, jvm, search, word_col,
 };
 
 pub(super) struct OutsideMembers {
@@ -24,13 +24,27 @@ struct ModuleLookup<'a> {
     all: &'a [PathBuf],
     files: Vec<PathBuf>,
     copy: &'a search::PackageCopy,
-    word_is_export_name: bool,
+    item: Option<String>,
     imported: bool,
     named: Option<Vec<String>>,
     package: Option<usize>,
     floor: usize,
     reason: Reason,
     narrow: bool,
+}
+
+impl ModuleLookup<'_> {
+    fn word_is_export_name(&self) -> bool {
+        match self.item.as_deref() {
+            Some("*") => self.chain.len() == 1,
+            Some("default") | None => false,
+            Some(_) => self.chain.is_empty(),
+        }
+    }
+
+    fn default_import(&self) -> bool {
+        self.chain.is_empty() && self.item.as_deref() == Some("default")
+    }
 }
 
 fn by_name(hits: Vec<Hit>) -> Vec<Candidate> {
@@ -93,11 +107,6 @@ impl App {
         let ts_import_item = match kind {
             Kind::TsJs => bound_path.as_mut().and_then(Vec::pop),
             _ => None,
-        };
-        let word_is_export_name = match ts_import_item.as_deref() {
-            Some("*") => chain.len() == 1,
-            Some("default") | None => false,
-            Some(_) => chain.is_empty(),
         };
         let imported = bound_path.is_some();
         if bound_path
@@ -165,7 +174,8 @@ impl App {
                             |h| h,
                             |this, files| this.declarations_among(kind, word, pattern, files),
                         );
-                        self.c_clang_redefinition(&here, word, hits)
+                        let hits = self.c_clang_redefinition(&here, word, hits);
+                        self.cpp_namespace_members(chain, dotted, word, hits)
                     }
                     None => self.declarations_among(kind, word, pattern, &all),
                 },
@@ -179,7 +189,7 @@ impl App {
             all: &all,
             files,
             copy: &copy,
-            word_is_export_name,
+            item: ts_import_item,
             imported,
             named,
             package,
@@ -220,6 +230,27 @@ impl App {
         patterns.join("|")
     }
 
+    fn outside_default(&self, kind: Kind, files: &[PathBuf]) -> Vec<Hit> {
+        let named: Vec<(&PathBuf, String)> = files
+            .iter()
+            .filter_map(|f| Some((f, self.text_of(f)?.lines().find_map(search::default_name)?)))
+            .collect();
+        let typed: Vec<_> = named
+            .iter()
+            .filter(|(f, _)| search::declaration_file(f))
+            .collect();
+        let [(file, local)] = &typed[..] else {
+            return Vec::new();
+        };
+        let hits = self.declarations_among(
+            kind,
+            local,
+            &self.external_pattern(kind, local),
+            std::slice::from_ref(*file),
+        );
+        if hits.len() == 1 { hits } else { Vec::new() }
+    }
+
     fn declarations_among(
         &self,
         kind: Kind,
@@ -235,6 +266,21 @@ impl App {
         );
         hits.retain(|h| kind != Kind::Elixir || search::erlang(&h.path) == erlang);
         hits
+    }
+
+    fn module_instance_member(
+        &self,
+        q: &ModuleLookup,
+        module: &[String],
+    ) -> Option<Vec<Candidate>> {
+        if !(q.imported && q.kind == Kind::Python && module.len() >= q.floor) || q.chain.is_empty()
+        {
+            return None;
+        }
+        let [value] = q.named.as_deref()?.get(module.len()..)? else {
+            return None;
+        };
+        self.outside_instance_member(module, value, q.word)
     }
 
     fn module_definitions(&mut self, q: &ModuleLookup, module: &[String]) -> Vec<Candidate> {
@@ -255,13 +301,29 @@ impl App {
             self,
             self.declarations_among(kind, word, q.pattern, &q.files),
         );
-        if hits.is_empty() && narrowed_to_copy && q.word_is_export_name {
+        if narrowed_to_copy && kind == Kind::TsJs && q.word_is_export_name() {
+            hits = self.default_reexported_component(word, q.copy, hits);
+        }
+        if hits.is_empty() && narrowed_to_copy && q.word_is_export_name() {
             let within = if module.len() <= q.copy.name_parts {
                 q.copy.entries()
             } else {
                 q.files.clone()
             };
             hits = self.renamed_export(word, |p| self.external_grep(kind, &within, p));
+        }
+        if hits.is_empty() && q.default_import() {
+            let within = if narrowed_to_copy && module.len() <= q.copy.name_parts {
+                q.copy.entries()
+            } else {
+                q.files.clone()
+            };
+            hits = self.outside_default(kind, &within);
+        }
+        if hits.is_empty()
+            && let Some(found) = self.module_instance_member(q, module)
+        {
+            return found;
         }
         let walked = if hits.is_empty()
             && imported
@@ -320,6 +382,52 @@ impl App {
             }));
         }
         found
+    }
+
+    fn default_reexported_component(
+        &self,
+        word: &str,
+        copy: &search::PackageCopy,
+        hits: Vec<Hit>,
+    ) -> Vec<Hit> {
+        let mut files: Vec<PathBuf> = copy
+            .entries()
+            .iter()
+            .flat_map(|e| {
+                let text = self.text_of(e).unwrap_or_default();
+                search::reexported(&text, word)
+                    .into_iter()
+                    .filter(|r| {
+                        r.name_in_module == "default"
+                            && r.module.first().is_some_and(|m| m.starts_with('.'))
+                    })
+                    .flat_map(|r| {
+                        search::module_files(Kind::TsJs, &self.root, &copy.files, e, &r.module)
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        files.sort();
+        files.dedup();
+        let [file] = &files[..] else {
+            return hits;
+        };
+        let kept: Vec<Hit> = hits.iter().filter(|h| h.path == *file).cloned().collect();
+        let (value, ty) = match &kept[..] {
+            [value, ty] if ty.line1 == value.line1 + 1 => (value, ty),
+            [] => return hits,
+            _ => return kept,
+        };
+        let declared = ["declare const ", "export declare const "]
+            .iter()
+            .filter_map(|p| value.text.trim_start().strip_prefix(p))
+            .any(|rest| rest.strip_prefix(word).is_some_and(|r| r.starts_with(':')));
+        let derived = ty.text.trim() == format!("type {word} = ReturnType<typeof {word}>;");
+        if declared && derived {
+            vec![value.clone()]
+        } else {
+            kept
+        }
     }
 
     fn elixir_module(
@@ -494,6 +602,21 @@ impl App {
             })
             .min_by_key(|(rank, _)| *rank)
             .map(|(_, f)| f.clone())
+    }
+
+    pub(super) fn python_package_files(&self, of: &[&Path]) -> Vec<PathBuf> {
+        let Some((roots, files)) = self.external.get(&Kind::Python) else {
+            return Vec::new();
+        };
+        let top = |f: &Path| {
+            let (root, rel) = python_rel(roots, f)?;
+            Some((root, rel.components().next()?.as_os_str().to_owned()))
+        };
+        let tops: Vec<_> = of.iter().filter_map(|f| top(f)).collect();
+        (files.iter())
+            .filter(|f| top(f).is_some_and(|t| tops.contains(&t)))
+            .cloned()
+            .collect()
     }
 
     pub(super) fn note_cut(&self, hits: &[Hit]) {
@@ -1014,39 +1137,24 @@ impl App {
         found: Vec<Candidate>,
     ) -> Vec<PickItem> {
         let mut texts: HashMap<(PathBuf, bool), Option<String>> = HashMap::new();
-        let named: Vec<(String, String, Candidate)> = found
+        let mixed = !super::resolution::one_reason(&found);
+        found
             .into_iter()
             .map(|c| {
                 let text = texts
                     .entry((c.hit.path.clone(), c.hit.deleted.is_some()))
                     .or_insert_with(|| self.hit_text(&c.hit));
-                let name = text
+                let class = text
                     .as_deref()
-                    .filter(|_| !matches!(c.reason, Reason::Module(_)))
+                    .filter(|_| {
+                        !matches!(c.reason, Reason::Module(_)) && search::shows_class(&c.hit.path)
+                    })
                     .and_then(|text| {
                         let word = jvm::declared_as(kind, word, &c.hit.text);
-                        search::qualified(kind, text, c.hit.line1, &word)
-                    })
-                    .unwrap_or_else(|| word.to_owned());
-                (name, c.reason.to_string(), c)
-            })
-            .collect();
-        let pad = |width: usize, s: &str| " ".repeat(width.saturating_sub(wrap::width(s)));
-        let name_w = named
-            .iter()
-            .map(|(n, ..)| wrap::width(n))
-            .max()
-            .unwrap_or(0);
-        let name_w = name_w.min(MAX_NAME_PAD);
-        let why_w = named
-            .iter()
-            .map(|(_, r, _)| wrap::width(r))
-            .max()
-            .unwrap_or(0);
-        named
-            .into_iter()
-            .map(|(name, why, c)| {
-                let lead = format!("{name}{}  {why}{}  ", pad(name_w, &name), pad(why_w, &why));
+                        search::container(kind, text, c.hit.line1, &word)
+                    });
+                let why = mixed.then(|| c.reason.to_string());
+                let lead: String = class.into_iter().chain(why).map(|t| t + "  ").collect();
                 let shown = self.rel_to_its_root(kind, &c.hit.path);
                 let head = format!("{lead}{}: ", at_label(shown, c.hit.line1));
                 let path_at = lead.len()..lead.len() + shown.display().to_string().len();
