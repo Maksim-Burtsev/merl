@@ -108,6 +108,36 @@ class Rebound
     receipts.each { |label| label.lstrip }
     #                             ^ d: picker app/rebound.rb:13
   end
+
+  def either(receipts)
+    entry = Ledger.new
+    receipts.empty? || entry.reconcile || receipts.first
+    #                        ^ d: app/rebound.rb:5
+    entry.reconcile
+    #     ^ d: app/rebound.rb:5
+  end
+
+  def hashed
+    entry = Ledger.new
+    row = { "owner" => entry.reconcile }
+    #                        ^ d: app/rebound.rb:5
+    entry.reconcile
+    #     ^ d: app/rebound.rb:5
+  end
+
+  def controls(receipts)
+    entry = Ledger.new
+    # entry = Receipt.new
+    label = "entry = Receipt.new"
+    same = entry == receipts.first
+    receipts.fetch(entry: 1)
+    row = { entry: 1 }
+    entry.label = Receipt.new
+    receipts.each { |entry| entry.lstrip }
+    entry.reconcile
+    #     ^ d: app/rebound.rb:5
+    entry = Receipt.new
+  end
 end
 
 class Booked
@@ -139,3 +169,23 @@ class Restored
     instance_variable_set(:@entry, saved)
   end
 end
+
+class Accessed
+  attr_accessor :entry
+
+  def initialize
+    @entry = Ledger.new
+  end
+
+  def reconcile_it
+    @entry.reconcile
+    #      ^ d: app/rebound.rb:5
+  end
+end
+
+top_entry = Ledger.new
+def helper; end
+def other_helper
+end
+top_entry.reconcile
+#         ^ d: app/rebound.rb:5
