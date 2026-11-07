@@ -51,3 +51,25 @@ export async function loaded(): Promise<void> {
   return new Winnow().sieveChaff(7);
   //                  ^ d: winnow/barn.ts:2
 }
+
+export function constructed(): number {
+  function Winnow(this: any) {
+    this.sieveChaff = function (id: number): number {
+      return id;
+    };
+  }
+  const r = new Winnow();
+  return r.sieveChaff(8);
+  //       ^ d: winnow/hidden.ts:57
+}
+
+export function typed(): Promise<void> {
+  function Winnow(this: any) {
+    this.sieveChaff = function (id: number): number {
+      return id;
+    };
+  }
+  const r: Winnow = new Winnow();
+  return r.sieveChaff(9);
+  //       ^ d: winnow/barn.ts:2
+}
