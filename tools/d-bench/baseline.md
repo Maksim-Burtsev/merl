@@ -140,6 +140,7 @@ The clojure, elisp, racket, scheme and commonlisp rows with #1401's second pass 
 The racket row with those five rows judged from the code (racket0041, racket0097, racket0165, racket0178, racket0185: each name's internal `define` or `define-values`, now direct hits): `d559d8941`, 2026-11-07, release build, `vm.loadavg` { 5.44 5.40 4.64 } before the run, { 4.45 5.01 4.56 } after.
 The python row with #1339's ninth pass (a subscript `x[i].attr` of a written `list[T]`, `Sequence[T]` or a declared return of one reads `T`, a slice and a dict do not: python0020 `nodes[0].metadata` with `build_document_node(..) -> list["BaseNode"]`): over `468e68bcb`, 2026-11-07, release build, `vm.loadavg` { 4.17 4.64 4.86 } before the run, { 3.02 4.17 4.66 } after.
 The swift row with #1341's eleventh pass (an enum payload bound by `if`/`guard`/`while case let .c(x) = subject`, typed from the enum's case: swift0203 `reason.isBodyPartInputStreamCreationFailed` jumps to `AFError+AlamofireTests.swift:237`): over `f7620fd07` with this change, 2026-11-07, release build, `vm.loadavg` { 3.24 4.28 4.55 } before the run.
+The elisp, racket and scheme rows with #1401's third pass (Racket `match`, `match-lambda` and `match-define` patterns, Emacs Lisp `pcase-let` and its backquote patterns): over `c6f38f26e`, 2026-11-07, release build, `vm.loadavg` { 3.22 3.33 3.66 } before the run, { 4.44 3.70 3.78 } after.
 
 | language (project) | scored | direct hit | picker with the answer | wrong jump | miss | not scored | not scored, jumps elsewhere | p50 ms | p90 ms |
 |---|---|---|---|---|---|---|---|---|---|
@@ -168,10 +169,10 @@ The swift row with #1341's eleventh pass (an enum payload bound by `if`/`guard`/
 | svelte (immich) | 182 | 151 (83%) | 17 (9%) | 0 (0%) | 14 (8%) | 88 | 2 | 31.5 | 178.8 |
 | astro (starlight) | 167 | 116 (69%) | 15 (9%) | 0 (0%) | 36 (22%) | 103 | 8 | 32.3 | 103.6 |
 | clojure (babashka) | 100 | 65 (65%) | 22 (22%) | 0 (0%) | 13 (13%) | 170 | 33 | 5.0 | 13.8 |
-| elisp (magit) | 39 | 28 (72%) | 4 (10%) | 0 (0%) | 7 (18%) | 41 | 0 | 4.0 | 4.9 |
+| elisp (magit) | 39 | 29 (74%) | 4 (10%) | 0 (0%) | 6 (15%) | 41 | 0 | 4.0 | 5.0 |
 | bash (bats-core, acme.sh) | 98 | 96 (98%) | 2 (2%) | 0 (0%) | 0 (0%) | 11 | 1 | 4.9 | 9.6 |
-| racket (drracket) | 113 | 79 (70%) | 7 (6%) | 0 (0%) | 27 (24%) | 123 | 30 | 14.2 | 17.9 |
-| scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.5 | 13.8 |
+| racket (drracket) | 113 | 80 (71%) | 7 (6%) | 0 (0%) | 26 (23%) | 123 | 29 | 14.2 | 17.7 |
+| scheme (chibi-scheme) | 54 | 30 (56%) | 16 (30%) | 0 (0%) | 8 (15%) | 17 | 0 | 7.7 | 13.9 |
 | commonlisp (lem) | 52 | 36 (69%) | 3 (6%) | 0 (0%) | 13 (25%) | 26 | 1 | 6.7 | 7.7 |
 | lua (nvim-treesitter, kong) | 63 | 62 (98%) | 1 (2%) | 0 (0%) | 0 (0%) | 47 | 1 | 1.4 | 16.5 |
 | dart (dio) | 97 | 93 (96%) | 4 (4%) | 0 (0%) | 0 (0%) | 17 | 0 | 48.7 | 141.9 |

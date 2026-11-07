@@ -21,3 +21,20 @@
 (defun shop-if2 (x) (if-let ((shop-tally x)) (list shop-tally) (shop-tally)))
 ;                                                  ^ d: shop-rebound.el:21
 ;                                                               ^ d: shop-rebound.el:1
+(defun shop-pl (x) (pcase-let ((`(,shop-tally ,rate) x)) (list shop-tally)))
+;                                                              ^ d: shop-rebound.el:24
+(defun shop-pq (x) (pcase-let ((`(shop-tally ,rate) x)) (shop-tally)))
+;                                                        ^ d: shop-rebound.el:1
+(defun shop-pd (x) (pcase-let ((`(,a . ,shop-tally) x)) (list shop-tally)))
+;                                                             ^ d: shop-rebound.el:28
+(defun shop-pp (x) (pcase-let ((`(,a ,(pred shop-tally)) x)) (shop-tally)))
+;                                                             ^ d: shop-rebound.el:1
+(defun shop-ps (x) (pcase-let* ((`(,shop-tally ,b) (shop-tally))) (list shop-tally)))
+;                                                   ^ d: shop-rebound.el:1
+;                                                                       ^ d: shop-rebound.el:32
+(defun shop-pc (x)
+  (pcase-let ((`(,shop-tally ,b) x))
+    (list shop-tally))
+;         ^ d: shop-rebound.el:36
+  (shop-tally))
+;  ^ d: shop-rebound.el:1
