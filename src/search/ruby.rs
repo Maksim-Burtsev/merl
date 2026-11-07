@@ -129,10 +129,39 @@ pub fn ruby_class_path(text: &str, line1: usize) -> String {
 }
 
 pub fn ruby_opens_inline(before_cursor: &str) -> bool {
-    static OPENS: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"(?:^|;)\s*(?:class|module)\s+[A-Z][^;]*;").expect("the regex is a literal")
+    static WORD: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"\b(class|module|def|do|begin|case|if|unless|while|until|end)\b")
+            .expect("the regex is a literal")
     });
-    OPENS.is_match(before_cursor)
+    static SCOPE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(?:class|module)\s+[A-Z]").expect("the regex is a literal"));
+    static ENDLESS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"^def\s+[^\s(]+(?:\([^)]*\)\s*|\s+)=(?:[^=~>]|$)")
+            .expect("the regex is a literal")
+    });
+    let mut open: Vec<bool> = Vec::new();
+    let mut statements: Vec<&str> = before_cursor.split(';').collect();
+    statements.pop();
+    for statement in statements.iter().map(|s| s.trim()) {
+        for m in WORD.find_iter(statement) {
+            let head = statement.get(..m.start()).unwrap_or_default().trim_end();
+            if head.ends_with(['.', ':', '@', '$']) {
+                continue;
+            }
+            let first = head.is_empty();
+            match m.as_str() {
+                "end" => {
+                    open.pop();
+                }
+                "class" | "module" if first => open.push(SCOPE.is_match(statement)),
+                "def" if first && ENDLESS.is_match(statement) => {}
+                "if" | "unless" | "while" | "until" if !first && !head.ends_with(['=', '(']) => {}
+                "class" | "module" => {}
+                _ => open.push(false),
+            }
+        }
+    }
+    open.contains(&true)
 }
 
 pub fn ruby_nesting_innermost_first(text: &str, line1: usize) -> Vec<String> {

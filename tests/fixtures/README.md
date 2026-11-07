@@ -222,7 +222,9 @@ continues with the class declaring the method, as intelephense reads `self` (#11
 chosen by `insteadof` and one renamed by `as`, an interface's method, an anonymous class's
 method, an arrow function's capture, a first-class callable, an enum's case and method, a
 function declared inside `if (!function_exists(..))`, and a string (prose: `d` says none, #1113), a `#` comment and a heredoc
-declaring what the corner declares. `php/src/Tea/Rebound.php` binds a `Kettle $pot` again
+declaring what the corner declares. `php/src/Tea/Grouped.php` holds grouped `use
+Shop\Tea\Stale\{Kettle}` and `use function` lines inside a block comment, which import nothing.
+`php/src/Tea/Rebound.php` binds a `Kettle $pot` again
 before `$pot->pour()` (#1382): a second statement on the line, `$cup = $pot = new Teapot()`,
 `??=`, `instanceof Teapot` in an `if` and as a `!` guard, a closure that does not capture it,
 `use (&$pot)`, `extract()`, `${'pot'}`, `preg_match`'s out-parameter, `['pot' => $pot] =` and a
@@ -320,6 +322,9 @@ parameter, a block type's parameter name, a string, a comment and `a ^ (crumb)`.
 `c/src/husk.c` and `husk.cc` (#1421) shape functions as definitions in a `//` comment, an
 indented one, the line opening a `/* */` block and a string, which declare nothing, and one
 beside its real definition, which `d` jumps to.
+`rust/src/husks.rs` (#1425) writes a function and a struct after the inner `*/` of a nested
+`/* /* */ */` comment and of a `/** /* */ */` doc comment, which declare nothing, and one beside
+its real definition, which `d` jumps to.
 `jvm/src/main/kotlin/husk/Chaff.kt` and `jvm/src/main/scala/husk/Bran.scala` (#1423) hide a
 class, a method, a value and namesakes of real ones in a nested block comment, which ends only at
 its second `*/`, and a KDoc whose `src/**/*.kt` nests and closes again.
@@ -451,6 +456,9 @@ master's picker.
 switch-expression arms on one line and over lines, a query's `from x in` and a negated pattern
 whose `if` exits. A use inside the binding's scope keeps its jump or a picker holding `Ewer` /
 `Spill`; a use after the scope closed on the same line keeps a picker or lands on `Flask`.
+`csharp/src/Shop/Bench/` (#1416) declares `Ignite` in `Burners` and in `Pilots`: `Hob.cs` names
+`Pilots` in a `using static` inside a block comment and `Stove.cs` in a `global using static`
+there, so `Ignite()` lands on the `Burners` the live `using static` opens.
 `c/include/tea/cup.hh` and `c/src/tea/tasting.cc` do the same in C++ with `std::string` and
 `std::vector` members, a builder over lines, `->` on a call, a range `for`, `dynamic_cast` in an
 `if`, a structured binding, a lambda's parameter, plain capture and init-capture each hiding a
@@ -773,7 +781,9 @@ class` or a parameter `Winnow`; a destructured `await import("./barn")` hides no
 `function Winnow` hides it too, for `new Winnow()`: its `this.sieveChaff =` (`hidden.ts`,
 `threshed.js`) or `Winnow.prototype.sieveChaff =` (`sifted.js`) is the method, while `r: Winnow`
 still names the imported type. `chaff.js` assigns `Winnow.prototype.sieveChaff` to the local
-`Winnow` of another function, so the one without a method offers a picker.
+`Winnow` of another function, so the one without a method offers a picker. `patched.js` and
+`repatched.js` patch the imported `Winnow.prototype` at the top level: that keeps the local
+function's `this.sieveChaff`, and is no method of a local `function Winnow` that has none.
 
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
@@ -1126,6 +1136,9 @@ and `south`, and imports one of them inside a block or an object body: `d` follo
 the cursor's own block, not the file's first, and after a block's `import tureens.north._`,
 which it does not read as a wildcard, it does not jump. In `Quoted` an `import` line inside a
 multi-line string binds nothing.
+`Outside.scala` types a field, a parameter and a base class under the file's `import
+tureens.south.Tureen` and calls `ladle` on them inside a block that imports the `north` one: the
+type keeps the import of the line it is written on.
 
 `Teapot.scala`, `Urn.java` and `Jug.kt` (#1389) call `this.` + a member their class shares with
 the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,
@@ -1162,7 +1175,16 @@ ways (`String.include`, `String.prepend`, `String.class_eval`, `refine(String)` 
 unrelated class leaves `raw.to_s.chop` builtin. `new` lands on the `initialize` Ruby calls
 (#1185): `Samovar` and its alias `Urn` reach `Vessel`'s, `flask.rb`'s `Flask` an included
 module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermos` (its own
-`def self.new`) and `Jug` (a base outside the project) answer nothing.
+`def self.new`) and `Jug` (a base outside the project) answer nothing. `quoted.rb` (#1422) holds
+the methods of an included `Brewable` again inside its `Mug`'s strings over several lines
+(`%q{}`, `%Q()`, `%()`, `%w[]`, `"` and `'`, one closing after an escaped backslash), which are no
+definitions, and a `?"` and an apostrophe in a regex merl does not read as one, which open no string.
+
+`ruby/app/percolator_uses.rb` follows Ruby's constant lookup over three `Percolator`s (#1414),
+and a class opened earlier on the cursor's line and still open there gives the picker.
+`grinder_uses.rb` holds what that must not reach: an opener closed again before the cursor, and
+a class the project declares once (`Grinder`, `Moka::Mill`). Inside `class Moka::Hopper` Ruby
+does not see `Moka::Mill`; `d` keeps master's jump there, the owner's call.
 
 ### Adding a kind
 
