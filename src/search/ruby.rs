@@ -128,6 +128,13 @@ pub fn ruby_class_path(text: &str, line1: usize) -> String {
         .join("::")
 }
 
+pub fn ruby_opens_inline(before_cursor: &str) -> bool {
+    static OPENS: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?:^|;)\s*(?:class|module)\s+[A-Z][^;]*;").expect("the regex is a literal")
+    });
+    OPENS.is_match(before_cursor)
+}
+
 pub fn ruby_nesting_innermost_first(text: &str, line1: usize) -> Vec<String> {
     let mut path = String::new();
     let mut out: Vec<String> = openers_outermost_first(text, line1)

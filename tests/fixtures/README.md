@@ -877,7 +877,11 @@ named like a field; an inherent `impl` in another module; and a doc comment and 
 declaring what `cups.rs` declares.
 `shadowed_by_item` declares a `fn steep` inside its body, hiding the imported `steep`, so the call
 keeps the picker with the local one, and `Infuser::steep` is a method named like it, whose own
-body's `steep(1)` still jumps to the import (#1410).
+body's `steep(1)` still jumps to the import (#1410). `shadowed_by_later_item` and
+`later_sibling_item` declare the item below its use, which Rust's whole-block scope still hides
+the import from; `later_item_in_inner_block` and `later_item_in_closure` declare it in a block the
+use is not in, `later_let` binds a `let` below, `body_item_not_in_signature` declares a type the
+signature does not see, and `Ewer::steep` is a later method: those keep the import.
 `rust/src/infusion.rs` (+ `infusion/leaves.rs`, `infusion/pantry.rs`) is the third corner (#1126),
 its answers rust-analyzer's: std methods (`len`, `push`, `trim`) on `String`, `Vec` and `str`
 values beside a project `Leaf` that declares them, a builder chain over lines, calls on a call's
