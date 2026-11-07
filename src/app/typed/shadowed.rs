@@ -87,7 +87,8 @@ fn shadows_import(kind: Kind, text: &str, line1: usize, name: &str) -> bool {
             .position(|l| l.contains(';') || l.contains(')'))
             .map_or(1, |i| i + 1);
         let first = statement.first().unwrap_or(&"");
-        (search::js_constructor(first) == Some(name) && prototyped_elsewhere(&lines, b.line1, name))
+        (search::js_constructor(first) == Some(name)
+            && prototyped_elsewhere(kind, text, &lines, b.line1, name))
             || !names_itself(kind, first, name)
                 && !statement
                     .iter()
@@ -96,7 +97,7 @@ fn shadows_import(kind: Kind, text: &str, line1: usize, name: &str) -> bool {
     })
 }
 
-fn prototyped_elsewhere(lines: &[&str], decl: usize, name: &str) -> bool {
+fn prototyped_elsewhere(kind: Kind, text: &str, lines: &[&str], decl: usize, name: &str) -> bool {
     let prototype = Regex::new(&format!(r"^\s*{}\.prototype\b", regex::escape(name)))
         .expect("an escaped name keeps the pattern valid");
     let indent = |l: &str| l.len() - l.trim_start().len();
@@ -110,7 +111,9 @@ fn prototyped_elsewhere(lines: &[&str], decl: usize, name: &str) -> bool {
         .get(decl..)
         .and_then(|rest| rest.iter().position(outer))
         .map_or(lines.len(), |i| decl + i);
-    (1..)
-        .zip(lines)
-        .any(|(n, l)| (n <= start || n > end) && prototype.is_match(l))
+    (1..).zip(lines).any(|(n, l)| {
+        (n <= start || n > end)
+            && prototype.is_match(l)
+            && !search::bindings(kind, text, n, name).is_empty()
+    })
 }
