@@ -38,3 +38,18 @@
 ;         ^ d: shop-rebound.el:36
   (shop-tally))
 ;  ^ d: shop-rebound.el:1
+(defvar shop-rate 0)
+(defun shop-p1 () (pcase-let ((shop-rate 1) (b shop-rate)) (list b shop-rate)))
+;                                              ^ d: shop-rebound.el:41
+;                                                                  ^ d: shop-rebound.el:42
+(defun shop-p2 (x) (pcase-let ((`(,shop-rate ,b) x) (c shop-rate)) c))
+;                                                      ^ d: shop-rebound.el:41
+(defun shop-p3 () (pcase-let ((`(,shop-rate) (list shop-rate))) shop-rate))
+;                                                  ^ d: shop-rebound.el:41
+;                                                               ^ d: shop-rebound.el:47
+(defun shop-p4 () (pcase-let ((shop-rate 1)) shop-rate))
+;                                            ^ d: shop-rebound.el:50
+(defun shop-p5 () (let ((shop-rate 1) (b shop-rate)) b))
+;                                        ^ d: shop-rebound.el:41
+(defun shop-p6 () (pcase-let* ((shop-rate 1) (b shop-rate)) b))
+;                                               ^ d: shop-rebound.el:54
