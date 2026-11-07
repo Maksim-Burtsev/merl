@@ -1,4 +1,4 @@
-use super::{App, Path, WrittenVia, search};
+use super::{App, Kind, Path, WrittenVia, search};
 
 impl App {
     pub(super) fn swift_payload_value(
@@ -10,7 +10,18 @@ impl App {
         payload: &search::SwiftPayload,
         hops: usize,
     ) -> Option<WrittenVia> {
-        let names: Vec<String> = payload.subject.split('.').map(str::to_owned).collect();
+        let (subject, line1) = if let Some(s) = &payload.subject {
+            (s.clone(), line1)
+        } else {
+            let lines: Vec<&str> = text.lines().collect();
+            let literal = search::literal_lines(Kind::Swift, text);
+            let at = search::swift_switch_of_arm(&lines, &literal, line1)?;
+            (search::swift_switch_subject(lines[at - 1])?, at)
+        };
+        let names: Vec<String> = subject.split('.').map(str::to_owned).collect();
+        if names.first() == Some(&payload.name) {
+            return None;
+        }
         let held = self
             .swift_chain(here, file, text, line1, &names, hops.checked_sub(1)?)?
             .written;
