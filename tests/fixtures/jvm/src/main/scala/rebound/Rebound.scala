@@ -38,7 +38,7 @@ class Rebound(val x: Cup):
     //      ^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4
   def arms(a: Any): Unit = a match { case x: Mug => x.sip(); case _ => x.sip() }
   //                                                  ^ d: src/main/scala/rebound/Mug.scala:4
-  //                                                                     ^ d: picker src/main/scala/rebound/Cup.scala:4, src/main/scala/rebound/Mug.scala:4
+  //                                                                     ^ d: src/main/scala/rebound/Cup.scala:4
   def pair(): Unit =
     val (x, n) = (Mug(), 1)
     x.sip()
@@ -104,3 +104,13 @@ class Rebound(val x: Cup):
   //                                                             ^ d: src/main/scala/rebound/Rebound.scala:103
   def caseNext(o: Any): Unit = o match { case x: Mug => x.sip(); case _ => x.sip() }
   //                                                                       ^ d: src/main/scala/rebound/Rebound.scala:3
+  def genName(ms: List[Mug]): Unit = for (x <- ms) println(x)
+  //                                                       ^ d: src/main/scala/rebound/Rebound.scala:107
+  def genGuard(ms: List[Mug]): Unit = for (x <- ms if x != null) x.sip()
+  //                                                             ^ d: src/main/scala/rebound/Rebound.scala:109
+  def genNameClosed(ms: List[Mug]): Unit = { for (x <- ms) println(x); println(x) }
+  //                                                                           ^ d: src/main/scala/rebound/Rebound.scala:3
+  def genNameString(): Unit = { val s = "for (x <- ms) "; println(x) }
+  //                                                              ^ d: src/main/scala/rebound/Rebound.scala:3
+  def lambdaClosed(ms: List[Mug]): Unit = { ms.foreach(x => x.sip()); x.sip() }
+  //                                                                    ^ d: src/main/scala/rebound/Cup.scala:4
