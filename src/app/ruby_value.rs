@@ -67,7 +67,7 @@ impl App {
         if let Some(name) = search::ruby_param_type(text, line1, expr) {
             return self.ruby_resolve(here, &search::ruby_class_path(text, line1), &name);
         }
-        let Some((at, value)) = search::ruby_assigned_once(text, line1, expr) else {
+        let Some((at, value)) = search::ruby_assigned_once(text, line1, prefix, expr) else {
             let def = format!(r"(?m)^\s*def\s+{}\s*$", regex::escape(expr));
             if !regex::Regex::new(&def).is_ok_and(|re| re.is_match(text)) {
                 return None;
@@ -75,7 +75,14 @@ impl App {
             let class = search::ruby_class_path(text, line1);
             let bound = !search::ruby_locals(text, line1, expr).is_empty()
                 || !search::bindings(Kind::Ruby, text, line1, expr).is_empty()
-                || search::ruby_rebound(text, "", search::ruby_gate_line(text, line1), line1, expr);
+                || search::ruby_rebound(
+                    text,
+                    "",
+                    search::ruby_gate_line(text, line1),
+                    line1,
+                    prefix,
+                    expr,
+                );
             return (!bound && !class.is_empty() && !search::ruby_self_is_class(text, line1))
                 .then(|| self.ruby_returned_class(here, &class, expr, depth))
                 .flatten();
@@ -253,7 +260,8 @@ impl App {
         let made = match search::ruby_last_call(expr.trim()) {
             Some((made, "new")) => made.to_owned(),
             None if search::ruby_local_name(expr.trim()) => {
-                let Some((_, value)) = search::ruby_assigned_once(text, line1, expr.trim()) else {
+                let Some((_, value)) = search::ruby_assigned_once(text, line1, "", expr.trim())
+                else {
                     return Vec::new();
                 };
                 match search::ruby_last_call(&value) {

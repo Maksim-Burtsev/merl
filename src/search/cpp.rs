@@ -1167,7 +1167,7 @@ fn element(
     arrow: Option<bool>,
 ) -> Option<Vec<String>> {
     let starts = line_starts(code);
-    let mut types = c_bindings_from(code, at, false, name)
+    let mut types = c_bindings_from(code, at, false, name, &[])
         .into_iter()
         .map(|p| {
             let b = starts[p.line1 - 1] + p.byte_col;
