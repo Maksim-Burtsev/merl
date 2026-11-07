@@ -384,10 +384,10 @@ fn presses(key: &str) -> Vec<String> {
     let mut alts = key.split(" / ");
     let first = alts.next().unwrap_or_default();
     let mods = first.rsplit_once('+').map_or("", |(m, _)| m);
-    std::iter::once(first.to_string())
+    std::iter::once(first.to_owned())
         .chain(alts.map(|a| {
             if a.contains('+') || mods.is_empty() {
-                a.to_string()
+                a.to_owned()
             } else {
                 format!("{mods}+{a}")
             }
