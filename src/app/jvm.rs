@@ -181,7 +181,7 @@ impl App {
         word: &str,
         cursor_on_import: bool,
     ) -> Option<Vec<Candidate>> {
-        let imports = search::jvm_imports(text);
+        let imports = search::jvm_imports_at(text, self.line + 1);
         let first = chain.first().map_or(word, String::as_str);
         let bound = imports
             .iter()
