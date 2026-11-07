@@ -1013,7 +1013,7 @@ impl App {
         if !typed || search::cs_generic_param(&text, self.line + 1, word) {
             return None;
         }
-        let mut aliases = text.lines().enumerate().filter_map(|(k, l)| {
+        let mut aliases = search::cs_code_lines(&text).filter_map(|(k, l)| {
             let u = search::cs_using(l).filter(|u| !u.fixed && u.alias.as_deref() == Some(word))?;
             Some((k + 1, u.target))
         });
@@ -1299,7 +1299,7 @@ impl App {
         let text = self.buf.lines.join("\n");
         let global = r"^\u{feff}?\s*global\s+using\s+static\b";
         let mut written: Vec<(PathBuf, String, usize, String)> = Vec::new();
-        for (k, line) in self.buf.lines.iter().enumerate() {
+        for (k, line) in search::cs_code_lines(&text) {
             if line.contains("using static ") {
                 let u = search::cs_using(line).filter(|u| u.fixed)?;
                 written.push((here.to_path_buf(), text.clone(), k + 1, u.target));

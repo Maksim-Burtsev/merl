@@ -1,8 +1,9 @@
 use regex::Regex;
 
 use super::{
-    Group, Kind, close_of, code, comment, cs_generics, cs_mods, cs_namespace, cs_type, cs_using,
-    cs_usings, def_patterns, group, indent, split_top, uncommented, written_line,
+    Group, Kind, close_of, code, comment, cs_code_lines, cs_generics, cs_mods, cs_namespace,
+    cs_type, cs_using, cs_usings, def_patterns, group, indent, split_top, uncommented,
+    written_line,
 };
 
 pub struct CsTypeDecl {
@@ -629,7 +630,7 @@ pub fn cs_namespace_pick(text: &str, line1: usize, written: &str, found: &[Strin
             } else {
                 let (head, rest) = qualifier.split_once('.').unwrap_or((qualifier, ""));
                 wanted.extend(
-                    (text.lines().filter_map(cs_using))
+                    (cs_code_lines(text).filter_map(|(_, l)| cs_using(l)))
                         .filter(|u| !u.fixed && u.alias.as_deref() == Some(head))
                         .map(|u| join(&u.target, rest)),
                 );

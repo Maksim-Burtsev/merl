@@ -547,6 +547,26 @@ pub fn cs_using(line: &str) -> Option<CsUsing> {
     })
 }
 
+pub fn cs_code_lines(text: &str) -> impl Iterator<Item = (usize, &str)> {
+    let mut open = false;
+    text.lines().enumerate().filter(move |(_, l)| {
+        let code = !open;
+        let mut rest: &str = l;
+        loop {
+            let next = if open {
+                rest.split_once("*/")
+            } else {
+                rest.split_once("/*")
+                    .filter(|(before, _)| !before.contains("//"))
+            };
+            let Some((_, after)) = next else { break };
+            open = !open;
+            rest = after;
+        }
+        code
+    })
+}
+
 pub fn cs_usings(text: &str) -> Vec<String> {
     static INCLUDE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
         Regex::new(r#"<Using\s+Include="([\w.]+)""#).expect("the regex is a literal")
@@ -555,8 +575,8 @@ pub fn cs_usings(text: &str) -> Vec<String> {
         let namespace = !u.fixed && u.alias.is_none() && !u.target.contains([':', '<']);
         namespace.then_some(u.target)
     };
-    text.lines()
-        .filter_map(|l| {
+    cs_code_lines(text)
+        .filter_map(|(_, l)| {
             cs_using(l)
                 .and_then(plain)
                 .or_else(|| INCLUDE.captures(l).map(|c| c[1].to_owned()))
