@@ -1158,6 +1158,12 @@ class that has a nested `Decanter` too: `Sommelier` (`Tastevin` in Kotlin) reads
 return type of `Magnum` (`Bung`) and, in Java, a `Jeroboam extends Decanter`; `Cooper.Inner`
 (`Corkscrew.Inner`) reads its outer class's field.
 
+`Brewery` (Kotlin) and `Stillhouse` (Java) (#1430) do the same for a member reached through the
+type's name: `Funnel.strain()` on a nested `object Funnel`, `Ewer.brim()` on a nested class's
+companion, `Funnel` and `.strain()` over two lines, and `Pipette.dropper()` on a nested static
+class land on the nested type's member; a top-level `spill()` and a `Tapster` beside the class,
+which the nested type does not reach, keep the imported one's.
+
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
 `attr_accessor` beside a local of its name, a `Pourable` mixin whose `pour` a `Teapot` overrides

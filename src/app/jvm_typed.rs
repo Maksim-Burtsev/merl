@@ -857,9 +857,8 @@ impl App {
         if let Some(search::JvmImport { path, .. }) =
             imports.iter().find(|i| i.bound_name == written)
         {
-            if let Some(line1) = on
-                && self.rel_current().as_deref() == Some(file)
-            {
+            if self.rel_current().as_deref() == Some(file) {
+                let line1 = on.unwrap_or(self.line + 1);
                 let nested = Self::jvm_nested_in_scope(file, text, written, line1);
                 if !nested.is_empty() {
                     return one_type(nested);
@@ -911,7 +910,12 @@ impl App {
         one_type(same)
     }
 
-    fn jvm_nested_in_scope(file: &Path, text: &str, written: &str, line1: usize) -> Vec<Hit> {
+    pub(super) fn jvm_nested_in_scope(
+        file: &Path,
+        text: &str,
+        written: &str,
+        line1: usize,
+    ) -> Vec<Hit> {
         let lines: Vec<&str> = text.lines().collect();
         search::jvm_enclosing_types(text, line1)
             .into_iter()
