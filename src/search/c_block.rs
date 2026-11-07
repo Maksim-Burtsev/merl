@@ -1,6 +1,6 @@
 use super::c::{
-    DeclaredIn, Head, bracket_contents_blanked, c_code, close_or_end, declared_at, line_starts,
-    scopes_inside_out_to_type_or_namespace,
+    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_code, c_innermost_open_brace,
+    c_type_def, close_or_end, declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
 };
 use regex::Regex;
 use std::sync::LazyLock;
@@ -202,4 +202,23 @@ pub(super) fn macro_declared_at(stmt: &str, name: &str, macros: &[Declarer]) -> 
     declared
         .contains(&k)
         .then(|| open + 1 + at + arg.len() - arg.trim_start().len())
+}
+pub fn c_local_typedef(text: &str, at: CPlace, name: &str) -> Option<CType> {
+    let code = c_code(text);
+    let pos = line_starts(&code).get(at.line1.checked_sub(1)?)? + at.byte_col;
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    code.get(..pos)?
+        .match_indices(name)
+        .filter(|&(i, _)| {
+            code.get(..i)
+                .is_some_and(|h| h.ends_with(|c: char| !is_name(c)))
+                && code
+                    .get(i + name.len()..)
+                    .is_some_and(|r| r.trim_start().starts_with(';'))
+                && c_innermost_open_brace(code.as_bytes(), i)
+                    .is_some_and(|open| close_or_end(&code, open, code.len()) > pos)
+        })
+        .filter_map(|(i, _)| c_type_def(&code, i))
+        .last()
+        .filter(|t| matches!(t, CType::Name(_)))
 }

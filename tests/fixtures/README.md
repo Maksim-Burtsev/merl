@@ -471,6 +471,10 @@ with no parameter list, bind `g` too; a copy capture `[g]` and a `for` init that
 A statement that calls a macro of the file whose body declares its argument (`DECLARE(Terrine, g);`, in C
 `CDECLARE(struct terrine *, g);`, one over two lines) binds `g` to a type `d` does not read, so it offers a
 picker; a macro that only reads its argument (`SHOW(g)`, `POKE(g, n)`, `RETURN(g.slosh())`) keeps `Gourd`.
+`rebound.c` also declares `g` through a `typedef` local to the function (#1400): `Tureen`, a
+`Ladle` that hides the file's `Ladle` of `struct gourd`, and a pointer `Scoop` naming `struct
+terrine`; the file's `Ladle` answers where the local one does not reach the declaration (another
+function, a block closed earlier, a `typedef` after it).
 
 `python/tea/` is the adversarial corner of #974 for Python, in a tea set's names: a `Kettle`
 and a `Teapot` sharing `pour` over a `Vessel`, a namesake `Kettle` and `steep` in `tea.stale`,
