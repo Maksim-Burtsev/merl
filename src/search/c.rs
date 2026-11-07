@@ -2,7 +2,10 @@ use regex::Regex;
 use std::ops::Range;
 use std::sync::LazyLock;
 
-use super::c_block::{control_head_declarations, control_init, scope_pos};
+use super::c_block::{
+    Declarer, control_head_declarations, control_init, declaring_macros, macro_declared_at,
+    scope_pos,
+};
 use super::{Binding, Value};
 
 pub(super) static ACCESS_LABELS: LazyLock<Regex> = LazyLock::new(|| {
@@ -609,14 +612,20 @@ pub(super) fn parameter_at(params: &str, name: &str) -> Option<usize> {
     clippy::match_same_arms,
     reason = "a guarded arm sits between the two; merging them would move one past it"
 )]
-fn block_declarations(code: &str, from: usize, pos: usize, name: &str) -> Vec<usize> {
+fn block_declarations(
+    code: &str,
+    from: usize,
+    pos: usize,
+    name: &str,
+    macros: &[Declarer],
+) -> Vec<usize> {
     let b = code.as_bytes();
     let (mut depth, mut start, mut out) = (0usize, from, Vec::new());
     let take = |from: usize, to: usize, out: &mut Vec<usize>| {
-        if let Some(j) = code
-            .get(from..to)
-            .and_then(|s| declared_at(s, name, DeclaredIn::Statement))
-        {
+        if let Some(j) = code.get(from..to).and_then(|s| {
+            declared_at(s, name, DeclaredIn::Statement)
+                .or_else(|| macro_declared_at(s, name, macros))
+        }) {
             out.push(from + j);
         }
     };
@@ -711,9 +720,15 @@ pub fn c_bindings_at(text: &str, line1: usize, col: Option<usize>, name: &str) -
             .and_then(|r| r.strip_prefix(name))
             .is_some_and(|r| r.trim_start().starts_with(['(', '{']))
     });
-    c_bindings_from(&code, pos, member, name)
+    c_bindings_from(&code, pos, member, name, &declaring_macros(text))
 }
-pub(super) fn c_bindings_from(code: &str, pos: usize, member: bool, name: &str) -> Vec<CPlace> {
+pub(super) fn c_bindings_from(
+    code: &str,
+    pos: usize,
+    member: bool,
+    name: &str,
+    macros: &[Declarer],
+) -> Vec<CPlace> {
     let starts = line_starts(code);
     let place = |at: usize| {
         let line1 = starts.partition_point(|&s| s <= at);
@@ -731,7 +746,7 @@ pub(super) fn c_bindings_from(code: &str, pos: usize, member: bool, name: &str) 
         head,
     } in scopes_inside_out_to_type_or_namespace(code, pos)
     {
-        let found = block_declarations(code, open + 1, pos, name);
+        let found = block_declarations(code, open + 1, pos, name, macros);
         if !found.is_empty() {
             return found.into_iter().map(place).collect();
         }
@@ -1239,7 +1254,7 @@ pub fn c_value_type(
         .map(|p| starts[p.line1 - 1] + p.byte_col)
         .collect();
     if at.is_empty() {
-        at = block_declarations(&code, 0, code.len(), name);
+        at = block_declarations(&code, 0, code.len(), name, &[]);
         let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
         at.extend(code.match_indices(name).map(|(i, _)| i).filter(|&i| {
             let (Some(head), Some(rest)) = (code.get(..i), code.get(i + name.len()..)) else {
