@@ -14,6 +14,11 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
         InWrappedScriptTag,
         InScript,
         InFrontmatter,
+        InHtmlComment,
+    }
+    fn opens_comment(t: &str) -> bool {
+        t.rfind("<!--")
+            .is_some_and(|open| t.rfind("-->").is_none_or(|close| close < open + 4))
     }
     fn script_open(t: &str) -> At {
         match (t.contains("</script"), t.contains('>')) {
@@ -44,6 +49,16 @@ pub fn script_lines(path: &Path, text: &str) -> Option<Vec<bool>> {
             }
             At::Outside if t == "<script" => {
                 at = At::InWrappedScriptTag;
+                false
+            }
+            At::Outside if opens_comment(t) => {
+                at = At::InHtmlComment;
+                false
+            }
+            At::InHtmlComment => {
+                if t.contains("-->") {
+                    at = At::Outside;
+                }
                 false
             }
             At::Outside => false,
