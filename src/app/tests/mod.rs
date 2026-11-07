@@ -25,6 +25,7 @@ mod haskell;
 mod julia;
 mod keys;
 mod limits;
+mod links;
 mod lisp;
 mod missed;
 mod ml;

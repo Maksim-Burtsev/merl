@@ -111,3 +111,17 @@ type ghi
 key M-Left M-S-Right C-x C-z Escape
 wait app/money.py  1:8  [code]
 check grep -q 'abc ghi' app/money.py
+# Ctrl+A selects the whole file (#1263): Ctrl+C copies all of it; in edit mode Backspace clears
+# the file and Ctrl+Z brings it back.
+key o
+type app/repos.py
+key Enter
+wait app/repos.py  1:1  [code]
+key C-a C-c
+wait copied 59 lines
+check $SMOKE_TMUX show-buffer | grep -q 'self.orders.clear()'
+key Enter C-a BSpace
+wait 1:1  [edit]
+key C-z Escape
+wait [code]
+check grep -q 'self.orders.clear()' app/repos.py

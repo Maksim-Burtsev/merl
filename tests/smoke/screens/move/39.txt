@@ -28,13 +28,14 @@ wait Switch focus between tree and code
 27         return order           │   Edit: Alt+Backspace / Alt+Delete  Delete the word before / after the cursor                                     │
 28                                │ Selection                                                                                                         │
 29     def cancel(self, order_id: │   v / V                             Grow the selection: word, quotes, brackets, line, block, file / step back     │
-30         order = self.get(order_│   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
-31         if not order.can_cancel│   Shift+Left / Shift+Right          Extend the selection by a char                                                │
-32             raise ValueError(f"│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
-33         order.status = OrderSta│   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
-34         with self.uow:         │   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
-35             self.uow.orders.sav│   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
-36         return order           │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
+30         order = self.get(order_│   Ctrl+A                            Select the whole file                                                         │
+31         if not order.can_cancel│   Shift+Up / Shift+Down             Extend the selection by a screen row                                          │
+32             raise ValueError(f"│   Shift+Left / Shift+Right          Extend the selection by a char                                                │
+33         order.status = OrderSta│   Alt+Shift+Left / Right            Extend the selection by a word                                                │
+34         with self.uow:         │   Ctrl+Shift+Left / Right           Extend the selection to the start / end of the screen row, then of the line   │
+35             self.uow.orders.sav│   Shift+Home / Shift+End            Extend the selection to the start / end of the screen row, then of the line   │
+36         return order           │   Shift+PgUp / Shift+PgDn           Extend the selection by a screen                                              │
+                                  │   Ctrl+Shift+Home / Ctrl+Shift+End  Extend the selection to the start / end of the file                           │
                                   │ Movement                                                                                                          │
                                   │   Arrows                            Move the cursor; Up / Down go by screen row                                   │
                                   │   Alt+Left / Alt+Right              Move one word                                                                 │
@@ -52,6 +53,5 @@ wait Switch focus between tree and code
                                   │   Tree: PgUp / PgDn                 Move one page                                                                 │
                                   │   Tree: Home / End                  First / last row, with Ctrl or without                                        │
                                   │   Tree: Ctrl+D / Ctrl+U             Move half a page down / up                                                    │
-                                  │   Tree: { / }                       Previous / next folder                                                        │
 app/service.py  36:21  [code]     └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘                            14:32
 cursor (x,y,shown) 151,54,0

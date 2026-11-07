@@ -110,6 +110,7 @@ pub const TUTOR: &[&str] = &[
     "}",
     "{",
     "v",
+    "Ctrl+A",
     "t",
     "Tab",
     "Tree: Enter",

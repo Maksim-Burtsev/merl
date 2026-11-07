@@ -3,6 +3,7 @@
 Alt+Left
 Alt+Shift+Right
 Arrows
+Ctrl+A
 Ctrl+C
 Ctrl+End
 Ctrl+N

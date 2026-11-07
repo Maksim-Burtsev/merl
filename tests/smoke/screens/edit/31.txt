@@ -1,0 +1,57 @@
+wait [code]
+┌orders──────────────────────┐ 4 class OrderRepo:
+│▸ .github                   │ 7     def __init__(self, db):
+│▸ .venv                     │ 8         self.db = db
+│▾ app                       │ 9
+│    __init__.py             │10     def get(self, order_id: int) -> Order | None:
+│    api.py                  │11         row = self.db.fetch_one("SELECT * FROM orders WHERE id = %s", order_id)
+│  M config.py               │12         return Order(**row) if row else None
+│  M models.py               │13
+│  A money.py                │14     def find_by_customer(self, customer_id: int) -> list[Order]:
+│    repos.py                │15         rows = self.db.fetch_all(
+│    service.py              │16             "SELECT * FROM orders WHERE customer_id = %s ORDER BY id", customer_id
+│    uow.py                  │17         )
+│▸ data                      │18         return [Order(**row) for row in rows]
+│▸ deploy                    │19
+│▸ docs                      │20     def save(self, order: Order) -> None:
+│▸ scripts                   │21         self.db.execute(
+│▸ tests                     │22             "INSERT INTO orders (id, customer_id, total, status) VALUES (%s, %s, %s, %s) "
+│▸ web                       │23             "ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status",
+│▸ worker                    │24             order.id,
+│  .env                      │25             order.customer_id,
+│  .gitignore                │26             order.total,
+│  docker-compose.yml        │27             order.status.value,
+│  Dockerfile                │28         )
+│  Makefile                  │29
+│  pyproject.toml            │30     def delete(self, order_id: int) -> None:
+│M README.md                 │31         self.db.execute("DELETE FROM orders WHERE id = %s", order_id)
+│                            │32
+│                            │33
+│                            │34 class InMemoryOrderRepo:
+│                            │35     """Orders in a dict, for running the API without Postgres. Same methods as OrderRepo."""
+│                            │36
+│                            │37     def __init__(self):
+│                            │38         self.orders: dict[int, Order] = {}
+│                            │39
+│                            │40     def get(self, order_id: int) -> Order | None:
+│                            │41         return self.orders.get(order_id)
+│                            │42
+│                            │43     def find_by_customer(self, customer_id: int) -> list[Order]:
+│                            │44         return sorted(
+│                            │45             (o for o in self.orders.values() if o.customer_id == customer_id),
+│                            │46             key=lambda o: o.id,
+│                            │47         )
+│                            │48
+│                            │49     def find_by_status(self, status: OrderStatus) -> list[Order]:
+│                            │50         return [o for o in self.orders.values() if o.status is status]
+│                            │51
+│                            │52     def save(self, order: Order) -> None:
+│                            │53         self.orders[order.id] = order
+│                            │54
+│                            │55     def delete(self, order_id: int) -> None:
+│                            │56         self.orders.pop(order_id, None)
+│                            │57
+│                            │58     def clear(self) -> None:
+└────────────────────────────┘59         self.orders.clear()
+app/repos.py  59:28  [code]                                                                                                                                                        14:32
+cursor (x,y,shown) 60,53,0

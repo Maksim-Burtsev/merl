@@ -740,6 +740,7 @@ impl App {
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         match key.code {
             KeyCode::Esc => self.note_esc(),
+            KeyCode::Char('a') if ctrl => {}
             KeyCode::Enter => {
                 self.prompt.insert("\n");
             }
