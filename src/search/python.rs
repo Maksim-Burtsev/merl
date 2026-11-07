@@ -868,7 +868,7 @@ fn python_def_binds_last(text: &str, line1: usize, name: &str) -> Option<bool> {
     let (Ok(def), Ok(import)) = (
         Regex::new(&format!(r"^(?:async\s+)?(?:def|class)\s+{n}\b")),
         Regex::new(&format!(
-            r"^(?:from\s+[\w.]+\s+import\s+(?:\([^)]*|[^\n]*)\b{n}\b|import\s+[^\n]*\bas\s+{n}\b)"
+            r"^(?:from\s+[\w.]+\s+import\s+(?:\([^)]*|[^\n]*)\b{n}[ \t]*(?:[,)#\n]|\z)|import\s+[^\n]*\bas\s+{n}\b)"
         )),
     ) else {
         return None;

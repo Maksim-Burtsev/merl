@@ -29,3 +29,8 @@ w.pour()
 # ^ d: cups.py:2
 Tumbler.pour(w)
 #       ^ d: cups.py:2
+
+
+def uses_early() -> int:
+    return early.pour()
+    #            ^ d: cups_later.py:2
