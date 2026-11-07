@@ -1169,7 +1169,10 @@ ways (`String.include`, `String.prepend`, `String.class_eval`, `refine(String)` 
 unrelated class leaves `raw.to_s.chop` builtin. `new` lands on the `initialize` Ruby calls
 (#1185): `Samovar` and its alias `Urn` reach `Vessel`'s, `flask.rb`'s `Flask` an included
 module's and `Carafe` its grandparent's, while `Brewer` (none anywhere), `Thermos` (its own
-`def self.new`) and `Jug` (a base outside the project) answer nothing.
+`def self.new`) and `Jug` (a base outside the project) answer nothing. `quoted.rb` (#1422) holds
+the methods of an included `Brewable` again inside its `Mug`'s strings over several lines
+(`%q{}`, `%Q()`, `%()`, `%w[]`, `"` and `'`, one closing after an escaped backslash), which are no
+definitions, and a `?"` and an apostrophe in a regex merl does not read as one, which open no string.
 
 `ruby/app/percolator_uses.rb` follows Ruby's constant lookup over three `Percolator`s (#1414),
 and a class opened earlier on the cursor's line and still open there gives the picker.

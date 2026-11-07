@@ -438,9 +438,9 @@ impl<'a> Scanner<'a> {
     fn in_literal(&mut self, end: Cow<'a, [u8]>, c: u8) {
         let (b, i, kind) = (self.b, self.i, self.kind);
         let doubled = self.in_verbatim_string && c == b'"' && b.get(i + 1) == Some(&b'"');
-        let escape = matches!(kind, Kind::Rust | Kind::Cmake)
+        let escape = ((matches!(kind, Kind::Rust | Kind::Cmake) && *end == *b"\"")
+            || (kind == Kind::Ruby && end.len() == 1))
             && !self.in_raw_string
-            && *end == *b"\""
             && c == b'\\'
             && b.get(i + 1) != Some(&b'\n');
         let bracket = self.long_bracket() && *end == *b"]]";
@@ -459,7 +459,10 @@ impl<'a> Scanner<'a> {
                 && !doubled
                 && b[i..].starts_with(&end)
                 && (end.len() > 1
-                    || matches!(kind, Kind::Go | Kind::Rust | Kind::Cmake | Kind::Shell)
+                    || matches!(
+                        kind,
+                        Kind::Go | Kind::Rust | Kind::Cmake | Kind::Shell | Kind::Ruby
+                    )
                     || self.in_verbatim_string
                     || b[i - 1] != b'\\')
         };
@@ -613,6 +616,15 @@ impl<'a> Scanner<'a> {
             ) = (Some(b"\"".into()), false, Some(i));
         } else if kind == Kind::Cmake && c == b'"' {
             self.literal_closer = Some(b"\"".into());
+        } else if kind == Kind::Ruby && (c == b'"' || c == b'\'') && ruby_literal_may_start(&b[..i])
+        {
+            self.literal_closer = Some(vec![c].into());
+        } else if let Some((closer, open)) = (kind == Kind::Ruby && c == b'%')
+            .then(|| ruby_percent_literal(b, i))
+            .flatten()
+        {
+            self.literal_closer = Some(vec![closer].into());
+            self.i = open;
         } else if let Some(hashes) =
             (kind == Kind::Rust && c == b'r' && self.token_at(i, &[b"b", b"c"]))
                 .then(|| b[i + 1..].iter().take_while(|&&c| c == b'#').count())
@@ -862,6 +874,21 @@ pub(super) fn code(kind: Kind, s: &str) -> impl Iterator<Item = (usize, u8)> + '
             _ => Some((i, c)),
         }
     })
+}
+fn ruby_percent_literal(b: &[u8], i: usize) -> Option<(u8, usize)> {
+    if !ruby_literal_may_start(&b[..i]) {
+        return None;
+    }
+    let letter = b.get(i + 1).is_some_and(|l| b"qQwWiIrsx".contains(l));
+    let open = i + 1 + usize::from(letter);
+    let closer = match b.get(open)? {
+        b'{' => b'}',
+        b'[' => b']',
+        b'(' => b')',
+        b'<' => b'>',
+        _ => return None,
+    };
+    Some((closer, open))
 }
 fn ruby_literal_may_start(before: &[u8]) -> bool {
     before
