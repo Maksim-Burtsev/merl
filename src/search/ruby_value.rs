@@ -304,7 +304,7 @@ fn closed_before(line: &str, before: &str, name: &str) -> Option<String> {
     (!before.is_empty()
         && code_only(before) == before
         && !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
-        .then(|| CLOSED_BLOCK.replace_all(before, "$open$body").into_owned())
+    .then(|| CLOSED_BLOCK.replace_all(before, "$open$body").into_owned())
 }
 
 pub fn ruby_rebound(
@@ -326,14 +326,17 @@ pub fn ruby_rebound(
         .is_some_and(|(a, c)| indent(a) > indent(c));
     let assigned = Regex::new(&ruby_assignment(name)).ok();
     let cut = line(line1).and_then(|l| closed_before(l, before, name));
-    let cursor_value = cut.as_deref().or(line(line1).copied()).map_or("", |l| {
-        assigned
-            .as_ref()
-            .and_then(|a| a.find(l))
-            .and_then(|m| l.get(m.end()..))
-            .filter(|tail| !tail.contains(';'))
-            .unwrap_or(l)
-    });
+    let cursor_value = cut
+        .as_deref()
+        .or_else(|| line(line1).copied())
+        .map_or("", |l| {
+            assigned
+                .as_ref()
+                .and_then(|a| a.find(l))
+                .and_then(|m| l.get(m.end()..))
+                .filter(|tail| !tail.contains(';'))
+                .unwrap_or(l)
+        });
     let until = line1.saturating_sub(1).min(lines.len());
     re.count(value) > 0
         || re.count(cursor_value) > 0
