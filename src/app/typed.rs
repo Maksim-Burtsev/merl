@@ -4,6 +4,7 @@ use super::{
 };
 
 mod declared;
+mod shadowed;
 
 static IMPORTED: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r#"^import\(\s*["']([^"']+)["']\s*\)\.([A-Za-z_$][\w$]*)((?:\.[A-Za-z_$][\w$]*)*)$"#)
@@ -709,15 +710,7 @@ impl App {
         }
         match &b.value {
             search::Value::Type(t) | search::Value::New(t) => {
-                let path = search::type_path(kind, t).filter(|p| p.len() > 1);
-                if path.is_some_and(|p| hidden(kind, file, text, b.line1, &p[0])) {
-                    return None;
-                }
-                let ty = match &b.value {
-                    search::Value::Type(_) => self.annotated_type(kind, file, text, b.line1, t),
-                    _ => self.type_decl(kind, file, t),
-                };
-                ty.map(|ty| TypeVia {
+                self.written_type(kind, file, text, b, t).map(|ty| TypeVia {
                     ty,
                     call_signature: None,
                 })
