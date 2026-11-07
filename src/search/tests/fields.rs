@@ -376,6 +376,12 @@ fn csharp_usings_open_namespaces_and_aliases_open_none() {
 }
 
 #[test]
+fn csharp_usings_inside_a_block_comment_open_nothing() {
+    let text = "/*\nusing Shop.Lab;\n*/ using Shop.Late;\n// old /*\nusing Shop.Billing;\n/* a */ using Shop.Inline;\n/* b\n   c */\nusing Shop.Shipping;\n";
+    assert_eq!(cs_usings(text), ["Shop.Billing", "Shop.Shipping"]);
+}
+
+#[test]
 fn a_go_key_is_read_from_the_literal_it_stands_in() {
     let key = |text: &str, line: usize, word: &str| {
         let l = text.lines().nth(line - 1).unwrap();

@@ -65,3 +65,8 @@ public enum Tier : byte
     Gold = 2, Platinum,
     Diamond
 }
+
+public class Beaker
+{
+    public int Pour() => 1;
+}
