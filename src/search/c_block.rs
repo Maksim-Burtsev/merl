@@ -1,6 +1,7 @@
 use super::c::{
-    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_code, c_innermost_open_brace,
-    c_type_def, close_or_end, declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
+    CPlace, CType, DeclaredIn, Head, bracket_contents_blanked, c_body_head, c_class_around, c_code,
+    c_enum_head, c_enumerators, c_innermost_open_brace, c_member_decl, c_type_def, close_or_end,
+    declared_at, line_starts, scopes_inside_out_to_type_or_namespace,
 };
 use regex::Regex;
 use std::sync::LazyLock;
@@ -220,4 +221,36 @@ pub fn c_local_typedef(text: &str, at: CPlace, name: &str) -> Option<CType> {
         .filter_map(|(i, _)| c_type_def(&code, i))
         .last()
         .filter(|t| matches!(t, CType::Name(_)))
+}
+pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
+    line1: usize,
+    text: &str,
+    word: &str,
+    lines: impl FnOnce() -> &'a [S],
+) -> bool {
+    static ENUMERATORS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&c_enumerators(None)).expect("the regex is a literal"));
+    static MEMBER: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&c_member_decl(None)).expect("the regex is a literal"));
+    if !text.trim_start().starts_with('#') && !c_names_in_code(text, word) {
+        return false;
+    }
+    if ENUMERATORS.is_match(text) {
+        return c_body_head(lines(), line1).is_some_and(|h| c_enum_head(&h));
+    }
+    let t = text.trim_start();
+    if MEMBER.is_match(text) && !t.starts_with("typedef") && !t.starts_with("friend") {
+        return c_class_around(lines(), line1).is_some();
+    }
+    true
+}
+fn c_names_in_code(text: &str, word: &str) -> bool {
+    let is_name = |c: char| c.is_ascii_alphanumeric() || c == '_';
+    let code = c_code(text);
+    code.match_indices(word).any(|(i, _)| {
+        !code.get(..i).is_some_and(|h| h.ends_with(is_name))
+            && !code
+                .get(i + word.len()..)
+                .is_some_and(|r| r.starts_with(is_name))
+    })
 }

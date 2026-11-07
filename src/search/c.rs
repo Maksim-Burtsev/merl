@@ -928,24 +928,6 @@ pub fn c_enum_head(head: &str) -> bool {
 pub fn c_class_around<S: AsRef<str>>(lines: &[S], line1: usize) -> Option<String> {
     c_struct_head(&c_body_head(lines, line1)?)
 }
-pub fn c_declares_where<'a, S: AsRef<str> + 'a>(
-    line1: usize,
-    text: &str,
-    lines: impl FnOnce() -> &'a [S],
-) -> bool {
-    static ENUMERATORS: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(&c_enumerators(None)).expect("the regex is a literal"));
-    static MEMBER: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(&c_member_decl(None)).expect("the regex is a literal"));
-    if ENUMERATORS.is_match(text) {
-        return c_body_head(lines(), line1).is_some_and(|h| c_enum_head(&h));
-    }
-    let t = text.trim_start();
-    if MEMBER.is_match(text) && !t.starts_with("typedef") && !t.starts_with("friend") {
-        return c_class_around(lines(), line1).is_some();
-    }
-    true
-}
 pub fn c_member_class(text: &str, line1: usize, word: &str) -> Option<Vec<String>> {
     let decl = Regex::new(&c_member_decl(Some(word))).expect("an escaped name keeps it valid");
     let lines: Vec<&str> = text.lines().collect();
