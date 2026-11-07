@@ -341,7 +341,7 @@ fn core_value(
         .filter(|v| !v.starts_with(['=', '~', '>']))?;
     let value = value.trim();
     let (head, whole) = ruby_receiver_split(value);
-    if !head.trim().is_empty() || ruby_rebound(text, value, at, line1, expr) {
+    if !head.trim().is_empty() || ruby_rebound(text, value, at, line1, prefix, expr) {
         return None;
     }
     core_value(text, at, "", whole, constant, depth + 1)

@@ -270,7 +270,7 @@ fn header_lines1_binding(
     let rule = |p: String| Regex::new(&p).expect("an escaped name keeps the pattern valid");
     let ret = super::jvm_return_type!();
     let clause = rule(format!(
-        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
+        r"\bfor\s*\(\s*(?:(?:final\s+)?(?:var|val|{ret})\s+)?{n}\s*(?:[:=]|<-|\s+in\b)|\bfor\s*\(\s*\([^)]*\b{n}\b[^)]*\)\s+in\b|\bcatch\s*\(\s*(?:final\s+)?[\w.|\s]+?\s+{n}\s*\)|\bcatch\s*\(\s*{n}\s*:|\btry\s*\(\s*(?:final\s+)?(?:var|{ret})\s+{n}\s*=|\b(?:instanceof|case)\s+(?:final\s+)?[\w.]+(?:<[^>]*>)?\s+{n}\b|\b(?:instanceof|case)\s+[\w.]+(?:<[^>]*>)?\s*\([^{{}};]*\b(?:var|{ret})\s+{n}\s*[,)]"
     ));
     let mut out: Vec<usize> = param_lists_line1_binding(lines, from, name)
         .into_iter()
@@ -283,8 +283,8 @@ fn header_lines1_binding(
                 let lambda = lambda_binders(&line)
                     .iter()
                     .any(|(p, at)| p == name && lambda_open_at(&line, at, col));
-                let open = std::iter::successors(clause.find(&code), |m| {
-                    clause.find_at(&code, m.start() + 1)
+                let open = std::iter::successors(clause.find(&line), |m| {
+                    clause.find_at(&line, m.start() + 1)
                 })
                 .any(|m| !clause_closed_at(&line, m.start(), col));
                 (lambda, open)
@@ -423,7 +423,7 @@ pub fn jvm_enclosing_types(text: &str, line1: usize) -> Vec<usize> {
 
 pub(super) fn anonymous(line: &str) -> bool {
     static ANONYMOUS: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\bobject\s*:|\bnew\s+[\w.]+\s*(?:<.*>)?\s*\(.*\)\s*\{\s*$")
+        Regex::new(r"\bobject\s*:|\bnew\s+[\w.]+\s*(?:<.*>|\[[^\]]+\])?\s*(?:\(.*\))?(?:\s+with\s+[\w.]+)*\s*\{\s*$")
             .expect("the regex is a literal")
     });
     ANONYMOUS.is_match(line)
