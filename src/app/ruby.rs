@@ -216,9 +216,16 @@ impl App {
             .collect();
         let found = match name.strip_prefix("::") {
             Some(top) => paths.contains(top).then(|| top.to_owned()),
-            None => self.ruby_lexical(here, &text, name, |p| paths.contains(p))?,
+            None if !self.ruby_nesting_known() => return None,
+            None => self.ruby_lexical(here, &text, name, |p| paths.contains(p)),
         };
         found.or_else(|| own.then_some(from))
+    }
+
+    fn ruby_nesting_known(&self) -> bool {
+        self.line_str()
+            .get(..self.col)
+            .is_some_and(|before| !search::ruby_opens_inline(before))
     }
 
     fn ruby_lexical(
@@ -227,30 +234,21 @@ impl App {
         text: &str,
         name: &str,
         has: impl Fn(&str) -> bool,
-    ) -> Option<Option<String>> {
-        if self
-            .line_str()
-            .get(..self.col)
-            .is_none_or(search::ruby_opens_inline)
-        {
-            return None;
-        }
+    ) -> Option<String> {
         let within = |scope: &str| {
             let want = format!("{scope}::{name}");
             has(&want).then_some(want)
         };
         let nesting = search::ruby_nesting_innermost_first(text, self.line + 1);
-        Some(
-            nesting
-                .iter()
-                .find_map(|n| within(n))
-                .or_else(|| {
-                    nesting
-                        .first()
-                        .and_then(|class| self.ruby_ancestors(here, class).find_map(|a| within(&a)))
-                })
-                .or_else(|| has(name).then(|| name.to_owned())),
-        )
+        nesting
+            .iter()
+            .find_map(|n| within(n))
+            .or_else(|| {
+                nesting
+                    .first()
+                    .and_then(|class| self.ruby_ancestors(here, class).find_map(|a| within(&a)))
+            })
+            .or_else(|| has(name).then(|| name.to_owned()))
     }
 
     pub(super) fn ruby_methods_from(
@@ -335,7 +333,10 @@ impl App {
             .iter()
             .map(|h| search::ruby_declared_path(&self.text_of(&h.path)?, h.line1))
             .collect();
-        let Some(Some(wanted)) = self.ruby_lexical(here, text, word, |p| {
+        if !self.ruby_nesting_known() {
+            return;
+        }
+        let Some(wanted) = self.ruby_lexical(here, text, word, |p| {
             declared.iter().any(|d| d.as_deref() == Some(p))
         }) else {
             return;
