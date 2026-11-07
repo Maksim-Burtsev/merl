@@ -329,7 +329,7 @@ impl App {
             return None;
         }
         match search::shell_command_position(&a.lead) {
-            Some(true) => Some(Vec::new()),
+            Some(true) if !search::shell_assigns_word(&a.tail) => Some(Vec::new()),
             Some(false)
                 if search::shell_binds_before(self.line_str(), a.range.start, a.first())
                     && search::literal_lines(a.kind, &a.text).get(self.line) != Some(&true) =>

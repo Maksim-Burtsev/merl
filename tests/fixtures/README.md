@@ -299,7 +299,11 @@ line (a `local` in a one-line function, `for`, `while read`, `x=1;`, a subshell,
 `mapfile`), which answers with that line, and keeps the older assignment where the binding does
 not reach the use: a `mug=z cmd` prefix, a plain read, a block or subshell closed earlier on the
 line, a comment, a string, `mug=$(echo "$mug")`, `local mug=12 tea=$mug` and a `local` after
-the use. The command `chai` under a `local chai=1` is the function.
+the use. The command `chai` under a `local chai=1` is the function. `eight` reads `mug` right
+after an assignment whose value holds backticks, a `${…}` with a space, an escaped space, `$(…)`
+or ends in a redirection, which answers with that assignment; `nine` puts the cursor on the target
+of `mug=$((…))`, `mug+=1`, `… && mug=5` and `then mug=7;` under a `local mug=0`, which answers
+with the `local`.
 
 Objective-C is a part of the C kind, so its cases are a corner of `c/` with names of their own:
 `c/objc/` declares every form of #417 in `Repo.h` and `Repo.m` (a class, a protocol, a method by
