@@ -1306,6 +1306,9 @@ impl App {
             }
         }
         for h in self.project_grep(Kind::CSharp, here, global) {
+            if self.hidden_now(Kind::CSharp, &h).get(h.line1 - 1) == Some(&true) {
+                continue;
+            }
             let u = search::cs_using(&h.text).filter(|u| u.fixed)?;
             written.push((h.path.clone(), self.text_of(&h.path)?, h.line1, u.target));
         }

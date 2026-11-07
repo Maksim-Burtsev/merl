@@ -681,7 +681,11 @@ impl App {
         if let Some(line1) = search::constructor_field(&text, t.line, word) {
             return Some(vec![hit(line1)]);
         }
-        let methods = search::prototype_members(&text, name, word);
+        let imported = bound(&search::imports(Kind::TsJs, &text), name).is_some();
+        let methods: Vec<usize> = search::prototype_members(&text, name, word)
+            .into_iter()
+            .filter(|&n| !imported || !search::bindings(Kind::TsJs, &text, n, name).is_empty())
+            .collect();
         (!methods.is_empty()).then(|| methods.into_iter().map(hit).collect())
     }
 
