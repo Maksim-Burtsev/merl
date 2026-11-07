@@ -759,6 +759,11 @@ listener `onCodePathStart` of the object `create` returns (its declared `RuleLis
 an untyped object, a key under a member typed by no interface, and a `return {` of a function
 nested in `create` keep their answer of today in `rules/loud.js`.
 
+`typescript/winnow/` is a name the file imports hidden by a local one (#1406): `hidden.ts` imports
+the `Winnow` of `barn.ts` (`mill.ts` declares its namesake), and a method through `new Winnow()`
+lands on a `class Winnow` declared in the function, and offers a picker under a `const Winnow =
+class` or a parameter `Winnow`; a destructured `await import("./barn")` hides nothing.
+
 `typescript/coffee/` is the adversarial corner of #999 for JavaScript, in `.js`, `.mjs` and
 `.cjs`, its answers tsserver's with `checkJs`. A constructor function `Grinder` with methods on
 `Grinder.prototype` and `this` in an arrow and a `function` inside them, `module.exports =`,
@@ -870,6 +875,9 @@ the picker.
 local and a parameter; a struct and its method declared by a `macro_rules!`; a closure parameter
 named like a field; an inherent `impl` in another module; and a doc comment and a raw string
 declaring what `cups.rs` declares.
+`shadowed_by_item` declares a `fn steep` inside its body, hiding the imported `steep`, so the call
+keeps the picker with the local one, and `Infuser::steep` is a method named like it, whose own
+body's `steep(1)` still jumps to the import (#1410).
 `rust/src/infusion.rs` (+ `infusion/leaves.rs`, `infusion/pantry.rs`) is the third corner (#1126),
 its answers rust-analyzer's: std methods (`len`, `push`, `trim`) on `String`, `Vec` and `str`
 values beside a project `Leaf` that declares them, a builder chain over lines, calls on a call's
@@ -1102,6 +1110,12 @@ ends it and `x` is the field again (#1398).
 the anonymous class they open on the same line (`new Percolator { … }`, `new Ewer() { … }`,
 `object : Flagon() { … }`): that `this` is the anonymous class, so `d` opens the by-name picker;
 `this.` after the anonymous class is closed keeps the class's own member.
+
+`jvm/src/main/java/namesake/` and `jvm/src/main/kotlin/namesake/` (#1408) import a `Decanter`
+from one package into a file whose `Cellar` declares a nested `Decanter` of its own: `aerate`
+through a parameter, a field and a local typed `Decanter` inside `Cellar` lands on the nested
+class's, and through a parameter of the `Rack` beside it, which the nested class does not reach,
+on the imported one's.
 
 `ruby/lib/tea/` is the adversarial corner of #982 for Ruby, its answers read from the code (no
 Ruby here runs ruby-lsp). A `Kettle` opened in three files, a `Vessel` base with an
