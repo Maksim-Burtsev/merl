@@ -16,29 +16,37 @@ pub(super) fn comment(kind: Kind, t: &str) -> bool {
     }
 }
 pub fn literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+    lexed_literal_lines(kind, text, false)
+}
+pub fn path_literal_lines(kind: Kind, path: &std::path::Path, text: &str) -> Vec<bool> {
+    let nests = kind == Kind::Jvm && (super::scala(path) || super::kotlin(path));
+    lexed_literal_lines(kind, text, nests)
+}
+type LexedText = (Kind, bool, String, Vec<bool>);
+fn lexed_literal_lines(kind: Kind, text: &str, nests: bool) -> Vec<bool> {
     thread_local! {
-        static LEXED: std::cell::RefCell<std::collections::VecDeque<(Kind, String, Vec<bool>)>> =
+        static LEXED: std::cell::RefCell<std::collections::VecDeque<LexedText>> =
             const { std::cell::RefCell::new(std::collections::VecDeque::new()) };
     }
     let seen = LEXED.with_borrow(|l| {
         l.iter()
-            .find(|(k, t, _)| *k == kind && t == text)
+            .find(|(k, n, t, _)| *k == kind && *n == nests && t == text)
             .map(|(.., lines)| lines.clone())
     });
     if let Some(lines) = seen {
         return lines;
     }
-    let lines = lex_literal_lines(kind, text);
+    let lines = lex_literal_lines(kind, text, nests);
     LEXED.with_borrow_mut(|l| {
         if l.len() == LEXED_KEPT {
             l.pop_front();
         }
-        l.push_back((kind, text.to_owned(), lines.clone()));
+        l.push_back((kind, nests, text.to_owned(), lines.clone()));
     });
     lines
 }
 const LEXED_KEPT: usize = 16;
-fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
+fn lex_literal_lines(kind: Kind, text: &str, nests: bool) -> Vec<bool> {
     if kind == Kind::Markdown {
         return markdown_literal_lines(text);
     }
@@ -68,13 +76,13 @@ fn lex_literal_lines(kind: Kind, text: &str) -> Vec<bool> {
     }
     if kind == Kind::Css && text.contains("<style") {
         let html = html_literal_lines(text);
-        let mut out = scan(kind, &style_blocks(text), usize::MAX).lines_in_literal;
+        let mut out = scan(kind, &style_blocks(text), usize::MAX, false).lines_in_literal;
         for (o, h) in out.iter_mut().zip(html) {
             *o |= h;
         }
         return out;
     }
-    let mut out = scan(kind, text, usize::MAX).lines_in_literal;
+    let mut out = scan(kind, text, usize::MAX, nests).lines_in_literal;
     if kind == Kind::C {
         hide_c_define_bodies(text, &mut out);
     }
@@ -126,10 +134,10 @@ pub fn hide_c_disabled(text: &str, out: &mut [bool]) {
 }
 pub fn in_string(kind: Kind, text: &str, at: usize) -> bool {
     match kind {
-        Kind::Rust => scan(kind, text, at).at_in_rust_string,
+        Kind::Rust => scan(kind, text, at, false).at_in_rust_string,
         Kind::Php => {
             let lead = text.get(..at).and_then(|t| t.rsplit('\n').next());
-            let s = scan(kind, text, at);
+            let s = scan(kind, text, at, false);
             let prose = (s.at_php_quote_from)
                 .is_none_or(|from| php_prose(text, from) && !php_qualified_name(text, at));
             prose
@@ -265,7 +273,7 @@ struct Cursor {
     line_quote_unread: bool,
     quote_from: Option<usize>,
 }
-fn scan(kind: Kind, text: &str, at: usize) -> Scan {
+fn scan(kind: Kind, text: &str, at: usize, nests: bool) -> Scan {
     let mut s = Scanner {
         kind,
         b: text.as_bytes(),
@@ -279,7 +287,8 @@ fn scan(kind: Kind, text: &str, at: usize) -> Scan {
         i: 0,
         in_verbatim_string: false,
         in_raw_string: false,
-        nested_comments: (matches!(kind, Kind::Dart | Kind::Rust | Kind::Swift)
+        nested_comments: (nests
+            || matches!(kind, Kind::Dart | Kind::Rust | Kind::Swift)
             || (kind == Kind::Sql && super::sql::sql_nests(text)))
         .then_some(0),
         heredoc: None,

@@ -136,6 +136,10 @@ pub fn scala(path: &Path) -> bool {
     path.extension()
         .is_some_and(|e| matches!(e.to_str(), Some("scala" | "sc" | "sbt" | "mill")))
 }
+pub fn kotlin(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| matches!(e.to_str(), Some("kt" | "kts")))
+}
 pub fn groovy(path: &Path) -> bool {
     path.file_name().is_some_and(|n| n == "Jenkinsfile")
         || path.extension().is_some_and(|e| {
