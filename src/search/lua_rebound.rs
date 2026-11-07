@@ -97,6 +97,17 @@ pub fn lua_binds_before(before: &str, name: &str, assigned: bool) -> bool {
             .find(|(at, w)| *at >= from && *w == "until")
             .map(|(at, _)| at + 5)
     };
+    let keeps = |from: usize| {
+        let value = line.get(from..).unwrap_or_default().trim_start();
+        let rest = value.strip_prefix('=').unwrap_or_default().trim_start();
+        rest.strip_prefix(name).is_some_and(|r| {
+            let r = r.trim_start();
+            r.is_empty()
+                || r.starts_with(';')
+                || r.strip_prefix("or")
+                    .is_some_and(|o| !o.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
+        })
+    };
     let local = LOCAL.captures_iter(&line).any(|c| {
         let Some(start) = c.get(0).map(|m| m.start()) else {
             return false;
@@ -106,6 +117,7 @@ pub fn lua_binds_before(before: &str, name: &str, assigned: bool) -> bool {
         } else {
             c.get(2).filter(|l| lists(l.as_str())).and_then(|l| {
                 match c.get(3).map(|e| e.as_str()) {
+                    Some("=") if assigned && l.as_str().trim() == name && keeps(l.end()) => None,
                     Some("=") => after_statement(l.end()),
                     _ => Some(l.end()),
                 }
@@ -135,7 +147,22 @@ pub fn lua_binds_before(before: &str, name: &str, assigned: bool) -> bool {
                     && lists(l.as_str())
                     && after_statement(l.end()).is_some()
                     && still_open(&line, &words, l.start())
+                    && !lua_closes(&[line.get(l.start()..).unwrap_or_default()])
             })
         });
     local || params || vars || reassigned
+}
+
+pub(super) fn lua_closes(lines: &[&str]) -> bool {
+    let mut depth = 0usize;
+    lines.iter().any(|l| {
+        lua_code(l).bytes().any(|c| match c {
+            b'(' | b'[' | b'{' => {
+                depth += 1;
+                false
+            }
+            b')' | b']' | b'}' => depth.checked_sub(1).map(|d| depth = d).is_none(),
+            _ => false,
+        })
+    })
 }
