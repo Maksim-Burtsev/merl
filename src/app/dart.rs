@@ -570,6 +570,19 @@ impl App {
             let (line, _) = line_of(list).filter(|_| list != name)?;
             return Some((search::dart_element_typed(line, list)?, here.to_path_buf()));
         }
+        if let Some((entry, value)) = search::dart_entry_part(line, name) {
+            let (line, _) = line_of(entry).filter(|_| entry != name)?;
+            let ty = search::dart_entry_typed(line, entry, value)?;
+            let own = self
+                .dart_visible_files(here, "MapEntry", None)?
+                .iter()
+                .any(|f| !f.is_absolute() && self.dart_declares_class(f, "MapEntry"));
+            let params = search::dart_this_super(text, self.line, false)
+                .and_then(|o| search::dart_type_params(text, &o.class))
+                .unwrap_or_default();
+            return (!own && (ty.prefix.is_some() || !params.contains(&ty.class)))
+                .then(|| (ty, here.to_path_buf()));
+        }
         if let Some(items) = search::dart_for_in(line, name) {
             if items == name {
                 return None;
