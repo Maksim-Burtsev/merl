@@ -259,7 +259,7 @@ impl App {
                     return None;
                 }
                 if search::scala(here) {
-                    let bound: Vec<usize> = search::bindings(Kind::Jvm, text, line, f)
+                    let bound: Vec<usize> = search::jvm_bindings_at(text, line, self.col, f)
                         .iter()
                         .map(|b| b.line1)
                         .collect();
