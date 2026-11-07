@@ -48,3 +48,38 @@ seven() {
   chai
 # ^ d: bin/rebound.sh:3
 }
+eight() {
+  mug=`date +%s`
+  echo "$mug"
+#        ^ d: bin/rebound.sh:52
+  mug=${HOME:- x}
+  echo "$mug"
+#        ^ d: bin/rebound.sh:55
+  mug=a\ b
+  echo "$mug"
+#        ^ d: bin/rebound.sh:58
+  mug=${mug// /_}
+  echo "$mug"
+#        ^ d: bin/rebound.sh:61
+  mug=r 2>/dev/null
+  echo "$mug"
+#        ^ d: bin/rebound.sh:64
+  mug=s > /dev/null; echo "$mug"
+#                           ^ d: bin/rebound.sh:67
+  mug=$(date +%s)
+  echo "$mug"
+#        ^ d: bin/rebound.sh:69
+}
+nine() {
+  local mug=0
+  mug=$((mug + 1))
+# ^ d: bin/rebound.sh:74
+  mug+=1
+# ^ d: bin/rebound.sh:74
+  [ -z "$mug" ] && mug=5
+#                  ^ d: bin/rebound.sh:74
+  if true; then mug=7; fi
+#               ^ d: bin/rebound.sh:74
+  echo "$mug"
+#        ^ d: bin/rebound.sh:74
+}

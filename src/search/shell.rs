@@ -106,13 +106,29 @@ pub fn shell_assigned(lines: &[&str], literal: &[bool], at: usize, name: &str) -
 static ASSIGN_WORD: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
     Regex::new(r"^\w+(?:\[[^\]]*\])?\+?=").expect("the regex is a literal")
 });
+pub fn shell_assigns_word(tail: &str) -> bool {
+    ASSIGN_WORD.is_match(&format!("x{tail}"))
+}
 fn shell_runs_a_command(segment: &str) -> bool {
-    for w in shell_words(segment) {
+    static REDIRECT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+        Regex::new(r"^(?:\d+|&)?[<>]+[&|]?").expect("the regex is a literal")
+    });
+    let mut words = shell_words(segment).into_iter();
+    while let Some(mut w) = words.next() {
         if w.starts_with('#') {
             return false;
         }
         if w == "&&" || w == "||" {
             return false;
+        }
+        if let Some(op) = REDIRECT.find(w) {
+            if op.end() == w.len() {
+                w = words.next().unwrap_or("");
+            }
+            if w.ends_with(';') {
+                return false;
+            }
+            continue;
         }
         if w.starts_with(['&', '|']) {
             return true;
@@ -372,12 +388,16 @@ fn shell_words(s: &str) -> Vec<&str> {
         let (start, mut depth, mut quote) = (i, 0usize, None);
         while i < b.len() && (quote.is_some() || depth > 0 || !b[i].is_ascii_whitespace()) {
             match (quote, b[i]) {
-                (Some(b'"'), b'\\') => i += 1,
+                (Some(b'"' | b'`') | None, b'\\') => i += 1,
                 (Some(q), c) if c == q => quote = None,
                 (Some(_), _) => {}
-                (None, c @ (b'"' | b'\'')) => quote = Some(c),
+                (None, c @ (b'"' | b'\'' | b'`')) => quote = Some(c),
+                (None, b'$') if b.get(i + 1) == Some(&b'{') => {
+                    depth += 1;
+                    i += 1;
+                }
                 (None, b'(') => depth += 1,
-                (None, b')') => depth = depth.saturating_sub(1),
+                (None, b')' | b'}') if depth > 0 => depth -= 1,
                 _ => {}
             }
             i += 1;
