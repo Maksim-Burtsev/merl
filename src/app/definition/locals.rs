@@ -17,6 +17,13 @@ impl App {
         } else {
             search::imports(kind, &a.text)
         };
+        if kind == Kind::Go
+            && !in_literal
+            && a.chain.len() == 1
+            && imports.iter().all(|i| i.name != a.first())
+        {
+            imports.extend(self.go_import_by_package(a));
+        }
         let swift_binds_here = self.swift_binds_here(a);
         let ts_key = ts_key(a, self.line + 1);
         let declared = swift_binds_here
@@ -110,6 +117,27 @@ impl App {
             arrow_param,
             unbound,
         })
+    }
+
+    fn go_import_by_package(&self, a: &Asked) -> Option<search::Import> {
+        let name = a.first();
+        search::go_unaliased_imports(&a.text)
+            .into_iter()
+            .find(|path| {
+                search::module_files(Kind::Go, &self.root, &self.files, &a.here, path)
+                    .first()
+                    .and_then(|f| self.text_of(f))
+                    .is_some_and(|t| {
+                        t.lines()
+                            .find_map(|l| l.strip_prefix("package "))
+                            .and_then(|p| p.split_whitespace().next())
+                            == Some(name)
+                    })
+            })
+            .map(|path| search::Import {
+                name: name.to_owned(),
+                path,
+            })
     }
 
     fn ts_declares_here(&self, a: &Asked) -> bool {

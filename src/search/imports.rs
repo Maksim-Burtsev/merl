@@ -270,16 +270,31 @@ fn python_imports(text: &str, out: &mut Vec<Import>) {
     }
 }
 
+static GO_IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
+    Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#)
+        .expect("the regex is a literal")
+});
+
+pub fn go_unaliased_imports(text: &str) -> Vec<Vec<String>> {
+    let literal = literal_lines(Kind::Go, text);
+    GO_IMPORT
+        .captures_iter(text)
+        .filter(|c| c.get(1).is_none())
+        .filter(|c| {
+            let start = c.get(2).map_or(0, |m| m.start());
+            let line0 = text.bytes().take(start).filter(|&b| b == b'\n').count();
+            literal.get(line0) != Some(&true)
+        })
+        .map(|c| parts(&c[2], "/"))
+        .collect()
+}
+
 fn go_imports(text: &str, out: &mut Vec<Import>) {
-    static IMPORT: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r#"(?m)^\s*(?:import\s+)?(?:(\w+|\.|_)\s+)?"([^"]+)"\s*$"#)
-            .expect("the regex is a literal")
-    });
     let version = |p: &str| {
         p.strip_prefix('v')
             .is_some_and(|d| d.chars().all(|c| c.is_ascii_digit()))
     };
-    for c in IMPORT.captures_iter(text) {
+    for c in GO_IMPORT.captures_iter(text) {
         let path = parts(&c[2], "/");
         if let Some(alias) = c.get(1) {
             out.push(Import {
